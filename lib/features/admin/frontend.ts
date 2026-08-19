@@ -3,8 +3,8 @@ import { AdminFrontendState, Authorization } from "./types";
 
 export const defaultAdminFrontendState: AdminFrontendState = {
   searchString: "",
+  roleFilter: [],
   page: 0,
-  totalAccounts: 0,
   adding: false,
   formData: {
     authorization: Authorization.DJ,
@@ -19,11 +19,14 @@ export const adminSlice = createAppSlice({
       state.searchString = action.payload;
       state.page = 0;
     },
+    // Narrowing the roster under the admin's feet would leave them on a page
+    // that no longer exists, so both filters send them back to the first one.
+    setRoleFilter: (state, action) => {
+      state.roleFilter = action.payload;
+      state.page = 0;
+    },
     setPage: (state, action) => {
       state.page = action.payload;
-    },
-    setTotalAccounts: (state, action) => {
-      state.totalAccounts = action.payload;
     },
     setAdding: (state, action) => {
       state.adding = action.payload;
@@ -43,8 +46,8 @@ export const adminSlice = createAppSlice({
   },
   selectors: {
     getSearchString: (state) => state.searchString,
+    getRoleFilter: (state) => state.roleFilter,
     getPage: (state) => state.page,
-    getTotalAccounts: (state) => state.totalAccounts,
     getAdding: (state) => state.adding,
     getFormData: (state) => state.formData,
   },

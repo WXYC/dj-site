@@ -23,8 +23,9 @@ export default function AccountSearchForm() {
           color={"success"}
           size="sm"
           sx={{ minWidth: "400px" }}
-          placeholder="Search by Name"
+          placeholder="Search name, username, DJ name, or email"
           startDecorator={<Troubleshoot />}
+          slotProps={{ input: { "aria-label": "Search the roster" } }}
           endDecorator={
             searchString.length > 0 && (
               <Button

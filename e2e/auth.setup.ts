@@ -299,12 +299,12 @@ function assertLocalWriteTarget(identity: ClassicIdentity): void {
 }
 
 /**
- * True when `identity` already has a roster row. The roster is server-side
- * paginated (ROSTER_PAGE_SIZE=50) with no sort order, so a raw listing only
- * answers "is this account among an arbitrary 50 rows", not "does it exist"
- * — the suite creates more than 50 non-anonymous accounts within roughly two
- * full local runs. Filtering through the roster's search input (server-side,
- * by name) is unambiguous regardless of roster size.
+ * True when `identity` already has a roster row. The roster renders one page
+ * of ROSTER_PAGE_SIZE=50 accounts, so a raw listing only answers "is this
+ * account among the first 50 alphabetically", not "does it exist" — the suite
+ * creates more than 50 non-anonymous accounts within roughly two full local
+ * runs. Filtering through the roster's search input, which matches every
+ * account the admin fetched, is unambiguous regardless of roster size.
  */
 async function classicIdentityAccountExists(
   rosterPage: RosterPage,

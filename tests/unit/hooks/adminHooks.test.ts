@@ -1,11 +1,15 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, waitFor, act } from "@testing-library/react";
 import { createElement, type ReactNode } from "react";
 import { Provider } from "react-redux";
 import { makeStore, AppStore } from "@/lib/store";
 import { MOCK_USERS } from "@/tests/fixtures/fixtures";
 import { adminSlice } from "@/lib/features/admin/frontend";
-import { ROSTER_PAGE_SIZE } from "@/lib/features/admin/types";
+import {
+  ROSTER_FETCH_CHUNK_SIZE,
+  ROSTER_MEMBER_CHUNK_SIZE,
+  ROSTER_PAGE_SIZE,
+} from "@/lib/features/admin/types";
 
 // Mock the auth client before importing the hook
 vi.mock("@/lib/features/authentication/client", () => ({
@@ -54,27 +58,6 @@ function betterAuthUser(mockUser: (typeof MOCK_USERS)[keyof typeof MOCK_USERS], 
   };
 }
 
-const ANONYMOUS_USER = {
-  id: "anon-1",
-  name: "Anonymous",
-  email: "temp-abc123@anonymous.wxyc.org",
-  username: null,
-  role: "user",
-  emailVerified: false,
-  realName: null,
-  djName: null,
-  isAnonymous: true,
-  createdAt: "2026-03-30T00:00:00.000Z",
-  updatedAt: "2026-03-30T00:00:00.000Z",
-  banned: false,
-  banReason: null,
-  banExpires: null,
-  displayUsername: null,
-  image: null,
-  appSkin: "modern-light",
-  capabilities: [],
-};
-
 function createWrapper(store?: AppStore) {
   const s = store ?? makeStore();
   return {
@@ -84,9 +67,9 @@ function createWrapper(store?: AppStore) {
   };
 }
 
-function mockListUsersResponse(users: unknown[]) {
+function mockListUsersResponse(users: unknown[], total = users.length) {
   return {
-    data: { users, total: users.length },
+    data: { users, total },
     error: null,
   };
 }
@@ -103,17 +86,12 @@ const ORG_ID = "org-uuid-123";
 
 describe("useAccountListResults", () => {
   beforeEach(() => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
     vi.clearAllMocks();
     delete process.env.NEXT_PUBLIC_APP_ORGANIZATION;
     mockResolveOrganizationIdAdmin.mockResolvedValue(ORG_ID);
     vi.mocked(authClient.organization.listMembers).mockResolvedValue(
       mockListMembersResponse([])
     );
-  });
-
-  afterEach(() => {
-    vi.useRealTimers();
   });
 
   it("extracts users from a parsed SDK response", async () => {
@@ -131,10 +109,11 @@ describe("useAccountListResults", () => {
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current.isError).toBe(false);
-    expect(result.current.data).toHaveLength(2);
-    expect(result.current.data[0].email).toBe(MOCK_USERS.dj1.email);
-    expect(result.current.data[0].authorization).toBe(Authorization.DJ);
-    expect(result.current.data[1].authorization).toBe(Authorization.SM);
+    expect(result.current.accounts).toHaveLength(2);
+    // Ordered by real name: "Test DJ 1" before "Test Station Manager".
+    expect(result.current.accounts[0].email).toBe(MOCK_USERS.dj1.email);
+    expect(result.current.accounts[0].authorization).toBe(Authorization.DJ);
+    expect(result.current.accounts[1].authorization).toBe(Authorization.SM);
   });
 
   it("parses a stringified SDK response (better-auth parser fallback)", async () => {
@@ -149,11 +128,11 @@ describe("useAccountListResults", () => {
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current.isError).toBe(false);
-    expect(result.current.data).toHaveLength(1);
-    expect(result.current.data[0].email).toBe(MOCK_USERS.dj1.email);
+    expect(result.current.accounts).toHaveLength(1);
+    expect(result.current.accounts[0].email).toBe(MOCK_USERS.dj1.email);
   });
 
-  it("passes server-side filter and pagination params to listUsers", async () => {
+  it("excludes anonymous users server-side and sorts so offsets are stable", async () => {
     vi.mocked(authClient.admin.listUsers).mockResolvedValue(mockListUsersResponse([]));
 
     const { wrapper } = createWrapper();
@@ -162,57 +141,48 @@ describe("useAccountListResults", () => {
     await waitFor(() => expect(authClient.admin.listUsers).toHaveBeenCalled());
     const query = vi.mocked(authClient.admin.listUsers).mock.calls[0][0].query;
     expect(query).toMatchObject({
-      limit: ROSTER_PAGE_SIZE,
+      limit: ROSTER_FETCH_CHUNK_SIZE,
       offset: 0,
+      sortBy: "id",
+      sortDirection: "asc",
       filterField: "isAnonymous",
       filterValue: "false",
       filterOperator: "eq",
     });
-    // No search params when searchString is empty
+    // `admin/list-users` can search one of `email | name` only, so the roster
+    // never asks it to: search runs over every column client-side instead.
     expect(query).not.toHaveProperty("searchValue");
+    expect(query).not.toHaveProperty("searchField");
   });
 
-  it("passes search params when searchString is set", async () => {
-    vi.mocked(authClient.admin.listUsers).mockResolvedValue(mockListUsersResponse([]));
+  it("keeps requesting until it holds every account the server counts", async () => {
+    const first = [betterAuthUser(MOCK_USERS.dj1), betterAuthUser(MOCK_USERS.dj2)];
+    const second = [betterAuthUser(MOCK_USERS.stationManager)];
+    vi.mocked(authClient.admin.listUsers)
+      .mockResolvedValueOnce(mockListUsersResponse(first, 3))
+      .mockResolvedValueOnce(mockListUsersResponse(second, 3));
 
-    const { store, wrapper } = createWrapper();
-    renderHook(() => useAccountListResults(ORG_SLUG), { wrapper });
+    const { wrapper } = createWrapper();
+    const { result } = renderHook(() => useAccountListResults(ORG_SLUG), { wrapper });
 
-    // Wait for initial fetch
-    await waitFor(() => expect(authClient.admin.listUsers).toHaveBeenCalledTimes(1));
-
-    // Dispatch search and advance debounce timer
-    act(() => {
-      store.dispatch(adminSlice.actions.setSearchString("Juana"));
-    });
-    await act(async () => {
-      vi.advanceTimersByTime(300);
-    });
-
-    await waitFor(() => expect(authClient.admin.listUsers).toHaveBeenCalledTimes(2));
-    const query = vi.mocked(authClient.admin.listUsers).mock.calls[1][0].query;
-    expect(query).toMatchObject({
-      searchValue: "Juana",
-      searchField: "name",
-      searchOperator: "contains",
-    });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.totalAccounts).toBe(3);
+    expect(vi.mocked(authClient.admin.listUsers).mock.calls[1][0].query.offset).toBe(2);
   });
 
-  it("computes offset from page", async () => {
-    vi.mocked(authClient.admin.listUsers).mockResolvedValue(mockListUsersResponse([]));
+  // A roster that stops short but renders as complete hides the missing DJ.
+  it("errors rather than rendering a truncated roster", async () => {
+    vi.mocked(authClient.admin.listUsers)
+      .mockResolvedValueOnce(mockListUsersResponse([betterAuthUser(MOCK_USERS.dj1)], 9))
+      .mockResolvedValueOnce(mockListUsersResponse([], 9));
 
-    const { store, wrapper } = createWrapper();
-    renderHook(() => useAccountListResults(ORG_SLUG), { wrapper });
+    const { wrapper } = createWrapper();
+    const { result } = renderHook(() => useAccountListResults(ORG_SLUG), { wrapper });
 
-    await waitFor(() => expect(authClient.admin.listUsers).toHaveBeenCalledTimes(1));
-
-    act(() => {
-      store.dispatch(adminSlice.actions.setPage(2));
-    });
-
-    await waitFor(() => expect(authClient.admin.listUsers).toHaveBeenCalledTimes(2));
-    const query = vi.mocked(authClient.admin.listUsers).mock.calls[1][0].query;
-    expect(query.offset).toBe(2 * ROSTER_PAGE_SIZE);
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.isError).toBe(true);
+    expect(result.current.error?.message).toContain("incomplete");
+    expect(result.current.accounts).toHaveLength(0);
   });
 
   it("sets error state when the SDK returns an error", async () => {
@@ -240,7 +210,7 @@ describe("useAccountListResults", () => {
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current.isError).toBe(false);
-    expect(result.current.data).toHaveLength(0);
+    expect(result.current.accounts).toHaveLength(0);
   });
 
   it("merges org member roles when resolveOrganizationIdAdmin returns an ID", async () => {
@@ -254,7 +224,7 @@ describe("useAccountListResults", () => {
     const { result } = renderHook(() => useAccountListResults(ORG_SLUG), { wrapper });
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
-    expect(result.current.data[0].authorization).toBe(Authorization.MD);
+    expect(result.current.accounts[0].authorization).toBe(Authorization.MD);
     expect(authClient.organization.listMembers).toHaveBeenCalledWith(
       expect.objectContaining({
         query: expect.objectContaining({ organizationId: ORG_ID }),
@@ -291,8 +261,8 @@ describe("useAccountListResults", () => {
     const { result } = renderHook(() => useAccountListResults(ORG_SLUG), { wrapper });
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
-    expect(result.current.data[0].authorization).toBe(Authorization.DJ);
-    expect(result.current.data[1].authorization).toBe(Authorization.NO);
+    expect(result.current.accounts[0].authorization).toBe(Authorization.DJ);
+    expect(result.current.accounts[1].authorization).toBe(Authorization.NO);
   });
 
   it("parses a stringified list-members response (better-auth parser fallback)", async () => {
@@ -311,7 +281,7 @@ describe("useAccountListResults", () => {
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current.isError).toBe(false);
-    expect(result.current.data[0].authorization).toBe(Authorization.DJ);
+    expect(result.current.accounts[0].authorization).toBe(Authorization.DJ);
   });
 
   it("errors instead of guessing roles when the organization cannot be resolved", async () => {
@@ -324,7 +294,7 @@ describe("useAccountListResults", () => {
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current.isError).toBe(true);
-    expect(result.current.data).toHaveLength(0);
+    expect(result.current.accounts).toHaveLength(0);
     expect(authClient.organization.listMembers).not.toHaveBeenCalled();
   });
 
@@ -342,7 +312,7 @@ describe("useAccountListResults", () => {
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current.isError).toBe(true);
     expect(result.current.error?.message).toContain("Forbidden");
-    expect(result.current.data).toHaveLength(0);
+    expect(result.current.accounts).toHaveLength(0);
   });
 
   it("errors when the roster page names no organization", async () => {
@@ -357,7 +327,7 @@ describe("useAccountListResults", () => {
     expect(authClient.admin.listUsers).not.toHaveBeenCalled();
   });
 
-  it("requests memberships for only the users on the page", async () => {
+  it("requests memberships for exactly the users it fetched", async () => {
     const users = [
       betterAuthUser(MOCK_USERS.dj1),
       betterAuthUser(MOCK_USERS.stationManager),
@@ -396,7 +366,7 @@ describe("useAccountListResults", () => {
     });
   });
 
-  it("skips the membership fetch when the page is empty", async () => {
+  it("skips the membership fetch when the roster is empty", async () => {
     vi.mocked(authClient.admin.listUsers).mockResolvedValue(mockListUsersResponse([]));
 
     const { wrapper } = createWrapper();
@@ -405,5 +375,131 @@ describe("useAccountListResults", () => {
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current.isError).toBe(false);
     expect(authClient.organization.listMembers).not.toHaveBeenCalled();
+  });
+
+  // The ids ride in the query string, so they cannot all go in one request.
+  it("chunks the membership fetch so the query string stays bounded", async () => {
+    const many = Array.from({ length: ROSTER_MEMBER_CHUNK_SIZE + 1 }, (_, i) =>
+      betterAuthUser(MOCK_USERS.dj1, {
+        id: `bulk-${i}`,
+        username: `bulk_${i}`,
+        email: `bulk_${i}@wxyc.org`,
+        realName: `Bulk DJ ${i}`,
+      })
+    );
+    vi.mocked(authClient.admin.listUsers).mockResolvedValue(mockListUsersResponse(many));
+
+    const { wrapper } = createWrapper();
+    const { result } = renderHook(() => useAccountListResults(ORG_SLUG), { wrapper });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(authClient.organization.listMembers).toHaveBeenCalledTimes(2);
+    const [firstCall] = vi.mocked(authClient.organization.listMembers).mock.calls[0];
+    const [secondCall] = vi.mocked(authClient.organization.listMembers).mock.calls[1];
+    expect(firstCall?.query?.filterValue).toHaveLength(ROSTER_MEMBER_CHUNK_SIZE);
+    expect(secondCall?.query).toMatchObject({
+      filterOperator: "eq",
+      filterValue: `bulk-${ROSTER_MEMBER_CHUNK_SIZE}`,
+    });
+  });
+});
+
+describe("useAccountListResults filtering", () => {
+  const roster = [
+    betterAuthUser(MOCK_USERS.dj1, { realName: "Juana Molina", username: "jmolina", djName: "DJ Paradoja", email: "juana@wxyc.org" }),
+    betterAuthUser(MOCK_USERS.musicDirector, { realName: "Nilüfer Yanya", username: "nyanya", djName: undefined, email: "nilufer@wxyc.org" }),
+    betterAuthUser(MOCK_USERS.stationManager, { realName: "Jessica Pratt", username: "jpratt", djName: "On Your Own", email: "jessica@wxyc.org" }),
+  ];
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockResolveOrganizationIdAdmin.mockResolvedValue(ORG_ID);
+    vi.mocked(authClient.admin.listUsers).mockResolvedValue(mockListUsersResponse(roster));
+    vi.mocked(authClient.organization.listMembers).mockResolvedValue(
+      mockListMembersResponse([
+        { userId: MOCK_USERS.dj1.id, role: "dj" },
+        { userId: MOCK_USERS.musicDirector.id, role: "musicDirector" },
+        { userId: MOCK_USERS.stationManager.id, role: "stationManager" },
+      ])
+    );
+  });
+
+  it("searches every column the table renders, case- and diacritic-insensitively", async () => {
+    const { store, wrapper } = createWrapper();
+    const { result } = renderHook(() => useAccountListResults(ORG_SLUG), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    for (const [query, expected] of [
+      ["juana molina", "jmolina"],
+      ["JPRATT", "jpratt"],
+      ["paradoja", "jmolina"],
+      ["nilufer@wxyc.org", "nyanya"],
+      ["nilufer", "nyanya"],
+    ] as const) {
+      act(() => {
+        store.dispatch(adminSlice.actions.setSearchString(query));
+      });
+      await waitFor(() => expect(result.current.accounts).toHaveLength(1));
+      expect(result.current.accounts[0].userName).toBe(expected);
+    }
+  });
+
+  it("narrows to the selected roles and restores every role when cleared", async () => {
+    const { store, wrapper } = createWrapper();
+    const { result } = renderHook(() => useAccountListResults(ORG_SLUG), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    act(() => {
+      store.dispatch(adminSlice.actions.setRoleFilter([Authorization.SM]));
+    });
+    await waitFor(() => expect(result.current.accounts).toHaveLength(1));
+    expect(result.current.accounts[0].userName).toBe("jpratt");
+
+    act(() => {
+      store.dispatch(adminSlice.actions.setRoleFilter([]));
+    });
+    await waitFor(() => expect(result.current.accounts).toHaveLength(3));
+  });
+
+  it("filters without refetching the roster", async () => {
+    const { store, wrapper } = createWrapper();
+    const { result } = renderHook(() => useAccountListResults(ORG_SLUG), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(authClient.admin.listUsers).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      store.dispatch(adminSlice.actions.setSearchString("juana"));
+      store.dispatch(adminSlice.actions.setRoleFilter([Authorization.DJ]));
+    });
+
+    await waitFor(() => expect(result.current.accounts).toHaveLength(1));
+    expect(authClient.admin.listUsers).toHaveBeenCalledTimes(1);
+  });
+
+  it("reports the unfiltered roster size alongside the matches", async () => {
+    const { store, wrapper } = createWrapper();
+    const { result } = renderHook(() => useAccountListResults(ORG_SLUG), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    act(() => {
+      store.dispatch(adminSlice.actions.setSearchString("juana"));
+    });
+
+    await waitFor(() => expect(result.current.matches).toHaveLength(1));
+    expect(result.current.totalAccounts).toBe(3);
+  });
+
+  it("clamps a page the filtered roster no longer has", async () => {
+    const { store, wrapper } = createWrapper();
+    const { result } = renderHook(() => useAccountListResults(ORG_SLUG), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.totalPages).toBe(Math.ceil(3 / ROSTER_PAGE_SIZE));
+
+    act(() => {
+      store.dispatch(adminSlice.actions.setPage(7));
+    });
+
+    await waitFor(() => expect(result.current.page).toBe(0));
+    expect(result.current.accounts).toHaveLength(3);
   });
 });

@@ -50,8 +50,8 @@ describeSlice(adminSlice, defaultAdminFrontendState, ({ harness, actions }) => {
       expect(harness().initialState.page).toBe(0);
     });
 
-    it("should have totalAccounts set to 0", () => {
-      expect(harness().initialState.totalAccounts).toBe(0);
+    it("should have no roles selected", () => {
+      expect(harness().initialState.roleFilter).toEqual([]);
     });
   });
 
@@ -93,10 +93,28 @@ describeSlice(adminSlice, defaultAdminFrontendState, ({ harness, actions }) => {
     });
   });
 
-  describe("setTotalAccounts action", () => {
-    it("should set totalAccounts", () => {
-      const result = harness().reduce(actions.setTotalAccounts(147));
-      expect(result.totalAccounts).toBe(147);
+  describe("setRoleFilter action", () => {
+    it("should set the selected roles", () => {
+      const result = harness().reduce(
+        actions.setRoleFilter([Authorization.DJ, Authorization.SM])
+      );
+      expect(result.roleFilter).toEqual([Authorization.DJ, Authorization.SM]);
+    });
+
+    it("should allow clearing the selection back to every role", () => {
+      const result = harness().chain(
+        actions.setRoleFilter([Authorization.MD]),
+        actions.setRoleFilter([])
+      );
+      expect(result.roleFilter).toEqual([]);
+    });
+
+    it("should reset page to 0 when the role filter changes", () => {
+      const result = harness().chain(
+        actions.setPage(3),
+        actions.setRoleFilter([Authorization.DJ])
+      );
+      expect(result.page).toBe(0);
     });
   });
 
@@ -196,9 +214,9 @@ describeSlice(adminSlice, defaultAdminFrontendState, ({ harness, actions }) => {
       });
     });
 
-    describe("getTotalAccounts", () => {
+    describe("getRoleFilter", () => {
       it("should be defined", () => {
-        expect(adminSlice.selectors.getTotalAccounts).toBeDefined();
+        expect(adminSlice.selectors.getRoleFilter).toBeDefined();
       });
     });
   });
