@@ -125,6 +125,25 @@ describe("convertLmlItemToAlbumEntry", () => {
     },
   );
 
+  // The fallback exists for a row with NO genre, and before this its only
+  // exercise was a test asserting the defect -- that a real-but-unstyled genre
+  // became "Unknown" -- so replacing that with passthrough cases alone left the
+  // branch deletable with a green suite.
+  it("falls back to Unknown for a null genre", () => {
+    const item = createTestLmlLibraryItem({ genre: null });
+    expect(convertLmlItemToAlbumEntry(item).artist.genre).toBe("Unknown");
+  });
+
+  // An empty string is NOT absence, and must not be collapsed into the
+  // sentinel here. The classic screens are a xerox of the JSPs, whose <c:out>
+  // prints nothing for an empty genre; MissingReleases pins that. Degrading an
+  // empty genre is the presentation layer's job -- see genreTone and
+  // ArtistAvatar -- not the adapter's.
+  it("passes an empty genre through rather than inventing the sentinel", () => {
+    const item = createTestLmlLibraryItem({ genre: "" });
+    expect(convertLmlItemToAlbumEntry(item).artist.genre).toBe("");
+  });
+
   it("should carry a genre dj-site has never heard of through unmodified", () => {
     // The genre table grows without a dj-site deploy, so a value this build
     // doesn't recognize is a genre added since it shipped, not one to discard.

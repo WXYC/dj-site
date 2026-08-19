@@ -168,12 +168,23 @@ describe("catalog conversions", () => {
         },
       );
 
+      // The two conversions are the only writers of this field and a DJ cannot
+      // tell which produced the row on screen, so they must agree on what
+      // counts as absent: null is, an empty string is not.
       it("falls back to the Unknown sentinel when the row carries no genre", () => {
         const result = convertToAlbumEntry({
           ...linkedRow,
           genre_name: null,
         } as unknown as AlbumSearchResultJSON);
         expect(result.artist.genre).toBe("Unknown");
+      });
+
+      it("passes an empty genre through rather than inventing the sentinel", () => {
+        const result = convertToAlbumEntry({
+          ...linkedRow,
+          genre_name: "",
+        } as unknown as AlbumSearchResultJSON);
+        expect(result.artist.genre).toBe("");
       });
     });
 
