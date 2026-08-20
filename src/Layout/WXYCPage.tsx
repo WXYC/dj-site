@@ -9,8 +9,11 @@ export default function WXYCPage({
 }: {
   children: React.ReactNode;
 }) {
+  // Everything above this box clips its overflow so the dashboard can own its
+  // internal scroll regions, which leaves the public pages no scrollport unless
+  // they carry one themselves.
   return (
-    <Box sx={{ minHeight: "100%" }} className="ignoreClassic">
+    <Box sx={{ height: "100%", overflowY: "auto" }} className="ignoreClassic">
       <BackgroundBox>
         <Header />
         <Main>{children}</Main>
