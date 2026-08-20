@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
+import { renderWithProviders } from "@/tests/helpers";
 import WXYCPage from "@/src/Layout/WXYCPage";
 
 // Mock child components
@@ -73,6 +74,22 @@ describe("WXYCPage", () => {
     );
 
     expect(screen.getByTestId("background-image")).toBeInTheDocument();
+  });
+
+  // The app shell above this page clips its own overflow so the dashboard can
+  // own its internal scroll regions, which leaves no scrollport for the public
+  // pages. This container is theirs.
+  it("scrolls its own content when the page outgrows the viewport", () => {
+    const { container } = renderWithProviders(
+      <WXYCPage>
+        <span>Content</span>
+      </WXYCPage>
+    );
+
+    expect(container.querySelector(".ignoreClassic")).toHaveStyle({
+      height: "100%",
+      overflowY: "auto",
+    });
   });
 
   it("should have ignoreClassic class", () => {
