@@ -33,15 +33,15 @@ export function pickWelcomeQuote(): WelcomeQuote {
   ];
 }
 
+// Only the greeting is rendered; each quote's fragment and artist are deliberately
+// retained in the table above so the full couplet can be restored without re-sourcing it.
 export default function WelcomeQuotes({ quote }: { quote: WelcomeQuote }) {
-  const [greeting, fragment, artist] = quote;
+  const [greeting] = quote;
 
   return (
     <div>
-      <Typography level="h1">{greeting}</Typography>
-      <Typography level="h1">{fragment}</Typography>
-      <Typography level="body-md" sx={{ my: 1, mb: 3, textAlign: "right" }}>
-        - {artist}
+      <Typography level="h1" sx={{ mb: 3 }}>
+        {greeting}
       </Typography>
     </div>
   );
