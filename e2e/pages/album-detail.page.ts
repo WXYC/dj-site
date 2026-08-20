@@ -123,7 +123,7 @@ export class AlbumDetailPage {
   }
 
   async expectModalHidden(): Promise<void> {
-    await expect(this.panel.locator('text=Now Playing')).toBeVisible();
+    await expect(this.panel).toBeHidden();
   }
 
   async expectAlbumTitle(artistAndTitle: string): Promise<void> {
