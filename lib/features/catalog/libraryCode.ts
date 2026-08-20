@@ -38,13 +38,28 @@ export type ReleaseCodeParts = {
 };
 
 /**
- * True for a Various Artists bucket. `ArtistLibraryCode.isVariousArtists()`
- * trims before testing the prefix, so a stored `" Z-X"` is a V/A bucket —
- * reproduced rather than tightened, since the legacy catalog is what supplies
- * these values.
+ * True for a Various Artists bucket.
+ *
+ * Two spellings, because two systems store this differently and only one of
+ * them is upstream of this client:
+ *
+ * - **`V/A`** is what Backend-Service actually serves. The catalog import
+ *   rewrites `Z-<letter>` to the literal `V/A` on the way in, so this is the
+ *   form every compilation on the shelf arrives in — 53 artist rows over
+ *   ~6,300 releases. Matched case- and whitespace-insensitively, since the
+ *   legacy catalog is what supplied these values.
+ * - **`Z-<letter>`** is the legacy spelling, the one
+ *   `ArtistLibraryCode.isVariousArtists()` tests. Kept so a value predating or
+ *   bypassing that rewrite still reads as a compilation rather than as an
+ *   artist whose name happens to start with `Z-`.
+ *
+ * Structural, never a test on the artist's name: the shelf holds
+ * `Various Artists`, `Various Artists - Rock - <A-Z>`, and
+ * `Soundtracks - <A-Z>`, and the last of those contains no "various" at all.
  */
 function isVariousArtists(codeLetters: string): boolean {
-  return codeLetters.trim().startsWith("Z-");
+  const trimmed = codeLetters.trim();
+  return trimmed.toUpperCase() === "V/A" || trimmed.startsWith("Z-");
 }
 
 /**
@@ -64,8 +79,19 @@ export function formatArtistCodeWithPunctuation({
   if (isVariousArtists(code_letters)) {
     const trimmed = code_letters.trim();
     // `callLetters.substring(2, 3)` — the single character after the `Z-`
-    // prefix, which is the Rock/Soundtracks sub-bucket letter.
-    const bucket = genre_id === SOUNDTRACKS_GENRE_ID ? trimmed.substring(2, 3) : "V/A";
+    // prefix, which is the Soundtracks sub-bucket letter.
+    //
+    // Reachable only on the legacy `Z-<letter>` spelling. The `V/A` form
+    // Backend-Service serves has already lost that letter — the import
+    // collapses every `Z-<letter>` to the same three characters. It survives
+    // in the artist's NAME (`Soundtracks - K`), which this screen shows in its
+    // heading, so the sub-bucket stays legible to a librarian; it is simply
+    // not recoverable from the code, and digging it back out of the name is
+    // the name-matching this file exists to avoid.
+    const bucket =
+      genre_id === SOUNDTRACKS_GENRE_ID && trimmed.startsWith("Z-")
+        ? trimmed.substring(2, 3)
+        : "V/A";
     return `${bucket}-`;
   }
   return `${code_letters.toUpperCase()} ${code_artist_number}/`;

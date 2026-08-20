@@ -48,6 +48,24 @@ describe("formatArtistCodeWithPunctuation — ArtistLibraryCode.java:98", () => 
     ).toBe("X-");
   });
 
+  // Backend-Service is the source here, not tubafrenzy's MySQL, and the two
+  // spell a compilation bucket differently: the catalog import rewrites
+  // `Z-<letter>` to the literal `V/A` on the way in, so the `Z-` form never
+  // reaches this client. Every compilation on the shelf -- 53 artist rows over
+  // ~6,300 releases -- arrives as `V/A` with an artist number of 0.
+  it.each([["V/A"], ["v/a"], [" V/A "]])(
+    "treats the stored %s form as a Various Artists bucket",
+    (codeLetters) => {
+      expect(
+        formatArtistCodeWithPunctuation({
+          code_letters: codeLetters,
+          code_artist_number: 0,
+          genre_id: 11,
+        }),
+      ).toBe("V/A-");
+    },
+  );
+
   it("treats leading whitespace before Z- as a Various Artists bucket, matching isVariousArtists's trim", () => {
     expect(
       formatArtistCodeWithPunctuation({
