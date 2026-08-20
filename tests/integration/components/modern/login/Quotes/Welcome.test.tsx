@@ -34,13 +34,16 @@ describe("pickWelcomeQuote", () => {
 });
 
 describe("WelcomeQuotes", () => {
-  it("renders the provided greeting, fragment, and artist", () => {
-    render(
-      <WelcomeQuotes quote={["Hello...", "", "Erykah Badu ft. André 3000"]} />
-    );
+  it("renders the greeting", () => {
+    render(<WelcomeQuotes quote={["Hello...", "", "Erykah Badu ft. André 3000"]} />);
     expect(screen.getByText("Hello...")).toBeInTheDocument();
-    expect(
-      screen.getByText("- Erykah Badu ft. André 3000")
-    ).toBeInTheDocument();
+  });
+
+  it("renders neither the fragment nor the artist attribution", () => {
+    render(
+      <WelcomeQuotes quote={["Welcome...", "to the Jungle", "Guns N' Roses"]} />
+    );
+    expect(screen.queryByText("to the Jungle")).not.toBeInTheDocument();
+    expect(screen.queryByText("- Guns N' Roses")).not.toBeInTheDocument();
   });
 });
