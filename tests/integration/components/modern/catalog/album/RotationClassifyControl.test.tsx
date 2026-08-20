@@ -283,7 +283,7 @@ describe("RotationClassifyControl", () => {
       await waitFor(() => expect(mockFetchOrgRole).toHaveBeenCalled());
       await mockFetchOrgRole.mock.results[0].value;
       await waitFor(() =>
-        expect(screen.queryByRole("radiogroup", { name: "Rotation bin" })).not.toBeInTheDocument()
+        expect(screen.queryByRole("group", { name: "Rotation bin" })).not.toBeInTheDocument()
       );
       expect(screen.queryByRole("button", { name: "Kill H" })).not.toBeInTheDocument();
       expect(backend.listRequests()).toBe(0);
@@ -296,7 +296,7 @@ describe("RotationClassifyControl", () => {
       renderWithProviders(inModernTheme(<RotationClassifyControl album={juanaMolinaAlbum()} />));
 
       expect(
-        await screen.findByRole("radiogroup", { name: "Rotation bin" }),
+        await screen.findByRole("group", { name: "Rotation bin" }),
       ).toBeInTheDocument();
       expect(backend.listRequests()).toBeGreaterThan(0);
     });
@@ -312,7 +312,7 @@ describe("RotationClassifyControl", () => {
       fakeRotationEndpoints();
       renderWithProviders(inModernTheme(<RotationClassifyControl album={juanaMolinaAlbum()} />));
 
-      await screen.findByRole("radiogroup", { name: "Rotation bin" });
+      await screen.findByRole("group", { name: "Rotation bin" });
       expect(screen.queryByRole("button", { name: "Kill H" })).not.toBeInTheDocument();
     });
 
@@ -322,8 +322,8 @@ describe("RotationClassifyControl", () => {
         inModernTheme(<RotationClassifyControl album={juanaMolinaAlbum()} />),
       );
 
-      await screen.findByRole("radiogroup", { name: "Rotation bin" });
-      await user.click(screen.getByRole("radio", { name: "H" }));
+      await screen.findByRole("group", { name: "Rotation bin" });
+      await user.click(screen.getByRole("checkbox", { name: "Heavy rotation" }));
       await user.click(screen.getByRole("button", { name: "Add to Rotation" }));
 
       await waitFor(() =>
@@ -340,13 +340,13 @@ describe("RotationClassifyControl", () => {
         inModernTheme(<RotationClassifyControl album={juanaMolinaAlbum()} />),
       );
 
-      await screen.findByRole("radiogroup", { name: "Rotation bin" });
-      await user.click(screen.getByRole("radio", { name: "H" }));
+      await screen.findByRole("group", { name: "Rotation bin" });
+      await user.click(screen.getByRole("checkbox", { name: "Heavy rotation" }));
       await user.click(screen.getByRole("button", { name: "Add to Rotation" }));
 
       expect(await screen.findByRole("button", { name: "Kill H" })).toBeInTheDocument();
       expect(
-        screen.queryByRole("radiogroup", { name: "Rotation bin" }),
+        screen.queryByRole("group", { name: "Rotation bin" }),
       ).not.toBeInTheDocument();
     });
 
@@ -361,15 +361,15 @@ describe("RotationClassifyControl", () => {
         inModernTheme(<RotationClassifyControl album={juanaMolinaAlbum()} />),
       );
 
-      await screen.findByRole("radiogroup", { name: "Rotation bin" });
-      await user.click(screen.getByRole("radio", { name: "M" }));
+      await screen.findByRole("group", { name: "Rotation bin" });
+      await user.click(screen.getByRole("checkbox", { name: "Medium rotation" }));
       await user.click(screen.getByRole("button", { name: "Add to Rotation" }));
 
       await waitFor(() =>
         expect(toast.error).toHaveBeenCalledWith("Failed to add to rotation"),
       );
       expect(
-        await screen.findByRole("radiogroup", { name: "Rotation bin" }),
+        await screen.findByRole("group", { name: "Rotation bin" }),
       ).toBeInTheDocument();
     });
 
@@ -393,8 +393,8 @@ describe("RotationClassifyControl", () => {
         inModernTheme(<RotationClassifyControl album={juanaMolinaAlbum()} />),
       );
 
-      await screen.findByRole("radiogroup", { name: "Rotation bin" });
-      await user.click(screen.getByRole("radio", { name: "M" }));
+      await screen.findByRole("group", { name: "Rotation bin" });
+      await user.click(screen.getByRole("checkbox", { name: "Medium rotation" }));
       await user.click(screen.getByRole("button", { name: "Add to Rotation" }));
 
       await waitFor(() =>
@@ -420,7 +420,7 @@ describe("RotationClassifyControl", () => {
 
       expect(await screen.findByRole("button", { name: "Kill H" })).toBeInTheDocument();
       expect(
-        screen.queryByRole("radiogroup", { name: "Rotation bin" }),
+        screen.queryByRole("group", { name: "Rotation bin" }),
       ).not.toBeInTheDocument();
     });
 
@@ -465,7 +465,7 @@ describe("RotationClassifyControl", () => {
       await user.click(await screen.findByRole("button", { name: "Kill H" }));
 
       expect(
-        await screen.findByRole("radiogroup", { name: "Rotation bin" }),
+        await screen.findByRole("group", { name: "Rotation bin" }),
       ).toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "Kill H" })).not.toBeInTheDocument();
     });
@@ -517,7 +517,7 @@ describe("RotationClassifyControl", () => {
       );
 
       expect(
-        await screen.findByRole("radiogroup", { name: "Rotation bin" }),
+        await screen.findByRole("group", { name: "Rotation bin" }),
       ).toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "Kill H" })).not.toBeInTheDocument();
     });
@@ -631,7 +631,7 @@ describe("RotationClassifyControl", () => {
 
       expect(await screen.findByText("Rotation status unavailable")).toBeInTheDocument();
       expect(
-        screen.queryByRole("radiogroup", { name: "Rotation bin" }),
+        screen.queryByRole("group", { name: "Rotation bin" }),
       ).not.toBeInTheDocument();
       expect(screen.queryByRole("button", { name: /^Kill/ })).not.toBeInTheDocument();
     });
@@ -676,7 +676,7 @@ describe("RotationClassifyControl", () => {
         await screen.findByText("Not linked to a library album — can't be classified"),
       ).toBeInTheDocument();
       expect(
-        screen.queryByRole("radiogroup", { name: "Rotation bin" }),
+        screen.queryByRole("group", { name: "Rotation bin" }),
       ).not.toBeInTheDocument();
       expect(
         screen.queryByRole("button", { name: "Add to Rotation" }),

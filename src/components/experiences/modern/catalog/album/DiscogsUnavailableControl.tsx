@@ -12,6 +12,7 @@ import {
   Typography,
 } from "@mui/joy";
 import { RequireMD } from "@/src/components/shared/Authorization";
+import FormSectionCard from "@/src/components/shared/FormSectionCard";
 import { useUpdateAlbumMutation } from "@/lib/features/catalog/api";
 import { AlbumEntry } from "@/lib/features/catalog/types";
 import { DISCOGS_UNAVAILABLE_NOTE_MAX_LENGTH } from "@/lib/features/catalog/constants";
@@ -96,7 +97,10 @@ function DiscogsUnavailableControl({ album }: DiscogsUnavailableControlProps) {
 
   return (
     <RequireMD>
-      <Stack spacing={1}>
+      <FormSectionCard
+        title="Discogs availability"
+        data-testid="discogs-availability-section-card"
+      >
         <FormControl
           orientation="horizontal"
           sx={{ justifyContent: "space-between", alignItems: "center" }}
@@ -138,7 +142,7 @@ function DiscogsUnavailableControl({ album }: DiscogsUnavailableControlProps) {
             </Stack>
           </FormControl>
         )}
-      </Stack>
+      </FormSectionCard>
     </RequireMD>
   );
 }
