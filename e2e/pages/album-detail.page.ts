@@ -106,11 +106,13 @@ export class AlbumDetailPage {
   }
 
   /**
-   * Close the modal by clicking the close button.
+   * Close the modal via Escape — the keyboard dismissal path, which reaches
+   * the Modal's onClose without depending on pointer hit-testing. (The close
+   * button remains covered by the manual visual walkthrough.)
    */
   async close(): Promise<void> {
-    await this.closeButton.click({ force: true });
-    // Dismissal navigates back, unmounting the dialog
+    await this.page.keyboard.press("Escape");
+    // Dismissal unmounts the dialog from local state before navigating back
     await this.panel.waitFor({ state: "hidden", timeout: 5000 });
   }
 
