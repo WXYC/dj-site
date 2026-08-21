@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSearchCatalogQuery } from "@/lib/features/catalog/api";
 import { MatchedTrackChips } from "./MatchedTrackChips";
@@ -127,12 +128,52 @@ export default function SearchResults() {
                 {result.entry}
               </td>
               <td>
-                {result.album_artist
-                  ? "Various Artists"
-                  : result.artist?.name || "Unknown"}
+                {/*
+                  The artist name links to the ungated view card, mirroring
+                  `card-catalog-search`'s `<a href="artist?id=…&mode=view">` —
+                  the view card, not the librarian's modify card, because this
+                  table is DJ-facing.
+
+                  `artist.id` is only present once the search response carries
+                  `artist_id`; a row without it renders as plain text rather
+                  than a link to an unresolvable id.
+                */}
+                {result.artist?.id ? (
+                  <Link href={`/dashboard/library/artist/${result.artist.id}/view`}>
+                    {result.album_artist
+                      ? "Various Artists"
+                      : result.artist.name || "Unknown"}
+                  </Link>
+                ) : result.album_artist ? (
+                  "Various Artists"
+                ) : (
+                  result.artist?.name || "Unknown"
+                )}
               </td>
               <td>
-                {result.title}
+                {/*
+                  The release title links to the classic release view,
+                  mirroring `card-catalog-search`'s
+                  `<a href="libraryRelease?id=…">`.
+
+                  NOT `/dashboard/album/[id]`: that URL has no page in either
+                  experience slot — both fall through to `default.tsx` and
+                  render `ExperienceGap`. Its album card exists only as the
+                  `@information` slot's client-side portal, so it survives a
+                  soft navigation and breaks on reload, bookmark, or paste.
+
+                  Guarded on a positive id: `convertToAlbumEntry` synthesizes a
+                  NEGATIVE id (a hash, or a contentless counter) for a row with
+                  no Backend `library.id` behind it, and there is no album card
+                  to route to for those. They stay plain text.
+                */}
+                {result.id != null && result.id > 0 ? (
+                  <Link href={`/dashboard/library/release/${result.id}`}>
+                    {result.title}
+                  </Link>
+                ) : (
+                  result.title
+                )}
                 {result.on_streaming === false && (
                   <>
                     {" "}
