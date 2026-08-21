@@ -21,6 +21,23 @@ body {
     overflow: hidden;
 }
 
+/* Classic's scrollport.
+
+   Everything above this box clips its overflow so the dashboard can own its
+   internal scroll regions. Modern carries those regions inside its own panels;
+   classic is plain HTML with none, so without a scrollport here a result list
+   longer than the viewport is simply unreachable — it renders and cannot be
+   scrolled to.
+
+   Scoped to the shell's container rather than to a classic stylesheet on
+   purpose: this is the shell's scroll ownership, not part of Classic's look,
+   and the tubafrenzy-parity stylesheets stay the single source of truth for
+   the latter. */
+#classic-container {
+    height: 100%;
+    overflow-y: auto;
+}
+
 @keyframes scroll {
   0% { transform: translateX(100%); }
   100% { transform: translateX(-100%); }
