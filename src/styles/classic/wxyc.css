@@ -706,3 +706,60 @@ html[data-experience="classic"][data-joy-color-scheme="dark"] a:hover {
 html[data-experience="classic"][data-joy-color-scheme="dark"] a:visited {
 	color: #D0B0FF;
 }
+
+/* ========== Tracklist ========== */
+/* Ported verbatim from tubafrenzy's wxycdb.css, which the release card's
+   tracklist markup reproduces. The `.tracklist-section` rules are omitted:
+   nothing here renders that wrapper. */
+
+.tracklist-table {
+	border-collapse: collapse;
+	width: 100%;
+	font-size: 0.9em;
+	line-height: 1.4;
+	border: 1px solid #ddd;
+	margin-bottom: 20px;
+}
+
+.tracklist-header {
+	background: #444;
+	color: #fff;
+}
+
+.tracklist-header th {
+	padding: 8px;
+	text-align: left;
+	font-weight: bold;
+}
+
+.tracklist-row td {
+	padding: 6px 8px;
+	border-bottom: 1px solid #ddd;
+	text-align: left;
+}
+
+.tracklist-row-even {
+	background-color: #f9f9f9;
+}
+
+.tracklist-row-odd {
+	background-color: #fff;
+}
+
+.tracklist-row:hover {
+	background-color: #e8e8e8;
+}
+
+.tracklist-pos {
+	width: 40px;
+	text-align: center;
+	color: #666;
+}
+
+.tracklist-loading,
+.tracklist-empty {
+	text-align: center;
+	padding: 10px;
+	font-size: 0.9em;
+	color: #666;
+}
