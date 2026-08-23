@@ -1,5 +1,6 @@
 import { test, expect } from "../../fixtures/auth.fixture";
 import { FlowsheetPage } from "../../pages/flowsheet.page";
+import { stubCatalogSearch } from "../../helpers/catalog-route";
 import path from "path";
 
 const authDir = path.join(__dirname, "../../.auth");
@@ -58,13 +59,6 @@ test.describe("Flowsheet backend results — render cap", { tag: "@smoke" }, () 
     await context.close();
   });
 
-  // The legacy catalog endpoint the flowsheet's card-catalog search hits
-  // (`useSearchCatalogQuery` → GET `<base>/library/?...`). NOT the
-  // `/proxy/library/*` LML proxy — same predicate shape as the track-picker
-  // spec's isCatalogSearch.
-  const isCatalogSearch = (url: URL) =>
-    url.pathname.endsWith("/library/") && !url.pathname.includes("/proxy/");
-
   test("a 500-row backend response neither freezes the tab nor renders unbounded rows", async ({
     page,
   }) => {
@@ -87,17 +81,7 @@ test.describe("Flowsheet backend results — render cap", { tag: "@smoke" }, () 
       on_streaming: true,
     }));
 
-    await page.route(isCatalogSearch, async (route) => {
-      if (route.request().method() === "GET") {
-        await route.fulfill({
-          status: 200,
-          contentType: "application/json",
-          body: JSON.stringify(rows),
-        });
-      } else {
-        await route.fallback();
-      }
-    });
+    await stubCatalogSearch(page, rows);
 
     // Suppress LML proxy results (same pattern as flowsheet-track-picker's
     // catalog suppression, inverted) so stray library-search rows can't shift

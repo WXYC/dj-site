@@ -1,5 +1,6 @@
 import { test, expect } from "../../fixtures/auth.fixture";
 import { FlowsheetPage } from "../../pages/flowsheet.page";
+import { stubCatalogSearch } from "../../helpers/catalog-route";
 import path from "path";
 
 const authDir = path.join(__dirname, "../../.auth");
@@ -59,13 +60,6 @@ test.describe("Flowsheet Track Picker", { tag: "@smoke" }, () => {
     await context.close();
   });
 
-  // URL predicate for the legacy /library/ catalog endpoint (NOT the
-  // /proxy/library/* LML proxy). Used to suppress card-catalog results so
-  // the LML mock row reliably lands at a known index.
-  const isCatalogSearch = (url: URL) =>
-    url.pathname.endsWith("/library/") &&
-    !url.pathname.includes("/proxy/");
-
   test("picks a tracklisted release and submits track_title + track_position; the LML write-gate withholds album_id", async ({
     page,
   }) => {
@@ -74,17 +68,7 @@ test.describe("Flowsheet Track Picker", { tag: "@smoke" }, () => {
     // Suppress card-catalog results so only the LML mock populates the
     // result list (otherwise a seeded backend could shift the positional
     // index of the picker target row).
-    await page.route(isCatalogSearch, async (route) => {
-      if (route.request().method() === "GET") {
-        await route.fulfill({
-          status: 200,
-          contentType: "application/json",
-          body: JSON.stringify([]),
-        });
-      } else {
-        await route.fallback();
-      }
-    });
+    await stubCatalogSearch(page, []);
 
     // Mock library search → one Juana Molina release.
     await page.route("**/proxy/library/search**", async (route) => {
@@ -261,32 +245,22 @@ test.describe("Flowsheet Track Picker", { tag: "@smoke" }, () => {
       });
     });
 
-    await page.route(isCatalogSearch, async (route) => {
-      if (route.request().method() !== "GET") {
-        await route.fallback();
-        return;
-      }
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify([
-          {
-            id: LIBRARY_ID,
-            legacy_release_id: LEGACY_RELEASE_ID,
-            add_date: "2026-05-01T00:00:00.000Z",
-            album_title: "On Your Own Love Again",
-            artist_name: "Jessica Pratt",
-            code_letters: "PR",
-            code_artist_number: 3,
-            code_number: 1,
-            format_name: "Vinyl",
-            genre_name: "Rock",
-            label: "Drag City",
-            plays: 4,
-          },
-        ]),
-      });
-    });
+    await stubCatalogSearch(page, [
+      {
+        id: LIBRARY_ID,
+        legacy_release_id: LEGACY_RELEASE_ID,
+        add_date: "2026-05-01T00:00:00.000Z",
+        album_title: "On Your Own Love Again",
+        artist_name: "Jessica Pratt",
+        code_letters: "PR",
+        code_artist_number: 3,
+        code_number: 1,
+        format_name: "Vinyl",
+        genre_name: "Rock",
+        label: "Drag City",
+        plays: 4,
+      },
+    ]);
 
     // Both id spaces answer, with different tracklists. Stubbing only the
     // correct one would let a wrong-space read fail as an unrouted request —
@@ -370,17 +344,7 @@ test.describe("Flowsheet Track Picker", { tag: "@smoke" }, () => {
     const LIBRARY_ID = 54321;
 
     // Suppress card-catalog results (see comment on the previous test).
-    await page.route(isCatalogSearch, async (route) => {
-      if (route.request().method() === "GET") {
-        await route.fulfill({
-          status: 200,
-          contentType: "application/json",
-          body: JSON.stringify([]),
-        });
-      } else {
-        await route.fallback();
-      }
-    });
+    await stubCatalogSearch(page, []);
 
     await page.route("**/proxy/library/search**", async (route) => {
       await route.fulfill({
