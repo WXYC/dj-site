@@ -36,7 +36,7 @@
     "@reduxjs/toolkit": "^2.12.0",
     "@sentry/browser": "^10.70.0",
     "@wxyc/shared": "^4.0.0",
-    "better-auth": "^1.6.26",
+    "better-auth": "^1.7.1",
     "jwt-decode": "^4.0.0",
     "motion": "^12.42.2",
     "next": "^16.3.0",
