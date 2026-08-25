@@ -16,6 +16,7 @@ import {
 } from "@mui/joy";
 import { useRef, useState, useEffect } from "react";
 import { NotOnDiscogsBadge } from "@/src/components/experiences/modern/catalog/AlbumArtwork";
+import AlbumArtworkWithCodeOverlay from "./AlbumArtworkWithCodeOverlay";
 import AlbumEditForm from "./AlbumEditForm";
 import DiscogsMarkup from "./DiscogsMarkupRenderer";
 import DiscogsUnavailableControl from "./DiscogsUnavailableControl";
@@ -79,16 +80,16 @@ export default function AlbumCard({
               note={album.discogsUnavailableNote}
             />
           ) : (
-            <Box
-              component="img"
-              src={artworkUrl}
+            <AlbumArtworkWithCodeOverlay
+              artworkUrl={artworkUrl}
               alt={`${album.title} cover`}
-              sx={{
-                width: { xs: 120, lg: 160 },
-                height: { xs: 120, lg: 160 },
-                objectFit: "cover",
-                borderRadius: "sm",
-                flexShrink: 0,
+              codePreview={{
+                genreName: album.artist.genre,
+                codeLetters: album.artist.lettercode,
+                artistNumber: album.artist.numbercode,
+                albumEntry: album.entry,
+                formatLabel: album.format,
+                rotation: album.rotation_bin ?? null,
               }}
             />
           )}
