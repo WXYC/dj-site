@@ -457,7 +457,7 @@ function AlbumEditFormFields({ album }: AlbumEditFormProps) {
       </FormControl>
 
       <Stack direction="row" justifyContent="flex-end">
-        <Button size="sm" disabled={!canSave} loading={saving} onClick={handleSave}>
+        <Button color="success" size="sm" disabled={!canSave} loading={saving} onClick={handleSave}>
           Save Release
         </Button>
       </Stack>
