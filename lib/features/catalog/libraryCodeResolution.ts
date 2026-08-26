@@ -3,6 +3,42 @@ import type { CallLetterMode } from "./chooserValidation";
 import { parseRequiredNonNegativeInt } from "./adminCreateArtistValidation";
 import type { ResolveArtistByCodeQuery } from "./types";
 
+export type LibraryCodeSearchValues = {
+  callLetterMode: CallLetterMode;
+  artistLettersTextbox: string;
+  artistNumbersTextbox: string;
+  genreId: number | null;
+};
+
+export type LibraryCodeSearchComposition =
+  | { ready: true; args: ResolveArtistByCodeQuery }
+  | { ready: false; message: string };
+
+/**
+ * The one code Backend-Service's catalog import leaves every Various Artists
+ * bucket filed under, in every genre -- see `libraryCode.ts`'s header for the
+ * collapse this reflects. The JSP composed a genre-specific search key from
+ * the compilation radio: `Z-<letter>` from `rockCompLetters` for Rock and
+ * Soundtracks, the literal `Z--` for every other genre. Neither spelling
+ * survives the import, so neither can narrow this search, and the sub-bucket
+ * letter is left to `rockCompLetters`' JSP-parity validation alone.
+ *
+ * Every compilation bucket in a genre therefore collides on this one triple,
+ * which is the disambiguation screen's actual production trigger --
+ * `V/A`/12/0 has 27 owners and `V/A`/11/0 has 26 in the current catalog.
+ */
+const VARIOUS_ARTISTS_CODE_LETTERS = "V/A";
+const VARIOUS_ARTISTS_CODE_NUMBER = 0;
+
+/**
+ * `artists.code_letters` is `varchar(4)` and `resolveArtistByCode` rejects
+ * anything outside this set with a 400. Mirrored here so a stray character
+ * refuses with a message naming the field, rather than reaching the backend
+ * and coming back as the caller's unstructured-failure branch — which is
+ * worded for a transient outage and invites a retry that can never succeed.
+ */
+const CODE_LETTERS_PATTERN = /^[A-Za-z0-9/]{1,4}$/;
+
 /**
  * Composes `artistSearchForm`'s fields into `resolveArtistByCode`'s query
  * args, once `chooserValidation.validateArtistSearchForm` has already passed
@@ -18,31 +54,6 @@ import type { ResolveArtistByCodeQuery } from "./types";
  * here instead of being silently treated as a miss or forwarded as an
  * invalid request.
  */
-export type LibraryCodeSearchValues = {
-  callLetterMode: CallLetterMode;
-  artistLettersTextbox: string;
-  artistNumbersTextbox: string;
-  genreId: number | null;
-};
-
-export type LibraryCodeSearchComposition =
-  | { ready: true; args: ResolveArtistByCodeQuery }
-  | { ready: false; message: string };
-
-/**
- * The literal code Backend-Service's catalog import files every Various
- * Artists bucket under, regardless of genre -- see `libraryCode.ts`'s header
- * for the collapse this reflects. The JSP composed a genre-specific
- * `Z-<letter>` search key from the compilation radio's `rockCompLetters`
- * sub-bucket field for Rock/Soundtracks; that letter does not survive in
- * Backend-Service's storage, so it cannot narrow this search. Every
- * compilation bucket for a genre collides on this one triple, which is the
- * disambiguation screen's actual production trigger -- `V/A`/12/0 has 27
- * owners, `V/A`/11/0 has 26, in the current catalog.
- */
-const VARIOUS_ARTISTS_CODE_LETTERS = "V/A";
-const VARIOUS_ARTISTS_CODE_NUMBER = 0;
-
 export function composeLibraryCodeSearchArgs(
   values: LibraryCodeSearchValues,
 ): LibraryCodeSearchComposition {
@@ -62,6 +73,13 @@ export function composeLibraryCodeSearchArgs(
   }
 
   if (values.callLetterMode === "textbox") {
+    const codeLetters = values.artistLettersTextbox.trim();
+    if (!CODE_LETTERS_PATTERN.test(codeLetters)) {
+      return {
+        ready: false,
+        message: "Call letters must be letters, digits, or a slash.",
+      };
+    }
     const codeNumber = parseRequiredNonNegativeInt(values.artistNumbersTextbox);
     if (codeNumber === null) {
       return { ready: false, message: "You must enter a call number to look up this code." };
@@ -70,7 +88,7 @@ export function composeLibraryCodeSearchArgs(
       ready: true,
       args: {
         genre_id: values.genreId,
-        code_letters: values.artistLettersTextbox.trim(),
+        code_letters: codeLetters,
         code_number: codeNumber,
       },
     };

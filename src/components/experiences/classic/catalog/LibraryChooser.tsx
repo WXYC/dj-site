@@ -7,14 +7,18 @@ import NewArtistForm from "./NewArtistForm";
 
 /**
  * Owns the toggle between `chooseLibraryCodeOrArtist.jsp`'s two forms and
- * `multipleArtistsDisplay.jsp` -- one URL (`/dashboard/library`, the Slice 0
- * URL table's single row for both JSPs) in front of two mutually exclusive
- * screens, matching the JSP: a code search that matches more than one
- * artist replaces the whole page with the multi-artist list, not just the
- * search form's own subtree, and there is no route to leave for either
- * screen -- `multipleArtistsDisplay.jsp` has no counterpart destination of
- * its own in `/wxycdb` either, since a librarian returns to the chooser
- * (`chooseLibraryCodePrompt`) or picks an artist.
+ * `multipleArtistsDisplay.jsp` -- two mutually exclusive screens behind the
+ * one `/dashboard/library` URL that the dashboard URL map in
+ * `docs/architecture.md` assigns to both JSPs.
+ *
+ * A state swap rather than a second route, because the multi-match screen is
+ * not addressable by what a librarian holds. `/wxycdb` reaches it at
+ * `libraryCode?genreID=&artistLetters=`, a genre+letters browse
+ * Backend-Service cannot answer -- and the search that reaches it here is a
+ * fully specified code whose owners are a server response, not a URL. The
+ * swap is whole-page in both: the JSP replaces the chooser outright, so
+ * `NewArtistForm` goes with the search form rather than sitting under a list
+ * of artists that already own the code.
  */
 export default function LibraryChooser() {
   const [multiMatch, setMultiMatch] = useState<MultiMatchResult | null>(null);

@@ -66,6 +66,20 @@ describe("resolveArtistByCode", () => {
     expect(result.data?.artists).toHaveLength(2);
   });
 
+  // The caller reads `.length` to pick its branch, so a body missing
+  // `artists` must resolve to a shape it can read rather than throwing
+  // mid-handler, where the throw would be caught and reported as a
+  // retryable outage.
+  it("resolves a body missing the owner list to an empty list", async () => {
+    server.use(http.get(BY_CODE_URL, () => HttpResponse.json({})));
+
+    const store = createTestStore();
+    const result = await store.dispatch(initiate());
+
+    expect(result.isError).toBe(false);
+    expect(result.data).toEqual({ artists: [] });
+  });
+
   it("surfaces a genre_not_found 404 as an error", async () => {
     server.use(
       http.get(BY_CODE_URL, () =>

@@ -67,6 +67,16 @@ const ARTIST_HEADING =
  *   bucket is filed at `artist_genre_code = 0`), so the carried value is
  *   parsed with a floor of 0, not 1.
  *
+ * The floor is 0 for any carried code, not only a V/A one, and that is why it
+ * differs from `NewArtistForm`'s floor of 1 on the same column. The two forms
+ * are asked different questions. There, the librarian types a code number
+ * freely beside a peeked next-free value that is never 0, so a typed 0 is a
+ * slip. Here, the number is not input at all: it is a code the resolver was
+ * already asked about and answered `code_not_assigned` for, and both
+ * `by-code` and `POST /library/artists` accept 0 for any code letters --
+ * production holds a non-V/A `UNK` filed at 0. Refusing it would strand the
+ * librarian on a screen reached by a search that succeeded.
+ *
  * Genre display follows `isGenresUnavailable`'s convention: an unissued or
  * failed genres request renders an explicit unavailable state, never a blank
  * or a guessed name, even though `genreIdRaw` itself came from the URL and

@@ -1,11 +1,17 @@
 /**
  * Shelf-code rendering for the classic librarian screens, reproducing
- * tubafrenzy's four formatters rule-for-rule:
+ * tubafrenzy's four formatters:
  *
  * - `ArtistLibraryCode.getCallLettersAndNumbers()` (`:85`)
  * - `ArtistLibraryCode.getCallLettersAndNumbersWithPunctuation()` (`:98`)
  * - `LibraryRelease.getCallNumbersAndLetters()` (`:122`)
  * - `LibraryRelease.getEntireLibraryCode()` (`:129`)
+ *
+ * Rule-for-rule except where the Java recovers a Various Artists sub-bucket
+ * letter by substring-ing the legacy `Z-<letter>` spelling. That letter is
+ * gone from the data these functions are given -- see `isVariousArtists`
+ * below -- so the substring would slice the `V/A` literal itself and render
+ * a letter the shelf does not use. Each such branch names the divergence.
  *
  * These are not cosmetic. The composed string is the physical call number a
  * librarian reads off the screen and walks to the stacks with, so its
@@ -67,12 +73,15 @@ export function isVariousArtists(codeLetters: string): boolean {
  * The artist half of a call number, with no trailing punctuation: `MO 12`
  * for a named artist, `V/A` for a compilation bucket.
  *
- * Unlike `formatArtistCodeWithPunctuation`, this never recovers a
- * Rock/Soundtracks sub-bucket letter (`X-`) from the legacy `Z-<letter>`
- * spelling: `multipleArtistsDisplay.jsp`, the one screen that renders this
- * exact getter, only ever receives rows Backend-Service already collapsed to
- * the literal `V/A` — see this file's header — so there is no sub-bucket
- * letter left to recover by the time a caller here holds one.
+ * The Java splits the Various Artists case three ways off `genre_id` —
+ * `V/A <letter>` for Rock, the bare `<letter>` for Soundtracks, and `V/A` for
+ * every other genre — by taking `callLetters.substring(2, 3)` out of a
+ * `Z-<letter>` code. This takes no `genre_id` because that split has no input
+ * left: `multipleArtistsDisplay.jsp` is the one screen rendering this getter,
+ * and it only ever receives rows the catalog import already collapsed to the
+ * literal `V/A`, where `substring(2, 3)` would slice out the `A` of `V/A`.
+ * The sub-bucket survives in the artist's NAME, which this screen's own
+ * Artist Name column shows, so the librarian still tells the buckets apart.
  */
 export function formatCallLettersAndNumbers({
   code_letters,

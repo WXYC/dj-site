@@ -13,6 +13,8 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: mockPush }),
 }));
 
+const mockOnMultiMatch = vi.fn();
+
 import ArtistSearchForm from "@/src/components/experiences/classic/catalog/ArtistSearchForm";
 
 const ROCK_GENRE_ID = 11;
@@ -50,11 +52,12 @@ async function fillTextboxCode(
 describe("classic ArtistSearchForm — chooseLibraryCodeOrArtist.jsp's artistSearchForm", () => {
   beforeEach(() => {
     mockPush.mockClear();
+    mockOnMultiMatch.mockClear();
     mockGenres();
   });
 
   it("renders the JSP's copy, radio modes, and button labels", async () => {
-    const { user } = renderWithProviders(<ArtistSearchForm />);
+    const { user } = renderWithProviders(<ArtistSearchForm onMultiMatch={mockOnMultiMatch} />);
 
     expect(
       await screen.findByText(/enter a library code below\. if the code exists/i),
@@ -76,7 +79,7 @@ describe("classic ArtistSearchForm — chooseLibraryCodeOrArtist.jsp's artistSea
   });
 
   it("disables the genre select until genres load, then defaults it to the first genre with no placeholder option", async () => {
-    const { user } = renderWithProviders(<ArtistSearchForm />);
+    const { user } = renderWithProviders(<ArtistSearchForm onMultiMatch={mockOnMultiMatch} />);
 
     expect(screen.getByLabelText(/^genre/i)).toBeDisabled();
 
@@ -102,14 +105,14 @@ describe("classic ArtistSearchForm — chooseLibraryCodeOrArtist.jsp's artistSea
   });
 
   it("disables the letters/numbers textboxes until the textbox radio is chosen", async () => {
-    renderWithProviders(<ArtistSearchForm />);
+    renderWithProviders(<ArtistSearchForm onMultiMatch={mockOnMultiMatch} />);
 
     expect(screen.getByLabelText("Call letters:")).toBeDisabled();
     expect(screen.getByLabelText(/call numbers:/i)).toBeDisabled();
   });
 
   it("enables the letters/numbers textboxes once the textbox radio is chosen", async () => {
-    const { user } = renderWithProviders(<ArtistSearchForm />);
+    const { user } = renderWithProviders(<ArtistSearchForm onMultiMatch={mockOnMultiMatch} />);
 
     await user.click(screen.getByRole("radio", { name: /call letters:/i }));
 
@@ -118,7 +121,7 @@ describe("classic ArtistSearchForm — chooseLibraryCodeOrArtist.jsp's artistSea
   });
 
   it("shows the rockCompLetters field only for genre 11 or 12 under the compilation radio", async () => {
-    const { user } = renderWithProviders(<ArtistSearchForm />);
+    const { user } = renderWithProviders(<ArtistSearchForm onMultiMatch={mockOnMultiMatch} />);
     await selectGenre(user, "Blues");
 
     await user.click(screen.getByRole("radio", { name: /various artists/i }));
@@ -132,7 +135,7 @@ describe("classic ArtistSearchForm — chooseLibraryCodeOrArtist.jsp's artistSea
   });
 
   it("shows the exact validation message when no radio is selected on submit", async () => {
-    const { user } = renderWithProviders(<ArtistSearchForm />);
+    const { user } = renderWithProviders(<ArtistSearchForm onMultiMatch={mockOnMultiMatch} />);
 
     await user.click(screen.getByRole("button", { name: "Search!" }));
 
@@ -142,7 +145,7 @@ describe("classic ArtistSearchForm — chooseLibraryCodeOrArtist.jsp's artistSea
   });
 
   it("shows the exact validation message for empty artist letters in textbox mode", async () => {
-    const { user } = renderWithProviders(<ArtistSearchForm />);
+    const { user } = renderWithProviders(<ArtistSearchForm onMultiMatch={mockOnMultiMatch} />);
 
     await user.click(screen.getByRole("radio", { name: /call letters:/i }));
     await user.click(screen.getByRole("button", { name: "Search!" }));
@@ -151,7 +154,7 @@ describe("classic ArtistSearchForm — chooseLibraryCodeOrArtist.jsp's artistSea
   });
 
   it("shows the exact Rock message for genre 11 with an empty rockCompLetters field", async () => {
-    const { user } = renderWithProviders(<ArtistSearchForm />);
+    const { user } = renderWithProviders(<ArtistSearchForm onMultiMatch={mockOnMultiMatch} />);
     await selectGenre(user, "Rock");
     await user.click(screen.getByRole("radio", { name: /various artists/i }));
 
@@ -163,7 +166,7 @@ describe("classic ArtistSearchForm — chooseLibraryCodeOrArtist.jsp's artistSea
   });
 
   it("shows the exact Soundtracks message for genre 12 with an empty rockCompLetters field", async () => {
-    const { user } = renderWithProviders(<ArtistSearchForm />);
+    const { user } = renderWithProviders(<ArtistSearchForm onMultiMatch={mockOnMultiMatch} />);
     await selectGenre(user, "Soundtracks");
     await user.click(screen.getByRole("radio", { name: /various artists/i }));
 
@@ -175,7 +178,7 @@ describe("classic ArtistSearchForm — chooseLibraryCodeOrArtist.jsp's artistSea
   });
 
   it("passes validation for the compilation radio under a non Rock/Soundtracks genre with no rockCompLetters", async () => {
-    const { user } = renderWithProviders(<ArtistSearchForm />);
+    const { user } = renderWithProviders(<ArtistSearchForm onMultiMatch={mockOnMultiMatch} />);
     await selectGenre(user, "Blues");
     await user.click(screen.getByRole("radio", { name: /various artists/i }));
 
@@ -200,7 +203,7 @@ describe("classic ArtistSearchForm — chooseLibraryCodeOrArtist.jsp's artistSea
         });
       }),
     );
-    const { user } = renderWithProviders(<ArtistSearchForm />);
+    const { user } = renderWithProviders(<ArtistSearchForm onMultiMatch={mockOnMultiMatch} />);
     await selectGenre(user, "Rock");
 
     await fillTextboxCode(user, "MO", "12");
@@ -219,7 +222,7 @@ describe("classic ArtistSearchForm — chooseLibraryCodeOrArtist.jsp's artistSea
         }),
       ),
     );
-    const { user } = renderWithProviders(<ArtistSearchForm />);
+    const { user } = renderWithProviders(<ArtistSearchForm onMultiMatch={mockOnMultiMatch} />);
 
     await fillTextboxCode(user, "UNK", "0");
     await user.click(screen.getByRole("button", { name: "Search!" }));
@@ -236,7 +239,7 @@ describe("classic ArtistSearchForm — chooseLibraryCodeOrArtist.jsp's artistSea
         ),
       ),
     );
-    const { user } = renderWithProviders(<ArtistSearchForm />);
+    const { user } = renderWithProviders(<ArtistSearchForm onMultiMatch={mockOnMultiMatch} />);
     await selectGenre(user, "Rock");
 
     await fillTextboxCode(user, "MO", "12");
@@ -265,7 +268,7 @@ describe("classic ArtistSearchForm — chooseLibraryCodeOrArtist.jsp's artistSea
         );
       }),
     );
-    const { user } = renderWithProviders(<ArtistSearchForm />);
+    const { user } = renderWithProviders(<ArtistSearchForm onMultiMatch={mockOnMultiMatch} />);
     await selectGenre(user, "Soundtracks");
     await user.click(screen.getByRole("radio", { name: /various artists/i }));
     await user.type(screen.getByLabelText(/rock comp/i), "K");
@@ -285,8 +288,7 @@ describe("classic ArtistSearchForm — chooseLibraryCodeOrArtist.jsp's artistSea
       { id: 2, artist_name: "Various Artists - Rock - B", code_letters: "V/A", code_number: 0, genre_id: ROCK_GENRE_ID },
     ];
     server.use(http.get(BY_CODE_URL, () => HttpResponse.json({ artists: owners })));
-    const onMultiMatch = vi.fn();
-    const { user } = renderWithProviders(<ArtistSearchForm onMultiMatch={onMultiMatch} />);
+    const { user } = renderWithProviders(<ArtistSearchForm onMultiMatch={mockOnMultiMatch} />);
     await selectGenre(user, "Rock");
     await user.click(screen.getByRole("radio", { name: /various artists/i }));
     await user.type(screen.getByLabelText(/rock comp/i), "A");
@@ -294,7 +296,7 @@ describe("classic ArtistSearchForm — chooseLibraryCodeOrArtist.jsp's artistSea
     await user.click(screen.getByRole("button", { name: "Search!" }));
 
     await waitFor(() =>
-      expect(onMultiMatch).toHaveBeenCalledWith({
+      expect(mockOnMultiMatch).toHaveBeenCalledWith({
         genreName: "Rock",
         codeLetters: "V/A",
         codeNumber: 0,
@@ -310,7 +312,7 @@ describe("classic ArtistSearchForm — chooseLibraryCodeOrArtist.jsp's artistSea
         HttpResponse.json({ message: "Genre not found", reason: "genre_not_found" }, { status: 404 }),
       ),
     );
-    const { user } = renderWithProviders(<ArtistSearchForm />);
+    const { user } = renderWithProviders(<ArtistSearchForm onMultiMatch={mockOnMultiMatch} />);
     await selectGenre(user, "Rock");
 
     await fillTextboxCode(user, "MO", "12");
@@ -337,7 +339,7 @@ describe("classic ArtistSearchForm — chooseLibraryCodeOrArtist.jsp's artistSea
     ],
   ])("refuses to act on %s rather than treating it as unassigned", async (_name, respond) => {
     server.use(http.get(BY_CODE_URL, respond));
-    const { user } = renderWithProviders(<ArtistSearchForm />);
+    const { user } = renderWithProviders(<ArtistSearchForm onMultiMatch={mockOnMultiMatch} />);
     await selectGenre(user, "Rock");
 
     await fillTextboxCode(user, "MO", "12");
@@ -349,11 +351,58 @@ describe("classic ArtistSearchForm — chooseLibraryCodeOrArtist.jsp's artistSea
     expect(mockPush).not.toHaveBeenCalled();
   });
 
+  // The contract makes an empty 200 impossible -- an unassigned code is a 404
+  // carrying code_not_assigned. If one arrives anyway the answer cannot be
+  // trusted, so it is refused: routing to the creation flow would file a
+  // duplicate, and the disambiguation screen would claim the code exists with
+  // nobody holding it.
+  it.each([
+    ["an empty owner list", { artists: [] }],
+    ["a body missing the owner list", {}],
+  ])("refuses %s rather than routing anywhere", async (_name, body) => {
+    server.use(http.get(BY_CODE_URL, () => HttpResponse.json(body)));
+    const { user } = renderWithProviders(<ArtistSearchForm onMultiMatch={mockOnMultiMatch} />);
+    await selectGenre(user, "Rock");
+
+    await fillTextboxCode(user, "MO", "12");
+    await user.click(screen.getByRole("button", { name: "Search!" }));
+
+    expect(
+      await screen.findByText("Couldn't check whether this code exists right now. Try again."),
+    ).toBeInTheDocument();
+    expect(mockPush).not.toHaveBeenCalled();
+    expect(mockOnMultiMatch).not.toHaveBeenCalled();
+  });
+
+  // A code the endpoint's charset rule would 400 on is refused here, naming
+  // the field. Left to the backend it comes back as the unstructured-failure
+  // branch, whose wording invites a retry that can never succeed.
+  it("refuses call letters outside the code column's charset without calling the resolver", async () => {
+    let byCodeCalls = 0;
+    server.use(
+      http.get(BY_CODE_URL, () => {
+        byCodeCalls += 1;
+        return HttpResponse.json({ artists: [] });
+      }),
+    );
+    const { user } = renderWithProviders(<ArtistSearchForm onMultiMatch={mockOnMultiMatch} />);
+    await selectGenre(user, "Rock");
+
+    await fillTextboxCode(user, "?!", "12");
+    await user.click(screen.getByRole("button", { name: "Search!" }));
+
+    expect(
+      await screen.findByText("Call letters must be letters, digits, or a slash."),
+    ).toBeInTheDocument();
+    expect(byCodeCalls).toBe(0);
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
   // The JSP's own client validator never checks the call number field --
   // resolveArtistByCode requires one, so a blank value is refused only once
   // the JSP-parity rules above have already passed.
   it("asks for a call number when textbox mode is submitted with one blank", async () => {
-    const { user } = renderWithProviders(<ArtistSearchForm />);
+    const { user } = renderWithProviders(<ArtistSearchForm onMultiMatch={mockOnMultiMatch} />);
 
     await user.click(screen.getByRole("radio", { name: /call letters:/i }));
     await user.type(screen.getByLabelText("Call letters:"), "MO");
@@ -365,14 +414,13 @@ describe("classic ArtistSearchForm — chooseLibraryCodeOrArtist.jsp's artistSea
     expect(mockPush).not.toHaveBeenCalled();
   });
 
-  // The textbox radio and its letters/numbers inputs are interactive from
-  // mount -- faithful to the JSP, whose own client-side validator
-  // (library-code-form.js) reads only artistLettersTextbox for this branch,
-  // never genreID. A submit landing inside the client-side genre fetch's
-  // window therefore passes that JSP-parity validation with genreId still
-  // null; the guard against reaching the resolver genre-less lives at the
-  // composition step (composeLibraryCodeSearchArgs), not in the shared
-  // validator, so it fires here too.
+  // The JSP's own client-side validator (library-code-form.js) reads only
+  // artistLettersTextbox for the textbox branch, never genreID. A submit
+  // landing inside the client-side genre fetch's window therefore passes that
+  // JSP-parity validation with genreId still null; the guard against reaching
+  // the resolver genre-less lives at the composition step
+  // (composeLibraryCodeSearchArgs), not in the shared validator, so it fires
+  // here too.
   it("refuses a textbox submit that lands before genres have loaded, without calling the resolver", async () => {
     let byCodeCalls = 0;
     server.use(
@@ -385,7 +433,7 @@ describe("classic ArtistSearchForm — chooseLibraryCodeOrArtist.jsp's artistSea
         return HttpResponse.json({ artists: [] });
       }),
     );
-    const { user } = renderWithProviders(<ArtistSearchForm />);
+    const { user } = renderWithProviders(<ArtistSearchForm onMultiMatch={mockOnMultiMatch} />);
 
     await fillTextboxCode(user, "MO", "12");
     await user.click(screen.getByRole("button", { name: "Search!" }));
@@ -396,21 +444,27 @@ describe("classic ArtistSearchForm — chooseLibraryCodeOrArtist.jsp's artistSea
   });
 
   describe("genre outage", () => {
-    it("shows the unavailable genre state and refuses the submit without duplicating the message", async () => {
+    // The outage owns the message. Neither the select's own JSP-parity rule
+    // ("You must select a genre") nor a second copy of the banner may stand
+    // in for it: one blames the librarian for a backend that is down, the
+    // other says the same thing twice.
+    it("disables the search and refuses the submit without blaming the librarian", async () => {
       server.use(
         http.get(`${TEST_BACKEND_URL}/library/genres`, () =>
           HttpResponse.json({ message: "genres unavailable" }, { status: 500 }),
         ),
       );
-      const { user } = renderWithProviders(<ArtistSearchForm />);
+      const { user } = renderWithProviders(<ArtistSearchForm onMultiMatch={mockOnMultiMatch} />);
 
       expect(await screen.findByText(/genres are unavailable/i)).toBeInTheDocument();
       expect(screen.getByLabelText(/^genre/i)).toBeDisabled();
+      expect(screen.getByRole("button", { name: "Search!" })).toBeDisabled();
 
       await user.click(screen.getByRole("radio", { name: /various artists/i }));
       await user.click(screen.getByRole("button", { name: "Search!" }));
 
       expect(screen.getAllByText(/genres are unavailable/i)).toHaveLength(1);
+      expect(screen.queryByText("You must select a genre.")).not.toBeInTheDocument();
       expect(mockPush).not.toHaveBeenCalled();
     });
 
@@ -424,7 +478,7 @@ describe("classic ArtistSearchForm — chooseLibraryCodeOrArtist.jsp's artistSea
             : HttpResponse.json([{ id: BLUES_GENRE_ID, genre_name: "Blues" }]);
         }),
       );
-      const { user } = renderWithProviders(<ArtistSearchForm />);
+      const { user } = renderWithProviders(<ArtistSearchForm onMultiMatch={mockOnMultiMatch} />);
 
       expect(await screen.findByText(/genres are unavailable/i)).toBeInTheDocument();
       await user.click(screen.getByRole("button", { name: /try again/i }));
@@ -437,7 +491,7 @@ describe("classic ArtistSearchForm — chooseLibraryCodeOrArtist.jsp's artistSea
   });
 
   it("resets the mode and fields, including the genre back to its default, on Reset values", async () => {
-    const { user } = renderWithProviders(<ArtistSearchForm />);
+    const { user } = renderWithProviders(<ArtistSearchForm onMultiMatch={mockOnMultiMatch} />);
 
     await selectGenre(user, "Rock");
     await user.click(screen.getByRole("radio", { name: /call letters:/i }));
