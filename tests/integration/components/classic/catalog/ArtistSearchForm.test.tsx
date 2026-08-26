@@ -431,8 +431,11 @@ describe("classic ArtistSearchForm — chooseLibraryCodeOrArtist.jsp's artistSea
   it("refuses a textbox submit that lands before genres have loaded, without calling the resolver", async () => {
     let byCodeCalls = 0;
     server.use(
+      // Held open rather than merely slow: a fixed delay races the typing this
+      // test does first, and loses that race on a slow machine, which turns
+      // the assertion into "genres happened to be late here".
       http.get(`${TEST_BACKEND_URL}/library/genres`, async () => {
-        await delay(50);
+        await delay("infinite");
         return HttpResponse.json([{ id: BLUES_GENRE_ID, genre_name: "Blues" }]);
       }),
       http.get(BY_CODE_URL, () => {
