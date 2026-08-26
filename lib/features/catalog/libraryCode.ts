@@ -45,6 +45,14 @@ export type ReleaseCodeParts = {
 };
 
 /**
+ * The one code every Various Artists bucket is filed under once the catalog
+ * import has run, in every genre. The data-model fact behind the collapse
+ * documented on `isVariousArtists` below, exported so the code search and the
+ * formatters compose one literal rather than four.
+ */
+export const VARIOUS_ARTISTS_CODE_LETTERS = "V/A";
+
+/**
  * True for a Various Artists bucket.
  *
  * Two spellings, because two systems store this differently and only one of
@@ -66,7 +74,7 @@ export type ReleaseCodeParts = {
  */
 export function isVariousArtists(codeLetters: string): boolean {
   const trimmed = codeLetters.trim();
-  return trimmed.toUpperCase() === "V/A" || trimmed.startsWith("Z-");
+  return trimmed.toUpperCase() === VARIOUS_ARTISTS_CODE_LETTERS || trimmed.startsWith("Z-");
 }
 
 /**
@@ -88,7 +96,7 @@ export function formatCallLettersAndNumbers({
   code_artist_number,
 }: Pick<ArtistCodeParts, "code_letters" | "code_artist_number">): string {
   if (isVariousArtists(code_letters)) {
-    return "V/A";
+    return VARIOUS_ARTISTS_CODE_LETTERS;
   }
   return `${code_letters.toUpperCase()} ${code_artist_number}`;
 }
@@ -122,10 +130,13 @@ export function formatArtistCodeWithPunctuation({
     const bucket =
       genre_id === SOUNDTRACKS_GENRE_ID && trimmed.startsWith("Z-")
         ? trimmed.substring(2, 3)
-        : "V/A";
+        : VARIOUS_ARTISTS_CODE_LETTERS;
     return `${bucket}-`;
   }
-  return `${code_letters.toUpperCase()} ${code_artist_number}/`;
+  // The named-artist form is the same string the no-punctuation getter
+  // renders, which is how the Java relates the two -- delegated so the pair
+  // cannot drift into disagreeing about a code neither branch calls V/A.
+  return `${formatCallLettersAndNumbers({ code_letters, code_artist_number })}/`;
 }
 
 /**

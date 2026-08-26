@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useGetGenresQuery } from "@/lib/features/catalog/api";
 import ArtistSearchForm, { type MultiMatchResult } from "./ArtistSearchForm";
 import MultipleArtistsDisplay from "./MultipleArtistsDisplay";
 import NewArtistForm from "./NewArtistForm";
@@ -22,17 +23,16 @@ import NewArtistForm from "./NewArtistForm";
  */
 export default function LibraryChooser() {
   const [multiMatch, setMultiMatch] = useState<MultiMatchResult | null>(null);
+  // Held here, not only inside the two forms, because they both unmount for
+  // the length of the disambiguation screen. Scanning a 27-owner compilation
+  // bucket outlasts RTK Query's unsubscribed-cache window, so without a
+  // subscriber that survives the swap the librarian returns to a disabled
+  // genre select and a refetch. Deduped against the forms' identical
+  // subscription, so it costs no extra request.
+  useGetGenresQuery();
 
   if (multiMatch) {
-    return (
-      <MultipleArtistsDisplay
-        genreName={multiMatch.genreName}
-        codeLetters={multiMatch.codeLetters}
-        codeNumber={multiMatch.codeNumber}
-        artists={multiMatch.artists}
-        onChooseAgain={() => setMultiMatch(null)}
-      />
-    );
+    return <MultipleArtistsDisplay {...multiMatch} onChooseAgain={() => setMultiMatch(null)} />;
   }
 
   return (

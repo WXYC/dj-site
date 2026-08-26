@@ -2,10 +2,17 @@ import { describe, it, expect, vi } from "vitest";
 import { screen, within } from "@testing-library/react";
 import { renderWithProviders } from "@/tests/helpers";
 
-vi.mock("@/lib/features/authentication/client", () => ({
-  authClient: { useSession: vi.fn() },
-  getJWTToken: vi.fn().mockResolvedValue("test-token"),
-}));
+// The real better-auth client installs listeners whose teardown is deferred a
+// second past the last subscriber; a short file finishes inside that second.
+vi.mock("@/lib/features/authentication/client", async () => {
+  const { createAuthClientModuleMock } = await import(
+    "@/tests/helpers/auth-client-mock"
+  );
+  return {
+    ...createAuthClientModuleMock(),
+    getJWTToken: vi.fn(async () => "test-token"),
+  };
+});
 
 import MultipleArtistsDisplay from "@/src/components/experiences/classic/catalog/MultipleArtistsDisplay";
 

@@ -7,7 +7,10 @@ import {
 const ROCK_GENRE_ID = 11;
 
 describe("composeLibraryCodeSearchArgs", () => {
-  it("composes a textbox search from trimmed letters and a parsed call number", () => {
+  // Normalized at this edge like every other code-letters write path, so the
+  // create-flow URL a miss redirects to carries the casing the catalog is
+  // filed under rather than whatever the librarian typed.
+  it("composes a textbox search from normalized letters and a parsed call number", () => {
     expect(
       composeLibraryCodeSearchArgs({
         callLetterMode: "textbox",
@@ -17,7 +20,7 @@ describe("composeLibraryCodeSearchArgs", () => {
       }),
     ).toEqual({
       ready: true,
-      args: { genre_id: ROCK_GENRE_ID, code_letters: "mo", code_number: 12 },
+      args: { genre_id: ROCK_GENRE_ID, code_letters: "MO", code_number: 12 },
     });
   });
 
@@ -45,20 +48,22 @@ describe("composeLibraryCodeSearchArgs", () => {
   // triple and cannot browse by letters alone, so this is a forced
   // divergence: the form asks for the call number that JSP-parity validation
   // itself never required.
-  it.each([
-    ["", "You must enter a call number to look up this code."],
-    ["abc", "You must enter a call number to look up this code."],
-    ["-1", "You must enter a call number to look up this code."],
-  ])("refuses to compose a textbox search with an unparseable call number %j", (raw, message) => {
-    expect(
-      composeLibraryCodeSearchArgs({
-        callLetterMode: "textbox",
-        artistLettersTextbox: "MO",
-        artistNumbersTextbox: raw,
-        genreId: ROCK_GENRE_ID,
-      }),
-    ).toEqual({ ready: false, message });
-  });
+  it.each([[""], ["abc"], ["-1"]])(
+    "refuses to compose a textbox search with an unparseable call number %j",
+    (raw) => {
+      expect(
+        composeLibraryCodeSearchArgs({
+          callLetterMode: "textbox",
+          artistLettersTextbox: "MO",
+          artistNumbersTextbox: raw,
+          genreId: ROCK_GENRE_ID,
+        }),
+      ).toEqual({
+        ready: false,
+        message: "You must enter a call number to look up this code.",
+      });
+    },
+  );
 
   // Every Various Artists bucket is filed at code_number 0 under the literal
   // code_letters "V/A", regardless of genre -- Backend-Service's catalog

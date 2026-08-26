@@ -348,12 +348,18 @@ export const catalogApi = createApi({
         params: { genre_id, code_letters, code_number },
       }),
       extraOptions: { surfaceNonJsonAsError: true },
-      // Guards a well-formed 200 whose body omits `artists`, the same shape
-      // guard `searchArtistsInGenre` and `getCompilationTracks` apply: the
-      // caller reads `.length` to pick its branch, so a missing array would
-      // throw mid-handler and be laundered into the generic outage message.
-      // The empty array it resolves to is a shape the contract never
-      // produces, and the caller refuses to act on it for that reason.
+      // Never read from cache: the trigger always refetches, and a stale
+      // `code_not_assigned` is the one answer that routes the librarian into
+      // creating a duplicate. Dropping the entry as soon as the form lets go
+      // keeps that impossible by construction rather than by the trigger's
+      // default, and is why the endpoint carries no `providesTags`.
+      keepUnusedDataFor: 0,
+      // Unlike its two models, an empty list is not a legal answer here -- an
+      // unassigned code is a 404 carrying `code_not_assigned`. So this guard
+      // is not making a missing `artists` mean "none": it is normalizing an
+      // unreadable body onto the one value the caller already refuses to act
+      // on, so both arrive at the same refusal instead of one of them
+      // throwing mid-handler.
       transformResponse: (
         response: ResolveArtistByCodeResponse | null,
       ): ResolveArtistByCodeResponse =>
