@@ -80,6 +80,37 @@ describe("composeLibraryCodeSearchArgs", () => {
     });
   });
 
+  // Mirrors the endpoint's own `^[A-Za-z0-9/]{1,4}$` rule so a code it would
+  // 400 on is named here instead of arriving as the caller's
+  // unstructured-failure branch, which reads as "try again".
+  it.each([["?!"], ["A-"], ["A B"], ["ABCDE"], [""], ["   "]])(
+    "refuses call letters outside the code column's charset (%j)",
+    (raw) => {
+      expect(
+        composeLibraryCodeSearchArgs({
+          callLetterMode: "textbox",
+          artistLettersTextbox: raw,
+          artistNumbersTextbox: "12",
+          genreId: ROCK_GENRE_ID,
+        }),
+      ).toEqual({ ready: false, message: "Call letters must be letters, digits, or a slash." });
+    },
+  );
+
+  it.each([["MO"], ["V/A"], ["A1"], ["9"]])("composes an in-charset code (%j)", (raw) => {
+    expect(
+      composeLibraryCodeSearchArgs({
+        callLetterMode: "textbox",
+        artistLettersTextbox: raw,
+        artistNumbersTextbox: "12",
+        genreId: ROCK_GENRE_ID,
+      }),
+    ).toEqual({
+      ready: true,
+      args: { genre_id: ROCK_GENRE_ID, code_letters: raw, code_number: 12 },
+    });
+  });
+
   it("refuses to compose without a resolved genre", () => {
     expect(
       composeLibraryCodeSearchArgs({

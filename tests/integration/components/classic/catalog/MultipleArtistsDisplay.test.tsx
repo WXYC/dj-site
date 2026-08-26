@@ -71,7 +71,11 @@ describe("classic MultipleArtistsDisplay — multipleArtistsDisplay.jsp", () => 
     expect(screen.getAllByText("KU 7")).toHaveLength(2);
   });
 
-  it("links each artist name to its read-only view card -- the JSP's selection affordance", () => {
+  // The JSP's row link says `mode=view`, but ArtistViewServlet never reads
+  // `mode` and forwards to the modify card for an admin -- the only role that
+  // can reach this screen. So the affordance is the same destination a
+  // single-match code search lands on, not the DJ-facing display card.
+  it("links each artist name to the modify card the JSP's own servlet forwards to", () => {
     renderWithProviders(
       <MultipleArtistsDisplay
         genreName="Rock"
@@ -83,9 +87,9 @@ describe("classic MultipleArtistsDisplay — multipleArtistsDisplay.jsp", () => 
     );
 
     const link = screen.getByRole("link", { name: "Various Artists - Rock - A" });
-    expect(link).toHaveAttribute("href", "/dashboard/library/artist/1/view");
+    expect(link).toHaveAttribute("href", "/dashboard/library/artist/1");
     const other = screen.getByRole("link", { name: "Various Artists - Rock - B" });
-    expect(other).toHaveAttribute("href", "/dashboard/library/artist/2/view");
+    expect(other).toHaveAttribute("href", "/dashboard/library/artist/2");
   });
 
   it("returns to the chooser via the Choose/Add Library Codes affordance", async () => {

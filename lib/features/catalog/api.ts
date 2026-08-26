@@ -348,6 +348,16 @@ export const catalogApi = createApi({
         params: { genre_id, code_letters, code_number },
       }),
       extraOptions: { surfaceNonJsonAsError: true },
+      // Guards a well-formed 200 whose body omits `artists`, the same shape
+      // guard `searchArtistsInGenre` and `getCompilationTracks` apply: the
+      // caller reads `.length` to pick its branch, so a missing array would
+      // throw mid-handler and be laundered into the generic outage message.
+      // The empty array it resolves to is a shape the contract never
+      // produces, and the caller refuses to act on it for that reason.
+      transformResponse: (
+        response: ResolveArtistByCodeResponse | null,
+      ): ResolveArtistByCodeResponse =>
+        response?.artists ? response : { artists: [] },
       // The chooser handles every failure shape inline (see
       // `resolveArtistByCodeErrorReason`), including the two structured 404
       // reasons -- neither is a surprise the shared rtk-query-error-logger

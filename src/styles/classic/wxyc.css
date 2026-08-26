@@ -192,11 +192,12 @@ html[data-experience="classic"] body {
 .entry-row a { color: #000; text-decoration: none; }
 .entry-row a:hover { color: #CC0000; text-decoration: underline; }
 
-/* A row action that performs its work in place rather than navigating. It has
-   to be a <button> — an <a href="#"> is not a control — but tubafrenzy's row
-   action was an anchor, so the native button chrome is reset back to that
-   appearance. */
-.entry-row .link-button {
+/* An action that performs its work in place rather than navigating. It has to
+   be a <button> — an <a href="#"> is not a control — but tubafrenzy's
+   counterpart was an anchor, so the native button chrome is reset back to that
+   appearance. Not scoped to .entry-row: the same substitution happens outside
+   tables, wherever a JSP anchor became an in-page state change. */
+.link-button {
 	background: none;
 	border: none;
 	padding: 0;
@@ -205,8 +206,8 @@ html[data-experience="classic"] body {
 	text-decoration: none;
 	cursor: pointer;
 }
-.entry-row .link-button:hover:enabled { color: #CC0000; text-decoration: underline; }
-.entry-row .link-button:disabled { cursor: default; opacity: 0.55; }
+.link-button:hover:enabled { color: #CC0000; text-decoration: underline; }
+.link-button:disabled { cursor: default; opacity: 0.55; }
 
 .talkset-row { background: #555; }
 .talkset-row td { padding: 8px; border-bottom: 1px solid #ddd; font-weight: bold; color: #DDDD22; }
@@ -660,7 +661,7 @@ html[data-experience="classic"][data-joy-color-scheme="dark"] .entry-row:hover {
 }
 
 html[data-experience="classic"][data-joy-color-scheme="dark"] .entry-row a,
-html[data-experience="classic"][data-joy-color-scheme="dark"] .entry-row .link-button {
+html[data-experience="classic"][data-joy-color-scheme="dark"] .link-button {
 	color: #E0E0E0;
 }
 

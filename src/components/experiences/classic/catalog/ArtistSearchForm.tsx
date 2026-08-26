@@ -23,12 +23,23 @@ export type MultiMatchResult = {
   artists: ArtistByCodeOwner[];
 };
 
-type ArtistSearchFormProps = {
-  /** Called instead of navigating when a code search matches more than one artist. */
-  onMultiMatch?: (result: MultiMatchResult) => void;
-};
+/**
+ * Every answer this screen cannot act on reads the same, deliberately: an
+ * outage, a malformed body, and a 400 differ in cause but not in what the
+ * librarian can do about them, and none of them means the code is free.
+ */
+const UNTRUSTWORTHY_ANSWER_MESSAGE =
+  "Couldn't check whether this code exists right now. Try again.";
 
-const noop = () => {};
+type ArtistSearchFormProps = {
+  /**
+   * Called instead of navigating when a code search matches more than one
+   * artist. Required rather than optional: a caller that omits it has no
+   * disambiguation screen to show, and the multi-match branch would leave
+   * the librarian looking at a Search button that did nothing.
+   */
+  onMultiMatch: (result: MultiMatchResult) => void;
+};
 
 /**
  * Reproduces `chooseLibraryCodeOrArtist.jsp`'s `artistSearchForm`: genre
@@ -53,16 +64,31 @@ const noop = () => {};
  *   navigated to -- see `resolveArtistByCodeErrorReason`'s doc for why a
  *   backend outage must never be read as "code not assigned."
  *
- * Divergence from the JSP, forced by the Backend contract:
- * `resolveArtistByCode` requires a fully specified `(genre_id, code_letters,
- * code_number)` triple. The JSP's own client-side validator never required a
- * call number at all -- a blank one fell through to a genre+letters-only
- * browse (`LibraryCodeServlet` -> `multipleArtistsDisplay.jsp`) with no
- * Backend-Service equivalent, since there is no "any number" query. This
- * form still accepts a blank call number past `validateArtistSearchForm`
- * (matching the JSP rule-for-rule), then refuses at submit with a message
- * asking for one, rather than guessing a number or reintroducing a browse
- * the API cannot back. See `composeLibraryCodeSearchArgs`.
+ * Three divergences from the JSP, each forced by a Backend contract that has
+ * no legacy equivalent:
+ *
+ * 1. `resolveArtistByCode` requires a fully specified `(genre_id,
+ *    code_letters, code_number)` triple. The JSP's own client-side validator
+ *    never required a call number at all -- a blank one fell through to a
+ *    genre+letters-only browse (`LibraryCodeServlet` ->
+ *    `multipleArtistsDisplay.jsp`) that Backend-Service cannot answer, since
+ *    there is no "any number" query. This form still accepts a blank call
+ *    number past `validateArtistSearchForm` (matching the JSP rule-for-rule),
+ *    then refuses at submit with a message asking for one, rather than
+ *    guessing a number or reintroducing a browse the API cannot back. See
+ *    `composeLibraryCodeSearchArgs`.
+ * 2. A fully specified code with more than one owner reaches the
+ *    disambiguation screen here. The legacy servlet's own fully-specified
+ *    lookup ends in `findFirst()` over an unordered query, so it silently
+ *    hands the librarian one arbitrary row out of a contested code and
+ *    cannot tell one match from twenty-seven. `by-code` answers a list
+ *    precisely so that guess is not forced.
+ * 3. The compilation radio's misses route to the creation flow like the
+ *    textbox radio's do. The servlet instead redirects a compilation miss
+ *    back to an empty chooser with no message at all, contradicting this
+ *    screen's own heading ("If the code does not exist, you will get the
+ *    chance to create it"). The heading is reproduced verbatim, so the
+ *    behavior it promises is reproduced with it.
  *
  * The compilation radio always searches the fixed `V/A`/0 pair for the
  * selected genre, never a value composed from `rockCompLetters`: see
@@ -70,15 +96,14 @@ const noop = () => {};
  * Backend-Service search, even though it is still collected and validated
  * for JSP parity.
  *
- * The textbox mode radio and its letters/numbers inputs are interactive from
- * mount, matching the JSP: `library-code-form.js`'s textbox branch reads
- * only `artistLettersTextbox`, never `genreID`, so a submit landing inside
- * this form's client-side genre fetch passes JSP-parity validation with
- * `genreId` still null. `composeLibraryCodeSearchArgs` is where that case is
- * caught -- not a widening of the shared validator, which would make a
- * JSP-faithful state read as a JSP-parity failure.
+ * `library-code-form.js`'s textbox branch reads only `artistLettersTextbox`,
+ * never `genreID`, so a submit landing inside this form's client-side genre
+ * fetch passes JSP-parity validation with `genreId` still null.
+ * `composeLibraryCodeSearchArgs` is where that case is caught -- not a
+ * widening of the shared validator, which would make a JSP-faithful state
+ * read as a JSP-parity failure.
  */
-export default function ArtistSearchForm({ onMultiMatch = noop }: ArtistSearchFormProps) {
+export default function ArtistSearchForm({ onMultiMatch }: ArtistSearchFormProps) {
   const router = useRouter();
   const genreFieldId = useId();
   const lettersId = useId();
@@ -128,6 +153,18 @@ export default function ArtistSearchForm({ onMultiMatch = noop }: ArtistSearchFo
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
+    // Ahead of validation, not after it: with no genre list there is no
+    // `effectiveGenreId`, and the compilation branch's genre rule would
+    // otherwise refuse with "You must select a genre" -- blaming the
+    // librarian for an outage, beside a select they cannot open. The banner
+    // by that select is the honest message, and the Search button is
+    // disabled while it stands, so reaching here means the state changed
+    // mid-submit.
+    if (genresUnavailable) {
+      setValidationMessage(null);
+      return;
+    }
+
     const result = validateArtistSearchForm({
       callLetterMode,
       artistLettersTextbox,
@@ -142,13 +179,6 @@ export default function ArtistSearchForm({ onMultiMatch = noop }: ArtistSearchFo
 
     setValidationMessage(null);
 
-    // The outage banner beside the genre select already explains why; a
-    // submit that slipped past it would search under a genre the librarian
-    // cannot currently be shown the name of.
-    if (genresUnavailable) {
-      return;
-    }
-
     const composed = composeLibraryCodeSearchArgs({
       callLetterMode,
       artistLettersTextbox,
@@ -161,21 +191,13 @@ export default function ArtistSearchForm({ onMultiMatch = noop }: ArtistSearchFo
       return;
     }
 
+    // Only the request is guarded. Routing on its answer stays outside, so a
+    // throw from `router.push` or from `onMultiMatch` surfaces as itself
+    // rather than being reported as a failed lookup the librarian should
+    // retry.
+    let owners: ArtistByCodeOwner[];
     try {
-      const response = await resolveArtistByCode(composed.args).unwrap();
-
-      if (response.artists.length === 1) {
-        router.push(`/dashboard/library/artist/${response.artists[0].id}`);
-        return;
-      }
-
-      const genreName = genres?.find((genre) => genre.id === composed.args.genre_id)?.genre_name;
-      onMultiMatch({
-        genreName,
-        codeLetters: composed.args.code_letters,
-        codeNumber: composed.args.code_number,
-        artists: response.artists,
-      });
+      owners = (await resolveArtistByCode(composed.args).unwrap()).artists;
     } catch (err) {
       const reason = resolveArtistByCodeErrorReason(err);
 
@@ -198,8 +220,33 @@ export default function ArtistSearchForm({ onMultiMatch = noop }: ArtistSearchFo
 
       // A validation failure, a 5xx, or an outage: refuse to act rather than
       // guess -- see resolveArtistByCodeErrorReason's doc.
-      setValidationMessage("Couldn't check whether this code exists right now. Try again.");
+      setValidationMessage(UNTRUSTWORTHY_ANSWER_MESSAGE);
+      return;
     }
+
+    // A 200 with no owners is a shape the endpoint's contract never produces
+    // -- an unassigned code is a 404 carrying `code_not_assigned`. Reaching
+    // here means the answer cannot be trusted, so it is refused like any other
+    // malformed one: routing to the creation flow would file a duplicate, and
+    // the disambiguation screen would assert the code exists with nobody
+    // holding it.
+    if (owners.length === 0) {
+      setValidationMessage(UNTRUSTWORTHY_ANSWER_MESSAGE);
+      return;
+    }
+
+    if (owners.length === 1) {
+      router.push(`/dashboard/library/artist/${owners[0].id}`);
+      return;
+    }
+
+    const genreName = genres?.find((genre) => genre.id === composed.args.genre_id)?.genre_name;
+    onMultiMatch({
+      genreName,
+      codeLetters: composed.args.code_letters,
+      codeNumber: composed.args.code_number,
+      artists: owners,
+    });
   };
 
   return (
@@ -330,7 +377,11 @@ export default function ArtistSearchForm({ onMultiMatch = noop }: ArtistSearchFo
           <tr>
             <td />
             <td>
-              <input type="submit" value="Search!" disabled={isResolving} />
+              <input
+                type="submit"
+                value="Search!"
+                disabled={isResolving || genresUnavailable}
+              />
               &nbsp;&nbsp;&nbsp;&nbsp;
               <input type="button" value="Reset values" onClick={reset} disabled={isResolving} />
             </td>
