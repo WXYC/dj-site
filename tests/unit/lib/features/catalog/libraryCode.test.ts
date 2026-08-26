@@ -1,8 +1,10 @@
 import { describe, it, expect } from "vitest";
 import {
   formatArtistCodeWithPunctuation,
+  formatCallLettersAndNumbers,
   formatReleaseCode,
   formatEntireLibraryCode,
+  isVariousArtists,
 } from "@/lib/features/catalog/libraryCode";
 
 describe("formatArtistCodeWithPunctuation — ArtistLibraryCode.java:98", () => {
@@ -75,6 +77,43 @@ describe("formatArtistCodeWithPunctuation — ArtistLibraryCode.java:98", () => 
       }),
     ).toBe("V/A-");
   });
+});
+
+describe("isVariousArtists", () => {
+  it.each([["V/A"], ["v/a"], [" V/A "], ["Z-X"], ["Z--"]])(
+    "treats %j as a Various Artists bucket",
+    (codeLetters) => {
+      expect(isVariousArtists(codeLetters)).toBe(true);
+    },
+  );
+
+  it.each([["MO"], ["ZOO"], [""]])(
+    "treats %j as an ordinary artist code",
+    (codeLetters) => {
+      expect(isVariousArtists(codeLetters)).toBe(false);
+    },
+  );
+});
+
+describe("formatCallLettersAndNumbers — ArtistLibraryCode.java:85, no trailing punctuation", () => {
+  it("renders a regular artist code as LETTERS NUMBER", () => {
+    expect(
+      formatCallLettersAndNumbers({ code_letters: "mo", code_artist_number: 12 }),
+    ).toBe("MO 12");
+  });
+
+  // Backend-Service's collapsed `V/A` storage has already lost the
+  // Rock/Soundtracks sub-bucket letter the JSP's own getter recovers by
+  // substring-ing the legacy `Z-<letter>` spelling (see this file's header) --
+  // every Various Artists bucket renders identically here regardless of genre.
+  it.each([["V/A"], ["Z-X"], ["Z--"]])(
+    "renders a Various Artists bucket (%j) as V/A, dropping the number",
+    (codeLetters) => {
+      expect(
+        formatCallLettersAndNumbers({ code_letters: codeLetters, code_artist_number: 0 }),
+      ).toBe("V/A");
+    },
+  );
 });
 
 describe("formatReleaseCode — LibraryRelease.java:122", () => {

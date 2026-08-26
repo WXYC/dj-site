@@ -30,6 +30,8 @@ import {
   LibraryQueryParams,
   PeekArtistCodeQuery,
   PeekArtistCodeResponse,
+  ResolveArtistByCodeQuery,
+  ResolveArtistByCodeResponse,
   SearchArtistsInGenreParams,
   SearchArtistsInGenreResponse,
   SearchCatalogQueryParams,
@@ -325,6 +327,40 @@ export const catalogApi = createApi({
         { type: "ArtistCodePeek", id: `${genre_id}:${code_letters}` },
       ],
     }),
+    /**
+     * Resolves a fully-specified library code (`chooseLibraryCodeOrArtist.jsp`'s
+     * `artistSearchForm`, `mode=findOrCreateLibraryCode`) to the artist(s) that
+     * own it. A 200 always carries one or more owners -- more than one is the
+     * `multipleArtistsDisplay.jsp` disambiguation case, not an error; a 404
+     * distinguishes an unknown genre from a code simply not assigned in a
+     * genre that does exist (`reason: 'genre_not_found' | 'code_not_assigned'`).
+     *
+     * Same opt-out and reasoning as `searchArtistsInGenre`: the shared base
+     * query soft-fails an unparseable body (a gateway's HTML 502, Express's
+     * HTML 404) into a successful `null`, which here would read as "code not
+     * assigned" -- the one answer an unreachable backend must not give, since
+     * the chooser acts on it by routing the librarian to create a fresh
+     * artist under that exact code.
+     */
+    resolveArtistByCode: builder.query<ResolveArtistByCodeResponse, ResolveArtistByCodeQuery>({
+      query: ({ genre_id, code_letters, code_number }) => ({
+        url: "/artists/by-code",
+        params: { genre_id, code_letters, code_number },
+      }),
+      extraOptions: { surfaceNonJsonAsError: true },
+      // The chooser handles every failure shape inline (see
+      // `resolveArtistByCodeErrorReason`), including the two structured 404
+      // reasons -- neither is a surprise the shared rtk-query-error-logger
+      // middleware should also toast. Wrapping hides `data.message` from
+      // that middleware entirely, same technique as searchArtistsInGenre for
+      // the same reason: one message, from the screen that has the context
+      // to state it precisely, not two.
+      transformErrorResponse: (
+        response: FetchBaseQueryError,
+      ): { resolveArtistByCodeError: FetchBaseQueryError } => ({
+        resolveArtistByCodeError: response,
+      }),
+    }),
     searchArtistsInGenre: builder.query<
       SearchArtistsInGenreResponse,
       SearchArtistsInGenreParams
@@ -528,6 +564,7 @@ export const {
   useUpdateArtistCardMutation,
   useGetArtistReleasesQuery,
   useLazyPeekArtistCodeQuery,
+  useLazyResolveArtistByCodeQuery,
   useSearchArtistsInGenreQuery,
   useGetCompilationTracksQuery,
   useGetCompilationTrackSuggestionsQuery,

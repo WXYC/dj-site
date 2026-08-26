@@ -5,6 +5,7 @@ import {
   CODE_NUMBER_MAX,
   isArtistNameConflictData,
   normalizeCodeLetters,
+  parseRequiredNonNegativeInt,
   parseRequiredPositiveInt,
   validateNewArtistFields,
 } from "@/lib/features/catalog/adminCreateArtistValidation";
@@ -34,6 +35,33 @@ describe("parseRequiredPositiveInt", () => {
 
   it("rejects leading-zero decimals (not valid code-number literals)", () => {
     expect(parseRequiredPositiveInt("007")).toBeNull();
+  });
+});
+
+describe("parseRequiredNonNegativeInt", () => {
+  it.each([
+    ["0", 0],
+    ["42", 42],
+    ["  99  ", 99],
+  ])("accepts decimal non-negative integer %j → %i", (raw, expected) => {
+    expect(parseRequiredNonNegativeInt(raw)).toBe(expected);
+  });
+
+  it.each([
+    "",
+    "   ",
+    "-1",
+    "1.5",
+    "1e3",
+    "0x10",
+    "abc",
+    "12abc",
+  ])("rejects non-decimal or negative input %j", (raw) => {
+    expect(parseRequiredNonNegativeInt(raw)).toBeNull();
+  });
+
+  it("rejects leading-zero decimals", () => {
+    expect(parseRequiredNonNegativeInt("007")).toBeNull();
   });
 });
 

@@ -1,7 +1,8 @@
 /**
  * Shelf-code rendering for the classic librarian screens, reproducing
- * tubafrenzy's three formatters rule-for-rule:
+ * tubafrenzy's four formatters rule-for-rule:
  *
+ * - `ArtistLibraryCode.getCallLettersAndNumbers()` (`:85`)
  * - `ArtistLibraryCode.getCallLettersAndNumbersWithPunctuation()` (`:98`)
  * - `LibraryRelease.getCallNumbersAndLetters()` (`:122`)
  * - `LibraryRelease.getEntireLibraryCode()` (`:129`)
@@ -57,9 +58,30 @@ export type ReleaseCodeParts = {
  * `Various Artists`, `Various Artists - Rock - <A-Z>`, and
  * `Soundtracks - <A-Z>`, and the last of those contains no "various" at all.
  */
-function isVariousArtists(codeLetters: string): boolean {
+export function isVariousArtists(codeLetters: string): boolean {
   const trimmed = codeLetters.trim();
   return trimmed.toUpperCase() === "V/A" || trimmed.startsWith("Z-");
+}
+
+/**
+ * The artist half of a call number, with no trailing punctuation: `MO 12`
+ * for a named artist, `V/A` for a compilation bucket.
+ *
+ * Unlike `formatArtistCodeWithPunctuation`, this never recovers a
+ * Rock/Soundtracks sub-bucket letter (`X-`) from the legacy `Z-<letter>`
+ * spelling: `multipleArtistsDisplay.jsp`, the one screen that renders this
+ * exact getter, only ever receives rows Backend-Service already collapsed to
+ * the literal `V/A` — see this file's header — so there is no sub-bucket
+ * letter left to recover by the time a caller here holds one.
+ */
+export function formatCallLettersAndNumbers({
+  code_letters,
+  code_artist_number,
+}: Pick<ArtistCodeParts, "code_letters" | "code_artist_number">): string {
+  if (isVariousArtists(code_letters)) {
+    return "V/A";
+  }
+  return `${code_letters.toUpperCase()} ${code_artist_number}`;
 }
 
 /**

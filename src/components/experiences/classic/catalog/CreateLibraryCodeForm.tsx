@@ -8,9 +8,11 @@ import {
   isAddArtistConflict,
   isArtistNameConflictData,
   normalizeCodeLetters,
+  parseRequiredNonNegativeInt,
   parseRequiredPositiveInt,
 } from "@/lib/features/catalog/adminCreateArtistValidation";
 import { isGenresUnavailable } from "@/lib/features/catalog/genreAvailability";
+import { isVariousArtists } from "@/lib/features/catalog/libraryCode";
 import type { AddArtistRequestBody } from "@/lib/features/catalog/types";
 
 type CreateLibraryCodeFormProps = {
@@ -49,13 +51,21 @@ const ARTIST_HEADING =
  * - The dead `Z_` V/A auto-naming branch (`:26`, testing an underscore the
  *   servlet's own prefix `Z-` never produces) is not reproduced -- see
  *   NewArtistForm's header for the same call. The servlet's *live* V/A
- *   handling is reproduced: `Z-` letters get their own heading.
+ *   handling is reproduced: a Various Artists code gets its own heading,
+ *   matched via `isVariousArtists` rather than the servlet's own bare
+ *   `Z-` prefix test, because this screen's carrying URL can arrive with
+ *   either spelling -- `Z-<letter>` from a legacy-shaped link, or `V/A`, the
+ *   literal Backend-Service's by-code resolution actually returns (its
+ *   catalog import collapses every Rock/Soundtracks sub-bucket to that one
+ *   form; see `libraryCode.ts`'s header).
  * - The servlet forwards no `artistNumbers` on its V/A branch and
  *   `processAddArtistLibraryCode` skips call numbers for `Z-` entirely, so
  *   `/wxycdb` files V/A codes with no number at all. `POST /library/artists`
  *   requires `code_number`, so a V/A code is filed here with the number it
  *   carried -- and a V/A link that carries none is refused rather than filed
- *   incomplete.
+ *   incomplete. That number is legitimately `0` (every Various Artists
+ *   bucket is filed at `artist_genre_code = 0`), so the carried value is
+ *   parsed with a floor of 0, not 1.
  *
  * Genre display follows `isGenresUnavailable`'s convention: an unissued or
  * failed genres request renders an explicit unavailable state, never a blank
@@ -85,9 +95,9 @@ export default function CreateLibraryCodeForm({
   const [validationMessage, setValidationMessage] = useState<string | null>(null);
 
   const genreId = parseRequiredPositiveInt(genreIdRaw);
-  const codeNumber = parseRequiredPositiveInt(codeNumberRaw);
+  const codeNumber = parseRequiredNonNegativeInt(codeNumberRaw);
   const upperCodeLetters = normalizeCodeLetters(codeLetters.trim());
-  const heading = upperCodeLetters.startsWith("Z-") ? VARIOUS_ARTISTS_HEADING : ARTIST_HEADING;
+  const heading = isVariousArtists(upperCodeLetters) ? VARIOUS_ARTISTS_HEADING : ARTIST_HEADING;
 
   // Which part of the carried code is unusable, so the refusal can name it.
   // The rows below display these values verbatim like the JSP does, so a
@@ -103,7 +113,7 @@ export default function CreateLibraryCodeForm({
         : codeNumber == null
           ? codeNumberRaw.trim() === ""
             ? "This link carries no call number."
-            : `This link's call number (${codeNumberRaw}) is not a whole number above zero.`
+            : `This link's call number (${codeNumberRaw}) is not a whole number, zero or greater.`
           : null;
 
   const genreName = genres?.find((genre) => genre.id === genreId)?.genre_name;

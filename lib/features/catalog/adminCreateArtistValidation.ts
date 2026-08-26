@@ -9,6 +9,21 @@ export function parseRequiredPositiveInt(raw: string): number | null {
 }
 
 /**
+ * Same contract as `parseRequiredPositiveInt` with a floor of 0 instead of 1
+ * — the floor `resolveArtistByCode` enforces on `code_number`. 0 is not a
+ * placeholder there: it is the Various Artists filing (every compilation
+ * bucket is stored at `artist_genre_code = 0`, regardless of genre), and
+ * Backend-Service imposes no floor above 0 for an ordinary artist code
+ * either, so a carried or typed "0" must parse rather than be read as
+ * absent.
+ */
+export function parseRequiredNonNegativeInt(raw: string): number | null {
+  const trimmed = raw.trim();
+  if (trimmed === "" || !/^(?:0|[1-9]\d*)$/.test(trimmed)) return null;
+  return Number(trimmed);
+}
+
+/**
  * Column ceilings on the rows an artist-creation form writes. Nothing between
  * these fields and the INSERT checks any of them — the handler validates only
  * that the keys are present — so an over-long or over-large value reaches

@@ -28,6 +28,7 @@ describe("catalogApi", () => {
       "getFormats",
       "getGenres",
       "peekArtistCode",
+      "resolveArtistByCode",
       "searchArtistsInGenre",
       "getCompilationTracks",
       "getCompilationTrackSuggestions",

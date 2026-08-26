@@ -213,6 +213,34 @@ export type SearchArtistsInGenreResponse = {
   artists: ArtistInGenreOption[];
 };
 
+/** GET /library/artists/by-code — a fully specified library code. */
+export type ResolveArtistByCodeQuery = {
+  genre_id: number;
+  code_letters: string;
+  code_number: number;
+};
+
+/**
+ * One artist that owns a `(code_letters, genre_id, code_number)` triple.
+ * Plural because the triple is not unique -- Backend-Service's
+ * `getArtistsByCode` documents 13 production collisions, the two largest
+ * being Various-Artists sub-buckets that share one code within a genre. Every
+ * entry in a given response carries the same `genre_id`/`code_letters`/
+ * `code_number` -- that identity is what makes them collide -- so the three
+ * are still projected per-row rather than hoisted, matching the wire shape.
+ */
+export type ArtistByCodeOwner = {
+  id: number;
+  artist_name: string;
+  code_letters: string;
+  code_number: number;
+  genre_id: number;
+};
+
+export type ResolveArtistByCodeResponse = {
+  artists: ArtistByCodeOwner[];
+};
+
 /**
  * A per-track artist credit to write to a Various-Artists compilation. Only the
  * librarian-meaningful free-text fields travel on the wire: the backend derives
