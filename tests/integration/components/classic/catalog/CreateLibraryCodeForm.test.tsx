@@ -85,21 +85,28 @@ describe("classic CreateLibraryCodeForm — createLibraryCode.jsp", () => {
     expect(screen.getByRole("button", { name: "Reset" })).toBeInTheDocument();
   });
 
-  // ArtistAdminServlet picks the heading off the call letters: a `Z-` code is
-  // a Various Artists shelf bucket and gets its own shorter wording, so a
+  // ArtistAdminServlet picks the heading off the call letters: a Various
+  // Artists code is a shelf bucket and gets its own shorter wording, so a
   // librarian filing a compilation is not told to associate a named artist.
-  it("shows the Various Artists heading for a Z- code and the artist heading otherwise", async () => {
-    const { unmount } = renderWithProviders(
-      <CreateLibraryCodeForm {...defaultProps} codeLetters="z-ro" />,
-    );
+  // Both spellings route to the same heading -- `Z-<letter>` is the legacy
+  // spelling this form's carrying URL could still name, `V/A` is what
+  // Backend-Service's by-code resolution actually returns (see
+  // `libraryCode.ts`'s `isVariousArtists`) -- so this is the one URL both
+  // paths funnel through.
+  it.each([["z-ro"], ["V/A"], ["v/a"]])(
+    "shows the Various Artists heading for a %j code",
+    async (codeLetters) => {
+      renderWithProviders(<CreateLibraryCodeForm {...defaultProps} codeLetters={codeLetters} />);
 
-    expect(
-      await screen.findByText(
-        "This 'Various Artists' library code does not currently exist in the database. To create it, click 'Add!'",
-      ),
-    ).toBeInTheDocument();
-    unmount();
+      expect(
+        await screen.findByText(
+          "This 'Various Artists' library code does not currently exist in the database. To create it, click 'Add!'",
+        ),
+      ).toBeInTheDocument();
+    },
+  );
 
+  it("shows the artist heading for an ordinary code", async () => {
     renderWithProviders(<CreateLibraryCodeForm {...defaultProps} />);
     expect(
       await screen.findByText(
@@ -134,7 +141,11 @@ describe("classic CreateLibraryCodeForm — createLibraryCode.jsp", () => {
     [{ codeNumberRaw: "" }, "This link carries no call number."],
     [
       { codeNumberRaw: "012" },
-      "This link's call number (012) is not a whole number above zero.",
+      "This link's call number (012) is not a whole number, zero or greater.",
+    ],
+    [
+      { codeNumberRaw: "-1" },
+      "This link's call number (-1) is not a whole number, zero or greater.",
     ],
   ])("names the unusable part of the carried code (%o)", async (override, message) => {
     const { user } = renderWithProviders(
@@ -146,6 +157,26 @@ describe("classic CreateLibraryCodeForm — createLibraryCode.jsp", () => {
     await user.click(screen.getByRole("button", { name: "Add!" }));
 
     expect(await screen.findByText(message)).toBeInTheDocument();
+  });
+
+  // 0 is the Various Artists filing (artist_genre_code = 0), not a missing
+  // value -- the by-code resolution this screen is reached from searches V/A
+  // codes at exactly this number, so a code carried with "0" must file, not
+  // be refused as though the link were incomplete.
+  it("accepts and files a carried call number of 0", async () => {
+    const { getBodies } = mockAddArtist(() => created({ code_number: 0 }));
+    const { user } = renderWithProviders(
+      <CreateLibraryCodeForm {...defaultProps} codeLetters="V/A" codeNumberRaw="0" />,
+    );
+
+    await screen.findByText("Blues");
+    expect(screen.getByText("0")).toBeInTheDocument();
+    await user.type(screen.getByLabelText(/artist presentation name/i), "Various Artists - Rock - A");
+    await user.type(screen.getByLabelText(/artist alphabetical name/i), "Various Artists - Rock - A");
+    await user.click(screen.getByRole("button", { name: "Add!" }));
+
+    await waitFor(() => expect(getBodies()).toHaveLength(1));
+    expect(getBodies()[0]).toMatchObject({ code_letters: "V/A", code_number: 0 });
   });
 
   // The pending window must not borrow the missing-value rendering: "no genre

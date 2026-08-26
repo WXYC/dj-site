@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
-import { http, HttpResponse } from "msw";
+import { http, HttpResponse, delay } from "msw";
 import { renderWithProviders, server, TEST_BACKEND_URL } from "@/tests/helpers";
 
 vi.mock("@/lib/features/authentication/client", () => ({
@@ -8,11 +8,17 @@ vi.mock("@/lib/features/authentication/client", () => ({
   getJWTToken: vi.fn().mockResolvedValue("test-token"),
 }));
 
+const mockPush = vi.fn();
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: mockPush }),
+}));
+
 import ArtistSearchForm from "@/src/components/experiences/classic/catalog/ArtistSearchForm";
 
 const ROCK_GENRE_ID = 11;
 const SOUNDTRACKS_GENRE_ID = 12;
 const BLUES_GENRE_ID = 3;
+const BY_CODE_URL = `${TEST_BACKEND_URL}/library/artists/by-code`;
 
 function mockGenres() {
   server.use(
@@ -31,8 +37,19 @@ async function selectGenre(user: ReturnType<typeof renderWithProviders>["user"],
   await user.selectOptions(screen.getByLabelText(/^genre/i), name);
 }
 
+async function fillTextboxCode(
+  user: ReturnType<typeof renderWithProviders>["user"],
+  letters: string,
+  numbers: string,
+) {
+  await user.click(screen.getByRole("radio", { name: /call letters:/i }));
+  await user.type(screen.getByLabelText("Call letters:"), letters);
+  await user.type(screen.getByLabelText(/call numbers:/i), numbers);
+}
+
 describe("classic ArtistSearchForm — chooseLibraryCodeOrArtist.jsp's artistSearchForm", () => {
   beforeEach(() => {
+    mockPush.mockClear();
     mockGenres();
   });
 
@@ -169,7 +186,173 @@ describe("classic ArtistSearchForm — chooseLibraryCodeOrArtist.jsp's artistSea
     ).not.toBeInTheDocument();
   });
 
-  it("notes the deferred code-resolution path once validation passes", async () => {
+  it("looks up a fully specified code and lands on the single owner's card", async () => {
+    server.use(
+      http.get(BY_CODE_URL, ({ request }) => {
+        const url = new URL(request.url);
+        expect(url.searchParams.get("genre_id")).toBe(String(ROCK_GENRE_ID));
+        expect(url.searchParams.get("code_letters")).toBe("MO");
+        expect(url.searchParams.get("code_number")).toBe("12");
+        return HttpResponse.json({
+          artists: [
+            { id: 99, artist_name: "Juana Molina", code_letters: "MO", code_number: 12, genre_id: ROCK_GENRE_ID },
+          ],
+        });
+      }),
+    );
+    const { user } = renderWithProviders(<ArtistSearchForm />);
+    await selectGenre(user, "Rock");
+
+    await fillTextboxCode(user, "MO", "12");
+    await user.click(screen.getByRole("button", { name: "Search!" }));
+
+    await waitFor(() => expect(mockPush).toHaveBeenCalledWith("/dashboard/library/artist/99"));
+  });
+
+  // 0 is a legitimate call number (the Various Artists filing, and no floor
+  // above 0 for an ordinary code either) -- not an empty field.
+  it("accepts a call number of 0 in textbox mode", async () => {
+    server.use(
+      http.get(BY_CODE_URL, () =>
+        HttpResponse.json({
+          artists: [{ id: 5, artist_name: "Unknown", code_letters: "UNK", code_number: 0, genre_id: BLUES_GENRE_ID }],
+        }),
+      ),
+    );
+    const { user } = renderWithProviders(<ArtistSearchForm />);
+
+    await fillTextboxCode(user, "UNK", "0");
+    await user.click(screen.getByRole("button", { name: "Search!" }));
+
+    await waitFor(() => expect(mockPush).toHaveBeenCalledWith("/dashboard/library/artist/5"));
+  });
+
+  it("routes a code_not_assigned miss to the creation flow, carrying the searched code", async () => {
+    server.use(
+      http.get(BY_CODE_URL, () =>
+        HttpResponse.json(
+          { message: "Artist code not assigned in that genre", reason: "code_not_assigned" },
+          { status: 404 },
+        ),
+      ),
+    );
+    const { user } = renderWithProviders(<ArtistSearchForm />);
+    await selectGenre(user, "Rock");
+
+    await fillTextboxCode(user, "MO", "12");
+    await user.click(screen.getByRole("button", { name: "Search!" }));
+
+    await waitFor(() =>
+      expect(mockPush).toHaveBeenCalledWith(
+        `/dashboard/library/artist/new?genre_id=${ROCK_GENRE_ID}&code_letters=MO&code_number=12`,
+      ),
+    );
+  });
+
+  // Every Various Artists bucket is filed at code_number 0 under the literal
+  // code_letters "V/A" -- the rockCompLetters sub-bucket letter, still
+  // collected and validated for JSP parity, plays no part in the composed
+  // query (see composeLibraryCodeSearchArgs).
+  it("searches the compilation radio as V/A, 0 for the selected genre", async () => {
+    server.use(
+      http.get(BY_CODE_URL, ({ request }) => {
+        const url = new URL(request.url);
+        expect(url.searchParams.get("code_letters")).toBe("V/A");
+        expect(url.searchParams.get("code_number")).toBe("0");
+        return HttpResponse.json(
+          { message: "Artist code not assigned in that genre", reason: "code_not_assigned" },
+          { status: 404 },
+        );
+      }),
+    );
+    const { user } = renderWithProviders(<ArtistSearchForm />);
+    await selectGenre(user, "Soundtracks");
+    await user.click(screen.getByRole("radio", { name: /various artists/i }));
+    await user.type(screen.getByLabelText(/rock comp/i), "K");
+
+    await user.click(screen.getByRole("button", { name: "Search!" }));
+
+    await waitFor(() =>
+      expect(mockPush).toHaveBeenCalledWith(
+        `/dashboard/library/artist/new?genre_id=${SOUNDTRACKS_GENRE_ID}&code_letters=V%2FA&code_number=0`,
+      ),
+    );
+  });
+
+  it("hands a multi-owner match to onMultiMatch instead of navigating", async () => {
+    const owners = [
+      { id: 1, artist_name: "Various Artists - Rock - A", code_letters: "V/A", code_number: 0, genre_id: ROCK_GENRE_ID },
+      { id: 2, artist_name: "Various Artists - Rock - B", code_letters: "V/A", code_number: 0, genre_id: ROCK_GENRE_ID },
+    ];
+    server.use(http.get(BY_CODE_URL, () => HttpResponse.json({ artists: owners })));
+    const onMultiMatch = vi.fn();
+    const { user } = renderWithProviders(<ArtistSearchForm onMultiMatch={onMultiMatch} />);
+    await selectGenre(user, "Rock");
+    await user.click(screen.getByRole("radio", { name: /various artists/i }));
+    await user.type(screen.getByLabelText(/rock comp/i), "A");
+
+    await user.click(screen.getByRole("button", { name: "Search!" }));
+
+    await waitFor(() =>
+      expect(onMultiMatch).toHaveBeenCalledWith({
+        genreName: "Rock",
+        codeLetters: "V/A",
+        codeNumber: 0,
+        artists: owners,
+      }),
+    );
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it("distinguishes an unknown genre from an unassigned code, refusing to navigate", async () => {
+    server.use(
+      http.get(BY_CODE_URL, () =>
+        HttpResponse.json({ message: "Genre not found", reason: "genre_not_found" }, { status: 404 }),
+      ),
+    );
+    const { user } = renderWithProviders(<ArtistSearchForm />);
+    await selectGenre(user, "Rock");
+
+    await fillTextboxCode(user, "MO", "12");
+    await user.click(screen.getByRole("button", { name: "Search!" }));
+
+    expect(
+      await screen.findByText(`No genre in the catalog has id ${ROCK_GENRE_ID}, so this code can't be looked up.`),
+    ).toBeInTheDocument();
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  // A backend outage must never be reported as "unassigned" -- that would
+  // walk the librarian into creating a duplicate of a code that already
+  // exists.
+  it.each([
+    ["a structured 500", () => HttpResponse.json({ message: "boom" }, { status: 500 })],
+    [
+      "a non-JSON gateway error",
+      () =>
+        new HttpResponse("<!DOCTYPE html><html><body>Bad Gateway</body></html>", {
+          status: 502,
+          headers: { "Content-Type": "text/html" },
+        }),
+    ],
+  ])("refuses to act on %s rather than treating it as unassigned", async (_name, respond) => {
+    server.use(http.get(BY_CODE_URL, respond));
+    const { user } = renderWithProviders(<ArtistSearchForm />);
+    await selectGenre(user, "Rock");
+
+    await fillTextboxCode(user, "MO", "12");
+    await user.click(screen.getByRole("button", { name: "Search!" }));
+
+    expect(
+      await screen.findByText("Couldn't check whether this code exists right now. Try again."),
+    ).toBeInTheDocument();
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  // The JSP's own client validator never checks the call number field --
+  // resolveArtistByCode requires one, so a blank value is refused only once
+  // the JSP-parity rules above have already passed.
+  it("asks for a call number when textbox mode is submitted with one blank", async () => {
     const { user } = renderWithProviders(<ArtistSearchForm />);
 
     await user.click(screen.getByRole("radio", { name: /call letters:/i }));
@@ -177,8 +360,80 @@ describe("classic ArtistSearchForm — chooseLibraryCodeOrArtist.jsp's artistSea
     await user.click(screen.getByRole("button", { name: "Search!" }));
 
     expect(
-      await screen.findByText(/code lookup is not yet available/i),
+      await screen.findByText("You must enter a call number to look up this code."),
     ).toBeInTheDocument();
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  // The textbox radio and its letters/numbers inputs are interactive from
+  // mount -- faithful to the JSP, whose own client-side validator
+  // (library-code-form.js) reads only artistLettersTextbox for this branch,
+  // never genreID. A submit landing inside the client-side genre fetch's
+  // window therefore passes that JSP-parity validation with genreId still
+  // null; the guard against reaching the resolver genre-less lives at the
+  // composition step (composeLibraryCodeSearchArgs), not in the shared
+  // validator, so it fires here too.
+  it("refuses a textbox submit that lands before genres have loaded, without calling the resolver", async () => {
+    let byCodeCalls = 0;
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/library/genres`, async () => {
+        await delay(50);
+        return HttpResponse.json([{ id: BLUES_GENRE_ID, genre_name: "Blues" }]);
+      }),
+      http.get(BY_CODE_URL, () => {
+        byCodeCalls += 1;
+        return HttpResponse.json({ artists: [] });
+      }),
+    );
+    const { user } = renderWithProviders(<ArtistSearchForm />);
+
+    await fillTextboxCode(user, "MO", "12");
+    await user.click(screen.getByRole("button", { name: "Search!" }));
+
+    expect(await screen.findByText("You must select a genre.")).toBeInTheDocument();
+    expect(byCodeCalls).toBe(0);
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  describe("genre outage", () => {
+    it("shows the unavailable genre state and refuses the submit without duplicating the message", async () => {
+      server.use(
+        http.get(`${TEST_BACKEND_URL}/library/genres`, () =>
+          HttpResponse.json({ message: "genres unavailable" }, { status: 500 }),
+        ),
+      );
+      const { user } = renderWithProviders(<ArtistSearchForm />);
+
+      expect(await screen.findByText(/genres are unavailable/i)).toBeInTheDocument();
+      expect(screen.getByLabelText(/^genre/i)).toBeDisabled();
+
+      await user.click(screen.getByRole("radio", { name: /various artists/i }));
+      await user.click(screen.getByRole("button", { name: "Search!" }));
+
+      expect(screen.getAllByText(/genres are unavailable/i)).toHaveLength(1);
+      expect(mockPush).not.toHaveBeenCalled();
+    });
+
+    it("recovers via Try again once genres are reachable", async () => {
+      let genreCalls = 0;
+      server.use(
+        http.get(`${TEST_BACKEND_URL}/library/genres`, () => {
+          genreCalls += 1;
+          return genreCalls === 1
+            ? HttpResponse.json({ message: "genres unavailable" }, { status: 500 })
+            : HttpResponse.json([{ id: BLUES_GENRE_ID, genre_name: "Blues" }]);
+        }),
+      );
+      const { user } = renderWithProviders(<ArtistSearchForm />);
+
+      expect(await screen.findByText(/genres are unavailable/i)).toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: /try again/i }));
+
+      await waitFor(() =>
+        expect(screen.queryByText(/genres are unavailable/i)).not.toBeInTheDocument(),
+      );
+      expect(screen.getByLabelText(/^genre/i)).toBeEnabled();
+    });
   });
 
   it("resets the mode and fields, including the genre back to its default, on Reset values", async () => {
