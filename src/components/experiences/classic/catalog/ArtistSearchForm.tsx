@@ -48,21 +48,13 @@ type ArtistSearchFormProps = {
  * JSP's exact client-side rules (`library-code-form.js`).
  *
  * On submit, resolves the composed code against `resolveArtistByCode`
- * (`GET /library/artists/by-code`) and goes straight to the outcome, matching
- * the JSP's own `findOrCreateLibraryCode` -- no confirmation or results
- * screen in between:
- *
- * - One owner: the artist's card (`/dashboard/library/artist/:id`).
- * - No owner (`reason: "code_not_assigned"`): the creation flow, carrying the
- *   searched code (`/dashboard/library/artist/new`).
- * - More than one owner: `onMultiMatch`, so the caller can swap to
- *   `MultipleArtistsDisplay` -- this component itself never renders that
- *   screen, since the JSP replaces the *whole page* on a multi-match, not
- *   just this form's own subtree.
- * - An unknown genre (`reason: "genre_not_found"`) or any other failure (a
- *   validation 400, a 5xx, an outage): an inline message, and nothing is
- *   navigated to -- see `resolveArtistByCodeErrorReason`'s doc for why a
- *   backend outage must never be read as "code not assigned."
+ * (`GET /library/artists/by-code`) and goes straight to its outcome, matching
+ * the JSP's own `findOrCreateLibraryCode` -- no confirmation or results screen
+ * in between. A multi-match leaves through `onMultiMatch` rather than
+ * rendering here, because the JSP replaces the *whole page* on one, not just
+ * this form's subtree. Every answer this screen cannot trust stops it: see
+ * `resolveArtistByCodeErrorReason` for why an outage must never be read as
+ * "code not assigned."
  *
  * Three divergences from the JSP, each forced by a Backend contract that has
  * no legacy equivalent:
@@ -153,18 +145,6 @@ export default function ArtistSearchForm({ onMultiMatch }: ArtistSearchFormProps
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    // Ahead of validation, not after it: with no genre list there is no
-    // `effectiveGenreId`, and the compilation branch's genre rule would
-    // otherwise refuse with "You must select a genre" -- blaming the
-    // librarian for an outage, beside a select they cannot open. The banner
-    // by that select is the honest message, and the Search button is
-    // disabled while it stands, so reaching here means the state changed
-    // mid-submit.
-    if (genresUnavailable) {
-      setValidationMessage(null);
-      return;
-    }
-
     const result = validateArtistSearchForm({
       callLetterMode,
       artistLettersTextbox,
@@ -191,10 +171,9 @@ export default function ArtistSearchForm({ onMultiMatch }: ArtistSearchFormProps
       return;
     }
 
-    // Only the request is guarded. Routing on its answer stays outside, so a
-    // throw from `router.push` or from `onMultiMatch` surfaces as itself
-    // rather than being reported as a failed lookup the librarian should
-    // retry.
+    // Deciding what a *successful* answer means stays outside the guard, so a
+    // throw from `router.push` or `onMultiMatch` surfaces as itself rather
+    // than being reported as a lookup the librarian should retry.
     let owners: ArtistByCodeOwner[];
     try {
       owners = (await resolveArtistByCode(composed.args).unwrap()).artists;
@@ -272,7 +251,7 @@ export default function ArtistSearchForm({ onMultiMatch }: ArtistSearchFormProps
                 // the derivation above. Disabled (with nothing to select) is
                 // this list's own pre-load state, not a stand-in for the
                 // JSP's empty option.
-                disabled={!genres || genres.length === 0 || genresUnavailable}
+                disabled={!genres || genres.length === 0}
                 onChange={(e) => setGenreId(e.target.value ? Number(e.target.value) : null)}
               >
                 {(genres ?? []).map((genre) => (
@@ -377,11 +356,12 @@ export default function ArtistSearchForm({ onMultiMatch }: ArtistSearchFormProps
           <tr>
             <td />
             <td>
-              <input
-                type="submit"
-                value="Search!"
-                disabled={isResolving || genresUnavailable}
-              />
+              {/* Disabled through a genre outage rather than left to refuse
+                  on submit: with no genre list, the JSP-parity rules would
+                  answer "You must select a genre", blaming the librarian for
+                  a backend that is down beside a select they cannot open.
+                  The banner above says the true thing once. */}
+              <input type="submit" value="Search!" disabled={isResolving || genresUnavailable} />
               &nbsp;&nbsp;&nbsp;&nbsp;
               <input type="button" value="Reset values" onClick={reset} disabled={isResolving} />
             </td>

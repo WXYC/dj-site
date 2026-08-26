@@ -1,26 +1,30 @@
 import type { AddArtistConflict } from "./types";
 
-/** Empty or non-numeric strings must not become 0 (Number("") === 0). */
-export function parseRequiredPositiveInt(raw: string): number | null {
-  const trimmed = raw.trim();
-  // Base-10 positive integers only — reject scientific/hex (Number("1e3") === 1000).
-  if (trimmed === "" || !/^[1-9]\d*$/.test(trimmed)) return null;
-  return Number(trimmed);
-}
-
 /**
- * Same contract as `parseRequiredPositiveInt` with a floor of 0 instead of 1
- * — the floor `resolveArtistByCode` enforces on `code_number`. 0 is not a
+ * The floor `resolveArtistByCode` enforces on `code_number`. 0 is not a
  * placeholder there: it is the Various Artists filing (every compilation
- * bucket is stored at `artist_genre_code = 0`, regardless of genre), and
- * Backend-Service imposes no floor above 0 for an ordinary artist code
- * either, so a carried or typed "0" must parse rather than be read as
- * absent.
+ * bucket is stored at `artist_genre_code = 0`), and Backend-Service imposes
+ * no floor above 0 for an ordinary artist code either, so a carried or typed
+ * "0" must parse rather than be read as absent.
+ *
+ * Empty or non-numeric strings must not become 0 (`Number("") === 0`), and
+ * only base-10 integers count — `Number` accepts scientific and hex notation
+ * (`Number("1e3") === 1000`) for values no call-number field means.
  */
 export function parseRequiredNonNegativeInt(raw: string): number | null {
   const trimmed = raw.trim();
   if (trimmed === "" || !/^(?:0|[1-9]\d*)$/.test(trimmed)) return null;
   return Number(trimmed);
+}
+
+/**
+ * The same contract with a floor of 1. Expressed in terms of the function
+ * above rather than beside it: the two differ on exactly one input, and every
+ * other rule they must agree on is worth stating once.
+ */
+export function parseRequiredPositiveInt(raw: string): number | null {
+  const parsed = parseRequiredNonNegativeInt(raw);
+  return parsed === 0 ? null : parsed;
 }
 
 /**
@@ -57,6 +61,23 @@ export const CODE_NUMBER_MAX = 2147483647;
  */
 export function normalizeCodeLetters(value: string): string {
   return value.toUpperCase();
+}
+
+/**
+ * Whether a code can be *looked up* by `GET /library/artists/by-code`, which
+ * rejects anything else with a 400.
+ *
+ * Deliberately narrower than what `normalizeCodeLetters` above lets a
+ * librarian file, and the gap is real rather than an oversight: the catalog
+ * holds `??` placeholders and legacy `Z-<letter>` compilation codes, and
+ * neither is resolvable by code. Answering the narrow question here, beside
+ * the column's other rules, is what keeps a caller from re-deriving the
+ * domain — and from mistaking this for what may be stored.
+ */
+const CANONICAL_CODE_LETTERS = new RegExp(`^[A-Za-z0-9/]{1,${CODE_LETTERS_MAX_LENGTH}}$`);
+
+export function isCanonicalCodeLetters(value: string): boolean {
+  return CANONICAL_CODE_LETTERS.test(value);
 }
 
 export type NewArtistFieldValues = {

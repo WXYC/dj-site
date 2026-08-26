@@ -1,6 +1,15 @@
 import type { FetchBaseQueryError } from "@reduxjs/toolkit/query";
-import type { CallLetterMode } from "./chooserValidation";
-import { parseRequiredNonNegativeInt } from "./adminCreateArtistValidation";
+import {
+  CALL_LETTER_MODE_REQUIRED_MESSAGE,
+  GENRE_REQUIRED_MESSAGE,
+  type CallLetterMode,
+} from "./chooserValidation";
+import {
+  isCanonicalCodeLetters,
+  normalizeCodeLetters,
+  parseRequiredNonNegativeInt,
+} from "./adminCreateArtistValidation";
+import { VARIOUS_ARTISTS_CODE_LETTERS } from "./libraryCode";
 import type { ResolveArtistByCodeQuery } from "./types";
 
 export type LibraryCodeSearchValues = {
@@ -15,29 +24,18 @@ export type LibraryCodeSearchComposition =
   | { ready: false; message: string };
 
 /**
- * The one code Backend-Service's catalog import leaves every Various Artists
- * bucket filed under, in every genre -- see `libraryCode.ts`'s header for the
- * collapse this reflects. The JSP composed a genre-specific search key from
- * the compilation radio: `Z-<letter>` from `rockCompLetters` for Rock and
- * Soundtracks, the literal `Z--` for every other genre. Neither spelling
- * survives the import, so neither can narrow this search, and the sub-bucket
- * letter is left to `rockCompLetters`' JSP-parity validation alone.
+ * Every Various Artists bucket in a genre is filed at this one call number,
+ * so the compilation radio can only ever search the one pair. The JSP composed
+ * a genre-specific key instead -- `Z-<letter>` from `rockCompLetters` for Rock
+ * and Soundtracks, the literal `Z--` for every other genre -- and the catalog
+ * import preserves neither spelling, so neither can narrow this search. The
+ * sub-bucket letter is left to `rockCompLetters`' JSP-parity validation alone.
  *
  * Every compilation bucket in a genre therefore collides on this one triple,
- * which is the disambiguation screen's actual production trigger --
+ * which is the disambiguation screen's actual production trigger:
  * `V/A`/12/0 has 27 owners and `V/A`/11/0 has 26 in the current catalog.
  */
-const VARIOUS_ARTISTS_CODE_LETTERS = "V/A";
 const VARIOUS_ARTISTS_CODE_NUMBER = 0;
-
-/**
- * `artists.code_letters` is `varchar(4)` and `resolveArtistByCode` rejects
- * anything outside this set with a 400. Mirrored here so a stray character
- * refuses with a message naming the field, rather than reaching the backend
- * and coming back as the caller's unstructured-failure branch — which is
- * worded for a transient outage and invites a retry that can never succeed.
- */
-const CODE_LETTERS_PATTERN = /^[A-Za-z0-9/]{1,4}$/;
 
 /**
  * Composes `artistSearchForm`'s fields into `resolveArtistByCode`'s query
@@ -58,7 +56,7 @@ export function composeLibraryCodeSearchArgs(
   values: LibraryCodeSearchValues,
 ): LibraryCodeSearchComposition {
   if (values.genreId === null) {
-    return { ready: false, message: "You must select a genre." };
+    return { ready: false, message: GENRE_REQUIRED_MESSAGE };
   }
 
   if (values.callLetterMode === "compilation") {
@@ -73,8 +71,8 @@ export function composeLibraryCodeSearchArgs(
   }
 
   if (values.callLetterMode === "textbox") {
-    const codeLetters = values.artistLettersTextbox.trim();
-    if (!CODE_LETTERS_PATTERN.test(codeLetters)) {
+    const codeLetters = normalizeCodeLetters(values.artistLettersTextbox.trim());
+    if (!isCanonicalCodeLetters(codeLetters)) {
       return {
         ready: false,
         message: "Call letters must be letters, digits, or a slash.",
@@ -99,10 +97,7 @@ export function composeLibraryCodeSearchArgs(
   // Kept as an explicit, correctly-worded refusal rather than falling
   // through, so a future caller that skips that gate fails safely instead of
   // composing a bogus query.
-  return {
-    ready: false,
-    message: "You must select one of the choices for Call Letters/Numbers.",
-  };
+  return { ready: false, message: CALL_LETTER_MODE_REQUIRED_MESSAGE };
 }
 
 export type ResolveArtistByCodeErrorReason = "genre_not_found" | "code_not_assigned";

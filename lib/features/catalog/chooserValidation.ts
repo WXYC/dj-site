@@ -26,6 +26,16 @@ export type ValidationResult<Field extends string> =
   | { valid: false; field: Field; message: string };
 
 /**
+ * The JSP's own wording for the two conditions a later gate can also reach.
+ * Exported so the composition step downstream refuses in the same words: a
+ * librarian who sees one sentence for a condition and a different one for the
+ * same condition reads it as two different problems.
+ */
+export const GENRE_REQUIRED_MESSAGE = "You must select a genre.";
+export const CALL_LETTER_MODE_REQUIRED_MESSAGE =
+  "You must select one of the choices for Call Letters/Numbers.";
+
+/**
  * The rockCompLetters sub-bucket letter is required for genreID 11 AND 12 —
  * the JSP's visible label names only "Rock comps", but its own validator
  * raises a distinct message for 12 ("Soundtracks require an additional
@@ -59,7 +69,7 @@ export function validateArtistSearchForm(
       return {
         valid: false,
         field: "genreId",
-        message: "You must select a genre.",
+        message: GENRE_REQUIRED_MESSAGE,
       };
     }
     if (values.genreId === 11 && values.rockCompLetters.trim() === "") {
@@ -82,7 +92,7 @@ export function validateArtistSearchForm(
   return {
     valid: false,
     field: "callLetterMode",
-    message: "You must select one of the choices for Call Letters/Numbers.",
+    message: CALL_LETTER_MODE_REQUIRED_MESSAGE,
   };
 }
 
