@@ -107,10 +107,13 @@ export default function ImportCSVModal({ open, onClose, onComplete, organization
       const row = validRows[i];
 
       try {
+        // No `name` field: better-auth's `user.name` column is not the
+        // display handle it sounds like — it has been silently duplicating
+        // DJs' legal names. Requires the auth provision route to accept a
+        // name-less body — do not deploy this ahead of that change.
         const provisioned = await provisionUser({
           email: row.email,
           username: row.username,
-          name: row.name,
           organizationSlug,
           role,
           realName: row.name,

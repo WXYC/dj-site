@@ -6,6 +6,7 @@ import { adminSlice } from "@/lib/features/admin/frontend";
 import { Authorization } from "@/lib/features/admin/types";
 import type { User } from "@/lib/features/authentication/types";
 import RosterTable from "@/src/components/experiences/modern/admin/roster/RosterTable";
+import { authFetch } from "@/lib/features/authentication/client";
 
 const mockRefetch = vi.fn();
 vi.mock("@/src/hooks/adminHooks", () => ({
@@ -90,5 +91,39 @@ describe("RosterTable", () => {
       "Test DJ"
     );
     expect(adminSlice.selectors.getPage(store.getState())).toBe(2);
+  });
+
+  // better-auth's `user.name` column has been a hidden second copy of the
+  // legal name; dj-site must stop writing it. Deployment is gated on the
+  // auth provision route accepting a name-less body.
+  it("does not send a name field in the provision payload", async () => {
+    const store = makeStore();
+    store.dispatch(adminSlice.actions.setAdding(true));
+
+    const { user } = renderWithProviders(
+      <RosterTable user={adminUser} organizationSlug="wxyc" />,
+      { store }
+    );
+
+    await user.type(
+      screen.getByPlaceholderText("Name"),
+      MOCK_USERS.dj1.realName
+    );
+    await user.type(
+      screen.getByPlaceholderText("Username"),
+      MOCK_USERS.dj1.username
+    );
+    await user.type(
+      screen.getByPlaceholderText("Email"),
+      MOCK_USERS.dj1.email
+    );
+
+    await user.click(screen.getByRole("button", { name: /Save/i }));
+
+    await waitFor(() => expect(authFetch).toHaveBeenCalled());
+
+    const [, init] = (authFetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(init.json).not.toHaveProperty("name");
+    expect(init.json.realName).toBe(MOCK_USERS.dj1.realName);
   });
 });

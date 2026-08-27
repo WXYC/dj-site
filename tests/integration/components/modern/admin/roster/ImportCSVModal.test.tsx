@@ -306,6 +306,24 @@ describe("ImportCSVModal", () => {
       expect(screen.getByText(/Email already exists/)).toBeInTheDocument();
     });
 
+    // better-auth's `user.name` column has been a hidden second copy of the
+    // legal name; dj-site must stop writing it, on either provisioning path.
+    // Deployment is gated on the auth provision route accepting a name-less
+    // body.
+    it("does not send a name field in the provision payload", async () => {
+      await renderAndStartImport();
+
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalled();
+      });
+
+      const body = JSON.parse(
+        (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0][1].body
+      );
+      expect(body).not.toHaveProperty("name");
+      expect(body.realName).toBe("Juana Molina");
+    });
+
     it("should skip rows with validation errors during import", async () => {
       (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
         ok: true,

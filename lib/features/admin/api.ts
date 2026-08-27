@@ -19,10 +19,13 @@ import { Account, ROSTER_FETCH_CHUNK_SIZE, ROSTER_MEMBER_CHUNK_SIZE } from "./ty
 type RosterArgs = { organizationSlug: string };
 type RosterResult = { accounts: Account[] };
 
+// No `name` field: better-auth's `user.name` column is not the display
+// handle it sounds like — it has been silently duplicating DJs' legal names,
+// so provisioning must never populate it from realName or username. Requires
+// the auth provision route to accept a name-less body.
 type ProvisionUserArgs = {
   email: string;
   username: string;
-  name: string;
   organizationSlug: string;
   role: string;
   realName?: string;
