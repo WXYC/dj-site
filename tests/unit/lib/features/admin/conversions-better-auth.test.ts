@@ -54,6 +54,28 @@ describe("convertBetterAuthToAccountResult", () => {
     expect(account.email).toBe("cat@wxyc.org");
   });
 
+  // better-auth's `name` column has been silently duplicating DJs' legal
+  // names; it must never surface through userName or realName, which
+  // display data an admin reads as the handle and the legal name
+  // respectively.
+  it("should not fall back to name for userName when username is absent", () => {
+    const user = createTestBetterAuthUser({
+      username: undefined,
+      name: "Legal Name Should Not Leak",
+    });
+    const account = convertBetterAuthToAccountResult(user);
+    expect(account.userName).toBe("");
+  });
+
+  it("should not fall back to name for realName when realName is absent", () => {
+    const user = createTestBetterAuthUser({
+      realName: undefined,
+      name: "Legal Name Should Not Leak",
+    });
+    const account = convertBetterAuthToAccountResult(user);
+    expect(account.realName).toBe("No Real Name");
+  });
+
   it("should map role to authorization", () => {
     const user = createTestBetterAuthUser({ role: "stationManager" });
     const account = convertBetterAuthToAccountResult(user);

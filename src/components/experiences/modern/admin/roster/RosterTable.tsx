@@ -86,10 +86,13 @@ export default function RosterTable({ user, organizationSlug }: { user: User; or
 
         const role = authorizationToRole(authorizationOfNewAccount);
 
+        // No `name` field: better-auth's `user.name` column is not the
+        // display handle it sounds like — it has been silently duplicating
+        // DJs' legal names. Requires the auth provision route to accept a
+        // name-less body — do not deploy this ahead of that change.
         const provisioned = await provisionUser({
           email: newAccount.email,
           username: newAccount.username,
-          name: newAccount.realName || newAccount.username,
           organizationSlug,
           role,
           realName: newAccount.realName || undefined,

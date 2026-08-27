@@ -24,8 +24,8 @@ export function convertBetterAuthToAccountResult(
 ): Account {
   return {
     id: user.id,
-    userName: user.username || user.name,
-    realName: user.realName || user.name || "No Real Name",
+    userName: user.username ?? "",
+    realName: user.realName || "No Real Name",
     djName: user.djName || undefined,
     authorization: roleToAuthorization(user.role),
     authType: user.emailVerified
