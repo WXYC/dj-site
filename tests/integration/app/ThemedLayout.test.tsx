@@ -1,14 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
+import { lazy } from "react";
 
 // Mock the session module
 vi.mock("@/lib/features/session", () => ({
   createServerSideProps: vi.fn(),
-}));
-
-// Mock the LoadingPage component
-vi.mock("@/src/components/LoadingPage", () => ({
-  LoadingPage: () => <div data-testid="loading-page">Loading...</div>,
 }));
 
 import ThemedLayout, { ThemedLayoutProps } from "@/src/ThemedLayout";
@@ -178,7 +174,7 @@ describe("ThemedLayout", () => {
   });
 
   describe("Suspense boundary", () => {
-    it("should wrap content in Suspense with LoadingPage fallback", async () => {
+    it("should wrap content in Suspense", async () => {
       mockCreateServerSideProps.mockResolvedValue({
         application: {
           experience: "modern",
@@ -201,6 +197,40 @@ describe("ThemedLayout", () => {
       await waitFor(() => {
         expect(screen.getByTestId("modern-content")).toBeInTheDocument();
       });
+    });
+
+    // Renders the real fallback rather than a stand-in, because the component
+    // identity is the whole constraint: this boundary wraps every route and can
+    // render on the server, where a Portal yields a blank screen and Joy's
+    // useModal throws reading `children.props` across the RSC boundary. A mock
+    // would assert the wiring while substituting away the thing under test.
+    it("falls back to an inline indicator that mounts no modal or portal", async () => {
+      mockCreateServerSideProps.mockResolvedValue({
+        application: {
+          experience: "modern",
+          colorMode: "system",
+        },
+        authentication: {
+          isAuthenticated: false,
+          user: undefined,
+        },
+      });
+
+      // Never resolves, so the boundary stays suspended and the fallback is
+      // what the assertions see.
+      const Suspending = lazy(() => new Promise<never>(() => {}));
+
+      const Component = await ThemedLayout({
+        classic: <div>Classic</div>,
+        modern: <Suspending />,
+      });
+
+      const { container, baseElement } = render(Component);
+
+      await waitFor(() => {
+        expect(container.querySelector(".MuiCircularProgress-root")).toBeInTheDocument();
+      });
+      expect(baseElement.querySelector(".MuiModal-root")).not.toBeInTheDocument();
     });
   });
 

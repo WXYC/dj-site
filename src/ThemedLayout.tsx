@@ -1,6 +1,6 @@
 import { createServerSideProps } from "@/lib/features/session";
 import { ReactNode, Suspense } from "react";
-import { LoadingPage } from "./components/LoadingPage";
+import { LoadingFallback } from "./components/LoadingFallback";
 
 export type ThemedLayoutProps = {
   classic: ReactNode;
@@ -20,7 +20,7 @@ export default async function ThemedLayout(
   const { classic, modern, information } = props;
 
   return (
-    <Suspense fallback={<LoadingPage />}>
+    <Suspense fallback={<LoadingFallback />}>
       {information}
       {classic && modern && isClassic ? (
         <div id="classic-container">{classic}</div>
