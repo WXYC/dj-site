@@ -60,7 +60,7 @@ That is not a reason to change course. Library-first is the only shape expressib
 
 **Two process gaps found while checking this** — neither caused by this work, both worth fixing:
 
-- **#2109 and [#2113](https://github.com/WXYC/Backend-Service/issues/2113) are on no project board.** Both carry the `tubafrenzy` label, both gate workflows that die at the 8/31 cutover, and neither appears among the 77 items on the [Tubafrenzy decommissioning board](https://github.com/orgs/WXYC/projects/36). A cutover dependency tracked only by a label is a dependency nobody is watching.
+- **#2109 and [#2113](https://github.com/WXYC/Backend-Service/issues/2113) are on no project board.** Both carry the `tubafrenzy` label, both gate workflows that die at the 9/7 cutover, and neither appears among the 77 items on the [Tubafrenzy decommissioning board](https://github.com/orgs/WXYC/projects/36). A cutover dependency tracked only by a label is a dependency nobody is watching.
 - **#2113** — "Rotation releases cannot be edited: no field-level update endpoint" — is the backend half of the re-bin gap this plan defers. It also records that the allowlist comment quoted above is *already* stale: wiki#88 Phase 3 flipped `rotation` to Backend-canonical, so "tubafrenzy is the only legitimate source for the snapshot columns" no longer holds, and every rotation release created since is uneditable. A typo in an artist name is unfixable today.
 
 For context on what this bench builds on: the [MD catalog-edit UI epic](https://github.com/WXYC/dj-site/issues/1071) and all nine of its children are **closed** — that work shipped 2026-08-05 and is what PR 4 later deletes. This chain is its successor, not a duplicate of open work.
