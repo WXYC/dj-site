@@ -220,8 +220,12 @@ export function createLiveUpdatesListenerMiddleware(
    * silently stays stale.
    *
    * `add_time` is deliberately NOT here: the conversion now carries it onto
-   * every entry under the same name and the same ISO value, so it is a
-   * converted field like any other and merging it forks nothing.
+   * every entry under the same name and the same ISO value, so merging it
+   * keeps the raw field fresh. What makes that safe is that `add_time` is
+   * immutable after insert — no update ever carries a different one. It is
+   * NOT that the value is unshared: the marker variants still derive `day` /
+   * `time` / `isToday` at conversion time, and those are not recomputed here,
+   * so a genuinely changed `add_time` would leave them disagreeing.
    */
   const WIRE_ONLY_UPDATE_KEYS = new Set([
     "entry_type",

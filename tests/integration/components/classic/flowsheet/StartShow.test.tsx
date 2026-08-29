@@ -15,13 +15,14 @@ let userInfoMock: { id: string; real_name?: string; dj_name?: string } | null = 
 // directly; the handoff cases below set an open show.
 let openShowMock: {
   showId: number;
-  djNames: string;
+  djNames: readonly string[];
   lastLoggedAt: string | null;
 } | null = null;
 
 vi.mock("@/src/hooks/flowsheetHooks", () => ({
   useShowControl: () => ({ goLive: goLiveMock }),
-  useOpenShowHandoff: () => openShowMock,
+  // Returns a reader: the real hook is read in the click handler, not rendered.
+  useOpenShowHandoff: () => () => openShowMock,
 }));
 
 vi.mock("@/src/hooks/authenticationHooks", () => ({
@@ -227,7 +228,7 @@ describe("Classic StartShow — out-of-scope fields stay disabled (#694)", () =>
 describe("Classic StartShow — the handoff prompt", () => {
   const OPEN_SHOW = {
     showId: 1951224,
-    djNames: "dj sue",
+    djNames: ["dj sue"],
     lastLoggedAt: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
   };
 

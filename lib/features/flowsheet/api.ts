@@ -21,7 +21,11 @@ import {
   replaceEntryIdAllPages,
   upsertEntrySortedFirstPage,
 } from "./infinite-cache";
-import { readShowAlreadyOpen, type JoinIntent } from "./go-live-handoff";
+import {
+  readShowAlreadyOpen,
+  type JoinIntent,
+  type JoinShowResult,
+} from "./go-live-handoff";
 import {
   FlowsheetEntry,
   FlowsheetShowBlockEntry,
@@ -135,7 +139,10 @@ export const flowsheetApi = createApi({
       },
     }),
     joinShow: builder.mutation<
-      void,
+      // Not `void`: the body is the only thing that says whether a takeover was
+      // honoured or quietly downgraded to a co-host join — see
+      // `takeoverWasHonored`.
+      JoinShowResult,
       DJRequestParams & {
         dj_name?: string;
         dj_name_override?: string;

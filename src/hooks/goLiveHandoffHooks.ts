@@ -1,17 +1,18 @@
 "use client";
 
-import type {
-  JoinIntent,
-  OpenShowHandoff,
+import {
+  formatDjNames,
+  type JoinIntent,
+  type OpenShowHandoff,
 } from "@/lib/features/flowsheet/go-live-handoff";
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
-import type { GoLiveOutcome } from "./flowsheetHooks";
+import type { GoLiveDecision, GoLiveOutcome } from "./flowsheetHooks";
 import { useOpenShowHandoff } from "./flowsheetHooks";
 
 type GoLiveFn = (
   djNameOverride?: string,
-  decision?: { intent: JoinIntent; expected_show_id?: number }
+  decision?: GoLiveDecision
 ) => Promise<GoLiveOutcome>;
 
 export type GoLivePrompt = {
@@ -39,12 +40,20 @@ export type GoLivePrompt = {
  * server's own refusal is the backstop for the window where the two disagree.
  */
 export const useGoLiveHandoff = (goLive: GoLiveFn) => {
-  const openShow = useOpenShowHandoff();
+  const readOpenShow = useOpenShowHandoff();
   const [prompt, setPrompt] = useState<GoLivePrompt | null>(null);
   const [deciding, setDeciding] = useState(false);
 
   const requestGoLive = useCallback(
     async (djNameOverride?: string) => {
+      // Classic renders its prompt inline and leaves the submit button live, so
+      // without this a DJ can fire a second, UNDECIDED join while a decided one
+      // is still in flight. On modern the Joy backdrop happens to prevent it —
+      // the guarantee belongs to the shared hook, not to one surface's markup.
+      if (prompt || deciding) return;
+      // Read at press time, not at render time: the DJ acts on a snapshot, and
+      // this is the freshest one available without a round trip.
+      const openShow = readOpenShow();
       if (openShow) {
         setPrompt({ handoff: openShow, djNameOverride });
         return;
@@ -56,7 +65,7 @@ export const useGoLiveHandoff = (goLive: GoLiveFn) => {
         toast.error(outcome.message);
       }
     },
-    [openShow, goLive]
+    [prompt, deciding, readOpenShow, goLive]
   );
 
   const decide = useCallback(
@@ -82,7 +91,21 @@ export const useGoLiveHandoff = (goLive: GoLiveFn) => {
         });
         return;
       }
+      // Nothing was sent (no resolved user yet), so nothing was decided.
+      // Closing here would reproduce the dead end this prompt exists to remove.
+      if (outcome.status === "skipped") return;
+
       if (outcome.status === "error") toast.error(outcome.message);
+      // The DJ is on air, but as a guest on the show they asked to end. Say so
+      // — this is the one outcome they explicitly declined, and the show they
+      // wanted closed is still open.
+      if (outcome.status === "cohosted") {
+        toast.error(
+          `Could not end the open show. You joined ${formatDjNames(
+            prompt.handoff.djNames
+          )} as a co-host instead.`
+        );
+      }
       setPrompt(null);
     },
     [prompt, deciding, goLive]
