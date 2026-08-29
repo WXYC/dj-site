@@ -507,6 +507,27 @@ describe("usePlaylistSearchResults", () => {
     expect(result.current.displayResults).toEqual([]);
   });
 
+  it("retires the seed when the default listing answers with no rows", async () => {
+    const { wrapper } = createWrapper();
+
+    const { result, rerender } = renderHook(
+      () => usePlaylistSearchResults({ initialResults: seed }),
+      { wrapper },
+    );
+    await waitFor(() => expect(result.current.displayResults[0].id).toBe(900));
+
+    // An empty listing is still an answer. Keyed on row count instead of on
+    // the query settling, the seed would stand on screen contradicting it for
+    // the life of the page.
+    act(() => {
+      mockInfiniteState.data = { pages: [{ results: [], total: 0 }] };
+    });
+    rerender();
+
+    expect(result.current.usingSeed).toBe(false);
+    expect(result.current.displayResults).toEqual([]);
+  });
+
   it("retires the seed when the client query errors", async () => {
     const { wrapper } = createWrapper();
 

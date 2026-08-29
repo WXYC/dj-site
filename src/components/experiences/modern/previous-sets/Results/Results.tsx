@@ -77,6 +77,7 @@ export default function Results({
     loadNextPage,
     showResults,
     isRealQuery,
+    usingSeed,
   } = usePlaylistSearchResults({ initialResults });
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -241,7 +242,12 @@ export default function Results({
               </tr>
             )}
 
-            {!isLoading && !hasMore && displayResults.length > 0 && (
+            {/* Suppressed while the server seed is on screen. `total` and
+                `hasMore` describe the client query, which has not answered
+                yet, so the footer would sit under fifty seeded rows reading
+                "0 results" — an end-of-list claim about a list it cannot
+                see. */}
+            {!usingSeed && !isLoading && !hasMore && displayResults.length > 0 && (
               <tr style={{ background: "transparent" }}>
                 <td
                   colSpan={6}
