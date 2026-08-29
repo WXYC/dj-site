@@ -1,5 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, act, waitFor } from "@testing-library/react";
+import {
+  render,
+  screen,
+  fireEvent,
+  act,
+  waitFor,
+} from "@testing-library/react";
 import { renderToString } from "react-dom/server";
 import { hydrateRoot } from "react-dom/client";
 import GoLive from "@/src/components/experiences/modern/flowsheet/GoLive";
@@ -193,7 +199,7 @@ describe("GoLive", () => {
       // `disabled` attribute, so that's what a divergent `loading` prop
       // would show up as in the server markup.
       expect(serverHtml).toMatch(
-        /data-testid="flowsheet-go-live-button"[^>]*class="[^"]*\bMui-disabled\b/
+        /data-testid="flowsheet-go-live-button"[^>]*class="[^"]*\bMui-disabled\b/,
       );
 
       const container = document.createElement("div");
@@ -211,22 +217,22 @@ describe("GoLive", () => {
       // context, so match a `+`/`-` diff line, not any mention of the name.
       const ariaLabelMismatchLogged = errorSpy.mock.calls.some((call) =>
         call.some(
-          (arg) => typeof arg === "string" && /^[+-]\s*aria-label=/m.test(arg)
-        )
+          (arg) => typeof arg === "string" && /^[+-]\s*aria-label=/m.test(arg),
+        ),
       );
       expect(ariaLabelMismatchLogged).toBe(false);
       // disabled/loading render as class="…Mui-disabled…" / "…Mui-loading…",
       // so a diverging `loading` prop shows up as a `className` diff line.
       const classNameMismatchLogged = errorSpy.mock.calls.some((call) =>
         call.some(
-          (arg) => typeof arg === "string" && /^[+-]\s*className=/m.test(arg)
-        )
+          (arg) => typeof arg === "string" && /^[+-]\s*className=/m.test(arg),
+        ),
       );
       expect(classNameMismatchLogged).toBe(false);
       errorSpy.mockRestore();
 
       const goLiveButton = container.querySelector(
-        '[data-testid="flowsheet-go-live-button"]'
+        '[data-testid="flowsheet-go-live-button"]',
       );
       const buttonGroup = container.querySelector('[role="group"]');
       await waitFor(() => {
@@ -281,10 +287,10 @@ describe("GoLive", () => {
         await openPrompt(goLiveControls()[control]);
 
         expect(
-          screen.getByText(/dj sue is on air\. Last logged 5h 0m ago\./)
+          screen.getByText(/dj sue is on air\. Last logged 5h 0m ago\./),
         ).toBeInTheDocument();
         expect(mockGoLive).not.toHaveBeenCalled();
-      }
+      },
     );
 
     it("sends a co-host join from Join Existing Show", async () => {
@@ -321,7 +327,7 @@ describe("GoLive", () => {
       fireEvent.click(screen.getByTestId("go-live-handoff-cancel"));
 
       await waitFor(() =>
-        expect(screen.queryByTestId("go-live-handoff-dialog")).toBeNull()
+        expect(screen.queryByTestId("go-live-handoff-dialog")).toBeNull(),
       );
       expect(mockGoLive).not.toHaveBeenCalled();
     });
@@ -372,8 +378,9 @@ describe("GoLive", () => {
 
       await waitFor(() =>
         expect(toastError).toHaveBeenCalledWith(
-          "Could not end the open show. You joined dj sue as a co-host instead."
-        )
+          "You're on air as a co-host of dj sue's show. Ending another DJ's show isn't available yet, " +
+            "so your tracks will log under theirs.",
+        ),
       );
     });
 
@@ -385,7 +392,7 @@ describe("GoLive", () => {
       mockGoLive.mockReturnValue(
         new Promise((resolve) => {
           settle = resolve;
-        }) as never
+        }) as never,
       );
       render(<GoLive />);
       await openPrompt(goLiveControls().icon);
@@ -393,7 +400,7 @@ describe("GoLive", () => {
       fireEvent.click(screen.getByTestId("go-live-handoff-takeover"));
 
       await waitFor(() =>
-        expect(screen.getByTestId("go-live-handoff-cancel")).toBeDisabled()
+        expect(screen.getByTestId("go-live-handoff-cancel")).toBeDisabled(),
       );
       await act(async () => {
         settle({ status: "ok" });
