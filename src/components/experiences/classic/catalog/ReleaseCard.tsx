@@ -51,9 +51,13 @@ import Tracklist from "./Tracklist";
  * `Tracklist` this screen already renders. No JSP offers this — the legacy
  * tracklist is display-only — so there is nothing here to diverge from; see
  * that component for why classic needs a write path for per-track credits at
- * all. Gated on `isVariousArtists(artist.lettercode)`, the same structural
- * rule `artistCardRoute` uses, not on the display-only `album_artist` field
- * `Tracklist` reads for its own, narrower purpose of showing an artist column.
+ * all.
+ *
+ * That link and the tracklist below it must agree on what a compilation is, or
+ * a credit is enterable through the one and unreadable in the other. Both use
+ * `isVariousArtists(artist.lettercode)` — never `album_artist`, which the
+ * nightly catalog import alone writes and which is therefore absent on a
+ * release filed today.
  */
 export default function ReleaseCard({ albumId }: { albumId: number }) {
   const { data, isLoading, isError } = useGetInformationQuery({ album_id: albumId });
@@ -315,7 +319,7 @@ export default function ReleaseCard({ albumId }: { albumId: number }) {
       <Tracklist
         albumId={albumId}
         legacyReleaseId={data.legacy_release_id}
-        variousArtists={!!data.album_artist}
+        variousArtists={isVariousArtists(data.artist.lettercode)}
       />
     </div>
   );

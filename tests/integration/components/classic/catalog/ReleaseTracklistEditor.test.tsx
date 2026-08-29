@@ -225,9 +225,112 @@ describe("Classic ReleaseTracklistEditor", () => {
     expect(screen.getByDisplayValue("Save Track Credits")).toHaveProperty("disabled", true);
   });
 
-  it("imports Discogs suggestions that are not already on file", async () => {
+  // A write that fails may still have committed -- the rows land and the
+  // response is lost. The stored list on screen is then a stale account of the
+  // release, and the endpoint cannot amend, so a second save of a corrected row
+  // files it beside the original. Saving stays refused until a fresh read lands.
+  it("re-reads what is on file after a failed save, and refuses another save meanwhile", async () => {
     const user = userEvent.setup();
     mockGetInformationQuery.mockReturnValue({ data: vaAlbum(), isLoading: false, isError: false });
+    mockWriteCompilationTracks.mockReturnValue({
+      unwrap: () => Promise.reject(new Error("connection reset")),
+    });
+    mockRefetchStored.mockReturnValue({ unwrap: () => new Promise(() => {}) });
+
+    renderWithProviders(<ReleaseTracklistEditor albumId={VA_ALBUM_ID} />);
+
+    await user.type(screen.getByLabelText("Artist for track 1"), "Juana Molina");
+    await user.click(screen.getByDisplayValue("Save Track Credits"));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("release-tracklist-message").textContent).toContain(
+        "could not be saved",
+      ),
+    );
+    expect(mockRefetchStored).toHaveBeenCalled();
+    expect(screen.getByDisplayValue("Save Track Credits")).toHaveProperty("disabled", true);
+  });
+
+  it("lifts that refusal as soon as the re-read lands, rather than locking the screen", async () => {
+    const user = userEvent.setup();
+    let confirmRead: (value: unknown) => void = () => {};
+    mockGetInformationQuery.mockReturnValue({ data: vaAlbum(), isLoading: false, isError: false });
+    mockWriteCompilationTracks.mockReturnValue({
+      unwrap: () => Promise.reject(new Error("connection reset")),
+    });
+    mockRefetchStored.mockReturnValue({
+      unwrap: () => new Promise((resolve) => { confirmRead = resolve; }),
+    });
+
+    renderWithProviders(<ReleaseTracklistEditor albumId={VA_ALBUM_ID} />);
+
+    await user.type(screen.getByLabelText("Artist for track 1"), "Juana Molina");
+    await user.click(screen.getByDisplayValue("Save Track Credits"));
+
+    await waitFor(() =>
+      expect(screen.getByDisplayValue("Save Track Credits")).toHaveProperty("disabled", true),
+    );
+
+    confirmRead({ library_id: VA_ALBUM_ID, tracks: [] });
+
+    await waitFor(() =>
+      expect(screen.getByDisplayValue("Save Track Credits")).toHaveProperty("disabled", false),
+    );
+  });
+
+  // Two clicks on the Discogs button must not leave two editable copies of the
+  // same track: correcting one copy and saving files the correction *and* the
+  // original, and neither can be removed afterwards.
+  it("does not re-import a suggestion already sitting in the form", async () => {
+    const user = userEvent.setup();
+    mockGetInformationQuery.mockReturnValue({ data: vaAlbum(), isLoading: false, isError: false });
+    mockFetchSuggestions.mockReturnValue({
+      unwrap: () =>
+        Promise.resolve({
+          library_id: VA_ALBUM_ID,
+          discogs_release_id: 4242,
+          tracks: [
+            { artist_name: "Hermanos Gutiérrez", track_title: "Thousand Days", track_position: "A1" },
+          ],
+        }),
+    });
+
+    renderWithProviders(<ReleaseTracklistEditor albumId={VA_ALBUM_ID} />);
+
+    const button = screen.getByRole("button", { name: "Check Discogs for a Tracklist" });
+    await user.click(button);
+    await waitFor(() =>
+      expect(screen.getByLabelText("Artist for track 1")).toHaveProperty(
+        "value",
+        "Hermanos Gutiérrez",
+      ),
+    );
+    await user.click(button);
+
+    await waitFor(() =>
+      expect(screen.getAllByDisplayValue("Hermanos Gutiérrez")).toHaveLength(1),
+    );
+    expect(screen.queryByLabelText("Artist for track 2")).toBeNull();
+  });
+
+  // A live region announces only what changes inside it. Mounting the region
+  // and its first message together leaves a screen-reader user with silence
+  // where a sighted one reads an outcome.
+  it("keeps the Discogs outcome's live region mounted before there is an outcome", () => {
+    mockGetInformationQuery.mockReturnValue({ data: vaAlbum(), isLoading: false, isError: false });
+
+    renderWithProviders(<ReleaseTracklistEditor albumId={VA_ALBUM_ID} />);
+
+    expect(screen.getByTestId("release-tracklist-suggestions-message")).toBeDefined();
+  });
+
+  it("imports Discogs suggestions that are not already on file", async () => {
+    const user = userEvent.setup();
+    mockGetInformationQuery.mockReturnValue({
+      data: vaAlbum({ legacy_release_id: 91100 }),
+      isLoading: false,
+      isError: false,
+    });
     mockGetCompilationTracksQuery.mockReturnValue({
       data: {
         library_id: VA_ALBUM_ID,
@@ -253,6 +356,10 @@ describe("Classic ReleaseTracklistEditor", () => {
 
     await user.click(screen.getByRole("button", { name: "Check Discogs for a Tracklist" }));
 
+    // The suggestions read resolves its path param against `library.id` too.
+    // The legacy id is a live id in another space, so passing it would return
+    // an unrelated release's tracklist with a 200 rather than failing.
+    await waitFor(() => expect(mockFetchSuggestions).toHaveBeenCalledWith({ libraryId: VA_ALBUM_ID }));
     await waitFor(() => expect(screen.getByLabelText("Artist for track 1")).toHaveProperty("value", "Hermanos Gutiérrez"));
     // The already-filed Jessica Pratt credit must not be re-offered as new.
     expect(screen.queryByDisplayValue("Jessica Pratt")).toBeNull();

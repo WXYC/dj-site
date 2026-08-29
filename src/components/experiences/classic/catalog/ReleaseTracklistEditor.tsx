@@ -67,25 +67,27 @@ const toInput = (row: DraftRow): CompilationTrackInput => ({
  * error, it would silently read or write a different, real release's rows.
  *
  * The V/A gate is `isVariousArtists` on `code_letters` — the same structural
- * rule `artistCardRoute` uses to route to this shelf's own card — not the
- * display-only `album_artist` field the read-only `Tracklist` uses to decide
- * whether to show an artist column. `album_artist` is populated by the
- * nightly catalog import and can lag a release's actual filing; gating a
- * *write* affordance on it would hide this screen from a compilation that was
- * filed today and hasn't been through an import cycle yet.
+ * rule `artistCardRoute` uses to route to this shelf's own card — never
+ * `album_artist`. That column is written by the catalog import mirroring the
+ * legacy MySQL and by nothing else, so it is absent on a release filed today
+ * and stops being written at all once that mirror ends. Gating a *write*
+ * affordance on it would hide this screen from exactly the compilation that
+ * needs it: the one with no credits and no other way to acquire any.
  *
- * Safety property, simpler than the one the modern add-release flow
- * (`VaTracklistStep`) needs: this screen always loads the release's
- * already-stored credits before any write is possible
- * (`useGetCompilationTracksQuery`, never skipped — the release already
- * exists, so the read is never wasted the way it would be moments after a
- * brand-new release's creation). The write endpoint is additive-only — it can
- * add a credit but never amend or remove one — so resubmitting an unchanged
- * row is harmless (the server skips it), but resubmitting a *corrected* one
- * after a lost response would file a second, only-slightly-different credit
- * beside the first. Saving is therefore refused whenever the stored read has
- * not succeeded, rather than let the librarian resubmit against an unknown
- * base state.
+ * Safety property: no write is possible against a base state this screen
+ * cannot account for. It always loads the release's already-stored credits
+ * (`useGetCompilationTracksQuery`, never skipped — the release already exists,
+ * so the read is never wasted the way it would be moments after a brand-new
+ * release's creation), and saving is refused whenever that read has not
+ * succeeded. The write endpoint is additive-only — it can add a credit but
+ * never amend or remove one — so resubmitting an unchanged row is harmless
+ * (the server skips it), while resubmitting a *corrected* one files a second,
+ * only-slightly-different credit beside the first.
+ *
+ * A failed write puts the screen in exactly that unaccountable state, which is
+ * why the refusal covers it too: a request can commit and then lose its
+ * response, so the rows on screen are no longer a truthful account of the
+ * release. The read is reissued and saving stays refused until it lands.
  */
 export default function ReleaseTracklistEditor({ albumId }: { albumId: number }) {
   const { data, isLoading, isError } = useGetInformationQuery({ album_id: albumId });
@@ -100,8 +102,12 @@ export default function ReleaseTracklistEditor({ albumId }: { albumId: number })
   const [writeCompilationTracks, { isLoading: saving }] = useWriteCompilationTracksMutation();
 
   const [rows, setRows] = useState<DraftRow[]>([blankRow()]);
-  const [message, setMessage] = useState<string | null>(null);
-  const [suggestionsMessage, setSuggestionsMessage] = useState<string | null>(null);
+  const [message, setMessage] = useState("");
+  const [suggestionsMessage, setSuggestionsMessage] = useState("");
+  // Set by a write that failed, cleared only by a stored read that succeeds
+  // afterwards. Between the two, what the release holds is unknown: the write
+  // may have committed and lost its response.
+  const [writeOutcomeUnknown, setWriteOutcomeUnknown] = useState(false);
 
   if (isLoading) {
     return (
@@ -143,6 +149,20 @@ export default function ReleaseTracklistEditor({ albumId }: { albumId: number })
   // empty array, which is indistinguishable from "not loaded yet" the moment
   // this component mounts.
   const storedKnown = !!stored && !storedError;
+  const canSave = storedKnown && !writeOutcomeUnknown;
+
+  // Both the failed-write path and the librarian's own retry go through here,
+  // so a read that succeeds always clears the refusal. A read that fails
+  // changes nothing: `storedError` is already refusing the save on its own.
+  const reconfirmStored = async () => {
+    const confirmed = await refetchStored()
+      .unwrap()
+      .then(() => true)
+      .catch(() => false);
+    if (confirmed) {
+      setWriteOutcomeUnknown(false);
+    }
+  };
 
   const updateRow = (key: number, patch: Partial<DraftRow>) =>
     setRows((current) => current.map((row) => (row.key === key ? { ...row, ...patch } : row)));
@@ -153,17 +173,23 @@ export default function ReleaseTracklistEditor({ albumId }: { albumId: number })
   const addRow = () => setRows((current) => [...current, blankRow()]);
 
   const handleImportFromDiscogs = async () => {
-    setSuggestionsMessage(null);
+    setSuggestionsMessage("");
     try {
       const result = await fetchSuggestions({ libraryId: albumId }).unwrap();
-      const already = new Set(storedTracks.map(compilationTrackCreditKey));
+      // Against the rows on screen as well as the stored ones: a second click
+      // that re-offered a row already in the form would leave two editable
+      // copies of one credit, and correcting one of them files both.
+      const already = new Set([
+        ...storedTracks.map(compilationTrackCreditKey),
+        ...rows.map((row) => compilationTrackCreditKey(toInput(row))),
+      ]);
       const toImport = result.tracks.filter(
         (track) => !already.has(compilationTrackCreditKey(track)),
       );
       if (toImport.length === 0) {
         setSuggestionsMessage(
           result.tracks.length > 0
-            ? "Every track Discogs suggested is already on file."
+            ? "Every track Discogs suggested is already on file or in the form below."
             : "No Discogs tracklist matched this release. Enter credits by hand below.",
         );
         return;
@@ -203,8 +229,10 @@ export default function ReleaseTracklistEditor({ albumId }: { albumId: number })
       setRows([blankRow()]);
     } catch {
       setMessage(
-        "These credits could not be saved. Reload this page and check what's already on file before trying again — a credit can only be added here, never corrected.",
+        "These credits could not be saved — but some may still have been filed. Check what's on file above before trying again: a credit can only be added here, never corrected.",
       );
+      setWriteOutcomeUnknown(true);
+      await reconfirmStored();
     }
   };
 
@@ -227,7 +255,7 @@ export default function ReleaseTracklistEditor({ albumId }: { albumId: number })
 
       <div style={{ textAlign: "center" }}>
         <h3 data-testid="release-tracklist-message" role="status">
-          &nbsp;{message ?? ""}&nbsp;
+          &nbsp;{message}&nbsp;
         </h3>
       </div>
 
@@ -257,7 +285,7 @@ export default function ReleaseTracklistEditor({ albumId }: { albumId: number })
         <div role="alert" className="artist-error-message">
           Existing credits could not be confirmed, so saving is disabled until they can be — a
           retry against an unknown state could file a duplicate.{" "}
-          <button type="button" disabled={storedFetching} onClick={() => refetchStored()}>
+          <button type="button" disabled={storedFetching} onClick={() => reconfirmStored()}>
             Try again
           </button>
         </div>
@@ -267,7 +295,9 @@ export default function ReleaseTracklistEditor({ albumId }: { albumId: number })
         <button type="button" onClick={handleImportFromDiscogs} disabled={suggestionsFetching}>
           Check Discogs for a Tracklist
         </button>
-        {suggestionsMessage && <p role="status">{suggestionsMessage}</p>}
+        <p role="status" data-testid="release-tracklist-suggestions-message">
+          &nbsp;{suggestionsMessage}&nbsp;
+        </p>
       </div>
 
       <form name="addCompilationTracks" data-testid="release-tracklist-form" onSubmit={handleSubmit}>
@@ -334,7 +364,7 @@ export default function ReleaseTracklistEditor({ albumId }: { albumId: number })
             </tr>
             <tr>
               <td colSpan={4}>
-                <input type="submit" value="Save Track Credits" disabled={saving || !storedKnown} />
+                <input type="submit" value="Save Track Credits" disabled={saving || !canSave} />
               </td>
             </tr>
           </tbody>

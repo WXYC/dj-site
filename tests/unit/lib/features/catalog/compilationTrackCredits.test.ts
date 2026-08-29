@@ -40,6 +40,23 @@ describe("compilationTrackCreditKey", () => {
     expect(withNull).toBe(withUndefined);
   });
 
+  // The server's uniqueness index covers artist and title together. A key that
+  // dropped the artist would report a Discogs suggestion as already filed
+  // because some other artist's track shares its title, and quietly refuse to
+  // offer it.
+  it("distinguishes two credits sharing a title but crediting different artists", () => {
+    const one = compilationTrackCreditKey({
+      artist_name: "Juana Molina",
+      track_title: "Back, Baby",
+    });
+    const other = compilationTrackCreditKey({
+      artist_name: "Jessica Pratt",
+      track_title: "Back, Baby",
+    });
+
+    expect(one).not.toBe(other);
+  });
+
   it("distinguishes two credits for the same artist with different titles", () => {
     const a = compilationTrackCreditKey({
       artist_name: "Stereolab",
