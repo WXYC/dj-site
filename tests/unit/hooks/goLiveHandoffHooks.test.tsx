@@ -142,6 +142,57 @@ describe("useOpenShowHandoff (direct, real flowsheetApi cache)", () => {
     });
   });
 
+  it("reads the cache at press time, not at render time", async () => {
+    const store = createTestStore();
+    // Rendered against an EMPTY cache deliberately. The hook opens no
+    // subscription of its own, so nothing re-renders it when the poll lands —
+    // meaning a render-time snapshot would never see the collision that
+    // arrives afterwards, and would answer null forever. Reading at press time
+    // is the entire reason this hook returns a function instead of a value,
+    // and it is invisible to any test that primes before rendering.
+    const { result } = renderHook(() => useOpenShowHandoff(), {
+      wrapper: wrapperFor(store),
+    });
+    expect(result.current()).toBeNull();
+
+    await primeCaches(store, {
+      onAir: [createTestOnAirDJResponse({ id: "dj-sue-1", dj_name: "dj sue" })],
+      entries: [
+        createTestV2TrackEntry({
+          show_id: TEST_ENTITY_IDS.SHOW.CURRENT_SHOW,
+          add_time: "2026-08-28T12:00:00.000Z",
+        }),
+      ],
+    });
+
+    // Same function object, new answer.
+    expect(result.current()).toEqual({
+      showId: TEST_ENTITY_IDS.SHOW.CURRENT_SHOW,
+      djNames: ["dj sue"],
+      lastLoggedAt: "2026-08-28T12:00:00.000Z",
+    });
+  });
+
+  it("returns null while the registry has not resolved a user yet", async () => {
+    mockUseRegistry.mockReturnValue({ loading: true, info: null });
+    const store = createTestStore();
+    await primeCaches(store, {
+      // A genuine collision is present, so the only thing that can suppress
+      // the prompt here is the unresolved user — a handoff has nobody to put
+      // on air until the registry answers.
+      onAir: [createTestOnAirDJResponse({ id: "dj-sue-1", dj_name: "dj sue" })],
+      entries: [
+        createTestV2TrackEntry({ show_id: TEST_ENTITY_IDS.SHOW.CURRENT_SHOW }),
+      ],
+    });
+
+    const { result } = renderHook(() => useOpenShowHandoff(), {
+      wrapper: wrapperFor(store),
+    });
+
+    expect(result.current()).toBeNull();
+  });
+
   it("returns null when nobody is on air", async () => {
     const store = createTestStore();
     await primeCaches(store, {
@@ -216,7 +267,11 @@ describe("useGoLiveHandoff — re-entrancy guard", () => {
       ],
     });
 
-    const goLive = vi.fn();
+    // Typed rather than a bare vi.fn(): if the guard ever regresses so that
+    // requestGoLive reaches `await goLive(...)`, an undefined return would
+    // throw inside the hook on `outcome.status` and point a reader at outcome
+    // handling instead of at the guard that actually broke.
+    const goLive = vi.fn(async (): Promise<GoLiveOutcome> => ({ status: "ok" }));
     const { result } = renderHook(() => useGoLiveHandoff(goLive), {
       wrapper: wrapperFor(store),
     });
@@ -321,6 +376,10 @@ describe("useGoLiveHandoff — re-entrancy guard", () => {
     // flight; the state that would isolate it — prompt cleared, decision still
     // running — is unreachable from either UI. Don't read this assertion as
     // coverage of that term, and don't drop the term on the strength of it.
+    // The same applies to `deciding` in decide()'s own `!prompt || deciding`
+    // guard, which nothing here pins either: both surfaces disable the answer
+    // buttons while a decision is in flight, so a second decide() is likewise
+    // unreachable-but-deliberate.
     expect(goLive).toHaveBeenCalledTimes(1);
 
     await act(async () => {
