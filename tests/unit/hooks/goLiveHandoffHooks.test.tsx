@@ -33,15 +33,17 @@ import {
  * separate files.
  */
 
-// prepareHeaders() awaits a JWT lookup on every request; without this the
-// base query hangs trying to reach a real better-auth client with no server
-// behind it in this test (mirrors tests/unit/lib/features/flowsheet/addToFlowsheet.wiring.test.ts).
-vi.mock("@/lib/features/authentication/client", () => ({
-  getJWTToken: vi.fn().mockResolvedValue(null),
-  clearTokenCache: vi.fn(),
-  authBaseURL: "http://localhost:3001/auth",
-  authClient: {},
-}));
+// prepareHeaders() awaits a JWT lookup on every request; without this the base
+// query hangs trying to reach a real better-auth client with no server behind
+// it. Imported by path from inside the factory, never through the
+// `@/tests/helpers` barrel — the barrel pulls in the Redux store, which imports
+// the very module being replaced.
+vi.mock("@/lib/features/authentication/client", async () => {
+  const { createAuthClientModuleMock } = await import(
+    "@/tests/helpers/auth-client-mock"
+  );
+  return createAuthClientModuleMock();
+});
 
 const CURRENT_USER = {
   id: "test-user-1",
@@ -319,7 +321,12 @@ describe("useGoLiveHandoff — re-entrancy guard", () => {
       ],
     });
 
-    let resolveGoLive: ((outcome: GoLiveOutcome) => void) | undefined;
+    // Definitely assigned by the time it is called: the Promise executor runs
+    // synchronously on construction, and goLive is invoked before decide()
+    // suspends. Asserted rather than optional so that a change which delayed
+    // that invocation fails loudly here instead of no-opping into a hang on
+    // the await below.
+    let resolveGoLive!: (outcome: GoLiveOutcome) => void;
     const goLive = vi.fn(
       () =>
         new Promise<GoLiveOutcome>((resolve) => {
@@ -383,7 +390,7 @@ describe("useGoLiveHandoff — re-entrancy guard", () => {
     expect(goLive).toHaveBeenCalledTimes(1);
 
     await act(async () => {
-      resolveGoLive?.({ status: "ok" });
+      resolveGoLive({ status: "ok" });
       await decidePromise;
     });
     expect(result.current.deciding).toBe(false);
