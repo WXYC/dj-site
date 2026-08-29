@@ -72,9 +72,11 @@ export default function RosterTable({ user, organizationSlug }: { user: User; or
         const newAccount = {
           realName: formData.get("realName") as string,
           username: formData.get("username") as string,
-          djName: formData.get("djName")
-            ? (formData.get("djName") as string)
-            : "Anonymous",
+          // Blank stays blank. "Anonymous" is the literal the backend's
+          // handle resolution treats as "no handle", so writing it here
+          // manufactures the row that filter exists to absorb; `|| undefined`
+          // below drops the field, leaving auth_user.dj_name NULL instead.
+          djName: ((formData.get("djName") as string | null) ?? "").trim(),
           email: formData.get("email") as string,
           authorization: authorizationOfNewAccount,
         };

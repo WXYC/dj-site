@@ -324,6 +324,28 @@ describe("ImportCSVModal", () => {
       expect(body.realName).toBe("Juana Molina");
     });
 
+    // A handle-less DJ is a normal roster entry, not a bad row. The importer
+    // used to reject the blank outright, so those DJs were dropped from the
+    // batch with no error surfaced against the import as a whole.
+    it("imports a row with a blank DJ name and omits djName from the payload", async () => {
+      const csv = [
+        "Name,Username,DJ Name,Email",
+        "Juana Molina,jmolina,,juana@wxyc.org",
+      ].join("\n");
+      await renderAndStartImport(csv);
+
+      await waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledTimes(1);
+      });
+
+      const body = JSON.parse(
+        (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0][1].body
+      );
+      expect(body).not.toHaveProperty("djName");
+      expect(body.username).toBe("jmolina");
+      expect(body.realName).toBe("Juana Molina");
+    });
+
     it("should skip rows with validation errors during import", async () => {
       (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
         ok: true,

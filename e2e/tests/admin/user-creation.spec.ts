@@ -155,6 +155,13 @@ test.describe("Admin User Creation", () => {
 
     // Should succeed
     await rosterPage.expectSuccessToast("Account created");
+
+    // …and the handle must actually be absent. A success toast cannot tell a
+    // NULL handle apart from one stored as the literal "Anonymous", which the
+    // backend's handle resolution treats as "no handle" — so asserting the
+    // toast alone would let that substitution pass as optional-handle support.
+    await rosterPage.expectUserInRoster(username);
+    await expect(rosterPage.getUserRow(username)).not.toContainText("Anonymous");
   });
 
   test("should show error for duplicate username", async ({ page }) => {

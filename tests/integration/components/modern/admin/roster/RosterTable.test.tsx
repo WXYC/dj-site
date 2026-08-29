@@ -126,4 +126,61 @@ describe("RosterTable", () => {
     expect(init.json).not.toHaveProperty("name");
     expect(init.json.realName).toBe(MOCK_USERS.dj1.realName);
   });
+
+  // The handle input is optional, and a blank one must reach the API as an
+  // absent field so auth_user.dj_name is left NULL. It must not be sent as
+  // "Anonymous": that is the literal the backend's handle resolution treats
+  // as "no handle", so writing it manufactures the row that filter absorbs.
+  it("omits djName entirely when the handle field is left blank", async () => {
+    const store = makeStore();
+    store.dispatch(adminSlice.actions.setAdding(true));
+
+    const { user } = renderWithProviders(
+      <RosterTable user={adminUser} organizationSlug="wxyc" />,
+      { store }
+    );
+
+    await user.type(
+      screen.getByPlaceholderText("Name"),
+      MOCK_USERS.dj1.realName
+    );
+    await user.type(
+      screen.getByPlaceholderText("Username"),
+      MOCK_USERS.dj1.username
+    );
+    await user.type(
+      screen.getByPlaceholderText("Email"),
+      MOCK_USERS.dj1.email
+    );
+
+    await user.click(screen.getByRole("button", { name: /Save/i }));
+
+    await waitFor(() => expect(authFetch).toHaveBeenCalled());
+
+    const [, init] = (authFetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(init.json.djName).toBeUndefined();
+    expect(JSON.stringify(init.json)).not.toContain("Anonymous");
+  });
+
+  it("still forwards a handle that was filled in", async () => {
+    const store = makeStore();
+    store.dispatch(adminSlice.actions.setAdding(true));
+
+    const { user } = renderWithProviders(
+      <RosterTable user={adminUser} organizationSlug="wxyc" />,
+      { store }
+    );
+
+    await user.type(screen.getByPlaceholderText("Name"), MOCK_USERS.dj1.realName);
+    await user.type(screen.getByPlaceholderText("Username"), MOCK_USERS.dj1.username);
+    await user.type(screen.getByPlaceholderText("DJ Name (Optional)"), "DJ Juana");
+    await user.type(screen.getByPlaceholderText("Email"), MOCK_USERS.dj1.email);
+
+    await user.click(screen.getByRole("button", { name: /Save/i }));
+
+    await waitFor(() => expect(authFetch).toHaveBeenCalled());
+
+    const [, init] = (authFetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(init.json.djName).toBe("DJ Juana");
+  });
 });
