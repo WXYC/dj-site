@@ -659,6 +659,7 @@ export const {
   useSearchArtistsInGenreQuery,
   useGetCompilationTracksQuery,
   useGetCompilationTrackSuggestionsQuery,
+  useLazyGetCompilationTrackSuggestionsQuery,
   useWriteCompilationTracksMutation,
   useGetInformationQuery,
   useGetFormatsQuery,

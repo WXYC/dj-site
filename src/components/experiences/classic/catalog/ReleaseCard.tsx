@@ -8,7 +8,7 @@ import {
   useMarkMissingMutation,
   useUpdateAlbumMutation,
 } from "@/lib/features/catalog/api";
-import { formatEntireLibraryCode } from "@/lib/features/catalog/libraryCode";
+import { formatEntireLibraryCode, isVariousArtists } from "@/lib/features/catalog/libraryCode";
 import { formatStationDateTime } from "@/src/utilities/stationTime";
 import Tracklist from "./Tracklist";
 
@@ -45,6 +45,15 @@ import Tracklist from "./Tracklist";
  *    mean an untyped cast — the pattern that turns a contract gap into a
  *    silent `undefined` — and printing the add date under the JSP's label
  *    would be worse than printing it under a true one.
+ *
+ * One addition beyond the JSP, not a divergence from it: a Various Artists
+ * release gets a link to `ReleaseTracklistEditor`, right above the read-only
+ * `Tracklist` this screen already renders. No JSP offers this — the legacy
+ * tracklist is display-only — so there is nothing here to diverge from; see
+ * that component for why classic needs a write path for per-track credits at
+ * all. Gated on `isVariousArtists(artist.lettercode)`, the same structural
+ * rule `artistCardRoute` uses, not on the display-only `album_artist` field
+ * `Tracklist` reads for its own, narrower purpose of showing an artist column.
  */
 export default function ReleaseCard({ albumId }: { albumId: number }) {
   const { data, isLoading, isError } = useGetInformationQuery({ album_id: albumId });
@@ -294,6 +303,14 @@ export default function ReleaseCard({ albumId }: { albumId: number }) {
           </tbody>
         </table>
       </form>
+
+      {isVariousArtists(data.artist.lettercode) && (
+        <div className="label" style={{ textAlign: "center" }}>
+          <a href={`/dashboard/library/release/${albumId}/tracklist`}>
+            Enter Per-Track Artist Credits
+          </a>
+        </div>
+      )}
 
       <Tracklist
         albumId={albumId}
