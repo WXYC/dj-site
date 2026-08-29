@@ -1,4 +1,5 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
+import type { FetchBaseQueryError } from "@reduxjs/toolkit/query";
 import type { RootState } from "@/lib/store";
 import { backendBaseQuery } from "../backend";
 import { convertToAlbumEntry } from "../catalog/conversions";
@@ -9,6 +10,11 @@ import type {
   KillRotationRequest,
   RotationEntry,
 } from "@wxyc/shared";
+import type {
+  FreeTextRotationAddRequest,
+  RotationListRow,
+  UncataloguedRotationRow,
+} from "./types";
 
 export const rotationApi = createApi({
   reducerPath: "rotationApi",
@@ -100,6 +106,87 @@ export const rotationApi = createApi({
         url: `/${rotationId}/tracks`,
       }),
     }),
+    // The classic list's Active facet. Distinct from `getRotation` above,
+    // which converts the same `GET /library/rotation` response into
+    // `AlbumEntry[]` for the modern add-to-rotation picker and drops every
+    // field that conversion doesn't read (`rotation_id`, `rotation_bin`,
+    // `rotation_add_date`, `rotation_kill_date`) -- exactly the fields the
+    // classic list's Type/Added/Killed columns and Kill/Unkill actions need.
+    // A second endpoint against the same URL costs a second request when a
+    // page uses both shapes; no page does today.
+    // Opts out of the shared soft-JSON-failure handling
+    // (`surfaceNonJsonAsError`), matching `getUncataloguedRotation` below: a
+    // query-fed list must never render an unissued or failed request as "there
+    // are none", and the Active facet reading a backend outage as "no
+    // releases are active" is exactly that failure.
+    getRotationList: builder.query<RotationListRow[], void>({
+      query: () => ({ url: "" }),
+      extraOptions: { surfaceNonJsonAsError: true },
+      providesTags: ["Rotation"],
+    }),
+    // The Awaiting Cataloging queue (`GET /library/rotation/uncatalogued`, the
+    // cataloging-backlog read Backend's relaxed rotation-add path pairs with).
+    // `limit`/`offset` are passed straight through as query params; omitting
+    // the arg omits both, which Backend treats as "the default page"
+    // (`UNCATALOGUED_ROTATION_MAX_LIMIT`, currently 500) rather than "no
+    // rows" -- there is no arg shape here that could send `limit=0`.
+    //
+    // Opts out of the shared soft-JSON-failure handling
+    // (`surfaceNonJsonAsError`), matching `labelsApi.searchLabels`: an empty
+    // rotation queue is exactly the state a query-fed list must never render
+    // an outage as, and the shared base query's default behavior for a
+    // non-JSON body is exactly a silent empty list.
+    getUncataloguedRotation: builder.query<
+      UncataloguedRotationRow[],
+      { limit?: number; offset?: number } | void
+    >({
+      query: (args) => ({ url: "/uncatalogued", params: args ?? undefined }),
+      extraOptions: { surfaceNonJsonAsError: true },
+      providesTags: ["Rotation"],
+    }),
+    // `POST /library/rotation` for a release with no catalogued album (the
+    // free-text path Backend added alongside the cataloging-backlog read
+    // above) -- distinct from `addRotationEntry` above,
+    // which is typed against the published `AddRotationRequest` and requires
+    // `album_id`. The response is the full raw `rotation` row, a superset of
+    // `UncataloguedRotationRow`'s fields.
+    //
+    // Every refusal from this endpoint (missing rotation_bin, missing
+    // artist_name/album_title, an over-length snapshot field) carries a
+    // message precise enough to act on, and the caller renders it inline
+    // (`RotationReleaseInsert`'s validationMessage, matching the JSP's own
+    // div of that name) -- so, like `labelsApi.searchLabels`, the message is
+    // nested under a key the shared rejected-query middleware's
+    // `payload.data.message` lookup does not recognize, keeping one refusal
+    // from being reported twice.
+    addFreeTextRotationEntry: builder.mutation<UncataloguedRotationRow, FreeTextRotationAddRequest>({
+      query: (body) => ({ url: "", method: "POST", body }),
+      transformErrorResponse: (
+        response: FetchBaseQueryError,
+      ): { rotationAddError: FetchBaseQueryError } => ({
+        rotationAddError: response,
+      }),
+      invalidatesTags: ["Rotation"],
+    }),
+    // Unkill: `PATCH /library/rotation/:id`, the field-level rotation editor,
+    // with `kill_date: null` clears a kill date. Distinct from
+    // `killRotationEntry` above, which
+    // hits the *other* rotation PATCH route (`PATCH /library/rotation`, no
+    // `:id`) that only ever sets a kill date -- there is no bodied "clear"
+    // shape on that route, so Unkill has to be the field-level editor
+    // instead. A kill_date-only PATCH never touches the artist_name /
+    // album_title / record_label snapshot trio, so it can never hit that
+    // route's linked-row 409 -- this mutation's response type is the
+    // same eight-field projection every `/library/rotation/:id` PATCH
+    // returns.
+    unkillRotationEntry: builder.mutation<UncataloguedRotationRow, { rotation_id: number }>({
+      query: ({ rotation_id }) => ({
+        url: `/${rotation_id}`,
+        method: "PATCH",
+        body: { kill_date: null },
+      }),
+      invalidatesTags: ["Rotation"],
+    }),
   }),
 });
 
@@ -115,5 +202,9 @@ export const {
   useAddRotationEntryMutation,
   useKillRotationEntryMutation,
   useGetRotationTracksQuery,
+  useGetRotationListQuery,
+  useGetUncataloguedRotationQuery,
+  useAddFreeTextRotationEntryMutation,
+  useUnkillRotationEntryMutation,
   usePrefetch: useRotationPrefetch,
 } = rotationApi;
