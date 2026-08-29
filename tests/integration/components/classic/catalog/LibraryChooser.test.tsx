@@ -59,6 +59,32 @@ describe("classic LibraryChooser — chooseLibraryCodeOrArtist.jsp + multipleArt
     expect(screen.queryByTestId("multiple-artists-display")).not.toBeInTheDocument();
   });
 
+  // An earlier chooser slice deferred this block as a divergence from the
+  // JSP, because its destination didn't exist yet; the classic rotation
+  // list slice builds that destination (the Awaiting Cataloging facet) and
+  // restores it here, closing that divergence.
+  it("restores the chooser's rotation block, above the <hr>, linking to the Awaiting Cataloging facet", () => {
+    const { container } = renderWithProviders(<LibraryChooser />);
+
+    expect(screen.getByText(/Import a killed rotation release into the library/i)).toBeInTheDocument();
+    const rotationLink = screen.getByRole("link", { name: /View Rotation Releases Awaiting Cataloging/i });
+    expect(rotationLink).toHaveAttribute("href", "/dashboard/rotation?status=uncataloged");
+
+    // JSP order: rotation block, <hr>, artistSearchForm, newArtistForm --
+    // with no second <hr> between the two forms.
+    const html = container.innerHTML;
+    const rotationBlockIndex = html.indexOf("Import a killed rotation release");
+    const hrIndex = html.indexOf("<hr");
+    const artistFormIndex = html.indexOf('data-testid="artist-search-form"');
+    const newArtistFormIndex = html.indexOf('data-testid="new-artist-form"');
+
+    expect(rotationBlockIndex).toBeGreaterThanOrEqual(0);
+    expect(hrIndex).toBeGreaterThan(rotationBlockIndex);
+    expect(artistFormIndex).toBeGreaterThan(hrIndex);
+    expect(newArtistFormIndex).toBeGreaterThan(artistFormIndex);
+    expect((html.match(/<hr/g) ?? []).length).toBe(1);
+  });
+
   it("replaces both forms with the disambiguation screen on a multi-match, matching the JSP's full-page swap", async () => {
     const { user } = renderWithProviders(<LibraryChooser />);
     expect(capturedOnMultiMatch).toBeDefined();
