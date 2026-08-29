@@ -5,9 +5,14 @@ import type { ShowBlock as ShowBlockModel } from "@/lib/features/schedule-week/l
 
 export const SHOW_PANEL_ID = "schedule-week-show-entries";
 
-// Below this a block cannot hold legible text. It still has to be reachable,
-// so the name moves to the accessible name rather than disappearing.
-const LABEL_THRESHOLD_FRACTION = 30 / (24 * 60);
+// Two thresholds, because the label is two lines and the column is only ~640px
+// for a whole day: an hour of airtime is ~27px, which fits one line of body-xs
+// but not two. Below the first a block shows nothing and carries its name only
+// in the accessible name; between the two it shows the name alone; above the
+// second there is room for the time range as well. A single threshold clips the
+// second line mid-glyph on every hour-long show.
+const NAME_THRESHOLD_FRACTION = 30 / (24 * 60);
+const TIME_RANGE_THRESHOLD_FRACTION = 75 / (24 * 60);
 
 export default function ShowBlock({
   block,
@@ -21,7 +26,8 @@ export default function ShowBlock({
   const label = [block.showName ?? block.djName ?? "Unattributed", block.timeRangeLabel]
     .filter(Boolean)
     .join(" — ");
-  const showsText = block.heightFraction >= LABEL_THRESHOLD_FRACTION;
+  const showsName = block.heightFraction >= NAME_THRESHOLD_FRACTION;
+  const showsTimeRange = block.heightFraction >= TIME_RANGE_THRESHOLD_FRACTION;
 
   return (
     <Box
@@ -54,12 +60,14 @@ export default function ShowBlock({
         "&:focus-visible": { outline: "2px solid", outlineColor: "primary.solidBg" },
       }}
     >
-      {showsText && (
+      {showsName && (
         <Typography level="body-xs" noWrap sx={{ lineHeight: 1.2 }}>
           {block.showName ?? block.djName ?? "Unattributed"}
-          <Box component="span" sx={{ display: "block", opacity: 0.7 }}>
-            {block.timeRangeLabel}
-          </Box>
+          {showsTimeRange && (
+            <Box component="span" sx={{ display: "block", opacity: 0.7 }}>
+              {block.timeRangeLabel}
+            </Box>
+          )}
         </Typography>
       )}
     </Box>

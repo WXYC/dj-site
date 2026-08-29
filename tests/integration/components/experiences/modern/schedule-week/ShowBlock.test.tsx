@@ -66,6 +66,31 @@ describe("ShowBlock", () => {
     expect(onSelect).toHaveBeenCalledWith(1951179);
   });
 
+  it.each([
+    ["an hour-long block", 60 / (24 * 60), true, false],
+    ["a three-hour block", 180 / (24 * 60), true, true],
+    ["a ten-minute block", 10 / (24 * 60), false, false],
+  ])(
+    "on %s shows name=%s timeRange=%s",
+    (_label, heightFraction, expectName, expectRange) => {
+      // The column is ~640px for a whole day, so an hour of airtime fits one
+      // line of text and not two. Rendering both clips the second mid-glyph.
+      render(
+        <ShowBlock
+          block={block({ heightFraction })}
+          isSelected={false}
+          onSelect={onSelect}
+        />,
+      );
+      expect(screen.queryByText("DJ Chowder") !== null).toBe(expectName);
+      expect(screen.queryByText("6:00a–9:00a") !== null).toBe(expectRange);
+      // Whatever is visible, the full label is always reachable.
+      expect(
+        screen.getByRole("button", { name: /DJ Chowder — 6:00a–9:00a/ }),
+      ).toBeInTheDocument();
+    },
+  );
+
   it("marks a show whose sign-off was never recorded", () => {
     render(
       <ShowBlock

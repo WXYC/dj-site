@@ -25,7 +25,17 @@ export default function ScheduleWeekView() {
   const showEntries = useShowEntries(selectedShow, entries, window, now);
 
   return (
-    <Box sx={{ width: "100%" }}>
+    // `Main` is `height: 100dvh; overflow: hidden`, so a page that does not
+    // carry its own scrollport simply loses everything below the fold -- here
+    // the bottom of a 24-hour grid, and the entry panel under it.
+    <Box
+      sx={{
+        width: "100%",
+        flex: 1,
+        minHeight: 0,
+        overflowY: "auto",
+      }}
+    >
       <WeekHeader
         weekStart={weekStart}
         hasNextWeek={hasNextWeek}
