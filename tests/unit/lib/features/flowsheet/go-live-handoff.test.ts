@@ -4,6 +4,7 @@ import {
   formatDjNames,
   formatElapsedSince,
   readShowAlreadyOpen,
+  takeoverWasHonored,
 } from "@/lib/features/flowsheet/go-live-handoff";
 
 const NOW = new Date("2026-08-28T20:00:00.000Z").getTime();
@@ -31,7 +32,7 @@ describe("readShowAlreadyOpen", () => {
   it("reads the open show's id and name off the refusal", () => {
     expect(readShowAlreadyOpen(conflict)).toEqual({
       showId: 1951224,
-      djNames: "dj sue",
+      djNames: ["dj sue"],
       lastLoggedAt: null,
     });
   });
@@ -42,7 +43,7 @@ describe("readShowAlreadyOpen", () => {
   it("reads the wrapped rejection queryFulfilled produces", () => {
     expect(readShowAlreadyOpen({ error: conflict, meta: {} })).toEqual({
       showId: 1951224,
-      djNames: "dj sue",
+      djNames: ["dj sue"],
       lastLoggedAt: null,
     });
   });
@@ -70,9 +71,9 @@ describe("readShowAlreadyOpen", () => {
     expect(readShowAlreadyOpen(err)).toBeNull();
   });
 
-  // A show whose name the chain can't resolve still has to be nameable in a
-  // sentence; "Someone is on air" beats " is on air".
-  it("falls back to a placeholder when the name is blank", () => {
+  // A show whose name the chain can't resolve names nobody, and the sentence
+  // supplies the placeholder at render: "Someone is on air" beats " is on air".
+  it("names nobody when the name is blank, and still reads as a sentence", () => {
     const blank = {
       status: 409,
       data: {
@@ -80,7 +81,9 @@ describe("readShowAlreadyOpen", () => {
         details: { show: { id: 7, dj_name: "   " } },
       },
     };
-    expect(readShowAlreadyOpen(blank)?.djNames).toBe("Someone");
+    const handoff = readShowAlreadyOpen(blank);
+    expect(handoff?.djNames).toEqual([]);
+    expect(describeOpenShow(handoff!, NOW)).toBe("Someone is on air.");
   });
 });
 
@@ -127,7 +130,11 @@ describe("describeOpenShow", () => {
   it("leads with the elapsed time, which is what the DJ is actually deciding on", () => {
     expect(
       describeOpenShow(
-        { showId: 1, djNames: "dj sue", lastLoggedAt: ago(5 * HOUR + 12 * MINUTE) },
+        {
+          showId: 1,
+          djNames: ["dj sue"],
+          lastLoggedAt: ago(5 * HOUR + 12 * MINUTE),
+        },
         NOW
       )
     ).toBe("dj sue is on air. Last logged 5h 12m ago.");
@@ -135,7 +142,10 @@ describe("describeOpenShow", () => {
 
   it("reads very differently for a show that is plainly still running", () => {
     expect(
-      describeOpenShow({ showId: 1, djNames: "dj sue", lastLoggedAt: ago(2 * MINUTE) }, NOW)
+      describeOpenShow(
+        { showId: 1, djNames: ["dj sue"], lastLoggedAt: ago(2 * MINUTE) },
+        NOW
+      )
     ).toBe("dj sue is on air. Last logged 2m ago.");
   });
 
@@ -144,7 +154,65 @@ describe("describeOpenShow", () => {
   // rather than inventing a reading of it.
   it("drops the elapsed clause rather than guessing when the timestamp is unknown", () => {
     expect(
-      describeOpenShow({ showId: 1, djNames: "dj sue", lastLoggedAt: null }, NOW)
+      describeOpenShow(
+        { showId: 1, djNames: ["dj sue"], lastLoggedAt: null },
+        NOW
+      )
     ).toBe("dj sue is on air.");
+  });
+
+  // Subject and verb come from one filtered list. Counting the raw array
+  // instead would render "dj sue are on air" for a co-host with a blank handle.
+  it("ignores blank handles when choosing the verb", () => {
+    expect(
+      describeOpenShow(
+        { showId: 1, djNames: ["dj sue", "  "], lastLoggedAt: null },
+        NOW
+      )
+    ).toBe("dj sue is on air.");
+  });
+
+  // The abandoned show this feature exists for is exactly the one that
+  // collects several DJs, so the plural is not a rare path.
+  it("agrees with a plural subject", () => {
+    expect(
+      describeOpenShow(
+        {
+          showId: 1,
+          djNames: ["dj sue", "eureka!", "DJ boy"],
+          lastLoggedAt: ago(5 * HOUR),
+        },
+        NOW
+      )
+    ).toBe("dj sue, eureka! and DJ boy are on air. Last logged 5h 0m ago.");
+  });
+});
+
+/**
+ * The server may decline a takeover without saying so: while its takeover flag
+ * is off it ignores `intent` and co-hosts, answering 200 with the membership
+ * row instead of a new show. Only the body's shape separates the two, and
+ * reading it wrong is what lets "End Existing Show" attach a DJ to the show
+ * they asked to end.
+ */
+describe("takeoverWasHonored", () => {
+  const ENDED = 1951224;
+
+  it("reads a newly started show as honoured", () => {
+    expect(takeoverWasHonored({ id: 1951225 }, ENDED)).toBe(true);
+  });
+
+  // The day the server answers a co-host join with the joined show, presence
+  // of an `id` stops discriminating — but its identity still does.
+  it("reads the show it was asked to end as NOT honoured", () => {
+    expect(takeoverWasHonored({ id: ENDED }, ENDED)).toBe(false);
+  });
+
+  it.each([
+    ["a co-host membership row", { show_id: ENDED, dj_id: "dj-eureka" }],
+    ["an empty body", {}],
+    ["no body at all", undefined],
+  ])("reads %s as not honoured", (_label, body) => {
+    expect(takeoverWasHonored(body, ENDED)).toBe(false);
   });
 });

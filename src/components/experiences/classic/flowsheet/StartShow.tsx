@@ -16,7 +16,7 @@ export default function StartShow() {
   // the dead end this prompt exists to remove, only relocated.
   const { prompt, deciding, requestGoLive, decide, cancel } =
     useGoLiveHandoff(goLive);
-  const { info: userData } = useRegistry();
+  const { info: userData, loading: registryLoading } = useRegistry();
   // Editable per-show override for the DJ's public handle, initialized to the
   // registry's `dj_name`. useRegistry() is async, so useState's initializer
   // (which only runs once) can't wait for it — this effect syncs the field
@@ -185,10 +185,17 @@ export default function StartShow() {
               </tr>
               <tr>
                 <td colSpan={2} align="center">
+                  {/* Disabled until the registry resolves: `goLive` sends
+                      nothing without it, so a live button here would be a form
+                      that silently does nothing — the dead end this prompt
+                      exists to remove. Modern gates the same way on `loading`. */}
                   <input
                     type="submit"
                     value="Sign on and Start the Show!"
-                    style={{ cursor: "pointer" }}
+                    disabled={registryLoading || !userData}
+                    style={{
+                      cursor: registryLoading || !userData ? "not-allowed" : "pointer",
+                    }}
                   />
                 </td>
               </tr>
@@ -196,14 +203,9 @@ export default function StartShow() {
                 <tr>
                   <td colSpan={2} align="center">
                     <div
-                      className="smalltext"
+                      className="smalltext go-live-handoff-prompt"
+                      role="alert"
                       data-testid="go-live-handoff-prompt"
-                      style={{
-                        border: "2px solid #990000",
-                        padding: "10px",
-                        margin: "0 auto",
-                        maxWidth: "28em",
-                      }}
                     >
                       <b>{describeOpenShow(prompt.handoff)}</b>
                       <p>
@@ -222,14 +224,11 @@ export default function StartShow() {
                       {/* Red because it signs somebody else off the air. */}
                       <input
                         type="button"
+                        className="handoff-danger"
                         value="End Existing Show"
                         disabled={deciding}
                         onClick={() => void decide("takeover")}
-                        style={{
-                          cursor: "pointer",
-                          color: "#990000",
-                          fontWeight: "bold",
-                        }}
+                        style={{ cursor: "pointer" }}
                         data-testid="go-live-handoff-takeover"
                       />
                       &nbsp;

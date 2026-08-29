@@ -34,24 +34,38 @@ export function maxPlayOrder(draft: Pick<InfiniteEntriesDraft, "pages">): number
  * show's tail stops partitioning as current during the goLive window.
  */
 export function primaryShowId(draft: Pick<InfiniteEntriesDraft, "pages">): number {
-  return newestRealEntry(draft)?.show_id ?? -1;
+  for (const page of draft.pages) {
+    for (const e of page) {
+      if (e.show_id !== -1) return e.show_id;
+    }
+  }
+  return -1;
 }
 
 /**
- * The newest entry that belongs to some show, skipping orphans (show_id exactly
- * -1). Same traversal and same skip rule `primaryShowId` needs — it is defined
- * in terms of this — plus the row itself, for callers that want more than the
- * show id (the handoff prompt reads its `add_time`).
+ * When anything was last logged, ISO-8601, or null if nothing carries a time.
+ *
+ * Deliberately NOT the `primaryShowId` traversal: that one skips the `-1`
+ * orphan sentinel, which stands for a row the server sent with `show_id: null`
+ * — a real, freshly logged entry that simply has no mapped show. Reading past
+ * one lands on the *previous* show's tail and reports its timestamp, so a DJ
+ * who logged a track two minutes ago is described as having last logged hours
+ * ago. That is the precise misreading that ends a live show, since the elapsed
+ * time is the whole decision input. "Has anyone touched this flowsheet lately"
+ * is answered just as well by an unattributed row as by an attributed one.
+ *
+ * Optimistic rows carry no `add_time` (they have not been logged yet) and are
+ * skipped for free.
  */
-export function newestRealEntry(
+export function newestLoggedAt(
   draft: Pick<InfiniteEntriesDraft, "pages">
-): FlowsheetEntry | undefined {
+): string | null {
   for (const page of draft.pages) {
     for (const e of page) {
-      if (e.show_id !== -1) return e;
+      if (e.add_time) return e.add_time;
     }
   }
-  return undefined;
+  return null;
 }
 
 // Monotonic counter, not Date.now()+random: two submissions in the same

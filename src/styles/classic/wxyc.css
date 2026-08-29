@@ -565,6 +565,31 @@ html[data-experience="classic"][data-joy-color-scheme="dark"] .artist-error-mess
 	border-color: #A33;
 }
 
+/* Go-live handoff prompt: shown in place when a DJ signs on while someone
+   else's show is still open. Deliberately not .artist-error-message — that one
+   is field-scoped to a 300px input, and this carries a sentence plus three
+   choices. Red because one of those choices signs somebody else off the air. */
+.go-live-handoff-prompt {
+	border: 2px solid #990000;
+	padding: 10px;
+	margin: 0 auto;
+	max-width: 28em;
+}
+
+.go-live-handoff-prompt .handoff-danger {
+	color: #990000;
+	font-weight: bold;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] .go-live-handoff-prompt {
+	background-color: #3A1D1D;
+	border-color: #A33;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] .go-live-handoff-prompt .handoff-danger {
+	color: #FF8A8A;
+}
+
 /* ========== wxycdb page bits ========== */
 
 ul {

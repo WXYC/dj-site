@@ -4,6 +4,11 @@ import { renderToString } from "react-dom/server";
 import { hydrateRoot } from "react-dom/client";
 import GoLive from "@/src/components/experiences/modern/flowsheet/GoLive";
 
+const toastError = vi.fn();
+vi.mock("sonner", () => ({
+  toast: { error: (...a: unknown[]) => toastError(...a) },
+}));
+
 // Mock flowsheet hooks
 const mockGoLive = vi.fn(() => Promise.resolve({ status: "ok" as const }));
 const mockLeave = vi.fn();
@@ -12,7 +17,11 @@ const mockUseFlowsheetSaving = vi.fn(() => false);
 // Nothing on air but this DJ, so the toggle reaches goLive directly. The
 // handoff cases below install an open show.
 const mockUseOpenShowHandoff = vi.fn<
-  () => { showId: number; djNames: string; lastLoggedAt: string | null } | null
+  () => {
+    showId: number;
+    djNames: readonly string[];
+    lastLoggedAt: string | null;
+  } | null
 >(() => null);
 
 vi.mock("@/src/hooks/flowsheetHooks", () => ({
@@ -25,7 +34,8 @@ vi.mock("@/src/hooks/flowsheetHooks", () => ({
     goLive: mockGoLive,
     leave: mockLeave,
   })),
-  useOpenShowHandoff: () => mockUseOpenShowHandoff(),
+  // Returns a reader: the real hook is read in the click handler, not rendered.
+  useOpenShowHandoff: () => () => mockUseOpenShowHandoff(),
   useFlowsheetSaving: () => mockUseFlowsheetSaving(),
 }));
 
@@ -245,7 +255,7 @@ describe("GoLive", () => {
   describe("the handoff prompt", () => {
     const OPEN_SHOW = {
       showId: 1951224,
-      djNames: "dj sue",
+      djNames: ["dj sue"],
       lastLoggedAt: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
     };
 
@@ -334,8 +344,11 @@ describe("GoLive", () => {
       mockUseOpenShowHandoff.mockReturnValue(null);
       mockGoLive.mockResolvedValue({
         status: "conflict",
-        handoff: { showId: 1951224, djNames: "dj sue", lastLoggedAt: null },
-        payload: { dj_id: "u1" },
+        handoff: {
+          showId: 1951224,
+          djNames: ["dj sue"],
+          lastLoggedAt: null,
+        },
       } as never);
       render(<GoLive />);
 
@@ -343,6 +356,48 @@ describe("GoLive", () => {
 
       await screen.findByTestId("go-live-handoff-dialog");
       expect(screen.getByText(/dj sue is on air\./)).toBeInTheDocument();
+    });
+
+    // The server may decline a takeover silently — while its takeover flag is
+    // off it ignores `intent` and co-hosts, answering 200. Closing the prompt
+    // without a word would leave the DJ a guest on the show they just asked to
+    // end, confirmed by a dialog that lied.
+    it("says so when the server co-hosts instead of ending the show", async () => {
+      mockUseOpenShowHandoff.mockReturnValue(OPEN_SHOW);
+      mockGoLive.mockResolvedValue({ status: "cohosted" } as never);
+      render(<GoLive />);
+      await openPrompt(goLiveControls().icon);
+
+      fireEvent.click(screen.getByTestId("go-live-handoff-takeover"));
+
+      await waitFor(() =>
+        expect(toastError).toHaveBeenCalledWith(
+          "Could not end the open show. You joined dj sue as a co-host instead."
+        )
+      );
+    });
+
+    // The request is already on the wire, so dismissing cannot cancel it —
+    // it would only hide the outcome.
+    it("keeps Cancel inert while a decision is in flight", async () => {
+      mockUseOpenShowHandoff.mockReturnValue(OPEN_SHOW);
+      let settle: (v: unknown) => void = () => {};
+      mockGoLive.mockReturnValue(
+        new Promise((resolve) => {
+          settle = resolve;
+        }) as never
+      );
+      render(<GoLive />);
+      await openPrompt(goLiveControls().icon);
+
+      fireEvent.click(screen.getByTestId("go-live-handoff-takeover"));
+
+      await waitFor(() =>
+        expect(screen.getByTestId("go-live-handoff-cancel")).toBeDisabled()
+      );
+      await act(async () => {
+        settle({ status: "ok" });
+      });
     });
   });
 

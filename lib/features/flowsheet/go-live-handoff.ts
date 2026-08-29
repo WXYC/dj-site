@@ -13,17 +13,55 @@
 /** The wire values `POST /flowsheet/join` accepts for an explicit decision. */
 export type JoinIntent = "join" | "takeover";
 
+/**
+ * What `POST /flowsheet/join` answers a 2xx with, narrowed to the one field
+ * that tells the two outcomes apart: a takeover the server honoured returns the
+ * newly started `Show` (which has an `id`), while a co-host join returns the
+ * `ShowDJ` membership row instead (`show_id` / `dj_id`, and no `id`).
+ */
+export type JoinShowResult = {
+  id?: number;
+  show_id?: number;
+  dj_id?: string;
+};
+
+/**
+ * Whether the server really ended the open show and started a new one.
+ *
+ * A takeover is a request the server may decline *silently*: it is gated behind
+ * a server-side flag, and while that flag is off `intent` is ignored altogether
+ * and the caller is co-hosted onto the open show with a 200. Without this check
+ * a DJ presses a button reading "End Existing Show", watches the prompt close,
+ * and is added to the very show they asked to end — the original defect, now
+ * wearing an affirmative confirmation that lies about what it did. Nothing in
+ * the status code distinguishes the two.
+ *
+ * Tested by IDENTITY, not by shape. A honoured takeover ends the named show and
+ * starts a fresh one, so the id that comes back is a *different* show; a
+ * co-host join lands on the show the DJ named. Sniffing for the mere presence
+ * of an `id` would also read as honoured the day the server starts returning
+ * the joined show on a co-host join — a natural API improvement that would
+ * silently restore the original lie. Both shapes declare every field optional
+ * in the shared contract, so presence was never a discriminant to begin with.
+ */
+export function takeoverWasHonored(
+  result: JoinShowResult | undefined,
+  expectedShowId: number | undefined
+): boolean {
+  return typeof result?.id === "number" && result.id !== expectedShowId;
+}
+
 /** What the prompt renders, and what a takeover has to echo back. */
 export type OpenShowHandoff = {
   /** `shows.id` of the open show — the `expected_show_id` a takeover sends. */
   showId: number;
   /**
-   * Who is on air, already formatted. Sourced from `GET /flowsheet/djs-on-air`
+   * Who is on air. Sourced from `GET /flowsheet/djs-on-air`
    * (active `show_djs` membership), never from the show's own resolved
    * `dj_name`: for an abandoned show the latter names whoever started it, which
    * is the one answer a DJ deciding whether to take over must not be given.
    */
-  djNames: string;
+  djNames: readonly string[];
   /**
    * ISO-8601 `add_time` of the show's newest entry. Null means UNKNOWN, not
    * "nothing logged": the server's refusal carries no timestamp, so a prompt
@@ -45,10 +83,10 @@ type ShowAlreadyOpenBody = {
  * Read a `show_already_open` 409 out of an RTK Query rejection, or null for
  * anything else.
  *
- * Discriminates on `code`, never on the 409 status alone: the same status is
- * how `POST /flowsheet/shows/:id/force-end` reports a different refusal, and
- * treating any 409 as a handoff would put this prompt in front of a DJ over an
- * unrelated conflict.
+ * Discriminates on `code`, never on the 409 status alone: 409 is the generic
+ * conflict status, and the join route is free to grow a second refusal that
+ * uses it. Treating any 409 as a handoff would put this prompt in front of a
+ * DJ over an unrelated conflict.
  *
  * The name it returns is the show's owner. That is the correct answer to "whose
  * show am I being asked about" and the wrong one to "who is on air" — see
@@ -63,11 +101,12 @@ export function readShowAlreadyOpen(err: unknown): OpenShowHandoff | null {
   if (!data || data.code !== "show_already_open") return null;
   const show = data.details?.show;
   if (!show || typeof show.id !== "number") return null;
+  const owner = typeof show.dj_name === "string" ? show.dj_name.trim() : "";
   return {
     showId: show.id,
-    djNames: typeof show.dj_name === "string" && show.dj_name.trim().length > 0
-      ? show.dj_name
-      : "Someone",
+    // The refusal names one show owner, never a membership list — and names
+    // nobody at all if the show has no resolvable handle.
+    djNames: owner.length > 0 ? [owner] : [],
     lastLoggedAt: null,
   };
 }
@@ -145,7 +184,13 @@ export function describeOpenShow(
   now: number = Date.now()
 ): string {
   const elapsed = formatElapsedSince(handoff.lastLoggedAt, now);
+  // Subject and verb are derived from ONE filtered list, so they cannot
+  // disagree. Counting the raw array instead would render "dj sue are on air"
+  // for a show whose second DJ has a blank handle.
+  const named = handoff.djNames.map((n) => n.trim()).filter((n) => n.length > 0);
+  const verb = named.length > 1 ? "are" : "is";
+  const subject = formatDjNames(named);
   return elapsed === null
-    ? `${handoff.djNames} is on air.`
-    : `${handoff.djNames} is on air. Last logged ${elapsed}.`;
+    ? `${subject} ${verb} on air.`
+    : `${subject} ${verb} on air. Last logged ${elapsed}.`;
 }

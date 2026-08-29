@@ -124,7 +124,7 @@ export class FlowsheetPage {
         { timeout: 15000 }
       );
       await this.goLiveButton.click();
-      await this.answerHandoffPromptIfShown(mutationResponse);
+      await this.answerHandoffPromptIfShown();
       await mutationResponse;
       await expect(this.liveStatus).toContainText("On Air", {
         timeout: 10000,
@@ -161,19 +161,25 @@ export class FlowsheetPage {
    * destruction, intermittently and only on CI. The takeover click belongs
    * exclusively to a spec that owns its own Backend.
    *
-   * Raced against the mutation response rather than given a fixed wait, so the
-   * common no-prompt path costs nothing.
+   * Races the two TERMINAL states — on air, or the prompt asking which way to
+   * go — rather than the mutation response. The response is not evidence that
+   * no prompt is coming: on the server-refusal path the client sends the join,
+   * is refused with a 409, and opens the prompt afterwards. Racing the request
+   * would resolve "no prompt" while the prompt was still on its way, and the
+   * on-air assertion below would then time out with the dialog sitting open.
    */
-  private async answerHandoffPromptIfShown(
-    mutationResponse: Promise<unknown>
-  ): Promise<void> {
+  private async answerHandoffPromptIfShown(): Promise<void> {
     const joinButton = this.page.getByTestId("go-live-handoff-join");
     const outcome = await Promise.race([
-      mutationResponse.then(() => "sent" as const).catch(() => "sent" as const),
+      this.liveStatus
+        .filter({ hasText: "On Air" })
+        .waitFor({ state: "visible", timeout: 15000 })
+        .then(() => "live" as const)
+        .catch(() => "live" as const),
       joinButton
         .waitFor({ state: "visible", timeout: 15000 })
         .then(() => "prompt" as const)
-        .catch(() => "sent" as const),
+        .catch(() => "live" as const),
     ]);
     if (outcome === "prompt") await joinButton.click();
   }

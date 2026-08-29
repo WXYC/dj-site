@@ -27,7 +27,16 @@ export default function GoLiveHandoffDialog({
   if (!prompt) return null;
 
   return (
-    <Modal open onClose={onCancel}>
+    // Backdrop and Escape are inert while a decision is in flight: the request
+    // is already on the wire, so dismissing would not cancel it — it would
+    // only hide the outcome, and a conflict answer would re-open the dialog
+    // the DJ just dismissed.
+    <Modal
+      open
+      onClose={() => {
+        if (!deciding) onCancel();
+      }}
+    >
       <ModalDialog
         variant="outlined"
         role="alertdialog"
@@ -52,6 +61,7 @@ export default function GoLiveHandoffDialog({
             <Button
               variant="plain"
               color="neutral"
+              disabled={deciding}
               onClick={onCancel}
               data-testid="go-live-handoff-cancel"
             >

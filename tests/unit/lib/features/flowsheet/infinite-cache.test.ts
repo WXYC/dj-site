@@ -14,6 +14,7 @@ import {
   insertEntrySortedFirstPage,
   maxPlayOrder,
   movePlayOrder,
+  newestLoggedAt,
   nextOptimisticTempId,
   primaryShowId,
   removeEntryById,
@@ -242,6 +243,35 @@ describe("infinite-cache", () => {
     const orphan = song(90, 12, -1);
     const draft = { pages: [[orphan, song(89, 11, 5)], [song(88, 10, 5)]], pageParams: [0, 1] };
     expect(primaryShowId(draft)).toBe(5);
+  });
+
+  // The handoff prompt's whole decision input is "how long since anything was
+  // logged". Reading past an orphan lands on the PREVIOUS show's tail and
+  // reports a live DJ as having walked out hours ago.
+  it("newestLoggedAt counts an orphaned row, which primaryShowId deliberately skips", () => {
+    const orphan = { ...song(90, 12, -1), add_time: "2026-08-28T19:58:00.000Z" };
+    const previousShowTail = {
+      ...song(89, 11, 5),
+      add_time: "2026-08-28T14:00:00.000Z",
+    };
+    const draft = { pages: [[orphan, previousShowTail]], pageParams: [0] };
+
+    expect(primaryShowId(draft)).toBe(5);
+    expect(newestLoggedAt(draft)).toBe("2026-08-28T19:58:00.000Z");
+  });
+
+  // Optimistic rows have not been logged yet, so they carry no add_time and
+  // must not read as activity.
+  it("newestLoggedAt skips rows with no add_time", () => {
+    const optimistic = song(-40, 13, -40);
+    const logged = { ...song(89, 12, 5), add_time: "2026-08-28T14:00:00.000Z" };
+    const draft = { pages: [[optimistic, logged]], pageParams: [0] };
+    expect(newestLoggedAt(draft)).toBe("2026-08-28T14:00:00.000Z");
+  });
+
+  it("newestLoggedAt returns null when nothing carries a time", () => {
+    const draft = { pages: [[song(9, 9, 1)]], pageParams: [0] };
+    expect(newestLoggedAt(draft)).toBeNull();
   });
 
   it("primaryShowId returns a negative optimistic show-marker id (only -1 is the orphan sentinel)", () => {

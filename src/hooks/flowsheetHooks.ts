@@ -22,12 +22,12 @@ import {
 } from "@/lib/features/flowsheet/various-artists-guard";
 import {
   compareEntriesNewestFirst,
-  newestRealEntry,
+  newestLoggedAt,
   primaryShowId,
 } from "@/lib/features/flowsheet/infinite-cache";
 import {
-  formatDjNames,
   readShowAlreadyOpen,
+  takeoverWasHonored,
   type JoinIntent,
   type OpenShowHandoff,
 } from "@/lib/features/flowsheet/go-live-handoff";
@@ -44,7 +44,7 @@ import {
   isFlowsheetBreakpointEntry,
 } from "@/lib/features/flowsheet/types";
 import type { RootState } from "@/lib/store";
-import { useAppDispatch, useAppSelector } from "@/lib/hooks";
+import { useAppDispatch, useAppSelector, useAppStore } from "@/lib/hooks";
 import type { FormEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -121,13 +121,6 @@ export type GoLiveDecision = {
   expected_show_id?: number;
 };
 
-/** The payload a go-live sent, so a prompt answer can replay it verbatim. */
-export type GoLivePayload = {
-  dj_id: string;
-  dj_name?: string;
-  dj_name_override?: string;
-};
-
 /**
  * What `goLive` resolved to. Returned rather than parked in the hook: this hook
  * runs in every entry row, so prompt state living here would re-render the
@@ -137,11 +130,19 @@ export type GoLiveOutcome =
   | { status: "ok" }
   /** No resolved user yet — nothing was sent. */
   | { status: "skipped" }
-  | { status: "conflict"; handoff: OpenShowHandoff; payload: GoLivePayload }
-  | { status: "error"; message: string; payload: GoLivePayload };
+  /**
+   * The DJ asked to end the open show and the server co-hosted them onto it
+   * instead, answering 200. Distinct from "ok" because the DJ is on air but
+   * got the outcome they explicitly declined, and distinct from "error"
+   * because nothing failed.
+   */
+  | { status: "cohosted" }
+  | { status: "conflict"; handoff: OpenShowHandoff }
+  | { status: "error"; message: string };
 
 /**
- * The open show a "Go Live" would collide with, or null when there is none.
+ * Reads the open show a "Go Live" would collide with, at the instant it is
+ * asked — or null when there is none.
  *
  * Null covers both non-collision cases deliberately: nothing is open, or the
  * caller is already an active member of what is open (a re-pressed toggle,
@@ -149,46 +150,46 @@ export type GoLiveOutcome =
  * on the ordinary one-click path, and a dialog that fires every shift gets
  * dismissed reflexively.
  *
- * Every value it reads is already being polled, so this adds no request. The
- * subscription is narrowed to primitives for the same reason `useShowControl`
- * narrows its own — and this one is deliberately NOT part of `useShowControl`,
- * which runs per row.
+ * Returns a reader rather than a value, and opens no subscription of its own.
+ * The answer is consumed in a click handler and never rendered, so subscribing
+ * would tie the Go Live control's render cycle to `lastLoggedAt` — a value that
+ * changes on every row anyone logs — for something no pixel depends on. Reading
+ * at press time is also strictly more accurate: the DJ acts on a snapshot, and
+ * this way the snapshot is taken when they press rather than whenever the last
+ * render happened.
+ *
+ * It reads caches that `useShowControl` already subscribes to in both callers,
+ * so it adds neither a request nor a subscription.
  */
-export const useOpenShowHandoff = (): OpenShowHandoff | null => {
-  const flowsheetPollingInterval = useFlowsheetPollingInterval();
-  const { live, userData, userloading } = useLiveStatus();
-  const skip = !userData || userloading;
+export const useOpenShowHandoff = (): (() => OpenShowHandoff | null) => {
+  const store = useAppStore();
+  const { info: userData } = useRegistry();
+  const userId = userData?.id;
 
-  const { anyoneOnAir, djNames } = useWhoIsLiveQuery(undefined, {
-    skip,
-    pollingInterval: 60000,
-    selectFromResult: ({ data }) => ({
-      anyoneOnAir: (data?.djs?.length ?? 0) > 0,
-      djNames: formatDjNames((data?.djs ?? []).map((dj) => dj.dj_name ?? "")),
-    }),
-  });
+  return useCallback(() => {
+    if (!userId) return null;
+    const state = store.getState();
 
-  const { showId, lastLoggedAt } = useGetInfiniteEntriesInfiniteQuery(
-    undefined,
-    {
-      skip,
-      pollingInterval: flowsheetPollingInterval,
-      selectFromResult: ({ data, isSuccess }) => {
-        const newest = isSuccess && data ? newestRealEntry(data) : undefined;
-        return {
-          showId: newest?.show_id ?? -1,
-          lastLoggedAt: newest?.add_time ?? null,
-        };
-      },
-    }
-  );
+    const djs =
+      flowsheetApi.endpoints.whoIsLive.select(undefined)(state).data?.djs ?? [];
+    // Nobody else on air, or this DJ is already one of them.
+    if (djs.length === 0 || djs.some((dj) => dj.id === userId)) return null;
 
-  // A collision needs both halves: somebody else on air, AND a real show id to
-  // bind a takeover to. Without the id the prompt could only offer a blind
-  // "end whatever is open", which is the informed-consent hole the
-  // compare-and-set exists to close.
-  if (!anyoneOnAir || live || showId < 0) return null;
-  return { showId, djNames, lastLoggedAt };
+    const entries =
+      flowsheetApi.endpoints.getInfiniteEntries.select(undefined)(state).data;
+    // A collision needs both halves: somebody else on air, AND a real show id
+    // to bind a takeover to. Without the id the prompt could only offer a
+    // blind "end whatever is open", which is the informed-consent hole the
+    // compare-and-set exists to close.
+    const showId = entries ? primaryShowId(entries) : -1;
+    if (showId < 0) return null;
+
+    return {
+      showId,
+      djNames: djs.map((dj) => dj.dj_name ?? ""),
+      lastLoggedAt: entries ? newestLoggedAt(entries) : null,
+    };
+  }, [store, userId]);
 };
 
 export const useShowControl = () => {
@@ -257,23 +258,26 @@ export const useShowControl = () => {
       payload.dj_name_override = djNameOverride;
     }
     try {
-      await goLiveFunction({ ...payload, ...decision }).unwrap();
+      const result = await goLiveFunction({ ...payload, ...decision }).unwrap();
+      // A takeover is the one decision the server can decline without saying
+      // so: while its takeover flag is off it ignores `intent` and co-hosts,
+      // answering 200. Reporting that as "ok" would close the prompt on a DJ
+      // who pressed "End Existing Show" and leave them a guest on the very
+      // show they asked to end — the original defect, now confirmed by a
+      // dialog. Only the response body tells the two apart.
+      if (
+        decision?.intent === "takeover" &&
+        !takeoverWasHonored(result, decision.expected_show_id)
+      ) {
+        return { status: "cohosted" };
+      }
       return { status: "ok" };
     } catch (err) {
-      // The rejection is returned WITH the payload that produced it, not just
-      // as an error. Answering the prompt re-issues this same request plus a
-      // decision, and the caller cannot reconstruct `dj_name_override` — the
-      // classic surface computes it from a form field against a registry value
-      // read at submit time, so a bare re-call silently drops the handle the DJ
-      // typed, which is that surface's whole reason for existing.
       const conflict = readShowAlreadyOpen(err);
-      if (conflict) {
-        return { status: "conflict", handoff: conflict, payload };
-      }
+      if (conflict) return { status: "conflict", handoff: conflict };
       return {
         status: "error",
-        message: flowsheetWriteErrorMessage(err),
-        payload,
+        message: flowsheetWriteErrorMessage(err, "Could not go live"),
       };
     }
   };

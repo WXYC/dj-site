@@ -7,8 +7,15 @@
  * rejected string, a network failure — has no such reason and falls back.
  * Interpolating the error object directly renders "[object Object]" and
  * strands the DJ, which is the whole point of unwrapping it here.
+ *
+ * `fallback` names the action that failed, for the paths where the default
+ * would describe the wrong one — going live is not adding to the flowsheet,
+ * and a DJ told otherwise looks in the wrong place.
  */
-export function flowsheetWriteErrorMessage(err: unknown): string {
+export function flowsheetWriteErrorMessage(
+  err: unknown,
+  fallback = "Could not add to flowsheet"
+): string {
   if (
     err &&
     typeof err === "object" &&
@@ -22,5 +29,5 @@ export function flowsheetWriteErrorMessage(err: unknown): string {
   }
   if (err instanceof Error) return err.message;
   if (typeof err === "string") return err;
-  return "Could not add to flowsheet";
+  return fallback;
 }
