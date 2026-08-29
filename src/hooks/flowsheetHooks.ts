@@ -22,8 +22,15 @@ import {
 } from "@/lib/features/flowsheet/various-artists-guard";
 import {
   compareEntriesNewestFirst,
+  newestRealEntry,
   primaryShowId,
 } from "@/lib/features/flowsheet/infinite-cache";
+import {
+  formatDjNames,
+  readShowAlreadyOpen,
+  type JoinIntent,
+  type OpenShowHandoff,
+} from "@/lib/features/flowsheet/go-live-handoff";
 import { safeCapture } from "@/lib/posthog";
 import { useFlowsheetPollingInterval } from "./useSSEConnection";
 import { partitionFlowsheetEntries } from "@/lib/features/flowsheet/partition";
@@ -108,6 +115,82 @@ export const useLiveStatus = () => {
   return { live, loading: loadingLiveList, userData, userloading };
 };
 
+/** The decision a DJ made at the handoff prompt, forwarded to the server. */
+export type GoLiveDecision = {
+  intent: JoinIntent;
+  expected_show_id?: number;
+};
+
+/** The payload a go-live sent, so a prompt answer can replay it verbatim. */
+export type GoLivePayload = {
+  dj_id: string;
+  dj_name?: string;
+  dj_name_override?: string;
+};
+
+/**
+ * What `goLive` resolved to. Returned rather than parked in the hook: this hook
+ * runs in every entry row, so prompt state living here would re-render the
+ * whole table on every open and close.
+ */
+export type GoLiveOutcome =
+  | { status: "ok" }
+  /** No resolved user yet — nothing was sent. */
+  | { status: "skipped" }
+  | { status: "conflict"; handoff: OpenShowHandoff; payload: GoLivePayload }
+  | { status: "error"; message: string; payload: GoLivePayload };
+
+/**
+ * The open show a "Go Live" would collide with, or null when there is none.
+ *
+ * Null covers both non-collision cases deliberately: nothing is open, or the
+ * caller is already an active member of what is open (a re-pressed toggle,
+ * which the server also no-ops). Prompting in either case would put the dialog
+ * on the ordinary one-click path, and a dialog that fires every shift gets
+ * dismissed reflexively.
+ *
+ * Every value it reads is already being polled, so this adds no request. The
+ * subscription is narrowed to primitives for the same reason `useShowControl`
+ * narrows its own — and this one is deliberately NOT part of `useShowControl`,
+ * which runs per row.
+ */
+export const useOpenShowHandoff = (): OpenShowHandoff | null => {
+  const flowsheetPollingInterval = useFlowsheetPollingInterval();
+  const { live, userData, userloading } = useLiveStatus();
+  const skip = !userData || userloading;
+
+  const { anyoneOnAir, djNames } = useWhoIsLiveQuery(undefined, {
+    skip,
+    pollingInterval: 60000,
+    selectFromResult: ({ data }) => ({
+      anyoneOnAir: (data?.djs?.length ?? 0) > 0,
+      djNames: formatDjNames((data?.djs ?? []).map((dj) => dj.dj_name ?? "")),
+    }),
+  });
+
+  const { showId, lastLoggedAt } = useGetInfiniteEntriesInfiniteQuery(
+    undefined,
+    {
+      skip,
+      pollingInterval: flowsheetPollingInterval,
+      selectFromResult: ({ data, isSuccess }) => {
+        const newest = isSuccess && data ? newestRealEntry(data) : undefined;
+        return {
+          showId: newest?.show_id ?? -1,
+          lastLoggedAt: newest?.add_time ?? null,
+        };
+      },
+    }
+  );
+
+  // A collision needs both halves: somebody else on air, AND a real show id to
+  // bind a takeover to. Without the id the prompt could only offer a blind
+  // "end whatever is open", which is the informed-consent hole the
+  // compare-and-set exists to close.
+  if (!anyoneOnAir || live || showId < 0) return null;
+  return { showId, djNames, lastLoggedAt };
+};
+
 export const useShowControl = () => {
   const flowsheetPollingInterval = useFlowsheetPollingInterval();
 
@@ -146,9 +229,12 @@ export const useShowControl = () => {
     dispatch(flowsheetSlice.actions.setAutoplay(autoplay));
   };
 
-  const goLive = (djNameOverride?: string) => {
+  const goLive = async (
+    djNameOverride?: string,
+    decision?: GoLiveDecision
+  ): Promise<GoLiveOutcome> => {
     if (!userData || userData.id === undefined || userloading) {
-      return;
+      return { status: "skipped" };
     }
     // Tag invalidation from the mutation handles refetching.
     // Only include `dj_name_override` when the caller actually wants to
@@ -170,7 +256,26 @@ export const useShowControl = () => {
     if (djNameOverride !== undefined) {
       payload.dj_name_override = djNameOverride;
     }
-    goLiveFunction(payload);
+    try {
+      await goLiveFunction({ ...payload, ...decision }).unwrap();
+      return { status: "ok" };
+    } catch (err) {
+      // The rejection is returned WITH the payload that produced it, not just
+      // as an error. Answering the prompt re-issues this same request plus a
+      // decision, and the caller cannot reconstruct `dj_name_override` — the
+      // classic surface computes it from a form field against a registry value
+      // read at submit time, so a bare re-call silently drops the handle the DJ
+      // typed, which is that surface's whole reason for existing.
+      const conflict = readShowAlreadyOpen(err);
+      if (conflict) {
+        return { status: "conflict", handoff: conflict, payload };
+      }
+      return {
+        status: "error",
+        message: flowsheetWriteErrorMessage(err),
+        payload,
+      };
+    }
   };
 
   const leave = () => {

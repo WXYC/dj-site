@@ -5,10 +5,15 @@ import { hydrateRoot } from "react-dom/client";
 import GoLive from "@/src/components/experiences/modern/flowsheet/GoLive";
 
 // Mock flowsheet hooks
-const mockGoLive = vi.fn();
+const mockGoLive = vi.fn(() => Promise.resolve({ status: "ok" as const }));
 const mockLeave = vi.fn();
 const mockSetAutoPlay = vi.fn();
 const mockUseFlowsheetSaving = vi.fn(() => false);
+// Nothing on air but this DJ, so the toggle reaches goLive directly. The
+// handoff cases below install an open show.
+const mockUseOpenShowHandoff = vi.fn<
+  () => { showId: number; djNames: string; lastLoggedAt: string | null } | null
+>(() => null);
 
 vi.mock("@/src/hooks/flowsheetHooks", () => ({
   useShowControl: vi.fn(() => ({
@@ -20,12 +25,15 @@ vi.mock("@/src/hooks/flowsheetHooks", () => ({
     goLive: mockGoLive,
     leave: mockLeave,
   })),
+  useOpenShowHandoff: () => mockUseOpenShowHandoff(),
   useFlowsheetSaving: () => mockUseFlowsheetSaving(),
 }));
 
 describe("GoLive", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGoLive.mockResolvedValue({ status: "ok" as const });
+    mockUseOpenShowHandoff.mockReturnValue(null);
   });
 
   it("should render when not live", () => {
@@ -232,6 +240,110 @@ describe("GoLive", () => {
     const dot = statusButton.lastElementChild;
     expect(dot).not.toBeNull();
     expect(dot).toHaveStyle({ flexShrink: "0" });
+  });
+
+  describe("the handoff prompt", () => {
+    const OPEN_SHOW = {
+      showId: 1951224,
+      djNames: "dj sue",
+      lastLoggedAt: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
+    };
+
+    const openPrompt = async (control: HTMLElement) => {
+      fireEvent.click(control);
+      return screen.findByTestId("go-live-handoff-dialog");
+    };
+
+    const goLiveControls = () => ({
+      icon: screen.getByTestId("flowsheet-go-live-button"),
+      status: screen.getByTestId("flowsheet-live-status"),
+    });
+
+    // Both controls, because the icon button carried its own copy of the
+    // toggle: leaving it unrouted would make it a silent bypass of the whole
+    // decision.
+    it.each(["icon", "status"] as const)(
+      "prompts instead of joining blindly when pressed via the %s control",
+      async (control) => {
+        mockUseOpenShowHandoff.mockReturnValue(OPEN_SHOW);
+        render(<GoLive />);
+
+        await openPrompt(goLiveControls()[control]);
+
+        expect(
+          screen.getByText(/dj sue is on air\. Last logged 5h 0m ago\./)
+        ).toBeInTheDocument();
+        expect(mockGoLive).not.toHaveBeenCalled();
+      }
+    );
+
+    it("sends a co-host join from Join Existing Show", async () => {
+      mockUseOpenShowHandoff.mockReturnValue(OPEN_SHOW);
+      render(<GoLive />);
+      await openPrompt(goLiveControls().icon);
+
+      fireEvent.click(screen.getByTestId("go-live-handoff-join"));
+
+      expect(mockGoLive).toHaveBeenCalledWith(undefined, {
+        intent: "join",
+        expected_show_id: undefined,
+      });
+    });
+
+    it("binds End Existing Show to the show the DJ was shown", async () => {
+      mockUseOpenShowHandoff.mockReturnValue(OPEN_SHOW);
+      render(<GoLive />);
+      await openPrompt(goLiveControls().icon);
+
+      fireEvent.click(screen.getByTestId("go-live-handoff-takeover"));
+
+      expect(mockGoLive).toHaveBeenCalledWith(undefined, {
+        intent: "takeover",
+        expected_show_id: 1951224,
+      });
+    });
+
+    it("sends nothing at all on Cancel", async () => {
+      mockUseOpenShowHandoff.mockReturnValue(OPEN_SHOW);
+      render(<GoLive />);
+      await openPrompt(goLiveControls().icon);
+
+      fireEvent.click(screen.getByTestId("go-live-handoff-cancel"));
+
+      await waitFor(() =>
+        expect(screen.queryByTestId("go-live-handoff-dialog")).toBeNull()
+      );
+      expect(mockGoLive).not.toHaveBeenCalled();
+    });
+
+    // A DJ re-pressing their own toggle, or arriving at an empty slot, must
+    // stay one click. A dialog that fires every shift gets dismissed reflexively.
+    it("stays a single click when nobody else is on air", async () => {
+      mockUseOpenShowHandoff.mockReturnValue(null);
+      render(<GoLive />);
+
+      fireEvent.click(goLiveControls().icon);
+
+      expect(mockGoLive).toHaveBeenCalledWith(undefined);
+      expect(screen.queryByTestId("go-live-handoff-dialog")).toBeNull();
+    });
+
+    // The server is the backstop for the window where the client's poll and
+    // the truth disagree.
+    it("opens the prompt on the server's own refusal", async () => {
+      mockUseOpenShowHandoff.mockReturnValue(null);
+      mockGoLive.mockResolvedValue({
+        status: "conflict",
+        handoff: { showId: 1951224, djNames: "dj sue", lastLoggedAt: null },
+        payload: { dj_id: "u1" },
+      } as never);
+      render(<GoLive />);
+
+      fireEvent.click(goLiveControls().icon);
+
+      await screen.findByTestId("go-live-handoff-dialog");
+      expect(screen.getByText(/dj sue is on air\./)).toBeInTheDocument();
+    });
   });
 
   it("should show saving indicator when isSaving", async () => {

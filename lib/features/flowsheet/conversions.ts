@@ -202,6 +202,10 @@ export function convertV2Entry(entry: FlowsheetV2EntryJSON): FlowsheetEntry {
     // -1 mirrors primaryShowId's no-show sentinel; 0 collides with a real
     // show id and would mis-partition orphaned entries into it (#629).
     show_id: entry.show_id ?? -1,
+    // Kept raw alongside the formatted `day`/`time` the marker variants also
+    // derive from it: the go-live handoff prompt needs an elapsed time, and a
+    // display string cannot be subtracted.
+    add_time: entry.add_time,
   };
 
   switch (entry.entry_type) {

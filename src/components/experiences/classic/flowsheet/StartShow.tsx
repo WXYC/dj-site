@@ -2,12 +2,20 @@
 
 import "@/src/styles/classic/wxyc.css";
 import { useShowControl } from "@/src/hooks/flowsheetHooks";
+import { useGoLiveHandoff } from "@/src/hooks/goLiveHandoffHooks";
+import { describeOpenShow } from "@/lib/features/flowsheet/go-live-handoff";
 import { useRegistry } from "@/src/hooks/authenticationHooks";
 import { FormEvent, useEffect, useState } from "react";
 import { OpenHelp } from "@/src/utils/helpScreen";
 
 export default function StartShow() {
   const { goLive } = useShowControl();
+  // Same decision as the modern surface, rendered in this page's own plain
+  // markup rather than through a Joy dialog — nothing else in classic uses Joy.
+  // Without it a classic DJ gets a form that appears to do nothing, which is
+  // the dead end this prompt exists to remove, only relocated.
+  const { prompt, deciding, requestGoLive, decide, cancel } =
+    useGoLiveHandoff(goLive);
   const { info: userData } = useRegistry();
   // Editable per-show override for the DJ's public handle, initialized to the
   // registry's `dj_name`. useRegistry() is async, so useState's initializer
@@ -37,7 +45,10 @@ export default function StartShow() {
       trimmed.length > 0 && trimmed !== currentRegistryValue
         ? trimmed
         : undefined;
-    goLive(override);
+    // The override is handed to the prompt, not recomputed after it: this form
+    // reads the registry at submit time, and re-deriving it on the far side of
+    // a dialog would silently drop the handle the DJ typed.
+    void requestGoLive(override);
   };
 
   const getCurrentTimeDisplay = () => {
@@ -181,6 +192,59 @@ export default function StartShow() {
                   />
                 </td>
               </tr>
+              {prompt && (
+                <tr>
+                  <td colSpan={2} align="center">
+                    <div
+                      className="smalltext"
+                      data-testid="go-live-handoff-prompt"
+                      style={{
+                        border: "2px solid #990000",
+                        padding: "10px",
+                        margin: "0 auto",
+                        maxWidth: "28em",
+                      }}
+                    >
+                      <b>{describeOpenShow(prompt.handoff)}</b>
+                      <p>
+                        Join them as a co-host, or end their show and start your
+                        own.
+                      </p>
+                      <input
+                        type="button"
+                        value="Join Existing Show"
+                        disabled={deciding}
+                        onClick={() => void decide("join")}
+                        style={{ cursor: "pointer" }}
+                        data-testid="go-live-handoff-join"
+                      />
+                      &nbsp;
+                      {/* Red because it signs somebody else off the air. */}
+                      <input
+                        type="button"
+                        value="End Existing Show"
+                        disabled={deciding}
+                        onClick={() => void decide("takeover")}
+                        style={{
+                          cursor: "pointer",
+                          color: "#990000",
+                          fontWeight: "bold",
+                        }}
+                        data-testid="go-live-handoff-takeover"
+                      />
+                      &nbsp;
+                      <input
+                        type="button"
+                        value="Cancel"
+                        disabled={deciding}
+                        onClick={cancel}
+                        style={{ cursor: "pointer" }}
+                        data-testid="go-live-handoff-cancel"
+                      />
+                    </div>
+                  </td>
+                </tr>
+              )}
               <tr>
                 <td colSpan={2} align="center">
                   <input

@@ -20,11 +20,29 @@ import {
   Tooltip,
 } from "@mui/joy";
 import { useEffect, useState } from "react";
+import { useGoLiveHandoff } from "@/src/hooks/goLiveHandoffHooks";
+import GoLiveHandoffDialog from "./GoLiveHandoffDialog";
 
 export default function GoLive() {
   const { live, autoplay, setAutoPlay, loading, goLive, leave } =
     useShowControl();
   const isSaving = useFlowsheetSaving();
+  // Prompt state lives here, not in useShowControl — that hook runs in every
+  // entry row, so opening the dialog from there would re-render the table.
+  const { prompt, deciding, requestGoLive, decide, cancel } =
+    useGoLiveHandoff(goLive);
+
+  // Both controls below route through this. The icon button used to carry its
+  // own copy of the toggle, which would have made it a silent bypass of the
+  // handoff prompt — the one path where a DJ can still be attached to somebody
+  // else's show without being asked.
+  const toggle = () => {
+    if (live) {
+      leave();
+      return;
+    }
+    void requestGoLive();
+  };
 
   // Must match the server's markup until this flips true post-mount, or the
   // aria-label/disabled/loading props React hydrates onto these elements
@@ -80,7 +98,7 @@ export default function GoLive() {
         <ButtonGroup>
           <IconButton
             variant="outlined"
-            onClick={() => (live ? leave() : goLive())}
+            onClick={toggle}
             disabled={effectiveLoading}
             data-testid="flowsheet-go-live-button"
           >
@@ -89,7 +107,7 @@ export default function GoLive() {
           <Button
             variant={live ? "solid" : "outlined"}
             color={live ? "primary" : "neutral"}
-            onClick={() => (live ? leave() : goLive())}
+            onClick={toggle}
             disabled={effectiveLoading}
             loading={effectiveLoading}
             data-testid="flowsheet-live-status"
@@ -115,6 +133,12 @@ export default function GoLive() {
           </Button>
         </ButtonGroup>
       </Tooltip>
+      <GoLiveHandoffDialog
+        prompt={prompt}
+        deciding={deciding}
+        onDecide={(intent) => void decide(intent)}
+        onCancel={cancel}
+      />
     </Stack>
   );
 }

@@ -79,6 +79,16 @@ export type FlowsheetEntryBase = {
   id: number;
   play_order: number;
   show_id: number;
+  /**
+   * When the server logged this row, ISO-8601, carried through unformatted.
+   *
+   * The marker variants also render it as `day`/`time` display strings, but
+   * those are lossy and track rows had no timestamp at all — so "how long ago
+   * did this show last log anything", the difference between a DJ who walked
+   * out and one who is mid-sentence, was unanswerable on the client. Absent on
+   * optimistic rows, which have not been logged yet.
+   */
+  add_time?: string;
 };
 
 export type FlowsheetSongBase = {
