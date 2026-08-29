@@ -2,6 +2,7 @@
 
 import { useId, useState } from "react";
 import { useRouter } from "next/navigation";
+import { artistCardHref } from "@/lib/features/catalog/artistCardRoute";
 import { useAddArtistMutation, useGetGenresQuery } from "@/lib/features/catalog/api";
 import { validateNewArtistNames } from "@/lib/features/catalog/chooserValidation";
 import {
@@ -27,8 +28,12 @@ type CreateLibraryCodeFormProps = {
  * database." `created=1` selects that fixed message on the card rather than
  * putting its text in the URL.
  */
-const successDestination = (artistId: number) =>
-  `/dashboard/library/artist/${artistId}?created=1`;
+// Routed by `code_letters`, not hard-coded to the artist card: a
+// compilation code created here is a V/A row, and the artist card would
+// only redirect to the bucket card — dropping the `created` flag, and with
+// it the confirmation this push exists to deliver.
+const successDestination = (artistId: number, codeLetters: string) =>
+  `${artistCardHref({ id: artistId, code_letters: codeLetters })}?created=1`;
 
 // The heading is the servlet's message, and it has two forms
 // (`ArtistAdminServlet:152-155`): a Various Artists code -- call letters
@@ -182,7 +187,7 @@ export default function CreateLibraryCodeForm({
 
     try {
       const created = await addArtist(body).unwrap();
-      router.push(successDestination(created.id));
+      router.push(successDestination(created.id, body.code_letters));
     } catch (err) {
       // Same discriminant as NewArtistForm's addArtist rejection handling:
       // a taken (code_letters, genre_id, code_number) triple is fixed by

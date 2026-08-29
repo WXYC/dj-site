@@ -131,6 +131,25 @@ describe("classic CreateLibraryCodeForm — createLibraryCode.jsp", () => {
     );
   });
 
+  it("lands a compilation code on the bucket card, keeping the create confirmation with it", async () => {
+    mockAddArtist(() => created());
+    const { user } = renderWithProviders(
+      <CreateLibraryCodeForm {...defaultProps} codeLetters="V/A" codeNumberRaw="0" />,
+    );
+
+    await screen.findByText("V/A");
+    await user.type(screen.getByLabelText(/artist presentation name/i), "Warp 10th Anniversary");
+    await user.type(screen.getByLabelText(/artist alphabetical name/i), "Warp 10th Anniversary");
+    await user.click(screen.getByRole("button", { name: "Add!" }));
+
+    // Not the artist card: that screen only redirects a V/A row here, and the
+    // redirect drops `created`, so the librarian would never see the
+    // servlet's own confirmation for a bucket they just made.
+    await waitFor(() =>
+      expect(mockPush).toHaveBeenCalledWith("/dashboard/library/various/99?created=1"),
+    );
+  });
+
   // The carried code is displayed verbatim, so every refusal has to name the
   // part that is wrong: a message about something "missing" beside a row
   // showing that very value reads as a broken screen, not a bad link.

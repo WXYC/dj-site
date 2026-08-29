@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { artistCardHref } from "@/lib/features/catalog/artistCardRoute";
 import {
   useAddArtistMutation,
   useGetGenresQuery,
@@ -29,8 +30,12 @@ const PEEK_DEBOUNCE_MS = 150;
  * `created=1` selects that fixed message on the card rather than putting its
  * text in the URL.
  */
-const successDestination = (artistId: number) =>
-  `/dashboard/library/artist/${artistId}?created=1`;
+// Routed by `code_letters`, not hard-coded to the artist card: a
+// compilation code created here is a V/A row, and the artist card would
+// only redirect to the bucket card — dropping the `created` flag, and with
+// it the confirmation this push exists to deliver.
+const successDestination = (artistId: number, codeLetters: string) =>
+  `${artistCardHref({ id: artistId, code_letters: codeLetters })}?created=1`;
 
 /**
  * Reproduces `chooseLibraryCodeOrArtist.jsp`'s `newArtistForm`: presentation
@@ -157,7 +162,7 @@ export default function NewArtistForm() {
 
     try {
       const created = await addArtist(body).unwrap();
-      router.push(successDestination(created.id));
+      router.push(successDestination(created.id, body.code_letters));
     } catch (err) {
       // The 409 this endpoint sends has two distinct causes that call for
       // different remedies: a taken (code_letters, genre_id, code_number)
