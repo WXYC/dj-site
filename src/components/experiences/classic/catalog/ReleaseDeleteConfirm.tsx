@@ -44,10 +44,15 @@ export default function ReleaseDeleteConfirm({ albumId }: { albumId: number }) {
   const [deleteAlbum, { isLoading: deleting }] = useDeleteAlbumMutation();
 
   /**
-   * The release as it stood when the delete succeeded. Held because the
-   * successful delete invalidates `AlbumDetail`, so the query above refetches
-   * and 404s — and rendering the past-tense screen from live data would flip
-   * it to a load failure the moment the refetch lands.
+   * The release as it stood when the delete succeeded. Rendering the
+   * past-tense screen from live data would flip it to a load failure the
+   * moment the row behind it stops resolving — the delete makes `data` a read
+   * of something that no longer exists, and the librarian would be told the
+   * delete broke having just watched it work. `deleteAlbum` deliberately does
+   * not invalidate `AlbumDetail` (see its `invalidatesTags`), so nothing
+   * forces that refetch; this holds the screen steady anyway, because the
+   * cache entry may still be evicted or refetched for reasons this component
+   * does not control.
    */
   const [deleted, setDeleted] = useState<AlbumEntry | null>(null);
   const [refusal, setRefusal] = useState<ReleaseDeleteRefusal | null>(null);
