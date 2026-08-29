@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useGetGenresQuery } from "@/lib/features/catalog/api";
 import ArtistSearchForm, { type MultiMatchResult } from "./ArtistSearchForm";
 import MultipleArtistsDisplay from "./MultipleArtistsDisplay";
@@ -20,6 +21,18 @@ import NewArtistForm from "./NewArtistForm";
  * swap is whole-page in both: the JSP replaces the chooser outright, so
  * `NewArtistForm` goes with the search form rather than sitting under a list
  * of artists that already own the code.
+ *
+ * The rotation block + `<hr>` above `ArtistSearchForm` reproduce
+ * `chooseLibraryCodeOrArtist.jsp:16-21` verbatim: "Import a killed rotation
+ * release into the library:" and a link to the Awaiting Cataloging facet of
+ * the classic rotation list. An earlier slice of this chooser dropped the
+ * block as a deferred divergence, because its destination -- the Awaiting
+ * Cataloging facet -- didn't exist yet; the classic rotation list slice
+ * builds that destination and restores the block here, including the JSP's
+ * own `<hr>` position (between the rotation block and `artistSearchForm` --
+ * the JSP has no second `<hr>` between the two forms below it, so the one
+ * this component used to render there is retired along with the
+ * divergence, not duplicated).
  */
 export default function LibraryChooser() {
   const [multiMatch, setMultiMatch] = useState<MultiMatchResult | null>(null);
@@ -37,8 +50,25 @@ export default function LibraryChooser() {
 
   return (
     <>
-      <ArtistSearchForm onMultiMatch={setMultiMatch} />
+      <table cellPadding={10}>
+        <tbody>
+          <tr>
+            <td colSpan={2}>
+              <h3>Import a killed rotation release into the library:</h3>
+            </td>
+          </tr>
+          <tr>
+            <td>&nbsp;&nbsp;</td>
+            <td>
+              <Link href="/dashboard/rotation?status=uncataloged">
+                <b>View Rotation Releases Awaiting Cataloging</b>
+              </Link>
+            </td>
+          </tr>
+        </tbody>
+      </table>
       <hr />
+      <ArtistSearchForm onMultiMatch={setMultiMatch} />
       <NewArtistForm />
     </>
   );
