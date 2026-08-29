@@ -101,6 +101,20 @@ export default function ReleaseMoveForm({ albumId }: { albumId: number }) {
   const [destinationGenreId, setDestinationGenreId] = useState<number | null>(null);
   const [chosenOwnerId, setChosenOwnerId] = useState<number | null>(null);
 
+  /**
+   * Retires a resolved destination the moment the code on screen stops naming
+   * it. Without this, editing the genre or the call letters after a lookup
+   * leaves the previous artist armed behind a code the librarian has already
+   * replaced — and the submit files the release under an artist that is no
+   * longer anywhere on the screen, then names them in the confirmation.
+   */
+  const forgetDestination = () => {
+    setOwners(null);
+    setChosenOwnerId(null);
+    setDestinationGenreId(null);
+    setMessage("");
+  };
+
   const [title, setTitle] = useState("");
   const [altArtist, setAltArtist] = useState("");
   const [formatId, setFormatId] = useState<number | "">("");
@@ -152,10 +166,7 @@ export default function ReleaseMoveForm({ albumId }: { albumId: number }) {
       : (owners?.find((candidate) => candidate.id === chosenOwnerId) ?? null);
 
   const handleLookUp = async () => {
-    setMessage("");
-    setOwners(null);
-    setChosenOwnerId(null);
-    setDestinationGenreId(null);
+    forgetDestination();
 
     const composed = composeLibraryCodeSearchArgs({
       callLetterMode,
@@ -213,7 +224,18 @@ export default function ReleaseMoveForm({ albumId }: { albumId: number }) {
       setMessage(AMBIGUOUS_DESTINATION_MESSAGE);
       return;
     }
-    if (destination.id === currentArtistId) {
+    // `currentArtistId` is undefined for a row that carries no `artist_id`,
+    // and `id === undefined` is false for every destination — so comparing
+    // ids alone would let a no-op move through and report it as a real one.
+    // The looked-up code is the fallback discriminant: it is what the
+    // librarian actually typed, and it identifies the shelf position whether
+    // or not the row names an artist.
+    const alreadyThere =
+      currentArtistId != null
+        ? destination.id === currentArtistId
+        : destination.code_letters === data.artist.lettercode &&
+          destination.code_number === data.artist.numbercode;
+    if (alreadyThere) {
       setMessage(SAME_CODE_MESSAGE);
       return;
     }
@@ -311,9 +333,10 @@ export default function ReleaseMoveForm({ albumId }: { albumId: number }) {
                   id={genreFieldId}
                   value={effectiveGenreId ?? ""}
                   disabled={!genres || genres.length === 0}
-                  onChange={(event) =>
-                    setGenreId(event.target.value ? Number(event.target.value) : null)
-                  }
+                  onChange={(event) => {
+                    setGenreId(event.target.value ? Number(event.target.value) : null);
+                    forgetDestination();
+                  }}
                 >
                   {(genres ?? []).map((genre) => (
                     <option key={genre.id} value={genre.id}>
@@ -327,7 +350,10 @@ export default function ReleaseMoveForm({ albumId }: { albumId: number }) {
                   name="callLetterMode"
                   value="textbox"
                   checked={callLetterMode === "textbox"}
-                  onChange={() => setCallLetterMode("textbox")}
+                  onChange={() => {
+                    setCallLetterMode("textbox");
+                    forgetDestination();
+                  }}
                   aria-label="Call letters: mode"
                 />
                 <label htmlFor={lettersId}>Call letters:</label>
@@ -336,7 +362,10 @@ export default function ReleaseMoveForm({ albumId }: { albumId: number }) {
                   type="text"
                   value={codeLetters}
                   disabled={callLetterMode !== "textbox"}
-                  onChange={(event) => setCodeLetters(event.target.value)}
+                  onChange={(event) => {
+                    setCodeLetters(event.target.value);
+                    forgetDestination();
+                  }}
                   size={3}
                   maxLength={3}
                 />
@@ -347,7 +376,10 @@ export default function ReleaseMoveForm({ albumId }: { albumId: number }) {
                   type="text"
                   value={codeNumbers}
                   disabled={callLetterMode !== "textbox"}
-                  onChange={(event) => setCodeNumbers(event.target.value)}
+                  onChange={(event) => {
+                    setCodeNumbers(event.target.value);
+                    forgetDestination();
+                  }}
                   size={3}
                   maxLength={3}
                 />
@@ -357,7 +389,10 @@ export default function ReleaseMoveForm({ albumId }: { albumId: number }) {
                   name="callLetterMode"
                   value="compilation"
                   checked={callLetterMode === "compilation"}
-                  onChange={() => setCallLetterMode("compilation")}
+                  onChange={() => {
+                    setCallLetterMode("compilation");
+                    forgetDestination();
+                  }}
                   aria-label="Various Artists (compilations)"
                 />
                 Various Artists (compilations)

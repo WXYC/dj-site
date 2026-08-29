@@ -151,3 +151,78 @@ describe("catalog add-mutation cache invalidation (#624)", () => {
     secondPeekSub.unsubscribe();
   });
 });
+
+describe("updateAlbum cache invalidation on re-attribution", () => {
+  const patched = {
+    id: 53375,
+    album_title: "Tri Repetae",
+    artist_name: "Gescom",
+    code_letters: "GE",
+    code_artist_number: 7,
+    code_number: 1,
+    format_name: "CD",
+    genre_name: "Electronic",
+    label: "Warp",
+  };
+
+  it("refetches every artist release table when a release changes artist", async () => {
+    let releaseCalls = 0;
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/library/artists/4211/releases`, () => {
+        releaseCalls += 1;
+        return HttpResponse.json({ releases: [], total: 0, page: 1, totalPages: 1 });
+      }),
+      http.patch(`${TEST_BACKEND_URL}/library/53375`, () => HttpResponse.json(patched)),
+    );
+
+    const store = createTestStore();
+    const sub = store.dispatch(
+      catalogApi.endpoints.getArtistReleases.initiate({ artistId: 4211 }),
+    );
+    await sub;
+    expect(releaseCalls).toBe(1);
+
+    // The artist the release LEFT is not in the mutation's args — only the
+    // destination is — so its table has to be reached through the shared
+    // LIST tag or it keeps listing a release that is no longer filed there.
+    await store.dispatch(
+      catalogApi.endpoints.updateAlbum.initiate({
+        albumId: 53375,
+        body: { artist_id: 8802, genre_id: 5 },
+      }),
+    );
+
+    await vi.waitFor(() => expect(releaseCalls).toBe(2));
+    sub.unsubscribe();
+  });
+
+  it("leaves the release tables alone for an ordinary field edit", async () => {
+    let releaseCalls = 0;
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/library/artists/4211/releases`, () => {
+        releaseCalls += 1;
+        return HttpResponse.json({ releases: [], total: 0, page: 1, totalPages: 1 });
+      }),
+      http.patch(`${TEST_BACKEND_URL}/library/53375`, () => HttpResponse.json(patched)),
+    );
+
+    const store = createTestStore();
+    const sub = store.dispatch(
+      catalogApi.endpoints.getArtistReleases.initiate({ artistId: 4211 }),
+    );
+    await sub;
+
+    // A title fix does not move the release, and the cached row is patched in
+    // place — refetching every artist table for it would be pure cost.
+    await store.dispatch(
+      catalogApi.endpoints.updateAlbum.initiate({
+        albumId: 53375,
+        body: { album_title: "Tri Repetae++" },
+      }),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    expect(releaseCalls).toBe(1);
+    sub.unsubscribe();
+  });
+});
