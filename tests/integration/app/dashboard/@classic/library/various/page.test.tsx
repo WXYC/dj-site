@@ -37,7 +37,11 @@ vi.mock("@/src/components/experiences/classic/catalog/VariousArtistsCard", () =>
 
 import ClassicVariousArtistsPage from "@/app/dashboard/@classic/library/various/[id]/page";
 
-const page = () => ClassicVariousArtistsPage({ params: Promise.resolve({ id: "4211" }) });
+const page = (created?: string) =>
+  ClassicVariousArtistsPage({
+    params: Promise.resolve({ id: "4211" }),
+    searchParams: Promise.resolve(created ? { created } : {}),
+  });
 
 describe("Classic /dashboard/library/various/[id] page — variousArtistsCardModify.jsp", () => {
   setUpClassicPageAuthorityEnv();

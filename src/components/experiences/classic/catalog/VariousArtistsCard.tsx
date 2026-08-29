@@ -23,6 +23,8 @@ import {
 
 type VariousArtistsCardProps = {
   artistId: number;
+  /** The servlet's fixed post-create confirmation, when the librarian arrived from a create. */
+  message?: string;
 };
 
 /**
@@ -31,6 +33,17 @@ type VariousArtistsCardProps = {
  * sub-shelf, so filing a *new* release into it would put the release somewhere
  * no librarian can find it on the physical shelf. Reading it stays available —
  * what is already in there has to remain visible.
+ *
+ * The literal is the JSP's own (`variousArtistsCardModify.jsp:46` tests
+ * `artist.ID != 19923`), not a value chosen here, so it is reproduced rather
+ * than replaced by a derived rule — the shelf has no other property that marks
+ * the umbrella, and inventing one would diverge from the spec on the one row
+ * it governs. It is a serial, though, so it identifies the umbrella only in a
+ * database whose `artists` rows came from the tubafrenzy catalog: production
+ * and its clones. Against a freshly seeded local database the id simply does
+ * not exist, so the guard never fires and every bucket shows the form; that
+ * is the failure mode to expect there, and it is not a filing hazard in a
+ * database with no real shelf behind it.
  */
 const UMBRELLA_BUCKET_ARTIST_ID = 19923;
 
@@ -73,7 +86,7 @@ const EMPTY_TITLE_MESSAGE = "Please enter a title before adding this release.";
  *   servlet; `GET /library/artists/:id/releases` takes no sort parameter and
  *   returns shelf order, which is the order the JSP itself defaults to.
  */
-export default function VariousArtistsCard({ artistId }: VariousArtistsCardProps) {
+export default function VariousArtistsCard({ artistId, message }: VariousArtistsCardProps) {
   const router = useRouter();
   const titleId = useId();
   const altArtistId = useId();
@@ -217,6 +230,16 @@ export default function VariousArtistsCard({ artistId }: VariousArtistsCardProps
     <>
       {navigationLinks}
 
+      {/* The post-create confirmation, carried here rather than left on the
+          artist card: a compilation code created through the chooser is a V/A
+          row, so it routes straight to this screen and would otherwise arrive
+          with the servlet's own "has been added to the database" dropped on
+          the floor. */}
+      {message && (
+        <div style={{ textAlign: "center" }} role="status">
+          <h5>&nbsp;{message}&nbsp;</h5>
+        </div>
+      )}
       <div
         className={`validation-message${releaseMessage ? " visible" : ""}`}
         role={releaseMessage ? "alert" : undefined}
@@ -437,6 +460,19 @@ export default function VariousArtistsCard({ artistId }: VariousArtistsCardProps
             )}
           </tbody>
         </table>
+      )}
+
+      {/* The endpoint pages, and this is the shelf where paging always bites:
+          a compilation bucket is the largest kind of section in the catalog,
+          so the table above is truncated as a matter of course while the
+          header two rows up prints the server's true total. A librarian who
+          scans a silently-cut list and doesn't find the compilation files a
+          duplicate — which is the whole failure this screen exists to
+          prevent. Same notice the artist card carries, for the same reason. */}
+      {total > releases.length && (
+        <div className="label" style={{ textAlign: "center" }}>
+          Showing the first {releases.length} of {total} releases.
+        </div>
       )}
 
       <hr />

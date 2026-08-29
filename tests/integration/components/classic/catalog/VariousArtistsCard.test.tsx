@@ -330,4 +330,45 @@ describe("classic VariousArtistsCard — variousArtistsCardModify.jsp", () => {
 
     expect(await screen.findByTestId("various-artists-card-error")).toBeDefined();
   });
+
+  it("says the shelf is cut short rather than showing a silently truncated list", async () => {
+    mockCard(BUCKET_ID);
+    // A compilation bucket is the largest kind of section in the catalog, so
+    // this is the ordinary case here, not an edge one: the header prints the
+    // server's true total while the table shows one page. A librarian who
+    // scans the short list without being told files a duplicate.
+    mockReleases(BUCKET_ID, [release()], 214);
+
+    renderWithProviders(<VariousArtistsCard artistId={BUCKET_ID} />);
+
+    expect(await screen.findByText("Showing the first 1 of 214 releases.")).toBeDefined();
+  });
+
+  it("says nothing about truncation when the whole shelf is on screen", async () => {
+    mockCard(BUCKET_ID);
+    mockReleases(BUCKET_ID, [release()], 1);
+
+    renderWithProviders(<VariousArtistsCard artistId={BUCKET_ID} />);
+
+    await screen.findByTestId("va-release-table");
+    expect(screen.queryByText(/Showing the first/)).toBeNull();
+  });
+
+  it("carries the post-create confirmation, which routes here for a compilation code", async () => {
+    mockCard(BUCKET_ID);
+    mockReleases(BUCKET_ID);
+
+    renderWithProviders(
+      <VariousArtistsCard
+        artistId={BUCKET_ID}
+        message="The artist/library code below has been added to the database."
+      />,
+    );
+
+    expect(
+      await screen.findByText(
+        "The artist/library code below has been added to the database.",
+      ),
+    ).toBeDefined();
+  });
 });
