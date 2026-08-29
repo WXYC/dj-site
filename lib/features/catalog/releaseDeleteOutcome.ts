@@ -12,6 +12,7 @@ export type ReleaseDeleteRefusalReason =
   | "flowsheet_references"
   | "lock_unavailable"
   | "not_found"
+  | "indeterminate"
   | "unknown";
 
 export type ReleaseDeleteRefusal = {
@@ -45,8 +46,23 @@ export const RELEASE_DELETE_LOCK_MESSAGE =
 export const RELEASE_DELETE_GONE_MESSAGE =
   "This release is no longer in the catalog. It may already have been deleted.";
 
+/**
+ * A refusal the server answered but this module cannot classify. "Nothing was
+ * changed" is a claim, and it is only safe here: the server replied below 500,
+ * so it reached a handler that declined before writing.
+ */
 export const RELEASE_DELETE_FALLBACK_MESSAGE =
   "This release could not be deleted, and the reason could not be read. Nothing was changed.";
+
+/**
+ * No answer came back at all — a dropped connection, a gateway's HTML 502, a
+ * 5xx. The delete may well have committed on a response that never arrived, so
+ * this must not claim either outcome. Reloading is the only way to find out,
+ * and pressing Delete again is safe: a second attempt on a row that did go
+ * through returns 404 and reads as "already gone".
+ */
+export const RELEASE_DELETE_INDETERMINATE_MESSAGE =
+  "This release may or may not have been deleted — no answer came back. Reload before trying again.";
 
 type WrappedDeleteAlbumError = { deleteAlbumError: FetchBaseQueryError };
 
@@ -88,15 +104,43 @@ function bodyReason(data: unknown): string | undefined {
  * branch, so a missing message degrades to a vaguer true statement instead of
  * to a blank banner.
  */
+/**
+ * True when the server answered the delete without writing — the only state in
+ * which "nothing was changed" is a safe thing to say, or to assume when
+ * deciding whether cached lists still hold a row.
+ *
+ * Accepts either shape a rejection can arrive in. RTK types the `error` passed
+ * to `invalidatesTags` as an untransformed `FetchBaseQueryError`, but
+ * `transformErrorResponse` has already run by then, so at runtime the status is
+ * one level down. Reading only the declared shape finds `undefined` and treats
+ * every refusal as a possible write.
+ *
+ * A sub-500 answer reached a handler that declined before writing. Anything
+ * else — a 5xx, a dropped connection, an unparseable body — leaves the outcome
+ * genuinely unknown, and this returns false so callers take the cautious path.
+ */
+export function deleteAnsweredWithoutWriting(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const inner = isWrappedDeleteAlbumError(err) ? err.deleteAlbumError : err;
+  const status = (inner as { status?: unknown }).status;
+  return typeof status === "number" && status < 500;
+}
+
 export function interpretReleaseDeleteError(err: unknown): ReleaseDeleteRefusal {
-  const unknownRefusal: ReleaseDeleteRefusal = {
-    reason: "unknown",
-    message: RELEASE_DELETE_FALLBACK_MESSAGE,
-    retryable: false,
+  const indeterminate: ReleaseDeleteRefusal = {
+    reason: "indeterminate",
+    message: RELEASE_DELETE_INDETERMINATE_MESSAGE,
+    retryable: true,
   };
 
-  if (!isWrappedDeleteAlbumError(err)) return unknownRefusal;
+  // An unwrapped rejection never reached this endpoint's transform, so nothing
+  // is known about whether the request was even sent.
+  if (!isWrappedDeleteAlbumError(err)) return indeterminate;
   const { status, data } = err.deleteAlbumError;
+
+  const unclassified: ReleaseDeleteRefusal = deleteAnsweredWithoutWriting(err)
+    ? { reason: "unknown", message: RELEASE_DELETE_FALLBACK_MESSAGE, retryable: false }
+    : indeterminate;
 
   // Status and `reason` must agree. Either alone is weaker than it looks: a
   // proxy can return a bare 503 with no body at all, and a `reason` on the
@@ -124,5 +168,5 @@ export function interpretReleaseDeleteError(err: unknown): ReleaseDeleteRefusal 
     return { reason: "not_found", message: RELEASE_DELETE_GONE_MESSAGE, retryable: false };
   }
 
-  return unknownRefusal;
+  return unclassified;
 }

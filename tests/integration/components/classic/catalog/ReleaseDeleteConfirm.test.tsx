@@ -238,9 +238,9 @@ describe("Classic ReleaseDeleteConfirm — libraryReleaseDelete.jsp", () => {
       expect(screen.getByRole("button", { name: "Delete" })).toBeDefined();
     });
 
-    it("says nothing was changed when it cannot read the reason", async () => {
+    it("says nothing was changed only when the server answered without writing", async () => {
       loaded();
-      mockDeleteAlbum.mockReturnValue(refusal(500, { message: "boom" }));
+      mockDeleteAlbum.mockReturnValue(refusal(400, { message: "bad id" }));
 
       renderWithProviders(<ReleaseDeleteConfirm albumId={53375} />);
       await clickDelete();
@@ -249,6 +249,23 @@ describe("Classic ReleaseDeleteConfirm — libraryReleaseDelete.jsp", () => {
         "Nothing was changed.",
       );
       expect(screen.queryByTestId("release-deleted")).toBeNull();
+    });
+
+    it("refuses to claim nothing changed when no answer came back, and keeps Delete", async () => {
+      loaded();
+      mockDeleteAlbum.mockReturnValue(refusal(500, { message: "boom" }));
+
+      renderWithProviders(<ReleaseDeleteConfirm albumId={53375} />);
+      await clickDelete();
+
+      // The delete may have committed on a response that never arrived.
+      // Telling the librarian it definitely did not is the one claim this
+      // branch cannot support — and a second press is safe, since a deleted
+      // row answers 404 and reads as "already gone".
+      const banner = await screen.findByTestId("release-delete-refusal");
+      expect(banner.textContent).not.toContain("Nothing was changed");
+      expect(banner.textContent).toContain("may or may not have been deleted");
+      expect(screen.getByRole("button", { name: "Delete" })).toBeDefined();
     });
 
     it("announces the refusal to a screen reader instead of only colouring it", async () => {

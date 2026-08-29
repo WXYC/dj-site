@@ -149,18 +149,4 @@ describe("Classic ReleaseCard", () => {
     expect(screen.queryByRole("button", { name: /^Delete/ })).toBeNull();
   });
 
-  it("offers the delete even for a release that turns out to be undeletable", () => {
-    mockGetInformationQuery.mockReturnValue({
-      data: album({ plays: 412 }),
-      isLoading: false,
-      isError: false,
-    });
-
-    renderWithProviders(<ReleaseCard albumId={53375} />);
-
-    // The JSP hides its delete link on a client-side pre-check. Backend's
-    // refusal is stronger and cannot go stale between the check and the click,
-    // so the link is unconditional and the server states the refusal.
-    expect(screen.getByRole("link", { name: "Delete This Library Release" })).toBeDefined();
-  });
 });

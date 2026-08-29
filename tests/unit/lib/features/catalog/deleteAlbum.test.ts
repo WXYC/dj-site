@@ -150,6 +150,36 @@ describe("deleteAlbum", () => {
     sub.unsubscribe();
   });
 
+  it("still drops the row from cached lists when no answer came back", async () => {
+    let searchCalls = 0;
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/library/`, () => {
+        searchCalls += 1;
+        return HttpResponse.json([]);
+      }),
+      http.delete(`${TEST_BACKEND_URL}/library/53375`, () => HttpResponse.error()),
+    );
+
+    const store = createTestStore();
+    const sub = store.dispatch(
+      catalogApi.endpoints.searchCatalog.initiate({
+        artist_name: "Autechre",
+        album_title: undefined,
+        n: undefined,
+      }),
+    );
+    await sub;
+    expect(searchCalls).toBe(1);
+
+    await store.dispatch(catalogApi.endpoints.deleteAlbum.initiate({ albumId: 53375 }));
+
+    // The delete may well have committed on a response that never arrived.
+    // Treating a lost answer like a refusal leaves every cached list
+    // asserting a release that is gone.
+    await vi.waitFor(() => expect(searchCalls).toBe(2));
+    sub.unsubscribe();
+  });
+
   it("does not re-read the release it just deleted", async () => {
     let infoCalls = 0;
     server.use(

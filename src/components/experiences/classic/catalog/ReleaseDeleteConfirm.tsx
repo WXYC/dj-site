@@ -69,9 +69,14 @@ export default function ReleaseDeleteConfirm({ albumId }: { albumId: number }) {
     }
     return (
       <div data-testid="release-delete-error" role="alert" className="artist-error-message">
-        {isError
-          ? "This release could not be loaded, so it cannot be deleted."
-          : "This release is not in the catalog."}
+        {/* Not split into "missing" and "unreachable": a genuine 404 arrives
+            as `isError` with a parseable body, while the `!isError && !data`
+            case is the base query soft-failing a non-JSON response — an
+            outage. Naming that one "not in the catalog" would make an outage
+            read as a positive claim about the shelf. Either way the delete
+            cannot proceed, so the editor's single sentence is the honest
+            one. */}
+        This release could not be loaded, so it cannot be deleted.
       </div>
     );
   }
