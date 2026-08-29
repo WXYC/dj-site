@@ -423,15 +423,14 @@ describe("live-updates listener middleware", () => {
     // freshening of a shared field — it grafts a SECOND, ungoverned
     // representation of the marker's time onto the row, one the rendered
     // `day`/`time` never catch up to because nothing recomputes them here.
-    const store = await makeStoreWithSeededEntries([
-      createTestV2ShowStartEntry({
-        id: 9003,
-        show_id: 7000,
-        play_order: 1,
-        dj_name: "dj sue",
-        timestamp: "8/28/2026, 2:00:00 PM",
-      }),
-    ]);
+    const seeded = createTestV2ShowStartEntry({
+      id: 9003,
+      show_id: 7000,
+      play_order: 1,
+      dj_name: "dj sue",
+      timestamp: "8/28/2026, 2:00:00 PM",
+    });
+    const store = await makeStoreWithSeededEntries([seeded]);
 
     const before = flowsheetApi.endpoints.getInfiniteEntries.select(undefined)(
       store.getState()
@@ -443,12 +442,19 @@ describe("live-updates listener middleware", () => {
     });
 
     store.dispatch(liveUpdatesConnectionRequested());
-    // BS does not broadcast marker-row updates today (its `update` filter
-    // only reaches a terminal `metadata_status`, a track-only concept), but
-    // `nonNullWirePatch` does not discriminate on `entry_type` — it merges
+    // BS does not broadcast marker-row updates today — its update filter
+    // requires a terminal `metadata_status`, which marker rows never reach —
+    // but `nonNullWirePatch` does not discriminate on `entry_type`: it merges
     // whatever keys the payload carries. A defensive test, not a fabricated
     // one: the merge must be safe on its own terms, not safe because BS
     // currently withholds this shape.
+    //
+    // `add_time` deliberately repeats the seeded value rather than a fresh
+    // one. It is NOT wire-only, so a differing value would merge and leave
+    // the row's raw instant disagreeing with the `day`/`time` derived from
+    // the original conversion — a second, unasserted fork that would blur
+    // which key this test is actually pinning. `timestamp` is the only
+    // variable here.
     getLastMock()._fireMessage(
       frame({
         type: "update",
@@ -458,7 +464,7 @@ describe("live-updates listener middleware", () => {
           show_id: 7000,
           play_order: 1,
           dj_name: "dj sue",
-          add_time: "2026-08-28T18:00:00.000Z",
+          add_time: seeded.add_time,
           timestamp: "8/28/2026, 5:00:00 PM",
         },
         timestamp: 1,
