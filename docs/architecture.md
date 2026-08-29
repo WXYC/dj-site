@@ -152,6 +152,26 @@ They live in the URL because a DJ sending a colleague a specific week is the obv
 - `shows` is returned on *overlap* but `entries` is filtered on `add_time`, so a show straddling the week edge arrives complete in the grid and truncated in the entry stream. Every week has one — the show on the air at Sunday midnight. `useShowEntries` detects the uncontained span, fetches the show's own window, and merges by entry id; if that request fails the panel says the list is partial rather than presenting the fragment as the whole set.
 - A null `end_time` means either "on the air" or "sign-off was dropped and the column stayed null permanently", and the two are indistinguishable from the field. It resolves from the `show_end` marker row, then clips to now only for a show that began within the last day, and otherwise draws at minimum height with an open bottom edge.
 
+### Classic stylesheets
+
+Classic reproduces tubafrenzy's screens, so its CSS is organised by the surface it mirrors rather than by component. All of it lives in `src/styles/classic/` and is imported by the component that needs it.
+
+| File | Mirrors |
+|---|---|
+| `wxyc.css` | Shared shell: `.bigblue`, `.smalltext`, `.redlabel`, and the dark-scheme overrides |
+| `flowsheet.css` | The DJ flowsheet |
+| `previous-sets.css` | `public/searchPage.jsp` + `mostRecentEntries.jsp` |
+| `schedule-week.css` | `jsp/public/flowsheetRadioWeekDisplayPublic.jsp` + the `radioWeek` rules in `playlists.css` |
+| `capsules.css`, `actions.css`, `drag.css`, `segue.css` | Catalog and flowsheet interaction affordances |
+| `login.css` | The login screen |
+
+The weekly-schedule stylesheet reproduces the source's class names exactly — `.radioWeekHeader`, `.radioDayHeader`, `.radioShowDisplayBlock`, `.radioDayNonshow`, `.radioDayLine`, `.endOfDay` — and a test asserts they are still emitted, because the screen's visual parity rests on them and a rename would change the page silently rather than break it.
+
+Two deliberate departures from the source JSP:
+
+- **Percentages, not the JSP's absolute pixels.** The original positioned everything on a fixed 905px canvas at 1px per two minutes (`left: 25 + 130n`, `height: 720`). That cannot survive a narrow viewport, so the geometry is a grid; the rendered result it was recognised by is preserved.
+- **Blocks are buttons.** The source's `<a href="radioWeek?…">` has no route here, and its practice of printing no label under 44 minutes left slivers with no accessible name at all. Short blocks now keep their name even when they cannot show it.
+
 Each feature in `lib/features/` follows a consistent structure:
 - `types.ts` -- TypeScript types/interfaces
 - `frontend.ts` -- Redux slice (state + actions + selectors)
@@ -164,7 +184,7 @@ Each feature in `lib/features/` follows a consistent structure:
 - **Path alias**: `@/` maps to project root (e.g., `@/lib/features/flowsheet/types`)
 - **Feature organization**: Each feature has its own directory under `lib/features/` with consistent file naming
 - **Typed hooks**: Always use `useAppDispatch`, `useAppSelector`, `useAppStore` from `@/lib/hooks`
-- **Experiences**: Two UI themes (modern/classic). Classic theme views prefixed with `CLASSIC_`. The experience system uses a registry pattern (`lib/features/experiences/registry.ts`)
+- **Experiences**: Two UI themes (modern/classic), separated by directory under `src/components/experiences/{classic,modern}` rather than by a filename prefix. The experience system uses a registry pattern (`lib/features/experiences/registry.ts`)
 - **No ESLint/Prettier config**: No formatter or linter configuration files exist at the project level. Follow existing code style
 - **Strict TypeScript**: `strict: true` in tsconfig
 - **Onboarding completeness**: Tracked via the `hasCompletedOnboarding` boolean on the user record, not by presence of profile fields (`realName`/`djName`). This allows admins to pre-fill profile fields when creating accounts without bypassing onboarding. A user is incomplete when `hasCompletedOnboarding !== true` (including when the flag is absent/undefined). The `isUserIncomplete()` function in `server-utils.ts` checks this predicate; `getIncompleteUserAttributes()` still inspects `realName`/`djName` to determine which form fields to render during onboarding.
