@@ -117,7 +117,11 @@ export default function ImportCSVModal({ open, onClose, onComplete, organization
           organizationSlug,
           role,
           realName: row.name,
-          djName: row.djName,
+          // `|| undefined` so a blank handle is omitted from the payload
+          // rather than sent as "", matching the single-add path. The server
+          // coerces either to NULL today; keeping one wire shape means a
+          // future tightening there can't split the two import routes.
+          djName: row.djName || undefined,
         }).unwrap();
 
         results.push({

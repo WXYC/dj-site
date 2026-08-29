@@ -127,9 +127,12 @@ export function parseCSVImport(text: string): CSVParseResult {
   const djNameIdx = findColumnIndex(headers, DJ_NAME_ALIASES);
   const emailIdx = findColumnIndex(headers, EMAIL_ALIASES);
 
+  // "DJ Name" is deliberately absent from the required set, as "Username"
+  // already is: the on-air handle is optional across the stack (nullable
+  // auth_user.dj_name, optional djName on provisionUser), so a roster export
+  // that omits the column is a valid import.
   const missingHeaders: string[] = [];
   if (nameIdx === -1) missingHeaders.push("Name");
-  if (djNameIdx === -1) missingHeaders.push("DJ Name");
   if (emailIdx === -1) missingHeaders.push("Email");
 
   if (missingHeaders.length > 0) {
@@ -160,9 +163,6 @@ export function parseCSVImport(text: string): CSVParseResult {
 
     if (!name) {
       errors.push({ row: rowNum, field: "name", message: "Name is required" });
-    }
-    if (!djName) {
-      errors.push({ row: rowNum, field: "djName", message: "DJ Name is required" });
     }
     if (!email) {
       errors.push({ row: rowNum, field: "email", message: "Email is required" });

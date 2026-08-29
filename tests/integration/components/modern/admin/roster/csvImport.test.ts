@@ -189,12 +189,27 @@ describe("parseCSVImport", () => {
       ]);
     });
 
-    it("should report error when DJ name is empty", () => {
+    // The on-air handle is optional everywhere else in the stack: the backend
+    // stores auth_user.dj_name as nullable, provisionUser() treats djName as
+    // optional, and the add form's own input is labelled "(Optional)". An
+    // importer that rejects the blank silently drops those DJs from the batch.
+    it("should accept a row with an empty DJ name", () => {
       const csv = "Name,DJ Name,Email\nJuana Molina,,juana@wxyc.org";
       const result = parseCSVImport(csv);
 
-      expect(result.errors).toEqual([
-        expect.objectContaining({ row: 1, field: "djName" }),
+      expect(result.errors).toEqual([]);
+      expect(result.rows).toEqual([
+        { name: "Juana Molina", username: "juana", djName: "", email: "juana@wxyc.org" },
+      ]);
+    });
+
+    it("should accept a CSV with no DJ Name column at all", () => {
+      const csv = "Name,Username,Email\nJuana Molina,jmolina,juana@wxyc.org";
+      const result = parseCSVImport(csv);
+
+      expect(result.errors).toEqual([]);
+      expect(result.rows).toEqual([
+        { name: "Juana Molina", username: "jmolina", djName: "", email: "juana@wxyc.org" },
       ]);
     });
 
@@ -233,7 +248,9 @@ describe("parseCSVImport", () => {
       const csv = "Name,DJ Name,Email\n,,";
       const result = parseCSVImport(csv);
 
-      expect(result.errors.length).toBeGreaterThanOrEqual(3);
+      // name + email; the blank DJ Name is no longer an error.
+      expect(result.errors.length).toBeGreaterThanOrEqual(2);
+      expect(result.errors.some((e) => e.field === "djName")).toBe(false);
       expect(result.errors.every((e) => e.row === 1)).toBe(true);
     });
 
@@ -275,11 +292,11 @@ describe("parseCSVImport", () => {
   });
 
   it("should report error when required header columns are missing", () => {
-    const csv = "Name,Email\nJuana Molina,juana@wxyc.org";
+    const csv = "Name,DJ Name\nJuana Molina,DJ Juana";
     const result = parseCSVImport(csv);
 
     expect(result.errors).toEqual([
-      expect.objectContaining({ row: 0, field: "header", message: expect.stringContaining("DJ Name") }),
+      expect.objectContaining({ row: 0, field: "header", message: expect.stringContaining("Email") }),
     ]);
     expect(result.rows).toEqual([]);
   });
