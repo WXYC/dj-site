@@ -120,11 +120,11 @@ describe("classic RotationReleaseList — rotationReleaseList.jsp", () => {
       expect(within(juanaRow).getByText("08/01/26")).toBeInTheDocument();
       expect(within(juanaRow).getByText("Active")).toBeInTheDocument();
       expect(within(juanaRow).getByText("Cataloged")).toBeInTheDocument();
-      expect(within(juanaRow).getByRole("button", { name: "Kill" })).toBeInTheDocument();
+      expect(within(juanaRow).getByRole("button", { name: /^Kill: / })).toBeInTheDocument();
 
       const chuquiRow = screen.getByText("Chuquimamani-Condori").closest("tr") as HTMLElement;
       expect(within(chuquiRow).getByText("Uncataloged")).toBeInTheDocument();
-      expect(within(chuquiRow).getByRole("button", { name: "Unkill" })).toBeInTheDocument();
+      expect(within(chuquiRow).getByRole("button", { name: /^Unkill: / })).toBeInTheDocument();
     });
 
     // Both destinations are later slices and no route answers either path,
@@ -147,8 +147,8 @@ describe("classic RotationReleaseList — rotationReleaseList.jsp", () => {
       renderWithProviders(<RotationReleaseList statusFilter="active" />);
 
       const row = (await screen.findByText("Juana Molina")).closest("tr") as HTMLElement;
-      expect(within(row).getByRole("button", { name: "Unkill" })).toBeInTheDocument();
-      expect(within(row).queryByRole("button", { name: "Kill" })).not.toBeInTheDocument();
+      expect(within(row).getByRole("button", { name: /^Unkill: / })).toBeInTheDocument();
+      expect(within(row).queryByRole("button", { name: /^Kill: / })).not.toBeInTheDocument();
       expect(within(row).queryByText("Active")).not.toBeInTheDocument();
     });
 
@@ -172,10 +172,10 @@ describe("classic RotationReleaseList — rotationReleaseList.jsp", () => {
 
       const { user } = renderWithProviders(<RotationReleaseList statusFilter="active" />);
       await screen.findByText("Juana Molina");
-      await user.click(screen.getByRole("button", { name: "Kill" }));
+      await user.click(screen.getByRole("button", { name: /^Kill: / }));
 
       await waitFor(() => expect(toast.error).toHaveBeenCalled());
-      expect(screen.getByRole("button", { name: "Kill" })).toBeEnabled();
+      expect(screen.getByRole("button", { name: /^Kill: / })).toBeEnabled();
     });
 
     it("dedupes rows sharing an artist and title, keeping the first", async () => {
@@ -227,7 +227,7 @@ describe("classic RotationReleaseList — rotationReleaseList.jsp", () => {
 
       const { user } = renderWithProviders(<RotationReleaseList statusFilter="active" />);
       await screen.findByText("Juana Molina");
-      await user.click(screen.getByRole("button", { name: "Kill" }));
+      await user.click(screen.getByRole("button", { name: /^Kill: / }));
 
       await waitFor(() => expect(killedBody).toEqual({ rotation_id: 5001 }));
     });
@@ -246,7 +246,7 @@ describe("classic RotationReleaseList — rotationReleaseList.jsp", () => {
 
       const { user } = renderWithProviders(<RotationReleaseList statusFilter="active" />);
       await screen.findByText("Chuquimamani-Condori");
-      await user.click(screen.getByRole("button", { name: "Unkill" }));
+      await user.click(screen.getByRole("button", { name: /^Unkill: / }));
 
       await waitFor(() => {
         expect(unkilledUrl).toBe("5002");

@@ -97,12 +97,27 @@ function RotationTable({
               className={`entry-row ${index % 2 === 0 ? "entry-row-even" : "entry-row-odd"}`}
             >
               <td style={{ textAlign: "center", whiteSpace: "nowrap" }}>
+                {/* Named per row, matching `MissingReleases`: a table of up to
+                    500 buttons all reading "Kill" tells a screen-reader user
+                    nothing about which release they are about to act on. */}
                 {row.killedDisplay == null ? (
-                  <button type="button" className="link-button" disabled={pending} onClick={() => onKill(row.rotationId)}>
+                  <button
+                    type="button"
+                    className="link-button"
+                    disabled={pending}
+                    aria-label={`Kill: ${row.title}`}
+                    onClick={() => onKill(row.rotationId)}
+                  >
                     Kill
                   </button>
                 ) : (
-                  <button type="button" className="link-button" disabled={pending} onClick={() => onUnkill(row.rotationId)}>
+                  <button
+                    type="button"
+                    className="link-button"
+                    disabled={pending}
+                    aria-label={`Unkill: ${row.title}`}
+                    onClick={() => onUnkill(row.rotationId)}
+                  >
                     Unkill
                   </button>
                 )}
