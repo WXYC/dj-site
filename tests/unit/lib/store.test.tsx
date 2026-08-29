@@ -12,6 +12,8 @@ vi.mock("sonner", () => ({
 import { rtkQueryErrorLogger } from "@/lib/rtk-query-error-logger";
 import { toast } from "sonner";
 import { makeStore } from "@/lib/store";
+import { makePublicStore } from "@/lib/store-public";
+import { scheduleWeekApi } from "@/lib/features/schedule-week/api";
 import { applicationSlice } from "@/lib/features/application/frontend";
 import { renderWithProviders } from "@/tests/helpers/render";
 
@@ -128,5 +130,23 @@ describe("renderWithProviders preloadedState", () => {
     });
 
     expect(screen.getByTestId("sidebar-open")).toHaveTextContent("true");
+  });
+});
+
+describe("store boundaries", () => {
+  // The weekly schedule reads historical dj_name values that resolve under a
+  // pre-BS#1286 chain and can hold real names. The surface is safe only
+  // because it is behind the dashboard's auth gate, which holds only if its
+  // data layer never reaches a public route's bundle. A comment cannot enforce
+  // that; registering it "like playlistSearchApi" -- which is in both stores --
+  // is the obvious wrong move, so it is asserted instead.
+  it("keeps the weekly schedule out of the public store", () => {
+    const publicState = makePublicStore().getState() as Record<string, unknown>;
+    expect(publicState).not.toHaveProperty(scheduleWeekApi.reducerPath);
+  });
+
+  it("registers the weekly schedule in the dashboard store", () => {
+    const state = makeStore().getState() as Record<string, unknown>;
+    expect(state).toHaveProperty(scheduleWeekApi.reducerPath);
   });
 });
