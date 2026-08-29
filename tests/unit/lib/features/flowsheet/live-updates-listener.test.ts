@@ -13,6 +13,7 @@ import { makeStore } from "@/lib/store";
 import { makePublicStore } from "@/lib/store-public";
 import {
   createTestInsertWirePayload,
+  createTestV2ShowStartEntry,
   server,
   TEST_BACKEND_URL,
 } from "@/tests/helpers";
@@ -408,6 +409,75 @@ describe("live-updates listener middleware", () => {
     // `add_time` is not a wire-only key: the conversion carries it onto every
     // entry under the same name and value, so merging it forks no shape.
     expect("add_time" in patched).toBe(true);
+
+    store.dispatch(liveUpdatesConnectionReleased());
+  });
+
+  it("update event does not fork a show marker's time: timestamp is wire-only like rotation_bin, not a passthrough like add_time", async () => {
+    // `timestamp` exists only on the V2 show_start/show_end wire shape, and
+    // `convertV2Entry` consumes it once — at conversion time — into `day` /
+    // `time` / `isToday`. The converted cache row keeps no `timestamp` field
+    // of its own (pinned by conversions.test.ts), unlike `add_time`, which
+    // the conversion now carries through under the identical name and ISO
+    // value. So unlike `add_time`, a raw merge of `timestamp` is not a
+    // freshening of a shared field — it grafts a SECOND, ungoverned
+    // representation of the marker's time onto the row, one the rendered
+    // `day`/`time` never catch up to because nothing recomputes them here.
+    const store = await makeStoreWithSeededEntries([
+      createTestV2ShowStartEntry({
+        id: 9003,
+        show_id: 7000,
+        play_order: 1,
+        dj_name: "dj sue",
+        timestamp: "8/28/2026, 2:00:00 PM",
+      }),
+    ]);
+
+    const before = flowsheetApi.endpoints.getInfiniteEntries.select(undefined)(
+      store.getState()
+    ).data;
+    expect(before?.pages?.[0]?.[0]).toMatchObject({
+      id: 9003,
+      day: "8/28/2026",
+      time: "2:00:00 PM",
+    });
+
+    store.dispatch(liveUpdatesConnectionRequested());
+    // BS does not broadcast marker-row updates today (its `update` filter
+    // only reaches a terminal `metadata_status`, a track-only concept), but
+    // `nonNullWirePatch` does not discriminate on `entry_type` — it merges
+    // whatever keys the payload carries. A defensive test, not a fabricated
+    // one: the merge must be safe on its own terms, not safe because BS
+    // currently withholds this shape.
+    getLastMock()._fireMessage(
+      frame({
+        type: "update",
+        payload: {
+          id: 9003,
+          entry_type: "show_start",
+          show_id: 7000,
+          play_order: 1,
+          dj_name: "dj sue",
+          add_time: "2026-08-28T18:00:00.000Z",
+          timestamp: "8/28/2026, 5:00:00 PM",
+        },
+        timestamp: 1,
+      })
+    );
+
+    const after = flowsheetApi.endpoints.getInfiniteEntries.select(undefined)(
+      store.getState()
+    ).data;
+    const patched = after?.pages?.[0]?.[0] as Record<string, unknown>;
+
+    // The only representation of the marker's time on the cached row is
+    // day/time. Before this fix, `patched.timestamp` reads the wire's fresh
+    // "8/28/2026, 5:00:00 PM" while `patched.day`/`patched.time` still read
+    // the stale "8/28/2026"/"2:00:00 PM" from the original conversion —
+    // two disagreeing representations of the same instant on one row.
+    expect("timestamp" in patched).toBe(false);
+    expect(patched.day).toBe("8/28/2026");
+    expect(patched.time).toBe("2:00:00 PM");
 
     store.dispatch(liveUpdatesConnectionReleased());
   });
