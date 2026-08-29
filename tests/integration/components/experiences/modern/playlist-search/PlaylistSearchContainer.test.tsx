@@ -4,14 +4,17 @@ import { renderWithProviders as render } from "@/tests/helpers";
 import type { PlaylistSearchResult } from "@wxyc/shared";
 import { PlaylistSearchContainer } from "@/src/components/experiences/modern/playlist-search";
 
-const mockUsePlaylistSearch = vi.fn();
+const mockUsePlaylistSearchResults = vi.fn();
 
+// The container consumes usePlaylistSearchResults, which owns the seed-vs-client
+// decision; that derivation is exercised in tests/unit/hooks. What is asserted
+// here is the rendering contract: given a display decision, what reaches the DOM.
 vi.mock("@/src/hooks/playlistSearchHooks", async (importOriginal) => {
   const actual =
     await importOriginal<typeof import("@/src/hooks/playlistSearchHooks")>();
   return {
     ...actual,
-    usePlaylistSearch: () => mockUsePlaylistSearch(),
+    usePlaylistSearchResults: () => mockUsePlaylistSearchResults(),
   };
 });
 
@@ -58,27 +61,47 @@ const baseHookReturn = {
   sortBy: "date" as const,
   sortOrder: "desc" as const,
   handleSort: vi.fn(),
-  results: [] as PlaylistSearchResult[],
+  displayResults: [] as PlaylistSearchResult[],
   total: 0,
   hasMore: false,
   isLoading: false,
   isError: false,
   loadNextPage: vi.fn(),
-  effectiveQuery: "",
+  showResults: true,
+  isRealQuery: false,
 };
+
+/** Mirrors what usePlaylistSearchResults returns for a given query shape. */
+const forDefaultQuery = (displayResults: PlaylistSearchResult[]) => ({
+  ...baseHookReturn,
+  displayResults,
+  showResults: true,
+  isRealQuery: false,
+});
+const forRealQuery = (displayResults: PlaylistSearchResult[], total: number) => ({
+  ...baseHookReturn,
+  displayResults,
+  total,
+  showResults: true,
+  isRealQuery: true,
+});
+const forPartialQuery = () => ({
+  ...baseHookReturn,
+  displayResults: [],
+  showResults: false,
+  isRealQuery: false,
+});
 
 describe("PlaylistSearchContainer", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockUsePlaylistSearch.mockReturnValue({ ...baseHookReturn });
+    mockUsePlaylistSearchResults.mockReturnValue({ ...baseHookReturn });
   });
 
-  it("renders the server seed for the empty default query before the client resolves", () => {
-    mockUsePlaylistSearch.mockReturnValue({
-      ...baseHookReturn,
-      effectiveQuery: "",
-      results: [],
-    });
+  it("renders the rows the hook designates for the default query", () => {
+    mockUsePlaylistSearchResults.mockReturnValue(
+      forDefaultQuery([makeResult(11), makeResult(12)]),
+    );
     render(
       <PlaylistSearchContainer
         initialResults={[makeResult(11), makeResult(12)]}
@@ -90,12 +113,10 @@ describe("PlaylistSearchContainer", () => {
     );
   });
 
-  it("lets resolved client results take over from the seed for the default query", () => {
-    mockUsePlaylistSearch.mockReturnValue({
-      ...baseHookReturn,
-      effectiveQuery: "",
-      results: [makeResult(50)],
-    });
+  it("renders client rows once the hook has retired the seed", () => {
+    mockUsePlaylistSearchResults.mockReturnValue(
+      forDefaultQuery([makeResult(50)]),
+    );
     render(
       <PlaylistSearchContainer initialResults={[makeResult(11)]} />,
     );
@@ -106,12 +127,9 @@ describe("PlaylistSearchContainer", () => {
   });
 
   it("renders client results and a count for a real query", () => {
-    mockUsePlaylistSearch.mockReturnValue({
-      ...baseHookReturn,
-      effectiveQuery: "stereolab",
-      results: [makeResult(1), makeResult(2)],
-      total: 2,
-    });
+    mockUsePlaylistSearchResults.mockReturnValue(
+      forRealQuery([makeResult(1), makeResult(2)], 2),
+    );
     render(<PlaylistSearchContainer />);
     expect(screen.getByTestId("results-table")).toHaveAttribute(
       "data-row-ids",
@@ -121,23 +139,15 @@ describe("PlaylistSearchContainer", () => {
   });
 
   it("shows nothing for a single-character partial query", () => {
-    mockUsePlaylistSearch.mockReturnValue({
-      ...baseHookReturn,
-      effectiveQuery: "a",
-      results: [],
-    });
+    mockUsePlaylistSearchResults.mockReturnValue(forPartialQuery());
     render(
       <PlaylistSearchContainer initialResults={[makeResult(11)]} />,
     );
     expect(screen.queryByTestId("results-table")).not.toBeInTheDocument();
   });
 
-  it("does not render the seed table when the seed is empty", () => {
-    mockUsePlaylistSearch.mockReturnValue({
-      ...baseHookReturn,
-      effectiveQuery: "",
-      results: [],
-    });
+  it("does not render the table when there are no rows to show", () => {
+    mockUsePlaylistSearchResults.mockReturnValue(forDefaultQuery([]));
     render(<PlaylistSearchContainer initialResults={[]} />);
     expect(screen.queryByTestId("results-table")).not.toBeInTheDocument();
   });

@@ -6,11 +6,30 @@ import {
   SearchRow,
 } from "@/lib/features/playlist-search/frontend";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import type { PlaylistSearchResult } from "@wxyc/shared";
 
 export const MIN_QUERY_LENGTH = 2;
 const LIMIT = 50;
+
+/**
+ * The empty query is the canonical "recent playlists" listing, not the absence
+ * of a search — it is requested and it renders. A sub-threshold partial is the
+ * only state with nothing to show, because it is the only one the hook skips.
+ *
+ * These live here, beside the skip rule they mirror, so a surface cannot gate
+ * its results on a threshold the fetch does not use. Divergence between the two
+ * reads as "the page fetched rows and then hid them".
+ */
+export const isDefaultQuery = (query: string): boolean => query.length === 0;
+export const isRealQuery = (query: string): boolean =>
+  query.length >= MIN_QUERY_LENGTH;
+export const shouldShowResults = (query: string): boolean =>
+  isDefaultQuery(query) || isRealQuery(query);
+
+// Stable identity for the no-seed case; a fresh [] each render would make
+// displayResults a new reference on every pass.
+const NO_SEED: readonly PlaylistSearchResult[] = [];
 
 /** Field-specific prefixes for backend query parsing. */
 const fieldPrefixes: Record<string, string> = {
@@ -152,5 +171,55 @@ export function usePlaylistSearch() {
     updateRow,
     handleSort,
     loadNextPage,
+  };
+}
+
+export interface UsePlaylistSearchResultsOptions {
+  /**
+   * Server-rendered first page for the default query, so the initial HTML
+   * carries rows instead of an empty table that fills in on hydration.
+   */
+  initialResults?: readonly PlaylistSearchResult[];
+}
+
+/**
+ * Owns *which* rows a playlist surface renders, and whether the server seed is
+ * still standing in for the client query.
+ *
+ * Every playlist surface consumes this rather than assembling the rules itself.
+ * The seed-retirement rule below is subtle enough that a second copy of it will
+ * drift, and the containers disagreeing about which rows to show is the exact
+ * class of defect this replaced.
+ */
+export function usePlaylistSearchResults(
+  options: UsePlaylistSearchResultsOptions = {},
+) {
+  const search = usePlaylistSearch();
+  const { results, isError, effectiveQuery } = search;
+  const initialResults = options.initialResults ?? NO_SEED;
+
+  // The seed retires permanently on the client query's first answer. Changing
+  // the sort re-keys the RTK cache entry, which empties `results` while the new
+  // key is in flight; resurfacing the seed in that gap would flash rows in the
+  // server's order over the sort the user just chose.
+  const seedRetired = useRef(false);
+  if (results.length > 0 || isError) {
+    seedRetired.current = true;
+  }
+
+  const usingSeed =
+    isDefaultQuery(effectiveQuery) &&
+    results.length === 0 &&
+    !seedRetired.current;
+
+  return {
+    ...search,
+    displayResults: usingSeed
+      ? (initialResults as PlaylistSearchResult[])
+      : results,
+    usingSeed,
+    showResults: shouldShowResults(effectiveQuery),
+    isRealQuery: isRealQuery(effectiveQuery),
+    isDefaultQuery: isDefaultQuery(effectiveQuery),
   };
 }

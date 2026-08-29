@@ -1,7 +1,8 @@
 "use client";
 
-import { usePlaylistSearch } from "@/src/hooks/playlistSearchHooks";
+import { usePlaylistSearchResults } from "@/src/hooks/playlistSearchHooks";
 import type { PlaylistSearchParams } from "@wxyc/shared/dtos";
+import type { PlaylistSearchResult } from "@wxyc/shared";
 import { ArrowDownward, ArrowUpward } from "@mui/icons-material";
 import { Box, CircularProgress, Table, Typography } from "@mui/joy";
 import { useEffect, useRef } from "react";
@@ -58,9 +59,15 @@ function formatDate(date: Date): string {
   });
 }
 
-export default function Results() {
+export default function Results({
+  initialResults,
+}: {
+  // Server-rendered first page for the default query, so the initial HTML
+  // carries rows rather than an empty table that fills in on hydration.
+  initialResults?: readonly PlaylistSearchResult[];
+} = {}) {
   const {
-    results,
+    displayResults,
     total,
     hasMore,
     isLoading,
@@ -68,8 +75,9 @@ export default function Results() {
     sortOrder,
     handleSort,
     loadNextPage,
-    effectiveQuery,
-  } = usePlaylistSearch();
+    showResults,
+    isRealQuery,
+  } = usePlaylistSearchResults({ initialResults });
 
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -91,10 +99,8 @@ export default function Results() {
     return () => scroller.removeEventListener("scroll", onScroll);
   }, [isLoading, hasMore, loadNextPage]);
 
-  const hasQuery = effectiveQuery.length >= 2;
-
   return (
-    <ResultsContainer>
+    <ResultsContainer showResults={showResults}>
       <Box
         ref={scrollRef}
         sx={{
@@ -157,7 +163,7 @@ export default function Results() {
             </tr>
           </thead>
           <tbody>
-            {isLoading && results.length === 0 ? (
+            {isLoading && displayResults.length === 0 ? (
               <tr style={{ background: "transparent" }}>
                 <td
                   colSpan={6}
@@ -171,7 +177,7 @@ export default function Results() {
                 </td>
               </tr>
             ) : (
-              results.map((result) => (
+              displayResults.map((result) => (
                 <tr key={result.id}>
                   <td>
                     <Typography level="body-sm" sx={{ color: "text.secondary" }}>
@@ -207,7 +213,7 @@ export default function Results() {
               ))
             )}
 
-            {isLoading && results.length > 0 && (
+            {isLoading && displayResults.length > 0 && (
               <tr style={{ background: "transparent" }}>
                 <td
                   colSpan={6}
@@ -218,7 +224,7 @@ export default function Results() {
               </tr>
             )}
 
-            {hasQuery && !isLoading && results.length === 0 && (
+            {isRealQuery && !isLoading && displayResults.length === 0 && (
               <tr style={{ background: "transparent" }}>
                 <td
                   colSpan={6}
@@ -231,7 +237,7 @@ export default function Results() {
               </tr>
             )}
 
-            {!isLoading && !hasMore && results.length > 0 && (
+            {!isLoading && !hasMore && displayResults.length > 0 && (
               <tr style={{ background: "transparent" }}>
                 <td
                   colSpan={6}

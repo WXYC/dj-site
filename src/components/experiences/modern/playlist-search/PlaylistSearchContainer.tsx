@@ -1,10 +1,6 @@
 "use client";
 
-import { useRef } from "react";
-import {
-  MIN_QUERY_LENGTH,
-  usePlaylistSearch,
-} from "@/src/hooks/playlistSearchHooks";
+import { usePlaylistSearchResults } from "@/src/hooks/playlistSearchHooks";
 import type { PlaylistSearchResult } from "@wxyc/shared";
 import { Box, Typography } from "@mui/joy";
 import PlaylistResultsTable from "./PlaylistResultsTable";
@@ -18,42 +14,21 @@ export interface PlaylistSearchContainerProps {
 }
 
 export default function PlaylistSearchContainer({
-  initialResults = [],
+  initialResults,
 }: PlaylistSearchContainerProps) {
   const {
     sortBy,
     sortOrder,
     handleSort,
-    results,
     total,
     hasMore,
     isLoading,
     isError,
     loadNextPage,
-    effectiveQuery,
-  } = usePlaylistSearch();
-
-  // The empty query is the canonical "recent playlists" default. Its results
-  // are shown just like a real query's — the earlier gate discarded a fetch the
-  // hook already fired. A single-character partial still shows nothing (the
-  // hook skips it). Until the client query resolves, the server seed backs the
-  // default view so the initial HTML carries populated rows.
-  const isDefaultQuery = effectiveQuery.length === 0;
-  const isRealQuery = effectiveQuery.length >= MIN_QUERY_LENGTH;
-  const showResults = isDefaultQuery || isRealQuery;
-
-  // The seed retires permanently once the client query produces an answer:
-  // sort/argument changes re-key the RTK cache (results drop to [] mid-flight),
-  // and resurfacing the seed there would flash rows in the original server
-  // order over the user's chosen sort.
-  const seedRetired = useRef(false);
-  if (results.length > 0 || isError) {
-    seedRetired.current = true;
-  }
-
-  const usingSeed =
-    isDefaultQuery && results.length === 0 && !seedRetired.current;
-  const displayResults = usingSeed ? initialResults : results;
+    displayResults,
+    showResults,
+    isRealQuery,
+  } = usePlaylistSearchResults({ initialResults });
 
   return (
     <Box sx={{ width: "100%", px: 2 }}>
