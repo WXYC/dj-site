@@ -27,6 +27,7 @@ import type {
   FlowsheetShowBlockEntry,
   FlowsheetBreakpointEntry,
   FlowsheetMessageEntry,
+  OnAirDJResponse,
 } from "@/lib/features/flowsheet/types";
 import { Rotation } from "@/lib/features/rotation/types";
 
@@ -346,6 +347,33 @@ describe("flowsheet conversions", () => {
 
       expect(result.djs[0].id).toBeNull();
       expect(result.onAir).toBe("DJ MONSTER");
+    });
+
+    // The wire disagrees with the declared type: the backend's on-air resolver
+    // answers null for a handle that is blank or the literal "Anonymous", so a
+    // DJ created without an on-air handle arrives with dj_name: null. This runs
+    // on the server-render seed path outside the seed fetch's catch, so a throw
+    // here is a failed public-page render, not a degraded one.
+    it("survives a null dj_name from the wire", () => {
+      const response = [
+        { id: "1", dj_name: null },
+      ] as unknown as OnAirDJResponse[];
+
+      expect(() => convertDJsOnAir(response)).not.toThrow();
+      expect(convertDJsOnAir(response).onAir).toBe("Off Air");
+    });
+
+    // A nameless DJ is still on air. The banner has nothing to render, so it
+    // falls back to the off-air label — but `djs` stays non-empty, and that is
+    // the list liveness is read from. Collapsing the two would put "OFF AIR" on
+    // the public page during a live show.
+    it("keeps a nameless on-air DJ in djs even though the banner reads off air", () => {
+      const result = convertDJsOnAir([
+        createTestOnAirDJResponse({ id: "1", dj_name: "" }),
+      ]);
+
+      expect(result.djs).toHaveLength(1);
+      expect(result.onAir).toBe("Off Air");
     });
   });
 

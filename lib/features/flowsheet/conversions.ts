@@ -28,7 +28,15 @@ import {
  */
 export function formatOnAirSummary(djs: OnAirDJResponse[]): string {
   return formatNameList(
-    djs.map((dj) => dj.dj_name),
+    // `dj_name` is declared non-nullable, and the wire disagrees: the backend
+    // runs each account DJ's handle through its Anonymous-filtering resolver,
+    // which answers `null` for a handle that is blank or the literal
+    // "Anonymous" — so a DJ with no on-air handle arrives here as
+    // `dj_name: null`. Coerce rather than trust the declaration. `.trim()`
+    // downstream would throw, and this runs on the server-render seed path
+    // OUTSIDE the seed fetch's catch, where a throw takes down the public
+    // page instead of degrading to the client-fetched loading state.
+    djs.map((dj) => dj.dj_name ?? ""),
     { whenEmpty: OFF_AIR_LABEL }
   );
 }

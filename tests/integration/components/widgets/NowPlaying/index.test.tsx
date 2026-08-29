@@ -182,6 +182,23 @@ describe("NowPlaying", () => {
       );
     });
 
+    // A DJ with no on-air handle formats to the off-air label — there is no
+    // name to render — but a show is running. Liveness must come from the DJ
+    // list, not from the banner text, or the public page reads OFF AIR mid-show.
+    it("should be live when a DJ with no on-air handle is on air", () => {
+      mockUseWhoIsLiveQuery.mockReturnValue({
+        data: { onAir: "Off Air", djs: [{ id: "1", dj_name: "" }] },
+        isLoading: false,
+        isError: false,
+      });
+
+      render(<NowPlaying mini={false} />);
+      expect(screen.getByTestId("now-playing-main")).toHaveAttribute(
+        "data-live",
+        "true"
+      );
+    });
+
     it("should not be live when djError is true", () => {
       mockUseWhoIsLiveQuery.mockReturnValue({
         data: mockDJsOnAirData,
