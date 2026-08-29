@@ -74,9 +74,6 @@ const EMPTY_ALPHABETICAL_MESSAGE = "The alphabetical name cannot be empty.";
  *   `label`; the JSP's form has no such input. Same precedent as
  *   `NewArtistForm` adding genre and call letters/numbers because
  *   `POST /library/artists` requires them.
- * - **Release titles are plain text.** The JSP links each to
- *   `libraryReleaseModify.jsp`, a screen this experience does not have yet; a
- *   link would be a dead one.
  * - **The cross-reference blocks (`:157-232`) and the "Add Xrefs" links are
  *   absent.** Write-side cross-reference admin is deliberately not being
  *   rebuilt, and the read-only display is a separate, non-blocking screen.
@@ -541,7 +538,11 @@ export default function ArtistCard({ artistId, message }: ArtistCardProps) {
                         code_volume_letters: release.code_volume_letters,
                       })}
                     </td>
-                    <td>{release.album_title}</td>
+                    <td>
+                      <Link href={`/dashboard/library/release/${release.id}`}>
+                        {release.album_title}
+                      </Link>
+                    </td>
                     <td>{release.alternate_artist_name}</td>
                   </tr>
                 ))}

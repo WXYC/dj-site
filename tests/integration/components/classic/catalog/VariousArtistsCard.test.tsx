@@ -24,6 +24,7 @@ import VariousArtistsCard from "@/src/components/experiences/classic/catalog/Var
 const BUCKET_ID = 4211;
 const UMBRELLA_BUCKET_ID = 19923;
 const GENRE_ID = 3;
+const SOUNDTRACKS_GENRE_ID = 12;
 
 const bucket = {
   artist_id: BUCKET_ID,
@@ -79,7 +80,10 @@ function mockReleases(
 function mockGenres() {
   server.use(
     http.get(`${TEST_BACKEND_URL}/library/genres`, () =>
-      HttpResponse.json([{ id: GENRE_ID, genre_name: "Rock" }]),
+      HttpResponse.json([
+        { id: GENRE_ID, genre_name: "Rock" },
+        { id: SOUNDTRACKS_GENRE_ID, genre_name: "Soundtracks" },
+      ]),
     ),
   );
 }
@@ -329,6 +333,23 @@ describe("classic VariousArtistsCard — variousArtistsCardModify.jsp", () => {
     renderWithProviders(<VariousArtistsCard artistId={BUCKET_ID} />);
 
     expect(await screen.findByTestId("various-artists-card-error")).toBeDefined();
+  });
+
+  it("prints each release's own genre, not the bucket's", async () => {
+    mockCard(BUCKET_ID);
+    // A bucket crossreferenced in more than one genre reports the lowest as
+    // its card genre, while a release carries the genre it is actually filed
+    // under. This string is the call number a librarian walks to the stacks
+    // with, so the word and the id have to come from the same row.
+    mockReleases(BUCKET_ID, [
+      release({ genre_id: SOUNDTRACKS_GENRE_ID, code_number: 7, album_title: "Paris, Texas" }),
+    ]);
+
+    renderWithProviders(<VariousArtistsCard artistId={BUCKET_ID} />);
+
+    const table = await screen.findByTestId("va-release-table");
+    expect(within(table).getByText("Soundtracks V/A-7")).toBeDefined();
+    expect(within(table).queryByText("Rock V/A-7")).toBeNull();
   });
 
   it("says the shelf is cut short rather than showing a silently truncated list", async () => {
