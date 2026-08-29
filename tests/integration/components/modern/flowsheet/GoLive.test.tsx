@@ -293,6 +293,21 @@ describe("GoLive", () => {
       },
     );
 
+    // The label wiring moved out of this file and into ConfirmDialog's
+    // useId(), where Joy's ModalDialog generates a competing id of its own.
+    // Every other assertion here reaches for the testid, which stays green
+    // whether aria-labelledby resolves or dangles.
+    it("labels the prompt with its title", async () => {
+      mockUseOpenShowHandoff.mockReturnValue(OPEN_SHOW);
+      render(<GoLive />);
+
+      await openPrompt(goLiveControls().icon);
+
+      expect(
+        screen.getByRole("alertdialog", { name: "A show is already on air" }),
+      ).toBeInTheDocument();
+    });
+
     it("sends a co-host join from Join Existing Show", async () => {
       mockUseOpenShowHandoff.mockReturnValue(OPEN_SHOW);
       render(<GoLive />);

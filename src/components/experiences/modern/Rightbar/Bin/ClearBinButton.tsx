@@ -13,7 +13,7 @@ import ConfirmDialog from "@/src/components/experiences/modern/ConfirmDialog";
  */
 export default function ClearBinButton({ count }: { count: number }) {
   const [open, setOpen] = useState(false);
-  const { clearBin, loading } = useClearBin();
+  const { clearBin, loading, clearing } = useClearBin();
 
   const handleConfirm = async () => {
     await clearBin();
@@ -36,7 +36,11 @@ export default function ClearBinButton({ count }: { count: number }) {
       <ConfirmDialog
         open={open}
         onClose={() => setOpen(false)}
-        pending={loading}
+        // Deliberately `clearing`, not `loading`: the buttons below are right
+        // to disable on the aggregate, but suppressing backdrop/Escape on it
+        // too would shut every exit at once during an unrelated registry
+        // refresh, leaving no way out but a reload.
+        pending={clearing}
         title={
           <>
             <WarningRounded />

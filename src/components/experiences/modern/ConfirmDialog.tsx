@@ -21,6 +21,17 @@ export type ConfirmDialogProps = {
    * reappear over whatever the DJ/MD did next. Callers still decide for
    * themselves whether to disable their own Cancel button while pending;
    * `actions` owns its own buttons.
+   *
+   * Two preconditions, because this is the only dismissal route the shell
+   * offers — there is no `ModalClose`, so while `pending` is true a caller
+   * that also disables its Cancel button has left the DJ no way out:
+   *
+   * 1. `pending` MUST be scoped to *this dialog's* request and nothing else.
+   *    Do not wire it to an aggregate "something is loading" flag; unrelated
+   *    background work (a session refresh, a role refetch) would trap the DJ
+   *    in a modal that has nothing to do with what they are waiting for.
+   * 2. `pending` MUST be guaranteed to terminate — settled in a `finally`, not
+   *    left to a promise that might hang. Nothing here times it out.
    */
   pending?: boolean;
   title: ReactNode;

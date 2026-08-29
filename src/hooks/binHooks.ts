@@ -102,7 +102,14 @@ export const useClearBin = () => {
     }
   }, [registryLoading, info, bin, deleteFromBin]);
 
-  return { clearBin, loading: pending || registryLoading };
+  // `loading` is the aggregate the buttons key off — either a clear is running
+  // or the registry hasn't produced an `info` to delete against yet, and in
+  // both cases the action is unavailable. `clearing` is narrower: it is true
+  // only while deletes are genuinely on the wire. Callers that gate *dismissal*
+  // must use `clearing`, because `registryLoading` also goes true when the
+  // session re-emits and the org-role fetch re-runs — nothing to do with the
+  // bin, and not something the DJ should be trapped inside a modal waiting for.
+  return { clearBin, loading: pending || registryLoading, clearing: pending };
 };
 
 export const useAddToBin = () => {
