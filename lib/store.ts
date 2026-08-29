@@ -24,6 +24,7 @@ import { metadataApi } from "./features/metadata/api";
 import { playlistSearchApi } from "./features/playlist-search/api";
 import { playlistSearchSlice } from "./features/playlist-search/frontend";
 import { rotationApi } from "./features/rotation/api";
+import { scheduleWeekApi } from "./features/schedule-week/api";
 import { rotationSlice } from "./features/rotation/frontend";
 
 const rootReducer = combineSlices(
@@ -45,6 +46,7 @@ const rootReducer = combineSlices(
   playlistSearchApi,
   rotationSlice,
   rotationApi,
+  scheduleWeekApi,
   adminSlice,
   adminApi
 );
@@ -71,6 +73,7 @@ export const makeStore = (preloadedState?: Partial<RootState>) => {
         .concat(metadataApi.middleware)
         .concat(playlistSearchApi.middleware)
         .concat(rotationApi.middleware)
+        .concat(scheduleWeekApi.middleware)
         .concat(adminApi.middleware);
     },
   });
