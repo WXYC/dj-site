@@ -10,6 +10,8 @@
  * readings, so it is the headline here, not the show's start time.
  */
 
+import { formatNameList, nonBlankNames } from "./name-list";
+
 /** The wire values `POST /flowsheet/join` accepts for an explicit decision. */
 export type JoinIntent = "join" | "takeover";
 
@@ -132,10 +134,7 @@ function unwrapRejection(
 
 /** "dj sue", "dj sue and eureka!", "dj sue, eureka! and DJ boy". */
 export function formatDjNames(names: readonly string[]): string {
-  const cleaned = names.map((n) => n.trim()).filter((n) => n.length > 0);
-  if (cleaned.length === 0) return "Someone";
-  if (cleaned.length === 1) return cleaned[0];
-  return `${cleaned.slice(0, -1).join(", ")} and ${cleaned[cleaned.length - 1]}`;
+  return formatNameList(names, { whenEmpty: "Someone", conjunction: "and" });
 }
 
 /**
@@ -184,10 +183,11 @@ export function describeOpenShow(
   now: number = Date.now()
 ): string {
   const elapsed = formatElapsedSince(handoff.lastLoggedAt, now);
-  // Subject and verb are derived from ONE filtered list, so they cannot
-  // disagree. Counting the raw array instead would render "dj sue are on air"
-  // for a show whose second DJ has a blank handle.
-  const named = handoff.djNames.map((n) => n.trim()).filter((n) => n.length > 0);
+  // Subject and verb are derived from the SAME filtered list — `nonBlankNames`,
+  // the one blank-name filter `formatDjNames` also runs on `named` below — so
+  // they cannot disagree. Counting the raw array instead would render "dj sue
+  // are on air" for a show whose second DJ has a blank handle.
+  const named = nonBlankNames(handoff.djNames);
   const verb = named.length > 1 ? "are" : "is";
   const subject = formatDjNames(named);
   return elapsed === null

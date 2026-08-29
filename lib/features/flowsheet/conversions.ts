@@ -2,6 +2,7 @@ import { Rotation } from "../rotation/types";
 import { formatStationDateTime } from "@/src/utilities/stationTime";
 import { OFF_AIR_LABEL } from "./constants";
 import { hasLinkedAlbumId } from "./linkage";
+import { formatNameList } from "./name-list";
 import { seedableArtistName } from "./various-artists-guard";
 import {
   FlowsheetEntry,
@@ -13,9 +14,23 @@ import {
   OnAirDJResponse,
 } from "./types";
 
+/**
+ * "Turncoat, desire path" — a plain comma join, no conjunction (unlike
+ * `formatDjNames`'s "and"; the banner has no verb to agree with).
+ *
+ * Filters blank names through the same `nonBlankNames` `formatDjNames` uses
+ * (see `./name-list`), which this function used not to do: a blank `dj_name`
+ * — a real possibility, since a DJ account can now be created with no on-air
+ * handle — used to ride straight into the joined string (`"Turncoat, "`, or
+ * bare `""` for an all-blank list), because only one of this function's three
+ * call sites pre-filtered before calling it. Every call site now gets the
+ * same filter for free, whether it pre-filters or not.
+ */
 export function formatOnAirSummary(djs: OnAirDJResponse[]): string {
-  if (!djs.length) return OFF_AIR_LABEL;
-  return djs.map((dj) => dj.dj_name).join(", ");
+  return formatNameList(
+    djs.map((dj) => dj.dj_name),
+    { whenEmpty: OFF_AIR_LABEL }
+  );
 }
 
 /**
