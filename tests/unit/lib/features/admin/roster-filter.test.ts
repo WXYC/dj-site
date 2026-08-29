@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   foldForSearch,
   accountMatchesSearch,
+  isOnboardingIncomplete,
   selectRosterView,
   sortRosterForDisplay,
 } from "@/lib/features/admin/roster-filter";
@@ -112,12 +113,45 @@ describe("sortRosterForDisplay", () => {
   });
 });
 
+describe("isOnboardingIncomplete", () => {
+  // The roster's only evidence about the signup flow. `authType` cannot stand
+  // in for it: `provision-user.ts` creates every account with
+  // `emailVerified: true`, so it reports Confirmed for a DJ who has never
+  // opened the setup email.
+  it("selects the account better-auth reported as not onboarded", () => {
+    expect(isOnboardingIncomplete(createTestAccountResult({ hasCompletedOnboarding: false }))).toBe(
+      true
+    );
+    expect(isOnboardingIncomplete(createTestAccountResult({ hasCompletedOnboarding: true }))).toBe(
+      false
+    );
+  });
+
+  // `convertBetterAuthToAccountResult` coerces a missing flag to `false`, so
+  // this case is unreachable from the API. It is pinned because the predicate
+  // is shared with AccountEntry's "New" chip: an account without the chip must
+  // never appear under the "Onboarding incomplete" filter, whatever the shape
+  // of the row.
+  it("treats an absent flag the same way the roster's chip does", () => {
+    const noFlag = createTestAccountResult({});
+    delete noFlag.hasCompletedOnboarding;
+    expect(isOnboardingIncomplete(noFlag)).toBe(false);
+  });
+});
+
 describe("selectRosterView", () => {
   // Filtering and slicing preserve input order, so the view is fed the sorted
   // roster the hook keeps out of the per-keystroke path.
   const ordered = sortRosterForDisplay(roster);
   const view = (overrides: Partial<Parameters<typeof selectRosterView>[1]> = {}) =>
-    selectRosterView(ordered, { search: "", roles: [], page: 0, pageSize: 2, ...overrides });
+    selectRosterView(ordered, {
+      search: "",
+      roles: [],
+      onboarding: "all",
+      page: 0,
+      pageSize: 2,
+      ...overrides,
+    });
 
   it("preserves the order it is given", () => {
     expect(view({ pageSize: 50 }).matches.map((a) => a.realName)).toEqual([
@@ -160,5 +194,60 @@ describe("selectRosterView", () => {
     expect(empty.pageAccounts).toEqual([]);
     expect(empty.page).toBe(0);
     expect(empty.totalPages).toBe(1);
+  });
+
+  describe("onboarding filter", () => {
+    const onboarded = createTestAccountResult({
+      realName: "Alan Sondheim",
+      userName: "asondheim",
+      hasCompletedOnboarding: true,
+    });
+    const stranded = createTestAccountResult({
+      realName: "Beverly Glenn-Copeland",
+      userName: "bglenncopeland",
+      hasCompletedOnboarding: false,
+    });
+    const mixed = sortRosterForDisplay([onboarded, stranded, jessica]);
+    const mixedView = (overrides: Partial<Parameters<typeof selectRosterView>[1]> = {}) =>
+      selectRosterView(mixed, {
+        search: "",
+        roles: [],
+        onboarding: "all",
+        page: 0,
+        pageSize: 50,
+        ...overrides,
+      });
+
+    it('keeps every account under "all"', () => {
+      expect(mixedView().matches).toHaveLength(3);
+    });
+
+    it("narrows to the DJs who never finished signing up", () => {
+      expect(mixedView({ onboarding: "incomplete" }).matches.map((a) => a.userName)).toEqual([
+        "bglenncopeland",
+      ]);
+    });
+
+    it("narrows to the DJs who did", () => {
+      expect(mixedView({ onboarding: "complete" }).matches.map((a) => a.userName)).toEqual([
+        "asondheim",
+        "jpratt",
+      ]);
+    });
+
+    it("ANDs with search and role, so a filtered roster can be searched", () => {
+      expect(
+        mixedView({ onboarding: "incomplete", search: "beverly" }).matches.map((a) => a.userName)
+      ).toEqual(["bglenncopeland"]);
+      expect(mixedView({ onboarding: "incomplete", roles: [Authorization.SM] }).matches).toEqual([]);
+    });
+
+    // Same hazard the role filter has: narrowing to a handful of stranded DJs
+    // from page 3 must not render as an empty roster.
+    it("clamps the page when the filter shrinks the roster underfoot", () => {
+      const clamped = mixedView({ onboarding: "incomplete", page: 4, pageSize: 2 });
+      expect(clamped.page).toBe(0);
+      expect(clamped.pageAccounts.map((a) => a.userName)).toEqual(["bglenncopeland"]);
+    });
   });
 });

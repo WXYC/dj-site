@@ -1,6 +1,11 @@
 export { Authorization } from "@wxyc/shared/auth-client/auth";
 import { Authorization, ROLES, roleToAuthorization } from "@wxyc/shared/auth-client/auth";
 
+// Defined beside the predicate that reads it; re-exported here because the
+// roster's state shape is the vocabulary the components import.
+import type { OnboardingFilter } from "./roster-filter";
+export type { OnboardingFilter };
+
 /**
  * Every station role a picker can offer, least privileged first.
  *
@@ -31,6 +36,8 @@ export type AdminFrontendState = {
   searchString: string;
   /** Roles the table is narrowed to; empty means every role. */
   roleFilter: Authorization[];
+  /** Which side of the signup flow the table is narrowed to. */
+  onboardingFilter: OnboardingFilter;
   page: number;
   adding: boolean;
   formData: {

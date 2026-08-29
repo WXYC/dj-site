@@ -4,6 +4,7 @@ import { AdminFrontendState, Authorization } from "./types";
 export const defaultAdminFrontendState: AdminFrontendState = {
   searchString: "",
   roleFilter: [],
+  onboardingFilter: "all",
   page: 0,
   adding: false,
   formData: {
@@ -23,6 +24,10 @@ export const adminSlice = createAppSlice({
     // that no longer exists, so both filters send them back to the first one.
     setRoleFilter: (state, action) => {
       state.roleFilter = action.payload;
+      state.page = 0;
+    },
+    setOnboardingFilter: (state, action) => {
+      state.onboardingFilter = action.payload;
       state.page = 0;
     },
     setPage: (state, action) => {
@@ -47,6 +52,7 @@ export const adminSlice = createAppSlice({
   selectors: {
     getSearchString: (state) => state.searchString,
     getRoleFilter: (state) => state.roleFilter,
+    getOnboardingFilter: (state) => state.onboardingFilter,
     getPage: (state) => state.page,
     getAdding: (state) => state.adding,
     getFormData: (state) => state.formData,

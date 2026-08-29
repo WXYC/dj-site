@@ -4,6 +4,7 @@ import { applicationSlice } from "@/lib/features/application/frontend";
 import {
   Account,
 } from "@/lib/features/admin/types";
+import { isOnboardingIncomplete } from "@/lib/features/admin/roster-filter";
 import {
   AUTHORIZATION_LABELS,
 } from "@/lib/features/authentication/types";
@@ -66,7 +67,7 @@ export const AccountEntry = ({
       <td>
         <Stack direction="row" spacing={0.5} alignItems="center">
           <span>{account.realName}</span>
-          {account.hasCompletedOnboarding === false && (
+          {isOnboardingIncomplete(account) && (
             <Tooltip
               title="Has not completed onboarding"
               arrow

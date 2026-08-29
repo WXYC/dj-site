@@ -24,6 +24,7 @@ import AccountSearchForm from "./AccountSearchForm";
 import ExportDJsButton from "./ExportCSV";
 import ImportCSVModal from "./ImportCSVModal";
 import NewAccountForm from "./NewAccountForm";
+import OnboardingFilter from "./OnboardingFilter";
 import RoleFilter from "./RoleFilter";
 
 /** A full-width row spanning the table, for states that replace the accounts. */
@@ -146,6 +147,7 @@ export default function RosterTable({ user, organizationSlug }: { user: User; or
         <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ alignItems: "center" }}>
           <AccountSearchForm />
           <RoleFilter />
+          <OnboardingFilter />
         </Stack>
         <Stack
           direction="row"
@@ -224,7 +226,7 @@ export default function RosterTable({ user, organizationSlug }: { user: User; or
               // two apart reads a narrow search as a lost roster.
               <MessageRow>
                 <Typography level="body-md">
-                  No accounts match your search or role filter.
+                  No accounts match your search or filters.
                 </Typography>
                 <Typography level="body-sm">
                   {totalAccounts} accounts on the roster.

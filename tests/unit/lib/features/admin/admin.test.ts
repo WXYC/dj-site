@@ -118,6 +118,29 @@ describeSlice(adminSlice, defaultAdminFrontendState, ({ harness, actions }) => {
     });
   });
 
+  describe("setOnboardingFilter action", () => {
+    it("should set the selected side of the signup flow", () => {
+      const result = harness().reduce(actions.setOnboardingFilter("incomplete"));
+      expect(result.onboardingFilter).toBe("incomplete");
+    });
+
+    it("should allow clearing the selection back to the whole roster", () => {
+      const result = harness().chain(
+        actions.setOnboardingFilter("incomplete"),
+        actions.setOnboardingFilter("all")
+      );
+      expect(result.onboardingFilter).toBe("all");
+    });
+
+    it("should reset page to 0 when the onboarding filter changes", () => {
+      const result = harness().chain(
+        actions.setPage(3),
+        actions.setOnboardingFilter("incomplete")
+      );
+      expect(result.page).toBe(0);
+    });
+  });
+
   describe("setAdding action", () => {
     it("should set adding to true", () => {
       const result = harness().reduce(actions.setAdding(true));

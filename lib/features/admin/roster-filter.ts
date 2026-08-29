@@ -62,6 +62,45 @@ function accountMatchesRoles(account: Account, roles: Authorization[]): boolean 
 }
 
 /**
+ * Which side of the signup flow an account is on.
+ *
+ * `"all"` is the default rather than an absent value so the filter has one
+ * representation everywhere — Redux state, the query, and the picker's value.
+ */
+export type OnboardingFilter = "all" | "incomplete" | "complete";
+
+/**
+ * Has this DJ been provisioned but never finished setting their account up?
+ *
+ * This is the roster's only evidence about the signup flow. `authType` cannot
+ * stand in for it: `provision-user.ts` creates every account with
+ * `emailVerified: true`, so `AdminAuthenticationStatus.Confirmed` says nothing
+ * about whether the DJ ever opened the setup email.
+ *
+ * Exported and shared with `AccountEntry`'s "New" chip on purpose. The filter
+ * and the badge are the same claim shown two ways, and an admin who filters to
+ * "onboarding incomplete" and sees an unbadged row reads it as a bug — so the
+ * two must not be able to drift apart.
+ *
+ * Strict `=== false` matches the badge and the server's own gate for a row that
+ * carries no flag at all. `convertBetterAuthToAccountResult` coerces a missing
+ * flag to `false`, so every account reaching the table has a real boolean and
+ * the distinction is unreachable from the API.
+ */
+export function isOnboardingIncomplete(account: Account): boolean {
+  return account.hasCompletedOnboarding === false;
+}
+
+/** Anything but the two narrowing values shows the whole roster: a filter that
+ * fails open hides nobody, where one failing closed hides the roster behind a
+ * control the admin never touched. */
+function accountMatchesOnboarding(account: Account, onboarding: OnboardingFilter): boolean {
+  if (onboarding === "incomplete") return isOnboardingIncomplete(account);
+  if (onboarding === "complete") return !isOnboardingIncomplete(account);
+  return true;
+}
+
+/**
  * Passing `locales`/`options` to `localeCompare` defeats V8's collator cache
  * and constructs a fresh ICU collator per comparison — ~30x the cost, paid
  * once per comparison across the whole roster.
@@ -91,6 +130,7 @@ export function sortRosterForDisplay(accounts: Account[]): Account[] {
 export type RosterQuery = {
   search: string;
   roles: Authorization[];
+  onboarding: OnboardingFilter;
   page: number;
   pageSize: number;
 };
@@ -118,7 +158,10 @@ export type RosterView = {
 export function selectRosterView(orderedAccounts: Account[], query: RosterQuery): RosterView {
   const terms = searchTerms(query.search);
   const matches = orderedAccounts.filter(
-    (account) => matchesTerms(account, terms) && accountMatchesRoles(account, query.roles)
+    (account) =>
+      matchesTerms(account, terms) &&
+      accountMatchesRoles(account, query.roles) &&
+      accountMatchesOnboarding(account, query.onboarding)
   );
 
   const totalPages = Math.max(1, Math.ceil(matches.length / query.pageSize));
