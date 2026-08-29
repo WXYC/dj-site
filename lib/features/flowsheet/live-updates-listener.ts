@@ -226,6 +226,19 @@ export function createLiveUpdatesListenerMiddleware(
    * NOT that the value is unshared: the marker variants still derive `day` /
    * `time` / `isToday` at conversion time, and those are not recomputed here,
    * so a genuinely changed `add_time` would leave them disagreeing.
+   *
+   * `timestamp` is the opposite case, not a second instance of the `add_time`
+   * exception: it exists only on the V2 `show_start`/`show_end` wire shape
+   * (`FlowsheetV2ShowStartEntry`/`FlowsheetV2ShowEndEntry`), and the value
+   * BS puts there is a locale-formatted display string
+   * (`add_time.toLocaleString('en-US', { timeZone: 'America/New_York' })`,
+   * e.g. "8/28/2026, 2:30:00 PM") — not the ISO instant `add_time` carries.
+   * `convertV2Entry` consumes it once, at conversion time, into `day` /
+   * `time` / `isToday` and the converted row never keeps a `timestamp`
+   * field of its own. A raw merge would graft that display string onto the
+   * cached row under a key nothing reads, while the rendered `day` / `time`
+   * stay pinned to whatever the last conversion produced — the same
+   * `rotation_bin` → `rotation` fork, not the `add_time` exception.
    */
   const WIRE_ONLY_UPDATE_KEYS = new Set([
     "entry_type",
@@ -233,6 +246,7 @@ export function createLiveUpdatesListenerMiddleware(
     "radio_hour",
     "dj_name",
     "rotation_bin",
+    "timestamp",
   ]);
 
   /**
