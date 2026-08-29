@@ -3,6 +3,7 @@
 import { useId, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useGetGenresQuery, useLazyResolveArtistByCodeQuery } from "@/lib/features/catalog/api";
+import { artistCardHref } from "@/lib/features/catalog/artistCardRoute";
 import {
   isRockCompLettersRequired,
   validateArtistSearchForm,
@@ -215,7 +216,7 @@ export default function ArtistSearchForm({ onMultiMatch }: ArtistSearchFormProps
     }
 
     if (owners.length === 1) {
-      router.push(`/dashboard/library/artist/${owners[0].id}`);
+      router.push(artistCardHref(owners[0]));
       return;
     }
 

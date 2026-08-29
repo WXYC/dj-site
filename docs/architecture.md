@@ -77,7 +77,7 @@ These reproduce tubafrenzy's `/wxycdb` screens. They are **classic-first**: the 
 | `/dashboard/library` | Entry: artist vs. Various Artists, multi-match disambiguation | `chooseLibraryCodeOrArtist.jsp`, `multipleArtistsDisplay.jsp` | MD |
 | `/dashboard/library/artist/new` | Code-miss create screen: genre/letters/numbers carried read-only from the miss branch, only the two name fields editable | `createLibraryCode.jsp` | MD |
 | `/dashboard/library/artist/[id]` | Artist card + its release list | `artistCardModify.jsp` | MD |
-| `/dashboard/library/various/[id]` | V/A bucket card, `albumArtist`, per-track credits | `variousArtistsCardModify.jsp` | MD |
+| `/dashboard/library/various/[id]` | V/A bucket card + its add-release form; per-track credits pending | `variousArtistsCardModify.jsp` | MD |
 | `/dashboard/library/release/[id]` | Release edit | `libraryReleaseModify.jsp` | MD |
 | `/dashboard/library/release/[id]/move` | Move release to another library code | `libraryReleaseModifyLibCode.jsp` | MD |
 | `/dashboard/library/release/[id]/delete` | Delete confirmation | `libraryReleaseDelete.jsp` | MD |
@@ -86,6 +86,10 @@ These reproduce tubafrenzy's `/wxycdb` screens. They are **classic-first**: the 
 | `/dashboard/rotation/new` | Add rotation release | `rotationReleaseInsert.jsp` | MD |
 | `/dashboard/rotation/[id]` | Modify rotation release | `rotationReleaseModify.jsp` | MD |
 | `/dashboard/rotation/[id]/import` | Import rotation release into the library | `rotationReleaseImport.jsp`, `rotationReleaseImportNewArtist.jsp` | MD |
+
+Which of the two artist cards a link opens is decided structurally, by `code_letters`, in `lib/features/catalog/artistCardRoute.ts` — `/wxycdb` serves both from one servlet and picks the view from the row, and that choice has to be reproduced wherever a link to an artist is built. Deciding it on the artist's *name* would drop the whole `Soundtracks - <A–Z>` sub-shelf, which carries no compilation keyword anywhere. Both cards also redirect a row that belongs on the other one, so a hand-typed or stale URL still lands on the screen that describes it.
+
+The bucket card's **Album Artist** row is display-only: `POST /library` has no parameter for it and `library.album_artist` is written solely by the nightly catalog import, so the field states that rather than offering an input that would discard what is typed. It becomes an input once a write path exists.
 
 Naming follows `/wxycdb`'s own directory split (`libraryAdmin/`, `rotation/`) rather than nesting under `/dashboard/catalog`, which would collide confusingly with the unrelated modern `/dashboard/admin/catalog` (format + genre admin).
 

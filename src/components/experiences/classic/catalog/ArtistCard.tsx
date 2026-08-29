@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useId, useState } from "react";
 import {
   useAddAlbumMutation,
@@ -13,6 +14,7 @@ import {
 import {
   formatArtistCodeWithPunctuation,
   formatEntireLibraryCode,
+  isVariousArtists,
 } from "@/lib/features/catalog/libraryCode";
 import type { AddAlbumRequestBody, ArtistRelease } from "@/lib/features/catalog/types";
 import {
@@ -84,6 +86,7 @@ const EMPTY_ALPHABETICAL_MESSAGE = "The alphabetical name cannot be empty.";
  *   defaults to.
  */
 export default function ArtistCard({ artistId, message }: ArtistCardProps) {
+  const router = useRouter();
   const alphabeticalNameId = useId();
   const presentationNameId = useId();
   const titleId = useId();
@@ -122,6 +125,15 @@ export default function ArtistCard({ artistId, message }: ArtistCardProps) {
   useEffect(() => {
     if (artist) setAlphabeticalName(artist.alphabetical_name);
   }, [artist]);
+
+  // `/wxycdb` picks this card or the compilation bucket card from the row
+  // itself. A shelf row reaching this URL -- a hand-typed id, a stale
+  // bookmark -- would otherwise be offered a name edit for what is a shelf
+  // section, and shown none of its per-track credits.
+  const isShelfRow = !!artist && isVariousArtists(artist.code_letters);
+  useEffect(() => {
+    if (isShelfRow) router.replace(`/dashboard/library/various/${artistId}`);
+  }, [isShelfRow, router, artistId]);
 
   const genreName = genres?.find((genre) => genre.id === artist?.genre_id)?.genre_name;
 
@@ -228,7 +240,7 @@ export default function ArtistCard({ artistId, message }: ArtistCardProps) {
     );
   }
 
-  if (artistLoading || !artist) {
+  if (artistLoading || !artist || isShelfRow) {
     return <div role="status">Loading…</div>;
   }
 

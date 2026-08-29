@@ -219,6 +219,33 @@ describe("classic ArtistSearchForm — chooseLibraryCodeOrArtist.jsp's artistSea
     await waitFor(() => expect(mockPush).toHaveBeenCalledWith("/dashboard/library/artist/99"));
   });
 
+  // A sole compilation bucket at a code goes to the bucket card, not the
+  // artist card: the bucket is a shelf section with per-track credits, and the
+  // artist card offers neither those nor anything a section can be edited by.
+  it("routes a lone compilation bucket to the bucket card", async () => {
+    server.use(
+      http.get(BY_CODE_URL, () =>
+        HttpResponse.json({
+          artists: [
+            {
+              id: 4211,
+              artist_name: "Soundtracks - L",
+              code_letters: "V/A",
+              code_number: 0,
+              genre_id: SOUNDTRACKS_GENRE_ID,
+            },
+          ],
+        }),
+      ),
+    );
+    const { user } = renderWithProviders(<ArtistSearchForm onMultiMatch={mockOnMultiMatch} />);
+
+    await fillTextboxCode(user, "V/A", "0");
+    await user.click(screen.getByRole("button", { name: "Search!" }));
+
+    await waitFor(() => expect(mockPush).toHaveBeenCalledWith("/dashboard/library/various/4211"));
+  });
+
   // 0 is a legitimate call number (the Various Artists filing, and no floor
   // above 0 for an ordinary code either) -- not an empty field.
   it("accepts a call number of 0 in textbox mode", async () => {

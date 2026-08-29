@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { artistCardHref } from "@/lib/features/catalog/artistCardRoute";
 import { formatCallLettersAndNumbers } from "@/lib/features/catalog/libraryCode";
 import type { MultiMatchResult } from "./ArtistSearchForm";
 
@@ -18,7 +19,9 @@ type MultipleArtistsDisplayProps = MultiMatchResult & {
  * A compilation code is the case that makes this screen load-bearing rather
  * than defensive: every Various Artists bucket in a genre collides on one
  * triple, so picking the bucket by name is the only way through. See
- * `composeLibraryCodeSearchArgs` for why.
+ * `composeLibraryCodeSearchArgs` for why. Those rows are also the reason each
+ * link is built by `artistCardHref` rather than hard-coded: a bucket is filed
+ * and edited as a shelf section, on a different card from a performer.
  *
  * The JSP's "no results" branch is not reproduced: `resolveArtistByCode` never
  * answers a 200 with zero owners, and the caller refuses a zero-length list
@@ -97,7 +100,7 @@ export default function MultipleArtistsDisplay({
               <td style={{ textAlign: "right" }}>{genreName ?? ""}</td>
               <td style={{ textAlign: "left" }}>{callLettersAndNumbers}</td>
               <td>
-                <Link href={`/dashboard/library/artist/${artist.id}`}>{artist.artist_name}</Link>
+                <Link href={artistCardHref(artist)}>{artist.artist_name}</Link>
               </td>
             </tr>
           ))}
