@@ -150,6 +150,37 @@ describe("deleteAlbum", () => {
     sub.unsubscribe();
   });
 
+  it("does not re-read the release it just deleted", async () => {
+    let infoCalls = 0;
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/library/info`, () => {
+        infoCalls += 1;
+        return HttpResponse.json({ id: 53375, album_title: "Tri Repetae" });
+      }),
+      http.delete(`${TEST_BACKEND_URL}/library/53375`, () => new HttpResponse(null, { status: 204 })),
+    );
+
+    const store = createTestStore();
+    const sub = store.dispatch(
+      catalogApi.endpoints.getInformation.initiate({ album_id: 53375 }),
+    );
+    await sub;
+    expect(infoCalls).toBe(1);
+
+    await store.dispatch(catalogApi.endpoints.deleteAlbum.initiate({ albumId: 53375 }));
+    // A real delay, not a microtask: an invalidation-driven refetch is
+    // dispatched asynchronously, so asserting on the next tick would pass
+    // whether or not one was queued.
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    // Invalidating AlbumDetail here would refetch a row that no longer
+    // exists. The 404 is certain, and the shared error middleware turns it
+    // into a red toast over the confirmation screen and a Sentry event — on
+    // every successful delete.
+    expect(infoCalls).toBe(1);
+    sub.unsubscribe();
+  });
+
   it("leaves cached lists alone when the delete was refused", async () => {
     let searchCalls = 0;
     server.use(
@@ -173,7 +204,7 @@ describe("deleteAlbum", () => {
     await sub;
 
     await store.dispatch(catalogApi.endpoints.deleteAlbum.initiate({ albumId: 53375 }));
-    await Promise.resolve();
+    await new Promise((resolve) => setTimeout(resolve, 50));
 
     // A refused delete changed nothing on the server, so re-fetching every
     // catalog list on screen would be pure cost — and worse, would look like

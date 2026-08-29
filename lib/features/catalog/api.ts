@@ -228,11 +228,20 @@ export const catalogApi = createApi({
       // invalidating on it would make every catalog list on screen refetch —
       // showing the row vanish and return. `result` is void either way, so
       // `error` is what distinguishes them.
-      invalidatesTags: (_result, error, { albumId, artistId }) =>
+      //
+      // `AlbumDetail` is deliberately absent, and it is the one tag that looks
+      // like it belongs. Invalidating it would refetch `getInformation` for a
+      // row that no longer exists: a request whose 404 is guaranteed, and
+      // which `rtkQueryErrorLogger` would then turn into a red "Album not
+      // found" toast over the confirmation screen plus a Sentry event — on
+      // every successful delete. A tag exists to refresh a stale read; there
+      // is nothing left to read. The cached entry goes unsubscribed as soon as
+      // the librarian leaves and expires on its own, and every list that could
+      // still surface the row is invalidated below.
+      invalidatesTags: (_result, error, { albumId: _albumId, artistId }) =>
         error
           ? []
           : [
-              { type: "AlbumDetail", id: albumId },
               { type: "CatalogList", id: "LIST" },
               // The artist whose release table the row is leaving. A caller
               // that does not know it invalidates every table rather than

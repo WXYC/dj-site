@@ -137,12 +137,13 @@ describe("Classic ReleaseDeleteConfirm — libraryReleaseDelete.jsp", () => {
 
     it("keeps showing the release from a snapshot, since the row it was reading is gone", async () => {
       loaded();
-      // What production does: the successful delete invalidates AlbumDetail,
-      // the query behind this screen refetches, and the refetch 404s. Reading
-      // live through to that would replace the confirmation with a load
-      // failure — telling the librarian the delete broke, having just watched
-      // it work. Flipping the query mock as the delete resolves reproduces
-      // that ordering rather than asserting against a second mount.
+      // The row behind this screen can stop resolving at any point after the
+      // delete — an eviction, a refetch this component did not ask for.
+      // Reading live through to that would replace the confirmation with a
+      // load failure, telling the librarian the delete broke having just
+      // watched it work. Flipping the query mock as the delete resolves
+      // reproduces that ordering rather than asserting against a second
+      // mount.
       mockDeleteAlbum.mockReturnValue({
         unwrap: () => {
           mockGetInformationQuery.mockReturnValue({
