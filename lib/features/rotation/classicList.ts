@@ -25,6 +25,13 @@ function localTodayISO(now: Date): string {
  * /library/rotation/uncatalogued`) is deliberately NOT status-filtered
  * server-side and mixes active and killed rows in one response.
  *
+ * Distinct from "has a kill date", which is what the JSP's Killed column,
+ * its Kill/Unkill choice and its Import affordance all key on
+ * (`release.killDate == 0`). A future-dated kill is both: still in rotation
+ * today, but already scheduled to leave. Conflating the two hides a
+ * scheduled kill date behind a green "Active" and offers a Kill button for
+ * a row that has already been killed.
+ *
  * Plain string comparison on `YYYY-MM-DD`, not a `Date` parse: a date-only
  * string has no timezone to get wrong, and lexicographic comparison of two
  * zero-padded ISO dates is exactly calendar-day comparison.
@@ -52,12 +59,12 @@ export type RotationLibraryStatus = "cataloged" | "uncataloged" | "unknown";
 /**
  * The JSP's Library column: Cataloged when linked (regardless of kill
  * status), Uncataloged when killed and never linked, and an em-dash
- * ("unknown" here) for a still-active, never-catalogued row -- it hasn't
+ * ("unknown" here) for a never-killed, never-catalogued row -- it hasn't
  * been through a cataloging decision yet.
  */
-export function rotationLibraryStatus(isLinked: boolean, isKilled: boolean): RotationLibraryStatus {
+export function rotationLibraryStatus(isLinked: boolean, hasKillDate: boolean): RotationLibraryStatus {
   if (isLinked) return "cataloged";
-  return isKilled ? "uncataloged" : "unknown";
+  return hasKillDate ? "uncataloged" : "unknown";
 }
 
 /** One row of the classic list's table, regardless of which endpoint produced it. */
@@ -66,48 +73,46 @@ export type RotationDisplayRow = {
   artistName: string;
   title: string;
   label: string;
-  binLabel: RotationBin;
+  /** The bin's own letter, which is what the JSP's Type column prints. */
+  bin: RotationBin;
   formatName: string;
   addedDisplay: string;
-  killed: boolean;
-  killedDisplay: string;
+  /**
+   * The kill date as `MM/DD/YY`, or `null` for a row that has never been
+   * killed. One value rather than a flag beside a string, so "killed with
+   * no date" and "not killed but carrying one" are both unrepresentable.
+   */
+  killedDisplay: string | null;
+  /** Whether the row still counts as in rotation today (a future kill hasn't landed). */
+  active: boolean;
   libraryStatus: RotationLibraryStatus;
-  showImport: boolean;
 };
 
-const EM_DASH = "—";
-
-function killedDisplay(killDate: string | null): string {
-  return killDate == null ? "Active" : formatRotationDate(killDate);
-}
+const EM_DASH = "\u2014";
 
 /**
- * Projects a `GET /library/rotation` row (catalogued or uncatalogued,
- * active-only by construction) into the shared display shape.
+ * Projects a `GET /library/rotation` row (catalogued or uncatalogued) into
+ * the shared display shape.
  *
  * `id` is `library.id` from Backend's LEFT JOIN and is the linkage
  * indicator -- `null` on an unlinked row. Checked with `hasLinkedAlbumId`
- * (its `> 0` guard) rather than a bare nullish check: the unlinked sentinel
- * is both `0` (tubafrenzy's convention) and `NULL` (Backend's), and while a
- * `library.id` can never actually be `0` (it's a `serial` starting at 1),
- * asserting that here would be trusting the invariant instead of checking
- * it.
+ * (its `> 0` guard) rather than a bare nullish check: while a `library.id`
+ * can never actually be `0` (it is a `serial` starting at 1), asserting
+ * that here would be trusting an invariant this client cannot see instead
+ * of checking it.
  */
 export function toDisplayRowFromList(row: RotationListRow, now: Date = new Date()): RotationDisplayRow {
-  const isLinked = hasLinkedAlbumId(row.id);
-  const active = isRotationRowActive(row.rotation_kill_date, now);
   return {
     rotationId: row.rotation_id,
     artistName: row.artist_name ?? "",
     title: row.album_title ?? "",
     label: row.record_label ?? "",
-    binLabel: row.rotation_bin,
+    bin: row.rotation_bin,
     formatName: row.format_name ?? EM_DASH,
     addedDisplay: formatRotationDate(row.rotation_add_date),
-    killed: !active,
-    killedDisplay: killedDisplay(row.rotation_kill_date),
-    libraryStatus: rotationLibraryStatus(isLinked, !active),
-    showImport: !active && !isLinked,
+    killedDisplay: row.rotation_kill_date == null ? null : formatRotationDate(row.rotation_kill_date),
+    active: isRotationRowActive(row.rotation_kill_date, now),
+    libraryStatus: rotationLibraryStatus(hasLinkedAlbumId(row.id), row.rotation_kill_date != null),
   };
 }
 
@@ -124,51 +129,78 @@ export function toDisplayRowFromUncatalogued(
   row: UncataloguedRotationRow,
   now: Date = new Date(),
 ): RotationDisplayRow {
-  const isLinked = hasLinkedAlbumId(row.album_id);
-  const active = isRotationRowActive(row.kill_date, now);
   return {
     rotationId: row.id,
     artistName: row.artist_name ?? "",
     title: row.album_title ?? "",
     label: row.record_label ?? "",
-    binLabel: row.rotation_bin,
+    bin: row.rotation_bin,
     formatName: EM_DASH,
     addedDisplay: formatRotationDate(row.add_date),
-    killed: !active,
-    killedDisplay: killedDisplay(row.kill_date),
-    libraryStatus: rotationLibraryStatus(isLinked, !active),
-    showImport: !active && !isLinked,
+    killedDisplay: row.kill_date == null ? null : formatRotationDate(row.kill_date),
+    active: isRotationRowActive(row.kill_date, now),
+    libraryStatus: rotationLibraryStatus(hasLinkedAlbumId(row.album_id), row.kill_date != null),
   };
 }
 
-/** A dedupe key from an artist/title pair: folded to collapse case and stray whitespace. */
+/**
+ * A dedupe key from an artist/title pair, folded to collapse case and stray
+ * whitespace.
+ *
+ * The two halves are encoded as a JSON array rather than joined by a
+ * separator character. Any separator an artist name or album title could
+ * itself contain makes `("Sun", "Ra Arkestra")` and `("Sun Ra",
+ * "Arkestra")` one key, silently dropping one of the two releases from the
+ * list; the separators that cannot appear in a title are all invisible
+ * control characters, which no reader or diff can verify by eye.
+ */
 function dedupeKey(artistName: string | null, albumTitle: string | null): string {
   const fold = (value: string | null) => (value ?? "").normalize("NFC").trim().toLowerCase();
-  return `${fold(artistName)} ${fold(albumTitle)}`;
+  return JSON.stringify([fold(artistName), fold(albumTitle)]);
 }
 
 /**
- * Collapses rotation rows that share an artist and title, keeping the first
- * occurrence. Rotation rows genuinely duplicate in production --
- * `LOS THUTHANAKA / Wak'a` appears three times across two days -- and
- * Backend's own `DISTINCT ON` in `getRotationFromDB` only collapses same
- * `(album, bin)` pairs, not a re-add under a different bin.
+ * Most-recently-added first, tie-broken on the lowest rotation id so the
+ * order is total. This is `rotationReleaseList.jsp`'s own Active-facet
+ * order (`ORDER BY RR.ROTATION_ADD_DATE DESC` in `RotationReleaseServlet`),
+ * and it is not the order the rows arrive in: `getRotationFromDB` orders by
+ * its `DISTINCT ON` partition key first -- an `album_id`, or a `hashtext`
+ * of the artist/title snapshot -- so the response reaches this client
+ * grouped by a hash, with `add_date` only breaking ties inside a group.
+ */
+function byMostRecentlyAdded(left: RotationListRow, right: RotationListRow): number {
+  if (left.rotation_add_date !== right.rotation_add_date) {
+    return left.rotation_add_date < right.rotation_add_date ? 1 : -1;
+  }
+  return left.rotation_id - right.rotation_id;
+}
+
+/**
+ * Sorts rotation rows most-recently-added first and collapses rows sharing
+ * an artist and title, keeping the most recent of each group.
  *
- * Callers pass rows already ordered most-recent-first (Backend's own
- * `ORDER BY add_date DESC, id ASC`), so "first occurrence" is "most
- * recent" without this function needing to know about dates at all.
+ * Rotation rows genuinely duplicate in production -- `LOS THUTHANAKA /
+ * Wak'a` appears three times across two days -- and Backend's own
+ * `DISTINCT ON` in `getRotationFromDB` only collapses same `(album, bin)`
+ * pairs, so a re-add under a different bin still arrives twice. The sort
+ * belongs here rather than to the caller because "keep the first
+ * occurrence" is only "keep the most recent" if the order is guaranteed,
+ * and the response's own order guarantees the opposite: inside a duplicate
+ * group the rows arrive ordered by bin letter, so taking the first would
+ * pin the list to whichever bin sorts earliest -- showing a release still
+ * in Heavy months after it moved to Light.
  *
  * Deliberately applied to the Active facet only, never to the Awaiting
- * Cataloging queue: `getUncataloguedRotationFromDB`'s own doc comment states
- * the opposite rule for that endpoint on purpose -- "two physically distinct
- * promos sharing an artist and title are two separate rows a librarian has
- * to catalogue" -- and re-collapsing them here would reintroduce the exact
- * bug (#862) that comment describes fixing.
+ * Cataloging queue: `getUncataloguedRotationFromDB`'s own doc comment
+ * states the opposite rule for that endpoint on purpose -- "two physically
+ * distinct promos sharing an artist and title are two separate rows a
+ * librarian has to catalogue" -- and re-collapsing them here would re-hide
+ * one of them from the person whose job is to catalogue it.
  */
 export function dedupeRotationListByArtistTitle(rows: RotationListRow[]): RotationListRow[] {
   const seen = new Set<string>();
   const result: RotationListRow[] = [];
-  for (const row of rows) {
+  for (const row of [...rows].sort(byMostRecentlyAdded)) {
     const key = dedupeKey(row.artist_name, row.album_title);
     if (seen.has(key)) continue;
     seen.add(key);

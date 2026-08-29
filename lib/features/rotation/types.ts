@@ -97,3 +97,12 @@ export type FreeTextRotationAddRequest = {
 export type RotationStatusFilter = "all" | "active" | "killed" | "uncataloged";
 
 export const DEFAULT_ROTATION_STATUS_FILTER: RotationStatusFilter = "active";
+
+/**
+ * Rows per request for the Awaiting Cataloging queue. Mirrors Backend's own
+ * ceiling on `GET /library/rotation/uncatalogued?limit=` -- ask for it
+ * explicitly rather than relying on the server's default so a page that
+ * comes back this full can be reported as truncated against a number this
+ * client actually chose.
+ */
+export const UNCATALOGUED_ROTATION_PAGE_SIZE = 500;

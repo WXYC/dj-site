@@ -8,6 +8,8 @@ import { useDebouncedValue } from "@/src/hooks/useDebouncedValue";
 const DEBOUNCE_MS = 300;
 const MIN_QUERY_LENGTH = 2;
 const RESULT_LIMIT = 10;
+// Stable identity so an empty result does not re-run the exact-match effect.
+const NO_LABELS: Label[] = [];
 
 /**
  * Classic equivalent of `rotationReleaseInsert.jsp`'s `companyName` field,
@@ -33,17 +35,18 @@ const RESULT_LIMIT = 10;
  * empty option list, and this component renders a `role="alert"` panel
  * distinct from "still typing" or "no existing label" for it.
  *
- * `onSelect`/`onSelectionCleared` mirror `LabelSearchTypeaheadProps`'s shape
- * even though this caller only needs `value`/`onChange` -- the next classic
- * rotation slice (`rotationReleaseModify.jsp`'s identical companyName
- * wiring) is expected to reuse this component as-is, so the richer
- * interface is kept rather than reshaped later.
+ * `onSelect` fires when the typed text names a label that already exists,
+ * which is how the caller canonicalizes "sonamos" to the stored "Sonamos"
+ * before submitting it as free text. There is no matching "selection
+ * cleared" callback because there is no selection to clear: the JSP's
+ * hidden `companyID` has no counterpart on `POST /library/rotation`, whose
+ * uncatalogued path takes `record_label` as a string and no label id, so
+ * the typed text is always already the value that will be sent.
  */
 export interface CompanyAutocompleteProps {
   value: string;
   onChange: (value: string) => void;
   onSelect: (label: Label) => void;
-  onSelectionCleared: () => void;
   disabled?: boolean;
 }
 
@@ -51,7 +54,6 @@ export default function CompanyAutocomplete({
   value,
   onChange,
   onSelect,
-  onSelectionCleared,
   disabled,
 }: CompanyAutocompleteProps) {
   const datalistId = useId();
@@ -61,17 +63,18 @@ export default function CompanyAutocomplete({
   const hasValidQuery = debouncedQuery.length >= MIN_QUERY_LENGTH;
   const skip = Boolean(disabled) || !hasValidQuery;
 
+  // `currentData`, not `data`: `data` holds the last result for ANY args, so
+  // between keystrokes it still carries the previous query's labels. The
+  // datalist would go on offering them for a prefix that no longer matches,
+  // and the exact-match check below would run against a stale list.
   const {
-    data,
+    currentData: data,
     isError,
     isFetching,
     refetch,
   } = useSearchLabelsQuery({ q: debouncedQuery, limit: RESULT_LIMIT }, { skip });
 
-  // Memoized so the post-fetch re-check effect below only re-runs when the
-  // search result actually changes, not on every render -- `data ?? []`
-  // would otherwise hand that effect a fresh array identity every time.
-  const labels = useMemo(() => data ?? [], [data]);
+  const labels = useMemo(() => data ?? NO_LABELS, [data]);
   const showError = hasValidQuery && !skip && isError;
 
   function exactMatch(text: string, candidates: Label[]): Label | undefined {
@@ -82,15 +85,10 @@ export default function CompanyAutocomplete({
   const handleChange = (next: string) => {
     onChange(next);
     // Mirrors `DatalistAutocomplete.handleInput`'s exact-match check: the
-    // JSP's hidden companyID field is set only when the typed text matches a
-    // loaded option exactly (case-insensitive, trimmed), and cleared
-    // otherwise.
+    // JSP treats the typed text as naming an existing company only when it
+    // matches a loaded option exactly (case-insensitive, trimmed).
     const match = exactMatch(next, labels);
-    if (match) {
-      onSelect(match);
-    } else {
-      onSelectionCleared();
-    }
+    if (match) onSelect(match);
   };
 
   // Mirrors `DatalistAutocomplete.handleInput`'s post-fetch re-check: typing

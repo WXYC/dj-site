@@ -208,13 +208,10 @@ export default function RotationReleaseInsert() {
                 <CompanyAutocomplete
                   value={recordLabel}
                   onChange={setRecordLabel}
+                  // Typing a name an existing label already has canonicalizes
+                  // to that label's own spelling, so "sonamos" and "Sonamos"
+                  // do not become two different `record_label` strings.
                   onSelect={(label) => setRecordLabel(label.label_name)}
-                  onSelectionCleared={() => {
-                    // The JSP resets the hidden companyID to its "no id"
-                    // sentinel here; this form submits no id at all, so
-                    // there is nothing to reset -- the typed text is
-                    // already the value that will be sent.
-                  }}
                   disabled={isLoading}
                 />
                 <span style={{ fontSize: "x-small" }}>
@@ -233,9 +230,14 @@ export default function RotationReleaseInsert() {
             <tr>
               <td />
               <td colSpan={2}>
+                {/* The live region is always in the DOM, empty until there is
+                    something to say. Adding role="alert" at the same moment
+                    the text appears is unreliable across screen readers --
+                    the region has to exist before its content changes for
+                    the change to be announced. */}
                 <div
                   className={`validation-message${validationMessage ? " visible" : ""}`}
-                  role={validationMessage ? "alert" : undefined}
+                  role="alert"
                 >
                   {validationMessage}
                 </div>
