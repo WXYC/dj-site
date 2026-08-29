@@ -6,6 +6,7 @@ import {
   convertV2FlowsheetResponse,
   entryToFreezePayload,
   extractFlowsheetEntries,
+  formatOnAirSummary,
 } from "@/lib/features/flowsheet/conversions";
 import {
   createTestFlowsheetQuery,
@@ -345,6 +346,39 @@ describe("flowsheet conversions", () => {
 
       expect(result.djs[0].id).toBeNull();
       expect(result.onAir).toBe("DJ MONSTER");
+    });
+  });
+
+  // formatOnAirSummary previously trusted its caller to pre-filter blank
+  // names (only one of its three call sites did); these cases were untested
+  // and produced a bare "" for an all-blank list, or a trailing "Name, " for
+  // a mix of real and blank names. It now filters blank names itself, the
+  // same way formatDjNames does, so every call site reads correctly whether
+  // or not it pre-filters.
+  describe("formatOnAirSummary", () => {
+    it("falls back to the off-air label for an all-blank list, not a bare empty string", () => {
+      const result = formatOnAirSummary([createTestOnAirDJResponse({ dj_name: "" })]);
+      expect(result).toBe("Off Air");
+    });
+
+    it("falls back to the off-air label for a whitespace-only name", () => {
+      const result = formatOnAirSummary([createTestOnAirDJResponse({ dj_name: "   " })]);
+      expect(result).toBe("Off Air");
+    });
+
+    it("drops a blank co-host instead of leaving a trailing comma", () => {
+      const result = formatOnAirSummary([
+        createTestOnAirDJResponse({ id: "1", dj_name: "Turncoat" }),
+        createTestOnAirDJResponse({ id: "2", dj_name: "" }),
+      ]);
+      expect(result).toBe("Turncoat");
+    });
+
+    it("trims a padded name", () => {
+      const result = formatOnAirSummary([
+        createTestOnAirDJResponse({ dj_name: "  Turncoat  " }),
+      ]);
+      expect(result).toBe("Turncoat");
     });
   });
 
