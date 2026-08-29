@@ -1,10 +1,11 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createTestAlbum, createTestArtist } from "@/tests/helpers";
 import { renderWithProviders } from "@/tests/helpers/render";
 
 const mockGetInformationQuery = vi.fn();
+const mockGetCompilationTracksQuery = vi.fn();
 const mockUpdateAlbum = vi.fn();
 const mockMarkMissing = vi.fn();
 const mockMarkFound = vi.fn();
@@ -14,11 +15,19 @@ vi.mock("@/lib/features/catalog/api", async (importOriginal) => {
   return {
     ...actual,
     useGetInformationQuery: (...args: unknown[]) => mockGetInformationQuery(...args),
+    useGetCompilationTracksQuery: (...args: unknown[]) => mockGetCompilationTracksQuery(...args),
     useGetFormatsQuery: () => ({ data: [{ id: 1, format_name: "cd" }, { id: 2, format_name: "lp" }] }),
     useUpdateAlbumMutation: () => [mockUpdateAlbum, { isLoading: false }],
     useMarkMissingMutation: () => [mockMarkMissing, { isLoading: false }],
     useMarkFoundMutation: () => [mockMarkFound, { isLoading: false }],
   };
+});
+
+// The release card's tracklist has a second, Discogs-backed source. It is not
+// what these tests are about, and left live it never settles under jsdom.
+vi.mock("@/lib/features/metadata/api", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/features/metadata/api")>();
+  return { ...actual, useGetLibraryTracksQuery: () => ({ data: undefined, isLoading: false }) };
 });
 
 import ReleaseCard from "@/src/components/experiences/classic/catalog/ReleaseCard";
@@ -39,6 +48,11 @@ const album = (overrides = {}) =>
     }),
     ...overrides,
   });
+
+beforeEach(() => {
+  mockGetCompilationTracksQuery.mockReset();
+  mockGetCompilationTracksQuery.mockReturnValue({ data: undefined, isLoading: false });
+});
 
 describe("Classic ReleaseCard", () => {
   it("reproduces the JSP's heading and code row", () => {
@@ -193,5 +207,47 @@ describe("Classic ReleaseCard", () => {
     renderWithProviders(<ReleaseCard albumId={53375} />);
 
     expect(screen.queryByRole("link", { name: "Enter Per-Track Artist Credits" })).toBeNull();
+  });
+
+  // `album_artist` is written by the nightly catalog import alone, so it is
+  // absent on a compilation filed today — and on every row until that
+  // import runs. Reading the credit store through it would hide the credits a
+  // librarian had just finished entering on the very release that needed them.
+  it("shows the per-track credits of a compilation whose album_artist has not been imported yet", () => {
+    mockGetInformationQuery.mockReturnValue({
+      data: album({
+        album_artist: undefined,
+        artist: createTestArtist({
+          name: "Various Artists - Rock - S",
+          lettercode: "V/A",
+          numbercode: 0,
+          genre: "Rock",
+        }),
+      }),
+      isLoading: false,
+      isError: false,
+    });
+    mockGetCompilationTracksQuery.mockReturnValue({
+      data: {
+        library_id: 53375,
+        tracks: [
+          {
+            id: 1,
+            artist_name: "Chuquimamani-Condori",
+            track_title: "Call Your Name",
+            track_position: "A1",
+          },
+        ],
+      },
+      isLoading: false,
+    });
+
+    renderWithProviders(<ReleaseCard albumId={53375} />);
+
+    expect(mockGetCompilationTracksQuery).toHaveBeenCalledWith(
+      { libraryId: 53375 },
+      { skip: false },
+    );
+    expect(screen.getByText("Chuquimamani-Condori")).toBeDefined();
   });
 });
