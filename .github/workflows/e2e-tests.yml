@@ -520,19 +520,329 @@ jobs:
           kill $(cat /tmp/backend.pid 2>/dev/null) 2>/dev/null || true
           kill $(cat /tmp/mock-tubafrenzy.pid 2>/dev/null) 2>/dev/null || true
 
+  # e2e/tests/flowsheet/go-live-takeover.spec.ts in its own job, on its own
+  # Backend-Service, running the dedicated `chromium-takeover` Playwright
+  # project (see e2e/playwright.config.ts) with --workers=1.
+  #
+  # Three things the sharded matrix above cannot give this spec:
+  #   1. FLOWSHEET_TAKEOVER_ENABLED=true. Off, `POST /flowsheet/join` ignores
+  #      `intent` and co-hosts every collision — the pre-#2233 behavior this
+  #      spec exists to pin against regressing. The matrix's Backend runs
+  #      with the flag unset (default false) on purpose: those specs rely on
+  #      the OLD silent co-host to coexist with sibling workers sharing one
+  #      Backend (see flowsheet.page.ts's answerHandoffPromptIfShown).
+  #   2. A Backend-Service nobody else's tests touch. This spec is the only
+  #      one in the suite allowed to click "End Existing Show" — on the
+  #      shared matrix Backend, two workers within a shard share one process,
+  #      and a takeover would end a sibling worker's show mid-test.
+  #   3. `workers=1`. `mode: "serial"` inside the spec only serializes within
+  #      its own describe block; `fullyParallel: true` plus more than one
+  #      worker would still let Playwright schedule this file's tests
+  #      alongside a second run of itself (e.g. a retry) or interleave with
+  #      whatever else the project matches.
+  e2e-takeover:
+    name: E2E Tests (go-live takeover)
+    needs: changes
+    if: >-
+      github.event_name != 'pull_request'
+      || (needs.changes.outputs.app_source == 'true' && github.base_ref == 'main')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:18.0-alpine
+        env:
+          POSTGRES_PASSWORD: 'RadioIsEpic$1100'
+          POSTGRES_USER: wxyc_admin
+          POSTGRES_DB: wxyc_db
+        ports:
+          - 5434:5432
+        options: >-
+          --health-cmd "pg_isready -U wxyc_admin -d wxyc_db"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout dj-site
+        uses: actions/checkout@v7
+        with:
+          path: dj-site
+
+      # Same paired-branch convention as the sharded job above: a
+      # same-named Backend-Service branch is used when one exists, so a
+      # cross-repo change can be tested as a unit. FLOWSHEET_TAKEOVER_ENABLED
+      # itself needs no pairing — the gate it guards shipped to Backend
+      # `main` ahead of this spec — but the resolver is shared so this job
+      # doesn't silently drift onto a different Backend ref than its sibling.
+      - name: Resolve Backend-Service ref
+        id: backend-ref
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          INPUT_BACKEND_REF: ${{ github.event.inputs.backend_ref }}
+          HEAD_REF: ${{ github.head_ref }}
+          EVENT_NAME: ${{ github.event_name }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+
+          resolve() {
+            gh api "repos/${OWNER}/Backend-Service/git/ref/heads/$1" >/dev/null 2>&1 && return 0
+            gh api "repos/${OWNER}/Backend-Service/commits/$1" >/dev/null 2>&1 && return 0
+            return 1
+          }
+
+          REF="$INPUT_BACKEND_REF"
+          if [ -z "$REF" ] && [ "$EVENT_NAME" = "pull_request" ]; then
+            REF="$HEAD_REF"
+          fi
+
+          if [ -n "$REF" ] && resolve "$REF"; then
+            echo "ref=${REF}" >> "$GITHUB_OUTPUT"
+            echo "Using Backend-Service ref: ${REF}"
+            exit 0
+          fi
+
+          if [ -n "$INPUT_BACKEND_REF" ]; then
+            echo "::error::backend_ref '${INPUT_BACKEND_REF}' is not a branch or commit in ${OWNER}/Backend-Service."
+            exit 1
+          fi
+
+          if ! resolve "$BACKEND_PINNED_REF"; then
+            echo "::error::BACKEND_PINNED_REF '${BACKEND_PINNED_REF}' is not a branch or commit in ${OWNER}/Backend-Service."
+            exit 1
+          fi
+          echo "ref=${BACKEND_PINNED_REF}" >> "$GITHUB_OUTPUT"
+          echo "Using Backend-Service ref: ${BACKEND_PINNED_REF} (default)"
+
+      - name: Checkout Backend-Service
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ github.repository_owner }}/Backend-Service
+          ref: ${{ steps.backend-ref.outputs.ref }}
+          path: Backend-Service
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: "npm"
+          cache-dependency-path: |
+            dj-site/package-lock.json
+            Backend-Service/package-lock.json
+
+      - name: Create Backend .env file
+        working-directory: Backend-Service
+        run: |
+          cat > .env << 'EOF'
+          DB_HOST=localhost
+          DB_PORT=5434
+          DB_NAME=wxyc_db
+          DB_USERNAME=wxyc_admin
+          DB_PASSWORD='RadioIsEpic$1100'
+          BETTER_AUTH_SECRET=e2e-auth-secret-for-testing-min-32-chars
+          BETTER_AUTH_URL=http://localhost:8084/auth
+          BETTER_AUTH_JWKS_URL=http://localhost:8084/auth/jwks
+          BETTER_AUTH_TRUSTED_ORIGINS=http://localhost:3000,http://localhost:3001
+          FRONTEND_SOURCE=http://localhost:3000
+          DEFAULT_ORG_SLUG=test-org
+          DEFAULT_ORG_NAME='Test Organization'
+          APP_ORGANIZATION_ID=test-org-id-0000000000000000001
+          E2E_DB_PORT=5434
+          E2E_AUTH_PORT=8084
+          E2E_BACKEND_PORT=8085
+          COOKIE_SAME_SITE=lax
+          NODE_ENV=test
+          EMAIL_ENABLED=false
+          TUBAFRENZY_URL=http://localhost:9091
+          MIRROR_API_KEY=e2e-mirror-noop-key
+          CDC_SECRET=e2e-cdc-secret-not-used-by-tests
+          ETL_NOTIFY_KEY=e2e-etl-notify-key
+          # The one line this job exists to set. Must land in THIS heredoc —
+          # the Backend-Service process reads its config from .env, not from
+          # this workflow's top-level `env:` block, which never reaches a
+          # child process spawned by `node apps/backend/dist/app.js`. Without
+          # it the join route silently ignores `intent` and co-hosts every
+          # collision: the client's handoff prompt (go-live-takeover.spec.ts
+          # beat 2) would still render — its pre-check is flag-independent —
+          # but beats 3-5 would exercise no server routing at all, and the
+          # spec would pass while testing nothing.
+          FLOWSHEET_TAKEOVER_ENABLED=true
+          EOF
+
+      - name: Start mock tubafrenzy mirror
+        working-directory: dj-site
+        run: |
+          node e2e/scripts/mock-tubafrenzy.mjs > /tmp/mock-tubafrenzy.log 2>&1 &
+          echo $! > /tmp/mock-tubafrenzy.pid
+          timeout 5 bash -c 'until curl -sf -X POST -H "Content-Type: application/json" --data "{}" http://localhost:9091/ >/dev/null; do sleep 0.1; done'
+          echo "Mock tubafrenzy ready"
+
+      - name: Resolve Playwright version
+        id: playwright-version
+        run: |
+          set -euo pipefail
+          version=$(jq -re '.packages["node_modules/@playwright/test"].version' dj-site/package-lock.json)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Resolved @playwright/test $version"
+
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ steps.playwright-version.outputs.version }}
+
+      - name: Install dependencies
+        env:
+          NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          (cd Backend-Service && npm ci) &
+          PID_BS=$!
+          (cd dj-site && npm ci) &
+          PID_DJ=$!
+          wait $PID_BS || exit 1
+          wait $PID_DJ || exit 1
+
+      - name: Cache dj-site build
+        id: nextjs-build-cache
+        uses: actions/cache@v6
+        with:
+          path: dj-site/.next
+          # Own key, distinct from the sharded job's cache: both jobs build
+          # from identical inputs (same workflow-level env, same source), so
+          # the ONLY reason not to share the sharded job's key is that two
+          # jobs in the same workflow run would race a write to it. A
+          # redundant build costs about a minute; a torn cache entry is a
+          # worse trade.
+          key: e2e-takeover-nextjs-${{ hashFiles('dj-site/package-lock.json') }}-${{ hashFiles('dj-site/next.config.*') }}-${{ hashFiles('dj-site/.github/workflows/e2e-tests.yml') }}-${{ hashFiles('dj-site/app/**', 'dj-site/src/**', 'dj-site/lib/**') }}
+          restore-keys: |
+            e2e-takeover-nextjs-${{ hashFiles('dj-site/package-lock.json') }}-${{ hashFiles('dj-site/next.config.*') }}-${{ hashFiles('dj-site/.github/workflows/e2e-tests.yml') }}-
+            e2e-takeover-nextjs-${{ hashFiles('dj-site/package-lock.json') }}-${{ hashFiles('dj-site/next.config.*') }}-
+            e2e-takeover-nextjs-${{ hashFiles('dj-site/package-lock.json') }}-
+
+      - name: Build and start services
+        env:
+          NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NEXTJS_BUILD_CACHE_HIT: ${{ steps.nextjs-build-cache.outputs.cache-hit }}
+          PLAYWRIGHT_CACHE_HIT: ${{ steps.playwright-cache.outputs.cache-hit }}
+        run: |
+          (
+            cd Backend-Service
+            set -a; source .env; set +a
+
+            npm run build
+            node dev_env/init-db.mjs
+
+            AUTH_PORT=8084 node apps/auth/dist/app.js > /tmp/auth.log 2>&1 &
+            echo $! > /tmp/auth.pid
+            echo "Waiting for auth service..."
+            timeout 60 bash -c 'until curl -sf http://localhost:8084/healthcheck; do sleep 1; done'
+
+            PORT=8085 \
+            BETTER_AUTH_ISSUER=http://localhost:8084 \
+            BETTER_AUTH_AUDIENCE=http://localhost:8084 \
+            node apps/backend/dist/app.js > /tmp/backend.log 2>&1 &
+            echo $! > /tmp/backend.pid
+            echo "Waiting for backend service..."
+            timeout 60 bash -c 'until curl -sf http://localhost:8085/healthcheck; do sleep 1; done'
+
+            npm run setup:e2e-users
+          ) &
+          PID_BACKEND=$!
+
+          if [ "$PLAYWRIGHT_CACHE_HIT" = "true" ]; then
+            echo "Playwright browser cache hit — skipping install"
+          else
+            (cd dj-site && npx playwright install --with-deps chromium) &
+            PID_PW=$!
+          fi
+
+          # No broken-auth second build here — that build exists solely for
+          # e2e/tests/auth/server-session-via-docker.spec.ts, which this
+          # job's `chromium-takeover` project doesn't match.
+          if [ "$NEXTJS_BUILD_CACHE_HIT" = "true" ]; then
+            echo "dj-site build cache hit — skipping build"
+          else
+            (cd dj-site && npm run build) &
+            PID_BUILD=$!
+          fi
+
+          wait $PID_BACKEND || exit 1
+          if [ -n "$PID_PW" ]; then wait $PID_PW || exit 1; fi
+          if [ -n "$PID_BUILD" ]; then wait $PID_BUILD || exit 1; fi
+
+      - name: Start dj-site
+        working-directory: dj-site
+        run: |
+          npm run start > /tmp/frontend.log 2>&1 &
+          echo $! > /tmp/frontend.pid
+          echo "Waiting for frontend..."
+          timeout 60 bash -c 'until curl -sf http://localhost:3000; do sleep 2; done'
+
+      - name: Run go-live takeover E2E spec
+        working-directory: dj-site
+        run: |
+          npm run test:e2e -- \
+            "--project=chromium-takeover" \
+            "--workers=1" \
+            "--reporter=html" \
+            "--reporter=github"
+
+      - name: Show service logs on failure
+        if: failure()
+        run: |
+          echo "=== Auth Service Logs ==="
+          cat /tmp/auth.log 2>/dev/null || echo "No auth log"
+          echo ""
+          echo "=== Backend Service Logs ==="
+          cat /tmp/backend.log 2>/dev/null || echo "No backend log"
+          echo ""
+          echo "=== Frontend Logs ==="
+          cat /tmp/frontend.log 2>/dev/null || echo "No frontend log"
+          echo ""
+          echo "=== Mock Tubafrenzy Logs ==="
+          cat /tmp/mock-tubafrenzy.log 2>/dev/null || echo "No mock-tubafrenzy log"
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: playwright-report-takeover
+          path: dj-site/playwright-report/
+          retention-days: 30
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: test-results-takeover
+          path: dj-site/test-results/
+          retention-days: 7
+
+      - name: Cleanup
+        if: always()
+        run: |
+          kill $(cat /tmp/frontend.pid 2>/dev/null) 2>/dev/null || true
+          kill $(cat /tmp/auth.pid 2>/dev/null) 2>/dev/null || true
+          kill $(cat /tmp/backend.pid 2>/dev/null) 2>/dev/null || true
+          kill $(cat /tmp/mock-tubafrenzy.pid 2>/dev/null) 2>/dev/null || true
+
   # Single stable check for branch protection. With the matrix above, individual
   # shard jobs are named "E2E Tests (shard N/M)" — that name shifts if we ever
   # change the shard count. This aggregator stays "E2E Tests" so the required-
   # status-check rule doesn't need touching.
   #
-  # `skipped` is treated as success because the e2e matrix is gated by the
-  # `changes` job's path filter (issue #731). On a PR that doesn't touch app
-  # source, the matrix skips and we should pass — not fail — so workflow-only
-  # PRs can satisfy the required check.
+  # `skipped` is treated as success because both e2e and e2e-takeover are
+  # gated by the `changes` job's path filter (issue #731). On a PR that
+  # doesn't touch app source, both skip and we should pass — not fail — so
+  # workflow-only PRs can satisfy the required check.
   #
   # That skipped->success mapping is also why a non-`main` base has to be
   # FAILED here rather than skipped, and why this job stays ungated so it can
-  # do the failing. The matrix skips on a stacked PR to avoid booting four
+  # do the failing. Both jobs skip on a stacked PR to avoid booting five
   # backends for a base that isn't shipping — but if this aggregator skipped
   # too, "E2E Tests" would sit satisfied on a PR that ran zero shards, and
   # GitHub's automatic retarget onto `main` when the parent merges would hand
@@ -540,14 +850,15 @@ jobs:
   # blocked until the suite actually runs against `main`.
   e2e-all:
     name: E2E Tests
-    needs: e2e
+    needs: [e2e, e2e-takeover]
     if: always()
     runs-on: ubuntu-latest
     env:
       BASE_REF: ${{ github.base_ref }}
       MATRIX_RESULT: ${{ needs.e2e.result }}
+      TAKEOVER_RESULT: ${{ needs.e2e-takeover.result }}
     steps:
-      - name: Verify all shards passed
+      - name: Verify all shards and the takeover job passed
         run: |
           # `github.base_ref` is empty on `push`; the event-name check is what
           # keeps a push to `main` from failing on "" != "main".
@@ -562,6 +873,16 @@ jobs:
               ;;
             *)
               echo "One or more E2E shards failed: ${MATRIX_RESULT}"
+              exit 1
+              ;;
+          esac
+
+          case "$TAKEOVER_RESULT" in
+            success|skipped)
+              echo "E2E takeover job result: ${TAKEOVER_RESULT}"
+              ;;
+            *)
+              echo "The go-live takeover E2E job failed: ${TAKEOVER_RESULT}"
               exit 1
               ;;
           esac

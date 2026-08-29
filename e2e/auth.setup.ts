@@ -1,6 +1,8 @@
 import { test as setup, expect, request, Browser } from "@playwright/test";
 import {
   TEST_USERS,
+  TAKEOVER_DJ_A as TAKEOVER_DJ_A_DATA,
+  TAKEOVER_DJ_B as TAKEOVER_DJ_B_DATA,
   getAuthServiceBaseUrl,
   completeOnboardingWithInviteToken,
 } from "./fixtures/auth.fixture";
@@ -184,7 +186,16 @@ setup("authenticate as station manager", async ({ page }) => {
   );
 });
 
-interface ClassicIdentity {
+/**
+ * Shape shared by every dedicated identity this file provisions itself
+ * (through the live admin roster + real onboarding flow) rather than reusing
+ * a row seeded by Backend-Service's dev_env/setup-e2e-test-users.ts. Named
+ * for the first consumers (the classic-preference pair below), but generic —
+ * {@link provisionIdentity} takes a target experience as its own argument, so
+ * a modern-preference identity (see the go-live takeover pair further down)
+ * uses the exact same shape and machinery.
+ */
+interface ProvisionedIdentity {
   username: string;
   password: string;
   email: string;
@@ -203,14 +214,14 @@ interface ClassicIdentity {
  * the admin specs exercise, and its appSkin is set through the app's own
  * experience-switch flow rather than a raw API call, so the fixture never
  * predicts an internal endpoint shape it doesn't own. Both are provisioned by
- * {@link provisionClassicIdentity}.
+ * {@link provisionIdentity}.
  *
  * The classic-librarian screens are authority-split (rotation list is
  * DJ-readable, rotation insert and catalog admin are MD-gated), so specs that
  * assert that split need identities at both authorities — hence two entries
  * rather than one.
  */
-const CLASSIC_MD_USER: ClassicIdentity = {
+const CLASSIC_MD_USER: ProvisionedIdentity = {
   username: "test_classic_md",
   // Set through the onboarding form (unlike TEST_USERS, which are seeded
   // directly into the database), so it must satisfy isStrongPassword —
@@ -224,7 +235,7 @@ const CLASSIC_MD_USER: ClassicIdentity = {
   statePath: `${authDir}/classicMd.json`,
 };
 
-const CLASSIC_DJ_USER: ClassicIdentity = {
+const CLASSIC_DJ_USER: ProvisionedIdentity = {
   username: "test_classic_dj",
   password: "TestClassicDj1",
   email: "test_classic_dj@wxyc.org",
@@ -232,6 +243,33 @@ const CLASSIC_DJ_USER: ClassicIdentity = {
   djName: "Test Classic DJ",
   role: "dj",
   statePath: `${authDir}/classicDj.json`,
+};
+
+/**
+ * Dedicated pair for the go-live takeover spec
+ * (e2e/tests/flowsheet/go-live-takeover.spec.ts). That spec is the one place
+ * in the suite allowed to click "End Existing Show" — it owns a private
+ * Backend-Service in its own workflow job, so nothing else shares state with
+ * it — and it needs two sessions on air at once. Borrowing from the shared
+ * pool (musicDirector.json 13 specs, dj.json 5, dj2.json 10, …) would inherit
+ * whichever off-air assumption the session's other consumers depend on; a
+ * takeover run against one of those on a shared CI backend would end a
+ * sibling spec's show mid-run. Provisioned the same way as the
+ * classic-preference pair above (live admin roster + real onboarding), left
+ * at the modern default since the takeover spec never touches classic.
+ *
+ * The identity DATA (username, djName, …) lives in auth.fixture.ts, not
+ * here, so the spec can import it directly without importing this file's
+ * top-level `setup()` registrations.
+ */
+const TAKEOVER_DJ_A: ProvisionedIdentity = {
+  ...TAKEOVER_DJ_A_DATA,
+  statePath: `${authDir}/${TAKEOVER_DJ_A_DATA.stateFile}`,
+};
+
+const TAKEOVER_DJ_B: ProvisionedIdentity = {
+  ...TAKEOVER_DJ_B_DATA,
+  statePath: `${authDir}/${TAKEOVER_DJ_B_DATA.stateFile}`,
 };
 
 const LOOPBACK_HOSTNAMES = new Set(["localhost", "127.0.0.1", "::1"]);
@@ -262,19 +300,19 @@ function isLoopbackHostname(hostname: string): boolean {
 }
 
 /**
- * Gates every write a "provision classic-preference identity" step can make
- * against whatever `E2E_BASE_URL` (and `NEXT_PUBLIC_BETTER_AUTH_URL`) point
- * at: `ensureClassicIdentityAccountExists` creates an account through the
- * live admin roster, and `setExperienceViaAccount` flips that account's
- * `appSkin` through the live switch flow. Every other setup step only logs
- * in. Called at the top of that step's body — not just inside
- * `ensureClassicIdentityAccountExists` — because a successful login skips
+ * Gates every write a "provision <identity>" step can make against whatever
+ * `E2E_BASE_URL` (and `NEXT_PUBLIC_BETTER_AUTH_URL`) point at:
+ * `ensureRosterAccountExists` creates an account through the live admin
+ * roster, and (for the classic-preference pair) `setExperienceViaAccount`
+ * flips that account's `appSkin` through the live switch flow. Every other
+ * setup step only logs in. Called at the top of that step's body — not just
+ * inside `ensureRosterAccountExists` — because a successful login skips
  * account creation entirely and would otherwise reach the appSkin write
  * unguarded. Without this, a mistyped or inherited env var pointed at a
  * shared environment has no structural guard between it and a real account
  * there.
  */
-function assertLocalWriteTarget(identity: ClassicIdentity): void {
+function assertLocalWriteTarget(identity: ProvisionedIdentity): void {
   const targets: Array<[envVar: string, value: string | undefined]> = [
     ["E2E_BASE_URL", process.env.E2E_BASE_URL || "http://localhost:3000"],
     ["NEXT_PUBLIC_BETTER_AUTH_URL", process.env.NEXT_PUBLIC_BETTER_AUTH_URL],
@@ -306,9 +344,9 @@ function assertLocalWriteTarget(identity: ClassicIdentity): void {
  * runs. Filtering through the roster's search input, which matches every
  * account the admin fetched, is unambiguous regardless of roster size.
  */
-async function classicIdentityAccountExists(
+async function rosterAccountExists(
   rosterPage: RosterPage,
-  identity: ClassicIdentity
+  identity: ProvisionedIdentity
 ): Promise<boolean> {
   await rosterPage.searchInput.fill(identity.realName);
   return await rosterPage
@@ -324,9 +362,9 @@ async function classicIdentityAccountExists(
  * so a prior run's account must be reconciled with, not recreated (which
  * would surface as a duplicate-username error toast).
  */
-async function ensureClassicIdentityAccountExists(
+async function ensureRosterAccountExists(
   browser: Browser,
-  identity: ClassicIdentity
+  identity: ProvisionedIdentity
 ): Promise<void> {
   assertLocalWriteTarget(identity);
 
@@ -348,7 +386,7 @@ async function ensureClassicIdentityAccountExists(
     await adminPage.goto("/dashboard/admin/roster");
     await rosterPage.waitForTableLoaded();
 
-    if (await classicIdentityAccountExists(rosterPage, identity)) {
+    if (await rosterAccountExists(rosterPage, identity)) {
       console.log(`[auth] ${identity.username} already provisioned, skipping creation`);
       return;
     }
@@ -363,7 +401,7 @@ async function ensureClassicIdentityAccountExists(
     });
     // The row, not the toast: sonner auto-dismisses on its own timer, so a
     // slow local stack can outlast it between submit and this check. The row
-    // appearing is the same reconciliation signal `classicIdentityAccountExists`
+    // appearing is the same reconciliation signal `rosterAccountExists`
     // reads above (the search filter is still applied from that check).
     await rosterPage.expectUserInRoster(identity.username);
   } finally {
@@ -372,25 +410,32 @@ async function ensureClassicIdentityAccountExists(
 }
 
 /**
- * Provisions a classic-preference identity: reconciles its roster account
- * (creating it only if absent), completes onboarding on first run, and
- * switches its appSkin to classic through the live switch flow. Shared by
- * every "provision classic-preference identity" setup test below, so a
- * second identity at a different authority costs a declaration plus one
- * `setup()` call, not a copy of this whole body.
+ * Provisions a dedicated identity this file owns end to end: reconciles its
+ * roster account (creating it only if absent), completes onboarding on first
+ * run, and — only when `switchToClassic` is true — switches its appSkin to
+ * classic through the live switch flow. Left `false` this leaves the account
+ * at its fresh-onboarding default, which `NEXT_PUBLIC_DEFAULT_EXPERIENCE`
+ * resolves to modern in every environment this suite runs against; that is
+ * what the go-live takeover pair wants, and matches the plain seeded
+ * TEST_USERS (dj1, dj2, …), none of which switch either.
+ *
+ * Shared by every "provision <identity>" setup test below, so a second
+ * identity at a different authority (or a different target experience) costs
+ * a declaration plus one `setup()` call, not a copy of this whole body.
  */
-async function provisionClassicIdentity(
+async function provisionIdentity(
   page: import("@playwright/test").Page,
   browser: Browser,
-  identity: ClassicIdentity
+  identity: ProvisionedIdentity,
+  switchToClassic: boolean
 ): Promise<void> {
   // Gates every write below (account creation AND the appSkin switch), not
   // just the account-creation branch — see assertLocalWriteTarget's doc.
   assertLocalWriteTarget(identity);
 
   // First-run path chains an admin roster creation, an invite-token
-  // onboarding, and a full-page experience-switch reload — comfortably past
-  // the file's 20s default on a cold local stack.
+  // onboarding, and (for the classic pair) a full-page experience-switch
+  // reload — comfortably past the file's 20s default on a cold local stack.
   setup.setTimeout(60_000);
 
   const statePath = identity.statePath;
@@ -410,30 +455,35 @@ async function provisionClassicIdentity(
 
   if (!loggedIn) {
     console.log(`[auth] logging in ${identity.username} failed, provisioning account`);
-    await ensureClassicIdentityAccountExists(browser, identity);
-    await completeOnboardingWithInviteToken(page, identity.email, identity.password);
+    await ensureRosterAccountExists(browser, identity);
+    await completeOnboardingWithInviteToken(page, identity.email, identity.password, {
+      realName: identity.realName,
+      djName: identity.djName,
+    });
   }
 
-  // /dashboard/help is classic-only, so the modern slot (the account's
-  // fresh default) renders ExperienceGap there and offers the real switch
-  // flow this identity exists to have already taken.
-  await setExperienceViaAccount(page, "classic", "/dashboard/help");
+  if (switchToClassic) {
+    // /dashboard/help is classic-only, so the modern slot (the account's
+    // fresh default) renders ExperienceGap there and offers the real switch
+    // flow this identity exists to have already taken.
+    await setExperienceViaAccount(page, "classic", "/dashboard/help");
 
-  // The switch flow also sets the app_state cookie to classic (see
-  // useExperienceSwitch) AND the wxyc_app_skin localStorage key (see
-  // writeLocalAppSkin), so by this point the cookie, localStorage, and the
-  // account field all agree and any one alone would render the classic slot.
-  // useThemePreferenceSync (mounted unconditionally in the root layout) falls
-  // back to localStorage whenever the cookie is absent, re-persisting the
-  // cookie and reloading — so dropping only the cookie leaves localStorage as
-  // a live second lever that reproduces the classic render without the
-  // account's appSkin ever being consulted. Strip both from what gets
-  // persisted so the specs that assert against this identity are
-  // demonstrably exercising the account's appSkin field alone — if appSkin
-  // ever became nullable, a persisted cookie or localStorage entry would
-  // silently keep those specs passing for the wrong reason.
-  await page.context().clearCookies({ name: "app_state" });
-  await page.evaluate((key) => localStorage.removeItem(key), APP_SKIN_STORAGE_KEY);
+    // The switch flow also sets the app_state cookie to classic (see
+    // useExperienceSwitch) AND the wxyc_app_skin localStorage key (see
+    // writeLocalAppSkin), so by this point the cookie, localStorage, and the
+    // account field all agree and any one alone would render the classic slot.
+    // useThemePreferenceSync (mounted unconditionally in the root layout) falls
+    // back to localStorage whenever the cookie is absent, re-persisting the
+    // cookie and reloading — so dropping only the cookie leaves localStorage as
+    // a live second lever that reproduces the classic render without the
+    // account's appSkin ever being consulted. Strip both from what gets
+    // persisted so the specs that assert against this identity are
+    // demonstrably exercising the account's appSkin field alone — if appSkin
+    // ever became nullable, a persisted cookie or localStorage entry would
+    // silently keep those specs passing for the wrong reason.
+    await page.context().clearCookies({ name: "app_state" });
+    await page.evaluate((key) => localStorage.removeItem(key), APP_SKIN_STORAGE_KEY);
+  }
   await page.context().storageState({ path: statePath });
   fs.writeFileSync(seedSidecarPath(statePath), seedKey());
 }
@@ -443,17 +493,29 @@ async function provisionClassicIdentity(
  * Used by classic-experience specs on authenticated dashboard URLs.
  */
 setup("provision classic-preference identity (music director)", async ({ page, browser }) => {
-  await provisionClassicIdentity(page, browser, CLASSIC_MD_USER);
+  await provisionIdentity(page, browser, CLASSIC_MD_USER, true);
 });
 
 /**
  * Setup authentication state for the classic-preference DJ identity. Exists
  * so classic-experience specs can assert the DJ-vs-MD authority split on the
  * upcoming classic librarian screens without racing a shared seeded user's
- * appSkin (see provisionClassicIdentity's doc).
+ * appSkin (see provisionIdentity's doc).
  */
 setup("provision classic-preference identity (dj)", async ({ page, browser }) => {
-  await provisionClassicIdentity(page, browser, CLASSIC_DJ_USER);
+  await provisionIdentity(page, browser, CLASSIC_DJ_USER, true);
+});
+
+/**
+ * Setup authentication state for the go-live takeover spec's dedicated pair.
+ * Left at the modern default — see TAKEOVER_DJ_A/B's doc.
+ */
+setup("provision go-live takeover identity (dj A)", async ({ page, browser }) => {
+  await provisionIdentity(page, browser, TAKEOVER_DJ_A, false);
+});
+
+setup("provision go-live takeover identity (dj B)", async ({ page, browser }) => {
+  await provisionIdentity(page, browser, TAKEOVER_DJ_B, false);
 });
 
 /**

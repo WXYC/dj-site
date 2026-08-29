@@ -6,6 +6,38 @@ export const TEST_USERS = MOCK_USERS;
 export type TestUserKey = MockUserKey;
 export type TestUser = MockUser;
 
+/**
+ * Identity data for the go-live takeover spec's dedicated pair
+ * (e2e/tests/flowsheet/go-live-takeover.spec.ts). Data only — declared here
+ * rather than in auth.setup.ts (which owns provisioning) so the spec can
+ * import the username/djName/statePath fields it needs without importing a
+ * file whose top-level module code registers Playwright `setup()` tests.
+ *
+ * Not in MOCK_USERS / dev_env/setup-e2e-test-users.ts: that spec is the only
+ * one in the suite allowed to click "End Existing Show", so it needs a pair
+ * nothing else touches, provisioned via the live admin roster the same way
+ * as the classic-preference identities in auth.setup.ts.
+ */
+export const TAKEOVER_DJ_A = {
+  username: "test_takeover_a",
+  password: "TestTakeoverA1",
+  email: "test_takeover_a@wxyc.org",
+  realName: "Test Takeover A",
+  djName: "Test Takeover A",
+  role: "dj" as const,
+  stateFile: "takeoverDjA.json",
+};
+
+export const TAKEOVER_DJ_B = {
+  username: "test_takeover_b",
+  password: "TestTakeoverB1",
+  email: "test_takeover_b@wxyc.org",
+  realName: "Test Takeover B",
+  djName: "Test Takeover B",
+  role: "dj" as const,
+  stateFile: "takeoverDjB.json",
+};
+
 export async function login(
   page: Page,
   user: TestUser | { username: string; password: string }
@@ -175,7 +207,17 @@ export async function getVerificationToken(identifier: string): Promise<{ token:
 export async function completeOnboardingWithInviteToken(
   page: Page,
   email: string,
-  password: string
+  password: string,
+  // The roster's own createAccount({ realName, djName }) only seeds a
+  // suggestion the onboarding form pre-fills; it is NOT the account's final
+  // value. Onboarding always makes the final choice, so a caller whose
+  // identity's realName/djName is load-bearing (an assertion reads it, or —
+  // as here — two identities must be distinguishable by it) must pass its
+  // own values rather than trust the filler fallback below. An explicit
+  // override always wins over whatever the form pre-filled, since a caller
+  // that named a value did so because it needs exactly that value, not "any
+  // non-empty one".
+  overrides?: { realName?: string; djName?: string }
 ): Promise<void> {
   const tokenData = await getVerificationToken(email);
   if (!tokenData?.token) {
@@ -189,7 +231,9 @@ export async function completeOnboardingWithInviteToken(
   const realNameInput = page.locator('input[name="realName"]');
   if (await realNameInput.isVisible()) {
     const existingRealName = await realNameInput.inputValue();
-    if (!existingRealName.trim()) {
+    if (overrides?.realName !== undefined) {
+      await realNameInput.fill(overrides.realName);
+    } else if (!existingRealName.trim()) {
       await realNameInput.fill("E2E Test User");
     }
   }
@@ -197,7 +241,9 @@ export async function completeOnboardingWithInviteToken(
   const djNameInput = page.locator('input[name="djName"]');
   if (await djNameInput.isVisible()) {
     const existingDjName = await djNameInput.inputValue();
-    if (!existingDjName.trim()) {
+    if (overrides?.djName !== undefined) {
+      await djNameInput.fill(overrides.djName);
+    } else if (!existingDjName.trim()) {
       await djNameInput.fill("E2E DJ");
     }
   }
