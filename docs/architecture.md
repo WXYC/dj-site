@@ -127,6 +127,31 @@ The layout gate is the first line, not the only one. Layouts above the changed s
 | `/dashboard/admin/catalog` | `ExperienceGap` | Format + genre admin | MD |
 | `/dashboard/admin/roster` | `ExperienceGap` | Roster admin | SM |
 
+### Previous sets: two views behind one URL
+
+`/dashboard/playlists` serves a searchable listing and a weekly schedule grid from the same route, in both experiences. The grid is the internal successor to tubafrenzy's `wxyc.info/playlists/radioWeek`.
+
+**URL state, not Redux.** Three parameters, read by `useScheduleWeekParams` in `src/hooks/scheduleWeekHooks.ts`:
+
+| Parameter | Values | Meaning |
+|---|---|---|
+| `view` | `week`, or absent | Which view renders. Absent is the searchable listing. |
+| `week` | `YYYY-MM-DD` | Any date in the wanted week; normalized to that week's **Sunday**, station time. An unparseable value falls back to the current week and never silently resolves to a different one. |
+| `show` | show id | The show whose entries are expanded. Cleared when the week changes, since the id belongs to the week that produced it. |
+
+They live in the URL because a DJ sending a colleague a specific week is the obvious use and it makes back/forward work; three scalars do not justify a slice.
+
+**Server/client split.** The page stays a Server Component so it can seed the default listing (`fetchRecentPlaylistsSeed`), and renders `PreviousSetsSurface`, a client component that owns the Search-vs-Week branch. The branch cannot live on the server: `useSearchParams` is client-only, and branching server-side would make every toggle click a round-trip. The seed is fetched even when the URL asks for the week view — one 50-row request, accepted deliberately as the price of a client-side toggle. `ThemedLayout`'s existing Suspense boundary covers `useSearchParams`; no new boundary is added.
+
+**`lib/features/schedule-week/`** departs from the standard slice shape below: it has no `frontend.ts` (no Redux state) and adds `layout.ts`, a pure grid model kept out of React so the genuinely hard parts — DST-uneven day lengths, midnight spans, unclosed shows, overlaps — are testable without rendering.
+
+`scheduleWeekApi` is registered in `lib/store.ts` **only, never `lib/store-public.ts`**. The view renders historical `dj_name` values that resolve under a pre-BS#1286 chain and can hold real names; it is safe because it sits behind the dashboard auth gate, which holds only if its data layer never reaches a public route's bundle. `playlistSearchApi` is in both stores, so copying its registration is the obvious wrong move — `tests/unit/lib/store.test.tsx` asserts the exclusion.
+
+**Two traps in `GET /flowsheet/range` that the UI has to absorb:**
+
+- `shows` is returned on *overlap* but `entries` is filtered on `add_time`, so a show straddling the week edge arrives complete in the grid and truncated in the entry stream. Every week has one — the show on the air at Sunday midnight. `useShowEntries` detects the uncontained span, fetches the show's own window, and merges by entry id; if that request fails the panel says the list is partial rather than presenting the fragment as the whole set.
+- A null `end_time` means either "on the air" or "sign-off was dropped and the column stayed null permanently", and the two are indistinguishable from the field. It resolves from the `show_end` marker row, then clips to now only for a show that began within the last day, and otherwise draws at minimum height with an open bottom edge.
+
 Each feature in `lib/features/` follows a consistent structure:
 - `types.ts` -- TypeScript types/interfaces
 - `frontend.ts` -- Redux slice (state + actions + selectors)
