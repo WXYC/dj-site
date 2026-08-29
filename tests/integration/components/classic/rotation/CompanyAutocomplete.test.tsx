@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { describe, it, expect, vi } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
-import { http, HttpResponse } from "msw";
+import { delay, http, HttpResponse } from "msw";
 import { renderWithProviders, server, TEST_BACKEND_URL } from "@/tests/helpers";
 import CompanyAutocomplete from "@/src/components/experiences/classic/rotation/CompanyAutocomplete";
 
@@ -12,21 +12,12 @@ vi.mock("@/lib/features/authentication/client", () => ({
 function Harness({
   initialValue = "",
   onSelect = vi.fn(),
-  onSelectionCleared = vi.fn(),
 }: {
   initialValue?: string;
   onSelect?: (label: { id: number; label_name: string }) => void;
-  onSelectionCleared?: () => void;
 }) {
   const [value, setValue] = useState(initialValue);
-  return (
-    <CompanyAutocomplete
-      value={value}
-      onChange={setValue}
-      onSelect={onSelect}
-      onSelectionCleared={onSelectionCleared}
-    />
-  );
+  return <CompanyAutocomplete value={value} onChange={setValue} onSelect={onSelect} />;
 }
 
 describe("classic CompanyAutocomplete — the companyName field's setUpCompanyAutocomplete wiring", () => {
@@ -64,11 +55,8 @@ describe("classic CompanyAutocomplete — the companyName field's setUpCompanyAu
       ),
     );
     const onSelect = vi.fn();
-    const onSelectionCleared = vi.fn();
 
-    const { user } = renderWithProviders(
-      <Harness onSelect={onSelect} onSelectionCleared={onSelectionCleared} />,
-    );
+    const { user } = renderWithProviders(<Harness onSelect={onSelect} />);
     const input = screen.getByRole("combobox", { name: /record label/i });
     await user.type(input, "sonamos");
 
@@ -77,26 +65,50 @@ describe("classic CompanyAutocomplete — the companyName field's setUpCompanyAu
     });
   });
 
-  it("calls onSelectionCleared when the typed text no longer matches a loaded label", async () => {
+  it("stops reporting a match once the typed text no longer names a loaded label", async () => {
     server.use(
       http.get(`${TEST_BACKEND_URL}/labels/search`, () =>
         HttpResponse.json([{ id: 5, label_name: "Sonamos" }]),
       ),
     );
     const onSelect = vi.fn();
-    const onSelectionCleared = vi.fn();
 
-    const { user } = renderWithProviders(
-      <Harness onSelect={onSelect} onSelectionCleared={onSelectionCleared} />,
-    );
+    const { user } = renderWithProviders(<Harness onSelect={onSelect} />);
     const input = screen.getByRole("combobox", { name: /record label/i });
     await user.type(input, "Sonamos");
     await waitFor(() => expect(onSelect).toHaveBeenCalled());
 
-    onSelectionCleared.mockClear();
+    onSelect.mockClear();
     await user.type(input, "z");
 
-    expect(onSelectionCleared).toHaveBeenCalled();
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  // `data` holds the last result for ANY args, so a widened query that is
+  // still in flight would go on offering the previous query's labels as
+  // matches for a prefix they no longer match.
+  it("stops offering the previous query's labels while a widened query is still in flight", async () => {
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/labels/search`, async ({ request }) => {
+        const q = new URL(request.url).searchParams.get("q") ?? "";
+        if (q === "Son") return HttpResponse.json([{ id: 5, label_name: "Sonamos" }]);
+        await delay("infinite");
+        return HttpResponse.json([]);
+      }),
+    );
+
+    const { user, container } = renderWithProviders(<Harness />);
+    const input = screen.getByRole("combobox", { name: /record label/i });
+    await user.type(input, "Son");
+    await waitFor(() => {
+      expect(container.querySelector('datalist option[value="Sonamos"]')).not.toBeNull();
+    });
+
+    await user.type(input, "x");
+
+    await waitFor(() => {
+      expect(container.querySelector('datalist option[value="Sonamos"]')).toBeNull();
+    });
   });
 
   it("does not search below the minimum query length", async () => {
@@ -130,18 +142,20 @@ describe("classic CompanyAutocomplete — the companyName field's setUpCompanyAu
     expect(await screen.findByRole("alert")).toHaveTextContent(/unavailable/i);
   });
 
-  it("disables the input and skips the search when disabled", () => {
-    const onSelect = vi.fn();
-    const onSelectionCleared = vi.fn();
-    renderWithProviders(
-      <CompanyAutocomplete
-        value=""
-        onChange={vi.fn()}
-        onSelect={onSelect}
-        onSelectionCleared={onSelectionCleared}
-        disabled
-      />,
+  it("disables the input and issues no search when disabled", async () => {
+    let called = false;
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/labels/search`, () => {
+        called = true;
+        return HttpResponse.json([]);
+      }),
     );
+    renderWithProviders(
+      <CompanyAutocomplete value="Sonamos" onChange={vi.fn()} onSelect={vi.fn()} disabled />,
+    );
+
     expect(screen.getByRole("combobox", { name: /record label/i })).toBeDisabled();
+    await new Promise((resolve) => setTimeout(resolve, 350));
+    expect(called).toBe(false);
   });
 });

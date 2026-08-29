@@ -15,7 +15,10 @@ import {
   toDisplayRowFromUncatalogued,
   type RotationDisplayRow,
 } from "@/lib/features/rotation/classicList";
-import type { RotationStatusFilter } from "@/lib/features/rotation/types";
+import {
+  UNCATALOGUED_ROTATION_PAGE_SIZE,
+  type RotationStatusFilter,
+} from "@/lib/features/rotation/types";
 import { isUnmessagedHttpError } from "@/lib/rtk-query-error-logger";
 
 const FACETS: { value: RotationStatusFilter; label: string }[] = [
@@ -50,6 +53,12 @@ function EmptyState() {
  * show (Active, Awaiting Cataloging). Column set and order match
  * `rotationReleaseList.jsp` exactly: Actions, Artist, Title, Label, Type,
  * Format, Added, Killed, Library.
+ *
+ * Kill/Unkill, the Killed column and the Library column all key on whether
+ * the row carries a kill date at all, never on whether that date has
+ * arrived -- `release.killDate == 0` is the JSP's own test. A kill dated
+ * next week leaves the row in rotation today and is still a kill, so it
+ * shows its date and offers Unkill.
  */
 function RotationTable({
   rows,
@@ -88,37 +97,24 @@ function RotationTable({
               className={`entry-row ${index % 2 === 0 ? "entry-row-even" : "entry-row-odd"}`}
             >
               <td style={{ textAlign: "center", whiteSpace: "nowrap" }}>
-                <Link href={`/dashboard/rotation/${row.rotationId}`}>Edit</Link>
-                &nbsp;
-                {row.killed ? (
-                  <button type="button" className="link-button" disabled={pending} onClick={() => onUnkill(row.rotationId)}>
-                    Unkill
-                  </button>
-                ) : (
+                {row.killedDisplay == null ? (
                   <button type="button" className="link-button" disabled={pending} onClick={() => onKill(row.rotationId)}>
                     Kill
                   </button>
-                )}
-                {row.showImport && (
-                  <>
-                    &nbsp;
-                    <Link
-                      href={`/dashboard/rotation/${row.rotationId}/import`}
-                      style={{ color: "#CC0000", fontWeight: "bold" }}
-                    >
-                      Import
-                    </Link>
-                  </>
+                ) : (
+                  <button type="button" className="link-button" disabled={pending} onClick={() => onUnkill(row.rotationId)}>
+                    Unkill
+                  </button>
                 )}
               </td>
               <td>{row.artistName}</td>
               <td>{row.title}</td>
               <td>{row.label}</td>
-              <td style={{ textAlign: "center" }}>{row.binLabel}</td>
+              <td style={{ textAlign: "center" }}>{row.bin}</td>
               <td style={{ textAlign: "center" }}>{row.formatName}</td>
               <td style={{ textAlign: "center" }}>{row.addedDisplay}</td>
               <td style={{ textAlign: "center" }}>
-                {row.killed ? row.killedDisplay : <span style={{ color: "#090" }}>Active</span>}
+                {row.killedDisplay ?? <span style={{ color: "#090" }}>Active</span>}
               </td>
               <td style={{ textAlign: "center" }}>
                 {row.libraryStatus === "cataloged" ? (
@@ -179,11 +175,12 @@ function ActiveFacet({
  * would re-hide one (the exact bug its own DISTINCT ON removal fixed for
  * this endpoint).
  *
- * Backend returns at most one page (`UNCATALOGUED_ROTATION_MAX_LIMIT`, 500)
- * per request, sorted most-recently-added first; this reads that single
- * page rather than walking every page by default, matching the
- * `MissingReleases` precedent (state the cap, do not silently show a
- * partial list as complete).
+ * Backend serves at most one page per request, sorted most-recently-added
+ * first; this reads that single page rather than walking every page, and
+ * says so whenever the page comes back full. The backlog runs to thousands
+ * of rows against a page of 500, and a truncated queue that does not
+ * announce itself reads as a finished one -- the `MissingReleases`
+ * precedent for the same situation.
  */
 function UncataloguedFacet({
   onKill,
@@ -195,15 +192,22 @@ function UncataloguedFacet({
   pendingRotationIds: ReadonlySet<number>;
 }) {
   const [showKilled, setShowKilled] = useState(false);
-  const { data, isLoading, isFetching, isError, refetch } = useGetUncataloguedRotationQuery();
+  const { data, isLoading, isFetching, isError, refetch } = useGetUncataloguedRotationQuery({
+    limit: UNCATALOGUED_ROTATION_PAGE_SIZE,
+  });
 
   const hasNothingToShow = isError && data == null;
 
   if (isLoading) return <p style={{ textAlign: "center" }}>Loading...</p>;
   if (hasNothingToShow) return <OutagePanel onRetry={refetch} retrying={isFetching} />;
 
-  const allRows = (data ?? []).map((row) => toDisplayRowFromUncatalogued(row));
-  const rows = showKilled ? allRows : allRows.filter((row) => !row.killed);
+  const page = data ?? [];
+  const allRows = page.map((row) => toDisplayRowFromUncatalogued(row));
+  const rows = showKilled ? allRows : allRows.filter((row) => row.active);
+  // A full page is indistinguishable from a complete backlog, so it is
+  // reported as what it is. The backlog runs to thousands of rows against a
+  // 500-row cap, and a silently truncated queue reads as a finished one.
+  const isTruncated = page.length >= UNCATALOGUED_ROTATION_PAGE_SIZE;
 
   return (
     <>
@@ -217,6 +221,13 @@ function UncataloguedFacet({
           &nbsp;Show killed releases too (the cataloging backlog)
         </label>
       </p>
+      {isTruncated && (
+        <p className="live-results-empty" style={{ textAlign: "center" }}>
+          This queue is drawn from the {page.length} most recently added releases awaiting cataloging
+          &mdash; the rotation API serves at most that many per request, so older entries in the backlog
+          are not listed here.
+        </p>
+      )}
       <RotationTable rows={rows} onKill={onKill} onUnkill={onUnkill} pendingRotationIds={pendingRotationIds} />
     </>
   );
@@ -251,10 +262,10 @@ function UnavailableFacet() {
  * Reproduces `rotationReleaseList.jsp` -- see the module-level facet
  * components above for how each of the JSP's four facets maps onto
  * Backend's actual read surface, and `lib/features/rotation/classicList.ts`
- * for the 0-and-NULL unlinked sentinel and the active/killed date logic
- * shared with the free-text add screen.
+ * for the unlinked-id check and the active/killed date logic shared with
+ * the free-text add screen.
  *
- * Two more divergences, neither forced by the Backend contract:
+ * Three more divergences, none forced by the Backend contract:
  *
  * - "Main Menu" carries the JSP's own label but points at `/dashboard/
  *   catalog` -- dj-site's classic catalog search, the DJ-facing entry point
@@ -264,6 +275,14 @@ function UnavailableFacet() {
  *   precedent for a JSP link with no dj-site destination: no tallysheet
  *   screen exists here, so the alternative would be a dead link rather than
  *   a working one under a different name.
+ * - The row's "Edit" and "Import" links are dropped for the same reason.
+ *   Their destinations (`/dashboard/rotation/[id]` and
+ *   `/dashboard/rotation/[id]/import` in `docs/architecture.md`'s URL map)
+ *   are later slices, and no route answers either path today, so rendering
+ *   them would put a 404 under every row -- and under the exact affordance
+ *   the catalog chooser's "Import a killed rotation release into the
+ *   library" block funnels a librarian toward. Kill and Unkill stay: both
+ *   act in place through endpoints that exist.
  */
 export default function RotationReleaseList({ statusFilter }: { statusFilter: RotationStatusFilter }) {
   const [killRotationEntry] = useKillRotationEntryMutation();
@@ -309,6 +328,7 @@ export default function RotationReleaseList({ statusFilter }: { statusFilter: Ro
               key={facet.value}
               href={facetHref(facet.value)}
               className={`facet-chip${statusFilter === facet.value ? " active" : ""}`}
+              aria-current={statusFilter === facet.value ? "page" : undefined}
             >
               {facet.label}
             </Link>

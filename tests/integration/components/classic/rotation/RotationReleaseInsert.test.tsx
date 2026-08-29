@@ -81,6 +81,13 @@ describe("classic RotationReleaseInsert — rotationReleaseInsert.jsp", () => {
     expect(labelField).toHaveValue("");
   });
 
+  // The live region has to be in the DOM before its content changes, or the
+  // refusal is announced unreliably (or not at all).
+  it("keeps an empty live region on screen before there is anything to refuse", () => {
+    renderWithProviders(<RotationReleaseInsert />);
+    expect(screen.getByRole("alert")).toHaveTextContent("");
+  });
+
   it("refuses to submit with no presentation name", async () => {
     const { user } = renderWithProviders(<RotationReleaseInsert />);
     await user.type(screen.getByLabelText(/Title of Release/i), "DOGA");

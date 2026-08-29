@@ -117,16 +117,33 @@ describe("toDisplayRowFromList", () => {
     expect(row.libraryStatus).toBe("cataloged");
   });
 
-  it("shows Import only for a killed, unlinked row", () => {
+  it("reports uncataloged only for an unlinked row that carries a kill date", () => {
     const activeUnlinked = toDisplayRowFromList(listRow({ id: null, rotation_kill_date: null }), NOW);
     const killedUnlinked = toDisplayRowFromList(
       listRow({ id: null, rotation_kill_date: "2026-01-01" }),
       NOW,
     );
     const killedLinked = toDisplayRowFromList(listRow({ id: 42, rotation_kill_date: "2026-01-01" }), NOW);
-    expect(activeUnlinked.showImport).toBe(false);
-    expect(killedUnlinked.showImport).toBe(true);
-    expect(killedLinked.showImport).toBe(false);
+    expect(activeUnlinked.libraryStatus).toBe("unknown");
+    expect(killedUnlinked.libraryStatus).toBe("uncataloged");
+    expect(killedLinked.libraryStatus).toBe("cataloged");
+  });
+
+  // The JSP keys its Killed column, its Kill/Unkill choice and its Library
+  // column on `release.killDate == 0`, not on whether the kill date has
+  // arrived. A row killed as of next week is still in rotation today and is
+  // already killed.
+  it("keeps a future kill date visible while still reporting the row as active", () => {
+    const row = toDisplayRowFromList(listRow({ id: null, rotation_kill_date: "2026-09-05" }), NOW);
+    expect(row.killedDisplay).toBe("09/05/26");
+    expect(row.active).toBe(true);
+    expect(row.libraryStatus).toBe("uncataloged");
+  });
+
+  it("carries no kill display at all for a row that was never killed", () => {
+    const row = toDisplayRowFromList(listRow({ rotation_kill_date: null }), NOW);
+    expect(row.killedDisplay).toBeNull();
+    expect(row.active).toBe(true);
   });
 
   it("carries the rotation row's own id for Edit/Kill/Unkill, not the library id", () => {
@@ -136,11 +153,17 @@ describe("toDisplayRowFromList", () => {
 });
 
 describe("toDisplayRowFromUncatalogued", () => {
-  it("is always uncataloged when killed and unknown when active -- rows here are unlinked by construction", () => {
+  it("is always uncataloged when killed and unknown when never killed -- rows here are unlinked by construction", () => {
     const active = toDisplayRowFromUncatalogued(uncataloguedRow({ kill_date: null }), NOW);
     const killed = toDisplayRowFromUncatalogued(uncataloguedRow({ kill_date: "2026-01-01" }), NOW);
     expect(active.libraryStatus).toBe("unknown");
     expect(killed.libraryStatus).toBe("uncataloged");
+  });
+
+  it("keeps a future kill date visible while still reporting the row as active", () => {
+    const row = toDisplayRowFromUncatalogued(uncataloguedRow({ kill_date: "2026-09-05" }), NOW);
+    expect(row.killedDisplay).toBe("09/05/26");
+    expect(row.active).toBe(true);
   });
 
   it("treats an album_id of 0 the same as null -- defensive against the tubafrenzy sentinel", () => {
@@ -188,5 +211,49 @@ describe("dedupeRotationListByArtistTitle", () => {
     ];
 
     expect(dedupeRotationListByArtistTitle(rows)).toHaveLength(1);
+  });
+});
+
+describe("dedupeRotationListByArtistTitle — ordering and key separation", () => {
+  it("keeps the most recently added row regardless of the order it is handed", () => {
+    const rows = [
+      listRow({ rotation_id: 3, artist_name: "LOS THUTHANAKA", album_title: "Wak'a", rotation_add_date: "2026-08-01", rotation_bin: RotationBin.H }),
+      listRow({ rotation_id: 1, artist_name: "LOS THUTHANAKA", album_title: "Wak'a", rotation_add_date: "2026-08-03", rotation_bin: RotationBin.L }),
+      listRow({ rotation_id: 2, artist_name: "LOS THUTHANAKA", album_title: "Wak'a", rotation_add_date: "2026-08-02", rotation_bin: RotationBin.M }),
+    ];
+
+    const deduped = dedupeRotationListByArtistTitle(rows);
+
+    expect(deduped).toHaveLength(1);
+    expect(deduped[0]?.rotation_id).toBe(1);
+    expect(deduped[0]?.rotation_bin).toBe(RotationBin.L);
+  });
+
+  it("orders the surviving rows most-recently-added first, matching the JSP's own ORDER BY", () => {
+    const rows = [
+      listRow({ rotation_id: 1, artist_name: "Jessica Pratt", album_title: "On Your Own Love Again", rotation_add_date: "2026-08-01" }),
+      listRow({ rotation_id: 2, artist_name: "Chuquimamani-Condori", album_title: "Edits", rotation_add_date: "2026-08-20" }),
+      listRow({ rotation_id: 3, artist_name: "Stereolab", album_title: "Dots and Loops", rotation_add_date: "2026-08-10" }),
+    ];
+
+    expect(dedupeRotationListByArtistTitle(rows).map((row) => row.rotation_id)).toEqual([2, 3, 1]);
+  });
+
+  it("breaks an identical add-date tie on the lowest rotation id, so the order is deterministic", () => {
+    const rows = [
+      listRow({ rotation_id: 9, artist_name: "Cat Power", album_title: "Moon Pix", rotation_add_date: "2026-08-05" }),
+      listRow({ rotation_id: 4, artist_name: "Juana Molina", album_title: "DOGA", rotation_add_date: "2026-08-05" }),
+    ];
+
+    expect(dedupeRotationListByArtistTitle(rows).map((row) => row.rotation_id)).toEqual([4, 9]);
+  });
+
+  it("does not collapse a pair whose artist/title split differs but whose concatenation matches", () => {
+    const rows = [
+      listRow({ rotation_id: 1, artist_name: "Sun", album_title: "Ra Arkestra" }),
+      listRow({ rotation_id: 2, artist_name: "Sun Ra", album_title: "Arkestra" }),
+    ];
+
+    expect(dedupeRotationListByArtistTitle(rows)).toHaveLength(2);
   });
 });
