@@ -235,13 +235,16 @@ describe("classic ArtistCard — artistCardModify.jsp", () => {
       ).toBeDefined();
     });
 
-    // The release-detail screen this would link to does not exist in this
-    // experience yet, so a link would be a dead one.
-    it("renders the title as plain text, not a link", async () => {
+    // The JSP links each title to `libraryReleaseModify.jsp`, and this
+    // experience has that screen: both cards reach the release editor from
+    // the title, so a librarian scanning a shelf section can open any row.
+    it("opens the release editor from the title, as the JSP does", async () => {
       renderWithProviders(<ArtistCard artistId={ARTIST_ID} />);
 
       const table = await screen.findByTestId("artist-release-table");
-      expect(within(table).queryByRole("link", { name: "DOGA" })).toBeNull();
+      expect(
+        within(table).getByRole("link", { name: "DOGA" }).getAttribute("href"),
+      ).toBe("/dashboard/library/release/900");
     });
 
     it("says so when the artist has no releases", async () => {

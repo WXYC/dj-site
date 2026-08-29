@@ -434,7 +434,15 @@ export default function VariousArtistsCard({ artistId, message }: VariousArtists
                     <td>{release.format_name}</td>
                     <td>
                       {formatEntireLibraryCode({
-                        genreName,
+                        // The release's own genre, not the card's. A bucket
+                        // crossreferenced in more than one genre reports the
+                        // lowest as its card genre, while each release carries
+                        // the genre it is actually filed under — and this
+                        // string is the call number a librarian walks to the
+                        // stacks with, so the word and the id have to come
+                        // from the same row.
+                        genreName: genres?.find((genre) => genre.id === release.genre_id)
+                          ?.genre_name,
                         code_letters: release.code_letters,
                         code_artist_number: release.code_artist_number,
                         genre_id: release.genre_id,

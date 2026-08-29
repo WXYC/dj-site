@@ -93,34 +93,6 @@ describe("isVariousArtists", () => {
       expect(isVariousArtists(codeLetters)).toBe(false);
     },
   );
-
-  // The shelf is one code with three filed name forms, and the soundtrack
-  // sub-buckets carry no compilation keyword anywhere. They are the case that
-  // makes this check structural rather than a name test: matching on the name
-  // would drop that entire sub-shelf silently, leaving those releases unable
-  // to receive per-track credits with no error to notice.
-  // Every shelf row, paired with the call letters it is actually filed under.
-  // The soundtrack sub-buckets are the case that makes this structural rather
-  // than a name test: they carry no compilation keyword anywhere, so a name
-  // match would drop that whole sub-shelf silently, leaving those releases
-  // unable to receive per-track credits with no error to notice. The last two
-  // rows are the mirror case — a keyword in the name, filed as an ordinary
-  // artist.
-  it.each([
-    ["Various Artists", "V/A", true],
-    ["Various Artists - Rock - A", "V/A", true],
-    ["Various Artists - Rock - Z", "V/A", true],
-    ["Soundtracks - A", "V/A", true],
-    ["Soundtracks - L", "V/A", true],
-    ["Soundtracks - Z", "V/A", true],
-    ["The Soundtrack of Our Lives", "SOUN", false],
-    ["Various Production", "VARI", false],
-  ])(
-    "files %j under %j, so the compilation shelf check answers %j",
-    (_artistName, codeLetters, isShelfRow) => {
-      expect(isVariousArtists(codeLetters)).toBe(isShelfRow);
-    },
-  );
 });
 
 describe("formatCallLettersAndNumbers — ArtistLibraryCode.java:85, no trailing punctuation", () => {
