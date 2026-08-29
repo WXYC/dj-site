@@ -77,10 +77,11 @@ These reproduce tubafrenzy's `/wxycdb` screens. They are **classic-first**: the 
 | `/dashboard/library` | Entry: artist vs. Various Artists, multi-match disambiguation | `chooseLibraryCodeOrArtist.jsp`, `multipleArtistsDisplay.jsp` | MD |
 | `/dashboard/library/artist/new` | Code-miss create screen: genre/letters/numbers carried read-only from the miss branch, only the two name fields editable | `createLibraryCode.jsp` | MD |
 | `/dashboard/library/artist/[id]` | Artist card + its release list | `artistCardModify.jsp` | MD |
-| `/dashboard/library/various/[id]` | V/A bucket card + its add-release form; per-track credits pending | `variousArtistsCardModify.jsp` | MD |
+| `/dashboard/library/various/[id]` | V/A bucket card + its add-release form | `variousArtistsCardModify.jsp` | MD |
 | `/dashboard/library/release/[id]` | Release edit | `libraryReleaseModify.jsp` | MD |
 | `/dashboard/library/release/[id]/move` | Move release to another library code | `libraryReleaseModifyLibCode.jsp` | MD |
 | `/dashboard/library/release/[id]/delete` | Delete confirmation | `libraryReleaseDelete.jsp` | MD |
+| `/dashboard/library/release/[id]/tracklist` | Per-track artist credit entry for a Various Artists release | none (the JSP's tracklist is read-only) | MD |
 | `/dashboard/library/missing` | Missing releases | `missingReleases.jsp` | **authenticated DJ** |
 | `/dashboard/rotation` | Rotation release list | `rotationReleaseList.jsp` | **authenticated DJ** |
 | `/dashboard/rotation/new` | Add rotation release | `rotationReleaseInsert.jsp` | MD |

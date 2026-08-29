@@ -166,4 +166,32 @@ describe("Classic ReleaseCard", () => {
     expect(fromNav.getAttribute("href")).toBe("/dashboard/library/release/53375/move");
     expect(fromArtistRow.getAttribute("href")).toBe(fromNav.getAttribute("href"));
   });
+
+  it("offers per-track credit entry for a Various Artists release", () => {
+    mockGetInformationQuery.mockReturnValue({
+      data: album({
+        artist: createTestArtist({
+          name: "Various Artists - Rock - S",
+          lettercode: "V/A",
+          numbercode: 0,
+          genre: "Rock",
+        }),
+      }),
+      isLoading: false,
+      isError: false,
+    });
+
+    renderWithProviders(<ReleaseCard albumId={53375} />);
+
+    const link = screen.getByRole("link", { name: "Enter Per-Track Artist Credits" });
+    expect(link.getAttribute("href")).toBe("/dashboard/library/release/53375/tracklist");
+  });
+
+  it("omits the per-track credit link for an ordinary, non-compilation release", () => {
+    mockGetInformationQuery.mockReturnValue({ data: album(), isLoading: false, isError: false });
+
+    renderWithProviders(<ReleaseCard albumId={53375} />);
+
+    expect(screen.queryByRole("link", { name: "Enter Per-Track Artist Credits" })).toBeNull();
+  });
 });

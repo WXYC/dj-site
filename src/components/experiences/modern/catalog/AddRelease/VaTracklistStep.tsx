@@ -15,6 +15,7 @@ import {
   useGetCompilationTrackSuggestionsQuery,
   useGetCompilationTracksQuery,
 } from "@/lib/features/catalog/api";
+import { compilationTrackCreditKey } from "@/lib/features/catalog/compilationTrackCredits";
 import type {
   CompilationTrack,
   CompilationTrackInput,
@@ -55,15 +56,10 @@ const toInput = (row: DraftRow): CompilationTrackInput => ({
   track_position: row.track_position.trim() || null,
 });
 
-/**
- * The server's uniqueness key for a credit: artist and title, joined by a
- * separator no title can contain, so `("Cat", "Power Ballad")` and
- * `("Cat Power", "Ballad")` stay distinct. `track_position` is deliberately
- * absent — it is data, not key, so two rows differing only in position are one
- * credit to the backend and the second is skipped.
- */
-const creditKey = (track: CompilationTrackInput) =>
-  `${track.artist_name.trim()}\u0000${track.track_title?.trim() ?? ""}`;
+// See `compilationTrackCreditKey`: this and classic's release tracklist
+// editor write against the same additive-only endpoint and must agree with
+// its dedupe rule.
+const creditKey = compilationTrackCreditKey;
 
 export type VaTracklistStepProps = {
   libraryId: number;
