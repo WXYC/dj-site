@@ -20,8 +20,16 @@ export default function ResultsContainer({
         width: "100%",
         borderRadius: "md",
         flex: 1,
-        overflow: showResults ? "auto" : "hidden",
         minHeight: 0,
+        display: "flex",
+        flexDirection: "column",
+        // The frame never scrolls; the table inside it does. Two nested
+        // scrollports put two bars side by side, and the outer one moves a
+        // header the inner one has already pinned.
+        overflow: "hidden",
+        // Containing block for the prompt overlay, which is absolutely
+        // positioned and otherwise resolves against the viewport.
+        position: "relative",
       }}
     >
       {/* Rendered only while it applies. Kept mounted at opacity 0 it stays in

@@ -104,7 +104,11 @@ export default function Results({
       <Box
         ref={scrollRef}
         sx={{
-          maxHeight: "calc(100vh - 240px)",
+          // Sized by the flex frame rather than `calc(100vh - <chrome>)`: that
+          // constant silently goes wrong the moment anything is added above it,
+          // and the overflow then falls through to the frame as a second bar.
+          flex: 1,
+          minHeight: 0,
           overflowY: "auto",
         }}
       >
