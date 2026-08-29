@@ -186,6 +186,33 @@ export const rotationApi = createApi({
         body: { kill_date: null },
       }),
       invalidatesTags: ["Rotation"],
+      async onQueryStarted(_arg, { dispatch, getState, queryFulfilled }) {
+        try {
+          const { data } = await queryFulfilled;
+          // The mirror image of `killRotationEntry`'s patch, and not
+          // optional: that handler writes a per-album "no rotation" override
+          // into the catalog slice, which shadows the server's own value on
+          // every later read. Without this, unkilling a release the same
+          // session killed leaves the catalog search results claiming it is
+          // out of rotation for as long as the tab is open -- a refetch does
+          // not clear the override, only another write to it does.
+          // `album_id` is null on a rotation row that never linked to a
+          // library album; there is nothing in the catalog to patch for one.
+          if (typeof data.album_id !== "number") return;
+          patchCatalogSearchRotation(
+            dispatch,
+            getState as () => RootState,
+            data.album_id,
+            { rotation_bin: data.rotation_bin, rotation_id: data.id },
+          );
+        } catch {
+          // A rejected `queryFulfilled` (mutation failure or the cache patch
+          // itself throwing) must not escape this handler: RTK Query treats
+          // an onQueryStarted rejection as an unhandled promise rejection,
+          // and the caller's own `.unwrap()` already owns surfacing the
+          // failure to the user (toast).
+        }
+      },
     }),
   }),
 });

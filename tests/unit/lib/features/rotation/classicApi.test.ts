@@ -13,6 +13,12 @@ vi.mock("sonner", () => ({
   toast: { error: vi.fn(), success: vi.fn() },
 }));
 
+const patchCatalogSearchRotation = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/features/catalog/patchSearchCaches", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/features/catalog/patchSearchCaches")>()),
+  patchCatalogSearchRotation,
+}));
+
 function rotationStore() {
   return configureStore({
     reducer: { [rotationApi.reducerPath]: rotationApi.reducer },
@@ -229,6 +235,56 @@ describe("rotationApi — classic list + free-text add additions", () => {
       expect(requestUrl?.pathname).toBe("/library/rotation/5001");
       expect(requestBody).toEqual({ kill_date: null });
       expect(result.data).toMatchObject({ kill_date: null });
+    });
+
+    // `killRotationEntry` writes a per-album "no rotation" override into the
+    // catalog slice, and that override shadows the server's value on every
+    // later read -- a refetch does not clear it. Unkilling has to write the
+    // restored bin back or the catalog goes on reporting the release as out
+    // of rotation for the life of the tab.
+    it("restores the catalog's rotation badge for a library-linked row", async () => {
+      patchCatalogSearchRotation.mockClear();
+      server.use(
+        http.patch(`${BASE}/:id`, () =>
+          HttpResponse.json({
+            id: 5001,
+            album_id: 42,
+            rotation_bin: "M",
+            add_date: "2026-08-01",
+            kill_date: null,
+          }),
+        ),
+      );
+
+      const store = rotationStore();
+      await store.dispatch(rotationApi.endpoints.unkillRotationEntry.initiate({ rotation_id: 5001 }));
+
+      expect(patchCatalogSearchRotation).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.anything(),
+        42,
+        { rotation_bin: "M", rotation_id: 5001 },
+      );
+    });
+
+    it("patches nothing for a row that never linked to a library album", async () => {
+      patchCatalogSearchRotation.mockClear();
+      server.use(
+        http.patch(`${BASE}/:id`, () =>
+          HttpResponse.json({
+            id: 5001,
+            album_id: null,
+            rotation_bin: "M",
+            add_date: "2026-08-01",
+            kill_date: null,
+          }),
+        ),
+      );
+
+      const store = rotationStore();
+      await store.dispatch(rotationApi.endpoints.unkillRotationEntry.initiate({ rotation_id: 5001 }));
+
+      expect(patchCatalogSearchRotation).not.toHaveBeenCalled();
     });
 
     it("invalidates a cached Rotation-tagged query on success", async () => {
