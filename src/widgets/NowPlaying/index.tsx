@@ -77,7 +77,13 @@ export default function NowPlaying({
   // the server seed so the public page renders the on-air state on first paint.
   const onAirData = whoIsLiveData ?? initialOnAirData;
   const onAirDJ = onAirData?.onAir;
-  const live = onAirDJ !== undefined && onAirDJ !== "Off Air" && !djError;
+  // Liveness comes from the DJ list, not from the banner text. The two are
+  // built together — an empty list is the only thing that produces the off-air
+  // label — but the banner is a *display* string, and reading liveness out of
+  // it makes every naming decision a liveness decision: a live DJ with no
+  // on-air handle formats to the off-air label and would read as OFF AIR on
+  // the public page while a show is running.
+  const live = (onAirData?.djs.length ?? 0) > 0 && !djError;
   // Show today's spinner only while the query is loading AND no seed is present;
   // with a seed there is already content to render.
   const djLoading = whoIsLiveLoading && onAirData === undefined;
