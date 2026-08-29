@@ -5,15 +5,23 @@ import { renderWithProviders } from "@/tests/helpers/render";
 // Mock useShowControl().goLive — we only care that StartShow forwards the
 // trimmed Public DJ Handle as the second arg (the override) when the user
 // edits it, and omits it when unchanged.
-const goLiveMock = vi.fn();
+const goLiveMock = vi.fn(() => Promise.resolve({ status: "ok" as const }));
 let userInfoMock: { id: string; real_name?: string; dj_name?: string } | null = {
   id: "test-user-1",
   real_name: "Maura Partrick",
   dj_name: "Anonymous",
 };
+// Nothing else on air by default, so the ordinary submit reaches goLive
+// directly; the handoff cases below set an open show.
+let openShowMock: {
+  showId: number;
+  djNames: string;
+  lastLoggedAt: string | null;
+} | null = null;
 
 vi.mock("@/src/hooks/flowsheetHooks", () => ({
   useShowControl: () => ({ goLive: goLiveMock }),
+  useOpenShowHandoff: () => openShowMock,
 }));
 
 vi.mock("@/src/hooks/authenticationHooks", () => ({
@@ -44,6 +52,8 @@ function submitForm() {
 
 beforeEach(() => {
   goLiveMock.mockReset();
+  goLiveMock.mockResolvedValue({ status: "ok" as const });
+  openShowMock = null;
   userInfoMock = {
     id: "test-user-1",
     real_name: "Maura Partrick",
@@ -211,5 +221,87 @@ describe("Classic StartShow — out-of-scope fields stay disabled (#694)", () =>
       'input[type="reset"]'
     ) as HTMLInputElement | null;
     expect(reset?.disabled).toBe(true);
+  });
+});
+
+describe("Classic StartShow — the handoff prompt", () => {
+  const OPEN_SHOW = {
+    showId: 1951224,
+    djNames: "dj sue",
+    lastLoggedAt: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
+  };
+
+  const signOn = async () => {
+    renderWithProviders(<StartShow />);
+    submitForm();
+    await screen.findByTestId("go-live-handoff-prompt");
+  };
+
+  it("names who is on air and how long ago they logged, instead of sending a blind join", async () => {
+    openShowMock = OPEN_SHOW;
+    await signOn();
+
+    expect(screen.getByText(/dj sue is on air\. Last logged 5h 0m ago\./)).toBeInTheDocument();
+    // The whole point of asking first: nothing was sent, so cancelling costs
+    // the DJ nothing and the outgoing DJ's show is untouched.
+    expect(goLiveMock).not.toHaveBeenCalled();
+  });
+
+  it("sends a co-host join when the DJ picks Join Existing Show", async () => {
+    openShowMock = OPEN_SHOW;
+    await signOn();
+    fireEvent.click(screen.getByTestId("go-live-handoff-join"));
+
+    expect(goLiveMock).toHaveBeenCalledWith(undefined, {
+      intent: "join",
+      expected_show_id: undefined,
+    });
+  });
+
+  it("binds End Existing Show to the show the DJ was actually shown", async () => {
+    openShowMock = OPEN_SHOW;
+    await signOn();
+    fireEvent.click(screen.getByTestId("go-live-handoff-takeover"));
+
+    expect(goLiveMock).toHaveBeenCalledWith(undefined, {
+      intent: "takeover",
+      expected_show_id: 1951224,
+    });
+  });
+
+  it("sends nothing at all on Cancel", async () => {
+    openShowMock = OPEN_SHOW;
+    await signOn();
+    fireEvent.click(screen.getByTestId("go-live-handoff-cancel"));
+
+    expect(goLiveMock).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("go-live-handoff-prompt")).toBeNull();
+  });
+
+  // The handle typed into this form is the surface's whole reason for
+  // existing; re-deriving it after the prompt would silently drop it.
+  it("replays the typed Public DJ Handle through the prompt", async () => {
+    openShowMock = OPEN_SHOW;
+    renderWithProviders(<StartShow />);
+    fireEvent.change(getNamedInput("djHandle"), {
+      target: { value: "eureka!" },
+    });
+    submitForm();
+    await screen.findByTestId("go-live-handoff-prompt");
+    fireEvent.click(screen.getByTestId("go-live-handoff-takeover"));
+
+    expect(goLiveMock).toHaveBeenCalledWith("eureka!", {
+      intent: "takeover",
+      expected_show_id: 1951224,
+    });
+  });
+
+  it("does not prompt when nothing is on air", async () => {
+    openShowMock = null;
+    renderWithProviders(<StartShow />);
+    submitForm();
+
+    expect(screen.queryByTestId("go-live-handoff-prompt")).toBeNull();
+    expect(goLiveMock).toHaveBeenCalledWith(undefined);
   });
 });

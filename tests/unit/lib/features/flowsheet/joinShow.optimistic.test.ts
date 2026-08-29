@@ -282,3 +282,156 @@ describe("joinShow optimistic patch", () => {
     await promise;
   });
 });
+
+describe("joinShow handoff decision on the wire", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("sends intent and expected_show_id, and still keeps the display-only dj_name off the body", async () => {
+    const store = await seedStore();
+    let body: Record<string, unknown> | null = null;
+    server.use(
+      http.post(`${TEST_BACKEND_URL}/flowsheet/join`, async ({ request }) => {
+        body = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json({});
+      })
+    );
+
+    await store
+      .dispatch(
+        flowsheetApi.endpoints.joinShow.initiate({
+          dj_id: "test-user-1",
+          dj_name: "Test DJ",
+          intent: "takeover",
+          expected_show_id: 1951224,
+        })
+      )
+      .unwrap();
+
+    expect(body).toEqual({
+      dj_id: "test-user-1",
+      intent: "takeover",
+      expected_show_id: 1951224,
+    });
+  });
+
+  it("omits both fields entirely when the DJ has not chosen — that absence is what asks the server to refuse", async () => {
+    const store = await seedStore();
+    let body: Record<string, unknown> | null = null;
+    server.use(
+      http.post(`${TEST_BACKEND_URL}/flowsheet/join`, async ({ request }) => {
+        body = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json({});
+      })
+    );
+
+    await store
+      .dispatch(
+        flowsheetApi.endpoints.joinShow.initiate({
+          dj_id: "test-user-1",
+          dj_name: "Test DJ",
+        })
+      )
+      .unwrap();
+
+    expect(body).not.toHaveProperty("intent");
+    expect(body).not.toHaveProperty("expected_show_id");
+  });
+
+  it("rolls the optimistic patches back on a refusal, so the DJ is not shown as live", async () => {
+    const store = await seedStore([{ id: "other-dj", dj_name: "dj sue" }]);
+    server.use(
+      http.post(`${TEST_BACKEND_URL}/flowsheet/join`, () =>
+        HttpResponse.json(
+          {
+            message: "A show is already on air",
+            code: "show_already_open",
+            details: {
+              show: { id: 1951224, dj_name: "dj sue", start_time: "2026-08-28T15:00:00.000Z" },
+            },
+          },
+          { status: 409 }
+        )
+      )
+    );
+
+    await expect(
+      store
+        .dispatch(
+          flowsheetApi.endpoints.joinShow.initiate({
+            dj_id: "test-user-1",
+            dj_name: "Test DJ",
+          })
+        )
+        .unwrap()
+    ).rejects.toBeTruthy();
+
+    expect(
+      selectWhoIsLiveCache(store)?.djs.some((d) => d.id === "test-user-1")
+    ).toBe(false);
+  });
+
+  // The refusal is the contract working. Logging it as a broken mutation
+  // would train a reader to ignore the one channel that reports real breakage.
+  it("does not report the refusal as a failed mutation", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const store = await seedStore([{ id: "other-dj", dj_name: "dj sue" }]);
+    server.use(
+      http.post(`${TEST_BACKEND_URL}/flowsheet/join`, () =>
+        HttpResponse.json(
+          {
+            message: "A show is already on air",
+            code: "show_already_open",
+            details: { show: { id: 1951224, dj_name: "dj sue" } },
+          },
+          { status: 409 }
+        )
+      )
+    );
+
+    await expect(
+      store
+        .dispatch(
+          flowsheetApi.endpoints.joinShow.initiate({
+            dj_id: "test-user-1",
+            dj_name: "Test DJ",
+          })
+        )
+        .unwrap()
+    ).rejects.toBeTruthy();
+
+    expect(
+      warn.mock.calls.some((call) => String(call[0]).includes("joinShow"))
+    ).toBe(false);
+    vi.unstubAllEnvs();
+  });
+
+  it("still reports a genuine failure", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const store = await seedStore();
+    server.use(
+      http.post(`${TEST_BACKEND_URL}/flowsheet/join`, () =>
+        HttpResponse.json({ message: "boom" }, { status: 500 })
+      )
+    );
+
+    await expect(
+      store
+        .dispatch(
+          flowsheetApi.endpoints.joinShow.initiate({
+            dj_id: "test-user-1",
+            dj_name: "Test DJ",
+          })
+        )
+        .unwrap()
+    ).rejects.toBeTruthy();
+
+    expect(
+      warn.mock.calls.some((call) => String(call[0]).includes("joinShow"))
+    ).toBe(true);
+    vi.unstubAllEnvs();
+  });
+});

@@ -124,6 +124,7 @@ export class FlowsheetPage {
         { timeout: 15000 }
       );
       await this.goLiveButton.click();
+      await this.answerHandoffPromptIfShown(mutationResponse);
       await mutationResponse;
       await expect(this.liveStatus).toContainText("On Air", {
         timeout: 10000,
@@ -143,6 +144,38 @@ export class FlowsheetPage {
     await responsePromise;
     // Wait for the page to be fully interactive after reload
     await expect(this.songInput).toBeEnabled({ timeout: 10000 });
+  }
+
+  /**
+   * Answer the go-live handoff prompt with "Join Existing Show" when it
+   * appears, and do nothing when it doesn't.
+   *
+   * The suite runs fully parallel against one shared Backend and one global
+   * "latest show", so a sibling worker's DJ routinely holds the open show when
+   * another spec goes live. Co-hosting is exactly what those specs got
+   * implicitly before this prompt existed, which is what lets them coexist —
+   * so this is behaviour-preserving, not a workaround.
+   *
+   * It must NEVER click "End Existing Show". That would close a sibling
+   * worker's show mid-test, turning benign interference into active
+   * destruction, intermittently and only on CI. The takeover click belongs
+   * exclusively to a spec that owns its own Backend.
+   *
+   * Raced against the mutation response rather than given a fixed wait, so the
+   * common no-prompt path costs nothing.
+   */
+  private async answerHandoffPromptIfShown(
+    mutationResponse: Promise<unknown>
+  ): Promise<void> {
+    const joinButton = this.page.getByTestId("go-live-handoff-join");
+    const outcome = await Promise.race([
+      mutationResponse.then(() => "sent" as const).catch(() => "sent" as const),
+      joinButton
+        .waitFor({ state: "visible", timeout: 15000 })
+        .then(() => "prompt" as const)
+        .catch(() => "sent" as const),
+    ]);
+    if (outcome === "prompt") await joinButton.click();
   }
 
   async leave(): Promise<void> {

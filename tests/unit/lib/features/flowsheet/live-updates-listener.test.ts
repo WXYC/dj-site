@@ -404,8 +404,10 @@ describe("live-updates listener middleware", () => {
     const patched = after?.pages?.[0]?.[0] as Record<string, unknown>;
     expect("entry_type" in patched).toBe(false);
     expect("metadata_status" in patched).toBe(false);
-    expect("add_time" in patched).toBe(false);
     expect("rotation_bin" in patched).toBe(false);
+    // `add_time` is not a wire-only key: the conversion carries it onto every
+    // entry under the same name and value, so merging it forks no shape.
+    expect("add_time" in patched).toBe(true);
 
     store.dispatch(liveUpdatesConnectionReleased());
   });
@@ -512,10 +514,11 @@ describe("live-updates listener middleware", () => {
       record_label: "", // converted, never the literal null / "null"
       show_id: -1, // convertV2Entry's orphan sentinel, not raw null
     });
-    // Internal wire keys must not graft onto the typed cache row.
+    // Internal wire keys must not graft onto the typed cache row. `add_time`
+    // is not one of them — the conversion carries it deliberately.
     expect("entry_type" in inserted).toBe(false);
     expect("metadata_status" in inserted).toBe(false);
-    expect("add_time" in inserted).toBe(false);
+    expect("add_time" in inserted).toBe(true);
 
     store.dispatch(liveUpdatesConnectionReleased());
   });

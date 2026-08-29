@@ -21,6 +21,7 @@ import {
   replaceEntryIdAllPages,
   upsertEntrySortedFirstPage,
 } from "./infinite-cache";
+import { readShowAlreadyOpen, type JoinIntent } from "./go-live-handoff";
 import {
   FlowsheetEntry,
   FlowsheetShowBlockEntry,
@@ -55,9 +56,13 @@ function rollbackAndResyncEntries(
   dispatch: (
     action: ReturnType<typeof flowsheetApi.util.invalidateTags>
   ) => unknown,
-  patches: Array<{ undo: () => void } | undefined>
+  patches: Array<{ undo: () => void } | undefined>,
+  // `expected` separates "this mutation broke" from "the server answered no,
+  // which is a state this flow is designed around". Both roll the optimistic
+  // patches back; only the former is worth a developer's attention.
+  options?: { expected?: boolean }
 ): void {
-  flowsheetMutationCatch(endpoint, err);
+  if (!options?.expected) flowsheetMutationCatch(endpoint, err);
   for (const patch of patches) patch?.undo();
   dispatch(flowsheetApi.util.invalidateTags(["Flowsheet"]));
 }
@@ -131,7 +136,18 @@ export const flowsheetApi = createApi({
     }),
     joinShow: builder.mutation<
       void,
-      DJRequestParams & { dj_name?: string; dj_name_override?: string }
+      DJRequestParams & {
+        dj_name?: string;
+        dj_name_override?: string;
+        /**
+         * Sent only when the DJ has answered the handoff prompt. Omitting it is
+         * how the server is asked to refuse rather than guess (409
+         * `show_already_open`), which is the whole point of the field.
+         */
+        intent?: JoinIntent;
+        /** Echoed from the 409's `details.show.id`; required with a takeover. */
+        expected_show_id?: number;
+      }
     >({
       // `dj_name` is a client-only display hint for the optimistic patches
       // below; keep it off the wire (the backend derives the on-air name from
@@ -208,11 +224,20 @@ export const flowsheetApi = createApi({
           await queryFulfilled;
           dispatch(flowsheetApi.util.invalidateTags(["Flowsheet"]));
         } catch (err) {
-          rollbackAndResyncEntries("joinShow", err, dispatch, [
-            patchLive,
-            patchEntries,
-            patchNowPlaying,
-          ]);
+          // The three patches above apply before the response settles, so a
+          // refusal flashes the banner for one round trip. Accepted rather
+          // than skipped: the client asks djs-on-air first and prompts
+          // WITHOUT issuing a request in the ordinary handoff, so reaching
+          // here at all means the two disagreed — a race, and a rare one.
+          rollbackAndResyncEntries(
+            "joinShow",
+            err,
+            dispatch,
+            [patchLive, patchEntries, patchNowPlaying],
+            // A `show_already_open` 409 is the contract working, not a broken
+            // mutation. Rolling back is right; reporting it is not.
+            { expected: readShowAlreadyOpen(err) !== null }
+          );
         }
       },
     }),

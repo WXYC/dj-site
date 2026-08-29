@@ -34,12 +34,24 @@ export function maxPlayOrder(draft: Pick<InfiniteEntriesDraft, "pages">): number
  * show's tail stops partitioning as current during the goLive window.
  */
 export function primaryShowId(draft: Pick<InfiniteEntriesDraft, "pages">): number {
+  return newestRealEntry(draft)?.show_id ?? -1;
+}
+
+/**
+ * The newest entry that belongs to some show, skipping orphans (show_id exactly
+ * -1). Same traversal and same skip rule `primaryShowId` needs — it is defined
+ * in terms of this — plus the row itself, for callers that want more than the
+ * show id (the handoff prompt reads its `add_time`).
+ */
+export function newestRealEntry(
+  draft: Pick<InfiniteEntriesDraft, "pages">
+): FlowsheetEntry | undefined {
   for (const page of draft.pages) {
     for (const e of page) {
-      if (e.show_id !== -1) return e.show_id;
+      if (e.show_id !== -1) return e;
     }
   }
-  return -1;
+  return undefined;
 }
 
 // Monotonic counter, not Date.now()+random: two submissions in the same

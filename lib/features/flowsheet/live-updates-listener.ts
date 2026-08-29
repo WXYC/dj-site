@@ -218,11 +218,14 @@ export function createLiveUpdatesListenerMiddleware(
    * `rotation_bin` specifically converts to the `rotation` key — a raw merge
    * would write a field the badge never reads while the real badge field
    * silently stays stale.
+   *
+   * `add_time` is deliberately NOT here: the conversion now carries it onto
+   * every entry under the same name and the same ISO value, so it is a
+   * converted field like any other and merging it forks nothing.
    */
   const WIRE_ONLY_UPDATE_KEYS = new Set([
     "entry_type",
     "metadata_status",
-    "add_time",
     "radio_hour",
     "dj_name",
     "rotation_bin",
