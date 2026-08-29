@@ -163,6 +163,11 @@ export function usePlaylistSearch() {
     total: data?.pages?.[0]?.total ?? 0,
     hasMore: hasNextPage ?? false,
 
+    // Whether the client query for the *current* key has produced an answer,
+    // empty or not. `results.length > 0` cannot stand in for this: a listing
+    // that legitimately comes back with no rows never answers by that measure.
+    hasAnswered: data !== undefined || isError,
+
     isLoading: isFetching,
     isError,
 
@@ -195,15 +200,20 @@ export function usePlaylistSearchResults(
   options: UsePlaylistSearchResultsOptions = {},
 ) {
   const search = usePlaylistSearch();
-  const { results, isError, effectiveQuery } = search;
+  const { results, effectiveQuery, hasAnswered } = search;
   const initialResults = options.initialResults ?? NO_SEED;
 
-  // The seed retires permanently on the client query's first answer. Changing
-  // the sort re-keys the RTK cache entry, which empties `results` while the new
-  // key is in flight; resurfacing the seed in that gap would flash rows in the
-  // server's order over the sort the user just chose.
+  // The seed retires permanently on the client query's first answer. It turns
+  // on the query having *settled*, not on it having returned rows: a default
+  // listing that comes back empty is an answer, and keying this on row count
+  // would leave the server's rows on screen forever contradicting it.
+  //
+  // Retirement is permanent because changing the sort re-keys the RTK cache
+  // entry, which empties `results` while the new key is in flight; resurfacing
+  // the seed in that gap would flash rows in the server's order over the sort
+  // the user just chose.
   const seedRetired = useRef(false);
-  if (results.length > 0 || isError) {
+  if (hasAnswered) {
     seedRetired.current = true;
   }
 

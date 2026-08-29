@@ -52,6 +52,7 @@ const base = {
   loadNextPage: vi.fn(),
   showResults: true,
   isRealQuery: false,
+  usingSeed: false,
 };
 
 const CURTAIN = /keep typing/i;
@@ -126,5 +127,38 @@ describe("Results (modern previous sets)", () => {
     render(<Results />);
 
     expect(screen.queryByText("No results found")).not.toBeInTheDocument();
+  });
+
+  it("claims no total while the server seed is standing in", () => {
+    // `total` and `hasMore` describe the client query, which has not answered
+    // yet. Rendered anyway, the footer sits under a full page of seeded rows
+    // announcing "0 results" — an end-of-list claim about a list it cannot
+    // see.
+    mockUsePlaylistSearchResults.mockReturnValue({
+      ...base,
+      displayResults: [makeResult(0), makeResult(1)],
+      usingSeed: true,
+      total: 0,
+      hasMore: false,
+    });
+
+    render(<Results />);
+
+    expect(screen.getByText("la paradoja")).toBeInTheDocument();
+    expect(screen.queryByText(/0 results/i)).toBeNull();
+  });
+
+  it("reports the total once the client query owns the rows", () => {
+    mockUsePlaylistSearchResults.mockReturnValue({
+      ...base,
+      displayResults: [makeResult(0), makeResult(1)],
+      usingSeed: false,
+      total: 2,
+      hasMore: false,
+    });
+
+    render(<Results />);
+
+    expect(screen.getByText(/2 results/i)).toBeInTheDocument();
   });
 });

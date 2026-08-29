@@ -127,12 +127,45 @@ describe("Classic Previous Sets PreviousSetsContainer", () => {
   });
 
   it("still shows nothing for a sub-threshold partial query", async () => {
+    // Rows must be in hand for this to prove anything. With `data` left
+    // undefined the table is empty whatever the gate does, and the assertion
+    // passes just as happily with the threshold removed altogether.
+    mockQueryState.data = {
+      pages: [
+        {
+          results: [
+            {
+              id: 902,
+              play_date: "2026-08-23T14:30:00.000Z",
+              artist_name: "Jessica Pratt",
+              track_title: "Back, Baby",
+              album_title: "On Your Own Love Again",
+              record_label: "Drag City",
+              dj_name: "DJ Chowder",
+              show_id: 300,
+            },
+          ],
+          total: 1,
+          page: 0,
+          totalPages: 1,
+        },
+      ],
+    };
+
     const { user, container } = renderWithProviders(<PreviousSetsContainer />);
+
+    // The default listing is on screen first, so the disappearance below is
+    // the gate acting rather than the fixture never having arrived.
+    await waitFor(() => {
+      expect(screen.getByText("Jessica Pratt")).toBeDefined();
+    });
+
     await user.type(screen.getByPlaceholderText(/type to search/i), "a");
 
     await waitFor(() => {
       expect(container.querySelector("table thead")).toBeNull();
     });
+    expect(screen.queryByText("Jessica Pratt")).toBeNull();
   });
 
   it("renders the result table after the user types and data arrives", async () => {
