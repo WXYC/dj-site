@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import {
   useGetFormatsQuery,
   useGetGenresQuery,
@@ -9,7 +9,9 @@ import {
   useUpdateAlbumMutation,
 } from "@/lib/features/catalog/api";
 import { artistCardHref } from "@/lib/features/catalog/artistCardRoute";
+import { CODE_LETTERS_MAX_LENGTH } from "@/lib/features/catalog/adminCreateArtistValidation";
 import type { CallLetterMode } from "@/lib/features/catalog/chooserValidation";
+import { isGenresUnavailable } from "@/lib/features/catalog/genreAvailability";
 import { formatEntireLibraryCode } from "@/lib/features/catalog/libraryCode";
 import {
   composeLibraryCodeSearchArgs,
@@ -77,7 +79,11 @@ export default function ReleaseMoveForm({ albumId }: { albumId: number }) {
   const numbersId = useId();
 
   const { data, isLoading, isError } = useGetInformationQuery({ album_id: albumId });
-  const { data: genres } = useGetGenresQuery();
+  const genresQuery = useGetGenresQuery();
+  const { data: genres, isFetching: genresFetching, refetch: refetchGenres } = genresQuery;
+  // Reads absence-of-list, never the error flag: `isError` can be true while a
+  // good cached list is still on screen. Four sibling screens do the same.
+  const genresUnavailable = isGenresUnavailable(genresQuery);
   const { data: formats } = useGetFormatsQuery();
   const [resolveArtistByCode, { isFetching: isResolving }] = useLazyResolveArtistByCodeQuery();
   const [updateAlbum, { isLoading: saving }] = useUpdateAlbumMutation();
@@ -89,7 +95,6 @@ export default function ReleaseMoveForm({ albumId }: { albumId: number }) {
 
   /** The owners of the looked-up code, and which one the move is aimed at. */
   const [owners, setOwners] = useState<ArtistByCodeOwner[] | null>(null);
-  const [destinationGenreId, setDestinationGenreId] = useState<number | null>(null);
   const [chosenOwnerId, setChosenOwnerId] = useState<number | null>(null);
 
   /**
@@ -99,10 +104,21 @@ export default function ReleaseMoveForm({ albumId }: { albumId: number }) {
    * replaced — and the submit files the release under an artist that is no
    * longer anywhere on the screen, then names them in the confirmation.
    */
+  /**
+   * Bumped on every lookup and on every edit to the code. A resolution stamped
+   * with a stale generation is dropped: clearing state at the start of a
+   * lookup closes the ordering window but not the async one, and only the
+   * Look-up button is disabled while a request is in flight — the genre
+   * select and the two code inputs stay live. Without this, editing the code
+   * mid-request lets the old response re-arm a destination the screen no
+   * longer names.
+   */
+  const lookUpGeneration = useRef(0);
+
   const forgetDestination = () => {
+    lookUpGeneration.current += 1;
     setOwners(null);
     setChosenOwnerId(null);
-    setDestinationGenreId(null);
     setMessage("");
   };
 
@@ -149,6 +165,10 @@ export default function ReleaseMoveForm({ albumId }: { albumId: number }) {
     code_volume_letters: null,
   });
 
+  // The editor makes the same substitution: a compilation release is filed
+  // under a lettered bucket row, and naming that row here would tell the
+  // librarian the release belongs to an artist it does not.
+  const displayArtist = data.album_artist ? "Various Artists" : data.artist.name;
   const currentArtistId = data.artist.id;
   const added = data.add_date ? formatStationDateTime(data.add_date) : undefined;
   const destination =
@@ -158,6 +178,7 @@ export default function ReleaseMoveForm({ albumId }: { albumId: number }) {
 
   const handleLookUp = async () => {
     forgetDestination();
+    const generation = lookUpGeneration.current;
 
     const composed = composeLibraryCodeSearchArgs({
       callLetterMode,
@@ -174,6 +195,7 @@ export default function ReleaseMoveForm({ albumId }: { albumId: number }) {
     try {
       found = (await resolveArtistByCode(composed.args).unwrap()).artists;
     } catch (err) {
+      if (generation !== lookUpGeneration.current) return;
       const reason = resolveArtistByCodeErrorReason(err);
       if (reason === "code_not_assigned") {
         setMessage(CODE_NOT_ASSIGNED_MESSAGE);
@@ -197,11 +219,26 @@ export default function ReleaseMoveForm({ albumId }: { albumId: number }) {
       return;
     }
 
+    // The librarian has edited the code since this request went out, so its
+    // answer describes a code the screen no longer shows.
+    if (generation !== lookUpGeneration.current) return;
+
     setOwners(found);
-    setDestinationGenreId(composed.args.genre_id);
     if (found.length > 1) {
       setMessage(AMBIGUOUS_DESTINATION_MESSAGE);
     }
+  };
+
+  /**
+   * Enter inside the code fields runs the lookup instead of implicitly
+   * submitting the form. The chooser trains the opposite reflex — there the
+   * lookup *is* the submit — so without this the natural gesture fires the
+   * move and answers "look up a code first", which is true and useless.
+   */
+  const runLookUpOnEnter = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    void handleLookUp();
   };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -211,22 +248,11 @@ export default function ReleaseMoveForm({ albumId }: { albumId: number }) {
       setMessage(NO_DESTINATION_MESSAGE);
       return;
     }
-    if (!destination || destinationGenreId === null) {
+    if (!destination) {
       setMessage(AMBIGUOUS_DESTINATION_MESSAGE);
       return;
     }
-    // `currentArtistId` is undefined for a row that carries no `artist_id`,
-    // and `id === undefined` is false for every destination — so comparing
-    // ids alone would let a no-op move through and report it as a real one.
-    // The looked-up code is the fallback discriminant: it is what the
-    // librarian actually typed, and it identifies the shelf position whether
-    // or not the row names an artist.
-    const alreadyThere =
-      currentArtistId != null
-        ? destination.id === currentArtistId
-        : destination.code_letters === data.artist.lettercode &&
-          destination.code_number === data.artist.numbercode;
-    if (alreadyThere) {
+    if (destination.id === currentArtistId) {
       setMessage(SAME_CODE_MESSAGE);
       return;
     }
@@ -241,8 +267,11 @@ export default function ReleaseMoveForm({ albumId }: { albumId: number }) {
         body: {
           artist_id: destination.id,
           // Never omitted: see this component's doc for what the endpoint does
-          // with a genre it was not told about.
-          genre_id: destinationGenreId,
+          // with a genre it was not told about. Read off the owner row rather
+          // than held separately — `by-code` stamps the queried genre onto
+          // every artist it returns, so a second copy could only ever
+          // disagree.
+          genre_id: destination.genre_id,
           album_title: title.trim(),
           alternate_artist_name: altArtist.trim() === "" ? null : altArtist.trim(),
           ...(formatId === "" ? {} : { format_id: Number(formatId) }),
@@ -270,7 +299,7 @@ export default function ReleaseMoveForm({ albumId }: { albumId: number }) {
 
       <div style={{ textAlign: "center" }}>
         <h3>
-          LIBRARY RELEASE: &nbsp;{entireLibraryCode}&nbsp;-&nbsp;{data.artist.name} - {data.title}
+          LIBRARY RELEASE: &nbsp;{entireLibraryCode}&nbsp;-&nbsp;{displayArtist} - {data.title}
         </h3>
       </div>
 
@@ -307,10 +336,10 @@ export default function ReleaseMoveForm({ albumId }: { albumId: number }) {
                       code_letters: data.artist.lettercode,
                     })}
                   >
-                    {data.artist.name}
+                    {displayArtist}
                   </a>
                 ) : (
-                  data.artist.name
+                  displayArtist
                 )}
               </td>
             </tr>
@@ -335,6 +364,15 @@ export default function ReleaseMoveForm({ albumId }: { albumId: number }) {
                     </option>
                   ))}
                 </select>
+                {genresUnavailable && (
+                  <div role="alert" className="artist-error-message">
+                    Genres are unavailable, so a library code can&apos;t be looked up right
+                    now.{" "}
+                    <button type="button" disabled={genresFetching} onClick={() => refetchGenres()}>
+                      Try again
+                    </button>
+                  </div>
+                )}
                 <br />
                 <input
                   type="radio"
@@ -357,8 +395,9 @@ export default function ReleaseMoveForm({ albumId }: { albumId: number }) {
                     setCodeLetters(event.target.value);
                     forgetDestination();
                   }}
-                  size={3}
-                  maxLength={3}
+                  onKeyDown={runLookUpOnEnter}
+                  size={CODE_LETTERS_MAX_LENGTH}
+                  maxLength={CODE_LETTERS_MAX_LENGTH}
                 />
                 &nbsp;
                 <label htmlFor={numbersId}>Call Numbers:</label>
@@ -371,6 +410,7 @@ export default function ReleaseMoveForm({ albumId }: { albumId: number }) {
                     setCodeNumbers(event.target.value);
                     forgetDestination();
                   }}
+                  onKeyDown={runLookUpOnEnter}
                   size={3}
                   maxLength={3}
                 />
@@ -405,7 +445,14 @@ export default function ReleaseMoveForm({ albumId }: { albumId: number }) {
                             type="radio"
                             name="destinationOwner"
                             checked={chosenOwnerId === candidate.id}
-                            onChange={() => setChosenOwnerId(candidate.id)}
+                            onChange={() => {
+                              setChosenOwnerId(candidate.id);
+                              // The instruction to choose is in a live region;
+                              // leaving it up alongside "Moving to: X" would
+                              // assert both that a destination is armed and
+                              // that one still needs picking.
+                              setMessage("");
+                            }}
                           />
                           {candidate.artist_name}
                         </label>

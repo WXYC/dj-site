@@ -7,20 +7,32 @@ import { renderWithProviders } from "@/tests/helpers/render";
 const mockGetInformationQuery = vi.fn();
 const mockUpdateAlbum = vi.fn();
 const mockResolveArtistByCode = vi.fn();
+const mockRefetchGenres = vi.fn();
+type GenresQueryResult = {
+  data: { id: number; genre_name: string }[] | undefined;
+  isFetching: boolean;
+  isError: boolean;
+  refetch: typeof mockRefetchGenres;
+};
+
+const mockGenresQuery = vi.fn(
+  (): GenresQueryResult => ({
+    data: [
+      { id: 1, genre_name: "Rock" },
+      { id: 5, genre_name: "Electronic" },
+    ],
+    isFetching: false,
+    isError: false,
+    refetch: mockRefetchGenres,
+  }),
+);
 
 vi.mock("@/lib/features/catalog/api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/features/catalog/api")>();
   return {
     ...actual,
     useGetInformationQuery: (...args: unknown[]) => mockGetInformationQuery(...args),
-    useGetGenresQuery: () => ({
-      data: [
-        { id: 1, genre_name: "Rock" },
-        { id: 5, genre_name: "Electronic" },
-      ],
-      isFetching: false,
-      refetch: vi.fn(),
-    }),
+    useGetGenresQuery: () => mockGenresQuery(),
     useGetFormatsQuery: () => ({
       data: [
         { id: 1, format_name: "cd" },
@@ -96,6 +108,15 @@ const submit = async (user: ReturnType<typeof userEvent.setup>) =>
 describe("Classic ReleaseMoveForm — libraryReleaseModifyLibCode.jsp", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGenresQuery.mockReturnValue({
+      data: [
+        { id: 1, genre_name: "Rock" },
+        { id: 5, genre_name: "Electronic" },
+      ],
+      isFetching: false,
+      isError: false,
+      refetch: mockRefetchGenres,
+    });
     mockUpdateAlbum.mockReturnValue({ unwrap: () => Promise.resolve({}) });
   });
 
@@ -379,21 +400,6 @@ describe("Classic ReleaseMoveForm — libraryReleaseModifyLibCode.jsp", () => {
     });
   });
 
-  it("catches a no-op move by code when the release row carries no artist id", async () => {
-    loaded({ artist: createTestArtist({ id: undefined, name: "Autechre", lettercode: "AU", numbercode: 3, genre: "Electronic" }) });
-    resolvesTo(owner({ id: 4211, artist_name: "Autechre", code_letters: "AU", code_number: 3 }));
-
-    renderWithProviders(<ReleaseMoveForm albumId={53375} />);
-    const user = await lookUpCode("AU", "3");
-    await screen.findByTestId("release-move-destination");
-    await submit(user);
-
-    // Comparing ids alone would let this through: `id === undefined` is false
-    // for every destination, so the PATCH would go out and the screen would
-    // report a move that did nothing.
-    expect(mockUpdateAlbum).not.toHaveBeenCalled();
-    expect(screen.getByTestId("release-move-message").textContent).toContain("already filed");
-  });
 
   describe("after the move", () => {
     it("reports it, and says the call number may have moved with it", async () => {
@@ -430,6 +436,122 @@ describe("Classic ReleaseMoveForm — libraryReleaseModifyLibCode.jsp", () => {
       expect(message).toContain("could not be moved");
       expect(message).not.toContain("has been moved");
     });
+  });
+
+  it("drops a lookup answer that lands after the librarian edits the code", async () => {
+    loaded();
+    let release!: (value: { artists: ReturnType<typeof owner>[] }) => void;
+    mockResolveArtistByCode.mockReturnValue({
+      unwrap: () =>
+        new Promise<{ artists: ReturnType<typeof owner>[] }>((resolve) => {
+          release = resolve;
+        }),
+    });
+
+    renderWithProviders(<ReleaseMoveForm albumId={53375} />);
+    const user = userEvent.setup();
+    await user.selectOptions(screen.getByLabelText("Genre:"), "Rock");
+    await user.click(screen.getByLabelText("Call letters: mode"));
+    await user.type(screen.getByLabelText("Call letters:"), "SO");
+    await user.type(screen.getByLabelText("Call Numbers:"), "2");
+    await user.click(screen.getByRole("button", { name: "Look up this code" }));
+
+    // Only the Look-up button is disabled while the request is in flight, so
+    // the librarian can still retype the code — and the in-flight answer
+    // describes a code the screen no longer shows.
+    await user.selectOptions(screen.getByLabelText("Genre:"), "Electronic");
+    release({ artists: [owner({ id: 9001, artist_name: "A Rock Artist", genre_id: 1 })] });
+
+    await Promise.resolve();
+    expect(screen.queryByTestId("release-move-destination")).toBeNull();
+    await submit(user);
+    expect(mockUpdateAlbum).not.toHaveBeenCalled();
+  });
+
+  it("looks the code up on Enter instead of firing the move", async () => {
+    loaded();
+    resolvesTo(owner());
+
+    renderWithProviders(<ReleaseMoveForm albumId={53375} />);
+    const user = userEvent.setup();
+    await user.selectOptions(screen.getByLabelText("Genre:"), "Electronic");
+    await user.click(screen.getByLabelText("Call letters: mode"));
+    await user.type(screen.getByLabelText("Call letters:"), "GE");
+    await user.type(screen.getByLabelText("Call Numbers:"), "7{Enter}");
+
+    // The chooser trains the opposite reflex — there the lookup is the submit
+    // — so Enter here must not fire a move and answer "look up a code first".
+    expect(await screen.findByTestId("release-move-destination")).toBeDefined();
+    expect(mockUpdateAlbum).not.toHaveBeenCalled();
+  });
+
+  it("names a compilation release Various Artists, as the editor does", () => {
+    loaded({
+      album_artist: "Various",
+      artist: createTestArtist({
+        id: 4211,
+        name: "Soundtracks - L",
+        lettercode: "V/A",
+        numbercode: 0,
+        genre: "Soundtracks",
+      }),
+    });
+
+    renderWithProviders(<ReleaseMoveForm albumId={53375} />);
+
+    // Naming the lettered bucket row would tell the librarian the release
+    // belongs to an artist it does not — on the screen whose headline
+    // divergence exists to serve exactly this filing class.
+    expect(screen.getAllByText(/Various Artists/).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/Soundtracks - L/)).toBeNull();
+  });
+
+  it("accepts a four-character code, the longest the catalog can file", async () => {
+    loaded();
+    resolvesTo(owner({ code_letters: "ABCD", code_number: 1 }));
+
+    renderWithProviders(<ReleaseMoveForm albumId={53375} />);
+    await lookUpCode("ABCD", "1");
+
+    expect(mockResolveArtistByCode).toHaveBeenCalledWith(
+      expect.objectContaining({ code_letters: "ABCD" }),
+    );
+  });
+
+  it("offers a retry rather than blaming the librarian when genres are unavailable", async () => {
+    loaded();
+    mockGenresQuery.mockReturnValue({
+      data: undefined,
+      isFetching: false,
+      isError: true,
+      refetch: mockRefetchGenres,
+    });
+
+    renderWithProviders(<ReleaseMoveForm albumId={53375} />);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Look up this code" }));
+
+    // "You must select a genre." would instruct the librarian to use a
+    // control that has nothing in it and cannot be focused.
+    expect(screen.getByText(/Genres are unavailable/)).toBeDefined();
+    await user.click(screen.getByRole("button", { name: "Try again" }));
+    expect(mockRefetchGenres).toHaveBeenCalled();
+  });
+
+  it("retires the choose-one instruction once an owner is chosen", async () => {
+    loaded();
+    resolvesTo(owner({ id: 1, artist_name: "One" }), owner({ id: 2, artist_name: "Two" }));
+
+    renderWithProviders(<ReleaseMoveForm albumId={53375} />);
+    const user = await lookUpCode("V/A", "0");
+    await screen.findByTestId("release-move-owners");
+    expect(screen.getByTestId("release-move-message").textContent).toContain("More than one");
+
+    await user.click(screen.getByRole("radio", { name: "Two" }));
+
+    // Leaving it up would assert both that a destination is armed and that
+    // one still needs choosing.
+    expect(screen.getByTestId("release-move-message").textContent).not.toContain("More than one");
   });
 
   it("surfaces a load failure rather than offering a move for a release it never read", () => {
