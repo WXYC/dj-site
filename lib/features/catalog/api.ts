@@ -195,6 +195,51 @@ export const catalogApi = createApi({
         }
       },
     }),
+    /**
+     * `DELETE /library/:id` — a hard delete, and the only irreversible write
+     * on the catalog editor.
+     *
+     * Three of its four outcomes are refusals, and they do not mean the same
+     * thing: a 409 is refused on the merits (the release carries flowsheet
+     * plays), a 503 is a stand-down on a locked row that says nothing about
+     * whether the release is deletable, and a 404 is most often the second
+     * click of a double-submit. `interpretReleaseDeleteError` is the one owner
+     * of that distinction; nothing here re-derives it.
+     *
+     * No non-JSON soft-handle is needed or wanted: `backendBaseQuery` never
+     * soft-handles a mutation, so a gateway's HTML 502 arrives as a rejection
+     * rather than as the empty body a successful 204 also has — which is the
+     * difference between "deleted" and "reported deleted while still shelved".
+     */
+    deleteAlbum: builder.mutation<void, { albumId: number; artistId?: number }>({
+      query: ({ albumId }) => ({
+        url: `/${albumId}`,
+        method: "DELETE",
+      }),
+      // Wrapped for the same reason as searchArtistsInGenre and
+      // resolveArtistByCode: the delete screen states the refusal itself,
+      // naming the release and the play count, and the shared
+      // rtk-query-error-logger toasting `data.message` a second time would
+      // double an already-precise sentence with a vaguer one.
+      transformErrorResponse: (
+        response: FetchBaseQueryError,
+      ): { deleteAlbumError: FetchBaseQueryError } => ({ deleteAlbumError: response }),
+      // Only on success: a refused delete changed nothing upstream, and
+      // invalidating on it would make every catalog list on screen refetch —
+      // showing the row vanish and return. `result` is void either way, so
+      // `error` is what distinguishes them.
+      invalidatesTags: (_result, error, { albumId, artistId }) =>
+        error
+          ? []
+          : [
+              { type: "AlbumDetail", id: albumId },
+              { type: "CatalogList", id: "LIST" },
+              // The artist whose release table the row is leaving. A caller
+              // that does not know it invalidates every table rather than
+              // guessing at one — the same fallback addAlbum takes.
+              { type: "ArtistReleaseList", id: artistId != null ? String(artistId) : "LIST" },
+            ],
+    }),
     addArtist: builder.mutation<
       {
         id: number;
@@ -575,6 +620,7 @@ export const {
   useSearchLibraryQueryInfiniteInfiniteQuery,
   useAddAlbumMutation,
   useUpdateAlbumMutation,
+  useDeleteAlbumMutation,
   useAddArtistMutation,
   useGetArtistCardQuery,
   useUpdateArtistCardMutation,

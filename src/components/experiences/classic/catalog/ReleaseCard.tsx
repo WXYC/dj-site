@@ -22,9 +22,17 @@ import Tracklist from "./Tracklist";
  *    edits both. `PATCH /library/:id` accepts neither, so rendering them as
  *    inputs would offer an edit that silently discards.
  *  - **Album Artist is read-only**, for the same reason: not in the PATCH body.
- *  - **No "Delete This Library Release".** There is no delete endpoint.
+ *    The published `AddAlbumRequest` schema does declare the field, but no
+ *    Backend write path reads it on either verb, so an input here would
+ *    discard silently.
+ *  - **"Delete This Library Release" is offered unconditionally.** The JSP
+ *    suppresses it when the release has cross-references. Backend refuses on a
+ *    stronger and more relevant criterion — flowsheet plays, which the JSP
+ *    deleted straight through — and refuses server-side, where the answer
+ *    cannot go stale between the check and the click. The confirmation screen
+ *    states that refusal; see `ReleaseDeleteConfirm`.
  *  - **No "Change the Library Code / Artist Code of This Library Release"**, and
- *    no "Undo Last Change" — none has an endpoint behind it.
+ *    no "Undo Last Change" — neither has an endpoint behind it yet.
  *  - **Cross-reference blocks and "Add Xrefs" omitted.** Write-side
  *    cross-reference admin is frozen; read-only display is owned separately,
  *    for this screen and the artist card together.
@@ -269,6 +277,10 @@ export default function ReleaseCard({ albumId }: { albumId: number }) {
                   value="Modify this Library Release"
                   disabled={saving}
                 />
+                &nbsp;&nbsp;
+                <a href={`/dashboard/library/release/${albumId}/delete`}>
+                  Delete This Library Release
+                </a>
               </td>
             </tr>
           </tbody>

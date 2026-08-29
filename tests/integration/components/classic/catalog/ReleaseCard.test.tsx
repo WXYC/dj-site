@@ -128,4 +128,39 @@ describe("Classic ReleaseCard", () => {
 
     expect(screen.getByTestId("release-card-error")).toBeDefined();
   });
+
+  it("carries the JSP's 'Delete This Library Release' through to the confirmation screen", () => {
+    mockGetInformationQuery.mockReturnValue({ data: album(), isLoading: false, isError: false });
+
+    renderWithProviders(<ReleaseCard albumId={53375} />);
+
+    const link = screen.getByRole("link", { name: "Delete This Library Release" });
+    expect(link.getAttribute("href")).toBe("/dashboard/library/release/53375/delete");
+  });
+
+  it("sends the delete to a confirmation rather than deleting from this screen", () => {
+    mockGetInformationQuery.mockReturnValue({ data: album(), isLoading: false, isError: false });
+
+    renderWithProviders(<ReleaseCard albumId={53375} />);
+
+    // The JSP interposes a whole confirmation page between the editor and the
+    // irreversible write, and so does this. A delete control on the editor
+    // itself would sit one slip away from the Modify button.
+    expect(screen.queryByRole("button", { name: /^Delete/ })).toBeNull();
+  });
+
+  it("offers the delete even for a release that turns out to be undeletable", () => {
+    mockGetInformationQuery.mockReturnValue({
+      data: album({ plays: 412 }),
+      isLoading: false,
+      isError: false,
+    });
+
+    renderWithProviders(<ReleaseCard albumId={53375} />);
+
+    // The JSP hides its delete link on a client-side pre-check. Backend's
+    // refusal is stronger and cannot go stale between the check and the click,
+    // so the link is unconditional and the server states the refusal.
+    expect(screen.getByRole("link", { name: "Delete This Library Release" })).toBeDefined();
+  });
 });
