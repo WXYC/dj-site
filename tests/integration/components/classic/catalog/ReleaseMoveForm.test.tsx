@@ -338,6 +338,63 @@ describe("Classic ReleaseMoveForm — libraryReleaseModifyLibCode.jsp", () => {
     });
   });
 
+  describe("a destination the librarian has since edited away from", () => {
+    it.each([
+      { label: "the call letters", act: async (user: ReturnType<typeof userEvent.setup>) =>
+        user.type(screen.getByLabelText("Call letters:"), "X") },
+      { label: "the call numbers", act: async (user: ReturnType<typeof userEvent.setup>) =>
+        user.type(screen.getByLabelText("Call Numbers:"), "9") },
+      { label: "the genre", act: async (user: ReturnType<typeof userEvent.setup>) =>
+        user.selectOptions(screen.getByLabelText("Genre:"), "Rock") },
+    ])("retires the resolved destination when $label changes", async ({ act }) => {
+      loaded();
+      resolvesTo(owner({ id: 8802, artist_name: "Gescom" }));
+
+      renderWithProviders(<ReleaseMoveForm albumId={53375} />);
+      const user = await lookUpCode();
+      await screen.findByTestId("release-move-destination");
+
+      await act(user);
+
+      // Leaving the previous artist armed behind a code the librarian has
+      // already replaced would file the release under someone no longer
+      // named anywhere on the screen — and say so in the confirmation.
+      expect(screen.queryByTestId("release-move-destination")).toBeNull();
+    });
+
+    it("refuses the submit rather than moving to the retired destination", async () => {
+      loaded();
+      resolvesTo(owner({ id: 8802, artist_name: "Gescom" }));
+
+      renderWithProviders(<ReleaseMoveForm albumId={53375} />);
+      const user = await lookUpCode();
+      await screen.findByTestId("release-move-destination");
+      await user.type(screen.getByLabelText("Call letters:"), "X");
+      await submit(user);
+
+      expect(mockUpdateAlbum).not.toHaveBeenCalled();
+      expect(screen.getByTestId("release-move-message").textContent).toContain(
+        "Look up a library code",
+      );
+    });
+  });
+
+  it("catches a no-op move by code when the release row carries no artist id", async () => {
+    loaded({ artist: createTestArtist({ id: undefined, name: "Autechre", lettercode: "AU", numbercode: 3, genre: "Electronic" }) });
+    resolvesTo(owner({ id: 4211, artist_name: "Autechre", code_letters: "AU", code_number: 3 }));
+
+    renderWithProviders(<ReleaseMoveForm albumId={53375} />);
+    const user = await lookUpCode("AU", "3");
+    await screen.findByTestId("release-move-destination");
+    await submit(user);
+
+    // Comparing ids alone would let this through: `id === undefined` is false
+    // for every destination, so the PATCH would go out and the screen would
+    // report a move that did nothing.
+    expect(mockUpdateAlbum).not.toHaveBeenCalled();
+    expect(screen.getByTestId("release-move-message").textContent).toContain("already filed");
+  });
+
   describe("after the move", () => {
     it("reports it, and says the call number may have moved with it", async () => {
       loaded();

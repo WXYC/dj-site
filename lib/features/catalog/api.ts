@@ -185,9 +185,25 @@ export const catalogApi = createApi({
         if (!response) throw new Error("updateAlbum: response body was empty");
         return convertToAlbumEntry(response);
       },
-      invalidatesTags: (_result, _error, { albumId }) => [
-        { type: "AlbumDetail", id: albumId },
-      ],
+      // A field edit needs no list refetch: `patchCatalogSearchCaches` below
+      // rewrites the row wherever it is already cached.
+      //
+      // An `artist_id` change is different in kind. It re-files the release
+      // under a different artist, so the artist it left and the one it joined
+      // both hold a release table that is now wrong — and the in-place patch
+      // makes `CatalogList` worse rather than better there, since it keeps the
+      // row in a cached artist-name search that no longer matches it. The
+      // source artist is not in these args (only the destination is), so the
+      // release tables are invalidated through the shared `LIST` tag rather
+      // than by id; `getArtistReleases` provides both.
+      invalidatesTags: (_result, _error, { albumId, body }) =>
+        body.artist_id != null
+          ? [
+              { type: "AlbumDetail", id: albumId },
+              { type: "ArtistReleaseList", id: "LIST" },
+              { type: "CatalogList", id: "LIST" },
+            ]
+          : [{ type: "AlbumDetail", id: albumId }],
       async onQueryStarted(_arg, { dispatch, queryFulfilled, getState }) {
         try {
           const { data: updated } = await queryFulfilled;
