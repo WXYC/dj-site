@@ -2,7 +2,10 @@ services:
   postgres:
     image: postgres:18.0-alpine
     environment:
-      POSTGRES_PASSWORD: 'RadioIsEpic$1100'
+      # Throwaway container, torn down with the test run. Must stay byte-identical
+      # to DB_PASSWORD in .github/workflows/e2e-tests.yml and scripts/e2e-local.sh —
+      # this is the value the database is created with, those are what connect to it.
+      POSTGRES_PASSWORD: 'e2e-throwaway-not-a-secret'
       POSTGRES_USER: wxyc_admin
       POSTGRES_DB: wxyc_db
     ports:
