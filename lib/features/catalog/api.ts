@@ -10,6 +10,7 @@ import {
 import { CATALOG_QUERY_PAGE_LIMIT } from "./constants";
 import { convertToAlbumEntry } from "./conversions";
 import { patchCatalogSearchCaches } from "./patchSearchCaches";
+import { deleteAnsweredWithoutWriting } from "./releaseDeleteOutcome";
 import {
   AddAlbumRequestBody,
   AddArtistRequestBody,
@@ -224,10 +225,13 @@ export const catalogApi = createApi({
       transformErrorResponse: (
         response: FetchBaseQueryError,
       ): { deleteAlbumError: FetchBaseQueryError } => ({ deleteAlbumError: response }),
-      // Only on success: a refused delete changed nothing upstream, and
-      // invalidating on it would make every catalog list on screen refetch —
-      // showing the row vanish and return. `result` is void either way, so
-      // `error` is what distinguishes them.
+      // A refused delete changed nothing upstream, and invalidating on it
+      // would make every catalog list on screen refetch — showing the row
+      // vanish and return. But "refused" has to mean the server answered
+      // without writing: a 5xx or a dropped connection may have deleted the
+      // row on a response the client never saw, and skipping invalidation
+      // there leaves every list asserting a release that is gone. Same
+      // predicate `addArtist` uses for the same reason.
       //
       // `AlbumDetail` is deliberately absent, and it is the one tag that looks
       // like it belongs. Invalidating it would refetch `getInformation` for a
@@ -239,7 +243,7 @@ export const catalogApi = createApi({
       // the librarian leaves and expires on its own, and every list that could
       // still surface the row is invalidated below.
       invalidatesTags: (_result, error, { albumId: _albumId, artistId }) =>
-        error
+        deleteAnsweredWithoutWriting(error)
           ? []
           : [
               { type: "CatalogList", id: "LIST" },

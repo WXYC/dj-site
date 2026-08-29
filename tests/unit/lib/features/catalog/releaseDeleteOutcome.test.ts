@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   interpretReleaseDeleteError,
   RELEASE_DELETE_FALLBACK_MESSAGE,
+  RELEASE_DELETE_INDETERMINATE_MESSAGE,
   RELEASE_DELETE_GONE_MESSAGE,
   RELEASE_DELETE_LOCK_MESSAGE,
   RELEASE_DELETE_REFUSED_MESSAGE,
@@ -90,13 +91,11 @@ describe("interpretReleaseDeleteError", () => {
   });
 
   it.each([
-    { label: "a 500", err: wrapped(500, { message: "boom" }) },
-    { label: "a network failure", err: wrapped("FETCH_ERROR", undefined) },
     { label: "a non-object body", err: wrapped(409, "<html>502</html>") },
     { label: "an unrecognised reason", err: wrapped(409, { reason: "something_new" }) },
-    { label: "an unwrapped error", err: { status: 409, data: { reason: "flowsheet_references" } } },
-    { label: "undefined", err: undefined },
-  ])("refuses to guess at $label", ({ err }) => {
+    { label: "a 400", err: wrapped(400, { message: "bad id" }) },
+    { label: "a 401", err: wrapped(401, { message: "unauthorized" }) },
+  ])("says nothing was changed only when the server answered below 500 — $label", ({ err }) => {
     const outcome = interpretReleaseDeleteError(err);
 
     expect(outcome.reason).toBe("unknown");
@@ -104,13 +103,32 @@ describe("interpretReleaseDeleteError", () => {
     expect(outcome.retryable).toBe(false);
   });
 
-  it("never reports a refusal as retryable except the lock stand-down", () => {
-    const statuses = [404, 409, 500, "FETCH_ERROR" as const];
+  it.each([
+    { label: "a 500", err: wrapped(500, { message: "boom" }) },
+    { label: "a 502 behind a gateway", err: wrapped(502, undefined) },
+    { label: "a dropped connection", err: wrapped("FETCH_ERROR", undefined) },
+    { label: "an unparseable body", err: wrapped("PARSING_ERROR", undefined) },
+    { label: "an unwrapped error", err: { status: 409, data: { reason: "flowsheet_references" } } },
+    { label: "undefined", err: undefined },
+  ])("refuses to claim nothing was changed when no answer came back — $label", ({ err }) => {
+    const outcome = interpretReleaseDeleteError(err);
 
-    const retryable = statuses.map(
-      (status) => interpretReleaseDeleteError(wrapped(status, { reason: "flowsheet_references" })).retryable,
-    );
+    // The delete may well have committed on a response that never arrived.
+    // Claiming it did not is the one thing this branch must never do, and a
+    // retry is safe: a second attempt on a deleted row reads as "already
+    // gone".
+    expect(outcome.reason).toBe("indeterminate");
+    expect(outcome.message).toBe(RELEASE_DELETE_INDETERMINATE_MESSAGE);
+    expect(outcome.message).not.toContain("Nothing was changed");
+    expect(outcome.retryable).toBe(true);
+  });
 
-    expect(retryable).toEqual([false, false, false, false]);
+  it("keeps a refusal on the merits unretryable, whatever the transport did", () => {
+    expect(
+      interpretReleaseDeleteError(
+        wrapped(409, { reason: "flowsheet_references", message: "has plays" }),
+      ).retryable,
+    ).toBe(false);
+    expect(interpretReleaseDeleteError(wrapped(404, { message: "gone" })).retryable).toBe(false);
   });
 });
