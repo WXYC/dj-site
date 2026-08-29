@@ -4,6 +4,7 @@ import { createElement, type ReactNode } from "react";
 import { Provider } from "react-redux";
 import { makeStore, AppStore } from "@/lib/store";
 import { playlistSearchSlice } from "@/lib/features/playlist-search/frontend";
+import type { PlaylistSearchResult } from "@wxyc/shared";
 
 const mockFetchNextPage = vi.fn();
 
@@ -51,7 +52,13 @@ vi.mock("@/lib/features/playlist-search/api", async () => {
   };
 });
 
-import { usePlaylistSearch } from "@/src/hooks/playlistSearchHooks";
+import {
+  usePlaylistSearch,
+  usePlaylistSearchResults,
+  isDefaultQuery,
+  isRealQuery,
+  shouldShowResults,
+} from "@/src/hooks/playlistSearchHooks";
 
 function createWrapper(store?: AppStore) {
   const s = store ?? makeStore();
@@ -403,5 +410,117 @@ describe("usePlaylistSearch", () => {
         );
       });
     });
+  });
+});
+
+describe("query-shape predicates", () => {
+  it.each([
+    { q: "", expected: true, why: "the empty query is the recent-playlists default" },
+    { q: "a", expected: false, why: "a sub-threshold partial is the one skipped state" },
+    { q: "au", expected: true, why: "two characters reaches MIN_QUERY_LENGTH" },
+    { q: "juana molina", expected: true, why: "an ordinary search" },
+  ])("shouldShowResults($q) is $expected because $why", ({ q, expected }) => {
+    expect(shouldShowResults(q)).toBe(expected);
+  });
+
+  it.each([
+    { q: "", isDefault: true, isReal: false },
+    { q: "a", isDefault: false, isReal: false },
+    { q: "au", isDefault: false, isReal: true },
+  ])("classifies $q", ({ q, isDefault, isReal }) => {
+    expect(isDefaultQuery(q)).toBe(isDefault);
+    expect(isRealQuery(q)).toBe(isReal);
+  });
+});
+
+describe("usePlaylistSearchResults", () => {
+  const seedRow = { id: 900, artist_name: "Chuquimamani-Condori" };
+  const liveRow = { id: 1, artist_name: "Juana Molina" };
+  const seed = [seedRow] as unknown as PlaylistSearchResult[];
+
+  it("shows the server seed for the default query before the client query answers", async () => {
+    const { wrapper } = createWrapper();
+
+    const { result } = renderHook(
+      () => usePlaylistSearchResults({ initialResults: seed }),
+      { wrapper },
+    );
+
+    await waitFor(() => expect(result.current.showResults).toBe(true));
+    expect(result.current.displayResults.map((r) => r.id)).toEqual([900]);
+  });
+
+  it("shows results for the default query with no seed supplied", async () => {
+    const { wrapper } = createWrapper();
+    mockInfiniteState.data = { pages: [{ results: [liveRow], total: 1 }] };
+
+    const { result } = renderHook(() => usePlaylistSearchResults(), { wrapper });
+
+    await waitFor(() => expect(result.current.displayResults).toHaveLength(1));
+    expect(result.current.showResults).toBe(true);
+    expect(result.current.isRealQuery).toBe(false);
+  });
+
+  it("hides results only for a sub-threshold partial", async () => {
+    const { store, wrapper } = createWrapper();
+    const rowId = store.getState().playlistSearch.rows[0].id;
+
+    const { result } = renderHook(() => usePlaylistSearchResults(), { wrapper });
+    await waitFor(() => expect(result.current.showResults).toBe(true));
+
+    act(() => {
+      store.dispatch(
+        playlistSearchSlice.actions.updateRow({
+          id: rowId,
+          updates: { value: "a" },
+        }),
+      );
+    });
+
+    await waitFor(() => expect(result.current.showResults).toBe(false));
+  });
+
+  it("retires the seed permanently once the client query answers", async () => {
+    const { wrapper } = createWrapper();
+
+    const { result, rerender } = renderHook(
+      () => usePlaylistSearchResults({ initialResults: seed }),
+      { wrapper },
+    );
+
+    await waitFor(() => expect(result.current.displayResults[0].id).toBe(900));
+
+    act(() => {
+      mockInfiniteState.data = { pages: [{ results: [liveRow], total: 1 }] };
+    });
+    rerender();
+    await waitFor(() => expect(result.current.displayResults[0].id).toBe(1));
+
+    // A sort change re-keys the RTK cache and empties results mid-flight.
+    // Resurfacing the seed here would flash rows in the server's order over
+    // the sort the user just chose.
+    act(() => {
+      mockInfiniteState.data = undefined;
+    });
+    rerender();
+
+    expect(result.current.displayResults).toEqual([]);
+  });
+
+  it("retires the seed when the client query errors", async () => {
+    const { wrapper } = createWrapper();
+
+    const { result, rerender } = renderHook(
+      () => usePlaylistSearchResults({ initialResults: seed }),
+      { wrapper },
+    );
+    await waitFor(() => expect(result.current.displayResults[0].id).toBe(900));
+
+    act(() => {
+      mockInfiniteState.isError = true;
+    });
+    rerender();
+
+    expect(result.current.displayResults).toEqual([]);
   });
 });

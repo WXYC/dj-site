@@ -61,9 +61,78 @@ describe("Classic Previous Sets PreviousSetsContainer", () => {
     expect(screen.getByPlaceholderText(/type to search/i)).toBeDefined();
   });
 
-  it("does not render the results section before the user has typed", () => {
+  it("lists recent entries before the user has typed anything", async () => {
+    mockQueryState.data = {
+      pages: [
+        {
+          results: [
+            {
+              id: 900,
+              play_date: "2026-08-23T14:30:00.000Z",
+              artist_name: "Chuquimamani-Condori",
+              track_title: "Call Your Name",
+              album_title: "Edits",
+              record_label: "self-released",
+              dj_name: "DJ Chowder",
+              show_id: 300,
+            },
+          ],
+          total: 1,
+          page: 0,
+          totalPages: 1,
+        },
+      ],
+    };
+
     const { container } = renderWithProviders(<PreviousSetsContainer />);
-    expect(container.querySelector("table thead")).toBeNull();
+
+    await waitFor(() => {
+      expect(screen.getByText("Chuquimamani-Condori")).toBeDefined();
+    });
+    expect(container.querySelector("table thead")).not.toBeNull();
+  });
+
+  it("does not report a result count for the default listing", async () => {
+    mockQueryState.data = {
+      pages: [
+        {
+          results: [
+            {
+              id: 901,
+              play_date: "2026-08-23T14:30:00.000Z",
+              artist_name: "Cat Power",
+              track_title: "Cross Bones Style",
+              album_title: "Moon Pix",
+              record_label: "Matador",
+              dj_name: "DJ Chowder",
+              show_id: 300,
+            },
+          ],
+          total: 1,
+          page: 0,
+          totalPages: 1,
+        },
+      ],
+    };
+
+    renderWithProviders(<PreviousSetsContainer />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Cat Power")).toBeDefined();
+    });
+    // "Found 1 results" answers a question the DJ did not ask, and "No results
+    // found" would be a lie about the archive. Both belong to a real query.
+    expect(screen.queryByText(/found 1 results/i)).toBeNull();
+    expect(screen.queryByText(/no results found/i)).toBeNull();
+  });
+
+  it("still shows nothing for a sub-threshold partial query", async () => {
+    const { user, container } = renderWithProviders(<PreviousSetsContainer />);
+    await user.type(screen.getByPlaceholderText(/type to search/i), "a");
+
+    await waitFor(() => {
+      expect(container.querySelector("table thead")).toBeNull();
+    });
   });
 
   it("renders the result table after the user types and data arrives", async () => {
