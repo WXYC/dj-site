@@ -62,8 +62,11 @@ export default function ShowEntriesPanel({
         </Typography>
       )}
 
+      {/* No inner scrollport: the view above already scrolls, and a capped
+          panel inside it puts a second bar beside the first for the same
+          gesture. */}
       {entries.length > 0 && (
-        <Box sx={{ maxHeight: "20rem", overflowY: "auto", mt: 1 }}>
+        <Box sx={{ mt: 1 }}>
           <Table size="sm" stickyHeader aria-label="show entries">
             <thead>
               <tr>

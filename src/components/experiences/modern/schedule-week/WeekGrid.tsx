@@ -30,7 +30,21 @@ export default function WeekGrid({
   return (
     // Day columns become illegible before a phone viewport is reached, so the
     // grid scrolls inside itself rather than letting the page scroll sideways.
-    <Box sx={{ overflowX: "auto", width: "100%" }}>
+    //
+    // Both axes are named. Setting only `overflowX` leaves the other computed
+    // as `auto` rather than `visible` (CSS forces the second axis off visible
+    // once the first is set), which put a second vertical scrollbar here over a
+    // few pixels of grid gap while the page already had one. Vertical scrolling
+    // belongs to the view above; this box must not shrink below its content, or
+    // `hidden` would clip the last row instead of merely not scrolling it.
+    <Box
+      sx={{
+        width: "100%",
+        overflowX: "auto",
+        overflowY: "hidden",
+        flexShrink: 0,
+      }}
+    >
       <Box
         sx={{
           display: "grid",
