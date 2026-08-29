@@ -31,8 +31,8 @@ import Tracklist from "./Tracklist";
  *    deleted straight through — and refuses server-side, where the answer
  *    cannot go stale between the check and the click. The confirmation screen
  *    states that refusal; see `ReleaseDeleteConfirm`.
- *  - **No "Change the Library Code / Artist Code of This Library Release"**, and
- *    no "Undo Last Change" — neither has an endpoint behind it yet.
+ *  - **No "Undo Last Change"** — nothing stands behind it. The JSP's two links
+ *    to the move screen are both reproduced, under both of its wordings.
  *  - **Cross-reference blocks and "Add Xrefs" omitted.** Write-side
  *    cross-reference admin is frozen; read-only display is owned separately,
  *    for this screen and the artist card together.
@@ -142,6 +142,10 @@ export default function ReleaseCard({ albumId }: { albumId: number }) {
         <a href="/dashboard/catalog">Do another search</a>
         &nbsp;&nbsp;&nbsp;&nbsp;
         <a href="/dashboard/library">Find and Create an Artist and/or Library Code</a>
+        <p />
+        <a href={`/dashboard/library/release/${albumId}/move`}>
+          Change the Library Code of This Library Release
+        </a>
       </div>
 
       <div style={{ textAlign: "center" }}>
@@ -175,6 +179,10 @@ export default function ReleaseCard({ albumId }: { albumId: number }) {
               </td>
               <td>
                 {artistCode} - {displayArtist}
+                &nbsp;&nbsp;&nbsp;
+                <a href={`/dashboard/library/release/${albumId}/move`}>
+                  Change the Artist Code of This Library Release
+                </a>
               </td>
             </tr>
             <tr>

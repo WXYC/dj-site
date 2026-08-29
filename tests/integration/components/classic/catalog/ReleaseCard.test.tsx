@@ -149,4 +149,21 @@ describe("Classic ReleaseCard", () => {
     expect(screen.queryByRole("button", { name: /^Delete/ })).toBeNull();
   });
 
+  it("reaches the move screen from both places the JSP offers it, under both of its labels", () => {
+    mockGetInformationQuery.mockReturnValue({ data: album(), isLoading: false, isError: false });
+
+    renderWithProviders(<ReleaseCard albumId={53375} />);
+
+    // The JSP names one destination two ways — "Library Code" in its nav and
+    // "Artist Code" beside the artist. Both are reproduced verbatim: the
+    // wording is the spec, and a librarian looking for either finds it.
+    const fromNav = screen.getByRole("link", {
+      name: "Change the Library Code of This Library Release",
+    });
+    const fromArtistRow = screen.getByRole("link", {
+      name: "Change the Artist Code of This Library Release",
+    });
+    expect(fromNav.getAttribute("href")).toBe("/dashboard/library/release/53375/move");
+    expect(fromArtistRow.getAttribute("href")).toBe(fromNav.getAttribute("href"));
+  });
 });
