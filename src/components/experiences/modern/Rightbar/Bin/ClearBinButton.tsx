@@ -2,18 +2,9 @@
 
 import { useClearBin } from "@/src/hooks/binHooks";
 import { DeleteSweep, WarningRounded } from "@mui/icons-material";
-import {
-  Button,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  Divider,
-  IconButton,
-  Modal,
-  ModalDialog,
-  Tooltip,
-} from "@mui/joy";
+import { Button, IconButton, Tooltip } from "@mui/joy";
 import { useState } from "react";
+import ConfirmDialog from "@/src/components/experiences/modern/ConfirmDialog";
 
 /**
  * Header action that clears the entire Mail Bin. Rendered only when the bin is
@@ -42,19 +33,19 @@ export default function ClearBinButton({ count }: { count: number }) {
           <DeleteSweep />
         </IconButton>
       </Tooltip>
-      <Modal open={open} onClose={() => setOpen(false)}>
-        <ModalDialog variant="outlined" role="alertdialog">
-          <DialogTitle>
+      <ConfirmDialog
+        open={open}
+        onClose={() => setOpen(false)}
+        pending={loading}
+        title={
+          <>
             <WarningRounded />
             Clear Mail Bin
-          </DialogTitle>
-          <Divider />
-          <DialogContent>
-            {`Clear all ${count} ${
-              count === 1 ? "album" : "albums"
-            } from your Mail Bin? This can't be undone.`}
-          </DialogContent>
-          <DialogActions>
+          </>
+        }
+        testId="clear-bin-confirm-dialog"
+        actions={
+          <>
             <Button
               variant="solid"
               color="warning"
@@ -71,9 +62,13 @@ export default function ClearBinButton({ count }: { count: number }) {
             >
               Cancel
             </Button>
-          </DialogActions>
-        </ModalDialog>
-      </Modal>
+          </>
+        }
+      >
+        {`Clear all ${count} ${
+          count === 1 ? "album" : "albums"
+        } from your Mail Bin? This can't be undone.`}
+      </ConfirmDialog>
     </>
   );
 }
