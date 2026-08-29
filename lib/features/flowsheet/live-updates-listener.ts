@@ -239,6 +239,27 @@ export function createLiveUpdatesListenerMiddleware(
    * cached row under a key nothing reads, while the rendered `day` / `time`
    * stay pinned to whatever the last conversion produced — the same
    * `rotation_bin` → `rotation` fork, not the `add_time` exception.
+   *
+   * Two caveats on that `timestamp` reasoning, both deliberate:
+   *
+   * 1. The API contract declares the field `format: date-time`, so the
+   *    display string above is BS departing from its own schema, not the
+   *    schema. Excluding the key is correct either way — an ISO instant is
+   *    equally not a converted key — but note the latent trap if BS is ever
+   *    corrected to honour the declared format: `parseTimestamp` splits on a
+   *    comma, finds none in an ISO string, and every marker renders
+   *    `day`/`time` as "Unknown". The exclusion here does not shield that.
+   *
+   * 2. This set is a flat key list, and one member of the same class cannot
+   *    be expressed in it: `artist_name`. On the marker variants the
+   *    conversion reads it as the legacy fallback for `dj_name`
+   *    (`entry.dj_name ?? entry.artist_name`) and the converted row keeps no
+   *    `artist_name`, so merging one onto a marker forks exactly the way
+   *    `timestamp` does. On a track row it is same-name-retained enrichment
+   *    that this merge exists to deliver. Excluding it therefore requires a
+   *    rule that discriminates on `entry_type`, which a `Set<string>`
+   *    structurally cannot; adding it here would silently break track
+   *    enrichment. Left open knowingly rather than half-fixed.
    */
   const WIRE_ONLY_UPDATE_KEYS = new Set([
     "entry_type",
