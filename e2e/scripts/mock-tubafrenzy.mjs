@@ -26,6 +26,13 @@
  *     connection alive). EventSource stays connected, no reconnect storm.
  *   - Any other request → 200 + JSON `{id}` (the mirror's createShow and
  *     createEntry read `.id`; updateEntry and signoff don't read the body).
+ *   - GET /__requests → 200 + JSON array of every non-SSE request captured
+ *     above (bounded to the last MAX_REQUESTS), each recording method, url,
+ *     the parsed JSON body, and the `id` this mock assigned it. The go-live
+ *     takeover spec (e2e/tests/flowsheet/go-live-takeover.spec.ts) is the one
+ *     consumer: it needs to see which show the mirror actually signed off and
+ *     which it created, and the ordinary shapes above give it no way to ask.
+ *     Not itself recorded.
  *
  * See WXYC/dj-site#567. Bound to 127.0.0.1 only. Port via
  * $MOCK_TUBAFRENZY_PORT or 9091.
@@ -33,8 +40,17 @@
 import { createServer } from 'node:http';
 
 const PORT = Number(process.env.MOCK_TUBAFRENZY_PORT ?? 9091);
+const MAX_REQUESTS = 500;
 let nextId = 1;
 const sseClients = new Set();
+const requests = [];
+
+function recordRequest(entry) {
+  requests.push(entry);
+  // Ring buffer, not an unbounded log — this process outlives the whole
+  // job, and nothing ever drains the array otherwise.
+  if (requests.length > MAX_REQUESTS) requests.shift();
+}
 
 const server = createServer((req, res) => {
   // SSE endpoint — keep the connection open so playlist-proxy's EventSource
@@ -52,13 +68,32 @@ const server = createServer((req, res) => {
     return;
   }
 
-  // Everything else (mirror writes) — JSON {id} works for createShow,
-  // createEntry, updateEntry, signoff.
-  req.on('data', () => {});
-  req.on('end', () => {
+  if (req.method === 'GET' && req.url === '/__requests') {
     res.statusCode = 200;
     res.setHeader('Content-Type', 'application/json');
-    res.end(JSON.stringify({ id: nextId++ }));
+    res.end(JSON.stringify(requests));
+    return;
+  }
+
+  // Everything else (mirror writes) — JSON {id} works for createShow,
+  // createEntry, updateEntry, signoff.
+  const chunks = [];
+  req.on('data', (chunk) => chunks.push(chunk));
+  req.on('end', () => {
+    const raw = Buffer.concat(chunks).toString('utf8');
+    let body = null;
+    if (raw) {
+      try {
+        body = JSON.parse(raw);
+      } catch {
+        body = raw;
+      }
+    }
+    const id = nextId++;
+    recordRequest({ method: req.method, url: req.url, body, id, timestamp: Date.now() });
+    res.statusCode = 200;
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify({ id }));
   });
 });
 

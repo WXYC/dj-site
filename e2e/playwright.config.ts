@@ -71,6 +71,29 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"] },
       dependencies: ["setup"],
       testMatch: /tests\/.+\.spec\.ts/,
+      // go-live-takeover.spec.ts runs in its own workflow job against its
+      // own Backend-Service (see chromium-takeover below and that job in
+      // .github/workflows/e2e-tests.yml) — it must never also run here.
+      // `mode: "serial"` inside that spec only serializes within its own
+      // describe block; this config's `fullyParallel: true` plus 2 CI
+      // workers would still schedule it alongside every other file in this
+      // project, and within a shard two workers share one Backend-Service.
+      // A takeover from that shared Backend would end a sibling worker's
+      // show mid-test.
+      testIgnore: /tests\/flowsheet\/go-live-takeover\.spec\.ts/,
+    },
+
+    /* go-live-takeover.spec.ts only. A dedicated project alone would not be
+     * enough isolation — `workers` is a TestConfig-level option, not a
+     * TestProject one, so project-level `fullyParallel: false` would still
+     * let Playwright schedule this project's tests across this run's worker
+     * pool. Its own workflow job invokes this project with `--workers=1` on
+     * the CLI, which is what actually gives it a Backend-Service to itself. */
+    {
+      name: "chromium-takeover",
+      use: { ...devices["Desktop Chrome"] },
+      dependencies: ["setup"],
+      testMatch: /tests\/flowsheet\/go-live-takeover\.spec\.ts/,
     },
   ],
 
