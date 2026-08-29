@@ -13,6 +13,7 @@ import { isGenresUnavailable } from "@/lib/features/catalog/genreAvailability";
 import {
   composeLibraryCodeSearchArgs,
   resolveArtistByCodeErrorReason,
+  UNTRUSTWORTHY_CODE_ANSWER_MESSAGE,
 } from "@/lib/features/catalog/libraryCodeResolution";
 import type { ArtistByCodeOwner } from "@/lib/features/catalog/types";
 
@@ -23,14 +24,6 @@ export type MultiMatchResult = {
   codeNumber: number;
   artists: ArtistByCodeOwner[];
 };
-
-/**
- * Every answer this screen cannot act on reads the same, deliberately: an
- * outage, a malformed body, and a 400 differ in cause but not in what the
- * librarian can do about them, and none of them means the code is free.
- */
-const UNTRUSTWORTHY_ANSWER_MESSAGE =
-  "Couldn't check whether this code exists right now. Try again.";
 
 type ArtistSearchFormProps = {
   /**
@@ -200,7 +193,7 @@ export default function ArtistSearchForm({ onMultiMatch }: ArtistSearchFormProps
 
       // A validation failure, a 5xx, or an outage: refuse to act rather than
       // guess -- see resolveArtistByCodeErrorReason's doc.
-      setValidationMessage(UNTRUSTWORTHY_ANSWER_MESSAGE);
+      setValidationMessage(UNTRUSTWORTHY_CODE_ANSWER_MESSAGE);
       return;
     }
 
@@ -211,7 +204,7 @@ export default function ArtistSearchForm({ onMultiMatch }: ArtistSearchFormProps
     // the disambiguation screen would assert the code exists with nobody
     // holding it.
     if (owners.length === 0) {
-      setValidationMessage(UNTRUSTWORTHY_ANSWER_MESSAGE);
+      setValidationMessage(UNTRUSTWORTHY_CODE_ANSWER_MESSAGE);
       return;
     }
 

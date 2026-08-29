@@ -14,19 +14,10 @@ import { formatEntireLibraryCode } from "@/lib/features/catalog/libraryCode";
 import {
   composeLibraryCodeSearchArgs,
   resolveArtistByCodeErrorReason,
+  UNTRUSTWORTHY_CODE_ANSWER_MESSAGE,
 } from "@/lib/features/catalog/libraryCodeResolution";
 import { formatStationDateTime } from "@/src/utilities/stationTime";
 import type { ArtistByCodeOwner } from "@/lib/features/catalog/types";
-
-/**
- * Every answer the destination lookup cannot act on reads the same,
- * deliberately: an outage, a malformed body, and a 400 differ in cause but not
- * in what the librarian can do about them — and crucially none of them means
- * the code is empty. Saying "no artist is filed under that code" for an outage
- * would invite a move onto a code that is in fact occupied.
- */
-const UNTRUSTWORTHY_ANSWER_MESSAGE =
-  "Couldn't check that library code right now. Try the lookup again.";
 
 const CODE_NOT_ASSIGNED_MESSAGE =
   "No artist is filed under that code, so there is nothing to move this release to.";
@@ -194,7 +185,7 @@ export default function ReleaseMoveForm({ albumId }: { albumId: number }) {
         );
         return;
       }
-      setMessage(UNTRUSTWORTHY_ANSWER_MESSAGE);
+      setMessage(UNTRUSTWORTHY_CODE_ANSWER_MESSAGE);
       return;
     }
 
@@ -202,7 +193,7 @@ export default function ReleaseMoveForm({ albumId }: { albumId: number }) {
     // an unassigned code is a 404. Reaching here means the answer cannot be
     // trusted, and trusting it would offer a move to nobody.
     if (found.length === 0) {
-      setMessage(UNTRUSTWORTHY_ANSWER_MESSAGE);
+      setMessage(UNTRUSTWORTHY_CODE_ANSWER_MESSAGE);
       return;
     }
 

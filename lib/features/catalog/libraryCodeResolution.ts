@@ -100,6 +100,21 @@ export function composeLibraryCodeSearchArgs(
   return { ready: false, message: CALL_LETTER_MODE_REQUIRED_MESSAGE };
 }
 
+/**
+ * Every answer a code lookup cannot act on reads the same, deliberately: an
+ * outage, a malformed body, and a 400 differ in cause but not in what the
+ * librarian can do about them. Crucially none of them means the code is free
+ * — reporting an outage as "not assigned" is what files a duplicate on the
+ * chooser and what moves a release onto an occupied code on the move screen.
+ *
+ * One constant rather than one per screen: the condition is identical, and two
+ * screens wording it differently is a difference the librarian has to resolve
+ * for no reason. "the lookup" names the action on both — the chooser's Search
+ * and the move screen's Look up are the same request.
+ */
+export const UNTRUSTWORTHY_CODE_ANSWER_MESSAGE =
+  "Couldn't check that library code right now. Try the lookup again.";
+
 export type ResolveArtistByCodeErrorReason = "genre_not_found" | "code_not_assigned";
 
 type WrappedResolveArtistByCodeError = { resolveArtistByCodeError: FetchBaseQueryError };

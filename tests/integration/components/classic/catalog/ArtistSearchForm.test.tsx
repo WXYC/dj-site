@@ -380,7 +380,7 @@ describe("classic ArtistSearchForm — chooseLibraryCodeOrArtist.jsp's artistSea
     await user.click(screen.getByRole("button", { name: "Search!" }));
 
     expect(
-      await screen.findByText("Couldn't check whether this code exists right now. Try again."),
+      await screen.findByText("Couldn't check that library code right now. Try the lookup again."),
     ).toBeInTheDocument();
     expect(mockPush).not.toHaveBeenCalled();
   });
@@ -402,7 +402,7 @@ describe("classic ArtistSearchForm — chooseLibraryCodeOrArtist.jsp's artistSea
     await user.click(screen.getByRole("button", { name: "Search!" }));
 
     expect(
-      await screen.findByText("Couldn't check whether this code exists right now. Try again."),
+      await screen.findByText("Couldn't check that library code right now. Try the lookup again."),
     ).toBeInTheDocument();
     expect(mockPush).not.toHaveBeenCalled();
     expect(mockOnMultiMatch).not.toHaveBeenCalled();
