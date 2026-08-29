@@ -18,7 +18,7 @@ Read the relevant topic doc before doing work in that area.
 ## Always-loaded rules
 
 - **TypeScript strict mode.** `@/` alias resolves to project root. Typed Redux hooks (`useAppDispatch` / `useAppSelector` / `useAppStore`) from `@/lib/hooks` — never bare `useDispatch` / `useSelector`.
-- **Two experiences.** UI lives under `src/components/experiences/{classic,modern}`. Classic-theme views are prefixed `CLASSIC_`. Experience routing uses the registry pattern in `lib/features/experiences/registry.ts`.
+- **Two experiences.** UI lives under `src/components/experiences/{classic,modern}`; the directory is the separator, not a filename prefix. Experience routing uses the registry pattern in `lib/features/experiences/registry.ts`.
 - **Lint stays at zero errors.** `npm run lint` (ESLint flat config, `eslint.config.mjs`). Warnings are a tracked backlog, not noise to grow — don't add new ones. Every rule disabled in the config carries a one-line rationale; keep that convention when touching it. No formatter config — follow existing code style.
 - **Tests are never colocated.** All vitest tests live under `tests/{unit,integration,contract}` mirroring source paths (Playwright stays in `e2e/`, bats in `scripts/__tests__/`). Helpers/factories: `tests/helpers/`; MSW: `tests/fakes/`; fixtures: `tests/fixtures/`; setup: `tests/setup/`.
 - **Dashboard home fallback.** The post-auth landing page is `NEXT_PUBLIC_DASHBOARD_HOME_PAGE`; its single-source-of-truth fallback is `DEFAULT_DASHBOARD_HOME_PAGE` in `lib/features/application/constants.ts`. Reference that constant everywhere the env var is read — `next.config.mjs` (can't import TS) and `.env.example` duplicate the literal and MUST match it.

@@ -1,0 +1,185 @@
+/* Classic weekly schedule — visual parity with tubafrenzy's
+   jsp/public/flowsheetRadioWeekDisplayPublic.jsp and the radioWeek rules in
+   webapps/playlists/css/playlists.css.
+
+   The source positioned every element absolutely on a fixed 905px canvas at
+   1px per two minutes (left: 25 + 130n, top: 130, height: 720). That cannot
+   survive a narrow viewport, so the geometry here is percentage-based inside a
+   grid. The rendered result — proportional blocks, dark dead-air, the red
+   end-of-day rule — is what the page was recognised by, and that is preserved. */
+
+.classic-schedule-week {
+  padding: 1em;
+}
+
+.radioWeekHeader {
+  font-size: 0.9em;
+  text-align: center;
+  background: #bbb;
+  padding: 4px 0;
+  margin-bottom: 0.5em;
+}
+
+.radioWeekHeader a {
+  padding: 0 0.5em;
+}
+
+.classic-schedule-week-grid {
+  display: grid;
+  grid-template-columns: 3em repeat(7, minmax(6em, 1fr));
+  gap: 2px;
+  min-width: 44em;
+}
+
+.classic-schedule-week-scroll {
+  overflow-x: auto;
+  width: 100%;
+}
+
+.radioDayHeader {
+  font-size: 0.9em;
+  text-align: center;
+  background: #bbb;
+  padding: 2px 0;
+}
+
+.classic-schedule-week-day {
+  position: relative;
+  height: 720px;
+  background: #eee;
+}
+
+.classic-schedule-week-ruler {
+  position: relative;
+  height: 720px;
+}
+
+.classic-schedule-week-hour {
+  position: absolute;
+  right: 4px;
+  font-size: 0.7em;
+  color: #444;
+}
+
+.radioShowDisplayBlock {
+  position: absolute;
+  left: 0;
+  right: 0;
+  font-size: 0.6em;
+  text-align: center;
+  background: #bbb;
+  border: 0;
+  padding: 0;
+  overflow: hidden;
+  cursor: pointer;
+  min-height: 2px;
+  font-family: Verdana, Arial, Helvetica, sans-serif;
+}
+
+.radioShowDisplayBlock:hover,
+.radioShowDisplayBlockHover {
+  font-size: 0.6em;
+  text-align: center;
+  background: #eee;
+}
+
+.radioShowDisplayBlock[aria-expanded="true"] {
+  background: #eee;
+  outline: 1px solid #900;
+}
+
+/* An unrecorded sign-off gets an open bottom edge, so a minimum-height block
+   does not read as a genuinely short show. */
+.radioShowDisplayBlock.is-open-ended {
+  border-bottom: 1px dashed #900;
+}
+
+.radioDayNonshow {
+  position: absolute;
+  left: 0;
+  right: 0;
+  background: #444;
+}
+
+.radioDayLine {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: #000;
+}
+
+.endOfDay {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 5px;
+  background: #900;
+}
+
+.classic-schedule-week-entries {
+  margin-top: 1em;
+  border-top: 1px solid #999;
+  padding-top: 0.5em;
+}
+
+.classic-schedule-week-entries table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.classic-schedule-week-entries thead th {
+  background-color: #DDDDDD;
+  border-bottom: 1px solid #999;
+  padding: 4px;
+  font-size: 0.85em;
+  text-align: left;
+}
+
+.classic-schedule-week-entries tbody tr:nth-child(even) {
+  background-color: #F8F8F8;
+}
+
+/* The source used <a href="radioWeek?weekID=…"> for week navigation. There is
+   no such route here — the week is a URL parameter on this page — so these are
+   buttons wearing the anchor's appearance. */
+.classic-schedule-week .linklike {
+  background: none;
+  border: 0;
+  padding: 0 0.5em;
+  font-family: inherit;
+  font-size: inherit;
+  color: #0000EE;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.classic-schedule-week .linklike:disabled {
+  color: #777;
+  text-decoration: none;
+  cursor: default;
+}
+
+.classic-schedule-week-toggle {
+  text-align: center;
+  padding: 0.5em 0;
+}
+
+.classic-schedule-week-toggle button {
+  background: none;
+  border: 0;
+  padding: 0 0.75em;
+  font-family: inherit;
+  font-size: 0.9em;
+  color: #0000EE;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.classic-schedule-week-toggle button[aria-pressed="true"] {
+  color: #000;
+  font-weight: bold;
+  text-decoration: none;
+  cursor: default;
+}

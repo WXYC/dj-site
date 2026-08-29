@@ -1,6 +1,6 @@
 import { Metadata } from "next";
 import { getPageTitle } from "@/lib/utils/page-title";
-import { PreviousSetsContainer } from "@/src/components/experiences/classic/playlists";
+import { ClassicPreviousSetsSurface } from "@/src/components/experiences/classic/playlists";
 import { fetchRecentPlaylistsSeed } from "@/lib/features/playlist-search/server";
 
 export const metadata: Metadata = {
@@ -12,5 +12,5 @@ export default async function ClassicPreviousSetsPage() {
   // initial HTML carries rows instead of an empty table.
   const { results } = await fetchRecentPlaylistsSeed();
 
-  return <PreviousSetsContainer initialResults={results} />;
+  return <ClassicPreviousSetsSurface initialResults={results} />;
 }
