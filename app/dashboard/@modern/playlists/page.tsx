@@ -1,6 +1,5 @@
 import PageHeader from "@/src/components/experiences/modern/Header/PageHeader";
-import SearchBar from "@/src/components/experiences/modern/previous-sets/Search/SearchBar";
-import Results from "@/src/components/experiences/modern/previous-sets/Results/Results";
+import PreviousSetsSurface from "@/src/components/experiences/modern/previous-sets/PreviousSetsSurface";
 import { fetchRecentPlaylistsSeed } from "@/lib/features/playlist-search/server";
 import { Metadata } from "next";
 import { getPageTitle } from "@/lib/utils/page-title";
@@ -18,8 +17,7 @@ export default async function PreviousSetsPage() {
   return (
     <>
       <PageHeader title="Previous Sets" />
-      <SearchBar />
-      <Results initialResults={results} />
+      <PreviousSetsSurface initialResults={results} />
     </>
   );
 }
