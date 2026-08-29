@@ -542,13 +542,35 @@ jobs:
       github.event_name != 'pull_request'
       || (needs.changes.outputs.app_source == 'true' && github.base_ref == 'main')
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # 20, matching the sharded job, for the same reason its own cap documents:
+    # `Build and start services` has been observed at 82s, 123s, 129s and 740s
+    # in a single run on identical cache state. This job is structurally more
+    # exposed than that, not less — its build cache key and every restore-key
+    # carry an `e2e-takeover-` prefix, so it can never fall back to the sharded
+    # job's entry and pays a full Next build on each new branch. A cancel here
+    # now fails `e2e-all`, so an infrastructure shrug would read as a red
+    # required check.
+    timeout-minutes: 20
+    env:
+      # Publishes the `chromium-takeover` Playwright project (and the setup
+      # steps that provision its two identities). Unset everywhere else, so no
+      # unscoped run — the sharded matrix, `npm run test:e2e`, a bare
+      # `npx playwright test` — can schedule the one spec that clicks "End
+      # Existing Show" onto a Backend-Service it doesn't own.
+      E2E_TAKEOVER_PROJECT: "1"
 
     services:
       postgres:
         image: postgres:18.0-alpine
         env:
-          POSTGRES_PASSWORD: 'RadioIsEpic$1100'
+          # Deliberately inert-looking, and deliberately free of shell
+          # metacharacters: this value is written into an env file below, and
+          # `$1100` in the older literal is a positional-parameter expansion
+          # that anything sourcing that file would read as `100`. This job
+          # provisions its own Postgres here rather than through
+          # docker-compose.e2e.yml, so the only requirement is that this and
+          # the heredoc's DB_PASSWORD agree with each other.
+          POSTGRES_PASSWORD: e2e-throwaway-not-a-secret
           POSTGRES_USER: wxyc_admin
           POSTGRES_DB: wxyc_db
         ports:
@@ -636,7 +658,7 @@ jobs:
           DB_PORT=5434
           DB_NAME=wxyc_db
           DB_USERNAME=wxyc_admin
-          DB_PASSWORD='RadioIsEpic$1100'
+          DB_PASSWORD=e2e-throwaway-not-a-secret
           BETTER_AUTH_SECRET=e2e-auth-secret-for-testing-min-32-chars
           BETTER_AUTH_URL=http://localhost:8084/auth
           BETTER_AUTH_JWKS_URL=http://localhost:8084/auth/jwks

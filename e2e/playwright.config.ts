@@ -4,6 +4,27 @@ import path from "path";
 const authDir = path.join(__dirname, ".auth");
 
 /**
+ * Publishes the go-live takeover projects. Off by default, and set only by the
+ * dedicated `e2e-takeover` workflow job.
+ *
+ * `testIgnore` on `chromium` keeps the takeover spec out of that project, but a
+ * project is still a schedulable unit in its own right: every unscoped
+ * invocation runs *all* projects, and neither the sharded job
+ * (`npm run test:e2e -- --shard=N/4`) nor `scripts/e2e-local.sh` passes
+ * `--project`. Without this gate the spec lands in a shard — on a
+ * Backend-Service without FLOWSHEET_TAKEOVER_ENABLED, shared with a sibling
+ * worker whose show its "End Existing Show" click is free to close.
+ *
+ * A gate rather than a `--project` flag at each call site because the property
+ * that has to hold is "nothing schedules this by accident", and every new
+ * invocation site would otherwise have to remember.
+ */
+const takeoverProjectsEnabled = process.env.E2E_TAKEOVER_PROJECT === "1";
+
+/** Titles of the setup steps that provision the takeover spec's identity pair. */
+const takeoverSetupTitle = /go-live takeover identity/;
+
+/**
  * E2E Test Configuration for dj-site
  *
  * Uses authenticated storage state to speed up tests:
@@ -63,6 +84,12 @@ export default defineConfig({
       name: "setup",
       testMatch: /auth\.setup\.ts/,
       fullyParallel: false,
+      // The takeover pair's provisioning is a live admin-roster creation plus a
+      // full onboarding flow, and this project is a dependency of `chromium`,
+      // so leaving those two steps here makes all four shards pay for — and be
+      // able to fail on — identities no test in `chromium` uses. They move to
+      // `setup-takeover` below, which only exists when the takeover job asks.
+      grepInvert: takeoverSetupTitle,
     },
 
     /* Main test project - uses storageState where configured in test files */
@@ -83,18 +110,29 @@ export default defineConfig({
       testIgnore: /tests\/flowsheet\/go-live-takeover\.spec\.ts/,
     },
 
-    /* go-live-takeover.spec.ts only. A dedicated project alone would not be
-     * enough isolation — `workers` is a TestConfig-level option, not a
-     * TestProject one, so project-level `fullyParallel: false` would still
-     * let Playwright schedule this project's tests across this run's worker
-     * pool. Its own workflow job invokes this project with `--workers=1` on
-     * the CLI, which is what actually gives it a Backend-Service to itself. */
-    {
-      name: "chromium-takeover",
-      use: { ...devices["Desktop Chrome"] },
-      dependencies: ["setup"],
-      testMatch: /tests\/flowsheet\/go-live-takeover\.spec\.ts/,
-    },
+    /* go-live-takeover.spec.ts only, and only when E2E_TAKEOVER_PROJECT asks
+     * for it. A dedicated project alone would not be enough isolation —
+     * `workers` is a TestConfig-level option, not a TestProject one, so
+     * project-level `fullyParallel: false` would still let Playwright schedule
+     * this project's tests across this run's worker pool. Its own workflow job
+     * invokes this project with `--workers=1` on the CLI, which is what
+     * actually gives it a Backend-Service to itself. */
+    ...(takeoverProjectsEnabled
+      ? [
+          {
+            name: "setup-takeover",
+            testMatch: /auth\.setup\.ts/,
+            fullyParallel: false,
+            grep: takeoverSetupTitle,
+          },
+          {
+            name: "chromium-takeover",
+            use: { ...devices["Desktop Chrome"] },
+            dependencies: ["setup", "setup-takeover"],
+            testMatch: /tests\/flowsheet\/go-live-takeover\.spec\.ts/,
+          },
+        ]
+      : []),
   ],
 
   /* 20s per test — 15s is too tight for CI runners */

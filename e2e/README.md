@@ -70,7 +70,20 @@ npx playwright test -g "login"
 
 # Run only the protected fast subset (results cap, track picker, crash smoke)
 npm run test:e2e -- --grep @smoke
+
+# Run the go-live takeover spec (see "Go-live takeover" below)
+E2E_TAKEOVER_PROJECT=1 npm run test:e2e -- --project=chromium-takeover --workers=1
 ```
+
+### Go-live takeover
+
+`tests/flowsheet/go-live-takeover.spec.ts` is the only spec that clicks "End Existing Show", so it must never run against a Backend-Service another test shares — a takeover closes whatever show is open, including a sibling worker's. Three things keep that from happening, each covering a case the others don't:
+
+- `testIgnore` on the `chromium` project keeps the file out of the ordinary suite.
+- The `chromium-takeover` and `setup-takeover` projects exist only when `E2E_TAKEOVER_PROJECT=1`, so no unscoped run (`npm run test:e2e`, `scripts/e2e-local.sh`, a bare `npx playwright test`) can schedule them.
+- In CI the spec gets its own workflow job, `E2E Tests (go-live takeover)`, with its own Postgres, auth service, Backend-Service, and mock tubafrenzy, at `--workers=1`. That job's Backend is also the only one running with `FLOWSHEET_TAKEOVER_ENABLED=true`.
+
+Running it locally therefore points at whatever stack you already have up; expect it to end any show open there.
 
 ## Test Users
 
@@ -87,8 +100,10 @@ Seeded test users all use the password: `testpassword123`. `test_classic_md` and
 | `test_deletable_user` | dj | User for deletion tests |
 | `test_promotable_user` | member | User for role promotion tests |
 | `test_demotable_sm` | stationManager | User for role demotion tests |
-| `test_classic_md` | musicDirector | Not seeded — created by `auth.setup.ts`'s `provisionClassicIdentity` factory via the admin roster. Its account `appSkin` is switched to classic once at setup time, so classic-experience specs on authenticated dashboard URLs (`e2e/tests/rbac/role-access.spec.ts`) have a dedicated identity instead of racing a shared seeded user's preference. Password is `TestClassicMd1`, not the shared `testpassword123` — it's set through the onboarding form, which requires `isStrongPassword` |
+| `test_classic_md` | musicDirector | Not seeded — created by `auth.setup.ts`'s `provisionIdentity` factory via the admin roster. Its account `appSkin` is switched to classic once at setup time, so classic-experience specs on authenticated dashboard URLs (`e2e/tests/rbac/role-access.spec.ts`) have a dedicated identity instead of racing a shared seeded user's preference. Password is `TestClassicMd1`, not the shared `testpassword123` — it's set through the onboarding form, which requires `isStrongPassword` |
 | `test_classic_dj` | dj | Not seeded — the DJ-authority counterpart to `test_classic_md`, provisioned by the same factory. Exists so classic-librarian specs can assert the DJ-readable / MD-gated authority split without racing a shared seeded user's preference. Password is `TestClassicDj1` |
+| `test_takeover_a` | dj | Not seeded — provisioned by the same factory, left at the modern default. Used only by `tests/flowsheet/go-live-takeover.spec.ts`, which is the only spec allowed to click "End Existing Show" and so needs a pair no other spec shares. Password is `TestTakeoverA1` |
+| `test_takeover_b` | dj | Not seeded — the second half of that pair, so two sessions can be on air at once. Password is `TestTakeoverB1` |
 
 ## Test Structure
 

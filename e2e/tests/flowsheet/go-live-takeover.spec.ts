@@ -1,7 +1,10 @@
-import { test, expect, type BrowserContext, type Page } from "@playwright/test";
+import type { BrowserContext, Page } from "@playwright/test";
 import path from "path";
 import { FlowsheetPage } from "../../pages/flowsheet.page";
-import { TAKEOVER_DJ_A, TAKEOVER_DJ_B } from "../../fixtures/auth.fixture";
+// The repo's extended `test`, not `@playwright/test`'s, so a guard added to the
+// shared one later (a console-error assertion, a per-test cleanup) covers this
+// file too. Its extra fixtures go unused here; that costs nothing.
+import { test, expect, TAKEOVER_DJ_A, TAKEOVER_DJ_B } from "../../fixtures/auth.fixture";
 
 const authDir = path.join(__dirname, "../../.auth");
 const MOCK_TUBAFRENZY_URL = process.env.MOCK_TUBAFRENZY_URL || "http://localhost:9091";
@@ -39,8 +42,23 @@ test.describe("Go-live takeover", () => {
   let pageB: Page;
   let flowsheetA: FlowsheetPage;
   let flowsheetB: FlowsheetPage;
+  /**
+   * Highest mirror-request id the mock had already assigned when this attempt
+   * started. Beat 5 searches only past it.
+   *
+   * The mock's buffer is process-global and outlives a Playwright retry, while
+   * `mode: "serial"` re-runs every beat on retry. Without a watermark, beat 5's
+   * `find` would happily match the *previous* attempt's create and signoff and
+   * pass on evidence this attempt never produced.
+   */
+  let mirrorWatermark = 0;
 
   test.beforeAll(async ({ browser }) => {
+    // Hook timeouts are their own budget — a suite-scoped `test.setTimeout`
+    // governs the tests, not this. Two `goto` + `waitForEntriesLoaded` pairs
+    // and two `ensureOffAir` calls (which fall through to `leave` when a stale
+    // local database left a DJ live) can outrun the config's 20s default.
+    test.setTimeout(90_000);
     const baseURL = process.env.E2E_BASE_URL || "http://localhost:3000";
     contextA = await browser.newContext({
       baseURL,
@@ -65,6 +83,12 @@ test.describe("Go-live takeover", () => {
     // previous attempt.
     await flowsheetA.ensureOffAir();
     await flowsheetB.ensureOffAir();
+
+    // Read the watermark last: the sign-offs `ensureOffAir` may just have sent
+    // belong to whatever ran before this attempt, not to it.
+    const seen = await pageA.request.get(`${MOCK_TUBAFRENZY_URL}/__requests`);
+    const priorRequests = seen.ok() ? ((await seen.json()) as MirrorRequest[]) : [];
+    mirrorWatermark = priorRequests.reduce((max, r) => Math.max(max, r.id), 0);
   });
 
   test.afterAll(async () => {
@@ -165,7 +189,9 @@ test.describe("Go-live takeover", () => {
     await expect(async () => {
       const response = await pageA.request.get(`${MOCK_TUBAFRENZY_URL}/__requests`);
       expect(response.ok()).toBe(true);
-      const requests = (await response.json()) as MirrorRequest[];
+      const requests = ((await response.json()) as MirrorRequest[]).filter(
+        (r) => r.id > mirrorWatermark
+      );
 
       const aCreate = requests.find(
         (r) =>
