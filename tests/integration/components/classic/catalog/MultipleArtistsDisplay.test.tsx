@@ -81,8 +81,11 @@ describe("classic MultipleArtistsDisplay — multipleArtistsDisplay.jsp", () => 
   // The JSP's row link says `mode=view`, but ArtistViewServlet never reads
   // `mode` and forwards to the modify card for an admin -- the only role that
   // can reach this screen. So the affordance is the same destination a
-  // single-match code search lands on, not the DJ-facing display card.
-  it("links each artist name to the modify card the JSP's own servlet forwards to", () => {
+  // single-match code search lands on, not the DJ-facing display card. Which
+  // modify card it forwards to is decided by the row: these owners collide on
+  // one code precisely because they are compilation buckets, and a bucket is
+  // edited as a shelf section rather than as a performer.
+  it("links each compilation bucket to the bucket card its filing model belongs to", () => {
     renderWithProviders(
       <MultipleArtistsDisplay
         genreName="Rock"
@@ -94,9 +97,28 @@ describe("classic MultipleArtistsDisplay — multipleArtistsDisplay.jsp", () => 
     );
 
     const link = screen.getByRole("link", { name: "Various Artists - Rock - A" });
-    expect(link).toHaveAttribute("href", "/dashboard/library/artist/1");
+    expect(link).toHaveAttribute("href", "/dashboard/library/various/1");
     const other = screen.getByRole("link", { name: "Various Artists - Rock - B" });
-    expect(other).toHaveAttribute("href", "/dashboard/library/artist/2");
+    expect(other).toHaveAttribute("href", "/dashboard/library/various/2");
+  });
+
+  it("links an ordinary artist sharing a code to the artist card instead", () => {
+    renderWithProviders(
+      <MultipleArtistsDisplay
+        genreName="Rock"
+        codeLetters="KU"
+        codeNumber={7}
+        artists={[
+          { id: 31, artist_name: "Stereolab", code_letters: "KU", code_number: 7, genre_id: 3 },
+        ]}
+        onChooseAgain={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("link", { name: "Stereolab" })).toHaveAttribute(
+      "href",
+      "/dashboard/library/artist/31",
+    );
   });
 
   it("returns to the chooser via the Choose/Add Library Codes affordance", async () => {

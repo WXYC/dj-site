@@ -14,8 +14,9 @@ vi.mock("@/lib/features/authentication/client", async () => {
   };
 });
 
+const mockReplace = vi.fn();
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: vi.fn() }),
+  useRouter: () => ({ push: vi.fn(), replace: mockReplace }),
 }));
 
 import ArtistCard from "@/src/components/experiences/classic/catalog/ArtistCard";
@@ -99,7 +100,28 @@ function mockAll() {
 
 describe("classic ArtistCard — artistCardModify.jsp", () => {
   beforeEach(() => {
+    mockReplace.mockClear();
     mockAll();
+  });
+
+  // `/wxycdb` picks the card from the row. A compilation bucket reaching this
+  // URL would otherwise be offered a name edit for a shelf section and shown
+  // none of its per-track credits.
+  it("sends a compilation bucket on to the bucket card", async () => {
+    mockCard({ ...artist, artist_name: "Soundtracks - L", code_letters: "V/A" });
+    renderWithProviders(<ArtistCard artistId={ARTIST_ID} />);
+
+    await waitFor(() =>
+      expect(mockReplace).toHaveBeenCalledWith(`/dashboard/library/various/${ARTIST_ID}`),
+    );
+    expect(screen.queryByTestId("modify-artist-form")).toBeNull();
+  });
+
+  it("leaves an ordinary artist on this card", async () => {
+    renderWithProviders(<ArtistCard artistId={ARTIST_ID} />);
+
+    await screen.findByTestId("modify-artist-form");
+    expect(mockReplace).not.toHaveBeenCalled();
   });
 
   it("heads the card with the artist's presentation name", async () => {
