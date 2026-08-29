@@ -312,6 +312,15 @@ describe("useGoLiveHandoff — re-entrancy guard", () => {
     act(() => {
       void result.current.requestGoLive();
     });
+    // Pins the guard as a whole, NOT its `deciding` term specifically: an
+    // in-flight decision leaves `prompt` set too (it is cleared only after the
+    // await settles), so either half alone still blocks this press. Removing
+    // just `deciding` leaves this test green — confirmed by breaking each half
+    // in turn. `deciding` is therefore currently redundant here, and both
+    // surfaces keep it that way by disabling Cancel while a decision is in
+    // flight; the state that would isolate it — prompt cleared, decision still
+    // running — is unreachable from either UI. Don't read this assertion as
+    // coverage of that term, and don't drop the term on the strength of it.
     expect(goLive).toHaveBeenCalledTimes(1);
 
     await act(async () => {
