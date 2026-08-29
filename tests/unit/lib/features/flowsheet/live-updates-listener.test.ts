@@ -449,12 +449,10 @@ describe("live-updates listener middleware", () => {
     // one: the merge must be safe on its own terms, not safe because BS
     // currently withholds this shape.
     //
-    // `add_time` deliberately repeats the seeded value rather than a fresh
-    // one. It is NOT wire-only, so a differing value would merge and leave
-    // the row's raw instant disagreeing with the `day`/`time` derived from
-    // the original conversion — a second, unasserted fork that would blur
-    // which key this test is actually pinning. `timestamp` is the only
-    // variable here.
+    // `add_time` must keep repeating the seeded value: it is NOT wire-only,
+    // so a fresh one would merge and fork the row's raw instant against the
+    // `day`/`time` derived from the original conversion — a second fork this
+    // test asserts nothing about. `timestamp` is the only variable.
     getLastMock()._fireMessage(
       frame({
         type: "update",
