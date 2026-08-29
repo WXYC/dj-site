@@ -12,7 +12,7 @@ import { useOpenShowHandoff } from "./flowsheetHooks";
 
 type GoLiveFn = (
   djNameOverride?: string,
-  decision?: GoLiveDecision
+  decision?: GoLiveDecision,
 ) => Promise<GoLiveOutcome>;
 
 export type GoLivePrompt = {
@@ -65,7 +65,7 @@ export const useGoLiveHandoff = (goLive: GoLiveFn) => {
         toast.error(outcome.message);
       }
     },
-    [prompt, deciding, readOpenShow, goLive]
+    [prompt, deciding, readOpenShow, goLive],
   );
 
   const decide = useCallback(
@@ -100,15 +100,19 @@ export const useGoLiveHandoff = (goLive: GoLiveFn) => {
       // — this is the one outcome they explicitly declined, and the show they
       // wanted closed is still open.
       if (outcome.status === "cohosted") {
+        // Lead with being on air: that is the part the DJ most needs, and it
+        // is true. The possessive is load-bearing — `formatDjNames` can return
+        // several names, and any phrasing that puts them in subject position
+        // needs a verb agreement a template string cannot express.
         toast.error(
-          `Could not end the open show. You joined ${formatDjNames(
-            prompt.handoff.djNames
-          )} as a co-host instead.`
+          `You're on air as a co-host of ${formatDjNames(
+            prompt.handoff.djNames,
+          )}'s show. Ending another DJ's show isn't available yet, so your tracks will log under theirs.`,
         );
       }
       setPrompt(null);
     },
-    [prompt, deciding, goLive]
+    [prompt, deciding, goLive],
   );
 
   const cancel = useCallback(() => setPrompt(null), []);
