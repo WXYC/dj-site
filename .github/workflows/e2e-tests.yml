@@ -69,7 +69,12 @@ env:
   DB_PORT: "5434"
   DB_NAME: wxyc_db
   DB_USERNAME: wxyc_admin
-  DB_PASSWORD: 'RadioIsEpic$1100'
+  # Credentials for a Postgres container created and destroyed by this run, and
+  # reachable only from it. Deliberately a literal and deliberately inert-looking:
+  # a GitHub secret would be unavailable to fork PRs and would diverge from
+  # docker-compose.e2e.yml, which has to create the database with the same value.
+  # Keep it free of shell metacharacters — it is written into an env file below.
+  DB_PASSWORD: 'e2e-throwaway-not-a-secret'
 
 # Workflow-level GITHUB_TOKEN scope. No job in this file pushes code,
 # comments on PRs, or creates releases; all writes to external services
@@ -149,7 +154,7 @@ jobs:
       postgres:
         image: postgres:18.0-alpine
         env:
-          POSTGRES_PASSWORD: 'RadioIsEpic$1100'
+          POSTGRES_PASSWORD: 'e2e-throwaway-not-a-secret'
           POSTGRES_USER: wxyc_admin
           POSTGRES_DB: wxyc_db
         ports:
@@ -239,7 +244,7 @@ jobs:
           DB_PORT=5434
           DB_NAME=wxyc_db
           DB_USERNAME=wxyc_admin
-          DB_PASSWORD='RadioIsEpic$1100'
+          DB_PASSWORD='e2e-throwaway-not-a-secret'
           BETTER_AUTH_SECRET=e2e-auth-secret-for-testing-min-32-chars
           BETTER_AUTH_URL=http://localhost:8084/auth
           BETTER_AUTH_JWKS_URL=http://localhost:8084/auth/jwks

@@ -25,7 +25,7 @@ if [[ "${1:-}" == "--e2e" ]]; then
   DB_PORT="${E2E_DB_PORT:-5436}"
   DB_NAME=wxyc_db
   DB_USER=wxyc_admin
-  DB_PASS='RadioIsEpic$1100'
+  DB_PASS='e2e-throwaway-not-a-secret'
 elif [[ -n "$BACKEND_DIR" && -f "$BACKEND_DIR/.env" ]]; then
   # Standard dev environment — read from Backend-Service .env
   _env="$BACKEND_DIR/.env"

@@ -88,7 +88,7 @@ const config = {
   port: Number(process.env.DB_PORT ?? 5436),
   database: process.env.DB_NAME ?? "wxyc_db",
   user: process.env.DB_USERNAME ?? "wxyc_admin",
-  password: process.env.DB_PASSWORD ?? "RadioIsEpic$1100",
+  password: process.env.DB_PASSWORD ?? "e2e-throwaway-not-a-secret",
 };
 
 export async function pgNotify(channel: string, payload: object): Promise<void> {
@@ -304,7 +304,7 @@ NEXT_PUBLIC_FLOWSHEET_SSE_DASHBOARD_ENABLED: "true"
 NEXT_PUBLIC_FLOWSHEET_SSE_LIVE_VIEW_ENABLED: "true"
 ```
 
-No DB env additions needed — `wxyc_admin` / `RadioIsEpic$1100` against `localhost:5434` are already in the workflow and inherited by every step.
+No DB env additions needed — `wxyc_admin` / `e2e-throwaway-not-a-secret` against `localhost:5434` are already in the workflow and inherited by every step.
 
 ## Constraints from the issue
 
