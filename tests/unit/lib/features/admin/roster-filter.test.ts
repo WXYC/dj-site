@@ -127,15 +127,16 @@ describe("isOnboardingIncomplete", () => {
     );
   });
 
-  // `convertBetterAuthToAccountResult` coerces a missing flag to `false`, so
-  // this case is unreachable from the API. It is pinned because the predicate
-  // is shared with AccountEntry's "New" chip: an account without the chip must
-  // never appear under the "Onboarding incomplete" filter, whatever the shape
-  // of the row.
-  it("treats an absent flag the same way the roster's chip does", () => {
+  // `convertBetterAuthToAccountResult` coerces a missing flag to `false`, so a
+  // row off the roster's own API always carries a real boolean. The absent case
+  // is pinned because the predicate is exported: a caller reading a session
+  // `user`, where the flag genuinely can be missing, must not read a DJ who is
+  // still locked out of the signup flow as onboarded. Every other onboarding
+  // gate in the app answers this the same way.
+  it("treats an absent flag as onboarding never finished", () => {
     const noFlag = createTestAccountResult({});
     delete noFlag.hasCompletedOnboarding;
-    expect(isOnboardingIncomplete(noFlag)).toBe(false);
+    expect(isOnboardingIncomplete(noFlag)).toBe(true);
   });
 });
 

@@ -82,13 +82,15 @@ export type OnboardingFilter = "all" | "incomplete" | "complete";
  * "onboarding incomplete" and sees an unbadged row reads it as a bug — so the
  * two must not be able to drift apart.
  *
- * Strict `=== false` matches the badge and the server's own gate for a row that
- * carries no flag at all. `convertBetterAuthToAccountResult` coerces a missing
- * flag to `false`, so every account reaching the table has a real boolean and
- * the distinction is unreachable from the API.
+ * An absent flag counts as incomplete, the reading every other onboarding gate
+ * in the app takes. `convertBetterAuthToAccountResult` coerces a missing flag
+ * to `false`, so a row off the roster's API always carries a real boolean; the
+ * strictness is for a caller reading a session `user`, where the flag genuinely
+ * can be absent and a DJ still locked out of signup would otherwise read as
+ * onboarded.
  */
 export function isOnboardingIncomplete(account: Account): boolean {
-  return account.hasCompletedOnboarding === false;
+  return account.hasCompletedOnboarding !== true;
 }
 
 /** Anything but the two narrowing values shows the whole roster: a filter that
