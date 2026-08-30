@@ -134,12 +134,13 @@ describe("renderWithProviders preloadedState", () => {
 });
 
 describe("store boundaries", () => {
-  // The weekly schedule reads historical dj_name values that resolve under a
-  // pre-BS#1286 chain and can hold real names. The surface is safe only
-  // because it is behind the dashboard's auth gate, which holds only if its
-  // data layer never reaches a public route's bundle. A comment cannot enforce
-  // that; registering it "like playlistSearchApi" -- which is in both stores --
-  // is the obvious wrong move, so it is asserted instead.
+  // The two stores split by which routes need which data layer, not by
+  // sensitivity: the range endpoint this API calls is unauthenticated, so
+  // registering it publicly would leak no data that a request could not
+  // already fetch. What it would do is pull a dashboard-only feature into
+  // every public route's bundle. Nothing about the code says which store a new
+  // API belongs in, and the neighbouring playlistSearchApi is registered in
+  // both, so "follow the one next to it" gets this wrong.
   it("keeps the weekly schedule out of the public store", () => {
     const publicState = makePublicStore().getState() as Record<string, unknown>;
     expect(publicState).not.toHaveProperty(scheduleWeekApi.reducerPath);
