@@ -183,10 +183,9 @@ export function describeOpenShow(
   now: number = Date.now()
 ): string {
   const elapsed = formatElapsedSince(handoff.lastLoggedAt, now);
-  // Subject and verb are derived from the SAME filtered list — `nonBlankNames`,
-  // the one blank-name filter `formatDjNames` also runs on `named` below — so
-  // they cannot disagree. Counting the raw array instead would render "dj sue
-  // are on air" for a show whose second DJ has a blank handle.
+  // Subject and verb are derived from the SAME filtered list, so they cannot
+  // disagree. Counting the raw array instead would render "dj sue are on air"
+  // for a show whose second DJ has a blank handle.
   const named = nonBlankNames(handoff.djNames);
   const verb = named.length > 1 ? "are" : "is";
   const subject = formatDjNames(named);

@@ -50,10 +50,8 @@ describe("formatNameList", () => {
     });
   });
 
-  // The bug this module exists to make structurally impossible: a count and
-  // a rendered list taken from two different filters can disagree ("dj sue
-  // are on air" for a single visible name). Deriving both from the same
-  // `nonBlankNames` call, as callers are expected to, cannot.
+  // A count from `nonBlankNames` and a render from `formatNameList`, over the
+  // same input, cannot disagree — no "dj sue are on air" for one visible name.
   it("a count taken from nonBlankNames always agrees with the list formatNameList renders", () => {
     const raw = ["dj sue", "  ", ""];
     const filtered = nonBlankNames(raw);
