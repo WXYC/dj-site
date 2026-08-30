@@ -6,6 +6,8 @@ import type { FlowsheetRangeEntry, FlowsheetRangeShow } from "@wxyc/shared";
 import { useGetFlowsheetRangeQuery } from "@/lib/features/schedule-week/api";
 import {
   buildWeekGrid,
+  collectShowEndMarkers,
+  resolveShowEnd,
   showSpanIsContained,
   type WeekGrid,
 } from "@/lib/features/schedule-week/layout";
@@ -67,14 +69,21 @@ export function useScheduleWeekParams() {
     [pathname, router, searchParams],
   );
 
+  // Entering the week view pins the week it lands on. Left implicit, the URL
+  // means "whatever week it is when you open this", so the link a DJ sends on
+  // Saturday opens on a different week come Sunday -- and any show pinned with
+  // it expands nothing.
   const setView = useCallback(
     (view: "search" | "week") =>
       write(
         view === "week"
-          ? { [VIEW_PARAM]: WEEK_VIEW }
+          ? {
+              [VIEW_PARAM]: WEEK_VIEW,
+              [WEEK_PARAM]: formatStationWeekParam(weekStart),
+            }
           : { [VIEW_PARAM]: null, [WEEK_PARAM]: null, [SHOW_PARAM]: null },
       ),
-    [write],
+    [write, weekStart],
   );
 
   // Changing week drops the expanded show: its id belongs to the week that
@@ -88,12 +97,23 @@ export function useScheduleWeekParams() {
     [write],
   );
 
+  // A show id only means anything alongside the week that produced it, so the
+  // week is written with it rather than left to the default.
   const toggleShow = useCallback(
-    (showId: number) =>
-      write({
-        [SHOW_PARAM]: selectedShowId === showId ? null : String(showId),
-      }),
-    [selectedShowId, write],
+    (showId: number) => {
+      const expanding = selectedShowId !== showId;
+      // Collapsing leaves the week alone: dropping it here would throw the DJ
+      // back to the current week for closing a panel.
+      write(
+        expanding
+          ? {
+              [SHOW_PARAM]: String(showId),
+              [WEEK_PARAM]: formatStationWeekParam(weekStart),
+            }
+          : { [SHOW_PARAM]: null },
+      );
+    },
+    [selectedShowId, weekStart, write],
   );
 
   return {
@@ -149,6 +169,12 @@ export function useScheduleWeek(weekStart: Date): ScheduleWeek {
   };
 }
 
+/**
+ * The widest window `/flowsheet/range` accepts. Asking for more is rejected,
+ * not truncated.
+ */
+const MAX_RANGE_MS = 8 * 86_400_000;
+
 const byPlayOrder = (a: FlowsheetRangeEntry, b: FlowsheetRangeEntry) =>
   // The tie-break is required, not defensive: play_order repeats within a show
   // after a reorder, and without a stable second key equal values render in an
@@ -159,6 +185,11 @@ export type ShowEntries = {
   entries: FlowsheetRangeEntry[];
   /** The week's payload holds only part of this show; the rest is elsewhere. */
   isPartial: boolean;
+  /**
+   * Which side of this week the missing entries are on. A show can straddle
+   * either edge, and naming the wrong one sends the DJ to the wrong week.
+   */
+  partialEdge: "before" | "after" | null;
   isLoading: boolean;
 };
 
@@ -186,14 +217,13 @@ export function useShowEntries(
     [show, weekEntries],
   );
 
+  // The grid's resolver, not a second copy of it. Re-derived here without its
+  // guard against an old unclosed show, "no end recorded" reads as "still on
+  // the air", and browsing a week from years ago asks the endpoint for a
+  // multi-year window — which it rejects outright, in front of the DJ.
   const resolvedEndMs = useMemo(() => {
     if (!show) return 0;
-    if (show.end_time) return new Date(show.end_time).getTime();
-    const marker = weekEntries.find(
-      (e) => e.show_id === show.id && e.entry_type === "show_end",
-    );
-    if (marker?.add_time) return new Date(marker.add_time).getTime();
-    return now.getTime();
+    return resolveShowEnd(show, collectShowEndMarkers(weekEntries), now).endMs;
   }, [show, weekEntries, now]);
 
   const needsSupplement =
@@ -202,9 +232,15 @@ export function useShowEntries(
   const supplementWindow = useMemo(() => {
     if (!show) return { startMs: 0, endMs: 1 };
     const startMs = new Date(show.start_time).getTime();
-    // The endpoint requires end > start; an unclosed show can resolve to its
-    // own start instant.
-    return { startMs, endMs: Math.max(resolvedEndMs, startMs + 3_600_000) };
+    // Three constraints, in order. The window is half-open and the row that
+    // closes a show is logged at the show's own end instant, so asking for
+    // exactly the span drops the sign-off every time. The endpoint requires
+    // end > start, which an unclosed show resolving to its own start would
+    // violate. And a corrupt end_time must not produce an over-long window:
+    // the rejection is a structured 4xx that surfaces to the DJ as a raw
+    // error, so it is clamped and reported as partial instead.
+    const wanted = Math.max(resolvedEndMs + 1, startMs + 3_600_000);
+    return { startMs, endMs: Math.min(wanted, startMs + MAX_RANGE_MS) };
   }, [show, resolvedEndMs]);
 
   const {
@@ -224,9 +260,21 @@ export function useShowEntries(
     return [...merged.values()].sort(byPlayOrder);
   }, [show, needsSupplement, supplement, inWindow]);
 
+  const spanExceedsCap =
+    show !== null && resolvedEndMs - new Date(show.start_time).getTime() >= MAX_RANGE_MS;
+
+  const isPartial =
+    needsSupplement &&
+    (isError || spanExceedsCap || (!supplement && !isFetching));
+
   return {
     entries,
-    isPartial: needsSupplement && (isError || (!supplement && !isFetching)),
+    isPartial,
+    partialEdge: !isPartial || !show
+      ? null
+      : new Date(show.start_time).getTime() < window.startMs
+        ? "before"
+        : "after",
     isLoading: needsSupplement && isFetching,
   };
 }

@@ -75,6 +75,7 @@ export default function ScheduleWeekView() {
           show={selectedShow}
           entries={showEntries.entries}
           isPartial={showEntries.isPartial}
+          partialEdge={showEntries.partialEdge}
           isLoading={showEntries.isLoading}
         />
       )}

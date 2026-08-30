@@ -35,10 +35,14 @@ describe("ShowBlock", () => {
     );
     const button = screen.getByRole("button");
     expect(button).toHaveAttribute("aria-expanded", "false");
-    expect(button).toHaveAttribute("aria-controls", SHOW_PANEL_ID);
+    // The panel belongs to whichever block is expanded, so a collapsed one
+    // claiming to control it points at either nothing or another show's.
+    expect(button).not.toHaveAttribute("aria-controls");
 
     rerender(<ShowBlock block={block()} isSelected onSelect={onSelect} />);
-    expect(screen.getByRole("button")).toHaveAttribute("aria-expanded", "true");
+    const expanded = screen.getByRole("button");
+    expect(expanded).toHaveAttribute("aria-expanded", "true");
+    expect(expanded).toHaveAttribute("aria-controls", SHOW_PANEL_ID);
   });
 
   it("keeps an accessible name on a block too short to show text", () => {

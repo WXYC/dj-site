@@ -3,6 +3,7 @@
 import { Box, CircularProgress, Sheet, Table, Typography } from "@mui/joy";
 import type { FlowsheetRangeEntry, FlowsheetRangeShow } from "@wxyc/shared";
 import { STATION_TIME_ZONE } from "@/src/utilities/stationTime";
+import { describeNonTrackEntry } from "@/lib/features/schedule-week/entryLabel";
 import { SHOW_PANEL_ID } from "./ShowBlock";
 
 const timeOf = (entry: FlowsheetRangeEntry) => {
@@ -26,11 +27,13 @@ export default function ShowEntriesPanel({
   show,
   entries,
   isPartial,
+  partialEdge,
   isLoading,
 }: {
   show: FlowsheetRangeShow;
   entries: FlowsheetRangeEntry[];
   isPartial: boolean;
+  partialEdge: "before" | "after" | null;
   isLoading: boolean;
 }) {
   return (
@@ -51,8 +54,11 @@ export default function ShowEntriesPanel({
 
       {isPartial && (
         <Typography level="body-sm" color="warning" sx={{ mt: 1 }}>
-          Showing the {entries.length} entries logged during this week. This show
-          began before the week started, and the rest are in the previous week.
+          Showing the {entries.length} entries logged during this week. This
+          show{" "}
+          {partialEdge === "after"
+            ? "ran past the end of the week, and the rest are in the next week."
+            : "began before the week started, and the rest are in the previous week."}
         </Typography>
       )}
 
@@ -87,7 +93,7 @@ export default function ShowEntriesPanel({
                   {entry.entry_type && entry.entry_type !== "track" ? (
                     <td colSpan={3}>
                       <Typography level="body-xs" sx={{ fontStyle: "italic" }}>
-                        {entry.message ?? entry.entry_type}
+                        {describeNonTrackEntry(entry)}
                       </Typography>
                     </td>
                   ) : (
