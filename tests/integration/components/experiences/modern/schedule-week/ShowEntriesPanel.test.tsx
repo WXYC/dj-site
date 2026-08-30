@@ -32,6 +32,7 @@ describe("ShowEntriesPanel", () => {
         show={show}
         entries={[entry({ id: 1 })]}
         isPartial={false}
+        partialEdge={null}
         isLoading={false}
       />,
     );
@@ -48,6 +49,7 @@ describe("ShowEntriesPanel", () => {
         show={show}
         entries={[entry({ id: 1 }), entry({ id: 2 })]}
         isPartial
+        partialEdge="before"
         isLoading={false}
       />,
     );
@@ -55,6 +57,43 @@ describe("ShowEntriesPanel", () => {
       screen.getByText(/Showing the 2 entries logged during this week/),
     ).toBeInTheDocument();
     expect(screen.getByText(/rest are in the previous week/)).toBeInTheDocument();
+  });
+
+  it("names the next week when the show ran past this one", () => {
+    // A show straddles either edge. Naming the previous week for a show that
+    // overran this one sends the DJ looking in the wrong direction.
+    render(
+      <ShowEntriesPanel
+        show={show}
+        entries={[entry({ id: 1 })]}
+        isPartial
+        partialEdge="after"
+        isLoading={false}
+      />,
+    );
+    expect(screen.getByText(/rest are in the next week/)).toBeInTheDocument();
+    expect(screen.queryByText(/previous week/)).toBeNull();
+  });
+
+  it("names the marker rows instead of printing their wire type", () => {
+    render(
+      <ShowEntriesPanel
+        show={show}
+        entries={[
+          entry({ id: 10, entry_type: "show_start", dj_name: "DJ Chowder" }),
+          entry({ id: 11, entry_type: "show_end", dj_name: "DJ Chowder" }),
+        ]}
+        isPartial={false}
+        partialEdge={null}
+        isLoading={false}
+      />,
+    );
+    // The markers carry no message at all, so a `message ?? entry_type`
+    // fallback opens and closes every panel with a wire token.
+    expect(screen.queryByText("show_start")).toBeNull();
+    expect(screen.queryByText("show_end")).toBeNull();
+    expect(screen.getByText("DJ Chowder started the set")).toBeInTheDocument();
+    expect(screen.getByText("DJ Chowder ended the set")).toBeInTheDocument();
   });
 
   it("labels a breakpoint by the hour it marks, not the minute it was logged", () => {
@@ -72,6 +111,7 @@ describe("ShowEntriesPanel", () => {
           } as Partial<FlowsheetRangeEntry> & { id: number }),
         ]}
         isPartial={false}
+        partialEdge={null}
         isLoading={false}
       />,
     );
@@ -82,7 +122,13 @@ describe("ShowEntriesPanel", () => {
 
   it("reports an empty show rather than rendering a bare table", () => {
     render(
-      <ShowEntriesPanel show={show} entries={[]} isPartial={false} isLoading={false} />,
+      <ShowEntriesPanel
+        show={show}
+        entries={[]}
+        isPartial={false}
+        partialEdge={null}
+        isLoading={false}
+      />,
     );
     expect(screen.getByText(/No entries recorded for this show/)).toBeInTheDocument();
   });

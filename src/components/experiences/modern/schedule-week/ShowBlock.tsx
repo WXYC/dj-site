@@ -35,7 +35,10 @@ export default function ShowBlock({
       type="button"
       onClick={() => onSelect(block.showId)}
       aria-expanded={isSelected}
-      aria-controls={SHOW_PANEL_ID}
+      // Only the expanded block's panel exists. Pointed at unconditionally,
+      // every collapsed block advertises control of either nothing or another
+      // show's panel.
+      aria-controls={isSelected ? SHOW_PANEL_ID : undefined}
       aria-label={label}
       title={block.endIsInferred ? `${label} (no sign-off recorded)` : label}
       sx={{
