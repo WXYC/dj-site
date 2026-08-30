@@ -36,10 +36,9 @@ export default function ClearBinButton({ count }: { count: number }) {
       <ConfirmDialog
         open={open}
         onClose={() => setOpen(false)}
-        // Deliberately `clearing`, not `loading`: the buttons below are right
-        // to disable on the aggregate, but suppressing backdrop/Escape on it
-        // too would shut every exit at once during an unrelated registry
-        // refresh, leaving no way out but a reload.
+        // `clearing`, not `loading`: the buttons below are right to disable on
+        // the aggregate, but gating dismissal on it too would shut every exit
+        // at once during an unrelated registry refresh.
         pending={clearing}
         title={
           <>
@@ -47,6 +46,7 @@ export default function ClearBinButton({ count }: { count: number }) {
             Clear Mail Bin
           </>
         }
+        titleId="clear-bin-title"
         testId="clear-bin-confirm-dialog"
         actions={
           <>

@@ -15,23 +15,14 @@ export type ConfirmDialogProps = {
   /** Fired by a backdrop click or Escape. Suppressed while `pending`. */
   onClose: () => void;
   /**
-   * A decision is already on the wire. Backdrop/Escape dismissal is
-   * suppressed — hiding the dialog can't cancel a request in flight, and
-   * closing early only invites the dialog's own outcome (or a fresh one) to
-   * reappear over whatever the DJ/MD did next. Callers still decide for
-   * themselves whether to disable their own Cancel button while pending;
-   * `actions` owns its own buttons.
+   * A decision is already on the wire, so dismissal is suppressed — hiding the
+   * dialog cannot cancel the request, and the outcome would land over whatever
+   * the DJ did next.
    *
-   * Two preconditions, because this is the only dismissal route the shell
-   * offers — there is no `ModalClose`, so while `pending` is true a caller
-   * that also disables its Cancel button has left the DJ no way out:
-   *
-   * 1. `pending` MUST be scoped to *this dialog's* request and nothing else.
-   *    Do not wire it to an aggregate "something is loading" flag; unrelated
-   *    background work (a session refresh, a role refetch) would trap the DJ
-   *    in a modal that has nothing to do with what they are waiting for.
-   * 2. `pending` MUST be guaranteed to terminate — settled in a `finally`, not
-   *    left to a promise that might hang. Nothing here times it out.
+   * Must be scoped to this dialog's own request, and must be guaranteed to
+   * settle (a `finally`, never a promise that may hang). Nothing here times it
+   * out and the shell renders no `ModalClose`, so a caller that also disables
+   * its own Cancel button while pending leaves no way out but a reload.
    */
   pending?: boolean;
   title: ReactNode;
@@ -39,22 +30,25 @@ export type ConfirmDialogProps = {
   children: ReactNode;
   /** Rendered inside `DialogActions`. The caller owns button count, order, and layout. */
   actions: ReactNode;
-  /** `data-testid` on the `ModalDialog`. E2E specs and the shared page objects key off this — keep it stable once set. */
+  /**
+   * Id for the title element. Joy bakes `aria-labelledby` into the emitted
+   * `ModalDialogRoot` CSS selector, so a value that differs per mount mints a
+   * fresh emotion class (~3KB) that is never reclaimed. Call sites behind a
+   * conditional remount often and should pass a literal; the `useId()` fallback
+   * labels correctly but grows the stylesheet.
+   */
+  titleId?: string;
+  /** `data-testid` on the `ModalDialog`. */
   testId?: string;
   sx?: SxProps;
 };
 
 /**
- * Shared shell for the modern experience's confirm dialogs:
- * `Modal > ModalDialog role="alertdialog" > DialogTitle/Content/Actions`.
+ * Shared shell for the modern experience's confirm dialogs.
  *
- * Deliberately does not model `onConfirm`/`onCancel` as props: the call sites
- * this was extracted from disagree on how many actions they need (two vs.
- * three) and what each one does (a single destructive confirm vs. a
- * three-way join/takeover/cancel decision), so the shared shape is the
- * dialog frame — title, content, an alertdialog role, the pending-aware
- * dismissal guard — not the decision itself. `actions` is a slot the caller
- * fills with its own `Button`s.
+ * No `onConfirm`/`onCancel`: the call sites disagree on how many actions they
+ * need and what each one means, so `actions` is a slot the caller fills with
+ * its own `Button`s rather than a decision this models.
  */
 export default function ConfirmDialog({
   open,
@@ -63,10 +57,12 @@ export default function ConfirmDialog({
   title,
   children,
   actions,
+  titleId,
   testId,
   sx,
 }: ConfirmDialogProps) {
-  const titleId = useId();
+  const generatedId = useId();
+  const labelId = titleId ?? generatedId;
 
   return (
     <Modal
@@ -78,11 +74,11 @@ export default function ConfirmDialog({
       <ModalDialog
         variant="outlined"
         role="alertdialog"
-        aria-labelledby={titleId}
+        aria-labelledby={labelId}
         data-testid={testId}
         sx={sx}
       >
-        <DialogTitle id={titleId}>{title}</DialogTitle>
+        <DialogTitle id={labelId}>{title}</DialogTitle>
         <DialogContent>{children}</DialogContent>
         <DialogActions>{actions}</DialogActions>
       </ModalDialog>

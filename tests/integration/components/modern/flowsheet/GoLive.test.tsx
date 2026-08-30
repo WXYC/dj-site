@@ -293,8 +293,6 @@ describe("GoLive", () => {
       },
     );
 
-    // The label wiring moved out of this file and into ConfirmDialog's
-    // useId(), where Joy's ModalDialog generates a competing id of its own.
     // Every other assertion here reaches for the testid, which stays green
     // whether aria-labelledby resolves or dangles.
     it("labels the prompt with its title", async () => {
