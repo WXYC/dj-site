@@ -47,7 +47,6 @@ export default function ClearBinButton({ count }: { count: number }) {
           </>
         }
         titleId="clear-bin-title"
-        testId="clear-bin-confirm-dialog"
         actions={
           <>
             <Button
