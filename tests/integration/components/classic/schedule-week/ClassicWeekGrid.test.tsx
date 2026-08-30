@@ -107,4 +107,41 @@ describe("ClassicWeekGrid", () => {
     );
     expect(screen.getAllByRole("button", { name: /DJ Chowder/ })).toHaveLength(2);
   });
+
+  it("leaves the day rule visible above the block it heads", () => {
+    // The source offset the block by the rule's own height (`top + 1`,
+    // `height - 1`). Sharing a `top` paints the block straight over the rule,
+    // and the separator between consecutive shows disappears.
+    const { container } = render(
+      <ClassicWeekGrid
+        columns={grid([
+          show({ id: 1, start_time: at(2, 6), end_time: at(2, 9) }),
+        ]).columns}
+        selectedShowId={null}
+        onSelectShow={vi.fn()}
+      />,
+    );
+
+    const line = container.querySelector<HTMLElement>(".radioDayLine")!;
+    const block = container.querySelector<HTMLElement>(".radioShowDisplayBlock")!;
+    expect(block.style.top).not.toBe(line.style.top);
+    expect(block.style.top).toContain("+ 1px");
+    expect(block.style.height).toContain("- 1px");
+  });
+
+  it("names the panel only from the block that owns it", () => {
+    const { container } = render(
+      <ClassicWeekGrid
+        columns={grid([
+          show({ id: 1, start_time: at(2, 6), end_time: at(2, 9) }),
+        ]).columns}
+        selectedShowId={null}
+        onSelectShow={vi.fn()}
+      />,
+    );
+    expect(
+      container.querySelector(".radioShowDisplayBlock"),
+    ).not.toHaveAttribute("aria-controls");
+  });
 });
+

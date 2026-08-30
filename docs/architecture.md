@@ -165,7 +165,7 @@ Classic reproduces tubafrenzy's screens, so its CSS is organised by the surface 
 | `capsules.css`, `actions.css`, `drag.css`, `segue.css` | Catalog and flowsheet interaction affordances |
 | `login.css` | The login screen |
 
-The weekly-schedule stylesheet reproduces the source's class names exactly — `.radioWeekHeader`, `.radioDayHeader`, `.radioShowDisplayBlock`, `.radioDayNonshow`, `.radioDayLine`, `.endOfDay` — and a test asserts they are still emitted, because the screen's visual parity rests on them and a rename would change the page silently rather than break it.
+The weekly-schedule stylesheet reproduces the source's class names exactly — `.radioWeekHeader`, `.radioDayHeader`, `.radioShowDisplayBlock`, `.radioDayNonshow`, `.radioDayLine`, `.endOfDay` — and tests assert every one is still emitted, because the screen's visual parity rests on them and a rename would change the page silently rather than break it. The five the grid owns are guarded on `ClassicWeekGrid`; `.radioWeekHeader` belongs to the week container and is guarded there. A class added to that list needs a guard added with it, or the list stops being a claim about the code.
 
 Two deliberate departures from the source JSP:
 
