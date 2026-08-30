@@ -9,9 +9,11 @@ import {
 } from "@/src/utilities/stationTime";
 
 /**
- * Height given to a show whose sign-off was never recorded and cannot be
- * inferred. It has to be visible and it must not imply a duration, so it is
- * deliberately far smaller than any real show.
+ * Height given to a show that would otherwise draw as nothing — its sign-off
+ * was never recorded and cannot be inferred, or a neighbour starting at the
+ * same instant squeezed its drawn span to zero. It has to be visible and it
+ * must not imply a duration, so it is deliberately far smaller than any real
+ * show.
  */
 export const MIN_BLOCK_FRACTION = 10 / (24 * 60);
 
@@ -60,7 +62,7 @@ const ms = (iso: string) => new Date(iso).getTime();
  * it as "runs until now" would draw an orphaned show across the rest of its
  * week, so the fallbacks are ordered from most to least evidence.
  */
-function resolveShowEnd(
+export function resolveShowEnd(
   show: FlowsheetRangeShow,
   endMarkers: Map<number, number>,
   now: Date,
@@ -78,6 +80,24 @@ function resolveShowEnd(
     return { endMs: nowMs, inferred: true };
   }
   return { endMs: startMs, inferred: true };
+}
+
+/**
+ * Indexes `show_end` markers by show. A show whose `end_time` column stayed
+ * null often still has its sign-off recorded as an entry, and that marker is
+ * evidence where "now" is only a guess.
+ */
+export function collectShowEndMarkers(
+  entries: readonly FlowsheetRangeEntry[],
+): Map<number, number> {
+  const endMarkers = new Map<number, number>();
+  for (const e of entries) {
+    if (e.show_id === null || e.show_id === undefined) continue;
+    if (e.entry_type === "show_end" && e.add_time) {
+      endMarkers.set(e.show_id, ms(e.add_time));
+    }
+  }
+  return endMarkers;
 }
 
 /** Whether a show's whole span sits inside the window that returned it. */
@@ -118,17 +138,11 @@ export function buildWeekGrid(
   const days = stationDaysOfWeek(weekStart);
   const dayBounds = [...days.map((d) => d.getTime()), window.endMs];
 
-  const endMarkers = new Map<number, number>();
-  let unattributedEntryCount = 0;
-  for (const e of response.entries as FlowsheetRangeEntry[]) {
-    if (e.show_id === null || e.show_id === undefined) {
-      unattributedEntryCount++;
-      continue;
-    }
-    if (e.entry_type === "show_end" && e.add_time) {
-      endMarkers.set(e.show_id, ms(e.add_time));
-    }
-  }
+  const entries = response.entries as FlowsheetRangeEntry[];
+  const endMarkers = collectShowEndMarkers(entries);
+  const unattributedEntryCount = entries.filter(
+    (e) => e.show_id === null || e.show_id === undefined,
+  ).length;
 
   const resolved = [...response.shows]
     .map((show) => ({ show, ...resolveShowEnd(show, endMarkers, now) }))
@@ -142,7 +156,18 @@ export function buildWeekGrid(
     const nextStart = resolved[i + 1]
       ? ms(resolved[i + 1].show.start_time)
       : Number.POSITIVE_INFINITY;
-    return { ...r, endMs: Math.min(r.endMs, Math.max(nextStart, ms(r.show.start_time))) };
+    const startMs = ms(r.show.start_time);
+    return {
+      ...r,
+      // What the block occupies in its lane.
+      endMs: Math.min(r.endMs, Math.max(nextStart, startMs)),
+      // When the show actually stopped. The label, the continues-elsewhere
+      // flag and the dead-air sweep all answer questions about the show, not
+      // about the lane, and reading the clipped value for them reports a
+      // six-hour show as half an hour and its remaining five and a half as
+      // dead air.
+      trueEndMs: r.endMs,
+    };
   });
 
   const columns: DayColumn[] = dayBounds.slice(0, 7).map((dayStartMs, i) => {
@@ -150,20 +175,24 @@ export function buildWeekGrid(
     const dayLength = dayEndMs - dayStartMs;
     const blocks: ShowBlock[] = [];
 
-    for (const { show, endMs, inferred } of drawn) {
+    for (const { show, endMs, trueEndMs, inferred } of drawn) {
       const startMs = ms(show.start_time);
       const clippedStart = Math.max(startMs, dayStartMs);
       const clippedEnd = Math.min(endMs, dayEndMs);
+      const startsToday = startMs >= dayStartMs && startMs < dayEndMs;
       if (clippedEnd <= clippedStart) {
-        // A zero-length unclosed show still needs to be visible on the day it
-        // started, so it is admitted at minimum height rather than dropped.
-        const startsToday = startMs >= dayStartMs && startMs < dayEndMs;
-        if (!(inferred && startsToday && endMs <= startMs)) continue;
+        // A show draws as zero-length two ways: its sign-off was never
+        // recorded, or a neighbour signing on at the same instant squeezed
+        // its lane to nothing. Both happened, and both have to be visible on
+        // the day they began — dropping them is how a real show disappears
+        // from the week entirely.
+        if (!startsToday) continue;
       }
 
       const top = (clippedStart - dayStartMs) / dayLength;
       const rawHeight = Math.max(clippedEnd - clippedStart, 0) / dayLength;
-      const height = Math.max(rawHeight, inferred ? MIN_BLOCK_FRACTION : 0);
+      const needsFloor = inferred || rawHeight <= 0;
+      const height = Math.max(rawHeight, needsFloor ? MIN_BLOCK_FRACTION : 0);
 
       blocks.push({
         showId: show.id,
@@ -173,22 +202,40 @@ export function buildWeekGrid(
         endMs: clippedEnd,
         topFraction: top,
         heightFraction: Math.min(height, 1 - top),
-        timeRangeLabel: timeRangeLabel(startMs, endMs, inferred),
-        isClipped: startMs < dayStartMs || endMs > dayEndMs,
+        timeRangeLabel: timeRangeLabel(startMs, trueEndMs, inferred),
+        isClipped: startMs < dayStartMs || trueEndMs > dayEndMs,
         endIsInferred: inferred,
       });
     }
 
-    const gaps: Gap[] = [];
-    let cursor = 0;
-    for (const b of blocks) {
-      if (b.topFraction > cursor + 1e-9) {
-        gaps.push({ topFraction: cursor, heightFraction: b.topFraction - cursor });
-      }
-      cursor = Math.max(cursor, b.topFraction + b.heightFraction);
+    // Dead air is a question about the shows, not about the lane. Swept over
+    // the drawn blocks, a show clipped short by an overlapping neighbour
+    // reports the rest of its run as unprogrammed time, when a DJ was on the
+    // air for all of it.
+    const covered: Array<[number, number]> = [];
+    for (const { show, trueEndMs } of drawn) {
+      const from = Math.max(ms(show.start_time), dayStartMs);
+      const to = Math.min(trueEndMs, dayEndMs);
+      if (to > from) covered.push([from, to]);
     }
-    if (cursor < 1 - 1e-9) {
-      gaps.push({ topFraction: cursor, heightFraction: 1 - cursor });
+    covered.sort((a, b) => a[0] - b[0]);
+
+    const gaps: Gap[] = [];
+    let cursorMs = dayStartMs;
+    for (const [from, to] of covered) {
+      if (from > cursorMs) {
+        gaps.push({
+          topFraction: (cursorMs - dayStartMs) / dayLength,
+          heightFraction: (from - cursorMs) / dayLength,
+        });
+      }
+      cursorMs = Math.max(cursorMs, to);
+    }
+    if (cursorMs < dayEndMs) {
+      gaps.push({
+        topFraction: (cursorMs - dayStartMs) / dayLength,
+        heightFraction: (dayEndMs - cursorMs) / dayLength,
+      });
     }
 
     return { dayStartMs, dayEndMs, blocks, gaps };

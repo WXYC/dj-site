@@ -219,3 +219,69 @@ describe("showSpanIsContained", () => {
     ).toBe(true);
   });
 });
+
+describe("buildWeekGrid — overlapping shows", () => {
+  // A long show with a short one logged inside it. The lane can only draw one
+  // at a time, but every claim the grid makes about the long show is a claim
+  // about the show, not about the lane.
+  const NESTED = res([
+    show({ id: 1, start_time: at(0, 10), end_time: at(0, 16) }),
+    show({ id: 2, start_time: at(0, 10, 30), end_time: at(0, 11) }),
+  ]);
+
+  it("labels the long show with the time it actually ended", () => {
+    const { columns } = buildWeekGrid(NESTED, WEEK, NOW);
+    const long = columns[0].blocks.find((b) => b.showId === 1)!;
+    expect(long.timeRangeLabel).toBe("10:00a–4:00p");
+  });
+
+  it("does not report the clipped remainder as dead air", () => {
+    const { columns } = buildWeekGrid(NESTED, WEEK, NOW);
+    const dayLength = columns[0].dayEndMs - columns[0].dayStartMs;
+    const gapAt = (hour: number) =>
+      columns[0].gaps.find((g) => {
+        const from = g.topFraction * dayLength;
+        const to = from + g.heightFraction * dayLength;
+        return hour * HOUR >= from && hour * HOUR < to;
+      });
+
+    // 11:00–16:00 is show 1 still running behind show 2's block.
+    expect(gapAt(13)).toBeUndefined();
+    // Either side of the pair really is unprogrammed.
+    expect(gapAt(8)).toBeDefined();
+    expect(gapAt(18)).toBeDefined();
+  });
+
+  it("keeps a show whose neighbour signs on at the very same instant", () => {
+    const { columns } = buildWeekGrid(
+      res([
+        show({ id: 1, start_time: at(0, 10), end_time: at(0, 12) }),
+        show({ id: 2, start_time: at(0, 10), end_time: at(0, 14) }),
+      ]),
+      WEEK,
+      NOW,
+    );
+
+    // Clipping show 1 to the next sign-on leaves it zero-length. Dropped for
+    // that, a show that ran for two hours vanishes from the week.
+    const ids = columns[0].blocks.map((b) => b.showId).sort();
+    expect(ids).toEqual([1, 2]);
+    const squeezed = columns[0].blocks.find((b) => b.showId === 1)!;
+    expect(squeezed.heightFraction).toBeGreaterThanOrEqual(MIN_BLOCK_FRACTION);
+    expect(squeezed.timeRangeLabel).toBe("10:00a–12:00p");
+  });
+
+  it("marks a clipped show as continuing past the column it is drawn in", () => {
+    const { columns } = buildWeekGrid(
+      res([
+        show({ id: 1, start_time: at(0, 22), end_time: at(1, 4) }),
+        show({ id: 2, start_time: at(0, 23), end_time: at(1, 1) }),
+      ]),
+      WEEK,
+      NOW,
+    );
+    const straddler = columns[0].blocks.find((b) => b.showId === 1)!;
+    expect(straddler.isClipped).toBe(true);
+  });
+});
+
