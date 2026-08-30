@@ -169,10 +169,8 @@ export const flowsheetApi = createApi({
         // Seed the banner with the real dj_name so the public /live page never
         // renders a "Live" placeholder during the refetch window. A joiner
         // with no display name must not blank the banner or leave a trailing
-        // comma: `formatOnAirSummary` already drops blank names on its own, so
-        // a nameless-only draft.djs renders as the off-air label rather than a
-        // blank or a trailing comma, and a named DJ already on air keeps
-        // reading correctly regardless of who else just joined unnamed.
+        // comma — `formatOnAirSummary` drops blank names itself, so the raw
+        // list can go through unfiltered.
         const patchLive = dispatch(
           flowsheetApi.util.updateQueryData(
             "whoIsLive",

@@ -2,22 +2,10 @@
  * The one blank-name filter behind every DJ-name-list renderer, plus the
  * join mechanics built on top of it.
  *
- * Before this module, three call sites spelled "drop blank/whitespace names"
- * independently: `formatDjNames`'s own inline `.trim().filter(...)`,
- * `describeOpenShow`'s copy of the same expression (needed because the
- * "is"/"are" verb has to agree with the rendered list), and the joinShow
- * optimistic patch in `api.ts` (`.filter((d) => d.dj_name)`, a *different*
- * spelling — untrimmed truthiness, over DJ objects rather than strings).
- * `formatOnAirSummary` did not filter at all, trusting whichever caller
- * happened to pre-filter for it.
- *
- * The divergence between the first two once produced the sentence "dj sue
- * are on air": the verb came from an unfiltered count while the name came
- * from a filtered list, so a blank second co-host inflated the count without
- * appearing in the sentence. Routing every caller through the same
- * `nonBlankNames` makes that class of bug structurally impossible — a count
- * and a rendered list taken from this module can no longer disagree, because
- * they were never two lists to begin with.
+ * A caller takes both its count and its rendered list from here, so the two
+ * cannot disagree. A verb chosen from an unfiltered count standing beside a
+ * name drawn from a filtered list is what renders "dj sue are on air" for a
+ * show whose second DJ has a blank handle.
  */
 
 /** Trim and drop blank/whitespace-only names. The one blank-name filter. */
@@ -40,15 +28,7 @@ export type NameListStyle = {
   readonly conjunction?: string;
 };
 
-/**
- * Filter blank names, then join what survives as prose.
- *
- * The shared implementation behind `formatDjNames` (the go-live handoff
- * prompt: "Someone" when empty, "and" before the last name — verb agreement
- * upstream depends on this filtering, not just the rendered text) and
- * `formatOnAirSummary` (the on-air banner: `OFF_AIR_LABEL` when empty, a
- * plain comma join, no conjunction).
- */
+/** Filter blank names, then join what survives as prose. */
 export function formatNameList(
   names: readonly string[],
   style: NameListStyle

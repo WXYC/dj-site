@@ -18,13 +18,9 @@ import {
  * "Turncoat, desire path" — a plain comma join, no conjunction (unlike
  * `formatDjNames`'s "and"; the banner has no verb to agree with).
  *
- * Filters blank names through the same `nonBlankNames` `formatDjNames` uses
- * (see `./name-list`), which this function used not to do: a blank `dj_name`
- * — a real possibility, since a DJ account can now be created with no on-air
- * handle — used to ride straight into the joined string (`"Turncoat, "`, or
- * bare `""` for an all-blank list), because only one of this function's three
- * call sites pre-filtered before calling it. Every call site now gets the
- * same filter for free, whether it pre-filters or not.
+ * Filters blank names itself rather than trusting callers to pre-filter: a DJ
+ * account can exist with no on-air handle, and an unfiltered blank reaches the
+ * joined string as a trailing `"Turncoat, "` or a bare `""`.
  */
 export function formatOnAirSummary(djs: OnAirDJResponse[]): string {
   return formatNameList(
