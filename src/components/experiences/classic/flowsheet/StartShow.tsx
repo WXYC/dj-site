@@ -3,7 +3,11 @@
 import "@/src/styles/classic/wxyc.css";
 import { useShowControl } from "@/src/hooks/flowsheetHooks";
 import { useGoLiveHandoff } from "@/src/hooks/goLiveHandoffHooks";
-import { describeOpenShow } from "@/lib/features/flowsheet/go-live-handoff";
+import {
+  GO_LIVE_HANDOFF_COPY,
+  GO_LIVE_HANDOFF_TESTIDS,
+  describeOpenShow,
+} from "@/lib/features/flowsheet/go-live-handoff";
 import { useRegistry } from "@/src/hooks/authenticationHooks";
 import { FormEvent, useEffect, useState } from "react";
 import { OpenHelp } from "@/src/utils/helpScreen";
@@ -203,42 +207,42 @@ export default function StartShow() {
                 <tr>
                   <td colSpan={2} align="center">
                     <div
+                      // Literal, not the constant it happens to match: this
+                      // is a selector `wxyc.css` spells out, and a CSS file
+                      // cannot import a TypeScript module.
                       className="smalltext go-live-handoff-prompt"
                       role="alert"
-                      data-testid="go-live-handoff-prompt"
+                      data-testid={GO_LIVE_HANDOFF_TESTIDS.prompt}
                     >
                       <b>{describeOpenShow(prompt.handoff)}</b>
-                      <p>
-                        Join them as a co-host, or end their show and start your
-                        own.
-                      </p>
+                      <p>{GO_LIVE_HANDOFF_COPY.choice}</p>
                       <input
                         type="button"
-                        value="Join Existing Show"
+                        value={GO_LIVE_HANDOFF_COPY.join}
                         disabled={deciding}
                         onClick={() => void decide("join")}
                         style={{ cursor: "pointer" }}
-                        data-testid="go-live-handoff-join"
+                        data-testid={GO_LIVE_HANDOFF_TESTIDS.join}
                       />
                       &nbsp;
                       {/* Red because it signs somebody else off the air. */}
                       <input
                         type="button"
                         className="handoff-danger"
-                        value="End Existing Show"
+                        value={GO_LIVE_HANDOFF_COPY.takeover}
                         disabled={deciding}
                         onClick={() => void decide("takeover")}
                         style={{ cursor: "pointer" }}
-                        data-testid="go-live-handoff-takeover"
+                        data-testid={GO_LIVE_HANDOFF_TESTIDS.takeover}
                       />
                       &nbsp;
                       <input
                         type="button"
-                        value="Cancel"
+                        value={GO_LIVE_HANDOFF_COPY.cancel}
                         disabled={deciding}
                         onClick={cancel}
                         style={{ cursor: "pointer" }}
-                        data-testid="go-live-handoff-cancel"
+                        data-testid={GO_LIVE_HANDOFF_TESTIDS.cancel}
                       />
                     </div>
                   </td>

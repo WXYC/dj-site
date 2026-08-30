@@ -193,3 +193,56 @@ export function describeOpenShow(
     ? `${subject} ${verb} on air.`
     : `${subject} ${verb} on air. Last logged ${elapsed}.`;
 }
+
+/**
+ * The half of the prompt's copy that does not vary with the show.
+ *
+ * `describeOpenShow` above is the sentence derived from the handoff; this is
+ * the sentence and the button labels that read the same every time. Both
+ * surfaces render both halves, and only the derived half was centralised —
+ * so a wording change made on the modern dialog simply did not reach the
+ * classic form, and nothing failed to tell anyone.
+ *
+ * Strings, not components. The markup stays split because classic imports no
+ * Joy, and sharing a component rather than a string would drag Joy into the
+ * one experience that has none.
+ */
+export const GO_LIVE_HANDOFF_COPY = {
+  /**
+   * Modern only. Classic has no dialog to title — it leads with
+   * `describeOpenShow` in bold inside the sign-on form — so this string has
+   * one caller today and lives here to keep the prompt's words in one place
+   * rather than because two surfaces share it.
+   */
+  title: "A show is already on air",
+  choice: "Join them as a co-host, or end their show and start your own.",
+  join: "Join Existing Show",
+  takeover: "End Existing Show",
+  cancel: "Cancel",
+} as const;
+
+/**
+ * The test ids the prompt exposes, on both surfaces.
+ *
+ * Renaming one of the three decision ids used to be a two-file edit that
+ * nothing enforced: `e2e/pages/flowsheet.page.ts` drives the prompt through
+ * `go-live-handoff-join` whichever experience is under test, so a rename
+ * applied to only one surface left the other silently undriven rather than
+ * red.
+ *
+ * The e2e specs and the component tests still spell these ids as literals, on
+ * purpose. A caller that imported the constant would follow a rename instead
+ * of catching it, which is the failure this exists to prevent; the literals
+ * are pinned against these values in
+ * `tests/unit/lib/features/flowsheet/go-live-handoff.test.ts`.
+ */
+export const GO_LIVE_HANDOFF_TESTIDS = {
+  /** Modern's dialog root. Classic's counterpart is `prompt`. */
+  dialog: "go-live-handoff-dialog",
+  title: "go-live-handoff-title",
+  /** Classic's in-form prompt block. Modern's counterpart is `dialog`. */
+  prompt: "go-live-handoff-prompt",
+  join: "go-live-handoff-join",
+  takeover: "go-live-handoff-takeover",
+  cancel: "go-live-handoff-cancel",
+} as const;
