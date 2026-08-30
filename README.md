@@ -8,7 +8,7 @@ The WXYC Card Catalog, Revised is a React-based revision of the original WXYC ca
 
 ## Features
 - Retains the classic theme: The revised version of the WXYC Card Catalog doesn't modify the old look in any way. Users will still experience the familiar aesthetics they are accustomed to.
-- Classic theme views: All views within the application that utilize the classic theme are prepended with `CLASSIC_`. This helps users distinguish between the classic and updated versions of the application.
+- Classic theme views: Everything under `src/components/experiences/classic` renders the classic theme; the modern components sit alongside it under `experiences/modern`. The directory is the separator.
 - New theme: With updated components and views, a faster and more seamless workflow between the flowsheet and card catalog is possible.
 - Mail Bin: a digital mail bin is available on every account, so DJs can add to the flowsheet directly from their bin without having to type during their sets.
 

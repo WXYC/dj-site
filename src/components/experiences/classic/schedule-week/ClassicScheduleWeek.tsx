@@ -49,7 +49,7 @@ export default function ClassicScheduleWeek() {
         >
           &lt;&lt;Previous Week
         </button>
-        <span>{range(weekStart)}</span>
+        <span className="redlabel">{range(weekStart)}</span>
         <button
           type="button"
           className="linklike"
@@ -89,6 +89,7 @@ export default function ClassicScheduleWeek() {
           show={selectedShow}
           entries={showEntries.entries}
           isPartial={showEntries.isPartial}
+          partialEdge={showEntries.partialEdge}
           isLoading={showEntries.isLoading}
         />
       )}

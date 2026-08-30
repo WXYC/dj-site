@@ -93,12 +93,25 @@ export default function ClassicWeekGrid({
                     className={`radioShowDisplayBlock${
                       block.endIsInferred ? " is-open-ended" : ""
                     }`}
+                    // Offset by the rule's own height, as the source did
+                    // (`top + 1`, `height - 1`). Sharing the line's `top`
+                    // paints the block straight over it and the separator
+                    // between consecutive shows disappears. `min-height`
+                    // covers the case where subtracting the pixel would
+                    // leave nothing.
                     style={{
-                      top: `${block.topFraction * 100}%`,
-                      height: `${block.heightFraction * 100}%`,
+                      top: `calc(${block.topFraction * 100}% + 1px)`,
+                      height: `calc(${block.heightFraction * 100}% - 1px)`,
                     }}
                     aria-expanded={block.showId === selectedShowId}
-                    aria-controls={CLASSIC_SHOW_PANEL_ID}
+                    // The panel belongs to whichever block is expanded; a
+                    // collapsed one pointing at it names either nothing or
+                    // another show's entries.
+                    aria-controls={
+                      block.showId === selectedShowId
+                        ? CLASSIC_SHOW_PANEL_ID
+                        : undefined
+                    }
                     aria-label={label}
                     title={
                       block.endIsInferred

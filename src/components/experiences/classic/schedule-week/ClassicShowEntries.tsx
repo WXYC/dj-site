@@ -2,6 +2,7 @@
 
 import type { FlowsheetRangeEntry, FlowsheetRangeShow } from "@wxyc/shared";
 import { STATION_TIME_ZONE } from "@/src/utilities/stationTime";
+import { describeNonTrackEntry } from "@/lib/features/schedule-week/entryLabel";
 import { CLASSIC_SHOW_PANEL_ID } from "./ClassicWeekGrid";
 import "@/src/styles/classic/schedule-week.css";
 
@@ -26,11 +27,13 @@ export default function ClassicShowEntries({
   show,
   entries,
   isPartial,
+  partialEdge,
   isLoading,
 }: {
   show: FlowsheetRangeShow;
   entries: FlowsheetRangeEntry[];
   isPartial: boolean;
+  partialEdge: "before" | "after" | null;
   isLoading: boolean;
 }) {
   return (
@@ -43,8 +46,11 @@ export default function ClassicShowEntries({
 
       {isPartial && (
         <p className="redlabel">
-          Showing the {entries.length} entries logged during this week. This show
-          began before the week started, and the rest are in the previous week.
+          Showing the {entries.length} entries logged during this week. This
+          show{" "}
+          {partialEdge === "after"
+            ? "ran past the end of the week, and the rest are in the next week."
+            : "began before the week started, and the rest are in the previous week."}
         </p>
       )}
 
@@ -68,7 +74,7 @@ export default function ClassicShowEntries({
                 <td>{timeOf(entry)}</td>
                 {entry.entry_type && entry.entry_type !== "track" ? (
                   <td colSpan={3}>
-                    <em>{entry.message ?? entry.entry_type}</em>
+                    <em>{describeNonTrackEntry(entry)}</em>
                   </td>
                 ) : (
                   <>
