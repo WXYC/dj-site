@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  GO_LIVE_HANDOFF_TESTIDS,
   describeOpenShow,
   formatDjNames,
   formatElapsedSince,
@@ -214,5 +215,27 @@ describe("takeoverWasHonored", () => {
     ["no body at all", undefined],
   ])("reads %s as not honoured", (_label, body) => {
     expect(takeoverWasHonored(body, ENDED)).toBe(false);
+  });
+});
+
+/**
+ * The ids are a contract with code that cannot import them.
+ *
+ * `e2e/pages/flowsheet.page.ts` and the component suites spell these strings
+ * literally so a rename shows up as a red test rather than being followed
+ * silently — which only works if something asserts the two spellings agree.
+ * This is that something: change an id here and this fails, naming every
+ * literal that has to move with it.
+ */
+describe("GO_LIVE_HANDOFF_TESTIDS", () => {
+  it("keeps the ids the e2e helper and the component suites spell literally", () => {
+    expect(GO_LIVE_HANDOFF_TESTIDS).toEqual({
+      dialog: "go-live-handoff-dialog",
+      title: "go-live-handoff-title",
+      prompt: "go-live-handoff-prompt",
+      join: "go-live-handoff-join",
+      takeover: "go-live-handoff-takeover",
+      cancel: "go-live-handoff-cancel",
+    });
   });
 });

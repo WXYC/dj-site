@@ -1,6 +1,8 @@
 "use client";
 
 import {
+  GO_LIVE_HANDOFF_COPY,
+  GO_LIVE_HANDOFF_TESTIDS,
   describeOpenShow,
   type JoinIntent,
 } from "@/lib/features/flowsheet/go-live-handoff";
@@ -32,18 +34,18 @@ export default function GoLiveHandoffDialog({
         color="neutral"
         disabled={deciding}
         onClick={onCancel}
-        data-testid="go-live-handoff-cancel"
+        data-testid={GO_LIVE_HANDOFF_TESTIDS.cancel}
       >
-        Cancel
+        {GO_LIVE_HANDOFF_COPY.cancel}
       </Button>
       <Button
         variant="outlined"
         color="neutral"
         loading={deciding}
         onClick={() => onDecide("join")}
-        data-testid="go-live-handoff-join"
+        data-testid={GO_LIVE_HANDOFF_TESTIDS.join}
       >
-        Join Existing Show
+        {GO_LIVE_HANDOFF_COPY.join}
       </Button>
       {/* Destructive on purpose: it signs somebody else off the air. Any
           DJ may do it — the studio is the authority on who is at the
@@ -54,9 +56,9 @@ export default function GoLiveHandoffDialog({
         color="danger"
         loading={deciding}
         onClick={() => onDecide("takeover")}
-        data-testid="go-live-handoff-takeover"
+        data-testid={GO_LIVE_HANDOFF_TESTIDS.takeover}
       >
-        End Existing Show
+        {GO_LIVE_HANDOFF_COPY.takeover}
       </Button>
     </Stack>
   );
@@ -66,15 +68,15 @@ export default function GoLiveHandoffDialog({
       open
       onClose={onCancel}
       pending={deciding}
-      title="A show is already on air"
-      titleId="go-live-handoff-title"
-      testId="go-live-handoff-dialog"
+      title={GO_LIVE_HANDOFF_COPY.title}
+      titleId={GO_LIVE_HANDOFF_TESTIDS.title}
+      testId={GO_LIVE_HANDOFF_TESTIDS.dialog}
       sx={{ maxWidth: 460 }}
       actions={actions}
     >
       {describeOpenShow(prompt.handoff)}
       <br />
-      Join them as a co-host, or end their show and start your own.
+      {GO_LIVE_HANDOFF_COPY.choice}
     </ConfirmDialog>
   );
 }
