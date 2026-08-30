@@ -1,83 +1,67 @@
 import { describe, it, expect, vi } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
-import { renderWithProviders } from "@/tests/helpers/render";
-import ConfirmDialog from "@/src/components/experiences/modern/ConfirmDialog";
+import { createComponentHarness } from "@/tests/helpers";
+import ConfirmDialog, {
+  type ConfirmDialogProps,
+} from "@/src/components/experiences/modern/ConfirmDialog";
+
+const setup = createComponentHarness<ConfirmDialogProps>(ConfirmDialog, {
+  open: true,
+  onClose: vi.fn(),
+  title: "Discard changes?",
+  actions: <button>Confirm</button>,
+  children: "Nothing has been saved yet.",
+});
 
 describe("ConfirmDialog", () => {
   it("renders nothing while closed", () => {
-    renderWithProviders(
-      <ConfirmDialog
-        open={false}
-        onClose={vi.fn()}
-        title="Title"
-        actions={<button>Confirm</button>}
-      >
-        Content
-      </ConfirmDialog>,
-    );
+    setup({ open: false });
 
-    expect(screen.queryByText("Content")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Nothing has been saved yet.")
+    ).not.toBeInTheDocument();
   });
 
   it("renders title, content, and actions as an alertdialog", () => {
-    renderWithProviders(
-      <ConfirmDialog
-        open
-        onClose={vi.fn()}
-        title="Discard changes?"
-        actions={<button>Discard</button>}
-      >
-        Nothing has been saved yet.
-      </ConfirmDialog>,
-    );
+    setup();
 
-    const dialog = screen.getByRole("alertdialog");
-    expect(dialog).toBeInTheDocument();
+    expect(screen.getByRole("alertdialog")).toBeInTheDocument();
     expect(screen.getByText("Discard changes?")).toBeInTheDocument();
     expect(screen.getByText("Nothing has been saved yet.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Discard" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Confirm" })).toBeInTheDocument();
   });
 
   it("labels the dialog with its title via aria-labelledby", () => {
-    renderWithProviders(
-      <ConfirmDialog
-        open
-        onClose={vi.fn()}
-        title="Clear Mail Bin"
-        actions={<button>Confirm</button>}
-      >
-        Content
-      </ConfirmDialog>,
-    );
+    setup();
 
     expect(
-      screen.getByRole("alertdialog", { name: "Clear Mail Bin" }),
+      screen.getByRole("alertdialog", { name: "Discard changes?" })
     ).toBeInTheDocument();
   });
 
-  it("applies the given data-testid to the dialog", () => {
-    renderWithProviders(
-      <ConfirmDialog
-        open
-        onClose={vi.fn()}
-        title="Title"
-        testId="my-confirm-dialog"
-        actions={<button>Confirm</button>}
-      >
-        Content
-      </ConfirmDialog>,
+  // Without a caller-supplied id the shell falls back to `useId()`, which must
+  // still label the dialog — the fallback is what an unaware call site gets.
+  it("labels the dialog when the caller supplies a stable titleId", () => {
+    setup({ titleId: "discard-title" });
+
+    expect(
+      screen.getByRole("alertdialog", { name: "Discard changes?" })
+    ).toBeInTheDocument();
+    expect(screen.getByText("Discard changes?")).toHaveAttribute(
+      "id",
+      "discard-title"
     );
+  });
+
+  it("applies the given data-testid to the dialog", () => {
+    setup({ testId: "my-confirm-dialog" });
 
     expect(screen.getByTestId("my-confirm-dialog")).toBeInTheDocument();
   });
 
   it("closes on Escape when not pending", async () => {
     const onClose = vi.fn();
-    const { user } = renderWithProviders(
-      <ConfirmDialog open onClose={onClose} title="Title" actions={<button>Confirm</button>}>
-        Content
-      </ConfirmDialog>,
-    );
+    const { user } = setup({ onClose });
 
     await user.keyboard("{Escape}");
 
@@ -86,17 +70,7 @@ describe("ConfirmDialog", () => {
 
   it("suppresses Escape dismissal while pending", async () => {
     const onClose = vi.fn();
-    const { user } = renderWithProviders(
-      <ConfirmDialog
-        open
-        onClose={onClose}
-        pending
-        title="Title"
-        actions={<button>Confirm</button>}
-      >
-        Content
-      </ConfirmDialog>,
-    );
+    const { user } = setup({ onClose, pending: true });
 
     await user.keyboard("{Escape}");
 

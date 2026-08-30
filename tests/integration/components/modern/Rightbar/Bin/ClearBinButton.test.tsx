@@ -4,9 +4,6 @@ import { renderWithProviders } from "@/tests/helpers/render";
 import ClearBinButton from "@/src/components/experiences/modern/Rightbar/Bin/ClearBinButton";
 
 const clearBin = vi.fn().mockResolvedValue(undefined);
-// `loading` is the aggregate (a clear in flight OR the registry still
-// resolving); `clearing` is only the former. They are separate here because
-// the dialog's dismissal guard keys off the latter — see the Escape case below.
 let binState = { clearBin, loading: false, clearing: false };
 
 vi.mock("@/src/hooks/binHooks", () => ({
@@ -66,11 +63,7 @@ describe("ClearBinButton", () => {
     );
   });
 
-  // Regression guard: `loading` also goes true while the registry re-resolves
-  // the DJ's org role — a session refresh mid-dialog, with nothing about the
-  // bin on the wire. In that window Cancel is disabled and Clear bin is
-  // disabled, so Escape is the only exit left; keying the dismissal guard to
-  // the aggregate would shut all three at once and strand the DJ until reload.
+  // Both buttons are disabled while `loading`, so Escape is the only exit left.
   it("stays dismissable while the registry is loading but no clear is in flight", async () => {
     binState = { clearBin, loading: true, clearing: false };
     const { user } = renderWithProviders(<ClearBinButton count={2} />);
@@ -98,9 +91,8 @@ describe("ClearBinButton", () => {
     expect(screen.getByRole("alertdialog")).toBeInTheDocument();
   });
 
-  // The association this component now delegates to ConfirmDialog's useId()
-  // wiring. Every other query here is by text or role-name of a button, all of
-  // which stay green if aria-labelledby silently points at nothing.
+  // Every other query here is by text or button name, all of which stay green
+  // if aria-labelledby points at nothing.
   it("labels the confirmation with its title", async () => {
     const { user } = renderWithProviders(<ClearBinButton count={2} />);
 
