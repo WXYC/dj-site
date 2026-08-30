@@ -40,9 +40,12 @@ describe("AccountEntry onboarding indicator", () => {
     expect(screen.queryByText("New")).not.toBeInTheDocument();
   });
 
-  it("should not show 'New' chip when hasCompletedOnboarding is undefined", () => {
+  // An absent flag is onboarding-not-finished everywhere else in the app,
+  // including the edit form this row opens. A chip that read it the other way
+  // would badge the account as onboarded and then offer to finish onboarding it.
+  it("should show 'New' chip when hasCompletedOnboarding is absent", () => {
     renderAccountEntry({ hasCompletedOnboarding: undefined });
 
-    expect(screen.queryByText("New")).not.toBeInTheDocument();
+    expect(screen.getByText("New")).toBeInTheDocument();
   });
 });

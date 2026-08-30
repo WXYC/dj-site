@@ -50,7 +50,7 @@ export const useAccountListResults = (organizationSlug: string) => {
     matches: view.matches,
     page: view.page,
     totalPages: view.totalPages,
-    /** Accounts on the roster before search and role filtering. */
+    /** Accounts on the roster before search and filtering. */
     totalAccounts: accounts.length,
     isLoading: isLoading || isFetching,
     isError,

@@ -71,7 +71,12 @@ export default function ExportDJsButton({
 }) {
   const searchString = useAppSelector(adminSlice.selectors.getSearchString);
   const roleFilter = useAppSelector(adminSlice.selectors.getRoleFilter);
-  const isFiltered = searchString.length > 0 || roleFilter.length > 0;
+  const onboardingFilter = useAppSelector(adminSlice.selectors.getOnboardingFilter);
+  // Every narrowing control has to be read here: the filename is the only thing
+  // telling the recipient whether the file is the whole station or a slice of
+  // it, and a narrowed export named for the whole roster reads as complete.
+  const isFiltered =
+    searchString.length > 0 || roleFilter.length > 0 || onboardingFilter !== "all";
 
   return (
     <Button
