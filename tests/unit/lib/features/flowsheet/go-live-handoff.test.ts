@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   GO_LIVE_HANDOFF_TESTIDS,
+  GO_LIVE_HANDOFF_TITLE_ID,
   describeOpenShow,
   formatDjNames,
   formatElapsedSince,
@@ -231,11 +232,19 @@ describe("GO_LIVE_HANDOFF_TESTIDS", () => {
   it("keeps the ids the e2e helper and the component suites spell literally", () => {
     expect(GO_LIVE_HANDOFF_TESTIDS).toEqual({
       dialog: "go-live-handoff-dialog",
-      title: "go-live-handoff-title",
       prompt: "go-live-handoff-prompt",
       join: "go-live-handoff-join",
       takeover: "go-live-handoff-takeover",
       cancel: "go-live-handoff-cancel",
     });
+  });
+
+  // Separate because it is not a test id: `ConfirmDialog` feeds it to
+  // `aria-labelledby`, and `getByTestId` will never find it.
+  it("keeps the dialog's aria-labelledby target out of the test ids", () => {
+    expect(GO_LIVE_HANDOFF_TITLE_ID).toBe("go-live-handoff-title");
+    expect(Object.values(GO_LIVE_HANDOFF_TESTIDS)).not.toContain(
+      GO_LIVE_HANDOFF_TITLE_ID,
+    );
   });
 });

@@ -3,6 +3,7 @@
 import {
   GO_LIVE_HANDOFF_COPY,
   GO_LIVE_HANDOFF_TESTIDS,
+  GO_LIVE_HANDOFF_TITLE_ID,
   describeOpenShow,
   type JoinIntent,
 } from "@/lib/features/flowsheet/go-live-handoff";
@@ -69,7 +70,7 @@ export default function GoLiveHandoffDialog({
       onClose={onCancel}
       pending={deciding}
       title={GO_LIVE_HANDOFF_COPY.title}
-      titleId={GO_LIVE_HANDOFF_TESTIDS.title}
+      titleId={GO_LIVE_HANDOFF_TITLE_ID}
       testId={GO_LIVE_HANDOFF_TESTIDS.dialog}
       sx={{ maxWidth: 460 }}
       actions={actions}

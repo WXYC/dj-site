@@ -222,10 +222,13 @@ export const GO_LIVE_HANDOFF_COPY = {
 } as const;
 
 /**
- * The test ids the prompt exposes, on both surfaces.
+ * The `data-testid` values the prompt exposes.
  *
- * Renaming one of the three decision ids used to be a two-file edit that
- * nothing enforced: `e2e/pages/flowsheet.page.ts` drives the prompt through
+ * Only the three decision ids are on BOTH surfaces — `dialog` is the modern
+ * dialog root and `prompt` is its classic counterpart, and no surface carries
+ * the other's. The three shared ones are the reason this exists: renaming one
+ * used to be a two-file edit that nothing enforced, because
+ * `e2e/pages/flowsheet.page.ts` drives the prompt through
  * `go-live-handoff-join` whichever experience is under test, so a rename
  * applied to only one surface left the other silently undriven rather than
  * red.
@@ -239,10 +242,22 @@ export const GO_LIVE_HANDOFF_COPY = {
 export const GO_LIVE_HANDOFF_TESTIDS = {
   /** Modern's dialog root. Classic's counterpart is `prompt`. */
   dialog: "go-live-handoff-dialog",
-  title: "go-live-handoff-title",
   /** Classic's in-form prompt block. Modern's counterpart is `dialog`. */
   prompt: "go-live-handoff-prompt",
   join: "go-live-handoff-join",
   takeover: "go-live-handoff-takeover",
   cancel: "go-live-handoff-cancel",
 } as const;
+
+/**
+ * A DOM `id`, NOT a test id — deliberately kept out of the object above.
+ *
+ * `ConfirmDialog` passes `titleId` to `<DialogTitle id={...}>` and points the
+ * dialog's `aria-labelledby` at it; only its `testId` prop becomes a
+ * `data-testid`. Filed under test ids, this string would invite
+ * `getByTestId("go-live-handoff-title")`, which matches nothing.
+ *
+ * Modern only. Classic leads with `describeOpenShow` in bold inside the
+ * sign-on form and has no dialog to label.
+ */
+export const GO_LIVE_HANDOFF_TITLE_ID = "go-live-handoff-title";
