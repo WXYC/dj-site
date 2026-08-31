@@ -34,13 +34,13 @@
     "@mui/system": "5.18.0",
     "@opennextjs/cloudflare": "^1.20.2",
     "@reduxjs/toolkit": "^2.12.0",
-    "@sentry/browser": "^10.70.0",
+    "@sentry/browser": "^10.71.0",
     "@wxyc/shared": "^4.0.0",
     "better-auth": "^1.7.1",
     "jwt-decode": "^4.0.0",
     "motion": "^12.42.2",
     "next": "^16.3.1",
-    "posthog-js": "^1.418.10",
+    "posthog-js": "^1.422.1",
     "qrcode.react": "^4.2.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
@@ -75,11 +75,11 @@
     "yaml": "^2.9.0"
   },
   "optionalDependencies": {
-    "@ast-grep/napi-darwin-arm64": "^0.45.1",
-    "@ast-grep/napi-darwin-x64": "^0.45.1",
-    "@ast-grep/napi-linux-arm64-gnu": "^0.45.1",
-    "@ast-grep/napi-linux-x64-gnu": "^0.45.1",
-    "@ast-grep/napi-win32-arm64-msvc": "^0.45.1",
-    "@ast-grep/napi-win32-x64-msvc": "^0.45.1"
+    "@ast-grep/napi-darwin-arm64": "^0.45.2",
+    "@ast-grep/napi-darwin-x64": "^0.45.2",
+    "@ast-grep/napi-linux-arm64-gnu": "^0.45.2",
+    "@ast-grep/napi-linux-x64-gnu": "^0.45.2",
+    "@ast-grep/napi-win32-arm64-msvc": "^0.45.2",
+    "@ast-grep/napi-win32-x64-msvc": "^0.45.2"
   }
 }
