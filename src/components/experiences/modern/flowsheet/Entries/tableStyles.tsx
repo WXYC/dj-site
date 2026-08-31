@@ -132,13 +132,33 @@ export const FLOWSHEET_TABLE_SX: SxProps = {
   },
 };
 
-// Column sizing only (rendered inside a visibility-collapsed thead): art+drag
-// | artist | title | album | label | status+actions (tubafrenzy reading
-// order, artist before song — #820). Every row type must render exactly
-// these 6 column units (4 below xl) or fixed-layout sizing silently degrades.
-export function FlowsheetColumnSizingRow() {
+// Width of the archive drill-in's leading Time column, sized for the widest
+// station-clock label ("12:00 AM") at body-xs.
+export const FLOWSHEET_COL_TIME_PX = 76;
+
+/**
+ * Column sizing only (rendered inside a visibility-collapsed thead): art+drag |
+ * artist | title | album | label | status+actions (tubafrenzy reading order,
+ * artist before song). Every row type must render exactly these 6 column units
+ * (4 below xl) or fixed-layout sizing silently degrades.
+ *
+ * `leadingTimeColumn` adds a 7th unit (5 below xl) in front, for the archive
+ * drill-in, whose rows each carry their own time — the live sheet shows time
+ * only on show markers, inside the row. The variant is one switch on purpose:
+ * the row components render their time cell from the same `timeLabel` the
+ * caller passes them, so the two halves of the contract cannot be flipped
+ * independently.
+ */
+export function FlowsheetColumnSizingRow({
+  leadingTimeColumn = false,
+}: {
+  leadingTimeColumn?: boolean;
+} = {}) {
   return (
     <tr>
+      {leadingTimeColumn && (
+        <td className="col-time" style={{ width: `${FLOWSHEET_COL_TIME_PX}px` }}></td>
+      )}
       <td style={{ width: `${FLOWSHEET_COL_ART_PX}px` }}></td>
       <td className="col-artist"></td>
       <td></td>

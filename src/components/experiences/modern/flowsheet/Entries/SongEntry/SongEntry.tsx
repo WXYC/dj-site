@@ -10,6 +10,7 @@ import { AspectRatio, Box, IconButton, Stack, Tooltip } from "@mui/joy";
 import { useDragControls } from "motion/react";
 import { memo, useState } from "react";
 import DragButton from "../Components/DragButton";
+import EntryTimeCell from "../Components/EntryTimeCell";
 import DraggableEntryWrapper from "../DraggableEntryWrapper";
 import { flowsheetChipsReservePx, FLOWSHEET_XL_QUERY } from "../tableStyles";
 import FlowsheetEntryField from "./FlowsheetEntryField";
@@ -25,11 +26,17 @@ const SongEntry = memo(function SongEntry({
   queue,
   entry,
   draggable = true,
+  readOnly = false,
+  timeLabel,
 }: {
   playing: boolean;
   queue: boolean;
   entry: FlowsheetSongEntry;
   draggable?: boolean;
+  /** Suppresses every editing affordance, whatever the live-show state says. */
+  readOnly?: boolean;
+  /** The leading Time cell's label; see EntryTimeCell for the column contract. */
+  timeLabel?: string;
 }) {
   const { live, autoplay, currentShow } = useShowControl();
   const playNow = usePlayNow(entry);
@@ -46,7 +53,9 @@ const SongEntry = memo(function SongEntry({
   // mismatch.
   const isXl = useMediaQuery(FLOWSHEET_XL_QUERY);
 
-  const editable = queue || (live && entry.show_id == currentShow);
+  // An archive surface says read-only outright rather than relying on this
+  // resolving false, which would tie a view of a past set to live-show state.
+  const editable = !readOnly && (queue || (live && entry.show_id == currentShow));
 
   const image = entry.artwork_url ?? "/img/cassette.png";
 
@@ -74,6 +83,7 @@ const SongEntry = memo(function SongEntry({
         opacity: queue ? 0.85 : 1,
       }}
     >
+      {timeLabel !== undefined && <EntryTimeCell label={timeLabel} />}
       <td
         style={{ position: "relative" }}
         onMouseEnter={handleMouseEnter}

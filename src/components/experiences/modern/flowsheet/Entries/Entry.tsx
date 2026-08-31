@@ -18,16 +18,31 @@ const Entry = memo(function Entry({
   entry,
   playing,
   draggable = false,
+  readOnly = false,
+  timeLabel,
 }: {
   entry: FlowsheetEntry;
   playing: boolean;
   draggable?: boolean;
+  /**
+   * Suppresses every editing affordance on the row, whatever the live-show
+   * state says. An archive surface passes this rather than leaning on the
+   * live row's own `editable` resolving false, which would make a view of a
+   * years-old set depend on who happens to be on the air right now.
+   */
+  readOnly?: boolean;
+  /**
+   * Renders the row's leading Time cell — the 7th column unit. Pass it only
+   * alongside `FlowsheetColumnSizingRow`'s `leadingTimeColumn`, or fixed-layout
+   * sizing degrades.
+   */
+  timeLabel?: string;
 }) {
   // Markers count in position math (the server renumbers every entry type)
   // but are never themselves draggable.
   const isMarker =
     isFlowsheetStartShowEntry(entry) || isFlowsheetEndShowEntry(entry);
-  const resolvedDraggable = draggable && !isMarker;
+  const resolvedDraggable = draggable && !isMarker && !readOnly;
 
   if (isFlowsheetSongEntry(entry)) {
     return (
@@ -36,6 +51,8 @@ const Entry = memo(function Entry({
         entry={entry}
         queue={false}
         draggable={resolvedDraggable}
+        readOnly={readOnly}
+        timeLabel={timeLabel}
       />
     );
   }
@@ -58,6 +75,8 @@ const Entry = memo(function Entry({
       color={p.color}
       variant="soft"
       disableEditing={!p.editable}
+      readOnly={readOnly}
+      timeLabel={timeLabel}
       draggable={resolvedDraggable}
     >
       <Stack direction="row" spacing={0.5}>

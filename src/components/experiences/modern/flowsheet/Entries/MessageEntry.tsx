@@ -17,6 +17,7 @@ import {
 } from "@mui/joy";
 import { useDragControls } from "motion/react";
 import DragButton from "./Components/DragButton";
+import EntryTimeCell from "./Components/EntryTimeCell";
 import RemoveButton from "./Components/RemoveButton";
 import DraggableEntryWrapper from "./DraggableEntryWrapper";
 import { FLOWSHEET_XL_QUERY } from "./tableStyles";
@@ -29,6 +30,8 @@ export default function MessageEntry({
   variant,
   entry,
   disableEditing = false,
+  readOnly = false,
+  timeLabel,
   draggable = true,
 }: {
   startDecorator?: React.ReactNode;
@@ -37,7 +40,12 @@ export default function MessageEntry({
   color: ColorPaletteProp;
   variant: VariantProp;
   entry: FlowsheetEntry;
+  /** This row type is never editable (the show markers). */
   disableEditing?: boolean;
+  /** This surface never edits, whatever the live-show state says. */
+  readOnly?: boolean;
+  /** The leading Time cell's label; see EntryTimeCell for the column contract. */
+  timeLabel?: string;
   draggable?: boolean;
 }) {
   const { live, currentShow } = useShowControl();
@@ -46,7 +54,7 @@ export default function MessageEntry({
 
   const isXl = useMediaQuery(FLOWSHEET_XL_QUERY);
 
-  const editable = entry.show_id == currentShow && !disableEditing;
+  const editable = !readOnly && entry.show_id == currentShow && !disableEditing;
 
   return (
     <DraggableEntryWrapper
@@ -61,6 +69,7 @@ export default function MessageEntry({
         borderRadius: "md",
       }}
     >
+      {timeLabel !== undefined && <EntryTimeCell label={timeLabel} />}
       <td style={{ position: "relative" }}>
         {live && editable && draggable && <DragButton controls={controls} />}
         <AspectRatio
