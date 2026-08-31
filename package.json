@@ -64,7 +64,7 @@
     "@vitest/coverage-v8": "^4.1.11",
     "@vitest/ui": "^4.0.18",
     "bats": "^1.11.0",
-    "eslint": "^9.39.5",
+    "eslint": "^10.9.1",
     "eslint-config-next": "^16.3.3",
     "jsdom": "^30.0.1",
     "msw": "^2.15.0",
