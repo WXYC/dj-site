@@ -616,7 +616,9 @@ describe("V/A tracklist-confirm step", () => {
       await user.click(await screen.findByRole("button", { name: "Save Tracks" }));
 
       await waitFor(() =>
-        expect(screen.getByText(/Couldn't check which credits the last attempt saved/)).toBeInTheDocument(),
+        expect(
+          screen.getByText(/Couldn't check which credits are already on file/),
+        ).toBeInTheDocument(),
       );
       // Nothing locked, because nothing is known — so the write is refused at
       // the button rather than left live over an unknown stored state.
