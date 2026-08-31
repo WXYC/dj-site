@@ -29,10 +29,17 @@ type DraftRow = {
   track_position: string;
 };
 
-/** Where the current rows came from, so the heading can't outlive what it describes. */
+/**
+ * Where the current rows came from, so the heading can't outlive what it
+ * describes. The manual arm carries its reason because the three ways of
+ * arriving there are not interchangeable: "Discogs had nothing", "Discogs had
+ * only what is already filed", and "the librarian chose to type them" are
+ * three different claims, and stating the first when either of the others is
+ * true is the false negative this whole component is arranged to prevent.
+ */
 type Seed =
-  | { kind: "discogs"; importedCount: number }
-  | { kind: "manual" };
+  | { kind: "discogs"; importedCount: number; alreadyFiledCount: number }
+  | { kind: "manual"; reason: "no-match" | "all-filed" | "chosen" };
 
 let nextRowKey = 0;
 const blankRow = (): DraftRow => ({
@@ -67,37 +74,59 @@ export type VaTracklistStepProps = {
   onSave: (tracks: CompilationTrackInput[]) => void;
   onSkip: () => void;
   isSaving: boolean;
+  /** Label for the affordance that leaves without saving. */
+  skipLabel?: string;
   /**
-   * Set once a write has been attempted against this release. Until then the
-   * release is known-empty and the stored-credit read would be a wasted request.
+   * Whether this release could already hold per-track credits.
+   *
+   * Defaults to `true`, the reading that is safe for any release the caller
+   * did not itself just create: a caller that says nothing gets the
+   * conservative behaviour, and the cheaper `false` has to be claimed out
+   * loud. Passing `false` asserts that nothing has written credits for this
+   * release — true only in the moments after an add, before any write has been
+   * attempted — and buys one skipped request in exchange for that claim.
    */
-  hasAttemptedWrite: boolean;
+  mayAlreadyHoldCredits?: boolean;
 };
 
 /**
- * Per-track artist capture for a Various-Artists release, shown once the
- * release itself exists. Without it a V/A add files a compilation whose tracks
- * are individually unfindable — release-level search is the only thing that
- * would ever match them.
+ * Per-track artist capture for a Various-Artists release. Without it a
+ * compilation is filed with tracks that are individually unfindable —
+ * release-level search is the only thing that would ever match them.
  *
- * Only reachable from inside the add-release panel, which the MD authorization
- * gate wraps whole. That gate, not this component, is what holds the
- * suggestions read to the librarian bar the backend enforces on it — the read
- * triggers upstream Discogs work and is deliberately not a catalog-read route.
+ * Two callers, and the difference between them is one prop. The add-release
+ * panel shows it for a release created seconds earlier, where nothing can yet
+ * be on file; the album detail panel shows it for a release of any age, where
+ * anything may be. Both are wrapped whole by the MD authorization gate, which
+ * — not this component — is what holds the suggestions read to the librarian
+ * bar the backend enforces on it: that read triggers upstream Discogs work and
+ * is deliberately not a catalog-read route.
  *
- * The write behind `onSave` can only add credits, never amend or remove one, so
- * a credit that reaches storage is permanent as far as this panel is concerned.
- * That is safe on the first write, into a release created moments earlier. It
- * stops being safe the instant a write has been *attempted*: a request that
- * commits and then fails to deliver its response leaves rows behind, and since
- * `artist_name` is part of the server's uniqueness key, re-submitting a
- * corrected spelling files it alongside the original rather than replacing it.
+ * **It is a confirmation surface, not a data-entry one.** Nobody hand-types
+ * per-track artists for a twenty-track compilation, so Discogs fills the form
+ * on arrival and the librarian confirms or corrects it. Hand entry survives
+ * only for the cases that earn it, and they are kept strictly apart — Discogs
+ * answering with nothing, Discogs answering with only what is already filed,
+ * and Discogs not answering at all. Rendering an outage as "no match" is what
+ * costs a librarian a tracklist typed by hand for a release Discogs would have
+ * supplied a minute later.
  *
- * So after any attempt, saving again is gated on a successful read of what
- * actually landed. If that read has not succeeded, the panel does not know what
- * is out there and refuses to write rather than guessing — an unreadable
- * backend is exactly the one whose earlier write is most likely to have
- * half-succeeded.
+ * The write behind `onSave` can only add credits, never amend or remove one,
+ * so a credit that reaches storage is permanent as far as this panel is
+ * concerned. Everything below follows from that:
+ *
+ * - Credits already on file are dropped from the seed rather than offered back
+ *   as editable rows. Re-offering one invites a correction, and since
+ *   `artist_name` is part of the server's uniqueness key, a corrected spelling
+ *   is filed *beside* the original rather than replacing it.
+ * - A credit that lands after the rows were seeded — the residue of a write
+ *   that committed and then failed to deliver its response — is locked in
+ *   place instead, since by then it is on screen and cannot be silently
+ *   withdrawn.
+ * - Saving is refused whenever the stored-credit read has not succeeded. If
+ *   that read has not landed, the panel does not know what is out there and
+ *   refuses to write rather than guessing — an unreadable backend is exactly
+ *   the one whose earlier write is most likely to have half-succeeded.
  */
 export default function VaTracklistStep({
   libraryId,
@@ -105,7 +134,8 @@ export default function VaTracklistStep({
   onSave,
   onSkip,
   isSaving,
-  hasAttemptedWrite,
+  skipLabel = "Skip for now",
+  mayAlreadyHoldCredits = true,
 }: VaTracklistStepProps) {
   const {
     data: suggestions,
@@ -114,14 +144,15 @@ export default function VaTracklistStep({
     refetch,
   } = useGetCompilationTrackSuggestionsQuery({ libraryId });
 
-  // Skipped until a write has been attempted: before that the release was just
-  // created and provably holds nothing.
   const {
     data: stored,
     isError: storedFailed,
     isFetching: storedFetching,
     refetch: refetchStored,
-  } = useGetCompilationTracksQuery({ libraryId }, { skip: !hasAttemptedWrite });
+  } = useGetCompilationTracksQuery(
+    { libraryId },
+    { skip: !mayAlreadyHoldCredits },
+  );
 
   const [rows, setRows] = useState<DraftRow[] | null>(null);
   // What the current rows are, and what they were seeded from. Set together and
@@ -141,14 +172,31 @@ export default function VaTracklistStep({
     CompilationTrack[] | null
   >(null);
 
-  if (suggestions && seed === null) {
-    const imported = suggestions.tracks;
-    setSeed(
-      imported.length > 0
-        ? { kind: "discogs", importedCount: imported.length }
-        : { kind: "manual" },
+  // What the release holds, known only once the read has actually succeeded —
+  // never inferred from an empty array, which is indistinguishable from "not
+  // loaded yet" the moment this component mounts. A failed refetch leaves the
+  // previous payload in `stored`; that payload predates the write that
+  // prompted the refetch, so it does not count as knowing.
+  const storedKnown = !!stored && !storedFailed && !storedFetching;
+
+  if (suggestions && (!mayAlreadyHoldCredits || storedKnown) && seed === null) {
+    const alreadyFiled = new Set((stored?.tracks ?? []).map(creditKey));
+    const fresh = suggestions.tracks.filter(
+      (track) => !alreadyFiled.has(creditKey(track)),
     );
-    setRows(imported.length > 0 ? imported.map(rowFromSuggestion) : [blankRow()]);
+    const alreadyFiledCount = suggestions.tracks.length - fresh.length;
+    if (fresh.length > 0) {
+      setSeed({ kind: "discogs", importedCount: fresh.length, alreadyFiledCount });
+      setRows(fresh.map(rowFromSuggestion));
+    } else {
+      // Discogs having matched every track that is already filed is not Discogs
+      // having no match, and the sleeve may still hold one it missed.
+      setSeed({
+        kind: "manual",
+        reason: alreadyFiledCount > 0 ? "all-filed" : "no-match",
+      });
+      setRows([blankRow()]);
+    }
   }
 
   // RTK Query hands back a stable reference while the payload is unchanged, so
@@ -167,7 +215,7 @@ export default function VaTracklistStep({
   // to pass itself off as "Discogs matched nothing", which is the one reading
   // that costs the librarian a hand-typed tracklist.
   const startManualEntry = () => {
-    setSeed({ kind: "manual" });
+    setSeed({ kind: "manual", reason: "chosen" });
     setRows([blankRow()]);
   };
 
@@ -192,22 +240,43 @@ export default function VaTracklistStep({
     .filter((track) => track.artist_name.length > 0);
 
   const lockedCount = (rows ?? []).filter(isLocked).length;
-  // After an attempt, `stored` is the only account of what the release holds.
-  // Until it arrives, what a second write would add is unknown.
-  const reconciled = !hasAttemptedWrite || (!!stored && !storedFetching);
+  // `stored` is the only account of what the release holds. Until it arrives,
+  // what a write would add to is unknown.
+  const reconciled = !mayAlreadyHoldCredits || storedKnown;
 
   if (rows === null || seed === null) {
+    // The stored read decides which suggestions are already filed, so its
+    // failure blocks seeding for the same reason it blocks saving: offering a
+    // credit that is already on file would file it twice.
+    if (storedFailed && !storedFetching) {
+      return (
+        <Stack spacing={1.5}>
+          <Sheet variant="soft" color="danger" role="alert" sx={{ p: 1, borderRadius: "sm" }}>
+            <Typography level="body-sm">
+              {`Couldn't check which credits "${albumTitle}" already holds, so its tracklist can't be filled in yet — offering a credit that is already on file would file it twice.`}
+            </Typography>
+          </Sheet>
+          <Stack direction="row" spacing={1} justifyContent="flex-end">
+            <Button variant="plain" onClick={onSkip}>
+              {skipLabel}
+            </Button>
+            <Button onClick={() => refetchStored()}>Try again</Button>
+          </Stack>
+        </Stack>
+      );
+    }
+
     if (isError && !isFetching) {
       return (
         <Stack spacing={1.5}>
           <Sheet variant="soft" color="warning" role="alert" sx={{ p: 1, borderRadius: "sm" }}>
             <Typography level="body-sm">
-              {`"${albumTitle}" was saved, but the Discogs tracklist couldn't be fetched. This isn't the same as Discogs having no match — retrying may still import the tracks.`}
+              {`The Discogs tracklist for "${albumTitle}" couldn't be fetched. This isn't the same as Discogs having no match — retrying may still import the tracks.`}
             </Typography>
           </Sheet>
           <Stack direction="row" spacing={1} justifyContent="flex-end">
             <Button variant="plain" onClick={onSkip}>
-              Skip for now
+              {skipLabel}
             </Button>
             <Button variant="outlined" onClick={startManualEntry}>
               Enter tracks manually
@@ -227,8 +296,14 @@ export default function VaTracklistStep({
 
   const heading =
     seed.kind === "discogs"
-      ? `Imported ${seed.importedCount} ${seed.importedCount === 1 ? "track" : "tracks"} from Discogs for "${albumTitle}". Confirm or correct the per-track artists before saving.`
-      : `No Discogs tracklist matched "${albumTitle}". Add the per-track artists by hand, or skip and file the release without them.`;
+      ? seed.alreadyFiledCount > 0
+        ? `Imported ${seed.importedCount} new ${seed.importedCount === 1 ? "track" : "tracks"} from Discogs for "${albumTitle}"; ${seed.alreadyFiledCount} ${seed.alreadyFiledCount === 1 ? "was" : "were"} already on file. Confirm or correct the per-track artists before saving.`
+        : `Imported ${seed.importedCount} ${seed.importedCount === 1 ? "track" : "tracks"} from Discogs for "${albumTitle}". Confirm or correct the per-track artists before saving.`
+      : seed.reason === "no-match"
+        ? `No Discogs tracklist matched "${albumTitle}". Add the per-track artists by hand, or leave them for now.`
+        : seed.reason === "all-filed"
+          ? `Discogs matched "${albumTitle}", and every track it lists is already on file. Add anything it missed by hand.`
+          : `Entering the per-track artists for "${albumTitle}" by hand.`;
 
   return (
     <Stack spacing={1.5}>
@@ -242,23 +317,25 @@ export default function VaTracklistStep({
         </Sheet>
       )}
 
-      {hasAttemptedWrite && !reconciled && (
+      {/* Only the failure is announced. A read that is merely in flight —
+          which is every read the write invalidates, successful ones included —
+          leaves the Save button disabled and says nothing: a danger banner
+          raised on the routine case would cry wolf over the one case that is
+          actually dangerous. */}
+      {storedFailed && !storedFetching && (
         <Sheet variant="soft" color="danger" role="alert" sx={{ p: 1, borderRadius: "sm" }}>
           <Typography level="body-sm">
-            {storedFailed
-              ? "Couldn't check which credits the last attempt saved, so saving again could file duplicates that can't be removed here."
-              : "Checking which credits the last attempt saved…"}
+            Couldn&apos;t check which credits are already on file, so saving could file
+            duplicates that can&apos;t be removed here.
           </Typography>
-          {storedFailed && (
-            <Button
-              size="sm"
-              variant="outlined"
-              sx={{ mt: 1 }}
-              onClick={() => refetchStored()}
-            >
-              Check again
-            </Button>
-          )}
+          <Button
+            size="sm"
+            variant="outlined"
+            sx={{ mt: 1 }}
+            onClick={() => refetchStored()}
+          >
+            Check again
+          </Button>
         </Sheet>
       )}
 
@@ -336,11 +413,12 @@ export default function VaTracklistStep({
         </Button>
         <Stack direction="row" spacing={1}>
           <Button variant="plain" disabled={isSaving} onClick={onSkip}>
-            Skip for now
+            {skipLabel}
           </Button>
           {/* Disabled rather than silently closing on an empty list: a save that
               files nothing is indistinguishable from one that files twelve
-              credits, and "Skip for now" is the affordance that means this. */}
+              credits, and the leave-without-saving affordance is what means
+              this. */}
           <Button
             loading={isSaving}
             disabled={submittable.length === 0 || !reconciled}

@@ -30,6 +30,10 @@ vi.mock("@/src/components/experiences/modern/Rightbar/panels/album/Tracklist", (
   default: () => <span>mocked tracklist</span>,
 }));
 
+vi.mock("@/src/components/experiences/modern/Rightbar/panels/album/CompilationCreditsControl", () => ({
+  default: () => <span>mocked compilation credits control</span>,
+}));
+
 const defaultProps = {
   artworkUrl: "https://example.com/cover.jpg",
   metadata: null,
@@ -61,16 +65,24 @@ function createTestMetadata(overrides: Partial<AlbumMetadata> = {}): AlbumMetada
 }
 
 describe("AlbumCard Various Artists display", () => {
-  it("should display 'Various Artists' in the title when album_artist is set", () => {
+  // `album_artist` is written by the nightly catalog import and by nothing
+  // else, and is empty for every row on the compilation shelf — so a title
+  // that branched on it rendered for no release it was written for, while
+  // displacing the shelf name that tells one compilation bucket from another.
+  it("titles the card with the shelf's own artist name even when album_artist is set", () => {
     const album = createTestAlbum({
-      artist: createTestArtist({ name: "Autechre", lettercode: "EL", numbercode: 5 }),
-      album_artist: "Autechre",
-      title: "All Tomorrow's Parties",
+      artist: createTestArtist({
+        name: "Various Artists - Rock - S",
+        lettercode: "V/A",
+        numbercode: 0,
+      }),
+      album_artist: "Stereolab",
+      title: "Aluminum Tunes",
     });
 
     renderWithProviders(<AlbumCard album={album} {...defaultProps} />);
 
-    expect(screen.getByText(/Various Artists/)).toBeInTheDocument();
+    expect(screen.getByText(/Various Artists - Rock - S/)).toBeInTheDocument();
   });
 
   it("should display album_artist as subtext when set", () => {
