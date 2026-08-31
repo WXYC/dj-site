@@ -48,7 +48,10 @@ export default function AlbumDetailPanel({ albumId }: { albumId: number }) {
 
   return (
     <RightbarPanelContainer
-      title={album.album_artist ? "Various Artists" : album.artist.name}
+      // See AlbumCard: `album_artist` is empty for every row on the
+      // compilation shelf, so the branch that used to read it here titled no
+      // panel it was written for and displaced the shelf name for the rest.
+      title={album.artist.name}
       subtitle={album.title}
       onClose={handleClose}
     >

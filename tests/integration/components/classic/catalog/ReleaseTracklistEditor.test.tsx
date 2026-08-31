@@ -366,6 +366,36 @@ describe("Classic ReleaseTracklistEditor", () => {
       expect(screen.queryByDisplayValue("Back, Baby")).toBeNull();
     });
 
+    // A release whose whole Discogs tracklist is already filed is not a release
+    // Discogs knows nothing about. Told the latter, the librarian goes to the
+    // sleeve and re-types credits that are sitting in the table above the form,
+    // through an endpoint that files the retypings beside the originals.
+    it("does not report a fully-filed release as Discogs having no match", async () => {
+      mockGetInformationQuery.mockReturnValue({ data: vaAlbum(), isLoading: false, isError: false });
+      mockGetCompilationTracksQuery.mockReturnValue({
+        data: {
+          library_id: VA_ALBUM_ID,
+          tracks: [
+            { id: 1, artist_name: "Jessica Pratt", track_title: "Back, Baby", track_position: "2" },
+          ],
+        },
+        isError: false,
+        isFetching: false,
+        refetch: mockRefetchStored,
+      });
+      suggest([
+        { artist_name: "Jessica Pratt", track_title: "Back, Baby", track_position: "2" },
+      ]);
+
+      renderWithProviders(<ReleaseTracklistEditor albumId={VA_ALBUM_ID} />);
+
+      const seed = await screen.findByTestId("release-tracklist-seed");
+      expect(seed.textContent).toContain("already on file");
+      expect(seed.textContent).not.toContain("no tracklist");
+      // Still a blank row: the sleeve may hold a track Discogs missed.
+      expect(screen.getByLabelText("Artist for track 1")).toBeDefined();
+    });
+
     it("says so and offers a blank row when Discogs genuinely has nothing", async () => {
       mockGetInformationQuery.mockReturnValue({ data: vaAlbum(), isLoading: false, isError: false });
       suggest([]);
