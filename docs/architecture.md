@@ -152,6 +152,15 @@ They live in the URL because a DJ sending a colleague a specific week is the obv
 - `shows` is returned on *overlap* but `entries` is filtered on `add_time`, so a show straddling the week edge arrives complete in the grid and truncated in the entry stream. Every week has one — the show on the air at Sunday midnight. `useShowEntries` detects the uncontained span, fetches the show's own window, and merges by entry id; if that request fails the panel says the list is partial rather than presenting the fragment as the whole set.
 - A null `end_time` means either "on the air" or "sign-off was dropped and the column stayed null permanently", and the two are indistinguishable from the field. It resolves from the `show_end` marker row, then clips to now only for a show that began within the last day, and otherwise draws at minimum height with an open bottom edge.
 
+**The modern drill-in renders the flowsheet's own row elements, read-only.** `ShowEntriesPanel` adapts each wire row with `convertRangeEntry` and hands it to `Entry`, so markers get the live sheet's icons and tones and playcuts get the full status-chip set including the rotation bin. Two things make that reuse work:
+
+- **`readOnly` is threaded explicitly, never inferred.** The live row already computes `editable` false on an archive page, but it gets there through `useShowControl`, which would tie a view of a years-old set to who is on the air right now. `Entry`, `SongEntry` and `MessageEntry` each take a `readOnly` prop that wins outright.
+- **The Time column is a declared 7th column unit.** `FlowsheetColumnSizingRow` takes a `leadingTimeColumn` variant, and the rows render their leading time cell from the `timeLabel` the caller passes. Both halves are driven by the same call site so the column contract cannot be half-flipped. Breakpoint rows label from `radio_hour`, not `add_time`, which reads the wrong hour.
+
+The rotation chip on an archived play means the release was in rotation *at some point*: the read-path window is not evaluated against the air date, so nothing on this surface may describe the badge as the bin the play aired under.
+
+Both experiences take their marker copy from `messageEntryLabel`/`getMessageEntryPresentation`, the one switch that also drives the live sheet's icons and tones. The range endpoint serves tubafrenzy's raw marker column (`TALKSET`, `--- 3:00 PM BREAKPOINT ---`) where `GET /flowsheet` serves the normalized text that switch keys on, so `convertRangeEntry` normalizes it; skipping that step costs the row its icon and tone silently.
+
 ### Classic stylesheets
 
 Classic reproduces tubafrenzy's screens, so its CSS is organised by the surface it mirrors rather than by component. All of it lives in `src/styles/classic/` and is imported by the component that needs it.
