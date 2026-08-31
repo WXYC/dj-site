@@ -97,3 +97,15 @@ export function getMessageEntryPresentation(
     editable: true,
   };
 }
+
+/**
+ * A message row's copy as one line, e.g. "DJ Chowder started the set".
+ *
+ * For surfaces that render the marker as text rather than as a row — the
+ * classic schedule drill-in — so they read the same switch as the row
+ * renderers instead of keeping a third copy of it.
+ */
+export function messageEntryLabel(entry: FlowsheetEntry): string {
+  const { headline, caption } = getMessageEntryPresentation(entry);
+  return caption ? `${headline} ${caption}` : headline;
+}
