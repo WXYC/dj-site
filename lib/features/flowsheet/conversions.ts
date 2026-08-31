@@ -1,5 +1,10 @@
+import type { FlowsheetRangeEntry } from "@wxyc/shared";
 import { Rotation } from "../rotation/types";
-import { formatStationDateTime } from "@/src/utilities/stationTime";
+import {
+  breakpointMessageForHourLabel,
+  formatStationClockTime,
+  formatStationDateTime,
+} from "@/src/utilities/stationTime";
 import { OFF_AIR_LABEL } from "./constants";
 import { hasLinkedAlbumId } from "./linkage";
 import { formatNameList } from "./name-list";
@@ -7,6 +12,7 @@ import { seedableArtistName } from "./various-artists-guard";
 import {
   FlowsheetEntry,
   FlowsheetQuery,
+  FlowsheetSongEntry,
   FlowsheetSubmissionParams,
   FlowsheetV2EntryJSON,
   FlowsheetV2PaginatedResponseJSON,
@@ -320,6 +326,165 @@ export function convertV2Entry(entry: FlowsheetV2EntryJSON): FlowsheetEntry {
 
     default:
       throw new Error(`Unknown entry type: ${(entry as any).entry_type}`);
+  }
+}
+
+/**
+ * `on_streaming` rides the `GET /flowsheet/range` payload without being declared
+ * on `FlowsheetEntryFields`. Widened here rather than dropped: the EXCLUSIVE
+ * chip is its only reader and tests `=== false`, so an absent field is simply
+ * no chip.
+ */
+type FlowsheetRangeEntryWire = FlowsheetRangeEntry & {
+  on_streaming?: boolean | null;
+};
+
+// Both the client type guard and the backend's entry-type inference
+// discriminate on this word, so only its casing may ever be rewritten.
+const TALKSET_LABEL = "Talkset";
+
+// Legacy marker text arrives wrapped in a run of rules ("--- TALKSET ---").
+const MARKER_DECORATION = /^[\s\-\u2013\u2014*]+|[\s\-\u2013\u2014*]+$/g;
+
+const CLOCK_TIME = /(\d{1,2}):(\d{2})\s*([AP])\.?M\.?/i;
+
+/**
+ * A talkset row's message in the spelling the row switch recognizes.
+ *
+ * `GET /flowsheet` serves "Talkset"; `GET /flowsheet/range` serves the raw
+ * legacy column, which is the uppercase token. Only the casing is rewritten —
+ * a row that says more than the token keeps everything it says.
+ */
+function recognizableTalksetMessage(raw: string | undefined): string {
+  const text = (raw ?? "").replace(MARKER_DECORATION, "");
+  if (!text) return TALKSET_LABEL;
+  if (text.includes(TALKSET_LABEL)) return text;
+  const cased = text.replace(/talkset/i, TALKSET_LABEL);
+  return cased === text ? `${TALKSET_LABEL}: ${text}` : cased;
+}
+
+/**
+ * The clock time a breakpoint row names in its own text, e.g.
+ * "--- 3:00 PM BREAKPOINT ---" → "3:00 PM"; "" when it names none.
+ *
+ * Only consulted when `radio_hour` is absent, which is every row predating that
+ * column's producer. Read off the row rather than rounded off `add_time`: rows
+ * are logged either side of the hour they mark, so rounding would put an hour
+ * on the row that the row never claimed.
+ */
+function clockTimeNamedInMessage(raw: string | undefined): string {
+  const match = raw?.match(CLOCK_TIME);
+  return match
+    ? `${Number(match[1])}:${match[2]} ${match[3].toUpperCase()}M`
+    : "";
+}
+
+// Station wall clock rather than the viewer's: an archived set reads in the
+// zone it was broadcast from, whoever is looking at it.
+function stationDayTime(isoString: string | null | undefined): {
+  day: string;
+  time: string;
+  isToday: boolean;
+} {
+  if (!isoString) return { day: "Unknown", time: "Unknown", isToday: false };
+  if (Number.isNaN(new Date(isoString).getTime())) {
+    return { day: "Unknown", time: "Unknown", isToday: false };
+  }
+  return formatStationDateTime(isoString);
+}
+
+/**
+ * A `GET /flowsheet/range` row as the app's flowsheet entry, so an archive
+ * surface can render a past set with the live flowsheet's own row elements
+ * instead of a fourth copy of them.
+ *
+ * `FlowsheetRangeEntry` and `FlowsheetEntryResponse` are pinned to one field
+ * set by the contract, so most of this is the same rename `convertV2Entry`
+ * does (`rotation_bin` → `rotation`). What it adds is the normalization the
+ * live endpoint performs server-side and the range endpoint does not: the range
+ * payload carries the raw legacy marker column ("TALKSET",
+ * "--- 3:00 PM BREAKPOINT ---") where `GET /flowsheet` carries "Talkset" and
+ * "3:00 PM Breakpoint". The row presentation switch keys on that text, so an
+ * un-normalized row silently loses its icon and tone to the generic arm.
+ *
+ * Every branch returns a row. An entry type this build has never seen still
+ * renders, because the vocabulary is server-owned and a missing arm in a
+ * displayable-types switch makes the row disappear rather than fail loudly.
+ */
+export function convertRangeEntry(entry: FlowsheetRangeEntry): FlowsheetEntry {
+  const wire = entry as FlowsheetRangeEntryWire;
+
+  const base = {
+    id: entry.id,
+    play_order: entry.play_order,
+    // -1 mirrors primaryShowId's no-show sentinel; 0 collides with a real show
+    // id and would mis-partition unattributed entries into it.
+    show_id: entry.show_id ?? -1,
+    add_time: entry.add_time,
+  };
+
+  const asTrack = (): FlowsheetSongEntry => ({
+    ...base,
+    track_title: entry.track_title || "",
+    artist_name: entry.artist_name || "",
+    album_title: entry.album_title || "",
+    record_label: entry.record_label || "",
+    request_flag: entry.request_flag ?? false,
+    segue: entry.segue ?? undefined,
+    album_id: entry.album_id ?? undefined,
+    rotation_id: entry.rotation_id ?? undefined,
+    rotation: entry.rotation_bin ?? undefined,
+    on_streaming: wire.on_streaming ?? undefined,
+    artwork_url: entry.artwork_url ?? undefined,
+    discogsUnavailable: entry.discogsUnavailable ?? undefined,
+    discogsUnavailableNote: entry.discogsUnavailableNote ?? undefined,
+  });
+
+  const asMessage = (message: string): FlowsheetEntry => ({ ...base, message });
+
+  // dj_join / dj_leave carry no message at all — their content is dj_name — so
+  // they share the show markers' shape. The live flowsheet gives the two pairs
+  // one presentation, and this is where that equivalence is decided.
+  const asMarker = (isStart: boolean): FlowsheetEntry => ({
+    ...base,
+    dj_name: entry.dj_name ?? "",
+    isStart,
+    ...stationDayTime(entry.add_time),
+  });
+
+  switch (entry.entry_type) {
+    case undefined:
+    case "track":
+      return asTrack();
+
+    case "show_start":
+    case "dj_join":
+      return asMarker(true);
+
+    case "show_end":
+    case "dj_leave":
+      return asMarker(false);
+
+    case "talkset":
+      return asMessage(recognizableTalksetMessage(entry.message));
+
+    case "breakpoint":
+      return {
+        ...base,
+        message: breakpointMessageForHourLabel(
+          entry.radio_hour
+            ? formatStationClockTime(entry.radio_hour)
+            : clockTimeNamedInMessage(entry.message)
+        ),
+        ...stationDayTime(entry.radio_hour ?? entry.add_time),
+      };
+
+    case "message":
+      return asMessage(entry.message ?? "");
+
+    default:
+      // A row carrying a track title is a play; anything else is text.
+      return entry.track_title ? asTrack() : asMessage(entry.message ?? "");
   }
 }
 

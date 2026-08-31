@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   convertQueryToSubmission,
   convertDJsOnAir,
+  convertRangeEntry,
   convertV2Entry,
   convertV2FlowsheetResponse,
   entryToFreezePayload,
@@ -29,6 +30,13 @@ import type {
   FlowsheetMessageEntry,
   OnAirDJResponse,
 } from "@/lib/features/flowsheet/types";
+import {
+  isFlowsheetBreakpointEntry,
+  isFlowsheetSongEntry,
+  isFlowsheetTalksetEntry,
+} from "@/lib/features/flowsheet/types";
+import type { FlowsheetRangeEntry } from "@wxyc/shared";
+import { FlowsheetEntryType } from "@wxyc/shared/dtos";
 import { Rotation } from "@/lib/features/rotation/types";
 
 /** The shape `convertQueryToSubmission` actually returns (the artist_name variant, plus album_id/rotation_id/rotation_bin). */
@@ -976,6 +984,182 @@ describe("flowsheet conversions", () => {
       ).toEqual(
         expect.objectContaining({ artistProvided: false, album_id: undefined })
       );
+    });
+  });
+
+  // `GET /flowsheet/range` carries the same field set as `GET /flowsheet` but
+  // serves the raw legacy marker column instead of the normalized text the live
+  // endpoint produces, so the archive adapter is where that normalization has
+  // to happen: the row presentation switch keys on the message text.
+  describe("convertRangeEntry", () => {
+    const rangeEntry = (
+      over: Partial<FlowsheetRangeEntry> & { id: number }
+    ): FlowsheetRangeEntry =>
+      ({
+        play_order: 1,
+        show_id: TEST_ENTITY_IDS.SHOW.CURRENT_SHOW,
+        request_flag: false,
+        add_time: "2026-08-27T19:03:39.466Z",
+        entry_type: "track",
+        ...over,
+      }) as FlowsheetRangeEntry;
+
+    it("renames rotation_bin onto the field the status chips read", () => {
+      const converted = convertRangeEntry(
+        rangeEntry({
+          id: 1,
+          artist_name: "Juana Molina",
+          track_title: "la paradoja",
+          rotation_bin: "H",
+        })
+      ) as FlowsheetSongEntry;
+
+      expect(converted.rotation).toBe("H");
+    });
+
+    it("carries the flags a read-only song row renders as chips", () => {
+      const converted = convertRangeEntry(
+        rangeEntry({
+          id: 2,
+          artist_name: "Jessica Pratt",
+          track_title: "Back, Baby",
+          request_flag: true,
+          segue: true,
+          on_streaming: false,
+        } as Partial<FlowsheetRangeEntry> & { id: number })
+      ) as FlowsheetSongEntry;
+
+      expect(converted).toMatchObject({
+        request_flag: true,
+        segue: true,
+        on_streaming: false,
+      });
+    });
+
+    it.each([
+      ["show_start", true],
+      ["dj_join", true],
+      ["show_end", false],
+      ["dj_leave", false],
+    ] as const)(
+      "maps %s onto a show-marker row carrying the DJ name",
+      (entry_type, isStart) => {
+        // These four carry no message at all -- their content is dj_name -- so
+        // a message-shaped conversion renders them blank.
+        const converted = convertRangeEntry(
+          rangeEntry({ id: 3, entry_type, dj_name: "DJ Chowder" })
+        ) as FlowsheetShowBlockEntry;
+
+        expect(isFlowsheetSongEntry(converted)).toBe(false);
+        expect(converted.dj_name).toBe("DJ Chowder");
+        expect(converted.isStart).toBe(isStart);
+      }
+    );
+
+    it("normalizes the legacy talkset token so the shared row switch recognizes it", () => {
+      const converted = convertRangeEntry(
+        rangeEntry({ id: 4, entry_type: "talkset", message: "TALKSET" })
+      ) as FlowsheetMessageEntry;
+
+      expect(converted.message).toBe("Talkset");
+      expect(isFlowsheetTalksetEntry(converted)).toBe(true);
+    });
+
+    it("keeps whatever else a talkset row says", () => {
+      const converted = convertRangeEntry(
+        rangeEntry({
+          id: 5,
+          entry_type: "talkset",
+          message: "--- TALKSET - station ID ---",
+        })
+      ) as FlowsheetMessageEntry;
+
+      expect(converted.message).toBe("Talkset - station ID");
+      expect(isFlowsheetTalksetEntry(converted)).toBe(true);
+    });
+
+    it("labels a breakpoint by the hour it marks, not the minute it was logged", () => {
+      const converted = convertRangeEntry(
+        rangeEntry({
+          id: 6,
+          entry_type: "breakpoint",
+          message: "--- 9:00 PM BREAKPOINT ---",
+          add_time: "2026-08-23T00:59:00.000Z",
+          radio_hour: "2026-08-23T01:00:00.000Z",
+        })
+      ) as FlowsheetBreakpointEntry;
+
+      expect(converted.message).toBe("9:00 PM Breakpoint");
+      expect(isFlowsheetBreakpointEntry(converted)).toBe(true);
+    });
+
+    it("reads a pre-radio_hour breakpoint's hour off its own text, never off add_time", () => {
+      // 19:02:03Z is 3:02 PM at the station: rounding add_time would name an
+      // hour the row itself never claimed, and rows log either side of it.
+      const converted = convertRangeEntry(
+        rangeEntry({
+          id: 7,
+          entry_type: "breakpoint",
+          message: "--- 3:00 PM BREAKPOINT ---",
+          add_time: "2026-08-27T19:02:03.000Z",
+          radio_hour: null,
+        })
+      ) as FlowsheetBreakpointEntry;
+
+      expect(converted.message).toBe("3:00 PM Breakpoint");
+    });
+
+    it("falls back to a bare breakpoint when nothing names an hour", () => {
+      const converted = convertRangeEntry(
+        rangeEntry({
+          id: 8,
+          entry_type: "breakpoint",
+          message: "BREAKPOINT",
+          radio_hour: null,
+        })
+      ) as FlowsheetBreakpointEntry;
+
+      expect(converted.message).toBe("Breakpoint");
+      expect(isFlowsheetBreakpointEntry(converted)).toBe(true);
+    });
+
+    it("passes a generic message row through unchanged", () => {
+      const converted = convertRangeEntry(
+        rangeEntry({ id: 9, entry_type: "message", message: "Fund drive pitch" })
+      ) as FlowsheetMessageEntry;
+
+      expect(converted.message).toBe("Fund drive pitch");
+    });
+
+    it("maps an unattributed entry's null show_id onto the no-show sentinel", () => {
+      // 0 collides with a real show id and would mis-partition these rows.
+      expect(convertRangeEntry(rangeEntry({ id: 10, show_id: null })).show_id).toBe(
+        -1
+      );
+    });
+
+    it("still renders a row whose entry_type this build does not know", () => {
+      // A missing arm in a displayable-types switch makes the row vanish, and
+      // the vocabulary is server-owned.
+      const converted = convertRangeEntry(
+        rangeEntry({
+          id: 11,
+          entry_type: "underwriting" as (typeof FlowsheetEntryType)[keyof typeof FlowsheetEntryType],
+          message: "Underwriting credit",
+        })
+      ) as FlowsheetMessageEntry;
+
+      expect(converted.message).toBe("Underwriting credit");
+    });
+
+    it("covers every entry type the contract declares", () => {
+      // Sourced from the contract enum, not from sampled data: dj_join and
+      // dj_leave are rare enough that a sampled day holds none.
+      for (const entry_type of Object.values(FlowsheetEntryType)) {
+        expect(() =>
+          convertRangeEntry(rangeEntry({ id: 12, entry_type }))
+        ).not.toThrow();
+      }
     });
   });
 });
