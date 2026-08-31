@@ -6,8 +6,8 @@ import { renderWithProviders } from "@/tests/helpers/render";
 
 const mockGetInformationQuery = vi.fn();
 const mockGetCompilationTracksQuery = vi.fn();
-const mockFetchSuggestions = vi.fn();
-const mockUseLazyGetCompilationTrackSuggestionsQuery = vi.fn();
+const mockGetCompilationTrackSuggestionsQuery = vi.fn();
+const mockRefetchSuggestions = vi.fn();
 const mockWriteCompilationTracks = vi.fn();
 const mockRefetchStored = vi.fn();
 
@@ -17,8 +17,8 @@ vi.mock("@/lib/features/catalog/api", async (importOriginal) => {
     ...actual,
     useGetInformationQuery: (...args: unknown[]) => mockGetInformationQuery(...args),
     useGetCompilationTracksQuery: (...args: unknown[]) => mockGetCompilationTracksQuery(...args),
-    useLazyGetCompilationTrackSuggestionsQuery: (...args: unknown[]) =>
-      mockUseLazyGetCompilationTrackSuggestionsQuery(...args),
+    useGetCompilationTrackSuggestionsQuery: (...args: unknown[]) =>
+      mockGetCompilationTrackSuggestionsQuery(...args),
     useWriteCompilationTracksMutation: () => [
       mockWriteCompilationTracks,
       { isLoading: false },
@@ -68,17 +68,40 @@ const ordinaryAlbum = (overrides = {}) =>
 
 const emptyStored = { data: { library_id: VA_ALBUM_ID, tracks: [] }, isError: false, isFetching: false, refetch: mockRefetchStored };
 
+/** Discogs answered, with these tracks. */
+const suggest = (tracks: unknown[]) =>
+  mockGetCompilationTrackSuggestionsQuery.mockReturnValue({
+    data: { library_id: VA_ALBUM_ID, tracks },
+    isFetching: false,
+    isError: false,
+    refetch: mockRefetchSuggestions,
+  });
+
+/** Discogs could not be reached — deliberately not the same as answering empty. */
+const suggestUnreachable = () =>
+  mockGetCompilationTrackSuggestionsQuery.mockReturnValue({
+    data: undefined,
+    isFetching: false,
+    isError: true,
+    refetch: mockRefetchSuggestions,
+  });
+
+const suggestPending = () =>
+  mockGetCompilationTrackSuggestionsQuery.mockReturnValue({
+    data: undefined,
+    isFetching: true,
+    isError: false,
+    refetch: mockRefetchSuggestions,
+  });
+
 beforeEach(() => {
   mockGetInformationQuery.mockReset();
   mockGetCompilationTracksQuery.mockReset();
-  mockFetchSuggestions.mockReset();
-  mockUseLazyGetCompilationTrackSuggestionsQuery.mockReset();
+  mockGetCompilationTrackSuggestionsQuery.mockReset();
+  mockRefetchSuggestions.mockReset();
   mockWriteCompilationTracks.mockReset();
   mockRefetchStored.mockReset();
-  mockUseLazyGetCompilationTrackSuggestionsQuery.mockReturnValue([
-    mockFetchSuggestions,
-    { isFetching: false },
-  ]);
+  suggest([]);
   mockGetCompilationTracksQuery.mockReturnValue(emptyStored);
 });
 
@@ -164,7 +187,7 @@ describe("Classic ReleaseTracklistEditor", () => {
 
     await user.type(screen.getByLabelText("Artist for track 1"), "Juana Molina");
     await user.type(screen.getByLabelText("Title for track 1"), "la paradoja");
-    await user.click(screen.getByDisplayValue("Save Track Credits"));
+    await user.click(screen.getByDisplayValue("File These Credits"));
 
     await waitFor(() =>
       expect(mockWriteCompilationTracks).toHaveBeenCalledWith({
@@ -180,7 +203,7 @@ describe("Classic ReleaseTracklistEditor", () => {
 
     renderWithProviders(<ReleaseTracklistEditor albumId={VA_ALBUM_ID} />);
 
-    await user.click(screen.getByDisplayValue("Save Track Credits"));
+    await user.click(screen.getByDisplayValue("File These Credits"));
 
     expect(mockWriteCompilationTracks).not.toHaveBeenCalled();
     expect(screen.getByTestId("release-tracklist-message").textContent).toContain(
@@ -198,7 +221,7 @@ describe("Classic ReleaseTracklistEditor", () => {
     renderWithProviders(<ReleaseTracklistEditor albumId={VA_ALBUM_ID} />);
 
     await user.type(screen.getByLabelText("Artist for track 1"), "Stereolab");
-    await user.click(screen.getByDisplayValue("Save Track Credits"));
+    await user.click(screen.getByDisplayValue("File These Credits"));
 
     await waitFor(() =>
       expect(screen.getByTestId("release-tracklist-message").textContent).toContain(
@@ -211,7 +234,7 @@ describe("Classic ReleaseTracklistEditor", () => {
   // resubmission after a lost response would file a duplicate rather than a
   // correction. Saving must therefore refuse to proceed on an unknown base
   // state, not just on a known bad one.
-  it("disables saving while the already-filed credits could not be confirmed", async () => {
+  it("will not even fill the form while the already-filed credits are unconfirmed", async () => {
     mockGetInformationQuery.mockReturnValue({ data: vaAlbum(), isLoading: false, isError: false });
     mockGetCompilationTracksQuery.mockReturnValue({
       data: undefined,
@@ -219,10 +242,16 @@ describe("Classic ReleaseTracklistEditor", () => {
       isFetching: false,
       refetch: mockRefetchStored,
     });
+    suggest([{ artist_name: "Cat Power", track_title: "Cross Bones Style", track_position: "1" }]);
 
     renderWithProviders(<ReleaseTracklistEditor albumId={VA_ALBUM_ID} />);
 
-    expect(screen.getByDisplayValue("Save Track Credits")).toHaveProperty("disabled", true);
+    // The stored read decides which suggestions are already filed. Without it,
+    // seeding would re-offer a credit the additive endpoint cannot correct, so
+    // the block moves earlier than the save: there is no form to fill in.
+    expect(await screen.findByRole("button", { name: "Try again" })).toBeDefined();
+    expect(screen.queryByDisplayValue("File These Credits")).toBeNull();
+    expect(screen.queryByDisplayValue("Cross Bones Style")).toBeNull();
   });
 
   // A write that fails may still have committed -- the rows land and the
@@ -240,7 +269,7 @@ describe("Classic ReleaseTracklistEditor", () => {
     renderWithProviders(<ReleaseTracklistEditor albumId={VA_ALBUM_ID} />);
 
     await user.type(screen.getByLabelText("Artist for track 1"), "Juana Molina");
-    await user.click(screen.getByDisplayValue("Save Track Credits"));
+    await user.click(screen.getByDisplayValue("File These Credits"));
 
     await waitFor(() =>
       expect(screen.getByTestId("release-tracklist-message").textContent).toContain(
@@ -248,7 +277,7 @@ describe("Classic ReleaseTracklistEditor", () => {
       ),
     );
     expect(mockRefetchStored).toHaveBeenCalled();
-    expect(screen.getByDisplayValue("Save Track Credits")).toHaveProperty("disabled", true);
+    expect(screen.getByDisplayValue("File These Credits")).toHaveProperty("disabled", true);
   });
 
   it("lifts that refusal as soon as the re-read lands, rather than locking the screen", async () => {
@@ -265,103 +294,151 @@ describe("Classic ReleaseTracklistEditor", () => {
     renderWithProviders(<ReleaseTracklistEditor albumId={VA_ALBUM_ID} />);
 
     await user.type(screen.getByLabelText("Artist for track 1"), "Juana Molina");
-    await user.click(screen.getByDisplayValue("Save Track Credits"));
+    await user.click(screen.getByDisplayValue("File These Credits"));
 
     await waitFor(() =>
-      expect(screen.getByDisplayValue("Save Track Credits")).toHaveProperty("disabled", true),
+      expect(screen.getByDisplayValue("File These Credits")).toHaveProperty("disabled", true),
     );
 
     confirmRead({ library_id: VA_ALBUM_ID, tracks: [] });
 
     await waitFor(() =>
-      expect(screen.getByDisplayValue("Save Track Credits")).toHaveProperty("disabled", false),
+      expect(screen.getByDisplayValue("File These Credits")).toHaveProperty("disabled", false),
     );
   });
 
   // Two clicks on the Discogs button must not leave two editable copies of the
   // same track: correcting one copy and saving files the correction *and* the
   // original, and neither can be removed afterwards.
-  it("does not re-import a suggestion already sitting in the form", async () => {
-    const user = userEvent.setup();
-    mockGetInformationQuery.mockReturnValue({ data: vaAlbum(), isLoading: false, isError: false });
-    mockFetchSuggestions.mockReturnValue({
-      unwrap: () =>
-        Promise.resolve({
-          library_id: VA_ALBUM_ID,
-          discogs_release_id: 4242,
-          tracks: [
-            { artist_name: "Hermanos Gutiérrez", track_title: "Thousand Days", track_position: "A1" },
-          ],
-        }),
-    });
-
-    renderWithProviders(<ReleaseTracklistEditor albumId={VA_ALBUM_ID} />);
-
-    const button = screen.getByRole("button", { name: "Check Discogs for a Tracklist" });
-    await user.click(button);
-    await waitFor(() =>
-      expect(screen.getByLabelText("Artist for track 1")).toHaveProperty(
-        "value",
-        "Hermanos Gutiérrez",
-      ),
-    );
-    await user.click(button);
-
-    await waitFor(() =>
-      expect(screen.getAllByDisplayValue("Hermanos Gutiérrez")).toHaveLength(1),
-    );
-    expect(screen.queryByLabelText("Artist for track 2")).toBeNull();
-  });
-
   // A live region announces only what changes inside it. Mounting the region
   // and its first message together leaves a screen-reader user with silence
   // where a sighted one reads an outcome.
-  it("keeps the Discogs outcome's live region mounted before there is an outcome", () => {
+  it("keeps the seed banner's live region mounted, so its first message is announced", async () => {
     mockGetInformationQuery.mockReturnValue({ data: vaAlbum(), isLoading: false, isError: false });
+    suggest([{ artist_name: "Stereolab", track_title: "Ping Pong", track_position: "1" }]);
 
     renderWithProviders(<ReleaseTracklistEditor albumId={VA_ALBUM_ID} />);
 
-    expect(screen.getByTestId("release-tracklist-suggestions-message")).toBeDefined();
+    // A live region mounted together with its first content is not reliably
+    // announced; the banner is the only account of where the rows came from.
+    const banner = await screen.findByTestId("release-tracklist-seed");
+    expect(banner.getAttribute("role")).toBe("status");
   });
 
-  it("imports Discogs suggestions that are not already on file", async () => {
-    const user = userEvent.setup();
-    mockGetInformationQuery.mockReturnValue({
-      data: vaAlbum({ legacy_release_id: 91100 }),
-      isLoading: false,
-      isError: false,
+
+  describe("arriving at the screen", () => {
+    it("fills the form from Discogs on arrival, with nothing to click", async () => {
+      mockGetInformationQuery.mockReturnValue({ data: vaAlbum(), isLoading: false, isError: false });
+      suggest([
+        { artist_name: "Chuquimamani-Condori", track_title: "Call Your Name", track_position: "1" },
+        { artist_name: "Jessica Pratt", track_title: "Back, Baby", track_position: "2" },
+      ]);
+
+      renderWithProviders(<ReleaseTracklistEditor albumId={VA_ALBUM_ID} />);
+
+      // Hand-entering per-track artists is not a workflow anyone performs; the
+      // screen exists to confirm what the machine already found.
+      expect(await screen.findByDisplayValue("Chuquimamani-Condori")).toBeDefined();
+      expect(screen.getByDisplayValue("Back, Baby")).toBeDefined();
     });
-    mockGetCompilationTracksQuery.mockReturnValue({
-      data: {
-        library_id: VA_ALBUM_ID,
-        tracks: [{ id: 1, artist_name: "Jessica Pratt", track_title: "Back, Baby", track_position: "A1" }],
-      },
-      isError: false,
-      isFetching: false,
-      refetch: mockRefetchStored,
-    });
-    mockFetchSuggestions.mockReturnValue({
-      unwrap: () =>
-        Promise.resolve({
+
+    it("leaves out anything already on file, so a confirmed credit is not re-offered", async () => {
+      mockGetInformationQuery.mockReturnValue({ data: vaAlbum(), isLoading: false, isError: false });
+      mockGetCompilationTracksQuery.mockReturnValue({
+        data: {
           library_id: VA_ALBUM_ID,
-          discogs_release_id: 4242,
-          tracks: [
-            { artist_name: "Jessica Pratt", track_title: "Back, Baby", track_position: "A1" },
-            { artist_name: "Hermanos Gutiérrez", track_title: "Thousand Days", track_position: "A2" },
-          ],
-        }),
+          tracks: [{ id: 1, artist_name: "Jessica Pratt", track_title: "Back, Baby", track_position: "2" }],
+        },
+        isError: false,
+        isFetching: false,
+        refetch: mockRefetchStored,
+      });
+      suggest([
+        { artist_name: "Chuquimamani-Condori", track_title: "Call Your Name", track_position: "1" },
+        { artist_name: "Jessica Pratt", track_title: "Back, Baby", track_position: "2" },
+      ]);
+
+      renderWithProviders(<ReleaseTracklistEditor albumId={VA_ALBUM_ID} />);
+
+      // The write endpoint is additive: re-offering a filed credit invites a
+      // correction that lands beside the original instead of replacing it.
+      expect(await screen.findByDisplayValue("Chuquimamani-Condori")).toBeDefined();
+      expect(screen.queryByDisplayValue("Back, Baby")).toBeNull();
     });
+
+    it("says so and offers a blank row when Discogs genuinely has nothing", async () => {
+      mockGetInformationQuery.mockReturnValue({ data: vaAlbum(), isLoading: false, isError: false });
+      suggest([]);
+
+      renderWithProviders(<ReleaseTracklistEditor albumId={VA_ALBUM_ID} />);
+
+      expect(await screen.findByTestId("release-tracklist-seed")).toBeDefined();
+      expect(screen.getByTestId("release-tracklist-seed").textContent).toContain("no tracklist");
+      expect(screen.getByLabelText("Artist for track 1")).toBeDefined();
+    });
+
+    it("waits rather than showing an empty form while Discogs is still answering", () => {
+      mockGetInformationQuery.mockReturnValue({ data: vaAlbum(), isLoading: false, isError: false });
+      suggestPending();
+
+      renderWithProviders(<ReleaseTracklistEditor albumId={VA_ALBUM_ID} />);
+
+      expect(screen.getByTestId("release-tracklist-checking")).toBeDefined();
+      expect(screen.queryByDisplayValue("File These Credits")).toBeNull();
+    });
+  });
+
+  describe("when Discogs cannot be reached", () => {
+    it("never reports the outage as Discogs having no match", async () => {
+      mockGetInformationQuery.mockReturnValue({ data: vaAlbum(), isLoading: false, isError: false });
+      suggestUnreachable();
+
+      renderWithProviders(<ReleaseTracklistEditor albumId={VA_ALBUM_ID} />);
+
+      const panel = await screen.findByTestId("release-tracklist-discogs-error");
+      // Reading an outage as "no match" is what costs a librarian a
+      // hand-typed tracklist for a release Discogs would have supplied.
+      expect(panel.textContent).not.toContain("no tracklist");
+      expect(panel.textContent).toContain("isn't the same");
+      expect(panel.getAttribute("role")).toBe("alert");
+    });
+
+    it("offers a retry, and does not open the form behind it", async () => {
+      const user = userEvent.setup();
+      mockGetInformationQuery.mockReturnValue({ data: vaAlbum(), isLoading: false, isError: false });
+      suggestUnreachable();
+
+      renderWithProviders(<ReleaseTracklistEditor albumId={VA_ALBUM_ID} />);
+      await screen.findByTestId("release-tracklist-discogs-error");
+
+      expect(screen.queryByDisplayValue("File These Credits")).toBeNull();
+      await user.click(screen.getByRole("button", { name: "Try Discogs again" }));
+      expect(mockRefetchSuggestions).toHaveBeenCalled();
+    });
+
+    it("opens hand entry only when the librarian explicitly chooses it", async () => {
+      const user = userEvent.setup();
+      mockGetInformationQuery.mockReturnValue({ data: vaAlbum(), isLoading: false, isError: false });
+      suggestUnreachable();
+
+      renderWithProviders(<ReleaseTracklistEditor albumId={VA_ALBUM_ID} />);
+      await screen.findByTestId("release-tracklist-discogs-error");
+      await user.click(screen.getByRole("button", { name: "Enter the credits by hand instead" }));
+
+      expect(screen.getByLabelText("Artist for track 1")).toBeDefined();
+      expect(screen.getByDisplayValue("File These Credits")).toBeDefined();
+    });
+  });
+
+  it("asks the librarian to file the credits, not to author them", async () => {
+    mockGetInformationQuery.mockReturnValue({ data: vaAlbum(), isLoading: false, isError: false });
+    suggest([{ artist_name: "Juana Molina", track_title: "la paradoja", track_position: "1" }]);
 
     renderWithProviders(<ReleaseTracklistEditor albumId={VA_ALBUM_ID} />);
 
-    await user.click(screen.getByRole("button", { name: "Check Discogs for a Tracklist" }));
-
-    // The suggestions read resolves its path param against `library.id` too.
-    // The legacy id is a live id in another space, so passing it would return
-    // an unrelated release's tracklist with a 200 rather than failing.
-    await waitFor(() => expect(mockFetchSuggestions).toHaveBeenCalledWith({ libraryId: VA_ALBUM_ID }));
-    await waitFor(() => expect(screen.getByLabelText("Artist for track 1")).toHaveProperty("value", "Hermanos Gutiérrez"));
-    // The already-filed Jessica Pratt credit must not be re-offered as new.
-    expect(screen.queryByDisplayValue("Jessica Pratt")).toBeNull();
+    // The screen is a confirmation surface: the librarian is finalizing a
+    // catalog entry, not composing one.
+    expect(await screen.findByDisplayValue("File These Credits")).toBeDefined();
+    expect(screen.getByTestId("release-tracklist-seed").textContent).toContain("filled in below");
   });
 });
