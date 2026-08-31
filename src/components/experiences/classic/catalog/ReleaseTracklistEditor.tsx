@@ -4,7 +4,7 @@ import { useState } from "react";
 import {
   useGetCompilationTracksQuery,
   useGetInformationQuery,
-  useLazyGetCompilationTrackSuggestionsQuery,
+  useGetCompilationTrackSuggestionsQuery,
   useWriteCompilationTracksMutation,
 } from "@/lib/features/catalog/api";
 import { compilationTrackCreditKey } from "@/lib/features/catalog/compilationTrackCredits";
@@ -26,11 +26,6 @@ const blankRow = (): DraftRow => ({
   track_title: "",
   track_position: "",
 });
-
-const isBlankRow = (row: DraftRow) =>
-  row.artist_name.trim() === "" &&
-  row.track_title.trim() === "" &&
-  row.track_position.trim() === "";
 
 const rowFromSuggestion = (track: CompilationTrackInput): DraftRow => ({
   key: nextRowKey++,
@@ -61,6 +56,17 @@ const toInput = (row: DraftRow): CompilationTrackInput => ({
  * than inventing a second one, and is gated identically to its sibling
  * `/move` and `/delete` sub-screens.
  *
+ * **It is a confirmation surface, not a data-entry one.** Nobody is going to
+ * hand-type per-track artists for a twenty-track compilation, so Discogs fills
+ * the form on arrival and the librarian confirms or corrects it — the
+ * cataloguing gesture the legacy interface trained him to perform. The absence
+ * of a JSP to copy is not licence to build a blank form: the JSP is the spec
+ * for what he *sees*, not for how much he types. Hand entry survives only for
+ * the two cases that earn it, and they are kept strictly apart — Discogs
+ * answering with nothing, and Discogs not answering at all. Rendering an
+ * outage as "no match" is what costs a librarian a tracklist he types by hand
+ * for a release Discogs would have supplied a minute later.
+ *
  * Scoped to Backend's `library.id` (`albumId`) throughout — never
  * `legacy_release_id`. All three compilation-track endpoints resolve their
  * path param against `library.id`; sending the legacy id instead would not
@@ -89,6 +95,11 @@ const toInput = (row: DraftRow): CompilationTrackInput => ({
  * response, so the rows on screen are no longer a truthful account of the
  * release. The read is reissued and saving stays refused until it lands.
  */
+/** Where the rows on screen came from. */
+type Seed =
+  | { kind: "discogs"; importedCount: number }
+  | { kind: "manual"; reason: "no-match" | "chosen" };
+
 export default function ReleaseTracklistEditor({ albumId }: { albumId: number }) {
   const { data, isLoading, isError } = useGetInformationQuery({ album_id: albumId });
   const {
@@ -97,13 +108,26 @@ export default function ReleaseTracklistEditor({ albumId }: { albumId: number })
     isFetching: storedFetching,
     refetch: refetchStored,
   } = useGetCompilationTracksQuery({ libraryId: albumId });
-  const [fetchSuggestions, { isFetching: suggestionsFetching }] =
-    useLazyGetCompilationTrackSuggestionsQuery();
+  // A standing query, not a lazy one behind a button. Nobody hand-enters
+  // per-track artists for a twenty-track compilation; the machine fills the
+  // form and the librarian confirms it. Discogs has to have answered before
+  // there is anything worth showing him.
+  const {
+    data: suggestions,
+    isFetching: suggestionsFetching,
+    isError: suggestionsError,
+    refetch: refetchSuggestions,
+  } = useGetCompilationTrackSuggestionsQuery({ libraryId: albumId });
   const [writeCompilationTracks, { isLoading: saving }] = useWriteCompilationTracksMutation();
 
-  const [rows, setRows] = useState<DraftRow[]>([blankRow()]);
+  const [rows, setRows] = useState<DraftRow[] | null>(null);
+  /**
+   * What the rows were filled from, and the gate on rendering the form at all.
+   * Held rather than read from `suggestions` at render time so a response that
+   * lands after the rows were seeded cannot describe rows it did not produce.
+   */
+  const [seed, setSeed] = useState<Seed | null>(null);
   const [message, setMessage] = useState("");
-  const [suggestionsMessage, setSuggestionsMessage] = useState("");
   // Set by a write that failed, cleared only by a stored read that succeeds
   // afterwards. Between the two, what the release holds is unknown: the write
   // may have committed and lost its response.
@@ -151,6 +175,35 @@ export default function ReleaseTracklistEditor({ albumId }: { albumId: number })
   const storedKnown = !!stored && !storedError;
   const canSave = storedKnown && !writeOutcomeUnknown;
 
+  // Seeded during render rather than in an effect: the rows are derived from
+  // two responses, not synchronized with anything outside React. Both must have
+  // landed first — the stored read decides which suggestions are already filed,
+  // and seeding against an unknown stored state would re-offer a credit the
+  // additive endpoint cannot later correct.
+  if (suggestions && storedKnown && seed === null) {
+    const alreadyFiled = new Set(storedTracks.map(compilationTrackCreditKey));
+    const fresh = suggestions.tracks.filter(
+      (track) => !alreadyFiled.has(compilationTrackCreditKey(track)),
+    );
+    setSeed(
+      fresh.length > 0
+        ? { kind: "discogs", importedCount: fresh.length }
+        : { kind: "manual", reason: "no-match" },
+    );
+    setRows(fresh.length > 0 ? fresh.map(rowFromSuggestion) : [blankRow()]);
+  }
+
+  /**
+   * Hand entry is reachable from the Discogs-outage panel, but only as an
+   * explicit choice. An unreachable Discogs must never pass itself off as
+   * "Discogs had no match" — that reading is what costs a librarian a
+   * hand-typed tracklist for a release Discogs would have supplied.
+   */
+  const startManualEntry = () => {
+    setSeed({ kind: "manual", reason: "chosen" });
+    setRows([blankRow()]);
+  };
+
   // Both the failed-write path and the librarian's own retry go through here,
   // so a read that succeeds always clears the refusal. A read that fails
   // changes nothing: `storedError` is already refusing the save on its own.
@@ -165,53 +218,18 @@ export default function ReleaseTracklistEditor({ albumId }: { albumId: number })
   };
 
   const updateRow = (key: number, patch: Partial<DraftRow>) =>
-    setRows((current) => current.map((row) => (row.key === key ? { ...row, ...patch } : row)));
+    setRows((current) =>
+      (current ?? []).map((row) => (row.key === key ? { ...row, ...patch } : row)),
+    );
 
   const removeRow = (key: number) =>
-    setRows((current) => current.filter((row) => row.key !== key));
+    setRows((current) => (current ?? []).filter((row) => row.key !== key));
 
-  const addRow = () => setRows((current) => [...current, blankRow()]);
-
-  const handleImportFromDiscogs = async () => {
-    setSuggestionsMessage("");
-    try {
-      const result = await fetchSuggestions({ libraryId: albumId }).unwrap();
-      // Against the rows on screen as well as the stored ones: a second click
-      // that re-offered a row already in the form would leave two editable
-      // copies of one credit, and correcting one of them files both.
-      const already = new Set([
-        ...storedTracks.map(compilationTrackCreditKey),
-        ...rows.map((row) => compilationTrackCreditKey(toInput(row))),
-      ]);
-      const toImport = result.tracks.filter(
-        (track) => !already.has(compilationTrackCreditKey(track)),
-      );
-      if (toImport.length === 0) {
-        setSuggestionsMessage(
-          result.tracks.length > 0
-            ? "Every track Discogs suggested is already on file or in the form below."
-            : "No Discogs tracklist matched this release. Enter credits by hand below.",
-        );
-        return;
-      }
-      setRows((current) =>
-        current.every(isBlankRow)
-          ? toImport.map(rowFromSuggestion)
-          : [...current, ...toImport.map(rowFromSuggestion)],
-      );
-      setSuggestionsMessage(
-        `Imported ${toImport.length} ${toImport.length === 1 ? "track" : "tracks"} from Discogs. Confirm or correct the per-track artists before saving.`,
-      );
-    } catch {
-      setSuggestionsMessage(
-        "Discogs tracklist lookup failed. This isn't the same as Discogs having no match — try again, or enter credits by hand below.",
-      );
-    }
-  };
+  const addRow = () => setRows((current) => [...(current ?? []), blankRow()]);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const submittable = rows.map(toInput).filter((track) => track.artist_name.length > 0);
+    const submittable = (rows ?? []).map(toInput).filter((track) => track.artist_name.length > 0);
     if (submittable.length === 0) {
       setMessage("Enter at least one artist credit before saving.");
       return;
@@ -235,6 +253,74 @@ export default function ReleaseTracklistEditor({ albumId }: { albumId: number })
       await reconfirmStored();
     }
   };
+
+  // Nothing is worth showing until the rows can be filled. Rendering an empty
+  // form first would present hand-entry as the default path, which is the one
+  // thing this screen must not do.
+  if (seed === null) {
+    const backLink = (
+      <div className="label" style={{ textAlign: "center" }}>
+        <p />
+        <a href={`/dashboard/library/release/${albumId}`}>Back to this release</a>
+      </div>
+    );
+
+    // The stored read decides which suggestions are already filed, so its
+    // failure blocks seeding for the same reason it blocks saving.
+    if (storedError) {
+      return (
+        <div id="releaseTracklistCard">
+          <div role="alert" className="artist-error-message">
+            Existing credits could not be confirmed, so this release&apos;s tracklist can&apos;t be
+            filled in yet — offering a credit that is already on file would file it twice.{" "}
+            <button type="button" disabled={storedFetching} onClick={() => reconfirmStored()}>
+              Try again
+            </button>
+          </div>
+          {backLink}
+        </div>
+      );
+    }
+
+    if (suggestionsError && !suggestionsFetching) {
+      return (
+        <div id="releaseTracklistCard">
+          <div
+            role="alert"
+            className="artist-error-message"
+            data-testid="release-tracklist-discogs-error"
+          >
+            Couldn&apos;t reach Discogs just now. This isn&apos;t the same as Discogs having no
+            match for this release, so try again before entering anything by hand.
+          </div>
+          <div className="label" style={{ textAlign: "center" }}>
+            <button type="button" onClick={() => refetchSuggestions()}>
+              Try Discogs again
+            </button>
+            &nbsp;&nbsp;
+            <button type="button" className="link-button" onClick={startManualEntry}>
+              Enter the credits by hand instead
+            </button>
+          </div>
+          {backLink}
+        </div>
+      );
+    }
+
+    return (
+      <div id="releaseTracklistCard">
+        <div
+          className="label"
+          style={{ textAlign: "center" }}
+          role="status"
+          data-testid="release-tracklist-checking"
+        >
+          Checking Discogs for a tracklist...
+        </div>
+        {backLink}
+      </div>
+    );
+  }
 
   return (
     <div id="releaseTracklistCard">
@@ -291,13 +377,17 @@ export default function ReleaseTracklistEditor({ albumId }: { albumId: number })
         </div>
       )}
 
-      <div className="label" style={{ textAlign: "center" }}>
-        <button type="button" onClick={handleImportFromDiscogs} disabled={suggestionsFetching}>
-          Check Discogs for a Tracklist
-        </button>
-        <p role="status" data-testid="release-tracklist-suggestions-message">
-          &nbsp;{suggestionsMessage}&nbsp;
-        </p>
+      <div
+        className="label"
+        style={{ textAlign: "center" }}
+        role="status"
+        data-testid="release-tracklist-seed"
+      >
+        {seed.kind === "discogs"
+          ? `${seed.importedCount} ${seed.importedCount === 1 ? "track" : "tracks"} found on Discogs and filled in below. Check the artist on each line, correct anything wrong, then file them.`
+          : seed.reason === "no-match"
+            ? "Discogs has no tracklist for this release. Enter the credits from the sleeve."
+            : "Entering the credits by hand."}
       </div>
 
       <form name="addCompilationTracks" data-testid="release-tracklist-form" onSubmit={handleSubmit}>
@@ -309,7 +399,7 @@ export default function ReleaseTracklistEditor({ albumId }: { albumId: number })
               <th style={{ textAlign: "left" }}>Track Title</th>
               <td />
             </tr>
-            {rows.map((row, index) => (
+            {(rows ?? []).map((row, index) => (
               <tr key={row.key}>
                 <td>
                   <input
@@ -364,7 +454,7 @@ export default function ReleaseTracklistEditor({ albumId }: { albumId: number })
             </tr>
             <tr>
               <td colSpan={4}>
-                <input type="submit" value="Save Track Credits" disabled={saving || !canSave} />
+                <input type="submit" value="File These Credits" disabled={saving || !canSave} />
               </td>
             </tr>
           </tbody>
