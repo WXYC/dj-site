@@ -39,11 +39,23 @@ export function formatStationHourLabel(now: Date = new Date()): string {
   }).format(closestStationHour(now));
 }
 
+/**
+ * The exact string persisted as a breakpoint's `message`, built from an hour
+ * label that has already been resolved, e.g. "2:00 PM" → "2:00 PM Breakpoint".
+ *
+ * Must keep the word "Breakpoint" — both the client type guard and the backend
+ * entry-type inference discriminate on it — so this is the only place the two
+ * halves are joined. An empty label yields the bare word rather than a leading
+ * space, for archive rows that name no hour at all.
+ */
+export function breakpointMessageForHourLabel(hourLabel: string): string {
+  return hourLabel ? `${hourLabel} ${BREAKPOINT_SUFFIX}` : BREAKPOINT_SUFFIX;
+}
+
 // The exact string persisted as the breakpoint's `message`, e.g.
-// "2:00 PM Breakpoint". Must keep the word "Breakpoint" — both the client type
-// guard and the backend entry-type inference discriminate on it.
+// "2:00 PM Breakpoint".
 export function stationBreakpointMessage(now: Date = new Date()): string {
-  return `${formatStationHourLabel(now)} ${BREAKPOINT_SUFFIX}`;
+  return breakpointMessageForHourLabel(formatStationHourLabel(now));
 }
 
 // One breakpoint per station hour: a new breakpoint is a duplicate when an
@@ -64,6 +76,29 @@ export function isStationHourBreakpointPresent(
 
 const partValue = (parts: Intl.DateTimeFormatPart[], type: Intl.DateTimeFormatPartTypes) =>
   parts.find((p) => p.type === type)?.value ?? "";
+
+/**
+ * An instant as the station's wall clock, e.g. "9:03 PM" — no rounding, no
+ * seconds, and no leading zero.
+ *
+ * Unlike `formatStationHourLabel` this reports the instant it is given rather
+ * than the hour nearest to it, so it can label an arbitrary row. A missing or
+ * unparseable timestamp yields an empty label: a blank cell is honest, where
+ * "Invalid Date" is a rendering bug wearing a value's clothes.
+ */
+export function formatStationClockTime(
+  isoString: string | null | undefined
+): string {
+  if (!isoString) return "";
+  const date = new Date(isoString);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: STATION_TIME_ZONE,
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  }).format(date);
+}
 
 // Station-tz counterpart of conversions.ts `formatAddTime`: renders a backend
 // timestamp into the same "M/D/YYYY" + "h:mm:ss AM/PM" shapes that the classic

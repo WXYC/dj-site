@@ -1,27 +1,19 @@
 "use client";
 
 import type { FlowsheetRangeEntry, FlowsheetRangeShow } from "@wxyc/shared";
-import { STATION_TIME_ZONE } from "@/src/utilities/stationTime";
+import { formatStationClockTime } from "@/src/utilities/stationTime";
 import { describeNonTrackEntry } from "@/lib/features/schedule-week/entryLabel";
 import { CLASSIC_SHOW_PANEL_ID } from "./ClassicWeekGrid";
 import "@/src/styles/classic/schedule-week.css";
 
-const timeOf = (entry: FlowsheetRangeEntry) => {
-  // A breakpoint is logged roughly a minute before the hour it marks, so its
-  // add_time reads an hour early. radio_hour is the hour it stands for.
-  const source =
+const timeOf = (entry: FlowsheetRangeEntry) =>
+  // A breakpoint is logged roughly a minute either side of the hour it marks,
+  // so its add_time reads the wrong hour. radio_hour is the hour it stands for.
+  formatStationClockTime(
     entry.entry_type === "breakpoint" && entry.radio_hour != null
-      ? new Date(entry.radio_hour)
+      ? entry.radio_hour
       : entry.add_time
-        ? new Date(entry.add_time)
-        : null;
-  if (!source || Number.isNaN(source.getTime())) return "";
-  return new Intl.DateTimeFormat("en-US", {
-    timeZone: STATION_TIME_ZONE,
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(source);
-};
+  );
 
 export default function ClassicShowEntries({
   show,

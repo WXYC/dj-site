@@ -2,6 +2,7 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import {
   STATION_TIME_ZONE,
   closestStationHour,
+  formatStationClockTime,
   formatStationDateTime,
   formatStationHourLabel,
   formatStationLongDate,
@@ -117,6 +118,19 @@ describe("stationTime", () => {
       vi.setSystemTime(new Date("2026-07-18T12:00:00Z"));
       const { isToday } = formatStationDateTime("2026-07-16T03:15:30Z");
       expect(isToday).toBe(false);
+    });
+
+    it("renders an instant as the station's wall clock, without seconds", () => {
+      // 03:15:30Z is 23:15:30 EDT the previous day.
+      expect(formatStationClockTime("2026-07-17T03:15:30Z")).toBe("11:15 PM");
+    });
+
+    it.each([
+      ["a missing timestamp", undefined],
+      ["a null timestamp", null],
+      ["an unparseable timestamp", "not a date"],
+    ])("renders %s as an empty label rather than Invalid Date", (_label, value) => {
+      expect(formatStationClockTime(value as string | null | undefined)).toBe("");
     });
   });
 });
