@@ -36,7 +36,7 @@ import type {
 import { labelsApi } from "@/lib/features/labels/api";
 import type { Label } from "@/lib/features/labels/types";
 import LabelSearchTypeahead from "./LabelSearchTypeahead";
-import VaTracklistStep from "./VaTracklistStep";
+import VaTracklistStep from "@/src/components/experiences/modern/catalog/VaTracklistStep";
 
 /**
  * Exact 400 message `addAlbum` sends when an `artist_name` fails genre-scoped
@@ -349,7 +349,12 @@ function AddReleaseForm() {
               onSave={handleSaveTracks}
               onSkip={handleDismiss}
               isSaving={isSavingTracks}
-              hasAttemptedWrite={vaStep.attempted}
+              // The release was created moments ago by this panel and nothing
+              // else writes these credits, so until a write has been attempted
+              // it provably holds none — the one place entitled to skip the
+              // stored-credit read. An attempt forfeits that claim: a request
+              // can commit and then fail to deliver its response.
+              mayAlreadyHoldCredits={vaStep.attempted}
             />
           ) : (
             <form onSubmit={handleSubmit}>

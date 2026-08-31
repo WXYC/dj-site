@@ -62,10 +62,12 @@ const toInput = (row: DraftRow): CompilationTrackInput => ({
  * cataloguing gesture the legacy interface trained him to perform. The absence
  * of a JSP to copy is not licence to build a blank form: the JSP is the spec
  * for what he *sees*, not for how much he types. Hand entry survives only for
- * the two cases that earn it, and they are kept strictly apart — Discogs
- * answering with nothing, and Discogs not answering at all. Rendering an
- * outage as "no match" is what costs a librarian a tracklist he types by hand
- * for a release Discogs would have supplied a minute later.
+ * the cases that earn it, and they are kept strictly apart — Discogs answering
+ * with nothing, Discogs answering with only what is already filed, and Discogs
+ * not answering at all. Rendering an outage as "no match" is what costs a
+ * librarian a tracklist he types by hand for a release Discogs would have
+ * supplied a minute later; rendering "already filed" as "no match" costs him
+ * one that is sitting in the table above.
  *
  * Scoped to Backend's `library.id` (`albumId`) throughout — never
  * `legacy_release_id`. All three compilation-track endpoints resolve their
@@ -95,10 +97,17 @@ const toInput = (row: DraftRow): CompilationTrackInput => ({
  * response, so the rows on screen are no longer a truthful account of the
  * release. The read is reissued and saving stays refused until it lands.
  */
-/** Where the rows on screen came from. */
+/**
+ * Where the rows on screen came from. The manual arm carries its reason
+ * because the three ways of arriving there are not interchangeable: "Discogs
+ * had nothing", "Discogs had only what is already filed", and "the librarian
+ * chose to type them" are three different claims, and stating the first when
+ * either of the others is true sends him to the sleeve for a tracklist he
+ * does not need to type.
+ */
 type Seed =
   | { kind: "discogs"; importedCount: number }
-  | { kind: "manual"; reason: "no-match" | "chosen" };
+  | { kind: "manual"; reason: "no-match" | "all-filed" | "chosen" };
 
 export default function ReleaseTracklistEditor({ albumId }: { albumId: number }) {
   const { data, isLoading, isError } = useGetInformationQuery({ album_id: albumId });
@@ -188,7 +197,13 @@ export default function ReleaseTracklistEditor({ albumId }: { albumId: number })
     setSeed(
       fresh.length > 0
         ? { kind: "discogs", importedCount: fresh.length }
-        : { kind: "manual", reason: "no-match" },
+        : {
+            kind: "manual",
+            // Discogs having matched every track that is already filed is not
+            // Discogs having no match, though the sleeve may still hold one it
+            // missed.
+            reason: fresh.length === suggestions.tracks.length ? "no-match" : "all-filed",
+          },
     );
     setRows(fresh.length > 0 ? fresh.map(rowFromSuggestion) : [blankRow()]);
   }
@@ -387,7 +402,9 @@ export default function ReleaseTracklistEditor({ albumId }: { albumId: number })
           ? `${seed.importedCount} ${seed.importedCount === 1 ? "track" : "tracks"} found on Discogs and filled in below. Check the artist on each line, correct anything wrong, then file them.`
           : seed.reason === "no-match"
             ? "Discogs has no tracklist for this release. Enter the credits from the sleeve."
-            : "Entering the credits by hand."}
+            : seed.reason === "all-filed"
+              ? "Every track Discogs lists for this release is already on file. Add anything it missed from the sleeve."
+              : "Entering the credits by hand."}
       </div>
 
       <form name="addCompilationTracks" data-testid="release-tracklist-form" onSubmit={handleSubmit}>

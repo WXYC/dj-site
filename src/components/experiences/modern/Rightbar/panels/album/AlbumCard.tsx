@@ -18,6 +18,7 @@ import {
 import { useRef, useState, useEffect } from "react";
 import { NotOnDiscogsBadge } from "@/src/components/experiences/modern/catalog/AlbumArtwork";
 import AlbumEditForm from "./AlbumEditForm";
+import CompilationCreditsControl from "./CompilationCreditsControl";
 import DiscogsMarkup from "./DiscogsMarkupRenderer";
 import DiscogsUnavailableControl from "./DiscogsUnavailableControl";
 import LibraryStatus from "./LibraryStatus";
@@ -94,8 +95,15 @@ export default function AlbumCard({
             />
           )}
           <Stack sx={{ minWidth: 0, justifyContent: "center" }}>
+            {/* The shelf's own artist name, never a compilation label derived
+                from `album_artist`. That column is written by the nightly
+                catalog import and by nothing else, and is empty for every row
+                on the compilation shelf, so a branch on it renders for nobody
+                — while the shelf name it was displacing (`Soundtracks - K`,
+                `Various Artists - Rock - S`) is the sub-bucket a librarian
+                needs to tell one compilation bucket from another. */}
             <Typography level="title-lg" sx={{ mb: 0.5 }}>
-              {album.album_artist ? "Various Artists" : album.artist.name} &bull; {album.title}
+              {album.artist.name} &bull; {album.title}
             </Typography>
             {album.album_artist && (
               <Typography level="body-sm" sx={{ mb: 0.5 }}>
@@ -149,6 +157,7 @@ export default function AlbumCard({
         <DiscogsUnavailableControl key={album.id} album={album} />
         <AlbumEditForm key={album.id} album={album} />
         <RotationClassifyControl key={album.id} album={album} />
+        <CompilationCreditsControl key={`credits-${album.id}`} album={album} />
         {!isDiscogsUnavailable && <StreamingLinks metadata={metadata} />}
         {!isDiscogsUnavailable && artistBio && (
           <>
