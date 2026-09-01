@@ -77,11 +77,13 @@ describe("fetchBackendJson", () => {
     ) => Promise<Response> = vi.fn(async () => jsonResponse({ ok: true }));
     vi.stubGlobal("fetch", fetchMock);
 
+    const callerSignal = new AbortController().signal;
     await fetchBackendJson("/library/genres", {
-      signal: new AbortController().signal,
+      signal: callerSignal,
     } as RequestInit);
 
     const [, init] = vi.mocked(fetchMock).mock.calls[0];
+    expect(init.signal).not.toBe(callerSignal);
     expect(init.signal).toBeInstanceOf(AbortSignal);
   });
 });
