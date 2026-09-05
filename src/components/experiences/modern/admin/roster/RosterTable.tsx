@@ -26,6 +26,7 @@ import ImportCSVModal from "./ImportCSVModal";
 import NewAccountForm from "./NewAccountForm";
 import OnboardingFilter from "./OnboardingFilter";
 import RoleFilter from "./RoleFilter";
+import ReviewFilter from "./ReviewFilter";
 
 /** A full-width row spanning the table, for states that replace the accounts. */
 const MessageRow = ({ children }: { children: ReactNode }) => (
@@ -148,6 +149,7 @@ export default function RosterTable({ user, organizationSlug }: { user: User; or
           <AccountSearchForm />
           <RoleFilter />
           <OnboardingFilter />
+          <ReviewFilter />
         </Stack>
         <Stack
           direction="row"
@@ -239,6 +241,8 @@ export default function RosterTable({ user, organizationSlug }: { user: User; or
                   account={dj}
                   isSelf={dj.userName === user.username}
                   organizationSlug={organizationSlug}
+                  viewerRole={user.authority}
+                  viewerId={user.id}
                 />
               ))
             )}

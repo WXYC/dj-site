@@ -3,6 +3,7 @@ import {
   foldForSearch,
   accountMatchesSearch,
   isOnboardingIncomplete,
+  isPendingManagerReview,
   selectRosterView,
   sortRosterForDisplay,
 } from "@/lib/features/admin/roster-filter";
@@ -140,6 +141,35 @@ describe("isOnboardingIncomplete", () => {
   });
 });
 
+describe("isPendingManagerReview", () => {
+  it("is pending when self-signed and never reviewed", () => {
+    expect(
+      isPendingManagerReview(
+        createTestAccountResult({ selfSignupAt: new Date("2026-08-01T00:00:00Z") })
+      )
+    ).toBe(true);
+  });
+
+  it("is not pending once reviewed", () => {
+    expect(
+      isPendingManagerReview(
+        createTestAccountResult({
+          selfSignupAt: new Date("2026-08-01T00:00:00Z"),
+          selfSignupReviewedAt: new Date("2026-08-02T00:00:00Z"),
+        })
+      )
+    ).toBe(false);
+  });
+
+  // An ordinary admin-provisioned account was never self-signed, so it never
+  // entered the queue in the first place.
+  it("is not pending for an account that was never self-signed", () => {
+    expect(isPendingManagerReview(createTestAccountResult({ selfSignupAt: undefined }))).toBe(
+      false
+    );
+  });
+});
+
 describe("selectRosterView", () => {
   // Filtering and slicing preserve input order, so the view is fed the sorted
   // roster the hook keeps out of the per-keystroke path.
@@ -149,6 +179,7 @@ describe("selectRosterView", () => {
       search: "",
       roles: [],
       onboarding: "all",
+      review: "all",
       page: 0,
       pageSize: 2,
       ...overrides,
@@ -214,6 +245,7 @@ describe("selectRosterView", () => {
         search: "",
         roles: [],
         onboarding: "all",
+        review: "all",
         page: 0,
         pageSize: 50,
         ...overrides,
@@ -249,6 +281,68 @@ describe("selectRosterView", () => {
       const clamped = mixedView({ onboarding: "incomplete", page: 4, pageSize: 2 });
       expect(clamped.page).toBe(0);
       expect(clamped.pageAccounts.map((a) => a.userName)).toEqual(["bglenncopeland"]);
+    });
+  });
+
+  describe("review filter", () => {
+    const pending = createTestAccountResult({
+      realName: "Alice Coltrane",
+      userName: "acoltrane",
+      selfSignupAt: new Date("2026-08-01T00:00:00Z"),
+    });
+    const reviewed = createTestAccountResult({
+      realName: "Arthur Russell",
+      userName: "arussell",
+      selfSignupAt: new Date("2026-08-01T00:00:00Z"),
+      selfSignupReviewedAt: new Date("2026-08-02T00:00:00Z"),
+    });
+    // Never self-signed — provisioned the ordinary way, so it never entered
+    // the queue and belongs in neither narrowed view.
+    const provisioned = jessica;
+    const mixed = sortRosterForDisplay([pending, reviewed, provisioned]);
+    const mixedView = (overrides: Partial<Parameters<typeof selectRosterView>[1]> = {}) =>
+      selectRosterView(mixed, {
+        search: "",
+        roles: [],
+        onboarding: "all",
+        review: "all",
+        page: 0,
+        pageSize: 50,
+        ...overrides,
+      });
+
+    it('keeps every account under "all"', () => {
+      expect(mixedView().matches).toHaveLength(3);
+    });
+
+    it("narrows to the self-signed accounts still awaiting review", () => {
+      expect(mixedView({ review: "pending" }).matches.map((a) => a.userName)).toEqual([
+        "acoltrane",
+      ]);
+    });
+
+    it("narrows to the self-signed accounts already reviewed", () => {
+      expect(mixedView({ review: "reviewed" }).matches.map((a) => a.userName)).toEqual([
+        "arussell",
+      ]);
+    });
+
+    it("excludes ordinary admin-provisioned accounts from both narrowed views", () => {
+      expect(mixedView({ review: "pending" }).matches).not.toContainEqual(provisioned);
+      expect(mixedView({ review: "reviewed" }).matches).not.toContainEqual(provisioned);
+    });
+
+    it("ANDs with search and role, so a filtered roster can be searched", () => {
+      expect(
+        mixedView({ review: "pending", search: "alice" }).matches.map((a) => a.userName)
+      ).toEqual(["acoltrane"]);
+      expect(mixedView({ review: "pending", roles: [Authorization.SM] }).matches).toEqual([]);
+    });
+
+    it("clamps the page when the filter shrinks the roster underfoot", () => {
+      const clamped = mixedView({ review: "pending", page: 4, pageSize: 2 });
+      expect(clamped.page).toBe(0);
+      expect(clamped.pageAccounts.map((a) => a.userName)).toEqual(["acoltrane"]);
     });
   });
 });

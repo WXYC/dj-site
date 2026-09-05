@@ -8,7 +8,8 @@ import { useMemo } from "react";
 const NO_ACCOUNTS: Account[] = [];
 
 /**
- * The roster, narrowed by the admin's search, role and onboarding filters.
+ * The roster, narrowed by the admin's search, role, onboarding and review
+ * filters.
  *
  * The whole roster is fetched once and narrowed here rather than per keystroke
  * on the server — see `roster-filter.ts` for why the server cannot express
@@ -22,6 +23,7 @@ export const useAccountListResults = (organizationSlug: string) => {
   const searchString = useAppSelector(adminSlice.selectors.getSearchString);
   const roleFilter = useAppSelector(adminSlice.selectors.getRoleFilter);
   const onboardingFilter = useAppSelector(adminSlice.selectors.getOnboardingFilter);
+  const reviewFilter = useAppSelector(adminSlice.selectors.getReviewFilter);
   const page = useAppSelector(adminSlice.selectors.getPage);
 
   const { data, isLoading, isFetching, isError, error, refetch } =
@@ -38,10 +40,11 @@ export const useAccountListResults = (organizationSlug: string) => {
         search: searchString,
         roles: roleFilter,
         onboarding: onboardingFilter,
+        review: reviewFilter,
         page,
         pageSize: ROSTER_PAGE_SIZE,
       }),
-    [ordered, searchString, roleFilter, onboardingFilter, page]
+    [ordered, searchString, roleFilter, onboardingFilter, reviewFilter, page]
   );
 
   return {

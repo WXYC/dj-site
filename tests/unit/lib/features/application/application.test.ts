@@ -4,6 +4,7 @@ import {
   defaultApplicationFrontendState,
 } from "@/lib/features/application/frontend";
 import { RightbarPanel } from "@/lib/features/application/types";
+import { Authorization } from "@/lib/features/admin/types";
 import { describeSlice } from "@/tests/helpers";
 import { createTestAccountResult } from "@/tests/helpers";
 
@@ -45,6 +46,7 @@ describeSlice(applicationSlice, defaultApplicationFrontendState, ({ harness, act
         account,
         isSelf: false,
         organizationSlug: "wxyc",
+        viewerRole: Authorization.SM,
       };
       const result = harness().reduce(actions.openPanel(panel));
       expect(result.rightbar.panel).toEqual(panel);

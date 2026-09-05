@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
 import AccountEditForm from "@/src/components/experiences/modern/admin/roster/AccountEditForm";
 import { createComponentHarness, createTestAccountResult } from "@/tests/helpers";
-import type { Account } from "@/lib/features/admin/types";
+import { Authorization, type Account } from "@/lib/features/admin/types";
 
 vi.mock("@/lib/features/authentication/client", () => ({
   authClient: {
@@ -48,6 +48,8 @@ const setup = createComponentHarness(AccountEditForm, {
   isSelf: false,
   onClose: () => {},
   organizationSlug: "wxyc",
+  viewerRole: Authorization.SM,
+  viewerId: "user-sm",
 });
 
 describe("AccountEditForm name editing", () => {
@@ -201,6 +203,84 @@ describe("AccountEditForm name editing", () => {
 
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalledWith("Update rejected");
+    });
+    expect(invalidateRoster).not.toHaveBeenCalled();
+  });
+});
+
+describe("AccountEditForm approve action", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockUpdateUser.mockResolvedValue({ data: {} });
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+  });
+
+  const pendingAccount = () => makeAccount({ selfSignupAt: new Date("2026-08-01T00:00:00Z") });
+
+  it("offers to approve a self-signed account still pending review", () => {
+    setup({ account: pendingAccount() });
+
+    expect(screen.getByRole("button", { name: "Approve Self-Signup" })).toBeInTheDocument();
+  });
+
+  it("does not offer to approve an account that was never self-signed", () => {
+    setup({ account: makeAccount() });
+
+    expect(screen.queryByRole("button", { name: "Approve Self-Signup" })).not.toBeInTheDocument();
+  });
+
+  it("does not offer to approve an account already reviewed", () => {
+    setup({
+      account: makeAccount({
+        selfSignupAt: new Date("2026-08-01T00:00:00Z"),
+        selfSignupReviewedAt: new Date("2026-08-02T00:00:00Z"),
+      }),
+    });
+
+    expect(screen.queryByRole("button", { name: "Approve Self-Signup" })).not.toBeInTheDocument();
+  });
+
+  // Gate 1: !isSelf. A manager cannot approve their own pending self-signup.
+  it("does not offer to approve your own account, even pending", () => {
+    setup({ account: pendingAccount(), isSelf: true });
+
+    expect(screen.queryByRole("button", { name: "Approve Self-Signup" })).not.toBeInTheDocument();
+  });
+
+  // Gate 2: viewer role. Defense-in-depth for a future non-SM dispatcher of
+  // this form — see the module doc on the "account-edit" panel case.
+  it("does not offer to approve when the viewer is below station-manager", () => {
+    setup({ account: pendingAccount(), viewerRole: Authorization.MD });
+
+    expect(screen.queryByRole("button", { name: "Approve Self-Signup" })).not.toBeInTheDocument();
+  });
+
+  it("approves via admin.updateUser, writing both review fields", async () => {
+    const { user } = setup({ account: pendingAccount() });
+
+    await user.click(screen.getByRole("button", { name: "Approve Self-Signup" }));
+
+    await waitFor(() => {
+      expect(mockUpdateUser).toHaveBeenCalledWith({
+        userId: "user-123",
+        data: {
+          selfSignupReviewedAt: expect.any(String),
+          selfSignupReviewedBy: "user-sm",
+        },
+      });
+    });
+    expect(toast.success).toHaveBeenCalled();
+    expect(invalidateRoster).toHaveBeenCalledWith(["Roster"]);
+  });
+
+  it("shows an error toast and does not refresh the roster when approval fails", async () => {
+    mockUpdateUser.mockResolvedValue({ error: { message: "Approval rejected" } });
+    const { user } = setup({ account: pendingAccount() });
+
+    await user.click(screen.getByRole("button", { name: "Approve Self-Signup" }));
+
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith("Approval rejected");
     });
     expect(invalidateRoster).not.toHaveBeenCalled();
   });

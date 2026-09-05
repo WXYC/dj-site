@@ -11,7 +11,7 @@ export default function AccountEditPanel() {
 
   if (panel.type !== "account-edit") return null;
 
-  const { account, isSelf, organizationSlug } = panel;
+  const { account, isSelf, organizationSlug, viewerRole, viewerId } = panel;
   const displayName = account.realName || account.userName;
   const handleClose = () => dispatch(applicationSlice.actions.closePanel());
 
@@ -29,6 +29,8 @@ export default function AccountEditPanel() {
         isSelf={isSelf}
         onClose={handleClose}
         organizationSlug={organizationSlug}
+        viewerRole={viewerRole}
+        viewerId={viewerId}
       />
     </RightbarPanelContainer>
   );

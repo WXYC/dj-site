@@ -2,6 +2,8 @@ import { describe, it, expect, vi } from "vitest";
 import { screen } from "@testing-library/react";
 import { AccountEntry } from "@/src/components/experiences/modern/admin/roster/AccountEntry";
 import { renderWithProviders, createTestAccountResult } from "@/tests/helpers";
+import { Authorization, type Account } from "@/lib/features/admin/types";
+import { isPendingManagerReview } from "@/lib/features/admin/roster-filter";
 
 vi.mock("@/lib/features/authentication/client", () => ({
   authClient: {
@@ -21,7 +23,12 @@ function renderAccountEntry(overrides: Parameters<typeof createTestAccountResult
   return renderWithProviders(
     <table>
       <tbody>
-        <AccountEntry account={account} isSelf={false} organizationSlug={organizationSlug} />
+        <AccountEntry
+          account={account}
+          isSelf={false}
+          organizationSlug={organizationSlug}
+          viewerRole={Authorization.SM}
+        />
       </tbody>
     </table>
   );
@@ -47,5 +54,54 @@ describe("AccountEntry onboarding indicator", () => {
     renderAccountEntry({ hasCompletedOnboarding: undefined });
 
     expect(screen.getByText("New")).toBeInTheDocument();
+  });
+});
+
+describe("AccountEntry review indicator", () => {
+  // The filter and this chip share `isPendingManagerReview` so they cannot
+  // disagree about which rows are pending — see roster-filter.ts.
+  it("shows a 'Pending review' chip for a self-signed account awaiting review", () => {
+    renderAccountEntry({ selfSignupAt: new Date("2026-08-01T00:00:00Z") });
+
+    expect(screen.getByText("Pending review")).toBeInTheDocument();
+  });
+
+  it("does not show the chip once the account has been reviewed", () => {
+    renderAccountEntry({
+      selfSignupAt: new Date("2026-08-01T00:00:00Z"),
+      selfSignupReviewedAt: new Date("2026-08-02T00:00:00Z"),
+    });
+
+    expect(screen.queryByText("Pending review")).not.toBeInTheDocument();
+  });
+
+  it("does not show the chip for an ordinary admin-provisioned account", () => {
+    renderAccountEntry({ selfSignupAt: undefined });
+
+    expect(screen.queryByText("Pending review")).not.toBeInTheDocument();
+  });
+
+  // Pins the chip to the exact same predicate `selectRosterView` filters the
+  // roster on, so a "pending" filter and an unbadged row can never disagree —
+  // the failure mode `isPendingManagerReview`'s doc comment calls out.
+  it.each<[string, Partial<Account>]>([
+    ["pending — self-signed, unreviewed", { selfSignupAt: new Date("2026-08-01T00:00:00Z") }],
+    [
+      "reviewed",
+      {
+        selfSignupAt: new Date("2026-08-01T00:00:00Z"),
+        selfSignupReviewedAt: new Date("2026-08-02T00:00:00Z"),
+      },
+    ],
+    ["never self-signed", { selfSignupAt: undefined }],
+  ])("chip visibility matches isPendingManagerReview for: %s", (_label, overrides) => {
+    const account = createTestAccountResult(overrides);
+    renderAccountEntry(overrides);
+
+    if (isPendingManagerReview(account)) {
+      expect(screen.getByText("Pending review")).toBeInTheDocument();
+    } else {
+      expect(screen.queryByText("Pending review")).not.toBeInTheDocument();
+    }
   });
 });

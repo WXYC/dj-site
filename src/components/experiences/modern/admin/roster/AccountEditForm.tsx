@@ -4,6 +4,7 @@ import { authClient } from "@/lib/features/authentication/client";
 import { adminApi } from "@/lib/features/admin/api";
 import { useAppDispatch } from "@/lib/hooks";
 import { resolveOrganizationIdAdmin } from "@/lib/features/authentication/organization-utils";
+import { isPendingManagerReview } from "@/lib/features/admin/roster-filter";
 import {
   Account,
   Authorization,
@@ -13,7 +14,7 @@ import {
   AUTHORIZATION_LABELS,
   authorizationToRole,
 } from "@/lib/features/authentication/types";
-import { DeleteForever, Edit, Language, Send } from "@mui/icons-material";
+import { CheckCircle, DeleteForever, Edit, Language, Send } from "@mui/icons-material";
 import {
   Button,
   Chip,
@@ -35,6 +36,12 @@ type AccountEditFormProps = {
   isSelf: boolean;
   onClose: () => void;
   organizationSlug: string;
+  /** The viewer's own role. Approving a self-signup is gated on this, in
+   * addition to page-level authority — see the module doc on the `RightbarPanel`
+   * "account-edit" case for why this defense-in-depth exists. */
+  viewerRole: Authorization;
+  /** The viewer's own id, written as `selfSignupReviewedBy` on approve. */
+  viewerId?: string;
 };
 
 export default function AccountEditForm({
@@ -42,9 +49,12 @@ export default function AccountEditForm({
   isSelf,
   onClose,
   organizationSlug,
+  viewerRole,
+  viewerId,
 }: AccountEditFormProps) {
   const [isPromoting, setIsPromoting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isApproving, setIsApproving] = useState(false);
   const [isUpdatingCapabilities, setIsUpdatingCapabilities] = useState(false);
   const [isUpdatingEmail, setIsUpdatingEmail] = useState(false);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
@@ -62,6 +72,13 @@ export default function AccountEditForm({
 
   const userCapabilities = (account.capabilities ?? []) as ("editor" | "webmaster")[];
   const isIncomplete = account.hasCompletedOnboarding !== true;
+  const pendingReview = isPendingManagerReview(account);
+  // Defense-in-depth against a future second dispatcher of "account-edit":
+  // the roster page itself already requires SM (`requireRole` in the Server
+  // Component), so this is not reachable by a sub-SM viewer today. `!isSelf`
+  // stops a DJ approving their own pending self-signup the moment isSelf edit
+  // is ever wired to a lower-privileged route.
+  const canApprove = viewerRole >= Authorization.SM && !isSelf;
 
   const trimmedRealName = newRealName.trim();
   const trimmedDjName = newDjName.trim();
@@ -314,6 +331,37 @@ export default function AccountEditForm({
     }
   };
 
+  const handleApprove = async () => {
+    if (!confirm(`Approve ${account.realName}'s self-signup?`)) {
+      return;
+    }
+
+    setIsApproving(true);
+    try {
+      const targetUserId = await resolveUserId();
+
+      const result = await authClient.admin.updateUser({
+        userId: targetUserId,
+        data: {
+          selfSignupReviewedAt: new Date().toISOString(),
+          selfSignupReviewedBy: viewerId,
+        },
+      });
+
+      if (result.error) {
+        throw new Error(result.error.message || "Failed to approve account");
+      }
+
+      toast.success(`${account.realName}'s self-signup approved`);
+      invalidateRoster();
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Failed to approve account";
+      toast.error(errorMessage);
+    } finally {
+      setIsApproving(false);
+    }
+  };
+
   const handleSendPasswordReset = async () => {
     if (!account.email) {
       toast.error("No email address on file.");
@@ -515,6 +563,19 @@ export default function AccountEditForm({
       <Stack spacing={1.5}>
         <Typography level="title-sm">Account Actions</Typography>
         <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", gap: 1 }}>
+          {pendingReview && canApprove && (
+            <Button
+              size="sm"
+              color="success"
+              variant="solid"
+              startDecorator={<CheckCircle />}
+              disabled={isApproving}
+              loading={isApproving}
+              onClick={handleApprove}
+            >
+              Approve Self-Signup
+            </Button>
+          )}
           {!isSelf && (
             <Button
               size="sm"

@@ -1,4 +1,4 @@
-import { Account } from "../admin/types";
+import { Account, Authorization } from "../admin/types";
 import { ColorMode, ExperienceId } from "../experiences/types";
 
 export const defaultApplicationState: ApplicationState = {
@@ -40,4 +40,14 @@ export type RightbarPanel =
     | { type: "default" }
     | { type: "album-detail"; albumId: number }
     | { type: "settings" }
-    | { type: "account-edit"; account: Account; isSelf: boolean; organizationSlug: string };
+    | {
+          type: "account-edit";
+          account: Account;
+          isSelf: boolean;
+          organizationSlug: string;
+          /** The viewer's own role, for gating actions the form itself must not let a
+           * lower-privileged viewer reach — see AccountEditForm's approve action. */
+          viewerRole: Authorization;
+          /** The viewer's own id, written as `selfSignupReviewedBy` on approve. */
+          viewerId?: string;
+      };
