@@ -3,6 +3,7 @@ import { screen } from "@testing-library/react";
 import { renderWithProviders, createTestStore } from "@/tests/helpers";
 import { applicationSlice } from "@/lib/features/application/frontend";
 import { createTestAccountResult } from "@/tests/helpers";
+import { Authorization } from "@/lib/features/admin/types";
 import Rightbar from "@/src/components/experiences/modern/Rightbar/Rightbar";
 
 // Mock child components
@@ -104,6 +105,7 @@ describe("Rightbar", () => {
       account: createTestAccountResult(),
       isSelf: false,
       organizationSlug: "wxyc",
+      viewerRole: Authorization.SM,
     }));
     renderWithProviders(<Rightbar />, { store });
 

@@ -17,6 +17,8 @@ export type BetterAuthUser = {
   /** Cross-cutting capabilities independent of role hierarchy */
   capabilities?: string[];
   hasCompletedOnboarding?: boolean;
+  selfSignupAt?: Date;
+  selfSignupReviewedAt?: Date;
 };
 
 export function convertBetterAuthToAccountResult(
@@ -34,6 +36,8 @@ export function convertBetterAuthToAccountResult(
     email: user.email,
     capabilities: user.capabilities ?? [],
     hasCompletedOnboarding: user.hasCompletedOnboarding ?? false,
+    selfSignupAt: user.selfSignupAt,
+    selfSignupReviewedAt: user.selfSignupReviewedAt,
   };
 }
 

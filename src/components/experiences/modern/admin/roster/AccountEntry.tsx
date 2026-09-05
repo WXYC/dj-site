@@ -3,8 +3,9 @@
 import { applicationSlice } from "@/lib/features/application/frontend";
 import {
   Account,
+  Authorization,
 } from "@/lib/features/admin/types";
-import { isOnboardingIncomplete } from "@/lib/features/admin/roster-filter";
+import { isOnboardingIncomplete, isPendingManagerReview } from "@/lib/features/admin/roster-filter";
 import {
   AUTHORIZATION_LABELS,
 } from "@/lib/features/authentication/types";
@@ -25,10 +26,14 @@ export const AccountEntry = ({
   account,
   isSelf,
   organizationSlug,
+  viewerRole,
+  viewerId,
 }: {
   account: Account;
   isSelf: boolean;
   organizationSlug: string;
+  viewerRole: Authorization;
+  viewerId?: string;
 }) => {
   const dispatch = useAppDispatch();
   const userCapabilities = (account.capabilities ?? []) as Capability[];
@@ -80,6 +85,19 @@ export const AccountEntry = ({
               </Chip>
             </Tooltip>
           )}
+          {isPendingManagerReview(account) && (
+            <Tooltip
+              title="Self-signed — awaiting manager review"
+              arrow
+              placement="top"
+              variant="outlined"
+              size="sm"
+            >
+              <Chip {...ADMIN_TONES.pendingReview} size="sm">
+                Pending review
+              </Chip>
+            </Tooltip>
+          )}
         </Stack>
       </td>
       <td>{account.userName}</td>
@@ -104,6 +122,8 @@ export const AccountEntry = ({
               account,
               isSelf,
               organizationSlug,
+              viewerRole,
+              viewerId,
             }))}
             aria-label={`Edit ${account.realName || account.userName}`}
           >

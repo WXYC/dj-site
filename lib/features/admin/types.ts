@@ -3,8 +3,8 @@ import { Authorization, ROLES, roleToAuthorization } from "@wxyc/shared/auth-cli
 
 // Defined beside the predicate that reads it; re-exported here because the
 // roster's state shape is the vocabulary the components import.
-import type { OnboardingFilter } from "./roster-filter";
-export type { OnboardingFilter };
+import type { OnboardingFilter, ReviewFilter } from "./roster-filter";
+export type { OnboardingFilter, ReviewFilter };
 
 /**
  * Every station role a picker can offer, least privileged first.
@@ -38,6 +38,8 @@ export type AdminFrontendState = {
   roleFilter: Authorization[];
   /** Which side of the signup flow the table is narrowed to. */
   onboardingFilter: OnboardingFilter;
+  /** Which side of the manager review queue the table is narrowed to. */
+  reviewFilter: ReviewFilter;
   page: number;
   adding: boolean;
   formData: {
@@ -57,6 +59,15 @@ export type Account = {
   /** Cross-cutting capabilities independent of role hierarchy */
   capabilities?: string[];
   hasCompletedOnboarding?: boolean;
+  /** Set when the account was created through station self-signup. */
+  selfSignupAt?: Date;
+  /**
+   * Set once a manager clears the review. Never `selfSignupReviewedBy` — that
+   * field is `returned: false` server-side (it names the reviewing manager)
+   * and never reaches this payload; approve still writes it, it is just not
+   * read back here.
+   */
+  selfSignupReviewedAt?: Date;
 };
 
 export type NewAccountParams = {

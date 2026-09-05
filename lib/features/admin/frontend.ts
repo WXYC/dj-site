@@ -5,6 +5,7 @@ export const defaultAdminFrontendState: AdminFrontendState = {
   searchString: "",
   roleFilter: [],
   onboardingFilter: "all",
+  reviewFilter: "all",
   page: 0,
   adding: false,
   formData: {
@@ -30,6 +31,10 @@ export const adminSlice = createAppSlice({
       state.onboardingFilter = action.payload;
       state.page = 0;
     },
+    setReviewFilter: (state, action) => {
+      state.reviewFilter = action.payload;
+      state.page = 0;
+    },
     setPage: (state, action) => {
       state.page = action.payload;
     },
@@ -53,6 +58,7 @@ export const adminSlice = createAppSlice({
     getSearchString: (state) => state.searchString,
     getRoleFilter: (state) => state.roleFilter,
     getOnboardingFilter: (state) => state.onboardingFilter,
+    getReviewFilter: (state) => state.reviewFilter,
     getPage: (state) => state.page,
     getAdding: (state) => state.adding,
     getFormData: (state) => state.formData,

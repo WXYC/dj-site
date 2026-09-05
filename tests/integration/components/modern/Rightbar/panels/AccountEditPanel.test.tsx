@@ -7,7 +7,7 @@ import {
   createTestAccountResult,
 } from "@/tests/helpers";
 import { applicationSlice } from "@/lib/features/application/frontend";
-import type { Account } from "@/lib/features/admin/types";
+import { Authorization, type Account } from "@/lib/features/admin/types";
 
 vi.mock("@/lib/features/authentication/client", () => ({
   authClient: {
@@ -35,6 +35,7 @@ function openAccountEditPanel(account: Account) {
     account,
     isSelf: false,
     organizationSlug: "wxyc",
+    viewerRole: Authorization.SM,
   });
 }
 

@@ -103,6 +103,48 @@ function accountMatchesOnboarding(account: Account, onboarding: OnboardingFilter
 }
 
 /**
+ * Which side of the manager review queue an account is on.
+ *
+ * `"all"` is the default rather than an absent value so the filter has one
+ * representation everywhere — Redux state, the query, and the picker's value.
+ * Modeled on `OnboardingFilter` above, including its fail-open reasoning: a
+ * filter that fails open hides nobody, where one failing closed hides the
+ * roster behind a control the admin never touched.
+ */
+export type ReviewFilter = "all" | "pending" | "reviewed";
+
+/**
+ * Is this a self-signed account still waiting on a manager's review?
+ *
+ * `self_signup_at IS NOT NULL AND self_signup_reviewed_at IS NULL` — the only
+ * two columns that carry this, since `self_signup_reviewed_by` rides
+ * `returned: false` and never reaches this payload.
+ *
+ * Exported and shared with `AccountEntry`'s review chip on purpose, for the
+ * same reason `isOnboardingIncomplete` is: the filter and the badge are the
+ * same claim shown two ways, and an admin who filters to "pending" and sees
+ * an unbadged row reads it as a bug — so the two must not be able to drift
+ * apart.
+ */
+export function isPendingManagerReview(account: Account): boolean {
+  return account.selfSignupAt != null && account.selfSignupReviewedAt == null;
+}
+
+/** Was this account ever a self-signup? Ordinary admin-provisioned accounts
+ * are neither pending nor reviewed — they never entered the queue. */
+function wasSelfSigned(account: Account): boolean {
+  return account.selfSignupAt != null;
+}
+
+/** Anything but the two narrowing values shows the whole roster — see
+ * `accountMatchesOnboarding` above for why. */
+function accountMatchesReview(account: Account, review: ReviewFilter): boolean {
+  if (review === "pending") return isPendingManagerReview(account);
+  if (review === "reviewed") return wasSelfSigned(account) && !isPendingManagerReview(account);
+  return true;
+}
+
+/**
  * Passing `locales`/`options` to `localeCompare` defeats V8's collator cache
  * and constructs a fresh ICU collator per comparison — ~30x the cost, paid
  * once per comparison across the whole roster.
@@ -133,6 +175,7 @@ export type RosterQuery = {
   search: string;
   roles: Authorization[];
   onboarding: OnboardingFilter;
+  review: ReviewFilter;
   page: number;
   pageSize: number;
 };
@@ -163,7 +206,8 @@ export function selectRosterView(orderedAccounts: Account[], query: RosterQuery)
     (account) =>
       matchesTerms(account, terms) &&
       accountMatchesRoles(account, query.roles) &&
-      accountMatchesOnboarding(account, query.onboarding)
+      accountMatchesOnboarding(account, query.onboarding) &&
+      accountMatchesReview(account, query.review)
   );
 
   const totalPages = Math.max(1, Math.ceil(matches.length / query.pageSize));
