@@ -17,8 +17,8 @@ export type BetterAuthUser = {
   /** Cross-cutting capabilities independent of role hierarchy */
   capabilities?: string[];
   hasCompletedOnboarding?: boolean;
-  selfSignupAt?: Date;
-  selfSignupReviewedAt?: Date;
+  selfSignupAt?: Date | null;
+  selfSignupReviewedAt?: Date | null;
 };
 
 export function convertBetterAuthToAccountResult(
@@ -36,8 +36,14 @@ export function convertBetterAuthToAccountResult(
     email: user.email,
     capabilities: user.capabilities ?? [],
     hasCompletedOnboarding: user.hasCompletedOnboarding ?? false,
-    selfSignupAt: user.selfSignupAt,
-    selfSignupReviewedAt: user.selfSignupReviewedAt,
+    // Better-auth's client parser revives ISO strings into real `Date`
+    // objects; carry the raw ISO string past this boundary instead, so a
+    // `Date` never lands in the RTK Query cache or the rightbar panel's
+    // Redux payload (both trip `serializableCheck` outside production).
+    selfSignupAt: user.selfSignupAt ? new Date(user.selfSignupAt).toISOString() : null,
+    selfSignupReviewedAt: user.selfSignupReviewedAt
+      ? new Date(user.selfSignupReviewedAt).toISOString()
+      : null,
   };
 }
 

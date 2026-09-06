@@ -145,7 +145,7 @@ describe("isPendingManagerReview", () => {
   it("is pending when self-signed and never reviewed", () => {
     expect(
       isPendingManagerReview(
-        createTestAccountResult({ selfSignupAt: new Date("2026-08-01T00:00:00Z") })
+        createTestAccountResult({ selfSignupAt: "2026-08-01T00:00:00Z" })
       )
     ).toBe(true);
   });
@@ -154,8 +154,8 @@ describe("isPendingManagerReview", () => {
     expect(
       isPendingManagerReview(
         createTestAccountResult({
-          selfSignupAt: new Date("2026-08-01T00:00:00Z"),
-          selfSignupReviewedAt: new Date("2026-08-02T00:00:00Z"),
+          selfSignupAt: "2026-08-01T00:00:00Z",
+          selfSignupReviewedAt: "2026-08-02T00:00:00Z",
         })
       )
     ).toBe(false);
@@ -288,13 +288,13 @@ describe("selectRosterView", () => {
     const pending = createTestAccountResult({
       realName: "Alice Coltrane",
       userName: "acoltrane",
-      selfSignupAt: new Date("2026-08-01T00:00:00Z"),
+      selfSignupAt: "2026-08-01T00:00:00Z",
     });
     const reviewed = createTestAccountResult({
       realName: "Arthur Russell",
       userName: "arussell",
-      selfSignupAt: new Date("2026-08-01T00:00:00Z"),
-      selfSignupReviewedAt: new Date("2026-08-02T00:00:00Z"),
+      selfSignupAt: "2026-08-01T00:00:00Z",
+      selfSignupReviewedAt: "2026-08-02T00:00:00Z",
     });
     // Never self-signed — provisioned the ordinary way, so it never entered
     // the queue and belongs in neither narrowed view.

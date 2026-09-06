@@ -1,10 +1,7 @@
 "use client";
 
 import { applicationSlice } from "@/lib/features/application/frontend";
-import {
-  Account,
-  Authorization,
-} from "@/lib/features/admin/types";
+import { Account } from "@/lib/features/admin/types";
 import { isOnboardingIncomplete, isPendingManagerReview } from "@/lib/features/admin/roster-filter";
 import {
   AUTHORIZATION_LABELS,
@@ -26,14 +23,10 @@ export const AccountEntry = ({
   account,
   isSelf,
   organizationSlug,
-  viewerRole,
-  viewerId,
 }: {
   account: Account;
   isSelf: boolean;
   organizationSlug: string;
-  viewerRole: Authorization;
-  viewerId?: string;
 }) => {
   const dispatch = useAppDispatch();
   const userCapabilities = (account.capabilities ?? []) as Capability[];
@@ -122,8 +115,6 @@ export const AccountEntry = ({
               account,
               isSelf,
               organizationSlug,
-              viewerRole,
-              viewerId,
             }))}
             aria-label={`Edit ${account.realName || account.userName}`}
           >

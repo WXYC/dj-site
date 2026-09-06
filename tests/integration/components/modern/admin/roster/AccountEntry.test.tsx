@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { screen } from "@testing-library/react";
 import { AccountEntry } from "@/src/components/experiences/modern/admin/roster/AccountEntry";
 import { renderWithProviders, createTestAccountResult } from "@/tests/helpers";
-import { Authorization, type Account } from "@/lib/features/admin/types";
+import { type Account } from "@/lib/features/admin/types";
 import { isPendingManagerReview } from "@/lib/features/admin/roster-filter";
 
 vi.mock("@/lib/features/authentication/client", () => ({
@@ -27,7 +27,6 @@ function renderAccountEntry(overrides: Parameters<typeof createTestAccountResult
           account={account}
           isSelf={false}
           organizationSlug={organizationSlug}
-          viewerRole={Authorization.SM}
         />
       </tbody>
     </table>
@@ -61,15 +60,15 @@ describe("AccountEntry review indicator", () => {
   // The filter and this chip share `isPendingManagerReview` so they cannot
   // disagree about which rows are pending — see roster-filter.ts.
   it("shows a 'Pending review' chip for a self-signed account awaiting review", () => {
-    renderAccountEntry({ selfSignupAt: new Date("2026-08-01T00:00:00Z") });
+    renderAccountEntry({ selfSignupAt: "2026-08-01T00:00:00Z" });
 
     expect(screen.getByText("Pending review")).toBeInTheDocument();
   });
 
   it("does not show the chip once the account has been reviewed", () => {
     renderAccountEntry({
-      selfSignupAt: new Date("2026-08-01T00:00:00Z"),
-      selfSignupReviewedAt: new Date("2026-08-02T00:00:00Z"),
+      selfSignupAt: "2026-08-01T00:00:00Z",
+      selfSignupReviewedAt: "2026-08-02T00:00:00Z",
     });
 
     expect(screen.queryByText("Pending review")).not.toBeInTheDocument();
@@ -85,12 +84,12 @@ describe("AccountEntry review indicator", () => {
   // roster on, so a "pending" filter and an unbadged row can never disagree —
   // the failure mode `isPendingManagerReview`'s doc comment calls out.
   it.each<[string, Partial<Account>]>([
-    ["pending — self-signed, unreviewed", { selfSignupAt: new Date("2026-08-01T00:00:00Z") }],
+    ["pending — self-signed, unreviewed", { selfSignupAt: "2026-08-01T00:00:00Z" }],
     [
       "reviewed",
       {
-        selfSignupAt: new Date("2026-08-01T00:00:00Z"),
-        selfSignupReviewedAt: new Date("2026-08-02T00:00:00Z"),
+        selfSignupAt: "2026-08-01T00:00:00Z",
+        selfSignupReviewedAt: "2026-08-02T00:00:00Z",
       },
     ],
     ["never self-signed", { selfSignupAt: undefined }],

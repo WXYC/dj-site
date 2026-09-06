@@ -59,15 +59,22 @@ export type Account = {
   /** Cross-cutting capabilities independent of role hierarchy */
   capabilities?: string[];
   hasCompletedOnboarding?: boolean;
-  /** Set when the account was created through station self-signup. */
-  selfSignupAt?: Date;
   /**
-   * Set once a manager clears the review. Never `selfSignupReviewedBy` — that
-   * field is `returned: false` server-side (it names the reviewing manager)
-   * and never reaches this payload; approve still writes it, it is just not
-   * read back here.
+   * Set when the account was created through station self-signup. An ISO
+   * string, not a `Date`: nothing in the app reads the value beyond a null
+   * check, and a `Date` here would round-trip through Redux (the RTK Query
+   * roster cache and the rightbar panel payload), tripping
+   * `serializableCheck` outside production.
    */
-  selfSignupReviewedAt?: Date;
+  selfSignupAt?: string | null;
+  /**
+   * Set once a manager clears the review. An ISO string for the same reason
+   * as `selfSignupAt` above. Never `selfSignupReviewedBy` — that field is
+   * `returned: false` server-side (it names the reviewing manager) and never
+   * reaches this payload; approve still writes it, it is just not read back
+   * here.
+   */
+  selfSignupReviewedAt?: string | null;
 };
 
 export type NewAccountParams = {

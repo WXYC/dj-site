@@ -215,7 +215,7 @@ describe("AccountEditForm approve action", () => {
     vi.spyOn(window, "confirm").mockReturnValue(true);
   });
 
-  const pendingAccount = () => makeAccount({ selfSignupAt: new Date("2026-08-01T00:00:00Z") });
+  const pendingAccount = () => makeAccount({ selfSignupAt: "2026-08-01T00:00:00Z" });
 
   it("offers to approve a self-signed account still pending review", () => {
     setup({ account: pendingAccount() });
@@ -232,8 +232,8 @@ describe("AccountEditForm approve action", () => {
   it("does not offer to approve an account already reviewed", () => {
     setup({
       account: makeAccount({
-        selfSignupAt: new Date("2026-08-01T00:00:00Z"),
-        selfSignupReviewedAt: new Date("2026-08-02T00:00:00Z"),
+        selfSignupAt: "2026-08-01T00:00:00Z",
+        selfSignupReviewedAt: "2026-08-02T00:00:00Z",
       }),
     });
 
@@ -273,6 +273,35 @@ describe("AccountEditForm approve action", () => {
     expect(invalidateRoster).toHaveBeenCalledWith(["Roster"]);
   });
 
+  // `account` is a snapshot from when the panel opened, so nothing updates it
+  // once a manager approves — `handleDelete` avoids the same drift by closing
+  // the panel on success, and approve must do the same or the panel is left
+  // showing "Approve Self-Signup" for a row the roster behind it no longer
+  // badges as pending.
+  it("closes the panel after a successful approval", async () => {
+    const onClose = vi.fn();
+    const { user } = setup({ account: pendingAccount(), onClose });
+
+    await user.click(screen.getByRole("button", { name: "Approve Self-Signup" }));
+
+    await waitFor(() => {
+      expect(onClose).toHaveBeenCalled();
+    });
+  });
+
+  it("does not close the panel when approval fails", async () => {
+    mockUpdateUser.mockResolvedValue({ error: { message: "Approval rejected" } });
+    const onClose = vi.fn();
+    const { user } = setup({ account: pendingAccount(), onClose });
+
+    await user.click(screen.getByRole("button", { name: "Approve Self-Signup" }));
+
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalled();
+    });
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
   it("shows an error toast and does not refresh the roster when approval fails", async () => {
     mockUpdateUser.mockResolvedValue({ error: { message: "Approval rejected" } });
     const { user } = setup({ account: pendingAccount() });
@@ -282,6 +311,21 @@ describe("AccountEditForm approve action", () => {
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalledWith("Approval rejected");
     });
+    expect(invalidateRoster).not.toHaveBeenCalled();
+  });
+
+  // Closing the viewerId-optional hole: an approve without a reviewer id would
+  // otherwise write `reviewed_at` while silently dropping `reviewed_by`, and
+  // still show a success toast.
+  it("refuses to approve when the viewer id is missing", async () => {
+    const { user } = setup({ account: pendingAccount(), viewerId: undefined });
+
+    await user.click(screen.getByRole("button", { name: "Approve Self-Signup" }));
+
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith("Cannot approve: missing reviewer identity.");
+    });
+    expect(mockUpdateUser).not.toHaveBeenCalled();
     expect(invalidateRoster).not.toHaveBeenCalled();
   });
 });
