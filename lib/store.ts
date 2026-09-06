@@ -26,6 +26,7 @@ import { playlistSearchSlice } from "./features/playlist-search/frontend";
 import { rotationApi } from "./features/rotation/api";
 import { scheduleWeekApi } from "./features/schedule-week/api";
 import { rotationSlice } from "./features/rotation/frontend";
+import { stationSignupApi } from "./features/station-signup/api";
 
 const rootReducer = combineSlices(
   authenticationSlice,
@@ -48,7 +49,8 @@ const rootReducer = combineSlices(
   rotationApi,
   scheduleWeekApi,
   adminSlice,
-  adminApi
+  adminApi,
+  stationSignupApi
 );
 
 export type RootState = ReturnType<typeof rootReducer>;
@@ -74,7 +76,8 @@ export const makeStore = (preloadedState?: Partial<RootState>) => {
         .concat(playlistSearchApi.middleware)
         .concat(rotationApi.middleware)
         .concat(scheduleWeekApi.middleware)
-        .concat(adminApi.middleware);
+        .concat(adminApi.middleware)
+        .concat(stationSignupApi.middleware);
     },
   });
   attachLiveUpdatesListener(store, liveUpdatesListener);
