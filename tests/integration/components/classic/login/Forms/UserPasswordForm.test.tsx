@@ -29,6 +29,14 @@ vi.mock("next/navigation", () => ({
   }),
 }));
 
+vi.mock("next/link", () => ({
+  default: ({ children, href }: { children: React.ReactNode; href: string }) => (
+    <a href={href}>{children}</a>
+  ),
+}));
+
+const STATION_SIGNUP_FLAG_KEY = "NEXT_PUBLIC_STATION_SIGNUP_ENABLED";
+
 describe("UserPasswordForm", () => {
   beforeEach(() => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
@@ -156,6 +164,30 @@ describe("UserPasswordForm", () => {
     // Button is disabled so form won't submit
     // We can verify the form element exists and would handle submission
     expect(form).toBeInTheDocument();
+  });
+
+  describe("station signup entry link (flag-gated)", () => {
+    afterEach(() => {
+      delete process.env[STATION_SIGNUP_FLAG_KEY];
+    });
+
+    it("is hidden when the station signup flag is off", () => {
+      delete process.env[STATION_SIGNUP_FLAG_KEY];
+      renderWithProviders(<UserPasswordForm />);
+
+      expect(
+        screen.queryByRole("link", { name: "New DJ? Get station access" })
+      ).not.toBeInTheDocument();
+    });
+
+    it("links to ?signup=1 when the station signup flag is on", () => {
+      process.env[STATION_SIGNUP_FLAG_KEY] = "true";
+      renderWithProviders(<UserPasswordForm />);
+
+      expect(
+        screen.getByRole("link", { name: "New DJ? Get station access" })
+      ).toHaveAttribute("href", "/login?signup=1");
+    });
   });
 });
 

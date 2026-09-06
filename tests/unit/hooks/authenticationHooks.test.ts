@@ -47,6 +47,7 @@ const mockLookupEmailByIdentifier = vi.fn();
 const mockSignOut = vi.fn();
 const mockClearTokenCache = vi.fn();
 const mockCompleteOnboarding = vi.fn();
+const mockStationSignup = vi.fn();
 vi.mock("@/lib/features/authentication/client", () => ({
   authClient: {
     updateUser: (...args: any[]) => mockUpdateUser(...args),
@@ -70,6 +71,7 @@ vi.mock("@/lib/features/authentication/client", () => ({
   clearTokenCache: (...args: any[]) => mockClearTokenCache(...args),
   lookupEmailByIdentifier: (...args: any[]) => mockLookupEmailByIdentifier(...args),
   completeOnboarding: (...args: any[]) => mockCompleteOnboarding(...args),
+  stationSignup: (...args: any[]) => mockStationSignup(...args),
 }));
 
 // Mock throwIfBetterAuthError
@@ -1371,6 +1373,94 @@ describe("authenticationHooks", () => {
       });
 
       expect(result.current.status).toBe("error");
+    });
+  });
+
+  describe("useStationSignup", () => {
+    const request = {
+      passcode: "passcode-123",
+      username: "newdj",
+      email: "newdj@example.com",
+      password: "supersecret",
+      realName: "New DJ",
+    };
+
+    it("tracks isLoading around the call and forwards the resolved outcome", async () => {
+      let resolveSignup: (value: unknown) => void;
+      mockStationSignup.mockReturnValue(
+        new Promise((resolve) => {
+          resolveSignup = resolve;
+        }),
+      );
+
+      const { useStationSignup } = await import("@/src/hooks/authenticationHooks");
+      const { result } = renderHook(() => useStationSignup());
+
+      expect(result.current.isLoading).toBe(false);
+
+      let pending: Promise<unknown>;
+      act(() => {
+        pending = result.current.handleSignup(request);
+      });
+      expect(result.current.isLoading).toBe(true);
+
+      await act(async () => {
+        resolveSignup!({ status: "success", username: "newdj", email: "newdj@example.com" });
+        await pending;
+      });
+
+      expect(result.current.isLoading).toBe(false);
+      expect(mockStationSignup).toHaveBeenCalledWith(request);
+      await expect(pending!).resolves.toEqual({
+        status: "success",
+        username: "newdj",
+        email: "newdj@example.com",
+      });
+    });
+
+    it("passes through an unavailable outcome", async () => {
+      mockStationSignup.mockResolvedValue({ status: "unavailable" });
+
+      const { useStationSignup } = await import("@/src/hooks/authenticationHooks");
+      const { result } = renderHook(() => useStationSignup());
+
+      const outcome = await act(() => result.current.handleSignup(request));
+
+      expect(outcome).toEqual({ status: "unavailable" });
+    });
+
+    it("passes through an error outcome with its code and message", async () => {
+      mockStationSignup.mockResolvedValue({
+        status: "error",
+        code: "INVALID_PASSCODE",
+        message: "Invalid or expired signup code",
+      });
+
+      const { useStationSignup } = await import("@/src/hooks/authenticationHooks");
+      const { result } = renderHook(() => useStationSignup());
+
+      const outcome = await act(() => result.current.handleSignup(request));
+
+      expect(outcome).toEqual({
+        status: "error",
+        code: "INVALID_PASSCODE",
+        message: "Invalid or expired signup code",
+      });
+    });
+
+    it("resolves to a generic error outcome when the call itself throws", async () => {
+      mockStationSignup.mockRejectedValue(new Error("network down"));
+
+      const { useStationSignup } = await import("@/src/hooks/authenticationHooks");
+      const { result } = renderHook(() => useStationSignup());
+
+      const outcome = await act(() => result.current.handleSignup(request));
+
+      expect(outcome).toEqual({
+        status: "error",
+        message: "Something went wrong. Please try again.",
+      });
+      expect(result.current.isLoading).toBe(false);
     });
   });
 });

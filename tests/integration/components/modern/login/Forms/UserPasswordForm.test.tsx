@@ -14,6 +14,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 const QR_FLAG_KEY = "NEXT_PUBLIC_QR_LOGIN_ENABLED";
+const STATION_SIGNUP_FLAG_KEY = "NEXT_PUBLIC_STATION_SIGNUP_ENABLED";
 
 describe("UserPasswordForm", () => {
   it("should render identifier and password fields", () => {
@@ -102,6 +103,37 @@ describe("UserPasswordForm", () => {
       expect(applicationSlice.selectors.getAuthStage(store.getState())).toBe(
         "qr"
       );
+    });
+  });
+
+  describe("station signup entry link (flag-gated)", () => {
+    afterEach(() => {
+      delete process.env[STATION_SIGNUP_FLAG_KEY];
+    });
+
+    it("is hidden when the station signup flag is off", () => {
+      delete process.env[STATION_SIGNUP_FLAG_KEY];
+      renderWithProviders(<UserPasswordForm />);
+
+      expect(
+        screen.queryByRole("button", { name: "New DJ? Get station access" })
+      ).not.toBeInTheDocument();
+    });
+
+    it("switches to the signup stage when the flag is on, without remembering it as a login method", async () => {
+      process.env[STATION_SIGNUP_FLAG_KEY] = "true";
+      const { user, store } = renderWithProviders(<UserPasswordForm />);
+
+      await user.click(
+        screen.getByRole("button", { name: "New DJ? Get station access" })
+      );
+
+      expect(applicationSlice.selectors.getAuthStage(store.getState())).toBe(
+        "signup"
+      );
+      // Not a sign-in method: must never be written to the remembered
+      // login-method preference, unlike the QR/password/email-code links above.
+      expect(localStorage.getItem("wxyc_preferred_login_method")).toBeNull();
     });
   });
 });

@@ -1,6 +1,8 @@
 "use client";
 
+import { isStationSignupEnabled } from "@/lib/features/authentication/flags";
 import { useLogin } from "@/src/hooks/authenticationHooks";
+import Link from "next/link";
 import Main from "../Layout/Main";
 import RequiredBox from "./Fields/RequiredBox";
 import { ValidatedSubmitButton } from "./Fields/ValidatedSubmitButton";
@@ -43,6 +45,13 @@ export default function UserPasswordForm() {
             />
           </td>
         </tr>
+        {isStationSignupEnabled() && (
+          <tr>
+            <td colSpan={2} style={{ textAlign: "center" }}>
+              <Link href="/login?signup=1">New DJ? Get station access</Link>
+            </td>
+          </tr>
+        )}
       </Main>
     </form>
   );
