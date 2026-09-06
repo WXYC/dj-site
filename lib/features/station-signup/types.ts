@@ -1,8 +1,8 @@
 /**
- * Wire types for `/auth/admin/station-signup/*` (BS#2362). Every timestamp
- * crosses the wire as an ISO string, never a `Date` -- these types describe
- * the JSON exactly as `fetch` hands it back, and the panel formats strings
- * through `stationTime.ts` at render time rather than parsing dates here.
+ * Wire types for `/auth/admin/station-signup/*`. Every timestamp crosses the
+ * wire as an ISO string, never a `Date` -- these types describe the JSON
+ * exactly as `fetch` hands it back, and the panel formats strings through
+ * `stationTime.ts` at render time rather than parsing dates here.
  */
 
 export type StationPasscodeState = "active" | "revoked" | "expired";

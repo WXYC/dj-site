@@ -16,7 +16,7 @@ const STATION_SIGNUP_ADMIN_PREFIX = "/admin/station-signup";
 type StationSignupErrorBody = { error?: string; code?: string };
 
 /**
- * Every one of the six operations shares one gate and one error shape
+ * Every one of the five operations shares one gate and one error shape
  * (`{ error, code? }`) -- `code` is present only for the two typed 503s
  * (`passcode_key_unset`, `passcode_undecryptable`) and the 409
  * (`passcode_cap_exceeded`); every other failure carries none. `status` is
