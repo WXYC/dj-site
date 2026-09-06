@@ -332,6 +332,14 @@ export default function AccountEditForm({
   };
 
   const handleApprove = async () => {
+    // Refuse rather than silently drop `reviewed_by`: without a viewer id an
+    // approve would still write `reviewed_at` and show a success toast, but
+    // the record of who reviewed it would be lost.
+    if (!viewerId) {
+      toast.error("Cannot approve: missing reviewer identity.");
+      return;
+    }
+
     if (!confirm(`Approve ${account.realName}'s self-signup?`)) {
       return;
     }
@@ -353,6 +361,12 @@ export default function AccountEditForm({
       }
 
       toast.success(`${account.realName}'s self-signup approved`);
+      // `account` is a snapshot from when the panel opened (see the field
+      // comment above); closing here — like `handleDelete` already does —
+      // avoids leaving the panel showing "Approve Self-Signup" for an account
+      // the roster behind it (refetched via `invalidateRoster`) now renders
+      // without its "Pending review" chip.
+      onClose();
       invalidateRoster();
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Failed to approve account";

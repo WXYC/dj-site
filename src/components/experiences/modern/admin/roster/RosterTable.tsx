@@ -241,8 +241,6 @@ export default function RosterTable({ user, organizationSlug }: { user: User; or
                   account={dj}
                   isSelf={dj.userName === user.username}
                   organizationSlug={organizationSlug}
-                  viewerRole={user.authority}
-                  viewerId={user.id}
                 />
               ))
             )}

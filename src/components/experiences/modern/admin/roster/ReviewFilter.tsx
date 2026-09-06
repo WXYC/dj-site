@@ -20,8 +20,7 @@ const REVIEW_LABELS: Record<Exclude<ReviewFilterValue, "all">, string> = {
  *
  * Ordinary admin-provisioned accounts never entered the queue, so they drop
  * out of both narrowed views — only "all" shows them. Single-select, like
- * `OnboardingFilter`: "pending" and "reviewed" partition the self-signed
- * accounts, so selecting both is the default and selecting neither is empty.
+ * `OnboardingFilter`.
  */
 export default function ReviewFilter() {
   const reviewFilter = useAppSelector(adminSlice.selectors.getReviewFilter);

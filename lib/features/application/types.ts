@@ -1,4 +1,4 @@
-import { Account, Authorization } from "../admin/types";
+import { Account } from "../admin/types";
 import { ColorMode, ExperienceId } from "../experiences/types";
 
 export const defaultApplicationState: ApplicationState = {
@@ -45,9 +45,9 @@ export type RightbarPanel =
           account: Account;
           isSelf: boolean;
           organizationSlug: string;
-          /** The viewer's own role, for gating actions the form itself must not let a
-           * lower-privileged viewer reach — see AccountEditForm's approve action. */
-          viewerRole: Authorization;
-          /** The viewer's own id, written as `selfSignupReviewedBy` on approve. */
-          viewerId?: string;
+          // No viewerRole/viewerId here: AccountEditPanel reads the viewer
+          // from the session (useAuthentication), not from whatever opened
+          // this panel — see the module doc on AccountEditForm's approve
+          // action for why the gate must not take its authority claim from
+          // its own caller.
       };

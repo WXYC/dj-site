@@ -93,4 +93,62 @@ describe("convertBetterAuthToAccountResult", () => {
       AdminAuthenticationStatus.Confirmed
     );
   });
+
+  // Mirrors the hasCompletedOnboarding coverage above: this is the one place
+  // the self-signup review queue can silently become a no-op, since every
+  // other test builds `Account` directly and bypasses this conversion.
+  describe("selfSignupAt / selfSignupReviewedAt", () => {
+    it("should map selfSignupAt to an ISO string when present", () => {
+      const user = createTestBetterAuthUser({
+        selfSignupAt: new Date("2026-08-01T00:00:00Z"),
+      });
+      const account = convertBetterAuthToAccountResult(user);
+      expect(account.selfSignupAt).toBe("2026-08-01T00:00:00.000Z");
+    });
+
+    it("should map selfSignupAt to null when absent", () => {
+      const user = createTestBetterAuthUser({ selfSignupAt: undefined });
+      const account = convertBetterAuthToAccountResult(user);
+      expect(account.selfSignupAt).toBeNull();
+    });
+
+    it("should map selfSignupAt to null when explicitly null", () => {
+      const user = createTestBetterAuthUser({ selfSignupAt: null });
+      const account = convertBetterAuthToAccountResult(user);
+      expect(account.selfSignupAt).toBeNull();
+    });
+
+    it("should map selfSignupReviewedAt to an ISO string when present", () => {
+      const user = createTestBetterAuthUser({
+        selfSignupReviewedAt: new Date("2026-08-02T00:00:00Z"),
+      });
+      const account = convertBetterAuthToAccountResult(user);
+      expect(account.selfSignupReviewedAt).toBe("2026-08-02T00:00:00.000Z");
+    });
+
+    it("should map selfSignupReviewedAt to null when absent", () => {
+      const user = createTestBetterAuthUser({ selfSignupReviewedAt: undefined });
+      const account = convertBetterAuthToAccountResult(user);
+      expect(account.selfSignupReviewedAt).toBeNull();
+    });
+
+    it("should map selfSignupReviewedAt to null when explicitly null", () => {
+      const user = createTestBetterAuthUser({ selfSignupReviewedAt: null });
+      const account = convertBetterAuthToAccountResult(user);
+      expect(account.selfSignupReviewedAt).toBeNull();
+    });
+
+    // Never Date instances: a Date surviving this boundary reaches the RTK
+    // Query roster cache and the rightbar panel's Redux payload, tripping
+    // `serializableCheck` outside production.
+    it("should never return a Date instance for either field", () => {
+      const user = createTestBetterAuthUser({
+        selfSignupAt: new Date("2026-08-01T00:00:00Z"),
+        selfSignupReviewedAt: new Date("2026-08-02T00:00:00Z"),
+      });
+      const account = convertBetterAuthToAccountResult(user);
+      expect(account.selfSignupAt).not.toBeInstanceOf(Date);
+      expect(account.selfSignupReviewedAt).not.toBeInstanceOf(Date);
+    });
+  });
 });

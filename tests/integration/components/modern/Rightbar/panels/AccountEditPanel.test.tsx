@@ -29,13 +29,23 @@ vi.mock("sonner", () => ({
   },
 }));
 
+// AccountEditPanel reads the viewer from the session rather than from the
+// panel payload — see the module doc on AccountEditForm's approve action.
+vi.mock("@/src/hooks/authenticationHooks", () => ({
+  useAuthentication: () => ({
+    data: { user: { authority: Authorization.SM, id: "user-sm", username: "sm", email: "sm@wxyc.org" } },
+    authenticating: false,
+    authenticated: true,
+    error: null,
+  }),
+}));
+
 function openAccountEditPanel(account: Account) {
   return applicationSlice.actions.openPanel({
     type: "account-edit",
     account,
     isSelf: false,
     organizationSlug: "wxyc",
-    viewerRole: Authorization.SM,
   });
 }
 
