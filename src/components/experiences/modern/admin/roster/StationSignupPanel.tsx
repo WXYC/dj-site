@@ -23,7 +23,7 @@ import {
   useRotateStationPasscodeMutation,
 } from "@/lib/features/station-signup/api";
 import type { RevealedStationPasscode, StationSignupApiError } from "@/lib/features/station-signup/types";
-import { formatStationClockTime } from "@/src/utilities/stationTime";
+import { formatStationDateTime } from "@/src/utilities/stationTime";
 import ConfirmDialog from "@/src/components/experiences/modern/ConfirmDialog";
 
 /** How often the read-only status poll refreshes. Reveal/rotate/revoke/clear-cooldown invalidate it immediately on success. */
@@ -39,11 +39,10 @@ function isStationSignupApiError(error: unknown): error is StationSignupApiError
 }
 
 /**
- * Distinct copy for the error surfaces the issue calls out by name: an
- * unauthenticated caller, a signed-in caller who isn't a manager, and the two
- * typed 503s the auth service returns when the passcode key is unset or an
- * active row won't decrypt. Everything else falls back to the server's own
- * message.
+ * Distinct copy for an unauthenticated caller, a signed-in caller who isn't a
+ * manager, and the two typed 503s the auth service returns when the passcode
+ * key is unset or an active row won't decrypt. Everything else falls back to
+ * the server's own message.
  */
 function stationSignupErrorMessage(error: unknown): string {
   if (!isStationSignupApiError(error)) {
@@ -71,6 +70,13 @@ function stationSignupErrorMessage(error: unknown): string {
     return "Two station passcodes are already active. Revoke one before rotating.";
   }
   return error.message;
+}
+
+/** Date and time, station-local -- a bare time is ambiguous between tonight and next week. */
+function formatPasscodeTimestamp(isoString: string | null): string {
+  if (!isoString) return "Never";
+  const { day, time } = formatStationDateTime(isoString);
+  return `${day} ${time}`;
 }
 
 function PasscodeStateChip({
@@ -218,16 +224,23 @@ export default function StationSignupPanel() {
           Station Signup Passcode
         </Typography>
 
+        {liveCredential && <RevealedCredentials credential={liveCredential} onHide={() => setLiveCredential(null)} />}
+
         {isLoading ? (
           <CircularProgress size="sm" />
         ) : error ? (
-          <Alert color="danger" startDecorator={<WarningRounded />}>
-            {stationSignupErrorMessage(error)}
-          </Alert>
+          <Stack spacing={2}>
+            <Alert color="danger" startDecorator={<WarningRounded />}>
+              {stationSignupErrorMessage(error)}
+            </Alert>
+            {isStationSignupApiError(error) && error.code === "passcode_undecryptable" && (
+              <Button size="sm" variant="outlined" loading={isRotating} onClick={handleRotate} sx={{ alignSelf: "flex-start" }}>
+                Rotate
+              </Button>
+            )}
+          </Stack>
         ) : status ? (
           <Stack spacing={2}>
-            {liveCredential && <RevealedCredentials credential={liveCredential} onHide={() => setLiveCredential(null)} />}
-
             {status.cooldown.inCooldown && (
               <Alert color="danger" variant="soft" startDecorator={<WarningRounded />}>
                 <Stack spacing={1} sx={{ width: "100%" }}>
@@ -297,11 +310,11 @@ export default function StationSignupPanel() {
                           revokedByKeyRotation={passcode.revokedByKeyRotation}
                         />
                       </td>
-                      <td>{formatStationClockTime(passcode.lastUsedAt) || "Never"}</td>
+                      <td>{formatPasscodeTimestamp(passcode.lastUsedAt)}</td>
                       <td>
                         {passcode.useCount} / {passcode.maxUses}
                       </td>
-                      <td>{formatStationClockTime(passcode.expiresAt)}</td>
+                      <td>{formatPasscodeTimestamp(passcode.expiresAt)}</td>
                       <td>
                         {passcode.state === "active" && (
                           <Button
@@ -340,7 +353,7 @@ export default function StationSignupPanel() {
             </>
           }
         >
-          This shows the live passcode on screen and is logged as a `passcode_revealed` event, attributed to your
+          This shows the live passcode on screen and is logged as a "passcode revealed" event, attributed to your
           account.
         </ConfirmDialog>
 

@@ -141,6 +141,17 @@ describe("StationSignupPanel", () => {
       expect(screen.queryByText(/^\d{4,}$/)).not.toBeInTheDocument();
     });
 
+    it("shows the date, not just the time, for last-used and expiry so a manager can tell today from next week", async () => {
+      mockStationSignupRoutes({ "/admin/station-signup/status": { status: 200, data: baseStatus() } });
+      renderWithProviders(<StationSignupPanel />);
+
+      await screen.findByText("Active");
+      // lastUsedAt 2026-09-05T12:00:00Z is 8:00:00 AM EDT on 9/5.
+      expect(screen.getByText("9/5/2026 8:00:00 AM")).toBeInTheDocument();
+      // expiresAt 2026-09-15T00:00:00Z is 8:00:00 PM EDT on 9/14.
+      expect(screen.getByText("9/14/2026 8:00:00 PM")).toBeInTheDocument();
+    });
+
     it("shows the cooldown alert and a clear-cooldown control only while in cooldown", async () => {
       mockStationSignupRoutes({
         "/admin/station-signup/status": {
@@ -320,6 +331,24 @@ describe("StationSignupPanel", () => {
       renderWithProviders(<StationSignupPanel />);
 
       expect(await screen.findByText(/Rotating administratively revokes/i)).toBeInTheDocument();
+    });
+
+    it("renders a working Rotate control alongside a 503 passcode_undecryptable, so the stated recovery is reachable", async () => {
+      mockStationSignupRoutes({
+        "/admin/station-signup/status": {
+          status: 503,
+          data: { error: "will not decrypt", code: "passcode_undecryptable" },
+        },
+        "/admin/station-signup/rotate": {
+          status: 200,
+          data: { id: "passcode-2", code: "MOONBEAM42", expiresAt: "2026-09-20T00:00:00.000Z", maxUses: 25, autoRevokedPasscodeIds: [] },
+        },
+      });
+      const { user } = renderWithProviders(<StationSignupPanel />);
+
+      await user.click(await screen.findByRole("button", { name: /^Rotate$/i }));
+
+      expect(await screen.findByText("MOONBEAM42")).toBeInTheDocument();
     });
 
     it("tells a caller who lost their session to sign in again on a 401", async () => {
