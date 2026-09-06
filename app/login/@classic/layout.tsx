@@ -12,9 +12,10 @@ interface LoginProps {
   readonly normal: ReactNode;
   readonly newuser: ReactNode;
   readonly reset: ReactNode;
+  readonly signup: ReactNode;
 }
 
-export default async function Layout({ normal, newuser, reset }: LoginProps) {
+export default async function Layout({ normal, newuser, reset, signup }: LoginProps) {
   return (
     <div
       style={{
@@ -27,7 +28,7 @@ export default async function Layout({ normal, newuser, reset }: LoginProps) {
       }}
     >
       <Header />
-      <ClassicLoginSlotSwitcher normal={normal} reset={reset} />
+      <ClassicLoginSlotSwitcher normal={normal} reset={reset} signup={signup} />
       <footer>
         <p>Copyright &copy; {new Date().getFullYear()} WXYC Chapel Hill</p>
       </footer>

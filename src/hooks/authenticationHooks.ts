@@ -1,7 +1,16 @@
 "use client";
 
 import { authenticationSlice } from "@/lib/features/authentication/frontend";
-import { authBaseURL, authClient, clearTokenCache, completeOnboarding, lookupEmailByIdentifier } from "@/lib/features/authentication/client";
+import {
+  authBaseURL,
+  authClient,
+  clearTokenCache,
+  completeOnboarding,
+  lookupEmailByIdentifier,
+  stationSignup,
+  type StationSignupOutcome,
+  type StationSignupRequest,
+} from "@/lib/features/authentication/client";
 import {
   interpretTokenPoll,
   pollDeviceToken,
@@ -767,4 +776,34 @@ export const useResetPassword = () => {
     requestingReset,
     error: requestError || resetError,
   };
+};
+
+/**
+ * Submit a station-signup passcode plus account details. Returns the
+ * discriminated {@link StationSignupOutcome} rather than throwing on a
+ * non-2xx response — `StationSignupForm` renders distinct UI for each
+ * outcome (not available, cooldown, invalid passcode, validation/conflict,
+ * success), so the caller needs the shape, not just a message.
+ */
+export const useStationSignup = () => {
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleSignup = useCallback(
+    async (request: StationSignupRequest): Promise<StationSignupOutcome> => {
+      setIsLoading(true);
+      try {
+        return await stationSignup(request);
+      } catch {
+        return {
+          status: "error",
+          message: "Something went wrong. Please try again.",
+        };
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [],
+  );
+
+  return { handleSignup, isLoading };
 };

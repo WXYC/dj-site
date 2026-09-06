@@ -241,6 +241,129 @@ describe("authentication client", () => {
     });
   });
 
+  describe("stationSignup", () => {
+    const request = {
+      passcode: "passcode-123",
+      username: "newdj",
+      email: "newdj@example.com",
+      password: "supersecret",
+      realName: "New DJ",
+    };
+
+    it("returns a success outcome from the created row on 201", async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 201,
+        json: () => Promise.resolve({ username: "newdj", email: "newdj@example.com" }),
+      });
+
+      const { stationSignup } = await import("@/lib/features/authentication/client");
+      const outcome = await stationSignup(request);
+
+      expect(outcome).toEqual({
+        status: "success",
+        username: "newdj",
+        email: "newdj@example.com",
+      });
+    });
+
+    it("posts to /wxyc/station-signup without sending the session cookie", async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 201,
+        json: () => Promise.resolve({ username: "newdj", email: "newdj@example.com" }),
+      });
+
+      const { stationSignup } = await import("@/lib/features/authentication/client");
+      await stationSignup(request);
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining("/wxyc/station-signup"),
+        expect.objectContaining({
+          method: "POST",
+          credentials: "same-origin",
+        })
+      );
+    });
+
+    it("returns an unavailable outcome on a bare 404 (server flag off)", async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 404,
+        json: () => Promise.reject(new Error("no body")),
+      });
+
+      const { stationSignup } = await import("@/lib/features/authentication/client");
+      const outcome = await stationSignup(request);
+
+      expect(outcome).toEqual({ status: "unavailable" });
+    });
+
+    it("surfaces the byte-identical passcode error with its code, without distinguishing wrong from expired", async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 401,
+        json: () =>
+          Promise.resolve({
+            error: "Invalid or expired signup code",
+            code: "INVALID_PASSCODE",
+          }),
+      });
+
+      const { stationSignup } = await import("@/lib/features/authentication/client");
+      const outcome = await stationSignup(request);
+
+      expect(outcome).toEqual({
+        status: "error",
+        code: "INVALID_PASSCODE",
+        message: "Invalid or expired signup code",
+      });
+    });
+
+    it("surfaces a cooldown refusal with its code and server-provided message", async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 429,
+        json: () =>
+          Promise.resolve({
+            error: "Temporarily unavailable, try again in 12 minutes",
+            code: "COOLDOWN",
+          }),
+      });
+
+      const { stationSignup } = await import("@/lib/features/authentication/client");
+      const outcome = await stationSignup(request);
+
+      expect(outcome).toEqual({
+        status: "error",
+        code: "COOLDOWN",
+        message: "Temporarily unavailable, try again in 12 minutes",
+      });
+    });
+
+    it.each([
+      ["INVALID_USERNAME", 400],
+      ["WEAK_PASSWORD", 400],
+      ["EMAIL_TAKEN", 409],
+      ["USERNAME_TAKEN", 409],
+    ])("surfaces %s from a %i response", async (code, status) => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status,
+        json: () => Promise.resolve({ error: "That value is not usable.", code }),
+      });
+
+      const { stationSignup } = await import("@/lib/features/authentication/client");
+      const outcome = await stationSignup(request);
+
+      expect(outcome).toEqual({
+        status: "error",
+        code,
+        message: "That value is not usable.",
+      });
+    });
+  });
+
   describe("client configuration", () => {
     it("should configure createAuthClient with plugins, credentials, and baseURL", async () => {
       vi.resetModules();

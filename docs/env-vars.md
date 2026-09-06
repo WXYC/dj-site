@@ -13,6 +13,7 @@ NEXT_PUBLIC_ENABLED_EXPERIENCES=modern,classic
 NEXT_PUBLIC_ALLOW_EXPERIENCE_SWITCHING=true
 NEXT_PUBLIC_CATALOG_TRACK_SEARCH_UI_ENABLED=false
 NEXT_PUBLIC_QR_LOGIN_ENABLED=false
+NEXT_PUBLIC_STATION_SIGNUP_ENABLED=false
 
 # Optional — auto-DJ orchestrator base URL. When set, the dashboard polls
 # /api/auto-dj/status and reflects auto-DJ state (greyscale + banner).
@@ -92,5 +93,7 @@ Runtime (server-only) settings like `AUTH_REWRITE_URL` are **not** build-time; t
 - `NEXT_PUBLIC_CLASSIC_LIBRARIAN_NAV_ENABLED` — gates the librarian entries in the classic navigation bar (card-catalog admin, missing releases, rotation). Helper: `isClassicLibrarianNavEnabled()` in `lib/features/catalog/flags.ts`. Code default is OFF; **production and preview are ON**. The screens stay URL-reachable and server-gated whether or not this is set: it controls **discoverability**, not authority. Turned on ahead of the full URL map because URL-reachable is not reachable for the librarian who does the cataloguing — he navigates by clicking, and `/dashboard/library/missing` has no inbound link anywhere in the app except this nav bar. Known cost, accepted deliberately: the Rotation entry points at a route no page owns in either slot and 404s until WXYC/dj-site#1171 lands. See WXYC/dj-site#1163.
 
 - `NEXT_PUBLIC_QR_LOGIN_ENABLED` — gates the RFC 8628 QR ("device authorization") sign-in method on the modern login screen: the "Sign in with a QR code" entry links on the password and email forms, and the restore of a stored `"qr"` login preference. Defaults to OFF; set to `"true"` or `"1"` to enable. Helper: `isQrLoginEnabled()` in `lib/features/authentication/flags.ts`. While off, nothing can navigate to the QR stage, so the client never requests a device code. Flip on per-environment once Backend-Service is serving `/auth/device/code` and `/auth/device/token`. See WXYC/dj-site#785.
+
+- `NEXT_PUBLIC_STATION_SIGNUP_ENABLED` — gates the DJ-facing station-signup form: the "New DJ? Get station access" entry link on the normal login form (both experiences) and the `signup` `AuthStage`/`?signup=1` classic slot it leads to. Defaults to OFF; set to `"true"` or `"1"` to enable. Helper: `isStationSignupEnabled()` in `lib/features/authentication/flags.ts`. This is the CLIENT half of a two-flag rollout — Backend-Service has its own independent `STATION_SIGNUP_ENABLED` gate on `POST /auth/wxyc/station-signup`. Client-on/server-off is a real staged-rollout state: the endpoint answers a bare 404 with no body, and `StationSignupForm` renders that as a distinct "not available" state rather than a generic failure. Flip on per-environment once Backend-Service is serving the endpoint there.
 
 - `NEXT_PUBLIC_ORCHESTRATOR_URL` — base URL of the [auto-dj-orchestrator](https://github.com/WXYC/auto-dj-orchestrator). When set, the dashboard polls `GET /api/auto-dj/status` every 10s (better-auth JWT) and reflects auto-DJ state station-wide: the shell greyscales and an "Auto DJ Enabled" banner shows at the top of the flowsheet. Unset disables the indicator and all polling. Helpers: `getOrchestratorUrl()` / `isAutoDJStatusEnabled()` in `lib/features/autoDJ/flags.ts`.

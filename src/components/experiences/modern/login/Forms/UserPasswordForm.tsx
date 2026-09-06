@@ -1,7 +1,7 @@
 "use client";
 
 import { applicationSlice } from "@/lib/features/application/frontend";
-import { isQrLoginEnabled } from "@/lib/features/authentication/flags";
+import { isQrLoginEnabled, isStationSignupEnabled } from "@/lib/features/authentication/flags";
 import { savePreferredLoginMethod } from "@/lib/features/application/login-method-storage";
 import { useAppDispatch } from "@/lib/hooks";
 import { useLogin } from "@/src/hooks/authenticationHooks";
@@ -77,6 +77,24 @@ export default function UserPasswordForm() {
             disabled={authenticating}
           >
             Sign in with a QR code
+          </Link>
+        </Typography>
+      )}
+      {isStationSignupEnabled() && (
+        <Typography level="body-sm" sx={{ mt: 1, textAlign: "center" }}>
+          <Link
+            component="button"
+            type="button"
+            onClick={(event: React.MouseEvent<HTMLButtonElement>) => {
+              event.preventDefault();
+              // Not a sign-in method — never call savePreferredLoginMethod
+              // here. A returning DJ must not be nudged toward a second
+              // account by having this remembered as their preference.
+              dispatch(applicationSlice.actions.setAuthStage("signup"));
+            }}
+            disabled={authenticating}
+          >
+            New DJ? Get station access
           </Link>
         </Typography>
       )}

@@ -137,6 +137,78 @@ export async function lookupEmailByIdentifier(identifier: string): Promise<strin
   return data?.email ?? null;
 }
 
+export type StationSignupRequest = {
+  passcode: string;
+  username: string;
+  email: string;
+  password: string;
+  realName: string;
+  djName?: string;
+};
+
+export type StationSignupErrorCode =
+  | "INVALID_REQUEST"
+  | "INVALID_USERNAME"
+  | "INVALID_EMAIL"
+  | "WEAK_PASSWORD"
+  | "PASSWORD_TOO_LONG"
+  | "INVALID_PASSCODE"
+  | "COOLDOWN"
+  | "EMAIL_TAKEN"
+  | "USERNAME_TAKEN";
+
+export type StationSignupOutcome =
+  | { status: "success"; username: string; email: string }
+  // The server-side flag is off. better-auth's catch-all answers this with a
+  // bare 404 and no JSON body, so this carries no message of its own — the
+  // caller owns the "not available" copy, same as any other client-owned string.
+  | { status: "unavailable" }
+  | { status: "error"; code?: StationSignupErrorCode; message: string };
+
+type StationSignupSuccessPayload = { username?: string; email?: string };
+type StationSignupErrorPayload = { error?: string; message?: string; code?: string };
+
+/**
+ * Submit a station-signup passcode plus the DJ's chosen account details.
+ * Unauthenticated pre-session call, so no session cookie is sent (matching
+ * `lookupEmailByIdentifier`).
+ *
+ * Never distinguishes a wrong passcode from an expired one — both answer with
+ * the same 401 `INVALID_PASSCODE`, byte-identical, by server design. Callers
+ * must not try to tell them apart either.
+ */
+export async function stationSignup(
+  request: StationSignupRequest
+): Promise<StationSignupOutcome> {
+  const { ok, status, data } = await authFetch<
+    StationSignupSuccessPayload | StationSignupErrorPayload
+  >("/wxyc/station-signup", {
+    method: "POST",
+    credentials: "same-origin",
+    json: request,
+  });
+
+  if (status === 404) {
+    return { status: "unavailable" };
+  }
+
+  if (ok) {
+    const success = (data as StationSignupSuccessPayload) ?? {};
+    return {
+      status: "success",
+      username: success.username ?? request.username,
+      email: success.email ?? request.email,
+    };
+  }
+
+  const errorPayload = data as StationSignupErrorPayload | null;
+  return {
+    status: "error",
+    code: errorPayload?.code as StationSignupErrorCode | undefined,
+    message: authErrorMessage(data, "Signup failed. Please try again."),
+  };
+}
+
 export type CompleteOnboardingRequest = {
   token?: string;
   newPassword?: string;

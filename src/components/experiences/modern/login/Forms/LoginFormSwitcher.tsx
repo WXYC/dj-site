@@ -11,6 +11,7 @@ import { useLayoutEffect, useRef, useState } from "react";
 import EmailOTPForm from "./EmailOTPForm";
 import OTPCodeForm from "./OTPCodeForm";
 import QRCodeForm from "./QRCodeForm";
+import StationSignupForm from "./StationSignupForm";
 import UserPasswordForm from "./UserPasswordForm";
 
 export default function LoginFormSwitcher({
@@ -51,6 +52,15 @@ export default function LoginFormSwitcher({
       <>
         <WelcomeQuotes quote={welcomeQuote} />
         <QRCodeForm />
+      </>
+    );
+  }
+
+  if (authStage === "signup") {
+    return (
+      <>
+        <WelcomeQuotes quote={welcomeQuote} />
+        <StationSignupForm />
       </>
     );
   }
