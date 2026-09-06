@@ -6,11 +6,18 @@ import StationSignupForm from "@/src/components/experiences/modern/login/Forms/S
 import type { StationSignupOutcome } from "@/lib/features/authentication/client";
 
 const mockHandleSignup = vi.fn<(request: unknown) => Promise<StationSignupOutcome>>();
+const mockReplace = vi.fn();
 
 vi.mock("@/src/hooks/authenticationHooks", () => ({
   useStationSignup: () => ({
     handleSignup: mockHandleSignup,
     isLoading: false,
+  }),
+}));
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({
+    replace: mockReplace,
   }),
 }));
 
@@ -76,6 +83,10 @@ describe("StationSignupForm", () => {
     expect(await screen.findByTestId("signup-unavailable")).toHaveTextContent(
       /not available right now/i
     );
+    // The 404 is the expected state for the whole client-on/server-off
+    // rollout window, so it must not be a dead end with no way out.
+    await user.click(screen.getByRole("button", { name: /back to sign in/i }));
+    expect(mockReplace).toHaveBeenCalledWith("/login");
   });
 
   it("renders the cooldown refusal as plainly temporary, using the server's own message", async () => {
@@ -93,6 +104,8 @@ describe("StationSignupForm", () => {
     expect(await screen.findByTestId("signup-cooldown")).toHaveTextContent(
       "Temporarily unavailable, try again in 12 minutes"
     );
+    await user.click(screen.getByRole("button", { name: /back to sign in/i }));
+    expect(mockReplace).toHaveBeenCalledWith("/login");
   });
 
   it("routes an invalid/expired passcode back to the passcode step without distinguishing which", async () => {
@@ -142,11 +155,15 @@ describe("StationSignupForm", () => {
     expect(localStorage.getItem("wxyc_preferred_login_method")).toBeNull();
   });
 
-  it("lets a DJ back out to the normal login form", async () => {
+  it("lets a DJ back out to the normal login form, in both modern (stage-driven) and classic (URL-driven) routing", async () => {
     const { user, store } = renderWithProviders(<StationSignupForm />);
 
     await user.click(screen.getByRole("button", { name: /back to sign in/i }));
 
     expect(applicationSlice.selectors.getAuthStage(store.getState())).not.toBe("signup");
+    // Classic's ClassicLoginSlotSwitcher picks this form purely from
+    // ?signup=1 in the URL and never reads authFlow.stage, so the dispatch
+    // above alone would strand a classic DJ on this component forever.
+    expect(mockReplace).toHaveBeenCalledWith("/login");
   });
 });

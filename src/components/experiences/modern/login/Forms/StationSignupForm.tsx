@@ -5,6 +5,7 @@ import { useAppDispatch } from "@/lib/hooks";
 import { useStationSignup } from "@/src/hooks/authenticationHooks";
 import { isValidEmail } from "@wxyc/shared/validation";
 import { Alert, Button, FormControl, FormLabel, Input, Link, Typography } from "@mui/joy";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ValidatedSubmitButton } from "./Fields/ValidatedSubmitButton";
 
@@ -47,6 +48,7 @@ const emptyDetails: Details = {
  */
 export default function StationSignupForm() {
   const dispatch = useAppDispatch();
+  const router = useRouter();
   const { handleSignup, isLoading } = useStationSignup();
 
   const [phase, setPhase] = useState<Phase>("passcode");
@@ -62,6 +64,11 @@ export default function StationSignupForm() {
   const backToSignIn = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
     dispatch(applicationSlice.actions.setAuthStage("otp-email"));
+    // Modern picks its form from authFlow.stage (the dispatch above is enough
+    // there), but classic reaches this component through `?signup=1` in
+    // ClassicLoginSlotSwitcher, which never reads authFlow.stage — without
+    // clearing the URL a DJ who clicks this stays stuck on the signup slot.
+    router.replace("/login");
   };
 
   const handlePasscodeSubmit = (event: React.FormEvent<HTMLFormElement>) => {
@@ -118,18 +125,32 @@ export default function StationSignupForm() {
 
   if (phase === "unavailable") {
     return (
-      <Alert color="neutral" data-testid="signup-unavailable">
-        Station signup is not available right now. Ask a station manager for
-        an account, or check back later.
-      </Alert>
+      <>
+        <Alert color="neutral" data-testid="signup-unavailable">
+          Station signup is not available right now. Ask a station manager
+          for an account, or check back later.
+        </Alert>
+        <Typography level="body-sm" sx={{ mt: 2, textAlign: "center" }}>
+          <Link component="button" type="button" onClick={backToSignIn}>
+            Back to sign in
+          </Link>
+        </Typography>
+      </>
     );
   }
 
   if (phase === "cooldown") {
     return (
-      <Alert color="warning" data-testid="signup-cooldown">
-        {cooldownMessage}
-      </Alert>
+      <>
+        <Alert color="warning" data-testid="signup-cooldown">
+          {cooldownMessage}
+        </Alert>
+        <Typography level="body-sm" sx={{ mt: 2, textAlign: "center" }}>
+          <Link component="button" type="button" onClick={backToSignIn}>
+            Back to sign in
+          </Link>
+        </Typography>
+      </>
     );
   }
 
