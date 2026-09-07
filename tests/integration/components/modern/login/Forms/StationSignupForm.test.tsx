@@ -6,7 +6,8 @@ import StationSignupForm from "@/src/components/experiences/modern/login/Forms/S
 import type { StationSignupOutcome } from "@/lib/features/authentication/client";
 
 const mockHandleSignup = vi.fn<(request: unknown) => Promise<StationSignupOutcome>>();
-const mockReplace = vi.fn();
+const mockReplace = vi.fn<(href: string) => void>();
+const mockSearchParams = vi.fn<() => URLSearchParams>();
 
 vi.mock("@/src/hooks/authenticationHooks", () => ({
   useStationSignup: () => ({
@@ -19,7 +20,27 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({
     replace: mockReplace,
   }),
+  useSearchParams: () => mockSearchParams(),
 }));
+
+// A live OIDC authorize bounce parked on /login: better-auth's authorize
+// endpoint sends an unauthenticated DJ here with the whole authorize query
+// intact, and useLogin recomputes the resume target from the LIVE search
+// params at sign-in time. Backing out of the signup detour must not eat them,
+// or the DJ signs in successfully while the relying party never gets its code.
+const OIDC_BOUNCE_QUERY =
+  "signup=1&client_id=wxyc-relying-party&response_type=code&redirect_uri=https%3A%2F%2Frp.example%2Fcb&state=xyz789";
+
+function expectBackOutKeptTheAuthorizeBounce() {
+  expect(mockReplace).toHaveBeenCalledTimes(1);
+  const target = new URL(mockReplace.mock.calls[0][0], "https://dj.wxyc.org");
+  expect(target.pathname).toBe("/login");
+  expect(target.searchParams.get("signup")).toBeNull();
+  expect(target.searchParams.get("client_id")).toBe("wxyc-relying-party");
+  expect(target.searchParams.get("response_type")).toBe("code");
+  expect(target.searchParams.get("redirect_uri")).toBe("https://rp.example/cb");
+  expect(target.searchParams.get("state")).toBe("xyz789");
+}
 
 async function fillPasscodeStep(user: ReturnType<typeof renderWithProviders>["user"], passcode = "abc-123") {
   await user.type(screen.getByLabelText(/signup passcode/i), passcode);
@@ -35,6 +56,7 @@ async function fillDetailsStep(user: ReturnType<typeof renderWithProviders>["use
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockSearchParams.mockReturnValue(new URLSearchParams(""));
 });
 
 describe("StationSignupForm", () => {
@@ -80,6 +102,7 @@ describe("StationSignupForm", () => {
 
   it("renders the distinct server-off 404 state, not a generic error", async () => {
     mockHandleSignup.mockResolvedValue({ status: "unavailable" });
+    mockSearchParams.mockReturnValue(new URLSearchParams(OIDC_BOUNCE_QUERY));
     const { user } = renderWithProviders(<StationSignupForm />);
 
     await fillPasscodeStep(user);
@@ -92,7 +115,7 @@ describe("StationSignupForm", () => {
     // The 404 is the expected state for the whole client-on/server-off
     // rollout window, so it must not be a dead end with no way out.
     await user.click(screen.getByRole("button", { name: /back to sign in/i }));
-    expect(mockReplace).toHaveBeenCalledWith("/login");
+    expectBackOutKeptTheAuthorizeBounce();
   });
 
   it("renders the cooldown refusal as plainly temporary, using the server's own message", async () => {
@@ -101,6 +124,7 @@ describe("StationSignupForm", () => {
       code: "COOLDOWN",
       message: "Temporarily unavailable, try again in 12 minutes",
     });
+    mockSearchParams.mockReturnValue(new URLSearchParams(OIDC_BOUNCE_QUERY));
     const { user } = renderWithProviders(<StationSignupForm />);
 
     await fillPasscodeStep(user);
@@ -111,7 +135,7 @@ describe("StationSignupForm", () => {
       "Temporarily unavailable, try again in 12 minutes"
     );
     await user.click(screen.getByRole("button", { name: /back to sign in/i }));
-    expect(mockReplace).toHaveBeenCalledWith("/login");
+    expectBackOutKeptTheAuthorizeBounce();
   });
 
   it("routes an invalid/expired passcode back to the passcode step without distinguishing which", async () => {
@@ -162,6 +186,7 @@ describe("StationSignupForm", () => {
   });
 
   it("lets a DJ back out to the normal login form, in both modern (stage-driven) and classic (URL-driven) routing", async () => {
+    mockSearchParams.mockReturnValue(new URLSearchParams("signup=1"));
     const { user, store } = renderWithProviders(<StationSignupForm />);
 
     await user.click(screen.getByRole("button", { name: /back to sign in/i }));
@@ -170,6 +195,19 @@ describe("StationSignupForm", () => {
     // Classic's ClassicLoginSlotSwitcher picks this form purely from
     // ?signup=1 in the URL and never reads authFlow.stage, so the dispatch
     // above alone would strand a classic DJ on this component forever.
+    // Nothing else was in the query, so the bare path is the whole target.
     expect(mockReplace).toHaveBeenCalledWith("/login");
+  });
+
+  it("keeps a live OIDC authorize bounce's params when a DJ backs out of signup", async () => {
+    mockSearchParams.mockReturnValue(new URLSearchParams(OIDC_BOUNCE_QUERY));
+    const { user } = renderWithProviders(<StationSignupForm />);
+
+    await user.click(screen.getByRole("button", { name: /back to sign in/i }));
+
+    // Only the `signup` key is the signup detour's to spend. Replacing the URL
+    // with a bare /login would leave the DJ signing in against a query string
+    // that no longer describes the authorize round-trip they arrived on.
+    expectBackOutKeptTheAuthorizeBounce();
   });
 });

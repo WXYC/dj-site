@@ -22,11 +22,14 @@ vi.mock("@/src/hooks/authenticationHooks", () => ({
 }));
 
 // Mock next/navigation
+const searchParamsMock = vi.fn<() => URLSearchParams>();
+
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
     push: vi.fn(),
     refresh: vi.fn(),
   }),
+  useSearchParams: () => searchParamsMock(),
 }));
 
 vi.mock("next/link", () => ({
@@ -41,6 +44,7 @@ describe("UserPasswordForm", () => {
   beforeEach(() => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     mockHandleLogin.mockClear();
+    searchParamsMock.mockReturnValue(new URLSearchParams(""));
   });
 
   afterEach(() => {
@@ -188,6 +192,30 @@ describe("UserPasswordForm", () => {
         screen.getByRole("link", { name: "New DJ? Get station access" })
       ).toHaveAttribute("href", "/login?signup=1");
     });
+
+    it("carries a live OIDC authorize bounce's params into the signup link", () => {
+      process.env[STATION_SIGNUP_FLAG_KEY] = "true";
+      // /login is where better-auth's authorize endpoint parks an
+      // unauthenticated DJ. Hardcoding /login?signup=1 here throws the
+      // authorize round-trip away before the DJ has even decided to sign up.
+      searchParamsMock.mockReturnValue(
+        new URLSearchParams(
+          "client_id=wxyc-relying-party&response_type=code&redirect_uri=https%3A%2F%2Frp.example%2Fcb&state=xyz789"
+        )
+      );
+      renderWithProviders(<UserPasswordForm />);
+
+      const href = screen
+        .getByRole("link", { name: "New DJ? Get station access" })
+        .getAttribute("href")!;
+      const target = new URL(href, "https://dj.wxyc.org");
+      expect(target.pathname).toBe("/login");
+      expect(target.searchParams.get("signup")).toBe("1");
+      expect(target.searchParams.get("client_id")).toBe("wxyc-relying-party");
+      expect(target.searchParams.get("response_type")).toBe("code");
+      expect(target.searchParams.get("redirect_uri")).toBe("https://rp.example/cb");
+      expect(target.searchParams.get("state")).toBe("xyz789");
+    });
   });
 });
 
@@ -195,6 +223,7 @@ describe("UserPasswordForm", () => {
 describe("UserPasswordForm with authenticating state", () => {
   beforeEach(() => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
+    searchParamsMock.mockReturnValue(new URLSearchParams(""));
   });
 
   afterEach(() => {
