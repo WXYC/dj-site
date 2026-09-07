@@ -158,9 +158,9 @@ export default function StationSignupForm() {
     return (
       <>
         <Alert color="success" data-testid="signup-success">
-          Account created for <strong>{createdAccount.username}</strong>.
-          It&apos;s pending a station manager&apos;s review before you can
-          sign in.
+          Account created for <strong>{createdAccount.username}</strong>{" "}
+          ({createdAccount.email}). You can sign in with it right away;
+          it&apos;s pending a station manager&apos;s review.
         </Alert>
         <Typography level="body-sm" sx={{ mt: 2, textAlign: "center" }}>
           <Link component="button" type="button" onClick={backToSignIn}>
