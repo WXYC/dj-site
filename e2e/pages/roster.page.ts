@@ -104,8 +104,13 @@ export class RosterPage {
   async clickAddDj(): Promise<void> {
     // There are two "Add" buttons - use the main one at the top right
     const mainAddButton = this.page.locator('button:has-text("Add DJ")');
-    await mainAddButton.click();
-    await this.realNameInput.waitFor({ state: "visible", timeout: 5000 });
+    // The SSR HTML already renders this button enabled, so a click can land
+    // before React hydration attaches its handler and be silently lost.
+    // Retry the click until its consequence (the new-account row) is visible.
+    await expect(async () => {
+      await mainAddButton.click();
+      await this.realNameInput.waitFor({ state: "visible", timeout: 1000 });
+    }).toPass({ timeout: 15000 });
   }
 
   async fillNewAccountForm(data: {
