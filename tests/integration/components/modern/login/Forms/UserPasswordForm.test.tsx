@@ -116,7 +116,7 @@ describe("UserPasswordForm", () => {
       renderWithProviders(<UserPasswordForm />);
 
       expect(
-        screen.queryByRole("button", { name: "New DJ? Get station access" })
+        screen.queryByRole("button", { name: "Sign up here" })
       ).not.toBeInTheDocument();
     });
 
@@ -125,7 +125,7 @@ describe("UserPasswordForm", () => {
       const { user, store } = renderWithProviders(<UserPasswordForm />);
 
       await user.click(
-        screen.getByRole("button", { name: "New DJ? Get station access" })
+        screen.getByRole("button", { name: "Sign up here" })
       );
 
       expect(applicationSlice.selectors.getAuthStage(store.getState())).toBe(

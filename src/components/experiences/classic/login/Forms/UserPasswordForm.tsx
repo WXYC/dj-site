@@ -55,7 +55,7 @@ export default function UserPasswordForm() {
                   than hardcoding the path: a DJ can reach /login mid-OIDC
                   authorize bounce, and those params must survive the detour. */}
               <Link href={loginHrefWithSignup(searchParams)}>
-                New DJ? Get station access
+                Sign up here
               </Link>
             </td>
           </tr>

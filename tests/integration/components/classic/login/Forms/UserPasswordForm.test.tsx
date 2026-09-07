@@ -180,7 +180,7 @@ describe("UserPasswordForm", () => {
       renderWithProviders(<UserPasswordForm />);
 
       expect(
-        screen.queryByRole("link", { name: "New DJ? Get station access" })
+        screen.queryByRole("link", { name: "Sign up here" })
       ).not.toBeInTheDocument();
     });
 
@@ -189,7 +189,7 @@ describe("UserPasswordForm", () => {
       renderWithProviders(<UserPasswordForm />);
 
       expect(
-        screen.getByRole("link", { name: "New DJ? Get station access" })
+        screen.getByRole("link", { name: "Sign up here" })
       ).toHaveAttribute("href", "/login?signup=1");
     });
 
@@ -206,7 +206,7 @@ describe("UserPasswordForm", () => {
       renderWithProviders(<UserPasswordForm />);
 
       const href = screen
-        .getByRole("link", { name: "New DJ? Get station access" })
+        .getByRole("link", { name: "Sign up here" })
         .getAttribute("href")!;
       const target = new URL(href, "https://dj.wxyc.org");
       expect(target.pathname).toBe("/login");
