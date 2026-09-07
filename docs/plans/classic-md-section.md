@@ -4,16 +4,15 @@
 
 Classic has the librarian screens but no MD *section*. Slices 0–6a of WXYC/dj-site#1163 landed `/dashboard/library/**` and `/dashboard/rotation/**` in the `@classic` slot, and `NEXT_PUBLIC_CLASSIC_LIBRARIAN_NAV_ENABLED` is `true` in production and preview — so a music director does see links today. What he sees is three flat entries wedged into the DJ nav bar (`Add/Modify Catalog`, `Missing Releases`, `Rotation`) with no grouping, no landing page, and no name for the thing they belong to.
 
-`/wxycdb` did have that grouping, in two files this plan xeroxes:
+`/wxycdb` did have that grouping, in one file this plan xeroxes: `jsp/mainmenu.jsp`, its top-level menu — `<title>WXYC</title>`, `<body class="library-admin">`, no on-page heading, a "Search for Artists & Releases:" form (`size=60` input, `Search!` / `Clear Box` buttons) over a column of `<h3>` links broken once by a `<p>&nbsp;</p>`: Add, Edit, & Delete Artists & Releases / View Library Code Cross-References / View Library Release Cross-References / Manage Labels (all four inside `hasAdminAccess()`) / Missing Releases / *gap* / Format Tallysheets / Rotation Releases / Add Rotation Releases / Rebuild Search Indexes / Admin Settings / Log Out.
 
-- `jsp/rotation/musicmenu.jsp` — `<title>WXYC Music Department application</title>`, `<body class="library-admin">`, three `<h3>` links: Format Tallysheets, Rotation Releases, Add Rotation Releases.
-- `jsp/libraryAdmin/libraryAdminLinks.jsp` — a "Search for Artists & Releases:" form (`size=60` input, `Search!` / `Clear Box` buttons) over two `<h3>` links: Create or Find Artists By Library Code, Missing Releases.
+This plan was first drafted against `jsp/rotation/musicmenu.jsp` and `jsp/libraryAdmin/libraryAdminLinks.jsp`, the two sub-menus, because `mainmenu.jsp` could not be located at the time. `mainmenu.jsp` supersedes both: it is the screen `/dashboard/md` reproduces, and where the three disagree it wins.
 
 Under epic #1163's binding design rule — *"Treat the JSPs as the design spec, not as legacy to be improved on… navigation structure and terminology match `/wxycdb`"* — a Music Department menu page is not an invention. It is a screen the xerox is currently missing.
 
 ## Decision
 
-Add `/dashboard/md`, a classic-only Music Department menu that merges the two JSPs above, and collapse the one MD-only nav entry into a single MD-gated `Music Department` link pointing at it.
+Add `/dashboard/md`, a classic-only Music Department menu reproducing `mainmenu.jsp`, and collapse the one MD-only nav entry into a single MD-gated `Music Department` link pointing at it.
 
 ### Nav bar, before and after
 
@@ -31,7 +30,7 @@ After:
 | DJ | Card Catalog, Flowsheet, Previous Sets *(disabled)*, Missing Releases, Rotation, Log Out — **unchanged** |
 | MD | …the same, plus **Music Department** |
 
-`Add/Modify Catalog` leaves the bar. It is the only MD-gated entry there, and its label was invented by dj-site — on the menu page it is restored to the JSP's own wording, `Create or Find Artists By Library Code`.
+`Add/Modify Catalog` leaves the bar. It is the only MD-gated entry there, and its label was invented by dj-site — on the menu page it is restored to the JSP's own wording, `Add, Edit, & Delete Artists & Releases`.
 
 The cost is confined to **cold entry**: `/dashboard/library` already carries six other inbound links, all reading `Find and Create an Artist and/or Library Code`, from `catalog/ArtistCard.tsx:256`, `catalog/VariousArtistsCard.tsx:224`, `catalog/ReleaseCard.tsx:157`, `catalog/ReleaseMoveForm.tsx:293`, `catalog/ReleaseDeleteConfirm.tsx:205`, and `catalog/ReleaseTracklistEditor.tsx:345`. A librarian already inside the card screens is unaffected; only one arriving fresh at the dashboard pays the extra click, and the `Music Department` entry sits in the bar slot the old link occupied.
 
@@ -41,15 +40,17 @@ The cost is confined to **cold entry**: `/dashboard/library` already carries six
 
 `/dashboard/md`, rendered through `classic/Layout/Main` like every other classic screen, so it carries the nav bar.
 
-| Entry | Source JSP | Destination |
-|---|---|---|
-| "Search for Artists & Releases:" form | `libraryAdminLinks.jsp` | `/dashboard/catalog?searchString=…` |
-| Create or Find Artists By Library Code | `libraryAdminLinks.jsp` | `/dashboard/library` |
-| Missing Releases | `libraryAdminLinks.jsp` | `/dashboard/library/missing` |
-| Rotation Releases | `musicmenu.jsp` | `/dashboard/rotation` |
-| Add Rotation Releases | `musicmenu.jsp` | `/dashboard/rotation/new` |
+| Entry | Destination |
+|---|---|
+| "Search for Artists & Releases:" form | `/dashboard/catalog?searchString=…` |
+| Add, Edit, & Delete Artists & Releases | `/dashboard/library` |
+| Missing Releases | `/dashboard/library/missing` |
+| *(the JSP's `<p>&nbsp;</p>` gap)* | — |
+| Rotation Releases | `/dashboard/rotation` |
+| Add Rotation Releases | `/dashboard/rotation/new` |
+| Log Out | ends the session, as the nav bar's Log Out does |
 
-Link markup is `<h3>` per both JSPs, not the nav bar's list styling. The heading reads "WXYC Music Department application", from `musicmenu.jsp`'s `<title>`.
+Link markup is `<h3>` per the JSP, not the nav bar's list styling. There is no on-page heading: `mainmenu.jsp` renders none, and its `<title>` is just `WXYC`.
 
 ### Nav active-highlight
 
@@ -97,15 +98,17 @@ Rides the existing `NEXT_PUBLIC_CLASSIC_LIBRARIAN_NAV_ENABLED`. No new flag — 
 Written first, per the repo's TDD default. All under `tests/`, never colocated; rendered through `renderWithProviders`.
 
 1. `tests/integration/app/dashboard/@classic/md/page.test.tsx` — authority, via `tests/helpers/classic-page-authority-harness.ts`: `musicDirector` and `stationManager` reach the page, `dj` is denied, unauthenticated redirects, and the admin-plugin `role` column never grants access. Parameterized over roles, matching `@classic/library/page.test.tsx:44`. `assertReachesClassicPage` requires at least one landmark testid, so the test stubs `Layout/Main` and `MusicDepartmentMenu` via `vi.mock` with testids — a real render would pull in the live better-auth client (`docs/testing.md:175-185`).
-2. `tests/integration/components/classic/musicDepartment/MusicDepartmentMenu.test.tsx` — the five entries render with the JSP's labels and the destinations in the table above; asserts labels verbatim, since label drift is the failure mode #1163 names.
+2. `tests/integration/components/classic/musicDepartment/MusicDepartmentMenu.test.tsx` — the entries render with the JSP's labels and the destinations in the table above, in the JSP's order and with its one gap, and Log Out ends the session; asserts labels verbatim, since label drift is the failure mode #1163 names.
 3. `tests/integration/components/classic/musicDepartment/MusicDepartmentSearchForm.test.tsx` — pushes `/dashboard/catalog?searchString=…` with the term trimmed; an empty or whitespace-only input navigates to `/dashboard/catalog` with no query; `Clear Box` empties the input without navigating. Mirrors the existing `classic/catalog/SearchForm.test.tsx` and `classic/playlists/SearchForm.test.tsx`.
 4. `tests/integration/components/classic/Navigation.test.tsx` *(update)* — `Music Department` shown to an MD and hidden from a DJ; `Missing Releases` and `Rotation` still shown to a DJ; `Add/Modify Catalog` gone for everyone; and the active-highlight cases, including the two-entries-highlighted regression guard on `/dashboard/library/missing`. The existing "shows every librarian link to a music director" case changes shape rather than being deleted.
 
 ## Divergences from `/wxycdb`, to be enumerated in the PR
 
-1. **Format Tallysheets is omitted.** `musicmenu.jsp`'s third entry. wiki#89 decision D5 drops the rotation tallysheet and #1163 records it as out of scope. No new decision is taken here.
+1. **Six entries are omitted, all for want of a dj-site screen.** Format Tallysheets — wiki#89 decision D5 drops the rotation tallysheet and #1163 records it as out of scope, so no new decision is taken here — plus the two library cross-reference views, Manage Labels, Rebuild Search Indexes and Admin Settings, none of which have been rebuilt. Restoring any of them is separate work, not a decision this screen takes.
 2. **The search form navigates instead of submitting.** The JSP does `GET searchCardCatalog`; classic's card catalog is a live debounced search reading `searchString` from the URL, so the form pushes `/dashboard/catalog?searchString=…`. Same destination, same parameter name, existing surface. `Clear Box` clears the input, matching `<input type=reset>`.
-3. **URL is `/dashboard/md`,** where the JSP was served at `/wxycdb/musicmenu`.
+3. **URL is `/dashboard/md`,** where the JSP was served at `/wxycdb/mainmenu`.
+
+6. **Log Out ends the session through better-auth,** where the JSP does `GET login?loginAction=endSession`. Same `useLogout` call the classic nav bar's Log Out makes.
 4. **`Missing Releases` and `Rotation` appear both in the bar and on the menu.** Reasoned above; the alternative is a DJ-visible regression.
 5. **`Add Rotation Releases` (plural, JSP-verbatim) will coexist with `Add Rotation Release` (singular)** at `rotation/RotationReleaseList.tsx:332`, both linking `/dashboard/rotation/new`. Both defensible — one is the JSP's wording, one is the shipped screen's — but noted rather than silently reconciled.
 

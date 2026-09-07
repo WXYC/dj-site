@@ -14,7 +14,7 @@ beforeEach(() => {
   mockPush.mockClear();
 });
 
-describe("classic Music Department search form — libraryAdminLinks.jsp", () => {
+describe("classic Music Department search form — mainmenu.jsp", () => {
   it("sends the term to the card catalog as searchString", async () => {
     const { user } = renderWithProviders(<MusicDepartmentSearchForm />);
 

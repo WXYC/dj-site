@@ -1,36 +1,54 @@
 import Link from "next/link";
+import { Fragment } from "react";
 
+import MusicDepartmentLogOutLink from "./MusicDepartmentLogOutLink";
 import MusicDepartmentSearchForm from "./MusicDepartmentSearchForm";
 
 /**
- * The librarian's menu, merging `/wxycdb`'s two menu screens: the search box
- * and first two links come from `libraryAdmin/libraryAdminLinks.jsp`, the
- * rotation pair from `rotation/musicmenu.jsp` (whose `<title>` supplies the
- * heading). Both render their links as `<h3>`, which is why these are not the
- * nav bar's list styling.
+ * `/wxycdb`'s top-level menu, `mainmenu.jsp`: the search box over the
+ * librarian's links, each an `<h3>`, which is why these are not the nav bar's
+ * list styling. The JSP renders no on-page heading -- its `<title>` is just
+ * `WXYC` -- so neither does this.
  *
- * `musicmenu.jsp`'s third link, Format Tallysheets, is deliberately absent:
- * wiki#89 decision D5 drops the rotation tallysheet, so there is no screen to
- * point at and a dead link would be the only alternative.
+ * Six of the JSP's entries are absent because dj-site has no screen behind
+ * them: Format Tallysheets (the rotation tallysheet was retired, not
+ * rebuilt), the two library cross-reference views, Manage Labels, Rebuild
+ * Search Indexes and Admin Settings. A dead link would be the only
+ * alternative.
  */
-const MENU_LINKS = [
-  { href: "/dashboard/library", title: "Create or Find Artists By Library Code" },
-  { href: "/dashboard/library/missing", title: "Missing Releases" },
-  { href: "/dashboard/rotation", title: "Rotation Releases" },
-  { href: "/dashboard/rotation/new", title: "Add Rotation Releases" },
+
+// `mainmenu.jsp` breaks its list exactly once, with a `<p>&nbsp;</p>` after
+// Missing Releases. That gap is the menu's only grouping, so it is reproduced
+// rather than collapsed.
+const MENU_GROUPS: { href: string; title: string }[][] = [
+  [
+    { href: "/dashboard/library", title: "Add, Edit, & Delete Artists & Releases" },
+    { href: "/dashboard/library/missing", title: "Missing Releases" },
+  ],
+  [
+    { href: "/dashboard/rotation", title: "Rotation Releases" },
+    { href: "/dashboard/rotation/new", title: "Add Rotation Releases" },
+  ],
 ];
 
 export default function MusicDepartmentMenu() {
   return (
     <>
-      <span className="title">WXYC Music Department application</span>
       <MusicDepartmentSearchForm />
       <div style={{ textAlign: "center" }}>
-        {MENU_LINKS.map((link) => (
-          <h3 key={link.href}>
-            <Link href={link.href}>{link.title}</Link>
-          </h3>
+        {MENU_GROUPS.map((group, index) => (
+          <Fragment key={group[0].href}>
+            {index > 0 && <p>&nbsp;</p>}
+            {group.map((link) => (
+              <h3 key={link.href}>
+                <Link href={link.href}>{link.title}</Link>
+              </h3>
+            ))}
+          </Fragment>
         ))}
+        <h3>
+          <MusicDepartmentLogOutLink />
+        </h3>
       </div>
     </>
   );
