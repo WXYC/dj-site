@@ -88,7 +88,12 @@ export default function StationSignupForm() {
     setDetailsError(undefined);
 
     const outcome = await handleSignup({
-      passcode,
+      // Passcodes are generated from an uppercase-only alphabet, so trimming
+      // and folding is lossless — and it matters: the server compares raw, and
+      // every miss writes an attempt row against the station-wide cooldown, so
+      // one DJ pasting a code with a stray newline (or a phone autocapitalising
+      // it) would burn attempts for everyone else on that window.
+      passcode: passcode.trim().toUpperCase(),
       username: details.username.trim(),
       email: details.email.trim(),
       password: details.password,
