@@ -36,7 +36,7 @@ function clone(params: MaybeParams): URLSearchParams {
 }
 
 /**
- * The href of the "New DJ? Get station access" entry link: the current params
+ * The href of the "Sign up here" entry link: the current params
  * plus `signup=1`.
  */
 export function loginHrefWithSignup(params: MaybeParams): string {

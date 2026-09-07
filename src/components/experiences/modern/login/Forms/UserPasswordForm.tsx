@@ -94,7 +94,7 @@ export default function UserPasswordForm() {
             }}
             disabled={authenticating}
           >
-            New DJ? Get station access
+            Sign up here
           </Link>
         </Typography>
       )}
