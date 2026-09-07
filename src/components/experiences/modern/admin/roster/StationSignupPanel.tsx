@@ -25,9 +25,19 @@ import {
 import type { RevealedStationPasscode, StationSignupApiError } from "@/lib/features/station-signup/types";
 import { formatStationDateTime } from "@/src/utilities/stationTime";
 import ConfirmDialog from "@/src/components/experiences/modern/ConfirmDialog";
+import {
+  cooldownLiftsAtMs,
+  formatHoldRemaining,
+  isRefusedOutcome,
+  outcomeCensus,
+  useServerClockMs,
+} from "./stationSignupStatusView";
 
 /** How often the read-only status poll refreshes. Reveal/rotate/revoke/clear-cooldown invalidate it immediately on success. */
 const STATUS_POLL_INTERVAL_MS = 20_000;
+
+/** The countdown ticks per second; the status poll is far too coarse to count down against. */
+const COUNTDOWN_TICK_MS = 1_000;
 
 function isStationSignupApiError(error: unknown): error is StationSignupApiError {
   return (
@@ -131,6 +141,22 @@ function RevealedCredentials({
       ? credential.passcodes.map((p) => ({ id: p.id, code: p.code }))
       : [credential.rotated];
 
+  // A reveal against a station with the key configured but no live row returns
+  // an empty list, which is a real state and not a failure -- saying so beats
+  // an audit-weight warning heading with nothing under it.
+  if (codes.length === 0) {
+    return (
+      <Alert color="neutral" variant="soft" startDecorator={<VisibilityRounded />}>
+        <Stack spacing={1} sx={{ width: "100%" }}>
+          <Typography level="title-sm">No active passcode to reveal — rotate to mint one.</Typography>
+          <Button size="sm" variant="outlined" color="neutral" onClick={onHide} sx={{ alignSelf: "flex-start" }}>
+            Dismiss
+          </Button>
+        </Stack>
+      </Alert>
+    );
+  }
+
   return (
     <Alert color="warning" variant="soft" startDecorator={<VisibilityRounded />}>
       <Stack spacing={1} sx={{ width: "100%" }}>
@@ -155,29 +181,56 @@ export default function StationSignupPanel() {
     pollingInterval: STATUS_POLL_INTERVAL_MS,
   });
 
-  const [reveal, { isLoading: isRevealing }] = useRevealStationPasscodesMutation();
-  const [rotate, { isLoading: isRotating }] = useRotateStationPasscodeMutation();
+  const [reveal, { isLoading: isRevealing, reset: resetReveal }] = useRevealStationPasscodesMutation();
+  const [rotate, { isLoading: isRotating, reset: resetRotate }] = useRotateStationPasscodeMutation();
   const [revoke, { isLoading: isRevoking }] = useRevokeStationPasscodeMutation();
   const [clearCooldown, { isLoading: isClearingCooldown }] = useClearStationSignupCooldownMutation();
 
   const [liveCredential, setLiveCredential] = useState<LiveCredential | null>(null);
+  const [serviceFault, setServiceFault] = useState<StationSignupApiError | null>(null);
   const [confirmReveal, setConfirmReveal] = useState(false);
   const [confirmRevokeId, setConfirmRevokeId] = useState<string | null>(null);
+
+  // The status endpoint never decrypts, so the lift deadline has to be derived
+  // from the attempt log rather than read off the payload.
+  const liftsAtMs =
+    status && status.cooldown.inCooldown
+      ? cooldownLiftsAtMs(status.attempts, status.cooldown.holdMinutes)
+      : null;
+  const serverNowMs = useServerClockMs(status?.now, liftsAtMs === null ? null : COUNTDOWN_TICK_MS);
+  const holdRemainingMs = liftsAtMs !== null && serverNowMs !== null ? liftsAtMs - serverNowMs : null;
+
+  const attemptCensus = status ? outcomeCensus(status.attempts.countsByOutcome) : [];
+
+  /**
+   * A 503 says the service itself cannot mint or read passcodes; it stays on
+   * screen until the manager fixes it, because the fix is a host change or a
+   * rotation, not a retry. Everything else is a transient toast.
+   */
+  const surfaceMutationError = useCallback((err: unknown) => {
+    if (isStationSignupApiError(err) && err.status === 503) {
+      setServiceFault(err);
+      return;
+    }
+    toast.error(stationSignupErrorMessage(err));
+  }, []);
 
   const handleReveal = useCallback(async () => {
     try {
       const result = await reveal().unwrap();
+      setServiceFault(null);
       setLiveCredential({ passcodes: result.passcodes });
       setConfirmReveal(false);
     } catch (err) {
-      toast.error(stationSignupErrorMessage(err));
+      surfaceMutationError(err);
       setConfirmReveal(false);
     }
-  }, [reveal]);
+  }, [reveal, surfaceMutationError]);
 
   const handleRotate = useCallback(async () => {
     try {
       const result = await rotate().unwrap();
+      setServiceFault(null);
       setLiveCredential({ rotated: { id: result.id, code: result.code } });
       if (result.autoRevokedPasscodeIds.length > 0) {
         toast.warning(
@@ -187,9 +240,17 @@ export default function StationSignupPanel() {
         toast.success("Station passcode rotated.");
       }
     } catch (err) {
-      toast.error(stationSignupErrorMessage(err));
+      surfaceMutationError(err);
     }
-  }, [rotate]);
+  }, [rotate, surfaceMutationError]);
+
+  const handleHideCredential = useCallback(() => {
+    setLiveCredential(null);
+    // The plaintext also sits in the mutation cache until that entry is reset,
+    // so hiding has to clear both or the code outlives the alert showing it.
+    resetReveal();
+    resetRotate();
+  }, [resetReveal, resetRotate]);
 
   const handleRevokeConfirmed = useCallback(async () => {
     if (!confirmRevokeId) return;
@@ -224,21 +285,38 @@ export default function StationSignupPanel() {
           Station Signup Passcode
         </Typography>
 
-        {liveCredential && <RevealedCredentials credential={liveCredential} onHide={() => setLiveCredential(null)} />}
+        {serviceFault && (
+          <Alert
+            color="danger"
+            variant="soft"
+            startDecorator={<WarningRounded />}
+            sx={{ mb: 2 }}
+            data-testid="station-signup-service-fault"
+          >
+            <Stack spacing={1} sx={{ width: "100%" }}>
+              <Typography level="body-sm">{stationSignupErrorMessage(serviceFault)}</Typography>
+              <Stack direction="row" spacing={1}>
+                {serviceFault.code === "passcode_undecryptable" && (
+                  <Button size="sm" variant="solid" color="danger" loading={isRotating} onClick={handleRotate}>
+                    Rotate
+                  </Button>
+                )}
+                <Button size="sm" variant="plain" color="neutral" onClick={() => setServiceFault(null)}>
+                  Dismiss
+                </Button>
+              </Stack>
+            </Stack>
+          </Alert>
+        )}
+
+        {liveCredential && <RevealedCredentials credential={liveCredential} onHide={handleHideCredential} />}
 
         {isLoading ? (
           <CircularProgress size="sm" />
         ) : error ? (
-          <Stack spacing={2}>
-            <Alert color="danger" startDecorator={<WarningRounded />}>
-              {stationSignupErrorMessage(error)}
-            </Alert>
-            {isStationSignupApiError(error) && error.code === "passcode_undecryptable" && (
-              <Button size="sm" variant="outlined" loading={isRotating} onClick={handleRotate} sx={{ alignSelf: "flex-start" }}>
-                Rotate
-              </Button>
-            )}
-          </Stack>
+          <Alert color="danger" startDecorator={<WarningRounded />}>
+            {stationSignupErrorMessage(error)}
+          </Alert>
         ) : status ? (
           <Stack spacing={2}>
             {status.cooldown.inCooldown && (
@@ -247,8 +325,14 @@ export default function StationSignupPanel() {
                   <Typography level="title-sm">Signup is in cooldown</Typography>
                   <Typography level="body-sm">
                     {status.cooldown.noMatchFailureCount} failed match{status.cooldown.noMatchFailureCount === 1 ? "" : "es"} in
-                    the last {status.cooldown.windowMinutes} minutes (threshold {status.cooldown.threshold}). It lifts on its
-                    own {status.cooldown.holdMinutes} minutes after the last qualifying failure, or immediately below.
+                    the last {status.cooldown.windowMinutes} minutes (threshold {status.cooldown.threshold}).
+                  </Typography>
+                  <Typography level="body-sm">
+                    {holdRemainingMs === null
+                      ? `It lifts on its own ${status.cooldown.holdMinutes} minutes after the last qualifying failure, or immediately below.`
+                      : holdRemainingMs > 0
+                        ? `Lifts on its own in ${formatHoldRemaining(holdRemainingMs)}, or immediately below.`
+                        : "The hold has run out — the next refresh should show it lifted, or lift it immediately below."}
                   </Typography>
                   <Button
                     size="sm"
@@ -304,11 +388,16 @@ export default function StationSignupPanel() {
                   status.passcodes.map((passcode) => (
                     <tr key={passcode.id}>
                       <td>
-                        <PasscodeStateChip
-                          state={passcode.state}
-                          exhausted={passcode.exhausted}
-                          revokedByKeyRotation={passcode.revokedByKeyRotation}
-                        />
+                        <Stack spacing={0.5} sx={{ alignItems: "flex-start" }}>
+                          <PasscodeStateChip
+                            state={passcode.state}
+                            exhausted={passcode.exhausted}
+                            revokedByKeyRotation={passcode.revokedByKeyRotation}
+                          />
+                          {passcode.revokedReason && (
+                            <Typography level="body-xs">{passcode.revokedReason}</Typography>
+                          )}
+                        </Stack>
                       </td>
                       <td>{formatPasscodeTimestamp(passcode.lastUsedAt)}</td>
                       <td>
@@ -333,6 +422,41 @@ export default function StationSignupPanel() {
                 )}
               </tbody>
             </Table>
+
+            <Divider />
+
+            {/*
+              The window-wide census, not a tally of the rows above: a healthy
+              passcode table says nothing about a brute-force ramp or a wave of
+              exhausted-code refusals, which is exactly what a manager fielding
+              "the code isn't working" needs to tell apart.
+            */}
+            <Stack spacing={1}>
+              <Typography level="title-sm">
+                {`Signup attempts, last ${status.attempts.windowHours} hours`}
+              </Typography>
+              {attemptCensus.length === 0 ? (
+                <Typography level="body-sm">No signup attempts recorded in this window.</Typography>
+              ) : (
+                <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
+                  {attemptCensus.map(({ outcome, label, count }) => (
+                    <Chip
+                      key={outcome}
+                      size="sm"
+                      variant="soft"
+                      color={isRefusedOutcome(outcome) ? "warning" : "neutral"}
+                    >
+                      {`${label}: ${count}`}
+                    </Chip>
+                  ))}
+                </Stack>
+              )}
+              {status.cooldown.lastClearedAt && (
+                <Typography level="body-xs">
+                  {`Cooldown last cleared ${formatPasscodeTimestamp(status.cooldown.lastClearedAt)}`}
+                </Typography>
+              )}
+            </Stack>
           </Stack>
         ) : null}
 
