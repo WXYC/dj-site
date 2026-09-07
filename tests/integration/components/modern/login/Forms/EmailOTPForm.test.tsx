@@ -3,6 +3,7 @@ import { screen } from "@testing-library/react";
 import EmailOTPForm from "@/src/components/experiences/modern/login/Forms/EmailOTPForm";
 import { renderWithProviders } from "@/tests/helpers";
 import { applicationSlice } from "@/lib/features/application/frontend";
+import { LOGIN_METHOD_STORAGE_KEY } from "@/lib/features/application/login-method-storage";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
@@ -12,6 +13,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 const QR_FLAG_KEY = "NEXT_PUBLIC_QR_LOGIN_ENABLED";
+const SIGNUP_FLAG_KEY = "NEXT_PUBLIC_STATION_SIGNUP_ENABLED";
 
 describe("EmailOTPForm", () => {
   const defaultProps = { onCodeSent: vi.fn() };
@@ -89,6 +91,48 @@ describe("EmailOTPForm", () => {
       expect(applicationSlice.selectors.getAuthStage(store.getState())).toBe(
         "qr"
       );
+    });
+  });
+
+  // The landing form is where a brand-new DJ with no account arrives; the
+  // station-signup entry point has to be reachable here, not only after
+  // switching to the password form.
+  describe("station signup entry link (flag-gated)", () => {
+    afterEach(() => {
+      delete process.env[SIGNUP_FLAG_KEY];
+    });
+
+    it("is hidden when the station signup flag is off", () => {
+      delete process.env[SIGNUP_FLAG_KEY];
+      renderWithProviders(<EmailOTPForm {...defaultProps} />);
+
+      expect(
+        screen.queryByRole("button", { name: "Sign up here" })
+      ).not.toBeInTheDocument();
+    });
+
+    it("switches to the signup stage when the flag is on", async () => {
+      process.env[SIGNUP_FLAG_KEY] = "true";
+      const { user, store } = renderWithProviders(
+        <EmailOTPForm {...defaultProps} />
+      );
+
+      await user.click(screen.getByRole("button", { name: "Sign up here" }));
+
+      expect(applicationSlice.selectors.getAuthStage(store.getState())).toBe(
+        "signup"
+      );
+    });
+
+    it("does not remember signup as a login preference", async () => {
+      process.env[SIGNUP_FLAG_KEY] = "true";
+      const { user } = renderWithProviders(<EmailOTPForm {...defaultProps} />);
+
+      await user.click(screen.getByRole("button", { name: "Sign up here" }));
+
+      // Signup must never be written to login-method-storage — a returning DJ
+      // would otherwise be sent back to the signup form.
+      expect(localStorage.getItem(LOGIN_METHOD_STORAGE_KEY)).toBeNull();
     });
   });
 });
