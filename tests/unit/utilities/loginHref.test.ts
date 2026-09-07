@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  hasSignupParam,
   loginHrefWithSignup,
   loginHrefWithoutSignup,
 } from "@/src/utilities/loginHref";
@@ -69,5 +70,24 @@ describe("loginHrefWithoutSignup", () => {
     expect(loginHrefWithoutSignup(new URLSearchParams("bounced=no-session"))).toBe(
       "/login?bounced=no-session"
     );
+  });
+});
+
+describe("hasSignupParam", () => {
+  it("is true only for the exact signup=1 pair", () => {
+    expect(hasSignupParam(new URLSearchParams("signup=1"))).toBe(true);
+    expect(hasSignupParam(new URLSearchParams(`signup=1&${AUTHORIZE_QUERY}`))).toBe(true);
+  });
+
+  it("is false for absent, empty, or other-valued signup keys", () => {
+    expect(hasSignupParam(new URLSearchParams(""))).toBe(false);
+    expect(hasSignupParam(new URLSearchParams("signup="))).toBe(false);
+    expect(hasSignupParam(new URLSearchParams("signup=true"))).toBe(false);
+    expect(hasSignupParam(new URLSearchParams(AUTHORIZE_QUERY))).toBe(false);
+  });
+
+  it("is false without a router context", () => {
+    expect(hasSignupParam(null)).toBe(false);
+    expect(hasSignupParam(undefined)).toBe(false);
   });
 });

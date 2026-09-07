@@ -2,7 +2,9 @@ import WelcomeQuotes, {
   pickWelcomeQuote,
 } from "@/src/components/experiences/modern/login/Quotes/Welcome";
 import WXYCPage from "@/src/Layout/WXYCPage";
-import { Button, Divider, Stack } from "@mui/joy";
+import { isStationSignupEnabled } from "@/lib/features/authentication/flags";
+import { loginHrefWithSignup } from "@/src/utilities/loginHref";
+import { Button, Divider, Link as JoyLink, Stack, Typography } from "@mui/joy";
 import Link from "next/link";
 import { Metadata } from "next";
 import { getPageTitle } from "@/lib/utils/page-title";
@@ -46,6 +48,15 @@ export default async function HomePage() {
             Playlist Archive
           </Button>
         </Link>
+        {isStationSignupEnabled() && (
+          <Typography level="body-sm">
+            {/* null: this page sits outside the /login OIDC bounce, so there
+                are no live authorize params to carry into the detour. */}
+            <JoyLink component={Link} href={loginHrefWithSignup(null)}>
+              Sign Up
+            </JoyLink>
+          </Typography>
+        )}
       </Stack>
     </WXYCPage>
   );
