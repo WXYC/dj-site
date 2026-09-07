@@ -56,6 +56,12 @@ env:
   # so flipping it auto-invalidates the stale .next/ cache). Required by
   # e2e/tests/auth/station-signup.spec.ts — without it the link never renders.
   NEXT_PUBLIC_STATION_SIGNUP_ENABLED: "true"
+  # Build-time gate for the MANAGER-facing "Signup Passcode" tab in the admin
+  # roster view switcher, inlined into the dj-site build (same build-cache hash
+  # as above). Required by e2e/tests/auth/station-signup.spec.ts — without it
+  # the tab never renders and the spec can't reach the rotate/reveal controls.
+  # Independent of NEXT_PUBLIC_STATION_SIGNUP_ENABLED (the DJ-facing gate).
+  NEXT_PUBLIC_STATION_SIGNUP_ADMIN_ENABLED: "true"
   NEXT_PUBLIC_APP_ORGANIZATION: test-org
   SESSION_SECRET: e2e-secret-for-testing
   APP_ORGANIZATION_ID: test-org-id-0000000000000000001

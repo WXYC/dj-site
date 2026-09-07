@@ -125,6 +125,11 @@ export NEXT_PUBLIC_QR_LOGIN_ENABLED=true
 # renders and e2e/tests/auth/station-signup.spec.ts can't reach the signup form.
 # Its server-side counterpart STATION_SIGNUP_ENABLED is exported above.
 export NEXT_PUBLIC_STATION_SIGNUP_ENABLED=true
+# Build-time gate for the MANAGER-facing "Signup Passcode" tab in the admin
+# roster view switcher. Must be exported before the primary build below or the
+# tab never renders and e2e/tests/auth/station-signup.spec.ts can't reach the
+# rotate/reveal controls. Independent of the DJ-facing flag exported above.
+export NEXT_PUBLIC_STATION_SIGNUP_ADMIN_ENABLED=true
 
 echo "==> Building dj-site (primary)..."
 # Primary build -> .next/

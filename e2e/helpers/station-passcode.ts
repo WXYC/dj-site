@@ -36,18 +36,21 @@ function getDbConfig() {
 /**
  * Fail loudly if the station-signup spec's required env is not exported by the
  * entry point (`scripts/e2e-local.sh` or `.github/workflows/e2e-tests.yml`)
- * before Playwright runs. The two feature flags gate the surfaces the spec
+ * before Playwright runs. The three feature flags gate the surfaces the spec
  * drives — without `STATION_SIGNUP_ENABLED` the auth service does not mount
- * the public signup route (404 at signup), and without
+ * the public signup route (404 at signup); without
  * `NEXT_PUBLIC_STATION_SIGNUP_ENABLED` the login form never renders the "Sign
- * up here" link — and the DB vars are what teardown connects with. Checking
- * presence here turns a dropped export into a named error rather than a
- * mid-spec timeout.
+ * up here" link; and without `NEXT_PUBLIC_STATION_SIGNUP_ADMIN_ENABLED` the
+ * admin roster view switcher never renders the "Signup Passcode" tab, so the
+ * manager can't rotate/reveal — and the DB vars are what teardown connects
+ * with. Checking presence here turns a dropped export into a named error rather
+ * than a mid-spec timeout.
  */
 export function requireStationSignupEnv(): void {
   requireEnv("station-signup e2e", [
     "STATION_SIGNUP_ENABLED",
     "NEXT_PUBLIC_STATION_SIGNUP_ENABLED",
+    "NEXT_PUBLIC_STATION_SIGNUP_ADMIN_ENABLED",
     "DB_HOST",
     "DB_PORT",
     "DB_NAME",
