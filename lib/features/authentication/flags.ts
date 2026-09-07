@@ -37,3 +37,23 @@ export function isStationSignupEnabled(): boolean {
   const envValue = process.env.NEXT_PUBLIC_STATION_SIGNUP_ENABLED;
   return envValue === "true" || envValue === "1";
 }
+
+/**
+ * Gates the MANAGER-facing station-signup surface: the "Signup Passcode"
+ * segment in the admin roster page's view switcher and the StationSignupPanel
+ * it reveals (reveal/rotate/revoke of the shared passcode). Distinct from
+ * NEXT_PUBLIC_STATION_SIGNUP_ENABLED, which gates the DJ-facing signup form —
+ * this one gates only the administrator's passcode controls, and is meant to be
+ * turned on FIRST so the first passcode can be minted before DJs can sign up
+ * (mint-before-flip). While off, the switcher shows the roster alone with no
+ * toggle, so a manager never reaches a panel whose reveal/rotate would error
+ * out because Backend-Service's STATION_PASSCODE_KEY is not yet set.
+ *
+ * Defaults to OFF; flip on by setting NEXT_PUBLIC_STATION_SIGNUP_ADMIN_ENABLED
+ * to "true" (or "1") once STATION_PASSCODE_KEY is configured on the auth
+ * service in that environment.
+ */
+export function isStationSignupAdminEnabled(): boolean {
+  const envValue = process.env.NEXT_PUBLIC_STATION_SIGNUP_ADMIN_ENABLED;
+  return envValue === "true" || envValue === "1";
+}

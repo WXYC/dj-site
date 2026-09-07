@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Button, Stack, ToggleButtonGroup } from "@mui/joy";
 import type { User } from "@/lib/features/authentication/types";
+import { isStationSignupAdminEnabled } from "@/lib/features/authentication/flags";
 import RosterTable from "./RosterTable";
 import StationSignupPanel from "./StationSignupPanel";
 
@@ -20,6 +21,13 @@ type RosterView = "roster" | "passcode";
  * — and only starts polling status — while the passcode view is selected.
  *
  * Defaults to the roster: it is the page's namesake and its most frequent use.
+ *
+ * The passcode surface is admin-flag-gated (render-time read of
+ * `isStationSignupAdminEnabled`): before launch the flag is off, so there is
+ * only one view — the roster — and no toggle is shown at all. That keeps a
+ * manager from reaching reveal/rotate controls that would error until
+ * Backend-Service's STATION_PASSCODE_KEY is set. When on, the segmented control
+ * appears and toggles the two views.
  */
 export default function RosterViewSwitcher({
   user,
@@ -29,6 +37,16 @@ export default function RosterViewSwitcher({
   organizationSlug: string;
 }) {
   const [view, setView] = useState<RosterView>("roster");
+
+  // Render-time read of a build-time flag: off pre-launch, so the passcode view
+  // does not exist and the roster stands alone with no segmented control.
+  if (!isStationSignupAdminEnabled()) {
+    return (
+      <Stack spacing={2}>
+        <RosterTable user={user} organizationSlug={organizationSlug} />
+      </Stack>
+    );
+  }
 
   return (
     <Stack spacing={2}>

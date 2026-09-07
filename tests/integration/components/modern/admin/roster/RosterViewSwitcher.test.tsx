@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { screen } from "@testing-library/react";
 import { renderWithProviders } from "@/tests/helpers";
 import { Authorization } from "@/lib/features/admin/types";
@@ -18,6 +18,8 @@ vi.mock("@/src/components/experiences/modern/admin/roster/StationSignupPanel", (
   default: () => <div data-testid="station-signup-panel">passcode</div>,
 }));
 
+const ADMIN_FLAG_KEY = "NEXT_PUBLIC_STATION_SIGNUP_ADMIN_ENABLED";
+
 const user = { username: "sm", authority: Authorization.SM } as User;
 
 function renderSwitcher() {
@@ -27,47 +29,91 @@ function renderSwitcher() {
 }
 
 describe("RosterViewSwitcher", () => {
-  it("defaults to the roster view and forwards its props", () => {
-    renderSwitcher();
+  // The passcode surface is admin-flag-gated: the segmented control and the
+  // Signup Passcode view only exist when NEXT_PUBLIC_STATION_SIGNUP_ADMIN_ENABLED
+  // is on. Toggle it per-block via process.env, the same render-time build flag
+  // pattern EmailOTPForm's tests use for the QR entry link.
+  describe("when the station-signup admin flag is on", () => {
+    beforeEach(() => {
+      process.env[ADMIN_FLAG_KEY] = "true";
+    });
 
-    expect(screen.getByTestId("roster-table")).toHaveTextContent("roster:wxyc");
-    expect(screen.queryByTestId("station-signup-panel")).not.toBeInTheDocument();
+    afterEach(() => {
+      delete process.env[ADMIN_FLAG_KEY];
+    });
+
+    it("defaults to the roster view and forwards its props", () => {
+      renderSwitcher();
+
+      expect(screen.getByTestId("roster-table")).toHaveTextContent("roster:wxyc");
+      expect(screen.queryByTestId("station-signup-panel")).not.toBeInTheDocument();
+    });
+
+    it("offers both views as a segmented control", () => {
+      renderSwitcher();
+
+      expect(screen.getByRole("button", { name: "DJ Roster" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Signup Passcode" })).toBeInTheDocument();
+    });
+
+    it("shows the passcode panel and hides the roster when Signup Passcode is chosen", async () => {
+      const { user: ui } = renderSwitcher();
+
+      await ui.click(screen.getByRole("button", { name: "Signup Passcode" }));
+
+      expect(screen.getByTestId("station-signup-panel")).toBeInTheDocument();
+      expect(screen.queryByTestId("roster-table")).not.toBeInTheDocument();
+    });
+
+    it("toggles back to the roster", async () => {
+      const { user: ui } = renderSwitcher();
+
+      await ui.click(screen.getByRole("button", { name: "Signup Passcode" }));
+      await ui.click(screen.getByRole("button", { name: "DJ Roster" }));
+
+      expect(screen.getByTestId("roster-table")).toBeInTheDocument();
+      expect(screen.queryByTestId("station-signup-panel")).not.toBeInTheDocument();
+    });
+
+    it("keeps a view selected when the active button is clicked again", async () => {
+      const { user: ui } = renderSwitcher();
+
+      // Re-clicking the active segment must not clear the selection into an
+      // empty state — one view is always shown.
+      await ui.click(screen.getByRole("button", { name: "DJ Roster" }));
+
+      expect(screen.getByTestId("roster-table")).toBeInTheDocument();
+      expect(screen.queryByTestId("station-signup-panel")).not.toBeInTheDocument();
+    });
   });
 
-  it("offers both views as a segmented control", () => {
-    renderSwitcher();
+  // Pre-launch default: the passcode surface must not exist. With only one view
+  // there is no toggle, so the segmented control disappears entirely and the
+  // roster table stands alone — no Signup Passcode segment, no panel.
+  describe("when the station-signup admin flag is off", () => {
+    beforeEach(() => {
+      delete process.env[ADMIN_FLAG_KEY];
+    });
 
-    expect(screen.getByRole("button", { name: "DJ Roster" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Signup Passcode" })).toBeInTheDocument();
-  });
+    it("renders the roster table alone with no segmented control", () => {
+      renderSwitcher();
 
-  it("shows the passcode panel and hides the roster when Signup Passcode is chosen", async () => {
-    const { user: ui } = renderSwitcher();
+      expect(screen.getByTestId("roster-table")).toHaveTextContent("roster:wxyc");
+      expect(screen.queryByRole("button", { name: "DJ Roster" })).not.toBeInTheDocument();
+    });
 
-    await ui.click(screen.getByRole("button", { name: "Signup Passcode" }));
+    it("hides the Signup Passcode segment", () => {
+      renderSwitcher();
 
-    expect(screen.getByTestId("station-signup-panel")).toBeInTheDocument();
-    expect(screen.queryByTestId("roster-table")).not.toBeInTheDocument();
-  });
+      expect(
+        screen.queryByRole("button", { name: "Signup Passcode" })
+      ).not.toBeInTheDocument();
+    });
 
-  it("toggles back to the roster", async () => {
-    const { user: ui } = renderSwitcher();
+    it("never mounts the station signup panel", () => {
+      renderSwitcher();
 
-    await ui.click(screen.getByRole("button", { name: "Signup Passcode" }));
-    await ui.click(screen.getByRole("button", { name: "DJ Roster" }));
-
-    expect(screen.getByTestId("roster-table")).toBeInTheDocument();
-    expect(screen.queryByTestId("station-signup-panel")).not.toBeInTheDocument();
-  });
-
-  it("keeps a view selected when the active button is clicked again", async () => {
-    const { user: ui } = renderSwitcher();
-
-    // Re-clicking the active segment must not clear the selection into an
-    // empty state — one view is always shown.
-    await ui.click(screen.getByRole("button", { name: "DJ Roster" }));
-
-    expect(screen.getByTestId("roster-table")).toBeInTheDocument();
-    expect(screen.queryByTestId("station-signup-panel")).not.toBeInTheDocument();
+      expect(screen.queryByTestId("station-signup-panel")).not.toBeInTheDocument();
+    });
   });
 });
