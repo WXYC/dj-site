@@ -70,6 +70,12 @@ describe("StationSignupForm", () => {
     });
     expect(await screen.findByTestId("signup-success")).toHaveTextContent(/pending/i);
     expect(screen.getByTestId("signup-success")).toHaveTextContent("newdj");
+    // The 201 returns username AND email off the created row -- show both.
+    expect(screen.getByTestId("signup-success")).toHaveTextContent("newdj@example.com");
+    // A station-signup account is provisioned with the dj role and works
+    // immediately -- review happens after the fact. The confirmation must
+    // not claim sign-in is blocked on review.
+    expect(screen.getByTestId("signup-success")).toHaveTextContent(/sign in with it right away/i);
   });
 
   it("renders the distinct server-off 404 state, not a generic error", async () => {
