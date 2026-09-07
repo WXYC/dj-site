@@ -499,7 +499,7 @@ describe("StationSignupPanel", () => {
       );
     });
 
-    it("names the missing key plainly, and keeps it on screen, when a reveal 503s with passcode_key_unset", async () => {
+    it("tells a manager signup isn't set up yet, and keeps it on screen, when a reveal 503s with passcode_key_unset", async () => {
       mockStationSignupRoutes({
         "/admin/station-signup/status": { status: 200, data: baseStatus() },
         "/admin/station-signup/reveal": {
@@ -512,9 +512,13 @@ describe("StationSignupPanel", () => {
       await user.click(await screen.findByRole("button", { name: /^Reveal$/i }));
 
       const fault = await screen.findByTestId("station-signup-service-fault");
-      expect(within(fault).getByText(/STATION_PASSCODE_KEY is not set/i)).toBeInTheDocument();
-      // A host-level fault outlives a toast, and rotation cannot recover a
-      // service that has no key to mint with.
+      // Manager-facing copy: no env-var name, no "host", no "restart" leaks, and
+      // it points at an administrator, not the caller.
+      expect(within(fault).getByText(/signup isn't set up yet/i)).toBeInTheDocument();
+      expect(within(fault).getByText(/an administrator needs to enable it/i)).toBeInTheDocument();
+      expect(within(fault).queryByText(/STATION_PASSCODE_KEY/i)).not.toBeInTheDocument();
+      // A not-set-up fault outlives a toast, and rotation cannot recover a
+      // service that has nothing to mint with, so no inline Rotate is offered.
       expect(toast.error).not.toHaveBeenCalled();
       expect(within(fault).queryByRole("button", { name: /^Rotate$/i })).not.toBeInTheDocument();
     });
@@ -532,7 +536,11 @@ describe("StationSignupPanel", () => {
       await user.click(await screen.findByRole("button", { name: /^Reveal$/i }));
 
       const fault = await screen.findByTestId("station-signup-service-fault");
-      expect(within(fault).getByText(/Rotating administratively revokes/i)).toBeInTheDocument();
+      // Distinct from the not-set-up copy: this one says the code can't be read
+      // and points at rotating to replace it, in plain terms.
+      expect(within(fault).getByText(/can't be read and needs to be replaced/i)).toBeInTheDocument();
+      expect(within(fault).getByText(/Rotate to retire it and issue a fresh one/i)).toBeInTheDocument();
+      expect(within(fault).queryByText(/signup isn't set up yet/i)).not.toBeInTheDocument();
       expect(toast.error).not.toHaveBeenCalled();
     });
 
