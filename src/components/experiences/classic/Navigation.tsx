@@ -19,6 +19,12 @@ type NavLink = {
    * never access.
    */
   requiredRole?: Authorization;
+  /**
+   * Extra path prefixes this entry is the bar's name for. The Music
+   * Department menu owns the library screens, which live under a different
+   * path than the menu itself.
+   */
+  activePrefixes?: string[];
 };
 
 // Styled as tubafrenzy's .nav-bar (its public-page navigation): dark #333
@@ -40,18 +46,43 @@ export default function Navigation() {
   // by any logged-in user. Marking a release missing or found is deliberately
   // DJ-accessible and must not be raised to music director.
   const librarianLinks: NavLink[] = [
-    {
-      path: "/dashboard/library",
-      title: "Add/Modify Catalog",
-      requiredRole: Authorization.MD,
-    },
     { path: "/dashboard/library/missing", title: "Missing Releases" },
     { path: "/dashboard/rotation", title: "Rotation" },
+    {
+      path: "/dashboard/md",
+      title: "Music Department",
+      requiredRole: Authorization.MD,
+      // The catalog entry point (/dashboard/library) is reached from the menu
+      // rather than the bar, so the menu is what the bar highlights while the
+      // librarian is inside those screens. /dashboard/rotation is deliberately
+      // absent: the Rotation entry above already names it.
+      activePrefixes: ["/dashboard/library"],
+    },
   ];
 
-  const isActive = (path: string) => {
-    if (!pathname) return false;
-    return pathname === path || pathname.startsWith(path + "/");
+  const visibleLinks = [
+    ...navLinks,
+    ...(isClassicLibrarianNavEnabled() ? librarianLinks : []),
+  ];
+
+  const matchLength = (link: NavLink) => {
+    if (!pathname) return 0;
+    return [link.path, ...(link.activePrefixes ?? [])]
+      .filter((path) => pathname === path || pathname.startsWith(path + "/"))
+      .reduce((longest, path) => Math.max(longest, path.length), 0);
+  };
+
+  // Longest match wins, so exactly one entry is ever highlighted. Matching
+  // each link independently lit both Missing Releases and the entry that
+  // prefixes it whenever the librarian was on /dashboard/library/missing.
+  const longestMatch = visibleLinks.reduce(
+    (longest, link) => Math.max(longest, matchLength(link)),
+    0
+  );
+
+  const isActive = (link: NavLink) => {
+    const length = matchLength(link);
+    return length > 0 && length === longestMatch;
   };
 
   const renderLink = (link: NavLink) => {
@@ -60,7 +91,7 @@ export default function Navigation() {
     ) : (
       <Link
         href={link.path}
-        className={isActive(link.path) ? "active" : undefined}
+        className={isActive(link) ? "active" : undefined}
       >
         {link.title}
       </Link>
