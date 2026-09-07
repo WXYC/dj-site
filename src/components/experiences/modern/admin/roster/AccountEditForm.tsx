@@ -1,6 +1,7 @@
 "use client";
 
-import { authClient } from "@/lib/features/authentication/client";
+import { authClient, authFetch } from "@/lib/features/authentication/client";
+import { authErrorMessage } from "@/lib/features/authentication/auth-fetch";
 import { adminApi } from "@/lib/features/admin/api";
 import { useAppDispatch } from "@/lib/hooks";
 import { resolveOrganizationIdAdmin } from "@/lib/features/authentication/organization-utils";
@@ -40,8 +41,6 @@ type AccountEditFormProps = {
    * addition to page-level authority — see the module doc on the `RightbarPanel`
    * "account-edit" case for why this defense-in-depth exists. */
   viewerRole: Authorization;
-  /** The viewer's own id, written as `selfSignupReviewedBy` on approve. */
-  viewerId?: string;
 };
 
 export default function AccountEditForm({
@@ -50,7 +49,6 @@ export default function AccountEditForm({
   onClose,
   organizationSlug,
   viewerRole,
-  viewerId,
 }: AccountEditFormProps) {
   const [isPromoting, setIsPromoting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -332,14 +330,6 @@ export default function AccountEditForm({
   };
 
   const handleApprove = async () => {
-    // Refuse rather than silently drop `reviewed_by`: without a viewer id an
-    // approve would still write `reviewed_at` and show a success toast, but
-    // the record of who reviewed it would be lost.
-    if (!viewerId) {
-      toast.error("Cannot approve: missing reviewer identity.");
-      return;
-    }
-
     if (!confirm(`Approve ${account.realName}'s self-signup?`)) {
       return;
     }
@@ -348,16 +338,32 @@ export default function AccountEditForm({
     try {
       const targetUserId = await resolveUserId();
 
-      const result = await authClient.admin.updateUser({
-        userId: targetUserId,
-        data: {
-          selfSignupReviewedAt: new Date().toISOString(),
-          selfSignupReviewedBy: viewerId,
-        },
-      });
+      // The nightly review job demotes an unreviewed self-signup from `dj`
+      // down to `member`, so a still-pending account sitting at member-level
+      // authority is one that was auto-downgraded — approval hands the `dj`
+      // role back in the same server-side transaction as the review stamp.
+      // The endpoint only ever performs the exact inverse (`member` -> `dj`,
+      // guarded by `WHERE role = 'member'`), so this is a harmless no-op — and
+      // never a demotion — for any account already at `dj` or above.
+      const restoreDjRole = account.authorization === Authorization.NO;
 
-      if (result.error) {
-        throw new Error(result.error.message || "Failed to approve account");
+      // The dedicated, session-derived approve endpoint — deliberately NOT
+      // better-auth's generic update-user. The three review columns are
+      // `input: false` server-side (which is what stops a signed-in DJ
+      // approving their own pending signup), so update-user would silently
+      // strip them and report success while nothing persisted. The reviewer
+      // is derived from the session on the server and never travels in the
+      // body: the body carries only the target and the role decision.
+      const { ok, status, data } = await authFetch<{ error?: string; message?: string }>(
+        "/admin/station-signup/approve",
+        {
+          method: "POST",
+          json: { userId: targetUserId, restoreDjRole },
+        }
+      );
+
+      if (!ok) {
+        throw new Error(authErrorMessage(data, `Failed to approve account (${status})`));
       }
 
       toast.success(`${account.realName}'s self-signup approved`);

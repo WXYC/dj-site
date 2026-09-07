@@ -23,7 +23,6 @@ export default function AccountEditPanel() {
 
   const { account, isSelf, organizationSlug } = panel;
   const viewerRole = viewer?.authority ?? Authorization.NO;
-  const viewerId = viewer?.id;
   const displayName = account.realName || account.userName;
   const handleClose = () => dispatch(applicationSlice.actions.closePanel());
 
@@ -42,7 +41,6 @@ export default function AccountEditPanel() {
         onClose={handleClose}
         organizationSlug={organizationSlug}
         viewerRole={viewerRole}
-        viewerId={viewerId}
       />
     </RightbarPanelContainer>
   );

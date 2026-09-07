@@ -10,6 +10,7 @@ vi.mock("@/lib/features/authentication/client", () => ({
     organization: { listMembers: vi.fn(), updateMemberRole: vi.fn() },
     requestPasswordReset: vi.fn(),
   },
+  authFetch: vi.fn(),
   authBaseURL: "http://localhost:8082/auth",
 }));
 
@@ -24,12 +25,13 @@ vi.mock("sonner", () => ({
   },
 }));
 
-import { authClient } from "@/lib/features/authentication/client";
+import { authClient, authFetch } from "@/lib/features/authentication/client";
 import { adminApi } from "@/lib/features/admin/api";
 import { toast } from "sonner";
 
 const mockUpdateUser = authClient.admin.updateUser as ReturnType<typeof vi.fn>;
 const mockListUsers = authClient.admin.listUsers as ReturnType<typeof vi.fn>;
+const mockAuthFetch = authFetch as ReturnType<typeof vi.fn>;
 // The roster-invalidation bus was replaced by RTK Query tag invalidation; a
 // successful mutation now dispatches adminApi.util.invalidateTags(["Roster"]).
 const invalidateRoster = vi.spyOn(adminApi.util, "invalidateTags");
@@ -49,7 +51,6 @@ const setup = createComponentHarness(AccountEditForm, {
   onClose: () => {},
   organizationSlug: "wxyc",
   viewerRole: Authorization.SM,
-  viewerId: "user-sm",
 });
 
 describe("AccountEditForm name editing", () => {
@@ -211,7 +212,7 @@ describe("AccountEditForm name editing", () => {
 describe("AccountEditForm approve action", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockUpdateUser.mockResolvedValue({ data: {} });
+    mockAuthFetch.mockResolvedValue({ ok: true, status: 200, data: { userId: "user-123" } });
     vi.spyOn(window, "confirm").mockReturnValue(true);
   });
 
@@ -255,22 +256,51 @@ describe("AccountEditForm approve action", () => {
     expect(screen.queryByRole("button", { name: "Approve Self-Signup" })).not.toBeInTheDocument();
   });
 
-  it("approves via admin.updateUser, writing both review fields", async () => {
+  // The reviewer is derived from the session on the server, so the request
+  // body carries ONLY the target and the role decision — never a
+  // `selfSignupReviewedBy` or a `selfSignupReviewedAt`. It must hit the
+  // dedicated approve endpoint, not better-auth's generic update-user, whose
+  // `input: false` review columns would silently strip the write.
+  it("approves via the dedicated station-signup endpoint with only userId and restoreDjRole", async () => {
     const { user } = setup({ account: pendingAccount() });
 
     await user.click(screen.getByRole("button", { name: "Approve Self-Signup" }));
 
     await waitFor(() => {
-      expect(mockUpdateUser).toHaveBeenCalledWith({
-        userId: "user-123",
-        data: {
-          selfSignupReviewedAt: expect.any(String),
-          selfSignupReviewedBy: "user-sm",
-        },
+      expect(mockAuthFetch).toHaveBeenCalledWith("/admin/station-signup/approve", {
+        method: "POST",
+        json: { userId: "user-123", restoreDjRole: false },
       });
     });
+    // The generic update-user path must not be used for approval.
+    expect(mockUpdateUser).not.toHaveBeenCalled();
+    // No reviewer id or review timestamp ever leaves the client.
+    const [, init] = mockAuthFetch.mock.calls[0];
+    expect(JSON.stringify(init)).not.toContain("selfSignupReviewedBy");
+    expect(JSON.stringify(init)).not.toContain("selfSignupReviewedAt");
     expect(toast.success).toHaveBeenCalled();
     expect(invalidateRoster).toHaveBeenCalledWith(["Roster"]);
+  });
+
+  // The nightly review job downgrades an unreviewed self-signup from `dj` to
+  // `member`; a pending account sitting at member-level authority is one that
+  // was auto-downgraded, so approving it must ask the server to restore `dj`.
+  it("asks the server to restore the dj role for a downgraded (member) self-signup", async () => {
+    const { user } = setup({
+      account: makeAccount({
+        selfSignupAt: "2026-08-01T00:00:00Z",
+        authorization: Authorization.NO,
+      }),
+    });
+
+    await user.click(screen.getByRole("button", { name: "Approve Self-Signup" }));
+
+    await waitFor(() => {
+      expect(mockAuthFetch).toHaveBeenCalledWith("/admin/station-signup/approve", {
+        method: "POST",
+        json: { userId: "user-123", restoreDjRole: true },
+      });
+    });
   });
 
   // `account` is a snapshot from when the panel opened, so nothing updates it
@@ -290,7 +320,7 @@ describe("AccountEditForm approve action", () => {
   });
 
   it("does not close the panel when approval fails", async () => {
-    mockUpdateUser.mockResolvedValue({ error: { message: "Approval rejected" } });
+    mockAuthFetch.mockResolvedValue({ ok: false, status: 400, data: { error: "Approval rejected" } });
     const onClose = vi.fn();
     const { user } = setup({ account: pendingAccount(), onClose });
 
@@ -303,7 +333,7 @@ describe("AccountEditForm approve action", () => {
   });
 
   it("shows an error toast and does not refresh the roster when approval fails", async () => {
-    mockUpdateUser.mockResolvedValue({ error: { message: "Approval rejected" } });
+    mockAuthFetch.mockResolvedValue({ ok: false, status: 400, data: { error: "Approval rejected" } });
     const { user } = setup({ account: pendingAccount() });
 
     await user.click(screen.getByRole("button", { name: "Approve Self-Signup" }));
@@ -311,21 +341,6 @@ describe("AccountEditForm approve action", () => {
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalledWith("Approval rejected");
     });
-    expect(invalidateRoster).not.toHaveBeenCalled();
-  });
-
-  // Closing the viewerId-optional hole: an approve without a reviewer id would
-  // otherwise write `reviewed_at` while silently dropping `reviewed_by`, and
-  // still show a success toast.
-  it("refuses to approve when the viewer id is missing", async () => {
-    const { user } = setup({ account: pendingAccount(), viewerId: undefined });
-
-    await user.click(screen.getByRole("button", { name: "Approve Self-Signup" }));
-
-    await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith("Cannot approve: missing reviewer identity.");
-    });
-    expect(mockUpdateUser).not.toHaveBeenCalled();
     expect(invalidateRoster).not.toHaveBeenCalled();
   });
 });
