@@ -195,6 +195,41 @@ describe("StationSignupForm", () => {
     expect(screen.getByLabelText(/^username/i)).toBeInTheDocument();
   });
 
+  it("caps the username field at the length the server enforces", async () => {
+    const { user } = renderWithProviders(<StationSignupForm />);
+
+    await fillPasscodeStep(user);
+
+    expect(screen.getByLabelText(/^username/i)).toHaveAttribute("maxlength", "30");
+  });
+
+  it("keeps submit disabled for a username the server's own rules would reject", async () => {
+    const { user } = renderWithProviders(<StationSignupForm />);
+
+    await fillPasscodeStep(user);
+    await user.type(screen.getByLabelText(/^email/i), "newdj@example.com");
+    await user.type(screen.getByLabelText(/^password/i), "supersecret");
+    await user.type(screen.getByLabelText(/real name/i), "New DJ");
+
+    const username = screen.getByLabelText(/^username/i);
+    const submit = () => screen.getByRole("button", { name: "Submit" });
+
+    // Server rule: 3-30 chars from [a-zA-Z0-9_.]. Every other detail field
+    // already pre-checks its shape, so username should not be the one that
+    // round-trips a 400 -- the round trip is indistinguishable to the DJ from
+    // a taken username, and it costs a signup attempt to find out.
+    await user.type(username, "dj");
+    expect(submit()).toBeDisabled();
+
+    await user.clear(username);
+    await user.type(username, "new dj");
+    expect(submit()).toBeDisabled();
+
+    await user.clear(username);
+    await user.type(username, "new_dj.1");
+    expect(submit()).not.toBeDisabled();
+  });
+
   it("never joins the remembered login-method preference: the entry stage is not persisted", () => {
     renderWithProviders(<StationSignupForm />, {
       preloadedState: {
