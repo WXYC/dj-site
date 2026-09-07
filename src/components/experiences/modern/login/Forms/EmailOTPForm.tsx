@@ -1,7 +1,7 @@
 "use client";
 
 import { applicationSlice } from "@/lib/features/application/frontend";
-import { isQrLoginEnabled } from "@/lib/features/authentication/flags";
+import { isQrLoginEnabled, isStationSignupEnabled } from "@/lib/features/authentication/flags";
 import { savePreferredLoginMethod } from "@/lib/features/application/login-method-storage";
 import { useAppDispatch } from "@/lib/hooks";
 import { useOTPRequest } from "@/src/hooks/authenticationHooks";
@@ -86,6 +86,26 @@ export default function EmailOTPForm({
             disabled={isLoading}
           >
             Sign in with a QR code
+          </Link>
+        </Typography>
+      )}
+      {isStationSignupEnabled() && (
+        <Typography level="body-sm" sx={{ mt: 1, textAlign: "center" }}>
+          <Link
+            component="button"
+            type="button"
+            onClick={(event: React.MouseEvent<HTMLButtonElement>) => {
+              event.preventDefault();
+              // Signup is not a sign-in method: never savePreferredLoginMethod
+              // here, or a DJ who once signed up would land back on the signup
+              // form instead of the sign-in they now need. This is the form a
+              // brand-new DJ lands on, so the entry point has to live here too,
+              // not only behind "Sign in with password instead".
+              dispatch(applicationSlice.actions.setAuthStage("signup"));
+            }}
+            disabled={isLoading}
+          >
+            Sign up here
           </Link>
         </Typography>
       )}
