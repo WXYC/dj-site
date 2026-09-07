@@ -114,11 +114,14 @@ export class StationSignupPage {
   async rotatePasscode(): Promise<RotatedPasscode> {
     await this.openPasscodePanel();
 
+    // Match the rotate call regardless of status: filtering to 200 here would
+    // turn a 409 passcode_cap_exceeded (e.g. a prior run that leaked a code
+    // against the two-active cap) into an opaque 20s timeout instead of a
+    // legible failure.
     const rotateResponse = this.page.waitForResponse(
       (r) =>
         /\/admin\/station-signup\/rotate\b/.test(r.url()) &&
-        r.request().method() === "POST" &&
-        r.status() === 200,
+        r.request().method() === "POST",
       { timeout: 20000 }
     );
     void rotateResponse.catch(() => {});
@@ -126,16 +129,30 @@ export class StationSignupPage {
     await expect(this.rotateButton).toBeEnabled({ timeout: 10000 });
     await this.rotateButton.click();
 
-    const parsed = (await (await rotateResponse).json()) as { id?: string; code?: string };
+    const response = await rotateResponse;
+    expect(
+      response.status(),
+      `rotate expected 200, got ${response.status()}: ${await response.text().catch(() => "")}`
+    ).toBe(200);
+
+    const parsed = (await response.json()) as { id?: string; code?: string };
     expect(typeof parsed.id).toBe("string");
     expect(typeof parsed.code).toBe("string");
-    const rotated: RotatedPasscode = { id: parsed.id as string, code: parsed.code as string };
 
-    // The plaintext is shown once, in the panel's reveal alert — confirm the
-    // UI surfaced exactly the code the response returned.
-    await expect(this.panel.getByText(rotated.code, { exact: true })).toBeVisible({ timeout: 10000 });
+    // Return as soon as id/code are parsed so the caller can adopt the id for
+    // teardown before any further assertion runs — a later check throwing must
+    // not strand an un-revoked code. The reveal-on-rotate UI is asserted
+    // separately via expectRevealedCode().
+    return { id: parsed.id as string, code: parsed.code as string };
+  }
 
-    return rotated;
+  /**
+   * Assert the plaintext a rotate returned is the one the panel surfaced once,
+   * in its reveal alert. Separate from {@link rotatePasscode} so the caller can
+   * adopt the code for teardown before this runs.
+   */
+  async expectRevealedCode(code: string): Promise<void> {
+    await expect(this.panel.getByText(code, { exact: true })).toBeVisible({ timeout: 10000 });
   }
 
   // ---------------------------------------------------------------------------
