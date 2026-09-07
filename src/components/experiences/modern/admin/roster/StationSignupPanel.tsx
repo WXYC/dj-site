@@ -66,14 +66,14 @@ function stationSignupErrorMessage(error: unknown): string {
   }
   if (error.code === "passcode_key_unset") {
     return (
-      "STATION_PASSCODE_KEY is not set on the auth service, so station passcodes can be neither " +
-      "revealed nor minted. Set it on the host and restart the service."
+      "Station signup isn't set up yet. An administrator needs to enable it before passcodes can be " +
+      "revealed or created — please check back once that's done."
     );
   }
   if (error.code === "passcode_undecryptable") {
     return (
-      "An active station passcode will not decrypt, so the signup gate is failing closed. Rotating " +
-      "administratively revokes the undecryptable code and mints a working one."
+      "The current station passcode can't be read and needs to be replaced. Rotate to retire it and " +
+      "issue a fresh one."
     );
   }
   if (error.code === "passcode_cap_exceeded") {
