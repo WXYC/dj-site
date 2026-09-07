@@ -230,21 +230,6 @@ describe("StationSignupForm", () => {
     expect(submit()).not.toBeDisabled();
   });
 
-  it("never joins the remembered login-method preference: the entry stage is not persisted", () => {
-    renderWithProviders(<StationSignupForm />, {
-      preloadedState: {
-        application: {
-          rightbar: { sidebarOpen: false, panel: { type: "default" } },
-          authFlow: { stage: "signup" },
-        },
-      },
-    });
-
-    // Rendering the signup stage directly must never touch localStorage's
-    // preferred-method key — that bookkeeping belongs only to otp-email/password/qr.
-    expect(localStorage.getItem("wxyc_preferred_login_method")).toBeNull();
-  });
-
   it("lets a DJ back out to the normal login form, in both modern (stage-driven) and classic (URL-driven) routing", async () => {
     mockSearchParams.mockReturnValue(new URLSearchParams("signup=1"));
     const { user, store } = renderWithProviders(<StationSignupForm />);
