@@ -42,7 +42,10 @@ function expectBackOutKeptTheAuthorizeBounce() {
   expect(target.searchParams.get("state")).toBe("xyz789");
 }
 
-async function fillPasscodeStep(user: ReturnType<typeof renderWithProviders>["user"], passcode = "abc-123") {
+// Codes are generated from the ambiguity-free alphabet 23456789ABCDEFGHJKLMNPQRSTUVWXYZ.
+const PASSCODE = "K7M2PQ4R";
+
+async function fillPasscodeStep(user: ReturnType<typeof renderWithProviders>["user"], passcode = PASSCODE) {
   await user.type(screen.getByLabelText(/signup passcode/i), passcode);
   await user.click(screen.getByRole("button", { name: "Continue" }));
 }
@@ -78,12 +81,12 @@ describe("StationSignupForm", () => {
     });
     const { user } = renderWithProviders(<StationSignupForm />);
 
-    await fillPasscodeStep(user, "abc-123");
+    await fillPasscodeStep(user, PASSCODE);
     await fillDetailsStep(user);
     await user.click(screen.getByRole("button", { name: "Submit" }));
 
     expect(mockHandleSignup).toHaveBeenCalledWith({
-      passcode: "abc-123",
+      passcode: PASSCODE,
       username: "newdj",
       email: "newdj@example.com",
       password: "supersecret",
@@ -98,6 +101,28 @@ describe("StationSignupForm", () => {
     // immediately -- review happens after the fact. The confirmation must
     // not claim sign-in is blocked on review.
     expect(screen.getByTestId("signup-success")).toHaveTextContent(/sign in with it right away/i);
+  });
+
+  it("folds the passcode to the alphabet it was generated from before submitting", async () => {
+    mockHandleSignup.mockResolvedValue({
+      status: "success",
+      username: "newdj",
+      email: "newdj@example.com",
+    });
+    const { user } = renderWithProviders(<StationSignupForm />);
+
+    // Codes are drawn from an uppercase-only alphabet and the server neither
+    // trims nor case-folds, so a code pasted with surrounding whitespace or
+    // typed lowercase (or autocapitalised by a phone) is a miss -- and every
+    // miss writes an attempt row against the STATION-WIDE cooldown, burning
+    // attempts for every other DJ on that window. Folding is lossless here.
+    await fillPasscodeStep(user, "  k7m2pq4r  ");
+    await fillDetailsStep(user);
+    await user.click(screen.getByRole("button", { name: "Submit" }));
+
+    expect(mockHandleSignup).toHaveBeenCalledWith(
+      expect.objectContaining({ passcode: "K7M2PQ4R" })
+    );
   });
 
   it("renders the distinct server-off 404 state, not a generic error", async () => {
