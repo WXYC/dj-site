@@ -548,4 +548,65 @@ export class RosterPage {
     const userEmail = await this.getUserEmail(username);
     expect(userEmail).toBe(email);
   }
+
+  // ---------------------------------------------------------------------------
+  // Self-signup review queue (pending assertion + approve)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Type into the roster search box. The roster matches every account the
+   * admin fetched (not just the first page), so searching by a unique value is
+   * how a specific row is made visible regardless of roster size — the same
+   * approach `auth.setup.ts` uses.
+   */
+  async searchFor(query: string): Promise<void> {
+    await this.searchInput.fill(query);
+  }
+
+  /**
+   * The "Pending review" chip an `AccountEntry` renders for a self-signed
+   * account still awaiting review (`isPendingManagerReview`). Scoped to the
+   * user's row.
+   */
+  getPendingReviewChip(username: string): Locator {
+    return this.getUserRow(username).getByText("Pending review");
+  }
+
+  /**
+   * Assert a self-signed account appears in the roster still pending review.
+   * Searches for the username first so the row is on-page, then asserts both
+   * the row and its "Pending review" chip.
+   */
+  async expectAccountPendingReview(username: string): Promise<void> {
+    await this.searchFor(username);
+    await expect(this.getUserRow(username)).toBeVisible({ timeout: 15000 });
+    await expect(this.getPendingReviewChip(username)).toBeVisible({ timeout: 10000 });
+  }
+
+  /** The "Approve Self-Signup" action inside the edit panel. */
+  getApproveButton(): Locator {
+    return this.editPanel.locator('button:has-text("Approve Self-Signup")');
+  }
+
+  /**
+   * Approve a pending self-signup from its edit panel.
+   *
+   * Opens the account's edit panel, accepts the native confirm dialog the
+   * approve action raises, clicks "Approve Self-Signup" (POST
+   * `/admin/station-signup/approve`), and waits for the success toast. The
+   * form closes the panel on success, so the toast — not panel state — is the
+   * completion signal. Searches for the username first so the row is on-page.
+   */
+  async approveSelfSignup(username: string): Promise<void> {
+    await this.searchFor(username);
+    await this.openEditModal(username);
+    const approveButton = this.getApproveButton();
+    await approveButton.waitFor({ state: "visible", timeout: 10000 });
+    // Force-clicks below bypass overlay checks, so clear any lingering toast
+    // that would otherwise silently swallow the click.
+    await this.waitForToastsToClear();
+    this.setupAcceptConfirmDialog();
+    await approveButton.click({ force: true });
+    await this.expectSuccessToast();
+  }
 }
