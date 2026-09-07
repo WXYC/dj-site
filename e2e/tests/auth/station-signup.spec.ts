@@ -77,8 +77,11 @@ test.describe("Station self-signup (rotate -> signup -> review -> approve -> wri
       // --- Phase 1: rotate a passcode (stationManager) ---
       const managerSignup = new StationSignupPage(managerPage);
       const { id: passcodeId, code } = await managerSignup.rotatePasscode();
-      // Adopt it: short explicit expires_at now, revoke + clear at teardown.
+      // Adopt it first (short explicit expires_at now, revoke + clear at
+      // teardown) before asserting the reveal UI, so a failing assertion can
+      // never strand an active code against the two-active cap.
       await stationPasscode.adopt(passcodeId);
+      await managerSignup.expectRevealedCode(code);
 
       // --- Phase 2: sign up as the brand-new DJ (fresh, unauthenticated) ---
       const djPage = await djContext.newPage();

@@ -38,8 +38,11 @@ export const test = base.extend<{ stationPasscode: StationPasscodeController }>(
 
     const controller: StationPasscodeController = {
       async adopt(passcodeId: string): Promise<void> {
-        await shortenPasscodeExpiry(passcodeId, new Date(Date.now() + FIXTURE_PASSCODE_TTL_MS));
+        // Register for teardown BEFORE shortening: if the expiry update throws,
+        // the code must still be revoked at teardown rather than leak against
+        // the two-active-code cap.
         adopted.push(passcodeId);
+        await shortenPasscodeExpiry(passcodeId, new Date(Date.now() + FIXTURE_PASSCODE_TTL_MS));
       },
     };
 
