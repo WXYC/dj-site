@@ -10,8 +10,8 @@ export const metadata: Metadata = {
 };
 
 /**
- * The librarian's landing menu, reproducing `rotation/musicmenu.jsp` and
- * `libraryAdmin/libraryAdminLinks.jsp`.
+ * The librarian's landing menu, reproducing `/wxycdb`'s top-level
+ * `mainmenu.jsp`.
  *
  * MD-gated to match `/dashboard/library`, the catalog entry point it leads to.
  * Two of its destinations -- Missing Releases and the rotation list -- are

@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 /**
- * The search box from `libraryAdminLinks.jsp`, which submits `GET
+ * The search box from `mainmenu.jsp`, which submits `GET
  * searchCardCatalog`. Classic's card catalog is a live debounced search that
  * reads `searchString` from the URL, so this navigates to that screen with the
  * same parameter name rather than posting anywhere of its own.
@@ -33,7 +33,7 @@ export default function MusicDepartmentSearchForm() {
     <form name="searchForm" onSubmit={handleSubmit}>
       <div style={{ textAlign: "center" }}>
         <table
-          cellPadding={10}
+          cellPadding={5}
           border={0}
           style={{ width: "75%", margin: "0 auto", borderSpacing: "1px" }}
         >

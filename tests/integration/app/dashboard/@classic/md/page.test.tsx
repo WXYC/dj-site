@@ -35,7 +35,7 @@ vi.mock("@/src/components/experiences/classic/musicDepartment/MusicDepartmentMen
 
 import MusicDepartmentPage from "@/app/dashboard/@classic/md/page";
 
-describe("classic Music Department page — musicmenu.jsp", () => {
+describe("classic Music Department page — mainmenu.jsp", () => {
   setUpClassicPageAuthorityEnv();
 
   it.each([
