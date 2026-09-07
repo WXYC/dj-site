@@ -109,15 +109,30 @@ const OUTCOME_LABELS: Record<string, string> = {
   cooldown_cleared: "Cooldown cleared",
   passcode_revealed: "Revealed",
   passcode_rotated: "Rotated",
+  passcode_unverifiable: "Code unverifiable",
 };
 
 export function outcomeLabel(outcome: string): string {
   return OUTCOME_LABELS[outcome] ?? outcome.replace(/_/g, " ");
 }
 
-/** True for the outcomes that mean an attempt was turned away, which the census highlights. */
+/**
+ * True for the outcomes that mean an attempt was turned away, which the census
+ * highlights. `passcode_unverifiable` is the loudest of these: it means the
+ * gate refused because an active code would not decrypt (key trouble), not
+ * because the DJ typed anything wrong. `passcode_expired`/`passcode_revoked`
+ * are turned-away attempts too -- a spike in either means someone is retrying
+ * a dead code.
+ */
 export function isRefusedOutcome(outcome: string): boolean {
-  return outcome === "passcode_fail" || outcome === "cooldown_refused" || outcome === "passcode_exhausted";
+  return (
+    outcome === "passcode_fail" ||
+    outcome === "cooldown_refused" ||
+    outcome === "passcode_exhausted" ||
+    outcome === "passcode_unverifiable" ||
+    outcome === "passcode_expired" ||
+    outcome === "passcode_revoked"
+  );
 }
 
 export type OutcomeCount = { outcome: string; label: string; count: number };
