@@ -291,6 +291,30 @@ describe("StationSignupPanel", () => {
       expect(screen.getByText("Signup attempts, last 24 hours")).toBeInTheDocument();
     });
 
+    it("labels and highlights the fail-closed and dead-code outcomes, not just wrong guesses", async () => {
+      mockStationSignupRoutes({
+        "/admin/station-signup/status": {
+          status: 200,
+          data: baseStatus({
+            attempts: attempts({
+              // `passcode_unverifiable` is the gate refusing because an active
+              // code would not decrypt -- key trouble, nothing the DJ did. It
+              // must read as an alarm, not blend in beside "Accepted".
+              countsByOutcome: { passcode_ok: 4, passcode_unverifiable: 3, passcode_expired: 2, passcode_revoked: 1 },
+              recent: [],
+            }),
+          }),
+        },
+      });
+      renderWithProviders(<StationSignupPanel />);
+
+      const unverifiable = await screen.findByText("Code unverifiable: 3");
+      expect(unverifiable.closest(".MuiChip-colorWarning")).not.toBeNull();
+      expect(screen.getByText("Code expired: 2").closest(".MuiChip-colorWarning")).not.toBeNull();
+      expect(screen.getByText("Code revoked: 1").closest(".MuiChip-colorWarning")).not.toBeNull();
+      expect(screen.getByText("Accepted: 4").closest(".MuiChip-colorWarning")).toBeNull();
+    });
+
     it("says so plainly when the window holds no attempts at all", async () => {
       mockStationSignupRoutes({ "/admin/station-signup/status": { status: 200, data: baseStatus() } });
       renderWithProviders(<StationSignupPanel />);
