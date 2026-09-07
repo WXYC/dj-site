@@ -8,6 +8,11 @@ import { Alert, Button, FormControl, FormLabel, Input, Link, Typography } from "
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { loginHrefWithoutSignup } from "@/src/utilities/loginHref";
+import {
+  MAX_USERNAME_LENGTH,
+  MIN_USERNAME_LENGTH,
+  getUsernameError,
+} from "@/src/utilities/usernameValidation";
 import { ValidatedSubmitButton } from "./Fields/ValidatedSubmitButton";
 
 const PASSCODE_MAX_LENGTH = 128;
@@ -127,8 +132,12 @@ export default function StationSignupForm() {
     setDetailsError(outcome.message);
   };
 
+  // `getUsernameError` mirrors better-auth's username rules, the same copy the
+  // admin "Add DJ" form fails fast against. The server stays the authority;
+  // this only spares a DJ a 400 that reads exactly like a taken username, and
+  // spares the station-wide cooldown an attempt spent on a typo.
   const detailsValid =
-    details.username.trim().length > 0 &&
+    getUsernameError(details.username.trim()) === null &&
     isValidEmail(details.email.trim()) &&
     details.password.length >= PASSWORD_MIN_LENGTH &&
     details.password.length <= PASSWORD_MAX_LENGTH &&
@@ -232,12 +241,17 @@ export default function StationSignupForm() {
         <FormLabel>Username</FormLabel>
         <Input
           name="username"
+          slotProps={{ input: { maxLength: MAX_USERNAME_LENGTH } }}
           value={details.username}
           disabled={isLoading}
           onChange={(event) =>
             setDetails({ ...details, username: event.target.value })
           }
         />
+        <Typography level="body-xs" sx={{ mt: 0.5 }}>
+          {MIN_USERNAME_LENGTH}&ndash;{MAX_USERNAME_LENGTH} characters: letters,
+          numbers, underscores, and dots.
+        </Typography>
       </FormControl>
       <FormControl required>
         <FormLabel>Email</FormLabel>
