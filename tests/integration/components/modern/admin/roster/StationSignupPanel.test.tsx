@@ -345,7 +345,7 @@ describe("StationSignupPanel", () => {
       expect(screen.queryByRole("button", { name: /Clear cooldown/i })).not.toBeInTheDocument();
     });
 
-    it("reveals the plaintext code only after an explicit confirmation, and never before", async () => {
+    it("reveals the plaintext code directly on click, with no confirmation dialog, and not before", async () => {
       mockStationSignupRoutes({
         "/admin/station-signup/status": { status: 200, data: baseStatus() },
         "/admin/station-signup/reveal": {
@@ -359,12 +359,11 @@ describe("StationSignupPanel", () => {
       expect(screen.queryByText("SUNFLOWER99")).not.toBeInTheDocument();
 
       await user.click(screen.getByRole("button", { name: /^Reveal$/i }));
-      const dialog = await screen.findByRole("alertdialog");
-      expect(within(dialog).getByText(/logged/i)).toBeInTheDocument();
 
-      await user.click(within(dialog).getByRole("button", { name: /^Reveal$/i }));
-
+      // No confirmation step: the code appears straight from the click.
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
       expect(await screen.findByText("SUNFLOWER99")).toBeInTheDocument();
+      // The audit weight is carried by the surfaced credential itself.
       expect(screen.getByText(/this reveal was logged/i)).toBeInTheDocument();
       expect(mockAuthFetch).toHaveBeenCalledWith(
         "/admin/station-signup/reveal",
@@ -372,7 +371,7 @@ describe("StationSignupPanel", () => {
       );
     });
 
-    it("drops the revealed plaintext from the mutation cache on hide, not just off the screen", async () => {
+    it("toggles the one Reveal button to Hide once a code is shown, with no separate hide control", async () => {
       mockStationSignupRoutes({
         "/admin/station-signup/status": { status: 200, data: baseStatus() },
         "/admin/station-signup/reveal": {
@@ -383,15 +382,22 @@ describe("StationSignupPanel", () => {
       const { user, store } = renderWithProviders(<StationSignupPanel />);
 
       await user.click(await screen.findByRole("button", { name: /^Reveal$/i }));
-      const dialog = await screen.findByRole("alertdialog");
-      await user.click(within(dialog).getByRole("button", { name: /^Reveal$/i }));
       expect(await screen.findByText("SUNFLOWER99")).toBeInTheDocument();
+
+      // Exactly one reveal/hide control: after revealing, the Reveal button
+      // has become Hide -- there is no second Reveal button alongside it.
+      expect(screen.queryByRole("button", { name: /^Reveal$/i })).not.toBeInTheDocument();
+      const hideButton = screen.getByRole("button", { name: /^Hide$/i });
       expect(JSON.stringify(store.getState().stationSignupApi.mutations)).toContain("SUNFLOWER99");
 
-      await user.click(screen.getByRole("button", { name: /^Hide$/i }));
+      await user.click(hideButton);
 
+      // Hiding removes the code from the screen AND from the mutation cache,
+      // and flips the single button back to Reveal.
       await waitFor(() => expect(screen.queryByText("SUNFLOWER99")).not.toBeInTheDocument());
       expect(JSON.stringify(store.getState().stationSignupApi.mutations)).not.toContain("SUNFLOWER99");
+      expect(screen.getByRole("button", { name: /^Reveal$/i })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /^Hide$/i })).not.toBeInTheDocument();
     });
 
     it("says there is nothing to reveal when the key works but no passcode is active", async () => {
@@ -402,8 +408,6 @@ describe("StationSignupPanel", () => {
       const { user } = renderWithProviders(<StationSignupPanel />);
 
       await user.click(await screen.findByRole("button", { name: /^Reveal$/i }));
-      const dialog = await screen.findByRole("alertdialog");
-      await user.click(within(dialog).getByRole("button", { name: /^Reveal$/i }));
 
       expect(await screen.findByText(/no active passcode to reveal/i)).toBeInTheDocument();
       expect(screen.queryByText(/this reveal was logged/i)).not.toBeInTheDocument();
@@ -506,8 +510,6 @@ describe("StationSignupPanel", () => {
       const { user } = renderWithProviders(<StationSignupPanel />);
 
       await user.click(await screen.findByRole("button", { name: /^Reveal$/i }));
-      const dialog = await screen.findByRole("alertdialog");
-      await user.click(within(dialog).getByRole("button", { name: /^Reveal$/i }));
 
       const fault = await screen.findByTestId("station-signup-service-fault");
       expect(within(fault).getByText(/STATION_PASSCODE_KEY is not set/i)).toBeInTheDocument();
@@ -528,8 +530,6 @@ describe("StationSignupPanel", () => {
       const { user } = renderWithProviders(<StationSignupPanel />);
 
       await user.click(await screen.findByRole("button", { name: /^Reveal$/i }));
-      const dialog = await screen.findByRole("alertdialog");
-      await user.click(within(dialog).getByRole("button", { name: /^Reveal$/i }));
 
       const fault = await screen.findByTestId("station-signup-service-fault");
       expect(within(fault).getByText(/Rotating administratively revokes/i)).toBeInTheDocument();
@@ -551,8 +551,6 @@ describe("StationSignupPanel", () => {
       const { user } = renderWithProviders(<StationSignupPanel />);
 
       await user.click(await screen.findByRole("button", { name: /^Reveal$/i }));
-      const dialog = await screen.findByRole("alertdialog");
-      await user.click(within(dialog).getByRole("button", { name: /^Reveal$/i }));
 
       const fault = await screen.findByTestId("station-signup-service-fault");
       await user.click(within(fault).getByRole("button", { name: /^Rotate$/i }));
