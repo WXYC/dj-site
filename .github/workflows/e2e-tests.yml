@@ -51,9 +51,24 @@ env:
   # Required by e2e/tests/auth/qr-signin.spec.ts — without it the "Sign in with
   # a QR code" entry link never renders and the spec can't reach the QR stage.
   NEXT_PUBLIC_QR_LOGIN_ENABLED: "true"
+  # Build-time gate for the DJ-facing station-signup form's "Sign up here" entry
+  # link, inlined into the dj-site build (the build-cache key hashes this file,
+  # so flipping it auto-invalidates the stale .next/ cache). Required by
+  # e2e/tests/auth/station-signup.spec.ts — without it the link never renders.
+  NEXT_PUBLIC_STATION_SIGNUP_ENABLED: "true"
   NEXT_PUBLIC_APP_ORGANIZATION: test-org
   SESSION_SECRET: e2e-secret-for-testing
   APP_ORGANIZATION_ID: test-org-id-0000000000000000001
+  # Station self-signup, server side, read from this job env by the
+  # directly-started auth service (dotenv does not override process env, so
+  # these win over the Backend .env). STATION_SIGNUP_ENABLED mounts the public
+  # POST /auth/wxyc/station-signup route (off, it 404s); STATION_PASSCODE_KEY
+  # (64 hex chars = 32 bytes) is what reveal/rotate mint and decrypt the code
+  # with (unset, rotate 503s). Both are needed by station-signup.spec.ts, and
+  # STATION_SIGNUP_ENABLED is also asserted present at Playwright runtime. Key
+  # matches the Backend-Service e2e-auth compose default.
+  STATION_SIGNUP_ENABLED: "true"
+  STATION_PASSCODE_KEY: 5a859c11b96205498dda4b3cbe21c1c956d472104ee1d85ca2058cb8535ab28b
   # E2E test config
   E2E_BASE_URL: http://localhost:3000
   # Backend service ports

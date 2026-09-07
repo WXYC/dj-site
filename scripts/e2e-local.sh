@@ -67,6 +67,15 @@ export CDC_SECRET=e2e-cdc-secret-not-used-by-tests
 # E2E_BACKEND_URL tells the helper where BS listens.
 export ETL_NOTIFY_KEY=e2e-etl-notify-key
 export E2E_BACKEND_URL=http://localhost:$BACKEND_PORT
+# Station self-signup. STATION_SIGNUP_ENABLED mounts the public
+# POST /auth/wxyc/station-signup route on the auth service below (off, it 404s
+# and e2e/tests/auth/station-signup.spec.ts fails at signup); STATION_PASSCODE_KEY
+# (64 hex chars = 32 bytes) is what reveal/rotate mint and decrypt the code with
+# (unset, rotate 503s). Both are read by the directly-started auth service from
+# this shell env, so they must be exported before it starts. The key matches the
+# Backend-Service e2e-auth compose default.
+export STATION_SIGNUP_ENABLED=true
+export STATION_PASSCODE_KEY=5a859c11b96205498dda4b3cbe21c1c956d472104ee1d85ca2058cb8535ab28b
 
 echo "==> Building Backend-Service..."
 cd "$BACKEND_DIR"
@@ -111,6 +120,11 @@ export NEXT_PUBLIC_FLOWSHEET_SSE_LIVE_VIEW_ENABLED=true
 # the primary build below or the "Sign in with a QR code" entry link won't
 # render and e2e/tests/auth/qr-signin.spec.ts can't reach the QR stage.
 export NEXT_PUBLIC_QR_LOGIN_ENABLED=true
+# Build-time gate for the DJ-facing station-signup form's entry link. Must be
+# exported before the primary build below or the "Sign up here" link never
+# renders and e2e/tests/auth/station-signup.spec.ts can't reach the signup form.
+# Its server-side counterpart STATION_SIGNUP_ENABLED is exported above.
+export NEXT_PUBLIC_STATION_SIGNUP_ENABLED=true
 
 echo "==> Building dj-site (primary)..."
 # Primary build -> .next/
