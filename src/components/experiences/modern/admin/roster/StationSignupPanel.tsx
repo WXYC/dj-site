@@ -13,7 +13,7 @@ import {
   Table,
   Typography,
 } from "@mui/joy";
-import { LockOpen, VisibilityRounded, WarningRounded } from "@mui/icons-material";
+import { LockOpen, VisibilityOffRounded, VisibilityRounded, WarningRounded } from "@mui/icons-material";
 import { RequireSM } from "@/src/components/shared/Authorization";
 import {
   useClearStationSignupCooldownMutation,
@@ -129,13 +129,7 @@ function PasscodeStateChip({
 /** The plaintext a reveal or rotate just returned. Cleared on hide, on unmount, and never persisted anywhere. */
 type LiveCredential = { passcodes: RevealedStationPasscode[] } | { rotated: { id: string; code: string } };
 
-function RevealedCredentials({
-  credential,
-  onHide,
-}: {
-  credential: LiveCredential;
-  onHide: () => void;
-}) {
+function RevealedCredentials({ credential }: { credential: LiveCredential }) {
   const codes =
     "passcodes" in credential
       ? credential.passcodes.map((p) => ({ id: p.id, code: p.code }))
@@ -143,16 +137,12 @@ function RevealedCredentials({
 
   // A reveal against a station with the key configured but no live row returns
   // an empty list, which is a real state and not a failure -- saying so beats
-  // an audit-weight warning heading with nothing under it.
+  // an audit-weight warning heading with nothing under it. Dismissal is the
+  // toolbar's Reveal/Hide toggle, so this alert carries no button of its own.
   if (codes.length === 0) {
     return (
       <Alert color="neutral" variant="soft" startDecorator={<VisibilityRounded />}>
-        <Stack spacing={1} sx={{ width: "100%" }}>
-          <Typography level="title-sm">No active passcode to reveal — rotate to mint one.</Typography>
-          <Button size="sm" variant="outlined" color="neutral" onClick={onHide} sx={{ alignSelf: "flex-start" }}>
-            Dismiss
-          </Button>
-        </Stack>
+        <Typography level="title-sm">No active passcode to reveal — rotate to mint one.</Typography>
       </Alert>
     );
   }
@@ -168,9 +158,6 @@ function RevealedCredentials({
             {code}
           </Typography>
         ))}
-        <Button size="sm" variant="outlined" color="warning" onClick={onHide} sx={{ alignSelf: "flex-start" }}>
-          Hide
-        </Button>
       </Stack>
     </Alert>
   );
@@ -188,7 +175,6 @@ export default function StationSignupPanel() {
 
   const [liveCredential, setLiveCredential] = useState<LiveCredential | null>(null);
   const [serviceFault, setServiceFault] = useState<StationSignupApiError | null>(null);
-  const [confirmReveal, setConfirmReveal] = useState(false);
   const [confirmRevokeId, setConfirmRevokeId] = useState<string | null>(null);
 
   // The status endpoint never decrypts, so the lift deadline has to be derived
@@ -220,10 +206,8 @@ export default function StationSignupPanel() {
       const result = await reveal().unwrap();
       setServiceFault(null);
       setLiveCredential({ passcodes: result.passcodes });
-      setConfirmReveal(false);
     } catch (err) {
       surfaceMutationError(err);
-      setConfirmReveal(false);
     }
   }, [reveal, surfaceMutationError]);
 
@@ -309,7 +293,7 @@ export default function StationSignupPanel() {
           </Alert>
         )}
 
-        {liveCredential && <RevealedCredentials credential={liveCredential} onHide={handleHideCredential} />}
+        {liveCredential && <RevealedCredentials credential={liveCredential} />}
 
         {isLoading ? (
           <CircularProgress size="sm" />
@@ -353,11 +337,11 @@ export default function StationSignupPanel() {
                 size="sm"
                 variant="solid"
                 color="warning"
-                startDecorator={<VisibilityRounded />}
+                startDecorator={liveCredential ? <VisibilityOffRounded /> : <VisibilityRounded />}
                 loading={isRevealing}
-                onClick={() => setConfirmReveal(true)}
+                onClick={liveCredential ? handleHideCredential : handleReveal}
               >
-                Reveal
+                {liveCredential ? "Hide" : "Reveal"}
               </Button>
               <Button size="sm" variant="outlined" loading={isRotating} onClick={handleRotate}>
                 Rotate
@@ -459,27 +443,6 @@ export default function StationSignupPanel() {
             </Stack>
           </Stack>
         ) : null}
-
-        <ConfirmDialog
-          open={confirmReveal}
-          onClose={() => setConfirmReveal(false)}
-          pending={isRevealing}
-          title="Reveal the station passcode?"
-          titleId="reveal-passcode-title"
-          actions={
-            <>
-              <Button variant="solid" color="warning" loading={isRevealing} onClick={handleReveal}>
-                Reveal
-              </Button>
-              <Button variant="plain" color="neutral" disabled={isRevealing} onClick={() => setConfirmReveal(false)}>
-                Cancel
-              </Button>
-            </>
-          }
-        >
-          This shows the live passcode on screen and is logged as a "passcode revealed" event, attributed to your
-          account.
-        </ConfirmDialog>
 
         <ConfirmDialog
           open={confirmRevokeId !== null}
