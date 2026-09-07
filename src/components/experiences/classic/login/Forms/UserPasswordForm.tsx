@@ -2,13 +2,16 @@
 
 import { isStationSignupEnabled } from "@/lib/features/authentication/flags";
 import { useLogin } from "@/src/hooks/authenticationHooks";
+import { loginHrefWithSignup } from "@/src/utilities/loginHref";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import Main from "../Layout/Main";
 import RequiredBox from "./Fields/RequiredBox";
 import { ValidatedSubmitButton } from "./Fields/ValidatedSubmitButton";
 
 export default function UserPasswordForm() {
   const { handleLogin, verified, authenticating } = useLogin();
+  const searchParams = useSearchParams();
 
   return (
     <form
@@ -48,7 +51,12 @@ export default function UserPasswordForm() {
         {isStationSignupEnabled() && (
           <tr>
             <td colSpan={2} style={{ textAlign: "center" }}>
-              <Link href="/login?signup=1">New DJ? Get station access</Link>
+              {/* Append `signup=1` to whatever is already in the query rather
+                  than hardcoding the path: a DJ can reach /login mid-OIDC
+                  authorize bounce, and those params must survive the detour. */}
+              <Link href={loginHrefWithSignup(searchParams)}>
+                New DJ? Get station access
+              </Link>
             </td>
           </tr>
         )}

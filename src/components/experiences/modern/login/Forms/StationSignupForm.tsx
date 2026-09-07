@@ -5,8 +5,9 @@ import { useAppDispatch } from "@/lib/hooks";
 import { useStationSignup } from "@/src/hooks/authenticationHooks";
 import { isValidEmail } from "@wxyc/shared/validation";
 import { Alert, Button, FormControl, FormLabel, Input, Link, Typography } from "@mui/joy";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
+import { loginHrefWithoutSignup } from "@/src/utilities/loginHref";
 import { ValidatedSubmitButton } from "./Fields/ValidatedSubmitButton";
 
 const PASSCODE_MAX_LENGTH = 128;
@@ -49,6 +50,7 @@ const emptyDetails: Details = {
 export default function StationSignupForm() {
   const dispatch = useAppDispatch();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { handleSignup, isLoading } = useStationSignup();
 
   const [phase, setPhase] = useState<Phase>("passcode");
@@ -68,7 +70,11 @@ export default function StationSignupForm() {
     // there), but classic reaches this component through `?signup=1` in
     // ClassicLoginSlotSwitcher, which never reads authFlow.stage — without
     // clearing the URL a DJ who clicks this stays stuck on the signup slot.
-    router.replace("/login");
+    // Clear only `signup`: /login is also where an OIDC authorize bounce lands,
+    // and useLogin recomputes the resume target from the live params at
+    // sign-in time, so replacing with a bare path would strand the relying
+    // party without its code.
+    router.replace(loginHrefWithoutSignup(searchParams));
   };
 
   const handlePasscodeSubmit = (event: React.FormEvent<HTMLFormElement>) => {
