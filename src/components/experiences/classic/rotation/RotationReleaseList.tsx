@@ -284,8 +284,10 @@ function UnavailableFacet() {
  *
  * - "Main Menu" carries the JSP's own label but points at `/dashboard/
  *   catalog` -- dj-site's classic catalog search, the DJ-facing entry point
- *   `searchCardCatalog` names in tubafrenzy. There is no dj-site route named
- *   after the servlet path itself.
+ *   `searchCardCatalog` names in tubafrenzy. `/dashboard/md` now serves the
+ *   menu itself, but it is MD-gated while this screen is DJ-accessible, so
+ *   pointing "Main Menu" there would bounce a DJ off the menu it just
+ *   offered him.
  * - "Format Tallysheets" is dropped entirely, matching `MissingReleases`'
  *   precedent for a JSP link with no dj-site destination: no tallysheet
  *   screen exists here, so the alternative would be a dead link rather than
