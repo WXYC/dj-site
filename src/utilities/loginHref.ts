@@ -36,6 +36,15 @@ function clone(params: MaybeParams): URLSearchParams {
 }
 
 /**
+ * Whether the query carries the signup detour marker, `signup=1` exactly.
+ * Callers still gate on `isStationSignupEnabled()` — the flag decides whether
+ * the marker means anything; this only owns the key and value.
+ */
+export function hasSignupParam(params: MaybeParams): boolean {
+  return params?.get(SIGNUP_PARAM) === "1";
+}
+
+/**
  * The href of the "Sign up here" entry link: the current params
  * plus `signup=1`.
  */

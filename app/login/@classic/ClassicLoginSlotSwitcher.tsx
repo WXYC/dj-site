@@ -1,6 +1,7 @@
 "use client";
 
 import { isStationSignupEnabled } from "@/lib/features/authentication/flags";
+import { hasSignupParam } from "@/src/utilities/loginHref";
 import { ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
 
@@ -25,10 +26,9 @@ export default function ClassicLoginSlotSwitcher({
   // pointed at a backend whose own STATION_SIGNUP_ENABLED is on, provisions
   // real accounts. Read at render time; NEXT_PUBLIC_* values are inlined at
   // build time, so this can't be hoisted to module scope.
-  const hasSignupParam =
-    isStationSignupEnabled() && searchParams?.get("signup") === "1";
+  const showSignup = isStationSignupEnabled() && hasSignupParam(searchParams);
 
   if (hasResetParams) return <>{reset}</>;
-  if (hasSignupParam) return <>{signup}</>;
+  if (showSignup) return <>{signup}</>;
   return <>{normal}</>;
 }

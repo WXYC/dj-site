@@ -34,11 +34,14 @@ const unverifiedSession = {
 
 describe("root page", () => {
   const originalDashboardHomePage = process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE;
+  const STATION_SIGNUP_FLAG_KEY = "NEXT_PUBLIC_STATION_SIGNUP_ENABLED";
+  const originalStationSignupFlag = process.env[STATION_SIGNUP_FLAG_KEY];
 
   beforeEach(() => {
     mockGetServerSession.mockReset();
     mockRedirect.mockClear();
     delete process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE;
+    delete process.env[STATION_SIGNUP_FLAG_KEY];
   });
 
   afterAll(() => {
@@ -46,6 +49,11 @@ describe("root page", () => {
       delete process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE;
     } else {
       process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE = originalDashboardHomePage;
+    }
+    if (originalStationSignupFlag === undefined) {
+      delete process.env[STATION_SIGNUP_FLAG_KEY];
+    } else {
+      process.env[STATION_SIGNUP_FLAG_KEY] = originalStationSignupFlag;
     }
   });
 
@@ -86,5 +94,25 @@ describe("root page", () => {
     await expect(HomePage()).rejects.toThrow(
       "NEXT_REDIRECT:/dashboard/flowsheet"
     );
+  });
+
+  it("renders a Sign Up link into the signup detour when station signup is enabled", async () => {
+    process.env[STATION_SIGNUP_FLAG_KEY] = "true";
+    mockGetServerSession.mockResolvedValue(null);
+
+    const result = await HomePage();
+    render(result);
+
+    const signUpLink = screen.getByRole("link", { name: "Sign Up" });
+    expect(signUpLink).toHaveAttribute("href", "/login?signup=1");
+  });
+
+  it("renders no Sign Up link when station signup is disabled", async () => {
+    mockGetServerSession.mockResolvedValue(null);
+
+    const result = await HomePage();
+    render(result);
+
+    expect(screen.queryByRole("link", { name: "Sign Up" })).toBeNull();
   });
 });
