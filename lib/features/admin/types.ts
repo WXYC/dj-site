@@ -60,6 +60,18 @@ export type Account = {
   capabilities?: string[];
   hasCompletedOnboarding?: boolean;
   /**
+   * When the account row was first written, and when it was last changed.
+   * ISO strings for the same reason as the self-signup fields below: a `Date`
+   * here would round-trip through Redux and trip `serializableCheck`. Null
+   * when the payload carries no timestamp -- the roster must say it does not
+   * know rather than invent a date.
+   *
+   * `updatedAt` is better-auth's own column: it moves on any write to the user
+   * row (role, email, name, onboarding flag), not only on edits made here.
+   */
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  /**
    * Set when the account was created through station self-signup. An ISO
    * string, not a `Date`: nothing in the app reads the value beyond a null
    * check, and a `Date` here would round-trip through Redux (the RTK Query

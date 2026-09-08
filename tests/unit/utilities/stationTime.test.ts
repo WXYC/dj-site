@@ -6,6 +6,7 @@ import {
   formatStationDateTime,
   formatStationHourLabel,
   formatStationLongDate,
+  formatStationTimestampLabel,
   isStationHourBreakpointPresent,
   stationBreakpointMessage,
   startOfStationWeek,
@@ -150,6 +151,40 @@ describe("formatStationLongDate — DateTimeManager.DATE_FULL", () => {
     );
   });
 })
+
+describe("formatStationTimestampLabel", () => {
+  it("renders an abbreviated station-local date and time with the zone label", () => {
+    expect(formatStationTimestampLabel("2024-06-15T19:04:05.000Z")).toBe(
+      "Jun 15, 2024, 3:04 PM EDT",
+    );
+  });
+
+  // The zone label is not decoration: without it a roster timestamp is
+  // indistinguishable from the reader's own clock, and the station's is the
+  // one an admin reconciles against station logs.
+  it("names the standard-time abbreviation outside daylight saving", () => {
+    expect(formatStationTimestampLabel("2024-01-15T19:04:05.000Z")).toBe(
+      "Jan 15, 2024, 2:04 PM EST",
+    );
+  });
+
+  it("uses the station's calendar day, not UTC's", () => {
+    expect(formatStationTimestampLabel("2024-06-16T00:30:00.000Z")).toBe(
+      "Jun 15, 2024, 8:30 PM EDT",
+    );
+  });
+
+  it("returns null for a missing timestamp", () => {
+    expect(formatStationTimestampLabel(null)).toBeNull();
+    expect(formatStationTimestampLabel(undefined)).toBeNull();
+  });
+
+  // better-auth can hand back an unparseable value; a roster panel must not
+  // render "Invalid Date" where an admin expects a date.
+  it("returns null for an unparseable timestamp", () => {
+    expect(formatStationTimestampLabel("not a date")).toBeNull();
+  });
+});
 
 // Week boundaries exist as functions rather than arithmetic because a week is
 // not always 7 * 86_400_000 ms. Adding that constant across a DST transition

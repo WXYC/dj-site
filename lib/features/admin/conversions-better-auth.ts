@@ -21,6 +21,21 @@ export type BetterAuthUser = {
   selfSignupReviewedAt?: Date | null;
 };
 
+/**
+ * Normalize a timestamp arriving from better-auth into an ISO string.
+ *
+ * Every timestamp crossing this boundary goes through here: better-auth's
+ * client parser revives ISO strings into real `Date` objects, and a `Date`
+ * landing in the RTK Query roster cache or the rightbar panel's Redux payload
+ * trips `serializableCheck` outside production. An absent or unparseable value
+ * becomes null so the roster can say it does not know.
+ */
+function toIsoStringOrNull(value: Date | string | null | undefined): string | null {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
 export function convertBetterAuthToAccountResult(
   user: BetterAuthUser
 ): Account {
@@ -36,14 +51,10 @@ export function convertBetterAuthToAccountResult(
     email: user.email,
     capabilities: user.capabilities ?? [],
     hasCompletedOnboarding: user.hasCompletedOnboarding ?? false,
-    // Better-auth's client parser revives ISO strings into real `Date`
-    // objects; carry the raw ISO string past this boundary instead, so a
-    // `Date` never lands in the RTK Query cache or the rightbar panel's
-    // Redux payload (both trip `serializableCheck` outside production).
-    selfSignupAt: user.selfSignupAt ? new Date(user.selfSignupAt).toISOString() : null,
-    selfSignupReviewedAt: user.selfSignupReviewedAt
-      ? new Date(user.selfSignupReviewedAt).toISOString()
-      : null,
+    createdAt: toIsoStringOrNull(user.createdAt),
+    updatedAt: toIsoStringOrNull(user.updatedAt),
+    selfSignupAt: toIsoStringOrNull(user.selfSignupAt),
+    selfSignupReviewedAt: toIsoStringOrNull(user.selfSignupReviewedAt),
   };
 }
 

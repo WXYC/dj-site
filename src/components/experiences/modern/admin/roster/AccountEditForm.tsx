@@ -15,6 +15,7 @@ import {
   AUTHORIZATION_LABELS,
   authorizationToRole,
 } from "@/lib/features/authentication/types";
+import { formatStationTimestampLabel } from "@/src/utilities/stationTime";
 import { CheckCircle, DeleteForever, Edit, Language, Send } from "@mui/icons-material";
 import {
   Button,
@@ -77,6 +78,9 @@ export default function AccountEditForm({
   // stops a DJ approving their own pending self-signup the moment isSelf edit
   // is ever wired to a lower-privileged route.
   const canApprove = viewerRole >= Authorization.SM && !isSelf;
+
+  const createdLabel = formatStationTimestampLabel(account.createdAt);
+  const modifiedLabel = formatStationTimestampLabel(account.updatedAt);
 
   const trimmedRealName = newRealName.trim();
   const trimmedDjName = newDjName.trim();
@@ -627,6 +631,32 @@ export default function AccountEditForm({
           </Typography>
         )}
       </Stack>
+
+      <Divider />
+
+      <Stack spacing={0.5}>
+        <AccountTimestamp label="Created" value={createdLabel} />
+        <AccountTimestamp label="Last modified" value={modifiedLabel} />
+      </Stack>
+    </Stack>
+  );
+}
+
+/**
+ * One read-only timestamp row. `value` is already a station-time label, or
+ * null when the roster payload carried no usable timestamp -- the row still
+ * renders, because an admin reading a blank space cannot tell a missing value
+ * from a missing feature.
+ */
+function AccountTimestamp({ label, value }: { label: string; value: string | null }) {
+  return (
+    <Stack direction="row" spacing={1} justifyContent="space-between" alignItems="baseline">
+      <Typography level="body-xs" textColor="text.tertiary">
+        {label}
+      </Typography>
+      <Typography level="body-xs" textColor={value ? "text.secondary" : "text.tertiary"}>
+        {value ?? "Unknown"}
+      </Typography>
     </Stack>
   );
 }

@@ -344,3 +344,32 @@ describe("AccountEditForm approve action", () => {
     expect(invalidateRoster).not.toHaveBeenCalled();
   });
 });
+
+describe("AccountEditForm account timestamps", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("renders the station-local creation and last-modified timestamps", () => {
+    setup({
+      account: makeAccount({
+        createdAt: "2024-06-15T19:04:05.000Z",
+        updatedAt: "2024-07-02T13:30:00.000Z",
+      }),
+    });
+
+    expect(screen.getByText("Created")).toBeInTheDocument();
+    expect(screen.getByText("Jun 15, 2024, 3:04 PM EDT")).toBeInTheDocument();
+    expect(screen.getByText("Last modified")).toBeInTheDocument();
+    expect(screen.getByText("Jul 2, 2024, 9:30 AM EDT")).toBeInTheDocument();
+  });
+
+  // An account row that predates the column, or a truncated payload, must read
+  // as "unknown" rather than as a plausible-looking wrong date.
+  it("renders an unknown placeholder when a timestamp is missing", () => {
+    setup({ account: makeAccount({ createdAt: null, updatedAt: null }) });
+
+    expect(screen.getByText("Created")).toBeInTheDocument();
+    expect(screen.getAllByText("Unknown")).toHaveLength(2);
+  });
+});
