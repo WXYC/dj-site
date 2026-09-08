@@ -76,6 +76,8 @@ export class StationSignupPage {
     this.realNameInput = page.locator('input[name="realName"]');
     this.djNameInput = page.locator('input[name="djName"]');
     this.detailsSubmitButton = page.locator('button[type="submit"]:has-text("Submit")');
+    // Reached only when the automatic post-signup sign-in fails; the account
+    // exists either way, so this render offers the manual sign-in path.
     this.successAlert = page.getByTestId("signup-success");
     this.detailsError = page.getByTestId("signup-details-error");
     this.unavailableAlert = page.getByTestId("signup-unavailable");
@@ -212,11 +214,27 @@ export class StationSignupPage {
   }
 
   /**
-   * Assert the terminal success state: the account was created and names the
-   * username the DJ chose.
+   * Assert the happy path: the form named the created account, then signed the
+   * DJ in with the credentials they just chose and forwarded them into the
+   * site. The signup endpoint mints no session, so landing on the dashboard is
+   * proof the password the DJ picked is the one that was stored.
+   *
+   * The pending render can be gone by the time this runs — a fast sign-in
+   * navigates out from under it — so only the destination is required.
    */
-  async expectSignupSuccess(username: string): Promise<void> {
-    await expect(this.successAlert).toBeVisible({ timeout: 15000 });
-    await expect(this.successAlert).toContainText(username);
+  async expectAutoSignedIn(): Promise<void> {
+    try {
+      await this.page.waitForURL("**/dashboard/**", { timeout: 30000 });
+    } catch (error) {
+      // A failed automatic sign-in degrades to the manual screen rather than
+      // navigating anywhere, so name that outcome instead of reporting an
+      // opaque URL timeout.
+      if (await this.successAlert.count()) {
+        throw new Error(
+          "signup did not sign the DJ in: it fell back to the manual sign-in screen"
+        );
+      }
+      throw error;
+    }
   }
 }

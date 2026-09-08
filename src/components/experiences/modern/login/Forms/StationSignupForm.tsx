@@ -4,7 +4,16 @@ import { applicationSlice } from "@/lib/features/application/frontend";
 import { useAppDispatch } from "@/lib/hooks";
 import { useStationSignup } from "@/src/hooks/authenticationHooks";
 import { isValidEmail } from "@wxyc/shared/validation";
-import { Alert, Button, FormControl, FormLabel, Input, Link, Typography } from "@mui/joy";
+import {
+  Alert,
+  Button,
+  CircularProgress,
+  FormControl,
+  FormLabel,
+  Input,
+  Link,
+  Typography,
+} from "@mui/joy";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { loginHrefWithoutSignup } from "@/src/utilities/loginHref";
@@ -20,7 +29,13 @@ const TEXT_MAX_LENGTH = 255;
 const PASSWORD_MIN_LENGTH = 8;
 const PASSWORD_MAX_LENGTH = 128;
 
-type Phase = "passcode" | "details" | "cooldown" | "unavailable" | "success";
+type Phase =
+  | "passcode"
+  | "details"
+  | "cooldown"
+  | "unavailable"
+  | "signing-in"
+  | "success";
 
 type Details = {
   username: string;
@@ -45,18 +60,25 @@ const emptyDetails: Details = {
  * method picker, and never written to `login-method-storage`, since this is
  * not a sign-in method a returning DJ should be nudged toward.
  *
- * Five terminal renders besides the two steps: `unavailable` (server flag
- * off — a bare 404 with no body) and `cooldown` are full-form states because
- * neither is specific to what the DJ typed; an invalid/expired passcode
- * routes back to the passcode step without saying which (the server answers
- * both identically, by design); a shape/validation/conflict error stays on
- * the details step; `success` hands off to the normal login form.
+ * A 201 leads straight into the site: the endpoint mints no session, so the
+ * form signs the DJ in with the credentials still in hand rather than making
+ * them retype what they just chose. That sign-in is allowed to fail — the
+ * account exists regardless — so `success` is now the fallback render, a
+ * manual sign-in path, not the happy path.
+ *
+ * Terminal renders besides the two steps: `unavailable` (server flag off — a
+ * bare 404 with no body) and `cooldown` are full-form states because neither
+ * is specific to what the DJ typed; an invalid/expired passcode routes back to
+ * the passcode step without saying which (the server answers both identically,
+ * by design); a shape/validation/conflict error stays on the details step;
+ * `signing-in` and `success` both name the created account and offer the way
+ * back to the normal login form.
  */
 export default function StationSignupForm() {
   const dispatch = useAppDispatch();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { handleSignup, isLoading } = useStationSignup();
+  const { handleSignup, signInAfterSignup, isLoading } = useStationSignup();
 
   const [phase, setPhase] = useState<Phase>("passcode");
   const [passcode, setPasscode] = useState("");
@@ -113,7 +135,20 @@ export default function StationSignupForm() {
 
     if (outcome.status === "success") {
       setCreatedAccount({ username: outcome.username, email: outcome.email });
-      setPhase("success");
+      setPhase("signing-in");
+      // The created row is the authority on this account's identifiers —
+      // better-auth normalizes usernames and emails on write — so sign in
+      // with what the server echoed, not with what was typed.
+      const signedIn = await signInAfterSignup({
+        email: outcome.email,
+        password: details.password,
+      });
+      if (!signedIn) {
+        setPhase("success");
+      }
+      // A successful sign-in navigates away; staying on `signing-in` keeps the
+      // spinner up until the route changes rather than flashing a screen that
+      // tells an already-signed-in DJ to go and sign in.
       return;
     }
 
@@ -174,13 +209,42 @@ export default function StationSignupForm() {
     );
   }
 
+  if (phase === "signing-in" && createdAccount) {
+    return (
+      <>
+        <Alert
+          color="success"
+          data-testid="signup-signing-in"
+          startDecorator={<CircularProgress size="sm" />}
+        >
+          Account created for <strong>{createdAccount.username}</strong>{" "}
+          ({createdAccount.email}). Signing you in&hellip;
+        </Alert>
+        {/* The escape hatch matters here specifically: classic renders this
+            form purely from `?signup=1`, so if the post-auth redirect takes
+            its refresh branch (session not yet visible server-side) nothing
+            unmounts this render on its own. */}
+        <Typography level="body-sm" sx={{ mt: 2, textAlign: "center" }}>
+          <Link component="button" type="button" onClick={backToSignIn}>
+            Back to sign in
+          </Link>
+        </Typography>
+      </>
+    );
+  }
+
   if (phase === "success" && createdAccount) {
     return (
       <>
+        {/* Reached only when the automatic sign-in failed. The DJ has no way
+            to know what went wrong, so name the account, say it works, and
+            give them the one step left. */}
         <Alert color="success" data-testid="signup-success">
           Account created for <strong>{createdAccount.username}</strong>{" "}
-          ({createdAccount.email}). You can sign in with it right away;
-          it&apos;s pending a station manager&apos;s review.
+          ({createdAccount.email}). We couldn&apos;t sign you in automatically,
+          but the account is ready &mdash; sign in with the username and
+          password you just chose. It&apos;s pending a station manager&apos;s
+          review.
         </Alert>
         <Typography level="body-sm" sx={{ mt: 2, textAlign: "center" }}>
           <Link component="button" type="button" onClick={backToSignIn}>
