@@ -11,6 +11,10 @@ import { FlowsheetEntryType } from "@wxyc/shared/dtos";
 // asserted against the worst case rather than an incidental false.
 const showControl = vi.fn();
 const liveStatus = vi.fn();
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
+}));
+
 vi.mock("@/src/hooks/flowsheetHooks", async (importOriginal) => {
   const actual =
     await importOriginal<typeof import("@/src/hooks/flowsheetHooks")>();

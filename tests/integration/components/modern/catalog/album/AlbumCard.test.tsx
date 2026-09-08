@@ -30,7 +30,7 @@ vi.mock("@/src/components/experiences/modern/catalog/album/Tracklist", () => ({
   default: () => <span>mocked tracklist</span>,
 }));
 
-vi.mock("@/src/components/experiences/modern/Rightbar/panels/album/CompilationCreditsControl", () => ({
+vi.mock("@/src/components/experiences/modern/catalog/album/CompilationCreditsControl", () => ({
   default: () => <span>mocked compilation credits control</span>,
 }));
 
