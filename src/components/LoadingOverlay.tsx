@@ -18,6 +18,13 @@ export function LoadingOverlay() {
         justifyContent: "center",
         pointerEvents: "none",
         zIndex: 100,
+        // Reveal on a delay so boundaries that resolve within it never flash
+        // a spinner.
+        opacity: 0,
+        animation: "loadingReveal 0.2s ease-in 0.25s forwards",
+        "@keyframes loadingReveal": {
+          to: { opacity: 1 },
+        },
       }}
     >
       <CircularProgress />
