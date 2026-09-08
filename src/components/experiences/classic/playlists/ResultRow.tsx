@@ -1,55 +1,27 @@
 "use client";
 
-import type { PlaylistSearchResult } from "@wxyc/shared/dtos";
-import type { Rotation } from "@/lib/features/rotation/types";
-import {
-  Capsule,
-  capsulesForSongEntry,
-} from "@/src/components/experiences/classic/flowsheet/Capsule";
-import "@/src/styles/classic/segue.css";
-
-// PlaylistSearchResult plus the optional flags that drive capsules + segue.
-// Backend may not yet surface every flag on every result; the row simply
-// suppresses the capsule when the corresponding field is absent.
-export type PreviousSetsResult = PlaylistSearchResult & {
-  request_flag?: boolean;
-  rotation?: Rotation;
-  on_streaming?: boolean;
-  segue?: boolean;
-};
+import type { PlaylistSearchResult } from "@wxyc/shared";
+import { formatShortDate } from "@/src/components/experiences/classic/flowsheet/marker-format";
+import { formatStationDateTime } from "@/src/utilities/stationTime";
 
 export default function ResultRow({
   result,
-  nextIsSong,
 }: {
-  result: PreviousSetsResult;
-  /** True if the next row in the table is also a song row. Mirrors
-   *  EntryRow's `nextIsSong` prop so the Classic segue contract stays
-   *  unified across flowsheet + playlist archive. */
-  nextIsSong: boolean;
+  result: PlaylistSearchResult;
 }) {
-  // Shared capsule resolver — same priority order (REQUEST → ROTATION →
-  // EXCLUSIVE) and label format as the flowsheet song row.
-  const capsules = capsulesForSongEntry(result);
-  // Mirrors EntryRow's segue logic: a segue indicator only makes sense when
-  // the next visible row is also a song row. Tubafrenzy expresses the same
-  // guard via `:has(+ tr.entry-row)`.
-  const showSegue = result.segue === true && nextIsSong;
-  const className = showSegue ? "classic-segue" : undefined;
+  // Station wall clock, not the reader's: a play logged after midnight UTC
+  // belongs to the show that was on the air, and dating it by the reader's
+  // zone files it under a day WXYC did not broadcast it.
+  const { day } = formatStationDateTime(result.play_date);
 
   return (
-    <tr className={className} data-segue={showSegue ? "true" : undefined}>
-      <td align="center" style={{ width: "5%" }}>
-        {capsules.map((c) => (
-          <Capsule key={c.variant} variant={c.variant} label={c.label} />
-        ))}
-      </td>
-      <td align="left" style={{ width: "25%" }}>
-        {result.artist_name}
-      </td>
+    <tr>
+      <td align="center">{formatShortDate(day)}</td>
+      <td align="left">{result.artist_name}</td>
       <td align="left">{result.track_title}</td>
       <td align="left">{result.album_title}</td>
       <td align="left">{result.record_label}</td>
+      <td align="left">{result.dj_name}</td>
     </tr>
   );
 }

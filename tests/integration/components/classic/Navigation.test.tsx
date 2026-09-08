@@ -71,6 +71,18 @@ describe("classic Navigation", () => {
     expect(screen.getByText("Log Out")).toBeInTheDocument();
   });
 
+  // Previous Sets was greyed out while the classic slot had no page for it.
+  // It has one, so the bar must route there rather than render dead text.
+  it("routes Previous Sets rather than rendering it disabled", () => {
+    renderWithProviders(<Navigation />);
+
+    expect(screen.getByRole("link", { name: "Previous Sets" })).toHaveAttribute(
+      "href",
+      "/dashboard/playlists"
+    );
+    expect(document.querySelector(".nav-disabled")).toBeNull();
+  });
+
   describe("with the librarian nav flag off", () => {
     it("hides the librarian links even from a music director", async () => {
       mockFetchOrgRole.mockResolvedValue("musicDirector");

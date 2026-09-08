@@ -11,7 +11,6 @@ import "@/src/styles/classic/wxyc.css";
 type NavLink = {
   path: string;
   title: string;
-  disabled?: boolean;
   /**
    * Minimum authority for the link to be shown. Hiding is cosmetic only — each
    * destination page enforces its own authority server-side, and that gate is
@@ -32,7 +31,7 @@ export default function Navigation() {
   const navLinks: NavLink[] = [
     { path: "/dashboard/catalog", title: "Card Catalog" },
     { path: "/dashboard/flowsheet", title: "Flowsheet" },
-    { path: "/dashboard/playlists", title: "Previous Sets", disabled: true },
+    { path: "/dashboard/playlists", title: "Previous Sets" },
   ];
 
   // Mirrors tubafrenzy's mainmenu, which wraps only the add/edit surfaces in an
@@ -55,9 +54,7 @@ export default function Navigation() {
   };
 
   const renderLink = (link: NavLink) => {
-    const item = link.disabled ? (
-      <span className="nav-disabled">{link.title}</span>
-    ) : (
+    const item = (
       <Link
         href={link.path}
         className={isActive(link.path) ? "active" : undefined}

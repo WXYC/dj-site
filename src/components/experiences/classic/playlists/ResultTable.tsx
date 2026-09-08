@@ -1,11 +1,14 @@
 "use client";
 
-import ResultRow, { type PreviousSetsResult } from "./ResultRow";
+import type { PlaylistSearchResult } from "@wxyc/shared";
+import ResultRow from "./ResultRow";
 import "@/src/styles/classic/previous-sets.css";
 
-// 5-col previous-sets layout mirroring tubafrenzy's `mostRecentEntries.jsp`
-// + `public/flowsheetRadioShowDisplayPublic.jsp`:
-// Indicators · Artist · Song · Release · Label.
+// The six columns tubafrenzy's searchPage results table carried
+// (Date · Artist · Song · Release · Label · DJ), which is also Modern's set.
+// Not mostRecentEntries.jsp's five: that screen is one show by one DJ, so it
+// has no use for either column, and inheriting its shape is what dropped the
+// DJ from this table.
 //
 // Callers must gate on results.length > 0 — the table doesn't render its
 // own empty state. PreviousSetsContainer surfaces "No results found" copy
@@ -13,7 +16,7 @@ import "@/src/styles/classic/previous-sets.css";
 export default function ResultTable({
   results,
 }: {
-  results: PreviousSetsResult[];
+  results: readonly PlaylistSearchResult[];
 }) {
   return (
     <table
@@ -25,20 +28,17 @@ export default function ResultTable({
     >
       <thead>
         <tr>
-          <th style={{ width: "5%" }}>&nbsp;</th>
-          <th style={{ width: "25%" }}>Artist</th>
-          <th>Song</th>
-          <th>Release</th>
-          <th>Label</th>
+          <th style={{ width: "10%" }}>Date</th>
+          <th style={{ width: "20%" }}>Artist</th>
+          <th style={{ width: "20%" }}>Song</th>
+          <th style={{ width: "20%" }}>Release</th>
+          <th style={{ width: "15%" }}>Label</th>
+          <th style={{ width: "15%" }}>DJ</th>
         </tr>
       </thead>
       <tbody>
-        {results.map((result, index) => (
-          <ResultRow
-            key={result.id}
-            result={result}
-            nextIsSong={index < results.length - 1}
-          />
+        {results.map((result) => (
+          <ResultRow key={result.id} result={result} />
         ))}
       </tbody>
     </table>

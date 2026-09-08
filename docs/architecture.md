@@ -174,7 +174,7 @@ Classic reproduces tubafrenzy's screens, so its CSS is organised by the surface 
 |---|---|
 | `wxyc.css` | Shared shell: `.bigblue`, `.smalltext`, `.redlabel`, and the dark-scheme overrides |
 | `flowsheet.css` | The DJ flowsheet |
-| `previous-sets.css` | `public/searchPage.jsp` + `mostRecentEntries.jsp` |
+| `previous-sets.css` | `public/searchPage.jsp` |
 | `schedule-week.css` | `jsp/public/flowsheetRadioWeekDisplayPublic.jsp` + the `radioWeek` rules in `playlists.css` |
 | `capsules.css`, `actions.css`, `drag.css`, `segue.css` | Catalog and flowsheet interaction affordances |
 | `login.css` | The login screen |
