@@ -26,6 +26,12 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => mockSearchParams(),
 }));
 
+const mockSavePreferredLoginMethod = vi.fn<(method: string) => void>();
+vi.mock("@/lib/features/application/login-method-storage", () => ({
+  savePreferredLoginMethod: (method: string) =>
+    mockSavePreferredLoginMethod(method),
+}));
+
 // A live OIDC authorize bounce parked on /login: better-auth's authorize
 // endpoint sends an unauthenticated DJ here with the whole authorize query
 // intact, and useLogin recomputes the resume target from the LIVE search
@@ -48,19 +54,32 @@ function expectBackOutKeptTheAuthorizeBounce() {
 // Codes are generated from the ambiguity-free alphabet 23456789ABCDEFGHJKLMNPQRSTUVWXYZ.
 const PASSCODE = "K7M2PQ4R";
 
-async function fillPasscodeStep(user: ReturnType<typeof renderWithProviders>["user"], passcode = PASSCODE) {
-  await user.type(screen.getByLabelText(/signup passcode/i), passcode);
+type User = ReturnType<typeof renderWithProviders>["user"];
+
+/**
+ * Fill one field in a single event rather than a keystroke per character.
+ *
+ * Most cases here only need the field to end up holding a value; almost every
+ * test in this file walks both steps to reach the state it is about, and
+ * typing all of them out is what put this file's per-test cost near the
+ * suite's timeout. Progressive-validation tests still type, since for those
+ * the intermediate values are the subject.
+ */
+async function fillField(user: User, field: HTMLElement, value: string) {
+  await user.click(field);
+  await user.paste(value);
+}
+
+async function fillPasscodeStep(user: User, passcode = PASSCODE) {
+  await fillField(user, screen.getByLabelText(/signup passcode/i), passcode);
   await user.click(screen.getByRole("button", { name: "Continue" }));
 }
 
-async function fillDetailsStep(
-  user: ReturnType<typeof renderWithProviders>["user"],
-  email = "newdj@example.com",
-) {
-  await user.type(screen.getByLabelText(/^username/i), "newdj");
-  await user.type(screen.getByLabelText(/^email/i), email);
-  await user.type(screen.getByLabelText(/^password/i), "supersecret");
-  await user.type(screen.getByLabelText(/real name/i), "New DJ");
+async function fillDetailsStep(user: User, email = "newdj@example.com") {
+  await fillField(user, screen.getByLabelText(/^username/i), "newdj");
+  await fillField(user, screen.getByLabelText(/^email/i), email);
+  await fillField(user, screen.getByLabelText(/^password/i), "supersecret");
+  await fillField(user, screen.getByLabelText(/real name/i), "New DJ");
 }
 
 beforeEach(() => {
@@ -218,6 +237,65 @@ describe("StationSignupForm", () => {
 
     await user.click(screen.getByRole("button", { name: /back to sign in/i }));
     expectBackOutKeptTheAuthorizeBounce();
+  });
+
+  it("sends a DJ who must sign in manually to the password form the copy points them at", async () => {
+    mockHandleSignup.mockResolvedValue({
+      status: "success",
+      username: "newdj",
+      email: "newdj@example.com",
+    });
+    mockSignInAfterSignup.mockResolvedValue(false);
+    const { user, store } = renderWithProviders(<StationSignupForm />);
+
+    await fillPasscodeStep(user);
+    await fillDetailsStep(user);
+    await user.click(screen.getByRole("button", { name: "Submit" }));
+
+    await screen.findByTestId("signup-success");
+    await user.click(screen.getByRole("button", { name: /back to sign in/i }));
+
+    // The fallback tells them to use the password they just chose. Landing
+    // them on the email-code form would contradict the sentence they just
+    // read, for the one DJ in this flow who is already having a bad time.
+    expect(applicationSlice.selectors.getAuthStage(store.getState())).toBe("password");
+  });
+
+  it("remembers password as the login method for the account it just created", async () => {
+    mockHandleSignup.mockResolvedValue({
+      status: "success",
+      username: "newdj",
+      email: "newdj@example.com",
+    });
+    const { user } = renderWithProviders(<StationSignupForm />);
+
+    await fillPasscodeStep(user);
+    await fillDetailsStep(user);
+    await user.click(screen.getByRole("button", { name: "Submit" }));
+
+    // Without this a DJ who signed up with a password is served the email-code
+    // form on every later visit. The stored value is the credential they hold,
+    // never `signup` — which is not a sign-in method and cannot be stored.
+    await waitFor(() =>
+      expect(mockSavePreferredLoginMethod).toHaveBeenCalledWith("password")
+    );
+  });
+
+  it("does not remember a login method when no account was created", async () => {
+    mockHandleSignup.mockResolvedValue({
+      status: "error",
+      code: "USERNAME_TAKEN",
+      message: "That username is already in use.",
+    });
+    const { user, store } = renderWithProviders(<StationSignupForm />);
+
+    await fillPasscodeStep(user);
+    await fillDetailsStep(user);
+    await user.click(screen.getByRole("button", { name: "Submit" }));
+
+    await screen.findByText("That username is already in use.");
+    expect(mockSavePreferredLoginMethod).not.toHaveBeenCalled();
+    expect(applicationSlice.selectors.getAuthStage(store.getState())).not.toBe("password");
   });
 
   it("folds the passcode to the alphabet it was generated from before submitting", async () => {
