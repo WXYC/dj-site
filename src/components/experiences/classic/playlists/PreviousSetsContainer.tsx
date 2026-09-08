@@ -77,9 +77,6 @@ export default function PreviousSetsContainer({
               isLoading={isLoading}
               onLoadMore={loadNextPage}
             >
-              {/* PreviousSetsResult only adds optional fields on top of
-                  PlaylistSearchResult, so the wider hook return type is
-                  structurally assignable to the narrower table prop. */}
               <ResultTable results={displayResults} />
             </InfiniteScroll>
           )}

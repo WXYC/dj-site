@@ -1,9 +1,9 @@
 import { describe, it, expect } from "vitest";
 import { renderWithProviders } from "@/tests/helpers/render";
 import ResultTable from "@/src/components/experiences/classic/playlists/ResultTable";
-import type { PreviousSetsResult } from "@/src/components/experiences/classic/playlists/ResultRow";
+import type { PlaylistSearchResult } from "@wxyc/shared";
 
-const results: PreviousSetsResult[] = [
+const results: PlaylistSearchResult[] = [
   {
     id: 1,
     play_date: "2024-06-15T14:30:00.000Z",
@@ -13,7 +13,6 @@ const results: PreviousSetsResult[] = [
     record_label: "Sonamos",
     dj_name: "Test DJ",
     show_id: 100,
-    segue: true,
   },
   {
     id: 2,
@@ -28,36 +27,28 @@ const results: PreviousSetsResult[] = [
 ];
 
 describe("Classic Previous Sets ResultTable", () => {
-  it("renders a 5-column header (Indicators · Artist · Song · Release · Label)", () => {
+  // Six columns, matching tubafrenzy's searchPage results table
+  // (Date · Artist · Song · Release · Label · DJ) and Modern's Results.tsx.
+  // The former 5-column shape came from mostRecentEntries.jsp, the
+  // show-in-progress flowsheet, which omits Date and DJ because every row
+  // belongs to one show by one DJ.
+  it("renders a 6-column header (Date · Artist · Song · Release · Label · DJ)", () => {
     const { container } = renderWithProviders(<ResultTable results={results} />);
     const headers = container.querySelectorAll("thead th");
-    expect(headers.length).toBe(5);
-    expect(headers[1].textContent).toBe("Artist");
-    expect(headers[2].textContent).toBe("Song");
-    expect(headers[3].textContent).toBe("Release");
-    expect(headers[4].textContent).toBe("Label");
+    expect([...headers].map((h) => h.textContent)).toEqual([
+      "Date",
+      "Artist",
+      "Song",
+      "Release",
+      "Label",
+      "DJ",
+    ]);
   });
 
   it("renders one row per result", () => {
     const { container } = renderWithProviders(<ResultTable results={results} />);
     const bodyRows = container.querySelectorAll("tbody tr");
     expect(bodyRows.length).toBe(2);
-  });
-
-  it("renders the segue indicator on the first row when the next row is also a song", () => {
-    const { container } = renderWithProviders(<ResultTable results={results} />);
-    const segueRows = container.querySelectorAll("tr.classic-segue");
-    expect(segueRows.length).toBe(1);
-    // The segue row is the first result row (id=1) because the second result follows it.
-    expect(segueRows[0].getAttribute("data-segue")).toBe("true");
-  });
-
-  it("does NOT render any segue indicator when no row has segue=true", () => {
-    const noSegueResults = results.map((r) => ({ ...r, segue: false }));
-    const { container } = renderWithProviders(
-      <ResultTable results={noSegueResults} />
-    );
-    expect(container.querySelector("tr.classic-segue")).toBeNull();
   });
 
   it("renders an empty <tbody> when results is empty (caller gates rendering)", () => {
