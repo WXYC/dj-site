@@ -23,3 +23,13 @@ export const ALBUM_TEXT_MAX_LENGTH = 128;
 /** PATCH /library/:id requires disc_quantity to be an integer in this range. */
 export const DISC_QUANTITY_MIN = 1;
 export const DISC_QUANTITY_MAX = 99;
+
+/**
+ * Hard ceiling the two `/library/crossreferences/*` listings enforce on
+ * `limit`. Both collections are frozen well below it — a hundred-odd artist
+ * cross-references and a couple of dozen release ones — so one request at this
+ * limit fetches each whole. The screens still report the `total` they were
+ * given against the rows they received, because the freeze is a project
+ * decision rather than something the endpoint enforces.
+ */
+export const CROSSREFERENCE_QUERY_MAX_LIMIT = 500;

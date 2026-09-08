@@ -485,3 +485,61 @@ export type CatalogFrontendState = CatalogSearchState & {
   /** Which search result row owns the open context menu, if any. */
   resultContextMenu: CatalogResultContextMenuState | null;
 };
+
+/**
+ * One row of `GET /library/crossreferences/artists` — a "see also" pointer a
+ * librarian filed from one artist card to another, the collection
+ * `xrefsToLibraryCodes.jsp` renders.
+ *
+ * Only the target carries a call number, matching the JSP's columns. The
+ * target's genre is not served, so the code renders without the genre word
+ * the JSP's `fullLibraryCode` prefixes.
+ */
+export type ArtistCrossReferenceRow = {
+  source_artist_id: number;
+  source_artist_name: string;
+  target_artist_id: number;
+  target_artist_name: string;
+  target_code_letters: string;
+  target_code_artist_number: number | null;
+  comment: string | null;
+};
+
+/**
+ * One row of `GET /library/crossreferences/releases`, the collection
+ * `xrefsToLibraryReleases.jsp` renders.
+ *
+ * Two artists per row, and the difference between them is the association the
+ * row records: `artist_id`/`artist_name` is the cross-REFERENCING artist,
+ * while `album_artist_name` is whoever the cross-referenced release is filed
+ * under. The call number belongs to the release and arrives as parts.
+ */
+export type ReleaseCrossReferenceRow = {
+  artist_id: number;
+  artist_name: string;
+  library_id: number;
+  album_title: string;
+  album_artist_name: string | null;
+  alternate_artist_name: string | null;
+  format_name: string;
+  genre_id: number;
+  code_letters: string;
+  code_artist_number: number | null;
+  code_number: number;
+  code_volume_letters: string | null;
+  comment: string | null;
+};
+
+/** `?page=`/`?limit=` for either cross-reference listing. */
+export type CrossReferenceQueryParams = {
+  page?: number;
+  limit?: number;
+};
+
+/** The page envelope both cross-reference listings share with `GET /library/query`. */
+export type CrossReferencePage<Row> = {
+  results: Row[];
+  total: number;
+  page: number;
+  totalPages: number;
+};

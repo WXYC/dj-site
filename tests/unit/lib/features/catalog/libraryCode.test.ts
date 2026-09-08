@@ -4,6 +4,7 @@ import {
   formatCallLettersAndNumbers,
   formatReleaseCode,
   formatEntireLibraryCode,
+  formatReleaseArtistTitle,
   isVariousArtists,
 } from "@/lib/features/catalog/libraryCode";
 
@@ -160,5 +161,86 @@ describe("formatEntireLibraryCode — LibraryRelease.java:129", () => {
         code_volume_letters: null,
       }),
     ).toBe("MO 12/5");
+  });
+});
+
+describe("formatCallLettersAndNumbers — an artist with no genre_artist_crossreference row", () => {
+  // `GET /library/crossreferences/releases` LEFT joins that table so a frozen
+  // legacy cross-reference can never vanish from a listing nothing else
+  // reproduces, which is the one place a null artist number reaches this
+  // client. The letters alone are still a code a librarian can act on.
+  it("renders the call letters alone when the artist number is null", () => {
+    expect(
+      formatCallLettersAndNumbers({ code_letters: "mo", code_artist_number: null }),
+    ).toBe("MO");
+  });
+
+  it("still renders a Various Artists bucket as V/A, which never carried a number", () => {
+    expect(
+      formatCallLettersAndNumbers({ code_letters: "V/A", code_artist_number: null }),
+    ).toBe("V/A");
+  });
+
+  it("carries the punctuated form through the same branch", () => {
+    expect(
+      formatArtistCodeWithPunctuation({
+        code_letters: "CO",
+        code_artist_number: null,
+        genre_id: 6002,
+      }),
+    ).toBe("CO/");
+  });
+
+  it("composes a whole library code without an artist number", () => {
+    expect(
+      formatEntireLibraryCode({
+        genreName: "Jazz",
+        code_letters: "CO",
+        code_artist_number: null,
+        genre_id: 6002,
+        code_number: 3,
+        code_volume_letters: null,
+      }),
+    ).toBe("Jazz CO/3");
+  });
+});
+
+describe("formatReleaseArtistTitle — LibraryRelease.java:145", () => {
+  it("prefers the release's own alternate artist name", () => {
+    expect(
+      formatReleaseArtistTitle({
+        alternate_artist_name: "Duke Ellington & John Coltrane",
+        album_artist_name: "John Coltrane",
+        album_title: "A Love Supreme",
+      }),
+    ).toBe("Duke Ellington & John Coltrane - A Love Supreme");
+  });
+
+  // `getPreferredArtistString()` tests the alternate name with `isBlank()`,
+  // so whitespace falls through to the artist the release is filed under.
+  it.each([[""], ["   "], [null]])(
+    "falls back to the filed artist when the alternate name is %j",
+    (alternate) => {
+      expect(
+        formatReleaseArtistTitle({
+          alternate_artist_name: alternate,
+          album_artist_name: "John Coltrane",
+          album_title: "A Love Supreme",
+        }),
+      ).toBe("John Coltrane - A Love Supreme");
+    },
+  );
+
+  // The Java always has a filed artist to fall back on; this client's wire
+  // type does not. A dangling " - Title" would read as a release by an artist
+  // whose name failed to render, so the title stands alone instead.
+  it("renders the title alone when neither artist name is present", () => {
+    expect(
+      formatReleaseArtistTitle({
+        alternate_artist_name: null,
+        album_artist_name: null,
+        album_title: "A Love Supreme",
+      }),
+    ).toBe("A Love Supreme");
   });
 });
