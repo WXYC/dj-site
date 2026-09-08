@@ -242,6 +242,18 @@ test.describe("Role-Based Access Control", () => {
           page.getByRole("button", { name: /switch to the modern interface/i })
         ).toBeVisible();
       });
+
+      // Same shape for the open-shows operator list — modern-only, so a
+      // classic account lands on the gap screen rather than a blank slot.
+      test("should offer a way out at the open shows URL", async ({ page }) => {
+        await page.goto("/dashboard/admin/shows");
+        await expect(page.locator("#classic-container")).toBeVisible({
+          timeout: 15000,
+        });
+        await expect(
+          page.getByRole("button", { name: /switch to the modern interface/i })
+        ).toBeVisible();
+      });
     });
 
     // classicDj.json is the DJ-authority counterpart to classicMd.json,

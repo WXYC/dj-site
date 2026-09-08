@@ -326,3 +326,40 @@ export type TrackDetailsResult = {
   album_title: string | null;
   record_label: string | null;
 };
+
+/**
+ * One open show as `GET /flowsheet/open-shows` lists it — the operator
+ * surface for shows whose DJ never signed off. Oldest first.
+ */
+export type OpenShow = {
+  id: number;
+  primary_dj_id: string | null;
+  /** Resolved through the shared name chain; null for an unresolvable legacy DJ. */
+  dj_name: string | null;
+  show_name: string | null;
+  /** ISO-8601. */
+  start_time: string;
+  legacy_show_id: number | null;
+  entry_count: number;
+  /** True for the show every on-air read resolves to — `max(shows.id)`. */
+  is_current: boolean;
+  /** Open, not current, and under the backend's entry threshold. */
+  likely_abandoned: boolean;
+};
+
+export type OpenShowsResult = {
+  shows: OpenShow[];
+  /**
+   * Open shows in the window before `limit` truncates. `shows.length <
+   * total_in_window` is the only truncation signal the response carries.
+   */
+  total_in_window: number;
+  /** Open shows older than the window — a count, never a list. */
+  older_open_show_count: number;
+};
+
+/** The slice of the finalized show the client reads off a force-end 200. */
+export type ForceEndShowResult = {
+  id: number;
+  end_time: string | null;
+};

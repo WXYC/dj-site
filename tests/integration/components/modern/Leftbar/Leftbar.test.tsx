@@ -109,6 +109,7 @@ vi.mock("@mui/icons-material/LibraryMusic", () => ({
 vi.mock("@mui/icons-material", () => ({
   EditCalendar: () => <svg data-testid="edit-calendar-icon" />,
   ManageAccounts: () => <svg data-testid="manage-accounts-icon" />,
+  Sensors: () => <svg data-testid="sensors-icon" />,
 }));
 
 describe("Leftbar", () => {
@@ -265,6 +266,23 @@ describe("Leftbar", () => {
     expect(catalogLink).not.toHaveAttribute("data-disabled", "true");
   });
 
+  it("should render the open shows link enabled for MD authority", async () => {
+    const { getUserFromSession } = await import(
+      "@/lib/features/authentication/server-utils"
+    );
+    vi.mocked(getUserFromSession).mockResolvedValue({
+      ...mockUser,
+      authority: Authorization.MD,
+    });
+
+    const Component = await Leftbar();
+    renderWithProviders(Component);
+
+    const link = screen.getByTestId("leftbar-link--dashboard-admin-shows");
+    expect(link).toBeInTheDocument();
+    expect(link).not.toHaveAttribute("data-disabled", "true");
+  });
+
   it("should not render catalog admin link for DJ authority (admin block hidden, not merely disabled)", async () => {
     const { getUserFromSession } = await import(
       "@/lib/features/authentication/server-utils"
@@ -277,9 +295,12 @@ describe("Leftbar", () => {
     const Component = await Leftbar();
     renderWithProviders(Component);
 
-    // DJ authority hides the whole admin block, so the catalog link never renders.
+    // DJ authority hides the whole admin block, so neither link ever renders.
     expect(
       screen.queryByTestId("leftbar-link--dashboard-admin-catalog")
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId("leftbar-link--dashboard-admin-shows")
     ).not.toBeInTheDocument();
   });
 
