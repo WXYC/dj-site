@@ -202,6 +202,16 @@ Each feature in `lib/features/` follows a consistent structure:
 - `conversions.ts` -- Pure functions to transform API responses to frontend types
 - Additional files as needed (e.g., `client.ts`, `server-utils.ts`)
 
+## Backend-read failure contracts
+
+"The backend returned something unusable" has three different, deliberately different answers, each scoped to the kind of read that hit it. None of them is the adapter-layer "fails open" convention in the repo `CLAUDE.md`'s engineering standards — that bullet covers optional services (telemetry, error reporting, metadata lookup); a Backend-Service read is core, not optional, and picks its failure mode per call site instead.
+
+- **Server seed (public Server Component, unauthenticated GET).** `fetchBackendJson` in `lib/features/server-fetch.ts` throws on any failure — missing backend URL, network error/timeout, non-2xx, or an empty/non-JSON body. `fetchBackendSeed` wraps it and swallows the throw to `undefined`, so the page falls back to its client-fetched state instead of failing the request. A `"use cache"` accessor built on the same core must let the throw propagate instead, so an errored result is never cached as if it were good data.
+- **Client query (RTK Query).** The shared `backendBaseQuery` in `lib/features/backend.ts` soft-fails a GET whose body doesn't parse as JSON — most commonly Express's HTML 404 for a route the backend doesn't serve yet — into a successful `{ data: null }`, rather than surfacing RTK's `PARSING_ERROR` as a global toast. This is a success with a null payload, not "no data yet": consumers must use nullish checks (`?? []`, `!data`), never a strict `data === undefined` guard, since that misses the soft-failed `null`. An endpoint that needs the loud behavior opts out with `extraOptions: { surfaceNonJsonAsError: true }` — the two read-only library cross-reference views are the reference for when to opt out: "A failed read on either screen must never render as the empty state" above, under Librarian (card catalog) screens, is exactly the case the opt-out exists for.
+- **Write-precondition read.** A read that only exists to gate a write fails *closed*, not open: `storedKnown` in `VaTracklistStep.tsx` (mirrored by `CompilationCreditsControl.tsx`) refuses to seed the form and refuses to save until the stored-credits read has actually succeeded, because reporting an unreadable backend as an empty tracklist would let a save re-file credits that are already on record. This is the one contract that runs opposite to the other two — an unreadable read blocks the action instead of falling back to an empty or absent value.
+
+**Gated-read placement.** Where a control is authorization-gated, the gate wraps the component and the data-fetching hooks live in the gated child, not the parent — so an unauthorized viewer's render tree never reaches the hook and issues no request. `RotationClassifyControl.tsx` is the reference: `RotationClassifyControl` renders only `<RequireMD>` wrapping `RotationClassifyFields`, and every rotation-list query lives in `RotationClassifyFields`. `CompilationCreditsControl.tsx` follows the same split.
+
 ## Code Conventions
 
 - **Path alias**: `@/` maps to project root (e.g., `@/lib/features/flowsheet/types`)
