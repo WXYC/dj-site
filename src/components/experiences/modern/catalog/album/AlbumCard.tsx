@@ -154,9 +154,12 @@ export default function AlbumCard({
             <LibraryStatus album={album} />
           </Stack>
         </Stack>
-        <DiscogsUnavailableControl key={album.id} album={album} />
-        <AlbumEditForm key={album.id} album={album} />
-        <RotationClassifyControl key={album.id} album={album} />
+        {/* Keyed by album so a panel that switches albums without remounting
+            can't leak one album's draft state into the next; the prefixes keep
+            the siblings' keys unique. */}
+        <DiscogsUnavailableControl key={`discogs-${album.id}`} album={album} />
+        <AlbumEditForm key={`edit-${album.id}`} album={album} />
+        <RotationClassifyControl key={`rotation-${album.id}`} album={album} />
         <CompilationCreditsControl key={`credits-${album.id}`} album={album} />
         {!isDiscogsUnavailable && <StreamingLinks metadata={metadata} />}
         {!isDiscogsUnavailable && artistBio && (
