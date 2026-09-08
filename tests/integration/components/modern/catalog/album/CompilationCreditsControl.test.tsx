@@ -188,6 +188,19 @@ describe("CompilationCreditsControl", () => {
     });
   });
 
+  it("renders through the shared section card, matching the other album-card sections", async () => {
+    mockStored([]);
+
+    renderWithProviders(<CompilationCreditsControl album={compilationAlbum()} />);
+
+    const card = await screen.findByTestId("compilation-credits-section-card");
+    expect(card).toBeInTheDocument();
+    expect(card.className).toMatch(/MuiCard-root/);
+    expect(
+      screen.getByRole("button", { name: "Import from Discogs" }),
+    ).toBeInTheDocument();
+  });
+
   describe("the credits already on file", () => {
     // Read on arrival, never skipped: this release is of unknown age and the
     // editor's whole safety property is that it knows what a write would be

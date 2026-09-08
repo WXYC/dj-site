@@ -4,17 +4,16 @@ import { useState } from "react";
 import { toast } from "sonner";
 import {
   Button,
-  Divider,
   DialogTitle,
   Modal,
   ModalClose,
   ModalDialog,
   Sheet,
-  Stack,
   Table,
   Typography,
 } from "@mui/joy";
 import { RequireMD } from "@/src/components/shared/Authorization";
+import FormSectionCard from "@/src/components/shared/FormSectionCard";
 import {
   useGetCompilationTracksQuery,
   useWriteCompilationTracksMutation,
@@ -126,16 +125,10 @@ function CompilationCreditsFields({
   };
 
   return (
-    <>
-      <Divider sx={{ my: 1 }} />
-      <Stack
-        direction="row"
-        spacing={1}
-        alignItems="center"
-        justifyContent="space-between"
-        sx={{ mb: 1 }}
-      >
-        <Typography level="title-sm">Per-track credits</Typography>
+    <FormSectionCard
+      title="Per-track credits"
+      data-testid="compilation-credits-section-card"
+      action={
         <Button
           size="sm"
           variant="outlined"
@@ -146,8 +139,8 @@ function CompilationCreditsFields({
         >
           {countKnown && tracks.length > 0 ? "Add more credits" : "Import from Discogs"}
         </Button>
-      </Stack>
-
+      }
+    >
       {storedFailed ? (
         <Sheet variant="soft" color="warning" role="alert" sx={{ p: 1, borderRadius: "sm" }}>
           <Typography level="body-sm">
@@ -211,6 +204,6 @@ function CompilationCreditsFields({
           />
         </ModalDialog>
       </Modal>
-    </>
+    </FormSectionCard>
   );
 }
