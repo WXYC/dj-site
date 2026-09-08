@@ -151,6 +151,36 @@ export function formatStationLongDate(isoString: string): string {
   }).format(new Date(isoString));
 }
 
+const stationTimestampFormatter = new Intl.DateTimeFormat("en-US", {
+  timeZone: STATION_TIME_ZONE,
+  year: "numeric",
+  month: "short",
+  day: "numeric",
+  hour: "numeric",
+  minute: "2-digit",
+  hour12: true,
+  timeZoneName: "short",
+});
+
+// A compact instant for reading a stored record's age, e.g.
+// "Jun 15, 2024, 3:04 PM EDT". The zone abbreviation is part of the format,
+// not decoration: rendered in station time, an unlabelled timestamp is
+// indistinguishable from the reader's own clock, and only the station's is
+// what an admin reconciles against station logs.
+//
+// Returns null rather than a placeholder string for an absent or unparseable
+// value, so the caller decides how "we don't know" reads in its own UI --
+// what must never reach a reader is "Invalid Date".
+export function formatStationTimestampLabel(
+  isoString: string | null | undefined
+): string | null {
+  if (!isoString) return null;
+  const date = new Date(isoString);
+  if (Number.isNaN(date.getTime())) return null;
+
+  return stationTimestampFormatter.format(date);
+}
+
 // A week is not reliably 7 * 86_400_000 ms. Adding that constant across a DST
 // transition lands at 23:00 or 01:00 rather than midnight, and the resulting
 // window is measured against a backend that rejects spans over eight days. So

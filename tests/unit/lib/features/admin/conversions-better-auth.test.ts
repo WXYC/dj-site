@@ -94,6 +94,38 @@ describe("convertBetterAuthToAccountResult", () => {
     );
   });
 
+  // The roster panel shows an account's age and last edit; the conversion is
+  // the only place those two columns can be silently dropped.
+  describe("createdAt / updatedAt", () => {
+    it("should map createdAt and updatedAt to ISO strings", () => {
+      const user = createTestBetterAuthUser({
+        createdAt: new Date("2026-03-04T05:06:07Z"),
+        updatedAt: new Date("2026-05-06T07:08:09Z"),
+      });
+      const account = convertBetterAuthToAccountResult(user);
+      expect(account.createdAt).toBe("2026-03-04T05:06:07.000Z");
+      expect(account.updatedAt).toBe("2026-05-06T07:08:09.000Z");
+    });
+
+    it("should map absent timestamps to null", () => {
+      const user = createTestBetterAuthUser({
+        createdAt: undefined as unknown as Date,
+        updatedAt: undefined as unknown as Date,
+      });
+      const account = convertBetterAuthToAccountResult(user);
+      expect(account.createdAt).toBeNull();
+      expect(account.updatedAt).toBeNull();
+    });
+
+    // Same serializability constraint as the self-signup fields: these ride
+    // the RTK Query roster cache and the rightbar panel's Redux payload.
+    it("should never return a Date instance", () => {
+      const account = convertBetterAuthToAccountResult(createTestBetterAuthUser());
+      expect(account.createdAt).not.toBeInstanceOf(Date);
+      expect(account.updatedAt).not.toBeInstanceOf(Date);
+    });
+  });
+
   // Mirrors the hasCompletedOnboarding coverage above: this is the one place
   // the self-signup review queue can silently become a no-op, since every
   // other test builds `Account` directly and bypasses this conversion.
