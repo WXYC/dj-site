@@ -91,7 +91,6 @@ export default function AlbumCard({
                 artistNumber: album.artist.numbercode,
                 albumEntry: album.entry,
                 formatLabel: album.format,
-                rotation: album.rotation_bin ?? null,
               }}
             />
           )}

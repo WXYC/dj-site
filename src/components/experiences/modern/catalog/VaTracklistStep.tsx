@@ -96,11 +96,12 @@ export type VaTracklistStepProps = {
  *
  * Two callers, and the difference between them is one prop. The add-release
  * panel shows it for a release created seconds earlier, where nothing can yet
- * be on file; the album detail panel shows it for a release of any age, where
- * anything may be. Both are wrapped whole by the MD authorization gate, which
- * — not this component — is what holds the suggestions read to the librarian
- * bar the backend enforces on it: that read triggers upstream Discogs work and
- * is deliberately not a catalog-read route.
+ * be on file; `CompilationCreditsControl` on the album card shows it for a
+ * release of any age, where anything may be. Both are wrapped whole by the MD
+ * authorization gate, which — not this component — is what holds the
+ * suggestions read to the librarian bar the backend enforces on it: that
+ * read triggers upstream Discogs work and is deliberately not a catalog-read
+ * route.
  *
  * **It is a confirmation surface, not a data-entry one.** Nobody hand-types
  * per-track artists for a twenty-track compilation, so Discogs fills the form
