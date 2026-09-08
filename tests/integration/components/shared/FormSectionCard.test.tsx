@@ -34,6 +34,32 @@ describe("FormSectionCard", () => {
     expect(screen.getByRole("button", { name: "Save" })).toBeInTheDocument();
   });
 
+  it("renders an action next to the title in the header when provided", () => {
+    renderWithProviders(
+      <FormSectionCard
+        title="Per-track credits"
+        action={<button type="button">Import from Discogs</button>}
+      >
+        <span>fields</span>
+      </FormSectionCard>
+    );
+
+    expect(screen.getByText("Per-track credits")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Import from Discogs" })
+    ).toBeInTheDocument();
+  });
+
+  it("omits the header action row entirely when no action is provided", () => {
+    renderWithProviders(
+      <FormSectionCard title="Album" data-testid="no-action-card">
+        <span>fields</span>
+      </FormSectionCard>
+    );
+
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  });
+
   it("dims and blocks pointer events when disabled", () => {
     renderWithProviders(
       <FormSectionCard title="Album" disabled data-testid="disabled-card">

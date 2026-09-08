@@ -14,9 +14,3 @@ export const formSectionCardInteractiveSx: SxProps = {
     boxShadow: "0 0 0 2px var(--wxyc-palette-primary-100)",
   },
 };
-
-export const formSectionCardsStackSx: SxProps = {
-  display: "flex",
-  flexDirection: "column",
-  gap: 1.5,
-};

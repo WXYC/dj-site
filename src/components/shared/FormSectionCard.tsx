@@ -14,6 +14,7 @@ type FormSectionCardProps = {
   description?: string;
   children: ReactNode;
   footer?: ReactNode;
+  action?: ReactNode;
   disabled?: boolean;
   interactive?: boolean;
   "data-testid"?: string;
@@ -24,6 +25,7 @@ export default function FormSectionCard({
   description,
   children,
   footer,
+  action,
   disabled = false,
   interactive = true,
   "data-testid": dataTestId,
@@ -41,7 +43,19 @@ export default function FormSectionCard({
       }
     >
       <CardContent>
-        <Typography level="title-sm">{title}</Typography>
+        {action ? (
+          <Stack
+            direction="row"
+            spacing={1}
+            alignItems="center"
+            justifyContent="space-between"
+          >
+            <Typography level="title-sm">{title}</Typography>
+            {action}
+          </Stack>
+        ) : (
+          <Typography level="title-sm">{title}</Typography>
+        )}
         {description ? (
           <Typography
             level="body-xs"
