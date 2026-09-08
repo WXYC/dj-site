@@ -1,10 +1,8 @@
 "use client";
 
-import { useMemo } from "react";
 import {
   useScheduleWeek,
   useScheduleWeekParams,
-  useShowEntries,
 } from "@/src/hooks/scheduleWeekHooks";
 import {
   addStationWeeks,
@@ -12,7 +10,6 @@ import {
   stationDaysOfWeek,
 } from "@/src/utilities/stationTime";
 import ClassicWeekGrid from "./ClassicWeekGrid";
-import ClassicShowEntries from "./ClassicShowEntries";
 import "@/src/styles/classic/schedule-week.css";
 
 // Reproduces the source JSP's "MM/DD/YYYY - MM/DD/YYYY" week caption.
@@ -28,16 +25,8 @@ const range = (weekStart: Date) => {
 };
 
 export default function ClassicScheduleWeek() {
-  const { weekStart, selectedShowId, setWeek, toggleShow } =
-    useScheduleWeekParams();
-  const { grid, shows, entries, window, isLoading, isError, hasNextWeek, now } =
-    useScheduleWeek(weekStart);
-
-  const selectedShow = useMemo(
-    () => shows.find((s) => s.id === selectedShowId) ?? null,
-    [shows, selectedShowId],
-  );
-  const showEntries = useShowEntries(selectedShow, entries, window, now);
+  const { weekStart, setWeek, hrefForShow } = useScheduleWeekParams();
+  const { grid, isLoading, isError, hasNextWeek } = useScheduleWeek(weekStart);
 
   return (
     <div className="classic-schedule-week">
@@ -70,11 +59,7 @@ export default function ClassicScheduleWeek() {
 
       {/* An empty window is a normal answer, not an error: the grid renders as
           seven days of dead air rather than an error state. */}
-      <ClassicWeekGrid
-        columns={grid.columns}
-        selectedShowId={selectedShowId}
-        onSelectShow={toggleShow}
-      />
+      <ClassicWeekGrid columns={grid.columns} hrefForShow={hrefForShow} />
 
       {grid.unattributedEntryCount > 0 && (
         <p className="smalltext">
@@ -84,15 +69,6 @@ export default function ClassicScheduleWeek() {
         </p>
       )}
 
-      {selectedShow && (
-        <ClassicShowEntries
-          show={selectedShow}
-          entries={showEntries.entries}
-          isPartial={showEntries.isPartial}
-          partialEdge={showEntries.partialEdge}
-          isLoading={showEntries.isLoading}
-        />
-      )}
     </div>
   );
 }

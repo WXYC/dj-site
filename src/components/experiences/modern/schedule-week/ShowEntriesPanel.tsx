@@ -10,7 +10,6 @@ import {
   FLOWSHEET_TABLE_SX,
   FlowsheetColumnSizingRow,
 } from "@/src/components/experiences/modern/flowsheet/Entries/tableStyles";
-import { SHOW_PANEL_ID } from "./ShowBlock";
 
 const timeOf = (entry: FlowsheetRangeEntry) =>
   // A breakpoint is logged roughly a minute either side of the hour it marks,
@@ -49,7 +48,6 @@ export default function ShowEntriesPanel({
 
   return (
     <Sheet
-      id={SHOW_PANEL_ID}
       variant="outlined"
       sx={{ mt: 2, borderRadius: "md", p: 2 }}
     >

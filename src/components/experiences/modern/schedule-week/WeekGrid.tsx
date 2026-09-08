@@ -20,12 +20,10 @@ const hourLabel = (hour: number) =>
 
 export default function WeekGrid({
   columns,
-  selectedShowId,
-  onSelectShow,
+  hrefForShow,
 }: {
   columns: DayColumn[];
-  selectedShowId: number | null;
-  onSelectShow: (showId: number) => void;
+  hrefForShow: (showId: number) => string;
 }) {
   return (
     // Day columns become illegible before a phone viewport is reached, so the
@@ -110,8 +108,7 @@ export default function WeekGrid({
               <ShowBlock
                 key={`${column.dayStartMs}-${block.showId}`}
                 block={block}
-                isSelected={block.showId === selectedShowId}
-                onSelect={onSelectShow}
+                href={hrefForShow(block.showId)}
               />
             ))}
           </Box>

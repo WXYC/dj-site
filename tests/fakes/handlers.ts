@@ -41,6 +41,18 @@ export const handlers = [
   }),
 
   // Playlist search API handlers
+  http.get(`${BACKEND_URL}/flowsheet/playlist`, () => {
+    return HttpResponse.json({
+      id: 0,
+      show_name: null,
+      specialty_show_name: "",
+      start_time: "",
+      end_time: null,
+      show_djs: [],
+      entries: [],
+    });
+  }),
+
   http.get(`${BACKEND_URL}/flowsheet/search`, () => {
     return HttpResponse.json({ results: [], total: 0, page: 0, totalPages: 0 });
   }),

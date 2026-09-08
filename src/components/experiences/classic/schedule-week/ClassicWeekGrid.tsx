@@ -1,10 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import type { DayColumn } from "@/lib/features/schedule-week/layout";
 import { STATION_TIME_ZONE } from "@/src/utilities/stationTime";
 import "@/src/styles/classic/schedule-week.css";
-
-export const CLASSIC_SHOW_PANEL_ID = "classic-schedule-week-entries";
 
 const HOURS = [0, 3, 6, 9, 12, 15, 18, 21];
 
@@ -30,12 +29,11 @@ const hourLabel = (h: number) =>
 
 export default function ClassicWeekGrid({
   columns,
-  selectedShowId,
-  onSelectShow,
+  hrefForShow,
 }: {
   columns: DayColumn[];
-  selectedShowId: number | null;
-  onSelectShow: (showId: number) => void;
+  /** Where each show lives. A show is a destination, not a detail row. */
+  hrefForShow: (showId: number) => string;
 }) {
   return (
     <div className="classic-schedule-week-scroll">
@@ -88,8 +86,8 @@ export default function ClassicWeekGrid({
                     className="radioDayLine"
                     style={{ top: `${block.topFraction * 100}%` }}
                   />
-                  <button
-                    type="button"
+                  <Link
+                    href={hrefForShow(block.showId)}
                     className={`radioShowDisplayBlock${
                       block.endIsInferred ? " is-open-ended" : ""
                     }`}
@@ -103,22 +101,12 @@ export default function ClassicWeekGrid({
                       top: `calc(${block.topFraction * 100}% + 1px)`,
                       height: `calc(${block.heightFraction * 100}% - 1px)`,
                     }}
-                    aria-expanded={block.showId === selectedShowId}
-                    // The panel belongs to whichever block is expanded; a
-                    // collapsed one pointing at it names either nothing or
-                    // another show's entries.
-                    aria-controls={
-                      block.showId === selectedShowId
-                        ? CLASSIC_SHOW_PANEL_ID
-                        : undefined
-                    }
                     aria-label={label}
                     title={
                       block.endIsInferred
                         ? `${label} (no sign-off recorded)`
                         : label
                     }
-                    onClick={() => onSelectShow(block.showId)}
                   >
                     {block.heightFraction >= LABEL_THRESHOLD_FRACTION && (
                       <>
@@ -127,7 +115,7 @@ export default function ClassicWeekGrid({
                         {block.timeRangeLabel}
                       </>
                     )}
-                  </button>
+                  </Link>
                 </div>
               );
             })}

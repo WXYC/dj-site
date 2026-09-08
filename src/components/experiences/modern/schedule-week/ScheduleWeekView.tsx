@@ -1,33 +1,20 @@
 "use client";
 
-import { useMemo } from "react";
 import { Box, CircularProgress, Typography } from "@mui/joy";
 import {
   useScheduleWeek,
   useScheduleWeekParams,
-  useShowEntries,
 } from "@/src/hooks/scheduleWeekHooks";
 import WeekGrid from "./WeekGrid";
 import WeekHeader from "./WeekHeader";
-import ShowEntriesPanel from "./ShowEntriesPanel";
 
 export default function ScheduleWeekView() {
-  const { weekStart, selectedShowId, setWeek, toggleShow } =
-    useScheduleWeekParams();
-  const { grid, shows, entries, window, isLoading, isError, hasNextWeek, now } =
-    useScheduleWeek(weekStart);
-
-  const selectedShow = useMemo(
-    () => shows.find((s) => s.id === selectedShowId) ?? null,
-    [shows, selectedShowId],
-  );
-
-  const showEntries = useShowEntries(selectedShow, entries, window, now);
+  const { weekStart, setWeek, hrefForShow } = useScheduleWeekParams();
+  const { grid, isLoading, isError, hasNextWeek } = useScheduleWeek(weekStart);
 
   return (
     // `Main` is `height: 100dvh; overflow: hidden`, so a page that does not
-    // carry its own scrollport simply loses everything below the fold -- here
-    // the bottom of a 24-hour grid, and the entry panel under it.
+    // carry its own scrollport simply loses the bottom of a 24-hour grid.
     <Box
       sx={{
         width: "100%",
@@ -56,11 +43,7 @@ export default function ScheduleWeekView() {
 
       {/* An empty window is a normal answer, not an error: the grid renders as
           seven days of dead air rather than an error state. */}
-      <WeekGrid
-        columns={grid.columns}
-        selectedShowId={selectedShowId}
-        onSelectShow={toggleShow}
-      />
+      <WeekGrid columns={grid.columns} hrefForShow={hrefForShow} />
 
       {grid.unattributedEntryCount > 0 && (
         <Typography level="body-xs" sx={{ mt: 1, color: "text.tertiary" }}>
@@ -70,15 +53,6 @@ export default function ScheduleWeekView() {
         </Typography>
       )}
 
-      {selectedShow && (
-        <ShowEntriesPanel
-          show={selectedShow}
-          entries={showEntries.entries}
-          isPartial={showEntries.isPartial}
-          partialEdge={showEntries.partialEdge}
-          isLoading={showEntries.isLoading}
-        />
-      )}
     </Box>
   );
 }

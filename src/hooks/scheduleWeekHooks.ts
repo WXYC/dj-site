@@ -80,6 +80,9 @@ export function useScheduleWeekParams() {
           ? {
               [VIEW_PARAM]: WEEK_VIEW,
               [WEEK_PARAM]: formatStationWeekParam(weekStart),
+              // Cleared here too: reaching the week from a show would
+              // otherwise land on the calendar still holding that show's id.
+              [SHOW_PARAM]: null,
             }
           : { [VIEW_PARAM]: null, [WEEK_PARAM]: null, [SHOW_PARAM]: null },
       ),
@@ -97,23 +100,13 @@ export function useScheduleWeekParams() {
     [write],
   );
 
-  // A show id only means anything alongside the week that produced it, so the
-  // week is written with it rather than left to the default.
-  const toggleShow = useCallback(
-    (showId: number) => {
-      const expanding = selectedShowId !== showId;
-      // Collapsing leaves the week alone: dropping it here would throw the DJ
-      // back to the current week for closing a panel.
-      write(
-        expanding
-          ? {
-              [SHOW_PARAM]: String(showId),
-              [WEEK_PARAM]: formatStationWeekParam(weekStart),
-            }
-          : { [SHOW_PARAM]: null },
-      );
-    },
-    [selectedShowId, weekStart, write],
+  // A show is a destination, so the grid links to it rather than toggling a
+  // panel. The href drops `view` and `week`: the show view derives its own
+  // week link from the show's start_time, which cannot disagree with the show
+  // the way a week carried through the URL can.
+  const hrefForShow = useCallback(
+    (showId: number) => `${pathname}?${SHOW_PARAM}=${showId}`,
+    [pathname],
   );
 
   return {
@@ -122,7 +115,7 @@ export function useScheduleWeekParams() {
     selectedShowId,
     setView,
     setWeek,
-    toggleShow,
+    hrefForShow,
   };
 }
 

@@ -149,30 +149,30 @@ describe("useShowEntries supplement window", () => {
 });
 
 describe("useScheduleWeekParams", () => {
-  it("pins the week alongside the show it expands", () => {
-    // The default week is implicit in the URL, so this is the state a DJ is
-    // in before navigating anywhere. A show id only resolves against the week
-    // that produced it: written alone, the link means "this show, in whatever
-    // week you happen to open it", and next week it expands nothing.
-    searchParams = new URLSearchParams("view=week");
+  it("links a show as its own destination, carrying no week", () => {
+    // The show view derives its week link from the show's own start_time, so
+    // a week carried in this href could only ever disagree with the show.
+    searchParams = new URLSearchParams("view=week&week=2026-08-23");
 
     const { result } = renderHook(() => useScheduleWeekParams());
-    result.current.toggleShow(1951179);
+    const href = result.current.hrefForShow(1951179);
 
-    const url = mockReplace.mock.calls.at(-1)![0] as string;
-    expect(url).toContain("show=1951179");
-    expect(url).toMatch(/week=\d{4}-\d{2}-\d{2}/);
+    expect(href).toContain("show=1951179");
+    expect(href).not.toContain("week=");
+    expect(href).not.toContain("view=");
   });
 
-  it("keeps the week when a show is collapsed", () => {
-    searchParams = new URLSearchParams("view=week&week=2026-08-23&show=1951179");
+  it("drops the show when returning to the week view", () => {
+    // Reaching the calendar from a show must not land on it still holding
+    // that show's id, or the grid renders behind a show that is still open.
+    searchParams = new URLSearchParams("show=1951179");
 
     const { result } = renderHook(() => useScheduleWeekParams());
-    result.current.toggleShow(1951179);
+    result.current.setView("week");
 
     const url = mockReplace.mock.calls.at(-1)![0] as string;
     expect(url).not.toContain("show=");
-    expect(url).toContain("week=2026-08-23");
+    expect(url).toContain("view=week");
   });
 
   it("pins the week on entering the week view", () => {
