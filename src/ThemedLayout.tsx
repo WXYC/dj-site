@@ -1,6 +1,6 @@
 import { createServerSideProps } from "@/lib/features/session";
 import { ReactNode, Suspense } from "react";
-import { LoadingFallback } from "./components/LoadingFallback";
+import LoadingOverlay from "./components/LoadingOverlay";
 
 export type ThemedLayoutProps = {
   classic: ReactNode;
@@ -20,7 +20,11 @@ export default async function ThemedLayout(
   const { classic, modern, information } = props;
 
   return (
-    <Suspense fallback={<LoadingFallback />}>
+    // Fixed-overlay fallback on purpose: a Joy Modal here SSR-crashes in
+    // @mui/base's useModal when this boundary suspends during streaming, and
+    // an in-flow fallback pushes the streamed page down until the boundary
+    // resolves.
+    <Suspense fallback={<LoadingOverlay />}>
       {information}
       {classic && modern && isClassic ? (
         <div id="classic-container">{classic}</div>
