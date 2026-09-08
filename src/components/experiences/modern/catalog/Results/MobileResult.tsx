@@ -36,8 +36,7 @@ function CatalogMobileResult({
 
   const artistDisplay = album.album_artist ? "Various Artists" : album.artist.name;
 
-  // Album detail opens as the intercepting-route modal; a row without a
-  // library id (LML rows) has no detail page to navigate to.
+  // Rows without a library id have no album page to open.
   const openDetail = () => {
     if (album.id != null) router.push(`/dashboard/album/${album.id}`);
   };

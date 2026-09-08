@@ -42,8 +42,7 @@ function CatalogResult({
   // Catalog rows always carry a real library.id; only LML rows go null.
   const isSelected = selected.includes(album.id!);
 
-  // Album detail opens as the intercepting-route modal; a row without a
-  // library id has no detail page to navigate to.
+  // Rows without a library id have no album page to open.
   const openAlbumDetail = () => {
     if (album.id != null) router.push(`/dashboard/album/${album.id}`);
   };

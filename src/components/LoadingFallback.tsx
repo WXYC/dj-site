@@ -18,6 +18,7 @@ export function LoadingFallback() {
         justifyContent: "center",
         minHeight: "50vh",
         width: "100%",
+        // Appears after a short delay so quick loads never flash a spinner.
         opacity: 0,
         animation: "loadingReveal 0.2s ease-in 0.25s forwards",
         "@keyframes loadingReveal": {
