@@ -35,19 +35,11 @@ export default function AlbumPopup() {
   const params = useParams<{ id: string }>();
   const pathname = usePathname();
 
-  // Local closed-state, keyed by album id so a later navigation to a
-  // different album on a reused slot instance starts un-dismissed. This
-  // exists because the navigation that follows a dismissal does not reliably
-  // re-render this intercepted slot: the router restores the underlying
-  // page's URL while leaving this tree mounted with its stale content, so
-  // nothing downstream of the router — not even `usePathname` — can be
-  // counted on to clear the dialog.
+  // Closing is tracked locally per album — the router doesn't reliably re-render this slot after navigating away.
   const [dismissedFor, setDismissedFor] = useState<string | null>(null);
   const dismissed = dismissedFor === params.id;
 
-  // Browser back/forward bypasses the dismiss handler but must clear the
-  // dialog the same way; the listener fires regardless of whether the router
-  // re-renders this slot.
+  // The browser's back/forward buttons skip the dismiss handler but must also close the dialog.
   useEffect(() => {
     const onPopState = () => {
       if (!window.location.pathname.includes("/album/")) {
@@ -58,10 +50,7 @@ export default function AlbumPopup() {
     return () => window.removeEventListener("popstate", onPopState);
   }, [params.id]);
 
-  // history.length > 1 means we arrived by an in-app navigation (interception),
-  // so back() restores the prior URL. length <= 1 is a cold load with no history
-  // to go back to; push the dashboard home instead of dead-ending. The dialog
-  // unmounts via local state first, then the URL follows.
+  // With in-app history, back() restores the page underneath; a cold permalink load has none, so go home instead.
   const dismiss = () => {
     setDismissedFor(params.id);
     if (typeof window !== "undefined" && window.history.length > 1) {
@@ -84,10 +73,7 @@ export default function AlbumPopup() {
 
   const { artistMetadata, bioTokens } = useArtistMetadata(metadata?.discogsArtistId);
 
-  // Three ways the dialog must disappear, each with its own signal: a
-  // dismissal (local state, immediate), browser back/forward (popstate
-  // listener above), and a soft navigation elsewhere while the modal is open
-  // (the pathname, when the router does re-render this slot).
+  // Gone when dismissed, after browser back, or once the URL leaves the album route.
   if (dismissed || (pathname && !pathname.includes("/album/"))) {
     return null;
   }
@@ -103,10 +89,7 @@ export default function AlbumPopup() {
         layout="center"
         sx={{ maxWidth: "min(560px, 96vw)", width: "100%", p: 0, overflow: "auto" }}
       >
-        {/* One above Joy CardContent's default z-index of 1 (it layers above
-            CardCover): the dialog's p:0 lets the album card overlap this
-            corner, and on an equal z-index the later sibling hit-tests on
-            top, leaving the button visible but unclickable. */}
+        {/* Sits above the card content (Joy gives it z-index 1) so the card can't swallow clicks on this corner. */}
         <ModalClose aria-label="Close album detail" sx={{ zIndex: 2 }} />
         {isLoading ? (
           <AlbumLoadingCard />

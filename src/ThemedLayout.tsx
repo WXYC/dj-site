@@ -21,17 +21,9 @@ export default async function ThemedLayout(
   const { classic, modern, information } = props;
 
   return (
-    // Fixed-overlay fallback on purpose: a Joy Modal here SSR-crashes in
-    // @mui/base's useModal when this boundary suspends during streaming, and
-    // an in-flow fallback pushes the streamed page down until the boundary
-    // resolves.
+    // Floating fallback: an in-flow one pushes the page down, and a Joy Modal here crashes server rendering.
     <Suspense fallback={<LoadingOverlay />}>
-      {/* The information slot only ever resolves to a portaled modal, but it
-          renders here as a sibling ABOVE the experience container, so any
-          in-flow state the router puts in it (a loading fallback, an error
-          block) would shove the whole frame down. This layer keeps the slot
-          permanently out of flow; pointer events pass through it, and the
-          modal itself portals to the body so its interactivity is unaffected. */}
+      {/* This slot only ever shows the album modal; keeping it out of the page flow stops its loading states from pushing the layout down. */}
       <Box sx={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 100 }}>
         {information}
       </Box>
