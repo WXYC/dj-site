@@ -20,17 +20,21 @@ import {
   AlbumSearchResultJSON,
   AlbumRequestParams,
   ArtistCard,
+  ArtistCrossReferenceRow,
   ArtistReleasesQuery,
   ArtistReleasesResponse,
   CompilationTrackInput,
   CompilationTrackList,
   CompilationTrackSuggestions,
   CompilationTracksWriteResponse,
+  CrossReferencePage,
+  CrossReferenceQueryParams,
   LibraryFormatRow,
   LibraryGenreRow,
   LibraryQueryParams,
   PeekArtistCodeQuery,
   PeekArtistCodeResponse,
+  ReleaseCrossReferenceRow,
   ResolveArtistByCodeQuery,
   ResolveArtistByCodeResponse,
   SearchArtistsInGenreParams,
@@ -625,6 +629,47 @@ export const catalogApi = createApi({
       }),
       invalidatesTags: [{ type: "FormatList", id: "LIST" }],
     }),
+    /**
+     * The two frozen `/wxycdb` cross-reference collections, read-only.
+     *
+     * Neither carries `providesTags`, and that is deliberate rather than an
+     * omission: no mutation anywhere in this client can change either set, so
+     * a tag would name an invalidation that can never be issued. The sets are
+     * frozen by project decision, so there is no write sibling to add one.
+     *
+     * Both opt out of the shared soft-fail. An unparseable body — Express's
+     * HTML 404 from a backend that does not serve these routes yet, or a
+     * gateway's 502 — resolves to a successful `null`, which each screen would
+     * render as its JSP's "There are no ... Cross-References". That is a
+     * positive claim about a collection nothing else in the app can show, so a
+     * reader has no way to catch it being wrong.
+     */
+    listArtistCrossReferences: builder.query<
+      CrossReferencePage<ArtistCrossReferenceRow>,
+      CrossReferenceQueryParams
+    >({
+      query: ({ page, limit } = {}) => ({
+        url: "/crossreferences/artists",
+        params: {
+          ...(page != null ? { page } : {}),
+          ...(limit != null ? { limit } : {}),
+        },
+      }),
+      extraOptions: { surfaceNonJsonAsError: true },
+    }),
+    listReleaseCrossReferences: builder.query<
+      CrossReferencePage<ReleaseCrossReferenceRow>,
+      CrossReferenceQueryParams
+    >({
+      query: ({ page, limit } = {}) => ({
+        url: "/crossreferences/releases",
+        params: {
+          ...(page != null ? { page } : {}),
+          ...(limit != null ? { limit } : {}),
+        },
+      }),
+      extraOptions: { surfaceNonJsonAsError: true },
+    }),
     getGenres: builder.query<LibraryGenreRow[], void>({
       query: () => ({
         url: "/genres",
@@ -644,6 +689,8 @@ export const catalogApi = createApi({
 
 export const {
   useSearchCatalogQuery,
+  useListArtistCrossReferencesQuery,
+  useListReleaseCrossReferencesQuery,
   useLazySearchLibraryQueryQuery,
   useSearchLibraryQueryQuery,
   useSearchLibraryQueryInfiniteInfiniteQuery,

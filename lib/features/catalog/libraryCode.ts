@@ -6,6 +6,8 @@
  * - `ArtistLibraryCode.getCallLettersAndNumbersWithPunctuation()` (`:98`)
  * - `LibraryRelease.getCallNumbersAndLetters()` (`:122`)
  * - `LibraryRelease.getEntireLibraryCode()` (`:129`)
+ * - `LibraryRelease.getPreferredArtistString()` (`:138`)
+ * - `LibraryRelease.getEntireArtistTitleString()` (`:145`)
  *
  * Rule-for-rule except where the Java recovers a Various Artists sub-bucket
  * letter by substring-ing the legacy `Z-<letter>` spelling. That letter is
@@ -35,7 +37,14 @@ const SOUNDTRACKS_GENRE_ID = 12;
 
 export type ArtistCodeParts = {
   code_letters: string;
-  code_artist_number: number;
+  /**
+   * Null for an artist with no `genre_artist_crossreference` row. Only
+   * `GET /library/crossreferences/releases` can serve one — it LEFT joins that
+   * table so a frozen legacy cross-reference can never silently vanish from a
+   * listing nothing else in the system reproduces. Every other endpoint INNER
+   * joins it and always has a number.
+   */
+  code_artist_number: number | null;
   genre_id: number;
 };
 
@@ -79,7 +88,8 @@ export function isVariousArtists(codeLetters: string): boolean {
 
 /**
  * The artist half of a call number, with no trailing punctuation: `MO 12`
- * for a named artist, `V/A` for a compilation bucket.
+ * for a named artist, `V/A` for a compilation bucket, and the letters alone
+ * for an artist that carries no genre code at all.
  *
  * The Java splits the Various Artists case three ways off `genre_id` —
  * `V/A <letter>` for Rock, the bare `<letter>` for Soundtracks, and `V/A` for
@@ -97,6 +107,12 @@ export function formatCallLettersAndNumbers({
 }: Pick<ArtistCodeParts, "code_letters" | "code_artist_number">): string {
   if (isVariousArtists(code_letters)) {
     return VARIOUS_ARTISTS_CODE_LETTERS;
+  }
+  // A bucket never carried a number, so the branch above needs none; an
+  // ordinary code with no genre row has only its letters left, and those are
+  // still enough to walk to the right shelf section.
+  if (code_artist_number === null) {
+    return code_letters.trim().toUpperCase();
   }
   return `${code_letters.toUpperCase()} ${code_artist_number}`;
 }
@@ -172,4 +188,35 @@ export function formatEntireLibraryCode({
 }: ArtistCodeParts & ReleaseCodeParts & { genreName?: string }): string {
   const code = `${formatArtistCodeWithPunctuation(parts)}${formatReleaseCode(parts)}`;
   return genreName ? `${genreName} ${code}` : code;
+}
+
+export type ReleaseArtistTitleParts = {
+  /** `library.alternate_artist_name` -- the release's own credit, if it has one. */
+  alternate_artist_name: string | null;
+  /** Whoever the release is filed under, which is a different artist on a compilation. */
+  album_artist_name: string | null;
+  album_title: string;
+};
+
+/**
+ * `getEntireArtistTitleString()`: the artist a release is presented under,
+ * then its title. `getPreferredArtistString()` supplies the first half and
+ * tests the alternate credit with `isBlank()`, so a whitespace-only value
+ * falls through to the filed artist rather than rendering as an empty name.
+ *
+ * The Java always has a filed artist to fall back on because it reads one off
+ * a joined row; this client's wire types leave it nullable. A dangling
+ * " - Title" would read as a release whose artist failed to render, so a row
+ * with neither name renders its title alone.
+ */
+export function formatReleaseArtistTitle({
+  alternate_artist_name,
+  album_artist_name,
+  album_title,
+}: ReleaseArtistTitleParts): string {
+  const artist =
+    alternate_artist_name && alternate_artist_name.trim() !== ""
+      ? alternate_artist_name
+      : album_artist_name;
+  return artist ? `${artist} - ${album_title}` : album_title;
 }

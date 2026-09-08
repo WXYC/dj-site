@@ -31,7 +31,9 @@ import type {
 import {
   AlbumEntry,
   AlbumSearchResultJSON,
+  ArtistCrossReferenceRow,
   ArtistEntry,
+  ReleaseCrossReferenceRow,
 } from "@/lib/features/catalog/types";
 import {
   FlowsheetQuery,
@@ -680,6 +682,45 @@ export function createTestLmlLibraryItem(
     format: "CD",
     alternate_artist_name: null,
     library_url: `http://localhost:8000/api/v1/library/${TEST_ENTITY_IDS.ALBUM.ROCK_ALBUM}`,
+    ...overrides,
+  };
+}
+
+// The two frozen `/wxycdb` cross-reference collections. Both defaults are the
+// same association read from either end: the duo card points at Duke
+// Ellington's own card, and at a John Coltrane release on the shelf.
+export function createTestArtistCrossReference(
+  overrides: Partial<ArtistCrossReferenceRow> = {}
+): ArtistCrossReferenceRow {
+  return {
+    source_artist_id: TEST_ENTITY_IDS.ARTIST.JAZZ_ARTIST,
+    source_artist_name: "Duke Ellington & John Coltrane",
+    target_artist_id: TEST_ENTITY_IDS.ARTIST.ROCK_ARTIST,
+    target_artist_name: "Duke Ellington",
+    target_code_letters: "EL",
+    target_code_artist_number: 12,
+    comment: "Filed with Duke Ellington",
+    ...overrides,
+  };
+}
+
+export function createTestReleaseCrossReference(
+  overrides: Partial<ReleaseCrossReferenceRow> = {}
+): ReleaseCrossReferenceRow {
+  return {
+    artist_id: TEST_ENTITY_IDS.ARTIST.JAZZ_ARTIST,
+    artist_name: "Duke Ellington & John Coltrane",
+    library_id: TEST_ENTITY_IDS.ALBUM.JAZZ_ALBUM,
+    album_title: "A Love Supreme",
+    album_artist_name: "John Coltrane",
+    alternate_artist_name: null,
+    format_name: "Vinyl",
+    genre_id: TEST_ENTITY_IDS.GENRE.JAZZ,
+    code_letters: "CO",
+    code_artist_number: 7,
+    code_number: 3,
+    code_volume_letters: null,
+    comment: "See also Duke Ellington & John Coltrane",
     ...overrides,
   };
 }
