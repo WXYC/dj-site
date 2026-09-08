@@ -1462,5 +1462,99 @@ describe("authenticationHooks", () => {
       });
       expect(result.current.isLoading).toBe(false);
     });
+
+    describe("signInAfterSignup", () => {
+      const credentials = { email: "newdj@example.com", password: "supersecret" };
+
+      it("signs the new DJ in with the credentials they just chose and lands them on the dashboard", async () => {
+        mockSignInEmail.mockResolvedValue({
+          data: { user: { id: "user-1", hasCompletedOnboarding: true } },
+        });
+
+        const { useStationSignup } = await import("@/src/hooks/authenticationHooks");
+        const { result } = renderHook(() => useStationSignup());
+
+        let signedIn: boolean | undefined;
+        await act(async () => {
+          signedIn = await result.current.signInAfterSignup(credentials);
+        });
+
+        expect(mockClearTokenCache).toHaveBeenCalled();
+        expect(mockSignInEmail).toHaveBeenCalledWith(credentials);
+        expect(mockPush).toHaveBeenCalledWith("/dashboard/flowsheet");
+        expect(signedIn).toBe(true);
+      });
+
+      it("does not detour a station-signup account through onboarding when the sign-in response omits the flag", async () => {
+        // Station signup provisions the account already onboarded, so the
+        // only thing that could route it to /login?incomplete=true is a
+        // sign-in payload that simply doesn't carry the field.
+        mockSignInEmail.mockResolvedValue({ data: { user: { id: "user-1" } } });
+        mockGetSession.mockResolvedValue({
+          data: { user: { id: "user-1", hasCompletedOnboarding: true } },
+        });
+
+        const { useStationSignup } = await import("@/src/hooks/authenticationHooks");
+        const { result } = renderHook(() => useStationSignup());
+
+        await act(async () => {
+          await result.current.signInAfterSignup(credentials);
+        });
+
+        expect(mockPush).toHaveBeenCalledWith("/dashboard/flowsheet");
+        expect(mockPush).not.toHaveBeenCalledWith("/login?incomplete=true");
+      });
+
+      it("resumes a live OIDC authorize bounce rather than forcing the dashboard", async () => {
+        const search =
+          "signup=1&client_id=wxyc-relying-party&response_type=code&redirect_uri=https%3A%2F%2Frp.example%2Fcb";
+        mockSearchParams.mockReturnValue(new URLSearchParams(search));
+        mockSignInEmail.mockResolvedValue({
+          data: { user: { id: "user-1", hasCompletedOnboarding: true } },
+        });
+
+        const { useStationSignup } = await import("@/src/hooks/authenticationHooks");
+        const { result } = renderHook(() => useStationSignup());
+
+        await act(async () => {
+          await result.current.signInAfterSignup(credentials);
+        });
+
+        expect(mockLocationAssign).toHaveBeenCalledWith(
+          `${window.location.origin}/auth/oauth2/authorize?${search}`
+        );
+        expect(mockPush).not.toHaveBeenCalled();
+      });
+
+      it("reports a refused sign-in instead of navigating, so the caller can offer the manual path", async () => {
+        mockSignInEmail.mockResolvedValue({ error: { message: "Invalid credentials" } });
+
+        const { useStationSignup } = await import("@/src/hooks/authenticationHooks");
+        const { result } = renderHook(() => useStationSignup());
+
+        let signedIn: boolean | undefined;
+        await act(async () => {
+          signedIn = await result.current.signInAfterSignup(credentials);
+        });
+
+        expect(signedIn).toBe(false);
+        expect(mockPush).not.toHaveBeenCalled();
+      });
+
+      it("reports a thrown sign-in rather than surfacing it, since the account exists either way", async () => {
+        mockSignInEmail.mockRejectedValue(new Error("network down"));
+
+        const { useStationSignup } = await import("@/src/hooks/authenticationHooks");
+        const { result } = renderHook(() => useStationSignup());
+
+        let signedIn: boolean | undefined;
+        await act(async () => {
+          signedIn = await result.current.signInAfterSignup(credentials);
+        });
+
+        expect(signedIn).toBe(false);
+        expect(mockPush).not.toHaveBeenCalled();
+      });
+    });
   });
 });

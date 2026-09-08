@@ -1,17 +1,20 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { screen } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import { renderWithProviders } from "@/tests/helpers";
 import { applicationSlice } from "@/lib/features/application/frontend";
 import StationSignupForm from "@/src/components/experiences/modern/login/Forms/StationSignupForm";
 import type { StationSignupOutcome } from "@/lib/features/authentication/client";
 
 const mockHandleSignup = vi.fn<(request: unknown) => Promise<StationSignupOutcome>>();
+const mockSignInAfterSignup =
+  vi.fn<(credentials: { email: string; password: string }) => Promise<boolean>>();
 const mockReplace = vi.fn<(href: string) => void>();
 const mockSearchParams = vi.fn<() => URLSearchParams>();
 
 vi.mock("@/src/hooks/authenticationHooks", () => ({
   useStationSignup: () => ({
     handleSignup: mockHandleSignup,
+    signInAfterSignup: mockSignInAfterSignup,
     isLoading: false,
   }),
 }));
@@ -50,9 +53,12 @@ async function fillPasscodeStep(user: ReturnType<typeof renderWithProviders>["us
   await user.click(screen.getByRole("button", { name: "Continue" }));
 }
 
-async function fillDetailsStep(user: ReturnType<typeof renderWithProviders>["user"]) {
+async function fillDetailsStep(
+  user: ReturnType<typeof renderWithProviders>["user"],
+  email = "newdj@example.com",
+) {
   await user.type(screen.getByLabelText(/^username/i), "newdj");
-  await user.type(screen.getByLabelText(/^email/i), "newdj@example.com");
+  await user.type(screen.getByLabelText(/^email/i), email);
   await user.type(screen.getByLabelText(/^password/i), "supersecret");
   await user.type(screen.getByLabelText(/real name/i), "New DJ");
 }
@@ -60,6 +66,7 @@ async function fillDetailsStep(user: ReturnType<typeof renderWithProviders>["use
 beforeEach(() => {
   vi.clearAllMocks();
   mockSearchParams.mockReturnValue(new URLSearchParams(""));
+  mockSignInAfterSignup.mockResolvedValue(true);
 });
 
 describe("StationSignupForm", () => {
@@ -73,7 +80,7 @@ describe("StationSignupForm", () => {
     expect(mockHandleSignup).not.toHaveBeenCalled();
   });
 
-  it("submits passcode and details together and shows a pending-review confirmation on success", async () => {
+  it("submits passcode and details together, then signs the DJ in with what they just typed instead of asking for it again", async () => {
     mockHandleSignup.mockResolvedValue({
       status: "success",
       username: "newdj",
@@ -93,14 +100,124 @@ describe("StationSignupForm", () => {
       realName: "New DJ",
       djName: undefined,
     });
-    expect(await screen.findByTestId("signup-success")).toHaveTextContent(/pending/i);
-    expect(screen.getByTestId("signup-success")).toHaveTextContent("newdj");
+    await waitFor(() =>
+      expect(mockSignInAfterSignup).toHaveBeenCalledWith({
+        email: "newdj@example.com",
+        password: "supersecret",
+      })
+    );
     // The 201 returns username AND email off the created row -- show both.
-    expect(screen.getByTestId("signup-success")).toHaveTextContent("newdj@example.com");
+    const pending = await screen.findByTestId("signup-signing-in");
+    expect(pending).toHaveTextContent("newdj");
+    expect(pending).toHaveTextContent("newdj@example.com");
+    // The manual "go and sign in" screen is the fallback for a failed
+    // automatic sign-in, not the happy path.
+    expect(screen.queryByTestId("signup-success")).not.toBeInTheDocument();
+  });
+
+  it("signs in with the email the server echoed off the created row, not the one the DJ typed", async () => {
+    // better-auth normalizes on write, so the created row is the only
+    // authority on this account's identifiers. Signing in with the typed
+    // string would work by luck, not by contract.
+    mockHandleSignup.mockResolvedValue({
+      status: "success",
+      username: "newdj",
+      email: "newdj@example.com",
+    });
+    const { user } = renderWithProviders(<StationSignupForm />);
+
+    await fillPasscodeStep(user);
+    await fillDetailsStep(user, "NewDJ@Example.com");
+    await user.click(screen.getByRole("button", { name: "Submit" }));
+
+    await waitFor(() =>
+      expect(mockSignInAfterSignup).toHaveBeenCalledWith({
+        email: "newdj@example.com",
+        password: "supersecret",
+      })
+    );
+  });
+
+  it("shows a pending state while the automatic sign-in is in flight", async () => {
+    mockHandleSignup.mockResolvedValue({
+      status: "success",
+      username: "newdj",
+      email: "newdj@example.com",
+    });
+    let settleSignIn: (signedIn: boolean) => void = () => {};
+    mockSignInAfterSignup.mockReturnValue(
+      new Promise<boolean>((resolve) => {
+        settleSignIn = resolve;
+      })
+    );
+    const { user } = renderWithProviders(<StationSignupForm />);
+
+    await fillPasscodeStep(user);
+    await fillDetailsStep(user);
+    await user.click(screen.getByRole("button", { name: "Submit" }));
+
+    expect(await screen.findByTestId("signup-signing-in")).toHaveTextContent(
+      /signing you in/i
+    );
+    expect(screen.queryByTestId("signup-success")).not.toBeInTheDocument();
+
+    // The account already exists; nothing here may re-submit it.
+    expect(screen.queryByRole("button", { name: "Submit" })).not.toBeInTheDocument();
+
+    settleSignIn(true);
+    await waitFor(() => expect(mockSignInAfterSignup).toHaveBeenCalled());
+  });
+
+  it("keeps a way out of the pending state, which classic's URL-driven routing cannot clear on its own", async () => {
+    mockHandleSignup.mockResolvedValue({
+      status: "success",
+      username: "newdj",
+      email: "newdj@example.com",
+    });
+    mockSignInAfterSignup.mockReturnValue(new Promise<boolean>(() => {}));
+    mockSearchParams.mockReturnValue(new URLSearchParams(OIDC_BOUNCE_QUERY));
+    const { user } = renderWithProviders(<StationSignupForm />);
+
+    await fillPasscodeStep(user);
+    await fillDetailsStep(user);
+    await user.click(screen.getByRole("button", { name: "Submit" }));
+
+    await screen.findByTestId("signup-signing-in");
+    await user.click(screen.getByRole("button", { name: /back to sign in/i }));
+    expectBackOutKeptTheAuthorizeBounce();
+  });
+
+  it("falls back to a manual sign-in screen when the automatic sign-in fails, without implying the account is broken", async () => {
+    mockHandleSignup.mockResolvedValue({
+      status: "success",
+      username: "newdj",
+      email: "newdj@example.com",
+    });
+    mockSignInAfterSignup.mockResolvedValue(false);
+    mockSearchParams.mockReturnValue(new URLSearchParams(OIDC_BOUNCE_QUERY));
+    const { user } = renderWithProviders(<StationSignupForm />);
+
+    await fillPasscodeStep(user);
+    await fillDetailsStep(user);
+    await user.click(screen.getByRole("button", { name: "Submit" }));
+
+    const fallback = await screen.findByTestId("signup-success");
+    expect(fallback).toHaveTextContent("newdj");
+    expect(fallback).toHaveTextContent("newdj@example.com");
+    // The DJ has no idea what failed, so say what happened, say the account
+    // is fine, and give them the one thing left to do.
+    expect(fallback).toHaveTextContent(/couldn.t sign you in automatically/i);
+    expect(fallback).toHaveTextContent(/account is ready/i);
+    expect(fallback).toHaveTextContent(
+      /sign in with the username and password you just chose/i
+    );
     // A station-signup account is provisioned with the dj role and works
     // immediately -- review happens after the fact. The confirmation must
     // not claim sign-in is blocked on review.
-    expect(screen.getByTestId("signup-success")).toHaveTextContent(/sign in with it right away/i);
+    expect(fallback).toHaveTextContent(/pending a station manager.s review/i);
+
+    await user.click(screen.getByRole("button", { name: /back to sign in/i }));
+    expectBackOutKeptTheAuthorizeBounce();
   });
 
   it("folds the passcode to the alphabet it was generated from before submitting", async () => {

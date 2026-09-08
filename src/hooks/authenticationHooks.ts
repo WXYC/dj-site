@@ -45,7 +45,7 @@ const LOGIN_EVENTS = {
   POST_LOGIN_REDIRECT: "login_post_redirect",
 } as const;
 
-type LoginMethod = "password" | "otp" | "onboarding" | "qr";
+type LoginMethod = "password" | "otp" | "onboarding" | "qr" | "station-signup";
 
 // Login no-session race: client sign-in resolves once the auth response (incl.
 // Set-Cookie) is in hand, but the next server render occasionally can't see the
@@ -779,13 +779,18 @@ export const useResetPassword = () => {
 };
 
 /**
- * Submit a station-signup passcode plus account details. Returns the
- * discriminated {@link StationSignupOutcome} rather than throwing on a
- * non-2xx response — `StationSignupForm` renders distinct UI for each
- * outcome (not available, cooldown, invalid passcode, validation/conflict,
- * success), so the caller needs the shape, not just a message.
+ * The two halves of station signup: create the account, then sign the DJ in.
+ *
+ * `handleSignup` returns the discriminated {@link StationSignupOutcome} rather
+ * than throwing on a non-2xx response — `StationSignupForm` renders distinct UI
+ * for each outcome (not available, cooldown, invalid passcode,
+ * validation/conflict, success), so the caller needs the shape, not just a
+ * message. `signInAfterSignup` is a separate call because its failure is not a
+ * signup failure: the account is already created either way.
  */
 export const useStationSignup = () => {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSignup = useCallback(
@@ -805,5 +810,69 @@ export const useStationSignup = () => {
     [],
   );
 
-  return { handleSignup, isLoading };
+  /**
+   * Sign a freshly-created DJ in with the credentials they just chose, then
+   * hand off to the shared post-auth redirect.
+   *
+   * The signup endpoint mints no session by design, so this is the ordinary
+   * password sign-in the DJ would otherwise perform by hand — the browser
+   * still holds what they typed. Pass the identifiers the server echoed off
+   * the created row, not the typed ones: better-auth normalizes on write.
+   *
+   * Resolves `false` on ANY failure and never throws or toasts an error. The
+   * account exists and works regardless, so a failure here must degrade to
+   * "sign in yourself" rather than read as "signup broke".
+   */
+  const signInAfterSignup = useCallback(
+    async ({
+      email,
+      password,
+    }: {
+      email: string;
+      password: string;
+    }): Promise<boolean> => {
+      try {
+        // Drop any prior session's cached bearer before establishing this one.
+        clearTokenCache();
+
+        const result = (await authClient.signIn.email({ email, password })) as {
+          error?: unknown;
+          data?: { user?: { id?: string; hasCompletedOnboarding?: boolean } };
+        };
+        if (result.error) {
+          return false;
+        }
+
+        toast.success("Account created. Welcome!");
+
+        // Station signup provisions the account already onboarded, but the
+        // sign-in payload is not guaranteed to carry the flag; re-read the
+        // session when it is absent so redirectAfterAuth doesn't detour a
+        // complete DJ through onboarding.
+        let user = result.data?.user;
+        if (user?.hasCompletedOnboarding !== true) {
+          const session = await authClient.getSession();
+          if (session.data?.user) {
+            user = { ...user, ...session.data.user };
+          }
+        }
+
+        // Live search params, so a DJ who reached signup from an OIDC
+        // authorize bounce resumes that round-trip instead of being dropped
+        // on the dashboard — the same contract the normal login form honours.
+        await redirectAfterAuth(
+          router,
+          user,
+          "station-signup",
+          searchParams ?? undefined,
+        );
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    [router, searchParams],
+  );
+
+  return { handleSignup, signInAfterSignup, isLoading };
 };

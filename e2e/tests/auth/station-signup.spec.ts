@@ -2,7 +2,6 @@ import path from "path";
 import { test } from "../../fixtures/station-signup.fixture";
 import { StationSignupPage } from "../../pages/station-signup.page";
 import { RosterPage } from "../../pages/roster.page";
-import { LoginPage } from "../../pages/login.page";
 import { FlowsheetPage } from "../../pages/flowsheet.page";
 import { generateEmail, generateUsername } from "../../helpers/test-data";
 import { requireStationSignupEnv } from "../../helpers/station-passcode";
@@ -66,9 +65,9 @@ test.describe("Station self-signup (rotate -> signup -> review -> approve -> wri
       storageState: STATION_MANAGER_STORAGE,
       baseURL: BASE_URL,
     });
-    // Brand-new DJ: no stored session. It signs up, then signs in with the
-    // password it just chose (station signup mints no session — the DJ logs in
-    // normally afterward).
+    // Brand-new DJ: no stored session. The signup endpoint mints none either —
+    // the form signs the DJ in from the browser with the password it just
+    // chose, so the session this context ends up holding is an ordinary one.
     const djContext = await browser.newContext({ storageState: undefined, baseURL: BASE_URL });
 
     try {
@@ -87,7 +86,7 @@ test.describe("Station self-signup (rotate -> signup -> review -> approve -> wri
       const djPage = await djContext.newPage();
       const djSignup = new StationSignupPage(djPage);
       await djSignup.signUp({ passcode: code, username, email, password: NEW_DJ_PASSWORD, realName, djName });
-      await djSignup.expectSignupSuccess(username);
+      await djSignup.expectAutoSignedIn();
 
       // --- Phase 3: confirm the account is pending in the roster (stationManager) ---
       const rosterPage = new RosterPage(managerPage);
@@ -99,11 +98,9 @@ test.describe("Station self-signup (rotate -> signup -> review -> approve -> wri
       await rosterPage.approveSelfSignup(username);
 
       // --- Phase 5: the new DJ writes the flowsheet ---
-      const login = new LoginPage(djPage);
-      await login.goto();
-      await login.login(username, NEW_DJ_PASSWORD);
-      await login.waitForRedirectToDashboard();
-
+      // Still on the session signup handed them: approval stamps a review
+      // timestamp and never touches the role or the session, so nothing here
+      // needs a fresh sign-in.
       const flowsheet = new FlowsheetPage(djPage);
       await flowsheet.goto();
       await flowsheet.waitForEntriesLoaded();
