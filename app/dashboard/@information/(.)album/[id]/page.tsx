@@ -103,7 +103,11 @@ export default function AlbumPopup() {
         layout="center"
         sx={{ maxWidth: "min(560px, 96vw)", width: "100%", p: 0, overflow: "auto" }}
       >
-        <ModalClose aria-label="Close album detail" />
+        {/* One above Joy CardContent's default z-index of 1 (it layers above
+            CardCover): the dialog's p:0 lets the album card overlap this
+            corner, and on an equal z-index the later sibling hit-tests on
+            top, leaving the button visible but unclickable. */}
+        <ModalClose aria-label="Close album detail" sx={{ zIndex: 2 }} />
         {isLoading ? (
           <AlbumLoadingCard />
         ) : isError || !data ? (
