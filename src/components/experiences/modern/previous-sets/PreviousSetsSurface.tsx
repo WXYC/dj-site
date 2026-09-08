@@ -4,6 +4,7 @@ import { Box } from "@mui/joy";
 import type { PlaylistSearchResult } from "@wxyc/shared";
 import { useScheduleWeekParams } from "@/src/hooks/scheduleWeekHooks";
 import { ScheduleWeekView } from "@/src/components/experiences/modern/schedule-week";
+import ShowView from "./ShowView";
 import SearchBar from "./Search/SearchBar";
 import Results from "./Results/Results";
 import ViewToggle from "./ViewToggle";
@@ -21,7 +22,7 @@ export default function PreviousSetsSurface({
 }: {
   initialResults?: readonly PlaylistSearchResult[];
 }) {
-  const { isWeekView, setView } = useScheduleWeekParams();
+  const { isWeekView, setView, selectedShowId } = useScheduleWeekParams();
 
   return (
     <>
@@ -29,7 +30,9 @@ export default function PreviousSetsSurface({
         <ViewToggle isWeekView={isWeekView} onChange={setView} />
       </Box>
 
-      {isWeekView ? (
+      {selectedShowId !== null ? (
+        <ShowView showId={selectedShowId} />
+      ) : isWeekView ? (
         <ScheduleWeekView />
       ) : (
         <>

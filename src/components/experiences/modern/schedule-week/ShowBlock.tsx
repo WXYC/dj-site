@@ -1,9 +1,8 @@
 "use client";
 
 import { Box, Typography } from "@mui/joy";
+import Link from "next/link";
 import type { ShowBlock as ShowBlockModel } from "@/lib/features/schedule-week/layout";
-
-export const SHOW_PANEL_ID = "schedule-week-show-entries";
 
 // Two thresholds, because the label is two lines and the column is only ~640px
 // for a whole day: an hour of airtime is ~27px, which fits one line of body-xs
@@ -16,12 +15,11 @@ const TIME_RANGE_THRESHOLD_FRACTION = 75 / (24 * 60);
 
 export default function ShowBlock({
   block,
-  isSelected,
-  onSelect,
+  href,
 }: {
   block: ShowBlockModel;
-  isSelected: boolean;
-  onSelect: (showId: number) => void;
+  /** Where this show lives. A show is a destination, not a detail row. */
+  href: string;
 }) {
   const label = [block.showName ?? block.djName ?? "Unattributed", block.timeRangeLabel]
     .filter(Boolean)
@@ -31,14 +29,8 @@ export default function ShowBlock({
 
   return (
     <Box
-      component="button"
-      type="button"
-      onClick={() => onSelect(block.showId)}
-      aria-expanded={isSelected}
-      // Only the expanded block's panel exists. Pointed at unconditionally,
-      // every collapsed block advertises control of either nothing or another
-      // show's panel.
-      aria-controls={isSelected ? SHOW_PANEL_ID : undefined}
+      component={Link}
+      href={href}
       aria-label={label}
       title={block.endIsInferred ? `${label} (no sign-off recorded)` : label}
       sx={{
@@ -53,9 +45,12 @@ export default function ShowBlock({
         textAlign: "center",
         px: 0.5,
         border: "1px solid",
-        borderColor: isSelected ? "primary.solidBg" : "neutral.outlinedBorder",
+        borderColor: "neutral.outlinedBorder",
         borderRadius: "2px",
-        bgcolor: isSelected ? "primary.softBg" : "background.level2",
+        bgcolor: "background.level2",
+        textDecoration: "none",
+        color: "inherit",
+        display: "block",
         // An unrecorded sign-off is drawn as an open edge, so a minimum-height
         // block does not read as a genuinely short show.
         borderBottomStyle: block.endIsInferred ? "dashed" : "solid",

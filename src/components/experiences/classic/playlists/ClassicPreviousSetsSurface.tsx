@@ -5,6 +5,7 @@ import { useScheduleWeekParams } from "@/src/hooks/scheduleWeekHooks";
 import { ClassicScheduleWeek } from "@/src/components/experiences/classic/schedule-week";
 import Navigation from "@/src/components/experiences/classic/Navigation";
 import PreviousSetsContainer from "./PreviousSetsContainer";
+import ShowView from "./ShowView";
 import ClassicViewToggle from "./ClassicViewToggle";
 
 /**
@@ -22,13 +23,15 @@ export default function ClassicPreviousSetsSurface({
 }: {
   initialResults?: readonly PlaylistSearchResult[];
 }) {
-  const { isWeekView, setView } = useScheduleWeekParams();
+  const { isWeekView, setView, selectedShowId } = useScheduleWeekParams();
 
   return (
     <>
       <Navigation />
       <ClassicViewToggle isWeekView={isWeekView} onChange={setView} />
-      {isWeekView ? (
+      {selectedShowId !== null ? (
+        <ShowView showId={selectedShowId} />
+      ) : isWeekView ? (
         <ClassicScheduleWeek />
       ) : (
         <PreviousSetsContainer initialResults={initialResults} />

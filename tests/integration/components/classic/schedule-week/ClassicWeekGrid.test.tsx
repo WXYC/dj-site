@@ -2,7 +2,6 @@ import { describe, it, expect, vi } from "vitest";
 import { screen } from "@testing-library/react";
 import { renderWithProviders as render } from "@/tests/helpers";
 import ClassicWeekGrid, {
-  CLASSIC_SHOW_PANEL_ID,
 } from "@/src/components/experiences/classic/schedule-week/ClassicWeekGrid";
 import { buildWeekGrid } from "@/lib/features/schedule-week/layout";
 import { startOfStationWeek } from "@/src/utilities/stationTime";
@@ -32,8 +31,7 @@ describe("ClassicWeekGrid", () => {
         columns={grid([
           show({ id: 1, start_time: at(2, 6), end_time: at(2, 9) }),
         ]).columns}
-        selectedShowId={null}
-        onSelectShow={vi.fn()}
+        hrefForShow={(id) => `?show=${id}`}
       />,
     );
     for (const className of [
@@ -51,8 +49,7 @@ describe("ClassicWeekGrid", () => {
     const { container } = render(
       <ClassicWeekGrid
         columns={grid([]).columns}
-        selectedShowId={null}
-        onSelectShow={vi.fn()}
+        hrefForShow={(id) => `?show=${id}`}
       />,
     );
     // Weekday and date share one heading element, separated by a <br>, as the
@@ -65,19 +62,19 @@ describe("ClassicWeekGrid", () => {
     expect(headings[6]).toBe("Saturday08/29/2026");
   });
 
-  it("makes each show a button that announces the panel it expands", () => {
+  it("makes each show a link to that show", () => {
     render(
       <ClassicWeekGrid
         columns={grid([
           show({ id: 7, start_time: at(3, 6), end_time: at(3, 9) }),
         ]).columns}
-        selectedShowId={7}
-        onSelectShow={vi.fn()}
+        hrefForShow={(id) => `?show=${id}`}
       />,
     );
-    const button = screen.getByRole("button", { name: /DJ Chowder/ });
-    expect(button).toHaveAttribute("aria-controls", CLASSIC_SHOW_PANEL_ID);
-    expect(button).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("link", { name: /DJ Chowder/ })).toHaveAttribute(
+      "href",
+      "?show=7",
+    );
   });
 
   it("keeps an accessible name on a block too short to hold text", () => {
@@ -88,11 +85,10 @@ describe("ClassicWeekGrid", () => {
         columns={grid([
           show({ id: 9, start_time: at(4, 6), end_time: at(4, 6.2) }),
         ]).columns}
-        selectedShowId={null}
-        onSelectShow={vi.fn()}
+        hrefForShow={(id) => `?show=${id}`}
       />,
     );
-    expect(screen.getByRole("button", { name: /DJ Chowder/ })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /DJ Chowder/ })).toBeInTheDocument();
   });
 
   it("draws a midnight-spanning show in both of its days", () => {
@@ -101,11 +97,10 @@ describe("ClassicWeekGrid", () => {
         columns={grid([
           show({ id: 42, start_time: at(1, 22), end_time: at(2, 2) }),
         ]).columns}
-        selectedShowId={null}
-        onSelectShow={vi.fn()}
+        hrefForShow={(id) => `?show=${id}`}
       />,
     );
-    expect(screen.getAllByRole("button", { name: /DJ Chowder/ })).toHaveLength(2);
+    expect(screen.getAllByRole("link", { name: /DJ Chowder/ })).toHaveLength(2);
   });
 
   it("leaves the day rule visible above the block it heads", () => {
@@ -117,8 +112,7 @@ describe("ClassicWeekGrid", () => {
         columns={grid([
           show({ id: 1, start_time: at(2, 6), end_time: at(2, 9) }),
         ]).columns}
-        selectedShowId={null}
-        onSelectShow={vi.fn()}
+        hrefForShow={(id) => `?show=${id}`}
       />,
     );
 
@@ -129,19 +123,20 @@ describe("ClassicWeekGrid", () => {
     expect(block.style.height).toContain("- 1px");
   });
 
-  it("names the panel only from the block that owns it", () => {
+  it("carries no disclosure semantics", () => {
     const { container } = render(
       <ClassicWeekGrid
         columns={grid([
           show({ id: 1, start_time: at(2, 6), end_time: at(2, 9) }),
         ]).columns}
-        selectedShowId={null}
-        onSelectShow={vi.fn()}
+        hrefForShow={(id) => `?show=${id}`}
       />,
     );
-    expect(
-      container.querySelector(".radioShowDisplayBlock"),
-    ).not.toHaveAttribute("aria-controls");
+    // These describe a panel the block no longer opens; on a link they would
+    // announce control of something that never appears.
+    const block = container.querySelector(".radioShowDisplayBlock");
+    expect(block).not.toHaveAttribute("aria-controls");
+    expect(block).not.toHaveAttribute("aria-expanded");
   });
 });
 

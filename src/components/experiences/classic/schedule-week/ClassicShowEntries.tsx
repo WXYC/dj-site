@@ -3,7 +3,6 @@
 import type { FlowsheetRangeEntry, FlowsheetRangeShow } from "@wxyc/shared";
 import { formatStationClockTime } from "@/src/utilities/stationTime";
 import { describeNonTrackEntry } from "@/lib/features/schedule-week/entryLabel";
-import { CLASSIC_SHOW_PANEL_ID } from "./ClassicWeekGrid";
 import "@/src/styles/classic/schedule-week.css";
 
 const timeOf = (entry: FlowsheetRangeEntry) =>
@@ -29,7 +28,7 @@ export default function ClassicShowEntries({
   isLoading: boolean;
 }) {
   return (
-    <div id={CLASSIC_SHOW_PANEL_ID} className="classic-schedule-week-entries">
+    <div className="classic-schedule-week-entries">
       <h3 className="bigblue">
         {show.show_name ?? show.dj_name ?? "Unattributed show"}
       </h3>

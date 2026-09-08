@@ -18,7 +18,7 @@ describe("WeekGrid", () => {
   it("heads seven day columns", () => {
     const { columns } = buildWeekGrid(response([]), WEEK, NOW);
     render(
-      <WeekGrid columns={columns} selectedShowId={null} onSelectShow={vi.fn()} />,
+      <WeekGrid columns={columns} hrefForShow={(id) => `?show=${id}`} />,
     );
     for (const day of ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]) {
       expect(screen.getByText(new RegExp(`^${day},`))).toBeInTheDocument();
@@ -41,13 +41,12 @@ describe("WeekGrid", () => {
       NOW,
     );
     render(
-      <WeekGrid columns={columns} selectedShowId={null} onSelectShow={vi.fn()} />,
+      <WeekGrid columns={columns} hrefForShow={(id) => `?show=${id}`} />,
     );
-    expect(screen.getAllByRole("button", { name: /DJ Chowder/ })).toHaveLength(2);
+    expect(screen.getAllByRole("link", { name: /DJ Chowder/ })).toHaveLength(2);
   });
 
-  it("reports the clicked show to its caller", async () => {
-    const onSelectShow = vi.fn();
+  it("links each show to its own destination", () => {
     const { columns } = buildWeekGrid(
       response([
         {
@@ -62,14 +61,9 @@ describe("WeekGrid", () => {
       WEEK,
       NOW,
     );
-    const { user } = render(
-      <WeekGrid
-        columns={columns}
-        selectedShowId={null}
-        onSelectShow={onSelectShow}
-      />,
-    );
-    await user.click(screen.getByRole("button", { name: /Backwards Music/ }));
-    expect(onSelectShow).toHaveBeenCalledWith(7);
+    render(<WeekGrid columns={columns} hrefForShow={(id) => `?show=${id}`} />);
+    expect(
+      screen.getByRole("link", { name: /Backwards Music/ }),
+    ).toHaveAttribute("href", "?show=7");
   });
 });
