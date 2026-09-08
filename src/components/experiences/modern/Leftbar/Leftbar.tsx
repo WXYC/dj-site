@@ -1,7 +1,7 @@
 import type { JSX } from "react";
 import { Authorization } from "@/lib/features/admin/types";
 import { requireAuth, getUserFromSession } from "@/lib/features/authentication/server-utils";
-import { EditCalendar, ManageAccounts } from "@mui/icons-material";
+import { EditCalendar, ManageAccounts, Sensors } from "@mui/icons-material";
 import AlbumIcon from "@mui/icons-material/Album";
 import LibraryMusicIcon from "@mui/icons-material/LibraryMusic";
 import StorageIcon from "@mui/icons-material/Storage";
@@ -43,6 +43,12 @@ export default async function Leftbar(): Promise<JSX.Element> {
             </LeftbarLink>
             <LeftbarLink path="/dashboard/admin/catalog" title="Catalog Admin">
               <LibraryMusicIcon />
+            </LeftbarLink>
+            {/* Not disabled below SM like the roster link: the whole admin
+                block is hidden at DJ and below, and both remaining tiers
+                hold the backend's flowsheet-manage grant. */}
+            <LeftbarLink path="/dashboard/admin/shows" title="Open Shows">
+              <Sensors />
             </LeftbarLink>
             <LeftbarLink
               path="/dashboard/admin/schedule"

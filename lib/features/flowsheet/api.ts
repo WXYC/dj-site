@@ -26,6 +26,7 @@ import {
   type JoinIntent,
   type JoinShowResult,
 } from "./go-live-handoff";
+import { classifyForceEndError } from "./force-end-outcome";
 import {
   FlowsheetEntry,
   FlowsheetShowBlockEntry,
@@ -35,8 +36,10 @@ import {
   FlowsheetUpdateParams,
   FlowsheetV2EntryJSON,
   FlowsheetV2PaginatedResponseJSON,
+  ForceEndShowResult,
   OnAirDJData,
   OnAirDJResponse,
+  OpenShowsResult,
   SuggestTrackResult,
   TrackDetailsResult,
 } from "./types";
@@ -74,7 +77,7 @@ function rollbackAndResyncEntries(
 export const flowsheetApi = createApi({
   reducerPath: "flowsheetApi",
   baseQuery: backendBaseQuery("flowsheet"),
-  tagTypes: ["NowPlaying", "WhoIsLive", "Flowsheet"],
+  tagTypes: ["NowPlaying", "WhoIsLive", "Flowsheet", "OpenShows"],
   endpoints: (builder) => ({
     getNowPlaying: builder.query<FlowsheetEntry | null, void>({
       query: () => ({
@@ -498,6 +501,70 @@ export const flowsheetApi = createApi({
         }
       },
     }),
+    getOpenShows: builder.query<
+      OpenShowsResult,
+      { windowHours?: number; limit?: number }
+    >({
+      // `params` drops undefined values, which is exactly what "omit to get
+      // the backend's default window" needs.
+      query: ({ windowHours, limit }) => ({
+        url: "/open-shows",
+        params: { window_hours: windowHours, limit },
+      }),
+      providesTags: ["OpenShows"],
+      // Opted out of the shared non-JSON soft-fail: this list exists so an
+      // operator can see what needs closing, and a backend outage rendered as
+      // "no open shows" reports the cleanup as done. A failed read must never
+      // render as the empty state.
+      extraOptions: { surfaceNonJsonAsError: true },
+    }),
+    forceEndShow: builder.mutation<
+      ForceEndShowResult,
+      { showId: number; force?: boolean }
+    >({
+      // `?force=true` is the server's consent gate for closing the show every
+      // on-air read resolves to (`max(shows.id)`). The caller decides from the
+      // row's own `is_current`; sending it unconditionally would waive the
+      // gate on exactly the stale-snapshot case it exists for.
+      query: ({ showId, force }) => ({
+        url: `/shows/${showId}/force-end`,
+        method: "POST",
+        params: force ? { force: "true" } : undefined,
+      }),
+      // Wrapped for the same reason as deleteAlbum: the dialog states every
+      // outcome itself, and the shared rtk-query-error-logger toasting
+      // `data.message` a second time would double an already-precise sentence
+      // with the server's curl instruction. (The middleware still files its
+      // generic Sentry event — accepted; see force-end-outcome.ts.)
+      transformErrorResponse: (response) => ({ forceEndShowError: response }),
+      // RTK invalidates on rejection too, and the transform above has already
+      // run by the time this sees `error` — classifyForceEndError owns the
+      // unwrap, so a refusal's status is actually read rather than found
+      // undefined and misfiled into the cautious branch.
+      invalidatesTags: (_result, error) => {
+        if (!error) {
+          // Closing the current show changes who is on air, what is playing,
+          // and the entries feed's newest block.
+          return ["OpenShows", "WhoIsLive", "NowPlaying", "Flowsheet"];
+        }
+        switch (classifyForceEndError(error)) {
+          case "already_ended":
+            // Someone else closed it; only this list is stale.
+            return ["OpenShows"];
+          case "now_on_air":
+          case "refused":
+            // The server answered without writing — nothing upstream moved,
+            // and refetching the live feed here would churn every screen
+            // bound to it over a no-op.
+            return [];
+          case "indeterminate":
+            // The close may have committed on a response the client never
+            // saw; skipping invalidation would leave every surface asserting
+            // a show that is gone.
+            return ["OpenShows", "WhoIsLive", "NowPlaying", "Flowsheet"];
+        }
+      },
+    }),
   }),
 });
 
@@ -514,4 +581,6 @@ export const {
   useSuggestArtistsQuery,
   useSuggestTracksQuery,
   useGetTrackDetailsQuery,
+  useGetOpenShowsQuery,
+  useForceEndShowMutation,
 } = flowsheetApi;

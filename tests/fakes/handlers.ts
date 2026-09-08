@@ -40,6 +40,16 @@ export const handlers = [
     return HttpResponse.json([]);
   }),
 
+  // The open-shows table reads total_in_window for its truncation notice, so
+  // the default fake carries the full object shape, never a bare [].
+  http.get(`${BACKEND_URL}/flowsheet/open-shows`, () => {
+    return HttpResponse.json({
+      shows: [],
+      total_in_window: 0,
+      older_open_show_count: 0,
+    });
+  }),
+
   // Playlist search API handlers
   http.get(`${BACKEND_URL}/flowsheet/playlist`, () => {
     return HttpResponse.json({
