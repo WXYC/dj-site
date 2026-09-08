@@ -37,7 +37,10 @@ Established by the 2026-07 DevX refactor (retrospective:
   never leak past the adapter (`lib/posthog.ts` is the pattern; `lib/sentry.ts`
   follows it, and `lib/error-reporting.ts` fans every error out to both sinks —
   see `docs/adr/0008`). Optional-service failure must never impair an unrelated
-  workflow.
+  workflow. This is about *optional* services, not Backend-Service itself: a
+  Backend-Service read has its own, narrower failure contracts, and one of them
+  (a write precondition) fails closed rather than open — see "Backend-read
+  failure contracts" in `docs/architecture.md`.
 - **One authoritative owner per value.** RTK Query owns Backend-Service server
   state; Redux only for genuinely shared client-owned state; local state for
   local interaction; URL state when shareability demands it. Don't mirror query
