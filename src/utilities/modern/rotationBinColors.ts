@@ -1,5 +1,8 @@
 import type { Rotation } from "@/lib/features/rotation/types";
-import type { RotationBinTokens } from "@/lib/features/experiences/modern/themes/types";
+import type {
+  RotationBinTokens,
+  ThemeSchemeInput,
+} from "@/lib/features/experiences/modern/themes/types";
 
 /**
  * Rotation bin metadata (ids + display labels).
@@ -22,7 +25,7 @@ export const ROTATION_BIN_LABELS: Record<Rotation, string> = {
 /** Bin letter -> the theme's `rotation` palette slot. */
 export const ROTATION_BIN_PALETTE_SLOT: Record<
   Rotation,
-  "heavy" | "medium" | "light" | "singles"
+  keyof ThemeSchemeInput["rotation"]
 > = {
   H: "heavy",
   M: "medium",

@@ -1,5 +1,3 @@
-import type { Rotation } from "@/lib/features/rotation/types";
-
 /**
  * Modern theme identifiers.
  *
@@ -109,14 +107,3 @@ export interface ThemeDefinition {
   preview?: { light: string[]; dark: string[] };
   schemes: { light: ThemeSchemeInput; dark: ThemeSchemeInput };
 }
-
-/** Maps a `Rotation` bin id to the `rotation` token group key. */
-export const ROTATION_BIN_KEY: Record<
-  Rotation,
-  keyof ThemeSchemeInput["rotation"]
-> = {
-  H: "heavy",
-  M: "medium",
-  L: "light",
-  S: "singles",
-};
