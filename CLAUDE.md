@@ -6,7 +6,7 @@ DJ flowsheet and card catalog frontend for WXYC 89.3 FM. React-based revision of
 
 CLAUDE.md is a router for the always-loaded reference card. Topic depth lives in `docs/`:
 
-- **[`docs/architecture.md`](docs/architecture.md)** — Tech stack (Next.js 16 / React 18 / MUI Joy UI / Redux Toolkit / better-auth), project structure (app router + parallel routes, `src/components/experiences/{classic,modern}`, `lib/features/*` feature layout), code conventions (path alias, typed hooks, experience registry, onboarding completeness flag, admin org resolution)
+- **[`docs/architecture.md`](docs/architecture.md)** — Tech stack (Next.js 16 / React 18 / MUI Joy UI / Redux Toolkit / better-auth), project structure (app router + parallel routes, `src/components/experiences/{classic,modern}`, `lib/features/*` feature layout), code conventions (path alias, typed hooks, experience registry, onboarding completeness flag, admin org resolution), backend-read failure contracts (the three per-call-site failure modes and the gated-read placement rule)
 - **[`docs/development.md`](docs/development.md)** — Local-dev prerequisites (Backend-Service running), npm script table (`dev`, `build`, `build:opennext`, `test`, `test:e2e`, …), local test credentials
 - **[`docs/env-vars.md`](docs/env-vars.md)** — Full env-var reference (`NEXT_PUBLIC_*`, `AUTH_REWRITE_URL`) + feature-flag catalog (`NEXT_PUBLIC_CATALOG_TRACK_SEARCH_UI_ENABLED`)
 - **[`docs/testing.md`](docs/testing.md)** — Vitest setup, `tests/helpers/` factory functions, test constants (`TEST_ENTITY_IDS`, `TEST_SEARCH_STRINGS`), time utilities, the slice / API / component / conversion harnesses, MSW fakes (`tests/fakes/`), test organization, conventions
