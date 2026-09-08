@@ -55,11 +55,25 @@ export function loginHrefWithSignup(params: MaybeParams): string {
 }
 
 /**
+ * The current params minus `signup`, as params rather than an href.
+ *
+ * For handing the live query to something that will navigate on the DJ's
+ * behalf once signup is finished. `signup` must not survive that handoff: the
+ * classic slot switcher keys purely on it, so a `/login` navigation that still
+ * carries it drops the DJ back onto a blank station-signup form holding an
+ * account they can no longer create; and it is dj-site's own routing key, so
+ * an OIDC authorize resume has no business forwarding it to the relying party.
+ */
+export function paramsWithoutSignup(params: MaybeParams): URLSearchParams {
+  const next = clone(params);
+  next.delete(SIGNUP_PARAM);
+  return next;
+}
+
+/**
  * The href to back out of station signup: the current params minus `signup`.
  * Falls back to a bare `/login` only when nothing else was in the query.
  */
 export function loginHrefWithoutSignup(params: MaybeParams): string {
-  const next = clone(params);
-  next.delete(SIGNUP_PARAM);
-  return toLoginHref(next);
+  return toLoginHref(paramsWithoutSignup(params));
 }

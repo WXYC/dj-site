@@ -50,6 +50,7 @@ export class StationSignupPage {
   readonly realNameInput: Locator;
   readonly djNameInput: Locator;
   readonly detailsSubmitButton: Locator;
+  readonly signingInAlert: Locator;
   readonly successAlert: Locator;
   readonly detailsError: Locator;
   readonly unavailableAlert: Locator;
@@ -76,8 +77,10 @@ export class StationSignupPage {
     this.realNameInput = page.locator('input[name="realName"]');
     this.djNameInput = page.locator('input[name="djName"]');
     this.detailsSubmitButton = page.locator('button[type="submit"]:has-text("Submit")');
-    // Reached only when the automatic post-signup sign-in fails; the account
-    // exists either way, so this render offers the manual sign-in path.
+    // The two post-201 renders. `signing-in` holds while the automatic
+    // sign-in is in flight; `success` is where a failed one lands, offering
+    // the manual path — the account exists either way.
+    this.signingInAlert = page.getByTestId("signup-signing-in");
     this.successAlert = page.getByTestId("signup-success");
     this.detailsError = page.getByTestId("signup-details-error");
     this.unavailableAlert = page.getByTestId("signup-unavailable");
@@ -214,24 +217,31 @@ export class StationSignupPage {
   }
 
   /**
-   * Assert the happy path: the form named the created account, then signed the
-   * DJ in with the credentials they just chose and forwarded them into the
-   * site. The signup endpoint mints no session, so landing on the dashboard is
-   * proof the password the DJ picked is the one that was stored.
+   * Assert the happy path: signup signed the DJ in with the credentials they
+   * just chose and forwarded them into the site. The signup endpoint mints no
+   * session, so landing on the dashboard is proof the password the DJ picked
+   * is the one that was stored.
    *
-   * The pending render can be gone by the time this runs — a fast sign-in
-   * navigates out from under it — so only the destination is required.
+   * The destination is the only thing asserted. The pending render is not:
+   * a fast sign-in navigates out from under it, so requiring it would make
+   * this flaky on exactly the runs where the feature works best.
+   *
+   * Both ways this can go wrong have their own render, and neither should
+   * surface as a bare URL timeout — the point of failing here is to say which
+   * one happened.
    */
   async expectAutoSignedIn(): Promise<void> {
     try {
       await this.page.waitForURL("**/dashboard/**", { timeout: 30000 });
     } catch (error) {
-      // A failed automatic sign-in degrades to the manual screen rather than
-      // navigating anywhere, so name that outcome instead of reporting an
-      // opaque URL timeout.
       if (await this.successAlert.count()) {
         throw new Error(
           "signup did not sign the DJ in: it fell back to the manual sign-in screen"
+        );
+      }
+      if (await this.signingInAlert.count()) {
+        throw new Error(
+          "signup never left its signing-in state: the sign-in neither navigated nor fell back"
         );
       }
       throw error;

@@ -1505,10 +1505,12 @@ describe("authenticationHooks", () => {
         expect(mockPush).not.toHaveBeenCalledWith("/login?incomplete=true");
       });
 
-      it("resumes a live OIDC authorize bounce rather than forcing the dashboard", async () => {
-        const search =
-          "signup=1&client_id=wxyc-relying-party&response_type=code&redirect_uri=https%3A%2F%2Frp.example%2Fcb";
-        mockSearchParams.mockReturnValue(new URLSearchParams(search));
+      it("resumes a live OIDC authorize bounce rather than forcing the dashboard, without carrying the detour's own routing key into it", async () => {
+        const authorizeQuery =
+          "client_id=wxyc-relying-party&response_type=code&redirect_uri=https%3A%2F%2Frp.example%2Fcb";
+        mockSearchParams.mockReturnValue(
+          new URLSearchParams(`signup=1&${authorizeQuery}`)
+        );
         mockSignInEmail.mockResolvedValue({
           data: { user: { id: "user-1", hasCompletedOnboarding: true } },
         });
@@ -1520,10 +1522,63 @@ describe("authenticationHooks", () => {
           await result.current.signInAfterSignup(credentials);
         });
 
+        // `signup` is dj-site's own slot-routing key, not part of the
+        // authorize round-trip; the relying party has no business seeing it.
         expect(mockLocationAssign).toHaveBeenCalledWith(
-          `${window.location.origin}/auth/oauth2/authorize?${search}`
+          `${window.location.origin}/auth/oauth2/authorize?${authorizeQuery}`
         );
         expect(mockPush).not.toHaveBeenCalled();
+      });
+
+      it("still navigates when the post-session user read fails, instead of reporting a sign-in failure", async () => {
+        // The session exists the moment signIn.email resolves. Anything that
+        // fails after that is not a failed sign-in, and must not be reported
+        // as one: the DJ would be told to re-enter credentials they no longer
+        // need, having already been toasted a welcome.
+        mockSignInEmail.mockResolvedValue({ data: { user: { id: "user-1" } } });
+        mockGetSession.mockRejectedValueOnce(new Error("read failed"));
+
+        const { useStationSignup } = await import("@/src/hooks/authenticationHooks");
+        const { result } = renderHook(() => useStationSignup());
+
+        let signedIn: boolean | undefined;
+        await act(async () => {
+          signedIn = await result.current.signInAfterSignup(credentials);
+        });
+
+        expect(signedIn).toBe(true);
+        // A payload that merely omits the flag is not evidence of an
+        // incomplete account, so a DJ who just authenticated is not pushed
+        // into onboarding — the server stays the authority.
+        expect(mockPush).toHaveBeenCalledWith("/dashboard/flowsheet");
+        expect(mockPush).not.toHaveBeenCalledWith("/login?incomplete=true");
+      });
+
+      it("reports that it did not navigate when the session never becomes visible, so the form is not left on a spinner", async () => {
+        vi.useFakeTimers();
+        mockSignInEmail.mockResolvedValue({
+          data: { user: { id: "user-1", hasCompletedOnboarding: true } },
+        });
+        // The confirm gate never sees the session, so the post-auth redirect
+        // refreshes instead of navigating. Signing in "successfully" without
+        // going anywhere is the one outcome that would strand this form on
+        // its pending render forever.
+        mockGetSession.mockResolvedValue({ data: null });
+
+        const { useStationSignup } = await import("@/src/hooks/authenticationHooks");
+        const { result } = renderHook(() => useStationSignup());
+
+        let signedIn: boolean | undefined;
+        await act(async () => {
+          const pending = result.current.signInAfterSignup(credentials);
+          await vi.runAllTimersAsync();
+          signedIn = await pending;
+        });
+
+        expect(signedIn).toBe(false);
+        expect(mockRefresh).toHaveBeenCalled();
+        expect(mockPush).not.toHaveBeenCalled();
+        vi.useRealTimers();
       });
 
       it("reports a refused sign-in instead of navigating, so the caller can offer the manual path", async () => {

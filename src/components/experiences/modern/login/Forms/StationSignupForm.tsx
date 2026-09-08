@@ -17,6 +17,7 @@ import {
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { loginHrefWithoutSignup } from "@/src/utilities/loginHref";
+import { savePreferredLoginMethod } from "@/lib/features/application/login-method-storage";
 import {
   MAX_USERNAME_LENGTH,
   MIN_USERNAME_LENGTH,
@@ -57,8 +58,10 @@ const emptyDetails: Details = {
  * The DJ-facing station-signup form: a passcode gate, then account details,
  * submitted together as a single POST (there is no separate passcode-verify
  * call). Reached only from a link on the normal login form — never from the
- * method picker, and never written to `login-method-storage`, since this is
- * not a sign-in method a returning DJ should be nudged toward.
+ * method picker. Signup itself is never written to `login-method-storage` —
+ * it is not a sign-in method, and a returning DJ must not be nudged toward a
+ * second account — but a completed signup does record `password`, which is
+ * the credential the DJ now holds.
  *
  * A 201 leads straight into the site: the endpoint mints no session, so the
  * form signs the DJ in with the credentials still in hand rather than making
@@ -90,19 +93,32 @@ export default function StationSignupForm() {
     { username: string; email: string } | undefined
   >();
 
-  const backToSignIn = (event: React.MouseEvent<HTMLButtonElement>) => {
-    event.preventDefault();
-    dispatch(applicationSlice.actions.setAuthStage("otp-email"));
-    // Modern picks its form from authFlow.stage (the dispatch above is enough
-    // there), but classic reaches this component through `?signup=1` in
-    // ClassicLoginSlotSwitcher, which never reads authFlow.stage — without
-    // clearing the URL a DJ who clicks this stays stuck on the signup slot.
-    // Clear only `signup`: /login is also where an OIDC authorize bounce lands,
-    // and useLogin recomputes the resume target from the live params at
-    // sign-in time, so replacing with a bare path would strand the relying
-    // party without its code.
-    router.replace(loginHrefWithoutSignup(searchParams));
-  };
+  /**
+   * Leave the signup detour for the normal login form.
+   *
+   * `stage` is the form the DJ should land on. Before an account exists that
+   * is the site default; once one does, it is `password`, because the only
+   * credential this flow hands a DJ is the password they just chose — sending
+   * them to the email-code form would contradict the sentence they just read.
+   */
+  const leaveSignup =
+    (stage: "otp-email" | "password") =>
+    (event: React.MouseEvent<HTMLButtonElement>) => {
+      event.preventDefault();
+      dispatch(applicationSlice.actions.setAuthStage(stage));
+      // Modern picks its form from authFlow.stage (the dispatch above is enough
+      // there), but classic reaches this component through `?signup=1` in
+      // ClassicLoginSlotSwitcher, which never reads authFlow.stage — without
+      // clearing the URL a DJ who clicks this stays stuck on the signup slot.
+      // Clear only `signup`: /login is also where an OIDC authorize bounce lands,
+      // and useLogin recomputes the resume target from the live params at
+      // sign-in time, so replacing with a bare path would strand the relying
+      // party without its code.
+      router.replace(loginHrefWithoutSignup(searchParams));
+    };
+
+  const backToSignIn = leaveSignup("otp-email");
+  const backToPasswordSignIn = leaveSignup("password");
 
   const handlePasscodeSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -135,6 +151,13 @@ export default function StationSignupForm() {
 
     if (outcome.status === "success") {
       setCreatedAccount({ username: outcome.username, email: outcome.email });
+      // The account now exists and its only credential is a password, so that
+      // is the form this browser should offer next time — whether the DJ gets
+      // there through the fallback below or comes back weeks later. This is
+      // not the entry link's forbidden write: what is remembered is a sign-in
+      // method the DJ now holds, never `signup`, which is not a storable
+      // method and would nudge a returning DJ toward a second account.
+      savePreferredLoginMethod("password");
       setPhase("signing-in");
       // The created row is the authority on this account's identifiers —
       // better-auth normalizes usernames and emails on write — so sign in
@@ -220,12 +243,10 @@ export default function StationSignupForm() {
           Account created for <strong>{createdAccount.username}</strong>{" "}
           ({createdAccount.email}). Signing you in&hellip;
         </Alert>
-        {/* The escape hatch matters here specifically: classic renders this
-            form purely from `?signup=1`, so if the post-auth redirect takes
-            its refresh branch (session not yet visible server-side) nothing
-            unmounts this render on its own. */}
+        {/* A second way out while the sign-in is still in flight: the DJ may
+            simply be tired of waiting, and the account already exists. */}
         <Typography level="body-sm" sx={{ mt: 2, textAlign: "center" }}>
-          <Link component="button" type="button" onClick={backToSignIn}>
+          <Link component="button" type="button" onClick={backToPasswordSignIn}>
             Back to sign in
           </Link>
         </Typography>
@@ -247,7 +268,7 @@ export default function StationSignupForm() {
           review.
         </Alert>
         <Typography level="body-sm" sx={{ mt: 2, textAlign: "center" }}>
-          <Link component="button" type="button" onClick={backToSignIn}>
+          <Link component="button" type="button" onClick={backToPasswordSignIn}>
             Back to sign in
           </Link>
         </Typography>

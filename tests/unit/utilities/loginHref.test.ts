@@ -3,6 +3,7 @@ import {
   hasSignupParam,
   loginHrefWithSignup,
   loginHrefWithoutSignup,
+  paramsWithoutSignup,
 } from "@/src/utilities/loginHref";
 
 // The query a Better Auth OIDC `authorize` bounce parks on /login.
@@ -89,5 +90,31 @@ describe("hasSignupParam", () => {
   it("is false without a router context", () => {
     expect(hasSignupParam(null)).toBe(false);
     expect(hasSignupParam(undefined)).toBe(false);
+  });
+});
+
+describe("paramsWithoutSignup", () => {
+  it("drops only signup and keeps a live authorize bounce intact", () => {
+    const params = paramsWithoutSignup(
+      new URLSearchParams(`signup=1&${AUTHORIZE_QUERY}`)
+    );
+
+    expect(params.get("signup")).toBeNull();
+    expect(params.toString()).toBe(AUTHORIZE_QUERY);
+  });
+
+  it("returns empty params rather than null when there was no query", () => {
+    expect(paramsWithoutSignup(null).toString()).toBe("");
+    expect(paramsWithoutSignup(undefined).toString()).toBe("");
+  });
+
+  it("does not alias the params it was handed", () => {
+    // Callers pass the live `useSearchParams()` value; deleting a key out of
+    // the caller's own object would change what the page routes on.
+    const original = new URLSearchParams("signup=1&bounced=no-session");
+
+    paramsWithoutSignup(original);
+
+    expect(original.get("signup")).toBe("1");
   });
 });

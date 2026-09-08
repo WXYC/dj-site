@@ -36,6 +36,7 @@ import { toast } from "sonner";
 import { resetApplication } from "./applicationHooks";
 import { throwIfBetterAuthError } from "@/src/utilities/throwIfBetterAuthError";
 import { getOidcRedirectTarget } from "@/src/utilities/oidcRedirectTarget";
+import { paramsWithoutSignup } from "@/src/utilities/loginHref";
 import { useAsyncAction } from "./useAsyncAction";
 import { safeCapture } from "@/lib/posthog";
 
@@ -106,13 +107,19 @@ async function confirmSessionVisible(): Promise<boolean> {
  * trip the `SessionEndedNotice` toast, contradicting the "Login successful" just
  * shown. A refresh lets the `/login` layout arbitrate — forward if the session
  * became visible, re-show the form if not. Never strands the DJ.
+ *
+ * Resolves whether it actually navigated. Only the refresh branch resolves
+ * `false`, and only a caller that renders its own post-auth state needs to
+ * look: a form that holds a spinner up until the route changes has to know
+ * when the route is not going to change. Callers that render nothing after
+ * handing off can ignore the value, since `/login` arbitrates for them.
  */
 async function redirectAfterAuth(
   router: { push: (href: string) => void; refresh: () => void },
   user: { id?: string; hasCompletedOnboarding?: boolean } | undefined,
   method: LoginMethod,
   oidcParams?: URLSearchParams | ReadonlyURLSearchParams,
-): Promise<void> {
+): Promise<boolean> {
   const dashboardHome = String(
     process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE || DEFAULT_DASHBOARD_HOME_PAGE,
   );
@@ -143,7 +150,7 @@ async function redirectAfterAuth(
 
   if (!incomplete && !sessionConfirmed) {
     router.refresh();
-    return;
+    return false;
   }
 
   if (!incomplete && oidcTarget) {
@@ -153,7 +160,7 @@ async function redirectAfterAuth(
     // `/oauth2/authorize`, burning the one-time OIDC code before the user leaves.
     // `window.location.assign` leaves the SPA cleanly, so `refresh()` is moot.
     window.location.assign(oidcTarget);
-    return;
+    return true;
   }
 
   if (incomplete) {
@@ -168,6 +175,7 @@ async function redirectAfterAuth(
     router.push(dashboardHome);
   }
   router.refresh();
+  return true;
 }
 
 export const useLogin = () => {
@@ -819,9 +827,12 @@ export const useStationSignup = () => {
    * still holds what they typed. Pass the identifiers the server echoed off
    * the created row, not the typed ones: better-auth normalizes on write.
    *
-   * Resolves `false` on ANY failure and never throws or toasts an error. The
-   * account exists and works regardless, so a failure here must degrade to
-   * "sign in yourself" rather than read as "signup broke".
+   * Resolves `false` whenever the DJ is not carried into the site, and never
+   * throws or toasts an error. The account exists and works regardless, so
+   * every failure here must degrade to "sign in yourself" rather than read as
+   * "signup broke" — and, just as importantly, must never resolve `true`
+   * without a navigation, which would leave the caller on a pending render
+   * with nothing coming.
    */
   const signInAfterSignup = useCallback(
     async ({
@@ -831,43 +842,66 @@ export const useStationSignup = () => {
       email: string;
       password: string;
     }): Promise<boolean> => {
+      // Scoped tightly to the sign-in itself: past this call the session
+      // exists, and a later failure is not a failed sign-in. Reporting one
+      // would send a DJ who is already authenticated back to re-enter
+      // credentials they no longer need.
+      let result: {
+        error?: unknown;
+        data?: { user?: { id?: string; hasCompletedOnboarding?: boolean } } | null;
+      };
       try {
         // Drop any prior session's cached bearer before establishing this one.
         clearTokenCache();
+        result = (await authClient.signIn.email({ email, password })) as typeof result;
+      } catch {
+        return false;
+      }
+      if (result.error) {
+        return false;
+      }
 
-        const result = (await authClient.signIn.email({ email, password })) as {
-          error?: unknown;
-          data?: { user?: { id?: string; hasCompletedOnboarding?: boolean } };
-        };
-        if (result.error) {
-          return false;
+      toast.success("Account created. Welcome!");
+
+      // Station signup provisions the account already onboarded, but the
+      // sign-in payload is not guaranteed to carry the flag. Re-read when it
+      // is absent, forcing a server read: the cookie-cached session can be a
+      // summary that omits custom user fields, which is precisely the payload
+      // that would route a complete DJ into onboarding.
+      let user = result.data?.user;
+      if (user?.hasCompletedOnboarding !== true) {
+        const session = await authClient
+          .getSession({ query: { disableCookieCache: true } })
+          .catch(() => null);
+        if (session?.data?.user) {
+          user = { ...user, ...session.data.user };
+        } else {
+          // A payload that merely OMITS the flag is not evidence of an
+          // incomplete account. Hand redirectAfterAuth "unknown" rather than
+          // "incomplete" so a DJ who just authenticated is sent into the site
+          // and the server's own requireAuth stays the authority.
+          user = undefined;
         }
+      }
 
-        toast.success("Account created. Welcome!");
+      // Live params, so a DJ who reached signup from an OIDC authorize bounce
+      // resumes that round-trip — the same contract the normal login form
+      // honours — minus `signup`, which is this detour's own routing key and
+      // belongs to neither the relying party nor any /login navigation made on
+      // the DJ's behalf.
+      const resumeParams = paramsWithoutSignup(searchParams);
 
-        // Station signup provisions the account already onboarded, but the
-        // sign-in payload is not guaranteed to carry the flag; re-read the
-        // session when it is absent so redirectAfterAuth doesn't detour a
-        // complete DJ through onboarding.
-        let user = result.data?.user;
-        if (user?.hasCompletedOnboarding !== true) {
-          const session = await authClient.getSession();
-          if (session.data?.user) {
-            user = { ...user, ...session.data.user };
-          }
-        }
-
-        // Live search params, so a DJ who reached signup from an OIDC
-        // authorize bounce resumes that round-trip instead of being dropped
-        // on the dashboard — the same contract the normal login form honours.
-        await redirectAfterAuth(
+      try {
+        return await redirectAfterAuth(
           router,
           user,
           "station-signup",
-          searchParams ?? undefined,
+          resumeParams,
         );
-        return true;
       } catch {
+        // The session exists but nothing carried the DJ anywhere. Reporting
+        // success here would hold the caller's spinner up forever, so report
+        // the manual path instead: it is the only outcome that still moves.
         return false;
       }
     },
