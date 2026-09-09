@@ -10,11 +10,11 @@ import {
 import { ClickAwayListener } from "@mui/material";
 import Popper from "@mui/material/Popper";
 import { ListDivider, ListSubheader, MenuItem, MenuList } from "@mui/joy";
-import type { Rotation } from "@/lib/features/rotation/types";
 import {
   ROTATION_BINS,
   ROTATION_BIN_LABELS,
-} from "@/src/utilities/modern/rotationBinColors";
+  type Rotation,
+} from "@/lib/features/rotation/types";
 import {
   useAddRotationEntryMutation,
   useKillRotationEntryMutation,

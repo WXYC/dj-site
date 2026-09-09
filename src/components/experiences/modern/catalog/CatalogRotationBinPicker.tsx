@@ -1,9 +1,11 @@
 "use client";
 
-import type { Rotation } from "@/lib/features/rotation/types";
 import {
   ROTATION_BINS,
   ROTATION_BIN_LABELS,
+  type Rotation,
+} from "@/lib/features/rotation/types";
+import {
   ROTATION_BIN_PALETTE_SLOT,
   rotationBinSurfaceStyle,
 } from "@/src/utilities/modern/rotationBinColors";
