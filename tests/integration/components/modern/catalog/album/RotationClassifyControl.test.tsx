@@ -7,6 +7,8 @@ import {
   createTestArtist,
   server,
   TEST_BACKEND_URL,
+  fakeRotationEndpoints,
+  fakeRotationEndpointsWithGatedKill,
 } from "@/tests/helpers";
 import RotationClassifyControl from "@/src/components/experiences/modern/catalog/album/RotationClassifyControl";
 
@@ -63,7 +65,6 @@ const JUANA_MOLINA_ROTATION_ID = 900;
 // re-binned-without-a-kill case `getRotationFromDB`'s DISTINCT ON surfaces
 // as more than one row.
 const JUANA_MOLINA_SECOND_ROTATION_ID = 901;
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 function sessionWithRole() {
   return {
@@ -147,119 +148,7 @@ const juanaMolinaRotationRow = (rotationBin = "H") => ({
 
 type RotationRow = ReturnType<typeof juanaMolinaRotationRow>;
 
-/**
- * Stateful stand-in for the rotation endpoints. The list is the source of
- * truth an add appends to and a kill removes from, so the control's state has
- * to travel back through `GET /library/rotation` exactly as it does in
- * production rather than being handed to it directly.
- *
- * The PATCH arm mirrors the backend's `isISODate` gate, which rejects
- * anything that isn't `YYYY-MM-DD` — a serialized JS `Date` included.
- */
-function fakeRotationEndpoints(initial: RotationRow[] = []) {
-  let rows = [...initial];
-  const received: { add?: unknown; kill?: unknown } = {};
-  let listRequests = 0;
-
-  server.use(
-    http.get(`${TEST_BACKEND_URL}/library/rotation`, () => {
-      listRequests += 1;
-      return HttpResponse.json(rows);
-    }),
-    http.post(`${TEST_BACKEND_URL}/library/rotation`, async ({ request }) => {
-      const body = (await request.json()) as {
-        album_id: number;
-        rotation_bin: string;
-      };
-      received.add = body;
-      rows = [...rows, juanaMolinaRotationRow(body.rotation_bin)];
-      return HttpResponse.json(
-        {
-          id: JUANA_MOLINA_ROTATION_ID,
-          album_id: body.album_id,
-          rotation_bin: body.rotation_bin,
-          add_date: "2026-08-05",
-          kill_date: null,
-        },
-        { status: 201 },
-      );
-    }),
-    http.patch(`${TEST_BACKEND_URL}/library/rotation`, async ({ request }) => {
-      const body = (await request.json()) as {
-        rotation_id: number;
-        kill_date?: string;
-      };
-      received.kill = body;
-      if (body.kill_date !== undefined && !ISO_DATE.test(body.kill_date)) {
-        return HttpResponse.json(
-          {
-            error:
-              "Bad Request, Incorrect Date Format: kill_date should be of form YYYY-MM-DD",
-          },
-          { status: 400 },
-        );
-      }
-      const killed = rows.find((row) => row.rotation_id === body.rotation_id);
-      rows = rows.filter((row) => row.rotation_id !== body.rotation_id);
-      return HttpResponse.json({
-        id: body.rotation_id,
-        album_id: killed?.id ?? JUANA_MOLINA_ALBUM_ID,
-        rotation_bin: killed?.rotation_bin ?? "H",
-        add_date: "2026-08-01",
-        kill_date: body.kill_date ?? "2026-08-05",
-      });
-    }),
-  );
-
-  return {
-    addBody: () => received.add,
-    killBody: () => received.kill,
-    listRequests: () => listRequests,
-  };
-}
-
-/**
- * Same GET/PATCH shape as `fakeRotationEndpoints`, but each PATCH resolves
- * only once the test releases it — lets a test assert on in-flight state
- * instead of racing a same-tick MSW response. Gated per `rotation_id` so two
- * kills issued back-to-back can be released independently; `releaseKill()`
- * with no argument releases every outstanding kill at once.
- */
-function fakeRotationEndpointsWithGatedKill(initial: RotationRow[] = []) {
-  let rows = [...initial];
-  const pendingResolvers = new Map<number, () => void>();
-
-  server.use(
-    http.get(`${TEST_BACKEND_URL}/library/rotation`, () => HttpResponse.json(rows)),
-    http.patch(`${TEST_BACKEND_URL}/library/rotation`, async ({ request }) => {
-      const body = (await request.json()) as { rotation_id: number };
-      await new Promise<void>((resolve) => {
-        pendingResolvers.set(body.rotation_id, resolve);
-      });
-      const killed = rows.find((row) => row.rotation_id === body.rotation_id);
-      rows = rows.filter((row) => row.rotation_id !== body.rotation_id);
-      return HttpResponse.json({
-        id: body.rotation_id,
-        album_id: killed?.id ?? JUANA_MOLINA_ALBUM_ID,
-        rotation_bin: killed?.rotation_bin ?? "H",
-        add_date: "2026-08-01",
-        kill_date: "2026-08-05",
-      });
-    }),
-  );
-
-  return {
-    releaseKill: (rotationId?: number) => {
-      if (rotationId === undefined) {
-        pendingResolvers.forEach((resolve) => resolve());
-        pendingResolvers.clear();
-        return;
-      }
-      pendingResolvers.get(rotationId)?.();
-      pendingResolvers.delete(rotationId);
-    },
-  };
-}
+const buildJuanaMolinaRow = (rotationBin: string) => juanaMolinaRotationRow(rotationBin);
 
 /** Sources the album the way the panel does, from `GET /library/info`. */
 function AlbumPanelSection({ albumId }: { albumId: number }) {
@@ -275,7 +164,9 @@ describe("RotationClassifyControl", () => {
 
   describe("permission gating", () => {
     it("renders nothing and fetches no rotation list for a DJ", async () => {
-      const backend = fakeRotationEndpoints([juanaMolinaRotationRow()]);
+      const backend = fakeRotationEndpoints([juanaMolinaRotationRow()], {
+        buildRow: buildJuanaMolinaRow,
+      });
       mockFetchOrgRole.mockResolvedValue("dj");
       mockUseSession.mockReturnValue(sessionWithRole());
       renderWithProviders(inModernTheme(<RotationClassifyControl album={juanaMolinaAlbum()} />));
@@ -290,7 +181,7 @@ describe("RotationClassifyControl", () => {
     });
 
     it("renders the bin picker for a Music Director", async () => {
-      const backend = fakeRotationEndpoints();
+      const backend = fakeRotationEndpoints([], { buildRow: buildJuanaMolinaRow });
       mockFetchOrgRole.mockResolvedValue("musicDirector");
       mockUseSession.mockReturnValue(sessionWithRole());
       renderWithProviders(inModernTheme(<RotationClassifyControl album={juanaMolinaAlbum()} />));
@@ -309,7 +200,7 @@ describe("RotationClassifyControl", () => {
     });
 
     it("has no active rotation entry: shows the bin picker, not a kill button", async () => {
-      fakeRotationEndpoints();
+      fakeRotationEndpoints([], { buildRow: buildJuanaMolinaRow });
       renderWithProviders(inModernTheme(<RotationClassifyControl album={juanaMolinaAlbum()} />));
 
       await screen.findByRole("group", { name: "Rotation bin" });
@@ -317,7 +208,7 @@ describe("RotationClassifyControl", () => {
     });
 
     it("POSTs album_id and the picked rotation_bin", async () => {
-      const backend = fakeRotationEndpoints();
+      const backend = fakeRotationEndpoints([], { buildRow: buildJuanaMolinaRow });
       const { user } = renderWithProviders(
         inModernTheme(<RotationClassifyControl album={juanaMolinaAlbum()} />),
       );
@@ -334,8 +225,8 @@ describe("RotationClassifyControl", () => {
       );
     });
 
-    it("switches to the kill affordance once the entry appears in the rotation list", async () => {
-      fakeRotationEndpoints();
+    it("adds the kill affordance once the entry appears in the rotation list, alongside the picker for re-binning", async () => {
+      fakeRotationEndpoints([], { buildRow: buildJuanaMolinaRow });
       const { user } = renderWithProviders(
         inModernTheme(<RotationClassifyControl album={juanaMolinaAlbum()} />),
       );
@@ -345,13 +236,13 @@ describe("RotationClassifyControl", () => {
       await user.click(screen.getByRole("button", { name: "Add to Rotation" }));
 
       expect(await screen.findByRole("button", { name: "Kill H" })).toBeInTheDocument();
-      expect(
-        screen.queryByRole("group", { name: "Rotation bin" }),
-      ).not.toBeInTheDocument();
+      // The picker stays up so re-binning is a single gesture — it isn't
+      // replaced by the kill affordance the way an XOR toggle would.
+      expect(screen.getByRole("group", { name: "Rotation bin" })).toBeInTheDocument();
     });
 
     it("shows an error toast when the POST fails", async () => {
-      fakeRotationEndpoints();
+      fakeRotationEndpoints([], { buildRow: buildJuanaMolinaRow });
       server.use(
         http.post(`${TEST_BACKEND_URL}/library/rotation`, () =>
           HttpResponse.json({ error: "rejected" }, { status: 500 }),
@@ -366,7 +257,7 @@ describe("RotationClassifyControl", () => {
       await user.click(screen.getByRole("button", { name: "Add to Rotation" }));
 
       await waitFor(() =>
-        expect(toast.error).toHaveBeenCalledWith("Failed to add to rotation"),
+        expect(toast.error).toHaveBeenCalledWith("Could not update rotation."),
       );
       expect(
         await screen.findByRole("group", { name: "Rotation bin" }),
@@ -378,7 +269,7 @@ describe("RotationClassifyControl", () => {
     // plain-language PARSING_ERROR line, and this control must not stack a
     // vaguer second toast on top of it.
     it("leaves a non-JSON POST response to the middleware", async () => {
-      fakeRotationEndpoints();
+      fakeRotationEndpoints([], { buildRow: buildJuanaMolinaRow });
       server.use(
         http.post(
           `${TEST_BACKEND_URL}/library/rotation`,
@@ -412,20 +303,21 @@ describe("RotationClassifyControl", () => {
       mockUseSession.mockReturnValue(sessionWithRole());
     });
 
-    it("has an active rotation entry: shows the kill button, not the bin picker", async () => {
-      fakeRotationEndpoints([juanaMolinaRotationRow()]);
+    it("has an active rotation entry: shows the kill button alongside the picker", async () => {
+      fakeRotationEndpoints([juanaMolinaRotationRow()], { buildRow: buildJuanaMolinaRow });
       renderWithProviders(
         inModernTheme(<RotationClassifyControl album={juanaMolinaAlbum()} />),
       );
 
       expect(await screen.findByRole("button", { name: "Kill H" })).toBeInTheDocument();
-      expect(
-        screen.queryByRole("group", { name: "Rotation bin" }),
-      ).not.toBeInTheDocument();
+      // Re-binning goes through the picker without killing first, so it stays present.
+      expect(screen.getByRole("group", { name: "Rotation bin" })).toBeInTheDocument();
     });
 
     it("PATCHes the rotation_id alone, leaving kill_date to the server", async () => {
-      const backend = fakeRotationEndpoints([juanaMolinaRotationRow()]);
+      const backend = fakeRotationEndpoints([juanaMolinaRotationRow()], {
+        buildRow: buildJuanaMolinaRow,
+      });
       const { user } = renderWithProviders(
         inModernTheme(<RotationClassifyControl album={juanaMolinaAlbum()} />),
       );
@@ -433,14 +325,14 @@ describe("RotationClassifyControl", () => {
       await user.click(await screen.findByRole("button", { name: "Kill H" }));
 
       await waitFor(() =>
-        expect(backend.killBody()).toEqual({
-          rotation_id: JUANA_MOLINA_ROTATION_ID,
-        }),
+        expect(backend.killBodies()).toEqual([
+          { rotation_id: JUANA_MOLINA_ROTATION_ID },
+        ]),
       );
     });
 
     it("rejects a kill_date that isn't a bare YYYY-MM-DD date", async () => {
-      fakeRotationEndpoints([juanaMolinaRotationRow()]);
+      fakeRotationEndpoints([juanaMolinaRotationRow()], { buildRow: buildJuanaMolinaRow });
       const { store } = renderWithProviders(
         inModernTheme(<RotationClassifyControl album={juanaMolinaAlbum()} />),
       );
@@ -456,8 +348,8 @@ describe("RotationClassifyControl", () => {
       expect(result.error).toMatchObject({ status: 400 });
     });
 
-    it("switches back to the bin picker once the entry leaves the rotation list", async () => {
-      fakeRotationEndpoints([juanaMolinaRotationRow()]);
+    it("keeps only the bin picker once the entry leaves the rotation list", async () => {
+      fakeRotationEndpoints([juanaMolinaRotationRow()], { buildRow: buildJuanaMolinaRow });
       const { user } = renderWithProviders(
         inModernTheme(<RotationClassifyControl album={juanaMolinaAlbum()} />),
       );
@@ -471,7 +363,7 @@ describe("RotationClassifyControl", () => {
     });
 
     it("shows an error toast when the PATCH fails", async () => {
-      fakeRotationEndpoints([juanaMolinaRotationRow()]);
+      fakeRotationEndpoints([juanaMolinaRotationRow()], { buildRow: buildJuanaMolinaRow });
       server.use(
         http.patch(`${TEST_BACKEND_URL}/library/rotation`, () =>
           HttpResponse.json({ error: "rejected" }, { status: 500 }),
@@ -484,7 +376,7 @@ describe("RotationClassifyControl", () => {
       await user.click(await screen.findByRole("button", { name: "Kill H" }));
 
       await waitFor(() =>
-        expect(toast.error).toHaveBeenCalledWith("Failed to kill rotation entry"),
+        expect(toast.error).toHaveBeenCalledWith("Could not update rotation."),
       );
       expect(await screen.findByRole("button", { name: "Kill H" })).toBeInTheDocument();
     });
@@ -502,7 +394,7 @@ describe("RotationClassifyControl", () => {
     });
 
     it("offers the kill affordance for an album the rotation list covers", async () => {
-      fakeRotationEndpoints([juanaMolinaRotationRow()]);
+      fakeRotationEndpoints([juanaMolinaRotationRow()], { buildRow: buildJuanaMolinaRow });
       renderWithProviders(
         inModernTheme(<AlbumPanelSection albumId={JUANA_MOLINA_ALBUM_ID} />),
       );
@@ -511,7 +403,9 @@ describe("RotationClassifyControl", () => {
     });
 
     it("offers the bin picker for an album the rotation list doesn't cover", async () => {
-      fakeRotationEndpoints([{ ...juanaMolinaRotationRow(), id: 5150, rotation_id: 901 }]);
+      fakeRotationEndpoints([{ ...juanaMolinaRotationRow(), id: 5150, rotation_id: 901 }], {
+        buildRow: buildJuanaMolinaRow,
+      });
       renderWithProviders(
         inModernTheme(<AlbumPanelSection albumId={JUANA_MOLINA_ALBUM_ID} />),
       );
@@ -530,10 +424,13 @@ describe("RotationClassifyControl", () => {
     });
 
     it("surfaces every active bin instead of silently acting on the alphabetically-lowest one", async () => {
-      fakeRotationEndpoints([
-        juanaMolinaRotationRow("H"),
-        { ...juanaMolinaRotationRow("M"), rotation_id: JUANA_MOLINA_SECOND_ROTATION_ID },
-      ]);
+      fakeRotationEndpoints(
+        [
+          juanaMolinaRotationRow("H"),
+          { ...juanaMolinaRotationRow("M"), rotation_id: JUANA_MOLINA_SECOND_ROTATION_ID },
+        ],
+        { buildRow: buildJuanaMolinaRow },
+      );
       renderWithProviders(
         inModernTheme(<RotationClassifyControl album={juanaMolinaAlbum()} />),
       );
@@ -545,10 +442,13 @@ describe("RotationClassifyControl", () => {
     });
 
     it("retires only the targeted bin, leaving the album's other active entry visible and killable", async () => {
-      const backend = fakeRotationEndpoints([
-        juanaMolinaRotationRow("H"),
-        { ...juanaMolinaRotationRow("M"), rotation_id: JUANA_MOLINA_SECOND_ROTATION_ID },
-      ]);
+      const backend = fakeRotationEndpoints(
+        [
+          juanaMolinaRotationRow("H"),
+          { ...juanaMolinaRotationRow("M"), rotation_id: JUANA_MOLINA_SECOND_ROTATION_ID },
+        ],
+        { buildRow: buildJuanaMolinaRow },
+      );
       const { user } = renderWithProviders(
         inModernTheme(<RotationClassifyControl album={juanaMolinaAlbum()} />),
       );
@@ -556,7 +456,7 @@ describe("RotationClassifyControl", () => {
       await user.click(await screen.findByRole("button", { name: "Kill H" }));
 
       await waitFor(() =>
-        expect(backend.killBody()).toEqual({ rotation_id: JUANA_MOLINA_ROTATION_ID }),
+        expect(backend.killBodies()).toEqual([{ rotation_id: JUANA_MOLINA_ROTATION_ID }]),
       );
       expect(await screen.findByRole("button", { name: "Kill M" })).toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "Kill H" })).not.toBeInTheDocument();
@@ -665,7 +565,7 @@ describe("RotationClassifyControl", () => {
     });
 
     it("explains why instead of offering a bin picker that can never submit", async () => {
-      fakeRotationEndpoints();
+      fakeRotationEndpoints([], { buildRow: buildJuanaMolinaRow });
       renderWithProviders(
         inModernTheme(
           <RotationClassifyControl album={{ ...juanaMolinaAlbum(), id: -1 }} />,

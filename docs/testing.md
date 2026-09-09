@@ -239,6 +239,24 @@ server.use(
 
 A fake that has to answer differently across a sequence of requests gets its own module rather than an inline handler. `tests/fakes/playlistSearch.ts` is the pattern: it holds an archive, serves pages out of it under whichever pagination mode the request's sort implies, and records every request it saw, so a spec can assert the shape of a whole multi-page walk. Opt in with `server.use(fake.handler)`.
 
+**Rotation fake** (`tests/fakes/rotation.ts`, re-exported from `@/tests/helpers`): a stateful stand-in for `GET`/`POST`/`PATCH /library/rotation` -- the list is the source of truth an add appends to and a kill removes from, so a consuming control's state travels back through the list exactly as it does in production instead of being handed to it directly.
+
+```typescript
+import { fakeRotationEndpoints } from "@/tests/helpers";
+
+const backend = fakeRotationEndpoints([existingRow], {
+  // Owns the fixture shape (album id, artist, format, ...); the fake only owns
+  // the add/kill/list state machine.
+  buildRow: (rotationBin) => ({ ...existingRow, rotation_bin: rotationBin }),
+});
+
+// backend.addBody() -- the last POST body
+// backend.killBodies() -- every PATCH body, in call order
+// backend.listRequests() -- GET call count
+```
+
+The PATCH arm mirrors the backend's `isISODate` gate, rejecting any `kill_date` that isn't a bare `YYYY-MM-DD`. `fakeRotationEndpointsWithGatedKill(initial)` is the same GET/PATCH shape but holds each PATCH open until the test calls `releaseKill(rotationId?)`, for asserting on in-flight busy state instead of racing a same-tick MSW response.
+
 ## Test Organization
 
 Tests are never co-located with source. Every vitest test lives under `tests/`, mirroring the path of the source it covers:

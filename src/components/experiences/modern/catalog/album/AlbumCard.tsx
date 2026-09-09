@@ -17,7 +17,7 @@ import {
 } from "@mui/joy";
 import { useRef, useState, useEffect } from "react";
 import { NotOnDiscogsBadge } from "@/src/components/experiences/modern/catalog/AlbumArtwork";
-import AlbumArtworkWithCodeOverlay from "./AlbumArtworkWithCodeOverlay";
+import AlbumArtworkWithRotationBadge from "./AlbumArtworkWithRotationBadge";
 import AlbumEditForm from "./AlbumEditForm";
 import CompilationCreditsControl from "./CompilationCreditsControl";
 import DiscogsMarkup from "./DiscogsMarkupRenderer";
@@ -82,7 +82,8 @@ export default function AlbumCard({
               note={album.discogsUnavailableNote}
             />
           ) : (
-            <AlbumArtworkWithCodeOverlay
+            <AlbumArtworkWithRotationBadge
+              album={album}
               artworkUrl={artworkUrl}
               alt={`${album.title} cover`}
               codePreview={{
