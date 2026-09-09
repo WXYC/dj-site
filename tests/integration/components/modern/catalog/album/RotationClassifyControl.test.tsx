@@ -225,6 +225,63 @@ describe("RotationClassifyControl", () => {
       );
     });
 
+    // The control's headline behavior. Without this the wiring is only covered
+    // by the hook's own unit test, so passing `[]` instead of `activeEntries`
+    // from this surface would leave every test in this file green while
+    // re-binning silently stacked a second bin.
+    it("retires the album's active entry when a different bin is picked", async () => {
+      const backend = fakeRotationEndpoints([juanaMolinaRotationRow("H")], {
+        buildRow: buildJuanaMolinaRow,
+      });
+      const { user } = renderWithProviders(
+        inModernTheme(<RotationClassifyControl album={juanaMolinaAlbum()} />),
+      );
+
+      await screen.findByRole("group", { name: "Rotation bin" });
+      await user.click(screen.getByRole("checkbox", { name: "Medium rotation" }));
+      await user.click(screen.getByRole("button", { name: "Add to Rotation" }));
+
+      await waitFor(() =>
+        expect(backend.addBody()).toEqual({
+          album_id: JUANA_MOLINA_ALBUM_ID,
+          rotation_bin: "M",
+        }),
+      );
+      await waitFor(() =>
+        expect(backend.killBodies()).toEqual([
+          { rotation_id: JUANA_MOLINA_ROTATION_ID },
+        ]),
+      );
+    });
+
+    // Retiring first and then failing the add would drop the album out of
+    // rotation altogether -- invisible behind a generic error, and it also
+    // removes the album from the flowsheet picker DJs use on air.
+    it("leaves the existing bin in place when the add fails", async () => {
+      const backend = fakeRotationEndpoints([juanaMolinaRotationRow("H")], {
+        buildRow: buildJuanaMolinaRow,
+      });
+      server.use(
+        http.post(`${TEST_BACKEND_URL}/library/rotation`, () =>
+          HttpResponse.json({ error: "boom" }, { status: 500 }),
+        ),
+      );
+      const { user } = renderWithProviders(
+        inModernTheme(<RotationClassifyControl album={juanaMolinaAlbum()} />),
+      );
+
+      await screen.findByRole("group", { name: "Rotation bin" });
+      await user.click(screen.getByRole("checkbox", { name: "Medium rotation" }));
+      await user.click(screen.getByRole("button", { name: "Add to Rotation" }));
+
+      await waitFor(() =>
+        expect(screen.getByRole("button", { name: "Kill H" })).toBeInTheDocument(),
+      );
+      expect(backend.killBodies()).toEqual([]);
+      // The pick survives so the retry is one click, not a re-open of the picker.
+      expect(screen.getByRole("checkbox", { name: "Medium rotation" })).toBeChecked();
+    });
+
     it("adds the kill affordance once the entry appears in the rotation list, alongside the picker for re-binning", async () => {
       fakeRotationEndpoints([], { buildRow: buildJuanaMolinaRow });
       const { user } = renderWithProviders(

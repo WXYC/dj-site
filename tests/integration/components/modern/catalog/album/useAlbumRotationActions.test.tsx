@@ -60,7 +60,7 @@ describe("useAlbumRotationActions", () => {
       expect(toastSuccessMock).toHaveBeenCalledWith("Marked for H rotation.");
     });
 
-    it("retires every active entry before adding the new bin", async () => {
+    it("adds the new bin before retiring every active entry", async () => {
       addTrigger.mockImplementation(okTrigger());
       killTrigger.mockImplementation(okTrigger());
       const { result } = renderHook(() => useAlbumRotationActions(album));
@@ -77,6 +77,26 @@ describe("useAlbumRotationActions", () => {
       expect(killTrigger).toHaveBeenCalledWith({ rotation_id: 901 });
       expect(addTrigger).toHaveBeenCalledWith({ album_id: 4242, rotation_bin: "M" });
       expect(toastSuccessMock).toHaveBeenCalledWith("Marked for M rotation.");
+      // The order is the safety property, not an implementation detail: it is
+      // what keeps a failed add from leaving the album in no bin at all.
+      expect(addTrigger.mock.invocationCallOrder[0]).toBeLessThan(
+        killTrigger.mock.invocationCallOrder[0],
+      );
+    });
+
+    it("retires nothing when the add fails, leaving the prior bin in place", async () => {
+      addTrigger.mockImplementation(failingTrigger({ status: 500 }));
+      killTrigger.mockImplementation(okTrigger());
+      const { result } = renderHook(() => useAlbumRotationActions(album));
+
+      let outcome: boolean | undefined;
+      await act(async () => {
+        outcome = await result.current.setRotation("M", [{ rotation_id: 900 }]);
+      });
+
+      expect(killTrigger).not.toHaveBeenCalled();
+      expect(outcome).toBe(false);
+      expect(toastErrorMock).toHaveBeenCalledWith("Could not update rotation.");
     });
 
     it("retires without adding when the bin is cleared", async () => {
@@ -116,18 +136,23 @@ describe("useAlbumRotationActions", () => {
       expect(toastErrorMock).toHaveBeenCalledTimes(1);
     });
 
-    it("toasts once, not twice, when the retire step fails before the add is attempted", async () => {
+    it("names the half that landed when the retire fails after a successful add", async () => {
       killTrigger.mockImplementation(failingTrigger({ status: 500 }));
       addTrigger.mockImplementation(okTrigger());
       const { result } = renderHook(() => useAlbumRotationActions(album));
 
+      let outcome: boolean | undefined;
       await act(async () => {
-        await result.current.setRotation("H", [{ rotation_id: 900 }]);
+        outcome = await result.current.setRotation("H", [{ rotation_id: 900 }]);
       });
 
-      expect(addTrigger).not.toHaveBeenCalled();
+      expect(addTrigger).toHaveBeenCalledWith({ album_id: 4242, rotation_bin: "H" });
+      expect(outcome).toBe(false);
       expect(toastErrorMock).toHaveBeenCalledTimes(1);
-      expect(toastErrorMock).toHaveBeenCalledWith("Could not update rotation.");
+      expect(toastErrorMock).toHaveBeenCalledWith(
+        "Marked for H rotation, but could not retire the previous bin.",
+      );
+      expect(toastSuccessMock).not.toHaveBeenCalled();
     });
 
     it("leaves a non-JSON failure to the middleware's own toast", async () => {
@@ -143,7 +168,7 @@ describe("useAlbumRotationActions", () => {
       expect(toastErrorMock).not.toHaveBeenCalled();
     });
 
-    it("tracks isSettingRotation across the retire-then-add sequence", async () => {
+    it("tracks isSettingRotation across the add-then-retire sequence", async () => {
       let resolveAdd!: () => void;
       addTrigger.mockImplementation(() => ({
         unwrap: () => new Promise<void>((resolve) => (resolveAdd = resolve)),
@@ -151,7 +176,7 @@ describe("useAlbumRotationActions", () => {
       const { result } = renderHook(() => useAlbumRotationActions(album));
 
       expect(result.current.isSettingRotation).toBe(false);
-      let settled: Promise<void>;
+      let settled: Promise<boolean>;
       act(() => {
         settled = result.current.setRotation("H", []);
       });
