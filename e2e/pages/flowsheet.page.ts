@@ -161,6 +161,11 @@ export class FlowsheetPage {
    * destruction, intermittently and only on CI. The takeover click belongs
    * exclusively to a spec that owns its own Backend.
    *
+   * Modern only, and not by accident: classic renders no join button, so a
+   * classic spec calling `goLive()` into an occupied show would sit out the
+   * race below and then fail on the on-air assertion. Co-hosting a sibling's
+   * show is not available there to be borrowed.
+   *
    * Races the two TERMINAL states — on air, or the prompt asking which way to
    * go — rather than the mutation response. The response is not evidence that
    * no prompt is coming: on the server-refusal path the client sends the join,

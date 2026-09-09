@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
+  GO_LIVE_HANDOFF_COPY,
+  GO_LIVE_HANDOFF_TAKEOVER_ONLY_COPY,
   GO_LIVE_HANDOFF_TESTIDS,
   GO_LIVE_HANDOFF_TITLE_ID,
   describeOpenShow,
@@ -245,6 +247,34 @@ describe("GO_LIVE_HANDOFF_TESTIDS", () => {
     expect(GO_LIVE_HANDOFF_TITLE_ID).toBe("go-live-handoff-title");
     expect(Object.values(GO_LIVE_HANDOFF_TESTIDS)).not.toContain(
       GO_LIVE_HANDOFF_TITLE_ID,
+    );
+  });
+});
+
+/**
+ * Classic offers no co-hosting, so its prompt has one action and no contrast
+ * to be read against. Both properties below are load-bearing, and neither is
+ * visible from the component that renders them.
+ */
+describe("GO_LIVE_HANDOFF_TAKEOVER_ONLY_COPY", () => {
+  it("offers no join, in the words as well as in the buttons", () => {
+    const words = Object.values(GO_LIVE_HANDOFF_TAKEOVER_ONLY_COPY).join(" ");
+    expect(words).not.toMatch(/join/i);
+    expect(words).not.toMatch(/co-?host/i);
+  });
+
+  // "End Existing Show" reads clearly beside "Join Existing Show" and
+  // ambiguously alone — a DJ signing on for their own shift has to be able to
+  // tell that the one button on the screen is the one that starts it.
+  it("names what the sole action starts, not only what it stops", () => {
+    expect(GO_LIVE_HANDOFF_TAKEOVER_ONLY_COPY.takeover).toMatch(/start/i);
+  });
+
+  // Aliased rather than repeated, so a re-word of the shared button reaches
+  // both surfaces.
+  it("shares Cancel with the co-hosting prompt", () => {
+    expect(GO_LIVE_HANDOFF_TAKEOVER_ONLY_COPY.cancel).toBe(
+      GO_LIVE_HANDOFF_COPY.cancel,
     );
   });
 });

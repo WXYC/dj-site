@@ -567,8 +567,8 @@ html[data-experience="classic"][data-joy-color-scheme="dark"] .artist-error-mess
 
 /* Go-live handoff prompt: shown in place when a DJ signs on while someone
    else's show is still open. Deliberately not .artist-error-message — that one
-   is field-scoped to a 300px input, and this carries a sentence plus three
-   choices. Red because one of those choices signs somebody else off the air. */
+   is field-scoped to a 300px input, and this carries a sentence or two plus
+   the choice. Red because taking it signs somebody else off the air. */
 .go-live-handoff-prompt {
 	border: 2px solid #990000;
 	padding: 10px;
