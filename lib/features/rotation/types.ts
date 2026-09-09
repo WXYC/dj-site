@@ -11,6 +11,14 @@ export type RotationFrontendState = {
   orderDirection: "asc" | "desc";
 };
 
+/** Canonical bin display order: Heavy, Medium, Light, Singles. */
+export const ROTATION_BINS: RotationBin[] = [
+  RotationBin.H,
+  RotationBin.M,
+  RotationBin.L,
+  RotationBin.S,
+];
+
 /** Radio-button label for each rotation bin, matching `rotationReleaseInsert.jsp`'s wording verbatim. */
 export const ROTATION_BIN_LABELS: Record<RotationBin, string> = {
   [RotationBin.H]: "Heavy",
