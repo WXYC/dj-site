@@ -206,6 +206,9 @@ export function describeOpenShow(
  * Strings, not components. The markup stays split because classic imports no
  * Joy, and sharing a component rather than a string would drag Joy into the
  * one experience that has none.
+ *
+ * This is the prompt where co-hosting IS on offer. Classic offers none and
+ * renders `GO_LIVE_HANDOFF_TAKEOVER_ONLY_COPY` below.
  */
 export const GO_LIVE_HANDOFF_COPY = {
   /**
@@ -222,16 +225,44 @@ export const GO_LIVE_HANDOFF_COPY = {
 } as const;
 
 /**
+ * The same prompt on a surface that offers no co-hosting: end the open show,
+ * or cancel.
+ *
+ * Classic reproduces the tubafrenzy sign-on screen, and tubafrenzy had no
+ * second-DJ-on-one-show concept to reproduce — so offering the choice here
+ * invented a decision this surface's DJs have never had to make, and the wrong
+ * branch of it is a one-way door: a co-host cannot end the show they joined,
+ * and every track they log reaches the public archive under the other DJ's
+ * name.
+ *
+ * Removing it also restores the meaning of the sign-off link on the next
+ * screen. Classic's "End Show" is a byte-for-byte copy of tubafrenzy's, where
+ * it always ended *the* show because the DJ pressing it always owned it. A
+ * co-host pressing the same words ends only their own participation and leaves
+ * the other DJ on air — the same link, quietly doing something else.
+ *
+ * The wording diverges from `GO_LIVE_HANDOFF_COPY`, and the reason outlives
+ * the removal: "End Existing Show" is legible on modern only because "Join
+ * Existing Show" sits beside it. Standing alone it names what the button stops
+ * and not what it starts, which is the half a DJ signing on for their own
+ * shift needs to read.
+ */
+export const GO_LIVE_HANDOFF_TAKEOVER_ONLY_COPY = {
+  choice: "You have to end their show before you can start your own.",
+  takeover: "End Their Show and Start Mine",
+  /** Aliased, not repeated: a re-word of the shared button must reach both. */
+  cancel: GO_LIVE_HANDOFF_COPY.cancel,
+} as const;
+
+/**
  * The `data-testid` values the prompt exposes.
  *
- * Only the three decision ids are on BOTH surfaces — `dialog` is the modern
- * dialog root and `prompt` is its classic counterpart, and no surface carries
- * the other's. The three shared ones are the reason this exists: renaming one
- * used to be a two-file edit that nothing enforced, because
- * `e2e/pages/flowsheet.page.ts` drives the prompt through
- * `go-live-handoff-join` whichever experience is under test, so a rename
- * applied to only one surface left the other silently undriven rather than
- * red.
+ * Only `takeover` and `cancel` are on BOTH surfaces. `dialog` is the modern
+ * dialog root and `prompt` is its classic counterpart; `join` is modern-only,
+ * because classic offers no co-hosting at all. The two shared ones are the
+ * reason this exists: renaming one is a two-file edit that nothing else
+ * enforces, so a rename applied to a single surface would leave the other
+ * silently undriven rather than red.
  *
  * The e2e specs and the component tests still spell these ids as literals, on
  * purpose. A caller that imported the constant would follow a rename instead

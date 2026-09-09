@@ -4,7 +4,7 @@ import "@/src/styles/classic/wxyc.css";
 import { useShowControl } from "@/src/hooks/flowsheetHooks";
 import { useGoLiveHandoff } from "@/src/hooks/goLiveHandoffHooks";
 import {
-  GO_LIVE_HANDOFF_COPY,
+  GO_LIVE_HANDOFF_TAKEOVER_ONLY_COPY,
   GO_LIVE_HANDOFF_TESTIDS,
   describeOpenShow,
 } from "@/lib/features/flowsheet/go-live-handoff";
@@ -215,21 +215,15 @@ export default function StartShow() {
                       data-testid={GO_LIVE_HANDOFF_TESTIDS.prompt}
                     >
                       <b>{describeOpenShow(prompt.handoff)}</b>
-                      <p>{GO_LIVE_HANDOFF_COPY.choice}</p>
-                      <input
-                        type="button"
-                        value={GO_LIVE_HANDOFF_COPY.join}
-                        disabled={deciding}
-                        onClick={() => void decide("join")}
-                        style={{ cursor: "pointer" }}
-                        data-testid={GO_LIVE_HANDOFF_TESTIDS.join}
-                      />
-                      &nbsp;
-                      {/* Red because it signs somebody else off the air. */}
+                      <p>{GO_LIVE_HANDOFF_TAKEOVER_ONLY_COPY.choice}</p>
+                      {/* No join. This surface has one way forward and one way
+                          out, which is the shape tubafrenzy had — see
+                          GO_LIVE_HANDOFF_TAKEOVER_ONLY_COPY. Red because it
+                          signs somebody else off the air. */}
                       <input
                         type="button"
                         className="handoff-danger"
-                        value={GO_LIVE_HANDOFF_COPY.takeover}
+                        value={GO_LIVE_HANDOFF_TAKEOVER_ONLY_COPY.takeover}
                         disabled={deciding}
                         onClick={() => void decide("takeover")}
                         style={{ cursor: "pointer" }}
@@ -238,7 +232,7 @@ export default function StartShow() {
                       &nbsp;
                       <input
                         type="button"
-                        value={GO_LIVE_HANDOFF_COPY.cancel}
+                        value={GO_LIVE_HANDOFF_TAKEOVER_ONLY_COPY.cancel}
                         disabled={deciding}
                         onClick={cancel}
                         style={{ cursor: "pointer" }}

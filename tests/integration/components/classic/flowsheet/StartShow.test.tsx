@@ -248,18 +248,34 @@ describe("Classic StartShow — the handoff prompt", () => {
     expect(goLiveMock).not.toHaveBeenCalled();
   });
 
-  it("sends a co-host join when the DJ picks Join Existing Show", async () => {
+  // Classic reproduces the tubafrenzy sign-on screen, which had no
+  // second-DJ-on-one-show concept. The one time this surface offered the
+  // choice, a DJ took it and logged 104 minutes of his own set under another
+  // DJ's name — so the branch is gone here rather than re-worded.
+  it("offers no way to join the open show", async () => {
     openShowMock = OPEN_SHOW;
     await signOn();
-    fireEvent.click(screen.getByTestId("go-live-handoff-join"));
 
-    expect(goLiveMock).toHaveBeenCalledWith(undefined, {
-      intent: "join",
-      expected_show_id: undefined,
-    });
+    expect(screen.queryByTestId("go-live-handoff-join")).toBeNull();
+    expect(screen.queryByText(/co-host/i)).toBeNull();
   });
 
-  it("binds End Existing Show to the show the DJ was actually shown", async () => {
+  it("says ending their show is what starts yours", async () => {
+    openShowMock = OPEN_SHOW;
+    await signOn();
+
+    expect(
+      screen.getByText("You have to end their show before you can start your own.")
+    ).toBeInTheDocument();
+    // The label has to name what the press STARTS, not only what it stops:
+    // it is the sole action on the screen, with no "Join" beside it to read
+    // it against.
+    expect(
+      screen.getByTestId("go-live-handoff-takeover")
+    ).toHaveValue("End Their Show and Start Mine");
+  });
+
+  it("binds the takeover to the show the DJ was actually shown", async () => {
     openShowMock = OPEN_SHOW;
     await signOn();
     fireEvent.click(screen.getByTestId("go-live-handoff-takeover"));
