@@ -52,7 +52,7 @@ function RotationClassifyFields({ album }: RotationClassifyControlProps) {
     rotationErrored,
     refetchRotation,
   } = useAlbumRotationEntries(album);
-  const { setRotation, kill, isKilling, isSettingRotation } =
+  const { setRotation, kill, isKilling, isAnyKillInFlight, isSettingRotation } =
     useAlbumRotationActions(album);
 
   const [selectedBin, setSelectedBin] = useState<Rotation | null>(null);
@@ -66,12 +66,21 @@ function RotationClassifyFields({ album }: RotationClassifyControlProps) {
   // membership is known at all, but that window never reaches this form: the
   // `rotationStateUnknown` early return below renders a status chip in its
   // place instead.
-  const busy = isSettingRotation || rotationFetching;
+  // `isAnyKillInFlight` is folded in so a row kill and a set can't overlap:
+  // without it the Add button stays live during a kill, and the set would
+  // re-issue a retire for the very entry already being killed — whose shared
+  // busy-state entry is then cleared by whichever request settles first,
+  // un-spinning the row while the other is still open.
+  const busy = isSettingRotation || isAnyKillInFlight || rotationFetching;
 
   const handleSetRotation = async () => {
     if (!selectedBin || !albumIdValid) return;
-    await setRotation(selectedBin, activeEntries);
-    setSelectedBin(null);
+    // Keep the pick on failure: the operator is one click from a retry, and
+    // clearing it would make them re-open the picker at exactly the moment
+    // the write did not land.
+    if (await setRotation(selectedBin, activeEntries)) {
+      setSelectedBin(null);
+    }
   };
 
   // `RotationBinSelector` and the Add button can't act on a synthesized id —
@@ -124,14 +133,15 @@ function RotationClassifyFields({ album }: RotationClassifyControlProps) {
             color="warning"
             variant="soft"
             loading={isKilling(entry.rotation_id)}
+            disabled={isSettingRotation}
             onClick={() => kill(entry.rotation_id)}
           >
             Kill {entry.rotation_bin}
           </Button>
         </Stack>
       ))}
-      {/* Picking a bin here always goes through `setRotation`, which retires
-          every entry above before adding the new one — re-binning is one
+      {/* Picking a bin here always goes through `setRotation`, which adds the
+          new bin and then retires every entry above — re-binning is one
           gesture whether or not the album already has an active entry. */}
       <Stack
         direction="row"

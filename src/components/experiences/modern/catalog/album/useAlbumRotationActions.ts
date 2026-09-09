@@ -16,11 +16,20 @@ import { AlbumEntry } from "@/lib/features/catalog/types";
  * hand-rolled orchestrations that disagreed on copy and on whether a re-bin
  * retired the prior entry first.
  *
- * `setRotation` retires every entry passed in `activeEntries` before adding
- * the new bin, making single-bin the invariant for the set gesture: the
- * backend keeps a prior unkilled entry active on a bare add, so skipping the
- * retire step would stack bins instead of replacing one. `kill` remains for
- * removing a single entry without adding a replacement.
+ * `setRotation` makes single-bin the invariant for the set gesture: the
+ * backend keeps a prior unkilled entry active on a bare add, so the prior
+ * entries have to be retired for the new bin to replace rather than stack.
+ * It adds *before* retiring, because the two orders fail differently and only
+ * one of them fails safe. Retiring first and then failing the add leaves the
+ * album in no bin at all — invisible to the MD behind a generic error, and it
+ * drops the album out of the flowsheet rotation picker DJs use on air.
+ * Adding first and then failing a retire leaves it in two bins, which the
+ * control renders explicitly with a Kill button each, so the state is visible
+ * and recoverable. `kill` remains for removing a single entry without adding
+ * a replacement.
+ *
+ * Returns whether the album ended up in the requested state, so callers can
+ * keep the operator's bin selection for a retry instead of clearing it.
  */
 export function useAlbumRotationActions(album: AlbumEntry) {
   const [addRotationEntry] = useAddRotationEntryMutation();
@@ -29,6 +38,7 @@ export function useAlbumRotationActions(album: AlbumEntry) {
   const [isSettingRotation, setIsSettingRotation] = useState(false);
 
   const isKilling = (rotationId: number) => killingIds.has(rotationId);
+  const isAnyKillInFlight = killingIds.size > 0;
 
   // Not wrapped with the shared error toast — `kill` (public) and
   // `setRotation`'s retire loop both call this, and each owns its own single
@@ -60,28 +70,47 @@ export function useAlbumRotationActions(album: AlbumEntry) {
   const setRotation = async (
     bin: Rotation | null,
     activeEntries: { rotation_id: number }[],
-  ) => {
+  ): Promise<boolean> => {
+    // Self-contained rather than relying on each caller's own guard: a
+    // synthesized row (LML result with no library id) would otherwise POST
+    // album_id null, and the non-null assertion below hides that from the
+    // compiler.
+    if (bin && (album.id == null || album.id <= 0)) return false;
+
     setIsSettingRotation(true);
+    let added = false;
     try {
-      // Retire every active entry first, or a new bin would stack on top of the old one.
+      if (bin) {
+        // Guarded above.
+        await addRotationEntry({ album_id: album.id!, rotation_bin: bin }).unwrap();
+        added = true;
+      }
+      // Only once the replacement is on record — see the order note above.
       for (const entry of activeEntries) {
         await killQuiet(entry.rotation_id);
       }
       if (bin) {
-        // Guarded by the caller's albumIdValid check.
-        await addRotationEntry({ album_id: album.id!, rotation_bin: bin }).unwrap();
         toast.success(`Marked for ${bin} rotation.`);
       } else if (activeEntries.length > 0) {
         toast.success("Removed from rotation.");
       }
+      return true;
     } catch (err) {
       if (isUnmessagedHttpError(err)) {
-        toast.error("Could not update rotation.");
+        // Naming the half that landed: after a failed retire the album is in
+        // the new bin AND still in its old one, which "Could not update
+        // rotation." would misreport as nothing having changed.
+        toast.error(
+          added
+            ? `Marked for ${bin} rotation, but could not retire the previous bin.`
+            : "Could not update rotation.",
+        );
       }
+      return false;
     } finally {
       setIsSettingRotation(false);
     }
   };
 
-  return { setRotation, kill, isKilling, isSettingRotation };
+  return { setRotation, kill, isKilling, isAnyKillInFlight, isSettingRotation };
 }

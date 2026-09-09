@@ -1,7 +1,6 @@
 import { http, HttpResponse } from "msw";
 import { server } from "./server";
-
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001";
+import { TEST_BACKEND_URL as BACKEND_URL } from "../helpers/constants";
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -30,6 +29,8 @@ export function fakeRotationEndpoints<Row extends FakeRotationRow>(
   { buildRow }: { buildRow: (rotationBin: string) => Row },
 ) {
   let rows = [...initial];
+  const nextRotationId = (current: Row[]) =>
+    current.reduce((max, row) => Math.max(max, row.rotation_id), 0) + 1;
   const received: {
     add?: unknown;
     kills: { rotation_id: number; kill_date?: string }[];
@@ -47,7 +48,13 @@ export function fakeRotationEndpoints<Row extends FakeRotationRow>(
         rotation_bin: string;
       };
       received.add = body;
-      const newRow = buildRow(body.rotation_bin);
+      const built = buildRow(body.rotation_bin);
+      // The backend assigns a fresh rotation_id per add; `buildRow` callers
+      // return a fixed one, which would collide with an already-active row
+      // and let a single kill drop both.
+      const newRow = rows.some((row) => row.rotation_id === built.rotation_id)
+        ? { ...built, rotation_id: nextRotationId(rows) }
+        : built;
       rows = [...rows, newRow];
       return HttpResponse.json(
         {
