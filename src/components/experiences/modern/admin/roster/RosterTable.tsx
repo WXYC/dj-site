@@ -135,32 +135,27 @@ export default function RosterTable({ user, organizationSlug }: { user: User; or
     <Sheet
       sx={{
         width: "100%",
-        height: "100%",
+        // Height stays auto so the page's scroll pane sizes and scrolls this;
+        // the overflow here is the table's own horizontal scroll, which the
+        // sticky last column anchors to.
         overflow: "auto",
         bgcolor: "transparent",
         "--Table-lastColumnWidth": "60px",
       }}
     >
-      <Stack
-        direction={{ xs: "column", lg: "row" }}
-        sx={{ py: 2, justifyContent: "space-between" }}
-      >
+      {/* Narrowing the roster and acting on it are separate jobs, so the two
+          groups keep separate lines at every width rather than sharing one on
+          a wide screen. */}
+      <Stack direction="column" spacing={2} sx={{ py: 2 }}>
         <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ alignItems: "center" }}>
           <AccountSearchForm />
           <RoleFilter />
           <OnboardingFilter />
           <ReviewFilter />
         </Stack>
-        <Stack
-          direction="row"
-          spacing={1}
-          sx={{
-            mt: {
-              xs: 2,
-              lg: 0,
-            },
-          }}
-        >
+        {/* gap, not Stack's margin-based `spacing`: these wrap on a narrow
+            screen, and margins double up on the wrapped line. */}
+        <Stack direction="row" sx={{ flexWrap: "wrap", gap: 1, alignItems: "center" }}>
           <ExportDJsButton accounts={matches} disabled={isError} loading={isLoading} />
           <Button
             variant="outlined"

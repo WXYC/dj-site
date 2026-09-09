@@ -9,6 +9,9 @@ import StationSignupPanel from "./StationSignupPanel";
 
 type RosterView = "roster" | "passcode";
 
+/** Bounds the page to the viewport and scrolls whichever view overflows it. */
+const SCROLL_PANE = { flex: 1, minHeight: 0, overflow: "auto" } as const;
+
 /**
  * Segmented control for the admin roster page: the DJ roster and the station
  * signup passcode panel used to stack, which pushed the roster below the fold
@@ -21,6 +24,13 @@ type RosterView = "roster" | "passcode";
  * — and only starts polling status — while the passcode view is selected.
  *
  * Defaults to the roster: it is the page's namesake and its most frequent use.
+ *
+ * The wrapper owns the page's scroll. `Main` is a fixed 100dvh box with
+ * overflow:hidden, so a page that owns no scroll container has its overflow
+ * clipped away rather than scrolled to, and both views outgrow the viewport —
+ * the roster by its account rows, the passcode panel by its status/census
+ * detail. `flex` + `minHeight` shrink it to the space left below the page
+ * header; `overflow` scrolls the rest.
  *
  * The passcode surface is admin-flag-gated (render-time read of
  * `isStationSignupAdminEnabled`): before launch the flag is off, so there is
@@ -42,14 +52,14 @@ export default function RosterViewSwitcher({
   // does not exist and the roster stands alone with no segmented control.
   if (!isStationSignupAdminEnabled()) {
     return (
-      <Stack spacing={2}>
+      <Stack spacing={2} sx={SCROLL_PANE}>
         <RosterTable user={user} organizationSlug={organizationSlug} />
       </Stack>
     );
   }
 
   return (
-    <Stack spacing={2}>
+    <Stack spacing={2} sx={SCROLL_PANE}>
       <ToggleButtonGroup
         value={view}
         variant="outlined"
