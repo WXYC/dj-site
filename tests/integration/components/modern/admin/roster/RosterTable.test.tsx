@@ -183,4 +183,23 @@ describe("RosterTable", () => {
     const [, init] = (authFetch as ReturnType<typeof vi.fn>).mock.calls[0];
     expect(init.json.djName).toBe("DJ Juana");
   });
+
+  // Narrowing the roster and acting on it are separate jobs, so the roster-wide
+  // actions are their own group below the search and filters. That they hold
+  // that line on a wide screen is a breakpoint question jsdom cannot answer —
+  // it resolves no media queries, so every width reads as the narrowest one.
+  // The desktop-width guard is in the admin roster e2e spec.
+  it("groups the roster-wide actions below the search and filters", () => {
+    renderWithProviders(<RosterTable user={adminUser} organizationSlug="wxyc" />);
+
+    const actions = screen.getByRole("button", { name: "Add DJ" }).parentElement;
+    const controls = actions?.parentElement;
+
+    expect(controls?.lastElementChild).toBe(actions);
+    expect(
+      controls?.firstElementChild?.contains(
+        screen.getByLabelText("Search the roster")
+      )
+    ).toBe(true);
+  });
 });

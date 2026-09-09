@@ -85,6 +85,22 @@ describe("RosterViewSwitcher", () => {
       expect(screen.getByTestId("roster-table")).toBeInTheDocument();
       expect(screen.queryByTestId("station-signup-panel")).not.toBeInTheDocument();
     });
+
+    it("owns the page's vertical scroll", () => {
+      const { container } = renderSwitcher();
+
+      // `Main` is a fixed 100dvh box with overflow:hidden, so a page that owns
+      // no scroll container has its overflow clipped away rather than scrolled
+      // to. Both views outgrow the viewport — the roster by its account rows,
+      // the passcode panel by its status/census detail — so the wrapper both
+      // shrinks to the space left below the header (flex + minHeight) and
+      // scrolls what does not fit.
+      expect(container.firstElementChild).toHaveStyle({
+        flex: "1",
+        minHeight: "0px",
+        overflow: "auto",
+      });
+    });
   });
 
   // Pre-launch default: the passcode surface must not exist. With only one view
@@ -114,6 +130,16 @@ describe("RosterViewSwitcher", () => {
       renderSwitcher();
 
       expect(screen.queryByTestId("station-signup-panel")).not.toBeInTheDocument();
+    });
+
+    it("owns the page's vertical scroll with no toggle above it", () => {
+      const { container } = renderSwitcher();
+
+      expect(container.firstElementChild).toHaveStyle({
+        flex: "1",
+        minHeight: "0px",
+        overflow: "auto",
+      });
     });
   });
 });
