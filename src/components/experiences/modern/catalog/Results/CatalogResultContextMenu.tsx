@@ -15,20 +15,15 @@ import {
   ROTATION_BIN_LABELS,
   type Rotation,
 } from "@/lib/features/rotation/types";
-import {
-  useAddRotationEntryMutation,
-  useKillRotationEntryMutation,
-} from "@/lib/features/rotation/api";
 import { AlbumEntry } from "@/lib/features/catalog/types";
-import { isUnmessagedHttpError } from "@/lib/rtk-query-error-logger";
 import { RequireMD } from "@/src/components/shared/Authorization";
 import { useAlbumRotationEntries } from "@/src/components/experiences/modern/catalog/album/useAlbumRotationEntries";
+import { useAlbumRotationActions } from "@/src/components/experiences/modern/catalog/album/useAlbumRotationActions";
 import { useBin, useAddToBin, useDeleteFromBin } from "@/src/hooks/binHooks";
 import type { VirtualElement } from "@popperjs/core";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
-import { toast } from "sonner";
 
 export type ContextMenuAnchor = { top: number; left: number };
 
@@ -129,7 +124,7 @@ export default function CatalogResultContextMenu({
             {inBin ? "Remove from mail bin" : "Add to mail bin"}
           </MenuItem>
           <RequireMD>
-            <MenuItem color="success" onClick={() => run(openDetail)}>
+            <MenuItem color="neutral" onClick={() => run(openDetail)}>
               <EditOutlined />
               Edit catalog entry
             </MenuItem>
@@ -153,40 +148,18 @@ function RotationMenuSection({
 }) {
   const { activeEntries, albumIdValid, rotationStateUnknown, rotationFetching } =
     useAlbumRotationEntries(album);
-  const [addRotationEntry] = useAddRotationEntryMutation();
-  const [killRotationEntry] = useKillRotationEntryMutation();
-  const [mutating, setMutating] = useState(false);
+  const { setRotation, isSettingRotation } = useAlbumRotationActions(album);
 
   if (!albumIdValid) return null;
 
   const activeBins = new Set(activeEntries.map((entry) => entry.rotation_bin));
 
   // Disabled until membership is known — adding blind could create a duplicate rotation entry.
-  const busy = rotationStateUnknown || rotationFetching || mutating;
+  const busy = rotationStateUnknown || rotationFetching || isSettingRotation;
 
-  const setRotation = async (bin: Rotation | null) => {
-    setMutating(true);
-    try {
-      // Retire every active entry first, or a new bin would stack on top of the old one.
-      for (const entry of activeEntries) {
-        // No kill_date: the server dates it, avoiding the browser's UTC-tomorrow problem.
-        await killRotationEntry({ rotation_id: entry.rotation_id }).unwrap();
-      }
-      if (bin) {
-        // Guarded by the `albumIdValid` check above.
-        await addRotationEntry({ album_id: album.id!, rotation_bin: bin }).unwrap();
-        toast.success(`Marked for ${bin} rotation.`);
-      } else {
-        toast.success("Removed from rotation.");
-      }
-    } catch (err) {
-      if (isUnmessagedHttpError(err)) {
-        toast.error("Could not update rotation.");
-      }
-    } finally {
-      setMutating(false);
-      onClose();
-    }
+  const handleSetRotation = async (bin: Rotation | null) => {
+    await setRotation(bin, activeEntries);
+    onClose();
   };
 
   return (
@@ -202,7 +175,7 @@ function RotationMenuSection({
             key={bin}
             color="neutral"
             disabled={busy}
-            onClick={() => setRotation(isActive ? null : bin)}
+            onClick={() => handleSetRotation(isActive ? null : bin)}
           >
             {isActive ? <Check /> : null}
             {ROTATION_BIN_LABELS[bin]} ({bin})
@@ -210,7 +183,7 @@ function RotationMenuSection({
         );
       })}
       {activeBins.size > 0 && (
-        <MenuItem color="warning" disabled={busy} onClick={() => setRotation(null)}>
+        <MenuItem color="warning" disabled={busy} onClick={() => handleSetRotation(null)}>
           Remove from rotation
         </MenuItem>
       )}

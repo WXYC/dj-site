@@ -8,6 +8,7 @@ import {
   createTestArtist,
   server,
   TEST_BACKEND_URL,
+  fakeRotationEndpoints,
 } from "@/tests/helpers";
 
 const mockPush = vi.fn();
@@ -107,45 +108,6 @@ const rotationRow = (rotationBin = "H") => ({
   plays: 4,
 });
 
-function fakeRotationEndpoints(initial: ReturnType<typeof rotationRow>[] = []) {
-  let rows = [...initial];
-  const received: { add?: unknown; kills: unknown[] } = { kills: [] };
-  const counters = { listRequests: 0 };
-
-  server.use(
-    http.get(`${TEST_BACKEND_URL}/library/rotation`, () => {
-      counters.listRequests += 1;
-      return HttpResponse.json(rows);
-    }),
-    http.post(`${TEST_BACKEND_URL}/library/rotation`, async ({ request }) => {
-      const body = (await request.json()) as {
-        album_id: number;
-        rotation_bin: string;
-      };
-      received.add = body;
-      rows = [...rows, rotationRow(body.rotation_bin)];
-      return HttpResponse.json(
-        {
-          id: ROTATION_ID,
-          album_id: body.album_id,
-          rotation_bin: body.rotation_bin,
-          add_date: "2026-08-18",
-          kill_date: null,
-        },
-        { status: 201 },
-      );
-    }),
-    http.patch(`${TEST_BACKEND_URL}/library/rotation`, async ({ request }) => {
-      const body = (await request.json()) as { rotation_id: number };
-      received.kills.push(body);
-      rows = rows.filter((r) => r.rotation_id !== body.rotation_id);
-      return HttpResponse.json({ id: body.rotation_id, kill_date: "2026-08-18" });
-    }),
-  );
-
-  return { received, counters };
-}
-
 const menuAt = (album = dogaAlbum()) => ({ album, top: 100, left: 100 });
 
 describe("CatalogResultContextMenu", () => {
@@ -192,7 +154,7 @@ describe("CatalogResultContextMenu", () => {
   });
 
   it("shows no MD items for a DJ", async () => {
-    fakeRotationEndpoints();
+    fakeRotationEndpoints([], { buildRow: (bin) => rotationRow(bin) });
     renderWithProviders(
       <CatalogResultContextMenu menu={menuAt()} onClose={vi.fn()} />,
     );
@@ -211,15 +173,20 @@ describe("CatalogResultContextMenu", () => {
 
   it("shows Edit and the rotation section with the active bin checked for an MD", async () => {
     mockFetchOrgRole.mockResolvedValue("musicDirector");
-    fakeRotationEndpoints([rotationRow("H")]);
+    fakeRotationEndpoints([rotationRow("H")], { buildRow: (bin) => rotationRow(bin) });
 
     renderWithProviders(
       <CatalogResultContextMenu menu={menuAt()} onClose={vi.fn()} />,
     );
 
-    expect(
-      await screen.findByRole("menuitem", { name: "Edit catalog entry" }),
-    ).toBeInTheDocument();
+    const editItem = await screen.findByRole("menuitem", {
+      name: "Edit catalog entry",
+    });
+    expect(editItem).toBeInTheDocument();
+    // An entry point to the edit surface, not a write commit -- success is
+    // reserved for the rotation writes below.
+    expect(editItem).toHaveClass("MuiMenuItem-colorNeutral");
+    expect(editItem).not.toHaveClass("MuiMenuItem-colorSuccess");
     expect(await screen.findByText("Rotation")).toBeInTheDocument();
     expect(
       await screen.findByRole("menuitem", { name: "Remove from rotation" }),
@@ -234,7 +201,7 @@ describe("CatalogResultContextMenu", () => {
 
   it("POSTs the picked bin, toasts, and closes", async () => {
     mockFetchOrgRole.mockResolvedValue("musicDirector");
-    const { received } = fakeRotationEndpoints();
+    const backend = fakeRotationEndpoints([], { buildRow: (bin) => rotationRow(bin) });
     const onClose = vi.fn();
 
     renderWithProviders(
@@ -250,7 +217,7 @@ describe("CatalogResultContextMenu", () => {
     await userEvent.click(mediumItem);
 
     await waitFor(() =>
-      expect(received.add).toEqual({ album_id: ALBUM_ID, rotation_bin: "M" }),
+      expect(backend.addBody()).toEqual({ album_id: ALBUM_ID, rotation_bin: "M" }),
     );
     expect(toast.success).toHaveBeenCalledWith("Marked for M rotation.");
     expect(onClose).toHaveBeenCalled();
@@ -258,7 +225,9 @@ describe("CatalogResultContextMenu", () => {
 
   it("re-binning kills the active entry before adding the new bin", async () => {
     mockFetchOrgRole.mockResolvedValue("musicDirector");
-    const { received } = fakeRotationEndpoints([rotationRow("H")]);
+    const backend = fakeRotationEndpoints([rotationRow("H")], {
+      buildRow: (bin) => rotationRow(bin),
+    });
     const onClose = vi.fn();
 
     renderWithProviders(
@@ -274,9 +243,9 @@ describe("CatalogResultContextMenu", () => {
     await userEvent.click(lightItem);
 
     await waitFor(() =>
-      expect(received.add).toEqual({ album_id: ALBUM_ID, rotation_bin: "L" }),
+      expect(backend.addBody()).toEqual({ album_id: ALBUM_ID, rotation_bin: "L" }),
     );
-    expect(received.kills).toEqual([{ rotation_id: ROTATION_ID }]);
+    expect(backend.killBodies()).toEqual([{ rotation_id: ROTATION_ID }]);
   });
 
   it("fails closed while rotation membership is unknown", async () => {
@@ -304,13 +273,15 @@ describe("CatalogResultContextMenu", () => {
 
   it("does not refetch the shared rotation list across menu open/close cycles", async () => {
     mockFetchOrgRole.mockResolvedValue("musicDirector");
-    const { counters } = fakeRotationEndpoints([rotationRow("H")]);
+    const backend = fakeRotationEndpoints([rotationRow("H")], {
+      buildRow: (bin) => rotationRow(bin),
+    });
 
     const first = renderWithProviders(
       <CatalogResultContextMenu menu={menuAt()} onClose={vi.fn()} />,
     );
     await first.findByText("Rotation");
-    const requestsAfterFirstOpen = counters.listRequests;
+    const requestsAfterFirstOpen = backend.listRequests();
     first.unmount();
 
     const second = renderWithProviders(
@@ -318,7 +289,7 @@ describe("CatalogResultContextMenu", () => {
       { store: first.store },
     );
     await second.findByText("Rotation");
-    expect(counters.listRequests).toBe(requestsAfterFirstOpen);
+    expect(backend.listRequests()).toBe(requestsAfterFirstOpen);
     expect(requestsAfterFirstOpen).toBe(1);
   });
 });
