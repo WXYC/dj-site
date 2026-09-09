@@ -30,6 +30,11 @@ export default function FormSectionCard({
   interactive = true,
   "data-testid": dataTestId,
 }: FormSectionCardProps) {
+  // Both branches must render this identically: the three adopters that pass no
+  // action rely on the no-action branch producing the DOM they had before the
+  // action slot existed.
+  const heading = <Typography level="title-sm">{title}</Typography>;
+
   return (
     <Card
       variant="outlined"
@@ -50,11 +55,11 @@ export default function FormSectionCard({
             alignItems="center"
             justifyContent="space-between"
           >
-            <Typography level="title-sm">{title}</Typography>
+            {heading}
             {action}
           </Stack>
         ) : (
-          <Typography level="title-sm">{title}</Typography>
+          heading
         )}
         {description ? (
           <Typography
