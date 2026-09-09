@@ -3,12 +3,16 @@
 import { useId, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { RotationBin, ROTATION_BIN_LABELS, type FreeTextRotationAddRequest } from "@/lib/features/rotation/types";
+import {
+  RotationBin,
+  ROTATION_BINS,
+  ROTATION_BIN_LABELS,
+  type FreeTextRotationAddRequest,
+} from "@/lib/features/rotation/types";
 import { useAddFreeTextRotationEntryMutation } from "@/lib/features/rotation/api";
 import { rotationAddErrorMessage } from "@/lib/features/rotation/addErrorMessage";
 import CompanyAutocomplete from "./CompanyAutocomplete";
 
-const ROTATION_BINS: RotationBin[] = [RotationBin.H, RotationBin.M, RotationBin.L, RotationBin.S];
 const DEFAULT_BIN = RotationBin.H;
 
 /**

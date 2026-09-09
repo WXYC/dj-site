@@ -1,14 +1,12 @@
 "use client";
 
-import { Rotation } from "@/lib/features/rotation/types";
+import { Rotation, ROTATION_BINS } from "@/lib/features/rotation/types";
 import {
   ROTATION_BIN_PALETTE_SLOT,
   rotationBinSurfaceStyle,
 } from "@/src/utilities/modern/rotationBinColors";
 import { Box, Stack } from "@mui/joy";
 import { useTheme } from "@mui/joy/styles";
-
-const BINS: Rotation[] = [Rotation.H, Rotation.M, Rotation.L, Rotation.S];
 
 export default function RotationBinSelector({
   selectedBin,
@@ -29,7 +27,7 @@ export default function RotationBinSelector({
       spacing={1}
       sx={{ alignItems: "center", mx: 1 }}
     >
-      {BINS.map((bin) => {
+      {ROTATION_BINS.map((bin) => {
         const isSelected = selectedBin === bin;
         const tokens = theme.vars.palette.rotation[ROTATION_BIN_PALETTE_SLOT[bin]];
         const style = rotationBinSurfaceStyle(tokens, isSelected);

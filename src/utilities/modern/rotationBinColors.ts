@@ -1,26 +1,21 @@
-import type { Rotation } from "@/lib/features/rotation/types";
+import { ROTATION_BINS, ROTATION_BIN_LABELS, type Rotation } from "@/lib/features/rotation/types";
 import type {
   RotationBinTokens,
   ThemeSchemeInput,
 } from "@/lib/features/experiences/modern/themes/types";
 
 /**
- * Rotation bin metadata (ids + display labels).
+ * Rotation bin colors.
  *
- * The per-bin COLORS live in the theme's `rotation` palette slot
- * (`theme.vars.palette.rotation.{heavy,medium,light,singles}.*`, see
- * lib/features/experiences/modern/themes) so they retheme with the color
+ * The bin ordering and display labels are the domain vocabulary, owned by
+ * `lib/features/rotation/types` and re-exported here for this module's
+ * existing consumers. The per-bin COLORS live in the theme's `rotation`
+ * palette slot (`theme.vars.palette.rotation.{heavy,medium,light,singles}.*`,
+ * see lib/features/experiences/modern/themes) so they retheme with the color
  * system.
  */
 
-export const ROTATION_BINS: Rotation[] = ["H", "M", "L", "S"];
-
-export const ROTATION_BIN_LABELS: Record<Rotation, string> = {
-  H: "Heavy",
-  M: "Medium",
-  L: "Light",
-  S: "Singles",
-};
+export { ROTATION_BINS, ROTATION_BIN_LABELS };
 
 /** Bin letter -> the theme's `rotation` palette slot. */
 export const ROTATION_BIN_PALETTE_SLOT: Record<
