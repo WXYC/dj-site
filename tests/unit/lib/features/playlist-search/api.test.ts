@@ -11,9 +11,9 @@ describeApi(playlistSearchApi, {
 });
 
 describe("playlist search pagination mode", () => {
-  // Which sorts the backend can address by cursor. Asserted per sort rather
-  // than as "not date", so adding a sort to the dropdown without deciding its
-  // pagination mode fails here instead of silently inheriting offset.
+  // Which way each sort is decided. That a sort *has* a decision is the
+  // record's job — being total over the sort union, it fails to compile when a
+  // new one arrives undeclared, which no hand-written table here could catch.
   it.each([
     ["date", true],
     ["artist", false],

@@ -17,22 +17,26 @@ export type PlaylistSearchInfiniteArg = Omit<PlaylistSearchParams, "page">;
 
 type SortField = PlaylistSearchParams["sort"];
 
-const DEFAULT_LIMIT = 50;
-
 /**
- * The sorts the backend can address by cursor. Every other sort column is
+ * Which sorts the backend can address by cursor. Every other sort column is
  * non-unique and has no compound `(sort_col, id)` index to support a cursor
  * predicate, so the backend neither emits a cursor under them nor honours one:
  * a cursor sent back under a non-date sort is dropped on intake, page 0 is
  * re-served, the same cursor is re-derived from the same last row, and the walk
  * never advances. Those sorts must stay on offset here.
+ *
+ * Total over `SortField` rather than a membership test, so a sort added to the
+ * union upstream fails to compile here instead of silently inheriting offset.
  */
-const CURSOR_PAGINATED_SORTS: ReadonlySet<SortField> = new Set<SortField>([
-  "date",
-]);
+const CURSOR_PAGINATED: Record<SortField, boolean> = {
+  date: true,
+  artist: false,
+  song: false,
+  dj: false,
+};
 
 export const isCursorPaginated = (sort: SortField): boolean =>
-  CURSOR_PAGINATED_SORTS.has(sort);
+  CURSOR_PAGINATED[sort];
 
 /**
  * Both halves of a walk's position, travelling as one value so nothing can
@@ -63,9 +67,7 @@ export const playlistSearchApi = createApi({
           _allPageParams,
           queryArg,
         ) => {
-          const { limit = DEFAULT_LIMIT, sort = "date" } = queryArg;
-
-          if (isCursorPaginated(sort)) {
+          if (isCursorPaginated(queryArg.sort)) {
             return lastPage.nextCursor
               ? { cursor: lastPage.nextCursor, page: 0 }
               : undefined;
@@ -77,34 +79,29 @@ export const playlistSearchApi = createApi({
           // that terminated on it would cut the tail off every large result
           // set. A short page is exact, at the cost of one empty request when
           // the set divides evenly into pages.
-          return lastPage.results.length < limit
+          return lastPage.results.length < queryArg.limit
             ? undefined
             : { cursor: null, page: lastPageParam.page + 1 };
         },
       },
       query({ pageParam, queryArg }) {
-        const {
-          q,
-          limit = DEFAULT_LIMIT,
-          sort = "date",
-          order = "desc",
-        } = queryArg;
-        const cursorWalk = isCursorPaginated(sort);
+        const { q, limit, sort, order } = queryArg;
 
-        const params: Record<string, unknown> = {
-          q,
-          limit,
-          sort,
-          order,
-          page: cursorWalk ? 0 : pageParam.page,
+        return {
+          url: "/search",
+          params: {
+            q,
+            limit,
+            sort,
+            order,
+            page: pageParam.page,
+            // Present only on a cursor walk's non-first page — sending
+            // cursor=null would serialize as the literal string "null".
+            ...(isCursorPaginated(sort) && pageParam.cursor !== null
+              ? { cursor: pageParam.cursor }
+              : {}),
+          },
         };
-        // Present only on a cursor walk's non-first page — sending cursor=null
-        // would serialize as the literal string "null".
-        if (cursorWalk && pageParam.cursor !== null) {
-          params.cursor = pageParam.cursor;
-        }
-
-        return { url: "/search", params };
       },
       transformResponse: (
         response: PlaylistSearchResponseWithCursor | null,

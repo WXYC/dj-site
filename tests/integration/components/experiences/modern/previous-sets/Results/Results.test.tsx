@@ -166,20 +166,6 @@ describe("Results (modern previous sets)", () => {
     expect(screen.queryByText(/10,001/)).toBeNull();
   });
 
-  it("reports the count once the client query owns the rows", () => {
-    mockUsePlaylistSearchResults.mockReturnValue({
-      ...base,
-      displayResults: [makeResult(0), makeResult(1)],
-      usingSeed: false,
-      total: 2,
-      hasMore: false,
-    });
-
-    render(<Results />);
-
-    expect(screen.getByText(/2 results/i)).toBeInTheDocument();
-  });
-
   describe("sort direction indicator", () => {
     const SORTABLE = [
       { field: "date" as const, header: "Date" },

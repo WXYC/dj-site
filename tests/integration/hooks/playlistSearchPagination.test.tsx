@@ -10,19 +10,22 @@ import type { PlaylistSearchState } from "@/lib/features/playlist-search/fronten
 import { usePlaylistSearch } from "@/src/hooks/playlistSearchHooks";
 
 // The base query's prepareHeaders fetches a JWT; no auth server runs here.
-vi.mock("@/lib/features/authentication/client", () => ({
-  getJWTToken: vi.fn().mockResolvedValue(null),
-  clearTokenCache: vi.fn(),
-  authBaseURL: "http://localhost:3001/auth",
-  authClient: {},
-}));
+vi.mock("@/lib/features/authentication/client", async () => {
+  const { createAuthClientModuleMock } = await import(
+    "@/tests/helpers/auth-client-mock"
+  );
+  return createAuthClientModuleMock();
+});
 
 const PAGE = 50;
+const ARCHIVE = 120;
 
 /**
- * Seeds the sort directly rather than dispatching `setSort`, so a walk that
+ * Seeds the sort directly rather than dispatching a sort action, so a walk that
  * starts under a non-date sort does not also depend on how the reducer maps a
- * field to a direction.
+ * field to a direction. Specs that *change* the sort mid-walk go through the
+ * hook's own `handleSort` — the path the dropdown and the column headers take —
+ * so what they pin is the resumed request, not the reducer's payload shape.
  */
 function mountAt(sort: PlaylistSearchState["sortBy"]) {
   const preloaded: Partial<RootState> = {
@@ -47,29 +50,29 @@ async function loadMore(result: Walker, expectedRows: number) {
 
 describe("Previous Sets pagination (real store + RTK)", () => {
   it("walks a non-date sort past the first page, by offset", async () => {
-    const fake = playlistSearchFake({ archiveSize: 120 });
+    const fake = playlistSearchFake({ archiveSize: ARCHIVE });
     server.use(fake.handler);
 
     const { result } = mountAt("artist");
 
     await waitFor(() => expect(result.current.results).toHaveLength(PAGE));
     await loadMore(result, 2 * PAGE);
-    await loadMore(result, 120);
+    await loadMore(result, ARCHIVE);
 
-    await waitFor(() => expect(result.current.hasMore).toBe(false));
+    expect(result.current.hasMore).toBe(false);
     expect(fake.requests.map((r) => r.page)).toEqual([0, 1, 2]);
     expect(fake.requests.every((r) => r.cursor === null)).toBe(true);
   });
 
   it("walks the date sort by cursor, never by offset", async () => {
-    const fake = playlistSearchFake({ archiveSize: 120 });
+    const fake = playlistSearchFake({ archiveSize: ARCHIVE });
     server.use(fake.handler);
 
     const { result } = mountAt("date");
 
     await waitFor(() => expect(result.current.results).toHaveLength(PAGE));
     await loadMore(result, 2 * PAGE);
-    await loadMore(result, 120);
+    await loadMore(result, ARCHIVE);
 
     expect(fake.requests.map((r) => r.page)).toEqual([0, 0, 0]);
     expect(fake.requests.map((r) => r.cursor)).toEqual([
@@ -82,14 +85,14 @@ describe("Previous Sets pagination (real store + RTK)", () => {
   it("keeps walking a non-date sort past the page count a capped total implies", async () => {
     // `total` is capped server-side, so `totalPages` is a lower bound: here it
     // claims two pages over an archive that holds three.
-    const fake = playlistSearchFake({ archiveSize: 120, reportedTotal: 60 });
+    const fake = playlistSearchFake({ archiveSize: ARCHIVE, reportedTotal: 60 });
     server.use(fake.handler);
 
     const { result } = mountAt("dj");
 
     await waitFor(() => expect(result.current.results).toHaveLength(PAGE));
     await loadMore(result, 2 * PAGE);
-    await loadMore(result, 120);
+    await loadMore(result, ARCHIVE);
 
     expect(result.current.hasMore).toBe(false);
   });
@@ -98,7 +101,7 @@ describe("Previous Sets pagination (real store + RTK)", () => {
     // A cursor issued under a non-date sort is dropped on intake, so sending it
     // back re-serves page 0 and the walk never advances.
     const fake = playlistSearchFake({
-      archiveSize: 120,
+      archiveSize: ARCHIVE,
       emitCursorForEverySort: true,
     });
     server.use(fake.handler);
@@ -113,18 +116,16 @@ describe("Previous Sets pagination (real store + RTK)", () => {
   });
 
   it("drops the cursor when the sort changes off date", async () => {
-    const fake = playlistSearchFake({ archiveSize: 120 });
+    const fake = playlistSearchFake({ archiveSize: ARCHIVE });
     server.use(fake.handler);
 
-    const { store, result } = mountAt("date");
+    const { result } = mountAt("date");
 
     await waitFor(() => expect(result.current.results).toHaveLength(PAGE));
     await loadMore(result, 2 * PAGE);
 
     act(() => {
-      store.dispatch(
-        playlistSearchSlice.actions.setSort({ sortBy: "artist", sortOrder: "desc" }),
-      );
+      result.current.handleSort("artist");
     });
 
     await waitFor(() =>
@@ -136,18 +137,16 @@ describe("Previous Sets pagination (real store + RTK)", () => {
   });
 
   it("drops the offset when the sort changes onto date", async () => {
-    const fake = playlistSearchFake({ archiveSize: 120 });
+    const fake = playlistSearchFake({ archiveSize: ARCHIVE });
     server.use(fake.handler);
 
-    const { store, result } = mountAt("artist");
+    const { result } = mountAt("artist");
 
     await waitFor(() => expect(result.current.results).toHaveLength(PAGE));
     await loadMore(result, 2 * PAGE);
 
     act(() => {
-      store.dispatch(
-        playlistSearchSlice.actions.setSort({ sortBy: "date", sortOrder: "desc" }),
-      );
+      result.current.handleSort("date");
     });
 
     await waitFor(() =>
@@ -159,7 +158,7 @@ describe("Previous Sets pagination (real store + RTK)", () => {
   });
 
   it("restarts a non-date walk at the first page when a search row is edited", async () => {
-    const fake = playlistSearchFake({ archiveSize: 120 });
+    const fake = playlistSearchFake({ archiveSize: ARCHIVE });
     server.use(fake.handler);
 
     const { store, result } = mountAt("artist");
