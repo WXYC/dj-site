@@ -1,4 +1,4 @@
-import type { FlowsheetRangeEntry } from "@wxyc/shared";
+import type { FlowsheetRangeEntryWire } from "@/lib/features/flowsheet/conversions";
 import type { ShowPlaylistEntryWire } from "./types";
 
 /**
@@ -10,10 +10,14 @@ import type { ShowPlaylistEntryWire } from "./types";
  * them numbers — so a bare cast fails under strict mode on exactly the rows
  * markers produce. Defaulting `request_flag` here is safe: it is a playcut
  * property, and every entry type that omits it renders as a marker.
+ *
+ * The result is the widened wire type rather than the published one because
+ * `on_streaming` rides the payload undeclared, and the badge that reads it
+ * distinguishes null from false.
  */
 export function v2ToRangeShape(
   entry: ShowPlaylistEntryWire
-): FlowsheetRangeEntry {
+): FlowsheetRangeEntryWire {
   const { album_id, rotation_id, request_flag, ...rest } = entry;
 
   return {
@@ -21,5 +25,5 @@ export function v2ToRangeShape(
     ...(typeof album_id === "number" ? { album_id } : {}),
     ...(typeof rotation_id === "number" ? { rotation_id } : {}),
     request_flag: request_flag ?? false,
-  } as unknown as FlowsheetRangeEntry;
+  } as unknown as FlowsheetRangeEntryWire;
 }
