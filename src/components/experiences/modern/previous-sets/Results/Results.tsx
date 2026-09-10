@@ -68,7 +68,6 @@ export default function Results({
 } = {}) {
   const {
     displayResults,
-    total,
     hasMore,
     isLoading,
     sortBy,
@@ -242,11 +241,15 @@ export default function Results({
               </tr>
             )}
 
-            {/* Suppressed while the server seed is on screen. `total` and
-                `hasMore` describe the client query, which has not answered
-                yet, so the footer would sit under fifty seeded rows reading
-                "0 results" — an end-of-list claim about a list it cannot
-                see. */}
+            {/* Suppressed while the server seed is on screen. `hasMore`
+                describes the client query, which has not answered yet, so the
+                footer would sit under fifty seeded rows announcing the end of
+                a list it cannot see.
+
+                It counts the rows on screen rather than the response's
+                `total`, which the backend caps and reports a sentinel past —
+                an end-of-list claim must not name a figure scrolling cannot
+                reach. */}
             {!usingSeed && !isLoading && !hasMore && displayResults.length > 0 && (
               <tr style={{ background: "transparent" }}>
                 <td
@@ -254,7 +257,7 @@ export default function Results({
                   style={{ textAlign: "center", padding: "1rem" }}
                 >
                   <Typography level="body-xs" sx={{ color: "text.tertiary" }}>
-                    {total.toLocaleString()} results
+                    {displayResults.length.toLocaleString()} results
                   </Typography>
                 </td>
               </tr>

@@ -237,6 +237,8 @@ server.use(
 );
 ```
 
+A fake that has to answer differently across a sequence of requests gets its own module rather than an inline handler. `tests/fakes/playlistSearch.ts` is the pattern: it holds an archive, serves pages out of it under whichever pagination mode the request's sort implies, and records every request it saw, so a spec can assert the shape of a whole multi-page walk. Opt in with `server.use(fake.handler)`.
+
 ## Test Organization
 
 Tests are never co-located with source. Every vitest test lives under `tests/`, mirroring the path of the source it covers:

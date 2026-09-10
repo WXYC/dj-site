@@ -15,8 +15,35 @@ export type PlaylistSearchResponseWithCursor = PlaylistSearchResponse & {
 // the cursor are supplied per-page from pageParam.
 export type PlaylistSearchInfiniteArg = Omit<PlaylistSearchParams, "page">;
 
-// null pageParam = first page; a string pageParam is the opaque nextCursor.
-type PlaylistSearchPageParam = string | null;
+type SortField = PlaylistSearchParams["sort"];
+
+const DEFAULT_LIMIT = 50;
+
+/**
+ * The sorts the backend can address by cursor. Every other sort column is
+ * non-unique and has no compound `(sort_col, id)` index to support a cursor
+ * predicate, so the backend neither emits a cursor under them nor honours one:
+ * a cursor sent back under a non-date sort is dropped on intake, page 0 is
+ * re-served, the same cursor is re-derived from the same last row, and the walk
+ * never advances. Those sorts must stay on offset here.
+ */
+const CURSOR_PAGINATED_SORTS: ReadonlySet<SortField> = new Set<SortField>([
+  "date",
+]);
+
+export const isCursorPaginated = (sort: SortField): boolean =>
+  CURSOR_PAGINATED_SORTS.has(sort);
+
+/**
+ * Both halves of a walk's position, travelling as one value so nothing can
+ * reset half of it. Exactly one half is live per request, chosen by sort.
+ */
+type PlaylistSearchPageParam = {
+  cursor: string | null;
+  page: number;
+};
+
+const FIRST_PAGE: PlaylistSearchPageParam = { cursor: null, page: 0 };
 
 export const playlistSearchApi = createApi({
   reducerPath: "playlistSearchApi",
@@ -28,20 +55,56 @@ export const playlistSearchApi = createApi({
       PlaylistSearchPageParam
     >({
       infiniteQueryOptions: {
-        initialPageParam: null,
-        getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+        initialPageParam: FIRST_PAGE,
+        getNextPageParam: (
+          lastPage,
+          _allPages,
+          lastPageParam,
+          _allPageParams,
+          queryArg,
+        ) => {
+          const { limit = DEFAULT_LIMIT, sort = "date" } = queryArg;
+
+          if (isCursorPaginated(sort)) {
+            return lastPage.nextCursor
+              ? { cursor: lastPage.nextCursor, page: 0 }
+              : undefined;
+          }
+
+          // A full page is the only evidence of more rows an offset walk gets.
+          // `totalPages` derives from a count the backend caps, which makes it
+          // a lower bound: it can say "keep going" but never "stop", so a walk
+          // that terminated on it would cut the tail off every large result
+          // set. A short page is exact, at the cost of one empty request when
+          // the set divides evenly into pages.
+          return lastPage.results.length < limit
+            ? undefined
+            : { cursor: null, page: lastPageParam.page + 1 };
+        },
       },
       query({ pageParam, queryArg }) {
-        const { q, limit = 50, sort = "date", order = "desc" } = queryArg;
-        return {
-          url: "/search",
-          // Only forward cursor for non-first pages — sending cursor=null
-          // would serialize as the literal string "null".
-          params:
-            pageParam !== null
-              ? { q, page: 0, limit, sort, order, cursor: pageParam }
-              : { q, page: 0, limit, sort, order },
+        const {
+          q,
+          limit = DEFAULT_LIMIT,
+          sort = "date",
+          order = "desc",
+        } = queryArg;
+        const cursorWalk = isCursorPaginated(sort);
+
+        const params: Record<string, unknown> = {
+          q,
+          limit,
+          sort,
+          order,
+          page: cursorWalk ? 0 : pageParam.page,
         };
+        // Present only on a cursor walk's non-first page — sending cursor=null
+        // would serialize as the literal string "null".
+        if (cursorWalk && pageParam.cursor !== null) {
+          params.cursor = pageParam.cursor;
+        }
+
+        return { url: "/search", params };
       },
       transformResponse: (
         response: PlaylistSearchResponseWithCursor | null,
