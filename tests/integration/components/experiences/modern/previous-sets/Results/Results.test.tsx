@@ -239,14 +239,17 @@ describe("Results (modern previous sets)", () => {
 
       render(<Results />);
 
+      // The name leads with the row's date — an aria-label replaces the link's
+      // own text, and the Date column has no other source for it — so match on
+      // the part the row owns rather than on a locale-formatted timestamp.
       expect(
         screen.getByRole("link", {
-          name: "See the full show for Back, Baby by Jessica Pratt",
+          name: /see the full show for Back, Baby by Jessica Pratt$/,
         }),
       ).toHaveAttribute("href", "?show=1&entry=1#entry-1");
       expect(
         screen.getByRole("link", {
-          name: "See the full show for la paradoja by Juana Molina",
+          name: /see the full show for la paradoja by Juana Molina$/,
         }),
       ).toHaveAttribute("href", "?show=1&entry=2#entry-2");
     });

@@ -64,7 +64,7 @@ export default function MessageEntry({
       controls={controls}
       entry={entry}
       variant={variant}
-      color={color}
+      color={highlighted ? "danger" : color}
       draggable={draggable}
       highlighted={highlighted}
       className="row-marker"

@@ -16,18 +16,25 @@ export default function ResultRow({
   // zone files it under a day WXYC did not broadcast it.
   const { day } = formatStationDateTime(result.play_date);
   const date = formatShortDate(day);
+  // Null for a play that belongs to no show; the row then carries neither the
+  // link nor the hover affordance that would promise one.
+  const href = hrefForShowEntry(result.show_id, result.id);
 
   return (
-    <tr className="classic-previous-sets-row">
+    <tr className={href ? "classic-previous-sets-row" : undefined}>
       <td align="center">
-        {/* The backend projects a flowsheet row with a null show_id as 0, and
-            no show has that id. Such a play is shown plain rather than linked
-            to a page that can only report the show missing. */}
-        {result.show_id > 0 ? (
+        {href ? (
           <Link
             className="classic-previous-sets-row-link"
-            href={hrefForShowEntry(result.show_id, result.id)}
-            aria-label={`See the full show for ${result.track_title} by ${result.artist_name}`}
+            href={href}
+            // Leads with the date so the Date column's own content survives:
+            // an aria-label replaces the link's text outright, and nothing
+            // else on the row announces when the play aired.
+            aria-label={`${date} — see the full show for ${result.track_title} by ${result.artist_name}`}
+            // The destination is this same route with a different query, and
+            // the show itself is a client query, so a per-row prefetch on an
+            // infinitely scrolling listing buys nothing.
+            prefetch={false}
           >
             {date}
           </Link>

@@ -55,13 +55,17 @@ const entry = (over: Partial<FlowsheetRangeEntry> & { id: number }) =>
     ...over,
   }) as unknown as FlowsheetRangeEntry;
 
-const panel = (entries: FlowsheetRangeEntry[]) => (
+const panel = (
+  entries: FlowsheetRangeEntry[],
+  highlightedEntryId: number | null = null
+) => (
   <ShowEntriesPanel
     show={show}
     entries={entries}
     isPartial={false}
     partialEdge={null}
     isLoading={false}
+    highlightedEntryId={highlightedEntryId}
   />
 );
 
@@ -319,16 +323,7 @@ describe("ShowEntriesPanel", () => {
 
   describe("highlighted row", () => {
     it("marks the named play and anchors it for the fragment", () => {
-      render(
-        <ShowEntriesPanel
-          show={show}
-          entries={[entry({ id: 60 }), entry({ id: 61 })]}
-          isPartial={false}
-          partialEdge={null}
-          isLoading={false}
-          highlightedEntryId={61}
-        />,
-      );
+      render(panel([entry({ id: 60 }), entry({ id: 61 })], 61));
 
       expect(row(61)).toHaveClass("row-highlighted");
       expect(row(61)).toHaveAttribute("id", "entry-61");
@@ -338,14 +333,10 @@ describe("ShowEntriesPanel", () => {
 
     it("marks a marker row too, so a fragment can never point at nothing", () => {
       render(
-        <ShowEntriesPanel
-          show={show}
-          entries={[entry({ id: 62, entry_type: "talkset", message: "TALKSET" })]}
-          isPartial={false}
-          partialEdge={null}
-          isLoading={false}
-          highlightedEntryId={62}
-        />,
+        panel(
+          [entry({ id: 62, entry_type: "talkset", message: "TALKSET" })],
+          62,
+        ),
       );
 
       expect(row(62)).toHaveClass("row-highlighted");
@@ -355,27 +346,9 @@ describe("ShowEntriesPanel", () => {
     // out of that key is read once and then never again.
     it("moves the mark when the named play changes under the same entries", () => {
       const entries = [entry({ id: 63 }), entry({ id: 64 })];
-      const { rerender } = render(
-        <ShowEntriesPanel
-          show={show}
-          entries={entries}
-          isPartial={false}
-          partialEdge={null}
-          isLoading={false}
-          highlightedEntryId={63}
-        />,
-      );
+      const { rerender } = render(panel(entries, 63));
 
-      rerender(
-        <ShowEntriesPanel
-          show={show}
-          entries={entries}
-          isPartial={false}
-          partialEdge={null}
-          isLoading={false}
-          highlightedEntryId={64}
-        />,
-      );
+      rerender(panel(entries, 64));
 
       expect(row(64)).toHaveClass("row-highlighted");
       expect(row(63)).not.toHaveClass("row-highlighted");

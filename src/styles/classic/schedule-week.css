@@ -195,9 +195,10 @@
 }
 
 /* The play a search result linked to — tubafrenzy's own `.playlistEntryHighlight`
-   treatment, and the red the DJs asking for this feature name it by. Written
-   through the table's own selector chain so it outweighs the zebra stripe above
-   rather than leaning on !important. */
+   treatment, and the red the DJs asking for this feature name it by. Ties the
+   zebra stripe above on specificity (:nth-child counts as a class), so it wins
+   on source order alone: it must stay below that rule, and a zebra rule
+   appended after it would silently take the mark back. */
 .classic-schedule-week-entries tbody tr.playlistEntryHighlight {
   background: #FF0000;
   font-weight: bold;

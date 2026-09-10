@@ -56,9 +56,8 @@ export default function DraggableEntryWrapper({
   // The row color painted by the cells. Plain rows sit nearly flush with the
   // page (hover supplies the lift); anything else falls back to the theme
   // backdrop so an unmapped variant is still visibly distinct.
-  const rowBg = highlighted
-    ? theme.palette.danger.softBg
-    : effectiveVariant === "solid"
+  const rowBg =
+    effectiveVariant === "solid"
       ? theme.palette[color ?? "neutral"].solidBg
       : effectiveVariant === "soft"
         ? theme.palette[color ?? "neutral"].softBg
@@ -71,9 +70,8 @@ export default function DraggableEntryWrapper({
     // The row color is painted by the cells (via --row-bg) so they can
     // carry rounded corners; a tr background would bleed square.
     ["--row-bg" as string]: rowBg,
-    ["--row-accent" as string]: highlighted
-      ? theme.palette.danger.solidBg
-      : theme.palette[color ?? "neutral"].solidBg,
+    ["--row-accent" as string]:
+      theme.palette[color ?? "neutral"].solidBg,
     background: "transparent",
   };
 

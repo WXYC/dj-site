@@ -76,8 +76,19 @@ const SongEntry = memo(function SongEntry({
     <DraggableEntryWrapper
       controls={controls}
       entry={entry}
-      variant={queue ? "soft" : playing ? "solid" : "plain"}
-      color={queue ? "success" : playing ? "primary" : "neutral"}
+      // A marked row must not also resolve to `plain`: that variant's hover
+      // fill is painted straight onto the cells and would wipe the mark out
+      // from under the pointer.
+      variant={highlighted || queue ? "soft" : playing ? "solid" : "plain"}
+      color={
+        highlighted
+          ? "danger"
+          : queue
+            ? "success"
+            : playing
+              ? "primary"
+              : "neutral"
+      }
       draggable={draggable}
       highlighted={highlighted}
       style={{

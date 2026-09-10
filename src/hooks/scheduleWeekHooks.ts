@@ -20,6 +20,7 @@ import {
 } from "@/src/utilities/stationTime";
 import {
   ENTRY_PARAM,
+  positiveIdParam,
   SHOW_PARAM,
   VIEW_PARAM,
   WEEK_PARAM,
@@ -52,19 +53,15 @@ export function useScheduleWeekParams() {
     [weekParam],
   );
 
-  const selectedShowId = useMemo(() => {
-    if (!showParam) return null;
-    const parsed = Number(showParam);
-    return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
-  }, [showParam]);
+  const selectedShowId = useMemo(
+    () => positiveIdParam(showParam),
+    [showParam],
+  );
 
-  // Same shape as the show id, and for the same reason: a scraped or truncated
-  // URL must resolve to "highlight nothing" rather than to some other row.
-  const selectedEntryId = useMemo(() => {
-    if (!entryParam) return null;
-    const parsed = Number(entryParam);
-    return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
-  }, [entryParam]);
+  const selectedEntryId = useMemo(
+    () => positiveIdParam(entryParam),
+    [entryParam],
+  );
 
   const write = useCallback(
     (updates: Record<string, string | null>) => {
