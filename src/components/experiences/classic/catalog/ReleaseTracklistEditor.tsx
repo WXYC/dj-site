@@ -7,39 +7,15 @@ import {
   useGetCompilationTrackSuggestionsQuery,
   useWriteCompilationTracksMutation,
 } from "@/lib/features/catalog/api";
-import { compilationTrackCreditKey } from "@/lib/features/catalog/compilationTrackCredits";
+import {
+  blankRow,
+  classifySeed,
+  isStoredKnown,
+  toInput,
+  type DraftRow,
+  type Seed,
+} from "@/lib/features/catalog/compilationTrackCredits";
 import { formatEntireLibraryCode, isVariousArtists } from "@/lib/features/catalog/libraryCode";
-import type { CompilationTrackInput } from "@/lib/features/catalog/types";
-
-type DraftRow = {
-  /** Stable across edits and removals, so React never reuses one row's DOM for another. */
-  key: number;
-  artist_name: string;
-  track_title: string;
-  track_position: string;
-};
-
-let nextRowKey = 0;
-const blankRow = (): DraftRow => ({
-  key: nextRowKey++,
-  artist_name: "",
-  track_title: "",
-  track_position: "",
-});
-
-const rowFromSuggestion = (track: CompilationTrackInput): DraftRow => ({
-  key: nextRowKey++,
-  artist_name: track.artist_name,
-  track_title: track.track_title ?? "",
-  track_position: track.track_position ?? "",
-});
-
-/** Blank optional fields are stored as NULL, not as empty strings — matches the write endpoint's own convention. */
-const toInput = (row: DraftRow): CompilationTrackInput => ({
-  artist_name: row.artist_name.trim(),
-  track_title: row.track_title.trim() || null,
-  track_position: row.track_position.trim() || null,
-});
 
 /**
  * "Enter per-track credits for this compilation" — the write path the
@@ -97,18 +73,6 @@ const toInput = (row: DraftRow): CompilationTrackInput => ({
  * response, so the rows on screen are no longer a truthful account of the
  * release. The read is reissued and saving stays refused until it lands.
  */
-/**
- * Where the rows on screen came from. The manual arm carries its reason
- * because the three ways of arriving there are not interchangeable: "Discogs
- * had nothing", "Discogs had only what is already filed", and "the librarian
- * chose to type them" are three different claims, and stating the first when
- * either of the others is true sends him to the sleeve for a tracklist he
- * does not need to type.
- */
-type Seed =
-  | { kind: "discogs"; importedCount: number }
-  | { kind: "manual"; reason: "no-match" | "all-filed" | "chosen" };
-
 export default function ReleaseTracklistEditor({ albumId }: { albumId: number }) {
   const { data, isLoading, isError } = useGetInformationQuery({ album_id: albumId });
   const {
@@ -178,10 +142,10 @@ export default function ReleaseTracklistEditor({ albumId }: { albumId: number })
   });
 
   const storedTracks = stored?.tracks ?? [];
-  // Known only once the read has actually succeeded — never inferred from an
-  // empty array, which is indistinguishable from "not loaded yet" the moment
-  // this component mounts.
-  const storedKnown = !!stored && !storedError;
+  // The write invalidates this read, so a save is followed by a refetch whose
+  // cached payload predates it. That payload does not count as knowing, which
+  // is why the in-flight term matters here and not only on mount.
+  const storedKnown = isStoredKnown({ stored, storedError, storedFetching });
   const canSave = storedKnown && !writeOutcomeUnknown;
 
   // Seeded during render rather than in an effect: the rows are derived from
@@ -190,22 +154,9 @@ export default function ReleaseTracklistEditor({ albumId }: { albumId: number })
   // and seeding against an unknown stored state would re-offer a credit the
   // additive endpoint cannot later correct.
   if (suggestions && storedKnown && seed === null) {
-    const alreadyFiled = new Set(storedTracks.map(compilationTrackCreditKey));
-    const fresh = suggestions.tracks.filter(
-      (track) => !alreadyFiled.has(compilationTrackCreditKey(track)),
-    );
-    setSeed(
-      fresh.length > 0
-        ? { kind: "discogs", importedCount: fresh.length }
-        : {
-            kind: "manual",
-            // Discogs having matched every track that is already filed is not
-            // Discogs having no match, though the sleeve may still hold one it
-            // missed.
-            reason: fresh.length === suggestions.tracks.length ? "no-match" : "all-filed",
-          },
-    );
-    setRows(fresh.length > 0 ? fresh.map(rowFromSuggestion) : [blankRow()]);
+    const { seed: classified, rows: seededRows } = classifySeed(suggestions.tracks, storedTracks);
+    setSeed(classified);
+    setRows(seededRows);
   }
 
   /**

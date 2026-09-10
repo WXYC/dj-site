@@ -307,6 +307,31 @@ describe("Classic ReleaseTracklistEditor", () => {
     );
   });
 
+  // The write invalidates the stored-credit read, so a save is followed by a
+  // refetch during which the payload on screen still predates that save. The
+  // endpoint is additive-only, so a second save against that stale account
+  // files a duplicate credit it cannot then amend -- an in-flight re-read does
+  // not count as knowing, even with the previous payload still cached.
+  it("refuses a further save while the stored re-read is back in flight", async () => {
+    const user = userEvent.setup();
+    mockGetInformationQuery.mockReturnValue({ data: vaAlbum(), isLoading: false, isError: false });
+
+    renderWithProviders(<ReleaseTracklistEditor albumId={VA_ALBUM_ID} />);
+
+    await user.type(screen.getByLabelText("Artist for track 1"), "Juana Molina");
+    expect(screen.getByDisplayValue("File These Credits")).toHaveProperty("disabled", false);
+
+    mockGetCompilationTracksQuery.mockReturnValue({
+      data: { library_id: VA_ALBUM_ID, tracks: [] },
+      isError: false,
+      isFetching: true,
+      refetch: mockRefetchStored,
+    });
+    await user.type(screen.getByLabelText("Artist for track 1"), " y");
+
+    expect(screen.getByDisplayValue("File These Credits")).toHaveProperty("disabled", true);
+  });
+
   // Two clicks on the Discogs button must not leave two editable copies of the
   // same track: correcting one copy and saving files the correction *and* the
   // original, and neither can be removed afterwards.
