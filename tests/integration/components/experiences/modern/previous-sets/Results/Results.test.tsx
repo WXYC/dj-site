@@ -148,7 +148,25 @@ describe("Results (modern previous sets)", () => {
     expect(screen.queryByText(/0 results/i)).toBeNull();
   });
 
-  it("reports the total once the client query owns the rows", () => {
+  it("never claims a total the list cannot reach", () => {
+    // The backend caps its count and reports a sentinel past the cap, so
+    // `total` can exceed what scrolling reaches. The footer is an end-of-list
+    // claim, so it counts the rows the list actually holds.
+    mockUsePlaylistSearchResults.mockReturnValue({
+      ...base,
+      displayResults: [makeResult(0), makeResult(1)],
+      usingSeed: false,
+      total: 10001,
+      hasMore: false,
+    });
+
+    render(<Results />);
+
+    expect(screen.getByText("2 results")).toBeInTheDocument();
+    expect(screen.queryByText(/10,001/)).toBeNull();
+  });
+
+  it("reports the count once the client query owns the rows", () => {
     mockUsePlaylistSearchResults.mockReturnValue({
       ...base,
       displayResults: [makeResult(0), makeResult(1)],
