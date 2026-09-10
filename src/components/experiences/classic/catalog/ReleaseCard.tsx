@@ -39,6 +39,12 @@ import Tracklist from "./Tracklist";
  *  - **The Artist cell is text, not a link.** The JSP links it to a card with
  *    no role gate; ours is gated, so the link lands when the ungated view card
  *    does.
+ *  - **The submit reads "Save", and stays disabled until a field changes.**
+ *    The JSP's "Modify this Library Release" posts whatever is on screen, so
+ *    an idle submit re-sends the row unchanged. The write is a full-field
+ *    update, which makes that a no-op indistinguishable from a real save --
+ *    same message, same everything. Gating the button on a real edit makes it
+ *    report whether the screen holds unsaved work.
  *  - **"Time Last Modified" is replaced by "Date Added".** Backend returns
  *    `last_modified`, but the published contract does not declare it and the
  *    conversion to the client row therefore drops it. Reading it anyway would
@@ -114,9 +120,24 @@ export default function ReleaseCard({ albumId }: { albumId: number }) {
   const missing = !!data.date_lost && !data.date_found;
   const added = data.add_date ? formatStationDateTime(data.add_date) : undefined;
 
+  // One normalization, read by both the write and the pristine check below, so
+  // the button cannot come to disagree with what submitting would send.
+  const editedTitle = title.trim();
+  const editedAltArtist = altArtist.trim() === "" ? null : altArtist.trim();
+  const editedFormatId = formatId === "" ? null : Number(formatId);
+
+  // Compared against the trimmed payload rather than the raw fields: the write
+  // trims, so a stray space is not an edit, and treating it as one would let
+  // Save post a body identical to the row it already holds.
+  const storedAltArtist = (data.alternate_artist ?? "").trim();
+  const dirty =
+    editedTitle !== (data.title ?? "").trim() ||
+    editedAltArtist !== (storedAltArtist === "" ? null : storedAltArtist) ||
+    editedFormatId !== (data.format_id ?? null);
+
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!title.trim()) {
+    if (!editedTitle) {
       setMessage("Please enter a title for this release.");
       return;
     }
@@ -124,9 +145,11 @@ export default function ReleaseCard({ albumId }: { albumId: number }) {
       await updateAlbum({
         albumId,
         body: {
-          album_title: title.trim(),
-          alternate_artist_name: altArtist.trim() === "" ? null : altArtist.trim(),
-          ...(formatId === "" ? {} : { format_id: Number(formatId) }),
+          album_title: editedTitle,
+          alternate_artist_name: editedAltArtist,
+          // Omitted rather than sent as null when unset -- the wire shape the
+          // endpoint has always received from this screen.
+          ...(editedFormatId === null ? {} : { format_id: editedFormatId }),
         },
       }).unwrap();
       setMessage("This library release has been modified.");
@@ -293,11 +316,7 @@ export default function ReleaseCard({ albumId }: { albumId: number }) {
             <tr>
               <td></td>
               <td>
-                <input
-                  type="submit"
-                  value="Modify this Library Release"
-                  disabled={saving}
-                />
+                <input type="submit" value="Save" disabled={saving || !dirty} />
                 &nbsp;&nbsp;
                 <a href={`/dashboard/library/release/${albumId}/delete`}>
                   Delete This Library Release

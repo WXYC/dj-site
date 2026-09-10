@@ -96,7 +96,7 @@ describe("Classic ReleaseCard", () => {
     const title = screen.getByLabelText("Title of Release");
     await user.clear(title);
     await user.type(title, "Tri Repetae++");
-    await user.click(screen.getByDisplayValue("Modify this Library Release"));
+    await user.click(screen.getByDisplayValue("Save"));
 
     expect(mockUpdateAlbum).toHaveBeenCalledWith({
       albumId: 53375,
@@ -112,10 +112,79 @@ describe("Classic ReleaseCard", () => {
     renderWithProviders(<ReleaseCard albumId={53375} />);
 
     await user.clear(screen.getByLabelText("Title of Release"));
-    await user.click(screen.getByDisplayValue("Modify this Library Release"));
+    await user.click(screen.getByDisplayValue("Save"));
 
     expect(mockUpdateAlbum).not.toHaveBeenCalled();
     expect(screen.getByTestId("release-message").textContent).toContain("enter a title");
+  });
+
+  // The write is a full-field PUT, so submitting an untouched form re-sends the
+  // row it already holds. The JSP let that through; here the button is the
+  // guard, which also means the librarian can tell at a glance whether the
+  // screen holds unsaved work.
+  it("keeps Save disabled until a field actually changes", async () => {
+    const user = userEvent.setup();
+    mockGetInformationQuery.mockReturnValue({ data: album(), isLoading: false, isError: false });
+
+    renderWithProviders(<ReleaseCard albumId={53375} />);
+
+    expect(screen.getByDisplayValue("Save")).toHaveProperty("disabled", true);
+
+    await user.type(screen.getByLabelText("Title of Release"), "++");
+
+    expect(screen.getByDisplayValue("Save")).toHaveProperty("disabled", false);
+  });
+
+  // The submit trims before sending, so a stray space is not an edit. Enabling
+  // on it would post a payload identical to the stored row -- the exact
+  // non-idempotent write the disabled button exists to prevent.
+  it("treats a whitespace-only edit as no change, because the save trims", async () => {
+    const user = userEvent.setup();
+    mockGetInformationQuery.mockReturnValue({ data: album(), isLoading: false, isError: false });
+
+    renderWithProviders(<ReleaseCard albumId={53375} />);
+
+    await user.type(screen.getByLabelText("Title of Release"), "   ");
+
+    expect(screen.getByDisplayValue("Save")).toHaveProperty("disabled", true);
+  });
+
+  it("re-disables Save when the librarian reverts the edit by hand", async () => {
+    const user = userEvent.setup();
+    mockGetInformationQuery.mockReturnValue({ data: album(), isLoading: false, isError: false });
+
+    renderWithProviders(<ReleaseCard albumId={53375} />);
+
+    const title = screen.getByLabelText("Title of Release");
+    await user.type(title, "++");
+    expect(screen.getByDisplayValue("Save")).toHaveProperty("disabled", false);
+
+    await user.clear(title);
+    await user.type(title, "Tri Repetae");
+
+    expect(screen.getByDisplayValue("Save")).toHaveProperty("disabled", true);
+  });
+
+  it("enables Save for a format change, not only a typed field", async () => {
+    const user = userEvent.setup();
+    mockGetInformationQuery.mockReturnValue({ data: album(), isLoading: false, isError: false });
+
+    renderWithProviders(<ReleaseCard albumId={53375} />);
+
+    await user.selectOptions(screen.getByLabelText("Format"), "2");
+
+    expect(screen.getByDisplayValue("Save")).toHaveProperty("disabled", false);
+  });
+
+  it("enables Save for an alternate-artist change", async () => {
+    const user = userEvent.setup();
+    mockGetInformationQuery.mockReturnValue({ data: album(), isLoading: false, isError: false });
+
+    renderWithProviders(<ReleaseCard albumId={53375} />);
+
+    await user.type(screen.getByLabelText("Alternate Artist Name"), "Autechre (Sean Booth)");
+
+    expect(screen.getByDisplayValue("Save")).toHaveProperty("disabled", false);
   });
 
   it("offers Mark as Missing for a shelved release, and Mark as Found for a lost one", () => {
