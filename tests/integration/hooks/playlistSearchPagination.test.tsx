@@ -122,7 +122,9 @@ describe("Previous Sets pagination (real store + RTK)", () => {
     await loadMore(result, 2 * PAGE);
 
     act(() => {
-      store.dispatch(playlistSearchSlice.actions.setSort("artist"));
+      store.dispatch(
+        playlistSearchSlice.actions.setSort({ sortBy: "artist", sortOrder: "desc" }),
+      );
     });
 
     await waitFor(() =>
@@ -143,7 +145,9 @@ describe("Previous Sets pagination (real store + RTK)", () => {
     await loadMore(result, 2 * PAGE);
 
     act(() => {
-      store.dispatch(playlistSearchSlice.actions.setSort("date"));
+      store.dispatch(
+        playlistSearchSlice.actions.setSort({ sortBy: "date", sortOrder: "desc" }),
+      );
     });
 
     await waitFor(() =>
