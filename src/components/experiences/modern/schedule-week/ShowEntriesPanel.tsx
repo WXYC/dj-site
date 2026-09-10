@@ -39,17 +39,17 @@ export default function ShowEntriesPanel({
 }) {
   // Rows are built once per entry list rather than per render: Entry is
   // memoized on its props, and a fresh object per render defeats that. The
-  // highlighted id is part of the key, not closed over — read once, the mark
-  // would never move when the link changes under an unchanged entry list.
+  // highlighted id is deliberately not part of this key — it is compared at
+  // the map site below, where a changed mark re-renders only the two rows
+  // whose boolean flipped instead of reconverting every row in the set.
   const rows = useMemo(
     () =>
       entries.map((entry) => ({
         id: entry.id,
         timeLabel: timeOf(entry),
         converted: convertRangeEntry(entry),
-        highlighted: entry.id === highlightedEntryId,
       })),
-    [entries, highlightedEntryId]
+    [entries]
   );
 
   return (
@@ -101,7 +101,7 @@ export default function ShowEntriesPanel({
               <FlowsheetColumnSizingRow leadingTimeColumn />
             </thead>
             <tbody>
-              {rows.map(({ id, timeLabel, converted, highlighted }) => (
+              {rows.map(({ id, timeLabel, converted }) => (
                 <Entry
                   key={id}
                   entry={converted}
@@ -109,7 +109,7 @@ export default function ShowEntriesPanel({
                   draggable={false}
                   readOnly
                   timeLabel={timeLabel}
-                  highlighted={highlighted}
+                  highlighted={id === highlightedEntryId}
                 />
               ))}
             </tbody>

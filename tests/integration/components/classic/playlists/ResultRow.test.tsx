@@ -69,8 +69,10 @@ describe("Classic Previous Sets ResultRow", () => {
     renderRow();
     const links = screen.getAllByRole("link");
     expect(links).toHaveLength(1);
+    // Leads with the date: an aria-label replaces the link's own text, and the
+    // Date column has no other source for it.
     expect(links[0]).toHaveAccessibleName(
-      "See the full show for la paradoja by Juana Molina"
+      "6/15/24 — see the full show for la paradoja by Juana Molina"
     );
   });
 
