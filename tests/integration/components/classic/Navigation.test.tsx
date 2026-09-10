@@ -15,8 +15,14 @@ vi.mock("@/lib/features/authentication/organization-utils", () => ({
   fetchOrganizationRoleForUserClient: vi.fn(),
 }));
 
+let registryMock: {
+  info: { id: string; real_name?: string; dj_name?: string } | null;
+  loading: boolean;
+} = { info: { id: "u1", real_name: "Maura Partrick", dj_name: "Anonymous" }, loading: false };
+
 vi.mock("@/src/hooks/authenticationHooks", () => ({
   useLogout: () => ({ handleLogout: vi.fn() }),
+  useRegistry: () => registryMock,
 }));
 
 let currentPathname = "/dashboard/catalog";
@@ -54,6 +60,10 @@ function session() {
 }
 
 beforeEach(() => {
+  registryMock = {
+    info: { id: "u1", real_name: "Maura Partrick", dj_name: "Anonymous" },
+    loading: false,
+  };
   currentPathname = "/dashboard/catalog";
   mockUseSession.mockReturnValue(session());
   mockFetchOrgRole.mockResolvedValue("dj");
@@ -84,6 +94,39 @@ describe("classic Navigation", () => {
       "/dashboard/playlists"
     );
     expect(document.querySelector(".nav-disabled")).toBeNull();
+  });
+
+  describe("signed-in identity", () => {
+    it("names the signed-in DJ in the bar", () => {
+      renderWithProviders(<Navigation />);
+
+      expect(document.querySelector(".nav-identity")).toHaveTextContent(
+        "Maura Partrick"
+      );
+    });
+
+    it("falls back to the DJ handle when there is no real name", () => {
+      registryMock = { info: { id: "u1", dj_name: "Anonymous" }, loading: false };
+      renderWithProviders(<Navigation />);
+
+      expect(document.querySelector(".nav-identity")).toHaveTextContent(
+        "Anonymous"
+      );
+    });
+
+    it("omits the slot entirely when no name resolves", () => {
+      registryMock = { info: { id: "u1" }, loading: false };
+      renderWithProviders(<Navigation />);
+
+      expect(document.querySelector(".nav-identity")).toBeNull();
+    });
+
+    it("omits the slot while the registry is still loading", () => {
+      registryMock = { info: null, loading: true };
+      renderWithProviders(<Navigation />);
+
+      expect(document.querySelector(".nav-identity")).toBeNull();
+    });
   });
 
   describe("with the librarian nav flag off", () => {

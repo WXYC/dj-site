@@ -10,6 +10,8 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("@/src/hooks/authenticationHooks", () => ({
   useLogout: () => ({ handleLogout: vi.fn() }),
+  // Rendered through Navigation, which reads the registry for the identity slot.
+  useRegistry: () => ({ info: { id: "u1", real_name: "Maura Partrick" }, loading: false }),
 }));
 
 import ClassicPreviousSetsSurface from "@/src/components/experiences/classic/playlists/ClassicPreviousSetsSurface";

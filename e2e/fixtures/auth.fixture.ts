@@ -18,6 +18,34 @@ export type TestUser = MockUser;
  * nothing else touches, provisioned via the live admin roster the same way
  * as the classic-preference identities in auth.setup.ts.
  */
+/**
+ * The classic-preference pair, shared with specs rather than kept module-local
+ * to `auth.setup.ts`: importing that file to reach them would register its
+ * top-level `setup()` tests into the importing spec. Same reason the takeover
+ * pair below lives here.
+ */
+export const CLASSIC_MD_USER = {
+  username: "test_classic_md",
+  // Set through the onboarding form (unlike TEST_USERS, which are seeded
+  // directly into the database), so it must satisfy isStrongPassword.
+  password: "TestClassicMd1",
+  email: "test_classic_md@wxyc.org",
+  realName: "Test Classic MD",
+  djName: "Test Classic MD",
+  role: "musicDirector" as const,
+  stateFile: "classicMd.json",
+};
+
+export const CLASSIC_DJ_USER = {
+  username: "test_classic_dj",
+  password: "TestClassicDj1",
+  email: "test_classic_dj@wxyc.org",
+  realName: "Test Classic DJ",
+  djName: "Test Classic DJ",
+  role: "dj" as const,
+  stateFile: "classicDj.json",
+};
+
 export const TAKEOVER_DJ_A = {
   username: "test_takeover_a",
   password: "TestTakeoverA1",

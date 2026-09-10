@@ -350,6 +350,18 @@ html[data-experience="classic"] body {
 	cursor: not-allowed;
 }
 
+/* dj-site addition: whose session is open. Slot metrics match the bar's links
+   so it sits on the same baseline, but it is neither a link nor unreachable —
+   the muted grey and not-allowed cursor of .nav-disabled would both misread. */
+.nav-bar .nav-identity {
+	display: inline-block;
+	color: #ccc;
+	padding: 8px 16px;
+	font-size: 0.85em;
+	font-weight: bold;
+	font-style: italic;
+}
+
 /* ========== Facet Bar ========== */
 
 .facet-bar {
