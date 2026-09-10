@@ -31,7 +31,12 @@ export default function ShowView({ showId }: { showId: number }) {
   }
 
   return (
-    <Box sx={{ mt: 2 }}>
+    // `Main` is `height: 100dvh; overflow: hidden`, so a page that does not
+    // carry its own scrollport loses the bottom of a long set rather than
+    // scrolling to it, and the panel below deliberately holds no scrollport of
+    // its own. The header sits inside this one: it belongs to the set, and
+    // pinning it would spend height the set needs.
+    <Box sx={{ mt: 2, flex: 1, minHeight: 0, overflowY: "auto" }}>
       <Sheet
         variant="soft"
         sx={{
