@@ -25,8 +25,11 @@ vi.mock("@/src/hooks/flowsheetHooks", () => ({
   useOpenShowHandoff: () => () => openShowMock,
 }));
 
+const handleLogoutMock = vi.fn();
+
 vi.mock("@/src/hooks/authenticationHooks", () => ({
   useRegistry: () => ({ info: userInfoMock, loading: false }),
+  useLogout: () => ({ handleLogout: handleLogoutMock, loggingOut: false }),
 }));
 
 vi.mock("@/src/utils/helpScreen", () => ({
@@ -52,6 +55,7 @@ function submitForm() {
 }
 
 beforeEach(() => {
+  handleLogoutMock.mockClear();
   goLiveMock.mockReset();
   goLiveMock.mockResolvedValue({ status: "ok" as const });
   openShowMock = null;
@@ -320,5 +324,29 @@ describe("Classic StartShow — the handoff prompt", () => {
 
     expect(screen.queryByTestId("go-live-handoff-prompt")).toBeNull();
     expect(goLiveMock).toHaveBeenCalledWith(undefined);
+  });
+
+  describe("signing in as a different DJ", () => {
+    it("offers a way out to whoever is not the signed-in DJ", () => {
+      renderWithProviders(<StartShow />);
+
+      expect(
+        screen.getByRole("button", { name: /sign in as a different dj/i })
+      ).toBeInTheDocument();
+    });
+
+    it("ends the session rather than starting a show", () => {
+      renderWithProviders(<StartShow />);
+
+      fireEvent.click(
+        screen.getByRole("button", { name: /sign in as a different dj/i })
+      );
+
+      expect(handleLogoutMock).toHaveBeenCalledTimes(1);
+      // The control sits inside the go-live form, so a submit-typed button
+      // here would start a show under the departed DJ's name — the exact
+      // failure this escape hatch exists to prevent.
+      expect(goLiveMock).not.toHaveBeenCalled();
+    });
   });
 });

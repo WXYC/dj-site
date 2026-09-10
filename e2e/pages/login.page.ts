@@ -32,6 +32,11 @@ export class LoginPage {
   readonly qrDeniedHeading: Locator;
   readonly qrPasswordFallbackLink: Locator;
 
+  // Classic sign-in form. The username/password locators above match BOTH
+  // experiences, so asserting "the classic form rendered" needs a marker only
+  // classic carries — its .signon-card title.
+  readonly classicFormTitle: Locator;
+
   // Feedback elements
   readonly errorToast: Locator;
   readonly successToast: Locator;
@@ -77,6 +82,10 @@ export class LoginPage {
     this.backButton = page.locator('button:has-text("Never mind"), button:has-text("Login with a different account")');
 
     // Feedback - sonner toast notifications
+    this.classicFormTitle = page.locator(
+      '.signon-card:has-text("Please log in to WXYC Library:")'
+    );
+
     this.errorToast = page.locator('[data-sonner-toast][data-type="error"]');
     this.successToast = page.locator('[data-sonner-toast][data-type="success"]');
     // MUI Joy Alert component (exclude Next.js route announcer)

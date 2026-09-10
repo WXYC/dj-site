@@ -8,7 +8,7 @@ import {
   GO_LIVE_HANDOFF_TESTIDS,
   describeOpenShow,
 } from "@/lib/features/flowsheet/go-live-handoff";
-import { useRegistry } from "@/src/hooks/authenticationHooks";
+import { useLogout, useRegistry } from "@/src/hooks/authenticationHooks";
 import { FormEvent, useEffect, useState } from "react";
 import { OpenHelp } from "@/src/utils/helpScreen";
 
@@ -21,6 +21,7 @@ export default function StartShow() {
   const { prompt, deciding, requestGoLive, decide, cancel } =
     useGoLiveHandoff(goLive);
   const { info: userData, loading: registryLoading } = useRegistry();
+  const { handleLogout } = useLogout();
   // Editable per-show override for the DJ's public handle, initialized to the
   // registry's `dj_name`. useRegistry() is async, so useState's initializer
   // (which only runs once) can't wait for it — this effect syncs the field
@@ -130,6 +131,18 @@ export default function StartShow() {
                     }}
                   />
                   <input type="hidden" name="djID" value="0" />
+                  <br />
+                  {/* type="button" is load-bearing: this sits inside the
+                      go-live form, and a submit-typed control here would start
+                      a show under the departed DJ's name — the precise failure
+                      the escape hatch exists to prevent. */}
+                  <button
+                    type="button"
+                    className="link-button"
+                    onClick={() => handleLogout()}
+                  >
+                    Not you? Sign in as a different DJ
+                  </button>
                 </td>
               </tr>
               <tr>

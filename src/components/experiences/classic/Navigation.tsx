@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useLogout } from "@/src/hooks/authenticationHooks";
+import { useLogout, useRegistry } from "@/src/hooks/authenticationHooks";
 import { isClassicLibrarianNavEnabled } from "@/lib/features/catalog/flags";
 import { Authorization } from "@/lib/features/admin/types";
 import AuthorizedView from "@/src/components/shared/Authorization/AuthorizedView";
@@ -33,6 +33,15 @@ type NavLink = {
 export default function Navigation() {
   const pathname = usePathname();
   const { handleLogout } = useLogout();
+  const { info: userData, loading: registryLoading } = useRegistry();
+
+  // The control-room browser is shared, and no other classic screen says whose
+  // session is open: the sign-on form's disabled name field reads as the
+  // system's fixed idea of who is at the keyboard rather than a session anyone
+  // can end. Real name over handle — the question is who is signed in, not what
+  // they are called on air. Absent rather than blank when nothing resolves; an
+  // empty slot asserting an identity is worse than no assertion.
+  const signedInName = userData?.real_name || userData?.dj_name || "";
 
   const navLinks: NavLink[] = [
     { path: "/dashboard/catalog", title: "Card Catalog" },
@@ -113,6 +122,11 @@ export default function Navigation() {
       <ul>
         {navLinks.map(renderLink)}
         {isClassicLibrarianNavEnabled() && librarianLinks.map(renderLink)}
+        {!registryLoading && signedInName && (
+          <li>
+            <span className="nav-identity">{signedInName}</span>
+          </li>
+        )}
         <li>
           <a
             href="#"

@@ -1,6 +1,8 @@
 import { test as setup, expect, request, Browser } from "@playwright/test";
 import {
   TEST_USERS,
+  CLASSIC_DJ_USER as CLASSIC_DJ_USER_DATA,
+  CLASSIC_MD_USER as CLASSIC_MD_USER_DATA,
   TAKEOVER_DJ_A as TAKEOVER_DJ_A_DATA,
   TAKEOVER_DJ_B as TAKEOVER_DJ_B_DATA,
   getAuthServiceBaseUrl,
@@ -222,27 +224,13 @@ interface ProvisionedIdentity {
  * rather than one.
  */
 const CLASSIC_MD_USER: ProvisionedIdentity = {
-  username: "test_classic_md",
-  // Set through the onboarding form (unlike TEST_USERS, which are seeded
-  // directly into the database), so it must satisfy isStrongPassword —
-  // TEST_USERS' shared "testpassword123" has no uppercase and would leave
-  // the onboarding form's Submit button permanently disabled.
-  password: "TestClassicMd1",
-  email: "test_classic_md@wxyc.org",
-  realName: "Test Classic MD",
-  djName: "Test Classic MD",
-  role: "musicDirector",
-  statePath: `${authDir}/classicMd.json`,
+  ...CLASSIC_MD_USER_DATA,
+  statePath: `${authDir}/${CLASSIC_MD_USER_DATA.stateFile}`,
 };
 
 const CLASSIC_DJ_USER: ProvisionedIdentity = {
-  username: "test_classic_dj",
-  password: "TestClassicDj1",
-  email: "test_classic_dj@wxyc.org",
-  realName: "Test Classic DJ",
-  djName: "Test Classic DJ",
-  role: "dj",
-  statePath: `${authDir}/classicDj.json`,
+  ...CLASSIC_DJ_USER_DATA,
+  statePath: `${authDir}/${CLASSIC_DJ_USER_DATA.stateFile}`,
 };
 
 /**
