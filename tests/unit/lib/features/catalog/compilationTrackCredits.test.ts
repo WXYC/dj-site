@@ -124,13 +124,13 @@ describe("isStoredKnown", () => {
 
   it("is unknown while a refetch is in flight, even with a prior payload still cached", () => {
     expect(
-      isStoredKnown({ stored: { tracks: [] }, storedError: false, storedFetching: true }),
+      isStoredKnown({ stored: { library_id: 53390, tracks: [] }, storedError: false, storedFetching: true }),
     ).toBe(false);
   });
 
   it("is known once the read has landed, succeeded, and settled", () => {
     expect(
-      isStoredKnown({ stored: { tracks: [] }, storedError: false, storedFetching: false }),
+      isStoredKnown({ stored: { library_id: 53390, tracks: [] }, storedError: false, storedFetching: false }),
     ).toBe(true);
   });
 });

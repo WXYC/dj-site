@@ -307,11 +307,12 @@ describe("Classic ReleaseTracklistEditor", () => {
     );
   });
 
-  // The write invalidates the stored-credit read, so a save is followed by a
-  // refetch during which the payload on screen still predates that save. The
-  // endpoint is additive-only, so a second save against that stale account
-  // files a duplicate credit it cannot then amend -- an in-flight re-read does
-  // not count as knowing, even with the previous payload still cached.
+  // An in-flight re-read does not count as knowing, even with the previous
+  // payload still cached: that payload predates the write that prompted the
+  // re-read, and the endpoint is additive-only, so a save against it files a
+  // duplicate credit it cannot then amend. This pins the gate on the query
+  // state directly; that a write is what puts the read back in flight is
+  // pinned separately, in the catalog invalidation tests.
   it("refuses a further save while the stored re-read is back in flight", async () => {
     const user = userEvent.setup();
     mockGetInformationQuery.mockReturnValue({ data: vaAlbum(), isLoading: false, isError: false });
