@@ -30,6 +30,10 @@ const mockUseOpenShowHandoff = vi.fn<
   } | null
 >(() => null);
 
+// Whether this DJ is already on the open show's roster. Default false: the
+// ordinary collision is with a show the DJ has nothing to do with.
+const mockCallerIsOnAir = vi.fn(() => false);
+
 vi.mock("@/src/hooks/flowsheetHooks", () => ({
   useShowControl: vi.fn(() => ({
     live: false,
@@ -42,6 +46,7 @@ vi.mock("@/src/hooks/flowsheetHooks", () => ({
   })),
   // Returns a reader: the real hook is read in the click handler, not rendered.
   useOpenShowHandoff: () => () => mockUseOpenShowHandoff(),
+  useCallerIsOnAir: () => () => mockCallerIsOnAir(),
   useFlowsheetSaving: () => mockUseFlowsheetSaving(),
 }));
 
@@ -50,6 +55,7 @@ describe("GoLive", () => {
     vi.clearAllMocks();
     mockGoLive.mockResolvedValue({ status: "ok" as const });
     mockUseOpenShowHandoff.mockReturnValue(null);
+    mockCallerIsOnAir.mockReturnValue(false);
   });
 
   it("should render when not live", () => {
@@ -375,6 +381,82 @@ describe("GoLive", () => {
 
       await screen.findByTestId("go-live-handoff-dialog");
       expect(screen.getByText(/dj sue is on air\./)).toBeInTheDocument();
+    });
+
+    // A DJ who is ALREADY on air on the open show is already a co-host. The
+    // request "Join Existing Show" would send is one the server answers 200 and
+    // acts on not at all, so the button spends their press closing the dialog
+    // and changing nothing — the dead end the prompt exists to remove, with a
+    // dialog in front of it. Offering only the answer that moves them is the
+    // fix; a disabled button would still read as a possibility withheld.
+    it("drops Join Existing Show when the DJ is already on air on the open show", async () => {
+      mockUseOpenShowHandoff.mockReturnValue(null);
+      mockCallerIsOnAir.mockReturnValue(true);
+      mockGoLive.mockResolvedValue({
+        status: "conflict",
+        handoff: {
+          showId: 1951325,
+          djNames: ["DJ Houndstooth"],
+          lastLoggedAt: null,
+        },
+      } as never);
+      render(<GoLive />);
+
+      fireEvent.click(goLiveControls().icon);
+
+      await screen.findByTestId("go-live-handoff-dialog");
+      expect(screen.queryByTestId("go-live-handoff-join")).toBeNull();
+      // Standing alone, "End Existing Show" names what the button stops and not
+      // what it starts, which is the half a DJ trying to begin their own shift
+      // needs to read.
+      expect(
+        screen.getByTestId("go-live-handoff-takeover"),
+      ).toHaveTextContent("End Their Show and Start Mine");
+      expect(
+        screen.getByText(
+          /You have to end their show before you can start your own\./,
+        ),
+      ).toBeInTheDocument();
+    });
+
+    // The converse, on the same path, so the suppression above is proven to be
+    // conditional rather than a removal.
+    it("still offers Join Existing Show to a DJ who is not on air", async () => {
+      mockUseOpenShowHandoff.mockReturnValue(null);
+      mockCallerIsOnAir.mockReturnValue(false);
+      mockGoLive.mockResolvedValue({
+        status: "conflict",
+        handoff: {
+          showId: 1951325,
+          djNames: ["DJ Houndstooth"],
+          lastLoggedAt: null,
+        },
+      } as never);
+      render(<GoLive />);
+
+      fireEvent.click(goLiveControls().icon);
+
+      await screen.findByTestId("go-live-handoff-dialog");
+      expect(screen.getByTestId("go-live-handoff-join")).toBeInTheDocument();
+      expect(
+        screen.getByTestId("go-live-handoff-takeover"),
+      ).toHaveTextContent("End Existing Show");
+    });
+
+    // The takeover a suppressed Join leaves as the only way out still has to
+    // carry the show id, or the escape it offers goes nowhere.
+    it("binds the takeover to the open show even with Join suppressed", async () => {
+      mockCallerIsOnAir.mockReturnValue(true);
+      mockUseOpenShowHandoff.mockReturnValue(OPEN_SHOW);
+      render(<GoLive />);
+      await openPrompt(goLiveControls().icon);
+
+      fireEvent.click(screen.getByTestId("go-live-handoff-takeover"));
+
+      expect(mockGoLive).toHaveBeenCalledWith(undefined, {
+        intent: "takeover",
+        expected_show_id: 1951224,
+      });
     });
 
     // The server may decline a takeover silently — while its takeover flag is

@@ -8,7 +8,7 @@ import {
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
 import type { GoLiveDecision, GoLiveOutcome } from "./flowsheetHooks";
-import { useOpenShowHandoff } from "./flowsheetHooks";
+import { useCallerIsOnAir, useOpenShowHandoff } from "./flowsheetHooks";
 
 type GoLiveFn = (
   djNameOverride?: string,
@@ -24,6 +24,18 @@ export type GoLivePrompt = {
    * lost — and on the classic surface it is the entire point of the form.
    */
   djNameOverride?: string;
+  /**
+   * Whether this DJ was already on air on the open show when the prompt opened.
+   *
+   * Captured here rather than read again at render time so the buttons cannot
+   * change under the reader's hands mid-decision, and so the answer is taken at
+   * the same instant as the handoff it belongs to.
+   *
+   * True removes co-hosting from the offer: the DJ is already a co-host, so the
+   * request that button sends is a no-op the server answers 200 — the prompt
+   * would close having done nothing, which is the dead end it exists to remove.
+   */
+  callerIsOnAir: boolean;
 };
 
 /**
@@ -41,6 +53,7 @@ export type GoLivePrompt = {
  */
 export const useGoLiveHandoff = (goLive: GoLiveFn) => {
   const readOpenShow = useOpenShowHandoff();
+  const readCallerIsOnAir = useCallerIsOnAir();
   const [prompt, setPrompt] = useState<GoLivePrompt | null>(null);
   const [deciding, setDeciding] = useState(false);
 
@@ -55,17 +68,33 @@ export const useGoLiveHandoff = (goLive: GoLiveFn) => {
       // this is the freshest one available without a round trip.
       const openShow = readOpenShow();
       if (openShow) {
-        setPrompt({ handoff: openShow, djNameOverride });
+        // False by construction on this path — `readOpenShow` answers null for
+        // a DJ already on the roster — but read rather than hardcoded, so the
+        // two hooks cannot drift into disagreeing about the same roster.
+        setPrompt({
+          handoff: openShow,
+          djNameOverride,
+          callerIsOnAir: readCallerIsOnAir(),
+        });
         return;
       }
       const outcome = await goLive(djNameOverride);
       if (outcome.status === "conflict") {
-        setPrompt({ handoff: outcome.handoff, djNameOverride });
+        // The path that can be true: the server refuses a non-owner, and an
+        // active co-host is a non-owner. Asked after the response rather than
+        // before the request, because the join mutation invalidates the on-air
+        // roster — so by now this DJ's own membership reflects whatever the
+        // server just decided, which is the state the buttons have to describe.
+        setPrompt({
+          handoff: outcome.handoff,
+          djNameOverride,
+          callerIsOnAir: readCallerIsOnAir(),
+        });
       } else if (outcome.status === "error") {
         toast.error(outcome.message);
       }
     },
-    [prompt, deciding, readOpenShow, goLive],
+    [prompt, deciding, readOpenShow, readCallerIsOnAir, goLive],
   );
 
   const decide = useCallback(
@@ -88,6 +117,7 @@ export const useGoLiveHandoff = (goLive: GoLiveFn) => {
         setPrompt({
           handoff: outcome.handoff,
           djNameOverride: prompt.djNameOverride,
+          callerIsOnAir: readCallerIsOnAir(),
         });
         return;
       }
@@ -112,7 +142,7 @@ export const useGoLiveHandoff = (goLive: GoLiveFn) => {
       }
       setPrompt(null);
     },
-    [prompt, deciding, goLive],
+    [prompt, deciding, readCallerIsOnAir, goLive],
   );
 
   const cancel = useCallback(() => setPrompt(null), []);

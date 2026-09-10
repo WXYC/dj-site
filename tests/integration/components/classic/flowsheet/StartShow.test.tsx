@@ -23,6 +23,9 @@ vi.mock("@/src/hooks/flowsheetHooks", () => ({
   useShowControl: () => ({ goLive: goLiveMock }),
   // Returns a reader: the real hook is read in the click handler, not rendered.
   useOpenShowHandoff: () => () => openShowMock,
+  // Classic never offers co-hosting, so nothing here varies with it — the
+  // shared hook still reads it to stamp the prompt.
+  useCallerIsOnAir: () => () => false,
 }));
 
 vi.mock("@/src/hooks/authenticationHooks", () => ({

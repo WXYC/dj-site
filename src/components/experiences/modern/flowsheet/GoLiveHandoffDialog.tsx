@@ -2,6 +2,7 @@
 
 import {
   GO_LIVE_HANDOFF_COPY,
+  GO_LIVE_HANDOFF_TAKEOVER_ONLY_COPY,
   GO_LIVE_HANDOFF_TESTIDS,
   GO_LIVE_HANDOFF_TITLE_ID,
   describeOpenShow,
@@ -24,6 +25,17 @@ export default function GoLiveHandoffDialog({
 }) {
   if (!prompt) return null;
 
+  // A DJ already on air on the open show is already a co-host, so the join
+  // request that button would send is one the server answers 200 and acts on
+  // not at all: the dialog would close having changed nothing, leaving them
+  // exactly where they pressed. Dropping the button — rather than disabling it
+  // — is what makes the remaining one legible as the answer. They get the same
+  // offer classic gives every DJ, for the same reason it gives it.
+  const canCoHost = !prompt.callerIsOnAir;
+  const copy = canCoHost
+    ? GO_LIVE_HANDOFF_COPY
+    : GO_LIVE_HANDOFF_TAKEOVER_ONLY_COPY;
+
   const actions = (
     <Stack
       direction={{ xs: "column-reverse", sm: "row" }}
@@ -37,17 +49,19 @@ export default function GoLiveHandoffDialog({
         onClick={onCancel}
         data-testid={GO_LIVE_HANDOFF_TESTIDS.cancel}
       >
-        {GO_LIVE_HANDOFF_COPY.cancel}
+        {copy.cancel}
       </Button>
-      <Button
-        variant="outlined"
-        color="neutral"
-        loading={deciding}
-        onClick={() => onDecide("join")}
-        data-testid={GO_LIVE_HANDOFF_TESTIDS.join}
-      >
-        {GO_LIVE_HANDOFF_COPY.join}
-      </Button>
+      {canCoHost ? (
+        <Button
+          variant="outlined"
+          color="neutral"
+          loading={deciding}
+          onClick={() => onDecide("join")}
+          data-testid={GO_LIVE_HANDOFF_TESTIDS.join}
+        >
+          {GO_LIVE_HANDOFF_COPY.join}
+        </Button>
+      ) : null}
       {/* Destructive on purpose: it signs somebody else off the air. Any
           DJ may do it — the studio is the authority on who is at the
           controls — so the colour is the only thing standing between a
@@ -59,7 +73,7 @@ export default function GoLiveHandoffDialog({
         onClick={() => onDecide("takeover")}
         data-testid={GO_LIVE_HANDOFF_TESTIDS.takeover}
       >
-        {GO_LIVE_HANDOFF_COPY.takeover}
+        {copy.takeover}
       </Button>
     </Stack>
   );
@@ -77,7 +91,7 @@ export default function GoLiveHandoffDialog({
     >
       {describeOpenShow(prompt.handoff)}
       <br />
-      {GO_LIVE_HANDOFF_COPY.choice}
+      {copy.choice}
     </ConfirmDialog>
   );
 }
