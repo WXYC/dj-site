@@ -20,6 +20,7 @@ const Entry = memo(function Entry({
   draggable = false,
   readOnly = false,
   timeLabel,
+  highlighted = false,
 }: {
   entry: FlowsheetEntry;
   playing: boolean;
@@ -37,6 +38,11 @@ const Entry = memo(function Entry({
    * sizing degrades.
    */
   timeLabel?: string;
+  /**
+   * The row an archive link named: it alone carries the anchor the link's
+   * fragment points at.
+   */
+  highlighted?: boolean;
 }) {
   // Markers count in position math (the server renumbers every entry type)
   // but are never themselves draggable.
@@ -53,6 +59,7 @@ const Entry = memo(function Entry({
         draggable={resolvedDraggable}
         readOnly={readOnly}
         timeLabel={timeLabel}
+        highlighted={highlighted}
       />
     );
   }
@@ -78,6 +85,7 @@ const Entry = memo(function Entry({
       readOnly={readOnly}
       timeLabel={timeLabel}
       draggable={resolvedDraggable}
+      highlighted={highlighted}
     >
       <Stack direction="row" spacing={0.5}>
         <Typography level="body-lg" color={p.textColor}>

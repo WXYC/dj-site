@@ -33,6 +33,7 @@ export default function MessageEntry({
   readOnly = false,
   timeLabel,
   draggable = true,
+  highlighted = false,
 }: {
   startDecorator?: React.ReactNode;
   children: React.ReactNode;
@@ -47,6 +48,8 @@ export default function MessageEntry({
   /** The leading Time cell's label; see EntryTimeCell for the column contract. */
   timeLabel?: string;
   draggable?: boolean;
+  /** The row an archive link named; see DraggableEntryWrapper. */
+  highlighted?: boolean;
 }) {
   const { live, currentShow } = useShowControl();
 
@@ -63,6 +66,7 @@ export default function MessageEntry({
       variant={variant}
       color={color}
       draggable={draggable}
+      highlighted={highlighted}
       className="row-marker"
       style={{
         height: "40px",

@@ -18,16 +18,19 @@ import {
   startOfStationWeek,
   stationWeekWindow,
 } from "@/src/utilities/stationTime";
-
-export const VIEW_PARAM = "view";
-export const WEEK_PARAM = "week";
-export const SHOW_PARAM = "show";
-export const WEEK_VIEW = "week";
+import {
+  ENTRY_PARAM,
+  SHOW_PARAM,
+  VIEW_PARAM,
+  WEEK_PARAM,
+  WEEK_VIEW,
+} from "@/lib/features/schedule-week/showUrl";
 
 /**
- * View, week, and expanded show live in the URL rather than Redux: a DJ sending
- * a colleague a specific week is the obvious use, and it makes back/forward
- * behave. Three scalars do not justify a slice.
+ * View, week, expanded show, and the playcut to highlight within it live in the
+ * URL rather than Redux: a DJ sending a colleague a specific week is the
+ * obvious use, and it makes back/forward behave. Four scalars do not justify a
+ * slice.
  */
 export function useScheduleWeekParams() {
   const router = useRouter();
@@ -37,6 +40,7 @@ export function useScheduleWeekParams() {
   const isWeekView = searchParams.get(VIEW_PARAM) === WEEK_VIEW;
   const weekParam = searchParams.get(WEEK_PARAM);
   const showParam = searchParams.get(SHOW_PARAM);
+  const entryParam = searchParams.get(ENTRY_PARAM);
 
   // An unparseable or absent week falls back to the current one rather than
   // rendering nothing, but a malformed value never silently resolves to some
@@ -53,6 +57,14 @@ export function useScheduleWeekParams() {
     const parsed = Number(showParam);
     return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
   }, [showParam]);
+
+  // Same shape as the show id, and for the same reason: a scraped or truncated
+  // URL must resolve to "highlight nothing" rather than to some other row.
+  const selectedEntryId = useMemo(() => {
+    if (!entryParam) return null;
+    const parsed = Number(entryParam);
+    return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+  }, [entryParam]);
 
   const write = useCallback(
     (updates: Record<string, string | null>) => {
@@ -81,10 +93,17 @@ export function useScheduleWeekParams() {
               [VIEW_PARAM]: WEEK_VIEW,
               [WEEK_PARAM]: formatStationWeekParam(weekStart),
               // Cleared here too: reaching the week from a show would
-              // otherwise land on the calendar still holding that show's id.
+              // otherwise land on the calendar still holding that show's id,
+              // and the playcut belongs to the show, so it goes with it.
               [SHOW_PARAM]: null,
+              [ENTRY_PARAM]: null,
             }
-          : { [VIEW_PARAM]: null, [WEEK_PARAM]: null, [SHOW_PARAM]: null },
+          : {
+              [VIEW_PARAM]: null,
+              [WEEK_PARAM]: null,
+              [SHOW_PARAM]: null,
+              [ENTRY_PARAM]: null,
+            },
       ),
     [write, weekStart],
   );
@@ -96,6 +115,7 @@ export function useScheduleWeekParams() {
       write({
         [WEEK_PARAM]: formatStationWeekParam(next),
         [SHOW_PARAM]: null,
+        [ENTRY_PARAM]: null,
       }),
     [write],
   );
@@ -113,6 +133,7 @@ export function useScheduleWeekParams() {
     isWeekView,
     weekStart,
     selectedShowId,
+    selectedEntryId,
     setView,
     setWeek,
     hrefForShow,

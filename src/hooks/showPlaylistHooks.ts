@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useGetShowPlaylistQuery } from "@/lib/features/show-playlist/api";
+import { entryAnchorId } from "@/lib/features/schedule-week/showUrl";
 import { v2ToRangeShape } from "@/lib/features/show-playlist/wire";
 import {
   formatStationClockTime,
@@ -76,4 +77,36 @@ export function useShowPlaylist(showId: number): ShowPlaylist {
       notFound,
     };
   }, [data, isFetching, notFound]);
+}
+
+/**
+ * Brings the row an archive link named into view.
+ *
+ * Scroll position is browser state, not React state, which is the one thing an
+ * effect is for. The router does its own fragment scroll on the commit that
+ * follows the navigation — when this show is still a client query in flight and
+ * no such row exists — and never retries, so the row is left marked at the top
+ * of an unscrolled page. `entryCount` is in the deps for exactly that: it is
+ * what changes on the commit the rows arrive.
+ *
+ * The row is reached by id rather than by ref because the two experiences build
+ * it differently, and modern's rows come from a memoized component that hands
+ * its caller no DOM handle.
+ */
+export function useScrollToShowEntry(
+  entryId: number | null | undefined,
+  entryCount: number
+): void {
+  useEffect(() => {
+    if (!entryId || entryCount === 0) return;
+    const row = document.getElementById(entryAnchorId(entryId));
+    if (!row) return;
+
+    // Deferred a frame so the scroll reads the row's laid-out box rather than
+    // the one it had before this commit's styles applied.
+    const frame = requestAnimationFrame(() =>
+      row.scrollIntoView({ block: "center" })
+    );
+    return () => cancelAnimationFrame(frame);
+  }, [entryId, entryCount]);
 }

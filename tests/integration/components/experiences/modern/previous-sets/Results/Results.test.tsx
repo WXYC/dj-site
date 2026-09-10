@@ -227,4 +227,80 @@ describe("Results (modern previous sets)", () => {
       }
     });
   });
+
+  describe("row links", () => {
+    // A result row is a single playcut; the show around it carries the
+    // talksets, breakpoints and the plays either side that a DJ came for.
+    it("links each row to its show with the played track named", () => {
+      mockUsePlaylistSearchResults.mockReturnValue({
+        ...base,
+        displayResults: [makeResult(1), makeResult(2)],
+      });
+
+      render(<Results />);
+
+      expect(
+        screen.getByRole("link", {
+          name: "See the full show for Back, Baby by Jessica Pratt",
+        }),
+      ).toHaveAttribute("href", "?show=1&entry=1#entry-1");
+      expect(
+        screen.getByRole("link", {
+          name: "See the full show for la paradoja by Juana Molina",
+        }),
+      ).toHaveAttribute("href", "?show=1&entry=2#entry-2");
+    });
+
+    it("exposes one link per row, not one per cell", () => {
+      mockUsePlaylistSearchResults.mockReturnValue({
+        ...base,
+        displayResults: [makeResult(1), makeResult(2)],
+      });
+
+      render(<Results />);
+
+      expect(screen.getAllByRole("link")).toHaveLength(2);
+    });
+
+    // The backend projects a null show_id as 0, so an unattached play would
+    // otherwise link to a show that cannot exist.
+    it("renders unlinked when the play belongs to no show", () => {
+      mockUsePlaylistSearchResults.mockReturnValue({
+        ...base,
+        displayResults: [{ ...makeResult(1), show_id: 0 }],
+      });
+
+      render(<Results />);
+
+      expect(screen.queryByRole("link")).toBeNull();
+      expect(screen.getByText("Back, Baby")).toBeInTheDocument();
+    });
+
+    it("tells the reader the rows are clickable", () => {
+      mockUsePlaylistSearchResults.mockReturnValue({
+        ...base,
+        displayResults: [makeResult(1)],
+      });
+
+      render(<Results />);
+
+      expect(
+        screen.getByText("Click a track to see the full show."),
+      ).toBeInTheDocument();
+    });
+
+    it("keeps that invitation off an empty listing", () => {
+      mockUsePlaylistSearchResults.mockReturnValue({
+        ...base,
+        displayResults: [],
+        isRealQuery: true,
+      });
+
+      render(<Results />);
+
+      expect(
+        screen.queryByText("Click a track to see the full show."),
+      ).toBeNull();
+    });
+  });
 });

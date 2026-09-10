@@ -645,6 +645,13 @@ html[data-experience="classic"][data-joy-color-scheme="dark"] .sortFieldHighligh
 	background: #4A4A4A;
 }
 
+/* Full-saturation red is a lightbox against the dark palette, and its default
+   dark text sits on it unreadably. */
+html[data-experience="classic"][data-joy-color-scheme="dark"] .classic-schedule-week-entries tbody tr.playlistEntryHighlight {
+	background: #8B0000;
+	color: #FFFFFF;
+}
+
 html[data-experience="classic"][data-joy-color-scheme="dark"] .submenu TD A {
 	color: #E0E0E0;
 }

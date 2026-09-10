@@ -2,7 +2,10 @@
 
 import Link from "next/link";
 import { Box, Sheet, Typography } from "@mui/joy";
-import { useShowPlaylist } from "@/src/hooks/showPlaylistHooks";
+import {
+  useScrollToShowEntry,
+  useShowPlaylist,
+} from "@/src/hooks/showPlaylistHooks";
 import ShowEntriesPanel from "@/src/components/experiences/modern/schedule-week/ShowEntriesPanel";
 
 /**
@@ -13,8 +16,17 @@ import ShowEntriesPanel from "@/src/components/experiences/modern/schedule-week/
  * week the visitor arrived through, so it cannot carry an id belonging to a
  * different week.
  */
-export default function ShowView({ showId }: { showId: number }) {
+export default function ShowView({
+  showId,
+  highlightedEntryId = null,
+}: {
+  showId: number;
+  /** The playcut a search result linked to, marked and scrolled to on arrival. */
+  highlightedEntryId?: number | null;
+}) {
   const show = useShowPlaylist(showId);
+
+  useScrollToShowEntry(highlightedEntryId, show.entries.length);
 
   if (show.notFound) {
     return (
@@ -74,6 +86,7 @@ export default function ShowView({ showId }: { showId: number }) {
         isPartial={false}
         partialEdge={null}
         isLoading={show.isLoading}
+        highlightedEntryId={highlightedEntryId}
       />
     </Box>
   );
