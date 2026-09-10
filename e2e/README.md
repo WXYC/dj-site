@@ -81,7 +81,7 @@ E2E_TAKEOVER_PROJECT=1 npm run test:e2e -- --project=chromium-takeover --workers
 
 - `testIgnore` on the `chromium` project keeps the file out of the ordinary suite.
 - The `chromium-takeover` and `setup-takeover` projects exist only when `E2E_TAKEOVER_PROJECT=1`, so no unscoped run (`npm run test:e2e`, `scripts/e2e-local.sh`, a bare `npx playwright test`) can schedule them.
-- In CI the spec gets its own workflow job, `E2E Tests (go-live takeover)`, with its own Postgres, auth service, Backend-Service, and mock tubafrenzy, at `--workers=1`. That job's Backend is also the only one running with `FLOWSHEET_TAKEOVER_ENABLED=true`.
+- In CI the spec gets its own workflow job, `E2E Tests (go-live takeover)`, with its own Postgres, auth service and Backend-Service, at `--workers=1`. That job's Backend is also the only one running with `FLOWSHEET_TAKEOVER_ENABLED=true`.
 
 Running it locally therefore points at whatever stack you already have up; expect it to end any show open there.
 
