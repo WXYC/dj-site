@@ -10,10 +10,9 @@ import {
 } from "@/src/components/experiences/classic/flowsheet/Capsule";
 import "@/src/styles/classic/schedule-week.css";
 
-// Time · [indicators] · Artist · Song · Release · Label. The indicator gutter
-// is unlabeled and centred, the way the public show display prints it. A
-// marker row keeps its own Time cell and spans the rest, so the header count
-// and that span have to move together.
+// Time · [indicators] · Artist · Song · Release · Label. A marker row keeps its
+// own Time cell and spans the rest, so a column added to the header below has
+// to be counted here as well; nothing derives this from the header.
 const COLUMN_COUNT = 6;
 const MARKER_SPAN = COLUMN_COUNT - 1;
 
@@ -26,16 +25,11 @@ const timeOf = (entry: FlowsheetRangeEntryWire) =>
       : entry.add_time
   );
 
-// `Capsulable` speaks the live feed's vocabulary, where the bin is `rotation`;
-// the V2 wire calls the same value `rotation_bin`. `on_streaming` is
-// three-state there — null means no linked library row — and only an explicit
-// false may reach the EXCLUSIVE test, so the null is dropped rather than
-// coerced.
 const capsulesFor = (entry: FlowsheetRangeEntryWire) =>
   capsulesForSongEntry({
     request_flag: entry.request_flag,
     rotation: entry.rotation_bin,
-    on_streaming: entry.on_streaming ?? undefined,
+    on_streaming: entry.on_streaming,
   });
 
 export default function ClassicShowEntries({

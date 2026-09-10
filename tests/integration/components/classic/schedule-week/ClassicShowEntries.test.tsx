@@ -1,7 +1,8 @@
 import { describe, it, expect } from "vitest";
+import type { ComponentProps } from "react";
 import { screen, within } from "@testing-library/react";
 import type { FlowsheetRangeShow } from "@wxyc/shared";
-import { renderWithProviders } from "@/tests/helpers";
+import { createComponentHarness } from "@/tests/helpers";
 import { RotationBin } from "@/lib/features/rotation/types";
 import type { FlowsheetRangeEntryWire } from "@/lib/features/flowsheet/conversions";
 import ClassicShowEntries from "@/src/components/experiences/classic/schedule-week/ClassicShowEntries";
@@ -30,25 +31,25 @@ const entry = (
     ...over,
   }) as FlowsheetRangeEntryWire;
 
-const renderEntries = (entries: FlowsheetRangeEntryWire[]) =>
-  renderWithProviders(
-    <ClassicShowEntries
-      show={show}
-      entries={entries}
-      isPartial={false}
-      partialEdge={null}
-      isLoading={false}
-    />
-  );
+// The type argument is explicit because the harness would otherwise infer the
+// prop type from this literal, where an empty `entries` widens to `never[]`.
+const setup = createComponentHarness<ComponentProps<typeof ClassicShowEntries>>(
+  ClassicShowEntries,
+  {
+    show,
+    entries: [],
+    isPartial: false,
+    partialEdge: null,
+    isLoading: false,
+  }
+);
+
+const renderEntries = (entries: FlowsheetRangeEntryWire[]) => setup({ entries });
 
 const capsuleLabels = (container: HTMLElement) =>
   [...container.querySelectorAll(".classic-capsule")].map((c) => c.textContent);
 
 describe("ClassicShowEntries", () => {
-  // flowsheetRadioShowDisplayPublic.jsp is [capsules] · Artist · Song ·
-  // Release · Label with no Time column, its rows being positional. An
-  // archived set is scanned by when things played, so Time is kept and the
-  // indicator gutter sits where the JSP put it, ahead of Artist.
   it("renders the six columns, the indicator gutter unlabeled", () => {
     const { container } = renderEntries([entry({ id: 1 })]);
     const headers = container.querySelectorAll("thead th");
@@ -107,20 +108,18 @@ describe("ClassicShowEntries", () => {
     expect(capsuleLabels(container)).toEqual(["EXCLUSIVE"]);
   });
 
-  // A null on_streaming is "no linked library row", not "not on streaming".
-  it.each([
+  it.each<[string, boolean | null | undefined]>([
     ["null", null],
     ["true", true],
     ["absent", undefined],
-  ])("renders no EXCLUSIVE capsule when on_streaming is %s", (_name, on_streaming) => {
-    const { container } = renderEntries([
-      entry({ id: 1, on_streaming: on_streaming as boolean | null | undefined }),
-    ]);
-    expect(capsuleLabels(container)).toEqual([]);
-  });
+  ])(
+    "renders no EXCLUSIVE capsule when on_streaming is %s",
+    (_name, on_streaming) => {
+      const { container } = renderEntries([entry({ id: 1, on_streaming })]);
+      expect(capsuleLabels(container)).toEqual([]);
+    }
+  );
 
-  // The public show display renders ROTATION first; the REQUEST-first order is
-  // the modify screen's.
   it("orders the capsules ROTATION, REQUEST, EXCLUSIVE", () => {
     const { container } = renderEntries([
       entry({
@@ -172,7 +171,11 @@ describe("ClassicShowEntries", () => {
     const { container } = renderEntries([
       entry({ id: 1 }),
       entry({ id: 2, entry_type: "show_start", dj_name: "DJ Chowder" }),
-      entry({ id: 3, entry_type: "breakpoint", message: "--- 3:00 PM BREAKPOINT ---" }),
+      entry({
+        id: 3,
+        entry_type: "breakpoint",
+        message: "--- 3:00 PM BREAKPOINT ---",
+      }),
     ]);
 
     const width = (row: Element) =>

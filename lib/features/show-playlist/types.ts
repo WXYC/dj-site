@@ -46,15 +46,13 @@ export type ShowPlaylistEntryWire = {
   dj_name?: string | null;
   request_flag?: boolean;
   /**
-   * The bin the release is filed under **now**. The route's primary lane joins
-   * the rotation row on its id with no window against the air date, so this is
-   * not a claim about the bin the release aired under.
+   * The bin the release is filed under **now**, or null where the play has no
+   * rotation row — the common case. The route's primary lane joins the rotation
+   * row on its id with no window against the air date, so this is not a claim
+   * about the bin the release aired under.
    */
-  rotation_bin?: RotationBin;
-  /**
-   * Three-state. Null is "no linked library row", which says nothing about
-   * streaming availability, so it must stay distinct from `false`.
-   */
+  rotation_bin?: RotationBin | null;
+  /** Three-state: null is "no linked library row", not "not on streaming". */
   on_streaming?: boolean | null;
   [key: string]: unknown;
 };
