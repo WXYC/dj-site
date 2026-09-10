@@ -1,7 +1,10 @@
 "use client";
 
+import type {
+  SortField,
+  SortOrder,
+} from "@/lib/features/playlist-search/frontend";
 import { usePlaylistSearchResults } from "@/src/hooks/playlistSearchHooks";
-import type { PlaylistSearchParams } from "@wxyc/shared/dtos";
 import type { PlaylistSearchResult } from "@wxyc/shared";
 import { ArrowDownward, ArrowUpward } from "@mui/icons-material";
 import { Box, CircularProgress, Table, Typography } from "@mui/joy";
@@ -15,11 +18,11 @@ function SortableHeader({
   currentOrder,
   onSort,
 }: {
-  field: "date" | "artist" | "song" | "dj";
+  field: SortField;
   label: string;
-  currentSort: PlaylistSearchParams["sort"];
-  currentOrder: "asc" | "desc";
-  onSort: (field: "date" | "artist" | "song" | "dj") => void;
+  currentSort: SortField;
+  currentOrder: SortOrder;
+  onSort: (field: SortField) => void;
 }) {
   const isActive = currentSort === field;
 
@@ -79,7 +82,7 @@ export default function Results({
     usingSeed,
   } = usePlaylistSearchResults({ initialResults });
 
-  const ariaSort = (field: PlaylistSearchParams["sort"]) =>
+  const ariaSort = (field: SortField) =>
     sortBy === field
       ? sortOrder === "asc"
         ? ("ascending" as const)
