@@ -19,21 +19,20 @@ export function Capsule({
 
 type CapsuleSpec = { variant: CapsuleVariant; label: string };
 
-// Minimal shape needed to compute capsules — kept structural so live flowsheet
-// song entries and archived-show playcuts (and any future row type that
-// carries the same flags) can share `capsulesForSongEntry`. `rotation` is the
-// live feed's own field name; the V2 wire calls the same value `rotation_bin`,
-// and callers reading that shape map it here rather than renaming either side.
+// Minimal shape needed to compute capsules — structural so any row type
+// carrying these flags can use it. `rotation` is the live feed's own field
+// name; the V2 wire calls the same value `rotation_bin`, and a caller reading
+// that shape maps it at the call site rather than either name moving.
 export type Capsulable = {
   request_flag?: boolean;
   rotation?: Rotation | null;
-  on_streaming?: boolean;
+  on_streaming?: boolean | null;
 };
 
 // Capsules render ROTATION → REQUEST → EXCLUSIVE, the order tubafrenzy's
 // `flowsheetRadioShowDisplayPublic.jsp` prints them in. The modify screen
 // (`flowsheetRadioShowModify.jsp`) leads with REQUEST instead; that is a
-// different screen, and this is the one a listener reads.
+// different screen, and the display one is what this reproduces.
 //
 // `on_streaming` is three-state. Null — no linked library row — says nothing
 // about streaming availability, so only an explicit `false` earns EXCLUSIVE.

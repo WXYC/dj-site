@@ -12,8 +12,7 @@ import type { ShowPlaylistEntryWire } from "./types";
  * property, and every entry type that omits it renders as a marker.
  *
  * The result is the widened wire type rather than the published one because
- * `on_streaming` rides the payload undeclared, and the badge that reads it
- * distinguishes null from false.
+ * `on_streaming` rides the payload undeclared.
  */
 export function v2ToRangeShape(
   entry: ShowPlaylistEntryWire

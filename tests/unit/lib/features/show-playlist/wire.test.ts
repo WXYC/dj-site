@@ -20,19 +20,23 @@ const wireEntry = (
 
 describe("v2ToRangeShape", () => {
   it("carries the rotation bin through under the wire's own name", () => {
-    expect(v2ToRangeShape(wireEntry({ rotation_bin: RotationBin.H })).rotation_bin).toBe(
-      RotationBin.H
-    );
+    expect(
+      v2ToRangeShape(wireEntry({ rotation_bin: RotationBin.H })).rotation_bin
+    ).toBe(RotationBin.H);
   });
 
   it("carries a false on_streaming through", () => {
-    expect(v2ToRangeShape(wireEntry({ on_streaming: false })).on_streaming).toBe(false);
+    expect(v2ToRangeShape(wireEntry({ on_streaming: false })).on_streaming).toBe(
+      false
+    );
   });
 
   // Null is "no linked library row", which is a different claim from "not on
   // streaming"; collapsing it to false would badge unlinked plays EXCLUSIVE.
   it("keeps a null on_streaming distinct from false", () => {
-    expect(v2ToRangeShape(wireEntry({ on_streaming: null })).on_streaming).toBeNull();
+    expect(
+      v2ToRangeShape(wireEntry({ on_streaming: null })).on_streaming
+    ).toBeNull();
   });
 
   it("leaves on_streaming absent when the wire omits it", () => {
@@ -41,9 +45,8 @@ describe("v2ToRangeShape", () => {
 
   // Only the track variant emits request_flag, and the flat shape requires it.
   it("defaults request_flag on a marker row", () => {
-    expect(
-      v2ToRangeShape(wireEntry({ entry_type: "talkset", message: "TALKSET" })).request_flag
-    ).toBe(false);
+    const marker = wireEntry({ entry_type: "talkset", message: "TALKSET" });
+    expect(v2ToRangeShape(marker).request_flag).toBe(false);
   });
 
   it("drops a null album_id or rotation_id rather than passing it on", () => {
@@ -55,7 +58,9 @@ describe("v2ToRangeShape", () => {
   });
 
   it("keeps a numeric album_id and rotation_id", () => {
-    const converted = v2ToRangeShape(wireEntry({ album_id: 1001, rotation_id: 5001 }));
+    const converted = v2ToRangeShape(
+      wireEntry({ album_id: 1001, rotation_id: 5001 })
+    );
     expect(converted.album_id).toBe(1001);
     expect(converted.rotation_id).toBe(5001);
   });
