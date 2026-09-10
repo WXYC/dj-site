@@ -179,4 +179,66 @@ describe("Results (modern previous sets)", () => {
 
     expect(screen.getByText(/2 results/i)).toBeInTheDocument();
   });
+
+  describe("sort direction indicator", () => {
+    const SORTABLE = [
+      { field: "date" as const, header: "Date" },
+      { field: "artist" as const, header: "Artist" },
+      { field: "song" as const, header: "Song" },
+      { field: "dj" as const, header: "DJ" },
+    ];
+
+    it.each(SORTABLE)(
+      "announces a descending $header sort to assistive tech",
+      ({ field, header }) => {
+        mockUsePlaylistSearchResults.mockReturnValue({
+          ...base,
+          sortBy: field,
+          sortOrder: "desc",
+          displayResults: [makeResult(0)],
+        });
+
+        render(<Results />);
+
+        expect(
+          screen.getByRole("columnheader", { name: header }),
+        ).toHaveAttribute("aria-sort", "descending");
+      },
+    );
+
+    it.each(SORTABLE)(
+      "announces an ascending $header sort to assistive tech",
+      ({ field, header }) => {
+        mockUsePlaylistSearchResults.mockReturnValue({
+          ...base,
+          sortBy: field,
+          sortOrder: "asc",
+          displayResults: [makeResult(0)],
+        });
+
+        render(<Results />);
+
+        expect(
+          screen.getByRole("columnheader", { name: header }),
+        ).toHaveAttribute("aria-sort", "ascending");
+      },
+    );
+
+    it("leaves the columns that are not sorted unannounced", () => {
+      mockUsePlaylistSearchResults.mockReturnValue({
+        ...base,
+        sortBy: "date",
+        sortOrder: "desc",
+        displayResults: [makeResult(0)],
+      });
+
+      render(<Results />);
+
+      for (const { header } of SORTABLE.filter((c) => c.header !== "Date")) {
+        expect(
+          screen.getByRole("columnheader", { name: header }),
+        ).not.toHaveAttribute("aria-sort");
+      }
+    });
+  });
 });

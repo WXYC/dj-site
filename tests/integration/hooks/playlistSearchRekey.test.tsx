@@ -74,7 +74,9 @@ describe("usePlaylistSearch — mid-flight param change (real store + RTK)", () 
     // While that fetch is in flight, change the sort. RTK re-keys the
     // subscription to {q:abc, sort:artist} and fetches the new entry.
     act(() => {
-      store.dispatch(playlistSearchSlice.actions.setSort("artist"));
+      store.dispatch(
+        playlistSearchSlice.actions.setSort({ sortBy: "artist", sortOrder: "desc" }),
+      );
     });
 
     // Final results reflect the new sort, not the slow in-flight date fetch.

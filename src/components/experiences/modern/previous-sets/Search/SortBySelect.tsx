@@ -1,17 +1,38 @@
 "use client";
 
+import type {
+  SortField,
+  SortOrder,
+} from "@/lib/features/playlist-search/frontend";
 import { usePlaylistSearch } from "@/src/hooks/playlistSearchHooks";
 import { Option, Select } from "@mui/joy";
 
-export default function SortBySelect() {
-  const { sortBy, sortOrder, handleSort } = usePlaylistSearch();
+type SortChoice = {
+  value: `${SortField}-${SortOrder}`;
+  label: string;
+};
 
-  const sortValue = `${sortBy}-${sortOrder}`;
+const SORT_OPTIONS: SortChoice[] = [
+  { value: "date-desc", label: "Date (Newest)" },
+  { value: "date-asc", label: "Date (Oldest)" },
+  { value: "artist-desc", label: "Artist (Z-A)" },
+  { value: "artist-asc", label: "Artist (A-Z)" },
+  { value: "dj-desc", label: "DJ (Z-A)" },
+  { value: "dj-asc", label: "DJ (A-Z)" },
+];
+
+export default function SortBySelect() {
+  const { sortBy, sortOrder, setSort } = usePlaylistSearch();
+
+  const sortValue = `${sortBy}-${sortOrder}` as SortChoice["value"];
 
   const handleSortChange = (_: unknown, value: string | null) => {
     if (!value) return;
-    const [field] = value.split("-") as ["date" | "artist" | "song" | "dj"];
-    handleSort(field);
+    // The option value carries a direction as well as a field, and both are
+    // applied: dropping the direction half leaves the listing contradicting
+    // the label the DJ just picked.
+    const [field, order] = value.split("-") as [SortField, SortOrder];
+    setSort({ sortBy: field, sortOrder: order });
   };
 
   return (
@@ -23,12 +44,11 @@ export default function SortBySelect() {
       onChange={handleSortChange}
       sx={{ minWidth: 160, flexShrink: 0 }}
     >
-      <Option value="date-desc">Date (Newest)</Option>
-      <Option value="date-asc">Date (Oldest)</Option>
-      <Option value="artist-desc">Artist (Z-A)</Option>
-      <Option value="artist-asc">Artist (A-Z)</Option>
-      <Option value="dj-desc">DJ (Z-A)</Option>
-      <Option value="dj-asc">DJ (A-Z)</Option>
+      {SORT_OPTIONS.map((opt) => (
+        <Option key={opt.value} value={opt.value}>
+          {opt.label}
+        </Option>
+      ))}
     </Select>
   );
 }

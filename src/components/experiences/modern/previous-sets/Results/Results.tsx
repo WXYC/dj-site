@@ -79,6 +79,13 @@ export default function Results({
     usingSeed,
   } = usePlaylistSearchResults({ initialResults });
 
+  const ariaSort = (field: PlaylistSearchParams["sort"]) =>
+    sortBy === field
+      ? sortOrder === "asc"
+        ? ("ascending" as const)
+        : ("descending" as const)
+      : undefined;
+
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -126,7 +133,7 @@ export default function Results({
         >
           <thead>
             <tr>
-              <th style={{ width: 160, padding: 12 }}>
+              <th aria-sort={ariaSort("date")} style={{ width: 160, padding: 12 }}>
                 <SortableHeader
                   field="date"
                   label="Date"
@@ -135,7 +142,7 @@ export default function Results({
                   onSort={handleSort}
                 />
               </th>
-              <th style={{ width: 180, padding: 12 }}>
+              <th aria-sort={ariaSort("artist")} style={{ width: 180, padding: 12 }}>
                 <SortableHeader
                   field="artist"
                   label="Artist"
@@ -144,7 +151,7 @@ export default function Results({
                   onSort={handleSort}
                 />
               </th>
-              <th style={{ width: 200, padding: 12 }}>
+              <th aria-sort={ariaSort("song")} style={{ width: 200, padding: 12 }}>
                 <SortableHeader
                   field="song"
                   label="Song"
@@ -155,7 +162,7 @@ export default function Results({
               </th>
               <th style={{ width: 180, padding: 12 }}>Release</th>
               <th style={{ width: 140, padding: 12 }}>Label</th>
-              <th style={{ width: 120, padding: 12 }}>
+              <th aria-sort={ariaSort("dj")} style={{ width: 120, padding: 12 }}>
                 <SortableHeader
                   field="dj"
                   label="DJ"
