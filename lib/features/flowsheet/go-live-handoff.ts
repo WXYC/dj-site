@@ -207,8 +207,10 @@ export function describeOpenShow(
  * Joy, and sharing a component rather than a string would drag Joy into the
  * one experience that has none.
  *
- * This is the prompt where co-hosting IS on offer. Classic offers none and
- * renders `GO_LIVE_HANDOFF_TAKEOVER_ONLY_COPY` below.
+ * The prompt where co-hosting is on offer — which is modern's, and only when
+ * the DJ is not already on the open show. Modern falls back to
+ * `GO_LIVE_HANDOFF_TAKEOVER_ONLY_COPY` below for a DJ who is (a join would be a
+ * no-op), and classic renders it unconditionally.
  */
 export const GO_LIVE_HANDOFF_COPY = {
   /**
@@ -225,18 +227,25 @@ export const GO_LIVE_HANDOFF_COPY = {
 } as const;
 
 /**
- * The same prompt on a surface that offers no co-hosting: end the open show,
- * or cancel.
+ * The same prompt with no co-hosting on offer: end the open show, or cancel.
+ *
+ * Two callers reach it for two reasons that land on the same words.
  *
  * Classic reproduces the tubafrenzy sign-on screen, and tubafrenzy had no
- * second-DJ-on-one-show concept to reproduce — so offering the choice here
- * invented a decision this surface's DJs have never had to make, and the wrong
- * branch of it is a one-way door: a co-host cannot end the show they joined,
- * and every track they log reaches the public archive under the other DJ's
- * name.
+ * second-DJ-on-one-show concept to reproduce — so offering the choice there
+ * invented a decision that surface's DJs have never had to make, and the wrong
+ * branch of it is a one-way door: every track a co-host logs reaches the public
+ * archive under the other DJ's name.
  *
- * Removing it also restores the meaning of the sign-off link on the next
- * screen. Classic's "End Show" is a byte-for-byte copy of tubafrenzy's, where
+ * Modern reaches it when the DJ being prompted is ALREADY on air on the open
+ * show. Co-hosting is not withheld from them — they have it, which is the
+ * problem. A join from there is a request the server answers 200 and acts on
+ * not at all, so the button would spend their press closing the dialog and
+ * changing nothing. Ending the show is the only answer that moves them, so it
+ * is the only one offered.
+ *
+ * Removing it from classic also restores the meaning of the sign-off link on
+ * the next screen. Classic's "End Show" is a byte-for-byte copy of tubafrenzy's, where
  * it always ended *the* show because the DJ pressing it always owned it. A
  * co-host pressing the same words ends only their own participation and leaves
  * the other DJ on air — the same link, quietly doing something else.
@@ -257,9 +266,12 @@ export const GO_LIVE_HANDOFF_TAKEOVER_ONLY_COPY = {
 /**
  * The `data-testid` values the prompt exposes.
  *
- * Only `takeover` and `cancel` are on BOTH surfaces. `dialog` is the modern
- * dialog root and `prompt` is its classic counterpart; `join` is modern-only,
- * because classic offers no co-hosting at all. The two shared ones are the
+ * Only `takeover` and `cancel` are always rendered. `dialog` is the modern
+ * dialog root and `prompt` is its classic counterpart; `join` is modern-only
+ * (classic offers no co-hosting at all) and absent there too when the DJ being
+ * prompted is already on air on the open show, where a join is a no-op — so its
+ * absence is a real assertion, not only a surface difference. The two shared
+ * ones are the
  * reason this exists: renaming one is a two-file edit that nothing else
  * enforces, so a rename applied to a single surface would leave the other
  * silently undriven rather than red.

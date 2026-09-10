@@ -140,15 +140,74 @@ export type GoLiveOutcome =
   | { status: "conflict"; handoff: OpenShowHandoff }
   | { status: "error"; message: string };
 
+/** The on-air roster this client last polled. Empty until the first poll lands. */
+const selectOnAirDjs = (state: RootState): ReadonlyArray<{
+  id: string | null;
+  dj_name: string | null;
+}> => flowsheetApi.endpoints.whoIsLive.select(undefined)(state).data?.djs ?? [];
+
+/**
+ * Whether the asking DJ is one of the DJs already on air.
+ *
+ * Its own function because two decisions now turn on it and they must never
+ * disagree: whether to prompt at all (`useOpenShowHandoff` below), and whether
+ * the prompt may offer a co-host join (`useCallerIsOnAir`). The roster carries
+ * no ownership marker, so this answers "am I ON this show", never "is it MINE"
+ * — see `useCallerIsOnAir` for why that distinction doesn't matter here.
+ */
+const onAirIncludes = (
+  djs: ReadonlyArray<{ id: string | null }>,
+  userId: string
+): boolean => djs.some((dj) => dj.id === userId);
+
+/**
+ * Whether the asking DJ is already an active member of whatever show is open,
+ * read at the instant it is asked.
+ *
+ * Exists so the handoff prompt can tell its two situations apart. Offering a
+ * DJ who is already on the open show a "Join Existing Show" button spends their
+ * click on a request the server answers 200 and acts on not at all —
+ * `addDJToShow` only writes on a first join or a reactivation from inactive —
+ * so the dialog closes, nothing changes, and the DJ is exactly where they
+ * started. That dead end is the trap this whole prompt was built to remove, and
+ * a button is the one place it can come back.
+ *
+ * A roster match means "on this show", not "owns this show", because
+ * `GET /flowsheet/djs-on-air` carries no ownership marker. That is sufficient
+ * here: both readings make a co-host join a no-op, so the button is wrong
+ * either way. The owner is never asked this question anyway — their own toggle
+ * reads "You Are On Air" and leaves instead of going live.
+ *
+ * Same reader-not-value shape, and the same reasons, as
+ * `useOpenShowHandoff` below.
+ */
+export const useCallerIsOnAir = (): (() => boolean) => {
+  const store = useAppStore();
+  const { info: userData } = useRegistry();
+  const userId = userData?.id;
+
+  return useCallback(
+    () =>
+      userId ? onAirIncludes(selectOnAirDjs(store.getState()), userId) : false,
+    [store, userId]
+  );
+};
+
 /**
  * Reads the open show a "Go Live" would collide with, at the instant it is
  * asked — or null when there is none.
  *
  * Null covers both non-collision cases deliberately: nothing is open, or the
  * caller is already an active member of what is open (a re-pressed toggle,
- * which the server also no-ops). Prompting in either case would put the dialog
- * on the ordinary one-click path, and a dialog that fires every shift gets
- * dismissed reflexively.
+ * which the server no-ops for the show's owner). Prompting in either case would
+ * put the dialog on the ordinary one-click path, and a dialog that fires every
+ * shift gets dismissed reflexively.
+ *
+ * The membership short-circuit is an optimization, not the guarantee. A DJ this
+ * hook wrongly clears — its roster is a poll, so it can be a minute stale — is
+ * still refused by the server, which answers a non-owner with the same 409 and
+ * opens the identical prompt. `useCallerIsOnAir` is what keeps that prompt
+ * honest about which buttons are worth pressing.
  *
  * Returns a reader rather than a value, and opens no subscription of its own.
  * The answer is consumed in a click handler and never rendered, so subscribing
@@ -170,10 +229,9 @@ export const useOpenShowHandoff = (): (() => OpenShowHandoff | null) => {
     if (!userId) return null;
     const state = store.getState();
 
-    const djs =
-      flowsheetApi.endpoints.whoIsLive.select(undefined)(state).data?.djs ?? [];
+    const djs = selectOnAirDjs(state);
     // Nobody else on air, or this DJ is already one of them.
-    if (djs.length === 0 || djs.some((dj) => dj.id === userId)) return null;
+    if (djs.length === 0 || onAirIncludes(djs, userId)) return null;
 
     const entries =
       flowsheetApi.endpoints.getInfiniteEntries.select(undefined)(state).data;

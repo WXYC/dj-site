@@ -183,6 +183,107 @@ test.describe("Go-live takeover", () => {
 
     await flowsheetB.leave();
   });
+
+  /**
+   * The case a co-host could not answer at all: they are already ON the open
+   * show, so the duplicate-join guard used to swallow their press — 200, no
+   * writes, no prompt, nothing changed — and their `intent: "takeover"` with it.
+   * A DJ spent 1h44m there on 2026-09-08 while 31 of his rows were filed under
+   * the other DJ's name.
+   *
+   * Reached through the server's own refusal, which is the only path a DJ in
+   * that state has: the client's membership view suppresses the pre-emptive
+   * prompt for a DJ it believes is on air, and the toggle it renders for them
+   * signs them off instead of going live. Here that view is made stale on
+   * purpose — an empty `djs-on-air` for B's page only — which is exactly the
+   * window `useOpenShowHandoff` documents the 409 backstop for. B really is an
+   * active co-host on the server throughout; only B's browser disagrees.
+   *
+   * The load-bearing assertion is the 409 itself. Before the server fix that
+   * same request answered 200 with a ShowDJ body and wrote nothing, so no
+   * prompt opened and there was no second step to take.
+   */
+  test("6. a co-host whose own view is stale is refused, not silently ignored, and can take over from there", async () => {
+    // Builds its own collision from scratch, then drives two decisions through
+    // it — more navigations than any other beat here, and past the suite's
+    // shared budget on a loaded runner.
+    test.setTimeout(120_000);
+
+    await goLiveNoCollision(flowsheetA);
+
+    // B joins as a genuine co-host: a real active membership on the server.
+    await flowsheetB.goto();
+    await flowsheetB.waitForEntriesLoaded();
+    await expect(flowsheetB.goLiveButton).toBeEnabled({ timeout: 10000 });
+    await flowsheetB.goLiveButton.click();
+    await expect(pageB.getByTestId("go-live-handoff-dialog")).toBeVisible({
+      timeout: 15000,
+    });
+    const join = await decideHandoff(flowsheetB, "go-live-handoff-join");
+    expect(join.ok).toBe(true);
+    expect(join.intent).toBe("join");
+    await expect(flowsheetB.liveStatus).toContainText("On Air", { timeout: 10000 });
+
+    // B's own roster goes stale. Scoped to B's page and removed below, so A's
+    // page and every later read still see the truth.
+    const isDjsOnAir = (url: URL) => url.pathname.endsWith("/flowsheet/djs-on-air");
+    await pageB.route(isDjsOnAir, (route) =>
+      route.fulfill({ status: 200, contentType: "application/json", body: "[]" })
+    );
+
+    try {
+      await flowsheetB.goto();
+      await flowsheetB.waitForEntriesLoaded();
+      // The stale roster is what puts the Go Live control in front of an active
+      // co-host at all — with the truthful one this button signs them off.
+      await expect(flowsheetB.liveStatus).toContainText("Off Air", { timeout: 10000 });
+      await expect(flowsheetB.goLiveButton).toBeEnabled({ timeout: 10000 });
+
+      const [conflictResponse] = await Promise.all([
+        pageB.waitForResponse(
+          (r) => r.url().includes("/flowsheet/join") && r.request().method() === "POST",
+          { timeout: 15000 }
+        ),
+        flowsheetB.goLiveButton.click(),
+      ]);
+
+      // The whole fix, in one status code.
+      expect(conflictResponse.status()).toBe(409);
+      const conflictBody = (await conflictResponse.json()) as {
+        code?: string;
+        details?: { show?: { id?: number } };
+      };
+      expect(conflictBody.code).toBe("show_already_open");
+      expect(typeof conflictBody.details?.show?.id).toBe("number");
+
+      await expect(pageB.getByTestId("go-live-handoff-dialog")).toBeVisible({
+        timeout: 15000,
+      });
+
+      const decision = await decideHandoff(flowsheetB, "go-live-handoff-takeover");
+      expect(decision.ok).toBe(true);
+      expect(decision.intent).toBe("takeover");
+      expect(decision.expectedShowId).toBe(conflictBody.details?.show?.id);
+      // A show id that differs from the one this request named is only possible
+      // if the server really closed A's show and opened a new one for B.
+      expect(typeof decision.body.id).toBe("number");
+      expect(decision.body.id).not.toBe(decision.expectedShowId);
+    } finally {
+      await pageB.unroute(isDjsOnAir);
+    }
+
+    // And the truthful roster now names B alone — B is on their OWN show, not a
+    // guest on the one they were trapped in.
+    const state = await fetchLiveState(flowsheetB);
+    expect(state.djsOnAir.map((dj) => dj.dj_name)).toEqual([TAKEOVER_DJ_B.djName]);
+    expect(state.onAir?.dj_name).toBe(TAKEOVER_DJ_B.djName);
+
+    await flowsheetA.goto();
+    await flowsheetA.waitForEntriesLoaded();
+    await expect(flowsheetA.liveStatus).toContainText("Off Air", { timeout: 10000 });
+
+    await flowsheetB.leave();
+  });
 });
 
 type RawOnAirDj = { id: string | null; dj_name: string };
