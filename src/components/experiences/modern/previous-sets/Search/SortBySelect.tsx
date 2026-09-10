@@ -28,9 +28,6 @@ export default function SortBySelect() {
 
   const handleSortChange = (_: unknown, value: string | null) => {
     if (!value) return;
-    // The option value carries a direction as well as a field, and both are
-    // applied: dropping the direction half leaves the listing contradicting
-    // the label the DJ just picked.
     const [field, order] = value.split("-") as [SortField, SortOrder];
     setSort({ sortBy: field, sortOrder: order });
   };
@@ -40,7 +37,12 @@ export default function SortBySelect() {
       size="sm"
       color="primary"
       value={sortValue}
-      slotProps={{ button: { sx: { whiteSpace: "nowrap" } } }}
+      // The button carries no text of its own beyond the active option, so
+      // without a name the control is announced — and locatable — only by
+      // whichever sort happens to be in effect.
+      slotProps={{
+        button: { "aria-label": "Sort by", sx: { whiteSpace: "nowrap" } },
+      }}
       onChange={handleSortChange}
       sx={{ minWidth: 160, flexShrink: 0 }}
     >

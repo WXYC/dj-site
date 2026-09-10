@@ -69,8 +69,10 @@ export const playlistSearchSlice = createAppSlice({
         Object.assign(row, action.payload.updates);
       }
     },
-    // Field and direction arrive as one payload, so a control whose options
-    // name a direction can apply it whatever sort it replaces.
+    // Deliberately separate from toggleSort: a control whose options name a
+    // direction must not derive that direction from the sort it replaces, or
+    // re-picking the active option reverses it. Column headers want exactly
+    // that reversal, so they keep it.
     setSort: (
       state,
       action: PayloadAction<{ sortBy: SortField; sortOrder: SortOrder }>,
@@ -78,8 +80,6 @@ export const playlistSearchSlice = createAppSlice({
       state.sortBy = action.payload.sortBy;
       state.sortOrder = action.payload.sortOrder;
     },
-    // The column-header idiom: the active column reverses, a new one opens
-    // descending.
     toggleSort: (state, action: PayloadAction<SortField>) => {
       if (state.sortBy === action.payload) {
         state.sortOrder = state.sortOrder === "asc" ? "desc" : "asc";

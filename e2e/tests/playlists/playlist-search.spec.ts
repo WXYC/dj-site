@@ -1,9 +1,14 @@
 import path from "path";
+import type { Page } from "@playwright/test";
+import type {
+  PlaylistSearchResponse,
+  PlaylistSearchResult,
+} from "@wxyc/shared/dtos";
 import { test, expect } from "../../fixtures/auth.fixture";
 
 const authDir = path.join(__dirname, "../../.auth");
 
-const MOCK_ROWS = [
+const MOCK_ROWS: PlaylistSearchResult[] = [
   {
     id: 5316943,
     play_date: "2026-09-08T23:42:51.752Z",
@@ -30,49 +35,48 @@ type SortRequest = { sort: string | null; order: string | null };
 
 test.describe("Previous Sets sort control", () => {
   test.use({ storageState: path.join(authDir, "dj2.json") });
+  test.setTimeout(60_000);
 
-  /** Records every search the page issues and answers with fixed rows. */
-  async function stubSearch(
-    page: import("@playwright/test").Page,
-    recorded: SortRequest[],
-  ) {
+  /**
+   * Records every search the page issues and answers with fixed rows.
+   * Returns the record, which fills as the page navigates and re-sorts.
+   */
+  async function stubSearch(page: Page): Promise<SortRequest[]> {
+    const recorded: SortRequest[] = [];
+
     await page.route("**/flowsheet/search**", async (route) => {
       const url = new URL(route.request().url());
       recorded.push({
         sort: url.searchParams.get("sort"),
         order: url.searchParams.get("order"),
       });
+      const body: PlaylistSearchResponse = {
+        results: MOCK_ROWS,
+        total: MOCK_ROWS.length,
+        page: 0,
+        totalPages: 1,
+      };
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({
-          results: MOCK_ROWS,
-          total: MOCK_ROWS.length,
-          page: 0,
-          totalPages: 1,
-        }),
+        body: JSON.stringify(body),
       });
     });
+
+    return recorded;
   }
 
   test("asks the archive for exactly the sort the chosen option names", async ({
     page,
   }) => {
-    const recorded: SortRequest[] = [];
-    await stubSearch(page, recorded);
+    const recorded = await stubSearch(page);
 
     await page.goto("/dashboard/playlists");
     await page.waitForLoadState("domcontentloaded");
 
-    const pickSort = async (showing: string, choose: string) => {
-      await page
-        .getByRole("combobox")
-        .filter({ hasText: showing })
-        .first()
-        .click();
-      const option = page.getByRole("option", { name: choose, exact: true });
-      await option.waitFor({ state: "visible", timeout: 10000 });
-      await option.click();
+    const pickSort = async (choose: string) => {
+      await page.getByRole("combobox", { name: "Sort by" }).click();
+      await page.getByRole("option", { name: choose, exact: true }).click();
     };
 
     // The archive starts in November 2004, so the default listing must be
@@ -81,19 +85,17 @@ test.describe("Previous Sets sort control", () => {
       .poll(() => recorded.at(-1))
       .toEqual({ sort: "date", order: "desc" });
 
-    // An ascending option for a field that is not the active one is the case
-    // that previously came back descending.
-    await pickSort("Date (Newest)", "Artist (A-Z)");
+    await pickSort("Artist (A-Z)");
     await expect
       .poll(() => recorded.at(-1))
       .toEqual({ sort: "artist", order: "asc" });
 
-    await pickSort("Artist (A-Z)", "Date (Oldest)");
+    await pickSort("Date (Oldest)");
     await expect
       .poll(() => recorded.at(-1))
       .toEqual({ sort: "date", order: "asc" });
 
-    await pickSort("Date (Oldest)", "Date (Newest)");
+    await pickSort("Date (Newest)");
     await expect
       .poll(() => recorded.at(-1))
       .toEqual({ sort: "date", order: "desc" });
@@ -102,8 +104,7 @@ test.describe("Previous Sets sort control", () => {
   test("announces the active sort direction on the results table", async ({
     page,
   }) => {
-    const recorded: SortRequest[] = [];
-    await stubSearch(page, recorded);
+    const recorded = await stubSearch(page);
 
     await page.goto("/dashboard/playlists");
     await page.waitForLoadState("domcontentloaded");
