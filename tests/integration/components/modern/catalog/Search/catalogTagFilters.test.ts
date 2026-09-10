@@ -1,9 +1,25 @@
 import { describe, it, expect } from "vitest";
 import {
+  CATALOG_TAG_FILTER_OPTIONS,
   catalogTagsToQueryFlags,
   getCatalogTagLabel,
   isCatalogRotationTag,
 } from "@/src/components/experiences/modern/catalog/Search/catalogTagFilters";
+
+// TagFilterAutocomplete hands this array straight to MUI with no filterOptions
+// or groupBy, so its order is literally the dropdown's order.
+describe("CATALOG_TAG_FILTER_OPTIONS", () => {
+  it("lists the status tags before the bins, in canonical bin order", () => {
+    expect(CATALOG_TAG_FILTER_OPTIONS).toEqual([
+      "exclusives",
+      "missing",
+      "H",
+      "M",
+      "L",
+      "S",
+    ]);
+  });
+});
 
 describe("catalogTagsToQueryFlags", () => {
   it("returns false on_streaming when exclusives is selected", () => {
