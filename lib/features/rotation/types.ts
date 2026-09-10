@@ -11,7 +11,15 @@ export type RotationFrontendState = {
   orderDirection: "asc" | "desc";
 };
 
-/** Canonical bin display order: Heavy, Medium, Light, Singles. */
+/**
+ * Canonical bin display order: Heavy, Medium, Light, Singles.
+ *
+ * Also the accepted-bin vocabulary, not just a presentation order: the catalog
+ * tag filter derives which `tags` values count as rotation bins from this
+ * array, and the cached-query parser derives which parse. Narrowing it to hide
+ * a chip would drop that bin from saved URLs and from optimistic cache
+ * matching, so hide at the render site instead.
+ */
 export const ROTATION_BINS = [
   RotationBin.H,
   RotationBin.M,

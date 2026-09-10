@@ -4,9 +4,11 @@ export type CatalogSearchQueryCacheArg = Omit<
   LibraryQueryParams,
   "page" | "limit"
 >;
-import type { Rotation } from "../rotation/types";
+import { ROTATION_BINS, type Rotation } from "../rotation/types";
 
-const ROTATION_BIN_PATTERN = /^[HMLS]$/;
+// Derived, not a literal character class: a bin accepted by the tag filter but
+// rejected here would let the optimistic cache keep rows the server excluded.
+const ROTATION_BIN_SET = new Set<string>(ROTATION_BINS);
 
 /** Parse `rotation_bins` from a cached `/library/query` arg. */
 export function parseRotationBinsFromQueryArg(
@@ -16,7 +18,7 @@ export function parseRotationBinsFromQueryArg(
   const bins = rotation_bins
     .split(",")
     .map((part) => part.trim())
-    .filter((part): part is Rotation => ROTATION_BIN_PATTERN.test(part));
+    .filter((part): part is Rotation => ROTATION_BIN_SET.has(part));
   return bins.length > 0 ? bins : undefined;
 }
 
