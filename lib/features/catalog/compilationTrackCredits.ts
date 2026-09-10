@@ -1,4 +1,4 @@
-import type { CompilationTrack, CompilationTrackInput } from "./types";
+import type { CompilationTrack, CompilationTrackInput, CompilationTrackList } from "./types";
 
 /**
  * The server's uniqueness key for a per-track credit, mirrored client-side.
@@ -71,7 +71,13 @@ export type Seed =
  * the moment a stale refetch is in flight.
  */
 export function isStoredKnown(params: {
-  stored: unknown;
+  /**
+   * The read's whole payload, deliberately not a truthiness-friendly shape:
+   * the unwrapped `tracks` array is always truthy, so passing it would report
+   * "known" before the read landed and invert this gate from closed to open.
+   * Typing it to the payload makes that a compile error.
+   */
+  stored: CompilationTrackList | undefined;
   storedError: boolean;
   storedFetching: boolean;
 }): boolean {
@@ -81,6 +87,10 @@ export function isStoredKnown(params: {
 /**
  * Classifies the Discogs suggestions against what is already stored, and
  * derives the rows to seed the form with.
+ *
+ * Allocates row keys as it goes, so two calls with identical arguments return
+ * rows with different `key`s. Call it to commit a seed, not to inspect one:
+ * it is not safe to memoize, and two results are not comparable by value.
  *
  * `alreadyFiledCount` is `suggestions.length - fresh.length`. The "all-filed"
  * reason is reached only when `fresh.length === 0`, at which point

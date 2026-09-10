@@ -226,3 +226,41 @@ describe("updateAlbum cache invalidation on re-attribution", () => {
     sub.unsubscribe();
   });
 });
+
+// Both compilation-credit editors refuse a further save while this read is
+// back in flight, because the write is additive-only and the still-cached
+// payload predates it. That refusal only protects anything if the write really
+// does invalidate the read, so the chain is pinned here rather than left
+// implied by the editors' gate.
+describe("compilation-track write cache invalidation", () => {
+  it("writeCompilationTracks invalidates the stored credits for that release", async () => {
+    let readCalls = 0;
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/library/53390/compilation-tracks`, () => {
+        readCalls += 1;
+        return HttpResponse.json({ library_id: 53390, inserted: 0, skipped: 0, tracks: [] });
+      }),
+      http.post(`${TEST_BACKEND_URL}/library/53390/compilation-tracks`, () =>
+        HttpResponse.json({ library_id: 53390, inserted: 1, skipped: 0, tracks: [] }),
+      ),
+    );
+
+    const store = createTestStore();
+    // Keep the subscription alive so invalidation triggers a refetch.
+    const sub = store.dispatch(
+      catalogApi.endpoints.getCompilationTracks.initiate({ libraryId: 53390 }),
+    );
+    await sub;
+    expect(readCalls).toBe(1);
+
+    await store.dispatch(
+      catalogApi.endpoints.writeCompilationTracks.initiate({
+        libraryId: 53390,
+        tracks: [{ artist_name: "Juana Molina", track_title: "la paradoja", track_position: "1" }],
+      }),
+    );
+
+    await vi.waitFor(() => expect(readCalls).toBe(2));
+    sub.unsubscribe();
+  });
+});
