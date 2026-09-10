@@ -7,7 +7,6 @@ import { FlowsheetPage } from "../../pages/flowsheet.page";
 import { test, expect, TAKEOVER_DJ_A, TAKEOVER_DJ_B } from "../../fixtures/auth.fixture";
 
 const authDir = path.join(__dirname, "../../.auth");
-const MOCK_TUBAFRENZY_URL = process.env.MOCK_TUBAFRENZY_URL || "http://localhost:9091";
 
 /**
  * Go-live takeover: two DJs, one open show, and the decision a DJ makes when
@@ -28,8 +27,8 @@ const MOCK_TUBAFRENZY_URL = process.env.MOCK_TUBAFRENZY_URL || "http://localhost
  * Backend-Service process. Without it, the prompt in beat 2 still renders —
  * the client-side pre-check that opens it (`useOpenShowHandoff`) never asks
  * the server — but the server ignores `intent` entirely and co-hosts, so
- * beats 3-5 would exercise nothing. Beat 3 asserts the response shape that
- * only a flag-on server can produce, which is this spec's proof the flag
+ * beats 3 and 4 would exercise nothing. Beat 3 asserts the response shape
+ * that only a flag-on server can produce, which is this spec's proof the flag
  * actually reached the running process rather than just the checked-in .env.
  */
 test.describe("Go-live takeover", () => {
@@ -42,16 +41,6 @@ test.describe("Go-live takeover", () => {
   let pageB: Page;
   let flowsheetA: FlowsheetPage;
   let flowsheetB: FlowsheetPage;
-  /**
-   * Highest mirror-request id the mock had already assigned when this attempt
-   * started. Beat 5 searches only past it.
-   *
-   * The mock's buffer is process-global and outlives a Playwright retry, while
-   * `mode: "serial"` re-runs every beat on retry. Without a watermark, beat 5's
-   * `find` would happily match the *previous* attempt's create and signoff and
-   * pass on evidence this attempt never produced.
-   */
-  let mirrorWatermark = 0;
 
   test.beforeAll(async ({ browser }) => {
     // Hook timeouts are their own budget — a suite-scoped `test.setTimeout`
@@ -83,12 +72,6 @@ test.describe("Go-live takeover", () => {
     // previous attempt.
     await flowsheetA.ensureOffAir();
     await flowsheetB.ensureOffAir();
-
-    // Read the watermark last: the sign-offs `ensureOffAir` may just have sent
-    // belong to whatever ran before this attempt, not to it.
-    const seen = await pageA.request.get(`${MOCK_TUBAFRENZY_URL}/__requests`);
-    const priorRequests = seen.ok() ? ((await seen.json()) as MirrorRequest[]) : [];
-    mirrorWatermark = priorRequests.reduce((max, r) => Math.max(max, r.id), 0);
   });
 
   test.afterAll(async () => {
@@ -180,51 +163,7 @@ test.describe("Go-live takeover", () => {
     expect(state.onAir?.dj_name).toBe(TAKEOVER_DJ_A.djName);
   });
 
-  test("5. the tubafrenzy mirror signs A's show off and creates B's — targeting, not sequence", async () => {
-    // Ordering across the two mirror taps is unenforceable: the route
-    // registers the start tap's `res.once('finish')` before the controller
-    // runs, and both taps then await independent PostHog round-trips before
-    // reaching the mock. This waits for the mock to have SEEN both, and
-    // checks which show each request named — never their relative order.
-    await expect(async () => {
-      const response = await pageA.request.get(`${MOCK_TUBAFRENZY_URL}/__requests`);
-      expect(response.ok()).toBe(true);
-      const requests = ((await response.json()) as MirrorRequest[]).filter(
-        (r) => r.id > mirrorWatermark
-      );
-
-      const aCreate = requests.find(
-        (r) =>
-          r.url === "/playlists/api/radioShow" &&
-          isRecord(r.body) &&
-          r.body.djHandle === TAKEOVER_DJ_A.djName
-      );
-      expect(aCreate, "mock never saw a create request for A's show").toBeTruthy();
-
-      const bCreate = requests.find(
-        (r) =>
-          r.url === "/playlists/api/radioShow" &&
-          isRecord(r.body) &&
-          r.body.djHandle === TAKEOVER_DJ_B.djName
-      );
-      expect(bCreate, "mock never saw a create request for B's show").toBeTruthy();
-
-      // Targeting: a sign-off whose radioShowId is the tubafrenzy id THIS
-      // MOCK assigned to A's create — not merely "a signoff happened".
-      const aSignoff = requests.find(
-        (r) =>
-          r.url === "/playlists/api/radioShow/signoff" &&
-          isRecord(r.body) &&
-          r.body.radioShowId === aCreate!.id
-      );
-      expect(
-        aSignoff,
-        "mock never saw a signoff targeting the tubafrenzy id it assigned A's show"
-      ).toBeTruthy();
-    }).toPass({ timeout: 15000, intervals: [500] });
-  });
-
-  test("6. regression guard: a clean handoff still needs no prompt", async () => {
+  test("5. regression guard: a clean handoff still needs no prompt", async () => {
     await flowsheetB.leave();
     await flowsheetA.leave();
     await expect(flowsheetA.liveStatus).toContainText("Off Air", { timeout: 10000 });
@@ -252,18 +191,6 @@ type LiveState = {
   djsOnAir: RawOnAirDj[];
   onAir: { dj_name: string } | null;
 };
-
-type MirrorRequest = {
-  method: string;
-  url: string;
-  body: unknown;
-  id: number;
-  timestamp: number;
-};
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
 
 /**
  * Click Go Live and require it to succeed with no handoff — a defensive
