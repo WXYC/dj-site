@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { screen } from "@testing-library/react";
 import { renderWithProviders } from "@/tests/helpers/render";
 import ResultRow from "@/src/components/experiences/classic/playlists/ResultRow";
 import type { PlaylistSearchResult } from "@wxyc/shared";
@@ -51,5 +52,33 @@ describe("Classic Previous Sets ResultRow", () => {
   it("renders empty cells rather than dropping them when fields are blank", () => {
     const { container } = renderRow({ record_label: "", dj_name: "" });
     expect(container.querySelectorAll("tr > td").length).toBe(6);
+  });
+
+  // A real href, not a click handler: middle-click, copy-link and
+  // open-in-new-tab are how a DJ compares two sets side by side.
+  it("links the row to its show with the played track named for highlighting", () => {
+    renderRow();
+    expect(screen.getByRole("link")).toHaveAttribute(
+      "href",
+      "?show=100&entry=1#entry-1"
+    );
+  });
+
+  // Six per-cell links would announce the same destination six times.
+  it("exposes exactly one link, named for the play it opens", () => {
+    renderRow();
+    const links = screen.getAllByRole("link");
+    expect(links).toHaveLength(1);
+    expect(links[0]).toHaveAccessibleName(
+      "See the full show for la paradoja by Juana Molina"
+    );
+  });
+
+  // The backend projects a null show_id as 0, so a play that was never
+  // attached to a show would otherwise link to a show that cannot exist.
+  it("renders unlinked when the play belongs to no show", () => {
+    const { container } = renderRow({ show_id: 0 });
+    expect(screen.queryByRole("link")).toBeNull();
+    expect(container.querySelector("tr > td")!.textContent).toBe("6/15/24");
   });
 });

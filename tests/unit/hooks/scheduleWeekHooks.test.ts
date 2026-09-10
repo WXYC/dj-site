@@ -183,4 +183,48 @@ describe("useScheduleWeekParams", () => {
     expect(url).toContain("view=week");
     expect(url).toMatch(/week=\d{4}-\d{2}-\d{2}/);
   });
+
+  it("reads the playcut to highlight from the URL", () => {
+    searchParams = new URLSearchParams("show=1951179&entry=901");
+
+    const { result } = renderHook(() => useScheduleWeekParams());
+
+    expect(result.current.selectedEntryId).toBe(901);
+  });
+
+  it("highlights nothing for a show opened from the week grid", () => {
+    searchParams = new URLSearchParams("show=1951179");
+
+    const { result } = renderHook(() => useScheduleWeekParams());
+
+    expect(result.current.selectedEntryId).toBeNull();
+  });
+
+  it.each(["0", "-3", "1.5", "901; drop", ""])(
+    "rejects %s as a playcut id",
+    (value) => {
+      searchParams = new URLSearchParams(`show=1951179&entry=${value}`);
+
+      const { result } = renderHook(() => useScheduleWeekParams());
+
+      expect(result.current.selectedEntryId).toBeNull();
+    },
+  );
+
+  // The playcut belongs to the show that was open, so every transition that
+  // drops the show has to drop it too — otherwise the URL keeps naming a row
+  // the screen is no longer showing.
+  it.each([
+    ["setView('week')", (p: ReturnType<typeof useScheduleWeekParams>) => p.setView("week")],
+    ["setView('search')", (p: ReturnType<typeof useScheduleWeekParams>) => p.setView("search")],
+    ["setWeek", (p: ReturnType<typeof useScheduleWeekParams>) => p.setWeek(new Date("2026-08-16T12:00:00Z"))],
+  ])("drops the playcut on %s", (_name, act) => {
+    searchParams = new URLSearchParams("show=1951179&entry=901");
+
+    const { result } = renderHook(() => useScheduleWeekParams());
+    act(result.current);
+
+    const url = mockReplace.mock.calls.at(-1)![0] as string;
+    expect(url).not.toContain("entry=");
+  });
 });

@@ -23,14 +23,15 @@ export default function ClassicPreviousSetsSurface({
 }: {
   initialResults?: readonly PlaylistSearchResult[];
 }) {
-  const { isWeekView, setView, selectedShowId } = useScheduleWeekParams();
+  const { isWeekView, setView, selectedShowId, selectedEntryId } =
+    useScheduleWeekParams();
 
   return (
     <>
       <Navigation />
       <ClassicViewToggle isWeekView={isWeekView} onChange={setView} />
       {selectedShowId !== null ? (
-        <ShowView showId={selectedShowId} />
+        <ShowView showId={selectedShowId} highlightedEntryId={selectedEntryId} />
       ) : isWeekView ? (
         <ClassicScheduleWeek />
       ) : (

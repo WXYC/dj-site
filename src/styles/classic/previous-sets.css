@@ -35,3 +35,24 @@
 .classic-previous-sets-table tbody tr:nth-child(even) {
   background-color: #F8F8F8;
 }
+
+/* Linked rows. A <tr> cannot be wrapped in an <a>, and one link per cell would
+   announce the same destination six times, so a single link in the leading cell
+   is stretched over the row by an overlay. The row is the containing block. */
+.classic-previous-sets-row {
+  position: relative;
+}
+
+.classic-previous-sets-row-link::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+}
+
+/* Beats the zebra stripe above, which is a class plus :nth-child. */
+.classic-previous-sets-table tbody tr.classic-previous-sets-row:hover {
+  background-color: #EFEFEF;
+}

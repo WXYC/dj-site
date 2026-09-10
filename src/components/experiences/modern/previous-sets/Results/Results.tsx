@@ -7,8 +7,10 @@ import type {
 import { usePlaylistSearchResults } from "@/src/hooks/playlistSearchHooks";
 import type { PlaylistSearchResult } from "@wxyc/shared";
 import { ArrowDownward, ArrowUpward } from "@mui/icons-material";
-import { Box, CircularProgress, Table, Typography } from "@mui/joy";
+import { Box, CircularProgress, Link, Table, Typography } from "@mui/joy";
+import NextLink from "next/link";
 import { useEffect, useRef } from "react";
+import { hrefForShowEntry } from "@/lib/features/schedule-week/showUrl";
 import ResultsContainer from "./ResultsContainer";
 
 function SortableHeader({
@@ -62,6 +64,41 @@ function formatDate(date: Date): string {
   });
 }
 
+/**
+ * One link per row, stretched over it by Joy's `overlay`: a <tr> cannot be
+ * wrapped in an <a>, and per-cell links would announce the same destination six
+ * times. `overlay` drops the link's own `position: relative` so its ::after
+ * resolves against the row, which is why the row is positioned.
+ */
+function ResultDateCell({ result }: { result: PlaylistSearchResult }) {
+  const date = formatDate(new Date(result.play_date));
+
+  // The backend projects a flowsheet row with a null show_id as 0, and no show
+  // has that id. Such a play is shown plain rather than linked to a page that
+  // can only report the show missing.
+  if (result.show_id <= 0) {
+    return (
+      <Typography level="body-sm" sx={{ color: "text.secondary" }}>
+        {date}
+      </Typography>
+    );
+  }
+
+  return (
+    <Link
+      component={NextLink}
+      href={hrefForShowEntry(result.show_id, result.id)}
+      aria-label={`See the full show for ${result.track_title} by ${result.artist_name}`}
+      overlay
+      underline="none"
+      level="body-sm"
+      sx={{ color: "text.secondary" }}
+    >
+      {date}
+    </Link>
+  );
+}
+
 export default function Results({
   initialResults,
 }: {
@@ -111,6 +148,17 @@ export default function Results({
 
   return (
     <ResultsContainer showResults={showResults}>
+      {/* tubafrenzy's own summary line, verbatim: nothing else on the screen
+          says a row goes anywhere. */}
+      {displayResults.length > 0 && (
+        <Typography
+          level="body-xs"
+          sx={{ px: 1.5, py: 1, color: "text.secondary", flex: "0 0 auto" }}
+        >
+          Click a track to see the full show.
+        </Typography>
+      )}
+
       <Box
         ref={scrollRef}
         sx={{
@@ -192,11 +240,9 @@ export default function Results({
               </tr>
             ) : (
               displayResults.map((result) => (
-                <tr key={result.id}>
+                <tr key={result.id} style={{ position: "relative" }}>
                   <td>
-                    <Typography level="body-sm" sx={{ color: "text.secondary" }}>
-                      {formatDate(new Date(result.play_date))}
-                    </Typography>
+                    <ResultDateCell result={result} />
                   </td>
                   <td>
                     <Typography level="body-sm" fontWeight="md">

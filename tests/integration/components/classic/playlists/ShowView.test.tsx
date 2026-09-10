@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import {
   renderWithProviders,
@@ -156,5 +156,87 @@ describe("classic archived-show view — flowsheetRadioShowDisplayPublic.jsp", (
     expect(cells.length).toBe(2);
     expect(cells[0].textContent).toBe("6:00 PM");
     expect(cells[1].getAttribute("colspan")).toBe("5");
+  });
+});
+
+describe("classic archived-show view — the play a search result named", () => {
+  it("marks the played track the search result named", async () => {
+    serveShow();
+    const { container } = renderWithProviders(
+      <ShowView showId={SHOW_ID} highlightedEntryId={3002} />
+    );
+
+    await rowFor("Jessica Pratt");
+
+    const row = container.querySelector("#entry-3002");
+    expect(row).not.toBeNull();
+    expect(row).toHaveClass("playlistEntryHighlight");
+    expect(row!.textContent).toContain("Back, Baby");
+  });
+
+  it("marks nothing else", async () => {
+    serveShow();
+    const { container } = renderWithProviders(
+      <ShowView showId={SHOW_ID} highlightedEntryId={3002} />
+    );
+
+    await rowFor("Jessica Pratt");
+
+    expect(container.querySelectorAll(".playlistEntryHighlight")).toHaveLength(
+      1
+    );
+  });
+
+  // The week grid links to a show without naming a play, and a show opened
+  // that way has nothing to point at. Awaited first, so the assertion is made
+  // against a rendered set rather than against a table still in flight.
+  it("marks nothing when the show was opened without a play", async () => {
+    serveShow();
+    const { container } = renderWithProviders(<ShowView showId={SHOW_ID} />);
+
+    await rowFor("Jessica Pratt");
+
+    expect(container.querySelector(".playlistEntryHighlight")).toBeNull();
+    expect(container.querySelector('[id^="entry-"]')).toBeNull();
+  });
+
+  // The playlist is a client query, so the router's own fragment scroll runs
+  // against a DOM that has no such row yet, and never retries.
+  it("scrolls the marked row into view once the show's rows arrive", async () => {
+    const scrolled: Element[] = [];
+    vi.spyOn(Element.prototype, "scrollIntoView").mockImplementation(
+      function (this: Element) {
+        scrolled.push(this);
+      }
+    );
+
+    serveShow();
+    const { container } = renderWithProviders(
+      <ShowView showId={SHOW_ID} highlightedEntryId={3003} />
+    );
+
+    await waitFor(() => {
+      expect(scrolled).toContain(container.querySelector("#entry-3003"));
+    });
+
+    vi.restoreAllMocks();
+  });
+
+  it("scrolls nowhere for a show opened without a play", async () => {
+    const scrolled: Element[] = [];
+    vi.spyOn(Element.prototype, "scrollIntoView").mockImplementation(
+      function (this: Element) {
+        scrolled.push(this);
+      }
+    );
+
+    serveShow();
+    renderWithProviders(<ShowView showId={SHOW_ID} />);
+
+    await rowFor("Jessica Pratt");
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(scrolled).toHaveLength(0);
+
+    vi.restoreAllMocks();
   });
 });

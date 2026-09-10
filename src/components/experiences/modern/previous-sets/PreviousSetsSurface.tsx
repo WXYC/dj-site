@@ -22,7 +22,8 @@ export default function PreviousSetsSurface({
 }: {
   initialResults?: readonly PlaylistSearchResult[];
 }) {
-  const { isWeekView, setView, selectedShowId } = useScheduleWeekParams();
+  const { isWeekView, setView, selectedShowId, selectedEntryId } =
+    useScheduleWeekParams();
 
   return (
     <>
@@ -31,7 +32,7 @@ export default function PreviousSetsSurface({
       </Box>
 
       {selectedShowId !== null ? (
-        <ShowView showId={selectedShowId} />
+        <ShowView showId={selectedShowId} highlightedEntryId={selectedEntryId} />
       ) : isWeekView ? (
         <ScheduleWeekView />
       ) : (

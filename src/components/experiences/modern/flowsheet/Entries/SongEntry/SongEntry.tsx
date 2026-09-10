@@ -28,6 +28,7 @@ const SongEntry = memo(function SongEntry({
   draggable = true,
   readOnly = false,
   timeLabel,
+  highlighted = false,
 }: {
   playing: boolean;
   queue: boolean;
@@ -37,6 +38,8 @@ const SongEntry = memo(function SongEntry({
   readOnly?: boolean;
   /** The leading Time cell's label; see EntryTimeCell for the column contract. */
   timeLabel?: string;
+  /** The row an archive link named; see DraggableEntryWrapper. */
+  highlighted?: boolean;
 }) {
   const { live, autoplay, currentShow } = useShowControl();
   const playNow = usePlayNow(entry);
@@ -76,6 +79,7 @@ const SongEntry = memo(function SongEntry({
       variant={queue ? "soft" : playing ? "solid" : "plain"}
       color={queue ? "success" : playing ? "primary" : "neutral"}
       draggable={draggable}
+      highlighted={highlighted}
       style={{
         height: "60px",
         borderRadius: "md",

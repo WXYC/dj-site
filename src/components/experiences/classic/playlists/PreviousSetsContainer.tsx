@@ -71,6 +71,17 @@ export default function PreviousSetsContainer({
             </p>
           )}
 
+          {/* tubafrenzy's own summary line, verbatim: nothing else on the
+              screen says a row goes anywhere. */}
+          {displayResults.length > 0 && (
+            <p
+              className="smalltext"
+              style={{ textAlign: "center", padding: "0.25em" }}
+            >
+              Click a track to see the full show.
+            </p>
+          )}
+
           {displayResults.length > 0 && (
             <InfiniteScroll
               hasMore={hasMore}

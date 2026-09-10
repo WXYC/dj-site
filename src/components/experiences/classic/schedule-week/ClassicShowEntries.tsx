@@ -4,6 +4,7 @@ import type { FlowsheetRangeShow } from "@wxyc/shared";
 import type { FlowsheetRangeEntryWire } from "@/lib/features/flowsheet/conversions";
 import { formatStationClockTime } from "@/src/utilities/stationTime";
 import { describeNonTrackEntry } from "@/lib/features/schedule-week/entryLabel";
+import { entryAnchorId } from "@/lib/features/schedule-week/showUrl";
 import {
   Capsule,
   capsulesForSongEntry,
@@ -38,12 +39,18 @@ export default function ClassicShowEntries({
   isPartial,
   partialEdge,
   isLoading,
+  highlightedEntryId = null,
 }: {
   show: FlowsheetRangeShow;
   entries: FlowsheetRangeEntryWire[];
   isPartial: boolean;
   partialEdge: "before" | "after" | null;
   isLoading: boolean;
+  /**
+   * The playcut an archive link named. It alone carries the anchor the link's
+   * fragment points at; an id on every row would collide across tables.
+   */
+  highlightedEntryId?: number | null;
 }) {
   return (
     <div className="classic-schedule-week-entries">
@@ -81,7 +88,19 @@ export default function ClassicShowEntries({
           </thead>
           <tbody>
             {entries.map((entry) => (
-              <tr key={entry.id}>
+              <tr
+                key={entry.id}
+                id={
+                  entry.id === highlightedEntryId
+                    ? entryAnchorId(entry.id)
+                    : undefined
+                }
+                className={
+                  entry.id === highlightedEntryId
+                    ? "playlistEntryHighlight"
+                    : undefined
+                }
+              >
                 <td>{timeOf(entry)}</td>
                 {entry.entry_type && entry.entry_type !== "track" ? (
                   <td colSpan={MARKER_SPAN}>

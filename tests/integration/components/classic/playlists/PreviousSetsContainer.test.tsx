@@ -294,4 +294,54 @@ describe("Classic Previous Sets PreviousSetsContainer", () => {
       ).toBeDefined();
     });
   });
+
+  // tubafrenzy's own summary line, above its results table for twenty years.
+  // Nothing else on the screen says the rows go anywhere.
+  it("tells the reader the rows are clickable", async () => {
+    mockQueryState.data = {
+      pages: [
+        {
+          results: [
+            {
+              id: 903,
+              play_date: "2026-08-23T14:30:00.000Z",
+              artist_name: "Duke Ellington & John Coltrane",
+              track_title: "In a Sentimental Mood",
+              album_title: "Duke Ellington & John Coltrane",
+              record_label: "Impulse Records",
+              dj_name: "DJ Chowder",
+              show_id: 300,
+            },
+          ],
+          total: 1,
+          page: 0,
+          totalPages: 1,
+        },
+      ],
+    };
+
+    renderWithProviders(<PreviousSetsContainer />);
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("Click a track to see the full show.")
+      ).toBeDefined();
+    });
+  });
+
+  it("keeps that invitation off an empty listing", async () => {
+    const { user, rerender } = renderWithProviders(<PreviousSetsContainer />);
+    await user.type(screen.getByPlaceholderText(/type to search/i), "Juana");
+    mockQueryState.data = {
+      pages: [{ results: [], total: 0, page: 0, totalPages: 0 }],
+    };
+    rerender(<PreviousSetsContainer />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/no results found/i)).toBeDefined();
+    });
+    expect(
+      screen.queryByText("Click a track to see the full show.")
+    ).toBeNull();
+  });
 });

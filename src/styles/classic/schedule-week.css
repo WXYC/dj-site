@@ -193,3 +193,12 @@
   width: 7em;
   text-align: center;
 }
+
+/* The play a search result linked to — tubafrenzy's own `.playlistEntryHighlight`
+   treatment, and the red the DJs asking for this feature name it by. Written
+   through the table's own selector chain so it outweighs the zebra stripe above
+   rather than leaning on !important. */
+.classic-schedule-week-entries tbody tr.playlistEntryHighlight {
+  background: #FF0000;
+  font-weight: bold;
+}

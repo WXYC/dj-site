@@ -27,23 +27,29 @@ export default function ShowEntriesPanel({
   isPartial,
   partialEdge,
   isLoading,
+  highlightedEntryId = null,
 }: {
   show: FlowsheetRangeShow;
   entries: FlowsheetRangeEntry[];
   isPartial: boolean;
   partialEdge: "before" | "after" | null;
   isLoading: boolean;
+  /** The playcut an archive link named, or null when the show was opened plain. */
+  highlightedEntryId?: number | null;
 }) {
   // Rows are built once per entry list rather than per render: Entry is
-  // memoized on its props, and a fresh object per render defeats that.
+  // memoized on its props, and a fresh object per render defeats that. The
+  // highlighted id is part of the key, not closed over — read once, the mark
+  // would never move when the link changes under an unchanged entry list.
   const rows = useMemo(
     () =>
       entries.map((entry) => ({
         id: entry.id,
         timeLabel: timeOf(entry),
         converted: convertRangeEntry(entry),
+        highlighted: entry.id === highlightedEntryId,
       })),
-    [entries]
+    [entries, highlightedEntryId]
   );
 
   return (
@@ -95,7 +101,7 @@ export default function ShowEntriesPanel({
               <FlowsheetColumnSizingRow leadingTimeColumn />
             </thead>
             <tbody>
-              {rows.map(({ id, timeLabel, converted }) => (
+              {rows.map(({ id, timeLabel, converted, highlighted }) => (
                 <Entry
                   key={id}
                   entry={converted}
@@ -103,6 +109,7 @@ export default function ShowEntriesPanel({
                   draggable={false}
                   readOnly
                   timeLabel={timeLabel}
+                  highlighted={highlighted}
                 />
               ))}
             </tbody>
