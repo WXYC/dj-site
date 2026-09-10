@@ -15,53 +15,19 @@ import {
   useGetCompilationTrackSuggestionsQuery,
   useGetCompilationTracksQuery,
 } from "@/lib/features/catalog/api";
-import { compilationTrackCreditKey } from "@/lib/features/catalog/compilationTrackCredits";
+import {
+  blankRow,
+  classifySeed,
+  compilationTrackCreditKey,
+  isStoredKnown,
+  toInput,
+  type DraftRow,
+  type Seed,
+} from "@/lib/features/catalog/compilationTrackCredits";
 import type {
   CompilationTrack,
   CompilationTrackInput,
 } from "@/lib/features/catalog/types";
-
-type DraftRow = {
-  /** Stable across edits and removals, so React never reuses one row's DOM for another. */
-  key: number;
-  artist_name: string;
-  track_title: string;
-  track_position: string;
-};
-
-/**
- * Where the current rows came from, so the heading can't outlive what it
- * describes. The manual arm carries its reason because the three ways of
- * arriving there are not interchangeable: "Discogs had nothing", "Discogs had
- * only what is already filed", and "the librarian chose to type them" are
- * three different claims, and stating the first when either of the others is
- * true is the false negative this whole component is arranged to prevent.
- */
-type Seed =
-  | { kind: "discogs"; importedCount: number; alreadyFiledCount: number }
-  | { kind: "manual"; reason: "no-match" | "all-filed" | "chosen" };
-
-let nextRowKey = 0;
-const blankRow = (): DraftRow => ({
-  key: nextRowKey++,
-  artist_name: "",
-  track_title: "",
-  track_position: "",
-});
-
-const rowFromSuggestion = (track: CompilationTrackInput): DraftRow => ({
-  key: nextRowKey++,
-  artist_name: track.artist_name,
-  track_title: track.track_title ?? "",
-  track_position: track.track_position ?? "",
-});
-
-/** Blank optional fields are stored as NULL, not as empty strings. */
-const toInput = (row: DraftRow): CompilationTrackInput => ({
-  artist_name: row.artist_name.trim(),
-  track_title: row.track_title.trim() || null,
-  track_position: row.track_position.trim() || null,
-});
 
 // See `compilationTrackCreditKey`: this and classic's release tracklist
 // editor write against the same additive-only endpoint and must agree with
@@ -178,26 +144,15 @@ export default function VaTracklistStep({
   // loaded yet" the moment this component mounts. A failed refetch leaves the
   // previous payload in `stored`; that payload predates the write that
   // prompted the refetch, so it does not count as knowing.
-  const storedKnown = !!stored && !storedFailed && !storedFetching;
+  const storedKnown = isStoredKnown({ stored, storedError: storedFailed, storedFetching });
 
   if (suggestions && (!mayAlreadyHoldCredits || storedKnown) && seed === null) {
-    const alreadyFiled = new Set((stored?.tracks ?? []).map(creditKey));
-    const fresh = suggestions.tracks.filter(
-      (track) => !alreadyFiled.has(creditKey(track)),
+    const { seed: classified, rows: seededRows } = classifySeed(
+      suggestions.tracks,
+      stored?.tracks ?? [],
     );
-    const alreadyFiledCount = suggestions.tracks.length - fresh.length;
-    if (fresh.length > 0) {
-      setSeed({ kind: "discogs", importedCount: fresh.length, alreadyFiledCount });
-      setRows(fresh.map(rowFromSuggestion));
-    } else {
-      // Discogs having matched every track that is already filed is not Discogs
-      // having no match, and the sleeve may still hold one it missed.
-      setSeed({
-        kind: "manual",
-        reason: alreadyFiledCount > 0 ? "all-filed" : "no-match",
-      });
-      setRows([blankRow()]);
-    }
+    setSeed(classified);
+    setRows(seededRows);
   }
 
   // RTK Query hands back a stable reference while the payload is unchanged, so
