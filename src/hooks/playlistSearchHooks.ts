@@ -4,6 +4,8 @@ import { useSearchPlaylistsInfiniteQuery } from "@/lib/features/playlist-search/
 import {
   playlistSearchSlice,
   SearchRow,
+  type SortField,
+  type SortOrder,
 } from "@/lib/features/playlist-search/frontend";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { useCallback, useMemo, useRef } from "react";
@@ -142,9 +144,15 @@ export function usePlaylistSearch() {
     [dispatch],
   );
 
+  const setSort = useCallback(
+    (next: { sortBy: SortField; sortOrder: SortOrder }) =>
+      dispatch(playlistSearchSlice.actions.setSort(next)),
+    [dispatch],
+  );
+
   const handleSort = useCallback(
-    (field: "date" | "artist" | "song" | "dj") =>
-      dispatch(playlistSearchSlice.actions.setSort(field)),
+    (field: SortField) =>
+      dispatch(playlistSearchSlice.actions.toggleSort(field)),
     [dispatch],
   );
 
@@ -174,6 +182,7 @@ export function usePlaylistSearch() {
     addRow,
     removeRow,
     updateRow,
+    setSort,
     handleSort,
     loadNextPage,
   };

@@ -2,8 +2,8 @@ import { createAppSlice } from "@/lib/createAppSlice";
 import type { PayloadAction } from "@reduxjs/toolkit";
 import type { PlaylistSearchParams } from "@wxyc/shared/dtos";
 
-type SortField = PlaylistSearchParams["sort"];
-type SortOrder = PlaylistSearchParams["order"];
+export type SortField = PlaylistSearchParams["sort"];
+export type SortOrder = PlaylistSearchParams["order"];
 type Operator = "AND" | "OR" | "NOT";
 
 export type SearchField =
@@ -69,7 +69,18 @@ export const playlistSearchSlice = createAppSlice({
         Object.assign(row, action.payload.updates);
       }
     },
-    setSort: (state, action: PayloadAction<SortField>) => {
+    // Field and direction arrive as one payload, so a control whose options
+    // name a direction can apply it whatever sort it replaces.
+    setSort: (
+      state,
+      action: PayloadAction<{ sortBy: SortField; sortOrder: SortOrder }>,
+    ) => {
+      state.sortBy = action.payload.sortBy;
+      state.sortOrder = action.payload.sortOrder;
+    },
+    // The column-header idiom: the active column reverses, a new one opens
+    // descending.
+    toggleSort: (state, action: PayloadAction<SortField>) => {
       if (state.sortBy === action.payload) {
         state.sortOrder = state.sortOrder === "asc" ? "desc" : "asc";
       } else {

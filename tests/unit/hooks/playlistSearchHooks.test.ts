@@ -399,7 +399,12 @@ describe("usePlaylistSearch", () => {
         rerender();
 
         act(() => {
-          store.dispatch(playlistSearchSlice.actions.setSort("artist"));
+          store.dispatch(
+            playlistSearchSlice.actions.setSort({
+              sortBy: "artist",
+              sortOrder: "desc",
+            }),
+          );
         });
         rerender();
 
@@ -543,5 +548,41 @@ describe("usePlaylistSearchResults", () => {
     rerender();
 
     expect(result.current.displayResults).toEqual([]);
+  });
+});
+
+describe("sort controls", () => {
+  it("carries the chosen field and direction into the query key", async () => {
+    const { store, wrapper } = createWrapper();
+    const { result } = renderHook(() => usePlaylistSearch(), { wrapper });
+
+    act(() => {
+      result.current.setSort({ sortBy: "artist", sortOrder: "asc" });
+    });
+
+    expect(store.getState().playlistSearch).toMatchObject({
+      sortBy: "artist",
+      sortOrder: "asc",
+    });
+    await waitFor(() =>
+      expect(lastQueryArg).toEqual(
+        expect.objectContaining({ sort: "artist", order: "asc" }),
+      ),
+    );
+  });
+
+  it("leaves the column header a direction toggle", () => {
+    const { store, wrapper } = createWrapper();
+    const { result } = renderHook(() => usePlaylistSearch(), { wrapper });
+
+    act(() => {
+      result.current.handleSort("date");
+    });
+    expect(store.getState().playlistSearch.sortOrder).toBe("asc");
+
+    act(() => {
+      result.current.handleSort("date");
+    });
+    expect(store.getState().playlistSearch.sortOrder).toBe("desc");
   });
 });
