@@ -330,12 +330,13 @@ export function convertV2Entry(entry: FlowsheetV2EntryJSON): FlowsheetEntry {
 }
 
 /**
- * `on_streaming` rides the `GET /flowsheet/range` payload without being declared
- * on `FlowsheetEntryFields`. Widened here rather than dropped: the EXCLUSIVE
- * chip is its only reader and tests `=== false`, so an absent field is simply
- * no chip.
+ * `on_streaming` rides the `GET /flowsheet/range` and `GET /flowsheet/playlist`
+ * payloads without being declared on `FlowsheetEntryFields`. Widened here
+ * rather than dropped: its readers are the EXCLUSIVE chip and capsule, both of
+ * which test `=== false`, so an absent field is simply no badge — and a null,
+ * meaning no linked library row, must stay distinguishable from a false.
  */
-type FlowsheetRangeEntryWire = FlowsheetRangeEntry & {
+export type FlowsheetRangeEntryWire = FlowsheetRangeEntry & {
   on_streaming?: boolean | null;
 };
 

@@ -183,3 +183,13 @@
   text-decoration: none;
   cursor: default;
 }
+
+/* The archived show's indicator gutter, carrying the ROTATION / REQUEST /
+   EXCLUSIVE capsules. Unlabeled and centred, as
+   flowsheetRadioShowDisplayPublic.jsp renders it — the two-class selector is
+   what outranks the left-aligned `thead th` rule above. */
+.classic-schedule-week-entries .classic-indicator-cell {
+  width: 7em;
+  text-align: center;
+  white-space: nowrap;
+}
