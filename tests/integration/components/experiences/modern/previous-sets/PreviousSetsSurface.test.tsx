@@ -55,10 +55,26 @@ async function settleFirstPage() {
   await waitFor(() => expect(rowCount()).toBe(PAGE));
 }
 
-/** One scroll to the bottom, and the appended page. jsdom leaves the
- *  scrollport's metrics at 0, so the handler's bottom test holds unaided. */
+/**
+ * One scroll to the bottom, and the appended page.
+ *
+ * The metrics are stated rather than left at jsdom's zeroes: against zeroes the
+ * handler's `scrollHeight <= scrollTop + clientHeight + 100` is true for any
+ * formula of that shape, so a dropped term would still pass here — and would
+ * fetch a page on every scroll event in a browser.
+ */
 async function loadSecondPage() {
-  fireEvent.scroll(scrollport());
+  const scroller = scrollport();
+  Object.defineProperty(scroller, "scrollHeight", {
+    value: 2000,
+    configurable: true,
+  });
+  Object.defineProperty(scroller, "clientHeight", {
+    value: 500,
+    configurable: true,
+  });
+  scroller.scrollTop = 1500;
+  fireEvent.scroll(scroller);
   await waitFor(() => expect(rowCount()).toBe(2 * PAGE));
 }
 
@@ -77,7 +93,12 @@ function closeShow() {
 }
 
 describe("PreviousSetsSurface — returning from a show", () => {
-  it("keeps the walked pages and re-runs nothing, however long the show takes", async () => {
+  // No clock is advanced here on purpose. The subscription above the branch
+  // never unsubscribes, so no removal timer is ever scheduled — a dwell has
+  // nothing to expire and asserting one would claim coverage this does not
+  // have. What pins the retention setting is the fresh-arrival spec below,
+  // which watches the entry actually get dropped.
+  it("keeps the walked pages and re-runs nothing", async () => {
     const fake = playlistSearchFake({ archiveSize: ARCHIVE });
     server.use(fake.handler);
 
@@ -96,14 +117,6 @@ describe("PreviousSetsSurface — returning from a show", () => {
     openShow();
     rerender(<PreviousSetsSurface />);
     await screen.findByText("show 3");
-
-    // Dwelt on past the window the old 60s default made load-bearing. Fake
-    // timers are installed only around the jump, with nothing awaited inside
-    // it: held across the MSW round trips above they are a flake vector, and
-    // the only thing this needs is for any pending removal timer to come due.
-    vi.useFakeTimers();
-    vi.advanceTimersByTime(61_000);
-    vi.useRealTimers();
 
     closeShow();
     rerender(<PreviousSetsSurface />);

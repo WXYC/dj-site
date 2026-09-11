@@ -141,7 +141,11 @@ export function usePlaylistSearchSubscription(listingVisible: boolean): void {
   // would leave the entry the reader is coming back to with no subscriber at
   // all — and at zero retention it would be gone before the keystroke that
   // undoes the typo. Nothing outside the listing can move the key, so freezing
-  // it while the listing is away costs nothing.
+  // it while the listing is away is safe.
+  //
+  // This keeps the pages, not the place: a partial empties the listing, so the
+  // scrollport collapses and the browser clamps the offset to the top before
+  // anything can record it. The walk surviving is the expensive half.
   const heldArg = useRef<typeof queryArg | null>(null);
   if (listingVisible && !isPartialQuery) {
     heldArg.current = queryArg;
