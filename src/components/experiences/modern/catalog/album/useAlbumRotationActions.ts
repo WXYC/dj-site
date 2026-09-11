@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
+import { useAppDispatch } from "@/lib/hooks";
+import { catalogSlice } from "@/lib/features/catalog/frontend";
 import {
   useAddRotationEntryMutation,
   useKillRotationEntryMutation,
@@ -32,6 +34,7 @@ import { AlbumEntry } from "@/lib/features/catalog/types";
  * keep the operator's bin selection for a retry instead of clearing it.
  */
 export function useAlbumRotationActions(album: AlbumEntry) {
+  const dispatch = useAppDispatch();
   const [addRotationEntry] = useAddRotationEntryMutation();
   const [killRotationEntry] = useKillRotationEntryMutation();
   const [killingIds, setKillingIds] = useState<Set<number>>(() => new Set());
@@ -135,6 +138,18 @@ export function useAlbumRotationActions(album: AlbumEntry) {
       return false;
     } finally {
       setIsSettingRotation(false);
+      // The per-album claim exists to stop this gesture's own retires from
+      // clearing the bin this gesture just added; outside it the claim is a
+      // guess about the server with no expiry. Left in place it survives for the
+      // life of the tab, so once another surface replaces the entry out of band
+      // — a second MD, another tab, the classic rotation screen — a later kill
+      // of the real entry no longer matches the claim and gets skipped, leaving
+      // the cached row asserting a rotation the release no longer has. That is
+      // the inverse of the defect the claim was added for, so its lifetime is
+      // bounded to the gesture that needs it.
+      if (album.id != null) {
+        dispatch(catalogSlice.actions.clearAlbumRotation(album.id));
+      }
     }
   };
 
