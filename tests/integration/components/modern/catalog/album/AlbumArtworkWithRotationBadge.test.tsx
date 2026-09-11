@@ -156,9 +156,20 @@ describe("AlbumArtworkWithRotationBadge", () => {
       />,
     );
 
+    // The request having been issued is not the read having landed, and in the
+    // gap this card deliberately renders the unknown marker (see the in-flight
+    // case below). Asserting badge-absence straight off `listRequests()` races
+    // the response and only passes while the machine is fast enough to settle it
+    // between two statements. Wait for the marker to clear — that is the read
+    // settling — and the negative claim below becomes a claim about the landed
+    // state rather than about timing.
     await waitFor(() => expect(backend.listRequests()).toBeGreaterThan(0));
+    await waitFor(() =>
+      expect(
+        screen.queryByTitle("Rotation status unknown"),
+      ).not.toBeInTheDocument(),
+    );
     expect(screen.queryByText("H")).not.toBeInTheDocument();
-    expect(screen.queryByTitle("Rotation status unknown")).not.toBeInTheDocument();
   });
 
   // An MD sees badges, so for them a badge-less card is a positive claim that
