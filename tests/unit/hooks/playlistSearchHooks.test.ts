@@ -13,7 +13,6 @@ type MockQueryArg = { q?: string; limit?: number; sort?: string; order?: string 
 
 let lastQueryArg: MockQueryArg | undefined;
 let lastSkip = false;
-let lastRefetchOnMountOrArgChange: boolean | undefined;
 
 // Mutable canned result for the infinite query. `data.pages` is the RTK page
 // array the hook flattens; hasNextPage is RTK's projection of nextCursor via
@@ -33,11 +32,10 @@ vi.mock("@/lib/features/playlist-search/api", async () => {
     ...actual,
     useSearchPlaylistsInfiniteQuery: (
       queryArg: MockQueryArg,
-      options?: { skip?: boolean; refetchOnMountOrArgChange?: boolean },
+      options?: { skip?: boolean },
     ) => {
       lastQueryArg = queryArg;
       lastSkip = options?.skip ?? false;
-      lastRefetchOnMountOrArgChange = options?.refetchOnMountOrArgChange;
       if (options?.skip) {
         return {
           data: undefined,
@@ -73,7 +71,6 @@ beforeEach(() => {
   mockFetchNextPage.mockReset();
   lastQueryArg = undefined;
   lastSkip = false;
-  lastRefetchOnMountOrArgChange = undefined;
   mockInfiniteState.data = undefined;
   mockInfiniteState.isFetching = false;
   mockInfiniteState.isError = false;
@@ -93,15 +90,6 @@ describe("usePlaylistSearch", () => {
       // The cursor is RTK's pageParam, not part of the search key; the first
       // page starts from initialPageParam.
       expect(lastQueryArg).not.toHaveProperty("cursor");
-    });
-
-    it("forces a fresh fetch on mount rather than serving a stale cached page", async () => {
-      const { wrapper } = createWrapper();
-
-      renderHook(() => usePlaylistSearch(), { wrapper });
-
-      await waitFor(() => expect(lastQueryArg).toBeDefined());
-      expect(lastRefetchOnMountOrArgChange).toBe(true);
     });
 
     it("re-fires the empty query when the user clears all rows back to default", async () => {

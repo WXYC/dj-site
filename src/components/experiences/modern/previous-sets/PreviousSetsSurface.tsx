@@ -1,7 +1,9 @@
 "use client";
 
+import { useRef } from "react";
 import { Box } from "@mui/joy";
 import type { PlaylistSearchResult } from "@wxyc/shared";
+import { usePlaylistSearchSubscription } from "@/src/hooks/playlistSearchHooks";
 import { useScheduleWeekParams } from "@/src/hooks/scheduleWeekHooks";
 import { ScheduleWeekView } from "@/src/components/experiences/modern/schedule-week";
 import ShowView from "./ShowView";
@@ -25,6 +27,14 @@ export default function PreviousSetsSurface({
   const { isWeekView, setView, selectedShowId, selectedEntryId } =
     useScheduleWeekParams();
 
+  const listingVisible = !isWeekView && selectedShowId === null;
+
+  // Both of these outlive the listing on purpose. The branch below unmounts it
+  // to open a show, which would otherwise drop the walked pages and the offset
+  // into them — the two halves of the place the reader was.
+  usePlaylistSearchSubscription(listingVisible);
+  const listingScrollTop = useRef(0);
+
   return (
     <>
       <Box sx={{ display: "flex", justifyContent: "flex-end", pt: 1 }}>
@@ -38,7 +48,10 @@ export default function PreviousSetsSurface({
       ) : (
         <>
           <SearchBar />
-          <Results initialResults={initialResults} />
+          <Results
+            initialResults={initialResults}
+            retainedScrollTop={listingScrollTop}
+          />
         </>
       )}
     </>
