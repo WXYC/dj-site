@@ -342,6 +342,20 @@ describe("ShowEntriesPanel", () => {
       expect(row(62)).toHaveClass("row-highlighted");
     });
 
+    // The class is only a hook; nothing styles it. The mark a reader actually
+    // sees is the row fill, so assert the paint rather than the hook — without
+    // this, dropping the danger color leaves every class assertion green while
+    // the marked row renders like its neighbours.
+    it("paints the marked row with the danger fill, not just the class", () => {
+      render(panel([entry({ id: 65 }), entry({ id: 66 })], 66));
+
+      // `--row-bg` specifically, not the whole style string: `--row-accent`
+      // also resolves from the danger palette, so a looser match would stay
+      // green with the fill gone.
+      expect(row(66).style.getPropertyValue("--row-bg")).toContain("danger");
+      expect(row(65).style.getPropertyValue("--row-bg")).not.toContain("danger");
+    });
+
     // Rows are built in a memo keyed on the entry list. A highlighted id left
     // out of that key is read once and then never again.
     it("moves the mark when the named play changes under the same entries", () => {
