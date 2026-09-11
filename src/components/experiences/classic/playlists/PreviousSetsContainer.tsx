@@ -1,6 +1,8 @@
 "use client";
 
+import type { RefObject } from "react";
 import { usePlaylistSearchResults } from "@/src/hooks/playlistSearchHooks";
+import { useRetainedScrollOffset } from "@/src/hooks/useRetainedScrollOffset";
 import type { PlaylistSearchResult } from "@wxyc/shared";
 import SearchForm from "./SearchForm";
 import ResultTable from "./ResultTable";
@@ -12,10 +14,15 @@ import "@/src/styles/classic/previous-sets.css";
 // single free-form search input, 5-col results table below.
 export default function PreviousSetsContainer({
   initialResults,
+  retainedScrollTop,
 }: {
   // Server-rendered first page for the default query, so the initial HTML
   // carries rows rather than an empty table that fills in on hydration.
   initialResults?: readonly PlaylistSearchResult[];
+  // Where this listing's scroll offset lives while the listing does not.
+  // Opening a show unmounts this component, so the offset has to be held above
+  // the branch that does it. Absent wherever the listing is never left.
+  retainedScrollTop?: RefObject<number>;
 } = {}) {
   const {
     displayResults,
@@ -27,6 +34,15 @@ export default function PreviousSetsContainer({
     showResults,
     isRealQuery,
   } = usePlaylistSearchResults({ initialResults });
+
+  // Classic scrolls the shell's container, not the document and not a box of
+  // its own — `html, body` clip their overflow and `#classic-container` is
+  // where `src/styles/globals.css` puts the scrollport back. The element
+  // belongs to the shell above this tree, so it is reached by id, as the
+  // archive's own row anchor is.
+  useRetainedScrollOffset(retainedScrollTop, () =>
+    document.getElementById("classic-container"),
+  );
 
   return (
     <div className="classic-previous-sets">

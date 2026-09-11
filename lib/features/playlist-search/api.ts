@@ -58,6 +58,14 @@ export const playlistSearchApi = createApi({
       PlaylistSearchInfiniteArg,
       PlaylistSearchPageParam
     >({
+      // The accumulated walk is held for exactly as long as the playlists
+      // screen is open, by usePlaylistSearchSubscription sitting above that
+      // screen's show/listing branch. Retention past the last unsubscribe would
+      // therefore only ever outlive the screen itself — and an entry that
+      // outlives its screen is one the next arrival can be served stale, or one
+      // a forced refetch re-walks page by page. Zero makes leaving the screen
+      // drop the pages, so the next arrival fetches a genuinely fresh page 1.
+      keepUnusedDataFor: 0,
       infiniteQueryOptions: {
         initialPageParam: FIRST_PAGE,
         getNextPageParam: (

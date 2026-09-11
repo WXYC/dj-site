@@ -79,9 +79,15 @@ function buildQuery(rows: SearchRow[]): string {
   return parts.join(" ");
 }
 
-export function usePlaylistSearch() {
-  const dispatch = useAppDispatch();
-
+/**
+ * Which cache entry the screen means, derived from the slice.
+ *
+ * Shared by the consumers and by the subscription that outlives them, so the
+ * two cannot drift about which entry they mean. A subscription holding a
+ * different key than the listing reads holds nothing at all, and would show up
+ * as a silent re-fetch rather than as an error.
+ */
+function usePlaylistSearchKey() {
   const rows = useAppSelector(playlistSearchSlice.selectors.getRows);
   const sortBy = useAppSelector(playlistSearchSlice.selectors.getSortBy);
   const sortOrder = useAppSelector(playlistSearchSlice.selectors.getSortOrder);
@@ -102,16 +108,51 @@ export function usePlaylistSearch() {
     [effectiveQuery, sortBy, sortOrder],
   );
 
-  // refetchOnMountOrArgChange preserves the old lazy trigger()'s always-fetch
-  // semantics: the archive gains entries continuously, so re-entering the page
-  // (or revisiting a prior sort within RTK's cache-retention window) must fetch
-  // fresh page 1 rather than serve a stale cached entry. It does not affect
-  // in-session appends — fetchNextPage keeps the same arg, so no refetch fires.
+  return { rows, sortBy, sortOrder, effectiveQuery, isPartialQuery, queryArg };
+}
+
+/**
+ * Holds the listing's accumulated pages for as long as the playlists screen is
+ * open — including while a show is being read, which unmounts the listing.
+ *
+ * Mounted above that screen's show/listing branch, so the branch flipping can
+ * no longer unsubscribe the entry. Retention is the only other thing that could
+ * decide this, and it cannot: a window long enough to cover reading a show is
+ * also long enough to serve the next arrival a stale page 1.
+ *
+ * `listingVisible` latches rather than gating continuously. A permalink opening
+ * straight into a show, or into the week grid, must not spend a request on a
+ * listing nobody asked for — but once the listing has been on screen, its pages
+ * are worth holding for the rest of the visit.
+ */
+export function usePlaylistSearchSubscription(listingVisible: boolean): void {
+  const { queryArg, isPartialQuery } = usePlaylistSearchKey();
+
+  const listingWasShown = useRef(false);
+  if (listingVisible) {
+    listingWasShown.current = true;
+  }
+
+  useSearchPlaylistsInfiniteQuery(queryArg, {
+    skip: isPartialQuery || !listingWasShown.current,
+  });
+}
+
+export function usePlaylistSearch() {
+  const dispatch = useAppDispatch();
+
+  const { rows, sortBy, sortOrder, effectiveQuery, isPartialQuery, queryArg } =
+    usePlaylistSearchKey();
+
+  // No refetch-on-mount. Freshness is a lifetime here rather than a refetch:
+  // the entry is dropped the moment the screen is left (keepUnusedDataFor: 0),
+  // so a fresh arrival finds nothing cached and fetches page 1 of its own
+  // accord, while a return from a show finds every walked page still in hand.
+  // Forcing a refetch instead would re-run the whole accumulated walk — RTK
+  // re-fetches a forced infinite query page by page — against an endpoint whose
+  // result count is capped precisely because it is expensive.
   const { data, isFetching, isError, hasNextPage, fetchNextPage } =
-    useSearchPlaylistsInfiniteQuery(queryArg, {
-      skip: isPartialQuery,
-      refetchOnMountOrArgChange: true,
-    });
+    useSearchPlaylistsInfiniteQuery(queryArg, { skip: isPartialQuery });
 
   const results = useMemo<PlaylistSearchResult[]>(() => {
     if (!data?.pages?.length) return [];

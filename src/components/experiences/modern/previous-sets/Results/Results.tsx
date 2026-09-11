@@ -9,8 +9,9 @@ import type { PlaylistSearchResult } from "@wxyc/shared";
 import { ArrowDownward, ArrowUpward } from "@mui/icons-material";
 import { Box, CircularProgress, Link, Table, Typography } from "@mui/joy";
 import NextLink from "next/link";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type RefObject } from "react";
 import { hrefForShowEntry } from "@/lib/features/schedule-week/showUrl";
+import { useRetainedScrollOffset } from "@/src/hooks/useRetainedScrollOffset";
 import ResultsContainer from "./ResultsContainer";
 
 function SortableHeader({
@@ -107,10 +108,15 @@ function ResultDateCell({ result }: { result: PlaylistSearchResult }) {
 
 export default function Results({
   initialResults,
+  retainedScrollTop,
 }: {
   // Server-rendered first page for the default query, so the initial HTML
   // carries rows rather than an empty table that fills in on hydration.
   initialResults?: readonly PlaylistSearchResult[];
+  // Where this listing's scroll offset lives while the listing does not.
+  // Opening a show unmounts this component, so the offset has to be held above
+  // the branch that does it. Absent wherever the listing is never left.
+  retainedScrollTop?: RefObject<number>;
 } = {}) {
   const {
     displayResults,
@@ -152,6 +158,11 @@ export default function Results({
     return () => scroller.removeEventListener("scroll", onScroll);
   }, [isLoading, hasMore, loadNextPage]);
 
+  // Restoring needs no wait for row height: the walked pages are still in the
+  // RTK cache when this remounts, so the rows are in the very commit the
+  // restore runs after.
+  useRetainedScrollOffset(retainedScrollTop, () => scrollRef.current);
+
   return (
     <ResultsContainer showResults={showResults}>
       {/* tubafrenzy's own summary line, verbatim: nothing else on the screen
@@ -167,6 +178,7 @@ export default function Results({
 
       <Box
         ref={scrollRef}
+        data-testid="previous-sets-scrollport"
         sx={{
           // Sized by the flex frame rather than `calc(100vh - <chrome>)`: that
           // constant silently goes wrong the moment anything is added above it,

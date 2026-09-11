@@ -1,6 +1,8 @@
 "use client";
 
+import { useRef } from "react";
 import type { PlaylistSearchResult } from "@wxyc/shared";
+import { usePlaylistSearchSubscription } from "@/src/hooks/playlistSearchHooks";
 import { useScheduleWeekParams } from "@/src/hooks/scheduleWeekHooks";
 import { ClassicScheduleWeek } from "@/src/components/experiences/classic/schedule-week";
 import Navigation from "@/src/components/experiences/classic/Navigation";
@@ -26,6 +28,12 @@ export default function ClassicPreviousSetsSurface({
   const { isWeekView, setView, selectedShowId, selectedEntryId } =
     useScheduleWeekParams();
 
+  // Both of these outlive the listing on purpose. The branch below unmounts it
+  // to open a show, which would otherwise drop the walked pages and the offset
+  // into them — the two halves of the place the reader was.
+  usePlaylistSearchSubscription(!isWeekView && selectedShowId === null);
+  const listingScrollTop = useRef(0);
+
   return (
     <>
       <Navigation />
@@ -35,7 +43,10 @@ export default function ClassicPreviousSetsSurface({
       ) : isWeekView ? (
         <ClassicScheduleWeek />
       ) : (
-        <PreviousSetsContainer initialResults={initialResults} />
+        <PreviousSetsContainer
+          initialResults={initialResults}
+          retainedScrollTop={listingScrollTop}
+        />
       )}
     </>
   );
