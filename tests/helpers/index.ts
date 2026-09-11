@@ -15,7 +15,6 @@ export {
   type ComponentHarnessResult,
 } from "./component-harness";
 export * from "./conversion-harness";
-export * from "./scrollport";
 
 export { server } from "../fakes/server";
 export { handlers } from "../fakes/handlers";

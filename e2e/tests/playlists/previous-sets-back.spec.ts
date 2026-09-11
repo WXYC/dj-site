@@ -1,5 +1,9 @@
 import path from "path";
-import type { Page, Request } from "@playwright/test";
+import type { Page } from "@playwright/test";
+import type {
+  PlaylistSearchResponse,
+  PlaylistSearchResult,
+} from "@wxyc/shared/dtos";
 import { test, expect } from "../../fixtures/auth.fixture";
 
 const authDir = path.join(__dirname, "../../.auth");
@@ -10,18 +14,7 @@ const FIRST_ROW_ID = 10_000;
 /** Comfortably past the first page, so reaching it proves a second one landed. */
 const DEEP_ROW = 60;
 
-type ArchiveRow = {
-  id: number;
-  play_date: string;
-  artist_name: string;
-  track_title: string;
-  album_title: string;
-  record_label: string;
-  dj_name: string;
-  show_id: number;
-};
-
-const ARCHIVE: ArchiveRow[] = Array.from(
+const ARCHIVE: PlaylistSearchResult[] = Array.from(
   { length: ARCHIVE_SIZE },
   (_, index) => ({
     id: FIRST_ROW_ID + index,
@@ -41,8 +34,14 @@ const ARCHIVE: ArchiveRow[] = Array.from(
  * Depth is the spec's to choose rather than the seeded database's, which is
  * what makes "several pages in" an assertion rather than an aspiration.
  */
-async function stubSearch(page: Page): Promise<void> {
+async function stubSearch(page: Page): Promise<string[]> {
+  // The recorder lives in the handler that already intercepts every search; a
+  // second `page.on("request")` listener would be a parallel answer to "what
+  // counts as a search" for a future reader to reconcile.
+  const searches: string[] = [];
+
   await page.route("**/flowsheet/search**", async (route) => {
+    searches.push(route.request().url());
     const params = new URL(route.request().url()).searchParams;
     const limit = Number(params.get("limit") ?? PAGE_SIZE);
     const cursor = params.get("cursor");
@@ -51,20 +50,24 @@ async function stubSearch(page: Page): Promise<void> {
       : Number(params.get("page") ?? 0) * limit;
     const results = ARCHIVE.slice(offset, offset + limit);
 
+    const body: PlaylistSearchResponse & { nextCursor?: string } = {
+      results,
+      total: ARCHIVE.length,
+      page: 0,
+      totalPages: Math.ceil(ARCHIVE.length / limit),
+      ...(results.length === limit
+        ? { nextCursor: `after:${results[results.length - 1].id}` }
+        : {}),
+    };
+
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({
-        results,
-        total: ARCHIVE.length,
-        page: 0,
-        totalPages: Math.ceil(ARCHIVE.length / limit),
-        ...(results.length === limit
-          ? { nextCursor: `after:${results[results.length - 1].id}` }
-          : {}),
-      }),
+      body: JSON.stringify(body),
     });
   });
+
+  return searches;
 }
 
 /** The show a result row opens; its contents are another spec's subject. */
@@ -99,15 +102,6 @@ async function stubShow(page: Page): Promise<void> {
       }),
     });
   });
-}
-
-/** Every client-side search the visit spends, in order. */
-function recordSearches(page: Page): string[] {
-  const searches: string[] = [];
-  page.on("request", (request: Request) => {
-    if (request.url().includes("/flowsheet/search")) searches.push(request.url());
-  });
-  return searches;
 }
 
 /**
@@ -147,12 +141,11 @@ test.describe("Returning from an archived show — modern", () => {
   test.use({ storageState: path.join(authDir, "dj2.json") });
   test.setTimeout(90_000);
 
-  test("restores the listing's offset and re-runs no search", async ({
+  test("restores the listing's offset across back, forward and back", async ({
     page,
   }) => {
-    await stubSearch(page);
+    const searches = await stubSearch(page);
     await stubShow(page);
-    const searches = recordSearches(page);
 
     await page.goto("/dashboard/playlists");
     const deepRow = page.getByRole("link", {
@@ -188,40 +181,11 @@ test.describe("Returning from an archived show — modern", () => {
       .poll(() => scrollport.evaluate((el) => el.scrollTop))
       .toBe(offset);
     expect(searches).toHaveLength(walked);
-  });
 
-  test("lands on the same offset after back, forward and back again", async ({
-    page,
-  }) => {
-    await stubSearch(page);
-    await stubShow(page);
-    const searches = recordSearches(page);
-
-    await page.goto("/dashboard/playlists");
-    const deepRow = page.getByRole("link", {
-      name: new RegExp(`see the full show for Track ${DEEP_ROW} by`),
-    });
-    const scrollport = page.getByTestId("previous-sets-scrollport");
-    await expect(
-      page.getByRole("link", { name: /see the full show for Track 1 by/ }),
-    ).toBeVisible();
-
-    await wheelUntil(page, centreOf(page), (timeout) =>
-      expect(deepRow).toBeVisible({ timeout }),
-    );
-    // `toBeVisible` passes for a row with a box, in the viewport or not, and
-    // clicking one scrolls it in first. Settling that scroll here is what makes
-    // the offset read below the one the listing is actually left at.
-    await deepRow.scrollIntoViewIfNeeded();
-    const walked = searches.length;
-    const offset = await scrollport.evaluate((el) => el.scrollTop);
-
-    await deepRow.click();
-    await expect(page.getByText("Disc Jockey: DJ Chowder")).toBeVisible();
-
-    await page.goBack();
-    await expect(deepRow).toBeVisible();
-
+    // The rows are links, so this is genuine browser history and a forward
+    // leg has to survive it too. Asserted here rather than in a second test:
+    // standing the scenario up again costs another session and another wheel
+    // walk to reach the one navigation that differs.
     await page.goForward();
     await expect(page.getByText("Disc Jockey: DJ Chowder")).toBeVisible();
 
@@ -236,8 +200,7 @@ test.describe("Returning from an archived show — modern", () => {
   test("fetches a fresh first page when the screen is arrived at, not returned to", async ({
     page,
   }) => {
-    await stubSearch(page);
-    const searches = recordSearches(page);
+    const searches = await stubSearch(page);
 
     await page.goto("/dashboard/playlists");
     await expect(
@@ -272,9 +235,8 @@ test.describe("Returning from an archived show — classic", () => {
   test("restores the shell scrollport's offset and re-runs no search", async ({
     page,
   }) => {
-    await stubSearch(page);
+    const searches = await stubSearch(page);
     await stubShow(page);
-    const searches = recordSearches(page);
 
     await page.goto("/dashboard/playlists");
     const deepRow = page.getByRole("link", {

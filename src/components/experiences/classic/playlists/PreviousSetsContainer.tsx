@@ -9,6 +9,13 @@ import ResultTable from "./ResultTable";
 import InfiniteScroll from "./InfiniteScroll";
 import "@/src/styles/classic/previous-sets.css";
 
+// Classic scrolls the shell's container, not the document and not a box of its
+// own: `html, body` clip their overflow and `#classic-container` is where
+// `src/styles/globals.css` puts the scrollport back. The element belongs to the
+// shell above this tree, so it is reached by id, as the archived show's row
+// anchor is. Module scope keeps the resolver's identity stable.
+const shellScrollport = () => document.getElementById("classic-container");
+
 // Top-level Classic "Previous Sets" surface. Mirrors tubafrenzy's
 // `public/searchPage.jsp` + `mostRecentEntries.jsp` shape: centered title,
 // single free-form search input, 5-col results table below.
@@ -35,14 +42,7 @@ export default function PreviousSetsContainer({
     isRealQuery,
   } = usePlaylistSearchResults({ initialResults });
 
-  // Classic scrolls the shell's container, not the document and not a box of
-  // its own — `html, body` clip their overflow and `#classic-container` is
-  // where `src/styles/globals.css` puts the scrollport back. The element
-  // belongs to the shell above this tree, so it is reached by id, as the
-  // archive's own row anchor is.
-  useRetainedScrollOffset(retainedScrollTop, () =>
-    document.getElementById("classic-container"),
-  );
+  useRetainedScrollOffset(retainedScrollTop, shellScrollport);
 
   return (
     <div className="classic-previous-sets">

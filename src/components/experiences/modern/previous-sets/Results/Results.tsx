@@ -9,7 +9,7 @@ import type { PlaylistSearchResult } from "@wxyc/shared";
 import { ArrowDownward, ArrowUpward } from "@mui/icons-material";
 import { Box, CircularProgress, Link, Table, Typography } from "@mui/joy";
 import NextLink from "next/link";
-import { useEffect, useRef, type RefObject } from "react";
+import { useCallback, useEffect, useRef, type RefObject } from "react";
 import { hrefForShowEntry } from "@/lib/features/schedule-week/showUrl";
 import { useRetainedScrollOffset } from "@/src/hooks/useRetainedScrollOffset";
 import ResultsContainer from "./ResultsContainer";
@@ -161,7 +161,8 @@ export default function Results({
   // Restoring needs no wait for row height: the walked pages are still in the
   // RTK cache when this remounts, so the rows are in the very commit the
   // restore runs after.
-  useRetainedScrollOffset(retainedScrollTop, () => scrollRef.current);
+  const resolveScrollport = useCallback(() => scrollRef.current, []);
+  useRetainedScrollOffset(retainedScrollTop, resolveScrollport);
 
   return (
     <ResultsContainer showResults={showResults}>
