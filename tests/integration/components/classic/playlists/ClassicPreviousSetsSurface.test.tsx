@@ -1,11 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { act, screen, waitFor, within } from "@testing-library/react";
-import {
-  createTestStore,
-  installScrollTopShim,
-  makeScrollable,
-  server,
-} from "@/tests/helpers";
+import { createTestStore, server } from "@/tests/helpers";
 import { renderWithProviders } from "@/tests/helpers/render";
 import { playlistSearchFake } from "@/tests/fakes/playlistSearch";
 
@@ -49,7 +44,6 @@ const ARCHIVE = 120;
 // spec, which is the only way to walk the listing in jsdom.
 let observedCallback: IntersectionObserverCallback | undefined;
 
-let removeScrollTopShim: (() => void) | undefined;
 /**
  * The shell's scrollport, which lives above this tree: `html, body` clip their
  * overflow and `#classic-container` is where globals.css puts scrolling back,
@@ -61,7 +55,6 @@ let shellScrollport: HTMLElement;
 beforeEach(() => {
   observedCallback = undefined;
   currentParams = new URLSearchParams();
-  removeScrollTopShim = installScrollTopShim();
   shellScrollport = document.createElement("div");
   shellScrollport.id = "classic-container";
   document.body.appendChild(shellScrollport);
@@ -83,13 +76,20 @@ beforeEach(() => {
 
 afterEach(() => {
   shellScrollport.remove();
-  removeScrollTopShim?.();
 });
 
 function rowCount(): number {
   const table = screen.getByRole("table");
   // Every row but the header is a result.
   return within(table).getAllByRole("row").length - 1;
+}
+
+function openShow() {
+  currentParams = new URLSearchParams({ show: "3", entry: "10004" });
+}
+
+function closeShow() {
+  currentParams = new URLSearchParams();
 }
 
 function walk(fake: ReturnType<typeof playlistSearchFake>) {
@@ -129,11 +129,11 @@ describe("ClassicPreviousSetsSurface", () => {
     await waitFor(() => expect(rowCount()).toBe(2 * PAGE));
     const walked = walk(fake);
 
-    currentParams = new URLSearchParams({ show: "3", entry: "10004" });
+    openShow();
     rerender(<ClassicPreviousSetsSurface />);
     await screen.findByText("show 3");
 
-    currentParams = new URLSearchParams();
+    closeShow();
     rerender(<ClassicPreviousSetsSurface />);
 
     // Holding the pages is half of landing back in the right place; the other
@@ -151,13 +151,13 @@ describe("ClassicPreviousSetsSurface", () => {
     });
 
     await waitFor(() => expect(rowCount()).toBe(PAGE));
-    makeScrollable(shellScrollport, { scrollTop: 840 });
+    shellScrollport.scrollTop = 840;
 
-    currentParams = new URLSearchParams({ show: "3", entry: "10004" });
+    openShow();
     rerender(<ClassicPreviousSetsSurface />);
     await screen.findByText("show 3");
 
-    currentParams = new URLSearchParams();
+    closeShow();
     rerender(<ClassicPreviousSetsSurface />);
 
     await waitFor(() => expect(rowCount()).toBe(PAGE));
@@ -176,7 +176,7 @@ describe("ClassicPreviousSetsSurface", () => {
 
     await waitFor(() => expect(fake.requests).toHaveLength(0));
 
-    currentParams = new URLSearchParams();
+    closeShow();
     rerender(<ClassicPreviousSetsSurface />);
 
     await waitFor(() => expect(rowCount()).toBe(PAGE));

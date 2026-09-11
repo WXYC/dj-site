@@ -65,6 +65,11 @@ export const playlistSearchApi = createApi({
       // outlives its screen is one the next arrival can be served stale, or one
       // a forced refetch re-walks page by page. Zero makes leaving the screen
       // drop the pages, so the next arrival fetches a genuinely fresh page 1.
+      //
+      // The accepted cost is that a sort change now discards the walk it
+      // re-keys away from instead of re-walking it on the way back. That
+      // matches what a sort change already promises — pagination restarts —
+      // and the alternative is the page-by-page refetch this exists to avoid.
       keepUnusedDataFor: 0,
       infiniteQueryOptions: {
         initialPageParam: FIRST_PAGE,

@@ -1,6 +1,9 @@
 "use client";
 
-import { useSearchPlaylistsInfiniteQuery } from "@/lib/features/playlist-search/api";
+import {
+  playlistSearchApi,
+  useSearchPlaylistsInfiniteQuery,
+} from "@/lib/features/playlist-search/api";
 import {
   playlistSearchSlice,
   SearchRow,
@@ -83,9 +86,10 @@ function buildQuery(rows: SearchRow[]): string {
  * Which cache entry the screen means, derived from the slice.
  *
  * Shared by the consumers and by the subscription that outlives them, so the
- * two cannot drift about which entry they mean. A subscription holding a
- * different key than the listing reads holds nothing at all, and would show up
- * as a silent re-fetch rather than as an error.
+ * one place a key is built is the one place it can change. The subscription
+ * does deliberately hold a *stale* key while a sub-threshold partial is being
+ * typed; what this rules out is the two disagreeing about how a key is built,
+ * which would surface as a silent re-fetch rather than as an error.
  */
 function usePlaylistSearchKey() {
   const rows = useAppSelector(playlistSearchSlice.selectors.getRows);
@@ -128,14 +132,29 @@ function usePlaylistSearchKey() {
 export function usePlaylistSearchSubscription(listingVisible: boolean): void {
   const { queryArg, isPartialQuery } = usePlaylistSearchKey();
 
-  const listingWasShown = useRef(false);
-  if (listingVisible) {
-    listingWasShown.current = true;
+  // Null until the listing has actually been on screen, and that null is what
+  // gates the request: a permalink opening straight into a show, or into the
+  // week grid, must not spend one on a listing nobody asked for.
+  //
+  // Afterwards it holds the last *addressable* key rather than the current one.
+  // A sub-threshold partial is a detour every consumer skips, so following it
+  // would leave the entry the reader is coming back to with no subscriber at
+  // all — and at zero retention it would be gone before the keystroke that
+  // undoes the typo. Nothing outside the listing can move the key, so freezing
+  // it while the listing is away costs nothing.
+  const heldArg = useRef<typeof queryArg | null>(null);
+  if (listingVisible && !isPartialQuery) {
+    heldArg.current = queryArg;
   }
 
-  useSearchPlaylistsInfiniteQuery(queryArg, {
-    skip: isPartialQuery || !listingWasShown.current,
-  });
+  // Subscription only. The state half of the combined hook installs a selector
+  // whose value is discarded here, and would re-render the whole surface — the
+  // view toggle and the branch around it — on each of a page append's two
+  // status changes.
+  playlistSearchApi.endpoints.searchPlaylists.useInfiniteQuerySubscription(
+    heldArg.current ?? queryArg,
+    { skip: heldArg.current === null },
+  );
 }
 
 export function usePlaylistSearch() {
@@ -151,6 +170,12 @@ export function usePlaylistSearch() {
   // Forcing a refetch instead would re-run the whole accumulated walk — RTK
   // re-fetches a forced infinite query page by page — against an endpoint whose
   // result count is capped precisely because it is expensive.
+  //
+  // The listing is therefore not refreshed again for the life of the screen,
+  // and that life is not bounded by a show visit — a detour through the week
+  // view can run for hours and come back to the page 1 it left. The archive
+  // gains entries continuously, so this is staleness traded for the walk, not
+  // staleness nobody pays.
   const { data, isFetching, isError, hasNextPage, fetchNextPage } =
     useSearchPlaylistsInfiniteQuery(queryArg, { skip: isPartialQuery });
 

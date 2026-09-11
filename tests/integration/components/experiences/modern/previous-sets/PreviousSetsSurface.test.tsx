@@ -1,13 +1,9 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { screen, waitFor, fireEvent, within } from "@testing-library/react";
-import {
-  createTestStore,
-  installScrollTopShim,
-  makeScrollable,
-  server,
-} from "@/tests/helpers";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { act, screen, waitFor, fireEvent, within } from "@testing-library/react";
+import { createTestStore, server } from "@/tests/helpers";
 import { renderWithProviders } from "@/tests/helpers/render";
 import { playlistSearchFake } from "@/tests/fakes/playlistSearch";
+import { playlistSearchSlice } from "@/lib/features/playlist-search/frontend";
 
 // The base query's prepareHeaders fetches a JWT; no auth server runs here.
 vi.mock("@/lib/features/authentication/client", async () => {
@@ -41,15 +37,8 @@ import PreviousSetsSurface from "@/src/components/experiences/modern/previous-se
 const PAGE = 50;
 const ARCHIVE = 120;
 
-let removeScrollTopShim: (() => void) | undefined;
-
 beforeEach(() => {
-  removeScrollTopShim = installScrollTopShim();
   currentParams = new URLSearchParams();
-});
-
-afterEach(() => {
-  removeScrollTopShim?.();
 });
 
 function scrollport(): HTMLElement {
@@ -66,9 +55,9 @@ async function settleFirstPage() {
   await waitFor(() => expect(rowCount()).toBe(PAGE));
 }
 
-/** One scroll to the bottom, and the appended page. */
+/** One scroll to the bottom, and the appended page. jsdom leaves the
+ *  scrollport's metrics at 0, so the handler's bottom test holds unaided. */
 async function loadSecondPage() {
-  makeScrollable(scrollport(), { scrollTop: 1500 });
   fireEvent.scroll(scrollport());
   await waitFor(() => expect(rowCount()).toBe(2 * PAGE));
 }
@@ -88,7 +77,7 @@ function closeShow() {
 }
 
 describe("PreviousSetsSurface — returning from a show", () => {
-  it("keeps the walked pages and re-runs nothing", async () => {
+  it("keeps the walked pages and re-runs nothing, however long the show takes", async () => {
     const fake = playlistSearchFake({ archiveSize: ARCHIVE });
     server.use(fake.handler);
 
@@ -108,44 +97,19 @@ describe("PreviousSetsSurface — returning from a show", () => {
     rerender(<PreviousSetsSurface />);
     await screen.findByText("show 3");
 
+    // Dwelt on past the window the old 60s default made load-bearing. Fake
+    // timers are installed only around the jump, with nothing awaited inside
+    // it: held across the MSW round trips above they are a flake vector, and
+    // the only thing this needs is for any pending removal timer to come due.
+    vi.useFakeTimers();
+    vi.advanceTimersByTime(61_000);
+    vi.useRealTimers();
+
     closeShow();
     rerender(<PreviousSetsSurface />);
 
     await waitFor(() => expect(rowCount()).toBe(2 * PAGE));
     expect(walk(fake)).toEqual(walked);
-  });
-
-  it("keeps them after dwelling on the show past the retention window", async () => {
-    // The window is now zero — the entry lives exactly as long as the surface —
-    // so the dwell is no longer what decides. Asserted at a minute anyway,
-    // because a minute is the number the old default made load-bearing.
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    try {
-      const fake = playlistSearchFake({ archiveSize: ARCHIVE });
-      server.use(fake.handler);
-
-      const { rerender } = renderWithProviders(<PreviousSetsSurface />, {
-        store: createTestStore(),
-      });
-
-      await settleFirstPage();
-      await loadSecondPage();
-      const walked = walk(fake);
-
-      openShow();
-      rerender(<PreviousSetsSurface />);
-      await screen.findByText("show 3");
-
-      await vi.advanceTimersByTimeAsync(61_000);
-
-      closeShow();
-      rerender(<PreviousSetsSurface />);
-
-      await waitFor(() => expect(rowCount()).toBe(2 * PAGE));
-      expect(walk(fake)).toEqual(walked);
-    } finally {
-      vi.useRealTimers();
-    }
   });
 
   it("puts the listing back at the offset it was left at", async () => {
@@ -157,7 +121,7 @@ describe("PreviousSetsSurface — returning from a show", () => {
     });
 
     await settleFirstPage();
-    makeScrollable(scrollport(), { scrollTop: 840 });
+    scrollport().scrollTop = 840;
 
     openShow();
     rerender(<PreviousSetsSurface />);
@@ -168,6 +132,43 @@ describe("PreviousSetsSurface — returning from a show", () => {
 
     await waitFor(() => expect(rowCount()).toBe(PAGE));
     expect(scrollport().scrollTop).toBe(840);
+  });
+});
+
+describe("PreviousSetsSurface — a sub-threshold detour", () => {
+  // A single character is below the search threshold, so both consumers skip
+  // and the listing shows the "keep typing" prompt. Deleting it is an undo, not
+  // a new listing — the walk it returns to has to still be there, which at zero
+  // retention it only is because the subscription holds the last addressable
+  // key rather than following the partial one.
+  it("keeps the walk across a character typed and deleted", async () => {
+    const fake = playlistSearchFake({ archiveSize: ARCHIVE });
+    server.use(fake.handler);
+    const store = createTestStore();
+
+    renderWithProviders(<PreviousSetsSurface />, { store });
+    await settleFirstPage();
+    await loadSecondPage();
+    const walked = walk(fake);
+
+    const rowId = store.getState().playlistSearch.rows[0].id;
+    const type = (value: string) =>
+      act(() => {
+        store.dispatch(
+          playlistSearchSlice.actions.updateRow({ id: rowId, updates: { value } }),
+        );
+      });
+
+    type("j");
+    await waitFor(() =>
+      expect(
+        screen.getByText("Keep typing to search previous sets…"),
+      ).toBeInTheDocument(),
+    );
+    type("");
+
+    await waitFor(() => expect(rowCount()).toBe(2 * PAGE));
+    expect(walk(fake)).toEqual(walked);
   });
 });
 

@@ -69,7 +69,7 @@ In a `useLayoutEffect`, restore the offset on mount and record `scroller.scrollT
 
 ### `src/hooks/useRetainedScrollOffset.ts`
 
-The restore/record pair, shared by both listings once classic turned out to need it too. It takes a resolver rather than a ref because classic's scrollport belongs to the shell above the tree, and holds that resolver in a ref so an inline arrow cannot become an effect dependency — re-running the restore every render would fight the reader for the scrollbar.
+The restore/record pair, shared by both listings once classic turned out to need it too. It takes a *resolver* rather than a ref or an id for two reasons that agree: one caller renders its own box and the other does not, so there is no single handle type; and writing `scrollTop` through a value traced back to a hook argument reads to the React compiler as mutating that argument (`react-hooks/immutability`), where resolving through a call makes the write the caller's own element again. The resolver has to be stable — classic's is module-scope, modern's is a `useCallback` — because re-running the restore every render would fight the reader for the scrollbar.
 
 ### `src/components/experiences/classic/playlists/`
 
