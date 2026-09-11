@@ -409,6 +409,40 @@ describe("MessageEntry", () => {
       const totalColumns = cells.reduce((sum, td) => sum + td.colSpan, 0);
       expect(totalColumns).toBe(4);
     });
+
+    // `plain`'s hover fill is painted straight onto the cells, so a marked row
+    // left on that variant loses the mark from under the pointer. SongEntry
+    // guards the same case; the two siblings must not disagree about it.
+    it("overrides plain on a marked row rather than letting hover wipe the mark", () => {
+      render(
+        <MessageEntry
+          entry={mockMessageEntry}
+          color="neutral"
+          variant="plain"
+          highlighted
+        >
+          Content
+        </MessageEntry>
+      );
+
+      const wrapper = screen.getByTestId("draggable-wrapper");
+      expect(wrapper).toHaveAttribute("data-variant", "soft");
+      expect(wrapper).toHaveAttribute("data-color", "danger");
+    });
+
+    // An unmarked row is still whatever its caller asked for.
+    it("leaves an unmarked row on the variant it was given", () => {
+      render(
+        <MessageEntry entry={mockMessageEntry} color="neutral" variant="plain">
+          Content
+        </MessageEntry>
+      );
+
+      expect(screen.getByTestId("draggable-wrapper")).toHaveAttribute(
+        "data-variant",
+        "plain"
+      );
+    });
   });
 
   describe("Edge cases", () => {
