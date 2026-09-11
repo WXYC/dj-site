@@ -920,7 +920,7 @@ describe("AddReleasePanel", () => {
           label: "Drag City",
         }),
       );
-    }, 10000);
+    });
 
     // Modal's onClose fires alike for the close button, a backdrop click,
     // and an Escape that reaches the dialog — all three would otherwise wipe

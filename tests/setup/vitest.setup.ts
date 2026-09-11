@@ -1,6 +1,13 @@
 import "@testing-library/jest-dom/vitest";
+import { configure } from "@testing-library/react";
 import { afterAll, afterEach, beforeAll, beforeEach, vi } from "vitest";
 import { server } from "@/tests/fakes/server";
+
+// Testing Library's own 1s ceiling for `waitFor` / `findBy*`, which is separate
+// from Vitest's `testTimeout` and unaffected by it: a raised test ceiling does
+// nothing for a `findBy*` that has already given up. Both have to move together
+// or the suite still goes red under load, just with a different error message.
+configure({ asyncUtilTimeout: 5000 });
 
 // Default the backend URL so that any module reading
 // `process.env.NEXT_PUBLIC_BACKEND_URL` at load time (e.g., RTK Query
