@@ -63,7 +63,13 @@ export default function MessageEntry({
     <DraggableEntryWrapper
       controls={controls}
       entry={entry}
-      variant={variant}
+      // A marked row must not also resolve to `plain`: that variant's hover
+      // fill is painted straight onto the cells and would wipe the mark out
+      // from under the pointer. SongEntry guards the same case the same way —
+      // unreachable from `Entry`, which hardcodes `soft` here, but the prop
+      // admits `plain` and the two siblings should not disagree about what a
+      // marked row looks like.
+      variant={highlighted ? "soft" : variant}
       color={highlighted ? "danger" : color}
       draggable={draggable}
       highlighted={highlighted}
