@@ -5,6 +5,18 @@ import ShowView from "@/src/components/experiences/modern/previous-sets/ShowView
 import type { ShowPlaylist } from "@/src/hooks/showPlaylistHooks";
 import type { FlowsheetRangeEntry } from "@wxyc/shared";
 
+// The real better-auth client installs listeners whose teardown is deferred a
+// second past the last subscriber; a file that finishes inside that second runs
+// the teardown after jsdom's globals are gone and throws `window is not
+// defined` out of a timer, which fails the whole shard with every test passing.
+// See tests/helpers/auth-client-mock.ts.
+vi.mock("@/lib/features/authentication/client", async () => {
+  const { createAuthClientModuleMock } = await import(
+    "@/tests/helpers/auth-client-mock"
+  );
+  return createAuthClientModuleMock();
+});
+
 // The panel renders the live flowsheet's own rows, which reach for the live
 // show's hooks. Stubbed so this file is about the page's layout and not about
 // what a row does on the air.
