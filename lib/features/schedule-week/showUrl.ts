@@ -48,7 +48,13 @@ export function entryAnchorId(entryId: number): string {
  * rather than point at a page that can only report the show missing.
  *
  * Query-only, so it resolves against whatever path the listing is served on
- * and cannot carry a path that disagrees with it. The fragment is what the
+ * and cannot carry a path that disagrees with it. It replaces the query rather
+ * than merging into it — unlike `useScheduleWeekParams.write`, which copies the
+ * current params forward and deletes only the keys it owns. That difference is
+ * deliberate: a result row navigates to a show, and the listing's own state
+ * (the view toggle, the week it was reached through) describes the screen being
+ * left, not the one being opened. Anything a *show* needs must be spelled out
+ * here; it will not arrive by inheritance. The fragment is what the
  * router scrolls to when the rows happen to be in hand already; the show view
  * re-scrolls for the usual case, where they arrive after the commit.
  */

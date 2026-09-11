@@ -203,3 +203,14 @@
   background: #FF0000;
   font-weight: bold;
 }
+
+/* The marked row is #FF0000 and the REQUEST capsule is #CC0000 — two reds a
+   shade apart, so on the one row a search result sends a reader to, the pill
+   loses its boundary and only its label reads. A ring restores the shape
+   without repainting tubafrenzy's capsule palette, and is scoped to the marked
+   row so every other row keeps the flat capsules the JSP drew. Unscoped by
+   color scheme deliberately: the dark arm's #8B0000 sits closer to #CC0000
+   still. */
+.classic-schedule-week-entries tbody tr.playlistEntryHighlight .classic-capsule {
+  box-shadow: 0 0 0 1px #FFFFFF;
+}
