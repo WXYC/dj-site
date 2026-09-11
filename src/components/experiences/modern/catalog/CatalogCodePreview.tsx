@@ -20,6 +20,13 @@ export type CatalogCodePreviewProps = {
   formatLabel: string | null;
   /** Optional rotation badge (omitted for drafts not yet classified). */
   rotation?: Rotation | null;
+  /**
+   * Badges "?" instead of a bin, in the same vocabulary the code itself uses
+   * for an unknown entry. An absent badge is a positive claim that the album is
+   * in no bin, so a caller whose rotation read has not landed must say that it
+   * does not know rather than render nothing.
+   */
+  rotationUnknown?: boolean;
   /** Compact size for artwork overlay; default full size for add/edit cards. */
   size?: "md" | "sm";
 };
@@ -49,6 +56,7 @@ export default function CatalogCodePreview({
   albumEntry,
   formatLabel,
   rotation = null,
+  rotationUnknown = false,
   size = "md",
 }: CatalogCodePreviewProps) {
   const s = SIZE_STYLES[size];
@@ -79,12 +87,27 @@ export default function CatalogCodePreview({
     formatLabel && formatLabel.trim().length > 0
       ? formatLabel.trim().substring(0, 2).toUpperCase()
       : "—";
+  // Only a known bin colors the badge; "?" stays neutral, and a badge with no
+  // content at all keeps the untouched default so an absent rotation renders
+  // exactly as before.
+  const rotationBadge = rotation || (rotationUnknown ? "?" : null);
 
   return (
     <Badge
-      badgeContent={rotation || null}
+      badgeContent={rotationBadge}
       size="sm"
-      color={rotation ? ROTATION_TONES[rotation]?.color : undefined}
+      color={
+        rotation
+          ? ROTATION_TONES[rotation]?.color
+          : rotationUnknown
+            ? "neutral"
+            : undefined
+      }
+      slotProps={
+        rotationBadge === "?"
+          ? { badge: { title: "Rotation status unknown" } }
+          : undefined
+      }
     >
       <Avatar
         variant={variant_choice}

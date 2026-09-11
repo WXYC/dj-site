@@ -17,9 +17,10 @@ interface RotationClassifyControlProps {
 /**
  * MD+ control for rotation classification, backed by `useAlbumRotationActions`
  * — the write hook shared with the catalog row's context menu. Picking a bin
- * always calls `setRotation`, which retires every currently active entry
- * before adding the picked one, so re-binning is a single gesture here too.
- * Each active entry also carries its own Kill button for plain removal.
+ * always calls `setRotation`, which adds the picked bin and only then retires
+ * every previously active entry, so re-binning is a single gesture here too and
+ * a failure never drops the album out of rotation altogether. Each active entry
+ * also carries its own Kill button for plain removal.
  *
  * The fields live in a child so their hooks — including the rotation-list
  * query the active-entries list is derived from — run only for an authorized
@@ -160,7 +161,9 @@ function RotationClassifyFields({ album }: RotationClassifyControlProps) {
           loading={busy}
           onClick={handleSetRotation}
         >
-          Add to Rotation
+          {/* Not "Add to Rotation": the gesture replaces whatever bins the
+              album is in, and "Set" is equally true of the first one. */}
+          Set Rotation
         </Button>
       </Stack>
     </Stack>

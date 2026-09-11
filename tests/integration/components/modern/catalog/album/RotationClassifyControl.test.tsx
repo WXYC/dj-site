@@ -146,7 +146,6 @@ const juanaMolinaRotationRow = (rotationBin = "H") => ({
   plays: 4,
 });
 
-type RotationRow = ReturnType<typeof juanaMolinaRotationRow>;
 
 const buildJuanaMolinaRow = (rotationBin: string) => juanaMolinaRotationRow(rotationBin);
 
@@ -193,7 +192,7 @@ describe("RotationClassifyControl", () => {
     });
   });
 
-  describe("add-to-rotation flow", () => {
+  describe("set-rotation flow", () => {
     beforeEach(() => {
       mockFetchOrgRole.mockResolvedValue("musicDirector");
       mockUseSession.mockReturnValue(sessionWithRole());
@@ -215,7 +214,7 @@ describe("RotationClassifyControl", () => {
 
       await screen.findByRole("group", { name: "Rotation bin" });
       await user.click(screen.getByRole("checkbox", { name: "Heavy rotation" }));
-      await user.click(screen.getByRole("button", { name: "Add to Rotation" }));
+      await user.click(screen.getByRole("button", { name: "Set Rotation" }));
 
       await waitFor(() =>
         expect(backend.addBody()).toEqual({
@@ -239,7 +238,7 @@ describe("RotationClassifyControl", () => {
 
       await screen.findByRole("group", { name: "Rotation bin" });
       await user.click(screen.getByRole("checkbox", { name: "Medium rotation" }));
-      await user.click(screen.getByRole("button", { name: "Add to Rotation" }));
+      await user.click(screen.getByRole("button", { name: "Set Rotation" }));
 
       await waitFor(() =>
         expect(backend.addBody()).toEqual({
@@ -272,7 +271,7 @@ describe("RotationClassifyControl", () => {
 
       await screen.findByRole("group", { name: "Rotation bin" });
       await user.click(screen.getByRole("checkbox", { name: "Medium rotation" }));
-      await user.click(screen.getByRole("button", { name: "Add to Rotation" }));
+      await user.click(screen.getByRole("button", { name: "Set Rotation" }));
 
       await waitFor(() =>
         expect(screen.getByRole("button", { name: "Kill H" })).toBeInTheDocument(),
@@ -290,7 +289,7 @@ describe("RotationClassifyControl", () => {
 
       await screen.findByRole("group", { name: "Rotation bin" });
       await user.click(screen.getByRole("checkbox", { name: "Heavy rotation" }));
-      await user.click(screen.getByRole("button", { name: "Add to Rotation" }));
+      await user.click(screen.getByRole("button", { name: "Set Rotation" }));
 
       expect(await screen.findByRole("button", { name: "Kill H" })).toBeInTheDocument();
       // The picker stays up so re-binning is a single gesture — it isn't
@@ -311,7 +310,7 @@ describe("RotationClassifyControl", () => {
 
       await screen.findByRole("group", { name: "Rotation bin" });
       await user.click(screen.getByRole("checkbox", { name: "Medium rotation" }));
-      await user.click(screen.getByRole("button", { name: "Add to Rotation" }));
+      await user.click(screen.getByRole("button", { name: "Set Rotation" }));
 
       await waitFor(() =>
         expect(toast.error).toHaveBeenCalledWith("Could not update rotation."),
@@ -343,7 +342,7 @@ describe("RotationClassifyControl", () => {
 
       await screen.findByRole("group", { name: "Rotation bin" });
       await user.click(screen.getByRole("checkbox", { name: "Medium rotation" }));
-      await user.click(screen.getByRole("button", { name: "Add to Rotation" }));
+      await user.click(screen.getByRole("button", { name: "Set Rotation" }));
 
       await waitFor(() =>
         expect(toast.error).toHaveBeenCalledWith(
@@ -520,10 +519,13 @@ describe("RotationClassifyControl", () => {
     });
 
     it("shows the busy state only on the row whose kill is in flight, not every active bin", async () => {
-      const { releaseKill } = fakeRotationEndpointsWithGatedKill([
-        juanaMolinaRotationRow("H"),
-        { ...juanaMolinaRotationRow("M"), rotation_id: JUANA_MOLINA_SECOND_ROTATION_ID },
-      ]);
+      const { releaseKill } = fakeRotationEndpointsWithGatedKill(
+        [
+          juanaMolinaRotationRow("H"),
+          { ...juanaMolinaRotationRow("M"), rotation_id: JUANA_MOLINA_SECOND_ROTATION_ID },
+        ],
+        { buildRow: buildJuanaMolinaRow },
+      );
       const { user } = renderWithProviders(
         inModernTheme(<RotationClassifyControl album={juanaMolinaAlbum()} />),
       );
@@ -543,10 +545,13 @@ describe("RotationClassifyControl", () => {
     });
 
     it("keeps a row busy while its own kill is in flight even after a second row's kill is issued", async () => {
-      const { releaseKill } = fakeRotationEndpointsWithGatedKill([
-        juanaMolinaRotationRow("H"),
-        { ...juanaMolinaRotationRow("M"), rotation_id: JUANA_MOLINA_SECOND_ROTATION_ID },
-      ]);
+      const { releaseKill } = fakeRotationEndpointsWithGatedKill(
+        [
+          juanaMolinaRotationRow("H"),
+          { ...juanaMolinaRotationRow("M"), rotation_id: JUANA_MOLINA_SECOND_ROTATION_ID },
+        ],
+        { buildRow: buildJuanaMolinaRow },
+      );
       const { user } = renderWithProviders(
         inModernTheme(<RotationClassifyControl album={juanaMolinaAlbum()} />),
       );
@@ -636,7 +641,7 @@ describe("RotationClassifyControl", () => {
         screen.queryByRole("group", { name: "Rotation bin" }),
       ).not.toBeInTheDocument();
       expect(
-        screen.queryByRole("button", { name: "Add to Rotation" }),
+        screen.queryByRole("button", { name: "Set Rotation" }),
       ).not.toBeInTheDocument();
     });
   });

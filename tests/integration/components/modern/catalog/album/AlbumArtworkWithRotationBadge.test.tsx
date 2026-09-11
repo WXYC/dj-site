@@ -1,10 +1,13 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
+import { http, HttpResponse } from "msw";
 import {
   renderWithProviders,
   createTestAlbum,
   createTestArtist,
   fakeRotationEndpoints,
+  server,
+  TEST_BACKEND_URL,
 } from "@/tests/helpers";
 import AlbumArtworkWithRotationBadge from "@/src/components/experiences/modern/catalog/album/AlbumArtworkWithRotationBadge";
 
@@ -116,6 +119,9 @@ describe("AlbumArtworkWithRotationBadge", () => {
     await waitFor(() => expect(mockFetchOrgRole).toHaveBeenCalled());
     await mockFetchOrgRole.mock.results[0].value;
     expect(screen.queryByText("H")).not.toBeInTheDocument();
+    // No badge ever appears on a DJ's artwork, so its absence claims nothing
+    // and the unknown marker must not leak into the unauthorized fallback.
+    expect(screen.queryByTitle("Rotation status unknown")).not.toBeInTheDocument();
     expect(backend.listRequests()).toBe(0);
   });
 
@@ -152,5 +158,53 @@ describe("AlbumArtworkWithRotationBadge", () => {
 
     await waitFor(() => expect(backend.listRequests()).toBeGreaterThan(0));
     expect(screen.queryByText("H")).not.toBeInTheDocument();
+    expect(screen.queryByTitle("Rotation status unknown")).not.toBeInTheDocument();
+  });
+
+  // An MD sees badges, so for them a badge-less card is a positive claim that
+  // the album is in no bin. Making that claim from a read that has not landed
+  // also contradicts the "Rotation status unavailable" the classify control
+  // renders on the same card.
+  it("marks the rotation status unknown for a Music Director while the read is in flight", async () => {
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/library/rotation`, async () => {
+        await new Promise((resolve) => setTimeout(resolve, 60_000));
+        return HttpResponse.json([]);
+      }),
+    );
+    mockFetchOrgRole.mockResolvedValue("musicDirector");
+    mockUseSession.mockReturnValue(sessionWithRole());
+
+    renderWithProviders(
+      <AlbumArtworkWithRotationBadge
+        album={dogaAlbum()}
+        artworkUrl="https://example.com/cover.jpg"
+        alt="DOGA cover"
+        codePreview={codePreview}
+      />,
+    );
+
+    expect(await screen.findByTitle("Rotation status unknown")).toHaveTextContent("?");
+  });
+
+  it("marks the rotation status unknown for a Music Director when the read errors", async () => {
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/library/rotation`, () =>
+        HttpResponse.json({ error: "unreachable" }, { status: 500 }),
+      ),
+    );
+    mockFetchOrgRole.mockResolvedValue("musicDirector");
+    mockUseSession.mockReturnValue(sessionWithRole());
+
+    renderWithProviders(
+      <AlbumArtworkWithRotationBadge
+        album={dogaAlbum()}
+        artworkUrl="https://example.com/cover.jpg"
+        alt="DOGA cover"
+        codePreview={codePreview}
+      />,
+    );
+
+    expect(await screen.findByTitle("Rotation status unknown")).toBeInTheDocument();
   });
 });

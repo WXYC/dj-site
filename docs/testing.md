@@ -252,10 +252,15 @@ const backend = fakeRotationEndpoints([existingRow], {
 
 // backend.addBody() -- the last POST body
 // backend.killBodies() -- every PATCH body, in call order
+// backend.callOrder() -- every write as "add" | "kill", in one sequence
 // backend.listRequests() -- GET call count
 ```
 
-The PATCH arm mirrors the backend's `isISODate` gate, rejecting any `kill_date` that isn't a bare `YYYY-MM-DD`. `fakeRotationEndpointsWithGatedKill(initial)` is the same GET/PATCH shape but holds each PATCH open until the test calls `releaseKill(rotationId?)`, for asserting on in-flight busy state instead of racing a same-tick MSW response.
+`callOrder()` exists because the add-before-retire order of the set gesture is a safety property -- retiring first and then failing the add drops the album out of rotation entirely -- and per-arm logs cannot express an ordering between two arms.
+
+The PATCH arm mirrors the backend's `isISODate` gate, rejecting any `kill_date` that isn't a bare `YYYY-MM-DD`. `fakeRotationEndpointsWithGatedKill(initial, { buildRow })` is the same GET/POST/PATCH shape but holds each PATCH open until the test calls `releaseKill(rotationId?)`, for asserting on in-flight busy state instead of racing a same-tick MSW response; it takes `buildRow` for the same reason the un-gated fake does, since a set reaches POST before it reaches PATCH.
+
+One deliberate gap: a kill *removes* the row rather than stamping `kill_date` on it, so neither fake reproduces the production read's retention of a future-dated kill. Every consumer derives membership from the rows the list returns, so retaining a killed row would read as still active -- modelling that needs the GET arm to apply the backend's kill_date-in-the-future filter alongside the field, and no spec needs it yet.
 
 ## Test Organization
 

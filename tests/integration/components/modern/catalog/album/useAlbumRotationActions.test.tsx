@@ -41,6 +41,16 @@ function failingTrigger(err: unknown) {
   return vi.fn(() => ({ unwrap: () => Promise.reject(err) }));
 }
 
+/** A kill that rejects only for the listed rotation ids. */
+function triggerFailingFor(rotationIds: number[], err: unknown = { status: 500 }) {
+  return vi.fn(({ rotation_id }: { rotation_id: number }) => ({
+    unwrap: () =>
+      rotationIds.includes(rotation_id)
+        ? Promise.reject(err)
+        : Promise.resolve({}),
+  }));
+}
+
 describe("useAlbumRotationActions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -150,8 +160,97 @@ describe("useAlbumRotationActions", () => {
       expect(outcome).toBe(false);
       expect(toastErrorMock).toHaveBeenCalledTimes(1);
       expect(toastErrorMock).toHaveBeenCalledWith(
-        "Marked for H rotation, but could not retire the previous bin.",
+        "Marked for H rotation, but could not retire every previous bin — the album is in 2 bins.",
       );
+      expect(toastSuccessMock).not.toHaveBeenCalled();
+    });
+
+    // A loop that stops at the first rejection leaves later entries unretired
+    // and unattempted, so an album in two bins ends up in three while the
+    // operator is told about one.
+    it("attempts every retire after one of them fails", async () => {
+      addTrigger.mockImplementation(okTrigger());
+      killTrigger.mockImplementation(triggerFailingFor([900]));
+      const { result } = renderHook(() => useAlbumRotationActions(album));
+
+      await act(async () => {
+        await result.current.setRotation("L", [
+          { rotation_id: 900 },
+          { rotation_id: 901 },
+        ]);
+      });
+
+      expect(killTrigger).toHaveBeenCalledTimes(2);
+      expect(killTrigger).toHaveBeenCalledWith({ rotation_id: 900 });
+      expect(killTrigger).toHaveBeenCalledWith({ rotation_id: 901 });
+    });
+
+    it("counts the bins the album is left in when every retire fails", async () => {
+      addTrigger.mockImplementation(okTrigger());
+      killTrigger.mockImplementation(failingTrigger({ status: 500 }));
+      const { result } = renderHook(() => useAlbumRotationActions(album));
+
+      let outcome: boolean | undefined;
+      await act(async () => {
+        outcome = await result.current.setRotation("L", [
+          { rotation_id: 900 },
+          { rotation_id: 901 },
+        ]);
+      });
+
+      expect(outcome).toBe(false);
+      expect(toastErrorMock).toHaveBeenCalledTimes(1);
+      expect(toastErrorMock).toHaveBeenCalledWith(
+        "Marked for L rotation, but could not retire every previous bin — the album is in 3 bins.",
+      );
+    });
+
+    it("reports the surviving bin when a clear retires some entries and not others", async () => {
+      killTrigger.mockImplementation(triggerFailingFor([901]));
+      const { result } = renderHook(() => useAlbumRotationActions(album));
+
+      let outcome: boolean | undefined;
+      await act(async () => {
+        outcome = await result.current.setRotation(null, [
+          { rotation_id: 900 },
+          { rotation_id: 901 },
+        ]);
+      });
+
+      expect(outcome).toBe(false);
+      expect(addTrigger).not.toHaveBeenCalled();
+      expect(toastErrorMock).toHaveBeenCalledWith(
+        "Could not retire every bin — the album is still in 1 bin.",
+      );
+      expect(toastSuccessMock).not.toHaveBeenCalled();
+    });
+
+    it("keeps the generic copy when a clear retires nothing at all", async () => {
+      killTrigger.mockImplementation(failingTrigger({ status: 500 }));
+      const { result } = renderHook(() => useAlbumRotationActions(album));
+
+      await act(async () => {
+        await result.current.setRotation(null, [{ rotation_id: 900 }]);
+      });
+
+      expect(toastErrorMock).toHaveBeenCalledWith("Could not update rotation.");
+      expect(toastErrorMock).toHaveBeenCalledTimes(1);
+    });
+
+    it("leaves a non-JSON retire failure to the middleware's own toast", async () => {
+      addTrigger.mockImplementation(okTrigger());
+      killTrigger.mockImplementation(
+        failingTrigger({ status: "PARSING_ERROR", data: "<html>404</html>" }),
+      );
+      const { result } = renderHook(() => useAlbumRotationActions(album));
+
+      let outcome: boolean | undefined;
+      await act(async () => {
+        outcome = await result.current.setRotation("H", [{ rotation_id: 900 }]);
+      });
+
+      expect(outcome).toBe(false);
+      expect(toastErrorMock).not.toHaveBeenCalled();
       expect(toastSuccessMock).not.toHaveBeenCalled();
     });
 
