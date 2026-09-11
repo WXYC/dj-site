@@ -20,9 +20,15 @@ import type { ShowPlaylistEntryWire } from "./types";
  *
  * Deliberately no cast. The narrowing runs on the union's own discriminator —
  * the same `switch (entry.entry_type)` `convertV2Entry` and `convertRangeEntry`
- * use next door — so the next field the two schemas disagree about arrives here
- * as a compile error rather than being absorbed silently. That is the whole
- * reason this is a function and not a spread at the call site.
+ * use next door — which is the whole reason this is a function and not a spread
+ * at the call site.
+ *
+ * What that buys is narrower than "the schemas can no longer drift unnoticed",
+ * and the difference matters because an over-promising comment here is what let
+ * the last defect through. A field both shapes declare, typed more loosely on
+ * one, arrives as a compile error. A field only the V2 shape declares does not:
+ * it rides `...rest` into the flat shape, and TypeScript applies no excess-
+ * property check to spread-in properties. Several already do exactly that.
  */
 export function v2ToRangeShape(
   entry: ShowPlaylistEntryWire
@@ -61,9 +67,7 @@ export function v2ToRangeShape(
     }
 
     // Every remaining variant is a marker, and none of them declares a field
-    // the flat shape types more narrowly. No default arm: the vocabulary is
-    // server-owned, and a variant added upstream should land here as a missing
-    // case rather than as a row that quietly converts wrong.
+    // the flat shape types more narrowly.
     case "show_start":
     case "show_end":
     case "dj_join":
@@ -71,5 +75,31 @@ export function v2ToRangeShape(
     case "talkset":
     case "message":
       return { ...entry, request_flag: false };
+
+    // The entry-type vocabulary is server-owned and grows additively, so the
+    // two obligations here pull in opposite directions and both have to be met.
+    // A variant added upstream must reach a developer as a compile error, which
+    // is what the `never` assignment below is for — it stops compiling the
+    // moment the union gains a member. But it must also still render on builds
+    // that shipped before the addition: this function is mapped over every
+    // entry in a show, and an arm that fell through would return undefined into
+    // an array typed as holding none, which the callers dereference — costing
+    // the whole table rather than the one row. Unknown variants therefore
+    // convert as markers, the same as the six above, matching the policy
+    // `convertRangeEntry` states for the same vocabulary.
+    default: {
+      const unhandled: never = entry;
+      // Which fields an unknown variant declares is by definition unknown, so
+      // the null-to-absent rule the arms above apply field by field is applied
+      // here by shape instead. It is the same rule, and the only form of it
+      // available without the declaration.
+      const withoutNulls = Object.fromEntries(
+        Object.entries(unhandled as ShowPlaylistEntryWire).filter(
+          ([, value]) => value !== null
+        )
+      ) as FlowsheetRangeEntryWire;
+
+      return { ...withoutNulls, request_flag: false };
+    }
   }
 }

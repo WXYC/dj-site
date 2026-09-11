@@ -111,4 +111,24 @@ describe("v2ToRangeShape", () => {
     expect(converted.message).toBe("--- 3:00 PM BREAKPOINT ---");
     expect(converted.radio_hour).toBe("2026-08-22T22:00:00.000Z");
   });
+
+  // The entry-type vocabulary is server-owned and additive, so a build that
+  // predates a new variant still has to render it. The cost of falling through
+  // is not the row: this converter is mapped over a whole show into an array
+  // typed as holding no undefined, and the callers dereference every element,
+  // so one unconvertible entry takes the table down with it. Cast because the
+  // variant does not exist in this build's union — which is the situation under
+  // test, and the only way to reach the arm that a compile-time exhaustiveness
+  // check cannot.
+  it("converts an entry type this build has never seen as a marker", () => {
+    const converted = v2ToRangeShape({
+      ...createTestV2TalksetEntry(),
+      entry_type: "promo_read",
+    } as unknown as Parameters<typeof v2ToRangeShape>[0]);
+
+    expect(converted).toBeDefined();
+    expect(converted.id).toBe(createTestV2TalksetEntry().id);
+    expect(converted.entry_type).toBe("promo_read");
+    expect(converted.request_flag).toBe(false);
+  });
 });
