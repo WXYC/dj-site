@@ -62,9 +62,35 @@ describe("transformResponse soft-fail guards (#606)", () => {
     expect(result.data).toBeUndefined();
   });
 
-  it("getRotation returns [] on a soft-failed (null) response", async () => {
+  // The deliberate exception to the guard above, and the reason it is an
+  // exception: every consumer of this read treats the absence of a row as the
+  // positive claim "this release is in no bin" — no badge on the album card, no
+  // active entries in the catalog row's context menu — so a bin pick made
+  // against an empty list adds without retiring and stacks a second active bin
+  // on a release that already had one. An unparseable body resolving to [] would
+  // therefore license a wrong write, not merely show a thin screen. Its two
+  // sibling rotation reads opt out for the weaker version of this reason.
+  it("getRotation surfaces an unparseable body as an error rather than an empty list", async () => {
     server.use(
       http.get(`${TEST_BACKEND_URL}/library/rotation`, () => nonJsonBody()),
+    );
+
+    const store = createTestStore();
+    const result = await store.dispatch(
+      rotationApi.endpoints.getRotation.initiate(),
+    );
+
+    expect(result.status).toBe("rejected");
+    expect(result.data).toBeUndefined();
+  });
+
+  // A JSON `null` body is a different thing from an unparseable one and still
+  // means "no rows", so the transform's own guard still has to hold.
+  it("getRotation still returns [] for a JSON null body", async () => {
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/library/rotation`, () =>
+        HttpResponse.json(null),
+      ),
     );
 
     const store = createTestStore();

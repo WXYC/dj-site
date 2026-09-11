@@ -24,10 +24,22 @@ export const rotationApi = createApi({
   baseQuery: backendBaseQuery("library/rotation"),
   tagTypes: ["Rotation"],
   endpoints: (builder) => ({
+    // Opts out of the shared soft-JSON-failure handling
+    // (`surfaceNonJsonAsError`), for the same reason as `getRotationList` and
+    // `getUncataloguedRotation` below and one more besides. Every caller here
+    // treats the absence of a row as the positive claim "this release is in no
+    // bin": the album card renders no badge, and the catalog row's context menu
+    // opens with no active entries, so a bin pick adds without retiring and
+    // stacks a second active bin on a release that already had one. Reading an
+    // unparseable body as an empty rotation list therefore does not merely show
+    // a thin screen, it licenses a write that is wrong.
     getRotation: builder.query<AlbumEntry[], void>({
       query: () => ({
         url: "",
       }),
+      extraOptions: { surfaceNonJsonAsError: true },
+      // A JSON `null` body is still reachable and still means "no rows"; only
+      // the unparseable case is now an error.
       transformResponse: (response: AlbumSearchResultJSON[] | null) =>
         response ? response.map(convertToAlbumEntry) : [],
       providesTags: ["Rotation"],
