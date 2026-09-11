@@ -23,10 +23,10 @@ import { AlbumEntry } from "@/lib/features/catalog/types";
  * one of them fails safe. Retiring first and then failing the add leaves the
  * album in no bin at all — invisible to the MD behind a generic error, and it
  * drops the album out of the flowsheet rotation picker DJs use on air.
- * Adding first and then failing a retire leaves it in two bins, which the
- * control renders explicitly with a Kill button each, so the state is visible
- * and recoverable. `kill` remains for removing a single entry without adding
- * a replacement.
+ * Adding first and then failing a retire leaves it in more than one bin, which
+ * the control renders explicitly with a Kill button each, so the state is
+ * visible and recoverable. `kill` remains for removing a single entry without
+ * adding a replacement.
  *
  * Returns whether the album ended up in the requested state, so callers can
  * keep the operator's bin selection for a retry instead of clearing it.
@@ -42,7 +42,7 @@ export function useAlbumRotationActions(album: AlbumEntry) {
 
   // Not wrapped with the shared error toast — `kill` (public) and
   // `setRotation`'s retire loop both call this, and each owns its own single
-  // toast on failure so a retire-then-add failure isn't reported twice.
+  // toast on failure so an add-then-retire failure isn't reported twice.
   const killQuiet = async (rotationId: number) => {
     setKillingIds((prev) => new Set(prev).add(rotationId));
     try {
@@ -86,25 +86,51 @@ export function useAlbumRotationActions(album: AlbumEntry) {
         added = true;
       }
       // Only once the replacement is on record — see the order note above.
+      // Every entry is attempted even after one fails: abandoning the rest on
+      // the first rejection leaves the album in a bin nobody was told about,
+      // and the count below is what makes the message match the state.
+      let unretired = 0;
+      let anyUnretiredNeedsToast = false;
       for (const entry of activeEntries) {
-        await killQuiet(entry.rotation_id);
+        try {
+          await killQuiet(entry.rotation_id);
+        } catch (err) {
+          unretired += 1;
+          // A non-JSON failure already has the middleware's own toast; only an
+          // otherwise-unreported one obliges this hook to speak.
+          if (isUnmessagedHttpError(err)) anyUnretiredNeedsToast = true;
+        }
       }
-      if (bin) {
-        toast.success(`Marked for ${bin} rotation.`);
-      } else if (activeEntries.length > 0) {
-        toast.success("Removed from rotation.");
+
+      if (unretired === 0) {
+        if (bin) {
+          toast.success(`Marked for ${bin} rotation.`);
+        } else if (activeEntries.length > 0) {
+          toast.success("Removed from rotation.");
+        }
+        return true;
       }
-      return true;
-    } catch (err) {
-      if (isUnmessagedHttpError(err)) {
-        // Naming the half that landed: after a failed retire the album is in
-        // the new bin AND still in its old one, which "Could not update
-        // rotation." would misreport as nothing having changed.
+
+      if (anyUnretiredNeedsToast) {
+        // Naming the state that resulted, counted: after a failed retire the
+        // album is in the new bin AND still in every bin whose retire failed,
+        // which "Could not update rotation." would misreport as nothing having
+        // changed and "the previous bin" would misreport as one.
+        const remaining = (added ? 1 : 0) + unretired;
         toast.error(
           added
-            ? `Marked for ${bin} rotation, but could not retire the previous bin.`
-            : "Could not update rotation.",
+            ? `Marked for ${bin} rotation, but could not retire every previous bin — the album is in ${remaining} bins.`
+            : unretired === activeEntries.length
+              ? "Could not update rotation."
+              : `Could not retire every bin — the album is still in ${remaining} ${remaining === 1 ? "bin" : "bins"}.`,
         );
+      }
+      return false;
+    } catch (err) {
+      // Only the add reaches here: every retire rejection is caught per
+      // iteration above, and nothing landed, so the generic copy is accurate.
+      if (isUnmessagedHttpError(err)) {
+        toast.error("Could not update rotation.");
       }
       return false;
     } finally {

@@ -123,4 +123,41 @@ describe("CatalogCodePreview", () => {
     const badge = without.querySelector(".MuiBadge-badge");
     expect(badge?.textContent ?? "").toBe("");
   });
+
+  // An empty badge is a claim that the album is in no bin, so a caller whose
+  // rotation read has not landed needs a third rendering rather than that one.
+  it("badges the code as unknown rather than unrotated when the rotation is not knowable", () => {
+    const { container } = renderWithProviders(
+      inModernTheme(<CatalogCodePreview
+        genreName="Rock"
+        codeLetters="RO"
+        artistNumber={87}
+        albumEntry="4"
+        formatLabel="CD"
+        rotationUnknown
+      />
+      )
+    );
+    const badge = container.querySelector(".MuiBadge-badge");
+    expect(badge).toHaveTextContent("?");
+    expect(badge).toHaveAttribute("title", "Rotation status unknown");
+  });
+
+  it("keeps a known bin over the unknown marker", () => {
+    const { container } = renderWithProviders(
+      inModernTheme(<CatalogCodePreview
+        genreName="Rock"
+        codeLetters="RO"
+        artistNumber={87}
+        albumEntry="4"
+        formatLabel="CD"
+        rotation="M"
+        rotationUnknown
+      />
+      )
+    );
+    const badge = container.querySelector(".MuiBadge-badge");
+    expect(badge).toHaveTextContent("M");
+    expect(badge).not.toHaveAttribute("title");
+  });
 });

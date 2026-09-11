@@ -190,6 +190,23 @@ function applyRotationToSearchCache(
 }
 
 /**
+ * The rotation entry the cached catalog view currently claims for this album,
+ * or `undefined` when it records no rotation for it (including when a previous
+ * patch cleared it). Reads only the per-album override the rotation patches
+ * themselves write, which is the record a later patch in the same gesture can
+ * contradict — the server-sourced rows are not consulted, so an album the cache
+ * has never been told anything about reads as `undefined` rather than as a
+ * claim.
+ */
+export function cachedAlbumRotationId(
+  getState: () => RootState,
+  albumId: number,
+): number | undefined {
+  return catalogSlice.selectors.getAlbumRotation(getState(), albumId)
+    ?.rotation_id;
+}
+
+/**
  * Patch rotation on cached catalog search pages and sync Redux rotation state.
  * Inserts or removes rows when the active cached query filters by rotation bin.
  */

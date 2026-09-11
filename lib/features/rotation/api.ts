@@ -3,7 +3,10 @@ import type { FetchBaseQueryError } from "@reduxjs/toolkit/query";
 import type { RootState } from "@/lib/store";
 import { backendBaseQuery } from "../backend";
 import { convertToAlbumEntry } from "../catalog/conversions";
-import { patchCatalogSearchRotation } from "../catalog/patchSearchCaches";
+import {
+  cachedAlbumRotationId,
+  patchCatalogSearchRotation,
+} from "../catalog/patchSearchCaches";
 import { AlbumEntry, AlbumSearchResultJSON } from "../catalog/types";
 import type {
   AddRotationRequest,
@@ -85,6 +88,21 @@ export const rotationApi = createApi({
           // production and must not be deleted as dead code on the strength
           // of the type alone.
           if (typeof data.album_id !== "number") return;
+          // Retiring a superseded entry says nothing about the album's
+          // rotation, so clearing here would retract a newer entry the cache
+          // already records. The set gesture adds the replacement before
+          // retiring the prior entries (see `useAlbumRotationActions`), so on a
+          // re-bin this handler runs last and its unconditional clear used to
+          // win -- leaving the catalog cache reporting the album as unrotated,
+          // and dropping the row out of a rotation-filtered list entirely. A
+          // cache that records nothing for the album is not a competing claim:
+          // clear in that case, so a plain kill still writes the "no rotation"
+          // override that shadows the server's own value until the next read.
+          const claimed = cachedAlbumRotationId(
+            getState as () => RootState,
+            data.album_id,
+          );
+          if (claimed !== undefined && claimed !== data.id) return;
           patchCatalogSearchRotation(
             dispatch,
             getState as () => RootState,
