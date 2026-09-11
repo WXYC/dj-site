@@ -39,6 +39,14 @@ test.describe("Classic sign-on identity", () => {
     await loginPage.passwordInput.fill(user.password);
     await expect(loginPage.submitButton).toBeEnabled({ timeout: 10000 });
     await loginPage.submitButton.click();
+    // Await the sign-in, not just the click. `useLogin` confirms the session is
+    // visible and then pushes the dashboard, so the URL change is the signal
+    // that better-auth's Set-Cookie has landed. Navigating before it does tears
+    // the document down mid-POST, and `requireAuth` bounces the next request to
+    // /login?bounced=no-session — which surfaces as the caller's name assertion
+    // burning its whole timeout, reading as a broken nav bar rather than as a
+    // racy spec. Both sign-ins go through here, so both are covered.
+    await loginPage.waitForRedirectToDashboard(15000);
   }
 
   test("names the signed-in DJ, and hands the next one a way in", async ({
