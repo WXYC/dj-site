@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
-import { createTestAlbum, createTestArtist } from "@/tests/helpers";
+import { Provider } from "react-redux";
+import { createTestAlbum, createTestArtist, createTestStore } from "@/tests/helpers";
 
 const addTrigger = vi.fn();
 const killTrigger = vi.fn();
@@ -33,6 +34,17 @@ const album = createTestAlbum({
   artist: createTestArtist({ name: "Juana Molina" }),
 });
 
+// The hook dispatches to the catalog slice to bound the lifetime of its
+// per-album rotation claim, so it needs a real store even though the mutation
+// hooks above are faked. A fresh store per render keeps the claim from leaking
+// between cases.
+function renderRotationHook() {
+  const store = createTestStore();
+  return renderHook(() => useAlbumRotationActions(album), {
+    wrapper: ({ children }) => <Provider store={store}>{children}</Provider>,
+  });
+}
+
 function okTrigger(response: unknown = {}) {
   return vi.fn(() => ({ unwrap: () => Promise.resolve(response) }));
 }
@@ -59,7 +71,7 @@ describe("useAlbumRotationActions", () => {
   describe("setRotation", () => {
     it("adds with no prior entries to retire", async () => {
       addTrigger.mockImplementation(okTrigger());
-      const { result } = renderHook(() => useAlbumRotationActions(album));
+      const { result } = renderRotationHook();
 
       await act(async () => {
         await result.current.setRotation("H", []);
@@ -73,7 +85,7 @@ describe("useAlbumRotationActions", () => {
     it("adds the new bin before retiring every active entry", async () => {
       addTrigger.mockImplementation(okTrigger());
       killTrigger.mockImplementation(okTrigger());
-      const { result } = renderHook(() => useAlbumRotationActions(album));
+      const { result } = renderRotationHook();
 
       await act(async () => {
         await result.current.setRotation("M", [
@@ -97,7 +109,7 @@ describe("useAlbumRotationActions", () => {
     it("retires nothing when the add fails, leaving the prior bin in place", async () => {
       addTrigger.mockImplementation(failingTrigger({ status: 500 }));
       killTrigger.mockImplementation(okTrigger());
-      const { result } = renderHook(() => useAlbumRotationActions(album));
+      const { result } = renderRotationHook();
 
       let outcome: boolean | undefined;
       await act(async () => {
@@ -111,7 +123,7 @@ describe("useAlbumRotationActions", () => {
 
     it("retires without adding when the bin is cleared", async () => {
       killTrigger.mockImplementation(okTrigger());
-      const { result } = renderHook(() => useAlbumRotationActions(album));
+      const { result } = renderRotationHook();
 
       await act(async () => {
         await result.current.setRotation(null, [{ rotation_id: 900 }]);
@@ -123,7 +135,7 @@ describe("useAlbumRotationActions", () => {
     });
 
     it("is a no-op with no active entries and no bin picked", async () => {
-      const { result } = renderHook(() => useAlbumRotationActions(album));
+      const { result } = renderRotationHook();
 
       await act(async () => {
         await result.current.setRotation(null, []);
@@ -136,7 +148,7 @@ describe("useAlbumRotationActions", () => {
 
     it("toasts one generic error when the add fails, matching the context menu's copy", async () => {
       addTrigger.mockImplementation(failingTrigger({ status: 500 }));
-      const { result } = renderHook(() => useAlbumRotationActions(album));
+      const { result } = renderRotationHook();
 
       await act(async () => {
         await result.current.setRotation("H", []);
@@ -149,7 +161,7 @@ describe("useAlbumRotationActions", () => {
     it("names the half that landed when the retire fails after a successful add", async () => {
       killTrigger.mockImplementation(failingTrigger({ status: 500 }));
       addTrigger.mockImplementation(okTrigger());
-      const { result } = renderHook(() => useAlbumRotationActions(album));
+      const { result } = renderRotationHook();
 
       let outcome: boolean | undefined;
       await act(async () => {
@@ -171,7 +183,7 @@ describe("useAlbumRotationActions", () => {
     it("attempts every retire after one of them fails", async () => {
       addTrigger.mockImplementation(okTrigger());
       killTrigger.mockImplementation(triggerFailingFor([900]));
-      const { result } = renderHook(() => useAlbumRotationActions(album));
+      const { result } = renderRotationHook();
 
       await act(async () => {
         await result.current.setRotation("L", [
@@ -188,7 +200,7 @@ describe("useAlbumRotationActions", () => {
     it("counts the bins the album is left in when every retire fails", async () => {
       addTrigger.mockImplementation(okTrigger());
       killTrigger.mockImplementation(failingTrigger({ status: 500 }));
-      const { result } = renderHook(() => useAlbumRotationActions(album));
+      const { result } = renderRotationHook();
 
       let outcome: boolean | undefined;
       await act(async () => {
@@ -207,7 +219,7 @@ describe("useAlbumRotationActions", () => {
 
     it("reports the surviving bin when a clear retires some entries and not others", async () => {
       killTrigger.mockImplementation(triggerFailingFor([901]));
-      const { result } = renderHook(() => useAlbumRotationActions(album));
+      const { result } = renderRotationHook();
 
       let outcome: boolean | undefined;
       await act(async () => {
@@ -227,7 +239,7 @@ describe("useAlbumRotationActions", () => {
 
     it("keeps the generic copy when a clear retires nothing at all", async () => {
       killTrigger.mockImplementation(failingTrigger({ status: 500 }));
-      const { result } = renderHook(() => useAlbumRotationActions(album));
+      const { result } = renderRotationHook();
 
       await act(async () => {
         await result.current.setRotation(null, [{ rotation_id: 900 }]);
@@ -242,7 +254,7 @@ describe("useAlbumRotationActions", () => {
       killTrigger.mockImplementation(
         failingTrigger({ status: "PARSING_ERROR", data: "<html>404</html>" }),
       );
-      const { result } = renderHook(() => useAlbumRotationActions(album));
+      const { result } = renderRotationHook();
 
       let outcome: boolean | undefined;
       await act(async () => {
@@ -258,7 +270,7 @@ describe("useAlbumRotationActions", () => {
       addTrigger.mockImplementation(
         failingTrigger({ status: "PARSING_ERROR", data: "<html>404</html>" }),
       );
-      const { result } = renderHook(() => useAlbumRotationActions(album));
+      const { result } = renderRotationHook();
 
       await act(async () => {
         await result.current.setRotation("H", []);
@@ -272,7 +284,7 @@ describe("useAlbumRotationActions", () => {
       addTrigger.mockImplementation(() => ({
         unwrap: () => new Promise<void>((resolve) => (resolveAdd = resolve)),
       }));
-      const { result } = renderHook(() => useAlbumRotationActions(album));
+      const { result } = renderRotationHook();
 
       expect(result.current.isSettingRotation).toBe(false);
       let settled: Promise<boolean>;
@@ -292,7 +304,7 @@ describe("useAlbumRotationActions", () => {
   describe("kill", () => {
     it("kills a single entry by rotation id", async () => {
       killTrigger.mockImplementation(okTrigger());
-      const { result } = renderHook(() => useAlbumRotationActions(album));
+      const { result } = renderRotationHook();
 
       await act(async () => {
         await result.current.kill(900);
@@ -304,7 +316,7 @@ describe("useAlbumRotationActions", () => {
 
     it("toasts the shared error copy on failure", async () => {
       killTrigger.mockImplementation(failingTrigger({ status: 500 }));
-      const { result } = renderHook(() => useAlbumRotationActions(album));
+      const { result } = renderRotationHook();
 
       await act(async () => {
         await result.current.kill(900);
@@ -318,7 +330,7 @@ describe("useAlbumRotationActions", () => {
       killTrigger.mockImplementation(() => ({
         unwrap: () => new Promise<void>((resolve) => (resolveKill = resolve)),
       }));
-      const { result } = renderHook(() => useAlbumRotationActions(album));
+      const { result } = renderRotationHook();
 
       expect(result.current.isKilling(900)).toBe(false);
       let settled: Promise<void>;

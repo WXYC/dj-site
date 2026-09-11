@@ -125,10 +125,12 @@ describe("a re-bin through the shared hook leaves the catalog cache on the new b
     });
 
     expect(backend.callOrder()).toEqual(["add", "kill"]);
-    expect(store.getState().catalog.rotationByAlbumId[ALBUM_ID]).toEqual({
-      rotation_bin: "M",
-      rotation_id: ROTATION_ID + 1,
-    });
+    // The per-album claim is scaffolding for the gesture, not a record of it:
+    // it exists so this gesture's own retires cannot clear the bin the gesture
+    // just added, and it is dropped once the gesture settles so that a later
+    // out-of-band replacement cannot be measured against a stale claim. What
+    // outlives the gesture is the cached row below.
+    expect(store.getState().catalog.rotationByAlbumId[ALBUM_ID]).toBeUndefined();
     expect(cachedRows(store, {})).toEqual([
       expect.objectContaining({
         id: ALBUM_ID,
@@ -160,6 +162,44 @@ describe("a re-bin through the shared hook leaves the catalog cache on the new b
     // it.
     expect(cachedRows(store, args)).toEqual([
       expect.objectContaining({ id: ALBUM_ID, rotation_bin: "M" }),
+    ]);
+  });
+
+  /**
+   * The claim the set gesture leaves behind is a statement about the server, and
+   * the server can move without this tab hearing about it — a second MD, another
+   * tab, the classic rotation screen. A claim that outlived its gesture would be
+   * measured against whatever entry the album really has by then, not match, and
+   * suppress the very clear it was built to suppress only within the gesture.
+   */
+  it("clears the cached bin for a kill of an entry the set gesture never saw", async () => {
+    const OUT_OF_BAND_ROTATION_ID = 950;
+    const store = createTestStore();
+    await seedCatalogSearch(store, {}, dogaSearchRow("H"));
+    fakeRotationEndpoints(
+      [
+        dogaRotationRow("H"),
+        { ...dogaRotationRow("L"), rotation_id: OUT_OF_BAND_ROTATION_ID },
+      ],
+      { buildRow: dogaRotationRow },
+    );
+
+    const { result } = renderHook(() => useAlbumRotationActions(dogaAlbum()), {
+      wrapper: wrapper(store),
+    });
+
+    await act(async () => {
+      await result.current.setRotation("M", [{ rotation_id: ROTATION_ID }]);
+    });
+
+    // Whatever this tab believes the album's entry to be, it is not the one the
+    // kill below names.
+    await act(async () => {
+      await result.current.kill(OUT_OF_BAND_ROTATION_ID);
+    });
+
+    expect(cachedRows(store, {})).toEqual([
+      expect.objectContaining({ id: ALBUM_ID, rotation_bin: undefined }),
     ]);
   });
 
