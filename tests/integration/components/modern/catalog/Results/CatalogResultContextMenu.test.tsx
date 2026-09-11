@@ -223,7 +223,10 @@ describe("CatalogResultContextMenu", () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  it("re-binning kills the active entry before adding the new bin", async () => {
+  // The order is the safety property: retiring first and then failing the add
+  // would leave the album in no bin at all, and out of the flowsheet rotation
+  // picker DJs use on air.
+  it("re-binning adds the new bin before retiring the active entry", async () => {
     mockFetchOrgRole.mockResolvedValue("musicDirector");
     const backend = fakeRotationEndpoints([rotationRow("H")], {
       buildRow: (bin) => rotationRow(bin),
@@ -245,7 +248,10 @@ describe("CatalogResultContextMenu", () => {
     await waitFor(() =>
       expect(backend.addBody()).toEqual({ album_id: ALBUM_ID, rotation_bin: "L" }),
     );
-    expect(backend.killBodies()).toEqual([{ rotation_id: ROTATION_ID }]);
+    await waitFor(() =>
+      expect(backend.killBodies()).toEqual([{ rotation_id: ROTATION_ID }]),
+    );
+    expect(backend.callOrder()).toEqual(["add", "kill"]);
   });
 
   it("fails closed while rotation membership is unknown", async () => {
