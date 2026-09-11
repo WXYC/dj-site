@@ -18,11 +18,19 @@ export const WEEK_VIEW = "week";
 /**
  * A row id read off the URL. A scraped, truncated or otherwise malformed value
  * resolves to "nothing selected" rather than to some other row.
+ *
+ * The digits are matched before `Number` rather than after, because `Number`
+ * accepts notations no id is ever written in and silently lands each one on a
+ * real row: `1e3` becomes 1000, `0x10` becomes 16, and a whitespace-padded
+ * ` 12 ` becomes 12. A wrong `entry` only marks the wrong row, but a wrong
+ * `show` loads a different set, so the promise above has to hold by
+ * construction. The safe-integer check covers the other end: a digit run past
+ * 2^53 parses to a rounded value that can itself be some other row's id.
  */
 export function positiveIdParam(raw: string | null): number | null {
-  if (!raw) return null;
+  if (!raw || !/^[1-9][0-9]*$/.test(raw)) return null;
   const parsed = Number(raw);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+  return Number.isSafeInteger(parsed) ? parsed : null;
 }
 
 /**

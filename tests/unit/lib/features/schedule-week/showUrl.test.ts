@@ -42,4 +42,25 @@ describe("positiveIdParam", () => {
       expect(positiveIdParam(raw)).toBeNull();
     },
   );
+
+  // Every one of these is a number to `Number()`, and every one of them lands
+  // on a real row: 1000, 16, 12, 7, 12. A wrong `show` loads a different set,
+  // so the notations no id is written in have to be refused outright rather
+  // than parsed and hoped about.
+  it.each(["1e3", "0x10", " 12 ", "\t12", "+7", "12 "])(
+    "refuses %s rather than resolving it to some other row",
+    (raw) => {
+      expect(positiveIdParam(raw)).toBeNull();
+    },
+  );
+
+  // Past 2^53 the parse rounds, and the rounded value can be another row's id.
+  it("refuses a digit run too long to survive the parse", () => {
+    expect(positiveIdParam("9007199254740993")).toBeNull();
+  });
+
+  // The largest id the parse can carry exactly is still an id.
+  it("reads the largest exactly-representable id", () => {
+    expect(positiveIdParam("9007199254740991")).toBe(9007199254740991);
+  });
 });
