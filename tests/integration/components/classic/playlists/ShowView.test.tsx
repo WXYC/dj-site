@@ -2,14 +2,13 @@ import { describe, it, expect, vi } from "vitest";
 import { screen, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import {
+  createTestV2TalksetEntry,
+  createTestV2TrackEntry,
   renderWithProviders,
   server,
   TEST_BACKEND_URL,
 } from "@/tests/helpers";
-import type {
-  ShowPlaylistEntryWire,
-  ShowPlaylistWire,
-} from "@/lib/features/show-playlist/types";
+import type { ShowPlaylistWire } from "@/lib/features/show-playlist/types";
 import { RotationBin } from "@/lib/features/rotation/types";
 
 // The real better-auth client installs listeners whose teardown is deferred a
@@ -25,19 +24,24 @@ import ShowView from "@/src/components/experiences/classic/playlists/ShowView";
 
 const SHOW_ID = 1951179;
 
+// Built through the repo's V2 factories, which are typed from the published
+// union rather than from a local mirror of the payload. A fixture written
+// against a mirror asserts its own spelling of the field names back to itself,
+// so a rename upstream leaves this file green and the gutter empty in
+// production — which is the failure this whole fixture exists to catch.
 const play = (
   id: number,
   play_order: number,
-  fields: Partial<ShowPlaylistEntryWire>
-): ShowPlaylistEntryWire => ({
-  id,
-  show_id: SHOW_ID,
-  play_order,
-  add_time: "2026-08-22T21:00:00.000Z",
-  entry_type: "track",
-  request_flag: false,
-  ...fields,
-});
+  fields: Parameters<typeof createTestV2TrackEntry>[0]
+) =>
+  createTestV2TrackEntry({
+    id,
+    show_id: SHOW_ID,
+    play_order,
+    add_time: "2026-08-22T21:00:00.000Z",
+    request_flag: false,
+    ...fields,
+  });
 
 // One show carrying every state the indicator gutter has to tell apart.
 const playlist: ShowPlaylistWire = {
@@ -80,14 +84,13 @@ const playlist: ShowPlaylistWire = {
       record_label: "Impulse Records",
       on_streaming: null,
     }),
-    {
+    createTestV2TalksetEntry({
       id: 3005,
       show_id: SHOW_ID,
       play_order: 5,
       add_time: "2026-08-22T22:00:00.000Z",
-      entry_type: "talkset",
       message: "TALKSET",
-    },
+    }),
   ],
 };
 

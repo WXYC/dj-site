@@ -1,5 +1,4 @@
-import type { FlowsheetRangeEntry } from "@wxyc/shared";
-import type { RotationBin } from "@/lib/features/rotation/types";
+import type { FlowsheetV2EntryJSON } from "@/lib/features/flowsheet/types";
 
 /**
  * One show as `GET /flowsheet/playlist?show_id=` actually serves it.
@@ -31,31 +30,40 @@ export type ShowPlaylistWire = {
 };
 
 /**
- * A V2 entry as the route projects it. Deliberately loose: the wire is a
- * discriminated union, but every consumer here reads it through
- * `v2ToRangeShape`, which is where the narrowing happens.
+ * A V2 entry as the route projects it: the published union, under a local name.
+ *
+ * Not restated here. `GET /flowsheet/playlist` runs `getShowInfo` →
+ * `projectEntriesV2` → `transformToV2` (Backend-Service
+ * `apps/backend/services/flowsheet.service.ts`), the same projection
+ * `FlowsheetV2PaginatedResponse` is declared for, so `api.yaml`'s discriminated
+ * union already describes this payload field for field — `rotation_bin` and the
+ * three-state `on_streaming` included. A local mirror of it behind an index
+ * signature would type-check against a renamed field forever: the screen would
+ * simply stop badging, and the fixtures built from the mirror would keep
+ * passing.
+ *
+ * `FlowsheetV2EntryJSON` rather than `@wxyc/shared`'s `FlowsheetV2Entry`
+ * directly, because that is already this repo's name for the published union as
+ * it arrives over JSON — what `convertV2Entry`, the flowsheet api layer, the
+ * server seed and the `createTestV2*Entry` factories all speak — and it carries
+ * the `discogsUnavailable` pair BS serves flat on the track variant ahead of the
+ * pinned dependency. Naming it here rather than at every use site is the only
+ * thing this alias does.
+ *
+ * One residual disagreement, upstream of here and not papered over: the read
+ * path types `rotation_bin` `string | null` and `transformToV2` emits it
+ * un-coalesced, so a play with no rotation row — the common case — carries a
+ * literal null that `api.yaml` declares non-nullable. Nothing on this path
+ * misreads it (`capsulesForSongEntry` tests truthiness, and `Capsulable`
+ * already admits a null), and the flat shape it converts into under-declares it
+ * identically, so no cast or coercion here can launder it. The fix belongs in
+ * `api.yaml`.
+ *
+ * Also note: the bin is the one the release is filed under **now**. The route's
+ * primary lane joins the rotation row on its id with no window against the air
+ * date, so it is not a claim about the bin the play aired under.
  */
-export type ShowPlaylistEntryWire = {
-  id: number;
-  show_id: number | null;
-  play_order: number;
-  add_time: string;
-  entry_type?: FlowsheetRangeEntry["entry_type"];
-  message?: string | null;
-  radio_hour?: string | null;
-  dj_name?: string | null;
-  request_flag?: boolean;
-  /**
-   * The bin the release is filed under **now**, or null where the play has no
-   * rotation row — the common case. The route's primary lane joins the rotation
-   * row on its id with no window against the air date, so this is not a claim
-   * about the bin the release aired under.
-   */
-  rotation_bin?: RotationBin | null;
-  /** Three-state: null is "no linked library row", not "not on streaming". */
-  on_streaming?: boolean | null;
-  [key: string]: unknown;
-};
+export type ShowPlaylistEntryWire = FlowsheetV2EntryJSON;
 
 export const EMPTY_SHOW_PLAYLIST: ShowPlaylistWire = {
   id: 0,

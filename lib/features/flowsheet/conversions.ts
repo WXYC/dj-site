@@ -330,10 +330,15 @@ export function convertV2Entry(entry: FlowsheetV2EntryJSON): FlowsheetEntry {
 }
 
 /**
- * `on_streaming` rides the `GET /flowsheet/range` and `GET /flowsheet/playlist`
- * payloads without being declared on `FlowsheetEntryFields`. Widened here
- * rather than dropped: every reader tests `=== false`, so an absent field is
- * simply no badge.
+ * `on_streaming` rides the `GET /flowsheet/range` payload without being
+ * declared on `FlowsheetEntryFields`, which is the field set that endpoint and
+ * `GET /flowsheet` share. Widened here rather than dropped: every reader tests
+ * `=== false`, so an absent field is simply no badge.
+ *
+ * The V2 routes need no such widening — `FlowsheetV2TrackEntry` declares
+ * `on_streaming` itself, three-state, with the "false means WXYC library
+ * exclusive, null if unknown" reading this file's consumers implement. The
+ * widening applies only where the contract is genuinely silent.
  */
 export type FlowsheetRangeEntryWire = FlowsheetRangeEntry & {
   on_streaming?: boolean | null;
