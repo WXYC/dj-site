@@ -652,6 +652,19 @@ html[data-experience="classic"][data-joy-color-scheme="dark"] .classic-schedule-
 	color: #FFFFFF;
 }
 
+/* Previous Sets rows, dark. The light arms paint #F8F8F8 and #EFEFEF — a step
+   away from white — so without these the dark body's #E0E0E0 text lands on
+   near-white ground, worst on the row under the pointer, which is the row the
+   DJ is about to click. Both carry the two [data-*] hooks, so hover outweighs
+   the stripe on specificity and neither depends on source order. */
+html[data-experience="classic"][data-joy-color-scheme="dark"] .classic-previous-sets-table tbody tr:nth-child(even) {
+	background-color: #353535;
+}
+
+html[data-experience="classic"][data-joy-color-scheme="dark"] .classic-previous-sets-table tbody tr.classic-previous-sets-row:hover {
+	background-color: #3D3D3D;
+}
+
 html[data-experience="classic"][data-joy-color-scheme="dark"] .submenu TD A {
 	color: #E0E0E0;
 }
