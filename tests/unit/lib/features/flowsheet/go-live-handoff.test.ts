@@ -252,11 +252,9 @@ describe("GO_LIVE_HANDOFF_TESTIDS", () => {
 });
 
 /**
- * The one-action prompt, reached from two directions: classic never offers
- * co-hosting, and modern withholds it from a DJ who is already on the open show
- * (a join from there is a no-op). Either way there is one action and no contrast
- * to read it against. All three properties below are load-bearing, and none is
- * visible from the components that render them.
+ * Classic offers no co-hosting, so its prompt has one action and no contrast
+ * to be read against. Both properties below are load-bearing, and neither is
+ * visible from the component that renders them.
  */
 describe("GO_LIVE_HANDOFF_TAKEOVER_ONLY_COPY", () => {
   it("offers no join, in the words as well as in the buttons", () => {
@@ -278,16 +276,5 @@ describe("GO_LIVE_HANDOFF_TAKEOVER_ONLY_COPY", () => {
     expect(GO_LIVE_HANDOFF_TAKEOVER_ONLY_COPY.cancel).toBe(
       GO_LIVE_HANDOFF_COPY.cancel,
     );
-  });
-
-  // Modern swaps the whole object rather than individual strings, so every key
-  // the co-hosting copy renders must exist here too — a missing one would
-  // render `undefined` in the dialog rather than fail to compile, since the
-  // takeover-only variant is reached through a union.
-  it("covers every string modern's dialog renders from the co-hosting copy", () => {
-    for (const key of ["choice", "takeover", "cancel"] as const) {
-      expect(GO_LIVE_HANDOFF_TAKEOVER_ONLY_COPY[key]).toBeTruthy();
-      expect(GO_LIVE_HANDOFF_COPY[key]).toBeTruthy();
-    }
   });
 });

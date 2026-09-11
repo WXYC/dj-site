@@ -259,6 +259,12 @@ test.describe("Go-live takeover", () => {
       await expect(pageB.getByTestId("go-live-handoff-dialog")).toBeVisible({
         timeout: 15000,
       });
+      // Asserted rather than left implied: B is an active co-host on the
+      // server, and the prompt still offers them the join that the server
+      // answers 200 and acts on not at all. Nothing this client can read tells
+      // B apart from a stranger to the open show, so closing that needs a field
+      // on the 409 — WXYC/dj-site#1426 inverts this line.
+      await expect(pageB.getByTestId("go-live-handoff-join")).toBeVisible();
 
       const decision = await decideHandoff(flowsheetB, "go-live-handoff-takeover");
       expect(decision.ok).toBe(true);
