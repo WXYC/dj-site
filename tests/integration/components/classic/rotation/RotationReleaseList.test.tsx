@@ -146,14 +146,22 @@ describe("classic RotationReleaseList — rotationReleaseList.jsp", () => {
       expect(within(juanaRow).queryByRole("link", { name: /^Import: / })).not.toBeInTheDocument();
     });
 
-    // Edit's destination is a later slice and no route answers it, so
-    // rendering the JSP's other row link would put a 404 under every row.
-    it("renders no Edit link while its destination does not exist", async () => {
+    // Unlike Import, Edit is offered on every row: a catalogued release's
+    // artist, title, label and format belong to the library release, but its
+    // two rotation dates stay editable here.
+    it("offers Edit on every row, catalogued or not", async () => {
       mockActiveList([JUANA, CHUQUI_UNLINKED]);
       renderWithProviders(<RotationReleaseList statusFilter="active" />);
 
       await screen.findByText("Juana Molina");
-      expect(screen.queryByRole("link", { name: /^Edit/ })).not.toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "Edit: DOGA" })).toHaveAttribute(
+        "href",
+        "/dashboard/rotation/5001",
+      );
+      expect(screen.getByRole("link", { name: "Edit: Edits" })).toHaveAttribute(
+        "href",
+        "/dashboard/rotation/5002",
+      );
     });
 
     // The JSP keys Kill/Unkill and its Killed column on `killDate == 0`, not

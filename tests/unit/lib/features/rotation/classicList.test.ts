@@ -2,6 +2,9 @@ import { describe, it, expect } from "vitest";
 import {
   isRotationRowActive,
   formatRotationDate,
+  dateOptions,
+  killDateOptions,
+  recentRotationDates,
   rotationLibraryStatus,
   dedupeRotationListByArtistTitle,
   toDisplayRowFromList,
@@ -274,5 +277,74 @@ describe("dedupeRotationListByArtistTitle — ordering and key separation", () =
     ];
 
     expect(dedupeRotationListByArtistTitle(rows)).toHaveLength(2);
+  });
+});
+
+describe("recentRotationDates", () => {
+  it("offers the JSP's ten days, today first and one calendar day apart", () => {
+    const days = recentRotationDates(new Date(2026, 8, 12, 23, 30));
+
+    expect(days).toHaveLength(10);
+    expect(days[0]).toBe("2026-09-12");
+    expect(days[9]).toBe("2026-09-03");
+  });
+
+  it("steps back across a month boundary without skipping or repeating a day", () => {
+    const days = recentRotationDates(new Date(2026, 2, 3, 1, 0));
+
+    expect(days.slice(0, 4)).toEqual(["2026-03-03", "2026-03-02", "2026-03-01", "2026-02-28"]);
+    expect(new Set(days).size).toBe(days.length);
+  });
+
+  it("reads the viewer's local calendar day, not the UTC one", () => {
+    expect(recentRotationDates(new Date(2026, 8, 12, 23, 59))[0]).toBe("2026-09-12");
+  });
+});
+
+describe("the rotation editor's day pickers", () => {
+  const NOON = new Date(2026, 8, 12, 12, 0);
+
+  it.each([
+    {
+      label: "an add date inside the ten-day window",
+      build: () => dateOptions("2026-09-10", NOON),
+      first: { value: "2026-09-10", label: "Thursday, September 10, 2026" },
+      length: 11,
+      noneCount: 0,
+    },
+    {
+      label: "an add date older than the window",
+      build: () => dateOptions("2026-01-01", NOON),
+      first: { value: "2026-01-01", label: "Thursday, January 1, 2026" },
+      length: 11,
+      noneCount: 0,
+    },
+    {
+      label: "a row that has never been killed",
+      build: () => killDateOptions(null, NOON),
+      first: { value: "", label: "NONE" },
+      length: 11,
+      noneCount: 1,
+    },
+    {
+      label: "a row carrying a kill date",
+      build: () => killDateOptions("2026-09-01", NOON),
+      first: { value: "2026-09-01", label: "Tuesday, September 1, 2026" },
+      length: 12,
+      noneCount: 1,
+    },
+  ])("heads the list with the current value for $label", ({ build, first, length, noneCount }) => {
+    const options = build();
+
+    expect(options[0]).toEqual(first);
+    expect(options).toHaveLength(length);
+    expect(options.filter((option) => option.label === "NONE")).toHaveLength(noneCount);
+    expect(options.slice(-10).map((option) => option.value)).toEqual(recentRotationDates(NOON));
+  });
+
+  // The unkill option sits second, directly under the value it clears, rather
+  // than among the ten days where it would read as one more date to pick.
+  it("offers the unkill option beside the kill date it clears", () => {
+    expect(killDateOptions("2026-09-01", NOON)[1]).toEqual({ value: "", label: "NONE" });
   });
 });

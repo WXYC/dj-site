@@ -1,3 +1,4 @@
+import { formatLongCalendarDate } from "@/src/utilities/stationTime";
 import { hasLinkedAlbumId } from "../flowsheet/linkage";
 import type { RotationBin, RotationListRow, RotationRowSummary } from "./types";
 
@@ -15,6 +16,61 @@ function localTodayISO(now: Date): string {
   const month = String(now.getMonth() + 1).padStart(2, "0");
   const day = String(now.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+/**
+ * The ten days the rotation editor's Added / Removed pickers offer, today
+ * first. Walked with `setDate`, which normalizes across month, year and DST
+ * boundaries -- subtracting 86,400,000 ms does not, and lands on the previous
+ * day twice on the autumn transition.
+ */
+export function recentRotationDates(now: Date = new Date(), count = 10): string[] {
+  const cursor = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const days: string[] = [];
+  for (let offset = 0; offset < count; offset += 1) {
+    days.push(localTodayISO(cursor));
+    cursor.setDate(cursor.getDate() - 1);
+  }
+  return days;
+}
+
+export type RotationDateOption = { value: string; label: string };
+
+/** The JSP's NONE — no date at all, which on the kill picker is also its unkill value. */
+const NO_DATE_OPTION: RotationDateOption = { value: "", label: "NONE" };
+
+/**
+ * One of the rotation editor's two day pickers: the row's current value first,
+ * then the JSP's ten days back from today, labelled `EEEE, MMMM d, yyyy` --
+ * the weekday is the point, since a librarian dates a promo by the day of the
+ * week it arrived.
+ *
+ * The current value repeats among the ten when it falls inside them. That is
+ * the JSP's own shape and is harmless: a select resolves to the first option
+ * carrying the value, which is the current one.
+ */
+export function dateOptions(
+  current: string | null | undefined,
+  now: Date = new Date(),
+): RotationDateOption[] {
+  return [
+    current ? { value: current, label: formatLongCalendarDate(current) } : NO_DATE_OPTION,
+    ...recentRotationDates(now).map((day) => ({ value: day, label: formatLongCalendarDate(day) })),
+  ];
+}
+
+/**
+ * The same list with the JSP's unkill option, which it offers only for a row
+ * that carries a kill date: with none there is nothing to clear, and the
+ * current-value option already reads NONE.
+ */
+export function killDateOptions(
+  current: string | null | undefined,
+  now: Date = new Date(),
+): RotationDateOption[] {
+  const options = dateOptions(current, now);
+  if (!current) return options;
+  return [options[0], NO_DATE_OPTION, ...options.slice(1)];
 }
 
 /**
