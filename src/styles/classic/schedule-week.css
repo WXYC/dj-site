@@ -124,22 +124,11 @@
   padding-top: 0.5em;
 }
 
-.classic-schedule-week-entries table {
-  border-collapse: collapse;
-  width: 100%;
-}
-
-.classic-schedule-week-entries thead th {
-  background-color: #DDDDDD;
-  border-bottom: 1px solid #999;
-  padding: 4px;
-  font-size: 0.85em;
-  text-align: left;
-}
-
-.classic-schedule-week-entries tbody tr:nth-child(even) {
-  background-color: #F8F8F8;
-}
+/* The table itself is styled by tubafrenzy's `.entry-table` family in
+   wxyc.css, which every other Classic table already uses. Rules for it do not
+   belong here: a lookalike set scoped to this wrapper is how this one screen
+   ended up with a grey header, unpadded borderless rows, and unstyled talkset
+   and breakpoint markers while the rest of Classic looked like the JSP. */
 
 /* The source used <a href="radioWeek?weekID=…"> for week navigation. There is
    no such route here — the week is a URL parameter on this page — so these are
@@ -185,20 +174,25 @@
 }
 
 /* The archived show's indicator gutter, carrying the ROTATION / REQUEST /
-   EXCLUSIVE capsules. Unlabeled and centred, as
-   flowsheetRadioShowDisplayPublic.jsp renders it. Each capsule sets its own
-   `white-space: nowrap`; the cell must not, or the one row carrying all three
-   raises the column's min-content width and squeezes the rest of the table. */
+   EXCLUSIVE capsules — the JSP's `<th width="5%">` column, unlabeled. Each
+   capsule sets its own `white-space: nowrap`; the cell must not, or the one row
+   carrying all three raises the column's min-content width and squeezes the
+   rest of the table. */
 .classic-schedule-week-entries .classic-indicator-cell {
-  width: 7em;
+  width: 5%;
+}
+
+/* Centred on the body cells only. The header cell above them is empty and keeps
+   `.entry-header th`'s left alignment, as it does in the JSP. */
+.classic-schedule-week-entries td.classic-indicator-cell {
   text-align: center;
 }
 
 /* The play a search result linked to — tubafrenzy's own `.playlistEntryHighlight`
-   treatment, and the red the DJs asking for this feature name it by. Ties the
-   zebra stripe above on specificity (:nth-child counts as a class), so it wins
-   on source order alone: it must stay below that rule, and a zebra rule
-   appended after it would silently take the mark back. */
+   treatment, and the red the DJs asking for this feature name it by. Outranks
+   `.entry-row-even` / `.entry-row-odd` and `.entry-row:hover` on specificity
+   rather than on source order, so it survives being loaded before or after the
+   stylesheet that paints the stripe. */
 .classic-schedule-week-entries tbody tr.playlistEntryHighlight {
   background: #FF0000;
   font-weight: bold;
@@ -211,6 +205,8 @@
    row so every other row keeps the flat capsules the JSP drew. Unscoped by
    color scheme deliberately: the dark arm's #8B0000 sits closer to #CC0000
    still. */
-.classic-schedule-week-entries tbody tr.playlistEntryHighlight .classic-capsule {
+.classic-schedule-week-entries tbody tr.playlistEntryHighlight .rotation-capsule,
+.classic-schedule-week-entries tbody tr.playlistEntryHighlight .request-capsule,
+.classic-schedule-week-entries tbody tr.playlistEntryHighlight .exclusive-capsule {
   box-shadow: 0 0 0 1px #FFFFFF;
 }

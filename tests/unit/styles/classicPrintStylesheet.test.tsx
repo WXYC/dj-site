@@ -18,11 +18,10 @@ import ClassicShowEntries from "@/src/components/experiences/classic/schedule-we
  * (`libs/core/src/main/resources/META-INF/resources/css/wxyc-shared.css`), so a
  * drift here is a drift from the page Bill has printed for twenty years.
  *
- * The selector check is the one with teeth. Tubafrenzy's rule targets
- * `.entry-table`, a class dj-site does not have — copying it verbatim would
- * land a print block that parses, lints, reviews clean, and silently styles
- * nothing. So the rules are matched against the DOM the archived show actually
- * renders rather than read as text.
+ * The selector check is the one with teeth. A print rule aimed at a class this
+ * page does not render parses, lints, reviews clean, and silently styles
+ * nothing, and nobody finds out until someone prints. So the rules are matched
+ * against the DOM the archived show actually renders rather than read as text.
  */
 
 const CLASSIC_CSS = resolve(__dirname, "../../../src/styles/classic/wxyc.css");
@@ -31,6 +30,8 @@ const SHELL_CSS = resolve(__dirname, "../../../src/styles/globals.css");
 // Tubafrenzy's own print values.
 const TUBAFRENZY_PRINT_BODY_FONT_SIZE = "9pt";
 const TUBAFRENZY_PRINT_CELL_PADDING = "2px 4px";
+// The class its entry tables carry, which the archived show now wears too.
+const TUBAFRENZY_TABLE_CLASS = "entry-table";
 // The class the Time cells carry, so print can drop the column by name rather
 // than by position — a :first-child rule would silently retarget if a column
 // were ever added to the left of it.
@@ -120,11 +121,16 @@ describe("classic print stylesheet", () => {
     expect(found?.value).toBe(TUBAFRENZY_PRINT_BODY_FONT_SIZE);
   });
 
-  it("tightens cell padding to tubafrenzy's value", () => {
+  it("tightens cell padding to tubafrenzy's value, on tubafrenzy's selector", () => {
     const found = declaration(printRules(), "padding");
     expect(found?.value.replace(/\s*!important$/, "")).toBe(
       TUBAFRENZY_PRINT_CELL_PADDING
     );
+    // The source rule reads `.entry-table td, .entry-table th`. The archived
+    // show wears that class, so the port is the source's own selector under the
+    // experience scope rather than a re-aimed lookalike.
+    expect(found?.selector).toContain(`.${TUBAFRENZY_TABLE_CLASS} td`);
+    expect(found?.selector).toContain(`.${TUBAFRENZY_TABLE_CLASS} th`);
   });
 
   it("drops the Time column, which the page this ports never had", () => {
@@ -151,15 +157,25 @@ describe("classic print stylesheet", () => {
   it("aims every print rule at markup the archived show actually renders", () => {
     const { container } = setup({ entries: [entry(1), entry(2), entry(3)] });
 
-    // The nav is a sibling surface, not part of this component; its own tests
-    // pin the class. Everything else must hit something here, or it is a
-    // selector ported from a page whose markup dj-site does not share.
+    // Everything not listed here must hit something in this component's tree, or
+    // it is a selector aimed at markup this page does not render. The list is
+    // enumerated rather than pattern-matched so that a new dead selector still
+    // fails: each entry names a container that sits above this component's root
+    // by construction, and is pinned by the tests of whatever renders it.
+    const OUTSIDE_THIS_COMPONENT = [".nav-bar", ".classic-schedule-week"];
+
     const aimedAtEntries = printRules()
       .map((rule) => rule.selector)
-      .filter((selector) => !selector.includes(".nav-bar"))
+      .filter(
+        (selector) =>
+          !OUTSIDE_THIS_COMPONENT.some((outside) =>
+            // Word-boundary match, so `.classic-schedule-week` does not excuse a
+            // dead rule aimed at `.classic-schedule-week-entries`.
+            new RegExp(`${outside.replace(".", "\\.")}(?![-\\w])`).test(selector)
+          )
+      )
       // Document-scaffolding rules (the body size, the dark-scheme reset) target
-      // elements that sit above this component's root by construction, so they
-      // are exempt from the applicability check rather than failing it.
+      // elements above this component by construction, same as the list above.
       .filter((selector) => !/\bbody\b/.test(selector) && !/^html\S*$/.test(selector.trim()));
 
     expect(aimedAtEntries.length).toBeGreaterThan(0);

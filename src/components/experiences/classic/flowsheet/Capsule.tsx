@@ -1,8 +1,15 @@
 import type { Rotation } from "@/lib/features/rotation/types";
-import "@/src/styles/classic/capsules.css";
+import "@/src/styles/classic/wxyc.css";
 
 export type CapsuleVariant = "request" | "rotation" | "exclusive";
 
+/**
+ * A REQUEST / ROTATION / EXCLUSIVE badge, wearing tubafrenzy's own class for
+ * the variant rather than a parallel one of ours. The three rules live in
+ * `wxyc.css` as part of the verbatim port and are already what the Classic
+ * catalog's EXCLUSIVE badge uses, so naming them here is what keeps one badge
+ * from looking like two on adjacent screens.
+ */
 export function Capsule({
   variant,
   label,
@@ -10,11 +17,7 @@ export function Capsule({
   variant: CapsuleVariant;
   label: string;
 }) {
-  return (
-    <span className={`classic-capsule classic-capsule--${variant}`}>
-      {label}
-    </span>
-  );
+  return <span className={`${variant}-capsule`}>{label}</span>;
 }
 
 type CapsuleSpec = { variant: CapsuleVariant; label: string };

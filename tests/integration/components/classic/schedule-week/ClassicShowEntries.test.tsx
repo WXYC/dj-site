@@ -47,7 +47,14 @@ const setup = createComponentHarness<ComponentProps<typeof ClassicShowEntries>>(
 const renderEntries = (entries: FlowsheetRangeEntryWire[]) => setup({ entries });
 
 const capsuleLabels = (container: HTMLElement) =>
-  [...container.querySelectorAll(".classic-capsule")].map((c) => c.textContent);
+  [
+    ...container.querySelectorAll(
+      ".rotation-capsule, .request-capsule, .exclusive-capsule"
+    ),
+  ].map((c) => c.textContent);
+
+const rowClasses = (container: HTMLElement) =>
+  [...container.querySelectorAll("tbody tr")].map((r) => r.className);
 
 describe("ClassicShowEntries", () => {
   it("renders the six columns, the indicator gutter unlabeled", () => {
@@ -188,6 +195,73 @@ describe("ClassicShowEntries", () => {
     for (const row of container.querySelectorAll("tbody tr")) {
       expect(width(row)).toBe(width(header));
     }
+  });
+
+  // The whole look of this table — dark header, padded bordered rows, the zebra,
+  // the coloured talkset and breakpoint bars — is tubafrenzy's `.entry-table`
+  // family, ported into wxyc.css and shared with every other Classic table. None
+  // of it is reachable from markup that does not name these classes, so the
+  // classes are the contract and are pinned here rather than left to a visual
+  // check nobody runs.
+  describe("wears tubafrenzy's entry-table classes", () => {
+    it("names the table and its header row", () => {
+      const { container } = renderEntries([entry({ id: 1 })]);
+      expect(container.querySelector("table")).toHaveClass("entry-table");
+      expect(container.querySelector("thead tr")).toHaveClass("entry-header");
+    });
+
+    it("stripes track rows even/odd", () => {
+      const { container } = renderEntries([
+        entry({ id: 1 }),
+        entry({ id: 2, artist_name: "Stereolab" }),
+        entry({ id: 3, artist_name: "Cat Power" }),
+      ]);
+      expect(rowClasses(container)).toEqual([
+        "entry-row entry-row-even",
+        "entry-row entry-row-odd",
+        "entry-row entry-row-even",
+      ]);
+    });
+
+    // The JSP stripes on the loop index over every entry, markers included, so a
+    // marker shifts the phase of the rows after it. Striping the tracks alone
+    // would put the wrong rows on the tint the moment a show has a talkset.
+    it("lets a marker take its turn in the zebra", () => {
+      const { container } = renderEntries([
+        entry({ id: 1 }),
+        entry({ id: 2, entry_type: "talkset", message: "TALKSET" }),
+        entry({ id: 3, artist_name: "Cat Power" }),
+      ]);
+      expect(rowClasses(container)).toEqual([
+        "entry-row entry-row-even",
+        "talkset-row",
+        "entry-row entry-row-even",
+      ]);
+    });
+
+    it.each<[NonNullable<FlowsheetRangeEntryWire["entry_type"]>, string]>([
+      ["talkset", "talkset-row"],
+      ["breakpoint", "breakpoint-row"],
+      ["show_start", "breakpoint-row"],
+      ["show_end", "breakpoint-row"],
+    ])("gives a %s row the %s class", (entry_type, expected) => {
+      const { container } = renderEntries([
+        entry({ id: 1, entry_type, message: "MARKER", dj_name: "DJ Chowder" }),
+      ]);
+      expect(rowClasses(container)).toEqual([expected]);
+    });
+
+    it("keeps the highlight alongside the row's own class", () => {
+      const { container } = renderEntries([entry({ id: 1 })]);
+      const { container: marked } = setup({
+        entries: [entry({ id: 1 })],
+        highlightedEntryId: 1,
+      });
+      expect(rowClasses(container)).toEqual(["entry-row entry-row-even"]);
+      expect(rowClasses(marked)).toEqual([
+        "entry-row entry-row-even playlistEntryHighlight",
+      ]);
+    });
   });
 
   it("still reports an empty show rather than rendering a bare table", () => {

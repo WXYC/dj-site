@@ -830,14 +830,9 @@ html[data-experience="classic"][data-joy-color-scheme="dark"] a:visited {
    16px default — about 12pt — and a three-hour show cannot fit at that size no
    matter how the rows are arranged.
 
-   Selectors are re-aimed, not copied. The source targets `.entry-table`, a class
-   dj-site has never had; pasting it verbatim would have produced a print block
-   that parses and styles nothing. The archived show's table is the one inside
-   `.classic-schedule-week-entries`.
-
-   Scoped to the classic experience throughout. Modern renders its own archive
-   surface and is not a tubafrenzy port, so it must not inherit this page's
-   print metrics by accident. */
+   Selectors carry the classic experience scope and are otherwise the source's
+   own. Modern renders its own archive surface and is not a tubafrenzy port, so
+   it must not inherit this page's print metrics by accident. */
 @media print {
 	html[data-experience="classic"] .nav-bar {
 		display: none;
@@ -847,9 +842,15 @@ html[data-experience="classic"][data-joy-color-scheme="dark"] a:visited {
 		font-size: 9pt;
 	}
 
-	html[data-experience="classic"] .classic-schedule-week-entries td,
-	html[data-experience="classic"] .classic-schedule-week-entries th {
+	html[data-experience="classic"] .entry-table td,
+	html[data-experience="classic"] .entry-table th {
 		padding: 2px 4px !important;
+	}
+
+	/* Screen chrome that costs paper. The JSP's page has no inset at all, and
+	   an inch of it across a Letter sheet is a column's worth of the log. */
+	html[data-experience="classic"] .classic-schedule-week {
+		padding: 0;
 	}
 
 	/* The printed page goes back to the JSP's five columns. Time is dj-site's
