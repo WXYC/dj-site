@@ -19,7 +19,7 @@ beforeEach(() => {
 
 describe("Classic catalog SearchForm — live search input", () => {
   beforeEach(() => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.useFakeTimers();
   });
 
   afterEach(() => {
@@ -48,8 +48,8 @@ describe("Classic catalog SearchForm — live search input", () => {
     const input = screen.getByRole("textbox");
     // Kept on fireEvent.change with explicit advances: the subject is the gap between
     // keystrokes relative to the 300ms debounce window, which only a fixed, hand-driven
-    // clock can hold still -- user.type's inter-keystroke timing tracks real wall-clock
-    // time under shouldAdvanceTime, so it can't stand in for a specific elapsed duration.
+    // clock can hold still -- user.type paces keystrokes on its own schedule, so it
+    // can't stand in for a specific elapsed duration.
     fireEvent.change(input, { target: { value: "p" } });
     vi.advanceTimersByTime(100);
     fireEvent.change(input, { target: { value: "po" } });
