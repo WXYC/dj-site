@@ -3,6 +3,7 @@ import nextTypescript from "eslint-config-next/typescript";
 import {
   DOM_DEPENDENT_LIB_TESTS,
   DOM_FREE_TIERS,
+  widenTierGlobToAnyTsFile,
 } from "./tests/setup/vitest-projects.ts";
 
 // `next lint` was removed in Next.js 16 (no `next/dist/cli/next-lint.js`
@@ -134,19 +135,17 @@ const eslintConfig = [
   },
   {
     // The `node` project's tiers only (DOM_FREE_TIERS in
-    // tests/setup/vitest-projects.ts, re-derived here rather than restated
-    // so the two can't drift): the `@/tests/helpers` barrel re-exports
-    // render.tsx, field-value.ts, and component-harness.ts -- all three
-    // import @testing-library/react -- so any import from the barrel (not
-    // just a fixture/constant name) pulls RTL into the node project. Ban the
-    // barrel outright, in both its aliased and relative specifier forms, and
-    // point at the deep paths that are already RTL-free. `ignores` carves
-    // out the DOM_DEPENDENT_LIB_TESTS pins: they sit under tests/unit/lib/**
-    // but run in jsdom-lib, not node, so the barrel ban's justification
-    // doesn't hold for them.
-    files: DOM_FREE_TIERS.map((pattern) =>
-      pattern.replace("*.test.{ts,tsx}", "*.{ts,tsx}"),
-    ),
+    // tests/setup/vitest-projects.ts, widened from "test files only" to
+    // "any ts/tsx file" by widenTierGlobToAnyTsFile so the two can't drift):
+    // the `@/tests/helpers` barrel re-exports render.tsx, field-value.ts, and
+    // component-harness.ts -- all three import @testing-library/react -- so
+    // any import from the barrel (not just a fixture/constant name) pulls RTL
+    // into the node project. Ban the barrel outright, in both its aliased and
+    // relative specifier forms, and point at the deep paths that are already
+    // RTL-free. `ignores` carves out the DOM_DEPENDENT_LIB_TESTS pins: they
+    // sit under tests/unit/lib/** but run in jsdom-lib, not node, so the
+    // barrel ban's justification doesn't hold for them.
+    files: DOM_FREE_TIERS.map(widenTierGlobToAnyTsFile),
     ignores: DOM_DEPENDENT_LIB_TESTS,
     rules: {
       "no-restricted-imports": [
