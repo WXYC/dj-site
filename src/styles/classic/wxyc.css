@@ -821,3 +821,56 @@ html[data-experience="classic"][data-joy-color-scheme="dark"] a:visited {
 	font-size: 0.9em;
 	color: #666;
 }
+
+/* ========== Print ========== */
+
+/* Ported from tubafrenzy's wxyc-shared.css, the one block of it that never came
+   across. Its absence is why an archived show that fit on a sheet and its back
+   now runs to four: with no print size declared, the log prints at the browser's
+   16px default — about 12pt — and a three-hour show cannot fit at that size no
+   matter how the rows are arranged.
+
+   Selectors are re-aimed, not copied. The source targets `.entry-table`, a class
+   dj-site has never had; pasting it verbatim would have produced a print block
+   that parses and styles nothing. The archived show's table is the one inside
+   `.classic-schedule-week-entries`.
+
+   Scoped to the classic experience throughout. Modern renders its own archive
+   surface and is not a tubafrenzy port, so it must not inherit this page's
+   print metrics by accident. */
+@media print {
+	html[data-experience="classic"] .nav-bar {
+		display: none;
+	}
+
+	html[data-experience="classic"] body {
+		font-size: 9pt;
+	}
+
+	html[data-experience="classic"] .classic-schedule-week-entries td,
+	html[data-experience="classic"] .classic-schedule-week-entries th {
+		padding: 2px 4px !important;
+	}
+
+	/* The printed page goes back to the JSP's five columns. Time is dj-site's
+	   addition, and on paper it is the column that breaks the layout: at Letter
+	   width the six do not fit on one line, so every row wraps to two and the
+	   log reads as double-spaced. Dropping it on paper alone keeps the screen
+	   unchanged — the timestamps are still there for anyone who wants them,
+	   they just stop costing a second line on every row of a printout. */
+	html[data-experience="classic"] .classic-schedule-week-time {
+		display: none;
+	}
+
+	/* Tubafrenzy has no dark mode, so its print block had no reason to consider
+	   one. Classic's does, and it paints the body #2D2D2D — which a printer
+	   renders as a solid dark sheet under `printBackground`, or as pale grey text
+	   on white without it. Neither is the page being asked for, and the DJ who
+	   prints every morning would have no idea the theme was the cause. Print is
+	   the light palette, whichever scheme the screen is showing. */
+	html[data-experience="classic"][data-joy-color-scheme="dark"] body,
+	html[data-experience="classic"][data-joy-color-scheme="dark"] {
+		background-color: #FFFFFF;
+		color: #000000;
+	}
+}
