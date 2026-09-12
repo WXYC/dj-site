@@ -172,7 +172,8 @@ describe("flowsheetSlice", () => {
 ```typescript
 import { describe, it, expect } from "vitest";
 import { http, HttpResponse } from "msw";
-import { server, TEST_BACKEND_URL } from "@/tests/helpers";
+import { server } from "@/tests/fakes/server";
+import { TEST_BACKEND_URL } from "@/tests/helpers/constants";
 
 describe("catalogApi", () => {
   it("should fetch albums", async () => {
@@ -204,12 +205,12 @@ describe("MyComponent", () => {
 
 ### Test Utilities
 
-Import test utilities from `@/tests/helpers`:
+Component tests (`tests/integration/`) import from the `@/tests/helpers` barrel. `tests/unit/lib` and `tests/contract` deep-import each name from its own module instead — the barrel is lint-banned in those two tiers because it also re-exports React Testing Library entrypoints. See [`docs/testing.md`](docs/testing.md) for the full deep-path list.
 
-- `renderWithProviders` - Render with Redux and MUI providers
-- `createTestAlbum`, `createTestArtist`, etc. - Factory functions for test data
-- `server` - MSW server instance for API mocking
-- `TEST_BACKEND_URL` - Backend URL constant for MSW handlers
+- `renderWithProviders` - Render with Redux and MUI providers (`@/tests/helpers`, or `@/tests/helpers/render` outside those two tiers)
+- `createTestAlbum`, `createTestArtist`, etc. - Factory functions for test data (`@/tests/helpers`, or `@/tests/fixtures/fixtures`)
+- `server` - MSW server instance for API mocking (`@/tests/helpers`, or `@/tests/fakes/server`)
+- `TEST_BACKEND_URL` - Backend URL constant for MSW handlers (`@/tests/helpers`, or `@/tests/helpers/constants`)
 
 ## Contributing
 Contributions to the WXYC Card Catalog, Revised are welcome! If you would like to contribute, please follow these steps:
