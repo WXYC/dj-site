@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import FlowsheetSearchInput from "@/src/components/experiences/modern/flowsheet/Search/FlowsheetSearchInput";
+import { setFieldValue } from "@/tests/helpers";
 
 const mockDispatch = vi.fn();
 
@@ -45,7 +46,7 @@ describe("FlowsheetSearchInput", () => {
     render(<FlowsheetSearchInput name="artist" value="" />);
 
     const input = screen.getByRole("textbox");
-    fireEvent.change(input, { target: { value: "Juana Molina" } });
+    setFieldValue(input, "Juana Molina");
 
     expect(mockDispatch).toHaveBeenCalledWith({
       type: "setSearchProperty",
@@ -123,9 +124,7 @@ describe("FlowsheetSearchInput", () => {
         />
       );
 
-      fireEvent.change(screen.getByRole("textbox"), {
-        target: { value: "Juana M" },
-      });
+      setFieldValue(screen.getByRole("textbox"), "Juana M");
 
       expect(onThaw).toHaveBeenCalledTimes(1);
       expect(mockDispatch).toHaveBeenCalledWith({
@@ -140,9 +139,7 @@ describe("FlowsheetSearchInput", () => {
         <FlowsheetSearchInput name="artist" value="Juana" onThaw={onThaw} />
       );
 
-      fireEvent.change(screen.getByRole("textbox"), {
-        target: { value: "Juana M" },
-      });
+      setFieldValue(screen.getByRole("textbox"), "Juana M");
 
       expect(onThaw).not.toHaveBeenCalled();
     });
@@ -156,9 +153,7 @@ describe("FlowsheetSearchInput", () => {
         <FlowsheetSearchInput name="artist" value="" onThaw={onThaw} />
       );
 
-      fireEvent.change(screen.getByRole("textbox"), {
-        target: { value: "C" },
-      });
+      setFieldValue(screen.getByRole("textbox"), "C");
 
       expect(onThaw).not.toHaveBeenCalled();
       expect(mockDispatch).toHaveBeenCalledWith({

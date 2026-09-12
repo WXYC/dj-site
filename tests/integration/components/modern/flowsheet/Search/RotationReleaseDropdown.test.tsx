@@ -5,6 +5,7 @@ import {
   createTestAlbum,
   createTestArtist,
   renderWithProviders,
+  setFieldValue,
 } from "@/tests/helpers";
 import type { AlbumEntry, ArtistEntry } from "@/lib/features/catalog/types";
 
@@ -281,7 +282,7 @@ describe("RotationReleaseDropdown — combobox (#745)", () => {
       );
       const input = getCombobox();
       fireEvent.focus(input);
-      fireEvent.change(input, { target: { value: "ste" } });
+      setFieldValue(input, "ste");
       expect(
         screen.queryByTestId("rotation-release-option-3")
       ).toBeInTheDocument(); // Stereolab
@@ -304,7 +305,7 @@ describe("RotationReleaseDropdown — combobox (#745)", () => {
       );
       const input = getCombobox();
       fireEvent.focus(input);
-      fireEvent.change(input, { target: { value: "moon" } });
+      setFieldValue(input, "moon");
       expect(
         screen.queryByTestId("rotation-release-option-2")
       ).toBeInTheDocument(); // Moon Pix
@@ -324,7 +325,7 @@ describe("RotationReleaseDropdown — combobox (#745)", () => {
       );
       const input = getCombobox();
       fireEvent.focus(input);
-      fireEvent.change(input, { target: { value: "zzzz-does-not-exist" } });
+      setFieldValue(input, "zzzz-does-not-exist");
       expect(
         screen.queryAllByTestId(/^rotation-release-option-/)
       ).toHaveLength(0);
@@ -342,8 +343,8 @@ describe("RotationReleaseDropdown — combobox (#745)", () => {
       );
       const input = getCombobox();
       fireEvent.focus(input);
-      fireEvent.change(input, { target: { value: "ste" } });
-      fireEvent.change(input, { target: { value: "" } });
+      setFieldValue(input, "ste");
+      setFieldValue(input, "");
       expect(
         screen.queryAllByTestId(/^rotation-release-option-/)
       ).toHaveLength(3);
@@ -385,7 +386,7 @@ describe("RotationReleaseDropdown — combobox (#745)", () => {
       );
       const input = getCombobox();
       fireEvent.focus(input);
-      fireEvent.change(input, { target: { value: "ste" } });
+      setFieldValue(input, "ste");
       // Filter is applied: Stereolab visible, others hidden.
       expect(
         screen.queryByTestId("rotation-release-option-3")
@@ -572,7 +573,7 @@ describe("RotationReleaseDropdown — null artist (regression)", () => {
     );
     expect(() => {
       fireEvent.focus(getCombobox()); // sortRotationReleases comparator + option render
-      fireEvent.change(getCombobox(), { target: { value: "unt" } }); // matchesQuery
+      setFieldValue(getCombobox(), "unt"); // matchesQuery
     }).not.toThrow();
     expect(screen.getByTestId("rotation-release-panel")).toBeInTheDocument();
   });

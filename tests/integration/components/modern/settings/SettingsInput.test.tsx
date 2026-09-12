@@ -1,10 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { Provider } from "react-redux";
 import { configureStore } from "@reduxjs/toolkit";
 import SettingsInput from "@/src/components/experiences/modern/settings/SettingsInput";
 import { authenticationSlice } from "@/lib/features/authentication/frontend";
 import type { ReactNode } from "react";
+import { setFieldValue } from "@/tests/helpers";
 
 function createTestStore() {
   return configureStore({
@@ -68,7 +69,7 @@ describe("SettingsInput", () => {
     );
 
     const input = screen.getByRole("textbox");
-    fireEvent.change(input, { target: { value: "New Name" } });
+    setFieldValue(input, "New Name");
 
     expect(input).toHaveValue("New Name");
   });
@@ -83,7 +84,7 @@ describe("SettingsInput", () => {
 
     const input = screen.getByRole("textbox");
     // Just verify the change event works without error
-    fireEvent.change(input, { target: { value: "Changed" } });
+    setFieldValue(input, "Changed");
     expect(input).toHaveValue("Changed");
   });
 
@@ -122,7 +123,7 @@ describe("SettingsInput", () => {
       </Wrapper>
     );
 
-    fireEvent.change(screen.getByRole("textbox"), { target: { value: "" } });
+    setFieldValue(screen.getByRole("textbox"), "");
 
     expect(store.getState().authentication.modifications.pronouns).toBe(true);
   });
@@ -136,8 +137,8 @@ describe("SettingsInput", () => {
     );
 
     const input = screen.getByRole("textbox");
-    fireEvent.change(input, { target: { value: "" } });
-    fireEvent.change(input, { target: { value: "they/them" } });
+    setFieldValue(input, "");
+    setFieldValue(input, "they/them");
 
     expect(store.getState().authentication.modifications.pronouns).toBe(false);
   });
@@ -151,8 +152,8 @@ describe("SettingsInput", () => {
     );
 
     const input = screen.getByRole("textbox");
-    fireEvent.change(input, { target: { value: "she/her" } });
-    fireEvent.change(input, { target: { value: "" } });
+    setFieldValue(input, "she/her");
+    setFieldValue(input, "");
 
     expect(store.getState().authentication.modifications.pronouns).toBe(false);
   });

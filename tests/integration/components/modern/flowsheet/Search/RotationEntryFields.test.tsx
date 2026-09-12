@@ -4,6 +4,7 @@ import {
   renderWithProviders,
   createTestAlbum,
   createTestArtist,
+  setFieldValue,
 } from "@/tests/helpers";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import RotationEntryFields from "@/src/components/experiences/modern/flowsheet/Search/RotationEntryFields";
@@ -431,7 +432,7 @@ describe("RotationEntryFields", () => {
       const label = screen.getByTestId("flowsheet-search-label");
       expect(label).toHaveValue("");
 
-      fireEvent.change(label, { target: { value: "Smithsonian Folkways" } });
+      setFieldValue(label, "Smithsonian Folkways");
 
       expect(
         flowsheetSlice.selectors.getSearchQuery(store.getState()).label

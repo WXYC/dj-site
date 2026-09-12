@@ -3,6 +3,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import TrackPickerDropdown, {
   TrackPickerEntry,
 } from "@/src/components/experiences/modern/flowsheet/Search/TrackPickerDropdown";
+import { setFieldValue } from "@/tests/helpers";
 
 const tracks: TrackPickerEntry[] = [
   { position: "A1", title: "Percolator", artists: ["Stereolab"] },
@@ -103,7 +104,7 @@ describe("TrackPickerDropdown — combobox (#745)", () => {
     );
     const input = getCombobox();
     fireEvent.focus(input);
-    fireEvent.change(input, { target: { value: "perc" } });
+    setFieldValue(input, "perc");
     expect(
       screen.queryByTestId("track-picker-option-0")
     ).toBeInTheDocument(); // Percolator
@@ -133,7 +134,7 @@ describe("TrackPickerDropdown — combobox (#745)", () => {
     );
     const input = getCombobox();
     fireEvent.focus(input);
-    fireEvent.change(input, { target: { value: "nurse" } });
+    setFieldValue(input, "nurse");
     expect(
       screen.queryByTestId("track-picker-option-1")
     ).toBeInTheDocument();
@@ -158,7 +159,7 @@ describe("TrackPickerDropdown — combobox (#745)", () => {
     );
     const input = getCombobox();
     fireEvent.focus(input);
-    fireEvent.change(input, { target: { value: "B1" } });
+    setFieldValue(input, "B1");
     expect(
       screen.queryByTestId("track-picker-option-2")
     ).toBeInTheDocument();
@@ -210,7 +211,7 @@ describe("TrackPickerDropdown — combobox (#745)", () => {
     );
     const input = getCombobox();
     fireEvent.focus(input);
-    fireEvent.change(input, { target: { value: "zzzz-nothing" } });
+    setFieldValue(input, "zzzz-nothing");
     expect(
       screen.queryAllByTestId(/^track-picker-option-/)
     ).toHaveLength(0);
@@ -313,7 +314,7 @@ describe("TrackPickerDropdown — combobox (#745)", () => {
     );
     const input = getCombobox();
     fireEvent.focus(input);
-    fireEvent.change(input, { target: { value: "perc" } });
+    setFieldValue(input, "perc");
     expect(
       screen.queryByTestId("track-picker-option-0")
     ).toBeInTheDocument();
