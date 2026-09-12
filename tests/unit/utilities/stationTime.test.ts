@@ -5,6 +5,7 @@ import {
   formatStationClockTime,
   formatStationDateTime,
   formatStationHourLabel,
+  formatLongCalendarDate,
   formatStationLongDate,
   formatStationTimestampLabel,
   isStationHourBreakpointPresent,
@@ -151,6 +152,25 @@ describe("formatStationLongDate — DateTimeManager.DATE_FULL", () => {
     );
   });
 })
+
+describe("formatLongCalendarDate — the same form for a date-only column", () => {
+  it.each([
+    { iso: "2026-09-12", expected: "Saturday, September 12, 2026" },
+    { iso: "2026-01-01", expected: "Thursday, January 1, 2026" },
+    // Both sides of a DST transition: the offset moves, the calendar day
+    // named by the column does not.
+    { iso: "2026-03-08", expected: "Sunday, March 8, 2026" },
+    { iso: "2026-11-01", expected: "Sunday, November 1, 2026" },
+  ])("names the calendar day $iso stands for", ({ iso, expected }) => {
+    expect(formatLongCalendarDate(iso)).toBe(expected);
+  });
+
+  // A `date` column that is NULL is a day that does not exist, and the JSPs
+  // render a blank rather than a placeholder for one.
+  it.each([null, undefined, ""])("renders %s as an empty string", (absent) => {
+    expect(formatLongCalendarDate(absent)).toBe("");
+  });
+});
 
 describe("formatStationTimestampLabel", () => {
   it("renders an abbreviated station-local date and time with the zone label", () => {
