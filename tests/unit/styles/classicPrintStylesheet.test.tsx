@@ -26,6 +26,7 @@ import ClassicShowEntries from "@/src/components/experiences/classic/schedule-we
  */
 
 const CLASSIC_CSS = resolve(__dirname, "../../../src/styles/classic/wxyc.css");
+const SHELL_CSS = resolve(__dirname, "../../../src/styles/globals.css");
 
 // Tubafrenzy's own print values.
 const TUBAFRENZY_PRINT_BODY_FONT_SIZE = "9pt";
@@ -68,8 +69,8 @@ const setup = createComponentHarness<ComponentProps<typeof ClassicShowEntries>>(
   }
 );
 
-const printRules = (): Rule[] => {
-  const root = postcss.parse(readFileSync(CLASSIC_CSS, "utf8"));
+const printRulesIn = (file: string): Rule[] => {
+  const root = postcss.parse(readFileSync(file, "utf8"));
   const rules: Rule[] = [];
   root.walkAtRules("media", (atRule) => {
     if (!/(^|[^-\w])print([^-\w]|$)/.test(atRule.params)) return;
@@ -79,6 +80,8 @@ const printRules = (): Rule[] => {
   });
   return rules;
 };
+
+const printRules = () => printRulesIn(CLASSIC_CSS);
 
 const declaration = (rules: Rule[], property: string) => {
   for (const rule of rules) {
@@ -172,5 +175,49 @@ describe("classic print stylesheet", () => {
       ).toBeGreaterThan(0);
     }
     expect(container).toBeTruthy();
+  });
+});
+
+
+/**
+ * The shell pins itself to the viewport so the dashboard can own its own scroll
+ * regions: `html, body { height: 100%; overflow: hidden }`, `#root > main` at
+ * `100vh`, and `#classic-container` as the classic scrollport. On screen that is
+ * exactly right. On paper it is a guillotine — a printout is the first screenful
+ * and nothing else, however small the type is set.
+ *
+ * That makes this the load-bearing half of printing: without it the print block
+ * above is cosmetic, because the rows it shrinks are being cut off anyway.
+ * Unscoped by experience on purpose — the lock is the shell's, both experiences
+ * sit inside it, and a viewport-locked page is wrong on paper either way.
+ */
+describe("print releases the shell's viewport lock", () => {
+  const VIEWPORT_LOCKED = ["html", "body", "#root > main", "#classic-container"];
+
+  it.each(VIEWPORT_LOCKED)("lets %s grow past one screen when printing", (locked) => {
+    const releasing = printRulesIn(SHELL_CSS).filter((rule) =>
+      rule.selector
+        .split(",")
+        .map((part) => part.trim().replace(/\s+/g, " "))
+        .includes(locked)
+    );
+
+    expect(
+      releasing.length,
+      `nothing in @media print releases ${locked}`
+    ).toBeGreaterThan(0);
+
+    const declarations = releasing.flatMap((rule) =>
+      (rule.nodes ?? []).flatMap((node) =>
+        node.type === "decl" ? [[node.prop, node.value] as const] : []
+      )
+    );
+    const byProp = new Map(declarations);
+
+    // Height has to come off as well as overflow: a box fixed at one viewport
+    // still ends the page there even once it stops hiding what spills out.
+    expect(byProp.get("height")).toBe("auto");
+    const overflow = byProp.get("overflow") ?? byProp.get("overflow-y");
+    expect(overflow).toBe("visible");
   });
 });
