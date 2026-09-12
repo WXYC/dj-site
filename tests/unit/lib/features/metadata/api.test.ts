@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import { http, HttpResponse } from "msw";
 import { metadataApi } from "@/lib/features/metadata/api";
 import { TEST_BACKEND_URL } from "@/tests/helpers/constants";
-import { createTestStore, describeApi, server } from "@/tests/helpers";
+import { server } from "@/tests/fakes/server";
+import { createTestStore } from "@/tests/helpers/store";
+import { describeApi } from "@/tests/helpers/api-harness";
 
 describe("metadataApi", () => {
   describeApi(metadataApi, {

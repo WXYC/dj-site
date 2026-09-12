@@ -1,6 +1,6 @@
 import { describe } from "vitest";
 import { rotationApi } from "@/lib/features/rotation/api";
-import { describeApi } from "@/tests/helpers";
+import { describeApi } from "@/tests/helpers/api-harness";
 
 describe("rotationApi", () => {
   describeApi(rotationApi, {

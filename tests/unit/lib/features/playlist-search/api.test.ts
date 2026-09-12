@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { describeApi } from "@/tests/helpers";
+import { describeApi } from "@/tests/helpers/api-harness";
 import {
   playlistSearchApi,
   isCursorPaginated,

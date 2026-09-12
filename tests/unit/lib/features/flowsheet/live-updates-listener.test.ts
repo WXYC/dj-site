@@ -13,7 +13,7 @@ import { makeStore } from "@/lib/store";
 import { makePublicStore } from "@/lib/store-public";
 import { createTestInsertWirePayload, createTestV2ShowStartEntry } from "@/tests/fixtures/fixtures";
 import { TEST_BACKEND_URL } from "@/tests/helpers/constants";
-import { server } from "@/tests/helpers";
+import { server } from "@/tests/fakes/server";
 
 // The live-updates connection state is owned per store. Reach a store's
 // EventSource / reconnect flag through its listener handle.

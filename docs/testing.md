@@ -34,29 +34,23 @@ and server (`tests/fakes/`), and fixture factories (`tests/fixtures/`). Importin
 one of those names evaluates the whole graph -- Redux, all 13 RTK Query APIs, and MUI
 Joy -- because `render.tsx` sits in the same barrel.
 
-Specs in the `node` project (see [Environments](#environments): `tests/unit/lib` and
-`tests/contract`) whose only need is fixtures, constants, or the conversion harness
-should import those modules directly instead of going through the barrel, since the
-barrel's render/store cost is otherwise paid for nothing:
+Specs in the `node` project (see [Environments](#environments): `tests/unit/lib` and `tests/contract`) import none of those names from the barrel -- fixtures, constants, the conversion harness, `server`, `createTestStore`, and the slice/API harnesses all come from their own modules instead:
 
 ```typescript
 import { createTestAlbum, createTestArtist } from "@/tests/fixtures/fixtures";
 import { TEST_ENTITY_IDS, TEST_SEARCH_STRINGS } from "@/tests/helpers/constants";
 import { describeConversion } from "@/tests/helpers/conversion-harness";
+import { server } from "@/tests/fakes/server";
+import { createTestStore } from "@/tests/helpers/store";
+import { describeSlice } from "@/tests/helpers/slice-harness";
+import { describeApi } from "@/tests/helpers/api-harness";
 ```
 
-Evaluating the barrel still pulls in the whole render/store graph even when a spec
-only reads a fixture from it, so a spec that also needs `server`, `createTestStore`,
-or a slice/API harness pays that cost regardless of whether its fixture imports are
-split out -- splitting them out saves that spec nothing on its own.
+Evaluating the barrel pulls in the whole render/store graph regardless of which name a spec reaches for, so a partial split -- deep-importing fixtures while still pulling `server` or `createTestStore` from the barrel -- buys nothing; only leaving the barrel out of the file entirely removes the cost.
 
-`eslint.config.mjs` requires the split anyway: a `no-restricted-imports` override on `tests/unit/lib/**` and `tests/contract/**` makes importing a name matching `createTest*` (except `createTestStore`), `TEST_*`, or `describeConversion` from `@/tests/helpers` in those tiers a lint error, even on a spec that still imports `server`, `createTestStore`, `describeSlice`, or `describeApi` from the barrel elsewhere in the same file. `createTestStore` is carved out of the pattern because it lives in `render.tsx` alongside `renderWithProviders`, not in the fixture factories -- a spec pulling it from the barrel already pays the barrel's cost, so there is nothing to save by deep-importing it. The error message names the deep paths for fixtures, constants, and the conversion harness. The rule is scoped by imported name rather than a blanket barrel ban, since node-tier specs still legitimately pull `server`, `createTestStore`, and the slice/API harnesses from the barrel -- it is one step toward a barrel-free `node` tier, not the whole of it.
+`eslint.config.mjs` enforces that: a `no-restricted-imports` override on `tests/unit/lib/**` and `tests/contract/**` bans importing anything from `@/tests/helpers` in those tiers, full stop -- there's no per-name carve-out, since the barrel's render/store graph is paid for by importing any name from it, not just a particular one. The error message names the deep path for each re-export: fixtures from `@/tests/fixtures/fixtures`, constants from `@/tests/helpers/constants`, `describeConversion` from `@/tests/helpers/conversion-harness`, `server` from `@/tests/fakes/server`, `createTestStore` from `@/tests/helpers/store`, `describeSlice` from `@/tests/helpers/slice-harness`, and `describeApi` from `@/tests/helpers/api-harness`.
 
-Component specs (`tests/integration/`) that need only `renderWithProviders` may deep-import
-it from `@/tests/helpers/render` -- the lint rule above doesn't apply to that tier, and
-paying the barrel's render/store cost there buys nothing extra. What's not permitted in
-any tier is importing both the barrel and `@/tests/helpers/render` in the same spec --
-the deep import buys nothing once the barrel is already paid for.
+Component specs (`tests/integration/`) that need only `renderWithProviders` may deep-import it from `@/tests/helpers/render` -- paying the barrel's render/store cost there buys nothing extra, since the tier is already `jsdom` and RTL-dependent. Importing both the barrel and `@/tests/helpers/render` in the same spec is never useful, since the deep import buys nothing once the barrel is already paid for; in `tests/unit/lib` and `tests/contract` that combination is now a lint error because the barrel is banned outright, while in `tests/integration` it remains a convention with no lint rule behind it.
 
 ### Rendering
 
@@ -313,7 +307,7 @@ The pinned specs are the `tests/unit/lib` files that reach a real `window` (stor
 
 When adding a lib spec that needs a browser global, prefer stubbing it on `globalThis` (the pattern `vitest.setup.ts` uses for `EventSource` and `localStorage`) so it stays in the node project; add it to `DOM_DEPENDENT_LIB_TESTS` only when the test's subject is genuinely the `window` binding itself.
 
-See [Setup](#setup) for what each of `tests/setup/vitest.setup.ts` and `tests/setup/vitest.setup.dom.ts` covers and which projects wire it in. Only the latter appears in the `jsdom` and `jsdom-lib` projects' own `setupFiles`, so the `node` project never evaluates `@testing-library/jest-dom`. `@testing-library/react` is a different story: 35 of the node-tier specs import `@/tests/helpers`, whose barrel re-exports `render.tsx` and `field-value.ts`, and both of those import RTL -- so RTL still reaches the `node` project, through the barrel, even though jest-dom does not. The `jsdom` project's `exclude` reuses `DOM_FREE_TIERS` rather than restating the two node-tier patterns. CI's `--changed` and `--shard` invocations operate across all projects' merged file sets.
+See [Setup](#setup) for what each of `tests/setup/vitest.setup.ts` and `tests/setup/vitest.setup.dom.ts` covers and which projects wire it in. Only the latter appears in the `jsdom` and `jsdom-lib` projects' own `setupFiles`, so the `node` project never evaluates `@testing-library/jest-dom`. `@testing-library/react` is no longer a different story: the `no-restricted-imports` override on `tests/unit/lib/**` and `tests/contract/**` (see the Test Utilities section above) bans importing `@/tests/helpers` outright, and its two RTL entrypoints -- `render.tsx` and `field-value.ts` -- are unreachable from the node tier without it, so the `node` project never evaluates `@testing-library/react` either. The `jsdom` project's `exclude` reuses `DOM_FREE_TIERS` rather than restating the two node-tier patterns. CI's `--changed` and `--shard` invocations operate across all projects' merged file sets.
 
 ## Test Conventions
 

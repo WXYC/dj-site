@@ -5,7 +5,7 @@ import {
 } from "@/lib/features/flowsheet/frontend";
 import { createTestFlowsheetQuery, createTestFlowsheetEntry } from "@/tests/fixtures/fixtures";
 import { TEST_SEARCH_STRINGS, TEST_ENTITY_IDS } from "@/tests/helpers/constants";
-import { describeSlice } from "@/tests/helpers";
+import { describeSlice } from "@/tests/helpers/slice-harness";
 import type { FlowsheetFrontendState, FlowsheetEntry } from "@/lib/features/flowsheet/types";
 import { convertQueryToSubmission } from "@/lib/features/flowsheet/conversions";
 

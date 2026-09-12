@@ -2,7 +2,8 @@ import { describe, it, expect, vi } from "vitest";
 import { http, HttpResponse } from "msw";
 import { createTestArtistCrossReference, createTestReleaseCrossReference } from "@/tests/fixtures/fixtures";
 import { TEST_BACKEND_URL } from "@/tests/helpers/constants";
-import { createTestStore, server } from "@/tests/helpers";
+import { server } from "@/tests/fakes/server";
+import { createTestStore } from "@/tests/helpers/store";
 import { catalogApi } from "@/lib/features/catalog/api";
 import { CROSSREFERENCE_QUERY_MAX_LIMIT } from "@/lib/features/catalog/constants";
 

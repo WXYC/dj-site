@@ -4,7 +4,8 @@ import { http, HttpResponse } from "msw";
 import { rotationApi } from "@/lib/features/rotation/api";
 import { rtkQueryErrorLogger } from "@/lib/rtk-query-error-logger";
 import { TEST_BACKEND_URL } from "@/tests/helpers/constants";
-import { describeApi, server } from "@/tests/helpers";
+import { server } from "@/tests/fakes/server";
+import { describeApi } from "@/tests/helpers/api-harness";
 
 vi.mock("@/lib/features/authentication/client", () => ({
   getJWTToken: vi.fn().mockResolvedValue("test-token"),

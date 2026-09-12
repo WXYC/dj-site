@@ -1,6 +1,7 @@
 export * from "./constants";
 export * from "./time.vitest";
 export * from "../fixtures/fixtures";
+export * from "./store";
 export * from "./render";
 export * from "./field-value";
 

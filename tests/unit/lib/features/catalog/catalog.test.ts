@@ -5,7 +5,8 @@ import { convertToAlbumEntry } from "@/lib/features/catalog/conversions";
 import { createTestAlbumSearchResult, createTestBinResponse } from "@/tests/fixtures/fixtures";
 import { TEST_ENTITY_IDS, TEST_SEARCH_STRINGS } from "@/tests/helpers/constants";
 import { describeConversionWithAssertions } from "@/tests/helpers/conversion-harness";
-import { describeApi, describeSlice } from "@/tests/helpers";
+import { describeSlice } from "@/tests/helpers/slice-harness";
+import { describeApi } from "@/tests/helpers/api-harness";
 import { Rotation } from "@/lib/features/rotation/types";
 
 describe("catalogApi", () => {
