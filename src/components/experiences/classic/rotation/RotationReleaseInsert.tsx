@@ -11,7 +11,8 @@ import {
 } from "@/lib/features/rotation/types";
 import { useAddFreeTextRotationEntryMutation } from "@/lib/features/rotation/api";
 import { useGetFormatsQuery } from "@/lib/features/catalog/api";
-import { rotationAddErrorMessage } from "@/lib/features/rotation/addErrorMessage";
+import { rotationReleaseRefusal } from "@/lib/features/rotation/releaseFormValidation";
+import { rotationWriteErrorMessage } from "@/lib/features/rotation/writeErrorMessage";
 import CompanyAutocomplete from "./CompanyAutocomplete";
 
 const DEFAULT_BIN = RotationBin.H;
@@ -93,16 +94,16 @@ export default function RotationReleaseInsert() {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    if (artistPresentationName.trim() === "") {
-      setValidationMessage("Please enter a presentation name.");
-      return;
-    }
-    if (title.trim() === "") {
-      setValidationMessage("Please enter a title.");
-      return;
-    }
-    if (selectedFormatId == null) {
-      setValidationMessage("Please select a format.");
+    const refusal = rotationReleaseRefusal({
+      artistName: artistPresentationName,
+      title,
+      formatId: selectedFormatId,
+    });
+    // The second clause is the compiler's, not the rule's: the refusal above
+    // has already turned a null format away, but it says so in a sentence
+    // rather than in the type, and the body below needs the narrowing.
+    if (refusal || selectedFormatId == null) {
+      setValidationMessage(refusal);
       return;
     }
 
@@ -129,17 +130,7 @@ export default function RotationReleaseInsert() {
       await addFreeTextRotationEntry(body).unwrap();
       router.push("/dashboard/rotation");
     } catch (err) {
-      // `addFreeTextRotationEntry`'s `transformErrorResponse` nests the real
-      // error under `rotationAddError` (mirroring `labelsApi.searchLabels`)
-      // so the shared rejected-query middleware's `payload.data.message`
-      // lookup does not find it and double-toast; `.unwrap()` throws exactly
-      // that transformed shape, so it is unwrapped one level here before
-      // `rotationAddErrorMessage` reads the server's actual message back out.
-      const original =
-        err && typeof err === "object" && "rotationAddError" in err
-          ? (err as { rotationAddError?: unknown }).rotationAddError
-          : err;
-      setValidationMessage(rotationAddErrorMessage(original));
+      setValidationMessage(rotationWriteErrorMessage(err, "Failed to add rotation release."));
     }
   };
 

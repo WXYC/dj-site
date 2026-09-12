@@ -1,22 +1,24 @@
 import { describe, it, expect } from "vitest";
-import { flowsheetWriteErrorMessage } from "@/lib/features/flowsheet/submission-error";
+import { backendWriteErrorMessage } from "@/lib/backend-error-message";
 
-describe("flowsheetWriteErrorMessage", () => {
+const FALLBACK = "Could not add to flowsheet";
+
+describe("backendWriteErrorMessage", () => {
   it("prefers the reason Backend-Service sent", () => {
     expect(
-      flowsheetWriteErrorMessage({ status: 400, data: { message: "Show not live" } })
+      backendWriteErrorMessage({ status: 400, data: { message: "Show not live" } }, FALLBACK)
     ).toBe("Show not live");
   });
 
   it("falls back to an Error's message", () => {
-    expect(flowsheetWriteErrorMessage(new Error("Network request failed"))).toBe(
+    expect(backendWriteErrorMessage(new Error("Network request failed"), FALLBACK)).toBe(
       "Network request failed"
     );
   });
 
   // The shared write path rejects with a bare string when no DJ is signed in.
   it("passes a rejected string through", () => {
-    expect(flowsheetWriteErrorMessage("User not logged in")).toBe(
+    expect(backendWriteErrorMessage("User not logged in", FALLBACK)).toBe(
       "User not logged in"
     );
   });
@@ -27,12 +29,12 @@ describe("flowsheetWriteErrorMessage", () => {
     { label: "an empty object", err: {} },
     { label: "a payload with no message", err: { data: {} } },
     { label: "a non-string message", err: { data: { message: 42 } } },
-  ])("falls back to generic copy for $label", ({ err }) => {
-    expect(flowsheetWriteErrorMessage(err)).toBe("Could not add to flowsheet");
+  ])("falls back to the caller's own copy for $label", ({ err }) => {
+    expect(backendWriteErrorMessage(err, FALLBACK)).toBe(FALLBACK);
   });
 
   // Interpolating the raw error is what produced "[object Object]".
   it("never renders an object placeholder", () => {
-    expect(flowsheetWriteErrorMessage({ status: 500 })).not.toContain("[object");
+    expect(backendWriteErrorMessage({ status: 500 }, FALLBACK)).not.toContain("[object");
   });
 });

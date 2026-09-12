@@ -1,7 +1,7 @@
 "use client";
 
 import { hasLinkedAlbumId } from "@/lib/features/flowsheet/linkage";
-import { flowsheetWriteErrorMessage } from "@/lib/features/flowsheet/submission-error";
+import { backendWriteErrorMessage } from "@/lib/backend-error-message";
 import {
   FlowsheetSongEntry,
   FlowsheetSubmissionParams,
@@ -55,7 +55,7 @@ export function usePlayNow(entry: FlowsheetSongEntry) {
         removeFromQueue(entry.id);
       })
       .catch((error) => {
-        toast.error(flowsheetWriteErrorMessage(error));
+        toast.error(backendWriteErrorMessage(error, "Could not add to flowsheet"));
       });
   }, [addToFlowsheet, removeFromQueue, entry]);
 }

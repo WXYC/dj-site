@@ -22,6 +22,11 @@ import {
 import { formatRotationDate } from "@/lib/features/rotation/classicList";
 import { artistShelfCode, suggestCallLetters } from "@/lib/features/rotation/importSuggestions";
 import {
+  FORMAT_REQUIRED_MESSAGE,
+  PRESENTATION_NAME_REQUIRED_MESSAGE,
+  TITLE_REQUIRED_MESSAGE,
+} from "@/lib/features/rotation/releaseFormValidation";
+import {
   runRotationImport,
   type ImportOutcome,
   type ImportRequest,
@@ -243,8 +248,8 @@ export default function RotationImportScreen({ rotationId }: { rotationId: numbe
     codeNumberValue != null && shelf.some((entry) => entry.code_number === codeNumberValue);
 
   const validateRelease = (): string | null => {
-    if (release.title.trim() === "") return "Please enter a title.";
-    if (release.formatId == null) return "Please select a format.";
+    if (release.title.trim() === "") return TITLE_REQUIRED_MESSAGE;
+    if (release.formatId == null) return FORMAT_REQUIRED_MESSAGE;
     if (codeNumberValue == null) return "Please enter a call number.";
     if (needsLabel && release.label.trim() === "" && release.labelId == null) {
       return "Please enter a record label name, or click 'self-released'.";
@@ -359,7 +364,7 @@ export default function RotationImportScreen({ rotationId }: { rotationId: numbe
 
   const submitNewArtist = () => {
     if (newArtist.presentationName.trim() === "") {
-      setValidationMessage("Please enter a presentation name.");
+      setValidationMessage(PRESENTATION_NAME_REQUIRED_MESSAGE);
       return;
     }
     if (newArtist.genreId == null) {

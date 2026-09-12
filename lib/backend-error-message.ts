@@ -1,21 +1,19 @@
 /**
- * The message to show a DJ when a flowsheet write fails.
+ * The message to put in front of a user when a Backend-Service write is
+ * refused.
  *
  * Backend-Service reports a refused write as an RTK Query error whose
- * `data.message` carries the reason a DJ can act on ("Show not live", a
+ * `data.message` carries the reason the user can act on ("Show not live", a
  * validation complaint); everything outside that shape — a thrown `Error`, a
  * rejected string, a network failure — has no such reason and falls back.
  * Interpolating the error object directly renders "[object Object]" and
- * strands the DJ, which is the whole point of unwrapping it here.
+ * strands the user, which is the whole point of unwrapping it here.
  *
- * `fallback` names the action that failed, for the paths where the default
- * would describe the wrong one — going live is not adding to the flowsheet,
- * and a DJ told otherwise looks in the wrong place.
+ * `fallback` names the action that failed and has no default: this is shared
+ * across features, so any default would be some other screen's sentence, and a
+ * user told the wrong action failed looks in the wrong place.
  */
-export function flowsheetWriteErrorMessage(
-  err: unknown,
-  fallback = "Could not add to flowsheet"
-): string {
+export function backendWriteErrorMessage(err: unknown, fallback: string): string {
   if (
     err &&
     typeof err === "object" &&
