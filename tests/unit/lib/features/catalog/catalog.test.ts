@@ -2,15 +2,10 @@ import { describe, it, expect } from "vitest";
 import { catalogApi } from "@/lib/features/catalog/api";
 import { catalogSlice, defaultCatalogFrontendState } from "@/lib/features/catalog/frontend";
 import { convertToAlbumEntry } from "@/lib/features/catalog/conversions";
-import {
-  describeApi,
-  describeSlice,
-  describeConversionWithAssertions,
-  createTestAlbumSearchResult,
-  createTestBinResponse,
-  TEST_ENTITY_IDS,
-  TEST_SEARCH_STRINGS,
-} from "@/tests/helpers";
+import { createTestAlbumSearchResult, createTestBinResponse } from "@/tests/fixtures/fixtures";
+import { TEST_ENTITY_IDS, TEST_SEARCH_STRINGS } from "@/tests/helpers/constants";
+import { describeConversionWithAssertions } from "@/tests/helpers/conversion-harness";
+import { describeApi, describeSlice } from "@/tests/helpers";
 import { Rotation } from "@/lib/features/rotation/types";
 
 describe("catalogApi", () => {

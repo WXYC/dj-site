@@ -3,7 +3,8 @@ import { configureStore } from "@reduxjs/toolkit";
 import { http, HttpResponse } from "msw";
 import { labelsApi, useSearchLabelsQuery } from "@/lib/features/labels/api";
 import { rtkQueryErrorLogger } from "@/lib/rtk-query-error-logger";
-import { describeApi, server, TEST_BACKEND_URL } from "@/tests/helpers";
+import { TEST_BACKEND_URL } from "@/tests/helpers/constants";
+import { describeApi, server } from "@/tests/helpers";
 
 vi.mock("@/lib/features/authentication/client", () => ({
   getJWTToken: vi.fn().mockResolvedValue("test-token"),

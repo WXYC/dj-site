@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { act, screen, waitFor, within } from "@testing-library/react";
-import { createTestStore, server } from "@/tests/helpers";
-import { renderWithProviders } from "@/tests/helpers/render";
+import { createTestStore, server, renderWithProviders } from "@/tests/helpers";
 import { playlistSearchFake } from "@/tests/fakes/playlistSearch";
 
 // The base query's prepareHeaders fetches a JWT; no auth server runs here.

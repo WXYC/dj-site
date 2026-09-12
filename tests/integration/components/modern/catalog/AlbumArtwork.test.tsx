@@ -1,7 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { screen } from "@testing-library/react";
-import { createTestAlbum, createTestArtist } from "@/tests/helpers";
-import { renderWithProviders } from "@/tests/helpers/render";
+import { createTestAlbum, createTestArtist, renderWithProviders } from "@/tests/helpers";
 import { AlbumArtwork } from "@/src/components/experiences/modern/catalog/AlbumArtwork";
 
 describe("AlbumArtwork artwork_url priority", () => {

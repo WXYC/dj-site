@@ -5,7 +5,8 @@ import {
   scheduleWeekApi,
   useGetFlowsheetRangeQuery,
 } from "@/lib/features/schedule-week/api";
-import { describeApi, server, TEST_BACKEND_URL } from "@/tests/helpers";
+import { TEST_BACKEND_URL } from "@/tests/helpers/constants";
+import { describeApi, server } from "@/tests/helpers";
 
 vi.mock("@/lib/features/authentication/client", () => ({
   getJWTToken: vi.fn().mockResolvedValue("test-token"),

@@ -47,6 +47,19 @@ A spec that also needs `server`, `createTestStore`, or a slice/API harness alrea
 pays the barrel's cost and should just import everything from `@/tests/helpers` --
 splitting the fixture import out in that case saves nothing.
 
+`eslint.config.mjs` enforces the DOM-free half of this with a `no-restricted-imports`
+override on `tests/unit/lib/**` and `tests/contract/**`: importing a name matching
+`createTest*`, `TEST_*`, or `describeConversion` from `@/tests/helpers` in those tiers
+is a lint error naming the deep path to use instead. The rule is scoped by imported
+name rather than a blanket barrel ban, since node-tier specs still legitimately pull
+`describeSlice`, `describeApi`, `server`, or `createTestStore` from the barrel.
+
+Component specs (`tests/integration/`) that need only `renderWithProviders` may deep-import
+it from `@/tests/helpers/render` -- the lint rule above doesn't apply to that tier, and
+paying the barrel's render/store cost there buys nothing extra. What's not permitted in
+any tier is importing both the barrel and `@/tests/helpers/render` in the same spec --
+the deep import buys nothing once the barrel is already paid for.
+
 ### Rendering
 
 - **`renderWithProviders(ui, options?)`** -- Wraps component in Redux `Provider` + MUI `CssVarsProvider`. Returns `{ ...rtlResult, store, user }`. Seed state with `preloadedState` (the store is built for you). If you need to share a store across multiple renders or interact with it before rendering, build it yourself with `createTestStore(preloadedState?)` and pass it as `store`. `store` and `preloadedState` are mutually exclusive -- passing both is a compile error, since a supplied store already has its own state and `preloadedState` would be silently discarded.

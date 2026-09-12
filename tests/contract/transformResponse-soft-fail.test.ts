@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { http, HttpResponse } from "msw";
-import { server, TEST_BACKEND_URL, createTestStore } from "@/tests/helpers";
+import { TEST_BACKEND_URL } from "@/tests/helpers/constants";
+import { server, createTestStore } from "@/tests/helpers";
 import { catalogApi } from "@/lib/features/catalog/api";
 import { rotationApi } from "@/lib/features/rotation/api";
 import { lmlApi } from "@/lib/features/lml/api";
