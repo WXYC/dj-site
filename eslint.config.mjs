@@ -15,6 +15,13 @@ const TEST_FILES = [
   "tests/**/*.{ts,tsx}",
 ];
 
+// Every re-export the barrel offers, with the RTL-free deep path that
+// replaces it. render.tsx, field-value.ts, and component-harness.ts are
+// deliberately absent — the node project has no RTL-free path to them, since
+// importing any of the three pulls in @testing-library/react.
+const BARREL_BAN_MESSAGE =
+  "Import fixtures from @/tests/fixtures/fixtures, constants from @/tests/helpers/constants, time utilities from @/tests/helpers/time.vitest, describeConversion from @/tests/helpers/conversion-harness, server from @/tests/fakes/server, createTestStore from @/tests/helpers/store, describeSlice from @/tests/helpers/slice-harness, describeApi from @/tests/helpers/api-harness, handlers from @/tests/fakes/handlers, libraryTracksHandler/ONE_TRACK from @/tests/fakes/libraryTracks, and fakeRotationEndpoints/fakeRotationEndpointsWithGatedKill from @/tests/fakes/rotation instead of the @/tests/helpers barrel.";
+
 /** @type {import("eslint").Linter.Config[]} */
 const eslintConfig = [
   ...nextCoreWebVitals,
@@ -123,11 +130,11 @@ const eslintConfig = [
   },
   {
     // DOM-free tiers only: the `@/tests/helpers` barrel re-exports
-    // render.tsx and field-value.ts, both of which import
-    // @testing-library/react, so any import from the barrel (not just a
-    // fixture/constant name) pulls RTL into the node project. Ban the
-    // barrel outright and point at the deep paths that are already
-    // RTL-free.
+    // render.tsx, field-value.ts, and component-harness.ts -- all three
+    // import @testing-library/react -- so any import from the barrel (not
+    // just a fixture/constant name) pulls RTL into the node project. Ban the
+    // barrel outright, in both its aliased and relative specifier forms, and
+    // point at the deep paths that are already RTL-free.
     files: ["tests/unit/lib/**/*.{ts,tsx}", "tests/contract/**/*.{ts,tsx}"],
     rules: {
       "no-restricted-imports": [
@@ -139,8 +146,19 @@ const eslintConfig = [
               // gitignore-style prefix) matches only the barrel itself, not
               // the permitted @/tests/helpers/constants deep import.
               regex: "^@/tests/helpers$",
-              message:
-                "Import fixtures from @/tests/fixtures/fixtures, constants from @/tests/helpers/constants, describeConversion from @/tests/helpers/conversion-harness, server from @/tests/fakes/server, createTestStore from @/tests/helpers/store, describeSlice from @/tests/helpers/slice-harness, and describeApi from @/tests/helpers/api-harness instead of the @/tests/helpers barrel.",
+              message: BARREL_BAN_MESSAGE,
+            },
+            {
+              // A relative specifier for the same barrel module ("../helpers"
+              // from tests/contract, "../../helpers" from tests/unit/lib,
+              // one more "../" per extra level of nesting) resolves
+              // identically but doesn't match the alias regex above -- it
+              // evades the rule and reintroduces RTL into the node project
+              // exactly as the aliased form would. Anchored at both ends so
+              // it doesn't also catch a legitimate deeper import such as
+              // "../../helpers/store".
+              regex: "^(\\.\\./)+helpers$",
+              message: BARREL_BAN_MESSAGE,
             },
           ],
         },
