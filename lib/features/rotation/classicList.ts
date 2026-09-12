@@ -124,9 +124,17 @@ export function toDisplayRowFromList(row: RotationListRow, now: Date = new Date(
  * checked with `hasLinkedAlbumId` rather than assumed, so a future change to
  * the endpoint's predicate would show as a Cataloged row here instead of
  * silently mislabeling one as Uncataloged.
+ *
+ * `formatNames` is a parameter rather than something this module fetches,
+ * because the endpoint publishes `format_id` and no name, deliberately: these
+ * are the rotation row's own pre-catalog fields, read without a join, and the
+ * names are catalog state the caller already holds. A format the map cannot
+ * name renders as the em dash rather than as its id -- most rows predate the
+ * column and carry none at all, and an id is not a name.
  */
 export function toDisplayRowFromUncatalogued(
   row: UncataloguedRotationRow,
+  formatNames?: ReadonlyMap<number, string>,
   now: Date = new Date(),
 ): RotationDisplayRow {
   return {
@@ -135,7 +143,7 @@ export function toDisplayRowFromUncatalogued(
     title: row.album_title ?? "",
     label: row.record_label ?? "",
     bin: row.rotation_bin,
-    formatName: EM_DASH,
+    formatName: (row.format_id != null ? formatNames?.get(row.format_id) : undefined) ?? EM_DASH,
     addedDisplay: formatRotationDate(row.add_date),
     killedDisplay: row.kill_date == null ? null : formatRotationDate(row.kill_date),
     active: isRotationRowActive(row.kill_date, now),

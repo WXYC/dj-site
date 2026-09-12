@@ -10,6 +10,7 @@ import {
   type FreeTextRotationAddRequest,
 } from "@/lib/features/rotation/types";
 import { useAddFreeTextRotationEntryMutation } from "@/lib/features/rotation/api";
+import { useGetFormatsQuery } from "@/lib/features/catalog/api";
 import { rotationAddErrorMessage } from "@/lib/features/rotation/addErrorMessage";
 import CompanyAutocomplete from "./CompanyAutocomplete";
 
@@ -32,8 +33,9 @@ const DEFAULT_BIN = RotationBin.H;
  *   explicitly rejects it (`ROTATION_NO_COLUMN_FIELDS` in
  *   `apps/backend/controllers/library.controller.ts`) for exactly that
  *   reason.
- * - **Format + "Additional size info".** No column -- format lives on
- *   `library.format_id`, which only exists once a release is catalogued.
+ * - **"Additional size info"** (`FORMAT_SIZE`). No column on `rotation`, and
+ *   nothing to carry over: the field is populated on none of the rotation
+ *   rows that exist.
  * - **Date Added To Rotation** (the JSP's 23-days-back picker). `add_date`
  *   has a column, but `pickAddRotationFields` never reads it from the
  *   request body on `POST`: the controller's own comment states
@@ -61,20 +63,30 @@ export default function RotationReleaseInsert() {
   const router = useRouter();
   const presentationNameId = useId();
   const titleId = useId();
+  const formatId = useId();
 
   const [artistPresentationName, setArtistPresentationName] = useState("");
   const [title, setTitle] = useState("");
   const [rotationBin, setRotationBin] = useState<RotationBin>(DEFAULT_BIN);
   const [recordLabel, setRecordLabel] = useState("");
+  // The label the typed text resolved to, when it resolved to one at all.
+  // Separate from the text because the two can disagree: editing the box
+  // after a match un-names the label it matched, and carrying the stale id
+  // would file the row under a label whose name is no longer on screen.
+  const [recordLabelId, setRecordLabelId] = useState<number | null>(null);
+  const [selectedFormatId, setSelectedFormatId] = useState<number | null>(null);
   const [validationMessage, setValidationMessage] = useState<string | null>(null);
 
   const [addFreeTextRotationEntry, { isLoading }] = useAddFreeTextRotationEntryMutation();
+  const { data: formats } = useGetFormatsQuery();
 
   const resetFields = () => {
     setArtistPresentationName("");
     setTitle("");
     setRotationBin(DEFAULT_BIN);
     setRecordLabel("");
+    setRecordLabelId(null);
+    setSelectedFormatId(null);
     setValidationMessage(null);
   };
 
@@ -87,6 +99,10 @@ export default function RotationReleaseInsert() {
     }
     if (title.trim() === "") {
       setValidationMessage("Please enter a title.");
+      return;
+    }
+    if (selectedFormatId == null) {
+      setValidationMessage("Please select a format.");
       return;
     }
 
@@ -102,6 +118,11 @@ export default function RotationReleaseInsert() {
       // written as a blank label rather than leaving the row unlabeled,
       // which is what "self-released" (an empty field) means.
       ...(trimmedLabel !== "" ? { record_label: trimmedLabel } : {}),
+      format_id: selectedFormatId,
+      // Omitted rather than sent as null: Backend picks this field with
+      // `!= null`, so a null would be dropped anyway -- and sending one
+      // states a value the form does not have.
+      ...(recordLabelId != null ? { label_id: recordLabelId } : {}),
     };
 
     try {
@@ -185,6 +206,29 @@ export default function RotationReleaseInsert() {
             </tr>
             <tr>
               <td className="redlabel" style={{ textAlign: "right" }}>
+                <label htmlFor={formatId}>
+                  <b>Format:</b>
+                </label>
+              </td>
+              <td colSpan={3} className="label">
+                <select
+                  id={formatId}
+                  aria-label="Format"
+                  value={selectedFormatId ?? ""}
+                  disabled={isLoading}
+                  onChange={(e) => setSelectedFormatId(e.target.value ? Number(e.target.value) : null)}
+                >
+                  <option value="">-- Choose a format --</option>
+                  {(formats ?? []).map((format) => (
+                    <option key={format.id} value={format.id}>
+                      {format.format_name}
+                    </option>
+                  ))}
+                </select>
+              </td>
+            </tr>
+            <tr>
+              <td className="redlabel" style={{ textAlign: "right" }}>
                 <b>Rotation:</b>
               </td>
               <td colSpan={3}>
@@ -211,11 +255,19 @@ export default function RotationReleaseInsert() {
               <td className="label">
                 <CompanyAutocomplete
                   value={recordLabel}
-                  onChange={setRecordLabel}
+                  onChange={(next) => {
+                    setRecordLabel(next);
+                    setRecordLabelId(null);
+                  }}
                   // Typing a name an existing label already has canonicalizes
                   // to that label's own spelling, so "sonamos" and "Sonamos"
-                  // do not become two different `record_label` strings.
-                  onSelect={(label) => setRecordLabel(label.label_name)}
+                  // do not become two different `record_label` strings -- and
+                  // carries the label's id, so the row normalizes upstream
+                  // instead of leaving the text to be matched again later.
+                  onSelect={(label) => {
+                    setRecordLabel(label.label_name);
+                    setRecordLabelId(label.id);
+                  }}
                   disabled={isLoading}
                 />
                 <span style={{ fontSize: "x-small" }}>
@@ -224,6 +276,7 @@ export default function RotationReleaseInsert() {
                     onClick={(e) => {
                       e.preventDefault();
                       setRecordLabel("");
+                      setRecordLabelId(null);
                     }}
                   >
                     self-released

@@ -19,11 +19,9 @@ const NO_LABELS: Label[] = [];
  * field the browser fills in on an exact text match. That is deliberately
  * the interaction model reproduced here (`Do not modernize interactions`):
  * a native input/datalist pair, not the modern `LabelSearchTypeahead`'s
- * custom listbox (MUI, keyboard-navigable, arrow-key highlight) -- that
- * component exists because its caller needs a `label_id` on the wire
- * (`AddReleasePanel`); the free-text rotation add this feeds submits
- * `record_label` as a plain string, so there is no id to carry and no
- * reason to import the heavier interaction it was built for.
+ * custom listbox (MUI, keyboard-navigable, arrow-key highlight). The
+ * interaction model is the reason, and it is the only reason: classic renders
+ * no MUI, and the JSP's pair is what a librarian's hands already know.
  *
  * One deliberate divergence from the JSP, forced by this codebase's own
  * outage-rendering convention: `autocomplete-wrappers.ts`'s fetch failure
@@ -35,13 +33,16 @@ const NO_LABELS: Label[] = [];
  * empty option list, and this component renders a `role="alert"` panel
  * distinct from "still typing" or "no existing label" for it.
  *
- * `onSelect` fires when the typed text names a label that already exists,
- * which is how the caller canonicalizes "sonamos" to the stored "Sonamos"
- * before submitting it as free text. There is no matching "selection
- * cleared" callback because there is no selection to clear: the JSP's
- * hidden `companyID` has no counterpart on `POST /library/rotation`, whose
- * uncatalogued path takes `record_label` as a string and no label id, so
- * the typed text is always already the value that will be sent.
+ * `onSelect` fires when the typed text names a label that already exists. It
+ * carries the whole `Label`, so a caller can canonicalize "sonamos" to the
+ * stored "Sonamos" and carry the label's id onto the wire -- the JSP's hidden
+ * `companyID` field, which `POST /library/rotation` now has a column for.
+ *
+ * There is still no matching "selection cleared" callback, and the reason is
+ * now about ownership rather than about there being nothing to clear: every
+ * keystroke already reaches the caller through `onChange`, which is the
+ * moment a held id stops describing the text. A caller that carries an id
+ * clears it there.
  */
 export interface CompanyAutocompleteProps {
   value: string;

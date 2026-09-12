@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { renderWithProviders, server, TEST_BACKEND_URL } from "@/tests/helpers";
 
@@ -17,31 +17,56 @@ vi.mock("next/navigation", () => ({
 }));
 
 // CompanyAutocomplete has its own dedicated test coverage; here it is
-// replaced with a bare labelled input so this form's own submit/validation
-// logic is under test, not the label search widget.
+// replaced with a bare labelled input plus a button standing in for the
+// moment its search confirms the typed text names an existing label, so this
+// form's own submit/validation logic is under test rather than the label
+// search widget.
 vi.mock("@/src/components/experiences/classic/rotation/CompanyAutocomplete", () => ({
   default: ({
     value,
     onChange,
+    onSelect,
   }: {
     value: string;
     onChange: (value: string) => void;
+    onSelect: (label: { id: number; label_name: string }) => void;
   }) => (
-    <input
-      aria-label="Record Label"
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-    />
+    <>
+      <input
+        aria-label="Record Label"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      />
+      <button type="button" onClick={() => onSelect({ id: 17, label_name: "Sonamos" })}>
+        match an existing label
+      </button>
+    </>
   ),
 }));
 
 import RotationReleaseInsert from "@/src/components/experiences/classic/rotation/RotationReleaseInsert";
 
 const BASE = `${TEST_BACKEND_URL}/library/rotation`;
+const FORMATS = `${TEST_BACKEND_URL}/library/formats`;
+
+/** Fills the three fields the JSP marks required, in its own order. */
+async function fillRequiredFields(user: ReturnType<typeof renderWithProviders>["user"]) {
+  await user.type(screen.getByLabelText(/Artist's Presentation Name/i), "Juana Molina");
+  await user.type(screen.getByLabelText(/Title of Release/i), "DOGA");
+  await user.selectOptions(await screen.findByLabelText("Format"), "3");
+}
 
 describe("classic RotationReleaseInsert — rotationReleaseInsert.jsp", () => {
   beforeEach(() => {
     mockPush.mockClear();
+    server.use(
+      http.get(FORMATS, () =>
+        HttpResponse.json([
+          { id: 3, format_name: "CD" },
+          { id: 4, format_name: "LP" },
+        ]),
+      ),
+    );
   });
 
   it("renders the JSP's field order and labels for every Backend-supportable field", () => {
@@ -51,6 +76,7 @@ describe("classic RotationReleaseInsert — rotationReleaseInsert.jsp", () => {
     expect(screen.getByText(/Click here to input 'Various Artists'/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Artist's Presentation Name/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Title of Release/i)).toBeInTheDocument();
+    expect(screen.getByLabelText("Format")).toBeInTheDocument();
     expect(screen.getByRole("radio", { name: "Heavy" })).toBeChecked();
     expect(screen.getByRole("radio", { name: "Medium" })).not.toBeChecked();
     expect(screen.getByRole("radio", { name: "Light" })).not.toBeChecked();
@@ -63,6 +89,25 @@ describe("classic RotationReleaseInsert — rotationReleaseInsert.jsp", () => {
       "href",
       "/dashboard/rotation",
     );
+  });
+
+  // Format sits between Title of Release and Rotation in the JSP, and the
+  // placeholder is its first option there too.
+  it("puts the Format select where the JSP puts it, with the JSP's placeholder", async () => {
+    renderWithProviders(<RotationReleaseInsert />);
+
+    await screen.findByRole("option", { name: "CD" });
+    const format = screen.getByLabelText("Format");
+    const rows = Array.from(document.querySelectorAll("tr"));
+    const rowOf = (el: Element) => rows.findIndex((row) => row.contains(el));
+    expect(rowOf(screen.getByLabelText(/Title of Release/i))).toBeLessThan(rowOf(format));
+    expect(rowOf(format)).toBeLessThan(rowOf(screen.getByRole("radio", { name: "Heavy" })));
+
+    expect(within(format).getAllByRole("option").map((o) => o.textContent)).toEqual([
+      "-- Choose a format --",
+      "CD",
+      "LP",
+    ]);
   });
 
   it("fills the presentation name via the Various Artists shortcut", async () => {
@@ -119,8 +164,7 @@ describe("classic RotationReleaseInsert — rotationReleaseInsert.jsp", () => {
     );
 
     const { user } = renderWithProviders(<RotationReleaseInsert />);
-    await user.type(screen.getByLabelText(/Artist's Presentation Name/i), "Juana Molina");
-    await user.type(screen.getByLabelText(/Title of Release/i), "DOGA");
+    await fillRequiredFields(user);
     await user.click(screen.getByRole("button", { name: "Add this record" }));
 
     await waitFor(() => expect(mockPush).toHaveBeenCalledWith("/dashboard/rotation"));
@@ -128,6 +172,7 @@ describe("classic RotationReleaseInsert — rotationReleaseInsert.jsp", () => {
       rotation_bin: "H",
       artist_name: "Juana Molina",
       album_title: "DOGA",
+      format_id: 3,
     });
   });
 
@@ -144,8 +189,7 @@ describe("classic RotationReleaseInsert — rotationReleaseInsert.jsp", () => {
     );
 
     const { user } = renderWithProviders(<RotationReleaseInsert />);
-    await user.type(screen.getByLabelText(/Artist's Presentation Name/i), "Juana Molina");
-    await user.type(screen.getByLabelText(/Title of Release/i), "DOGA");
+    await fillRequiredFields(user);
     await user.type(screen.getByLabelText("Record Label"), "Sonamos");
     await user.click(screen.getByRole("radio", { name: "Medium" }));
     await user.click(screen.getByRole("button", { name: "Add this record" }));
@@ -155,6 +199,7 @@ describe("classic RotationReleaseInsert — rotationReleaseInsert.jsp", () => {
       rotation_bin: "M",
       artist_name: "Juana Molina",
       album_title: "DOGA",
+      format_id: 3,
       record_label: "Sonamos",
     });
   });
@@ -167,8 +212,7 @@ describe("classic RotationReleaseInsert — rotationReleaseInsert.jsp", () => {
     );
 
     const { user } = renderWithProviders(<RotationReleaseInsert />);
-    await user.type(screen.getByLabelText(/Artist's Presentation Name/i), "Juana Molina");
-    await user.type(screen.getByLabelText(/Title of Release/i), "DOGA");
+    await fillRequiredFields(user);
     await user.click(screen.getByRole("button", { name: "Add this record" }));
 
     expect(
@@ -183,10 +227,100 @@ describe("classic RotationReleaseInsert — rotationReleaseInsert.jsp", () => {
     await user.type(screen.getByLabelText(/Title of Release/i), "DOGA");
     await user.click(screen.getByRole("radio", { name: "Light" }));
 
+    await user.selectOptions(await screen.findByLabelText("Format"), "3");
+
     await user.click(screen.getByRole("button", { name: "Reset to default values" }));
 
     expect(screen.getByLabelText(/Artist's Presentation Name/i)).toHaveValue("");
     expect(screen.getByLabelText(/Title of Release/i)).toHaveValue("");
     expect(screen.getByRole("radio", { name: "Heavy" })).toBeChecked();
+    expect(screen.getByLabelText("Format")).toHaveValue("");
+  });
+
+  it("refuses to submit with no format, in the JSP's own words", async () => {
+    const { user } = renderWithProviders(<RotationReleaseInsert />);
+    await user.type(screen.getByLabelText(/Artist's Presentation Name/i), "Juana Molina");
+    await user.type(screen.getByLabelText(/Title of Release/i), "DOGA");
+    await user.click(screen.getByRole("button", { name: "Add this record" }));
+
+    expect(await screen.findByText("Please select a format.")).toBeInTheDocument();
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  // Backend guards both pre-catalog FKs with `!= null`, so an explicit null
+  // reads as absent rather than as "clear this". The three states are
+  // distinct on the wire and the form must never send the middle one.
+  describe("label_id and format_id, in all three states", () => {
+    async function submitAndCapture(
+      arrange: (user: ReturnType<typeof renderWithProviders>["user"]) => Promise<void>,
+    ) {
+      let requestBody: Record<string, unknown> | undefined;
+      server.use(
+        http.post(BASE, async ({ request }) => {
+          requestBody = (await request.json()) as Record<string, unknown>;
+          return HttpResponse.json(
+            { id: 9001, album_id: null, rotation_bin: "H", add_date: "2026-08-29", kill_date: null },
+            { status: 201 },
+          );
+        }),
+      );
+
+      const { user } = renderWithProviders(<RotationReleaseInsert />);
+      await fillRequiredFields(user);
+      await arrange(user);
+      await user.click(screen.getByRole("button", { name: "Add this record" }));
+      await waitFor(() => expect(requestBody).toBeDefined());
+      return requestBody as Record<string, unknown>;
+    }
+
+    it("sends a value for label_id once the typed text names an existing label", async () => {
+      const body = await submitAndCapture(async (user) => {
+        await user.type(screen.getByLabelText("Record Label"), "Sonamos");
+        await user.click(screen.getByRole("button", { name: "match an existing label" }));
+      });
+
+      expect(body.label_id).toBe(17);
+      expect(body.record_label).toBe("Sonamos");
+    });
+
+    it("omits label_id entirely for a typed label that matched nothing, rather than sending null", async () => {
+      const body = await submitAndCapture(async (user) => {
+        await user.type(screen.getByLabelText("Record Label"), "Sonamos Discos");
+      });
+
+      expect("label_id" in body).toBe(false);
+      expect(body.record_label).toBe("Sonamos Discos");
+    });
+
+    // Editing the text after a match un-names the label it matched. Carrying
+    // the stale id would file the row under a label whose name is no longer
+    // in the box.
+    it("drops a matched label_id once the text is edited away from it", async () => {
+      const body = await submitAndCapture(async (user) => {
+        await user.type(screen.getByLabelText("Record Label"), "Sonamos");
+        await user.click(screen.getByRole("button", { name: "match an existing label" }));
+        await user.type(screen.getByLabelText("Record Label"), " Discos");
+      });
+
+      expect("label_id" in body).toBe(false);
+    });
+
+    it("never sends format_id as null — an unchosen format is refused instead", async () => {
+      let posted = false;
+      server.use(
+        http.post(BASE, () => {
+          posted = true;
+          return HttpResponse.json({ id: 9001 }, { status: 201 });
+        }),
+      );
+
+      const { user } = renderWithProviders(<RotationReleaseInsert />);
+      await user.type(screen.getByLabelText(/Artist's Presentation Name/i), "Juana Molina");
+      await user.type(screen.getByLabelText(/Title of Release/i), "DOGA");
+      await user.click(screen.getByRole("button", { name: "Add this record" }));
+
+      await screen.findByText("Please select a format.");
+      expect(posted).toBe(false);
+    });
   });
 });

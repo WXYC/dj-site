@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
+import { useGetFormatsQuery } from "@/lib/features/catalog/api";
 import {
   useGetRotationListQuery,
   useGetUncataloguedRotationQuery,
@@ -226,6 +227,15 @@ function UncataloguedFacet({
   const { data, isLoading, isFetching, isError, refetch } = useGetUncataloguedRotationQuery({
     limit: UNCATALOGUED_ROTATION_PAGE_SIZE,
   });
+  // The queue read carries `format_id` and no name -- the rotation row's own
+  // pre-catalog field, published without a join -- so the Format column
+  // resolves against the catalog's own formats list. A row whose format this
+  // cannot name keeps the em dash rather than showing an id.
+  const { data: formats } = useGetFormatsQuery();
+  const formatNames = useMemo(
+    () => new Map((formats ?? []).map((format) => [format.id, format.format_name])),
+    [formats],
+  );
 
   const hasNothingToShow = isError && data == null;
 
@@ -233,7 +243,7 @@ function UncataloguedFacet({
   if (hasNothingToShow) return <OutagePanel onRetry={refetch} retrying={isFetching} />;
 
   const page = data ?? [];
-  const allRows = page.map((row) => toDisplayRowFromUncatalogued(row));
+  const allRows = page.map((row) => toDisplayRowFromUncatalogued(row, formatNames));
   const rows = showKilled ? allRows : allRows.filter((row) => row.active);
   // A full page is indistinguishable from a complete backlog, so it is
   // reported as what it is. The backlog runs to thousands of rows against a

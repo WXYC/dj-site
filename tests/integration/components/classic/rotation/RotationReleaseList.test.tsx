@@ -299,6 +299,34 @@ describe("classic RotationReleaseList — rotationReleaseList.jsp", () => {
       label_id: null,
     };
 
+    it("names the row's own format instead of the em dash when the formats list can", async () => {
+      server.use(
+        http.get(`${TEST_BACKEND_URL}/library/formats`, () =>
+          HttpResponse.json([{ id: 3, format_name: "CD" }]),
+        ),
+      );
+      mockUncatalogued([ACTIVE_UNCATALOGUED]);
+      renderWithProviders(<RotationReleaseList statusFilter="uncataloged" />);
+
+      const row = (await screen.findByText("LOS THUTHANAKA")).closest("tr") as HTMLElement;
+      // The sixth cell is the JSP's Format column; the em dash also lives in
+      // the Library column, so the assertion has to name the cell.
+      await waitFor(() => expect(row.children[5]).toHaveTextContent("CD"));
+    });
+
+    it("keeps the em dash for a row that carries no format at all", async () => {
+      server.use(
+        http.get(`${TEST_BACKEND_URL}/library/formats`, () =>
+          HttpResponse.json([{ id: 3, format_name: "CD" }]),
+        ),
+      );
+      mockUncatalogued([{ ...ACTIVE_UNCATALOGUED, format_id: null }]);
+      renderWithProviders(<RotationReleaseList statusFilter="uncataloged" />);
+
+      const row = (await screen.findByText("LOS THUTHANAKA")).closest("tr") as HTMLElement;
+      expect(row.children[5]).toHaveTextContent("\u2014");
+    });
+
     it("funnels the killed backlog into the import screen and leaves the active rows alone", async () => {
       mockUncatalogued([ACTIVE_UNCATALOGUED, KILLED_UNCATALOGUED]);
       const { user } = renderWithProviders(<RotationReleaseList statusFilter="uncataloged" />);
