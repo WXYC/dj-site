@@ -6,7 +6,7 @@
 - **UI**: React 18, MUI Joy UI (`@mui/joy`), MUI Material (icons), Motion (animations)
 - **State**: Redux Toolkit with RTK Query, `react-redux`
 - **Auth**: better-auth client + JOSE for JWT, session cookies
-- **Testing**: Vitest (`node` project for `tests/unit/lib` and `tests/contract`, `jsdom`/`jsdom-lib` elsewhere — see dj-site `docs/testing.md` Environments), React Testing Library, MSW 2 for API mocking
+- **Testing**: Vitest (`node` project for `tests/unit/lib` and `tests/contract` minus the handful of lib specs pinned to a DOM, which run as `jsdom-lib`; `jsdom` everywhere else — see `docs/testing.md` Environments), React Testing Library, MSW 2 for API mocking
 - **E2E Testing**: Playwright (Chromium)
 - **Build/Deploy**: OpenNext for Cloudflare Pages, Wrangler
 - **Language**: TypeScript (strict mode, `@/*` path alias resolves to project root)
@@ -47,7 +47,6 @@ lib/
   store.ts                    # Redux store (combineSlices, RTK Query middleware)
   hooks.ts                    # Typed Redux hooks (useAppDispatch, useAppSelector, useAppStore)
   createAppSlice.ts           # Slice builder with async thunk support
-  __tests__/                  # Feature tests (slices, APIs, conversions)
 
 e2e/                          # Playwright E2E tests
   tests/                      # Test specs
@@ -59,7 +58,7 @@ tests/                        # Additional component/unit tests; vitest helpers/
   helpers/                    # Render helpers, harnesses, time utilities (see Testing section)
   fakes/                      # MSW handlers and server
   fixtures/                   # Fixture factories and data
-  setup/                      # vitest.setup.ts, vitest.setup.dom.ts
+  setup/                      # vitest.setup.ts, vitest.setup.dom.ts, vitest-projects.ts (project partition)
 ```
 
 ## Dashboard URL map
