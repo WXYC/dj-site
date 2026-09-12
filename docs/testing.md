@@ -34,10 +34,10 @@ and server (`tests/fakes/`), and fixture factories (`tests/fixtures/`). Importin
 one of those names evaluates the whole graph -- Redux, all 13 RTK Query APIs, and MUI
 Joy -- because `render.tsx` sits in the same barrel.
 
-DOM-free specs (`tests/unit/`, `tests/contract/`) whose only need is fixtures,
-constants, or the conversion harness should import those modules directly instead of
-going through the barrel, since the barrel's render/store cost is otherwise paid for
-nothing:
+Specs in the `node` project (see [Environments](#environments): `tests/unit/lib` and
+`tests/contract`) whose only need is fixtures, constants, or the conversion harness
+should import those modules directly instead of going through the barrel, since the
+barrel's render/store cost is otherwise paid for nothing:
 
 ```typescript
 import { createTestAlbum, createTestArtist } from "@/tests/fixtures/fixtures";
@@ -45,16 +45,19 @@ import { TEST_ENTITY_IDS, TEST_SEARCH_STRINGS } from "@/tests/helpers/constants"
 import { describeConversion } from "@/tests/helpers/conversion-harness";
 ```
 
-A spec that also needs `server`, `createTestStore`, or a slice/API harness already
-pays the barrel's cost and should just import everything from `@/tests/helpers` --
-splitting the fixture import out in that case saves nothing.
+Evaluating the barrel still pulls in the whole render/store graph even when a spec
+only reads a fixture from it, so a spec that also needs `server`, `createTestStore`,
+or a slice/API harness pays that cost regardless of whether its fixture imports are
+split out -- splitting them out saves that spec nothing on its own.
 
-`eslint.config.mjs` enforces the DOM-free half of this with a `no-restricted-imports`
-override on `tests/unit/lib/**` and `tests/contract/**`: importing a name matching
-`createTest*`, `TEST_*`, or `describeConversion` from `@/tests/helpers` in those tiers
-is a lint error naming the deep path to use instead. The rule is scoped by imported
-name rather than a blanket barrel ban, since node-tier specs still legitimately pull
-`describeSlice`, `describeApi`, `server`, or `createTestStore` from the barrel.
+`eslint.config.mjs` requires the split anyway: a `no-restricted-imports` override on
+`tests/unit/lib/**` and `tests/contract/**` makes importing a name matching
+`createTest*`, `TEST_*`, or `describeConversion` from `@/tests/helpers` in those
+tiers a lint error naming the deep path to use instead, even on a spec that still
+imports `server`, `createTestStore`, `describeSlice`, or `describeApi` from the
+barrel elsewhere in the same file. The rule is scoped by imported name rather than a
+blanket barrel ban, since node-tier specs still legitimately pull those names from
+the barrel -- it is one step toward a barrel-free `node` tier, not the whole of it.
 
 Component specs (`tests/integration/`) that need only `renderWithProviders` may deep-import
 it from `@/tests/helpers/render` -- the lint rule above doesn't apply to that tier, and
@@ -317,7 +320,7 @@ The pinned specs are the `tests/unit/lib` files that reach a real `window` (stor
 
 When adding a lib spec that needs a browser global, prefer stubbing it on `globalThis` (the pattern `vitest.setup.ts` uses for `EventSource` and `localStorage`) so it stays in the node project; add it to `DOM_DEPENDENT_LIB_TESTS` only when the test's subject is genuinely the `window` binding itself.
 
-`tests/setup/vitest.setup.ts` runs for all three projects and covers only what every environment needs: the `localStorage` and `EventSource` stubs (on `globalThis`) and the MSW `server.listen` lifecycle. `tests/setup/vitest.setup.dom.ts` covers the DOM-dependent pieces (jest-dom matchers, RTL `configure`, and the `matchMedia`/`ResizeObserver`/`scrollIntoView`/`IntersectionObserver` stubs) and is wired into only the `jsdom` and `jsdom-lib` projects' `setupFiles`, so the `node` project never evaluates `@testing-library/jest-dom` or `@testing-library/react`. The `jsdom` project's `exclude` reuses `DOM_FREE_TIERS` rather than restating the two node-tier patterns. CI's `--changed` and `--shard` invocations operate across all projects' merged file sets.
+See [Setup](#setup) for what each of `tests/setup/vitest.setup.ts` and `tests/setup/vitest.setup.dom.ts` covers and which projects wire it in. Only the latter is wired into `jsdom` and `jsdom-lib`, so the `node` project never evaluates `@testing-library/jest-dom`. `@testing-library/react` is a different story: 35 of the node-tier specs import `@/tests/helpers`, whose barrel re-exports `render.tsx` and `field-value.ts`, and both of those import RTL -- so RTL still reaches the `node` project, through the barrel, even though jest-dom does not. The `jsdom` project's `exclude` reuses `DOM_FREE_TIERS` rather than restating the two node-tier patterns. CI's `--changed` and `--shard` invocations operate across all projects' merged file sets.
 
 ## Test Conventions
 
@@ -328,4 +331,4 @@ When adding a lib spec that needs a browser global, prefer stubbing it on `globa
 - Reference `TEST_ENTITY_IDS` and `TEST_SEARCH_STRINGS` constants for IDs and strings
 - Keep an album fixture's `legacy_release_id` **distinct from its `id`**. They are two id spaces over the same row — `id` is Backend's `library.id` serial, `legacy_release_id` is the tubafrenzy `LIBRARY_RELEASE_ID` the per-track store is keyed by — and a fixture where the two coincide cannot tell a path that resolves in the right space from one that resolves in the wrong space. Pair an `TEST_ENTITY_IDS.ALBUM` id with the `TEST_ENTITY_IDS.LEGACY_RELEASE` entry of the same name; never copy one into the other. This applies to hand-built rows too, including wire-shaped ones (`createTestAlbumSearchResult`), where the type is optional and the compiler will not ask
 - Use `renderWithProviders` for all component tests (never bare RTL `render`)
-- Putting a value in a field is *arrange* or *subject* — pick the tool accordingly. When a spec only needs the field to end up holding a value, call `setFieldValue(field, value)` from `tests/helpers`: one `change` event, no keystrokes, so it can't drive keydown/keyup-driven behavior. When the keystroke stream itself is what the spec asserts on, use `user.type` and say so in a one-line comment next to the call. Known cases that must stay typed: the progressive-validation username checks in `StationSignupForm.test.tsx`, the diacritic round-trip in `VaTracklistStep.test.tsx`, and the `" Solo"` append onto an already-picked artist in `AddReleasePanel.test.tsx`.
+- Putting a value in a field is *arrange* or *subject* — pick the tool accordingly. When a spec only needs the field to end up holding a value, call `setFieldValue(field, value)` from `tests/helpers`: one `change` event that neither focuses the field nor fires a keydown/keyup, and that writes straight through `disabled`, `readOnly`, and `maxLength`. If the spec asserts on anything the keystroke stream itself drives — a listbox opening, an append onto text already in the field, focus-driven behavior — use `user.type` instead and say so in a one-line comment next to the call.
