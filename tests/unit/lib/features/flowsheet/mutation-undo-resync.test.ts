@@ -2,12 +2,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { http, HttpResponse } from "msw";
 
 import { flowsheetApi } from "@/lib/features/flowsheet/api";
-import {
-  createTestStore,
-  createTestV2TrackEntry,
-  server,
-  TEST_BACKEND_URL,
-} from "@/tests/helpers";
+import { createTestV2TrackEntry } from "@/tests/fixtures/fixtures";
+import { TEST_BACKEND_URL } from "@/tests/helpers/constants";
+import { createTestStore, server } from "@/tests/helpers";
 
 // Replace the auth client so the base query's prepareHeaders doesn't try to
 // fetch a JWT (no auth server running). Imported by path per the helper's

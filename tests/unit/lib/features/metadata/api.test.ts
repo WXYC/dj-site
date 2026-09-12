@@ -1,12 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { http, HttpResponse } from "msw";
 import { metadataApi } from "@/lib/features/metadata/api";
-import {
-  createTestStore,
-  describeApi,
-  server,
-  TEST_BACKEND_URL,
-} from "@/tests/helpers";
+import { TEST_BACKEND_URL } from "@/tests/helpers/constants";
+import { createTestStore, describeApi, server } from "@/tests/helpers";
 
 describe("metadataApi", () => {
   describeApi(metadataApi, {

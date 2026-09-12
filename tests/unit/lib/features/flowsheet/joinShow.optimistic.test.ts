@@ -8,13 +8,9 @@ import {
 } from "@/lib/features/flowsheet/infinite-cache";
 import { partitionFlowsheetEntries } from "@/lib/features/flowsheet/partition";
 import type { FlowsheetEntry } from "@/lib/features/flowsheet/types";
-import {
-  createTestStore,
-  createTestV2TrackEntry,
-  server,
-  TEST_BACKEND_URL,
-  TEST_ENTITY_IDS,
-} from "@/tests/helpers";
+import { createTestV2TrackEntry } from "@/tests/fixtures/fixtures";
+import { TEST_BACKEND_URL, TEST_ENTITY_IDS } from "@/tests/helpers/constants";
+import { createTestStore, server } from "@/tests/helpers";
 
 // Mock the auth client so the base query's prepareHeaders doesn't try to fetch
 // a JWT (no auth server running). Mirrors addToFlowsheet.wiring.test.ts.

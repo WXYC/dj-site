@@ -1,7 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { createTestAlbum, createTestArtist } from "@/tests/helpers";
-import { renderWithProviders } from "@/tests/helpers/render";
+import { createTestAlbum, createTestArtist, renderWithProviders } from "@/tests/helpers";
 
 const mockPush = vi.fn();
 vi.mock("next/navigation", () => ({

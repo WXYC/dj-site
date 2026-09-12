@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { fireEvent, screen } from "@testing-library/react";
-import { renderWithProviders } from "@/tests/helpers/render";
-import { CAPSULE_SELECTOR, createTestFlowsheetEntry } from "@/tests/helpers";
+import { CAPSULE_SELECTOR, createTestFlowsheetEntry, renderWithProviders } from "@/tests/helpers";
 import { Rotation } from "@/lib/features/rotation/types";
 import type {
   FlowsheetEntry,

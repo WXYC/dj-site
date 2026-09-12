@@ -121,6 +121,37 @@ const eslintConfig = [
       "@typescript-eslint/no-require-imports": "off",
     },
   },
+  {
+    // DOM-free tiers only: fixtures/constants/conversion-harness must come
+    // from their deep paths, not the `@/tests/helpers` barrel, since the
+    // barrel's render/store graph is otherwise paid for nothing. Scoped by
+    // imported name (not a blanket barrel ban) because these tiers still
+    // legitimately import describeSlice/describeApi/server/createTestStore
+    // from the barrel.
+    files: ["tests/unit/lib/**/*.{ts,tsx}", "tests/contract/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              // `regex` (unlike `group`, which treats a bare name as a
+              // gitignore-style prefix) matches only the barrel itself, not
+              // the permitted @/tests/helpers/constants deep import.
+              regex: "^@/tests/helpers$",
+              // `createTestStore` is excluded even though it starts with
+              // `createTest` -- it lives in render.tsx alongside
+              // renderWithProviders, not in the fixture factories, and a spec
+              // pulling it from the barrel already pays the barrel's cost.
+              importNamePattern: "^(createTest(?!Store$)|TEST_|describeConversion)",
+              message:
+                "Import fixtures from @/tests/fixtures/fixtures, constants from @/tests/helpers/constants, and describeConversion from @/tests/helpers/conversion-harness instead of the @/tests/helpers barrel.",
+            },
+          ],
+        },
+      ],
+    },
+  },
 ];
 
 export default eslintConfig;

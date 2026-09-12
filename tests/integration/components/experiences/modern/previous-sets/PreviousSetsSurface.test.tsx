@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { act, screen, waitFor, fireEvent, within } from "@testing-library/react";
-import { createTestStore, server } from "@/tests/helpers";
-import { renderWithProviders } from "@/tests/helpers/render";
+import { createTestStore, server, renderWithProviders } from "@/tests/helpers";
 import { playlistSearchFake } from "@/tests/fakes/playlistSearch";
 import { playlistSearchSlice } from "@/lib/features/playlist-search/frontend";
 
