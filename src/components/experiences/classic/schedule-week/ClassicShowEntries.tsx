@@ -14,6 +14,12 @@ import "@/src/styles/classic/schedule-week.css";
 // Time · [indicators] · Artist · Song · Release · Label. A marker row keeps its
 // own Time cell and spans the rest, so a column added to the header below has
 // to be counted here as well; nothing derives this from the header.
+//
+// Time is dj-site's own column — the JSP this reproduces ships five, starting at
+// the indicator gutter. Print drops it back to five (see the print block in
+// wxyc.css), which is why the Time cells are named rather than left to be
+// selected by position; `MARKER_SPAN` still covers the rest of the row either
+// way, since hiding a column leaves the marker spanning all that remain.
 const COLUMN_COUNT = 6;
 const MARKER_SPAN = COLUMN_COUNT - 1;
 
@@ -78,7 +84,9 @@ export default function ClassicShowEntries({
         <table>
           <thead>
             <tr>
-              <th style={{ width: "5em" }}>Time</th>
+              <th className="classic-schedule-week-time" style={{ width: "5em" }}>
+                Time
+              </th>
               <th className="classic-indicator-cell" />
               <th>Artist</th>
               <th>Song</th>
@@ -101,7 +109,7 @@ export default function ClassicShowEntries({
                     : undefined
                 }
               >
-                <td>{timeOf(entry)}</td>
+                <td className="classic-schedule-week-time">{timeOf(entry)}</td>
                 {entry.entry_type && entry.entry_type !== "track" ? (
                   <td colSpan={MARKER_SPAN}>
                     <em>{describeNonTrackEntry(entry)}</em>
