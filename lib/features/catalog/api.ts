@@ -37,6 +37,8 @@ import {
   ReleaseCrossReferenceRow,
   ResolveArtistByCodeQuery,
   ResolveArtistByCodeResponse,
+  ArtistSearchResponse,
+  LibraryArtistSearchParams,
   SearchArtistsInGenreParams,
   SearchArtistsInGenreResponse,
   SearchCatalogQueryParams,
@@ -490,6 +492,41 @@ export const catalogApi = createApi({
       }),
       providesTags: [{ type: "ArtistSearch", id: "LIST" }],
     }),
+    /**
+     * The same `GET /library/artists/search` read library-wide: with no
+     * `genre_id` the filter drops and the answer is one row per (artist,
+     * genre) membership, each carrying the genre its code number belongs to.
+     *
+     * A second endpoint against one URL rather than an optional parameter on
+     * the one above, matching `getRotation`/`getRotationList`: the two read
+     * different shapes for different screens, and the genre-scoped typeahead
+     * must not start receiving rows from genres its caller never asked about.
+     *
+     * `limit` is clamped into 1..20 by the service, but only for values it
+     * recognizes as numbers — zero and negatives fall back to the default of
+     * 10 — so the import screen asks for the ceiling and accepts that a
+     * many-genre artist can still crowd the window.
+     *
+     * Same opt-out and error nesting as its genre-scoped sibling, for the
+     * same reason: a soft-failed outage resolving to "no such artist is
+     * catalogued" is the one answer that routes a librarian into creating the
+     * duplicate the search exists to prevent.
+     */
+    searchLibraryArtists: builder.query<ArtistSearchResponse, LibraryArtistSearchParams>({
+      query: ({ q, limit }) => ({
+        url: "/artists/search",
+        params: { q, ...(limit != null ? { limit } : {}) },
+      }),
+      extraOptions: { surfaceNonJsonAsError: true },
+      transformResponse: (response: ArtistSearchResponse | null): ArtistSearchResponse =>
+        response?.artists ? response : { artists: [] },
+      transformErrorResponse: (
+        response: FetchBaseQueryError,
+      ): { searchLibraryArtistsError: FetchBaseQueryError } => ({
+        searchLibraryArtistsError: response,
+      }),
+      providesTags: [{ type: "ArtistSearch", id: "LIST" }],
+    }),
     getCompilationTracks: builder.query<CompilationTrackList, { libraryId: number }>({
       query: ({ libraryId }) => ({
         url: `/${libraryId}/compilation-tracks`,
@@ -704,6 +741,7 @@ export const {
   useLazyPeekArtistCodeQuery,
   useLazyResolveArtistByCodeQuery,
   useSearchArtistsInGenreQuery,
+  useSearchLibraryArtistsQuery,
   useGetCompilationTracksQuery,
   useGetCompilationTrackSuggestionsQuery,
   useLazyGetCompilationTrackSuggestionsQuery,

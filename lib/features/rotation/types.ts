@@ -1,4 +1,4 @@
-import { RotationBin } from "@wxyc/shared/dtos";
+import { RotationBin, type RotationRowSummary } from "@wxyc/shared/dtos";
 
 export { RotationBin };
 
@@ -72,17 +72,16 @@ export type RotationListRow = {
 };
 
 /**
- * Wire shape of Backend's published rotation surface -- one shape for three
- * endpoints: `GET /library/rotation/uncatalogued`, `GET /library/rotation/:id`
- * and `PATCH /library/rotation/:rotation_id/link` all answer with it
- * (`UNCATALOGUED_ROTATION_PROJECTION` / `toRotationRowSummary`,
- * `apps/backend/services/library.service.ts`).
+ * Backend's published rotation surface -- one shape for three endpoints:
+ * `GET /library/rotation/uncatalogued`, `GET /library/rotation/:id` and
+ * `PATCH /library/rotation/:rotation_id/link` all answer with it.
  *
- * `@wxyc/shared` publishes the same surface as `RotationRowSummary`, with
- * every field but `id`, `rotation_bin` and `add_date` declared optional --
- * the generator's rendering of a nullable column, not a claim that the server
- * omits the key. This mirror keeps them required-and-nullable, which is what
- * the display code actually branches on.
+ * Re-exported under its historical local name so the rotation feature reads
+ * consistently; the declaration is the published contract's, not a mirror of
+ * it. Every field but `id`, `rotation_bin` and `add_date` is declared
+ * optional there, which is the generator's rendering of a nullable column
+ * rather than a claim that the server omits the key -- read it as "the
+ * contract declines to promise it".
  *
  * `format_id` and `label_id` are the rotation row's **own** pre-catalog
  * fields, captured at rotation-add and never the linked library release's.
@@ -95,18 +94,7 @@ export type RotationListRow = {
  * Neither field carries a display name -- the projection is join-free by
  * design, and names resolve client-side through the catalog's `getFormats`.
  */
-export type UncataloguedRotationRow = {
-  id: number;
-  album_id: number | null;
-  rotation_bin: RotationBin;
-  add_date: string | null;
-  kill_date: string | null;
-  artist_name: string | null;
-  album_title: string | null;
-  record_label: string | null;
-  format_id: number | null;
-  label_id: number | null;
-};
+export type { RotationRowSummary };
 
 /**
  * Arguments for `PATCH /library/rotation/:rotation_id/link`: the row in the

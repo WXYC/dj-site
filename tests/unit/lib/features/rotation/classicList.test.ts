@@ -7,7 +7,7 @@ import {
   toDisplayRowFromList,
   toDisplayRowFromUncatalogued,
 } from "@/lib/features/rotation/classicList";
-import { RotationBin, type RotationListRow, type UncataloguedRotationRow } from "@/lib/features/rotation/types";
+import { RotationBin, type RotationListRow, type RotationRowSummary } from "@/lib/features/rotation/types";
 
 const NOW = new Date("2026-08-29T12:00:00.000Z");
 
@@ -35,7 +35,7 @@ function listRow(overrides: Partial<RotationListRow> = {}): RotationListRow {
   };
 }
 
-function uncataloguedRow(overrides: Partial<UncataloguedRotationRow> = {}): UncataloguedRotationRow {
+function uncataloguedRow(overrides: Partial<RotationRowSummary> = {}): RotationRowSummary {
   return {
     id: 6001,
     album_id: null,

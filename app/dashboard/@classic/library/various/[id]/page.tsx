@@ -5,6 +5,7 @@ import { requireAuth, requireRole } from "@/lib/features/authentication/server-u
 import { Authorization } from "@/lib/features/admin/types";
 import Main from "@/src/components/experiences/classic/Layout/Main";
 import { firstSearchParam } from "@/lib/utils/search-params";
+import { parseImportedReleaseParams } from "@/lib/features/rotation/importedConfirmation";
 import VariousArtistsCard from "@/src/components/experiences/classic/catalog/VariousArtistsCard";
 
 export const metadata: Metadata = {
@@ -32,7 +33,12 @@ export default async function ClassicVariousArtistsPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ created?: string | string[] }>;
+  searchParams: Promise<{
+    created?: string | string[];
+    imported?: string | string[];
+    code?: string | string[];
+    vol?: string | string[];
+  }>;
 }) {
   const session = await requireAuth();
   await requireRole(session, Authorization.MD);
@@ -46,13 +52,19 @@ export default async function ClassicVariousArtistsPage({
     notFound();
   }
 
-  const created = firstSearchParam((await searchParams).created);
+  const search = await searchParams;
+  const created = firstSearchParam(search.created);
 
   return (
     <Main>
       <VariousArtistsCard
         artistId={artistId}
         message={created === "1" ? CREATED_MESSAGE : undefined}
+        imported={parseImportedReleaseParams(
+          firstSearchParam(search.imported),
+          firstSearchParam(search.code),
+          firstSearchParam(search.vol),
+        )}
       />
     </Main>
   );

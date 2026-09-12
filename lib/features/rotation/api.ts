@@ -17,7 +17,7 @@ import type {
   FreeTextRotationAddRequest,
   LinkRotationArgs,
   RotationListRow,
-  UncataloguedRotationRow,
+  RotationRowSummary,
 } from "./types";
 
 export const rotationApi = createApi({
@@ -168,7 +168,7 @@ export const rotationApi = createApi({
     // an outage as, and the shared base query's default behavior for a
     // non-JSON body is exactly a silent empty list.
     getUncataloguedRotation: builder.query<
-      UncataloguedRotationRow[],
+      RotationRowSummary[],
       { limit?: number; offset?: number } | void
     >({
       query: (args) => ({ url: "/uncatalogued", params: args ?? undefined }),
@@ -180,7 +180,7 @@ export const rotationApi = createApi({
     // above) -- distinct from `addRotationEntry` above,
     // which is typed against the published `AddRotationRequest` and requires
     // `album_id`. The response is the full raw `rotation` row, a superset of
-    // `UncataloguedRotationRow`'s fields.
+    // `RotationRowSummary`'s fields.
     //
     // Every refusal from this endpoint (missing rotation_bin, missing
     // artist_name/album_title, an over-length snapshot field) carries a
@@ -190,7 +190,7 @@ export const rotationApi = createApi({
     // nested under a key the shared rejected-query middleware's
     // `payload.data.message` lookup does not recognize, keeping one refusal
     // from being reported twice.
-    addFreeTextRotationEntry: builder.mutation<UncataloguedRotationRow, FreeTextRotationAddRequest>({
+    addFreeTextRotationEntry: builder.mutation<RotationRowSummary, FreeTextRotationAddRequest>({
       query: (body) => ({ url: "", method: "POST", body }),
       transformErrorResponse: (
         response: FetchBaseQueryError,
@@ -212,7 +212,7 @@ export const rotationApi = createApi({
     // non-JSON body resolves to a successful `undefined` -- which reads as
     // "no such row, therefore not linked" and licenses creating a second
     // library release for a release someone has already catalogued.
-    getRotationRow: builder.query<UncataloguedRotationRow, number>({
+    getRotationRow: builder.query<RotationRowSummary, number>({
       query: (rotationId) => ({ url: `/${rotationId}` }),
       extraOptions: { surfaceNonJsonAsError: true },
       providesTags: ["Rotation"],
@@ -229,7 +229,7 @@ export const rotationApi = createApi({
     // created; a second, vaguer sentence toasted over that reports one
     // failure twice. `lib/features/rotation/importOutcome.ts` is the one
     // owner of reading the wrapped rejection.
-    linkRotationToAlbum: builder.mutation<UncataloguedRotationRow, LinkRotationArgs>({
+    linkRotationToAlbum: builder.mutation<RotationRowSummary, LinkRotationArgs>({
       query: ({ rotation_id, album_id }) => ({
         url: `/${rotation_id}/link`,
         method: "PATCH",
@@ -251,7 +251,7 @@ export const rotationApi = createApi({
     // route's linked-row 409 -- this mutation's response type is the
     // same eight-field projection every `/library/rotation/:id` PATCH
     // returns.
-    unkillRotationEntry: builder.mutation<UncataloguedRotationRow, { rotation_id: number }>({
+    unkillRotationEntry: builder.mutation<RotationRowSummary, { rotation_id: number }>({
       query: ({ rotation_id }) => ({
         url: `/${rotation_id}`,
         method: "PATCH",

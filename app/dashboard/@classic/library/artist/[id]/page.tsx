@@ -6,6 +6,7 @@ import { Authorization } from "@/lib/features/admin/types";
 import Main from "@/src/components/experiences/classic/Layout/Main";
 import ArtistCard from "@/src/components/experiences/classic/catalog/ArtistCard";
 import { firstSearchParam } from "@/lib/utils/search-params";
+import { parseImportedReleaseParams } from "@/lib/features/rotation/importedConfirmation";
 
 export const metadata: Metadata = {
   title: getPageTitle("View an Artist Card"),
@@ -21,7 +22,12 @@ const CREATED_MESSAGE = "The artist/library code below has been added to the dat
 
 type ClassicArtistCardPageProps = {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ created?: string | string[] }>;
+  searchParams: Promise<{
+    created?: string | string[];
+    imported?: string | string[];
+    code?: string | string[];
+    vol?: string | string[];
+  }>;
 };
 
 /**
@@ -44,13 +50,19 @@ export default async function ClassicArtistCardPage({
     notFound();
   }
 
-  const created = firstSearchParam((await searchParams).created);
+  const search = await searchParams;
+  const created = firstSearchParam(search.created);
 
   return (
     <Main>
       <ArtistCard
         artistId={artistId}
         message={created === "1" ? CREATED_MESSAGE : undefined}
+        imported={parseImportedReleaseParams(
+          firstSearchParam(search.imported),
+          firstSearchParam(search.code),
+          firstSearchParam(search.vol),
+        )}
       />
     </Main>
   );

@@ -18,6 +18,10 @@ import {
 } from "@/lib/features/catalog/libraryCode";
 import type { AddAlbumRequestBody, ArtistRelease } from "@/lib/features/catalog/types";
 import {
+  importedConfirmation,
+  type ImportedReleaseParams,
+} from "@/lib/features/rotation/importedConfirmation";
+import {
   formatStationDateTime,
   formatStationLongDate,
 } from "@/src/utilities/stationTime";
@@ -29,6 +33,12 @@ type ArtistCardProps = {
    * (`ArtistAdminServlet:187`), shown once above the artist's name.
    */
   message?: string;
+  /**
+   * Where a rotation import landed, when this card is an import's landing.
+   * The sentence is composed here rather than carried as text because only
+   * this card holds the artist half of the shelf code.
+   */
+  imported?: ImportedReleaseParams;
 };
 
 /** `artist-card-modify.js` `validateAddRelease`, verbatim. */
@@ -82,7 +92,7 @@ const EMPTY_ALPHABETICAL_MESSAGE = "The alphabetical name cannot be empty.";
  *   sort parameter and returns shelf order, which is the order the JSP itself
  *   defaults to.
  */
-export default function ArtistCard({ artistId, message }: ArtistCardProps) {
+export default function ArtistCard({ artistId, message, imported }: ArtistCardProps) {
   const router = useRouter();
   const alphabeticalNameId = useId();
   const presentationNameId = useId();
@@ -133,6 +143,23 @@ export default function ArtistCard({ artistId, message }: ArtistCardProps) {
   }, [isShelfRow, router, artistId]);
 
   const genreName = genres?.find((genre) => genre.id === artist?.genre_id)?.genre_name;
+
+  const importedMessage =
+    imported && artist
+      ? importedConfirmation(
+          imported.codeNumber != null
+            ? formatEntireLibraryCode({
+                genreName,
+                code_letters: artist.code_letters,
+                code_artist_number: artist.code_artist_number,
+                genre_id: artist.genre_id,
+                code_number: imported.codeNumber,
+                code_volume_letters: imported.volumeLetters ?? null,
+              })
+            : null,
+          imported.rotationId,
+        )
+      : undefined;
 
   // `fn:trim(format.referenceName)` -- the JSP omits blank-named formats from
   // its dropdown rather than offering an unlabelled option.
@@ -261,9 +288,9 @@ export default function ArtistCard({ artistId, message }: ArtistCardProps) {
       <div style={{ textAlign: "center" }}>
         <h3>ARTIST:&nbsp;{artist.artist_name}&nbsp;</h3>
       </div>
-      {message && (
+      {(message ?? importedMessage) && (
         <div style={{ textAlign: "center" }} role="status">
-          <h5>&nbsp;{message}&nbsp;</h5>
+          <h5>&nbsp;{message ?? importedMessage}&nbsp;</h5>
         </div>
       )}
       <hr />
