@@ -65,6 +65,14 @@ export const TEST_SEARCH_STRINGS = {
   },
 } as const;
 
+// The ROTATION / REQUEST / EXCLUSIVE badge classes, which are tubafrenzy's own
+// and are painted by the ported wxyc.css. Shared rather than spelled out per
+// file because one of the assertions against it is a negative — the classic
+// flowsheet must render no badges — and a renamed class would make that pass
+// for the wrong reason.
+export const CAPSULE_SELECTOR =
+  ".rotation-capsule, .request-capsule, .exclusive-capsule";
+
 // Backend URL for MSW handlers
 export const TEST_BACKEND_URL =
   process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001";

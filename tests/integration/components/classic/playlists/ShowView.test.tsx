@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import {
+  CAPSULE_SELECTOR,
   createTestV2TalksetEntry,
   createTestV2TrackEntry,
   renderWithProviders,
@@ -107,7 +108,7 @@ const rowFor = async (cellText: string) =>
   (await screen.findByText(cellText)).closest("tr")!;
 
 const capsulesOf = (row: HTMLElement) =>
-  [...row.querySelectorAll(".classic-capsule")].map((c) => c.textContent);
+  [...row.querySelectorAll(CAPSULE_SELECTOR)].map((c) => c.textContent);
 
 describe("classic archived-show view — flowsheetRadioShowDisplayPublic.jsp", () => {
   it("badges the rotation bin the release is filed under", async () => {
@@ -241,5 +242,16 @@ describe("classic archived-show view — the play a search result named", () => 
     expect(scrolled).toHaveLength(0);
 
     vi.restoreAllMocks();
+  });
+
+  // The page wrapper carries the screen inset that print strips back off, so a
+  // rename here silently restores an inch of margin to every printed sheet
+  // without failing anything else.
+  it("wraps the show in the page container the print block targets", async () => {
+    serveShow();
+    const { container } = renderWithProviders(<ShowView showId={SHOW_ID} />);
+
+    await rowFor("Jessica Pratt");
+    expect(container.querySelector(".classic-schedule-week")).not.toBeNull();
   });
 });
