@@ -4,11 +4,13 @@ import { resolve } from "path";
 import {
   DOM_DEPENDENT_LIB_TESTS,
   DOM_FREE_TIERS,
+  splitTierGlob,
+  widenTierGlobToAnyTsFile,
 } from "@/tests/setup/vitest-projects";
 import eslintConfig from "../../eslint.config.mjs";
 
 const ROOT = resolve(__dirname, "../..");
-const tierDir = (pattern: string) => pattern.split("/**")[0];
+const tierDir = (pattern: string) => splitTierGlob(pattern).dir;
 const rows = DOM_DEPENDENT_LIB_TESTS.map((entry) => [entry] as const);
 
 // The node/jsdom project split carves these files out of the node project by
@@ -123,26 +125,62 @@ describe("node project stays free of @testing-library/react", () => {
   });
 });
 
-// The lint override that bans the @/tests/helpers barrel is a third,
-// hand-editable copy of "which directories are the node project". Found by
-// its rule rather than by array position, so reordering eslint.config.mjs's
-// other overrides doesn't break this lookup.
-const barrelBanOverride = eslintConfig.find(
+// The lint override that bans the @/tests/helpers barrel derives its `files`
+// from DOM_FREE_TIERS via widenTierGlobToAnyTsFile (eslint.config.mjs)
+// rather than hand-copying the directories, so the assertions below exist
+// to catch a future re-hardcoding or narrowing, not to compare two
+// independently-edited lists. Found by its rule rather than by array
+// position, so reordering eslint.config.mjs's other overrides doesn't break
+// this lookup; `filter` plus a length assertion (rather than `find`) keeps
+// the lookup total if a second `no-restricted-imports` override is ever
+// added ahead of this one in the array.
+const barrelBanOverrides = eslintConfig.filter(
   (entry) =>
     Array.isArray(entry.files) &&
     entry.rules?.["no-restricted-imports"] !== undefined,
 );
 
-describe("eslint's barrel-ban override stays scoped to the node project", () => {
-  it("exists", () => {
-    expect(barrelBanOverride).toBeDefined();
+describe("widenTierGlobToAnyTsFile", () => {
+  it("widens a DOM_FREE_TIERS-shaped glob's test-file tail to any ts/tsx file", () => {
+    expect(widenTierGlobToAnyTsFile("tests/unit/lib/**/*.test.{ts,tsx}")).toBe(
+      "tests/unit/lib/**/*.{ts,tsx}",
+    );
+    expect(widenTierGlobToAnyTsFile("tests/contract/**/*.test.{ts,tsx}")).toBe(
+      "tests/contract/**/*.{ts,tsx}",
+    );
   });
 
-  it("its files glob covers exactly the DOM_FREE_TIERS directories", () => {
-    const overrideDirs = (barrelBanOverride!.files as string[])
-      .map(tierDir)
-      .sort();
-    expect(overrideDirs).toEqual([...NODE_TIER_DIRS].sort());
+  it("throws instead of silently narrowing when a glob's tail isn't the expected test-file pattern", () => {
+    expect(() =>
+      widenTierGlobToAnyTsFile("tests/contract/**/*.test.ts"),
+    ).toThrow();
+    expect(() =>
+      widenTierGlobToAnyTsFile("tests/contract/**/*.spec.{ts,tsx}"),
+    ).toThrow();
+  });
+
+  it("throws on a glob missing the /**/ separator", () => {
+    expect(() =>
+      widenTierGlobToAnyTsFile("tests/contract/*.test.{ts,tsx}"),
+    ).toThrow();
+  });
+});
+
+describe("eslint's barrel-ban override stays scoped to the node project", () => {
+  it("exists exactly once", () => {
+    expect(barrelBanOverrides).toHaveLength(1);
+  });
+
+  const barrelBanOverride = barrelBanOverrides[0];
+
+  it("its files glob is exactly DOM_FREE_TIERS widened to any ts/tsx file", () => {
+    // Comparing the full pattern (directory and tail together), not just
+    // the directory prefix, is what catches a tail that's been narrowed or
+    // hardcoded independently of DOM_FREE_TIERS -- a directory-only
+    // comparison stays green for either.
+    expect(barrelBanOverride!.files).toEqual(
+      DOM_FREE_TIERS.map(widenTierGlobToAnyTsFile),
+    );
   });
 
   it("its ignores carve out exactly the DOM_DEPENDENT_LIB_TESTS pins", () => {
@@ -157,11 +195,18 @@ describe("eslint's barrel-ban override stays scoped to the node project", () => 
 
 describe("tests/setup/vitest.setup.ts stays free of DOM testing-library imports", () => {
   it("does not import any @testing-library/* module, by source rather than runtime", () => {
+    // Reuses importSpecifiers (defined above for the node-tier RTL check)
+    // rather than a raw substring match, so a comment that merely mentions
+    // "@testing-library/" -- e.g. documenting why the import lives
+    // elsewhere -- doesn't fail this the way a plain toMatch would.
     const source = readFileSync(
       resolve(ROOT, "tests/setup/vitest.setup.ts"),
       "utf8",
     );
-    expect(source).not.toMatch(/@testing-library\//);
+    const offending = importSpecifiers(source).filter((specifier) =>
+      specifier.startsWith("@testing-library/"),
+    );
+    expect(offending).toEqual([]);
   });
 });
 
@@ -169,10 +214,20 @@ describe("vitest projects don't double-wire the root setup file", () => {
   it("only the root setupFiles entry names vitest.setup.ts; project overrides use the dom variant", () => {
     // extends: true already concatenates the root's setupFiles onto every
     // project; a project restating vitest.setup.ts in its own setupFiles
-    // would run MSW's server.listen() twice for that file and throw.
+    // would run MSW's server.listen() twice for that file and throw. Scoped
+    // to each setupFiles array literal (rather than the whole file's text)
+    // so a documentary comment mentioning the path doesn't trip this, and
+    // matched on the bare filename (rather than a specific quote style or a
+    // required "./" prefix) so `"vitest.setup.ts"` or
+    // `resolve(__dirname, "tests/setup/vitest.setup.ts")` are caught the
+    // same as the literal spelling used today.
     const source = readFileSync(resolve(ROOT, "vitest.config.mts"), "utf8");
-    const occurrences =
-      source.match(/["']\.\/tests\/setup\/vitest\.setup\.ts["']/g) ?? [];
-    expect(occurrences).toHaveLength(1);
+    const setupFilesArrays = [
+      ...source.matchAll(/setupFiles:\s*\[([^\]]*)\]/g),
+    ].map((match) => match[1]);
+    const arraysNamingRootSetup = setupFilesArrays.filter((arrayBody) =>
+      /vitest\.setup\.ts/.test(arrayBody),
+    );
+    expect(arraysNamingRootSetup).toHaveLength(1);
   });
 });
