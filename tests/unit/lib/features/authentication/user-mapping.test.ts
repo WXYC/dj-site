@@ -26,7 +26,7 @@ vi.mock("@/lib/features/authentication/organization-utils.server", () => ({
 }));
 
 import { getUserFromSession } from "@/lib/features/authentication/server-utils";
-import { createTestBetterAuthSession } from "@/tests/helpers";
+import { createTestBetterAuthSession } from "@/tests/fixtures/fixtures";
 import type { BetterAuthSession } from "@/lib/features/authentication/utilities";
 import type { WXYCRole } from "@/lib/features/authentication/types";
 

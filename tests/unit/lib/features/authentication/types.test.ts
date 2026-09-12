@@ -11,11 +11,7 @@ import type {
   IncompleteUser,
   PasswordResetUser,
 } from "@/lib/features/authentication/types";
-import {
-  createTestAuthenticatedUser,
-  createTestIncompleteUser,
-  createTestPasswordResetUser,
-} from "@/tests/helpers";
+import { createTestAuthenticatedUser, createTestIncompleteUser, createTestPasswordResetUser } from "@/tests/fixtures/fixtures";
 
 describe("authentication types", () => {
   describe("isAuthenticated", () => {

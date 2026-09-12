@@ -4,13 +4,8 @@ import {
   convertBinToQueue,
 } from "@/lib/features/bin/conversions";
 import { convertToAlbumEntry } from "@/lib/features/catalog/conversions";
-import {
-  createTestBinResponse,
-  createTestAlbum,
-  createTestArtist,
-  TEST_ENTITY_IDS,
-  TEST_SEARCH_STRINGS,
-} from "@/tests/helpers";
+import { createTestBinResponse, createTestAlbum, createTestArtist } from "@/tests/fixtures/fixtures";
+import { TEST_ENTITY_IDS, TEST_SEARCH_STRINGS } from "@/tests/helpers/constants";
 import type { AlbumEntry } from "@/lib/features/catalog/types";
 import { Rotation } from "@/lib/features/rotation/types";
 

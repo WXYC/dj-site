@@ -3,11 +3,8 @@ import {
   submitFromBin,
   submitFromCatalog,
 } from "@/lib/features/flowsheet/connections";
-import {
-  createTestAlbum,
-  TEST_ENTITY_IDS,
-  TEST_SEARCH_STRINGS,
-} from "@/tests/helpers";
+import { createTestAlbum } from "@/tests/fixtures/fixtures";
+import { TEST_ENTITY_IDS, TEST_SEARCH_STRINGS } from "@/tests/helpers/constants";
 import type { AlbumEntry } from "@/lib/features/catalog/types";
 
 describe("flowsheet connections", () => {
