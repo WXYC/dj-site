@@ -43,12 +43,19 @@ describe("Classic catalog SearchForm — live search input", () => {
     );
   });
 
-  it("only fires once for rapid keystrokes (debounce)", async () => {
-    const { user } = renderWithProviders(<SearchForm />);
+  it("only fires once for rapid keystrokes (debounce)", () => {
+    renderWithProviders(<SearchForm />);
     const input = screen.getByRole("textbox");
-    // Stays user.type: the debounce collapsing multiple rapid keystrokes into one call is the subject.
-    await user.type(input, "polvo");
-    await vi.advanceTimersByTimeAsync(300);
+    // Kept on fireEvent.change with explicit advances: the subject is the gap between
+    // keystrokes relative to the 300ms debounce window, which only a fixed, hand-driven
+    // clock can hold still -- user.type's inter-keystroke timing tracks real wall-clock
+    // time under shouldAdvanceTime, so it can't stand in for a specific elapsed duration.
+    fireEvent.change(input, { target: { value: "p" } });
+    vi.advanceTimersByTime(100);
+    fireEvent.change(input, { target: { value: "po" } });
+    vi.advanceTimersByTime(100);
+    fireEvent.change(input, { target: { value: "polvo" } });
+    vi.advanceTimersByTime(300);
     expect(mockReplace).toHaveBeenCalledTimes(1);
     expect(mockReplace).toHaveBeenCalledWith(
       "/dashboard/catalog?searchString=polvo"
