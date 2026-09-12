@@ -2,11 +2,11 @@
 
 ## Setup
 
-Vitest config is in `vitest.config.mts`. Global setup in `tests/setup/vitest.setup.ts` handles:
-- MSW server lifecycle (`beforeAll`/`afterEach`/`afterAll`)
-- `localStorage` mock
-- `matchMedia` mock (required by MUI)
-- `ResizeObserver` mock (required by MUI)
+Vitest config is in `vitest.config.mts`; the suite runs as node and jsdom projects (see [Environments](#environments)). Global setup in `tests/setup/vitest.setup.ts` handles:
+- MSW server lifecycle (`beforeAll`/`afterEach`/`afterAll`) — both environments
+- `localStorage` and `EventSource` mocks on `globalThis` — both environments
+- `matchMedia` mock (required by MUI) — jsdom only
+- `ResizeObserver` mock (required by MUI) — jsdom only
 
 Globals are enabled (`describe`, `it`, `expect` available without import, though explicit imports from `vitest` are the convention used in this codebase).
 
@@ -296,11 +296,13 @@ Playwright specs stay in `e2e/`, and bats scripts in `scripts/__tests__/`.
 
 ### Environments
 
-The suite runs as two vitest projects defined in `vitest.config.mts`: `tests/unit/lib` and `tests/contract` run under the `node` environment, everything else under `jsdom`. The split exists because jsdom is constructed per test file, and those two tiers never touch the DOM -- routing them to node removes that per-file cost from ~130 files without changing what any test asserts.
+The suite runs as three vitest projects defined in `vitest.config.mts`: `node` (the `tests/unit/lib` and `tests/contract` tiers), `jsdom` (everything outside those tiers), and `jsdom-lib` (the handful of lib specs pinned to a DOM). The split exists because jsdom is constructed per test file, and the two node-tier directories never touch the DOM -- routing them to node removes that per-file cost from ~125 files without changing what any test asserts.
 
-A handful of `tests/unit/lib` specs do reach a real `window` (storage specs asserting through `Object.defineProperty(window, ...)`, spies on the `window` global). Those are pinned to the jsdom project by the `DOM_DEPENDENT_LIB_TESTS` set at the top of `vitest.config.mts`; the two projects' include lists are computed as exact complements from that one set, so a file is always in exactly one project. When adding a lib spec that needs a browser global, prefer stubbing it on `globalThis` (the pattern `vitest.setup.ts` uses for `EventSource`) so it stays in the node project; add it to `DOM_DEPENDENT_LIB_TESTS` only when the test's subject is genuinely the `window` binding itself.
+The pinned specs are the `tests/unit/lib` files that reach a real `window` (storage specs asserting through `Object.defineProperty(window, ...)`, spies on the `window` global), listed in `DOM_DEPENDENT_LIB_TESTS` in `tests/setup/vitest-projects.ts` (shared with the config's own test, which cannot import an `.mts` config directly). Every project's include/exclude is a static pattern or that literal list -- never a glob resolved at config load -- because watch mode routes a newly created file by matching each project's patterns, and a materialised list would claim new specs by when vitest started rather than where the file lives. The pinned specs get a project of their own because a vitest exclude beats an include naming the same file: the main jsdom project blanket-excludes the two node tiers and cannot carve individual files back in. `tests/unit/vitest.config.test.ts` asserts every pinned entry names a real file in a node-tier directory, so a renamed pin fails the config test instead of silently rerouting to the node project.
 
-`tests/setup/vitest.setup.ts` runs for both projects: its DOM-dependent stubs (`localStorage`, `matchMedia`, `ResizeObserver`, `scrollIntoView`, `IntersectionObserver`) sit behind a `typeof window !== "undefined"` guard, while the `EventSource` stub and the MSW `server.listen` lifecycle apply everywhere. CI's `--changed` and `--shard` invocations operate across both projects' merged file sets.
+When adding a lib spec that needs a browser global, prefer stubbing it on `globalThis` (the pattern `vitest.setup.ts` uses for `EventSource` and `localStorage`) so it stays in the node project; add it to `DOM_DEPENDENT_LIB_TESTS` only when the test's subject is genuinely the `window` binding itself.
+
+`tests/setup/vitest.setup.ts` runs for all three projects: its DOM-dependent stubs (`matchMedia`, `ResizeObserver`, `scrollIntoView`, `IntersectionObserver`) sit behind a `typeof window !== "undefined"` guard, while the `localStorage` and `EventSource` stubs (on `globalThis`) and the MSW `server.listen` lifecycle apply everywhere. CI's `--changed` and `--shard` invocations operate across all projects' merged file sets.
 
 ## Test Conventions
 

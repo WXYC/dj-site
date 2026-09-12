@@ -33,20 +33,23 @@ process.env.NEXT_PUBLIC_CATALOG_TRACK_SEARCH_UI_ENABLED = "true";
 process.env.NEXT_PUBLIC_BACKEND_URL =
   process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001";
 
+// Mock localStorage on globalThis so both projects see it: in jsdom the
+// global proxy IS the window, and under node there is no localStorage at all
+// (Node ships one only behind --localstorage-file), so a lib module that
+// reads it would otherwise throw only in the node project.
+const localStorageMock = {
+  getItem: vi.fn(() => null),
+  setItem: vi.fn(),
+  removeItem: vi.fn(),
+  clear: vi.fn(),
+  length: 0,
+  key: vi.fn(() => null),
+};
+Object.defineProperty(globalThis, "localStorage", { value: localStorageMock });
+
 // The node project runs no DOM at all, so everything below this guard would
 // throw on a bare `window`/`Element` reference before a single test ran.
 if (typeof window !== "undefined") {
-  // Mock localStorage
-  const localStorageMock = {
-    getItem: vi.fn(() => null),
-    setItem: vi.fn(),
-    removeItem: vi.fn(),
-    clear: vi.fn(),
-    length: 0,
-    key: vi.fn(() => null),
-  };
-  Object.defineProperty(window, "localStorage", { value: localStorageMock });
-
   // Mock window.matchMedia for MUI components
   Object.defineProperty(window, "matchMedia", {
     writable: true,
@@ -74,10 +77,10 @@ if (typeof window !== "undefined") {
   // highlight visible inside a scrolling panel call it on every highlight move.
   // Defined on the prototype so a test can `vi.spyOn(Element.prototype,
   // "scrollIntoView")` to assert which element was scrolled to. Assigned
-  // unconditionally, like the other DOM stubs in this file: a future jsdom that
-  // ships its own no-op (routed to the virtual console instead of throwing)
-  // would otherwise leave that no-op in place under a guard that never fires
-  // again, and every keyboard-highlight move would flood test output.
+  // without checking whether one already exists: a future jsdom that ships
+  // its own no-op (routed to the virtual console instead of throwing) would
+  // otherwise leave that no-op in place under a presence check that never
+  // fires again, and every keyboard-highlight move would flood test output.
   Element.prototype.scrollIntoView = function scrollIntoView() {};
 
   // Mock IntersectionObserver for infinite-scroll components (jsdom lacks it).
