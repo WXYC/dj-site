@@ -55,10 +55,8 @@ const DEFAULT_BIN = RotationBin.H;
  * autocomplete + self-released link, and the validationMessage div's role as
  * the one place a refusal is shown.
  *
- * On success there is nowhere JSP-faithful to land: `rotationRelease?mode=
- * addRotationRelease`'s own destination is the record it just created, and
- * that screen (`rotationReleaseModify.jsp`) is a later classic rotation
- * slice, not yet built. This redirects to the list instead.
+ * On success this lands on the record it just created, which is where
+ * `rotationRelease?mode=addRotationRelease` lands too.
  */
 export default function RotationReleaseInsert() {
   const router = useRouter();
@@ -127,8 +125,8 @@ export default function RotationReleaseInsert() {
     };
 
     try {
-      await addFreeTextRotationEntry(body).unwrap();
-      router.push("/dashboard/rotation");
+      const created = await addFreeTextRotationEntry(body).unwrap();
+      router.push(`/dashboard/rotation/${created.id}`);
     } catch (err) {
       setValidationMessage(rotationWriteErrorMessage(err, "Failed to add rotation release."));
     }

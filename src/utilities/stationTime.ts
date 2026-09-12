@@ -141,14 +141,25 @@ export function formatStationDateTime(isoString: string): {
 // Java method that renders it is named `getLongDateAsMMDDYY`, which describes
 // a different format than it produces; the rendered shape is what the
 // librarian reads, so that is what is reproduced here.
+const stationLongDateFormatter = new Intl.DateTimeFormat("en-US", {
+  timeZone: STATION_TIME_ZONE,
+  weekday: "long",
+  year: "numeric",
+  month: "long",
+  day: "numeric",
+});
+
 export function formatStationLongDate(isoString: string): string {
-  return new Intl.DateTimeFormat("en-US", {
-    timeZone: STATION_TIME_ZONE,
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  }).format(new Date(isoString));
+  return stationLongDateFormatter.format(new Date(isoString));
+}
+
+// The same long form for a `YYYY-MM-DD` column, which names a calendar day and
+// carries no instant -- the rotation dates are stored that way. Read at midday
+// UTC rather than at the midnight `new Date("2026-09-12")` produces, which is
+// the previous evening in station time and so prints the previous day.
+export function formatLongCalendarDate(isoDate: string | null | undefined): string {
+  if (!isoDate) return "";
+  return stationLongDateFormatter.format(new Date(`${isoDate}T12:00:00Z`));
 }
 
 const stationTimestampFormatter = new Intl.DateTimeFormat("en-US", {
