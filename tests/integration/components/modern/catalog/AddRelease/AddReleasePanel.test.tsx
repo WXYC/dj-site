@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
-import { renderWithProviders, server, TEST_BACKEND_URL } from "@/tests/helpers";
+import { renderWithProviders, server, setFieldValue, TEST_BACKEND_URL } from "@/tests/helpers";
 import AddReleasePanel from "@/src/components/experiences/modern/catalog/AddRelease/AddReleasePanel";
 
 vi.mock("@/lib/features/authentication/client", () => ({
@@ -176,7 +176,7 @@ async function fillForm(
 
   const albumTitle = textFor("album title", "DOGA");
   if (albumTitle) {
-    fireEvent.change(screen.getByLabelText(/Album title/), { target: { value: albumTitle } });
+    setFieldValue(screen.getByLabelText(/Album title/), albumTitle);
   }
   if (blank !== "genre") {
     await pickGenre(user);
@@ -186,15 +186,11 @@ async function fillForm(
   }
   const artist = textFor("artist", "Juana Molina");
   if (blank !== "genre" && artist) {
-    fireEvent.change(await screen.findByPlaceholderText("Search artists..."), {
-      target: { value: artist },
-    });
+    setFieldValue(await screen.findByPlaceholderText("Search artists..."), artist);
   }
   const label = textFor("label", "Sonamos");
   if (label) {
-    fireEvent.change(await screen.findByPlaceholderText("Search labels..."), {
-      target: { value: label },
-    });
+    setFieldValue(await screen.findByPlaceholderText("Search labels..."), label);
   }
 }
 
@@ -281,7 +277,7 @@ describe("AddReleasePanel", () => {
       const { user } = renderWithProviders(<AddReleasePanel />);
 
       await openPanel(user);
-      fireEvent.change(screen.getByLabelText(/Album title/), { target: { value: "DOGA" } });
+      setFieldValue(screen.getByLabelText(/Album title/), "DOGA");
       await pickGenre(user);
       await pickFormat(user);
 
@@ -320,12 +316,10 @@ describe("AddReleasePanel", () => {
       const { user } = renderWithProviders(<AddReleasePanel />);
 
       await openPanel(user);
-      fireEvent.change(screen.getByLabelText(/Album title/), { target: { value: "DOGA" } });
+      setFieldValue(screen.getByLabelText(/Album title/), "DOGA");
       await pickGenre(user);
       await pickFormat(user);
-      fireEvent.change(await screen.findByPlaceholderText("Search artists..."), {
-        target: { value: "Juana Molina" },
-      });
+      setFieldValue(await screen.findByPlaceholderText("Search artists..."), "Juana Molina");
 
       // A near-duplicate is only prevented if the existing row is reachable
       // without a pointer: a keyboard-only MD who can only submit their own
@@ -353,17 +347,15 @@ describe("AddReleasePanel", () => {
       const { user } = renderWithProviders(<AddReleasePanel />);
 
       await openPanel(user);
-      fireEvent.change(screen.getByLabelText(/Album title/), {
-        target: { value: "On Your Own Love Again" },
-      });
+      setFieldValue(screen.getByLabelText(/Album title/), "On Your Own Love Again");
       await pickGenre(user);
       await pickFormat(user);
 
       const artistInput = await screen.findByPlaceholderText("Search artists...");
-      fireEvent.change(artistInput, { target: { value: "Jessica Pratt" } });
+      setFieldValue(artistInput, "Jessica Pratt");
 
       const labelInput = await screen.findByPlaceholderText("Search labels...");
-      fireEvent.change(labelInput, { target: { value: "Drag City" } });
+      setFieldValue(labelInput, "Drag City");
 
       await user.click(screen.getByRole("button", { name: "Save Release" }));
 
@@ -386,7 +378,7 @@ describe("AddReleasePanel", () => {
       const { user } = renderWithProviders(<AddReleasePanel />);
 
       await openPanel(user);
-      fireEvent.change(screen.getByLabelText(/Album title/), { target: { value: "DOGA" } });
+      setFieldValue(screen.getByLabelText(/Album title/), "DOGA");
       await pickGenre(user);
       await pickFormat(user);
 
@@ -395,11 +387,12 @@ describe("AddReleasePanel", () => {
       await user.click(await screen.findByText("Juana Molina"));
 
       // Edited away from the picked artist's name: the id no longer names
-      // this text, so the retraction must drop it before submit.
+      // this text, so the retraction must drop it before submit. Stays
+      // user.type: the append onto the already-picked value is the subject.
       await user.type(artistInput, " Solo");
 
       const labelInput = await screen.findByPlaceholderText("Search labels...");
-      fireEvent.change(labelInput, { target: { value: "Sonamos" } });
+      setFieldValue(labelInput, "Sonamos");
 
       await user.click(screen.getByRole("button", { name: "Save Release" }));
 
@@ -431,7 +424,7 @@ describe("AddReleasePanel", () => {
       const { user } = renderWithProviders(<AddReleasePanel />);
 
       await openPanel(user);
-      fireEvent.change(screen.getByLabelText(/Album title/), { target: { value: "DOGA" } });
+      setFieldValue(screen.getByLabelText(/Album title/), "DOGA");
       await pickGenre(user, "Rock");
       await pickFormat(user);
 
@@ -445,7 +438,7 @@ describe("AddReleasePanel", () => {
       await pickGenre(user, "Jazz");
 
       const labelInput = await screen.findByPlaceholderText("Search labels...");
-      fireEvent.change(labelInput, { target: { value: "Sonamos" } });
+      setFieldValue(labelInput, "Sonamos");
 
       await user.click(screen.getByRole("button", { name: "Save Release" }));
 
@@ -535,15 +528,15 @@ describe("AddReleasePanel", () => {
       const { user } = renderWithProviders(<AddReleasePanel />);
 
       await openPanel(user);
-      fireEvent.change(screen.getByLabelText(/Album title/), { target: { value: "Edits" } });
+      setFieldValue(screen.getByLabelText(/Album title/), "Edits");
       await pickGenre(user);
       await pickFormat(user);
 
       const artistInput = await screen.findByPlaceholderText("Search artists...");
-      fireEvent.change(artistInput, { target: { value: "Chuquimamani-Condori" } });
+      setFieldValue(artistInput, "Chuquimamani-Condori");
 
       const labelInput = await screen.findByPlaceholderText("Search labels...");
-      fireEvent.change(labelInput, { target: { value: "self-released" } });
+      setFieldValue(labelInput, "self-released");
 
       await user.click(screen.getByRole("button", { name: "Save Release" }));
 
@@ -565,15 +558,15 @@ describe("AddReleasePanel", () => {
 
       await openPanel(user);
       const albumTitleInput = screen.getByLabelText(/Album title/);
-      fireEvent.change(albumTitleInput, { target: { value: "Edits" } });
+      setFieldValue(albumTitleInput, "Edits");
       await pickGenre(user);
       await pickFormat(user);
 
       const artistInput = await screen.findByPlaceholderText("Search artists...");
-      fireEvent.change(artistInput, { target: { value: "Chuquimamani-Condori" } });
+      setFieldValue(artistInput, "Chuquimamani-Condori");
 
       const labelInput = await screen.findByPlaceholderText("Search labels...");
-      fireEvent.change(labelInput, { target: { value: "self-released" } });
+      setFieldValue(labelInput, "self-released");
 
       await user.click(screen.getByRole("button", { name: "Save Release" }));
       await waitFor(() => expect(getReceivedBody()).toBeDefined());
@@ -621,15 +614,15 @@ describe("AddReleasePanel", () => {
       const { user } = renderWithProviders(<AddReleasePanel />);
 
       await openPanel(user);
-      fireEvent.change(screen.getByLabelText(/Album title/), { target: { value: "Edits" } });
+      setFieldValue(screen.getByLabelText(/Album title/), "Edits");
       await pickGenre(user);
       await pickFormat(user);
 
       const artistInput = await screen.findByPlaceholderText("Search artists...");
-      fireEvent.change(artistInput, { target: { value: "Chuquimamani-Condori  " } });
+      setFieldValue(artistInput, "Chuquimamani-Condori  ");
 
       const labelInput = await screen.findByPlaceholderText("Search labels...");
-      fireEvent.change(labelInput, { target: { value: "self-released" } });
+      setFieldValue(labelInput, "self-released");
 
       await user.click(screen.getByRole("button", { name: "Save Release" }));
 
@@ -652,15 +645,11 @@ describe("AddReleasePanel", () => {
       const { user } = renderWithProviders(<AddReleasePanel />);
 
       await openPanel(user);
-      fireEvent.change(screen.getByLabelText(/Album title/), { target: { value: "DOGA" } });
+      setFieldValue(screen.getByLabelText(/Album title/), "DOGA");
       await pickGenre(user);
       await pickFormat(user);
-      fireEvent.change(await screen.findByPlaceholderText("Search artists..."), {
-        target: { value: "Juana Molina" },
-      });
-      fireEvent.change(await screen.findByPlaceholderText("Search labels..."), {
-        target: { value: "Sonamos" },
-      });
+      setFieldValue(await screen.findByPlaceholderText("Search artists..."), "Juana Molina");
+      setFieldValue(await screen.findByPlaceholderText("Search labels..."), "Sonamos");
 
       await user.click(screen.getByRole("button", { name: "Save Release" }));
       await waitFor(() => expect(getReceivedBody()).toBeDefined());
@@ -688,15 +677,11 @@ describe("AddReleasePanel", () => {
       const { user } = renderWithProviders(<AddReleasePanel />);
 
       await openPanel(user);
-      fireEvent.change(screen.getByLabelText(/Album title/), { target: { value: "Edits" } });
+      setFieldValue(screen.getByLabelText(/Album title/), "Edits");
       await pickGenre(user);
       await pickFormat(user);
-      fireEvent.change(await screen.findByPlaceholderText("Search artists..."), {
-        target: { value: "Chuquimamani-Condori" },
-      });
-      fireEvent.change(await screen.findByPlaceholderText("Search labels..."), {
-        target: { value: "self-released" },
-      });
+      setFieldValue(await screen.findByPlaceholderText("Search artists..."), "Chuquimamani-Condori");
+      setFieldValue(await screen.findByPlaceholderText("Search labels..."), "self-released");
 
       await user.click(screen.getByRole("button", { name: "Save Release" }));
 
@@ -724,7 +709,7 @@ describe("AddReleasePanel", () => {
         const { user } = renderWithProviders(<AddReleasePanel />);
 
         await openPanel(user);
-        fireEvent.change(screen.getByLabelText(/Album title/), { target: { value: "DOGA" } });
+        setFieldValue(screen.getByLabelText(/Album title/), "DOGA");
         await pickGenre(user);
         await user.type(await screen.findByPlaceholderText(placeholder), term);
         await screen.findByRole("listbox");
@@ -746,7 +731,7 @@ describe("AddReleasePanel", () => {
       const { user } = renderWithProviders(<AddReleasePanel />);
 
       await openPanel(user);
-      fireEvent.change(screen.getByLabelText(/Album title/), { target: { value: "DOGA" } });
+      setFieldValue(screen.getByLabelText(/Album title/), "DOGA");
       await pickGenre(user);
       await pickFormat(user);
 
@@ -760,9 +745,7 @@ describe("AddReleasePanel", () => {
       // very artist it is telling the MD does not exist yet.
       await user.click(artistInput);
       await user.click(await screen.findByText(/Create new artist/i));
-      fireEvent.change(await screen.findByPlaceholderText("Search labels..."), {
-        target: { value: "Sonamos" },
-      });
+      setFieldValue(await screen.findByPlaceholderText("Search labels..."), "Sonamos");
 
       await user.click(screen.getByRole("button", { name: "Save Release" }));
 
@@ -803,14 +786,12 @@ describe("AddReleasePanel", () => {
       const { user } = renderWithProviders(<AddReleasePanel />);
 
       await openPanel(user);
-      fireEvent.change(screen.getByLabelText(/Album title/), { target: { value: "Edits" } });
+      setFieldValue(screen.getByLabelText(/Album title/), "Edits");
       await pickGenre(user);
       await pickFormat(user);
-      fireEvent.change(await screen.findByPlaceholderText("Search artists..."), {
-        target: { value: "Chuquimamani-Condori" },
-      });
+      setFieldValue(await screen.findByPlaceholderText("Search artists..."), "Chuquimamani-Condori");
       const labelInput = await screen.findByPlaceholderText("Search labels...");
-      fireEvent.change(labelInput, { target: { value: "Duophonic" } });
+      setFieldValue(labelInput, "Duophonic");
       await screen.findByText(/will be created as a new label/i);
 
       await user.click(screen.getByRole("button", { name: "Save Release" }));
@@ -821,9 +802,7 @@ describe("AddReleasePanel", () => {
       // stale cache would serve the earlier empty result without a new
       // request, hiding the label the backend just created.
       await openPanel(user);
-      fireEvent.change(await screen.findByPlaceholderText("Search labels..."), {
-        target: { value: "Duophonic" },
-      });
+      setFieldValue(await screen.findByPlaceholderText("Search labels..."), "Duophonic");
 
       await waitFor(() => expect(labelRequests.length).toBeGreaterThan(1));
     });
@@ -833,13 +812,13 @@ describe("AddReleasePanel", () => {
       const { user } = renderWithProviders(<AddReleasePanel />);
 
       await openPanel(user);
-      fireEvent.change(screen.getByLabelText(/Album title/), { target: { value: "DOGA" } });
+      setFieldValue(screen.getByLabelText(/Album title/), "DOGA");
       await pickGenre(user);
       await pickFormat(user);
       const artistInput = await screen.findByPlaceholderText("Search artists...");
-      fireEvent.change(artistInput, { target: { value: "Juana Molina" } });
+      setFieldValue(artistInput, "Juana Molina");
       const labelInput = await screen.findByPlaceholderText("Search labels...");
-      fireEvent.change(labelInput, { target: { value: "Sonamos" } });
+      setFieldValue(labelInput, "Sonamos");
 
       await user.click(screen.getByRole("button", { name: "Save Release" }));
 
@@ -877,7 +856,7 @@ describe("AddReleasePanel", () => {
       const { user } = renderWithProviders(<AddReleasePanel />);
 
       await openPanel(user);
-      fireEvent.change(screen.getByLabelText(/Album title/), { target: { value: "DOGA" } });
+      setFieldValue(screen.getByLabelText(/Album title/), "DOGA");
       await pickGenre(user);
       await pickFormat(user);
       await user.type(await screen.findByPlaceholderText("Search artists..."), "Juana");
@@ -892,17 +871,11 @@ describe("AddReleasePanel", () => {
       mockArtistSearch([]);
       mockLabelSearch([]);
       await openPanel(user);
-      fireEvent.change(screen.getByLabelText(/Album title/), {
-        target: { value: "On Your Own Love Again" },
-      });
+      setFieldValue(screen.getByLabelText(/Album title/), "On Your Own Love Again");
       await pickGenre(user);
       await pickFormat(user);
-      fireEvent.change(await screen.findByPlaceholderText("Search artists..."), {
-        target: { value: "Jessica Pratt" },
-      });
-      fireEvent.change(await screen.findByPlaceholderText("Search labels..."), {
-        target: { value: "Drag City" },
-      });
+      setFieldValue(await screen.findByPlaceholderText("Search artists..."), "Jessica Pratt");
+      setFieldValue(await screen.findByPlaceholderText("Search labels..."), "Drag City");
       await user.click(screen.getByRole("button", { name: "Save Release" }));
 
       await waitFor(() =>
@@ -927,7 +900,7 @@ describe("AddReleasePanel", () => {
         const { user } = renderWithProviders(<AddReleasePanel />);
 
         await openPanel(user);
-        fireEvent.change(screen.getByLabelText(/Album title/), { target: { value: "DOGA" } });
+        setFieldValue(screen.getByLabelText(/Album title/), "DOGA");
 
         await user.click(closeButton());
 
@@ -941,7 +914,7 @@ describe("AddReleasePanel", () => {
         const { user } = renderWithProviders(<AddReleasePanel />);
 
         await openPanel(user);
-        fireEvent.change(screen.getByLabelText(/Album title/), { target: { value: "DOGA" } });
+        setFieldValue(screen.getByLabelText(/Album title/), "DOGA");
 
         await user.click(closeButton());
 

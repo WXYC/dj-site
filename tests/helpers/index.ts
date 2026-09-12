@@ -2,6 +2,7 @@ export * from "./constants";
 export * from "./time.vitest";
 export * from "../fixtures/fixtures";
 export * from "./render";
+export * from "./field-value";
 
 export * from "./slice-harness";
 export * from "./api-harness";
