@@ -1,36 +1,13 @@
 import { dirname, resolve } from "path";
 import { fileURLToPath } from "url";
-import { globSync } from "fs";
 import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
+import {
+  DOM_DEPENDENT_LIB_TESTS,
+  DOM_FREE_TIERS,
+} from "./tests/setup/vitest-projects";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-
-// These tests/unit/lib specs reach a real `window` (localStorage assigned via
-// Object.defineProperty, or a spy on the `window` global itself) rather than
-// going through a globalThis stub, so they stay on the jsdom project even
-// though nothing in them renders.
-const DOM_DEPENDENT_LIB_TESTS = new Set([
-  "tests/unit/lib/features/application/login-method-storage.test.ts",
-  "tests/unit/lib/features/experiences/local-storage.test.ts",
-  "tests/unit/lib/features/flowsheet/queue-storage.test.ts",
-  "tests/unit/lib/features/flowsheet/live-updates-listener.test.ts",
-  "tests/unit/lib/store.test.tsx",
-  "tests/unit/lib/posthog.test.ts",
-  "tests/unit/lib/sentry.test.ts",
-  "tests/unit/lib/web-vitals-reporter.test.ts",
-]);
-
-// Vitest's exclude list wins over any include entry that names the same file
-// (there's no re-inclusion), so the jsdom project can't blanket-exclude these
-// two directories and then list the 8 exceptions back in its own include --
-// it has to exclude precisely the files the node project claims. Resolving
-// the glob here, once, keeps both projects' file sets an exact complement of
-// each other instead of two hand-maintained lists that can drift apart.
-const NODE_PROJECT_FILES = globSync(
-  ["tests/unit/lib/**/*.test.{ts,tsx}", "tests/contract/**/*.test.{ts,tsx}"],
-  { cwd: __dirname }
-).filter((file) => !DOM_DEPENDENT_LIB_TESTS.has(file));
 
 export default defineConfig({
   plugins: [react()],
@@ -60,14 +37,22 @@ export default defineConfig({
     // need jsdom's per-file construction cost. `--changed`/`--shard` (used by
     // CI) walk this same projects list, not the legacy single-environment
     // config, so the split has to live here rather than per-file
-    // `@vitest-environment` docblocks.
+    // `@vitest-environment` docblocks. Every include/exclude below is a
+    // static pattern, never a resolved file list: watch mode routes a newly
+    // created file by matching it against each project's patterns, so a list
+    // materialised at config load would assign new specs by when vitest
+    // started rather than by where the file lives. And because an exclude
+    // beats an include naming the same file (there's no re-inclusion), the
+    // pinned specs can't be carved back into the main jsdom project — they
+    // need a project of their own.
     projects: [
       {
         extends: true,
         test: {
           name: "node",
           environment: "node",
-          include: NODE_PROJECT_FILES,
+          include: DOM_FREE_TIERS,
+          exclude: DOM_DEPENDENT_LIB_TESTS,
         },
       },
       {
@@ -76,7 +61,15 @@ export default defineConfig({
           name: "jsdom",
           environment: "jsdom",
           include: ["**/*.test.{ts,tsx}"],
-          exclude: ["node_modules", ".claude/**", ...NODE_PROJECT_FILES],
+          exclude: ["tests/unit/lib/**", "tests/contract/**"],
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: "jsdom-lib",
+          environment: "jsdom",
+          include: DOM_DEPENDENT_LIB_TESTS,
         },
       },
     ],

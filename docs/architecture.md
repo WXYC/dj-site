@@ -6,7 +6,7 @@
 - **UI**: React 18, MUI Joy UI (`@mui/joy`), MUI Material (icons), Motion (animations)
 - **State**: Redux Toolkit with RTK Query, `react-redux`
 - **Auth**: better-auth client + JOSE for JWT, session cookies
-- **Testing**: Vitest + jsdom, React Testing Library, MSW 2 for API mocking
+- **Testing**: Vitest (node environment for the DOM-free tiers, jsdom elsewhere), React Testing Library, MSW 2 for API mocking
 - **E2E Testing**: Playwright (Chromium)
 - **Build/Deploy**: OpenNext for Cloudflare Pages, Wrangler
 - **Language**: TypeScript (strict mode, `@/*` path alias resolves to project root)
