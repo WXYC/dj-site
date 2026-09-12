@@ -45,6 +45,8 @@ function uncataloguedRow(overrides: Partial<UncataloguedRotationRow> = {}): Unca
     artist_name: "LOS THUTHANAKA",
     album_title: "Wak'a",
     record_label: "self-released",
+    format_id: null,
+    label_id: null,
     ...overrides,
   };
 }

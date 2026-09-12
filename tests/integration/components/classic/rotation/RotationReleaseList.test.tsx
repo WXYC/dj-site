@@ -127,15 +127,33 @@ describe("classic RotationReleaseList — rotationReleaseList.jsp", () => {
       expect(within(chuquiRow).getByRole("button", { name: /^Unkill: / })).toBeInTheDocument();
     });
 
-    // Both destinations are later slices and no route answers either path,
-    // so rendering the JSP's row links would put a 404 under every row.
-    it("renders no Edit or Import link while their destinations do not exist", async () => {
+    // The JSP renders Import only where its Library column reads
+    // "Uncataloged" -- a killed row that never linked. A row still in
+    // rotation has not been through a cataloging decision yet, and a linked
+    // one has nothing left to import.
+    it("offers Import exactly where the Library column reads Uncataloged", async () => {
       mockActiveList([JUANA, CHUQUI_UNLINKED]);
       renderWithProviders(<RotationReleaseList statusFilter="active" />);
 
       await screen.findByText("Juana Molina");
-      expect(screen.queryByRole("link", { name: "Edit" })).not.toBeInTheDocument();
-      expect(screen.queryByRole("link", { name: "Import" })).not.toBeInTheDocument();
+      const chuquiRow = screen.getByText("Chuquimamani-Condori").closest("tr") as HTMLElement;
+      expect(within(chuquiRow).getByRole("link", { name: "Import: Edits" })).toHaveAttribute(
+        "href",
+        "/dashboard/rotation/5002/import",
+      );
+
+      const juanaRow = screen.getByText("Juana Molina").closest("tr") as HTMLElement;
+      expect(within(juanaRow).queryByRole("link", { name: /^Import: / })).not.toBeInTheDocument();
+    });
+
+    // Edit's destination is a later slice and no route answers it, so
+    // rendering the JSP's other row link would put a 404 under every row.
+    it("renders no Edit link while its destination does not exist", async () => {
+      mockActiveList([JUANA, CHUQUI_UNLINKED]);
+      renderWithProviders(<RotationReleaseList statusFilter="active" />);
+
+      await screen.findByText("Juana Molina");
+      expect(screen.queryByRole("link", { name: /^Edit/ })).not.toBeInTheDocument();
     });
 
     // The JSP keys Kill/Unkill and its Killed column on `killDate == 0`, not
@@ -265,6 +283,8 @@ describe("classic RotationReleaseList — rotationReleaseList.jsp", () => {
       artist_name: "LOS THUTHANAKA",
       album_title: "Wak'a",
       record_label: "self-released",
+      format_id: 3,
+      label_id: null,
     };
     const KILLED_UNCATALOGUED = {
       id: 6002,
@@ -275,7 +295,22 @@ describe("classic RotationReleaseList — rotationReleaseList.jsp", () => {
       artist_name: "ear",
       album_title: "Rumspringa",
       record_label: null,
+      format_id: null,
+      label_id: null,
     };
+
+    it("funnels the killed backlog into the import screen and leaves the active rows alone", async () => {
+      mockUncatalogued([ACTIVE_UNCATALOGUED, KILLED_UNCATALOGUED]);
+      const { user } = renderWithProviders(<RotationReleaseList statusFilter="uncataloged" />);
+
+      await screen.findByText("LOS THUTHANAKA");
+      expect(screen.queryByRole("link", { name: /^Import: / })).not.toBeInTheDocument();
+
+      await user.click(screen.getByRole("checkbox"));
+      expect(
+        await screen.findByRole("link", { name: "Import: Rumspringa" }),
+      ).toHaveAttribute("href", "/dashboard/rotation/6002/import");
+    });
 
     it("defaults to active-only, hiding the killed backlog", async () => {
       mockUncatalogued([ACTIVE_UNCATALOGUED, KILLED_UNCATALOGUED]);

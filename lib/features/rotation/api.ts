@@ -15,6 +15,7 @@ import type {
 } from "@wxyc/shared";
 import type {
   FreeTextRotationAddRequest,
+  LinkRotationArgs,
   RotationListRow,
   UncataloguedRotationRow,
 } from "./types";
@@ -198,6 +199,47 @@ export const rotationApi = createApi({
       }),
       invalidatesTags: ["Rotation"],
     }),
+    // The single rotation row behind the import screen
+    // (`GET /library/rotation/:id`), answering for linked and unlinked rows
+    // alike. Neither existing read substitutes: `getRotationList` collapses
+    // its rows on the library join, and `getUncataloguedRotation` filters
+    // `album_id IS NULL` behind a page cap against a backlog of thousands, so
+    // "absent from that page" conflates *linked* with *past the window*.
+    //
+    // Opts out of the shared soft-JSON-failure handling
+    // (`surfaceNonJsonAsError`) for a sharper reason than the lists above.
+    // This query is also the pre-create staleness check, and a soft-handled
+    // non-JSON body resolves to a successful `undefined` -- which reads as
+    // "no such row, therefore not linked" and licenses creating a second
+    // library release for a release someone has already catalogued.
+    getRotationRow: builder.query<UncataloguedRotationRow, number>({
+      query: (rotationId) => ({ url: `/${rotationId}` }),
+      extraOptions: { surfaceNonJsonAsError: true },
+      providesTags: ["Rotation"],
+    }),
+    // `PATCH /library/rotation/:rotation_id/link` -- the second half of one
+    // user action, never a step a librarian is trusted to remember: the pile
+    // of unlinked rotation rows this screen exists to work through is the
+    // measured cost of a design where linking lived on its own screen.
+    //
+    // Refusals are wrapped out of the shared rejected-query middleware's
+    // `payload.data.message` lookup, matching `addFreeTextRotationEntry` and
+    // `deleteAlbum`. Every one of them lands on a screen that states the
+    // refusal itself and names the library release this submission already
+    // created; a second, vaguer sentence toasted over that reports one
+    // failure twice. `lib/features/rotation/importOutcome.ts` is the one
+    // owner of reading the wrapped rejection.
+    linkRotationToAlbum: builder.mutation<UncataloguedRotationRow, LinkRotationArgs>({
+      query: ({ rotation_id, album_id }) => ({
+        url: `/${rotation_id}/link`,
+        method: "PATCH",
+        body: { album_id },
+      }),
+      transformErrorResponse: (
+        response: FetchBaseQueryError,
+      ): { linkRotationError: FetchBaseQueryError } => ({ linkRotationError: response }),
+      invalidatesTags: ["Rotation"],
+    }),
     // Unkill: `PATCH /library/rotation/:id`, the field-level rotation editor,
     // with `kill_date: null` clears a kill date. Distinct from
     // `killRotationEntry` above, which
@@ -261,6 +303,9 @@ export const {
   useGetRotationTracksQuery,
   useGetRotationListQuery,
   useGetUncataloguedRotationQuery,
+  useGetRotationRowQuery,
+  useLazyGetRotationRowQuery,
+  useLinkRotationToAlbumMutation,
   useAddFreeTextRotationEntryMutation,
   useUnkillRotationEntryMutation,
   usePrefetch: useRotationPrefetch,
