@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { renderWithProviders, server, TEST_BACKEND_URL } from "@/tests/helpers";
 import AddReleasePanel from "@/src/components/experiences/modern/catalog/AddRelease/AddReleasePanel";
@@ -118,13 +118,19 @@ type User = ReturnType<typeof renderWithProviders>["user"];
 /** Fills and submits the release form, leaving the panel wherever submit takes it. */
 async function submitRelease(user: User, artistName: string) {
   await user.click(await screen.findByRole("button", { name: "Add Release" }));
-  await user.type(screen.getByLabelText(/Album title/), "Even Cowgirls Get The Blues");
+  fireEvent.change(screen.getByLabelText(/Album title/), {
+    target: { value: "Even Cowgirls Get The Blues" },
+  });
   await user.click(await screen.findByRole("combobox", { name: "Genre" }));
   await user.click(await screen.findByRole("option", { name: "Rock" }));
   await user.click(await screen.findByRole("combobox", { name: "Format" }));
   await user.click(await screen.findByRole("option", { name: "CD" }));
-  await user.type(await screen.findByPlaceholderText("Search artists..."), artistName);
-  await user.type(await screen.findByPlaceholderText("Search labels..."), "Sonamos");
+  fireEvent.change(await screen.findByPlaceholderText("Search artists..."), {
+    target: { value: artistName },
+  });
+  fireEvent.change(await screen.findByPlaceholderText("Search labels..."), {
+    target: { value: "Sonamos" },
+  });
   await user.click(screen.getByRole("button", { name: "Save Release" }));
 }
 
