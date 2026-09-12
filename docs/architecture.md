@@ -6,7 +6,7 @@
 - **UI**: React 18, MUI Joy UI (`@mui/joy`), MUI Material (icons), Motion (animations)
 - **State**: Redux Toolkit with RTK Query, `react-redux`
 - **Auth**: better-auth client + JOSE for JWT, session cookies
-- **Testing**: Vitest (node environment for the DOM-free tiers, jsdom elsewhere), React Testing Library, MSW 2 for API mocking
+- **Testing**: Vitest (`node` project for `tests/unit/lib` and `tests/contract`, `jsdom`/`jsdom-lib` elsewhere — see dj-site `docs/testing.md` Environments), React Testing Library, MSW 2 for API mocking
 - **E2E Testing**: Playwright (Chromium)
 - **Build/Deploy**: OpenNext for Cloudflare Pages, Wrangler
 - **Language**: TypeScript (strict mode, `@/*` path alias resolves to project root)
@@ -59,7 +59,7 @@ tests/                        # Additional component/unit tests; vitest helpers/
   helpers/                    # Render helpers, harnesses, time utilities (see Testing section)
   fakes/                      # MSW handlers and server
   fixtures/                   # Fixture factories and data
-  setup/                      # vitest.setup.ts
+  setup/                      # vitest.setup.ts, vitest.setup.dom.ts
 ```
 
 ## Dashboard URL map
