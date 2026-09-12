@@ -16,9 +16,14 @@ vi.mock("sonner", () => ({
 }));
 
 const patchCatalogSearchRotation = vi.hoisted(() => vi.fn());
+// The rotation-only store below carries no catalog slice for the real
+// implementation to read, and the handler's own catch would swallow the
+// selector's complaint as a cache-patch failure.
+const cachedAlbumRotationId = vi.hoisted(() => vi.fn<() => number | undefined>(() => undefined));
 vi.mock("@/lib/features/catalog/patchSearchCaches", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/features/catalog/patchSearchCaches")>()),
   patchCatalogSearchRotation,
+  cachedAlbumRotationId,
 }));
 
 function rotationStore() {
@@ -40,7 +45,7 @@ const BASE = `${TEST_BACKEND_URL}/library/rotation`;
 describe("rotationApi — classic list + free-text add additions", () => {
   describeApi(rotationApi, {
     queries: ["getRotationList", "getUncataloguedRotation"],
-    mutations: ["addFreeTextRotationEntry", "unkillRotationEntry"],
+    mutations: ["addFreeTextRotationEntry", "updateRotationRow"],
     reducerPath: "rotationApi",
   });
 
@@ -211,7 +216,136 @@ describe("rotationApi — classic list + free-text add additions", () => {
     });
   });
 
-  describe("unkillRotationEntry", () => {
+  describe("updateRotationRow", () => {
+    it("sends every field but rotation_id in the body, and rotation_id in the path", async () => {
+      let requestBody: unknown;
+      let requestUrl: URL | undefined;
+      server.use(
+        http.patch(`${BASE}/:id`, async ({ request, params }) => {
+          requestUrl = new URL(request.url);
+          requestBody = await request.json();
+          return HttpResponse.json({
+            id: Number(params.id),
+            album_id: null,
+            rotation_bin: "H",
+            add_date: "2026-09-10",
+            kill_date: null,
+          });
+        }),
+      );
+
+      const store = rotationStore();
+      await store.dispatch(
+        rotationApi.endpoints.updateRotationRow.initiate({
+          rotation_id: 5001,
+          artist_name: "Juana Molina",
+          album_title: "DOGA",
+          record_label: "Sonamos",
+          add_date: "2026-09-10",
+          format_id: 3,
+          label_id: null,
+        }),
+      );
+
+      expect(requestUrl?.pathname).toBe("/library/rotation/5001");
+      expect(requestBody).toEqual({
+        artist_name: "Juana Molina",
+        album_title: "DOGA",
+        record_label: "Sonamos",
+        add_date: "2026-09-10",
+        format_id: 3,
+        label_id: null,
+      });
+    });
+
+    // A partial PATCH must stay partial: the server SETs only the keys it
+    // receives, so passing a key through as `undefined` would serialize it out
+    // of the JSON body anyway -- this pins that the arg destructuring does not
+    // reintroduce one.
+    it("omits a field the caller did not set rather than sending it as null", async () => {
+      let requestBody: unknown;
+      server.use(
+        http.patch(`${BASE}/:id`, async ({ request }) => {
+          requestBody = await request.json();
+          return HttpResponse.json({
+            id: 5001,
+            album_id: null,
+            rotation_bin: "H",
+            add_date: "2026-09-10",
+            kill_date: null,
+          });
+        }),
+      );
+
+      const store = rotationStore();
+      await store.dispatch(
+        rotationApi.endpoints.updateRotationRow.initiate({ rotation_id: 5001, album_title: "DOGA" }),
+      );
+
+      expect(requestBody).toEqual({ album_title: "DOGA" });
+    });
+
+    // The catalog override this writes is the one `killRotationEntry` writes
+    // in the other direction, and it shadows the server's value until another
+    // write replaces it. An edit that lands a kill date has to clear the badge
+    // for the same reason an unkill has to restore it.
+    it("clears the catalog's rotation badge when the edit lands a kill date", async () => {
+      patchCatalogSearchRotation.mockClear();
+      server.use(
+        http.patch(`${BASE}/:id`, () =>
+          HttpResponse.json({
+            id: 5001,
+            album_id: 42,
+            rotation_bin: "M",
+            add_date: "2026-08-01",
+            kill_date: "2026-08-20",
+          }),
+        ),
+      );
+
+      const store = rotationStore();
+      await store.dispatch(
+        rotationApi.endpoints.updateRotationRow.initiate({
+          rotation_id: 5001,
+          kill_date: "2026-08-20",
+        }),
+      );
+
+      expect(patchCatalogSearchRotation).toHaveBeenCalledWith(expect.anything(), expect.anything(), 42, {
+        rotation_bin: undefined,
+        rotation_id: undefined,
+      });
+    });
+
+    // "Killed" and "no longer in rotation" are different dates. A kill
+    // scheduled for next week leaves the release in rotation today, so the
+    // badge has to stay until the date arrives.
+    it("keeps the badge for a kill date that has not arrived yet", async () => {
+      patchCatalogSearchRotation.mockClear();
+      const nextWeek = new Date(Date.now() + 7 * 86_400_000).toISOString().slice(0, 10);
+      server.use(
+        http.patch(`${BASE}/:id`, () =>
+          HttpResponse.json({
+            id: 5001,
+            album_id: 42,
+            rotation_bin: "M",
+            add_date: "2026-08-01",
+            kill_date: nextWeek,
+          }),
+        ),
+      );
+
+      const store = rotationStore();
+      await store.dispatch(
+        rotationApi.endpoints.updateRotationRow.initiate({ rotation_id: 5001, kill_date: nextWeek }),
+      );
+
+      expect(patchCatalogSearchRotation).toHaveBeenCalledWith(expect.anything(), expect.anything(), 42, {
+        rotation_bin: "M",
+        rotation_id: 5001,
+      });
+    });
+
     it("PATCHes /library/rotation/:id with kill_date: null", async () => {
       let requestBody: unknown;
       let requestUrl: URL | undefined;
@@ -231,7 +365,7 @@ describe("rotationApi — classic list + free-text add additions", () => {
 
       const store = rotationStore();
       const result = await store.dispatch(
-        rotationApi.endpoints.unkillRotationEntry.initiate({ rotation_id: 5001 }),
+        rotationApi.endpoints.updateRotationRow.initiate({ rotation_id: 5001, kill_date: null }),
       );
 
       expect(requestUrl?.pathname).toBe("/library/rotation/5001");
@@ -259,7 +393,7 @@ describe("rotationApi — classic list + free-text add additions", () => {
       );
 
       const store = rotationStore();
-      await store.dispatch(rotationApi.endpoints.unkillRotationEntry.initiate({ rotation_id: 5001 }));
+      await store.dispatch(rotationApi.endpoints.updateRotationRow.initiate({ rotation_id: 5001, kill_date: null }));
 
       expect(patchCatalogSearchRotation).toHaveBeenCalledWith(
         expect.anything(),
@@ -284,9 +418,100 @@ describe("rotationApi — classic list + free-text add additions", () => {
       );
 
       const store = rotationStore();
-      await store.dispatch(rotationApi.endpoints.unkillRotationEntry.initiate({ rotation_id: 5001 }));
+      await store.dispatch(rotationApi.endpoints.updateRotationRow.initiate({ rotation_id: 5001, kill_date: null }));
 
       expect(patchCatalogSearchRotation).not.toHaveBeenCalled();
+    });
+
+    // The clear is a claim about the album, not about this row. The set
+    // gesture adds the replacement before retiring what it replaced, so a
+    // correction to the retired row must defer to the cache's newer claim --
+    // the same guard `killRotationEntry` carries for the same reason.
+    it("leaves the badge alone when the cache names a different rotation row for the album", async () => {
+      patchCatalogSearchRotation.mockClear();
+      cachedAlbumRotationId.mockReturnValueOnce(9999);
+      server.use(
+        http.patch(`${BASE}/:id`, () =>
+          HttpResponse.json({
+            id: 5001,
+            album_id: 42,
+            rotation_bin: "M",
+            add_date: "2026-08-01",
+            kill_date: "2026-08-20",
+          }),
+        ),
+      );
+
+      const store = rotationStore();
+      await store.dispatch(
+        rotationApi.endpoints.updateRotationRow.initiate({
+          rotation_id: 5001,
+          kill_date: "2026-08-20",
+        }),
+      );
+
+      expect(patchCatalogSearchRotation).not.toHaveBeenCalled();
+    });
+
+    // The caller renders every refusal from this mutation inline, so the
+    // shared rejected-query middleware toasting the identical string a second
+    // time would report one refusal twice.
+    it("keeps its rejection message out of the global toast", async () => {
+      const { toast } = await import("sonner");
+      vi.mocked(toast.error).mockClear();
+      server.use(
+        http.patch(`${BASE}/:id`, () =>
+          HttpResponse.json({ message: "This release is already catalogued" }, { status: 409 }),
+        ),
+      );
+
+      const store = rotationStoreWithErrorLogger();
+      const result = await store.dispatch(
+        rotationApi.endpoints.updateRotationRow.initiate({ rotation_id: 5001, kill_date: null }),
+      );
+
+      expect("error" in result).toBe(true);
+      expect(toast.error).not.toHaveBeenCalled();
+    });
+
+    // The response is the updated row. Refetching it would rebuild the form
+    // under the librarian who just submitted it, from a body he already holds.
+    it("writes the response into the row cache instead of refetching it", async () => {
+      let rowReads = 0;
+      server.use(
+        http.get(`${BASE}/5001`, () => {
+          rowReads += 1;
+          return HttpResponse.json({
+            id: 5001,
+            album_id: null,
+            rotation_bin: "H",
+            add_date: "2026-08-01",
+            kill_date: "2026-08-20",
+          });
+        }),
+        http.patch(`${BASE}/:id`, () =>
+          HttpResponse.json({
+            id: 5001,
+            album_id: null,
+            rotation_bin: "H",
+            add_date: "2026-08-01",
+            kill_date: null,
+          }),
+        ),
+      );
+
+      const store = rotationStore();
+      await store.dispatch(rotationApi.endpoints.getRotationRow.initiate(5001));
+      await store.dispatch(
+        rotationApi.endpoints.updateRotationRow.initiate({ rotation_id: 5001, kill_date: null }),
+      );
+
+      await vi.waitFor(() =>
+        expect(
+          rotationApi.endpoints.getRotationRow.select(5001)(store.getState()).data,
+        ).toMatchObject({ kill_date: null }),
+      );
+      expect(rowReads).toBe(1);
     });
 
     it("invalidates a cached Rotation-tagged query on success", async () => {
@@ -305,7 +530,7 @@ describe("rotationApi — classic list + free-text add additions", () => {
 
       const store = rotationStore();
       await store.dispatch(rotationApi.endpoints.getRotationList.initiate());
-      await store.dispatch(rotationApi.endpoints.unkillRotationEntry.initiate({ rotation_id: 5001 }));
+      await store.dispatch(rotationApi.endpoints.updateRotationRow.initiate({ rotation_id: 5001, kill_date: null }));
 
       expect(
         rotationApi.util.selectInvalidatedBy(store.getState(), [{ type: "Rotation" }]),
