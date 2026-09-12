@@ -144,20 +144,23 @@ const eslintConfig = [
             {
               // `regex` (unlike `group`, which treats a bare name as a
               // gitignore-style prefix) matches only the barrel itself, not
-              // the permitted @/tests/helpers/constants deep import.
-              regex: "^@/tests/helpers$",
+              // the permitted @/tests/helpers/constants deep import. The
+              // optional "/index" suffix matches an explicit index specifier,
+              // which resolves to the identical module but wouldn't
+              // otherwise match this anchored pattern.
+              regex: "^@/tests/helpers(/index)?$",
               message: BARREL_BAN_MESSAGE,
             },
             {
               // A relative specifier for the same barrel module ("../helpers"
               // from tests/contract, "../../helpers" from tests/unit/lib,
-              // one more "../" per extra level of nesting) resolves
-              // identically but doesn't match the alias regex above -- it
-              // evades the rule and reintroduces RTL into the node project
-              // exactly as the aliased form would. Anchored at both ends so
-              // it doesn't also catch a legitimate deeper import such as
-              // "../../helpers/store".
-              regex: "^(\\.\\./)+helpers$",
+              // one more "../" per extra level of nesting, either with or
+              // without an explicit "/index") resolves identically but
+              // doesn't match the alias regex above -- it evades the rule and
+              // reintroduces RTL into the node project exactly as the aliased
+              // form would. Anchored at both ends so it doesn't also catch a
+              // legitimate deeper import such as "../../helpers/store".
+              regex: "^(\\.\\./)+helpers(/index)?$",
               message: BARREL_BAN_MESSAGE,
             },
           ],
