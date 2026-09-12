@@ -156,21 +156,38 @@ describe("toDisplayRowFromList", () => {
 
 describe("toDisplayRowFromUncatalogued", () => {
   it("is always uncataloged when killed and unknown when never killed -- rows here are unlinked by construction", () => {
-    const active = toDisplayRowFromUncatalogued(uncataloguedRow({ kill_date: null }), NOW);
-    const killed = toDisplayRowFromUncatalogued(uncataloguedRow({ kill_date: "2026-01-01" }), NOW);
+    const active = toDisplayRowFromUncatalogued(uncataloguedRow({ kill_date: null }), undefined, NOW);
+    const killed = toDisplayRowFromUncatalogued(uncataloguedRow({ kill_date: "2026-01-01" }), undefined, NOW);
     expect(active.libraryStatus).toBe("unknown");
     expect(killed.libraryStatus).toBe("uncataloged");
   });
 
   it("keeps a future kill date visible while still reporting the row as active", () => {
-    const row = toDisplayRowFromUncatalogued(uncataloguedRow({ kill_date: "2026-09-05" }), NOW);
+    const row = toDisplayRowFromUncatalogued(uncataloguedRow({ kill_date: "2026-09-05" }), undefined, NOW);
     expect(row.killedDisplay).toBe("09/05/26");
     expect(row.active).toBe(true);
   });
 
   it("treats an album_id of 0 the same as null -- defensive against the tubafrenzy sentinel", () => {
-    const zero = toDisplayRowFromUncatalogued(uncataloguedRow({ album_id: 0 }), NOW);
+    const zero = toDisplayRowFromUncatalogued(uncataloguedRow({ album_id: 0 }), undefined, NOW);
     expect(zero.libraryStatus).not.toBe("cataloged");
+  });
+
+  // The projection carries `format_id` and no name -- these are the rotation
+  // row's own pre-catalog fields, read without a join -- so the name comes
+  // from the catalog's formats list the caller already holds.
+  it("resolves format_id through the supplied names", () => {
+    const formats = new Map([[3, "CD"]]);
+    const row = toDisplayRowFromUncatalogued(uncataloguedRow({ format_id: 3 }), formats, NOW);
+    expect(row.formatName).toBe("CD");
+  });
+
+  it.each([
+    { label: "a row with no format captured", row: { format_id: null }, formats: new Map([[3, "CD"]]) },
+    { label: "a format the list cannot name", row: { format_id: 9 }, formats: new Map([[3, "CD"]]) },
+    { label: "no formats list at all", row: { format_id: 3 }, formats: undefined },
+  ])("renders an em dash for $label rather than a bare id", ({ row, formats }) => {
+    expect(toDisplayRowFromUncatalogued(uncataloguedRow(row), formats, NOW).formatName).toBe("\u2014");
   });
 });
 
