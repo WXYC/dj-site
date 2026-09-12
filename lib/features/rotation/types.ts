@@ -72,11 +72,28 @@ export type RotationListRow = {
 };
 
 /**
- * Wire shape of a `GET /library/rotation/uncatalogued` row -- Backend's
- * `UncataloguedRotationRow` (`UNCATALOGUED_ROTATION_PROJECTION`,
- * `apps/backend/services/library.service.ts`). Not yet published to
- * `@wxyc/shared`, whose own maintainer notes intend to transcribe this shape
- * once the endpoint stabilizes; this is a local wire mirror until it lands.
+ * Wire shape of Backend's published rotation surface -- one shape for three
+ * endpoints: `GET /library/rotation/uncatalogued`, `GET /library/rotation/:id`
+ * and `PATCH /library/rotation/:rotation_id/link` all answer with it
+ * (`UNCATALOGUED_ROTATION_PROJECTION` / `toRotationRowSummary`,
+ * `apps/backend/services/library.service.ts`).
+ *
+ * `@wxyc/shared` publishes the same surface as `RotationRowSummary`, with
+ * every field but `id`, `rotation_bin` and `add_date` declared optional --
+ * the generator's rendering of a nullable column, not a claim that the server
+ * omits the key. This mirror keeps them required-and-nullable, which is what
+ * the display code actually branches on.
+ *
+ * `format_id` and `label_id` are the rotation row's **own** pre-catalog
+ * fields, captured at rotation-add and never the linked library release's.
+ * They are typically NULL on a linked row and on every row added before the
+ * classic add form started sending them. The sibling list read
+ * `GET /library/rotation` publishes the *library release's* `label_id` under
+ * the same key name (see `RotationListRow`), so the two must never be read
+ * interchangeably: the import screen exists to catalog exactly the
+ * pre-catalog snapshot that has not been reconciled with a library row yet.
+ * Neither field carries a display name -- the projection is join-free by
+ * design, and names resolve client-side through the catalog's `getFormats`.
  */
 export type UncataloguedRotationRow = {
   id: number;
@@ -87,6 +104,19 @@ export type UncataloguedRotationRow = {
   artist_name: string | null;
   album_title: string | null;
   record_label: string | null;
+  format_id: number | null;
+  label_id: number | null;
+};
+
+/**
+ * Arguments for `PATCH /library/rotation/:rotation_id/link`: the row in the
+ * path and the release in the body. Deliberately not the published
+ * `LinkRotationRequest`, which is the body alone (`{ album_id }`) and so
+ * cannot name the row being linked.
+ */
+export type LinkRotationArgs = {
+  rotation_id: number;
+  album_id: number;
 };
 
 /**

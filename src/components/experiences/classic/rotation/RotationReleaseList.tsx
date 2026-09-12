@@ -121,6 +121,22 @@ function RotationTable({
                     Unkill
                   </button>
                 )}
+                {/* The JSP's own condition for this link, spelled as the
+                    Library column's verdict: a killed row that never linked.
+                    A row still in rotation has not been through a cataloging
+                    decision yet, and a linked one has nothing to import. */}
+                {row.libraryStatus === "uncataloged" && (
+                  <>
+                    &nbsp;
+                    <Link
+                      href={`/dashboard/rotation/${row.rotationId}/import`}
+                      aria-label={`Import: ${row.title}`}
+                      style={{ color: "#CC0000", fontWeight: "bold" }}
+                    >
+                      Import
+                    </Link>
+                  </>
+                )}
               </td>
               <td>{row.artistName}</td>
               <td>{row.title}</td>
@@ -292,14 +308,13 @@ function UnavailableFacet() {
  *   precedent for a JSP link with no dj-site destination: no tallysheet
  *   screen exists here, so the alternative would be a dead link rather than
  *   a working one under a different name.
- * - The row's "Edit" and "Import" links are dropped for the same reason.
- *   Their destinations (`/dashboard/rotation/[id]` and
- *   `/dashboard/rotation/[id]/import` in `docs/architecture.md`'s URL map)
- *   are later slices, and no route answers either path today, so rendering
- *   them would put a 404 under every row -- and under the exact affordance
- *   the catalog chooser's "Import a killed rotation release into the
- *   library" block funnels a librarian toward. Kill and Unkill stay: both
- *   act in place through endpoints that exist.
+ * - The row's "Edit" link is dropped for the same reason: its destination
+ *   (`/dashboard/rotation/[id]` in `docs/architecture.md`'s URL map) has no
+ *   route, so rendering it would put a 404 under every row. "Import" is
+ *   rendered -- `/dashboard/rotation/[id]/import` answers -- and it is the
+ *   affordance the catalog chooser's "Import a killed rotation release into
+ *   the library" block funnels a librarian toward. Kill and Unkill stay:
+ *   both act in place through endpoints that exist.
  */
 export default function RotationReleaseList({ statusFilter }: { statusFilter: RotationStatusFilter }) {
   const [killRotationEntry] = useKillRotationEntryMutation();
