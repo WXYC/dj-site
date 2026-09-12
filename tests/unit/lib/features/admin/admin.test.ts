@@ -8,7 +8,7 @@ import {
   authorizationToRole,
   AUTHORIZATION_LABELS,
 } from "@/lib/features/authentication/types";
-import { describeSlice } from "@/tests/helpers";
+import { describeSlice } from "@/tests/helpers/slice-harness";
 
 describe("authorizationToRole", () => {
   it.each([

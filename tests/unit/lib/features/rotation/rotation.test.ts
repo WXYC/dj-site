@@ -3,7 +3,7 @@ import {
   rotationSlice,
   defaultRotationFrontendState,
 } from "@/lib/features/rotation/frontend";
-import { describeSlice } from "@/tests/helpers";
+import { describeSlice } from "@/tests/helpers/slice-harness";
 
 describeSlice(rotationSlice, defaultRotationFrontendState, ({ harness, actions }) => {
   describe("default state", () => {

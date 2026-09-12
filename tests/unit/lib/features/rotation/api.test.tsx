@@ -6,7 +6,7 @@ import {
   useKillRotationEntryMutation,
 } from "@/lib/features/rotation/api";
 import { Rotation } from "@/lib/features/rotation/types";
-import { describeApi } from "@/tests/helpers";
+import { describeApi } from "@/tests/helpers/api-harness";
 
 // Mock the authentication client
 vi.mock("@/lib/features/authentication/client", () => ({

@@ -4,7 +4,7 @@ import {
   liveUpdatesSlice,
   type LiveUpdatesConnectionStatus,
 } from "@/lib/features/flowsheet/live-updates-slice";
-import { describeSlice } from "@/tests/helpers";
+import { describeSlice } from "@/tests/helpers/slice-harness";
 
 describeSlice(liveUpdatesSlice, defaultLiveUpdatesState, ({ harness, actions }) => {
   describe("connection ref-count", () => {

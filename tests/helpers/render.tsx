@@ -8,6 +8,9 @@ import { CssVarsProvider } from "@mui/joy/styles";
 import type { AppStore, RootState } from "@/lib/store";
 import { makeStore } from "@/lib/store";
 import { PublicStoreProvider } from "@/src/PublicStoreProvider";
+import { createTestStore } from "./store";
+
+export { createTestStore };
 
 // A caller seeds state via preloadedState (the store is built for them) or
 // hands in an already-built store (e.g. to share one across renders) — never
@@ -65,14 +68,6 @@ export function renderWithProviders(
     store,
     user,
   };
-}
-
-/**
- * Create a store for use in tests.
- * Returns a fresh store instance for each test.
- */
-export function createTestStore(preloadedState?: Partial<RootState>): AppStore {
-  return makeStore(preloadedState);
 }
 
 /**

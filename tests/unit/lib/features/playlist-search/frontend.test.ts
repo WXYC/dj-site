@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { playlistSearchSlice } from "@/lib/features/playlist-search/frontend";
-import { describeSlice } from "@/tests/helpers";
+import { describeSlice } from "@/tests/helpers/slice-harness";
 
 describeSlice(
   playlistSearchSlice,
