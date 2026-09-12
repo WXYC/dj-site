@@ -42,3 +42,36 @@ body {
   0% { transform: translateX(100%); }
   100% { transform: translateX(-100%); }
 }
+
+/* Printing has to undo the viewport lock above.
+
+   The rules at the top of this file pin the shell to one screen so the
+   dashboard can own its internal scroll regions. On paper that is a
+   guillotine: the page ends at the first screenful and the rest of the
+   document is simply cut, however small the type is set. A print stylesheet
+   that shrinks rows without releasing this only produces a smaller first page.
+
+   Height is released alongside overflow, not instead of it — a box still fixed
+   at one viewport ends the printed page there even once it has stopped hiding
+   what spills past.
+
+   Unscoped by experience deliberately. The lock belongs to the shell, both
+   experiences render inside it, and a page pinned to the viewport is wrong on
+   paper whichever one is showing. */
+@media print {
+    html,
+    body {
+        height: auto;
+        overflow: visible;
+    }
+
+    #root > main {
+        height: auto;
+        overflow: visible;
+    }
+
+    #classic-container {
+        height: auto;
+        overflow-y: visible;
+    }
+}
