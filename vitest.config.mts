@@ -60,8 +60,12 @@ export default defineConfig({
         test: {
           name: "jsdom",
           environment: "jsdom",
+          // A project's own setupFiles is concatenated onto the root's under
+          // extends: true, not swapped in -- restating vitest.setup.ts here
+          // would run its MSW server.listen() twice per file and throw.
+          setupFiles: ["./tests/setup/vitest.setup.dom.ts"],
           include: ["**/*.test.{ts,tsx}"],
-          exclude: ["tests/unit/lib/**", "tests/contract/**"],
+          exclude: DOM_FREE_TIERS,
         },
       },
       {
@@ -69,6 +73,7 @@ export default defineConfig({
         test: {
           name: "jsdom-lib",
           environment: "jsdom",
+          setupFiles: ["./tests/setup/vitest.setup.dom.ts"],
           include: DOM_DEPENDENT_LIB_TESTS,
         },
       },
