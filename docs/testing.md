@@ -294,6 +294,14 @@ Tests are never co-located with source. Every vitest test lives under `tests/`, 
 
 Playwright specs stay in `e2e/`, and bats scripts in `scripts/__tests__/`.
 
+### Environments
+
+The suite runs as two vitest projects defined in `vitest.config.mts`: `tests/unit/lib` and `tests/contract` run under the `node` environment, everything else under `jsdom`. The split exists because jsdom is constructed per test file, and those two tiers never touch the DOM -- routing them to node removes that per-file cost from ~130 files without changing what any test asserts.
+
+A handful of `tests/unit/lib` specs do reach a real `window` (storage specs asserting through `Object.defineProperty(window, ...)`, spies on the `window` global). Those are pinned to the jsdom project by the `DOM_DEPENDENT_LIB_TESTS` set at the top of `vitest.config.mts`; the two projects' include lists are computed as exact complements from that one set, so a file is always in exactly one project. When adding a lib spec that needs a browser global, prefer stubbing it on `globalThis` (the pattern `vitest.setup.ts` uses for `EventSource`) so it stays in the node project; add it to `DOM_DEPENDENT_LIB_TESTS` only when the test's subject is genuinely the `window` binding itself.
+
+`tests/setup/vitest.setup.ts` runs for both projects: its DOM-dependent stubs (`localStorage`, `matchMedia`, `ResizeObserver`, `scrollIntoView`, `IntersectionObserver`) sit behind a `typeof window !== "undefined"` guard, while the `EventSource` stub and the MSW `server.listen` lifecycle apply everywhere. CI's `--changed` and `--shard` invocations operate across both projects' merged file sets.
+
 ## Test Conventions
 
 - Use `it.each` for parameterized tests
