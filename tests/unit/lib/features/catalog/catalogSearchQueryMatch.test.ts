@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { createTestAlbum, createTestLmlLibraryItem } from "@/tests/helpers";
+import { createTestAlbum, createTestLmlLibraryItem } from "@/tests/fixtures/fixtures";
 import { convertLmlItemToAlbumEntry } from "@/lib/features/lml/lml-conversions";
 import {
   albumMatchesCatalogQueryArg,

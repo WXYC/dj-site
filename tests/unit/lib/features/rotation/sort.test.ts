@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { sortRotationReleases } from "@/lib/features/rotation/sort";
-import { createTestAlbum, createTestArtist } from "@/tests/helpers";
+import { createTestAlbum, createTestArtist } from "@/tests/fixtures/fixtures";
 import type { ArtistEntry } from "@/lib/features/catalog/types";
 
 describe("sortRotationReleases", () => {

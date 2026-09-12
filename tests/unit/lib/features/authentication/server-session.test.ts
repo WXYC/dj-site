@@ -28,7 +28,7 @@ import {
   getServerSessionResult,
 } from "@/lib/features/authentication/server-session";
 import { transportRetryConfig } from "@/lib/features/authentication/session-cache";
-import { createTestBetterAuthSession } from "@/tests/helpers";
+import { createTestBetterAuthSession } from "@/tests/fixtures/fixtures";
 
 describe("getServerSession", () => {
   beforeEach(() => {

@@ -8,11 +8,7 @@ import {
   BetterAuthSession,
   BetterAuthSessionResponse,
 } from "@/lib/features/authentication/utilities";
-import {
-  createTestBetterAuthSession,
-  createTestIncompleteSession,
-  createTestSessionWithRole,
-} from "@/tests/helpers";
+import { createTestBetterAuthSession, createTestIncompleteSession, createTestSessionWithRole } from "@/tests/fixtures/fixtures";
 
 describe("authentication utilities", () => {
   beforeEach(() => {

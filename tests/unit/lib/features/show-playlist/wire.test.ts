@@ -1,9 +1,5 @@
 import { describe, it, expect } from "vitest";
-import {
-  createTestV2BreakpointEntry,
-  createTestV2TalksetEntry,
-  createTestV2TrackEntry,
-} from "@/tests/helpers";
+import { createTestV2BreakpointEntry, createTestV2TalksetEntry, createTestV2TrackEntry } from "@/tests/fixtures/fixtures";
 import { v2ToRangeShape } from "@/lib/features/show-playlist/wire";
 import { RotationBin } from "@/lib/features/rotation/types";
 

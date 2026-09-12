@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { convertLmlItemToAlbumEntry } from "@/lib/features/lml/lml-conversions";
-import { createTestLmlLibraryItem } from "@/tests/helpers";
+import { createTestLmlLibraryItem } from "@/tests/fixtures/fixtures";
 import type { LmlLibraryItem } from "@/lib/features/lml/types";
 
 describe("convertLmlItemToAlbumEntry", () => {

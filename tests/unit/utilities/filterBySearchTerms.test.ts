@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { filterBySearchTerms } from "@/src/utilities/filterBySearchTerms";
-import { createTestAlbum, createTestArtist } from "@/tests/helpers";
+import { createTestAlbum, createTestArtist } from "@/tests/fixtures/fixtures";
 
 describe("filterBySearchTerms", () => {
   const query = { artist: "stereolab", album: "", label: "" };

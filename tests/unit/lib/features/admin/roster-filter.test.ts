@@ -8,7 +8,7 @@ import {
   sortRosterForDisplay,
 } from "@/lib/features/admin/roster-filter";
 import { Authorization } from "@/lib/features/admin/types";
-import { createTestAccountResult } from "@/tests/helpers";
+import { createTestAccountResult } from "@/tests/fixtures/fixtures";
 
 const juana = createTestAccountResult({
   realName: "Juana Molina",

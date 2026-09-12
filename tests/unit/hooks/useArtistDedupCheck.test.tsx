@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { act, renderHook } from "@testing-library/react";
 
-import { TEST_SEARCH_STRINGS } from "@/tests/helpers";
+import { TEST_SEARCH_STRINGS } from "@/tests/helpers/constants";
 import { useArtistDedupCheck } from "@/src/hooks/catalogHooks";
 import type { ArtistInGenreOption } from "@/lib/features/catalog/types";
 

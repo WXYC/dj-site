@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { createTestAlbum, createTestArtist } from "@/tests/helpers";
+import { createTestAlbum, createTestArtist } from "@/tests/fixtures/fixtures";
 import { mergeAlbumIntoSearchResult } from "@/lib/features/catalog/patchSearchResult";
 import { Rotation } from "@/lib/features/rotation/types";
 

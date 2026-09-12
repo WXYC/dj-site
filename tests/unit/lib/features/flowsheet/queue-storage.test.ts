@@ -4,7 +4,7 @@ import {
   saveQueueToStorage,
   clearQueueFromStorage,
 } from "@/lib/features/flowsheet/queue-storage";
-import { createTestFlowsheetEntry } from "@/tests/helpers";
+import { createTestFlowsheetEntry } from "@/tests/fixtures/fixtures";
 
 const QUEUE_STORAGE_KEY = "wxyc_flowsheet_queue";
 

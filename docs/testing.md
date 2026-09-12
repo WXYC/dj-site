@@ -12,7 +12,8 @@ Globals are enabled (`describe`, `it`, `expect` available without import, though
 
 ## Test Utilities (`tests/helpers/`)
 
-Import everything from `@/tests/helpers`:
+Component specs -- anything that needs `renderWithProviders`, `user`, or one of the
+slice/API/component harnesses -- import everything from `@/tests/helpers`:
 
 ```typescript
 import {
@@ -27,7 +28,24 @@ import {
 ```
 
 The barrel re-exports render helpers and harnesses (`tests/helpers/`), MSW handlers
-and server (`tests/fakes/`), and fixture factories (`tests/fixtures/`).
+and server (`tests/fakes/`), and fixture factories (`tests/fixtures/`). Importing any
+one of those names evaluates the whole graph -- Redux, all 13 RTK Query APIs, and MUI
+Joy -- because `render.tsx` sits in the same barrel.
+
+DOM-free specs (`tests/unit/`, `tests/contract/`) whose only need is fixtures,
+constants, or the conversion harness should import those modules directly instead of
+going through the barrel, since the barrel's render/store cost is otherwise paid for
+nothing:
+
+```typescript
+import { createTestAlbum, createTestArtist } from "@/tests/fixtures/fixtures";
+import { TEST_ENTITY_IDS, TEST_SEARCH_STRINGS } from "@/tests/helpers/constants";
+import { describeConversion } from "@/tests/helpers/conversion-harness";
+```
+
+A spec that also needs `server`, `createTestStore`, or a slice/API harness already
+pays the barrel's cost and should just import everything from `@/tests/helpers` --
+splitting the fixture import out in that case saves nothing.
 
 ### Rendering
 

@@ -20,10 +20,7 @@ import {
   isUserIncomplete,
   getIncompleteUserAttributes,
 } from "@/lib/features/authentication/server-utils";
-import {
-  createTestBetterAuthSession,
-  createTestIncompleteSession,
-} from "@/tests/helpers";
+import { createTestBetterAuthSession, createTestIncompleteSession } from "@/tests/fixtures/fixtures";
 
 describe("isUserIncomplete", () => {
   it("should return false for complete user with hasCompletedOnboarding true", () => {

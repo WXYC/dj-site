@@ -54,10 +54,7 @@ import {
   getIncompleteUserAttributes,
   getUserFromSession,
 } from "@/lib/features/authentication/server-utils";
-import {
-  createTestBetterAuthSession,
-  createTestIncompleteSession,
-} from "@/tests/helpers";
+import { createTestBetterAuthSession, createTestIncompleteSession } from "@/tests/fixtures/fixtures";
 import type { BetterAuthSession } from "@/lib/features/authentication/utilities";
 import type { WXYCRole } from "@/lib/features/authentication/types";
 
