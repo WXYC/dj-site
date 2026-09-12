@@ -18,8 +18,16 @@ import type {
   LinkRotationArgs,
   RotationListRow,
   RotationRowSummary,
+  UpdateRotationArgs,
 } from "./types";
+import { isRotationRowActive } from "./classicList";
 import { wrapRotationWriteError } from "./writeErrorMessage";
+
+// The facet reads -- every rotation query but the single-row one. Scoped so a
+// field-level edit can refresh them without invalidating the row it just
+// echoed back to the screen that saved it. A bare `"Rotation"` invalidation
+// still reaches them: a tag with no id matches every id of its type.
+const ROTATION_LIST_TAG = { type: "Rotation", id: "LIST" } as const;
 
 export const rotationApi = createApi({
   reducerPath: "rotationApi",
@@ -44,7 +52,7 @@ export const rotationApi = createApi({
       // the unparseable case is now an error.
       transformResponse: (response: AlbumSearchResultJSON[] | null) =>
         response ? response.map(convertToAlbumEntry) : [],
-      providesTags: ["Rotation"],
+      providesTags: [ROTATION_LIST_TAG],
     }),
     // Typed against the shared OpenAPI contract (album_id: number) — the old
     // local RotationParams declared album_id: string, drifting from the wire
@@ -154,7 +162,7 @@ export const rotationApi = createApi({
     getRotationList: builder.query<RotationListRow[], void>({
       query: () => ({ url: "" }),
       extraOptions: { surfaceNonJsonAsError: true },
-      providesTags: ["Rotation"],
+      providesTags: [ROTATION_LIST_TAG],
     }),
     // The Awaiting Cataloging queue (`GET /library/rotation/uncatalogued`, the
     // cataloging-backlog read Backend's relaxed rotation-add path pairs with).
@@ -174,7 +182,7 @@ export const rotationApi = createApi({
     >({
       query: (args) => ({ url: "/uncatalogued", params: args ?? undefined }),
       extraOptions: { surfaceNonJsonAsError: true },
-      providesTags: ["Rotation"],
+      providesTags: [ROTATION_LIST_TAG],
     }),
     // `POST /library/rotation` for a release with no catalogued album (the
     // free-text path Backend added alongside the cataloging-backlog read
@@ -203,7 +211,7 @@ export const rotationApi = createApi({
     getRotationRow: builder.query<RotationRowSummary, number>({
       query: (rotationId) => ({ url: `/${rotationId}` }),
       extraOptions: { surfaceNonJsonAsError: true },
-      providesTags: ["Rotation"],
+      providesTags: (_result, _error, rotationId) => [{ type: "Rotation", id: rotationId }],
     }),
     // `PATCH /library/rotation/:rotation_id/link` -- the second half of one
     // user action, never a step a librarian is trusted to remember: the pile
@@ -228,27 +236,32 @@ export const rotationApi = createApi({
       ): { linkRotationError: FetchBaseQueryError } => ({ linkRotationError: response }),
       invalidatesTags: ["Rotation"],
     }),
-    // Unkill: `PATCH /library/rotation/:id`, the field-level rotation editor,
-    // with `kill_date: null` clears a kill date. Distinct from
-    // `killRotationEntry` above, which
-    // hits the *other* rotation PATCH route (`PATCH /library/rotation`, no
-    // `:id`) that only ever sets a kill date -- there is no bodied "clear"
-    // shape on that route, so Unkill has to be the field-level editor
-    // instead. A kill_date-only PATCH never touches the artist_name /
-    // album_title / record_label snapshot trio, so it can never hit that
-    // route's linked-row 409 -- this mutation's response type is the
-    // same eight-field projection every `/library/rotation/:id` PATCH
-    // returns.
-    unkillRotationEntry: builder.mutation<RotationRowSummary, { rotation_id: number }>({
-      query: ({ rotation_id }) => ({
+    // `PATCH /library/rotation/:id`, the field-level rotation editor: the
+    // classic modify screen's save, and the list's Unkill (which is this same
+    // write with `kill_date: null` and nothing else). Distinct from
+    // `killRotationEntry` above, which hits the *other* rotation PATCH route
+    // (`PATCH /library/rotation`, no `:id`) that only ever sets a kill date --
+    // there is no bodied "clear" shape on that route, so clearing one has to
+    // be the field-level editor instead.
+    //
+    // Partial by construction: `rotation_id` names the row in the path and
+    // every other key travels in the body, so a key the caller left off is
+    // never sent and never written.
+    updateRotationRow: builder.mutation<RotationRowSummary, UpdateRotationArgs>({
+      query: ({ rotation_id, ...body }) => ({
         url: `/${rotation_id}`,
         method: "PATCH",
-        body: { kill_date: null },
+        body,
       }),
-      invalidatesTags: ["Rotation"],
-      async onQueryStarted(_arg, { dispatch, getState, queryFulfilled }) {
+      transformErrorResponse: wrapRotationWriteError,
+      invalidatesTags: [ROTATION_LIST_TAG],
+      async onQueryStarted({ rotation_id }, { dispatch, getState, queryFulfilled }) {
         try {
           const { data } = await queryFulfilled;
+          // The response is the updated row, so the screen that saved it
+          // already holds every byte a refetch would fetch -- and refetching
+          // would rebuild the form under the librarian who just submitted it.
+          dispatch(rotationApi.util.upsertQueryData("getRotationRow", rotation_id, data));
           // The mirror image of `killRotationEntry`'s patch, and not
           // optional: that handler writes a per-album "no rotation" override
           // into the catalog slice, which shadows the server's own value on
@@ -259,18 +272,31 @@ export const rotationApi = createApi({
           // `album_id` is null on a rotation row that never linked to a
           // library album; there is nothing in the catalog to patch for one.
           if (typeof data.album_id !== "number") return;
+          // Keyed on whether the row is in rotation *today*, not on whether it
+          // carries a kill date: this same write can set one as well as clear
+          // it, and a kill scheduled for next week leaves the release in
+          // rotation until that date arrives.
+          const inRotation = isRotationRowActive(data.kill_date);
+          // Clearing the badge is a claim about the album, not about this row,
+          // so it defers to a cached claim naming a different rotation entry
+          // exactly as `killRotationEntry` does: correcting a killed row's
+          // dates must not retract the badge of the live row that replaced it.
+          if (!inRotation) {
+            const claimed = cachedAlbumRotationId(getState as () => RootState, data.album_id);
+            if (claimed !== undefined && claimed !== data.id) return;
+          }
           patchCatalogSearchRotation(
             dispatch,
             getState as () => RootState,
             data.album_id,
-            { rotation_bin: data.rotation_bin, rotation_id: data.id },
+            inRotation
+              ? { rotation_bin: data.rotation_bin, rotation_id: data.id }
+              : { rotation_bin: undefined, rotation_id: undefined },
           );
         } catch {
-          // A rejected `queryFulfilled` (mutation failure or the cache patch
-          // itself throwing) must not escape this handler: RTK Query treats
-          // an onQueryStarted rejection as an unhandled promise rejection,
-          // and the caller's own `.unwrap()` already owns surfacing the
-          // failure to the user (toast).
+          // Swallowed rather than rethrown: RTK Query reads a rejection here as
+          // an unhandled promise rejection, and the caller's own `.unwrap()`
+          // already owns surfacing the failure.
         }
       },
     }),
@@ -295,6 +321,6 @@ export const {
   useLazyGetRotationRowQuery,
   useLinkRotationToAlbumMutation,
   useAddFreeTextRotationEntryMutation,
-  useUnkillRotationEntryMutation,
+  useUpdateRotationRowMutation,
   usePrefetch: useRotationPrefetch,
 } = rotationApi;

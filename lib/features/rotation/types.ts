@@ -108,6 +108,38 @@ export type LinkRotationArgs = {
 };
 
 /**
+ * Arguments for `PATCH /library/rotation/:id`, the field-level rotation
+ * editor: the row in the path, every other key in the body.
+ *
+ * These seven are the whole writable surface. `rotation_bin` is **not** among
+ * them and is not an omission here -- the endpoint accepts the key, answers
+ * 200, echoes the row back and leaves the bin unchanged, and no other endpoint
+ * can move a row between bins either. Sending it would be a write nobody can
+ * see, so nothing sends it.
+ *
+ * Only the keys present are SET, so a typo fix on one field can never wipe
+ * another. That makes the distinction between an absent key and an explicit
+ * `null` load-bearing: `null` clears `kill_date`, `format_id` and `label_id`,
+ * while the three text fields have no clearing value at all -- the server
+ * validates them as non-empty strings, so a blank one is a 400 rather than a
+ * cleared column.
+ *
+ * The five pre-catalog fields (everything but the two dates) may only be
+ * written while the row is unlinked. Once it carries an `album_id` the library
+ * release owns them and the request is refused with a 409.
+ */
+export type UpdateRotationArgs = {
+  rotation_id: number;
+  artist_name?: string;
+  album_title?: string;
+  record_label?: string;
+  add_date?: string;
+  kill_date?: string | null;
+  format_id?: number | null;
+  label_id?: number | null;
+};
+
+/**
  * `POST /library/rotation` body for a release with no catalogued album --
  * Backend relaxed the endpoint to accept `artist_name` + `album_title` in
  * place of `album_id`. Deliberately not the published `@wxyc/shared`
