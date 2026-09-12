@@ -5,8 +5,10 @@ import {
   DOM_DEPENDENT_LIB_TESTS,
   DOM_FREE_TIERS,
 } from "@/tests/setup/vitest-projects";
+import eslintConfig from "../../eslint.config.mjs";
 
 const ROOT = resolve(__dirname, "../..");
+const tierDir = (pattern: string) => pattern.split("/**")[0];
 const rows = DOM_DEPENDENT_LIB_TESTS.map((entry) => [entry] as const);
 
 // The node/jsdom project split carves these files out of the node project by
@@ -47,7 +49,7 @@ describe("DOM_DEPENDENT_LIB_TESTS", () => {
 // rather than restated as literal directories, so a tier renamed or added
 // there is picked up here automatically instead of silently falling out of
 // this file's RTL check.
-const NODE_TIER_DIRS = DOM_FREE_TIERS.map((pattern) => pattern.split("/**")[0]);
+const NODE_TIER_DIRS = DOM_FREE_TIERS.map(tierDir);
 const PINNED = new Set(DOM_DEPENDENT_LIB_TESTS);
 
 function collectTestFiles(relDir: string): string[] {
@@ -118,5 +120,59 @@ describe("node project stays free of @testing-library/react", () => {
     const source = readFileSync(resolve(ROOT, relPath), "utf8");
     const offending = importSpecifiers(source).filter(reachesRtlDirectly);
     expect(offending).toEqual([]);
+  });
+});
+
+// The lint override that bans the @/tests/helpers barrel is a third,
+// hand-editable copy of "which directories are the node project". Found by
+// its rule rather than by array position, so reordering eslint.config.mjs's
+// other overrides doesn't break this lookup.
+const barrelBanOverride = eslintConfig.find(
+  (entry) =>
+    Array.isArray(entry.files) &&
+    entry.rules?.["no-restricted-imports"] !== undefined,
+);
+
+describe("eslint's barrel-ban override stays scoped to the node project", () => {
+  it("exists", () => {
+    expect(barrelBanOverride).toBeDefined();
+  });
+
+  it("its files glob covers exactly the DOM_FREE_TIERS directories", () => {
+    const overrideDirs = (barrelBanOverride!.files as string[])
+      .map(tierDir)
+      .sort();
+    expect(overrideDirs).toEqual([...NODE_TIER_DIRS].sort());
+  });
+
+  it("its ignores carve out exactly the DOM_DEPENDENT_LIB_TESTS pins", () => {
+    // Those seven specs sit under tests/unit/lib/** but run in jsdom-lib,
+    // not node — the barrel ban's "RTL costs nothing in this tier"
+    // justification is false for them, so the override must not claim them.
+    expect(new Set(barrelBanOverride!.ignores)).toEqual(
+      new Set(DOM_DEPENDENT_LIB_TESTS),
+    );
+  });
+});
+
+describe("tests/setup/vitest.setup.ts stays free of DOM testing-library imports", () => {
+  it("does not import any @testing-library/* module, by source rather than runtime", () => {
+    const source = readFileSync(
+      resolve(ROOT, "tests/setup/vitest.setup.ts"),
+      "utf8",
+    );
+    expect(source).not.toMatch(/@testing-library\//);
+  });
+});
+
+describe("vitest projects don't double-wire the root setup file", () => {
+  it("only the root setupFiles entry names vitest.setup.ts; project overrides use the dom variant", () => {
+    // extends: true already concatenates the root's setupFiles onto every
+    // project; a project restating vitest.setup.ts in its own setupFiles
+    // would run MSW's server.listen() twice for that file and throw.
+    const source = readFileSync(resolve(ROOT, "vitest.config.mts"), "utf8");
+    const occurrences =
+      source.match(/["']\.\/tests\/setup\/vitest\.setup\.ts["']/g) ?? [];
+    expect(occurrences).toHaveLength(1);
   });
 });

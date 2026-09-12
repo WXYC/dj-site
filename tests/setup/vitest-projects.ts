@@ -19,6 +19,10 @@ export const DOM_DEPENDENT_LIB_TESTS = [
   "tests/unit/lib/web-vitals-reporter.test.ts",
 ];
 
+// The include patterns for the `node` project (docs/testing.md and
+// eslint.config.mjs both name it that way now). The identifier keeps the
+// older "DOM-free" name, but it means exactly "the node project's tiers" —
+// this is the one place left that still spells it out.
 export const DOM_FREE_TIERS = [
   "tests/unit/lib/**/*.test.{ts,tsx}",
   "tests/contract/**/*.test.{ts,tsx}",
