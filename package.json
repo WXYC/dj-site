@@ -35,7 +35,7 @@
     "@opennextjs/cloudflare": "^1.20.4",
     "@reduxjs/toolkit": "^2.12.0",
     "@sentry/browser": "^10.71.0",
-    "@wxyc/shared": "^4.0.0",
+    "@wxyc/shared": "^5.3.0",
     "better-auth": "^1.7.2",
     "jwt-decode": "^4.0.0",
     "motion": "^12.42.2",
