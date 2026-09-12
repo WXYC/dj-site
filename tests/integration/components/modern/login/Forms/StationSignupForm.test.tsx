@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
-import { renderWithProviders } from "@/tests/helpers";
+import { renderWithProviders, setFieldValue } from "@/tests/helpers";
 import { applicationSlice } from "@/lib/features/application/frontend";
 import StationSignupForm from "@/src/components/experiences/modern/login/Forms/StationSignupForm";
 import type { StationSignupOutcome } from "@/lib/features/authentication/client";
@@ -56,30 +56,16 @@ const PASSCODE = "K7M2PQ4R";
 
 type User = ReturnType<typeof renderWithProviders>["user"];
 
-/**
- * Fill one field in a single event rather than a keystroke per character.
- *
- * Most cases here only need the field to end up holding a value; almost every
- * test in this file walks both steps to reach the state it is about, and
- * typing all of them out is what put this file's per-test cost near the
- * suite's timeout. Progressive-validation tests still type, since for those
- * the intermediate values are the subject.
- */
-async function fillField(user: User, field: HTMLElement, value: string) {
-  await user.click(field);
-  await user.paste(value);
-}
-
 async function fillPasscodeStep(user: User, passcode = PASSCODE) {
-  await fillField(user, screen.getByLabelText(/signup passcode/i), passcode);
+  setFieldValue(screen.getByLabelText(/signup passcode/i), passcode);
   await user.click(screen.getByRole("button", { name: "Continue" }));
 }
 
 async function fillDetailsStep(user: User, email = "newdj@example.com") {
-  await fillField(user, screen.getByLabelText(/^username/i), "newdj");
-  await fillField(user, screen.getByLabelText(/^email/i), email);
-  await fillField(user, screen.getByLabelText(/^password/i), "supersecret");
-  await fillField(user, screen.getByLabelText(/real name/i), "New DJ");
+  setFieldValue(screen.getByLabelText(/^username/i), "newdj");
+  setFieldValue(screen.getByLabelText(/^email/i), email);
+  setFieldValue(screen.getByLabelText(/^password/i), "supersecret");
+  setFieldValue(screen.getByLabelText(/real name/i), "New DJ");
 }
 
 beforeEach(() => {
@@ -402,9 +388,9 @@ describe("StationSignupForm", () => {
     const { user } = renderWithProviders(<StationSignupForm />);
 
     await fillPasscodeStep(user);
-    await user.type(screen.getByLabelText(/^email/i), "newdj@example.com");
-    await user.type(screen.getByLabelText(/^password/i), "supersecret");
-    await user.type(screen.getByLabelText(/real name/i), "New DJ");
+    setFieldValue(screen.getByLabelText(/^email/i), "newdj@example.com");
+    setFieldValue(screen.getByLabelText(/^password/i), "supersecret");
+    setFieldValue(screen.getByLabelText(/real name/i), "New DJ");
 
     const username = screen.getByLabelText(/^username/i);
     const submit = () => screen.getByRole("button", { name: "Submit" });
@@ -413,6 +399,7 @@ describe("StationSignupForm", () => {
     // already pre-checks its shape, so username should not be the one that
     // round-trips a 400 -- the round trip is indistinguishable to the DJ from
     // a taken username, and it costs a signup attempt to find out.
+    // Stays user.type: the intermediate values typed below are the subject.
     await user.type(username, "dj");
     expect(submit()).toBeDisabled();
 

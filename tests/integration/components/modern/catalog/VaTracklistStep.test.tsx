@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
-import { renderWithProviders, server, TEST_BACKEND_URL } from "@/tests/helpers";
+import { renderWithProviders, server, setFieldValue, TEST_BACKEND_URL } from "@/tests/helpers";
 import AddReleasePanel from "@/src/components/experiences/modern/catalog/AddRelease/AddReleasePanel";
 
 vi.mock("@/lib/features/authentication/client", () => ({
@@ -118,19 +118,13 @@ type User = ReturnType<typeof renderWithProviders>["user"];
 /** Fills and submits the release form, leaving the panel wherever submit takes it. */
 async function submitRelease(user: User, artistName: string) {
   await user.click(await screen.findByRole("button", { name: "Add Release" }));
-  fireEvent.change(screen.getByLabelText(/Album title/), {
-    target: { value: "Even Cowgirls Get The Blues" },
-  });
+  setFieldValue(screen.getByLabelText(/Album title/), "Even Cowgirls Get The Blues");
   await user.click(await screen.findByRole("combobox", { name: "Genre" }));
   await user.click(await screen.findByRole("option", { name: "Rock" }));
   await user.click(await screen.findByRole("combobox", { name: "Format" }));
   await user.click(await screen.findByRole("option", { name: "CD" }));
-  fireEvent.change(await screen.findByPlaceholderText("Search artists..."), {
-    target: { value: artistName },
-  });
-  fireEvent.change(await screen.findByPlaceholderText("Search labels..."), {
-    target: { value: "Sonamos" },
-  });
+  setFieldValue(await screen.findByPlaceholderText("Search artists..."), artistName);
+  setFieldValue(await screen.findByPlaceholderText("Search labels..."), "Sonamos");
   await user.click(screen.getByRole("button", { name: "Save Release" }));
 }
 
@@ -159,7 +153,8 @@ describe("V/A tracklist-confirm step", () => {
     expect(secondArtist).toHaveValue("Nilufer Yanya");
 
     // The imported spelling is exactly what a librarian is here to correct —
-    // Discogs is the seed, not the authority.
+    // Discogs is the seed, not the authority. Stays user.type: the diacritic
+    // round-trip through real key events is the subject.
     await user.clear(secondArtist);
     await user.type(secondArtist, "Nilüfer Yanya");
 
