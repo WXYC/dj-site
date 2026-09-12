@@ -1,5 +1,5 @@
 import { hasLinkedAlbumId } from "../flowsheet/linkage";
-import type { RotationBin, RotationListRow, UncataloguedRotationRow } from "./types";
+import type { RotationBin, RotationListRow, RotationRowSummary } from "./types";
 
 /**
  * The viewer's local calendar day as `YYYY-MM-DD`. Deliberately local, not
@@ -35,8 +35,14 @@ function localTodayISO(now: Date): string {
  * Plain string comparison on `YYYY-MM-DD`, not a `Date` parse: a date-only
  * string has no timezone to get wrong, and lexicographic comparison of two
  * zero-padded ISO dates is exactly calendar-day comparison.
+ *
+ * Absent and null both mean never killed. The published rotation contract
+ * declares its nullable columns optional, so a row arrives carrying either.
  */
-export function isRotationRowActive(killDate: string | null, now: Date = new Date()): boolean {
+export function isRotationRowActive(
+  killDate: string | null | undefined,
+  now: Date = new Date(),
+): boolean {
   if (killDate == null) return true;
   return killDate > localTodayISO(now);
 }
@@ -47,8 +53,12 @@ export function isRotationRowActive(killDate: string | null, now: Date = new Dat
  * rather than round-tripping through `Date` -- a date-only string parsed
  * with `new Date(...)` is UTC midnight, which a viewer west of UTC renders
  * as the previous calendar day.
+ *
+ * Absent and null are both the blank cell the JSP renders for a date that
+ * does not exist; the published contract declares its nullable date columns
+ * optional, so a row arrives carrying either.
  */
-export function formatRotationDate(iso: string | null): string {
+export function formatRotationDate(iso: string | null | undefined): string {
   if (!iso) return "";
   const [year, month, day] = iso.split("-");
   return `${month}/${day}/${year.slice(2)}`;
@@ -133,7 +143,7 @@ export function toDisplayRowFromList(row: RotationListRow, now: Date = new Date(
  * column and carry none at all, and an id is not a name.
  */
 export function toDisplayRowFromUncatalogued(
-  row: UncataloguedRotationRow,
+  row: RotationRowSummary,
   formatNames?: ReadonlyMap<number, string>,
   now: Date = new Date(),
 ): RotationDisplayRow {

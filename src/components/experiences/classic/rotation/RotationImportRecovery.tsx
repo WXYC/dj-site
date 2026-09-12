@@ -8,27 +8,11 @@ import {
   useGetRotationRowQuery,
   useLinkRotationToAlbumMutation,
 } from "@/lib/features/rotation/api";
+import type { ImportCreatedRelease } from "@/lib/features/rotation/importSubmit";
 import {
   isRotationAlreadyLinked,
   linkRotationFailureMessage,
 } from "@/lib/features/rotation/importOutcome";
-
-/**
- * The library release an import has already created, as the screen that
- * created it knows it the moment `POST /library` answered. Carried rather
- * than re-read: these screens exist for the window where the rotation row
- * does not yet point at the release, so there is nothing to read it back
- * from.
- */
-export type ImportCreatedRelease = {
-  albumId: number;
-  artistName: string;
-  albumTitle: string;
-  /** The call number a librarian will find it under, already composed. */
-  libraryCode: string;
-  /** The artist it was filed under, so a delete can key its cache invalidation. */
-  artistId?: number;
-};
 
 function RecoveryHeading({ children }: { children: React.ReactNode }) {
   return <h3 style={{ textAlign: "center", margin: "5px 0 15px 0" }}>{children}</h3>;

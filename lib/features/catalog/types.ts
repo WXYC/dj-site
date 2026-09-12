@@ -1,4 +1,4 @@
-import type { AlbumSearchResult } from "@wxyc/shared/dtos";
+import type { AlbumSearchResult, ArtistSearchMatch, ArtistSearchResponse } from "@wxyc/shared/dtos";
 import { Rotation } from "../rotation/types";
 
 export type { AlbumSearchResult };
@@ -57,10 +57,27 @@ export type SearchCatalogQueryParams = {
 
 /**
  * POST /library — matches Backend-Service `NewAlbumRequest` (JSON uses numbers for ids).
+ *
+ * `label` and `label_id` satisfy the label requirement interchangeably: with
+ * an id the server re-fetches `labels.label_name` for the denormalized column
+ * and skips creating a label, so a caller holding an id must not also invent
+ * text for it. One of the two is required and neither is individually, which a
+ * type cannot express — send exactly one.
+ *
+ * `label_id` is deliberately not nullable here, unlike on the PATCH: Backend's
+ * create path reads a null as *absent*, so a caller sending
+ * `label_id: selected?.id ?? null` would be stating a value it does not have.
+ * Omit the key instead.
+ *
+ * `code_number` and `code_volume_letters` are the operator-chosen call code.
+ * Omitting `code_number` keeps the server's own MAX+1 assignment; omitting the
+ * letters stores NULL. `code_number` is validated 1..32767 server-side because
+ * the column is a `smallint`, and there is deliberately no collision check on
+ * either side — re-using a lost record's slot is a move a librarian makes.
  */
 export type AddAlbumRequestBody = {
   album_title: string;
-  label: string;
+  label?: string;
   genre_id: number;
   format_id: number;
   artist_name?: string;
@@ -68,6 +85,8 @@ export type AddAlbumRequestBody = {
   alternate_artist_name?: string;
   disc_quantity?: number;
   label_id?: number;
+  code_number?: number;
+  code_volume_letters?: string;
 };
 
 /**
@@ -211,6 +230,31 @@ export type SearchArtistsInGenreParams = {
 
 export type SearchArtistsInGenreResponse = {
   artists: ArtistInGenreOption[];
+};
+
+/**
+ * The same endpoint read without a genre filter: `GET /library/artists/search`
+ * with no `genre_id` searches the whole library and answers one row per
+ * (artist, genre) membership, each carrying the genre whose code number it
+ * names. Published rather than mirrored, and re-exported here so the catalog
+ * feature has one place to look for its wire types.
+ *
+ * `genre_id` and `genre_name` are declared optional by the contract even
+ * though Backend returns them on every row in both search modes — the joins
+ * that produce them are INNER either way. Read "optional" as "the contract
+ * declines to promise it", not "the server omits it".
+ */
+export type { ArtistSearchMatch, ArtistSearchResponse };
+
+/**
+ * `limit` is clamped into 1..20 *in the service*, but only for values it
+ * recognizes as numbers: zero, a negative, and a non-integer all fall back to
+ * the default of 10 rather than to 1. A caller that wants the widest window
+ * asks for 20; there is no arg here that means "one row".
+ */
+export type LibraryArtistSearchParams = {
+  q: string;
+  limit?: number;
 };
 
 /** GET /library/artists/by-code — a fully specified library code. */

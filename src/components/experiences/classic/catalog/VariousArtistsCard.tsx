@@ -17,6 +17,10 @@ import {
 } from "@/lib/features/catalog/libraryCode";
 import type { AddAlbumRequestBody, ArtistRelease } from "@/lib/features/catalog/types";
 import {
+  importedConfirmation,
+  type ImportedReleaseParams,
+} from "@/lib/features/rotation/importedConfirmation";
+import {
   formatStationDateTime,
   formatStationLongDate,
 } from "@/src/utilities/stationTime";
@@ -25,6 +29,13 @@ type VariousArtistsCardProps = {
   artistId: number;
   /** The servlet's fixed post-create confirmation, when the librarian arrived from a create. */
   message?: string;
+  /**
+   * Where a rotation import landed, when this bucket is an import's landing —
+   * which it is whenever the release was filed under a compilation code. The
+   * sentence is composed here rather than carried as text because only this
+   * card holds the bucket half of the shelf code.
+   */
+  imported?: ImportedReleaseParams;
 };
 
 /**
@@ -86,7 +97,7 @@ const EMPTY_TITLE_MESSAGE = "Please enter a title before adding this release.";
  *   servlet; `GET /library/artists/:id/releases` takes no sort parameter and
  *   returns shelf order, which is the order the JSP itself defaults to.
  */
-export default function VariousArtistsCard({ artistId, message }: VariousArtistsCardProps) {
+export default function VariousArtistsCard({ artistId, message, imported }: VariousArtistsCardProps) {
   const router = useRouter();
   const titleId = useId();
   const altArtistId = useId();
@@ -124,6 +135,23 @@ export default function VariousArtistsCard({ artistId, message }: VariousArtists
   }, [misrouted, router, artistId]);
 
   const genreName = genres?.find((genre) => genre.id === artist?.genre_id)?.genre_name;
+
+  const importedMessage =
+    imported && artist
+      ? importedConfirmation(
+          imported.codeNumber != null
+            ? formatEntireLibraryCode({
+                genreName,
+                code_letters: artist.code_letters,
+                code_artist_number: artist.code_artist_number,
+                genre_id: artist.genre_id,
+                code_number: imported.codeNumber,
+                code_volume_letters: imported.volumeLetters ?? null,
+              })
+            : null,
+          imported.rotationId,
+        )
+      : undefined;
 
   // `fn:trim(format.referenceName)` — the JSP omits blank-named formats rather
   // than offering an unlabelled option.
@@ -235,9 +263,9 @@ export default function VariousArtistsCard({ artistId, message }: VariousArtists
           row, so it routes straight to this screen and would otherwise arrive
           with the servlet's own "has been added to the database" dropped on
           the floor. */}
-      {message && (
+      {(message ?? importedMessage) && (
         <div style={{ textAlign: "center" }} role="status">
-          <h5>&nbsp;{message}&nbsp;</h5>
+          <h5>&nbsp;{message ?? importedMessage}&nbsp;</h5>
         </div>
       )}
       <div
