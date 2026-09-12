@@ -4,6 +4,7 @@ import {
   renderWithProviders,
   createTestAlbum,
   createTestArtist,
+  setFieldValue,
 } from "@/tests/helpers";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import FlowsheetBackendResult from "@/src/components/experiences/modern/flowsheet/Search/Results/BackendResults/FlowsheetBackendResult";
@@ -49,9 +50,7 @@ describe("click-select then deviate", () => {
         />
       </>
     );
-    fireEvent.change(screen.getByTestId("flowsheet-search-artist"), {
-      target: { value: "Stereolab X" },
-    });
+    setFieldValue(screen.getByTestId("flowsheet-search-artist"), "Stereolab X");
 
     query = flowsheetSlice.selectors.getSearchQuery(store.getState());
     expect(query.artist).toBe("Stereolab X");

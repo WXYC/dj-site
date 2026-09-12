@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { fireEvent, screen } from "@testing-library/react";
 import { renderWithProviders } from "@/tests/helpers/render";
+import { setFieldValue } from "@/tests/helpers";
 
 const mockReplace = vi.fn();
 let mockSearchParams = new URLSearchParams("");
@@ -18,7 +19,7 @@ beforeEach(() => {
 
 describe("Classic catalog SearchForm — live search input", () => {
   beforeEach(() => {
-    vi.useFakeTimers();
+    vi.useFakeTimers({ shouldAdvanceTime: true });
   });
 
   afterEach(() => {
@@ -34,7 +35,7 @@ describe("Classic catalog SearchForm — live search input", () => {
   it("debounces typing and updates the URL with the query", () => {
     renderWithProviders(<SearchForm />);
     const input = screen.getByRole("textbox");
-    fireEvent.change(input, { target: { value: "polvo" } });
+    setFieldValue(input, "polvo");
     expect(mockReplace).not.toHaveBeenCalled();
     vi.advanceTimersByTime(300);
     expect(mockReplace).toHaveBeenCalledWith(
@@ -42,15 +43,12 @@ describe("Classic catalog SearchForm — live search input", () => {
     );
   });
 
-  it("only fires once for rapid keystrokes (debounce)", () => {
-    renderWithProviders(<SearchForm />);
+  it("only fires once for rapid keystrokes (debounce)", async () => {
+    const { user } = renderWithProviders(<SearchForm />);
     const input = screen.getByRole("textbox");
-    fireEvent.change(input, { target: { value: "p" } });
-    vi.advanceTimersByTime(100);
-    fireEvent.change(input, { target: { value: "po" } });
-    vi.advanceTimersByTime(100);
-    fireEvent.change(input, { target: { value: "polvo" } });
-    vi.advanceTimersByTime(300);
+    // Stays user.type: the debounce collapsing multiple rapid keystrokes into one call is the subject.
+    await user.type(input, "polvo");
+    await vi.advanceTimersByTimeAsync(300);
     expect(mockReplace).toHaveBeenCalledTimes(1);
     expect(mockReplace).toHaveBeenCalledWith(
       "/dashboard/catalog?searchString=polvo"
@@ -61,7 +59,7 @@ describe("Classic catalog SearchForm — live search input", () => {
     mockSearchParams = new URLSearchParams("searchString=polvo");
     renderWithProviders(<SearchForm />);
     const input = screen.getByRole("textbox");
-    fireEvent.change(input, { target: { value: "" } });
+    setFieldValue(input, "");
     vi.advanceTimersByTime(300);
     expect(mockReplace).toHaveBeenCalledWith("/dashboard/catalog");
   });
@@ -70,7 +68,7 @@ describe("Classic catalog SearchForm — live search input", () => {
     mockSearchParams = new URLSearchParams("exclusive=true");
     renderWithProviders(<SearchForm />);
     const input = screen.getByRole("textbox");
-    fireEvent.change(input, { target: { value: "polvo" } });
+    setFieldValue(input, "polvo");
     vi.advanceTimersByTime(300);
     const pushedUrl = mockReplace.mock.calls[0][0] as string;
     expect(pushedUrl).toContain("searchString=polvo");

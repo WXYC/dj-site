@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import { renderWithProviders } from "@/tests/helpers";
+import { renderWithProviders, setFieldValue } from "@/tests/helpers";
 import FlowsheetEntryField from "@/src/components/experiences/modern/flowsheet/Entries/SongEntry/FlowsheetEntryField";
 import { FlowsheetSongEntry } from "@/lib/features/flowsheet/types";
 import {
@@ -264,7 +264,7 @@ describe("FlowsheetEntryField", () => {
       fireEvent.doubleClick(screen.getByText("Test Track"));
 
       const input = screen.getByRole("textbox");
-      fireEvent.change(input, { target: { value: "New Track Title" } });
+      setFieldValue(input, "New Track Title");
 
       expect(input).toHaveValue("New Track Title");
     });
@@ -308,7 +308,7 @@ describe("FlowsheetEntryField", () => {
 
       // Change the value
       const input = screen.getByRole("textbox");
-      fireEvent.change(input, { target: { value: "Updated Track" } });
+      setFieldValue(input, "Updated Track");
 
       // Submit the form
       const form = input.closest("form");
@@ -343,7 +343,7 @@ describe("FlowsheetEntryField", () => {
 
       // Change the value
       const input = screen.getByRole("textbox");
-      fireEvent.change(input, { target: { value: "Updated Track" } });
+      setFieldValue(input, "Updated Track");
 
       // Submit the form
       const form = input.closest("form");
@@ -504,7 +504,7 @@ describe("FlowsheetEntryField", () => {
       fireEvent.doubleClick(screen.getByText("Test Album"));
 
       const input = screen.getByRole("textbox");
-      fireEvent.change(input, { target: { value: "New Album" } });
+      setFieldValue(input, "New Album");
       fireEvent.submit(input.closest("form")!);
 
       expect(mockUpdateFlowsheet).toHaveBeenCalledWith({
@@ -530,7 +530,7 @@ describe("FlowsheetEntryField", () => {
       fireEvent.doubleClick(screen.getByText("Test Artist"));
 
       const input = screen.getByRole("textbox");
-      fireEvent.change(input, { target: { value: "New Artist" } });
+      setFieldValue(input, "New Artist");
       fireEvent.submit(input.closest("form")!);
 
       expect(mockUpdateFlowsheet).toHaveBeenCalledWith({
@@ -556,7 +556,7 @@ describe("FlowsheetEntryField", () => {
       fireEvent.doubleClick(screen.getByText("Test Label"));
 
       const input = screen.getByRole("textbox");
-      fireEvent.change(input, { target: { value: "New Label" } });
+      setFieldValue(input, "New Label");
       fireEvent.submit(input.closest("form")!);
 
       expect(mockUpdateFlowsheet).toHaveBeenCalledWith({
@@ -671,7 +671,7 @@ describe("FlowsheetEntryField", () => {
       // First edit
       fireEvent.doubleClick(screen.getByText("Test Track"));
       const input = screen.getByRole("textbox");
-      fireEvent.change(input, { target: { value: "First Edit" } });
+      setFieldValue(input, "First Edit");
       fireEvent.submit(input.closest("form")!);
 
       expect(mockUpdateFlowsheet).toHaveBeenCalledWith({
@@ -702,7 +702,7 @@ describe("FlowsheetEntryField", () => {
 
       fireEvent.doubleClick(screen.getByText("Test Artist"));
       const input = screen.getByRole("textbox");
-      fireEvent.change(input, { target: { value: "Queue Artist" } });
+      setFieldValue(input, "Queue Artist");
       fireEvent.submit(input.closest("form")!);
 
       expect(flowsheetSlice.actions.updateQueueEntry).toHaveBeenCalledWith({
@@ -727,7 +727,7 @@ describe("FlowsheetEntryField", () => {
 
       fireEvent.doubleClick(screen.getByText("Test Artist"));
       const input = screen.getByRole("textbox");
-      fireEvent.change(input, { target: { value: "API Artist" } });
+      setFieldValue(input, "API Artist");
       fireEvent.submit(input.closest("form")!);
 
       expect(mockUpdateFlowsheet).toHaveBeenCalledWith({
@@ -763,7 +763,7 @@ describe("FlowsheetEntryField", () => {
       );
       fireEvent.doubleClick(screen.getByText(entry.artist_name));
       const input = screen.getByRole("textbox");
-      fireEvent.change(input, { target: { value } });
+      setFieldValue(input, value);
       fireEvent.submit(input.closest("form")!);
     }
 
@@ -838,7 +838,7 @@ describe("FlowsheetEntryField", () => {
       );
       fireEvent.doubleClick(screen.getByText("Test Track"));
       const input = screen.getByRole("textbox");
-      fireEvent.change(input, { target: { value: "" } });
+      setFieldValue(input, "");
       fireEvent.submit(input.closest("form")!);
 
       expect(mockUpdateFlowsheet).toHaveBeenCalledWith({

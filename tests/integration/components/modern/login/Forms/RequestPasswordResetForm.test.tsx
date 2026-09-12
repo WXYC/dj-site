@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import RequestPasswordResetForm from "@/src/components/experiences/modern/login/Forms/RequestPasswordResetForm";
+import { setFieldValue } from "@/tests/helpers";
 
 const mockHandleRequestReset = vi.fn();
 
@@ -52,7 +53,7 @@ describe("RequestPasswordResetForm", () => {
   it("should enable submit button when email is entered", () => {
     render(<RequestPasswordResetForm />);
     const input = screen.getByLabelText(/email/i);
-    fireEvent.change(input, { target: { value: "test@example.com" } });
+    setFieldValue(input, "test@example.com");
 
     const button = screen.getByRole("button", { name: /send reset link/i });
     expect(button).not.toBeDisabled();
@@ -61,7 +62,7 @@ describe("RequestPasswordResetForm", () => {
   it("should call handleRequestReset on form submit", () => {
     render(<RequestPasswordResetForm />);
     const input = screen.getByLabelText(/email/i);
-    fireEvent.change(input, { target: { value: "test@example.com" } });
+    setFieldValue(input, "test@example.com");
 
     const form = document.querySelector("form")!;
     fireEvent.submit(form);
@@ -72,7 +73,7 @@ describe("RequestPasswordResetForm", () => {
   it("should trim email before submitting", () => {
     render(<RequestPasswordResetForm />);
     const input = screen.getByLabelText(/email/i);
-    fireEvent.change(input, { target: { value: "  test@example.com  " } });
+    setFieldValue(input, "  test@example.com  ");
 
     const form = document.querySelector("form")!;
     fireEvent.submit(form);

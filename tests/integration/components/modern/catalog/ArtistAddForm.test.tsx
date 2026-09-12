@@ -4,6 +4,7 @@ import { http, HttpResponse } from "msw";
 import {
   renderWithProviders,
   server,
+  setFieldValue,
   TEST_BACKEND_URL,
   TEST_ENTITY_IDS,
   TEST_SEARCH_STRINGS,
@@ -488,9 +489,7 @@ describe("ArtistAddForm", () => {
         // maxLength constrains typing and pasting, but not a programmatic set
         // (autofill, password managers) — so the ceiling is also checked before
         // submit rather than trusted to the field alone.
-        fireEvent.change(screen.getByLabelText(/call letters/i), {
-          target: { value: "MOLINA" },
-        });
+        setFieldValue(screen.getByLabelText(/call letters/i), "MOLINA");
 
         expect(screen.getByText(/at most 4 characters/i)).toBeInTheDocument();
         expect(screen.getByRole("button", { name: /add artist/i })).toBeDisabled();
@@ -509,9 +508,10 @@ describe("ArtistAddForm", () => {
           const { user } = renderWithProviders(<ArtistAddForm />);
 
           await fillCoreFields(user);
-          fireEvent.change(screen.getByPlaceholderText(placeholder), {
-            target: { value: "Nilüfer".padEnd(length, "!") },
-          });
+          setFieldValue(
+            screen.getByPlaceholderText(placeholder),
+            "Nilüfer".padEnd(length, "!"),
+          );
 
           // Scoped to the field's own FormControl: a tree-wide query passes
           // just as well with the two length guards wired to each other's

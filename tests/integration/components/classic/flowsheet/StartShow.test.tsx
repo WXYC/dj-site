@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { fireEvent, screen } from "@testing-library/react";
 import { renderWithProviders } from "@/tests/helpers/render";
+import { setFieldValue } from "@/tests/helpers";
 
 // Mock useShowControl().goLive — we only care that StartShow forwards the
 // trimmed Public DJ Handle as the second arg (the override) when the user
@@ -89,7 +90,7 @@ describe("Classic StartShow — Public DJ Handle override (#694)", () => {
   it("submitting after typing a new handle calls goLive with the override", () => {
     renderWithProviders(<StartShow />);
     const input = getNamedInput("djHandle");
-    fireEvent.change(input, { target: { value: "Aubrey Hearst" } });
+    setFieldValue(input, "Aubrey Hearst");
     submitForm();
     expect(goLiveMock).toHaveBeenCalledTimes(1);
     expect(goLiveMock).toHaveBeenCalledWith("Aubrey Hearst");
@@ -98,7 +99,7 @@ describe("Classic StartShow — Public DJ Handle override (#694)", () => {
   it("trims whitespace before forwarding the override", () => {
     renderWithProviders(<StartShow />);
     const input = getNamedInput("djHandle");
-    fireEvent.change(input, { target: { value: "  Aubrey Hearst  " } });
+    setFieldValue(input, "  Aubrey Hearst  ");
     submitForm();
     expect(goLiveMock).toHaveBeenCalledWith("Aubrey Hearst");
   });
@@ -113,7 +114,7 @@ describe("Classic StartShow — Public DJ Handle override (#694)", () => {
   it("submitting with whitespace-only input calls goLive without an override", () => {
     renderWithProviders(<StartShow />);
     const input = getNamedInput("djHandle");
-    fireEvent.change(input, { target: { value: "   " } });
+    setFieldValue(input, "   ");
     submitForm();
     expect(goLiveMock).toHaveBeenCalledWith(undefined);
   });
@@ -121,7 +122,7 @@ describe("Classic StartShow — Public DJ Handle override (#694)", () => {
   it("submitting after clearing a populated handle calls goLive without an override", () => {
     renderWithProviders(<StartShow />);
     const input = getNamedInput("djHandle");
-    fireEvent.change(input, { target: { value: "" } });
+    setFieldValue(input, "");
     submitForm();
     expect(goLiveMock).toHaveBeenCalledWith(undefined);
   });
@@ -130,7 +131,7 @@ describe("Classic StartShow — Public DJ Handle override (#694)", () => {
     renderWithProviders(<StartShow />);
     const input = getNamedInput("djHandle");
     // Simulate a focus/blur with no real change
-    fireEvent.change(input, { target: { value: "Anonymous" } });
+    setFieldValue(input, "Anonymous");
     submitForm();
     expect(goLiveMock).toHaveBeenCalledWith(undefined);
   });
@@ -157,7 +158,7 @@ describe("Classic StartShow — Public DJ Handle override (#694)", () => {
     const { rerender } = renderWithProviders(<StartShow />);
     const input = getNamedInput("djHandle");
     // User types over the prefilled value.
-    fireEvent.change(input, { target: { value: "Aubrey Hearst" } });
+    setFieldValue(input, "Aubrey Hearst");
 
     // Registry refetches and lands a different dj_name. The user's typed
     // value should win — we do not clobber their in-progress edit.
@@ -180,7 +181,7 @@ describe("Classic StartShow — Public DJ Handle override (#694)", () => {
     const { rerender } = renderWithProviders(<StartShow />);
     const input = getNamedInput("djHandle");
     // User types a different value.
-    fireEvent.change(input, { target: { value: "NewName" } });
+    setFieldValue(input, "NewName");
 
     // Registry refetches to the same value the user typed (e.g. a parallel
     // tab updated it). At submit time the comparison should see equality
@@ -304,9 +305,7 @@ describe("Classic StartShow — the handoff prompt", () => {
   it("replays the typed Public DJ Handle through the prompt", async () => {
     openShowMock = OPEN_SHOW;
     renderWithProviders(<StartShow />);
-    fireEvent.change(getNamedInput("djHandle"), {
-      target: { value: "eureka!" },
-    });
+    setFieldValue(getNamedInput("djHandle"), "eureka!");
     submitForm();
     await screen.findByTestId("go-live-handoff-prompt");
     fireEvent.click(screen.getByTestId("go-live-handoff-takeover"));

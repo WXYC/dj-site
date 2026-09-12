@@ -1,6 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { fireEvent, screen } from "@testing-library/react";
-import { CAPSULE_SELECTOR, createTestFlowsheetEntry, renderWithProviders } from "@/tests/helpers";
+import {
+  CAPSULE_SELECTOR,
+  createTestFlowsheetEntry,
+  renderWithProviders,
+  setFieldValue,
+} from "@/tests/helpers";
 import { Rotation } from "@/lib/features/rotation/types";
 import type {
   FlowsheetEntry,
@@ -525,8 +530,8 @@ describe("Classic EntryRow action menu + inline edit (song rows)", () => {
       'input[type="checkbox"][name="request_flag"]'
     ) as HTMLInputElement;
 
-    fireEvent.change(artist, { target: { value: "Juana M." } });
-    fireEvent.change(track, { target: { value: "la paradoja (live)" } });
+    setFieldValue(artist, "Juana M.");
+    setFieldValue(track, "la paradoja (live)");
     fireEvent.click(requestCheckbox);
 
     fireEvent.click(screen.getByRole("button", { name: /save/i }));
@@ -559,7 +564,7 @@ describe("Classic EntryRow action menu + inline edit (song rows)", () => {
     const track = container.querySelector(
       'input[name="track_title"]'
     ) as HTMLInputElement;
-    fireEvent.change(track, { target: { value: "   " } });
+    setFieldValue(track, "   ");
 
     fireEvent.click(screen.getByRole("button", { name: /save/i }));
     expect(onUpdate).not.toHaveBeenCalled();
@@ -576,7 +581,7 @@ describe("Classic EntryRow action menu + inline edit (song rows)", () => {
     const artist = container.querySelector(
       'input[name="artist_name"]'
     ) as HTMLInputElement;
-    fireEvent.change(artist, { target: { value: "Mangled" } });
+    setFieldValue(artist, "Mangled");
     fireEvent.click(screen.getByRole("button", { name: /cancel/i }));
 
     expect(onUpdate).not.toHaveBeenCalled();
@@ -612,7 +617,7 @@ describe("Classic EntryRow action menu + inline edit (song rows)", () => {
     const track = container.querySelector(
       'input[name="track_title"]'
     ) as HTMLInputElement;
-    fireEvent.change(track, { target: { value: "Edited via Enter" } });
+    setFieldValue(track, "Edited via Enter");
     fireEvent.keyDown(track, { key: "Enter" });
     expect(onUpdate).toHaveBeenCalledTimes(1);
     expect(onUpdate).toHaveBeenCalledWith(
@@ -630,7 +635,7 @@ describe("Classic EntryRow action menu + inline edit (song rows)", () => {
     const artist = container.querySelector(
       'input[name="artist_name"]'
     ) as HTMLInputElement;
-    fireEvent.change(artist, { target: { value: "MANGLED" } });
+    setFieldValue(artist, "MANGLED");
     fireEvent.keyDown(artist, { key: "Escape" });
     expect(onUpdate).not.toHaveBeenCalled();
     expect(container.querySelector('input[name="artist_name"]')).toBeNull();
@@ -642,13 +647,13 @@ describe("Classic EntryRow action menu + inline edit (song rows)", () => {
     const { container } = renderRow({ entry: baseEntry(), onUpdate });
     fireEvent.click(screen.getByRole("button", { name: /actions/i }));
     fireEvent.click(screen.getByRole("menuitem", { name: "Edit" }));
-    fireEvent.change(
+    setFieldValue(
       container.querySelector('input[name="artist_name"]') as HTMLInputElement,
-      { target: { value: "  Juana M.  " } }
+      "  Juana M.  "
     );
-    fireEvent.change(
+    setFieldValue(
       container.querySelector('input[name="track_title"]') as HTMLInputElement,
-      { target: { value: "\tla paradoja\n" } }
+      "\tla paradoja\n"
     );
     fireEvent.click(screen.getByRole("button", { name: /save/i }));
     expect(onUpdate).toHaveBeenCalledWith(99, {
@@ -665,9 +670,9 @@ describe("Classic EntryRow action menu + inline edit (song rows)", () => {
     const { container } = renderRow({ entry: baseEntry(), onUpdate });
     fireEvent.click(screen.getByRole("button", { name: /actions/i }));
     fireEvent.click(screen.getByRole("menuitem", { name: "Edit" }));
-    fireEvent.change(
+    setFieldValue(
       container.querySelector('input[name="track_title"]') as HTMLInputElement,
-      { target: { value: "   \t  " } }
+      "   \t  "
     );
     fireEvent.click(screen.getByRole("button", { name: /save/i }));
     expect(onUpdate).not.toHaveBeenCalled();
@@ -733,9 +738,9 @@ describe("Classic EntryRow artist guard on save (posted entries only, no queue)"
   function editArtistAndSave(container: HTMLElement, artistValue: string) {
     fireEvent.click(screen.getByRole("button", { name: /actions/i }));
     fireEvent.click(screen.getByText("Edit"));
-    fireEvent.change(
+    setFieldValue(
       container.querySelector('input[name="artist_name"]') as HTMLInputElement,
-      { target: { value: artistValue } }
+      artistValue
     );
     fireEvent.click(screen.getByRole("button", { name: /save/i }));
   }

@@ -7,7 +7,7 @@ import {
 } from "@/lib/features/flowsheet/various-artists-guard";
 import { FlowsheetMoveContext } from "@/src/components/experiences/modern/flowsheet/Entries/dragContext";
 import MobileSongEntry from "@/src/components/experiences/modern/flowsheet/Entries/SongEntry/MobileSongEntry";
-import { createTestFlowsheetEntry, renderWithProviders } from "@/tests/helpers";
+import { createTestFlowsheetEntry, renderWithProviders, setFieldValue } from "@/tests/helpers";
 
 const mockUseShowControl = vi.fn(() => ({
   live: true,
@@ -212,7 +212,7 @@ describe("MobileSongEntry save-all artist guard", () => {
     );
     fireEvent.click(screen.getByLabelText("Edit entry"));
     const artistInput = screen.getAllByRole("textbox")[FIELD_ORDER.indexOf("artist_name")];
-    fireEvent.change(artistInput, { target: { value: artistValue } });
+    setFieldValue(artistInput, artistValue);
     fireEvent.click(screen.getByLabelText("Save entry"));
   }
 
