@@ -13,10 +13,15 @@ import { hrefForShow } from "@/lib/features/schedule-week/showUrl";
  * One archived show, reached by navigating to it rather than by expanding it
  * under the calendar.
  *
- * The week link is derived from the show's own `start_time`, not from whatever
- * week the visitor arrived through, so it cannot carry an id belonging to a
- * different week. The neighbour links come from the show read for the same
- * reason, and so the walk crosses a week boundary without the calendar's help.
+ * The neighbour links come from the show read rather than from the route the
+ * visitor took, so the walk crosses a week boundary without the calendar's
+ * help.
+ *
+ * No link back to the week: this surface already carries a Week toggle, and the
+ * two looked alike while going to different weeks — the toggle to the current
+ * one, the link to the show's. The surface now routes the toggle through this
+ * show's week, which makes one of them redundant rather than both ambiguous.
+ * Classic keeps its own link, having no toggle to fold into.
  */
 export default function ShowView({
   showId,
@@ -98,13 +103,6 @@ export default function ShowView({
               Next show
             </Link>
           )}
-          <Link
-            component={NextLink}
-            href={`?view=week&week=${show.weekParam}`}
-            level="body-sm"
-          >
-            Weekly view
-          </Link>
         </Box>
       </Sheet>
 

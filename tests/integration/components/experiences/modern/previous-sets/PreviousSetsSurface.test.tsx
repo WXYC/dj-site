@@ -1,6 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { act, screen, waitFor, fireEvent, within } from "@testing-library/react";
-import { createTestStore, server, renderWithProviders } from "@/tests/helpers";
+import { http, HttpResponse } from "msw";
+import {
+  createTestStore,
+  server,
+  renderWithProviders,
+  TEST_BACKEND_URL,
+} from "@/tests/helpers";
 import { playlistSearchFake } from "@/tests/fakes/playlistSearch";
 import { playlistSearchSlice } from "@/lib/features/playlist-search/frontend";
 
@@ -16,9 +22,13 @@ vi.mock("@/lib/features/authentication/client", async () => {
 // navigation, and a fixed URLSearchParams cannot flip.
 let currentParams = new URLSearchParams();
 
+// Stable across renders so a test can read what the toggle wrote; a fresh
+// vi.fn() per useRouter() call records into an object the test cannot reach.
+const mockReplace = vi.fn();
+
 vi.mock("next/navigation", () => ({
   usePathname: () => "/dashboard/playlists",
-  useRouter: () => ({ replace: vi.fn(), push: vi.fn() }),
+  useRouter: () => ({ replace: mockReplace, push: vi.fn() }),
   useSearchParams: () => currentParams,
 }));
 
@@ -231,5 +241,66 @@ describe("PreviousSetsSurface — arriving fresh", () => {
 
     await settleFirstPage();
     expect(fake.requests).toHaveLength(1);
+  });
+});
+
+describe("PreviousSetsSurface — the Week toggle from inside a show", () => {
+  beforeEach(() => {
+    mockReplace.mockClear();
+  });
+
+  // A show reached by walking the archive carries no week in the URL, so the
+  // toggle's own fallback resolves to today. Left that way it takes a reader of
+  // a 2003 set to this week's calendar, which is why the header used to need a
+  // second, differently-destined link beside it.
+  it("opens the week the open show aired in, not the current one", async () => {
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/flowsheet/playlist`, () =>
+        HttpResponse.json({
+          id: 3,
+          show_name: "Sunrise Service",
+          specialty_show_name: "",
+          start_time: "2003-04-09T18:00:00.000Z",
+          end_time: null,
+          show_djs: [],
+          dj_name_override: null,
+          legacy_dj_name: "DJ Wandering",
+          previous_show_id: null,
+          next_show_id: null,
+          entries: [],
+        }),
+      ),
+    );
+
+    openShow();
+    renderWithProviders(<PreviousSetsSurface />, { store: createTestStore() });
+    await screen.findByText("show 3");
+
+    // Clicked only once the show's week has actually arrived; clicking against
+    // an unresolved query would assert the fallback and pass for the old code.
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /week/i })).toBeEnabled(),
+    );
+    await waitFor(() => {
+      mockReplace.mockClear();
+      fireEvent.click(screen.getByRole("button", { name: /week/i }));
+      const url = mockReplace.mock.calls.at(-1)?.[0] as string | undefined;
+      // 2003-04-09 is a Wednesday; the station week containing it opens Sunday
+      // the 6th. A literal, not a recomputation of the code under test.
+      expect(url).toContain("week=2003-04-06");
+    });
+  });
+
+  it("opens the current week when no show is open", async () => {
+    renderWithProviders(<PreviousSetsSurface />, { store: createTestStore() });
+    // The toggle, not the listing: this asserts where the week comes from with
+    // nothing open, and the listing behind it is another spec's subject.
+    await screen.findByRole("button", { name: /week/i });
+
+    fireEvent.click(screen.getByRole("button", { name: /week/i }));
+
+    const url = mockReplace.mock.calls.at(-1)![0] as string;
+    expect(url).toContain("view=week");
+    expect(url).not.toContain("week=2003-04-06");
   });
 });

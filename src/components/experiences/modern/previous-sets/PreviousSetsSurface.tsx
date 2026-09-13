@@ -5,6 +5,7 @@ import { Box } from "@mui/joy";
 import type { PlaylistSearchResult } from "@wxyc/shared";
 import { usePlaylistSearchSubscription } from "@/src/hooks/playlistSearchHooks";
 import { useScheduleWeekParams } from "@/src/hooks/scheduleWeekHooks";
+import { useShowPlaylist } from "@/src/hooks/showPlaylistHooks";
 import { ScheduleWeekView } from "@/src/components/experiences/modern/schedule-week";
 import ShowView from "./ShowView";
 import SearchBar from "./Search/SearchBar";
@@ -27,6 +28,13 @@ export default function PreviousSetsSurface({
   const { isWeekView, setView, selectedShowId, selectedEntryId } =
     useScheduleWeekParams();
 
+  // The open show's own week, so the Week toggle lands on the calendar
+  // surrounding the set being read rather than on the current week. Shares the
+  // cache entry ShowView reads, so this is a second subscription and not a
+  // second request; null while nothing is open, where the toggle's own
+  // URL-derived week is already right.
+  const { weekParam: openShowWeek } = useShowPlaylist(selectedShowId);
+
   const listingVisible = !isWeekView && selectedShowId === null;
 
   // Both of these outlive the listing on purpose. The branch below unmounts it
@@ -38,7 +46,10 @@ export default function PreviousSetsSurface({
   return (
     <>
       <Box sx={{ display: "flex", justifyContent: "flex-end", pt: 1 }}>
-        <ViewToggle isWeekView={isWeekView} onChange={setView} />
+        <ViewToggle
+          isWeekView={isWeekView}
+          onChange={(view) => setView(view, openShowWeek || null)}
+        />
       </Box>
 
       {selectedShowId !== null ? (

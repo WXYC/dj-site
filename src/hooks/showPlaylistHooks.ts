@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
+import { skipToken } from "@reduxjs/toolkit/query";
 import { useGetShowPlaylistQuery } from "@/lib/features/show-playlist/api";
 import { entryAnchorId } from "@/lib/features/schedule-week/showUrl";
 import { v2ToRangeShape } from "@/lib/features/show-playlist/wire";
@@ -41,8 +42,17 @@ export type ShowPlaylist = {
   notFound: boolean;
 };
 
-export function useShowPlaylist(showId: number): ShowPlaylist {
-  const { data, isFetching, error } = useGetShowPlaylistQuery({ showId });
+/**
+ * `showId` is nullable so a caller with nothing selected can still read this
+ * unconditionally. The query is skipped rather than issued for a sentinel id,
+ * and two callers holding the same id share one request — RTK Query dedupes by
+ * cache key, so reading this beside the component that renders it costs a
+ * subscription and no traffic.
+ */
+export function useShowPlaylist(showId: number | null): ShowPlaylist {
+  const { data, isFetching, error } = useGetShowPlaylistQuery(
+    showId === null ? skipToken : { showId },
+  );
 
   // Only a 404 means "no such show". A soft-failed body also yields the empty
   // playlist, and telling a DJ their show does not exist because the response

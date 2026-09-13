@@ -160,10 +160,15 @@ describe("ShowView — walking the archive", () => {
     expect(hrefOf("Next show")).toBe("?show=1951180");
   });
 
-  it("keeps the week link pointing at the week the show itself aired in", () => {
+  // The surface above carries a Week toggle, and a link beside it reading
+  // "Weekly view" went to a different week than the toggle did — the show's
+  // rather than the current one. Two controls that look alike and disagree is
+  // worse than one, so the toggle learned the show's week and the link went.
+  // Classic keeps its link; it has no toggle to fold into.
+  it("offers no week link of its own", () => {
     renderShowView();
 
-    expect(hrefOf("Weekly view")).toBe("?view=week&week=2026-08-16");
+    expect(screen.queryByRole("link", { name: /weekly view/i })).toBeNull();
   });
 });
 

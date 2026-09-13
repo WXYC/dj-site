@@ -184,6 +184,30 @@ describe("useScheduleWeekParams", () => {
     expect(url).toMatch(/week=\d{4}-\d{2}-\d{2}/);
   });
 
+  it("enters the week a caller names rather than the current one", () => {
+    // A show reached by walking the archive carries no week in the URL, so the
+    // fallback would resolve to today and send a reader of a 2003 set to this
+    // week's calendar. The caller that knows which week the show aired in
+    // passes it.
+    const { result } = renderHook(() => useScheduleWeekParams());
+    result.current.setView("week", "2003-04-06");
+
+    const url = mockReplace.mock.calls.at(-1)![0] as string;
+    expect(url).toContain("week=2003-04-06");
+  });
+
+  it("falls back to the current week when the caller names none", () => {
+    // Written as an absence of the named week rather than as a literal date:
+    // asserting today's date here would make the test fail on the day the
+    // station week rolls over rather than when the behaviour breaks.
+    const { result } = renderHook(() => useScheduleWeekParams());
+    result.current.setView("week");
+
+    const url = mockReplace.mock.calls.at(-1)![0] as string;
+    expect(url).not.toContain("week=2003-04-06");
+    expect(url).toMatch(/week=\d{4}-\d{2}-\d{2}/);
+  });
+
   it("reads the playcut to highlight from the URL", () => {
     searchParams = new URLSearchParams("show=1951179&entry=901");
 
