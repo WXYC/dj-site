@@ -147,7 +147,8 @@ describe("classic RotationReleaseInsert — rotationReleaseInsert.jsp", () => {
     await fillRequiredFields(user);
     await user.click(screen.getByRole("button", { name: "Add this record" }));
 
-    await waitFor(() => expect(mockPush).toHaveBeenCalledWith("/dashboard/rotation"));
+    // The JSP's own destination after an add is the record it just created.
+    await waitFor(() => expect(mockPush).toHaveBeenCalledWith("/dashboard/rotation/9001"));
     expect(requestBody).toEqual({
       rotation_bin: "H",
       artist_name: "Juana Molina",

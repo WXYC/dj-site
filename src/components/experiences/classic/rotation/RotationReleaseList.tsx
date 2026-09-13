@@ -99,6 +99,10 @@ function RotationTable({
               className={`entry-row ${index % 2 === 0 ? "entry-row-even" : "entry-row-odd"}`}
             >
               <td style={{ textAlign: "center", whiteSpace: "nowrap" }}>
+                <Link href={`/dashboard/rotation/${row.rotationId}`} aria-label={`Edit: ${row.title}`}>
+                  Edit
+                </Link>
+                &nbsp;
                 {/* Named per row, matching `MissingReleases`: a table of up to
                     500 buttons all reading "Kill" tells a screen-reader user
                     nothing about which release they are about to act on. */}
@@ -319,13 +323,10 @@ function UnavailableFacet() {
  *   precedent for a JSP link with no dj-site destination: no tallysheet
  *   screen exists here, so the alternative would be a dead link rather than
  *   a working one under a different name.
- * - The row's "Edit" link is dropped for the same reason: its destination
- *   (`/dashboard/rotation/[id]` in `docs/architecture.md`'s URL map) has no
- *   route, so rendering it would put a 404 under every row. "Import" is
- *   rendered -- `/dashboard/rotation/[id]/import` answers -- and it is the
- *   affordance the catalog chooser's "Import a killed rotation release into
- *   the library" block funnels a librarian toward. Kill and Unkill stay:
- *   both act in place through endpoints that exist.
+ * Edit, Import, Kill and Unkill are all the JSP's own row actions, and each
+ * one has a destination or an endpoint behind it. Edit is offered on every
+ * row, including a catalogued one: the two dates stay writable there even
+ * though the release's artist, title, label and format do not.
  */
 export default function RotationReleaseList({ statusFilter }: { statusFilter: RotationStatusFilter }) {
   const [killRotationEntry] = useKillRotationEntryMutation();
