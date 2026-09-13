@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useId, useMemo, useState } from "react";
-import { useGetFormatsQuery } from "@/lib/features/catalog/api";
+import { useGetFormatsQuery, useGetInformationQuery } from "@/lib/features/catalog/api";
 import { isGenresUnavailable } from "@/lib/features/catalog/genreAvailability";
 import type { Label } from "@/lib/features/labels/types";
 import { useGetRotationRowQuery, useUpdateRotationRowMutation } from "@/lib/features/rotation/api";
@@ -147,6 +147,17 @@ export default function RotationReleaseModify({ rotationId }: { rotationId: numb
 
   const { data: row, isLoading, isError, error } = useGetRotationRowQuery(rotationId);
   const formatsQuery = useGetFormatsQuery();
+  // A linked row's own pre-catalog columns are NULL, and this screen's row read
+  // publishes those columns rather than joining the library release -- unlike
+  // the sibling list read, which COALESCEs the release's values over them. So
+  // the four fields the release owns have to be read from the release itself,
+  // or the form names no release at all. Display only: never folded into
+  // `form`, whose diff against `baseline` decides what gets sent, and these are
+  // exactly the fields a linked row's write would be refused for.
+  const releaseQuery = useGetInformationQuery(
+    { album_id: row?.album_id ?? 0 },
+    { skip: row?.album_id == null },
+  );
   const [updateRotationRow, { isLoading: isSaving }] = useUpdateRotationRowMutation();
 
   const [editing, setEditing] = useState<Editing | null>(null);
@@ -211,6 +222,17 @@ export default function RotationReleaseModify({ rotationId }: { rotationId: numb
 
   const { baseline, form, message } = editing;
   const catalogued = row.album_id != null;
+  // Falls back to the form's own values, which is what an uncatalogued row
+  // wants and what a catalogued row is left with when the release read fails.
+  // The dates stay writable either way -- naming the release is a convenience,
+  // and an outage here must not withdraw the edit the screen exists for.
+  const release = catalogued ? releaseQuery.data : undefined;
+  const shown = {
+    artistName: release?.artist.name ?? form.artistName,
+    title: release?.title ?? form.title,
+    formatId: release?.format_id ?? form.formatId,
+    recordLabel: release?.label ?? form.recordLabel,
+  };
   // The same absence-of-list predicate the genre selects use: an unissued or
   // failed request would otherwise read as "this release has no format", and
   // no format could be picked from the empty list anyway.
@@ -301,7 +323,7 @@ export default function RotationReleaseModify({ rotationId }: { rotationId: numb
                 <input
                   id={presentationNameId}
                   type="text"
-                  value={form.artistName}
+                  value={shown.artistName}
                   disabled={isSaving || catalogued}
                   onChange={(e) => update({ artistName: e.target.value })}
                   size={50}
@@ -316,7 +338,7 @@ export default function RotationReleaseModify({ rotationId }: { rotationId: numb
                 <input
                   id={titleId}
                   type="text"
-                  value={form.title}
+                  value={shown.title}
                   disabled={isSaving || catalogued}
                   onChange={(e) => update({ title: e.target.value })}
                   size={100}
@@ -333,7 +355,7 @@ export default function RotationReleaseModify({ rotationId }: { rotationId: numb
                 <select
                   id={formatFieldId}
                   aria-label="Format"
-                  value={form.formatId ?? ""}
+                  value={shown.formatId ?? ""}
                   disabled={isSaving || catalogued || formatsUnavailable}
                   onChange={(e) => update({ formatId: e.target.value ? Number(e.target.value) : null })}
                 >
@@ -370,7 +392,7 @@ export default function RotationReleaseModify({ rotationId }: { rotationId: numb
               </td>
               <td className="label">
                 <CompanyAutocomplete
-                  value={form.recordLabel}
+                  value={shown.recordLabel}
                   onChange={editLabelText}
                   onSelect={resolveLabel}
                   disabled={isSaving || catalogued}
