@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { renderWithProviders, server, TEST_BACKEND_URL } from "@/tests/helpers";
+import { COMPANY_AUTOCOMPLETE_MATCH } from "@/tests/helpers/company-autocomplete-mock";
 
 vi.mock("@/lib/features/authentication/client", async () => {
   const { createAuthClientModuleMock } = await import("@/tests/helpers/auth-client-mock");
@@ -16,33 +17,12 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: mockPush }),
 }));
 
-// CompanyAutocomplete has its own dedicated test coverage; here it is
-// replaced with a bare labelled input plus a button standing in for the
-// moment its search confirms the typed text names an existing label, so this
-// form's own submit/validation logic is under test rather than the label
-// search widget.
-vi.mock("@/src/components/experiences/classic/rotation/CompanyAutocomplete", () => ({
-  default: ({
-    value,
-    onChange,
-    onSelect,
-  }: {
-    value: string;
-    onChange: (value: string) => void;
-    onSelect: (label: { id: number; label_name: string }) => void;
-  }) => (
-    <>
-      <input
-        aria-label="Record Label"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-      />
-      <button type="button" onClick={() => onSelect({ id: 17, label_name: "Sonamos" })}>
-        match an existing label
-      </button>
-    </>
-  ),
-}));
+vi.mock("@/src/components/experiences/classic/rotation/CompanyAutocomplete", async () => {
+  const { createCompanyAutocompleteMock } = await import(
+    "@/tests/helpers/company-autocomplete-mock"
+  );
+  return createCompanyAutocompleteMock();
+});
 
 import RotationReleaseInsert from "@/src/components/experiences/classic/rotation/RotationReleaseInsert";
 
@@ -279,8 +259,8 @@ describe("classic RotationReleaseInsert — rotationReleaseInsert.jsp", () => {
         await user.click(screen.getByRole("button", { name: "match an existing label" }));
       });
 
-      expect(body.label_id).toBe(17);
-      expect(body.record_label).toBe("Sonamos");
+      expect(body.label_id).toBe(COMPANY_AUTOCOMPLETE_MATCH.id);
+      expect(body.record_label).toBe(COMPANY_AUTOCOMPLETE_MATCH.label_name);
     });
 
     it("omits label_id entirely for a typed label that matched nothing, rather than sending null", async () => {

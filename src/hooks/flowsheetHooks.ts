@@ -34,7 +34,7 @@ import {
 import { safeCapture } from "@/lib/posthog";
 import { useFlowsheetPollingInterval } from "./useSSEConnection";
 import { partitionFlowsheetEntries } from "@/lib/features/flowsheet/partition";
-import { flowsheetWriteErrorMessage } from "@/lib/features/flowsheet/submission-error";
+import { backendWriteErrorMessage } from "@/lib/backend-error-message";
 import {
   FlowsheetEntry,
   FlowsheetQuery,
@@ -312,7 +312,7 @@ export const useShowControl = () => {
       if (conflict) return { status: "conflict", handoff: conflict };
       return {
         status: "error",
-        message: flowsheetWriteErrorMessage(err, "Could not go live"),
+        message: backendWriteErrorMessage(err, "Could not go live"),
       };
     }
   };
@@ -927,7 +927,7 @@ export const useFlowsheetSubmit = () => {
         await addToFlowsheet(convertQueryToSubmission(selectedResultData));
         dispatch(flowsheetSlice.actions.resetSearch());
       } catch (err) {
-        toast.error(flowsheetWriteErrorMessage(err));
+        toast.error(backendWriteErrorMessage(err, "Could not add to flowsheet"));
       }
     },
     [

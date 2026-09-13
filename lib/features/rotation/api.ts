@@ -19,6 +19,7 @@ import type {
   RotationListRow,
   RotationRowSummary,
 } from "./types";
+import { wrapRotationWriteError } from "./writeErrorMessage";
 
 export const rotationApi = createApi({
   reducerPath: "rotationApi",
@@ -181,22 +182,9 @@ export const rotationApi = createApi({
     // which is typed against the published `AddRotationRequest` and requires
     // `album_id`. The response is the full raw `rotation` row, a superset of
     // `RotationRowSummary`'s fields.
-    //
-    // Every refusal from this endpoint (missing rotation_bin, missing
-    // artist_name/album_title, an over-length snapshot field) carries a
-    // message precise enough to act on, and the caller renders it inline
-    // (`RotationReleaseInsert`'s validationMessage, matching the JSP's own
-    // div of that name) -- so, like `labelsApi.searchLabels`, the message is
-    // nested under a key the shared rejected-query middleware's
-    // `payload.data.message` lookup does not recognize, keeping one refusal
-    // from being reported twice.
     addFreeTextRotationEntry: builder.mutation<RotationRowSummary, FreeTextRotationAddRequest>({
       query: (body) => ({ url: "", method: "POST", body }),
-      transformErrorResponse: (
-        response: FetchBaseQueryError,
-      ): { rotationAddError: FetchBaseQueryError } => ({
-        rotationAddError: response,
-      }),
+      transformErrorResponse: wrapRotationWriteError,
       invalidatesTags: ["Rotation"],
     }),
     // The single rotation row behind the import screen
