@@ -21,7 +21,8 @@ import { hrefForShow } from "@/lib/features/schedule-week/showUrl";
  * two looked alike while going to different weeks — the toggle to the current
  * one, the link to the show's. The surface now routes the toggle through this
  * show's week, which makes one of them redundant rather than both ambiguous.
- * Classic keeps its own link, having no toggle to fold into.
+ * Classic drops its link for the same reason; its toggle is styled differently
+ * but is the same control.
  */
 export default function ShowView({
   showId,
