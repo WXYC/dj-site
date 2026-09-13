@@ -1,12 +1,13 @@
 "use client";
 
-import Link from "next/link";
-import { Box, Sheet, Typography } from "@mui/joy";
+import NextLink from "next/link";
+import { Box, Link, Sheet, Typography } from "@mui/joy";
 import {
   useScrollToShowEntry,
   useShowPlaylist,
 } from "@/src/hooks/showPlaylistHooks";
 import ShowEntriesPanel from "@/src/components/experiences/modern/schedule-week/ShowEntriesPanel";
+import { hrefForShow } from "@/lib/features/schedule-week/showUrl";
 
 /**
  * One archived show, reached by navigating to it rather than by expanding it
@@ -14,7 +15,8 @@ import ShowEntriesPanel from "@/src/components/experiences/modern/schedule-week/
  *
  * The week link is derived from the show's own `start_time`, not from whatever
  * week the visitor arrived through, so it cannot carry an id belonging to a
- * different week.
+ * different week. The neighbour links come from the show read for the same
+ * reason, and so the walk crosses a week boundary without the calendar's help.
  */
 export default function ShowView({
   showId,
@@ -36,7 +38,9 @@ export default function ShowView({
           It may have been removed.
         </Typography>
         <Typography level="body-sm" sx={{ mt: 2 }}>
-          <Link href="?view=week">Back to the weekly view</Link>
+          <Link component={NextLink} href="?view=week">
+            Back to the weekly view
+          </Link>
         </Typography>
       </Sheet>
     );
@@ -74,9 +78,33 @@ export default function ShowView({
           {show.djName && (
             <Typography level="body-sm">Disc Jockey: {show.djName}</Typography>
           )}
-          <Typography level="body-sm">
-            <Link href={`?view=week&week=${show.weekParam}`}>Weekly view</Link>
-          </Typography>
+          {/* Absent, not disabled, at the archive's ends: there is no show to
+              name, and a dead affordance reads as a broken one. */}
+          {show.previousShowId !== null && (
+            <Link
+              component={NextLink}
+              href={hrefForShow(show.previousShowId)}
+              level="body-sm"
+            >
+              Previous show
+            </Link>
+          )}
+          {show.nextShowId !== null && (
+            <Link
+              component={NextLink}
+              href={hrefForShow(show.nextShowId)}
+              level="body-sm"
+            >
+              Next show
+            </Link>
+          )}
+          <Link
+            component={NextLink}
+            href={`?view=week&week=${show.weekParam}`}
+            level="body-sm"
+          >
+            Weekly view
+          </Link>
         </Box>
       </Sheet>
 

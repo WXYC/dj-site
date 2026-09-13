@@ -59,6 +59,8 @@ export const handlers = [
       start_time: "",
       end_time: null,
       show_djs: [],
+      previous_show_id: null,
+      next_show_id: null,
       entries: [],
     });
   }),

@@ -21,6 +21,20 @@ export type ShowPlaylist = {
   timeRange: string;
   /** Week the show belongs to, for the link back to the calendar. */
   weekParam: string;
+  /**
+   * The show that aired before this one, anywhere in the archive; null only on
+   * the earliest show there is.
+   */
+  previousShowId: number | null;
+  /**
+   * The show that aired after this one; null only on the most recent. That
+   * includes the show currently on the air, deliberately: the only signal
+   * available here is a neighbour's `end_time`, and a null one means the
+   * sign-off was never recorded rather than that the show is still running, so
+   * suppressing on it would dead-end the walk at every abandoned show in the
+   * archive instead of at the live one.
+   */
+  nextShowId: number | null;
   entries: ReturnType<typeof v2ToRangeShape>[];
   isLoading: boolean;
   /** The id resolved to no show — a typo or a scraped URL, not an outage. */
@@ -68,6 +82,8 @@ export function useShowPlaylist(showId: number): ShowPlaylist {
       weekParam: start
         ? formatStationWeekParam(startOfStationWeek(new Date(start)))
         : "",
+      previousShowId: data?.previous_show_id ?? null,
+      nextShowId: data?.next_show_id ?? null,
       // The route returns entries newest-first; a set reads in the order it
       // aired. tubafrenzy asked for "ASC" explicitly for the same reason.
       entries: [...(data?.entries ?? [])]

@@ -23,6 +23,8 @@ const wire = (over: Partial<ShowPlaylistWire> = {}): ShowPlaylistWire => ({
   show_djs: [],
   dj_name_override: null,
   legacy_dj_name: "DJ Chowder",
+  previous_show_id: 900000,
+  next_show_id: 900002,
   entries: [],
   ...over,
 });
@@ -77,6 +79,24 @@ describe("useShowPlaylist", () => {
   it("derives the week link from the show, not from the caller", () => {
     // 2026-09-06 is a Sunday at the station, so it is its own week start.
     expect(render().weekParam).toBe("2026-09-06");
+  });
+
+  it("carries the neighbouring shows the route resolved", () => {
+    const show = render();
+    expect(show.previousShowId).toBe(900000);
+    expect(show.nextShowId).toBe(900002);
+  });
+
+  it("reports no neighbour at the archive's ends", () => {
+    expect(render({ previous_show_id: null }).previousShowId).toBeNull();
+    expect(render({ next_show_id: null }).nextShowId).toBeNull();
+  });
+
+  // A null end_time is an unrecorded sign-off, not a show still on the air,
+  // and the archive is full of them. Reading it as liveness and dropping the
+  // next show would end the walk at every abandoned set.
+  it("keeps the next show for a set whose sign-off was never recorded", () => {
+    expect(render({ end_time: null }).nextShowId).toBe(900002);
   });
 
   it("reports not-found only for a 404", () => {

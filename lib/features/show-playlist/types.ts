@@ -26,6 +26,18 @@ export type ShowPlaylistWire = {
   show_djs: { id: string | number; dj_name: string | null }[];
   dj_name_override: string | null;
   legacy_dj_name: string | null;
+  /**
+   * The shows either side of this one in air-time order across the whole
+   * archive, resolved by the route rather than derived from a window around
+   * `start_time`: an archive with gaps in it makes a client-side nearest-show
+   * search answer a different question than "the adjacent row".
+   *
+   * Null only at the archive's two ends. `next_show_id` names the show on the
+   * air when there is one — a neighbour's null `end_time` is an unrecorded
+   * sign-off, not a liveness signal, so nothing here can be gated on it.
+   */
+  previous_show_id: number | null;
+  next_show_id: number | null;
   entries: ShowPlaylistEntryWire[];
 };
 
@@ -74,5 +86,7 @@ export const EMPTY_SHOW_PLAYLIST: ShowPlaylistWire = {
   show_djs: [],
   dj_name_override: null,
   legacy_dj_name: null,
+  previous_show_id: null,
+  next_show_id: null,
   entries: [],
 };
