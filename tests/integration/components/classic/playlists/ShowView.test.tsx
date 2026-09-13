@@ -422,21 +422,44 @@ describe("classic archived-show view — walking the archive", () => {
     expect(hrefOf(NEXT_LINK)).toBe("?show=1951370");
   });
 
+  // The surface above carries a Search/Week toggle, and a link beside it
+  // reading "Weekly View" went to a different week than the toggle did — the
+  // show's rather than the current one. The JSP had no such toggle, so
+  // reproducing its link faithfully produced a pair that reads as one control
+  // and disagrees. The toggle learned the show's week and the link went.
+  it("offers no week link of its own", async () => {
+    serveArchive();
+    renderWithProviders(<ShowView showId={LATEST_SHOW} />);
+
+    await screen.findByText("Chuquimamani-Condori");
+    expect(screen.queryByRole("link", { name: /weekly view/i })).toBeNull();
+  });
+
   it("walks backwards out of one station week and into the one before it", async () => {
     serveArchive();
     const { rerender } = renderWithProviders(<ShowView showId={LATEST_SHOW} />);
 
+    const infoBarText = () =>
+      document.querySelector(".show-info-bar")!.textContent!;
+
     await screen.findByText("Chuquimamani-Condori");
     rerender(<ShowView showId={showIdBehind(PREVIOUS_LINK)} />);
 
+    // Sunday opens a station week, so this set and the one the next step
+    // reaches sit on opposite sides of a boundary that could otherwise only be
+    // crossed by going back out to the calendar. Asserted on the rendered date
+    // rather than on a week link: naming the week is the toggle's job now, and
+    // this spec's subject is the walk. Each step follows the href actually
+    // rendered by the step before it.
     await screen.findByText("Jessica Pratt");
-    expect(hrefOf("Weekly View")).toBe("?view=week&week=2026-08-23");
+    expect(infoBarText()).toContain("8/23/2026");
+
     rerender(<ShowView showId={showIdBehind(PREVIOUS_LINK)} />);
 
-    // The step that leaves the week: the set reached is the one that aired the
-    // evening before, and its week link now names the earlier calendar page.
+    // The step that leaves the week: the set reached aired the evening before,
+    // on the Saturday belonging to the previous calendar page.
     await screen.findByText("Juana Molina");
-    expect(hrefOf("Weekly View")).toBe("?view=week&week=2026-08-16");
+    expect(infoBarText()).toContain("8/22/2026");
   });
 
   it("reads the neighbours off the show rather than fetching for them", async () => {

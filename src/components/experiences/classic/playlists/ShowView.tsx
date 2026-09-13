@@ -15,12 +15,15 @@ import "@/src/styles/classic/schedule-week.css";
  * under the calendar.
  *
  * Reproduces `flowsheetRadioShowDisplayPublic.jsp`'s `show-info-bar`: date,
- * rounded time range, the DJ handle, a link back to the week, and the walk to
- * either neighbouring show. The week is derived from the show's own
- * `start_time`, not from whatever week the visitor arrived through, so the link
- * cannot carry an id belonging to a different one; the neighbours come from the
- * show read for the same reason, and so the walk crosses a week boundary
- * without the calendar's help.
+ * rounded time range, the DJ handle, and the walk to either neighbouring show.
+ * The neighbours come from the show read rather than from the route the visitor
+ * took, so the walk crosses a week boundary without the calendar's help.
+ *
+ * The JSP's link back to the week is deliberately not reproduced. This surface
+ * carries a Search/Week toggle above it, and the two read as one control while
+ * going to different weeks — the toggle to the current one, the link to the
+ * show's. The surface now routes the toggle through this show's week, which
+ * leaves the link redundant.
  */
 export default function ShowView({
   showId,
@@ -59,8 +62,6 @@ export default function ShowView({
               {show.day}
               <br />
               {show.timeRange}
-              <br />
-              <Link href={`?view=week&week=${show.weekParam}`}>Weekly View</Link>
               {/* Absent, not disabled, at the archive's ends: there is no show
                   to name, and a dead affordance reads as a broken one. */}
               {show.previousShowId !== null && (
