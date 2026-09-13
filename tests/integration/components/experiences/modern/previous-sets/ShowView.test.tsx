@@ -68,6 +68,8 @@ const playlist = (over: Partial<ShowPlaylist> = {}): ShowPlaylist =>
     day: "Saturday, August 22, 2026",
     timeRange: "4:36 PM – 8:01 PM",
     weekParam: "2026-08-16",
+    previousShowId: 1951178,
+    nextShowId: 1951180,
     entries: [
       entry(1, "Juana Molina", "la paradoja"),
       entry(2),
@@ -120,6 +122,48 @@ describe("ShowView", () => {
     renderShowView({ notFound: true });
 
     expect(screen.getByText("No show with that id")).toBeInTheDocument();
+  });
+});
+
+describe("ShowView — walking the archive", () => {
+  const hrefOf = (name: string) =>
+    screen.getByRole("link", { name }).getAttribute("href");
+
+  it("links the shows either side of this one", () => {
+    renderShowView();
+
+    expect(hrefOf("Previous show")).toBe("?show=1951178");
+    expect(hrefOf("Next show")).toBe("?show=1951180");
+  });
+
+  it("offers no Previous on the earliest show there is", () => {
+    renderShowView({ previousShowId: null });
+
+    // Absent, not disabled: an end of the archive is nothing to click.
+    expect(screen.queryByRole("link", { name: "Previous show" })).toBeNull();
+    expect(hrefOf("Next show")).toBe("?show=1951180");
+  });
+
+  it("offers no Next on the most recent show", () => {
+    renderShowView({ nextShowId: null });
+
+    expect(screen.queryByRole("link", { name: "Next show" })).toBeNull();
+    expect(hrefOf("Previous show")).toBe("?show=1951178");
+  });
+
+  // A null end_time is an unrecorded sign-off rather than a show still on the
+  // air, and thousands of archived sets carry one, so a next link gated on it
+  // would strand the walk on any one of them.
+  it("keeps Next on a show whose sign-off was never recorded", () => {
+    renderShowView({ timeRange: "2:00 PM – no sign-off recorded" });
+
+    expect(hrefOf("Next show")).toBe("?show=1951180");
+  });
+
+  it("keeps the week link pointing at the week the show itself aired in", () => {
+    renderShowView();
+
+    expect(hrefOf("Weekly view")).toBe("?view=week&week=2026-08-16");
   });
 });
 

@@ -42,6 +42,18 @@ export function entryAnchorId(entryId: number): string {
 }
 
 /**
+ * A link to a show, naming nothing else.
+ *
+ * Query-only, like the link below, so it resolves against whatever path the
+ * screen is served on. It carries no `view` and no `week`: a show view derives
+ * its own week from the show's `start_time`, and a week inherited through the
+ * URL can disagree with the show it is carried onto.
+ */
+export function hrefForShow(showId: number): string {
+  return `?${SHOW_PARAM}=${showId}`;
+}
+
+/**
  * A search result's link into the show it was played on, or null when the play
  * belongs to no show — the backend projects a flowsheet row with a null
  * `show_id` as 0, and no show has that id, so such a play must render unlinked

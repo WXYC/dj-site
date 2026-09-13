@@ -54,6 +54,8 @@ const playlist: ShowPlaylistWire = {
   show_djs: [],
   dj_name_override: null,
   legacy_dj_name: "DJ Chowder",
+  previous_show_id: null,
+  next_show_id: null,
   entries: [
     play(3001, 1, {
       artist_name: "Juana Molina",
@@ -253,5 +255,211 @@ describe("classic archived-show view — the play a search result named", () => 
 
     await rowFor("Jessica Pratt");
     expect(container.querySelector(".classic-schedule-week")).not.toBeNull();
+  });
+});
+
+
+// Three consecutive shows, enough of the archive to walk. The first two sit in
+// different station weeks — 2026-08-22 belongs to the week beginning Sunday
+// 2026-08-16, 2026-08-23 opens the next one — so stepping from the second to
+// the first crosses a boundary that a week-scoped derivation would stop at.
+// The middle set's sign-off was never recorded, which is the state most of the
+// abandoned shows in the archive are in.
+const EARLIEST_SHOW = 1951368;
+const ABANDONED_SHOW = 1951369;
+const LATEST_SHOW = 1951370;
+
+const archiveShow = (
+  id: number,
+  fields: Pick<
+    ShowPlaylistWire,
+    "start_time" | "end_time" | "previous_show_id" | "next_show_id"
+  >,
+  entry: ShowPlaylistWire["entries"][number]
+): ShowPlaylistWire => ({
+  id,
+  show_name: null,
+  specialty_show_name: "",
+  show_djs: [],
+  dj_name_override: null,
+  legacy_dj_name: "DJ Chowder",
+  entries: [entry],
+  ...fields,
+});
+
+const archive: Record<number, ShowPlaylistWire> = {
+  [EARLIEST_SHOW]: archiveShow(
+    EARLIEST_SHOW,
+    {
+      start_time: "2026-08-22T20:36:00.000Z",
+      end_time: "2026-08-23T00:01:00.000Z",
+      previous_show_id: null,
+      next_show_id: ABANDONED_SHOW,
+    },
+    createTestV2TrackEntry({
+      id: 4001,
+      show_id: EARLIEST_SHOW,
+      play_order: 1,
+      add_time: "2026-08-22T21:00:00.000Z",
+      artist_name: "Juana Molina",
+      track_title: "la paradoja",
+      album_title: "DOGA",
+      record_label: "Sonamos",
+    })
+  ),
+  [ABANDONED_SHOW]: archiveShow(
+    ABANDONED_SHOW,
+    {
+      start_time: "2026-08-23T18:00:00.000Z",
+      end_time: null,
+      previous_show_id: EARLIEST_SHOW,
+      next_show_id: LATEST_SHOW,
+    },
+    createTestV2TrackEntry({
+      id: 4002,
+      show_id: ABANDONED_SHOW,
+      play_order: 1,
+      add_time: "2026-08-23T18:30:00.000Z",
+      artist_name: "Jessica Pratt",
+      track_title: "Back, Baby",
+      album_title: "On Your Own Love Again",
+      record_label: "Drag City",
+    })
+  ),
+  [LATEST_SHOW]: archiveShow(
+    LATEST_SHOW,
+    {
+      start_time: "2026-08-24T18:00:00.000Z",
+      end_time: "2026-08-24T21:00:00.000Z",
+      previous_show_id: ABANDONED_SHOW,
+      next_show_id: null,
+    },
+    createTestV2TrackEntry({
+      id: 4003,
+      show_id: LATEST_SHOW,
+      play_order: 1,
+      add_time: "2026-08-24T18:30:00.000Z",
+      artist_name: "Chuquimamani-Condori",
+      track_title: "Call Your Name",
+      album_title: "Edits",
+      record_label: "self-released",
+    })
+  ),
+};
+
+const serveArchive = () =>
+  server.use(
+    http.get(`${TEST_BACKEND_URL}/flowsheet/playlist`, ({ request }) => {
+      const id = Number(new URL(request.url).searchParams.get("show_id"));
+      const show = archive[id];
+      return show
+        ? HttpResponse.json(show)
+        : new HttpResponse(null, { status: 404 });
+    })
+  );
+
+const PREVIOUS_LINK = "<< Previous Show";
+const NEXT_LINK = "Next Show >>";
+
+const hrefOf = (name: string) =>
+  screen.getByRole("link", { name }).getAttribute("href");
+
+/** Follows a nav link the way a click would — by the id it actually names. */
+const showIdBehind = (name: string) => {
+  const href = hrefOf(name)!;
+  return Number(new URLSearchParams(href.slice(href.indexOf("?"))).get("show"));
+};
+
+describe("classic archived-show view — walking the archive", () => {
+  it("links the show that aired before this one", async () => {
+    serveArchive();
+    renderWithProviders(<ShowView showId={ABANDONED_SHOW} />);
+
+    await screen.findByText("Jessica Pratt");
+    expect(hrefOf(PREVIOUS_LINK)).toBe("?show=1951368");
+  });
+
+  it("links the show that aired after this one", async () => {
+    serveArchive();
+    renderWithProviders(<ShowView showId={ABANDONED_SHOW} />);
+
+    await screen.findByText("Jessica Pratt");
+    expect(hrefOf(NEXT_LINK)).toBe("?show=1951370");
+  });
+
+  it("offers no Previous on the earliest show there is", async () => {
+    serveArchive();
+    renderWithProviders(<ShowView showId={EARLIEST_SHOW} />);
+
+    await screen.findByText("Juana Molina");
+    // Absent, not disabled: an end of the archive is nothing to click.
+    expect(screen.queryByRole("link", { name: PREVIOUS_LINK })).toBeNull();
+    expect(hrefOf(NEXT_LINK)).toBe("?show=1951369");
+  });
+
+  it("offers no Next on the most recent show", async () => {
+    serveArchive();
+    renderWithProviders(<ShowView showId={LATEST_SHOW} />);
+
+    await screen.findByText("Chuquimamani-Condori");
+    expect(screen.queryByRole("link", { name: NEXT_LINK })).toBeNull();
+    expect(hrefOf(PREVIOUS_LINK)).toBe("?show=1951369");
+  });
+
+  // A null end_time means the sign-off was never recorded — a state thousands
+  // of archived sets are in — so reading it as "still on the air" and dropping
+  // the next link would strand the walk on any one of them.
+  it("keeps Next on a show whose sign-off was never recorded", async () => {
+    serveArchive();
+    const { container } = renderWithProviders(
+      <ShowView showId={ABANDONED_SHOW} />
+    );
+
+    await screen.findByText("Jessica Pratt");
+    expect(container.querySelector(".show-info-bar")!.textContent).toContain(
+      "no sign-off recorded"
+    );
+    expect(hrefOf(NEXT_LINK)).toBe("?show=1951370");
+  });
+
+  it("walks backwards out of one station week and into the one before it", async () => {
+    serveArchive();
+    const { rerender } = renderWithProviders(<ShowView showId={LATEST_SHOW} />);
+
+    await screen.findByText("Chuquimamani-Condori");
+    rerender(<ShowView showId={showIdBehind(PREVIOUS_LINK)} />);
+
+    await screen.findByText("Jessica Pratt");
+    expect(hrefOf("Weekly View")).toBe("?view=week&week=2026-08-23");
+    rerender(<ShowView showId={showIdBehind(PREVIOUS_LINK)} />);
+
+    // The step that leaves the week: the set reached is the one that aired the
+    // evening before, and its week link now names the earlier calendar page.
+    await screen.findByText("Juana Molina");
+    expect(hrefOf("Weekly View")).toBe("?view=week&week=2026-08-16");
+  });
+
+  it("reads the neighbours off the show rather than fetching for them", async () => {
+    serveArchive();
+
+    const paths: string[] = [];
+    const record = ({ request }: { request: Request }) =>
+      void paths.push(new URL(request.url).pathname);
+    server.events.on("request:start", record);
+
+    try {
+      renderWithProviders(<ShowView showId={ABANDONED_SHOW} />);
+
+      await screen.findByText("Jessica Pratt");
+      // Both neighbours are on screen, so the ids were resolved somewhere; the
+      // point is that resolving them cost no window query either side of this
+      // show's start_time, and no widening retry over a gap in the archive.
+      expect(hrefOf(PREVIOUS_LINK)).toBe("?show=1951368");
+      expect(hrefOf(NEXT_LINK)).toBe("?show=1951370");
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(paths).toEqual(["/flowsheet/playlist"]);
+    } finally {
+      server.events.removeListener("request:start", record);
+    }
   });
 });

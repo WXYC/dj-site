@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   entryAnchorId,
+  hrefForShow,
   hrefForShowEntry,
   positiveIdParam,
 } from "@/lib/features/schedule-week/showUrl";
@@ -10,6 +11,19 @@ describe("entryAnchorId", () => {
   // fragment the row link carries has to name a prefixed id.
   it("prefixes the playcut id", () => {
     expect(entryAnchorId(1951179)).toBe("entry-1951179");
+  });
+});
+
+describe("hrefForShow", () => {
+  it("names the show and nothing else", () => {
+    expect(hrefForShow(1951179)).toBe("?show=1951179");
+  });
+
+  // A week carried through the URL can disagree with the show it lands on; the
+  // show view derives its own from the set's start_time instead.
+  it("carries no week and no view of its own", () => {
+    expect(hrefForShow(1951179)).not.toContain("week");
+    expect(hrefForShow(1951179)).not.toContain("view");
   });
 });
 

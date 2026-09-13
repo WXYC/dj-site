@@ -6,6 +6,7 @@ import {
   useShowPlaylist,
 } from "@/src/hooks/showPlaylistHooks";
 import ClassicShowEntries from "@/src/components/experiences/classic/schedule-week/ClassicShowEntries";
+import { hrefForShow } from "@/lib/features/schedule-week/showUrl";
 import "@/src/styles/classic/wxyc.css";
 import "@/src/styles/classic/schedule-week.css";
 
@@ -14,9 +15,12 @@ import "@/src/styles/classic/schedule-week.css";
  * under the calendar.
  *
  * Reproduces `flowsheetRadioShowDisplayPublic.jsp`'s `show-info-bar`: date,
- * rounded time range, the DJ handle, and a link back to the week. The week is
- * derived from the show's own `start_time`, not from whatever week the visitor
- * arrived through, so the link cannot carry an id belonging to a different one.
+ * rounded time range, the DJ handle, a link back to the week, and the walk to
+ * either neighbouring show. The week is derived from the show's own
+ * `start_time`, not from whatever week the visitor arrived through, so the link
+ * cannot carry an id belonging to a different one; the neighbours come from the
+ * show read for the same reason, and so the walk crosses a week boundary
+ * without the calendar's help.
  */
 export default function ShowView({
   showId,
@@ -57,6 +61,24 @@ export default function ShowView({
               {show.timeRange}
               <br />
               <Link href={`?view=week&week=${show.weekParam}`}>Weekly View</Link>
+              {/* Absent, not disabled, at the archive's ends: there is no show
+                  to name, and a dead affordance reads as a broken one. */}
+              {show.previousShowId !== null && (
+                <>
+                  <br />
+                  <Link href={hrefForShow(show.previousShowId)}>
+                    {"<< Previous Show"}
+                  </Link>
+                </>
+              )}
+              {show.nextShowId !== null && (
+                <>
+                  <br />
+                  <Link href={hrefForShow(show.nextShowId)}>
+                    {"Next Show >>"}
+                  </Link>
+                </>
+              )}
             </th>
             <th style={{ width: "40%", textAlign: "left" }} className="redlabel">
               {show.djName ? `Disc Jockey: ${show.djName}` : null}
