@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { screen, waitFor } from "@testing-library/react";
+import { act, screen, waitFor } from "@testing-library/react";
+import { renderToString } from "react-dom/server";
+import { hydrateRoot } from "react-dom/client";
 import { renderWithProviders } from "@/tests/helpers";
 
 vi.mock("@/lib/features/authentication/client", () => ({
@@ -250,5 +252,61 @@ describe("classic Navigation", () => {
       );
       expect(empty).toHaveLength(0);
     });
+  });
+});
+
+describe("Navigation — hydrating with a session the server could not see", () => {
+  // The identity slot is the one part of this bar that depends on who is signed
+  // in, and the session is a client-side read: better-auth resolves it from a
+  // cookie through its own store, which does not exist while the page is being
+  // rendered on the server. The server therefore always renders the bar with no
+  // identity, and a signed-in browser renders one on its very first pass — so
+  // every list item after it shifts by one, and React discards the whole
+  // subtree and rebuilds it. Recoverable, but it is a real console error on
+  // every classic page for every signed-in DJ.
+  it("renders the same list on the server and on the first client pass", () => {
+    // The asymmetry is the whole point, so it is staged rather than mocked
+    // flat: the server renders with no session resolved, because better-auth's
+    // store does not exist there, and the browser hydrates with one already in
+    // hand. A single mock value for both passes cannot reproduce this and the
+    // test would pass against the unfixed component.
+    registryMock = { info: null, loading: true };
+    const serverHtml = renderToString(<Navigation />);
+
+    registryMock = {
+      info: { id: "u1", real_name: "Maura Partrick" },
+      loading: false,
+    };
+
+    const container = document.createElement("div");
+    container.innerHTML = serverHtml;
+    document.body.appendChild(container);
+
+    // `onRecoverableError` is React's own report of a hydration mismatch, so
+    // this asserts the condition rather than the shape of a console message.
+    const recoverable: string[] = [];
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    let root!: ReturnType<typeof hydrateRoot>;
+    act(() => {
+      root = hydrateRoot(container, <Navigation />, {
+        onRecoverableError: (error) => {
+          recoverable.push(String(error));
+        },
+      });
+    });
+
+    errorSpy.mockRestore();
+
+    // Both halves matter. Hiding the identity permanently would satisfy the
+    // mismatch assertion on its own, and would also delete the feature: the
+    // slot exists so a shared control-room browser says whose session is open.
+    expect(recoverable).toEqual([]);
+    expect(container.querySelector(".nav-identity")?.textContent).toBe(
+      "Maura Partrick",
+    );
+
+    act(() => root.unmount());
+    container.remove();
   });
 });
