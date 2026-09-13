@@ -82,13 +82,19 @@ export function useScheduleWeekParams() {
   // means "whatever week it is when you open this", so the link a DJ sends on
   // Saturday opens on a different week come Sunday -- and any show pinned with
   // it expands nothing.
+  //
+  // `week` overrides the one read from the URL, for the caller that knows a
+  // week the URL does not carry. A show reached by walking the archive has no
+  // week parameter at all, so `weekStart` falls back to today and the toggle
+  // would leave a 2003 set for this week's calendar -- silently, and only for
+  // shows that were navigated to rather than opened from the grid.
   const setView = useCallback(
-    (view: "search" | "week") =>
+    (view: "search" | "week", week?: string | null) =>
       write(
         view === "week"
           ? {
               [VIEW_PARAM]: WEEK_VIEW,
-              [WEEK_PARAM]: formatStationWeekParam(weekStart),
+              [WEEK_PARAM]: week || formatStationWeekParam(weekStart),
               // Cleared here too: reaching the week from a show would
               // otherwise land on the calendar still holding that show's id,
               // and the playcut belongs to the show, so it goes with it.
@@ -118,9 +124,10 @@ export function useScheduleWeekParams() {
   );
 
   // A show is a destination, so the grid links to it rather than toggling a
-  // panel. The href drops `view` and `week`: the show view derives its own
-  // week link from the show's start_time, which cannot disagree with the show
-  // the way a week carried through the URL can.
+  // panel. The href drops `view` and `week`: a week carried through the URL can
+  // disagree with the show it is carried onto, and the week that matters is
+  // derivable from the show's own `start_time` once it loads. That derivation
+  // is what the caller hands back to `setView`.
   const hrefForShow = useCallback(
     (showId: number) => `${pathname}?${SHOW_PARAM}=${showId}`,
     [pathname],
