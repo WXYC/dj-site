@@ -301,6 +301,57 @@ describe("classic RotationReleaseModify — rotationReleaseModify.jsp", () => {
         "/dashboard/library/release/42",
       );
     });
+
+    // The row read publishes the rotation row's OWN pre-catalog columns and
+    // deliberately does not join the library release, while the sibling list
+    // read COALESCEs from it. Every linked row therefore arrives here with the
+    // trio NULL, so seeding these fields from the row leaves them blank: the
+    // librarian sees the release named in the list, opens it, and finds a form
+    // that names no release at all under a sentence promising the values live
+    // elsewhere. They have to be read from that elsewhere.
+    it("shows the library release's values in the fields it will not let you edit", async () => {
+      arrange({
+        album_id: 42,
+        artist_name: null,
+        album_title: null,
+        record_label: null,
+        format_id: null,
+        label_id: null,
+      });
+      server.use(
+        http.get(`${TEST_BACKEND_URL}/library/info`, () =>
+          HttpResponse.json({
+            id: 42,
+            album_title: "Appalachia",
+            artist_name: "Emily Scott Robinson",
+            format_name: "LP",
+            format_id: 4,
+            label: "Oh Boy Records",
+          }),
+        ),
+      );
+      renderWithProviders(<RotationReleaseModify rotationId={ROTATION_ID} />);
+
+      expect(await screen.findByDisplayValue("Emily Scott Robinson")).toBeDisabled();
+      expect(screen.getByDisplayValue("Appalachia")).toBeDisabled();
+      expect(screen.getByDisplayValue("Oh Boy Records")).toBeDisabled();
+      expect(screen.getByLabelText("Format")).toHaveValue("4");
+    });
+
+    // Reading the release is a display convenience, not a precondition for the
+    // edit this screen exists to make: the two dates are writable whatever the
+    // library read does, so an outage there must not take the form with it.
+    it("still offers the dates when the library release cannot be read", async () => {
+      arrange({ album_id: 42, artist_name: null, album_title: null, record_label: null });
+      server.use(
+        http.get(`${TEST_BACKEND_URL}/library/info`, () => new HttpResponse(null, { status: 503 })),
+      );
+      renderWithProviders(<RotationReleaseModify rotationId={ROTATION_ID} />);
+
+      expect(await screen.findByText(/already catalogued/i)).toBeInTheDocument();
+      expect(screen.getByLabelText("Date Added To Rotation")).toBeEnabled();
+      expect(screen.getByLabelText("Date Removed From Rotation")).toBeEnabled();
+    });
   });
 
   describe("a format the row never had", () => {
