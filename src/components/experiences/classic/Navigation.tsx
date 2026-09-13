@@ -1,5 +1,6 @@
 "use client";
 
+import { useSyncExternalStore } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useLogout, useRegistry } from "@/src/hooks/authenticationHooks";
@@ -30,8 +31,27 @@ type NavLink = {
 // bar, bold white links, active page highlighted #CC0000. The bar itself is
 // the one sanctioned addition over tubafrenzy's DJ pages, which have no
 // cross-page navigation.
+/**
+ * False while rendering on the server and on the first client pass, true after.
+ *
+ * `subscribe` never fires because the value it reports is constant per render
+ * environment; the two snapshot arguments are the whole mechanism, and
+ * `useSyncExternalStore` is what lets the server snapshot differ from the
+ * client one without that difference being a hydration mismatch.
+ */
+const subscribeToNothing = () => () => {};
+
+function useHydrated(): boolean {
+  return useSyncExternalStore(
+    subscribeToNothing,
+    () => true,
+    () => false,
+  );
+}
+
 export default function Navigation() {
   const pathname = usePathname();
+  const hydrated = useHydrated();
   const { handleLogout } = useLogout();
   const { info: userData, loading: registryLoading } = useRegistry();
 
@@ -127,7 +147,7 @@ export default function Navigation() {
       <ul>
         {navLinks.map(renderLink)}
         {isClassicLibrarianNavEnabled() && librarianLinks.map(renderLink)}
-        {!registryLoading && signedInName && (
+        {hydrated && !registryLoading && signedInName && (
           <li>
             <span className="nav-identity">{signedInName}</span>
           </li>
