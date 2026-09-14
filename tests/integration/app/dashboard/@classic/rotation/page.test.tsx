@@ -27,8 +27,8 @@ vi.mock("@/lib/features/authentication/organization-utils.server", async () => {
 });
 
 vi.mock("@/src/components/experiences/classic/rotation/RotationReleaseList", () => ({
-  default: ({ statusFilter }: { statusFilter: string }) => (
-    <div data-testid="rotation-release-list" data-status-filter={statusFilter} />
+  default: ({ statusFilter, canWrite }: { statusFilter: string; canWrite: boolean }) => (
+    <div data-testid="rotation-release-list" data-status-filter={statusFilter} data-can-write={canWrite} />
   ),
 }));
 vi.mock("@/src/components/experiences/classic/Navigation", () => ({
@@ -48,9 +48,9 @@ describe("Classic /dashboard/rotation page — rotationReleaseList.jsp, DJ-reada
   setUpClassicPageAuthorityEnv();
 
   it.each([
-    { role: "dj" as const, label: "a plain DJ session — the non-negotiable authority constraint" },
-    { role: "musicDirector" as const, label: "a music director" },
-  ])("reaches the rotation list for $label", async ({ role }) => {
+    { role: "dj" as const, label: "a plain DJ session — the non-negotiable authority constraint", canWrite: false },
+    { role: "musicDirector" as const, label: "a music director", canWrite: true },
+  ])("reaches the rotation list for $label with canWrite=$canWrite", async ({ role, canWrite }) => {
     setUpClassicPageAuthority(role);
 
     await assertReachesClassicPage(
@@ -58,6 +58,10 @@ describe("Classic /dashboard/rotation page — rotationReleaseList.jsp, DJ-reada
       "rotation-release-list",
       "classic-nav",
     );
+
+    // The page resolves write authority once, server-side, and passes it
+    // down rather than leaving RotationReleaseList to re-derive it.
+    expect(screen.getByTestId("rotation-release-list")).toHaveAttribute("data-can-write", String(canWrite));
   });
 
   it("redirects a member with no station role (below DJ)", async () => {

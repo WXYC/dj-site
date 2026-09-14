@@ -14,6 +14,14 @@ const authDir = path.join(__dirname, "../../.auth");
  * exercises that split end to end, rather than trusting the page-authority
  * unit tests never to disagree about it.
  *
+ * The list itself is DJ-readable, but its own write affordances -- the row
+ * Edit/Import/Kill/Unkill controls and the header's "Add Rotation Release"
+ * link -- are a fourth write surface at the same MD authority as the other
+ * three, resolved server-side in the page and threaded down as `canWrite`.
+ * A DJ seeing any of them was the defect this split closes: Backend already
+ * refused the writes, so the previous "Add Rotation Release" visibility
+ * assertion below was the bug written down as a passing test.
+ *
  * Uses the dedicated classicDj/classicMd identities (provisioned in
  * e2e/auth.setup.ts's "provision classic-preference identity" step) rather
  * than the app_state cookie: `setExperienceCookie` is inert on a signed-in
@@ -25,12 +33,17 @@ test.describe("Classic rotation authority split", () => {
   test.describe("DJ", () => {
     test.use({ storageState: path.join(authDir, "classicDj.json") });
 
-    test("reaches the rotation list", async ({ page }) => {
+    test("reaches the rotation list with no write affordances", async ({ page }) => {
       await page.goto("/dashboard/rotation");
 
       await expect(page.locator("#classic-container")).toBeVisible({ timeout: 15000 });
       await expect(page.getByRole("heading", { name: "Rotation Releases" })).toBeVisible();
-      await expect(page.getByRole("link", { name: "Add Rotation Release" })).toBeVisible();
+      await expect(page.getByRole("link", { name: "Add Rotation Release" })).not.toBeVisible({ timeout: 5000 });
+      await expect(page.getByRole("columnheader", { name: "Actions" })).not.toBeVisible({ timeout: 5000 });
+      await expect(page.getByRole("link", { name: /^Edit: / })).not.toBeVisible({ timeout: 5000 });
+      await expect(page.getByRole("link", { name: /^Import: / })).not.toBeVisible({ timeout: 5000 });
+      await expect(page.getByRole("button", { name: /^Kill: / })).not.toBeVisible({ timeout: 5000 });
+      await expect(page.getByRole("button", { name: /^Unkill: / })).not.toBeVisible({ timeout: 5000 });
     });
 
     test("is denied the free-text add form", async ({ page }) => {
@@ -75,10 +88,11 @@ test.describe("Classic rotation authority split", () => {
       await expect(page.getByRole("button", { name: "Add this record" })).toBeVisible();
     });
 
-    test("also reaches the rotation list", async ({ page }) => {
+    test("also reaches the rotation list, with its write affordances intact", async ({ page }) => {
       await page.goto("/dashboard/rotation");
 
       await expect(page.getByRole("heading", { name: "Rotation Releases" })).toBeVisible();
+      await expect(page.getByRole("link", { name: "Add Rotation Release" })).toBeVisible();
     });
 
     // Asserted on the screen's header links rather than on its form, so the

@@ -52,7 +52,12 @@ export default function Navigation() {
   // Mirrors tubafrenzy's mainmenu, which wraps only the add/edit surfaces in an
   // admin check: missing releases and rotation sit outside it and are reachable
   // by any logged-in user. Marking a release missing or found is deliberately
-  // DJ-accessible and must not be raised to music director.
+  // DJ-accessible and must not be raised to music director. Rotation is only
+  // partly the same story: the list itself stays DJ-readable for the same
+  // reason, but its row actions and "Add Rotation Release" are MD-gated on
+  // the page -- the station librarian asked for that split deliberately,
+  // since killing a rotation album is a different weight of action than
+  // marking a release missing or found.
   const librarianLinks: NavLink[] = [
     { path: "/dashboard/library/missing", title: "Missing Releases" },
     { path: "/dashboard/rotation", title: "Rotation" },
