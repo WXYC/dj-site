@@ -40,7 +40,12 @@ test.describe("Role-Based Access Control", () => {
     });
 
     test("should not see the rotation navigation link", async () => {
-      await dashboardPage.waitForPageLoad();
+      // Land on a real dashboard page first — a fresh test page starts at
+      // about:blank, where the absence assertion would pass vacuously. The
+      // flowsheet-link anchor pins that the Leftbar actually painted before
+      // the negative is measured against it.
+      await dashboardPage.gotoCatalog();
+      await expect(dashboardPage.flowsheetLink).toBeVisible({ timeout: 10000 });
       await expect(dashboardPage.rotationLink).not.toBeVisible({ timeout: 5000 });
     });
 

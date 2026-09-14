@@ -136,6 +136,8 @@ The dashboard layout (`app/dashboard/layout.tsx`) sits in front of these gates o
 
 The layout gate is the first line, not the only one. Layouts above the changed segment are not re-executed on client-side navigation, so a DJ already on a dashboard route who soft-navigates to a gated page during an auth-server outage runs that page's `requireAuth()`/`requireRole()` without re-running the layout's, and still gets bounced to `/login` — honestly labeled, but still off the page. Closing that residue needs a page-level notice surface that keeps the DJ in place, the way the layout branch does; the distinct bounce reason alone cannot cover it.
 
+A segment layout that renders feature-identifying content must repeat its pages' gates. `@modern/admin/rotation/layout.tsx` is the reference: it checks the rotation flag and awaits the same `requireAuth()` + `requireRole(MD)` as its pages before rendering the tab strip, because a layout flushes to the stream before any page gate resolves — ungated, the tab labels and URLs of a dark-launched surface would reach every requester ahead of the page's redirect. The pages keep their own gates and remain the authority, since layouts do not re-run on soft navigation between child routes.
+
 ### Existing dual-slot URLs
 
 | URL | Classic slot | Modern slot | Authority |
