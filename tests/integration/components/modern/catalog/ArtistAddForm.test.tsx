@@ -1288,7 +1288,7 @@ describe("ArtistAddForm", () => {
       );
     });
 
-    it("reuses parseRequiredPositiveInt to reject a non-numeric code number", async () => {
+    it("reuses parseRequiredNonNegativeInt to reject a non-numeric code number", async () => {
       mockAddArtist(() => created());
       const { user } = renderWithProviders(<ArtistAddForm />);
 

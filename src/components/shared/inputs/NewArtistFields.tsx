@@ -20,6 +20,7 @@ import {
 } from "@/lib/features/catalog/adminCreateArtistValidation";
 import type { AddArtistConflict } from "@/lib/features/catalog/types";
 import CallLetterPeekControl from "@/src/components/shared/inputs/CallLetterPeekControl";
+import { useArtistCodePeek } from "@/src/hooks/useArtistCodePeek";
 
 /**
  * Value and caret travel together because normalizing on every keystroke makes
@@ -78,6 +79,14 @@ export type NewArtistFieldsProps = {
   genreId: number | null;
   disabled: boolean;
   conflict: NewArtistConflict | null;
+  /**
+   * Bench-style auto-fill (epic decision 5): while the code-number draft is
+   * empty the field renders the live peeked number, and the caller's
+   * submission omits `code_number` so the server assigns exactly what was
+   * previewed. Off by default — the artist-add form keeps its typed-only
+   * field, whose submit endpoint still requires the number.
+   */
+  autoFillCodeNumber?: boolean;
 };
 
 /**
@@ -87,7 +96,10 @@ export type NewArtistFieldsProps = {
  *
  * Fully controlled and free of any mutation — the artist name lives with
  * whatever typeahead decided this artist is new, which is outside this group,
- * and so does the submit.
+ * and so does the submit. The one read this group owns is the code peek: the
+ * field and the preview line both derive from that single subscription, which
+ * is what lets `autoFillCodeNumber` render the peeked number without a second
+ * copy of it anywhere.
  */
 function NewArtistFields({
   alphabeticalName,
@@ -99,6 +111,7 @@ function NewArtistFields({
   genreId,
   disabled,
   conflict,
+  autoFillCodeNumber = false,
 }: NewArtistFieldsProps) {
   const codeLettersInputRef = useRef<HTMLInputElement | null>(null);
   const {
@@ -111,6 +124,23 @@ function NewArtistFields({
     codeNumberRaw,
     codeLetters: codeLettersField.value,
   });
+
+  // One owner for the peeked number: this hook's RTK cache subscription. The
+  // "Next code" line and the auto-filled field value below both derive from
+  // it during render — see epic decision 5 ("dirty ? draft : peek"), which
+  // rules out mirroring the peek into state by effect.
+  const peek = useArtistCodePeek(codeLettersField.value, genreId);
+
+  // Dirty is the draft being non-empty — no separate flag, so there is
+  // nothing to fall out of sync. A dirty draft renders and survives every
+  // peek refresh untouched; clearing the field returns it to the live peek,
+  // which is honest rather than sticky: an empty draft submits no
+  // code_number, so the number shown is the number the server would assign.
+  const autoFillValue =
+    autoFillCodeNumber && !peek.pending && !peek.isError && peek.nextCodeNumber != null
+      ? String(peek.nextCodeNumber)
+      : "";
+  const codeNumberValue = codeNumberRaw !== "" ? codeNumberRaw : autoFillValue;
 
   // Puts the caret back where the edit left it. React writes the normalized
   // value into the node during the commit's mutation phase, which is the write
@@ -182,7 +212,7 @@ function NewArtistFields({
       <FormControl error={codeNumberInvalid}>
         <FormLabel>Code number</FormLabel>
         <Input
-          value={codeNumberRaw}
+          value={codeNumberValue}
           disabled={disabled}
           onChange={(e) => onCodeNumberChange(e.target.value)}
           placeholder="e.g. 42"
@@ -190,20 +220,13 @@ function NewArtistFields({
         {codeNumberInvalid && (
           <FormHelperText>
             {parsedCodeNumber === null
-              ? "Must be a positive whole number"
+              ? "Must be a whole number"
               : `Must be no greater than ${CODE_NUMBER_MAX}`}
           </FormHelperText>
         )}
       </FormControl>
 
-      {/* Gated on the same length the submit checks: uppercasing can push a
-          value past the field's own maxLength ("ßxß" becomes "SSXSS"), which
-          no series can ever hold, so previewing it would answer "Next code: 1"
-          beside the length error that blocks the submit. */}
-      <CallLetterPeekControl
-        code_letters={codeLettersTooLong ? "" : codeLettersField.value}
-        genre_id={genreId}
-      />
+      <CallLetterPeekControl peek={peek} />
 
       {conflict?.response &&
         (isArtistNameConflictData(conflict.response) ? (
