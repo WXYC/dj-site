@@ -11,13 +11,14 @@ import {
   useAddRotationCardMutation,
   useGetRotationCardsQuery,
 } from "@/lib/features/rotation/api";
+import { ROTATION_BIN_LABELS } from "@/lib/features/rotation/types";
 
 export interface CardPickerProps {
   bin: RotationBin;
   /**
    * Selected card id. When null the picker defaults it (via `onChange`) to
    * the bin's newest card; a caller-supplied id -- an existing assignment --
-   * is displayed as-is and never overwritten unless it names a card in a
+   * is displayed as-is, never overwritten, unless it names a card in a
    * different bin, which can only mean `bin` changed out from under it.
    */
   value: number | null;
@@ -42,11 +43,13 @@ function newestCard(cards: RotationCard[]): RotationCard | undefined {
 }
 
 /**
- * Chip row of a bin's cards. The parent owns the selection; the picker only
- * fills it in when it is unset or stale (see `CardPickerProps.value`).
+ * Chip row of a bin's cards. The parent owns the selection; the picker
+ * derives the effective one during render (see `CardPickerProps.value`) and
+ * pushes a changed default up so the parent holds the resolved card id at
+ * submit time without re-deriving "newest" itself.
  */
 function CardPicker({ bin, value, onChange }: CardPickerProps) {
-  const { data: cards, isLoading, refetch } = useGetRotationCardsQuery();
+  const { data: cards, isFetching, refetch } = useGetRotationCardsQuery();
   const [addRotationCard, { isLoading: isCreating }] = useAddRotationCardMutation();
   const binCards = useMemo(
     () => (cards ?? []).filter((card) => card.bin === bin),
@@ -65,19 +68,31 @@ function CardPicker({ bin, value, onChange }: CardPickerProps) {
     binRef.current = bin;
   }, [bin]);
 
-  // Pushes the defaulted id up to the parent so it holds the resolved card at
-  // submit time without re-deriving "newest" itself. Fires only while `value`
-  // is unset or names a card in another bin (stale after a bin change); an id
-  // the list doesn't know at all is left alone -- it is either a just-created
-  // card whose refetch hasn't landed or a caller-supplied assignment racing a
+  // The selection this picker displays and a save should use, derived every
+  // render. `value` wins while it is set and not stale (stale = it names a
+  // card in another bin, which only a bin change can produce); an id the
+  // list doesn't know at all is kept too -- it is either a just-created card
+  // whose refetch hasn't landed or a caller-supplied assignment racing a
   // stale list, and neither may be overwritten.
+  const valueKnown = value != null && (cards ?? []).some((card) => card.id === value);
+  const valueInBin = value != null && binCards.some((card) => card.id === value);
+  const keepCallerValue = value != null && (valueInBin || !valueKnown);
+  const effectiveValue = keepCallerValue ? value : (newestCard(binCards)?.id ?? null);
+
+  // Pushes a changed default up to the parent. At most one write per
+  // (bin, cards) change: the latch, not the deps, bounds the writes, so a
+  // parent that re-renders with a fresh `onChange` identity -- or refuses
+  // the value outright -- can never loop this effect. No write happens when
+  // the derived selection already equals `value` (an empty bin with nothing
+  // selected stays silent).
+  const pushedForRef = useRef<{ bin: RotationBin; cards: RotationCard[] } | null>(null);
   useEffect(() => {
     if (!cards) return;
-    const valueKnown = value != null && cards.some((card) => card.id === value);
-    const valueInBin = value != null && binCards.some((card) => card.id === value);
-    if (value != null && (valueInBin || !valueKnown)) return;
-    onChange(newestCard(binCards)?.id ?? null);
-  }, [cards, binCards, value, onChange]);
+    const pushed = pushedForRef.current;
+    if (pushed && pushed.bin === bin && pushed.cards === cards) return;
+    pushedForRef.current = { bin, cards };
+    if (effectiveValue !== value) onChange(effectiveValue);
+  }, [bin, cards, effectiveValue, value, onChange]);
 
   async function handleCreate() {
     const requestedBin = bin;
@@ -93,13 +108,14 @@ function CardPicker({ bin, value, onChange }: CardPickerProps) {
     }
   }
 
-  if (isLoading) {
-    return <CircularProgress size="sm" aria-label="Loading cards" />;
-  }
-
-  // A settled query without data is a failed load; cached cards from a
-  // previous success keep rendering through a failed refetch instead.
+  // Without data every request is blocking, the initial load and a retry
+  // alike -- `isFetching` (unlike `isLoading`) stays true across refetches,
+  // so pressing Retry visibly does something. Cached cards from a previous
+  // success keep rendering through a failed refetch instead.
   if (!cards) {
+    if (isFetching) {
+      return <CircularProgress size="sm" aria-label="Loading cards" />;
+    }
     return (
       <Stack direction="row" spacing={1} alignItems="center">
         <Typography level="body-xs" color="danger">
@@ -114,14 +130,25 @@ function CardPicker({ bin, value, onChange }: CardPickerProps) {
 
   return (
     <Stack spacing={0.5}>
-      <Stack direction="row" spacing={1} flexWrap="wrap" role="group" aria-label="Card">
+      <Stack
+        direction="row"
+        spacing={1}
+        flexWrap="wrap"
+        role="group"
+        aria-label={`${ROTATION_BIN_LABELS[bin]} rotation cards`}
+      >
         {binCards.map((card) => (
           <Chip
             key={card.id}
             size="sm"
-            variant={value === card.id ? "solid" : "soft"}
-            color={value === card.id ? "primary" : "neutral"}
+            variant={effectiveValue === card.id ? "solid" : "soft"}
+            color={effectiveValue === card.id ? "primary" : "neutral"}
             onClick={() => onChange(card.id)}
+            // The solid-vs-soft fill is invisible to assistive tech; the
+            // pressed state carries the selection into the accessibility
+            // tree. It goes on the action slot because that is the element
+            // with the button role, not the Chip's root div.
+            slotProps={{ action: { "aria-pressed": effectiveValue === card.id } }}
           >
             {cardLabel(card)}
           </Chip>

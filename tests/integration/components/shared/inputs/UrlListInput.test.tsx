@@ -25,6 +25,17 @@ function Harness({ cloneValue = false }: { cloneValue?: boolean }) {
   );
 }
 
+/**
+ * A parent that hands back a transformed derivation of what it received --
+ * the shape the props' no-referential-stability promise invites, and one
+ * whose round-trip differs from the emitted content whenever a value needs
+ * trimming.
+ */
+function TrimmingHarness() {
+  const [value, setValue] = useState<string[]>([]);
+  return <UrlListInput value={value.map((url) => url.trim())} onChange={setValue} />;
+}
+
 function value() {
   return JSON.parse(screen.getByTestId("value").textContent ?? "[]");
 }
@@ -109,6 +120,19 @@ describe("UrlListInput", () => {
     // IME composition, autofill highlight) stays with the logical row
     // instead of migrating to whichever row inherits its index.
     expect(inputs[1]).toBe(third);
+  });
+
+  it("keeps focus in the row being typed in under a parent that trims the values", async () => {
+    const { user } = renderWithProviders(<TrimmingHarness />);
+
+    const input = urlInputs()[0];
+    await user.type(input, "bandcamp.com ");
+
+    // The trimmed snap-back is ordinary controlled-input behaviour; losing
+    // the DOM node -- and with it the user's focus and caret -- is not.
+    expect(urlInputs()[0]).toBe(input);
+    expect(input).toHaveFocus();
+    expect(input).toHaveValue("bandcamp.com");
   });
 
   it("re-renders rows from an externally reset value", async () => {
