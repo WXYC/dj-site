@@ -88,6 +88,28 @@ describe("RotationTallysheet", () => {
     });
   });
 
+  it("keeps the report left-aligned inside a shell that centres its subtree", async () => {
+    // The classic shell wraps librarian screens in `text-align: center`. A
+    // centred <pre> centres every line independently, which pulls the rule, the
+    // rank column and the play counts out of the fixed-width grid the chart is
+    // read and pasted in. Asserting on text content cannot see this -- the
+    // characters are identical either way -- so it is asserted on the box.
+    renderWithProviders(
+      <div style={{ textAlign: "center" }}>
+        <RotationTallysheet />
+      </div>,
+    );
+
+    const report = await screen.findByText(/WXYC's Top \d+ Records/);
+    // jsdom does not resolve inherited text-align onto the <pre>, so the
+    // nearest ancestor that sets it is the thing to assert. Without the
+    // screen's own left alignment that ancestor is the centring shell above,
+    // and this reads "center".
+    const aligned = report.closest<HTMLElement>('[style*="text-align"]');
+    expect(aligned).not.toBeNull();
+    expect(aligned!.style.textAlign).toBe("left");
+  });
+
   it("says so rather than printing an empty chart when the week cannot be read", async () => {
     server.use(http.get(RANGE, () => HttpResponse.json({ error: "nope" }, { status: 500 })));
     renderWithProviders(<RotationTallysheet />);

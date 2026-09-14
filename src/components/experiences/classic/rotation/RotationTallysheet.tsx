@@ -102,12 +102,16 @@ export default function RotationTallysheet() {
   );
 
   return (
-    <div>
-      <h2 className="bigblue" style={{ textAlign: "center" }}>
-        Weekly Playlist Summary
-      </h2>
+    // Left-aligned against the shell, which centres its whole subtree for the
+    // card-catalog screens. `sortedWeeklyPlays.jsp` and `weeklySummarySelect.jsp`
+    // both put everything below the nav row inside `text-align: left`, and the
+    // report has to have it: a centred <pre> centres each line independently,
+    // which pulls the rule, the rank column and the play counts out of the
+    // fixed-width grid the chart is read and pasted in.
+    <div style={{ textAlign: "left" }}>
+      <h2 className="bigblue">Weekly Playlist Summary</h2>
 
-      <table align="center">
+      <table>
         <tbody>
           <tr>
             <td className="text" align="right">
@@ -149,7 +153,7 @@ export default function RotationTallysheet() {
       </table>
 
       {isError && (
-        <p className="redlabel" style={{ textAlign: "center" }}>
+        <p className="redlabel">
           The flowsheet for that week could not be read, so no tally can be
           compiled. Try again, or pick another week.
         </p>
@@ -158,9 +162,7 @@ export default function RotationTallysheet() {
       {/* The count is compiled from the whole week at once, so a partial
           render would show a chart that is wrong rather than incomplete. */}
       {isFetching ? (
-        <p className="text" style={{ textAlign: "center" }}>
-          Compiling the week&apos;s plays...
-        </p>
+        <p className="text">Compiling the week&apos;s plays...</p>
       ) : (
         !isError && <pre>{report}</pre>
       )}
