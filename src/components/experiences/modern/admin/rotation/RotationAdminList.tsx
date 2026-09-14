@@ -2,7 +2,6 @@
 
 import type { JSX } from "react";
 import { useMemo, useState } from "react";
-import { toast } from "sonner";
 import {
   selectRotationAdminView,
   rotationRowCode,
@@ -11,18 +10,15 @@ import {
 import {
   useGetRotationCardsQuery,
   useGetRotationListQuery,
-  useKillRotationEntryMutation,
-  useUpdateRotationRowMutation,
 } from "@/lib/features/rotation/api";
 import { formatRotationDate } from "@/lib/features/rotation/classicList";
+import { useRotationRowActions } from "@/lib/features/rotation/hooks";
 import {
   ROTATION_BINS,
   ROTATION_BIN_LABELS,
   type RotationBin,
   type RotationListRow,
 } from "@/lib/features/rotation/types";
-import { rotationWriteErrorMessage } from "@/lib/features/rotation/writeErrorMessage";
-import { isUnmessagedHttpError } from "@/lib/rtk-query-error-logger";
 import { Link as LinkIcon } from "@mui/icons-material";
 import {
   Alert,
@@ -247,10 +243,11 @@ function RowSection({
  *
  * Kill and Unkill reuse the rotation feature's existing mutations
  * (`killRotationEntry`; `updateRotationRow` with `kill_date: null`): their
- * catalog-cache sync lives on the endpoints and this list adds no cache
- * handling of its own — rows change presentation through the same
- * invalidation every other caller relies on. The per-row card select is that
- * same field editor carrying `card_id`, a within-bin move only.
+ * cache sync lives on the endpoints and this list adds no cache handling of
+ * its own — the endpoints patch the row in the cached `status=all` read, so
+ * a row changes presentation without refetching the full rotation history.
+ * The per-row card select is that same field editor carrying `card_id`, a
+ * within-bin move only.
  */
 export default function RotationAdminList(): JSX.Element {
   const { data: rows, isFetching, isError, refetch } = useGetRotationListQuery("all");
@@ -259,11 +256,7 @@ export default function RotationAdminList(): JSX.Element {
   // sub-filter stays hidden until a retryable refetch succeeds.
   const { data: cards } = useGetRotationCardsQuery();
 
-  const [killRotationEntry] = useKillRotationEntryMutation();
-  const [updateRotationRow] = useUpdateRotationRowMutation();
-  const [pendingRotationIds, setPendingRotationIds] = useState<ReadonlySet<number>>(
-    () => new Set(),
-  );
+  const { pendingRotationIds, kill, unkill, moveToCard } = useRotationRowActions();
 
   const [search, setSearch] = useState("");
   const [bin, setBin] = useState<RotationBin | null>(null);
@@ -285,59 +278,12 @@ export default function RotationAdminList(): JSX.Element {
   }, [cards]);
   const binCards = bin == null ? [] : (cardsByBin.get(bin) ?? []);
 
-  const withPending = async (
-    rotationId: number,
-    run: () => Promise<unknown>,
-    failureVerb: string,
-  ) => {
-    setPendingRotationIds((prev) => new Set(prev).add(rotationId));
-    try {
-      await run();
-    } catch (err) {
-      // Kill's refusals reach the shared middleware's toast, so only the
-      // shapes it stays silent about are this row's to report. The field
-      // editor's (unkill, card moves) are wrapped out of that lookup, which
-      // reads as unmessaged here every time and puts the server's own
-      // sentence in the toast instead of a generic one -- the same refusal,
-      // reported once either way.
-      if (isUnmessagedHttpError(err)) {
-        toast.error(
-          rotationWriteErrorMessage(
-            err,
-            `Couldn't ${failureVerb} this rotation release. Please try again.`,
-          ),
-        );
-      }
-    } finally {
-      setPendingRotationIds((prev) => {
-        const next = new Set(prev);
-        next.delete(rotationId);
-        return next;
-      });
-    }
-  };
-
   const actions: RowActions = {
     cardsByBin,
     pendingRotationIds,
-    onKill: (rotationId) =>
-      void withPending(
-        rotationId,
-        () => killRotationEntry({ rotation_id: rotationId }).unwrap(),
-        "kill",
-      ),
-    onUnkill: (rotationId) =>
-      void withPending(
-        rotationId,
-        () => updateRotationRow({ rotation_id: rotationId, kill_date: null }).unwrap(),
-        "unkill",
-      ),
-    onSelectCard: (rotationId, nextCardId) =>
-      void withPending(
-        rotationId,
-        () => updateRotationRow({ rotation_id: rotationId, card_id: nextCardId }).unwrap(),
-        "move",
-      ),
+    onKill: (rotationId) => void kill(rotationId),
+    onUnkill: (rotationId) => void unkill(rotationId),
+    onSelectCard: (rotationId, nextCardId) => void moveToCard(rotationId, nextCardId),
   };
 
   // Absence-of-list, not the error flag: a background refetch can leave
