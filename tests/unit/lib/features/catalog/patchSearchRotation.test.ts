@@ -150,4 +150,73 @@ describe("patchCatalogSearchRotation", () => {
       album,
     );
   });
+
+  it("sets the card on the cached row when the patch names one", () => {
+    const dispatch = vi.fn();
+    const card = { id: 3, bin: "H" as const, number: 2, name: "Heavy 2" };
+    const album = createTestAlbum({ id: 900 });
+
+    vi.spyOn(catalogApi.util, "selectCachedArgsForQuery").mockReturnValue([{}]);
+    vi.spyOn(catalogApi.util, "updateQueryData").mockImplementation(
+      (_endpoint, _args, updater) => {
+        const draft = { pages: [{ results: [album], total: 1, page: 0, totalPages: 1 }] };
+        updater(draft);
+        expect(draft.pages[0].results[0].card).toEqual(card);
+        return { type: "catalogApi/updateQueryData" } as never;
+      },
+    );
+
+    patchCatalogSearchRotation(dispatch, () => ({} as never), 900, {
+      rotation_bin: "H",
+      rotation_id: 12,
+      card,
+    });
+  });
+
+  it("clears the card when the patch explicitly names null", () => {
+    const dispatch = vi.fn();
+    const album = createTestAlbum({
+      id: 900,
+      card: { id: 3, bin: "H" as const, number: 2, name: "Heavy 2" },
+    });
+
+    vi.spyOn(catalogApi.util, "selectCachedArgsForQuery").mockReturnValue([{}]);
+    vi.spyOn(catalogApi.util, "updateQueryData").mockImplementation(
+      (_endpoint, _args, updater) => {
+        const draft = { pages: [{ results: [album], total: 1, page: 0, totalPages: 1 }] };
+        updater(draft);
+        expect(draft.pages[0].results[0].card).toBeNull();
+        return { type: "catalogApi/updateQueryData" } as never;
+      },
+    );
+
+    patchCatalogSearchRotation(dispatch, () => ({} as never), 900, {
+      rotation_bin: undefined,
+      rotation_id: undefined,
+      card: null,
+    });
+  });
+
+  it("leaves an existing cached card untouched when the patch omits it", () => {
+    const dispatch = vi.fn();
+    const card = { id: 3, bin: "H" as const, number: 2, name: "Heavy 2" };
+    const album = createTestAlbum({ id: 900, card });
+
+    vi.spyOn(catalogApi.util, "selectCachedArgsForQuery").mockReturnValue([{}]);
+    vi.spyOn(catalogApi.util, "updateQueryData").mockImplementation(
+      (_endpoint, _args, updater) => {
+        const draft = { pages: [{ results: [album], total: 1, page: 0, totalPages: 1 }] };
+        updater(draft);
+        // Field-level rotation edits (e.g. an Unkill) never change the card,
+        // so the caller omits the key entirely rather than naming a value.
+        expect(draft.pages[0].results[0].card).toEqual(card);
+        return { type: "catalogApi/updateQueryData" } as never;
+      },
+    );
+
+    patchCatalogSearchRotation(dispatch, () => ({} as never), 900, {
+      rotation_bin: "H",
+      rotation_id: 12,
+    });
+  });
 });

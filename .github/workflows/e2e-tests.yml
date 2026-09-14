@@ -62,6 +62,9 @@ env:
   # the tab never renders and the spec can't reach the rotate/reveal controls.
   # Independent of NEXT_PUBLIC_STATION_SIGNUP_ENABLED (the DJ-facing gate).
   NEXT_PUBLIC_STATION_SIGNUP_ADMIN_ENABLED: "true"
+  # Build-time gate for the Rotation Admin surface, inlined into the dj-site
+  # build (same build-cache hash as above).
+  NEXT_PUBLIC_ROTATION_ADMIN_ENABLED: "true"
   NEXT_PUBLIC_APP_ORGANIZATION: test-org
   SESSION_SECRET: e2e-secret-for-testing
   APP_ORGANIZATION_ID: test-org-id-0000000000000000001

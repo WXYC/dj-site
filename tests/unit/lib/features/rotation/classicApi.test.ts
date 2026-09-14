@@ -63,7 +63,23 @@ describe("rotationApi — classic list + free-text add additions", () => {
       const result = await store.dispatch(rotationApi.endpoints.getRotationList.initiate());
 
       expect(requested?.pathname).toBe("/library/rotation");
+      expect(requested?.searchParams.get("status")).toBe("active");
       expect(result.data).toEqual([{ id: null, rotation_id: 5001, rotation_bin: "H" }]);
+    });
+
+    it("sends the caller's status facet instead of the default", async () => {
+      let requested: URL | undefined;
+      server.use(
+        http.get(BASE, ({ request }) => {
+          requested = new URL(request.url);
+          return HttpResponse.json([]);
+        }),
+      );
+
+      const store = rotationStore();
+      await store.dispatch(rotationApi.endpoints.getRotationList.initiate("killed"));
+
+      expect(requested?.searchParams.get("status")).toBe("killed");
     });
   });
 

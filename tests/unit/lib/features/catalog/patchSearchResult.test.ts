@@ -216,6 +216,30 @@ describe("mergeAlbumIntoSearchResult", () => {
     expect(merged.legacy_release_id).toBe(45042);
   });
 
+  it("falls back to the cached card when a plain /library response omits it", () => {
+    // updateAlbum/markMissing/markFound convert a `/library` response, which
+    // never carries a card -- only a rotation add/kill response does. Without
+    // the fallback, any of those three writes would wipe a card a rotation
+    // write reported earlier in the same session.
+    const card = { id: 3, bin: Rotation.H, number: 2, name: "Heavy 2" };
+    const existing = createTestAlbum({ id: 42, card });
+    const updated = createTestAlbum({ id: 42 });
+
+    const merged = mergeAlbumIntoSearchResult(existing, updated);
+
+    expect(merged.card).toEqual(card);
+  });
+
+  it("applies an explicit card from the response", () => {
+    const card = { id: 3, bin: Rotation.H, number: 2, name: "Heavy 2" };
+    const existing = createTestAlbum({ id: 42, card: null });
+    const updated = createTestAlbum({ id: 42, card });
+
+    const merged = mergeAlbumIntoSearchResult(existing, updated);
+
+    expect(merged.card).toEqual(card);
+  });
+
   it("merges albums with empty title fields from LML-only rows", () => {
     const existing = createTestAlbum({
       id: 42,

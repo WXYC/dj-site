@@ -1,4 +1,5 @@
 import type { AppDispatch, RootState } from "@/lib/store";
+import type { RotationCard } from "@wxyc/shared/dtos";
 import type { Rotation } from "@/lib/features/rotation/types";
 import {
   albumMatchesCatalogQueryArg,
@@ -12,6 +13,14 @@ import { mergeAlbumIntoSearchResult } from "./patchSearchResult";
 export type CatalogSearchRotationPatch = {
   rotation_bin: Rotation | undefined;
   rotation_id: number | undefined;
+  /**
+   * Omitted entirely to leave a cached card untouched (the field-level
+   * rotation editor's write can never change the card, so it has none to
+   * report); `null` to clear it; a `RotationCard` to set it. Distinct from
+   * `rotation_bin`/`rotation_id`, which a caller always states one way or the
+   * other.
+   */
+  card?: RotationCard | null;
 };
 
 function findAlbumInSearchDraft(
@@ -120,6 +129,18 @@ function hasUsableAlbumData(album: AlbumEntry): boolean {
   return Boolean(album.title.trim() || album.artist.name.trim());
 }
 
+function withRotationPatch(album: AlbumEntry, rotation: CatalogSearchRotationPatch): AlbumEntry {
+  return {
+    ...album,
+    rotation_bin: rotation.rotation_bin,
+    rotation_id: rotation.rotation_id,
+    // A key present-but-omitted in `rotation` must leave `album.card` as is
+    // (see CatalogSearchRotationPatch's own comment) -- spreading `album`
+    // first and only overwriting when the caller actually named a value.
+    ...("card" in rotation ? { card: rotation.card } : {}),
+  };
+}
+
 function resolveAlbumEntryForRotationPatch(
   getState: () => RootState,
   albumId: number,
@@ -127,22 +148,14 @@ function resolveAlbumEntryForRotationPatch(
   albumHint?: AlbumEntry,
 ): AlbumEntry | null {
   if (albumHint) {
-    return {
-      ...albumHint,
-      rotation_bin: rotation.rotation_bin,
-      rotation_id: rotation.rotation_id,
-    };
+    return withRotationPatch(albumHint, rotation);
   }
 
   const info = catalogApi.endpoints.getInformation.select({
     album_id: albumId,
   })(getState())?.data;
   if (info) {
-    return {
-      ...info,
-      rotation_bin: rotation.rotation_bin,
-      rotation_id: rotation.rotation_id,
-    };
+    return withRotationPatch(info, rotation);
   }
 
   const cachedArgs = catalogApi.util.selectCachedArgsForQuery(
@@ -156,11 +169,7 @@ function resolveAlbumEntryForRotationPatch(
     if (!data?.pages) continue;
     const existing = findAlbumInSearchDraft(data, albumId);
     if (existing) {
-      return {
-        ...existing,
-        rotation_bin: rotation.rotation_bin,
-        rotation_id: rotation.rotation_id,
-      };
+      return withRotationPatch(existing, rotation);
     }
   }
 
@@ -178,6 +187,7 @@ function applyRotationToSearchCache(
   if (existing) {
     existing.rotation_bin = album.rotation_bin;
     existing.rotation_id = album.rotation_id;
+    existing.card = album.card;
     if (!matches) {
       removeAlbumFromInfiniteDraft(draft, album.id!);
     }
@@ -248,6 +258,7 @@ export function patchCatalogSearchRotation(
             if (existing) {
               existing.rotation_bin = rotation.rotation_bin;
               existing.rotation_id = rotation.rotation_id;
+              if ("card" in rotation) existing.card = rotation.card;
             }
             return;
           }

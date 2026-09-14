@@ -1,8 +1,10 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
 import type { FetchBaseQueryError } from "@reduxjs/toolkit/query";
 import type { RootState } from "@/lib/store";
+import type { LibraryFilingRequest, LibraryFilingResponse } from "@wxyc/shared";
 import { hasLinkedAlbumId } from "../flowsheet/linkage";
 import { backendBaseQuery } from "../backend";
+import { rotationApi } from "../rotation/api";
 import {
   isAddArtistConflict,
   isArtistNameConflictData,
@@ -346,6 +348,59 @@ export const catalogApi = createApi({
         }
         if (error.status !== 409) return [];
         return isArtistNameConflictData(error.data) ? [] : [codePeekTag];
+      },
+    }),
+    /**
+     * `POST /library/filings` -- the composed artist-create-or-reuse +
+     * release-create + optional-rotation-add write behind the Rotation Admin
+     * filing bench (see `LibraryFilingRequest`). All-or-nothing server-side,
+     * so a fulfilled response always carries a real release and, when the
+     * request asked for one, a real rotation entry.
+     *
+     * Invalidated broadly (bare tags, no ids) rather than narrowly: a filing
+     * can create a brand-new artist and/or attach to an existing one, so
+     * there is no single artist/release id known ahead of the write to scope
+     * the invalidation to. `Rotation` is `catalogApi`'s own tag -- unused
+     * elsewhere in this slice -- and `rotationApi`'s separate tag registry is
+     * reached by cross-dispatching its own invalidation, the same technique
+     * `rotationApi`'s own mutations use in reverse to patch this slice's
+     * cache.
+     */
+    fileRelease: builder.mutation<LibraryFilingResponse, LibraryFilingRequest>({
+      query: (body) => ({
+        url: "/filings",
+        method: "POST",
+        body,
+      }),
+      // Wrapped out of the shared rejected-query middleware's
+      // `payload.data.message` lookup, matching addArtist/deleteAlbum: the
+      // filing bench is expected to act on the named conflict
+      // (`isLibraryFilingConflict`), not merely display its message.
+      transformErrorResponse: (
+        response: FetchBaseQueryError,
+      ): { fileReleaseError: FetchBaseQueryError } => ({ fileReleaseError: response }),
+      // Bare tag names, not `{ type, id: "LIST" }` pairs: `ArtistCard` and
+      // `ArtistCodePeek` are only ever provided per-id here (by artist id, and
+      // by `genre_id:code_letters` respectively), so a "LIST" id would match
+      // nothing either provides. A bare tag matches every id of its type
+      // (see the `ROTATION_LIST_TAG` comment in rotation/api.ts for the same
+      // rule stated once).
+      invalidatesTags: [
+        { type: "ArtistSearch", id: "LIST" },
+        { type: "CatalogList", id: "LIST" },
+        { type: "ArtistReleaseList", id: "LIST" },
+        "ArtistCard",
+        "ArtistCodePeek",
+        "Rotation",
+      ],
+      async onQueryStarted(_arg, { dispatch, queryFulfilled }) {
+        try {
+          await queryFulfilled;
+          dispatch(rotationApi.util.invalidateTags(["Rotation"]));
+        } catch {
+          // A rejected `queryFulfilled` must not escape `onQueryStarted`;
+          // the caller's own `.unwrap()` already owns surfacing the failure.
+        }
       },
     }),
     /** The header of `/wxycdb`'s artist card (`artistCardModify.jsp`). */
@@ -735,6 +790,7 @@ export const {
   useUpdateAlbumMutation,
   useDeleteAlbumMutation,
   useAddArtistMutation,
+  useFileReleaseMutation,
   useGetArtistCardQuery,
   useUpdateArtistCardMutation,
   useGetArtistReleasesQuery,

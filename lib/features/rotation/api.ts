@@ -9,17 +9,22 @@ import {
 } from "../catalog/patchSearchCaches";
 import { AlbumEntry, AlbumSearchResultJSON } from "../catalog/types";
 import type {
+  AddRotationCardRequest,
   AddRotationRequest,
   KillRotationRequest,
+  RotationCard,
   RotationEntry,
+  UpdateRotationCardRequest,
 } from "@wxyc/shared";
 import type {
   FreeTextRotationAddRequest,
   LinkRotationArgs,
   RotationListRow,
   RotationRowSummary,
+  RotationStatusFilter,
   UpdateRotationArgs,
 } from "./types";
+import { DEFAULT_ROTATION_STATUS_FILTER } from "./types";
 import { isRotationRowActive } from "./classicList";
 import { wrapRotationWriteError } from "./writeErrorMessage";
 
@@ -28,11 +33,12 @@ import { wrapRotationWriteError } from "./writeErrorMessage";
 // echoed back to the screen that saved it. A bare `"Rotation"` invalidation
 // still reaches them: a tag with no id matches every id of its type.
 const ROTATION_LIST_TAG = { type: "Rotation", id: "LIST" } as const;
+const ROTATION_CARDS_LIST_TAG = { type: "RotationCards", id: "LIST" } as const;
 
 export const rotationApi = createApi({
   reducerPath: "rotationApi",
   baseQuery: backendBaseQuery("library/rotation"),
-  tagTypes: ["Rotation"],
+  tagTypes: ["Rotation", "RotationCards"],
   endpoints: (builder) => ({
     // Opts out of the shared soft-JSON-failure handling
     // (`surfaceNonJsonAsError`), for the same reason as `getRotationList` and
@@ -74,7 +80,7 @@ export const rotationApi = createApi({
             dispatch,
             getState as () => RootState,
             album_id,
-            { rotation_bin, rotation_id: data.id },
+            { rotation_bin, rotation_id: data.id, card: data.card ?? null },
           );
         } catch {
           // A rejected `queryFulfilled` (mutation failure or the cache patch
@@ -129,7 +135,7 @@ export const rotationApi = createApi({
             dispatch,
             getState as () => RootState,
             data.album_id,
-            { rotation_bin: undefined, rotation_id: undefined },
+            { rotation_bin: undefined, rotation_id: undefined, card: null },
           );
         } catch {
           // A rejected `queryFulfilled` (mutation failure or the cache patch
@@ -140,6 +146,33 @@ export const rotationApi = createApi({
           // the same failure twice.
         }
       },
+    }),
+    // The station's named rotation cards (a physical bin slot: bin + number +
+    // optional label), CRUD against `library/rotation/cards`. Distinct list
+    // tag from `Rotation` -- a card add/rename never changes which albums are
+    // in rotation, so tying the two together would refetch every rotation
+    // list on a card rename.
+    getRotationCards: builder.query<RotationCard[], void>({
+      query: () => ({ url: "/cards" }),
+      providesTags: [ROTATION_CARDS_LIST_TAG],
+    }),
+    addRotationCard: builder.mutation<RotationCard, AddRotationCardRequest>({
+      query: (body) => ({ url: "/cards", method: "POST", body }),
+      invalidatesTags: [ROTATION_CARDS_LIST_TAG],
+    }),
+    updateRotationCard: builder.mutation<
+      RotationCard,
+      { id: number } & UpdateRotationCardRequest
+    >({
+      query: ({ id, ...body }) => ({ url: `/cards/${id}`, method: "PATCH", body }),
+      invalidatesTags: (_result, _error, { id }) => [
+        ROTATION_CARDS_LIST_TAG,
+        { type: "RotationCards", id },
+      ],
+    }),
+    deleteRotationCard: builder.mutation<void, number>({
+      query: (id) => ({ url: `/cards/${id}`, method: "DELETE" }),
+      invalidatesTags: [ROTATION_CARDS_LIST_TAG],
     }),
     getRotationTracks: builder.query<RotationTrack[], number>({
       query: (rotationId) => ({
@@ -159,8 +192,17 @@ export const rotationApi = createApi({
     // query-fed list must never render an unissued or failed request as "there
     // are none", and the Active facet reading a backend outage as "no
     // releases are active" is exactly that failure.
-    getRotationList: builder.query<RotationListRow[], void>({
-      query: () => ({ url: "" }),
+    // `status` narrows Backend's own facet filter (`all` | `active` |
+    // `killed`) via `?status=`. `uncataloged` is a member of the shared
+    // `RotationStatusFilter` type but never reaches this endpoint -- that
+    // facet is `getUncataloguedRotation` below, a distinct read against a
+    // distinct backlog. Defaults to `active`, this endpoint's original
+    // (and only) behavior before this arg existed.
+    getRotationList: builder.query<RotationListRow[], RotationStatusFilter | void>({
+      query: (status) => ({
+        url: "",
+        params: { status: status ?? DEFAULT_ROTATION_STATUS_FILTER },
+      }),
       extraOptions: { surfaceNonJsonAsError: true },
       providesTags: [ROTATION_LIST_TAG],
     }),
@@ -314,6 +356,10 @@ export const {
   useGetRotationQuery,
   useAddRotationEntryMutation,
   useKillRotationEntryMutation,
+  useGetRotationCardsQuery,
+  useAddRotationCardMutation,
+  useUpdateRotationCardMutation,
+  useDeleteRotationCardMutation,
   useGetRotationTracksQuery,
   useGetRotationListQuery,
   useGetUncataloguedRotationQuery,

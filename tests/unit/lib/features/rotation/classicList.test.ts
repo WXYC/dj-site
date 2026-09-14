@@ -34,6 +34,8 @@ function listRow(overrides: Partial<RotationListRow> = {}): RotationListRow {
     rotation_kill_date: null,
     plays: 3,
     legacy_release_id: 7001,
+    card: null,
+    urls: [],
     ...overrides,
   };
 }

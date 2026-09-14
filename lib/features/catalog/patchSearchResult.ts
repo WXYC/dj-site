@@ -56,6 +56,12 @@ export function mergeAlbumIntoSearchResult(
     artwork_url: updated.artwork_url ?? existing.artwork_url,
     rotation_bin: existing.rotation_bin,
     rotation_id: existing.rotation_id,
+    // `updated` here is a converted `/library` response, which never carries
+    // a card -- only a rotation add/kill response does. Falling back rather
+    // than spreading `updated.card` (always `undefined`) keeps a markMissing/
+    // markFound/updateAlbum write from wiping the card a rotation write
+    // reported earlier in the same session.
+    card: updated.card === undefined ? existing.card : updated.card,
     plays: existing.plays ?? updated.plays,
     add_date: existing.add_date ?? updated.add_date,
     on_streaming: updated.on_streaming ?? existing.on_streaming,
