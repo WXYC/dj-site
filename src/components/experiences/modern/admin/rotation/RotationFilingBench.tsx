@@ -18,12 +18,17 @@ import {
   useFileReleaseMutation,
   useGetFormatsQuery,
   useGetGenresQuery,
+  useLazyGetDiscogsPrefillQuery,
 } from "@/lib/features/catalog/api";
 import {
   ARTIST_NAME_MAX_LENGTH,
   suggestCodeLetters,
   validateNewArtistFields,
 } from "@/lib/features/catalog/adminCreateArtistValidation";
+import {
+  discogsPrefillErrorMessage,
+  withDefinitiveDiscogsUrl,
+} from "@/lib/features/catalog/discogsPrefill";
 import { buildLibraryFilingRequest } from "@/lib/features/catalog/filingRequest";
 import { isLibraryFilingConflict } from "@/lib/features/catalog/fileReleaseConflict";
 import { isGenresUnavailable } from "@/lib/features/catalog/genreAvailability";
@@ -68,7 +73,10 @@ export default function RotationFilingBench(): JSX.Element {
   const genresQuery = useGetGenresQuery();
   const formatsQuery = useGetFormatsQuery();
   const [fileRelease, { isLoading: isFiling }] = useFileReleaseMutation();
+  const [triggerPrefill, { isFetching: isAutofilling }] = useLazyGetDiscogsPrefillQuery();
 
+  const [discogsUrl, setDiscogsUrl] = useState("");
+  const [autofillError, setAutofillError] = useState<string | null>(null);
   const [genreId, setGenreId] = useState<number | null>(null);
   const [artistText, setArtistText] = useState("");
   const [selectedArtist, setSelectedArtist] = useState<ArtistInGenreOption | null>(null);
@@ -271,6 +279,35 @@ export default function RotationFilingBench(): JSX.Element {
     clearCardConflict();
   };
 
+  const handleAutopopulate = async () => {
+    const pasted = discogsUrl.trim();
+    if (pasted.length === 0 || isAutofilling || isFiling) {
+      return;
+    }
+    setAutofillError(null);
+    try {
+      const prefill = await triggerPrefill(pasted).unwrap();
+      // The resolved Discogs record is authoritative, so drop any prior
+      // typeahead pick and re-key the artist field on the resolved name — the
+      // MD then matches-or-creates it the same way a typed name flows.
+      setSelectedArtist(null);
+      dedup.onSelectionCleared();
+      setArtistText(prefill.artist_name);
+      dedup.onNameChange(prefill.artist_name);
+      clearArtistConflict();
+      setAlbumTitle(prefill.album_title);
+      setLabel(prefill.label ?? "");
+      // Record the definitive Discogs link on the release. `urls` is the one
+      // release-scoped links channel the composite already carries, so this
+      // needs no submission-wiring change; it surfaces in Additional links.
+      setUrls((current) => withDefinitiveDiscogsUrl(current, prefill.discogs_release_id));
+    } catch (err) {
+      // A named 4xx (bad/unresolvable link) is inline and non-blocking: the
+      // rest of the form stays exactly as typed and manual entry is unaffected.
+      setAutofillError(discogsPrefillErrorMessage(err));
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!canSubmit || genreId === null || formatId === null) {
@@ -340,6 +377,43 @@ export default function RotationFilingBench(): JSX.Element {
       <Sheet variant="outlined" sx={{ p: 2, borderRadius: "md", flex: 1, maxWidth: 640 }}>
         <form onSubmit={handleSubmit}>
           <Stack spacing={1.5}>
+            <Sheet variant="soft" sx={{ p: 1.5, borderRadius: "md" }}>
+              <FormControl error={autofillError !== null}>
+                <FormLabel>Autopopulate with Discogs link</FormLabel>
+                <Stack direction="row" spacing={1}>
+                  <Input
+                    value={discogsUrl}
+                    placeholder="https://www.discogs.com/release/…"
+                    disabled={isFiling}
+                    onChange={(e) => {
+                      setDiscogsUrl(e.target.value);
+                      if (autofillError !== null) setAutofillError(null);
+                    }}
+                    sx={{ flexGrow: 1 }}
+                  />
+                  {/* An untyped button inside a form submits it. */}
+                  <Button
+                    type="button"
+                    variant="solid"
+                    loading={isAutofilling}
+                    disabled={isFiling || discogsUrl.trim().length === 0}
+                    onClick={handleAutopopulate}
+                  >
+                    Autopopulate
+                  </Button>
+                </Stack>
+                {autofillError !== null ? (
+                  <FormHelperText role="alert">{autofillError}</FormHelperText>
+                ) : (
+                  <FormHelperText>
+                    Pulls artist, title, and label from Discogs and records the link on
+                    the release. Discogs release links only — other services are
+                    follow-ups.
+                  </FormHelperText>
+                )}
+              </FormControl>
+            </Sheet>
+
             <FormControl error={listsUnavailable}>
               <FormLabel>Genre</FormLabel>
               <Select
@@ -499,7 +573,7 @@ export default function RotationFilingBench(): JSX.Element {
 
             {bin !== null && (
               <FormControl>
-                <FormLabel>URLs</FormLabel>
+                <FormLabel>Additional links</FormLabel>
                 <UrlListInput value={urls} onChange={setUrls} />
               </FormControl>
             )}

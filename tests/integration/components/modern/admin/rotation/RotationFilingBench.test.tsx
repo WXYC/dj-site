@@ -13,6 +13,10 @@ import {
   filingConflictResponse,
   type FakeFilingArtistRow,
 } from "@/tests/fakes/libraryFilings";
+import {
+  fakeDiscogsPrefillEndpoint,
+  MOLINA_DISCOGS_PREFILL,
+} from "@/tests/fakes/discogsPrefill";
 
 // Mock fonts before importing the modern theme (pulled in for the rotation palette).
 vi.mock("next/font/google", () => ({
@@ -558,5 +562,79 @@ describe("RotationFilingBench", () => {
     await within(ledger()).findByText("Juana Molina — Halo");
     expect(filings.bodies()).toHaveLength(2);
     expect(within(ledger()).getByText("Juana Molina — DOGA")).toBeInTheDocument();
+  });
+
+  describe("Discogs autopopulate", () => {
+    const DISCOGS_LINK = "https://www.discogs.com/release/24216789";
+    const CANONICAL_DISCOGS_LINK = `https://www.discogs.com/release/${MOLINA_DISCOGS_PREFILL.discogs_release_id}`;
+
+    it("resolves a Discogs link, prefills the release, and records the definitive link", async () => {
+      fakeDiscogsPrefillEndpoint();
+      const { user } = renderBench();
+
+      await user.type(screen.getByLabelText("Autopopulate with Discogs link"), DISCOGS_LINK);
+      await user.click(screen.getByRole("button", { name: "Autopopulate" }));
+
+      await waitFor(() => expect(screen.getByLabelText("Album title")).toHaveValue("DOGA"));
+      expect(screen.getByLabelText("Label")).toHaveValue("Sonamos");
+      expect(screen.getByPlaceholderText("Search artists...")).toHaveValue("Juana Molina");
+      // The pasted release is recorded as the definitive Discogs link — first
+      // row of Additional links, canonicalised from the resolved id.
+      expect(screen.getByLabelText("Release link URL 1")).toHaveValue(CANONICAL_DISCOGS_LINK);
+    });
+
+    it("shows an inline error on an unresolvable link and never blocks manual entry", async () => {
+      const filings = fakeLibraryFilingsEndpoint({ existingArtists: [MOLINA_ROW] });
+      fakeDiscogsPrefillEndpoint();
+      const { user } = renderBench();
+
+      await user.type(
+        screen.getByLabelText("Autopopulate with Discogs link"),
+        "https://example.com/not-a-release",
+      );
+      await user.click(screen.getByRole("button", { name: "Autopopulate" }));
+
+      expect(await screen.findByRole("alert")).toHaveTextContent("Not a Discogs release URL");
+      // Nothing was prefilled; the form is untouched and stays usable.
+      expect(screen.getByLabelText("Album title")).toHaveValue("");
+
+      // A full manual filing still goes through — the failed autopopulate
+      // blocked nothing.
+      await selectGenre(user);
+      await pickExistingArtist(user);
+      await fillRelease(user);
+      await awaitDefaultCard();
+      await user.click(screen.getByRole("button", { name: "Add to rotation" }));
+
+      await waitFor(() => expect(filings.bodies()).toHaveLength(1));
+    });
+
+    it("carries the recorded Discogs link into the release-scoped submit", async () => {
+      const filings = fakeLibraryFilingsEndpoint({ existingArtists: [MOLINA_ROW] });
+      fakeDiscogsPrefillEndpoint();
+      const { user } = renderBench();
+
+      await selectGenre(user);
+      await user.type(screen.getByLabelText("Autopopulate with Discogs link"), DISCOGS_LINK);
+      await user.click(screen.getByRole("button", { name: "Autopopulate" }));
+      await waitFor(() => expect(screen.getByLabelText("Album title")).toHaveValue("DOGA"));
+
+      // The prefilled artist name is text until the MD confirms it against the
+      // catalog: opening the typeahead surfaces the existing match to pick.
+      await user.click(screen.getByPlaceholderText("Search artists..."));
+      await user.click(await screen.findByRole("option", { name: "Juana Molina" }));
+
+      await user.click(screen.getByRole("combobox", { name: "Format" }));
+      await user.click(await screen.findByRole("option", { name: "CD" }));
+      await awaitDefaultCard();
+      await user.click(screen.getByRole("button", { name: "Add to rotation" }));
+
+      await waitFor(() => expect(filings.bodies()).toHaveLength(1));
+      expect(filings.bodies()[0].rotation?.urls).toEqual([CANONICAL_DISCOGS_LINK]);
+      expect(filings.bodies()[0].release).toMatchObject({
+        album_title: "DOGA",
+        label: "Sonamos",
+      });
+    });
   });
 });

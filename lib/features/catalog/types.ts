@@ -624,3 +624,25 @@ export type CrossReferencePage<Row> = {
   page: number;
   totalPages: number;
 };
+
+/**
+ * `GET /library/releases/discogs-prefill?url=` — the fields a resolved Discogs
+ * release lends the rotation filing bench (BS resolves the pasted link to this
+ * via LML). Declared here, not imported from `@wxyc/shared`: the backend keeps
+ * this an internal shape rather than a published contract type, so dj-site owns
+ * its own mirror. Field names follow `AlbumCreateFields` (`album_title`,
+ * `label`, `label_id`) plus the artist name and the Discogs identifiers.
+ */
+export type DiscogsReleasePrefill = {
+  discogs_release_id: number;
+  discogs_master_id: number | null;
+  artist_name: string;
+  album_title: string;
+  label: string | null;
+  label_id: number | null;
+  year: number | null;
+  discogs_artist_id: number | null;
+  genres: string[];
+  styles: string[];
+  artwork_url: string | null;
+};
