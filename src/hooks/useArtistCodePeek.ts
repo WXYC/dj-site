@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
-import { useLazyPeekArtistCodeQuery } from "@/lib/features/catalog/api";
+import { useMemo } from "react";
+import { skipToken } from "@reduxjs/toolkit/query";
+import { usePeekArtistCodeQuery } from "@/lib/features/catalog/api";
 import { CODE_LETTERS_MAX_LENGTH } from "@/lib/features/catalog/adminCreateArtistValidation";
 import type { PeekArtistCodeQuery } from "@/lib/features/catalog/types";
 import { useDebouncedValue } from "./useDebouncedValue";
@@ -28,17 +29,17 @@ export type ArtistCodePeek = {
  * `code_letters` + `genre_id` pair (`GET /library/artists/peek-code`).
  *
  * One authoritative owner for the peeked value: the RTK Query cache entry
- * this hook subscribes to. `NewArtistFields` derives both the "Next code"
- * line and the clean code-number field's rendered value from the same result
- * during render — nothing mirrors it into component state.
+ * this hook subscribes to via `skipToken`. `NewArtistFields` derives both the
+ * "Next code" line and the clean code-number field's rendered value from the
+ * same result during render — nothing mirrors it into component state, and
+ * because the subscription itself is skipped when there is no pair to preview,
+ * the peeked number cannot outlive the arg that produced it.
  *
  * The query is not authorization-gated here: mount this only under an MD
  * gate, which every consumer (the artist-add form, the filing bench) already
  * provides around the whole field group.
  */
 export function useArtistCodePeek(codeLetters: string, genreId: number | null): ArtistCodePeek {
-  const [peekArtistCode, { data, isFetching, error }] = useLazyPeekArtistCodeQuery();
-
   // code_letters and genre_id are debounced together as one composed value
   // so a genre change mid-typing can never pair with letters the user hasn't
   // finished composing (or vice versa).
@@ -58,20 +59,26 @@ export function useArtistCodePeek(codeLetters: string, genreId: number | null): 
   // as though it were current.
   const stale = debouncedArg !== arg;
 
-  useEffect(() => {
-    if (!debouncedArg) return;
-    // preferCacheValue=true: the assigned code number for a letters/genre
-    // pair only moves if another artist is added under it while a form is
-    // open, and the backend re-validates at actual add time regardless of
-    // what this preview last showed. Reusing the cache avoids re-hitting the
-    // backend on every genre-dropdown flip-flop.
-    peekArtistCode(debouncedArg, true);
-  }, [debouncedArg, peekArtistCode]);
+  // Subscribe to the debounced pair's cache entry; skip entirely when there
+  // is nothing to preview. `currentData` (unlike `data`) is scoped to the
+  // subscribed arg, so it withdraws to undefined the moment the arg is
+  // skipped and never surfaces a slow response for superseded letters. The
+  // default query behavior reuses a cached pair without re-hitting the
+  // backend on every genre-dropdown flip-flop; the backend re-validates at
+  // actual add time regardless of what this preview last showed.
+  const { currentData, isFetching, isError } = usePeekArtistCodeQuery(
+    debouncedArg ?? skipToken,
+  );
 
   return {
     arg,
     pending: arg != null && (stale || isFetching),
-    isError: arg != null && error !== undefined,
-    nextCodeNumber: data?.next_code_number ?? null,
+    isError: arg != null && isError,
+    // Current only for the live pair once it has settled: null while there is
+    // no pair, during the debounce lag, and mid-fetch. A reader gating on
+    // `pending`/`isError` and one reading `nextCodeNumber` directly therefore
+    // never disagree about whether a number is on hand.
+    nextCodeNumber:
+      arg != null && !stale ? (currentData?.next_code_number ?? null) : null,
   };
 }

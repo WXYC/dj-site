@@ -47,11 +47,13 @@ function Harness({
   conflict = null,
   genreId = GENRE_ID,
   autoFillCodeNumber = false,
+  allowZeroCodeNumber = false,
 }: {
   initialCodeLetters?: string;
   conflict?: NewArtistConflict | null;
   genreId?: number | null;
   autoFillCodeNumber?: boolean;
+  allowZeroCodeNumber?: boolean;
 }) {
   const [codeLettersField, setCodeLettersField] = useState<CodeLettersField>({
     value: initialCodeLetters,
@@ -72,6 +74,7 @@ function Harness({
       disabled={false}
       conflict={conflict}
       autoFillCodeNumber={autoFillCodeNumber}
+      allowZeroCodeNumber={allowZeroCodeNumber}
     />
   );
 }
@@ -165,12 +168,22 @@ describe("NewArtistFields", () => {
     ).toBeDefined();
   });
 
-  it("does not flag a deliberate 0, which the server files legally", async () => {
-    const { user } = renderWithProviders(<Harness />);
+  it("does not flag a deliberate 0 with the opt-in, which the server files legally", async () => {
+    const { user } = renderWithProviders(<Harness allowZeroCodeNumber />);
 
     await user.type(screen.getByLabelText("Code number"), "0");
 
     expect(screen.queryByText("Must be a whole number")).toBeNull();
+  });
+
+  it("flags a 0 without the opt-in, the artist-add form's positive-only field", async () => {
+    // ArtistAddForm files a real artist, never the compilation bucket, so 0 is
+    // a typo to catch rather than a legal code.
+    const { user } = renderWithProviders(<Harness />);
+
+    await user.type(screen.getByLabelText("Code number"), "0");
+
+    expect(screen.getByText("Must be a whole number")).toBeInTheDocument();
   });
 
   describe("code peek", () => {
@@ -318,19 +331,54 @@ describe("NewArtistFields", () => {
       expect(codeNumberInput().value).toBe("12");
     });
 
-    it("returns a cleared draft to the live peek — omission files that number anyway", async () => {
+    it("keeps a cleared field empty rather than snapping back to the peek", async () => {
+      // Snapping back re-renders the peeked number into a controlled input,
+      // which drops the caret at the end; the next keystroke then concatenates
+      // onto a number the MD tried to delete. The "Next code" line still
+      // previews what an omitted code_number would file.
       const { user } = renderWithProviders(
         <Harness initialCodeLetters={MOLINA} autoFillCodeNumber />,
       );
       await waitFor(() => expect(codeNumberInput().value).toBe("7"));
 
       await user.tripleClick(codeNumberInput());
-      await user.keyboard("12");
-      expect(codeNumberInput().value).toBe("12");
-
-      await user.tripleClick(codeNumberInput());
       await user.keyboard("{Backspace}");
+
+      expect(codeNumberInput().value).toBe("");
+      expect(screen.getByTestId("next-code-number")).toHaveTextContent("7");
+    });
+
+    it("yields exactly the typed number after a backspace without select-all", async () => {
+      // The expensive failure: peek offers 7, the MD backspaces it and types
+      // 3, and a snap-back leaves the field reading 73 — a wrong-but-valid
+      // code written onto a physical card.
+      const { user } = renderWithProviders(
+        <Harness initialCodeLetters={MOLINA} autoFillCodeNumber />,
+      );
       await waitFor(() => expect(codeNumberInput().value).toBe("7"));
+
+      const input = codeNumberInput();
+      await user.click(input);
+      input.setSelectionRange(1, 1);
+      await user.keyboard("{Backspace}");
+      await user.keyboard("3");
+
+      expect(input.value).toBe("3");
+    });
+
+    it("withdraws the auto-filled number when the call letters are cleared", async () => {
+      // The peeked value must not outlive the letters that produced it: with
+      // the pair gone there is no number to fill, so a fresh MD clicking in to
+      // type does not concatenate onto a stale one.
+      const { user } = renderWithProviders(
+        <Harness initialCodeLetters={MOLINA} autoFillCodeNumber />,
+      );
+      await waitFor(() => expect(codeNumberInput().value).toBe("7"));
+
+      await user.clear(callLettersInput());
+
+      await waitFor(() => expect(codeNumberInput().value).toBe(""));
+      expect(screen.queryByText("Next code:")).not.toBeInTheDocument();
     });
   });
 

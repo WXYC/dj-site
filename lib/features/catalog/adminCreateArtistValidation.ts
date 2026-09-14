@@ -109,11 +109,22 @@ export type NewArtistFieldValidation = {
   trimmedCodeLetters: string;
   alphabeticalNameTooLong: boolean;
   codeLettersTooLong: boolean;
-  /** Parsed as a non-negative whole number, before any range check — null if it is not one. */
+  /** Parsed as a whole number the mode accepts, before any range check — null if it is not one. */
   parsedCodeNumber: number | null;
   /** Parsed *and* within the column's range, or null. */
   codeNumber: number | null;
   codeNumberInvalid: boolean;
+};
+
+export type ValidateNewArtistFieldsOptions = {
+  /**
+   * Whether a deliberate 0 is a legal code number. The compilation bucket
+   * lives at artist_genre_code = 0 and Backend-Service imposes no floor above
+   * it, so the filing bench (which files compilations) accepts 0. Off by
+   * default: the artist-add form stays positive-only, so a stray 0 there is
+   * caught rather than filed into the compilation bucket.
+   */
+  allowZeroCodeNumber?: boolean;
 };
 
 /**
@@ -124,15 +135,16 @@ export type NewArtistFieldValidation = {
  */
 export function validateNewArtistFields(
   values: NewArtistFieldValues,
+  { allowZeroCodeNumber = false }: ValidateNewArtistFieldsOptions = {},
 ): NewArtistFieldValidation {
   const trimmedAlphabeticalName = values.alphabeticalName.trim();
   const trimmedCodeLetters = values.codeLetters.trim();
-  // Non-negative, not positive: 0 is a legal server-side code (the
-  // compilation bucket lives at artist_genre_code = 0, and Backend-Service
-  // imposes no floor above it), so a deliberate 0 must file rather than be
-  // client-validated away. Only the column's int4 range is this rule's to
-  // enforce.
-  const parsedCodeNumber = parseRequiredNonNegativeInt(values.codeNumberRaw);
+  // Positive-only by default; the bench opts into accepting 0 for the
+  // compilation bucket. Only the column's int4 range is this rule's other
+  // concern.
+  const parsedCodeNumber = allowZeroCodeNumber
+    ? parseRequiredNonNegativeInt(values.codeNumberRaw)
+    : parseRequiredPositiveInt(values.codeNumberRaw);
   const codeNumber =
     parsedCodeNumber !== null && parsedCodeNumber <= CODE_NUMBER_MAX
       ? parsedCodeNumber

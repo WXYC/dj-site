@@ -276,6 +276,63 @@ describe("RotationFilingBench", () => {
     expect(within(ledger()).getByText("Nothing filed yet.")).toBeInTheDocument();
   });
 
+  it("blocks a blank-label filing and names the missing label once the rest is ready", async () => {
+    // The release contract requires a label; a blank one is a guaranteed 400
+    // the bench could name no reason for, so it is caught before submit and
+    // surfaced on the field rather than sent.
+    const filings = fakeLibraryFilingsEndpoint({ existingArtists: [MOLINA_ROW] });
+    const { user } = renderBench();
+
+    await selectGenre(user);
+    await pickExistingArtist(user);
+    await fillRelease(user, { label: "" });
+    await awaitDefaultCard();
+
+    expect(screen.getByText("Missing the label")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add to rotation" })).toBeDisabled();
+
+    await user.type(screen.getByLabelText("Label"), "Sonamos");
+
+    expect(screen.queryByText("Missing the label")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add to rotation" })).toBeEnabled();
+
+    await user.click(screen.getByRole("button", { name: "Add to rotation" }));
+    await waitFor(() => expect(filings.bodies()).toHaveLength(1));
+    expect(filings.bodies()[0].release).toMatchObject({ label: "Sonamos" });
+  });
+
+  it("holds the submit disabled until the default card lands, never filing cardless", async () => {
+    // A rotation entry must land on a card. The card resolves only after the
+    // cards read returns; until then the write precondition fails closed.
+    let releaseCards: (() => void) | undefined;
+    const held = new Promise<void>((resolve) => {
+      releaseCards = resolve;
+    });
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/library/rotation/cards`, async () => {
+        await held;
+        return HttpResponse.json(CARDS);
+      }),
+    );
+    fakeLibraryFilingsEndpoint({ existingArtists: [MOLINA_ROW] });
+    const { user } = renderBench();
+
+    await selectGenre(user);
+    await pickExistingArtist(user);
+    await fillRelease(user);
+
+    // Everything else is filled, but no card is resolved yet.
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Add to rotation" }),
+      ).toBeDisabled(),
+    );
+
+    releaseCards?.();
+    await awaitDefaultCard();
+    expect(screen.getByRole("button", { name: "Add to rotation" })).toBeEnabled();
+  });
+
   describe("inline create", () => {
     async function openCreatePanel(user: User, name = "Chuquimamani-Condori") {
       const input = await screen.findByPlaceholderText("Search artists...");
@@ -300,7 +357,7 @@ describe("RotationFilingBench", () => {
         expect(screen.getByLabelText("Code number")).toHaveValue("7"),
       );
 
-      await fillRelease(user, { title: "Edits", label: "" });
+      await fillRelease(user, { title: "Edits", label: "self-released" });
       await awaitDefaultCard();
       await user.click(screen.getByRole("button", { name: "Add to rotation" }));
 
@@ -314,7 +371,12 @@ describe("RotationFilingBench", () => {
           code_letters: "CH",
           genre_id: GENRE_ID,
         },
-        release: { album_title: "Edits", genre_id: GENRE_ID, format_id: 1 },
+        release: {
+          album_title: "Edits",
+          genre_id: GENRE_ID,
+          format_id: 1,
+          label: "self-released",
+        },
         rotation: { rotation_bin: "H", card_id: 32 },
       });
       expect(
@@ -337,7 +399,7 @@ describe("RotationFilingBench", () => {
 
       await user.tripleClick(screen.getByLabelText("Code number"));
       await user.keyboard("12");
-      await fillRelease(user, { title: "Edits", label: "" });
+      await fillRelease(user, { title: "Edits", label: "self-released" });
       await awaitDefaultCard();
       await user.click(screen.getByRole("button", { name: "Add to rotation" }));
 
@@ -386,7 +448,7 @@ describe("RotationFilingBench", () => {
       );
       await user.tripleClick(screen.getByLabelText("Code number"));
       await user.keyboard("12");
-      await fillRelease(user, { title: "Edits", label: "" });
+      await fillRelease(user, { title: "Edits", label: "self-released" });
       await awaitDefaultCard();
       await user.click(screen.getByRole("button", { name: "Add to rotation" }));
 
@@ -401,6 +463,80 @@ describe("RotationFilingBench", () => {
       await user.keyboard("13");
       expect(screen.queryByRole("alert")).not.toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Add to rotation" })).toBeEnabled();
+    });
+
+    it("resolves an artist_code_conflict by picking the existing artist and files it", async () => {
+      // The contract's remedy for an artist 409 is to use the existing artist
+      // instead of creating one. Picking it must clear the conflict, unmount
+      // the create panel, and re-enable a submit that goes out as kind:
+      // existing — not leave a greyed-out button with nothing explaining why.
+      mockEmptyArtistSearch();
+      const filings = fakeLibraryFilingsEndpoint({
+        existingArtists: [MOLINA_ROW],
+        respond: (body) =>
+          body.artist.kind === "create"
+            ? filingConflictResponse("artist_code_conflict", {
+                id: 5,
+                artist_name: "Stereolab",
+                code_letters: "CH",
+                code_artist_number: 12,
+                genre_id: GENRE_ID,
+              })
+            : undefined,
+      });
+      const { user } = renderBench();
+
+      await selectGenre(user);
+      await openCreatePanel(user);
+      await waitFor(() =>
+        expect(screen.getByLabelText("Code number")).toHaveValue("7"),
+      );
+      await user.tripleClick(screen.getByLabelText("Code number"));
+      await user.keyboard("12");
+      await fillRelease(user, { title: "Edits", label: "self-released" });
+      await awaitDefaultCard();
+      await user.click(screen.getByRole("button", { name: "Add to rotation" }));
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(
+        "CH12 is already taken by Stereolab.",
+      );
+      expect(screen.getByRole("button", { name: "Add to rotation" })).toBeDisabled();
+
+      // The MD realises the artist is already catalogued and searches for it.
+      server.use(
+        http.get(`${TEST_BACKEND_URL}/library/artists/search`, () =>
+          HttpResponse.json({
+            artists: [
+              {
+                id: ARTIST_ID,
+                artist_name: "Juana Molina",
+                code_letters: "JM",
+                code_number: 1,
+              },
+            ],
+          }),
+        ),
+      );
+      const artistInput = screen.getByPlaceholderText("Search artists...");
+      await user.clear(artistInput);
+      await user.type(artistInput, "Juana");
+      await user.click(await screen.findByRole("option", { name: "Juana Molina" }));
+
+      // No orphaned disabled state: the create panel and its banner are gone,
+      // and the submit is live again.
+      expect(screen.queryByLabelText("Call letters")).not.toBeInTheDocument();
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+      await waitFor(() =>
+        expect(
+          screen.getByRole("button", { name: "Add to rotation" }),
+        ).toBeEnabled(),
+      );
+
+      await user.click(screen.getByRole("button", { name: "Add to rotation" }));
+      await waitFor(() => expect(filings.bodies()).toHaveLength(2));
+      expect(filings.bodies()[1]).toMatchObject({
+        artist: { kind: "existing", artist_id: ARTIST_ID },
+      });
     });
   });
 
