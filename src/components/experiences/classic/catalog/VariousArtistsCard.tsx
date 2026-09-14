@@ -158,6 +158,13 @@ export default function VariousArtistsCard({ artistId, message, imported }: Vari
   const selectableFormats = (formats ?? []).filter(
     (format) => format.format_name.trim() !== "",
   );
+  // A browser <select> with no <option value=""> placeholder falls back to
+  // displaying its first option whenever the bound value matches nothing --
+  // it never reports that fallback through onChange. Deriving the effective
+  // id here keeps the submitted value in step with what the control is
+  // already showing, rather than requiring a redundant reselect. `== null`
+  // stays reachable only when there is nothing to default to.
+  const effectiveFormatId = formatIdValue ?? selectableFormats[0]?.id ?? null;
 
   const bucketCode = artist
     ? formatArtistCodeWithPunctuation({
@@ -180,7 +187,7 @@ export default function VariousArtistsCard({ artistId, message, imported }: Vari
       setReleaseMessage("You must enter a label before adding this release.");
       return;
     }
-    if (formatIdValue == null) {
+    if (effectiveFormatId == null) {
       setReleaseMessage("You must select a format before adding this release.");
       return;
     }
@@ -197,7 +204,7 @@ export default function VariousArtistsCard({ artistId, message, imported }: Vari
       genre_id: artist.genre_id,
       album_title: title.trim(),
       label: label.trim(),
-      format_id: formatIdValue,
+      format_id: effectiveFormatId,
       ...(altArtistName.trim() !== ""
         ? { alternate_artist_name: altArtistName.trim() }
         : {}),
@@ -394,7 +401,7 @@ export default function VariousArtistsCard({ artistId, message, imported }: Vari
                   <td>
                     <select
                       id={formatId}
-                      value={formatIdValue ?? ""}
+                      value={effectiveFormatId ?? ""}
                       disabled={savingRelease || selectableFormats.length === 0}
                       onChange={(e) =>
                         setFormatIdValue(e.target.value ? Number(e.target.value) : null)
