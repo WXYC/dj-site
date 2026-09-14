@@ -220,6 +220,19 @@ export type PeekArtistCodeResponse = {
   next_code_number: number;
 };
 
+/**
+ * GET /library/artists/:id/next-release-number — the call number a new release
+ * filed under this artist would be assigned (the artist's MAX(code_number)+1,
+ * or 1 when the artist owns no releases). The classic add-release form
+ * prepopulates its editable call-number field from this so the librarian sees
+ * the number that will land on the sleeve before saving, rather than a blank.
+ * Same wire shape as the peek-code preview, kept as its own type so the two
+ * endpoints' contracts can evolve independently.
+ */
+export type NextReleaseNumberResponse = {
+  next_code_number: number;
+};
+
 export type ArtistInGenreOption = {
   id: number;
   artist_name: string;

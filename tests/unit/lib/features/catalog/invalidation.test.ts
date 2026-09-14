@@ -152,6 +152,46 @@ describe("catalog add-mutation cache invalidation (#624)", () => {
     expect(secondPeek.data?.next_code_number).toBe(8);
     secondPeekSub.unsubscribe();
   });
+
+  it("addAlbum refetches the artist's next release number, since a filed release makes it stale", async () => {
+    let peekCalls = 0;
+    server.use(
+      http.get(
+        `${TEST_BACKEND_URL}/library/artists/501/next-release-number`,
+        () => {
+          peekCalls += 1;
+          // A distinct number per call proves a real refetch rather than a
+          // cache redisplay of the first response.
+          return HttpResponse.json({ next_code_number: peekCalls === 1 ? 6 : 7 });
+        },
+      ),
+      http.post(`${TEST_BACKEND_URL}/library/`, () =>
+        HttpResponse.json({ id: 4242, code_number: 6 }),
+      ),
+    );
+
+    const store = createTestStore();
+    // Keep the subscription alive so the invalidation triggers a refetch.
+    const sub = store.dispatch(
+      catalogApi.endpoints.getNextReleaseNumber.initiate(501),
+    );
+    const first = await sub;
+    expect(peekCalls).toBe(1);
+    expect(first.data?.next_code_number).toBe(6);
+
+    await store.dispatch(
+      catalogApi.endpoints.addAlbum.initiate({
+        album_title: "DOGA",
+        label: "Sonamos",
+        genre_id: 1,
+        format_id: 1,
+        artist_id: 501,
+      }),
+    );
+
+    await vi.waitFor(() => expect(peekCalls).toBe(2));
+    sub.unsubscribe();
+  });
 });
 
 describe("updateAlbum cache invalidation on re-attribution", () => {

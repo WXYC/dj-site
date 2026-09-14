@@ -30,6 +30,10 @@ export const handlers = [
     return HttpResponse.json([]);
   }),
 
+  http.get(`${BACKEND_URL}/library/artists/:id/next-release-number`, () => {
+    return HttpResponse.json({ next_code_number: 1 });
+  }),
+
   // Authentication API handlers
   http.get(`${BACKEND_URL}/authentication/`, () => {
     return HttpResponse.json({ message: "Not Authenticated" });

@@ -34,6 +34,7 @@ import {
   LibraryFormatRow,
   LibraryGenreRow,
   LibraryQueryParams,
+  NextReleaseNumberResponse,
   PeekArtistCodeQuery,
   PeekArtistCodeResponse,
   ReleaseCrossReferenceRow,
@@ -454,6 +455,27 @@ export const catalogApi = createApi({
         { type: "ArtistReleaseList", id: "LIST" },
       ],
     }),
+    /**
+     * The call number a new release filed under this artist would be assigned,
+     * previewed for the add-release form. Soft-fails like `peekArtistCode`
+     * rather than opting into `surfaceNonJsonAsError`: the form degrades to the
+     * server's own MAX+1 assignment when this cannot be read, so an unreachable
+     * peek must not throw -- it resolves to no prepopulated number.
+     *
+     * Shares the artist's release-list tag rather than owning one: the next
+     * call number is a function of what is already on the shelf, so the same
+     * `addAlbum` that appends a release makes this number stale. Reusing the
+     * tag refetches it after a save without a second invalidation on the
+     * mutation, keeping a now-wrong number off the form.
+     */
+    getNextReleaseNumber: builder.query<NextReleaseNumberResponse, number>({
+      query: (artistId) => ({
+        url: `/artists/${artistId}/next-release-number`,
+      }),
+      providesTags: (_result, _error, artistId) => [
+        { type: "ArtistReleaseList", id: String(artistId) },
+      ],
+    }),
     peekArtistCode: builder.query<PeekArtistCodeResponse, PeekArtistCodeQuery>({
       query: ({ code_letters, genre_id }) => ({
         url: "/artists/peek-code",
@@ -795,6 +817,7 @@ export const {
   useGetArtistCardQuery,
   useUpdateArtistCardMutation,
   useGetArtistReleasesQuery,
+  useGetNextReleaseNumberQuery,
   useLazyPeekArtistCodeQuery,
   useLazyResolveArtistByCodeQuery,
   useSearchArtistsInGenreQuery,
