@@ -2,13 +2,10 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { toast } from "sonner";
 import { useGetFormatsQuery } from "@/lib/features/catalog/api";
 import {
   useGetRotationListQuery,
   useGetUncataloguedRotationQuery,
-  useKillRotationEntryMutation,
-  useUpdateRotationRowMutation,
 } from "@/lib/features/rotation/api";
 import {
   dedupeRotationListByArtistTitle,
@@ -16,12 +13,11 @@ import {
   toDisplayRowFromUncatalogued,
   type RotationDisplayRow,
 } from "@/lib/features/rotation/classicList";
+import { useRotationRowActions } from "@/lib/features/rotation/hooks";
 import {
   UNCATALOGUED_ROTATION_PAGE_SIZE,
   type RotationStatusFilter,
 } from "@/lib/features/rotation/types";
-import { rotationWriteErrorMessage } from "@/lib/features/rotation/writeErrorMessage";
-import { isUnmessagedHttpError } from "@/lib/rtk-query-error-logger";
 
 const FACETS: { value: RotationStatusFilter; label: string }[] = [
   { value: "all", label: "All" },
@@ -329,45 +325,7 @@ function UnavailableFacet() {
  * though the release's artist, title, label and format do not.
  */
 export default function RotationReleaseList({ statusFilter }: { statusFilter: RotationStatusFilter }) {
-  const [killRotationEntry] = useKillRotationEntryMutation();
-  const [updateRotationRow] = useUpdateRotationRowMutation();
-  const [pendingRotationIds, setPendingRotationIds] = useState<ReadonlySet<number>>(() => new Set());
-
-  const withPending = async (rotationId: number, run: () => Promise<unknown>, failureVerb: string) => {
-    setPendingRotationIds((prev) => new Set(prev).add(rotationId));
-    try {
-      await run();
-    } catch (err) {
-      // Kill's refusals reach the shared middleware's toast, so only the
-      // shapes it stays silent about are this row's to report. Unkill's are
-      // wrapped out of that lookup, which reads as unmessaged here every time
-      // and puts the server's own sentence in the toast instead of a generic
-      // one -- the same refusal, reported once either way.
-      if (isUnmessagedHttpError(err)) {
-        toast.error(
-          rotationWriteErrorMessage(
-            err,
-            `Couldn't ${failureVerb} this rotation release. Please try again.`,
-          ),
-        );
-      }
-    } finally {
-      setPendingRotationIds((prev) => {
-        const next = new Set(prev);
-        next.delete(rotationId);
-        return next;
-      });
-    }
-  };
-
-  const handleKill = (rotationId: number) =>
-    withPending(rotationId, () => killRotationEntry({ rotation_id: rotationId }).unwrap(), "kill");
-  const handleUnkill = (rotationId: number) =>
-    withPending(
-      rotationId,
-      () => updateRotationRow({ rotation_id: rotationId, kill_date: null }).unwrap(),
-      "unkill",
-    );
+  const { pendingRotationIds, kill: handleKill, unkill: handleUnkill } = useRotationRowActions();
 
   return (
     <div>
