@@ -192,6 +192,32 @@ export type FreeTextRotationAddRequest = {
 };
 
 /**
+ * A `GET /library/rotation/cards` row: the published card plus how many
+ * active rotation rows are filed on it. The wire shape is contract-main's
+ * `allOf[RotationCard, {active_count}]`, which `@wxyc/shared@5.4.0` predates
+ * — swap to the generated shape with the 5.5.0 upgrade (wxyc-shared#459).
+ */
+export type RotationCardWithCount = RotationCard & { active_count: number };
+
+/**
+ * The typed half of a rotation-cards DELETE 409 (`{message, reason}`): the
+ * server's delete guard is conjunctive — the card must be its bin's
+ * highest-numbered AND hold zero active rotation rows — and the reason names
+ * which half refused. A local closed type because the contract enum
+ * (`RotationConflictReason`) is contract-main only and not exported by
+ * `@wxyc/shared@5.4.0` — replace with the generated enum on the 5.5.0
+ * upgrade (wxyc-shared#459). That enum's third value
+ * (`rotation_card_bin_mismatch`) belongs to the rotation add path and can
+ * never arrive on a delete.
+ */
+export const ROTATION_CARD_DELETE_CONFLICT_REASONS = [
+  "card_not_highest_in_bin",
+  "card_has_active_rotations",
+] as const;
+export type RotationCardDeleteConflictReason =
+  (typeof ROTATION_CARD_DELETE_CONFLICT_REASONS)[number];
+
+/**
  * The four facets `rotationReleaseList.jsp`'s chip bar offers, spelled
  * exactly as the JSP's own `status=` query values (including its
  * single-L "uncataloged" -- distinct from the Backend route path

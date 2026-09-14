@@ -7,6 +7,7 @@ import {
   rotationRowCode,
   rotationRowPresentation,
 } from "@/lib/features/rotation/adminList";
+import { groupRotationCardsByBin } from "@/lib/features/rotation/cards";
 import {
   useGetRotationCardsQuery,
   useGetRotationListQuery,
@@ -277,16 +278,7 @@ export default function RotationAdminList(): JSX.Element {
     () => selectRotationAdminView(rows ?? [], { search, bin, cardId }),
     [rows, search, bin, cardId],
   );
-  const cardsByBin = useMemo(() => {
-    const byBin = new Map<RotationBin, RotationCard[]>();
-    for (const card of cards ?? []) {
-      const list = byBin.get(card.bin) ?? [];
-      list.push(card);
-      byBin.set(card.bin, list);
-    }
-    for (const list of byBin.values()) list.sort((left, right) => left.number - right.number);
-    return byBin;
-  }, [cards]);
+  const cardsByBin = useMemo(() => groupRotationCardsByBin(cards ?? []), [cards]);
   const binCards = bin == null ? [] : (cardsByBin.get(bin) ?? []);
 
   const actions: RowActions = {

@@ -2,7 +2,7 @@ import { requireAuth, requireRole } from "@/lib/features/authentication/server-u
 import { isRotationAdminEnabled } from "@/lib/features/rotation/flags";
 import { Authorization } from "@/lib/features/admin/types";
 import PageHeader from "@/src/components/experiences/modern/Header/PageHeader";
-import { Typography } from "@mui/joy";
+import CardsManager from "@/src/components/experiences/modern/admin/rotation/CardsManager";
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getPageTitle } from "@/lib/utils/page-title";
@@ -22,7 +22,7 @@ export default async function RotationCardsPage() {
   return (
     <>
       <PageHeader title="Rotation Cards" />
-      <Typography level="body-sm">Coming soon.</Typography>
+      <CardsManager />
     </>
   );
 }

@@ -174,40 +174,9 @@ export type FakeRotationCard = {
   bin: string;
   number: number;
   name?: string | null;
+  /** The cards GET's active-row count; the fakes default it to 0 when omitted. */
+  active_count?: number;
 };
-
-/**
- * Stateful stand-in for `GET/POST /library/rotation/cards`. `POST` assigns
- * `max(number)+1` within the posted bin, matching the contract's gap-free
- * contiguous 1..N numbering -- a test creating a card never has to pass the
- * number itself.
- */
-export function fakeRotationCardsEndpoints(initial: FakeRotationCard[]) {
-  let cards = [...initial];
-  let nextId = cards.reduce((max, card) => Math.max(max, card.id), 0) + 1;
-
-  server.use(
-    http.get(`${BACKEND_URL}/library/rotation/cards`, () => HttpResponse.json(cards)),
-    http.post(`${BACKEND_URL}/library/rotation/cards`, async ({ request }) => {
-      const body = (await request.json()) as { bin: string; name?: string };
-      const number =
-        cards.filter((card) => card.bin === body.bin).reduce((max, c) => Math.max(max, c.number), 0) +
-        1;
-      const created: FakeRotationCard = {
-        id: nextId++,
-        bin: body.bin,
-        number,
-        name: body.name ?? null,
-      };
-      cards = [...cards, created];
-      return HttpResponse.json(created, { status: 201 });
-    }),
-  );
-
-  return {
-    cards: () => [...cards],
-  };
-}
 
 // Not an extension of `FakeRotationRow`: that shape's `id` is a required
 // number, and the admin list's whole point includes rows whose library link
@@ -253,7 +222,9 @@ export function fakeRotationAdminEndpoints(
     }),
     http.get(`${BACKEND_URL}/library/rotation/cards`, () => {
       cardsRequests += 1;
-      return HttpResponse.json(cards);
+      // The wire row always carries `active_count`; fixtures that don't care
+      // get the empty-card default rather than an off-contract omission.
+      return HttpResponse.json(cards.map((card) => ({ active_count: 0, ...card })));
     }),
     http.patch(`${BACKEND_URL}/library/rotation`, async ({ request }) => {
       const body = (await request.json()) as { rotation_id: number };
@@ -300,6 +271,69 @@ export function fakeRotationAdminEndpoints(
     cardsRequests: () => cardsRequests,
     killBodies: () => [...killBodies],
     updateBodies: () => updates.map((update) => ({ id: update.id, body: { ...update.body } })),
+  };
+}
+
+/**
+ * Stateful stand-in for the cards CRUD surface
+ * (`GET/POST /library/rotation/cards`, `PATCH/DELETE /library/rotation/cards/:id`).
+ * The POST arm mirrors the server's own assignment — `number` is the bin's
+ * max + 1, never read from the request — so a consumer that computed a
+ * number locally would be caught disagreeing with the list the GET serves.
+ *
+ * DELETE here always succeeds: the consumer's disable rule is what's under
+ * test, and the guard 409 is a race outcome a spec produces by overlaying
+ * its own DELETE handler (`server.use` after installing this fake wins).
+ */
+export function fakeRotationCardsEndpoints(initialCards: FakeRotationCard[]) {
+  let cards = initialCards.map((card) => ({ active_count: 0, ...card }));
+  let listRequests = 0;
+  const addBodies: unknown[] = [];
+  const renames: { id: number; body: unknown }[] = [];
+  const deletes: number[] = [];
+
+  server.use(
+    http.get(`${BACKEND_URL}/library/rotation/cards`, () => {
+      listRequests += 1;
+      return HttpResponse.json(cards);
+    }),
+    http.post(`${BACKEND_URL}/library/rotation/cards`, async ({ request }) => {
+      const body = (await request.json()) as { bin: string; name?: string };
+      addBodies.push(body);
+      const nextNumber =
+        cards.filter((card) => card.bin === body.bin).reduce((max, card) => Math.max(max, card.number), 0) + 1;
+      const created = {
+        id: cards.reduce((max, card) => Math.max(max, card.id), 0) + 1,
+        bin: body.bin,
+        number: nextNumber,
+        name: body.name ?? null,
+      };
+      cards = [...cards, { ...created, active_count: 0 }];
+      return HttpResponse.json(created);
+    }),
+    http.patch(`${BACKEND_URL}/library/rotation/cards/:id`, async ({ request, params }) => {
+      const id = Number(params.id);
+      const body = (await request.json()) as { name: string | null };
+      renames.push({ id, body });
+      const card = cards.find((candidate) => candidate.id === id);
+      if (!card) return HttpResponse.json({ message: "Rotation card not found" }, { status: 404 });
+      card.name = body.name;
+      // The published card shape, without the list row's `active_count`.
+      return HttpResponse.json({ id: card.id, bin: card.bin, number: card.number, name: card.name });
+    }),
+    http.delete(`${BACKEND_URL}/library/rotation/cards/:id`, ({ params }) => {
+      const id = Number(params.id);
+      deletes.push(id);
+      cards = cards.filter((card) => card.id !== id);
+      return new HttpResponse(null, { status: 204 });
+    }),
+  );
+
+  return {
+    listRequests: () => listRequests,
+    addBodies: () => [...addBodies],
+    renameBodies: () => renames.map((rename) => ({ id: rename.id, body: rename.body })),
+    deletedIds: () => [...deletes],
   };
 }
 
