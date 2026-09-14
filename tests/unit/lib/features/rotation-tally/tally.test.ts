@@ -82,6 +82,24 @@ describe("countDistinctDeclaredHours", () => {
     expect(counts.get(7)).toBe(1);
   });
 
+  it("buckets two shows that began in the same hour together", () => {
+    // Show start times carry milliseconds. An hour floor that subtracts only
+    // minutes and seconds leaves that tail in place, and two shows opening in
+    // the same hour then occupy buckets differing by a few milliseconds --
+    // counting as two plays for a record that aired once in that hour.
+    const counts = countDistinctDeclaredHours(
+      [
+        show({ id: 1, start_time: "2026-09-10T16:32:48.800Z" }),
+        show({ id: 2, start_time: "2026-09-10T16:32:49.353Z" }),
+      ],
+      [
+        entry({ show_id: 1, rotation_id: 7, play_order: 1 }),
+        entry({ show_id: 2, rotation_id: 7, play_order: 1 }),
+      ],
+    );
+    expect(counts.get(7)).toBe(1);
+  });
+
   it("ignores entries with no rotation link", () => {
     const counts = countDistinctDeclaredHours(
       [show()],
