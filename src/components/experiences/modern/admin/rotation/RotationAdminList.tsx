@@ -181,6 +181,16 @@ function RotationAdminRow({
   );
 }
 
+/**
+ * How many killed rows mount per batch. The `status=all` read is unbounded
+ * and its killed presentation is the station's whole rotation history —
+ * thousands of rows in production — so mounting a Joy row per entry at once
+ * is the one unbounded render on this screen. A render cap only: search,
+ * filters, and every count still run over the full set, and the active
+ * section stays uncapped (bounded in practice by what's in rotation).
+ */
+const KILLED_RENDER_BATCH = 50;
+
 type RowActions = {
   cardsByBin: ReadonlyMap<RotationBin, RotationCard[]>;
   pendingRotationIds: ReadonlySet<number>;
@@ -261,6 +271,7 @@ export default function RotationAdminList(): JSX.Element {
   const [search, setSearch] = useState("");
   const [bin, setBin] = useState<RotationBin | null>(null);
   const [cardId, setCardId] = useState<number | null>(null);
+  const [killedRenderCap, setKilledRenderCap] = useState(KILLED_RENDER_BATCH);
 
   const view = useMemo(
     () => selectRotationAdminView(rows ?? [], { search, bin, cardId }),
@@ -365,9 +376,20 @@ export default function RotationAdminList(): JSX.Element {
         title="Killed"
         testId="rotation-admin-killed"
         count={view.narrowed ? `${view.killed.length} of ${view.killedTotal}` : `${view.killedTotal}`}
-        rows={view.killed}
+        rows={view.killed.slice(0, killedRenderCap)}
         actions={actions}
       />
+      {view.killed.length > killedRenderCap && (
+        <Button
+          variant="outlined"
+          color="neutral"
+          size="sm"
+          sx={{ alignSelf: "center" }}
+          onClick={() => setKilledRenderCap((cap) => cap + KILLED_RENDER_BATCH)}
+        >
+          Show {Math.min(KILLED_RENDER_BATCH, view.killed.length - killedRenderCap)} more
+        </Button>
+      )}
     </Stack>
   );
 }
