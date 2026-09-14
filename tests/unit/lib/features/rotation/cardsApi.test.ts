@@ -88,13 +88,41 @@ describe("rotationApi — rotation card CRUD", () => {
     expect(result.data).toMatchObject({ name: "Heavy Two" });
   });
 
-  describe("updateRotationRow card assignment", () => {
+  describe("row actions against the cached status=all list", () => {
     const ROTATION_BASE = `${TEST_BACKEND_URL}/library/rotation`;
 
-    // A card move changes the per-card row counts the cards surface reports,
-    // so it must reach across the RotationCards/Rotation tag split; any other
-    // field edit must not, or the split's whole point (a rename never
-    // refetches every rotation list, and vice versa) is lost.
+    // A linked row of the management list read. Its `rotation_kill_date` and
+    // `card` are the rotation row's own fields — the two the writes below
+    // are allowed to patch in place.
+    const STEREOLAB_ROW = {
+      id: 9001,
+      code_letters: "SL",
+      code_artist_number: 1,
+      code_number: 3,
+      artist_name: "Stereolab",
+      alphabetical_name: "Stereolab",
+      album_title: "Instant Holograms on Metal Film",
+      record_label: "Duophonic",
+      label_id: null,
+      genre_name: "Rock",
+      format_name: "CD",
+      rotation_id: 5001,
+      add_date: "2026-09-01",
+      rotation_add_date: "2026-09-01",
+      rotation_bin: "H",
+      rotation_kill_date: null,
+      plays: null,
+      legacy_release_id: null,
+      card: null,
+    };
+
+    // The `status=all` read is the station's whole rotation history, so the
+    // per-row writes (kill, unkill, card move) must move its rows by cache
+    // patch, never by refetching it. A card move still refetches the cards
+    // read — the per-card counts the cards surface reports live there — but
+    // any reach beyond that, in either direction across the
+    // RotationCards/Rotation tag split, is a regression these counters exist
+    // to catch.
     function installCountingHandlers() {
       const counts = { cards: 0, list: 0 };
       let requested: URL | undefined;
@@ -106,24 +134,40 @@ describe("rotationApi — rotation card CRUD", () => {
         }),
         http.get(ROTATION_BASE, () => {
           counts.list += 1;
-          return HttpResponse.json([]);
+          return HttpResponse.json([STEREOLAB_ROW]);
         }),
-        http.patch(`${ROTATION_BASE}/:id`, async ({ request }) => {
-          requested = new URL(request.url);
-          requestBody = await request.json();
+        // The bodyless-path kill (`PATCH /library/rotation`): the server
+        // stamps the date itself and answers with the updated row.
+        http.patch(ROTATION_BASE, async ({ request }) => {
+          await request.json();
           return HttpResponse.json({
             id: 5001,
             album_id: null,
             rotation_bin: "H",
             add_date: "2026-09-01",
-            kill_date: null,
+            kill_date: "2026-09-12",
+          });
+        }),
+        http.patch(`${ROTATION_BASE}/:id`, async ({ request }) => {
+          requested = new URL(request.url);
+          const body = (await request.json()) as Record<string, unknown>;
+          requestBody = body;
+          return HttpResponse.json({
+            id: 5001,
+            album_id: null,
+            rotation_bin: "H",
+            add_date: "2026-09-01",
+            kill_date: "kill_date" in body ? body.kill_date : null,
           });
         }),
       );
       return { counts, requested: () => requested, requestBody: () => requestBody };
     }
 
-    it("PATCHes {card_id} alone to /library/rotation/:id and refetches the cards read", async () => {
+    const cachedAllList = (store: ReturnType<typeof rotationStore>) =>
+      rotationApi.endpoints.getRotationList.select("all")(store.getState()).data;
+
+    it("PATCHes {card_id} alone to /library/rotation/:id, refetches the cards read, and patches the cached row's card without a list refetch", async () => {
       const handlers = installCountingHandlers();
       const store = rotationStore();
       await store.dispatch(rotationApi.endpoints.getRotationCards.initiate());
@@ -137,22 +181,72 @@ describe("rotationApi — rotation card CRUD", () => {
       expect(handlers.requestBody()).toEqual({ card_id: 3 });
       await vi.waitFor(() => {
         expect(handlers.counts.cards).toBe(2);
-        expect(handlers.counts.list).toBe(2);
+        expect(cachedAllList(store)).toEqual([{ ...STEREOLAB_ROW, card: HEAVY_2 }]);
       });
+      expect(handlers.counts.list).toBe(1);
     });
 
-    it("a non-card edit refetches the rotation list but leaves the cards read alone", async () => {
+    it("a kill_date edit patches the cached status=all row and refetches neither read", async () => {
       const handlers = installCountingHandlers();
       const store = rotationStore();
       await store.dispatch(rotationApi.endpoints.getRotationCards.initiate());
       await store.dispatch(rotationApi.endpoints.getRotationList.initiate("all"));
 
       await store.dispatch(
+        rotationApi.endpoints.updateRotationRow.initiate({
+          rotation_id: 5001,
+          kill_date: "2026-09-20",
+        }),
+      );
+
+      await vi.waitFor(() =>
+        expect(cachedAllList(store)).toEqual([
+          { ...STEREOLAB_ROW, rotation_kill_date: "2026-09-20" },
+        ]),
+      );
+      expect(handlers.counts).toEqual({ cards: 1, list: 1 });
+    });
+
+    // AC2 for the admin list: a row changes presentation through the
+    // endpoints' cache patches, so the unbounded status=all read is fetched
+    // exactly once across the whole kill-then-unkill sequence.
+    it("kill then unkill moves the cached row by patch: exactly one list GET", async () => {
+      const handlers = installCountingHandlers();
+      const store = rotationStore();
+      await store.dispatch(rotationApi.endpoints.getRotationList.initiate("all"));
+
+      await store.dispatch(rotationApi.endpoints.killRotationEntry.initiate({ rotation_id: 5001 }));
+      await vi.waitFor(() =>
+        expect(cachedAllList(store)).toEqual([
+          { ...STEREOLAB_ROW, rotation_kill_date: "2026-09-12" },
+        ]),
+      );
+
+      await store.dispatch(
         rotationApi.endpoints.updateRotationRow.initiate({ rotation_id: 5001, kill_date: null }),
+      );
+      await vi.waitFor(() => expect(cachedAllList(store)).toEqual([STEREOLAB_ROW]));
+
+      expect(handlers.counts.list).toBe(1);
+    });
+
+    // The snapshot columns of a linked list row belong to the library join,
+    // not to the rotation row the write edited, so a snapshot edit cannot be
+    // patched in place — it re-serves the list instead.
+    it("a snapshot edit re-serves the status=all list instead of patching it", async () => {
+      const handlers = installCountingHandlers();
+      const store = rotationStore();
+      await store.dispatch(rotationApi.endpoints.getRotationList.initiate("all"));
+
+      await store.dispatch(
+        rotationApi.endpoints.updateRotationRow.initiate({
+          rotation_id: 5001,
+          album_title: "Dots and Loops",
+        }),
       );
 
       await vi.waitFor(() => expect(handlers.counts.list).toBe(2));
-      expect(handlers.counts.cards).toBe(1);
+      expect(handlers.counts.cards).toBe(0);
     });
   });
 
