@@ -105,34 +105,54 @@ export function freeTextRotationMoveRequest(
 }
 
 /**
+ * One half of the list read's collapse identity: `lower(coalesce(field, ''))`
+ * — the exact normalization inside `getRotationFromDB`'s partition-key hash,
+ * mirrored precisely (lowercase only; no trim, no diacritic folding), so
+ * this module and the read agree row for row on which entries are one.
+ */
+const unlinkedIdentityPart = (value: string | null): string => (value ?? "").toLowerCase();
+
+/**
  * Every rotation_id a move of `row` into `targetBin` must retire: the moved
- * row, plus any other active row the same album already holds in the target
- * bin. `addThenRetire`'s ordering is justified by a leftover duplicate being
- * visible and recoverable — true across bins, false within one: the list
- * read is `DISTINCT ON (album_id, rotation_bin)`, so two active rows in one
- * bin collapse to a single row on every consuming surface. Moving into a bin
- * the album is already active in would stack exactly that invisible
+ * row, plus any other active row the same release already holds in the
+ * target bin. `addThenRetire`'s ordering is justified by a leftover
+ * duplicate being visible and recoverable — true across bins, false within
+ * one: the list read collapses per (identity, bin), so two active rows in
+ * one bin collapse to a single row on every consuming surface. Moving into
+ * a bin the release is already active in would stack exactly that invisible
  * duplicate; retiring the target bin's own entry alongside the source makes
- * the move the consolidation the operator sees. An unlinked row carries no
- * album identity to match duplicates by, so only the clicked row retires.
+ * the move the consolidation the operator sees.
+ *
+ * "Same release" is the read's own identity, which is per-arm: `album_id`
+ * for a linked row, and for an unlinked one the lowercased (artist_name,
+ * album_title) pair — the partition key coalesces to a hash of
+ * `lower(coalesce(artist_name,'')) || '|' || lower(coalesce(album_title,''))`
+ * in `album_id`'s absence, kept strictly negative so the two arms can never
+ * collapse with each other. The duplicate match mirrors that split exactly:
+ * a linked and an unlinked row are never each other's duplicate, however
+ * alike their titles.
  */
 export function rotationMoveRetireIds(
   rows: readonly RotationListRow[],
   row: RotationListRow,
   targetBin: RotationBin,
 ): number[] {
-  const targetBinDuplicates =
-    row.id == null
-      ? []
-      : rows
-          .filter(
-            (candidate) =>
-              candidate.rotation_id !== row.rotation_id &&
-              candidate.id === row.id &&
-              candidate.rotation_bin === targetBin &&
-              rotationRowPresentation(candidate) === "active",
-          )
-          .map((candidate) => candidate.rotation_id);
+  const sameIdentity =
+    row.id != null
+      ? (candidate: RotationListRow) => candidate.id === row.id
+      : (candidate: RotationListRow) =>
+          candidate.id == null &&
+          unlinkedIdentityPart(candidate.artist_name) === unlinkedIdentityPart(row.artist_name) &&
+          unlinkedIdentityPart(candidate.album_title) === unlinkedIdentityPart(row.album_title);
+  const targetBinDuplicates = rows
+    .filter(
+      (candidate) =>
+        candidate.rotation_id !== row.rotation_id &&
+        candidate.rotation_bin === targetBin &&
+        rotationRowPresentation(candidate) === "active" &&
+        sameIdentity(candidate),
+    )
+    .map((candidate) => candidate.rotation_id);
   return [row.rotation_id, ...targetBinDuplicates];
 }
 
