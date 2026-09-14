@@ -228,6 +228,63 @@ describe("classic VariousArtistsCard — variousArtistsCardModify.jsp", () => {
         .map((option) => option.textContent);
       expect(options).toEqual(["CD", "Vinyl"]);
     });
+
+    // A browser <select> with no matching option value displays the first
+    // <option> regardless of what state thinks is selected -- the dropdown
+    // shows "CD" before the librarian ever touches it, so the submitted
+    // format has to agree with that display rather than demanding a
+    // redundant click on the format the form is already showing.
+    it("files a release under the first format when the dropdown is never touched", async () => {
+      const user = userEvent.setup();
+      let posted: Record<string, unknown> | undefined;
+      server.use(
+        http.post(`${TEST_BACKEND_URL}/library`, async ({ request }) => {
+          posted = (await request.json()) as Record<string, unknown>;
+          return HttpResponse.json({ id: 2, code_number: 13, code_volume_letters: null });
+        }),
+      );
+
+      renderWithProviders(<VariousArtistsCard artistId={BUCKET_ID} />);
+      const form = await screen.findByTestId("va-add-release-form");
+
+      await user.type(within(form).getByLabelText(/title of release/i), "Edits");
+      await user.type(within(form).getByLabelText(/^label:/i), "self-released");
+      await user.click(within(form).getByRole("button", { name: /add a new library release/i }));
+
+      await waitFor(() => expect(posted).toBeDefined());
+      expect(posted?.format_id).toBe(1);
+      expect(
+        screen.queryByText("You must select a format before adding this release."),
+      ).toBeNull();
+    });
+
+    // The backstop guard is only reachable when there is nothing to default
+    // to -- formats failed to load, or every one of them is blank-named.
+    it("still guards on an empty format list, since there is nothing to default to", async () => {
+      server.use(
+        http.get(`${TEST_BACKEND_URL}/library/formats`, () => HttpResponse.json([])),
+      );
+      const user = userEvent.setup();
+      let posted = false;
+      server.use(
+        http.post(`${TEST_BACKEND_URL}/library`, () => {
+          posted = true;
+          return HttpResponse.json({ id: 2 });
+        }),
+      );
+
+      renderWithProviders(<VariousArtistsCard artistId={BUCKET_ID} />);
+      const form = await screen.findByTestId("va-add-release-form");
+
+      await user.type(within(form).getByLabelText(/title of release/i), "Edits");
+      await user.type(within(form).getByLabelText(/^label:/i), "self-released");
+      await user.click(within(form).getByRole("button", { name: /add a new library release/i }));
+
+      expect(
+        await screen.findByText("You must select a format before adding this release."),
+      ).toBeDefined();
+      expect(posted).toBe(false);
+    });
   });
 
   describe("the umbrella bucket", () => {
