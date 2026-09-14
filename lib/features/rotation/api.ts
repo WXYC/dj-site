@@ -296,7 +296,15 @@ export const rotationApi = createApi({
         body,
       }),
       transformErrorResponse: wrapRotationWriteError,
-      invalidatesTags: [ROTATION_LIST_TAG],
+      // A card move changes which rows sit on which card — counts the cards
+      // surface reports — so it crosses the tag wall the two registries were
+      // split by. Only a card move: the split exists so a card rename never
+      // refetches every rotation list, and the same wall must hold in
+      // reverse for a plain date or snapshot edit.
+      invalidatesTags: (_result, _error, { card_id }) =>
+        card_id === undefined
+          ? [ROTATION_LIST_TAG]
+          : [ROTATION_LIST_TAG, ROTATION_CARDS_LIST_TAG],
       async onQueryStarted({ rotation_id }, { dispatch, getState, queryFulfilled }) {
         try {
           const { data } = await queryFulfilled;

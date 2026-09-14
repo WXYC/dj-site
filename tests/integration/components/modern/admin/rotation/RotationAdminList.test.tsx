@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import {
   renderWithProviders,
@@ -249,6 +249,61 @@ describe("RotationAdminList", () => {
       "true",
     );
     expect(screen.getByRole("heading", { name: "Active (2 of 4)" })).toBeInTheDocument();
+  });
+
+  it("kills and unkills an unlinked row through the existing mutations, moving it between presentations", async () => {
+    const { fake, user } = await renderList();
+    await activeSection().findByText("Edits");
+
+    await user.click(screen.getByRole("button", { name: "Kill: Edits" }));
+
+    await killedSection().findByText("Edits");
+    expect(activeSection().queryByText("Edits")).not.toBeInTheDocument();
+    // The bodyless-path kill carries only the rotation id — the server
+    // stamps the date itself.
+    expect(fake.killBodies()).toEqual([{ rotation_id: 5004 }]);
+    expect(screen.getByRole("heading", { name: "Active (3)" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Killed (2)" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Unkill: Edits" }));
+
+    await activeSection().findByText("Edits");
+    expect(killedSection().queryByText("Edits")).not.toBeInTheDocument();
+    expect(fake.updateBodies()).toEqual([{ id: 5004, body: { kill_date: null } }]);
+    expect(screen.getByRole("heading", { name: "Active (4)" })).toBeInTheDocument();
+  });
+
+  it("unkills a catalogued killed row via kill_date: null", async () => {
+    const { fake, user } = await renderList();
+    await killedSection().findByText("Dots and Loops");
+
+    await user.click(screen.getByRole("button", { name: "Unkill: Dots and Loops" }));
+
+    await activeSection().findByText("Dots and Loops");
+    expect(fake.updateBodies()).toEqual([{ id: 5005, body: { kill_date: null } }]);
+    expect(screen.getByRole("heading", { name: "Killed (0)" })).toBeInTheDocument();
+  });
+
+  it("card select PATCHes card_id alone and refreshes the cards read", async () => {
+    const { fake, user } = await renderList();
+    await activeSection().findByText("Instant Holograms on Metal Film");
+    expect(fake.cardsRequests()).toBe(1);
+
+    await user.click(
+      screen.getByRole("combobox", { name: "Card for: Instant Holograms on Metal Film" }),
+    );
+    await user.click(await screen.findByRole("option", { name: "card 1 — Late Aug" }));
+
+    await waitFor(() =>
+      expect(fake.updateBodies()).toEqual([{ id: 5001, body: { card_id: 31 } }]),
+    );
+    // The cards surface counts rows per card, so a card move refetches it.
+    await waitFor(() => expect(fake.cardsRequests()).toBe(2));
+    await waitFor(() =>
+      expect(
+        screen.getByRole("combobox", { name: "Card for: Instant Holograms on Metal Film" }),
+      ).toHaveTextContent("card 1 — Late Aug"),
+    );
   });
 
   it("renders an outage as a retryable failure, never as an empty list", async () => {
