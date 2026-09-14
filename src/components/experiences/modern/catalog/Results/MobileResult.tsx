@@ -1,6 +1,8 @@
 "use client";
 
 import { AlbumEntry } from "@/lib/features/catalog/types";
+import { isRotationAdminEnabled } from "@/lib/features/rotation/flags";
+import { rotationLocationFor } from "@/lib/features/rotation/location";
 import IconButton from "@mui/joy/IconButton";
 import Sheet from "@mui/joy/Sheet";
 import Stack from "@mui/joy/Stack";
@@ -46,8 +48,14 @@ function CatalogMobileResult({
   // full width. Three compact icons when live, two otherwise.
   const actionClearance = live ? "92px" : "62px";
 
+  const rotationLocation = isRotationAdminEnabled()
+    ? rotationLocationFor(album.rotation_bin, album.card)
+    : null;
+
   const meta = [
-    `${album.artist.lettercode} ${album.artist.numbercode}/${album.entry}`,
+    rotationLocation
+      ? rotationLocation.label
+      : `${album.artist.lettercode} ${album.artist.numbercode}/${album.entry}`,
     album.plays != null && album.plays > 0 ? `${album.plays} plays` : null,
     album.label || null,
   ]
@@ -106,7 +114,7 @@ function CatalogMobileResult({
             rotation={album.rotation_bin}
             onStreaming={album.on_streaming}
           />
-          <Typography level="body-xs" textColor="text.tertiary">
+          <Typography level="body-xs" textColor="text.tertiary" title={rotationLocation?.title}>
             {meta}
           </Typography>
         </Stack>

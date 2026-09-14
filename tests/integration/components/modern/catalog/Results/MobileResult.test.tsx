@@ -1,7 +1,8 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createTestAlbum, createTestArtist, renderWithProviders } from "@/tests/helpers";
+import { RotationBin } from "@/lib/features/rotation/types";
 
 const mockPush = vi.fn();
 vi.mock("next/navigation", () => ({
@@ -203,5 +204,66 @@ describe("CatalogMobileResult album artwork", () => {
       await userEvent.click(screen.getByText(unlinked.title));
       expect(mockPush).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe("CatalogMobileResult rotation location", () => {
+  const ENV_KEY = "NEXT_PUBLIC_ROTATION_ADMIN_ENABLED";
+  const locationAlbum = createTestAlbum({
+    title: "On Your Own Love Again",
+    artist: createTestArtist({ name: "Jessica Pratt", lettercode: "RO", numbercode: 87 }),
+    entry: 4,
+  });
+
+  afterEach(() => {
+    delete process.env[ENV_KEY];
+  });
+
+  it("shows bin + card with a tooltip carrying the card name, and hides the call number, when the flag is on", () => {
+    process.env[ENV_KEY] = "true";
+    const rotating = createTestAlbum({
+      ...locationAlbum,
+      rotation_bin: RotationBin.H,
+      card: { id: 1, bin: RotationBin.H, number: 1, name: "Late Aug" },
+    });
+
+    renderWithProviders(
+      <CatalogMobileResult album={rotating} live={false} addToQueue={vi.fn()} />
+    );
+
+    const meta = screen.getByText(/H · card 1/);
+    expect(meta.getAttribute("title")).toBe('Heavy rotation, card 1 "Late Aug"');
+    expect(meta.textContent).not.toContain("RO 87/4");
+  });
+
+  it("degrades to the bin alone when the row is rotating but carries no card", () => {
+    process.env[ENV_KEY] = "true";
+    const rotating = createTestAlbum({
+      ...locationAlbum,
+      rotation_bin: RotationBin.S,
+      card: undefined,
+    });
+
+    renderWithProviders(
+      <CatalogMobileResult album={rotating} live={false} addToQueue={vi.fn()} />
+    );
+
+    expect(screen.getByTitle("Singles rotation").textContent).not.toContain("RO 87/4");
+  });
+
+  it("leaves a rotating row unchanged when the flag is off", () => {
+    delete process.env[ENV_KEY];
+    const rotating = createTestAlbum({
+      ...locationAlbum,
+      rotation_bin: RotationBin.M,
+      card: { id: 2, bin: RotationBin.M, number: 2 },
+    });
+
+    renderWithProviders(
+      <CatalogMobileResult album={rotating} live={false} addToQueue={vi.fn()} />
+    );
+
+    expect(screen.getByText(/RO 87\/4/)).toBeDefined();
+    expect(screen.queryByText(/M · card 2/)).toBeNull();
   });
 });

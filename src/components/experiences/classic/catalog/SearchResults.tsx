@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSearchCatalogQuery } from "@/lib/features/catalog/api";
+import { isRotationAdminEnabled } from "@/lib/features/rotation/flags";
+import { rotationLocationFor } from "@/lib/features/rotation/location";
 import { MatchedTrackChips } from "./MatchedTrackChips";
 
 export default function SearchResults() {
@@ -115,7 +117,11 @@ export default function SearchResults() {
           </tr>
         </thead>
         <tbody>
-          {results.map((result, index) => (
+          {results.map((result, index) => {
+            const rotationLocation = isRotationAdminEnabled()
+              ? rotationLocationFor(result.rotation_bin, result.card)
+              : null;
+            return (
             <tr
               key={result.id}
               className={`entry-row ${
@@ -124,8 +130,14 @@ export default function SearchResults() {
             >
               <td>{result.artist?.genre ?? ""}</td>
               <td>
-                {result.artist?.lettercode} {result.artist?.numbercode}/
-                {result.entry}
+                {rotationLocation ? (
+                  <b title={rotationLocation.title}>{rotationLocation.label}</b>
+                ) : (
+                  <>
+                    {result.artist?.lettercode} {result.artist?.numbercode}/
+                    {result.entry}
+                  </>
+                )}
               </td>
               <td>
                 {/*
@@ -184,7 +196,8 @@ export default function SearchResults() {
               </td>
               <td>{result.format}</td>
             </tr>
-          ))}
+            );
+          })}
         </tbody>
       </table>
       <div className="live-results-status">
