@@ -80,16 +80,25 @@ function CardPicker({ bin, value, onChange }: CardPickerProps) {
   const effectiveValue = keepCallerValue ? value : (newestCard(binCards)?.id ?? null);
 
   // Pushes a changed default up to the parent. At most one write per
-  // (bin, cards) change: the latch, not the deps, bounds the writes, so a
-  // parent that re-renders with a fresh `onChange` identity -- or refuses
-  // the value outright -- can never loop this effect. No write happens when
-  // the derived selection already equals `value` (an empty bin with nothing
-  // selected stays silent).
+  // (bin, cards) change *or observed `value` move: the latch, not the deps,
+  // bounds the writes, so a parent that re-renders with a fresh `onChange`
+  // identity -- or refuses the value outright -- can never loop this effect.
+  // A `value` move re-arms the latch because it is the discriminator between
+  // "the parent rejected our default" (value never moved; stay latched) and
+  // "the parent deliberately cleared or changed it" (e.g. a form reset
+  // between filings with the bin unchanged), which must get the default
+  // re-pushed or the pressed chip diverges from what a submit would save. A
+  // refusing parent never moves `value`, so it never re-arms. No write
+  // happens when the derived selection already equals `value` (an empty bin
+  // with nothing selected stays silent).
   const pushedForRef = useRef<{ bin: RotationBin; cards: RotationCard[] } | null>(null);
+  const lastValueRef = useRef(value);
   useEffect(() => {
     if (!cards) return;
+    const valueMoved = lastValueRef.current !== value;
+    lastValueRef.current = value;
     const pushed = pushedForRef.current;
-    if (pushed && pushed.bin === bin && pushed.cards === cards) return;
+    if (!valueMoved && pushed && pushed.bin === bin && pushed.cards === cards) return;
     pushedForRef.current = { bin, cards };
     if (effectiveValue !== value) onChange(effectiveValue);
   }, [bin, cards, effectiveValue, value, onChange]);
