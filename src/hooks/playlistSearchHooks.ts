@@ -11,11 +11,24 @@ import {
   type SortOrder,
 } from "@/lib/features/playlist-search/frontend";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
+import { useDebouncedValue } from "@/src/hooks/useDebouncedValue";
 import { useCallback, useMemo, useRef } from "react";
 import type { PlaylistSearchResult } from "@wxyc/shared";
 
 export const MIN_QUERY_LENGTH = 2;
 const LIMIT = 50;
+
+/**
+ * How long the typed query settles before it is fetched.
+ *
+ * tubafrenzy's `playlist-search.js` held the same 300ms (`f = 300`) between the
+ * last keystroke and `triggerSearch`, and the delay is doing more work than
+ * sparing the endpoint: re-keying rebuilds the results table under the reader,
+ * and a row is a full-width click target, so a click meant for the search box
+ * lands on whichever row slid beneath the pointer. A two-finger typist hits
+ * that on nearly every search.
+ */
+const SEARCH_DEBOUNCE_MS = 300;
 
 /**
  * The empty query is the canonical "recent playlists" listing, not the absence
@@ -96,7 +109,13 @@ function usePlaylistSearchKey() {
   const sortBy = useAppSelector(playlistSearchSlice.selectors.getSortBy);
   const sortOrder = useAppSelector(playlistSearchSlice.selectors.getSortOrder);
 
-  const effectiveQuery = useMemo(() => buildQuery(rows), [rows]);
+  const typedQuery = useMemo(() => buildQuery(rows), [rows]);
+
+  // Only the query settles; `rows` stays live, so the input it controls never
+  // lags the keystroke. Everything downstream reads the settled value, which is
+  // what keeps "Found N results" describing the search that actually ran rather
+  // than the one still being typed.
+  const effectiveQuery = useDebouncedValue(typedQuery, SEARCH_DEBOUNCE_MS);
 
   // A single-character partial isn't worth a request; an empty query is the
   // "show recent tracks" default and must fire.
