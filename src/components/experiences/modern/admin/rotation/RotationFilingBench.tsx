@@ -100,11 +100,16 @@ export default function RotationFilingBench(): JSX.Element {
     codeLettersTooLong,
     alphabeticalNameTooLong,
     codeNumberInvalid,
-  } = validateNewArtistFields({
-    alphabeticalName,
-    codeLetters: codeLettersField.value,
-    codeNumberRaw,
-  });
+  } = validateNewArtistFields(
+    {
+      alphabeticalName,
+      codeLetters: codeLettersField.value,
+      codeNumberRaw,
+    },
+    // The bench files compilations at code_number 0, so a deliberate 0 is a
+    // legal number here rather than an invalid one.
+    { allowZeroCodeNumber: true },
+  );
 
   // See isGenresUnavailable for why this reads absence-of-list rather than
   // isError. The predicate is shape-generic despite its name, and the format
@@ -154,7 +159,13 @@ export default function RotationFilingBench(): JSX.Element {
     dedup.existingArtist === null &&
     !dedup.dedupCheckStale;
 
-  const canSubmit =
+  // At least one of `label`/`label_id` is contractually required on the
+  // release (AlbumCreateFields); the bench only ever sends `label`, so a blank
+  // one is a guaranteed 400 the bench could not name a reason for. Surfaced
+  // inline once the rest of the form is ready, so the red field is the one
+  // thing between the MD and a submit rather than noise on an empty form.
+  const labelMissing = label.trim().length === 0;
+  const readyExceptLabel =
     !isFiling &&
     conflict === null &&
     genreId !== null &&
@@ -164,20 +175,42 @@ export default function RotationFilingBench(): JSX.Element {
     !artistTooLong &&
     (selectedArtist !== null || createFieldsReady);
 
+  // A rotation entry has to land on a card. CardPicker resolves the bin's
+  // default only after the cards read returns and pushes it up, so `cardId` is
+  // null for the whole load window and permanently if that read fails. A write
+  // precondition fails closed: submit stays disabled until the card is on hand
+  // (the picker's Retry row is the recovery path), never filing a cardless row
+  // that would be physically unfindable.
+  const cardMissing = bin !== null && cardId === null;
+
+  const canSubmit = readyExceptLabel && !labelMissing && !cardMissing;
+
+  // Editing or replacing the artist reopens either artist-scoped conflict. A
+  // name conflict is keyed on the name being edited; a code conflict is
+  // cleared here too because in the bench the remedy the contract prescribes —
+  // pick the existing artist instead of creating one — begins with editing
+  // this field, and `handleArtistSelected` finishing that gesture must not
+  // find a code conflict still holding the submit shut. A card mismatch has
+  // nothing to do with the artist, so it survives.
+  const clearArtistConflict = () => {
+    setConflict((current) =>
+      current?.data.reason === "rotation_card_bin_mismatch" ? current : null,
+    );
+  };
+
   const handleArtistTextChange = (value: string) => {
     setArtistText(value);
     dedup.onNameChange(value);
-    // A name conflict is keyed on the name itself: editing it is the remedy,
-    // so the block lifts here. A standing code or card conflict is untouched
-    // — its fields have nothing to do with the name.
-    setConflict((current) =>
-      current?.data.reason === "artist_name_conflict" ? null : current,
-    );
+    clearArtistConflict();
   };
 
   const handleArtistSelected = (artist: ArtistInGenreOption) => {
     setSelectedArtist(artist);
     setCreating(false);
+    // Resolving an artist 409 by picking the existing artist unmounts the
+    // create panel and its banner; without clearing the conflict the submit
+    // would stay disabled with nothing on screen explaining why.
+    clearArtistConflict();
     dedup.onArtistSelected(artist);
   };
 
@@ -397,6 +430,7 @@ export default function RotationFilingBench(): JSX.Element {
                   disabled={isFiling}
                   conflict={artistConflict}
                   autoFillCodeNumber
+                  allowZeroCodeNumber
                 />
               </Sheet>
             )}
@@ -411,13 +445,16 @@ export default function RotationFilingBench(): JSX.Element {
             </FormControl>
 
             <Stack direction="row" spacing={1.5}>
-              <FormControl sx={{ flex: 1 }}>
+              <FormControl sx={{ flex: 1 }} error={readyExceptLabel && labelMissing}>
                 <FormLabel>Label</FormLabel>
                 <Input
                   value={label}
                   disabled={isFiling}
                   onChange={(e) => setLabel(e.target.value)}
                 />
+                {readyExceptLabel && labelMissing && (
+                  <FormHelperText>Missing the label</FormHelperText>
+                )}
               </FormControl>
               <FormControl sx={{ flex: 1 }}>
                 <FormLabel>Format</FormLabel>

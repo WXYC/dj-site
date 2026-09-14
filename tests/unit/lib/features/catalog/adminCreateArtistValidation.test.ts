@@ -151,13 +151,28 @@ describe("validateNewArtistFields", () => {
     expect(result.codeNumber).toBe(CODE_NUMBER_MAX);
   });
 
-  it("accepts a deliberate 0 rather than client-validating it away", () => {
+  it("accepts a deliberate 0 with the opt-in, the compilation bucket's own number", () => {
     // 0 is a legal server-side code — the compilation bucket lives at
-    // artist_genre_code = 0, and Backend-Service imposes no floor above it.
-    const result = validateNewArtistFields({ ...valid, codeNumberRaw: "0" });
+    // artist_genre_code = 0, and Backend-Service imposes no floor above it —
+    // so the filing bench opts in to accepting it.
+    const result = validateNewArtistFields(
+      { ...valid, codeNumberRaw: "0" },
+      { allowZeroCodeNumber: true },
+    );
 
     expect(result.codeNumber).toBe(0);
     expect(result.codeNumberInvalid).toBe(false);
+  });
+
+  it("rejects 0 by default, the artist-add form's positive-only field", () => {
+    // Without the opt-in the validator stays positive: the artist-add form
+    // files real artists, never the compilation bucket, so a stray 0 there is
+    // a typo to catch rather than a code to file.
+    const result = validateNewArtistFields({ ...valid, codeNumberRaw: "0" });
+
+    expect(result.parsedCodeNumber).toBeNull();
+    expect(result.codeNumber).toBeNull();
+    expect(result.codeNumberInvalid).toBe(true);
   });
 
   it("does not report an untouched code number as invalid", () => {

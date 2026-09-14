@@ -1288,7 +1288,12 @@ describe("ArtistAddForm", () => {
       );
     });
 
-    it("reuses parseRequiredNonNegativeInt to reject a non-numeric code number", async () => {
+    it.each([
+      // A non-numeric code, and a 0 — the compilation bucket the bench files
+      // but this positive-only form must not, so a stray 0 is caught here.
+      ["a non-numeric", "abc"],
+      ["a 0", "0"],
+    ])("blocks submission on %s code number", async (_label, codeNumberRaw) => {
       mockAddArtist(() => created());
       const { user } = renderWithProviders(<ArtistAddForm />);
 
@@ -1297,7 +1302,7 @@ describe("ArtistAddForm", () => {
       const nameInput = await screen.findByPlaceholderText("Search artists...");
       await user.type(nameInput, "Juana Molina");
       await user.type(screen.getByLabelText(/call letters/i), MOLINA);
-      await user.type(screen.getByLabelText("Code number"), "abc");
+      await user.type(screen.getByLabelText("Code number"), codeNumberRaw);
 
       expect(screen.getByRole("button", { name: /add artist/i })).toBeDisabled();
     });

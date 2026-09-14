@@ -1,6 +1,6 @@
 "use client";
 
-import { useLayoutEffect, useRef } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import {
   FormControl,
   FormHelperText,
@@ -80,13 +80,20 @@ export type NewArtistFieldsProps = {
   disabled: boolean;
   conflict: NewArtistConflict | null;
   /**
-   * Bench-style auto-fill (epic decision 5): while the code-number draft is
-   * empty the field renders the live peeked number, and the caller's
+   * Bench-style auto-fill (epic decision 5): before the MD has touched the
+   * code-number field it renders the live peeked number, and the caller's
    * submission omits `code_number` so the server assigns exactly what was
    * previewed. Off by default — the artist-add form keeps its typed-only
    * field, whose submit endpoint still requires the number.
    */
   autoFillCodeNumber?: boolean;
+  /**
+   * Accept a deliberate 0 as the code number (the compilation bucket lives at
+   * `artist_genre_code = 0`, and Backend-Service imposes no floor above it).
+   * Off by default: the artist-add form keeps its positive-only field, so a
+   * stray 0 there is caught rather than filed into the compilation bucket.
+   */
+  allowZeroCodeNumber?: boolean;
 };
 
 /**
@@ -112,6 +119,7 @@ function NewArtistFields({
   disabled,
   conflict,
   autoFillCodeNumber = false,
+  allowZeroCodeNumber = false,
 }: NewArtistFieldsProps) {
   const codeLettersInputRef = useRef<HTMLInputElement | null>(null);
   const {
@@ -119,11 +127,14 @@ function NewArtistFields({
     codeLettersTooLong,
     codeNumberInvalid,
     parsedCodeNumber,
-  } = validateNewArtistFields({
-    alphabeticalName,
-    codeNumberRaw,
-    codeLetters: codeLettersField.value,
-  });
+  } = validateNewArtistFields(
+    {
+      alphabeticalName,
+      codeNumberRaw,
+      codeLetters: codeLettersField.value,
+    },
+    { allowZeroCodeNumber },
+  );
 
   // One owner for the peeked number: this hook's RTK cache subscription. The
   // "Next code" line and the auto-filled field value below both derive from
@@ -131,16 +142,27 @@ function NewArtistFields({
   // rules out mirroring the peek into state by effect.
   const peek = useArtistCodePeek(codeLettersField.value, genreId);
 
-  // Dirty is the draft being non-empty — no separate flag, so there is
-  // nothing to fall out of sync. A dirty draft renders and survives every
-  // peek refresh untouched; clearing the field returns it to the live peek,
-  // which is honest rather than sticky: an empty draft submits no
-  // code_number, so the number shown is the number the server would assign.
+  // Whether the MD has touched the code-number field, tracked separately from
+  // whether the draft is currently non-empty. Once touched, the field is a
+  // plain controlled input showing exactly `codeNumberRaw`: clearing it stays
+  // cleared (no snap-back to the peek that would drop the caret at the end and
+  // make the next keystroke concatenate onto a number the MD tried to delete),
+  // and an empty touched draft still submits no `code_number`, so the server
+  // assigns the number the "Next code" line previews. Before the first touch
+  // the field renders the live peek.
+  const [codeNumberTouched, setCodeNumberTouched] = useState(false);
   const autoFillValue =
     autoFillCodeNumber && !peek.pending && !peek.isError && peek.nextCodeNumber != null
       ? String(peek.nextCodeNumber)
       : "";
-  const codeNumberValue = codeNumberRaw !== "" ? codeNumberRaw : autoFillValue;
+  const codeNumberValue = codeNumberTouched ? codeNumberRaw : autoFillValue;
+
+  const handleCodeNumberChange = (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    setCodeNumberTouched(true);
+    onCodeNumberChange(event.target.value);
+  };
 
   // Puts the caret back where the edit left it. React writes the normalized
   // value into the node during the commit's mutation phase, which is the write
@@ -214,7 +236,7 @@ function NewArtistFields({
         <Input
           value={codeNumberValue}
           disabled={disabled}
-          onChange={(e) => onCodeNumberChange(e.target.value)}
+          onChange={handleCodeNumberChange}
           placeholder="e.g. 42"
         />
         {codeNumberInvalid && (
