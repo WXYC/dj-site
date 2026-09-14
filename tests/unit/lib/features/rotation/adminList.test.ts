@@ -268,12 +268,49 @@ describe("rotationMoveRetireIds", () => {
     expect(rotationMoveRetireIds([moved, killedDuplicate], moved, RotationBin.M)).toEqual([5001]);
   });
 
-  it("never matches duplicates for an unlinked row — no album identity to match on", () => {
+  it("matches unlinked duplicates by the lowercased (artist, title) pair — the list read's own collapse key", () => {
     const movedUnlinked = unlinked({ rotation_id: 5004, rotation_bin: RotationBin.M });
-    const otherUnlinked = unlinked({ rotation_id: 5008, rotation_bin: RotationBin.L });
-    expect(rotationMoveRetireIds([movedUnlinked, otherUnlinked], movedUnlinked, RotationBin.L)).toEqual(
+    const sameSnapshot = unlinked({
+      rotation_id: 5008,
+      rotation_bin: RotationBin.L,
+      artist_name: "CHUQUIMAMANI-CONDORI",
+      album_title: "edits",
+    });
+    const differentTitle = unlinked({
+      rotation_id: 5009,
+      rotation_bin: RotationBin.L,
+      album_title: "DJ E",
+    });
+    expect(
+      rotationMoveRetireIds(
+        [movedUnlinked, sameSnapshot, differentTitle],
+        movedUnlinked,
+        RotationBin.L,
+      ),
+    ).toEqual([5004, 5008]);
+  });
+
+  it("never collapses the linked and unlinked arms into each other, however alike their titles", () => {
+    const movedUnlinked = unlinked({ rotation_id: 5004, rotation_bin: RotationBin.M });
+    const linkedTwin = row({
+      rotation_id: 5008,
+      rotation_bin: RotationBin.L,
+      artist_name: "Chuquimamani-Condori",
+      album_title: "Edits",
+    });
+    expect(rotationMoveRetireIds([movedUnlinked, linkedTwin], movedUnlinked, RotationBin.L)).toEqual(
       [5004],
     );
+    const movedLinked = row({ rotation_id: 5001, rotation_bin: RotationBin.H });
+    const unlinkedTwin = unlinked({
+      rotation_id: 5009,
+      rotation_bin: RotationBin.M,
+      artist_name: "Stereolab",
+      album_title: "Instant Holograms on Metal Film",
+    });
+    expect(rotationMoveRetireIds([movedLinked, unlinkedTwin], movedLinked, RotationBin.M)).toEqual([
+      5001,
+    ]);
   });
 });
 
