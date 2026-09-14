@@ -33,6 +33,7 @@ describe("classic Music Department menu — mainmenu.jsp", () => {
     { label: "Missing Releases", href: "/dashboard/library/missing" },
     { label: "Rotation Releases", href: "/dashboard/rotation" },
     { label: "Add Rotation Releases", href: "/dashboard/rotation/new" },
+    { label: "Format Tallysheets", href: "/dashboard/rotation/tallysheet" },
   ])("links $label to $href", ({ label, href }) => {
     renderWithProviders(<MusicDepartmentMenu />);
 
@@ -52,6 +53,7 @@ describe("classic Music Department menu — mainmenu.jsp", () => {
       "\u00a0",
       "Rotation Releases",
       "Add Rotation Releases",
+      "Format Tallysheets",
       "Log Out",
     ]);
   });
@@ -82,12 +84,11 @@ describe("classic Music Department menu — mainmenu.jsp", () => {
     ).toEqual(["Search for Artists & Releases:"]);
   });
 
-  // Entries whose dj-site screens do not exist: the rotation tallysheet was
-  // retired rather than rebuilt, and the rest are unbuilt. This screen must
-  // not grow a dead link to any of them — the same precedent MissingReleases
-  // set for a JSP link with no dj-site destination.
+  // Entries whose dj-site screens do not exist. This screen must not grow a
+  // dead link to any of them — the same precedent MissingReleases set for a
+  // JSP link with no dj-site destination. Format Tallysheets has left this
+  // list: it has a screen now, and is asserted present above.
   it.each([
-    /tallysheet/i,
     /manage labels/i,
     /rebuild search indexes/i,
     /admin settings/i,
@@ -145,6 +146,7 @@ describe("cross-reference entries", () => {
       "\u00a0",
       "Rotation Releases",
       "Add Rotation Releases",
+      "Format Tallysheets",
       "Log Out",
     ]);
   });

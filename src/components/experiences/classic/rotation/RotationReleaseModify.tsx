@@ -499,10 +499,9 @@ function DateSelect({
 }
 
 /**
- * `rotationReleaseModify.jsp`'s header links. Its "Format Tallysheets" and
- * "Undo Last Change" entries are dropped: no tallysheet screen exists here,
- * and no endpoint reverses a rotation write, so both would be dead controls
- * rather than working ones under a different name.
+ * `rotationReleaseModify.jsp`'s header links. "Undo Last Change" is dropped:
+ * no endpoint reverses a rotation write, so it would be a dead control rather
+ * than a working one under a different name.
  */
 function Chrome({ children }: { children: React.ReactNode }) {
   return (
@@ -511,6 +510,8 @@ function Chrome({ children }: { children: React.ReactNode }) {
         <Link href="/dashboard/rotation">Rotation Release List</Link>
         &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
         <Link href="/dashboard/rotation/new">Add Rotation Release</Link>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        <Link href="/dashboard/rotation/tallysheet">Format Tallysheets</Link>
       </div>
       {children}
     </div>

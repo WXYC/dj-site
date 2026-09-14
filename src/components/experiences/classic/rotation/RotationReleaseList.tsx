@@ -319,10 +319,10 @@ function UnavailableFacet() {
  *   menu itself, but it is MD-gated while this screen is DJ-accessible, so
  *   pointing "Main Menu" there would bounce a DJ off the menu it just
  *   offered him.
- * - "Format Tallysheets" is dropped entirely, matching `MissingReleases`'
- *   precedent for a JSP link with no dj-site destination: no tallysheet
- *   screen exists here, so the alternative would be a dead link rather than
- *   a working one under a different name.
+ * - "Format Tallysheets" carries the JSP's label to the weekly summary. That
+ *   screen compiles its figures from the flowsheet on read rather than from
+ *   stored, hand-corrected counts, so it is the JSP's report without the
+ *   sheet the music director edited first.
  * Edit, Import, Kill and Unkill are all the JSP's own row actions, and each
  * one has a destination or an endpoint behind it. Edit is offered on every
  * row, including a catalogued one: the two dates stay writable there even
@@ -373,6 +373,8 @@ export default function RotationReleaseList({ statusFilter }: { statusFilter: Ro
     <div>
       <div className="label" style={{ textAlign: "center", padding: "10px 0" }}>
         <Link href="/dashboard/rotation/new">Add Rotation Release</Link>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        <Link href="/dashboard/rotation/tallysheet">Format Tallysheets</Link>
         &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
         <Link href="/dashboard/catalog">Main Menu</Link>
       </div>

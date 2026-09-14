@@ -12,10 +12,9 @@ import MusicDepartmentSearchForm from "./MusicDepartmentSearchForm";
  * list styling. The JSP renders no on-page heading -- its `<title>` is just
  * `WXYC` -- so neither does this.
  *
- * Four of the JSP's entries are absent because dj-site has no screen behind
- * them: Format Tallysheets (the rotation tallysheet was retired, not
- * rebuilt), Manage Labels, Rebuild Search Indexes and Admin Settings. A dead
- * link would be the only alternative.
+ * Three of the JSP's entries are absent because dj-site has no screen behind
+ * them: Manage Labels, Rebuild Search Indexes and Admin Settings. A dead link
+ * would be the only alternative.
  *
  * The two cross-reference views do have screens, but their entries are
  * flag-gated: Backend-Service serves their endpoints only once
@@ -56,6 +55,7 @@ function menuGroups(): MenuLink[][] {
     [
       { href: "/dashboard/rotation", title: "Rotation Releases" },
       { href: "/dashboard/rotation/new", title: "Add Rotation Releases" },
+      { href: "/dashboard/rotation/tallysheet", title: "Format Tallysheets" },
     ],
   ];
 }
