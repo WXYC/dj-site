@@ -18,6 +18,7 @@ import {
 import {
   ROTATION_BINS,
   ROTATION_BIN_LABELS,
+  type RotationBin,
   type RotationCardWithCount,
 } from "@/lib/features/rotation/types";
 import { rotationWriteErrorMessage } from "@/lib/features/rotation/writeErrorMessage";
@@ -104,7 +105,7 @@ function CardRow({
           title={
             deletable
               ? undefined
-              : "Only a bin's last card can be deleted, and only when it holds no active releases."
+              : "Only a bin's last card can be deleted, when it holds no active releases — and never its only card."
           }
           onClick={onDelete}
         >
@@ -132,6 +133,12 @@ export default function CardsManager(): JSX.Element {
   const [updateRotationCard] = useUpdateRotationCardMutation();
   const [deleteRotationCard] = useDeleteRotationCardMutation();
   const [pendingCardIds, setPendingCardIds] = useState<ReadonlySet<number>>(() => new Set());
+  // The one write here that predates its card: there is no card id for
+  // `withPendingCard` to key on until the server answers, so the in-flight
+  // guard keys on the bin instead. Without it a second click fires a second
+  // create — a phantom card the physical bin doesn't have, which every
+  // omitted-card_id rotation add then lands on.
+  const [pendingAddBin, setPendingAddBin] = useState<RotationBin | null>(null);
 
   const cardsByBin = useMemo(() => groupRotationCardsByBin(cards ?? []), [cards]);
 
@@ -178,8 +185,9 @@ export default function CardsManager(): JSX.Element {
       }
     });
 
-  const addCard = (bin: (typeof ROTATION_BINS)[number]) =>
+  const addCard = (bin: RotationBin) =>
     void (async () => {
+      setPendingAddBin(bin);
       try {
         const created = await addRotationCard({ bin }).unwrap();
         // The server's assignment, echoed — never a locally computed max+1.
@@ -190,6 +198,8 @@ export default function CardsManager(): JSX.Element {
             `Couldn't add a card to ${ROTATION_BIN_LABELS[bin]}. Please try again.`,
           );
         }
+      } finally {
+        setPendingAddBin(null);
       }
     })();
 
@@ -255,6 +265,11 @@ export default function CardsManager(): JSX.Element {
                 size="sm"
                 startDecorator={<Add fontSize="small" />}
                 aria-label={`Add a card to ${ROTATION_BIN_LABELS[bin]}`}
+                // Every bin's affordance waits, not just the clicked one: the
+                // number the toast echoes is the server's assignment, and two
+                // concurrent creates would race for it.
+                disabled={pendingAddBin != null}
+                loading={pendingAddBin === bin}
                 onClick={() => addCard(bin)}
               >
                 Add card

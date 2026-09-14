@@ -327,6 +327,58 @@ describe("rotationApi — rotation card CRUD", () => {
     });
   });
 
+  describe("card CRUD and the rotation lists", () => {
+    // The tag wall's reverse direction. Four membership mutations now list
+    // both tags, which makes "add the Rotation tag here too" an easy future
+    // mistake on the card CRUD's own writes — and a card add or rename that
+    // refetched every rotation list is exactly the coupling the two-registry
+    // split exists to prevent. A card write changes no album's membership,
+    // so a mounted rotation list must sit out all three.
+    type Store = ReturnType<typeof rotationStore>;
+    it.each<[string, (store: Store) => Promise<unknown>]>([
+      [
+        "addRotationCard",
+        (store) => store.dispatch(rotationApi.endpoints.addRotationCard.initiate({ bin: "H" })),
+      ],
+      [
+        "updateRotationCard",
+        (store) =>
+          store.dispatch(rotationApi.endpoints.updateRotationCard.initiate({ id: 3, name: "Two" })),
+      ],
+      [
+        "deleteRotationCard",
+        (store) => store.dispatch(rotationApi.endpoints.deleteRotationCard.initiate(3)),
+      ],
+    ])("%s leaves a mounted rotation list unrefetched", async (_name, dispatchWrite) => {
+      const counts = { cards: 0, list: 0 };
+      server.use(
+        http.get(BASE, () => {
+          counts.cards += 1;
+          return HttpResponse.json([HEAVY_2]);
+        }),
+        http.get(`${TEST_BACKEND_URL}/library/rotation`, () => {
+          counts.list += 1;
+          return HttpResponse.json([]);
+        }),
+        http.post(BASE, () => HttpResponse.json(HEAVY_2, { status: 201 })),
+        http.patch(`${BASE}/:id`, () => HttpResponse.json({ ...HEAVY_2, name: "Two" })),
+        http.delete(`${BASE}/:id`, () => new HttpResponse(null, { status: 204 })),
+      );
+
+      const store = rotationStore();
+      await store.dispatch(rotationApi.endpoints.getRotationCards.initiate());
+      await store.dispatch(rotationApi.endpoints.getRotationList.initiate("all"));
+
+      await dispatchWrite(store);
+
+      // The cards read refetching first proves the invalidation cycle ran to
+      // completion before the list count is judged — a same-tick assertion
+      // could pass while a wrong refetch was still scheduled.
+      await vi.waitFor(() => expect(counts.cards).toBe(2));
+      expect(counts.list).toBe(1);
+    });
+  });
+
   it("DELETEs /library/rotation/cards/:id", async () => {
     let requested: URL | undefined;
     let method: string | undefined;

@@ -110,6 +110,42 @@ describe("CardsManager", () => {
     );
   });
 
+  it("locks every Add card affordance while a create is in flight", async () => {
+    const { user } = await renderCards();
+    await heavyColumn().findByTestId("rotation-card-31");
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let posts = 0;
+    server.use(
+      http.post(`${TEST_BACKEND_URL}/library/rotation/cards`, async () => {
+        posts += 1;
+        await gate;
+        return HttpResponse.json({ id: 99, bin: "H", number: 3, name: null }, { status: 201 });
+      }),
+    );
+
+    const addToHeavy = heavyColumn().getByRole("button", { name: "Add a card to Heavy" });
+    await user.click(addToHeavy);
+
+    // A second accepted click would file a phantom card the physical bin
+    // doesn't have — and every omitted-card_id rotation add then lands on
+    // it. Every bin's affordance waits, not just the clicked one: the toast
+    // echoes the server's number assignment, which concurrent creates race.
+    await waitFor(() => expect(addToHeavy).toBeDisabled());
+    expect(
+      within(screen.getByTestId("rotation-cards-bin-M")).getByRole("button", {
+        name: "Add a card to Medium",
+      }),
+    ).toBeDisabled();
+
+    release();
+    await waitFor(() => expect(toastSuccessMock).toHaveBeenCalledWith("Added card 3 to Heavy."));
+    await waitFor(() => expect(addToHeavy).toBeEnabled());
+    expect(posts).toBe(1);
+  });
+
   it("enables delete only for a bin's last, empty card", async () => {
     const { fake, user } = await renderCards();
     await heavyColumn().findByTestId("rotation-card-31");

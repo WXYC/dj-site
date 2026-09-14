@@ -26,18 +26,26 @@ export function groupRotationCardsByBin<Card extends RotationCard>(
 }
 
 /**
- * Whether the delete affordance is live: the server's own conjunctive guard
- * — highest-numbered in its bin AND zero active rows — mirrored so the UI
- * disables rather than inviting a write that will be refused. The 409 stays
- * reachable as the race backstop (another MD adds a card or files a row
- * between this render and the click), never as the normal path.
+ * Whether the delete affordance is live. Two clauses mirror the server's own
+ * conjunctive guard — highest-numbered in its bin AND zero active rows — so
+ * the UI disables rather than inviting a write that will be refused, with
+ * the 409 kept reachable as the race backstop (another MD adds a card or
+ * files a row between this render and the click), never as the normal path.
+ * The third clause is this surface's own: a bin's only card is never
+ * deletable, even empty. A bin emptied of cards has no "newest card" for
+ * the server to default an omitted rotation-add `card_id` onto, and the
+ * admin list drops that bin's card controls entirely — a state the
+ * contiguous-1…N numbering rule exists to keep unreachable, and one the
+ * server would accept, so no 409 backstops it.
  */
 export function canDeleteRotationCard(
   card: RotationCardWithCount,
   binCards: readonly RotationCard[],
 ): boolean {
   return (
-    card.active_count === 0 && binCards.every((sibling) => sibling.number <= card.number)
+    card.active_count === 0 &&
+    binCards.length > 1 &&
+    binCards.every((sibling) => sibling.number <= card.number)
   );
 }
 
