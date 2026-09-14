@@ -1,4 +1,4 @@
-import { RotationBin, type RotationRowSummary } from "@wxyc/shared/dtos";
+import { RotationBin, type RotationCard, type RotationRowSummary } from "@wxyc/shared/dtos";
 
 export { RotationBin };
 
@@ -69,6 +69,8 @@ export type RotationListRow = {
   rotation_kill_date: string | null;
   plays: number | null;
   legacy_release_id: number | null;
+  card: RotationCard | null;
+  urls: string[];
 };
 
 /**
@@ -153,6 +155,11 @@ export type UpdateRotationArgs = {
  * from it. Both are optional-and-omitted rather than nullable: Backend picks
  * them with `!= null`, so an explicit `null` reads as absent, and a caller
  * that means "no label" must leave the key off rather than send one.
+ *
+ * Still hand-declared as of `@wxyc/shared@5.4.0`: the published
+ * `AddRotationRequest` still requires `album_id: number` and has not been
+ * widened for this free-text path (wxyc-shared#354). Delete this type in
+ * favor of the generated one once that widening ships.
  */
 export type FreeTextRotationAddRequest = {
   rotation_bin: RotationBin;

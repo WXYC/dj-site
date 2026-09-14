@@ -186,7 +186,7 @@ function ActiveFacet({
   onUnkill: (rotationId: number) => void;
   pendingRotationIds: ReadonlySet<number>;
 }) {
-  const { data, isLoading, isFetching, isError, refetch } = useGetRotationListQuery();
+  const { data, isLoading, isFetching, isError, refetch } = useGetRotationListQuery("active");
 
   // Absence-of-list, not the error flag: a background refetch can leave
   // isError true while the last-good rows are still on screen, and a
