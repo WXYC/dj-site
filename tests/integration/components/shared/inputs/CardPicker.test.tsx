@@ -1,7 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { useState } from "react";
 import { screen, waitFor } from "@testing-library/react";
-import { renderWithProviders } from "@/tests/helpers";
+import { http, HttpResponse } from "msw";
+import { renderWithProviders, server, TEST_BACKEND_URL } from "@/tests/helpers";
 import { fakeRotationCardsEndpoints, type FakeRotationCard } from "@/tests/fakes/rotation";
 import type { RotationBin } from "@wxyc/shared";
 
@@ -54,7 +55,7 @@ describe("CardPicker", () => {
     await user.click(screen.getByRole("button", { name: "+ new card" }));
 
     await waitFor(() => expect(screen.getByRole("button", { name: "3" })).toBeDefined());
-    expect(selected()).not.toBe("2");
+    expect(selected()).toBe("4");
   });
 
   it("resets the selection to the new bin's newest card when bin changes", async () => {
@@ -66,5 +67,32 @@ describe("CardPicker", () => {
     rerender(<Harness bin="M" />);
 
     await waitFor(() => expect(selected()).toBe("3"));
+  });
+
+  it("clears the selection when the new bin has no cards", async () => {
+    fakeRotationCardsEndpoints(CARDS);
+    const { rerender } = renderWithProviders(<Harness bin="H" />);
+
+    await waitFor(() => expect(selected()).toBe("2"));
+
+    rerender(<Harness bin="L" />);
+
+    await waitFor(() => expect(selected()).toBe(""));
+  });
+
+  it("shows an inline message and keeps the previous selection when create fails", async () => {
+    fakeRotationCardsEndpoints(CARDS);
+    server.use(
+      http.post(`${TEST_BACKEND_URL}/library/rotation/cards`, () =>
+        HttpResponse.json({ message: "nope" }, { status: 500 }),
+      ),
+    );
+    const { user } = renderWithProviders(<Harness bin="H" />);
+
+    await waitFor(() => expect(selected()).toBe("2"));
+    await user.click(screen.getByRole("button", { name: "+ new card" }));
+
+    await waitFor(() => expect(screen.getByText("Failed to create a card.")).toBeDefined());
+    expect(selected()).toBe("2");
   });
 });

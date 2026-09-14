@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Chip from "@mui/joy/Chip";
 import Stack from "@mui/joy/Stack";
+import Typography from "@mui/joy/Typography";
 import type { RotationBin, RotationCard } from "@wxyc/shared";
 import {
   useAddRotationCardMutation,
@@ -12,7 +13,7 @@ import {
 export interface CardPickerProps {
   bin: RotationBin;
   value: number | null;
-  onChange: (cardId: number) => void;
+  onChange: (cardId: number | null) => void;
 }
 
 function cardLabel(card: RotationCard): string {
@@ -41,6 +42,7 @@ function CardPicker({ bin, value, onChange }: CardPickerProps) {
   const { data: cards } = useGetRotationCardsQuery();
   const [addRotationCard, { isLoading: isCreating }] = useAddRotationCardMutation();
   const binCards = (cards ?? []).filter((card) => card.bin === bin);
+  const [createError, setCreateError] = useState(false);
 
   // Guards the default against re-firing on every cards refetch (e.g. a
   // sibling picker creating a card in a different bin) so a manual pick
@@ -49,39 +51,51 @@ function CardPicker({ bin, value, onChange }: CardPickerProps) {
   useEffect(() => {
     if (!cards || defaultedBinRef.current === bin) return;
     defaultedBinRef.current = bin;
-    const newest = newestCard(binCards);
-    if (newest) onChange(newest.id);
+    setCreateError(false);
+    onChange(newestCard(binCards)?.id ?? null);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- binCards/onChange are recomputed every render; only bin/cards mark a real change worth re-defaulting for.
   }, [bin, cards]);
 
   async function handleCreate() {
-    const created = await addRotationCard({ bin }).unwrap();
-    onChange(created.id);
+    setCreateError(false);
+    try {
+      const created = await addRotationCard({ bin }).unwrap();
+      onChange(created.id);
+    } catch {
+      setCreateError(true);
+    }
   }
 
   return (
-    <Stack direction="row" spacing={1} flexWrap="wrap" role="group" aria-label="Card">
-      {binCards.map((card) => (
+    <Stack spacing={0.5}>
+      <Stack direction="row" spacing={1} flexWrap="wrap" role="group" aria-label="Card">
+        {binCards.map((card) => (
+          <Chip
+            key={card.id}
+            size="sm"
+            variant={value === card.id ? "solid" : "soft"}
+            color={value === card.id ? "primary" : "neutral"}
+            onClick={() => onChange(card.id)}
+          >
+            {cardLabel(card)}
+          </Chip>
+        ))}
         <Chip
-          key={card.id}
           size="sm"
-          variant={value === card.id ? "solid" : "soft"}
-          color={value === card.id ? "primary" : "neutral"}
-          onClick={() => onChange(card.id)}
+          variant="outlined"
+          color="primary"
+          disabled={isCreating}
+          onClick={handleCreate}
+          sx={{ borderStyle: "dashed" }}
         >
-          {cardLabel(card)}
+          + new card
         </Chip>
-      ))}
-      <Chip
-        size="sm"
-        variant="outlined"
-        color="primary"
-        disabled={isCreating}
-        onClick={handleCreate}
-        sx={{ borderStyle: "dashed" }}
-      >
-        + new card
-      </Chip>
+      </Stack>
+      {createError && (
+        <Typography level="body-xs" color="danger">
+          Failed to create a card.
+        </Typography>
+      )}
     </Stack>
   );
 }
