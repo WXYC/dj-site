@@ -1,6 +1,6 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
 import type { FetchBaseQueryError } from "@reduxjs/toolkit/query";
-import type { RootState } from "@/lib/store";
+import type { AppDispatch, RootState } from "@/lib/store";
 import { backendBaseQuery } from "../backend";
 import { convertToAlbumEntry } from "../catalog/conversions";
 import {
@@ -28,11 +28,20 @@ import { DEFAULT_ROTATION_STATUS_FILTER } from "./types";
 import { isRotationRowActive } from "./classicList";
 import { wrapRotationWriteError } from "./writeErrorMessage";
 
-// The facet reads -- every rotation query but the single-row one. Scoped so a
-// field-level edit can refresh them without invalidating the row it just
-// echoed back to the screen that saved it. A bare `"Rotation"` invalidation
-// still reaches them: a tag with no id matches every id of its type.
+// The facet reads -- every rotation query but the single-row one and the
+// `status=all` management read. Scoped so a field-level edit can refresh them
+// without invalidating the row it just echoed back to the screen that saved
+// it. A bare `"Rotation"` invalidation still reaches them: a tag with no id
+// matches every id of its type.
 const ROTATION_LIST_TAG = { type: "Rotation", id: "LIST" } as const;
+// The `status=all` management read alone. Its own id so the row writes below
+// (kill, unkill, card move) can move a row by patching the cached list
+// instead of invalidating it -- that read is the station's whole rotation
+// history, and a full-history refetch per row action is the cost the patch
+// exists to avoid. The writes whose result the client cannot construct (an
+// add, a link, a snapshot edit, a release filing) still reach it: adds and
+// links invalidate the bare type, which matches this id like any other.
+const ROTATION_STATUS_ALL_TAG = { type: "Rotation", id: "STATUS_ALL" } as const;
 const ROTATION_CARDS_LIST_TAG = { type: "RotationCards", id: "LIST" } as const;
 
 export const rotationApi = createApi({
@@ -103,10 +112,34 @@ export const rotationApi = createApi({
         method: "PATCH",
         body: rotation,
       }),
-      invalidatesTags: ["Rotation"],
+      // Enumerated, not the bare `"Rotation"` type: a bare-type invalidation
+      // matches every id, including the `status=all` management read this
+      // handler patches instead of refetching. The bounded facets and the
+      // killed row's own single-row read still refetch.
+      invalidatesTags: (_result, _error, { rotation_id }) => [
+        ROTATION_LIST_TAG,
+        { type: "Rotation", id: rotation_id },
+      ],
       async onQueryStarted(_arg, { dispatch, getState, queryFulfilled }) {
         try {
           const { data } = await queryFulfilled;
+          // A kill's new date is knowable only from the response -- the
+          // server stamps CURRENT_DATE in the database's own timezone (see
+          // the endpoint comment above). Move the row in the cached
+          // `status=all` read by patching that date in; the presentation
+          // split is derived from it, so the row changes sections without a
+          // full-history refetch.
+          const killDate = data.kill_date;
+          if (killDate != null) {
+            patchRotationStatusAllRow(dispatch, getState as () => RootState, data.id, (row) => {
+              row.rotation_kill_date = killDate;
+            });
+          } else {
+            // A response without the date leaves the patch unwritable; fall
+            // back to the refetch the patch normally replaces rather than
+            // leave the row rendering as active.
+            dispatch(rotationApi.util.invalidateTags([ROTATION_STATUS_ALL_TAG]));
+          }
           // The request carries only `rotation_id`, so the album whose cached
           // catalog rows need clearing is knowable only from the updated row.
           // Entries that never linked to a library album have none, and there
@@ -204,7 +237,14 @@ export const rotationApi = createApi({
         params: { status: status ?? DEFAULT_ROTATION_STATUS_FILTER },
       }),
       extraOptions: { surfaceNonJsonAsError: true },
-      providesTags: [ROTATION_LIST_TAG],
+      // The `status=all` entry is tagged apart from the bounded facets: it is
+      // the unbounded full-history read, and the row writes below move rows
+      // in it by patch (see `patchRotationStatusAllRow`) rather than by the
+      // refetch the other facets take.
+      providesTags: (_result, _error, status) =>
+        (status ?? DEFAULT_ROTATION_STATUS_FILTER) === "all"
+          ? [ROTATION_STATUS_ALL_TAG]
+          : [ROTATION_LIST_TAG],
     }),
     // The Awaiting Cataloging queue (`GET /library/rotation/uncatalogued`, the
     // cataloging-backlog read Backend's relaxed rotation-add path pairs with).
@@ -301,17 +341,55 @@ export const rotationApi = createApi({
       // split by. Only a card move: the split exists so a card rename never
       // refetches every rotation list, and the same wall must hold in
       // reverse for a plain date or snapshot edit.
-      invalidatesTags: (_result, _error, { card_id }) =>
-        card_id === undefined
-          ? [ROTATION_LIST_TAG]
-          : [ROTATION_LIST_TAG, ROTATION_CARDS_LIST_TAG],
-      async onQueryStarted({ rotation_id }, { dispatch, getState, queryFulfilled }) {
+      //
+      // The `status=all` read joins in only for a snapshot edit. `kill_date`
+      // and `card_id` are the rotation row's own in the list shape and the
+      // summary alike, so those two writes are patched into the cached list
+      // below; the snapshot keys collide with the library join's columns on
+      // a linked row (see `RotationRowSummary`'s referent rule), so a write
+      // carrying any of them re-serves the list instead.
+      invalidatesTags: (_result, _error, arg) => {
+        // Key-exclusion rather than a snapshot-key list so a key added to
+        // `UpdateRotationArgs` later fails safe: unknown means refetch, not
+        // silently-stale patch.
+        const snapshotEdited = Object.entries(arg).some(
+          ([key, value]) =>
+            key !== "rotation_id" && key !== "kill_date" && key !== "card_id" && value !== undefined,
+        );
+        return [
+          ROTATION_LIST_TAG,
+          ...(arg.card_id === undefined ? [] : [ROTATION_CARDS_LIST_TAG]),
+          ...(snapshotEdited ? [ROTATION_STATUS_ALL_TAG] : []),
+        ];
+      },
+      async onQueryStarted(arg, { dispatch, getState, queryFulfilled }) {
         try {
           const { data } = await queryFulfilled;
           // The response is the updated row, so the screen that saved it
           // already holds every byte a refetch would fetch -- and refetching
           // would rebuild the form under the librarian who just submitted it.
-          dispatch(rotationApi.util.upsertQueryData("getRotationRow", rotation_id, data));
+          dispatch(rotationApi.util.upsertQueryData("getRotationRow", arg.rotation_id, data));
+          // Move the row in the cached `status=all` read for the two writes
+          // whose result is fully known client-side (see `invalidatesTags`
+          // above): the kill-date change rides the response, and the card
+          // rides the cards cache -- the summary response carries no `card`,
+          // and every surface offering the move renders its options from
+          // that same cache, so the entity is there to copy.
+          const movedCard =
+            arg.card_id === undefined
+              ? undefined
+              : rotationApi.endpoints.getRotationCards
+                  .select()(getState() as RootState)
+                  .data?.find((card) => card.id === arg.card_id);
+          patchRotationStatusAllRow(dispatch, getState as () => RootState, arg.rotation_id, (row) => {
+            if (arg.kill_date !== undefined) row.rotation_kill_date = data.kill_date ?? null;
+            if (movedCard !== undefined) row.card = movedCard;
+          });
+          if (arg.card_id !== undefined && movedCard === undefined) {
+            // A caller moved a card this tab never loaded; re-serve the list
+            // rather than leave the row claiming its old card.
+            dispatch(rotationApi.util.invalidateTags([ROTATION_STATUS_ALL_TAG]));
+          }
           // The mirror image of `killRotationEntry`'s patch, and not
           // optional: that handler writes a per-album "no rotation" override
           // into the catalog slice, which shadows the server's own value on
@@ -352,6 +430,32 @@ export const rotationApi = createApi({
     }),
   }),
 });
+
+/**
+ * Applies `apply` to the row in every cached `status=all` list entry. The
+ * row-action writes (kill, unkill, card move) use this to move a row between
+ * the management list's presentations without refetching the unbounded
+ * full-history read -- the same `selectCachedArgsForQuery` +
+ * `updateQueryData` shape as the catalog's `patchCatalogSearchCaches`. A row
+ * absent from a cached entry is left absent: only the bare-`"Rotation"`
+ * writers (adds, links, filings) can introduce rows, and they invalidate.
+ */
+function patchRotationStatusAllRow(
+  dispatch: AppDispatch,
+  getState: () => RootState,
+  rotationId: number,
+  apply: (row: RotationListRow) => void,
+): void {
+  for (const status of rotationApi.util.selectCachedArgsForQuery(getState(), "getRotationList")) {
+    if ((status ?? DEFAULT_ROTATION_STATUS_FILTER) !== "all") continue;
+    dispatch(
+      rotationApi.util.updateQueryData("getRotationList", status, (draft) => {
+        const row = draft.find((candidate) => candidate.rotation_id === rotationId);
+        if (row) apply(row);
+      }),
+    );
+  }
+}
 
 export type RotationTrack = {
   position: string;
