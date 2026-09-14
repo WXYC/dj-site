@@ -243,6 +243,33 @@ describe("catalog conversions", () => {
       });
     });
 
+    // `card` rides the same CURRENT_DATE-filtered JOIN as rotation_bin on
+    // search rows (`AlbumSearchResult.card` in @wxyc/shared), so a refetched
+    // page is a server source for it — dropping it in conversion would leave
+    // the field write-only, wiped by the refetch every rotation mutation's
+    // own invalidation triggers.
+    describe("rotation card on the wire", () => {
+      const card = { id: 3, bin: Rotation.H, number: 2, name: "Heavy 2" };
+
+      it("maps a card the row carries", () => {
+        const result = convertToAlbumEntry({ ...linkedRow, card });
+        expect(result.card).toEqual(card);
+      });
+
+      it("passes an explicit null card through (row not actively rotating)", () => {
+        const result = convertToAlbumEntry({ ...linkedRow, card: null });
+        expect(result.card).toBeNull();
+      });
+
+      it("converts an omitted card to undefined, not null", () => {
+        // Absence means "the response didn't say" and must stay
+        // distinguishable from null: mergeAlbumIntoSearchResult keeps the
+        // cached card only for undefined.
+        const result = convertToAlbumEntry(linkedRow);
+        expect(result.card).toBeUndefined();
+      });
+    });
+
     // These id:null assertions pass on BOTH pre-fix and post-fix code —
     // `null !== undefined` is TRUE, so `isSearchResult` returned TRUE and
     // rotation fields already survived. Kept as a current-behavior baseline

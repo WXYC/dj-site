@@ -130,6 +130,10 @@ export NEXT_PUBLIC_STATION_SIGNUP_ENABLED=true
 # tab never renders and e2e/tests/auth/station-signup.spec.ts can't reach the
 # rotate/reveal controls. Independent of the DJ-facing flag exported above.
 export NEXT_PUBLIC_STATION_SIGNUP_ADMIN_ENABLED=true
+# Build-time gate for the Rotation Admin surface, mirroring the CI E2E build
+# (e2e-tests.yml). No spec exercises it yet; exported so the local dj-site
+# build inlines the same flag set as CI's and the two can't diverge on it.
+export NEXT_PUBLIC_ROTATION_ADMIN_ENABLED=true
 
 echo "==> Building dj-site (primary)..."
 # Primary build -> .next/

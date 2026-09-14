@@ -20,8 +20,8 @@ import type {
   FreeTextRotationAddRequest,
   LinkRotationArgs,
   RotationListRow,
+  RotationListStatusFilter,
   RotationRowSummary,
-  RotationStatusFilter,
   UpdateRotationArgs,
 } from "./types";
 import { DEFAULT_ROTATION_STATUS_FILTER } from "./types";
@@ -193,12 +193,12 @@ export const rotationApi = createApi({
     // are none", and the Active facet reading a backend outage as "no
     // releases are active" is exactly that failure.
     // `status` narrows Backend's own facet filter (`all` | `active` |
-    // `killed`) via `?status=`. `uncataloged` is a member of the shared
-    // `RotationStatusFilter` type but never reaches this endpoint -- that
-    // facet is `getUncataloguedRotation` below, a distinct read against a
-    // distinct backlog. Defaults to `active`, this endpoint's original
-    // (and only) behavior before this arg existed.
-    getRotationList: builder.query<RotationListRow[], RotationStatusFilter | void>({
+    // `killed`) via `?status=`. `uncataloged` is unrepresentable here by
+    // construction (`RotationListStatusFilter` excludes it) -- that facet is
+    // `getUncataloguedRotation` below, a distinct read against a distinct
+    // backlog. Defaults to `active`, this endpoint's original (and only)
+    // behavior before this arg existed.
+    getRotationList: builder.query<RotationListRow[], RotationListStatusFilter | void>({
       query: (status) => ({
         url: "",
         params: { status: status ?? DEFAULT_ROTATION_STATUS_FILTER },

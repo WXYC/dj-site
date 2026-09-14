@@ -56,11 +56,14 @@ export function mergeAlbumIntoSearchResult(
     artwork_url: updated.artwork_url ?? existing.artwork_url,
     rotation_bin: existing.rotation_bin,
     rotation_id: existing.rotation_id,
-    // `updated` here is a converted `/library` response, which never carries
-    // a card -- only a rotation add/kill response does. Falling back rather
-    // than spreading `updated.card` (always `undefined`) keeps a markMissing/
-    // markFound/updateAlbum write from wiping the card a rotation write
-    // reported earlier in the same session.
+    // A converted `/library` response carries `card` only when the server
+    // emitted the key (rows outside active rotation get `null`, and a Backend
+    // that predates the field omits it entirely -- convertToAlbumEntry passes
+    // that absence through as `undefined`). `undefined` therefore means "the
+    // response didn't say" and falls back, so a markMissing/markFound/
+    // updateAlbum write that reports nothing can't wipe the card a rotation
+    // write reported earlier in the same session; an explicit `null` is the
+    // positive claim "not on a card" and passes through.
     card: updated.card === undefined ? existing.card : updated.card,
     plays: existing.plays ?? updated.plays,
     add_date: existing.add_date ?? updated.add_date,

@@ -43,7 +43,7 @@ describe("catalogApi.fileRelease (POST /library/filings)", () => {
     expect(result.data).toEqual(FILING_RESPONSE);
   });
 
-  it("invalidates catalogApi's CatalogList and Rotation tags, and cross-dispatches rotationApi's Rotation tag", async () => {
+  it("invalidates catalogApi's CatalogList tag and cross-dispatches rotationApi's Rotation tag", async () => {
     server.use(
       http.get(`${TEST_BACKEND_URL}/library/`, () => HttpResponse.json([])),
       http.get(`${TEST_BACKEND_URL}/library/rotation`, () => HttpResponse.json([])),

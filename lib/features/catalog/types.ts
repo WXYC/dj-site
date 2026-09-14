@@ -426,7 +426,7 @@ export type AlbumEntry = {
   album_artist?: string;
   rotation_bin: Rotation | undefined;
   rotation_id: number | undefined;
-  /** The rotation entry's named card, when known. Threaded from add/kill rotation mutation responses; absent where no rotation write has reported one. */
+  /** The rotation entry's named card, when known. Converted from search/rotation rows that carry the wire field (`AlbumSearchResult.card`, non-null only while actively rotating) and threaded from add/kill rotation mutation responses. `null` is the positive claim "on no card"; absent means no source has reported one. */
   card?: RotationCard | null;
   plays: number | undefined;
   add_date: string | undefined;

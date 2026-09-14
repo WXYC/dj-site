@@ -360,11 +360,13 @@ export const catalogApi = createApi({
      * Invalidated broadly (bare tags, no ids) rather than narrowly: a filing
      * can create a brand-new artist and/or attach to an existing one, so
      * there is no single artist/release id known ahead of the write to scope
-     * the invalidation to. `Rotation` is `catalogApi`'s own tag -- unused
-     * elsewhere in this slice -- and `rotationApi`'s separate tag registry is
-     * reached by cross-dispatching its own invalidation, the same technique
-     * `rotationApi`'s own mutations use in reverse to patch this slice's
-     * cache.
+     * the invalidation to. Rotation data lives in `rotationApi`'s separate
+     * tag registry, which `invalidatesTags` cannot reach -- the
+     * `onQueryStarted` cross-dispatch below is the one mechanism that
+     * refreshes it, the same technique `rotationApi`'s own mutations use in
+     * reverse to patch this slice's cache. (No endpoint in `catalogApi`
+     * provides its own `Rotation` tag, so invalidating it here would match
+     * nothing.)
      */
     fileRelease: builder.mutation<LibraryFilingResponse, LibraryFilingRequest>({
       query: (body) => ({
@@ -391,7 +393,6 @@ export const catalogApi = createApi({
         { type: "ArtistReleaseList", id: "LIST" },
         "ArtistCard",
         "ArtistCodePeek",
-        "Rotation",
       ],
       async onQueryStarted(_arg, { dispatch, queryFulfilled }) {
         try {

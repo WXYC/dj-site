@@ -180,6 +180,7 @@ function applyRotationToSearchCache(
   draft: { pages: LibraryQueryResult[] },
   args: CatalogSearchQueryCacheArg,
   album: AlbumEntry,
+  rotation: CatalogSearchRotationPatch,
 ): void {
   const existing = findAlbumInSearchDraft(draft, album.id!);
   const matches = albumMatchesCatalogQueryArg(album, args);
@@ -187,7 +188,12 @@ function applyRotationToSearchCache(
   if (existing) {
     existing.rotation_bin = album.rotation_bin;
     existing.rotation_id = album.rotation_id;
-    existing.card = album.card;
+    // Gated on the patch, not on `album`: the resolved album may come from a
+    // cache that never saw the card this draft row carries (a `getInformation`
+    // response, or a page refetched since the card was patched in), so copying
+    // its card when the caller omitted the key would wipe exactly the value
+    // the omission exists to protect (see CatalogSearchRotationPatch).
+    if ("card" in rotation) existing.card = rotation.card;
     if (!matches) {
       removeAlbumFromInfiniteDraft(draft, album.id!);
     }
@@ -262,7 +268,7 @@ export function patchCatalogSearchRotation(
             }
             return;
           }
-          applyRotationToSearchCache(draft, args, album);
+          applyRotationToSearchCache(draft, args, album, rotation);
         },
       ),
     );
