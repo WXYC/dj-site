@@ -52,13 +52,18 @@ function UrlListInput({ value, onChange }: UrlListInputProps) {
   // External reset vs round-trip: a `value` whose content matches what we
   // last emitted (or last reset to) is our own onChange coming back and must
   // not erase an in-progress blank row; anything else means the parent
-  // changed the list out from under us (hydration, clear), and the rows
-  // rebuild from it during render per React's adjust-state-on-prop-change
-  // pattern -- no effect, no identity contract.
+  // changed the list out from under us (hydration, clear, a transforming
+  // round-trip like trimming), and the rows rebuild from it during render
+  // per React's adjust-state-on-prop-change pattern -- no effect, no
+  // identity contract. Row ids are reused positionally so a row whose
+  // content merely changed keeps its DOM node -- and the user's focus and
+  // caret, which a trimming parent would otherwise steal mid-typing; only
+  // rows past the current count get fresh ids.
   const valueKey = serialize(value);
   if (valueKey !== syncedKey) {
     setSyncedKey(valueKey);
-    setRows(makeRows(value));
+    const urls = value.length ? value : [""];
+    setRows(urls.map((url, index) => ({ id: rows[index]?.id ?? nextIdRef.current++, url })));
   }
 
   function commit(nextRows: UrlRow[]) {
