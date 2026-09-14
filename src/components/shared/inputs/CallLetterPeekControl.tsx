@@ -1,88 +1,47 @@
 "use client";
 
-import { useEffect, useId, useMemo } from "react";
+import { useId } from "react";
 import { CircularProgress, Stack, Typography } from "@mui/joy";
-import { RequireMD } from "@/src/components/shared/Authorization";
-import { useLazyPeekArtistCodeQuery } from "@/lib/features/catalog/api";
-import type { PeekArtistCodeQuery } from "@/lib/features/catalog/types";
-import { useDebouncedValue } from "@/src/hooks/useDebouncedValue";
-
-const DEBOUNCE_MS = 150;
+import type { ArtistCodePeek } from "@/src/hooks/useArtistCodePeek";
 
 export interface CallLetterPeekControlProps {
-  code_letters: string;
-  genre_id: number | null;
+  peek: ArtistCodePeek;
 }
 
 /**
- * MD+ preview of the code number a new artist would be assigned for a given
- * `code_letters` + `genre_id` pair. Controlled by props (no internal draft
- * state) so a composing form can drive it directly from its own field state.
+ * The "Next code" status line for a caller-held `useArtistCodePeek` result.
+ *
+ * Display only, deliberately: the caller derives the code-number field's
+ * clean rendered value from the same peek this line reports, so the fetch has
+ * to live above both readers — a self-fetching preview would make this
+ * control a second owner of the value the field is derived from. That is
+ * also why nothing here is authorization-gated: with no query of its own
+ * there is nothing to gate, and every consumer already sits under an MD gate.
  */
-function CallLetterPeekControl({ code_letters, genre_id }: CallLetterPeekControlProps) {
-  return (
-    <RequireMD>
-      <CallLetterPeek code_letters={code_letters} genre_id={genre_id} />
-    </RequireMD>
-  );
-}
-
-// The input-validity guard lives here, inside RequireMD's child, rather than
-// above RequireMD in CallLetterPeekControl: unmounting RequireMD on every
-// empty input would drop its resolved-authority state and force a full
-// org-role re-fetch on the next non-empty keystroke.
-function CallLetterPeek({ code_letters, genre_id }: CallLetterPeekControlProps) {
+function CallLetterPeekControl({ peek }: CallLetterPeekControlProps) {
   const labelId = useId();
-  const [peekArtistCode, { data, isFetching, error }] = useLazyPeekArtistCodeQuery();
 
-  // code_letters and genre_id are debounced together as one composed value
-  // so a genre change mid-typing can never pair with letters the user hasn't
-  // finished composing (or vice versa).
-  const trimmedCodeLetters = code_letters.trim();
-  const peekArg: PeekArtistCodeQuery | null = useMemo(
-    () =>
-      trimmedCodeLetters && genre_id != null
-        ? { code_letters: trimmedCodeLetters, genre_id }
-        : null,
-    [trimmedCodeLetters, genre_id],
-  );
-  const debouncedPeekArg = useDebouncedValue(peekArg, DEBOUNCE_MS);
-  // The debounced value lags peekArg for DEBOUNCE_MS after every change;
-  // treat that window as stale rather than rendering the previous pair's
-  // code number as though it were current.
-  const stale = debouncedPeekArg !== peekArg;
-
-  useEffect(() => {
-    if (!debouncedPeekArg) return;
-    // preferCacheValue=true: the assigned code number for a letters/genre
-    // pair only moves if another artist is added under it while this control
-    // is open, and the backend re-validates the number at actual add time
-    // regardless of what this preview last showed. Reusing the cache avoids
-    // re-hitting the backend on every genre-dropdown flip-flop.
-    peekArtistCode(debouncedPeekArg, true);
-  }, [debouncedPeekArg, peekArtistCode]);
-
-  if (!peekArg) return null;
+  if (!peek.arg) return null;
 
   return (
     <Stack direction="row" spacing={1} alignItems="center" role="status" aria-live="polite">
       <Typography level="body-sm" id={labelId}>
         Next code:
       </Typography>
-      {stale || isFetching ? (
+      {peek.pending ? (
         <CircularProgress size="sm" aria-label="Loading next code number" />
-      ) : error ? (
+      ) : peek.isError ? (
         <Typography level="body-sm" color="danger" aria-labelledby={labelId}>
           Unable to preview code
         </Typography>
-      ) : data ? (
+      ) : peek.nextCodeNumber != null ? (
         <Typography
           level="body-sm"
           fontWeight="lg"
           data-testid="next-code-number"
           aria-labelledby={labelId}
         >
-          {data.next_code_number}
+          {peek.nextCodeNumber}
         </Typography>
       ) : null}
     </Stack>

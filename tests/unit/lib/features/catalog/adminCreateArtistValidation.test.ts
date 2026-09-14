@@ -7,6 +7,7 @@ import {
   normalizeCodeLetters,
   parseRequiredNonNegativeInt,
   parseRequiredPositiveInt,
+  suggestCodeLetters,
   validateNewArtistFields,
 } from "@/lib/features/catalog/adminCreateArtistValidation";
 
@@ -150,6 +151,15 @@ describe("validateNewArtistFields", () => {
     expect(result.codeNumber).toBe(CODE_NUMBER_MAX);
   });
 
+  it("accepts a deliberate 0 rather than client-validating it away", () => {
+    // 0 is a legal server-side code — the compilation bucket lives at
+    // artist_genre_code = 0, and Backend-Service imposes no floor above it.
+    const result = validateNewArtistFields({ ...valid, codeNumberRaw: "0" });
+
+    expect(result.codeNumber).toBe(0);
+    expect(result.codeNumberInvalid).toBe(false);
+  });
+
   it("does not report an untouched code number as invalid", () => {
     // An empty field is incomplete, not wrong — the submit gate blocks on
     // `codeNumber === null`, and an error under a field nobody has typed in
@@ -158,6 +168,21 @@ describe("validateNewArtistFields", () => {
 
     expect(result.codeNumber).toBeNull();
     expect(result.codeNumberInvalid).toBe(false);
+  });
+});
+
+describe("suggestCodeLetters", () => {
+  it.each([
+    ["Juana Molina", "JU"],
+    ["Nilüfer Yanya", "NI"],
+    ["Csillagrablók", "CS"],
+    ["The Clean", "CL"],
+    ["stereolab", "ST"],
+    ["X", "X"],
+    ["!!!", ""],
+    ["", ""],
+  ])("suggests %j → %j", (name, expected) => {
+    expect(suggestCodeLetters(name)).toBe(expected);
   });
 });
 
