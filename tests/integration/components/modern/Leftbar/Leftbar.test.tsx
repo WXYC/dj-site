@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { screen } from "@testing-library/react";
 import { renderWithProviders } from "@/tests/helpers/render";
 import Leftbar from "@/src/components/experiences/modern/Leftbar/Leftbar";
@@ -112,9 +112,21 @@ vi.mock("@mui/icons-material", () => ({
   Sensors: () => <svg data-testid="sensors-icon" />,
 }));
 
+vi.mock("@mui/icons-material/QueueMusic", () => ({
+  default: () => <svg data-testid="queue-music-icon" />,
+}));
+
 describe("Leftbar", () => {
+  const originalEnv = process.env;
+
   beforeEach(() => {
     vi.clearAllMocks();
+    process.env = { ...originalEnv };
+    delete process.env.NEXT_PUBLIC_ROTATION_ADMIN_ENABLED;
+  });
+
+  afterEach(() => {
+    process.env = originalEnv;
   });
 
   it("should render the leftbar container", async () => {
@@ -427,5 +439,60 @@ describe("Leftbar", () => {
     renderWithProviders(Component);
 
     expect(screen.getByTestId("edit-calendar-icon")).toBeInTheDocument();
+  });
+
+  it("should not render the rotation link for MD authority when the flag is off", async () => {
+    const { getUserFromSession } = await import(
+      "@/lib/features/authentication/server-utils"
+    );
+    vi.mocked(getUserFromSession).mockResolvedValue({
+      ...mockUser,
+      authority: Authorization.MD,
+    });
+
+    const Component = await Leftbar();
+    renderWithProviders(Component);
+
+    expect(
+      screen.queryByTestId("leftbar-link--dashboard-admin-rotation")
+    ).not.toBeInTheDocument();
+  });
+
+  it("should render the rotation link for MD authority when the flag is on", async () => {
+    process.env.NEXT_PUBLIC_ROTATION_ADMIN_ENABLED = "true";
+    const { getUserFromSession } = await import(
+      "@/lib/features/authentication/server-utils"
+    );
+    vi.mocked(getUserFromSession).mockResolvedValue({
+      ...mockUser,
+      authority: Authorization.MD,
+    });
+
+    const Component = await Leftbar();
+    renderWithProviders(Component);
+
+    const rotationLink = screen.getByTestId(
+      "leftbar-link--dashboard-admin-rotation"
+    );
+    expect(rotationLink).toBeInTheDocument();
+    expect(screen.getByText("Rotation")).toBeInTheDocument();
+  });
+
+  it("should not render the rotation link for DJ authority even when the flag is on (admin block hidden)", async () => {
+    process.env.NEXT_PUBLIC_ROTATION_ADMIN_ENABLED = "true";
+    const { getUserFromSession } = await import(
+      "@/lib/features/authentication/server-utils"
+    );
+    vi.mocked(getUserFromSession).mockResolvedValue({
+      ...mockUser,
+      authority: Authorization.DJ,
+    });
+
+    const Component = await Leftbar();
+    renderWithProviders(Component);
+
+    expect(
+      screen.queryByTestId("leftbar-link--dashboard-admin-rotation")
+    ).not.toBeInTheDocument();
   });
 });

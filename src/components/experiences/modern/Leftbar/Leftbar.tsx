@@ -1,9 +1,11 @@
 import type { JSX } from "react";
 import { Authorization } from "@/lib/features/admin/types";
 import { requireAuth, getUserFromSession } from "@/lib/features/authentication/server-utils";
+import { isRotationAdminEnabled } from "@/lib/features/rotation/flags";
 import { EditCalendar, ManageAccounts, Sensors } from "@mui/icons-material";
 import AlbumIcon from "@mui/icons-material/Album";
 import LibraryMusicIcon from "@mui/icons-material/LibraryMusic";
+import QueueMusicIcon from "@mui/icons-material/QueueMusic";
 import StorageIcon from "@mui/icons-material/Storage";
 import Divider from "@mui/joy/Divider";
 import List from "@mui/joy/List";
@@ -44,6 +46,11 @@ export default async function Leftbar(): Promise<JSX.Element> {
             <LeftbarLink path="/dashboard/admin/catalog" title="Catalog Admin">
               <LibraryMusicIcon />
             </LeftbarLink>
+            {isRotationAdminEnabled() && (
+              <LeftbarLink path="/dashboard/admin/rotation" title="Rotation">
+                <QueueMusicIcon />
+              </LeftbarLink>
+            )}
             {/* Not disabled below SM like the roster link: the whole admin
                 block is hidden at DJ and below, and both remaining tiers
                 hold the backend's flowsheet-manage grant. */}
