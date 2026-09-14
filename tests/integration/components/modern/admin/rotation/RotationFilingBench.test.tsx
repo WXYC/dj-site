@@ -106,6 +106,18 @@ function mockCatalogLists() {
         ],
       }),
     ),
+    http.get(`${TEST_BACKEND_URL}/library/artists/peek-code`, () =>
+      HttpResponse.json({ next_code_number: 7 }),
+    ),
+  );
+}
+
+/** The create path starts from a name the catalog does not have. */
+function mockEmptyArtistSearch() {
+  server.use(
+    http.get(`${TEST_BACKEND_URL}/library/artists/search`, () =>
+      HttpResponse.json({ artists: [] }),
+    ),
   );
 }
 
@@ -262,6 +274,134 @@ describe("RotationFilingBench", () => {
     expect(alert).toHaveTextContent("Filing failed — nothing was saved.");
     expect(screen.getByLabelText("Album title")).toHaveValue("DOGA");
     expect(within(ledger()).getByText("Nothing filed yet.")).toBeInTheDocument();
+  });
+
+  describe("inline create", () => {
+    async function openCreatePanel(user: User, name = "Chuquimamani-Condori") {
+      const input = await screen.findByPlaceholderText("Search artists...");
+      await user.type(input, name);
+      await user.click(
+        await screen.findByRole("option", { name: `Create new artist "${name}"` }),
+      );
+    }
+
+    it("expands the create row into the inline panel and files the new artist without a code number", async () => {
+      mockEmptyArtistSearch();
+      const filings = fakeLibraryFilingsEndpoint();
+      const { user } = renderBench();
+
+      await selectGenre(user);
+      await openCreatePanel(user);
+
+      // The panel seeds the catalog's two-letter suggestion and auto-fills
+      // the code number from the live peek; both stay fully editable.
+      expect(await screen.findByLabelText("Call letters")).toHaveValue("CH");
+      await waitFor(() =>
+        expect(screen.getByLabelText("Code number")).toHaveValue("7"),
+      );
+
+      await fillRelease(user, { title: "Edits", label: "" });
+      await awaitDefaultCard();
+      await user.click(screen.getByRole("button", { name: "Add to rotation" }));
+
+      await waitFor(() => expect(filings.bodies()).toHaveLength(1));
+      // The clean field's number is the server's to assign: kind is set
+      // explicitly and code_number is omitted, never copied from the peek.
+      expect(filings.bodies()[0]).toEqual({
+        artist: {
+          kind: "create",
+          artist_name: "Chuquimamani-Condori",
+          code_letters: "CH",
+          genre_id: GENRE_ID,
+        },
+        release: { album_title: "Edits", genre_id: GENRE_ID, format_id: 1 },
+        rotation: { rotation_bin: "H", card_id: 32 },
+      });
+      expect(
+        await within(ledger()).findByText("Chuquimamani-Condori — Edits"),
+      ).toBeInTheDocument();
+      // The panel closed with the successful filing's reset.
+      expect(screen.queryByLabelText("Call letters")).not.toBeInTheDocument();
+    });
+
+    it("sends the MD's dirty code number as typed", async () => {
+      mockEmptyArtistSearch();
+      const filings = fakeLibraryFilingsEndpoint();
+      const { user } = renderBench();
+
+      await selectGenre(user);
+      await openCreatePanel(user);
+      await waitFor(() =>
+        expect(screen.getByLabelText("Code number")).toHaveValue("7"),
+      );
+
+      await user.tripleClick(screen.getByLabelText("Code number"));
+      await user.keyboard("12");
+      await fillRelease(user, { title: "Edits", label: "" });
+      await awaitDefaultCard();
+      await user.click(screen.getByRole("button", { name: "Add to rotation" }));
+
+      await waitFor(() => expect(filings.bodies()).toHaveLength(1));
+      expect(filings.bodies()[0]).toMatchObject({
+        artist: { kind: "create", code_number: 12 },
+      });
+    });
+
+    it("matches an existing artist without creating: the panel never opens", async () => {
+      const filings = fakeLibraryFilingsEndpoint({ existingArtists: [MOLINA_ROW] });
+      const { user } = renderBench();
+
+      await selectGenre(user);
+      await pickExistingArtist(user);
+      expect(screen.queryByLabelText("Call letters")).not.toBeInTheDocument();
+
+      await fillRelease(user);
+      await awaitDefaultCard();
+      await user.click(screen.getByRole("button", { name: "Add to rotation" }));
+
+      await waitFor(() => expect(filings.bodies()).toHaveLength(1));
+      expect(filings.bodies()[0]).toMatchObject({
+        artist: { kind: "existing", artist_id: ARTIST_ID },
+      });
+    });
+
+    it("names the holder of a refused artist code at the code field and files nothing", async () => {
+      mockEmptyArtistSearch();
+      const filings = fakeLibraryFilingsEndpoint({
+        respond: () =>
+          filingConflictResponse("artist_code_conflict", {
+            id: 5,
+            artist_name: "Stereolab",
+            code_letters: "CH",
+            code_artist_number: 12,
+            genre_id: GENRE_ID,
+          }),
+      });
+      const { user } = renderBench();
+
+      await selectGenre(user);
+      await openCreatePanel(user);
+      await waitFor(() =>
+        expect(screen.getByLabelText("Code number")).toHaveValue("7"),
+      );
+      await user.tripleClick(screen.getByLabelText("Code number"));
+      await user.keyboard("12");
+      await fillRelease(user, { title: "Edits", label: "" });
+      await awaitDefaultCard();
+      await user.click(screen.getByRole("button", { name: "Add to rotation" }));
+
+      const alert = await screen.findByRole("alert");
+      expect(alert).toHaveTextContent("CH12 is already taken by Stereolab.");
+      expect(filings.bodies()).toHaveLength(1);
+      expect(within(ledger()).getByText("Nothing filed yet.")).toBeInTheDocument();
+      expect(screen.getByLabelText("Album title")).toHaveValue("Edits");
+      // The refused triple blocks resubmission until one of its fields moves.
+      expect(screen.getByRole("button", { name: "Add to rotation" })).toBeDisabled();
+      await user.tripleClick(screen.getByLabelText("Code number"));
+      await user.keyboard("13");
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Add to rotation" })).toBeEnabled();
+    });
   });
 
   it("accumulates the session's filings in order", async () => {

@@ -80,6 +80,24 @@ export function isCanonicalCodeLetters(value: string): boolean {
   return CANONICAL_CODE_LETTERS.test(value);
 }
 
+/**
+ * A starting suggestion for a new artist's call letters: the first two
+ * letters of the name, diacritics folded and a leading "The " skipped, the
+ * way the catalog's two-letter convention files them ("Nilüfer Yanya" → "NI",
+ * "The Clean" → "CL"). Empty when the name has no A–Z letters at all —
+ * punctuation-only names take a hand-chosen code, and seeding "" leaves the
+ * field's own placeholder showing. A seed, never an owner: the field stays
+ * fully editable, and nothing re-derives this after the MD touches it.
+ */
+export function suggestCodeLetters(name: string): string {
+  const folded = name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .replace(/^THE\s+/, "");
+  return (folded.match(/[A-Z]/g) ?? []).slice(0, 2).join("");
+}
+
 export type NewArtistFieldValues = {
   alphabeticalName: string;
   codeLetters: string;
@@ -91,7 +109,7 @@ export type NewArtistFieldValidation = {
   trimmedCodeLetters: string;
   alphabeticalNameTooLong: boolean;
   codeLettersTooLong: boolean;
-  /** Parsed as a positive whole number, before any range check — null if it is not one. */
+  /** Parsed as a non-negative whole number, before any range check — null if it is not one. */
   parsedCodeNumber: number | null;
   /** Parsed *and* within the column's range, or null. */
   codeNumber: number | null;
@@ -109,9 +127,12 @@ export function validateNewArtistFields(
 ): NewArtistFieldValidation {
   const trimmedAlphabeticalName = values.alphabeticalName.trim();
   const trimmedCodeLetters = values.codeLetters.trim();
-  const parsedCodeNumber = parseRequiredPositiveInt(values.codeNumberRaw);
-  // parseRequiredPositiveInt only rejects non-integers; the column's range is
-  // this rule's to enforce.
+  // Non-negative, not positive: 0 is a legal server-side code (the
+  // compilation bucket lives at artist_genre_code = 0, and Backend-Service
+  // imposes no floor above it), so a deliberate 0 must file rather than be
+  // client-validated away. Only the column's int4 range is this rule's to
+  // enforce.
+  const parsedCodeNumber = parseRequiredNonNegativeInt(values.codeNumberRaw);
   const codeNumber =
     parsedCodeNumber !== null && parsedCodeNumber <= CODE_NUMBER_MAX
       ? parsedCodeNumber
