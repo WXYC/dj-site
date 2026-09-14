@@ -45,6 +45,11 @@ describe("canDeleteRotationCard", () => {
     const highestOccupied = card({ id: 32, number: 2, active_count: 1 });
     expect(canDeleteRotationCard(highestOccupied, [binCards[0], highestOccupied])).toBe(false);
   });
+
+  it("refuses a bin's only card even when empty — a bin never runs out of cards", () => {
+    const onlyCard = card({ id: 31, number: 1, active_count: 0 });
+    expect(canDeleteRotationCard(onlyCard, [onlyCard])).toBe(false);
+  });
 });
 
 describe("rotationCardDeleteConflictReason", () => {
