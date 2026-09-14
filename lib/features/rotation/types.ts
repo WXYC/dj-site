@@ -69,8 +69,20 @@ export type RotationListRow = {
   rotation_kill_date: string | null;
   plays: number | null;
   legacy_release_id: number | null;
-  card: RotationCard | null;
-  urls: string[];
+  /**
+   * Optional, mirroring the published schema exactly (`card?` on `Rotation`
+   * in `@wxyc/shared@5.4.0`): the deployed `GET /library/rotation` does not
+   * emit the key yet, so every row reads `undefined` today. Absent means "the
+   * server didn't say"; `null` is the positive claim "on no card".
+   */
+  card?: RotationCard | null;
+  /**
+   * Optional, same reason as `card` above. The published field's own warning
+   * applies here verbatim: plain strings, not `format: uri` -- MDs paste bare
+   * domains, so a value carries no scheme guarantee and a renderer must not
+   * bind one into an href without checking it.
+   */
+  urls?: string[];
 };
 
 /**
@@ -178,7 +190,17 @@ export type FreeTextRotationAddRequest = {
  */
 export type RotationStatusFilter = "all" | "active" | "killed" | "uncataloged";
 
-export const DEFAULT_ROTATION_STATUS_FILTER: RotationStatusFilter = "active";
+/**
+ * The facets `GET /library/rotation?status=` itself can answer. `uncataloged`
+ * is excluded at the type level rather than by convention: that facet is not
+ * a filter over this list but a distinct read against a distinct backlog
+ * (`getUncataloguedRotation`, `GET /library/rotation/uncatalogued`), and the
+ * list endpoint has no rows for it -- a caller sending it would get the
+ * default facet back with a 200 and no error signal.
+ */
+export type RotationListStatusFilter = Exclude<RotationStatusFilter, "uncataloged">;
+
+export const DEFAULT_ROTATION_STATUS_FILTER: RotationListStatusFilter = "active";
 
 /**
  * Rows per request for the Awaiting Cataloging queue. Mirrors Backend's own

@@ -197,6 +197,40 @@ describe("patchCatalogSearchRotation", () => {
     });
   });
 
+  it("leaves the cached card untouched on the resolved-album path when the patch omits it", () => {
+    // Distinct from the fallback-branch test below: here getInformation's
+    // cache resolves the album, and that resolved row has no card -- exactly
+    // what a server response yields for a row whose card only ever arrived
+    // via an optimistic patch. Copying the resolved row's (absent) card over
+    // the draft would wipe the value the omitted key exists to protect.
+    const dispatch = vi.fn();
+    const card = { id: 3, bin: "H" as const, number: 2, name: "Heavy 2" };
+    const cachedRow = createTestAlbum({ id: 900, card });
+    const resolved = createTestAlbum({ id: 900 });
+
+    vi.spyOn(catalogApi.util, "selectCachedArgsForQuery").mockReturnValue([{}]);
+    vi.spyOn(catalogApi.endpoints.getInformation, "select").mockReturnValue(
+      (() => ({ data: resolved })) as unknown as ReturnType<
+        typeof catalogApi.endpoints.getInformation.select
+      >,
+    );
+    vi.spyOn(catalogApi.util, "updateQueryData").mockImplementation(
+      (_endpoint, _args, updater) => {
+        const draft = { pages: [{ results: [cachedRow], total: 1, page: 0, totalPages: 1 }] };
+        updater(draft);
+        expect(draft.pages[0].results[0].rotation_bin).toBe("H");
+        expect(draft.pages[0].results[0].rotation_id).toBe(12);
+        expect(draft.pages[0].results[0].card).toEqual(card);
+        return { type: "catalogApi/updateQueryData" } as never;
+      },
+    );
+
+    patchCatalogSearchRotation(dispatch, () => ({} as never), 900, {
+      rotation_bin: "H",
+      rotation_id: 12,
+    });
+  });
+
   it("leaves an existing cached card untouched when the patch omits it", () => {
     const dispatch = vi.fn();
     const card = { id: 3, bin: "H" as const, number: 2, name: "Heavy 2" };

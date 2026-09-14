@@ -217,10 +217,11 @@ describe("mergeAlbumIntoSearchResult", () => {
   });
 
   it("falls back to the cached card when a plain /library response omits it", () => {
-    // updateAlbum/markMissing/markFound convert a `/library` response, which
-    // never carries a card -- only a rotation add/kill response does. Without
-    // the fallback, any of those three writes would wipe a card a rotation
-    // write reported earlier in the same session.
+    // updateAlbum/markMissing/markFound convert a `/library` response whose
+    // `card` key a Backend predating the field omits entirely (converted to
+    // `undefined`, "the response didn't say"). Without the fallback, any of
+    // those three writes would wipe a card a rotation write reported earlier
+    // in the same session.
     const card = { id: 3, bin: Rotation.H, number: 2, name: "Heavy 2" };
     const existing = createTestAlbum({ id: 42, card });
     const updated = createTestAlbum({ id: 42 });

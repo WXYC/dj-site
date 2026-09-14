@@ -130,6 +130,12 @@ export function convertToAlbumEntry(
       "",
     rotation_id:
       "rotation_id" in response ? response.rotation_id : undefined,
+    // Rides the same CURRENT_DATE-filtered JOIN as rotation_bin above, so the
+    // same rule applies: narrow with `in`, never with `isSearchResult`.
+    // Absence passes through as `undefined` ("the response didn't say"),
+    // which mergeAlbumIntoSearchResult reads as "keep the cached card" --
+    // distinct from an explicit `null` ("not on a card").
+    card: "card" in response ? response.card : undefined,
     on_streaming: isSearchResult(response) ? (response as Record<string, unknown>).on_streaming as boolean | undefined : undefined,
     date_lost: isSearchResult(response) ? (response as Record<string, unknown>).date_lost as string | null | undefined : undefined,
     date_found: isSearchResult(response) ? (response as Record<string, unknown>).date_found as string | null | undefined : undefined,
