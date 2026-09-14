@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { skipToken } from "@reduxjs/toolkit/query";
 import { useGetFlowsheetRangeQuery } from "@/lib/features/schedule-week/api";
-import { useGetRotationQuery } from "@/lib/features/rotation/api";
+import { useGetRotationListQuery } from "@/lib/features/rotation/api";
 import {
   formatWeeklyReport,
   formatWeekRange,
@@ -64,16 +64,20 @@ export default function RotationTallysheet() {
   // Only fetched where it can change the report. Below a minimum of 2 every
   // tallied release is already ranked, so the tail is empty by construction and
   // the rotation list would be read for nothing.
-  const { data: rotationRows } = useGetRotationQuery(
+  //
+  // `getRotationList`, not `getRotation`: the tail needs `rotation_add_date`
+  // (when a release entered rotation), and `getRotation`'s conversion drops
+  // that field, sourcing `add_date` from the library's catalogued-date column
+  // instead -- a different date, from a different table, that this report
+  // must not key on.
+  const { data: rotationRows } = useGetRotationListQuery(
     minimumPlays >= 2 ? undefined : skipToken,
   );
 
   const addDates = useMemo(() => {
     const map = new Map<number, string>();
     for (const row of rotationRows ?? []) {
-      if (row.rotation_id !== undefined && row.add_date !== undefined) {
-        map.set(row.rotation_id, row.add_date);
-      }
+      map.set(row.rotation_id, row.rotation_add_date);
     }
     return map;
   }, [rotationRows]);
