@@ -169,6 +169,46 @@ export function fakeRotationEndpointsWithGatedKill<Row extends FakeRotationRow>(
   };
 }
 
+export type FakeRotationCard = {
+  id: number;
+  bin: string;
+  number: number;
+  name?: string | null;
+};
+
+/**
+ * Stateful stand-in for `GET/POST /library/rotation/cards`. `POST` assigns
+ * `max(number)+1` within the posted bin, matching the contract's contiguous
+ * 1..N numbering (wxyc-shared#460) -- a test creating a card never has to
+ * pass the number itself.
+ */
+export function fakeRotationCardsEndpoints(initial: FakeRotationCard[]) {
+  let cards = [...initial];
+  let nextId = cards.reduce((max, card) => Math.max(max, card.id), 0) + 1;
+
+  server.use(
+    http.get(`${BACKEND_URL}/library/rotation/cards`, () => HttpResponse.json(cards)),
+    http.post(`${BACKEND_URL}/library/rotation/cards`, async ({ request }) => {
+      const body = (await request.json()) as { bin: string; name?: string };
+      const number =
+        cards.filter((card) => card.bin === body.bin).reduce((max, c) => Math.max(max, c.number), 0) +
+        1;
+      const created: FakeRotationCard = {
+        id: nextId++,
+        bin: body.bin,
+        number,
+        name: body.name ?? null,
+      };
+      cards = [...cards, created];
+      return HttpResponse.json(created, { status: 201 });
+    }),
+  );
+
+  return {
+    cards: () => [...cards],
+  };
+}
+
 function appendAddedRow<Row extends FakeRotationRow>(
   rows: Row[],
   buildRow: BuildRow<Row>,
