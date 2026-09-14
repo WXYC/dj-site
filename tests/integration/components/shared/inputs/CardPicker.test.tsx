@@ -40,6 +40,7 @@ function FormHarness({
   return (
     <div>
       <span data-testid="selected">{form.cardId ?? ""}</span>
+      <button onClick={() => setForm({ cardId: null })}>reset form</button>
       <CardPicker
         bin={bin}
         value={form.cardId}
@@ -154,6 +155,25 @@ describe("CardPicker", () => {
     await waitFor(() => expect(selected()).toBe("2"));
 
     expect(emitted).toEqual([2]);
+  });
+
+  it("re-pushes the default after the parent clears the selection", async () => {
+    fakeRotationCardsEndpoints(CARDS);
+    const emitted: (number | null)[] = [];
+    const { user } = renderWithProviders(
+      <FormHarness bin="H" onEmit={(cardId) => emitted.push(cardId)} />,
+    );
+
+    await waitFor(() => expect(selected()).toBe("2"));
+
+    // A form reset between filings clears cardId while the bin stays put;
+    // the picker must push the default again or the pressed chip diverges
+    // from the value a submit would save.
+    await user.click(screen.getByRole("button", { name: "reset form" }));
+
+    await waitFor(() => expect(selected()).toBe("2"));
+    expect(emitted).toEqual([2, 2]);
+    expect(screen.getByRole("button", { name: "2", pressed: true })).toBeInTheDocument();
   });
 
   it("exposes the selected card as pressed to assistive tech", async () => {
