@@ -169,6 +169,107 @@ export function fakeRotationEndpointsWithGatedKill<Row extends FakeRotationRow>(
   };
 }
 
+export type FakeRotationCard = {
+  id: number;
+  bin: string;
+  number: number;
+  name?: string | null;
+};
+
+// Not an extension of `FakeRotationRow`: that shape's `id` is a required
+// number, and the admin list's whole point includes rows whose library link
+// (`id`) is null.
+export type FakeRotationAdminRow = {
+  id: number | null;
+  rotation_id: number;
+  rotation_bin: string;
+  rotation_kill_date: string | null;
+  card?: FakeRotationCard | null;
+  [key: string]: unknown;
+};
+
+/**
+ * Stateful stand-in for the Rotation Admin list's whole surface: the
+ * `status`-parameterized list read, the cards read, the bodyless-path kill
+ * (`PATCH /library/rotation`) and the field-level editor
+ * (`PATCH /library/rotation/:id` — unkill and card moves).
+ *
+ * Unlike `fakeRotationEndpoints` above, a kill KEEPS the row and stamps
+ * `rotation_kill_date` on it: the `status=all` read this fake feeds is
+ * exactly the read that retains killed rows, so removal here would make the
+ * consumer's Killed presentation untestable. The GET arm serves every row
+ * regardless of the `status` it records — the one consumer asks for `all`,
+ * and a fake that silently filtered would let a wrong `status` pass as a
+ * smaller fixture.
+ */
+export function fakeRotationAdminEndpoints(
+  initialRows: FakeRotationAdminRow[],
+  cards: FakeRotationCard[],
+  { killDate = "2026-09-12" }: { killDate?: string } = {},
+) {
+  const rows = initialRows.map((row) => ({ ...row }));
+  const listStatuses: (string | null)[] = [];
+  let cardsRequests = 0;
+  const killBodies: unknown[] = [];
+  const updates: { id: number; body: Record<string, unknown> }[] = [];
+
+  server.use(
+    http.get(`${BACKEND_URL}/library/rotation`, ({ request }) => {
+      listStatuses.push(new URL(request.url).searchParams.get("status"));
+      return HttpResponse.json(rows);
+    }),
+    http.get(`${BACKEND_URL}/library/rotation/cards`, () => {
+      cardsRequests += 1;
+      return HttpResponse.json(cards);
+    }),
+    http.patch(`${BACKEND_URL}/library/rotation`, async ({ request }) => {
+      const body = (await request.json()) as { rotation_id: number };
+      killBodies.push(body);
+      const row = rows.find((candidate) => candidate.rotation_id === body.rotation_id);
+      if (row) row.rotation_kill_date = killDate;
+      return HttpResponse.json({
+        id: body.rotation_id,
+        album_id: row?.id ?? null,
+        rotation_bin: row?.rotation_bin ?? null,
+        add_date: row?.rotation_add_date ?? null,
+        kill_date: killDate,
+      });
+    }),
+    http.patch(`${BACKEND_URL}/library/rotation/:id`, async ({ request, params }) => {
+      const id = Number(params.id);
+      const body = (await request.json()) as Record<string, unknown>;
+      updates.push({ id, body });
+      const row = rows.find((candidate) => candidate.rotation_id === id);
+      if (row) {
+        if ("kill_date" in body) row.rotation_kill_date = body.kill_date as string | null;
+        if ("card_id" in body) {
+          row.card = cards.find((card) => card.id === body.card_id) ?? row.card;
+        }
+      }
+      // The field editor answers with the row-summary shape, whose `id` is
+      // the rotation row's own and whose `album_id` is the library link.
+      return HttpResponse.json({
+        id,
+        album_id: row?.id ?? null,
+        rotation_bin: row?.rotation_bin ?? null,
+        add_date: row?.rotation_add_date ?? "2026-09-01",
+        kill_date: row?.rotation_kill_date ?? null,
+        artist_name: row?.artist_name ?? null,
+        album_title: row?.album_title ?? null,
+        record_label: row?.record_label ?? null,
+      });
+    }),
+  );
+
+  return {
+    /** The `status` query param of every list GET, in order. */
+    listStatuses: () => [...listStatuses],
+    cardsRequests: () => cardsRequests,
+    killBodies: () => [...killBodies],
+    updateBodies: () => updates.map((update) => ({ id: update.id, body: { ...update.body } })),
+  };
+}
+
 function appendAddedRow<Row extends FakeRotationRow>(
   rows: Row[],
   buildRow: BuildRow<Row>,

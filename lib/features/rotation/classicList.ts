@@ -242,7 +242,7 @@ function dedupeKey(artistName: string | null, albumTitle: string | null): string
  * of the artist/title snapshot -- so the response reaches this client
  * grouped by a hash, with `add_date` only breaking ties inside a group.
  */
-function byMostRecentlyAdded(left: RotationListRow, right: RotationListRow): number {
+export function byMostRecentlyAdded(left: RotationListRow, right: RotationListRow): number {
   if (left.rotation_add_date !== right.rotation_add_date) {
     return left.rotation_add_date < right.rotation_add_date ? 1 : -1;
   }
