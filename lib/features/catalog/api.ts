@@ -795,6 +795,7 @@ export const {
   useGetArtistCardQuery,
   useUpdateArtistCardMutation,
   useGetArtistReleasesQuery,
+  usePeekArtistCodeQuery,
   useLazyPeekArtistCodeQuery,
   useLazyResolveArtistByCodeQuery,
   useSearchArtistsInGenreQuery,

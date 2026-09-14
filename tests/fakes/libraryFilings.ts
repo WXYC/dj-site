@@ -18,6 +18,7 @@ type FilingRequestBody = {
     genre_id: number;
     format_id: number;
     label?: string;
+    label_id?: number;
   };
   rotation?: { rotation_bin: string; card_id?: number; urls?: string[] };
 };
@@ -42,6 +43,12 @@ export type FakeFilingArtistRow = {
  *
  * `respond` overrides the whole answer for a given body — return a 409/5xx
  * there to exercise a refusal; return undefined to fall through to success.
+ *
+ * The release must carry at least one of `label`/`label_id` (the
+ * AlbumCreateFields rule the composite enforces); a release with neither is
+ * answered 400, so a bench that files a blank label fails here rather than
+ * only in production. `card_id` stays optional — the server files cardless
+ * rotation rows; requiring a card is client policy, not the contract.
  */
 export function fakeLibraryFilingsEndpoint(
   options: {
@@ -62,6 +69,13 @@ export function fakeLibraryFilingsEndpoint(
       bodies.push(body);
       const override = options.respond?.(body);
       if (override) return override;
+
+      if (body.release.label === undefined && body.release.label_id === undefined) {
+        return HttpResponse.json(
+          { message: "release requires at least one of label, label_id" },
+          { status: 400 },
+        );
+      }
 
       const requestedArtist = body.artist;
       const artist =
