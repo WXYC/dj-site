@@ -27,5 +27,8 @@ export { libraryTracksHandler, ONE_TRACK } from "../fakes/libraryTracks";
 export {
   fakeRotationEndpoints,
   fakeRotationEndpointsWithGatedKill,
+  fakeRotationAdminEndpoints,
   type FakeRotationRow,
+  type FakeRotationAdminRow,
+  type FakeRotationCard,
 } from "../fakes/rotation";

@@ -2,7 +2,7 @@ import { requireAuth, requireRole } from "@/lib/features/authentication/server-u
 import { isRotationAdminEnabled } from "@/lib/features/rotation/flags";
 import { Authorization } from "@/lib/features/admin/types";
 import PageHeader from "@/src/components/experiences/modern/Header/PageHeader";
-import { Typography } from "@mui/joy";
+import RotationAdminList from "@/src/components/experiences/modern/admin/rotation/RotationAdminList";
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getPageTitle } from "@/lib/utils/page-title";
@@ -22,7 +22,7 @@ export default async function RotationListPage() {
   return (
     <>
       <PageHeader title="Rotation List" />
-      <Typography level="body-sm">Coming soon.</Typography>
+      <RotationAdminList />
     </>
   );
 }

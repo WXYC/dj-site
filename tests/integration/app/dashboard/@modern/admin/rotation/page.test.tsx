@@ -41,9 +41,13 @@ vi.mock("@/lib/features/authentication/organization-utils.server", () => ({
 }));
 
 // The page's own responsibility under test is the flag + auth gate, not the
-// header chrome.
+// header chrome or the list component (which has its own spec and would
+// otherwise fire real queries here).
 vi.mock("@/src/components/experiences/modern/Header/PageHeader", () => ({
   default: ({ title }: { title: string }) => <div data-testid="page-header">{title}</div>,
+}));
+vi.mock("@/src/components/experiences/modern/admin/rotation/RotationAdminList", () => ({
+  default: () => <div data-testid="rotation-admin-list" />,
 }));
 
 import RotationListPage from "@/app/dashboard/@modern/admin/rotation/page";
@@ -89,15 +93,16 @@ describe("rotation list page", () => {
     process.env = originalEnv;
   });
 
-  it("reaches the page for a music director", async () => {
+  it("reaches the page for a music director and renders the admin list", async () => {
     mockGetSession.mockResolvedValue({ data: sessionData(null), error: null });
     mockGetUserRoleInOrganization.mockResolvedValue("musicDirector");
 
     const result = await RotationListPage();
-    renderWithProviders(result);
+    const { getByTestId } = renderWithProviders(result);
 
     expect(mockRedirect).not.toHaveBeenCalled();
     expect(mockNotFound).not.toHaveBeenCalled();
+    expect(getByTestId("rotation-admin-list")).toBeInTheDocument();
   });
 
   it("still reaches the page for a station manager", async () => {
