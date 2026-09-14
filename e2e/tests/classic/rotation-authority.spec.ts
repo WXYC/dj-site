@@ -28,6 +28,17 @@ const authDir = path.join(__dirname, "../../.auth");
  * context (the account's own appSkin wins on every request once a session
  * resolves), so a real classic-preference account is the only way to reach
  * these pages' classic slot at all.
+ *
+ * The Active facet (this screen's default) is never empty against the E2E
+ * stack: Backend-Service's own `dev_env/seed_db.sql` seeds it with rotation
+ * rows carrying no kill date, loaded fresh for every run by `init-db.mjs`.
+ * That matters here specifically because `RotationReleaseList` renders a
+ * bare empty-state paragraph -- no table, no columnheaders, no row controls
+ * at all -- when the facet has zero rows. Every negative assertion below
+ * (absence of a columnheader, absence of a row control) would pass
+ * identically against that empty state whether or not the authority gate
+ * exists, so each describe block first asserts the table actually rendered
+ * with at least one row before trusting what it does or doesn't show.
  */
 test.describe("Classic rotation authority split", () => {
   test.describe("DJ", () => {
@@ -38,6 +49,13 @@ test.describe("Classic rotation authority split", () => {
 
       await expect(page.locator("#classic-container")).toBeVisible({ timeout: 15000 });
       await expect(page.getByRole("heading", { name: "Rotation Releases" })).toBeVisible();
+
+      // Anchor before asserting absence: a zero-row facet renders no table
+      // at all, which would make every assertion below pass vacuously. `tr`
+      // count includes the header row, so this also confirms the table body
+      // rendered rather than only its shell.
+      await expect(page.getByRole("row")).not.toHaveCount(0);
+
       await expect(page.getByRole("link", { name: "Add Rotation Release" })).not.toBeVisible({ timeout: 5000 });
       await expect(page.getByRole("columnheader", { name: "Actions" })).not.toBeVisible({ timeout: 5000 });
       await expect(page.getByRole("link", { name: /^Edit: / })).not.toBeVisible({ timeout: 5000 });
@@ -92,7 +110,22 @@ test.describe("Classic rotation authority split", () => {
       await page.goto("/dashboard/rotation");
 
       await expect(page.getByRole("heading", { name: "Rotation Releases" })).toBeVisible();
+
+      // Same anchor as the DJ describe block: confirms a real row rendered
+      // before trusting that its controls are visible, not just its header
+      // link. Without this, a regression that resolved `canWrite` false for
+      // everyone (an org-role read failing closed, say) would still leave
+      // this file green on the "Add Rotation Release" assertion alone while
+      // every MD silently lost the Actions column.
+      await expect(page.getByRole("row")).not.toHaveCount(0);
+
       await expect(page.getByRole("link", { name: "Add Rotation Release" })).toBeVisible();
+      await expect(page.getByRole("columnheader", { name: "Actions" })).toBeVisible();
+      await expect(page.getByRole("link", { name: /^Edit: / }).first()).toBeVisible();
+      const killOrUnkill = page
+        .getByRole("button", { name: /^Kill: / })
+        .or(page.getByRole("button", { name: /^Unkill: / }));
+      await expect(killOrUnkill.first()).toBeVisible();
     });
 
     // Asserted on the screen's header links rather than on its form, so the
