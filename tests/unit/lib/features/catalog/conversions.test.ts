@@ -270,6 +270,22 @@ describe("catalog conversions", () => {
       });
     });
 
+    describe("definitive release links on the wire", () => {
+      it("threads the release's urls onto the entry", () => {
+        const urls = [
+          "https://www.discogs.com/release/24216789",
+          "juanamolina.bandcamp.com/album/doga",
+        ];
+        const result = convertToAlbumEntry({ ...linkedRow, urls });
+        expect(result.urls).toEqual(urls);
+      });
+
+      it("defaults a missing urls field to an empty array", () => {
+        const result = convertToAlbumEntry(linkedRow);
+        expect(result.urls).toEqual([]);
+      });
+    });
+
     // These id:null assertions pass on BOTH pre-fix and post-fix code —
     // `null !== undefined` is TRUE, so `isSearchResult` returned TRUE and
     // rotation fields already survived. Kept as a current-behavior baseline

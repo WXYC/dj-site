@@ -1,43 +1,44 @@
 import { AlbumMetadata } from "@/lib/features/metadata/types";
+import { mergeListenLinks } from "@/lib/features/catalog/listenLinks";
 import { Chip, Stack } from "@mui/joy";
 
 interface StreamingLinksProps {
   metadata: AlbumMetadata | null;
+  /**
+   * The release's definitive (music-director) links, folded into the chips:
+   * a matching-service link overrides LML's, a new-service link is added, and
+   * an unrecognised or unparseable value is kept (labelled by host, or as a
+   * non-anchor). See `mergeListenLinks`.
+   */
+  urls?: string[];
 }
 
-const SERVICES: { key: keyof AlbumMetadata; label: string }[] = [
-  { key: "spotifyUrl", label: "Spotify" },
-  { key: "appleMusicUrl", label: "Apple Music" },
-  { key: "youtubeMusicUrl", label: "YouTube" },
-  { key: "bandcampUrl", label: "Bandcamp" },
-  { key: "soundcloudUrl", label: "SoundCloud" },
-  { key: "discogsUrl", label: "Discogs" },
-];
-
-export default function StreamingLinks({ metadata }: StreamingLinksProps) {
-  if (!metadata) return null;
-
-  const links = SERVICES.filter(
-    (service) => metadata[service.key] as string,
-  );
+export default function StreamingLinks({ metadata, urls }: StreamingLinksProps) {
+  const links = mergeListenLinks(metadata, urls);
 
   if (links.length === 0) return null;
 
   return (
     <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
-      {links.map((service) => (
-        <Chip
-          key={service.key}
-          variant="outlined"
-          size="sm"
-          component="a"
-          href={metadata[service.key] as string}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          {service.label}
-        </Chip>
-      ))}
+      {links.map((link) =>
+        link.href ? (
+          <Chip
+            key={link.key}
+            variant="outlined"
+            size="sm"
+            component="a"
+            href={link.href}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            {link.label}
+          </Chip>
+        ) : (
+          <Chip key={link.key} variant="outlined" size="sm">
+            {link.label}
+          </Chip>
+        ),
+      )}
     </Stack>
   );
 }

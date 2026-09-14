@@ -51,6 +51,15 @@ export type AlbumSearchResultJSON = Omit<
   add_date: string;
   matched_via?: TrackMatchHint[];
   legacy_release_id?: number | null;
+  /**
+   * The release's definitive (music-director) links, release-scoped. Hand-added
+   * because the published `AlbumSearchResult` (`@wxyc/shared@5.4.0`) predates
+   * the catalog read-projection change that emits it; delete this arm once the
+   * generated type carries `urls`. Plain strings, not `format: uri` — MDs paste
+   * bare domains, so a value carries no scheme guarantee and a renderer must
+   * sanitise before binding one into an href.
+   */
+  urls?: string[];
 };
 
 export type SearchCatalogQueryParams = {
@@ -441,6 +450,14 @@ export type AlbumEntry = {
   rotation_id: number | undefined;
   /** The rotation entry's named card, when known. Converted from search/rotation rows that carry the wire field (`AlbumSearchResult.card`, non-null only while actively rotating) and threaded from add/kill rotation mutation responses. `null` is the positive claim "on no card"; absent means no source has reported one. */
   card?: RotationCard | null;
+  /**
+   * The release's definitive (music-director) links, release-scoped and so
+   * present regardless of rotation state. Rides the same conversion path as
+   * `card`; folded into the Listen chips, overriding LML for a matching service
+   * and adding a chip for one LML did not return. Bare-domain-safe rendering is
+   * the consumer's responsibility (see `mergeListenLinks`).
+   */
+  urls?: string[];
   plays: number | undefined;
   add_date: string | undefined;
   label: string;
