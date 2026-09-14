@@ -51,16 +51,19 @@ type ParsedUrl = { ok: true; href: string; host: string } | { ok: false };
  *
  * Two shapes are rejected as unparseable so they render as inert text, not live
  * anchors:
- * - A protocol-relative or path-only value (`//evil.com`, `/foo`): prepending a
- *   scheme would collapse `https://` + `//evil.com` into `https:////evil.com`,
- *   which resolves to a live link to `evil.com`. A definitive link is a full URL
- *   or a bare domain, never a `/`-leading reference, so reject it outright.
+ * - A protocol-relative or path-only value leading with `/` or `\` (`//evil.com`,
+ *   `/foo`, `\evil.com`): prepending a scheme would collapse `https://` +
+ *   `//evil.com` into `https:////evil.com`, which resolves to a live link to
+ *   `evil.com`. The WHATWG `URL` parser normalises `\` to `/` for http(s), so a
+ *   leading backslash is the same attack — both must be rejected. A definitive
+ *   link is a full URL or a bare domain, never a `/`- or `\`-leading reference,
+ *   so reject it outright.
  * - A single-label host (`spotify`, any bare word without a dot): `https://spotify`
  *   parses but resolves nowhere, so binding it into an href yields a dead anchor.
  *   `localhost` is the one dotless host kept parseable.
  */
 export function parseListenUrl(raw: string): ParsedUrl {
-  if (raw.startsWith("/")) return { ok: false };
+  if (/^[/\\]/.test(raw)) return { ok: false };
   const candidate = /^[a-z][a-z0-9+.-]*:\/\//i.test(raw) ? raw : `https://${raw}`;
   let url: URL;
   try {

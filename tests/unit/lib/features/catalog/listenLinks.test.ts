@@ -54,6 +54,12 @@ describe("parseListenUrl", () => {
     ["a bare single-label word", "spotify"],
     ["a protocol-relative reference", "//evil.com"],
     ["a path-only reference", "/album/doga"],
+    // The WHATWG URL parser normalises `\` to `/` for http(s), so a leading
+    // backslash is the same protocol-relative / path-only attack as a slash.
+    ["a leading-backslash host", "\\evil.com"],
+    ["a double-backslash reference", "\\\\evil.com"],
+    ["a backslash-slash reference", "\\/evil.com"],
+    ["a slash-backslash reference", "/\\evil.com"],
     ["a javascript: pseudo-URL", "javascript:alert(1)"],
     ["a javascript:// pseudo-URL", "javascript://alert(1)"],
     ["a data: URL", "data:text/html,x"],
@@ -173,6 +179,10 @@ describe("mergeListenLinks", () => {
   it.each([
     ["a bare single-label word", "spotify"],
     ["a protocol-relative reference", "//evil.com"],
+    ["a leading-backslash host", "\\evil.com"],
+    ["a double-backslash reference", "\\\\evil.com"],
+    ["a backslash-slash reference", "\\/evil.com"],
+    ["a slash-backslash reference", "/\\evil.com"],
     ["a javascript: pseudo-URL", "javascript:alert(1)"],
     ["a javascript:// pseudo-URL", "javascript://alert(1)"],
     ["a data: URL", "data:text/html,x"],
