@@ -28,6 +28,7 @@ export {
   fakeRotationEndpoints,
   fakeRotationEndpointsWithGatedKill,
   fakeRotationAdminEndpoints,
+  fakeRotationCardsEndpoints,
   type FakeRotationRow,
   type FakeRotationAdminRow,
   type FakeRotationCard,

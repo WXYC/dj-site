@@ -46,6 +46,12 @@ vi.mock("@/src/components/experiences/modern/Header/PageHeader", () => ({
   default: ({ title }: { title: string }) => <div data-testid="page-header">{title}</div>,
 }));
 
+// The cards surface has its own integration spec; here it only marks that
+// the gate let the page through to it.
+vi.mock("@/src/components/experiences/modern/admin/rotation/CardsManager", () => ({
+  default: () => <div data-testid="cards-manager" />,
+}));
+
 import RotationCardsPage from "@/app/dashboard/@modern/admin/rotation/cards/page";
 
 function sessionData(role: string | null) {
@@ -89,15 +95,16 @@ describe("rotation cards page", () => {
     process.env = originalEnv;
   });
 
-  it("reaches the page for a music director", async () => {
+  it("reaches the cards surface for a music director", async () => {
     mockGetSession.mockResolvedValue({ data: sessionData(null), error: null });
     mockGetUserRoleInOrganization.mockResolvedValue("musicDirector");
 
     const result = await RotationCardsPage();
-    renderWithProviders(result);
+    const { getByTestId } = renderWithProviders(result);
 
     expect(mockRedirect).not.toHaveBeenCalled();
     expect(mockNotFound).not.toHaveBeenCalled();
+    expect(getByTestId("cards-manager")).toBeInTheDocument();
   });
 
   it("still reaches the page for a station manager", async () => {

@@ -19,6 +19,7 @@ import type {
 import type {
   FreeTextRotationAddRequest,
   LinkRotationArgs,
+  RotationCardWithCount,
   RotationListRow,
   RotationListStatusFilter,
   RotationRowSummary,
@@ -78,7 +79,13 @@ export const rotationApi = createApi({
         method: "POST",
         body: rotation,
       }),
-      invalidatesTags: ["Rotation"],
+      // Also reaches across the Rotation/RotationCards tag wall: the new row
+      // lands on a card (the server defaults an omitted card_id to the bin's
+      // newest), so the per-card active counts the cards read reports change
+      // with every add. Same for the kill and free-text add below — every
+      // membership write moves a count; only the card CRUD's own writes stay
+      // on their side of the wall.
+      invalidatesTags: ["Rotation", ROTATION_CARDS_LIST_TAG],
       async onQueryStarted(
         { album_id, rotation_bin },
         { dispatch, getState, queryFulfilled },
@@ -115,10 +122,15 @@ export const rotationApi = createApi({
       // Enumerated, not the bare `"Rotation"` type: a bare-type invalidation
       // matches every id, including the `status=all` management read this
       // handler patches instead of refetching. The bounded facets and the
-      // killed row's own single-row read still refetch.
+      // killed row's own single-row read still refetch. The cards list joins
+      // them because a killed row leaves its card's active count -- the count
+      // the cards surface reports -- so the kill must cross the
+      // RotationCards/Rotation tag wall without dragging the patched
+      // `status=all` read across it.
       invalidatesTags: (_result, _error, { rotation_id }) => [
         ROTATION_LIST_TAG,
         { type: "Rotation", id: rotation_id },
+        ROTATION_CARDS_LIST_TAG,
       ],
       async onQueryStarted(_arg, { dispatch, getState, queryFulfilled }) {
         try {
@@ -185,7 +197,7 @@ export const rotationApi = createApi({
     // tag from `Rotation` -- a card add/rename never changes which albums are
     // in rotation, so tying the two together would refetch every rotation
     // list on a card rename.
-    getRotationCards: builder.query<RotationCard[], void>({
+    getRotationCards: builder.query<RotationCardWithCount[], void>({
       query: () => ({ url: "/cards" }),
       providesTags: [ROTATION_CARDS_LIST_TAG],
     }),
@@ -203,8 +215,13 @@ export const rotationApi = createApi({
         { type: "RotationCards", id },
       ],
     }),
+    // Refusals are wrapped out of the shared rejected-query middleware's
+    // toast: the delete 409 carries a typed `{message, reason}` body the
+    // cards surface renders itself, per reason — a second, vaguer sentence
+    // toasted over that reports one refusal twice.
     deleteRotationCard: builder.mutation<void, number>({
       query: (id) => ({ url: `/cards/${id}`, method: "DELETE" }),
+      transformErrorResponse: wrapRotationWriteError,
       invalidatesTags: [ROTATION_CARDS_LIST_TAG],
     }),
     getRotationTracks: builder.query<RotationTrack[], number>({
@@ -275,7 +292,8 @@ export const rotationApi = createApi({
     addFreeTextRotationEntry: builder.mutation<RotationRowSummary, FreeTextRotationAddRequest>({
       query: (body) => ({ url: "", method: "POST", body }),
       transformErrorResponse: wrapRotationWriteError,
-      invalidatesTags: ["Rotation"],
+      // Crosses the tag wall for the same reason as `addRotationEntry`.
+      invalidatesTags: ["Rotation", ROTATION_CARDS_LIST_TAG],
     }),
     // The single rotation row behind the import screen
     // (`GET /library/rotation/:id`), answering for linked and unlinked rows
@@ -336,11 +354,13 @@ export const rotationApi = createApi({
         body,
       }),
       transformErrorResponse: wrapRotationWriteError,
-      // A card move changes which rows sit on which card — counts the cards
-      // surface reports — so it crosses the tag wall the two registries were
-      // split by. Only a card move: the split exists so a card rename never
-      // refetches every rotation list, and the same wall must hold in
-      // reverse for a plain date or snapshot edit.
+      // A card move changes which rows sit on which card, and a kill-date
+      // write (kill or unkill) changes whether the row counts as active on
+      // its card at all — both move the counts the cards surface reports, so
+      // both cross the tag wall the two registries were split by. A plain
+      // add-date or snapshot edit stays on its side: the split exists so a
+      // card rename never refetches every rotation list, and the same wall
+      // must hold in reverse.
       //
       // The `status=all` read joins in only for a snapshot edit. `kill_date`
       // and `card_id` are the rotation row's own in the list shape and the
@@ -356,9 +376,15 @@ export const rotationApi = createApi({
           ([key, value]) =>
             key !== "rotation_id" && key !== "kill_date" && key !== "card_id" && value !== undefined,
         );
+        // A kill-date write crosses to the cards side too, not just a card
+        // move: a kill removes the row from its card's active count and an
+        // unkill restores it. The cache patch below still moves the row in
+        // the `status=all` read without refetching it — the crossing carries
+        // only the cards list, never that read.
+        const movesCardCount = arg.card_id !== undefined || arg.kill_date !== undefined;
         return [
           ROTATION_LIST_TAG,
-          ...(arg.card_id === undefined ? [] : [ROTATION_CARDS_LIST_TAG]),
+          ...(movesCardCount ? [ROTATION_CARDS_LIST_TAG] : []),
           ...(snapshotEdited ? [ROTATION_STATUS_ALL_TAG] : []),
         ];
       },

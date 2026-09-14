@@ -118,11 +118,12 @@ describe("rotationApi — rotation card CRUD", () => {
 
     // The `status=all` read is the station's whole rotation history, so the
     // per-row writes (kill, unkill, card move) must move its rows by cache
-    // patch, never by refetching it. A card move still refetches the cards
-    // read — the per-card counts the cards surface reports live there — but
-    // any reach beyond that, in either direction across the
-    // RotationCards/Rotation tag split, is a regression these counters exist
-    // to catch.
+    // patch, never by refetching it. Those same writes still refetch the
+    // cards read — a card move relands the row on a different card, and a
+    // kill-date change adds or drops the row from its card's active count,
+    // both of which move the per-card counts the cards surface reports. A
+    // plain snapshot edit crosses neither wall in the wrong direction; any
+    // reach beyond these is a regression these counters exist to catch.
     function installCountingHandlers() {
       const counts = { cards: 0, list: 0 };
       let requested: URL | undefined;
@@ -186,7 +187,14 @@ describe("rotationApi — rotation card CRUD", () => {
       expect(handlers.counts.list).toBe(1);
     });
 
-    it("a kill_date edit patches the cached status=all row and refetches neither read", async () => {
+    // A kill-date write is patched into the `status=all` read like a card
+    // move — the presentation split derives from the date, so the row changes
+    // sections without a full-history refetch — but it still crosses to the
+    // cards side: the row leaves or rejoins its card's active count. So the
+    // cards read refetches while the list stays patched. This pins the
+    // `card_id OR kill_date` invalidation predicate: `kill_date` alone, with
+    // no `card_id`, must still reach the cards tag.
+    it("a kill-date edit refetches the cards read but patches the cached status=all row", async () => {
       const handlers = installCountingHandlers();
       const store = rotationStore();
       await store.dispatch(rotationApi.endpoints.getRotationCards.initiate());
@@ -199,12 +207,14 @@ describe("rotationApi — rotation card CRUD", () => {
         }),
       );
 
-      await vi.waitFor(() =>
+      await vi.waitFor(() => {
+        expect(handlers.counts.cards).toBe(2);
         expect(cachedAllList(store)).toEqual([
           { ...STEREOLAB_ROW, rotation_kill_date: "2026-09-20" },
-        ]),
-      );
-      expect(handlers.counts).toEqual({ cards: 1, list: 1 });
+        ]);
+      });
+      // The list stays patched, never refetched, across the kill-date write.
+      expect(handlers.counts.list).toBe(1);
     });
 
     // AC2 for the admin list: a row changes presentation through the
@@ -232,10 +242,13 @@ describe("rotationApi — rotation card CRUD", () => {
 
     // The snapshot columns of a linked list row belong to the library join,
     // not to the rotation row the write edited, so a snapshot edit cannot be
-    // patched in place — it re-serves the list instead.
-    it("a snapshot edit re-serves the status=all list instead of patching it", async () => {
+    // patched in place — it re-serves the list instead. And it carries
+    // neither `card_id` nor `kill_date`, so it must not reach the cards read
+    // a mounted cards surface holds.
+    it("a snapshot edit re-serves the status=all list and leaves the cards read alone", async () => {
       const handlers = installCountingHandlers();
       const store = rotationStore();
+      await store.dispatch(rotationApi.endpoints.getRotationCards.initiate());
       await store.dispatch(rotationApi.endpoints.getRotationList.initiate("all"));
 
       await store.dispatch(
@@ -246,7 +259,71 @@ describe("rotationApi — rotation card CRUD", () => {
       );
 
       await vi.waitFor(() => expect(handlers.counts.list).toBe(2));
-      expect(handlers.counts.cards).toBe(0);
+      expect(handlers.counts.cards).toBe(1);
+    });
+  });
+
+  describe("membership writes and the cards read", () => {
+    // The counts the cards GET carries change with every membership write —
+    // an add lands a row on the target bin's newest card, a kill retires one
+    // — so all three mutations must refetch the cards read a mounted cards
+    // surface holds.
+    type Store = ReturnType<typeof rotationStore>;
+    it.each<[string, (store: Store) => Promise<unknown>]>([
+      [
+        "addRotationEntry",
+        (store) =>
+          store.dispatch(
+            rotationApi.endpoints.addRotationEntry.initiate({ album_id: 9001, rotation_bin: "H" }),
+          ),
+      ],
+      [
+        "addFreeTextRotationEntry",
+        (store) =>
+          store.dispatch(
+            rotationApi.endpoints.addFreeTextRotationEntry.initiate({
+              rotation_bin: "M",
+              artist_name: "Chuquimamani-Condori",
+              album_title: "Edits",
+            }),
+          ),
+      ],
+      [
+        "killRotationEntry",
+        (store) =>
+          store.dispatch(rotationApi.endpoints.killRotationEntry.initiate({ rotation_id: 5001 })),
+      ],
+    ])("%s refetches the cards read", async (_name, dispatchWrite) => {
+      let cardsRequests = 0;
+      server.use(
+        http.get(BASE, () => {
+          cardsRequests += 1;
+          return HttpResponse.json([HEAVY_2]);
+        }),
+        http.post(`${TEST_BACKEND_URL}/library/rotation`, () =>
+          HttpResponse.json(
+            { id: 6001, album_id: null, rotation_bin: "H", add_date: "2026-09-13", kill_date: null },
+            { status: 201 },
+          ),
+        ),
+        http.patch(`${TEST_BACKEND_URL}/library/rotation`, () =>
+          HttpResponse.json({
+            id: 5001,
+            album_id: null,
+            rotation_bin: "H",
+            add_date: "2026-09-01",
+            kill_date: "2026-09-13",
+          }),
+        ),
+      );
+
+      const store = rotationStore();
+      await store.dispatch(rotationApi.endpoints.getRotationCards.initiate());
+      expect(cardsRequests).toBe(1);
+
+      await dispatchWrite(store);
+
+      await vi.waitFor(() => expect(cardsRequests).toBe(2));
     });
   });
 
