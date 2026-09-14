@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
@@ -20,6 +20,12 @@ const ROTATION = `${TEST_BACKEND_URL}/library/rotation`;
 // A Sunday-evening show, so every fixture row sits well inside one station week
 // and away from a DST edge.
 const SHOW_START = "2026-09-07T00:00:00.000Z";
+
+// The component reads `new Date()` itself and defaults to last week, so the
+// clock has to be pinned into the following station week (rather than the
+// fixtures derived from the real clock) or the new-adds tail's window check
+// against `rotation_add_date` silently drifts off the fixtures over time.
+const NOW = "2026-09-16T12:00:00.000Z";
 
 let nextId = 1;
 const track = (rotationId: number, artist: string, title: string, label: string) => ({
@@ -57,7 +63,12 @@ const rangePayload = () => ({
 describe("RotationTallysheet", () => {
   beforeEach(() => {
     nextId = 1;
+    vi.useFakeTimers({ shouldAdvanceTime: true, now: new Date(NOW) });
     server.use(http.get(RANGE, () => HttpResponse.json(rangePayload())));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("renders the report in the shape the station mails out", async () => {
