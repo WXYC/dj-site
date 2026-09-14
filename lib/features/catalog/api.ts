@@ -31,6 +31,7 @@ import {
   CompilationTracksWriteResponse,
   CrossReferencePage,
   CrossReferenceQueryParams,
+  DiscogsReleasePrefill,
   LibraryFormatRow,
   LibraryGenreRow,
   LibraryQueryParams,
@@ -422,6 +423,27 @@ export const catalogApi = createApi({
           // the caller's own `.unwrap()` already owns surfacing the failure.
         }
       },
+    }),
+    /**
+     * `GET /library/releases/discogs-prefill?url=` — resolve a pasted Discogs
+     * release link (or bare id) to the filing bench's prefill fields via LML.
+     *
+     * Lazy: fired by the bench's Autopopulate button, not on render. Every
+     * failure the operator can cause is a named 4xx (`missing_url`,
+     * `invalid_url`, `master_url`, `not_release_url`, `release_not_found`) the
+     * bench shows inline without blocking manual entry, so — like
+     * `fileRelease` — the rejection is nested out of the shared rejected-query
+     * toast middleware's `payload.data.message` reach rather than surfaced as a
+     * global toast.
+     */
+    getDiscogsPrefill: builder.query<DiscogsReleasePrefill, string>({
+      query: (url) => ({
+        url: "/releases/discogs-prefill",
+        params: { url },
+      }),
+      transformErrorResponse: (
+        response: FetchBaseQueryError,
+      ): { discogsPrefillError: FetchBaseQueryError } => ({ discogsPrefillError: response }),
     }),
     /** The header of `/wxycdb`'s artist card (`artistCardModify.jsp`). */
     getArtistCard: builder.query<ArtistCard, number>({
@@ -830,6 +852,7 @@ export const {
   useDeleteAlbumMutation,
   useAddArtistMutation,
   useFileReleaseMutation,
+  useLazyGetDiscogsPrefillQuery,
   useGetArtistCardQuery,
   useUpdateArtistCardMutation,
   useGetArtistReleasesQuery,
