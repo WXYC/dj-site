@@ -88,6 +88,74 @@ describe("rotationApi — rotation card CRUD", () => {
     expect(result.data).toMatchObject({ name: "Heavy Two" });
   });
 
+  describe("updateRotationRow card assignment", () => {
+    const ROTATION_BASE = `${TEST_BACKEND_URL}/library/rotation`;
+
+    // A card move changes the per-card row counts the cards surface reports,
+    // so it must reach across the RotationCards/Rotation tag split; any other
+    // field edit must not, or the split's whole point (a rename never
+    // refetches every rotation list, and vice versa) is lost.
+    function installCountingHandlers() {
+      const counts = { cards: 0, list: 0 };
+      let requested: URL | undefined;
+      let requestBody: unknown;
+      server.use(
+        http.get(BASE, () => {
+          counts.cards += 1;
+          return HttpResponse.json([HEAVY_2]);
+        }),
+        http.get(ROTATION_BASE, () => {
+          counts.list += 1;
+          return HttpResponse.json([]);
+        }),
+        http.patch(`${ROTATION_BASE}/:id`, async ({ request }) => {
+          requested = new URL(request.url);
+          requestBody = await request.json();
+          return HttpResponse.json({
+            id: 5001,
+            album_id: null,
+            rotation_bin: "H",
+            add_date: "2026-09-01",
+            kill_date: null,
+          });
+        }),
+      );
+      return { counts, requested: () => requested, requestBody: () => requestBody };
+    }
+
+    it("PATCHes {card_id} alone to /library/rotation/:id and refetches the cards read", async () => {
+      const handlers = installCountingHandlers();
+      const store = rotationStore();
+      await store.dispatch(rotationApi.endpoints.getRotationCards.initiate());
+      await store.dispatch(rotationApi.endpoints.getRotationList.initiate("all"));
+
+      await store.dispatch(
+        rotationApi.endpoints.updateRotationRow.initiate({ rotation_id: 5001, card_id: 3 }),
+      );
+
+      expect(handlers.requested()?.pathname).toBe("/library/rotation/5001");
+      expect(handlers.requestBody()).toEqual({ card_id: 3 });
+      await vi.waitFor(() => {
+        expect(handlers.counts.cards).toBe(2);
+        expect(handlers.counts.list).toBe(2);
+      });
+    });
+
+    it("a non-card edit refetches the rotation list but leaves the cards read alone", async () => {
+      const handlers = installCountingHandlers();
+      const store = rotationStore();
+      await store.dispatch(rotationApi.endpoints.getRotationCards.initiate());
+      await store.dispatch(rotationApi.endpoints.getRotationList.initiate("all"));
+
+      await store.dispatch(
+        rotationApi.endpoints.updateRotationRow.initiate({ rotation_id: 5001, kill_date: null }),
+      );
+
+      await vi.waitFor(() => expect(handlers.counts.list).toBe(2));
+      expect(handlers.counts.cards).toBe(1);
+    });
+  });
+
   it("DELETEs /library/rotation/cards/:id", async () => {
     let requested: URL | undefined;
     let method: string | undefined;

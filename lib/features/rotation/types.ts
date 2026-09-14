@@ -125,18 +125,22 @@ export type LinkRotationArgs = {
  * Arguments for `PATCH /library/rotation/:id`, the field-level rotation
  * editor: the row in the path, every other key in the body.
  *
- * These seven are the whole writable surface. `rotation_bin` is **not** among
+ * These eight are the whole writable surface. `rotation_bin` is **not** among
  * them and is not an omission here -- the endpoint accepts the key, answers
  * 200, echoes the row back and leaves the bin unchanged, and no other endpoint
  * can move a row between bins either. Sending it would be a write nobody can
- * see, so nothing sends it.
+ * see, so nothing sends it. `card_id` is the one within-bin move the endpoint
+ * does own: the referenced card must belong to the row's own bin (a mismatch
+ * is refused), so a bin move is never expressible through this write.
  *
  * Only the keys present are SET, so a typo fix on one field can never wipe
  * another. That makes the distinction between an absent key and an explicit
  * `null` load-bearing: `null` clears `kill_date`, `format_id` and `label_id`,
  * while the three text fields have no clearing value at all -- the server
  * validates them as non-empty strings, so a blank one is a 400 rather than a
- * cleared column.
+ * cleared column. `card_id` is declared non-nullable deliberately: no surface
+ * clears a card (rows only ever move between cards), and widening to the
+ * null-clears convention can wait for a caller that needs it.
  *
  * The five pre-catalog fields (everything but the two dates) may only be
  * written while the row is unlinked. Once it carries an `album_id` the library
@@ -151,6 +155,7 @@ export type UpdateRotationArgs = {
   kill_date?: string | null;
   format_id?: number | null;
   label_id?: number | null;
+  card_id?: number;
 };
 
 /**

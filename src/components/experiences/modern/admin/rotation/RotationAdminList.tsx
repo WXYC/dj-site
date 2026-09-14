@@ -2,12 +2,18 @@
 
 import type { JSX } from "react";
 import { useMemo, useState } from "react";
+import { toast } from "sonner";
 import {
   selectRotationAdminView,
   rotationRowCode,
   rotationRowPresentation,
 } from "@/lib/features/rotation/adminList";
-import { useGetRotationCardsQuery, useGetRotationListQuery } from "@/lib/features/rotation/api";
+import {
+  useGetRotationCardsQuery,
+  useGetRotationListQuery,
+  useKillRotationEntryMutation,
+  useUpdateRotationRowMutation,
+} from "@/lib/features/rotation/api";
 import { formatRotationDate } from "@/lib/features/rotation/classicList";
 import {
   ROTATION_BINS,
@@ -15,6 +21,8 @@ import {
   type RotationBin,
   type RotationListRow,
 } from "@/lib/features/rotation/types";
+import { rotationWriteErrorMessage } from "@/lib/features/rotation/writeErrorMessage";
+import { isUnmessagedHttpError } from "@/lib/rtk-query-error-logger";
 import { Link as LinkIcon } from "@mui/icons-material";
 import {
   Alert,
@@ -23,6 +31,8 @@ import {
   Chip,
   Input,
   LinearProgress,
+  Option,
+  Select,
   Sheet,
   Stack,
   Typography,
@@ -60,12 +70,31 @@ function cardText(card: RotationCard | null | undefined): string {
 /**
  * One rotation row. Unlinked rows (`id: null` — a release never catalogued)
  * carry only their snapshot fields: the shelf code is absent by construction
- * and nothing here reaches for a library record.
+ * and every action here names the row by `rotation_id`, never a library
+ * record.
  */
-function RotationAdminRow({ row }: { row: RotationListRow }): JSX.Element {
+function RotationAdminRow({
+  row,
+  binCards,
+  pending,
+  onKill,
+  onUnkill,
+  onSelectCard,
+}: {
+  row: RotationListRow;
+  /** The row's own bin's cards — the card select is a within-bin move only. */
+  binCards: RotationCard[];
+  pending: boolean;
+  onKill: () => void;
+  onUnkill: () => void;
+  onSelectCard: (cardId: number) => void;
+}): JSX.Element {
   const killed = rotationRowPresentation(row) === "killed";
   const code = rotationRowCode(row);
   const urls = row.urls ?? [];
+  // Named per row: a list of identical "Kill" buttons tells a screen-reader
+  // user nothing about which release they are about to act on.
+  const name = row.album_title ?? row.artist_name ?? `rotation ${row.rotation_id}`;
 
   return (
     <Sheet
@@ -87,7 +116,27 @@ function RotationAdminRow({ row }: { row: RotationListRow }): JSX.Element {
         <Chip size="sm" variant="soft" title={ROTATION_BIN_LABELS[row.rotation_bin]}>
           {row.rotation_bin}
         </Chip>
-        <Typography level="body-xs">{cardText(row.card)}</Typography>
+        {killed || binCards.length === 0 ? (
+          <Typography level="body-xs">{cardText(row.card)}</Typography>
+        ) : (
+          <Select
+            size="sm"
+            value={row.card?.id ?? null}
+            placeholder="no card"
+            disabled={pending}
+            onChange={(_event, cardId) => {
+              if (cardId != null && cardId !== row.card?.id) onSelectCard(cardId);
+            }}
+            slotProps={{ button: { "aria-label": `Card for: ${name}` } }}
+            sx={{ minWidth: 140 }}
+          >
+            {binCards.map((card) => (
+              <Option key={card.id} value={card.id}>
+                {cardText(card)}
+              </Option>
+            ))}
+          </Select>
+        )}
         {urls.length > 0 && (
           // A count with the values in the tooltip, never an anchor: the wire
           // contract's own warning — MDs paste bare domains, so a value
@@ -107,21 +156,55 @@ function RotationAdminRow({ row }: { row: RotationListRow }): JSX.Element {
             killed {formatRotationDate(row.rotation_kill_date)}
           </Typography>
         )}
+        <Box sx={{ ml: "auto" }}>
+          {killed ? (
+            <Button
+              variant="plain"
+              size="sm"
+              disabled={pending}
+              aria-label={`Unkill: ${name}`}
+              onClick={onUnkill}
+            >
+              Unkill
+            </Button>
+          ) : (
+            <Button
+              variant="plain"
+              color="danger"
+              size="sm"
+              disabled={pending}
+              aria-label={`Kill: ${name}`}
+              onClick={onKill}
+            >
+              Kill
+            </Button>
+          )}
+        </Box>
       </Stack>
     </Sheet>
   );
 }
+
+type RowActions = {
+  cardsByBin: ReadonlyMap<RotationBin, RotationCard[]>;
+  pendingRotationIds: ReadonlySet<number>;
+  onKill: (rotationId: number) => void;
+  onUnkill: (rotationId: number) => void;
+  onSelectCard: (rotationId: number, cardId: number) => void;
+};
 
 function RowSection({
   title,
   testId,
   count,
   rows,
+  actions,
 }: {
   title: string;
   testId: string;
   count: string;
   rows: RotationListRow[];
+  actions: RowActions;
 }): JSX.Element {
   return (
     <Box data-testid={testId}>
@@ -140,7 +223,15 @@ function RowSection({
       ) : (
         <Stack spacing={1}>
           {rows.map((row) => (
-            <RotationAdminRow key={row.rotation_id} row={row} />
+            <RotationAdminRow
+              key={row.rotation_id}
+              row={row}
+              binCards={actions.cardsByBin.get(row.rotation_bin) ?? []}
+              pending={actions.pendingRotationIds.has(row.rotation_id)}
+              onKill={() => actions.onKill(row.rotation_id)}
+              onUnkill={() => actions.onUnkill(row.rotation_id)}
+              onSelectCard={(cardId) => actions.onSelectCard(row.rotation_id, cardId)}
+            />
           ))}
         </Stack>
       )}
@@ -153,6 +244,13 @@ function RowSection({
  * read is the one read that can show killed rows at all — filtered by a
  * search box, bin chips, and (once a single bin is chosen) that bin's card
  * chips, split into Active and Killed presentations.
+ *
+ * Kill and Unkill reuse the rotation feature's existing mutations
+ * (`killRotationEntry`; `updateRotationRow` with `kill_date: null`): their
+ * catalog-cache sync lives on the endpoints and this list adds no cache
+ * handling of its own — rows change presentation through the same
+ * invalidation every other caller relies on. The per-row card select is that
+ * same field editor carrying `card_id`, a within-bin move only.
  */
 export default function RotationAdminList(): JSX.Element {
   const { data: rows, isFetching, isError, refetch } = useGetRotationListQuery("all");
@@ -160,6 +258,12 @@ export default function RotationAdminList(): JSX.Element {
   // list itself: the rows still render (each knows its own card), only the
   // sub-filter stays hidden until a retryable refetch succeeds.
   const { data: cards } = useGetRotationCardsQuery();
+
+  const [killRotationEntry] = useKillRotationEntryMutation();
+  const [updateRotationRow] = useUpdateRotationRowMutation();
+  const [pendingRotationIds, setPendingRotationIds] = useState<ReadonlySet<number>>(
+    () => new Set(),
+  );
 
   const [search, setSearch] = useState("");
   const [bin, setBin] = useState<RotationBin | null>(null);
@@ -169,13 +273,72 @@ export default function RotationAdminList(): JSX.Element {
     () => selectRotationAdminView(rows ?? [], { search, bin, cardId }),
     [rows, search, bin, cardId],
   );
-  const binCards = useMemo(
-    () =>
-      (cards ?? [])
-        .filter((card) => card.bin === bin)
-        .sort((left, right) => left.number - right.number),
-    [cards, bin],
-  );
+  const cardsByBin = useMemo(() => {
+    const byBin = new Map<RotationBin, RotationCard[]>();
+    for (const card of cards ?? []) {
+      const list = byBin.get(card.bin) ?? [];
+      list.push(card);
+      byBin.set(card.bin, list);
+    }
+    for (const list of byBin.values()) list.sort((left, right) => left.number - right.number);
+    return byBin;
+  }, [cards]);
+  const binCards = bin == null ? [] : (cardsByBin.get(bin) ?? []);
+
+  const withPending = async (
+    rotationId: number,
+    run: () => Promise<unknown>,
+    failureVerb: string,
+  ) => {
+    setPendingRotationIds((prev) => new Set(prev).add(rotationId));
+    try {
+      await run();
+    } catch (err) {
+      // Kill's refusals reach the shared middleware's toast, so only the
+      // shapes it stays silent about are this row's to report. The field
+      // editor's (unkill, card moves) are wrapped out of that lookup, which
+      // reads as unmessaged here every time and puts the server's own
+      // sentence in the toast instead of a generic one -- the same refusal,
+      // reported once either way.
+      if (isUnmessagedHttpError(err)) {
+        toast.error(
+          rotationWriteErrorMessage(
+            err,
+            `Couldn't ${failureVerb} this rotation release. Please try again.`,
+          ),
+        );
+      }
+    } finally {
+      setPendingRotationIds((prev) => {
+        const next = new Set(prev);
+        next.delete(rotationId);
+        return next;
+      });
+    }
+  };
+
+  const actions: RowActions = {
+    cardsByBin,
+    pendingRotationIds,
+    onKill: (rotationId) =>
+      void withPending(
+        rotationId,
+        () => killRotationEntry({ rotation_id: rotationId }).unwrap(),
+        "kill",
+      ),
+    onUnkill: (rotationId) =>
+      void withPending(
+        rotationId,
+        () => updateRotationRow({ rotation_id: rotationId, kill_date: null }).unwrap(),
+        "unkill",
+      ),
+    onSelectCard: (rotationId, nextCardId) =>
+      void withPending(
+        rotationId,
+        () => updateRotationRow({ rotation_id: rotationId, card_id: nextCardId }).unwrap(),
+        "move",
+      ),
+  };
 
   // Absence-of-list, not the error flag: a background refetch can leave
   // isError true while the last-good rows are still on screen, and a
@@ -250,12 +413,14 @@ export default function RotationAdminList(): JSX.Element {
         testId="rotation-admin-active"
         count={view.narrowed ? `${view.active.length} of ${view.activeTotal}` : `${view.activeTotal}`}
         rows={view.active}
+        actions={actions}
       />
       <RowSection
         title="Killed"
         testId="rotation-admin-killed"
         count={view.narrowed ? `${view.killed.length} of ${view.killedTotal}` : `${view.killedTotal}`}
         rows={view.killed}
+        actions={actions}
       />
     </Stack>
   );
