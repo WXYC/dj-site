@@ -1,11 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { skipToken } from "@reduxjs/toolkit/query";
 import { useGetFlowsheetRangeQuery } from "@/lib/features/schedule-week/api";
+import { useGetRotationQuery } from "@/lib/features/rotation/api";
 import {
   formatWeeklyReport,
   formatWeekRange,
   rankWeeklyPlays,
+  unrankedNewAdds,
 } from "@/lib/features/rotation-tally/tally";
 import {
   addStationWeeks,
@@ -28,6 +31,12 @@ import "@/src/styles/classic/wxyc.css";
  *
  * The email form is deliberately absent. The report has always been mailed by
  * hand out of the librarian's own client, so the `<pre>` below is the product.
+ *
+ * One gap in the new-adds tail, and it is a Backend limit rather than a choice:
+ * the rotation list serves active releases, and Backend exposes no endpoint for
+ * a catalogued rotation release that has been killed. A record added during an
+ * older week and killed since therefore cannot be named in that week's tail.
+ * The tail only appears above a minimum of 1, which the station does not use.
  */
 
 // `weeklySummarySelect.jsp` loops x from 0 down to -8.
@@ -52,14 +61,36 @@ export default function RotationTallysheet() {
     stationWeekWindow(weekStart),
   );
 
+  // Only fetched where it can change the report. Below a minimum of 2 every
+  // tallied release is already ranked, so the tail is empty by construction and
+  // the rotation list would be read for nothing.
+  const { data: rotationRows } = useGetRotationQuery(
+    minimumPlays >= 2 ? undefined : skipToken,
+  );
+
+  const addDates = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const row of rotationRows ?? []) {
+      if (row.rotation_id !== undefined && row.add_date !== undefined) {
+        map.set(row.rotation_id, row.add_date);
+      }
+    }
+    return map;
+  }, [rotationRows]);
+
   const report = useMemo(() => {
-    const ranked = rankWeeklyPlays(
-      data?.shows ?? [],
-      data?.entries ?? [],
+    const shows = data?.shows ?? [];
+    const entries = data?.entries ?? [];
+    const ranked = rankWeeklyPlays(shows, entries, minimumPlays);
+    const newAdds = unrankedNewAdds(
+      shows,
+      entries,
       minimumPlays,
+      addDates,
+      weekStart,
     );
-    return formatWeeklyReport(ranked, weekStart);
-  }, [data, minimumPlays, weekStart]);
+    return formatWeeklyReport(ranked, weekStart, newAdds);
+  }, [data, minimumPlays, weekStart, addDates]);
 
   const weeks = useMemo(
     () =>
