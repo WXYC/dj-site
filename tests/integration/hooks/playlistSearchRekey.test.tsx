@@ -90,3 +90,41 @@ describe("usePlaylistSearch — mid-flight param change (real store + RTK)", () 
     expect(result.current.results.map((r) => r.id)).toEqual([2]);
   });
 });
+
+describe("usePlaylistSearch — typing", () => {
+  it("fires one search for a word typed a letter at a time, not one per letter", async () => {
+    // tubafrenzy's playlist-search.js debounced input by 300ms (`f = 300`)
+    // before calling triggerSearch. Without that, every keystroke re-keys the
+    // query and rebuilds the results table underneath the reader -- and the
+    // rows are a full-width click target, so a click meant for the search box
+    // lands on whatever row slid under the pointer.
+    const queries: string[] = [];
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/flowsheet/search`, ({ request }) => {
+        queries.push(new URL(request.url).searchParams.get("q") ?? "");
+        return HttpResponse.json({ results: [], total: 0, page: 0, totalPages: 1 });
+      }),
+    );
+
+    const store = createTestStore();
+    const wrapper = ({ children }: { children: ReactNode }) =>
+      createElement(Provider, { store, children });
+    const { result } = renderHook(() => usePlaylistSearch(), { wrapper });
+
+    // The default (empty) listing fires on mount; ignore it.
+    await waitFor(() => expect(queries.length).toBeGreaterThan(0));
+    queries.length = 0;
+
+    const rowId = result.current.rows[0].id;
+    for (const value of ["p", "po", "pol", "polv", "polvo"]) {
+      act(() => {
+        result.current.updateRow(rowId, { value });
+      });
+    }
+
+    await waitFor(() => expect(queries).toContain("polvo"));
+    // Only the settled word should have been requested. Without a debounce
+    // this also contains "po", "pol" and "polv".
+    expect(queries).toEqual(["polvo"]);
+  });
+});
