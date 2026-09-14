@@ -46,6 +46,12 @@ vi.mock("@/src/components/experiences/modern/Header/PageHeader", () => ({
   default: ({ title }: { title: string }) => <div data-testid="page-header">{title}</div>,
 }));
 
+// The bench carries its own integration spec (and needs the modern theme's
+// rotation palette); here only the gate around it matters.
+vi.mock("@/src/components/experiences/modern/admin/rotation/RotationFilingBench", () => ({
+  default: () => <div data-testid="rotation-filing-bench" />,
+}));
+
 import RotationBenchPage from "@/app/dashboard/@modern/admin/rotation/new/page";
 
 function sessionData(role: string | null) {
