@@ -144,6 +144,9 @@ The layout gate is the first line, not the only one. Layouts above the changed s
 | `/dashboard/admin/catalog` | `ExperienceGap` | Format + genre admin | MD |
 | `/dashboard/admin/roster` | `ExperienceGap` | Roster admin | SM |
 | `/dashboard/admin/shows` | `ExperienceGap` | Open-shows operator list | MD |
+| `/dashboard/admin/rotation` | `ExperienceGap` | Rotation list (placeholder) | MD, behind `NEXT_PUBLIC_ROTATION_ADMIN_ENABLED` |
+| `/dashboard/admin/rotation/new` | `ExperienceGap` | Filing bench (placeholder) | MD, behind `NEXT_PUBLIC_ROTATION_ADMIN_ENABLED` |
+| `/dashboard/admin/rotation/cards` | `ExperienceGap` | Card management (placeholder) | MD, behind `NEXT_PUBLIC_ROTATION_ADMIN_ENABLED` |
 
 ### Previous sets: two views behind one URL
 

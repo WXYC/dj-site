@@ -32,6 +32,18 @@ test.describe("Role-Based Access Control", () => {
       await dashboardPage.expectRedirectedToDefaultDashboard();
     });
 
+    // First MD-gated negative case in this file: the existing DJ negative
+    // above covers the SM-gated roster page, not an MD floor.
+    test("should be redirected from admin rotation page", async () => {
+      await dashboardPage.gotoAdminRotation();
+      await dashboardPage.expectRedirectedToDefaultDashboard();
+    });
+
+    test("should not see the rotation navigation link", async () => {
+      await dashboardPage.waitForPageLoad();
+      await expect(dashboardPage.rotationLink).not.toBeVisible({ timeout: 5000 });
+    });
+
     test("should not see admin navigation link", async ({ page }) => {
       await dashboardPage.waitForPageLoad();
       // Admin roster link should not be visible for DJ users
@@ -60,6 +72,11 @@ test.describe("Role-Based Access Control", () => {
       await dashboardPage.gotoAdminRoster();
       // MD should also be redirected (roster requires SM)
       await dashboardPage.expectRedirectedToDefaultDashboard();
+    });
+
+    test("should access admin rotation page", async () => {
+      await dashboardPage.gotoAdminRotation();
+      await dashboardPage.expectOnAdminRotation();
     });
   });
 

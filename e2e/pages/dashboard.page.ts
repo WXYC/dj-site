@@ -11,6 +11,7 @@ export class DashboardPage {
   readonly catalogLink: Locator;
   readonly adminLink: Locator;
   readonly rosterLink: Locator;
+  readonly rotationLink: Locator;
   readonly logoutForm: Locator;
   readonly logoutButton: Locator;
 
@@ -32,6 +33,7 @@ export class DashboardPage {
     this.catalogLink = page.locator('a[href="/dashboard/catalog"]');
     this.adminLink = page.locator('a[href*="/dashboard/admin"]');
     this.rosterLink = page.locator('a[href="/dashboard/admin/roster"]');
+    this.rotationLink = page.locator('a[href="/dashboard/admin/rotation"]');
 
     // Log out button is in a form in the sidebar - it's an IconButton with type="submit"
     // Select specifically the submit button inside a form (the logout button)
@@ -70,6 +72,11 @@ export class DashboardPage {
 
   async gotoAdminRoster(): Promise<void> {
     await this.page.goto("/dashboard/admin/roster");
+    await this.page.waitForLoadState("domcontentloaded");
+  }
+
+  async gotoAdminRotation(): Promise<void> {
+    await this.page.goto("/dashboard/admin/rotation");
     await this.page.waitForLoadState("domcontentloaded");
   }
 
@@ -123,6 +130,10 @@ export class DashboardPage {
 
   async expectOnAdminRoster(): Promise<void> {
     await expect(this.page).toHaveURL(/.*\/dashboard\/admin\/roster.*/);
+  }
+
+  async expectOnAdminRotation(): Promise<void> {
+    await expect(this.page).toHaveURL(/.*\/dashboard\/admin\/rotation.*/);
   }
 
   async expectRedirectedToLogin(): Promise<void> {
