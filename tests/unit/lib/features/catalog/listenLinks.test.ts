@@ -49,6 +49,37 @@ describe("parseListenUrl", () => {
   it("rejects a value that will not parse as a URL", () => {
     expect(parseListenUrl("not a url at all")).toEqual({ ok: false });
   });
+
+  it.each([
+    ["a bare single-label word", "spotify"],
+    ["a protocol-relative reference", "//evil.com"],
+    ["a path-only reference", "/album/doga"],
+    ["a javascript: pseudo-URL", "javascript:alert(1)"],
+    ["a javascript:// pseudo-URL", "javascript://alert(1)"],
+    ["a data: URL", "data:text/html,x"],
+  ])("rejects %s as unparseable", (_desc, raw) => {
+    expect(parseListenUrl(raw)).toEqual({ ok: false });
+  });
+
+  it("keeps localhost parseable despite its single-label host", () => {
+    expect(parseListenUrl("http://localhost:3000/album")).toMatchObject({
+      ok: true,
+      host: "localhost:3000",
+    });
+  });
+
+  it("resolves a userinfo-spoofed URL to its real host, not the spoofed prefix", () => {
+    // In `https://spotify.com@evil.com`, "spotify.com" is userinfo — the host
+    // is evil.com; the reverse resolves to the real service host.
+    expect(parseListenUrl("https://spotify.com@evil.com")).toMatchObject({
+      ok: true,
+      host: "evil.com",
+    });
+    expect(parseListenUrl("https://evil.com@spotify.com")).toMatchObject({
+      ok: true,
+      host: "spotify.com",
+    });
+  });
 });
 
 describe("mergeListenLinks", () => {
@@ -137,5 +168,49 @@ describe("mergeListenLinks", () => {
 
   it("ignores blank and whitespace-only definitive entries", () => {
     expect(mergeListenLinks(null, ["", "   "])).toEqual([]);
+  });
+
+  it.each([
+    ["a bare single-label word", "spotify"],
+    ["a protocol-relative reference", "//evil.com"],
+    ["a javascript: pseudo-URL", "javascript:alert(1)"],
+    ["a javascript:// pseudo-URL", "javascript://alert(1)"],
+    ["a data: URL", "data:text/html,x"],
+  ])("renders %s as inert non-anchor text (no href)", (_desc, raw) => {
+    const links = mergeListenLinks(null, [raw]);
+    expect(links).toEqual([{ key: "extra-0", label: raw }]);
+    expect(links[0].href).toBeUndefined();
+  });
+
+  it("labels a userinfo-spoofed host by its real host and matches no service", () => {
+    const links = mergeListenLinks(null, ["https://spotify.com@evil.com"]);
+    // The "spotify.com" prefix is userinfo, so this must not become a Spotify
+    // chip — it is labelled by the real host, evil.com.
+    expect(links.find((l) => l.label === "Spotify")).toBeUndefined();
+    expect(links).toEqual([
+      {
+        key: "extra-0",
+        label: "evil.com",
+        href: "https://spotify.com@evil.com/",
+      },
+    ]);
+  });
+
+  it("matches a real service host that only names another service in its userinfo", () => {
+    const links = mergeListenLinks(null, ["https://evil.com@spotify.com"]);
+    expect(links.find((l) => l.label === "Spotify")?.href).toBe(
+      "https://evil.com@spotify.com/",
+    );
+  });
+
+  it("keeps only the last definitive URL when two cover the same service", () => {
+    const links = mergeListenLinks(null, [
+      "https://open.spotify.com/album/first",
+      "https://open.spotify.com/album/last",
+    ]);
+    expect(links.filter((l) => l.label === "Spotify")).toHaveLength(1);
+    expect(links.find((l) => l.label === "Spotify")?.href).toBe(
+      "https://open.spotify.com/album/last",
+    );
   });
 });

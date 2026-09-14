@@ -11,10 +11,22 @@ interface StreamingLinksProps {
    * non-anchor). See `mergeListenLinks`.
    */
   urls?: string[];
+  /**
+   * The matched Discogs release is flagged wrong or inapplicable, so the
+   * LML/Discogs-proxy metadata describes the wrong release. Its chips are
+   * suppressed by merging against empty metadata, leaving only the
+   * release-scoped definitive `urls` — the authoritative links precisely when
+   * the auto-match cannot be trusted.
+   */
+  discogsUnavailable?: boolean;
 }
 
-export default function StreamingLinks({ metadata, urls }: StreamingLinksProps) {
-  const links = mergeListenLinks(metadata, urls);
+export default function StreamingLinks({
+  metadata,
+  urls,
+  discogsUnavailable,
+}: StreamingLinksProps) {
+  const links = mergeListenLinks(discogsUnavailable ? null : metadata, urls);
 
   if (links.length === 0) return null;
 
