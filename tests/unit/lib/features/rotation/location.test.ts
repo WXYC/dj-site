@@ -29,9 +29,11 @@ describe("rotationLocationFor", () => {
       name: "Fresh Arrivals",
     });
 
+    // Curly quotes, not ASCII straight quotes: the tooltip copy is specified
+    // character-for-character by the visual spec.
     expect(location).toEqual({
       label: "M · card 1",
-      title: 'Medium rotation, card 1 "Fresh Arrivals"',
+      title: "Medium rotation, card 1 “Fresh Arrivals”",
     });
   });
 

@@ -19,6 +19,7 @@ import { AlbumArtwork } from "../AlbumArtwork";
 import AddRemoveBin from "./AddRemoveBin";
 import { MatchedTrackChips } from "./MatchedTrackChips";
 import { ReleaseChips } from "./ReleaseChips";
+import { RotationLocationPill } from "./RotationLocationPill";
 import { toast } from "sonner";
 import { memo } from "react";
 
@@ -52,9 +53,14 @@ function CatalogMobileResult({
     ? rotationLocationFor(album.rotation_bin, album.card)
     : null;
 
+  // A rotating row's location never joins this list: its internal separator
+  // is the same U+00B7 the list joins with, so `H · card 2 · 37 plays` would
+  // read as three peer items. It renders as its own pill instead, and the
+  // call number is withheld outright — a rotating release is not on the
+  // stacks, so the call number points at an empty shelf slot.
   const meta = [
     rotationLocation
-      ? rotationLocation.label
+      ? null
       : `${album.artist.lettercode} ${album.artist.numbercode}/${album.entry}`,
     album.plays != null && album.plays > 0 ? `${album.plays} plays` : null,
     album.label || null,
@@ -114,9 +120,14 @@ function CatalogMobileResult({
             rotation={album.rotation_bin}
             onStreaming={album.on_streaming}
           />
-          <Typography level="body-xs" textColor="text.tertiary" title={rotationLocation?.title}>
-            {meta}
-          </Typography>
+          {rotationLocation && (
+            <RotationLocationPill location={rotationLocation} />
+          )}
+          {meta && (
+            <Typography level="body-xs" textColor="text.tertiary">
+              {meta}
+            </Typography>
+          )}
         </Stack>
       </Stack>
 

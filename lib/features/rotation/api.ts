@@ -327,13 +327,21 @@ export const rotationApi = createApi({
             const claimed = cachedAlbumRotationId(getState as () => RootState, data.album_id);
             if (claimed !== undefined && claimed !== data.id) return;
           }
+          // `card` is asymmetric across the two arms on purpose. Every kill
+          // path clears it (matching `killRotationEntry`): a killed row must
+          // never keep pointing at a card it left. The in-rotation arm omits
+          // the key — this endpoint cannot change a card, so it has none to
+          // report, and the response carries none (`RotationRowSummary` has
+          // no `card`). Because kills always clear, an unkill finds no
+          // pre-kill card to resurrect; the row degrades to bin-only until
+          // the next search read reports the card the server refiled it on.
           patchCatalogSearchRotation(
             dispatch,
             getState as () => RootState,
             data.album_id,
             inRotation
               ? { rotation_bin: data.rotation_bin, rotation_id: data.id }
-              : { rotation_bin: undefined, rotation_id: undefined },
+              : { rotation_bin: undefined, rotation_id: undefined, card: null },
           );
         } catch {
           // Swallowed rather than rethrown: RTK Query reads a rejection here as

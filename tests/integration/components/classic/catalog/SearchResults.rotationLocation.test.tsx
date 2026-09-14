@@ -41,7 +41,10 @@ describe("Classic SearchResults rotation location", () => {
 
     const location = screen.getByText("H · card 1");
     expect(location.tagName).toBe("B");
-    expect(location.getAttribute("title")).toBe('Heavy rotation, card 1 "Late Aug"');
+    expect(location.getAttribute("title")).toBe("Heavy rotation, card 1 “Late Aug”");
+    // The location outsizes the call numbers the Code column was sized for;
+    // without nowrap it can wrap mid-token and rag the column.
+    expect(location.closest("td")!.style.whiteSpace).toBe("nowrap");
     expect(screen.queryByText("MO 8/6")).toBeNull();
   });
 
@@ -57,7 +60,9 @@ describe("Classic SearchResults rotation location", () => {
 
     renderWithProviders(<SearchResults />);
 
-    expect(screen.getByText("S")).toBeDefined();
+    const location = screen.getByText("S");
+    expect(location.tagName).toBe("B");
+    expect(location.getAttribute("title")).toBe("Singles rotation");
     expect(screen.queryByText("GU 11/4")).toBeNull();
   });
 

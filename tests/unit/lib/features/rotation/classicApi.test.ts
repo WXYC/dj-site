@@ -304,8 +304,10 @@ describe("rotationApi — classic list + free-text add additions", () => {
     // The catalog override this writes is the one `killRotationEntry` writes
     // in the other direction, and it shadows the server's value until another
     // write replaces it. An edit that lands a kill date has to clear the badge
-    // for the same reason an unkill has to restore it.
-    it("clears the catalog's rotation badge when the edit lands a kill date", async () => {
+    // for the same reason an unkill has to restore it — and it clears the
+    // card with it (`card: null`, matching `killRotationEntry`), so a later
+    // unkill, which omits the key, finds no pre-kill card to resurrect.
+    it("clears the catalog's rotation badge and card when the edit lands a kill date", async () => {
       patchCatalogSearchRotation.mockClear();
       server.use(
         http.patch(`${BASE}/:id`, () =>
@@ -330,6 +332,7 @@ describe("rotationApi — classic list + free-text add additions", () => {
       expect(patchCatalogSearchRotation).toHaveBeenCalledWith(expect.anything(), expect.anything(), 42, {
         rotation_bin: undefined,
         rotation_id: undefined,
+        card: null,
       });
     });
 

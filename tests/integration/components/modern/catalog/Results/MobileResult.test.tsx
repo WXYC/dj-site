@@ -219,10 +219,12 @@ describe("CatalogMobileResult rotation location", () => {
     delete process.env[ENV_KEY];
   });
 
-  it("shows bin + card with a tooltip carrying the card name, and hides the call number, when the flag is on", () => {
+  it("renders the location as its own pill, tooltip scoped to it, hiding the call number, when the flag is on", () => {
     process.env[ENV_KEY] = "true";
     const rotating = createTestAlbum({
       ...locationAlbum,
+      plays: 42,
+      label: "Drag City",
       rotation_bin: RotationBin.H,
       card: { id: 1, bin: RotationBin.H, number: 1, name: "Late Aug" },
     });
@@ -231,12 +233,20 @@ describe("CatalogMobileResult rotation location", () => {
       <CatalogMobileResult album={rotating} live={false} addToQueue={vi.fn()} />
     );
 
-    const meta = screen.getByText(/H · card 1/);
-    expect(meta.getAttribute("title")).toBe('Heavy rotation, card 1 "Late Aug"');
-    expect(meta.textContent).not.toContain("RO 87/4");
+    // The tooltip element IS the location, nothing more: hovering plays or
+    // the label must never pop rotation facts over them.
+    const pill = screen.getByTitle("Heavy rotation, card 1 “Late Aug”");
+    expect(pill.textContent).toBe("H · card 1");
+    // The location never joins the " · "-separated meta line — its internal
+    // separator is the same character, so `H · card 1 · 42 plays` would read
+    // as three peer items — and the call number is withheld entirely.
+    const meta = screen.getByText(/42 plays/);
+    expect(meta.textContent).toBe("42 plays · Drag City");
+    expect(meta.getAttribute("title")).toBeNull();
+    expect(screen.queryByText(/RO 87\/4/)).toBeNull();
   });
 
-  it("degrades to the bin alone when the row is rotating but carries no card", () => {
+  it("degrades to a bin-only pill when the row is rotating but carries no card", () => {
     process.env[ENV_KEY] = "true";
     const rotating = createTestAlbum({
       ...locationAlbum,
@@ -248,7 +258,24 @@ describe("CatalogMobileResult rotation location", () => {
       <CatalogMobileResult album={rotating} live={false} addToQueue={vi.fn()} />
     );
 
-    expect(screen.getByTitle("Singles rotation").textContent).not.toContain("RO 87/4");
+    const pill = screen.getByTitle("Singles rotation");
+    expect(pill.textContent).toBe("S");
+    expect(screen.queryByText(/RO 87\/4/)).toBeNull();
+  });
+
+  it("keeps the call number in the meta line for a non-rotating row when the flag is on", () => {
+    process.env[ENV_KEY] = "true";
+    const notRotating = createTestAlbum({
+      ...locationAlbum,
+      rotation_bin: undefined,
+    });
+
+    renderWithProviders(
+      <CatalogMobileResult album={notRotating} live={false} addToQueue={vi.fn()} />
+    );
+
+    expect(screen.getByText(/RO 87\/4/)).toBeDefined();
+    expect(screen.queryByTitle(/rotation/)).toBeNull();
   });
 
   it("leaves a rotating row unchanged when the flag is off", () => {
