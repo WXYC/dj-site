@@ -160,7 +160,9 @@ export default function AlbumCard({
         <AlbumEditForm key={`edit-${album.id}`} album={album} />
         <RotationClassifyControl key={`rotation-${album.id}`} album={album} />
         <CompilationCreditsControl key={`credits-${album.id}`} album={album} />
-        {!isDiscogsUnavailable && <StreamingLinks metadata={metadata} />}
+        {!isDiscogsUnavailable && (
+          <StreamingLinks metadata={metadata} urls={album.urls} />
+        )}
         {!isDiscogsUnavailable && artistBio && (
           <>
             <Divider sx={{ my: 1 }} />

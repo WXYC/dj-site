@@ -136,6 +136,11 @@ export function convertToAlbumEntry(
     // which mergeAlbumIntoSearchResult reads as "keep the cached card" --
     // distinct from an explicit `null` ("not on a card").
     card: "card" in response ? response.card : undefined,
+    // Rides the same release-scoped read as `card`; narrow with `in` since
+    // BinLibraryDetails carries no `urls`. Coalesced to `[]` so the property is
+    // always an array downstream — the Listen merge treats absent and empty
+    // identically, so no absent/empty distinction is worth preserving here.
+    urls: "urls" in response ? (response.urls ?? []) : [],
     on_streaming: isSearchResult(response) ? (response as Record<string, unknown>).on_streaming as boolean | undefined : undefined,
     date_lost: isSearchResult(response) ? (response as Record<string, unknown>).date_lost as string | null | undefined : undefined,
     date_found: isSearchResult(response) ? (response as Record<string, unknown>).date_found as string | null | undefined : undefined,
