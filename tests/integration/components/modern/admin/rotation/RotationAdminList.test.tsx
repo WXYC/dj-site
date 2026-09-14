@@ -153,6 +153,49 @@ describe("RotationAdminList", () => {
     ]);
   });
 
+  it("mounts killed rows in batches while counting and filtering over the full set", async () => {
+    // Distinct add dates make the most-recently-added ordering deterministic:
+    // row 0 is the oldest, so it sorts last and sits beyond the render cap.
+    const killedRows = Array.from({ length: 55 }, (_, i) =>
+      listRow({
+        rotation_id: 7000 + i,
+        id: null,
+        code_letters: null,
+        code_artist_number: null,
+        code_number: null,
+        genre_name: null,
+        format_name: null,
+        artist_name: "Stereolab",
+        album_title: `Buried Treasure ${100 + i}`,
+        rotation_bin: "M",
+        rotation_add_date: `2026-0${1 + Math.floor(i / 28)}-${String(1 + (i % 28)).padStart(2, "0")}`,
+        rotation_kill_date: "2026-09-01",
+      }),
+    );
+    const { user } = await renderList([IHOMF, ...killedRows]);
+    await killedSection().findByText("Buried Treasure 154");
+
+    const mountedKilledRows = () =>
+      screen
+        .getByTestId("rotation-admin-killed")
+        .querySelectorAll('[data-testid^="rotation-admin-row-"]').length;
+
+    // The heading counts the whole set; only the first batch is mounted.
+    expect(screen.getByRole("heading", { name: "Killed (55)" })).toBeInTheDocument();
+    expect(mountedKilledRows()).toBe(50);
+
+    // Search runs over the full set, not the mounted slice: the one match is
+    // the oldest row, which was beyond the cap.
+    await user.type(screen.getByRole("searchbox", { name: "Search rotation" }), "treasure 100");
+    expect(screen.getByRole("heading", { name: "Killed (1 of 55)" })).toBeInTheDocument();
+    expect(killedSection().getByText("Buried Treasure 100")).toBeInTheDocument();
+    await user.clear(screen.getByRole("searchbox", { name: "Search rotation" }));
+
+    await user.click(screen.getByRole("button", { name: "Show 5 more" }));
+    expect(mountedKilledRows()).toBe(55);
+    expect(screen.queryByRole("button", { name: /Show \d+ more/ })).not.toBeInTheDocument();
+  });
+
   it("renders an unlinked row from its snapshot fields, with no shelf code", async () => {
     await renderList();
     await activeSection().findByText("Edits");
