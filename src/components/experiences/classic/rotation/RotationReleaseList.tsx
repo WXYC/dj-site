@@ -336,7 +336,7 @@ function UnavailableFacet() {
  * for the unlinked-id check and the active/killed date logic shared with
  * the free-text add screen.
  *
- * Three divergences, none forced by the Backend contract:
+ * Three divergences from the JSP, the third forced by the Backend contract:
  *
  * - "Main Menu" carries the JSP's own label but points at `/dashboard/
  *   catalog` -- dj-site's classic catalog search, the DJ-facing entry point
