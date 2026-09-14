@@ -58,13 +58,17 @@ export default function AlbumCard({
   }, [artistBio]);
 
   // MD-flagged release: the matched Discogs release is wrong or inapplicable
-  // (embargoed promo, audience-segment release, etc). Every block sourced
-  // from the /metadata/album proxy — artwork, label/year/genre/style,
-  // streaming links, artist bio, tracklist, and the Discogs footer link — is
-  // gated on this flag rather than on `metadata` being present, so the
-  // suppression holds even if a caller still fetches metadata for a flagged
-  // album. Library-owned data (title, LibraryStatus, plays/add date) is
-  // unaffected — the flag says nothing about the library entry itself.
+  // (embargoed promo, audience-segment release, etc). Blocks sourced from the
+  // /metadata/album proxy — artwork, label/year/genre/style, artist bio,
+  // tracklist, and the Discogs footer link — are gated on this flag rather than
+  // on `metadata` being present, so the suppression holds even if a caller still
+  // fetches metadata for a flagged album. The Listen chips are the exception:
+  // the release's definitive `urls` are release-scoped catalog data, not
+  // proxy-sourced, and are the authoritative fallback precisely when the
+  // auto-match is untrustworthy — so they render regardless of this flag, while
+  // the flag still suppresses the proxy-sourced LML/Discogs chips beside them.
+  // Library-owned data (title, LibraryStatus, plays/add date) is unaffected —
+  // the flag says nothing about the library entry itself.
   const isDiscogsUnavailable = album.discogsUnavailable === true;
 
   return (
@@ -160,8 +164,12 @@ export default function AlbumCard({
         <AlbumEditForm key={`edit-${album.id}`} album={album} />
         <RotationClassifyControl key={`rotation-${album.id}`} album={album} />
         <CompilationCreditsControl key={`credits-${album.id}`} album={album} />
-        {!isDiscogsUnavailable && (
-          <StreamingLinks metadata={metadata} urls={album.urls} />
+        {(album.urls?.length || !isDiscogsUnavailable) && (
+          <StreamingLinks
+            metadata={metadata}
+            urls={album.urls}
+            discogsUnavailable={isDiscogsUnavailable}
+          />
         )}
         {!isDiscogsUnavailable && artistBio && (
           <>

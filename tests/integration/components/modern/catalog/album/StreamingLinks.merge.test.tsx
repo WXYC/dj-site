@@ -93,4 +93,45 @@ describe("StreamingLinks definitive-link merge", () => {
     );
     expect(container.innerHTML).toBe("");
   });
+
+  it("suppresses proxy-sourced LML chips and shows only definitive links when Discogs is unavailable", () => {
+    renderWithProviders(
+      <StreamingLinks
+        metadata={createTestMetadata({
+          spotifyUrl: "https://open.spotify.com/album/lml-spotify",
+        })}
+        urls={["juanamolina.bandcamp.com/album/doga"]}
+        discogsUnavailable
+      />,
+    );
+
+    expect(screen.getByText("Bandcamp").closest("a")).toHaveAttribute(
+      "href",
+      "https://juanamolina.bandcamp.com/album/doga",
+    );
+    // The LML-only Spotify chip must not leak through when the auto-match is
+    // flagged untrustworthy.
+    expect(screen.queryByText("Spotify")).toBeNull();
+  });
+
+  it("merges LML and definitive links normally when Discogs is available", () => {
+    renderWithProviders(
+      <StreamingLinks
+        metadata={createTestMetadata({
+          spotifyUrl: "https://open.spotify.com/album/lml-spotify",
+        })}
+        urls={["juanamolina.bandcamp.com/album/doga"]}
+        discogsUnavailable={false}
+      />,
+    );
+
+    expect(screen.getByText("Spotify").closest("a")).toHaveAttribute(
+      "href",
+      "https://open.spotify.com/album/lml-spotify",
+    );
+    expect(screen.getByText("Bandcamp").closest("a")).toHaveAttribute(
+      "href",
+      "https://juanamolina.bandcamp.com/album/doga",
+    );
+  });
 });

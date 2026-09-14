@@ -48,8 +48,19 @@ type ParsedUrl = { ok: true; href: string; host: string } | { ok: false };
  * href only for an http(s) URL that actually parses. `host` is lowercased by
  * `URL` and has a leading `www.` stripped so service matching is scheme- and
  * subdomain-insensitive.
+ *
+ * Two shapes are rejected as unparseable so they render as inert text, not live
+ * anchors:
+ * - A protocol-relative or path-only value (`//evil.com`, `/foo`): prepending a
+ *   scheme would collapse `https://` + `//evil.com` into `https:////evil.com`,
+ *   which resolves to a live link to `evil.com`. A definitive link is a full URL
+ *   or a bare domain, never a `/`-leading reference, so reject it outright.
+ * - A single-label host (`spotify`, any bare word without a dot): `https://spotify`
+ *   parses but resolves nowhere, so binding it into an href yields a dead anchor.
+ *   `localhost` is the one dotless host kept parseable.
  */
 export function parseListenUrl(raw: string): ParsedUrl {
+  if (raw.startsWith("/")) return { ok: false };
   const candidate = /^[a-z][a-z0-9+.-]*:\/\//i.test(raw) ? raw : `https://${raw}`;
   let url: URL;
   try {
@@ -58,6 +69,9 @@ export function parseListenUrl(raw: string): ParsedUrl {
     return { ok: false };
   }
   if (url.protocol !== "http:" && url.protocol !== "https:") return { ok: false };
+  if (!url.hostname.includes(".") && url.hostname !== "localhost") {
+    return { ok: false };
+  }
   return { ok: true, href: url.href, host: url.host.replace(/^www\./, "") };
 }
 
