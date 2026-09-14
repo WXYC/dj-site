@@ -9,6 +9,7 @@ import {
   useGetArtistReleasesQuery,
   useGetFormatsQuery,
   useGetGenresQuery,
+  useGetNextReleaseNumberQuery,
   useUpdateArtistCardMutation,
 } from "@/lib/features/catalog/api";
 import {
@@ -110,6 +111,10 @@ export default function ArtistCard({ artistId, message, imported }: ArtistCardPr
     data: releasePage,
     isError: releasesError,
   } = useGetArtistReleasesQuery({ artistId });
+  const {
+    data: nextRelease,
+    isFetching: nextReleaseFetching,
+  } = useGetNextReleaseNumberQuery(artistId);
   const { data: genres } = useGetGenresQuery();
   const { data: formats } = useGetFormatsQuery();
 
@@ -125,6 +130,12 @@ export default function ArtistCard({ artistId, message, imported }: ArtistCardPr
   const [formatIdValue, setFormatIdValue] = useState<number | null>(null);
   const [releaseMessage, setReleaseMessage] = useState<string | null>(null);
   const [addedCode, setAddedCode] = useState<string | null>(null);
+  // The librarian's override of the release call number, or null while they
+  // have not touched the field. Kept as an override rather than a seeded copy
+  // so the displayed value derives from the peek during render -- no effect,
+  // and no stale second copy of the server's number. Reset to null after a
+  // save so the field re-shows the freshly-peeked next number.
+  const [codeNumberEdit, setCodeNumberEdit] = useState<string | null>(null);
 
   // Seed the one editable field from the server once the card arrives, and
   // re-seed after a save so the input shows what was stored rather than what
@@ -182,6 +193,13 @@ export default function ArtistCard({ artistId, message, imported }: ArtistCardPr
       })
     : "";
 
+  // The value in the call-number field: the librarian's edit if they have made
+  // one, otherwise the peeked next number, otherwise empty (peek still loading
+  // or unreachable). An empty field submits no `code_number`, which is the
+  // server's own MAX+1 assignment -- the same fallback the form had before.
+  const displayedCodeNumber =
+    codeNumberEdit ?? (nextRelease ? String(nextRelease.next_code_number) : "");
+
   const handleModifyArtist = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!artist) return;
@@ -220,6 +238,23 @@ export default function ArtistCard({ artistId, message, imported }: ArtistCardPr
       return;
     }
 
+    // An empty field means "let the server assign" (the `code_number` key is
+    // omitted). A non-empty field is the operator-chosen override the backend
+    // validates 1..32767, so a value outside that is refused here rather than
+    // sent to be rejected.
+    const trimmedCode = displayedCodeNumber.trim();
+    let overrideCodeNumber: number | undefined;
+    if (trimmedCode !== "") {
+      const parsed = Number(trimmedCode);
+      if (!Number.isInteger(parsed) || parsed < 1 || parsed > 32767) {
+        setReleaseMessage(
+          "The release number must be a whole number between 1 and 32767.",
+        );
+        return;
+      }
+      overrideCodeNumber = parsed;
+    }
+
     setReleaseMessage(null);
 
     // `artist_id`, never `artist_name`: the backend resolves a name through
@@ -235,6 +270,7 @@ export default function ArtistCard({ artistId, message, imported }: ArtistCardPr
       ...(altArtistName.trim() !== ""
         ? { alternate_artist_name: altArtistName.trim() }
         : {}),
+      ...(overrideCodeNumber != null ? { code_number: overrideCodeNumber } : {}),
     };
 
     try {
@@ -258,6 +294,10 @@ export default function ArtistCard({ artistId, message, imported }: ArtistCardPr
       setTitle("");
       setAltArtistName("");
       setLabel("");
+      // Drop the override so the field re-shows the next number the peek
+      // returns once addAlbum's invalidation of the release-list tag refetches
+      // it -- one higher than what was just filed, in the ordinary case.
+      setCodeNumberEdit(null);
     } catch {
       setReleaseMessage("Failed to add the release.");
     }
@@ -420,9 +460,29 @@ export default function ArtistCard({ artistId, message, imported }: ArtistCardPr
               <td>
                 {genreName ?? ""}
                 {artistCode}
-                <span className="label">
-                  &nbsp;— the release number is assigned when you save.
-                </span>
+                {/* The artist half ends in the `/` that separates it from the
+                    release number, so the field sits directly after it: the
+                    call number a librarian reads off the screen and walks to
+                    the stacks with. Prepopulated with the peek's authoritative
+                    next number rather than a client guess; editable so a lost
+                    record's slot can be reused. Blank -> the server assigns. */}
+                <input
+                  type="text"
+                  size={6}
+                  inputMode="numeric"
+                  aria-label="Release call number"
+                  value={displayedCodeNumber}
+                  placeholder={
+                    nextReleaseFetching && codeNumberEdit === null ? "…" : ""
+                  }
+                  disabled={savingRelease}
+                  onChange={(e) => setCodeNumberEdit(e.target.value)}
+                />
+                {!nextReleaseFetching && displayedCodeNumber.trim() === "" && (
+                  <span className="label">
+                    &nbsp;— the release number is assigned when you save.
+                  </span>
+                )}
               </td>
             </tr>
             <tr>

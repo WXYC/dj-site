@@ -79,6 +79,18 @@ function mockGenres() {
   );
 }
 
+function mockNextReleaseNumber(next_code_number: number | "error" = 6) {
+  server.use(
+    http.get(
+      `${TEST_BACKEND_URL}/library/artists/${ARTIST_ID}/next-release-number`,
+      () =>
+        next_code_number === "error"
+          ? HttpResponse.error()
+          : HttpResponse.json({ next_code_number }),
+    ),
+  );
+}
+
 function mockFormats() {
   server.use(
     http.get(`${TEST_BACKEND_URL}/library/formats`, () =>
@@ -96,6 +108,7 @@ function mockAll() {
   mockReleases();
   mockGenres();
   mockFormats();
+  mockNextReleaseNumber();
 }
 
 describe("classic ArtistCard — artistCardModify.jsp", () => {
@@ -293,6 +306,13 @@ describe("classic ArtistCard — artistCardModify.jsp", () => {
 
       renderWithProviders(<ArtistCard artistId={ARTIST_ID} />);
 
+      // The call-number field prepopulates from the peek; leaving it untouched
+      // sends that authoritative next number as the release's code_number.
+      const codeField = (await screen.findByLabelText(
+        /Release call number/i,
+      )) as HTMLInputElement;
+      await waitFor(() => expect(codeField.value).toBe("6"));
+
       await user.type(await screen.findByLabelText(/Title of Release/i), "Halo");
       await user.type(screen.getByLabelText(/Alternate Artist Name/i), "J. Molina");
       await user.type(screen.getByLabelText(/^Label/i), "Crammed Discs");
@@ -309,6 +329,7 @@ describe("classic ArtistCard — artistCardModify.jsp", () => {
         alternate_artist_name: "J. Molina",
         label: "Crammed Discs",
         format_id: 3,
+        code_number: 6,
       });
       expect(await screen.findByRole("status")).toHaveTextContent("Rock MO 12/6");
     });
@@ -404,6 +425,160 @@ describe("classic ArtistCard — artistCardModify.jsp", () => {
         "Please enter a title before adding this release.",
       );
       expect(posted).toBe(false);
+    });
+
+    describe("the prepopulated call number", () => {
+      it("prepopulates the field with the peek's next number instead of a placeholder", async () => {
+        mockNextReleaseNumber(9);
+        renderWithProviders(<ArtistCard artistId={ARTIST_ID} />);
+
+        const field = (await screen.findByLabelText(
+          /Release call number/i,
+        )) as HTMLInputElement;
+        await waitFor(() => expect(field.value).toBe("9"));
+        expect(
+          screen.queryByText(/the release number is assigned when you save/i),
+        ).toBeNull();
+      });
+
+      it("sends the librarian's edited call number as code_number", async () => {
+        const user = userEvent.setup();
+        const bodies: unknown[] = [];
+        mockNextReleaseNumber(9);
+        server.use(
+          http.post(`${TEST_BACKEND_URL}/library`, async ({ request }) => {
+            bodies.push(await request.json());
+            return HttpResponse.json(
+              { id: 903, code_number: 42, code_volume_letters: null },
+              { status: 201 },
+            );
+          }),
+        );
+
+        renderWithProviders(<ArtistCard artistId={ARTIST_ID} />);
+
+        const field = (await screen.findByLabelText(
+          /Release call number/i,
+        )) as HTMLInputElement;
+        await waitFor(() => expect(field.value).toBe("9"));
+        await user.clear(field);
+        await user.type(field, "42");
+        await user.type(screen.getByLabelText(/Title of Release/i), "Segundo");
+        await user.type(screen.getByLabelText(/^Label/i), "Domino");
+        await user.selectOptions(screen.getByLabelText(/Format/i), "1");
+        await user.click(
+          screen.getByRole("button", { name: "Add a new Library Release" }),
+        );
+
+        await waitFor(() => expect(bodies).toHaveLength(1));
+        expect(bodies[0]).toMatchObject({ code_number: 42 });
+        expect(await screen.findByRole("status")).toHaveTextContent("Rock MO 12/42");
+      });
+
+      it("sends no code_number when the field is cleared, letting the server assign", async () => {
+        const user = userEvent.setup();
+        const bodies: Record<string, unknown>[] = [];
+        mockNextReleaseNumber(9);
+        server.use(
+          http.post(`${TEST_BACKEND_URL}/library`, async ({ request }) => {
+            bodies.push((await request.json()) as Record<string, unknown>);
+            return HttpResponse.json(
+              { id: 904, code_number: 10, code_volume_letters: null },
+              { status: 201 },
+            );
+          }),
+        );
+
+        renderWithProviders(<ArtistCard artistId={ARTIST_ID} />);
+
+        const field = (await screen.findByLabelText(
+          /Release call number/i,
+        )) as HTMLInputElement;
+        await waitFor(() => expect(field.value).toBe("9"));
+        await user.clear(field);
+        await user.type(screen.getByLabelText(/Title of Release/i), "Un Dia");
+        await user.type(screen.getByLabelText(/^Label/i), "Domino");
+        await user.selectOptions(screen.getByLabelText(/Format/i), "1");
+        await user.click(
+          screen.getByRole("button", { name: "Add a new Library Release" }),
+        );
+
+        await waitFor(() => expect(bodies).toHaveLength(1));
+        expect(bodies[0]).not.toHaveProperty("code_number");
+      });
+
+      // Prepopulating with an authoritative number is the point, but an
+      // unreachable peek must not block filing: the field falls back to empty
+      // and the release still saves under the server's own MAX+1.
+      it("degrades to server-assign when the peek is unreachable", async () => {
+        const user = userEvent.setup();
+        const bodies: Record<string, unknown>[] = [];
+        mockNextReleaseNumber("error");
+        server.use(
+          http.post(`${TEST_BACKEND_URL}/library`, async ({ request }) => {
+            bodies.push((await request.json()) as Record<string, unknown>);
+            return HttpResponse.json(
+              { id: 905, code_number: 3, code_volume_letters: null },
+              { status: 201 },
+            );
+          }),
+        );
+
+        renderWithProviders(<ArtistCard artistId={ARTIST_ID} />);
+
+        const field = (await screen.findByLabelText(
+          /Release call number/i,
+        )) as HTMLInputElement;
+        expect(
+          await screen.findByText(
+            /the release number is assigned when you save/i,
+          ),
+        ).toBeDefined();
+        expect(field.value).toBe("");
+
+        await user.type(screen.getByLabelText(/Title of Release/i), "Halo");
+        await user.type(screen.getByLabelText(/^Label/i), "Crammed Discs");
+        await user.selectOptions(screen.getByLabelText(/Format/i), "1");
+        await user.click(
+          screen.getByRole("button", { name: "Add a new Library Release" }),
+        );
+
+        await waitFor(() => expect(bodies).toHaveLength(1));
+        expect(bodies[0]).not.toHaveProperty("code_number");
+        expect(await screen.findByRole("status")).toHaveTextContent("Rock MO 12/3");
+      });
+
+      it("refuses a non-numeric call number rather than sending it", async () => {
+        const user = userEvent.setup();
+        let posted = false;
+        mockNextReleaseNumber(9);
+        server.use(
+          http.post(`${TEST_BACKEND_URL}/library`, () => {
+            posted = true;
+            return HttpResponse.json({ id: 906 }, { status: 201 });
+          }),
+        );
+
+        renderWithProviders(<ArtistCard artistId={ARTIST_ID} />);
+
+        const field = (await screen.findByLabelText(
+          /Release call number/i,
+        )) as HTMLInputElement;
+        await waitFor(() => expect(field.value).toBe("9"));
+        await user.clear(field);
+        await user.type(field, "abc");
+        await user.type(screen.getByLabelText(/Title of Release/i), "Halo");
+        await user.type(screen.getByLabelText(/^Label/i), "Crammed Discs");
+        await user.selectOptions(screen.getByLabelText(/Format/i), "1");
+        await user.click(
+          screen.getByRole("button", { name: "Add a new Library Release" }),
+        );
+
+        expect(await screen.findByRole("alert")).toHaveTextContent(
+          "The release number must be a whole number between 1 and 32767.",
+        );
+        expect(posted).toBe(false);
+      });
     });
   });
 

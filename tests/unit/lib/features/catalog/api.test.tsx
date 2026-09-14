@@ -27,6 +27,7 @@ describe("catalogApi", () => {
       "getInformation",
       "getFormats",
       "getGenres",
+      "getNextReleaseNumber",
       "peekArtistCode",
       "resolveArtistByCode",
       "searchArtistsInGenre",
@@ -188,6 +189,19 @@ describe("catalogApi", () => {
     it("should have initiate method", () => {
       expect(catalogApi.endpoints.getGenres.initiate).toBeDefined();
       expect(typeof catalogApi.endpoints.getGenres.initiate).toBe("function");
+    });
+  });
+
+  describe("getNextReleaseNumber endpoint", () => {
+    it("should have getNextReleaseNumber endpoint defined", () => {
+      expect(catalogApi.endpoints.getNextReleaseNumber).toBeDefined();
+    });
+
+    it("should have initiate method", () => {
+      expect(catalogApi.endpoints.getNextReleaseNumber.initiate).toBeDefined();
+      expect(typeof catalogApi.endpoints.getNextReleaseNumber.initiate).toBe(
+        "function",
+      );
     });
   });
 
