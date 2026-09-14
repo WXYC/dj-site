@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
+  canMoveRotationRow,
+  freeTextRotationMoveRequest,
   rotationRowCode,
   rotationRowPresentation,
   selectRotationAdminView,
@@ -176,5 +178,48 @@ describe("selectRotationAdminView", () => {
     const missed = selectRotationAdminView(ALL, { search: "stereolab", bin: RotationBin.M, cardId: 22 });
     expect(missed.active).toEqual([]);
     expect(missed.killed).toEqual([]);
+  });
+});
+
+describe("freeTextRotationMoveRequest", () => {
+  it("carries the row's snapshot trio into the target bin, with no card_id", () => {
+    expect(freeTextRotationMoveRequest(unlinked(), RotationBin.L)).toEqual({
+      rotation_bin: RotationBin.L,
+      artist_name: "Chuquimamani-Condori",
+      album_title: "Edits",
+      record_label: "self-released",
+    });
+  });
+
+  it.each([
+    ["null", null],
+    ["blank", "   "],
+  ])("omits the record_label key when the label is %s — never an explicit null", (_name, label) => {
+    const request = freeTextRotationMoveRequest(unlinked({ record_label: label }), RotationBin.L);
+    expect(request).toEqual({
+      rotation_bin: RotationBin.L,
+      artist_name: "Chuquimamani-Condori",
+      album_title: "Edits",
+    });
+    expect(request).not.toHaveProperty("record_label");
+  });
+
+  it.each([
+    ["a null artist", { artist_name: null }],
+    ["a blank title", { album_title: "  " }],
+  ])("refuses a row with %s — the endpoint requires both", (_name, overrides) => {
+    expect(freeTextRotationMoveRequest(unlinked(overrides), RotationBin.L)).toBeNull();
+  });
+});
+
+describe("canMoveRotationRow", () => {
+  it.each([
+    ["a catalogued row", row(), true],
+    // A catalogued row moves by album_id; its display snapshot is irrelevant.
+    ["a catalogued row with no titles", row({ artist_name: null, album_title: null }), true],
+    ["an unlinked row with a full snapshot", unlinked(), true],
+    ["an unlinked row missing its title", unlinked({ album_title: null }), false],
+  ])("%s", (_name, input, expected) => {
+    expect(canMoveRotationRow(input)).toBe(expected);
   });
 });

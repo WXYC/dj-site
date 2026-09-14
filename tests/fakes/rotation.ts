@@ -192,9 +192,11 @@ export type FakeRotationAdminRow = {
 
 /**
  * Stateful stand-in for the Rotation Admin list's whole surface: the
- * `status`-parameterized list read, the cards read, the bodyless-path kill
- * (`PATCH /library/rotation`) and the field-level editor
- * (`PATCH /library/rotation/:id` — unkill and card moves).
+ * `status`-parameterized list read, the cards read, the add
+ * (`POST /library/rotation` — both the catalogued and free-text arms, the
+ * bin move's first half), the bodyless-path kill (`PATCH /library/rotation`)
+ * and the field-level editor (`PATCH /library/rotation/:id` — unkill and
+ * card moves).
  *
  * Unlike `fakeRotationEndpoints` above, a kill KEEPS the row and stamps
  * `rotation_kill_date` on it: the `status=all` read this fake feeds is
@@ -203,22 +205,73 @@ export type FakeRotationAdminRow = {
  * regardless of the `status` it records — the one consumer asks for `all`,
  * and a fake that silently filtered would let a wrong `status` pass as a
  * smaller fixture.
+ *
+ * The POST arm appends a row the list read then serves: a catalogued add
+ * (`album_id`) copies the library-join fields from an existing row with that
+ * `id`, a free-text add carries the snapshot from its own body, and either
+ * lands on the target bin's newest card (highest number, id-desc tie-break)
+ * when `card_id` is omitted — mirroring the server's own defaulting so a
+ * consumer relying on it sees where the row actually lands.
  */
 export function fakeRotationAdminEndpoints(
   initialRows: FakeRotationAdminRow[],
   cards: FakeRotationCard[],
-  { killDate = "2026-09-12" }: { killDate?: string } = {},
+  { killDate = "2026-09-12", addDate = "2026-09-13" }: { killDate?: string; addDate?: string } = {},
 ) {
   const rows = initialRows.map((row) => ({ ...row }));
   const listStatuses: (string | null)[] = [];
   let cardsRequests = 0;
+  const addBodies: unknown[] = [];
   const killBodies: unknown[] = [];
   const updates: { id: number; body: Record<string, unknown> }[] = [];
+  // One sequence across the two write arms: add-before-kill is the bin
+  // move's safety property, and per-arm logs cannot express it.
+  const calls: ("add" | "kill")[] = [];
+
+  const newestCard = (bin: string) =>
+    cards
+      .filter((card) => card.bin === bin)
+      .sort((left, right) => right.number - left.number || right.id - left.id)[0] ?? null;
 
   server.use(
     http.get(`${BACKEND_URL}/library/rotation`, ({ request }) => {
       listStatuses.push(new URL(request.url).searchParams.get("status"));
       return HttpResponse.json(rows);
+    }),
+    http.post(`${BACKEND_URL}/library/rotation`, async ({ request }) => {
+      const body = (await request.json()) as {
+        album_id?: number;
+        rotation_bin: string;
+        artist_name?: string;
+        album_title?: string;
+        record_label?: string;
+      };
+      addBodies.push(body);
+      calls.push("add");
+      const rotationId = rows.reduce((max, row) => Math.max(max, row.rotation_id), 0) + 1;
+      const source = body.album_id != null ? rows.find((row) => row.id === body.album_id) : undefined;
+      rows.push({
+        ...source,
+        id: body.album_id ?? null,
+        rotation_id: rotationId,
+        rotation_bin: body.rotation_bin,
+        rotation_add_date: addDate,
+        rotation_kill_date: null,
+        artist_name: body.artist_name ?? source?.artist_name ?? null,
+        album_title: body.album_title ?? source?.album_title ?? null,
+        record_label: body.record_label ?? source?.record_label ?? null,
+        card: newestCard(body.rotation_bin),
+      });
+      return HttpResponse.json(
+        {
+          id: rotationId,
+          album_id: body.album_id ?? null,
+          rotation_bin: body.rotation_bin,
+          add_date: addDate,
+          kill_date: null,
+        },
+        { status: 201 },
+      );
     }),
     http.get(`${BACKEND_URL}/library/rotation/cards`, () => {
       cardsRequests += 1;
@@ -229,6 +282,7 @@ export function fakeRotationAdminEndpoints(
     http.patch(`${BACKEND_URL}/library/rotation`, async ({ request }) => {
       const body = (await request.json()) as { rotation_id: number };
       killBodies.push(body);
+      calls.push("kill");
       const row = rows.find((candidate) => candidate.rotation_id === body.rotation_id);
       if (row) row.rotation_kill_date = killDate;
       return HttpResponse.json({
@@ -269,8 +323,11 @@ export function fakeRotationAdminEndpoints(
     /** The `status` query param of every list GET, in order. */
     listStatuses: () => [...listStatuses],
     cardsRequests: () => cardsRequests,
+    addBodies: () => [...addBodies],
     killBodies: () => [...killBodies],
     updateBodies: () => updates.map((update) => ({ id: update.id, body: { ...update.body } })),
+    /** Every add/kill write this fake saw, in the order it saw them. */
+    callOrder: () => [...calls],
   };
 }
 

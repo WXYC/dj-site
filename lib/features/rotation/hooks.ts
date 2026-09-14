@@ -20,6 +20,12 @@ import { isUnmessagedHttpError } from "@/lib/rtk-query-error-logger";
  * moves) are wrapped out of that lookup, which reads as unmessaged here
  * every time and puts the server's own sentence in the toast instead of a
  * generic one — the same refusal, reported once either way.
+ *
+ * `withPending` is returned so a list surface with a per-row write of its
+ * own — the admin list's cross-bin move, which no endpoint expresses and so
+ * cannot live here — registers that write in the same in-flight set and
+ * behind the same failure triage, rather than owning a second set the row
+ * would have to read separately.
  */
 export function useRotationRowActions() {
   const [killRotationEntry] = useKillRotationEntryMutation();
@@ -73,5 +79,5 @@ export function useRotationRowActions() {
       "move",
     );
 
-  return { pendingRotationIds, kill, unkill, moveToCard };
+  return { pendingRotationIds, kill, unkill, moveToCard, withPending };
 }

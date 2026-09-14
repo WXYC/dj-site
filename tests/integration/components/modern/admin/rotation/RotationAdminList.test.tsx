@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import {
@@ -18,8 +18,13 @@ vi.mock("@/lib/features/authentication/client", async () => {
   };
 });
 
+const toastSuccessMock = vi.fn();
+const toastErrorMock = vi.fn();
 vi.mock("sonner", () => ({
-  toast: { error: vi.fn(), success: vi.fn() },
+  toast: {
+    success: (...args: unknown[]) => toastSuccessMock(...args),
+    error: (...args: unknown[]) => toastErrorMock(...args),
+  },
 }));
 
 import RotationAdminList from "@/src/components/experiences/modern/admin/rotation/RotationAdminList";
@@ -123,6 +128,10 @@ async function renderList(rows = ALL_ROWS, cards = CARDS) {
 }
 
 describe("RotationAdminList", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it("reads status=all and renders both presentations with their totals", async () => {
     const { fake } = await renderList();
 
@@ -353,6 +362,104 @@ describe("RotationAdminList", () => {
     // The row's new card came from the endpoint's cache patch, not from
     // refetching the unbounded status=all read.
     expect(fake.listStatuses()).toEqual(["all"]);
+  });
+
+  describe("bin moves", () => {
+    it("moves a catalogued row add-first: the add lands before the kill, with no card_id", async () => {
+      const { fake, user } = await renderList();
+      await activeSection().findByText("Instant Holograms on Metal Film");
+
+      await user.click(
+        screen.getByRole("button", { name: "Move to Medium: Instant Holograms on Metal Film" }),
+      );
+
+      // The add names the library release and the target bin, nothing else:
+      // an omitted card_id is the server's cue to file on the target bin's
+      // newest card, and the retire is the same bodyless-path kill the Kill
+      // button issues.
+      await waitFor(() =>
+        expect(fake.addBodies()).toEqual([{ album_id: 9001, rotation_bin: "M" }]),
+      );
+      await waitFor(() => expect(fake.killBodies()).toEqual([{ rotation_id: 5001 }]));
+      expect(fake.callOrder()).toEqual(["add", "kill"]);
+      await waitFor(() =>
+        expect(toastSuccessMock).toHaveBeenCalledWith("Moved to Medium rotation."),
+      );
+
+      // The replacement is a new active row in the target bin, landed on the
+      // bin's newest card (the fake mirrors the server's defaulting); the
+      // old entry moves to the Killed presentation.
+      const movedRow = await screen.findByTestId("rotation-admin-row-5006");
+      expect(
+        within(movedRow).getByRole("combobox", {
+          name: "Card for: Instant Holograms on Metal Film",
+        }),
+      ).toHaveTextContent("card 2 — Fresh Arrivals");
+      await killedSection().findByText("Instant Holograms on Metal Film");
+    });
+
+    it("keeps the new-bin record when the kill half fails, leaving a visible duplicate", async () => {
+      const { fake, user } = await renderList();
+      await activeSection().findByText("Instant Holograms on Metal Film");
+      // Only the bodyless-path kill fails; the add (POST) and the list read
+      // keep answering, so the safety property is observable end-to-end.
+      server.use(
+        http.patch(`${TEST_BACKEND_URL}/library/rotation`, () =>
+          HttpResponse.json({}, { status: 500 }),
+        ),
+      );
+
+      await user.click(
+        screen.getByRole("button", { name: "Move to Medium: Instant Holograms on Metal Film" }),
+      );
+
+      // The record still exists in the new bin — the failure mode is a
+      // duplicate to clean up, never a lost record.
+      const movedRow = await screen.findByTestId("rotation-admin-row-5006");
+      expect(activeSection().getByTestId("rotation-admin-row-5006")).toBe(movedRow);
+      // And the old entry is still active alongside it, with its own Kill.
+      expect(activeSection().getByTestId("rotation-admin-row-5001")).toBeInTheDocument();
+      expect(fake.addBodies()).toHaveLength(1);
+      await waitFor(() =>
+        expect(toastErrorMock).toHaveBeenCalledWith(
+          "Filed in Medium, but couldn't retire the Heavy entry — kill it from this list.",
+        ),
+      );
+    });
+
+    it("moves an unlinked row through the free-text mutation with its snapshot carried", async () => {
+      const { fake, user } = await renderList();
+      await activeSection().findByText("Edits");
+
+      await user.click(screen.getByRole("button", { name: "Move to Light: Edits" }));
+
+      await waitFor(() =>
+        expect(fake.addBodies()).toEqual([
+          {
+            rotation_bin: "L",
+            artist_name: "Chuquimamani-Condori",
+            album_title: "Edits",
+            record_label: "self-released",
+          },
+        ]),
+      );
+      await waitFor(() => expect(fake.killBodies()).toEqual([{ rotation_id: 5004 }]));
+      expect(fake.callOrder()).toEqual(["add", "kill"]);
+
+      const movedRow = await screen.findByTestId("rotation-admin-row-5006");
+      expect(within(movedRow).getByText("Chuquimamani-Condori")).toBeInTheDocument();
+      await killedSection().findByText("Edits");
+    });
+
+    it("offers no move on killed rows — their bin is a fact, not an affordance", async () => {
+      await renderList();
+      await killedSection().findByText("Dots and Loops");
+
+      expect(
+        screen.queryByRole("button", { name: "Move to Heavy: Dots and Loops" }),
+      ).not.toBeInTheDocument();
+      expect(within(screen.getByTestId("rotation-admin-row-5005")).getByText("M")).toBeInTheDocument();
+    });
   });
 
   it("renders an outage as a retryable failure, never as an empty list", async () => {
