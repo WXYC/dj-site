@@ -1,6 +1,8 @@
 "use client";
 
 import { AlbumEntry } from "@/lib/features/catalog/types";
+import { isRotationAdminEnabled } from "@/lib/features/rotation/flags";
+import { rotationLocationFor } from "@/lib/features/rotation/location";
 import Box from "@mui/joy/Box";
 import Checkbox from "@mui/joy/Checkbox";
 import IconButton from "@mui/joy/IconButton";
@@ -51,6 +53,10 @@ function CatalogResult({
 
   const artistDisplay = album.album_artist ? "Various Artists" : album.artist.name;
   const artistDetail = album.album_artist ?? album.alternate_artist;
+
+  const rotationLocation = isRotationAdminEnabled()
+    ? rotationLocationFor(album.rotation_bin, album.card)
+    : null;
 
   // Clamp instead of ellipsizing a single line; full text stays recoverable
   // via the title attribute.
@@ -153,13 +159,24 @@ function CatalogResult({
         />
       </td>
       <td>
-        <Typography
-          level="body-sm"
-          textColor="text.secondary"
-          sx={{ fontFamily: "code", whiteSpace: "nowrap" }}
-        >
-          {album.artist.lettercode} {album.artist.numbercode}/{album.entry}
-        </Typography>
+        {rotationLocation ? (
+          <Typography
+            level="body-sm"
+            textColor="text.secondary"
+            title={rotationLocation.title}
+            sx={{ fontFamily: "code", whiteSpace: "nowrap" }}
+          >
+            {rotationLocation.label}
+          </Typography>
+        ) : (
+          <Typography
+            level="body-sm"
+            textColor="text.secondary"
+            sx={{ fontFamily: "code", whiteSpace: "nowrap" }}
+          >
+            {album.artist.lettercode} {album.artist.numbercode}/{album.entry}
+          </Typography>
+        )}
       </td>
       <td>
         <Typography

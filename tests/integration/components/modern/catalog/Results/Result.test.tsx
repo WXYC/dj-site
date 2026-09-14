@@ -1,6 +1,7 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { createTestAlbum, createTestArtist, renderWithProviders } from "@/tests/helpers";
+import { RotationBin } from "@/lib/features/rotation/types";
 
 const mockPush = vi.fn();
 vi.mock("next/navigation", () => ({
@@ -522,5 +523,162 @@ describe("CatalogResult album detail navigation", () => {
 
     fireEvent.click(screen.getByText(album.title));
     expect(mockPush).not.toHaveBeenCalled();
+  });
+});
+
+describe("CatalogResult rotation location", () => {
+  const ENV_KEY = "NEXT_PUBLIC_ROTATION_ADMIN_ENABLED";
+
+  afterEach(() => {
+    delete process.env[ENV_KEY];
+  });
+
+  it("shows bin + card with a tooltip carrying the card name, and hides the call number, when the flag is on", () => {
+    process.env[ENV_KEY] = "true";
+    const album = createTestAlbum({
+      artist: createTestArtist({ name: "Juana Molina", lettercode: "MO", numbercode: 8 }),
+      entry: 6,
+      rotation_bin: RotationBin.H,
+      card: { id: 1, bin: RotationBin.H, number: 1, name: "Late Aug" },
+    });
+
+    renderWithProviders(
+      <table>
+        <tbody>
+          <CatalogResult album={album} live={false} addToQueue={vi.fn()} />
+        </tbody>
+      </table>
+    );
+
+    const location = screen.getByText("H · card 1");
+    expect(location.getAttribute("title")).toBe('Heavy rotation, card 1 "Late Aug"');
+    expect(screen.queryByText("MO 8/6")).toBeNull();
+  });
+
+  it("degrades to the bin alone when the row is rotating but carries no card", () => {
+    process.env[ENV_KEY] = "true";
+    const album = createTestAlbum({
+      artist: createTestArtist({ name: "Hermanos Gutiérrez", lettercode: "GU", numbercode: 11 }),
+      entry: 4,
+      rotation_bin: RotationBin.S,
+      card: undefined,
+    });
+
+    renderWithProviders(
+      <table>
+        <tbody>
+          <CatalogResult album={album} live={false} addToQueue={vi.fn()} />
+        </tbody>
+      </table>
+    );
+
+    expect(screen.getByTitle("Singles rotation").textContent).toBe("S");
+    expect(screen.queryByText("GU 11/4")).toBeNull();
+  });
+
+  it("leaves a non-rotating row unchanged", () => {
+    process.env[ENV_KEY] = "true";
+    const album = createTestAlbum({
+      artist: createTestArtist({ name: "Cat Power", lettercode: "CA", numbercode: 9 }),
+      entry: 2,
+      rotation_bin: undefined,
+    });
+
+    renderWithProviders(
+      <table>
+        <tbody>
+          <CatalogResult album={album} live={false} addToQueue={vi.fn()} />
+        </tbody>
+      </table>
+    );
+
+    expect(screen.getByText("CA 9/2")).toBeDefined();
+  });
+
+  it("leaves a rotating row unchanged when the flag is off", () => {
+    delete process.env[ENV_KEY];
+    const album = createTestAlbum({
+      artist: createTestArtist({ name: "Duke Ellington & John Coltrane", lettercode: "EL", numbercode: 1 }),
+      entry: 5,
+      rotation_bin: RotationBin.M,
+      card: { id: 2, bin: RotationBin.M, number: 2 },
+    });
+
+    renderWithProviders(
+      <table>
+        <tbody>
+          <CatalogResult album={album} live={false} addToQueue={vi.fn()} />
+        </tbody>
+      </table>
+    );
+
+    expect(screen.getByText("EL 1/5")).toBeDefined();
+    expect(screen.queryByText("M · card 2")).toBeNull();
+  });
+
+  it("drops the card when a kill leaves the row with rotation_bin undefined, restoring the call number", () => {
+    process.env[ENV_KEY] = "true";
+    const album = createTestAlbum({
+      artist: createTestArtist({ name: "Nilüfer Yanya", lettercode: "YA", numbercode: 4 }),
+      entry: 2,
+      rotation_bin: RotationBin.H,
+      card: { id: 3, bin: RotationBin.H, number: 2 },
+    });
+
+    const { rerender } = renderWithProviders(
+      <table>
+        <tbody>
+          <CatalogResult album={album} live={false} addToQueue={vi.fn()} />
+        </tbody>
+      </table>
+    );
+    expect(screen.getByText("H · card 2")).toBeDefined();
+
+    const killed = createTestAlbum({ ...album, rotation_bin: undefined, card: undefined });
+    rerender(
+      <table>
+        <tbody>
+          <CatalogResult album={killed} live={false} addToQueue={vi.fn()} />
+        </tbody>
+      </table>
+    );
+
+    expect(screen.queryByText("H · card 2")).toBeNull();
+    expect(screen.getByText("YA 4/2")).toBeDefined();
+  });
+
+  it("swaps to the new card when a re-bin changes bin and card, leaving no stale card", () => {
+    process.env[ENV_KEY] = "true";
+    const album = createTestAlbum({
+      artist: createTestArtist({ name: "Nilüfer Yanya", lettercode: "YA", numbercode: 4 }),
+      entry: 2,
+      rotation_bin: RotationBin.H,
+      card: { id: 3, bin: RotationBin.H, number: 2 },
+    });
+
+    const { rerender } = renderWithProviders(
+      <table>
+        <tbody>
+          <CatalogResult album={album} live={false} addToQueue={vi.fn()} />
+        </tbody>
+      </table>
+    );
+    expect(screen.getByText("H · card 2")).toBeDefined();
+
+    const rebinned = createTestAlbum({
+      ...album,
+      rotation_bin: RotationBin.M,
+      card: { id: 9, bin: RotationBin.M, number: 5 },
+    });
+    rerender(
+      <table>
+        <tbody>
+          <CatalogResult album={rebinned} live={false} addToQueue={vi.fn()} />
+        </tbody>
+      </table>
+    );
+
+    expect(screen.queryByText("H · card 2")).toBeNull();
+    expect(screen.getByText("M · card 5")).toBeDefined();
   });
 });
