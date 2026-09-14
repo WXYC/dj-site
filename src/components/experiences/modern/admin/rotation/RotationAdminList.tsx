@@ -2,18 +2,27 @@
 
 import type { JSX } from "react";
 import { useMemo, useState } from "react";
+import { toast } from "sonner";
+import { addThenRetire } from "@/lib/features/rotation/addThenRetire";
 import {
+  canMoveRotationRow,
+  freeTextRotationMoveRequest,
   selectRotationAdminView,
   rotationRowCode,
   rotationRowPresentation,
 } from "@/lib/features/rotation/adminList";
 import { groupRotationCardsByBin } from "@/lib/features/rotation/cards";
 import {
+  useAddFreeTextRotationEntryMutation,
+  useAddRotationEntryMutation,
   useGetRotationCardsQuery,
   useGetRotationListQuery,
+  useKillRotationEntryMutation,
 } from "@/lib/features/rotation/api";
 import { formatRotationDate } from "@/lib/features/rotation/classicList";
 import { useRotationRowActions } from "@/lib/features/rotation/hooks";
+import { rotationWriteErrorMessage } from "@/lib/features/rotation/writeErrorMessage";
+import { isUnmessagedHttpError } from "@/lib/rtk-query-error-logger";
 import {
   ROTATION_BINS,
   ROTATION_BIN_LABELS,
@@ -74,17 +83,22 @@ function RotationAdminRow({
   row,
   binCards,
   pending,
+  moveLocked,
   onKill,
   onUnkill,
   onSelectCard,
+  onMoveBin,
 }: {
   row: RotationListRow;
   /** The row's own bin's cards — the card select is a within-bin move only. */
   binCards: RotationCard[];
   pending: boolean;
+  /** Disables the cross-bin move chips beyond this row's own pending state. */
+  moveLocked: boolean;
   onKill: () => void;
   onUnkill: () => void;
   onSelectCard: (cardId: number) => void;
+  onMoveBin: (bin: RotationBin) => void;
 }): JSX.Element {
   const killed = rotationRowPresentation(row) === "killed";
   const code = rotationRowCode(row);
@@ -110,9 +124,40 @@ function RotationAdminRow({
         )}
       </Typography>
       <Stack direction="row" spacing={1.5} sx={{ alignItems: "center", mt: 0.75, flexWrap: "wrap" }}>
-        <Chip size="sm" variant="soft" title={ROTATION_BIN_LABELS[row.rotation_bin]}>
-          {row.rotation_bin}
-        </Chip>
+        {killed || !canMoveRotationRow(row) ? (
+          <Chip size="sm" variant="soft" title={ROTATION_BIN_LABELS[row.rotation_bin]}>
+            {row.rotation_bin}
+          </Chip>
+        ) : (
+          <Stack direction="row" spacing={0.5}>
+            {ROTATION_BINS.map((bin) =>
+              bin === row.rotation_bin ? (
+                <Chip key={bin} size="sm" variant="solid" color="primary" title={ROTATION_BIN_LABELS[bin]}>
+                  {bin}
+                </Chip>
+              ) : (
+                <Chip
+                  key={bin}
+                  size="sm"
+                  variant="outlined"
+                  disabled={pending || moveLocked}
+                  onClick={() => onMoveBin(bin)}
+                  slotProps={{
+                    action: {
+                      "aria-label": `Move to ${ROTATION_BIN_LABELS[bin]}: ${name}`,
+                      // Joy points the action at the chip's one-letter label
+                      // by default, and labelledby would out-rank the label
+                      // above in accessible-name computation.
+                      "aria-labelledby": undefined,
+                    },
+                  }}
+                >
+                  {bin}
+                </Chip>
+              ),
+            )}
+          </Stack>
+        )}
         {killed || binCards.length === 0 ? (
           <Typography level="body-xs">{cardText(row.card)}</Typography>
         ) : (
@@ -195,9 +240,11 @@ const KILLED_RENDER_BATCH = 50;
 type RowActions = {
   cardsByBin: ReadonlyMap<RotationBin, RotationCard[]>;
   pendingRotationIds: ReadonlySet<number>;
+  moveLocked: boolean;
   onKill: (rotationId: number) => void;
   onUnkill: (rotationId: number) => void;
   onSelectCard: (rotationId: number, cardId: number) => void;
+  onMoveBin: (row: RotationListRow, bin: RotationBin) => void;
 };
 
 function RowSection({
@@ -235,9 +282,11 @@ function RowSection({
               row={row}
               binCards={actions.cardsByBin.get(row.rotation_bin) ?? []}
               pending={actions.pendingRotationIds.has(row.rotation_id)}
+              moveLocked={actions.moveLocked}
               onKill={() => actions.onKill(row.rotation_id)}
               onUnkill={() => actions.onUnkill(row.rotation_id)}
               onSelectCard={(cardId) => actions.onSelectCard(row.rotation_id, cardId)}
+              onMoveBin={(bin) => actions.onMoveBin(row, bin)}
             />
           ))}
         </Stack>
@@ -252,13 +301,13 @@ function RowSection({
  * search box, bin chips, and (once a single bin is chosen) that bin's card
  * chips, split into Active and Killed presentations.
  *
- * Kill and Unkill reuse the rotation feature's existing mutations
- * (`killRotationEntry`; `updateRotationRow` with `kill_date: null`): their
  * cache sync lives on the endpoints and this list adds no cache handling of
  * its own — the endpoints patch the row in the cached `status=all` read, so
  * a row changes presentation without refetching the full rotation history.
  * The per-row card select is that same field editor carrying `card_id`, a
- * within-bin move only.
+ * within-bin move only; the bin chips beside it are the cross-bin move —
+ * add-then-kill through the shared `addThenRetire` ordering, because no
+ * endpoint edits a bin in place.
  */
 export default function RotationAdminList(): JSX.Element {
   const { data: rows, isFetching, isError, refetch } = useGetRotationListQuery("all");
@@ -267,7 +316,15 @@ export default function RotationAdminList(): JSX.Element {
   // sub-filter stays hidden until a retryable refetch succeeds.
   const { data: cards } = useGetRotationCardsQuery();
 
-  const { pendingRotationIds, kill, unkill, moveToCard } = useRotationRowActions();
+  // Kill, Unkill, the within-bin card move, and the shared in-flight set come
+  // from the one owner both list surfaces share. The cross-bin move stays
+  // this list's own (no other surface files a bin move), but it registers in
+  // that same in-flight set through the hook's `withPending` so a row shows
+  // pending for a move exactly as it does for a kill.
+  const { pendingRotationIds, kill, unkill, moveToCard, withPending } = useRotationRowActions();
+  const [killRotationEntry] = useKillRotationEntryMutation();
+  const [addRotationEntry] = useAddRotationEntryMutation();
+  const [addFreeTextRotationEntry] = useAddFreeTextRotationEntryMutation();
 
   const [search, setSearch] = useState("");
   const [bin, setBin] = useState<RotationBin | null>(null);
@@ -281,12 +338,70 @@ export default function RotationAdminList(): JSX.Element {
   const cardsByBin = useMemo(() => groupRotationCardsByBin(cards ?? []), [cards]);
   const binCards = bin == null ? [] : (cardsByBin.get(bin) ?? []);
 
+  // The cross-bin move: add-then-kill through the shared ordering, since no
+  // endpoint edits a bin in place. The add carries no card_id — the server
+  // files an omitted card on the target bin's newest, exactly where a move
+  // lands — and it goes through the same mutations the classify gesture
+  // drives, never a hand-rolled orchestration that could reverse the halves.
+  const moveRow = async (row: RotationListRow, targetBin: RotationBin) => {
+    const freeTextRequest = row.id == null ? freeTextRotationMoveRequest(row, targetBin) : null;
+    const add =
+      row.id != null
+        ? () => addRotationEntry({ album_id: row.id!, rotation_bin: targetBin }).unwrap()
+        : freeTextRequest != null
+          ? () => addFreeTextRotationEntry(freeTextRequest).unwrap()
+          : null;
+    // Unreachable behind the chips' own canMoveRotationRow gate; a bare kill
+    // here would be a move that loses the record, so refuse instead.
+    if (add == null) return;
+
+    const outcome = await addThenRetire(add, [row.rotation_id], (rotationId) =>
+      killRotationEntry({ rotation_id: rotationId }).unwrap(),
+    );
+
+    if (outcome.step === "add-failed") {
+      // The free-text add's refusals are wrapped out of the middleware toast
+      // (so the server's own sentence lands here); the catalogued add's
+      // reach it, and only the shapes it stays silent about are this row's.
+      if (isUnmessagedHttpError(outcome.error)) {
+        toast.error(
+          rotationWriteErrorMessage(
+            outcome.error,
+            `Couldn't move this release to ${ROTATION_BIN_LABELS[targetBin]} — nothing changed.`,
+          ),
+        );
+      }
+      return;
+    }
+    if (outcome.retireFailures.length === 0) {
+      toast.success(`Moved to ${ROTATION_BIN_LABELS[targetBin]} rotation.`);
+      return;
+    }
+    if (outcome.retireFailures.some(({ error }) => isUnmessagedHttpError(error))) {
+      // Naming the state that resulted: the release is filed in both bins —
+      // visible in this list, recoverable with the old row's own Kill.
+      toast.error(
+        `Filed in ${ROTATION_BIN_LABELS[targetBin]}, but couldn't retire the ${ROTATION_BIN_LABELS[row.rotation_bin]} entry — kill it from this list.`,
+      );
+    }
+  };
+
   const actions: RowActions = {
     cardsByBin,
     pendingRotationIds,
+    // The move chips stay disabled while the list refetches: the add half
+    // invalidates the rotation list, and every row keeps rendering its old
+    // bin until that refetch lands — a second click in that window would
+    // file a second active entry for the same release, which the backend's
+    // bare insert accepts.
+    moveLocked: isFetching,
     onKill: (rotationId) => void kill(rotationId),
     onUnkill: (rotationId) => void unkill(rotationId),
     onSelectCard: (rotationId, nextCardId) => void moveToCard(rotationId, nextCardId),
+    // `moveRow` settles every failure into its own toast; `withPending`'s
+    // catch stays as the backstop for a shape it never expects to see, and
+    // registers the row in the shared in-flight set for the move's duration.
+    onMoveBin: (row, bin) => void withPending(row.rotation_id, () => moveRow(row, bin), "move"),
   };
 
   // Absence-of-list, not the error flag: a background refetch can leave

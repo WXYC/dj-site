@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import {
@@ -45,6 +45,10 @@ async function renderCards(cards = CARDS) {
 }
 
 describe("CardsManager", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it("renders every bin as a column with its cards, names, and active counts", async () => {
     await renderCards();
     await heavyColumn().findByTestId("rotation-card-31");

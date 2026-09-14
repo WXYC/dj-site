@@ -1,6 +1,12 @@
 import { foldForSearch } from "../admin/roster-filter";
 import { byMostRecentlyAdded } from "./classicList";
-import { ROTATION_BINS, type RotationBin, type RotationListRow, type RotationStatusFilter } from "./types";
+import {
+  ROTATION_BINS,
+  type FreeTextRotationAddRequest,
+  type RotationBin,
+  type RotationListRow,
+  type RotationStatusFilter,
+} from "./types";
 
 /**
  * Pure selection logic for the modern Rotation Admin list — the `status=all`
@@ -45,6 +51,50 @@ export function rotationRowCode(row: RotationListRow): string | null {
   }
   const code = `${row.code_letters} ${row.code_artist_number}/${row.code_number}`;
   return row.genre_name == null ? code : `${row.genre_name} ${code}`;
+}
+
+/**
+ * The snapshot an unlinked row (`id: null`) can carry into a re-filing, or
+ * `null` when the row lacks the artist or title the free-text add requires
+ * (the server validates both as non-empty). The list read's `label_id` and
+ * `format_name` are the library join's — null and absent by construction on
+ * an unlinked row — so the rotation row's own pre-catalog FKs are not
+ * re-fileable from here; the free-text trio is the whole carryable snapshot.
+ */
+function movableSnapshot(
+  row: RotationListRow,
+): Pick<FreeTextRotationAddRequest, "artist_name" | "album_title" | "record_label"> | null {
+  const artist = row.artist_name?.trim();
+  const title = row.album_title?.trim();
+  if (!artist || !title) return null;
+  const label = row.record_label?.trim();
+  // `record_label` is optional-and-omitted, never null: the endpoint picks
+  // it with `!= null`, so "no label" must be an absent key.
+  return { artist_name: artist, album_title: title, ...(label ? { record_label: label } : {}) };
+}
+
+/**
+ * The `POST /library/rotation` body that re-files an unlinked row in another
+ * bin. Deliberately no `card_id`: an omitted card files the row on the
+ * target bin's newest card — the server's own defaulting, exactly where a
+ * move lands.
+ */
+export function freeTextRotationMoveRequest(
+  row: RotationListRow,
+  targetBin: RotationBin,
+): FreeTextRotationAddRequest | null {
+  const snapshot = movableSnapshot(row);
+  return snapshot == null ? null : { rotation_bin: targetBin, ...snapshot };
+}
+
+/**
+ * Whether a row can be re-filed in another bin at all: a catalogued row
+ * always can (the add names its library release), an unlinked one only when
+ * its snapshot satisfies the free-text add. A row this refuses renders its
+ * bin as a fact rather than an affordance.
+ */
+export function canMoveRotationRow(row: RotationListRow): boolean {
+  return row.id != null || movableSnapshot(row) != null;
 }
 
 /** Split a raw query into the folded terms every match must satisfy — the roster search's own shape. */
