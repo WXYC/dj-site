@@ -212,11 +212,26 @@ export type FakeRotationAdminRow = {
  * lands on the target bin's newest card (highest number, id-desc tie-break)
  * when `card_id` is omitted — mirroring the server's own defaulting so a
  * consumer relying on it sees where the row actually lands.
+ *
+ * The single-row read (`GET /library/rotation/:id`) answers with the
+ * row-summary shape. Its `format_id`/`label_id` come from the `rowSummaries`
+ * option (keyed by rotation_id), never from the list row: on the wire those
+ * are the rotation row's OWN pre-catalog fields, while the list row's
+ * `label_id` is the library join's — serving one for the other would bake
+ * the exact conflation the two reads' referent rule forbids into the fake.
  */
 export function fakeRotationAdminEndpoints(
   initialRows: FakeRotationAdminRow[],
   cards: FakeRotationCard[],
-  { killDate = "2026-09-12", addDate = "2026-09-13" }: { killDate?: string; addDate?: string } = {},
+  {
+    killDate = "2026-09-12",
+    addDate = "2026-09-13",
+    rowSummaries = {},
+  }: {
+    killDate?: string;
+    addDate?: string;
+    rowSummaries?: Record<number, { format_id?: number | null; label_id?: number | null }>;
+  } = {},
 ) {
   const rows = initialRows.map((row) => ({ ...row }));
   const listStatuses: (string | null)[] = [];
@@ -245,6 +260,7 @@ export function fakeRotationAdminEndpoints(
         artist_name?: string;
         album_title?: string;
         record_label?: string;
+        urls?: string[];
       };
       addBodies.push(body);
       calls.push("add");
@@ -260,6 +276,11 @@ export function fakeRotationAdminEndpoints(
         artist_name: body.artist_name ?? source?.artist_name ?? null,
         album_title: body.album_title ?? source?.album_title ?? null,
         record_label: body.record_label ?? source?.record_label ?? null,
+        // Never inherited from the source spread: the server stores what the
+        // request carried, and a fixture-leaked copy would let a consumer
+        // that dropped `urls` from its add keep passing a rendered-link
+        // assertion.
+        urls: body.urls,
         card: newestCard(body.rotation_bin),
       });
       return HttpResponse.json(
@@ -278,6 +299,30 @@ export function fakeRotationAdminEndpoints(
       // The wire row always carries `active_count`; fixtures that don't care
       // get the empty-card default rather than an off-contract omission.
       return HttpResponse.json(cards.map((card) => ({ active_count: 0, ...card })));
+    }),
+    // Registered after the /cards arm: `:id` would otherwise swallow it.
+    http.get(`${BACKEND_URL}/library/rotation/:id`, ({ params }) => {
+      const id = Number(params.id);
+      const row = rows.find((candidate) => candidate.rotation_id === id);
+      if (!row) {
+        return HttpResponse.json({ message: "Rotation entry not found" }, { status: 404 });
+      }
+      const summary = rowSummaries[id] ?? {};
+      // The row-summary shape: `id` is the rotation row's own, `album_id`
+      // the library link, and format_id/label_id the pre-catalog fields —
+      // see the factory comment on `rowSummaries`.
+      return HttpResponse.json({
+        id,
+        album_id: row.id,
+        rotation_bin: row.rotation_bin,
+        add_date: row.rotation_add_date ?? "2026-09-01",
+        kill_date: row.rotation_kill_date,
+        artist_name: row.artist_name ?? null,
+        album_title: row.album_title ?? null,
+        record_label: row.record_label ?? null,
+        format_id: summary.format_id ?? null,
+        label_id: summary.label_id ?? null,
+      });
     }),
     http.patch(`${BACKEND_URL}/library/rotation`, async ({ request }) => {
       const body = (await request.json()) as { rotation_id: number };

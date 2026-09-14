@@ -5,6 +5,7 @@ import {
   type FreeTextRotationAddRequest,
   type RotationBin,
   type RotationListRow,
+  type RotationRowSummary,
   type RotationStatusFilter,
 } from "./types";
 
@@ -56,10 +57,13 @@ export function rotationRowCode(row: RotationListRow): string | null {
 /**
  * The snapshot an unlinked row (`id: null`) can carry into a re-filing, or
  * `null` when the row lacks the artist or title the free-text add requires
- * (the server validates both as non-empty). The list read's `label_id` and
- * `format_name` are the library join's — null and absent by construction on
- * an unlinked row — so the rotation row's own pre-catalog FKs are not
- * re-fileable from here; the free-text trio is the whole carryable snapshot.
+ * (the server validates both as non-empty). Only the free-text trio: the
+ * list read's `label_id` and `format_name` are the library join's — null
+ * and absent by construction on an unlinked row — so the rotation row's own
+ * pre-catalog `format_id`/`label_id` are not readable from the list row.
+ * They ARE published by the single-row read (`GET /library/rotation/:id`),
+ * which is why `freeTextRotationMoveRequest` takes that read's answer
+ * alongside the row.
  */
 function movableSnapshot(
   row: RotationListRow,
@@ -77,14 +81,59 @@ function movableSnapshot(
  * The `POST /library/rotation` body that re-files an unlinked row in another
  * bin. Deliberately no `card_id`: an omitted card files the row on the
  * target bin's newest card — the server's own defaulting, exactly where a
- * move lands.
+ * move lands. Everything else the source row holds IS carried, because the
+ * move retires that row and the record's data would die with it: the trio
+ * and `urls` from the row itself, and the pre-catalog `format_id`/`label_id`
+ * from `detail` — the single-row read's answer, the one place those fields
+ * are readable (see `movableSnapshot`). All three optional fields are
+ * omitted-never-null, matching the endpoint's `!= null` pick.
  */
 export function freeTextRotationMoveRequest(
   row: RotationListRow,
   targetBin: RotationBin,
+  detail: Pick<RotationRowSummary, "format_id" | "label_id">,
 ): FreeTextRotationAddRequest | null {
   const snapshot = movableSnapshot(row);
-  return snapshot == null ? null : { rotation_bin: targetBin, ...snapshot };
+  if (snapshot == null) return null;
+  return {
+    rotation_bin: targetBin,
+    ...snapshot,
+    ...(detail.format_id != null ? { format_id: detail.format_id } : {}),
+    ...(detail.label_id != null ? { label_id: detail.label_id } : {}),
+    ...(row.urls?.length ? { urls: row.urls } : {}),
+  };
+}
+
+/**
+ * Every rotation_id a move of `row` into `targetBin` must retire: the moved
+ * row, plus any other active row the same album already holds in the target
+ * bin. `addThenRetire`'s ordering is justified by a leftover duplicate being
+ * visible and recoverable — true across bins, false within one: the list
+ * read is `DISTINCT ON (album_id, rotation_bin)`, so two active rows in one
+ * bin collapse to a single row on every consuming surface. Moving into a bin
+ * the album is already active in would stack exactly that invisible
+ * duplicate; retiring the target bin's own entry alongside the source makes
+ * the move the consolidation the operator sees. An unlinked row carries no
+ * album identity to match duplicates by, so only the clicked row retires.
+ */
+export function rotationMoveRetireIds(
+  rows: readonly RotationListRow[],
+  row: RotationListRow,
+  targetBin: RotationBin,
+): number[] {
+  const targetBinDuplicates =
+    row.id == null
+      ? []
+      : rows
+          .filter(
+            (candidate) =>
+              candidate.rotation_id !== row.rotation_id &&
+              candidate.id === row.id &&
+              candidate.rotation_bin === targetBin &&
+              rotationRowPresentation(candidate) === "active",
+          )
+          .map((candidate) => candidate.rotation_id);
+  return [row.rotation_id, ...targetBinDuplicates];
 }
 
 /**

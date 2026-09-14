@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   canMoveRotationRow,
   freeTextRotationMoveRequest,
+  rotationMoveRetireIds,
   rotationRowCode,
   rotationRowPresentation,
   selectRotationAdminView,
@@ -182,8 +183,10 @@ describe("selectRotationAdminView", () => {
 });
 
 describe("freeTextRotationMoveRequest", () => {
+  const noDetail = { format_id: null, label_id: null };
+
   it("carries the row's snapshot trio into the target bin, with no card_id", () => {
-    expect(freeTextRotationMoveRequest(unlinked(), RotationBin.L)).toEqual({
+    expect(freeTextRotationMoveRequest(unlinked(), RotationBin.L, noDetail)).toEqual({
       rotation_bin: RotationBin.L,
       artist_name: "Chuquimamani-Condori",
       album_title: "Edits",
@@ -191,11 +194,32 @@ describe("freeTextRotationMoveRequest", () => {
     });
   });
 
+  it("carries the single-row read's pre-catalog FKs and the row's urls", () => {
+    const request = freeTextRotationMoveRequest(
+      unlinked({ urls: ["chuquimamani.bandcamp.com/album/edits"] }),
+      RotationBin.L,
+      { format_id: 7, label_id: 42 },
+    );
+    expect(request).toEqual({
+      rotation_bin: RotationBin.L,
+      artist_name: "Chuquimamani-Condori",
+      album_title: "Edits",
+      record_label: "self-released",
+      format_id: 7,
+      label_id: 42,
+      urls: ["chuquimamani.bandcamp.com/album/edits"],
+    });
+  });
+
   it.each([
     ["null", null],
     ["blank", "   "],
   ])("omits the record_label key when the label is %s — never an explicit null", (_name, label) => {
-    const request = freeTextRotationMoveRequest(unlinked({ record_label: label }), RotationBin.L);
+    const request = freeTextRotationMoveRequest(
+      unlinked({ record_label: label }),
+      RotationBin.L,
+      noDetail,
+    );
     expect(request).toEqual({
       rotation_bin: RotationBin.L,
       artist_name: "Chuquimamani-Condori",
@@ -204,11 +228,52 @@ describe("freeTextRotationMoveRequest", () => {
     expect(request).not.toHaveProperty("record_label");
   });
 
+  it("omits format_id, label_id, and urls rather than sending null or empty — the endpoint picks with != null", () => {
+    const request = freeTextRotationMoveRequest(unlinked({ urls: [] }), RotationBin.L, noDetail);
+    expect(request).not.toHaveProperty("format_id");
+    expect(request).not.toHaveProperty("label_id");
+    expect(request).not.toHaveProperty("urls");
+  });
+
   it.each([
     ["a null artist", { artist_name: null }],
     ["a blank title", { album_title: "  " }],
   ])("refuses a row with %s — the endpoint requires both", (_name, overrides) => {
-    expect(freeTextRotationMoveRequest(unlinked(overrides), RotationBin.L)).toBeNull();
+    expect(freeTextRotationMoveRequest(unlinked(overrides), RotationBin.L, noDetail)).toBeNull();
+  });
+});
+
+describe("rotationMoveRetireIds", () => {
+  const moved = row(); // id 9001, rotation 5001, H, active
+
+  it("retires only the moved row when the album is not already in the target bin", () => {
+    const elsewhere = row({ rotation_id: 5008, rotation_bin: RotationBin.L });
+    expect(rotationMoveRetireIds([moved, elsewhere], moved, RotationBin.M)).toEqual([5001]);
+  });
+
+  it("also retires the album's active rows already in the target bin — an in-bin duplicate is invisible to every consumer", () => {
+    const targetDuplicate = row({ rotation_id: 5008, rotation_bin: RotationBin.M });
+    const otherAlbum = row({ rotation_id: 5009, id: 9002, rotation_bin: RotationBin.M });
+    expect(rotationMoveRetireIds([moved, targetDuplicate, otherAlbum], moved, RotationBin.M)).toEqual(
+      [5001, 5008],
+    );
+  });
+
+  it("leaves the album's killed target-bin rows alone", () => {
+    const killedDuplicate = row({
+      rotation_id: 5008,
+      rotation_bin: RotationBin.M,
+      rotation_kill_date: "2026-09-01",
+    });
+    expect(rotationMoveRetireIds([moved, killedDuplicate], moved, RotationBin.M)).toEqual([5001]);
+  });
+
+  it("never matches duplicates for an unlinked row — no album identity to match on", () => {
+    const movedUnlinked = unlinked({ rotation_id: 5004, rotation_bin: RotationBin.M });
+    const otherUnlinked = unlinked({ rotation_id: 5008, rotation_bin: RotationBin.L });
+    expect(rotationMoveRetireIds([movedUnlinked, otherUnlinked], movedUnlinked, RotationBin.L)).toEqual(
+      [5004],
+    );
   });
 });
 

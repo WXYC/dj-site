@@ -189,6 +189,14 @@ export type FreeTextRotationAddRequest = {
   record_label?: string;
   format_id?: number;
   label_id?: number;
+  /**
+   * Storage order, the published `AddRotationRequest.urls` shape verbatim
+   * (plain strings, never `format: uri` — see `RotationListRow.urls`).
+   * Accepted on both POST arms per the contract, so a free-text re-filing
+   * can carry the source row's links instead of orphaning them on the row
+   * it retires.
+   */
+  urls?: string[];
 };
 
 /**

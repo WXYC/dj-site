@@ -28,6 +28,7 @@ vi.mock("sonner", () => ({
 }));
 
 import RotationAdminList from "@/src/components/experiences/modern/admin/rotation/RotationAdminList";
+import { catalogSlice } from "@/lib/features/catalog/frontend";
 
 const CARDS: FakeRotationCard[] = [
   { id: 31, bin: "H", number: 1, name: "Late Aug" },
@@ -120,8 +121,12 @@ const ALL_ROWS = [IHOMF, NILUFER, HALO, CHUQUI_UNLINKED, DOTS_KILLED];
 const activeSection = () => within(screen.getByTestId("rotation-admin-active"));
 const killedSection = () => within(screen.getByTestId("rotation-admin-killed"));
 
-async function renderList(rows = ALL_ROWS, cards = CARDS) {
-  const fake = fakeRotationAdminEndpoints(rows, cards);
+async function renderList(
+  rows = ALL_ROWS,
+  cards = CARDS,
+  options?: Parameters<typeof fakeRotationAdminEndpoints>[2],
+) {
+  const fake = fakeRotationAdminEndpoints(rows, cards, options);
   const rendered = renderWithProviders(<RotationAdminList />);
   await screen.findByTestId("rotation-admin-active");
   return { fake, ...rendered };
@@ -373,12 +378,20 @@ describe("RotationAdminList", () => {
         screen.getByRole("button", { name: "Move to Medium: Instant Holograms on Metal Film" }),
       );
 
-      // The add names the library release and the target bin, nothing else:
-      // an omitted card_id is the server's cue to file on the target bin's
-      // newest card, and the retire is the same bodyless-path kill the Kill
-      // button issues.
+      // The add names the library release, the target bin, and the row's
+      // stored links — the kill half retires the only row that holds them,
+      // so an add without `urls` would be a move that destroys the record's
+      // curated links. Still no card_id: an omitted card is the server's cue
+      // to file on the target bin's newest card, and the retire is the same
+      // bodyless-path kill the Kill button issues.
       await waitFor(() =>
-        expect(fake.addBodies()).toEqual([{ album_id: 9001, rotation_bin: "M" }]),
+        expect(fake.addBodies()).toEqual([
+          {
+            album_id: 9001,
+            rotation_bin: "M",
+            urls: ["stereolab.bandcamp.com/album/instant-holograms-on-metal-film"],
+          },
+        ]),
       );
       await waitFor(() => expect(fake.killBodies()).toEqual([{ rotation_id: 5001 }]));
       expect(fake.callOrder()).toEqual(["add", "kill"]);
@@ -396,6 +409,65 @@ describe("RotationAdminList", () => {
         }),
       ).toHaveTextContent("card 2 — Fresh Arrivals");
       await killedSection().findByText("Instant Holograms on Metal Film");
+      // The move lock releases once the post-move refetch lands: the new
+      // row's own move chips are live again.
+      await waitFor(() =>
+        expect(
+          screen.getByRole("button", { name: "Move to Heavy: Instant Holograms on Metal Film" }),
+        ).toBeEnabled(),
+      );
+    });
+
+    it("releases the move chips after a failed add — nothing changed, so nothing stays locked", async () => {
+      const { fake, user } = await renderList();
+      await activeSection().findByText("Instant Holograms on Metal Film");
+      server.use(
+        http.post(`${TEST_BACKEND_URL}/library/rotation`, () =>
+          HttpResponse.json({}, { status: 500 }),
+        ),
+      );
+
+      const chip = screen.getByRole("button", {
+        name: "Move to Medium: Instant Holograms on Metal Film",
+      });
+      await user.click(chip);
+
+      await waitFor(() =>
+        expect(toastErrorMock).toHaveBeenCalledWith(
+          "Couldn't move this release to Medium — nothing changed.",
+        ),
+      );
+      // Add-first means the failed add attempted no kill; the failed add
+      // triggers no refetch, so a lock that only ever released on refetch
+      // completion would wedge these chips here.
+      expect(fake.killBodies()).toEqual([]);
+      await waitFor(() => expect(chip).toBeEnabled());
+    });
+
+    it("releases the move lock even when the post-move refetch itself fails", async () => {
+      const { user } = await renderList();
+      await activeSection().findByText("Instant Holograms on Metal Film");
+      // Both writes succeed; only the invalidation-driven list refetch
+      // errors, so the last-good rows stay on screen and the lock must
+      // still come back for them.
+      server.use(
+        http.get(`${TEST_BACKEND_URL}/library/rotation`, () =>
+          HttpResponse.json({ error: "boom" }, { status: 500 }),
+        ),
+      );
+
+      await user.click(
+        screen.getByRole("button", { name: "Move to Medium: Instant Holograms on Metal Film" }),
+      );
+
+      await waitFor(() =>
+        expect(toastSuccessMock).toHaveBeenCalledWith("Moved to Medium rotation."),
+      );
+      await waitFor(() =>
+        expect(
+          screen.getByRole("button", { name: "Move to Medium: Instant Holograms on Metal Film" }),
+        ).toBeEnabled(),
+      );
     });
 
     it("keeps the new-bin record when the kill half fails, leaving a visible duplicate", async () => {
@@ -427,8 +499,15 @@ describe("RotationAdminList", () => {
       );
     });
 
-    it("moves an unlinked row through the free-text mutation with its snapshot carried", async () => {
-      const { fake, user } = await renderList();
+    it("moves an unlinked row through the free-text mutation with its whole snapshot carried", async () => {
+      // The pre-catalog FKs live only on the single-row read (the list row's
+      // label_id is the library join's, null here by construction), so the
+      // move must fetch them; the urls ride on the list row itself.
+      const { fake, user } = await renderList(
+        [...ALL_ROWS.filter((row) => row !== CHUQUI_UNLINKED), { ...CHUQUI_UNLINKED, urls: ["chuquimamani.bandcamp.com/album/edits"] }],
+        CARDS,
+        { rowSummaries: { 5004: { format_id: 7, label_id: 42 } } },
+      );
       await activeSection().findByText("Edits");
 
       await user.click(screen.getByRole("button", { name: "Move to Light: Edits" }));
@@ -440,6 +519,9 @@ describe("RotationAdminList", () => {
             artist_name: "Chuquimamani-Condori",
             album_title: "Edits",
             record_label: "self-released",
+            format_id: 7,
+            label_id: 42,
+            urls: ["chuquimamani.bandcamp.com/album/edits"],
           },
         ]),
       );
@@ -449,6 +531,79 @@ describe("RotationAdminList", () => {
       const movedRow = await screen.findByTestId("rotation-admin-row-5006");
       expect(within(movedRow).getByText("Chuquimamani-Condori")).toBeInTheDocument();
       await killedSection().findByText("Edits");
+    });
+
+    it("refuses an unlinked move when the single-row read fails — nothing changed", async () => {
+      // The read exists to feed the write, so it fails closed: proceeding
+      // without it would re-file the release with its pre-catalog fields
+      // silently dropped.
+      const { fake, user } = await renderList();
+      await activeSection().findByText("Edits");
+      server.use(
+        http.get(`${TEST_BACKEND_URL}/library/rotation/5004`, () =>
+          HttpResponse.json({ error: "boom" }, { status: 500 }),
+        ),
+      );
+
+      await user.click(screen.getByRole("button", { name: "Move to Light: Edits" }));
+
+      await waitFor(() =>
+        expect(toastErrorMock).toHaveBeenCalledWith(
+          "Couldn't move this release to Light — nothing changed.",
+        ),
+      );
+      expect(fake.addBodies()).toEqual([]);
+      expect(fake.killBodies()).toEqual([]);
+      expect(activeSection().getByTestId("rotation-admin-row-5004")).toBeInTheDocument();
+    });
+
+    it("also retires the album's active row already in the target bin — never an invisible in-bin duplicate", async () => {
+      // Album 9001 is in the dj-site#1096 duplicate state: active in H and
+      // M at once. Moving the H row to M must consolidate, not stack a
+      // second active M row every DISTINCT ON consumer collapses to one.
+      const IHOMF_M_DUP: FakeRotationAdminRow = {
+        ...IHOMF,
+        rotation_id: 5007,
+        rotation_bin: "M",
+        rotation_add_date: "2026-08-20",
+        card: null,
+      };
+      const { fake, user } = await renderList([...ALL_ROWS, IHOMF_M_DUP]);
+      // The title appears on both duplicate rows; wait on the dup's own row.
+      await screen.findByTestId("rotation-admin-row-5007");
+
+      await user.click(
+        screen.getByRole("button", { name: "Move to Medium: Instant Holograms on Metal Film" }),
+      );
+
+      await waitFor(() =>
+        expect(fake.killBodies()).toEqual([{ rotation_id: 5001 }, { rotation_id: 5007 }]),
+      );
+      expect(fake.callOrder()).toEqual(["add", "kill", "kill"]);
+      await waitFor(() =>
+        expect(toastSuccessMock).toHaveBeenCalledWith("Moved to Medium rotation."),
+      );
+    });
+
+    it("clears the per-album catalog rotation claim once the move settles", async () => {
+      // The add's cache handler writes a rotation claim for the album into
+      // the catalog slice; bounded to the gesture it protects the new bin
+      // from the kill half's clear, but left behind it would make a later
+      // out-of-band kill of the album's real entry skip its catalog clear
+      // for the life of the tab.
+      const { user, store } = await renderList();
+      await activeSection().findByText("Instant Holograms on Metal Film");
+
+      await user.click(
+        screen.getByRole("button", { name: "Move to Medium: Instant Holograms on Metal Film" }),
+      );
+
+      await waitFor(() =>
+        expect(toastSuccessMock).toHaveBeenCalledWith("Moved to Medium rotation."),
+      );
+      await waitFor(() =>
+        expect(catalogSlice.selectors.getAlbumRotation(store.getState(), 9001)).toBeUndefined(),
+      );
     });
 
     it("offers no move on killed rows — their bin is a fact, not an affordance", async () => {
