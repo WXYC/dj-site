@@ -1,5 +1,9 @@
 import type { FlowsheetRangeEntry, FlowsheetRangeShow } from "@wxyc/shared";
-import { STATION_TIME_ZONE } from "@/src/utilities/stationTime";
+import {
+  STATION_TIME_ZONE,
+  addStationWeeks,
+  formatStationWeekParam,
+} from "@/src/utilities/stationTime";
 
 /**
  * The weekly rotation tally, rebuilt from the flowsheet.
@@ -160,10 +164,9 @@ const caseInsensitive = (a: string, b: string) => {
  * dropped rather than ranked, so the chart's length is a result and not a
  * parameter — which is why the legacy header reads "Top N" for a moving N.
  */
-export function rankWeeklyPlays(
+function tallyAll(
   shows: readonly FlowsheetRangeShow[],
   entries: readonly FlowsheetRangeEntry[],
-  minimumPlays: number,
 ): RankedPlay[] {
   const hours = countDistinctDeclaredHours(shows, entries);
 
@@ -177,7 +180,6 @@ export function rankWeeklyPlays(
 
   const ranked: RankedPlay[] = [];
   for (const [rotationId, plays] of hours) {
-    if (plays < minimumPlays) continue;
     const source = naming.get(rotationId);
     ranked.push({
       rotationId,
@@ -195,6 +197,45 @@ export function rankWeeklyPlays(
       caseInsensitive(a.title, b.title),
   );
   return ranked;
+}
+
+export function rankWeeklyPlays(
+  shows: readonly FlowsheetRangeShow[],
+  entries: readonly FlowsheetRangeEntry[],
+  minimumPlays: number,
+): RankedPlay[] {
+  return tallyAll(shows, entries).filter((p) => p.plays >= minimumPlays);
+}
+
+/**
+ * Releases that aired but fell below the cut, and were added to rotation during
+ * the week -- the legacy report's "Other records that were just added" tail.
+ *
+ * It is empty at minimumPlays 0 and 1 by construction, which is why the station
+ * has never seen this block on its own reports: a tallied release always has at
+ * least one play. It appears only at a threshold someone raised by hand.
+ *
+ * `addDates` maps rotation id to the `add_date` the rotation list serves. Those
+ * are calendar dates, not instants, so they are compared as station-local
+ * `YYYY-MM-DD` strings: parsing a date-only value into an instant would file a
+ * release added on the week's first day into the previous week for any reader
+ * west of the station.
+ */
+export function unrankedNewAdds(
+  shows: readonly FlowsheetRangeShow[],
+  entries: readonly FlowsheetRangeEntry[],
+  minimumPlays: number,
+  addDates: ReadonlyMap<number, string>,
+  weekStart: Date,
+): RankedPlay[] {
+  const from = formatStationWeekParam(weekStart);
+  const to = formatStationWeekParam(addStationWeeks(weekStart, 1));
+
+  return tallyAll(shows, entries).filter((p) => {
+    if (p.plays >= minimumPlays) return false;
+    const added = addDates.get(p.rotationId);
+    return added !== undefined && added >= from && added < to;
+  });
 }
 
 const shortDate = new Intl.DateTimeFormat("en-US", {
@@ -215,7 +256,11 @@ export function formatWeekRange(weekStart: Date): string {
  * out for years — the librarian copies this block straight into an email, so
  * the legend line and the rule beneath it are load-bearing, not decoration.
  */
-export function formatWeeklyReport(ranked: readonly RankedPlay[], weekStart: Date): string {
+export function formatWeeklyReport(
+  ranked: readonly RankedPlay[],
+  weekStart: Date,
+  newAdds: readonly RankedPlay[] = [],
+): string {
   const lines = [
     `WXYC's Top ${ranked.length} Records for the week of ${formatWeekRange(weekStart)}:`,
     "",
@@ -225,5 +270,20 @@ export function formatWeeklyReport(ranked: readonly RankedPlay[], weekStart: Dat
   ranked.forEach((row, i) => {
     lines.push(`${i + 1} (${row.plays}) ${row.artist} - ${row.title} (${row.label})`);
   });
+
+  // Heading and rows are unnumbered and unplayed-count, unlike the chart above:
+  // these records did not make the list, so ranking them would contradict the
+  // sentence introducing them.
+  if (newAdds.length > 0) {
+    lines.push(
+      "",
+      "Other records that were just added to this week's playlist but are not listed above:",
+      "",
+    );
+    for (const row of newAdds) {
+      lines.push(`${row.artist} - ${row.title} (${row.label})`);
+    }
+  }
+
   return lines.join("\n") + "\n";
 }
