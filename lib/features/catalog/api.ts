@@ -441,6 +441,16 @@ export const catalogApi = createApi({
         url: "/releases/discogs-prefill",
         params: { url },
       }),
+      // The shared base query soft-fails an unparseable body (a gateway's HTML
+      // 502/504/524, Express's HTML 404 for a route not yet deployed) into a
+      // successful `null` payload -- a real failure mode for this BS->LML proxy.
+      // Here that would resolve the bench's `.unwrap()` to `null` and run its
+      // success path on it: that path drops the operator's selected artist and
+      // dedup state before it reads the prefill, so a soft-fail would silently
+      // wipe typed input and then dereference null. Surfacing it as an error
+      // instead routes it through the inline, non-blocking, form-preserving
+      // failure message the named 4xx reasons already use.
+      extraOptions: { surfaceNonJsonAsError: true },
       transformErrorResponse: (
         response: FetchBaseQueryError,
       ): { discogsPrefillError: FetchBaseQueryError } => ({ discogsPrefillError: response }),

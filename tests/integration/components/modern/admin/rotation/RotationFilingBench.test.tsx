@@ -14,6 +14,7 @@ import {
   type FakeFilingArtistRow,
 } from "@/tests/fakes/libraryFilings";
 import {
+  discogsPrefillGatewayHtml,
   fakeDiscogsPrefillEndpoint,
   MOLINA_DISCOGS_PREFILL,
 } from "@/tests/fakes/discogsPrefill";
@@ -607,6 +608,50 @@ describe("RotationFilingBench", () => {
       await user.click(screen.getByRole("button", { name: "Add to rotation" }));
 
       await waitFor(() => expect(filings.bodies()).toHaveLength(1));
+    });
+
+    it("surfaces the generic error on a non-JSON gateway failure, wiping neither the selected artist nor manual entry", async () => {
+      // The BS->LML proxy returns an HTML gateway page (a 504), not JSON. The
+      // shared base query would soft-fail that to a successful `null` payload
+      // unless the endpoint opts out; the success path then runs on null,
+      // clearing the operator's selected artist and dedup state before it
+      // dereferences the absent prefill. The opt-out routes it to the inline,
+      // non-destructive failure instead.
+      const filings = fakeLibraryFilingsEndpoint({ existingArtists: [MOLINA_ROW] });
+      fakeDiscogsPrefillEndpoint({ respond: () => discogsPrefillGatewayHtml(504) });
+      const { user } = renderBench();
+
+      // The MD has already matched the catalogued artist before reaching for
+      // autopopulate.
+      await selectGenre(user);
+      await pickExistingArtist(user);
+      expect(screen.getByText(/Filing under Juana Molina/)).toBeInTheDocument();
+
+      await user.type(screen.getByLabelText("Autopopulate with Discogs link"), DISCOGS_LINK);
+      await user.click(screen.getByRole("button", { name: "Autopopulate" }));
+
+      // A hard upstream failure shows the generic message — no LML-internal
+      // detail, no gateway HTML.
+      const alert = await screen.findByRole("alert");
+      expect(alert).toHaveTextContent("Enter the release details manually");
+
+      // The destructive success path never ran: the selected artist and its
+      // dedup match survive, and nothing was prefilled.
+      expect(screen.getByText(/Filing under Juana Molina/)).toBeInTheDocument();
+      expect(screen.getByLabelText("Album title")).toHaveValue("");
+      expect(screen.getByLabelText("Label")).toHaveValue("");
+
+      // Manual entry still completes the filing, as the still-selected existing
+      // artist.
+      await fillRelease(user);
+      await awaitDefaultCard();
+      await user.click(screen.getByRole("button", { name: "Add to rotation" }));
+
+      await waitFor(() => expect(filings.bodies()).toHaveLength(1));
+      expect(filings.bodies()[0].artist).toEqual({
+        kind: "existing",
+        artist_id: ARTIST_ID,
+      });
     });
 
     it("carries the recorded Discogs link into the release-scoped submit", async () => {
