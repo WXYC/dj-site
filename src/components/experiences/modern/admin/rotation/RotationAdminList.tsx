@@ -350,9 +350,11 @@ export default function RotationAdminList(): JSX.Element {
   // files an omitted card on the target bin's newest, exactly where a move
   // lands — but it carries everything else the source row holds (`urls`,
   // and an unlinked row's pre-catalog fields), because the kill half
-  // retires the only row that holds them. It goes through the same
-  // mutations the classify gesture drives, never a hand-rolled
-  // orchestration that could reverse the halves.
+  // retires the only row that holds them. The `urls` carry is stored only
+  // by a Backend that admits the key on the add (BS#2484); an older
+  // backend's allowlist drops it silently, which is harmless. It goes
+  // through the same mutations the classify gesture drives, never a
+  // hand-rolled orchestration that could reverse the halves.
   const moveRow = async (row: RotationListRow, targetBin: RotationBin) => {
     let add: (() => Promise<unknown>) | null = null;
     if (row.id != null) {

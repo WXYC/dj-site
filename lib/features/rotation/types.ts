@@ -192,9 +192,12 @@ export type FreeTextRotationAddRequest = {
   /**
    * Storage order, the published `AddRotationRequest.urls` shape verbatim
    * (plain strings, never `format: uri` — see `RotationListRow.urls`).
-   * Accepted on both POST arms per the contract, so a free-text re-filing
-   * can carry the source row's links instead of orphaning them on the row
-   * it retires.
+   * Carried on a move so a re-filing keeps the source row's links instead
+   * of orphaning them on the row it retires. Storing the carry requires the
+   * Backend that admits `urls` on both POST arms (BS#2484); an older
+   * backend's add allowlist silently drops the key — harmless, the carry is
+   * inert until that write half deploys, the same staging as
+   * `RotationListRow.urls`' read-half gap.
    */
   urls?: string[];
 };
