@@ -271,6 +271,9 @@ describe("RotationAdminList", () => {
     expect(killedSection().queryByText("Edits")).not.toBeInTheDocument();
     expect(fake.updateBodies()).toEqual([{ id: 5004, body: { kill_date: null } }]);
     expect(screen.getByRole("heading", { name: "Active (4)" })).toBeInTheDocument();
+    // The rows moved through the endpoints' cache patches: the unbounded
+    // status=all read was fetched exactly once, before either action.
+    expect(fake.listStatuses()).toEqual(["all"]);
   });
 
   it("unkills a catalogued killed row via kill_date: null", async () => {
@@ -304,6 +307,9 @@ describe("RotationAdminList", () => {
         screen.getByRole("combobox", { name: "Card for: Instant Holograms on Metal Film" }),
       ).toHaveTextContent("card 1 — Late Aug"),
     );
+    // The row's new card came from the endpoint's cache patch, not from
+    // refetching the unbounded status=all read.
+    expect(fake.listStatuses()).toEqual(["all"]);
   });
 
   it("renders an outage as a retryable failure, never as an empty list", async () => {
