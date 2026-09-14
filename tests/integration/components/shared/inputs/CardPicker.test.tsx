@@ -8,8 +8,14 @@ import type { RotationBin } from "@wxyc/shared";
 
 import CardPicker from "@/src/components/shared/inputs/CardPicker";
 
-function Harness({ bin }: { bin: RotationBin }) {
-  const [value, setValue] = useState<number | null>(null);
+function Harness({
+  bin,
+  initialValue = null,
+}: {
+  bin: RotationBin;
+  initialValue?: number | null;
+}) {
+  const [value, setValue] = useState<number | null>(initialValue);
   return (
     <div>
       <span data-testid="selected">{value ?? ""}</span>
@@ -37,6 +43,53 @@ describe("CardPicker", () => {
     expect(screen.getByRole("button", { name: "2" })).toBeDefined();
   });
 
+  it("displays a caller-supplied assignment instead of overwriting it with the default", async () => {
+    fakeRotationCardsEndpoints(CARDS);
+    renderWithProviders(<Harness bin="H" initialValue={1} />);
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "1 · Stereolab" })).toBeInTheDocument(),
+    );
+    expect(selected()).toBe("1");
+  });
+
+  it("shows a spinner while the cards load, not an empty bin", async () => {
+    let releaseGet!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      releaseGet = resolve;
+    });
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/library/rotation/cards`, async () => {
+        await gate;
+        return HttpResponse.json(CARDS);
+      }),
+    );
+    renderWithProviders(<Harness bin="H" />);
+
+    expect(screen.getByLabelText("Loading cards")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "+ new card" })).toBeNull();
+
+    releaseGet();
+    await waitFor(() => expect(selected()).toBe("2"));
+  });
+
+  it("shows an error with a retry affordance when the cards fail to load", async () => {
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/library/rotation/cards`, () =>
+        HttpResponse.json({ message: "nope" }, { status: 500 }),
+      ),
+    );
+    const { user } = renderWithProviders(<Harness bin="H" />);
+
+    expect(await screen.findByText("Unable to load cards.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "+ new card" })).toBeNull();
+
+    fakeRotationCardsEndpoints(CARDS);
+    await user.click(screen.getByRole("button", { name: "Retry" }));
+
+    await waitFor(() => expect(selected()).toBe("2"));
+  });
+
   it("selects a clicked card", async () => {
     fakeRotationCardsEndpoints(CARDS);
     const { user } = renderWithProviders(<Harness bin="H" />);
@@ -56,6 +109,35 @@ describe("CardPicker", () => {
 
     await waitFor(() => expect(screen.getByRole("button", { name: "3" })).toBeDefined());
     expect(selected()).toBe("4");
+  });
+
+  it("discards a create that resolves after the bin changed", async () => {
+    fakeRotationCardsEndpoints(CARDS);
+    let releaseCreate!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      releaseCreate = resolve;
+    });
+    server.use(
+      http.post(`${TEST_BACKEND_URL}/library/rotation/cards`, async () => {
+        await gate;
+        return HttpResponse.json({ id: 99, bin: "H", number: 3, name: null }, { status: 201 });
+      }),
+    );
+    const { user, rerender } = renderWithProviders(<Harness bin="H" />);
+
+    await waitFor(() => expect(selected()).toBe("2"));
+    await user.click(screen.getByRole("button", { name: "+ new card" }));
+
+    rerender(<Harness bin="M" />);
+    await waitFor(() => expect(selected()).toBe("3"));
+
+    releaseCreate();
+    // The chip re-enabling marks the mutation as settled, so the post-await
+    // continuation (guarded or not) has run by the next assertion.
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "+ new card" })).toBeEnabled(),
+    );
+    expect(selected()).toBe("3");
   });
 
   it("resets the selection to the new bin's newest card when bin changes", async () => {
