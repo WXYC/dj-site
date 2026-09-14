@@ -33,7 +33,10 @@ export class DashboardPage {
     this.catalogLink = page.locator('a[href="/dashboard/catalog"]');
     this.adminLink = page.locator('a[href*="/dashboard/admin"]');
     this.rosterLink = page.locator('a[href="/dashboard/admin/roster"]');
-    this.rotationLink = page.locator('a[href="/dashboard/admin/rotation"]');
+    // Scoped to the Leftbar container: RotationTabs renders a "Rotation list"
+    // tab with this exact href, so an unscoped locator resolves to two
+    // elements on any /dashboard/admin/rotation* page and trips strict mode.
+    this.rotationLink = page.locator('.FirstSidebar a[href="/dashboard/admin/rotation"]');
 
     // Log out button is in a form in the sidebar - it's an IconButton with type="submit"
     // Select specifically the submit button inside a form (the logout button)
