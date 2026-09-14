@@ -27,7 +27,9 @@ export function rotationLocationFor(
     return { label: rotation_bin, title: `${binLabel} rotation` };
   }
 
-  const named = card.name ? ` "${card.name}"` : "";
+  // Typographic curly quotes, matching the visual spec character-for-character
+  // (the separator above is likewise U+00B7, not an ASCII stand-in).
+  const named = card.name ? ` “${card.name}”` : "";
   return {
     label: `${rotation_bin} · card ${card.number}`,
     title: `${binLabel} rotation, card ${card.number}${named}`,

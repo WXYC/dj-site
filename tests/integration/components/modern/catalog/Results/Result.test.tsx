@@ -1,7 +1,18 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
-import { createTestAlbum, createTestArtist, renderWithProviders } from "@/tests/helpers";
+import { act, fireEvent, screen } from "@testing-library/react";
+import { http, HttpResponse } from "msw";
+import {
+  createTestAlbum,
+  createTestAlbumSearchResult,
+  createTestArtist,
+  createTestStore,
+  renderWithProviders,
+  server,
+  TEST_BACKEND_URL,
+} from "@/tests/helpers";
 import { RotationBin } from "@/lib/features/rotation/types";
+import { rotationApi } from "@/lib/features/rotation/api";
+import { useSearchLibraryQueryInfiniteQuery } from "@/lib/features/catalog/api";
 
 const mockPush = vi.fn();
 vi.mock("next/navigation", () => ({
@@ -533,7 +544,7 @@ describe("CatalogResult rotation location", () => {
     delete process.env[ENV_KEY];
   });
 
-  it("shows bin + card with a tooltip carrying the card name, and hides the call number, when the flag is on", () => {
+  it("shows the location as a pill with a tooltip carrying the card name, and hides the call number, when the flag is on", () => {
     process.env[ENV_KEY] = "true";
     const album = createTestAlbum({
       artist: createTestArtist({ name: "Juana Molina", lettercode: "MO", numbercode: 8 }),
@@ -550,12 +561,15 @@ describe("CatalogResult rotation location", () => {
       </table>
     );
 
-    const location = screen.getByText("H · card 1");
-    expect(location.getAttribute("title")).toBe('Heavy rotation, card 1 "Late Aug"');
+    const pill = screen.getByTitle("Heavy rotation, card 1 “Late Aug”");
+    expect(pill.textContent).toBe("H · card 1");
+    // Chip chrome, not the call number's muted monospace: the pill is the
+    // only signal that this cell stopped meaning "call number".
+    expect(pill.classList.contains("MuiChip-root")).toBe(true);
     expect(screen.queryByText("MO 8/6")).toBeNull();
   });
 
-  it("degrades to the bin alone when the row is rotating but carries no card", () => {
+  it("degrades to a bin-only pill when the row is rotating but carries no card", () => {
     process.env[ENV_KEY] = "true";
     const album = createTestAlbum({
       artist: createTestArtist({ name: "Hermanos Gutiérrez", lettercode: "GU", numbercode: 11 }),
@@ -572,7 +586,9 @@ describe("CatalogResult rotation location", () => {
       </table>
     );
 
-    expect(screen.getByTitle("Singles rotation").textContent).toBe("S");
+    const pill = screen.getByTitle("Singles rotation");
+    expect(pill.textContent).toBe("S");
+    expect(pill.classList.contains("MuiChip-root")).toBe(true);
     expect(screen.queryByText("GU 11/4")).toBeNull();
   });
 
@@ -616,67 +632,130 @@ describe("CatalogResult rotation location", () => {
     expect(screen.queryByText("M · card 2")).toBeNull();
   });
 
-  it("drops the card when a kill leaves the row with rotation_bin undefined, restoring the call number", () => {
-    process.env[ENV_KEY] = "true";
-    const album = createTestAlbum({
-      artist: createTestArtist({ name: "Nilüfer Yanya", lettercode: "YA", numbercode: 4 }),
-      entry: 2,
-      rotation_bin: RotationBin.H,
-      card: { id: 3, bin: RotationBin.H, number: 2 },
+});
+
+// Not prop-rerender specs: each dispatches the real mutation against MSW and
+// asserts through the same generated infinite-query hook the catalog browse
+// subscribes with, so they fail if the mutations' `card` patches stop
+// reaching the cache the rendered cell reads (`patchCatalogSearchRotation` →
+// `searchLibraryQueryInfinite`), not merely if React stops re-rendering.
+describe("CatalogResult rotation location through the patch layer", () => {
+  const ENV_KEY = "NEXT_PUBLIC_ROTATION_ADMIN_ENABLED";
+  const YANYA_ALBUM_ID = 4242;
+  const YANYA_ROTATION_ID = 900;
+
+  afterEach(() => {
+    delete process.env[ENV_KEY];
+  });
+
+  /** The `/library/query` row: actively rotating in H on card 2. */
+  const yanyaRotatingSearchRow = () =>
+    createTestAlbumSearchResult({
+      id: YANYA_ALBUM_ID,
+      album_title: "My Method Actor",
+      artist_name: "Nilüfer Yanya",
+      code_letters: "YA",
+      code_artist_number: 4,
+      code_number: 2,
+      rotation_id: YANYA_ROTATION_ID,
+      rotation_bin: "H",
+      card: { id: 3, bin: "H", number: 2 },
     });
 
-    const { rerender } = renderWithProviders(
-      <table>
-        <tbody>
-          <CatalogResult album={album} live={false} addToQueue={vi.fn()} />
-        </tbody>
-      </table>
+  function seedCatalogSearch() {
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/library/query`, () =>
+        HttpResponse.json({
+          results: [yanyaRotatingSearchRow()],
+          total: 1,
+          page: 0,
+          totalPages: 1,
+        }),
+      ),
     );
-    expect(screen.getByText("H · card 2")).toBeDefined();
+  }
 
-    const killed = createTestAlbum({ ...album, rotation_bin: undefined, card: undefined });
-    rerender(
+  function CachedCatalogResults() {
+    const { data } = useSearchLibraryQueryInfiniteQuery({});
+    const rows = data?.pages.flatMap((page) => page.results) ?? [];
+    return (
       <table>
         <tbody>
-          <CatalogResult album={killed} live={false} addToQueue={vi.fn()} />
+          {rows.map((album) => (
+            <CatalogResult
+              key={album.id}
+              album={album}
+              live={false}
+              addToQueue={vi.fn()}
+            />
+          ))}
         </tbody>
       </table>
     );
+  }
+
+  it("clears the pill and restores the call number when a kill patches the cache", async () => {
+    process.env[ENV_KEY] = "true";
+    const store = createTestStore();
+    seedCatalogSearch();
+    server.use(
+      http.patch(`${TEST_BACKEND_URL}/library/rotation`, () =>
+        HttpResponse.json({
+          id: YANYA_ROTATION_ID,
+          album_id: YANYA_ALBUM_ID,
+          rotation_bin: "H",
+          add_date: "2026-08-01",
+          kill_date: "2026-09-13",
+        }),
+      ),
+    );
+
+    renderWithProviders(<CachedCatalogResults />, { store });
+    expect(await screen.findByText("H · card 2")).toBeDefined();
+
+    await act(async () => {
+      await store.dispatch(
+        rotationApi.endpoints.killRotationEntry.initiate({
+          rotation_id: YANYA_ROTATION_ID,
+        }),
+      );
+    });
 
     expect(screen.queryByText("H · card 2")).toBeNull();
     expect(screen.getByText("YA 4/2")).toBeDefined();
   });
 
-  it("swaps to the new card when a re-bin changes bin and card, leaving no stale card", () => {
+  it("swaps to the new card when a re-bin add patches the cache, leaving no stale card", async () => {
     process.env[ENV_KEY] = "true";
-    const album = createTestAlbum({
-      artist: createTestArtist({ name: "Nilüfer Yanya", lettercode: "YA", numbercode: 4 }),
-      entry: 2,
-      rotation_bin: RotationBin.H,
-      card: { id: 3, bin: RotationBin.H, number: 2 },
-    });
-
-    const { rerender } = renderWithProviders(
-      <table>
-        <tbody>
-          <CatalogResult album={album} live={false} addToQueue={vi.fn()} />
-        </tbody>
-      </table>
+    const store = createTestStore();
+    seedCatalogSearch();
+    server.use(
+      http.post(`${TEST_BACKEND_URL}/library/rotation`, () =>
+        HttpResponse.json(
+          {
+            id: YANYA_ROTATION_ID + 1,
+            album_id: YANYA_ALBUM_ID,
+            rotation_bin: "M",
+            add_date: "2026-09-01",
+            kill_date: null,
+            card: { id: 9, bin: "M", number: 5 },
+          },
+          { status: 201 },
+        ),
+      ),
     );
-    expect(screen.getByText("H · card 2")).toBeDefined();
 
-    const rebinned = createTestAlbum({
-      ...album,
-      rotation_bin: RotationBin.M,
-      card: { id: 9, bin: RotationBin.M, number: 5 },
+    renderWithProviders(<CachedCatalogResults />, { store });
+    expect(await screen.findByText("H · card 2")).toBeDefined();
+
+    await act(async () => {
+      await store.dispatch(
+        rotationApi.endpoints.addRotationEntry.initiate({
+          album_id: YANYA_ALBUM_ID,
+          rotation_bin: RotationBin.M,
+        }),
+      );
     });
-    rerender(
-      <table>
-        <tbody>
-          <CatalogResult album={rebinned} live={false} addToQueue={vi.fn()} />
-        </tbody>
-      </table>
-    );
 
     expect(screen.queryByText("H · card 2")).toBeNull();
     expect(screen.getByText("M · card 5")).toBeDefined();

@@ -129,7 +129,10 @@ export default function SearchResults() {
               }`}
             >
               <td>{result.artist?.genre ?? ""}</td>
-              <td>
+              {/* nowrap: `H · card 2` outsizes the call numbers this column
+                  was sized for, and a mid-token wrap would rag the Code
+                  column against every non-rotating row beside it. */}
+              <td style={{ whiteSpace: "nowrap" }}>
                 {rotationLocation ? (
                   <b title={rotationLocation.title}>{rotationLocation.label}</b>
                 ) : (

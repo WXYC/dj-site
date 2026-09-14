@@ -20,6 +20,7 @@ import { AlbumArtwork } from "../AlbumArtwork";
 import AddRemoveBin from "./AddRemoveBin";
 import { MatchedTrackChips } from "./MatchedTrackChips";
 import { ReleaseChips } from "./ReleaseChips";
+import { RotationLocationPill } from "./RotationLocationPill";
 import { convertBinToQueue } from "@/lib/features/bin/conversions";
 import { queueAdditionMessage } from "@/lib/features/flowsheet/various-artists-guard";
 import { toast } from "sonner";
@@ -160,14 +161,7 @@ function CatalogResult({
       </td>
       <td>
         {rotationLocation ? (
-          <Typography
-            level="body-sm"
-            textColor="text.secondary"
-            title={rotationLocation.title}
-            sx={{ fontFamily: "code", whiteSpace: "nowrap" }}
-          >
-            {rotationLocation.label}
-          </Typography>
+          <RotationLocationPill location={rotationLocation} />
         ) : (
           <Typography
             level="body-sm"

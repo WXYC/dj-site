@@ -15,10 +15,12 @@ export type CatalogSearchRotationPatch = {
   rotation_id: number | undefined;
   /**
    * Omitted entirely to leave a cached card untouched (the field-level
-   * rotation editor's write can never change the card, so it has none to
-   * report); `null` to clear it; a `RotationCard` to set it. Distinct from
-   * `rotation_bin`/`rotation_id`, which a caller always states one way or the
-   * other.
+   * rotation editor's in-rotation write can never change the card, so it has
+   * none to report); `null` to clear it; a `RotationCard` to set it. Distinct
+   * from `rotation_bin`/`rotation_id`, which a caller always states one way
+   * or the other. Every kill path names `null` — a killed row must never keep
+   * pointing at a card it left — which is also what lets an unkill safely
+   * omit the key: there is no pre-kill card left to resurrect.
    */
   card?: RotationCard | null;
 };
