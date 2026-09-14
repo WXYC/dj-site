@@ -287,6 +287,17 @@ export default function RotationFilingBench(): JSX.Element {
     setAutofillError(null);
     try {
       const prefill = await triggerPrefill(pasted).unwrap();
+      // Guard the unwrapped payload before touching any state. The endpoint
+      // opts out of the base query's non-JSON soft-fail, so today a hard
+      // failure rejects rather than resolving `null`; this keeps that true by
+      // construction if a future change ever soft-fails again. A nullish
+      // payload takes the inline, non-blocking failure path and changes
+      // nothing — the destructive success path below (which clears the
+      // selected artist and dedup state) must never run on absent data.
+      if (prefill == null) {
+        setAutofillError(discogsPrefillErrorMessage(null));
+        return;
+      }
       // The resolved Discogs record is authoritative, so drop any prior
       // typeahead pick and re-key the artist field on the resolved name — the
       // MD then matches-or-creates it the same way a typed name flows.
@@ -405,10 +416,15 @@ export default function RotationFilingBench(): JSX.Element {
                 {autofillError !== null ? (
                   <FormHelperText role="alert">{autofillError}</FormHelperText>
                 ) : (
+                  // A library-only filing (no bin) carries no rotation member, and
+                  // buildLibraryFilingRequest drops `urls` with it, so the link is
+                  // only actually recorded when a rotation bin is selected — the copy
+                  // promises it only then.
                   <FormHelperText>
-                    Pulls artist, title, and label from Discogs and records the link on
-                    the release. Discogs release links only — other services are
-                    follow-ups.
+                    {bin !== null
+                      ? "Pulls artist, title, and label from Discogs and records the link on the release."
+                      : "Pulls artist, title, and label from Discogs."}{" "}
+                    Discogs release links only — other services are follow-ups.
                   </FormHelperText>
                 )}
               </FormControl>
