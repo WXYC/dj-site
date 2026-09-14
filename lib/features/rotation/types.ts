@@ -73,7 +73,11 @@ export type RotationListRow = {
    * Optional, mirroring the published schema exactly (`card?` on `Rotation`
    * in `@wxyc/shared@5.4.0`): the deployed `GET /library/rotation` does not
    * emit the key yet, so every row reads `undefined` today. Absent means "the
-   * server didn't say"; `null` is the positive claim "on no card".
+   * server didn't say"; `null` is the positive claim "on no card". Until a
+   * backend that serves the key is deployed (Backend-Service#2484), the admin
+   * list's card sub-filter is inert — no row matches a card chip and every
+   * card count reads 0 — and that same absent-card degradation covers any
+   * older backend.
    */
   card?: RotationCard | null;
   /**
