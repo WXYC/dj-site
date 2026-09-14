@@ -321,6 +321,68 @@ describe("classic ArtistCard — artistCardModify.jsp", () => {
       expect(values).toEqual(["1", "3"]);
     });
 
+    // A browser <select> with no matching option value displays the first
+    // <option> regardless of what state thinks is selected -- the dropdown
+    // shows "CD" before the librarian ever touches it, so the submitted
+    // format has to agree with that display rather than demanding a
+    // redundant click on the format the form is already showing.
+    it("files a release under the first format when the dropdown is never touched", async () => {
+      const user = userEvent.setup();
+      const bodies: unknown[] = [];
+      server.use(
+        http.post(`${TEST_BACKEND_URL}/library`, async ({ request }) => {
+          bodies.push(await request.json());
+          return HttpResponse.json(
+            { id: 902, code_number: 7, code_volume_letters: null },
+            { status: 201 },
+          );
+        }),
+      );
+
+      renderWithProviders(<ArtistCard artistId={ARTIST_ID} />);
+
+      await user.type(await screen.findByLabelText(/Title of Release/i), "Halo");
+      await user.type(screen.getByLabelText(/^Label/i), "Crammed Discs");
+      await user.click(
+        screen.getByRole("button", { name: "Add a new Library Release" }),
+      );
+
+      await waitFor(() => expect(bodies).toHaveLength(1));
+      expect(bodies[0]).toMatchObject({ format_id: 1 });
+      expect(
+        screen.queryByText("You must select a format before adding this release."),
+      ).toBeNull();
+    });
+
+    // The backstop guard is only reachable when there is nothing to default
+    // to -- formats failed to load, or every one of them is blank-named.
+    it("still guards on an empty format list, since there is nothing to default to", async () => {
+      server.use(
+        http.get(`${TEST_BACKEND_URL}/library/formats`, () => HttpResponse.json([])),
+      );
+      const user = userEvent.setup();
+      let posted = false;
+      server.use(
+        http.post(`${TEST_BACKEND_URL}/library`, () => {
+          posted = true;
+          return HttpResponse.json({ id: 901 }, { status: 201 });
+        }),
+      );
+
+      renderWithProviders(<ArtistCard artistId={ARTIST_ID} />);
+
+      await user.type(await screen.findByLabelText(/Title of Release/i), "Halo");
+      await user.type(screen.getByLabelText(/^Label/i), "Crammed Discs");
+      await user.click(
+        screen.getByRole("button", { name: "Add a new Library Release" }),
+      );
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(
+        "You must select a format before adding this release.",
+      );
+      expect(posted).toBe(false);
+    });
+
     it("refuses a release with no title rather than sending it", async () => {
       const user = userEvent.setup();
       let posted = false;
