@@ -32,7 +32,7 @@ describe("Classic SearchResults Various Artists display", () => {
       error: undefined,
     });
 
-    renderWithProviders(<SearchResults />);
+    renderWithProviders(<SearchResults canModify={false} />);
 
     expect(screen.getByText("Various Artists")).toBeDefined();
     expect(screen.queryByText("Autechre")).toBeNull();
@@ -48,7 +48,7 @@ describe("Classic SearchResults Various Artists display", () => {
       error: undefined,
     });
 
-    renderWithProviders(<SearchResults />);
+    renderWithProviders(<SearchResults canModify={false} />);
 
     expect(screen.getByText("Stereolab")).toBeDefined();
     expect(screen.queryByText("Various Artists")).toBeNull();
@@ -68,7 +68,7 @@ describe("Classic SearchResults EXCLUSIVE capsule", () => {
       error: undefined,
     });
 
-    renderWithProviders(<SearchResults />);
+    renderWithProviders(<SearchResults canModify={false} />);
 
     expect(screen.getByText("EXCLUSIVE")).toBeDefined();
   });
@@ -85,7 +85,7 @@ describe("Classic SearchResults EXCLUSIVE capsule", () => {
       error: undefined,
     });
 
-    renderWithProviders(<SearchResults />);
+    renderWithProviders(<SearchResults canModify={false} />);
 
     expect(screen.queryByText("EXCLUSIVE")).toBeNull();
   });
@@ -102,7 +102,7 @@ describe("Classic SearchResults EXCLUSIVE capsule", () => {
       error: undefined,
     });
 
-    renderWithProviders(<SearchResults />);
+    renderWithProviders(<SearchResults canModify={false} />);
 
     expect(screen.queryByText("EXCLUSIVE")).toBeNull();
   });
@@ -136,7 +136,7 @@ describe("Classic SearchResults — null artist (regression)", () => {
       error: undefined,
     });
 
-    expect(() => renderWithProviders(<SearchResults />)).not.toThrow();
+    expect(() => renderWithProviders(<SearchResults canModify={false} />)).not.toThrow();
     // The normal row still renders its artist; the null-artist row shows the
     // "Unknown" fallback instead of crashing.
     expect(screen.getByText("Juana Molina")).toBeDefined();

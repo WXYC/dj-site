@@ -5,9 +5,39 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useSearchCatalogQuery } from "@/lib/features/catalog/api";
 import { isRotationAdminEnabled } from "@/lib/features/rotation/flags";
 import { rotationLocationFor } from "@/lib/features/rotation/location";
+import { artistCardHref } from "@/lib/features/catalog/artistCardRoute";
 import { MatchedTrackChips } from "./MatchedTrackChips";
 
-export default function SearchResults() {
+/**
+ * Which artist card this row's name opens.
+ *
+ * `LibraryCatalogServlet.goToArtistModifyCard` picks the card from the
+ * viewer's authority, never from the `mode=view` the legacy row href carries —
+ * `ArtistViewServlet` reads only `id`, so that parameter names nothing. A
+ * viewer with admin access gets `artistCardModify.jsp`, whose "Add a Library
+ * Release for This Artist" form is the whole reason to reach an artist from a
+ * search; everyone else gets the read-only `artistCardDisplay.jsp`, which has
+ * no add form.
+ *
+ * Only the modify branch distinguishes a compilation bucket, matching the JSP:
+ * its non-admin branch forwards every artist to the one display card, and
+ * there is no bucket-shaped read-only screen to route to here either.
+ */
+const artistRowHref = (
+  artist: { id: number; lettercode?: string },
+  canModify: boolean,
+): string =>
+  canModify
+    ? artistCardHref({ id: artist.id, code_letters: artist.lettercode ?? "" })
+    : `/dashboard/library/artist/${artist.id}/view`;
+
+/**
+ * `canModify` is resolved once, server-side, by the page and threaded down
+ * rather than re-derived here: a client component cannot read the station role
+ * without a round trip, and the catalog stays reachable by any authenticated
+ * DJ — the authority decides the destination, never the access.
+ */
+export default function SearchResults({ canModify }: { canModify: boolean }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const searchString = searchParams.get("searchString") || "";
@@ -144,17 +174,17 @@ export default function SearchResults() {
               </td>
               <td>
                 {/*
-                  The artist name links to the ungated view card, mirroring
-                  `card-catalog-search`'s `<a href="artist?id=…&mode=view">` —
-                  the view card, not the librarian's modify card, because this
-                  table is DJ-facing.
-
                   `artist.id` is only present once the search response carries
                   `artist_id`; a row without it renders as plain text rather
                   than a link to an unresolvable id.
                 */}
                 {result.artist?.id ? (
-                  <Link href={`/dashboard/library/artist/${result.artist.id}/view`}>
+                  <Link
+                    href={artistRowHref(
+                      { id: result.artist.id, lettercode: result.artist.lettercode },
+                      canModify,
+                    )}
+                  >
                     {result.album_artist
                       ? "Various Artists"
                       : result.artist.name || "Unknown"}

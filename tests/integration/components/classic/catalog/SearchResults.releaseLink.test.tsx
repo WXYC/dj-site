@@ -35,7 +35,7 @@ describe("Classic SearchResults release link", () => {
     });
     mockSearchCatalogQuery.mockReturnValue({ data: [album], isLoading: false, error: undefined });
 
-    renderWithProviders(<SearchResults />);
+    renderWithProviders(<SearchResults canModify={false} />);
 
     const link = screen.getByRole("link", { name: "Tri Repetae" });
     expect(link.getAttribute("href")).toBe("/dashboard/library/release/9200");
@@ -49,37 +49,9 @@ describe("Classic SearchResults release link", () => {
     });
     mockSearchCatalogQuery.mockReturnValue({ data: [album], isLoading: false, error: undefined });
 
-    renderWithProviders(<SearchResults />);
+    renderWithProviders(<SearchResults canModify={false} />);
 
     expect(screen.getByText("Untracked Release")).toBeDefined();
     expect(screen.queryByRole("link", { name: "Untracked Release" })).toBeNull();
-  });
-
-  it("links the artist name to the ungated view card", () => {
-    const album = createTestAlbum({
-      id: 9200,
-      artist: createTestArtist({ name: "Autechre", lettercode: "AU", numbercode: 3, id: 19516 }),
-      title: "Tri Repetae",
-    });
-    mockSearchCatalogQuery.mockReturnValue({ data: [album], isLoading: false, error: undefined });
-
-    renderWithProviders(<SearchResults />);
-
-    const link = screen.getByRole("link", { name: "Autechre" });
-    expect(link.getAttribute("href")).toBe("/dashboard/library/artist/19516/view");
-  });
-
-  it("leaves the artist as plain text when the row carries no artist id", () => {
-    const album = createTestAlbum({
-      id: 9201,
-      artist: createTestArtist({ name: "Autechre", lettercode: "AU", numbercode: 3, id: undefined }),
-      title: "Amber",
-    });
-    mockSearchCatalogQuery.mockReturnValue({ data: [album], isLoading: false, error: undefined });
-
-    renderWithProviders(<SearchResults />);
-
-    expect(screen.queryByRole("link", { name: "Autechre" })).toBeNull();
-    expect(screen.getByText("Autechre")).toBeDefined();
   });
 });

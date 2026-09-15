@@ -29,6 +29,8 @@ import NewArtistForm from "@/src/components/experiences/classic/catalog/NewArtis
 
 const GENRE_ID = 3;
 const JAZZ_GENRE_ID = 7;
+/** What `mockPeekCode()` answers, and so what the form seeds the field with. */
+const SEEDED_CODE = 7;
 
 function mockGenres(
   genres: { id: number; genre_name: string }[] = [
@@ -90,6 +92,34 @@ async function selectGenre(user: ReturnType<typeof renderWithProviders>["user"],
   await user.selectOptions(screen.getByLabelText(/genre/i), name);
 }
 
+/**
+ * Waits for the form to fill the call-numbers field from `peek-code`. A submit
+ * before this point is a submit with no code number at all -- the field is the
+ * only place the number lives, so the debounce-plus-fetch window has to close
+ * before the form is complete.
+ */
+async function awaitSeededCodeNumber() {
+  await waitFor(() =>
+    expect(screen.getByLabelText(/call numbers/i)).toHaveValue(String(SEEDED_CODE)),
+  );
+}
+
+/**
+ * Types a code number over the one the form seeded from `peek-code`. The seed
+ * has to be on screen before the typing starts: typing into the field earlier
+ * would leave the two concatenated once the answer lands, which is the state a
+ * librarian picking his own code never reaches by hand.
+ */
+async function overwriteCodeNumber(
+  user: ReturnType<typeof renderWithProviders>["user"],
+  value: string,
+) {
+  await awaitSeededCodeNumber();
+  const field = screen.getByLabelText(/call numbers/i);
+  await user.clear(field);
+  await user.type(field, value);
+}
+
 describe("classic NewArtistForm — chooseLibraryCodeOrArtist.jsp's newArtistForm", () => {
   beforeEach(() => {
     mockPush.mockClear();
@@ -113,7 +143,6 @@ describe("classic NewArtistForm — chooseLibraryCodeOrArtist.jsp's newArtistFor
     const { user } = renderWithProviders(<NewArtistForm />);
     await selectGenre(user);
     await user.type(screen.getByLabelText(/call letters/i), "MO");
-    await user.type(screen.getByLabelText(/call numbers/i), "12");
     await user.type(screen.getByLabelText(/artist alphabetical name/i), "Molina, Juana");
 
     await user.click(screen.getByRole("button", { name: "Submit" }));
@@ -125,7 +154,6 @@ describe("classic NewArtistForm — chooseLibraryCodeOrArtist.jsp's newArtistFor
     const { user } = renderWithProviders(<NewArtistForm />);
     await selectGenre(user);
     await user.type(screen.getByLabelText(/call letters/i), "MO");
-    await user.type(screen.getByLabelText(/call numbers/i), "12");
     await user.type(screen.getByLabelText(/artist presentation name/i), "Juana Molina");
 
     await user.click(screen.getByRole("button", { name: "Submit" }));
@@ -141,7 +169,7 @@ describe("classic NewArtistForm — chooseLibraryCodeOrArtist.jsp's newArtistFor
     await user.type(screen.getByLabelText(/artist presentation name/i), "Juana Molina");
     await user.type(screen.getByLabelText(/artist alphabetical name/i), "Molina, Juana");
     await user.type(screen.getByLabelText(/call letters/i), "MO");
-    await user.type(screen.getByLabelText(/call numbers/i), "12");
+    await overwriteCodeNumber(user, "12");
 
     await user.click(screen.getByRole("button", { name: "Submit" }));
 
@@ -192,7 +220,7 @@ describe("classic NewArtistForm — chooseLibraryCodeOrArtist.jsp's newArtistFor
     await user.type(screen.getByLabelText(/artist presentation name/i), "Juana Molina");
     await user.type(screen.getByLabelText(/artist alphabetical name/i), "Molina, Juana");
     await user.type(screen.getByLabelText(/call letters/i), "MO");
-    await user.type(screen.getByLabelText(/call numbers/i), "12");
+    await awaitSeededCodeNumber();
     await user.click(screen.getByRole("button", { name: "Submit" }));
 
     await waitFor(() =>
@@ -217,7 +245,7 @@ describe("classic NewArtistForm — chooseLibraryCodeOrArtist.jsp's newArtistFor
     await user.type(screen.getByLabelText(/artist presentation name/i), "Juana Molina");
     await user.type(screen.getByLabelText(/artist alphabetical name/i), "Molina, Juana");
     await user.type(screen.getByLabelText(/call letters/i), "MO");
-    await user.type(screen.getByLabelText(/call numbers/i), "12");
+    await awaitSeededCodeNumber();
     await user.click(screen.getByRole("button", { name: "Submit" }));
 
     expect(
@@ -242,7 +270,7 @@ describe("classic NewArtistForm — chooseLibraryCodeOrArtist.jsp's newArtistFor
     await user.type(screen.getByLabelText(/artist presentation name/i), "Juana Molina");
     await user.type(screen.getByLabelText(/artist alphabetical name/i), "Molina, Juana");
     await user.type(screen.getByLabelText(/call letters/i), "MO");
-    await user.type(screen.getByLabelText(/call numbers/i), "12");
+    await awaitSeededCodeNumber();
     await user.click(screen.getByRole("button", { name: "Submit" }));
 
     expect(
@@ -261,7 +289,7 @@ describe("classic NewArtistForm — chooseLibraryCodeOrArtist.jsp's newArtistFor
     await user.type(screen.getByLabelText(/artist presentation name/i), "Juana Molina");
     await user.type(screen.getByLabelText(/artist alphabetical name/i), "Molina, Juana");
     await user.type(screen.getByLabelText(/call letters/i), "MO");
-    await user.type(screen.getByLabelText(/call numbers/i), "12");
+    await awaitSeededCodeNumber();
     await user.click(screen.getByRole("button", { name: "Submit" }));
 
     expect(await screen.findByText("Failed to add artist.")).toBeInTheDocument();
@@ -275,7 +303,7 @@ describe("classic NewArtistForm — chooseLibraryCodeOrArtist.jsp's newArtistFor
     await user.type(screen.getByLabelText(/artist presentation name/i), "Juana Molina");
     await user.type(screen.getByLabelText(/artist alphabetical name/i), "Molina, Juana");
     await user.type(screen.getByLabelText(/call letters/i), "MO");
-    await user.type(screen.getByLabelText(/call numbers/i), "12");
+    await awaitSeededCodeNumber();
     await user.click(screen.getByRole("button", { name: "Submit" }));
 
     expect(await screen.findByText("Failed to add artist.")).toBeInTheDocument();
@@ -346,8 +374,8 @@ describe("classic NewArtistForm — chooseLibraryCodeOrArtist.jsp's newArtistFor
       await user.type(screen.getByLabelText(/artist presentation name/i), "Juana Molina");
       await user.type(screen.getByLabelText(/artist alphabetical name/i), "Molina, Juana");
       await user.type(screen.getByLabelText(/call letters/i), "MO");
-      await user.type(screen.getByLabelText(/call numbers/i), "12");
-      await user.click(screen.getByRole("button", { name: "Submit" }));
+      await awaitSeededCodeNumber();
+        await user.click(screen.getByRole("button", { name: "Submit" }));
 
       await waitFor(() => expect(getBodies()).toHaveLength(1));
       expect(getBodies()[0]).toMatchObject({ genre_id: GENRE_ID });
@@ -377,8 +405,8 @@ describe("classic NewArtistForm — chooseLibraryCodeOrArtist.jsp's newArtistFor
       await user.type(screen.getByLabelText(/artist presentation name/i), "Juana Molina");
       await user.type(screen.getByLabelText(/artist alphabetical name/i), "Molina, Juana");
       await user.type(screen.getByLabelText(/call letters/i), "MO");
-      await user.type(screen.getByLabelText(/call numbers/i), "12");
-
+      await awaitSeededCodeNumber();
+  
       store.dispatch(
         catalogApi.util.invalidateTags([{ type: "GenreList", id: "LIST" }]),
       );
@@ -413,7 +441,7 @@ describe("classic NewArtistForm — chooseLibraryCodeOrArtist.jsp's newArtistFor
     await user.type(screen.getByLabelText(/artist presentation name/i), "Juana Molina");
     await user.type(screen.getByLabelText(/artist alphabetical name/i), "Molina, Juana");
     await user.type(screen.getByLabelText(/call letters/i), "MO");
-    await user.type(screen.getByLabelText(/call numbers/i), "12");
+    await overwriteCodeNumber(user, "12");
 
     await user.click(screen.getByRole("button", { name: "Reset values" }));
 
@@ -421,5 +449,137 @@ describe("classic NewArtistForm — chooseLibraryCodeOrArtist.jsp's newArtistFor
     expect(screen.getByLabelText(/artist alphabetical name/i)).toHaveValue("");
     expect(screen.getByLabelText(/call letters/i)).toHaveValue("");
     expect(screen.getByLabelText(/call numbers/i)).toHaveValue("");
+  });
+});
+
+/**
+ * The next free code number in a series is not something a librarian can
+ * derive at the desk — it is a fact only the catalog holds — so a form that
+ * knows it and shows it beside the field, while filing whatever the field
+ * happens to contain, leaves him copying the number in by hand or reading it
+ * off paper. The peeked number has to be the field's value, so that leaving
+ * the field alone files the next free code.
+ */
+describe("classic NewArtistForm — the peeked next code fills the field", () => {
+  beforeEach(() => {
+    mockPush.mockClear();
+    mockGenres();
+    mockPeekCode();
+  });
+
+  it("files the peeked number when the librarian leaves the field alone", async () => {
+    const { getBodies } = mockAddArtist(() => created());
+    const { user } = renderWithProviders(<NewArtistForm />);
+
+    await selectGenre(user);
+    await user.type(screen.getByLabelText(/artist presentation name/i), "Jessica Pratt");
+    await user.type(screen.getByLabelText(/artist alphabetical name/i), "Pratt, Jessica");
+    await user.type(screen.getByLabelText(/call letters/i), "PR");
+
+    await waitFor(() =>
+      expect(screen.getByLabelText(/call numbers/i)).toHaveValue(String(SEEDED_CODE)),
+    );
+
+    await user.click(screen.getByRole("button", { name: "Submit" }));
+
+    await waitFor(() => expect(getBodies()).toHaveLength(1));
+    expect(getBodies()[0]).toMatchObject({ code_letters: "PR", code_number: SEEDED_CODE });
+  });
+
+  it("never displaces a hand-typed number with a later-arriving peek", async () => {
+    const { getBodies } = mockAddArtist(() => created());
+    const { user } = renderWithProviders(<NewArtistForm />);
+
+    await selectGenre(user);
+    await user.type(screen.getByLabelText(/artist presentation name/i), "Jessica Pratt");
+    await user.type(screen.getByLabelText(/artist alphabetical name/i), "Pratt, Jessica");
+    // Typed before the call letters arm the lookup at all, so the answer is
+    // guaranteed to land after the typing rather than racing it.
+    await user.type(screen.getByLabelText(/call numbers/i), "412");
+    await user.type(screen.getByLabelText(/call letters/i), "PR");
+
+    expect(await screen.findByText(/next code:\s*7/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/call numbers/i)).toHaveValue("412");
+
+    await user.click(screen.getByRole("button", { name: "Submit" }));
+
+    await waitFor(() => expect(getBodies()).toHaveLength(1));
+    expect(getBodies()[0]).toMatchObject({ code_number: 412 });
+  });
+
+  it("re-seeds with the new series' number when the genre changes", async () => {
+    mockPeekCodeByGenre({ [GENRE_ID]: 7, [JAZZ_GENRE_ID]: 3 });
+    const { getBodies } = mockAddArtist(() => created());
+    const { user } = renderWithProviders(<NewArtistForm />);
+
+    await selectGenre(user, "Blues");
+    await user.type(screen.getByLabelText(/artist presentation name/i), "Jessica Pratt");
+    await user.type(screen.getByLabelText(/artist alphabetical name/i), "Pratt, Jessica");
+    await user.type(screen.getByLabelText(/call letters/i), "PR");
+    await waitFor(() => expect(screen.getByLabelText(/call numbers/i)).toHaveValue("7"));
+
+    // A genre change selects a different code series, so Blues' number is not
+    // merely stale here -- filing it under Jazz would take a code that series
+    // has already issued.
+    await selectGenre(user, "Jazz");
+    await waitFor(() => expect(screen.getByLabelText(/call numbers/i)).toHaveValue("3"));
+
+    await user.click(screen.getByRole("button", { name: "Submit" }));
+
+    await waitFor(() => expect(getBodies()).toHaveLength(1));
+    expect(getBodies()[0]).toMatchObject({ genre_id: JAZZ_GENRE_ID, code_number: 3 });
+  });
+
+  it("empties the field rather than standing the previous series' number in it while the next answer is outstanding", async () => {
+    let jazzRequests = 0;
+    let releaseJazz!: () => void;
+    const jazzAnswer = new Promise<void>((resolve) => {
+      releaseJazz = resolve;
+    });
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/library/artists/peek-code`, async ({ request }) => {
+        const genreId = Number(new URL(request.url).searchParams.get("genre_id"));
+        if (genreId !== JAZZ_GENRE_ID) {
+          return HttpResponse.json({ next_code_number: 7 });
+        }
+        jazzRequests += 1;
+        await jazzAnswer;
+        return HttpResponse.json({ next_code_number: 3 });
+      }),
+    );
+    const { user } = renderWithProviders(<NewArtistForm />);
+
+    await selectGenre(user, "Blues");
+    await user.type(screen.getByLabelText(/call letters/i), "PR");
+    await waitFor(() => expect(screen.getByLabelText(/call numbers/i)).toHaveValue("7"));
+
+    await selectGenre(user, "Jazz");
+    await waitFor(() => expect(jazzRequests).toBe(1));
+
+    // In flight: the field the submit reads must not carry a number belonging
+    // to a series the form has stopped naming.
+    expect(screen.getByLabelText(/call numbers/i)).toHaveValue("");
+
+    releaseJazz();
+    await waitFor(() => expect(screen.getByLabelText(/call numbers/i)).toHaveValue("3"));
+  });
+
+  it("leaves the field empty, and the existing validation standing, when peek-code answers with no number", async () => {
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/library/artists/peek-code`, () => HttpResponse.json({})),
+    );
+    const { getBodies } = mockAddArtist(() => created());
+    const { user } = renderWithProviders(<NewArtistForm />);
+
+    await selectGenre(user);
+    await user.type(screen.getByLabelText(/artist presentation name/i), "Jessica Pratt");
+    await user.type(screen.getByLabelText(/artist alphabetical name/i), "Pratt, Jessica");
+    await user.type(screen.getByLabelText(/call letters/i), "PR");
+
+    await user.click(screen.getByRole("button", { name: "Submit" }));
+
+    expect(await screen.findByText("You must enter a code number.")).toBeInTheDocument();
+    expect(screen.getByLabelText(/call numbers/i)).toHaveValue("");
+    expect(getBodies()).toHaveLength(0);
   });
 });
