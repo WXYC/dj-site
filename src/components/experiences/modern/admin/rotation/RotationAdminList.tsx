@@ -35,6 +35,10 @@ import {
 } from "@/lib/features/rotation/types";
 import { useAppDispatch } from "@/lib/hooks";
 import { RotationCardBadge } from "@/src/components/shared/RotationCardBadge";
+import {
+  ROTATION_BIN_PALETTE_SLOT,
+  rotationBinSurfaceStyle,
+} from "@/src/utilities/modern/rotationBinColors";
 import { Link as LinkIcon } from "@mui/icons-material";
 import {
   Alert,
@@ -49,6 +53,7 @@ import {
   Stack,
   Typography,
 } from "@mui/joy";
+import { useTheme } from "@mui/joy/styles";
 import type { RotationCard } from "@wxyc/shared";
 
 function FilterChip({
@@ -85,10 +90,10 @@ function cardText(card: RotationCard | null | undefined): string {
  * card is a lone badge with no trailing space. It is a margin (not a text space)
  * because a space collapses inside the Select's flex value container.
  */
-function CardBadgeLabel({ card }: { card: RotationCard }) {
+function CardBadgeLabel({ card, bin }: { card: RotationCard; bin: RotationBin }) {
   return (
     <>
-      <RotationCardBadge number={card.number} />
+      <RotationCardBadge number={card.number} bin={bin} />
       {card.name ? <span style={{ marginLeft: "0.6em" }}>{card.name}</span> : null}
     </>
   );
@@ -127,6 +132,12 @@ function RotationAdminRow({
   // Named per row: a list of identical "Kill" buttons tells a screen-reader
   // user nothing about which release they are about to act on.
   const name = row.album_title ?? row.artist_name ?? `rotation ${row.rotation_id}`;
+  const theme = useTheme();
+  // A bin letter wears its bin's palette hue (saturated when it is this row's
+  // bin, a pale tint when it is a move target), matching the card badge and the
+  // flowsheet/catalog bin pickers.
+  const binStyle = (bin: RotationBin, selected: boolean) =>
+    rotationBinSurfaceStyle(theme.vars.palette.rotation[ROTATION_BIN_PALETTE_SLOT[bin]], selected);
 
   return (
     <Sheet
@@ -146,14 +157,30 @@ function RotationAdminRow({
       </Typography>
       <Stack direction="row" spacing={1.5} sx={{ alignItems: "center", mt: 0.75, flexWrap: "wrap" }}>
         {killed || !canMoveRotationRow(row) ? (
-          <Chip size="sm" variant="soft" title={ROTATION_BIN_LABELS[row.rotation_bin]}>
+          <Chip
+            size="sm"
+            variant="soft"
+            title={ROTATION_BIN_LABELS[row.rotation_bin]}
+            sx={{
+              backgroundColor: binStyle(row.rotation_bin, false).backgroundColor,
+              color: binStyle(row.rotation_bin, false).color,
+            }}
+          >
             {row.rotation_bin}
           </Chip>
         ) : (
           <Stack direction="row" spacing={0.5}>
-            {ROTATION_BINS.map((bin) =>
-              bin === row.rotation_bin ? (
-                <Chip key={bin} size="sm" variant="solid" color="primary" title={ROTATION_BIN_LABELS[bin]}>
+            {ROTATION_BINS.map((bin) => {
+              const selected = bin === row.rotation_bin;
+              const s = binStyle(bin, selected);
+              return selected ? (
+                <Chip
+                  key={bin}
+                  size="sm"
+                  variant="solid"
+                  title={ROTATION_BIN_LABELS[bin]}
+                  sx={{ backgroundColor: s.backgroundColor, color: s.color }}
+                >
                   {bin}
                 </Chip>
               ) : (
@@ -163,6 +190,12 @@ function RotationAdminRow({
                   variant="outlined"
                   disabled={pending || moveLocked}
                   onClick={() => onMoveBin(bin)}
+                  sx={{
+                    backgroundColor: s.backgroundColor,
+                    color: s.color,
+                    borderColor: s.borderColor,
+                    "&:hover": { backgroundColor: s.hoverBackgroundColor },
+                  }}
                   slotProps={{
                     action: {
                       "aria-label": `Move to ${ROTATION_BIN_LABELS[bin]}: ${name}`,
@@ -175,8 +208,8 @@ function RotationAdminRow({
                 >
                   {bin}
                 </Chip>
-              ),
-            )}
+              );
+            })}
           </Stack>
         )}
         {killed || binCards.length === 0 ? (
@@ -184,7 +217,7 @@ function RotationAdminRow({
             // Badge is decorative; `title` keeps the full "card N — name"
             // reading in the accessible tree.
             <Typography level="body-xs" title={cardText(row.card)}>
-              <CardBadgeLabel card={row.card} />
+              <CardBadgeLabel card={row.card} bin={row.rotation_bin} />
             </Typography>
           ) : (
             <Typography level="body-xs">no card</Typography>
@@ -208,7 +241,7 @@ function RotationAdminRow({
               if (!selected) return null;
               const card = binCards.find((c) => c.id === selected.value);
               if (!card) return selected.label;
-              return <CardBadgeLabel card={card} />;
+              return <CardBadgeLabel card={card} bin={row.rotation_bin} />;
             }}
           >
             {binCards.map((card) => (
@@ -218,7 +251,7 @@ function RotationAdminRow({
                 label={cardText(card)}
                 aria-label={cardText(card)}
               >
-                <CardBadgeLabel card={card} />
+                <CardBadgeLabel card={card} bin={row.rotation_bin} />
               </Option>
             ))}
           </Select>

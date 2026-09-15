@@ -39,6 +39,7 @@ import {
 
 function CardRow({
   card,
+  bin,
   binLabel,
   deletable,
   pending,
@@ -46,6 +47,7 @@ function CardRow({
   onDelete,
 }: {
   card: RotationCardWithCount;
+  bin: RotationBin;
   binLabel: string;
   deletable: boolean;
   pending: boolean;
@@ -70,7 +72,7 @@ function CardRow({
       <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
         {/* Decorative badge; the card's number stays in the accessible tree
             through the name input's "…card N" label beside it. */}
-        <RotationCardBadge number={card.number} />
+        <RotationCardBadge number={card.number} bin={bin} />
         <Input
           // Uncontrolled, remounted whenever the server's name changes: the
           // DOM keeps the operator's text through the save round-trip, and
@@ -254,6 +256,7 @@ export default function CardsManager(): JSX.Element {
                 <CardRow
                   key={card.id}
                   card={card}
+                  bin={bin}
                   binLabel={ROTATION_BIN_LABELS[bin]}
                   deletable={canDeleteRotationCard(card, binCards)}
                   pending={pendingCardIds.has(card.id)}
