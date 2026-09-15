@@ -268,5 +268,10 @@ export const UNCATALOGUED_ROTATION_PAGE_SIZE = 500;
  * capped view never reads as a complete one. Matches the page the Awaiting
  * Cataloging facet already mounts of the identical table, which is the
  * evidence this table renders that many plain rows comfortably.
+ *
+ * The modern admin list guards the same unbounded read with the same
+ * mechanism and a far smaller batch. The numbers differ because the rows do:
+ * a Joy row per entry is the expensive thing there, where this is nine plain
+ * table cells. Change one and the other does not follow.
  */
 export const ROTATION_STATUS_FACET_RENDER_BATCH = 500;
