@@ -3,7 +3,6 @@ import type { FlowsheetRangeEntry, FlowsheetRangeShow } from "@wxyc/shared";
 import {
   countDistinctDeclaredHours,
   rankWeeklyPlays,
-  unrankedNewAdds,
   formatWeeklyReport,
 } from "@/lib/features/rotation-tally/tally";
 import { startOfStationWeek } from "@/src/utilities/stationTime";
@@ -153,7 +152,7 @@ describe("rankWeeklyPlays", () => {
 });
 
 describe("formatWeeklyReport", () => {
-  it("reproduces the legacy header, legend and row shape", () => {
+  it("reproduces the legacy legend and row shape under the station's own header", () => {
     const ranked = rankWeeklyPlays(
       [show()],
       [entry({ rotation_id: 1, artist_name: "Doms & Deykers", album_title: "Evidence from a Good Source", record_label: "3024" })],
@@ -161,90 +160,32 @@ describe("formatWeeklyReport", () => {
     );
     const text = formatWeeklyReport(ranked, WEEK);
     expect(text).toBe(
-      "WXYC's Top 1 Records for the week of Sunday 9/6/26 - Saturday 9/12/26:\n" +
+      "Airplay Report on WXYC's Top 1 Playbox Records for the week of Sunday 9/6/26 - Saturday 9/12/26:\n" +
         "\n" +
         "Rank (Plays) Artist - 'Title of CD/LP/EP/7-inch' (RECORD LABEL)\n" +
         "---------------------------------------------------------------\n" +
         "1 (1) Doms & Deykers - Evidence from a Good Source (3024)\n",
     );
   });
-});
 
-describe("unrankedNewAdds", () => {
-  const play = (rotationId: number, artist: string, title: string, label: string) =>
-    entry({ rotation_id: rotationId, artist_name: artist, album_title: title, record_label: label });
-
-  const bp = (hourOffset: number) =>
-    entry({
-      entry_type: "breakpoint",
-      radio_hour: new Date(SHOW_START + hourOffset * HOUR).toISOString(),
-    });
-
-  // Releases below the cut that were added during the week. Everything else --
-  // above the cut, or added before it -- belongs nowhere in this block.
-  const ENTRIES = [
-    play(1, "Juana Molina", "DOGA", "Sonamos"),
-    bp(1),
-    play(1, "Juana Molina", "DOGA", "Sonamos"),
-    bp(2),
-    play(1, "Juana Molina", "DOGA", "Sonamos"),
-    play(2, "Grisha Shakhnes", "Ghosts", "DISAPPEARING"),
-    play(3, "Cat Power", "Moon Pix", "Matador"),
-  ];
-
-  const ADD_DATES = new Map([
-    [1, "2026-08-01"], // above the cut anyway
-    [2, "2026-09-07"], // added during the week -> a new add
-    [3, "2026-08-01"], // below the cut but added earlier -> nowhere
-  ]);
-
-  it("lists only below-cut releases added during the week", () => {
-    const adds = unrankedNewAdds([show()], ENTRIES, 3, ADD_DATES, WEEK);
-    expect(adds.map((a) => a.artist)).toEqual(["Grisha Shakhnes"]);
-  });
-
-  it("is empty at a threshold nothing falls below", () => {
-    // At 1 every tallied release is already ranked, which is why the legacy
-    // report never shows this block for the station's own settings.
-    expect(unrankedNewAdds([show()], ENTRIES, 1, ADD_DATES, WEEK)).toEqual([]);
-  });
-});
-
-describe("formatWeeklyReport with new adds", () => {
-  it("matches tubafrenzy byte-for-byte at minimumPlays 3", () => {
-    // Expected text lifted verbatim from a run of the real
-    // WeeklyPlaylistSummary.toEmailSummaryString(), truncated where the genre
-    // charts begin -- not transcribed from reading the Java.
+  it("ends after the last ranked row", () => {
+    // The legacy summary followed the chart with a new-adds tail and five genre
+    // charts. Neither has been mailed since 2018, so the ranked list is the
+    // whole report and the librarian copies it without trimming anything.
     const ranked = [
       { rotationId: 1, artist: "Juana Molina", title: "DOGA", label: "Sonamos", plays: 6 },
       { rotationId: 2, artist: "Chuquimamani-Condori", title: "Edits", label: "self-released", plays: 4 },
       { rotationId: 3, artist: "Broadcast", title: "The Noise Made by People", label: "Warp", plays: 3 },
     ];
-    const newAdds = [
-      { rotationId: 4, artist: "Grisha Shakhnes", title: "Ghosts", label: "DISAPPEARING", plays: 2 },
-      { rotationId: 5, artist: "Jessica Pratt", title: "On Your Own Love Again", label: "Drag City", plays: 2 },
-    ];
 
-    expect(formatWeeklyReport(ranked, WEEK, newAdds)).toBe(
-      "WXYC's Top 3 Records for the week of Sunday 9/6/26 - Saturday 9/12/26:\n" +
+    expect(formatWeeklyReport(ranked, WEEK)).toBe(
+      "Airplay Report on WXYC's Top 3 Playbox Records for the week of Sunday 9/6/26 - Saturday 9/12/26:\n" +
         "\n" +
         "Rank (Plays) Artist - 'Title of CD/LP/EP/7-inch' (RECORD LABEL)\n" +
         "---------------------------------------------------------------\n" +
         "1 (6) Juana Molina - DOGA (Sonamos)\n" +
         "2 (4) Chuquimamani-Condori - Edits (self-released)\n" +
-        "3 (3) Broadcast - The Noise Made by People (Warp)\n" +
-        "\n" +
-        "Other records that were just added to this week's playlist but are not listed above:\n" +
-        "\n" +
-        "Grisha Shakhnes - Ghosts (DISAPPEARING)\n" +
-        "Jessica Pratt - On Your Own Love Again (Drag City)\n",
+        "3 (3) Broadcast - The Noise Made by People (Warp)\n",
     );
-  });
-
-  it("omits the block entirely when there are no new adds", () => {
-    const ranked = [
-      { rotationId: 1, artist: "Cat Power", title: "Moon Pix", label: "Matador", plays: 1 },
-    ];
-    expect(formatWeeklyReport(ranked, WEEK, [])).not.toContain("Other records");
   });
 });

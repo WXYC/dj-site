@@ -22,9 +22,9 @@ const ROTATION = `${TEST_BACKEND_URL}/library/rotation`;
 const SHOW_START = "2026-09-07T00:00:00.000Z";
 
 // The component reads `new Date()` itself and defaults to last week, so the
-// clock has to be pinned into the following station week (rather than the
-// fixtures derived from the real clock) or the new-adds tail's window check
-// against `rotation_add_date` silently drifts off the fixtures over time.
+// clock has to be pinned into the station week following the fixtures (rather
+// than the fixtures derived from the real clock) or the default selection
+// silently drifts off them over time.
 const NOW = "2026-09-16T12:00:00.000Z";
 
 let nextId = 1;
@@ -74,7 +74,7 @@ describe("RotationTallysheet", () => {
   it("renders the report in the shape the station mails out", async () => {
     renderWithProviders(<RotationTallysheet />);
 
-    const report = await screen.findByText(/WXYC's Top \d+ Records/);
+    const report = await screen.findByText(/WXYC's Top \d+ Playbox Records/);
     // Juana Molina spun three times but across two declared hours, so she
     // leads on two plays; the two spins inside the first hour count once.
     expect(report.textContent).toContain(
@@ -89,12 +89,12 @@ describe("RotationTallysheet", () => {
   it("drops rows beneath the chosen minimum, and retitles for the shorter chart", async () => {
     const user = userEvent.setup();
     renderWithProviders(<RotationTallysheet />);
-    await screen.findByText(/WXYC's Top 2 Records/);
+    await screen.findByText(/WXYC's Top 2 Playbox Records/);
 
     await user.selectOptions(screen.getByLabelText("Minimum number of plays"), "2");
 
     await waitFor(() => {
-      const report = screen.getByText(/WXYC's Top 1 Records/);
+      const report = screen.getByText(/WXYC's Top 1 Playbox Records/);
       expect(report.textContent).toContain("1 (2) Juana Molina - DOGA (Sonamos)");
       expect(report.textContent).not.toContain("Jessica Pratt");
     });
@@ -112,7 +112,7 @@ describe("RotationTallysheet", () => {
       </div>,
     );
 
-    const report = await screen.findByText(/WXYC's Top \d+ Records/);
+    const report = await screen.findByText(/WXYC's Top \d+ Playbox Records/);
     // jsdom does not resolve inherited text-align onto the <pre>, so the
     // nearest ancestor that sets it is the thing to assert. Without the
     // screen's own left alignment that ancestor is the centring shell above,
@@ -130,150 +130,45 @@ describe("RotationTallysheet", () => {
     expect(screen.queryByText(/WXYC's Top/)).not.toBeInTheDocument();
   });
 
-  it("keys the new-adds tail on rotation_add_date, not the library's catalogued add_date", async () => {
+  it("reads only the flowsheet range, at every minimum-plays value", async () => {
+    // The removed new-adds tail was this screen's only reason to read the
+    // rotation list, and it read the whole unfiltered history to do it.
     const user = userEvent.setup();
-
-    // Both aired once this week, so both fall below a minimum of 2 and are
-    // only reachable through the tail, never the ranked chart.
+    let rotationReads = 0;
     server.use(
-      http.get(RANGE, () =>
-        HttpResponse.json({
-          shows: [{ id: 1, start_time: SHOW_START, end_time: null }],
-          entries: [
-            track(1, "Jessica Pratt", "On Your Own Love Again", "Drag City"),
-            track(3, "Chuquimamani-Condori", "Edits", "self-released"),
-          ],
-        }),
-      ),
-      http.get(ROTATION, () =>
-        HttpResponse.json([
-          {
-            id: 42,
-            code_letters: "PRA",
-            code_artist_number: 1,
-            code_number: 1,
-            artist_name: "Jessica Pratt",
-            alphabetical_name: "Pratt, Jessica",
-            album_title: "On Your Own Love Again",
-            record_label: "Drag City",
-            label_id: 5,
-            genre_name: "Rock",
-            format_name: "CD",
-            rotation_id: 1,
-            // Catalogued long before this week -- the wrong date the old call
-            // site read. Outside the [2026-09-06, 2026-09-13) window, so this
-            // row proves the tail follows rotation_add_date and not this field.
-            add_date: "2026-01-01",
-            // Entered rotation this week -- the date the tail must key on.
-            rotation_add_date: "2026-09-08",
-            rotation_bin: "H",
-            rotation_kill_date: null,
-            plays: 1,
-            legacy_release_id: 7001,
-          },
-          {
-            // A rotation row with no linked library release: the LEFT JOIN
-            // leaves every library-side column, including add_date, NULL.
-            id: null,
-            code_letters: null,
-            code_artist_number: null,
-            code_number: null,
-            artist_name: "Chuquimamani-Condori",
-            alphabetical_name: "Chuquimamani-Condori",
-            album_title: "Edits",
-            record_label: "self-released",
-            label_id: null,
-            genre_name: null,
-            format_name: null,
-            rotation_id: 3,
-            add_date: null,
-            rotation_add_date: "2026-09-09",
-            rotation_bin: "M",
-            rotation_kill_date: null,
-            plays: 1,
-            legacy_release_id: null,
-          },
-        ]),
-      ),
+      http.get(ROTATION, () => {
+        rotationReads += 1;
+        return HttpResponse.json([]);
+      }),
     );
 
     renderWithProviders(<RotationTallysheet />);
-    await screen.findByText(/WXYC's Top \d+ Records/);
-    await user.selectOptions(screen.getByLabelText("Minimum number of plays"), "2");
+    await screen.findByText(/WXYC's Top \d+ Playbox Records/);
 
-    await waitFor(() => {
-      const report = screen.getByText(/WXYC's Top 0 Records/);
-      expect(report.textContent).toContain(
-        "Other records that were just added to this week's playlist but are not listed above:",
-      );
-      // Catalogued in January, but the read must not key on that -- it is
-      // named here because it entered rotation this week.
-      expect(report.textContent).toContain(
-        "Jessica Pratt - On Your Own Love Again (Drag City)",
-      );
-      // Never catalogued at all (add_date is NULL), yet it must still appear
-      // because it entered rotation this week -- the old guard let a runtime
-      // `null` silently drop rows exactly like this one out of the tail.
-      expect(report.textContent).toContain("Chuquimamani-Condori - Edits (self-released)");
-    });
+    const minimum = screen.getByLabelText("Minimum number of plays");
+    for (const value of ["0", "2", "3", "9"]) {
+      await user.selectOptions(minimum, value);
+      await waitFor(() => {
+        expect(screen.getByText(/WXYC's Top \d+ Playbox Records/)).toBeInTheDocument();
+      });
+    }
+
+    expect(rotationReads).toBe(0);
   });
 
-  it("names a release killed since the week it was added in that week's tail", async () => {
+  it("emits the header the librarian mails, with no tail under it", async () => {
     const user = userEvent.setup();
+    renderWithProviders(<RotationTallysheet />);
 
-    // Aired once, so it falls below a minimum of 2 and is reachable only
-    // through the tail. It entered rotation during the week and has been
-    // killed since -- the shape the active-only read cannot answer, because
-    // `kill_date IS NOT NULL` is exactly what that read filters out.
-    server.use(
-      http.get(RANGE, () =>
-        HttpResponse.json({
-          shows: [{ id: 1, start_time: SHOW_START, end_time: null }],
-          entries: [track(1, "Jessica Pratt", "On Your Own Love Again", "Drag City")],
-        }),
-      ),
-      http.get(ROTATION, ({ request }) =>
-        HttpResponse.json(
-          new URL(request.url).searchParams.get("status") === "all"
-            ? [
-                {
-                  id: 42,
-                  code_letters: "PRA",
-                  code_artist_number: 1,
-                  code_number: 1,
-                  artist_name: "Jessica Pratt",
-                  alphabetical_name: "Pratt, Jessica",
-                  album_title: "On Your Own Love Again",
-                  record_label: "Drag City",
-                  label_id: 5,
-                  genre_name: "Rock",
-                  format_name: "CD",
-                  rotation_id: 1,
-                  add_date: "2026-01-01",
-                  rotation_add_date: "2026-09-08",
-                  rotation_bin: "H",
-                  rotation_kill_date: "2026-09-14",
-                  plays: 1,
-                  legacy_release_id: 7001,
-                },
-              ]
-            : [],
-        ),
-      ),
+    await screen.findByText(
+      /^Airplay Report on WXYC's Top 2 Playbox Records for the week of /,
     );
 
-    renderWithProviders(<RotationTallysheet />);
-    await screen.findByText(/WXYC's Top \d+ Records/);
-    await user.selectOptions(screen.getByLabelText("Minimum number of plays"), "2");
-
+    // A minimum nothing reaches is where the removed tail used to appear.
+    await user.selectOptions(screen.getByLabelText("Minimum number of plays"), "3");
     await waitFor(() => {
-      const report = screen.getByText(/WXYC's Top 0 Records/);
-      expect(report.textContent).toContain(
-        "Other records that were just added to this week's playlist but are not listed above:",
-      );
-      expect(report.textContent).toContain(
-        "Jessica Pratt - On Your Own Love Again (Drag City)",
-      );
+      const report = screen.getByText(/Airplay Report on WXYC's Top 0 Playbox Records/);
+      expect(report.textContent).not.toContain("Other records");
     });
   });
 });
