@@ -80,7 +80,7 @@ export type NewArtistFieldsProps = {
   disabled: boolean;
   conflict: NewArtistConflict | null;
   /**
-   * Bench-style auto-fill (epic decision 5): before the MD has touched the
+   * Bench-style auto-fill: before the MD has touched the
    * code-number field it renders the live peeked number, and the caller's
    * submission omits `code_number` so the server assigns exactly what was
    * previewed. Off by default — the artist-add form keeps its typed-only
@@ -138,8 +138,8 @@ function NewArtistFields({
 
   // One owner for the peeked number: this hook's RTK cache subscription. The
   // "Next code" line and the auto-filled field value below both derive from
-  // it during render — see epic decision 5 ("dirty ? draft : peek"), which
-  // rules out mirroring the peek into state by effect.
+  // it during render — the field shows the draft once touched and the peek
+  // otherwise — which rules out mirroring the peek into state by effect.
   const peek = useArtistCodePeek(codeLettersField.value, genreId);
 
   // Whether the MD has touched the code-number field, tracked separately from

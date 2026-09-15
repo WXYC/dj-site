@@ -32,9 +32,9 @@ export type FakeFilingArtistRow = {
 };
 
 /**
- * Stand-in for `POST /library/filings` (Backend-Service's transactional
- * artist+release+rotation composite, BS#2486 — the endpoint may not be
- * deployed to staging yet, so these fakes carry the contract the tests pin).
+ * Stand-in for `POST /library/filings` (Backend-Service's transactional,
+ * all-or-nothing artist+release+rotation composite — an endpoint that may not
+ * be deployed to staging yet, so these fakes carry the contract the tests pin).
  * A response is synthesized from the request the way the composite promises:
  * `kind: "existing"` resolves against `existingArtists`, `kind: "create"`
  * mints a row (`assignedCodeNumber` standing in for the server's next-in-
