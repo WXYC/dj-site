@@ -363,14 +363,48 @@ describe("RotationAdminList", () => {
     );
     // The cards surface counts rows per card, so a card move refetches it.
     await waitFor(() => expect(fake.cardsRequests()).toBe(2));
-    await waitFor(() =>
-      expect(
-        screen.getByRole("combobox", { name: "Card for: Instant Holograms on Metal Film" }),
-      ).toHaveTextContent("card 1 — Late Aug"),
-    );
+    // The selected value shows the chosen card as its decorative badge plus the
+    // name; the "card 1 — Late Aug" reading rides the combobox's own labelling.
+    await waitFor(() => {
+      const combobox = screen.getByRole("combobox", {
+        name: "Card for: Instant Holograms on Metal Film",
+      });
+      expect(combobox).toHaveTextContent("Late Aug");
+      expect(within(combobox).getByText("1")).toHaveAttribute("aria-hidden", "true");
+    });
     // The row's new card came from the endpoint's cache patch, not from
     // refetching the unbounded status=all read.
     expect(fake.listStatuses()).toEqual(["all"]);
+  });
+
+  it("renders each card option as its decorative badge while the full card reading stays the accessible name", async () => {
+    const { user } = await renderList();
+    await activeSection().findByText("Instant Holograms on Metal Film");
+
+    await user.click(
+      screen.getByRole("combobox", { name: "Card for: Instant Holograms on Metal Film" }),
+    );
+
+    // The number shows only as an aria-hidden circle, but the full "card N —
+    // name" is still the option's accessible name — what typeahead and a
+    // screen reader read.
+    const namedOption = await screen.findByRole("option", { name: "card 1 — Late Aug" });
+    expect(namedOption).toHaveTextContent("Late Aug");
+    expect(within(namedOption).getByText("1")).toHaveAttribute("aria-hidden", "true");
+
+    // An unnamed card keeps its "card N" accessible name — the aria-hidden
+    // badge alone would leave a screen reader with nothing.
+    const unnamedOption = screen.getByRole("option", { name: "card 2" });
+    expect(within(unnamedOption).getByText("2")).toHaveAttribute("aria-hidden", "true");
+  });
+
+  it("shows the selected card's badge in the Select's value", async () => {
+    await renderList();
+    // Painless sits on card 1 (Late Aug); the closed Select shows that card as
+    // its badge beside the name, never the bare "card 1 — Late Aug" text.
+    const combobox = await screen.findByRole("combobox", { name: "Card for: Painless" });
+    expect(combobox).toHaveTextContent("Late Aug");
+    expect(within(combobox).getByText("1")).toHaveAttribute("aria-hidden", "true");
   });
 
   describe("bin moves", () => {
@@ -407,11 +441,11 @@ describe("RotationAdminList", () => {
       // bin's newest card (the fake mirrors the server's defaulting); the
       // old entry moves to the Killed presentation.
       const movedRow = await screen.findByTestId("rotation-admin-row-5006");
-      expect(
-        within(movedRow).getByRole("combobox", {
-          name: "Card for: Instant Holograms on Metal Film",
-        }),
-      ).toHaveTextContent("card 2 — Fresh Arrivals");
+      const movedCombobox = within(movedRow).getByRole("combobox", {
+        name: "Card for: Instant Holograms on Metal Film",
+      });
+      expect(movedCombobox).toHaveTextContent("Fresh Arrivals");
+      expect(within(movedCombobox).getByText("2")).toHaveAttribute("aria-hidden", "true");
       await killedSection().findByText("Instant Holograms on Metal Film");
       // The move lock releases once the post-move refetch lands: the new
       // row's own move chips are live again.
