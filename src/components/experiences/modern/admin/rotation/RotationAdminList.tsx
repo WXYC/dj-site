@@ -351,7 +351,7 @@ export default function RotationAdminList(): JSX.Element {
   // lands — but it carries everything else the source row holds (`urls`,
   // and an unlinked row's pre-catalog fields), because the kill half
   // retires the only row that holds them. The `urls` carry is stored only
-  // by a Backend that admits the key on the add (BS#2484); an older
+  // by a Backend that admits the key on the add; an older
   // backend's allowlist drops it silently, which is harmless. It goes
   // through the same mutations the classify gesture drives, never a
   // hand-rolled orchestration that could reverse the halves.

@@ -558,7 +558,7 @@ describe("RotationAdminList", () => {
     });
 
     it("also retires the album's active row already in the target bin — never an invisible in-bin duplicate", async () => {
-      // Album 9001 is in the dj-site#1096 duplicate state: active in H and
+      // Album 9001 is in the duplicate state: active in H and
       // M at once. Moving the H row to M must consolidate, not stack a
       // second active M row every DISTINCT ON consumer collapses to one.
       const IHOMF_M_DUP: FakeRotationAdminRow = {
