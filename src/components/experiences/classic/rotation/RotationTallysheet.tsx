@@ -32,12 +32,11 @@ import "@/src/styles/classic/wxyc.css";
  * The email form is deliberately absent. The report has always been mailed by
  * hand out of the librarian's own client, so the `<pre>` below is the product.
  *
- * One gap in the new-adds tail, and it is this screen's choice rather than a
- * Backend limit: the rotation read below asks for the active releases only, so
- * a record added during an older week and killed since cannot be named in that
- * week's tail. `GET /library/rotation?status=all` would close it at the cost of
- * pulling the station's whole rotation history for a weekly report. The tail
- * only appears above a minimum of 1, which the station does not use.
+ * The new-adds tail reads the full rotation history rather than the releases
+ * in rotation today, because the tail is a question about a week that has
+ * already ended: a promo added that week and killed since is exactly the
+ * record it exists to name. The tail only appears above a minimum of 1, which
+ * the station does not use.
  */
 
 // `weeklySummarySelect.jsp` loops x from 0 down to -8.
@@ -71,8 +70,19 @@ export default function RotationTallysheet() {
   // that field, sourcing `add_date` from the library's catalogued-date column
   // instead -- a different date, from a different table, that this report
   // must not key on.
+  //
+  // `all`, not the default `active`, for two reasons and not only the obvious
+  // one. A promo added during the reported week is routinely killed before the
+  // report is compiled, and the active read filters exactly those rows out.
+  // Less obviously, the active read is DISTINCT-ON-collapsed on (album, bin),
+  // so a release re-added within its bin reaches this client as one row while
+  // the flowsheet entries still carry the other row's `rotation_id` -- and the
+  // map below is keyed on that id, so the collapse drops a still-active
+  // release out of the tail too. The full history is neither collapsed nor
+  // filtered, and it is the cache entry the rotation admin and the classic
+  // All/Killed facets already hold.
   const { data: rotationRows } = useGetRotationListQuery(
-    minimumPlays >= 2 ? undefined : skipToken,
+    minimumPlays >= 2 ? "all" : skipToken,
   );
 
   const addDates = useMemo(() => {

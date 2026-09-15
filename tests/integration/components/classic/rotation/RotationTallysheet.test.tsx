@@ -217,4 +217,63 @@ describe("RotationTallysheet", () => {
       expect(report.textContent).toContain("Chuquimamani-Condori - Edits (self-released)");
     });
   });
+
+  it("names a release killed since the week it was added in that week's tail", async () => {
+    const user = userEvent.setup();
+
+    // Aired once, so it falls below a minimum of 2 and is reachable only
+    // through the tail. It entered rotation during the week and has been
+    // killed since -- the shape the active-only read cannot answer, because
+    // `kill_date IS NOT NULL` is exactly what that read filters out.
+    server.use(
+      http.get(RANGE, () =>
+        HttpResponse.json({
+          shows: [{ id: 1, start_time: SHOW_START, end_time: null }],
+          entries: [track(1, "Jessica Pratt", "On Your Own Love Again", "Drag City")],
+        }),
+      ),
+      http.get(ROTATION, ({ request }) =>
+        HttpResponse.json(
+          new URL(request.url).searchParams.get("status") === "all"
+            ? [
+                {
+                  id: 42,
+                  code_letters: "PRA",
+                  code_artist_number: 1,
+                  code_number: 1,
+                  artist_name: "Jessica Pratt",
+                  alphabetical_name: "Pratt, Jessica",
+                  album_title: "On Your Own Love Again",
+                  record_label: "Drag City",
+                  label_id: 5,
+                  genre_name: "Rock",
+                  format_name: "CD",
+                  rotation_id: 1,
+                  add_date: "2026-01-01",
+                  rotation_add_date: "2026-09-08",
+                  rotation_bin: "H",
+                  rotation_kill_date: "2026-09-14",
+                  plays: 1,
+                  legacy_release_id: 7001,
+                },
+              ]
+            : [],
+        ),
+      ),
+    );
+
+    renderWithProviders(<RotationTallysheet />);
+    await screen.findByText(/WXYC's Top \d+ Records/);
+    await user.selectOptions(screen.getByLabelText("Minimum number of plays"), "2");
+
+    await waitFor(() => {
+      const report = screen.getByText(/WXYC's Top 0 Records/);
+      expect(report.textContent).toContain(
+        "Other records that were just added to this week's playlist but are not listed above:",
+      );
+      expect(report.textContent).toContain(
+        "Jessica Pratt - On Your Own Love Again (Drag City)",
+      );
+    });
+  });
 });
