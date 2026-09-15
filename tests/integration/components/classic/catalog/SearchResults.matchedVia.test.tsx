@@ -35,7 +35,7 @@ function renderWithMatchedVia(matched_via: TrackMatchHint[] | undefined) {
     isLoading: false,
     error: undefined,
   });
-  renderWithProviders(<SearchResults />);
+  renderWithProviders(<SearchResults canModify={false} />);
 }
 
 describe("Classic SearchResults matched_via chip", () => {
@@ -157,7 +157,7 @@ describe("Classic SearchResults matched_via chip", () => {
       error: undefined,
     });
 
-    renderWithProviders(<SearchResults />);
+    renderWithProviders(<SearchResults canModify={false} />);
 
     // The shelf location surfaces as an ordinary result row...
     expect(screen.getByText("Lost in Translation")).toBeDefined();

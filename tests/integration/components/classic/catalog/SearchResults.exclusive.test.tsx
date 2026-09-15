@@ -37,7 +37,7 @@ describe("Classic catalog SearchResults — Exclusive filter", () => {
       isLoading: false,
       error: undefined,
     });
-    renderWithProviders(<SearchResults />);
+    renderWithProviders(<SearchResults canModify={false} />);
     const [, options] = mockSearchCatalogQuery.mock.calls[0] ?? [];
     expect(options?.skip).toBe(true);
   });
@@ -58,7 +58,7 @@ describe("Classic catalog SearchResults — Exclusive filter", () => {
       isLoading: false,
       error: undefined,
     });
-    renderWithProviders(<SearchResults />);
+    renderWithProviders(<SearchResults canModify={false} />);
     const [params, options] = mockSearchCatalogQuery.mock.calls.at(-1) ?? [];
     expect(params).toMatchObject({ on_streaming: false });
     expect(options?.skip).toBe(false);
@@ -71,7 +71,7 @@ describe("Classic catalog SearchResults — Exclusive filter", () => {
       isLoading: false,
       error: undefined,
     });
-    renderWithProviders(<SearchResults />);
+    renderWithProviders(<SearchResults canModify={false} />);
     expect(screen.getByTestId("classic-facet-chip-exclusive")).toBeDefined();
   });
 
@@ -81,7 +81,7 @@ describe("Classic catalog SearchResults — Exclusive filter", () => {
       isLoading: false,
       error: undefined,
     });
-    renderWithProviders(<SearchResults />);
+    renderWithProviders(<SearchResults canModify={false} />);
     expect(
       screen.queryByTestId("classic-facet-chip-exclusive")
     ).toBeNull();
@@ -94,7 +94,7 @@ describe("Classic catalog SearchResults — Exclusive filter", () => {
       isLoading: false,
       error: undefined,
     });
-    const { user } = renderWithProviders(<SearchResults />);
+    const { user } = renderWithProviders(<SearchResults canModify={false} />);
     await user.click(screen.getByTestId("classic-facet-chip-exclusive"));
     expect(mockReplace).toHaveBeenCalledTimes(1);
     const replacedUrl = mockReplace.mock.calls[0][0] as string;
@@ -109,7 +109,7 @@ describe("Classic catalog SearchResults — Exclusive filter", () => {
       isLoading: false,
       error: undefined,
     });
-    const { user } = renderWithProviders(<SearchResults />);
+    const { user } = renderWithProviders(<SearchResults canModify={false} />);
     await user.click(screen.getByTestId("classic-facet-chip-exclusive"));
     const replacedUrl = mockReplace.mock.calls[0][0] as string;
     expect(replacedUrl).toContain("searchString=polvo");

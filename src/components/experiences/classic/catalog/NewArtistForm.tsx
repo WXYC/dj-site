@@ -47,14 +47,14 @@ const successDestination = (artistId: number, codeLetters: string) =>
  * legacy backend accepts an artist with no library code at all. Backend-
  * Service's `POST /library/artists` requires `genre_id`, `code_letters`, and
  * `code_number` (see `AddArtistRequestBody`), so this form additionally
- * collects them, previewing the assigned code via `peek-code`.
+ * collects them — filling the code number from `peek-code` so that leaving the
+ * field alone files the next free number in the series.
  *
- * The preview debounces call letters and genre together as one composed
- * value, same as `CallLetterPeekControl` (which this form cannot import
- * directly — it renders MUI Joy, and classic renders none) — a genre
- * change alone must invalidate a preview typed under the previous genre just
- * as surely as a letters edit does, or the number shown briefly names the
- * previous genre's series instead of the one about to be submitted.
+ * The lookup debounces call letters and genre together as one composed value,
+ * same as `CallLetterPeekControl` (which this form cannot import directly — it
+ * renders MUI Joy, and classic renders none) — a genre change alone must
+ * invalidate a number fetched under the previous genre just as surely as a
+ * letters edit does, since the field is what gets submitted.
  */
 export default function NewArtistForm() {
   const router = useRouter();
@@ -82,10 +82,15 @@ export default function NewArtistForm() {
   const [alphabeticalName, setAlphabeticalName] = useState("");
   const [genreId, setGenreId] = useState<number | null>(null);
   const [codeLetters, setCodeLetters] = useState("");
-  const [codeNumberRaw, setCodeNumberRaw] = useState("");
+  // `null` means untouched, which is the only state in which the form may
+  // supply a code number: the moment the librarian types one, that text owns
+  // the field and no later-arriving peek may displace it. Holding the typed
+  // text rather than seeding this state from the peek keeps one authoritative
+  // owner for the value, so a call-letters or genre edit re-derives the new
+  // series' number instead of leaving the previous series' number behind in a
+  // second copy.
+  const [typedCodeNumber, setTypedCodeNumber] = useState<string | null>(null);
   const [validationMessage, setValidationMessage] = useState<string | null>(null);
-
-  const codeNumber = parseRequiredPositiveInt(codeNumberRaw);
 
   const trimmedCodeLetters = codeLetters.trim();
   const peekArg: PeekArtistCodeQuery | null = useMemo(
@@ -106,12 +111,28 @@ export default function NewArtistForm() {
     peekArtistCode(debouncedPeekArg, true);
   }, [debouncedPeekArg, peekArtistCode]);
 
+  // The answer describes the (call letters, genre) pair it was asked about; a
+  // stale or in-flight one names the previous pair's series, and a number from
+  // the wrong series is not merely out of date -- that series has already
+  // issued it. So nothing stands in the field until the current pair's answer
+  // is the one in hand.
+  const peekedCodeNumber =
+    peekArg && !peekStale && !peekFetching && peekData?.next_code_number != null
+      ? String(peekData.next_code_number)
+      : "";
+
+  // The next free number in a series is a fact only the catalog holds, so
+  // showing it beside a field the librarian still has to fill leaves him
+  // copying it across by hand. Leaving the field alone files it.
+  const codeNumberRaw = typedCodeNumber ?? peekedCodeNumber;
+  const codeNumber = parseRequiredPositiveInt(codeNumberRaw);
+
   const resetFields = () => {
     setPresentationName("");
     setAlphabeticalName("");
     setGenreId(null);
     setCodeLetters("");
-    setCodeNumberRaw("");
+    setTypedCodeNumber(null);
     setValidationMessage(null);
   };
 
@@ -287,7 +308,7 @@ export default function NewArtistForm() {
                 type="text"
                 value={codeNumberRaw}
                 disabled={isLoading}
-                onChange={(e) => setCodeNumberRaw(e.target.value)}
+                onChange={(e) => setTypedCodeNumber(e.target.value)}
                 size={3}
               />
               {peekArg && (

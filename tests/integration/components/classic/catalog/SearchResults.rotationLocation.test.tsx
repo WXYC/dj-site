@@ -37,7 +37,7 @@ describe("Classic SearchResults rotation location", () => {
     });
     mockSearchCatalogQuery.mockReturnValue({ data: [album], isLoading: false, error: undefined });
 
-    renderWithProviders(<SearchResults />);
+    renderWithProviders(<SearchResults canModify={false} />);
 
     const location = screen.getByText("H · card 1");
     expect(location.tagName).toBe("B");
@@ -58,7 +58,7 @@ describe("Classic SearchResults rotation location", () => {
     });
     mockSearchCatalogQuery.mockReturnValue({ data: [album], isLoading: false, error: undefined });
 
-    renderWithProviders(<SearchResults />);
+    renderWithProviders(<SearchResults canModify={false} />);
 
     const location = screen.getByText("S");
     expect(location.tagName).toBe("B");
@@ -75,7 +75,7 @@ describe("Classic SearchResults rotation location", () => {
     });
     mockSearchCatalogQuery.mockReturnValue({ data: [album], isLoading: false, error: undefined });
 
-    renderWithProviders(<SearchResults />);
+    renderWithProviders(<SearchResults canModify={false} />);
 
     expect(screen.getByText("CA 9/2")).toBeDefined();
   });
@@ -90,7 +90,7 @@ describe("Classic SearchResults rotation location", () => {
     });
     mockSearchCatalogQuery.mockReturnValue({ data: [album], isLoading: false, error: undefined });
 
-    renderWithProviders(<SearchResults />);
+    renderWithProviders(<SearchResults canModify={false} />);
 
     expect(screen.getByText("EL 1/5")).toBeDefined();
     expect(screen.queryByText("M · card 2")).toBeNull();
