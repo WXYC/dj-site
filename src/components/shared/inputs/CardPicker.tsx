@@ -30,9 +30,9 @@ function cardLabel(card: RotationCard): string {
 }
 
 /**
- * The bin's newest card: highest `number`, `id` descending as the tie-break
- * (pinned in wxyc-shared#460 -- `number` has no gaps, so a tie only arises
- * from stale cache data racing a real add).
+ * The bin's newest card: highest `number`, `id` descending as the tie-break.
+ * The backend contract numbers a bin's cards gap-free (1..N), so a tie in
+ * `number` only arises from stale cache data racing a real add.
  */
 function newestCard(cards: RotationCard[]): RotationCard | undefined {
   return cards.reduce<RotationCard | undefined>((newest, card) => {

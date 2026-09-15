@@ -84,8 +84,8 @@ describe("UrlListInput", () => {
 
     await user.click(screen.getByLabelText("Add another URL"));
 
-    expect(screen.getByRole("textbox", { name: "URL 1" })).toBeInTheDocument();
-    expect(screen.getByRole("textbox", { name: "URL 2" })).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Release link URL 1" })).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Release link URL 2" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Remove URL 1" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Remove URL 2" })).toBeInTheDocument();
   });
