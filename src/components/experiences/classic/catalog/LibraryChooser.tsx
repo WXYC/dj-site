@@ -3,11 +3,23 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useGetGenresQuery } from "@/lib/features/catalog/api";
+import { safeCapture } from "@/lib/posthog";
 import ArtistSearchForm, { type MultiMatchResult } from "./ArtistSearchForm";
 import MultipleArtistsDisplay from "./MultipleArtistsDisplay";
 import NewArtistForm from "./NewArtistForm";
 import SearchForm from "./SearchForm";
 import SearchResults from "./SearchResults";
+
+/**
+ * The disambiguation screen swaps in behind this one URL, so arriving at it
+ * and leaving it again produce no pageview -- and without these, no record of
+ * any kind. A librarian can land on a 27-owner list, read it, and go back with
+ * nothing to show that it happened.
+ */
+const LIBRARY_CHOOSER_EVENTS = {
+  MULTI_MATCH_SHOWN: "library_multi_match_shown",
+  MULTI_MATCH_DISMISSED: "library_multi_match_dismissed",
+} as const;
 
 /**
  * Owns the toggle between `chooseLibraryCodeOrArtist.jsp`'s two forms and
@@ -64,6 +76,16 @@ export default function LibraryChooser() {
   // subscription, so it costs no extra request.
   useGetGenresQuery();
 
+  const showMultiMatch = (result: MultiMatchResult) => {
+    safeCapture(LIBRARY_CHOOSER_EVENTS.MULTI_MATCH_SHOWN, {
+      owner_count: result.artists.length,
+      genre_name: result.genreName ?? null,
+      code_letters: result.codeLetters,
+      code_number: result.codeNumber,
+    });
+    setMultiMatch(result);
+  };
+
   return (
     <>
       <SearchForm />
@@ -73,9 +95,21 @@ export default function LibraryChooser() {
       <SearchResults canModify />
       <hr />
       {multiMatch ? (
-        <MultipleArtistsDisplay {...multiMatch} onChooseAgain={() => setMultiMatch(null)} />
+        <MultipleArtistsDisplay
+          {...multiMatch}
+          onChooseAgain={() => {
+            safeCapture(LIBRARY_CHOOSER_EVENTS.MULTI_MATCH_DISMISSED, {
+              owner_count: multiMatch.artists.length,
+              code_letters: multiMatch.codeLetters,
+              code_number: multiMatch.codeNumber,
+            });
+            setMultiMatch(null);
+          }}
+        />
       ) : (
-        <JspBlocks onMultiMatch={setMultiMatch} />
+        // The instrumented setter, never the raw one: reaching the screen is
+        // what MULTI_MATCH_SHOWN records, and it has no other trigger.
+        <JspBlocks onMultiMatch={showMultiMatch} />
       )}
     </>
   );
@@ -107,7 +141,11 @@ function JspBlocks({ onMultiMatch }: { onMultiMatch: (m: MultiMatchResult) => vo
         </tbody>
       </table>
       <hr />
+<<<<<<< HEAD
       <ArtistSearchForm onMultiMatch={onMultiMatch} />
+=======
+      <ArtistSearchForm onMultiMatch={showMultiMatch} />
+>>>>>>> c8649a79 (Instrument the classic library chooser's code search and disambiguation screen)
       <NewArtistForm />
     </>
   );

@@ -60,6 +60,7 @@ describe("composeLibraryCodeSearchArgs", () => {
         }),
       ).toEqual({
         ready: false,
+        reason: "call_number_required",
         message: "You must enter a call number to look up this code.",
       });
     },
@@ -98,7 +99,11 @@ describe("composeLibraryCodeSearchArgs", () => {
           artistNumbersTextbox: "12",
           genreId: ROCK_GENRE_ID,
         }),
-      ).toEqual({ ready: false, message: "Call letters must be letters, digits, or a slash." });
+      ).toEqual({
+        ready: false,
+        reason: "call_letters_charset",
+        message: "Call letters must be letters, digits, or a slash.",
+      });
     },
   );
 
@@ -124,7 +129,7 @@ describe("composeLibraryCodeSearchArgs", () => {
         artistNumbersTextbox: "12",
         genreId: null,
       }),
-    ).toEqual({ ready: false, message: "You must select a genre." });
+    ).toEqual({ ready: false, reason: "genre_required", message: "You must select a genre." });
   });
 
   it("refuses to compose with no call letter mode selected", () => {
@@ -137,8 +142,46 @@ describe("composeLibraryCodeSearchArgs", () => {
       }),
     ).toEqual({
       ready: false,
+      reason: "call_letter_mode_required",
       message: "You must select one of the choices for Call Letters/Numbers.",
     });
+  });
+});
+
+describe("composeLibraryCodeSearchArgs refusal reasons", () => {
+  // The refusal reason is the machine-readable half of a refusal, reported to
+  // telemetry where the human message cannot be: reading UI copy as a
+  // dimension breaks the moment the copy is reworded.
+  it("distinguishes a missing call number from unusable call letters", () => {
+    const base = { callLetterMode: "textbox" as const, genreId: ROCK_GENRE_ID };
+
+    const missingNumber = composeLibraryCodeSearchArgs({
+      ...base,
+      artistLettersTextbox: "ME",
+      artistNumbersTextbox: "",
+    });
+    const badLetters = composeLibraryCodeSearchArgs({
+      ...base,
+      artistLettersTextbox: "?!",
+      artistNumbersTextbox: "47",
+    });
+
+    expect(missingNumber).toMatchObject({ ready: false, reason: "call_number_required" });
+    expect(badLetters).toMatchObject({ ready: false, reason: "call_letters_charset" });
+  });
+
+  // Compilation mode composes its call number rather than reading one, so the
+  // call-number refusal is unreachable from that radio -- the asymmetry a
+  // reported failure on this screen has to be read against.
+  it("never refuses a compilation search for a missing call number", () => {
+    expect(
+      composeLibraryCodeSearchArgs({
+        callLetterMode: "compilation",
+        artistLettersTextbox: "",
+        artistNumbersTextbox: "",
+        genreId: ROCK_GENRE_ID,
+      }),
+    ).toMatchObject({ ready: true });
   });
 });
 
