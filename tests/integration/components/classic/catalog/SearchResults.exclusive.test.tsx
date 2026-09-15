@@ -102,6 +102,20 @@ describe("Classic catalog SearchResults — Exclusive filter", () => {
     expect(replacedUrl).toBe("/dashboard/catalog");
   });
 
+  it("chip dismiss returns to the path the results were mounted on", async () => {
+    mockSearchParams = new URLSearchParams("exclusive=true");
+    mockSearchCatalogQuery.mockReturnValue({
+      data: [],
+      isLoading: false,
+      error: undefined,
+    });
+    const { user } = renderWithProviders(
+      <SearchResults canModify searchPath="/dashboard/library" />,
+    );
+    await user.click(screen.getByTestId("classic-facet-chip-exclusive"));
+    expect(mockReplace).toHaveBeenCalledWith("/dashboard/library");
+  });
+
   it("chip dismiss preserves other params (e.g. searchString)", async () => {
     mockSearchParams = new URLSearchParams("exclusive=true&searchString=polvo");
     mockSearchCatalogQuery.mockReturnValue({

@@ -6,6 +6,11 @@ import { useGetGenresQuery } from "@/lib/features/catalog/api";
 import ArtistSearchForm, { type MultiMatchResult } from "./ArtistSearchForm";
 import MultipleArtistsDisplay from "./MultipleArtistsDisplay";
 import NewArtistForm from "./NewArtistForm";
+import SearchForm from "./SearchForm";
+import SearchResults from "./SearchResults";
+
+/** This screen's own URL, which the free-text search reads and writes. */
+const LIBRARY_CHOOSER_PATH = "/dashboard/library";
 
 /**
  * Owns the toggle between `chooseLibraryCodeOrArtist.jsp`'s two forms and
@@ -33,6 +38,15 @@ import NewArtistForm from "./NewArtistForm";
  * the JSP has no second `<hr>` between the two forms below it, so the one
  * this component used to render there is retired along with the
  * divergence, not duplicated).
+ *
+ * The free-text search at the top is the one block here with no JSP
+ * counterpart: `chooseLibraryCodeOrArtist.jsp` can be searched by call number
+ * only. It is an addition to the screen rather than parity with it, so a later
+ * parity pass must not read it as drift. It is the card catalog's own search,
+ * pointed at this screen's URL instead of `/dashboard/catalog`'s so a lookup
+ * resolves without leaving the cataloging screen. Placing it above the JSP
+ * blocks leaves their order relative to each other untouched, which is the
+ * constraint that matters -- the call-number form stays where the JSP puts it.
  */
 export default function LibraryChooser() {
   const [multiMatch, setMultiMatch] = useState<MultiMatchResult | null>(null);
@@ -50,6 +64,12 @@ export default function LibraryChooser() {
 
   return (
     <>
+      <SearchForm searchPath={LIBRARY_CHOOSER_PATH} />
+      {/* `canModify` is settled by the page, not re-derived: `/dashboard/library`
+          is MD-gated, so every reader of these results can add a release and
+          the read-only artist card is unreachable from here. */}
+      <SearchResults canModify searchPath={LIBRARY_CHOOSER_PATH} />
+      <hr />
       <table cellPadding={10}>
         <tbody>
           <tr>
