@@ -47,10 +47,13 @@ function EmptyState() {
 }
 
 /**
- * The nine-column table body shared by every facet that has real rows to
- * show (Active, Awaiting Cataloging). Column set and order match
- * `rotationReleaseList.jsp` exactly: Actions, Artist, Title, Label, Type,
- * Format, Added, Killed, Library.
+ * The table body shared by every facet that has real rows to show (Active,
+ * Awaiting Cataloging). Column set and order match `rotationReleaseList.jsp`
+ * exactly when `canWrite` is true: Actions, Artist, Title, Label, Type,
+ * Format, Added, Killed, Library -- nine columns. A DJ (`canWrite` false)
+ * gets the eight read-only columns with the Actions column -- header cell
+ * included -- dropped rather than rendered empty, since Backend refuses
+ * every write it could offer him anyway.
  *
  * Kill/Unkill, the Killed column and the Library column all key on whether
  * the row carries a kill date at all, never on whether that date has
@@ -60,11 +63,13 @@ function EmptyState() {
  */
 function RotationTable({
   rows,
+  canWrite,
   onKill,
   onUnkill,
   pendingRotationIds,
 }: {
   rows: RotationDisplayRow[];
+  canWrite: boolean;
   onKill: (rotationId: number) => void;
   onUnkill: (rotationId: number) => void;
   pendingRotationIds: ReadonlySet<number>;
@@ -75,7 +80,7 @@ function RotationTable({
     <table className="entry-table" style={{ maxWidth: 1100, margin: "0 auto" }}>
       <thead>
         <tr className="entry-header">
-          <th style={{ textAlign: "center" }}>Actions</th>
+          {canWrite && <th style={{ textAlign: "center" }}>Actions</th>}
           <th style={{ textAlign: "left" }}>Artist</th>
           <th style={{ textAlign: "left" }}>Title</th>
           <th style={{ textAlign: "left" }}>Label</th>
@@ -94,52 +99,54 @@ function RotationTable({
               key={row.rotationId}
               className={`entry-row ${index % 2 === 0 ? "entry-row-even" : "entry-row-odd"}`}
             >
-              <td style={{ textAlign: "center", whiteSpace: "nowrap" }}>
-                <Link href={`/dashboard/rotation/${row.rotationId}`} aria-label={`Edit: ${row.title}`}>
-                  Edit
-                </Link>
-                &nbsp;
-                {/* Named per row, matching `MissingReleases`: a table of up to
-                    500 buttons all reading "Kill" tells a screen-reader user
-                    nothing about which release they are about to act on. */}
-                {row.killedDisplay == null ? (
-                  <button
-                    type="button"
-                    className="link-button"
-                    disabled={pending}
-                    aria-label={`Kill: ${row.title}`}
-                    onClick={() => onKill(row.rotationId)}
-                  >
-                    Kill
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    className="link-button"
-                    disabled={pending}
-                    aria-label={`Unkill: ${row.title}`}
-                    onClick={() => onUnkill(row.rotationId)}
-                  >
-                    Unkill
-                  </button>
-                )}
-                {/* The JSP's own condition for this link, spelled as the
-                    Library column's verdict: a killed row that never linked.
-                    A row still in rotation has not been through a cataloging
-                    decision yet, and a linked one has nothing to import. */}
-                {row.libraryStatus === "uncataloged" && (
-                  <>
-                    &nbsp;
-                    <Link
-                      href={`/dashboard/rotation/${row.rotationId}/import`}
-                      aria-label={`Import: ${row.title}`}
-                      style={{ color: "#CC0000", fontWeight: "bold" }}
+              {canWrite && (
+                <td style={{ textAlign: "center", whiteSpace: "nowrap" }}>
+                  <Link href={`/dashboard/rotation/${row.rotationId}`} aria-label={`Edit: ${row.title}`}>
+                    Edit
+                  </Link>
+                  &nbsp;
+                  {/* Named per row, matching `MissingReleases`: a table of up to
+                      500 buttons all reading "Kill" tells a screen-reader user
+                      nothing about which release they are about to act on. */}
+                  {row.killedDisplay == null ? (
+                    <button
+                      type="button"
+                      className="link-button"
+                      disabled={pending}
+                      aria-label={`Kill: ${row.title}`}
+                      onClick={() => onKill(row.rotationId)}
                     >
-                      Import
-                    </Link>
-                  </>
-                )}
-              </td>
+                      Kill
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="link-button"
+                      disabled={pending}
+                      aria-label={`Unkill: ${row.title}`}
+                      onClick={() => onUnkill(row.rotationId)}
+                    >
+                      Unkill
+                    </button>
+                  )}
+                  {/* The JSP's own condition for this link, spelled as the
+                      Library column's verdict: a killed row that never linked.
+                      A row still in rotation has not been through a cataloging
+                      decision yet, and a linked one has nothing to import. */}
+                  {row.libraryStatus === "uncataloged" && (
+                    <>
+                      &nbsp;
+                      <Link
+                        href={`/dashboard/rotation/${row.rotationId}/import`}
+                        aria-label={`Import: ${row.title}`}
+                        style={{ color: "#CC0000", fontWeight: "bold" }}
+                      >
+                        Import
+                      </Link>
+                    </>
+                  )}
+                </td>
+              )}
               <td>{row.artistName}</td>
               <td>{row.title}</td>
               <td>{row.label}</td>
@@ -174,10 +181,12 @@ function RotationTable({
  * own collapse does not reach.
  */
 function ActiveFacet({
+  canWrite,
   onKill,
   onUnkill,
   pendingRotationIds,
 }: {
+  canWrite: boolean;
   onKill: (rotationId: number) => void;
   onUnkill: (rotationId: number) => void;
   pendingRotationIds: ReadonlySet<number>;
@@ -193,7 +202,15 @@ function ActiveFacet({
   if (hasNothingToShow) return <OutagePanel onRetry={refetch} retrying={isFetching} />;
 
   const rows = dedupeRotationListByArtistTitle(data ?? []).map((row) => toDisplayRowFromList(row));
-  return <RotationTable rows={rows} onKill={onKill} onUnkill={onUnkill} pendingRotationIds={pendingRotationIds} />;
+  return (
+    <RotationTable
+      rows={rows}
+      canWrite={canWrite}
+      onKill={onKill}
+      onUnkill={onUnkill}
+      pendingRotationIds={pendingRotationIds}
+    />
+  );
 }
 
 /**
@@ -216,10 +233,12 @@ function ActiveFacet({
  * precedent for the same situation.
  */
 function UncataloguedFacet({
+  canWrite,
   onKill,
   onUnkill,
   pendingRotationIds,
 }: {
+  canWrite: boolean;
   onKill: (rotationId: number) => void;
   onUnkill: (rotationId: number) => void;
   pendingRotationIds: ReadonlySet<number>;
@@ -270,7 +289,13 @@ function UncataloguedFacet({
           are not listed here.
         </p>
       )}
-      <RotationTable rows={rows} onKill={onKill} onUnkill={onUnkill} pendingRotationIds={pendingRotationIds} />
+      <RotationTable
+        rows={rows}
+        canWrite={canWrite}
+        onKill={onKill}
+        onUnkill={onUnkill}
+        pendingRotationIds={pendingRotationIds}
+      />
     </>
   );
 }
@@ -307,7 +332,7 @@ function UnavailableFacet() {
  * for the unlinked-id check and the active/killed date logic shared with
  * the free-text add screen.
  *
- * Three more divergences, none forced by the Backend contract:
+ * Three divergences, none forced by the Backend contract:
  *
  * - "Main Menu" carries the JSP's own label but points at `/dashboard/
  *   catalog` -- dj-site's classic catalog search, the DJ-facing entry point
@@ -319,19 +344,36 @@ function UnavailableFacet() {
  *   screen compiles its figures from the flowsheet on read rather than from
  *   stored, hand-corrected counts, so it is the JSP's report without the
  *   sheet the music director edited first.
- * Edit, Import, Kill and Unkill are all the JSP's own row actions, and each
- * one has a destination or an endpoint behind it. Edit is offered on every
- * row, including a catalogued one: the two dates stay writable there even
- * though the release's artist, title, label and format do not.
+ * - Edit, Import, Kill, Unkill and the header's "Add Rotation Release" link
+ *   are the JSP's own write affordances, each with a destination or an
+ *   endpoint behind it, but `mainmenu.jsp` never gated any of them --
+ *   Backend does, at `catalog: ['write']`, and the station librarian asked
+ *   for the UI to agree rather than keep offering a DJ five controls that
+ *   always 403. `canWrite` -- resolved once, server-side, in
+ *   `app/dashboard/@classic/rotation/page.tsx`, and required here rather
+ *   than defaulted -- hides all five for a DJ; an MD sees the screen
+ *   unchanged. Edit is still offered on every row an MD can reach, including
+ *   a catalogued one: the two dates stay writable there even though the
+ *   release's artist, title, label and format do not.
  */
-export default function RotationReleaseList({ statusFilter }: { statusFilter: RotationStatusFilter }) {
+export default function RotationReleaseList({
+  statusFilter,
+  canWrite,
+}: {
+  statusFilter: RotationStatusFilter;
+  canWrite: boolean;
+}) {
   const { pendingRotationIds, kill: handleKill, unkill: handleUnkill } = useRotationRowActions();
 
   return (
     <div>
       <div className="label" style={{ textAlign: "center", padding: "10px 0" }}>
-        <Link href="/dashboard/rotation/new">Add Rotation Release</Link>
-        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        {canWrite && (
+          <>
+            <Link href="/dashboard/rotation/new">Add Rotation Release</Link>
+            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+          </>
+        )}
         <Link href="/dashboard/rotation/tallysheet">Format Tallysheets</Link>
         &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
         <Link href="/dashboard/catalog">Main Menu</Link>
@@ -355,10 +397,20 @@ export default function RotationReleaseList({ statusFilter }: { statusFilter: Ro
       </div>
 
       {statusFilter === "active" && (
-        <ActiveFacet onKill={handleKill} onUnkill={handleUnkill} pendingRotationIds={pendingRotationIds} />
+        <ActiveFacet
+          canWrite={canWrite}
+          onKill={handleKill}
+          onUnkill={handleUnkill}
+          pendingRotationIds={pendingRotationIds}
+        />
       )}
       {statusFilter === "uncataloged" && (
-        <UncataloguedFacet onKill={handleKill} onUnkill={handleUnkill} pendingRotationIds={pendingRotationIds} />
+        <UncataloguedFacet
+          canWrite={canWrite}
+          onKill={handleKill}
+          onUnkill={handleUnkill}
+          pendingRotationIds={pendingRotationIds}
+        />
       )}
       {(statusFilter === "all" || statusFilter === "killed") && <UnavailableFacet />}
     </div>
