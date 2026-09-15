@@ -127,3 +127,28 @@ describe("Classic catalog SearchForm — search tips modal", () => {
     expect(screen.queryByText("Search Tips")).toBeNull();
   });
 });
+
+describe("Classic catalog SearchForm — mounted on another screen", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("writes the query back to the path it was given, not the catalog's", () => {
+    renderWithProviders(<SearchForm searchPath="/dashboard/library" />);
+    setFieldValue(screen.getByRole("textbox"), "polvo");
+    vi.advanceTimersByTime(300);
+    expect(mockReplace).toHaveBeenCalledWith("/dashboard/library?searchString=polvo");
+  });
+
+  it("clears back to that path rather than to the catalog", () => {
+    mockSearchParams = new URLSearchParams("searchString=polvo");
+    renderWithProviders(<SearchForm searchPath="/dashboard/library" />);
+    setFieldValue(screen.getByRole("textbox"), "");
+    vi.advanceTimersByTime(300);
+    expect(mockReplace).toHaveBeenCalledWith("/dashboard/library");
+  });
+});
