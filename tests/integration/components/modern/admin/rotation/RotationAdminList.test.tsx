@@ -407,6 +407,29 @@ describe("RotationAdminList", () => {
     expect(within(combobox).getByText("1")).toHaveAttribute("aria-hidden", "true");
   });
 
+  it("gaps a card name from its badge with a margin, and adds none when the card is unnamed", async () => {
+    const { user } = await renderList();
+    await activeSection().findByText("Instant Holograms on Metal Film");
+
+    await user.click(
+      screen.getByRole("combobox", { name: "Card for: Instant Holograms on Metal Film" }),
+    );
+
+    // The badge→name gap is a margin on the name, not on the badge: a literal
+    // space collapses inside the Select's flex value container, a margin does not.
+    // (Asserted on the inline declaration, not computed style: jsdom resolves the
+    // em against the attached element, so a computed-style compare is unreliable.)
+    const namedOption = await screen.findByRole("option", { name: "card 1 — Late Aug" });
+    expect((within(namedOption).getByText("Late Aug") as HTMLElement).style.marginLeft).toBe(
+      "0.6em",
+    );
+
+    // An unnamed card is a badge alone — no name, so no gap anywhere. The badge
+    // itself carries no margin; spacing is strictly the name's job.
+    const unnamedOption = screen.getByRole("option", { name: "card 2" });
+    expect((within(unnamedOption).getByText("2") as HTMLElement).style.marginLeft).toBe("");
+  });
+
   describe("bin moves", () => {
     it("moves a catalogued row add-first: the add lands before the kill, with no card_id", async () => {
       const { fake, user } = await renderList();

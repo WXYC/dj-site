@@ -80,6 +80,21 @@ function cardText(card: RotationCard | null | undefined): string {
 }
 
 /**
+ * A card's decorative number badge followed by its optional name. The gap lives
+ * on the name, never the badge, so it appears only between the two: an unnamed
+ * card is a lone badge with no trailing space. It is a margin (not a text space)
+ * because a space collapses inside the Select's flex value container.
+ */
+function CardBadgeLabel({ card }: { card: RotationCard }) {
+  return (
+    <>
+      <RotationCardBadge number={card.number} />
+      {card.name ? <span style={{ marginLeft: "0.6em" }}>{card.name}</span> : null}
+    </>
+  );
+}
+
+/**
  * One rotation row. Unlinked rows (`id: null` — a release never catalogued)
  * carry only their snapshot fields: the shelf code is absent by construction
  * and every action here names the row by `rotation_id`, never a library
@@ -169,8 +184,7 @@ function RotationAdminRow({
             // Badge is decorative; `title` keeps the full "card N — name"
             // reading in the accessible tree.
             <Typography level="body-xs" title={cardText(row.card)}>
-              <RotationCardBadge number={row.card.number} />
-              {row.card.name}
+              <CardBadgeLabel card={row.card} />
             </Typography>
           ) : (
             <Typography level="body-xs">no card</Typography>
@@ -194,12 +208,7 @@ function RotationAdminRow({
               if (!selected) return null;
               const card = binCards.find((c) => c.id === selected.value);
               if (!card) return selected.label;
-              return (
-                <>
-                  <RotationCardBadge number={card.number} />
-                  {card.name}
-                </>
-              );
+              return <CardBadgeLabel card={card} />;
             }}
           >
             {binCards.map((card) => (
@@ -209,8 +218,7 @@ function RotationAdminRow({
                 label={cardText(card)}
                 aria-label={cardText(card)}
               >
-                <RotationCardBadge number={card.number} />
-                {card.name}
+                <CardBadgeLabel card={card} />
               </Option>
             ))}
           </Select>
