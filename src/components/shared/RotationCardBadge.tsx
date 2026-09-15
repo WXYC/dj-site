@@ -34,6 +34,10 @@ export function RotationCardBadge({ number }: { number: number }) {
         fontWeight: "xl",
         lineHeight: 1,
         verticalAlign: "middle",
+        // Own the gap to the name: a text space collapses against the badge
+        // inside a flex value container (e.g. the card Select), so it can't be
+        // relied on. Harmless when the badge stands alone.
+        marginInlineEnd: "0.6em",
       }}
     >
       {number}

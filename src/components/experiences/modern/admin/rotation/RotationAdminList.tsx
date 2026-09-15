@@ -186,10 +186,24 @@ function RotationAdminRow({
             }}
             slotProps={{ button: { "aria-label": `Card for: ${name}` } }}
             sx={{ minWidth: 140 }}
+            // Badge is decorative; the Option `label` carries the full
+            // "card N — name" reading for typeahead and the accessible name.
+            renderValue={(selected) => {
+              if (!selected) return null;
+              const card = binCards.find((c) => c.id === selected.value);
+              if (!card) return selected.label;
+              return (
+                <>
+                  <RotationCardBadge number={card.number} />
+                  {card.name ? ` ${card.name}` : ""}
+                </>
+              );
+            }}
           >
             {binCards.map((card) => (
-              <Option key={card.id} value={card.id}>
-                {cardText(card)}
+              <Option key={card.id} value={card.id} label={cardText(card)}>
+                <RotationCardBadge number={card.number} />
+                {card.name ? ` ${card.name}` : ""}
               </Option>
             ))}
           </Select>
