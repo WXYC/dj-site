@@ -170,7 +170,7 @@ function RotationAdminRow({
             // reading in the accessible tree.
             <Typography level="body-xs" title={cardText(row.card)}>
               <RotationCardBadge number={row.card.number} />
-              {row.card.name ? ` ${row.card.name}` : ""}
+              {row.card.name}
             </Typography>
           ) : (
             <Typography level="body-xs">no card</Typography>
@@ -186,8 +186,10 @@ function RotationAdminRow({
             }}
             slotProps={{ button: { "aria-label": `Card for: ${name}` } }}
             sx={{ minWidth: 140 }}
-            // Badge is decorative; the Option `label` carries the full
-            // "card N — name" reading for typeahead and the accessible name.
+            // The badge is aria-hidden, so an option's visible content is only
+            // the optional name — `aria-label` restores the full "card N — name"
+            // as the accessible name (it would otherwise be empty for an unnamed
+            // card), and `label` carries the same for typeahead.
             renderValue={(selected) => {
               if (!selected) return null;
               const card = binCards.find((c) => c.id === selected.value);
@@ -195,15 +197,20 @@ function RotationAdminRow({
               return (
                 <>
                   <RotationCardBadge number={card.number} />
-                  {card.name ? ` ${card.name}` : ""}
+                  {card.name}
                 </>
               );
             }}
           >
             {binCards.map((card) => (
-              <Option key={card.id} value={card.id} label={cardText(card)}>
+              <Option
+                key={card.id}
+                value={card.id}
+                label={cardText(card)}
+                aria-label={cardText(card)}
+              >
                 <RotationCardBadge number={card.number} />
-                {card.name ? ` ${card.name}` : ""}
+                {card.name}
               </Option>
             ))}
           </Select>
