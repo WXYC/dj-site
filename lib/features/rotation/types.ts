@@ -194,7 +194,7 @@ export type FreeTextRotationAddRequest = {
    * (plain strings, never `format: uri` — see `RotationListRow.urls`).
    * Carried on a move so a re-filing keeps the source row's links instead
    * of orphaning them on the row it retires. Storing the carry requires the
-   * Backend that admits `urls` on both POST arms (BS#2484); an older
+   * Backend that admits `urls` on both POST arms; an older
    * backend's add allowlist silently drops the key — harmless, the carry is
    * inert until that write half deploys, the same staging as
    * `RotationListRow.urls`' read-half gap.
@@ -206,7 +206,7 @@ export type FreeTextRotationAddRequest = {
  * A `GET /library/rotation/cards` row: the published card plus how many
  * active rotation rows are filed on it. The wire shape is contract-main's
  * `allOf[RotationCard, {active_count}]`, which `@wxyc/shared@5.4.0` predates
- * — swap to the generated shape with the 5.5.0 upgrade (wxyc-shared#459).
+ * — swap to the generated shape with the 5.5.0 upgrade.
  */
 export type RotationCardWithCount = RotationCard & { active_count: number };
 
@@ -217,7 +217,7 @@ export type RotationCardWithCount = RotationCard & { active_count: number };
  * which half refused. A local closed type because the contract enum
  * (`RotationConflictReason`) is contract-main only and not exported by
  * `@wxyc/shared@5.4.0` — replace with the generated enum on the 5.5.0
- * upgrade (wxyc-shared#459). That enum's third value
+ * upgrade. That enum's third value
  * (`rotation_card_bin_mismatch`) belongs to the rotation add path and can
  * never arrive on a delete.
  */
