@@ -19,9 +19,21 @@ export type LibraryCodeSearchValues = {
   genreId: number | null;
 };
 
+/**
+ * Which rule refused a composition, as a stable token rather than the message
+ * shown for it. The message is UI copy and is reworded freely; this is what a
+ * reported failure has to be reconstructed against, so the two are separate
+ * values and the token never carries wording.
+ */
+export type LibraryCodeCompositionRefusal =
+  | "genre_required"
+  | "call_letter_mode_required"
+  | "call_letters_charset"
+  | "call_number_required";
+
 export type LibraryCodeSearchComposition =
   | { ready: true; args: ResolveArtistByCodeQuery }
-  | { ready: false; message: string };
+  | { ready: false; reason: LibraryCodeCompositionRefusal; message: string };
 
 /**
  * Every Various Artists bucket in a genre is filed at this one call number,
@@ -56,7 +68,7 @@ export function composeLibraryCodeSearchArgs(
   values: LibraryCodeSearchValues,
 ): LibraryCodeSearchComposition {
   if (values.genreId === null) {
-    return { ready: false, message: GENRE_REQUIRED_MESSAGE };
+    return { ready: false, reason: "genre_required", message: GENRE_REQUIRED_MESSAGE };
   }
 
   if (values.callLetterMode === "compilation") {
@@ -75,12 +87,22 @@ export function composeLibraryCodeSearchArgs(
     if (!isCanonicalCodeLetters(codeLetters)) {
       return {
         ready: false,
+        reason: "call_letters_charset",
         message: "Call letters must be letters, digits, or a slash.",
       };
     }
     const codeNumber = parseRequiredNonNegativeInt(values.artistNumbersTextbox);
     if (codeNumber === null) {
-      return { ready: false, message: "You must enter a call number to look up this code." };
+      // Reachable from the textbox radio only: the compilation branch returns
+      // above with a composed VARIOUS_ARTISTS_CODE_NUMBER and never reads the
+      // call-number field at all. A reported failure that turns on this
+      // refusal therefore also fixes which radio the librarian was on, and one
+      // that turns out to have come from the compilation radio cannot be this.
+      return {
+        ready: false,
+        reason: "call_number_required",
+        message: "You must enter a call number to look up this code.",
+      };
     }
     return {
       ready: true,
@@ -97,7 +119,11 @@ export function composeLibraryCodeSearchArgs(
   // Kept as an explicit, correctly-worded refusal rather than falling
   // through, so a future caller that skips that gate fails safely instead of
   // composing a bogus query.
-  return { ready: false, message: CALL_LETTER_MODE_REQUIRED_MESSAGE };
+  return {
+    ready: false,
+    reason: "call_letter_mode_required",
+    message: CALL_LETTER_MODE_REQUIRED_MESSAGE,
+  };
 }
 
 /**
