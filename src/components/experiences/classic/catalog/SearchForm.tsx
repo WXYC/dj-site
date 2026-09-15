@@ -3,8 +3,14 @@
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { CLASSIC_CATALOG_SEARCH_PATH } from "@/lib/features/catalog/constants";
 
-export default function SearchForm() {
+export default function SearchForm({
+  searchPath = CLASSIC_CATALOG_SEARCH_PATH,
+}: {
+  /** The screen this form is mounted on; see the constant's doc. */
+  searchPath?: string;
+}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const searchQuery = searchParams.get("searchString") || "";
@@ -31,7 +37,7 @@ export default function SearchForm() {
       params.set("exclusive", "true");
     }
     const qs = params.toString();
-    router.replace(qs ? `/dashboard/catalog?${qs}` : `/dashboard/catalog`);
+    router.replace(qs ? `${searchPath}?${qs}` : searchPath);
   };
 
   const handleInput = (value: string) => {
