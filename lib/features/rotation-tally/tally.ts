@@ -1,18 +1,16 @@
 import type { FlowsheetRangeEntry, FlowsheetRangeShow } from "@wxyc/shared";
-import {
-  STATION_TIME_ZONE,
-  addStationWeeks,
-  formatStationWeekParam,
-} from "@/src/utilities/stationTime";
+import { STATION_TIME_ZONE } from "@/src/utilities/stationTime";
 
 /**
  * The weekly rotation tally, rebuilt from the flowsheet.
  *
  * Reproduces `WeeklyPlayRepositoryImpl.CALCULATE_PLAYS_SQL` plus
  * `WeeklyPlaylistSummary.toEmailSummaryString` from tubafrenzy, which are what
- * the station's weekly airplay report has always been compiled from.
+ * the station's weekly airplay report has always been compiled from — the
+ * counting rules, at least; `formatWeeklyReport` follows what the station
+ * mails rather than what the Java emitted.
  *
- * Two deliberate divergences from the original, both forced by what Backend
+ * Two deliberate divergences in the counting, both forced by what Backend
  * stores rather than chosen:
  *
  * 1. The legacy count is `COUNT(DISTINCT RADIO_HOUR)`, where every flowsheet
@@ -217,37 +215,6 @@ export function rankWeeklyPlays(
   return tallyAll(shows, entries).filter((p) => p.plays >= minimumPlays);
 }
 
-/**
- * Releases that aired but fell below the cut, and were added to rotation during
- * the week -- the legacy report's "Other records that were just added" tail.
- *
- * It is empty at minimumPlays 0 and 1 by construction, which is why the station
- * has never seen this block on its own reports: a tallied release always has at
- * least one play. It appears only at a threshold someone raised by hand.
- *
- * `addDates` maps rotation id to the `add_date` the rotation list serves. Those
- * are calendar dates, not instants, so they are compared as station-local
- * `YYYY-MM-DD` strings: parsing a date-only value into an instant would file a
- * release added on the week's first day into the previous week for any reader
- * west of the station.
- */
-export function unrankedNewAdds(
-  shows: readonly FlowsheetRangeShow[],
-  entries: readonly FlowsheetRangeEntry[],
-  minimumPlays: number,
-  addDates: ReadonlyMap<number, string>,
-  weekStart: Date,
-): RankedPlay[] {
-  const from = formatStationWeekParam(weekStart);
-  const to = formatStationWeekParam(addStationWeeks(weekStart, 1));
-
-  return tallyAll(shows, entries).filter((p) => {
-    if (p.plays >= minimumPlays) return false;
-    const added = addDates.get(p.rotationId);
-    return added !== undefined && added >= from && added < to;
-  });
-}
-
 const shortDate = new Intl.DateTimeFormat("en-US", {
   timeZone: STATION_TIME_ZONE,
   month: "numeric",
@@ -262,17 +229,19 @@ export function formatWeekRange(weekStart: Date): string {
 }
 
 /**
- * The report as plain text, byte-for-byte in the shape the station has mailed
- * out for years — the librarian copies this block straight into an email, so
- * the legend line and the rule beneath it are load-bearing, not decoration.
+ * The report as plain text, byte-for-byte in the shape the station mails out —
+ * the librarian copies this block straight into an email, so the legend line
+ * and the rule beneath it are load-bearing, not decoration.
+ *
+ * The header is the station's wording rather than the legacy Java's: every
+ * report actually mailed prepends "Airplay Report on" and reads "Playbox
+ * Records", an edit that was retyped by hand each week until this emitted it.
+ * The legacy tail of unranked new adds, and the five genre charts beneath it,
+ * have not been mailed since 2018 and are deliberately not emitted.
  */
-export function formatWeeklyReport(
-  ranked: readonly RankedPlay[],
-  weekStart: Date,
-  newAdds: readonly RankedPlay[] = [],
-): string {
+export function formatWeeklyReport(ranked: readonly RankedPlay[], weekStart: Date): string {
   const lines = [
-    `WXYC's Top ${ranked.length} Records for the week of ${formatWeekRange(weekStart)}:`,
+    `Airplay Report on WXYC's Top ${ranked.length} Playbox Records for the week of ${formatWeekRange(weekStart)}:`,
     "",
     "Rank (Plays) Artist - 'Title of CD/LP/EP/7-inch' (RECORD LABEL)",
     "---------------------------------------------------------------",
@@ -280,20 +249,6 @@ export function formatWeeklyReport(
   ranked.forEach((row, i) => {
     lines.push(`${i + 1} (${row.plays}) ${row.artist} - ${row.title} (${row.label})`);
   });
-
-  // Heading and rows are unnumbered and unplayed-count, unlike the chart above:
-  // these records did not make the list, so ranking them would contradict the
-  // sentence introducing them.
-  if (newAdds.length > 0) {
-    lines.push(
-      "",
-      "Other records that were just added to this week's playlist but are not listed above:",
-      "",
-    );
-    for (const row of newAdds) {
-      lines.push(`${row.artist} - ${row.title} (${row.label})`);
-    }
-  }
 
   return lines.join("\n") + "\n";
 }
