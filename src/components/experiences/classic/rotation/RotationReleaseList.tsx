@@ -9,6 +9,7 @@ import {
 } from "@/lib/features/rotation/api";
 import {
   byMostRecentlyAdded,
+  byMostRecentlyKilled,
   dedupeRotationListByArtistTitle,
   toDisplayRowFromList,
   toDisplayRowFromUncatalogued,
@@ -330,8 +331,13 @@ function UncataloguedFacet({
  *
  * Sorted here rather than trusted from the response, for the reason the
  * Active facet sorts: the order is `rotationReleaseList.jsp`'s own, and
- * owning it keeps all four facets ordered alike however any one endpoint
- * happens to return its rows.
+ * owning it keeps the screen's order independent of what any one endpoint
+ * happens to return. The two facets do NOT share an order, because the JSP's
+ * servlet does not: All is `ORDER BY RR.ROTATION_ADD_DATE DESC`, Killed is
+ * `ORDER BY RR.ROTATION_KILL_DATE DESC`. Killed is the librarian's worklist
+ * -- what the music director retired this week, waiting in the for-library
+ * bin -- and add date is uncorrelated with kill date, so add-date order
+ * buries exactly the rows that facet exists to surface.
  *
  * One column reads differently here than on Awaiting Cataloging, and a
  * librarian comparing the two will see it: Format comes from the library
@@ -364,7 +370,7 @@ function StatusFacet({
     () =>
       (data ?? [])
         .filter((row) => status === "all" || row.rotation_kill_date != null)
-        .sort(byMostRecentlyAdded),
+        .sort(status === "killed" ? byMostRecentlyKilled : byMostRecentlyAdded),
     [data, status],
   );
 

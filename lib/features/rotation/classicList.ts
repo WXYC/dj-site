@@ -234,6 +234,35 @@ function dedupeKey(artistName: string | null, albumTitle: string | null): string
 }
 
 /**
+ * Most-recently-killed first, tie-broken on the lowest rotation id so the
+ * order is total. This is `rotationReleaseList.jsp`'s own Killed-facet order
+ * (`ORDER BY RR.ROTATION_KILL_DATE DESC` in `RotationReleaseServlet`), which
+ * differs from the Active facet's on purpose: a killed release's add date
+ * says when it entered rotation, and the question the facet answers is when
+ * it left.
+ *
+ * That difference is what makes the facet usable rather than merely correct.
+ * The librarian's worklist is the releases the music director killed in the
+ * last week -- they go to the for-library bin to be catalogued -- and a
+ * release's add date is uncorrelated with its kill date, so ordering a killed
+ * cohort by add date buries a promo added last year and killed yesterday
+ * thousands of rows down, past the render batch.
+ *
+ * Plain string comparison on `YYYY-MM-DD`, for the reason
+ * `isRotationRowActive` gives: a date-only string has no timezone to get
+ * wrong, and lexicographic order over zero-padded ISO dates is calendar
+ * order. A row with no kill date sorts last; the Killed facet has none by
+ * construction, and this keeps the comparator total if it is ever handed a
+ * wider set.
+ */
+export function byMostRecentlyKilled(left: RotationListRow, right: RotationListRow): number {
+  const leftKilled = left.rotation_kill_date ?? "";
+  const rightKilled = right.rotation_kill_date ?? "";
+  if (leftKilled !== rightKilled) return leftKilled < rightKilled ? 1 : -1;
+  return left.rotation_id - right.rotation_id;
+}
+
+/**
  * Most-recently-added first, tie-broken on the lowest rotation id so the
  * order is total. This is `rotationReleaseList.jsp`'s own Active-facet
  * order (`ORDER BY RR.ROTATION_ADD_DATE DESC` in `RotationReleaseServlet`),
