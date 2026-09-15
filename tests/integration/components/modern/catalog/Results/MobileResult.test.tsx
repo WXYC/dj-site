@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { screen } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createTestAlbum, createTestArtist, renderWithProviders } from "@/tests/helpers";
 import { RotationBin } from "@/lib/features/rotation/types";
@@ -236,10 +236,12 @@ describe("CatalogMobileResult rotation location", () => {
     // The tooltip element IS the location, nothing more: hovering plays or
     // the label must never pop rotation facts over them.
     const pill = screen.getByTitle("Heavy rotation, card 1 “Late Aug”");
-    expect(pill.textContent).toBe("H · card 1");
-    // The location never joins the " · "-separated meta line — its internal
-    // separator is the same character, so `H · card 1 · 42 plays` would read
-    // as three peer items — and the call number is withheld entirely.
+    // Bin as text, the card number in its decorative (aria-hidden) circle.
+    expect(pill).toHaveTextContent("H");
+    expect(within(pill).getByText("1")).toHaveAttribute("aria-hidden", "true");
+    // The location never joins the " · "-separated meta line: a bin + card
+    // badge sitting beside `· 42 plays` would read as peer items, and the call
+    // number is withheld entirely.
     const meta = screen.getByText(/42 plays/);
     expect(meta.textContent).toBe("42 plays · Drag City");
     expect(meta.getAttribute("title")).toBeNull();

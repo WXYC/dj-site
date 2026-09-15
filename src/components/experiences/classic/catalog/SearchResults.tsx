@@ -1,5 +1,6 @@
 "use client";
 
+import type { CSSProperties } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSearchCatalogQuery } from "@/lib/features/catalog/api";
@@ -7,6 +8,26 @@ import { isRotationAdminEnabled } from "@/lib/features/rotation/flags";
 import { rotationLocationFor } from "@/lib/features/rotation/location";
 import { artistCardHref } from "@/lib/features/catalog/artistCardRoute";
 import { MatchedTrackChips } from "./MatchedTrackChips";
+
+/**
+ * The rotation card number as a small circle — a CSS shape, never a Unicode
+ * circled-digit glyph (①–⑳), which stops at 20 and renders inconsistently.
+ * `currentColor` keeps it in step with the classic table's bold text in both
+ * light and dark. Decorative only: the surrounding `<b>` owns the `title` that
+ * spells out "card N", and the circle is `aria-hidden`.
+ */
+const CLASSIC_CARD_BADGE_STYLE: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  minWidth: "1.6em",
+  height: "1.6em",
+  padding: "0 0.35em",
+  borderRadius: "50%",
+  border: "1px solid currentColor",
+  lineHeight: 1,
+  boxSizing: "border-box",
+};
 
 /**
  * Which artist card this row's name opens.
@@ -159,12 +180,22 @@ export default function SearchResults({ canModify }: { canModify: boolean }) {
               }`}
             >
               <td>{result.artist?.genre ?? ""}</td>
-              {/* nowrap: `H · card 2` outsizes the call numbers this column
-                  was sized for, and a mid-token wrap would rag the Code
+              {/* nowrap: the bin + card badge outsizes the call numbers this
+                  column was sized for, and a mid-token wrap would rag the Code
                   column against every non-rotating row beside it. */}
               <td style={{ whiteSpace: "nowrap" }}>
                 {rotationLocation ? (
-                  <b title={rotationLocation.title}>{rotationLocation.label}</b>
+                  <b title={rotationLocation.title}>
+                    {rotationLocation.bin}
+                    {rotationLocation.cardNumber != null && (
+                      <>
+                        {" "}
+                        <span aria-hidden style={CLASSIC_CARD_BADGE_STYLE}>
+                          {rotationLocation.cardNumber}
+                        </span>
+                      </>
+                    )}
+                  </b>
                 ) : (
                   <>
                     {result.artist?.lettercode} {result.artist?.numbercode}/

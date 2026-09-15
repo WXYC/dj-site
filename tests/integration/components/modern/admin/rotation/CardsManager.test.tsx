@@ -55,6 +55,10 @@ describe("CardsManager", () => {
 
     expect(screen.getByRole("heading", { name: /Heavy/ })).toHaveTextContent("H · 2 cards");
     expect(heavyColumn().getByLabelText("Name for Heavy card 1")).toHaveValue("Late Aug");
+    // The number rides in a decorative circle; the accessible "card 1" reading
+    // stays on the name input's label above, so the badge is aria-hidden.
+    const badge = within(screen.getByTestId("rotation-card-31")).getByText("1");
+    expect(badge).toHaveAttribute("aria-hidden", "true");
     expect(within(screen.getByTestId("rotation-card-31")).getByText("3 active")).toBeInTheDocument();
     // A bin with no cards still renders its column and its add affordance.
     const singles = within(screen.getByTestId("rotation-cards-bin-S"));
