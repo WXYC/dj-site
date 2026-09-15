@@ -8,6 +8,7 @@ import {
   useGetUncataloguedRotationQuery,
 } from "@/lib/features/rotation/api";
 import {
+  byMostRecentlyAdded,
   dedupeRotationListByArtistTitle,
   toDisplayRowFromList,
   toDisplayRowFromUncatalogued,
@@ -15,7 +16,9 @@ import {
 } from "@/lib/features/rotation/classicList";
 import { useRotationRowActions } from "@/lib/features/rotation/hooks";
 import {
+  ROTATION_STATUS_FACET_RENDER_BATCH,
   UNCATALOGUED_ROTATION_PAGE_SIZE,
+  type RotationListStatusFilter,
   type RotationStatusFilter,
 } from "@/lib/features/rotation/types";
 
@@ -301,27 +304,75 @@ function UncataloguedFacet({
 }
 
 /**
- * "All" and "Killed" render this instead of a table: Backend has no read
- * path for a catalogued rotation row that has been killed.
- * `getRotationFromDB` (`GET /library/rotation`) restricts itself to active
- * rows via its own `WHERE kill_date IS NULL OR kill_date > CURRENT_DATE`,
- * and `getUncataloguedRotationFromDB` (`GET /library/rotation/uncatalogued`)
- * answers every status but only for `album_id IS NULL` rows. Between them
- * there is no query that returns a catalogued, killed rotation row -- so
- * these two JSP facets cannot be built against the current contract without
- * fabricating a partial answer and presenting it as complete, which the
- * outage-rendering convention this screen otherwise follows forbids doing
- * silently. Rather than hide the chips (a JSP facet with no equivalent
- * button at all would be its own, less honest, divergence), they render and
- * say so.
+ * The All and Killed facets: `GET /library/rotation?status=`. The same
+ * endpoint the Active facet reads, which answers `active` by default and is
+ * the only read that returns a rotation row that is both catalogued and
+ * killed -- the Awaiting Cataloging queue answers every kill state but only
+ * for rows that never linked to a library release.
+ *
+ * Deliberately NOT deduped, unlike the Active facet. `getRotationFromDB`
+ * collapses same-(album, bin) duplicates for `status=active` alone, because
+ * that shape feeds a dropdown; `killed` and `all` are served uncollapsed on
+ * purpose. A release that was re-added, re-binned or promoted again over the
+ * years is that many separate rotation facts, each with its own kill date and
+ * its own Unkill, so collapsing them here would hide history and offer Unkill
+ * on a row the librarian did not mean.
+ *
+ * Sorted here rather than trusted from the response, for the reason the
+ * Active facet sorts: the order is `rotationReleaseList.jsp`'s own, and
+ * owning it keeps all four facets ordered alike however any one endpoint
+ * happens to return its rows.
  */
-function UnavailableFacet() {
+function StatusFacet({
+  status,
+  canWrite,
+  onKill,
+  onUnkill,
+  pendingRotationIds,
+}: {
+  status: RotationListStatusFilter;
+  canWrite: boolean;
+  onKill: (rotationId: number) => void;
+  onUnkill: (rotationId: number) => void;
+  pendingRotationIds: ReadonlySet<number>;
+}) {
+  const [renderCap, setRenderCap] = useState(ROTATION_STATUS_FACET_RENDER_BATCH);
+  const { data, isLoading, isFetching, isError, refetch } = useGetRotationListQuery(status);
+
+  // Absence-of-list, not the error flag, for the reason the Active facet
+  // gives: a background refetch can leave isError true with the last-good
+  // rows still on screen.
+  const hasNothingToShow = isError && data == null;
+
+  if (isLoading) return <p style={{ textAlign: "center" }}>Loading...</p>;
+  if (hasNothingToShow) return <OutagePanel onRetry={refetch} retrying={isFetching} />;
+
+  const history = [...(data ?? [])].sort(byMostRecentlyAdded);
+  const rows = history.slice(0, renderCap).map((row) => toDisplayRowFromList(row));
+  const remaining = history.length - rows.length;
+
   return (
-    <p className="live-results-empty" style={{ textAlign: "center" }}>
-      This filter needs data Backend-Service doesn&apos;t expose yet: there is no endpoint for a
-      catalogued rotation release that has been killed. The Awaiting Cataloging facet&apos;s
-      &quot;Show killed releases too&quot; toggle covers the uncatalogued half of this backlog.
-    </p>
+    <>
+      <RotationTable
+        rows={rows}
+        canWrite={canWrite}
+        onKill={onKill}
+        onUnkill={onUnkill}
+        pendingRotationIds={pendingRotationIds}
+      />
+      {remaining > 0 && (
+        <p className="live-results-empty" style={{ textAlign: "center" }}>
+          Showing {rows.length} of {history.length} rotation releases.{" "}
+          <button
+            type="button"
+            className="link-button"
+            onClick={() => setRenderCap((cap) => cap + ROTATION_STATUS_FACET_RENDER_BATCH)}
+          >
+            Show {Math.min(ROTATION_STATUS_FACET_RENDER_BATCH, remaining)} more
+          </button>
+        </p>
+      )}
+    </>
   );
 }
 
@@ -332,7 +383,7 @@ function UnavailableFacet() {
  * for the unlinked-id check and the active/killed date logic shared with
  * the free-text add screen.
  *
- * Three divergences from the JSP, the third forced by the Backend contract:
+ * Four divergences from the JSP, the third forced by the Backend contract:
  *
  * - "Main Menu" carries the JSP's own label but points at `/dashboard/
  *   catalog` -- dj-site's classic catalog search, the DJ-facing entry point
@@ -355,6 +406,10 @@ function UnavailableFacet() {
  *   unchanged. Edit is still offered on every row an MD can reach, including
  *   a catalogued one: the two dates stay writable there even though the
  *   release's artist, title, label and format do not.
+ * - The JSP prints every row of every facet. All and Killed are the whole
+ *   rotation history here, so they mount in batches with the full count
+ *   beside the control that reveals the next one -- a render cap, never a
+ *   filter, and never a count that could be mistaken for the whole set.
  */
 export default function RotationReleaseList({
   statusFilter,
@@ -412,7 +467,18 @@ export default function RotationReleaseList({
           pendingRotationIds={pendingRotationIds}
         />
       )}
-      {(statusFilter === "all" || statusFilter === "killed") && <UnavailableFacet />}
+      {(statusFilter === "all" || statusFilter === "killed") && (
+        // Keyed so switching facets restarts the render cap rather than
+        // carrying one facet's expanded view into the other.
+        <StatusFacet
+          key={statusFilter}
+          status={statusFilter}
+          canWrite={canWrite}
+          onKill={handleKill}
+          onUnkill={handleUnkill}
+          pendingRotationIds={pendingRotationIds}
+        />
+      )}
     </div>
   );
 }

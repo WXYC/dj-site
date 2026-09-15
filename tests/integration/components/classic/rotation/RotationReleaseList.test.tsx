@@ -15,6 +15,7 @@ vi.mock("sonner", () => ({
   toast: { error: vi.fn(), success: vi.fn() },
 }));
 
+import { ROTATION_STATUS_FACET_RENDER_BATCH } from "@/lib/features/rotation/types";
 import RotationReleaseList from "@/src/components/experiences/classic/rotation/RotationReleaseList";
 
 const BASE = `${TEST_BACKEND_URL}/library/rotation`;
@@ -63,6 +64,19 @@ const CHUQUI_UNLINKED = {
 
 function mockActiveList(rows: unknown[]) {
   server.use(http.get(BASE, () => HttpResponse.json(rows)));
+}
+
+/**
+ * Answers `GET /library/rotation` from whichever key matches the request's own
+ * `?status=`, so a facet that asks for the wrong one renders nothing rather
+ * than quietly reading another facet's rows.
+ */
+function mockRotationListByStatus(rowsByStatus: Record<string, unknown[]>) {
+  server.use(
+    http.get(BASE, ({ request }) =>
+      HttpResponse.json(rowsByStatus[new URL(request.url).searchParams.get("status") ?? "active"] ?? []),
+    ),
+  );
 }
 
 function mockUncatalogued(rows: unknown[]) {
@@ -492,13 +506,120 @@ describe("classic RotationReleaseList — rotationReleaseList.jsp", () => {
     });
   });
 
-  describe("All and Killed facets — no Backend source for catalogued+killed rotation rows", () => {
+  describe("All and Killed facets", () => {
+    const KILLED_CATALOGUED = {
+      ...JUANA,
+      rotation_id: 5003,
+      artist_name: "Jessica Pratt",
+      alphabetical_name: "Pratt, Jessica",
+      album_title: "On Your Own Love Again",
+      record_label: "Drag City",
+      rotation_add_date: "2026-07-01",
+      rotation_kill_date: "2026-08-15",
+    };
+
     it.each(["all", "killed"] as const)(
-      "states the Backend gap honestly for status=%s rather than rendering wrong data",
-      (statusFilter) => {
+      "asks for status=%s and shows the catalogued-and-killed rows neither other facet reaches",
+      async (statusFilter) => {
+        mockRotationListByStatus({ [statusFilter]: [KILLED_CATALOGUED] });
         renderWithProviders(<RotationReleaseList statusFilter={statusFilter} canWrite={true} />);
-        expect(screen.getByText(/doesn't expose|does not expose/i)).toBeInTheDocument();
+
+        const row = (await screen.findByText("Drag City")).closest("tr")!;
+        expect(within(row).getByText("Jessica Pratt")).toBeInTheDocument();
+        expect(within(row).getByText("08/15/26")).toBeInTheDocument();
+        expect(within(row).getByText("Cataloged")).toBeInTheDocument();
+        expect(within(row).getByRole("button", { name: /^Unkill: / })).toBeInTheDocument();
       },
     );
+
+    it("keeps two rows that share an artist and title, unlike the Active facet", async () => {
+      mockRotationListByStatus({
+        killed: [
+          { ...KILLED_CATALOGUED, rotation_id: 1 },
+          { ...KILLED_CATALOGUED, rotation_id: 2, rotation_bin: "L" },
+        ],
+      });
+      renderWithProviders(<RotationReleaseList statusFilter="killed" canWrite={true} />);
+
+      expect(await screen.findAllByText("Jessica Pratt")).toHaveLength(2);
+    });
+
+    it("orders rows most-recently-added first, whatever order the response arrives in", async () => {
+      mockRotationListByStatus({
+        all: [
+          { ...KILLED_CATALOGUED, rotation_id: 1, artist_name: "Stereolab", rotation_add_date: "2026-07-01" },
+          { ...KILLED_CATALOGUED, rotation_id: 2, artist_name: "Cat Power", rotation_add_date: "2026-08-20" },
+        ],
+      });
+      renderWithProviders(<RotationReleaseList statusFilter="all" canWrite={true} />);
+
+      await screen.findByText("Cat Power");
+      const artists = screen.getAllByRole("row").slice(1).map((row) => row.children[1]?.textContent);
+      expect(artists).toEqual(["Cat Power", "Stereolab"]);
+    });
+
+    it("offers Import on a killed row that was never catalogued", async () => {
+      mockRotationListByStatus({ killed: [{ ...CHUQUI_UNLINKED }] });
+      renderWithProviders(<RotationReleaseList statusFilter="killed" canWrite={true} />);
+
+      const row = (await screen.findByText("Chuquimamani-Condori")).closest("tr")!;
+      expect(within(row).getByText("Uncataloged")).toBeInTheDocument();
+      expect(within(row).getByRole("link", { name: /^Import: / })).toHaveAttribute(
+        "href",
+        "/dashboard/rotation/5002/import",
+      );
+    });
+
+    it("shows the JSP's empty-state message for a genuinely empty facet", async () => {
+      mockRotationListByStatus({ killed: [] });
+      renderWithProviders(<RotationReleaseList statusFilter="killed" canWrite={true} />);
+
+      expect(await screen.findByText("No rotation releases found for this filter.")).toBeInTheDocument();
+    });
+
+    it("never renders the empty-state message on an outage", async () => {
+      server.use(
+        http.get(
+          BASE,
+          () =>
+            new HttpResponse("<!DOCTYPE html><html><body>Bad Gateway</body></html>", {
+              status: 502,
+              headers: { "Content-Type": "text/html" },
+            }),
+        ),
+      );
+      renderWithProviders(<RotationReleaseList statusFilter="killed" canWrite={true} />);
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(/unavailable/i);
+      expect(screen.queryByText("No rotation releases found for this filter.")).not.toBeInTheDocument();
+    });
+
+    it("mounts one batch of a long history and reveals the rest on request", async () => {
+      const overflow = 3;
+      const history = Array.from({ length: ROTATION_STATUS_FACET_RENDER_BATCH + overflow }, (_, index) => ({
+        ...KILLED_CATALOGUED,
+        rotation_id: index + 1,
+        album_title: `Buried Treasure ${index}`,
+        // Descending, so the mounted batch is the newest and the overflow the oldest.
+        rotation_add_date: `2026-07-${String(28 - (index % 28)).padStart(2, "0")}`,
+      }));
+      mockRotationListByStatus({ all: history });
+      const { user } = renderWithProviders(<RotationReleaseList statusFilter="all" canWrite={true} />);
+
+      await screen.findByRole("button", { name: `Show ${overflow} more` });
+      const mountedRows = () => screen.getAllByRole("row").length - 1;
+      expect(mountedRows()).toBe(ROTATION_STATUS_FACET_RENDER_BATCH);
+      // The count names the whole history, so a capped view never reads as a complete one.
+      expect(
+        screen.getByText(
+          `Showing ${ROTATION_STATUS_FACET_RENDER_BATCH} of ${history.length} rotation releases.`,
+        ),
+      ).toBeInTheDocument();
+
+      await user.click(screen.getByRole("button", { name: `Show ${overflow} more` }));
+
+      expect(mountedRows()).toBe(history.length);
+      expect(screen.queryByRole("button", { name: /Show \d+ more/ })).not.toBeInTheDocument();
+    });
   });
 });
