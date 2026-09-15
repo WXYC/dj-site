@@ -32,11 +32,12 @@ import "@/src/styles/classic/wxyc.css";
  * The email form is deliberately absent. The report has always been mailed by
  * hand out of the librarian's own client, so the `<pre>` below is the product.
  *
- * One gap in the new-adds tail, and it is a Backend limit rather than a choice:
- * the rotation list serves active releases, and Backend exposes no endpoint for
- * a catalogued rotation release that has been killed. A record added during an
- * older week and killed since therefore cannot be named in that week's tail.
- * The tail only appears above a minimum of 1, which the station does not use.
+ * One gap in the new-adds tail, and it is this screen's choice rather than a
+ * Backend limit: the rotation read below asks for the active releases only, so
+ * a record added during an older week and killed since cannot be named in that
+ * week's tail. `GET /library/rotation?status=all` would close it at the cost of
+ * pulling the station's whole rotation history for a weekly report. The tail
+ * only appears above a minimum of 1, which the station does not use.
  */
 
 // `weeklySummarySelect.jsp` loops x from 0 down to -8.
