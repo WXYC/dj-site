@@ -105,19 +105,23 @@ async function awaitSeededCodeNumber() {
 }
 
 /**
- * Types a code number over the one the form seeded from `peek-code`. The seed
- * has to be on screen before the typing starts: typing into the field earlier
- * would leave the two concatenated once the answer lands, which is the state a
- * librarian picking his own code never reaches by hand.
+ * Overrides the number the form filled in, by the gesture a librarian actually
+ * has: click into the field and type. The filled-in value is selected on
+ * focus, so the typing replaces it.
+ *
+ * Deliberately NOT `user.clear()` first. An emptied field falls back to the
+ * peeked number, so clearing is how he asks for the default back -- it is not
+ * an override, and a helper that cleared would assert nothing about one.
  */
 async function overwriteCodeNumber(
   user: ReturnType<typeof renderWithProviders>["user"],
   value: string,
 ) {
   await awaitSeededCodeNumber();
-  const field = screen.getByLabelText(/call numbers/i);
-  await user.clear(field);
-  await user.type(field, value);
+  // `type` already clicks before typing. Clicking separately first would issue
+  // a second click, which collapses the selection the focus handler made and
+  // turns the gesture into an append -- the very bug this guards.
+  await user.type(screen.getByLabelText(/call numbers/i), value);
 }
 
 describe("classic NewArtistForm — chooseLibraryCodeOrArtist.jsp's newArtistForm", () => {
@@ -375,7 +379,7 @@ describe("classic NewArtistForm — chooseLibraryCodeOrArtist.jsp's newArtistFor
       await user.type(screen.getByLabelText(/artist alphabetical name/i), "Molina, Juana");
       await user.type(screen.getByLabelText(/call letters/i), "MO");
       await awaitSeededCodeNumber();
-        await user.click(screen.getByRole("button", { name: "Submit" }));
+      await user.click(screen.getByRole("button", { name: "Submit" }));
 
       await waitFor(() => expect(getBodies()).toHaveLength(1));
       expect(getBodies()[0]).toMatchObject({ genre_id: GENRE_ID });
@@ -406,7 +410,7 @@ describe("classic NewArtistForm — chooseLibraryCodeOrArtist.jsp's newArtistFor
       await user.type(screen.getByLabelText(/artist alphabetical name/i), "Molina, Juana");
       await user.type(screen.getByLabelText(/call letters/i), "MO");
       await awaitSeededCodeNumber();
-  
+
       store.dispatch(
         catalogApi.util.invalidateTags([{ type: "GenreList", id: "LIST" }]),
       );
@@ -581,5 +585,142 @@ describe("classic NewArtistForm — the peeked next code fills the field", () =>
     expect(await screen.findByText("You must enter a code number.")).toBeInTheDocument();
     expect(screen.getByLabelText(/call numbers/i)).toHaveValue("");
     expect(getBodies()).toHaveLength(0);
+  });
+});
+
+/**
+ * A field the form fills in needs a working story for overriding it. The
+ * gesture a librarian has is the one any pre-filled box invites: click in and
+ * type. Nothing here is reachable by clearing first -- an emptied field asks
+ * for the default back, which is the opposite of an override.
+ */
+describe("classic NewArtistForm — overriding the number the form filled in", () => {
+  beforeEach(() => {
+    mockPush.mockClear();
+    mockGenres();
+    mockPeekCode();
+  });
+
+  it("replaces the filled-in number when he types over it, rather than appending to it", async () => {
+    const { getBodies } = mockAddArtist(() => created());
+    const { user } = renderWithProviders(<NewArtistForm />);
+
+    await selectGenre(user);
+    await user.type(screen.getByLabelText(/artist presentation name/i), "Jessica Pratt");
+    await user.type(screen.getByLabelText(/artist alphabetical name/i), "Pratt, Jessica");
+    await user.type(screen.getByLabelText(/call letters/i), "PR");
+    await awaitSeededCodeNumber();
+
+    await user.type(screen.getByLabelText(/call numbers/i), "12");
+
+    // Appending would leave "712", which `size={3}` renders as a perfectly
+    // plausible call number -- a wrong code filed with nothing looking wrong.
+    expect(screen.getByLabelText(/call numbers/i)).toHaveValue("12");
+
+    await user.click(screen.getByRole("button", { name: "Submit" }));
+    await waitFor(() => expect(getBodies()).toHaveLength(1));
+    expect(getBodies()[0]).toMatchObject({ code_number: 12 });
+  });
+
+  it("leaves a number he typed alone when he clicks back in to correct a digit", async () => {
+    const { user } = renderWithProviders(<NewArtistForm />);
+
+    await selectGenre(user);
+    await user.type(screen.getByLabelText(/call letters/i), "PR");
+    await overwriteCodeNumber(user, "41");
+
+    // Leave the field, then come back to it: re-entering a number he owns must
+    // not select it, or amending one digit would wipe the lot.
+    await user.click(screen.getByLabelText(/call letters/i));
+    await user.type(screen.getByLabelText(/call numbers/i), "2");
+
+    expect(screen.getByLabelText(/call numbers/i)).toHaveValue("412");
+  });
+
+  it("gives the next free number back when he empties the field", async () => {
+    const { getBodies } = mockAddArtist(() => created());
+    const { user } = renderWithProviders(<NewArtistForm />);
+
+    await selectGenre(user);
+    await user.type(screen.getByLabelText(/artist presentation name/i), "Jessica Pratt");
+    await user.type(screen.getByLabelText(/artist alphabetical name/i), "Pratt, Jessica");
+    await user.type(screen.getByLabelText(/call letters/i), "PR");
+    await overwriteCodeNumber(user, "412");
+
+    // Clear-and-retype is the other gesture a pre-filled box invites, and the
+    // empty moment in the middle of it must not be read as his answer -- doing
+    // so would leave the form unable to file anything until reloaded, which is
+    // the defect the autofill exists to remove.
+    await user.clear(screen.getByLabelText(/call numbers/i));
+    await waitFor(() =>
+      expect(screen.getByLabelText(/call numbers/i)).toHaveValue(String(SEEDED_CODE)),
+    );
+
+    await user.click(screen.getByRole("button", { name: "Submit" }));
+    await waitFor(() => expect(getBodies()).toHaveLength(1));
+    expect(getBodies()[0]).toMatchObject({ code_number: SEEDED_CODE });
+  });
+});
+
+describe("classic NewArtistForm — a submit that lands inside the lookup window", () => {
+  beforeEach(() => {
+    mockPush.mockClear();
+    mockGenres();
+  });
+
+  it("waits for the number it undertook to supply instead of reporting his omission", async () => {
+    let peekRequests = 0;
+    let answerPeek!: () => void;
+    const peekAnswer = new Promise<void>((resolve) => {
+      answerPeek = resolve;
+    });
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/library/artists/peek-code`, async () => {
+        peekRequests += 1;
+        await peekAnswer;
+        return HttpResponse.json({ next_code_number: SEEDED_CODE });
+      }),
+    );
+    const { getBodies } = mockAddArtist(() => created());
+    const { user } = renderWithProviders(<NewArtistForm />);
+
+    await selectGenre(user);
+    await user.type(screen.getByLabelText(/artist presentation name/i), "Jessica Pratt");
+    await user.type(screen.getByLabelText(/artist alphabetical name/i), "Pratt, Jessica");
+    await user.type(screen.getByLabelText(/call letters/i), "PR");
+    await waitFor(() => expect(peekRequests).toBe(1));
+
+    await user.click(screen.getByRole("button", { name: "Submit" }));
+
+    // The number is outstanding because the form went to fetch it, not because
+    // he left the field blank; saying so blames him for the form's own work.
+    expect(screen.queryByText("You must enter a code number.")).not.toBeInTheDocument();
+
+    answerPeek();
+    await waitFor(() => expect(getBodies()).toHaveLength(1));
+    expect(getBodies()[0]).toMatchObject({ code_letters: "PR", code_number: SEEDED_CODE });
+  });
+
+  it("retracts the missing-number message as soon as a number is in the field", async () => {
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/library/artists/peek-code`, () => HttpResponse.json({})),
+    );
+    const { user } = renderWithProviders(<NewArtistForm />);
+
+    await selectGenre(user);
+    await user.type(screen.getByLabelText(/artist presentation name/i), "Jessica Pratt");
+    await user.type(screen.getByLabelText(/artist alphabetical name/i), "Pratt, Jessica");
+    await user.type(screen.getByLabelText(/call letters/i), "PR");
+    await user.click(screen.getByRole("button", { name: "Submit" }));
+
+    expect(await screen.findByText("You must enter a code number.")).toBeInTheDocument();
+
+    await user.type(screen.getByLabelText(/call numbers/i), "412");
+
+    // Standing red over a number that is now correct, until the next submit
+    // re-runs validation, tells him the field is still wrong when it is not.
+    await waitFor(() =>
+      expect(screen.queryByText("You must enter a code number.")).not.toBeInTheDocument(),
+    );
   });
 });
