@@ -22,6 +22,8 @@ import { useDebouncedValue } from "@/src/hooks/useDebouncedValue";
 
 const PEEK_DEBOUNCE_MS = 150;
 
+const MISSING_CODE_NUMBER_MESSAGE = "You must enter a code number.";
+
 /**
  * `ArtistAdminServlet:188`. This form posts `mode=addArtistLibraryCode`
  * (`chooseLibraryCodeOrArtist.jsp:62`) -- the same handler
@@ -91,6 +93,9 @@ export default function NewArtistForm() {
   // second copy.
   const [typedCodeNumber, setTypedCodeNumber] = useState<string | null>(null);
   const [validationMessage, setValidationMessage] = useState<string | null>(null);
+  // True only while a submit is waiting on the form's own number, which is the
+  // one stretch where the button is live but the mutation has not started.
+  const [resolvingCodeNumber, setResolvingCodeNumber] = useState(false);
 
   const trimmedCodeLetters = codeLetters.trim();
   const peekArg: PeekArtistCodeQuery | null = useMemo(
@@ -111,11 +116,14 @@ export default function NewArtistForm() {
     peekArtistCode(debouncedPeekArg, true);
   }, [debouncedPeekArg, peekArtistCode]);
 
-  // The answer describes the (call letters, genre) pair it was asked about; a
-  // stale or in-flight one names the previous pair's series, and a number from
-  // the wrong series is not merely out of date -- that series has already
-  // issued it. So nothing stands in the field until the current pair's answer
-  // is the one in hand.
+  // The answer describes the (call letters, genre) pair it was asked about, and
+  // a number from the wrong series is not merely out of date -- that series has
+  // already issued it. These two flags suppress the previous pair's number
+  // across the debounce window and across the request itself. They do not close
+  // the single render on which `debouncedPeekArg` catches up: `peekStale` is
+  // false by then and the lazy query has not yet raised `peekFetching`, so the
+  // previous answer is derived for that one frame. Left open deliberately --
+  // closing it means restructuring the query for a window one render wide.
   const peekedCodeNumber =
     peekArg && !peekStale && !peekFetching && peekData?.next_code_number != null
       ? String(peekData.next_code_number)
@@ -124,8 +132,29 @@ export default function NewArtistForm() {
   // The next free number in a series is a fact only the catalog holds, so
   // showing it beside a field the librarian still has to fill leaves him
   // copying it across by hand. Leaving the field alone files it.
-  const codeNumberRaw = typedCodeNumber ?? peekedCodeNumber;
+  //
+  // An emptied field falls back rather than counting as his answer: clearing is
+  // half of the clear-and-retype gesture any pre-filled box invites, and
+  // reading that empty moment as "file nothing" would switch the autofill off
+  // for the life of the form. The deliberate consequence is that while an
+  // answer is in hand the field cannot be left empty -- clearing it asks for
+  // the default back. It goes empty only when the lookup has none, which is
+  // exactly where the existing validation should fire.
+  const codeNumberRaw = typedCodeNumber || peekedCodeNumber;
   const codeNumber = parseRequiredPositiveInt(codeNumberRaw);
+
+  // Whether the field is showing the catalog's number rather than one he
+  // entered. Drives select-on-focus, and decides whether a submit has anything
+  // to wait for.
+  const codeNumberIsPeeked = !typedCodeNumber;
+
+  // The message names a field the form fills on its own, so it has to retract
+  // the moment a number is there rather than standing red over a value that is
+  // already correct until the next submit re-runs validation.
+  const shownValidationMessage =
+    validationMessage === MISSING_CODE_NUMBER_MESSAGE && codeNumber !== null
+      ? null
+      : validationMessage;
 
   const resetFields = () => {
     setPresentationName("");
@@ -166,8 +195,27 @@ export default function NewArtistForm() {
       setValidationMessage("You must enter call letters.");
       return;
     }
-    if (codeNumber === null) {
-      setValidationMessage("You must enter a code number.");
+    // A submit landing inside the lookup window is waiting on a number the
+    // form undertook to supply, not on one he forgot, so it resolves that
+    // number here instead of reporting his omission. `preferCacheValue` joins
+    // the request the debounce already started rather than issuing a second
+    // one; when the debounce has not fired yet this is the same request a
+    // moment earlier. Submit is disabled for the duration so the wait cannot
+    // be double-clicked into two POSTs.
+    let submittedCodeNumber = codeNumber;
+    if (submittedCodeNumber === null && codeNumberIsPeeked && peekArg) {
+      setResolvingCodeNumber(true);
+      try {
+        const answer = await peekArtistCode(peekArg, true).unwrap();
+        submittedCodeNumber = parseRequiredPositiveInt(String(answer?.next_code_number ?? ""));
+      } catch {
+        submittedCodeNumber = null;
+      } finally {
+        setResolvingCodeNumber(false);
+      }
+    }
+    if (submittedCodeNumber === null) {
+      setValidationMessage(MISSING_CODE_NUMBER_MESSAGE);
       return;
     }
 
@@ -178,7 +226,7 @@ export default function NewArtistForm() {
       alphabetical_name: alphabeticalName.trim(),
       code_letters: codeLetters.trim(),
       genre_id: genreId,
-      code_number: codeNumber,
+      code_number: submittedCodeNumber,
     };
 
     try {
@@ -309,6 +357,17 @@ export default function NewArtistForm() {
                 value={codeNumberRaw}
                 disabled={isLoading}
                 onChange={(e) => setTypedCodeNumber(e.target.value)}
+                onFocus={(e) => {
+                  // Focus-then-type has to REPLACE a number the form supplied:
+                  // appending leaves something like "712", which `size={3}`
+                  // renders as a perfectly plausible call number, so a wrong
+                  // code gets filed with nothing looking wrong. A number he
+                  // typed is never selected -- clicking back in to fix one
+                  // digit must not wipe it.
+                  if (codeNumberIsPeeked) {
+                    e.currentTarget.select();
+                  }
+                }}
                 size={3}
               />
               {peekArg && (
@@ -323,16 +382,16 @@ export default function NewArtistForm() {
             <td />
             <td>
               <div
-                className={`validation-message${validationMessage ? " visible" : ""}`}
-                role={validationMessage ? "alert" : undefined}
+                className={`validation-message${shownValidationMessage ? " visible" : ""}`}
+                role={shownValidationMessage ? "alert" : undefined}
               >
-                {validationMessage}
+                {shownValidationMessage}
               </div>
             </td>
           </tr>
         </tbody>
       </table>
-      <input type="submit" value="Submit" disabled={isLoading} />
+      <input type="submit" value="Submit" disabled={isLoading || resolvingCodeNumber} />
       &nbsp;&nbsp;&nbsp;&nbsp;
       <input type="button" value="Reset values" onClick={resetFields} disabled={isLoading} />
     </form>
