@@ -256,3 +256,17 @@ export const DEFAULT_ROTATION_STATUS_FILTER: RotationListStatusFilter = "active"
  * client actually chose.
  */
 export const UNCATALOGUED_ROTATION_PAGE_SIZE = 500;
+
+/**
+ * How many rows of a status facet (`All`, `Killed`) the classic list mounts
+ * at once. `GET /library/rotation?status=` is unbounded and those two facets
+ * are the station's whole rotation history -- thousands of rows -- where the
+ * Active facet is bounded by what is in rotation and the Awaiting Cataloging
+ * facet by its own server-side page.
+ *
+ * A render cap only: the count beside the control names the full set, so a
+ * capped view never reads as a complete one. Matches the page the Awaiting
+ * Cataloging facet already mounts of the identical table, which is the
+ * evidence this table renders that many plain rows comfortably.
+ */
+export const ROTATION_STATUS_FACET_RENDER_BATCH = 500;
