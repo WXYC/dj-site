@@ -7,6 +7,7 @@ import { artistCardHref } from "@/lib/features/catalog/artistCardRoute";
 import {
   isRockCompLettersRequired,
   validateArtistSearchForm,
+  type ArtistSearchValidationField,
   type CallLetterMode,
 } from "@/lib/features/catalog/chooserValidation";
 import { isGenresUnavailable } from "@/lib/features/catalog/genreAvailability";
@@ -14,8 +15,48 @@ import {
   composeLibraryCodeSearchArgs,
   resolveArtistByCodeErrorReason,
   UNTRUSTWORTHY_CODE_ANSWER_MESSAGE,
+  type LibraryCodeCompositionRefusal,
 } from "@/lib/features/catalog/libraryCodeResolution";
 import type { ArtistByCodeOwner } from "@/lib/features/catalog/types";
+import { safeCapture } from "@/lib/posthog";
+
+/**
+ * Only two of this search's seven endings move the URL, so a pageview stream
+ * cannot tell the other five apart -- or see them at all. The event carries
+ * the outcome plus enough of the composed code to reproduce the search, which
+ * is what a report of "it went to an error page" has to be read against.
+ */
+const CHOOSER_EVENTS = {
+  CODE_SEARCH: "library_code_search",
+} as const;
+
+type LibraryCodeSearchOutcome =
+  | "refused"
+  | "not_assigned"
+  | "genre_not_found"
+  | "lookup_untrusted"
+  | "empty_owner_list"
+  | "single_owner"
+  | "multi_match";
+
+/**
+ * The two gates refuse for overlapping reasons under different names, so both
+ * report into one vocabulary -- otherwise "the genre was missing" reads as two
+ * unrelated values depending on which gate caught it. Typed-total, so a new
+ * validation field has to be given a token rather than silently going
+ * unreported.
+ */
+type CodeSearchRefusal =
+  | LibraryCodeCompositionRefusal
+  | "call_letters_required"
+  | "rock_comp_letter_required";
+
+const REFUSAL_BY_VALIDATION_FIELD: Record<ArtistSearchValidationField, CodeSearchRefusal> = {
+  genreId: "genre_required",
+  callLetterMode: "call_letter_mode_required",
+  artistLettersTextbox: "call_letters_required",
+  rockCompLetters: "rock_comp_letter_required",
+};
 
 /** A code search that matched more than one artist -- `LibraryChooser` swaps to `MultipleArtistsDisplay` on this. */
 export type MultiMatchResult = {
@@ -136,6 +177,16 @@ export default function ArtistSearchForm({ onMultiMatch }: ArtistSearchFormProps
     setGenreId(null);
   };
 
+  const captureSearch = (
+    outcome: LibraryCodeSearchOutcome,
+    props: Record<string, unknown> = {},
+  ) =>
+    safeCapture(CHOOSER_EVENTS.CODE_SEARCH, {
+      outcome,
+      call_letter_mode: callLetterMode,
+      ...props,
+    });
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
@@ -147,6 +198,7 @@ export default function ArtistSearchForm({ onMultiMatch }: ArtistSearchFormProps
     });
 
     if (!result.valid) {
+      captureSearch("refused", { refusal: REFUSAL_BY_VALIDATION_FIELD[result.field] });
       setValidationMessage(result.message);
       return;
     }
@@ -161,9 +213,18 @@ export default function ArtistSearchForm({ onMultiMatch }: ArtistSearchFormProps
     });
 
     if (!composed.ready) {
+      captureSearch("refused", { refusal: composed.reason });
       setValidationMessage(composed.message);
       return;
     }
+
+    // Every ending below describes the same composed code, so it travels with
+    // all of them rather than being spelled out per branch.
+    const searched = {
+      genre_id: composed.args.genre_id,
+      code_letters: composed.args.code_letters,
+      code_number: composed.args.code_number,
+    };
 
     // Deciding what a *successful* answer means stays outside the guard, so a
     // throw from `router.push` or `onMultiMatch` surfaces as itself rather
@@ -175,6 +236,7 @@ export default function ArtistSearchForm({ onMultiMatch }: ArtistSearchFormProps
       const reason = resolveArtistByCodeErrorReason(err);
 
       if (reason === "code_not_assigned") {
+        captureSearch("not_assigned", searched);
         const params = new URLSearchParams({
           genre_id: String(composed.args.genre_id),
           code_letters: composed.args.code_letters,
@@ -185,6 +247,7 @@ export default function ArtistSearchForm({ onMultiMatch }: ArtistSearchFormProps
       }
 
       if (reason === "genre_not_found") {
+        captureSearch("genre_not_found", searched);
         setValidationMessage(
           `No genre in the catalog has id ${composed.args.genre_id}, so this code can't be looked up.`,
         );
@@ -193,6 +256,7 @@ export default function ArtistSearchForm({ onMultiMatch }: ArtistSearchFormProps
 
       // A validation failure, a 5xx, or an outage: refuse to act rather than
       // guess -- see resolveArtistByCodeErrorReason's doc.
+      captureSearch("lookup_untrusted", searched);
       setValidationMessage(UNTRUSTWORTHY_CODE_ANSWER_MESSAGE);
       return;
     }
@@ -204,14 +268,18 @@ export default function ArtistSearchForm({ onMultiMatch }: ArtistSearchFormProps
     // the disambiguation screen would assert the code exists with nobody
     // holding it.
     if (owners.length === 0) {
+      captureSearch("empty_owner_list", { ...searched, owner_count: 0 });
       setValidationMessage(UNTRUSTWORTHY_CODE_ANSWER_MESSAGE);
       return;
     }
 
     if (owners.length === 1) {
+      captureSearch("single_owner", { ...searched, owner_count: 1 });
       router.push(artistCardHref(owners[0]));
       return;
     }
+
+    captureSearch("multi_match", { ...searched, owner_count: owners.length });
 
     const genreName = genres?.find((genre) => genre.id === composed.args.genre_id)?.genre_name;
     onMultiMatch({

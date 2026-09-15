@@ -3,9 +3,21 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useGetGenresQuery } from "@/lib/features/catalog/api";
+import { safeCapture } from "@/lib/posthog";
 import ArtistSearchForm, { type MultiMatchResult } from "./ArtistSearchForm";
 import MultipleArtistsDisplay from "./MultipleArtistsDisplay";
 import NewArtistForm from "./NewArtistForm";
+
+/**
+ * The disambiguation screen swaps in behind this one URL, so arriving at it
+ * and leaving it again produce no pageview -- and without these, no record of
+ * any kind. A librarian can land on a 27-owner list, read it, and go back with
+ * nothing to show that it happened.
+ */
+const LIBRARY_CHOOSER_EVENTS = {
+  MULTI_MATCH_SHOWN: "library_multi_match_shown",
+  MULTI_MATCH_DISMISSED: "library_multi_match_dismissed",
+} as const;
 
 /**
  * Owns the toggle between `chooseLibraryCodeOrArtist.jsp`'s two forms and
@@ -44,8 +56,30 @@ export default function LibraryChooser() {
   // subscription, so it costs no extra request.
   useGetGenresQuery();
 
+  const showMultiMatch = (result: MultiMatchResult) => {
+    safeCapture(LIBRARY_CHOOSER_EVENTS.MULTI_MATCH_SHOWN, {
+      owner_count: result.artists.length,
+      genre_name: result.genreName ?? null,
+      code_letters: result.codeLetters,
+      code_number: result.codeNumber,
+    });
+    setMultiMatch(result);
+  };
+
   if (multiMatch) {
-    return <MultipleArtistsDisplay {...multiMatch} onChooseAgain={() => setMultiMatch(null)} />;
+    return (
+      <MultipleArtistsDisplay
+        {...multiMatch}
+        onChooseAgain={() => {
+          safeCapture(LIBRARY_CHOOSER_EVENTS.MULTI_MATCH_DISMISSED, {
+            owner_count: multiMatch.artists.length,
+            code_letters: multiMatch.codeLetters,
+            code_number: multiMatch.codeNumber,
+          });
+          setMultiMatch(null);
+        }}
+      />
+    );
   }
 
   return (
@@ -68,7 +102,7 @@ export default function LibraryChooser() {
         </tbody>
       </table>
       <hr />
-      <ArtistSearchForm onMultiMatch={setMultiMatch} />
+      <ArtistSearchForm onMultiMatch={showMultiMatch} />
       <NewArtistForm />
     </>
   );
