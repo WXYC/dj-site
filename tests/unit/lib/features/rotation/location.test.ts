@@ -8,7 +8,7 @@ describe("rotationLocationFor", () => {
     expect(rotationLocationFor(undefined, undefined)).toBeNull();
   });
 
-  it("shows bin + card and a tooltip with no name when the card is unnamed", () => {
+  it("exposes bin + card number, with a tooltip carrying no name when the card is unnamed", () => {
     const location = rotationLocationFor(RotationBin.H, {
       id: 1,
       bin: RotationBin.H,
@@ -16,12 +16,29 @@ describe("rotationLocationFor", () => {
     });
 
     expect(location).toEqual({
-      label: "H · card 2",
+      bin: RotationBin.H,
+      cardNumber: 2,
+      cardName: null,
       title: "Heavy rotation, card 2",
     });
   });
 
-  it("carries the card's name in the tooltip when set", () => {
+  it("exposes a card number past 20, so the badge is never bounded to the circled-digit glyphs", () => {
+    const location = rotationLocationFor(RotationBin.H, {
+      id: 9,
+      bin: RotationBin.H,
+      number: 42,
+    });
+
+    expect(location).toEqual({
+      bin: RotationBin.H,
+      cardNumber: 42,
+      cardName: null,
+      title: "Heavy rotation, card 42",
+    });
+  });
+
+  it("carries the card's name discretely and in the tooltip when set", () => {
     const location = rotationLocationFor(RotationBin.M, {
       id: 4,
       bin: RotationBin.M,
@@ -32,21 +49,27 @@ describe("rotationLocationFor", () => {
     // Curly quotes, not ASCII straight quotes: the tooltip copy is specified
     // character-for-character by the visual spec.
     expect(location).toEqual({
-      label: "M · card 1",
+      bin: RotationBin.M,
+      cardNumber: 1,
+      cardName: "Fresh Arrivals",
       title: "Medium rotation, card 1 “Fresh Arrivals”",
     });
   });
 
   it("degrades to bin-only when the card is absent (older Backend or a stale cache row)", () => {
     expect(rotationLocationFor(RotationBin.S, undefined)).toEqual({
-      label: "S",
+      bin: RotationBin.S,
+      cardNumber: null,
+      cardName: null,
       title: "Singles rotation",
     });
   });
 
   it("degrades to bin-only when the card is the explicit not-on-a-card null", () => {
     expect(rotationLocationFor(RotationBin.L, null)).toEqual({
-      label: "L",
+      bin: RotationBin.L,
+      cardNumber: null,
+      cardName: null,
       title: "Light rotation",
     });
   });

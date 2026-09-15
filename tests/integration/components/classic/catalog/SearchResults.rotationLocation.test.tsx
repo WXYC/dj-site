@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { screen } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import { createTestAlbum, createTestArtist, renderWithProviders } from "@/tests/helpers";
 import { RotationBin } from "@/lib/features/rotation/types";
 
@@ -39,13 +39,32 @@ describe("Classic SearchResults rotation location", () => {
 
     renderWithProviders(<SearchResults canModify={false} />);
 
-    const location = screen.getByText("H · card 1");
+    const location = screen.getByTitle("Heavy rotation, card 1 “Late Aug”");
     expect(location.tagName).toBe("B");
-    expect(location.getAttribute("title")).toBe("Heavy rotation, card 1 “Late Aug”");
+    // Bin as text, the card number in a decorative (aria-hidden) circle — the
+    // whole reading stays in the title, not in a bare on-screen number.
+    expect(location).toHaveTextContent("H");
+    expect(within(location).getByText("1")).toHaveAttribute("aria-hidden", "true");
     // The location outsizes the call numbers the Code column was sized for;
     // without nowrap it can wrap mid-token and rag the column.
     expect(location.closest("td")!.style.whiteSpace).toBe("nowrap");
     expect(screen.queryByText("MO 8/6")).toBeNull();
+  });
+
+  it("renders a card number past 20, proving the circle is not a Unicode circled digit", () => {
+    process.env[ENV_KEY] = "true";
+    const album = createTestAlbum({
+      artist: createTestArtist({ name: "Stereolab", lettercode: "ST", numbercode: 3 }),
+      entry: 1,
+      rotation_bin: RotationBin.M,
+      card: { id: 5, bin: RotationBin.M, number: 42, name: "Overflow" },
+    });
+    mockSearchCatalogQuery.mockReturnValue({ data: [album], isLoading: false, error: undefined });
+
+    renderWithProviders(<SearchResults canModify={false} />);
+
+    const location = screen.getByTitle("Medium rotation, card 42 “Overflow”");
+    expect(within(location).getByText("42")).toBeInTheDocument();
   });
 
   it("degrades to the bin alone when the row is rotating but carries no card", () => {

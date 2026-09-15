@@ -147,6 +147,10 @@ describe("RotationAdminList", () => {
     expect(screen.getByRole("heading", { name: "Killed (1)" })).toBeInTheDocument();
     expect(killedSection().getByText("Dots and Loops")).toBeInTheDocument();
     expect(killedSection().getByText("killed 09/01/26")).toBeInTheDocument();
+    // The killed row's card number renders in a decorative circle; the "card N"
+    // reading stays accessible via the element's title, so the badge is hidden.
+    expect(killedSection().getByText("1")).toHaveAttribute("aria-hidden", "true");
+    expect(killedSection().getByTitle("card 1")).toBeInTheDocument();
     expect(activeSection().queryByText("Dots and Loops")).not.toBeInTheDocument();
   });
 

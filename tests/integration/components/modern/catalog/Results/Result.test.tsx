@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { act, fireEvent, screen } from "@testing-library/react";
+import { act, fireEvent, screen, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import {
   createTestAlbum,
@@ -562,7 +562,11 @@ describe("CatalogResult rotation location", () => {
     );
 
     const pill = screen.getByTitle("Heavy rotation, card 1 “Late Aug”");
-    expect(pill.textContent).toBe("H · card 1");
+    // Bin as text, the card number in its decorative circle — which adds no
+    // bare number to the accessible tree, only the whole reading in the title.
+    expect(pill).toHaveTextContent("H");
+    const badge = within(pill).getByText("1");
+    expect(badge).toHaveAttribute("aria-hidden", "true");
     // Chip chrome, not the call number's muted monospace: the pill is the
     // only signal that this cell stopped meaning "call number".
     expect(pill.classList.contains("MuiChip-root")).toBe(true);
@@ -711,7 +715,7 @@ describe("CatalogResult rotation location through the patch layer", () => {
     );
 
     renderWithProviders(<CachedCatalogResults />, { store });
-    expect(await screen.findByText("H · card 2")).toBeDefined();
+    expect(await screen.findByTitle("Heavy rotation, card 2")).toBeDefined();
 
     await act(async () => {
       await store.dispatch(
@@ -721,7 +725,7 @@ describe("CatalogResult rotation location through the patch layer", () => {
       );
     });
 
-    expect(screen.queryByText("H · card 2")).toBeNull();
+    expect(screen.queryByTitle("Heavy rotation, card 2")).toBeNull();
     expect(screen.getByText("YA 4/2")).toBeDefined();
   });
 
@@ -746,7 +750,7 @@ describe("CatalogResult rotation location through the patch layer", () => {
     );
 
     renderWithProviders(<CachedCatalogResults />, { store });
-    expect(await screen.findByText("H · card 2")).toBeDefined();
+    expect(await screen.findByTitle("Heavy rotation, card 2")).toBeDefined();
 
     await act(async () => {
       await store.dispatch(
@@ -757,7 +761,7 @@ describe("CatalogResult rotation location through the patch layer", () => {
       );
     });
 
-    expect(screen.queryByText("H · card 2")).toBeNull();
-    expect(screen.getByText("M · card 5")).toBeDefined();
+    expect(screen.queryByTitle("Heavy rotation, card 2")).toBeNull();
+    expect(screen.getByTitle("Medium rotation, card 5")).toBeDefined();
   });
 });

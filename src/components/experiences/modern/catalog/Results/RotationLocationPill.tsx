@@ -2,6 +2,7 @@
 
 import Chip from "@mui/joy/Chip";
 import type { RotationLocation } from "@/lib/features/rotation/location";
+import { RotationCardBadge } from "@/src/components/shared/RotationCardBadge";
 
 /**
  * A rotating release's physical location (bin + card), rendered as a pill
@@ -10,8 +11,10 @@ import type { RotationLocation } from "@/lib/features/rotation/location";
  * under the Call # header as an unfamiliar call-number format and walks to
  * the stacks anyway — the outcome the location swap exists to prevent.
  *
- * The card's optional name travels only in the pill's own `title`, so the
- * tooltip can never hang over neighboring metadata and mislabel it.
+ * The card number rides in a circular badge; the card's optional name travels
+ * only in the pill's own `title`, so the tooltip can never hang over
+ * neighboring metadata and mislabel it. The badge is decorative — the whole
+ * "…rotation, card N" reading stays in that `title`.
  */
 export function RotationLocationPill({
   location,
@@ -32,7 +35,13 @@ export function RotationLocationPill({
         cursor: "default",
       }}
     >
-      {location.label}
+      {location.cardNumber != null ? (
+        <>
+          {location.bin} <RotationCardBadge number={location.cardNumber} />
+        </>
+      ) : (
+        location.bin
+      )}
     </Chip>
   );
 }

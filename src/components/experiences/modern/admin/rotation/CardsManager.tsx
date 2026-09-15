@@ -23,6 +23,7 @@ import {
 } from "@/lib/features/rotation/types";
 import { rotationWriteErrorMessage } from "@/lib/features/rotation/writeErrorMessage";
 import { isUnmessagedHttpError } from "@/lib/rtk-query-error-logger";
+import { RotationCardBadge } from "@/src/components/shared/RotationCardBadge";
 import { Add, Close } from "@mui/icons-material";
 import {
   Alert,
@@ -67,9 +68,9 @@ function CardRow({
       sx={{ borderRadius: "md", px: 1, py: 0.5 }}
     >
       <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
-        <Typography level="body-sm" fontWeight="lg" color="primary">
-          {card.number}
-        </Typography>
+        {/* Decorative badge; the card's number stays in the accessible tree
+            through the name input's "…card N" label beside it. */}
+        <RotationCardBadge number={card.number} />
         <Input
           // Uncontrolled, remounted whenever the server's name changes: the
           // DOM keeps the operator's text through the save round-trip, and

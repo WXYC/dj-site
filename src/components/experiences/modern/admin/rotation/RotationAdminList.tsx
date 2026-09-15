@@ -34,6 +34,7 @@ import {
   type RotationRowSummary,
 } from "@/lib/features/rotation/types";
 import { useAppDispatch } from "@/lib/hooks";
+import { RotationCardBadge } from "@/src/components/shared/RotationCardBadge";
 import { Link as LinkIcon } from "@mui/icons-material";
 import {
   Alert,
@@ -164,7 +165,16 @@ function RotationAdminRow({
           </Stack>
         )}
         {killed || binCards.length === 0 ? (
-          <Typography level="body-xs">{cardText(row.card)}</Typography>
+          row.card ? (
+            // Badge is decorative; `title` keeps the full "card N — name"
+            // reading in the accessible tree.
+            <Typography level="body-xs" title={cardText(row.card)}>
+              <RotationCardBadge number={row.card.number} />
+              {row.card.name ? ` ${row.card.name}` : ""}
+            </Typography>
+          ) : (
+            <Typography level="body-xs">no card</Typography>
+          )
         ) : (
           <Select
             size="sm"
