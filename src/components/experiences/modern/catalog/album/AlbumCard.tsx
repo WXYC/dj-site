@@ -3,6 +3,7 @@
 import { AlbumEntry } from "@/lib/features/catalog/types";
 import { formatLabel } from "@/lib/features/experiences/modern/tokens/roles";
 import { AlbumMetadata, ResolvedToken } from "@/lib/features/metadata/types";
+import { isRotationAdminEnabled } from "@/lib/features/rotation/flags";
 import {
   Box,
   Card,
@@ -70,6 +71,16 @@ export default function AlbumCard({
   // Library-owned data (title, LibraryStatus, plays/add date) is unaffected —
   // the flag says nothing about the library entry itself.
   const isDiscogsUnavailable = album.discogsUnavailable === true;
+
+  // Gate the definitive-links override on the rotation-admin flag so the whole
+  // feature ships dark: with the flag off the release's `urls` are dropped
+  // before they can reach the Listen merge or the render condition, leaving the
+  // chips byte-identical to the LML-only rendering even if Backend has begun
+  // emitting populated `urls`. Evaluated at render time — the flag is inlined
+  // at build, but a render-time read keeps the gate testable and matches the
+  // rest of the rotation-admin surface. Flipping the flag on restores the full
+  // override (definitive links win over LML, empty urls render no chips).
+  const definitiveUrls = isRotationAdminEnabled() ? album.urls : undefined;
 
   return (
     <Card
@@ -164,10 +175,10 @@ export default function AlbumCard({
         <AlbumEditForm key={`edit-${album.id}`} album={album} />
         <RotationClassifyControl key={`rotation-${album.id}`} album={album} />
         <CompilationCreditsControl key={`credits-${album.id}`} album={album} />
-        {(album.urls?.length || !isDiscogsUnavailable) && (
+        {(definitiveUrls?.length || !isDiscogsUnavailable) && (
           <StreamingLinks
             metadata={metadata}
-            urls={album.urls}
+            urls={definitiveUrls}
             discogsUnavailable={isDiscogsUnavailable}
           />
         )}
