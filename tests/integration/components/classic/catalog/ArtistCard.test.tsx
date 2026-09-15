@@ -579,6 +579,62 @@ describe("classic ArtistCard — artistCardModify.jsp", () => {
         );
         expect(posted).toBe(false);
       });
+
+      // A save consumes the prepopulated number and triggers a peek refetch.
+      // Until it settles `nextRelease` still holds the just-consumed number;
+      // the field — which the submit handler reads — must not reoffer it, or a
+      // second save would file a duplicate.
+      it("does not reoffer the just-filed number while the peek refetch is in flight", async () => {
+        const user = userEvent.setup();
+        let nextCalls = 0;
+        let releaseSecondPeek: (() => void) | undefined;
+        const secondPeekReady = new Promise<void>((resolve) => {
+          releaseSecondPeek = resolve;
+        });
+        server.use(
+          http.get(
+            `${TEST_BACKEND_URL}/library/artists/${ARTIST_ID}/next-release-number`,
+            async () => {
+              nextCalls += 1;
+              if (nextCalls >= 2) {
+                await secondPeekReady;
+                return HttpResponse.json({ next_code_number: 7 });
+              }
+              return HttpResponse.json({ next_code_number: 6 });
+            },
+          ),
+          http.post(`${TEST_BACKEND_URL}/library`, () =>
+            HttpResponse.json(
+              { id: 907, code_number: 6, code_volume_letters: null },
+              { status: 201 },
+            ),
+          ),
+        );
+
+        renderWithProviders(<ArtistCard artistId={ARTIST_ID} />);
+
+        const field = (await screen.findByLabelText(
+          /Release call number/i,
+        )) as HTMLInputElement;
+        await waitFor(() => expect(field.value).toBe("6"));
+
+        await user.type(screen.getByLabelText(/Title of Release/i), "Halo");
+        await user.type(screen.getByLabelText(/^Label/i), "Crammed Discs");
+        await user.selectOptions(screen.getByLabelText(/Format/i), "1");
+        await user.click(
+          screen.getByRole("button", { name: "Add a new Library Release" }),
+        );
+
+        // The refetch is in flight and gated open: the field shows the settled
+        // fallback (empty), never the consumed 6.
+        await waitFor(() => expect(nextCalls).toBe(2));
+        await waitFor(() => expect(field.value).toBe(""));
+        expect(field.value).not.toBe("6");
+
+        // Once the refetch resolves, the field shows the fresh next number.
+        releaseSecondPeek?.();
+        await waitFor(() => expect(field.value).toBe("7"));
+      });
     });
   });
 
