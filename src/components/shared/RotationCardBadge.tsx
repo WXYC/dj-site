@@ -15,6 +15,11 @@ import Box from "@mui/joy/Box";
  * a screen reader never reads a bare number out of context. The surrounding
  * element owns the readable name — a `title` or label that already spells out
  * "card N".
+ *
+ * Carries no spacing of its own. A caller that follows the badge with a card
+ * name owns the gap between them (a margin on the name, which — unlike a text
+ * space — survives a flex value container); a caller that places the badge at
+ * the end of a line gets no stray trailing space.
  */
 export function RotationCardBadge({ number }: { number: number }) {
   return (
@@ -34,10 +39,6 @@ export function RotationCardBadge({ number }: { number: number }) {
         fontWeight: "xl",
         lineHeight: 1,
         verticalAlign: "middle",
-        // Own the gap to the name: a text space collapses against the badge
-        // inside a flex value container (e.g. the card Select), so it can't be
-        // relied on. Harmless when the badge stands alone.
-        marginInlineEnd: "0.6em",
       }}
     >
       {number}
