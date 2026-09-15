@@ -6,6 +6,7 @@ import {
   killDateOptions,
   recentRotationDates,
   rotationLibraryStatus,
+  byMostRecentlyKilled,
   dedupeRotationListByArtistTitle,
   toDisplayRowFromList,
   toDisplayRowFromUncatalogued,
@@ -280,6 +281,35 @@ describe("dedupeRotationListByArtistTitle — ordering and key separation", () =
     ];
 
     expect(dedupeRotationListByArtistTitle(rows)).toHaveLength(2);
+  });
+});
+
+describe("byMostRecentlyKilled", () => {
+  it("puts the most recent kill first, whatever the add order says", () => {
+    const rows = [
+      listRow({ rotation_id: 1, rotation_add_date: "2026-09-01", rotation_kill_date: "2026-09-02" }),
+      listRow({ rotation_id: 2, rotation_add_date: "2025-10-01", rotation_kill_date: "2026-09-14" }),
+    ];
+
+    expect([...rows].sort(byMostRecentlyKilled).map((row) => row.rotation_id)).toEqual([2, 1]);
+  });
+
+  it("breaks a shared kill date on the lowest rotation id, so the order is total", () => {
+    const rows = [
+      listRow({ rotation_id: 9, rotation_kill_date: "2026-09-14" }),
+      listRow({ rotation_id: 4, rotation_kill_date: "2026-09-14" }),
+    ];
+
+    expect([...rows].sort(byMostRecentlyKilled).map((row) => row.rotation_id)).toEqual([4, 9]);
+  });
+
+  it("sorts a row carrying no kill date last rather than treating it as the newest", () => {
+    const rows = [
+      listRow({ rotation_id: 1, rotation_kill_date: null }),
+      listRow({ rotation_id: 2, rotation_kill_date: "2020-01-01" }),
+    ];
+
+    expect([...rows].sort(byMostRecentlyKilled).map((row) => row.rotation_id)).toEqual([2, 1]);
   });
 });
 

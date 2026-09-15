@@ -600,6 +600,50 @@ describe("classic RotationReleaseList — rotationReleaseList.jsp", () => {
       expect(artists).toEqual(["Cat Power", "Stereolab"]);
     });
 
+    it("orders Killed by kill date, so a recent kill on an old add is at the top", async () => {
+      mockRotationListByStatus({
+        all: [
+          // Added most recently, killed longest ago. Add-date order puts this
+          // first; kill-date order puts it last.
+          {
+            ...KILLED_CATALOGUED,
+            rotation_id: 1,
+            artist_name: "Stereolab",
+            rotation_add_date: "2026-09-01",
+            rotation_kill_date: "2026-09-02",
+          },
+          // The librarian's case: entered rotation long ago, killed this week,
+          // and sitting in the for-library bin right now.
+          {
+            ...KILLED_CATALOGUED,
+            rotation_id: 2,
+            artist_name: "Cat Power",
+            rotation_add_date: "2025-10-01",
+            rotation_kill_date: "2026-09-14",
+          },
+        ],
+      });
+      renderWithProviders(<RotationReleaseList statusFilter="killed" canWrite={true} />);
+
+      await screen.findByText("Cat Power");
+      const artists = screen.getAllByRole("row").slice(1).map((row) => row.children[1]?.textContent);
+      expect(artists).toEqual(["Cat Power", "Stereolab"]);
+    });
+
+    it("keeps All on add-date order, where a kill date is not a property every row has", async () => {
+      mockRotationListByStatus({
+        all: [
+          { ...KILLED_CATALOGUED, rotation_id: 1, artist_name: "Stereolab", rotation_add_date: "2026-09-01", rotation_kill_date: "2026-09-02" },
+          { ...KILLED_CATALOGUED, rotation_id: 2, artist_name: "Cat Power", rotation_add_date: "2025-10-01", rotation_kill_date: "2026-09-14" },
+        ],
+      });
+      renderWithProviders(<RotationReleaseList statusFilter="all" canWrite={true} />);
+
+      await screen.findByText("Stereolab");
+      const artists = screen.getAllByRole("row").slice(1).map((row) => row.children[1]?.textContent);
+      expect(artists).toEqual(["Stereolab", "Cat Power"]);
+    });
+
     it("offers Import on a killed row that was never catalogued", async () => {
       mockRotationListByStatus({ all: [{ ...CHUQUI_UNLINKED }] });
       renderWithProviders(<RotationReleaseList statusFilter="killed" canWrite={true} />);
