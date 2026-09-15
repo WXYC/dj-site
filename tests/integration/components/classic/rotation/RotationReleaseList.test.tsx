@@ -519,9 +519,9 @@ describe("classic RotationReleaseList — rotationReleaseList.jsp", () => {
     };
 
     it.each(["all", "killed"] as const)(
-      "asks for status=%s and shows the catalogued-and-killed rows neither other facet reaches",
+      "shows on status=%s the catalogued-and-killed rows neither other facet reaches",
       async (statusFilter) => {
-        mockRotationListByStatus({ [statusFilter]: [KILLED_CATALOGUED] });
+        mockRotationListByStatus({ all: [KILLED_CATALOGUED] });
         renderWithProviders(<RotationReleaseList statusFilter={statusFilter} canWrite={true} />);
 
         const row = (await screen.findByText("Drag City")).closest("tr")!;
@@ -534,7 +534,7 @@ describe("classic RotationReleaseList — rotationReleaseList.jsp", () => {
 
     it("keeps two rows that share an artist and title, unlike the Active facet", async () => {
       mockRotationListByStatus({
-        killed: [
+        all: [
           { ...KILLED_CATALOGUED, rotation_id: 1 },
           { ...KILLED_CATALOGUED, rotation_id: 2, rotation_bin: "L" },
         ],
@@ -542,6 +542,48 @@ describe("classic RotationReleaseList — rotationReleaseList.jsp", () => {
       renderWithProviders(<RotationReleaseList statusFilter="killed" canWrite={true} />);
 
       expect(await screen.findAllByText("Jessica Pratt")).toHaveLength(2);
+    });
+
+    it("narrows Killed to the rows carrying a kill date, where All keeps both", async () => {
+      mockRotationListByStatus({ all: [JUANA, KILLED_CATALOGUED] });
+      const { unmount } = renderWithProviders(
+        <RotationReleaseList statusFilter="killed" canWrite={true} />,
+      );
+
+      await screen.findByText("Jessica Pratt");
+      expect(screen.queryByText("Juana Molina")).not.toBeInTheDocument();
+      unmount();
+
+      renderWithProviders(<RotationReleaseList statusFilter="all" canWrite={true} />);
+      expect(await screen.findByText("Juana Molina")).toBeInTheDocument();
+      expect(screen.getByText("Jessica Pratt")).toBeInTheDocument();
+    });
+
+    it("drops an unkilled row from Killed without refetching the history", async () => {
+      let listRequests = 0;
+      server.use(
+        http.get(BASE, () => {
+          listRequests += 1;
+          return HttpResponse.json([KILLED_CATALOGUED, CHUQUI_UNLINKED]);
+        }),
+        http.patch(`${BASE}/:id`, () => HttpResponse.json({ ...CHUQUI_UNLINKED, kill_date: null })),
+      );
+      const { user } = renderWithProviders(
+        <RotationReleaseList statusFilter="killed" canWrite={true} />,
+      );
+
+      await screen.findByText("Chuquimamani-Condori");
+      expect(listRequests).toBe(1);
+
+      await user.click(screen.getByRole("button", { name: "Unkill: Edits" }));
+
+      await waitFor(() =>
+        expect(screen.queryByText("Chuquimamani-Condori")).not.toBeInTheDocument(),
+      );
+      // The row left the facet because the write patched the cached history in
+      // place; a refetch of thousands of rows per unkill is what that buys.
+      expect(listRequests).toBe(1);
+      expect(screen.getByText("Jessica Pratt")).toBeInTheDocument();
     });
 
     it("orders rows most-recently-added first, whatever order the response arrives in", async () => {
@@ -559,7 +601,7 @@ describe("classic RotationReleaseList — rotationReleaseList.jsp", () => {
     });
 
     it("offers Import on a killed row that was never catalogued", async () => {
-      mockRotationListByStatus({ killed: [{ ...CHUQUI_UNLINKED }] });
+      mockRotationListByStatus({ all: [{ ...CHUQUI_UNLINKED }] });
       renderWithProviders(<RotationReleaseList statusFilter="killed" canWrite={true} />);
 
       const row = (await screen.findByText("Chuquimamani-Condori")).closest("tr")!;
@@ -571,7 +613,7 @@ describe("classic RotationReleaseList — rotationReleaseList.jsp", () => {
     });
 
     it("shows the JSP's empty-state message for a genuinely empty facet", async () => {
-      mockRotationListByStatus({ killed: [] });
+      mockRotationListByStatus({ all: [] });
       renderWithProviders(<RotationReleaseList statusFilter="killed" canWrite={true} />);
 
       expect(await screen.findByText("No rotation releases found for this filter.")).toBeInTheDocument();

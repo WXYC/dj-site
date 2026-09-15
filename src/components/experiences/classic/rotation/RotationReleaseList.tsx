@@ -304,24 +304,42 @@ function UncataloguedFacet({
 }
 
 /**
- * The All and Killed facets: `GET /library/rotation?status=`. The same
- * endpoint the Active facet reads, which answers `active` by default and is
- * the only read that returns a rotation row that is both catalogued and
- * killed -- the Awaiting Cataloging queue answers every kill state but only
- * for rows that never linked to a library release.
+ * The All and Killed facets, both served by one read: `status=all`, the full
+ * rotation history. Killed narrows it here on `rotation_kill_date`, which is
+ * the predicate Backend's own `status=killed` applies (`kill_date IS NOT
+ * NULL` -- so a future-dated kill belongs to Killed and to Active alike), and
+ * All is a superset of Killed, so one request answers both and switching
+ * between them costs none.
+ *
+ * Reading `status=all` for both is not just the saving. It is the one
+ * rotation read the row writes move by patching the cache rather than
+ * invalidating it; `status=killed` carries the bounded facets' tag, so
+ * subscribing to it would refetch the whole history on every kill and unkill.
+ * The patch settles facet membership for free besides: an unkilled row's
+ * `rotation_kill_date` goes null in the cache and the row leaves Killed
+ * without a round trip, which an invalidate-and-refetch would have to pay for
+ * and a naive patch of a `status=killed` entry would get wrong.
  *
  * Deliberately NOT deduped, unlike the Active facet. `getRotationFromDB`
  * collapses same-(album, bin) duplicates for `status=active` alone, because
- * that shape feeds a dropdown; `killed` and `all` are served uncollapsed on
- * purpose. A release that was re-added, re-binned or promoted again over the
- * years is that many separate rotation facts, each with its own kill date and
- * its own Unkill, so collapsing them here would hide history and offer Unkill
- * on a row the librarian did not mean.
+ * that shape feeds a dropdown; `all` is served uncollapsed on purpose. A
+ * release that was re-added, re-binned or promoted again over the years is
+ * that many separate rotation facts, each with its own kill date and its own
+ * Unkill, so collapsing them here would hide history and offer Unkill on a
+ * row the librarian did not mean.
  *
  * Sorted here rather than trusted from the response, for the reason the
  * Active facet sorts: the order is `rotationReleaseList.jsp`'s own, and
  * owning it keeps all four facets ordered alike however any one endpoint
  * happens to return its rows.
+ *
+ * One column reads differently here than on Awaiting Cataloging, and a
+ * librarian comparing the two will see it: Format comes from the library
+ * release through Backend's own join, which is NULL for a row that never
+ * linked, so an uncatalogued release shows the em dash here while the queue
+ * names its format from the rotation row's own pre-catalog `format_id`. This
+ * read does not publish that column, so the em dash is the honest answer
+ * until it does.
  */
 function StatusFacet({
   status,
@@ -330,14 +348,25 @@ function StatusFacet({
   onUnkill,
   pendingRotationIds,
 }: {
-  status: RotationListStatusFilter;
+  status: Exclude<RotationListStatusFilter, "active">;
   canWrite: boolean;
   onKill: (rotationId: number) => void;
   onUnkill: (rotationId: number) => void;
   pendingRotationIds: ReadonlySet<number>;
 }) {
   const [renderCap, setRenderCap] = useState(ROTATION_STATUS_FACET_RENDER_BATCH);
-  const { data, isLoading, isFetching, isError, refetch } = useGetRotationListQuery(status);
+  const { data, isLoading, isFetching, isError, refetch } = useGetRotationListQuery("all");
+
+  // Memoized because this is the station's whole rotation history and a
+  // single row action re-renders the facet three times -- the pending set
+  // gains the row, loses it, and the cache patch lands.
+  const history = useMemo(
+    () =>
+      (data ?? [])
+        .filter((row) => status === "all" || row.rotation_kill_date != null)
+        .sort(byMostRecentlyAdded),
+    [data, status],
+  );
 
   // Absence-of-list, not the error flag, for the reason the Active facet
   // gives: a background refetch can leave isError true with the last-good
@@ -347,7 +376,6 @@ function StatusFacet({
   if (isLoading) return <p style={{ textAlign: "center" }}>Loading...</p>;
   if (hasNothingToShow) return <OutagePanel onRetry={refetch} retrying={isFetching} />;
 
-  const history = [...(data ?? [])].sort(byMostRecentlyAdded);
   const rows = history.slice(0, renderCap).map((row) => toDisplayRowFromList(row));
   const remaining = history.length - rows.length;
 
