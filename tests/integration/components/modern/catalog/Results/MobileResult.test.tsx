@@ -1,7 +1,16 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { createTestAlbum, createTestArtist, renderWithProviders } from "@/tests/helpers";
+import { createTestAlbum, createTestArtist } from "@/tests/helpers";
+
+vi.mock("next/font/google", () => ({
+  Kanit: () => ({ style: { fontFamily: "Kanit, sans-serif" } }),
+}));
+vi.mock("next/font/local", () => ({
+  default: () => ({ style: { fontFamily: "Minbus, sans-serif" } }),
+}));
+
+import { renderWithModernTheme as renderWithProviders } from "@/tests/helpers/renderModern";
 import { RotationBin } from "@/lib/features/rotation/types";
 
 const mockPush = vi.fn();

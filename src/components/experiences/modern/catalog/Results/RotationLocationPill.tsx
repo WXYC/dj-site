@@ -37,7 +37,7 @@ export function RotationLocationPill({
     >
       {location.cardNumber != null ? (
         <>
-          {location.bin} <RotationCardBadge number={location.cardNumber} />
+          {location.bin} <RotationCardBadge number={location.cardNumber} bin={location.bin} />
         </>
       ) : (
         location.bin

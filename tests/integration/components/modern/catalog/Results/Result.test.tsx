@@ -6,10 +6,18 @@ import {
   createTestAlbumSearchResult,
   createTestArtist,
   createTestStore,
-  renderWithProviders,
   server,
   TEST_BACKEND_URL,
 } from "@/tests/helpers";
+
+vi.mock("next/font/google", () => ({
+  Kanit: () => ({ style: { fontFamily: "Kanit, sans-serif" } }),
+}));
+vi.mock("next/font/local", () => ({
+  default: () => ({ style: { fontFamily: "Minbus, sans-serif" } }),
+}));
+
+import { renderWithModernTheme as renderWithProviders } from "@/tests/helpers/renderModern";
 import { RotationBin } from "@/lib/features/rotation/types";
 import { rotationApi } from "@/lib/features/rotation/api";
 import { useSearchLibraryQueryInfiniteQuery } from "@/lib/features/catalog/api";

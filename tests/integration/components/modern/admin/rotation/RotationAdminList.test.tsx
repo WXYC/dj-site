@@ -2,13 +2,21 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import {
-  renderWithProviders,
   server,
   TEST_BACKEND_URL,
   fakeRotationAdminEndpoints,
   type FakeRotationAdminRow,
   type FakeRotationCard,
 } from "@/tests/helpers";
+
+vi.mock("next/font/google", () => ({
+  Kanit: () => ({ style: { fontFamily: "Kanit, sans-serif" } }),
+}));
+vi.mock("next/font/local", () => ({
+  default: () => ({ style: { fontFamily: "Minbus, sans-serif" } }),
+}));
+
+import { renderWithModernTheme as renderWithProviders } from "@/tests/helpers/renderModern";
 
 vi.mock("@/lib/features/authentication/client", async () => {
   const { createAuthClientModuleMock } = await import("@/tests/helpers/auth-client-mock");
