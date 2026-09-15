@@ -238,6 +238,46 @@ describe("updateAlbum cache invalidation on re-attribution", () => {
     sub.unsubscribe();
   });
 
+  it("refetches the next release number on a LIST-scoped invalidation, not only an id-scoped one", async () => {
+    let peekCalls = 0;
+    server.use(
+      http.get(
+        `${TEST_BACKEND_URL}/library/artists/501/next-release-number`,
+        () => {
+          peekCalls += 1;
+          // A distinct number per call proves a real refetch rather than a
+          // cache redisplay of the first response.
+          return HttpResponse.json({ next_code_number: peekCalls === 1 ? 6 : 7 });
+        },
+      ),
+      http.patch(`${TEST_BACKEND_URL}/library/53375`, () => HttpResponse.json(patched)),
+    );
+
+    const store = createTestStore();
+    // Keep the subscription alive so the invalidation triggers a refetch.
+    const sub = store.dispatch(
+      catalogApi.endpoints.getNextReleaseNumber.initiate(501),
+    );
+    const first = await sub;
+    expect(peekCalls).toBe(1);
+    expect(first.data?.next_code_number).toBe(6);
+
+    // A re-attributing updateAlbum — like the modern bench's fileRelease —
+    // cannot name the shelf ahead of the write, so it invalidates the shared
+    // LIST tag, never id-501's. The prepopulated next number reads that same
+    // shelf, so it must refetch on LIST too, or the classic add card reoffers a
+    // number the write just consumed.
+    await store.dispatch(
+      catalogApi.endpoints.updateAlbum.initiate({
+        albumId: 53375,
+        body: { artist_id: 8802, genre_id: 5 },
+      }),
+    );
+
+    await vi.waitFor(() => expect(peekCalls).toBe(2));
+    sub.unsubscribe();
+  });
+
   it("leaves the release tables alone for an ordinary field edit", async () => {
     let releaseCalls = 0;
     server.use(

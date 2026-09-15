@@ -197,8 +197,19 @@ export default function ArtistCard({ artistId, message, imported }: ArtistCardPr
   // one, otherwise the peeked next number, otherwise empty (peek still loading
   // or unreachable). An empty field submits no `code_number`, which is the
   // server's own MAX+1 assignment -- the same fallback the form had before.
+  //
+  // The peek is trusted only once it has settled. During the refetch a save
+  // triggers, `nextRelease` still holds the number just consumed until the new
+  // one arrives; showing it would reoffer that number in the field the submit
+  // handler reads, filing a duplicate. Gating on the query being idle blanks
+  // the field for that in-flight window instead -- the same reason the sibling
+  // NewArtistForm treats its peek as stale while fetching.
+  const nextReleaseSettled = !nextReleaseFetching;
   const displayedCodeNumber =
-    codeNumberEdit ?? (nextRelease ? String(nextRelease.next_code_number) : "");
+    codeNumberEdit ??
+    (nextReleaseSettled && nextRelease?.next_code_number != null
+      ? String(nextRelease.next_code_number)
+      : "");
 
   const handleModifyArtist = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();

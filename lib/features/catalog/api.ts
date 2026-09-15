@@ -82,6 +82,24 @@ function transformLibraryQueryResponse(
     : { results: [], total: 0, page: 0, totalPages: 0 };
 }
 
+/**
+ * The tags an artist's shelf reads provide, in one place because the two reads
+ * that use them are now definitionally coupled: the next call number a release
+ * would be assigned is a function of what is already on the shelf, so anything
+ * that changes the shelf makes both `getArtistReleases` and
+ * `getNextReleaseNumber` stale together. The id-scoped tag lets a same-artist
+ * writer (`addAlbum`) refetch just that artist; the shared `LIST` tag catches
+ * writers that cannot name the artist ahead of the write — the modern filing
+ * bench's `fileRelease`, a re-attributing `updateAlbum` — which invalidate
+ * `LIST` alone. Providing only the id-scoped tag on `getNextReleaseNumber`
+ * would miss those, leaving a call number the bench just consumed prepopulated
+ * on the classic add card, so both reads must provide both tags.
+ */
+const artistReleaseTags = (artistId: number) => [
+  { type: "ArtistReleaseList" as const, id: String(artistId) },
+  { type: "ArtistReleaseList" as const, id: "LIST" as const },
+];
+
 export const catalogApi = createApi({
   reducerPath: "catalogApi",
   baseQuery: backendBaseQuery("library"),
@@ -450,10 +468,7 @@ export const catalogApi = createApi({
       // "The artist does not have any library releases" -- a positive claim
       // about the shelf. A librarian who believes it files a duplicate.
       extraOptions: { surfaceNonJsonAsError: true },
-      providesTags: (_result, _error, { artistId }) => [
-        { type: "ArtistReleaseList", id: String(artistId) },
-        { type: "ArtistReleaseList", id: "LIST" },
-      ],
+      providesTags: (_result, _error, { artistId }) => artistReleaseTags(artistId),
     }),
     /**
      * The call number a new release filed under this artist would be assigned,
@@ -462,19 +477,20 @@ export const catalogApi = createApi({
      * server's own MAX+1 assignment when this cannot be read, so an unreachable
      * peek must not throw -- it resolves to no prepopulated number.
      *
-     * Shares the artist's release-list tag rather than owning one: the next
-     * call number is a function of what is already on the shelf, so the same
-     * `addAlbum` that appends a release makes this number stale. Reusing the
-     * tag refetches it after a save without a second invalidation on the
-     * mutation, keeping a now-wrong number off the form.
+     * Shares the artist's release-list tags rather than owning any (see
+     * `artistReleaseTags`): the next call number is a function of what is
+     * already on the shelf, so every write that changes the shelf makes this
+     * number stale. Providing both the id-scoped and the shared `LIST` tag
+     * refetches it after a same-artist `addAlbum` AND after a writer that can
+     * only invalidate `LIST` — the modern bench's `fileRelease`, a
+     * re-attributing `updateAlbum` — keeping a just-consumed number off the
+     * form without a second invalidation on any of those mutations.
      */
     getNextReleaseNumber: builder.query<NextReleaseNumberResponse, number>({
       query: (artistId) => ({
         url: `/artists/${artistId}/next-release-number`,
       }),
-      providesTags: (_result, _error, artistId) => [
-        { type: "ArtistReleaseList", id: String(artistId) },
-      ],
+      providesTags: (_result, _error, artistId) => artistReleaseTags(artistId),
     }),
     peekArtistCode: builder.query<PeekArtistCodeResponse, PeekArtistCodeQuery>({
       query: ({ code_letters, genre_id }) => ({
