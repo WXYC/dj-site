@@ -79,7 +79,7 @@ function UrlListInput({ value, onChange }: UrlListInputProps) {
         <Stack key={row.id} direction="row" spacing={1}>
           <Input
             value={row.url}
-            slotProps={{ input: { "aria-label": `URL ${index + 1}` } }}
+            slotProps={{ input: { "aria-label": `Release link URL ${index + 1}` } }}
             placeholder={PLACEHOLDER}
             onChange={(e) =>
               commit(rows.map((r) => (r.id === row.id ? { ...r, url: e.target.value } : r)))

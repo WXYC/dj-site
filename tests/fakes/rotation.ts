@@ -178,9 +178,9 @@ export type FakeRotationCard = {
 
 /**
  * Stateful stand-in for `GET/POST /library/rotation/cards`. `POST` assigns
- * `max(number)+1` within the posted bin, matching the contract's contiguous
- * 1..N numbering (wxyc-shared#460) -- a test creating a card never has to
- * pass the number itself.
+ * `max(number)+1` within the posted bin, matching the contract's gap-free
+ * contiguous 1..N numbering -- a test creating a card never has to pass the
+ * number itself.
  */
 export function fakeRotationCardsEndpoints(initial: FakeRotationCard[]) {
   let cards = [...initial];
