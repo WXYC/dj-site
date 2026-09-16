@@ -33,12 +33,3 @@ export const DISC_QUANTITY_MAX = 99;
  * decision rather than something the endpoint enforces.
  */
 export const CROSSREFERENCE_QUERY_MAX_LIMIT = 500;
-
-/**
- * Where the classic live search keeps its query. `SearchForm` writes the
- * debounced query into this URL and `SearchResults` reads it back out, so a
- * copy of the pair mounted on another screen has to be told that screen's path
- * instead — otherwise the first keystroke navigates the reader off the screen
- * they were searching from.
- */
-export const CLASSIC_CATALOG_SEARCH_PATH = "/dashboard/catalog";

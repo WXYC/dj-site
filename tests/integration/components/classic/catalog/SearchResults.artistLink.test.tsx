@@ -7,6 +7,7 @@ const mockSearchCatalogQuery = vi.fn();
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ replace: vi.fn() }),
   useSearchParams: () => new URLSearchParams("searchString=fust"),
+  usePathname: () => "/dashboard/catalog",
 }));
 
 vi.mock("@/lib/features/catalog/api", async (importOriginal) => {

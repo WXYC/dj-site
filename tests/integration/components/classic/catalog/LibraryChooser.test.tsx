@@ -24,6 +24,7 @@ let mockSearchParams = new URLSearchParams("");
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), replace: mockReplace }),
   useSearchParams: () => mockSearchParams,
+  usePathname: () => "/dashboard/library",
 }));
 
 const mockSearchCatalogQuery = vi.fn();
@@ -112,9 +113,13 @@ describe("classic LibraryChooser — chooseLibraryCodeOrArtist.jsp + multipleArt
     expect(artistFormIndex).toBeGreaterThan(hrIndex);
     expect(newArtistFormIndex).toBeGreaterThan(artistFormIndex);
     expect(html.slice(artistFormIndex, newArtistFormIndex)).not.toContain("<hr");
+    // EXACTLY one, not merely at least one: the ordering assertions above are
+    // all satisfied by a duplicate rule sitting in this same span, and the JSP
+    // draws a single line there.
+    expect(html.slice(rotationBlockIndex, artistFormIndex).match(/<hr/g)).toHaveLength(1);
   });
 
-  it("replaces both forms with the disambiguation screen on a multi-match, matching the JSP's full-page swap", async () => {
+  it("swaps the JSP's own blocks for the disambiguation screen, and keeps the free-text search mounted", async () => {
     const { user } = renderWithProviders(<LibraryChooser />);
     expect(capturedOnMultiMatch).toBeDefined();
 
@@ -123,6 +128,12 @@ describe("classic LibraryChooser — chooseLibraryCodeOrArtist.jsp + multipleArt
     expect(await screen.findByTestId("multiple-artists-display")).toBeInTheDocument();
     expect(screen.queryByTestId("artist-search-form")).not.toBeInTheDocument();
     expect(screen.queryByTestId("new-artist-form")).not.toBeInTheDocument();
+    // The search is NOT part of that swap, and this is the pin for it. Its RTK
+    // Query subscription has to outlive the disambiguation screen: scanning a
+    // 27-owner bucket outlasts the unsubscribed-cache window, so unmounting it
+    // here means the librarian returns to a refetch with their typed query
+    // gone. Same hazard the `useGetGenresQuery()` hoist already guards.
+    expect(screen.getByPlaceholderText(/type to search .*releases/i)).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "back" }));
 

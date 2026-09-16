@@ -2,9 +2,8 @@
 
 import type { CSSProperties } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useSearchCatalogQuery } from "@/lib/features/catalog/api";
-import { CLASSIC_CATALOG_SEARCH_PATH } from "@/lib/features/catalog/constants";
 import { isRotationAdminEnabled } from "@/lib/features/rotation/flags";
 import { rotationLocationFor } from "@/lib/features/rotation/location";
 import { artistCardHref } from "@/lib/features/catalog/artistCardRoute";
@@ -59,15 +58,11 @@ const artistRowHref = (
  * without a round trip, and the catalog stays reachable by any authenticated
  * DJ — the authority decides the destination, never the access.
  */
-export default function SearchResults({
-  canModify,
-  searchPath = CLASSIC_CATALOG_SEARCH_PATH,
-}: {
-  canModify: boolean;
-  /** The screen these results are mounted on; see the constant's doc. */
-  searchPath?: string;
-}) {
+export default function SearchResults({ canModify }: { canModify: boolean }) {
   const router = useRouter();
+  // The facet chip rewrites the query on whatever screen this is mounted on --
+  // see the note in `SearchForm`, which writes the same URL.
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const searchString = searchParams.get("searchString") || "";
   const exclusive = searchParams.get("exclusive") === "true";
@@ -94,7 +89,7 @@ export default function SearchResults({
     const params = new URLSearchParams(Array.from(searchParams.entries()));
     params.delete("exclusive");
     const qs = params.toString();
-    router.replace(qs ? `${searchPath}?${qs}` : searchPath);
+    router.replace(qs ? `${pathname}?${qs}` : pathname);
   };
 
   // Mirrors tubafrenzy's facet bar: the Exclusive availability filter renders
