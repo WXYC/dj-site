@@ -63,6 +63,19 @@ describe("getCachedGenres", () => {
     expect(await getCachedGenres()).toBeUndefined();
   });
 
+  // A throw inside the `"use cache"` scope escapes the caller's try/catch and
+  // fails the production build, which prerenders this route with no backend
+  // reachable. Every failure path must resolve, never reject.
+  it.each([
+    ["a non-2xx response", () => jsonResponse(genres, false)],
+    ["a non-array body", () => jsonResponse({ genres })],
+    ["an empty body", () => jsonResponse(undefined)],
+    ["a rejected fetch", () => { throw new Error("timeout"); }],
+  ])("never rejects on %s", async (_label, respond) => {
+    vi.stubGlobal("fetch", vi.fn(async () => respond()));
+    await expect(getCachedGenres()).resolves.not.toThrow();
+  });
+
   it("fails open to undefined when the backend url is unset", async () => {
     delete process.env.NEXT_PUBLIC_BACKEND_URL;
     const fetchMock = vi.fn();

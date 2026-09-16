@@ -6,48 +6,33 @@ import { fetchBackendJson } from "../server-fetch";
 import type { LibraryGenreRow } from "./types";
 
 /**
- * Cached inner accessor for the near-static library genre list, tagged "genres"
- * with an hours-scale lifetime. THROWS on any failure (non-2xx, empty/non-JSON
- * body, or a non-array payload): Next's use-cache runtime does not persist an
- * errored stream, so throwing is what prevents a transient failure from being
- * cached as an empty list for the whole cacheLife window.
+ * The near-static library genre list, cached under the "genres" tag with an
+ * hours-scale lifetime, for seeding the catalog Filters autocomplete.
  *
- * Must stay argument-pure: a `"use cache"` function cannot read cookies or
- * headers, so it reads only build/runtime env and never request state — which
- * is what lets it compose inside the auth-gated catalog route.
+ * MUST NOT THROW. Cache Components prerenders this route, so this function runs
+ * during the production build with no backend reachable — and an error raised
+ * inside a `"use cache"` scope escapes any `try/catch` around the call and
+ * fails the build outright. Every failure therefore resolves to `undefined`.
  *
- * CONSTRAINTS on real effect today:
- *  - The backend genre endpoint requires an authenticated caller, and this
- *    accessor is header-less by construction (a cached function cannot read the
- *    session), so the request is rejected and the wrapper yields an empty seed
- *    on every request in every environment. A live seed needs Backend-Service
- *    to expose the genre list on a public tier first.
- *  - Cross-request persistence and tag revalidation are inert: the OpenNext
- *    deployment wires the incremental cache and tag cache to no-op ("dummy")
- *    backends, so there is no store behind `cacheLife`/`cacheTag` and
- *    `revalidateTag("genres")` clears nothing. Only same-request memoization is
- *    live. Real caching requires the OpenNext KV/R2 cache adapter work.
+ * `undefined` means "no seed", which is the safe state: the page passes nothing,
+ * the client query keeps its loading affordance, and it stays the sole authority
+ * on the value. That is what makes caching a failure harmless — an empty array
+ * would not be, because it would render as a settled, genuinely-empty dropdown
+ * for the whole cacheLife window.
+ *
+ * Must stay argument-pure: a cached function cannot read cookies or headers, so
+ * it reads only env and never request state — which is what lets it compose
+ * inside this auth-gated route at all.
  */
-async function fetchCachedGenres(): Promise<LibraryGenreRow[]> {
+export async function getCachedGenres(): Promise<LibraryGenreRow[] | undefined> {
   "use cache";
   cacheLife("hours");
   cacheTag("genres");
 
-  const data = await fetchBackendJson<unknown>("/library/genres");
-  if (!Array.isArray(data)) {
-    throw new Error("expected an array of genres");
-  }
-  return data as LibraryGenreRow[];
-}
-
-/**
- * Uncached wrapper that fails open for the catalog Filters seed: returns
- * `undefined` on any failure so the page passes no seed and the client query's
- * loading affordance stays reachable (matches the established seed contract).
- */
-export async function getCachedGenres(): Promise<LibraryGenreRow[] | undefined> {
   try {
-    return await fetchCachedGenres();
+    const data = await fetchBackendJson<unknown>("/library/genres");
+    // A valid-JSON non-array 200 must not reach the consumer's `.map`.
+    return Array.isArray(data) ? (data as LibraryGenreRow[]) : undefined;
   } catch {
     return undefined;
   }
