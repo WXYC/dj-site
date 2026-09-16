@@ -38,6 +38,7 @@ import {
 import {
   FlowsheetQuery,
   FlowsheetSongEntry,
+  OnAirDJResponse,
 } from "@/lib/features/flowsheet/types";
 import { Rotation } from "@/lib/features/rotation/types";
 import { TEST_ENTITY_IDS, TEST_SEARCH_STRINGS } from "@/tests/helpers/constants";
@@ -493,13 +494,15 @@ export function createTestBinResponse(
 
 // On-air DJ fixtures
 export function createTestOnAirDJResponse(
-  overrides: { id?: string | null; dj_name?: string } = {}
-) {
+  overrides: { id?: string | null; dj_name?: string | null } = {}
+): OnAirDJResponse {
   return {
     // `?? "1"` would clobber an explicit null (a legacy DJ, BS#1547); default
     // only when the caller omitted id entirely.
     id: overrides.id === undefined ? "1" : overrides.id,
-    dj_name: overrides.dj_name ?? "Test DJ",
+    // Same clobber hazard: null is the wire's anonymous-DJ value, not an
+    // absent override.
+    dj_name: overrides.dj_name === undefined ? "Test DJ" : overrides.dj_name,
   };
 }
 

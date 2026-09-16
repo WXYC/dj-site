@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { screen, fireEvent } from "@testing-library/react";
+import { renderWithProviders as render } from "@/tests/helpers";
 import type {
   FlowsheetSongEntry,
   FlowsheetBreakpointEntry,
@@ -37,6 +38,9 @@ vi.mock("@/src/widgets/NowPlaying/GradientAudioVisualizer", () => ({
 const mockMode = vi.fn(() => "light" as string | undefined);
 vi.mock("@mui/joy/styles", () => ({
   useColorScheme: () => ({ mode: mockMode() }),
+  // `renderWithProviders` wraps every render in this; the rest of the file
+  // mocks Joy away, so it has to resolve to something renderable.
+  CssVarsProvider: ({ children }: any) => <>{children}</>,
 }));
 
 // Mock MUI Joy components
@@ -277,6 +281,94 @@ describe("NowPlayingMini", () => {
 
     it("should not render chips when onAirDJs is empty", () => {
       render(<NowPlayingMini {...createDefaultProps({ live: true, onAirDJs: [] })} />);
+      expect(screen.queryByTestId("chip")).not.toBeInTheDocument();
+    });
+  });
+
+  // An anonymous DJ reaches this widget with no name: the backend resolves a
+  // blank or "Anonymous" on-air handle to null. A chip with nothing in it
+  // reads as a rendering fault, so such a DJ gets no chip — liveness is the
+  // LIVE badge's job, and it counts the roster rather than the chips.
+  describe("DJs with no on-air handle", () => {
+    it.each([
+      ["a null name", null],
+      ["an empty name", ""],
+      ["a whitespace-only name", "   "],
+    ])("renders no chip for %s", (_label, dj_name) => {
+      const djs: OnAirDJResponse[] = [{ id: "1", dj_name }];
+      render(
+        <NowPlayingMini {...createDefaultProps({ live: true, onAirDJs: djs })} />
+      );
+      expect(screen.queryByTestId("chip")).not.toBeInTheDocument();
+    });
+
+    it("keeps the named DJ and drops the nameless one from a mixed roster", () => {
+      const djs: OnAirDJResponse[] = [
+        { id: "1", dj_name: "Turncoat" },
+        { id: "2", dj_name: null },
+      ];
+      render(
+        <NowPlayingMini {...createDefaultProps({ live: true, onAirDJs: djs })} />
+      );
+      expect(screen.getAllByTestId("chip")).toHaveLength(1);
+      expect(screen.getByText("Turncoat")).toBeInTheDocument();
+    });
+
+    it("still reads LIVE when every DJ on air is nameless", () => {
+      const djs: OnAirDJResponse[] = [{ id: "1", dj_name: null }];
+      render(
+        <NowPlayingMini {...createDefaultProps({ live: true, onAirDJs: djs })} />
+      );
+      expect(screen.getByText("LIVE")).toBeInTheDocument();
+    });
+  });
+
+  // Handles are not unique and `id` is null for a DJ with no account, so a
+  // roster can hold two entries that are indistinguishable by either field
+  // alone. The reconciler needs them told apart regardless.
+  describe("DJ chip keys", () => {
+    function keyWarningsDuring(djs: OnAirDJResponse[]): unknown[][] {
+      const consoleError = vi
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
+      try {
+        render(
+          <NowPlayingMini
+            {...createDefaultProps({ live: true, onAirDJs: djs })}
+          />
+        );
+        return consoleError.mock.calls.filter((args) =>
+          args.some((arg) => typeof arg === "string" && arg.includes("key"))
+        );
+      } finally {
+        consoleError.mockRestore();
+      }
+    }
+
+    it("distinguishes two DJs sharing a handle", () => {
+      const djs: OnAirDJResponse[] = [
+        { id: "1", dj_name: "Turncoat" },
+        { id: "2", dj_name: "Turncoat" },
+      ];
+      expect(keyWarningsDuring(djs)).toEqual([]);
+      expect(screen.getAllByTestId("chip")).toHaveLength(2);
+    });
+
+    it("distinguishes two account-less DJs sharing a handle", () => {
+      const djs: OnAirDJResponse[] = [
+        { id: null, dj_name: "Turncoat" },
+        { id: null, dj_name: "Turncoat" },
+      ];
+      expect(keyWarningsDuring(djs)).toEqual([]);
+      expect(screen.getAllByTestId("chip")).toHaveLength(2);
+    });
+
+    it("warns about nothing when two anonymous DJs are on air together", () => {
+      const djs: OnAirDJResponse[] = [
+        { id: null, dj_name: null },
+        { id: null, dj_name: null },
+      ];
+      expect(keyWarningsDuring(djs)).toEqual([]);
       expect(screen.queryByTestId("chip")).not.toBeInTheDocument();
     });
   });

@@ -87,11 +87,28 @@ export default function NowPlayingMini({
       <CardContent sx={{ justifyContent: "space-between", minWidth: 0, flex: 1, overflow: "hidden" }}>
         <EntryText entry={entry} />
         <Stack direction="row" spacing={1} alignItems="center" sx={{ flexWrap: "wrap" }}>
-          {onAirDJs?.map((dj) => (
-            <Chip key={dj.dj_name} variant="soft" startDecorator={<Headset />}>
-              {dj.dj_name}
-            </Chip>
-          ))}
+          {onAirDJs
+            ?.map((dj) => ({ dj, name: dj.dj_name?.trim() ?? "" }))
+            // An anonymous DJ resolves to no name at all, and a chip with
+            // nothing in it reads as a rendering fault rather than as a DJ.
+            // The trim matches the blank-name filter the on-air banner
+            // applies, so both surfaces agree on who has a name; liveness is
+            // carried by the LIVE badge, which counts the roster rather than
+            // the chips.
+            .filter(({ name }) => name.length > 0)
+            .map(({ dj, name }, index) => (
+              <Chip
+                // Neither field alone can key this row: names are not unique,
+                // and `id` is null for a show whose DJ has no account. The
+                // `#` prefix keeps the positional fallback out of the id
+                // space so the two can never coincide.
+                key={dj.id ?? `#${index}`}
+                variant="soft"
+                startDecorator={<Headset />}
+              >
+                {name}
+              </Chip>
+            ))}
         </Stack>
       </CardContent>
       <CardOverflow

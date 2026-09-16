@@ -30,11 +30,10 @@ import {
  */
 export function formatOnAirSummary(djs: OnAirDJResponse[]): string {
   return formatNameList(
-    // `dj_name` is declared non-nullable and the wire disagrees: the backend
-    // resolves a blank or "Anonymous" handle to `null`. Coerce rather than
-    // trust the declaration — `.trim()` downstream throws, and this runs on
-    // the server-render seed path OUTSIDE the seed fetch's catch, so the throw
-    // takes the public page down instead of degrading it to its loading state.
+    // An anonymous DJ carries no name — the backend resolves a blank or
+    // "Anonymous" handle to `null`. Mapping that to `""` hands it to the
+    // blank-name filter, which drops it; a roster of nothing but anonymous
+    // DJs therefore reads as the off-air label.
     djs.map((dj) => dj.dj_name ?? ""),
     { whenEmpty: OFF_AIR_LABEL }
   );
