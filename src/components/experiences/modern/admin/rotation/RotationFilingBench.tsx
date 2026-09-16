@@ -121,9 +121,15 @@ export default function RotationFilingBench(): JSX.Element {
   const [conflict, setConflict] = useState<FilingConflict | null>(null);
   const [failed, setFailed] = useState(false);
   const [filings, setFilings] = useState<LibraryFilingResponse[]>([]);
-  // Written only by the checkbox handler. The mode survives a filing the way
-  // genre, label, format and bin do — an MD files compilations in stacks.
+  // Written by the checkbox handler and by a Discogs resolve. The mode survives
+  // a filing the way genre, label, format and bin do — an MD files compilations
+  // in stacks.
   const [vaChecked, setVaChecked] = useState(false);
+  // Who Discogs credited the last resolved release to. Not a copy of the artist
+  // field: that field also holds names the MD typed, and only a resolved credit
+  // can contradict the checkbox. Cleared the moment it stops describing what is
+  // on screen.
+  const [prefillArtistName, setPrefillArtistName] = useState<string | null>(null);
 
   // A checked box always has a genre to resolve against: the checkbox is
   // disabled until one is selected, and the genre Select offers no way back to
@@ -214,6 +220,16 @@ export default function RotationFilingBench(): JSX.Element {
   // The render guard, not a backstop: entering compilation state leaves
   // `creating` alone, so unchecking restores a half-filled create panel rather
   // than discarding what the MD typed into it.
+  // Discogs resolved a release credited to one artist while the box is checked.
+  // Stated rather than acted on: auto-checking follows a fact where nothing was
+  // decided, but auto-unchecking would silently undo a decision the MD made —
+  // the same line the shelf suggestion holds against an overruled pick. The
+  // submit is held because filing this to the V/A shelf is the misfile.
+  const compilationArtistMismatch =
+    compilationActive &&
+    prefillArtistName !== null &&
+    !isCompilationReleaseArtistName(prefillArtistName);
+
   const showCreatePanel = creating && selectedArtist === null && !compilationActive;
   const compilationSynonym = isCompilationReleaseArtistName(trimmedArtist);
   const createFieldsReady =
@@ -247,6 +263,7 @@ export default function RotationFilingBench(): JSX.Element {
   // what files a row nobody can find, or a bucket that already exists.
   const compilationReady =
     compilationActive &&
+    !compilationArtistMismatch &&
     (compilation.resolvedArtistId !== null || compilation.outcome === "create");
   const readyExceptLabel =
     !isFiling &&
@@ -294,6 +311,8 @@ export default function RotationFilingBench(): JSX.Element {
     setArtistText(value);
     dedup.onNameChange(value);
     clearArtistConflict();
+    // Typing over the resolved name ends the resolve's claim on this record.
+    setPrefillArtistName(null);
   };
 
   const handleArtistSelected = (artist: ArtistInGenreOption) => {
@@ -312,6 +331,10 @@ export default function RotationFilingBench(): JSX.Element {
     // genre does not change here. Left standing, it would outrank the next
     // record's suggestion and arm a filing on the previous record's shelf.
     compilation.clearPick();
+    // Unchecking is the answer to a mismatch notice, so the notice goes with
+    // it. Checking is not: a resolved single-artist credit still contradicts a
+    // box the MD has just ticked, and that is exactly when saying so matters.
+    if (!checked) setPrefillArtistName(null);
     if (checked) {
       // The two artist arms never coexist: entering compilation state drops a
       // held selection. `creating` is left alone — the render guard hides the
@@ -419,6 +442,20 @@ export default function RotationFilingBench(): JSX.Element {
       clearArtistConflict();
       setAlbumTitle(prefill.album_title);
       setLabel(prefill.label ?? "");
+      setPrefillArtistName(prefill.artist_name);
+      // Each resolve is a different record. A pick made for the previous one
+      // would outrank this title's suggestion and arm the filing with no
+      // gesture — the same hazard the post-filing reset and the checkbox
+      // handler already clear, reached by a third route.
+      compilation.clearPick();
+      // A Discogs credit of "Various" is a fact about the release, not a guess
+      // about it, and an unchecked box is the absence of a decision rather than
+      // a decision — so this overrules nothing. The reverse is not symmetric:
+      // see the mismatch notice, which states the contradiction instead of
+      // undoing a choice the MD made.
+      if (isCompilationReleaseArtistName(prefill.artist_name)) {
+        setVaChecked(true);
+      }
       // Record the definitive Discogs link on the release. `urls` is the one
       // release-scoped links channel the composite already carries, so this
       // needs no submission-wiring change; it surfaces in Additional links.
@@ -486,6 +523,8 @@ export default function RotationFilingBench(): JSX.Element {
       setAlbumTitle("");
       setUrls([]);
       dedup.reset();
+      // The filed record's credit says nothing about the next one.
+      setPrefillArtistName(null);
       // The mode persists for the batch, but each record chooses its own
       // shelf: the reset keeps the genre, so a surviving pick would arm the
       // next filing with no gesture. The held answer refreshes itself — the
@@ -639,7 +678,13 @@ export default function RotationFilingBench(): JSX.Element {
                   disabled={genreId === null || isFiling}
                 />
               )}
-              {compilationActive ? (
+              {compilationArtistMismatch ? (
+                <FormHelperText sx={{ color: "danger.500" }} role="alert">
+                  Discogs credits this release to {prefillArtistName} — uncheck to
+                  file under that artist, or clear the link if this really is a
+                  compilation.
+                </FormHelperText>
+              ) : compilationActive ? (
                 <FormHelperText>
                   Filing as a Various Artists compilation — per-track credits are
                   optional and can be added later on the album.
