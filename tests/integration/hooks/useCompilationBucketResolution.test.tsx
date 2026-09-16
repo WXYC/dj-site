@@ -33,13 +33,15 @@ function bucket(id: number, artist_name: string, genre_id = ROCK_GENRE_ID) {
   };
 }
 
-function renderResolution(initial: { active: boolean; genreId: number | null }) {
+type ResolutionProps = { active: boolean; genreId: number | null; albumTitle?: string };
+
+function renderResolution(initial: ResolutionProps) {
   const store = createTestStore();
   const wrapper = ({ children }: { children: ReactNode }) =>
     createElement(Provider, { store, children });
   const view = renderHook(
-    ({ active, genreId }: { active: boolean; genreId: number | null }) =>
-      useCompilationBucketResolution(active, genreId),
+    ({ active, genreId, albumTitle = "" }: ResolutionProps) =>
+      useCompilationBucketResolution({ active, genreId, albumTitle }),
     { wrapper, initialProps: initial },
   );
   return { ...view, store };
@@ -211,6 +213,87 @@ describe("useCompilationBucketResolution — freshness and the pick", () => {
     expect(result.current.resolvedArtistId).toBe(42);
 
     rerender({ active: true, genreId: SOUNDTRACKS_GENRE_ID });
+    expect(result.current.resolvedArtistId).toBeNull();
+  });
+
+  it("suggests the shelf the title alphabetizes onto, and follows further typing", async () => {
+    server.use(
+      http.get(BY_CODE_URL, () =>
+        HttpResponse.json({
+          artists: [
+            bucket(51, "Various Artists - Rock - H"),
+            bucket(52, "Various Artists - Rock - S"),
+          ],
+        }),
+      ),
+    );
+
+    const { result, rerender } = renderResolution({
+      active: true,
+      genreId: ROCK_GENRE_ID,
+      albumTitle: "",
+    });
+
+    await waitFor(() => expect(result.current.outcome).toBe("picking"));
+    expect(result.current.resolvedArtistId).toBeNull();
+
+    rerender({ active: true, genreId: ROCK_GENRE_ID, albumTitle: "Hell Comes to Your House" });
+    expect(result.current.suggestedArtistId).toBe(51);
+    expect(result.current.resolvedArtistId).toBe(51);
+
+    // Retitling moves a suggestion the librarian has not overruled.
+    rerender({ active: true, genreId: ROCK_GENRE_ID, albumTitle: "Sunday Sessions" });
+    expect(result.current.resolvedArtistId).toBe(52);
+  });
+
+  it("never moves a shelf the librarian picked, however the title changes", async () => {
+    server.use(
+      http.get(BY_CODE_URL, () =>
+        HttpResponse.json({
+          artists: [
+            bucket(51, "Various Artists - Rock - H"),
+            bucket(52, "Various Artists - Rock - S"),
+          ],
+        }),
+      ),
+    );
+
+    const { result, rerender } = renderResolution({
+      active: true,
+      genreId: ROCK_GENRE_ID,
+      albumTitle: "Hell Comes to Your House",
+    });
+
+    await waitFor(() => expect(result.current.resolvedArtistId).toBe(51));
+
+    // The compilations filed by subject rather than title are exactly why the
+    // librarian must be able to overrule this and have it stay overruled.
+    act(() => result.current.pick(52));
+    rerender({ active: true, genreId: ROCK_GENRE_ID, albumTitle: "Hell Comes to Your House, vol. 2" });
+    expect(result.current.resolvedArtistId).toBe(52);
+    expect(result.current.suggestedArtistId).toBe(51);
+  });
+
+  it("suggests nothing when the genre has no shelf for that letter", async () => {
+    server.use(
+      http.get(BY_CODE_URL, () =>
+        HttpResponse.json({
+          artists: [
+            bucket(51, "Various Artists - Rock - H"),
+            bucket(52, "Various Artists - Rock - S"),
+          ],
+        }),
+      ),
+    );
+
+    const { result } = renderResolution({
+      active: true,
+      genreId: ROCK_GENRE_ID,
+      albumTitle: "Zebra Records Sampler",
+    });
+
+    await waitFor(() => expect(result.current.outcome).toBe("picking"));
+    expect(result.current.suggestedArtistId).toBeNull();
     expect(result.current.resolvedArtistId).toBeNull();
   });
 

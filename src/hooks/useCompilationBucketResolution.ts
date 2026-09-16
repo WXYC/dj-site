@@ -7,6 +7,7 @@ import {
   VARIOUS_ARTISTS_CODE_LETTERS,
   VARIOUS_ARTISTS_CODE_NUMBER,
 } from "@/lib/features/catalog/libraryCode";
+import { findSuggestedShelfId } from "@/lib/features/catalog/compilationShelf";
 import { resolveArtistByCodeErrorReason } from "@/lib/features/catalog/libraryCodeResolution";
 import type { ArtistByCodeOwner, ResolveArtistByCodeQuery } from "@/lib/features/catalog/types";
 
@@ -38,11 +39,17 @@ export type CompilationBucketResolution = {
   /** The buckets sharing the genre's compilation code; empty unless settled. */
   owners: ArtistByCodeOwner[];
   /**
-   * The artist the filing would use: the sole owner, or the librarian's pick.
-   * Null whenever the outcome is one submit must not act on, so a reader
-   * gating on `outcome` and one reading this directly never disagree.
+   * The artist the filing would use: the sole owner, the librarian's pick, or
+   * the shelf the title alphabetizes onto when they have not picked. Null
+   * whenever the outcome is one submit must not act on, so a reader gating on
+   * `outcome` and one reading this directly never disagree.
    */
   resolvedArtistId: number | null;
+  /**
+   * The shelf suggested from the album title, for the panel to caption. Null
+   * when the title names no letter this genre has a shelf for.
+   */
+  suggestedArtistId: number | null;
   pick: (artistId: number) => void;
   /**
    * Forget the pick. The post-filing reset preserves the genre, so without
@@ -69,10 +76,16 @@ export type CompilationBucketResolution = {
  * Mount this only under an MD gate — the filing bench already provides one
  * around the whole form.
  */
-export function useCompilationBucketResolution(
-  active: boolean,
-  genreId: number | null,
-): CompilationBucketResolution {
+export function useCompilationBucketResolution({
+  active,
+  genreId,
+  albumTitle,
+}: {
+  active: boolean;
+  genreId: number | null;
+  /** Drives the shelf suggestion; a picked shelf always outranks it. */
+  albumTitle: string;
+}): CompilationBucketResolution {
   const arg: ResolveArtistByCodeQuery | null = useMemo(
     () =>
       active && genreId !== null
@@ -120,13 +133,22 @@ export function useCompilationBucketResolution(
   const pickedId =
     picked !== null && picked.genreId === genreId ? picked.artistId : null;
 
+  const suggestedArtistId = useMemo(
+    () => (outcome === "picking" ? findSuggestedShelfId(albumTitle, owners) : null),
+    [outcome, albumTitle, owners],
+  );
+
   const resolvedArtistId = useMemo(() => {
     if (outcome === "existing") return owners[0].id;
     if (outcome !== "picking") return null;
     // A pick the current answer no longer contains cannot arm a filing: a
     // refetch can reshape the shelf under a pick already made.
-    return owners.some((owner) => owner.id === pickedId) ? pickedId : null;
-  }, [outcome, owners, pickedId]);
+    if (owners.some((owner) => owner.id === pickedId)) return pickedId;
+    // Derived, never written into the pick: the librarian's choice therefore
+    // outranks the suggestion by construction, and editing the title moves a
+    // suggestion they have not overruled without ever moving one they have.
+    return suggestedArtistId;
+  }, [outcome, owners, pickedId, suggestedArtistId]);
 
   const pick = useCallback(
     (artistId: number) => {
@@ -146,5 +168,5 @@ export function useCompilationBucketResolution(
     refetchQuery();
   }, [arg, refetchQuery]);
 
-  return { outcome, owners, resolvedArtistId, pick, clearPick, refetch };
+  return { outcome, owners, resolvedArtistId, suggestedArtistId, pick, clearPick, refetch };
 }
