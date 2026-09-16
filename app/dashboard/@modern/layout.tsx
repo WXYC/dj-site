@@ -6,6 +6,10 @@ import DesktopHeader from "@/src/components/experiences/modern/Header/DesktopHea
 import Leftbar from "@/src/components/experiences/modern/Leftbar/Leftbar";
 import AutoDJGreyscale from "@/src/components/experiences/modern/autoDJ/AutoDJGreyscale";
 
+// Allowed to block: the root layout resolves the session before this renders,
+// so nothing below it can prerender until that read moves behind Suspense.
+export const instant = false;
+
 export default function ModernDashboard({
   children,
 }: {

@@ -3,6 +3,10 @@ import ThemedLayout, { ThemedLayoutProps } from "@/src/ThemedLayout";
 import LoginBounceTelemetry from "./LoginBounceTelemetry";
 import SessionEndedNotice from "./SessionEndedNotice";
 
+// Allowed to block: the root layout resolves the session before this renders,
+// so nothing below it can prerender until that read moves behind Suspense.
+export const instant = false;
+
 const Layout = async (props: ThemedLayoutProps): Promise<JSX.Element> => {
   const themed = await ThemedLayout(props);
   return (

@@ -5,6 +5,10 @@ import { Authorization } from "@/lib/features/admin/types";
 import Main from "@/src/components/experiences/classic/Layout/Main";
 import RotationReleaseInsert from "@/src/components/experiences/classic/rotation/RotationReleaseInsert";
 
+// Allowed to block: the root layout resolves the session before this renders,
+// so nothing below it can prerender until that read moves behind Suspense.
+export const instant = false;
+
 export const metadata: Metadata = {
   title: getPageTitle("Add Rotation Release"),
 };

@@ -1,7 +1,12 @@
+import CopyrightYear from "@/src/components/shared/CopyrightYear";
 import { redirect } from "next/navigation";
 import Header from "@/src/components/experiences/classic/login/Layout/Header";
 import OnboardingForm from "@/src/components/experiences/modern/login/Forms/OnboardingForm";
 import AuthLinkSessionGuard from "@/src/components/experiences/modern/login/AuthLinkSessionGuard";
+
+// Allowed to block: the root layout resolves the session before this renders,
+// so nothing below it can prerender until that read moves behind Suspense.
+export const instant = false;
 
 type ClassicOnboardingPageProps = {
   searchParams: Promise<{ token?: string; error?: string }>;
@@ -43,7 +48,7 @@ export default async function ClassicOnboardingPage({ searchParams }: ClassicOnb
         </AuthLinkSessionGuard>
       )}
       <footer>
-        <p>Copyright &copy; {new Date().getFullYear()} WXYC Chapel Hill</p>
+        <p>Copyright &copy; <CopyrightYear /> WXYC Chapel Hill</p>
       </footer>
     </div>
   );

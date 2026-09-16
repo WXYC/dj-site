@@ -8,6 +8,10 @@ import { firstSearchParam } from "@/lib/utils/search-params";
 import { parseImportedReleaseParams } from "@/lib/features/rotation/importedConfirmation";
 import VariousArtistsCard from "@/src/components/experiences/classic/catalog/VariousArtistsCard";
 
+// Allowed to block: the root layout resolves the session before this renders,
+// so nothing below it can prerender until that read moves behind Suspense.
+export const instant = false;
+
 export const metadata: Metadata = {
   title: getPageTitle("View an Artist Card"),
 };

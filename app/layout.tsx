@@ -11,6 +11,10 @@ import ThemeRegistry from "@/src/styles/ThemeRegistry";
 import PageTitleUpdater from "@/src/components/shared/PageTitleUpdater";
 import { Metadata } from "next";
 
+// Allowed to block: the root layout resolves the session before this renders,
+// so nothing below it can prerender until that read moves behind Suspense.
+export const instant = false;
+
 export const metadata: Metadata = {
   icons: {
     icon: [

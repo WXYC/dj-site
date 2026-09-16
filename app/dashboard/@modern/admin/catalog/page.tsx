@@ -7,6 +7,10 @@ import { Stack } from "@mui/joy";
 import { Metadata } from "next";
 import { getPageTitle } from "@/lib/utils/page-title";
 
+// Allowed to block: the root layout resolves the session before this renders,
+// so nothing below it can prerender until that read moves behind Suspense.
+export const instant = false;
+
 export const metadata: Metadata = {
   title: getPageTitle("Catalog Admin"),
 };

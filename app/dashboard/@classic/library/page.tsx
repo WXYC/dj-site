@@ -5,6 +5,10 @@ import { Authorization } from "@/lib/features/admin/types";
 import Main from "@/src/components/experiences/classic/Layout/Main";
 import LibraryChooser from "@/src/components/experiences/classic/catalog/LibraryChooser";
 
+// Allowed to block: the root layout resolves the session before this renders,
+// so nothing below it can prerender until that read moves behind Suspense.
+export const instant = false;
+
 export const metadata: Metadata = {
   title: getPageTitle("Find an Artist"),
 };

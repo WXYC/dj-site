@@ -7,6 +7,10 @@ import {
   resolveLegacyReleaseId,
 } from "@/lib/features/catalog/legacy-permalink.server";
 
+// Allowed to block: the root layout resolves the session before this renders,
+// so nothing below it can prerender until that read moves behind Suspense.
+export const instant = false;
+
 /**
  * Legacy per-release permalink front door. External callers (LML lookups, the
  * Slack request line, wxyc.info) hold the tubafrenzy legacy release id, not the

@@ -1,6 +1,10 @@
 import { createServerSideProps } from "@/lib/features/session";
 import ExperienceGap from "@/src/components/experiences/modern/ExperienceGap";
 
+// Allowed to block: the root layout resolves the session before this renders,
+// so nothing below it can prerender until that read moves behind Suspense.
+export const instant = false;
+
 /**
  * Fallback for every `/dashboard` URL the modern slot has no page for — today
  * the classic-first librarian and rotation screens.

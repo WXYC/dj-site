@@ -8,6 +8,10 @@ import LoginFormSwitcher from "@/src/components/experiences/modern/login/Forms/L
 import { pickWelcomeQuote } from "@/src/components/experiences/modern/login/Quotes/Welcome";
 import { DEFAULT_DASHBOARD_HOME_PAGE } from "@/lib/features/application/constants";
 
+// Allowed to block: the root layout resolves the session before this renders,
+// so nothing below it can prerender until that read moves behind Suspense.
+export const instant = false;
+
 const DASHBOARD_HOME_PAGE =
   process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE || DEFAULT_DASHBOARD_HOME_PAGE;
 

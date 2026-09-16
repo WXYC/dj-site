@@ -1,4 +1,5 @@
 import { Box } from "@mui/joy";
+import CopyrightYear from "@/src/components/shared/CopyrightYear";
 
 
 export default function Footer() {
@@ -11,7 +12,7 @@ export default function Footer() {
         py: 3,
       }}
     >
-      Copyright © {new Date().getFullYear()} WXYC Chapel Hill
+      Copyright © <CopyrightYear /> WXYC Chapel Hill
     </Box>
   );
 }
