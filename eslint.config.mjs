@@ -50,6 +50,46 @@ const eslintConfig = [
     ],
   },
 
+  // --- eslint-plugin-react / ESLint 10 incompatibility ----------------------
+  // `eslint-config-next` enables eslint-plugin-react's `recommended` set, and
+  // that plugin still reads the rule context through `context.getFilename()`,
+  // removed in ESLint 10. It throws while *instantiating* the rule, so enabling
+  // any single one of these aborts the entire lint run with a TypeError rather
+  // than failing that one rule — the set is all-or-nothing until
+  // `eslint-config-next` ships a plugin that uses the post-v10 context API, at
+  // which point this block should be deleted rather than trimmed.
+  // `settings.react.version` is not a lever here: `eslint-config-next` sets it
+  // to 'detect', and pinning a version only shrinks the set of rules that
+  // crash. None of the 17 has a finding in this codebase today except
+  // `react/no-unescaped-entities` (20, all `'` in JSX text),
+  // `react/no-children-prop` (7, test harnesses passing `children` through
+  // `createElement`) and `react/display-name` (1, an inline mock component),
+  // so restoring the set later means clearing those first.
+  // `react/no-unknown-property`, `react/react-in-jsx-scope`,
+  // `react/prop-types`, `react/jsx-no-target-blank` and `react/no-unsafe` are
+  // already off upstream and need no entry.
+  {
+    rules: {
+      "react/display-name": "off",
+      "react/jsx-key": "off",
+      "react/jsx-no-comment-textnodes": "off",
+      "react/jsx-no-duplicate-props": "off",
+      "react/jsx-no-undef": "off",
+      "react/jsx-uses-react": "off",
+      "react/jsx-uses-vars": "off",
+      "react/no-children-prop": "off",
+      "react/no-danger-with-children": "off",
+      "react/no-deprecated": "off",
+      "react/no-direct-mutation-state": "off",
+      "react/no-find-dom-node": "off",
+      "react/no-is-mounted": "off",
+      "react/no-render-return-value": "off",
+      "react/no-string-refs": "off",
+      "react/no-unescaped-entities": "off",
+      "react/require-render-return": "off",
+    },
+  },
+
   // --- S19 (lint-setup) baseline triage ------------------------------------
   // Orchestrator override for this slice: config-only, zero edits to source
   // files. Every rule disabled or scoped below produced real findings
@@ -67,10 +107,6 @@ const eslintConfig = [
       // wants adapter-boundary types, not `any`), but a repo-wide `any`
       // sweep is a dedicated slice, not a lint-config change.
       "@typescript-eslint/no-explicit-any": "off",
-      // 20 findings, all `'` in JSX text (EntryForm.tsx, SearchForm.tsx,
-      // EmailChangeModal.tsx, etc). Cosmetic; mechanical &apos;-escape fix
-      // deferred to a source slice.
-      "react/no-unescaped-entities": "off",
       // 17 findings. eslint-plugin-react-hooks v7's React Compiler
       // readiness rule: flags setState calls in effect bodies (useMediaQuery,
       // useCanEditCatalog, several flowsheet/login components). Legitimate
@@ -101,10 +137,6 @@ const eslintConfig = [
   {
     files: TEST_FILES,
     rules: {
-      // 7 findings: test harnesses and mocks pass `children` through
-      // `createElement(Component, { ...props, children })` instead of as a
-      // positional arg (component-harness.ts and several *.test.tsx files).
-      "react/no-children-prop": "off",
       // 5 findings: Playwright's `test.extend({..., use})` fixture pattern
       // (e2e/fixtures/auth.fixture.ts) and an inline `vi.mock` factory
       // component (queue/page.test.tsx) both read as hook-rule violations
@@ -119,9 +151,6 @@ const eslintConfig = [
       // type as a quick stub signature (switch.test.ts, rightbar.test.ts,
       // session.test.ts).
       "@typescript-eslint/no-unsafe-function-type": "off",
-      // 1 finding: an inline anonymous mock component in
-      // useCatalogQueryResults.test.tsx never needs a displayName to debug.
-      "react/display-name": "off",
     },
   },
   {
