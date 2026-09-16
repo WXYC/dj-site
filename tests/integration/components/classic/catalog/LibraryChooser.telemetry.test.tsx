@@ -14,9 +14,13 @@ vi.mock("@/lib/features/authentication/client", async () => {
   };
 });
 
+// `usePathname` is needed because the chooser renders the free-text search
+// above the swap, and SearchForm/SearchResults read the screen they are mounted
+// on from the router rather than from a prop.
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
   useSearchParams: () => new URLSearchParams(),
+  usePathname: () => "/dashboard/library",
 }));
 
 const mockSafeCapture = vi.fn();
@@ -36,10 +40,21 @@ vi.mock("@/src/components/experiences/classic/catalog/NewArtistForm", () => ({
   default: () => <div data-testid="new-artist-form" />,
 }));
 vi.mock("@/src/components/experiences/classic/catalog/MultipleArtistsDisplay", () => ({
-  default: ({ onChooseAgain }: { onChooseAgain: () => void }) => (
+  // Both exits are stubbed, because the screen has two and they mean opposite
+  // things: `back` abandons the list, `choose` resolves it.
+  default: ({
+    onChooseAgain,
+    onChoose,
+  }: {
+    onChooseAgain: () => void;
+    onChoose?: (artist: { id: number }, index: number) => void;
+  }) => (
     <div data-testid="multiple-artists-display">
       <button type="button" onClick={onChooseAgain}>
         back
+      </button>
+      <button type="button" onClick={() => onChoose?.({ id: 4 }, 3)}>
+        choose
       </button>
     </div>
   ),
@@ -65,9 +80,8 @@ const capturesNamed = (event: string) =>
 
 /**
  * The disambiguation screen swaps in behind the chooser's own URL, so a visit
- * to it produces no pageview and, before this, no event of any kind: the whole
- * episode of landing on a 27-owner list, reading it, and going back was
- * invisible to every instrument.
+ * to it produces no pageview. These events are the only trace that landing on a
+ * 27-owner list, reading it, and leaving happened at all.
  */
 describe("classic LibraryChooser — disambiguation screen telemetry", () => {
   beforeEach(() => {
@@ -90,9 +104,8 @@ describe("classic LibraryChooser — disambiguation screen telemetry", () => {
     });
   });
 
-  // Without the leaving half, the screen's arrival is a trace with no end: how
-  // long a librarian spent on an unaddressable list is the question the silent
-  // window in the original report could not answer.
+  // Without a leaving half, the arrival is a trace with no end, and how long a
+  // librarian spent on an unaddressable list is unanswerable.
   it("records leaving it again", async () => {
     const { user } = renderWithProviders(<LibraryChooser />);
     act(() => capturedOnMultiMatch!(MULTI_MATCH));
@@ -102,6 +115,38 @@ describe("classic LibraryChooser — disambiguation screen telemetry", () => {
 
     await screen.findByTestId("artist-search-form");
     expect(capturesNamed("library_multi_match_dismissed")).toHaveLength(1);
+    // The payload, not just the count: a regression that emitted this with an
+    // empty body, or read a stale closure's triple, passes a length check.
+    expect(capturesNamed("library_multi_match_dismissed")[0][1]).toMatchObject({
+      owner_count: 27,
+      code_letters: "V/A",
+      code_number: 0,
+    });
+  });
+
+  /**
+   * The successful exit. A row link is a plain navigation, so it never runs
+   * through the state that produces DISMISSED -- leaving it uninstrumented
+   * would make SHOWN minus DISMISSED read as a permanent leak, and would
+   * restrict the dwell measurement to abandonments, which is the opposite of
+   * the population worth measuring.
+   */
+  it("records choosing an owner, with its position in the list", async () => {
+    const { user } = renderWithProviders(<LibraryChooser />);
+    act(() => capturedOnMultiMatch!(MULTI_MATCH));
+    await screen.findByTestId("multiple-artists-display");
+
+    await user.click(screen.getByRole("button", { name: "choose" }));
+
+    expect(capturesNamed("library_multi_match_resolved")).toHaveLength(1);
+    expect(capturesNamed("library_multi_match_resolved")[0][1]).toMatchObject({
+      owner_count: 27,
+      code_letters: "V/A",
+      code_number: 0,
+      owner_index: 3,
+    });
+    // Resolving is not abandoning; the two endings must not both fire.
+    expect(capturesNamed("library_multi_match_dismissed")).toHaveLength(0);
   });
 
   it("emits nothing while the chooser is merely on screen", () => {
@@ -109,5 +154,6 @@ describe("classic LibraryChooser — disambiguation screen telemetry", () => {
 
     expect(capturesNamed("library_multi_match_shown")).toHaveLength(0);
     expect(capturesNamed("library_multi_match_dismissed")).toHaveLength(0);
+    expect(capturesNamed("library_multi_match_resolved")).toHaveLength(0);
   });
 });

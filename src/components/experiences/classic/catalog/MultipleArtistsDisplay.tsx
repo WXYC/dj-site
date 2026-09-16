@@ -8,6 +8,15 @@ import type { MultiMatchResult } from "./ArtistSearchForm";
 type MultipleArtistsDisplayProps = MultiMatchResult & {
   /** Returns to the chooser -- `multipleArtistsDisplay.jsp`'s "Choose/Add Library Codes" link. */
   onChooseAgain: () => void;
+  /**
+   * A row link was taken, with its position in the list.
+   *
+   * This screen has TWO exits, and they mean opposite things: the header link
+   * above abandons the list, a row link resolves it. Only the header link runs
+   * through React state, so without this the successful exit -- the one a
+   * librarian takes after finding the right bucket -- leaves no trace at all.
+   */
+  onChoose?: (artist: { id: number }, index: number) => void;
 };
 
 /**
@@ -47,6 +56,7 @@ export default function MultipleArtistsDisplay({
   codeNumber,
   artists,
   onChooseAgain,
+  onChoose,
 }: MultipleArtistsDisplayProps) {
   const callLettersAndNumbers = formatCallLettersAndNumbers({
     code_letters: codeLetters,
@@ -100,7 +110,9 @@ export default function MultipleArtistsDisplay({
               <td style={{ textAlign: "right" }}>{genreName ?? ""}</td>
               <td style={{ textAlign: "left" }}>{callLettersAndNumbers}</td>
               <td>
-                <Link href={artistCardHref(artist)}>{artist.artist_name}</Link>
+                <Link href={artistCardHref(artist)} onClick={() => onChoose?.(artist, index)}>
+                  {artist.artist_name}
+                </Link>
               </td>
             </tr>
           ))}

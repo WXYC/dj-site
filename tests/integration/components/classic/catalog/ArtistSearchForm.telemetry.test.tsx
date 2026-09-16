@@ -74,9 +74,9 @@ async function submitTextboxCode(
 
 /**
  * The chooser's code search is the screen a reported failure has to be
- * reconstructed from, and until now it emitted nothing at all: a librarian
- * could search, be refused, and leave without any instrument recording that
- * anything happened. Each case here pins one outcome the search can reach.
+ * reconstructed from, and most of its endings leave no other trace: a librarian
+ * can search, be refused inline, and leave without a request being issued. Each
+ * case here pins one outcome the search can reach.
  */
 describe("classic ArtistSearchForm — code search telemetry", () => {
   beforeEach(() => {
@@ -148,9 +148,9 @@ describe("classic ArtistSearchForm — code search telemetry", () => {
     expect(mockPush).not.toHaveBeenCalled();
   });
 
-  // Reconstruction of the reported incident turned on which refusal a
-  // librarian saw, and the two are indistinguishable from the outside: both
-  // render an inline message and issue no request.
+  // The refusals are indistinguishable from outside — each renders an inline
+  // message and issues no request — so the token is the only thing separating
+  // them, and which one a librarian saw is what a reconstruction turns on.
   it("names which refusal an inline message came from", async () => {
     const { user } = renderWithProviders(<ArtistSearchForm onMultiMatch={mockOnMultiMatch} />);
 
