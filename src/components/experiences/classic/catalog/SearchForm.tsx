@@ -1,17 +1,19 @@
 "use client";
 
 import Image from "next/image";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { CLASSIC_CATALOG_SEARCH_PATH } from "@/lib/features/catalog/constants";
 
-export default function SearchForm({
-  searchPath = CLASSIC_CATALOG_SEARCH_PATH,
-}: {
-  /** The screen this form is mounted on; see the constant's doc. */
-  searchPath?: string;
-}) {
+export default function SearchForm() {
   const router = useRouter();
+  // The query lives in the URL of whatever screen this is mounted on, which is
+  // what `usePathname()` answers -- there is nothing for a caller to pass. An
+  // earlier draft took the path as an optional prop defaulting to
+  // `/dashboard/catalog`, which meant a third mount site that forgot it would
+  // navigate the reader off their own screen on the first keystroke: exactly
+  // the bug this form was being generalised to fix, reintroduced by omission.
+  // `scheduleWeekHooks.ts` writes its query the same way.
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const searchQuery = searchParams.get("searchString") || "";
   const exclusive = searchParams.get("exclusive") === "true";
@@ -37,7 +39,7 @@ export default function SearchForm({
       params.set("exclusive", "true");
     }
     const qs = params.toString();
-    router.replace(qs ? `${searchPath}?${qs}` : searchPath);
+    router.replace(qs ? `${pathname}?${qs}` : pathname);
   };
 
   const handleInput = (value: string) => {

@@ -6,9 +6,14 @@ const mockSearchCatalogQuery = vi.fn();
 const mockReplace = vi.fn();
 let mockSearchParams = new URLSearchParams("");
 
+// The facet chip rewrites the query on the screen these results are mounted on,
+// which the component reads from `usePathname()` rather than a prop.
+let mockPathname = "/dashboard/catalog";
+
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ replace: mockReplace }),
   useSearchParams: () => mockSearchParams,
+  usePathname: () => mockPathname,
 }));
 
 vi.mock("@/lib/features/catalog/api", async (importOriginal) => {
@@ -28,6 +33,7 @@ beforeEach(() => {
   mockSearchCatalogQuery.mockReset();
   mockReplace.mockReset();
   mockSearchParams = new URLSearchParams("");
+  mockPathname = "/dashboard/catalog";
 });
 
 describe("Classic catalog SearchResults — Exclusive filter", () => {
@@ -102,16 +108,15 @@ describe("Classic catalog SearchResults — Exclusive filter", () => {
     expect(replacedUrl).toBe("/dashboard/catalog");
   });
 
-  it("chip dismiss returns to the path the results were mounted on", async () => {
+  it("chip dismiss returns to the screen the results were mounted on", async () => {
+    mockPathname = "/dashboard/library";
     mockSearchParams = new URLSearchParams("exclusive=true");
     mockSearchCatalogQuery.mockReturnValue({
       data: [],
       isLoading: false,
       error: undefined,
     });
-    const { user } = renderWithProviders(
-      <SearchResults canModify searchPath="/dashboard/library" />,
-    );
+    const { user } = renderWithProviders(<SearchResults canModify />);
     await user.click(screen.getByTestId("classic-facet-chip-exclusive"));
     expect(mockReplace).toHaveBeenCalledWith("/dashboard/library");
   });

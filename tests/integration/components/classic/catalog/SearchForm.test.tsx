@@ -5,9 +5,14 @@ import { setFieldValue } from "@/tests/helpers";
 
 const mockReplace = vi.fn();
 let mockSearchParams = new URLSearchParams("");
+// The form writes its query back to the screen it is mounted on, which it reads
+// from `usePathname()` rather than from a prop — so the mounting screen is
+// simulated by the pathname the router reports, not by an argument.
+let mockPathname = "/dashboard/catalog";
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ replace: mockReplace }),
   useSearchParams: () => mockSearchParams,
+  usePathname: () => mockPathname,
 }));
 
 import SearchForm from "@/src/components/experiences/classic/catalog/SearchForm";
@@ -15,6 +20,7 @@ import SearchForm from "@/src/components/experiences/classic/catalog/SearchForm"
 beforeEach(() => {
   mockReplace.mockClear();
   mockSearchParams = new URLSearchParams("");
+  mockPathname = "/dashboard/catalog";
 });
 
 describe("Classic catalog SearchForm — live search input", () => {
@@ -137,16 +143,18 @@ describe("Classic catalog SearchForm — mounted on another screen", () => {
     vi.useRealTimers();
   });
 
-  it("writes the query back to the path it was given, not the catalog's", () => {
-    renderWithProviders(<SearchForm searchPath="/dashboard/library" />);
+  it("writes the query back to the screen it is mounted on, not the catalog's", () => {
+    mockPathname = "/dashboard/library";
+    renderWithProviders(<SearchForm />);
     setFieldValue(screen.getByRole("textbox"), "polvo");
     vi.advanceTimersByTime(300);
     expect(mockReplace).toHaveBeenCalledWith("/dashboard/library?searchString=polvo");
   });
 
-  it("clears back to that path rather than to the catalog", () => {
+  it("clears back to that screen rather than to the catalog", () => {
+    mockPathname = "/dashboard/library";
     mockSearchParams = new URLSearchParams("searchString=polvo");
-    renderWithProviders(<SearchForm searchPath="/dashboard/library" />);
+    renderWithProviders(<SearchForm />);
     setFieldValue(screen.getByRole("textbox"), "");
     vi.advanceTimersByTime(300);
     expect(mockReplace).toHaveBeenCalledWith("/dashboard/library");

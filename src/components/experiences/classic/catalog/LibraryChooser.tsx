@@ -9,9 +9,6 @@ import NewArtistForm from "./NewArtistForm";
 import SearchForm from "./SearchForm";
 import SearchResults from "./SearchResults";
 
-/** This screen's own URL, which the free-text search reads and writes. */
-const LIBRARY_CHOOSER_PATH = "/dashboard/library";
-
 /**
  * Owns the toggle between `chooseLibraryCodeOrArtist.jsp`'s two forms and
  * `multipleArtistsDisplay.jsp` -- two mutually exclusive screens behind the
@@ -22,10 +19,19 @@ const LIBRARY_CHOOSER_PATH = "/dashboard/library";
  * not addressable by what a librarian holds. `/wxycdb` reaches it at
  * `libraryCode?genreID=&artistLetters=`, a genre+letters browse
  * Backend-Service cannot answer -- and the search that reaches it here is a
- * fully specified code whose owners are a server response, not a URL. The
- * swap is whole-page in both: the JSP replaces the chooser outright, so
- * `NewArtistForm` goes with the search form rather than sitting under a list
- * of artists that already own the code.
+ * fully specified code whose owners are a server response, not a URL. The swap
+ * takes the JSP's own content wholesale, as the JSP does -- `NewArtistForm`
+ * goes with the call-number form rather than sitting under a list of artists
+ * that already own the code.
+ *
+ * The free-text search is deliberately OUTSIDE that swap, above it, mounted in
+ * both states. It has no JSP counterpart to keep parity with, and keeping it
+ * mounted is what stops its RTK Query subscription from dropping for the
+ * length of the disambiguation screen -- the same hazard, and the same fix, as
+ * the `useGetGenresQuery()` hoist below, which this file already carries for
+ * the same reason. Moving it inside either arm reintroduces a refetch (and
+ * loses the typed query and the facet chip) on the way back from a 27-owner
+ * bucket, which is precisely the scan slow enough to outlast the cache window.
  *
  * The rotation block + `<hr>` above `ArtistSearchForm` reproduce
  * `chooseLibraryCodeOrArtist.jsp:16-21` verbatim: "Import a killed rotation
@@ -58,18 +64,31 @@ export default function LibraryChooser() {
   // subscription, so it costs no extra request.
   useGetGenresQuery();
 
-  if (multiMatch) {
-    return <MultipleArtistsDisplay {...multiMatch} onChooseAgain={() => setMultiMatch(null)} />;
-  }
-
   return (
     <>
-      <SearchForm searchPath={LIBRARY_CHOOSER_PATH} />
+      <SearchForm />
       {/* `canModify` is settled by the page, not re-derived: `/dashboard/library`
           is MD-gated, so every reader of these results can add a release and
           the read-only artist card is unreachable from here. */}
-      <SearchResults canModify searchPath={LIBRARY_CHOOSER_PATH} />
+      <SearchResults canModify />
       <hr />
+      {multiMatch ? (
+        <MultipleArtistsDisplay {...multiMatch} onChooseAgain={() => setMultiMatch(null)} />
+      ) : (
+        <JspBlocks onMultiMatch={setMultiMatch} />
+      )}
+    </>
+  );
+}
+
+/**
+ * `chooseLibraryCodeOrArtist.jsp`'s own content: the rotation-import block, the
+ * call-number form, and the new-artist form. Split out only so the swap above
+ * reads as one expression.
+ */
+function JspBlocks({ onMultiMatch }: { onMultiMatch: (m: MultiMatchResult) => void }) {
+  return (
+    <>
       <table cellPadding={10}>
         <tbody>
           <tr>
@@ -88,7 +107,7 @@ export default function LibraryChooser() {
         </tbody>
       </table>
       <hr />
-      <ArtistSearchForm onMultiMatch={setMultiMatch} />
+      <ArtistSearchForm onMultiMatch={onMultiMatch} />
       <NewArtistForm />
     </>
   );
