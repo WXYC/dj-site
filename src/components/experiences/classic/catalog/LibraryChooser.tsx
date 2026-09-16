@@ -11,13 +11,19 @@ import SearchForm from "./SearchForm";
 import SearchResults from "./SearchResults";
 
 /**
- * The disambiguation screen swaps in behind this one URL, so arriving at it
- * and leaving it again produce no pageview -- and without these, no record of
- * any kind. A librarian can land on a 27-owner list, read it, and go back with
- * nothing to show that it happened.
+ * The disambiguation screen swaps in behind this one URL, so neither arriving
+ * at it nor leaving it produces a pageview. These are the only record that a
+ * librarian landed on a 27-owner list at all.
+ *
+ * The screen has two exits and both are instrumented, because they mean
+ * opposite things: RESOLVED is a row link taken, DISMISSED is the header link
+ * back. Emitting only one of them would make `SHOWN` minus that one read as a
+ * permanent leak, and would measure dwell on exactly the wrong population --
+ * abandonments, never the fast successful visits.
  */
 const LIBRARY_CHOOSER_EVENTS = {
   MULTI_MATCH_SHOWN: "library_multi_match_shown",
+  MULTI_MATCH_RESOLVED: "library_multi_match_resolved",
   MULTI_MATCH_DISMISSED: "library_multi_match_dismissed",
 } as const;
 
@@ -57,13 +63,12 @@ const LIBRARY_CHOOSER_EVENTS = {
  * this component used to render there is retired along with the
  * divergence, not duplicated).
  *
- * The free-text search at the top is the one block here with no JSP
- * counterpart: `chooseLibraryCodeOrArtist.jsp` can be searched by call number
- * only. It is an addition to the screen rather than parity with it, so a later
- * parity pass must not read it as drift. It is the card catalog's own search,
- * pointed at this screen's URL instead of `/dashboard/catalog`'s so a lookup
- * resolves without leaving the cataloging screen. Placing it above the JSP
- * blocks leaves their order relative to each other untouched, which is the
+ * `chooseLibraryCodeOrArtist.jsp` can be searched by call number only, so the
+ * free-text search is an addition to the screen rather than parity with it and
+ * a later parity pass must not read it as drift. It is the card catalog's own
+ * search, which writes its query to whatever screen it is mounted on, so a
+ * lookup resolves without leaving the cataloging screen. Placing it above the
+ * JSP blocks leaves their order relative to each other untouched, which is the
  * constraint that matters -- the call-number form stays where the JSP puts it.
  */
 export default function LibraryChooser() {
@@ -95,23 +100,52 @@ export default function LibraryChooser() {
       <SearchResults canModify />
       <hr />
       {multiMatch ? (
-        <MultipleArtistsDisplay
-          {...multiMatch}
-          onChooseAgain={() => {
-            safeCapture(LIBRARY_CHOOSER_EVENTS.MULTI_MATCH_DISMISSED, {
-              owner_count: multiMatch.artists.length,
-              code_letters: multiMatch.codeLetters,
-              code_number: multiMatch.codeNumber,
-            });
-            setMultiMatch(null);
-          }}
-        />
+        <MultiMatchScreen result={multiMatch} onDismiss={() => setMultiMatch(null)} />
       ) : (
         // The instrumented setter, never the raw one: reaching the screen is
         // what MULTI_MATCH_SHOWN records, and it has no other trigger.
         <JspBlocks onMultiMatch={showMultiMatch} />
       )}
     </>
+  );
+}
+
+/**
+ * The disambiguation arm of the swap, split out for the same reason
+ * `JspBlocks` is: so the ternary above reads as one expression. It also gives
+ * the two exits a scope where `result` is non-null, which a ternary arm cannot
+ * narrow into.
+ */
+function MultiMatchScreen({
+  result,
+  onDismiss,
+}: {
+  result: MultiMatchResult;
+  onDismiss: () => void;
+}) {
+  // Both exits carry the same identifying triple, so a session's SHOWN can be
+  // paired with whichever ending it got.
+  const ending = {
+    owner_count: result.artists.length,
+    code_letters: result.codeLetters,
+    code_number: result.codeNumber,
+  };
+
+  return (
+    <MultipleArtistsDisplay
+      {...result}
+      onChoose={(_artist, index) => {
+        // `owner_index` is the position in the list as rendered, which is the
+        // order Backend-Service returned: it answers whether the bucket a
+        // librarian wants tends to be near the top, which is the difference
+        // between a list that needs sorting and one that needs shortening.
+        safeCapture(LIBRARY_CHOOSER_EVENTS.MULTI_MATCH_RESOLVED, { ...ending, owner_index: index });
+      }}
+      onChooseAgain={() => {
+        safeCapture(LIBRARY_CHOOSER_EVENTS.MULTI_MATCH_DISMISSED, ending);
+        onDismiss();
+      }}
+    />
   );
 }
 
@@ -141,11 +175,7 @@ function JspBlocks({ onMultiMatch }: { onMultiMatch: (m: MultiMatchResult) => vo
         </tbody>
       </table>
       <hr />
-<<<<<<< HEAD
       <ArtistSearchForm onMultiMatch={onMultiMatch} />
-=======
-      <ArtistSearchForm onMultiMatch={showMultiMatch} />
->>>>>>> c8649a79 (Instrument the classic library chooser's code search and disambiguation screen)
       <NewArtistForm />
     </>
   );

@@ -184,6 +184,13 @@ export default function ArtistSearchForm({ onMultiMatch }: ArtistSearchFormProps
     safeCapture(CHOOSER_EVENTS.CODE_SEARCH, {
       outcome,
       call_letter_mode: callLetterMode,
+      // Carried on EVERY ending, refusals included. Without it the two
+      // `rockCompLetters` refusals are indistinguishable: `validateArtistSearchForm`
+      // raises a different message for genre 11 than for genre 12, and both
+      // collapse to the one `rock_comp_letter_required` token. Refusals are also
+      // the half of a search that cannot be re-run from its own event, so they
+      // are the half that most needs its coordinates.
+      genre_id: effectiveGenreId,
       ...props,
     });
 
@@ -261,6 +268,14 @@ export default function ArtistSearchForm({ onMultiMatch }: ArtistSearchFormProps
       return;
     }
 
+    // All three endings are reached at the same point with the same facts, so
+    // the count names the outcome once rather than being restated as a literal
+    // per branch -- where `0` and `1` could only ever be wrong.
+    captureSearch(
+      owners.length === 0 ? "empty_owner_list" : owners.length === 1 ? "single_owner" : "multi_match",
+      { ...searched, owner_count: owners.length },
+    );
+
     // A 200 with no owners is a shape the endpoint's contract never produces
     // -- an unassigned code is a 404 carrying `code_not_assigned`. Reaching
     // here means the answer cannot be trusted, so it is refused like any other
@@ -268,18 +283,14 @@ export default function ArtistSearchForm({ onMultiMatch }: ArtistSearchFormProps
     // the disambiguation screen would assert the code exists with nobody
     // holding it.
     if (owners.length === 0) {
-      captureSearch("empty_owner_list", { ...searched, owner_count: 0 });
       setValidationMessage(UNTRUSTWORTHY_CODE_ANSWER_MESSAGE);
       return;
     }
 
     if (owners.length === 1) {
-      captureSearch("single_owner", { ...searched, owner_count: 1 });
       router.push(artistCardHref(owners[0]));
       return;
     }
-
-    captureSearch("multi_match", { ...searched, owner_count: owners.length });
 
     const genreName = genres?.find((genre) => genre.id === composed.args.genre_id)?.genre_name;
     onMultiMatch({
