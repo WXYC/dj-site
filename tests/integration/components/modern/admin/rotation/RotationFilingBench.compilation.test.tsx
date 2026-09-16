@@ -9,6 +9,10 @@ import {
 } from "@/tests/helpers";
 import { fakeRotationCardsEndpoints } from "@/tests/fakes/rotation";
 import {
+  fakeDiscogsPrefillEndpoint,
+  MOLINA_DISCOGS_PREFILL,
+} from "@/tests/fakes/discogsPrefill";
+import {
   fakeLibraryFilingsEndpoint,
   filingConflictResponse,
   type FakeFilingArtistRow,
@@ -268,8 +272,8 @@ describe("RotationFilingBench — Various Artists compilations", () => {
       // librarian's pick and nothing else.
       await fillRelease(user, { title: "Zebra Records Sampler" });
       await awaitDefaultCard();
-      await user.click(within(await screen.findByRole("region", { name: "Various Artists shelf" }))
-        .getByLabelText("Various Artists - Rock - S"));
+      const pickPanel = await screen.findByRole("region", { name: "Various Artists shelf" });
+      await user.click(await within(pickPanel).findByLabelText("Various Artists - Rock - S"));
 
       await user.click(screen.getByLabelText(VA_CHECKBOX));
       await user.click(screen.getByLabelText(VA_CHECKBOX));
@@ -354,11 +358,11 @@ describe("RotationFilingBench — Various Artists compilations", () => {
       await awaitDefaultCard();
 
       const panel = await screen.findByRole("region", { name: "Various Artists shelf" });
-      expect(within(panel).getByLabelText("Various Artists - Rock - H")).not.toBeChecked();
+      expect(await within(panel).findByLabelText("Various Artists - Rock - H")).not.toBeChecked();
       expect(within(panel).getByLabelText("Various Artists - Rock - S")).not.toBeChecked();
       expect(screen.getByRole("button", { name: "Add to rotation" })).toBeDisabled();
 
-      await user.click(within(panel).getByLabelText("Various Artists - Rock - S"));
+      await user.click(await within(panel).findByLabelText("Various Artists - Rock - S"));
       await user.click(await screen.findByRole("button", { name: "Add to rotation" }));
 
       await waitFor(() => expect(filings.bodies()).toHaveLength(1));
@@ -404,7 +408,7 @@ describe("RotationFilingBench — Various Artists compilations", () => {
       );
 
       // The librarian knows this one files by subject, not by title.
-      await user.click(within(panel).getByLabelText("Various Artists - Rock - S"));
+      await user.click(await within(panel).findByLabelText("Various Artists - Rock - S"));
       await user.type(screen.getByLabelText("Album title"), ", vol. 2");
 
       expect(within(panel).getByLabelText("Various Artists - Rock - S")).toBeChecked();
@@ -432,7 +436,7 @@ describe("RotationFilingBench — Various Artists compilations", () => {
 
       // Clicking the row that is already selected fires no change event, so
       // this gesture has to be read from the click or it records nothing.
-      await user.click(within(panel).getByLabelText("Various Artists - Rock - H"));
+      await user.click(await within(panel).findByLabelText("Various Artists - Rock - H"));
 
       await user.clear(screen.getByLabelText("Album title"));
       await user.type(screen.getByLabelText("Album title"), "Sonic Youth tribute");
@@ -519,7 +523,7 @@ describe("RotationFilingBench — Various Artists compilations", () => {
       await selectGenre(user);
       await user.click(screen.getByLabelText(VA_CHECKBOX));
       const panel = await screen.findByRole("region", { name: "Various Artists shelf" });
-      await user.click(within(panel).getByLabelText("Various Artists - Rock - S"));
+      await user.click(await within(panel).findByLabelText("Various Artists - Rock - S"));
 
       await selectGenre(user, "Jazz");
 
@@ -541,7 +545,7 @@ describe("RotationFilingBench — Various Artists compilations", () => {
       await fillRelease(user);
       await awaitDefaultCard();
       const panel = await screen.findByRole("region", { name: "Various Artists shelf" });
-      await user.click(within(panel).getByLabelText("Various Artists - Rock - S"));
+      await user.click(await within(panel).findByLabelText("Various Artists - Rock - S"));
       await user.click(await screen.findByRole("button", { name: "Add to rotation" }));
 
       await waitFor(() =>
@@ -639,6 +643,113 @@ describe("RotationFilingBench — Various Artists compilations", () => {
       expect(screen.queryByRole("alert")).not.toBeInTheDocument();
       await user.click(screen.getByLabelText(VA_CHECKBOX));
       expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    });
+  });
+
+  describe("what Discogs says about the artist", () => {
+    const DISCOGS_LINK = "https://www.discogs.com/release/28759";
+    const VA_PREFILL = {
+      ...MOLINA_DISCOGS_PREFILL,
+      discogs_release_id: 28759,
+      artist_name: "Various",
+      album_title: "We Are Reasonable People",
+      label: "Warp Records",
+    };
+
+    async function autopopulate(user: User, link = DISCOGS_LINK) {
+      await user.type(screen.getByLabelText("Autopopulate with Discogs link"), link);
+      await user.click(screen.getByRole("button", { name: "Autopopulate" }));
+    }
+
+    it("checks the box when Discogs credits the release to Various", async () => {
+      mockShelf({ owners: ROCK_BUCKETS });
+      fakeDiscogsPrefillEndpoint({ prefill: VA_PREFILL });
+      const { user } = renderBench();
+
+      await selectGenre(user);
+      await autopopulate(user);
+
+      await waitFor(() => expect(screen.getByLabelText(VA_CHECKBOX)).toBeChecked());
+      expect(screen.getByLabelText("Album title")).toHaveValue("We Are Reasonable People");
+      // The artist arm swapped over on the strength of the resolve alone.
+      expect(screen.queryByPlaceholderText("Search artists...")).not.toBeInTheDocument();
+      expect(
+        await screen.findByRole("region", { name: "Various Artists shelf" }),
+      ).toBeInTheDocument();
+    });
+
+    it("leaves the box alone for a release credited to one artist", async () => {
+      mockShelf({ owners: ROCK_BUCKETS });
+      fakeDiscogsPrefillEndpoint();
+      const { user } = renderBench();
+
+      await selectGenre(user);
+      await autopopulate(user);
+
+      await waitFor(() =>
+        expect(screen.getByPlaceholderText("Search artists...")).toHaveValue("Juana Molina"),
+      );
+      expect(screen.getByLabelText(VA_CHECKBOX)).not.toBeChecked();
+    });
+
+    it("states the mismatch and holds the submit rather than unchecking for you", async () => {
+      mockShelf({ owners: ROCK_BUCKETS });
+      fakeDiscogsPrefillEndpoint();
+      const { user } = renderBench();
+
+      await selectGenre(user);
+      await user.click(screen.getByLabelText(VA_CHECKBOX));
+      await autopopulate(user);
+
+      expect(
+        await screen.findByText(/Discogs credits this release to Juana Molina/),
+      ).toBeInTheDocument();
+      // The gesture stands: filing it to the V/A shelf is what is refused, not
+      // the choice to file a compilation.
+      expect(screen.getByLabelText(VA_CHECKBOX)).toBeChecked();
+      await fillRelease(user);
+      await awaitDefaultCard();
+      expect(screen.getByRole("button", { name: "Add to rotation" })).toBeDisabled();
+
+      await user.click(screen.getByLabelText(VA_CHECKBOX));
+      expect(screen.queryByText(/Discogs credits this release to/)).not.toBeInTheDocument();
+    });
+
+    it("says nothing about a name the librarian merely typed before checking", async () => {
+      mockShelf({ owners: [PLAIN_BUCKET] });
+      const { user } = renderBench();
+
+      await selectGenre(user);
+      await user.type(screen.getByPlaceholderText("Search artists..."), "Habibi Funk");
+      await user.click(screen.getByLabelText(VA_CHECKBOX));
+
+      // Only a resolved Discogs credit contradicts the box. Reading the typed
+      // field instead would block every librarian who typed before checking.
+      expect(await screen.findByText(/Filing as a Various Artists compilation/)).toBeInTheDocument();
+      expect(screen.queryByText(/Discogs credits this release to/)).not.toBeInTheDocument();
+    });
+
+    it("drops a shelf pick on every prefill, since each is a different record", async () => {
+      mockShelf({ owners: ROCK_BUCKETS });
+      fakeDiscogsPrefillEndpoint({
+        prefill: { ...VA_PREFILL, album_title: "Hell Comes to Your House" },
+      });
+      const { user } = renderBench();
+
+      await selectGenre(user);
+      await user.click(screen.getByLabelText(VA_CHECKBOX));
+      // A title the rule names no shelf for, so what follows is a pure pick.
+      await fillRelease(user, { title: "Zebra Records Sampler" });
+      const panel = await screen.findByRole("region", { name: "Various Artists shelf" });
+      await user.click(await within(panel).findByLabelText("Various Artists - Rock - S"));
+
+      await autopopulate(user);
+
+      // The pick belonged to the previous record; the resolved title names H.
+      await waitFor(() =>
+        expect(within(panel).getByLabelText("Various Artists - Rock - H")).toBeChecked(),
+      );
+      expect(within(panel).getByLabelText("Various Artists - Rock - S")).not.toBeChecked();
     });
   });
 
