@@ -309,6 +309,108 @@ describe("updateAlbum cache invalidation on re-attribution", () => {
   });
 });
 
+// A by-code answer held by a live subscription — the filing bench's, while its
+// compilation checkbox is on — outlives every write that changes what is filed
+// at that code. A held `code_not_assigned` is the load-bearing one: read again
+// after the bucket exists, it routes the librarian into minting a second one.
+describe("by-code cache invalidation for the code-triple readers", () => {
+  const byCodeArg = { genre_id: 11, code_letters: "V/A", code_number: 0 };
+
+  function bucketResponses() {
+    let calls = 0;
+    return {
+      calls: () => calls,
+      handler: http.get(`${TEST_BACKEND_URL}/library/artists/by-code`, () => {
+        calls += 1;
+        // Distinct answers per call, so a real refetch is distinguishable from
+        // a cache redisplay: unassigned first, owned after the write.
+        return calls === 1
+          ? HttpResponse.json({ reason: "code_not_assigned" }, { status: 404 })
+          : HttpResponse.json({
+              artists: [
+                {
+                  id: 9100,
+                  artist_name: "Various Artists",
+                  code_letters: "V/A",
+                  code_number: 0,
+                  genre_id: 11,
+                },
+              ],
+            });
+      }),
+    };
+  }
+
+  it("fileRelease invalidates the held by-code answer for the shelf it just filed into", async () => {
+    const byCode = bucketResponses();
+    server.use(
+      byCode.handler,
+      http.post(`${TEST_BACKEND_URL}/library/filings`, () =>
+        HttpResponse.json({
+          artist: { id: 9100 },
+          release: { id: 4242 },
+        }),
+      ),
+    );
+
+    const store = createTestStore();
+    // Held open the way the bench's checkbox holds it: the arg never changes
+    // across a same-genre batch, so nothing else would re-resolve it.
+    const sub = store.dispatch(
+      catalogApi.endpoints.resolveArtistByCode.initiate(byCodeArg),
+    );
+    await sub;
+    expect(byCode.calls()).toBe(1);
+
+    await store.dispatch(
+      catalogApi.endpoints.fileRelease.initiate({
+        artist: {
+          kind: "create",
+          artist_name: "Various Artists",
+          code_letters: "V/A",
+          code_number: 0,
+          genre_id: 11,
+        },
+        release: { album_title: "Habibi Funk 007", genre_id: 11, format_id: 1 },
+      }),
+    );
+
+    await vi.waitFor(() => expect(byCode.calls()).toBe(2));
+    sub.unsubscribe();
+  });
+
+  it("addArtist invalidates the by-code answer for the same code_letters/genre_id pair", async () => {
+    const byCode = bucketResponses();
+    server.use(
+      byCode.handler,
+      http.post(`${TEST_BACKEND_URL}/library/artists`, () =>
+        HttpResponse.json({ id: 9100 }),
+      ),
+    );
+
+    const store = createTestStore();
+    const sub = store.dispatch(
+      catalogApi.endpoints.resolveArtistByCode.initiate(byCodeArg),
+    );
+    await sub;
+    expect(byCode.calls()).toBe(1);
+
+    // The classic artist-add path mints a bucket the bench's held answer
+    // cannot see on its own.
+    await store.dispatch(
+      catalogApi.endpoints.addArtist.initiate({
+        artist_name: "Various Artists",
+        code_letters: "V/A",
+        genre_id: 11,
+        code_number: 0,
+      }),
+    );
+
+    await vi.waitFor(() => expect(byCode.calls()).toBe(2));
+    sub.unsubscribe();
+  });
+});
+
 // Both compilation-credit editors refuse a further save while this read is
 // back in flight, because the write is additive-only and the still-cached
 // payload predates it. That refusal only protects anything if the write really

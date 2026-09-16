@@ -62,6 +62,22 @@ export type ReleaseCodeParts = {
 export const VARIOUS_ARTISTS_CODE_LETTERS = "V/A";
 
 /**
+ * The one call number every Various Artists bucket is filed at, in every
+ * genre — the other half of the compilation shelf's code, so it lives beside
+ * the letters rather than apart from them. The JSP composed a genre-specific
+ * key instead — `Z-<letter>` from `rockCompLetters` for Rock and Soundtracks,
+ * the literal `Z--` for every other genre — and the catalog import preserves
+ * neither spelling, so neither can narrow a search.
+ *
+ * Every compilation bucket in a genre therefore collides on this one triple,
+ * which is the disambiguation screen's actual production trigger:
+ * `V/A`/12/0 has 27 owners and `V/A`/11/0 has 26 in the current catalog. A
+ * lookup at this pair answers with the genre's whole bucket set, never one
+ * bucket, and the sub-bucket letter survives only in the artist's name.
+ */
+export const VARIOUS_ARTISTS_CODE_NUMBER = 0;
+
+/**
  * True for a Various Artists bucket.
  *
  * Two spellings, because two systems store this differently and only one of
