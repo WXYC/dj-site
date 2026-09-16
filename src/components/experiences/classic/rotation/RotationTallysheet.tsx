@@ -29,8 +29,7 @@ import "@/src/styles/classic/wxyc.css";
  * The email form is deliberately absent. The report has always been mailed by
  * hand out of the librarian's own client, so the `<pre>` below is the product.
  *
- * The flowsheet range is the screen's only read. The legacy new-adds tail was
- * the sole consumer of `rotation_add_date`, and it is not emitted.
+ * The flowsheet range is the screen's only read.
  */
 
 // `weeklySummarySelect.jsp` loops x from 0 down to -8.

@@ -131,8 +131,9 @@ describe("RotationTallysheet", () => {
   });
 
   it("reads only the flowsheet range, at every minimum-plays value", async () => {
-    // The removed new-adds tail was this screen's only reason to read the
-    // rotation list, and it read the whole unfiltered history to do it.
+    // This screen has no reason to read the rotation list, at any threshold,
+    // and a read of it is unfiltered whole-history — so the counter is what
+    // keeps that true rather than a comment asking for it.
     const user = userEvent.setup();
     let rotationReads = 0;
     server.use(
@@ -156,7 +157,7 @@ describe("RotationTallysheet", () => {
     expect(rotationReads).toBe(0);
   });
 
-  it("emits the header the librarian mails, with no tail under it", async () => {
+  it("emits the header the librarian mails, and retitles when nothing reaches the minimum", async () => {
     const user = userEvent.setup();
     renderWithProviders(<RotationTallysheet />);
 
@@ -164,7 +165,10 @@ describe("RotationTallysheet", () => {
       /^Airplay Report on WXYC's Top 2 Playbox Records for the week of /,
     );
 
-    // A minimum nothing reaches is where the removed tail used to appear.
+    // A minimum nothing reaches still emits a header, retitled to Top 0, rather
+    // than an empty block. The `Other records` check is belt-and-braces: the
+    // preceding test's rotation-read counter is what actually holds a tail out,
+    // since emitting one would require reading the rotation list.
     await user.selectOptions(screen.getByLabelText("Minimum number of plays"), "3");
     await waitFor(() => {
       const report = screen.getByText(/Airplay Report on WXYC's Top 0 Playbox Records/);

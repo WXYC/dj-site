@@ -235,9 +235,8 @@ export function formatWeekRange(weekStart: Date): string {
  *
  * The header is the station's wording rather than the legacy Java's: every
  * report actually mailed prepends "Airplay Report on" and reads "Playbox
- * Records", an edit that was retyped by hand each week until this emitted it.
- * The legacy tail of unranked new adds, and the five genre charts beneath it,
- * have not been mailed since 2018 and are deliberately not emitted.
+ * Records". The legacy tail of unranked new adds, and the five genre charts
+ * beneath it, have not been mailed since 2018 and are deliberately not emitted.
  */
 export function formatWeeklyReport(ranked: readonly RankedPlay[], weekStart: Date): string {
   const lines = [
@@ -245,10 +244,8 @@ export function formatWeeklyReport(ranked: readonly RankedPlay[], weekStart: Dat
     "",
     "Rank (Plays) Artist - 'Title of CD/LP/EP/7-inch' (RECORD LABEL)",
     "---------------------------------------------------------------",
+    ...ranked.map((row, i) => `${i + 1} (${row.plays}) ${row.artist} - ${row.title} (${row.label})`),
   ];
-  ranked.forEach((row, i) => {
-    lines.push(`${i + 1} (${row.plays}) ${row.artist} - ${row.title} (${row.label})`);
-  });
 
   return lines.join("\n") + "\n";
 }
