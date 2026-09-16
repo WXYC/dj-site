@@ -104,7 +104,7 @@ const artistReleaseTags = (artistId: number) => [
 export const catalogApi = createApi({
   reducerPath: "catalogApi",
   baseQuery: backendBaseQuery("library"),
-  tagTypes: ["Rotation", "AlbumDetail", "CatalogList", "ArtistSearch", "FormatList", "GenreList", "ArtistCodePeek", "CompilationTracks", "ArtistCard", "ArtistReleaseList"],
+  tagTypes: ["Rotation", "AlbumDetail", "CatalogList", "ArtistSearch", "FormatList", "GenreList", "ArtistCodePeek", "ArtistByCode", "CompilationTracks", "ArtistCard", "ArtistReleaseList"],
   endpoints: (builder) => ({
     searchCatalog: builder.query<AlbumEntry[], SearchCatalogQueryParams>({
       query: ({ artist_name, album_title, n, on_streaming }) => ({
@@ -353,21 +353,26 @@ export const catalogApi = createApi({
       // the typeahead that is all that stands between a retry and a
       // duplicate artist.
       invalidatesTags: (_result, error, { code_letters, genre_id }) => {
-        const codePeekTag = {
-          type: "ArtistCodePeek" as const,
-          id: `${genre_id}:${code_letters}`,
-        };
+        // Both code-scoped caches for the pair answer the same question about
+        // it -- what is filed here -- so they go stale on the same evidence
+        // and travel together: a `V/A` artist added through this path is
+        // exactly what a filing bench holding that pair's by-code answer
+        // cannot see on its own.
+        const codeTags = [
+          { type: "ArtistCodePeek" as const, id: `${genre_id}:${code_letters}` },
+          { type: "ArtistByCode" as const, id: `${genre_id}:${code_letters}` },
+        ];
         const wroteNothing =
           !!error && typeof error.status === "number" && error.status < 500;
         if (!wroteNothing) {
           return [
             { type: "CatalogList", id: "LIST" },
             { type: "ArtistSearch", id: "LIST" },
-            codePeekTag,
+            ...codeTags,
           ];
         }
         if (error.status !== 409) return [];
-        return isArtistNameConflictData(error.data) ? [] : [codePeekTag];
+        return isArtistNameConflictData(error.data) ? [] : codeTags;
       },
     }),
     /**
@@ -401,18 +406,19 @@ export const catalogApi = createApi({
       transformErrorResponse: (
         response: FetchBaseQueryError,
       ): { fileReleaseError: FetchBaseQueryError } => ({ fileReleaseError: response }),
-      // Bare tag names, not `{ type, id: "LIST" }` pairs: `ArtistCard` and
-      // `ArtistCodePeek` are only ever provided per-id here (by artist id, and
-      // by `genre_id:code_letters` respectively), so a "LIST" id would match
-      // nothing either provides. A bare tag matches every id of its type
-      // (see the `ROTATION_LIST_TAG` comment in rotation/api.ts for the same
-      // rule stated once).
+      // Bare tag names, not `{ type, id: "LIST" }` pairs: `ArtistCard`,
+      // `ArtistCodePeek` and `ArtistByCode` are only ever provided per-id here
+      // (by artist id, and by `genre_id:code_letters` for the latter two), so
+      // a "LIST" id would match nothing either provides. A bare tag matches
+      // every id of its type (see the `ROTATION_LIST_TAG` comment in
+      // rotation/api.ts for the same rule stated once).
       invalidatesTags: [
         { type: "ArtistSearch", id: "LIST" },
         { type: "CatalogList", id: "LIST" },
         { type: "ArtistReleaseList", id: "LIST" },
         "ArtistCard",
         "ArtistCodePeek",
+        "ArtistByCode",
       ],
       async onQueryStarted(_arg, { dispatch, queryFulfilled }) {
         try {
@@ -554,11 +560,25 @@ export const catalogApi = createApi({
         params: { genre_id, code_letters, code_number },
       }),
       extraOptions: { surfaceNonJsonAsError: true },
-      // Never read from cache: the trigger always refetches, and a stale
-      // `code_not_assigned` is the one answer that routes the librarian into
-      // creating a duplicate. Dropping the entry as soon as the form lets go
-      // keeps that impossible by construction rather than by the trigger's
-      // default, and is why the endpoint carries no `providesTags`.
+      // Never read from cache across consumers: a stale `code_not_assigned` is
+      // the one answer that routes the librarian into creating a duplicate,
+      // and dropping the entry as soon as the last reader lets go keeps a
+      // second screen from ever inheriting the first's answer.
+      //
+      // Two consumer shapes, and the second is why the tag exists. The
+      // gesture-fired consumers (chooser, move screen) refetch on every
+      // trigger, so `keepUnusedDataFor: 0` alone covers them. The filing
+      // bench instead holds a live subscription for as long as its
+      // compilation checkbox is on, and the arg never changes across a
+      // same-genre batch -- so a filing that creates the genre's first
+      // bucket would leave that subscription serving the pre-create 404 and
+      // deterministically mint a second one. `ArtistByCode` is what the
+      // writes invalidate to re-resolve it; the residual window (an answer
+      // aging in place while nobody writes) is bounded by the filing
+      // endpoint's own code-conflict refusal.
+      providesTags: (_result, _error, { genre_id, code_letters }) => [
+        { type: "ArtistByCode" as const, id: `${genre_id}:${code_letters}` },
+      ],
       keepUnusedDataFor: 0,
       // Unlike its two models, an empty list is not a legal answer here -- an
       // unassigned code is a 404 carrying `code_not_assigned`. So this guard
@@ -869,6 +889,7 @@ export const {
   useGetNextReleaseNumberQuery,
   usePeekArtistCodeQuery,
   useLazyPeekArtistCodeQuery,
+  useResolveArtistByCodeQuery,
   useLazyResolveArtistByCodeQuery,
   useSearchArtistsInGenreQuery,
   useSearchLibraryArtistsQuery,

@@ -9,7 +9,10 @@ import {
   normalizeCodeLetters,
   parseRequiredNonNegativeInt,
 } from "./adminCreateArtistValidation";
-import { VARIOUS_ARTISTS_CODE_LETTERS } from "./libraryCode";
+import {
+  VARIOUS_ARTISTS_CODE_LETTERS,
+  VARIOUS_ARTISTS_CODE_NUMBER,
+} from "./libraryCode";
 import type { ResolveArtistByCodeQuery } from "./types";
 
 export type LibraryCodeSearchValues = {
@@ -36,20 +39,6 @@ export type LibraryCodeSearchComposition =
   | { ready: false; reason: LibraryCodeCompositionRefusal; message: string };
 
 /**
- * Every Various Artists bucket in a genre is filed at this one call number,
- * so the compilation radio can only ever search the one pair. The JSP composed
- * a genre-specific key instead -- `Z-<letter>` from `rockCompLetters` for Rock
- * and Soundtracks, the literal `Z--` for every other genre -- and the catalog
- * import preserves neither spelling, so neither can narrow this search. The
- * sub-bucket letter is left to `rockCompLetters`' JSP-parity validation alone.
- *
- * Every compilation bucket in a genre therefore collides on this one triple,
- * which is the disambiguation screen's actual production trigger:
- * `V/A`/12/0 has 27 owners and `V/A`/11/0 has 26 in the current catalog.
- */
-const VARIOUS_ARTISTS_CODE_NUMBER = 0;
-
-/**
  * Composes `artistSearchForm`'s fields into `resolveArtistByCode`'s query
  * args, once `chooserValidation.validateArtistSearchForm` has already passed
  * -- this is a second, independent gate, not a restatement of that one.
@@ -72,6 +61,9 @@ export function composeLibraryCodeSearchArgs(
   }
 
   if (values.callLetterMode === "compilation") {
+    // The compilation radio can only ever search the one pair, so the
+    // sub-bucket letter is left to `rockCompLetters`' JSP-parity validation
+    // alone -- nothing here can narrow the search by it.
     return {
       ready: true,
       args: {
