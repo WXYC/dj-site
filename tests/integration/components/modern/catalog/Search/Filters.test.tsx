@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen, within } from "@testing-library/react";
 import { Filters } from "@/src/components/experiences/modern/catalog/Search/Filters";
+import { useGetGenresQuery } from "@/lib/features/catalog/api";
 import { createComponentHarnessWithQueries } from "@/tests/helpers";
 import { catalogSlice } from "@/lib/features/catalog/frontend";
 
@@ -43,6 +44,12 @@ const setup = createComponentHarnessWithQueries(
 describe("Filters", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Re-establish the default so a per-test genre override never leaks into the
+    // next test (clearAllMocks resets calls, not the implementation).
+    vi.mocked(useGetGenresQuery).mockReturnValue({
+      data: mockGenres,
+      isLoading: false,
+    } as unknown as ReturnType<typeof useGetGenresQuery>);
   });
 
   it("renders three sections separated by vertical dividers", () => {
@@ -113,6 +120,50 @@ describe("Filters", () => {
       "Rock",
       "Jazz",
     ]);
+  });
+
+  it("seeds genre options from initialGenres before the client query resolves", async () => {
+    vi.mocked(useGetGenresQuery).mockReturnValue({
+      data: undefined,
+      isLoading: true,
+    } as unknown as ReturnType<typeof useGetGenresQuery>);
+
+    const { genreInput, user } = setup({ initialGenres: mockGenres });
+    await user.click(genreInput());
+    expect(
+      await screen.findByRole("option", { name: "Rock" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Jazz" })).toBeInTheDocument();
+  });
+
+  it("shows the genre loading affordance when pending with no seed", () => {
+    vi.mocked(useGetGenresQuery).mockReturnValue({
+      data: undefined,
+      isLoading: true,
+    } as unknown as ReturnType<typeof useGetGenresQuery>);
+
+    setup();
+    // Skeleton replaces the combobox while the client query is pending and no
+    // server seed was provided.
+    expect(
+      screen.queryByRole("combobox", { name: "Genre" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Format" })).toBeInTheDocument();
+  });
+
+  it("prefers the resolved client query over the initial seed", async () => {
+    const clientGenres = [{ id: 9, genre_name: "Ambient" }];
+    vi.mocked(useGetGenresQuery).mockReturnValue({
+      data: clientGenres,
+      isLoading: false,
+    } as unknown as ReturnType<typeof useGetGenresQuery>);
+
+    const { genreInput, user } = setup({ initialGenres: mockGenres });
+    await user.click(genreInput());
+    expect(
+      await screen.findByRole("option", { name: "Ambient" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "Rock" })).not.toBeInTheDocument();
   });
 
   it("selects formats via autocomplete", async () => {

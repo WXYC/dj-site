@@ -1,6 +1,7 @@
 "use client";
 
 import { catalogSlice } from "@/lib/features/catalog/frontend";
+import type { LibraryGenreRow } from "@/lib/features/catalog/types";
 import { useAppSelector } from "@/lib/hooks";
 import { useCatalogQuerySearch } from "@/src/hooks/catalogHooks";
 import { Troubleshoot } from "@mui/icons-material";
@@ -19,8 +20,10 @@ import QueryBuilder from "./QueryBuilder";
 
 export default function MobileSearchBar({
   color,
+  initialGenres,
 }: {
   color: ColorPaletteProp | undefined;
+  initialGenres?: LibraryGenreRow[];
 }) {
   const { openMobileSearch, closeMobileSearch, filters, effectiveQuery } =
     useCatalogQuerySearch();
@@ -75,7 +78,7 @@ export default function MobileSearchBar({
           />
           <Sheet sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
             <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-              <QueryBuilder color={color} />
+              <QueryBuilder color={color} initialGenres={initialGenres} />
             </Box>
             <Button color={color ?? "primary"} onClick={closeMobileSearch}>
               Done

@@ -27,6 +27,12 @@ vi.mock("@/lib/features/authentication/organization-utils", () => ({
   fetchOrganizationRoleForUserClient: vi.fn(),
 }));
 
+// The page seeds its genre list from a server-only cached accessor; stubbing it
+// keeps this jsdom spec off the `server-only` import it would otherwise pull in.
+vi.mock("@/lib/features/catalog/server", () => ({
+  getCachedGenres: vi.fn().mockResolvedValue(undefined),
+}));
+
 import { authClient } from "@/lib/features/authentication/client";
 import { fetchOrganizationRoleForUserClient } from "@/lib/features/authentication/organization-utils";
 import CatalogPage from "@/app/dashboard/@modern/catalog/page";
@@ -67,7 +73,7 @@ describe("catalog page", () => {
   // directly still passes.
   it("offers an MD both catalog write entry points", async () => {
     mockFetchOrgRole.mockResolvedValue("musicDirector");
-    renderWithProviders(<CatalogPage />);
+    renderWithProviders(await CatalogPage());
 
     expect(
       await screen.findByRole("button", { name: /add artist/i }),
@@ -79,7 +85,7 @@ describe("catalog page", () => {
 
   it("offers a DJ neither", async () => {
     mockFetchOrgRole.mockResolvedValue("dj");
-    renderWithProviders(<CatalogPage />);
+    renderWithProviders(await CatalogPage());
 
     await waitFor(() => expect(mockFetchOrgRole).toHaveBeenCalled());
     await mockFetchOrgRole.mock.results[0].value;
