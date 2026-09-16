@@ -194,17 +194,26 @@ export default function RotationFilingBench(): JSX.Element {
   // panel's banner is not mounted in compilation state, and the bench's
   // named-reason fallback only speaks for a refusal that carried no artist.
   // The panel owns both shapes, so neither goes unstated and neither doubles.
+  //
+  // The code pair is interpolated from the constants, not from the conflict
+  // snapshot: on the `existing` arm the snapshot holds the create-panel
+  // drafts, which are empty in compilation state. Every compilation files at
+  // the one pair, so the constants are right on both arms.
   const compilationConflict =
     compilationActive && artistConflict !== null
       ? {
-          message: artistConflict.response
-            ? `${artistConflict.response.artist.artist_name} already holds ${artistConflict.code_letters} ${artistConflict.code_number} in this genre — file under that shelf instead.`
-            : "That artist code is already taken in this genre.",
+          message:
+            conflict?.data.reason === "artist_name_conflict"
+              ? `${COMPILATION_BUCKET_NAME} already exists in this genre — file under that shelf instead.`
+              : artistConflict.response
+                ? `${artistConflict.response.artist.artist_name} already holds ${VARIOUS_ARTISTS_CODE_LETTERS} ${VARIOUS_ARTISTS_CODE_NUMBER} in this genre — file under that shelf instead.`
+                : `${VARIOUS_ARTISTS_CODE_LETTERS} ${VARIOUS_ARTISTS_CODE_NUMBER} is already taken in this genre.`,
         }
       : null;
 
-  // The handler already clears `creating` on check; the third clause backstops
-  // any future writer, since the two arms must never be on screen together.
+  // The render guard, not a backstop: entering compilation state leaves
+  // `creating` alone, so unchecking restores a half-filled create panel rather
+  // than discarding what the MD typed into it.
   const showCreatePanel = creating && selectedArtist === null && !compilationActive;
   const compilationSynonym = isCompilationReleaseArtistName(trimmedArtist);
   const createFieldsReady =
@@ -250,7 +259,13 @@ export default function RotationFilingBench(): JSX.Element {
     // prefilled text over the column's width must not hold the submit shut
     // with nothing on screen to fix.
     (!artistTooLong || compilationActive) &&
-    (compilationReady || selectedArtist !== null || createFieldsReady);
+    // Scoped, not OR'd: in compilation state the submit builds the compilation
+    // arm regardless, so a lingering `selectedArtist` opening this gate would
+    // arm a filing on an unsettled lookup — which is the create branch, and so
+    // a second bucket beside the one the genre already has.
+    (compilationActive
+      ? compilationReady
+      : selectedArtist !== null || createFieldsReady);
 
   // A rotation entry has to land on a card. CardPicker resolves the bin's
   // default only after the cards read returns and pushes it up, so `cardId` is
@@ -293,11 +308,15 @@ export default function RotationFilingBench(): JSX.Element {
 
   const handleVaCheckedChange = (checked: boolean) => {
     setVaChecked(checked);
+    // A pick outlives the box, since the hook keys it on genre alone and the
+    // genre does not change here. Left standing, it would outrank the next
+    // record's suggestion and arm a filing on the previous record's shelf.
+    compilation.clearPick();
     if (checked) {
       // The two artist arms never coexist: entering compilation state drops a
-      // held pick and closes the create panel.
+      // held selection. `creating` is left alone — the render guard hides the
+      // panel, so unchecking gives the MD their typed drafts back.
       setSelectedArtist(null);
-      setCreating(false);
       dedup.onSelectionCleared();
     }
     // Either direction unmounts whichever surface owns the artist banner, so a
@@ -589,8 +608,12 @@ export default function RotationFilingBench(): JSX.Element {
               )}
             </FormControl>
 
-            <FormControl error={artistTooLong && !compilationActive}>
-              <FormLabel>Artist</FormLabel>
+            {/* Its own FormControl: a FormControl carries exactly one control,
+                and sharing the Artist one hands the checkbox that field's
+                label and its error state — so an over-long typed name would
+                paint the checkbox red and the label would stop naming the
+                field it sits above. */}
+            <FormControl>
               <Checkbox
                 label="Various Artists compilation"
                 checked={vaChecked}
@@ -598,8 +621,11 @@ export default function RotationFilingBench(): JSX.Element {
                 // mirroring the typeahead's own gate.
                 disabled={genreId === null || isFiling}
                 onChange={(e) => handleVaCheckedChange(e.target.checked)}
-                sx={{ mb: 1 }}
               />
+            </FormControl>
+
+            <FormControl error={artistTooLong && !compilationActive}>
+              <FormLabel>Artist</FormLabel>
               {/* The shelf itself is chosen below the album title, since which
                   shelf a compilation files onto follows from that title. */}
               {!compilationActive && (

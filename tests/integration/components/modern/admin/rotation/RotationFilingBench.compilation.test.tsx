@@ -257,6 +257,67 @@ describe("RotationFilingBench — Various Artists compilations", () => {
       expect(screen.queryByText(/already exists in this genre/)).not.toBeInTheDocument();
       expect(screen.queryByText(/Re-check this name under the new genre/)).not.toBeInTheDocument();
     });
+
+    it("drops a shelf pick on the way out, so the box does not come back armed", async () => {
+      mockShelf({ owners: ROCK_BUCKETS });
+      const { user } = renderBench();
+
+      await selectGenre(user);
+      await user.click(screen.getByLabelText(VA_CHECKBOX));
+      // A title the rule names no shelf for: whatever is selected below is the
+      // librarian's pick and nothing else.
+      await fillRelease(user, { title: "Zebra Records Sampler" });
+      await awaitDefaultCard();
+      await user.click(within(await screen.findByRole("region", { name: "Various Artists shelf" }))
+        .getByLabelText("Various Artists - Rock - S"));
+
+      await user.click(screen.getByLabelText(VA_CHECKBOX));
+      await user.click(screen.getByLabelText(VA_CHECKBOX));
+
+      // The pick is keyed on genre, which never changed — so without clearing
+      // it would still be standing here, arming the next record's filing onto
+      // the previous record's shelf with no gesture.
+      const panel = await screen.findByRole("region", { name: "Various Artists shelf" });
+      expect(within(panel).getByLabelText("Various Artists - Rock - S")).not.toBeChecked();
+      expect(within(panel).getByLabelText("Various Artists - Rock - H")).not.toBeChecked();
+      expect(screen.getByRole("button", { name: "Add to rotation" })).toBeDisabled();
+    });
+
+    it("gives back the half-filled create panel when the box is unchecked again", async () => {
+      mockShelf({ owners: [PLAIN_BUCKET] });
+      const { user } = renderBench();
+
+      await selectGenre(user);
+      await user.type(screen.getByPlaceholderText("Search artists..."), "Habibi Funk");
+      await user.click(await screen.findByRole("option", { name: /Create new artist/ }));
+      await user.clear(await screen.findByLabelText("Call letters"));
+      await user.type(screen.getByLabelText("Call letters"), "HABI");
+
+      await user.click(screen.getByLabelText(VA_CHECKBOX));
+      expect(screen.queryByLabelText("Call letters")).not.toBeInTheDocument();
+
+      await user.click(screen.getByLabelText(VA_CHECKBOX));
+
+      // Checking the box hides the panel; it must not throw away what was
+      // typed into it, which re-entering by "Create new artist" would reseed.
+      expect(screen.getByLabelText("Call letters")).toHaveValue("HABI");
+    });
+
+    it("keeps the Artist label and its error off the checkbox", async () => {
+      mockShelf({ owners: [PLAIN_BUCKET] });
+      const { user } = renderBench();
+
+      await selectGenre(user);
+      // Exact accessible name: sharing the Artist FormControl would prepend
+      // that label here, and hand the checkbox the field's error state too.
+      expect(screen.getByRole("checkbox", { name: VA_CHECKBOX })).toBeInTheDocument();
+
+      await user.click(screen.getByPlaceholderText("Search artists..."));
+      await user.paste("x".repeat(129));
+
+      expect(screen.getByText(/At most 128 characters/)).toBeInTheDocument();
+      expect(screen.getByRole("checkbox", { name: VA_CHECKBOX })).toBeInTheDocument();
+    });
   });
 
   describe("resolving the shelf", () => {
@@ -352,6 +413,34 @@ describe("RotationFilingBench — Various Artists compilations", () => {
       await user.click(await screen.findByRole("button", { name: "Add to rotation" }));
       await waitFor(() => expect(filings.bodies()).toHaveLength(1));
       expect(filings.bodies()[0].artist).toEqual({ kind: "existing", artist_id: 8111 });
+    });
+
+    it("holds the suggested shelf once the librarian clicks it to confirm", async () => {
+      mockShelf({ owners: ROCK_BUCKETS });
+      const filings = fakeLibraryFilingsEndpoint();
+      const { user } = renderBench();
+
+      await selectGenre(user);
+      await user.click(screen.getByLabelText(VA_CHECKBOX));
+      await fillRelease(user, { title: "Hell Comes to Your House" });
+      await awaitDefaultCard();
+
+      const panel = await screen.findByRole("region", { name: "Various Artists shelf" });
+      await waitFor(() =>
+        expect(within(panel).getByLabelText("Various Artists - Rock - H")).toBeChecked(),
+      );
+
+      // Clicking the row that is already selected fires no change event, so
+      // this gesture has to be read from the click or it records nothing.
+      await user.click(within(panel).getByLabelText("Various Artists - Rock - H"));
+
+      await user.clear(screen.getByLabelText("Album title"));
+      await user.type(screen.getByLabelText("Album title"), "Sonic Youth tribute");
+
+      expect(within(panel).getByLabelText("Various Artists - Rock - H")).toBeChecked();
+      await user.click(await screen.findByRole("button", { name: "Add to rotation" }));
+      await waitFor(() => expect(filings.bodies()).toHaveLength(1));
+      expect(filings.bodies()[0].artist).toEqual({ kind: "existing", artist_id: 8110 });
     });
 
     it("creates the shelf for a genre that has none, under the canonical code", async () => {

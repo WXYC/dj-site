@@ -34,10 +34,15 @@ export interface CompilationBucketPanelProps {
  * The artist arm of a Various Artists filing: which of the genre's compilation
  * buckets the release joins, resolved from the shelf's code rather than typed.
  *
- * Bucket names are shown verbatim and never preselected from the album title.
- * The sub-bucket letter survives only in the name — `Various Artists - Rock -
- * S`, `Soundtracks - K` — so only the librarian holding the record knows which
- * shelf it belongs on, and a guess here would file it somewhere unfindable.
+ * Bucket names are shown verbatim. The sub-bucket letter survives only in the
+ * name — `Various Artists - Rock - S`, `Soundtracks - K` — so the shelf a
+ * record belongs on can only be read off that letter, never off its code.
+ *
+ * The title's letter arrives preselected and captioned as a suggestion. It is
+ * offered, never assumed: the librarian holding the record is the one who
+ * knows, and roughly one compilation in forty files by subject or by a
+ * surname instead. A suggestion they can see costs a click to correct, where
+ * a silent one would file the record somewhere unfindable.
  *
  * Native radios rather than the Joy control: nothing else in the app imports
  * Joy's Radio/RadioGroup, and pulling that module graph onto the bench for one
@@ -103,6 +108,13 @@ export default function CompilationBucketPanel({
                   checked={resolvedArtistId === owner.id}
                   disabled={disabled}
                   onChange={() => onPick(owner.id)}
+                  // Clicking the row that is already selected fires no change
+                  // event, so confirming the suggestion would record no pick
+                  // and a later title edit would move the filing out from
+                  // under a librarian who thought they had settled it. Both
+                  // handlers report the same id, so the double call on a
+                  // fresh selection is a no-op.
+                  onClick={() => onPick(owner.id)}
                 />
                 <Typography level="body-sm">{owner.artist_name}</Typography>
               </Stack>

@@ -41,8 +41,10 @@ function leadingNumberWord(digits: string): string | null {
  * them; the residue is filed by subject or by a person's surname (*Best of
  * Hootenany* on H, *This is Boston not LA* on B) and no rule reaches it.
  *
- * So this is only ever a suggestion the librarian is shown and expected to
- * overrule — never the value a filing is built from.
+ * So this is a suggestion, shown and captioned as one: it stands only until
+ * the librarian says otherwise, and their pick outranks it wherever they make
+ * one. What it must never be is silent — a guess nobody saw is a record
+ * nobody finds.
  */
 export function suggestShelfLetter(albumTitle: string): string | null {
   let remainder = albumTitle.trim();
@@ -73,10 +75,10 @@ const SHELF_LETTER_SUFFIX = /\s-\s([A-Za-z])$/;
  *
  * Reading the letter out of the shelf's *name* is deliberate and is confined
  * to this suggestion: the code has lost the subdivision (every shelf in a
- * genre shares `V/A` 0), and the name is the only place it survives. Nothing
- * is filed on the strength of it — the caller offers the match as a
- * preselection the librarian sees and can change, and a wrong guess costs a
- * click rather than a misfiled record.
+ * genre shares `V/A` 0), and the name is the only place it survives. What the
+ * match must never become is a decision made out of sight — the caller offers
+ * it as a preselection the librarian reads and can change, so a wrong guess
+ * costs a click rather than a misfiled record.
  */
 export function findSuggestedShelfId(
   albumTitle: string,
