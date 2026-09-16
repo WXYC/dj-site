@@ -96,6 +96,26 @@ describe("rotation admin layout", () => {
     expect(mockRedirect).not.toHaveBeenCalled();
   });
 
+  it("scrolls the page content and leaves the tab strip pinned", async () => {
+    mockGetSession.mockResolvedValue({ data: sessionData(null), error: null });
+    mockGetUserRoleInOrganization.mockResolvedValue("musicDirector");
+
+    const result = await RotationAdminLayout({ children: <div data-testid="child-page" /> });
+    renderWithProviders(result);
+
+    // `Main` is a fixed 100dvh box with overflow:hidden, so a route that owns
+    // no scroll container has everything past the fold clipped away rather
+    // than scrolled to. All three rotation pages outgrow the viewport, so the
+    // scroll belongs to this shared wrapper: `flex` + `minHeight` shrink it to
+    // the space left beside the tab strip, `overflow` scrolls the rest, and
+    // the strip itself stays put outside it.
+    expect(screen.getByTestId("child-page").parentElement).toHaveStyle({
+      flex: "1",
+      minHeight: "0px",
+      overflow: "auto",
+    });
+  });
+
   it("redirects a DJ before the tab strip can render", async () => {
     mockGetSession.mockResolvedValue({ data: sessionData(null), error: null });
     mockGetUserRoleInOrganization.mockResolvedValue("dj");
