@@ -16,7 +16,6 @@ import type {
   FlowsheetShowBlockEntry,
   FlowsheetBreakpointEntry,
   FlowsheetMessageEntry,
-  OnAirDJResponse,
 } from "@/lib/features/flowsheet/types";
 import {
   isFlowsheetBreakpointEntry,
@@ -345,15 +344,13 @@ describe("flowsheet conversions", () => {
       expect(result.onAir).toBe("DJ MONSTER");
     });
 
-    // The wire disagrees with the declared type: the backend's on-air resolver
-    // answers null for a handle that is blank or the literal "Anonymous", so a
-    // DJ created without an on-air handle arrives with dj_name: null. This runs
-    // on the server-render seed path outside the seed fetch's catch, so a throw
-    // here is a failed public-page render, not a degraded one.
+    // The backend's on-air resolver answers null for a handle that is blank or
+    // the literal "Anonymous", so a DJ with no on-air handle arrives with
+    // dj_name: null. This runs on the server-render seed path outside the seed
+    // fetch's catch, so a throw here is a failed public-page render, not a
+    // degraded one.
     it("survives a null dj_name from the wire", () => {
-      const response = [
-        { id: "1", dj_name: null },
-      ] as unknown as OnAirDJResponse[];
+      const response = [createTestOnAirDJResponse({ id: "1", dj_name: null })];
 
       expect(() => convertDJsOnAir(response)).not.toThrow();
       expect(convertDJsOnAir(response).onAir).toBe("Off Air");
@@ -363,23 +360,44 @@ describe("flowsheet conversions", () => {
     // falls back to the off-air label — but `djs` stays non-empty, and that is
     // the list liveness is read from. Collapsing the two would put "OFF AIR" on
     // the public page during a live show.
-    it("keeps a nameless on-air DJ in djs even though the banner reads off air", () => {
+    it.each([
+      ["an empty", ""],
+      ["a null", null],
+    ])(
+      "keeps a DJ with %s name in djs even though the banner reads off air",
+      (_label, dj_name) => {
+        const result = convertDJsOnAir([
+          createTestOnAirDJResponse({ id: "1", dj_name }),
+        ]);
+
+        expect(result.djs).toHaveLength(1);
+        expect(result.onAir).toBe("Off Air");
+      }
+    );
+
+    // The DJ is preserved verbatim, null name included — `djs` is what the
+    // chip row reads, and it makes its own display decision from the raw name.
+    it("preserves a null dj_name rather than substituting a display fallback", () => {
       const result = convertDJsOnAir([
-        createTestOnAirDJResponse({ id: "1", dj_name: "" }),
+        createTestOnAirDJResponse({ id: "1", dj_name: null }),
       ]);
 
-      expect(result.djs).toHaveLength(1);
-      expect(result.onAir).toBe("Off Air");
+      expect(result.djs[0].dj_name).toBeNull();
     });
   });
 
-  // Blank and whitespace-only names are filtered here, not by the caller —
-  // an unfiltered one reaches the banner as a bare "" or a trailing "Name, ".
+  // Absent, blank and whitespace-only names are filtered here, not by the
+  // caller — an unfiltered one reaches the banner as a bare "" or a trailing
+  // "Name, ".
   describe("formatOnAirSummary", () => {
-    it.each([
+    it.each<[Array<string | null>, string]>([
       [[""], "Off Air"],
       [["   "], "Off Air"],
+      [[null], "Off Air"],
+      [[null, null], "Off Air"],
       [["Turncoat", ""], "Turncoat"],
+      [["Turncoat", null], "Turncoat"],
+      [[null, "Turncoat", "desire path"], "Turncoat, desire path"],
       [["  Turncoat  "], "Turncoat"],
     ])("formats %j as %s", (names, expected) => {
       const djs = names.map((dj_name, i) =>

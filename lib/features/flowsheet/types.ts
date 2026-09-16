@@ -246,7 +246,10 @@ export type OnAirDJResponse = {
   // shows whose on-air DJ has no Backend-Service account (BS#1547). The banner
   // keys on dj_name, so a null id is display-irrelevant.
   id: string | null;
-  dj_name: string;
+  // Backend resolves a blank or "Anonymous" on-air handle to null, so an
+  // anonymous DJ arrives with no display name at all. Every reader picks its
+  // own fallback; none may assume a string.
+  dj_name: string | null;
 };
 
 export type OnAirDJData = {
