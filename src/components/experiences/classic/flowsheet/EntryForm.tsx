@@ -16,7 +16,6 @@ import {
 } from "@/lib/features/flowsheet/various-artists-guard";
 import { FlowsheetEntryType } from "@wxyc/shared/dtos";
 import {
-  formatStationHourLabel,
   isStationHourBreakpointPresent,
   stationBreakpointMessage,
 } from "@/src/utilities/stationTime";
@@ -144,10 +143,9 @@ export default function EntryForm({
         entry_type: FlowsheetEntryType.talkset,
       };
     } else if (entryType === "breakpoint") {
-      // Re-derived from a fresh clock at the enforcement point, mirroring
-      // BreakpointButton: the Add button is deliberately never disabled on
-      // this, so a stale render-time read can only under-block, never lock
-      // out a station hour that has since become legitimate.
+      // Enforced here rather than by disabling Add: `breakpointMessages` is a
+      // render-time read with no hour-boundary re-render, so a disabled control
+      // could outlive its station hour and lock out the next, legitimate one.
       if (isStationHourBreakpointPresent(breakpointMessages)) return;
       submissionData = {
         message: stationBreakpointMessage(),
@@ -246,7 +244,10 @@ export default function EntryForm({
           >
             <option value="track">Track</option>
             <option value="talkset">Talkset</option>
-            <option value="breakpoint">{formatStationHourLabel()} Breakpoint</option>
+            {/* Renders the exact string the submit path writes, rather than
+                re-joining an hour label with the suffix, so the option cannot
+                name an hour it will not log. */}
+            <option value="breakpoint">{stationBreakpointMessage()}</option>
           </select>
           {entryType !== "track" && (
             <>
