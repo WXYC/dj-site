@@ -12,8 +12,15 @@ import { UpdateRequestBody } from "@/lib/features/flowsheet/types";
 import { useSwitchEntriesMutation } from "@/lib/features/flowsheet/api";
 
 export default function Main() {
-  const { entries, removeFromFlowsheet, updateFlowsheet, loading } =
-    useFlowsheet();
+  const {
+    entries,
+    removeFromFlowsheet,
+    updateFlowsheet,
+    loading,
+    hasNextPage,
+    fetchNextPage,
+    isFetchingNextPage,
+  } = useFlowsheet();
   const { live, leave } = useShowControl();
   const [switchEntries] = useSwitchEntriesMutation();
 
@@ -103,6 +110,9 @@ export default function Main() {
           onUpdate={handleUpdate}
           onDelete={handleDelete}
           onReorder={handleReorder}
+          hasNextPage={hasNextPage}
+          isLoadingMore={isFetchingNextPage}
+          onLoadMore={fetchNextPage}
         />
       </div>
     </div>

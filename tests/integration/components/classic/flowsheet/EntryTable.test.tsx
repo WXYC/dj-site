@@ -1,10 +1,52 @@
-import { describe, it, expect, vi } from "vitest";
-import { fireEvent } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { act, fireEvent } from "@testing-library/react";
 import { createTestFlowsheetEntry, renderWithProviders } from "@/tests/helpers";
 import type { FlowsheetEntry } from "@/lib/features/flowsheet/types";
 import EntryTable from "@/src/components/experiences/classic/flowsheet/EntryTable";
 
-function setup(opts?: { entries?: FlowsheetEntry[]; onReorder?: (sourceId: number, targetId: number) => void }) {
+// The setup file's IntersectionObserver stub never fires, so a spec can never
+// walk the pagination sentinel through it — this one hands the callback back
+// to the spec instead, mirroring ClassicPreviousSetsSurface's harness.
+let observedCallback: IntersectionObserverCallback | undefined;
+
+beforeEach(() => {
+  observedCallback = undefined;
+  vi.stubGlobal(
+    "IntersectionObserver",
+    class {
+      constructor(callback: IntersectionObserverCallback) {
+        observedCallback = callback;
+      }
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+      takeRecords() {
+        return [];
+      }
+    }
+  );
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
+function triggerSentinel() {
+  act(() => {
+    observedCallback?.(
+      [{ isIntersecting: true } as IntersectionObserverEntry],
+      null as unknown as IntersectionObserver
+    );
+  });
+}
+
+function setup(opts?: {
+  entries?: FlowsheetEntry[];
+  onReorder?: (sourceId: number, targetId: number) => void;
+  hasNextPage?: boolean;
+  isLoadingMore?: boolean;
+  onLoadMore?: () => void;
+}) {
   const entries: FlowsheetEntry[] =
     opts?.entries ??
     [
@@ -28,6 +70,7 @@ function setup(opts?: { entries?: FlowsheetEntry[]; onReorder?: (sourceId: numbe
       }),
     ];
   const onReorder = opts?.onReorder ?? vi.fn();
+  const onLoadMore = opts?.onLoadMore ?? vi.fn();
   const utils = renderWithProviders(
     <EntryTable
       entries={entries}
@@ -35,9 +78,12 @@ function setup(opts?: { entries?: FlowsheetEntry[]; onReorder?: (sourceId: numbe
       onUpdate={() => {}}
       onDelete={() => {}}
       onReorder={onReorder}
+      hasNextPage={opts?.hasNextPage ?? false}
+      isLoadingMore={opts?.isLoadingMore ?? false}
+      onLoadMore={onLoadMore}
     />
   );
-  return { ...utils, onReorder, entries };
+  return { ...utils, onReorder, entries, onLoadMore };
 }
 
 describe("Classic EntryTable header", () => {
@@ -171,5 +217,100 @@ describe("Classic EntryTable drag-to-reorder", () => {
     fireEvent.drop(songRow);
 
     expect(onReorder).not.toHaveBeenCalled();
+  });
+});
+
+describe("Classic EntryTable pagination", () => {
+  it("calls onLoadMore when the sentinel intersects and a next page exists", () => {
+    const { onLoadMore } = setup({ hasNextPage: true });
+
+    triggerSentinel();
+
+    expect(onLoadMore).toHaveBeenCalledTimes(1);
+  });
+
+  it("does NOT call onLoadMore once hasNextPage is false", () => {
+    const { onLoadMore } = setup({ hasNextPage: false });
+
+    triggerSentinel();
+
+    expect(onLoadMore).not.toHaveBeenCalled();
+  });
+
+  it("does NOT call onLoadMore while a page is already loading", () => {
+    const { onLoadMore } = setup({ hasNextPage: true, isLoadingMore: true });
+
+    triggerSentinel();
+
+    expect(onLoadMore).not.toHaveBeenCalled();
+  });
+
+  // A background page merge must not be allowed to renumber the row array
+  // under an in-flight drag.
+  it("does NOT call onLoadMore while a row is mid-drag", () => {
+    const { container, onLoadMore } = setup({ hasNextPage: true });
+    const sourceRow = container.querySelector(
+      "tbody tr.flowsheetEntryData"
+    ) as HTMLElement;
+
+    fireEvent.dragStart(sourceRow);
+    triggerSentinel();
+
+    expect(onLoadMore).not.toHaveBeenCalled();
+  });
+
+  it("resumes paging once the drag that suppressed it ends", () => {
+    const { container, onLoadMore } = setup({ hasNextPage: true });
+    const sourceRow = container.querySelector(
+      "tbody tr.flowsheetEntryData"
+    ) as HTMLElement;
+
+    fireEvent.dragStart(sourceRow);
+    fireEvent.dragEnd(sourceRow);
+    triggerSentinel();
+
+    expect(onLoadMore).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows a loading affordance while a page is in flight", () => {
+    const { getByText } = setup({ hasNextPage: true, isLoadingMore: true });
+
+    expect(getByText(/loading more entries/i)).toBeInTheDocument();
+  });
+
+  it("shows nothing once there is no further page to load", () => {
+    const { queryByText } = setup({ hasNextPage: false, isLoadingMore: false });
+
+    expect(queryByText(/loading more entries/i)).not.toBeInTheDocument();
+  });
+
+  it("keeps the previous-show toggle working with pagination wired in", () => {
+    const previousEntries = [
+      createTestFlowsheetEntry({
+        id: 90,
+        play_order: 1,
+        track_title: "Last Show's Song",
+      }),
+    ];
+    const { getByText, queryByText } = renderWithProviders(
+      <EntryTable
+        entries={[createTestFlowsheetEntry({ id: 101, play_order: 1 })]}
+        previousEntries={previousEntries}
+        onUpdate={() => {}}
+        onDelete={() => {}}
+        onReorder={() => {}}
+        hasNextPage={true}
+        isLoadingMore={false}
+        onLoadMore={() => {}}
+      />
+    );
+
+    expect(queryByText("Last Show's Song")).not.toBeInTheDocument();
+
+    fireEvent.click(
+      getByText("Show the flowsheet from the previous show")
+    );
+
+    expect(getByText("Last Show's Song")).toBeInTheDocument();
   });
 });

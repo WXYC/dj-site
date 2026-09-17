@@ -494,6 +494,7 @@ export const useFlowsheet = () => {
     isFetching,
     hasNextPage,
     fetchNextPage,
+    isFetchingNextPage,
   } = useGetInfiniteEntriesInfiniteQuery(undefined, {
     skip: !userData || userloading,
     pollingInterval: flowsheetPollingInterval,
@@ -530,6 +531,7 @@ export const useFlowsheet = () => {
     isFetching,
     hasNextPage,
     fetchNextPage,
+    isFetchingNextPage,
     isSuccess,
     isError,
   };
