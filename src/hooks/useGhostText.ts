@@ -60,8 +60,11 @@ export function useGhostText(
     } else if (field === "artist" && artistQuery.data?.length) {
       suggestion = artistQuery.data[0];
     } else if (field === "song" && trackQuery.data?.length) {
-      trackResult = trackQuery.data[0];
-      suggestion = trackResult.track_title;
+      // A non-empty array can still carry a null at index 0, and a present
+      // row can still carry a null title — the declared element type is not
+      // guaranteed by the payload that reaches the cache.
+      trackResult = trackQuery.data[0] ?? null;
+      suggestion = trackResult?.track_title ?? null;
     }
 
     if (
