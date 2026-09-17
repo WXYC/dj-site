@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { screen, waitFor } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { renderWithProviders } from "@/tests/helpers/render";
 import {
   createTestArtist,
@@ -39,12 +39,21 @@ vi.mock("@/lib/features/rotation/api", async (importOriginal) => {
   };
 });
 
+// The one-per-hour guard reads the current show's breakpoint messages through
+// this hook; mocked (as BreakpointButton's own test mocks it) so the guard can
+// be driven directly rather than through a real infinite-scroll cache.
+let mockBreakpointMessages: string[] = [];
+vi.mock("@/src/hooks/flowsheetHooks", () => ({
+  useCurrentBreakpointMessages: () => mockBreakpointMessages,
+}));
+
 beforeEach(() => {
   addToFlowsheetMock.mockReset();
   // Default: addToFlowsheet returns a mock RTK Query result with .unwrap()
   // that resolves so the form's reset path doesn't throw.
   addToFlowsheetMock.mockReturnValue({ unwrap: () => Promise.resolve({}) });
   rotationDataMock = [];
+  mockBreakpointMessages = [];
 });
 
 /**
@@ -565,6 +574,116 @@ describe("Classic EntryForm — Breakpoint message format", () => {
     });
     const message: string = addToFlowsheetMock.mock.calls[0][0].message;
     expect(message).toMatch(/^\d{1,2}:\d{2} (AM|PM) Breakpoint$/);
+  });
+});
+
+// Regression (#1541): the label used to come from a local helper
+// (nextStationHourLabel) that floored to the hour and always added one, while
+// the write path rounded to the *nearest* station hour via closestStationHour
+// — agreeing only in the back half of the hour. Fake timers here are pinned
+// with no auto-advance and driven with `fireEvent` rather than `userEvent`:
+// userEvent's own setTimeout-based delays need either real time to pass (which
+// would drift a clock pinned exactly on the :30 boundary into the next
+// station hour mid-test) or a fully-virtualized fake-timer setup this suite
+// doesn't have, whereas `fireEvent` fires synchronously and leaves the pinned
+// instant untouched for the whole test.
+describe("Classic EntryForm — breakpoint label names the hour it writes", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it.each([
+    // Each instant is a minute of the 7 PM Eastern (EDT) hour; the station
+    // hour flips from 7 PM to 8 PM strictly after :30.
+    [":00", "2026-07-17T23:00:00.000Z", "7:00 PM"],
+    [":15", "2026-07-17T23:15:00.000Z", "7:00 PM"],
+    [":30", "2026-07-17T23:30:00.000Z", "7:00 PM"],
+    [":31", "2026-07-17T23:31:00.000Z", "8:00 PM"],
+    [":45", "2026-07-17T23:45:00.000Z", "8:00 PM"],
+    [":59", "2026-07-17T23:59:00.000Z", "8:00 PM"],
+  ])(
+    "at 7%s station time, the dropdown label and the written message agree",
+    (_minute, utcInstant, expectedHour) => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date(utcInstant));
+
+      renderWithProviders(<EntryForm />);
+      const select = getNamedSelect("addEntryType");
+      const breakpointOption = Array.from(select.options).find(
+        (o) => o.value === "breakpoint"
+      );
+      expect(breakpointOption?.textContent).toBe(`${expectedHour} Breakpoint`);
+
+      fireEvent.change(select, { target: { value: "breakpoint" } });
+      fireEvent.click(screen.getByRole("button", { name: /^add$/i }));
+
+      expect(addToFlowsheetMock).toHaveBeenCalledTimes(1);
+      expect(addToFlowsheetMock.mock.calls[0][0].message).toBe(
+        `${expectedHour} Breakpoint`
+      );
+    }
+  );
+
+  // The station hour is pinned to Eastern regardless of what a client in
+  // another zone would read for the same instant — the entire point of
+  // stationTime.ts's explicit IANA zone. 03:15Z is 23:15 Eastern (EDT) but
+  // 22:15 Central, so a Central-derived label would read "10:00 PM" here.
+  it("names the Eastern hour even though a Central client would read an hour earlier", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-17T03:15:00.000Z"));
+
+    renderWithProviders(<EntryForm />);
+    const select = getNamedSelect("addEntryType");
+    const breakpointOption = Array.from(select.options).find(
+      (o) => o.value === "breakpoint"
+    );
+    expect(breakpointOption?.textContent).toBe("11:00 PM Breakpoint");
+
+    fireEvent.change(select, { target: { value: "breakpoint" } });
+    fireEvent.click(screen.getByRole("button", { name: /^add$/i }));
+
+    expect(addToFlowsheetMock).toHaveBeenCalledTimes(1);
+    expect(addToFlowsheetMock.mock.calls[0][0].message).toBe(
+      "11:00 PM Breakpoint"
+    );
+  });
+});
+
+describe("Classic EntryForm — one-per-station-hour breakpoint guard", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("refuses a second breakpoint for an hour the current show already has", () => {
+    // 7:15 PM EDT — the current station hour is "7:00 PM".
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-17T23:15:00.000Z"));
+    mockBreakpointMessages = ["7:00 PM Breakpoint"];
+
+    renderWithProviders(<EntryForm />);
+    fireEvent.change(getNamedSelect("addEntryType"), {
+      target: { value: "breakpoint" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /^add$/i }));
+
+    expect(addToFlowsheetMock).not.toHaveBeenCalled();
+  });
+
+  it("still allows a breakpoint for a station hour not yet marked in this show", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-17T23:15:00.000Z"));
+    mockBreakpointMessages = ["6:00 PM Breakpoint"];
+
+    renderWithProviders(<EntryForm />);
+    fireEvent.change(getNamedSelect("addEntryType"), {
+      target: { value: "breakpoint" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /^add$/i }));
+
+    expect(addToFlowsheetMock).toHaveBeenCalledTimes(1);
+    expect(addToFlowsheetMock.mock.calls[0][0].message).toBe(
+      "7:00 PM Breakpoint"
+    );
   });
 });
 
