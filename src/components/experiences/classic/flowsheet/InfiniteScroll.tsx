@@ -2,24 +2,20 @@
 
 import { useEffect, useRef, type ReactNode } from "react";
 
-// Classic-flavored intersection-observer wrapper, ported from
-// `classic/playlists/InfiniteScroll`: an IntersectionObserver watches a
-// sentinel's viewport visibility rather than a scroll event on a particular
-// element, so it fires correctly from inside `#classic-container` — the
-// shell scrollport `globals.css` puts overflow back on, since `html, body`
-// clip theirs (see the note in PreviousSetsContainer). A `window`/element
-// scroll listener would never fire there. No "end of results" copy: unlike
-// the Playlist Archive this paginates the live flowsheet, which keeps
-// admitting older shows, so there is no natural end state to announce.
+// An IntersectionObserver watches the sentinel's viewport visibility rather
+// than a scroll event on a particular element, because Classic scrolls the
+// shell's container: `html, body` clip their overflow and `#classic-container`
+// is where `globals.css` puts the scrollport back (see the note in
+// PreviousSetsContainer). A `window`/element scroll listener never fires there.
 //
-// `paused` is the flowsheet's own addition. An observer reports intersection
-// *changes*, so any call dropped inside the callback is never retried on its
-// own — the caller would have to scroll again to recover it. Taking the gate
-// as a dep instead means clearing it re-runs the effect, re-observes, and
-// re-delivers the current intersection, so a suppressed load resumes by
-// itself. Anything that merely blocks a fetch belongs here rather than in
-// the callback body, and it stays distinct from `isLoading` so suppressing a
-// load does not flash the loading copy.
+// Every gate below is an effect dependency rather than a check inside the
+// callback. An observer reports intersection *changes*, so a call dropped
+// inside the callback is never retried on its own — the caller would have to
+// scroll again to recover it. As a dep, clearing the gate re-observes and
+// re-delivers the current intersection, so a suppressed load resumes by itself.
+//
+// No "end of results" copy: this paginates the live flowsheet, which keeps
+// admitting older shows, so there is no natural end state to announce.
 export default function InfiniteScroll({
   children,
   hasMore,
