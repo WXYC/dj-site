@@ -508,12 +508,8 @@ describe("infinite-cache", () => {
       expect("time" in entry).toBe(false);
     });
 
-    // A breakpoint message is also DateTimeEntry-shaped: isFlowsheetBreakpointEntry
-    // classifies any message containing "Breakpoint" as a breakpoint regardless of
-    // where it came from, and Classic's marker row reads entry.time unconditionally
-    // once that classification holds. Station time, not the client clock — the same
-    // producer convertV2Entry's breakpoint arm uses, so the optimistic row and the
-    // server row that replaces it render identically.
+    // The expected day/time are that instant in the station's zone, not the
+    // runner's — which is what proves the wiring goes through station time.
     it("builds a breakpoint message with station day/time/isToday, satisfying isFlowsheetBreakpointEntry", () => {
       vi.useFakeTimers();
       vi.setSystemTime(new Date("2026-07-17T03:15:30Z")); // 11:15:30 PM EDT on 7/16

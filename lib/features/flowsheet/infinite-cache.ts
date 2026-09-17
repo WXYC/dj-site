@@ -99,14 +99,12 @@ export function buildOptimisticEntry(
       show_id,
       message: arg.message,
     };
-    // isFlowsheetBreakpointEntry discriminates purely on the message text, so
-    // a breakpoint submission reaches Classic's breakpoint render branch
-    // (which reads entry.time unconditionally) before this row has ever been
-    // through the server. Populate the DateTimeEntry fields it needs from
-    // station time — not the DJ's browser clock — using the same producer
-    // convertV2Entry's breakpoint arm uses, so the optimistic row and the
-    // server row that replaces it render identically.
-    if (isFlowsheetBreakpointEntry(entry as FlowsheetEntry)) {
+    // isFlowsheetBreakpointEntry keys on the message text alone, so this row
+    // reaches Classic's breakpoint branch — which reads entry.time — before
+    // the server has ever seen it. Station clock rather than the DJ's, and
+    // the same producer convertV2Entry's breakpoint arm uses, so the server
+    // row that replaces this one renders identically.
+    if (isFlowsheetBreakpointEntry(entry)) {
       const { day, time, isToday } = formatStationDateTime(
         new Date().toISOString()
       );
