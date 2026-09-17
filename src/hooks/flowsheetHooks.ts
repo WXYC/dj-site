@@ -538,9 +538,9 @@ export const useFlowsheet = () => {
 /**
  * Breakpoint `message` strings for the CURRENT show only.
  *
- * `selectFromResult` derives the array in the store so the single consumer
- * (BreakpointButton's one-per-hour guard) re-renders only when the set of
- * breakpoints changes, not on every flowsheet cache update.
+ * `selectFromResult` derives the array in the store so the one-per-hour guards
+ * that consume it — modern's BreakpointButton and classic's EntryForm — re-render
+ * only when the set of breakpoints changes, not on every flowsheet cache update.
  *
  * Scoping to the current show is what makes the bare-label guard safe: without
  * it, an earlier show's same-hour breakpoint (loaded via infinite scroll, or
