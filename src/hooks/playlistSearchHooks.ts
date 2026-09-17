@@ -245,10 +245,17 @@ export function usePlaylistSearch() {
     [dispatch],
   );
 
-  // No-op when there is no next page (last page or response not yet arrived).
+  // No-op when there is no next page (last page or response not yet arrived),
+  // and no-op once a page has failed. A rejected page is not appended, so the
+  // walk's next param survives and `hasNextPage` stays true — and the callers
+  // that drive this are re-armed by the very status change a failure produces
+  // (classic rebuilds its IntersectionObserver whenever `isLoading` flips, and
+  // a fresh observer fires immediately for a sentinel already in view). Left
+  // ungated, one broken page becomes an unthrottled retry loop against an
+  // endpoint this file's own retention notes call expensive.
   const loadNextPage = useCallback(() => {
-    if (hasNextPage) void fetchNextPage();
-  }, [hasNextPage, fetchNextPage]);
+    if (hasNextPage && !isError) void fetchNextPage();
+  }, [hasNextPage, isError, fetchNextPage]);
 
   return {
     rows,

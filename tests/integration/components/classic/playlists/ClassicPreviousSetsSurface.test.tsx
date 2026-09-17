@@ -218,6 +218,65 @@ describe("ClassicPreviousSetsSurface — a genuinely unparseable response body",
   });
 });
 
+// A rejected page is never appended, so the walk's next param survives it and
+// `hasMore` stays true — while the sentinel re-arms on every `isLoading` flip
+// and a fresh observer fires immediately for an element already in view.
+// Nothing but the hook's own guard stands between a broken page and an
+// unthrottled retry loop against the archive's most expensive endpoint.
+describe("ClassicPreviousSetsSurface — a page that fails mid-walk", () => {
+  it("asks for the failed page once, however often the sentinel re-enters view", async () => {
+    const { rows } = playlistSearchFake({ archiveSize: PAGE });
+    let calls = 0;
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/flowsheet/search`, () => {
+        calls += 1;
+        if (calls === 1) {
+          return HttpResponse.json({
+            results: rows,
+            total: 4 * PAGE,
+            page: 0,
+            totalPages: 4,
+            nextCursor: `after:${rows[rows.length - 1].id}`,
+          });
+        }
+        return new HttpResponse("<!DOCTYPE html><html><body>Bad Gateway</body></html>", {
+          status: 200,
+          headers: { "Content-Type": "text/html" },
+        });
+      }),
+    );
+
+    renderWithProviders(<ClassicPreviousSetsSurface />, {
+      store: createTestStore(),
+    });
+    await waitFor(() => expect(rowCount()).toBe(PAGE));
+
+    const sentinelEntersView = () =>
+      act(() => {
+        observedCallback?.(
+          [{ isIntersecting: true } as IntersectionObserverEntry],
+          null as unknown as IntersectionObserver,
+        );
+      });
+
+    sentinelEntersView();
+    await screen.findByText(/an error occurred while searching/i);
+    expect(calls).toBe(2);
+
+    sentinelEntersView();
+    sentinelEntersView();
+
+    // The walk is still open — "End of results" never renders, so the sentinel
+    // stays armed — and a re-request needs a turn of the event loop to reach
+    // the handler, which is what this settles for. Unguarded, `calls` is 3 here.
+    expect(screen.queryByText(/end of results/i)).toBeNull();
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    });
+    expect(calls).toBe(2);
+  });
+});
+
 describe("ClassicPreviousSetsSurface — the Week toggle from inside a show", () => {
   beforeEach(() => {
     mockReplace.mockClear();
