@@ -16,29 +16,15 @@ import {
 } from "@/lib/features/flowsheet/various-artists-guard";
 import { FlowsheetEntryType } from "@wxyc/shared/dtos";
 import {
+  formatStationHourLabel,
+  isStationHourBreakpointPresent,
   stationBreakpointMessage,
-  STATION_TIME_ZONE,
 } from "@/src/utilities/stationTime";
+import { useCurrentBreakpointMessages } from "@/src/hooks/flowsheetHooks";
 
 type EntryType = "track" | "talkset" | "breakpoint";
 type ReleaseType = "rotationRelease" | "libraryRelease" | "otherRelease";
 type RotationType = "heavy" | "medium" | "light" | "singles";
-
-const MS_PER_HOUR = 3_600_000;
-
-// Tubafrenzy labels the breakpoint option with the show's next hour
-// ("3:00 PM Breakpoint"), computed against the station's wall clock.
-function nextStationHourLabel(now: Date = new Date()): string {
-  const nextHour = new Date(
-    now.getTime() - (now.getTime() % MS_PER_HOUR) + MS_PER_HOUR
-  );
-  return new Intl.DateTimeFormat("en-US", {
-    timeZone: STATION_TIME_ZONE,
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  }).format(nextHour);
-}
 
 export default function EntryForm({
   onSuccess,
@@ -69,6 +55,7 @@ export default function EntryForm({
   const [segue, setSegue] = useState(false);
 
   const { data: rotationData } = useGetRotationQuery();
+  const breakpointMessages = useCurrentBreakpointMessages();
 
   // Sorted A→Z by artist (ties broken by album title) so the native <select>
   // type-ahead lands the DJ in the right neighborhood. WXYC/dj-site#745.
@@ -157,6 +144,11 @@ export default function EntryForm({
         entry_type: FlowsheetEntryType.talkset,
       };
     } else if (entryType === "breakpoint") {
+      // Re-derived from a fresh clock at the enforcement point, mirroring
+      // BreakpointButton: the Add button is deliberately never disabled on
+      // this, so a stale render-time read can only under-block, never lock
+      // out a station hour that has since become legitimate.
+      if (isStationHourBreakpointPresent(breakpointMessages)) return;
       submissionData = {
         message: stationBreakpointMessage(),
         entry_type: FlowsheetEntryType.breakpoint,
@@ -254,7 +246,7 @@ export default function EntryForm({
           >
             <option value="track">Track</option>
             <option value="talkset">Talkset</option>
-            <option value="breakpoint">{nextStationHourLabel()} Breakpoint</option>
+            <option value="breakpoint">{formatStationHourLabel()} Breakpoint</option>
           </select>
           {entryType !== "track" && (
             <>
