@@ -13,6 +13,13 @@ import {
   useUpdateArtistCardMutation,
 } from "@/lib/features/catalog/api";
 import {
+  CODE_LETTERS_MAX_LENGTH,
+  parseReleaseCodeNumber,
+  RELEASE_CODE_NUMBER_MAX,
+  releaseVolumeLettersTooLong,
+} from "@/lib/features/catalog/adminCreateArtistValidation";
+import {
+  deriveCodeVolumeLettersSeed,
   formatArtistCodeWithPunctuation,
   formatEntireLibraryCode,
   isVariousArtists,
@@ -74,13 +81,12 @@ const EMPTY_ALPHABETICAL_MESSAGE = "The alphabetical name cannot be empty.";
  * - **No "Delete The Artist" link.** The JSP offers it only for an artist with
  *   no releases and no cross-references; Backend-Service has no delete-artist
  *   endpoint at any privilege (`DELETE /library/:id` deletes a *release*).
- * - **The add-release form does not take the release call number or volume
- *   letters.** `POST /library` derives `code_number` itself
- *   (max+1 for the artist) and has no
- *   `code_volume_letters` parameter at all, so the JSP's two inputs have
- *   nothing to submit to. The assigned code is reported back after the save
- *   instead, which is the fact the librarian actually needs -- it is what goes
- *   on the sleeve.
+ * - **The add-release form's release call number and volume letters are
+ *   editable, not derived.** `POST /library` accepts an operator-chosen
+ *   `code_number` and `code_volume_letters` (Backend-Service#2410); an empty
+ *   field still yields the server's own MAX+1 assignment, and the assigned
+ *   code is reported back after the save either way, which is the fact the
+ *   librarian actually needs -- it is what goes on the sleeve.
  * - **The add-release form gains a Label field.** `POST /library` requires
  *   `label`; the JSP's form has no such input. Same precedent as
  *   `NewArtistForm` adding genre and call letters/numbers because
@@ -136,6 +142,10 @@ export default function ArtistCard({ artistId, message, imported }: ArtistCardPr
   // and no stale second copy of the server's number. Reset to null after a
   // save so the field re-shows the freshly-peeked next number.
   const [codeNumberEdit, setCodeNumberEdit] = useState<string | null>(null);
+  // Same shape as codeNumberEdit, for the volume-letters field: the
+  // librarian's override once they have touched it, otherwise the value
+  // derives from the seed at render time.
+  const [volumeLettersEdit, setVolumeLettersEdit] = useState<string | null>(null);
 
   // Seed the one editable field from the server once the card arrives, and
   // re-seed after a save so the input shows what was stored rather than what
@@ -211,6 +221,17 @@ export default function ArtistCard({ artistId, message, imported }: ArtistCardPr
       ? String(nextRelease.next_code_number)
       : "");
 
+  // The value in the volume-letters field: the librarian's edit if they have
+  // made one, otherwise the seed carried forward from the highest-numbered
+  // loaded release (see `deriveCodeVolumeLettersSeed`). Gated on the peek
+  // having settled for the same duplicate-filing reason as the call number.
+  const displayedVolumeLetters =
+    volumeLettersEdit ??
+    deriveCodeVolumeLettersSeed(
+      releasePage?.releases ?? [],
+      nextReleaseSettled ? nextRelease?.next_code_number : undefined,
+    );
+
   const handleModifyArtist = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!artist) return;
@@ -256,14 +277,24 @@ export default function ArtistCard({ artistId, message, imported }: ArtistCardPr
     const trimmedCode = displayedCodeNumber.trim();
     let overrideCodeNumber: number | undefined;
     if (trimmedCode !== "") {
-      const parsed = Number(trimmedCode);
-      if (!Number.isInteger(parsed) || parsed < 1 || parsed > 32767) {
+      const parsed = parseReleaseCodeNumber(trimmedCode);
+      if (parsed === null) {
         setReleaseMessage(
-          "The release number must be a whole number between 1 and 32767.",
+          `The release number must be a whole number between 1 and ${RELEASE_CODE_NUMBER_MAX}.`,
         );
         return;
       }
       overrideCodeNumber = parsed;
+    }
+
+    // Same "empty means let the server decide" rule as the call number --
+    // here the server's decision is NULL rather than an assignment.
+    const trimmedVolumeLetters = displayedVolumeLetters.trim();
+    if (releaseVolumeLettersTooLong(trimmedVolumeLetters)) {
+      setReleaseMessage(
+        `The release volume letters must be at most ${CODE_LETTERS_MAX_LENGTH} characters.`,
+      );
+      return;
     }
 
     setReleaseMessage(null);
@@ -282,6 +313,9 @@ export default function ArtistCard({ artistId, message, imported }: ArtistCardPr
         ? { alternate_artist_name: altArtistName.trim() }
         : {}),
       ...(overrideCodeNumber != null ? { code_number: overrideCodeNumber } : {}),
+      ...(trimmedVolumeLetters !== ""
+        ? { code_volume_letters: trimmedVolumeLetters }
+        : {}),
     };
 
     try {
@@ -309,6 +343,7 @@ export default function ArtistCard({ artistId, message, imported }: ArtistCardPr
       // returns once addAlbum's invalidation of the release-list tag refetches
       // it -- one higher than what was just filed, in the ordinary case.
       setCodeNumberEdit(null);
+      setVolumeLettersEdit(null);
     } catch {
       setReleaseMessage("Failed to add the release.");
     }
@@ -488,6 +523,19 @@ export default function ArtistCard({ artistId, message, imported }: ArtistCardPr
                   }
                   disabled={savingRelease}
                   onChange={(e) => setCodeNumberEdit(e.target.value)}
+                />
+                {/* The volume letters that follow the call number
+                    (`.../5-A`). Prepopulated from the highest-numbered
+                    loaded release when it lines up with the peeked next
+                    number; blank -> the release is stored with no letters. */}
+                -
+                <input
+                  type="text"
+                  size={4}
+                  aria-label="Release volume letters"
+                  value={displayedVolumeLetters}
+                  disabled={savingRelease}
+                  onChange={(e) => setVolumeLettersEdit(e.target.value)}
                 />
                 {!nextReleaseFetching && displayedCodeNumber.trim() === "" && (
                   <span className="label">

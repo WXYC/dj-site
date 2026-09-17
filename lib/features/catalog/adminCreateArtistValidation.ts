@@ -45,6 +45,42 @@ export const ARTIST_NAME_MAX_LENGTH = 128;
 export const CODE_NUMBER_MAX = 2147483647;
 
 /**
+ * The floor/ceiling `POST /library` enforces on `code_number` -- the
+ * release's own column, `library.code_number`, a `smallint`. Distinct from
+ * `CODE_NUMBER_MAX` above, which bounds the artist-creation column
+ * (`genre_artist_crossreference.artist_genre_code`, an `integer`): the two
+ * forms write different columns with different ranges, so sharing one
+ * constant between them would either falsely narrow artist creation or
+ * falsely widen release filing.
+ */
+export const RELEASE_CODE_NUMBER_MAX = 32767;
+
+/**
+ * `code_number` on an add-release form: an empty field means "let the
+ * server assign", any other value must be a whole number the column can
+ * hold. Shared by `ArtistCard` and `VariousArtistsCard` rather than copied
+ * -- the second of those forms is exactly the case that would otherwise have
+ * produced a third copy of `ArtistCard`'s original inline check.
+ */
+export function parseReleaseCodeNumber(raw: string): number | null {
+  const parsed = parseRequiredPositiveInt(raw);
+  return parsed !== null && parsed <= RELEASE_CODE_NUMBER_MAX ? parsed : null;
+}
+
+/**
+ * `code_volume_letters` is free text, not a shelf code -- unlike
+ * `code_letters` it is never case-normalized or restricted to
+ * `isCanonicalCodeLetters` -- but it shares that column family's `varchar(4)`
+ * width, so the same `CODE_LETTERS_MAX_LENGTH` ceiling applies. Counted in
+ * code points, matching how the backend measures the column (a surrogate
+ * pair must not cost two of the four slots here and then fail server-side
+ * anyway).
+ */
+export function releaseVolumeLettersTooLong(raw: string): boolean {
+  return Array.from(raw.trim()).length > CODE_LETTERS_MAX_LENGTH;
+}
+
+/**
  * Call letters are matched case-sensitively everywhere the backend uses them —
  * the duplicate pre-check and the next-code-number scan both compare the
  * column for equality, over a plain btree on a non-citext column — and the

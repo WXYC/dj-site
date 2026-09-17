@@ -236,3 +236,35 @@ export function formatReleaseArtistTitle({
       : album_artist_name;
   return artist ? `${artist} - ${album_title}` : album_title;
 }
+
+export type ReleaseForVolumeLettersSeed = {
+  code_number: number;
+  code_volume_letters: string | null;
+};
+
+/**
+ * The add-release form's `code_volume_letters` seed: the highest-numbered
+ * release's own letters, carried forward the way `code_number` is already
+ * seeded from the peek.
+ *
+ * `GET /library/artists/:id/releases` takes no sort parameter and its hook is
+ * paginated (`ArtistCard.tsx`), so the highest-numbered release is not
+ * guaranteed to be among the *loaded* rows. This derives from the loaded page
+ * alone, and only trusts its maximum when it lines up with the peek's
+ * `next_code_number - 1` -- proof the loaded page actually holds the last
+ * release filed. Otherwise the seed is blank: a wrong prefill silently
+ * carries a stale letter forward, which is worse than an empty box the
+ * librarian notices.
+ */
+export function deriveCodeVolumeLettersSeed(
+  releases: ReleaseForVolumeLettersSeed[],
+  nextCodeNumber: number | undefined,
+): string {
+  if (nextCodeNumber == null || releases.length === 0) return "";
+  const highest = releases.reduce((max, release) =>
+    release.code_number > max.code_number ? release : max,
+  );
+  return highest.code_number === nextCodeNumber - 1
+    ? (highest.code_volume_letters ?? "")
+    : "";
+}
