@@ -32,6 +32,7 @@ export default function EntryTable({
   onReorder,
   hasNextPage,
   isLoadingMore,
+  isFetching,
   onLoadMore,
 }: {
   entries: FlowsheetEntry[];
@@ -45,6 +46,8 @@ export default function EntryTable({
   hasNextPage: boolean;
   /** Whether a page fetched by scrolling into the sentinel is in flight. */
   isLoadingMore: boolean;
+  /** Whether any flowsheet request — including a background poll — is open. */
+  isFetching: boolean;
   /** Fetches the next (older) page of entries. */
   onLoadMore: () => void;
 }) {
@@ -52,15 +55,27 @@ export default function EntryTable({
   const [draggingId, setDraggingId] = useState<number | null>(null);
   const [dragOverId, setDragOverId] = useState<number | null>(null);
 
-  // A background page merge must not land while a drag is deciding this
-  // row's new position — see the constraint on renumbering rows under the
-  // pointer. Classic's drag state is component-local (unlike Modern's, which
-  // suppresses the poll via Redux `isDragging`), so the same care is applied
-  // here directly rather than through useFlowsheetPollingInterval.
-  const handleLoadMore = () => {
-    if (draggingId !== null) return;
-    onLoadMore();
-  };
+  // Paging here exists to reach the start of the CURRENT show, and `hasNextPage`
+  // is the wrong stop condition for that on its own: the feed is every show ever
+  // logged, and its page param only runs out on a short page, so `hasNextPage`
+  // stays true for years of archive. Worse, a page of older-show rows lands in
+  // `previousEntries`, which is hidden until the toggle below is opened — the
+  // rendered height does not grow, so the sentinel never leaves the viewport and
+  // keeps re-arming. A show shorter than the viewport would page backwards
+  // through the whole archive on its own, 20 rows at a time.
+  //
+  // Anything in `previousEntries` is by definition older than this show's first
+  // row, so its arrival means the show — start marker included — is fully
+  // loaded and there is nothing further back worth fetching.
+  const reachedShowStart = previousEntries.length > 0;
+
+  // A page merge must not land while a drag is deciding a row's new position.
+  // Classic's drag state is component-local (unlike Modern's, which suppresses
+  // the poll via Redux `isDragging`), so the gate is applied here directly
+  // rather than through useFlowsheetPollingInterval. `isFetching` joins it
+  // because RTK Query drops a fetch dispatched while another is pending, which
+  // would otherwise strand the sentinel until the next scroll.
+  const paginationPaused = draggingId !== null || isFetching;
 
   const handleDragStart = (entryId: number) => {
     setDraggingId(entryId);
@@ -86,9 +101,10 @@ export default function EntryTable({
   return (
     <div id="flowsheet">
       <InfiniteScroll
-        hasMore={hasNextPage}
+        hasMore={hasNextPage && !reachedShowStart}
         isLoading={isLoadingMore}
-        onLoadMore={handleLoadMore}
+        paused={paginationPaused}
+        onLoadMore={onLoadMore}
       >
         <table className="entry-table">
           <thead>

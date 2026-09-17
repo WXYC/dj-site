@@ -20,6 +20,7 @@ export default function Main() {
     hasNextPage,
     fetchNextPage,
     isFetchingNextPage,
+    isFetching,
   } = useFlowsheet();
   const { live, leave } = useShowControl();
   const [switchEntries] = useSwitchEntriesMutation();
@@ -112,6 +113,7 @@ export default function Main() {
           onReorder={handleReorder}
           hasNextPage={hasNextPage}
           isLoadingMore={isFetchingNextPage}
+          isFetching={isFetching}
           onLoadMore={fetchNextPage}
         />
       </div>
