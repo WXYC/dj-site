@@ -71,15 +71,12 @@ export const playlistSearchApi = createApi({
       // matches what a sort change already promises — pagination restarts —
       // and the alternative is the page-by-page refetch this exists to avoid.
       keepUnusedDataFor: 0,
-      // Opts out of the shared soft-JSON-failure handling
-      // (`surfaceNonJsonAsError`): a genuinely unparseable body must not
-      // collapse to `{ results: [], total: 0 }` and read as "the archive has
-      // nothing", because that is indistinguishable on screen from the search
-      // actually returning zero rows. `backendBaseQuery`'s abort carve-out
-      // still keeps this silent for the routine case — an in-flight page this
-      // endpoint's own `keepUnusedDataFor: 0` aborted on a re-key or a
-      // navigation away — so this only surfaces for a body the backend itself
-      // sent broken.
+      // Opts out of the shared soft-JSON-failure handling: a body the backend
+      // sent broken must not collapse to `{ results: [], total: 0 }`, which on
+      // screen is indistinguishable from the search legitimately matching no
+      // rows — an archive of two decades reading as empty, with no error to
+      // say otherwise. A request this endpoint's own `keepUnusedDataFor: 0`
+      // aborted stays silent regardless; `backendBaseQuery` owns that rule.
       extraOptions: { surfaceNonJsonAsError: true },
       infiniteQueryOptions: {
         initialPageParam: FIRST_PAGE,
@@ -126,9 +123,10 @@ export const playlistSearchApi = createApi({
           },
         };
       },
-      // `response` is `null` only for the abort carve-out above — this
-      // endpoint's `surfaceNonJsonAsError` means a real unparseable body
-      // never reaches `transformResponse` at all; it fails the query instead.
+      // `null` still reaches here for the two cases the opt-out above does not
+      // cover — a zero-length 200, which RTK's json handler resolves to `null`
+      // without an error, and a request the client aborted — so the fallback
+      // is live, not dead code.
       transformResponse: (
         response: PlaylistSearchResponseWithCursor | null,
       ): PlaylistSearchResponseWithCursor =>
