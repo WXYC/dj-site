@@ -4,6 +4,7 @@ import { useState } from "react";
 import {
   FlowsheetEntry,
   isFlowsheetSongEntry,
+  isFlowsheetStartShowEntry,
   UpdateRequestBody,
 } from "@/lib/features/flowsheet/types";
 import EntryRow from "./EntryRow";
@@ -55,19 +56,17 @@ export default function EntryTable({
   const [draggingId, setDraggingId] = useState<number | null>(null);
   const [dragOverId, setDragOverId] = useState<number | null>(null);
 
-  // Paging here exists to reach the start of the CURRENT show, and `hasNextPage`
-  // is the wrong stop condition for that on its own: the feed is every show ever
-  // logged, and its page param only runs out on a short page, so `hasNextPage`
-  // stays true for years of archive. Worse, a page of older-show rows lands in
-  // `previousEntries`, which is hidden until the toggle below is opened — the
-  // rendered height does not grow, so the sentinel never leaves the viewport and
-  // keeps re-arming. A show shorter than the viewport would page backwards
-  // through the whole archive on its own, 20 rows at a time.
-  //
-  // Anything in `previousEntries` is by definition older than this show's first
-  // row, so its arrival means the show — start marker included — is fully
-  // loaded and there is nothing further back worth fetching.
-  const reachedShowStart = previousEntries.length > 0;
+  // Paging reaches the start of the CURRENT show, and `hasNextPage` alone is
+  // the wrong stop condition for that: the feed is every show ever logged and
+  // its page param only runs out on a short page, so `hasNextPage` stays true
+  // for years of archive. Older rows land in `previousEntries`, which the
+  // toggle below keeps collapsed, so the rendered height does not grow, the
+  // sentinel never leaves the viewport, and it re-arms on the next render — a
+  // show shorter than the viewport would walk the archive backwards unprompted.
+  // Anything in `previousEntries` is older than this show's first row, which is
+  // the failsafe for a show whose start marker never got logged.
+  const reachedShowStart =
+    entries.some(isFlowsheetStartShowEntry) || previousEntries.length > 0;
 
   // A page merge must not land while a drag is deciding a row's new position.
   // Classic's drag state is component-local (unlike Modern's, which suppresses

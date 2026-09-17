@@ -1,12 +1,14 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { act } from "@testing-library/react";
-import { createTestFlowsheetEntry, renderWithProviders } from "@/tests/helpers";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import {
+  createTestFlowsheetEntry,
+  renderWithProviders,
+  stubIntersectionObserver,
+} from "@/tests/helpers";
 import type { FlowsheetEntry } from "@/lib/features/flowsheet/types";
 import Main from "@/src/components/experiences/classic/flowsheet/Layout/Main";
 
-// This spec is about the Layout/Main <-> EntryTable pagination wiring dj-site
-// #1542 diagnosed as missing, not the surrounding chrome those already have
-// their own specs for.
+// Isolates the Main <-> EntryTable pagination wiring; the surrounding chrome
+// has its own specs.
 vi.mock("@/src/components/experiences/classic/Navigation", () => ({
   default: () => null,
 }));
@@ -69,33 +71,14 @@ function flowsheetResult(overrides: {
   };
 }
 
-let observedCallback: IntersectionObserverCallback | undefined;
+const { triggerSentinel } = stubIntersectionObserver();
 
 beforeEach(() => {
   vi.clearAllMocks();
-  observedCallback = undefined;
-  vi.stubGlobal(
-    "IntersectionObserver",
-    class {
-      constructor(callback: IntersectionObserverCallback) {
-        observedCallback = callback;
-      }
-      observe() {}
-      unobserve() {}
-      disconnect() {}
-      takeRecords() {
-        return [];
-      }
-    }
-  );
   mockUseShowControl.mockReturnValue({ live: true, leave: vi.fn() });
   mockUseFlowsheet.mockReturnValue(
     flowsheetResult({ current: firstPage, hasNextPage: true })
   );
-});
-
-afterEach(() => {
-  vi.unstubAllGlobals();
 });
 
 describe("Main — Classic flowsheet pagination", () => {
@@ -104,17 +87,10 @@ describe("Main — Classic flowsheet pagination", () => {
 
     expect(queryByText("The Very First Song")).not.toBeInTheDocument();
 
-    act(() => {
-      observedCallback?.(
-        [{ isIntersecting: true } as IntersectionObserverEntry],
-        null as unknown as IntersectionObserver
-      );
-    });
+    triggerSentinel();
 
     expect(mockFetchNextPage).toHaveBeenCalledTimes(1);
 
-    // The RTK Query cache growing after fetchNextPage resolves: useFlowsheet
-    // re-derives a wider `entries.current` with no further page to fetch.
     mockUseFlowsheet.mockReturnValue(
       flowsheetResult({ current: fullShow, hasNextPage: false })
     );
@@ -123,8 +99,8 @@ describe("Main — Classic flowsheet pagination", () => {
     expect(queryByText("The Very First Song")).toBeInTheDocument();
   });
 
-  // `hasNextPage` describes the whole archive, not this show, and an older
-  // page merges into the collapsed previous-show section without growing the
+  // `hasNextPage` describes the whole archive, not this show, and an older page
+  // merges into the collapsed previous-show section without growing the
   // rendered height — so the sentinel stays put and would re-arm on every
   // poll-driven render, walking the archive backwards unprompted.
   it("stops fetching once a page older than the current show has merged", () => {
@@ -144,12 +120,7 @@ describe("Main — Classic flowsheet pagination", () => {
 
     renderWithProviders(<Main />);
 
-    act(() => {
-      observedCallback?.(
-        [{ isIntersecting: true } as IntersectionObserverEntry],
-        null as unknown as IntersectionObserver
-      );
-    });
+    triggerSentinel();
 
     expect(mockFetchNextPage).not.toHaveBeenCalled();
   });

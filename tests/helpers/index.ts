@@ -7,6 +7,7 @@ export * from "../fixtures/fixtures";
 // second star-export of the same binding would be redundant, not additive.
 export * from "./render";
 export * from "./field-value";
+export * from "./intersection-observer";
 
 export * from "./slice-harness";
 export * from "./api-harness";
