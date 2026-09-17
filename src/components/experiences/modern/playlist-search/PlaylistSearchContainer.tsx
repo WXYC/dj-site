@@ -44,7 +44,10 @@ export default function PlaylistSearchContainer({
 
       {showResults && (
         <Box sx={{ mt: 2 }}>
-          {isRealQuery && (
+          {/* Withheld from a failed query: `total` falls back to 0 when there
+              is no page to read it from, so this line would otherwise answer
+              "no results" beneath the notice saying the search never ran. */}
+          {isRealQuery && !isError && (
             <Typography level="body-sm" sx={{ mb: 1, color: "text.secondary" }}>
               {isLoading
                 ? "Searching..."
@@ -54,7 +57,10 @@ export default function PlaylistSearchContainer({
             </Typography>
           )}
 
-          {isError && isRealQuery && (
+          {/* Not scoped to a real query, as the count line above is: the
+              default listing is the case where an unreadable response is
+              indistinguishable from an archive with nothing in it. */}
+          {isError && (
             <Typography level="body-sm" color="danger" sx={{ mb: 2 }}>
               An error occurred while searching. Please try again.
             </Typography>

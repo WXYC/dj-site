@@ -64,8 +64,14 @@ export default function PreviousSetsContainer({
           {/* Scoped to a real query. A count answers a question the DJ asked;
               over the default listing it is noise, and "No results found" over
               a populated archive is simply wrong. While a request is in flight
-              "Searching..." wins so stale copy cannot flash mid-query. */}
-          {isRealQuery && (
+              "Searching..." wins so stale copy cannot flash mid-query.
+
+              Withheld from a failed query for the same reason: `total` falls
+              back to 0 when there is no page to read it from, so this line
+              would otherwise answer "no results" beneath the notice saying the
+              search never ran — and it would do that for every failure shape,
+              not only the unreadable bodies the base query can recognize. */}
+          {isRealQuery && !isError && (
             <p
               className="text"
               style={{ textAlign: "center", padding: "0.5em" }}
