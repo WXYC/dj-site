@@ -115,6 +115,41 @@ describe("Results (modern previous sets)", () => {
     expect(screen.getByText("No results found")).toBeInTheDocument();
   });
 
+  // An unreadable response leaves this listing with no rows and nothing to say
+  // about why — the state in which two decades of archive read as nothing.
+  it("reports a failed default listing rather than leaving it blank", () => {
+    mockUsePlaylistSearchResults.mockReturnValue({
+      ...base,
+      displayResults: [],
+      showResults: true,
+      isRealQuery: false,
+      isError: true,
+    });
+
+    render(<Results />);
+
+    expect(
+      screen.getByText(/an error occurred while searching/i),
+    ).toBeInTheDocument();
+  });
+
+  it("does not answer a failed search with an empty result set", () => {
+    mockUsePlaylistSearchResults.mockReturnValue({
+      ...base,
+      displayResults: [],
+      showResults: true,
+      isRealQuery: true,
+      isError: true,
+    });
+
+    render(<Results />);
+
+    expect(screen.queryByText("No results found")).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/an error occurred while searching/i),
+    ).toBeInTheDocument();
+  });
+
   it("does not accuse the default listing of being empty while it loads", () => {
     mockUsePlaylistSearchResults.mockReturnValue({
       ...base,

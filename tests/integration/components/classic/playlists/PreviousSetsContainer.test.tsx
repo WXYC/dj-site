@@ -286,13 +286,47 @@ describe("Classic Previous Sets PreviousSetsContainer", () => {
   it("shows an error message when the search request fails", async () => {
     const { user, rerender } = renderWithProviders(<PreviousSetsContainer />);
     await user.type(screen.getByPlaceholderText(/type to search/i), "Juana");
-    mockQueryState.isError = true;
+    mockQueryState.data = {
+      pages: [
+        {
+          results: [
+            {
+              id: 903,
+              play_date: "2026-08-23T15:00:00.000Z",
+              artist_name: "Juana Molina",
+              track_title: "la paradoja",
+              album_title: "DOGA",
+              record_label: "Sonamos",
+              dj_name: "DJ Chowder",
+              show_id: 301,
+            },
+          ],
+          total: 1,
+          page: 0,
+          totalPages: 1,
+        },
+      ],
+    };
     rerender(<PreviousSetsContainer />);
+
+    // The count line is scoped to a *settled* real query, so it has to have
+    // been on screen once for its absence below to mean anything: asserted
+    // before the query settles, the absence passes whatever the gate does.
+    await screen.findByText(/found 1 results/i);
+
+    mockQueryState.isError = true;
+    mockQueryState.data = undefined;
+    rerender(<PreviousSetsContainer />);
+
     await waitFor(() => {
       expect(
         screen.getByText(/an error occurred while searching/i)
       ).toBeDefined();
     });
+    // A failed query has no page to read a total from, so the count falls back
+    // to zero. Left ungated, this line answers the DJ's search with "no
+    // results" directly above the notice saying the search never ran.
+    expect(screen.queryByText(/no results found/i)).toBeNull();
   });
 
   // tubafrenzy's own summary line, above its results table for twenty years.

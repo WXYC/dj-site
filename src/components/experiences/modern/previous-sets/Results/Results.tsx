@@ -122,6 +122,7 @@ export default function Results({
     displayResults,
     hasMore,
     isLoading,
+    isError,
     sortBy,
     sortOrder,
     handleSort,
@@ -303,7 +304,23 @@ export default function Results({
               </tr>
             )}
 
-            {isRealQuery && !isLoading && displayResults.length === 0 && (
+            {/* Unlike the empty-state row below, not scoped to a real query:
+                the default listing is exactly where an unreadable response
+                is indistinguishable from an archive with nothing in it. */}
+            {isError && !isLoading && (
+              <tr style={{ background: "transparent" }}>
+                <td
+                  colSpan={6}
+                  style={{ textAlign: "center", paddingTop: "2rem" }}
+                >
+                  <Typography level="body-sm" color="danger">
+                    An error occurred while searching. Please try again.
+                  </Typography>
+                </td>
+              </tr>
+            )}
+
+            {isRealQuery && !isError && !isLoading && displayResults.length === 0 && (
               <tr style={{ background: "transparent" }}>
                 <td
                   colSpan={6}

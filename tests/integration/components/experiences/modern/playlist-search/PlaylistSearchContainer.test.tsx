@@ -146,6 +146,31 @@ describe("PlaylistSearchContainer", () => {
     expect(screen.queryByTestId("results-table")).not.toBeInTheDocument();
   });
 
+  // The default listing is the case an unreadable response is easiest to
+  // mistake for an empty archive, so it is the one that most needs the notice.
+  it("reports a failed default listing rather than leaving it blank", () => {
+    mockUsePlaylistSearchResults.mockReturnValue({
+      ...forDefaultQuery([]),
+      isError: true,
+    });
+    render(<PlaylistSearchContainer initialResults={[]} />);
+    expect(
+      screen.getByText(/an error occurred while searching/i),
+    ).toBeInTheDocument();
+  });
+
+  it("does not answer a failed search with a count of zero", () => {
+    mockUsePlaylistSearchResults.mockReturnValue({
+      ...forRealQuery([], 0),
+      isError: true,
+    });
+    render(<PlaylistSearchContainer />);
+    expect(
+      screen.getByText(/an error occurred while searching/i),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/no results found/i)).not.toBeInTheDocument();
+  });
+
   it("does not render the table when there are no rows to show", () => {
     mockUsePlaylistSearchResults.mockReturnValue(forDefaultQuery([]));
     render(<PlaylistSearchContainer initialResults={[]} />);
