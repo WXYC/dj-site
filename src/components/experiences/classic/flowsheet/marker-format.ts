@@ -3,19 +3,24 @@
 //   day: "11/14/2023"   -> "11/14/23"
 //   time: "5:13:00 PM"  -> "5:13 PM"
 // Returns the input unchanged when it doesn't match the expected pattern,
-// so unknown / placeholder values pass through.
+// so unknown / placeholder values pass through. Absent input (a marker row
+// whose entry hasn't been given a timestamp yet, such as a freshly-built
+// optimistic entry) is the same class of thing and renders as a blank
+// cell rather than throwing.
 
 const DAY_PATTERN = /^(\d{1,2})\/(\d{1,2})\/(\d{2})(\d{2})$/;
 const TIME_PATTERN = /^(\d{1,2}:\d{2}):\d{2}\s+(AM|PM)$/i;
 
-export function formatShortDate(day: string): string {
+export function formatShortDate(day: string | null | undefined): string {
+  if (!day) return "";
   const match = day.match(DAY_PATTERN);
   if (!match) return day;
   const [, month, date, , yy] = match;
   return `${month}/${date}/${yy}`;
 }
 
-export function formatShortTime(time: string): string {
+export function formatShortTime(time: string | null | undefined): string {
+  if (!time) return "";
   const match = time.match(TIME_PATTERN);
   if (!match) return time;
   const [, hm, ampm] = match;

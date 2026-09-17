@@ -322,6 +322,22 @@ describe("Classic EntryRow markers", () => {
       const { container } = renderRow({ entry: breakpointEntry });
       expect(container.querySelector(".littlegreenlabel")).toBeNull();
     });
+
+    // A message-shaped optimistic entry classifies as a breakpoint purely on
+    // its message text, so it can reach this branch before day/time are
+    // populated. The row must render a blank time rather than throw.
+    it("renders without throwing when day/time are absent", () => {
+      const entry = {
+        id: 2,
+        show_id: 1,
+        play_order: 2,
+        message: "5:00 PM Breakpoint",
+      } as unknown as FlowsheetEntry;
+      expect(() => renderRow({ entry })).not.toThrow();
+      const { container } = renderRow({ entry });
+      const cell = container.querySelector("tr > td:nth-child(2)");
+      expect(cell!.textContent).toBe("");
+    });
   });
 
   describe("start of show", () => {
