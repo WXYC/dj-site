@@ -715,6 +715,60 @@ describe("RotationFilingBench — Various Artists compilations", () => {
       expect(screen.queryByText(/Discogs credits this release to/)).not.toBeInTheDocument();
     });
 
+    it("lets editing the link overrule the mismatch, since the credit was only a name", async () => {
+      mockShelf({ owners: [PLAIN_BUCKET] });
+      fakeDiscogsPrefillEndpoint({
+        // The residual gap the predicate documents: a DJ mix is credited to a
+        // person and is still a compilation. The librarian holding it knows.
+        prefill: { ...MOLINA_DISCOGS_PREFILL, artist_name: "DJ Marcelle" },
+      });
+      const { user } = renderBench();
+
+      await selectGenre(user);
+      await user.click(screen.getByLabelText(VA_CHECKBOX));
+      await autopopulate(user);
+
+      expect(
+        await screen.findByText(/Discogs credits this release to DJ Marcelle/),
+      ).toBeInTheDocument();
+
+      await user.clear(screen.getByLabelText("Autopopulate with Discogs link"));
+
+      // The notice named this remedy; it has to be one that works.
+      expect(screen.queryByText(/Discogs credits this release to/)).not.toBeInTheDocument();
+      expect(screen.getByLabelText(VA_CHECKBOX)).toBeChecked();
+      await fillRelease(user);
+      await awaitDefaultCard();
+      await waitFor(() =>
+        expect(screen.getByRole("button", { name: "Add to rotation" })).toBeEnabled(),
+      );
+    });
+
+    it("holds nothing on a credit with no name in it", async () => {
+      mockShelf({ owners: [PLAIN_BUCKET] });
+      fakeDiscogsPrefillEndpoint({
+        prefill: { ...MOLINA_DISCOGS_PREFILL, artist_name: "   " },
+      });
+      const { user } = renderBench();
+
+      await selectGenre(user);
+      await user.click(screen.getByLabelText(VA_CHECKBOX));
+      await autopopulate(user);
+      await waitFor(() => expect(screen.getByLabelText("Album title")).toHaveValue("DOGA"));
+
+      // A blank credit contradicts nothing, so it must not strand the filing
+      // behind a notice that names nobody.
+      expect(screen.queryByText(/Discogs credits this release to/)).not.toBeInTheDocument();
+      // The title arrived with the resolve; only the label and format are left.
+      await user.type(screen.getByLabelText("Label"), "Sonamos");
+      await user.click(screen.getByRole("combobox", { name: "Format" }));
+      await user.click(await screen.findByRole("option", { name: "CD" }));
+      await awaitDefaultCard();
+      await waitFor(() =>
+        expect(screen.getByRole("button", { name: "Add to rotation" })).toBeEnabled(),
+      );
+    });
+
     it("says nothing about a name the librarian merely typed before checking", async () => {
       mockShelf({ owners: [PLAIN_BUCKET] });
       const { user } = renderBench();

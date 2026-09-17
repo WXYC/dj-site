@@ -217,19 +217,23 @@ export default function RotationFilingBench(): JSX.Element {
         }
       : null;
 
-  // The render guard, not a backstop: entering compilation state leaves
-  // `creating` alone, so unchecking restores a half-filled create panel rather
-  // than discarding what the MD typed into it.
   // Discogs resolved a release credited to one artist while the box is checked.
   // Stated rather than acted on: auto-checking follows a fact where nothing was
   // decided, but auto-unchecking would silently undo a decision the MD made —
   // the same line the shelf suggestion holds against an overruled pick. The
   // submit is held because filing this to the V/A shelf is the misfile.
+  //
+  // Overrulable, because the name is only a heuristic: a DJ mix or an "X
+  // Presents" compilation is credited to a person and is still a compilation.
+  // Editing the link retracts the credit, which is the remedy the notice names.
   const compilationArtistMismatch =
     compilationActive &&
     prefillArtistName !== null &&
     !isCompilationReleaseArtistName(prefillArtistName);
 
+  // The render guard, not a backstop: entering compilation state leaves
+  // `creating` alone, so unchecking restores a half-filled create panel rather
+  // than discarding what the MD typed into it.
   const showCreatePanel = creating && selectedArtist === null && !compilationActive;
   const compilationSynonym = isCompilationReleaseArtistName(trimmedArtist);
   const createFieldsReady =
@@ -442,7 +446,9 @@ export default function RotationFilingBench(): JSX.Element {
       clearArtistConflict();
       setAlbumTitle(prefill.album_title);
       setLabel(prefill.label ?? "");
-      setPrefillArtistName(prefill.artist_name);
+      // A blank credit names nobody, so it can contradict nothing: stored as
+      // absent, it cannot latch a notice with an empty name in it.
+      setPrefillArtistName(prefill.artist_name.trim() || null);
       // Each resolve is a different record. A pick made for the previous one
       // would outrank this title's suggestion and arm the filing with no
       // gesture — the same hazard the post-filing reset and the checkbox
@@ -578,6 +584,11 @@ export default function RotationFilingBench(): JSX.Element {
                     onChange={(e) => {
                       setDiscogsUrl(e.target.value);
                       if (autofillError !== null) setAutofillError(null);
+                      // The resolved credit describes the link that produced
+                      // it. Editing the link retracts that claim — which is
+                      // what lets an MD overrule the mismatch notice for a
+                      // compilation credited to a person.
+                      setPrefillArtistName(null);
                     }}
                     sx={{ flexGrow: 1 }}
                   />
