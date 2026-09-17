@@ -101,9 +101,10 @@ export function buildOptimisticEntry(
     };
     // isFlowsheetBreakpointEntry keys on the message text alone, so this row
     // reaches Classic's breakpoint branch — which reads entry.time — before
-    // the server has ever seen it. Station clock rather than the DJ's, and
-    // the same producer convertV2Entry's breakpoint arm uses, so the server
-    // row that replaces this one renders identically.
+    // the server has ever seen it. formatStationDateTime pins the station's
+    // zone (the instant is still the browser's), and is the producer
+    // convertV2Entry's breakpoint arm uses, so the server row that replaces
+    // this one is formatted the same way.
     if (isFlowsheetBreakpointEntry(entry)) {
       const { day, time, isToday } = formatStationDateTime(
         new Date().toISOString()
