@@ -202,6 +202,49 @@ describe("useGhostText", () => {
     });
   });
 
+  describe("song field — malformed top result", () => {
+    const wellFormed = {
+      track_title: "VI Scose Poise",
+      album_title: "Confield",
+      record_label: "Warp",
+    };
+
+    // `trackQuery.data?.length` only proves the array is non-empty, not that
+    // its first element — or that element's title — is populated. Every shape
+    // below must degrade to an absent hint rather than throwing during render.
+    it.each([
+      { label: "null", entry: null, expectedGhostSuffix: "", expectedTrackResult: null },
+      { label: "undefined", entry: undefined, expectedGhostSuffix: "", expectedTrackResult: null },
+      {
+        label: "an entry with a null title",
+        entry: { ...wellFormed, track_title: null },
+        expectedGhostSuffix: "",
+        expectedTrackResult: null,
+      },
+      {
+        label: "a well-formed entry",
+        entry: wellFormed,
+        expectedGhostSuffix: " Scose Poise",
+        expectedTrackResult: wellFormed,
+      },
+    ])(
+      "handles a top track result that is $label",
+      ({ entry, expectedGhostSuffix, expectedTrackResult }) => {
+        mockTrackQuery.data = [entry] as unknown as typeof mockTrackQuery.data;
+
+        const { result } = renderHook(() =>
+          useGhostText("song", "VI", "Autechre")
+        );
+
+        expect(result.current.ghostSuffix).toBe(expectedGhostSuffix);
+        expect(result.current.trackResult).toEqual(expectedTrackResult);
+        expect(result.current.acceptGhostText()).toBe(
+          expectedGhostSuffix === "" ? null : wellFormed.track_title
+        );
+      }
+    );
+  });
+
   describe("suggestionOverride (album/label fields)", () => {
     it("uses the override as the suggestion without querying", () => {
       const { result } = renderHook(() =>
