@@ -1,4 +1,5 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
+import { isFlowsheetBreakpointEntry } from "@/lib/features/flowsheet/types";
 import type {
   FlowsheetSongEntry,
   FlowsheetSubmissionParams,
@@ -489,5 +490,42 @@ describe("infinite-cache", () => {
       draft
     );
     expect("segue" in catalog && catalog.segue).toBeUndefined();
+  });
+
+  describe("buildOptimisticEntry message branch", () => {
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("builds a talkset message with no day/time (a talkset has no timestamp to show)", () => {
+      const draft = { pages: [[song(1, 10, 7)]], pageParams: [0] };
+      const { entry } = buildOptimisticEntry(
+        { message: "Talkset - station ID" },
+        draft
+      );
+      expect("message" in entry && entry.message).toBe("Talkset - station ID");
+      expect("day" in entry).toBe(false);
+      expect("time" in entry).toBe(false);
+    });
+
+    // A breakpoint message is also DateTimeEntry-shaped: isFlowsheetBreakpointEntry
+    // classifies any message containing "Breakpoint" as a breakpoint regardless of
+    // where it came from, and Classic's marker row reads entry.time unconditionally
+    // once that classification holds. Station time, not the client clock — the same
+    // producer convertV2Entry's breakpoint arm uses, so the optimistic row and the
+    // server row that replaces it render identically.
+    it("builds a breakpoint message with station day/time/isToday, satisfying isFlowsheetBreakpointEntry", () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-07-17T03:15:30Z")); // 11:15:30 PM EDT on 7/16
+      const draft = { pages: [[song(1, 10, 7)]], pageParams: [0] };
+      const { entry } = buildOptimisticEntry(
+        { message: "11:00 PM Breakpoint" },
+        draft
+      );
+      expect(isFlowsheetBreakpointEntry(entry)).toBe(true);
+      expect("day" in entry && entry.day).toBe("7/16/2026");
+      expect("time" in entry && entry.time).toBe("11:15:30 PM");
+      expect("isToday" in entry && entry.isToday).toBe(true);
+    });
   });
 });

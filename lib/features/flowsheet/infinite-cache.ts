@@ -1,5 +1,7 @@
 import { safeCapture } from "@/lib/posthog";
+import { formatStationDateTime } from "@/src/utilities/stationTime";
 import { hasLinkedAlbumId } from "./linkage";
+import { isFlowsheetBreakpointEntry } from "./types";
 import type {
   FlowsheetEntry,
   FlowsheetMessageEntry,
@@ -97,6 +99,19 @@ export function buildOptimisticEntry(
       show_id,
       message: arg.message,
     };
+    // isFlowsheetBreakpointEntry discriminates purely on the message text, so
+    // a breakpoint submission reaches Classic's breakpoint render branch
+    // (which reads entry.time unconditionally) before this row has ever been
+    // through the server. Populate the DateTimeEntry fields it needs from
+    // station time — not the DJ's browser clock — using the same producer
+    // convertV2Entry's breakpoint arm uses, so the optimistic row and the
+    // server row that replaces it render identically.
+    if (isFlowsheetBreakpointEntry(entry as FlowsheetEntry)) {
+      const { day, time, isToday } = formatStationDateTime(
+        new Date().toISOString()
+      );
+      return { entry: { ...entry, day, time, isToday }, tempId };
+    }
     return { entry, tempId };
   }
 
