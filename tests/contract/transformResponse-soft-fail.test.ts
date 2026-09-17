@@ -7,6 +7,7 @@ import { catalogApi } from "@/lib/features/catalog/api";
 import { rotationApi } from "@/lib/features/rotation/api";
 import { lmlApi } from "@/lib/features/lml/api";
 import { binApi } from "@/lib/features/bin/api";
+import { playlistSearchApi } from "@/lib/features/playlist-search/api";
 
 // Mock the authentication client so the base query's token fetch resolves.
 vi.mock("@/lib/features/authentication/client", () => ({
@@ -102,6 +103,29 @@ describe("transformResponse soft-fail guards (#606)", () => {
 
     expect(result.status).toBe("fulfilled");
     expect(result.data).toEqual([]);
+  });
+
+  // The second opted-out read, for the same reason stated the other way up:
+  // this listing's empty state is "the archive matched nothing", a claim about
+  // two decades of playlists that an unreadable body must never be allowed to
+  // make on the backend's behalf.
+  it("searchPlaylists surfaces an unparseable body as an error rather than an empty page", async () => {
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/flowsheet/search`, () => nonJsonBody()),
+    );
+
+    const store = createTestStore();
+    const result = await store.dispatch(
+      playlistSearchApi.endpoints.searchPlaylists.initiate({
+        q: "",
+        limit: 50,
+        sort: "date",
+        order: "desc",
+      }),
+    );
+
+    expect(result.status).toBe("rejected");
+    expect(result.data).toBeUndefined();
   });
 
   it("lml searchLibrary returns [] on a soft-failed (null) response", async () => {

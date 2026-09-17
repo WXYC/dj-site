@@ -8,6 +8,7 @@ import type {
 import { fetchBaseQuery } from "@reduxjs/toolkit/query";
 import { getJWTToken } from "./authentication/client";
 import { safeCaptureException } from "../error-reporting";
+import { redactEmails } from "../redact";
 
 type BackendBaseQuery = BaseQueryFn<
   string | FetchArgs,
@@ -32,6 +33,13 @@ const innerBaseQuery = (domain: string): BackendBaseQuery =>
     },
   });
 
+type NonJsonParsingError = FetchBaseQueryError & {
+  status: "PARSING_ERROR";
+  originalStatus: number;
+  data: string;
+  error: string;
+};
+
 /**
  * Detect a response body that the JSON `responseHandler` couldn't parse.
  *
@@ -53,12 +61,7 @@ const innerBaseQuery = (domain: string): BackendBaseQuery =>
  */
 const isNonJsonParsingError = (
   error: FetchBaseQueryError
-): error is FetchBaseQueryError & {
-  status: "PARSING_ERROR";
-  originalStatus: number;
-  data: string;
-  error: string;
-} =>
+): error is NonJsonParsingError =>
   error.status === "PARSING_ERROR" &&
   (error as { originalStatus?: number }).originalStatus !== 304;
 
@@ -73,24 +76,19 @@ const isNotModified = (error: FetchBaseQueryError): boolean =>
     (error as { originalStatus?: number }).originalStatus === 304);
 
 /**
- * A PARSING_ERROR produced by the client's own cancellation, not by anything
- * the origin sent. `fetchBaseQuery` passes `api.signal` into the `Request`, so
- * an endpoint whose subscriber count drops mid-flight (`keepUnusedDataFor: 0`
- * dropping a superseded page on re-key, or the screen unmounting) has its
- * response body torn out from under it: `response.text()` rejects with a
- * DOMException named `AbortError`, which `fetchBaseQuery` stringifies into
- * `error.error` via `String(e)` before folding it into the same PARSING_ERROR
- * shape a genuinely unparseable body produces. The two are indistinguishable
- * by `status`/`originalStatus` alone — only this field tells them apart.
+ * A PARSING_ERROR produced by the client's own cancellation rather than by
+ * anything the origin sent. `fetchBaseQuery` passes `api.signal` into the
+ * `Request`, so a request superseded mid-body-read has the body torn out from
+ * under it: `response.text()` rejects with a DOMException named `AbortError`,
+ * which `fetchBaseQuery` stringifies through `String(e)` into this same
+ * PARSING_ERROR shape. `status` and `originalStatus` are then identical to a
+ * genuinely unparseable body's, so this field is the only discriminator.
  *
- * A superseded request's result was always going to be discarded, so it must
- * stay silent even for an endpoint that otherwise wants every non-JSON body to
- * fail loud (`surfaceNonJsonAsError`) — the abort carries no information about
- * the backend at all, and surfacing it would flash an error banner in front of
- * a DJ on every keystroke or navigation away from a search screen.
+ * Named apart from `session-cache.ts`'s own abort predicate, which duck-types
+ * the raw DOMException rather than RTK's error envelope.
  */
-const isAbortError = (error: { error?: string }): boolean =>
-  typeof error.error === "string" && error.error.startsWith("AbortError");
+const isAbortedQueryError = (error: NonJsonParsingError): boolean =>
+  error.error.startsWith("AbortError");
 
 /**
  * Re-issue the same request unconditionally (`cache: "reload"` drops the
@@ -101,43 +99,41 @@ const withReload = (args: string | FetchArgs): FetchArgs =>
     ? { url: args, cache: "reload" }
     : { ...args, cache: "reload" };
 
-/**
- * Joins `domain` and `url` the way the request itself does (RTK's `joinUrls`
- * strips the boundary slashes before joining) rather than naively
- * interpolating `${domain}/${url}`, which doubles the slash whenever `url`
- * already carries its own leading one — as every `FetchArgs.url` here does.
- * Log-string legibility only; the request URL was never affected.
- */
-const joinForLog = (domain: string, url: string | undefined): string => {
-  if (!url) return domain;
-  return `${domain.replace(/\/$/, "")}/${url.replace(/^\//, "")}`;
-};
+// Enough of the body to recognize what the origin actually sent (a gateway
+// page, a truncated payload) without shipping the whole thing to telemetry.
+const BODY_SAMPLE_LENGTH = 200;
 
 const logNonJsonResponse = (
   domain: string,
   args: string | FetchArgs,
-  error: FetchBaseQueryError & {
-    originalStatus?: number;
-    data?: unknown;
-    error?: string;
-  }
+  error: NonJsonParsingError
 ) => {
   const url = typeof args === "string" ? args : args.url;
   const params = typeof args === "string" ? undefined : args.params;
-  const message = `[backendBaseQuery] non-JSON response from ${joinForLog(domain, url)} (HTTP ${error.originalStatus ?? "?"}); soft-failing.`;
-  const sample = typeof error.data === "string" ? error.data.slice(0, 200) : error.data;
+  // RTK's `joinUrls` strips the boundary slashes before joining, so a naive
+  // `${domain}/${url}` doubles a slash the request itself never sent.
+  const path = `${domain}/${url.replace(/^\//, "")}`;
+  const message = `[backendBaseQuery] non-JSON response from ${path} (HTTP ${error.originalStatus}); soft-failing.`;
+  const sample = error.data.slice(0, BODY_SAMPLE_LENGTH);
   console.warn(message, { sample, params });
-  // PostHog is the project's wired error sink (see lib/store.ts). `error` and
-  // `data` are what actually distinguish a benign abort from a genuinely
-  // broken body (see `isAbortError`) — without them this event cannot be
-  // diagnosed without a live reproduction.
+  // Both sinks receive this (see lib/error-reporting.ts). The underlying
+  // exception and a body sample are what name the failure — a gateway's HTML
+  // and a truncated payload are one status code and two different problems —
+  // so without them the event cannot be diagnosed without a live reproduction.
+  //
+  // They travel nested because `splitContext` indexes every string-valued
+  // entry as a Sentry tag, and a parser message carries a byte offset while a
+  // sample carries the body: neither is worth a tag value. `extra` is also the
+  // one field no adapter scrubs on the way out, hence the redaction here.
   safeCaptureException(new Error(message), {
     domain,
     url,
     params,
     originalStatus: error.originalStatus,
-    error: error.error,
-    data: sample,
+    response: {
+      error: redactEmails(error.error),
+      sample: redactEmails(sample),
+    },
   });
 };
 
@@ -151,9 +147,10 @@ const logNonJsonResponse = (
  * should fall through to their empty-state branch, not nuke the UI with a
  * toast.
  *
- * The opt-out is never absolute: `isAbortError` overrides it. A superseded
- * request tells you nothing about the backend, so even an endpoint that opted
- * into loud failure must not surface one.
+ * That opt-out never covers a request the client itself cancelled. A superseded
+ * result was always going to be discarded, so surfacing one would put an error
+ * in front of a DJ for a request that told us nothing about the backend — on
+ * a search screen, potentially on every re-key and every navigation away.
  */
 type BackendExtraOptions = {
   surfaceNonJsonAsError?: boolean;
@@ -187,14 +184,14 @@ const isGetRequest = (args: string | FetchArgs): boolean => {
  * Mutations (POST/PATCH/DELETE/PUT) **never** get the soft-handle treatment —
  * a silently-"succeeding" `addToFlowsheet` or `addAlbum` is a worse UX than a
  * confusing toast. A GET endpoint that wants the loud behavior anyway can
- * opt out per-endpoint via `extraOptions: { surfaceNonJsonAsError: true }` —
- * except for an aborted request, which stays silent regardless (`isAbortError`).
+ * opt out per-endpoint via `extraOptions: { surfaceNonJsonAsError: true }`.
  */
 export const backendBaseQuery = (domain: string): BackendBaseQuery => {
   const inner = innerBaseQuery(domain);
 
   return async (args, api: BaseQueryApi, extraOptions) => {
     const result = await inner(args, api, extraOptions);
+    const isGet = isGetRequest(args);
 
     // Watermarked routes send two validators (a watermark Last-Modified and
     // Express's per-body weak ETag) and no Cache-Control, so a dual-validator
@@ -205,14 +202,20 @@ export const backendBaseQuery = (domain: string): BackendBaseQuery => {
     // full 200. If that retry also errors, let it propagate — RTK keeps the
     // last-good data on a rejected refetch — so a 304 can never collapse to
     // the { data: null } soft-fail below.
-    if (result.error && isNotModified(result.error) && isGetRequest(args)) {
+    if (result.error && isNotModified(result.error) && isGet) {
       return inner(withReload(args), api, extraOptions);
     }
 
-    if (result.error && isNonJsonParsingError(result.error) && isGetRequest(args)) {
-      const optOut = (extraOptions as BackendExtraOptions | undefined)?.surfaceNonJsonAsError === true;
-      if (!optOut || isAbortError(result.error)) {
-        logNonJsonResponse(domain, args, result.error);
+    if (result.error && isNonJsonParsingError(result.error) && isGet) {
+      const aborted = isAbortedQueryError(result.error);
+      const surfaceAsError =
+        (extraOptions as BackendExtraOptions | undefined)?.surfaceNonJsonAsError === true &&
+        !aborted;
+      if (!surfaceAsError) {
+        // An abort is not reported: it says nothing about the backend, and it
+        // would file real brokenness inside a benign issue, since every event
+        // this function raises shares one message and so one fingerprint.
+        if (!aborted) logNonJsonResponse(domain, args, result.error);
         return { data: null, meta: result.meta };
       }
     }

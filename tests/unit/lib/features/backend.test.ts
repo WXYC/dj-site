@@ -408,7 +408,9 @@ describe("backend", () => {
         }
       );
 
-      // Escape hatch for a GET that wants loud failure anyway.
+      // Escape hatch for a GET that wants loud failure anyway. Also pins the
+      // abort carve-out's boundary: a parse failure is not an abort, so the
+      // opt-out still holds for it.
       it("respects extraOptions.surfaceNonJsonAsError as a per-endpoint opt-out", async () => {
         mockInnerBaseQuery.mockResolvedValueOnce({
           error: {
@@ -479,21 +481,6 @@ describe("backend", () => {
         expect((result as { data?: unknown }).data).toBeNull();
         expect((result as { error?: unknown }).error).toBeUndefined();
       });
-    });
-
-    describe("aborted-request carve-out", () => {
-      const fakeApi = {} as any;
-      let warnSpy: ReturnType<typeof vi.spyOn>;
-
-      beforeEach(() => {
-        mockInnerBaseQuery.mockReset();
-        mockCaptureException.mockReset();
-        warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-      });
-
-      afterEach(() => {
-        warnSpy.mockRestore();
-      });
 
       // The exact shape reproduced against production: a request the client
       // itself aborted mid-body-read surfaces as a 200 with an empty body and
@@ -508,74 +495,49 @@ describe("backend", () => {
         meta: undefined,
       };
 
-      it("stays silent by default, as any other non-JSON GET response does", async () => {
+      // A superseded request says nothing about the backend, so it reaches
+      // neither a screen nor a sink — including from an endpoint that opted
+      // every other unparseable body into loud failure.
+      it.each([
+        ["the default soft-fail policy", fakeExtra],
+        ["an endpoint opted into surfaceNonJsonAsError", { surfaceNonJsonAsError: true }],
+      ])("swallows an aborted request silently under %s", async (_label, extra) => {
         mockInnerBaseQuery.mockResolvedValueOnce(abortedResult);
 
         const baseQuery = backendBaseQuery("flowsheet");
-        const result = await baseQuery({ url: "/search" }, fakeApi, {});
+        const result = await baseQuery({ url: "/search" }, fakeApi, extra);
 
         expect(result).toEqual(expect.objectContaining({ data: null }));
         expect((result as { error?: unknown }).error).toBeUndefined();
+        expect(warnSpy).not.toHaveBeenCalled();
+        expect(mockCaptureException).not.toHaveBeenCalled();
       });
 
-      // The carve-out this ticket adds: an endpoint that opted into loud
-      // failure for genuine parse errors must still swallow its own abort.
-      it("stays silent even when the endpoint opts into surfaceNonJsonAsError", async () => {
-        mockInnerBaseQuery.mockResolvedValueOnce(abortedResult);
-
-        const baseQuery = backendBaseQuery("flowsheet");
-        const result = await baseQuery(
-          { url: "/search" },
-          fakeApi,
-          { surfaceNonJsonAsError: true }
-        );
-
-        expect(result).toEqual(expect.objectContaining({ data: null }));
-        expect((result as { error?: unknown }).error).toBeUndefined();
-      });
-
-      // A genuine parse failure (not an abort) on an opted-in endpoint must
-      // still be loud — the carve-out is specific to AbortError, not a
-      // blanket override of the opt-out.
-      it("does not carve out a genuine parse error that merely resembles one", async () => {
+      // Without these, one soft-fail event cannot be told apart from another:
+      // a gateway's HTML and a truncated payload arrive under one status code
+      // and one message, and only these two fields name which happened.
+      it("carries the underlying exception and a body sample to the sinks", async () => {
         mockInnerBaseQuery.mockResolvedValueOnce({
           error: {
             status: "PARSING_ERROR",
             originalStatus: 200,
-            data: "<!DOCTYPE html>",
+            data: "<!DOCTYPE html><html><body>Bad Gateway</body></html>",
             error: "SyntaxError: Unexpected token '<'",
           },
           meta: undefined,
         });
 
         const baseQuery = backendBaseQuery("flowsheet");
-        const result = await baseQuery(
-          { url: "/search" },
-          fakeApi,
-          { surfaceNonJsonAsError: true }
-        );
+        await baseQuery({ url: "/search" }, fakeApi, fakeExtra);
 
-        expect((result as { error?: unknown }).error).toEqual(
-          expect.objectContaining({ status: "PARSING_ERROR" })
-        );
-        expect((result as { data?: unknown }).data).toBeUndefined();
+        const { response } = mockCaptureException.mock.calls[0][1] as {
+          response: { error: string; sample: string };
+        };
+        expect(response.error).toBe("SyntaxError: Unexpected token '<'");
+        expect(response.sample).toContain("<!DOCTYPE html>");
       });
 
-      // Without these, a soft-fail event cannot be told apart from a genuine
-      // backend failure without reproducing it live.
-      it("carries the underlying exception and a truncated body sample to Sentry", async () => {
-        mockInnerBaseQuery.mockResolvedValueOnce(abortedResult);
-
-        const baseQuery = backendBaseQuery("flowsheet");
-        await baseQuery({ url: "/search" }, fakeApi, {});
-
-        expect(mockCaptureException).toHaveBeenCalledTimes(1);
-        const context = mockCaptureException.mock.calls[0][1] as Record<string, unknown>;
-        expect(context.error).toBe("AbortError: This operation was aborted");
-        expect(context.data).toBe("");
-      });
-
-      it("truncates a long body sample before it reaches Sentry", async () => {
+      it("truncates the body sample", async () => {
         const longBody = "<!DOCTYPE html>".padEnd(400, "x");
         mockInnerBaseQuery.mockResolvedValueOnce({
           error: {
@@ -588,24 +550,57 @@ describe("backend", () => {
         });
 
         const baseQuery = backendBaseQuery("flowsheet");
-        await baseQuery({ url: "/search" }, fakeApi, {});
+        await baseQuery({ url: "/search" }, fakeApi, fakeExtra);
 
-        const context = mockCaptureException.mock.calls[0][1] as Record<string, unknown>;
-        expect((context.data as string).length).toBe(200);
-        expect(context.data).toBe(longBody.slice(0, 200));
+        const { response } = mockCaptureException.mock.calls[0][1] as {
+          response: { sample: string };
+        };
+        expect(response.sample).toBe(longBody.slice(0, 200));
       });
 
-      it("no longer doubles the slash between the domain and a leading-slash url", async () => {
-        mockInnerBaseQuery.mockResolvedValueOnce(abortedResult);
+      // The sample is taken from a body the origin wrote, and Sentry's `extra`
+      // is the one field neither adapter scrubs on the way out.
+      it("redacts an address the sampled body carried", async () => {
+        mockInnerBaseQuery.mockResolvedValueOnce({
+          error: {
+            status: "PARSING_ERROR",
+            originalStatus: 500,
+            data: "<html>contact dj@wxyc.org</html>",
+            error: "SyntaxError",
+          },
+          meta: undefined,
+        });
 
         const baseQuery = backendBaseQuery("flowsheet");
-        await baseQuery({ url: "/search" }, fakeApi, {});
+        await baseQuery({ url: "/search" }, fakeApi, fakeExtra);
+
+        const { response } = mockCaptureException.mock.calls[0][1] as {
+          response: { sample: string };
+        };
+        expect(response.sample).not.toContain("dj@wxyc.org");
+        expect(response.sample).toContain("[email]");
+      });
+
+      it("joins the domain and a leading-slash url without doubling the slash", async () => {
+        mockInnerBaseQuery.mockResolvedValueOnce({
+          error: {
+            status: "PARSING_ERROR",
+            originalStatus: 200,
+            data: "<!DOCTYPE html>",
+            error: "SyntaxError",
+          },
+          meta: undefined,
+        });
+
+        const baseQuery = backendBaseQuery("flowsheet");
+        await baseQuery({ url: "/search" }, fakeApi, fakeExtra);
 
         expect(warnSpy).toHaveBeenCalledTimes(1);
         const message = warnSpy.mock.calls[0][0] as string;
         expect(message).toContain("flowsheet/search");
         expect(message).not.toContain("flowsheet//search");
       });
+
     });
 
     describe("304 revalidation handling", () => {
