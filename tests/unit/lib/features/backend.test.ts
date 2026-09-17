@@ -481,6 +481,133 @@ describe("backend", () => {
       });
     });
 
+    describe("aborted-request carve-out (DJ-SITE-9)", () => {
+      const fakeApi = {} as any;
+      let warnSpy: ReturnType<typeof vi.spyOn>;
+
+      beforeEach(() => {
+        mockInnerBaseQuery.mockReset();
+        mockCaptureException.mockReset();
+        warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      });
+
+      afterEach(() => {
+        warnSpy.mockRestore();
+      });
+
+      // The exact shape reproduced against production: a request the client
+      // itself aborted mid-body-read surfaces as a 200 with an empty body and
+      // `error.error` naming the DOMException.
+      const abortedResult = {
+        error: {
+          status: "PARSING_ERROR" as const,
+          originalStatus: 200,
+          data: "",
+          error: "AbortError: This operation was aborted",
+        },
+        meta: undefined,
+      };
+
+      it("stays silent by default, as any other non-JSON GET response does", async () => {
+        mockInnerBaseQuery.mockResolvedValueOnce(abortedResult);
+
+        const baseQuery = backendBaseQuery("flowsheet");
+        const result = await baseQuery({ url: "/search" }, fakeApi, {});
+
+        expect(result).toEqual(expect.objectContaining({ data: null }));
+        expect((result as { error?: unknown }).error).toBeUndefined();
+      });
+
+      // The carve-out this ticket adds: an endpoint that opted into loud
+      // failure for genuine parse errors must still swallow its own abort.
+      it("stays silent even when the endpoint opts into surfaceNonJsonAsError", async () => {
+        mockInnerBaseQuery.mockResolvedValueOnce(abortedResult);
+
+        const baseQuery = backendBaseQuery("flowsheet");
+        const result = await baseQuery(
+          { url: "/search" },
+          fakeApi,
+          { surfaceNonJsonAsError: true }
+        );
+
+        expect(result).toEqual(expect.objectContaining({ data: null }));
+        expect((result as { error?: unknown }).error).toBeUndefined();
+      });
+
+      // A genuine parse failure (not an abort) on an opted-in endpoint must
+      // still be loud — the carve-out is specific to AbortError, not a
+      // blanket override of the opt-out.
+      it("does not carve out a genuine parse error that merely resembles one", async () => {
+        mockInnerBaseQuery.mockResolvedValueOnce({
+          error: {
+            status: "PARSING_ERROR",
+            originalStatus: 200,
+            data: "<!DOCTYPE html>",
+            error: "SyntaxError: Unexpected token '<'",
+          },
+          meta: undefined,
+        });
+
+        const baseQuery = backendBaseQuery("flowsheet");
+        const result = await baseQuery(
+          { url: "/search" },
+          fakeApi,
+          { surfaceNonJsonAsError: true }
+        );
+
+        expect((result as { error?: unknown }).error).toEqual(
+          expect.objectContaining({ status: "PARSING_ERROR" })
+        );
+        expect((result as { data?: unknown }).data).toBeUndefined();
+      });
+
+      // The whole point of DJ-SITE-9: the next occurrence must be
+      // self-diagnosing without a live reproduction.
+      it("carries the underlying exception and a truncated body sample to Sentry", async () => {
+        mockInnerBaseQuery.mockResolvedValueOnce(abortedResult);
+
+        const baseQuery = backendBaseQuery("flowsheet");
+        await baseQuery({ url: "/search" }, fakeApi, {});
+
+        expect(mockCaptureException).toHaveBeenCalledTimes(1);
+        const context = mockCaptureException.mock.calls[0][1] as Record<string, unknown>;
+        expect(context.error).toBe("AbortError: This operation was aborted");
+        expect(context.data).toBe("");
+      });
+
+      it("truncates a long body sample before it reaches Sentry", async () => {
+        const longBody = "<!DOCTYPE html>".padEnd(400, "x");
+        mockInnerBaseQuery.mockResolvedValueOnce({
+          error: {
+            status: "PARSING_ERROR",
+            originalStatus: 502,
+            data: longBody,
+            error: "SyntaxError",
+          },
+          meta: undefined,
+        });
+
+        const baseQuery = backendBaseQuery("flowsheet");
+        await baseQuery({ url: "/search" }, fakeApi, {});
+
+        const context = mockCaptureException.mock.calls[0][1] as Record<string, unknown>;
+        expect((context.data as string).length).toBe(200);
+        expect(context.data).toBe(longBody.slice(0, 200));
+      });
+
+      it("no longer doubles the slash between the domain and a leading-slash url", async () => {
+        mockInnerBaseQuery.mockResolvedValueOnce(abortedResult);
+
+        const baseQuery = backendBaseQuery("flowsheet");
+        await baseQuery({ url: "/search" }, fakeApi, {});
+
+        expect(warnSpy).toHaveBeenCalledTimes(1);
+        const message = warnSpy.mock.calls[0][0] as string;
+        expect(message).toContain("flowsheet/search");
+        expect(message).not.toContain("flowsheet//search");
+      });
+    });
+
     describe("304 revalidation handling", () => {
       const fakeApi = {} as any;
       const fakeExtra = {} as any;

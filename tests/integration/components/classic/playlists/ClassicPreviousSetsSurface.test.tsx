@@ -193,6 +193,31 @@ describe("ClassicPreviousSetsSurface", () => {
   });
 });
 
+// Exercises the real `searchPlaylists` endpoint end to end (no mocked hook),
+// so it proves the endpoint's own `surfaceNonJsonAsError` wiring rather than
+// just `backendBaseQuery`'s standalone behaviour.
+describe("ClassicPreviousSetsSurface — a genuinely unparseable response body", () => {
+  it("shows an error instead of silently claiming the archive is empty", async () => {
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/flowsheet/search`, () =>
+        new HttpResponse("<!DOCTYPE html><html><body>Bad Gateway</body></html>", {
+          status: 200,
+          headers: { "Content-Type": "text/html" },
+        }),
+      ),
+    );
+
+    renderWithProviders(<ClassicPreviousSetsSurface />, {
+      store: createTestStore(),
+    });
+
+    expect(
+      await screen.findByText(/an error occurred while searching/i),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("table")).toBeNull();
+  });
+});
+
 describe("ClassicPreviousSetsSurface — the Week toggle from inside a show", () => {
   beforeEach(() => {
     mockReplace.mockClear();

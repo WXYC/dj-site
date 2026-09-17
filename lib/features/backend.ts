@@ -73,6 +73,26 @@ const isNotModified = (error: FetchBaseQueryError): boolean =>
     (error as { originalStatus?: number }).originalStatus === 304);
 
 /**
+ * A PARSING_ERROR produced by the client's own cancellation, not by anything
+ * the origin sent. `fetchBaseQuery` passes `api.signal` into the `Request`, so
+ * an endpoint whose subscriber count drops mid-flight (`keepUnusedDataFor: 0`
+ * dropping a superseded page on re-key, or the screen unmounting) has its
+ * response body torn out from under it: `response.text()` rejects with a
+ * DOMException named `AbortError`, which `fetchBaseQuery` stringifies into
+ * `error.error` via `String(e)` before folding it into the same PARSING_ERROR
+ * shape a genuinely unparseable body produces. The two are indistinguishable
+ * by `status`/`originalStatus` alone — only this field tells them apart.
+ *
+ * A superseded request's result was always going to be discarded, so it must
+ * stay silent even for an endpoint that otherwise wants every non-JSON body to
+ * fail loud (`surfaceNonJsonAsError`) — the abort carries no information about
+ * the backend at all, and surfacing it would flash an error banner in front of
+ * a DJ on every keystroke or navigation away from a search screen.
+ */
+const isAbortError = (error: { error?: string }): boolean =>
+  typeof error.error === "string" && error.error.startsWith("AbortError");
+
+/**
  * Re-issue the same request unconditionally (`cache: "reload"` drops the
  * conditional headers), so the origin must answer 200 with a full body.
  */
@@ -81,24 +101,43 @@ const withReload = (args: string | FetchArgs): FetchArgs =>
     ? { url: args, cache: "reload" }
     : { ...args, cache: "reload" };
 
+/**
+ * Joins `domain` and `url` the way the request itself does (RTK's `joinUrls`
+ * strips the boundary slashes before joining) rather than naively
+ * interpolating `${domain}/${url}`, which doubles the slash whenever `url`
+ * already carries its own leading one — as every `FetchArgs.url` here does.
+ * Log-string legibility only; the request URL was never affected.
+ */
+const joinForLog = (domain: string, url: string | undefined): string => {
+  if (!url) return domain;
+  return `${domain.replace(/\/$/, "")}/${url.replace(/^\//, "")}`;
+};
+
 const logNonJsonResponse = (
   domain: string,
   args: string | FetchArgs,
-  error: FetchBaseQueryError & { originalStatus?: number; data?: unknown }
+  error: FetchBaseQueryError & {
+    originalStatus?: number;
+    data?: unknown;
+    error?: string;
+  }
 ) => {
   const url = typeof args === "string" ? args : args.url;
   const params = typeof args === "string" ? undefined : args.params;
-  const message = `[backendBaseQuery] non-JSON response from ${domain}/${url} (HTTP ${error.originalStatus ?? "?"}); soft-failing.`;
-  console.warn(message, {
-    sample: typeof error.data === "string" ? error.data.slice(0, 200) : error.data,
-    params,
-  });
-  // PostHog is the project's wired error sink (see lib/store.ts).
+  const message = `[backendBaseQuery] non-JSON response from ${joinForLog(domain, url)} (HTTP ${error.originalStatus ?? "?"}); soft-failing.`;
+  const sample = typeof error.data === "string" ? error.data.slice(0, 200) : error.data;
+  console.warn(message, { sample, params });
+  // PostHog is the project's wired error sink (see lib/store.ts). `error` and
+  // `data` are what actually distinguish a benign abort from a genuinely
+  // broken body (see `isAbortError`) — without them this event cannot be
+  // diagnosed without a live reproduction.
   safeCaptureException(new Error(message), {
     domain,
     url,
     params,
     originalStatus: error.originalStatus,
+    error: error.error,
+    data: sample,
   });
 };
 
@@ -111,6 +150,10 @@ const logNonJsonResponse = (
  * common case — list-shaped queries hitting a not-yet-shipped backend route
  * should fall through to their empty-state branch, not nuke the UI with a
  * toast.
+ *
+ * The opt-out is never absolute: `isAbortError` overrides it. A superseded
+ * request tells you nothing about the backend, so even an endpoint that opted
+ * into loud failure must not surface one.
  */
 type BackendExtraOptions = {
   surfaceNonJsonAsError?: boolean;
@@ -144,7 +187,8 @@ const isGetRequest = (args: string | FetchArgs): boolean => {
  * Mutations (POST/PATCH/DELETE/PUT) **never** get the soft-handle treatment —
  * a silently-"succeeding" `addToFlowsheet` or `addAlbum` is a worse UX than a
  * confusing toast. A GET endpoint that wants the loud behavior anyway can
- * opt out per-endpoint via `extraOptions: { surfaceNonJsonAsError: true }`.
+ * opt out per-endpoint via `extraOptions: { surfaceNonJsonAsError: true }` —
+ * except for an aborted request, which stays silent regardless (`isAbortError`).
  */
 export const backendBaseQuery = (domain: string): BackendBaseQuery => {
   const inner = innerBaseQuery(domain);
@@ -165,9 +209,9 @@ export const backendBaseQuery = (domain: string): BackendBaseQuery => {
       return inner(withReload(args), api, extraOptions);
     }
 
-    if (result.error && isNonJsonParsingError(result.error)) {
+    if (result.error && isNonJsonParsingError(result.error) && isGetRequest(args)) {
       const optOut = (extraOptions as BackendExtraOptions | undefined)?.surfaceNonJsonAsError === true;
-      if (isGetRequest(args) && !optOut) {
+      if (!optOut || isAbortError(result.error)) {
         logNonJsonResponse(domain, args, result.error);
         return { data: null, meta: result.meta };
       }
