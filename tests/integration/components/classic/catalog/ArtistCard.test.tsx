@@ -548,6 +548,38 @@ describe("classic ArtistCard — artistCardModify.jsp", () => {
         expect(await screen.findByRole("status")).toHaveTextContent("Rock MO 12/3");
       });
 
+      it("refuses a release number over the smallint ceiling", async () => {
+        const user = userEvent.setup();
+        let posted = false;
+        mockNextReleaseNumber(9);
+        server.use(
+          http.post(`${TEST_BACKEND_URL}/library`, () => {
+            posted = true;
+            return HttpResponse.json({ id: 906 }, { status: 201 });
+          }),
+        );
+
+        renderWithProviders(<ArtistCard artistId={ARTIST_ID} />);
+
+        const field = (await screen.findByLabelText(
+          /Release call number/i,
+        )) as HTMLInputElement;
+        await waitFor(() => expect(field.value).toBe("9"));
+        await user.clear(field);
+        await user.type(field, "32768");
+        await user.type(screen.getByLabelText(/Title of Release/i), "Halo");
+        await user.type(screen.getByLabelText(/^Label/i), "Crammed Discs");
+        await user.selectOptions(screen.getByLabelText(/Format/i), "1");
+        await user.click(
+          screen.getByRole("button", { name: "Add a new Library Release" }),
+        );
+
+        expect(await screen.findByRole("alert")).toHaveTextContent(
+          "The release number must be a whole number between 1 and 32767.",
+        );
+        expect(posted).toBe(false);
+      });
+
       it("refuses a non-numeric call number rather than sending it", async () => {
         const user = userEvent.setup();
         let posted = false;
@@ -634,6 +666,138 @@ describe("classic ArtistCard — artistCardModify.jsp", () => {
         // Once the refetch resolves, the field shows the fresh next number.
         releaseSecondPeek?.();
         await waitFor(() => expect(field.value).toBe("7"));
+      });
+    });
+
+    describe("the prepopulated volume letters", () => {
+      it("prepopulates from the highest-numbered loaded release when it matches the peek", async () => {
+        mockNextReleaseNumber(6);
+        mockReleases([
+          release({ id: 1, code_number: 3, code_volume_letters: "A" }),
+          release({ id: 2, code_number: 5, code_volume_letters: "B" }),
+        ]);
+
+        renderWithProviders(<ArtistCard artistId={ARTIST_ID} />);
+
+        const field = (await screen.findByLabelText(
+          /Release volume letters/i,
+        )) as HTMLInputElement;
+        await waitFor(() => expect(field.value).toBe("B"));
+      });
+
+      // The peek's next number is authoritative; the release list is
+      // paginated and takes no sort, so the loaded maximum is only trusted
+      // once it lines up with next_code_number - 1.
+      it("leaves the field blank when the loaded page excludes the true highest release", async () => {
+        mockNextReleaseNumber(11);
+        mockReleases([
+          release({ id: 1, code_number: 3, code_volume_letters: "A" }),
+          release({ id: 2, code_number: 5, code_volume_letters: "B" }),
+        ]);
+
+        renderWithProviders(<ArtistCard artistId={ARTIST_ID} />);
+
+        const codeField = (await screen.findByLabelText(
+          /Release call number/i,
+        )) as HTMLInputElement;
+        await waitFor(() => expect(codeField.value).toBe("11"));
+        const field = screen.getByLabelText(/Release volume letters/i) as HTMLInputElement;
+        expect(field.value).toBe("");
+      });
+
+      it("sends the prepopulated volume letters as code_volume_letters", async () => {
+        const user = userEvent.setup();
+        const bodies: Record<string, unknown>[] = [];
+        mockNextReleaseNumber(6);
+        mockReleases([release({ id: 1, code_number: 5, code_volume_letters: "B" })]);
+        server.use(
+          http.post(`${TEST_BACKEND_URL}/library`, async ({ request }) => {
+            bodies.push((await request.json()) as Record<string, unknown>);
+            return HttpResponse.json(
+              { id: 908, code_number: 6, code_volume_letters: "B" },
+              { status: 201 },
+            );
+          }),
+        );
+
+        renderWithProviders(<ArtistCard artistId={ARTIST_ID} />);
+
+        const field = (await screen.findByLabelText(
+          /Release volume letters/i,
+        )) as HTMLInputElement;
+        await waitFor(() => expect(field.value).toBe("B"));
+        await user.type(screen.getByLabelText(/Title of Release/i), "Halo");
+        await user.type(screen.getByLabelText(/^Label/i), "Crammed Discs");
+        await user.selectOptions(screen.getByLabelText(/Format/i), "1");
+        await user.click(
+          screen.getByRole("button", { name: "Add a new Library Release" }),
+        );
+
+        await waitFor(() => expect(bodies).toHaveLength(1));
+        expect(bodies[0]).toMatchObject({ code_volume_letters: "B" });
+      });
+
+      it("sends no code_volume_letters when the field is cleared", async () => {
+        const user = userEvent.setup();
+        const bodies: Record<string, unknown>[] = [];
+        mockNextReleaseNumber(6);
+        mockReleases([release({ id: 1, code_number: 5, code_volume_letters: "B" })]);
+        server.use(
+          http.post(`${TEST_BACKEND_URL}/library`, async ({ request }) => {
+            bodies.push((await request.json()) as Record<string, unknown>);
+            return HttpResponse.json(
+              { id: 909, code_number: 6, code_volume_letters: null },
+              { status: 201 },
+            );
+          }),
+        );
+
+        renderWithProviders(<ArtistCard artistId={ARTIST_ID} />);
+
+        const field = (await screen.findByLabelText(
+          /Release volume letters/i,
+        )) as HTMLInputElement;
+        await waitFor(() => expect(field.value).toBe("B"));
+        await user.clear(field);
+        await user.type(screen.getByLabelText(/Title of Release/i), "Halo");
+        await user.type(screen.getByLabelText(/^Label/i), "Crammed Discs");
+        await user.selectOptions(screen.getByLabelText(/Format/i), "1");
+        await user.click(
+          screen.getByRole("button", { name: "Add a new Library Release" }),
+        );
+
+        await waitFor(() => expect(bodies).toHaveLength(1));
+        expect(bodies[0]).not.toHaveProperty("code_volume_letters");
+      });
+
+      it("refuses volume letters longer than the varchar(4) column", async () => {
+        const user = userEvent.setup();
+        let posted = false;
+        mockNextReleaseNumber(9);
+        server.use(
+          http.post(`${TEST_BACKEND_URL}/library`, () => {
+            posted = true;
+            return HttpResponse.json({ id: 910 }, { status: 201 });
+          }),
+        );
+
+        renderWithProviders(<ArtistCard artistId={ARTIST_ID} />);
+
+        const field = (await screen.findByLabelText(
+          /Release volume letters/i,
+        )) as HTMLInputElement;
+        await user.type(field, "ABCDE");
+        await user.type(screen.getByLabelText(/Title of Release/i), "Halo");
+        await user.type(screen.getByLabelText(/^Label/i), "Crammed Discs");
+        await user.selectOptions(screen.getByLabelText(/Format/i), "1");
+        await user.click(
+          screen.getByRole("button", { name: "Add a new Library Release" }),
+        );
+
+        expect(await screen.findByRole("alert")).toHaveTextContent(
+          "The release volume letters must be at most 4 characters.",
+        );
+        expect(posted).toBe(false);
       });
     });
   });

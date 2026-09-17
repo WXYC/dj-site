@@ -5,8 +5,11 @@ import {
   CODE_NUMBER_MAX,
   isArtistNameConflictData,
   normalizeCodeLetters,
+  parseReleaseCodeNumber,
   parseRequiredNonNegativeInt,
   parseRequiredPositiveInt,
+  RELEASE_CODE_NUMBER_MAX,
+  releaseVolumeLettersTooLong,
   suggestCodeLetters,
   validateNewArtistFields,
 } from "@/lib/features/catalog/adminCreateArtistValidation";
@@ -228,5 +231,42 @@ describe("isArtistNameConflictData", () => {
     ["undefined", undefined],
   ])("is false for %s", (_label, data) => {
     expect(isArtistNameConflictData(data)).toBe(false);
+  });
+});
+
+describe("parseReleaseCodeNumber", () => {
+  it("accepts a whole number within the release column's smallint range", () => {
+    expect(parseReleaseCodeNumber("42")).toBe(42);
+    expect(parseReleaseCodeNumber(String(RELEASE_CODE_NUMBER_MAX))).toBe(
+      RELEASE_CODE_NUMBER_MAX,
+    );
+  });
+
+  it("rejects a value over the smallint ceiling, distinct from CODE_NUMBER_MAX", () => {
+    expect(parseReleaseCodeNumber(String(RELEASE_CODE_NUMBER_MAX + 1))).toBeNull();
+    // The artist-creation ceiling is far wider than the release column
+    // actually allows -- the two must not be interchangeable.
+    expect(RELEASE_CODE_NUMBER_MAX).toBeLessThan(CODE_NUMBER_MAX);
+  });
+
+  it.each(["", "0", "-1", "abc"])("rejects %j", (raw) => {
+    expect(parseReleaseCodeNumber(raw)).toBeNull();
+  });
+});
+
+describe("releaseVolumeLettersTooLong", () => {
+  it("accepts up to the varchar(4) ceiling", () => {
+    expect(releaseVolumeLettersTooLong("")).toBe(false);
+    expect(releaseVolumeLettersTooLong("ABCD")).toBe(false);
+  });
+
+  it("rejects anything past the ceiling", () => {
+    expect(releaseVolumeLettersTooLong("ABCDE")).toBe(true);
+  });
+
+  it("counts in code points, not UTF-16 units, matching how the backend measures the column", () => {
+    // Each of these four characters is a surrogate pair (mathematical bold
+    // capitals): 8 UTF-16 units, 4 code points.
+    expect(releaseVolumeLettersTooLong("𝐀𝐁𝐂𝐃")).toBe(false);
   });
 });

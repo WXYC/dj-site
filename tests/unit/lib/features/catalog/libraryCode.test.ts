@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  deriveCodeVolumeLettersSeed,
   formatArtistCodeWithPunctuation,
   formatCallLettersAndNumbers,
   formatReleaseCode,
@@ -242,5 +243,54 @@ describe("formatReleaseArtistTitle — LibraryRelease.java:145", () => {
         album_title: "A Love Supreme",
       }),
     ).toBe("A Love Supreme");
+  });
+});
+
+describe("deriveCodeVolumeLettersSeed", () => {
+  it("carries forward the highest-numbered loaded release's letters when it matches the peek", () => {
+    expect(
+      deriveCodeVolumeLettersSeed(
+        [
+          { code_number: 3, code_volume_letters: "A" },
+          { code_number: 5, code_volume_letters: "B" },
+        ],
+        6,
+      ),
+    ).toBe("B");
+  });
+
+  it("seeds blank when the highest loaded release carries no letters", () => {
+    expect(
+      deriveCodeVolumeLettersSeed([{ code_number: 5, code_volume_letters: null }], 6),
+    ).toBe("");
+  });
+
+  // `GET /library/artists/:id/releases` takes no sort parameter and is
+  // paginated, so a loaded page's maximum is not guaranteed to be the
+  // artist's true highest release. Trusting it anyway when the peek's
+  // next_code_number disagrees would carry forward a stale letter from a
+  // release that has nothing to do with what will actually be filed next.
+  it("seeds blank when the loaded page's maximum does not match next_code_number - 1", () => {
+    expect(
+      deriveCodeVolumeLettersSeed(
+        [
+          { code_number: 3, code_volume_letters: "A" },
+          { code_number: 5, code_volume_letters: "B" },
+        ],
+        // The true highest release (say, code_number 10) is on a page that
+        // was never loaded.
+        11,
+      ),
+    ).toBe("");
+  });
+
+  it("seeds blank when no releases are loaded", () => {
+    expect(deriveCodeVolumeLettersSeed([], 6)).toBe("");
+  });
+
+  it("seeds blank when the peek has not settled", () => {
+    expect(
+      deriveCodeVolumeLettersSeed([{ code_number: 5, code_volume_letters: "B" }], undefined),
+    ).toBe("");
   });
 });
