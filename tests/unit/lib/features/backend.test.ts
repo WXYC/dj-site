@@ -481,7 +481,7 @@ describe("backend", () => {
       });
     });
 
-    describe("aborted-request carve-out (DJ-SITE-9)", () => {
+    describe("aborted-request carve-out", () => {
       const fakeApi = {} as any;
       let warnSpy: ReturnType<typeof vi.spyOn>;
 
@@ -561,8 +561,8 @@ describe("backend", () => {
         expect((result as { data?: unknown }).data).toBeUndefined();
       });
 
-      // The whole point of DJ-SITE-9: the next occurrence must be
-      // self-diagnosing without a live reproduction.
+      // Without these, a soft-fail event cannot be told apart from a genuine
+      // backend failure without reproducing it live.
       it("carries the underlying exception and a truncated body sample to Sentry", async () => {
         mockInnerBaseQuery.mockResolvedValueOnce(abortedResult);
 
