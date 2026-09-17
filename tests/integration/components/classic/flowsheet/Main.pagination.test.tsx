@@ -47,11 +47,12 @@ const fullShow: FlowsheetEntry[] = [...firstPage, earliestEntry];
 function flowsheetResult(overrides: {
   current: FlowsheetEntry[];
   hasNextPage: boolean;
+  previous?: FlowsheetEntry[];
 }) {
   return {
     entries: {
       current: overrides.current,
-      previous: [],
+      previous: overrides.previous ?? [],
       switchEntries: vi.fn(),
     },
     addToFlowsheet: vi.fn(),
@@ -120,5 +121,36 @@ describe("Main — Classic flowsheet pagination", () => {
     rerender(<Main />);
 
     expect(queryByText("The Very First Song")).toBeInTheDocument();
+  });
+
+  // `hasNextPage` describes the whole archive, not this show, and an older
+  // page merges into the collapsed previous-show section without growing the
+  // rendered height — so the sentinel stays put and would re-arm on every
+  // poll-driven render, walking the archive backwards unprompted.
+  it("stops fetching once a page older than the current show has merged", () => {
+    mockUseFlowsheet.mockReturnValue(
+      flowsheetResult({
+        current: fullShow,
+        hasNextPage: true,
+        previous: [
+          createTestFlowsheetEntry({
+            id: 1900,
+            play_order: 1,
+            track_title: "Something From Last Night",
+          }),
+        ],
+      })
+    );
+
+    renderWithProviders(<Main />);
+
+    act(() => {
+      observedCallback?.(
+        [{ isIntersecting: true } as IntersectionObserverEntry],
+        null as unknown as IntersectionObserver
+      );
+    });
+
+    expect(mockFetchNextPage).not.toHaveBeenCalled();
   });
 });

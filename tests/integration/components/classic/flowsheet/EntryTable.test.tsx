@@ -42,9 +42,11 @@ function triggerSentinel() {
 
 function setup(opts?: {
   entries?: FlowsheetEntry[];
+  previousEntries?: FlowsheetEntry[];
   onReorder?: (sourceId: number, targetId: number) => void;
   hasNextPage?: boolean;
   isLoadingMore?: boolean;
+  isFetching?: boolean;
   onLoadMore?: () => void;
 }) {
   const entries: FlowsheetEntry[] =
@@ -74,12 +76,13 @@ function setup(opts?: {
   const utils = renderWithProviders(
     <EntryTable
       entries={entries}
-      previousEntries={[]}
+      previousEntries={opts?.previousEntries ?? []}
       onUpdate={() => {}}
       onDelete={() => {}}
       onReorder={onReorder}
       hasNextPage={opts?.hasNextPage ?? false}
       isLoadingMore={opts?.isLoadingMore ?? false}
+      isFetching={opts?.isFetching ?? false}
       onLoadMore={onLoadMore}
     />
   );
@@ -237,6 +240,68 @@ describe("Classic EntryTable pagination", () => {
     expect(onLoadMore).not.toHaveBeenCalled();
   });
 
+  // The feed runs back through every show ever logged, so hasNextPage stays
+  // true long after this show's first row is on screen. Older rows land in the
+  // collapsed previous-show section, which does not grow the rendered height,
+  // so without this bound the sentinel stays in view and pages the archive.
+  it("stops paging once entries older than the current show have loaded", () => {
+    const { onLoadMore } = setup({
+      hasNextPage: true,
+      previousEntries: [
+        createTestFlowsheetEntry({
+          id: 90,
+          play_order: 1,
+          track_title: "Last Show's Song",
+        }),
+      ],
+    });
+
+    triggerSentinel();
+
+    expect(onLoadMore).not.toHaveBeenCalled();
+  });
+
+  it("does NOT call onLoadMore while a background poll is in flight", () => {
+    const { onLoadMore } = setup({ hasNextPage: true, isFetching: true });
+
+    triggerSentinel();
+
+    expect(onLoadMore).not.toHaveBeenCalled();
+  });
+
+  it("resumes paging once the poll that suppressed it settles", () => {
+    const { onLoadMore, rerender } = setup({
+      hasNextPage: true,
+      isFetching: true,
+    });
+
+    triggerSentinel();
+    expect(onLoadMore).not.toHaveBeenCalled();
+
+    rerender(
+      <EntryTable
+        entries={[createTestFlowsheetEntry({ id: 101, play_order: 1 })]}
+        previousEntries={[]}
+        onUpdate={() => {}}
+        onDelete={() => {}}
+        onReorder={() => {}}
+        hasNextPage={true}
+        isLoadingMore={false}
+        isFetching={false}
+        onLoadMore={onLoadMore}
+      />
+    );
+    triggerSentinel();
+
+    expect(onLoadMore).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not flash the loading copy for a background poll", () => {
+    const { queryByText } = setup({ hasNextPage: true, isFetching: true });
+
+    expect(queryByText(/loading more entries/i)).not.toBeInTheDocument();
+  });
+
   it("does NOT call onLoadMore while a page is already loading", () => {
     const { onLoadMore } = setup({ hasNextPage: true, isLoadingMore: true });
 
@@ -301,6 +366,7 @@ describe("Classic EntryTable pagination", () => {
         onReorder={() => {}}
         hasNextPage={true}
         isLoadingMore={false}
+        isFetching={false}
         onLoadMore={() => {}}
       />
     );
