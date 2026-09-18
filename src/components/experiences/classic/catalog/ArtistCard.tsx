@@ -14,12 +14,12 @@ import {
 } from "@/lib/features/catalog/api";
 import {
   CODE_LETTERS_MAX_LENGTH,
+  normalizeCodeLetters,
   parseReleaseCodeNumber,
   RELEASE_CODE_NUMBER_MAX,
   releaseVolumeLettersTooLong,
 } from "@/lib/features/catalog/adminCreateArtistValidation";
 import {
-  deriveCodeVolumeLettersSeed,
   formatArtistCodeWithPunctuation,
   formatEntireLibraryCode,
   isVariousArtists,
@@ -143,8 +143,11 @@ export default function ArtistCard({ artistId, message, imported }: ArtistCardPr
   // save so the field re-shows the freshly-peeked next number.
   const [codeNumberEdit, setCodeNumberEdit] = useState<string | null>(null);
   // Same shape as codeNumberEdit, for the volume-letters field: the
-  // librarian's override once they have touched it, otherwise the value
-  // derives from the seed at render time.
+  // librarian's typed value, or null before they have touched it -- unlike
+  // the call number, this field has no seed to fall back on (see
+  // `displayedVolumeLetters` below), so null and "" both display as blank.
+  // Reset to null after a save so an override typed for one release cannot
+  // silently ride along into the next.
   const [volumeLettersEdit, setVolumeLettersEdit] = useState<string | null>(null);
 
   // Seed the one editable field from the server once the card arrives, and
@@ -222,15 +225,16 @@ export default function ArtistCard({ artistId, message, imported }: ArtistCardPr
       : "");
 
   // The value in the volume-letters field: the librarian's edit if they have
-  // made one, otherwise the seed carried forward from the highest-numbered
-  // loaded release (see `deriveCodeVolumeLettersSeed`). Gated on the peek
-  // having settled for the same duplicate-filing reason as the call number.
-  const displayedVolumeLetters =
-    volumeLettersEdit ??
-    deriveCodeVolumeLettersSeed(
-      releasePage?.releases ?? [],
-      nextReleaseSettled ? nextRelease?.next_code_number : undefined,
-    );
+  // made one, otherwise blank. Unlike the call number, this is never seeded
+  // from a loaded release -- `code_volume_letters` subdivides a single
+  // `code_number` ("R 7", "R 7A", "R 7B" are volumes of one set), and the
+  // field's own default `code_number` is the *next* one (`MAX(code_number) +
+  // 1`), so carrying a previous release's letters forward would pair a new
+  // set's number with an existing set's volume letter -- asserting a volume
+  // of a set that does not exist. `/wxycdb`'s own prepopulating screen agrees:
+  // it seeds the call number from the same peek but hard-codes the volume
+  // letters blank (`rotationReleaseImport.jsp:56`).
+  const displayedVolumeLetters = volumeLettersEdit ?? "";
 
   const handleModifyArtist = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -525,9 +529,13 @@ export default function ArtistCard({ artistId, message, imported }: ArtistCardPr
                   onChange={(e) => setCodeNumberEdit(e.target.value)}
                 />
                 {/* The volume letters that follow the call number
-                    (`.../5-A`). Prepopulated from the highest-numbered
-                    loaded release when it lines up with the peeked next
-                    number; blank -> the release is stored with no letters. */}
+                    (`.../5-A`), for filing a volume of a set at the shown
+                    call number -- never prepopulated: see the note on
+                    `displayedVolumeLetters` above. Blank -> the release is
+                    stored with no letters. Normalized to uppercase like
+                    `code_letters`, matching how the catalog renders and
+                    compares this column (`formatReleaseCode`, Backend's
+                    shelf-slot dedup). */}
                 -
                 <input
                   type="text"
@@ -535,7 +543,7 @@ export default function ArtistCard({ artistId, message, imported }: ArtistCardPr
                   aria-label="Release volume letters"
                   value={displayedVolumeLetters}
                   disabled={savingRelease}
-                  onChange={(e) => setVolumeLettersEdit(e.target.value)}
+                  onChange={(e) => setVolumeLettersEdit(normalizeCodeLetters(e.target.value))}
                 />
                 {!nextReleaseFetching && displayedCodeNumber.trim() === "" && (
                   <span className="label">
