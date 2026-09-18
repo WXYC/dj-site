@@ -11,6 +11,10 @@ import {
   useGetGenresQuery,
   useSearchLibraryArtistsQuery,
 } from "@/lib/features/catalog/api";
+import {
+  RELEASE_VOLUME_LETTERS_TOO_LONG_MESSAGE,
+  releaseVolumeLettersTooLong,
+} from "@/lib/features/catalog/adminCreateArtistValidation";
 import { artistCardHref } from "@/lib/features/catalog/artistCardRoute";
 import { formatEntireLibraryCode } from "@/lib/features/catalog/libraryCode";
 import type { AddAlbumRequestBody, ArtistSearchMatch } from "@/lib/features/catalog/types";
@@ -251,6 +255,16 @@ export default function RotationImportScreen({ rotationId }: { rotationId: numbe
     if (release.title.trim() === "") return TITLE_REQUIRED_MESSAGE;
     if (release.formatId == null) return FORMAT_REQUIRED_MESSAGE;
     if (codeNumberValue == null) return "Please enter a call number.";
+    // Checked here rather than server-side: `code_volume_letters` is
+    // `varchar(4)`, and an over-length value comes back from `POST /library` as
+    // a plain 400 naming no field -- on a multi-step screen where a failed
+    // submit is expensive to recover from. Same predicate and same sentence as
+    // the artist card's add-release form, whose refusal this mirrors. Sits
+    // beside the call-number check because the two fields are halves of one
+    // call code.
+    if (releaseVolumeLettersTooLong(release.volumeLetters)) {
+      return RELEASE_VOLUME_LETTERS_TOO_LONG_MESSAGE;
+    }
     if (needsLabel && release.label.trim() === "" && release.labelId == null) {
       return "Please enter a record label name, or click 'self-released'.";
     }

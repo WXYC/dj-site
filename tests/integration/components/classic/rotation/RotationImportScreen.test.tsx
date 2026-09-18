@@ -431,6 +431,35 @@ describe("classic RotationImportScreen — the existing-artist submit chain", ()
     expect(seen.album?.label).toBe("self-released");
   });
 
+  // `code_volume_letters` is `varchar(4)` and this screen had no cap of its
+  // own, so an over-length value reached `POST /library` and came back as a
+  // plain 400 naming no field -- here, where a failed submit is expensive to
+  // recover from. The artist card's add-release form refuses the same input
+  // with the same sentence, from the same predicate.
+  it("refuses volume letters longer than the varchar(4) column before creating anything", async () => {
+    mockMatches([MATCH]);
+    const seen = mockWrites();
+    const { user } = renderWithProviders(<RotationImportScreen rotationId={6002} />);
+
+    await screen.findByText(/Adding to:/);
+    await user.type(screen.getByLabelText("Volume Letters"), "ABCDE");
+    await user.click(screen.getByRole("button", { name: "Import to Library" }));
+
+    expect(
+      await screen.findByText("The release volume letters must be at most 4 characters."),
+    ).toBeInTheDocument();
+    expect(seen.album).toBeUndefined();
+
+    // Four is the ceiling, not a refusal -- the same field submits once it fits,
+    // so the guard is a length check and not a blanket rejection of the field.
+    await user.clear(screen.getByLabelText("Volume Letters"));
+    await user.type(screen.getByLabelText("Volume Letters"), "ABCD");
+    await user.click(screen.getByRole("button", { name: "Import to Library" }));
+
+    await waitFor(() => expect(seen.album).toBeDefined());
+    expect(seen.album?.code_volume_letters).toBe("ABCD");
+  });
+
   it("refuses before creating anything when the row was catalogued while the form was open", async () => {
     mockMatches([MATCH]);
     const seen = mockWrites();
