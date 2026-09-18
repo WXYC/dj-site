@@ -4,6 +4,7 @@ import type {
   FlowsheetSongEntry,
   FlowsheetSubmissionParams,
 } from "@/lib/features/flowsheet/types";
+import { isStationHourBreakpointPresent } from "@/src/utilities/stationTime";
 
 const safeCaptureMock = vi.fn();
 vi.mock("@/lib/posthog", () => ({
@@ -522,6 +523,29 @@ describe("infinite-cache", () => {
       expect("day" in entry && entry.day).toBe("7/16/2026");
       expect("time" in entry && entry.time).toBe("11:15:30 PM");
       expect("isToday" in entry && entry.isToday).toBe(true);
+    });
+
+    // Regression for the guard's re-key onto radio_hour: the optimistic row
+    // is built before the server has responded at all, so it can never carry
+    // one. If the guard stopped falling back to the message for a row with no
+    // radio_hour, a double-click on Add Breakpoint would stop being caught
+    // between the first click's optimistic insert and the server's response
+    // replacing it, and would log two breakpoints for the same hour.
+    it("the optimistic breakpoint row carries no radio_hour, and still trips the guard on a same-hour double-click", () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-07-17T03:15:30Z")); // 11:15:30 PM EDT
+      const draft = { pages: [[song(1, 10, 7)]], pageParams: [0] };
+      const { entry } = buildOptimisticEntry(
+        { message: "11:00 PM Breakpoint" },
+        draft
+      );
+
+      expect("radio_hour" in entry).toBe(false);
+      expect(
+        isStationHourBreakpointPresent(
+          isFlowsheetBreakpointEntry(entry) ? [entry] : []
+        )
+      ).toBe(true);
     });
   });
 });

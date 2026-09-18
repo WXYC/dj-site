@@ -310,6 +310,14 @@ export function convertV2Entry(entry: FlowsheetV2EntryJSON): FlowsheetEntry {
       return {
         ...base,
         message: entry.message || "",
+        // Carried through under its own name so the one-per-hour guard
+        // (stationTime.ts) can key on the same instant the server watermark
+        // does. `?? null` rather than a bare pass-through: the wire type
+        // allows undefined AND null for the same two reasons (pre-producer
+        // rows, not-yet-backfilled rows), and normalizing to one absent value
+        // keeps every reader's "does this row have a radio_hour" check a
+        // single truthiness test.
+        radio_hour: entry.radio_hour ?? null,
         day,
         time,
         isToday,
@@ -480,6 +488,10 @@ export function convertRangeEntry(entry: FlowsheetRangeEntry): FlowsheetEntry {
             ? formatStationClockTime(entry.radio_hour)
             : clockTimeNamedInMessage(entry.message)
         ),
+        // Same field, same normalization as convertV2Entry's breakpoint arm —
+        // see that arm's comment. Kept even though the label above is already
+        // derived from it, so the one-per-hour guard can key on it too.
+        radio_hour: entry.radio_hour ?? null,
         ...stationDayTime(entry.radio_hour ?? entry.add_time),
       };
 

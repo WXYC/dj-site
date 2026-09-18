@@ -227,6 +227,27 @@ export function createLiveUpdatesListenerMiddleware(
    * `time` / `isToday` at conversion time, and those are not recomputed here,
    * so a genuinely changed `add_time` would leave them disagreeing.
    *
+   * `radio_hour` is deliberately NOT here either, for the same reason as
+   * `add_time`: the breakpoint conversion now carries it onto the converted
+   * row under the same name and the same shape (`string | null`), which is
+   * what the one-per-hour guard (stationTime.ts) reads. It no longer forks
+   * the cache's shape, so it no longer belongs in this set.
+   *
+   * Do not read that as the `add_time` immutability argument, though — the
+   * field IS rewritten on existing rows server-side (the webhook mirror heals
+   * a breakpoint logged before the column existed, and the legacy flowsheet
+   * sync re-upserts it). What makes removing the key safe is not immutability
+   * but unreachability: the only producer of an `update` frame is the
+   * backend's CDC metadata broadcast, which matches `track` rows in a
+   * terminal `metadata_status`, so a breakpoint row never reaches this merge
+   * at all — and a track row's `radio_hour` is always null (the column is
+   * populated on breakpoints only), which `nonNullWirePatch` drops before
+   * this set is consulted. A healed `radio_hour` reaches the cache the way it
+   * always has: as the refetch those writers broadcast, re-running the
+   * conversion. Removing the key is therefore inert in today's traffic; it is
+   * removed because the shape invariant that put it here is gone, and leaving
+   * it would tell the next reader the converted row has no `radio_hour`.
+   *
    * `timestamp` is the opposite case, not a second instance of the `add_time`
    * exception: it exists only on the V2 `show_start`/`show_end` wire shape
    * (`FlowsheetV2ShowStartEntry`/`FlowsheetV2ShowEndEntry`), and the value
@@ -264,7 +285,6 @@ export function createLiveUpdatesListenerMiddleware(
   const WIRE_ONLY_UPDATE_KEYS = new Set([
     "entry_type",
     "metadata_status",
-    "radio_hour",
     "dj_name",
     "rotation_bin",
     "timestamp",

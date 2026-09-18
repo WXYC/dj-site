@@ -25,8 +25,18 @@ const BREAKPOINT_SUFFIX = "Breakpoint";
 export function closestStationHour(now: Date = new Date()): Date {
   const ms = now.getTime();
   const minutesIntoHour = (ms % MS_PER_HOUR) / 60_000;
-  const flooredToHour = ms - (ms % MS_PER_HOUR);
+  const flooredToHour = startOfStationHour(ms);
   return new Date(minutesIntoHour > 30 ? flooredToHour + MS_PER_HOUR : flooredToHour);
+}
+
+// Floors an instant to the top of the station hour it falls in -- distinct
+// from closestStationHour, which rounds a target instant to its NEAREST
+// station hour (rounding up past :30). A stored radio_hour is not a target to
+// round; it is a server-stamped instant already claiming a specific hour, so
+// comparing it to a guard target requires floor, never round. Same whole-hour
+// Eastern-offset argument as closestStationHour applies.
+function startOfStationHour(ms: number): number {
+  return ms - (ms % MS_PER_HOUR);
 }
 
 // e.g. "2:00 PM" — the station-local closest hour, no leading zero.
@@ -58,18 +68,70 @@ export function stationBreakpointMessage(now: Date = new Date()): string {
   return breakpointMessageForHourLabel(formatStationHourLabel(now));
 }
 
+/**
+ * What the one-per-hour guard needs from an existing breakpoint row: the
+ * server-stamped instant it marks, when known, and the display text it
+ * fell back to before that instant existed.
+ *
+ * `radio_hour` absent or null covers two different rows the same way: an
+ * archive row logged before the server started stamping it, and the
+ * client-only optimistic row inserted before the server has responded to
+ * this submission at all. Both have to fall back to the message, or a
+ * double-click on Add Breakpoint stops being caught until the real row
+ * lands.
+ */
+export type StationHourBreakpoint = {
+  radio_hour?: string | null;
+  message: string;
+};
+
 // One breakpoint per station hour: a new breakpoint is a duplicate when an
-// existing breakpoint already carries this station hour's message. Because the
-// message is derived purely from station time, two DJs in different zones at the
-// same instant produce the same key, and the next station hour produces a
-// different one even if the client's local hour is unchanged.
+// existing breakpoint already claims this station hour. Rows carrying a
+// `radio_hour` are compared as instants -- the same field the server watermark
+// keys on -- so a skewed browser clock can no longer disagree with the server
+// about which hour a row belongs to. A row with no usable `radio_hour` falls
+// back to the previous message-label comparison, which is purely a function of
+// station time: two DJs in different zones at the same instant still produce
+// the same label, and the next station hour still produces a different one.
+//
+// The target is still `closestStationHour(browser clock)`, so this stays
+// optimistic, not authoritative -- a browser skewed far enough to straddle :30
+// aims at one hour while the server stamps the next, and neither key then
+// matches a row the server considers this hour's. That residual is the
+// server's to close (its watermark today, a uniqueness constraint later), and
+// it replaces a strictly worse accepted edge: keying on the label collapsed
+// the two legitimate 1 AM breakpoints of a DST fall-back night into one key.
 export function isStationHourBreakpointPresent(
-  existingBreakpointMessages: Iterable<string>,
+  existingBreakpoints: Iterable<StationHourBreakpoint>,
   now: Date = new Date()
 ): boolean {
-  const target = stationBreakpointMessage(now);
-  for (const message of existingBreakpointMessages) {
-    if (message === target) return true;
+  const targetHour = closestStationHour(now);
+  const targetInstant = targetHour.getTime();
+  // Built on demand: a live show's rows all carry a `radio_hour`, so the
+  // label branch is usually never taken, and producing it costs an
+  // Intl.DateTimeFormat -- on a path one caller runs in a render body.
+  let targetLabel: string | null = null;
+  for (const { radio_hour, message } of existingBreakpoints) {
+    const instant = radio_hour ? Date.parse(radio_hour) : NaN;
+    // No usable instant -- absent, null, or an unparseable string -- means the
+    // label is all this row says about which hour it marks, so use it. An
+    // unparseable value is deliberately treated as absent rather than as an
+    // instant that happens to match nothing: a row that can match on neither
+    // key stops suppressing duplicates altogether, which is the failure mode
+    // the flooring below also exists to avoid.
+    if (Number.isNaN(instant)) {
+      targetLabel ??= stationBreakpointMessage(targetHour);
+      if (message === targetLabel) return true;
+      continue;
+    }
+    // Floored rather than trusted as exact: the server always stamps a
+    // top-of-hour, so this is a no-op in practice, but comparing the raw
+    // value would mean a hypothetical drift of even one second makes the
+    // guard silently never match again. Never apply closestStationHour's OWN
+    // rounding here: that rounds at :30, which would misfile a radio_hour
+    // minutes off the boundary into the wrong hour instead of leaving it in
+    // its own.
+    if (startOfStationHour(instant) === targetInstant) return true;
   }
   return false;
 }

@@ -8,6 +8,7 @@ import {
   useFlowsheet,
   useQueue,
   useFlowsheetSubmit,
+  useCurrentBreakpointHours,
 } from "@/src/hooks/flowsheetHooks";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import { convertQueryToSubmission } from "@/lib/features/flowsheet/conversions";
@@ -745,6 +746,113 @@ describe("flowsheetHooks", () => {
       });
 
       expect(typeof result.current.loading).toBe("boolean");
+    });
+  });
+
+  describe("useCurrentBreakpointHours", () => {
+    const CURRENT_SHOW_ID = 100;
+    const OTHER_SHOW_ID = 99;
+
+    function breakpointEntry(
+      overrides: Partial<{
+        id: number;
+        show_id: number;
+        message: string;
+        radio_hour: string | null;
+      }> = {}
+    ) {
+      return {
+        id: 500,
+        play_order: 1,
+        show_id: CURRENT_SHOW_ID,
+        message: "11:00 PM Breakpoint",
+        ...overrides,
+      };
+    }
+
+    function mockInfiniteEntries(pages: unknown[][]) {
+      mockUseGetInfiniteEntriesInfiniteQuery.mockReturnValue({
+        // The default mock is typed to FlowsheetSongEntry[][]; breakpoint and
+        // marker fixtures here are shaped for the filter/map this hook
+        // actually runs, not for that stricter type.
+        data: { pages } as unknown as { pages: (typeof mockFlowsheetData)[] },
+        isLoading: false,
+        isSuccess: true,
+        isError: false,
+        isFetching: false,
+        hasNextPage: false,
+        fetchNextPage: vi.fn(),
+      });
+    }
+
+    it("exposes each current-show breakpoint's radio_hour and message to the guard", () => {
+      mockInfiniteEntries([
+        [
+          breakpointEntry({
+            id: 501,
+            radio_hour: "2026-08-23T01:00:00.000Z",
+          }),
+        ],
+      ]);
+
+      const { result } = renderHook(() => useCurrentBreakpointHours(), {
+        wrapper: createWrapper(),
+      });
+
+      expect(result.current).toHaveLength(1);
+      expect(result.current[0]).toMatchObject({
+        radio_hour: "2026-08-23T01:00:00.000Z",
+        message: "11:00 PM Breakpoint",
+      });
+    });
+
+    // Show-scoping is load-bearing (see the hook's own docstring): without
+    // it, an earlier show's same-hour breakpoint would key-collide with
+    // today's in the guard.
+    it("excludes a breakpoint belonging to a different show", () => {
+      mockInfiniteEntries([
+        [
+          breakpointEntry({ id: 501, show_id: CURRENT_SHOW_ID }),
+          breakpointEntry({
+            id: 502,
+            show_id: OTHER_SHOW_ID,
+            message: "10:00 PM Breakpoint",
+          }),
+        ],
+      ]);
+
+      const { result } = renderHook(() => useCurrentBreakpointHours(), {
+        wrapper: createWrapper(),
+      });
+
+      expect(result.current).toHaveLength(1);
+      expect(result.current[0].message).toBe("11:00 PM Breakpoint");
+    });
+
+    it("excludes non-breakpoint entries", () => {
+      mockInfiniteEntries([
+        [createTestFlowsheetEntry({ id: 1, show_id: CURRENT_SHOW_ID })],
+      ]);
+
+      const { result } = renderHook(() => useCurrentBreakpointHours(), {
+        wrapper: createWrapper(),
+      });
+
+      expect(result.current).toEqual([]);
+    });
+
+    it("carries a null radio_hour through rather than dropping the row", () => {
+      mockInfiniteEntries([[breakpointEntry({ radio_hour: null })]]);
+
+      const { result } = renderHook(() => useCurrentBreakpointHours(), {
+        wrapper: createWrapper(),
+      });
+
+      expect(result.current).toHaveLength(1);
+      expect(result.current[0]).toMatchObject({
+        radio_hour: null,
+        message: "11:00 PM Breakpoint",
+      });
     });
   });
 

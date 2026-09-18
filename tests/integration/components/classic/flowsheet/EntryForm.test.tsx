@@ -10,6 +10,7 @@ import {
 import { Rotation } from "@/lib/features/rotation/types";
 import { FlowsheetEntryType } from "@wxyc/shared/dtos";
 import EntryForm from "@/src/components/experiences/classic/flowsheet/EntryForm";
+import type { StationHourBreakpoint } from "@/src/utilities/stationTime";
 
 // The form calls useAddToFlowsheetMutation() directly; mock that hook so we can
 // assert what payload the form would submit, without standing up a real server.
@@ -41,19 +42,19 @@ vi.mock("@/lib/features/rotation/api", async (importOriginal) => {
   };
 });
 
-// The one-per-hour guard reads the current show's breakpoint messages through
+// The one-per-hour guard reads the current show's breakpoint hours through
 // this hook; mocked so the guard can be driven directly rather than through a
 // real infinite-scroll cache. The rest of the module is spread back in, because
 // this file renders the whole form and any other hook it reaches for would
 // otherwise be undefined for all of these specs, not just the guard's.
-let mockBreakpointMessages: string[] = [];
+let mockBreakpointHours: StationHourBreakpoint[] = [];
 vi.mock("@/src/hooks/flowsheetHooks", async (importOriginal) => {
   const actual = await importOriginal<
     typeof import("@/src/hooks/flowsheetHooks")
   >();
   return {
     ...actual,
-    useCurrentBreakpointMessages: () => mockBreakpointMessages,
+    useCurrentBreakpointHours: () => mockBreakpointHours,
   };
 });
 
@@ -63,7 +64,7 @@ beforeEach(() => {
   // that resolves so the form's reset path doesn't throw.
   addToFlowsheetMock.mockReturnValue({ unwrap: () => Promise.resolve({}) });
   rotationDataMock = [];
-  mockBreakpointMessages = [];
+  mockBreakpointHours = [];
 });
 
 /**
@@ -654,7 +655,7 @@ describe("Classic EntryForm — one-per-station-hour breakpoint guard", () => {
 
   it("refuses a second breakpoint for an hour the current show already has", async () => {
     mockCurrentTime(duringTheSevenPmHour);
-    mockBreakpointMessages = ["7:00 PM Breakpoint"];
+    mockBreakpointHours = [{ message: "7:00 PM Breakpoint" }];
 
     renderWithProviders(<EntryForm />);
     await chooseBreakpointAndAdd();
@@ -664,7 +665,7 @@ describe("Classic EntryForm — one-per-station-hour breakpoint guard", () => {
 
   it("still allows a breakpoint for a station hour not yet marked in this show", async () => {
     mockCurrentTime(duringTheSevenPmHour);
-    mockBreakpointMessages = ["6:00 PM Breakpoint"];
+    mockBreakpointHours = [{ message: "6:00 PM Breakpoint" }];
 
     renderWithProviders(<EntryForm />);
     await chooseBreakpointAndAdd();
@@ -673,6 +674,21 @@ describe("Classic EntryForm — one-per-station-hour breakpoint guard", () => {
     expect(addToFlowsheetMock.mock.calls[0][0].message).toBe(
       "7:00 PM Breakpoint"
     );
+  });
+
+  it("dedupes on radio_hour even when the row's own message names a different hour", async () => {
+    // The clock-skew scenario this ticket exists for: the row's message says
+    // 6 PM, but the server-stamped radio_hour says 7 PM -- the hour actually
+    // in progress. The guard must refuse on the instant, not the text.
+    mockCurrentTime(duringTheSevenPmHour);
+    mockBreakpointHours = [
+      { message: "6:00 PM Breakpoint", radio_hour: duringTheSevenPmHour.toISOString() },
+    ];
+
+    renderWithProviders(<EntryForm />);
+    await chooseBreakpointAndAdd();
+
+    expect(addToFlowsheetMock).not.toHaveBeenCalled();
   });
 });
 

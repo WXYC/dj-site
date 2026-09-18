@@ -676,6 +676,24 @@ describe("flowsheet conversions", () => {
         expect(result.message).toBe("");
       });
 
+      // The one-per-hour guard keys on this field (stationTime.ts), so it has
+      // to survive the live conversion, not just the archive one.
+      it("carries radio_hour through onto the converted row", () => {
+        const entry = createTestV2BreakpointEntry({
+          radio_hour: "2026-08-23T01:00:00.000Z",
+        });
+        const result = convertV2Entry(entry) as FlowsheetBreakpointEntry;
+
+        expect(result.radio_hour).toBe("2026-08-23T01:00:00.000Z");
+      });
+
+      it("carries a null radio_hour through rather than defaulting it away", () => {
+        const entry = createTestV2BreakpointEntry({ radio_hour: null });
+        const result = convertV2Entry(entry) as FlowsheetBreakpointEntry;
+
+        expect(result.radio_hour).toBeNull();
+      });
+
       it("should convert message to FlowsheetMessageEntry", () => {
         const entry = createTestV2MessageEntry({ message: "Custom station message" });
         const result = convertV2Entry(entry) as FlowsheetMessageEntry;
@@ -1097,6 +1115,9 @@ describe("flowsheet conversions", () => {
 
       expect(converted.message).toBe("9:00 PM Breakpoint");
       expect(isFlowsheetBreakpointEntry(converted)).toBe(true);
+      // The guard keys on this field; the archive conversion has to keep it
+      // even though the display label above is already derived from it.
+      expect(converted.radio_hour).toBe("2026-08-23T01:00:00.000Z");
     });
 
     it("reads a pre-radio_hour breakpoint's hour off its own text, never off add_time", () => {
