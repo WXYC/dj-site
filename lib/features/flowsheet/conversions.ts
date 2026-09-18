@@ -302,27 +302,10 @@ export function convertV2Entry(entry: FlowsheetV2EntryJSON): FlowsheetEntry {
       };
     }
 
-    case "breakpoint": {
-      // Breakpoints mark the station's top-of-hour, so the rendered time is
-      // pinned to the station's wall clock rather than the viewer's zone —
-      // otherwise a DJ logging from another zone reads an hour off.
-      const { day, time, isToday } = formatStationDateTime(entry.add_time);
-      return {
-        ...base,
-        message: entry.message || "",
-        // Carried through under its own name so the one-per-hour guard
-        // (stationTime.ts) can key on the same instant the server watermark
-        // does. `?? null` rather than a bare pass-through: the wire type
-        // allows undefined AND null for the same two reasons (pre-producer
-        // rows, not-yet-backfilled rows), and normalizing to one absent value
-        // keeps every reader's "does this row have a radio_hour" check a
-        // single truthiness test.
-        radio_hour: entry.radio_hour ?? null,
-        day,
-        time,
-        isToday,
-      };
-    }
+    // See breakpointDisplayFields: shared verbatim with convertRangeEntry so
+    // live and archived can never disagree about the hour one wire row marks.
+    case "breakpoint":
+      return { ...base, ...breakpointDisplayFields(entry) };
 
     case "talkset":
     case "message":
@@ -383,8 +366,12 @@ function recognizableTalksetMessage(raw: string | undefined): string {
  * column's producer. Read off the row rather than rounded off `add_time`: rows
  * are logged either side of the hour they mark, so rounding would put an hour
  * on the row that the row never claimed.
+ *
+ * Accepts `null` as well as `undefined` for the same reason `radio_hour` does:
+ * the V2 wire message is nullable where the range wire message is merely
+ * optional, and this reads either the same way -- no clock text named.
  */
-function clockTimeNamedInMessage(raw: string | undefined): string {
+function clockTimeNamedInMessage(raw: string | null | undefined): string {
   const match = raw?.match(CLOCK_TIME);
   return match
     ? `${Number(match[1])}:${match[2]} ${match[3].toUpperCase()}M`
@@ -403,6 +390,46 @@ function stationDayTime(isoString: string | null | undefined): {
     return { day: "Unknown", time: "Unknown", isToday: false };
   }
   return formatStationDateTime(isoString);
+}
+
+/**
+ * The `message`/`radio_hour`/`day`/`time`/`isToday` fields of a breakpoint
+ * row, shared verbatim by `convertV2Entry` and `convertRangeEntry` so the two
+ * surfaces cannot answer "what hour does this row mark" differently for the
+ * same wire row -- the failure this pairing exists to close.
+ *
+ * A breakpoint logs roughly a minute either side of the hour it marks, so
+ * `radio_hour` -- the server-stamped top-of-hour -- is the source of truth
+ * for both fields whenever it is present; the row's own stored text and
+ * `add_time` are fallbacks for rows predating that column's producer.
+ */
+function breakpointDisplayFields(entry: {
+  message?: string | null;
+  radio_hour?: string | null;
+  add_time?: string | null;
+}): {
+  message: string;
+  radio_hour: string | null;
+  day: string;
+  time: string;
+  isToday: boolean;
+} {
+  return {
+    message: breakpointMessageForHourLabel(
+      entry.radio_hour
+        ? formatStationClockTime(entry.radio_hour)
+        : clockTimeNamedInMessage(entry.message)
+    ),
+    // Carried through under its own name so the one-per-hour guard
+    // (stationTime.ts) can key on the same instant the server watermark
+    // does, even though the label above is already derived from it. `?? null`
+    // rather than a bare pass-through: the wire type allows undefined AND
+    // null for the same two reasons (pre-producer rows, not-yet-backfilled
+    // rows), and normalizing to one absent value keeps every reader's "does
+    // this row have a radio_hour" check a single truthiness test.
+    radio_hour: entry.radio_hour ?? null,
+    ...stationDayTime(entry.radio_hour ?? entry.add_time),
+  };
 }
 
 /**
@@ -480,20 +507,10 @@ export function convertRangeEntry(entry: FlowsheetRangeEntry): FlowsheetEntry {
     case "talkset":
       return asMessage(recognizableTalksetMessage(entry.message));
 
+    // See breakpointDisplayFields: shared verbatim with convertV2Entry so
+    // live and archived can never disagree about the hour one wire row marks.
     case "breakpoint":
-      return {
-        ...base,
-        message: breakpointMessageForHourLabel(
-          entry.radio_hour
-            ? formatStationClockTime(entry.radio_hour)
-            : clockTimeNamedInMessage(entry.message)
-        ),
-        // Same field, same normalization as convertV2Entry's breakpoint arm —
-        // see that arm's comment. Kept even though the label above is already
-        // derived from it, so the one-per-hour guard can key on it too.
-        radio_hour: entry.radio_hour ?? null,
-        ...stationDayTime(entry.radio_hour ?? entry.add_time),
-      };
+      return { ...base, ...breakpointDisplayFields(entry) };
 
     case "message":
       return asMessage(entry.message ?? "");
