@@ -93,9 +93,10 @@ const EMPTY_TITLE_MESSAGE = "Please enter a title before adding this release.";
  *   equivalent boxes. Omitting `code_number` is what keeps the server's own
  *   MAX+1 assignment for the bucket, and omitting the letters stores NULL, so
  *   this screen reports the assigned code after the save instead -- the fact
- *   that goes on the sleeve. Giving the bucket its own boxes is the V/A filing
- *   work tracked on WXYC/dj-site#1576; the validators and the refusal wording
- *   it would reuse are in `lib/features/catalog/adminCreateArtistValidation.ts`.
+ *   that goes on the sleeve. Giving the bucket its own boxes is deferred, not
+ *   impossible: the validators and the refusal wording it would reuse already
+ *   exist in `lib/features/catalog/adminCreateArtistValidation.ts`, written to
+ *   be shared with this form.
  * - **The form gains a Label field.** `POST /library` requires `label` and the
  *   JSP's form has no such input; same precedent as the ordinary artist card.
  * - **No sort form.** The JSP posts `sortColumn`/`sortOrder` back to the
