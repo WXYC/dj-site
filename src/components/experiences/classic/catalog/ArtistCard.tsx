@@ -15,7 +15,7 @@ import {
 import {
   normalizeCodeLetters,
   parseReleaseCodeNumber,
-  RELEASE_CODE_NUMBER_MAX,
+  RELEASE_CODE_NUMBER_OUT_OF_RANGE_MESSAGE,
   RELEASE_VOLUME_LETTERS_TOO_LONG_MESSAGE,
   releaseVolumeLettersTooLong,
 } from "@/lib/features/catalog/adminCreateArtistValidation";
@@ -284,9 +284,7 @@ export default function ArtistCard({ artistId, message, imported }: ArtistCardPr
     if (trimmedCode !== "") {
       const parsed = parseReleaseCodeNumber(trimmedCode);
       if (parsed === null) {
-        setReleaseMessage(
-          `The release number must be a whole number between 1 and ${RELEASE_CODE_NUMBER_MAX}.`,
-        );
+        setReleaseMessage(RELEASE_CODE_NUMBER_OUT_OF_RANGE_MESSAGE);
         return;
       }
       overrideCodeNumber = parsed;
@@ -527,6 +525,19 @@ export default function ArtistCard({ artistId, message, imported }: ArtistCardPr
                   disabled={savingRelease}
                   onChange={(e) => setCodeNumberEdit(e.target.value)}
                 />
+                {/* The separator is unconditional, and the letters box carries
+                    no `maxLength`. Both match `/wxycdb` by intent rather than by
+                    omission -- this screen is a xerox of
+                    `wxycdb/.../libraryAdmin/artistCardModify.jsp:88-94`, where
+                    the same "Add a Library Release for This Artist:" heading and
+                    `Library Code:` label are followed by a `size=3` number box,
+                    a literal " - ", and a `size=3` letters box with no
+                    `maxlength`. The hyphen here separates two inputs; it is not
+                    a rendered code, which is the thing `formatReleaseCode`
+                    suppresses a trailing hyphen in. And `maxLength` counts
+                    UTF-16 units, so it would refuse the astral input the
+                    code-point length check deliberately admits because Backend
+                    stores it. */}
                 {/* The volume letters that follow the call number
                     (`.../5-A`), for filing a volume of a set at the shown
                     call number -- never prepopulated: see the note on

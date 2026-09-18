@@ -126,6 +126,17 @@ describe("validateNewArtistFields", () => {
     expect(result.codeLettersTooLong).toBe(true);
   });
 
+  // The column is `varchar(4)` -- four characters, not four UTF-16 units --
+  // and Backend measures it with a code-point count, so a surrogate pair must
+  // cost one of the four slots rather than two. Measured in UTF-16 units these
+  // four mathematical-bold capitals are 8 long, and the form would refuse
+  // input the server would have stored.
+  it("counts call letters in code points, matching how the backend measures the column", () => {
+    const result = validateNewArtistFields({ ...valid, codeLetters: "𝐀𝐁𝐂𝐃" });
+
+    expect(result.codeLettersTooLong).toBe(false);
+  });
+
   it("separates an out-of-range code number from a non-integer one", () => {
     // Both are invalid, but only one of them parsed — which is what lets the
     // field name the range ceiling instead of repeating the integer error.
@@ -283,4 +294,5 @@ describe("releaseVolumeLettersTooLong", () => {
     // capitals): 8 UTF-16 units, 4 code points.
     expect(releaseVolumeLettersTooLong("𝐀𝐁𝐂𝐃")).toBe(false);
   });
+
 });

@@ -1,6 +1,7 @@
 "use client";
 
 import { useId } from "react";
+import { normalizeCodeLetters } from "@/lib/features/catalog/adminCreateArtistValidation";
 import type { LibraryFormatRow } from "@/lib/features/catalog/types";
 import CompanyAutocomplete from "./CompanyAutocomplete";
 
@@ -12,6 +13,12 @@ export type ReleaseFormState = {
    * overwriting a number typed while it was still loading.
    */
   codeNumber: string | null;
+  /**
+   * Uppercase, because the field normalizes on change: every reader of
+   * `library.code_volume_letters` folds case and the writer must too, or one
+   * shelf slot holds two rows that render identically. See
+   * `normalizeCodeLetters`, including what uppercasing a typed "z" means.
+   */
   volumeLetters: string;
   title: string;
   formatId: number | null;
@@ -93,7 +100,7 @@ export default function RotationImportReleaseFields({
             size={3}
             value={value.volumeLetters}
             disabled={disabled}
-            onChange={(e) => onChange({ volumeLetters: e.target.value })}
+            onChange={(e) => onChange({ volumeLetters: normalizeCodeLetters(e.target.value) })}
           />
           {codeInUse && (
             <div role="status" className="validation-message visible">
