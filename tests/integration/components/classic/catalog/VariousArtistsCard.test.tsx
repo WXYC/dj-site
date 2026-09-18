@@ -287,7 +287,7 @@ describe("classic VariousArtistsCard — variousArtistsCardModify.jsp", () => {
     });
 
     describe("the call number and volume letters fields", () => {
-      it("starts both fields blank, with no peek to prepopulate them", async () => {
+      it("starts both fields blank rather than prepopulating a call number", async () => {
         renderWithProviders(<VariousArtistsCard artistId={BUCKET_ID} />);
 
         const form = await screen.findByTestId("va-add-release-form");
@@ -447,6 +447,132 @@ describe("classic VariousArtistsCard — variousArtistsCardModify.jsp", () => {
           await screen.findByText(/must be at most 4 characters/i),
         ).toBeDefined();
         expect(posted).toBe(false);
+      });
+
+      it("refuses a non-numeric call number rather than sending it", async () => {
+        const user = userEvent.setup();
+        let posted = false;
+        server.use(
+          http.post(`${TEST_BACKEND_URL}/library`, () => {
+            posted = true;
+            return HttpResponse.json({ id: 1 });
+          }),
+        );
+
+        renderWithProviders(<VariousArtistsCard artistId={BUCKET_ID} />);
+        const form = await screen.findByTestId("va-add-release-form");
+
+        await user.type(within(form).getByLabelText(/release call number/i), "abc");
+        await user.type(within(form).getByLabelText(/title of release/i), "Edits");
+        await user.type(within(form).getByLabelText(/^label:/i), "self-released");
+        await user.selectOptions(within(form).getByLabelText(/format/i), "1");
+        await user.click(within(form).getByRole("button", { name: /add a new library release/i }));
+
+        expect(
+          await screen.findByText(/must be a whole number between 1 and 32767/i),
+        ).toBeDefined();
+        expect(posted).toBe(false);
+      });
+
+      // Trimming is the only thing between a stray space and a stored value of
+      // "  ": no screen renders whitespace volume letters, and the shelf-slot
+      // dedup folds them into the blank slot, so the release would sit there
+      // carrying letters nobody can see.
+      it.each([
+        ["release call number", "code_number"],
+        ["release volume letters", "code_volume_letters"],
+      ])("omits the %s key when the field holds only whitespace", async (field, key) => {
+        const user = userEvent.setup();
+        let posted: Record<string, unknown> | undefined;
+        server.use(
+          http.post(`${TEST_BACKEND_URL}/library`, async ({ request }) => {
+            posted = (await request.json()) as Record<string, unknown>;
+            return HttpResponse.json({ id: 1, code_number: 12, code_volume_letters: null });
+          }),
+        );
+
+        renderWithProviders(<VariousArtistsCard artistId={BUCKET_ID} />);
+        const form = await screen.findByTestId("va-add-release-form");
+
+        await user.type(within(form).getByLabelText(new RegExp(field, "i")), "   ");
+        await user.type(within(form).getByLabelText(/title of release/i), "Edits");
+        await user.type(within(form).getByLabelText(/^label:/i), "self-released");
+        await user.selectOptions(within(form).getByLabelText(/format/i), "1");
+        await user.click(within(form).getByRole("button", { name: /add a new library release/i }));
+
+        await waitFor(() => expect(posted).toBeDefined());
+        expect(posted).not.toHaveProperty(key);
+      });
+
+      // Both fields reset after a save, so a second filing left untouched
+      // cannot resend the first release's call code. The 53 sections of this
+      // shelf already share one code and nothing on the write path refuses a
+      // second release in an occupied slot, so a carried-forward value is found
+      // only by the later dedup sweep.
+      it("carries neither field's value into a second filing", async () => {
+        const user = userEvent.setup();
+        const bodies: Record<string, unknown>[] = [];
+        server.use(
+          http.post(`${TEST_BACKEND_URL}/library`, async ({ request }) => {
+            bodies.push((await request.json()) as Record<string, unknown>);
+            return HttpResponse.json({ id: 1, code_number: 41, code_volume_letters: "A" });
+          }),
+        );
+
+        renderWithProviders(<VariousArtistsCard artistId={BUCKET_ID} />);
+        const form = await screen.findByTestId("va-add-release-form");
+
+        const callNumber = within(form).getByLabelText(
+          /release call number/i,
+        ) as HTMLInputElement;
+        const volumeLetters = within(form).getByLabelText(
+          /release volume letters/i,
+        ) as HTMLInputElement;
+
+        await user.type(callNumber, "41");
+        await user.type(volumeLetters, "a");
+        await user.type(within(form).getByLabelText(/title of release/i), "Edits");
+        await user.type(within(form).getByLabelText(/^label:/i), "self-released");
+        await user.selectOptions(within(form).getByLabelText(/format/i), "1");
+        await user.click(within(form).getByRole("button", { name: /add a new library release/i }));
+
+        await waitFor(() => expect(bodies).toHaveLength(1));
+        expect(bodies[0]).toMatchObject({ code_number: 41, code_volume_letters: "A" });
+        await waitFor(() => expect(callNumber.value).toBe(""));
+        expect(volumeLetters.value).toBe("");
+
+        await user.type(within(form).getByLabelText(/title of release/i), "DOGA");
+        await user.type(within(form).getByLabelText(/^label:/i), "Sonamos");
+        await user.click(within(form).getByRole("button", { name: /add a new library release/i }));
+
+        await waitFor(() => expect(bodies).toHaveLength(2));
+        expect(bodies[1]).not.toHaveProperty("code_number");
+        expect(bodies[1]).not.toHaveProperty("code_volume_letters");
+      });
+
+      it("only promises a server-assigned number while the field is blank", async () => {
+        const user = userEvent.setup();
+        server.use(
+          http.post(`${TEST_BACKEND_URL}/library`, () =>
+            HttpResponse.json({ id: 1, code_number: 41, code_volume_letters: null }),
+          ),
+        );
+
+        renderWithProviders(<VariousArtistsCard artistId={BUCKET_ID} />);
+        const form = await screen.findByTestId("va-add-release-form");
+        const promise = /the release number is assigned when you save/i;
+
+        expect(within(form).getByText(promise)).toBeDefined();
+
+        await user.type(within(form).getByLabelText(/release call number/i), "41");
+        expect(within(form).queryByText(promise)).toBeNull();
+
+        await user.type(within(form).getByLabelText(/title of release/i), "Edits");
+        await user.type(within(form).getByLabelText(/^label:/i), "self-released");
+        await user.selectOptions(within(form).getByLabelText(/format/i), "1");
+        await user.click(within(form).getByRole("button", { name: /add a new library release/i }));
+
+        await waitFor(() => expect(within(form).getByText(promise)).toBeDefined());
       });
     });
   });
