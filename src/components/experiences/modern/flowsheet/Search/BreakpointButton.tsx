@@ -2,7 +2,7 @@
 
 import { useAddToFlowsheetMutation } from "@/lib/features/flowsheet/api";
 import {
-  useCurrentBreakpointMessages,
+  useCurrentBreakpointHours,
   useFlowsheetSearch,
 } from "@/src/hooks/flowsheetHooks";
 import {
@@ -18,9 +18,9 @@ export default function BreakpointButton() {
   const [addToFlowsheet, _] = useAddToFlowsheetMutation();
 
   const { live } = useFlowsheetSearch();
-  const breakpointMessages = useCurrentBreakpointMessages();
+  const breakpointHours = useCurrentBreakpointHours();
 
-  const alreadyMarked = isStationHourBreakpointPresent(breakpointMessages);
+  const alreadyMarked = isStationHourBreakpointPresent(breakpointHours);
 
   return (
     <Tooltip
@@ -45,7 +45,7 @@ export default function BreakpointButton() {
           // hour-boundary re-render, so a disabled button could outlive its
           // station hour (structural sharing keeps the data reference stable
           // across quiet polls) and lock out the next, legitimate hour.
-          if (isStationHourBreakpointPresent(breakpointMessages)) return;
+          if (isStationHourBreakpointPresent(breakpointHours)) return;
           addToFlowsheet({
             message: stationBreakpointMessage(),
             entry_type: FlowsheetEntryType.breakpoint,

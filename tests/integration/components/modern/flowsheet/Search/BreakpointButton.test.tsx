@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import BreakpointButton from "@/src/components/experiences/modern/flowsheet/Search/BreakpointButton";
 import { stationBreakpointMessage } from "@/src/utilities/stationTime";
+import type { StationHourBreakpoint } from "@/src/utilities/stationTime";
 
 // Bare RTL render (not renderWithProviders) because the component's hooks are
 // fully mocked here, so no store/theme providers are exercised.
@@ -13,20 +14,20 @@ vi.mock("@/lib/features/flowsheet/api", () => ({
 }));
 
 let mockLive = true;
-let mockBreakpointMessages: string[] = [];
+let mockBreakpointHours: StationHourBreakpoint[] = [];
 
 vi.mock("@/src/hooks/flowsheetHooks", () => ({
   useFlowsheetSearch: () => ({
     live: mockLive,
   }),
-  useCurrentBreakpointMessages: () => mockBreakpointMessages,
+  useCurrentBreakpointHours: () => mockBreakpointHours,
 }));
 
 describe("BreakpointButton", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockLive = true;
-    mockBreakpointMessages = [];
+    mockBreakpointHours = [];
   });
 
   it("should be disabled while live status is unresolved or off air", () => {
@@ -71,7 +72,7 @@ describe("BreakpointButton one-per-station-hour guard", () => {
     vi.useFakeTimers();
     // 23:30 Eastern — the current station hour's breakpoint already exists.
     vi.setSystemTime(new Date("2026-07-17T03:30:00Z"));
-    mockBreakpointMessages = [stationBreakpointMessage()];
+    mockBreakpointHours = [{ message: stationBreakpointMessage() }];
   });
 
   afterEach(() => {
@@ -92,7 +93,7 @@ describe("BreakpointButton one-per-station-hour guard", () => {
   });
 
   it("dispatches once the marked breakpoint belongs to a different station hour", () => {
-    mockBreakpointMessages = ["10:00 PM Breakpoint"];
+    mockBreakpointHours = [{ message: "10:00 PM Breakpoint" }];
     render(<BreakpointButton />);
     fireEvent.click(screen.getByRole("button"));
     expect(mockAddToFlowsheet).toHaveBeenCalledWith(
@@ -101,6 +102,21 @@ describe("BreakpointButton one-per-station-hour guard", () => {
         entry_type: "breakpoint",
       })
     );
+  });
+
+  it("dedupes on radio_hour even when the row's own message names a different hour", () => {
+    // The row's text says 10 PM, but its server-stamped radio_hour is the
+    // instant actually in progress -- the guard must refuse on that, not on
+    // a label match against the row's own (skew-produced) text.
+    mockBreakpointHours = [
+      {
+        message: "10:00 PM Breakpoint",
+        radio_hour: new Date("2026-07-17T03:30:00Z").toISOString(),
+      },
+    ];
+    render(<BreakpointButton />);
+    fireEvent.click(screen.getByRole("button"));
+    expect(mockAddToFlowsheet).not.toHaveBeenCalled();
   });
 });
 

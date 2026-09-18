@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
+import type { StationHourBreakpoint } from "@/src/utilities/stationTime";
 import {
   STATION_TIME_ZONE,
   closestStationHour,
@@ -73,23 +74,36 @@ describe("stationTime", () => {
   });
 
   describe("one-breakpoint-per-station-hour guard", () => {
-    const eveningEastern = new Date("2026-07-17T03:30:00Z"); // 23:30 EDT
+    const eveningEastern = new Date("2026-07-17T03:30:00Z"); // 23:30 EDT, station hour "11:00 PM"
 
-    it("blocks a duplicate of the current station hour", () => {
+    // A row that never got a radio_hour: an archive row logged before the
+    // server stamped one, or the client-only optimistic row inserted before
+    // the server has responded.
+    const byMessageOnly = (message: string): StationHourBreakpoint => ({
+      message,
+    });
+
+    it("blocks a duplicate of the current station hour by message when radio_hour is absent", () => {
       expect(
-        isStationHourBreakpointPresent(["11:00 PM Breakpoint"], eveningEastern)
+        isStationHourBreakpointPresent(
+          [byMessageOnly("11:00 PM Breakpoint")],
+          eveningEastern
+        )
       ).toBe(true);
     });
 
     it("allows a different station hour", () => {
       expect(
-        isStationHourBreakpointPresent(["10:00 PM Breakpoint"], eveningEastern)
+        isStationHourBreakpointPresent(
+          [byMessageOnly("10:00 PM Breakpoint")],
+          eveningEastern
+        )
       ).toBe(false);
     });
 
     it("allows the next station hour even though the client clock has only advanced normally", () => {
       const nextHour = new Date("2026-07-17T04:30:00Z"); // 00:30 EDT next day
-      const existing = ["11:00 PM Breakpoint"];
+      const existing = [byMessageOnly("11:00 PM Breakpoint")];
       // The 11 PM hour is already marked...
       expect(isStationHourBreakpointPresent(existing, eveningEastern)).toBe(true);
       // ...but the next station hour keys differently and is not blocked.
@@ -99,6 +113,116 @@ describe("stationTime", () => {
 
     it("treats an empty flowsheet as unmarked", () => {
       expect(isStationHourBreakpointPresent([], eveningEastern)).toBe(false);
+    });
+
+    it("keys on radio_hour rather than the message when radio_hour disagrees with it", () => {
+      // The classic clock-skew scenario: the row's own text names 7 PM, but
+      // the server-stamped radio_hour is the true instant, 11 PM.
+      const row: StationHourBreakpoint = {
+        message: "7:00 PM Breakpoint",
+        radio_hour: eveningEastern.toISOString(),
+      };
+      expect(isStationHourBreakpointPresent([row], eveningEastern)).toBe(true);
+    });
+
+    it("does not fall back to a matching message when radio_hour names a different hour", () => {
+      const row: StationHourBreakpoint = {
+        message: "11:00 PM Breakpoint", // would match on label alone...
+        radio_hour: "2026-07-17T02:30:00Z", // ...but radio_hour says 10 PM
+      };
+      expect(isStationHourBreakpointPresent([row], eveningEastern)).toBe(false);
+    });
+
+    it.each([
+      ["null (a legacy row)", null],
+      ["undefined (the optimistic pre-submit row)", undefined],
+      // Not a value the server can emit, but a row whose instant is
+      // unreadable must degrade to the label rather than stop suppressing
+      // duplicates entirely -- the same reason the instant is floored.
+      ["an unparseable string", "not-a-timestamp"],
+    ])(
+      "falls back to the message when radio_hour is %s",
+      (_label, radio_hour) => {
+        const row: StationHourBreakpoint = {
+          message: "11:00 PM Breakpoint",
+          radio_hour,
+        };
+        expect(isStationHourBreakpointPresent([row], eveningEastern)).toBe(true);
+      }
+    );
+
+    it("does not block on an unparseable radio_hour whose message names another hour", () => {
+      const row: StationHourBreakpoint = {
+        message: "10:00 PM Breakpoint",
+        radio_hour: "not-a-timestamp",
+      };
+      expect(isStationHourBreakpointPresent([row], eveningEastern)).toBe(false);
+    });
+
+    it("allows two breakpoints an absolute hour apart across the fall-back repeat of 1 AM", () => {
+      // Both repeats of the 1 AM wall-clock hour share a label but are a real
+      // hour apart -- radio_hour, an instant, tells them apart where the old
+      // message-keyed guard could not.
+      const firstOneAM = new Date("2026-11-01T05:00:00Z"); // 1:00 AM EDT
+      const secondOneAM = new Date("2026-11-01T06:00:00Z"); // 1:00 AM EST (the repeat)
+      expect(formatStationHourLabel(firstOneAM)).toBe("1:00 AM");
+      expect(formatStationHourLabel(secondOneAM)).toBe("1:00 AM");
+
+      const firstBreakpoint: StationHourBreakpoint = {
+        message: stationBreakpointMessage(firstOneAM),
+        radio_hour: firstOneAM.toISOString(),
+      };
+      expect(
+        isStationHourBreakpointPresent([firstBreakpoint], firstOneAM)
+      ).toBe(true);
+      // The second 1 AM is a distinct instant, not a duplicate of the first.
+      expect(
+        isStationHourBreakpointPresent([firstBreakpoint], secondOneAM)
+      ).toBe(false);
+    });
+
+    // Accepted residual, recorded rather than fixed. Both the guard's target
+    // and the persisted message come from the browser clock; only radio_hour
+    // comes from the server's. A browser skewed far enough to straddle :30
+    // therefore aims at an hour the server never stamped, and the row the
+    // server did stamp keys to the next one. The guard is optimistic by
+    // construction -- making it authoritative would mean trusting the label
+    // over the instant again, which is what re-keying set out to stop, and
+    // would reinstate the DST collapse above. The server's watermark is the
+    // invariant that actually closes this.
+    it("misses a row the server stamped an hour ahead when the browser clock straddles :30", () => {
+      // Browser reads 7:28 PM; the request lands at server 7:31 PM, which
+      // rounds up. The row says "7:00 PM Breakpoint" next to an 8 PM instant.
+      const browserAtSecondClick = new Date("2026-07-16T23:29:00Z"); // 7:29 PM EDT
+      const serverStamped: StationHourBreakpoint = {
+        message: "7:00 PM Breakpoint",
+        radio_hour: "2026-07-17T00:00:00.000Z", // 8:00 PM EDT
+      };
+
+      expect(
+        isStationHourBreakpointPresent([serverStamped], browserAtSecondClick)
+      ).toBe(false);
+
+      // The row is not invisible, only misaligned by the skew: it blocks the
+      // hour it actually claims.
+      expect(
+        isStationHourBreakpointPresent(
+          [serverStamped],
+          new Date("2026-07-17T00:29:00Z") // 8:29 PM EDT
+        )
+      ).toBe(true);
+    });
+
+    it("floors a radio_hour to its containing station hour defensively, without rounding", () => {
+      // The server always stamps an exact top-of-hour, so this row is not one
+      // it would actually produce -- the point is that a hypothetical few
+      // seconds of drift still matches the hour it falls inside, rather than
+      // silently never matching.
+      const row: StationHourBreakpoint = {
+        message: "irrelevant once radio_hour is present",
+        radio_hour: "2026-07-17T03:00:07Z", // 11 PM EDT, 7s past the hour
+      };
+      expect(isStationHourBreakpointPresent([row], eveningEastern)).toBe(true);
     });
   });
 

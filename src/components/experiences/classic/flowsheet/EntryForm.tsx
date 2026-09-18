@@ -19,7 +19,7 @@ import {
   isStationHourBreakpointPresent,
   stationBreakpointMessage,
 } from "@/src/utilities/stationTime";
-import { useCurrentBreakpointMessages } from "@/src/hooks/flowsheetHooks";
+import { useCurrentBreakpointHours } from "@/src/hooks/flowsheetHooks";
 
 type EntryType = "track" | "talkset" | "breakpoint";
 type ReleaseType = "rotationRelease" | "libraryRelease" | "otherRelease";
@@ -54,7 +54,7 @@ export default function EntryForm({
   const [segue, setSegue] = useState(false);
 
   const { data: rotationData } = useGetRotationQuery();
-  const breakpointMessages = useCurrentBreakpointMessages();
+  const breakpointHours = useCurrentBreakpointHours();
 
   // Sorted A→Z by artist (ties broken by album title) so the native <select>
   // type-ahead lands the DJ in the right neighborhood. WXYC/dj-site#745.
@@ -143,10 +143,10 @@ export default function EntryForm({
         entry_type: FlowsheetEntryType.talkset,
       };
     } else if (entryType === "breakpoint") {
-      // Enforced here rather than by disabling Add: `breakpointMessages` is a
+      // Enforced here rather than by disabling Add: `breakpointHours` is a
       // render-time read with no hour-boundary re-render, so a disabled control
       // could outlive its station hour and lock out the next, legitimate one.
-      if (isStationHourBreakpointPresent(breakpointMessages)) return;
+      if (isStationHourBreakpointPresent(breakpointHours)) return;
       submissionData = {
         message: stationBreakpointMessage(),
         entry_type: FlowsheetEntryType.breakpoint,

@@ -159,7 +159,15 @@ export type DateTimeEntry = {
   isToday?: boolean;
 };
 
-export type FlowsheetBreakpointEntry = FlowsheetMessageEntry & DateTimeEntry;
+export type FlowsheetBreakpointEntry = FlowsheetMessageEntry &
+  DateTimeEntry & {
+    // The server-stamped top-of-hour this row marks, carried through under
+    // the wire's own name so the one-per-hour guard can key on the same
+    // instant the server watermark does instead of re-parsing `message`.
+    // Optional and nullable for the same two reasons the wire field is: rows
+    // predating the producer, and rows not yet backfilled.
+    radio_hour?: string | null;
+  };
 
 export type FlowsheetSubmissionParams =
   | {

@@ -43,6 +43,7 @@ import {
   FlowsheetUpdateParams,
   isFlowsheetBreakpointEntry,
 } from "@/lib/features/flowsheet/types";
+import type { StationHourBreakpoint } from "@/src/utilities/stationTime";
 import type { RootState } from "@/lib/store";
 import { useAppDispatch, useAppSelector, useAppStore } from "@/lib/hooks";
 import type { FormEvent } from "react";
@@ -538,34 +539,37 @@ export const useFlowsheet = () => {
 };
 
 /**
- * Breakpoint `message` strings for the CURRENT show only.
+ * Every breakpoint in the CURRENT show, narrowed at the return type to the
+ * `radio_hour` / `message` pair the one-per-hour guard reads.
  *
- * `selectFromResult` derives the array in the store so the one-per-hour guards
- * that consume it — modern's BreakpointButton and classic's EntryForm — re-render
- * only when the set of breakpoints changes, not on every flowsheet cache update.
+ * `selectFromResult` derives the array in the store rather than in the
+ * component, so a quiet poll that leaves the query result reference-stable
+ * re-renders neither guard — modern's BreakpointButton nor classic's
+ * EntryForm. It is not a content-equality gate: RTK Query wraps
+ * `selectFromResult` in a selector with no result-equality check, and
+ * `useSelector`'s shallow compare stops at the array reference, so a write
+ * anywhere in the loaded pages does re-render both.
  *
- * Scoping to the current show is what makes the bare-label guard safe: without
- * it, an earlier show's same-hour breakpoint (loaded via infinite scroll, or
- * simply the previous show on a low-traffic first page) would key-collide with
- * today's and wrongly block it. Within a single show the label is unique per
- * station hour. Accepted edge: a show spanning the November DST fall-back
- * repeats the 1 AM hour, whose two legitimate breakpoints collapse to one key.
+ * Scoping to the current show is what makes the guard safe: without it, an
+ * earlier show's same-hour breakpoint (loaded via infinite scroll, or simply
+ * the previous show on a low-traffic first page) would key-collide with
+ * today's and wrongly block it. Within a single show a station hour's
+ * `radio_hour` — or, absent that, its label — is unique.
  */
-export const useCurrentBreakpointMessages = (): string[] => {
+export const useCurrentBreakpointHours = (): StationHourBreakpoint[] => {
   const { loading: userloading, info: userData } = useRegistry();
   return useGetInfiniteEntriesInfiniteQuery(undefined, {
     skip: !userData || userloading,
     selectFromResult: ({ data }) => {
       const showId = data ? primaryShowId(data) : -1;
       return {
-        breakpointMessages: (data?.pages ?? [])
+        breakpointHours: (data?.pages ?? [])
           .flat()
           .filter(isFlowsheetBreakpointEntry)
-          .filter((entry) => entry.show_id === showId)
-          .map((entry) => entry.message),
+          .filter((entry) => entry.show_id === showId),
       };
     },
-  }).breakpointMessages;
+  }).breakpointHours;
 };
 
 // Mutation result state is never consumed, and the hosts of these hooks

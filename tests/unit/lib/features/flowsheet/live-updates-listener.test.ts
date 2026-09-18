@@ -410,6 +410,96 @@ describe("live-updates listener middleware", () => {
     store.dispatch(liveUpdatesConnectionReleased());
   });
 
+  it("update event merges a breakpoint's radio_hour: it is a passthrough like add_time, not wire-only like rotation_bin", async () => {
+    // Pins `radio_hour` out of WIRE_ONLY_UPDATE_KEYS. The conversion now
+    // carries the field onto every breakpoint row under the same name and
+    // shape, which is what the one-per-hour guard (stationTime.ts) reads, so
+    // grafting the wire value on can no longer fork the cache's shape. This
+    // exercises the merge's contract directly rather than a live path: no
+    // update frame the backend emits today carries a breakpoint row at all.
+    const store = await makeStoreWithSeededEntries([
+      {
+        id: 9010,
+        entry_type: "breakpoint",
+        play_order: 1,
+        show_id: 7000,
+        add_time: "2026-08-23T00:59:00.000Z",
+        message: "11:00 PM Breakpoint",
+        radio_hour: null,
+      },
+    ]);
+
+    const before = flowsheetApi.endpoints.getInfiniteEntries.select(undefined)(
+      store.getState()
+    ).data;
+    expect(before?.pages?.[0]?.[0]).toMatchObject({ id: 9010, radio_hour: null });
+
+    store.dispatch(liveUpdatesConnectionRequested());
+    getLastMock()._fireMessage(
+      frame({
+        type: "update",
+        payload: createTestInsertWirePayload({
+          id: 9010,
+          entry_type: "breakpoint",
+          message: "11:00 PM Breakpoint",
+          radio_hour: "2026-08-23T01:00:00.000Z",
+        }),
+        timestamp: 1,
+      })
+    );
+
+    const after = flowsheetApi.endpoints.getInfiniteEntries.select(undefined)(
+      store.getState()
+    ).data;
+    expect(after?.pages?.[0]?.[0]).toMatchObject({
+      id: 9010,
+      radio_hour: "2026-08-23T01:00:00.000Z",
+    });
+
+    store.dispatch(liveUpdatesConnectionReleased());
+  });
+
+  it("does not let a null radio_hour on an update clobber an already-resolved one", async () => {
+    // nonNullWirePatch drops null-valued keys before WIRE_ONLY_UPDATE_KEYS is
+    // even consulted, so removing radio_hour from that set cannot reintroduce
+    // the null-clobber hazard the drop already guards against generally.
+    const store = await makeStoreWithSeededEntries([
+      {
+        id: 9011,
+        entry_type: "breakpoint",
+        play_order: 1,
+        show_id: 7000,
+        add_time: "2026-08-23T00:59:00.000Z",
+        message: "11:00 PM Breakpoint",
+        radio_hour: "2026-08-23T01:00:00.000Z",
+      },
+    ]);
+
+    store.dispatch(liveUpdatesConnectionRequested());
+    getLastMock()._fireMessage(
+      frame({
+        type: "update",
+        payload: createTestInsertWirePayload({
+          id: 9011,
+          entry_type: "breakpoint",
+          message: "11:00 PM Breakpoint",
+          radio_hour: null,
+        }),
+        timestamp: 1,
+      })
+    );
+
+    const after = flowsheetApi.endpoints.getInfiniteEntries.select(undefined)(
+      store.getState()
+    ).data;
+    expect(after?.pages?.[0]?.[0]).toMatchObject({
+      id: 9011,
+      radio_hour: "2026-08-23T01:00:00.000Z",
+    });
+
+    store.dispatch(liveUpdatesConnectionReleased());
+  });
+
   it("update event does not fork a show marker's time: timestamp is wire-only like rotation_bin, not a passthrough like add_time", async () => {
     // `timestamp` exists only on the V2 show_start/show_end wire shape, and
     // `convertV2Entry` consumes it once — at conversion time — into `day` /
