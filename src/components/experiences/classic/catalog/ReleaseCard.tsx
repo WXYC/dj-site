@@ -8,6 +8,13 @@ import {
   useMarkMissingMutation,
   useUpdateAlbumMutation,
 } from "@/lib/features/catalog/api";
+import {
+  normalizeCodeLetters,
+  parseReleaseCodeNumber,
+  RELEASE_CODE_NUMBER_OUT_OF_RANGE_MESSAGE,
+  releaseVolumeLettersTooLong,
+  RELEASE_VOLUME_LETTERS_TOO_LONG_MESSAGE,
+} from "@/lib/features/catalog/adminCreateArtistValidation";
 import { formatEntireLibraryCode, isVariousArtists } from "@/lib/features/catalog/libraryCode";
 import { formatStationDateTime } from "@/src/utilities/stationTime";
 import Tracklist from "./Tracklist";
@@ -18,9 +25,18 @@ import Tracklist from "./Tracklist";
  *
  * Divergences, each forced by what Backend-Service serves rather than chosen:
  *
- *  - **Release Call Number and Release Call Letter are read-only.** The JSP
- *    edits both. `PATCH /library/:id` accepts neither, so rendering them as
- *    inputs would offer an edit that silently discards.
+ *  - **Release Call Number and Release Call Letter are editable**, matching
+ *    the JSP. `PATCH /library/:id` accepts both, with no artist-scoped
+ *    collision check -- the same single-librarian decision `POST /library`
+ *    already makes, and there is still no DB uniqueness constraint on
+ *    `code_number`, so an operator-chosen number another release already
+ *    holds is written verbatim rather than refused. The call-letter field
+ *    ships blank rather than seeded: `GET /library/info` does not project
+ *    `code_volume_letters` (see the comment on `entireLibraryCode` below), so
+ *    there is no current value to show. Leaving it blank and saving omits the
+ *    key -- true partial-update semantics mean that leaves whatever is
+ *    already stored -- so this screen can set the letters but cannot clear
+ *    them.
  *  - **Album Artist is read-only**, for the same reason: not in the PATCH body.
  *    The published `AddAlbumRequest` schema does declare the field, but no
  *    Backend write path reads it on either verb, so an input here would
@@ -75,6 +91,10 @@ export default function ReleaseCard({ albumId }: { albumId: number }) {
   const [title, setTitle] = useState("");
   const [altArtist, setAltArtist] = useState("");
   const [formatId, setFormatId] = useState<number | "">("");
+  const [codeNumber, setCodeNumber] = useState("");
+  // Never seeded from `data` -- there is nothing to seed from; see the
+  // divergence docblock above.
+  const [volumeLetters, setVolumeLetters] = useState("");
   const [message, setMessage] = useState("");
 
   // The form mirrors server state until the librarian edits it; re-syncing on a
@@ -84,6 +104,8 @@ export default function ReleaseCard({ albumId }: { albumId: number }) {
     setTitle(data.title);
     setAltArtist(data.alternate_artist ?? "");
     setFormatId(data.format_id ?? "");
+    setCodeNumber(String(data.entry));
+    setVolumeLetters("");
   }, [data]);
 
   if (isLoading) {
@@ -133,12 +155,26 @@ export default function ReleaseCard({ albumId }: { albumId: number }) {
   const dirty =
     editedTitle !== (data.title ?? "").trim() ||
     editedAltArtist !== (storedAltArtist === "" ? null : storedAltArtist) ||
-    editedFormatId !== (data.format_id ?? null);
+    editedFormatId !== (data.format_id ?? null) ||
+    codeNumber.trim() !== String(data.entry) ||
+    // No stored value to compare against -- see the divergence docblock --
+    // so any typed letters are treated as a change attempt.
+    volumeLetters.trim() !== "";
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!editedTitle) {
       setMessage("Please enter a title for this release.");
+      return;
+    }
+    const parsedCodeNumber = parseReleaseCodeNumber(codeNumber.trim());
+    if (parsedCodeNumber === null) {
+      setMessage(RELEASE_CODE_NUMBER_OUT_OF_RANGE_MESSAGE);
+      return;
+    }
+    const trimmedVolumeLetters = volumeLetters.trim();
+    if (releaseVolumeLettersTooLong(trimmedVolumeLetters)) {
+      setMessage(RELEASE_VOLUME_LETTERS_TOO_LONG_MESSAGE);
       return;
     }
     try {
@@ -150,6 +186,11 @@ export default function ReleaseCard({ albumId }: { albumId: number }) {
           // Omitted rather than sent as null when unset -- the wire shape the
           // endpoint has always received from this screen.
           ...(editedFormatId === null ? {} : { format_id: editedFormatId }),
+          code_number: parsedCodeNumber,
+          // Omitted rather than sent blank -- there is no current value on
+          // screen to compare against, so an untouched field must leave the
+          // stored letters alone rather than clear them.
+          ...(trimmedVolumeLetters !== "" ? { code_volume_letters: trimmedVolumeLetters } : {}),
         },
       }).unwrap();
       setMessage("This library release has been modified.");
@@ -225,7 +266,32 @@ export default function ReleaseCard({ albumId }: { albumId: number }) {
               <td style={{ textAlign: "right" }}>
                 <b>Release Call Number:</b>
               </td>
-              <td data-testid="release-call-number">{data.entry}</td>
+              <td>
+                <input
+                  type="text"
+                  size={6}
+                  inputMode="numeric"
+                  aria-label="Release Call Number"
+                  data-testid="release-call-number"
+                  value={codeNumber}
+                  onChange={(event) => setCodeNumber(event.target.value)}
+                />
+              </td>
+            </tr>
+            <tr>
+              <td style={{ textAlign: "right" }}>
+                <b>Release Call Letter:</b>
+              </td>
+              <td>
+                <input
+                  type="text"
+                  size={4}
+                  aria-label="Release Call Letter"
+                  data-testid="release-call-letter"
+                  value={volumeLetters}
+                  onChange={(event) => setVolumeLetters(normalizeCodeLetters(event.target.value))}
+                />
+              </td>
             </tr>
             <tr>
               <td style={{ textAlign: "right" }}>

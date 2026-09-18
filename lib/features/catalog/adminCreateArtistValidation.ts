@@ -109,13 +109,17 @@ export const RELEASE_CODE_NUMBER_OUT_OF_RANGE_MESSAGE = `The release call number
  * falls back to the peeked `defaultCodeNumber`) and so reports a cleared field
  * as its own refusal.
  *
- * Shared rather than copied, and all three live release-filing surfaces reach
+ * Shared rather than copied, and all four live release-filing surfaces reach
  * it: `ArtistCard`'s and `VariousArtistsCard`'s add-release forms through
- * `resolveReleaseCodeFields`, and `RotationImportScreen`'s `validateRelease`
- * directly, which gates that screen's existing-artist and new-artist submits
- * alike. There is no fourth copy -- the local `parsePositiveInt` the import
- * screen used to parse this column with is gone, so all three surfaces agree on
- * what a call number is instead of drifting.
+ * `resolveReleaseCodeFields`, `RotationImportScreen`'s `validateRelease`
+ * directly -- which gates that screen's existing-artist and new-artist submits
+ * alike -- and `ReleaseCard`'s editor, which differs from the add-release forms
+ * in requiring a non-empty parse on every save: its field always starts
+ * pre-filled with the release's own stored number, so a blank is a mistake
+ * rather than a request for the server to assign one. There is no fifth copy --
+ * the local `parsePositiveInt` the import screen used to parse this column with
+ * is gone, so all four surfaces agree on what a call number is instead of
+ * drifting.
  */
 export function parseReleaseCodeNumber(raw: string): number | null {
   const parsed = parseRequiredPositiveInt(raw);
@@ -157,15 +161,15 @@ export function parseReleaseCodeNumber(raw: string): number | null {
  * product question, not something this function's length check should be read
  * as having settled.
  *
- * Wired into all three volume-letters inputs this repo ships: `ArtistCard`'s
+ * Wired into all four volume-letters inputs this repo ships: `ArtistCard`'s
  * and `VariousArtistsCard`'s add-release forms through
- * `resolveReleaseCodeFields` below, and `RotationImportReleaseFields.tsx`'s
+ * `resolveReleaseCodeFields` below, `RotationImportReleaseFields.tsx`'s
  * "Volume Letters" field through `RotationImportScreen.tsx`'s
  * `validateRelease` -- which gates both of that screen's submit paths, so one
- * check covers the existing-artist and new-artist imports alike. The import
- * screen is where an unchecked value costs the most: it reaches Backend as a
- * plain 400 with no field attribution, on a multi-step screen where a failed
- * submit is expensive to recover from.
+ * check covers the existing-artist and new-artist imports alike -- and
+ * `ReleaseCard`'s editor. The import screen is where an unchecked value costs
+ * the most: it reaches Backend as a plain 400 with no field attribution, on a
+ * multi-step screen where a failed submit is expensive to recover from.
  */
 export function releaseVolumeLettersTooLong(raw: string): boolean {
   return codePointLength(raw.trim()) > RELEASE_VOLUME_LETTERS_MAX_LENGTH;
@@ -268,12 +272,12 @@ export function resolveReleaseCodeFields(
  * and codes carrying digits — so narrowing this field to A-Z would make those
  * releases impossible to file. The permissiveness is load-bearing.
  *
- * Also used for `code_volume_letters`, on all three release-filing forms --
- * the artist card's, the compilation bucket card's, and the rotation-import
- * screen's -- for the same reason under a different column. Every reader of
- * that column already folds case: `formatReleaseCode` uppercases it for
- * display, Backend's shelf-slot dedup keys on
- * `upper(coalesce(code_volume_letters, ''))`, and
+ * Also used for `code_volume_letters`, on all four release-filing surfaces --
+ * the artist card's, the compilation bucket card's, the rotation-import
+ * screen's, and the release editor's call-letter input -- for the same reason
+ * under a different column. Every reader of that column already folds case:
+ * `formatReleaseCode` uppercases it for display, Backend's shelf-slot dedup
+ * keys on `upper(coalesce(code_volume_letters, ''))`, and
  * `parseImportedReleaseParams` uppercases it too. So a stored "b" is not
  * visible beside a stored "B" -- both render `-B`, which is precisely the
  * problem: they are two rows in one shelf slot that look identical to the

@@ -127,6 +127,14 @@ export type UpdateAlbumRequestBody = {
   label_id?: number | null;
   discogsUnavailable?: boolean;
   discogsUnavailableNote?: string | null;
+  // The PATCH half of `AddAlbumRequestBody`'s `code_number` /
+  // `code_volume_letters`, reusing the same 1..32767 / varchar(4) validators.
+  // No artist-scoped collision check on this endpoint, same as `POST
+  // /library` -- a single-librarian decision, not an oversight -- so an
+  // operator-chosen number that another release already holds is written
+  // verbatim rather than refused.
+  code_number?: number;
+  code_volume_letters?: string;
 };
 
 /**

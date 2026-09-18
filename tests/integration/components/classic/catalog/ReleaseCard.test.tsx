@@ -61,7 +61,7 @@ describe("Classic ReleaseCard", () => {
 
     expect(screen.getByText("View/Modify a Library Release")).toBeDefined();
     expect(screen.getByTestId("release-library-code").textContent).toBe("Electronic AU 3/1");
-    expect(screen.getByTestId("release-call-number").textContent).toBe("1");
+    expect(screen.getByTestId("release-call-number")).toHaveProperty("value", "1");
   });
 
   it("composes a compilation's code as a V/A bucket, not a 0 artist number", () => {
@@ -182,6 +182,97 @@ describe("Classic ReleaseCard", () => {
     renderWithProviders(<ReleaseCard albumId={53375} />);
 
     await user.type(screen.getByLabelText("Alternate Artist Name"), "Autechre (Sean Booth)");
+
+    expect(screen.getByDisplayValue("Save")).toHaveProperty("disabled", false);
+  });
+
+  it("submits an edited call number and uppercased call letter", async () => {
+    const user = userEvent.setup();
+    mockUpdateAlbum.mockClear();
+    mockUpdateAlbum.mockReturnValue({ unwrap: () => Promise.resolve({}) });
+    mockGetInformationQuery.mockReturnValue({ data: album(), isLoading: false, isError: false });
+
+    renderWithProviders(<ReleaseCard albumId={53375} />);
+
+    await user.clear(screen.getByLabelText("Release Call Number"));
+    await user.type(screen.getByLabelText("Release Call Number"), "7");
+    await user.type(screen.getByLabelText("Release Call Letter"), "b");
+    await user.click(screen.getByDisplayValue("Save"));
+
+    expect(mockUpdateAlbum).toHaveBeenCalledWith({
+      albumId: 53375,
+      body: expect.objectContaining({ code_number: 7, code_volume_letters: "B" }),
+    });
+  });
+
+  it("omits code_volume_letters when the field is left blank, rather than clearing it", async () => {
+    const user = userEvent.setup();
+    mockUpdateAlbum.mockClear();
+    mockUpdateAlbum.mockReturnValue({ unwrap: () => Promise.resolve({}) });
+    mockGetInformationQuery.mockReturnValue({ data: album(), isLoading: false, isError: false });
+
+    renderWithProviders(<ReleaseCard albumId={53375} />);
+
+    await user.type(screen.getByLabelText("Title of Release"), "++");
+    await user.click(screen.getByDisplayValue("Save"));
+
+    const body = mockUpdateAlbum.mock.calls[0][0].body;
+    expect(body).not.toHaveProperty("code_volume_letters");
+    expect(body.code_number).toBe(1);
+  });
+
+  it("refuses a call number outside 1..32767 rather than sending it", async () => {
+    const user = userEvent.setup();
+    mockUpdateAlbum.mockClear();
+    mockGetInformationQuery.mockReturnValue({ data: album(), isLoading: false, isError: false });
+
+    renderWithProviders(<ReleaseCard albumId={53375} />);
+
+    await user.clear(screen.getByLabelText("Release Call Number"));
+    await user.type(screen.getByLabelText("Release Call Number"), "99999");
+    await user.click(screen.getByDisplayValue("Save"));
+
+    expect(mockUpdateAlbum).not.toHaveBeenCalled();
+    expect(screen.getByTestId("release-message").textContent).toContain(
+      "must be a whole number between 1 and",
+    );
+  });
+
+  it("refuses call letters over the column's width rather than sending them", async () => {
+    const user = userEvent.setup();
+    mockUpdateAlbum.mockClear();
+    mockGetInformationQuery.mockReturnValue({ data: album(), isLoading: false, isError: false });
+
+    renderWithProviders(<ReleaseCard albumId={53375} />);
+
+    await user.type(screen.getByLabelText("Release Call Letter"), "ABCDE");
+    await user.click(screen.getByDisplayValue("Save"));
+
+    expect(mockUpdateAlbum).not.toHaveBeenCalled();
+    expect(screen.getByTestId("release-message").textContent).toContain(
+      "must be at most",
+    );
+  });
+
+  it("enables Save for a call-number edit", async () => {
+    const user = userEvent.setup();
+    mockGetInformationQuery.mockReturnValue({ data: album(), isLoading: false, isError: false });
+
+    renderWithProviders(<ReleaseCard albumId={53375} />);
+
+    await user.clear(screen.getByLabelText("Release Call Number"));
+    await user.type(screen.getByLabelText("Release Call Number"), "2");
+
+    expect(screen.getByDisplayValue("Save")).toHaveProperty("disabled", false);
+  });
+
+  it("enables Save for a call-letter edit", async () => {
+    const user = userEvent.setup();
+    mockGetInformationQuery.mockReturnValue({ data: album(), isLoading: false, isError: false });
+
+    renderWithProviders(<ReleaseCard albumId={53375} />);
+
+    await user.type(screen.getByLabelText("Release Call Letter"), "A");
 
     expect(screen.getByDisplayValue("Save")).toHaveProperty("disabled", false);
   });
