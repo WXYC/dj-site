@@ -92,20 +92,29 @@ export function parseReleaseCodeNumber(raw: string): number | null {
  * open product question, not something this function's length check should
  * be read as having settled.
  *
- * Wired into `ArtistCard`'s add-release form only, which is not the whole
- * set of volume-letters inputs this repo ships. A third already exists and
- * has no length cap at all: `RotationImportReleaseFields.tsx`'s "Volume
- * Letters" field, submitted by `RotationImportScreen.tsx`'s
- * `validateRelease`, which checks title, format, call number, and label but
- * nothing about volume letters. A value this function would refuse reaches
- * Backend from that screen and comes back as a plain 400 with no field
- * attribution -- a known gap, left alone here because closing it means
- * changing the rotation-import screen's own validation, not the artist
- * card's. `VariousArtistsCard` has no volume-letters input yet either.
+ * Wired into both volume-letters inputs this repo ships: `ArtistCard`'s
+ * add-release form, and `RotationImportReleaseFields.tsx`'s "Volume Letters"
+ * field through `RotationImportScreen.tsx`'s `validateRelease` -- which
+ * gates both of that screen's submit paths, so one check covers the
+ * existing-artist and new-artist imports alike. Before that second wiring, a
+ * value this function would refuse reached Backend from the import screen and
+ * came back as a plain 400 with no field attribution, on the multi-step
+ * screen where a failed submit costs the most to recover from.
+ * `VariousArtistsCard` has no volume-letters input yet.
  */
 export function releaseVolumeLettersTooLong(raw: string): boolean {
   return Array.from(raw.trim()).length > CODE_LETTERS_MAX_LENGTH;
 }
+
+/**
+ * One wording for the refusal, shared by both inputs above. Same reasoning as
+ * `lib/features/rotation/releaseFormValidation.ts`'s message constants: a
+ * librarian who reads one sentence for a condition on the artist card and a
+ * different one for the same condition on the import screen reads them as two
+ * different problems. The ceiling is interpolated rather than spelled out so
+ * the sentence cannot drift from `CODE_LETTERS_MAX_LENGTH`.
+ */
+export const RELEASE_VOLUME_LETTERS_TOO_LONG_MESSAGE = `The release volume letters must be at most ${CODE_LETTERS_MAX_LENGTH} characters.`;
 
 /**
  * Call letters are matched case-sensitively everywhere the backend uses them —

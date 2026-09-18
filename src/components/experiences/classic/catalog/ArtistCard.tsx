@@ -13,10 +13,10 @@ import {
   useUpdateArtistCardMutation,
 } from "@/lib/features/catalog/api";
 import {
-  CODE_LETTERS_MAX_LENGTH,
   normalizeCodeLetters,
   parseReleaseCodeNumber,
   RELEASE_CODE_NUMBER_MAX,
+  RELEASE_VOLUME_LETTERS_TOO_LONG_MESSAGE,
   releaseVolumeLettersTooLong,
 } from "@/lib/features/catalog/adminCreateArtistValidation";
 import {
@@ -144,13 +144,24 @@ export default function ArtistCard({ artistId, message, imported }: ArtistCardPr
   // and no stale second copy of the server's number. Reset to null after a
   // save so the field re-shows the freshly-peeked next number.
   const [codeNumberEdit, setCodeNumberEdit] = useState<string | null>(null);
-  // Same shape as codeNumberEdit, for the volume-letters field: the
-  // librarian's typed value, or null before they have touched it -- unlike
-  // the call number, this field has no seed to fall back on (see
-  // `displayedVolumeLetters` below), so null and "" both display as blank.
-  // Reset to null after a save so an override typed for one release cannot
-  // silently ride along into the next.
-  const [volumeLettersEdit, setVolumeLettersEdit] = useState<string | null>(null);
+  // The volume-letters field's value. Plainly the string in the input, with no
+  // null "untouched" sentinel: unlike the call number this field is never
+  // seeded, so there is no server value for an override to shadow and nothing
+  // to distinguish untouched from deliberately cleared. Reset to "" after a
+  // save so an override typed for one release cannot silently ride along into
+  // the next.
+  //
+  // Never seeded because `code_volume_letters` subdivides a single
+  // `code_number` ("R 7", "R 7A", "R 7B" are volumes of one set), while this
+  // form's default `code_number` is the *next* one (`MAX(code_number) + 1`) --
+  // so carrying a previous release's letters forward would pair a new set's
+  // number with an existing set's volume letter, asserting a volume of a set
+  // that does not exist. `/wxycdb`'s own prepopulating screen agrees: it seeds
+  // the call number from the same peek but hard-codes the volume letters blank
+  // (`rotationReleaseImport.jsp:56`). Offering the next *free* letter for a
+  // call number that names an existing set is a different, coherent feature:
+  // WXYC/dj-site#1581.
+  const [volumeLettersEdit, setVolumeLettersEdit] = useState("");
 
   // Seed the one editable field from the server once the card arrives, and
   // re-seed after a save so the input shows what was stored rather than what
@@ -226,18 +237,6 @@ export default function ArtistCard({ artistId, message, imported }: ArtistCardPr
       ? String(nextRelease.next_code_number)
       : "");
 
-  // The value in the volume-letters field: the librarian's edit if they have
-  // made one, otherwise blank. Unlike the call number, this is never seeded
-  // from a loaded release -- `code_volume_letters` subdivides a single
-  // `code_number` ("R 7", "R 7A", "R 7B" are volumes of one set), and the
-  // field's own default `code_number` is the *next* one (`MAX(code_number) +
-  // 1`), so carrying a previous release's letters forward would pair a new
-  // set's number with an existing set's volume letter -- asserting a volume
-  // of a set that does not exist. `/wxycdb`'s own prepopulating screen agrees:
-  // it seeds the call number from the same peek but hard-codes the volume
-  // letters blank (`rotationReleaseImport.jsp:56`).
-  const displayedVolumeLetters = volumeLettersEdit ?? "";
-
   const handleModifyArtist = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!artist) return;
@@ -295,11 +294,9 @@ export default function ArtistCard({ artistId, message, imported }: ArtistCardPr
 
     // Same "empty means let the server decide" rule as the call number --
     // here the server's decision is NULL rather than an assignment.
-    const trimmedVolumeLetters = displayedVolumeLetters.trim();
+    const trimmedVolumeLetters = volumeLettersEdit.trim();
     if (releaseVolumeLettersTooLong(trimmedVolumeLetters)) {
-      setReleaseMessage(
-        `The release volume letters must be at most ${CODE_LETTERS_MAX_LENGTH} characters.`,
-      );
+      setReleaseMessage(RELEASE_VOLUME_LETTERS_TOO_LONG_MESSAGE);
       return;
     }
 
@@ -349,7 +346,7 @@ export default function ArtistCard({ artistId, message, imported }: ArtistCardPr
       // returns once addAlbum's invalidation of the release-list tag refetches
       // it -- one higher than what was just filed, in the ordinary case.
       setCodeNumberEdit(null);
-      setVolumeLettersEdit(null);
+      setVolumeLettersEdit("");
     } catch {
       setReleaseMessage("Failed to add the release.");
     }
@@ -533,7 +530,7 @@ export default function ArtistCard({ artistId, message, imported }: ArtistCardPr
                 {/* The volume letters that follow the call number
                     (`.../5-A`), for filing a volume of a set at the shown
                     call number -- never prepopulated: see the note on
-                    `displayedVolumeLetters` above. Blank -> the release is
+                    `volumeLettersEdit` above. Blank -> the release is
                     stored with no letters. Normalized to uppercase like
                     `code_letters`, matching how the catalog renders and
                     compares this column (`formatReleaseCode`, Backend's
@@ -543,7 +540,7 @@ export default function ArtistCard({ artistId, message, imported }: ArtistCardPr
                   type="text"
                   size={4}
                   aria-label="Release volume letters"
-                  value={displayedVolumeLetters}
+                  value={volumeLettersEdit}
                   disabled={savingRelease}
                   onChange={(e) => setVolumeLettersEdit(normalizeCodeLetters(e.target.value))}
                 />
