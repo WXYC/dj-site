@@ -83,10 +83,12 @@ const EMPTY_ALPHABETICAL_MESSAGE = "The alphabetical name cannot be empty.";
  *   endpoint at any privilege (`DELETE /library/:id` deletes a *release*).
  * - **The add-release form's release call number and volume letters are
  *   editable, not derived.** `POST /library` accepts an operator-chosen
- *   `code_number` and `code_volume_letters` (Backend-Service#2410); an empty
- *   field still yields the server's own MAX+1 assignment, and the assigned
- *   code is reported back after the save either way, which is the fact the
- *   librarian actually needs -- it is what goes on the sleeve.
+ *   `code_number` and `code_volume_letters` (Backend-Service#2410). An empty
+ *   call-number field yields the server's own MAX+1 assignment; an empty
+ *   volume-letters field yields NULL -- there is no generator for that
+ *   column, unlike `code_number`. Either way the assigned code is reported
+ *   back after the save, which is the fact the librarian actually needs --
+ *   it is what goes on the sleeve.
  * - **The add-release form gains a Label field.** `POST /library` requires
  *   `label`; the JSP's form has no such input. Same precedent as
  *   `NewArtistForm` adding genre and call letters/numbers because
