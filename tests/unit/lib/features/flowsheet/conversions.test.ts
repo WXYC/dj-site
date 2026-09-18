@@ -659,21 +659,64 @@ describe("flowsheet conversions", () => {
         expect(result.id).toBe(TEST_ENTITY_IDS.FLOWSHEET.ENTRY_1);
       });
 
-      it("should convert breakpoint to FlowsheetBreakpointEntry", () => {
-        const entry = createTestV2BreakpointEntry({ message: "Breakpoint - Station ID" });
+      // Mirrors convertRangeEntry's breakpoint arm: the displayed hour comes
+      // from radio_hour when it is known, so a skew-damaged message can no
+      // longer disagree with what the server says the row marks.
+      it("derives the message from radio_hour, ignoring what the stored text says", () => {
+        const entry = createTestV2BreakpointEntry({
+          message: "--- 3:00 PM BREAKPOINT ---",
+          radio_hour: "2026-08-23T01:00:00.000Z", // 9:00 PM station time
+        });
         const result = convertV2Entry(entry) as FlowsheetBreakpointEntry;
 
-        expect(result.message).toBe("Breakpoint - Station ID");
-        // day/time derived from add_time
-        expect(result.day).toBeTruthy();
-        expect(result.time).toBeTruthy();
+        expect(result.message).toBe("9:00 PM Breakpoint");
+        expect(isFlowsheetBreakpointEntry(result)).toBe(true);
       });
 
-      it("should handle null breakpoint message", () => {
-        const entry = createTestV2BreakpointEntry({ message: null });
+      it("reads the hour off the message when radio_hour is null", () => {
+        const entry = createTestV2BreakpointEntry({
+          message: "--- 3:00 PM BREAKPOINT ---",
+          radio_hour: null,
+        });
         const result = convertV2Entry(entry) as FlowsheetBreakpointEntry;
 
-        expect(result.message).toBe("");
+        expect(result.message).toBe("3:00 PM Breakpoint");
+        expect(isFlowsheetBreakpointEntry(result)).toBe(true);
+      });
+
+      it("falls back to a bare breakpoint when radio_hour is null and the message names no hour", () => {
+        const entry = createTestV2BreakpointEntry({
+          message: "BREAKPOINT",
+          radio_hour: null,
+        });
+        const result = convertV2Entry(entry) as FlowsheetBreakpointEntry;
+
+        expect(result.message).toBe("Breakpoint");
+        expect(isFlowsheetBreakpointEntry(result)).toBe(true);
+      });
+
+      it("treats a null message the same as one naming no hour", () => {
+        const entry = createTestV2BreakpointEntry({
+          message: null,
+          radio_hour: null,
+        });
+        const result = convertV2Entry(entry) as FlowsheetBreakpointEntry;
+
+        expect(result.message).toBe("Breakpoint");
+      });
+
+      // A breakpoint logs either side of the hour it marks (the one-per-hour
+      // guard's own reasoning), so add_time is the wrong source for the
+      // displayed day/time whenever radio_hour disagrees with it.
+      it("sources day/time from radio_hour, not add_time", () => {
+        const entry = createTestV2BreakpointEntry({
+          add_time: "2026-08-23T03:59:00.000Z", // 11:59 PM station time, previous day
+          radio_hour: "2026-08-23T04:00:00.000Z", // midnight station time
+        });
+        const result = convertV2Entry(entry) as FlowsheetBreakpointEntry;
+
+        expect(result.day).toBe("8/23/2026");
+        expect(result.time).toBe("12:00:00 AM");
       });
 
       // The one-per-hour guard keys on this field (stationTime.ts), so it has
@@ -693,6 +736,59 @@ describe("flowsheet conversions", () => {
 
         expect(result.radio_hour).toBeNull();
       });
+
+      // The actual point of the ticket: the live and archived converters must
+      // agree on the displayed hour for the same wire row, not just each
+      // produce something plausible on its own.
+      it.each([
+        [
+          "a radio_hour that disagrees with the message",
+          {
+            message: "--- 3:00 PM BREAKPOINT ---",
+            add_time: "2026-08-23T00:59:00.000Z",
+            radio_hour: "2026-08-23T01:00:00.000Z",
+          },
+        ],
+        [
+          "a null radio_hour and a message naming an hour",
+          {
+            message: "--- 3:00 PM BREAKPOINT ---",
+            add_time: "2026-08-27T19:02:03.000Z",
+            radio_hour: null,
+          },
+        ],
+        [
+          "a null radio_hour and a message naming no hour",
+          {
+            message: "BREAKPOINT",
+            add_time: "2026-08-27T19:02:03.000Z",
+            radio_hour: null,
+          },
+        ],
+      ] as const)(
+        "renders the same hour through convertV2Entry and convertRangeEntry for %s",
+        (_label, fields) => {
+          const shared = {
+            id: 42,
+            show_id: TEST_ENTITY_IDS.SHOW.CURRENT_SHOW,
+            play_order: 1,
+            entry_type: "breakpoint" as const,
+            ...fields,
+          };
+
+          const fromLive = convertV2Entry(shared as any) as FlowsheetBreakpointEntry;
+          const fromArchive = convertRangeEntry({
+            ...shared,
+            request_flag: false,
+          } as any) as FlowsheetBreakpointEntry;
+
+          expect(fromLive.message).toBe(fromArchive.message);
+          expect(fromLive.day).toBe(fromArchive.day);
+          expect(fromLive.time).toBe(fromArchive.time);
+          expect(isFlowsheetBreakpointEntry(fromLive)).toBe(true);
+          expect(isFlowsheetBreakpointEntry(fromArchive)).toBe(true);
+        }
+      );
 
       it("should convert message to FlowsheetMessageEntry", () => {
         const entry = createTestV2MessageEntry({ message: "Custom station message" });
