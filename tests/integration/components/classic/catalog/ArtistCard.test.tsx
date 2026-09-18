@@ -669,8 +669,13 @@ describe("classic ArtistCard — artistCardModify.jsp", () => {
       });
     });
 
-    describe("the prepopulated volume letters", () => {
-      it("prepopulates from the highest-numbered loaded release when it matches the peek", async () => {
+    describe("the volume letters field", () => {
+      // Volume letters subdivide a single code_number ("R 7", "R 7A", "R 7B"
+      // are volumes of one set); the call number the peek prepopulates is the
+      // *next* number, so seeding letters from an existing release would pair
+      // a new set with a volume of a set that doesn't exist. The field starts
+      // blank even when the artist's loaded releases carry letters.
+      it("starts blank, even when loaded releases carry volume letters", async () => {
         mockNextReleaseNumber(6);
         mockReleases([
           release({ id: 1, code_number: 3, code_volume_letters: "A" }),
@@ -682,34 +687,26 @@ describe("classic ArtistCard — artistCardModify.jsp", () => {
         const field = (await screen.findByLabelText(
           /Release volume letters/i,
         )) as HTMLInputElement;
-        await waitFor(() => expect(field.value).toBe("B"));
+        await waitFor(() => expect(field.value).toBe(""));
       });
 
-      // The peek's next number is authoritative; the release list is
-      // paginated and takes no sort, so the loaded maximum is only trusted
-      // once it lines up with next_code_number - 1.
-      it("leaves the field blank when the loaded page excludes the true highest release", async () => {
-        mockNextReleaseNumber(11);
-        mockReleases([
-          release({ id: 1, code_number: 3, code_volume_letters: "A" }),
-          release({ id: 2, code_number: 5, code_volume_letters: "B" }),
-        ]);
+      it("normalizes typed letters to uppercase, matching how the catalog renders and compares them", async () => {
+        const user = userEvent.setup();
+        mockNextReleaseNumber(6);
 
         renderWithProviders(<ArtistCard artistId={ARTIST_ID} />);
 
-        const codeField = (await screen.findByLabelText(
-          /Release call number/i,
+        const field = (await screen.findByLabelText(
+          /Release volume letters/i,
         )) as HTMLInputElement;
-        await waitFor(() => expect(codeField.value).toBe("11"));
-        const field = screen.getByLabelText(/Release volume letters/i) as HTMLInputElement;
-        expect(field.value).toBe("");
+        await user.type(field, "b");
+        expect(field.value).toBe("B");
       });
 
-      it("sends the prepopulated volume letters as code_volume_letters", async () => {
+      it("sends typed volume letters as code_volume_letters", async () => {
         const user = userEvent.setup();
         const bodies: Record<string, unknown>[] = [];
         mockNextReleaseNumber(6);
-        mockReleases([release({ id: 1, code_number: 5, code_volume_letters: "B" })]);
         server.use(
           http.post(`${TEST_BACKEND_URL}/library`, async ({ request }) => {
             bodies.push((await request.json()) as Record<string, unknown>);
@@ -725,7 +722,7 @@ describe("classic ArtistCard — artistCardModify.jsp", () => {
         const field = (await screen.findByLabelText(
           /Release volume letters/i,
         )) as HTMLInputElement;
-        await waitFor(() => expect(field.value).toBe("B"));
+        await user.type(field, "b");
         await user.type(screen.getByLabelText(/Title of Release/i), "Halo");
         await user.type(screen.getByLabelText(/^Label/i), "Crammed Discs");
         await user.selectOptions(screen.getByLabelText(/Format/i), "1");
@@ -741,7 +738,6 @@ describe("classic ArtistCard — artistCardModify.jsp", () => {
         const user = userEvent.setup();
         const bodies: Record<string, unknown>[] = [];
         mockNextReleaseNumber(6);
-        mockReleases([release({ id: 1, code_number: 5, code_volume_letters: "B" })]);
         server.use(
           http.post(`${TEST_BACKEND_URL}/library`, async ({ request }) => {
             bodies.push((await request.json()) as Record<string, unknown>);
@@ -757,7 +753,7 @@ describe("classic ArtistCard — artistCardModify.jsp", () => {
         const field = (await screen.findByLabelText(
           /Release volume letters/i,
         )) as HTMLInputElement;
-        await waitFor(() => expect(field.value).toBe("B"));
+        await user.type(field, "B");
         await user.clear(field);
         await user.type(screen.getByLabelText(/Title of Release/i), "Halo");
         await user.type(screen.getByLabelText(/^Label/i), "Crammed Discs");
@@ -768,6 +764,50 @@ describe("classic ArtistCard — artistCardModify.jsp", () => {
 
         await waitFor(() => expect(bodies).toHaveLength(1));
         expect(bodies[0]).not.toHaveProperty("code_volume_letters");
+      });
+
+      // The override resets after a save (setVolumeLettersEdit(null)) so a
+      // second filing left untouched cannot silently resend the first
+      // release's letters -- the same stale-carry-forward class the call
+      // number's post-save reset guards against.
+      it("does not carry the previous release's volume letters into a second filing", async () => {
+        const user = userEvent.setup();
+        const bodies: Record<string, unknown>[] = [];
+        mockNextReleaseNumber(6);
+        server.use(
+          http.post(`${TEST_BACKEND_URL}/library`, async ({ request }) => {
+            bodies.push((await request.json()) as Record<string, unknown>);
+            return HttpResponse.json(
+              { id: 911, code_number: 6, code_volume_letters: null },
+              { status: 201 },
+            );
+          }),
+        );
+
+        renderWithProviders(<ArtistCard artistId={ARTIST_ID} />);
+
+        const field = (await screen.findByLabelText(
+          /Release volume letters/i,
+        )) as HTMLInputElement;
+        await user.type(field, "B");
+        await user.type(screen.getByLabelText(/Title of Release/i), "Halo");
+        await user.type(screen.getByLabelText(/^Label/i), "Crammed Discs");
+        await user.selectOptions(screen.getByLabelText(/Format/i), "1");
+        await user.click(
+          screen.getByRole("button", { name: "Add a new Library Release" }),
+        );
+        await waitFor(() => expect(bodies).toHaveLength(1));
+        expect(bodies[0]).toMatchObject({ code_volume_letters: "B" });
+        await waitFor(() => expect(field.value).toBe(""));
+
+        await user.type(screen.getByLabelText(/Title of Release/i), "Un Dia");
+        await user.type(screen.getByLabelText(/^Label/i), "Domino");
+        await user.click(
+          screen.getByRole("button", { name: "Add a new Library Release" }),
+        );
+
+        await waitFor(() => expect(bodies).toHaveLength(2));
+        expect(bodies[1]).not.toHaveProperty("code_volume_letters");
       });
 
       it("refuses volume letters longer than the varchar(4) column", async () => {

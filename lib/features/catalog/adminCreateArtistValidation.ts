@@ -68,13 +68,23 @@ export function parseReleaseCodeNumber(raw: string): number | null {
 }
 
 /**
- * `code_volume_letters` is free text, not a shelf code -- unlike
- * `code_letters` it is never case-normalized or restricted to
- * `isCanonicalCodeLetters` -- but it shares that column family's `varchar(4)`
- * width, so the same `CODE_LETTERS_MAX_LENGTH` ceiling applies. Counted in
- * code points, matching how the backend measures the column (a surrogate
- * pair must not cost two of the four slots here and then fail server-side
- * anyway).
+ * Length check for `code_volume_letters`: free text, not restricted to
+ * `isCanonicalCodeLetters` the way `code_letters` is, but it shares that
+ * column family's `varchar(4)` width, so the same `CODE_LETTERS_MAX_LENGTH`
+ * ceiling applies. Counted in code points, matching how the backend measures
+ * the column (a surrogate pair must not cost two of the four slots here and
+ * then fail server-side anyway).
+ *
+ * Wired into `ArtistCard`'s add-release form only, which is not the whole
+ * set of volume-letters inputs this repo ships. A third already exists and
+ * has no length cap at all: `RotationImportReleaseFields.tsx`'s "Volume
+ * Letters" field, submitted by `RotationImportScreen.tsx`'s
+ * `validateRelease`, which checks title, format, call number, and label but
+ * nothing about volume letters. A value this function would refuse reaches
+ * Backend from that screen and comes back as a plain 400 with no field
+ * attribution -- a known gap, left alone here because closing it means
+ * changing the rotation-import screen's own validation, not the artist
+ * card's. `VariousArtistsCard` has no volume-letters input yet either.
  */
 export function releaseVolumeLettersTooLong(raw: string): boolean {
   return Array.from(raw.trim()).length > CODE_LETTERS_MAX_LENGTH;
@@ -94,6 +104,13 @@ export function releaseVolumeLettersTooLong(raw: string): boolean {
  * plain letters — "V/A" for Various Artists compilations, "??" placeholders,
  * and codes carrying digits — so narrowing this field to A-Z would make those
  * releases impossible to file. The permissiveness is load-bearing.
+ *
+ * Also used for `code_volume_letters` on the add-release form, for the same
+ * reason under a different column: `formatReleaseCode` uppercases it for
+ * display, Backend's shelf-slot dedup keys on
+ * `upper(coalesce(code_volume_letters, ''))`, and `parseImportedReleaseParams`
+ * uppercases it too, so a librarian typing "b" and having it stored as "b"
+ * would put two spellings of one code on screen at once.
  */
 export function normalizeCodeLetters(value: string): string {
   return value.toUpperCase();
