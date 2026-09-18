@@ -90,15 +90,6 @@ const EMPTY_TITLE_MESSAGE = "Please enter a title before adding this release.";
  *   artist is the field compilations are filed against, so dropping the value
  *   without saying so would lose exactly the information this screen exists to
  *   capture. It becomes an input once a write path exists.
- * - **The add-release form's release call number and volume letters are
- *   editable, not derived.** `POST /library` accepts an operator-chosen
- *   `code_number` (validated 1..32767, the `smallint` column's range) and
- *   `code_volume_letters` (`varchar(4)`), the same two fields the ordinary
- *   artist card sends. An empty call-number field yields the server's own
- *   MAX+1 assignment for the bucket; an empty volume-letters field yields
- *   NULL. Unlike the artist card, neither field is prepopulated here -- both
- *   start blank, and the assigned code is reported back after the save,
- *   which is the fact that goes on the sleeve.
  * - **The form gains a Label field.** `POST /library` requires `label` and the
  *   JSP's form has no such input; same precedent as the ordinary artist card.
  * - **No sort form.** The JSP posts `sortColumn`/`sortOrder` back to the
@@ -131,14 +122,28 @@ export default function VariousArtistsCard({ artistId, message, imported }: Vari
   const [formatIdValue, setFormatIdValue] = useState<number | null>(null);
   const [releaseMessage, setReleaseMessage] = useState<string | null>(null);
   const [addedCode, setAddedCode] = useState<string | null>(null);
-  // The librarian's override of the release call number. Blank -> the server
-  // assigns MAX+1. There is no peek to prepopulate this field with, unlike
-  // the ordinary artist card, so it simply starts and resets to empty.
+  // The librarian's typed release call number, bounded 1..32767 by the
+  // `smallint` column. Blank -- how the field starts and what it resets to --
+  // omits `code_number` and leaves the server's own MAX+1 assignment for the
+  // bucket in place, which is why the field's job here is the override:
+  // refiling into the slot a lost record left. Either way the code that was
+  // assigned is reported after the save, which is the fact that goes on the
+  // sleeve.
+  //
+  // Not prepopulated, though nothing about a compilation bucket stops it from
+  // being: `GET /library/artists/:id/next-release-number` is keyed on the
+  // artist id alone and answers for this row like any other. This screen just
+  // does not read it, so the librarian either types the number or leaves the
+  // choice to the server. The consequence to weigh before typing one: unlike
+  // the ordinary artist card, this screen puts no view of the bucket's current
+  // highest number in front of the librarian, and Backend refuses no duplicate
+  // shelf slot on write.
   const [codeNumberEdit, setCodeNumberEdit] = useState("");
-  // The volume-letters field's value. Never prepopulated -- see the
-  // equivalent field on the ordinary artist card for why carrying a letter
-  // forward would pair it with a call number that names a set that doesn't
-  // exist. Blank -> the release is stored with no letters.
+  // The volume-letters field's value. Never prepopulated -- and neither is the
+  // ordinary artist card's, for the reason stated there: `code_volume_letters`
+  // subdivides one `code_number`, so carrying a previous release's letter
+  // forward would assert a volume of a set that does not exist. Blank -> the
+  // release is stored with no letters.
   const [volumeLettersEdit, setVolumeLettersEdit] = useState("");
 
   // `/wxycdb` picks this view or the ordinary artist card from the row itself,
@@ -353,9 +358,15 @@ export default function VariousArtistsCard({ artistId, message, imported }: Vari
                   </td>
                   <td>
                     {genreName ?? ""}&nbsp;{bucketCode}
-                    {/* No peek exists for this bucket's next number, unlike
-                        the ordinary artist card, so the field simply starts
-                        blank. Blank -> the server assigns MAX+1. */}
+                    {/* The JSP pairs the same two boxes here
+                        (`variousArtistsCardModify.jsp:52-53`,
+                        `releaseCallNumbers` and `releaseCallLetters`), and
+                        prepopulates neither, so this row is fidelity rather
+                        than a departure. What each field's blank state means is
+                        stated on `codeNumberEdit` and `volumeLettersEdit`
+                        above. Two cosmetic divergences remain: the boxes are
+                        wider than the JSP's `size=3` pair, and the separator
+                        below is a bare hyphen where the JSP spaces it. */}
                     <input
                       type="text"
                       size={6}
@@ -365,8 +376,9 @@ export default function VariousArtistsCard({ artistId, message, imported }: Vari
                       disabled={savingRelease}
                       onChange={(e) => setCodeNumberEdit(e.target.value)}
                     />
-                    {/* Never prepopulated -- see `volumeLettersEdit` above.
-                        Normalized to uppercase like `code_letters`. */}
+                    {/* Normalized to uppercase like `code_letters`, matching
+                        how the catalog renders and compares this column
+                        (`formatReleaseCode`, Backend's shelf-slot dedup). */}
                     -
                     <input
                       type="text"
