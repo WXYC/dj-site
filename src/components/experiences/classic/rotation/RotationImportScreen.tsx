@@ -12,6 +12,10 @@ import {
   useSearchLibraryArtistsQuery,
 } from "@/lib/features/catalog/api";
 import {
+  CODE_NUMBER_MAX,
+  parseReleaseCodeNumber,
+  parseRequiredPositiveInt,
+  RELEASE_CODE_NUMBER_OUT_OF_RANGE_MESSAGE,
   RELEASE_VOLUME_LETTERS_TOO_LONG_MESSAGE,
   releaseVolumeLettersTooLong,
 } from "@/lib/features/catalog/adminCreateArtistValidation";
@@ -78,13 +82,6 @@ function ImportNotice({ children }: { children: React.ReactNode }) {
       {children}
     </p>
   );
-}
-
-function parsePositiveInt(raw: string): number | null {
-  const trimmed = raw.trim();
-  if (!/^\d+$/.test(trimmed)) return null;
-  const value = Number(trimmed);
-  return value > 0 ? value : null;
 }
 
 /**
@@ -247,14 +244,29 @@ export default function RotationImportScreen({ rotationId }: { rotationId: numbe
   const formatName = formats?.find((format) => format.id === row.format_id)?.format_name ?? "";
   const needsLabel = row.label_id == null;
   const defaultCodeNumber = String(selected ? nextCodeNumber : 1);
-  const codeNumberValue = parsePositiveInt(release.codeNumber ?? defaultCodeNumber);
+  // The release's own `library.code_number`, a `smallint` -- so the release
+  // ceiling, never the artist one this screen also parses further down. The
+  // field always has something to parse: untouched it shows `defaultCodeNumber`,
+  // so an unparseable value is one the librarian typed or cleared.
+  const codeNumberRaw = release.codeNumber ?? defaultCodeNumber;
+  const codeNumberValue = parseReleaseCodeNumber(codeNumberRaw);
   const codeInUse =
     codeNumberValue != null && shelf.some((entry) => entry.code_number === codeNumberValue);
 
   const validateRelease = (): string | null => {
     if (release.title.trim() === "") return TITLE_REQUIRED_MESSAGE;
     if (release.formatId == null) return FORMAT_REQUIRED_MESSAGE;
-    if (codeNumberValue == null) return "Please enter a call number.";
+    // Two refusals, not one: a cleared field is a missing value, while a
+    // non-empty one that will not parse is outside the range `POST /library`
+    // enforces. Bounding it here is what keeps a typed 40000 from coming back
+    // as a 400 naming no field, on the screen where a failed submit costs the
+    // most to recover from -- the same reason the volume-letters cap below sits
+    // in this function rather than at the server.
+    if (codeNumberValue == null) {
+      return codeNumberRaw.trim() === ""
+        ? "Please enter a call number."
+        : RELEASE_CODE_NUMBER_OUT_OF_RANGE_MESSAGE;
+    }
     // Checked here rather than server-side: `code_volume_letters` is
     // `varchar(4)`, and an over-length value comes back from `POST /library` as
     // a plain 400 naming no field -- on a multi-step screen where a failed
@@ -389,9 +401,19 @@ export default function RotationImportScreen({ rotationId }: { rotationId: numbe
       setValidationMessage("You must enter call letters.");
       return;
     }
-    const artistCodeNumber = parsePositiveInt(newArtist.callNumbers);
+    // The *artist's* code number, not the release's: this one is filed as
+    // `genre_artist_crossreference.artist_genre_code`, a PostgreSQL `integer`,
+    // so it is bounded by `CODE_NUMBER_MAX` and not by the release column's
+    // `smallint` ceiling. The shared module keeps the two constants apart on
+    // purpose; swapping them here would either narrow artist creation by five
+    // orders of magnitude or let an over-large release number through.
+    const artistCodeNumber = parseRequiredPositiveInt(newArtist.callNumbers);
     if (artistCodeNumber == null) {
       setValidationMessage("You must enter a code number.");
+      return;
+    }
+    if (artistCodeNumber > CODE_NUMBER_MAX) {
+      setValidationMessage(`The code number must be no greater than ${CODE_NUMBER_MAX}.`);
       return;
     }
     const message = validateRelease();

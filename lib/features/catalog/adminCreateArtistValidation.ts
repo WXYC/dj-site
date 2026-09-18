@@ -28,6 +28,18 @@ export function parseRequiredPositiveInt(raw: string): number | null {
 }
 
 /**
+ * Characters, not UTF-16 units. Every `varchar(n)` ceiling in this module is a
+ * character limit, and Backend measures them the same way (its own
+ * `codePointLength`), so an astral character -- a surrogate pair in JS, one
+ * character to PostgreSQL -- must cost one slot rather than two.
+ * `String#length` would refuse input the column can hold and the server would
+ * have accepted, with no round trip to contradict the refusal.
+ */
+function codePointLength(value: string): number {
+  return Array.from(value).length;
+}
+
+/**
  * Column ceilings on the rows an artist-creation form writes. Nothing between
  * these fields and the INSERT checks any of them — the handler validates only
  * that the keys are present — so an over-long or over-large value reaches
@@ -56,12 +68,54 @@ export const CODE_NUMBER_MAX = 2147483647;
 export const RELEASE_CODE_NUMBER_MAX = 32767;
 
 /**
- * `code_number` on an add-release form: an empty field means "let the
- * server assign", any other value must be a whole number the column can
- * hold. Written to be shared with `VariousArtistsCard` when that form gains
- * a release call-number input -- it has none today -- rather than copied;
- * for now this replaces `ArtistCard`'s own inline check, the only prior
- * copy.
+ * The ceiling `POST /library` enforces on `library.code_volume_letters`, a
+ * `varchar(4)`. The same 4 as `CODE_LETTERS_MAX_LENGTH` today, and a separate
+ * constant anyway, for the reason stated just above: these are different
+ * columns on different tables, and Backend validates them against two
+ * independent constants of its own (`MAX_CODE_VOLUME_LETTERS_LENGTH` for this
+ * one, `MAX_ARTIST_CODE_LETTERS_LENGTH` for the artist's). Sharing one name
+ * here would mean widening `artists.code_letters` silently widens release
+ * filing past a ceiling Backend still enforces -- turning this form's inline
+ * refusal back into an unattributed 400, with the constant that moved not
+ * named for the column that broke.
+ */
+export const RELEASE_VOLUME_LETTERS_MAX_LENGTH = 4;
+
+/**
+ * One wording for "that is not a call number this column can hold", shared by
+ * both add-release forms. Same reasoning as
+ * `RELEASE_VOLUME_LETTERS_TOO_LONG_MESSAGE` below: the artist card and the
+ * rotation-import screen write the same column, and a librarian who reads one
+ * sentence on one screen and a different one on the other reads them as two
+ * different problems. It names the field because both screens label the pair
+ * of inputs "Library Code:" -- the refusal has to say which half of that code
+ * it is about. The ceiling is interpolated so the sentence cannot drift from
+ * `RELEASE_CODE_NUMBER_MAX`.
+ */
+export const RELEASE_CODE_NUMBER_OUT_OF_RANGE_MESSAGE = `The release call number must be a whole number between 1 and ${RELEASE_CODE_NUMBER_MAX}.`;
+
+/**
+ * Parses an operator-typed `code_number` for an add-release form: base-10
+ * digits with no leading zeros, floor 1, ceiling `RELEASE_CODE_NUMBER_MAX`.
+ * Everything else is null.
+ *
+ * Empty is *not* distinguished from invalid, and a caller must not read one as
+ * the other. "An empty field means let the server assign" is a caller's rule,
+ * because only the caller knows whether its field can be empty at all:
+ * `ArtistCard` pre-checks `trimmedCode !== ""` and omits the `code_number` key
+ * entirely in that case, while `RotationImportScreen`'s field always has a
+ * value to parse (it falls back to the peeked `defaultCodeNumber`) and so
+ * reports a cleared field as its own refusal. A second caller that wants
+ * assign-on-blank has to write that branch too.
+ *
+ * Shared rather than copied, and both live release-filing surfaces now call
+ * it: `ArtistCard`'s add-release form and `RotationImportScreen`'s
+ * `validateRelease`, which gates that screen's existing-artist and new-artist
+ * submits alike. There is no third copy -- the local `parsePositiveInt` the
+ * import screen used to parse this column with is gone, so the two surfaces
+ * agree on what a call number is instead of drifting. Ready for
+ * `VariousArtistsCard` when that form gains a release call-number input; it
+ * has none today.
  */
 export function parseReleaseCodeNumber(raw: string): number | null {
   const parsed = parseRequiredPositiveInt(raw);
@@ -73,24 +127,35 @@ export function parseReleaseCodeNumber(raw: string): number | null {
  * gated on length alone at the point of filing. `isCanonicalCodeLetters`
  * below is not a filing rule at all -- it answers what `GET
  * /library/artists/by-code` can *look up*, and nothing on this form or the
- * artist-creation form applies it to what gets stored. This function shares
- * `code_letters`'s column family `varchar(4)` width, so the same
- * `CODE_LETTERS_MAX_LENGTH` ceiling applies. Counted in code points, matching
- * how the backend measures the column (a surrogate pair must not cost two of
- * the four slots here and then fail server-side anyway).
+ * artist-creation form applies it to what gets stored. Bounded by
+ * `RELEASE_VOLUME_LETTERS_MAX_LENGTH`, this column's own ceiling, and counted
+ * in code points, matching how Backend measures it
+ * (`validateCodeVolumeLetters` counts code points, not UTF-16 units) so a
+ * surrogate pair does not cost two of the four slots here and then get stored
+ * server-side anyway.
  *
  * A second, unreconciled declaration of this column's domain exists:
  * `lib/features/rotation/importedConfirmation.ts`'s
  * `VOLUME_LETTERS = /^[A-Za-z]{1,4}$/`, commented "letters are all it
  * holds." That regex *drops* a non-matching value rather than rendering it,
- * where this function's caller stores whatever was typed. So this form will
+ * where this function's callers store whatever was typed. So either form will
  * happily file "1", "-", "A B", "??", "A/B", or a single emoji into
- * `code_volume_letters`, and the rotation-import landing screen will then
- * silently omit that value from the confirmation sentence it composes for
- * the same row. Which half is actually the column's intended domain --
- * anything length-limited, or letters only -- is not decided here; it is an
- * open product question, not something this function's length check should
- * be read as having settled.
+ * `code_volume_letters`, and that value is then omitted from the one sentence
+ * that tells a librarian where the record went.
+ *
+ * The path that reaches that sentence is the rotation-import round trip, not
+ * the artist card: `RotationImportScreen` pushes the server-echoed value into
+ * `&vol=`, `parseImportedReleaseParams` reads it back, and
+ * `importedConfirmation` drops anything the regex refuses -- so a row filed at
+ * `MO 12/7-a/b` lands on the card reading "Filed as Rock MO 12/7". The artist
+ * card's own post-save code cannot show this: it is composed by
+ * `formatEntireLibraryCode` from what `POST /library` echoed, which renders
+ * whatever was stored.
+ *
+ * Which half is actually the column's intended domain -- anything
+ * length-limited, or letters only -- is not decided here; it is an open
+ * product question, not something this function's length check should be read
+ * as having settled.
  *
  * Wired into both volume-letters inputs this repo ships: `ArtistCard`'s
  * add-release form, and `RotationImportReleaseFields.tsx`'s "Volume Letters"
@@ -103,7 +168,7 @@ export function parseReleaseCodeNumber(raw: string): number | null {
  * `VariousArtistsCard` has no volume-letters input yet.
  */
 export function releaseVolumeLettersTooLong(raw: string): boolean {
-  return Array.from(raw.trim()).length > CODE_LETTERS_MAX_LENGTH;
+  return codePointLength(raw.trim()) > RELEASE_VOLUME_LETTERS_MAX_LENGTH;
 }
 
 /**
@@ -112,9 +177,9 @@ export function releaseVolumeLettersTooLong(raw: string): boolean {
  * librarian who reads one sentence for a condition on the artist card and a
  * different one for the same condition on the import screen reads them as two
  * different problems. The ceiling is interpolated rather than spelled out so
- * the sentence cannot drift from `CODE_LETTERS_MAX_LENGTH`.
+ * the sentence cannot drift from `RELEASE_VOLUME_LETTERS_MAX_LENGTH`.
  */
-export const RELEASE_VOLUME_LETTERS_TOO_LONG_MESSAGE = `The release volume letters must be at most ${CODE_LETTERS_MAX_LENGTH} characters.`;
+export const RELEASE_VOLUME_LETTERS_TOO_LONG_MESSAGE = `The release volume letters must be at most ${RELEASE_VOLUME_LETTERS_MAX_LENGTH} characters.`;
 
 /**
  * Call letters are matched case-sensitively everywhere the backend uses them —
@@ -131,12 +196,33 @@ export const RELEASE_VOLUME_LETTERS_TOO_LONG_MESSAGE = `The release volume lette
  * and codes carrying digits — so narrowing this field to A-Z would make those
  * releases impossible to file. The permissiveness is load-bearing.
  *
- * Also used for `code_volume_letters` on the add-release form, for the same
- * reason under a different column: `formatReleaseCode` uppercases it for
- * display, Backend's shelf-slot dedup keys on
- * `upper(coalesce(code_volume_letters, ''))`, and `parseImportedReleaseParams`
- * uppercases it too, so a librarian typing "b" and having it stored as "b"
- * would put two spellings of one code on screen at once.
+ * Also used for `code_volume_letters`, on both add-release forms -- the artist
+ * card's and the rotation-import screen's -- for the same reason under a
+ * different column. Every reader of that column already folds case:
+ * `formatReleaseCode` uppercases it for display, Backend's shelf-slot dedup
+ * keys on `upper(coalesce(code_volume_letters, ''))`, and
+ * `parseImportedReleaseParams` uppercases it too. So a stored "b" is not
+ * visible beside a stored "B" -- both render `-B`, which is precisely the
+ * problem: they are two rows in one shelf slot that look identical to the
+ * librarian who created them, and `jobs/library-call-number-dedup` finds them
+ * later as merge candidates. The input's own raw value is the only place the
+ * two spellings differ at all, which is why normalizing at the edge is the
+ * cheap fix: what is written and what every reader compares end up on one
+ * casing.
+ *
+ * One consequence is load-bearing and easy to miss:
+ * `library.code_volume_letters LIKE 'Z%'` is the Various Artists/compilation
+ * auto-detect signal, and it is matched CASE-SENSITIVELY -- by LML
+ * (`@wxyc/shared`'s `BulkResolveLibrariesRequest` documents both signals it
+ * detects on) and by Backend's own `jobs/library-identity-consumer`
+ * (`VA_COHORT_CONDITION`). So uppercasing a typed "z" enrols the release in
+ * the V/A cohort. That is the coherent outcome rather than an accident: the
+ * shelf slot keys on `upper(...)` either way, so leaving the "z" lowercase
+ * would file the row in the `Z` dedup slot while excluding it from the cohort
+ * that slot implies -- split two ways instead of one. Uppercasing makes the
+ * slot and the cohort agree. The corollary for a librarian: "Z" is not a free
+ * shelf letter, and an ordinary single-artist release must not be filed under
+ * it.
  */
 export function normalizeCodeLetters(value: string): string {
   return value.toUpperCase();
@@ -187,6 +273,15 @@ export type NewArtistFieldValidation = {
   trimmedAlphabeticalName: string;
   trimmedCodeLetters: string;
   alphabeticalNameTooLong: boolean;
+  /**
+   * Whether the call letters exceed the column's width, measured in code
+   * points -- like `releaseVolumeLettersTooLong` above, and like Backend's own
+   * `validateArtistCodeLetters`. UTF-16 units would refuse astral input the
+   * `varchar(4)` can hold and the server would have accepted. One divergence
+   * is left open rather than closed here: Backend measures
+   * `code_letters.normalize("NFC")`, so a decomposed value can still be
+   * counted longer here than there.
+   */
   codeLettersTooLong: boolean;
   /** Parsed as a whole number the mode accepts, before any range check — null if it is not one. */
   parsedCodeNumber: number | null;
@@ -234,7 +329,8 @@ export function validateNewArtistFields(
     trimmedCodeLetters,
     alphabeticalNameTooLong:
       trimmedAlphabeticalName.length > ARTIST_NAME_MAX_LENGTH,
-    codeLettersTooLong: trimmedCodeLetters.length > CODE_LETTERS_MAX_LENGTH,
+    codeLettersTooLong:
+      codePointLength(trimmedCodeLetters) > CODE_LETTERS_MAX_LENGTH,
     parsedCodeNumber,
     codeNumber,
     codeNumberInvalid:

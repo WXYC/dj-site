@@ -575,7 +575,7 @@ describe("classic ArtistCard — artistCardModify.jsp", () => {
         );
 
         expect(await screen.findByRole("alert")).toHaveTextContent(
-          "The release number must be a whole number between 1 and 32767.",
+          "The release call number must be a whole number between 1 and 32767.",
         );
         expect(posted).toBe(false);
       });
@@ -607,7 +607,7 @@ describe("classic ArtistCard — artistCardModify.jsp", () => {
         );
 
         expect(await screen.findByRole("alert")).toHaveTextContent(
-          "The release number must be a whole number between 1 and 32767.",
+          "The release call number must be a whole number between 1 and 32767.",
         );
         expect(posted).toBe(false);
       });

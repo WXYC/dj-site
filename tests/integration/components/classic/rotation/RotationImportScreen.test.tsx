@@ -460,6 +460,75 @@ describe("classic RotationImportScreen — the existing-artist submit chain", ()
     expect(seen.album?.code_volume_letters).toBe("ABCD");
   });
 
+  // `library.code_number` is a `smallint` and this screen parsed the field with
+  // no ceiling of its own, so a typed 40000 reached `POST /library` and came
+  // back as a plain 400 naming no field. The ceiling that applies is the
+  // release column's, not the artist column's far wider one.
+  it("refuses a release call number past the smallint ceiling before creating anything", async () => {
+    mockMatches([MATCH]);
+    const seen = mockWrites();
+    const { user } = renderWithProviders(<RotationImportScreen rotationId={6002} />);
+
+    await screen.findByText(/Adding to:/);
+    const code = screen.getByLabelText("Library Code:");
+    await user.clear(code);
+    await user.type(code, "32768");
+    await user.click(screen.getByRole("button", { name: "Import to Library" }));
+
+    expect(
+      await screen.findByText(
+        "The release call number must be a whole number between 1 and 32767.",
+      ),
+    ).toBeInTheDocument();
+    expect(seen.album).toBeUndefined();
+
+    // The ceiling is a ceiling, not a refusal of large numbers: the value one
+    // below it files.
+    await user.clear(code);
+    await user.type(code, "32767");
+    await user.click(screen.getByRole("button", { name: "Import to Library" }));
+
+    await waitFor(() => expect(seen.album).toBeDefined());
+    expect(seen.album?.code_number).toBe(32767);
+  });
+
+  // A cleared field and an out-of-range one are different problems. The field
+  // always shows the peeked default until it is touched, so a blank one is a
+  // deliberate clear rather than a value the column cannot hold, and saying
+  // "between 1 and 32767" about it would name the wrong fault.
+  it("asks for a call number when the field is cleared, rather than reporting a range", async () => {
+    mockMatches([MATCH]);
+    const seen = mockWrites();
+    const { user } = renderWithProviders(<RotationImportScreen rotationId={6002} />);
+
+    await screen.findByText(/Adding to:/);
+    await user.clear(screen.getByLabelText("Library Code:"));
+    await user.click(screen.getByRole("button", { name: "Import to Library" }));
+
+    expect(await screen.findByText("Please enter a call number.")).toBeInTheDocument();
+    expect(seen.album).toBeUndefined();
+  });
+
+  // Every reader of `code_volume_letters` folds case -- `formatReleaseCode` for
+  // display, Backend's shelf-slot dedup on `upper(coalesce(..., ''))` -- so a
+  // raw lowercase write puts two rows that render identically into one shelf
+  // slot, invisible to the librarian who made them. The artist card's field
+  // normalizes; this is the higher-volume backlog path and has to agree.
+  it("files typed volume letters uppercase, as the artist card's field does", async () => {
+    mockMatches([MATCH]);
+    const seen = mockWrites();
+    const { user } = renderWithProviders(<RotationImportScreen rotationId={6002} />);
+
+    await screen.findByText(/Adding to:/);
+    const letters = screen.getByLabelText("Volume Letters");
+    await user.type(letters, "b");
+    expect(letters).toHaveValue("B");
+    await user.click(screen.getByRole("button", { name: "Import to Library" }));
+
+    await waitFor(() => expect(seen.album).toBeDefined());
+    expect(seen.album?.code_volume_letters).toBe("B");
+  });
+
   it("refuses before creating anything when the row was catalogued while the form was open", async () => {
     mockMatches([MATCH]);
     const seen = mockWrites();
@@ -594,6 +663,48 @@ describe("classic RotationImportScreen — the new-artist submit chain", () => {
     await user.click(screen.getByRole("button", { name: "Create Artist and Import to Library" }));
 
     expect(await screen.findByText(/already exists in this genre/i)).toBeInTheDocument();
+  });
+
+  // The artist's own code number is filed as
+  // `genre_artist_crossreference.artist_genre_code`, an `integer` -- bounded
+  // five orders of magnitude above the release column's `smallint`. Both halves
+  // matter: the wide ceiling has to hold, and it must not be narrowed to the
+  // release one, which would make ordinary artist codes unfileable.
+  it("bounds the artist code number by the integer column, not the release column", async () => {
+    let posted = false;
+    const seen: Record<string, unknown> = {};
+    server.use(
+      http.post(`${LIBRARY}/artists`, async ({ request }) => {
+        posted = true;
+        seen.artist = await request.json();
+        return HttpResponse.json({ id: 771, code_letters: "ch" }, { status: 201 });
+      }),
+      http.post(`${LIBRARY}/`, () =>
+        HttpResponse.json({ id: 8801, code_number: 1 }, { status: 201 }),
+      ),
+      http.patch(`${LIBRARY}/rotation/:rotationId/link`, () =>
+        HttpResponse.json({ ...ROTATION_ROW, album_id: 8801 }),
+      ),
+    );
+
+    const { user } = renderWithProviders(<RotationImportScreen rotationId={6002} />);
+    await screen.findByText(/No matching artists found for/);
+    await user.selectOptions(screen.getByLabelText("Genre:"), "5");
+    const callNumbers = screen.getByLabelText("Call Numbers:");
+    await user.type(callNumbers, "2147483648");
+    await user.click(screen.getByRole("button", { name: "Create Artist and Import to Library" }));
+
+    expect(
+      await screen.findByText("The code number must be no greater than 2147483647."),
+    ).toBeInTheDocument();
+    expect(posted).toBe(false);
+
+    await user.clear(callNumbers);
+    await user.type(callNumbers, "40000");
+    await user.click(screen.getByRole("button", { name: "Create Artist and Import to Library" }));
+
+    await waitFor(() => expect(posted).toBe(true));
+    expect(seen.artist).toMatchObject({ code_number: 40000 });
   });
 
   it("refuses a new-artist submit with no genre before anything is created", async () => {

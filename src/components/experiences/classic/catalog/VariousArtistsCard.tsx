@@ -86,11 +86,16 @@ const EMPTY_TITLE_MESSAGE = "Please enter a title before adding this release.";
  *   artist is the field compilations are filed against, so dropping the value
  *   without saying so would lose exactly the information this screen exists to
  *   capture. It becomes an input once a write path exists.
- * - **The two library-code inputs are dropped.** `POST /library` derives
- *   `code_number` itself (max+1 for the bucket) and has no
- *   `code_volume_letters` parameter, so the JSP's `releaseCallNumbers` and
- *   `releaseCallLetters` boxes have nothing to submit to. The assigned code is
- *   reported after the save instead, which is the fact that goes on the sleeve.
+ * - **The two library-code inputs are not built yet.** Deferred, not
+ *   impossible: `POST /library` accepts both `code_number` (validated
+ *   1..32767, the `smallint` column's range) and `code_volume_letters`
+ *   (`varchar(4)`), and the ordinary artist card already sends both from the
+ *   equivalent boxes. Omitting `code_number` is what keeps the server's own
+ *   MAX+1 assignment for the bucket, and omitting the letters stores NULL, so
+ *   this screen reports the assigned code after the save instead -- the fact
+ *   that goes on the sleeve. Giving the bucket its own boxes is the V/A filing
+ *   work tracked on WXYC/dj-site#1576; the validators and the refusal wording
+ *   it would reuse are in `lib/features/catalog/adminCreateArtistValidation.ts`.
  * - **The form gains a Label field.** `POST /library` requires `label` and the
  *   JSP's form has no such input; same precedent as the ordinary artist card.
  * - **No sort form.** The JSP posts `sortColumn`/`sortOrder` back to the
