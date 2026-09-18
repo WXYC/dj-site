@@ -1,4 +1,4 @@
-import type { AddArtistConflict } from "./types";
+import type { AddAlbumRequestBody, AddArtistConflict } from "./types";
 
 /**
  * The floor `resolveArtistByCode` enforces on `code_number`. 0 is not a
@@ -83,14 +83,15 @@ export const RELEASE_VOLUME_LETTERS_MAX_LENGTH = 4;
 
 /**
  * One wording for "that is not a call number this column can hold", shared by
- * both add-release forms. Same reasoning as
- * `RELEASE_VOLUME_LETTERS_TOO_LONG_MESSAGE` below: the artist card and the
- * rotation-import screen write the same column, and a librarian who reads one
- * sentence on one screen and a different one on the other reads them as two
- * different problems. It names the field because both screens label the pair
- * of inputs "Library Code:" -- the refusal has to say which half of that code
- * it is about. The ceiling is interpolated so the sentence cannot drift from
- * `RELEASE_CODE_NUMBER_MAX`.
+ * every release-filing form. Same reasoning as
+ * `RELEASE_VOLUME_LETTERS_TOO_LONG_MESSAGE` below: the artist card, the
+ * compilation bucket's card, and the rotation-import screen write the same
+ * column, and a librarian who reads one sentence on one screen and a different
+ * one on another reads them as two different problems. It names the field
+ * because the pair of inputs is labelled as one "Library Code" on both cards,
+ * and on the import screen too whenever it knows the artist half -- the refusal
+ * has to say which half of that code it is about. The ceiling is interpolated
+ * so the sentence cannot drift from `RELEASE_CODE_NUMBER_MAX`.
  */
 export const RELEASE_CODE_NUMBER_OUT_OF_RANGE_MESSAGE = `The release call number must be a whole number between 1 and ${RELEASE_CODE_NUMBER_MAX}.`;
 
@@ -101,20 +102,20 @@ export const RELEASE_CODE_NUMBER_OUT_OF_RANGE_MESSAGE = `The release call number
  *
  * Empty is *not* distinguished from invalid, and a caller must not read one as
  * the other. "An empty field means let the server assign" is a caller's rule,
- * because only the caller knows whether its field can be empty at all:
- * `ArtistCard` pre-checks `trimmedCode !== ""` and omits the `code_number` key
- * entirely in that case, while `RotationImportScreen`'s field always has a
- * value to parse (it falls back to the peeked `defaultCodeNumber`) and so
- * reports a cleared field as its own refusal. A second caller that wants
- * assign-on-blank has to write that branch too.
+ * because only the caller knows whether its field can be empty at all: both
+ * add-release cards can leave the field empty and omit the `code_number` key
+ * entirely, which `resolveReleaseCodeFields` below decides once for the pair of
+ * them, while `RotationImportScreen`'s field always has a value to parse (it
+ * falls back to the peeked `defaultCodeNumber`) and so reports a cleared field
+ * as its own refusal.
  *
- * Shared rather than copied, and all three live release-filing surfaces call
- * it: `ArtistCard`'s add-release form, `VariousArtistsCard`'s add-release
- * form, and `RotationImportScreen`'s `validateRelease`, which gates that
- * screen's existing-artist and new-artist submits alike. There is no fourth
- * copy -- the local `parsePositiveInt` the import screen used to parse this
- * column with is gone, so all three surfaces agree on what a call number is
- * instead of drifting.
+ * Shared rather than copied, and all three live release-filing surfaces reach
+ * it: `ArtistCard`'s and `VariousArtistsCard`'s add-release forms through
+ * `resolveReleaseCodeFields`, and `RotationImportScreen`'s `validateRelease`
+ * directly, which gates that screen's existing-artist and new-artist submits
+ * alike. There is no fourth copy -- the local `parsePositiveInt` the import
+ * screen used to parse this column with is gone, so all three surfaces agree on
+ * what a call number is instead of drifting.
  */
 export function parseReleaseCodeNumber(raw: string): number | null {
   const parsed = parseRequiredPositiveInt(raw);
@@ -137,8 +138,8 @@ export function parseReleaseCodeNumber(raw: string): number | null {
  * `lib/features/rotation/importedConfirmation.ts`'s
  * `VOLUME_LETTERS = /^[A-Za-z]{1,4}$/`, commented "letters are all it
  * holds." That regex *drops* a non-matching value rather than rendering it,
- * where this function's callers store whatever was typed. So either form will
- * happily file "1", "-", "A B", "??", "A/B", or a single emoji into
+ * where this function's callers store whatever was typed. So all three forms
+ * will happily file "1", "-", "A B", "??", "A/B", or a single emoji into
  * `code_volume_letters`, and that value is then omitted from the one sentence
  * that tells a librarian where the record went.
  *
@@ -157,28 +158,100 @@ export function parseReleaseCodeNumber(raw: string): number | null {
  * as having settled.
  *
  * Wired into all three volume-letters inputs this repo ships: `ArtistCard`'s
- * add-release form, `VariousArtistsCard`'s add-release form, and
- * `RotationImportReleaseFields.tsx`'s "Volume Letters" field through
- * `RotationImportScreen.tsx`'s `validateRelease` -- which gates both of that
- * screen's submit paths, so one check covers the existing-artist and
- * new-artist imports alike. Before that last wiring, a value this function
- * would refuse reached Backend from the import screen and came back as a
- * plain 400 with no field attribution, on the multi-step screen where a
- * failed submit costs the most to recover from.
+ * and `VariousArtistsCard`'s add-release forms through
+ * `resolveReleaseCodeFields` below, and `RotationImportReleaseFields.tsx`'s
+ * "Volume Letters" field through `RotationImportScreen.tsx`'s
+ * `validateRelease` -- which gates both of that screen's submit paths, so one
+ * check covers the existing-artist and new-artist imports alike. The import
+ * screen is where an unchecked value costs the most: it reaches Backend as a
+ * plain 400 with no field attribution, on a multi-step screen where a failed
+ * submit is expensive to recover from.
  */
 export function releaseVolumeLettersTooLong(raw: string): boolean {
   return codePointLength(raw.trim()) > RELEASE_VOLUME_LETTERS_MAX_LENGTH;
 }
 
 /**
- * One wording for the refusal, shared by both inputs above. Same reasoning as
+ * One wording for the refusal, shared by all three volume-letters inputs
+ * above. Same reasoning as
  * `lib/features/rotation/releaseFormValidation.ts`'s message constants: a
- * librarian who reads one sentence for a condition on the artist card and a
- * different one for the same condition on the import screen reads them as two
- * different problems. The ceiling is interpolated rather than spelled out so
- * the sentence cannot drift from `RELEASE_VOLUME_LETTERS_MAX_LENGTH`.
+ * librarian who reads one sentence for a condition on one filing screen and a
+ * different one for the same condition on another reads them as two different
+ * problems. The ceiling is interpolated rather than spelled out so the sentence
+ * cannot drift from `RELEASE_VOLUME_LETTERS_MAX_LENGTH`.
  */
 export const RELEASE_VOLUME_LETTERS_TOO_LONG_MESSAGE = `The release volume letters must be at most ${RELEASE_VOLUME_LETTERS_MAX_LENGTH} characters.`;
+
+/**
+ * What an add-release form's two call-code fields resolve to: either the
+ * refusal to show the librarian, or the `POST /library` body keys to send.
+ * `refusal === null` is the accepted case and the only one carrying
+ * `bodyFields`, so a caller cannot read the keys without having handled the
+ * refusal first.
+ */
+export type ReleaseCodeFields =
+  | { refusal: string }
+  | {
+      refusal: null;
+      /**
+       * Spread into the request body. A key is *absent* rather than null or ""
+       * where the librarian left its field empty -- omission is how the form
+       * asks the server to decide, and the server's two decisions differ:
+       * `MAX(code_number) + 1` for the call number, NULL for the letters.
+       */
+      bodyFields: Pick<AddAlbumRequestBody, "code_number" | "code_volume_letters">;
+    };
+
+/**
+ * Resolves both halves of an operator-typed release call code for a form whose
+ * call-number field may be left empty.
+ *
+ * One function rather than one block per form, because four decisions have to
+ * hold together and a form that drifts on any of them files a release at a call
+ * code the librarian never read off the screen: that an empty field requests the
+ * server's own value instead of being refused, that the call-number refusal is
+ * reported ahead of the volume-letters one when both fields are bad, that what
+ * is stored is the trimmed value, and that an empty field omits its key. Nothing
+ * on the write path refuses a release filed into an occupied shelf slot, so a
+ * form that disagrees with its sibling on any of the four is found later by
+ * `jobs/library-call-number-dedup` rather than at the point of filing.
+ *
+ * Both classic add-release cards call this -- the ordinary artist card's form
+ * and the compilation bucket's. `RotationImportScreen` deliberately does not:
+ * its call-number field is never empty (untouched, it shows a peeked default),
+ * so a cleared field there is its own refusal rather than a request for the
+ * server's assignment, and the assign-on-blank rule this encodes does not apply.
+ */
+export function resolveReleaseCodeFields(
+  codeNumberRaw: string,
+  volumeLettersRaw: string,
+): ReleaseCodeFields {
+  const trimmedCodeNumber = codeNumberRaw.trim();
+  let codeNumber: number | undefined;
+  if (trimmedCodeNumber !== "") {
+    const parsed = parseReleaseCodeNumber(trimmedCodeNumber);
+    if (parsed === null) {
+      return { refusal: RELEASE_CODE_NUMBER_OUT_OF_RANGE_MESSAGE };
+    }
+    codeNumber = parsed;
+  }
+
+  const trimmedVolumeLetters = volumeLettersRaw.trim();
+  if (releaseVolumeLettersTooLong(trimmedVolumeLetters)) {
+    return { refusal: RELEASE_VOLUME_LETTERS_TOO_LONG_MESSAGE };
+  }
+
+  const bodyFields: Pick<
+    AddAlbumRequestBody,
+    "code_number" | "code_volume_letters"
+  > = {
+    ...(codeNumber != null ? { code_number: codeNumber } : {}),
+    ...(trimmedVolumeLetters !== ""
+      ? { code_volume_letters: trimmedVolumeLetters }
+      : {}),
+  };
+  return { refusal: null, bodyFields };
+}
 
 /**
  * Call letters are matched case-sensitively everywhere the backend uses them —
@@ -195,11 +268,12 @@ export const RELEASE_VOLUME_LETTERS_TOO_LONG_MESSAGE = `The release volume lette
  * and codes carrying digits — so narrowing this field to A-Z would make those
  * releases impossible to file. The permissiveness is load-bearing.
  *
- * Also used for `code_volume_letters`, on both add-release forms -- the artist
- * card's and the rotation-import screen's -- for the same reason under a
- * different column. Every reader of that column already folds case:
- * `formatReleaseCode` uppercases it for display, Backend's shelf-slot dedup
- * keys on `upper(coalesce(code_volume_letters, ''))`, and
+ * Also used for `code_volume_letters`, on all three release-filing forms --
+ * the artist card's, the compilation bucket card's, and the rotation-import
+ * screen's -- for the same reason under a different column. Every reader of
+ * that column already folds case: `formatReleaseCode` uppercases it for
+ * display, Backend's shelf-slot dedup keys on
+ * `upper(coalesce(code_volume_letters, ''))`, and
  * `parseImportedReleaseParams` uppercases it too. So a stored "b" is not
  * visible beside a stored "B" -- both render `-B`, which is precisely the
  * problem: they are two rows in one shelf slot that look identical to the
