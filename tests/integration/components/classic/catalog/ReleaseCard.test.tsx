@@ -328,6 +328,10 @@ describe("Classic ReleaseCard", () => {
 
     renderWithProviders(<ReleaseCard albumId={53375} />);
 
+    // Seeded from the row, whatever it holds — the field is not a blank the
+    // librarian has to re-derive.
+    expect(screen.getByLabelText("Release Call Number")).toHaveProperty("value", "0");
+
     await user.type(screen.getByLabelText("Title of Release"), "++");
     await user.click(screen.getByDisplayValue("Save"));
 
