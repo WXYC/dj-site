@@ -12,10 +12,7 @@ import {
 } from "@/lib/features/catalog/api";
 import {
   normalizeCodeLetters,
-  parseReleaseCodeNumber,
-  RELEASE_CODE_NUMBER_OUT_OF_RANGE_MESSAGE,
-  RELEASE_VOLUME_LETTERS_TOO_LONG_MESSAGE,
-  releaseVolumeLettersTooLong,
+  resolveReleaseCodeFields,
 } from "@/lib/features/catalog/adminCreateArtistValidation";
 import {
   formatArtistCodeWithPunctuation,
@@ -212,26 +209,12 @@ export default function VariousArtistsCard({ artistId, message, imported }: Vari
       return;
     }
 
-    // An empty field means "let the server assign" (the `code_number` key is
-    // omitted). A non-empty field is the operator-chosen override the backend
-    // validates 1..32767, so a value outside that is refused here rather than
-    // sent to be rejected.
-    const trimmedCode = codeNumberEdit.trim();
-    let overrideCodeNumber: number | undefined;
-    if (trimmedCode !== "") {
-      const parsed = parseReleaseCodeNumber(trimmedCode);
-      if (parsed === null) {
-        setReleaseMessage(RELEASE_CODE_NUMBER_OUT_OF_RANGE_MESSAGE);
-        return;
-      }
-      overrideCodeNumber = parsed;
-    }
-
-    // Same "empty means let the server decide" rule as the call number --
-    // here the server's decision is NULL rather than an assignment.
-    const trimmedVolumeLetters = volumeLettersEdit.trim();
-    if (releaseVolumeLettersTooLong(trimmedVolumeLetters)) {
-      setReleaseMessage(RELEASE_VOLUME_LETTERS_TOO_LONG_MESSAGE);
+    // Both halves of the call code, resolved by the rule this form shares with
+    // the ordinary artist card's: an out-of-range number is refused here rather
+    // than sent to come back as a 400 that names no field.
+    const codeFields = resolveReleaseCodeFields(codeNumberEdit, volumeLettersEdit);
+    if (codeFields.refusal !== null) {
+      setReleaseMessage(codeFields.refusal);
       return;
     }
 
@@ -251,10 +234,7 @@ export default function VariousArtistsCard({ artistId, message, imported }: Vari
       ...(altArtistName.trim() !== ""
         ? { alternate_artist_name: altArtistName.trim() }
         : {}),
-      ...(overrideCodeNumber != null ? { code_number: overrideCodeNumber } : {}),
-      ...(trimmedVolumeLetters !== ""
-        ? { code_volume_letters: trimmedVolumeLetters }
-        : {}),
+      ...codeFields.bodyFields,
     };
 
     try {
