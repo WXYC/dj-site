@@ -83,7 +83,7 @@ const EMPTY_ALPHABETICAL_MESSAGE = "The alphabetical name cannot be empty.";
  *   endpoint at any privilege (`DELETE /library/:id` deletes a *release*).
  * - **The add-release form's release call number and volume letters are
  *   editable, not derived.** `POST /library` accepts an operator-chosen
- *   `code_number` and `code_volume_letters` (Backend-Service#2410). An empty
+ *   `code_number` and `code_volume_letters`. An empty
  *   call-number field yields the server's own MAX+1 assignment; an empty
  *   volume-letters field yields NULL -- there is no generator for that
  *   column, unlike `code_number`. Either way the assigned code is reported
@@ -159,8 +159,10 @@ export default function ArtistCard({ artistId, message, imported }: ArtistCardPr
   // that does not exist. `/wxycdb`'s own prepopulating screen agrees: it seeds
   // the call number from the same peek but hard-codes the volume letters blank
   // (`rotationReleaseImport.jsp:56`). Offering the next *free* letter for a
-  // call number that names an existing set is a different, coherent feature:
-  // WXYC/dj-site#1581.
+  // call number that names an existing set would be a different, coherent
+  // feature -- it reads the shelf to find the first unused letter for a set
+  // that exists, rather than copying a letter from an unrelated release -- and
+  // is deliberately not what this field does.
   const [volumeLettersEdit, setVolumeLettersEdit] = useState("");
 
   // Seed the one editable field from the server once the card arrives, and
