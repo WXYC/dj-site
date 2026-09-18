@@ -252,6 +252,20 @@ describe("parseReleaseCodeNumber", () => {
   it.each(["", "0", "-1", "abc"])("rejects %j", (raw) => {
     expect(parseReleaseCodeNumber(raw)).toBeNull();
   });
+
+  // The old inline check this helper replaced (`Number(trimmed)` +
+  // `Number.isInteger` + range) accepted every one of these: zero-padded
+  // digits, a decimal point, a leading `+`, scientific notation, and hex
+  // notation. Pinning the narrowing here means a later change that
+  // reinstates `Number()`-style parsing to fix one of them (e.g. to accept
+  // "007" again) cannot silently readmit the other four on a `smallint`
+  // column without failing this suite.
+  it.each(["007", "12.0", "+5", "1e3", "0x10"])(
+    "rejects %j, which the old Number()-based check accepted",
+    (raw) => {
+      expect(parseReleaseCodeNumber(raw)).toBeNull();
+    },
+  );
 });
 
 describe("releaseVolumeLettersTooLong", () => {

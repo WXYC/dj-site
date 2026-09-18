@@ -58,9 +58,10 @@ export const RELEASE_CODE_NUMBER_MAX = 32767;
 /**
  * `code_number` on an add-release form: an empty field means "let the
  * server assign", any other value must be a whole number the column can
- * hold. Shared by `ArtistCard` and `VariousArtistsCard` rather than copied
- * -- the second of those forms is exactly the case that would otherwise have
- * produced a third copy of `ArtistCard`'s original inline check.
+ * hold. Written to be shared with `VariousArtistsCard` when that form gains
+ * a release call-number input -- it has none today -- rather than copied;
+ * for now this replaces `ArtistCard`'s own inline check, the only prior
+ * copy.
  */
 export function parseReleaseCodeNumber(raw: string): number | null {
   const parsed = parseRequiredPositiveInt(raw);
@@ -68,12 +69,28 @@ export function parseReleaseCodeNumber(raw: string): number | null {
 }
 
 /**
- * Length check for `code_volume_letters`: free text, not restricted to
- * `isCanonicalCodeLetters` the way `code_letters` is, but it shares that
- * column family's `varchar(4)` width, so the same `CODE_LETTERS_MAX_LENGTH`
- * ceiling applies. Counted in code points, matching how the backend measures
- * the column (a surrogate pair must not cost two of the four slots here and
- * then fail server-side anyway).
+ * Length check for `code_volume_letters`: like `code_letters`, this column is
+ * gated on length alone at the point of filing. `isCanonicalCodeLetters`
+ * below is not a filing rule at all -- it answers what `GET
+ * /library/artists/by-code` can *look up*, and nothing on this form or the
+ * artist-creation form applies it to what gets stored. This function shares
+ * `code_letters`'s column family `varchar(4)` width, so the same
+ * `CODE_LETTERS_MAX_LENGTH` ceiling applies. Counted in code points, matching
+ * how the backend measures the column (a surrogate pair must not cost two of
+ * the four slots here and then fail server-side anyway).
+ *
+ * A second, unreconciled declaration of this column's domain exists:
+ * `lib/features/rotation/importedConfirmation.ts`'s
+ * `VOLUME_LETTERS = /^[A-Za-z]{1,4}$/`, commented "letters are all it
+ * holds." That regex *drops* a non-matching value rather than rendering it,
+ * where this function's caller stores whatever was typed. So this form will
+ * happily file "1", "-", "A B", "??", "A/B", or a single emoji into
+ * `code_volume_letters`, and the rotation-import landing screen will then
+ * silently omit that value from the confirmation sentence it composes for
+ * the same row. Which half is actually the column's intended domain --
+ * anything length-limited, or letters only -- is not decided here; it is an
+ * open product question, not something this function's length check should
+ * be read as having settled.
  *
  * Wired into `ArtistCard`'s add-release form only, which is not the whole
  * set of volume-letters inputs this repo ships. A third already exists and
