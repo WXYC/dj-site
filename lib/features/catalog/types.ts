@@ -133,8 +133,15 @@ export type UpdateAlbumRequestBody = {
   // /library` -- a single-librarian decision, not an oversight -- so an
   // operator-chosen number that another release already holds is written
   // verbatim rather than refused.
+  //
+  // `code_volume_letters` is nullable here and `code_number` is not, for the
+  // same reason `label_id` is and `album_title` is not: the column is
+  // nullable and clearing it has to be expressible, since omission means
+  // "leave the stored value alone". An explicit null stores NULL; so does an
+  // empty string, which the server trims and coalesces. `code_number` is NOT
+  // NULL, so it has no cleared state to express.
   code_number?: number;
-  code_volume_letters?: string;
+  code_volume_letters?: string | null;
 };
 
 /**
@@ -452,6 +459,19 @@ export type AlbumEntry = {
    * where the source value was missing.
    */
   format: string;
+  /**
+   * The other half of the release's shelf code (`library.code_volume_letters`),
+   * which subdivides one call number into volumes — `5-A` beside `5`. `null`
+   * is a release with no volume letters; absent means the row came from a
+   * source that carries no such column (a bin row, an LML-only search row),
+   * which is why a reader must not read absence as "no letters".
+   *
+   * The published response contract does not declare the column even though
+   * the album-detail read and the PATCH re-read both project it, so
+   * `convertToAlbumEntry` reaches for it the way it reaches for every other
+   * served-but-undeclared field on that row.
+   */
+  code_volume_letters?: string | null;
   alternate_artist: string | undefined;
   album_artist?: string;
   rotation_bin: Rotation | undefined;

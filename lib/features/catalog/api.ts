@@ -213,8 +213,8 @@ export const catalogApi = createApi({
         if (!response) throw new Error("updateAlbum: response body was empty");
         return convertToAlbumEntry(response);
       },
-      // A field edit needs no list refetch: `patchCatalogSearchCaches` below
-      // rewrites the row wherever it is already cached.
+      // An ordinary field edit needs no list refetch: `patchCatalogSearchCaches`
+      // below rewrites the row wherever it is already cached.
       //
       // An `artist_id` change is different in kind. It re-files the release
       // under a different artist, so the artist it left and the one it joined
@@ -224,14 +224,29 @@ export const catalogApi = createApi({
       // source artist is not in these args (only the destination is), so the
       // release tables are invalidated through the shared `LIST` tag rather
       // than by id; `getArtistReleases` provides both.
-      invalidatesTags: (_result, _error, { albumId, body }) =>
-        body.artist_id != null
-          ? [
-              { type: "AlbumDetail", id: albumId },
-              { type: "ArtistReleaseList", id: "LIST" },
-              { type: "CatalogList", id: "LIST" },
-            ]
-          : [{ type: "AlbumDetail", id: albumId }],
+      //
+      // A call-code write moves the release within one artist's shelf, which
+      // is the second thing that makes a release table wrong: `code_number`
+      // orders it and `code_volume_letters` breaks its ties, so the table
+      // lists the release in a slot it no longer occupies — and the next call
+      // number offered for that artist is derived from the same shelf (see
+      // `artistReleaseTags`), so filing after an un-invalidated renumber lands
+      // a second release in the slot the renumber just took. Neither field
+      // carries the artist, so this reaches the tables through `LIST` too.
+      invalidatesTags: (_result, _error, { albumId, body }) => {
+        const reattributed = body.artist_id != null;
+        const shelfSlotChanged =
+          body.code_number !== undefined || "code_volume_letters" in body;
+        return [
+          { type: "AlbumDetail" as const, id: albumId },
+          ...(reattributed
+            ? [{ type: "CatalogList" as const, id: "LIST" as const }]
+            : []),
+          ...(reattributed || shelfSlotChanged
+            ? [{ type: "ArtistReleaseList" as const, id: "LIST" as const }]
+            : []),
+        ];
+      },
       async onQueryStarted(_arg, { dispatch, queryFulfilled, getState }) {
         try {
           const { data: updated } = await queryFulfilled;

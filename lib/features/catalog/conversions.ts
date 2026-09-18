@@ -102,6 +102,17 @@ export function convertToAlbumEntry(
         : undefined,
     },
     entry: response.code_number ?? 0,
+    // Gated on `isSearchResult` like the other reach-arounds below: a bin row
+    // carries no such column, and `undefined` there says "this source does not
+    // report volume letters" rather than "this release has none" -- the
+    // distinction `mergeAlbumIntoSearchResult` relies on to avoid blanking a
+    // cached value.
+    code_volume_letters: isSearchResult(response)
+      ? ((response as Record<string, unknown>).code_volume_letters as
+          | string
+          | null
+          | undefined)
+      : undefined,
     // Verbatim; the sentinel is for a row with no format. See `AlbumEntry.format`.
     format: response.format_name ?? "Unknown",
     alternate_artist: isSearchResult(response)

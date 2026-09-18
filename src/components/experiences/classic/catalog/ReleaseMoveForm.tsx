@@ -63,7 +63,10 @@ const SAME_CODE_MESSAGE = "This release is already filed under that code.";
  *    destination. Backend keeps the call number across the move unless the
  *    destination artist already owns that number, in which case it burns the
  *    next one in that artist's sequence. Fix a call code from this screen by
- *    moving first, then correcting it on the editor.
+ *    moving first, then correcting it on the editor — which writes the number
+ *    it is given verbatim and renders no shelf context, so the confirmation
+ *    below sends the librarian to the destination artist's card as well: that
+ *    is the one screen listing what the artist already holds.
  *  - **"Time Last Modified" is "Date Added"**, for the reason the editor
  *    documents: the published contract does not carry a last-modified value.
  *  - **Cross-reference blocks and "Add Xrefs" omitted.** Write-side
@@ -165,7 +168,7 @@ export default function ReleaseMoveForm({ albumId }: { albumId: number }) {
     code_artist_number: data.artist.numbercode,
     genre_id: data.genre_id ?? 0,
     code_number: data.entry,
-    code_volume_letters: null,
+    code_volume_letters: data.code_volume_letters ?? null,
   });
 
   // The editor makes the same substitution: a compilation release is filed
@@ -281,7 +284,7 @@ export default function ReleaseMoveForm({ albumId }: { albumId: number }) {
         },
       }).unwrap();
       setMessage(
-        `This library release has been moved to ${destination.artist_name}. Its call number may have changed, since the destination may already have been using this one — check it on the release editor.`,
+        `This library release has been moved to ${destination.artist_name}. Its call number may have changed, since the destination may already have been using this one — the artist's card lists what is filed under it, and the release editor changes it.`,
       );
     } catch {
       setMessage("This library release could not be moved.");
