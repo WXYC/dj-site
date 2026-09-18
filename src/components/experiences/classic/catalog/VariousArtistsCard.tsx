@@ -11,6 +11,13 @@ import {
   useGetGenresQuery,
 } from "@/lib/features/catalog/api";
 import {
+  normalizeCodeLetters,
+  parseReleaseCodeNumber,
+  RELEASE_CODE_NUMBER_OUT_OF_RANGE_MESSAGE,
+  RELEASE_VOLUME_LETTERS_TOO_LONG_MESSAGE,
+  releaseVolumeLettersTooLong,
+} from "@/lib/features/catalog/adminCreateArtistValidation";
+import {
   formatArtistCodeWithPunctuation,
   formatEntireLibraryCode,
   isVariousArtists,
@@ -86,17 +93,15 @@ const EMPTY_TITLE_MESSAGE = "Please enter a title before adding this release.";
  *   artist is the field compilations are filed against, so dropping the value
  *   without saying so would lose exactly the information this screen exists to
  *   capture. It becomes an input once a write path exists.
- * - **The two library-code inputs are not built yet.** Deferred, not
- *   impossible: `POST /library` accepts both `code_number` (validated
- *   1..32767, the `smallint` column's range) and `code_volume_letters`
- *   (`varchar(4)`), and the ordinary artist card already sends both from the
- *   equivalent boxes. Omitting `code_number` is what keeps the server's own
- *   MAX+1 assignment for the bucket, and omitting the letters stores NULL, so
- *   this screen reports the assigned code after the save instead -- the fact
- *   that goes on the sleeve. Giving the bucket its own boxes is deferred, not
- *   impossible: the validators and the refusal wording it would reuse already
- *   exist in `lib/features/catalog/adminCreateArtistValidation.ts`, written to
- *   be shared with this form.
+ * - **The add-release form's release call number and volume letters are
+ *   editable, not derived.** `POST /library` accepts an operator-chosen
+ *   `code_number` (validated 1..32767, the `smallint` column's range) and
+ *   `code_volume_letters` (`varchar(4)`), the same two fields the ordinary
+ *   artist card sends. An empty call-number field yields the server's own
+ *   MAX+1 assignment for the bucket; an empty volume-letters field yields
+ *   NULL. Unlike the artist card, neither field is prepopulated here -- both
+ *   start blank, and the assigned code is reported back after the save,
+ *   which is the fact that goes on the sleeve.
  * - **The form gains a Label field.** `POST /library` requires `label` and the
  *   JSP's form has no such input; same precedent as the ordinary artist card.
  * - **No sort form.** The JSP posts `sortColumn`/`sortOrder` back to the
@@ -129,6 +134,15 @@ export default function VariousArtistsCard({ artistId, message, imported }: Vari
   const [formatIdValue, setFormatIdValue] = useState<number | null>(null);
   const [releaseMessage, setReleaseMessage] = useState<string | null>(null);
   const [addedCode, setAddedCode] = useState<string | null>(null);
+  // The librarian's override of the release call number. Blank -> the server
+  // assigns MAX+1. There is no peek to prepopulate this field with, unlike
+  // the ordinary artist card, so it simply starts and resets to empty.
+  const [codeNumberEdit, setCodeNumberEdit] = useState("");
+  // The volume-letters field's value. Never prepopulated -- see the
+  // equivalent field on the ordinary artist card for why carrying a letter
+  // forward would pair it with a call number that names a set that doesn't
+  // exist. Blank -> the release is stored with no letters.
+  const [volumeLettersEdit, setVolumeLettersEdit] = useState("");
 
   // `/wxycdb` picks this view or the ordinary artist card from the row itself,
   // so an id that is not a shelf row is the wrong screen rather than an error:
@@ -198,6 +212,29 @@ export default function VariousArtistsCard({ artistId, message, imported }: Vari
       return;
     }
 
+    // An empty field means "let the server assign" (the `code_number` key is
+    // omitted). A non-empty field is the operator-chosen override the backend
+    // validates 1..32767, so a value outside that is refused here rather than
+    // sent to be rejected.
+    const trimmedCode = codeNumberEdit.trim();
+    let overrideCodeNumber: number | undefined;
+    if (trimmedCode !== "") {
+      const parsed = parseReleaseCodeNumber(trimmedCode);
+      if (parsed === null) {
+        setReleaseMessage(RELEASE_CODE_NUMBER_OUT_OF_RANGE_MESSAGE);
+        return;
+      }
+      overrideCodeNumber = parsed;
+    }
+
+    // Same "empty means let the server decide" rule as the call number --
+    // here the server's decision is NULL rather than an assignment.
+    const trimmedVolumeLetters = volumeLettersEdit.trim();
+    if (releaseVolumeLettersTooLong(trimmedVolumeLetters)) {
+      setReleaseMessage(RELEASE_VOLUME_LETTERS_TOO_LONG_MESSAGE);
+      return;
+    }
+
     setReleaseMessage(null);
 
     // `artist_id`, never `artist_name`: a name goes through
@@ -213,6 +250,10 @@ export default function VariousArtistsCard({ artistId, message, imported }: Vari
       format_id: effectiveFormatId,
       ...(altArtistName.trim() !== ""
         ? { alternate_artist_name: altArtistName.trim() }
+        : {}),
+      ...(overrideCodeNumber != null ? { code_number: overrideCodeNumber } : {}),
+      ...(trimmedVolumeLetters !== ""
+        ? { code_volume_letters: trimmedVolumeLetters }
         : {}),
     };
 
@@ -237,6 +278,8 @@ export default function VariousArtistsCard({ artistId, message, imported }: Vari
       setTitle("");
       setAltArtistName("");
       setLabel("");
+      setCodeNumberEdit("");
+      setVolumeLettersEdit("");
     } catch {
       setReleaseMessage("Failed to add the release.");
     }
@@ -330,9 +373,34 @@ export default function VariousArtistsCard({ artistId, message, imported }: Vari
                   </td>
                   <td>
                     {genreName ?? ""}&nbsp;{bucketCode}
-                    <span className="label">
-                      &nbsp;— the release number is assigned when you save.
-                    </span>
+                    {/* No peek exists for this bucket's next number, unlike
+                        the ordinary artist card, so the field simply starts
+                        blank. Blank -> the server assigns MAX+1. */}
+                    <input
+                      type="text"
+                      size={6}
+                      inputMode="numeric"
+                      aria-label="Release call number"
+                      value={codeNumberEdit}
+                      disabled={savingRelease}
+                      onChange={(e) => setCodeNumberEdit(e.target.value)}
+                    />
+                    {/* Never prepopulated -- see `volumeLettersEdit` above.
+                        Normalized to uppercase like `code_letters`. */}
+                    -
+                    <input
+                      type="text"
+                      size={4}
+                      aria-label="Release volume letters"
+                      value={volumeLettersEdit}
+                      disabled={savingRelease}
+                      onChange={(e) => setVolumeLettersEdit(normalizeCodeLetters(e.target.value))}
+                    />
+                    {codeNumberEdit.trim() === "" && (
+                      <span className="label">
+                        &nbsp;— the release number is assigned when you save.
+                      </span>
+                    )}
                   </td>
                 </tr>
                 <tr>
