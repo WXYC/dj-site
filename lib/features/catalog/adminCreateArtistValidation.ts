@@ -108,14 +108,13 @@ export const RELEASE_CODE_NUMBER_OUT_OF_RANGE_MESSAGE = `The release call number
  * reports a cleared field as its own refusal. A second caller that wants
  * assign-on-blank has to write that branch too.
  *
- * Shared rather than copied, and both live release-filing surfaces now call
- * it: `ArtistCard`'s add-release form and `RotationImportScreen`'s
- * `validateRelease`, which gates that screen's existing-artist and new-artist
- * submits alike. There is no third copy -- the local `parsePositiveInt` the
- * import screen used to parse this column with is gone, so the two surfaces
- * agree on what a call number is instead of drifting. Ready for
- * `VariousArtistsCard` when that form gains a release call-number input; it
- * has none today.
+ * Shared rather than copied, and all three live release-filing surfaces call
+ * it: `ArtistCard`'s add-release form, `VariousArtistsCard`'s add-release
+ * form, and `RotationImportScreen`'s `validateRelease`, which gates that
+ * screen's existing-artist and new-artist submits alike. There is no fourth
+ * copy -- the local `parsePositiveInt` the import screen used to parse this
+ * column with is gone, so all three surfaces agree on what a call number is
+ * instead of drifting.
  */
 export function parseReleaseCodeNumber(raw: string): number | null {
   const parsed = parseRequiredPositiveInt(raw);
@@ -157,15 +156,15 @@ export function parseReleaseCodeNumber(raw: string): number | null {
  * product question, not something this function's length check should be read
  * as having settled.
  *
- * Wired into both volume-letters inputs this repo ships: `ArtistCard`'s
- * add-release form, and `RotationImportReleaseFields.tsx`'s "Volume Letters"
- * field through `RotationImportScreen.tsx`'s `validateRelease` -- which
- * gates both of that screen's submit paths, so one check covers the
- * existing-artist and new-artist imports alike. Before that second wiring, a
- * value this function would refuse reached Backend from the import screen and
- * came back as a plain 400 with no field attribution, on the multi-step
- * screen where a failed submit costs the most to recover from.
- * `VariousArtistsCard` has no volume-letters input yet.
+ * Wired into all three volume-letters inputs this repo ships: `ArtistCard`'s
+ * add-release form, `VariousArtistsCard`'s add-release form, and
+ * `RotationImportReleaseFields.tsx`'s "Volume Letters" field through
+ * `RotationImportScreen.tsx`'s `validateRelease` -- which gates both of that
+ * screen's submit paths, so one check covers the existing-artist and
+ * new-artist imports alike. Before that last wiring, a value this function
+ * would refuse reached Backend from the import screen and came back as a
+ * plain 400 with no field attribution, on the multi-step screen where a
+ * failed submit costs the most to recover from.
  */
 export function releaseVolumeLettersTooLong(raw: string): boolean {
   return codePointLength(raw.trim()) > RELEASE_VOLUME_LETTERS_MAX_LENGTH;
