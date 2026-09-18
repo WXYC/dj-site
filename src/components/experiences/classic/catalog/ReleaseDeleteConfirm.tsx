@@ -81,15 +81,16 @@ export default function ReleaseDeleteConfirm({ albumId }: { albumId: number }) {
     );
   }
 
-  // `code_volume_letters` is null for the same reason as on the release
-  // editor: `/library/info` does not project it.
+  // The whole shelf code, volume letters included: this screen names the row
+  // about to be deleted irreversibly, and two releases in one call number are
+  // told apart by exactly the half a partial code would drop.
   const entireLibraryCode = formatEntireLibraryCode({
     genreName: release.artist.genre,
     code_letters: release.artist.lettercode,
     code_artist_number: release.artist.numbercode,
     genre_id: release.genre_id ?? 0,
     code_number: release.entry,
-    code_volume_letters: null,
+    code_volume_letters: release.code_volume_letters ?? null,
   });
 
   const artistId = release.artist.id;

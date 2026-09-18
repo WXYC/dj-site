@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   useGetFormatsQuery,
   useGetInformationQuery,
@@ -30,13 +30,19 @@ import Tracklist from "./Tracklist";
  *    collision check -- the same single-librarian decision `POST /library`
  *    already makes, and there is still no DB uniqueness constraint on
  *    `code_number`, so an operator-chosen number another release already
- *    holds is written verbatim rather than refused. The call-letter field
- *    ships blank rather than seeded: `GET /library/info` does not project
- *    `code_volume_letters` (see the comment on `entireLibraryCode` below), so
- *    there is no current value to show. Leaving it blank and saving omits the
- *    key -- true partial-update semantics mean that leaves whatever is
- *    already stored -- so this screen can set the letters but cannot clear
- *    them.
+ *    holds is written verbatim rather than refused. Which numbers the
+ *    destination artist already holds is not shown here either; the artist
+ *    card's release table and its next-number preview are where the shelf is
+ *    legible.
+ *
+ *    Both inputs show the stored value -- the letter included, since two
+ *    releases sharing one call number are told apart by that half alone -- and
+ *    both are sent only when what is on screen differs from it, so a title fix
+ *    is not also a shelf-slot write. An emptied call-letter field sends an
+ *    explicit `null` rather than omitting the key: omission means "leave the
+ *    stored value alone" under partial-update semantics, and this is the only
+ *    screen that can set these letters at all, so without the explicit null it
+ *    could set them and never take them back off.
  *  - **Album Artist is read-only**, for the same reason: not in the PATCH body.
  *    The published `AddAlbumRequest` schema does declare the field, but no
  *    Backend write path reads it on either verb, so an input here would
@@ -92,21 +98,30 @@ export default function ReleaseCard({ albumId }: { albumId: number }) {
   const [altArtist, setAltArtist] = useState("");
   const [formatId, setFormatId] = useState<number | "">("");
   const [codeNumber, setCodeNumber] = useState("");
-  // Never seeded from `data` -- there is nothing to seed from; see the
-  // divergence docblock above.
   const [volumeLetters, setVolumeLetters] = useState("");
   const [message, setMessage] = useState("");
 
-  // The form mirrors server state until the librarian edits it; re-syncing on a
-  // new row is the only reason this effect exists.
+  // The form mirrors server state until the librarian edits it; seeding a newly
+  // loaded row is the only reason this effect exists.
+  //
+  // Keyed on the release rather than on the `data` reference, because this
+  // screen triggers its own refetches: Mark as Missing / Mark as Found
+  // invalidate the very detail read the form is seeded from, and the refetch
+  // builds a fresh object. Re-seeding on that would overwrite a field the
+  // librarian is part-way through typing, with a message line reporting only
+  // the status change -- and the call letter is the least recoverable of them,
+  // since blank is that field's resting state, so a wiped edit is
+  // indistinguishable from an untouched field.
+  const seededRelease = useRef<number | null>(null);
   useEffect(() => {
-    if (!data) return;
+    if (!data || seededRelease.current === albumId) return;
+    seededRelease.current = albumId;
     setTitle(data.title);
     setAltArtist(data.alternate_artist ?? "");
     setFormatId(data.format_id ?? "");
     setCodeNumber(String(data.entry));
-    setVolumeLetters("");
-  }, [data]);
+    setVolumeLetters(data.code_volume_letters ?? "");
+  }, [data, albumId]);
 
   if (isLoading) {
     return (
@@ -124,17 +139,18 @@ export default function ReleaseCard({ albumId }: { albumId: number }) {
     );
   }
 
-  // `code_volume_letters` is null rather than omitted: `GET /library/info` does
-  // not project it, so a multi-volume release shows `5` where the artist card's
-  // release table shows `5-A`. `genre_id` falls back to 0, which is not the
-  // Soundtracks id, so an absent genre takes the ordinary V/A branch.
+  // Composed from what is stored, not from what the call-code inputs currently
+  // hold: this is the code the release is filed under until a save lands, and a
+  // header tracking the inputs would report a shelf slot nothing is on.
+  // `genre_id` falls back to 0, which is not the Soundtracks id, so an absent
+  // genre takes the ordinary V/A branch.
   const entireLibraryCode = formatEntireLibraryCode({
     genreName: data.artist.genre,
     code_letters: data.artist.lettercode,
     code_artist_number: data.artist.numbercode,
     genre_id: data.genre_id ?? 0,
     code_number: data.entry,
-    code_volume_letters: null,
+    code_volume_letters: data.code_volume_letters ?? null,
   });
 
   const displayArtist = data.album_artist ? "Various Artists" : data.artist.name;
@@ -147,6 +163,18 @@ export default function ReleaseCard({ albumId }: { albumId: number }) {
   const editedTitle = title.trim();
   const editedAltArtist = altArtist.trim() === "" ? null : altArtist.trim();
   const editedFormatId = formatId === "" ? null : Number(formatId);
+  const editedCodeNumber = codeNumber.trim();
+  // Both sides folded to the casing this input files in, so re-typing the
+  // stored letters in the other case is not an edit. Nothing downstream can
+  // tell the two apart either: every reader of the column folds case, and the
+  // input itself normalizes as the librarian types.
+  const editedVolumeLetters = normalizeCodeLetters(volumeLetters.trim());
+  const storedVolumeLetters = normalizeCodeLetters((data.code_volume_letters ?? "").trim());
+  // The call number compares as typed rather than as a number: the shared
+  // parser accepts only canonical no-leading-zero decimals, so any value it
+  // would accept that differs as a string differs as a number too.
+  const codeNumberChanged = editedCodeNumber !== String(data.entry);
+  const volumeLettersChanged = editedVolumeLetters !== storedVolumeLetters;
 
   // Compared against the trimmed payload rather than the raw fields: the write
   // trims, so a stray space is not an edit, and treating it as one would let
@@ -156,10 +184,8 @@ export default function ReleaseCard({ albumId }: { albumId: number }) {
     editedTitle !== (data.title ?? "").trim() ||
     editedAltArtist !== (storedAltArtist === "" ? null : storedAltArtist) ||
     editedFormatId !== (data.format_id ?? null) ||
-    codeNumber.trim() !== String(data.entry) ||
-    // No stored value to compare against -- see the divergence docblock --
-    // so any typed letters are treated as a change attempt.
-    volumeLetters.trim() !== "";
+    codeNumberChanged ||
+    volumeLettersChanged;
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -167,13 +193,21 @@ export default function ReleaseCard({ albumId }: { albumId: number }) {
       setMessage("Please enter a title for this release.");
       return;
     }
-    const parsedCodeNumber = parseReleaseCodeNumber(codeNumber.trim());
-    if (parsedCodeNumber === null) {
-      setMessage(RELEASE_CODE_NUMBER_OUT_OF_RANGE_MESSAGE);
-      return;
+    // Parsed only when the field was touched. Restating the stored number on
+    // every save would put a shelf write behind a title fix, and it would also
+    // let a stored number this form cannot express -- a legacy 0, which the
+    // shared parser refuses as a call number -- block the title, alternate
+    // artist and format along with it.
+    let parsedCodeNumber: number | undefined;
+    if (codeNumberChanged) {
+      const parsed = parseReleaseCodeNumber(editedCodeNumber);
+      if (parsed === null) {
+        setMessage(RELEASE_CODE_NUMBER_OUT_OF_RANGE_MESSAGE);
+        return;
+      }
+      parsedCodeNumber = parsed;
     }
-    const trimmedVolumeLetters = volumeLetters.trim();
-    if (releaseVolumeLettersTooLong(trimmedVolumeLetters)) {
+    if (volumeLettersChanged && releaseVolumeLettersTooLong(editedVolumeLetters)) {
       setMessage(RELEASE_VOLUME_LETTERS_TOO_LONG_MESSAGE);
       return;
     }
@@ -186,11 +220,17 @@ export default function ReleaseCard({ albumId }: { albumId: number }) {
           // Omitted rather than sent as null when unset -- the wire shape the
           // endpoint has always received from this screen.
           ...(editedFormatId === null ? {} : { format_id: editedFormatId }),
-          code_number: parsedCodeNumber,
-          // Omitted rather than sent blank -- there is no current value on
-          // screen to compare against, so an untouched field must leave the
-          // stored letters alone rather than clear them.
-          ...(trimmedVolumeLetters !== "" ? { code_volume_letters: trimmedVolumeLetters } : {}),
+          ...(parsedCodeNumber === undefined ? {} : { code_number: parsedCodeNumber }),
+          // An emptied field sends an explicit null, which is what clears the
+          // column: omitting the key leaves whatever is stored, and this screen
+          // is the only one that can put letters on a release, so omitting a
+          // cleared field would make a mistyped letter permanent.
+          ...(volumeLettersChanged
+            ? {
+                code_volume_letters:
+                  editedVolumeLetters === "" ? null : editedVolumeLetters,
+              }
+            : {}),
         },
       }).unwrap();
       setMessage("This library release has been modified.");

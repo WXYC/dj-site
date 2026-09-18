@@ -194,7 +194,7 @@ describe("catalog add-mutation cache invalidation (#624)", () => {
   });
 });
 
-describe("updateAlbum cache invalidation on re-attribution", () => {
+describe("updateAlbum cache invalidation on a shelf-changing write", () => {
   const patched = {
     id: 53375,
     album_title: "Tri Repetae",
@@ -275,6 +275,69 @@ describe("updateAlbum cache invalidation on re-attribution", () => {
     );
 
     await vi.waitFor(() => expect(peekCalls).toBe(2));
+    sub.unsubscribe();
+  });
+
+  // The release stays with its artist here, so re-attribution is not what makes
+  // the table wrong: the row moves within that artist's shelf, and the next
+  // call number the add-release form offers is derived from the same shelf. A
+  // renumber nobody invalidated leaves the next filing aimed at the slot the
+  // renumber just took.
+  it("refetches the release tables when a call-code edit moves the release within one shelf", async () => {
+    let releaseCalls = 0;
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/library/artists/4211/releases`, () => {
+        releaseCalls += 1;
+        return HttpResponse.json({ releases: [], total: 0, page: 1, totalPages: 1 });
+      }),
+      http.patch(`${TEST_BACKEND_URL}/library/53375`, () => HttpResponse.json(patched)),
+    );
+
+    const store = createTestStore();
+    const sub = store.dispatch(
+      catalogApi.endpoints.getArtistReleases.initiate({ artistId: 4211 }),
+    );
+    await sub;
+    expect(releaseCalls).toBe(1);
+
+    await store.dispatch(
+      catalogApi.endpoints.updateAlbum.initiate({
+        albumId: 53375,
+        body: { code_number: 7 },
+      }),
+    );
+
+    await vi.waitFor(() => expect(releaseCalls).toBe(2));
+    sub.unsubscribe();
+  });
+
+  // Clearing the volume letters changes the same shelf: they are the tiebreak
+  // the table is ordered by, and the half of the call number that tells two
+  // releases in one slot apart.
+  it("refetches the release tables when the volume letters are cleared", async () => {
+    let releaseCalls = 0;
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/library/artists/4211/releases`, () => {
+        releaseCalls += 1;
+        return HttpResponse.json({ releases: [], total: 0, page: 1, totalPages: 1 });
+      }),
+      http.patch(`${TEST_BACKEND_URL}/library/53375`, () => HttpResponse.json(patched)),
+    );
+
+    const store = createTestStore();
+    const sub = store.dispatch(
+      catalogApi.endpoints.getArtistReleases.initiate({ artistId: 4211 }),
+    );
+    await sub;
+
+    await store.dispatch(
+      catalogApi.endpoints.updateAlbum.initiate({
+        albumId: 53375,
+        body: { code_volume_letters: null },
+      }),
+    );
+
+    await vi.waitFor(() => expect(releaseCalls).toBe(2));
     sub.unsubscribe();
   });
 

@@ -113,13 +113,13 @@ export const RELEASE_CODE_NUMBER_OUT_OF_RANGE_MESSAGE = `The release call number
  * it: `ArtistCard`'s and `VariousArtistsCard`'s add-release forms through
  * `resolveReleaseCodeFields`, `RotationImportScreen`'s `validateRelease`
  * directly -- which gates that screen's existing-artist and new-artist submits
- * alike -- and `ReleaseCard`'s editor, which differs from the add-release forms
- * in requiring a non-empty parse on every save: its field always starts
- * pre-filled with the release's own stored number, so a blank is a mistake
- * rather than a request for the server to assign one. There is no fifth copy --
- * the local `parsePositiveInt` the import screen used to parse this column with
- * is gone, so all four surfaces agree on what a call number is instead of
- * drifting.
+ * alike -- and `ReleaseCard`'s editor, the one caller editing a number that
+ * already exists. That last one parses only a field the librarian actually
+ * changed, so a cleared or out-of-range entry is refused while a stored value
+ * this function would itself reject -- a legacy 0 -- leaves the rest of that
+ * screen saveable instead of locking it. There is no fifth copy -- the local
+ * `parsePositiveInt` the import screen used to parse this column with is gone,
+ * so all four surfaces agree on what a call number is instead of drifting.
  */
 export function parseReleaseCodeNumber(raw: string): number | null {
   const parsed = parseRequiredPositiveInt(raw);

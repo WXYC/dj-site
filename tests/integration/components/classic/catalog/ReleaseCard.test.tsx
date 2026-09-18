@@ -205,11 +205,18 @@ describe("Classic ReleaseCard", () => {
     });
   });
 
-  it("omits code_volume_letters when the field is left blank, rather than clearing it", async () => {
+  // A title fix must not restate the shelf slot: the stored call code can have
+  // moved under this screen since the row was cached, and re-sending what it
+  // remembers would silently put the release back.
+  it("omits both call-code fields when neither was touched", async () => {
     const user = userEvent.setup();
     mockUpdateAlbum.mockClear();
     mockUpdateAlbum.mockReturnValue({ unwrap: () => Promise.resolve({}) });
-    mockGetInformationQuery.mockReturnValue({ data: album(), isLoading: false, isError: false });
+    mockGetInformationQuery.mockReturnValue({
+      data: album({ code_volume_letters: "B" }),
+      isLoading: false,
+      isError: false,
+    });
 
     renderWithProviders(<ReleaseCard albumId={53375} />);
 
@@ -218,10 +225,76 @@ describe("Classic ReleaseCard", () => {
 
     const body = mockUpdateAlbum.mock.calls[0][0].body;
     expect(body).not.toHaveProperty("code_volume_letters");
-    expect(body.code_number).toBe(1);
+    expect(body).not.toHaveProperty("code_number");
   });
 
-  it("refuses a call number outside 1..32767 rather than sending it", async () => {
+  it("shows the call letter the release is filed under, in the field and in the code", () => {
+    mockGetInformationQuery.mockReturnValue({
+      data: album({ code_volume_letters: "A" }),
+      isLoading: false,
+      isError: false,
+    });
+
+    renderWithProviders(<ReleaseCard albumId={53375} />);
+
+    expect(screen.getByLabelText("Release Call Letter")).toHaveProperty("value", "A");
+    expect(screen.getByTestId("release-library-code").textContent).toBe("Electronic AU 3/1-A");
+  });
+
+  // The field is the only place the two spellings of one stored letter differ:
+  // every reader folds case, so re-typing "b" over a stored "B" is not work to
+  // save, and reporting it as such would make the button answer a question
+  // other than the one it exists to answer.
+  it("keeps Save disabled for a call letter that differs from the stored one only in case", async () => {
+    const user = userEvent.setup();
+    mockGetInformationQuery.mockReturnValue({
+      data: album({ code_volume_letters: "B" }),
+      isLoading: false,
+      isError: false,
+    });
+
+    renderWithProviders(<ReleaseCard albumId={53375} />);
+
+    expect(screen.getByDisplayValue("Save")).toHaveProperty("disabled", true);
+
+    await user.clear(screen.getByLabelText("Release Call Letter"));
+    await user.type(screen.getByLabelText("Release Call Letter"), "b");
+
+    expect(screen.getByDisplayValue("Save")).toHaveProperty("disabled", true);
+  });
+
+  // Omitting the key would leave the stored letters in place, and this is the
+  // only screen that can put them there.
+  it("clears the stored call letter with an explicit null when the field is emptied", async () => {
+    const user = userEvent.setup();
+    mockUpdateAlbum.mockClear();
+    mockUpdateAlbum.mockReturnValue({ unwrap: () => Promise.resolve({}) });
+    mockGetInformationQuery.mockReturnValue({
+      data: album({ code_volume_letters: "B" }),
+      isLoading: false,
+      isError: false,
+    });
+
+    renderWithProviders(<ReleaseCard albumId={53375} />);
+
+    await user.clear(screen.getByLabelText("Release Call Letter"));
+    await user.click(screen.getByDisplayValue("Save"));
+
+    expect(mockUpdateAlbum).toHaveBeenCalledWith({
+      albumId: 53375,
+      body: expect.objectContaining({ code_volume_letters: null }),
+    });
+  });
+
+  // An emptied field is the destructive case: 0 is a legal smallint, so a
+  // parser that coerced blank to a number would file the release at shelf slot
+  // 0 and report a successful save.
+  it.each([
+    ["emptied", ""],
+    ["zero", "0"],
+    ["non-numeric", "abc"],
+    ["over the smallint ceiling", "99999"],
+  ])("refuses a %s call number rather than sending it", async (_label, typed) => {
     const user = userEvent.setup();
     mockUpdateAlbum.mockClear();
     mockGetInformationQuery.mockReturnValue({ data: album(), isLoading: false, isError: false });
@@ -229,13 +302,61 @@ describe("Classic ReleaseCard", () => {
     renderWithProviders(<ReleaseCard albumId={53375} />);
 
     await user.clear(screen.getByLabelText("Release Call Number"));
-    await user.type(screen.getByLabelText("Release Call Number"), "99999");
+    if (typed !== "") {
+      await user.type(screen.getByLabelText("Release Call Number"), typed);
+    }
     await user.click(screen.getByDisplayValue("Save"));
 
     expect(mockUpdateAlbum).not.toHaveBeenCalled();
     expect(screen.getByTestId("release-message").textContent).toContain(
       "must be a whole number between 1 and",
     );
+  });
+
+  // A release whose stored number this form cannot express blocks only the call
+  // number, not the rest of the screen: the other fields are still editable and
+  // the shelf slot is left exactly as it was found.
+  it("saves the other fields on a release stored at a call number it would refuse", async () => {
+    const user = userEvent.setup();
+    mockUpdateAlbum.mockClear();
+    mockUpdateAlbum.mockReturnValue({ unwrap: () => Promise.resolve({}) });
+    mockGetInformationQuery.mockReturnValue({
+      data: album({ entry: 0 }),
+      isLoading: false,
+      isError: false,
+    });
+
+    renderWithProviders(<ReleaseCard albumId={53375} />);
+
+    await user.type(screen.getByLabelText("Title of Release"), "++");
+    await user.click(screen.getByDisplayValue("Save"));
+
+    const body = mockUpdateAlbum.mock.calls[0][0].body;
+    expect(body.album_title).toBe("Tri Repetae++");
+    expect(body).not.toHaveProperty("code_number");
+  });
+
+  // Mark as Missing invalidates the detail read this form is seeded from, so a
+  // refetch lands mid-edit with no second actor involved. Re-seeding on it would
+  // discard the correction while the message line reported only the status
+  // change.
+  it("keeps an in-progress call-code edit across a refetch of the release", async () => {
+    const user = userEvent.setup();
+    mockGetInformationQuery.mockImplementation(() => ({
+      data: album({ code_volume_letters: "B" }),
+      isLoading: false,
+      isError: false,
+    }));
+
+    renderWithProviders(<ReleaseCard albumId={53375} />);
+
+    await user.clear(screen.getByLabelText("Release Call Number"));
+    await user.type(screen.getByLabelText("Release Call Number"), "7");
+    await user.clear(screen.getByLabelText("Release Call Letter"));
+    await user.type(screen.getByLabelText("Release Call Letter"), "c");
+
+    expect(screen.getByLabelText("Release Call Number")).toHaveProperty("value", "7");
+    expect(screen.getByLabelText("Release Call Letter")).toHaveProperty("value", "C");
   });
 
   it("refuses call letters over the column's width rather than sending them", async () => {

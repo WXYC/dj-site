@@ -52,6 +52,15 @@ export function mergeAlbumIntoSearchResult(
     legacy_release_id: existing.legacy_release_id ?? updated.legacy_release_id,
     artist: callNumberFromResponse ? updated.artist : existing.artist,
     entry: callNumberFromResponse ? updated.entry : existing.entry,
+    // The other half of the call number, and it moves independently of
+    // `entry`: a volume letter can be set or cleared with the number left
+    // alone. `null` is the positive claim "no volume letters" and passes
+    // through; only an absent field falls back, so a response from a source
+    // that does not report the column cannot blank a cached letter.
+    code_volume_letters:
+      updated.code_volume_letters === undefined
+        ? existing.code_volume_letters
+        : updated.code_volume_letters,
     matched_via: existing.matched_via,
     artwork_url: updated.artwork_url ?? existing.artwork_url,
     rotation_bin: existing.rotation_bin,
