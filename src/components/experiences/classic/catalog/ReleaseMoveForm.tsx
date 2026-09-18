@@ -55,12 +55,15 @@ const SAME_CODE_MESSAGE = "This release is already filed under that code.";
  *    held by many artists at once, which a scrolling select cannot
  *    disambiguate but the owner list below can. Composition of the triple is
  *    left to `composeLibraryCodeSearchArgs`, the same owner the chooser uses.
- *  - **Release Call Number and Release Call Letter are read-only**, as on the
- *    editor: `PATCH /library/:id` accepts neither. The call number is also not
- *    the librarian's to set here — Backend keeps it across the move unless the
+ *  - **Release Call Number and Release Call Letter stay read-only here, now
+ *    by choice rather than by contract.** `PATCH /library/:id` accepts both
+ *    fields — the release editor renders them as inputs — but a move is a
+ *    re-filing under a different artist, and the destination shelf slot is
+ *    not the librarian's to set in the same gesture that also picks the
+ *    destination. Backend keeps the call number across the move unless the
  *    destination artist already owns that number, in which case it burns the
- *    next one in that artist's sequence. The screen says so rather than
- *    implying the number on it survives.
+ *    next one in that artist's sequence. Fix a call code from this screen by
+ *    moving first, then correcting it on the editor.
  *  - **"Time Last Modified" is "Date Added"**, for the reason the editor
  *    documents: the published contract does not carry a last-modified value.
  *  - **Cross-reference blocks and "Add Xrefs" omitted.** Write-side
@@ -278,7 +281,7 @@ export default function ReleaseMoveForm({ albumId }: { albumId: number }) {
         },
       }).unwrap();
       setMessage(
-        `This library release has been moved to ${destination.artist_name}. Its call number may have changed, since the destination may already have been using this one.`,
+        `This library release has been moved to ${destination.artist_name}. Its call number may have changed, since the destination may already have been using this one — check it on the release editor.`,
       );
     } catch {
       setMessage("This library release could not be moved.");
