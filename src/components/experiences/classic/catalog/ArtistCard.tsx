@@ -13,10 +13,12 @@ import {
   useUpdateArtistCardMutation,
 } from "@/lib/features/catalog/api";
 import {
+  ARTIST_NAME_MAX_LENGTH,
   isAddArtistConflict,
   normalizeCodeLetters,
   resolveReleaseCodeFields,
 } from "@/lib/features/catalog/adminCreateArtistValidation";
+import { validateNewArtistNames } from "@/lib/features/catalog/chooserValidation";
 import {
   formatArtistCodeWithPunctuation,
   formatEntireLibraryCode,
@@ -27,6 +29,7 @@ import {
   importedConfirmation,
   type ImportedReleaseParams,
 } from "@/lib/features/rotation/importedConfirmation";
+import { isUnmessagedHttpError } from "@/lib/rtk-query-error-logger";
 import {
   formatStationDateTime,
   formatStationLongDate,
@@ -49,10 +52,6 @@ type ArtistCardProps = {
 
 /** `artist-card-modify.js` `validateAddRelease`, verbatim. */
 const EMPTY_TITLE_MESSAGE = "Please enter a title before adding this release.";
-/** `shared/validate-names`, the same text `chooserValidation` reproduces. */
-const EMPTY_ALPHABETICAL_MESSAGE = "The alphabetical name cannot be empty.";
-/** The presentation-name counterpart to `EMPTY_ALPHABETICAL_MESSAGE`, worded for its own field. */
-const EMPTY_PRESENTATION_MESSAGE = "The artist presentation name cannot be empty.";
 
 /**
  * Reproduces `libraryAdmin/artistCardModify.jsp` -- the main working screen of
@@ -244,12 +243,13 @@ export default function ArtistCard({ artistId, message, imported }: ArtistCardPr
     e.preventDefault();
     if (!artist) return;
 
-    if (presentationName.trim() === "") {
-      setArtistMessage(EMPTY_PRESENTATION_MESSAGE);
-      return;
-    }
-    if (alphabeticalName.trim() === "") {
-      setArtistMessage(EMPTY_ALPHABETICAL_MESSAGE);
+    // The JSP's pair, worded once in `chooserValidation` and reused here
+    // rather than forked: `NewArtistForm` and `CreateLibraryCodeForm` read
+    // the same emptiness check off the same two messages, and a second
+    // wording for the same condition is how the UI drifts.
+    const nameResult = validateNewArtistNames(presentationName, alphabeticalName);
+    if (!nameResult.valid) {
+      setArtistMessage(nameResult.message);
       return;
     }
 
@@ -269,11 +269,19 @@ export default function ArtistCard({ artistId, message, imported }: ArtistCardPr
       // conflict, this check has no genre of its own to name -- it probes
       // every genre this artist is filed in, so the match named back is not
       // necessarily the one on screen.
-      setArtistMessage(
-        isAddArtistConflict(err)
-          ? `${err.data.artist.artist_name} already exists in one of this artist's genres.`
-          : "Failed to modify the artist.",
-      );
+      if (isAddArtistConflict(err)) {
+        setArtistMessage(
+          `${err.data.artist.artist_name} already exists in one of this artist's genres.`,
+        );
+        return;
+      }
+      // The global rtkQueryErrorLogger middleware already toasts the
+      // server's own message for everything else it can speak for; only
+      // fill the gap it leaves silent, or a messaged rejection gets
+      // reported twice -- an accurate toast plus a generic inline sentence.
+      if (isUnmessagedHttpError(err)) {
+        setArtistMessage("Failed to modify the artist.");
+      }
     }
   };
 
@@ -416,6 +424,7 @@ export default function ArtistCard({ artistId, message, imported }: ArtistCardPr
                   id={presentationNameId}
                   type="text"
                   size={50}
+                  maxLength={ARTIST_NAME_MAX_LENGTH}
                   value={presentationName}
                   disabled={savingArtist}
                   onChange={(e) => setPresentationName(e.target.value)}
@@ -433,6 +442,7 @@ export default function ArtistCard({ artistId, message, imported }: ArtistCardPr
                   id={alphabeticalNameId}
                   type="text"
                   size={50}
+                  maxLength={ARTIST_NAME_MAX_LENGTH}
                   value={alphabeticalName}
                   disabled={savingArtist}
                   onChange={(e) => setAlphabeticalName(e.target.value)}
