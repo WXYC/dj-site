@@ -14,6 +14,7 @@ import {
 } from "@/lib/features/catalog/api";
 import {
   ARTIST_NAME_MAX_LENGTH,
+  artistNameTooLong,
   isAddArtistConflict,
   normalizeCodeLetters,
   resolveReleaseCodeFields,
@@ -239,9 +240,25 @@ export default function ArtistCard({ artistId, message, imported }: ArtistCardPr
       ? String(nextRelease.next_code_number)
       : "");
 
+  // Whether either name field would be refused by `PATCH /library/artists/:id`'s
+  // own `codePointLength(...) <= 128` check. Deliberately not an HTML
+  // `maxLength` on the inputs below: `maxLength` counts UTF-16 units rather
+  // than code points, so it would clip an astral name the column can hold and
+  // the server would accept, and -- the more serious defect -- it clips
+  // silently as the librarian types or pastes, leaving `handleModifyArtist`
+  // to submit the already-truncated value with nothing to refuse. Computed
+  // live off the field values so the refusal is visible and submit is
+  // disabled the moment either name is too long, not only after a submit
+  // attempt.
+  const presentationNameTooLong = artistNameTooLong(presentationName);
+  const alphabeticalNameTooLong = artistNameTooLong(alphabeticalName);
+
   const handleModifyArtist = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!artist) return;
+    // Backstop for the disabled submit button below -- an over-length value
+    // must never reach `updateArtist`, whatever triggered this handler.
+    if (presentationNameTooLong || alphabeticalNameTooLong) return;
 
     // The JSP's pair, worded once in `chooserValidation` and reused here
     // rather than forked: `NewArtistForm` and `CreateLibraryCodeForm` read
@@ -424,11 +441,15 @@ export default function ArtistCard({ artistId, message, imported }: ArtistCardPr
                   id={presentationNameId}
                   type="text"
                   size={50}
-                  maxLength={ARTIST_NAME_MAX_LENGTH}
                   value={presentationName}
                   disabled={savingArtist}
                   onChange={(e) => setPresentationName(e.target.value)}
                 />
+                {presentationNameTooLong && (
+                  <div role="alert" className="artist-error-message">
+                    At most {ARTIST_NAME_MAX_LENGTH} characters
+                  </div>
+                )}
               </td>
             </tr>
             <tr>
@@ -442,11 +463,15 @@ export default function ArtistCard({ artistId, message, imported }: ArtistCardPr
                   id={alphabeticalNameId}
                   type="text"
                   size={50}
-                  maxLength={ARTIST_NAME_MAX_LENGTH}
                   value={alphabeticalName}
                   disabled={savingArtist}
                   onChange={(e) => setAlphabeticalName(e.target.value)}
                 />
+                {alphabeticalNameTooLong && (
+                  <div role="alert" className="artist-error-message">
+                    At most {ARTIST_NAME_MAX_LENGTH} characters
+                  </div>
+                )}
               </td>
             </tr>
             <tr>
@@ -489,7 +514,11 @@ export default function ArtistCard({ artistId, message, imported }: ArtistCardPr
             <tr>
               <td />
               <td>
-                <input type="submit" value="Modify This Artist" disabled={savingArtist} />
+                <input
+                  type="submit"
+                  value="Modify This Artist"
+                  disabled={savingArtist || presentationNameTooLong || alphabeticalNameTooLong}
+                />
               </td>
             </tr>
           </tbody>

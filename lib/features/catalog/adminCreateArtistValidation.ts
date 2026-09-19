@@ -57,6 +57,18 @@ export const ARTIST_NAME_MAX_LENGTH = 128;
 export const CODE_NUMBER_MAX = 2147483647;
 
 /**
+ * Whether an `artist_name` or `alphabetical_name` value exceeds the
+ * varchar(128) ceiling both columns share on `artists`, counted in code
+ * points -- like `releaseVolumeLettersTooLong` below and Backend's own
+ * `codePointLength` check, so a surrogate pair does not cost two of the 128
+ * slots here and then get accepted server-side anyway. Trims first, matching
+ * what every caller sends as the field's value.
+ */
+export function artistNameTooLong(value: string): boolean {
+  return codePointLength(value.trim()) > ARTIST_NAME_MAX_LENGTH;
+}
+
+/**
  * The floor/ceiling `POST /library` enforces on `code_number` -- the
  * release's own column, `library.code_number`, a `smallint`. Distinct from
  * `CODE_NUMBER_MAX` above, which bounds the artist-creation column

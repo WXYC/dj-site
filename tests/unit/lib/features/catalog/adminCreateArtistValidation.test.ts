@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   ARTIST_NAME_MAX_LENGTH,
+  artistNameTooLong,
   CODE_LETTERS_MAX_LENGTH,
   CODE_NUMBER_MAX,
   isArtistNameConflictData,
@@ -294,5 +295,26 @@ describe("releaseVolumeLettersTooLong", () => {
     // capitals): 8 UTF-16 units, 4 code points.
     expect(releaseVolumeLettersTooLong("𝐀𝐁𝐂𝐃")).toBe(false);
   });
+});
 
+describe("artistNameTooLong", () => {
+  it("accepts up to the varchar(128) ceiling", () => {
+    expect(artistNameTooLong("")).toBe(false);
+    expect(artistNameTooLong("y".repeat(ARTIST_NAME_MAX_LENGTH))).toBe(false);
+  });
+
+  it("rejects anything past the ceiling", () => {
+    expect(artistNameTooLong("y".repeat(ARTIST_NAME_MAX_LENGTH + 1))).toBe(true);
+  });
+
+  it("trims before counting, matching what every caller sends as the field's value", () => {
+    expect(artistNameTooLong(`  ${"y".repeat(ARTIST_NAME_MAX_LENGTH)}  `)).toBe(false);
+  });
+
+  it("counts in code points, not UTF-16 units, matching Backend's own codePointLength check", () => {
+    // 70 surrogate pairs (mathematical bold capital A): 140 UTF-16 units, 70
+    // code points -- well under the ceiling by that count, but a
+    // `String#length` check would put it at 140 and refuse it.
+    expect(artistNameTooLong("𝐀".repeat(70))).toBe(false);
+  });
 });
