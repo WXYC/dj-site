@@ -491,8 +491,8 @@ export const catalogApi = createApi({
       ],
     }),
     /**
-     * `modifyArtist`'s one writable field. See `UpdateArtistRequestBody` for
-     * why the JSP's other four are absent.
+     * `modifyArtist`'s two writable fields. See `UpdateArtistRequestBody` for
+     * why the JSP's other three are absent.
      */
     updateArtistCard: builder.mutation<
       { id: number; artist_name: string; alphabetical_name: string },
@@ -503,6 +503,17 @@ export const catalogApi = createApi({
         method: "PATCH",
         body,
       }),
+      // A rename can collide into an existing artist on the folded name; the
+      // 409 body names the conflicting artist, the same shape `addArtist`
+      // strips its generic `message` from and for the same reason -- so the
+      // recoverable outcome is reported once, inline, rather than as a banner
+      // plus a generic failure toast.
+      transformErrorResponse: (error) => {
+        if (!isAddArtistConflict(error)) return error;
+        const data = { ...(error.data as unknown as Record<string, unknown>) };
+        delete data.message;
+        return { ...error, data };
+      },
       // The card refetches so the row reflects what was stored rather than
       // what was typed -- the backend NFC-normalizes `alphabetical_name` on
       // write, so the two can legitimately differ.

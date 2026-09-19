@@ -195,16 +195,15 @@ export type ArtistCard = {
 /**
  * PATCH /library/artists/:id.
  *
- * One field, not the JSP's five. The backend **rejects** `artist_name`,
- * `genre_id`, `code_letters`, and `code_artist_number` with a 400 naming why
- * rather than dropping them silently, so widening this type would turn a
- * compile-time constraint into a runtime rejection. `artist_name` is the one
- * that is merely deferred: renaming an artist moves the nightly catalog
- * import's `fold_artist_name` match key while that import is still a live
- * cron, so it waits on the import stopping, not on a missing column.
+ * Two fields, not the JSP's five. The backend **rejects** `genre_id`,
+ * `code_letters`, and `code_artist_number` with a 400 naming why rather than
+ * dropping them silently, so widening this type would turn a compile-time
+ * constraint into a runtime rejection. Those three have no write path
+ * anywhere in Backend-Service.
  */
 export type UpdateArtistRequestBody = {
   alphabetical_name: string;
+  artist_name?: string;
 };
 
 /** One row of the artist card's release table (GET /library/artists/:id/releases). */
