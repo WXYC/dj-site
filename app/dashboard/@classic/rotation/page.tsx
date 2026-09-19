@@ -8,6 +8,10 @@ import RotationReleaseList from "@/src/components/experiences/classic/rotation/R
 import { firstSearchParam } from "@/lib/utils/search-params";
 import { DEFAULT_ROTATION_STATUS_FILTER, type RotationStatusFilter } from "@/lib/features/rotation/types";
 
+// Allowed to block: the root layout resolves the session before this renders,
+// so nothing below it can prerender until that read moves behind Suspense.
+export const instant = false;
+
 export const metadata: Metadata = {
   title: getPageTitle("Rotation Releases"),
 };

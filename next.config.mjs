@@ -167,6 +167,11 @@ const nextConfig = {
   reactStrictMode: false,
   productionBrowserSourceMaps: true,
   distDir,
+  // Cache Components: the top-level, non-experimental home of the `"use cache"`
+  // directive since Next 16. It also makes Partial Prerendering the App Router
+  // default, so every request-time data access must sit under a Suspense
+  // boundary or be cached.
+  cacheComponents: true,
   experimental: {
     // @mui/material and @mui/icons-material are in Next's default
     // optimizePackageImports list; @mui/joy (this app's primary UI kit) is not,

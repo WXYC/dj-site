@@ -6,6 +6,10 @@ import Main from "@/src/components/experiences/classic/Layout/Main";
 import CreateLibraryCodeForm from "@/src/components/experiences/classic/catalog/CreateLibraryCodeForm";
 import { firstSearchParam } from "@/lib/utils/search-params";
 
+// Allowed to block: the root layout resolves the session before this renders,
+// so nothing below it can prerender until that read moves behind Suspense.
+export const instant = false;
+
 export const metadata: Metadata = {
   title: getPageTitle("Create Library Code"),
 };

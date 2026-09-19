@@ -1,6 +1,10 @@
 import { createServerSideProps } from "@/lib/features/session";
 import ExperienceGap from "@/src/components/experiences/classic/ExperienceGap";
 
+// Allowed to block: the root layout resolves the session before this renders,
+// so nothing below it can prerender until that read moves behind Suspense.
+export const instant = false;
+
 /**
  * Fallback for every `/dashboard` URL the classic slot has no page for.
  *

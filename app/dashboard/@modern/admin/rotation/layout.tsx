@@ -6,6 +6,10 @@ import { notFound } from "next/navigation";
 import RotationTabs from "@/src/components/experiences/modern/admin/rotation/RotationTabs";
 import { Box } from "@mui/joy";
 
+// Allowed to block: the root layout resolves the session before this renders,
+// so nothing below it can prerender until that read moves behind Suspense.
+export const instant = false;
+
 // The pages remain the authority on access: every rotation page repeats the
 // flag + MD checks. The layout must still run both itself, for two reasons
 // that cut in opposite directions. A layout flushes to the stream before any

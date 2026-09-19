@@ -4,6 +4,10 @@ import ThemedLayout, { ThemedLayoutProps } from "@/src/ThemedLayout";
 import { StoreProvider } from "@/src/StoreProvider";
 import SessionUnavailable from "./SessionUnavailable";
 
+// Allowed to block: the root layout resolves the session before this renders,
+// so nothing below it can prerender until that read moves behind Suspense.
+export const instant = false;
+
 // The full slice/API store is scoped to the authenticated dashboard, nested
 // inside the app-wide public store. Dashboard-only feature graphs (admin
 // roster, catalog, rotation, autoDJ, bin, metadata, LML) resolve here and stay

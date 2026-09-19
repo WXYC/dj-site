@@ -5,6 +5,10 @@ import { requireAuth } from "@/lib/features/authentication/server-utils";
 import Main from "@/src/components/experiences/classic/Layout/Main";
 import ArtistCardView from "@/src/components/experiences/classic/catalog/ArtistCardView";
 
+// Allowed to block: the root layout resolves the session before this renders,
+// so nothing below it can prerender until that read moves behind Suspense.
+export const instant = false;
+
 export const metadata: Metadata = {
   title: getPageTitle("View an Artist Card"),
 };

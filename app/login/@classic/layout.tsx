@@ -1,8 +1,13 @@
+import CopyrightYear from "@/src/components/shared/CopyrightYear";
 import { ReactNode } from "react";
 import Header from "@/src/components/experiences/classic/login/Layout/Header";
 import { Metadata } from "next";
 import { getPageTitle } from "@/lib/utils/page-title";
 import ClassicLoginSlotSwitcher from "./ClassicLoginSlotSwitcher";
+
+// Allowed to block: the root layout resolves the session before this renders,
+// so nothing below it can prerender until that read moves behind Suspense.
+export const instant = false;
 
 export const metadata: Metadata = {
   title: getPageTitle("Login"),
@@ -30,7 +35,7 @@ export default async function Layout({ normal, newuser, reset, signup }: LoginPr
       <Header />
       <ClassicLoginSlotSwitcher normal={normal} reset={reset} signup={signup} />
       <footer>
-        <p>Copyright &copy; {new Date().getFullYear()} WXYC Chapel Hill</p>
+        <p>Copyright &copy; <CopyrightYear /> WXYC Chapel Hill</p>
       </footer>
     </div>
   );

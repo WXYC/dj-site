@@ -8,6 +8,10 @@ import SSESubscription from "@/src/components/shared/SSESubscription";
 import { Box } from "@mui/joy";
 import { Suspense } from "react";
 
+// Allowed to block: the root layout resolves the session before this renders,
+// so nothing below it can prerender until that read moves behind Suspense.
+export const instant = false;
+
 export type FlowsheetPageProps = {
   children: React.ReactNode;
   queue: React.ReactNode;

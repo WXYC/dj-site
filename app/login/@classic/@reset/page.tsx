@@ -3,6 +3,10 @@ import PasswordResetForms from "@/src/components/experiences/modern/login/Forms/
 import { Alert } from "@mui/joy";
 import { firstSearchParam } from "@/lib/utils/search-params";
 
+// Allowed to block: the root layout resolves the session before this renders,
+// so nothing below it can prerender until that read moves behind Suspense.
+export const instant = false;
+
 // No metadata export: parallel-slot metadata resolves statically per pathname,
 // so a title here bleeds into plain /login (verified on a preview deploy) —
 // the layout's "Login" title stands for every view of this path.
