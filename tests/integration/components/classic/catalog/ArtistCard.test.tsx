@@ -246,6 +246,28 @@ describe("classic ArtistCard — artistCardModify.jsp", () => {
       expect(await screen.findByRole("alert")).toHaveTextContent("Jessica Pratt");
     });
 
+    it("refuses to save an empty presentation name rather than sending it", async () => {
+      const user = userEvent.setup();
+      let patched = false;
+      server.use(
+        http.patch(`${TEST_BACKEND_URL}/library/artists/${ARTIST_ID}`, () => {
+          patched = true;
+          return HttpResponse.json({});
+        }),
+      );
+
+      renderWithProviders(<ArtistCard artistId={ARTIST_ID} />);
+
+      const field = await screen.findByLabelText(/Artist Presentation Name/i);
+      await user.clear(field);
+      await user.click(screen.getByRole("button", { name: "Modify This Artist" }));
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(
+        "The artist presentation name cannot be empty.",
+      );
+      expect(patched).toBe(false);
+    });
+
     it("refuses to save an empty alphabetical name rather than sending it", async () => {
       const user = userEvent.setup();
       let patched = false;

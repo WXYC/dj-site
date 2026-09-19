@@ -51,7 +51,7 @@ type ArtistCardProps = {
 const EMPTY_TITLE_MESSAGE = "Please enter a title before adding this release.";
 /** `shared/validate-names`, the same text `chooserValidation` reproduces. */
 const EMPTY_ALPHABETICAL_MESSAGE = "The alphabetical name cannot be empty.";
-/** Same shape as `EMPTY_ALPHABETICAL_MESSAGE`, for the field beside it. */
+/** The presentation-name counterpart to `EMPTY_ALPHABETICAL_MESSAGE`, worded for its own field. */
 const EMPTY_PRESENTATION_MESSAGE = "The artist presentation name cannot be empty.";
 
 /**
@@ -263,12 +263,15 @@ export default function ArtistCard({ artistId, message, imported }: ArtistCardPr
         },
       }).unwrap();
     } catch (err) {
-      // A rename can collide into an existing artist on the folded name;
-      // `isAddArtistConflict` names it rather than reporting a generic
-      // failure, the same shape and reason `NewArtistForm` reads it for.
+      // A rename can collide into an existing artist; `isAddArtistConflict`
+      // names it rather than reporting a generic failure, the same shape and
+      // reason `NewArtistForm` reads it for. Unlike that form's code-triple
+      // conflict, this check has no genre of its own to name -- it probes
+      // every genre this artist is filed in, so the match named back is not
+      // necessarily the one on screen.
       setArtistMessage(
         isAddArtistConflict(err)
-          ? `${err.data.artist.artist_name} already exists in this genre.`
+          ? `${err.data.artist.artist_name} already exists in one of this artist's genres.`
           : "Failed to modify the artist.",
       );
     }
