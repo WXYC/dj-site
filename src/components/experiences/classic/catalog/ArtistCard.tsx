@@ -13,6 +13,7 @@ import {
   useUpdateArtistCardMutation,
 } from "@/lib/features/catalog/api";
 import {
+  isAddArtistConflict,
   normalizeCodeLetters,
   resolveReleaseCodeFields,
 } from "@/lib/features/catalog/adminCreateArtistValidation";
@@ -50,6 +51,8 @@ type ArtistCardProps = {
 const EMPTY_TITLE_MESSAGE = "Please enter a title before adding this release.";
 /** `shared/validate-names`, the same text `chooserValidation` reproduces. */
 const EMPTY_ALPHABETICAL_MESSAGE = "The alphabetical name cannot be empty.";
+/** Same shape as `EMPTY_ALPHABETICAL_MESSAGE`, for the field beside it. */
+const EMPTY_PRESENTATION_MESSAGE = "The artist presentation name cannot be empty.";
 
 /**
  * Reproduces `libraryAdmin/artistCardModify.jsp` -- the main working screen of
@@ -61,14 +64,11 @@ const EMPTY_ALPHABETICAL_MESSAGE = "The alphabetical name cannot be empty.";
  * rather than chosen -- where both the JSP's shape and a Backend-Service call
  * are possible, the JSP wins:
  *
- * - **Four of `modifyArtist`'s five fields are read-only.** `PATCH
- *   /library/artists/:id` allowlists `alphabetical_name` alone and *rejects*
- *   `artist_name`, `genre_id`, `code_letters`, and `code_artist_number` with a
- *   400 naming why. Rendering them as editable inputs would offer an
- *   edit that always fails. `artist_name` is the one that is merely deferred:
- *   renaming an artist moves the nightly catalog import's `fold_artist_name`
- *   match key while that import is still a live 30-minute cron, so it waits on
- *   that import stopping. The other three have no write path anywhere in
+ * - **Three of `modifyArtist`'s five fields are read-only.** `PATCH
+ *   /library/artists/:id` allowlists `alphabetical_name` and `artist_name`
+ *   and *rejects* `genre_id`, `code_letters`, and `code_artist_number` with a
+ *   400 naming why. Rendering them as editable inputs would offer an edit
+ *   that always fails. Those three have no write path anywhere in
  *   Backend-Service.
  * - **The genre renders as text, not the JSP's `<select>`.** Same cause: with
  *   no write path, a dropdown would be a control that cannot commit.
@@ -126,6 +126,7 @@ export default function ArtistCard({ artistId, message, imported }: ArtistCardPr
   const [updateArtist, { isLoading: savingArtist }] = useUpdateArtistCardMutation();
   const [addAlbum, { isLoading: savingRelease }] = useAddAlbumMutation();
 
+  const [presentationName, setPresentationName] = useState("");
   const [alphabeticalName, setAlphabeticalName] = useState("");
   const [artistMessage, setArtistMessage] = useState<string | null>(null);
 
@@ -162,11 +163,14 @@ export default function ArtistCard({ artistId, message, imported }: ArtistCardPr
   // is deliberately not what this field does.
   const [volumeLettersEdit, setVolumeLettersEdit] = useState("");
 
-  // Seed the one editable field from the server once the card arrives, and
-  // re-seed after a save so the input shows what was stored rather than what
+  // Seed both editable fields from the server once the card arrives, and
+  // re-seed after a save so the inputs show what was stored rather than what
   // was typed -- the backend NFC-normalizes on write.
   useEffect(() => {
-    if (artist) setAlphabeticalName(artist.alphabetical_name);
+    if (artist) {
+      setPresentationName(artist.artist_name);
+      setAlphabeticalName(artist.alphabetical_name);
+    }
   }, [artist]);
 
   // `/wxycdb` picks this card or the compilation bucket card from the row
@@ -240,6 +244,10 @@ export default function ArtistCard({ artistId, message, imported }: ArtistCardPr
     e.preventDefault();
     if (!artist) return;
 
+    if (presentationName.trim() === "") {
+      setArtistMessage(EMPTY_PRESENTATION_MESSAGE);
+      return;
+    }
     if (alphabeticalName.trim() === "") {
       setArtistMessage(EMPTY_ALPHABETICAL_MESSAGE);
       return;
@@ -249,10 +257,20 @@ export default function ArtistCard({ artistId, message, imported }: ArtistCardPr
     try {
       await updateArtist({
         artistId,
-        body: { alphabetical_name: alphabeticalName.trim() },
+        body: {
+          artist_name: presentationName.trim(),
+          alphabetical_name: alphabeticalName.trim(),
+        },
       }).unwrap();
-    } catch {
-      setArtistMessage("Failed to modify the artist.");
+    } catch (err) {
+      // A rename can collide into an existing artist on the folded name;
+      // `isAddArtistConflict` names it rather than reporting a generic
+      // failure, the same shape and reason `NewArtistForm` reads it for.
+      setArtistMessage(
+        isAddArtistConflict(err)
+          ? `${err.data.artist.artist_name} already exists in this genre.`
+          : "Failed to modify the artist.",
+      );
     }
   };
 
@@ -391,20 +409,14 @@ export default function ArtistCard({ artistId, message, imported }: ArtistCardPr
                 </label>
               </td>
               <td>
-                {/* readOnly rather than removed: the name is the thing the
-                    librarian is checking against the card in their hand, so it
-                    has to stay legible -- a disabled input greys it out. */}
                 <input
                   id={presentationNameId}
                   type="text"
                   size={50}
-                  value={artist.artist_name}
-                  readOnly
+                  value={presentationName}
+                  disabled={savingArtist}
+                  onChange={(e) => setPresentationName(e.target.value)}
                 />
-                <div className="label">
-                  Renaming an artist is not available here yet — the nightly
-                  catalog import still owns this field.
-                </div>
               </td>
             </tr>
             <tr>

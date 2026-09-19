@@ -188,18 +188,62 @@ describe("classic ArtistCard — artistCardModify.jsp", () => {
       await user.click(screen.getByRole("button", { name: "Modify This Artist" }));
 
       await waitFor(() => expect(bodies).toHaveLength(1));
-      expect(bodies[0]).toEqual({ alphabetical_name: "Molina, Juana C." });
+      expect(bodies[0]).toEqual({
+        artist_name: artist.artist_name,
+        alphabetical_name: "Molina, Juana C.",
+      });
     });
 
-    // The backend rejects `artist_name` with a 400 rather than dropping it,
-    // so an editable field here would be an edit that always fails.
-    it("shows the presentation name without offering to edit it", async () => {
+    it("saves an edited presentation name", async () => {
+      const user = userEvent.setup();
+      const bodies: unknown[] = [];
+      server.use(
+        http.patch(
+          `${TEST_BACKEND_URL}/library/artists/${ARTIST_ID}`,
+          async ({ request }) => {
+            bodies.push(await request.json());
+            return HttpResponse.json({
+              id: ARTIST_ID,
+              artist_name: "Juana Molina C.",
+              alphabetical_name: artist.alphabetical_name,
+            });
+          },
+        ),
+      );
+
       renderWithProviders(<ArtistCard artistId={ARTIST_ID} />);
 
-      const field = (await screen.findByLabelText(
-        /Artist Presentation Name/i,
-      )) as HTMLInputElement;
-      expect(field.readOnly).toBe(true);
+      const field = await screen.findByLabelText(/Artist Presentation Name/i);
+      await user.clear(field);
+      await user.type(field, "Juana Molina C.");
+      await user.click(screen.getByRole("button", { name: "Modify This Artist" }));
+
+      await waitFor(() => expect(bodies).toHaveLength(1));
+      expect(bodies[0]).toEqual({
+        artist_name: "Juana Molina C.",
+        alphabetical_name: artist.alphabetical_name,
+      });
+    });
+
+    it("names the conflicting artist inline when a rename collides", async () => {
+      const user = userEvent.setup();
+      server.use(
+        http.patch(`${TEST_BACKEND_URL}/library/artists/${ARTIST_ID}`, () =>
+          HttpResponse.json(
+            { artist: { artist_id: 99, artist_name: "Jessica Pratt", code_letters: "PR" } },
+            { status: 409 },
+          ),
+        ),
+      );
+
+      renderWithProviders(<ArtistCard artistId={ARTIST_ID} />);
+
+      const field = await screen.findByLabelText(/Artist Presentation Name/i);
+      await user.clear(field);
+      await user.type(field, "Jessica Pratt");
+      await user.click(screen.getByRole("button", { name: "Modify This Artist" }));
+
+      expect(await screen.findByRole("alert")).toHaveTextContent("Jessica Pratt");
     });
 
     it("refuses to save an empty alphabetical name rather than sending it", async () => {
