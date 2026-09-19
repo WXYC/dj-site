@@ -44,4 +44,93 @@ describe("updateArtistCard", () => {
       expect(error.data.artist.artist_name).toBe("Jessica Pratt");
     }
   });
+
+  // A rename changes `artist_name`, which both of these caches render: a
+  // catalog search result row, and the typeahead `addArtist` itself
+  // invalidates on create so it cannot recommend filing a duplicate of a
+  // name that no longer exists. Leaving either stale after a rename reads,
+  // to the librarian, as a save that silently failed.
+  it("refreshes catalog search and the artist typeahead after a successful rename", async () => {
+    let searchCalls = 0;
+    let typeaheadCalls = 0;
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/library/`, () => {
+        searchCalls += 1;
+        return HttpResponse.json([]);
+      }),
+      http.get(`${TEST_BACKEND_URL}/library/artists/search`, () => {
+        typeaheadCalls += 1;
+        return HttpResponse.json([]);
+      }),
+      http.patch(`${TEST_BACKEND_URL}/library/artists/${ARTIST_ID}`, () =>
+        HttpResponse.json({ id: ARTIST_ID, artist_name: "Jessica Pratt", alphabetical_name: "Pratt, Jessica" }),
+      ),
+    );
+
+    const store = createTestStore();
+    const searchSub = store.dispatch(
+      catalogApi.endpoints.searchCatalog.initiate({
+        artist_name: "Jessica",
+        album_title: undefined,
+        n: undefined,
+      }),
+    );
+    const typeaheadSub = store.dispatch(
+      catalogApi.endpoints.searchArtistsInGenre.initiate({ genre_id: 3, q: "Jessica" }),
+    );
+    await searchSub;
+    await typeaheadSub;
+    expect(searchCalls).toBe(1);
+    expect(typeaheadCalls).toBe(1);
+
+    await store.dispatch(
+      catalogApi.endpoints.updateArtistCard.initiate({
+        artistId: ARTIST_ID,
+        body: { artist_name: "Jessica Pratt", alphabetical_name: "Pratt, Jessica" },
+      }),
+    );
+
+    await vi.waitFor(() => expect(searchCalls).toBe(2));
+    await vi.waitFor(() => expect(typeaheadCalls).toBe(2));
+    searchSub.unsubscribe();
+    typeaheadSub.unsubscribe();
+  });
+
+  it("leaves catalog search and the artist typeahead alone when the rename was refused", async () => {
+    let searchCalls = 0;
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/library/`, () => {
+        searchCalls += 1;
+        return HttpResponse.json([]);
+      }),
+      http.patch(`${TEST_BACKEND_URL}/library/artists/${ARTIST_ID}`, () =>
+        HttpResponse.json(
+          { artist: { artist_id: 99, artist_name: "Jessica Pratt", code_letters: "PR" } },
+          { status: 409 },
+        ),
+      ),
+    );
+
+    const store = createTestStore();
+    const searchSub = store.dispatch(
+      catalogApi.endpoints.searchCatalog.initiate({
+        artist_name: "Jessica",
+        album_title: undefined,
+        n: undefined,
+      }),
+    );
+    await searchSub;
+    expect(searchCalls).toBe(1);
+
+    await store.dispatch(
+      catalogApi.endpoints.updateArtistCard.initiate({
+        artistId: ARTIST_ID,
+        body: { artist_name: "Jessica Pratt", alphabetical_name: "Pratt, Jessica" },
+      }),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    expect(searchCalls).toBe(1);
+    searchSub.unsubscribe();
+  });
 });

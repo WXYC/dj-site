@@ -514,12 +514,23 @@ export const catalogApi = createApi({
         delete data.message;
         return { ...error, data };
       },
-      // The card refetches so the row reflects what was stored rather than
-      // what was typed -- the backend NFC-normalizes `alphabetical_name` on
-      // write, so the two can legitimately differ.
-      invalidatesTags: (_result, _error, { artistId }) => [
-        { type: "ArtistCard", id: String(artistId) },
-      ],
+      // The card always refetches so its own row reflects what was stored
+      // rather than what was typed -- the backend NFC-normalizes
+      // `alphabetical_name` on write, so the two can legitimately differ.
+      // A rename also invalidates the two caches that render `artist_name`
+      // elsewhere: catalog search results, and the `ArtistSearch` typeahead
+      // that guards against filing a duplicate artist -- the same tag
+      // `addArtist` invalidates on create, for the same reason a rename
+      // needs it kept accurate. Both are skipped on a rejected mutation: a
+      // rejection wrote nothing for either cache to catch up to.
+      invalidatesTags: (result, _error, { artistId }) =>
+        result
+          ? [
+              { type: "ArtistCard", id: String(artistId) },
+              { type: "CatalogList", id: "LIST" },
+              { type: "ArtistSearch", id: "LIST" },
+            ]
+          : [{ type: "ArtistCard", id: String(artistId) }],
     }),
     /** The artist card's release table, in shelf order. */
     getArtistReleases: builder.query<ArtistReleasesResponse, ArtistReleasesQuery>({
