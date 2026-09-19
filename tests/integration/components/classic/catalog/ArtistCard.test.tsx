@@ -263,7 +263,7 @@ describe("classic ArtistCard — artistCardModify.jsp", () => {
       await user.click(screen.getByRole("button", { name: "Modify This Artist" }));
 
       expect(await screen.findByRole("alert")).toHaveTextContent(
-        "The artist presentation name cannot be empty.",
+        "The presentation name cannot be empty.",
       );
       expect(patched).toBe(false);
     });

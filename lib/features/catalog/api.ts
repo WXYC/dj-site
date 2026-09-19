@@ -517,20 +517,46 @@ export const catalogApi = createApi({
       // The card always refetches so its own row reflects what was stored
       // rather than what was typed -- the backend NFC-normalizes
       // `alphabetical_name` on write, so the two can legitimately differ.
-      // A rename also invalidates the two caches that render `artist_name`
-      // elsewhere: catalog search results, and the `ArtistSearch` typeahead
-      // that guards against filing a duplicate artist -- the same tag
-      // `addArtist` invalidates on create, for the same reason a rename
-      // needs it kept accurate. Both are skipped on a rejected mutation: a
-      // rejection wrote nothing for either cache to catch up to.
-      invalidatesTags: (result, _error, { artistId }) =>
-        result
-          ? [
-              { type: "ArtistCard", id: String(artistId) },
+      //
+      // A successful update also invalidates the two caches that render
+      // `artist_name` elsewhere -- catalog search results, and the
+      // `ArtistSearch` typeahead that guards against filing a duplicate
+      // artist -- plus every `AlbumDetail` read, since the classic
+      // ReleaseCard prints the artist name it loaded and never rereads it on
+      // its own. `AlbumDetail` is keyed per album id, not per artist (see
+      // `getInformation`'s `providesTags`), and this mutation only knows the
+      // artist id, so there is no narrower tag that reaches just this
+      // artist's releases -- the bare tag matches every id of its type, the
+      // same fallback `fileRelease` takes for `ArtistCard`, `ArtistCodePeek`
+      // and `ArtistByCode`. This set is unconditional on whether
+      // `artist_name` itself changed: the form always submits both fields,
+      // so an alphabetical-only correction invalidates the same set an
+      // actual rename does.
+      //
+      // The write commits server-side through the
+      // `cascade_library_artist_name` trigger, so a rejection is not proof
+      // nothing was written -- only a sub-500 server answer (a validated 409
+      // conflict, chiefly) is. A 5xx or a transport failure (a dropped
+      // socket, a gateway timeout) may have committed the rename on a
+      // response the client never saw, so those get the same invalidation a
+      // success does -- the same convention `addArtist` uses for the
+      // identical reason. Only a proven-empty write skips the list tags.
+      invalidatesTags: (result, error, { artistId }) => {
+        const cardTag = { type: "ArtistCard" as const, id: String(artistId) };
+        const wroteNothing =
+          !result &&
+          !!error &&
+          typeof error.status === "number" &&
+          error.status < 500;
+        return wroteNothing
+          ? [cardTag]
+          : [
+              cardTag,
               { type: "CatalogList", id: "LIST" },
               { type: "ArtistSearch", id: "LIST" },
-            ]
-          : [{ type: "ArtistCard", id: String(artistId) }],
+              "AlbumDetail",
+            ];
+      },
     }),
     /** The artist card's release table, in shelf order. */
     getArtistReleases: builder.query<ArtistReleasesResponse, ArtistReleasesQuery>({
