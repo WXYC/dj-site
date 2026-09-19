@@ -289,6 +289,108 @@ describe("classic ArtistCard — artistCardModify.jsp", () => {
       );
       expect(patched).toBe(false);
     });
+
+    // Pasted, not typed: userEvent enforces an input's own `maxLength` on
+    // both keystrokes and paste, so a paste this long is what would expose a
+    // `maxLength` silently clipping the value back under the ceiling -- the
+    // regression this pins. `varchar(128)` is a 128-*character* ceiling, so
+    // 129 plain ASCII characters (129 code points) is one past it.
+    it("refuses an over-long presentation name rather than sending it", async () => {
+      const user = userEvent.setup();
+      let patched = false;
+      server.use(
+        http.patch(`${TEST_BACKEND_URL}/library/artists/${ARTIST_ID}`, () => {
+          patched = true;
+          return HttpResponse.json({});
+        }),
+      );
+
+      renderWithProviders(<ArtistCard artistId={ARTIST_ID} />);
+
+      const field = await screen.findByLabelText(/Artist Presentation Name/i);
+      await user.clear(field);
+      await user.paste("x".repeat(129));
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(
+        "At most 128 characters",
+      );
+      expect(
+        screen.getByRole("button", { name: "Modify This Artist" }),
+      ).toBeDisabled();
+
+      await user.click(screen.getByRole("button", { name: "Modify This Artist" }));
+      expect(patched).toBe(false);
+    });
+
+    it("refuses an over-long alphabetical name rather than sending it", async () => {
+      const user = userEvent.setup();
+      let patched = false;
+      server.use(
+        http.patch(`${TEST_BACKEND_URL}/library/artists/${ARTIST_ID}`, () => {
+          patched = true;
+          return HttpResponse.json({});
+        }),
+      );
+
+      renderWithProviders(<ArtistCard artistId={ARTIST_ID} />);
+
+      const field = await screen.findByLabelText(/Artist Alphabetical Name/i);
+      await user.clear(field);
+      await user.paste("y".repeat(129));
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(
+        "At most 128 characters",
+      );
+      expect(
+        screen.getByRole("button", { name: "Modify This Artist" }),
+      ).toBeDisabled();
+
+      await user.click(screen.getByRole("button", { name: "Modify This Artist" }));
+      expect(patched).toBe(false);
+    });
+
+    // The column and Backend's own check (`codePointLength(...) <= 128`) both
+    // count code points, not UTF-16 units -- each of these characters is a
+    // surrogate pair (mathematical bold capital A), so this name is 70 code
+    // points but 140 UTF-16 units. A `String#length`- or `maxLength`-based
+    // check would clip it at 64 characters and refuse a name the column can
+    // hold and the server would store; this pins that it is accepted instead.
+    it("accepts an astral-character presentation name within the code-point ceiling", async () => {
+      const user = userEvent.setup();
+      const longName = "𝐀".repeat(70);
+      const bodies: unknown[] = [];
+      server.use(
+        http.patch(
+          `${TEST_BACKEND_URL}/library/artists/${ARTIST_ID}`,
+          async ({ request }) => {
+            bodies.push(await request.json());
+            return HttpResponse.json({
+              id: ARTIST_ID,
+              artist_name: longName,
+              alphabetical_name: artist.alphabetical_name,
+            });
+          },
+        ),
+      );
+
+      renderWithProviders(<ArtistCard artistId={ARTIST_ID} />);
+
+      const field = await screen.findByLabelText(/Artist Presentation Name/i);
+      await user.clear(field);
+      await user.paste(longName);
+
+      expect(screen.queryByText(/At most 128 characters/)).toBeNull();
+      const submitButton = screen.getByRole("button", { name: "Modify This Artist" });
+      expect(submitButton).toBeEnabled();
+
+      await user.click(submitButton);
+
+      await waitFor(() => expect(bodies).toHaveLength(1));
+      expect(bodies[0]).toEqual({
+        artist_name: longName,
+        alphabetical_name: artist.alphabetical_name,
+      });
+    });
   });
 
   describe("the release table", () => {
