@@ -58,22 +58,6 @@ export function bodyReason(data: unknown): string | undefined {
 }
 
 /**
- * A typed extra off the body -- `asset_count`, `conflicts`, whatever a given
- * refusal carries beyond `message` and `reason` -- read only when it matches
- * the guard passed in, so a wrongly-shaped field degrades to `undefined`
- * rather than being trusted.
- */
-export function bodyField<T>(
-  data: unknown,
-  field: string,
-  isField: (value: unknown) => value is T,
-): T | undefined {
-  if (!data || typeof data !== "object") return undefined;
-  const value = (data as Record<string, unknown>)[field];
-  return isField(value) ? value : undefined;
-}
-
-/**
  * True only when the HTTP status and the body's `reason` both match what's
  * expected. Either alone is weaker than it looks: a proxy can return a bare
  * status with no body at all, and a `reason` on the wrong status is not a

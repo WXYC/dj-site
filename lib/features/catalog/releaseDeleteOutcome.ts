@@ -1,5 +1,4 @@
 import {
-  bodyField,
   serverMessage,
   statusAndReasonMatch,
   unwrapEndpointError,
@@ -94,7 +93,9 @@ export function releaseDeleteDigitalAssetsMessage(assetCount: number | undefined
 }
 
 function bodyAssetCount(data: unknown): number | undefined {
-  return bodyField(data, "asset_count", (value): value is number => typeof value === "number");
+  if (!data || typeof data !== "object") return undefined;
+  const count = (data as { asset_count?: unknown }).asset_count;
+  return typeof count === "number" ? count : undefined;
 }
 
 /**
