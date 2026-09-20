@@ -19,6 +19,7 @@ import {
   RotationImportCreatedNotLinked,
   RotationImportLinkConflict,
 } from "@/src/components/experiences/classic/rotation/RotationImportRecovery";
+import { releaseDeleteDigitalAssetsMessage } from "@/lib/features/catalog/releaseDeleteOutcome";
 
 const LIBRARY = `${TEST_BACKEND_URL}/library`;
 
@@ -232,15 +233,21 @@ describe("classic RotationImportLinkConflict — the already-linked backstop", (
     expect(deletedId).toBe("8801");
   });
 
-  // The delete no longer refuses on flowsheet plays, but it can still refuse
-  // on other grounds (a bound digital-asset row, among others), and none of
-  // those get a named outcome from `interpretReleaseDeleteError` — a retry
-  // still cannot succeed, so the delete withdraws the same way.
-  it("states the generic refusal and withdraws the delete for a 409 it does not name", async () => {
+  // This screen shares `interpretReleaseDeleteError` with the catalog's own
+  // delete confirmation rather than reading the body itself, so it inherits
+  // every refusal that module names — including the archive binding, the one
+  // ground the delete still refuses on. Asserted here and not only there
+  // because the shared interpreter is the whole reason a refusal reads the
+  // same on both screens; a body read locally would drift silently.
+  it("names the archive refusal and withdraws the delete, like the catalog screen does", async () => {
     server.use(
       http.delete(`${LIBRARY}/:id`, () =>
         HttpResponse.json(
-          { reason: "digital_asset_references", message: "Cannot delete: release has 3 digital assets on record." },
+          {
+            reason: "digital_asset_references",
+            message: "Cannot delete: release has 3 digital assets on record.",
+            asset_count: 3,
+          },
           { status: 409 },
         ),
       ),
@@ -254,9 +261,7 @@ describe("classic RotationImportLinkConflict — the already-linked backstop", (
     );
 
     expect(
-      await screen.findByText(
-        "This release could not be deleted, and the reason could not be read. Nothing was changed.",
-      ),
+      await screen.findByText(releaseDeleteDigitalAssetsMessage(3)),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Delete the release this import created" }),

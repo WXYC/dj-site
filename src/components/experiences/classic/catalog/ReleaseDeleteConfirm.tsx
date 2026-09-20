@@ -8,7 +8,10 @@ import {
 } from "@/lib/features/catalog/api";
 import { artistCardHref } from "@/lib/features/catalog/artistCardRoute";
 import { formatEntireLibraryCode } from "@/lib/features/catalog/libraryCode";
-import { formatReleaseDeletePlayImpact } from "@/lib/features/catalog/releaseDeletePlayImpact";
+import {
+  formatReleaseDeletePlayImpact,
+  RELEASE_PLAY_COUNTS_UNREADABLE_MESSAGE,
+} from "@/lib/features/catalog/releaseDeletePlayImpact";
 import {
   interpretReleaseDeleteError,
   type ReleaseDeleteRefusal,
@@ -26,8 +29,11 @@ import type { AlbumEntry } from "@/lib/features/catalog/types";
  * forward cannot re-render in place. The delete itself is irreversible, so
  * every state here is explicit and none of them is inferred from absence: a
  * release that failed to load offers no button at all, a refusal states the
- * server's own sentence, and only an actually-resolved delete reaches the
- * past-tense heading.
+ * one sentence `releaseDeleteOutcome.ts` chose for it, and only an
+ * actually-resolved delete reaches the past-tense heading. The refusal copy
+ * is client-owned by the house convention -- the lock stand-down is the sole
+ * outcome that prefers the server's own sentence, because what a locked row is
+ * waiting on is the one detail this screen cannot reconstruct.
  *
  * Divergences from the JSP, each forced rather than chosen:
  *
@@ -77,6 +83,12 @@ export default function ReleaseDeleteConfirm({ albumId }: { albumId: number }) {
     isError: playCountsError,
   } = useGetFlowsheetPlayCountsQuery(albumId, { skip: deleted !== null });
 
+  // `keepUnusedDataFor: 0` means this read is cold on every visit, so the
+  // screen genuinely paints before it lands -- the release row itself resolves
+  // from an already-warm `getInformation` entry. Settled covers both landings:
+  // the counts arrived, or the read failed and never will.
+  const playCountsSettled = playCountsError || playCounts !== undefined;
+
   const release = deleted ?? data;
 
   if (!release) {
@@ -120,15 +132,34 @@ export default function ReleaseDeleteConfirm({ albumId }: { albumId: number }) {
   // correct response to it.
   const canDelete = !deleted && (refusal === null || refusal.retryable);
 
+  // Offered and pressable are different states, and collapsing them is what
+  // makes the play-impact read pointless: a live Delete sitting over
+  // "Checking flowsheet plays..." lets the librarian commit the irreversible
+  // write having been told nothing, which is the state the read exists to
+  // prevent. So the button stays rendered -- withdrawing it here would flip
+  // Cancel to the refusal's "Back to this release" and read as a refusal that
+  // has not happened -- and goes live when the sentence beside it does.
+  //
+  // The wait is one cold request, not an open-ended one: a read that FAILS is
+  // settled, because it will never resolve and holding the button on it would
+  // turn an advisory read into the gate it was explicitly not made.
+  const deletePressable = canDelete && playCountsSettled && !deleting;
+
   // Never guessed. A count this screen could not read must not render as
   // "no plays" -- the one claim it cannot support -- so an unreadable read
   // gets its own honest sentence instead of falling back to the zero-play
-  // message or a blank row. Deletion is not gated on any of these three
-  // states; only the message shown changes.
+  // message or a blank row. A rejected read says so here; a read that
+  // ANSWERED without countable arms says so from inside
+  // `formatReleaseDeletePlayImpact`, in the same words, because the two are
+  // one fact from where the librarian sits.
+  //
+  // Whether the delete is offered is decided above; only the "Checking..."
+  // state holds the button, and it holds it because a blank promise is the one
+  // thing this row must not be when the button beside it is live.
   const playImpactMessage = deleted
     ? null
     : playCountsError
-      ? "The flowsheet play count for this release could not be checked."
+      ? RELEASE_PLAY_COUNTS_UNREADABLE_MESSAGE
       : playCounts
         ? formatReleaseDeletePlayImpact(playCounts)
         : "Checking flowsheet plays...";
@@ -205,14 +236,22 @@ export default function ReleaseDeleteConfirm({ albumId }: { albumId: number }) {
           {playImpactMessage ? (
             <tr>
               <td></td>
-              <td data-testid="release-delete-play-impact">{playImpactMessage}</td>
+              {/* Announced on arrival: the cell is painted as "Checking..."
+                  and rewritten in place a moment later, so a screen-reader
+                  user who has already passed it would otherwise never hear
+                  the sentence the whole screen is here to deliver. `polite`
+                  rather than `assertive` -- it is not an alert, and the
+                  Delete button beside it is disabled until it lands. */}
+              <td data-testid="release-delete-play-impact" aria-live="polite">
+                {playImpactMessage}
+              </td>
             </tr>
           ) : null}
           <tr>
             <td></td>
             <td>
               {canDelete ? (
-                <button type="button" onClick={handleDelete} disabled={deleting}>
+                <button type="button" onClick={handleDelete} disabled={!deletePressable}>
                   Delete
                 </button>
               ) : null}
