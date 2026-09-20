@@ -1,4 +1,4 @@
-import type { FetchBaseQueryError } from "@reduxjs/toolkit/query";
+import { bodyReason, unwrapEndpointError } from "@/lib/rtk-endpoint-error";
 import {
   CALL_LETTER_MODE_REQUIRED_MESSAGE,
   GENRE_REQUIRED_MESSAGE,
@@ -153,14 +153,6 @@ export const UNTRUSTWORTHY_CODE_ANSWER_MESSAGE =
 
 export type ResolveArtistByCodeErrorReason = "genre_not_found" | "code_not_assigned";
 
-type WrappedResolveArtistByCodeError = { resolveArtistByCodeError: FetchBaseQueryError };
-
-function isWrappedResolveArtistByCodeError(
-  err: unknown,
-): err is WrappedResolveArtistByCodeError {
-  return !!err && typeof err === "object" && "resolveArtistByCodeError" in err;
-}
-
 /**
  * The `reason` a structured 404 from `resolveArtistByCode` carries, or
  * `undefined` for every other failure shape -- a 400, a 5xx, a non-JSON
@@ -172,11 +164,8 @@ function isWrappedResolveArtistByCodeError(
 export function resolveArtistByCodeErrorReason(
   err: unknown,
 ): ResolveArtistByCodeErrorReason | undefined {
-  if (!isWrappedResolveArtistByCodeError(err)) return undefined;
-  const inner = err.resolveArtistByCodeError;
-  if (inner.status !== 404) return undefined;
-  const data = inner.data;
-  if (!data || typeof data !== "object") return undefined;
-  const reason = (data as { reason?: unknown }).reason;
+  const inner = unwrapEndpointError("resolveArtistByCodeError", err);
+  if (!inner || inner.status !== 404) return undefined;
+  const reason = bodyReason(inner.data);
   return reason === "genre_not_found" || reason === "code_not_assigned" ? reason : undefined;
 }

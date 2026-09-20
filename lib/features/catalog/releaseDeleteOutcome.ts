@@ -1,4 +1,10 @@
-import type { FetchBaseQueryError } from "@reduxjs/toolkit/query";
+import {
+  bodyField,
+  serverMessage,
+  statusAndReasonMatch,
+  unwrapEndpointError,
+  unwrapEndpointErrorOrRaw,
+} from "@/lib/rtk-endpoint-error";
 
 /**
  * Why `DELETE /library/:id` did not delete. `unknown` is every shape this
@@ -87,35 +93,8 @@ export function releaseDeleteDigitalAssetsMessage(assetCount: number | undefined
   );
 }
 
-type WrappedDeleteAlbumError = { deleteAlbumError: FetchBaseQueryError };
-
-function isWrappedDeleteAlbumError(err: unknown): err is WrappedDeleteAlbumError {
-  return !!err && typeof err === "object" && "deleteAlbumError" in err;
-}
-
-/**
- * The server's `message` when it sent a usable one. A blank or non-string
- * message is treated as absent rather than rendered: an empty refusal banner
- * on a delete screen reads as "nothing happened", which is the one thing a
- * refusal must never look like.
- */
-function serverMessage(data: unknown): string | undefined {
-  if (!data || typeof data !== "object") return undefined;
-  const message = (data as { message?: unknown }).message;
-  if (typeof message !== "string") return undefined;
-  return message.trim() === "" ? undefined : message;
-}
-
 function bodyAssetCount(data: unknown): number | undefined {
-  if (!data || typeof data !== "object") return undefined;
-  const count = (data as { asset_count?: unknown }).asset_count;
-  return typeof count === "number" ? count : undefined;
-}
-
-function bodyReason(data: unknown): string | undefined {
-  if (!data || typeof data !== "object") return undefined;
-  const reason = (data as { reason?: unknown }).reason;
-  return typeof reason === "string" ? reason : undefined;
+  return bodyField(data, "asset_count", (value): value is number => typeof value === "number");
 }
 
 /**
@@ -154,9 +133,7 @@ function bodyReason(data: unknown): string | undefined {
  * genuinely unknown, and this returns false so callers take the cautious path.
  */
 export function deleteAnsweredWithoutWriting(err: unknown): boolean {
-  if (!err || typeof err !== "object") return false;
-  const inner = isWrappedDeleteAlbumError(err) ? err.deleteAlbumError : err;
-  const status = (inner as { status?: unknown }).status;
+  const status = unwrapEndpointErrorOrRaw("deleteAlbumError", err)?.status;
   return typeof status === "number" && status < 500;
 }
 
@@ -169,8 +146,9 @@ export function interpretReleaseDeleteError(err: unknown): ReleaseDeleteRefusal 
 
   // An unwrapped rejection never reached this endpoint's transform, so nothing
   // is known about whether the request was even sent.
-  if (!isWrappedDeleteAlbumError(err)) return indeterminate;
-  const { status, data } = err.deleteAlbumError;
+  const inner = unwrapEndpointError("deleteAlbumError", err);
+  if (!inner) return indeterminate;
+  const { status, data } = inner;
 
   const unclassified: ReleaseDeleteRefusal = deleteAnsweredWithoutWriting(err)
     ? { reason: "unknown", message: RELEASE_DELETE_FALLBACK_MESSAGE, retryable: false }
@@ -179,7 +157,7 @@ export function interpretReleaseDeleteError(err: unknown): ReleaseDeleteRefusal 
   // Status and `reason` must agree. Either alone is weaker than it looks: a
   // proxy can return a bare 503 with no body at all, and a `reason` on the
   // wrong status is not a shape this endpoint produces.
-  if (status === 503 && bodyReason(data) === "lock_unavailable") {
+  if (statusAndReasonMatch(inner, 503, "lock_unavailable")) {
     return {
       reason: "lock_unavailable",
       message: serverMessage(data) ?? RELEASE_DELETE_LOCK_MESSAGE,
@@ -187,7 +165,7 @@ export function interpretReleaseDeleteError(err: unknown): ReleaseDeleteRefusal 
     };
   }
 
-  if (status === 409 && bodyReason(data) === "digital_asset_references") {
+  if (statusAndReasonMatch(inner, 409, "digital_asset_references")) {
     return {
       reason: "digital_assets",
       message: releaseDeleteDigitalAssetsMessage(bodyAssetCount(data)),

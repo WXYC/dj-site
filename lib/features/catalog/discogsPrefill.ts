@@ -1,3 +1,5 @@
+import { serverMessage, unwrapEndpointErrorOrRaw } from "@/lib/rtk-endpoint-error";
+
 /**
  * Helpers behind the rotation filing bench's "Autopopulate with Discogs link"
  * field: the definitive-link the resolved release records, and the inline
@@ -52,22 +54,13 @@ const GENERIC_AUTOFILL_ERROR =
  * the `getDiscogsPrefill` error nesting as well as a bare error object.
  */
 export function discogsPrefillErrorMessage(error: unknown): string {
-  const unwrapped =
-    error && typeof error === "object" && "discogsPrefillError" in error
-      ? (error as { discogsPrefillError: unknown }).discogsPrefillError
-      : error;
+  const unwrapped = unwrapEndpointErrorOrRaw("discogsPrefillError", error);
+  if (!unwrapped) return GENERIC_AUTOFILL_ERROR;
 
-  if (!unwrapped || typeof unwrapped !== "object") return GENERIC_AUTOFILL_ERROR;
-
-  const status = (unwrapped as { status?: unknown }).status;
+  const status = unwrapped.status;
   if (typeof status !== "number" || status < 400 || status >= 500) {
     return GENERIC_AUTOFILL_ERROR;
   }
 
-  const data = (unwrapped as { data?: unknown }).data;
-  if (data && typeof data === "object" && "message" in data) {
-    const message = (data as { message?: unknown }).message;
-    if (typeof message === "string" && message.trim().length > 0) return message;
-  }
-  return GENERIC_AUTOFILL_ERROR;
+  return serverMessage(unwrapped.data) ?? GENERIC_AUTOFILL_ERROR;
 }

@@ -1,4 +1,4 @@
-import type { FetchBaseQueryError } from "@reduxjs/toolkit/query";
+import { serverMessage, unwrapEndpointError } from "@/lib/rtk-endpoint-error";
 
 /**
  * The rotation row was linked to a library release by something else while
@@ -32,28 +32,8 @@ export const LINK_ROTATION_FALLBACK_MESSAGE =
 export const LINK_ROTATION_INDETERMINATE_MESSAGE =
   "The rotation release may or may not have been linked — no answer came back. Reload before trying again.";
 
-type WrappedLinkRotationError = { linkRotationError: FetchBaseQueryError };
-
-function isWrappedLinkRotationError(err: unknown): err is WrappedLinkRotationError {
-  return !!err && typeof err === "object" && "linkRotationError" in err;
-}
-
-/**
- * The server's `message` when it sent a usable one. A blank or non-string
- * message is treated as absent rather than rendered: an empty banner on a
- * screen whose whole purpose is to explain a half-finished write reads as
- * "nothing happened", which is the one thing it must never look like.
- */
-function serverMessage(data: unknown): string | undefined {
-  if (!data || typeof data !== "object") return undefined;
-  const message = (data as { message?: unknown }).message;
-  if (typeof message !== "string") return undefined;
-  return message.trim() === "" ? undefined : message;
-}
-
 function linkStatus(err: unknown): number | string | undefined {
-  if (!isWrappedLinkRotationError(err)) return undefined;
-  return err.linkRotationError.status;
+  return unwrapEndpointError("linkRotationError", err)?.status;
 }
 
 /**
@@ -82,9 +62,7 @@ export function linkRotationFailureMessage(err: unknown): string {
   const status = linkStatus(err);
   if (typeof status !== "number" || status >= 500) return LINK_ROTATION_INDETERMINATE_MESSAGE;
 
-  const message = isWrappedLinkRotationError(err)
-    ? serverMessage(err.linkRotationError.data)
-    : undefined;
+  const message = serverMessage(unwrapEndpointError("linkRotationError", err)?.data);
 
   if (status === 404) {
     return message?.toLowerCase().includes("album")

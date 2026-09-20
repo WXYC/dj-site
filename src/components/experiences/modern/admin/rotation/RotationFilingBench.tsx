@@ -44,6 +44,7 @@ import {
 } from "@/lib/features/catalog/libraryCode";
 import type { ArtistInGenreOption } from "@/lib/features/catalog/types";
 import { ROTATION_BIN_LABELS, type Rotation, RotationBin } from "@/lib/features/rotation/types";
+import { unwrapEndpointErrorOrRaw } from "@/lib/rtk-endpoint-error";
 import { useArtistDedupCheck } from "@/src/hooks/catalogHooks";
 import { useCompilationBucketResolution } from "@/src/hooks/useCompilationBucketResolution";
 import ArtistSearchTypeahead from "@/src/components/shared/inputs/ArtistSearchTypeahead";
@@ -543,10 +544,7 @@ export default function RotationFilingBench(): JSX.Element {
     } catch (err) {
       // fileRelease nests its rejection under `fileReleaseError` to stay out
       // of the shared toast middleware; unwrap the nest before reading it.
-      const wrapped =
-        err && typeof err === "object" && "fileReleaseError" in err
-          ? (err as { fileReleaseError: unknown }).fileReleaseError
-          : err;
+      const wrapped = unwrapEndpointErrorOrRaw("fileReleaseError", err);
       if (isLibraryFilingConflict(wrapped)) {
         setConflict({
           data: wrapped.data,
