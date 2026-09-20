@@ -520,21 +520,36 @@ describe("Classic ReleaseMoveForm — libraryReleaseModifyLibCode.jsp", () => {
   // No `maxLength` on the call-letters lookup box any more: it would have
   // silently clipped a paste past four characters to a prefix that can be a
   // real but unintended artist's code, resolving to the wrong destination
-  // instead of refusing the paste. `isCanonicalCodeLetters` inside
-  // `composeLibraryCodeSearchArgs` already refuses anything over four
-  // characters (it is a `{1,4}` charset regex), so removing the attribute
-  // needs no new check -- this pins that the existing one still fires once
-  // typing five characters is no longer clipped to four first.
-  it("refuses an over-length call-letters lookup rather than searching a truncated prefix", async () => {
+  // instead of refusing the paste. The refusal has to NAME the length: every
+  // character of "ABCDE" is legal, so the charset sentence -- which is what a
+  // bare `isCanonicalCodeLetters` boolean produces, since it is a `{1,4}`
+  // regex answering both questions at once -- describes nothing the librarian
+  // typed and never states the ceiling.
+  it("refuses an over-length call-letters lookup by naming the length, not the charset", async () => {
     loaded();
 
     renderWithProviders(<ReleaseMoveForm albumId={53375} />);
     await lookUpCode("ABCDE", "1");
 
-    expect(screen.getByTestId("release-move-message").textContent).toContain(
-      "Call letters must be letters, digits, or a slash.",
-    );
+    const message = screen.getByTestId("release-move-message").textContent;
+    expect(message).toContain("Call letters must be at most 4 characters.");
+    expect(message).not.toContain("letters, digits, or a slash");
     expect(mockResolveArtistByCode).not.toHaveBeenCalled();
+  });
+
+  // The other half of the same code, which kept its `maxLength` while the
+  // letters half lost one. A clipped call NUMBER is the more dangerous of the
+  // two: "1234" becomes "123", which parses, resolves to whatever real artist
+  // holds code 123, and arms a destination the librarian never asked for.
+  it("looks up the full call number rather than a prefix clipped to three digits", async () => {
+    loaded();
+
+    renderWithProviders(<ReleaseMoveForm albumId={53375} />);
+    await lookUpCode("MO", "1234");
+
+    expect(mockResolveArtistByCode).toHaveBeenCalledWith(
+      expect.objectContaining({ code_number: 1234 }),
+    );
   });
 
   it("offers a retry rather than blaming the librarian when genres are unavailable", async () => {

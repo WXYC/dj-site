@@ -28,26 +28,44 @@ export function parseRequiredPositiveInt(raw: string): number | null {
 }
 
 /**
- * Characters, not UTF-16 units, after NFC normalization. Every `varchar(n)`
- * ceiling in this module is a character limit, and Backend measures them the
- * same way (its own `codePointLength`, called on `value.normalize('NFC')`) --
- * an astral character (a surrogate pair in JS, one character to PostgreSQL)
- * must cost one slot rather than two, exactly like `String#length` would get
- * wrong in the other direction.
+ * Characters, not UTF-16 units. Every `varchar(n)` ceiling in this module is a
+ * character limit, and an astral character (a surrogate pair in JS, one
+ * character to PostgreSQL) must cost one slot rather than the two `String#length`
+ * would charge it.
  *
- * Normalizing here is a deliberate decision, not a side effect: this function
- * backs every ceiling in the module (`artistNameTooLong`, `codeLettersTooLong`,
- * `releaseVolumeLettersTooLong`), so all three move together rather than one
- * of them quietly disagreeing with its neighbours the way `artist_name` used
- * to disagree with the server. NFC is not length-non-increasing -- a
- * composition-exclusion codepoint (e.g. U+0958, DEVANAGARI LETTER QA) fully
- * decomposes and is then barred from recomposing, so it counts as two code
- * points here despite being one before normalization. A name that previously
- * passed a client check built on the old, non-normalizing count and was
- * refused server-side is now refused here too, visibly and before submit --
- * that is the fix, not a regression.
+ * **Does NOT normalize.** Whether to normalize is per column, not per module,
+ * because the server is per column: `validateCodeVolumeLetters` measures the
+ * raw trimmed value, while `validateArtistCodeLetters` and the `artist_name` /
+ * `alphabetical_name` paths measure `value.normalize('NFC')` first. Applying NFC
+ * to all of them "so they move together" is what a first draft of this change
+ * did, and it made `code_volume_letters` disagree with the server in BOTH
+ * directions -- see `normalizedCodePointLength` for why the disagreement is
+ * two-sided rather than merely strict.
  */
 function codePointLength(value: string): number {
+  return Array.from(value).length;
+}
+
+/**
+ * Code points after NFC normalization -- for the columns whose server check
+ * normalizes first (`code_letters`, `artist_name`, `alphabetical_name`), and
+ * only those.
+ *
+ * NFC is not length-non-increasing in either direction, which is why matching
+ * the server per column matters rather than picking whichever is stricter:
+ *
+ *   - a composition-exclusion codepoint (U+0958, DEVANAGARI LETTER QA) fully
+ *     decomposes and is barred from recomposing, so it counts ONE raw and TWO
+ *     normalized -- normalizing over-rejects a value the raw check accepts;
+ *   - Hangul jamo compose, so four syllables spelled as jamo count EIGHT raw
+ *     and FOUR normalized -- normalizing under-rejects a value the raw check
+ *     refuses.
+ *
+ * So a column measured raw server-side and normalized here refuses legal saves
+ * AND lets illegal ones through to an unlabelled 400. Use whichever the server
+ * uses for that column, and nothing else.
+ */
+function normalizedCodePointLength(value: string): number {
   return Array.from(value.normalize("NFC")).length;
 }
 
@@ -70,14 +88,18 @@ export const CODE_NUMBER_MAX = 2147483647;
 
 /**
  * Whether an `artist_name` or `alphabetical_name` value exceeds the
- * varchar(128) ceiling both columns share on `artists`, counted in code
- * points -- like `releaseVolumeLettersTooLong` below and Backend's own
- * `codePointLength` check, so a surrogate pair does not cost two of the 128
- * slots here and then get accepted server-side anyway. Trims first, matching
- * what every caller sends as the field's value.
+ * varchar(128) ceiling both columns share on `artists`, counted in code points
+ * after NFC normalization -- matching what Backend does to these two columns
+ * specifically (it normalizes both before measuring), so a surrogate pair does
+ * not cost two of the 128 slots here and then get accepted server-side anyway.
+ * Trims first, matching what every caller sends as the field's value.
+ *
+ * NOT the same measurement as `releaseVolumeLettersTooLong` below, which is raw
+ * because its column's server check is raw. The ceilings in this module
+ * deliberately do not move together; see `codePointLength`.
  */
 export function artistNameTooLong(value: string): boolean {
-  return codePointLength(value.trim()) > ARTIST_NAME_MAX_LENGTH;
+  return normalizedCodePointLength(value.trim()) > ARTIST_NAME_MAX_LENGTH;
 }
 
 /**
@@ -92,7 +114,7 @@ export function artistNameTooLong(value: string): boolean {
  * call letters outside that helper's shape.
  */
 export function codeLettersTooLong(value: string): boolean {
-  return codePointLength(value.trim()) > CODE_LETTERS_MAX_LENGTH;
+  return normalizedCodePointLength(value.trim()) > CODE_LETTERS_MAX_LENGTH;
 }
 
 /**
@@ -175,12 +197,19 @@ export function parseReleaseCodeNumber(raw: string): number | null {
  * in code points, matching how Backend measures it
  * (`validateCodeVolumeLetters` counts code points, not UTF-16 units) so a
  * surrogate pair does not cost two of the four slots here and then get stored
- * server-side anyway. Inherits NFC normalization from `codePointLength`
- * rather than opting out of it: this column shares the shared helper with
- * `artistNameTooLong` and `codeLettersTooLong` deliberately, so all three
- * volume-letters/call-letters/name ceilings agree with the server on the same
- * input instead of one of them quietly measuring a decomposed form longer
- * than its composed equivalent.
+ * server-side anyway.
+ *
+ * **Raw, NOT NFC-normalized**, because `validateCodeVolumeLetters` is raw --
+ * unlike `validateArtistCodeLetters` and the two name columns, which normalize
+ * first and whose client checks therefore do too. Normalizing this one to keep
+ * the module uniform is a real defect in both directions, not a harmless extra
+ * strictness: U+0958 counts one raw and two normalized, so normalizing refuses
+ * a four-character value the server and the column both accept -- and on
+ * `ReleaseCard` that early return also blocks the title, alternate-artist and
+ * format edits submitted alongside it. Hangul jamo go the other way, eight raw
+ * and four normalized, so normalizing lets through a value the server refuses
+ * as an unattributed 400 on the rotation-import screen, which is exactly the
+ * failure this client check exists to pre-empt. Match the server per column.
  *
  * A second, unreconciled declaration of this column's domain exists:
  * `lib/features/rotation/importedConfirmation.ts`'s

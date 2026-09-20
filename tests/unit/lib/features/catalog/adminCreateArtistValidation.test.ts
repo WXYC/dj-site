@@ -312,19 +312,40 @@ describe("releaseVolumeLettersTooLong", () => {
     expect(releaseVolumeLettersTooLong("𝐀𝐁𝐂𝐃")).toBe(false);
   });
 
-  // Inherits NFC normalization from the shared `codePointLength` helper: a
-  // deliberate decision (see that function's doc), not a side effect, so this
-  // column's ceiling agrees with `artistNameTooLong`'s and
-  // `codeLettersTooLong`'s on the same input rather than being the one
-  // ceiling in the module still measuring a decomposed form differently.
-  it("measures a composition-exclusion codepoint after NFC normalization, matching the other ceilings in this module", () => {
-    // U+0958 (Devanagari letter QA) is one code point before normalization
-    // but two after: it fully decomposes under NFC and is barred from
-    // recomposing (a "composition exclusion"). At the boundary that turns an
-    // apparently-in-range 4-code-point value into 5 after normalization.
+  // This column's server check (`validateCodeVolumeLetters`) measures the RAW
+  // trimmed value \u2014 unlike `code_letters` and the two name columns, whose
+  // checks normalize to NFC first. So this ceiling must not normalize either,
+  // and the two cases below are the reason it matters in both directions rather
+  // than normalizing being harmlessly stricter.
+  //
+  // An earlier revision of this suite asserted the opposite of the first case,
+  // on the grounds that every ceiling in the module should "agree with its
+  // neighbours". It was pinning the defect: agreement across the module is not
+  // the property that matters, agreement with the server per column is.
+  it("does NOT normalize: a composition-exclusion codepoint stays one character, as the server counts it", () => {
+    // U+0958 (Devanagari letter QA) is one code point raw and two after NFC \u2014
+    // it fully decomposes and is barred from recomposing. Four raw characters
+    // is a legal value the column stores and the server accepts, so
+    // normalizing here would refuse a save the server would take.
     const atRawBoundary = "a".repeat(RELEASE_VOLUME_LETTERS_MAX_LENGTH - 1) + "\u0958";
     expect(Array.from(atRawBoundary)).toHaveLength(RELEASE_VOLUME_LETTERS_MAX_LENGTH);
-    expect(releaseVolumeLettersTooLong(atRawBoundary)).toBe(true);
+    expect(Array.from(atRawBoundary.normalize("NFC"))).toHaveLength(
+      RELEASE_VOLUME_LETTERS_MAX_LENGTH + 1,
+    );
+    expect(releaseVolumeLettersTooLong(atRawBoundary)).toBe(false);
+  });
+
+  it("does NOT normalize: composing jamo stay over the ceiling, as the server counts them", () => {
+    // The other direction, which is what makes normalizing a two-sided defect
+    // rather than mere strictness: four Hangul syllables spelled as jamo are
+    // eight code points raw and four after NFC. Normalizing would let this
+    // through to the server, which counts eight and answers an unattributed
+    // 400 \u2014 on the rotation-import screen, where that is exactly the failure
+    // this client check exists to pre-empt.
+    const jamo = "\u1100\u1161".repeat(RELEASE_VOLUME_LETTERS_MAX_LENGTH);
+    expect(Array.from(jamo)).toHaveLength(RELEASE_VOLUME_LETTERS_MAX_LENGTH * 2);
+    expect(Array.from(jamo.normalize("NFC"))).toHaveLength(RELEASE_VOLUME_LETTERS_MAX_LENGTH);
+    expect(releaseVolumeLettersTooLong(jamo)).toBe(true);
   });
 });
 

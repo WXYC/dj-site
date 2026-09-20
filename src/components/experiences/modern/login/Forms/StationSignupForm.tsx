@@ -194,12 +194,25 @@ export default function StationSignupForm() {
   // admin "Add DJ" form fails fast against. The server stays the authority;
   // this only spares a DJ a 400 that reads exactly like a taken username, and
   // spares the station-wide cooldown an attempt spent on a typo.
+  //
+  // Every ceiling here has to be a real gate, because none of these fields
+  // carries `maxLength` any more. `maxLength` truncated a paste before React
+  // saw it, which on THIS form means an account provisioned under a handle or
+  // against an email address the DJ never entered and cannot then use — the
+  // username and password branches below existed already and were simply
+  // unreachable while the attribute clipped the value first. The email, real
+  // name and DJ name ceilings are new: without them, removing the attribute
+  // would trade a silent truncation for an unlabelled 400, which is not an
+  // improvement.
   const detailsValid =
     getUsernameError(details.username.trim()) === null &&
     isValidEmail(details.email.trim()) &&
+    details.email.trim().length <= TEXT_MAX_LENGTH &&
     details.password.length >= PASSWORD_MIN_LENGTH &&
     details.password.length <= PASSWORD_MAX_LENGTH &&
-    details.realName.trim().length > 0;
+    details.realName.trim().length > 0 &&
+    details.realName.trim().length <= TEXT_MAX_LENGTH &&
+    details.djName.trim().length <= TEXT_MAX_LENGTH;
 
   if (phase === "unavailable") {
     return (
@@ -288,6 +301,13 @@ export default function StationSignupForm() {
             name="passcode"
             type="text"
             autoFocus
+            // The one `maxLength` deliberately kept on this form. Every other
+            // field here is persisted, so a clipped paste becomes a stored
+            // value nobody chose; the passcode is compared server-side and
+            // never stored, so a clipped one simply fails to match — visibly,
+            // immediately, and without creating anything. Capping it also stops
+            // an over-long paste spending one of the station-wide cooldown's
+            // attempts on a value that cannot be right.
             slotProps={{ input: { maxLength: PASSCODE_MAX_LENGTH } }}
             value={passcode}
             onChange={(event) => setPasscode(event.target.value)}
@@ -326,7 +346,6 @@ export default function StationSignupForm() {
         <FormLabel>Username</FormLabel>
         <Input
           name="username"
-          slotProps={{ input: { maxLength: MAX_USERNAME_LENGTH } }}
           value={details.username}
           disabled={isLoading}
           onChange={(event) =>
@@ -343,7 +362,6 @@ export default function StationSignupForm() {
         <Input
           name="email"
           type="email"
-          slotProps={{ input: { maxLength: TEXT_MAX_LENGTH } }}
           value={details.email}
           disabled={isLoading}
           onChange={(event) =>
@@ -356,7 +374,6 @@ export default function StationSignupForm() {
         <Input
           name="password"
           type="password"
-          slotProps={{ input: { maxLength: PASSWORD_MAX_LENGTH } }}
           value={details.password}
           disabled={isLoading}
           onChange={(event) =>
@@ -371,7 +388,6 @@ export default function StationSignupForm() {
         <FormLabel>Real name</FormLabel>
         <Input
           name="realName"
-          slotProps={{ input: { maxLength: TEXT_MAX_LENGTH } }}
           value={details.realName}
           disabled={isLoading}
           onChange={(event) =>
@@ -383,7 +399,6 @@ export default function StationSignupForm() {
         <FormLabel>DJ name (optional)</FormLabel>
         <Input
           name="djName"
-          slotProps={{ input: { maxLength: TEXT_MAX_LENGTH } }}
           value={details.djName}
           disabled={isLoading}
           onChange={(event) =>
