@@ -25,15 +25,18 @@ export function unwrapEndpointError<Key extends string>(
  * level apart -- a `.catch` on a call site RTK does not finish transforming
  * before it throws, or a tag-invalidation callback typed against the raw
  * shape -- rather than for callers where only the wrapped shape is ever real.
- * Each caller's choice between the two is a decision already made in the
- * classifier it moved from; keep it, don't default to one.
+ * Picking this over `unwrapEndpointError` is a per-caller decision: a caller
+ * whose raw shape can be something other than an object or the wrapped
+ * rejection (a bare string, for instance) must not reach for this -- it
+ * narrows any non-object raw value to `undefined`.
  */
 export function unwrapEndpointErrorOrRaw<Key extends string>(
   key: Key,
   err: unknown,
 ): FetchBaseQueryError | undefined {
-  const wrapped = unwrapEndpointError(key, err);
-  if (wrapped) return wrapped;
+  if (err && typeof err === "object" && key in err) {
+    return (err as Record<Key, FetchBaseQueryError>)[key];
+  }
   return err && typeof err === "object" ? (err as FetchBaseQueryError) : undefined;
 }
 
@@ -55,18 +58,4 @@ export function bodyReason(data: unknown): string | undefined {
   if (!data || typeof data !== "object") return undefined;
   const reason = (data as { reason?: unknown }).reason;
   return typeof reason === "string" ? reason : undefined;
-}
-
-/**
- * True only when the HTTP status and the body's `reason` both match what's
- * expected. Either alone is weaker than it looks: a proxy can return a bare
- * status with no body at all, and a `reason` on the wrong status is not a
- * shape any handler produces.
- */
-export function statusAndReasonMatch(
-  inner: { status?: unknown; data?: unknown } | undefined,
-  status: number,
-  reason: string,
-): boolean {
-  return inner?.status === status && bodyReason(inner.data) === reason;
 }

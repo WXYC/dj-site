@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import {
   bodyReason,
   serverMessage,
-  statusAndReasonMatch,
   unwrapEndpointError,
   unwrapEndpointErrorOrRaw,
 } from "@/lib/rtk-endpoint-error";
@@ -41,6 +40,14 @@ describe("unwrapEndpointErrorOrRaw", () => {
     expect(unwrapEndpointErrorOrRaw("deleteAlbumError", "oops")).toBeUndefined();
     expect(unwrapEndpointErrorOrRaw("deleteAlbumError", undefined)).toBeUndefined();
   });
+
+  it("returns a falsy wrapped value rather than the wrapper object", () => {
+    expect(unwrapEndpointErrorOrRaw("deleteAlbumError", { deleteAlbumError: null })).toBeNull();
+  });
+
+  it("returns a non-object wrapped value rather than falling back to raw", () => {
+    expect(unwrapEndpointErrorOrRaw("deleteAlbumError", { deleteAlbumError: "oops" })).toBe("oops");
+  });
 });
 
 describe("serverMessage", () => {
@@ -67,27 +74,5 @@ describe("bodyReason", () => {
 
   it.each([[undefined], [{ reason: 1 }], ["oops"]])("treats %p as absent", (data) => {
     expect(bodyReason(data)).toBeUndefined();
-  });
-});
-
-describe("statusAndReasonMatch", () => {
-  it("matches when both the status and the reason agree", () => {
-    expect(
-      statusAndReasonMatch({ status: 503, data: { reason: "lock_unavailable" } }, 503, "lock_unavailable"),
-    ).toBe(true);
-  });
-
-  it("refuses a matching reason on the wrong status", () => {
-    expect(
-      statusAndReasonMatch({ status: 500, data: { reason: "lock_unavailable" } }, 503, "lock_unavailable"),
-    ).toBe(false);
-  });
-
-  it("refuses a matching status with no body", () => {
-    expect(statusAndReasonMatch({ status: 503, data: undefined }, 503, "lock_unavailable")).toBe(false);
-  });
-
-  it("refuses when inner is undefined", () => {
-    expect(statusAndReasonMatch(undefined, 503, "lock_unavailable")).toBe(false);
   });
 });

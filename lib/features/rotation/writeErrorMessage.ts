@@ -1,6 +1,6 @@
 import type { FetchBaseQueryError } from "@reduxjs/toolkit/query";
 import { backendWriteErrorMessage } from "@/lib/backend-error-message";
-import { unwrapEndpointErrorOrRaw } from "@/lib/rtk-endpoint-error";
+import { unwrapEndpointError } from "@/lib/rtk-endpoint-error";
 
 type WrappedRotationWriteError = { rotationWriteError: FetchBaseQueryError };
 
@@ -15,7 +15,18 @@ export function wrapRotationWriteError(response: FetchBaseQueryError): WrappedRo
   return { rotationWriteError: response };
 }
 
-/** `.unwrap()` throws the wrapper above verbatim, so the server's own message is one level down. */
+/**
+ * `.unwrap()` throws the wrapper above verbatim, so the server's own message is
+ * one level down. An unwrapped rejection is passed to `backendWriteErrorMessage`
+ * verbatim rather than through `unwrapEndpointErrorOrRaw`: the shared write
+ * path rejects with a bare string when no DJ is signed in, and narrowing that
+ * to an object would drop it into the generic fallback instead of
+ * `backendWriteErrorMessage`'s own string branch.
+ */
 export function rotationWriteErrorMessage(err: unknown, fallback: string): string {
-  return backendWriteErrorMessage(unwrapEndpointErrorOrRaw("rotationWriteError", err), fallback);
+  const isWrapped = !!err && typeof err === "object" && "rotationWriteError" in err;
+  return backendWriteErrorMessage(
+    isWrapped ? unwrapEndpointError("rotationWriteError", err) : err,
+    fallback,
+  );
 }

@@ -1,6 +1,6 @@
 import {
+  bodyReason,
   serverMessage,
-  statusAndReasonMatch,
   unwrapEndpointError,
   unwrapEndpointErrorOrRaw,
 } from "@/lib/rtk-endpoint-error";
@@ -96,6 +96,20 @@ function bodyAssetCount(data: unknown): number | undefined {
   if (!data || typeof data !== "object") return undefined;
   const count = (data as { asset_count?: unknown }).asset_count;
   return typeof count === "number" ? count : undefined;
+}
+
+/**
+ * True only when the HTTP status and the body's `reason` both match what's
+ * expected. Either alone is weaker than it looks: a proxy can return a bare
+ * status with no body at all, and a `reason` on the wrong status is not a
+ * shape this endpoint produces.
+ */
+function statusAndReasonMatch(
+  inner: { status?: unknown; data?: unknown } | undefined,
+  status: number,
+  reason: string,
+): boolean {
+  return inner?.status === status && bodyReason(inner.data) === reason;
 }
 
 /**
