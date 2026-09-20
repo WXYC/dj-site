@@ -232,13 +232,15 @@ describe("classic RotationImportLinkConflict — the already-linked backstop", (
     expect(deletedId).toBe("8801");
   });
 
-  // A release carrying flowsheet plays cannot be deleted, and the librarian
-  // needs the server's own sentence rather than a retry that cannot succeed.
-  it("states the server's refusal and withdraws the delete when it is refused on the merits", async () => {
+  // The delete no longer refuses on flowsheet plays, but it can still refuse
+  // on other grounds (a bound digital-asset row, among others), and none of
+  // those get a named outcome from `interpretReleaseDeleteError` — a retry
+  // still cannot succeed, so the delete withdraws the same way.
+  it("states the generic refusal and withdraws the delete for a 409 it does not name", async () => {
     server.use(
       http.delete(`${LIBRARY}/:id`, () =>
         HttpResponse.json(
-          { reason: "flowsheet_references", message: "Cannot delete: 3 flowsheet plays reference this release." },
+          { reason: "digital_asset_references", message: "Cannot delete: release has 3 digital assets on record." },
           { status: 409 },
         ),
       ),
@@ -252,7 +254,9 @@ describe("classic RotationImportLinkConflict — the already-linked backstop", (
     );
 
     expect(
-      await screen.findByText("Cannot delete: 3 flowsheet plays reference this release."),
+      await screen.findByText(
+        "This release could not be deleted, and the reason could not be read. Nothing was changed.",
+      ),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Delete the release this import created" }),
