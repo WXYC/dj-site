@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  bodyCode,
   bodyReason,
   serverMessage,
   unwrapEndpointError,
@@ -74,5 +75,15 @@ describe("bodyReason", () => {
 
   it.each([[undefined], [{ reason: 1 }], ["oops"]])("treats %p as absent", (data) => {
     expect(bodyReason(data)).toBeUndefined();
+  });
+});
+
+describe("bodyCode", () => {
+  it("reads a string code", () => {
+    expect(bodyCode({ code: "library_slot_conflict" })).toBe("library_slot_conflict");
+  });
+
+  it.each([[undefined], [null], [{ code: 1 }], ["oops"]])("treats %p as absent", (data) => {
+    expect(bodyCode(data)).toBeUndefined();
   });
 });
