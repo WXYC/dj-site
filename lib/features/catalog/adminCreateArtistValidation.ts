@@ -28,15 +28,27 @@ export function parseRequiredPositiveInt(raw: string): number | null {
 }
 
 /**
- * Characters, not UTF-16 units. Every `varchar(n)` ceiling in this module is a
- * character limit, and Backend measures them the same way (its own
- * `codePointLength`), so an astral character -- a surrogate pair in JS, one
- * character to PostgreSQL -- must cost one slot rather than two.
- * `String#length` would refuse input the column can hold and the server would
- * have accepted, with no round trip to contradict the refusal.
+ * Characters, not UTF-16 units, after NFC normalization. Every `varchar(n)`
+ * ceiling in this module is a character limit, and Backend measures them the
+ * same way (its own `codePointLength`, called on `value.normalize('NFC')`) --
+ * an astral character (a surrogate pair in JS, one character to PostgreSQL)
+ * must cost one slot rather than two, exactly like `String#length` would get
+ * wrong in the other direction.
+ *
+ * Normalizing here is a deliberate decision, not a side effect: this function
+ * backs every ceiling in the module (`artistNameTooLong`, `codeLettersTooLong`,
+ * `releaseVolumeLettersTooLong`), so all three move together rather than one
+ * of them quietly disagreeing with its neighbours the way `artist_name` used
+ * to disagree with the server. NFC is not length-non-increasing -- a
+ * composition-exclusion codepoint (e.g. U+0958, DEVANAGARI LETTER QA) fully
+ * decomposes and is then barred from recomposing, so it counts as two code
+ * points here despite being one before normalization. A name that previously
+ * passed a client check built on the old, non-normalizing count and was
+ * refused server-side is now refused here too, visibly and before submit --
+ * that is the fix, not a regression.
  */
 function codePointLength(value: string): number {
-  return Array.from(value).length;
+  return Array.from(value.normalize("NFC")).length;
 }
 
 /**
@@ -66,6 +78,21 @@ export const CODE_NUMBER_MAX = 2147483647;
  */
 export function artistNameTooLong(value: string): boolean {
   return codePointLength(value.trim()) > ARTIST_NAME_MAX_LENGTH;
+}
+
+/**
+ * Whether a `code_letters` value exceeds the `varchar(4)` ceiling
+ * `artists.code_letters` holds, counted in code points after NFC
+ * normalization -- matching Backend's own `validateArtistCodeLetters`, so a
+ * decomposed form of the same code is measured the same as its composed one
+ * and neither passes here only to be refused server-side. Trims first,
+ * matching what every caller sends as the field's value. The one exported
+ * check for this column: `validateNewArtistFields` below calls it rather than
+ * repeating the count, and so does every classic-experience form that collects
+ * call letters outside that helper's shape.
+ */
+export function codeLettersTooLong(value: string): boolean {
+  return codePointLength(value.trim()) > CODE_LETTERS_MAX_LENGTH;
 }
 
 /**
@@ -148,7 +175,12 @@ export function parseReleaseCodeNumber(raw: string): number | null {
  * in code points, matching how Backend measures it
  * (`validateCodeVolumeLetters` counts code points, not UTF-16 units) so a
  * surrogate pair does not cost two of the four slots here and then get stored
- * server-side anyway.
+ * server-side anyway. Inherits NFC normalization from `codePointLength`
+ * rather than opting out of it: this column shares the shared helper with
+ * `artistNameTooLong` and `codeLettersTooLong` deliberately, so all three
+ * volume-letters/call-letters/name ceilings agree with the server on the same
+ * input instead of one of them quietly measuring a decomposed form longer
+ * than its composed equivalent.
  *
  * A second, unreconciled declaration of this column's domain exists:
  * `lib/features/rotation/importedConfirmation.ts`'s
@@ -362,15 +394,7 @@ export type NewArtistFieldValidation = {
   trimmedAlphabeticalName: string;
   trimmedCodeLetters: string;
   alphabeticalNameTooLong: boolean;
-  /**
-   * Whether the call letters exceed the column's width, measured in code
-   * points -- like `releaseVolumeLettersTooLong` above, and like Backend's own
-   * `validateArtistCodeLetters`. UTF-16 units would refuse astral input the
-   * `varchar(4)` can hold and the server would have accepted. One divergence
-   * is left open rather than closed here: Backend measures
-   * `code_letters.normalize("NFC")`, so a decomposed value can still be
-   * counted longer here than there.
-   */
+  /** Delegates to `codeLettersTooLong` above -- see that function's doc for what it measures and why. */
   codeLettersTooLong: boolean;
   /** Parsed as a whole number the mode accepts, before any range check — null if it is not one. */
   parsedCodeNumber: number | null;
@@ -416,10 +440,11 @@ export function validateNewArtistFields(
   return {
     trimmedAlphabeticalName,
     trimmedCodeLetters,
-    alphabeticalNameTooLong:
-      trimmedAlphabeticalName.length > ARTIST_NAME_MAX_LENGTH,
-    codeLettersTooLong:
-      codePointLength(trimmedCodeLetters) > CODE_LETTERS_MAX_LENGTH,
+    // `artists.alphabetical_name` shares its varchar(128) ceiling with
+    // `artist_name`, so this reuses `artistNameTooLong` rather than a second
+    // UTF-16 `.length` check that would disagree with it on the same column.
+    alphabeticalNameTooLong: artistNameTooLong(trimmedAlphabeticalName),
+    codeLettersTooLong: codeLettersTooLong(trimmedCodeLetters),
     parsedCodeNumber,
     codeNumber,
     codeNumberInvalid:

@@ -3,6 +3,7 @@ import {
   ARTIST_NAME_MAX_LENGTH,
   artistNameTooLong,
   CODE_LETTERS_MAX_LENGTH,
+  codeLettersTooLong,
   CODE_NUMBER_MAX,
   isArtistNameConflictData,
   normalizeCodeLetters,
@@ -10,6 +11,7 @@ import {
   parseRequiredNonNegativeInt,
   parseRequiredPositiveInt,
   RELEASE_CODE_NUMBER_MAX,
+  RELEASE_VOLUME_LETTERS_MAX_LENGTH,
   releaseVolumeLettersTooLong,
   suggestCodeLetters,
   validateNewArtistFields,
@@ -116,6 +118,20 @@ describe("validateNewArtistFields", () => {
     });
 
     expect(result.alphabeticalNameTooLong).toBe(true);
+  });
+
+  // alphabetical_name shares artist_name's varchar(128) ceiling, and this
+  // field used to measure it with `.length` (UTF-16 units) rather than code
+  // points. 70 surrogate pairs (mathematical bold capital A) are 140 UTF-16
+  // units but 70 code points -- well under the ceiling by the count Backend
+  // actually uses, but a `.length` check would put it at 140 and refuse it.
+  it("counts the alphabetical name in code points, not UTF-16 units, matching how the backend measures the column", () => {
+    const result = validateNewArtistFields({
+      ...valid,
+      alphabeticalName: "𝐀".repeat(70),
+    });
+
+    expect(result.alphabeticalNameTooLong).toBe(false);
   });
 
   it("rejects call letters past the column's width", () => {
@@ -295,6 +311,21 @@ describe("releaseVolumeLettersTooLong", () => {
     // capitals): 8 UTF-16 units, 4 code points.
     expect(releaseVolumeLettersTooLong("𝐀𝐁𝐂𝐃")).toBe(false);
   });
+
+  // Inherits NFC normalization from the shared `codePointLength` helper: a
+  // deliberate decision (see that function's doc), not a side effect, so this
+  // column's ceiling agrees with `artistNameTooLong`'s and
+  // `codeLettersTooLong`'s on the same input rather than being the one
+  // ceiling in the module still measuring a decomposed form differently.
+  it("measures a composition-exclusion codepoint after NFC normalization, matching the other ceilings in this module", () => {
+    // U+0958 (Devanagari letter QA) is one code point before normalization
+    // but two after: it fully decomposes under NFC and is barred from
+    // recomposing (a "composition exclusion"). At the boundary that turns an
+    // apparently-in-range 4-code-point value into 5 after normalization.
+    const atRawBoundary = "a".repeat(RELEASE_VOLUME_LETTERS_MAX_LENGTH - 1) + "\u0958";
+    expect(Array.from(atRawBoundary)).toHaveLength(RELEASE_VOLUME_LETTERS_MAX_LENGTH);
+    expect(releaseVolumeLettersTooLong(atRawBoundary)).toBe(true);
+  });
 });
 
 describe("artistNameTooLong", () => {
@@ -316,5 +347,54 @@ describe("artistNameTooLong", () => {
     // code points -- well under the ceiling by that count, but a
     // `String#length` check would put it at 140 and refuse it.
     expect(artistNameTooLong("𝐀".repeat(70))).toBe(false);
+  });
+
+  // Backend measures `artist_name.normalize('NFC').trim()`, so a name spelled
+  // with combining characters must be measured the same as its precomposed
+  // form, not longer. Without normalization here, the NFD spelling below would
+  // count 256 code points and be refused even though the server -- which
+  // normalizes first -- would accept it as the same 128-code-point name.
+  it("measures a decomposed (NFD) name the same as its precomposed (NFC) form", () => {
+    const nfc = "\u00E9".repeat(ARTIST_NAME_MAX_LENGTH); // precomposed é × 128: 128 code points
+    const nfd = "e\u0301".repeat(ARTIST_NAME_MAX_LENGTH); // the same 128 characters, each spelled "e" + combining acute: 256 code points before normalization
+
+    expect(artistNameTooLong(nfc)).toBe(false);
+    expect(artistNameTooLong(nfd)).toBe(false);
+  });
+
+  // The reverse of the NFD case above: NFC normalization is not
+  // length-non-increasing, so a name that is in range *before* normalizing
+  // can go out of range after. This is the case that must now be refused
+  // client-side where it previously was not -- matching the server, which
+  // has normalized first all along.
+  it("refuses a composition-exclusion codepoint that NFC expands past the boundary, matching the server", () => {
+    // U+0958 (Devanagari letter QA) is one code point before normalization
+    // but two after -- see releaseVolumeLettersTooLong's equivalent test for
+    // why. At the boundary that turns an apparently-in-range 128-code-point
+    // value into 129 after normalization.
+    const atRawBoundary = "a".repeat(ARTIST_NAME_MAX_LENGTH - 1) + "\u0958";
+    expect(Array.from(atRawBoundary)).toHaveLength(ARTIST_NAME_MAX_LENGTH);
+    expect(artistNameTooLong(atRawBoundary)).toBe(true);
+  });
+});
+
+describe("codeLettersTooLong", () => {
+  it("accepts up to the varchar(4) ceiling", () => {
+    expect(codeLettersTooLong("")).toBe(false);
+    expect(codeLettersTooLong("Y".repeat(CODE_LETTERS_MAX_LENGTH))).toBe(false);
+  });
+
+  it("rejects anything past the ceiling", () => {
+    expect(codeLettersTooLong("Y".repeat(CODE_LETTERS_MAX_LENGTH + 1))).toBe(true);
+  });
+
+  it("trims before counting, matching what every caller sends as the field's value", () => {
+    expect(codeLettersTooLong(`  ${"Y".repeat(CODE_LETTERS_MAX_LENGTH)}  `)).toBe(false);
+  });
+
+  it("counts in code points, not UTF-16 units, matching Backend's own validateArtistCodeLetters", () => {
+    // Four surrogate pairs (mathematical bold capitals): 8 UTF-16 units, 4
+    // code points -- within the ceiling by the count Backend actually uses.
+    expect(codeLettersTooLong("𝐀𝐁𝐂𝐃")).toBe(false);
   });
 });

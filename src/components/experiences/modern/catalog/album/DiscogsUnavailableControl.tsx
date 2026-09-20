@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import {
   Button,
   FormControl,
+  FormHelperText,
   FormLabel,
   Stack,
   Switch,
@@ -38,7 +39,14 @@ function DiscogsUnavailableControl({ album }: DiscogsUnavailableControlProps) {
   const [savedNote, setSavedNote] = useState(album.discogsUnavailableNote ?? "");
   const [notePending, setNotePending] = useState(false);
 
-  const noteChanged = note.trim() !== (savedNote ?? "").trim();
+  const trimmedNote = note.trim();
+  const noteChanged = trimmedNote !== (savedNote ?? "").trim();
+  // No `maxLength` on the textarea below: it would silently clip a pasted
+  // note past the column's width before this ever saw it, so `handleSaveNote`
+  // would PATCH the already-truncated text with nothing refused. Computed
+  // live off the field instead, matching `library.discogs_unavailable_note`'s
+  // own `varchar(500)` ceiling.
+  const noteTooLong = trimmedNote.length > DISCOGS_UNAVAILABLE_NOTE_MAX_LENGTH;
 
   const handleFlagChange = async (next: boolean) => {
     const previousFlag = flag;
@@ -74,8 +82,10 @@ function DiscogsUnavailableControl({ album }: DiscogsUnavailableControlProps) {
   };
 
   const handleSaveNote = async () => {
-    const trimmed = note.trim();
-    const nextNote = trimmed.length > 0 ? trimmed : null;
+    // Backstop for the disabled Save button below -- an over-length note must
+    // never reach `updateAlbum`, whatever triggered this handler.
+    if (noteTooLong) return;
+    const nextNote = trimmedNote.length > 0 ? trimmedNote : null;
 
     setNotePending(true);
     try {
@@ -113,16 +123,13 @@ function DiscogsUnavailableControl({ album }: DiscogsUnavailableControlProps) {
           />
         </FormControl>
         {flag && (
-          <FormControl>
+          <FormControl error={noteTooLong}>
             <FormLabel>Reason (optional)</FormLabel>
             <Textarea
               value={note}
               minRows={2}
               maxRows={4}
               placeholder='e.g. "embargoed until 2026-09-01" or "audience doesn&apos;t use Discogs"'
-              slotProps={{
-                textarea: { maxLength: DISCOGS_UNAVAILABLE_NOTE_MAX_LENGTH },
-              }}
               onChange={(e) => setNote(e.target.value)}
             />
             <Stack
@@ -131,15 +138,29 @@ function DiscogsUnavailableControl({ album }: DiscogsUnavailableControlProps) {
               alignItems="center"
               sx={{ mt: 0.5 }}
             >
-              <Typography level="body-xs" sx={{ color: "text.tertiary" }}>
+              <Typography
+                level="body-xs"
+                sx={{ color: noteTooLong ? "danger.500" : "text.tertiary" }}
+              >
                 {note.length}/{DISCOGS_UNAVAILABLE_NOTE_MAX_LENGTH}
               </Typography>
               {noteChanged && (
-                <Button color="success" size="sm" loading={notePending} onClick={handleSaveNote}>
+                <Button
+                  color="success"
+                  size="sm"
+                  loading={notePending}
+                  disabled={noteTooLong}
+                  onClick={handleSaveNote}
+                >
                   Save
                 </Button>
               )}
             </Stack>
+            {noteTooLong && (
+              <FormHelperText>
+                At most {DISCOGS_UNAVAILABLE_NOTE_MAX_LENGTH} characters
+              </FormHelperText>
+            )}
           </FormControl>
         )}
       </FormSectionCard>

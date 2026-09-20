@@ -11,6 +11,7 @@ import {
 import { validateNewArtistNames } from "@/lib/features/catalog/chooserValidation";
 import {
   CODE_LETTERS_MAX_LENGTH,
+  codeLettersTooLong,
   isAddArtistConflict,
   isArtistNameConflictData,
   normalizeCodeLetters,
@@ -98,6 +99,10 @@ export default function NewArtistForm() {
   const [resolvingCodeNumber, setResolvingCodeNumber] = useState(false);
 
   const trimmedCodeLetters = codeLetters.trim();
+  // Computed live rather than left to the submit-time check below, so the
+  // refusal is visible the moment the field goes over -- see the input's own
+  // comment for why nothing here uses `maxLength`.
+  const codeLettersOverLength = codeLettersTooLong(trimmedCodeLetters);
   const peekArg: PeekArtistCodeQuery | null = useMemo(
     () =>
       trimmedCodeLetters && genreId != null
@@ -193,6 +198,14 @@ export default function NewArtistForm() {
     }
     if (codeLetters.trim() === "") {
       setValidationMessage("You must enter call letters.");
+      return;
+    }
+    // Backstop for the disabled submit button below -- an over-length value
+    // must never reach `addArtist`, whatever triggered this handler.
+    if (codeLettersOverLength) {
+      setValidationMessage(
+        `Call letters must be at most ${CODE_LETTERS_MAX_LENGTH} characters.`,
+      );
       return;
     }
     // A submit landing inside the lookup window is waiting on a number the
@@ -340,6 +353,11 @@ export default function NewArtistForm() {
             <td style={{ textAlign: "right" }}>Call Letters/Numbers:</td>
             <td>
               <label htmlFor={codeLettersId}>Call letters:</label>
+              {/* No `maxLength`: it would silently clip a paste past four
+                  UTF-16 units before `handleCodeLettersChange` ever saw it,
+                  submitting a wrong-but-valid-looking code with nothing
+                  refused. `codeLettersOverLength` below is the visible
+                  refusal instead. */}
               <input
                 id={codeLettersId}
                 type="text"
@@ -347,8 +365,12 @@ export default function NewArtistForm() {
                 disabled={isLoading}
                 onChange={(e) => handleCodeLettersChange(e.target.value)}
                 size={2}
-                maxLength={CODE_LETTERS_MAX_LENGTH}
               />
+              {codeLettersOverLength && (
+                <div role="alert" className="artist-error-message">
+                  At most {CODE_LETTERS_MAX_LENGTH} characters
+                </div>
+              )}
               &nbsp;
               <label htmlFor={codeNumberId}>Call Numbers:</label>
               <input
@@ -391,7 +413,11 @@ export default function NewArtistForm() {
           </tr>
         </tbody>
       </table>
-      <input type="submit" value="Submit" disabled={isLoading || resolvingCodeNumber} />
+      <input
+        type="submit"
+        value="Submit"
+        disabled={isLoading || resolvingCodeNumber || codeLettersOverLength}
+      />
       &nbsp;&nbsp;&nbsp;&nbsp;
       <input type="button" value="Reset values" onClick={resetFields} disabled={isLoading} />
     </form>

@@ -392,6 +392,16 @@ export default function ReleaseMoveForm({ albumId }: { albumId: number }) {
                   aria-label="Call letters: mode"
                 />
                 <label htmlFor={lettersId}>Call letters:</label>
+                {/* No `maxLength`: it would silently clip a paste past four
+                    UTF-16 units before `composeLibraryCodeSearchArgs` ever
+                    saw it, looking up whatever truncated prefix remained --
+                    which can be a different artist's real code -- instead of
+                    refusing the paste. `isCanonicalCodeLetters` inside that
+                    function already refuses anything over
+                    `CODE_LETTERS_MAX_LENGTH` (it is a `{1,4}` charset regex),
+                    so removing the attribute needs no separate check here:
+                    `handleLookUp` reports that refusal as `message` the same
+                    as it does for a bad charset. */}
                 <input
                   id={lettersId}
                   type="text"
@@ -403,7 +413,6 @@ export default function ReleaseMoveForm({ albumId }: { albumId: number }) {
                   }}
                   onKeyDown={runLookUpOnEnter}
                   size={CODE_LETTERS_MAX_LENGTH}
-                  maxLength={CODE_LETTERS_MAX_LENGTH}
                 />
                 &nbsp;
                 <label htmlFor={numbersId}>Call Numbers:</label>

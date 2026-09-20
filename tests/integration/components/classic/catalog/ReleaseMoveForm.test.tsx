@@ -517,6 +517,26 @@ describe("Classic ReleaseMoveForm — libraryReleaseModifyLibCode.jsp", () => {
     );
   });
 
+  // No `maxLength` on the call-letters lookup box any more: it would have
+  // silently clipped a paste past four characters to a prefix that can be a
+  // real but unintended artist's code, resolving to the wrong destination
+  // instead of refusing the paste. `isCanonicalCodeLetters` inside
+  // `composeLibraryCodeSearchArgs` already refuses anything over four
+  // characters (it is a `{1,4}` charset regex), so removing the attribute
+  // needs no new check -- this pins that the existing one still fires once
+  // typing five characters is no longer clipped to four first.
+  it("refuses an over-length call-letters lookup rather than searching a truncated prefix", async () => {
+    loaded();
+
+    renderWithProviders(<ReleaseMoveForm albumId={53375} />);
+    await lookUpCode("ABCDE", "1");
+
+    expect(screen.getByTestId("release-move-message").textContent).toContain(
+      "Call letters must be letters, digits, or a slash.",
+    );
+    expect(mockResolveArtistByCode).not.toHaveBeenCalled();
+  });
+
   it("offers a retry rather than blaming the librarian when genres are unavailable", async () => {
     loaded();
     mockGenresQuery.mockReturnValue({

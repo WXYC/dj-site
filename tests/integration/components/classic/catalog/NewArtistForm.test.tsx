@@ -187,6 +187,30 @@ describe("classic NewArtistForm — chooseLibraryCodeOrArtist.jsp's newArtistFor
     });
   });
 
+  // Pasted, not typed: userEvent enforces an input's own `maxLength` on both
+  // keystrokes and paste, so a paste this long is what would expose a
+  // `maxLength` silently clipping the value back under the ceiling -- the
+  // regression this pins. The field carries no such attribute any more.
+  it("refuses call letters past the cap rather than silently truncating them", async () => {
+    const { getBodies } = mockAddArtist(() => created());
+    const { user } = renderWithProviders(<NewArtistForm />);
+
+    await selectGenre(user);
+    const field = screen.getByLabelText(/call letters/i);
+    await user.click(field);
+    await user.paste("molina");
+
+    // Uppercased in full, not clipped to the column's four characters: a
+    // `maxLength` attribute would have silently dropped the paste's last two
+    // characters here and let the submit below write the wrong code.
+    expect(field).toHaveValue("MOLINA");
+    expect(screen.getByText("At most 4 characters")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Submit" })).toBeDisabled();
+
+    await user.click(screen.getByRole("button", { name: "Submit" }));
+    expect(getBodies()).toHaveLength(0);
+  });
+
   it("previews the next code number for the typed call letters/genre pair", async () => {
     mockPeekCode(7);
     const { user } = renderWithProviders(<NewArtistForm />);
