@@ -609,6 +609,72 @@ describe("classic ArtistCard — artistCardModify.jsp", () => {
         ).toBeNull();
       });
 
+      // The peek must carry the card's own genre so it reads that genre's
+      // shelf, and the prefill must still appear once the artist resolves --
+      // otherwise a soft-failed peek (the skip guard never releasing, a wrong
+      // genre_id 400ing) would hide behind "no error was thrown" rather than
+      // showing up as a regression to "never prefills."
+      it("sends the artist's own genre and prepopulates the field once the card resolves", async () => {
+        const receivedGenreIds: (string | null)[] = [];
+        server.use(
+          http.get(
+            `${TEST_BACKEND_URL}/library/artists/${ARTIST_ID}/next-release-number`,
+            ({ request }) => {
+              receivedGenreIds.push(new URL(request.url).searchParams.get("genre_id"));
+              return HttpResponse.json({ next_code_number: 9 });
+            },
+          ),
+        );
+
+        renderWithProviders(<ArtistCard artistId={ARTIST_ID} />);
+
+        const field = (await screen.findByLabelText(
+          /Release call number/i,
+        )) as HTMLInputElement;
+        await waitFor(() => expect(field.value).toBe("9"));
+        expect(receivedGenreIds).toEqual([String(GENRE_ID)]);
+      });
+
+      // `artist.genre_id` does not exist until the card resolves, and the
+      // backend requires `genre_id` on this endpoint. Firing before then would
+      // send a request the server can only 400 -- and because this query
+      // soft-fails, that 400 would show up as "the field never prefills," not
+      // as a thrown error, so the only way to catch a broken skip guard is to
+      // prove the request itself never went out during the unresolved window.
+      it("does not fire the next-release-number peek before the artist resolves", async () => {
+        let peekCalls = 0;
+        let releaseArtist: (() => void) | undefined;
+        const artistReady = new Promise<void>((resolve) => {
+          releaseArtist = resolve;
+        });
+        server.use(
+          http.get(`${TEST_BACKEND_URL}/library/artists/${ARTIST_ID}`, async () => {
+            await artistReady;
+            return HttpResponse.json(artist);
+          }),
+          http.get(
+            `${TEST_BACKEND_URL}/library/artists/${ARTIST_ID}/next-release-number`,
+            () => {
+              peekCalls += 1;
+              return HttpResponse.json({ next_code_number: 9 });
+            },
+          ),
+        );
+
+        renderWithProviders(<ArtistCard artistId={ARTIST_ID} />);
+
+        expect(await screen.findByText("Loading…")).toBeDefined();
+        // Give a wrongly-fired request a chance to land before proving it
+        // didn't -- the peek endpoint above resolves immediately, so if the
+        // skip guard were broken the call would already have gone out.
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        expect(peekCalls).toBe(0);
+
+        releaseArtist?.();
+
+        await waitFor(() => expect(peekCalls).toBe(1));
+      });
+
       it("sends the librarian's edited call number as code_number", async () => {
         const user = userEvent.setup();
         const bodies: unknown[] = [];

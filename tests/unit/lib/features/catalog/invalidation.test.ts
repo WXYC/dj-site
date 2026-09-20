@@ -173,7 +173,7 @@ describe("catalog add-mutation cache invalidation (#624)", () => {
     const store = createTestStore();
     // Keep the subscription alive so the invalidation triggers a refetch.
     const sub = store.dispatch(
-      catalogApi.endpoints.getNextReleaseNumber.initiate(501),
+      catalogApi.endpoints.getNextReleaseNumber.initiate({ artistId: 501, genre_id: 1 }),
     );
     const first = await sub;
     expect(peekCalls).toBe(1);
@@ -191,6 +191,49 @@ describe("catalog add-mutation cache invalidation (#624)", () => {
 
     await vi.waitFor(() => expect(peekCalls).toBe(2));
     sub.unsubscribe();
+  });
+});
+
+describe("getNextReleaseNumber genre scoping", () => {
+  it("keeps two genres of one artist as separate cache entries", async () => {
+    let genreOneCalls = 0;
+    let genreTwoCalls = 0;
+    server.use(
+      http.get(
+        `${TEST_BACKEND_URL}/library/artists/501/next-release-number`,
+        ({ request }) => {
+          const genreId = new URL(request.url).searchParams.get("genre_id");
+          if (genreId === "1") {
+            genreOneCalls += 1;
+            return HttpResponse.json({ next_code_number: 6 });
+          }
+          genreTwoCalls += 1;
+          return HttpResponse.json({ next_code_number: 41 });
+        },
+      ),
+    );
+
+    const store = createTestStore();
+    const genreOne = await store.dispatch(
+      catalogApi.endpoints.getNextReleaseNumber.initiate({ artistId: 501, genre_id: 1 }),
+    );
+    const genreTwo = await store.dispatch(
+      catalogApi.endpoints.getNextReleaseNumber.initiate({ artistId: 501, genre_id: 2 }),
+    );
+
+    expect(genreOneCalls).toBe(1);
+    expect(genreTwoCalls).toBe(1);
+    expect(genreOne.data?.next_code_number).toBe(6);
+    expect(genreTwo.data?.next_code_number).toBe(41);
+
+    // Re-reading the first genre must still answer from its own cache entry
+    // rather than issuing a fresh request or returning the second genre's
+    // number -- proof the two never shared one.
+    const genreOneAgain = await store.dispatch(
+      catalogApi.endpoints.getNextReleaseNumber.initiate({ artistId: 501, genre_id: 1 }),
+    );
+    expect(genreOneCalls).toBe(1);
+    expect(genreOneAgain.data?.next_code_number).toBe(6);
   });
 });
 
@@ -256,7 +299,7 @@ describe("updateAlbum cache invalidation on a shelf-changing write", () => {
     const store = createTestStore();
     // Keep the subscription alive so the invalidation triggers a refetch.
     const sub = store.dispatch(
-      catalogApi.endpoints.getNextReleaseNumber.initiate(501),
+      catalogApi.endpoints.getNextReleaseNumber.initiate({ artistId: 501, genre_id: 1 }),
     );
     const first = await sub;
     expect(peekCalls).toBe(1);
