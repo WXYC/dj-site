@@ -100,7 +100,7 @@ describe("classic ArtistSearchForm — code search telemetry", () => {
       code_number: 47,
       genre_id: ROCK_GENRE_ID,
       owner_count: 1,
-      browsing: false,
+      browse: false,
     });
   });
 
@@ -184,7 +184,7 @@ describe("classic ArtistSearchForm — code search telemetry", () => {
     expect(codeSearchCaptures()[0][1]).toMatchObject({
       outcome: "browse_results",
       owner_count: 3,
-      browsing: true,
+      browse: true,
       // A browse names no single number, so the property that would carry one
       // is explicitly null rather than a number the search never had.
       code_number: null,
@@ -206,7 +206,24 @@ describe("classic ArtistSearchForm — code search telemetry", () => {
     expect(codeSearchCaptures()[0][1]).toMatchObject({
       outcome: "browse_empty",
       owner_count: 0,
-      browsing: true,
+      browse: true,
+    });
+  });
+
+  // An unreadable body must not be reported as an empty bucket: the two are
+  // the same shape after transport and only the endpoint's `null` separates
+  // them. Getting this backwards makes an outage indistinguishable from a
+  // free shelf section in the data as well as on screen.
+  it("reports an unreadable body as untrusted, never as an empty bucket", async () => {
+    server.use(http.get(BY_CODE_URL, () => HttpResponse.json({})));
+    const { user } = renderWithProviders(<ArtistSearchForm onMultiMatch={mockOnMultiMatch} />);
+
+    await submitTextboxCode(user, "QZ", "");
+
+    await waitFor(() => expect(codeSearchCaptures()).toHaveLength(1));
+    expect(codeSearchCaptures()[0][1]).toMatchObject({
+      outcome: "lookup_untrusted",
+      browse: true,
     });
   });
 
@@ -222,7 +239,7 @@ describe("classic ArtistSearchForm — code search telemetry", () => {
     await waitFor(() => expect(codeSearchCaptures()).toHaveLength(1));
     expect(codeSearchCaptures()[0][1]).toMatchObject({
       outcome: "lookup_untrusted",
-      browsing: true,
+      browse: true,
     });
   });
 

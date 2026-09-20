@@ -324,7 +324,6 @@ export type LibraryArtistSearchParams = {
   limit?: number;
 };
 
-/** GET /library/artists/by-code — a fully specified library code. */
 /**
  * `by-code`'s query, at either of its two specificities. An ABSENT
  * `code_number` browses the whole `(genre_id, code_letters)` bucket ordered by
@@ -368,8 +367,22 @@ export type ArtistByCodeOwner = {
   genre_id: number;
 };
 
+/**
+ * `null` means the body could not be read as this shape at all -- a JSON 200
+ * carrying `{}`, `null`, or a renamed payload. It is NOT a wire value; the
+ * endpoint's `transformResponse` manufactures it so that "unreadable" and
+ * "genuinely nobody" stay distinguishable in the client.
+ *
+ * They must, because the browse made them mean opposite things. A
+ * fully-specified lookup refuses an empty list either way, so collapsing the
+ * two was safe there. A browse ACTS on an empty list -- unused call letters
+ * are a normal answer -- so collapsing them would render an unreadable
+ * response as "nothing is filed under these letters" for a shelf section that
+ * may hold two hundred artists. `surfaceNonJsonAsError` does not cover this:
+ * the body in question is valid JSON.
+ */
 export type ResolveArtistByCodeResponse = {
-  artists: ArtistByCodeOwner[];
+  artists: ArtistByCodeOwner[] | null;
 };
 
 /**

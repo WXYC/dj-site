@@ -80,6 +80,14 @@ const LIBRARY_CHOOSER_EVENTS = {
  * JSP blocks leaves their order relative to each other untouched, which is the
  * constraint that matters -- the call-number form stays where the JSP puts it.
  */
+/**
+ * Which search produced a result, derived rather than carried: `codeNumber`
+ * already answers it, and a second field mirroring one value is a second thing
+ * that can disagree with it. One definition, because the arrival and both
+ * exits must agree on the answer for their events to be joinable.
+ */
+const isBrowse = (result: MultiMatchResult) => result.codeNumber === null;
+
 export default function LibraryChooser() {
   const [multiMatch, setMultiMatch] = useState<MultiMatchResult | null>(null);
   // Held here, not only inside the two forms, because they both unmount for
@@ -98,7 +106,7 @@ export default function LibraryChooser() {
       // Null on a browse, which has no single number -- see MultiMatchResult.
       // Putting one here would name a row the librarian never searched for.
       code_number: result.codeNumber,
-      browse: result.codeNumber === null,
+      browse: isBrowse(result),
     });
     setMultiMatch(result);
   };
@@ -142,7 +150,7 @@ function MultiMatchScreen({
     owner_count: result.artists.length,
     code_letters: result.codeLetters,
     code_number: result.codeNumber,
-    browse: result.codeNumber === null,
+    browse: isBrowse(result),
   };
 
   return (
