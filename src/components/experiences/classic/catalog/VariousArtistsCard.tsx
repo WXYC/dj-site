@@ -131,9 +131,12 @@ export default function VariousArtistsCard({ artistId, message, imported }: Vari
   // sleeve.
   //
   // Not prepopulated, though nothing about a compilation bucket stops it from
-  // being: `GET /library/artists/:id/next-release-number` takes the shelf's
-  // genre alongside the artist id and would answer for this row's own genre
-  // like any other. This screen just does not read it, so the librarian
+  // being: the client sends a genre alongside the artist id to
+  // `GET /library/artists/:id/next-release-number`, and once the server scopes
+  // its answer to that genre the peek would report this row's own shelf like
+  // any other. (The deployed server still ignores the parameter and answers
+  // across every genre an artist is filed under; the client sends it ahead of
+  // that change, which is safe because an ignored query parameter is a no-op.) This screen just does not read it, so the librarian
   // either types the number or leaves the choice to the server. The
   // consequence to weigh before typing one: unlike the ordinary artist card,
   // this screen puts no view of the bucket's current highest number in front

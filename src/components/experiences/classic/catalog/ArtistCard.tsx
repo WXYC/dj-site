@@ -1,5 +1,6 @@
 "use client";
 
+import { skipToken } from "@reduxjs/toolkit/query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useState } from "react";
@@ -116,19 +117,25 @@ export default function ArtistCard({ artistId, message, imported }: ArtistCardPr
     data: releasePage,
     isError: releasesError,
   } = useGetArtistReleasesQuery({ artistId });
-  // `artist.genre_id` is undefined until the card resolves, and the backend
-  // requires `genre_id` on this endpoint -- firing before then would 400, and
-  // because this query soft-fails, that 400 would show up as "never
-  // prefills" rather than as a visible error. `skip` keeps the request from
-  // going out until there is a real genre to ask about; the placeholder `0`
-  // in the arg is never sent, since `skip: !artist` blocks the request itself.
+  // The peek is genre-scoped, and `artist.genre_id` is only known once the
+  // card query resolves. `skipToken` rather than a placeholder genre plus
+  // `{ skip }`: a fabricated `genre_id` would be a real value in the arg, and
+  // the one state a `!artist` guard does NOT block is a resolved card whose
+  // body omitted `genre_id` -- these types are hand-maintained with no codegen
+  // gate, so a projection change upstream makes that reachable without any
+  // parse error. Because this query soft-fails, such a request degrades to
+  // "the field never prefills" rather than surfacing, which is exactly the
+  // silent symptom the genre parameter exists to prevent. Keying on the genre
+  // itself makes the invalid arg unrepresentable instead of merely guarded --
+  // the same `arg ?? skipToken` shape as `useArtistCodePeek` and
+  // `useCompilationBucketResolution`.
+  const nextReleaseArg =
+    artist?.genre_id != null ? { artistId, genre_id: artist.genre_id } : skipToken;
   const {
     data: nextRelease,
     isFetching: nextReleaseFetching,
-  } = useGetNextReleaseNumberQuery(
-    { artistId, genre_id: artist?.genre_id ?? 0 },
-    { skip: !artist },
-  );
+    isUninitialized: nextReleaseUninitialized,
+  } = useGetNextReleaseNumberQuery(nextReleaseArg);
   const { data: genres } = useGetGenresQuery();
   const { data: formats } = useGetFormatsQuery();
 
@@ -242,7 +249,14 @@ export default function ArtistCard({ artistId, message, imported }: ArtistCardPr
   // handler reads, filing a duplicate. Gating on the query being idle blanks
   // the field for that in-flight window instead -- the same reason the sibling
   // NewArtistForm treats its peek as stale while fetching.
-  const nextReleaseSettled = !nextReleaseFetching;
+  // `isUninitialized` as well as `isFetching`: the peek is now keyed on the
+  // genre, so it cannot dispatch until the card resolves, and RTK Query
+  // subscribes from a passive effect that runs AFTER the first paint on which
+  // the form renders. For that one frame the query is neither fetching nor
+  // settled, and treating it as settled paints "the release number is assigned
+  // when you save" -- a positive claim that nothing will be prefilled --
+  // immediately before the number arrives and replaces it.
+  const nextReleaseSettled = !nextReleaseFetching && !nextReleaseUninitialized;
   const displayedCodeNumber =
     codeNumberEdit ??
     (nextReleaseSettled && nextRelease?.next_code_number != null

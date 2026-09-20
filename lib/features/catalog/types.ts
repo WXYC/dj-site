@@ -255,10 +255,18 @@ export type PeekArtistCodeResponse = {
 export type NextReleaseNumberQuery = {
   artistId: number;
   /**
-   * The genre the release is being filed under -- the card's own genre, not
-   * necessarily `ArtistCard.genre_id`: that read collapses a multi-genre
-   * artist to its lowest genre, while this asks about the shelf the card is
-   * actually showing.
+   * The genre whose shelf to answer off. Today this is always
+   * `ArtistCard.genre_id`, which for an artist catalogued under more than one
+   * genre is the LOWEST of them -- `getArtistCardByIdInGenre` collapses a
+   * multi-genre artist that way, so the card, and therefore this peek, report
+   * that genre's shelf rather than one the librarian chose.
+   *
+   * That is an accepted limit, not a defect to route around here: a
+   * multi-genre artist filing under a higher genre gets a number off the lower
+   * genre's shelf. Closing it needs a genre the librarian selects, which is a
+   * change to the card, not to this type. Do NOT build on an assumption that
+   * this already names the genre being filed under -- it names the genre the
+   * card is showing, and for a single-genre artist those coincide.
    */
   genre_id: number;
 };
