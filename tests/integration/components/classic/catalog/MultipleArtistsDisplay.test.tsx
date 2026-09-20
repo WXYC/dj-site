@@ -61,6 +61,94 @@ describe("classic MultipleArtistsDisplay — multipleArtistsDisplay.jsp", () => 
     expect(within(rows[0]).getByText("V/A")).toBeInTheDocument();
   });
 
+  // The browse is the case the per-row projection exists for. A bucket holds
+  // many numbers, and the librarian reads the highest one off the bottom to
+  // find the next free slot -- so a row showing the searched number (there
+  // isn't one) or the first row's number would answer the wrong question
+  // while looking entirely correct. The fixture carries DISTINCT numbers for
+  // exactly that reason: repeating one would pass against a hoisted value.
+  it("renders each row's own call number when browsing a whole call-letters bucket", () => {
+    renderWithProviders(
+      <MultipleArtistsDisplay
+        genreName="Rock"
+        codeLetters="MA"
+        codeNumber={null}
+        artists={[
+          { id: 40, artist_name: "Magnetic Fields", code_letters: "MA", code_number: 3, genre_id: 11 },
+          { id: 41, artist_name: "Mary Lattimore", code_letters: "MA", code_number: 11, genre_id: 11 },
+          { id: 42, artist_name: "Mdou Moctar", code_letters: "MA", code_number: 24, genre_id: 11 },
+        ]}
+        onChooseAgain={vi.fn()}
+      />,
+    );
+
+    const rows = within(screen.getByRole("table")).getAllByRole("row").slice(1);
+    expect(rows).toHaveLength(3);
+    expect(within(rows[0]).getByText("MA 3")).toBeInTheDocument();
+    expect(within(rows[1]).getByText("MA 11")).toBeInTheDocument();
+    expect(within(rows[2]).getByText("MA 24")).toBeInTheDocument();
+  });
+
+  // The servlet's own header is `genre.getReferenceName() + " " + artistLetters`
+  // -- the partial code, with no number, because a browse has none. Composing
+  // one here would put a number on screen that names a row the librarian never
+  // asked about.
+  it("titles a browse with the partial code, carrying no number", () => {
+    renderWithProviders(
+      <MultipleArtistsDisplay
+        genreName="Rock"
+        codeLetters="MA"
+        codeNumber={null}
+        artists={[
+          { id: 40, artist_name: "Magnetic Fields", code_letters: "MA", code_number: 3, genre_id: 11 },
+        ]}
+        onChooseAgain={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("Rock MA")).toBeInTheDocument();
+  });
+
+  // `multipleArtistsDisplay.jsp`'s own `<c:otherwise>`. It was unreachable
+  // while every caller was a fully-specified lookup (an unassigned code is a
+  // 404, and a zero-length 200 was refused as untrustworthy), and the browse
+  // is what reaches it: unused call letters answer 200 with no rows, and that
+  // is a normal thing for a librarian to check.
+  it("reproduces the JSP's no-results branch for an empty bucket, with no table", () => {
+    renderWithProviders(
+      <MultipleArtistsDisplay
+        genreName="Rock"
+        codeLetters="QZ"
+        codeNumber={null}
+        artists={[]}
+        onChooseAgain={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByText("There are currently no artists in the catalog that match these criteria."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Rock QZ")).toBeInTheDocument();
+    expect(screen.queryByRole("columnheader", { name: /artist name/i })).not.toBeInTheDocument();
+  });
+
+  it("offers another search from the empty branch, landing back on the chooser", async () => {
+    const onChooseAgain = vi.fn();
+    const { user } = renderWithProviders(
+      <MultipleArtistsDisplay
+        genreName="Rock"
+        codeLetters="QZ"
+        codeNumber={null}
+        artists={[]}
+        onChooseAgain={onChooseAgain}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /do another search/i }));
+
+    expect(onChooseAgain).toHaveBeenCalledTimes(1);
+  });
+
   it("renders an ordinary code's letters and number, not the V/A form", () => {
     renderWithProviders(
       <MultipleArtistsDisplay

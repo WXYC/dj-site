@@ -537,6 +537,27 @@ describe("Classic ReleaseMoveForm — libraryReleaseModifyLibCode.jsp", () => {
     expect(mockResolveArtistByCode).not.toHaveBeenCalled();
   });
 
+  // The chooser's blank call number browses a whole call-letters section. This
+  // screen shares that composer and must NOT: a browse here would answer "no
+  // number entered" with every artist in the section offered as somewhere to
+  // move a release to, turning an empty field into a shelf-wide menu of write
+  // destinations. The composer's browse is opt-in for exactly this reason, and
+  // this screen does not opt in.
+  it("refuses a blank call number rather than browsing the whole section for a destination", async () => {
+    loaded();
+
+    renderWithProviders(<ReleaseMoveForm albumId={53375} />);
+    const user = userEvent.setup();
+    await user.click(screen.getByLabelText("Call letters: mode"));
+    await user.type(screen.getByLabelText("Call letters:"), "MO");
+    await user.click(screen.getByRole("button", { name: "Look up this code" }));
+
+    expect(screen.getByTestId("release-move-message").textContent).toContain(
+      "You must enter a call number to look up this code.",
+    );
+    expect(mockResolveArtistByCode).not.toHaveBeenCalled();
+  });
+
   // The other half of the same code, which kept its `maxLength` while the
   // letters half lost one. A clipped call NUMBER is the more dangerous of the
   // two: "1234" becomes "123", which parses, resolves to whatever real artist

@@ -11,8 +11,8 @@ import SearchForm from "./SearchForm";
 import SearchResults from "./SearchResults";
 
 /**
- * The disambiguation screen swaps in behind this one URL, so neither arriving
- * at it nor leaving it produces a pageview. These are the only record that a
+ * The results screen swaps in behind this one URL, so neither arriving at it
+ * nor leaving it produces a pageview. These are the only record that a
  * librarian landed on a 27-owner list at all.
  *
  * The screen has two exits and both are instrumented, because they mean
@@ -20,6 +20,15 @@ import SearchResults from "./SearchResults";
  * back. Emitting only one of them would make `SHOWN` minus that one read as a
  * permanent leak, and would measure dwell on exactly the wrong population --
  * abandonments, never the fast successful visits.
+ *
+ * TWO searches reach the screen and they answer different questions: a
+ * contested code (evidence that codes collide) and a call-letters browse (a
+ * librarian reading a shelf section). `browse` separates them, and every
+ * query that means "codes collide" has to filter on it -- a raw count of
+ * SHOWN is inflated by browses. It is a property rather than a second event
+ * name because the two EXITS are shared: splitting only the arrival would
+ * leave every browse's ending unattributable, which is precisely the pairing
+ * the two halves exist for.
  */
 const LIBRARY_CHOOSER_EVENTS = {
   MULTI_MATCH_SHOWN: "library_multi_match_shown",
@@ -33,14 +42,14 @@ const LIBRARY_CHOOSER_EVENTS = {
  * one `/dashboard/library` URL that the dashboard URL map in
  * `docs/architecture.md` assigns to both JSPs.
  *
- * A state swap rather than a second route, because the multi-match screen is
- * not addressable by what a librarian holds. `/wxycdb` reaches it at
- * `libraryCode?genreID=&artistLetters=`, a genre+letters browse
- * Backend-Service cannot answer -- and the search that reaches it here is a
- * fully specified code whose owners are a server response, not a URL. The swap
- * takes the JSP's own content wholesale, as the JSP does -- `NewArtistForm`
- * goes with the call-number form rather than sitting under a list of artists
- * that already own the code.
+ * A state swap rather than a second route. `/wxycdb` reaches the screen at
+ * `libraryCode?genreID=&artistLetters=`, and that browse IS answerable now, so
+ * a shareable `/dashboard/library?genre_id=&code_letters=` would be a genuine
+ * affordance -- but the JSP replaced the whole page rather than navigating,
+ * and a route is its own change with its own parity argument. The swap takes
+ * the JSP's own content wholesale, as the JSP does -- `NewArtistForm` goes
+ * with the call-number form rather than sitting under a list of artists that
+ * already own the code.
  *
  * The free-text search is deliberately OUTSIDE that swap, above it, mounted in
  * both states. It has no JSP counterpart to keep parity with, and keeping it
@@ -86,7 +95,10 @@ export default function LibraryChooser() {
       owner_count: result.artists.length,
       genre_name: result.genreName ?? null,
       code_letters: result.codeLetters,
+      // Null on a browse, which has no single number -- see MultiMatchResult.
+      // Putting one here would name a row the librarian never searched for.
       code_number: result.codeNumber,
+      browse: result.codeNumber === null,
     });
     setMultiMatch(result);
   };
@@ -111,10 +123,9 @@ export default function LibraryChooser() {
 }
 
 /**
- * The disambiguation arm of the swap, split out for the same reason
- * `JspBlocks` is: so the ternary above reads as one expression. It also gives
- * the two exits a scope where `result` is non-null, which a ternary arm cannot
- * narrow into.
+ * The results arm of the swap, split out for the same reason `JspBlocks` is:
+ * so the ternary above reads as one expression. It also gives the two exits a
+ * scope where `result` is non-null, which a ternary arm cannot narrow into.
  */
 function MultiMatchScreen({
   result,
@@ -123,12 +134,15 @@ function MultiMatchScreen({
   result: MultiMatchResult;
   onDismiss: () => void;
 }) {
-  // Both exits carry the same identifying triple, so a session's SHOWN can be
-  // paired with whichever ending it got.
+  // Both exits carry the same identifying facts as the arrival, so a session's
+  // SHOWN can be paired with whichever ending it got -- `browse` included,
+  // since a browse's ending counted against the collision population would
+  // break exactly that pairing.
   const ending = {
     owner_count: result.artists.length,
     code_letters: result.codeLetters,
     code_number: result.codeNumber,
+    browse: result.codeNumber === null,
   };
 
   return (
