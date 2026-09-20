@@ -587,20 +587,26 @@ export const catalogApi = createApi({
      * it after a same-artist `addAlbum` and after a writer that can only
      * invalidate `LIST` — the modern bench's `fileRelease`, a re-attributing
      * `updateAlbum` — without a second invalidation added to either mutation.
-     * On top of those it also provides its own genre-scoped tag, following
-     * `peekArtistCode`'s pattern below: the shelf is genre-scoped (see
-     * `NextReleaseNumberQuery`), so two genres of one artist must not be
-     * addressable as though they were one cache entry.
+     *
+     * Two genres of one artist stay separate cache entries because the query
+     * ARG carries the genre, not because of any tag: an entry is addressed by
+     * `endpointName` + `serializeQueryArgs(args)`, and `providesTags`
+     * participates only in invalidation matching. A genre-scoped tag here
+     * would be inert on top of that — no writer emits either a
+     * `<artistId>:<genre_id>` id or a bare `ArtistReleaseList` type, and RTK
+     * Query matches a provided tag only on an exact type+id pair or on a bare
+     * type. That is the difference from `peekArtistCode` below, whose compound
+     * id IS reachable: `fileRelease` invalidates the bare `ArtistCodePeek`
+     * type, which matches every id of that type. So the two peeks are
+     * deliberately NOT wired alike, and the shared artist-release tags above
+     * are what keeps this one fresh.
      */
     getNextReleaseNumber: builder.query<NextReleaseNumberResponse, NextReleaseNumberQuery>({
       query: ({ artistId, genre_id }) => ({
         url: `/artists/${artistId}/next-release-number`,
         params: { genre_id },
       }),
-      providesTags: (_result, _error, { artistId, genre_id }) => [
-        ...artistReleaseTags(artistId),
-        { type: "ArtistReleaseList" as const, id: `${artistId}:${genre_id}` },
-      ],
+      providesTags: (_result, _error, { artistId }) => artistReleaseTags(artistId),
     }),
     peekArtistCode: builder.query<PeekArtistCodeResponse, PeekArtistCodeQuery>({
       query: ({ code_letters, genre_id }) => ({

@@ -23,6 +23,14 @@ import ArtistCard from "@/src/components/experiences/classic/catalog/ArtistCard"
 
 const ARTIST_ID = 42;
 const GENRE_ID = 3;
+// Deliberately NOT `GENRE_ID`. The peek must carry the ARTIST's genre, and the
+// card has three same-shaped genres in reach -- the artist's, each release
+// row's, and the first entry of the genres list. If all three held one value,
+// an assertion that the peek sent `GENRE_ID` would pass just as happily for an
+// implementation that sourced the parameter from a release row or the dropdown,
+// so it would establish nothing. Giving the other two their own value is what
+// makes that assertion discriminating.
+const OTHER_GENRE_ID = 7;
 
 const artist = {
   artist_id: ARTIST_ID,
@@ -38,7 +46,7 @@ function release(overrides: Record<string, unknown> = {}) {
     id: 900,
     last_modified: "2024-06-15T19:04:05.000Z",
     format_name: "CD",
-    genre_id: GENRE_ID,
+    genre_id: OTHER_GENRE_ID,
     code_letters: "MO",
     code_artist_number: 12,
     code_number: 5,
@@ -73,8 +81,13 @@ function mockReleases(releases: unknown[] = [release()], total = releases.length
 
 function mockGenres() {
   server.use(
+    // `OTHER_GENRE_ID` first, so `genres[0].id` is not the artist's genre --
+    // see `OTHER_GENRE_ID`'s comment for why that matters to the peek test.
     http.get(`${TEST_BACKEND_URL}/library/genres`, () =>
-      HttpResponse.json([{ id: GENRE_ID, genre_name: "Rock" }]),
+      HttpResponse.json([
+        { id: OTHER_GENRE_ID, genre_name: "Jazz" },
+        { id: GENRE_ID, genre_name: "Rock" },
+      ]),
     ),
   );
 }
@@ -402,7 +415,12 @@ describe("classic ArtistCard — artistCardModify.jsp", () => {
 
       const table = await screen.findByTestId("artist-release-table");
       const row = within(table).getByText("DOGA").closest("tr")!;
-      expect(within(row).getByText("Rock MO 12/5-A")).toBeDefined();
+      // "Jazz", not "Rock": the row renders the RELEASE's own genre, and the
+      // fixture files this release under a different genre from the artist's
+      // card genre on purpose (see `OTHER_GENRE_ID`). That the two differ is
+      // what makes this assertion prove the row reads the release rather than
+      // inheriting the card.
+      expect(within(row).getByText("Jazz MO 12/5-A")).toBeDefined();
       expect(within(row).getByText("CD")).toBeDefined();
       expect(within(row).getByText("Juana")).toBeDefined();
     });
@@ -635,14 +653,25 @@ describe("classic ArtistCard — artistCardModify.jsp", () => {
         expect(receivedGenreIds).toEqual([String(GENRE_ID)]);
       });
 
-      // `artist.genre_id` does not exist until the card resolves, and the
-      // backend requires `genre_id` on this endpoint. Firing before then would
-      // send a request the server can only 400 -- and because this query
-      // soft-fails, that 400 would show up as "the field never prefills," not
-      // as a thrown error, so the only way to catch a broken skip guard is to
-      // prove the request itself never went out during the unresolved window.
+      // The peek is genre-scoped and the genre only exists once the card
+      // resolves, so a request sent before then carries no usable genre. Once
+      // the server requires the parameter that is a 400, and because this query
+      // soft-fails the 400 surfaces as "the field never prefills" rather than
+      // as an error -- so the regression is invisible unless a test observes
+      // the request itself.
+      //
+      // Asserted as an ORDERING invariant, not a deadline. An earlier version
+      // slept 50 ms and then asserted no call had been made, which passes
+      // vacuously on any runner where the token fetch, the fetchBaseQuery hop
+      // and msw interception together take longer than that -- reporting green
+      // for a guard that is broken. Here the peek handler itself records
+      // whether the artist was still unresolved when it ran, and the test waits
+      // for the peek to genuinely happen before judging: no sleep, and a broken
+      // guard fails regardless of how slow the machine is.
       it("does not fire the next-release-number peek before the artist resolves", async () => {
         let peekCalls = 0;
+        let peekedWhileArtistUnresolved = 0;
+        let artistResolved = false;
         let releaseArtist: (() => void) | undefined;
         const artistReady = new Promise<void>((resolve) => {
           releaseArtist = resolve;
@@ -656,6 +685,7 @@ describe("classic ArtistCard — artistCardModify.jsp", () => {
             `${TEST_BACKEND_URL}/library/artists/${ARTIST_ID}/next-release-number`,
             () => {
               peekCalls += 1;
+              if (!artistResolved) peekedWhileArtistUnresolved += 1;
               return HttpResponse.json({ next_code_number: 9 });
             },
           ),
@@ -664,15 +694,12 @@ describe("classic ArtistCard — artistCardModify.jsp", () => {
         renderWithProviders(<ArtistCard artistId={ARTIST_ID} />);
 
         expect(await screen.findByText("Loading…")).toBeDefined();
-        // Give a wrongly-fired request a chance to land before proving it
-        // didn't -- the peek endpoint above resolves immediately, so if the
-        // skip guard were broken the call would already have gone out.
-        await new Promise((resolve) => setTimeout(resolve, 50));
-        expect(peekCalls).toBe(0);
 
+        artistResolved = true;
         releaseArtist?.();
 
         await waitFor(() => expect(peekCalls).toBe(1));
+        expect(peekedWhileArtistUnresolved).toBe(0);
       });
 
       it("sends the librarian's edited call number as code_number", async () => {
