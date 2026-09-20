@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  bodyField,
   bodyReason,
   serverMessage,
   statusAndReasonMatch,
@@ -68,22 +67,6 @@ describe("bodyReason", () => {
 
   it.each([[undefined], [{ reason: 1 }], ["oops"]])("treats %p as absent", (data) => {
     expect(bodyReason(data)).toBeUndefined();
-  });
-});
-
-describe("bodyField", () => {
-  const isNumber = (value: unknown): value is number => typeof value === "number";
-
-  it("reads a field matching the guard", () => {
-    expect(bodyField({ asset_count: 3 }, "asset_count", isNumber)).toBe(3);
-  });
-
-  it("returns undefined when the field fails the guard", () => {
-    expect(bodyField({ asset_count: "three" }, "asset_count", isNumber)).toBeUndefined();
-  });
-
-  it("returns undefined for a missing body", () => {
-    expect(bodyField(undefined, "asset_count", isNumber)).toBeUndefined();
   });
 });
 
