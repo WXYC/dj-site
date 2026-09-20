@@ -211,23 +211,11 @@ export function parseReleaseCodeNumber(raw: string): number | null {
  * as an unattributed 400 on the rotation-import screen, which is exactly the
  * failure this client check exists to pre-empt. Match the server per column.
  *
- * A second, unreconciled declaration of this column's domain exists:
- * `lib/features/rotation/importedConfirmation.ts`'s
- * `VOLUME_LETTERS = /^[A-Za-z]{1,4}$/`, commented "letters are all it
- * holds." That regex *drops* a non-matching value rather than rendering it,
- * where this function's callers store whatever was typed. So all three forms
- * will happily file "1", "-", "A B", "??", "A/B", or a single emoji into
- * `code_volume_letters`, and that value is then omitted from the one sentence
- * that tells a librarian where the record went.
- *
- * The path that reaches that sentence is the rotation-import round trip, not
- * the artist card: `RotationImportScreen` pushes the server-echoed value into
- * `&vol=`, `parseImportedReleaseParams` reads it back, and
- * `importedConfirmation` drops anything the regex refuses -- so a row filed at
- * `MO 12/7-a/b` lands on the card reading "Filed as Rock MO 12/7". The artist
- * card's own post-save code cannot show this: it is composed by
- * `formatEntireLibraryCode` from what `POST /library` echoed, which renders
- * whatever was stored.
+ * `lib/features/rotation/importedConfirmation.ts`'s `parseImportedReleaseParams`
+ * reads the volume letters a filing echoed back through the rotation-import
+ * round trip, and matches this function's length-only rule rather than a
+ * narrower charset -- so a value this function accepted at filing time is
+ * never dropped from the confirmation sentence that names it.
  *
  * Which half is actually the column's intended domain -- anything
  * length-limited, or letters only -- is not decided here; it is an open
