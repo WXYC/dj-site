@@ -294,22 +294,41 @@ describe("Classic ReleaseDeleteConfirm — libraryReleaseDelete.jsp", () => {
       renderWithProviders(<ReleaseDeleteConfirm albumId={53375} />);
 
       expect((await screen.findByTestId("release-delete-play-impact")).textContent).toBe(
-        "47 archived plays reference this release — 41 directly, 6 through its rotation entry. " +
+        "47 archived plays are linked to this release — 41 directly, 6 through its rotation entry. " +
           "They keep their artist, album and label text and lose their link to this card.",
       );
     });
 
-    it("gives the legacy-linked arm its own clause when it is non-zero", async () => {
+    it("gives the legacy-linked arm its own sentence when it is non-zero", async () => {
       loaded();
       playCounts({ direct: 41, rotation_linked: 6, legacy_linked: 2 });
 
       renderWithProviders(<ReleaseDeleteConfirm albumId={53375} />);
 
       const text = (await screen.findByTestId("release-delete-play-impact")).textContent;
-      expect(text).toContain("47 archived plays reference this release");
-      expect(text).toContain("and 2 archived without a link, which will never join another release");
-      // Never summed: the headline count is direct + rotation_linked only.
-      expect(text).not.toContain("49 archived plays");
+      expect(text).toBe(
+        "47 archived plays are linked to this release — 41 directly, 6 through its rotation entry. " +
+          "They keep their artist, album and label text and lose their link to this card. " +
+          "2 more archived plays were filed without a link and will never join another release.",
+      );
+      // No stated total may disagree with the arms enumerated beneath it: 47 is
+      // the linked pair in full, and the legacy arm joins it in neither
+      // direction.
+      expect(text).not.toContain("49");
+    });
+
+    it("shows only the legacy sentence when every linked play has already been re-pointed", async () => {
+      loaded();
+      playCounts({ direct: 0, rotation_linked: 0, legacy_linked: 5 });
+
+      renderWithProviders(<ReleaseDeleteConfirm albumId={53375} />);
+
+      // Not "0 archived plays are linked ... 0 directly, 0 through its rotation
+      // entry", which is a sentence about nothing followed by a promise about
+      // an empty set.
+      expect((await screen.findByTestId("release-delete-play-impact")).textContent).toBe(
+        "5 archived plays were filed without a link and will never join another release.",
+      );
     });
 
     it("shows a loading state rather than a guess while the counts are in flight", async () => {
