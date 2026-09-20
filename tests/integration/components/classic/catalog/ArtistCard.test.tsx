@@ -1115,4 +1115,31 @@ describe("classic ArtistCard — artistCardModify.jsp", () => {
     expect(await screen.findByTestId("artist-card-error")).toBeDefined();
     expect(screen.queryByTestId("modify-artist-form")).toBeNull();
   });
+
+  describe("import confirmation", () => {
+    it("names the volume letters in full, even when they are not purely alphabetic", async () => {
+      renderWithProviders(
+        <ArtistCard
+          artistId={ARTIST_ID}
+          imported={{ rotationId: 7, codeNumber: 5, volumeLetters: "A/B 1" }}
+        />,
+      );
+
+      await screen.findByTestId("modify-artist-form");
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "Filed as Rock MO 12/5-A/B 1, and linked to rotation release #7.",
+      );
+    });
+
+    it("does not assert a partial shelf code when the volume letters could not be read", async () => {
+      renderWithProviders(
+        <ArtistCard artistId={ARTIST_ID} imported={{ rotationId: 7, codeNumber: undefined }} />,
+      );
+
+      await screen.findByTestId("modify-artist-form");
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "Catalogued and linked to rotation release #7.",
+      );
+    });
+  });
 });

@@ -1,3 +1,5 @@
+import { RELEASE_VOLUME_LETTERS_MAX_LENGTH } from "@/lib/features/catalog/adminCreateArtistValidation";
+
 /**
  * The confirmation the import screen carries onto the artist card it lands on,
  * and the parts of it that travel in the URL.
@@ -14,14 +16,23 @@ export type ImportedReleaseParams = {
   volumeLetters?: string;
 };
 
-/** `library.code_volume_letters` is `varchar(4)`, and letters are all it holds. */
-const VOLUME_LETTERS = /^[A-Za-z]{1,4}$/;
+/**
+ * `library.code_volume_letters` is `varchar(4)`; length is the only bound the
+ * server applies (`validateCodeVolumeLetters`), and `releaseVolumeLettersTooLong`
+ * matches it client-side at filing time. A charset check here would disagree
+ * with what the filing forms actually store, so this mirrors the same
+ * length-only rule rather than narrowing to letters.
+ */
+function volumeLettersReadable(vol: string): boolean {
+  return Array.from(vol).length <= RELEASE_VOLUME_LETTERS_MAX_LENGTH;
+}
 
 /**
  * Reads the `imported` / `code` / `vol` triple off a card URL, or `undefined`
- * when the landing was not an import. A malformed part is dropped rather than
- * rendered: the confirmation is a statement about what was filed, so a value
- * that cannot be trusted must not appear in it.
+ * when the landing was not an import. A `vol` longer than the column can hold
+ * did not come from a successful save, so it is dropped -- and `codeNumber`
+ * is dropped with it, not just the letters, so the confirmation never states
+ * a shelf code with its volume letters silently missing.
  */
 export function parseImportedReleaseParams(
   imported: string | undefined,
@@ -31,10 +42,14 @@ export function parseImportedReleaseParams(
   const rotationId = Number(imported);
   if (!Number.isInteger(rotationId) || rotationId <= 0) return undefined;
   const codeNumber = Number(code);
+  const volumeLettersOk = vol === undefined || volumeLettersReadable(vol);
   return {
     rotationId,
-    codeNumber: Number.isInteger(codeNumber) && codeNumber > 0 ? codeNumber : undefined,
-    volumeLetters: vol && VOLUME_LETTERS.test(vol) ? vol.toUpperCase() : undefined,
+    codeNumber:
+      volumeLettersOk && Number.isInteger(codeNumber) && codeNumber > 0
+        ? codeNumber
+        : undefined,
+    volumeLetters: vol && volumeLettersOk ? vol.toUpperCase() : undefined,
   };
 }
 
