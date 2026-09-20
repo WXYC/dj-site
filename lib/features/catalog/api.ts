@@ -692,16 +692,17 @@ export const catalogApi = createApi({
         { type: "ArtistByCode" as const, id: `${genre_id}:${code_letters}` },
       ],
       keepUnusedDataFor: 0,
-      // Unlike its two models, an empty list is not a legal answer here -- an
-      // unassigned code is a 404 carrying `code_not_assigned`. So this guard
-      // is not making a missing `artists` mean "none": it is normalizing an
-      // unreadable body onto the one value the caller already refuses to act
-      // on, so both arrive at the same refusal instead of one of them
-      // throwing mid-handler.
+      // `null`, not `[]`, for a body this shape cannot be read out of. An
+      // earlier version normalized onto `[]` because every caller refused an
+      // empty list, which made the two indistinguishable and safe. The browse
+      // ended that: an empty list is now a legal, meaningful answer on one arm
+      // -- unused call letters -- so folding an unreadable body into it would
+      // report an outage as an empty shelf section. `surfaceNonJsonAsError`
+      // does not reach this case, since the body is valid JSON. The guard is
+      // still what keeps `.artists` from throwing mid-handler.
       transformResponse: (
         response: ResolveArtistByCodeResponse | null,
-      ): ResolveArtistByCodeResponse =>
-        response?.artists ? response : { artists: [] },
+      ): ResolveArtistByCodeResponse => ({ artists: response?.artists ?? null }),
       // The chooser handles every failure shape inline (see
       // `resolveArtistByCodeErrorReason`), including the two structured 404
       // reasons -- neither is a surprise the shared rtk-query-error-logger

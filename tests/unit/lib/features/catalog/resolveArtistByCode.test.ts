@@ -72,8 +72,30 @@ describe("resolveArtistByCode", () => {
   // `artists` must resolve to a shape it can read rather than throwing
   // mid-handler, where the throw would be caught and reported as a
   // retryable outage.
-  it("resolves a body missing the owner list to an empty list", async () => {
-    server.use(http.get(BY_CODE_URL, () => HttpResponse.json({})));
+  //
+  // `null`, NOT `[]`. The browse arm acts on an empty list -- unused call
+  // letters are a real answer -- so folding an unreadable body into one would
+  // render an outage as "nothing is filed under these letters" for a section
+  // that may hold hundreds. `surfaceNonJsonAsError` cannot separate them:
+  // these bodies are valid JSON.
+  it.each([
+    ["a body missing the owner list", {}],
+    ["a null body", null],
+  ])("resolves %s to a null owner list, distinct from an empty one", async (_name, body) => {
+    server.use(http.get(BY_CODE_URL, () => HttpResponse.json(body)));
+
+    const store = createTestStore();
+    const result = await store.dispatch(initiate());
+
+    expect(result.isError).toBe(false);
+    expect(result.data).toEqual({ artists: null });
+  });
+
+  // The other side of that distinction: a genuinely empty bucket stays an
+  // empty ARRAY, so the browse can tell "this section is free" from "this
+  // answer is unreadable".
+  it("keeps a genuinely empty bucket as an empty list", async () => {
+    server.use(http.get(BY_CODE_URL, () => HttpResponse.json({ artists: [] })));
 
     const store = createTestStore();
     const result = await store.dispatch(initiate());

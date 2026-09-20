@@ -21,8 +21,8 @@ import type { ArtistByCodeOwner } from "@/lib/features/catalog/types";
 import { safeCapture } from "@/lib/posthog";
 
 /**
- * Only two of this search's seven endings move the URL, so a pageview stream
- * cannot tell the other five apart -- or see them at all. The event carries
+ * Only two of this search's nine endings move the URL, so a pageview stream
+ * cannot tell the other seven apart -- or see them at all. The event carries
  * the outcome plus enough of the composed code to reproduce the search, which
  * is what a report of "it went to an error page" has to be read against.
  */
@@ -259,13 +259,16 @@ export default function ArtistSearchForm({ onMultiMatch }: ArtistSearchFormProps
       genre_id: composed.args.genre_id,
       code_letters: composed.args.code_letters,
       code_number: composed.args.code_number ?? null,
-      browsing,
+      // Named to match the results screen's own events, so a search can be
+      // joined to the arrival it produced without translating one concept
+      // across two property names.
+      browse: browsing,
     };
 
     // Deciding what a *successful* answer means stays outside the guard, so a
     // throw from `router.push` or `onMultiMatch` surfaces as itself rather
     // than being reported as a lookup the librarian should retry.
-    let owners: ArtistByCodeOwner[];
+    let owners: ArtistByCodeOwner[] | null;
     try {
       owners = (await resolveArtistByCode(composed.args).unwrap()).artists;
     } catch (err) {
@@ -295,6 +298,16 @@ export default function ArtistSearchForm({ onMultiMatch }: ArtistSearchFormProps
 
       // A validation failure, a 5xx, or an outage: refuse to act rather than
       // guess -- see resolveArtistByCodeErrorReason's doc.
+      captureSearch("lookup_untrusted", searched);
+      setValidationMessage(UNTRUSTWORTHY_CODE_ANSWER_MESSAGE);
+      return;
+    }
+
+    // An unreadable body, not an empty bucket: the endpoint hands back `null`
+    // rather than folding the two together precisely so this arm can refuse
+    // it. Checked before the outcome is named, so an outage is never reported
+    // as `browse_empty`.
+    if (owners === null) {
       captureSearch("lookup_untrusted", searched);
       setValidationMessage(UNTRUSTWORTHY_CODE_ANSWER_MESSAGE);
       return;

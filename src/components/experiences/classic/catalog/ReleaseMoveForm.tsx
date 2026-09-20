@@ -197,7 +197,7 @@ export default function ReleaseMoveForm({ albumId }: { albumId: number }) {
       return;
     }
 
-    let found: ArtistByCodeOwner[];
+    let found: ArtistByCodeOwner[] | null;
     try {
       found = (await resolveArtistByCode(composed.args).unwrap()).artists;
     } catch (err) {
@@ -218,9 +218,10 @@ export default function ReleaseMoveForm({ albumId }: { albumId: number }) {
     }
 
     // A 200 with no owners is a shape the endpoint's contract never produces:
-    // an unassigned code is a 404. Reaching here means the answer cannot be
-    // trusted, and trusting it would offer a move to nobody.
-    if (found.length === 0) {
+    // an unassigned code is a 404. `null` is an unreadable body. Either way
+    // the answer cannot be trusted, and trusting it would offer a move to
+    // nobody.
+    if (found === null || found.length === 0) {
       setMessage(UNTRUSTWORTHY_CODE_ANSWER_MESSAGE);
       return;
     }

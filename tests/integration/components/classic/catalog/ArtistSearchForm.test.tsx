@@ -573,6 +573,30 @@ describe("classic ArtistSearchForm — chooseLibraryCodeOrArtist.jsp's artistSea
     expect(mockOnMultiMatch).not.toHaveBeenCalled();
   });
 
+  // The hole the browse opened: an empty list is a legal answer on this arm,
+  // so a JSON 200 the response shape cannot be read out of must NOT collapse
+  // into it. `surfaceNonJsonAsError` does not catch these -- they are valid
+  // JSON -- so the endpoint hands back `null` instead of `[]` and this arm
+  // refuses it. Reported as "nothing is filed here", an outage would send the
+  // librarian to file a duplicate into a section holding two hundred artists.
+  it.each([
+    ["a body missing the owner list", {}],
+    ["a null body", null],
+  ])("refuses %s on a browse rather than showing it as an empty bucket", async (_name, body) => {
+    server.use(http.get(BY_CODE_URL, () => HttpResponse.json(body)));
+    const { user } = renderWithProviders(<ArtistSearchForm onMultiMatch={mockOnMultiMatch} />);
+    await selectGenre(user, "Rock");
+
+    await user.click(screen.getByRole("radio", { name: /call letters:/i }));
+    await user.type(screen.getByLabelText("Call letters:"), "MA");
+    await user.click(screen.getByRole("button", { name: "Search!" }));
+
+    expect(
+      await screen.findByText("Couldn't check that library code right now. Try the lookup again."),
+    ).toBeInTheDocument();
+    expect(mockOnMultiMatch).not.toHaveBeenCalled();
+  });
+
   // Only a BLANK number browses. A typo is still refused inline and issues no
   // request -- browsing on it would silently answer a question about the whole
   // shelf section when the librarian asked about one number.
