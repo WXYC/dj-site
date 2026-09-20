@@ -3,13 +3,14 @@ import type { FetchBaseQueryError } from "@reduxjs/toolkit/query";
 /**
  * Why `DELETE /library/:id` did not delete. `unknown` is every shape this
  * module refuses to interpret — a 5xx, a non-JSON body, a network failure, a
- * `reason` it has never heard of — and is deliberately not folded into
- * `flowsheet_references`: "the server said no" and "we could not tell what the
+ * `reason` it has never heard of, or a `409` it does not classify (the delete
+ * no longer refuses on flowsheet plays; a still-live 409 is a refusal this
+ * module was not written to name) — and is deliberately not folded into
+ * `indeterminate`: "the server said no" and "we could not tell what the
  * server said" must not read alike on a screen whose next action is
  * irreversible.
  */
 export type ReleaseDeleteRefusalReason =
-  | "flowsheet_references"
   | "lock_unavailable"
   | "not_found"
   | "indeterminate"
@@ -27,14 +28,6 @@ export type ReleaseDeleteRefusal = {
    */
   retryable: boolean;
 };
-
-/**
- * Shown when the server refused on the merits but sent no usable sentence of
- * its own. Deliberately vaguer than the server's — it cannot name a count it
- * was not given, and inventing one would be worse than admitting the gap.
- */
-export const RELEASE_DELETE_REFUSED_MESSAGE =
-  "Cannot delete: this release has flowsheet plays on record.";
 
 export const RELEASE_DELETE_LOCK_MESSAGE =
   "Could not delete: the release is being written to right now. Try again in a moment.";
@@ -92,17 +85,17 @@ function bodyReason(data: unknown): string | undefined {
 /**
  * Interprets a rejected `deleteAlbum` into something a librarian can act on.
  *
- * This inverts the house convention set by `resolveArtistByCodeErrorReason`,
- * where the screen owns the words and the server owns only a `reason` code.
- * Here the server's sentence is preferred, because the refusal's whole content
- * is a number the client cannot recompute: how much flowsheet history the
- * delete would have damaged, and by which of three paths it is attached. A
- * client-side rewording would either drop that breakdown or duplicate the
- * backend's logic for assembling it, and the duplicate would drift the moment
- * a fourth path is added. So `reason` decides *which* branch the screen takes,
- * and the server's `message` supplies the words for it — with a fallback per
- * branch, so a missing message degrades to a vaguer true statement instead of
- * to a blank banner.
+ * Only the lock stand-down (503) prefers the server's own sentence, with a
+ * fallback for when it sends none — what a locked row is waiting on is detail
+ * this module has no way to reconstruct client-side. Every other named
+ * outcome is client-owned wording, the house convention set by
+ * `resolveArtistByCodeErrorReason`: the 404 deliberately ignores the server's
+ * generic "Album not found" for a sentence specific to this screen, and
+ * anything this module does not recognize — a 409 (the delete no longer
+ * refuses on flowsheet plays, but can still refuse on other grounds this
+ * module was not written to name), an unfamiliar `reason`, an unparseable
+ * body below 500 — degrades to one honest fallback rather than rendering
+ * server text this module has not vetted.
  */
 /**
  * True when the server answered the delete without writing — the only state in
@@ -145,14 +138,6 @@ export function interpretReleaseDeleteError(err: unknown): ReleaseDeleteRefusal 
   // Status and `reason` must agree. Either alone is weaker than it looks: a
   // proxy can return a bare 503 with no body at all, and a `reason` on the
   // wrong status is not a shape this endpoint produces.
-  if (status === 409 && bodyReason(data) === "flowsheet_references") {
-    return {
-      reason: "flowsheet_references",
-      message: serverMessage(data) ?? RELEASE_DELETE_REFUSED_MESSAGE,
-      retryable: false,
-    };
-  }
-
   if (status === 503 && bodyReason(data) === "lock_unavailable") {
     return {
       reason: "lock_unavailable",

@@ -1,9 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { useDeleteAlbumMutation, useGetInformationQuery } from "@/lib/features/catalog/api";
+import {
+  useDeleteAlbumMutation,
+  useGetFlowsheetPlayCountsQuery,
+  useGetInformationQuery,
+} from "@/lib/features/catalog/api";
 import { artistCardHref } from "@/lib/features/catalog/artistCardRoute";
 import { formatEntireLibraryCode } from "@/lib/features/catalog/libraryCode";
+import { formatReleaseDeletePlayImpact } from "@/lib/features/catalog/releaseDeletePlayImpact";
 import {
   interpretReleaseDeleteError,
   type ReleaseDeleteRefusal,
@@ -32,12 +37,18 @@ import type { AlbumEntry } from "@/lib/features/catalog/types";
  *    a true one. Same substitution the release editor makes.
  *  - **A plain Delete button, not `delete_75.gif`.** The image lives in the
  *    legacy webapp's asset tree, which classic does not serve.
- *  - **No pre-check hides the delete.** The JSP suppresses its delete link
- *    when the release has cross-references. Backend refuses on a stronger and
- *    more relevant criterion — flowsheet plays, which the JSP happily deleted
- *    through — and it refuses server-side, where the answer cannot go stale
- *    between the check and the click. So the button is always offered and the
- *    409 is the guard.
+ *  - **No pre-check hides the delete, and flowsheet plays no longer refuse
+ *    it.** The JSP suppresses its delete link when the release has
+ *    cross-references; the classic editor offers it unconditionally. A
+ *    release with plays used to be refused server-side — the JSP deleted
+ *    straight through the same case — but that refusal is gone: a single
+ *    release is one card, and restating a play count the librarian already
+ *    knows guards nothing a typo could catch. What remains is informational
+ *    rather than a gate — `useGetFlowsheetPlayCountsQuery` reads the release's
+ *    flowsheet plays by arm purely so the screen can state what the delete
+ *    will do before the button is pressed, since `deleteAlbum`'s own response
+ *    arrives too late to inform a decision already made. The read is
+ *    advisory and can go stale before the click; it is not a lock.
  */
 export default function ReleaseDeleteConfirm({ albumId }: { albumId: number }) {
   const { data, isLoading, isError } = useGetInformationQuery({ album_id: albumId });
@@ -56,6 +67,15 @@ export default function ReleaseDeleteConfirm({ albumId }: { albumId: number }) {
    */
   const [deleted, setDeleted] = useState<AlbumEntry | null>(null);
   const [refusal, setRefusal] = useState<ReleaseDeleteRefusal | null>(null);
+
+  // Skipped once the delete has already succeeded: refetching against a
+  // now-deleted id would 404, and that has nothing to do with the delete
+  // that already happened. The counts this screen showed before the click
+  // stay on screen exactly like the rest of the frozen `deleted` snapshot.
+  const {
+    data: playCounts,
+    isError: playCountsError,
+  } = useGetFlowsheetPlayCountsQuery(albumId, { skip: deleted !== null });
 
   const release = deleted ?? data;
 
@@ -99,6 +119,19 @@ export default function ReleaseDeleteConfirm({ albumId }: { albumId: number }) {
   // it standing: that refusal is a "not now", and the next press is the
   // correct response to it.
   const canDelete = !deleted && (refusal === null || refusal.retryable);
+
+  // Never guessed. A count this screen could not read must not render as
+  // "no plays" -- the one claim it cannot support -- so an unreadable read
+  // gets its own honest sentence instead of falling back to the zero-play
+  // message or a blank row. Deletion is not gated on any of these three
+  // states; only the message shown changes.
+  const playImpactMessage = deleted
+    ? null
+    : playCountsError
+      ? "The flowsheet play count for this release could not be checked."
+      : playCounts
+        ? formatReleaseDeletePlayImpact(playCounts)
+        : "Checking flowsheet plays...";
 
   const handleDelete = async () => {
     setRefusal(null);
@@ -169,6 +202,12 @@ export default function ReleaseDeleteConfirm({ albumId }: { albumId: number }) {
             </th>
             <td data-testid="release-delete-added">{added ? `${added.time} ${added.day}` : ""}</td>
           </tr>
+          {playImpactMessage ? (
+            <tr>
+              <td></td>
+              <td data-testid="release-delete-play-impact">{playImpactMessage}</td>
+            </tr>
+          ) : null}
           <tr>
             <td></td>
             <td>

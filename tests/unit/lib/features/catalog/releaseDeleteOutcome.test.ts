@@ -5,7 +5,6 @@ import {
   RELEASE_DELETE_INDETERMINATE_MESSAGE,
   RELEASE_DELETE_GONE_MESSAGE,
   RELEASE_DELETE_LOCK_MESSAGE,
-  RELEASE_DELETE_REFUSED_MESSAGE,
 } from "@/lib/features/catalog/releaseDeleteOutcome";
 
 const wrapped = (status: number | string, data: unknown) => ({
@@ -13,36 +12,6 @@ const wrapped = (status: number | string, data: unknown) => ({
 });
 
 describe("interpretReleaseDeleteError", () => {
-  it("passes through the server's sentence for a play-count refusal, count and all", () => {
-    const outcome = interpretReleaseDeleteError(
-      wrapped(409, {
-        message: "Cannot delete: release has 12 flowsheet plays on record",
-        reason: "flowsheet_references",
-        play_count: 12,
-        direct_play_count: 12,
-        rotation_linked_play_count: 0,
-        legacy_linked_play_count: 0,
-      }),
-    );
-
-    expect(outcome).toEqual({
-      reason: "flowsheet_references",
-      message: "Cannot delete: release has 12 flowsheet plays on record",
-      retryable: false,
-    });
-  });
-
-  it("carries the indirect-path breakdown through unaltered", () => {
-    const message =
-      "Cannot delete: release has 9 flowsheet plays on record (4 linked to the release, 3 via its rotation entry, 2 awaiting linkage from the legacy release id)";
-
-    const outcome = interpretReleaseDeleteError(
-      wrapped(409, { message, reason: "flowsheet_references", play_count: 9 }),
-    );
-
-    expect(outcome.message).toBe(message);
-  });
-
   it("marks a lock stand-down retryable — it says nothing about deletability", () => {
     const outcome = interpretReleaseDeleteError(
       wrapped(503, {
@@ -55,29 +24,22 @@ describe("interpretReleaseDeleteError", () => {
     expect(outcome.retryable).toBe(true);
   });
 
-  it.each([
-    { label: "a refusal on the merits", status: 409, reason: "flowsheet_references" },
-    { label: "a lock stand-down", status: 503, reason: "lock_unavailable" },
-  ])("falls back to its own wording when $label arrives with no message", ({ status, reason }) => {
-    const outcome = interpretReleaseDeleteError(wrapped(status, { reason }));
+  it("falls back to its own wording when a lock stand-down arrives with no message", () => {
+    const outcome = interpretReleaseDeleteError(wrapped(503, { reason: "lock_unavailable" }));
 
-    expect(outcome.message).toBe(
-      reason === "flowsheet_references"
-        ? RELEASE_DELETE_REFUSED_MESSAGE
-        : RELEASE_DELETE_LOCK_MESSAGE,
-    );
+    expect(outcome.message).toBe(RELEASE_DELETE_LOCK_MESSAGE);
   });
 
   it.each([
     { label: "an empty string", message: "" },
     { label: "whitespace", message: "   " },
     { label: "a non-string", message: 12 },
-  ])("does not surface $label as the refusal sentence", ({ message }) => {
+  ])("does not surface $label as the lock stand-down's sentence", ({ message }) => {
     const outcome = interpretReleaseDeleteError(
-      wrapped(409, { message, reason: "flowsheet_references" }),
+      wrapped(503, { message, reason: "lock_unavailable" }),
     );
 
-    expect(outcome.message).toBe(RELEASE_DELETE_REFUSED_MESSAGE);
+    expect(outcome.message).toBe(RELEASE_DELETE_LOCK_MESSAGE);
   });
 
   it("reads a 404 as already gone rather than as a failure to act on", () => {
@@ -95,6 +57,29 @@ describe("interpretReleaseDeleteError", () => {
     { label: "an unrecognised reason", err: wrapped(409, { reason: "something_new" }) },
     { label: "a 400", err: wrapped(400, { message: "bad id" }) },
     { label: "a 401", err: wrapped(401, { message: "unauthorized" }) },
+    // Regression guard: the delete no longer refuses on flowsheet plays, so
+    // this reason cannot arrive from a current backend — but if a stale
+    // proxy or a rollback ever sent it again, it must not resurrect the old
+    // refusal-on-the-merits treatment (a passed-through server sentence,
+    // its own named reason). It is just another 409 this module does not
+    // classify.
+    {
+      label: "a stale flowsheet-plays reason this module no longer classifies",
+      err: wrapped(409, {
+        reason: "flowsheet_references",
+        message: "Cannot delete: release has 12 flowsheet plays on record",
+      }),
+    },
+    // The delete can still refuse on other grounds (a bound digital-asset
+    // row, for one) — this module was never written to name that reason, so
+    // it degrades the same way as any other refusal it does not recognize.
+    {
+      label: "a refusal this module was never written to name",
+      err: wrapped(409, {
+        reason: "digital_asset_references",
+        message: "Cannot delete: release has 2 digital assets on record",
+      }),
+    },
   ])("says nothing was changed only when the server answered below 500 — $label", ({ err }) => {
     const outcome = interpretReleaseDeleteError(err);
 
@@ -108,7 +93,7 @@ describe("interpretReleaseDeleteError", () => {
     { label: "a 502 behind a gateway", err: wrapped(502, undefined) },
     { label: "a dropped connection", err: wrapped("FETCH_ERROR", undefined) },
     { label: "an unparseable body", err: wrapped("PARSING_ERROR", undefined) },
-    { label: "an unwrapped error", err: { status: 409, data: { reason: "flowsheet_references" } } },
+    { label: "an unwrapped error", err: { status: 409, data: { reason: "lock_unavailable" } } },
     { label: "undefined", err: undefined },
   ])("refuses to claim nothing was changed when no answer came back — $label", ({ err }) => {
     const outcome = interpretReleaseDeleteError(err);
@@ -123,11 +108,9 @@ describe("interpretReleaseDeleteError", () => {
     expect(outcome.retryable).toBe(true);
   });
 
-  it("keeps a refusal on the merits unretryable, whatever the transport did", () => {
+  it("keeps every non-retryable refusal unretryable, whatever the transport did", () => {
     expect(
-      interpretReleaseDeleteError(
-        wrapped(409, { reason: "flowsheet_references", message: "has plays" }),
-      ).retryable,
+      interpretReleaseDeleteError(wrapped(409, { reason: "digital_asset_references" })).retryable,
     ).toBe(false);
     expect(interpretReleaseDeleteError(wrapped(404, { message: "gone" })).retryable).toBe(false);
   });

@@ -431,6 +431,29 @@ export type AlbumRequestParams = {
   album_id: number;
 };
 
+/**
+ * `GET /library/:id/flowsheet-play-counts` — the release's flowsheet plays,
+ * counted by the three disjoint arms a delete can affect. Hand-written here
+ * rather than imported from `@wxyc/shared`: the endpoint is not declared in
+ * `wxyc-shared/api.yaml`.
+ *
+ * `direct` and `rotation_linked` are plays that actually link to this release
+ * (via `flowsheet.album_id`, or transitively via `flowsheet.rotation_id` ->
+ * `rotation.album_id`) and lose that link when the release is deleted.
+ * `legacy_linked` is different in kind, not just in path: it counts plays
+ * that name this release only by a bare `legacy_release_id`, still waiting on
+ * `jobs/legacy-linkage-resolve` to become a real link. Deleting the release
+ * does not unlink those plays — there was never a link — it stops them from
+ * ever being linked at all. The three counts must never be summed into one
+ * total; see `formatReleaseDeletePlayImpact`, the one place that renders
+ * them.
+ */
+export type FlowsheetPlayCounts = {
+  direct: number;
+  rotation_linked: number;
+  legacy_linked: number;
+};
+
 /** @deprecated use AddAlbumRequestBody */
 export type AlbumParams = AddAlbumRequestBody;
 

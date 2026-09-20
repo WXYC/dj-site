@@ -4,7 +4,10 @@ import { TEST_BACKEND_URL } from "@/tests/helpers/constants";
 import { server } from "@/tests/fakes/server";
 import { createTestStore } from "@/tests/helpers/store";
 import { catalogApi } from "@/lib/features/catalog/api";
-import { interpretReleaseDeleteError } from "@/lib/features/catalog/releaseDeleteOutcome";
+import {
+  interpretReleaseDeleteError,
+  RELEASE_DELETE_FALLBACK_MESSAGE,
+} from "@/lib/features/catalog/releaseDeleteOutcome";
 
 vi.mock("@/lib/features/authentication/client", () => ({
   getJWTToken: vi.fn().mockResolvedValue("test-token"),
@@ -34,9 +37,9 @@ describe("deleteAlbum", () => {
       http.delete(`${TEST_BACKEND_URL}/library/53375`, () =>
         HttpResponse.json(
           {
-            message: "Cannot delete: release has 12 flowsheet plays on record",
-            reason: "flowsheet_references",
-            play_count: 12,
+            message: "Cannot delete: release has 2 digital assets on record",
+            reason: "digital_asset_references",
+            asset_count: 2,
           },
           { status: 409 },
         ),
@@ -56,9 +59,9 @@ describe("deleteAlbum", () => {
       http.delete(`${TEST_BACKEND_URL}/library/53375`, () =>
         HttpResponse.json(
           {
-            message: "Cannot delete: release has 12 flowsheet plays on record",
-            reason: "flowsheet_references",
-            play_count: 12,
+            message: "Cannot delete: release has 2 digital assets on record",
+            reason: "digital_asset_references",
+            asset_count: 2,
           },
           { status: 409 },
         ),
@@ -73,9 +76,13 @@ describe("deleteAlbum", () => {
 
     // The wrapper and the interpreter are one contract; asserting them
     // together is what stops a rename on either side from passing twice.
+    // `interpretReleaseDeleteError` does not classify this reason — it is
+    // not the flowsheet-plays refusal BS#2565 removed, and this module was
+    // never written to name it — so it degrades to the generic fallback
+    // rather than passing the server's sentence through.
     expect(interpretReleaseDeleteError(error)).toEqual({
-      reason: "flowsheet_references",
-      message: "Cannot delete: release has 12 flowsheet plays on record",
+      reason: "unknown",
+      message: RELEASE_DELETE_FALLBACK_MESSAGE,
       retryable: false,
     });
   });
@@ -83,7 +90,7 @@ describe("deleteAlbum", () => {
   it("keeps the refusal out of the global error toast", async () => {
     server.use(
       http.delete(`${TEST_BACKEND_URL}/library/53375`, () =>
-        HttpResponse.json({ message: "nope", reason: "flowsheet_references" }, { status: 409 }),
+        HttpResponse.json({ message: "nope", reason: "digital_asset_references" }, { status: 409 }),
       ),
     );
 
@@ -221,7 +228,7 @@ describe("deleteAlbum", () => {
         return HttpResponse.json([]);
       }),
       http.delete(`${TEST_BACKEND_URL}/library/53375`, () =>
-        HttpResponse.json({ message: "nope", reason: "flowsheet_references" }, { status: 409 }),
+        HttpResponse.json({ message: "nope", reason: "digital_asset_references" }, { status: 409 }),
       ),
     );
 

@@ -32,6 +32,7 @@ import {
   CrossReferencePage,
   CrossReferenceQueryParams,
   DiscogsReleasePrefill,
+  FlowsheetPlayCounts,
   LibraryFormatRow,
   LibraryGenreRow,
   LibraryQueryParams,
@@ -312,6 +313,33 @@ export const catalogApi = createApi({
               // guessing at one — the same fallback addAlbum takes.
               { type: "ArtistReleaseList", id: artistId != null ? String(artistId) : "LIST" },
             ],
+    }),
+    /**
+     * GET /library/:id/flowsheet-play-counts — read by the delete
+     * confirmation screen before the librarian presses the button, since
+     * `deleteAlbum`'s own response cannot inform a decision the librarian has
+     * already made by the time it arrives. Purely advisory: the delete no
+     * longer refuses on flowsheet plays, so nothing here gates anything.
+     *
+     * Not cached across visits (`keepUnusedDataFor: 0`) and carries no tag —
+     * it takes no lock server-side and is documented as a snapshot that can
+     * go stale before the delete it precedes actually runs, so there is
+     * nothing for a mutation in this client to invalidate correctly. A
+     * confirmation screen revisited later should read fresh rather than
+     * trust a number from its last visit.
+     *
+     * Opts into `surfaceNonJsonAsError`, unlike most reads here: the default
+     * soft-fail would resolve an unreachable backend to `data: null`, and a
+     * caller that then rendered the zero-play message would tell the
+     * librarian a release has no plays because the count could not be read —
+     * the one claim this screen must never make on a guess.
+     */
+    getFlowsheetPlayCounts: builder.query<FlowsheetPlayCounts, number>({
+      query: (albumId) => ({
+        url: `/${albumId}/flowsheet-play-counts`,
+      }),
+      extraOptions: { surfaceNonJsonAsError: true },
+      keepUnusedDataFor: 0,
     }),
     addArtist: builder.mutation<
       {
@@ -958,6 +986,7 @@ export const {
   useAddAlbumMutation,
   useUpdateAlbumMutation,
   useDeleteAlbumMutation,
+  useGetFlowsheetPlayCountsQuery,
   useAddArtistMutation,
   useFileReleaseMutation,
   useLazyGetDiscogsPrefillQuery,
