@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { skipToken } from "@reduxjs/toolkit/query";
 import { usePeekArtistCodeQuery } from "@/lib/features/catalog/api";
-import { CODE_LETTERS_MAX_LENGTH } from "@/lib/features/catalog/adminCreateArtistValidation";
+import { codeLettersTooLong } from "@/lib/features/catalog/adminCreateArtistValidation";
 import type { PeekArtistCodeQuery } from "@/lib/features/catalog/types";
 import { useDebouncedValue } from "./useDebouncedValue";
 
@@ -12,9 +12,13 @@ const DEBOUNCE_MS = 150;
 export type ArtistCodePeek = {
   /**
    * The letters/genre pair being previewed. Null while either half is
-   * incomplete, or while the letters exceed the column's width — the same
-   * length the submit gate checks, since a code no series can hold must not
-   * preview as "Next code: 1" beside the length error that blocks the submit.
+   * incomplete, or while the letters exceed the column's width — measured by
+   * the same `codeLettersTooLong` the submit gate calls, not a local
+   * comparison, since a code no series can hold must not preview as
+   * "Next code: 1" beside the length error that blocks the submit. Sharing the
+   * function rather than the constant is what keeps the two from drifting:
+   * they disagreed in both directions while this gate counted UTF-16 units and
+   * the submit gate counted NFC code points.
    */
   arg: PeekArtistCodeQuery | null;
   /** Debounce lag or fetch in flight: any value on hand answers a previous pair. */
@@ -46,9 +50,16 @@ export function useArtistCodePeek(codeLetters: string, genreId: number | null): 
   const trimmedCodeLetters = codeLetters.trim();
   const arg: PeekArtistCodeQuery | null = useMemo(
     () =>
-      trimmedCodeLetters &&
-      trimmedCodeLetters.length <= CODE_LETTERS_MAX_LENGTH &&
-      genreId != null
+      // `codeLettersTooLong`, not a local `.length` comparison: this gate and
+      // the submit gate have to be the SAME measurement or the two disagree in
+      // both directions. `.length` counts UTF-16 units, while the submit gate
+      // (and Backend's own `validateArtistCodeLetters`) counts code points
+      // after NFC. With a local `.length` here, "aaaक़" previews a next
+      // code beside the length error that blocks the submit, and a
+      // three-code-point astral code that the submit accepts previews nothing
+      // at all — silently leaving the code-number field blank in
+      // `RotationFilingBench`'s auto-fill mode.
+      trimmedCodeLetters && !codeLettersTooLong(trimmedCodeLetters) && genreId != null
         ? { code_letters: trimmedCodeLetters, genre_id: genreId }
         : null,
     [trimmedCodeLetters, genreId],

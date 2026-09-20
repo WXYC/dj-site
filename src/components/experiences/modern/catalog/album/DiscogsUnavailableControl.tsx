@@ -41,11 +41,19 @@ function DiscogsUnavailableControl({ album }: DiscogsUnavailableControlProps) {
 
   const trimmedNote = note.trim();
   const noteChanged = trimmedNote !== (savedNote ?? "").trim();
-  // No `maxLength` on the textarea below: it would silently clip a pasted
-  // note past the column's width before this ever saw it, so `handleSaveNote`
-  // would PATCH the already-truncated text with nothing refused. Computed
-  // live off the field instead, matching `library.discogs_unavailable_note`'s
-  // own `varchar(500)` ceiling.
+  // No `maxLength` on the textarea below: it would silently clip a pasted note
+  // before this ever saw it, so `handleSaveNote` would PATCH the
+  // already-truncated text with nothing refused. Computed live off the field
+  // instead.
+  //
+  // UTF-16 units (`.length`), NOT code points, and deliberately so: the server
+  // check on this field is itself `.length`, and the server is the binding
+  // constraint. It is STRICTER than the column, which is a `varchar(500)` and
+  // therefore measured in characters — so a 300-emoji note is 300 characters
+  // the column would store happily and 600 units the server refuses. Measuring
+  // code points here to "match the column" would let that note through to an
+  // unlabelled 400. Match the check that actually rejects, not the column
+  // behind it; if the server ever moves to code points, this moves with it.
   const noteTooLong = trimmedNote.length > DISCOGS_UNAVAILABLE_NOTE_MAX_LENGTH;
 
   const handleFlagChange = async (next: boolean) => {

@@ -376,12 +376,28 @@ describe("StationSignupForm", () => {
     expect(screen.getByLabelText(/^username/i)).toBeInTheDocument();
   });
 
-  it("caps the username field at the length the server enforces", async () => {
+  // Asserted as a REFUSAL, not as a `maxlength` attribute. The attribute was
+  // the defect: it clips a pasted handle before React sees it, so
+  // `getUsernameError`'s own length branch could never fire, `detailsValid`
+  // stayed true, and the account was provisioned under a silently different
+  // username the DJ then could not log in with by pasting the one they chose.
+  // Every field on this form except the passcode is persisted, so the same
+  // reasoning applies to each.
+  it("refuses an over-length username visibly rather than silently clipping it", async () => {
     const { user } = renderWithProviders(<StationSignupForm />);
 
     await fillPasscodeStep(user);
 
-    expect(screen.getByLabelText(/^username/i)).toHaveAttribute("maxlength", "30");
+    const username = screen.getByLabelText(/^username/i) as HTMLInputElement;
+    expect(username).not.toHaveAttribute("maxlength");
+
+    await user.clear(username);
+    await user.type(username, "u".repeat(31));
+
+    // The full 31 characters reach state — nothing was clipped — and the
+    // submit is blocked rather than the value being quietly shortened.
+    expect(username.value).toHaveLength(31);
+    expect(screen.getByRole("button", { name: "Submit" })).toBeDisabled();
   });
 
   it("keeps submit disabled for a username the server's own rules would reject", async () => {

@@ -5,6 +5,8 @@ import {
   type CallLetterMode,
 } from "./chooserValidation";
 import {
+  CODE_LETTERS_MAX_LENGTH,
+  codeLettersTooLong,
   isCanonicalCodeLetters,
   normalizeCodeLetters,
   parseRequiredNonNegativeInt,
@@ -31,6 +33,7 @@ export type LibraryCodeSearchValues = {
 export type LibraryCodeCompositionRefusal =
   | "genre_required"
   | "call_letter_mode_required"
+  | "call_letters_too_long"
   | "call_letters_charset"
   | "call_number_required";
 
@@ -76,6 +79,21 @@ export function composeLibraryCodeSearchArgs(
 
   if (values.callLetterMode === "textbox") {
     const codeLetters = normalizeCodeLetters(values.artistLettersTextbox.trim());
+    // Length before charset, and reported separately. `isCanonicalCodeLetters`
+    // is one boolean over a `{1,4}` charset regex, so letting it answer both
+    // questions reports "ABCDE" — five characters, every one of them legal —
+    // as "must be letters, digits, or a slash". The librarian reads a sentence
+    // that describes none of what they typed, retypes the same five characters,
+    // and is refused again with the actual ceiling never stated. A refusal has
+    // to be actionable, not merely visible, and `reason` is also what any
+    // telemetry or future branch buckets on.
+    if (codeLettersTooLong(codeLetters)) {
+      return {
+        ready: false,
+        reason: "call_letters_too_long",
+        message: `Call letters must be at most ${CODE_LETTERS_MAX_LENGTH} characters.`,
+      };
+    }
     if (!isCanonicalCodeLetters(codeLetters)) {
       return {
         ready: false,

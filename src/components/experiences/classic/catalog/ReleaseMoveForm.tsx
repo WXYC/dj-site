@@ -392,16 +392,17 @@ export default function ReleaseMoveForm({ albumId }: { albumId: number }) {
                   aria-label="Call letters: mode"
                 />
                 <label htmlFor={lettersId}>Call letters:</label>
-                {/* No `maxLength`: it would silently clip a paste past four
-                    UTF-16 units before `composeLibraryCodeSearchArgs` ever
-                    saw it, looking up whatever truncated prefix remained --
-                    which can be a different artist's real code -- instead of
-                    refusing the paste. `isCanonicalCodeLetters` inside that
-                    function already refuses anything over
-                    `CODE_LETTERS_MAX_LENGTH` (it is a `{1,4}` charset regex),
-                    so removing the attribute needs no separate check here:
-                    `handleLookUp` reports that refusal as `message` the same
-                    as it does for a bad charset. */}
+                {/* No `maxLength` on either half of this code. It would
+                    silently clip a paste before `composeLibraryCodeSearchArgs`
+                    ever saw it, and the clipped prefix is not a miss -- it is
+                    very often a DIFFERENT artist's real code, so the lookup
+                    resolves, the librarian arms a destination they never asked
+                    for, and the move goes to the wrong shelf. Refusing the
+                    paste is the only safe answer, and that refusal now names
+                    the length rather than borrowing the charset sentence:
+                    `composeLibraryCodeSearchArgs` checks
+                    `codeLettersTooLong` before `isCanonicalCodeLetters` and
+                    returns `call_letters_too_long`. */}
                 <input
                   id={lettersId}
                   type="text"
@@ -427,7 +428,6 @@ export default function ReleaseMoveForm({ albumId }: { albumId: number }) {
                   }}
                   onKeyDown={runLookUpOnEnter}
                   size={3}
-                  maxLength={3}
                 />
                 <br />
                 <input

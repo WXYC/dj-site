@@ -89,7 +89,7 @@ describe("composeLibraryCodeSearchArgs", () => {
   // Mirrors the endpoint's own `^[A-Za-z0-9/]{1,4}$` rule so a code it would
   // 400 on is named here instead of arriving as the caller's
   // unstructured-failure branch, which reads as "try again".
-  it.each([["?!"], ["A-"], ["A B"], ["ABCDE"], [""], ["   "]])(
+  it.each([["?!"], ["A-"], ["A B"], [""], ["   "]])(
     "refuses call letters outside the code column's charset (%j)",
     (raw) => {
       expect(
@@ -103,6 +103,31 @@ describe("composeLibraryCodeSearchArgs", () => {
         ready: false,
         reason: "call_letters_charset",
         message: "Call letters must be letters, digits, or a slash.",
+      });
+    },
+  );
+
+  // Length is refused separately from charset, and "ABCDE" is why: every
+  // character in it is legal, so answering with the charset sentence describes
+  // none of what the librarian typed. They retype the same five characters and
+  // are refused again, with the four-character ceiling never stated — visible
+  // but not actionable. `isCanonicalCodeLetters` cannot make the distinction on
+  // its own: it is one boolean over a `{1,4}` regex, so the length check has to
+  // run first and carry its own `reason`.
+  it.each([["ABCDE"], ["ABCDEFGH"], ["A/B/C/D/E"]])(
+    "refuses an over-length call-letters code by NAMING the length, not the charset (%j)",
+    (raw) => {
+      expect(
+        composeLibraryCodeSearchArgs({
+          callLetterMode: "textbox",
+          artistLettersTextbox: raw,
+          artistNumbersTextbox: "12",
+          genreId: ROCK_GENRE_ID,
+        }),
+      ).toEqual({
+        ready: false,
+        reason: "call_letters_too_long",
+        message: "Call letters must be at most 4 characters.",
       });
     },
   );
