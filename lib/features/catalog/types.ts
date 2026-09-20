@@ -325,20 +325,40 @@ export type LibraryArtistSearchParams = {
 };
 
 /** GET /library/artists/by-code — a fully specified library code. */
+/**
+ * `by-code`'s query, at either of its two specificities. An ABSENT
+ * `code_number` browses the whole `(genre_id, code_letters)` bucket ordered by
+ * the number each artist holds -- `chooseLibraryCodeOrArtist.jsp`'s
+ * blank-call-number path. A present one resolves the single triple.
+ *
+ * Optional means absent, not empty. The endpoint still 400s a
+ * present-but-empty `code_number=`, because `Number('')` is 0 and 0 is a
+ * legitimate Various Artists filing, so browsing on it would hide a client bug
+ * behind a plausible answer. `fetchBaseQuery` strips an undefined param, which
+ * is why leaving this `undefined` is the correct way to browse and building a
+ * `""` is not.
+ */
 export type ResolveArtistByCodeQuery = {
   genre_id: number;
   code_letters: string;
-  code_number: number;
+  code_number?: number;
 };
 
 /**
- * One artist that owns a `(code_letters, genre_id, code_number)` triple.
- * Plural because the triple is not unique -- Backend-Service's
- * `getArtistsByCode` documents 13 production collisions, the two largest
- * being Various-Artists sub-buckets that share one code within a genre. Every
- * entry in a given response carries the same `genre_id`/`code_letters`/
- * `code_number` -- that identity is what makes them collide -- so the three
- * are still projected per-row rather than hoisted, matching the wire shape.
+ * One artist filed under a `(genre_id, code_letters)` pair, with the number it
+ * holds there.
+ *
+ * `genre_id` and `code_letters` are constant across a response -- they are the
+ * query. **`code_number` is not**, and hoisting it out of the rows is the
+ * mistake this doc exists to prevent. A fully-specified lookup returns several
+ * artists that collide on one number (Backend-Service's `getArtistsByCode`
+ * documents 13 production collisions, the largest a Various-Artists bucket of
+ * 27), so there the number happens to repeat. A number-less browse returns the
+ * whole bucket, where it varies row to row and is the entire reason the
+ * librarian asked: they read the highest assigned number off the bottom of the
+ * list. Both responses have the same wire shape and typecheck identically, so
+ * nothing but this will stop a reader from treating the first row's number as
+ * the response's.
  */
 export type ArtistByCodeOwner = {
   id: number;

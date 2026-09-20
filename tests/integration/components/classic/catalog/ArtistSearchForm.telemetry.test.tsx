@@ -100,6 +100,7 @@ describe("classic ArtistSearchForm — code search telemetry", () => {
       code_number: 47,
       genre_id: ROCK_GENRE_ID,
       owner_count: 1,
+      browsing: false,
     });
   });
 
@@ -154,13 +155,74 @@ describe("classic ArtistSearchForm — code search telemetry", () => {
   it("names which refusal an inline message came from", async () => {
     const { user } = renderWithProviders(<ArtistSearchForm onMultiMatch={mockOnMultiMatch} />);
 
-    await submitTextboxCode(user, "ME", "");
+    await submitTextboxCode(user, "ME", "4x");
 
     await waitFor(() => expect(codeSearchCaptures()).toHaveLength(1));
     expect(codeSearchCaptures()[0][1]).toMatchObject({
       outcome: "refused",
-      refusal: "call_number_required",
+      refusal: "call_number_malformed",
       call_letter_mode: "textbox",
+    });
+  });
+
+  // A browse and a contested code both end on the same screen with a list of
+  // artists, so reusing `multi_match` for the browse would merge two
+  // populations that answer different questions -- "codes collide here" and
+  // "here is the shelf section" -- into one number, with no way to separate
+  // them after the fact.
+  it("reports a browse under its own outcome rather than as a contested code", async () => {
+    server.use(
+      http.get(BY_CODE_URL, () =>
+        HttpResponse.json({ artists: [owner(1), owner(2), owner(3)] }),
+      ),
+    );
+    const { user } = renderWithProviders(<ArtistSearchForm onMultiMatch={mockOnMultiMatch} />);
+
+    await submitTextboxCode(user, "ME", "");
+
+    await waitFor(() => expect(mockOnMultiMatch).toHaveBeenCalledTimes(1));
+    expect(codeSearchCaptures()[0][1]).toMatchObject({
+      outcome: "browse_results",
+      owner_count: 3,
+      browsing: true,
+      // A browse names no single number, so the property that would carry one
+      // is explicitly null rather than a number the search never had.
+      code_number: null,
+      code_letters: "ME",
+    });
+  });
+
+  // Separated from `browse_results` because it is the answer to a different
+  // question -- "is this section free?" -- and from `lookup_untrusted`
+  // because it is a success. Collapsing either pair would make an outage and
+  // an empty shelf section read as one another.
+  it("separates an empty bucket from a browse that found rows", async () => {
+    server.use(http.get(BY_CODE_URL, () => HttpResponse.json({ artists: [] })));
+    const { user } = renderWithProviders(<ArtistSearchForm onMultiMatch={mockOnMultiMatch} />);
+
+    await submitTextboxCode(user, "QZ", "");
+
+    await waitFor(() => expect(codeSearchCaptures()).toHaveLength(1));
+    expect(codeSearchCaptures()[0][1]).toMatchObject({
+      outcome: "browse_empty",
+      owner_count: 0,
+      browsing: true,
+    });
+  });
+
+  // `lookup_untrusted` and `genre_not_found` are the two endings both arms
+  // share, so without this the browse's failures are indistinguishable from
+  // the fully-specified arm's.
+  it("marks a shared failure ending with the arm it came from", async () => {
+    server.use(http.get(BY_CODE_URL, () => HttpResponse.json({}, { status: 500 })));
+    const { user } = renderWithProviders(<ArtistSearchForm onMultiMatch={mockOnMultiMatch} />);
+
+    await submitTextboxCode(user, "ME", "");
+
+    await waitFor(() => expect(codeSearchCaptures()).toHaveLength(1));
+    expect(codeSearchCaptures()[0][1]).toMatchObject({
+      outcome: "lookup_untrusted",
+      browsing: true,
     });
   });
 

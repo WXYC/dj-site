@@ -30,6 +30,14 @@ const CHOOSER_EVENTS = {
   CODE_SEARCH: "library_code_search",
 } as const;
 
+/**
+ * Typed-total on purpose: the capture sites pass string literals, so a browse
+ * that reused `multi_match` would compile and silently merge two populations
+ * that mean different things -- "this code is contested" and "here is the
+ * shelf section". The browse's endings are named apart for that reason, and
+ * `browse_empty` is a success, not a failure: unused call letters are a normal
+ * thing for a librarian to check.
+ */
 type LibraryCodeSearchOutcome =
   | "refused"
   | "not_assigned"
@@ -37,7 +45,9 @@ type LibraryCodeSearchOutcome =
   | "lookup_untrusted"
   | "empty_owner_list"
   | "single_owner"
-  | "multi_match";
+  | "multi_match"
+  | "browse_results"
+  | "browse_empty";
 
 /**
  * The two gates refuse for overlapping reasons under different names, so both
@@ -58,19 +68,28 @@ const REFUSAL_BY_VALIDATION_FIELD: Record<ArtistSearchValidationField, CodeSearc
   rockCompLetters: "rock_comp_letter_required",
 };
 
-/** A code search that matched more than one artist -- `LibraryChooser` swaps to `MultipleArtistsDisplay` on this. */
+/**
+ * A search that ends on `MultipleArtistsDisplay` rather than on an artist
+ * card -- `LibraryChooser` swaps screens on this. Two searches reach it: a
+ * fully specified code with more than one owner, and a call-letters browse at
+ * any size, including none.
+ *
+ * `codeNumber` is the HEADER's number and is `null` for a browse, which has no
+ * single number to name. It is deliberately not the rows' number: those travel
+ * on `artists` per row and vary across a browse.
+ */
 export type MultiMatchResult = {
   genreName: string | undefined;
   codeLetters: string;
-  codeNumber: number;
+  codeNumber: number | null;
   artists: ArtistByCodeOwner[];
 };
 
 type ArtistSearchFormProps = {
   /**
-   * Called instead of navigating when a code search matches more than one
-   * artist. Required rather than optional: a caller that omits it has no
-   * disambiguation screen to show, and the multi-match branch would leave
+   * Called instead of navigating when a search ends on a list: a contested
+   * code, or any call-letters browse. Required rather than optional: a caller
+   * that omits it has no results screen to show, and both branches would leave
    * the librarian looking at a Search button that did nothing.
    */
   onMultiMatch: (result: MultiMatchResult) => void;
@@ -91,26 +110,21 @@ type ArtistSearchFormProps = {
  * `resolveArtistByCodeErrorReason` for why an outage must never be read as
  * "code not assigned."
  *
- * Three divergences from the JSP, each forced by a Backend contract that has
+ * A blank call number is a search, not a refusal: it composes the genre +
+ * call-letters browse and ends on the same results screen the servlet's own
+ * blank-number path forwarded to. Only a MALFORMED number is refused. See
+ * `composeLibraryCodeSearchArgs`.
+ *
+ * Two divergences from the JSP, each forced by a Backend contract that has
  * no legacy equivalent:
  *
- * 1. `resolveArtistByCode` requires a fully specified `(genre_id,
- *    code_letters, code_number)` triple. The JSP's own client-side validator
- *    never required a call number at all -- a blank one fell through to a
- *    genre+letters-only browse (`LibraryCodeServlet` ->
- *    `multipleArtistsDisplay.jsp`) that Backend-Service cannot answer, since
- *    there is no "any number" query. This form still accepts a blank call
- *    number past `validateArtistSearchForm` (matching the JSP rule-for-rule),
- *    then refuses at submit with a message asking for one, rather than
- *    guessing a number or reintroducing a browse the API cannot back. See
- *    `composeLibraryCodeSearchArgs`.
- * 2. A fully specified code with more than one owner reaches the
+ * 1. A fully specified code with more than one owner reaches the
  *    disambiguation screen here. The legacy servlet's own fully-specified
  *    lookup ends in `findFirst()` over an unordered query, so it silently
  *    hands the librarian one arbitrary row out of a contested code and
  *    cannot tell one match from twenty-seven. `by-code` answers a list
  *    precisely so that guess is not forced.
- * 3. The compilation radio's misses route to the creation flow like the
+ * 2. The compilation radio's misses route to the creation flow like the
  *    textbox radio's do. The servlet instead redirects a compilation miss
  *    back to an empty chooser with no message at all, contradicting this
  *    screen's own heading ("If the code does not exist, you will get the
@@ -212,12 +226,18 @@ export default function ArtistSearchForm({ onMultiMatch }: ArtistSearchFormProps
 
     setValidationMessage(null);
 
-    const composed = composeLibraryCodeSearchArgs({
-      callLetterMode,
-      artistLettersTextbox,
-      artistNumbersTextbox,
-      genreId: effectiveGenreId,
-    });
+    const composed = composeLibraryCodeSearchArgs(
+      {
+        callLetterMode,
+        artistLettersTextbox,
+        artistNumbersTextbox,
+        genreId: effectiveGenreId,
+      },
+      // This screen has somewhere to put a whole bucket -- the JSP's own
+      // results screen, which its blank-number path forwarded to. The move
+      // screen deliberately does not opt in; see the composer's doc.
+      { allowBucketBrowse: true },
+    );
 
     if (!composed.ready) {
       captureSearch("refused", { refusal: composed.reason });
@@ -225,12 +245,21 @@ export default function ArtistSearchForm({ onMultiMatch }: ArtistSearchFormProps
       return;
     }
 
-    // Every ending below describes the same composed code, so it travels with
-    // all of them rather than being spelled out per branch.
+    // An absent number is the browse -- see `composeLibraryCodeSearchArgs`.
+    // Read once here because every branch below turns on it.
+    const browsing = composed.args.code_number === undefined;
+
+    // Every ending below describes the same composed search, so it travels
+    // with all of them rather than being spelled out per branch. `code_number`
+    // is explicitly `null` on a browse rather than left off: the two endings
+    // a browse shares with the fully-specified arm (`genre_not_found`,
+    // `lookup_untrusted`) would otherwise be told apart only by the absence of
+    // a property, which reads the same as a capture that dropped it.
     const searched = {
       genre_id: composed.args.genre_id,
       code_letters: composed.args.code_letters,
-      code_number: composed.args.code_number,
+      code_number: composed.args.code_number ?? null,
+      browsing,
     };
 
     // Deciding what a *successful* answer means stays outside the guard, so a
@@ -242,7 +271,10 @@ export default function ArtistSearchForm({ onMultiMatch }: ArtistSearchFormProps
     } catch (err) {
       const reason = resolveArtistByCodeErrorReason(err);
 
-      if (reason === "code_not_assigned") {
+      // Unreachable from a browse: it names no single code to be unassigned,
+      // and Backend answers an empty bucket with a 200 instead. The narrowing
+      // is what lets the creation URL below carry a number at all.
+      if (reason === "code_not_assigned" && composed.args.code_number !== undefined) {
         captureSearch("not_assigned", searched);
         const params = new URLSearchParams({
           genre_id: String(composed.args.genre_id),
@@ -268,20 +300,47 @@ export default function ArtistSearchForm({ onMultiMatch }: ArtistSearchFormProps
       return;
     }
 
-    // All three endings are reached at the same point with the same facts, so
-    // the count names the outcome once rather than being restated as a literal
-    // per branch -- where `0` and `1` could only ever be wrong.
+    // Every ending is reached at the same point with the same facts, so the
+    // arm and the count name the outcome once rather than being restated as a
+    // literal per branch -- where `0` and `1` could only ever be wrong.
     captureSearch(
-      owners.length === 0 ? "empty_owner_list" : owners.length === 1 ? "single_owner" : "multi_match",
+      browsing
+        ? owners.length === 0
+          ? "browse_empty"
+          : "browse_results"
+        : owners.length === 0
+          ? "empty_owner_list"
+          : owners.length === 1
+            ? "single_owner"
+            : "multi_match",
       { ...searched, owner_count: owners.length },
     );
 
-    // A 200 with no owners is a shape the endpoint's contract never produces
-    // -- an unassigned code is a 404 carrying `code_not_assigned`. Reaching
-    // here means the answer cannot be trusted, so it is refused like any other
-    // malformed one: routing to the creation flow would file a duplicate, and
-    // the disambiguation screen would assert the code exists with nobody
-    // holding it.
+    const genreName = genres?.find((genre) => genre.id === composed.args.genre_id)?.genre_name;
+
+    // A browse always ends on the results screen, at every size. One artist is
+    // a list of one, not a redirect: the librarian asked what is filed under
+    // these letters, and the servlet forwards to `multipleArtistsDisplay.jsp`
+    // whatever the count. Zero is the screen's own no-results branch -- unused
+    // call letters are a normal answer, and the refusal below would tell the
+    // librarian to retry a lookup that already succeeded.
+    if (browsing) {
+      onMultiMatch({
+        genreName,
+        codeLetters: composed.args.code_letters,
+        codeNumber: null,
+        artists: owners,
+      });
+      return;
+    }
+
+    // Fully specified only. Here a 200 with no owners is a shape the contract
+    // never produces -- an unassigned code is a 404 carrying
+    // `code_not_assigned` -- so the answer cannot be trusted and is refused
+    // like any other malformed one: routing to the creation flow would file a
+    // duplicate, and the disambiguation screen would assert the code exists
+    // with nobody holding it. The browse above is deliberately outside this
+    // guard, because there an empty list is the truth.
     if (owners.length === 0) {
       setValidationMessage(UNTRUSTWORTHY_CODE_ANSWER_MESSAGE);
       return;
@@ -292,11 +351,10 @@ export default function ArtistSearchForm({ onMultiMatch }: ArtistSearchFormProps
       return;
     }
 
-    const genreName = genres?.find((genre) => genre.id === composed.args.genre_id)?.genre_name;
     onMultiMatch({
       genreName,
       codeLetters: composed.args.code_letters,
-      codeNumber: composed.args.code_number,
+      codeNumber: composed.args.code_number ?? null,
       artists: owners,
     });
   };

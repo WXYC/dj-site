@@ -432,20 +432,203 @@ describe("classic ArtistSearchForm — chooseLibraryCodeOrArtist.jsp's artistSea
     expect(mockPush).not.toHaveBeenCalled();
   });
 
-  // The JSP's own client validator never checks the call number field --
-  // resolveArtistByCode requires one, so a blank value is refused only once
-  // the JSP-parity rules above have already passed.
-  it("asks for a call number when textbox mode is submitted with one blank", async () => {
+  // The JSP's own client validator never checks the call number field,
+  // because the servlet fell through to a genre + call-letters browse when one
+  // was blank. `by-code` answers that browse when `code_number` is absent, so
+  // the blank field is a search rather than a refusal.
+  it("browses the whole call-letters bucket when the call number is left blank", async () => {
+    let seen: URL | undefined;
+    const bucket = [
+      { id: 40, artist_name: "Magnetic Fields", code_letters: "MA", code_number: 3, genre_id: ROCK_GENRE_ID },
+      { id: 41, artist_name: "Mary Lattimore", code_letters: "MA", code_number: 11, genre_id: ROCK_GENRE_ID },
+    ];
+    server.use(
+      http.get(BY_CODE_URL, ({ request }) => {
+        seen = new URL(request.url);
+        return HttpResponse.json({ artists: bucket });
+      }),
+    );
     const { user } = renderWithProviders(<ArtistSearchForm onMultiMatch={mockOnMultiMatch} />);
+    await selectGenre(user, "Rock");
 
     await user.click(screen.getByRole("radio", { name: /call letters:/i }));
-    await user.type(screen.getByLabelText("Call letters:"), "MO");
+    await user.type(screen.getByLabelText("Call letters:"), "MA");
+    await user.click(screen.getByRole("button", { name: "Search!" }));
+
+    await waitFor(() => expect(mockOnMultiMatch).toHaveBeenCalledTimes(1));
+    // `codeNumber: null` is the header's number, and a browse has none. The
+    // rows carry their own, which is what the screen renders.
+    expect(mockOnMultiMatch).toHaveBeenCalledWith({
+      genreName: "Rock",
+      codeLetters: "MA",
+      codeNumber: null,
+      artists: bucket,
+    });
+    expect(mockPush).not.toHaveBeenCalled();
+    // ABSENT, not empty: the endpoint 400s `code_number=` on purpose, since
+    // `Number('')` is 0 and 0 is a real V/A filing.
+    expect(seen?.searchParams.has("code_number")).toBe(false);
+    expect(seen?.searchParams.get("code_letters")).toBe("MA");
+    expect(seen?.searchParams.get("genre_id")).toBe(String(ROCK_GENRE_ID));
+  });
+
+  // A browse of one is still the list, not a redirect. The servlet forwards to
+  // multipleArtistsDisplay.jsp whatever the count, and the librarian asked
+  // what is filed under these letters -- not to be taken to the only answer.
+  it("shows a one-artist bucket as a list rather than navigating to its card", async () => {
+    server.use(
+      http.get(BY_CODE_URL, () =>
+        HttpResponse.json({
+          artists: [
+            { id: 40, artist_name: "Magnetic Fields", code_letters: "MA", code_number: 3, genre_id: ROCK_GENRE_ID },
+          ],
+        }),
+      ),
+    );
+    const { user } = renderWithProviders(<ArtistSearchForm onMultiMatch={mockOnMultiMatch} />);
+    await selectGenre(user, "Rock");
+
+    await user.click(screen.getByRole("radio", { name: /call letters:/i }));
+    await user.type(screen.getByLabelText("Call letters:"), "MA");
+    await user.click(screen.getByRole("button", { name: "Search!" }));
+
+    await waitFor(() => expect(mockOnMultiMatch).toHaveBeenCalledTimes(1));
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  // Ordering is Backend's (`ORDER BY artist_genre_code`), and the librarian
+  // reads the highest assigned number off the bottom of the list. This fixture
+  // is deliberately served OUT of number order: the rows must arrive in the
+  // response's order, unsorted. A defensive client-side sort would pass a
+  // number-ascending assertion while hiding a Backend regression in exactly
+  // the requirement this screen exists to meet, so the test forbids one.
+  it("hands the bucket on in the response's own order, without re-sorting it", async () => {
+    const outOfOrder = [
+      { id: 42, artist_name: "Mdou Moctar", code_letters: "MA", code_number: 24, genre_id: ROCK_GENRE_ID },
+      { id: 40, artist_name: "Magnetic Fields", code_letters: "MA", code_number: 3, genre_id: ROCK_GENRE_ID },
+      { id: 41, artist_name: "Mary Lattimore", code_letters: "MA", code_number: 11, genre_id: ROCK_GENRE_ID },
+    ];
+    server.use(http.get(BY_CODE_URL, () => HttpResponse.json({ artists: outOfOrder })));
+    const { user } = renderWithProviders(<ArtistSearchForm onMultiMatch={mockOnMultiMatch} />);
+    await selectGenre(user, "Rock");
+
+    await user.click(screen.getByRole("radio", { name: /call letters:/i }));
+    await user.type(screen.getByLabelText("Call letters:"), "MA");
+    await user.click(screen.getByRole("button", { name: "Search!" }));
+
+    await waitFor(() => expect(mockOnMultiMatch).toHaveBeenCalledTimes(1));
+    expect(mockOnMultiMatch.mock.calls[0][0].artists.map((a: { id: number }) => a.id)).toEqual([
+      42, 40, 41,
+    ]);
+  });
+
+  // An unused call-letters section is a normal thing to check, and Backend
+  // answers it with a 200 carrying no rows. It must reach the screen's own
+  // no-results branch -- NOT the untrustworthy-answer refusal, which is what
+  // an outage produces and which would tell the librarian to try again
+  // forever.
+  it("sends an empty bucket to the results screen rather than refusing it", async () => {
+    server.use(http.get(BY_CODE_URL, () => HttpResponse.json({ artists: [] })));
+    const { user } = renderWithProviders(<ArtistSearchForm onMultiMatch={mockOnMultiMatch} />);
+    await selectGenre(user, "Rock");
+
+    await user.click(screen.getByRole("radio", { name: /call letters:/i }));
+    await user.type(screen.getByLabelText("Call letters:"), "QZ");
+    await user.click(screen.getByRole("button", { name: "Search!" }));
+
+    await waitFor(() => expect(mockOnMultiMatch).toHaveBeenCalledTimes(1));
+    expect(mockOnMultiMatch.mock.calls[0][0]).toMatchObject({ codeLetters: "QZ", artists: [] });
+    expect(
+      screen.queryByText("Couldn't check that library code right now. Try the lookup again."),
+    ).not.toBeInTheDocument();
+  });
+
+  // The other half of the pair above: an outage on a browse must not read as
+  // an empty bucket. The two are separated by transport, not by status --
+  // `surfaceNonJsonAsError` is what turns a gateway's HTML body into a
+  // rejection instead of a successful `null` that would render as "nothing is
+  // filed here".
+  it.each([
+    ["a structured 500", () => HttpResponse.json({ message: "boom" }, { status: 500 })],
+    [
+      "a non-JSON gateway error",
+      () =>
+        new HttpResponse("<!DOCTYPE html><html><body>Bad Gateway</body></html>", {
+          status: 502,
+          headers: { "Content-Type": "text/html" },
+        }),
+    ],
+  ])("refuses %s on a browse rather than showing it as an empty bucket", async (_name, respond) => {
+    server.use(http.get(BY_CODE_URL, respond));
+    const { user } = renderWithProviders(<ArtistSearchForm onMultiMatch={mockOnMultiMatch} />);
+    await selectGenre(user, "Rock");
+
+    await user.click(screen.getByRole("radio", { name: /call letters:/i }));
+    await user.type(screen.getByLabelText("Call letters:"), "MA");
     await user.click(screen.getByRole("button", { name: "Search!" }));
 
     expect(
-      await screen.findByText("You must enter a call number to look up this code."),
+      await screen.findByText("Couldn't check that library code right now. Try the lookup again."),
     ).toBeInTheDocument();
-    expect(mockPush).not.toHaveBeenCalled();
+    expect(mockOnMultiMatch).not.toHaveBeenCalled();
+  });
+
+  // Only a BLANK number browses. A typo is still refused inline and issues no
+  // request -- browsing on it would silently answer a question about the whole
+  // shelf section when the librarian asked about one number.
+  it.each([["abc"], ["-3"], ["1.5"]])(
+    "refuses a malformed call number (%j) without calling the resolver",
+    async (raw) => {
+      let byCodeCalls = 0;
+      server.use(
+        http.get(BY_CODE_URL, () => {
+          byCodeCalls += 1;
+          return HttpResponse.json({ artists: [] });
+        }),
+      );
+      const { user } = renderWithProviders(<ArtistSearchForm onMultiMatch={mockOnMultiMatch} />);
+      await selectGenre(user, "Rock");
+
+      await fillTextboxCode(user, "MO", raw);
+      await user.click(screen.getByRole("button", { name: "Search!" }));
+
+      expect(
+        await screen.findByText(
+          "Call numbers must be a whole number. Leave it blank to list every artist under these call letters.",
+        ),
+      ).toBeInTheDocument();
+      expect(byCodeCalls).toBe(0);
+      expect(mockPush).not.toHaveBeenCalled();
+      expect(mockOnMultiMatch).not.toHaveBeenCalled();
+    },
+  );
+
+  // The compilation radio composes `V/A`/0 without ever reading the call-number
+  // field, so the browse is unreachable from it: a blank number there is still
+  // the fully-specified lookup it always was, down to its create-flow miss.
+  it("never browses from compilation mode, whatever the call number field holds", async () => {
+    let seen: URL | undefined;
+    server.use(
+      http.get(BY_CODE_URL, ({ request }) => {
+        seen = new URL(request.url);
+        return HttpResponse.json(
+          { message: "Code not assigned", reason: "code_not_assigned" },
+          { status: 404 },
+        );
+      }),
+    );
+    const { user } = renderWithProviders(<ArtistSearchForm onMultiMatch={mockOnMultiMatch} />);
+    await selectGenre(user, "Soundtracks");
+    await user.click(screen.getByRole("radio", { name: /various artists/i }));
+    await user.type(screen.getByLabelText(/rock comp/i), "A");
+
+    await user.click(screen.getByRole("button", { name: "Search!" }));
+
+    await waitFor(() => expect(mockPush).toHaveBeenCalledTimes(1));
+    expect(seen?.searchParams.get("code_number")).toBe("0");
+    expect(mockPush).toHaveBeenCalledWith(
+      `/dashboard/library/artist/new?genre_id=${SOUNDTRACKS_GENRE_ID}&code_letters=V%2FA&code_number=0`,
+    );
   });
 
   // The JSP's own client-side validator (library-code-form.js) reads only
