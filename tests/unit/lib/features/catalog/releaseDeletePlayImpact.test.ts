@@ -15,70 +15,91 @@ describe("formatReleaseDeletePlayImpact", () => {
     expect(
       formatReleaseDeletePlayImpact({ direct: 41, rotation_linked: 6, legacy_linked: 0 }),
     ).toBe(
-      "47 archived plays reference this release — 41 directly, 6 through its rotation entry. " +
+      "47 archived plays are linked to this release — 41 directly, 6 through its rotation entry. " +
         "They keep their artist, album and label text and lose their link to this card.",
     );
   });
 
-  // The resolved copy for this screen: the headline count is the sum of the
-  // two arms that actually reference the release through a link column (41 +
-  // 6 = 47), never all three -- the legacy-linked arm is named in its own
-  // clause with its own consequence, and is not folded into that total.
-  it("gives the legacy-linked arm its own clause, worded differently, when it is non-zero", () => {
+  it("gives the legacy-linked arm its own sentence, with its own count and consequence", () => {
     expect(
       formatReleaseDeletePlayImpact({ direct: 41, rotation_linked: 6, legacy_linked: 2 }),
     ).toBe(
-      "47 archived plays reference this release — 41 directly, 6 through its rotation entry, " +
-        "and 2 archived without a link, which will never join another release. " +
-        "They keep their artist, album and label text and lose their link to this card.",
+      "47 archived plays are linked to this release — 41 directly, 6 through its rotation entry. " +
+        "They keep their artist, album and label text and lose their link to this card. " +
+        "2 more archived plays were filed without a link and will never join another release.",
     );
   });
 
-  it("never sums the legacy-linked arm into the headline count", () => {
+  // The defect this pins: an earlier draft stated 41 + 6 = 47 as a headline and
+  // then appended the legacy arm as a third clause of the SAME sentence, so a
+  // reader adding up the parts got 49 against a stated 47. Every count in the
+  // message must be honestly totalled by the arms enumerated beneath it.
+  it("never states a total the arms beneath it do not add up to", () => {
     const message = formatReleaseDeletePlayImpact({
       direct: 41,
       rotation_linked: 6,
       legacy_linked: 2,
     });
 
-    expect(message.startsWith("47 archived plays")).toBe(true);
-    expect(message).not.toContain("49 archived plays");
+    // 47 belongs to the linked sentence and is enumerated there in full.
+    expect(message).toContain("47 archived plays are linked to this release — 41 directly, 6");
+    // The legacy arm never joins that total, in either direction.
+    expect(message).not.toContain("49");
+    expect(message).not.toContain("47 archived plays are linked to this release — 41 directly, 6 through its rotation entry, and 2");
+    // And 2 is stated as its own count, not as a share of 47.
+    expect(message).toContain("2 more archived plays were filed without a link");
   });
 
-  it("uses the singular for a headline count of exactly one", () => {
+  it("uses the singular throughout when exactly one play is linked", () => {
     expect(
       formatReleaseDeletePlayImpact({ direct: 1, rotation_linked: 0, legacy_linked: 0 }),
     ).toBe(
-      "1 archived play references this release — 1 directly, 0 through its rotation entry. " +
-        "They keep their artist, album and label text and lose their link to this card.",
+      "1 archived play is linked to this release — 1 directly, 0 through its rotation entry. " +
+        "It keeps its artist, album and label text and loses its link to this card.",
     );
   });
 
-  it("uses the plural for a headline count of zero", () => {
-    // Real but rare: every direct/rotation-linked play was already
-    // re-pointed elsewhere, and only legacy-linked plays remain. "0" still
-    // takes the plural in English ("0 archived plays"), and the closing
-    // sentence about losing a link stays -- vacuously true of the empty
-    // direct/rotation set rather than false.
+  it("omits the linked sentence entirely when only legacy-linked plays remain", () => {
+    // Real but rare: every direct and rotation-linked play was already
+    // re-pointed elsewhere. The old wording emitted "0 archived plays ... 0
+    // directly, 0 through its rotation entry. They keep their ..." — a
+    // sentence about nothing, followed by a promise about an empty set. One
+    // true statement is better than two vacuous ones.
     expect(
       formatReleaseDeletePlayImpact({ direct: 0, rotation_linked: 0, legacy_linked: 5 }),
     ).toBe(
-      "0 archived plays reference this release — 0 directly, 0 through its rotation entry, " +
-        "and 5 archived without a link, which will never join another release. " +
-        "They keep their artist, album and label text and lose their link to this card.",
+      "5 archived plays were filed without a link and will never join another release.",
     );
   });
 
-  it("does not pluralize the no-plays message off any single arm", () => {
-    // Regression guard: `total === 0` must read all three arms, not just
-    // `direct` -- a release with only legacy-linked plays is not a release
-    // with none.
-    const message = formatReleaseDeletePlayImpact({
+  it("drops the \"more\" qualifier when there is no linked sentence for it to refer back to", () => {
+    const legacyOnly = formatReleaseDeletePlayImpact({
       direct: 0,
       rotation_linked: 0,
-      legacy_linked: 1,
+      legacy_linked: 5,
+    });
+    const both = formatReleaseDeletePlayImpact({
+      direct: 3,
+      rotation_linked: 0,
+      legacy_linked: 5,
     });
 
-    expect(message).not.toBe(RELEASE_HAS_NO_PLAYS_MESSAGE);
+    expect(legacyOnly).not.toContain("more");
+    expect(both).toContain("5 more archived plays");
+  });
+
+  it("uses the singular for a lone legacy-linked play", () => {
+    expect(
+      formatReleaseDeletePlayImpact({ direct: 0, rotation_linked: 0, legacy_linked: 1 }),
+    ).toBe("1 archived play was filed without a link and will never join another release.");
+  });
+
+  it("does not read the no-plays case off any single arm", () => {
+    // Regression guard: the zero check must read all three arms, not just
+    // `direct` — a release with only legacy-linked plays is not a release
+    // with none.
+    expect(
+      formatReleaseDeletePlayImpact({ direct: 0, rotation_linked: 0, legacy_linked: 1 }),
+    ).not.toBe(RELEASE_HAS_NO_PLAYS_MESSAGE);
   });
 });
