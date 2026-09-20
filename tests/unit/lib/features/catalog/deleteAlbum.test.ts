@@ -6,7 +6,7 @@ import { createTestStore } from "@/tests/helpers/store";
 import { catalogApi } from "@/lib/features/catalog/api";
 import {
   interpretReleaseDeleteError,
-  RELEASE_DELETE_FALLBACK_MESSAGE,
+  releaseDeleteDigitalAssetsMessage,
 } from "@/lib/features/catalog/releaseDeleteOutcome";
 
 vi.mock("@/lib/features/authentication/client", () => ({
@@ -75,14 +75,17 @@ describe("deleteAlbum", () => {
     const error = "error" in result ? result.error : undefined;
 
     // The wrapper and the interpreter are one contract; asserting them
-    // together is what stops a rename on either side from passing twice.
-    // `interpretReleaseDeleteError` does not classify this reason — it is
-    // not the flowsheet-plays refusal BS#2565 removed, and this module was
-    // never written to name it — so it degrades to the generic fallback
-    // rather than passing the server's sentence through.
+    // together is what stops a rename on either side from passing twice. This
+    // 409 is the archive refusal — the only one the endpoint still raises on
+    // the merits, now that flowsheet plays no longer refuse a delete — so it
+    // has to arrive named, and named through the transform rather than around
+    // it. Interpreting it off a live dispatch is the part a unit test of the
+    // interpreter alone cannot do: `transformErrorResponse` sits between the
+    // body and the reason, and a rename on either side of it would leave both
+    // halves individually green.
     expect(interpretReleaseDeleteError(error)).toEqual({
-      reason: "unknown",
-      message: RELEASE_DELETE_FALLBACK_MESSAGE,
+      reason: "digital_assets",
+      message: releaseDeleteDigitalAssetsMessage(2),
       retryable: false,
     });
   });

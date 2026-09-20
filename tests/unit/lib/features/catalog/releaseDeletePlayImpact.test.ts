@@ -2,7 +2,9 @@ import { describe, it, expect } from "vitest";
 import {
   formatReleaseDeletePlayImpact,
   RELEASE_HAS_NO_PLAYS_MESSAGE,
+  RELEASE_PLAY_COUNTS_UNREADABLE_MESSAGE,
 } from "@/lib/features/catalog/releaseDeletePlayImpact";
+import type { FlowsheetPlayCounts } from "@/lib/features/catalog/types";
 
 describe("formatReleaseDeletePlayImpact", () => {
   it("states plainly that a release has no plays when all three arms are zero", () => {
@@ -26,7 +28,7 @@ describe("formatReleaseDeletePlayImpact", () => {
     ).toBe(
       "47 archived plays are linked to this release — 41 directly, 6 through its rotation entry. " +
         "They keep their artist, album and label text and lose their link to this card. " +
-        "2 more archived plays were filed without a link and will never join another release.",
+        "2 more archived plays were filed without a link and name this release only by its old catalog number, which nothing will resolve once the card is gone.",
     );
   });
 
@@ -68,7 +70,7 @@ describe("formatReleaseDeletePlayImpact", () => {
     expect(
       formatReleaseDeletePlayImpact({ direct: 0, rotation_linked: 0, legacy_linked: 5 }),
     ).toBe(
-      "5 archived plays were filed without a link and will never join another release.",
+      "5 archived plays were filed without a link and name this release only by its old catalog number, which nothing will resolve once the card is gone.",
     );
   });
 
@@ -91,7 +93,7 @@ describe("formatReleaseDeletePlayImpact", () => {
   it("uses the singular for a lone legacy-linked play", () => {
     expect(
       formatReleaseDeletePlayImpact({ direct: 0, rotation_linked: 0, legacy_linked: 1 }),
-    ).toBe("1 archived play was filed without a link and will never join another release.");
+    ).toBe("1 archived play was filed without a link and names this release only by its old catalog number, which nothing will resolve once the card is gone.");
   });
 
   it("does not read the no-plays case off any single arm", () => {
@@ -101,5 +103,73 @@ describe("formatReleaseDeletePlayImpact", () => {
     expect(
       formatReleaseDeletePlayImpact({ direct: 0, rotation_linked: 0, legacy_linked: 1 }),
     ).not.toBe(RELEASE_HAS_NO_PLAYS_MESSAGE);
+  });
+
+  // The absolute was softened deliberately. The delete snapshots the row
+  // before removing it, so a restore under the original `legacy_release_id`
+  // is exactly what the linkage job matches on — "never" would be a claim
+  // about the system rather than about the delete, and it errs in the
+  // direction that stops a librarian pressing a button he is entitled to
+  // press. The sentence has to stay honest about the stranding without
+  // promising it is forever.
+  it("says nothing will resolve the old number, not that the plays can never be re-attached", () => {
+    const message = formatReleaseDeletePlayImpact({
+      direct: 0,
+      rotation_linked: 0,
+      legacy_linked: 5,
+    });
+
+    expect(message).toContain("nothing will resolve once the card is gone");
+    expect(message).not.toContain("never");
+  });
+});
+
+describe("formatReleaseDeletePlayImpact on a body it cannot count", () => {
+  // `FlowsheetPlayCounts` is hand-written because the endpoint is absent from
+  // the published contract, so nothing gates the backend renaming an arm, and
+  // `surfaceNonJsonAsError` only rejects a body that is not JSON. The cast is
+  // the point of the test: it reproduces exactly what a well-formed reply with
+  // the wrong keys does once TypeScript is out of the picture.
+  const uncountable = (body: unknown) =>
+    formatReleaseDeletePlayImpact(body as FlowsheetPlayCounts);
+
+  // The empty string is the dangerous return, not a wrong sentence: the
+  // confirmation screen renders `playImpactMessage ? <row> : null`, so "" is
+  // NO impact row at all. An irreversible delete would then be confirmed over
+  // 47 archived plays in total silence — the one outcome the screen exists to
+  // rule out, produced by default the moment an arm goes missing.
+  it.each([
+    { label: "an arm missing entirely", body: { direct: 41, rotation_linked: 6 } },
+    { label: "an arm renamed", body: { direct: 41, rotation_linked: 6, legacyLinked: 2 } },
+    { label: "an arm sent as a string", body: { direct: "41", rotation_linked: 6, legacy_linked: 2 } },
+    { label: "an arm null", body: { direct: 41, rotation_linked: null, legacy_linked: 2 } },
+    { label: "an arm NaN", body: { direct: Number.NaN, rotation_linked: 6, legacy_linked: 2 } },
+    { label: "an empty object", body: {} },
+  ])("never returns the empty string for $label", ({ body }) => {
+    expect(uncountable(body)).not.toBe("");
+  });
+
+  it.each([
+    { label: "an arm missing entirely", body: { direct: 41, rotation_linked: 6 } },
+    { label: "an arm renamed", body: { direct: 41, rotation_linked: 6, legacyLinked: 2 } },
+    { label: "an empty object", body: {} },
+  ])("admits it could not count rather than guessing, for $label", ({ body }) => {
+    expect(uncountable(body)).toBe(RELEASE_PLAY_COUNTS_UNREADABLE_MESSAGE);
+  });
+
+  // The two failure shapes are one fact from where the librarian sits — the
+  // screen does not know — so they must not read as two different problems.
+  // The screen renders this same constant for a rejected read.
+  it("says it could not check rather than that the release has no plays", () => {
+    expect(uncountable({ direct: 41, rotation_linked: 6 })).not.toBe(
+      RELEASE_HAS_NO_PLAYS_MESSAGE,
+    );
+  });
+
+  // NaN arithmetic is what makes the hole silent: `41 + 6 + undefined === 0`
+  // is false, so the zero check passes, and then every `> 0` test fails.
+  it("does not let NaN arithmetic print a count", () => {
+    expect(uncountable({ direct: 41, rotation_linked: 6 })).not.toContain("NaN");
+    expect(uncountable({ direct: 41, rotation_linked: 6 })).not.toContain("41");
   });
 });

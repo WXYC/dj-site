@@ -194,16 +194,19 @@ describe("Classic ReleaseDeleteConfirm — libraryReleaseDelete.jsp", () => {
   describe("after a delete the server refused", () => {
     // A release with flowsheet plays deletes in one click now — the
     // confirmation screen states the impact instead of the server refusing
-    // it. The delete can still refuse for other reasons (a bound
-    // digital-asset row, among others), and this module does not give any
-    // of those a named outcome; it degrades to the generic fallback rather
-    // than passing an arbitrary server sentence through unvetted.
-    it("falls back to the generic sentence for a 409 it does not name, and withdraws Delete", async () => {
+    // it. What is left is the archive refusal: a bound `digital_asset` row,
+    // evidence that a recording exists, with no FK for the delete to cascade
+    // through. It is the only refusal on the merits the endpoint still
+    // raises, so the screen names it rather than degrading to the fallback,
+    // whose sentence would claim the reason could not be read about a reply
+    // that states the reason, the count and the asset ids.
+    it("names the archive binding for the 409, and withdraws Delete", async () => {
       loaded();
       mockDeleteAlbum.mockReturnValue(
         refusal(409, {
-          message: "Cannot delete: release has 2 digital assets on record",
+          message: "Cannot delete: release has 2 digital assets on record (ids: 88, 91)",
           reason: "digital_asset_references",
+          asset_count: 2,
         }),
       );
 
@@ -211,7 +214,13 @@ describe("Classic ReleaseDeleteConfirm — libraryReleaseDelete.jsp", () => {
       await clickDelete();
 
       const banner = await screen.findByTestId("release-delete-refusal");
-      expect(banner.textContent).toContain("the reason could not be read");
+      expect(banner.textContent).toContain("audio archive");
+      expect(banner.textContent).toContain("2 recordings");
+      expect(banner.textContent).toContain("Nothing was changed");
+      expect(banner.textContent).not.toContain("the reason could not be read");
+      // The ids address rows no screen here can open; printing them sends the
+      // librarian looking for a page that does not exist.
+      expect(banner.textContent).not.toContain("88");
       expect(screen.queryByTestId("release-deleted")).toBeNull();
       expect(screen.queryByRole("button", { name: "Delete" })).toBeNull();
     });
@@ -309,7 +318,7 @@ describe("Classic ReleaseDeleteConfirm — libraryReleaseDelete.jsp", () => {
       expect(text).toBe(
         "47 archived plays are linked to this release — 41 directly, 6 through its rotation entry. " +
           "They keep their artist, album and label text and lose their link to this card. " +
-          "2 more archived plays were filed without a link and will never join another release.",
+          "2 more archived plays were filed without a link and name this release only by its old catalog number, which nothing will resolve once the card is gone.",
       );
       // No stated total may disagree with the arms enumerated beneath it: 47 is
       // the linked pair in full, and the legacy arm joins it in neither
@@ -327,7 +336,7 @@ describe("Classic ReleaseDeleteConfirm — libraryReleaseDelete.jsp", () => {
       // entry", which is a sentence about nothing followed by a promise about
       // an empty set.
       expect((await screen.findByTestId("release-delete-play-impact")).textContent).toBe(
-        "5 archived plays were filed without a link and will never join another release.",
+        "5 archived plays were filed without a link and name this release only by its old catalog number, which nothing will resolve once the card is gone.",
       );
     });
 
@@ -340,6 +349,95 @@ describe("Classic ReleaseDeleteConfirm — libraryReleaseDelete.jsp", () => {
       expect((await screen.findByTestId("release-delete-play-impact")).textContent).toBe(
         "Checking flowsheet plays...",
       );
+    });
+
+    // The whole reason the screen reads the counts. `keepUnusedDataFor: 0`
+    // makes this read cold on every visit while the release row resolves from
+    // an already-warm entry, so the gap is not hypothetical — the screen
+    // routinely paints with the placeholder showing. A live Delete over it
+    // lets the librarian commit the irreversible write having been told
+    // nothing, which is the state the pre-delete read exists to prevent.
+    it("holds Delete back while the impact sentence is still a placeholder", async () => {
+      loaded();
+      playCountsLoading();
+
+      renderWithProviders(<ReleaseDeleteConfirm albumId={53375} />);
+      await screen.findByTestId("release-delete-play-impact");
+
+      expect(screen.getByRole("button", { name: "Delete" })).toBeDisabled();
+    });
+
+    // Held, not withdrawn. Withdrawing it would flip the adjacent link to the
+    // refusal's "Back to this release" and read as a verdict that has not
+    // been reached.
+    it("keeps Delete on screen while it is held, with Cancel still reading as Cancel", async () => {
+      loaded();
+      playCountsLoading();
+
+      renderWithProviders(<ReleaseDeleteConfirm albumId={53375} />);
+      await screen.findByTestId("release-delete-play-impact");
+
+      expect(screen.getByRole("button", { name: "Delete" })).toBeDefined();
+      expect(screen.getByRole("link", { name: "Cancel" })).toBeDefined();
+      expect(screen.queryByRole("link", { name: "Back to this release" })).toBeNull();
+    });
+
+    it("does not delete on a click landed before the counts arrive", async () => {
+      loaded();
+      playCountsLoading();
+
+      renderWithProviders(<ReleaseDeleteConfirm albumId={53375} />);
+      await screen.findByTestId("release-delete-play-impact");
+      await clickDelete();
+
+      expect(mockDeleteAlbum).not.toHaveBeenCalled();
+    });
+
+    it("goes live once the sentence beside it does", async () => {
+      loaded();
+      playCounts({ direct: 41, rotation_linked: 6, legacy_linked: 2 });
+
+      renderWithProviders(<ReleaseDeleteConfirm albumId={53375} />);
+      await screen.findByTestId("release-delete-play-impact");
+
+      expect(screen.getByRole("button", { name: "Delete" })).not.toBeDisabled();
+    });
+
+    // The cell is painted as a placeholder and rewritten in place, so a
+    // screen-reader user who has already moved past it is never told the
+    // sentence arrived — the one sentence the screen exists to deliver.
+    // `polite` rather than `assertive`: it is not an alert, and the button
+    // beside it is held until it lands.
+    it("announces the impact sentence when it replaces the placeholder", async () => {
+      loaded();
+      playCounts({ direct: 41, rotation_linked: 6, legacy_linked: 0 });
+
+      renderWithProviders(<ReleaseDeleteConfirm albumId={53375} />);
+
+      expect(
+        (await screen.findByTestId("release-delete-play-impact")).getAttribute("aria-live"),
+      ).toBe("polite");
+    });
+
+    // A body that answered but cannot be counted must not render as an absent
+    // row: `playImpactMessage ? <row> : null` would drop the row entirely on
+    // an empty string, confirming an irreversible delete in silence. The
+    // endpoint is absent from the published contract, so a renamed arm has no
+    // gate to catch it.
+    it("still states something when the counts come back uncountable", async () => {
+      loaded();
+      mockGetFlowsheetPlayCountsQuery.mockReturnValue({
+        data: { direct: 41, rotation_linked: 6 },
+        isError: false,
+      });
+
+      renderWithProviders(<ReleaseDeleteConfirm albumId={53375} />);
+
+      const row = await screen.findByTestId("release-delete-play-impact");
+      expect(row.textContent).toBe(
+        "The flowsheet play count for this release could not be checked.",
+      );
+      expect(screen.getByRole("button", { name: "Delete" })).not.toBeDisabled();
     });
 
     it("admits it could not check, rather than claiming the release has no plays", async () => {
@@ -363,8 +461,10 @@ describe("Classic ReleaseDeleteConfirm — libraryReleaseDelete.jsp", () => {
       // The counts are informational; a DJ can already read every flowsheet
       // play with no authentication at all, and the delete no longer refuses
       // on them either. An unreadable advisory count must not become a
-      // gate the JSP itself never had.
-      expect(screen.getByRole("button", { name: "Delete" })).toBeDefined();
+      // gate the JSP itself never had. This is the line the in-flight hold
+      // must not cross: a read still arriving resolves in milliseconds, while
+      // a failed one never resolves, so holding on it would be permanent.
+      expect(screen.getByRole("button", { name: "Delete" })).not.toBeDisabled();
     });
 
     it("stops reading play counts once the delete has already succeeded", async () => {

@@ -2,17 +2,22 @@ import type { FetchBaseQueryError } from "@reduxjs/toolkit/query";
 
 /**
  * Why `DELETE /library/:id` did not delete. `unknown` is every shape this
- * module refuses to interpret — a 5xx, a non-JSON body, a network failure, a
- * `reason` it has never heard of, or a `409` it does not classify (the delete
- * no longer refuses on flowsheet plays; a still-live 409 is a refusal this
- * module was not written to name) — and is deliberately not folded into
+ * module refuses to interpret — a 5xx, a non-JSON body, a network failure, or
+ * a `reason` it has never heard of — and is deliberately not folded into
  * `indeterminate`: "the server said no" and "we could not tell what the
  * server said" must not read alike on a screen whose next action is
  * irreversible.
+ *
+ * Every refusal the endpoint can actually raise is named. `digital_assets` is
+ * the only one left that refuses on the merits — the flowsheet-plays refusal
+ * is gone — and it is named for the reason `unknown` exists at all: falling
+ * through to the fallback would tell the librarian the reason could not be
+ * read about a reply that states the reason, the count and the asset ids.
  */
 export type ReleaseDeleteRefusalReason =
   | "lock_unavailable"
   | "not_found"
+  | "digital_assets"
   | "indeterminate"
   | "unknown";
 
@@ -57,6 +62,31 @@ export const RELEASE_DELETE_FALLBACK_MESSAGE =
 export const RELEASE_DELETE_INDETERMINATE_MESSAGE =
   "This release may or may not have been deleted — no answer came back. Reload before trying again.";
 
+/**
+ * The audio-archive binding — the one refusal on the merits `DELETE
+ * /library/:id` still raises. A `digital_asset` row is evidence that a
+ * recording of this release exists in the archive, and it carries no FK for
+ * the delete to cascade through, so the release stays until someone unbinds
+ * it.
+ *
+ * Client-owned wording like every other named outcome bar the lock, and the
+ * count is the only part of the server's sentence worth repeating: the asset
+ * ids it also sends address rows no dj-site screen can open, so printing them
+ * would name a thing the librarian cannot act on. What he can act on is
+ * knowing the block is the archive and not the catalog, because the next step
+ * is a conversation rather than another click.
+ */
+export function releaseDeleteDigitalAssetsMessage(assetCount: number | undefined): string {
+  const count =
+    typeof assetCount === "number" && Number.isInteger(assetCount) && assetCount > 0
+      ? `${assetCount} ${assetCount === 1 ? "recording" : "recordings"}`
+      : "recordings";
+  return (
+    `This release cannot be deleted: the audio archive has ${count} bound to it. ` +
+    `Nothing was changed. The archive binding has to be cleared first.`
+  );
+}
+
 type WrappedDeleteAlbumError = { deleteAlbumError: FetchBaseQueryError };
 
 function isWrappedDeleteAlbumError(err: unknown): err is WrappedDeleteAlbumError {
@@ -76,6 +106,12 @@ function serverMessage(data: unknown): string | undefined {
   return message.trim() === "" ? undefined : message;
 }
 
+function bodyAssetCount(data: unknown): number | undefined {
+  if (!data || typeof data !== "object") return undefined;
+  const count = (data as { asset_count?: unknown }).asset_count;
+  return typeof count === "number" ? count : undefined;
+}
+
 function bodyReason(data: unknown): string | undefined {
   if (!data || typeof data !== "object") return undefined;
   const reason = (data as { reason?: unknown }).reason;
@@ -90,12 +126,17 @@ function bodyReason(data: unknown): string | undefined {
  * this module has no way to reconstruct client-side. Every other named
  * outcome is client-owned wording, the house convention set by
  * `resolveArtistByCodeErrorReason`: the 404 deliberately ignores the server's
- * generic "Album not found" for a sentence specific to this screen, and
- * anything this module does not recognize — a 409 (the delete no longer
- * refuses on flowsheet plays, but can still refuse on other grounds this
- * module was not written to name), an unfamiliar `reason`, an unparseable
- * body below 500 — degrades to one honest fallback rather than rendering
- * server text this module has not vetted.
+ * generic "Album not found" for a sentence specific to this screen, and the
+ * digital-asset 409 restates only its count.
+ *
+ * What is left over degrades to one honest fallback rather than rendering
+ * server text this module has not vetted. It is not an empty set: a 401 on a
+ * lapsed session, a 403 if the role behind this screen changed under the
+ * librarian, a 400 on a malformed id, and any refusal named after this file
+ * was last read all land there. So the fallback sentence is worded to stay
+ * true of a reply nobody here has seen — it reports that the reason was not
+ * read, never that there was none. A refusal the endpoint raises *routinely*
+ * does not belong in it, which is why the digital-asset 409 was lifted out.
  */
 /**
  * True when the server answered the delete without writing — the only state in
@@ -143,6 +184,14 @@ export function interpretReleaseDeleteError(err: unknown): ReleaseDeleteRefusal 
       reason: "lock_unavailable",
       message: serverMessage(data) ?? RELEASE_DELETE_LOCK_MESSAGE,
       retryable: true,
+    };
+  }
+
+  if (status === 409 && bodyReason(data) === "digital_asset_references") {
+    return {
+      reason: "digital_assets",
+      message: releaseDeleteDigitalAssetsMessage(bodyAssetCount(data)),
+      retryable: false,
     };
   }
 

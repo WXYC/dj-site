@@ -262,11 +262,13 @@ export const catalogApi = createApi({
      * on the catalog editor.
      *
      * Three of its four outcomes are refusals, and they do not mean the same
-     * thing: a 409 is refused on the merits (the release carries flowsheet
-     * plays), a 503 is a stand-down on a locked row that says nothing about
-     * whether the release is deletable, and a 404 is most often the second
-     * click of a double-submit. `interpretReleaseDeleteError` is the one owner
-     * of that distinction; nothing here re-derives it.
+     * thing: a 409 is refused on the merits — the release is bound to a
+     * `digital_asset` row, the archive's evidence that a recording of it
+     * exists, and flowsheet plays no longer refuse anything — a 503 is a
+     * stand-down on a locked row that says nothing about whether the release
+     * is deletable, and a 404 is most often the second click of a
+     * double-submit. `interpretReleaseDeleteError` is the one owner of that
+     * distinction; nothing here re-derives it.
      *
      * No non-JSON soft-handle is needed or wanted: `backendBaseQuery` never
      * soft-handles a mutation, so a gateway's HTML 502 arrives as a rejection
@@ -279,10 +281,12 @@ export const catalogApi = createApi({
         method: "DELETE",
       }),
       // Wrapped for the same reason as searchArtistsInGenre and
-      // resolveArtistByCode: the delete screen states the refusal itself,
-      // naming the release and the play count, and the shared
+      // resolveArtistByCode: the delete screen states the refusal itself, in
+      // wording chosen for the one place it appears, and the shared
       // rtk-query-error-logger toasting `data.message` a second time would
-      // double an already-precise sentence with a vaguer one.
+      // double an already-precise sentence with a vaguer one. The archive
+      // refusal is the case that settles it — the server's own sentence ends
+      // in asset ids addressing rows no screen here can open.
       transformErrorResponse: (
         response: FetchBaseQueryError,
       ): { deleteAlbumError: FetchBaseQueryError } => ({ deleteAlbumError: response }),
@@ -328,11 +332,13 @@ export const catalogApi = createApi({
      * confirmation screen revisited later should read fresh rather than
      * trust a number from its last visit.
      *
-     * Opts into `surfaceNonJsonAsError`, unlike most reads here: the default
-     * soft-fail would resolve an unreachable backend to `data: null`, and a
-     * caller that then rendered the zero-play message would tell the
+     * Opts into `surfaceNonJsonAsError`, as most reads in this file do: the
+     * default soft-fail would resolve an unreachable backend to `data: null`,
+     * and a caller that then rendered the zero-play message would tell the
      * librarian a release has no plays because the count could not be read —
-     * the one claim this screen must never make on a guess.
+     * the one claim this screen must never make on a guess. The opt-in is the
+     * convention here, not the exception; a read that stays with the soft-fail
+     * is the one owing a reason, as `getNextReleaseNumber` gives just below.
      */
     getFlowsheetPlayCounts: builder.query<FlowsheetPlayCounts, number>({
       query: (albumId) => ({
