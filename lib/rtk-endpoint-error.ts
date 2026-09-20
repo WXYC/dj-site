@@ -1,21 +1,6 @@
 import type { FetchBaseQueryError } from "@reduxjs/toolkit/query";
 
 /**
- * Backend-Service carries two conventions for a refusal body's
- * machine-readable discriminant, and this module reads both rather than
- * picking a winner. `bodyReason` reads `reason`, the flat legacy key a
- * handler writes straight onto the response (`res.status(409).json({
- * message, reason, ... })`). `bodyCode` reads `code`, the field
- * `WxycError.toApiErrorResponse()` projects from its `{ code, details }`
- * options -- the convention `wxyc-shared/api.yaml`'s `ApiErrorResponse`
- * actually declares. Neither reader falls back to the other: which key a
- * body carries is a fact about which handler answered, and a caller that
- * needs to branch on that drift must see it. WXYC/Backend-Service#2198 is
- * the ticket that will eventually collapse the two conventions into one; use
- * whichever reader matches the endpoint's Backend convention until then.
- */
-
-/**
  * Unwraps the `{ [key]: FetchBaseQueryError }` nest an endpoint's
  * `transformErrorResponse` puts around its rejection -- the house convention
  * that keeps the shared `rtkQueryErrorLogger` from toasting `data.message` a
@@ -68,14 +53,28 @@ export function serverMessage(data: unknown): string | undefined {
   return message.trim() === "" ? undefined : message;
 }
 
-/** The body's `reason`, or `undefined` for anything that isn't a string. */
+/**
+ * The body's `reason` -- the flat legacy discriminant a handler writes
+ * straight onto the response (`res.status(409).json({ message, reason,
+ * ... })`) -- or `undefined` for anything that isn't a string.
+ */
 export function bodyReason(data: unknown): string | undefined {
   if (!data || typeof data !== "object") return undefined;
   const reason = (data as { reason?: unknown }).reason;
   return typeof reason === "string" ? reason : undefined;
 }
 
-/** The body's `code`, or `undefined` for anything that isn't a string. */
+/**
+ * The body's `code` -- the discriminant `WxycError.toApiErrorResponse()`
+ * projects from its `{ code, details }` options, and the one
+ * `wxyc-shared/api.yaml`'s `ApiErrorResponse` actually declares -- or
+ * `undefined` for anything that isn't a string. `bodyCode` never falls back
+ * to `bodyReason` or vice versa: which key a body carries is a fact about
+ * which handler answered, and a caller that needs to branch on that drift
+ * must see it. A future Backend change is expected to collapse the two
+ * conventions into one; until then, use whichever reader matches the
+ * endpoint's convention.
+ */
 export function bodyCode(data: unknown): string | undefined {
   if (!data || typeof data !== "object") return undefined;
   const code = (data as { code?: unknown }).code;

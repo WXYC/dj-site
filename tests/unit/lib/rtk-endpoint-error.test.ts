@@ -83,7 +83,7 @@ describe("bodyCode", () => {
     expect(bodyCode({ code: "library_slot_conflict" })).toBe("library_slot_conflict");
   });
 
-  it.each([[undefined], [null], [{ code: 1 }], ["oops"]])("treats %p as absent", (data) => {
+  it.each([[undefined], [null], [{ code: 1 }], ["oops"], [{}]])("treats %p as absent", (data) => {
     expect(bodyCode(data)).toBeUndefined();
   });
 });
