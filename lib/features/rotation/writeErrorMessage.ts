@@ -1,5 +1,6 @@
 import type { FetchBaseQueryError } from "@reduxjs/toolkit/query";
 import { backendWriteErrorMessage } from "@/lib/backend-error-message";
+import { unwrapEndpointErrorOrRaw } from "@/lib/rtk-endpoint-error";
 
 type WrappedRotationWriteError = { rotationWriteError: FetchBaseQueryError };
 
@@ -16,9 +17,5 @@ export function wrapRotationWriteError(response: FetchBaseQueryError): WrappedRo
 
 /** `.unwrap()` throws the wrapper above verbatim, so the server's own message is one level down. */
 export function rotationWriteErrorMessage(err: unknown, fallback: string): string {
-  const rejection =
-    err && typeof err === "object" && "rotationWriteError" in err
-      ? (err as WrappedRotationWriteError).rotationWriteError
-      : err;
-  return backendWriteErrorMessage(rejection, fallback);
+  return backendWriteErrorMessage(unwrapEndpointErrorOrRaw("rotationWriteError", err), fallback);
 }

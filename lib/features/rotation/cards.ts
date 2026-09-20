@@ -1,4 +1,5 @@
 import type { RotationCard } from "@wxyc/shared";
+import { bodyReason, unwrapEndpointError } from "@/lib/rtk-endpoint-error";
 import {
   ROTATION_CARD_DELETE_CONFLICT_REASONS,
   type RotationBin,
@@ -59,12 +60,7 @@ export function canDeleteRotationCard(
 export function rotationCardDeleteConflictReason(
   err: unknown,
 ): RotationCardDeleteConflictReason | null {
-  if (!err || typeof err !== "object" || !("rotationWriteError" in err)) return null;
-  const rejection = (err as { rotationWriteError: unknown }).rotationWriteError;
-  if (!rejection || typeof rejection !== "object") return null;
-  const data = (rejection as { data?: unknown }).data;
-  if (!data || typeof data !== "object") return null;
-  const reason = (data as { reason?: unknown }).reason;
+  const reason = bodyReason(unwrapEndpointError("rotationWriteError", err)?.data);
   const match = ROTATION_CARD_DELETE_CONFLICT_REASONS.find((candidate) => candidate === reason);
   return match ?? null;
 }

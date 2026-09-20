@@ -1,3 +1,5 @@
+import { serverMessage, unwrapEndpointError } from "@/lib/rtk-endpoint-error";
+
 /**
  * The one owner of the force-end refusal's interpretation, copy, and testids —
  * the same job `go-live-handoff.ts` does for the go-live 409. Both
@@ -27,26 +29,6 @@ export type ForceEndOutcome =
   | "indeterminate";
 
 /**
- * The shape `forceEndShow`'s `transformErrorResponse` emits. The wrap exists to
- * keep the shared `rtkQueryErrorLogger` from toasting `data.message` a second
- * time over the dialog's own precise sentence — the `deleteAlbum` pattern.
- */
-type WrappedForceEndError = {
-  forceEndShowError: { status?: unknown; data?: unknown };
-};
-
-const isWrappedForceEndError = (err: unknown): err is WrappedForceEndError => {
-  if (!err || typeof err !== "object") return false;
-  const candidate = (err as WrappedForceEndError).forceEndShowError;
-  return !!candidate && typeof candidate === "object";
-};
-
-const messageOf = (inner: { data?: unknown }): string => {
-  const data = inner.data as { message?: unknown } | undefined;
-  return typeof data?.message === "string" ? data.message : "";
-};
-
-/**
  * Classify a force-end rejection.
  *
  * Only a WRAPPED error is read for a status: `transformErrorResponse` runs
@@ -66,12 +48,12 @@ const messageOf = (inner: { data?: unknown }): string => {
  * fails safe (an error toast for a reached goal, never a skipped refetch).
  */
 export function classifyForceEndError(err: unknown): ForceEndOutcome {
-  if (!isWrappedForceEndError(err)) return "indeterminate";
-  const inner = err.forceEndShowError;
+  const inner = unwrapEndpointError("forceEndShowError", err);
+  if (!inner) return "indeterminate";
   const status = inner.status;
   if (typeof status !== "number" || status >= 500) return "indeterminate";
   if (status === 409) return "now_on_air";
-  if (status === 400 && /already ended/i.test(messageOf(inner))) {
+  if (status === 400 && /already ended/i.test(serverMessage(inner.data) ?? "")) {
     return "already_ended";
   }
   return "refused";
