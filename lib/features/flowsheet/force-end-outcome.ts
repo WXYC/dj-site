@@ -1,11 +1,11 @@
-import { serverMessage, unwrapEndpointError } from "@/lib/rtk-endpoint-error";
-
 /**
  * The one owner of the force-end refusal's interpretation, copy, and testids —
  * the same job `go-live-handoff.ts` does for the go-live 409. Both
  * `forceEndShow`'s `invalidatesTags` and the operator dialog consume this, so
  * the 409 / benign-400 / refusal / lost-answer split is never derived twice.
  */
+
+import { serverMessage, unwrapEndpointError } from "@/lib/rtk-endpoint-error";
 
 /**
  * What a rejected force-end means for the show:

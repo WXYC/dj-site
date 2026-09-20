@@ -1,10 +1,10 @@
-import { serverMessage, unwrapEndpointErrorOrRaw } from "@/lib/rtk-endpoint-error";
-
 /**
  * Helpers behind the rotation filing bench's "Autopopulate with Discogs link"
  * field: the definitive-link the resolved release records, and the inline
  * message a failed autopopulate shows.
  */
+
+import { serverMessage, unwrapEndpointErrorOrRaw } from "@/lib/rtk-endpoint-error";
 
 /** The canonical definitive link recorded for a resolved Discogs release. */
 export function discogsReleaseUrl(releaseId: number): string {
