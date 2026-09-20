@@ -44,6 +44,42 @@ describe("parseImportedReleaseParams", () => {
     });
   });
 
+  it.each([
+    ["a bidi override", "\u202E"],
+    ["a combining mark", "e\u0301"],
+    ["a control character", "a\tb"],
+  ])(
+    "drops the entire code -- not just the letters -- when volume letters contain %s",
+    (_label, vol) => {
+      expect(parseImportedReleaseParams("1", "12", vol)).toEqual({
+        rotationId: 1,
+        codeNumber: undefined,
+        volumeLetters: undefined,
+      });
+    },
+  );
+
+  it.each([
+    ["a leading zero", "05"],
+    ["scientific notation", "1e3"],
+    ["hex notation", "0x10"],
+    ["beyond the smallint ceiling", "32768"],
+  ])("drops a call number the filing forms would refuse (%s)", (_label, code) => {
+    expect(parseImportedReleaseParams("1", code, undefined)).toEqual({
+      rotationId: 1,
+      codeNumber: undefined,
+      volumeLetters: undefined,
+    });
+  });
+
+  it("accepts a call number at the filing forms' own ceiling", () => {
+    expect(parseImportedReleaseParams("1", "32767", undefined)).toEqual({
+      rotationId: 1,
+      codeNumber: 32767,
+      volumeLetters: undefined,
+    });
+  });
+
   it("leaves the code intact when vol is absent", () => {
     expect(parseImportedReleaseParams("1", "12", undefined)).toEqual({
       rotationId: 1,
