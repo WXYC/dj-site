@@ -213,9 +213,13 @@ export function parseReleaseCodeNumber(raw: string): number | null {
  *
  * `lib/features/rotation/importedConfirmation.ts`'s `parseImportedReleaseParams`
  * reads the volume letters a filing echoed back through the rotation-import
- * round trip, and matches this function's length-only rule rather than a
- * narrower charset -- so a value this function accepted at filing time is
- * never dropped from the confirmation sentence that names it.
+ * round trip, and defers to this function for the length half of its own
+ * readability check -- so a value this function accepted at filing time is
+ * never dropped from the confirmation sentence for being too long. It layers
+ * one further, narrower exclusion of its own on top (bidi/control/combining
+ * code points), because that sentence renders in the station's own voice and
+ * this function's charset has no reason to bar those for a column that is
+ * merely stored, not spoken.
  *
  * Which half is actually the column's intended domain -- anything
  * length-limited, or letters only -- is not decided here; it is an open

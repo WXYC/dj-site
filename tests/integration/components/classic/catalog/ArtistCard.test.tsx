@@ -20,6 +20,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 import ArtistCard from "@/src/components/experiences/classic/catalog/ArtistCard";
+import { parseImportedReleaseParams } from "@/lib/features/rotation/importedConfirmation";
 
 const ARTIST_ID = 42;
 const GENRE_ID = 3;
@@ -1117,23 +1118,29 @@ describe("classic ArtistCard — artistCardModify.jsp", () => {
   });
 
   describe("import confirmation", () => {
+    // The raw `imported` / `code` / `vol` triple, shaped exactly as
+    // `ClassicArtistCardPage` reads it off the URL's search params -- so the
+    // parse itself runs as part of the test, not just the render.
     it("names the volume letters in full, even when they are not purely alphabetic", async () => {
       renderWithProviders(
         <ArtistCard
           artistId={ARTIST_ID}
-          imported={{ rotationId: 7, codeNumber: 5, volumeLetters: "A/B 1" }}
+          imported={parseImportedReleaseParams("7", "5", "A/B")}
         />,
       );
 
       await screen.findByTestId("modify-artist-form");
       expect(screen.getByRole("status")).toHaveTextContent(
-        "Filed as Rock MO 12/5-A/B 1, and linked to rotation release #7.",
+        "Filed as Rock MO 12/5-A/B, and linked to rotation release #7.",
       );
     });
 
     it("does not assert a partial shelf code when the volume letters could not be read", async () => {
       renderWithProviders(
-        <ArtistCard artistId={ARTIST_ID} imported={{ rotationId: 7, codeNumber: undefined }} />,
+        <ArtistCard
+          artistId={ARTIST_ID}
+          imported={parseImportedReleaseParams("7", "5", "abcde")}
+        />,
       );
 
       await screen.findByTestId("modify-artist-form");
