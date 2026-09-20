@@ -35,6 +35,7 @@ import {
   LibraryFormatRow,
   LibraryGenreRow,
   LibraryQueryParams,
+  NextReleaseNumberQuery,
   NextReleaseNumberResponse,
   PeekArtistCodeQuery,
   PeekArtistCodeResponse,
@@ -572,26 +573,34 @@ export const catalogApi = createApi({
       providesTags: (_result, _error, { artistId }) => artistReleaseTags(artistId),
     }),
     /**
-     * The call number a new release filed under this artist would be assigned,
-     * previewed for the add-release form. Soft-fails like `peekArtistCode`
-     * rather than opting into `surfaceNonJsonAsError`: the form degrades to the
-     * server's own MAX+1 assignment when this cannot be read, so an unreachable
-     * peek must not throw -- it resolves to no prepopulated number.
+     * The call number a new release filed under this artist, on this genre's
+     * shelf, would be assigned, previewed for the add-release form. Soft-fails
+     * like `peekArtistCode` rather than opting into `surfaceNonJsonAsError`:
+     * the form degrades to the server's own MAX+1 assignment when this cannot
+     * be read, so an unreachable peek must not throw -- it resolves to no
+     * prepopulated number.
      *
-     * Shares the artist's release-list tags rather than owning any (see
-     * `artistReleaseTags`): the next call number is a function of what is
+     * Shares the artist's release-list tags (see `artistReleaseTags`) rather
+     * than owning only its own: the next call number is a function of what is
      * already on the shelf, so every write that changes the shelf makes this
-     * number stale. Providing both the id-scoped and the shared `LIST` tag
-     * refetches it after a same-artist `addAlbum` AND after a writer that can
-     * only invalidate `LIST` — the modern bench's `fileRelease`, a
-     * re-attributing `updateAlbum` — keeping a just-consumed number off the
-     * form without a second invalidation on any of those mutations.
+     * number stale, and the id-scoped and shared `LIST` tags are what refetch
+     * it after a same-artist `addAlbum` and after a writer that can only
+     * invalidate `LIST` — the modern bench's `fileRelease`, a re-attributing
+     * `updateAlbum` — without a second invalidation added to either mutation.
+     * On top of those it also provides its own genre-scoped tag, following
+     * `peekArtistCode`'s pattern below: the shelf is genre-scoped (see
+     * `NextReleaseNumberQuery`), so two genres of one artist must not be
+     * addressable as though they were one cache entry.
      */
-    getNextReleaseNumber: builder.query<NextReleaseNumberResponse, number>({
-      query: (artistId) => ({
+    getNextReleaseNumber: builder.query<NextReleaseNumberResponse, NextReleaseNumberQuery>({
+      query: ({ artistId, genre_id }) => ({
         url: `/artists/${artistId}/next-release-number`,
+        params: { genre_id },
       }),
-      providesTags: (_result, _error, artistId) => artistReleaseTags(artistId),
+      providesTags: (_result, _error, { artistId, genre_id }) => [
+        ...artistReleaseTags(artistId),
+        { type: "ArtistReleaseList" as const, id: `${artistId}:${genre_id}` },
+      ],
     }),
     peekArtistCode: builder.query<PeekArtistCodeResponse, PeekArtistCodeQuery>({
       query: ({ code_letters, genre_id }) => ({

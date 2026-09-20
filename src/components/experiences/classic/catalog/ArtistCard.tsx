@@ -116,10 +116,19 @@ export default function ArtistCard({ artistId, message, imported }: ArtistCardPr
     data: releasePage,
     isError: releasesError,
   } = useGetArtistReleasesQuery({ artistId });
+  // `artist.genre_id` is undefined until the card resolves, and the backend
+  // requires `genre_id` on this endpoint -- firing before then would 400, and
+  // because this query soft-fails, that 400 would show up as "never
+  // prefills" rather than as a visible error. `skip` keeps the request from
+  // going out until there is a real genre to ask about; the placeholder `0`
+  // in the arg is never sent, since `skip: !artist` blocks the request itself.
   const {
     data: nextRelease,
     isFetching: nextReleaseFetching,
-  } = useGetNextReleaseNumberQuery(artistId);
+  } = useGetNextReleaseNumberQuery(
+    { artistId, genre_id: artist?.genre_id ?? 0 },
+    { skip: !artist },
+  );
   const { data: genres } = useGetGenresQuery();
   const { data: formats } = useGetFormatsQuery();
 

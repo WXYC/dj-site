@@ -244,13 +244,31 @@ export type PeekArtistCodeResponse = {
 };
 
 /**
- * GET /library/artists/:id/next-release-number — the call number a new release
- * filed under this artist would be assigned (the artist's MAX(code_number)+1,
- * or 1 when the artist owns no releases). The classic add-release form
- * prepopulates its editable call-number field from this so the librarian sees
- * the number that will land on the sleeve before saving, rather than a blank.
- * Same wire shape as the peek-code preview, kept as its own type so the two
- * endpoints' contracts can evolve independently.
+ * GET /library/artists/:id/next-release-number — the call number a new
+ * release filed under this artist, on this genre's shelf, would be assigned
+ * (that shelf's MAX(code_number)+1, or 1 when it holds no releases yet).
+ * Genre-scoped because an artist catalogued under more than one genre keeps a
+ * separate numbering sequence per genre -- a peek that did not name one could
+ * answer off a shelf other than the one the release is actually being filed
+ * on.
+ */
+export type NextReleaseNumberQuery = {
+  artistId: number;
+  /**
+   * The genre the release is being filed under -- the card's own genre, not
+   * necessarily `ArtistCard.genre_id`: that read collapses a multi-genre
+   * artist to its lowest genre, while this asks about the shelf the card is
+   * actually showing.
+   */
+  genre_id: number;
+};
+
+/**
+ * The classic add-release form prepopulates its editable call-number field
+ * from this so the librarian sees the number that will land on the sleeve
+ * before saving, rather than a blank. Same wire shape as the peek-code
+ * preview, kept as its own type so the two endpoints' contracts can evolve
+ * independently.
  */
 export type NextReleaseNumberResponse = {
   next_code_number: number;

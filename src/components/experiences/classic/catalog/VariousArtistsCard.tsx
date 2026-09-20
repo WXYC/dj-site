@@ -131,13 +131,13 @@ export default function VariousArtistsCard({ artistId, message, imported }: Vari
   // sleeve.
   //
   // Not prepopulated, though nothing about a compilation bucket stops it from
-  // being: `GET /library/artists/:id/next-release-number` is keyed on the
-  // artist id alone and answers for this row like any other. This screen just
-  // does not read it, so the librarian either types the number or leaves the
-  // choice to the server. The consequence to weigh before typing one: unlike
-  // the ordinary artist card, this screen puts no view of the bucket's current
-  // highest number in front of the librarian, and Backend refuses no duplicate
-  // shelf slot on write.
+  // being: `GET /library/artists/:id/next-release-number` takes the shelf's
+  // genre alongside the artist id and would answer for this row's own genre
+  // like any other. This screen just does not read it, so the librarian
+  // either types the number or leaves the choice to the server. The
+  // consequence to weigh before typing one: unlike the ordinary artist card,
+  // this screen puts no view of the bucket's current highest number in front
+  // of the librarian, and Backend refuses no duplicate shelf slot on write.
   const [codeNumberEdit, setCodeNumberEdit] = useState("");
   // The volume-letters field's value. Never prepopulated -- and neither is the
   // ordinary artist card's, for the reason stated there: `code_volume_letters`
