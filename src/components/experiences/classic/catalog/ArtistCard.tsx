@@ -241,23 +241,19 @@ export default function ArtistCard({ artistId, message, imported }: ArtistCardPr
       : "");
 
   // Whether either name field exceeds the 128-code-point ceiling
-  // `PATCH /library/artists/:id` enforces. Close to that handler's check but
-  // not identical to it: the server measures
-  // `codePointLength(value.normalize('NFC').trim())` and this does not
-  // normalize, and NFC is not length-non-increasing -- a composition-exclusion
-  // codepoint expands -- so a narrow class of input is refused server-side
-  // after passing here. Normalizing here is deferred rather than forgotten:
-  // `codePointLength` backs several ceilings in this module and none of them
-  // normalize, so the client and server are reconciled in one change, not one
-  // helper. Deliberately not an HTML
-  // `maxLength` on the inputs below: `maxLength` counts UTF-16 units rather
-  // than code points, so it would clip an astral name the column can hold and
-  // the server would accept, and -- the more serious defect -- it clips
-  // silently as the librarian types or pastes, leaving `handleModifyArtist`
-  // to submit the already-truncated value with nothing to refuse. Computed
-  // live off the field values so the refusal is visible and submit is
-  // disabled the moment either name is too long, not only after a submit
-  // attempt.
+  // `PATCH /library/artists/:id` enforces, matching that handler's own
+  // `codePointLength(value.normalize('NFC').trim())`: `artistNameTooLong`
+  // normalizes to NFC before counting, the same as every other ceiling
+  // `codePointLength` backs in this module, so a decomposed name is not
+  // counted longer here than the server would count it. Deliberately not an
+  // HTML `maxLength` on the inputs below: `maxLength` counts UTF-16 units
+  // rather than code points, so it would clip an astral name the column can
+  // hold and the server would accept, and -- the more serious defect -- it
+  // clips silently as the librarian types or pastes, leaving
+  // `handleModifyArtist` to submit the already-truncated value with nothing
+  // to refuse. Computed live off the field values so the refusal is visible
+  // and submit is disabled the moment either name is too long, not only after
+  // a submit attempt.
   const presentationNameTooLong = artistNameTooLong(presentationName);
   const alphabeticalNameTooLong = artistNameTooLong(alphabeticalName);
 

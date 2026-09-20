@@ -429,21 +429,36 @@ describe("ArtistAddForm", () => {
         expect(getBodies()[0]).toMatchObject({ code_letters: MOLINA });
       });
 
-      it("caps typed input at the four characters the column holds and says so", async () => {
+      // Pasted, not typed: userEvent enforces an input's own `maxLength` on
+      // both keystrokes and paste, so a paste this long is what would expose
+      // a `maxLength` silently clipping the value back under the ceiling --
+      // the regression this pins. The field carries no such attribute any
+      // more.
+      it("refuses call letters past the cap rather than silently truncating them", async () => {
         const { getBodies } = mockAddArtist(() => created());
         const { user } = renderWithProviders(<ArtistAddForm />);
 
-        await fillCoreFields(user, "molina");
+        await selectGenre(user);
+        await user.type(
+          await screen.findByPlaceholderText("Search artists..."),
+          "Juana Molina",
+        );
+        await user.type(screen.getByLabelText("Code number"), "12");
 
-        // artists.code_letters is a varchar(4) with no server-side guard: an
-        // over-long value reaches PostgreSQL and returns a 500.
-        expect(screen.getByLabelText(/call letters/i)).toHaveValue("MOLI");
-        expect(screen.getByText(/up to 4 characters/i)).toBeInTheDocument();
+        const field = screen.getByLabelText(/call letters/i);
+        await user.click(field);
+        await user.paste("molina");
 
-        await user.click(screen.getByRole("button", { name: /add artist/i }));
-
-        await waitFor(() => expect(getBodies()).toHaveLength(1));
-        expect(getBodies()[0]).toMatchObject({ code_letters: "MOLI" });
+        // Uppercased in full, not clipped to the column's four characters: a
+        // `maxLength` attribute would have silently dropped the paste's last
+        // two characters here and let a submit write the wrong code. The
+        // button below is disabled by that same refusal -- MUI renders a
+        // disabled Button with `pointer-events: none`, so there is no click
+        // to simulate landing on it.
+        expect(field).toHaveValue("MOLINA");
+        expect(screen.getByText(/at most 4 characters/i)).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: /add artist/i })).toBeDisabled();
+        expect(getBodies()).toHaveLength(0);
       });
 
       it.each([
@@ -486,9 +501,10 @@ describe("ArtistAddForm", () => {
         const { user } = renderWithProviders(<ArtistAddForm />);
 
         await fillCoreFields(user);
-        // maxLength constrains typing and pasting, but not a programmatic set
-        // (autofill, password managers) — so the ceiling is also checked before
-        // submit rather than trusted to the field alone.
+        // A value set directly (autofill, a password manager) fires no
+        // keystroke or paste event at all, so the gate has to be computed
+        // from the field's own value on every render rather than trusted to
+        // whatever produced it.
         setFieldValue(screen.getByLabelText(/call letters/i), "MOLINA");
 
         expect(screen.getByText(/at most 4 characters/i)).toBeInTheDocument();
@@ -524,6 +540,31 @@ describe("ArtistAddForm", () => {
           expect(getBodies()).toHaveLength(0);
         },
       );
+
+      // artist_name is migrated off `.length` (UTF-16 units) onto
+      // `artistNameTooLong`, which counts code points. 70 surrogate pairs
+      // (mathematical bold capital A) are 140 UTF-16 units but 70 code
+      // points -- well under the varchar(128) ceiling by the count Backend
+      // actually uses, but the old `.length` check would have put it at 140
+      // and refused it.
+      it("accepts an astral-character artist name within the code-point ceiling", async () => {
+        const longName = "𝐀".repeat(70);
+        const { getBodies } = mockAddArtist(() => created({ artist_name: longName }));
+        const { user } = renderWithProviders(<ArtistAddForm />);
+
+        await selectGenre(user);
+        setFieldValue(await screen.findByPlaceholderText("Search artists..."), longName);
+        await user.type(screen.getByLabelText(/call letters/i), MOLINA);
+        await user.type(screen.getByLabelText("Code number"), "12");
+
+        expect(screen.queryByText(/at most 128 characters/i)).toBeNull();
+        expect(screen.getByRole("button", { name: /add artist/i })).toBeEnabled();
+
+        await user.click(screen.getByRole("button", { name: /add artist/i }));
+
+        await waitFor(() => expect(getBodies()).toHaveLength(1));
+        expect(getBodies()[0]).toMatchObject({ artist_name: longName });
+      });
 
       it("blocks a code number past the integer column's range", async () => {
         const { getBodies } = mockAddArtist(() => created());

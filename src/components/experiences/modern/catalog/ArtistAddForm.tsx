@@ -18,6 +18,7 @@ import { isUnmessagedHttpError } from "@/lib/rtk-query-error-logger";
 import { useAddArtistMutation, useGetGenresQuery } from "@/lib/features/catalog/api";
 import {
   ARTIST_NAME_MAX_LENGTH,
+  artistNameTooLong,
   isAddArtistConflict,
   isArtistNameConflictData,
   isConflictRejection,
@@ -72,7 +73,11 @@ function ArtistAddFields() {
   );
 
   const trimmedName = name.trim();
-  const nameTooLong = trimmedName.length > ARTIST_NAME_MAX_LENGTH;
+  // artist_name shares its varchar(128) ceiling with alphabetical_name, so
+  // this counts code points after NFC normalization via `artistNameTooLong`
+  // rather than `.length` (UTF-16 units), matching how Backend measures the
+  // column.
+  const nameTooLong = artistNameTooLong(trimmedName);
   const dedup = useArtistDedupCheck(trimmedName);
   const {
     trimmedAlphabeticalName,

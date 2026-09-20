@@ -23,6 +23,7 @@ import {
 } from "@/lib/features/catalog/api";
 import {
   ARTIST_NAME_MAX_LENGTH,
+  artistNameTooLong,
   suggestCodeLetters,
   validateNewArtistFields,
 } from "@/lib/features/catalog/adminCreateArtistValidation";
@@ -145,7 +146,10 @@ export default function RotationFilingBench(): JSX.Element {
     (genresQuery.data ?? []).find((genre) => genre.id === genreId)?.genre_name ?? null;
 
   const trimmedArtist = artistText.trim();
-  const artistTooLong = trimmedArtist.length > ARTIST_NAME_MAX_LENGTH;
+  // Counts code points after NFC normalization via `artistNameTooLong` rather
+  // than `.length` (UTF-16 units), matching how Backend measures
+  // artist_name's varchar(128) ceiling.
+  const artistTooLong = artistNameTooLong(trimmedArtist);
   const dedup = useArtistDedupCheck(trimmedArtist);
   const {
     trimmedCodeLetters,

@@ -162,18 +162,6 @@ describe("DiscogsUnavailableControl", () => {
       );
     });
 
-    it("caps the note field at 500 characters", async () => {
-      renderWithProviders(
-        <DiscogsUnavailableControl
-          album={juanaMolinaAlbum({ discogsUnavailable: true })}
-        />,
-      );
-
-      expect(await screen.findByLabelText("Reason (optional)")).toHaveAttribute(
-        "maxLength",
-        "500",
-      );
-    });
   });
 
   describe("toggling the flag", () => {
@@ -339,6 +327,34 @@ describe("DiscogsUnavailableControl", () => {
 
       await screen.findByLabelText("Reason (optional)");
       expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
+    });
+
+    // Pasted, not typed: userEvent enforces a textarea's own `maxLength` on
+    // both keystrokes and paste, so a paste this long is what would expose a
+    // `maxLength` silently clipping the value back under the ceiling -- the
+    // regression this pins. The field carries no such attribute any more.
+    it("refuses a note past the cap rather than silently truncating it", async () => {
+      const getReceivedBody = mockPatch();
+      const { user } = renderWithProviders(
+        <DiscogsUnavailableControl
+          album={juanaMolinaAlbum({ discogsUnavailable: true, discogsUnavailableNote: "old reason" })}
+        />,
+      );
+
+      const note = await screen.findByLabelText("Reason (optional)");
+      await user.clear(note);
+      await user.paste("y".repeat(501));
+
+      // Kept whole, not clipped to the column's 500 characters: a
+      // `maxLength` attribute would have silently dropped the paste's last
+      // character here and let a Save PATCH the truncated text. The button
+      // below is disabled by that same refusal -- MUI renders a disabled
+      // Button with `pointer-events: none`, so there is no click to simulate
+      // landing on it.
+      expect(note).toHaveValue("y".repeat(501));
+      expect(screen.getByText("At most 500 characters")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+      expect(getReceivedBody()).toBeUndefined();
     });
 
     it("saves the trimmed note via PATCH", async () => {

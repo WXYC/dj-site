@@ -4,6 +4,7 @@ import { http, HttpResponse } from "msw";
 import {
   renderWithProviders,
   server,
+  setFieldValue,
   TEST_BACKEND_URL,
   TEST_ENTITY_IDS,
 } from "@/tests/helpers";
@@ -346,6 +347,23 @@ describe("RotationFilingBench", () => {
         await screen.findByRole("option", { name: `Create new artist "${name}"` }),
       );
     }
+
+    // artistTooLong is migrated off `.length` (UTF-16 units) onto
+    // artistNameTooLong, which counts code points. 70 surrogate pairs
+    // (mathematical bold capital A) are 140 UTF-16 units but 70 code points
+    // -- well under the varchar(128) ceiling by the count Backend actually
+    // uses, but the old `.length` check would have put it at 140 and refused
+    // it.
+    it("accepts an astral-character artist name within the code-point ceiling", async () => {
+      mockEmptyArtistSearch();
+      const { user } = renderBench();
+
+      await selectGenre(user);
+      const longName = "𝐀".repeat(70);
+      setFieldValue(await screen.findByPlaceholderText("Search artists..."), longName);
+
+      expect(screen.queryByText(/at most 128 characters/i)).toBeNull();
+    });
 
     it("expands the create row into the inline panel and files the new artist without a code number", async () => {
       mockEmptyArtistSearch();

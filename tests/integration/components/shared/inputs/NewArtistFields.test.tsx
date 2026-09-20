@@ -117,6 +117,35 @@ describe("NewArtistFields", () => {
     expect(screen.getByLabelText("Code number")).toBeDefined();
   });
 
+  // Pasted, not typed: userEvent enforces an input's own `maxLength` on both
+  // keystrokes and paste, so a paste this long is what would expose a
+  // `maxLength` silently clipping the value back under the ceiling -- the
+  // regression this pins. Neither field carries the attribute any more; a
+  // paste over the cap has to reach state whole and be refused visibly,
+  // rather than being clipped before the caller's `onChange` ever runs.
+  it("keeps an over-long alphabetical-name paste whole and refuses it visibly, rather than silently truncating it", async () => {
+    const { user } = renderWithProviders(<Harness />);
+    const field = screen.getByLabelText("Alphabetical name (optional)");
+
+    await user.click(field);
+    await user.paste("y".repeat(129));
+
+    expect(field).toHaveValue("y".repeat(129));
+    expect(screen.getByText("At most 128 characters")).toBeInTheDocument();
+  });
+
+  it("keeps an over-long call-letters paste whole and refuses it visibly, rather than silently truncating it", async () => {
+    const { user } = renderWithProviders(<Harness />);
+    const field = callLettersInput();
+
+    await user.click(field);
+    await user.paste("molina");
+
+    // Uppercased in full, not clipped to the column's four characters.
+    expect(field).toHaveValue("MOLINA");
+    expect(screen.getByText("At most 4 characters")).toBeInTheDocument();
+  });
+
   it("files call letters uppercase whatever the MD types", async () => {
     // The backend compares this column for equality on a non-citext btree and
     // the catalog is filed uppercase, so lowercase "mo" would open a second

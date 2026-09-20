@@ -196,12 +196,17 @@ function NewArtistFields({
     <Stack spacing={1.5}>
       <FormControl error={alphabeticalNameTooLong}>
         <FormLabel>Alphabetical name (optional)</FormLabel>
+        {/* No `maxLength`: it counts UTF-16 units, not the code points the
+            column and the server measure, and it clips a paste silently
+            rather than refusing it -- `POST /library/artists` would file the
+            already-truncated value with nothing to show for the difference.
+            `alphabeticalNameTooLong` is computed live off the field instead,
+            so the refusal is visible the moment the value is too long. */}
         <Input
           value={alphabeticalName}
           disabled={disabled}
           onChange={(e) => onAlphabeticalNameChange(e.target.value)}
           placeholder="Defaults to artist name"
-          slotProps={{ input: { maxLength: ARTIST_NAME_MAX_LENGTH } }}
         />
         {alphabeticalNameTooLong && (
           <FormHelperText>
@@ -212,6 +217,10 @@ function NewArtistFields({
 
       <FormControl error={codeLettersTooLong}>
         <FormLabel>Call letters</FormLabel>
+        {/* Same reasoning as the alphabetical-name field above: no
+            `maxLength`, since it would silently clip a paste to four UTF-16
+            units and let a wrong-but-valid-looking code reach the server.
+            `codeLettersTooLong` is the visible refusal instead. */}
         <Input
           value={codeLettersField.value}
           disabled={disabled}
@@ -220,7 +229,6 @@ function NewArtistFields({
           slotProps={{
             input: {
               ref: codeLettersInputRef,
-              maxLength: CODE_LETTERS_MAX_LENGTH,
             },
           }}
         />
