@@ -203,9 +203,12 @@ describe("classic MultipleArtistsDisplay — multipleArtistsDisplay.jsp", () => 
       />,
     );
 
+    // Scoped to the row's own genre. This screen exists because one code
+    // reached several artists, so an unscoped link would undo the
+    // disambiguation it was rendered to perform.
     expect(screen.getByRole("link", { name: "Stereolab" })).toHaveAttribute(
       "href",
-      "/dashboard/library/artist/31",
+      "/dashboard/library/artist/31?genre_id=3",
     );
   });
 

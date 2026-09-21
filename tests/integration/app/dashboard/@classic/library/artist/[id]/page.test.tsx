@@ -34,8 +34,8 @@ vi.mock("@/src/components/experiences/classic/Layout/Main", () => ({
   default: ({ children }: { children: React.ReactNode }) => <div data-testid="classic-main">{children}</div>,
 }));
 vi.mock("@/src/components/experiences/classic/catalog/ArtistCard", () => ({
-  default: ({ artistId, message }: { artistId: number; message?: string }) => (
-    <div data-testid="artist-card" data-artist-id={artistId}>
+  default: ({ artistId, genreId, message }: { artistId: number; genreId?: number; message?: string }) => (
+    <div data-testid="artist-card" data-artist-id={artistId} data-genre-id={genreId ?? ""}>
       {message}
     </div>
   ),
@@ -43,10 +43,15 @@ vi.mock("@/src/components/experiences/classic/catalog/ArtistCard", () => ({
 
 import ClassicArtistCardPage from "@/app/dashboard/@classic/library/artist/[id]/page";
 
-const page = (id = "42", created?: string) =>
+type ArtistCardSearchParams = {
+  created?: string;
+  genre_id?: string | string[];
+};
+
+const page = (id = "42", search: ArtistCardSearchParams = {}) =>
   ClassicArtistCardPage({
     params: Promise.resolve({ id }),
-    searchParams: Promise.resolve(created ? { created } : {}),
+    searchParams: Promise.resolve(search),
   });
 
 describe("classic /dashboard/library/artist/[id] page — artistCardModify.jsp", () => {
@@ -89,11 +94,43 @@ describe("classic /dashboard/library/artist/[id] page — artistCardModify.jsp",
   it("carries the create confirmation only when the URL asks for it", async () => {
     setUpClassicPageAuthority("musicDirector");
 
-    await assertReachesClassicPage(() => page("42", "1"), "classic-main", "artist-card");
+    await assertReachesClassicPage(() => page("42", { created: "1" }), "classic-main", "artist-card");
     expect(screen.getByTestId("artist-card")).toHaveTextContent(
       "The artist/library code below has been added to the database.",
     );
   });
+
+  // An artist id alone does not identify a card: `genre_artist_crossreference`
+  // is unique on `(artist_id, genre_id)`, so artist 431 ('Isis') is `IS 1`
+  // under Hiphop and `IS 13` under Rock -- two unrelated bands. The card needs
+  // to know which one the link meant.
+  it("carries the genre membership the URL names down to the card", async () => {
+    setUpClassicPageAuthority("musicDirector");
+
+    await assertReachesClassicPage(() => page("431", { genre_id: "11" }), "classic-main", "artist-card");
+    expect(screen.getByTestId("artist-card").getAttribute("data-genre-id")).toBe("11");
+  });
+
+  // Every link built before this parameter existed omits it, and must still
+  // render a card -- the server's lowest-membership collapse.
+  it("hands the card no genre when the URL names none", async () => {
+    setUpClassicPageAuthority("musicDirector");
+
+    await assertReachesClassicPage(() => page("431"), "classic-main", "artist-card");
+    expect(screen.getByTestId("artist-card").getAttribute("data-genre-id")).toBe("");
+  });
+
+  // Silently dropping a malformed genre would serve the conflated card this
+  // parameter exists to split -- the reported symptom, reached without a word
+  // to the librarian. A broken link gets the answer a broken link gets.
+  it.each([["non-numeric", "rock"], ["blank", ""], ["zero", "0"], ["negative", "-11"]])(
+    "404s a %s genre rather than falling back to the collapsed card",
+    async (_label, genre_id) => {
+      setUpClassicPageAuthority("musicDirector");
+
+      await expect(page("431", { genre_id })).rejects.toThrow("NEXT_NOT_FOUND");
+    },
+  );
 
   // A non-numeric segment would otherwise reach the card as NaN and render as
   // "this card could not be loaded", which describes a backend fault rather

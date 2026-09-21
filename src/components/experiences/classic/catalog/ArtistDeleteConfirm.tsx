@@ -64,8 +64,22 @@ type DeletedArtist = { card: ArtistCard; identityCode: string };
  * or a 404'd refetch. No restore is promised -- `RESTORE_PLAN` has no
  * `artists` entry.
  */
-export default function ArtistDeleteConfirm({ artistId }: { artistId: number }) {
-  const { data: artist, isLoading } = useGetArtistCardQuery(artistId);
+export default function ArtistDeleteConfirm({
+  artistId,
+  genreId,
+}: {
+  artistId: number;
+  /**
+   * Which membership is being deleted from the librarian's point of view --
+   * the shelf whose card sent them here. The identity string below names the
+   * genre-prefixed code, so an unscoped read would print the lowest genre's
+   * code for an artist reached on a different shelf, on the confirmation
+   * screen for an irreversible write. The DELETE itself is artist-wide either
+   * way; this scopes what the screen SAYS, not what it does.
+   */
+  genreId?: number;
+}) {
+  const { data: artist, isLoading } = useGetArtistCardQuery({ artistId, genre_id: genreId });
   const { data: genres, isError: genresUnreadable } = useGetGenresQuery();
   const [deleteArtist, { isLoading: deleting }] = useDeleteArtistMutation();
 
@@ -111,7 +125,7 @@ export default function ArtistDeleteConfirm({ artistId }: { artistId: number }) 
     .filter(Boolean)
     .join(" ");
   const identityCode = deleted?.identityCode ?? liveIdentityCode;
-  const cardHref = artistCardHref({ id: artistId, code_letters: card.code_letters });
+  const cardHref = artistCardHref({ id: artistId, code_letters: card.code_letters }, genreId);
 
   // Every gate names itself when no count is readable, so ask that first --
   // four clauses off four `undefined`s would assert four unobserved facts.

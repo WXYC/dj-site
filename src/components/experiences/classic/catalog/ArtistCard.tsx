@@ -20,6 +20,7 @@ import {
   normalizeCodeLetters,
   resolveReleaseCodeFields,
 } from "@/lib/features/catalog/adminCreateArtistValidation";
+import { artistDeleteHref } from "@/lib/features/catalog/artistCardRoute";
 import { artistDeleteIsOffered } from "@/lib/features/catalog/artistDeleteOutcome";
 import { validateNewArtistNames } from "@/lib/features/catalog/chooserValidation";
 import {
@@ -40,6 +41,16 @@ import {
 
 type ArtistCardProps = {
   artistId: number;
+  /**
+   * Which of the artist's genre memberships this card describes.
+   * `genre_artist_crossreference` is unique on `(artist_id, genre_id)`, so an
+   * artist filed under several genres has a different call number on each
+   * shelf, and without this the server collapses onto the lowest genre --
+   * heading the card with one shelf's code while listing every shelf's
+   * releases. Absent for a link built without a genre in hand, which keeps
+   * that collapse rather than failing.
+   */
+  genreId?: number;
   /**
    * The confirmation `/wxycdb` carries onto this card after a create
    * (`ArtistAdminServlet:187`), shown once above the artist's name.
@@ -106,7 +117,7 @@ const EMPTY_TITLE_MESSAGE = "Please enter a title before adding this release.";
  * "Modify This Artist", and here it sits with the "no library releases"
  * line, which states in words the same fact the pre-check turns on.
  */
-export default function ArtistCard({ artistId, message, imported }: ArtistCardProps) {
+export default function ArtistCard({ artistId, genreId, message, imported }: ArtistCardProps) {
   const router = useRouter();
   const alphabeticalNameId = useId();
   const presentationNameId = useId();
@@ -119,11 +130,11 @@ export default function ArtistCard({ artistId, message, imported }: ArtistCardPr
     data: artist,
     isLoading: artistLoading,
     isError: artistError,
-  } = useGetArtistCardQuery(artistId);
+  } = useGetArtistCardQuery({ artistId, genre_id: genreId });
   const {
     data: releasePage,
     isError: releasesError,
-  } = useGetArtistReleasesQuery({ artistId });
+  } = useGetArtistReleasesQuery({ artistId, genre_id: genreId });
   // The peek is genre-scoped, and `artist.genre_id` is only known once the
   // card query resolves. `skipToken` rather than a placeholder genre plus
   // `{ skip }`: a fabricated `genre_id` would be a real value in the arg, and
@@ -136,6 +147,11 @@ export default function ArtistCard({ artistId, message, imported }: ArtistCardPr
   // itself makes the invalid arg unrepresentable instead of merely guarded --
   // the same `arg ?? skipToken` shape as `useArtistCodePeek` and
   // `useCompilationBucketResolution`.
+  // Keyed on the CARD's genre, not the prop: a scoped card reports the
+  // membership that was asked for, and an unscoped one reports the collapse.
+  // Either way the peek previews the shelf whose code this card is showing, so
+  // the number offered for a new release belongs to the shelf the librarian is
+  // looking at rather than to the artist's lowest-numbered genre.
   const nextReleaseArg =
     artist?.genre_id != null ? { artistId, genre_id: artist.genre_id } : skipToken;
   const {
@@ -803,7 +819,7 @@ export default function ArtistCard({ artistId, message, imported }: ArtistCardPr
           fail-closed test `/delete`'s own Tier 1 uses; see the docblock above. */}
       {artistDeleteIsOffered(artist) && (
         <div className="label" style={{ textAlign: "center" }}>
-          <a href={`/dashboard/library/artist/${artistId}/delete`}>
+          <a href={artistDeleteHref(artistId, genreId)}>
             <b>Delete The Artist</b>
           </a>
         </div>

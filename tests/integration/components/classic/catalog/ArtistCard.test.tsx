@@ -1196,4 +1196,195 @@ describe("classic ArtistCard — artistCardModify.jsp", () => {
       );
     });
   });
+
+  // `genre_artist_crossreference` is unique on `(artist_id, genre_id)`, so one
+  // artist row can be two unrelated bands: the catalog's `Isis` is a hip-hop
+  // act filed `IS 1` under Hiphop and a metal band filed `IS 13` under Rock.
+  // Unscoped, the server collapses onto the lowest genre, so the card asserts
+  // one shelf's code over both shelves' releases.
+  //
+  // Asserted on the REQUEST, not just the render: the scope only works if the
+  // parameter reaches the wire, and a card that dropped it would still render
+  // plausibly — with the other band's releases on it.
+  describe("genre scope", () => {
+    const ISIS_ID = 431;
+    const HIPHOP = { id: 6, genre_name: "Hiphop" };
+    const ROCK = { id: 11, genre_name: "Rock" };
+
+    /**
+     * The value cell of one of the modify card's labelled fields. The card
+     * prints genre, call letters and call number separately rather than as one
+     * composed code, so the identity is asserted field by field.
+     */
+    const cardField = (label: string) =>
+      screen.getByText(label).closest("tr")?.querySelectorAll("td")[1]?.textContent;
+
+    /**
+     * Serves whichever membership the request asks for, and records the
+     * `genre_id` both reads sent. Unscoped, answers the lowest membership, the
+     * way the server's own collapse does.
+     */
+    function mockIsis() {
+      const sent: { card: (string | null)[]; releases: (string | null)[] } = {
+        card: [],
+        releases: [],
+      };
+      const memberships = {
+        [HIPHOP.id]: { genre_id: HIPHOP.id, code_artist_number: 1, album_title: "Rebel Soul", releaseId: 833 },
+        [ROCK.id]: { genre_id: ROCK.id, code_artist_number: 13, album_title: "Panopticon", releaseId: 36792 },
+      };
+      const asked = (request: Request) => {
+        const raw = new URL(request.url).searchParams.get("genre_id");
+        return { raw, membership: memberships[raw == null ? HIPHOP.id : Number(raw)] };
+      };
+
+      server.use(
+        http.get(`${TEST_BACKEND_URL}/library/artists/${ISIS_ID}`, ({ request }) => {
+          const { raw, membership } = asked(request);
+          sent.card.push(raw);
+          return HttpResponse.json({
+            artist_id: ISIS_ID,
+            artist_name: "Isis",
+            alphabetical_name: "Isis",
+            genre_id: membership.genre_id,
+            code_letters: "IS",
+            code_artist_number: membership.code_artist_number,
+          });
+        }),
+        http.get(`${TEST_BACKEND_URL}/library/artists/${ISIS_ID}/releases`, ({ request }) => {
+          const { raw, membership } = asked(request);
+          sent.releases.push(raw);
+          // Unscoped is the reported defect: both bands' records on one page.
+          const releases =
+            raw == null
+              ? Object.values(memberships).map((m) =>
+                  release({ id: m.releaseId, album_title: m.album_title, genre_id: m.genre_id }),
+                )
+              : [release({ id: membership.releaseId, album_title: membership.album_title, genre_id: membership.genre_id })];
+          return HttpResponse.json({
+            artist_id: ISIS_ID,
+            releases,
+            total: releases.length,
+            page: 0,
+            totalPages: 1,
+          });
+        }),
+        http.get(`${TEST_BACKEND_URL}/library/genres`, () => HttpResponse.json([HIPHOP, ROCK])),
+        http.get(`${TEST_BACKEND_URL}/library/artists/${ISIS_ID}/next-release-number`, () =>
+          HttpResponse.json({ next_code_number: 3 }),
+        ),
+      );
+      return sent;
+    }
+
+    it.each([
+      ["Rock", ROCK, 13, "Panopticon", "Rebel Soul"],
+      ["Hiphop", HIPHOP, 1, "Rebel Soul", "Panopticon"],
+    ])(
+      "shows only the %s membership's code and releases",
+      async (_label, genre, codeNumber, ownTitle, otherTitle) => {
+        const sent = mockIsis();
+
+        renderWithProviders(<ArtistCard artistId={ISIS_ID} genreId={genre.id} />);
+
+        await screen.findByTestId("modify-artist-form");
+        await screen.findByText(ownTitle);
+        expect(screen.queryByText(otherTitle)).toBeNull();
+        expect(cardField("Genre:")).toBe(genre.genre_name);
+        expect(cardField("Artist Call Letters:")).toBe("IS");
+        expect(cardField("Artist Call Number:")).toBe(String(codeNumber));
+        expect(sent.card).toEqual([String(genre.id)]);
+        expect(sent.releases).toEqual([String(genre.id)]);
+      },
+    );
+
+    // The add-release peek keys on the CARD's genre, so a scoped card also
+    // previews the call number for the shelf on screen rather than for the
+    // artist's lowest-numbered genre. Unscoped that number came off the wrong
+    // shelf, which a librarian would have written onto a physical card.
+    it("previews the next call number for the shelf the card is showing", async () => {
+      const peeked: (string | null)[] = [];
+      mockIsis();
+      server.use(
+        http.get(
+          `${TEST_BACKEND_URL}/library/artists/${ISIS_ID}/next-release-number`,
+          ({ request }) => {
+            peeked.push(new URL(request.url).searchParams.get("genre_id"));
+            return HttpResponse.json({ next_code_number: 3 });
+          },
+        ),
+      );
+
+      renderWithProviders(<ArtistCard artistId={ISIS_ID} genreId={ROCK.id} />);
+
+      await screen.findByTestId("modify-artist-form");
+      await waitFor(() => expect(peeked).toEqual([String(ROCK.id)]));
+    });
+
+    // Every link built before the parameter existed omits it. That card must
+    // still load — the server's collapse — rather than failing or sending an
+    // empty `genre_id`.
+    it("sends no genre at all when the card is not scoped", async () => {
+      const sent = mockIsis();
+
+      renderWithProviders(<ArtistCard artistId={ISIS_ID} />);
+
+      await screen.findByTestId("modify-artist-form");
+      await screen.findByText("Rebel Soul");
+      expect(sent.card).toEqual([null]);
+      expect(sent.releases).toEqual([null]);
+    });
+
+    // An artist with one membership is the overwhelming majority of the
+    // catalog, and a scope naming that membership must change nothing about
+    // what it shows.
+    it("leaves a single-membership artist's card unchanged when scoped to its own genre", async () => {
+      mockAll();
+
+      renderWithProviders(<ArtistCard artistId={ARTIST_ID} genreId={GENRE_ID} />);
+
+      await screen.findByTestId("modify-artist-form");
+      expect(cardField("Genre:")).toBe("Rock");
+      expect(cardField("Artist Call Letters:")).toBe("MO");
+      expect(cardField("Artist Call Number:")).toBe("12");
+      await screen.findByText("DOGA");
+    });
+
+    // The delete screen names the genre-prefixed code and its Cancel returns
+    // here, so both would read the collapse for an artist reached on another
+    // shelf — on the confirmation for an irreversible write.
+    it("carries the membership onto the delete link", async () => {
+      server.use(
+        http.get(`${TEST_BACKEND_URL}/library/artists/${ISIS_ID}`, () =>
+          HttpResponse.json({
+            artist_id: ISIS_ID,
+            artist_name: "Isis",
+            alphabetical_name: "Isis",
+            genre_id: ROCK.id,
+            code_letters: "IS",
+            code_artist_number: 13,
+            release_count: 0,
+            cross_reference_source_count: 0,
+            cross_reference_target_count: 0,
+            library_cross_reference_count: 0,
+            compilation_credit_count: 0,
+          }),
+        ),
+        http.get(`${TEST_BACKEND_URL}/library/artists/${ISIS_ID}/releases`, () =>
+          HttpResponse.json({ artist_id: ISIS_ID, releases: [], total: 0, page: 0, totalPages: 1 }),
+        ),
+        http.get(`${TEST_BACKEND_URL}/library/genres`, () => HttpResponse.json([HIPHOP, ROCK])),
+        http.get(`${TEST_BACKEND_URL}/library/artists/${ISIS_ID}/next-release-number`, () =>
+          HttpResponse.json({ next_code_number: 1 }),
+        ),
+      );
+
+      renderWithProviders(<ArtistCard artistId={ISIS_ID} genreId={ROCK.id} />);
+
+      const link = await screen.findByRole("link", { name: /Delete The Artist/i });
+      expect(link.getAttribute("href")).toBe(
+        `/dashboard/library/artist/${ISIS_ID}/delete?genre_id=${ROCK.id}`,
+      );
+    });
+  });
 });

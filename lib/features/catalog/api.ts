@@ -24,6 +24,7 @@ import {
   AlbumSearchResultJSON,
   AlbumRequestParams,
   ArtistCard,
+  ArtistCardQuery,
   ArtistCrossReferenceRow,
   ArtistReleasesQuery,
   ArtistReleasesResponse,
@@ -516,9 +517,26 @@ export const catalogApi = createApi({
         response: FetchBaseQueryError,
       ): { discogsPrefillError: FetchBaseQueryError } => ({ discogsPrefillError: response }),
     }),
-    /** The header of `/wxycdb`'s artist card (`artistCardModify.jsp`). */
-    getArtistCard: builder.query<ArtistCard, number>({
-      query: (artistId) => ({ url: `/artists/${artistId}` }),
+    /**
+     * The header of `/wxycdb`'s artist card (`artistCardModify.jsp`).
+     *
+     * `genre_id` picks one of the artist's memberships; without it the server
+     * collapses a multi-genre artist onto its lowest genre, so one id serves
+     * one card for what can be two unrelated bands. Two memberships of one id
+     * are separate cache ENTRIES because the query arg carries the genre — an
+     * entry is addressed by `endpointName` + `serializeQueryArgs(args)`, and
+     * `providesTags` participates only in invalidation matching. The tag stays
+     * id-scoped deliberately: a rename or a delete changes the artist row both
+     * memberships read, so refetching both is correct, and a genre-scoped tag
+     * would additionally be inert — no writer emits an `<artistId>:<genre_id>`
+     * id, and RTK Query matches a provided tag only on an exact type+id pair
+     * or on a bare type.
+     */
+    getArtistCard: builder.query<ArtistCard, ArtistCardQuery>({
+      query: ({ artistId, genre_id }) => ({
+        url: `/artists/${artistId}`,
+        params: genre_id != null ? { genre_id } : {},
+      }),
       // The shared base query soft-fails an unparseable body into a
       // successful `null` payload. Here that would render as an artist card
       // with blank names and a blank shelf code -- a screen that looks like a
@@ -526,7 +544,7 @@ export const catalogApi = createApi({
       // whose add-release form would then file against an id the librarian
       // was never shown the name of.
       extraOptions: { surfaceNonJsonAsError: true },
-      providesTags: (_result, _error, artistId) => [
+      providesTags: (_result, _error, { artistId }) => [
         { type: "ArtistCard", id: String(artistId) },
       ],
     }),
@@ -672,11 +690,23 @@ export const catalogApi = createApi({
             ];
       },
     }),
-    /** The artist card's release table, in shelf order. */
+    /**
+     * The artist card's release table, in shelf order.
+     *
+     * `genre_id` restricts the rows to one of the artist's shelves. It has to
+     * be pushed to the server rather than filtered here: the response is
+     * offset-paginated, so dropping rows after the fetch would leave `total`
+     * and `totalPages` describing a different set than the page does, and a
+     * filtered short page would read as the end of the shelf.
+     */
     getArtistReleases: builder.query<ArtistReleasesResponse, ArtistReleasesQuery>({
-      query: ({ artistId, page, limit }) => ({
+      query: ({ artistId, page, limit, genre_id }) => ({
         url: `/artists/${artistId}/releases`,
-        params: { ...(page != null ? { page } : {}), ...(limit != null ? { limit } : {}) },
+        params: {
+          ...(page != null ? { page } : {}),
+          ...(limit != null ? { limit } : {}),
+          ...(genre_id != null ? { genre_id } : {}),
+        },
       }),
       // Same opt-out as the card above, for the sharper reason: soft-failing
       // resolves to `{ releases: [] }`, which this screen renders as the JSP's

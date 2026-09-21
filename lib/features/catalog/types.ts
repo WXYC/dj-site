@@ -238,10 +238,24 @@ export type ArtistRelease = {
   alternate_artist_name: string | null;
 };
 
+/**
+ * `genre_id` names one of the artist's memberships. `genre_artist_crossreference`
+ * is unique on `(artist_id, genre_id)`, so an artist filed under several genres
+ * has a different call number on each shelf and an id alone does not identify a
+ * card. Omitted, both reads answer what they answered before the parameter
+ * existed: the card collapses onto the artist's lowest genre and the release
+ * page spans every genre the artist is filed under.
+ */
+export type ArtistCardQuery = {
+  artistId: number;
+  genre_id?: number;
+};
+
 export type ArtistReleasesQuery = {
   artistId: number;
   page?: number;
   limit?: number;
+  genre_id?: number;
 };
 
 export type ArtistReleasesResponse = {
