@@ -77,6 +77,7 @@ These reproduce tubafrenzy's `/wxycdb` screens. They are **classic-first**: the 
 | `/dashboard/library` | Entry: artist vs. Various Artists, multi-match disambiguation | `chooseLibraryCodeOrArtist.jsp`, `multipleArtistsDisplay.jsp` | MD |
 | `/dashboard/library/artist/new` | Code-miss create screen: genre/letters/numbers carried read-only from the miss branch, only the two name fields editable | `createLibraryCode.jsp` | MD |
 | `/dashboard/library/artist/[id]` | Artist card + its release list | `artistCardModify.jsp` | MD |
+| `/dashboard/library/artist/[id]/delete` | Delete confirmation: one-click when the artist has no releases and no cross-references, a named refusal otherwise | `ArtistAdminServlet`'s delete branch | MD |
 | `/dashboard/library/various/[id]` | V/A bucket card + its add-release form | `variousArtistsCardModify.jsp` | MD |
 | `/dashboard/library/release/[id]` | Release edit | `libraryReleaseModify.jsp` | MD |
 | `/dashboard/library/release/[id]/move` | Move release to another library code | `libraryReleaseModifyLibCode.jsp` | MD |
@@ -125,7 +126,7 @@ The impact sentence is also the one place the copy must not overstate. Legacy-li
 
 Naming follows `/wxycdb`'s own directory split (`libraryAdmin/`, `rotation/`) rather than nesting under `/dashboard/catalog`, which would collide confusingly with the unrelated modern `/dashboard/admin/catalog` (format + genre admin). `/dashboard/md` is the one route named for neither directory, because the menu it serves belongs to neither: `mainmenu.jsp` is `/wxycdb`'s top-level menu, sitting at the root of `jsp/` above both directories and linking into each. `/dashboard/music*` would read as a music-playing surface, and `/dashboard/admin/*` is the collision this paragraph already rules out.
 
-`createArtist.jsp` is deliberately absent from this table: `ArtistAdminServlet:250` renders it only as the post-*delete* restore screen ("you may restore the artist by clicking 'Add!'"), not a creation step, so no row here owns it. It travels with artist delete if a slice ever picks that up.
+`createArtist.jsp` is deliberately absent from this table: `ArtistAdminServlet:250` renders it only as the post-*delete* restore screen ("you may restore the artist by clicking 'Add!'"), not a creation step, so no row here owns it. The delete screen above now exists, but the restore screen `createArtist.jsp` describes does not: `DELETE /library/artists/:id`'s archive snapshot carries `restorable: false` -- Backend-Service's `RESTORE_PLAN` has no `artists` entry -- so the deleted archive's Restore action cannot bring an artist back, and `ArtistDeleteConfirm`'s post-delete state is terminal rather than an offer to undo.
 
 ### Authority is per screen
 
