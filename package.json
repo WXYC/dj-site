@@ -71,7 +71,7 @@
     "pg": "^8.23.0",
     "typescript": "^6.0.3",
     "vitest": "^4.0.18",
-    "wrangler": "^4.131.1",
+    "wrangler": "^4.134.0",
     "yaml": "^2.9.0"
   },
   "optionalDependencies": {
