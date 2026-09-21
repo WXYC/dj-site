@@ -156,7 +156,7 @@ describe("deleteArtist", () => {
 
   async function subscribeAll(store: ReturnType<typeof createTestStore>) {
     const subs = [
-      store.dispatch(catalogApi.endpoints.getArtistCard.initiate(ARTIST_ID)),
+      store.dispatch(catalogApi.endpoints.getArtistCard.initiate({ artistId: ARTIST_ID })),
       store.dispatch(
         catalogApi.endpoints.searchCatalog.initiate({
           artist_name: "Autechre",

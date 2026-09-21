@@ -43,7 +43,11 @@ vi.mock("@/src/components/experiences/classic/catalog/ArtistDeleteConfirm", () =
 
 import ClassicArtistDeletePage from "@/app/dashboard/@classic/library/artist/[id]/delete/page";
 
-const page = (id = "30021") => ClassicArtistDeletePage({ params: Promise.resolve({ id }) });
+const page = (id = "30021", searchParams: { genre_id?: string | string[] } = {}) =>
+  ClassicArtistDeletePage({
+    params: Promise.resolve({ id }),
+    searchParams: Promise.resolve(searchParams),
+  });
 
 describe("Classic /dashboard/library/artist/[id]/delete page — ArtistAdminServlet's delete branch", () => {
   setUpClassicPageAuthorityEnv();

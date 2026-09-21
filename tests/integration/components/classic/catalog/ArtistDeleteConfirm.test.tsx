@@ -374,4 +374,54 @@ describe("Classic ArtistDeleteConfirm — ArtistAdminServlet's delete branch", (
       expect(screen.queryByRole("button", { name: "Delete The Artist" })).toBeNull();
     });
   });
+
+  // The screen names the genre-prefixed code because `code_artist_number` is
+  // genre-scoped -- "EL 15" alone names two shelves for any of the 204 artists
+  // carrying more than one membership. So the card read has to be scoped to the
+  // shelf the librarian came from, or an irreversible write is confirmed under
+  // another shelf's identity.
+  describe("genre scope", () => {
+    const ROCK_ID = 11;
+
+    it("reads the card for the membership the URL named", () => {
+      loaded();
+      genresLoaded();
+
+      renderWithProviders(<ArtistDeleteConfirm artistId={ARTIST_ID} genreId={ROCK_ID} />);
+
+      expect(mockGetArtistCardQuery).toHaveBeenCalledWith({
+        artistId: ARTIST_ID,
+        genre_id: ROCK_ID,
+      });
+    });
+
+    // Cancel must land back on the card the librarian left, not on the
+    // collapsed one -- otherwise declining a delete silently moves them to a
+    // different band's page.
+    it("returns Cancel to the same membership's card", async () => {
+      loaded();
+      genresLoaded();
+
+      renderWithProviders(<ArtistDeleteConfirm artistId={ARTIST_ID} genreId={ROCK_ID} />);
+
+      const cancel = await screen.findByRole("link", { name: /cancel/i });
+      expect(cancel.getAttribute("href")).toBe(
+        `/dashboard/library/artist/${ARTIST_ID}?genre_id=${ROCK_ID}`,
+      );
+    });
+
+    it("reads and returns unscoped when no membership was named", async () => {
+      loaded();
+      genresLoaded();
+
+      renderWithProviders(<ArtistDeleteConfirm artistId={ARTIST_ID} />);
+
+      expect(mockGetArtistCardQuery).toHaveBeenCalledWith({
+        artistId: ARTIST_ID,
+        genre_id: undefined,
+      });
+      const cancel = await screen.findByRole("link", { name: /cancel/i });
+      expect(cancel.getAttribute("href")).toBe(`/dashboard/library/artist/${ARTIST_ID}`);
+    });
+  });
 });

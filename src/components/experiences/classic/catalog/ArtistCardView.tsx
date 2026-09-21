@@ -33,11 +33,24 @@ const RELEASES_PER_PAGE = 100;
  *    `formatHeader` ids drive a client-side sort the release endpoint does not
  *    expose an ordering parameter for.
  */
-export default function ArtistCardView({ artistId }: { artistId: number }) {
-  const { data: artist, isLoading, isError } = useGetArtistCardQuery(artistId);
+export default function ArtistCardView({
+  artistId,
+  genreId,
+}: {
+  artistId: number;
+  /**
+   * Which membership this card describes. `genre_artist_crossreference` is
+   * unique on `(artist_id, genre_id)`, so without it the server collapses a
+   * multi-genre artist onto its lowest genre and this read-only card asserts
+   * one shelf's code over every shelf's releases.
+   */
+  genreId?: number;
+}) {
+  const { data: artist, isLoading, isError } = useGetArtistCardQuery({ artistId, genre_id: genreId });
   const { data: genres } = useGetGenresQuery();
   const { data: releaseData, isLoading: releasesLoading } = useGetArtistReleasesQuery({
     artistId,
+    genre_id: genreId,
     limit: RELEASES_PER_PAGE,
   });
 

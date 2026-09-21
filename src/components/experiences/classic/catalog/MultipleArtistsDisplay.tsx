@@ -153,7 +153,14 @@ export default function MultipleArtistsDisplay({
                   })}
                 </td>
                 <td>
-                  <Link href={artistCardHref(artist)} onClick={() => onChoose?.(artist, index)}>
+                  {/* Scoped to the row's OWN genre, for the same reason the
+                      call number beside it is: this screen exists because one
+                      code reached several artists, and landing any of them on
+                      an unscoped card would undo the disambiguation. */}
+                  <Link
+                    href={artistCardHref(artist, artist.genre_id)}
+                    onClick={() => onChoose?.(artist, index)}
+                  >
                     {artist.artist_name}
                   </Link>
                 </td>

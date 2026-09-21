@@ -103,11 +103,15 @@ export default function VariousArtistsCard({ artistId, message, imported }: Vari
   const labelId = useId();
   const formatId = useId();
 
+  // Neither read takes a genre scope, deliberately: a compilation bucket is a
+  // shelf SECTION, not a performer. Artist 1087 ('Various Artists') is filed
+  // under 14 genres across 3,107 rows, so scoping this card to one membership
+  // would hide most of the section instead of disambiguating anything.
   const {
     data: artist,
     isLoading: artistLoading,
     isError: artistError,
-  } = useGetArtistCardQuery(artistId);
+  } = useGetArtistCardQuery({ artistId });
   const { data: releasePage, isError: releasesError } = useGetArtistReleasesQuery({
     artistId,
   });

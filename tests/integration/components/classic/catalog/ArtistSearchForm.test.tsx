@@ -216,7 +216,12 @@ describe("classic ArtistSearchForm — chooseLibraryCodeOrArtist.jsp's artistSea
     await fillTextboxCode(user, "MO", "12");
     await user.click(screen.getByRole("button", { name: "Search!" }));
 
-    await waitFor(() => expect(mockPush).toHaveBeenCalledWith("/dashboard/library/artist/99"));
+    // Carrying the genre that was searched: a code is genre-scoped, so landing
+    // on an unscoped card would answer a fully-specified lookup with whichever
+    // of the artist's memberships sorts lowest.
+    await waitFor(() =>
+      expect(mockPush).toHaveBeenCalledWith(`/dashboard/library/artist/99?genre_id=${ROCK_GENRE_ID}`),
+    );
   });
 
   // A sole compilation bucket at a code goes to the bucket card, not the
@@ -261,7 +266,9 @@ describe("classic ArtistSearchForm — chooseLibraryCodeOrArtist.jsp's artistSea
     await fillTextboxCode(user, "UNK", "0");
     await user.click(screen.getByRole("button", { name: "Search!" }));
 
-    await waitFor(() => expect(mockPush).toHaveBeenCalledWith("/dashboard/library/artist/5"));
+    await waitFor(() =>
+      expect(mockPush).toHaveBeenCalledWith(`/dashboard/library/artist/5?genre_id=${BLUES_GENRE_ID}`),
+    );
   });
 
   it("routes a code_not_assigned miss to the creation flow, carrying the searched code", async () => {
