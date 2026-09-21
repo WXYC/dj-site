@@ -21,6 +21,12 @@ import MusicDepartmentSearchForm from "./MusicDepartmentSearchForm";
  * `isClassicCrossReferencesEnabled` can be turned on, and until then an entry
  * would lead a librarian to a screen the API cannot answer. Both stay
  * URL-reachable and server-gated either way.
+ *
+ * Recently Deleted has no JSP counterpart at all — `/wxycdb` offered undo only
+ * through `UndoService`'s single "Undo Last Change" link on the release editor,
+ * not a menu entry — so its position here (below Missing Releases, still
+ * inside the first `<p>&nbsp;</p>` group) is this menu's own call rather than
+ * a reproduction.
  */
 
 type MenuLink = { href: string; title: string };
@@ -40,7 +46,8 @@ const CROSSREFERENCE_LINKS: MenuLink[] = [
 
 // `mainmenu.jsp` breaks its list exactly once, with a `<p>&nbsp;</p>` after
 // Missing Releases. That gap is the menu's only grouping, so it is reproduced
-// rather than collapsed.
+// rather than collapsed -- Recently Deleted joins the group above it instead
+// of widening the break.
 //
 // Built per render, not once at module load: the flag is inlined at build
 // time, so a module-level constant would freeze whatever value the build saw
@@ -51,6 +58,7 @@ function menuGroups(): MenuLink[][] {
       { href: "/dashboard/library", title: "Add, Edit, & Delete Artists & Releases" },
       ...(isClassicCrossReferencesEnabled() ? CROSSREFERENCE_LINKS : []),
       { href: "/dashboard/library/missing", title: "Missing Releases" },
+      { href: "/dashboard/library/deleted", title: "Recently Deleted" },
     ],
     [
       { href: "/dashboard/rotation", title: "Rotation Releases" },

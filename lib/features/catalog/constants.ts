@@ -33,3 +33,12 @@ export const DISC_QUANTITY_MAX = 99;
  * decision rather than something the endpoint enforces.
  */
 export const CROSSREFERENCE_QUERY_MAX_LIMIT = 500;
+
+/**
+ * Page size for `GET /library/deleted`, matching the endpoint's own
+ * `DEFAULT_LIMIT`. A dedicated constant rather than reusing
+ * `CATALOG_QUERY_PAGE_LIMIT`: the two endpoints' defaults agree today but are
+ * declared independently server-side, so coupling them here would drift
+ * silently if either changes.
+ */
+export const DELETED_ARCHIVE_PAGE_LIMIT = 50;

@@ -755,3 +755,56 @@ export type DiscogsReleasePrefill = {
   styles: string[];
   artwork_url: string | null;
 };
+
+/**
+ * Hand-declared catalog-delete-archive shapes, mirroring `CatalogDeleteBatch`
+ * / `DeletedArchivePage` / `RestoreBatchResponse` in `wxyc-shared/api.yaml`.
+ * This repo pins `@wxyc/shared ^5.4.0` against a 10.1.x contract, and none of
+ * the three appear in the installed package. Importing them requires the
+ * major bump, which is its own piece of work; do not absorb it here.
+ */
+export type DeletedArchiveQueryParams = {
+  page?: number;
+  limit?: number;
+  search?: string;
+};
+
+/** One captured entity in a delete batch, trimmed to what the listing renders. `row` is the deleted parent's own columns, whichever the capture wrote. */
+export type DeletedArchiveEntity = {
+  entity_kind: string;
+  table: string;
+  row: Record<string, unknown> | null;
+};
+
+/**
+ * One page row of `GET /library/deleted`. `actor` carries no email (PII;
+ * see `CatalogDeleteActor`'s published docstring). `restorable` is derived
+ * server-side from `RESTORE_PLAN`'s own key set at read time and must never
+ * be re-derived from `entity_kind` here — `true` promises a replay plan
+ * exists, not that this particular attempt will succeed.
+ */
+export type DeletedArchiveBatch = {
+  batch_id: string;
+  captured_at: string;
+  actor: { user_id: string | null; role: string | null };
+  entities: DeletedArchiveEntity[];
+  restorable: boolean;
+};
+
+export type DeletedArchivePage = {
+  results: DeletedArchiveBatch[];
+  total: number;
+  page: number;
+  totalPages: number;
+};
+
+/**
+ * `POST /library/deleted/{batchId}/restore`'s 200, trimmed to `batch_id`
+ * alone: a restore only reaches its 200 when the original call-code slot was
+ * free (a taken slot answers `400 resolution_required` instead, which this
+ * screen reports rather than resolves), so no entity in a successful response
+ * here is ever relocated.
+ */
+export type RestoreBatchResponse = {
+  batch_id: string;
+};

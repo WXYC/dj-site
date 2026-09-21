@@ -13,6 +13,7 @@ import { CATALOG_QUERY_PAGE_LIMIT } from "./constants";
 import { convertToAlbumEntry } from "./conversions";
 import { patchCatalogSearchCaches } from "./patchSearchCaches";
 import { deleteAnsweredWithoutWriting } from "./releaseDeleteOutcome";
+import { restoreAnsweredWithoutWriting } from "./restoreDeletedBatchOutcome";
 import {
   AddAlbumRequestBody,
   AddArtistRequestBody,
@@ -31,6 +32,8 @@ import {
   CompilationTracksWriteResponse,
   CrossReferencePage,
   CrossReferenceQueryParams,
+  DeletedArchivePage,
+  DeletedArchiveQueryParams,
   DiscogsReleasePrefill,
   FlowsheetPlayCounts,
   LibraryFormatRow,
@@ -43,6 +46,7 @@ import {
   ReleaseCrossReferenceRow,
   ResolveArtistByCodeQuery,
   ResolveArtistByCodeResponse,
+  RestoreBatchResponse,
   ArtistSearchResponse,
   LibraryArtistSearchParams,
   SearchArtistsInGenreParams,
@@ -106,7 +110,7 @@ const artistReleaseTags = (artistId: number) => [
 export const catalogApi = createApi({
   reducerPath: "catalogApi",
   baseQuery: backendBaseQuery("library"),
-  tagTypes: ["Rotation", "AlbumDetail", "CatalogList", "ArtistSearch", "FormatList", "GenreList", "ArtistCodePeek", "ArtistByCode", "CompilationTracks", "ArtistCard", "ArtistReleaseList"],
+  tagTypes: ["Rotation", "AlbumDetail", "CatalogList", "ArtistSearch", "FormatList", "GenreList", "ArtistCodePeek", "ArtistByCode", "CompilationTracks", "ArtistCard", "ArtistReleaseList", "DeletedArchive"],
   endpoints: (builder) => ({
     searchCatalog: builder.query<AlbumEntry[], SearchCatalogQueryParams>({
       query: ({ artist_name, album_title, n, on_streaming }) => ({
@@ -966,6 +970,43 @@ export const catalogApi = createApi({
       }),
       extraOptions: { surfaceNonJsonAsError: true },
     }),
+    // Opts into `surfaceNonJsonAsError` like the two cross-reference listings
+    // above, for the identical reason: the shared soft-fail would resolve an
+    // unreachable backend to a successful `null`, which would render as
+    // "nothing has ever been deleted" — a positive claim about an audit
+    // trail nothing else in the app can check.
+    listDeletedArchive: builder.query<DeletedArchivePage, DeletedArchiveQueryParams>({
+      query: ({ page, limit, search } = {}) => ({
+        url: "/deleted",
+        params: {
+          ...(page != null ? { page } : {}),
+          ...(limit != null ? { limit } : {}),
+          ...(search ? { search } : {}),
+        },
+      }),
+      extraOptions: { surfaceNonJsonAsError: true },
+      providesTags: [{ type: "DeletedArchive", id: "LIST" }],
+    }),
+    // Sends no `resolution`: this screen offers no resolution UI, so a
+    // taken call-code slot surfaces as a readable refusal
+    // (`interpretRestoreError`) instead of an offered choice. Wrapped out of
+    // the shared rejected-query middleware's `data.message` lookup, matching
+    // `deleteAlbum` — the listing states the refusal itself. Invalidates on
+    // any answer that may have written: a restored batch stays in the
+    // permanent archive but a second restore now answers `already_restored`.
+    restoreDeletedBatch: builder.mutation<RestoreBatchResponse, { batchId: string }>({
+      query: ({ batchId }) => ({
+        url: `/deleted/${batchId}/restore`,
+        method: "POST",
+      }),
+      transformErrorResponse: (
+        response: FetchBaseQueryError,
+      ): { restoreDeletedBatchError: FetchBaseQueryError } => ({ restoreDeletedBatchError: response }),
+      invalidatesTags: (_result, error) =>
+        !error || !restoreAnsweredWithoutWriting(error)
+          ? [{ type: "DeletedArchive", id: "LIST" }]
+          : [],
+    }),
     getGenres: builder.query<LibraryGenreRow[], void>({
       query: () => ({
         url: "/genres",
@@ -987,6 +1028,8 @@ export const {
   useSearchCatalogQuery,
   useListArtistCrossReferencesQuery,
   useListReleaseCrossReferencesQuery,
+  useListDeletedArchiveQuery,
+  useRestoreDeletedBatchMutation,
   useLazySearchLibraryQueryQuery,
   useSearchLibraryQueryQuery,
   useSearchLibraryQueryInfiniteInfiniteQuery,

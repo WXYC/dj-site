@@ -31,6 +31,7 @@ describe("classic Music Department menu — mainmenu.jsp", () => {
   it.each([
     { label: "Add, Edit, & Delete Artists & Releases", href: "/dashboard/library" },
     { label: "Missing Releases", href: "/dashboard/library/missing" },
+    { label: "Recently Deleted", href: "/dashboard/library/deleted" },
     { label: "Rotation Releases", href: "/dashboard/rotation" },
     { label: "Add Rotation Releases", href: "/dashboard/rotation/new" },
     { label: "Format Tallysheets", href: "/dashboard/rotation/tallysheet" },
@@ -41,7 +42,8 @@ describe("classic Music Department menu — mainmenu.jsp", () => {
   });
 
   // The entry sequence, including the JSP's single `<p>&nbsp;</p>` — its only
-  // vertical grouping, which sits after Missing Releases.
+  // vertical grouping, which sits after Recently Deleted now that it joins
+  // the group above the gap rather than widening it.
   it("renders the JSP's entries in order, with its one gap", () => {
     const { container } = renderWithProviders(<MusicDepartmentMenu />);
 
@@ -50,6 +52,7 @@ describe("classic Music Department menu — mainmenu.jsp", () => {
     expect(Array.from(menu.children).map((entry) => entry.textContent)).toEqual([
       "Add, Edit, & Delete Artists & Releases",
       "Missing Releases",
+      "Recently Deleted",
       "\u00a0",
       "Rotation Releases",
       "Add Rotation Releases",
@@ -143,6 +146,7 @@ describe("cross-reference entries", () => {
       "View Library Code Cross-References",
       "View Library Release Cross-References",
       "Missing Releases",
+      "Recently Deleted",
       "\u00a0",
       "Rotation Releases",
       "Add Rotation Releases",
