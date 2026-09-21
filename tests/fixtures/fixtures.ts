@@ -33,6 +33,7 @@ import {
   AlbumSearchResultJSON,
   ArtistCrossReferenceRow,
   ArtistEntry,
+  DeletedArchiveBatch,
   ReleaseCrossReferenceRow,
 } from "@/lib/features/catalog/types";
 import {
@@ -724,6 +725,32 @@ export function createTestReleaseCrossReference(
     code_number: 3,
     code_volume_letters: null,
     comment: "See also Duke Ellington & John Coltrane",
+    ...overrides,
+  };
+}
+
+export function createTestDeletedArchiveBatch(
+  overrides: Partial<DeletedArchiveBatch> = {}
+): DeletedArchiveBatch {
+  return {
+    batch_id: "8f14e45f-ceea-4c31-b8a3-000000000001",
+    captured_at: toISOString(TEST_TIMESTAMPS.ONE_DAY_AGO),
+    actor: { user_id: "user-1", role: "musicDirector" },
+    entities: [
+      {
+        entity_kind: "library",
+        table: "library",
+        row: {
+          album_title: "On Your Own Love Again",
+          artist_name: "Jessica Pratt",
+          alternate_artist_name: null,
+          genre_id: TEST_ENTITY_IDS.GENRE.ROCK,
+          code_number: 5,
+          code_volume_letters: null,
+        },
+      },
+    ],
+    restorable: true,
     ...overrides,
   };
 }

@@ -83,6 +83,7 @@ These reproduce tubafrenzy's `/wxycdb` screens. They are **classic-first**: the 
 | `/dashboard/library/release/[id]/delete` | Delete confirmation | `libraryReleaseDelete.jsp` | MD |
 | `/dashboard/library/release/[id]/tracklist` | Per-track artist credits for a Various Artists release: Discogs fills the form, the librarian confirms | none (the JSP's tracklist is read-only) | MD |
 | `/dashboard/library/missing` | Missing releases | `missingReleases.jsp` | **authenticated DJ** |
+| `/dashboard/library/deleted` | Recently Deleted: the permanent catalog-delete archive, searchable and paged, with a Restore action | none (`/wxycdb`'s only undo was `UndoService`'s single "Undo Last Change" link) | MD |
 | `/dashboard/library/crossreferences/artists` | Artist-to-artist cross-references, read-only | `xrefsToLibraryCodes.jsp` | MD |
 | `/dashboard/library/crossreferences/releases` | Artist-to-release cross-references, read-only | `xrefsToLibraryReleases.jsp` | MD |
 | `/dashboard/rotation` | Rotation release list | `rotationReleaseList.jsp` | **authenticated DJ** |
