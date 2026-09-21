@@ -971,10 +971,14 @@ export const catalogApi = createApi({
       extraOptions: { surfaceNonJsonAsError: true },
     }),
     // Opts into `surfaceNonJsonAsError` like the two cross-reference listings
-    // above, for the identical reason: the shared soft-fail would resolve an
-    // unreachable backend to a successful `null`, which would render as
-    // "nothing has ever been deleted" — a positive claim about an audit
-    // trail nothing else in the app can check.
+    // above, but the mechanism is not theirs: those screens render a
+    // soft-failed `null` as "there are none", while the archive listing guards
+    // `!data` and would report a load failure either way. What the opt-in buys
+    // here is that an unreachable backend stays an error instead of resolving —
+    // this is a read of an audit trail, so a single `?? []` or a relaxed null
+    // guard downstream would be all it takes to turn an outage into "nothing
+    // has ever been deleted", a positive claim nothing else in the app can
+    // check.
     listDeletedArchive: builder.query<DeletedArchivePage, DeletedArchiveQueryParams>({
       query: ({ page, limit, search } = {}) => ({
         url: "/deleted",
@@ -991,9 +995,7 @@ export const catalogApi = createApi({
     // taken call-code slot surfaces as a readable refusal
     // (`interpretRestoreError`) instead of an offered choice. Wrapped out of
     // the shared rejected-query middleware's `data.message` lookup, matching
-    // `deleteAlbum` — the listing states the refusal itself. Invalidates on
-    // any answer that may have written: a restored batch stays in the
-    // permanent archive but a second restore now answers `already_restored`.
+    // `deleteAlbum` — the listing states the refusal itself.
     restoreDeletedBatch: builder.mutation<RestoreBatchResponse, { batchId: string }>({
       query: ({ batchId }) => ({
         url: `/deleted/${batchId}/restore`,
@@ -1002,10 +1004,38 @@ export const catalogApi = createApi({
       transformErrorResponse: (
         response: FetchBaseQueryError,
       ): { restoreDeletedBatchError: FetchBaseQueryError } => ({ restoreDeletedBatchError: response }),
+      // A restore re-files a release: it re-inserts the `library` row under its
+      // captured `code_number` and replays the children. That makes the same
+      // two lists wrong that `deleteAlbum` invalidates, in the other
+      // direction — a cached catalog search is missing a row that is back on
+      // the shelf, and the artist's release table both lists the shelf wrongly
+      // and is what the next call number is derived from (see
+      // `artistReleaseTags`), so filing after an un-invalidated restore lands a
+      // second card in the slot the restore just re-occupied. Neither the args
+      // nor the 200 names the artist, so the release tables are reached through
+      // `LIST`, the same fallback `updateAlbum` takes.
+      //
+      // `DeletedArchive` is invalidated alongside them, and NOT because a
+      // restore changes it: the restore never writes `catalog_delete_snapshot`,
+      // and `restorable` is derived from the captured entity kinds, so the
+      // refetched row is identical. It is here so the archive page is re-read
+      // rather than held across a write to the catalog it describes — which
+      // also means the row keeps its live Restore button after a success, and
+      // a second press is the ordinary `already_restored` path rather than a
+      // mistake.
+      //
+      // Only on an answer that may have written. A sub-500 refusal reached a
+      // handler that declined before writing, so invalidating there would spend
+      // three round trips reconfirming lists that cannot have changed — same
+      // predicate and same reason as `deleteAlbum`.
       invalidatesTags: (_result, error) =>
-        !error || !restoreAnsweredWithoutWriting(error)
-          ? [{ type: "DeletedArchive", id: "LIST" }]
-          : [],
+        restoreAnsweredWithoutWriting(error)
+          ? []
+          : [
+              { type: "DeletedArchive", id: "LIST" },
+              { type: "CatalogList", id: "LIST" },
+              { type: "ArtistReleaseList", id: "LIST" },
+            ],
     }),
     getGenres: builder.query<LibraryGenreRow[], void>({
       query: () => ({

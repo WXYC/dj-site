@@ -59,6 +59,19 @@ const NOT_RESTORABLE_MESSAGE =
 
 type RowOutcome = { kind: "restored" } | { kind: "refused"; refusal: RestoreRefusal };
 
+// Every reason a row cannot be restored goes through one wrapper, whichever
+// branch produced it. A refusal rendered as bare cell text is announced to
+// nobody and reads like ordinary column content, and the refusals that land in
+// place of the button rather than beside it are the non-retryable ones — the
+// more serious half, where another click cannot help.
+function RestoreRefusalNotice({ children }: { children: string }) {
+  return (
+    <p role="alert" className="artist-error-message">
+      {children}
+    </p>
+  );
+}
+
 /**
  * `/dashboard/library/deleted` — the permanent catalog-delete archive.
  * No `/wxycdb` equivalent exists:
@@ -85,7 +98,7 @@ export default function DeletedArchiveListing() {
   const [pendingBatchId, setPendingBatchId] = useState<string | null>(null);
 
   const skip = authenticating || !authenticated;
-  const { data, isLoading, isFetching, isError } = useListDeletedArchiveQuery(
+  const { data, isLoading, isFetching, isUninitialized, isError } = useListDeletedArchiveQuery(
     { page, limit: DELETED_ARCHIVE_PAGE_LIMIT, search: appliedSearch || undefined },
     { skip },
   );
@@ -113,7 +126,11 @@ export default function DeletedArchiveListing() {
     }
   };
 
-  if (isLoading) {
+  // `isUninitialized` is the state a skipped query sits in, and the skip lasts
+  // as long as the session takes to resolve. Without it control falls to the
+  // `!data` guard below and the screen claims the archive could not be loaded
+  // on every single load, before a request has even been attempted.
+  if (isUninitialized || isLoading) {
     return <p className="text">Loading...</p>;
   }
 
@@ -179,9 +196,9 @@ export default function DeletedArchiveListing() {
                     {outcome?.kind === "restored" ? (
                       "Restored"
                     ) : !batch.restorable ? (
-                      NOT_RESTORABLE_MESSAGE
+                      <RestoreRefusalNotice>{NOT_RESTORABLE_MESSAGE}</RestoreRefusalNotice>
                     ) : outcome?.kind === "refused" && !outcome.refusal.retryable ? (
-                      outcome.refusal.message
+                      <RestoreRefusalNotice>{outcome.refusal.message}</RestoreRefusalNotice>
                     ) : (
                       <>
                         <button
@@ -192,9 +209,7 @@ export default function DeletedArchiveListing() {
                           Restore
                         </button>
                         {outcome?.kind === "refused" && (
-                          <p role="alert" className="artist-error-message">
-                            {outcome.refusal.message}
-                          </p>
+                          <RestoreRefusalNotice>{outcome.refusal.message}</RestoreRefusalNotice>
                         )}
                       </>
                     )}
