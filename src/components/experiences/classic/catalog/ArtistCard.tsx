@@ -20,6 +20,7 @@ import {
   normalizeCodeLetters,
   resolveReleaseCodeFields,
 } from "@/lib/features/catalog/adminCreateArtistValidation";
+import { artistDeleteIsOffered } from "@/lib/features/catalog/artistDeleteOutcome";
 import { validateNewArtistNames } from "@/lib/features/catalog/chooserValidation";
 import {
   formatArtistCodeWithPunctuation,
@@ -76,9 +77,6 @@ const EMPTY_TITLE_MESSAGE = "Please enter a title before adding this release.";
  * - **No "Time Last Modified" row for the artist.** `GET /library/artists/:id`
  *   does not project one. Rendering a blank labelled row would read as "never
  *   modified", which is a claim, so the row is dropped instead.
- * - **No "Delete The Artist" link.** The JSP offers it only for an artist with
- *   no releases and no cross-references; Backend-Service has no delete-artist
- *   endpoint at any privilege (`DELETE /library/:id` deletes a *release*).
  * - **The add-release form's release call number and volume letters are
  *   editable, not derived.** `POST /library` accepts an operator-chosen
  *   `code_number` and `code_volume_letters`. An empty
@@ -98,6 +96,15 @@ const EMPTY_TITLE_MESSAGE = "Please enter a title before adding this release.";
  *   sort back to the servlet; `GET /library/artists/:id/releases` takes no
  *   sort parameter and returns shelf order, which is the order the JSP itself
  *   defaults to.
+ *
+ * "Delete The Artist" is offered only when `artistDeleteIsOffered` reads
+ * nothing filed under the artist, fail-closed on an unreadable count --
+ * `artistCardModify.jsp:75`'s own pre-check (`totalSizeOfQueryResults <= 0`
+ * and both cross-reference lists empty), matched here rather than diverged
+ * from like the bullets above. Its *position* does differ, and not because
+ * the contract forced it: the JSP kept the link in the modify table under
+ * "Modify This Artist", and here it sits with the "no library releases"
+ * line, which states in words the same fact the pre-check turns on.
  */
 export default function ArtistCard({ artistId, message, imported }: ArtistCardProps) {
   const router = useRouter();
@@ -790,6 +797,16 @@ export default function ArtistCard({ artistId, message, imported }: ArtistCardPr
             )}
           </tbody>
         </table>
+      )}
+
+      {/* Beside the no-releases line -- `artistDeleteIsOffered` is the same
+          fail-closed test `/delete`'s own Tier 1 uses; see the docblock above. */}
+      {artistDeleteIsOffered(artist) && (
+        <div className="label" style={{ textAlign: "center" }}>
+          <a href={`/dashboard/library/artist/${artistId}/delete`}>
+            <b>Delete The Artist</b>
+          </a>
+        </div>
       )}
 
       {/* The JSP pages this table through `queryResultsSubset`; the endpoint

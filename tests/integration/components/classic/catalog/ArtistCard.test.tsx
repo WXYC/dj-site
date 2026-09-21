@@ -176,6 +176,53 @@ describe("classic ArtistCard — artistCardModify.jsp", () => {
     expect(within(modify).getByText("137")).toBeDefined();
   });
 
+  const NOTHING_FILED = {
+    release_count: 0,
+    cross_reference_source_count: 0,
+    cross_reference_target_count: 0,
+    library_cross_reference_count: 0,
+  };
+
+  it("offers 'Delete The Artist', beside the release table, when nothing is filed under the artist", async () => {
+    mockCard({ ...artist, ...NOTHING_FILED });
+    renderWithProviders(<ArtistCard artistId={ARTIST_ID} />);
+
+    const link = await screen.findByRole("link", { name: "Delete The Artist" });
+    expect(link.getAttribute("href")).toBe(`/dashboard/library/artist/${ARTIST_ID}/delete`);
+    // Not in the modify table, where the JSP kept it -- see the component docblock.
+    const modify = screen.getByTestId("modify-artist-form");
+    expect(within(modify).queryByRole("link", { name: "Delete The Artist" })).toBeNull();
+  });
+
+  // `artistCardModify.jsp:75` gates the link on `totalSizeOfQueryResults <= 0
+  // and empty libraryCodeCrossReferences and empty libraryReleaseCrossReferences`,
+  // and this card matches that pre-check -- one gate per dependent count,
+  // parameterized rather than four near-identical blocks.
+  it.each([
+    ["release_count", 3],
+    ["cross_reference_source_count", 2],
+    ["cross_reference_target_count", 1],
+    ["library_cross_reference_count", 4],
+  ] as const)("withholds the delete link when %s is non-zero", async (key, value) => {
+    mockCard({ ...artist, ...NOTHING_FILED, [key]: value });
+    renderWithProviders(<ArtistCard artistId={ARTIST_ID} />);
+
+    await screen.findByTestId("modify-artist-form");
+    expect(screen.queryByRole("link", { name: "Delete The Artist" })).toBeNull();
+  });
+
+  // Fail-closed: a card served by a Backend build predating these counts
+  // yields `undefined` for all four (the base `artist` fixture carries
+  // none of them), and the link must stay hidden rather than offer a
+  // delete that would then 409.
+  it("withholds the delete link when the gating counts are undefined", async () => {
+    mockCard(artist);
+    renderWithProviders(<ArtistCard artistId={ARTIST_ID} />);
+
+    await screen.findByTestId("modify-artist-form");
+    expect(screen.queryByRole("link", { name: "Delete The Artist" })).toBeNull();
+  });
+
   describe("modifyArtist", () => {
     it("saves an edited alphabetical name", async () => {
       const user = userEvent.setup();

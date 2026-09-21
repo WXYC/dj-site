@@ -4,6 +4,7 @@ import {
   unwrapEndpointError,
   unwrapEndpointErrorOrRaw,
 } from "@/lib/rtk-endpoint-error";
+import type { ArtistCard } from "./types";
 
 /**
  * Why `DELETE /library/artists/:id` did not delete. Follows
@@ -85,27 +86,86 @@ function bodyCount(data: unknown): unknown {
 }
 
 /**
- * All four 409 sentences, client-owned like every named outcome bar the lock
- * stand-down -- restating only the server's `count`, never its `message`.
- * Table-driven rather than four `if` arms: one dispatch by `reason` instead of
- * four parallel branches that would otherwise repeat the status/reason match.
+ * Which condition blocks the delete, restating only the server's `count` --
+ * shared with the pre-check below so a copy-edit here can't leave that
+ * pre-check and the 409 it precedes describing one condition differently.
  */
-const ARTIST_DELETE_BLOCKING_MESSAGES: Record<
-  ArtistDeleteBlockingReason,
-  (count: unknown) => string
-> = {
-  artist_has_releases: (count) =>
-    `This artist cannot be deleted: it has ${countPhrase(count, "release")} on file. ` +
-    `Nothing was changed. Delete or move those releases first.`,
-  artist_crossreference_source: (count) =>
-    `This artist cannot be deleted: it is the source of ${countPhrase(count, "cross-reference")} ` +
-    `to other artists. Nothing was changed. Clear those cross-references first.`,
-  artist_crossreference_target: (count) =>
-    `This artist cannot be deleted: it is the target of ${countPhrase(count, "cross-reference")} ` +
-    `from other artists. Nothing was changed. Clear those cross-references first.`,
-  artist_library_crossreference: (count) =>
-    `This artist cannot be deleted: it has ${countPhrase(count, "release cross-reference")} on file. ` +
-    `Nothing was changed. Clear those cross-references first.`,
+export function artistDeleteBlockerClause(
+  reason: ArtistDeleteBlockingReason,
+  count: unknown,
+): string {
+  switch (reason) {
+    case "artist_has_releases":
+      return `it has ${countPhrase(count, "release")} on file`;
+    case "artist_crossreference_source":
+      return `it is the source of ${countPhrase(count, "cross-reference")} to other artists`;
+    case "artist_crossreference_target":
+      return `it is the target of ${countPhrase(count, "cross-reference")} from other artists`;
+    case "artist_library_crossreference":
+      return `it has ${countPhrase(count, "release cross-reference")} on file`;
+  }
+}
+
+type ArtistDeleteGateKey =
+  "release_count" | "cross_reference_source_count" | "cross_reference_target_count" | "library_cross_reference_count";
+
+// One entry per gate the delete endpoint enforces, in `ArtistAdminServlet`'s
+// check order. `compilation_credit_count` has none -- its FK is `ON DELETE
+// SET NULL`, so a delete unlinks the credit rather than being blocked by it.
+const ARTIST_DELETE_GATES: ReadonlyArray<{ key: ArtistDeleteGateKey; reason: ArtistDeleteBlockingReason }> = [
+  { key: "release_count", reason: "artist_has_releases" },
+  { key: "cross_reference_source_count", reason: "artist_crossreference_source" },
+  { key: "cross_reference_target_count", reason: "artist_crossreference_target" },
+  { key: "library_cross_reference_count", reason: "artist_library_crossreference" },
+];
+
+/**
+ * Which of the four gating counts block a delete. Tested as `=== 0`, never
+ * `> 0`: dj-site and Backend-Service deploy independently, and
+ * `getArtistCard` carries no `transformResponse`, so a card served by a
+ * Backend build predating these counts yields `undefined` for all five
+ * while TypeScript still asserts `number`. Read as `> 0`, a caller offers a
+ * delete that then 409s; read as `=== 0`, it withholds instead -- fails
+ * closed.
+ *
+ * The one owner both `ArtistCard`'s link and `ArtistDeleteConfirm`'s Tier 1
+ * read, so the entrance and the screen cannot disagree about whether a
+ * delete is possible.
+ */
+export function artistDeleteBlockers(card: ArtistCard): string[] {
+  return ARTIST_DELETE_GATES.filter((gate) => card[gate.key] !== 0).map((gate) =>
+    artistDeleteBlockerClause(gate.reason, card[gate.key]),
+  );
+}
+
+/** True only when nothing is filed under the artist -- see `artistDeleteBlockers`. */
+export function artistDeleteIsOffered(card: ArtistCard): boolean {
+  return artistDeleteBlockers(card).length === 0;
+}
+
+export const ARTIST_DELETE_COUNTS_UNREADABLE_MESSAGE =
+  "What is filed under this artist could not be read, so a delete cannot be offered here. Reload the page.";
+
+/**
+ * The card carries no readable gating count, so `artistDeleteBlockers` has
+ * named every gate for want of a number rather than because the shelf is
+ * occupied. `countPhrase` keeps an untrusted count from becoming a number on
+ * screen, but nothing stops an untrusted count from *selecting a clause*, and
+ * four selected clauses assert four facts -- callers must ask this first and
+ * say they cannot tell, instead of reciting blockers they have not observed.
+ *
+ * `undefined` here is the deploy-skew case `artistDeleteBlockers` documents:
+ * a card served by a Backend build predating the counts.
+ */
+export function artistDeleteCountsUnreadable(card: ArtistCard): boolean {
+  return ARTIST_DELETE_GATES.some((gate) => typeof card[gate.key] !== "number");
+}
+
+const ARTIST_DELETE_BLOCKING_TAIL: Record<ArtistDeleteBlockingReason, string> = {
+  artist_has_releases: "Delete or move those releases first.",
+  artist_crossreference_source: "Clear those cross-references first.",
+  artist_crossreference_target: "Clear those cross-references first.",
+  artist_library_crossreference: "Clear those cross-references first.",
 };
 
 /**
@@ -116,7 +176,7 @@ const ARTIST_DELETE_BLOCKING_MESSAGES: Record<
  * for `"__proto__"`, `Object.prototype` itself) to call.
  */
 function isArtistDeleteBlockingReason(reason: string | undefined): reason is ArtistDeleteBlockingReason {
-  return !!reason && Object.hasOwn(ARTIST_DELETE_BLOCKING_MESSAGES, reason);
+  return !!reason && Object.hasOwn(ARTIST_DELETE_BLOCKING_TAIL, reason);
 }
 
 /** Same reasoning as `deleteAnsweredWithoutWriting`: a sub-500 answer reached a handler that declined before writing; anything else may have written. */
@@ -159,9 +219,10 @@ export function interpretArtistDeleteError(err: unknown): ArtistDeleteRefusal {
   }
 
   if (status === 409 && isArtistDeleteBlockingReason(reason)) {
+    const clause = artistDeleteBlockerClause(reason, bodyCount(data));
     return {
       reason,
-      message: ARTIST_DELETE_BLOCKING_MESSAGES[reason](bodyCount(data)),
+      message: `This artist cannot be deleted: ${clause}. Nothing was changed. ${ARTIST_DELETE_BLOCKING_TAIL[reason]}`,
       retryable: false,
     };
   }
