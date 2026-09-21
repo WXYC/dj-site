@@ -173,7 +173,8 @@ export type AddArtistConflict = {
 
 /**
  * GET /library/artists/:id — the header of `/wxycdb`'s artist card
- * (`artistCardModify.jsp`).
+ * (`artistCardModify.jsp`), widened with the five dependent counts the
+ * endpoint (and `PATCH` on the same path) already return alongside it.
  *
  * `code_artist_number` is genre-scoped (it lives on
  * `genre_artist_crossreference`), and the endpoint collapses a multi-genre
@@ -182,6 +183,18 @@ export type AddArtistConflict = {
  *
  * Deliberately carries no `last_modified`: the JSP shows a "Time Last
  * Modified" row for the artist and this endpoint does not project one.
+ *
+ * Four of the five counts gate `DELETE /library/artists/:id`, checked in this
+ * order: a non-zero `release_count`, `cross_reference_source_count`,
+ * `cross_reference_target_count`, or `library_cross_reference_count` refuses
+ * the delete with a 409 named after it (`artistDeleteOutcome.ts`'s
+ * `ArtistDeleteBlockingReason`). `compilation_credit_count` is NOT one of
+ * them and never refuses anything -- `compilation_track_artist
+ * .track_artist_id` is `ON DELETE set null`, so a delete clears the credit's
+ * link rather than being blocked by it. It is carried here only so a caller
+ * can tell the librarian what attribution they are about to unlink, not what
+ * would stop the delete. A future reader widening this type further should
+ * not assume all five gate the delete just because four of them do.
  */
 export type ArtistCard = {
   artist_id: number;
@@ -190,6 +203,11 @@ export type ArtistCard = {
   genre_id: number;
   code_letters: string;
   code_artist_number: number;
+  release_count: number;
+  cross_reference_source_count: number;
+  cross_reference_target_count: number;
+  library_cross_reference_count: number;
+  compilation_credit_count: number;
 };
 
 /**

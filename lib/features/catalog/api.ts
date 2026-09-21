@@ -12,6 +12,7 @@ import {
 import { CATALOG_QUERY_PAGE_LIMIT } from "./constants";
 import { convertToAlbumEntry } from "./conversions";
 import { patchCatalogSearchCaches } from "./patchSearchCaches";
+import { artistDeleteAnsweredWithoutWriting } from "./artistDeleteOutcome";
 import { deleteAnsweredWithoutWriting } from "./releaseDeleteOutcome";
 import { restoreAnsweredWithoutWriting } from "./restoreDeletedBatchOutcome";
 import {
@@ -528,6 +529,80 @@ export const catalogApi = createApi({
       providesTags: (_result, _error, artistId) => [
         { type: "ArtistCard", id: String(artistId) },
       ],
+    }),
+    /**
+     * `DELETE /library/artists/:id` -- a hard delete, and, like `deleteAlbum`,
+     * an irreversible write. The snapshot it captures still lands in the
+     * archive listing, but with `restorable: false`: unlike a release delete,
+     * there is no replay plan for an `artist` batch, so this is a delete with
+     * no undo, not a delete-with-undo.
+     *
+     * Refuses on the merits (409) in the same order `ArtistAdminServlet`
+     * checked, one reason per dependent count `ArtistCard` already carries --
+     * `artist_has_releases`, `artist_crossreference_source`,
+     * `artist_crossreference_target`, `artist_library_crossreference`. A
+     * caller that reads those four counts off the card before offering the
+     * button never has to eat a 409 blind. `interpretArtistDeleteError` is the
+     * one owner of the refusal taxonomy; nothing here re-derives it.
+     */
+    deleteArtist: builder.mutation<void, { artistId: number }>({
+      query: ({ artistId }) => ({
+        url: `/artists/${artistId}`,
+        method: "DELETE",
+      }),
+      // Wrapped for the same reason as deleteAlbum: whatever screen calls
+      // this states the refusal itself, in wording chosen for that one
+      // place, and the shared rtk-query-error-logger toasting `data.message`
+      // a second time would double an already-precise sentence with a vaguer
+      // one.
+      transformErrorResponse: (
+        response: FetchBaseQueryError,
+      ): { deleteArtistError: FetchBaseQueryError } => ({ deleteArtistError: response }),
+      // A refused delete wrote nothing, so invalidating on it would refetch
+      // every list below for no reason -- same predicate `deleteAlbum` and
+      // `restoreDeletedBatch` use for the same reason.
+      //
+      // `ArtistCard` / `ArtistReleaseList`, scoped to this artist's own id,
+      // are deliberately ABSENT: the `AlbumDetail` mistake `deleteAlbum`
+      // already documents. The row is gone, so invalidating either refetches
+      // a guaranteed 404 (`getArtistCard`; `getArtistReleases` and
+      // `getNextReleaseNumber` share `artistReleaseTags` and resolve
+      // existence the same way), which `rtkQueryErrorLogger` turns into a red
+      // toast plus a Sentry event on every successful delete. Both caches
+      // simply expire once the librarian leaves.
+      //
+      // `CatalogList` is absent too, and it is a proven no-op rather than a
+      // conservative skip: every `CatalogList` read surfaces rows through
+      // `library.artist_id` or `artist_library_crossreference`, and the
+      // delete's own precondition zeroes both counts, so no row can be
+      // naming this artist. The `compilation_track_artist` link the delete
+      // clears is not a counterexample -- every read of a CTA credit
+      // projects its free-text `artist_name`, never `track_artist_id`.
+      //
+      // `ArtistSearch` IS invalidated: `/library/artists/search` carries no
+      // release requirement, so a zero-release artist -- the only kind this
+      // delete can remove -- was still answering into the typeahead, and a
+      // stale entry hands a filing or move write an id that no longer
+      // exists. Same convention `updateArtistCard` follows for a rename.
+      //
+      // `ArtistCodePeek` / `ArtistByCode` travel together (the pairing rule
+      // `fileRelease` states), as bare tags since this mutation's args carry
+      // no `(genre_id, code_letters)` to scope a narrower one to. The delete
+      // frees the artist's shelf code for immediate MAX+1 reuse, the mirror
+      // image of why `addArtist` invalidates the same pair when it TAKES one.
+      //
+      // `DeletedArchive` is here because a fulfilled delete always captures a
+      // snapshot batch before it writes, so the listing is stale the moment
+      // this fulfils, regardless of whether the batch turns out restorable.
+      invalidatesTags: (_result, error) =>
+        artistDeleteAnsweredWithoutWriting(error)
+          ? []
+          : [
+              { type: "ArtistSearch", id: "LIST" },
+              { type: "DeletedArchive", id: "LIST" },
+              "ArtistCodePeek",
+              "ArtistByCode",
+            ],
     }),
     /**
      * `modifyArtist`'s two writable fields. See `UpdateArtistRequestBody` for
@@ -1071,6 +1146,7 @@ export const {
   useFileReleaseMutation,
   useLazyGetDiscogsPrefillQuery,
   useGetArtistCardQuery,
+  useDeleteArtistMutation,
   useUpdateArtistCardMutation,
   useGetArtistReleasesQuery,
   useGetNextReleaseNumberQuery,
