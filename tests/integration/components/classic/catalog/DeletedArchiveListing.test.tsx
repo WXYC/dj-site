@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
@@ -17,14 +17,31 @@ vi.mock("@/lib/features/authentication/client", async () => {
   return createAuthClientModuleMock();
 });
 
+// Mutable so one case can render mid-session: the query is skipped while the
+// session resolves, and what a skipped query looks like is exactly what this
+// screen used to mistake for a failed load.
+const auth = vi.hoisted(() => ({
+  state: { authenticating: false, authenticated: true },
+}));
+
 vi.mock("@/src/hooks/authenticationHooks", () => ({
-  useAuthentication: () => ({ authenticating: false, authenticated: true }),
+  useAuthentication: () => auth.state,
 }));
 
 import DeletedArchiveListing from "@/src/components/experiences/classic/catalog/DeletedArchiveListing";
 
 const DELETED_URL = `${TEST_BACKEND_URL}/library/deleted`;
 const restoreUrl = (batchId: string) => `${TEST_BACKEND_URL}/library/deleted/${batchId}/restore`;
+
+// The endpoint's own refusal bodies, verbatim. A body trimmed to the clause the
+// assertion reads cannot tell the screen's wording apart from the server's, and
+// the server's is where the API instructions and the raw row ids live.
+const SERVER_UNRESTORABLE_KIND =
+  "Cannot restore: this batch holds a 'artist' entity, which has no restore plan. This is permanent, not retryable.";
+const SERVER_RESOLUTION_REQUIRED =
+  "Cannot restore without a decision: the call code is held by another release. Re-send with resolution=next_free_code or resolution=decline.";
+const SERVER_ALREADY_RESTORED =
+  "Cannot restore: this batch is already back in the catalog (library ids: 53375)";
 
 function mockListing(results: DeletedArchiveBatch[], overrides: Partial<{ total: number; page: number; totalPages: number }> = {}) {
   server.use(
@@ -47,6 +64,10 @@ async function clickRestore() {
   await user.click(screen.getByRole("button", { name: "Restore" }));
 }
 
+beforeEach(() => {
+  auth.state = { authenticating: false, authenticated: true };
+});
+
 describe("classic Recently Deleted listing — /dashboard/library/deleted", () => {
   it("renders a deleted card's date, call code, subject and deleter", async () => {
     mockListing([restorableBatch()]);
@@ -57,6 +78,19 @@ describe("classic Recently Deleted listing — /dashboard/library/deleted", () =
     expect(within(row).getByText(/Jessica Pratt.*On Your Own Love Again/)).toBeInTheDocument();
     expect(within(row).getByText("5")).toBeInTheDocument();
     expect(within(row).getByText("musicDirector")).toBeInTheDocument();
+  });
+
+  it("waits for the session rather than claiming the archive could not be loaded", async () => {
+    auth.state = { authenticating: true, authenticated: false };
+    mockListing([restorableBatch()]);
+
+    renderWithProviders(<DeletedArchiveListing />);
+
+    // The query is skipped until the session resolves, and a skipped query is
+    // uninitialized rather than loading or errored. Reporting a load failure
+    // here would put a red alert on the screen before a request was attempted.
+    expect(screen.getByText("Loading...")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 
   it("says nothing has been deleted when the archive is empty", async () => {
@@ -126,7 +160,11 @@ describe("classic Recently Deleted listing — /dashboard/library/deleted", () =
 
     const cell = await screen.findByTestId("deleted-archive-restore-cell");
     expect(within(cell).queryByRole("button", { name: "Restore" })).toBeNull();
-    expect(cell.textContent).toMatch(/no restore plan/i);
+    // Worded for a row that never offered the button — distinct from the
+    // refusal a press can return, so one assertion cannot pass for both paths.
+    expect(within(cell).getByRole("alert").textContent).toMatch(
+      /cannot be brought back from this screen/i,
+    );
   });
 
   it("restores a batch whose call-code slot is free, and the row reflects it", async () => {
@@ -155,7 +193,7 @@ describe("classic Recently Deleted listing — /dashboard/library/deleted", () =
       http.post(restoreUrl(batch.batch_id), () =>
         HttpResponse.json(
           {
-            message: "Cannot restore: this batch holds a 'artist' entity, which has no restore plan.",
+            message: SERVER_UNRESTORABLE_KIND,
             reason: "unrestorable_kind",
             entity_kind: "artist",
           },
@@ -169,24 +207,52 @@ describe("classic Recently Deleted listing — /dashboard/library/deleted", () =
     await clickRestore();
 
     const cell = await screen.findByTestId("deleted-archive-restore-cell");
-    expect(cell.textContent).toMatch(/no restore plan/i);
+    const alert = await within(cell).findByRole("alert");
+    // Permanence is the substance of this refusal: it is what tells the
+    // operator that pressing again cannot work, and it is why the button goes.
+    expect(alert.textContent).toMatch(/permanent, not retryable/i);
+    expect(alert.textContent).not.toMatch(/brought back from this screen/i);
     expect(within(cell).queryByRole("button", { name: "Restore" })).toBeNull();
+  });
+
+  // Nothing on the listing changes when a restore succeeds, so the row keeps
+  // its Restore button and a second press is the ordinary path — after a
+  // reload, a double-click, or a second tab.
+  it("tells the operator an already-restored batch is back, not that the restore failed", async () => {
+    const batch = restorableBatch();
+    mockListing([batch]);
+    server.use(
+      http.post(restoreUrl(batch.batch_id), () =>
+        HttpResponse.json(
+          { message: SERVER_ALREADY_RESTORED, reason: "already_restored", entity_ids: [53375] },
+          { status: 409 },
+        ),
+      ),
+    );
+
+    renderWithProviders(<DeletedArchiveListing />);
+    await screen.findByTestId("deleted-archive-row");
+    await clickRestore();
+
+    const cell = await screen.findByTestId("deleted-archive-restore-cell");
+    const alert = await within(cell).findByRole("alert");
+    expect(alert.textContent).toMatch(/already back in the catalog/i);
+    // "Nothing was changed" would send the operator looking for a card that is
+    // already on the shelf.
+    expect(alert.textContent).not.toMatch(/nothing was changed/i);
+    expect(alert.textContent).not.toMatch(/53375/);
   });
 
   // This screen has no resolution UI, so the 400 must still surface as a
   // refusal the operator can read — not fail silently, and not look like a
-  // success.
+  // success, and not instruct him to do something this screen cannot do.
   it("surfaces a 400 resolution_required as a readable refusal, without a resolution UI", async () => {
     const batch = restorableBatch();
     mockListing([batch]);
     server.use(
       http.post(restoreUrl(batch.batch_id), () =>
         HttpResponse.json(
-          {
-            message: "Cannot restore without a decision: the call code is held by another release.",
-            reason: "resolution_required",
-            conflicts: [],
-          },
+          { message: SERVER_RESOLUTION_REQUIRED, reason: "resolution_required", conflicts: [] },
           { status: 400 },
         ),
       ),
@@ -197,7 +263,12 @@ describe("classic Recently Deleted listing — /dashboard/library/deleted", () =
     await clickRestore();
 
     const cell = await screen.findByTestId("deleted-archive-restore-cell");
-    expect(cell.textContent).toMatch(/held by another release/i);
+    const alert = await within(cell).findByRole("alert");
+    expect(alert.textContent).toMatch(/held by another release/i);
+    expect(alert.textContent).toMatch(/isn't available from this screen yet/i);
+    // The server's sentence tells the caller to re-send with a `resolution`
+    // parameter. There is nothing here to re-send it from.
+    expect(alert.textContent).not.toMatch(/resolution=/);
     expect(screen.queryByText("Restored")).toBeNull();
   });
 });

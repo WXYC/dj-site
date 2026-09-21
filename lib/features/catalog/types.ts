@@ -434,8 +434,11 @@ export type AlbumRequestParams = {
 /**
  * `GET /library/:id/flowsheet-play-counts` — the release's flowsheet plays,
  * counted by the three disjoint arms a delete can affect. Hand-written here
- * rather than imported from `@wxyc/shared`: the endpoint is not declared in
- * `wxyc-shared/api.yaml`.
+ * rather than imported from `@wxyc/shared`: the published contract declares
+ * both this path and a `FlowsheetPlayCounts` schema, but this repo pins
+ * `@wxyc/shared ^5.4.0` against a 10.1.x contract and the type is not in the
+ * installed package. Reaching it needs the major bump, which is its own piece
+ * of work.
  *
  * `direct` and `rotation_linked` are plays that actually link to this release
  * (via `flowsheet.album_id`, or transitively via `flowsheet.rotation_id` ->
@@ -724,11 +727,9 @@ export type DiscogsReleasePrefill = {
 };
 
 /**
- * Hand-declared catalog-delete-archive shapes, mirroring `CatalogDeleteBatch`
- * / `DeletedArchivePage` / `RestoreBatchResponse` in `wxyc-shared/api.yaml`.
- * This repo pins `@wxyc/shared ^5.4.0` against a 10.1.x contract, and none of
- * the three appear in the installed package. Importing them requires the
- * major bump, which is its own piece of work; do not absorb it here.
+ * `GET /library/deleted`'s query string. Hand-declared because the published
+ * contract states these three inline on the path item rather than as a named
+ * schema, so there is nothing here to import even once the package catches up.
  */
 export type DeletedArchiveQueryParams = {
   page?: number;
@@ -736,7 +737,12 @@ export type DeletedArchiveQueryParams = {
   search?: string;
 };
 
-/** One captured entity in a delete batch, trimmed to what the listing renders. `row` is the deleted parent's own columns, whichever the capture wrote. */
+/**
+ * One captured entity in a delete batch, trimmed to what the listing renders:
+ * `row` is the deleted parent's own columns, whichever the capture wrote. The
+ * wire also sends `children`, a map of child table name to replayed row count,
+ * dropped because this screen shows no per-child detail.
+ */
 export type DeletedArchiveEntity = {
   entity_kind: string;
   table: string;
@@ -744,11 +750,25 @@ export type DeletedArchiveEntity = {
 };
 
 /**
- * One page row of `GET /library/deleted`. `actor` carries no email (PII;
- * see `CatalogDeleteActor`'s published docstring). `restorable` is derived
- * server-side from `RESTORE_PLAN`'s own key set at read time and must never
- * be re-derived from `entity_kind` here — `true` promises a replay plan
- * exists, not that this particular attempt will succeed.
+ * One page row of `GET /library/deleted`, declared to match what the endpoint
+ * sends rather than copied from a published schema: this repo pins
+ * `@wxyc/shared ^5.4.0` against a 10.1.x contract and none of these shapes are
+ * in the installed package, so importing them needs the major bump, which is
+ * its own piece of work — do not absorb it here.
+ *
+ * Two things to check before swapping in a generated type. `restorable` is
+ * served by this endpoint but is not a property of the published
+ * `CatalogDeleteBatch` at all, so a generated shape will not carry the one
+ * field this screen turns on. And `unrecoverable` — the dependents no envelope
+ * captures, which the contract marks required — is deliberately trimmed here
+ * along with `entities[].children`, because nothing on this screen renders
+ * either.
+ *
+ * `actor` carries no email (PII; see `CatalogDeleteActor`'s published
+ * docstring). `restorable` is derived server-side from `RESTORE_PLAN`'s own key
+ * set at read time and must never be re-derived from `entity_kind` here —
+ * `true` promises a replay plan exists, not that this particular attempt will
+ * succeed.
  */
 export type DeletedArchiveBatch = {
   batch_id: string;
@@ -769,8 +789,9 @@ export type DeletedArchivePage = {
  * `POST /library/deleted/{batchId}/restore`'s 200, trimmed to `batch_id`
  * alone: a restore only reaches its 200 when the original call-code slot was
  * free (a taken slot answers `400 resolution_required` instead, which this
- * screen reports rather than resolves), so no entity in a successful response
- * here is ever relocated.
+ * screen reports rather than resolves), so the `entities[]` the wire also
+ * sends — each restored row's id and its `relocated_code_number` — can only
+ * ever report the slot it already had.
  */
 export type RestoreBatchResponse = {
   batch_id: string;

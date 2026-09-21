@@ -35,10 +35,12 @@ export const DISC_QUANTITY_MAX = 99;
 export const CROSSREFERENCE_QUERY_MAX_LIMIT = 500;
 
 /**
- * Page size for `GET /library/deleted`, matching the endpoint's own
- * `DEFAULT_LIMIT`. A dedicated constant rather than reusing
- * `CATALOG_QUERY_PAGE_LIMIT`: the two endpoints' defaults agree today but are
- * declared independently server-side, so coupling them here would drift
- * silently if either changes.
+ * How many archive rows this screen asks for per page. The value equals
+ * `CATALOG_QUERY_PAGE_LIMIT` and that is not a coincidence: server-side the
+ * archive listing reuses `GET /library/query`'s own `DEFAULT_LIMIT` rather than
+ * declaring a second one, so the two defaults cannot drift apart. The separate
+ * name is a client-side decision all the same — how many rows a screen requests
+ * is that screen's business, and re-using the catalog-search constant would
+ * make re-sizing this listing silently re-size catalog search.
  */
 export const DELETED_ARCHIVE_PAGE_LIMIT = 50;
