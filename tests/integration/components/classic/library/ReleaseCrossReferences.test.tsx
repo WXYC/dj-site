@@ -96,6 +96,32 @@ describe("classic library-release cross-references — xrefsToLibraryReleases.js
     ).toHaveAttribute("href", "/dashboard/library/artist/4102");
   });
 
+  /**
+   * The row's `genre_id` belongs to the cross-referenced RELEASE, which is
+   * filed under a different artist — that difference is the association the
+   * record exists to hold. Scoping this link to it would ask for the
+   * referencing artist's shelf in a genre it need not be filed under, and the
+   * card answers 404 for exactly that pair, turning a working link into a dead
+   * one. No genre is served for the referencing artist, so the link names none.
+   */
+  it("never scopes the cross-referencing artist's link to the release's genre", async () => {
+    mockCrossReferences([
+      createTestReleaseCrossReference({
+        artist_id: 4102,
+        artist_name: "Duke Ellington & John Coltrane",
+        genre_id: TEST_ENTITY_IDS.GENRE.JAZZ,
+      }),
+    ]);
+
+    renderWithProviders(<ReleaseCrossReferences />);
+
+    const href = (
+      await screen.findByRole("link", { name: "Duke Ellington & John Coltrane" })
+    ).getAttribute("href");
+    expect(href).not.toContain("genre_id");
+    expect(href).toBe("/dashboard/library/artist/4102");
+  });
+
   // `getEntireLibraryCode()`: the genre, the artist half with its punctuation,
   // then the release half.
   it("renders the whole call number, linked to the release", async () => {

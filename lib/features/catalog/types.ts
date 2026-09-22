@@ -735,9 +735,17 @@ export type CatalogFrontendState = CatalogSearchState & {
  * librarian filed from one artist card to another, the collection
  * `xrefsToLibraryCodes.jsp` renders.
  *
- * Only the target carries a call number, matching the JSP's columns. The
- * target's genre is not served, so the code renders without the genre word
- * the JSP's `fullLibraryCode` prefixes.
+ * Only the target carries a call number, matching the JSP's columns, and it
+ * arrives with the genre word the JSP's `fullLibraryCode` prefixes.
+ *
+ * `target_code_genre_id` is a SUBSTITUTION, not the librarian's own filing:
+ * `artist_crossreference` stores two artist ids and nothing else, so the
+ * `(artist, genre)` placement the cross-reference pointed at is unrecoverable
+ * and Backend answers with the target's lowest membership. It is still the
+ * genre whose number the row displays, so it is what both the code prefix and
+ * the link to the target's card name. Null when the target artist carries no
+ * crossreference row at all, which is also the case in which the number is
+ * null.
  */
 export type ArtistCrossReferenceRow = {
   source_artist_id: number;
@@ -745,6 +753,7 @@ export type ArtistCrossReferenceRow = {
   target_artist_id: number;
   target_artist_name: string;
   target_code_letters: string;
+  target_code_genre_id: number | null;
   target_code_artist_number: number | null;
   comment: string | null;
 };

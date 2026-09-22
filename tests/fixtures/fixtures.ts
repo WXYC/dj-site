@@ -705,6 +705,7 @@ export function createTestArtistCrossReference(
     target_artist_id: TEST_ENTITY_IDS.ARTIST.ROCK_ARTIST,
     target_artist_name: "Duke Ellington",
     target_code_letters: "EL",
+    target_code_genre_id: TEST_ENTITY_IDS.GENRE.ROCK,
     target_code_artist_number: 12,
     comment: "Filed with Duke Ellington",
     ...overrides,

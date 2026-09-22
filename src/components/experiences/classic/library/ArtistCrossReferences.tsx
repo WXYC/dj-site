@@ -1,7 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useListArtistCrossReferencesQuery } from "@/lib/features/catalog/api";
+import {
+  useGetGenresQuery,
+  useListArtistCrossReferencesQuery,
+} from "@/lib/features/catalog/api";
 import { artistCardHref } from "@/lib/features/catalog/artistCardRoute";
 import { CROSSREFERENCE_QUERY_MAX_LIMIT } from "@/lib/features/catalog/constants";
 import { formatCallLettersAndNumbers } from "@/lib/features/catalog/libraryCode";
@@ -27,10 +30,15 @@ const CENTERED = { textAlign: "center" } as const;
  *   does not exist — so there is nothing to render and no migration should
  *   invent it. The JSP's fourth column is dropped rather than filled with a
  *   placeholder date that would read as fact.
- * - **The cross-referenced code carries no genre word.** The JSP renders
- *   `fullLibraryCode`, which prefixes the target's genre name; the endpoint
- *   serves the target's letters and artist number but not its genre, so the
- *   prefix has no input. `MO 12` still identifies the shelf section.
+ * - **The cross-referenced code's genre word is a substitution.** The JSP
+ *   renders `fullLibraryCode`, which prefixes the target's genre name, and the
+ *   endpoint does serve a `target_code_genre_id` to prefix it with — but
+ *   `artist_crossreference` stores only the two artist ids, so the placement
+ *   the librarian pointed at is unrecoverable and the served genre is the
+ *   target's lowest membership standing in for it. It is nonetheless the genre
+ *   whose number this column displays, which is why the link is scoped to it.
+ *   The prefix drops while the genres list is in flight, exactly as the
+ *   sibling screen's does; `MO 12` still identifies the shelf section.
  * - **The title row spans the columns that exist.** The JSP hardcodes
  *   `colspan=5` over a four-column table, which HTML honours by stretching the
  *   header past the table.
@@ -46,6 +54,7 @@ export default function ArtistCrossReferences() {
       { limit: CROSSREFERENCE_QUERY_MAX_LIMIT },
       { skip: authenticating || !authenticated },
     );
+  const { data: genres } = useGetGenresQuery();
 
   if (isUninitialized || isLoading) {
     return <p className="text">Loading...</p>;
@@ -101,41 +110,53 @@ export default function ArtistCrossReferences() {
           </tr>
         </thead>
         <tbody>
-          {results.map((row, index) => (
-            <tr
-              key={`${row.source_artist_id}-${row.target_artist_id}`}
-              data-testid="artist-crossreference-row"
-              className={`entry-row ${index % 2 === 0 ? "entry-row-even" : "entry-row-odd"}`}
-            >
-              <td style={CENTERED}>
-                {/* The endpoint serves no `code_letters` for the referencing
-                    artist, so the bucket-versus-artist card choice cannot be
-                    made here. The ordinary card redirects a bucket row to the
-                    bucket card, which is the same landing place. */}
-                <Link href={`/dashboard/library/artist/${row.source_artist_id}`}>
-                  {row.source_artist_name}
-                </Link>
-              </td>
-              <td style={CENTERED}>
-                <Link
-                  href={artistCardHref(
-                    {
-                      id: row.target_artist_id,
-                      code_letters: row.target_code_letters,
-                    },
-                    { genreId: null },
-                  )}
-                >
-                  {formatCallLettersAndNumbers({
-                    code_letters: row.target_code_letters,
-                    code_artist_number: row.target_code_artist_number,
-                  })}
-                </Link>
-                &nbsp;-&nbsp;{row.target_artist_name}
-              </td>
-              <td style={CENTERED}>{row.comment ?? ""}</td>
-            </tr>
-          ))}
+          {results.map((row, index) => {
+            const targetCode = formatCallLettersAndNumbers({
+              code_letters: row.target_code_letters,
+              code_artist_number: row.target_code_artist_number,
+            });
+            const targetGenreName = genres?.find(
+              (genre) => genre.id === row.target_code_genre_id,
+            )?.genre_name;
+            return (
+              <tr
+                key={`${row.source_artist_id}-${row.target_artist_id}`}
+                data-testid="artist-crossreference-row"
+                className={`entry-row ${index % 2 === 0 ? "entry-row-even" : "entry-row-odd"}`}
+              >
+                <td style={CENTERED}>
+                  {/* The endpoint serves no `code_letters` for the referencing
+                      artist, so the bucket-versus-artist card choice cannot be
+                      made here. The ordinary card redirects a bucket row to the
+                      bucket card, which is the same landing place.
+                      No genre either: the row records this artist's id and
+                      nothing about where it is filed, and the JSP rendered this
+                      column as a bare name with no call code at all. So the
+                      link stays unscoped rather than naming a shelf the record
+                      does not claim — a genre this artist is not filed under
+                      is a 404, not a collapse. */}
+                  <Link href={`/dashboard/library/artist/${row.source_artist_id}`}>
+                    {row.source_artist_name}
+                  </Link>
+                </td>
+                <td style={CENTERED}>
+                  <Link
+                    href={artistCardHref(
+                      {
+                        id: row.target_artist_id,
+                        code_letters: row.target_code_letters,
+                      },
+                      { genreId: row.target_code_genre_id },
+                    )}
+                  >
+                    {targetGenreName ? `${targetGenreName} ${targetCode}` : targetCode}
+                  </Link>
+                  &nbsp;-&nbsp;{row.target_artist_name}
+                </td>
+                <td style={CENTERED}>{row.comment ?? ""}</td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </>

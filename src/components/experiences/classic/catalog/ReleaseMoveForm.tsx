@@ -343,7 +343,11 @@ export default function ReleaseMoveForm({ albumId }: { albumId: number }) {
                         id: currentArtistId,
                         code_letters: data.artist.lettercode,
                       },
-                      { genreId: null },
+                      // The release's CURRENT genre, never the destination the
+                      // picker below holds: this link labels the artist the
+                      // release is filed under now, and the two values differ
+                      // for the whole life of the screen.
+                      { genreId: data.genre_id ?? null },
                     )}
                   >
                     {displayArtist}

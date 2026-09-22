@@ -150,6 +150,26 @@ describe("Classic ReleaseMoveForm — libraryReleaseModifyLibCode.jsp", () => {
     expect(screen.getByTestId("release-move-current-code").textContent).toBe("Electronic AU 3/1");
   });
 
+  /**
+   * The Artist row labels the artist the release is filed under NOW, so the
+   * link has to name the release's current genre rather than the destination
+   * the picker below is selecting — the two differ for the whole life of the
+   * screen, and this is the one card that lists what the current artist holds.
+   * An unscoped link would land a multi-genre artist on its lowest-genre
+   * membership, which for a conflated name is a different band's shelf.
+   */
+  it("names the release's current shelf on the artist link, not the destination", async () => {
+    const user = userEvent.setup();
+    loaded();
+
+    renderWithProviders(<ReleaseMoveForm albumId={53375} />);
+    await user.selectOptions(screen.getByLabelText("Genre:"), "Rock");
+
+    expect(screen.getByRole("link", { name: "Autechre" }).getAttribute("href")).toBe(
+      "/dashboard/library/artist/4211?genre_id=5",
+    );
+  });
+
   it("refuses to submit a move with no destination resolved", async () => {
     const user = userEvent.setup();
     loaded();
