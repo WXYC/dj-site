@@ -183,6 +183,22 @@ describe("catalog conversions", () => {
         const result = convertToAlbumEntry({ ...linkedRow, genre_name: "" });
         expect(result.artist.genre).toBe("");
       });
+
+      // The id, unlike the name, is what a link scopes a card by: an `artists`
+      // row can hold two unrelated bands filed under different genres, and the
+      // card read collapses onto the lowest membership when no genre is named.
+      it("carries the genre id through so a link can name the shelf", () => {
+        const result = convertToAlbumEntry({ ...linkedRow, genre_id: 11 });
+        expect(result.artist.genre_id).toBe(11);
+      });
+
+      // Deliberately no sentinel counterpart to "Unknown": a made-up id would
+      // scope a card to the wrong shelf, where a made-up NAME only renders
+      // oddly. A response predating the field must stay absent.
+      it("leaves the genre id undefined when the row carries none", () => {
+        const result = convertToAlbumEntry(linkedRow);
+        expect(result.artist.genre_id).toBeUndefined();
+      });
     });
 
     // Format is server-owned data too: GET /library/formats is the authority

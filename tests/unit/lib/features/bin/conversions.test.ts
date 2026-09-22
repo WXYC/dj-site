@@ -251,6 +251,7 @@ describe("bin conversions", () => {
             lettercode: "S",
             numbercode: 1,
             genre: "Unknown",
+            genre_id: undefined,
           },
         });
         const result = convertBinToFlowsheet(binEntry) as FreeformResult;
@@ -340,7 +341,14 @@ describe("bin conversions", () => {
 
     it("should include artist name", () => {
       const binEntry = createBinEntry({
-        artist: { id: undefined, name: "Queue Artist", lettercode: "QA", numbercode: 1, genre: "Electronic" },
+        artist: {
+          id: undefined,
+          name: "Queue Artist",
+          lettercode: "QA",
+          numbercode: 1,
+          genre: "Electronic",
+          genre_id: undefined,
+        },
       });
       const result = convertBinToQueue(binEntry);
       expect(result.artist).toBe("Queue Artist");

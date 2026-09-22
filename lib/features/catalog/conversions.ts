@@ -97,6 +97,12 @@ export function convertToAlbumEntry(
       numbercode: response.code_artist_number ?? 0,
       // Verbatim; the sentinel is for a row with no genre. See `ArtistEntry.genre`.
       genre: response.genre_name ?? "Unknown",
+      // No sentinel counterpart to `"Unknown"` above: a made-up genre id would
+      // scope a card to the wrong shelf, where a made-up genre NAME only
+      // renders oddly. Absent stays absent.
+      genre_id: isSearchResult(response)
+        ? ((response as Record<string, unknown>).genre_id as number | undefined)
+        : undefined,
       id: isSearchResult(response)
         ? ((response as Record<string, unknown>).artist_id as number | undefined)
         : undefined,

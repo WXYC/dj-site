@@ -88,6 +88,69 @@ describe("Classic SearchResults artist link — authority decides the card", () 
     );
   });
 
+  /**
+   * An `artists` row is not one band. Two acts filed under the same name in
+   * different genres share it, and the crossreference is unique on the
+   * (artist, genre) pair — so the artist id alone does not identify a card,
+   * and the card read falls back to the lowest-genre membership when no genre
+   * is named. The search row is where a librarian enters, and it is the row
+   * that knows which of the two it is: its own call number was keyed on that
+   * genre.
+   */
+  it("scopes the modify link to the shelf the row was filed under", () => {
+    renderRow(
+      { id: 431, name: "Isis", lettercode: "IS", numbercode: 13, genre: "Rock", genre_id: 11 },
+      { canModify: true },
+    );
+
+    expect(screen.getByRole("link", { name: "Isis" }).getAttribute("href")).toBe(
+      "/dashboard/library/artist/431?genre_id=11",
+    );
+  });
+
+  it("scopes the read-only link to the same shelf", () => {
+    renderRow(
+      { id: 431, name: "Isis", lettercode: "IS", numbercode: 1, genre: "Hiphop", genre_id: 4 },
+      { canModify: false },
+    );
+
+    expect(screen.getByRole("link", { name: "Isis" }).getAttribute("href")).toBe(
+      "/dashboard/library/artist/431/view?genre_id=4",
+    );
+  });
+
+  /**
+   * The bucket card is keyed on the compilation artist alone — a bucket spans
+   * genres by construction, so scoping it to one would hide releases that
+   * belong on it.
+   */
+  it("leaves the compilation bucket unscoped even when the row carries a genre", () => {
+    renderRow(
+      { id: 19517, name: "Various Artists", lettercode: "V/A", numbercode: 3, genre_id: 11 },
+      { canModify: true },
+    );
+
+    expect(screen.getByRole("link", { name: /various artists/i }).getAttribute("href")).toBe(
+      "/dashboard/library/various/19517",
+    );
+  });
+
+  /**
+   * A response from a Backend that predates the genre-bearing search row has
+   * no id to send. The link must stay valid and fall back to the unscoped
+   * card rather than emitting `?genre_id=undefined`.
+   */
+  it.each([true, false])(
+    "omits the parameter entirely when the row carries no genre id (canModify=%s)",
+    (canModify) => {
+      renderRow({ id: 19516, name: "Fust", lettercode: "RO", numbercode: 12 }, { canModify });
+
+      const href = screen.getByRole("link", { name: "Fust" }).getAttribute("href");
+      expect(href).not.toContain("genre_id");
+      expect(href).toBe(canModify ? "/dashboard/library/artist/19516" : "/dashboard/library/artist/19516/view");
+    },
+  );
+
   it.each([true, false])(
     "leaves the artist as plain text when the row carries no artist id (canModify=%s)",
     (canModify) => {
