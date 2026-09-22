@@ -252,7 +252,11 @@ describe("classic NewArtistForm — chooseLibraryCodeOrArtist.jsp's newArtistFor
     await user.click(screen.getByRole("button", { name: "Submit" }));
 
     await waitFor(() =>
-      expect(mockPush).toHaveBeenCalledWith("/dashboard/library/artist/99?created=1"),
+      // Scoped to the genre just filed under: find-or-create can land on a
+      // PRE-EXISTING artist filed under several genres, whose unscoped card
+      // reports the lowest genre's call number -- the wrong number, on the
+      // screen confirming the filing.
+      expect(mockPush).toHaveBeenCalledWith("/dashboard/library/artist/99?genre_id=3&created=1"),
     );
   });
 

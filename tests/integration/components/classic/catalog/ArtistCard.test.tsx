@@ -1354,6 +1354,10 @@ describe("classic ArtistCard — artistCardModify.jsp", () => {
     // here, so both would read the collapse for an artist reached on another
     // shelf — on the confirmation for an irreversible write.
     it("carries the membership onto the delete link", async () => {
+      // Only the two handlers that must differ are overridden: the link is
+      // offered solely when every dependent count reads zero, which the shared
+      // fixture's card deliberately omits. A later `server.use` wins.
+      mockIsis();
       server.use(
         http.get(`${TEST_BACKEND_URL}/library/artists/${ISIS_ID}`, () =>
           HttpResponse.json({
@@ -1372,10 +1376,6 @@ describe("classic ArtistCard — artistCardModify.jsp", () => {
         ),
         http.get(`${TEST_BACKEND_URL}/library/artists/${ISIS_ID}/releases`, () =>
           HttpResponse.json({ artist_id: ISIS_ID, releases: [], total: 0, page: 0, totalPages: 1 }),
-        ),
-        http.get(`${TEST_BACKEND_URL}/library/genres`, () => HttpResponse.json([HIPHOP, ROCK])),
-        http.get(`${TEST_BACKEND_URL}/library/artists/${ISIS_ID}/next-release-number`, () =>
-          HttpResponse.json({ next_code_number: 1 }),
         ),
       );
 

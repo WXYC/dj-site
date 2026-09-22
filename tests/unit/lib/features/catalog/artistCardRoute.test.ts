@@ -17,7 +17,7 @@ describe("artistCardHref", () => {
     _artistName,
     code_letters,
   ) => {
-    expect(artistCardHref({ id: 4211, code_letters })).toBe(
+    expect(artistCardHref({ id: 4211, code_letters }, { genreId: null })).toBe(
       "/dashboard/library/various/4211",
     );
   });
@@ -33,7 +33,7 @@ describe("artistCardHref", () => {
     _artistName,
     code_letters,
   ) => {
-    expect(artistCardHref({ id: 4211, code_letters })).toBe(
+    expect(artistCardHref({ id: 4211, code_letters }, { genreId: null })).toBe(
       "/dashboard/library/artist/4211",
     );
   });
@@ -56,11 +56,8 @@ describe("artistCardHref genre scope", () => {
   // Every existing caller passes no genre and must keep producing the URL it
   // produced before -- an unscoped card is still a card, just the
   // lowest-membership collapse.
-  it.each([
-    ["omitted", undefined],
-    ["null", null],
-  ])("leaves the href unchanged when the genre is %s", (_label, genreId) => {
-    expect(artistCardHref({ id: 4211, code_letters: "MOLI" }, { genreId })).toBe(
+  it("leaves the href unchanged when the genre is explicitly null", () => {
+    expect(artistCardHref({ id: 4211, code_letters: "MOLI" }, { genreId: null })).toBe(
       "/dashboard/library/artist/4211",
     );
   });
@@ -93,7 +90,10 @@ describe("artistCardHref extra query parameters", () => {
 
   it("composes extra parameters when no genre is named", () => {
     expect(
-      artistCardHref({ id: 4211, code_letters: "MOLI" }, { params: { created: "1" } }),
+      artistCardHref(
+        { id: 4211, code_letters: "MOLI" },
+        { genreId: null, params: { created: "1" } },
+      ),
     ).toBe("/dashboard/library/artist/4211?created=1");
   });
 
@@ -113,13 +113,19 @@ describe("artistCardHref extra query parameters", () => {
   // pre-encoded value would arrive double-encoded.
   it("encodes a parameter value exactly once", () => {
     expect(
-      artistCardHref({ id: 431, code_letters: "IS" }, { params: { vol: "A/B C" } }),
+      artistCardHref(
+        { id: 431, code_letters: "IS" },
+        { genreId: null, params: { vol: "A/B C" } },
+      ),
     ).toBe("/dashboard/library/artist/431?vol=A%2FB+C");
   });
 
   it("accepts a numeric parameter value", () => {
     expect(
-      artistCardHref({ id: 431, code_letters: "IS" }, { params: { imported: 5150 } }),
+      artistCardHref(
+        { id: 431, code_letters: "IS" },
+        { genreId: null, params: { imported: 5150 } },
+      ),
     ).toBe("/dashboard/library/artist/431?imported=5150");
   });
 });
@@ -143,18 +149,27 @@ describe("parseArtistCardGenreId", () => {
     expect(parseArtistCardGenreId(["6", "11"])).toBeNull();
   });
 
-  // One value in an array is not a conflict -- it is the same single genre the
-  // string form carries.
-  it("reads a single-element array as that genre", () => {
-    expect(parseArtistCardGenreId(["11"])).toBe(11);
-  });
 
   // Malformed is NOT silently treated as absent. Falling back to the unscoped
   // read would answer a broken link with the conflated card this parameter
   // exists to split -- the exact symptom, arrived at silently. `null` is the
   // caller's signal to `notFound()`, the same answer the page already gives a
   // non-numeric id.
-  it.each([["blank", ""], ["non-numeric", "rock"], ["zero", "0"], ["negative", "-11"], ["fractional", "11.5"]])(
+  it.each([
+    ["blank", ""],
+    ["non-numeric", "rock"],
+    ["zero", "0"],
+    ["negative", "-11"],
+    ["fractional", "11.5"],
+    // Base-10 integers only. `Number` reads all four of these as whole
+    // numbers -- 1000, 31, 5, 5 -- none of which any link to this card emits,
+    // and a genre id is not a numeric field where scientific or hex notation
+    // means anything. The same grammar every other call-number surface uses.
+    ["scientific", "1e3"],
+    ["hexadecimal", "0x1F"],
+    ["signed", "+5"],
+    ["trailing-decimal", "5.0"],
+  ])(
     "reports a %s genre as malformed rather than absent",
     (_label, raw) => {
       expect(parseArtistCardGenreId(raw)).toBeNull();

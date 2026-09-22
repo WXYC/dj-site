@@ -325,6 +325,7 @@ export default function RotationImportScreen({ rotationId }: { rotationId: numbe
           artistCardHref(
             { id: result.artistId, code_letters: result.codeLetters },
             {
+              genreId: null,
               params: {
                 imported: result.rotationId,
                 ...(result.codeNumber != null ? { code: result.codeNumber } : {}),

@@ -828,7 +828,7 @@ export default function ArtistCard({ artistId, genreId, message, imported }: Art
           fail-closed test `/delete`'s own Tier 1 uses; see the docblock above. */}
       {artistDeleteIsOffered(artist) && (
         <div className="label" style={{ textAlign: "center" }}>
-          <a href={artistDeleteHref(artistId, genreId)}>
+          <a href={artistDeleteHref(artistId, genreId ?? null)}>
             <b>Delete The Artist</b>
           </a>
         </div>

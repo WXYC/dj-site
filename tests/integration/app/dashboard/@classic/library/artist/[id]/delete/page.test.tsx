@@ -36,8 +36,12 @@ vi.mock("@/src/components/experiences/classic/Layout/Main", () => ({
   ),
 }));
 vi.mock("@/src/components/experiences/classic/catalog/ArtistDeleteConfirm", () => ({
-  default: ({ artistId }: { artistId: number }) => (
-    <div data-testid="artist-delete-confirm" data-artist-id={artistId} />
+  default: ({ artistId, genreId }: { artistId: number; genreId?: number }) => (
+    <div
+      data-testid="artist-delete-confirm"
+      data-artist-id={artistId}
+      data-genre-id={genreId ?? ""}
+    />
   ),
 }));
 
@@ -101,5 +105,30 @@ describe("Classic /dashboard/library/artist/[id]/delete page — ArtistAdminServ
     setUpClassicPageAuthority("musicDirector");
 
     await expect(page(id)).rejects.toThrow("NEXT_NOT_FOUND");
+  });
+
+  // The confirmation names the genre-prefixed code (`Rock Cs 2`, never the
+  // ambiguous `Cs 2`) and its Cancel returns to the card, so both would
+  // otherwise read the lowest-genre collapse for an artist the librarian
+  // reached on a different shelf -- on the screen confirming an irreversible
+  // write.
+  it("carries the genre membership the URL names onto the confirmation", async () => {
+    setUpClassicPageAuthority("musicDirector");
+
+    await assertReachesClassicPage(
+      () => page("431", { genre_id: "11" }),
+      "classic-main",
+      "artist-delete-confirm",
+    );
+    expect(screen.getByTestId("artist-delete-confirm").getAttribute("data-genre-id")).toBe("11");
+  });
+
+  // The input taxonomy belongs to `parseArtistCardGenreId`'s own suite; what
+  // this tier owes is that the page routes a malformed genre into `notFound()`
+  // rather than falling back to the unscoped read.
+  it("404s a malformed genre rather than falling back to the collapsed card", async () => {
+    setUpClassicPageAuthority("musicDirector");
+
+    await expect(page("431", { genre_id: "rock" })).rejects.toThrow("NEXT_NOT_FOUND");
   });
 });

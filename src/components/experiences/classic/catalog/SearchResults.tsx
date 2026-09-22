@@ -49,7 +49,10 @@ const artistRowHref = (
   canModify: boolean,
 ): string =>
   canModify
-    ? artistCardHref({ id: artist.id, code_letters: artist.lettercode ?? "" })
+    ? artistCardHref(
+        { id: artist.id, code_letters: artist.lettercode ?? "" },
+        { genreId: null },
+      )
     : `/dashboard/library/artist/${artist.id}/view`;
 
 /**

@@ -1,3 +1,4 @@
+import { parseRequiredPositiveInt } from "./adminCreateArtistValidation";
 import { isVariousArtists } from "./libraryCode";
 
 /**
@@ -15,7 +16,16 @@ import { isVariousArtists } from "./libraryCode";
  * name would drop the entire `Soundtracks - <A–Z>` sub-shelf, which carries no
  * compilation keyword anywhere in its names.
  *
- * `link.genreId` names WHICH of the artist's memberships the link means.
+ * `link.genreId` names WHICH of the artist's memberships the link means, and
+ * is REQUIRED rather than optional. An unscoped link is still legitimate — it
+ * lands on the collapsed card, which is what every link produced before this
+ * parameter existed does — but it has to be written `{ genreId: null }`. A
+ * defaulted parameter would make forgetting the genre produce that collapse
+ * silently, which is the failure this whole change exists to remove; spelled
+ * `null`, each one is a visible decision and a future omission is a type
+ * error. Several callers legitimately cannot supply it yet: the catalog search
+ * row carries the genre as a name rather than an id, and a cross-reference row
+ * carries no genre at all.
  * `genre_artist_crossreference` is unique on `(artist_id, genre_id)`, so an id
  * alone does not identify a card: artist 431 ('Isis') is a hip-hop act filed
  * `IS 1` under Hiphop and a metal band filed `IS 13` under Rock, and an
@@ -37,15 +47,18 @@ import { isVariousArtists } from "./libraryCode";
  * `notFound()` and a successful create lands on a 404. Values are encoded
  * here; pass them raw.
  */
+const genreQuery = (genreId: number): string =>
+  new URLSearchParams({ genre_id: String(genreId) }).toString();
+
 export function artistCardHref(
   artist: {
     id: number;
     code_letters: string;
   },
   link: {
-    genreId?: number | null;
+    genreId: number | null;
     params?: Record<string, string | number>;
-  } = {},
+  },
 ): string {
   const bucket = isVariousArtists(artist.code_letters);
   const query = new URLSearchParams();
@@ -77,27 +90,27 @@ export function artistCardHref(
  *   absent instead would quietly serve the conflated card this parameter
  *   exists to split, which is the reported symptom reached silently.
  *
- * A repeated key arrives as `string[]`. Two values name two conflicting
- * memberships, so it is malformed rather than first-wins: taking the first
- * would serve the Hiphop card for a URL that also asked for Rock, which is the
- * silent wrong-card arrival this parse exists to prevent. `GET
- * /library/artists/:id` answers 400 for the same input, so the two halves of
- * the contract agree. A one-element array is just the string form.
+ * An array means a REPEATED key — the App Router hands a single occurrence
+ * over as a string — so it names two conflicting memberships and is malformed
+ * rather than first-wins. Taking the first would serve the Hiphop card for a
+ * URL that also asked for Rock, the silent wrong-card arrival this parse
+ * exists to prevent; `GET /library/artists/:id` answers 400 for the same
+ * input, so the two halves of the contract agree.
+ *
+ * Base-10 integers only, via the grammar every call-number field in this
+ * module family shares: `Number` reads `1e3`, `0x1F`, `+5` and `5.0` as whole
+ * numbers, and no link to this card emits any of them.
  */
 export function parseArtistCardGenreId(
   value: string | string[] | undefined,
 ): number | undefined | null {
   if (Array.isArray(value)) {
-    return value.length === 1 ? parseArtistCardGenreId(value[0]) : null;
+    return null;
   }
   if (value === undefined) {
     return undefined;
   }
-  // `Number("")` and `Number(" ")` are both 0, which would pass an
-  // `Number.isInteger` check as a legitimate value; fold blank to NaN first so
-  // one comparison covers it.
-  const genreId = value.trim() === "" ? NaN : Number(value);
-  return Number.isInteger(genreId) && genreId > 0 ? genreId : null;
+  return parseRequiredPositiveInt(value);
 }
 
 /**
@@ -109,8 +122,8 @@ export function parseArtistCardGenreId(
  */
 export function artistDeleteHref(
   artistId: number,
-  genreId?: number | null,
+  genreId: number | null,
 ): string {
   const screen = `/dashboard/library/artist/${artistId}/delete`;
-  return genreId == null ? screen : `${screen}?genre_id=${genreId}`;
+  return genreId == null ? screen : `${screen}?${genreQuery(genreId)}`;
 }
