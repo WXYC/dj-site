@@ -45,15 +45,22 @@ const CLASSIC_CARD_BADGE_STYLE: CSSProperties = {
  * there is no bucket-shaped read-only screen to route to here either.
  */
 const artistRowHref = (
-  artist: { id: number; lettercode?: string },
+  artist: { id: number; lettercode?: string; genre_id?: number },
   canModify: boolean,
-): string =>
-  canModify
-    ? artistCardHref(
-        { id: artist.id, code_letters: artist.lettercode ?? "" },
-        { genreId: null },
-      )
-    : `/dashboard/library/artist/${artist.id}/view`;
+): string => {
+  // The row knows which shelf it is: an `artists` row can carry two unrelated
+  // bands filed under different genres, and this row's own `numbercode` was
+  // keyed on one of them. Without the genre the card collapses onto the
+  // artist's lowest membership, so both bands answer on one page. Absent (a
+  // response that predates the field), the link stays unscoped rather than
+  // naming a genre it does not know.
+  const genreId = artist.genre_id ?? null;
+  if (canModify) {
+    return artistCardHref({ id: artist.id, code_letters: artist.lettercode ?? "" }, { genreId });
+  }
+  const view = `/dashboard/library/artist/${artist.id}/view`;
+  return genreId == null ? view : `${view}?${new URLSearchParams({ genre_id: String(genreId) })}`;
+};
 
 /**
  * `canModify` is resolved once, server-side, by the page and threaded down
@@ -218,7 +225,11 @@ export default function SearchResults({ canModify }: { canModify: boolean }) {
                 {result.artist?.id ? (
                   <Link
                     href={artistRowHref(
-                      { id: result.artist.id, lettercode: result.artist.lettercode },
+                      {
+                        id: result.artist.id,
+                        lettercode: result.artist.lettercode,
+                        genre_id: result.artist.genre_id,
+                      },
                       canModify,
                     )}
                   >

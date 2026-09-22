@@ -27,6 +27,10 @@ export function convertLmlItemToAlbumEntry(item: LmlLibraryItem): AlbumEntry {
       numbercode: item.artist_call_number ?? 0,
       // Verbatim; the sentinel is for a row with no genre. See `ArtistEntry.genre`.
       genre: item.genre ?? "Unknown",
+      // LML answers out of its own `library.db`, which carries a genre NAME
+      // and no Backend `genres.id` — so an LML-sourced row cannot scope an
+      // artist card, and says so rather than guessing one from the name.
+      genre_id: undefined,
       id: undefined,
     },
     entry: item.release_call_number ?? 0,

@@ -60,6 +60,14 @@ export type AlbumSearchResultJSON = Omit<
    * sanitise before binding one into an href.
    */
   urls?: string[];
+  /**
+   * Which shelf this row is filed on. Hand-added for the same reason as
+   * `urls` above — the published `AlbumSearchResult` predates the read
+   * projection that emits it; delete this arm once the generated type carries
+   * it. Optional because a Backend that predates the field omits it, and the
+   * consumer must fall back rather than send `undefined`.
+   */
+  genre_id?: number;
 };
 
 export type SearchCatalogQueryParams = {
@@ -640,6 +648,17 @@ export type ArtistEntry = {
    * where the source value was missing.
    */
   genre: string;
+  /**
+   * The id behind `genre`, when the row carried one. Load-bearing where
+   * `genre` is not: an `artists` row can hold two unrelated bands filed under
+   * different genres, and the crossreference is unique on the (artist, genre)
+   * pair — so this, not `id`, is what picks which card the artist opens.
+   * `numbercode` above is that artist's code IN this genre.
+   *
+   * `undefined` when the response predates the field; a link must then fall
+   * back to the unscoped card rather than naming a genre it does not know.
+   */
+  genre_id: number | undefined;
   id: number | undefined;
 };
 
