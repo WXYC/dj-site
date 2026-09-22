@@ -110,12 +110,12 @@ describe("Classic SearchResults artist link — authority decides the card", () 
 
   it("scopes the read-only link to the same shelf", () => {
     renderRow(
-      { id: 431, name: "Isis", lettercode: "IS", numbercode: 1, genre: "Hiphop", genre_id: 4 },
+      { id: 431, name: "Isis", lettercode: "IS", numbercode: 1, genre: "Hiphop", genre_id: 6 },
       { canModify: false },
     );
 
     expect(screen.getByRole("link", { name: "Isis" }).getAttribute("href")).toBe(
-      "/dashboard/library/artist/431/view?genre_id=4",
+      "/dashboard/library/artist/431/view?genre_id=6",
     );
   });
 
