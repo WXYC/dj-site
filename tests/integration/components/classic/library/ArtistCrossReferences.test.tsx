@@ -176,17 +176,33 @@ describe("classic library-code cross-references — xrefsToLibraryCodes.jsp", ()
     );
   });
 
-  // The card a compilation bucket belongs on is decided structurally, on
-  // `code_letters`, wherever a link to an artist is built.
-  it("routes a Various Artists target to the bucket card", async () => {
+  /**
+   * The card a compilation bucket belongs on is decided structurally, on
+   * `code_letters`, wherever a link to an artist is built.
+   *
+   * Neither the link nor the code takes the served genre. A bucket is a shelf
+   * SECTION rather than a performer, filed under every genre it holds records
+   * in, so the substituted lowest membership names nothing about it — and the
+   * genres list is resolved here on purpose, because with it in flight this
+   * case would pass whether the rule held or not.
+   */
+  it("gives a Various Artists target the bucket card and no genre word", async () => {
     mockCrossReferences([
       createTestArtistCrossReference({
         target_artist_id: 777,
         target_artist_name: "Various Artists - Rock - K",
         target_code_letters: "V/A",
         target_code_artist_number: null,
+        target_code_genre_id: TEST_ENTITY_IDS.GENRE.JAZZ,
       }),
     ]);
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/library/genres`, () =>
+        HttpResponse.json([
+          { id: TEST_ENTITY_IDS.GENRE.JAZZ, genre_name: "Jazz", plays: 0 },
+        ]),
+      ),
+    );
 
     renderWithProviders(<ArtistCrossReferences />);
 

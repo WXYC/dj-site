@@ -7,7 +7,7 @@ import {
 } from "@/lib/features/catalog/api";
 import { artistCardHref } from "@/lib/features/catalog/artistCardRoute";
 import { CROSSREFERENCE_QUERY_MAX_LIMIT } from "@/lib/features/catalog/constants";
-import { formatCallLettersAndNumbers } from "@/lib/features/catalog/libraryCode";
+import { formatArtistLibraryCode } from "@/lib/features/catalog/libraryCode";
 import { useAuthentication } from "@/src/hooks/authenticationHooks";
 
 const CENTERED = { textAlign: "center" } as const;
@@ -38,7 +38,9 @@ const CENTERED = { textAlign: "center" } as const;
  *   target's lowest membership standing in for it. It is nonetheless the genre
  *   whose number this column displays, which is why the link is scoped to it.
  *   The prefix drops while the genres list is in flight, exactly as the
- *   sibling screen's does; `MO 12` still identifies the shelf section.
+ *   sibling screen's does, and drops for a compilation bucket, which spans
+ *   genres and has no one membership to name; `MO 12` still identifies the
+ *   shelf section.
  * - **The title row spans the columns that exist.** The JSP hardcodes
  *   `colspan=5` over a four-column table, which HTML honours by stretching the
  *   header past the table.
@@ -111,13 +113,12 @@ export default function ArtistCrossReferences() {
         </thead>
         <tbody>
           {results.map((row, index) => {
-            const targetCode = formatCallLettersAndNumbers({
+            const targetCode = formatArtistLibraryCode({
+              genreName: genres?.find((genre) => genre.id === row.target_code_genre_id)
+                ?.genre_name,
               code_letters: row.target_code_letters,
               code_artist_number: row.target_code_artist_number,
             });
-            const targetGenreName = genres?.find(
-              (genre) => genre.id === row.target_code_genre_id,
-            )?.genre_name;
             return (
               <tr
                 key={`${row.source_artist_id}-${row.target_artist_id}`}
@@ -149,7 +150,7 @@ export default function ArtistCrossReferences() {
                       { genreId: row.target_code_genre_id },
                     )}
                   >
-                    {targetGenreName ? `${targetGenreName} ${targetCode}` : targetCode}
+                    {targetCode}
                   </Link>
                   &nbsp;-&nbsp;{row.target_artist_name}
                 </td>
