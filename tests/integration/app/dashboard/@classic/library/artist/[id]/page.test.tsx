@@ -120,25 +120,16 @@ describe("classic /dashboard/library/artist/[id] page — artistCardModify.jsp",
     expect(screen.getByTestId("artist-card").getAttribute("data-genre-id")).toBe("");
   });
 
-  // Silently dropping a malformed genre would serve the conflated card this
-  // parameter exists to split -- the reported symptom, reached without a word
-  // to the librarian. A broken link gets the answer a broken link gets.
-  it.each([
-    ["non-numeric", "rock"],
-    ["blank", ""],
-    ["zero", "0"],
-    ["negative", "-11"],
-    // Two values name two conflicting memberships. The backend answers 400;
-    // picking one of them here would be the same silent wrong-card arrival.
-    ["repeated", ["6", "11"]],
-  ])(
-    "404s a %s genre rather than falling back to the collapsed card",
-    async (_label, genre_id) => {
-      setUpClassicPageAuthority("musicDirector");
+  // The input taxonomy (blank, zero, negative, scientific, hex, repeated key)
+  // belongs to `parseArtistCardGenreId`'s own suite. What this tier owes is
+  // that the page routes a malformed genre into `notFound()` at all: falling
+  // back to the unscoped read would serve the conflated card the parameter
+  // exists to split, silently.
+  it("404s a malformed genre rather than falling back to the collapsed card", async () => {
+    setUpClassicPageAuthority("musicDirector");
 
-      await expect(page("431", { genre_id })).rejects.toThrow("NEXT_NOT_FOUND");
-    },
-  );
+    await expect(page("431", { genre_id: "rock" })).rejects.toThrow("NEXT_NOT_FOUND");
+  });
 
   // A non-numeric segment would otherwise reach the card as NaN and render as
   // "this card could not be loaded", which describes a backend fault rather

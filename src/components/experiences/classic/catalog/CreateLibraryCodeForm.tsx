@@ -32,8 +32,11 @@ type CreateLibraryCodeFormProps = {
 // compilation code created here is a V/A row, and the artist card would
 // only redirect to the bucket card — dropping the `created` flag, and with
 // it the confirmation this push exists to deliver.
-const successDestination = (artistId: number, codeLetters: string) =>
-  artistCardHref({ id: artistId, code_letters: codeLetters }, { params: { created: "1" } });
+const successDestination = (artistId: number, codeLetters: string, genreId: number) =>
+  artistCardHref(
+    { id: artistId, code_letters: codeLetters },
+    { genreId, params: { created: "1" } },
+  );
 
 // The heading is the servlet's message, and it has two forms
 // (`ArtistAdminServlet:152-155`): a Various Artists code -- call letters
@@ -187,7 +190,7 @@ export default function CreateLibraryCodeForm({
 
     try {
       const created = await addArtist(body).unwrap();
-      router.push(successDestination(created.id, body.code_letters));
+      router.push(successDestination(created.id, body.code_letters, body.genre_id));
     } catch (err) {
       // Same discriminant as NewArtistForm's addArtist rejection handling:
       // a taken (code_letters, genre_id, code_number) triple is fixed by

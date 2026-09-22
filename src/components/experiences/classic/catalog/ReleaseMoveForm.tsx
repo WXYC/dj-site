@@ -338,10 +338,13 @@ export default function ReleaseMoveForm({ albumId }: { albumId: number }) {
               <td>
                 {currentArtistId != null ? (
                   <a
-                    href={artistCardHref({
-                      id: currentArtistId,
-                      code_letters: data.artist.lettercode,
-                    })}
+                    href={artistCardHref(
+                      {
+                        id: currentArtistId,
+                        code_letters: data.artist.lettercode,
+                      },
+                      { genreId: null },
+                    )}
                   >
                     {displayArtist}
                   </a>

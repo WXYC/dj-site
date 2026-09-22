@@ -127,7 +127,11 @@ describe("classic CreateLibraryCodeForm — createLibraryCode.jsp", () => {
     await waitFor(() => expect(getBodies()).toHaveLength(1));
     expect(getBodies()[0]).toMatchObject({ code_letters: "MO" });
     await waitFor(() =>
-      expect(mockPush).toHaveBeenCalledWith("/dashboard/library/artist/99?created=1"),
+      // Scoped to the genre just filed under: find-or-create can land on a
+      // PRE-EXISTING artist filed under several genres, whose unscoped card
+      // reports the lowest genre's call number -- the wrong number, on the
+      // screen confirming the filing.
+      expect(mockPush).toHaveBeenCalledWith("/dashboard/library/artist/99?genre_id=3&created=1"),
     );
   });
 
@@ -275,7 +279,7 @@ describe("classic CreateLibraryCodeForm — createLibraryCode.jsp", () => {
       genre_id: GENRE_ID,
       code_number: 12,
     });
-    expect(mockPush).toHaveBeenCalledWith("/dashboard/library/artist/99?created=1");
+    expect(mockPush).toHaveBeenCalledWith("/dashboard/library/artist/99?genre_id=3&created=1");
   });
 
   it("shows the code-conflict message on a 409 naming the artist_code_conflict reason", async () => {

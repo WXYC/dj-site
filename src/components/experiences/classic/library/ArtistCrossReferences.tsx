@@ -118,10 +118,13 @@ export default function ArtistCrossReferences() {
               </td>
               <td style={CENTERED}>
                 <Link
-                  href={artistCardHref({
-                    id: row.target_artist_id,
-                    code_letters: row.target_code_letters,
-                  })}
+                  href={artistCardHref(
+                    {
+                      id: row.target_artist_id,
+                      code_letters: row.target_code_letters,
+                    },
+                    { genreId: null },
+                  )}
                 >
                   {formatCallLettersAndNumbers({
                     code_letters: row.target_code_letters,

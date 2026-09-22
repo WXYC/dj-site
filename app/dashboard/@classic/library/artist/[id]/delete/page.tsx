@@ -5,7 +5,7 @@ import { requireAuth, requireRole } from "@/lib/features/authentication/server-u
 import { Authorization } from "@/lib/features/admin/types";
 import Main from "@/src/components/experiences/classic/Layout/Main";
 import ArtistDeleteConfirm from "@/src/components/experiences/classic/catalog/ArtistDeleteConfirm";
-import { parseArtistCardGenreId } from "@/lib/features/catalog/artistCardRoute";
+import { artistCardGenreIdOrNotFound } from "@/lib/features/catalog/artistCardRoute.server";
 
 export const metadata: Metadata = {
   title: getPageTitle("Delete The Artist"),
@@ -39,15 +39,7 @@ export default async function ClassicArtistDeletePage({
   }
 
   const search = await searchParams;
-  // A malformed `genre_id` is a broken link, the same class of wrong URL as a
-  // non-numeric id segment, and gets the same answer. Falling back to the
-  // unscoped read instead would quietly serve the collapsed card -- one shelf's
-  // code over every shelf's releases -- which is the symptom the parameter
-  // exists to prevent.
-  const genreId = parseArtistCardGenreId(search.genre_id);
-  if (genreId === null) {
-    notFound();
-  }
+  const genreId = artistCardGenreIdOrNotFound(search.genre_id);
 
   return (
     <Main>
