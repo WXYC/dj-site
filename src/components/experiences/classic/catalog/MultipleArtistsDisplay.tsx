@@ -158,7 +158,7 @@ export default function MultipleArtistsDisplay({
                       code reached several artists, and landing any of them on
                       an unscoped card would undo the disambiguation. */}
                   <Link
-                    href={artistCardHref(artist, artist.genre_id)}
+                    href={artistCardHref(artist, { genreId: artist.genre_id })}
                     onClick={() => onChoose?.(artist, index)}
                   >
                     {artist.artist_name}

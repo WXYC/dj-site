@@ -177,9 +177,11 @@ export type AddArtistConflict = {
  * endpoint (and `PATCH` on the same path) already return alongside it.
  *
  * `code_artist_number` is genre-scoped (it lives on
- * `genre_artist_crossreference`), and the endpoint collapses a multi-genre
- * artist to its lowest `genre_id`, so `genre_id` here names which genre's code
- * this is — not merely which genre the artist is filed under.
+ * `genre_artist_crossreference`), so `genre_id` here names which genre's code
+ * this is — not merely which genre the artist is filed under. When the request
+ * names a genre, that is the membership. When it does not, the endpoint
+ * collapses a multi-genre artist to its lowest `genre_id` and reports that
+ * one, which is what every caller predating the parameter still gets.
  *
  * Deliberately carries no `last_modified`: the JSP shows a "Time Last
  * Modified" row for the artist and this endpoint does not project one.
@@ -287,18 +289,16 @@ export type PeekArtistCodeResponse = {
 export type NextReleaseNumberQuery = {
   artistId: number;
   /**
-   * The genre whose shelf to answer off. Today this is always
-   * `ArtistCard.genre_id`, which for an artist catalogued under more than one
-   * genre is the LOWEST of them -- `getArtistCardByIdInGenre` collapses a
-   * multi-genre artist that way, so the card, and therefore this peek, report
-   * that genre's shelf rather than one the librarian chose.
+   * The genre whose shelf to answer off. Always `ArtistCard.genre_id` -- the
+   * membership the card on screen is showing, which is the shelf the release
+   * is being filed on, so the number this previews is the number that lands on
+   * the sleeve.
    *
-   * That is an accepted limit, not a defect to route around here: a
-   * multi-genre artist filing under a higher genre gets a number off the lower
-   * genre's shelf. Closing it needs a genre the librarian selects, which is a
-   * change to the card, not to this type. Do NOT build on an assumption that
-   * this already names the genre being filed under -- it names the genre the
-   * card is showing, and for a single-genre artist those coincide.
+   * That holds because the card carries the genre the link named. Reached
+   * without one, the card falls back to the artist's LOWEST `genre_id`, and a
+   * multi-genre artist filing under a higher genre would then preview a number
+   * off the lower genre's shelf. So this is only as correct as the link that
+   * reached the card: keep inbound links genre-scoped.
    */
   genre_id: number;
 };

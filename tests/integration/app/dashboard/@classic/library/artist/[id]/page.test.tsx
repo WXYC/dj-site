@@ -123,7 +123,15 @@ describe("classic /dashboard/library/artist/[id] page — artistCardModify.jsp",
   // Silently dropping a malformed genre would serve the conflated card this
   // parameter exists to split -- the reported symptom, reached without a word
   // to the librarian. A broken link gets the answer a broken link gets.
-  it.each([["non-numeric", "rock"], ["blank", ""], ["zero", "0"], ["negative", "-11"]])(
+  it.each([
+    ["non-numeric", "rock"],
+    ["blank", ""],
+    ["zero", "0"],
+    ["negative", "-11"],
+    // Two values name two conflicting memberships. The backend answers 400;
+    // picking one of them here would be the same silent wrong-card arrival.
+    ["repeated", ["6", "11"]],
+  ])(
     "404s a %s genre rather than falling back to the collapsed card",
     async (_label, genre_id) => {
       setUpClassicPageAuthority("musicDirector");

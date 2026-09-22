@@ -45,10 +45,10 @@ describe("artistCardHref genre scope", () => {
   // under Hiphop and `IS 13` under Rock -- two unrelated bands. A link that
   // knows which one it means says so.
   it("carries the genre so each membership gets its own card", () => {
-    expect(artistCardHref({ id: 431, code_letters: "IS" }, 11)).toBe(
+    expect(artistCardHref({ id: 431, code_letters: "IS" }, { genreId: 11 })).toBe(
       "/dashboard/library/artist/431?genre_id=11",
     );
-    expect(artistCardHref({ id: 431, code_letters: "IS" }, 6)).toBe(
+    expect(artistCardHref({ id: 431, code_letters: "IS" }, { genreId: 6 })).toBe(
       "/dashboard/library/artist/431?genre_id=6",
     );
   });
@@ -60,7 +60,7 @@ describe("artistCardHref genre scope", () => {
     ["omitted", undefined],
     ["null", null],
   ])("leaves the href unchanged when the genre is %s", (_label, genreId) => {
-    expect(artistCardHref({ id: 4211, code_letters: "MOLI" }, genreId)).toBe(
+    expect(artistCardHref({ id: 4211, code_letters: "MOLI" }, { genreId })).toBe(
       "/dashboard/library/artist/4211",
     );
   });
@@ -69,9 +69,58 @@ describe("artistCardHref genre scope", () => {
   // 1087 ('Various Artists') is filed under 14 -- so scoping its card to one
   // would hide most of the section. The genre is dropped rather than honoured.
   it("drops the genre for a compilation bucket, which is not genre-scoped", () => {
-    expect(artistCardHref({ id: 1087, code_letters: "V/A" }, 11)).toBe(
+    expect(artistCardHref({ id: 1087, code_letters: "V/A" }, { genreId: 11 })).toBe(
       "/dashboard/library/various/1087",
     );
+  });
+});
+
+describe("artistCardHref extra query parameters", () => {
+  // Three callers used to append their own `?created=1` / `?imported=...` to
+  // this builder's return value. That was safe only while the builder never
+  // emitted a query string of its own. Now that it can, appending yields
+  // `?genre_id=11?created=1`, which `parseArtistCardGenreId` reads as
+  // malformed and the route answers with `notFound()` -- a successful artist
+  // create landing on a 404. Composition happens here, once.
+  it("composes extra parameters alongside the genre", () => {
+    expect(
+      artistCardHref(
+        { id: 431, code_letters: "IS" },
+        { genreId: 11, params: { created: "1" } },
+      ),
+    ).toBe("/dashboard/library/artist/431?genre_id=11&created=1");
+  });
+
+  it("composes extra parameters when no genre is named", () => {
+    expect(
+      artistCardHref({ id: 4211, code_letters: "MOLI" }, { params: { created: "1" } }),
+    ).toBe("/dashboard/library/artist/4211?created=1");
+  });
+
+  // A bucket takes no genre but still takes the confirmation flag: creating a
+  // compilation row lands on the bucket card and has to say so.
+  it("keeps extra parameters on a compilation bucket, which takes no genre", () => {
+    expect(
+      artistCardHref(
+        { id: 1087, code_letters: "V/A" },
+        { genreId: 11, params: { created: "1" } },
+      ),
+    ).toBe("/dashboard/library/various/1087?created=1");
+  });
+
+  // A volume letter can carry a space or a slash. The rotation import used to
+  // hand-encode it before concatenating; the builder encodes now, so a
+  // pre-encoded value would arrive double-encoded.
+  it("encodes a parameter value exactly once", () => {
+    expect(
+      artistCardHref({ id: 431, code_letters: "IS" }, { params: { vol: "A/B C" } }),
+    ).toBe("/dashboard/library/artist/431?vol=A%2FB+C");
+  });
+
+  it("accepts a numeric parameter value", () => {
+    expect(
+      artistCardHref({ id: 431, code_letters: "IS" }, { params: { imported: 5150 } }),
+    ).toBe("/dashboard/library/artist/431?imported=5150");
   });
 });
 
@@ -86,10 +135,18 @@ describe("parseArtistCardGenreId", () => {
     expect(parseArtistCardGenreId(undefined)).toBeUndefined();
   });
 
-  // A repeated key reaches `searchParams` as an array; match
-  // `useSearchParams().get()` and take the first, as `firstSearchParam` does.
-  it("takes the first value of a repeated key", () => {
-    expect(parseArtistCardGenreId(["6", "11"])).toBe(6);
+  // A repeated key names two conflicting memberships, and the backend answers
+  // 400 for it. Taking the first would serve the Hiphop card for a URL that
+  // also asked for Rock -- arriving at a card you did not ask for, silently,
+  // which is the whole failure this parse exists to prevent. Malformed.
+  it("rejects a repeated key rather than picking one of the two", () => {
+    expect(parseArtistCardGenreId(["6", "11"])).toBeNull();
+  });
+
+  // One value in an array is not a conflict -- it is the same single genre the
+  // string form carries.
+  it("reads a single-element array as that genre", () => {
+    expect(parseArtistCardGenreId(["11"])).toBe(11);
   });
 
   // Malformed is NOT silently treated as absent. Falling back to the unscoped

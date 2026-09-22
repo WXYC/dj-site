@@ -322,10 +322,16 @@ export default function RotationImportScreen({ rotationId }: { rotationId: numbe
 
       if (result.kind === "linked") {
         router.push(
-          `${artistCardHref({ id: result.artistId, code_letters: result.codeLetters })}` +
-            `?imported=${result.rotationId}` +
-            (result.codeNumber != null ? `&code=${result.codeNumber}` : "") +
-            (result.codeVolumeLetters ? `&vol=${encodeURIComponent(result.codeVolumeLetters)}` : ""),
+          artistCardHref(
+            { id: result.artistId, code_letters: result.codeLetters },
+            {
+              params: {
+                imported: result.rotationId,
+                ...(result.codeNumber != null ? { code: result.codeNumber } : {}),
+                ...(result.codeVolumeLetters ? { vol: result.codeVolumeLetters } : {}),
+              },
+            },
+          ),
         );
         return;
       }
