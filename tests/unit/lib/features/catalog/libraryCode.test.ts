@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   formatArtistCodeWithPunctuation,
+  formatArtistLibraryCode,
   formatCallLettersAndNumbers,
   formatReleaseCode,
   formatEntireLibraryCode,
@@ -161,6 +162,44 @@ describe("formatEntireLibraryCode — LibraryRelease.java:129", () => {
         code_volume_letters: null,
       }),
     ).toBe("MO 12/5");
+  });
+});
+
+describe("formatArtistLibraryCode — fullLibraryCode over an artist's own filing", () => {
+  it("prefixes the genre word the JSP renders", () => {
+    expect(
+      formatArtistLibraryCode({
+        genreName: "Jazz",
+        code_letters: "el",
+        code_artist_number: 12,
+      }),
+    ).toBe("Jazz EL 12");
+  });
+
+  it("omits the prefix rather than the whole code when the genre name is unknown", () => {
+    expect(
+      formatArtistLibraryCode({
+        genreName: undefined,
+        code_letters: "EL",
+        code_artist_number: 12,
+      }),
+    ).toBe("EL 12");
+  });
+
+  // A bucket is a shelf SECTION, not a performer: `Various Artists` is filed
+  // under 14 genres, so no single one describes it, and the number the genre
+  // word would qualify is already dropped. The genre offered here is whatever
+  // membership the server happened to substitute, so rendering it would name a
+  // shelf off an artist that spans them all -- the same reason
+  // `artistCardHref` refuses to scope a bucket's card.
+  it.each(["V/A", "Z-A"])("drops the genre word for the compilation bucket %s", (codeLetters) => {
+    expect(
+      formatArtistLibraryCode({
+        genreName: "Rock",
+        code_letters: codeLetters,
+        code_artist_number: null,
+      }),
+    ).toBe("V/A");
   });
 });
 

@@ -134,6 +134,36 @@ export function formatCallLettersAndNumbers({
 }
 
 /**
+ * The artist half of a call number with the genre word the JSP's
+ * `fullLibraryCode` prefixes -- `Jazz EL 12`. The artist-card analogue of
+ * `formatEntireLibraryCode`, for the screens that render an artist's own
+ * filing with no release half.
+ *
+ * `genreName` is optional for the same reason it is there: it is resolved from
+ * the genres list, which can be in flight, and `EL 12` is still enough to walk
+ * to the shelf.
+ *
+ * A compilation bucket takes NO genre word, matching `artistCardHref`'s rule
+ * for the card the same code links to. A bucket is a shelf section rather than
+ * a performer -- `Various Artists` is filed under 14 genres -- so there is no
+ * one membership to name, and the number this word would qualify was already
+ * dropped by the line above. Naming one anyway would pick a genre off an
+ * artist that spans them all.
+ */
+export function formatArtistLibraryCode({
+  genreName,
+  ...parts
+}: Pick<ArtistCodeParts, "code_letters" | "code_artist_number"> & {
+  genreName?: string;
+}): string {
+  const code = formatCallLettersAndNumbers(parts);
+  if (!genreName || isVariousArtists(parts.code_letters)) {
+    return code;
+  }
+  return `${genreName} ${code}`;
+}
+
+/**
  * The artist half of a call number, with its trailing punctuation: `MO 12/`
  * for a named artist, `V/A-` for a compilation bucket, and the sub-bucket
  * letter alone (`X-`) for a Soundtracks compilation.
