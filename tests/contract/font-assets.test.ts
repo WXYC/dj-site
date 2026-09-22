@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { sourceFiles } from "@/tests/helpers/source-files";
 
 // Minbus is the modern theme's h1-h4 title face, wired in buildTheme.ts. The
 // original .otf shipped its whole 124-glyph face (~76 KB decoded) on every
@@ -15,21 +16,9 @@ import { join } from "node:path";
 // than subset.
 const FONTS_DIR = join(process.cwd(), "public", "fonts");
 const SCAN_ROOTS = ["src", "app", "lib"];
+const SOURCE_EXTENSIONS = /\.(tsx?|jsx?|mjs|cjs|css|scss)$/;
 const RETIRED = ["fonts/Minbus.otf", "fonts/Oxin.ttf", "fonts/Oxin-g0oR.ttf"];
 
-function sourceFiles(dir: string): string[] {
-  const out: string[] = [];
-  for (const entry of readdirSync(dir)) {
-    if (entry === "node_modules" || entry.startsWith(".")) continue;
-    const full = join(dir, entry);
-    if (statSync(full).isDirectory()) {
-      out.push(...sourceFiles(full));
-    } else if (/\.(tsx?|jsx?|mjs|cjs|css|scss)$/.test(entry)) {
-      out.push(full);
-    }
-  }
-  return out;
-}
 
 describe("font assets (cold-load contract)", () => {
   it("ships the subsetted woff2 title face", () => {
@@ -48,15 +37,9 @@ describe("font assets (cold-load contract)", () => {
   });
 
   it("has no source reference to the retired originals", () => {
-    const offenders: string[] = [];
-    for (const root of SCAN_ROOTS) {
-      const abs = join(process.cwd(), root);
-      if (!existsSync(abs)) continue;
-      for (const file of sourceFiles(abs)) {
-        const text = readFileSync(file, "utf8");
-        if (RETIRED.some((p) => text.includes(p))) offenders.push(file);
-      }
-    }
+    const offenders = sourceFiles(SCAN_ROOTS, SOURCE_EXTENSIONS).filter((file) =>
+      RETIRED.some((p) => readFileSync(file, "utf8").includes(p)),
+    );
     expect(offenders).toEqual([]);
   });
 });

@@ -30,17 +30,14 @@ const CENTERED = { textAlign: "center" } as const;
  *   does not exist — so there is nothing to render and no migration should
  *   invent it. The JSP's fourth column is dropped rather than filled with a
  *   placeholder date that would read as fact.
- * - **The cross-referenced code's genre word is a substitution.** The JSP
- *   renders `fullLibraryCode`, which prefixes the target's genre name, and the
- *   endpoint does serve a `target_code_genre_id` to prefix it with — but
- *   `artist_crossreference` stores only the two artist ids, so the placement
- *   the librarian pointed at is unrecoverable and the served genre is the
- *   target's lowest membership standing in for it. It is nonetheless the genre
- *   whose number this column displays, which is why the link is scoped to it.
- *   The prefix drops while the genres list is in flight, exactly as the
- *   sibling screen's does, and drops for a compilation bucket, which spans
- *   genres and has no one membership to name; `MO 12` still identifies the
- *   shelf section.
+ * - **The cross-referenced code carries the JSP's `fullLibraryCode` genre
+ *   word**, from `target_code_genre_id` — a documented substitution, not the
+ *   librarian's own placement; see `ArtistCrossReferenceRow`. It is the genre
+ *   whose number this column displays, which is why the link scopes to the
+ *   same value. The prefix drops while the genres list is in flight, exactly
+ *   as the sibling screen's does, and drops for a compilation bucket, which
+ *   spans genres and has no one membership to name; `MO 12` still identifies
+ *   the shelf section.
  * - **The title row spans the columns that exist.** The JSP hardcodes
  *   `colspan=5` over a four-column table, which HTML honours by stretching the
  *   header past the table.

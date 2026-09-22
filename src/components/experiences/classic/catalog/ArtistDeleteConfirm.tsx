@@ -7,7 +7,7 @@ import {
   useGetGenresQuery,
 } from "@/lib/features/catalog/api";
 import { artistCardHref } from "@/lib/features/catalog/artistCardRoute";
-import { formatCallLettersAndNumbers } from "@/lib/features/catalog/libraryCode";
+import { formatArtistLibraryCode } from "@/lib/features/catalog/libraryCode";
 import {
   ARTIST_DELETE_COUNTS_UNREADABLE_MESSAGE,
   artistDeleteBlockers,
@@ -115,15 +115,11 @@ export default function ArtistDeleteConfirm({
   const identityKnown = genreName !== undefined;
   const identityUnresolvable =
     !identityKnown && (genresUnreadable || genres !== undefined);
-  const liveIdentityCode = [
+  const liveIdentityCode = formatArtistLibraryCode({
     genreName,
-    formatCallLettersAndNumbers({
-      code_letters: card.code_letters,
-      code_artist_number: card.code_artist_number,
-    }),
-  ]
-    .filter(Boolean)
-    .join(" ");
+    code_letters: card.code_letters,
+    code_artist_number: card.code_artist_number,
+  });
   const identityCode = deleted?.identityCode ?? liveIdentityCode;
   const cardHref = artistCardHref({ id: artistId, code_letters: card.code_letters }, { genreId: genreId ?? null });
 

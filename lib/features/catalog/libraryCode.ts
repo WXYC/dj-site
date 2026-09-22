@@ -152,12 +152,13 @@ export function formatCallLettersAndNumbers({
  */
 export function formatArtistLibraryCode({
   genreName,
-  ...parts
+  code_letters,
+  code_artist_number,
 }: Pick<ArtistCodeParts, "code_letters" | "code_artist_number"> & {
   genreName?: string;
 }): string {
-  const code = formatCallLettersAndNumbers(parts);
-  if (!genreName || isVariousArtists(parts.code_letters)) {
+  const code = formatCallLettersAndNumbers({ code_letters, code_artist_number });
+  if (!genreName || isVariousArtists(code_letters)) {
     return code;
   }
   return `${genreName} ${code}`;
