@@ -114,8 +114,17 @@ const EMPTY_TITLE_MESSAGE = "Please enter a title before adding this release.";
  * and both cross-reference lists empty), matched here rather than diverged
  * from like the bullets above. Its *position* does differ, and not because
  * the contract forced it: the JSP kept the link in the modify table under
- * "Modify This Artist", and here it sits with the "no library releases"
- * line, which states in words the same fact the pre-check turns on.
+ * "Modify This Artist", and here it sits with the "no library releases" line.
+ *
+ * Those two no longer state the same fact, and the asymmetry is deliberate.
+ * The release table is scoped to the membership on screen; the counts
+ * `artistDeleteIsOffered` reads are artist-wide. So a multi-genre artist whose
+ * releases all sit on another shelf shows "no library releases" here while the
+ * delete link stays withheld. Withheld is the truthful answer: `DELETE
+ * /library/artists/:id` refuses on artist-wide dependents, so offering it
+ * would promise a delete the server would reject with a 409. `/wxycdb` could
+ * not reach this state -- each shelf was its own row there, so a shelf with no
+ * releases genuinely had no dependents.
  */
 export default function ArtistCard({ artistId, genreId, message, imported }: ArtistCardProps) {
   const router = useRouter();

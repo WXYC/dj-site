@@ -38,7 +38,7 @@ const MISSING_CODE_NUMBER_MESSAGE = "You must enter a code number.";
 // only redirect to the bucket card — dropping the `created` flag, and with
 // it the confirmation this push exists to deliver.
 const successDestination = (artistId: number, codeLetters: string) =>
-  `${artistCardHref({ id: artistId, code_letters: codeLetters })}?created=1`;
+  artistCardHref({ id: artistId, code_letters: codeLetters }, { params: { created: "1" } });
 
 /**
  * Reproduces `chooseLibraryCodeOrArtist.jsp`'s `newArtistForm`: presentation

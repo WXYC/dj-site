@@ -364,7 +364,7 @@ export default function ArtistSearchForm({ onMultiMatch }: ArtistSearchFormProps
       // about. A code is genre-scoped -- `Rock IS 13` and `Hiphop IS 1` are two
       // unrelated bands on one artist row -- so an unscoped link would answer a
       // fully-specified code with whichever membership sorts lowest.
-      router.push(artistCardHref(owners[0], owners[0].genre_id));
+      router.push(artistCardHref(owners[0], { genreId: owners[0].genre_id }));
       return;
     }
 

@@ -125,7 +125,7 @@ export default function ArtistDeleteConfirm({
     .filter(Boolean)
     .join(" ");
   const identityCode = deleted?.identityCode ?? liveIdentityCode;
-  const cardHref = artistCardHref({ id: artistId, code_letters: card.code_letters }, genreId);
+  const cardHref = artistCardHref({ id: artistId, code_letters: card.code_letters }, { genreId });
 
   // Every gate names itself when no count is readable, so ask that first --
   // four clauses off four `undefined`s would assert four unobserved facts.

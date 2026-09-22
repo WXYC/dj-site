@@ -33,7 +33,7 @@ type CreateLibraryCodeFormProps = {
 // only redirect to the bucket card — dropping the `created` flag, and with
 // it the confirmation this push exists to deliver.
 const successDestination = (artistId: number, codeLetters: string) =>
-  `${artistCardHref({ id: artistId, code_letters: codeLetters })}?created=1`;
+  artistCardHref({ id: artistId, code_letters: codeLetters }, { params: { created: "1" } });
 
 // The heading is the servlet's message, and it has two forms
 // (`ArtistAdminServlet:152-155`): a Various Artists code -- call letters

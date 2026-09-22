@@ -15,7 +15,7 @@ import { isVariousArtists } from "./libraryCode";
  * name would drop the entire `Soundtracks - <A–Z>` sub-shelf, which carries no
  * compilation keyword anywhere in its names.
  *
- * `genreId` names WHICH of the artist's memberships the link means.
+ * `link.genreId` names WHICH of the artist's memberships the link means.
  * `genre_artist_crossreference` is unique on `(artist_id, genre_id)`, so an id
  * alone does not identify a card: artist 431 ('Isis') is a hip-hop act filed
  * `IS 1` under Hiphop and a metal band filed `IS 13` under Rock, and an
@@ -27,20 +27,39 @@ import { isVariousArtists } from "./libraryCode";
  * A compilation bucket takes no genre even when one is supplied. A bucket is a
  * shelf SECTION, not a performer, and artist 1087 ('Various Artists') is filed
  * under 14 genres across 3,107 rows; scoping its card to one would hide most
- * of the section rather than disambiguate anything.
+ * of the section rather than disambiguate anything. It still takes
+ * `link.params`: creating a compilation row lands on the bucket card and has
+ * to carry its confirmation flag there.
+ *
+ * `link.params` exists because this builder can now emit a query string, and a
+ * caller that appends its own would produce `?genre_id=11?created=1` — which
+ * `parseArtistCardGenreId` reads as malformed, so the route answers
+ * `notFound()` and a successful create lands on a 404. Values are encoded
+ * here; pass them raw.
  */
 export function artistCardHref(
   artist: {
     id: number;
     code_letters: string;
   },
-  genreId?: number | null,
+  link: {
+    genreId?: number | null;
+    params?: Record<string, string | number>;
+  } = {},
 ): string {
-  if (isVariousArtists(artist.code_letters)) {
-    return `/dashboard/library/various/${artist.id}`;
+  const bucket = isVariousArtists(artist.code_letters);
+  const query = new URLSearchParams();
+  if (!bucket && link.genreId != null) {
+    query.set("genre_id", String(link.genreId));
   }
-  const card = `/dashboard/library/artist/${artist.id}`;
-  return genreId == null ? card : `${card}?genre_id=${genreId}`;
+  for (const [key, value] of Object.entries(link.params ?? {})) {
+    query.set(key, String(value));
+  }
+  const path = bucket
+    ? `/dashboard/library/various/${artist.id}`
+    : `/dashboard/library/artist/${artist.id}`;
+  const suffix = query.toString();
+  return suffix.length === 0 ? path : `${path}?${suffix}`;
 }
 
 /**
@@ -58,20 +77,26 @@ export function artistCardHref(
  *   absent instead would quietly serve the conflated card this parameter
  *   exists to split, which is the reported symptom reached silently.
  *
- * A repeated key arrives as `string[]`; the first value wins, matching
- * `firstSearchParam` and `useSearchParams().get()`.
+ * A repeated key arrives as `string[]`. Two values name two conflicting
+ * memberships, so it is malformed rather than first-wins: taking the first
+ * would serve the Hiphop card for a URL that also asked for Rock, which is the
+ * silent wrong-card arrival this parse exists to prevent. `GET
+ * /library/artists/:id` answers 400 for the same input, so the two halves of
+ * the contract agree. A one-element array is just the string form.
  */
 export function parseArtistCardGenreId(
   value: string | string[] | undefined,
 ): number | undefined | null {
-  const raw = Array.isArray(value) ? value[0] : value;
-  if (raw === undefined) {
+  if (Array.isArray(value)) {
+    return value.length === 1 ? parseArtistCardGenreId(value[0]) : null;
+  }
+  if (value === undefined) {
     return undefined;
   }
   // `Number("")` and `Number(" ")` are both 0, which would pass an
   // `Number.isInteger` check as a legitimate value; fold blank to NaN first so
   // one comparison covers it.
-  const genreId = raw.trim() === "" ? NaN : Number(raw);
+  const genreId = value.trim() === "" ? NaN : Number(value);
   return Number.isInteger(genreId) && genreId > 0 ? genreId : null;
 }
 
