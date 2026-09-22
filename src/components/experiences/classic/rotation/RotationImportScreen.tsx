@@ -329,7 +329,11 @@ export default function RotationImportScreen({ rotationId }: { rotationId: numbe
               // artist membership its new call number belongs to: the existing
               // branch takes it off the chosen match and the create branch
               // files artist and release under the one genre the form picked.
-              genreId: request.album.genre_id,
+              // The POST body's `?? 0` sentinel (a match may omit its genre)
+              // must not leak into the URL: the card route reads 0 as
+              // malformed, not absent, so a successful import would land on a
+              // 404. Genre unknown -> the unscoped card, the honest answer.
+              genreId: request.album.genre_id > 0 ? request.album.genre_id : null,
               params: {
                 imported: result.rotationId,
                 ...(result.codeNumber != null ? { code: result.codeNumber } : {}),

@@ -123,11 +123,9 @@ describe("classic library-code cross-references — xrefsToLibraryCodes.jsp", ()
 
   /**
    * The JSP's code column is `fullLibraryCode` — `Jazz BA 7`, not a bare
-   * `BA 7`. The genre is a documented SUBSTITUTION rather than the librarian's
-   * original choice: `artist_crossreference` stores two artist ids and nothing
-   * else, so the placement is unrecoverable and Backend substitutes the
-   * target's lowest membership. It is still the genre the displayed number
-   * belongs to, which is why the link scopes to the same value.
+   * `BA 7` — and the link scopes to the same genre the word names. That genre
+   * is a documented substitution, not the librarian's own placement; the full
+   * account lives on `ArtistCrossReferenceRow`.
    */
   it("prefixes the cross-referenced code with the genre the number belongs to", async () => {
     mockCrossReferences([

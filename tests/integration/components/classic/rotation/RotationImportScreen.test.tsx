@@ -377,6 +377,26 @@ describe("classic RotationImportScreen — the existing-artist submit chain", ()
     );
   });
 
+  // The search contract declines to promise a genre on a match, and the POST
+  // body papers over that with a `0` sentinel. The card route reads 0 as
+  // malformed, not absent, so the sentinel must never reach the redirect: a
+  // genreless match lands on the unscoped card instead.
+  it("leaves the landing card unscoped when the chosen match carries no genre", async () => {
+    const genreless: Record<string, unknown> = { ...MATCH };
+    delete genreless.genre_id;
+    delete genreless.genre_name;
+    mockMatches([genreless]);
+    mockWrites();
+    const { user } = renderWithProviders(<RotationImportScreen rotationId={6002} />);
+
+    await screen.findByText(/Adding to:/);
+    await user.click(screen.getByRole("button", { name: "Import to Library" }));
+
+    await waitFor(() =>
+      expect(mockPush).toHaveBeenCalledWith("/dashboard/library/artist/771?imported=6002&code=8"),
+    );
+  });
+
   // The rotation row's own label id is the normalized one; re-sending its
   // text would leave the release's label unresolved all over again.
   it("carries the rotation row's label_id silently and asks for no label", async () => {
