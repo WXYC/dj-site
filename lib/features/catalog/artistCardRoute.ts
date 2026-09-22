@@ -23,9 +23,10 @@ import { isVariousArtists } from "./libraryCode";
  * defaulted parameter would make forgetting the genre produce that collapse
  * silently, which is the failure this whole change exists to remove; spelled
  * `null`, each one is a visible decision and a future omission is a type
- * error. Several callers legitimately cannot supply it yet: the catalog search
- * row carries the genre as a name rather than an id, and a cross-reference row
- * carries no genre at all.
+ * error. The remaining legitimate `null` is the cross-REFERENCING artist on
+ * either cross-reference screen: those rows carry a call number for the target
+ * only, so there is no genre to name for the source without inventing a filing
+ * the record does not claim.
  * `genre_artist_crossreference` is unique on `(artist_id, genre_id)`, so an id
  * alone does not identify a card: artist 431 ('Isis') is a hip-hop act filed
  * `IS 1` under Hiphop and a metal band filed `IS 13` under Rock, and an

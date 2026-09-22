@@ -368,7 +368,13 @@ describe("classic RotationImportScreen — the existing-artist submit chain", ()
       code_number: 1,
       label: "self-released",
     });
-    expect(mockPush).toHaveBeenCalledWith("/dashboard/library/artist/771?imported=6002&code=8");
+    // The landing card names the membership the release was just filed under.
+    // `genre_artist_crossreference` is unique on (artist, genre), so the id
+    // alone would land a conflated name on its lowest-genre shelf — a
+    // different band's records than the one just catalogued.
+    expect(mockPush).toHaveBeenCalledWith(
+      "/dashboard/library/artist/771?genre_id=5&imported=6002&code=8",
+    );
   });
 
   // The rotation row's own label id is the normalized one; re-sending its
@@ -618,8 +624,12 @@ describe("classic RotationImportScreen — the new-artist submit chain", () => {
       code_number: 12,
     });
     expect(seen.album).toMatchObject({ artist_id: 771, genre_id: 5, album_title: "Edits" });
+    // The genre the form chose for the artist it just created is the same
+    // genre the release was filed under, so the landing card is scoped to it.
     await waitFor(() =>
-      expect(mockPush).toHaveBeenCalledWith("/dashboard/library/artist/771?imported=6002&code=1"),
+      expect(mockPush).toHaveBeenCalledWith(
+        "/dashboard/library/artist/771?genre_id=5&imported=6002&code=1",
+      ),
     );
   });
 

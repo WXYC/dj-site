@@ -7,6 +7,7 @@ import {
   renderWithProviders,
   server,
   TEST_BACKEND_URL,
+  TEST_ENTITY_IDS,
 } from "@/tests/helpers";
 
 // The real better-auth client installs listeners whose teardown is deferred a
@@ -76,7 +77,14 @@ describe("classic library-code cross-references — xrefsToLibraryCodes.jsp", ()
     expect(screen.queryByText(/time last modified/i)).not.toBeInTheDocument();
   });
 
-  it("links the cross-referencing artist to its own card", async () => {
+  /**
+   * Deliberately unscoped, and it must stay that way. The endpoint serves no
+   * genre for the SOURCE artist — the row records two artist ids and a call
+   * number for the target only — and the JSP rendered this column as a bare
+   * presentation name with no call code at all. There is no genre this link
+   * could name without inventing a filing the row says nothing about.
+   */
+  it("links the cross-referencing artist to its own card, with no genre invented for it", async () => {
     mockCrossReferences([
       createTestArtistCrossReference({
         source_artist_id: 4102,
@@ -107,10 +115,65 @@ describe("classic library-code cross-references — xrefsToLibraryCodes.jsp", ()
 
     expect(await screen.findByRole("link", { name: "EL 12" })).toHaveAttribute(
       "href",
-      "/dashboard/library/artist/991",
+      "/dashboard/library/artist/991?genre_id=6001",
     );
     const [, codeCell] = await cellsOfFirstRow();
     expect(codeCell).toHaveTextContent("EL 12 - Duke Ellington");
+  });
+
+  /**
+   * The JSP's code column is `fullLibraryCode` — `Jazz BA 7`, not a bare
+   * `BA 7`. The genre is a documented SUBSTITUTION rather than the librarian's
+   * original choice: `artist_crossreference` stores two artist ids and nothing
+   * else, so the placement is unrecoverable and Backend substitutes the
+   * target's lowest membership. It is still the genre the displayed number
+   * belongs to, which is why the link scopes to the same value.
+   */
+  it("prefixes the cross-referenced code with the genre the number belongs to", async () => {
+    mockCrossReferences([
+      createTestArtistCrossReference({
+        target_artist_id: 991,
+        target_artist_name: "Duke Ellington",
+        target_code_letters: "EL",
+        target_code_artist_number: 12,
+        target_code_genre_id: TEST_ENTITY_IDS.GENRE.JAZZ,
+      }),
+    ]);
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/library/genres`, () =>
+        HttpResponse.json([
+          { id: TEST_ENTITY_IDS.GENRE.JAZZ, genre_name: "Jazz", plays: 0 },
+        ]),
+      ),
+    );
+
+    renderWithProviders(<ArtistCrossReferences />);
+
+    expect(await screen.findByRole("link", { name: "Jazz EL 12" })).toHaveAttribute(
+      "href",
+      "/dashboard/library/artist/991?genre_id=6002",
+    );
+  });
+
+  // A target artist carrying no crossreference row at all has no substituted
+  // genre to serve, so the link falls back to the collapsed card rather than
+  // emitting `?genre_id=null`, and the code renders without its prefix.
+  it("leaves the target link unscoped when the row carries no genre", async () => {
+    mockCrossReferences([
+      createTestArtistCrossReference({
+        target_artist_id: 991,
+        target_code_letters: "EL",
+        target_code_artist_number: 12,
+        target_code_genre_id: null,
+      }),
+    ]);
+
+    renderWithProviders(<ArtistCrossReferences />);
+
+    expect(await screen.findByRole("link", { name: "EL 12" })).toHaveAttribute(
+      "href",
+      "/dashboard/library/artist/991",
+    );
   });
 
   // The card a compilation bucket belongs on is decided structurally, on

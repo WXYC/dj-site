@@ -201,7 +201,12 @@ export default function ReleaseDeleteConfirm({ albumId }: { albumId: number }) {
             </th>
             <td data-testid="release-delete-artist">
               {artistId != null ? (
-                <a href={artistCardHref({ id: artistId, code_letters: release.artist.lettercode }, { genreId: null })}>
+                <a
+                  href={artistCardHref(
+                    { id: artistId, code_letters: release.artist.lettercode },
+                    { genreId: release.genre_id ?? null },
+                  )}
+                >
                   {release.artist.name}
                 </a>
               ) : (
@@ -286,7 +291,10 @@ export default function ReleaseDeleteConfirm({ albumId }: { albumId: number }) {
           <>
             &nbsp;&nbsp;&nbsp;&nbsp;
             <a
-              href={artistCardHref({ id: artistId, code_letters: release.artist.lettercode }, { genreId: null })}
+              href={artistCardHref(
+                { id: artistId, code_letters: release.artist.lettercode },
+                { genreId: release.genre_id ?? null },
+              )}
               data-testid="release-delete-back-to-artist"
             >
               Back to the artist card

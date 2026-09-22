@@ -113,7 +113,15 @@ export default function ReleaseCrossReferences() {
                 <td style={CENTERED}>
                   {/* As on the sibling screen, the referencing artist's
                       `code_letters` are not served, and the ordinary card
-                      forwards a bucket row to the bucket card. */}
+                      forwards a bucket row to the bucket card.
+                      `row.genre_id` is NOT this artist's genre and must not
+                      scope this link: it belongs to the cross-referenced
+                      release, which is filed under someone else — that
+                      difference is the association the record holds. The card
+                      answers 404 for an artist not filed under the genre asked
+                      for, so borrowing it here would break the links it looks
+                      like it would fix. Nothing in the row says where this
+                      artist is filed, so the link names no shelf. */}
                   <Link href={`/dashboard/library/artist/${row.artist_id}`}>
                     {row.artist_name}
                   </Link>

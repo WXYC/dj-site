@@ -325,7 +325,11 @@ export default function RotationImportScreen({ rotationId }: { rotationId: numbe
           artistCardHref(
             { id: result.artistId, code_letters: result.codeLetters },
             {
-              genreId: null,
+              // The genre the release was just filed under, which is the
+              // artist membership its new call number belongs to: the existing
+              // branch takes it off the chosen match and the create branch
+              // files artist and release under the one genre the form picked.
+              genreId: request.album.genre_id,
               params: {
                 imported: result.rotationId,
                 ...(result.codeNumber != null ? { code: result.codeNumber } : {}),

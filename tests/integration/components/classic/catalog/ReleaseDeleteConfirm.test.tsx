@@ -129,6 +129,42 @@ describe("Classic ReleaseDeleteConfirm — libraryReleaseDelete.jsp", () => {
     );
   });
 
+  /**
+   * An `artists` row is not one band. Two acts filed under the same name in
+   * different genres share it, and `genre_artist_crossreference` is unique on
+   * the (artist, genre) pair — so the artist id alone does not identify a
+   * card, and an unscoped link collapses onto the artist's lowest genre. Both
+   * links here sit on the confirmation for an irreversible delete, and the
+   * release itself names which of the two shelves it is filed on.
+   */
+  it.each(["Autechre", "Back to the artist card"])(
+    "scopes the %s link to the genre the release is filed under",
+    (linkName) => {
+      loaded({ genre_id: 11 });
+
+      renderWithProviders(<ReleaseDeleteConfirm albumId={53375} />);
+
+      expect(screen.getByRole("link", { name: linkName }).getAttribute("href")).toBe(
+        "/dashboard/library/artist/4211?genre_id=11",
+      );
+    },
+  );
+
+  // A release read that carries no genre must still produce a working link
+  // rather than `?genre_id=undefined`.
+  it.each(["Autechre", "Back to the artist card"])(
+    "leaves the %s link unscoped when the release carries no genre",
+    (linkName) => {
+      loaded();
+
+      renderWithProviders(<ReleaseDeleteConfirm albumId={53375} />);
+
+      expect(screen.getByRole("link", { name: linkName }).getAttribute("href")).toBe(
+        "/dashboard/library/artist/4211",
+      );
+    },
+  );
+
   it("sends the artist id so the artist's release table drops the row too", async () => {
     loaded();
     mockDeleteAlbum.mockReturnValue({ unwrap: () => Promise.resolve(undefined) });
