@@ -20,7 +20,7 @@ vi.mock("@/lib/features/authentication/organization-utils", () => ({
 let registryMock: {
   info: { id: string; real_name?: string; dj_name?: string } | null;
   loading: boolean;
-} = { info: { id: "u1", real_name: "Maura Partrick", dj_name: "Anonymous" }, loading: false };
+} = { info: { id: "u1", real_name: "Test User", dj_name: "Anonymous" }, loading: false };
 
 vi.mock("@/src/hooks/authenticationHooks", () => ({
   useLogout: () => ({ handleLogout: vi.fn() }),
@@ -63,7 +63,7 @@ function session() {
 
 beforeEach(() => {
   registryMock = {
-    info: { id: "u1", real_name: "Maura Partrick", dj_name: "Anonymous" },
+    info: { id: "u1", real_name: "Test User", dj_name: "Anonymous" },
     loading: false,
   };
   currentPathname = "/dashboard/catalog";
@@ -103,7 +103,7 @@ describe("classic Navigation", () => {
       renderWithProviders(<Navigation />);
 
       expect(document.querySelector(".nav-identity")).toHaveTextContent(
-        "Maura Partrick"
+        "Test User"
       );
     });
 
@@ -274,7 +274,7 @@ describe("Navigation — hydrating with a session the server could not see", () 
     const serverHtml = renderToString(<Navigation />);
 
     registryMock = {
-      info: { id: "u1", real_name: "Maura Partrick" },
+      info: { id: "u1", real_name: "Test User" },
       loading: false,
     };
 
@@ -303,7 +303,7 @@ describe("Navigation — hydrating with a session the server could not see", () 
     // slot exists so a shared control-room browser says whose session is open.
     expect(recoverable).toEqual([]);
     expect(container.querySelector(".nav-identity")?.textContent).toBe(
-      "Maura Partrick",
+      "Test User",
     );
 
     act(() => root.unmount());

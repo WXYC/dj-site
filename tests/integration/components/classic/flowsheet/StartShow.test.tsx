@@ -9,7 +9,7 @@ import { setFieldValue } from "@/tests/helpers";
 const goLiveMock = vi.fn(() => Promise.resolve({ status: "ok" as const }));
 let userInfoMock: { id: string; real_name?: string; dj_name?: string } | null = {
   id: "test-user-1",
-  real_name: "Maura Partrick",
+  real_name: "Test User",
   dj_name: "Anonymous",
 };
 // Nothing else on air by default, so the ordinary submit reaches goLive
@@ -62,7 +62,7 @@ beforeEach(() => {
   openShowMock = null;
   userInfoMock = {
     id: "test-user-1",
-    real_name: "Maura Partrick",
+    real_name: "Test User",
     dj_name: "Anonymous",
   };
 });
@@ -147,7 +147,7 @@ describe("Classic StartShow — Public DJ Handle override (#694)", () => {
     // dj_name, not the empty string captured at initial mount.
     userInfoMock = {
       id: "test-user-1",
-      real_name: "Maura Partrick",
+      real_name: "Test User",
       dj_name: "Anonymous",
     };
     rerender(<StartShow />);
@@ -164,7 +164,7 @@ describe("Classic StartShow — Public DJ Handle override (#694)", () => {
     // value should win — we do not clobber their in-progress edit.
     userInfoMock = {
       id: "test-user-1",
-      real_name: "Maura Partrick",
+      real_name: "Test User",
       dj_name: "SomethingElse",
     };
     rerender(<StartShow />);
@@ -175,7 +175,7 @@ describe("Classic StartShow — Public DJ Handle override (#694)", () => {
     // Mount with one dj_name…
     userInfoMock = {
       id: "test-user-1",
-      real_name: "Maura Partrick",
+      real_name: "Test User",
       dj_name: "OldName",
     };
     const { rerender } = renderWithProviders(<StartShow />);
@@ -189,7 +189,7 @@ describe("Classic StartShow — Public DJ Handle override (#694)", () => {
     // the initial-mount value.
     userInfoMock = {
       id: "test-user-1",
-      real_name: "Maura Partrick",
+      real_name: "Test User",
       dj_name: "NewName",
     };
     rerender(<StartShow />);

@@ -34,7 +34,7 @@ vi.mock("next/navigation", () => ({
 vi.mock("@/src/hooks/authenticationHooks", () => ({
   useLogout: () => ({ handleLogout: vi.fn() }),
   // Rendered through Navigation, which reads the registry for the identity slot.
-  useRegistry: () => ({ info: { id: "u1", real_name: "Maura Partrick" }, loading: false }),
+  useRegistry: () => ({ info: { id: "u1", real_name: "Test User" }, loading: false }),
 }));
 
 // The branch's other arm, stubbed: these specs are about what the listing keeps
