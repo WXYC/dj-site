@@ -25,6 +25,7 @@ import { convertBinToQueue } from "@/lib/features/bin/conversions";
 import { queueAdditionMessage } from "@/lib/features/flowsheet/various-artists-guard";
 import { toast } from "sonner";
 import { memo } from "react";
+import { isVariousArtists } from "@/lib/features/catalog/libraryCode";
 
 // `live` and `addToQueue` are hoisted into Results and passed down so every
 // row shares one useLiveStatus/useQueue subscription; memoized so a query
@@ -52,7 +53,9 @@ function CatalogResult({
     if (album.id != null) router.push(`/dashboard/album/${album.id}`);
   };
 
-  const artistDisplay = album.album_artist ? "Various Artists" : album.artist.name;
+  // Decided by the shelf, not by the credit -- BS#2004 made `album_artist` a
+  // librarian-written field, so it no longer implies a compilation.
+  const artistDisplay = isVariousArtists(album.artist.lettercode) ? "Various Artists" : album.artist.name;
   const artistDetail = album.album_artist ?? album.alternate_artist;
 
   const rotationLocation = isRotationAdminEnabled()

@@ -7,6 +7,7 @@ import { useSearchCatalogQuery } from "@/lib/features/catalog/api";
 import { isRotationAdminEnabled } from "@/lib/features/rotation/flags";
 import { rotationLocationFor } from "@/lib/features/rotation/location";
 import { artistCardHref } from "@/lib/features/catalog/artistCardRoute";
+import { isVariousArtists } from "@/lib/features/catalog/libraryCode";
 import { MatchedTrackChips } from "./MatchedTrackChips";
 
 /**
@@ -233,11 +234,11 @@ export default function SearchResults({ canModify }: { canModify: boolean }) {
                       canModify,
                     )}
                   >
-                    {result.album_artist
+                    {isVariousArtists(result.artist.lettercode ?? "")
                       ? "Various Artists"
                       : result.artist.name || "Unknown"}
                   </Link>
-                ) : result.album_artist ? (
+                ) : isVariousArtists(result.artist?.lettercode ?? "") ? (
                   "Various Artists"
                 ) : (
                   result.artist?.name || "Unknown"

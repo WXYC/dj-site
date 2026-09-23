@@ -157,12 +157,53 @@ describe("classic VariousArtistsCard — variousArtistsCardModify.jsp", () => {
       ]);
     });
 
-    it("states that Album Artist cannot be set here rather than offering an input that discards it", async () => {
-      renderWithProviders(<VariousArtistsCard artistId={BUCKET_ID} />);
+    // BS#2004: POST /library accepts `album_artist`, so the JSP's V/A-specific
+    // input is an input again. Sent trimmed and only when filled, matching how
+    // this form already sends `alternate_artist_name`.
+    it("offers an Album Artist input and posts its trimmed value", async () => {
+      const user = userEvent.setup();
+      let posted: Record<string, unknown> | undefined;
+      server.use(
+        http.post(`${TEST_BACKEND_URL}/library`, async ({ request }) => {
+          posted = (await request.json()) as Record<string, unknown>;
+          return HttpResponse.json({ id: 1, code_number: 12, code_volume_letters: null });
+        }),
+      );
 
-      const note = await screen.findByTestId("va-album-artist-unavailable");
-      expect(note.textContent).toMatch(/cannot be set here/i);
-      expect(screen.queryByLabelText(/album artist/i)).toBeNull();
+      renderWithProviders(<VariousArtistsCard artistId={BUCKET_ID} />);
+      const form = await screen.findByTestId("va-add-release-form");
+
+      await user.type(within(form).getByLabelText(/title of release/i), "DJ-Kicks");
+      await user.type(within(form).getByLabelText(/album artist/i), "  Kruder & Dorfmeister  ");
+      await user.type(within(form).getByLabelText(/^label:/i), "!K7");
+      await user.selectOptions(within(form).getByLabelText(/format/i), "1");
+      await user.click(within(form).getByRole("button", { name: /add a new library release/i }));
+
+      await waitFor(() => expect(posted).toBeDefined());
+      expect(posted).toMatchObject({ album_artist: "Kruder & Dorfmeister" });
+      expect(screen.queryByTestId("va-album-artist-unavailable")).toBeNull();
+    });
+
+    it("omits album_artist from the body when the field is left blank", async () => {
+      const user = userEvent.setup();
+      let posted: Record<string, unknown> | undefined;
+      server.use(
+        http.post(`${TEST_BACKEND_URL}/library`, async ({ request }) => {
+          posted = (await request.json()) as Record<string, unknown>;
+          return HttpResponse.json({ id: 1, code_number: 12, code_volume_letters: null });
+        }),
+      );
+
+      renderWithProviders(<VariousArtistsCard artistId={BUCKET_ID} />);
+      const form = await screen.findByTestId("va-add-release-form");
+
+      await user.type(within(form).getByLabelText(/title of release/i), "Edits");
+      await user.type(within(form).getByLabelText(/^label:/i), "self-released");
+      await user.selectOptions(within(form).getByLabelText(/format/i), "1");
+      await user.click(within(form).getByRole("button", { name: /add a new library release/i }));
+
+      await waitFor(() => expect(posted).toBeDefined());
+      expect(posted).not.toHaveProperty("album_artist");
     });
 
     it("refuses an empty title with the legacy validation message", async () => {

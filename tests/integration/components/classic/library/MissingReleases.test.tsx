@@ -147,15 +147,27 @@ describe("Classic MissingReleases — missingReleases.jsp", () => {
       expect(screen.getByText("Total missing: 1")).toBeInTheDocument();
     });
 
-    it("shows 'Various Artists' for compilation rows, matching the search-results convention", async () => {
-      mockMissingReleasePages([
-        missingRow({ artist_name: "Autechre", album_artist: "Various Artists" }),
-      ]);
+    it("shows 'Various Artists' for a V/A-shelf row, matching the search-results convention", async () => {
+      mockMissingReleasePages([missingRow({ artist_name: "Autechre", code_letters: "V/A" })]);
 
       await renderAndSettle();
 
       expect(screen.getByText("Various Artists")).toBeInTheDocument();
       expect(screen.queryByText("Autechre")).not.toBeInTheDocument();
+    });
+
+    // BS#2004: the shelf (code_letters) decides the label, not album_artist,
+    // which is now an ordinary librarian-written credit that can sit on a
+    // named-artist release.
+    it("keeps the filed artist name for a non-V/A row carrying a credit (BS#2004)", async () => {
+      mockMissingReleasePages([
+        missingRow({ artist_name: "Autechre", album_artist: "Kruder & Dorfmeister" }),
+      ]);
+
+      await renderAndSettle();
+
+      expect(screen.getByText("Autechre")).toBeInTheDocument();
+      expect(screen.queryByText("Various Artists")).not.toBeInTheDocument();
     });
 
     it("falls back to 'Unknown' for an empty artist name, as the classic search results do", async () => {

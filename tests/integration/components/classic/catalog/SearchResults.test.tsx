@@ -21,9 +21,9 @@ vi.mock("@/lib/features/catalog/api", async (importOriginal) => {
 import SearchResults from "@/src/components/experiences/classic/catalog/SearchResults";
 
 describe("Classic SearchResults Various Artists display", () => {
-  it("should display 'Various Artists' when album_artist is set", () => {
+  it("displays 'Various Artists' for a release on the V/A shelf", () => {
     const album = createTestAlbum({
-      artist: createTestArtist({ name: "Autechre", lettercode: "EL", numbercode: 5 }),
+      artist: createTestArtist({ name: "Various Artists - Rock - A", lettercode: "V/A", numbercode: 0 }),
       album_artist: "Autechre",
       title: "All Tomorrow's Parties",
     });
@@ -36,7 +36,28 @@ describe("Classic SearchResults Various Artists display", () => {
     renderWithProviders(<SearchResults canModify={false} />);
 
     expect(screen.getByText("Various Artists")).toBeDefined();
-    expect(screen.queryByText("Autechre")).toBeNull();
+  });
+
+  // BS#2004: the shelf decides the label, not the credit. A named-artist
+  // release carrying an album_artist must still show its own name here, or it
+  // disagrees with ReleaseCard/modern results (the divergence this migration
+  // exists to prevent).
+  it("keeps the filed artist name for a non-V/A release carrying a credit (BS#2004)", () => {
+    const album = createTestAlbum({
+      artist: createTestArtist({ name: "Autechre", lettercode: "EL", numbercode: 5 }),
+      album_artist: "Kruder & Dorfmeister",
+      title: "All Tomorrow's Parties",
+    });
+    mockSearchCatalogQuery.mockReturnValue({
+      data: [album],
+      isLoading: false,
+      error: undefined,
+    });
+
+    renderWithProviders(<SearchResults canModify={false} />);
+
+    expect(screen.getByText("Autechre")).toBeDefined();
+    expect(screen.queryByText("Various Artists")).toBeNull();
   });
 
   it("should display artist name normally when album_artist is not set", () => {

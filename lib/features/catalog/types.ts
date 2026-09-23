@@ -105,6 +105,9 @@ export type AddAlbumRequestBody = {
   artist_name?: string;
   artist_id?: number;
   alternate_artist_name?: string;
+  // BS#2004: credited album artist on a compilation card. Sent trimmed and
+  // only when filled; the server normalizes `null` and `''` to NULL.
+  album_artist?: string | null;
   disc_quantity?: number;
   label_id?: number;
   code_number?: number;
@@ -131,6 +134,8 @@ export type UpdateAlbumRequestBody = {
   format_id?: number;
   artist_id?: number;
   alternate_artist_name?: string | null;
+  // BS#2004: `null` clears the credit; omitting the key leaves it alone.
+  album_artist?: string | null;
   disc_quantity?: number;
   label_id?: number | null;
   discogsUnavailable?: boolean;

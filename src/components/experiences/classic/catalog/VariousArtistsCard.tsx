@@ -81,15 +81,12 @@ const EMPTY_TITLE_MESSAGE = "Please enter a title before adding this release.";
  * than chosen — where both the JSP's shape and a Backend-Service call are
  * possible, the JSP wins:
  *
- * - **The Album Artist field cannot be written.** The JSP's V/A-specific
- *   `albumArtist` input is the one field this screen has that the ordinary
- *   artist card does not, and `POST /library` has no parameter for it:
- *   `library.album_artist` is populated only by the nightly catalog import.
- *   The row is kept, with its purpose stated, rather than rendered as an input
- *   that silently discards what the librarian types — the credited album
- *   artist is the field compilations are filed against, so dropping the value
- *   without saying so would lose exactly the information this screen exists to
- *   capture. It becomes an input once a write path exists.
+ * - **The Album Artist field is an input again (BS#2004).** The JSP's
+ *   V/A-specific `albumArtist` input is the one field this screen has that the
+ *   ordinary artist card does not. Until BS#2004 `POST /library` had no
+ *   parameter for it, so the row was rendered as a stated gap rather than as
+ *   an input that silently discarded what the librarian typed. It is sent
+ *   trimmed and only when filled, like the alternate name.
  * - **The form gains a Label field.** `POST /library` requires `label` and the
  *   JSP's form has no such input; same precedent as the ordinary artist card.
  * - **No sort form.** The JSP posts `sortColumn`/`sortOrder` back to the
@@ -100,6 +97,7 @@ export default function VariousArtistsCard({ artistId, message, imported }: Vari
   const router = useRouter();
   const titleId = useId();
   const altArtistId = useId();
+  const albumArtistId = useId();
   const labelId = useId();
   const formatId = useId();
 
@@ -122,6 +120,7 @@ export default function VariousArtistsCard({ artistId, message, imported }: Vari
 
   const [title, setTitle] = useState("");
   const [altArtistName, setAltArtistName] = useState("");
+  const [albumArtist, setAlbumArtist] = useState("");
   const [label, setLabel] = useState("");
   const [formatIdValue, setFormatIdValue] = useState<number | null>(null);
   const [releaseMessage, setReleaseMessage] = useState<string | null>(null);
@@ -246,6 +245,7 @@ export default function VariousArtistsCard({ artistId, message, imported }: Vari
       ...(altArtistName.trim() !== ""
         ? { alternate_artist_name: altArtistName.trim() }
         : {}),
+      ...(albumArtist.trim() !== "" ? { album_artist: albumArtist.trim() } : {}),
       ...codeFields.bodyFields,
     };
 
@@ -438,13 +438,19 @@ export default function VariousArtistsCard({ artistId, message, imported }: Vari
                 </tr>
                 <tr>
                   <td style={{ textAlign: "right" }}>
-                    <b>Album Artist:</b>
+                    <label htmlFor={albumArtistId}>
+                      <b>Album Artist:</b>
+                    </label>
                   </td>
                   <td>
-                    <span className="label" data-testid="va-album-artist-unavailable">
-                      The credited album artist is filled in by the nightly catalog
-                      import and cannot be set here yet.
-                    </span>
+                    <input
+                      id={albumArtistId}
+                      type="text"
+                      size={50}
+                      value={albumArtist}
+                      disabled={savingRelease}
+                      onChange={(e) => setAlbumArtist(e.target.value)}
+                    />
                   </td>
                 </tr>
                 {/* Not in the JSP — POST /library requires `label`. */}

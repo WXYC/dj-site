@@ -12,7 +12,7 @@ import { artistCardHref } from "@/lib/features/catalog/artistCardRoute";
 import { CODE_LETTERS_MAX_LENGTH } from "@/lib/features/catalog/adminCreateArtistValidation";
 import type { CallLetterMode } from "@/lib/features/catalog/chooserValidation";
 import { isGenresUnavailable } from "@/lib/features/catalog/genreAvailability";
-import { formatEntireLibraryCode } from "@/lib/features/catalog/libraryCode";
+import { formatEntireLibraryCode, isVariousArtists } from "@/lib/features/catalog/libraryCode";
 import {
   composeLibraryCodeSearchArgs,
   resolveArtistByCodeErrorReason,
@@ -174,7 +174,10 @@ export default function ReleaseMoveForm({ albumId }: { albumId: number }) {
   // The editor makes the same substitution: a compilation release is filed
   // under a lettered bucket row, and naming that row here would tell the
   // librarian the release belongs to an artist it does not.
-  const displayArtist = data.album_artist ? "Various Artists" : data.artist.name;
+  // Decided by the shelf, not by the credit: since BS#2004 `album_artist` is an
+  // ordinary librarian-written field, so its presence says nothing about
+  // whether this release is a compilation.
+  const displayArtist = isVariousArtists(data.artist.lettercode) ? "Various Artists" : data.artist.name;
   const currentArtistId = data.artist.id;
   const added = data.add_date ? formatStationDateTime(data.add_date) : undefined;
   const destination =

@@ -1,3 +1,5 @@
+import { isVariousArtists } from "./libraryCode";
+
 // Keep COMPILATION_KEYWORDS / isCompilationArtistName in sync with
 // apps/backend/services/requestLine/matching/compilation.ts. The stricter
 // isCompilationReleaseArtistName below is dj-site-only and has no backend twin.
@@ -46,12 +48,13 @@ const COMPILATION_ARTIST_PATTERNS: readonly RegExp[] = [
  *  - Localized or non-canonical V/A strings ("Verschiedene", "Diverse",
  *    "Sampler") are not recognized and will not auto-fill.
  *  - Compilations filed under a credited album artist (e.g. a DJ-mix under the
- *    mixer's name) are only caught via `album_artist`, below.
+ *    mixer's name) are caught by the shelf rule in `isCompilationRelease`,
+ *    never by the credit itself -- see below.
  *  - Splits filed under one band's name keep the release-level artist.
- * The deterministic marker is `album_artist` on the rotation wire; BS's
- * getRotationFromDB does not yet emit it, so this name heuristic is the interim
- * gate. No backend twin: the backend matcher serves request-line parsing, which
- * tolerates a different false-positive rate.
+ * The deterministic marker is the shelf (`isVariousArtists(lettercode)`); this
+ * name heuristic covers rows that arrive without call letters. No backend
+ * twin: the backend matcher serves request-line parsing, which tolerates a
+ * different false-positive rate.
  */
 export function isCompilationReleaseArtistName(
   artist: string | null | undefined
@@ -62,21 +65,27 @@ export function isCompilationReleaseArtistName(
 }
 
 /**
- * Release-level compilation/V-A predicate: true when `album_artist` is
- * populated (schema: "Credited album artist for compilations") or the artist
- * name is a compilation designation. The name check routes through the strict
- * isCompilationReleaseArtistName, not the lenient search-hint list.
+ * Release-level compilation/V-A predicate: true when the release is filed on
+ * the V/A shelf (`isVariousArtists` over the artist's call letters -- the
+ * structural rule) or, for a row that arrives without call letters, when the
+ * artist name is a compilation designation. The name check routes through the
+ * strict isCompilationReleaseArtistName, not the lenient search-hint list.
  *
- * BS's GET /library/rotation does not currently emit `album_artist`
- * (getRotationFromDB omits the column), so rotation rows are gated on the name
- * heuristic alone until that column is wired through.
+ * `album_artist` is deliberately NOT consulted. Until BS#2004 it was written
+ * by nothing and NULL on every row, so `!!album_artist` was an unreachable
+ * branch; since BS#2004 it is an ordinary librarian-written credit that may
+ * sit on a release filed under a named artist -- and treating that as "this
+ * is a compilation" would let Discogs contributor credits (producer,
+ * co-writer, sample) be trusted as the performing artist on a normal record,
+ * which is exactly the #763 corruption the one consumer of this predicate
+ * exists to prevent.
  */
 export function isCompilationRelease(release: {
-  album_artist?: string;
-  artist?: { name?: string | null } | null;
+  artist?: { name?: string | null; lettercode?: string | null } | null;
 }): boolean {
+  const letters = release.artist?.lettercode;
   return (
-    !!release.album_artist ||
+    (typeof letters === "string" && isVariousArtists(letters)) ||
     isCompilationReleaseArtistName(release.artist?.name)
   );
 }
