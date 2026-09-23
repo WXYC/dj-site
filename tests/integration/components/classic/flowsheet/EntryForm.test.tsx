@@ -703,6 +703,91 @@ describe("Classic EntryForm — post-submit reset behavior", () => {
     });
     expect(getNamedSelect("addEntryType").value).toBe("track");
   });
+
+  // Restores the console.error the failure spec silences, from a hook rather
+  // than the test body so a failed assertion can't leave the rest of the file
+  // running against a muted console.
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  function oneHeavyRotationRelease(): ReturnType<
+    typeof createTestRotationAlbum
+  >[] {
+    return [
+      createTestRotationAlbum(Rotation.H, {
+        id: 5101,
+        rotation_id: 5102,
+        title: "Aluminum Tunes",
+        label: "Duophonic",
+        artist: createTestArtist({
+          name: "Stereolab",
+          lettercode: "RO",
+          numbercode: 87,
+        }),
+      }),
+    ];
+  }
+
+  // Fills in a complete Rotation track entry and presses Add. The bin picker
+  // renders a blank placeholder ahead of the releases, so the fixture release
+  // is the option after it — picked positionally rather than by `value=`,
+  // which would pin whether the picker keys on `id` or `rotation_id`.
+  async function addRotationEntry(
+    user: ReturnType<typeof renderWithProviders>["user"]
+  ): Promise<void> {
+    await user.selectOptions(getNamedSelect("releaseType"), "rotationRelease");
+    await user.selectOptions(getNamedSelect("rotationType"), "heavy");
+    const heavy = getNamedSelect("heavyRelease");
+    await user.selectOptions(heavy, heavy.options[1]);
+    await user.type(getNamedInput("songTitle"), "Tone Burst");
+    await user.click(screen.getByRole("button", { name: /^add$/i }));
+  }
+
+  // Station programming rules mean back-to-back rotation plays are exactly
+  // the case a sticky "From" selection produces a wrong entry for, not
+  // merely an extra click: a DJ who logs one rotation track and moves on to
+  // whatever's next must not find the form still defaulted to Rotation.
+  // Asserted on the option's rendered text, which is the whole of what tells
+  // the DJ where the next entry will be filed from.
+  it("resets From back to WXYC Library after submitting a Rotation entry", async () => {
+    rotationDataMock = oneHeavyRotationRelease();
+    const { user } = renderWithProviders(<EntryForm />);
+    await addRotationEntry(user);
+
+    await waitFor(() => {
+      expect(addToFlowsheetMock).toHaveBeenCalledTimes(1);
+    });
+    expect(getNamedSelect("releaseType").selectedOptions[0].text).toBe(
+      "WXYC Library"
+    );
+  });
+
+  // The reset belongs to the success path alone. A submit the backend refuses
+  // leaves the DJ with nothing logged and the same entry still to make, so
+  // clearing the form there would cost them the release they picked and the
+  // title they typed for a play that never reached the flowsheet — a worse
+  // outcome than the sticky selector the reset exists to prevent.
+  it("leaves the entry standing when the submit fails", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    addToFlowsheetMock.mockReturnValue({
+      unwrap: () => Promise.reject(new Error("Backend unavailable")),
+    });
+    rotationDataMock = oneHeavyRotationRelease();
+    const { user } = renderWithProviders(<EntryForm />);
+    await addRotationEntry(user);
+
+    await waitFor(() => {
+      expect(addToFlowsheetMock).toHaveBeenCalledTimes(1);
+    });
+    // Brief settle so a reset on the failure path would have landed by the
+    // time the fields are read, rather than the assertions merely outrunning
+    // it.
+    await new Promise((r) => setTimeout(r, 10));
+    expect(getNamedSelect("releaseType").value).toBe("rotationRelease");
+    expect(getNamedSelect("heavyRelease").value).toBe("5102");
+    expect(getNamedInput("songTitle").value).toBe("Tone Burst");
+  });
 });
 
 describe("Classic EntryForm — Enter-key submission guard", () => {

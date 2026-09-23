@@ -116,6 +116,11 @@ export default function EntryForm({
     setSegue(false);
     setSelectedRotationId(0);
     setRotationType("");
+    // Back to WXYC Library, matching the field's own initial default: station
+    // programming rules call for not playing two rotation tracks back to
+    // back, so leaving From on Rotation after a rotation submit sets the DJ
+    // up to violate that rule by doing nothing at all.
+    setReleaseType("libraryRelease");
   };
 
   // The Add button is disabled (in track mode) until enough fields are present
