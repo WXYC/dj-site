@@ -23,6 +23,15 @@ vi.mock("@/src/hooks/flowsheetHooks", () => ({
   useCurrentBreakpointHours: () => mockBreakpointHours,
 }));
 
+// Same mock shape as FlowsheetEntryField's / usePlayNow's specs: sonner is
+// the app-wide toast mechanism (mounted once in app/layout.tsx) already used
+// for exactly this class of rejected-write feedback elsewhere in the
+// flowsheet tree.
+const toastErrorMock = vi.fn();
+vi.mock("sonner", () => ({
+  toast: { error: (...args: unknown[]) => toastErrorMock(...args) },
+}));
+
 describe("BreakpointButton", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -90,6 +99,17 @@ describe("BreakpointButton one-per-station-hour guard", () => {
     render(<BreakpointButton />);
     fireEvent.click(screen.getByRole("button"));
     expect(mockAddToFlowsheet).not.toHaveBeenCalled();
+  });
+
+  it("toasts the hour the guard rejected on, reinforcing the tooltip rather than no-opping", () => {
+    // A hover tooltip is not an answer to a click: without the toast, a DJ who
+    // clicks and sees nothing cannot tell a refusal from a failed write. The
+    // toast names the hour so the conflicting row can be found.
+    render(<BreakpointButton />);
+    fireEvent.click(screen.getByRole("button"));
+    expect(toastErrorMock).toHaveBeenCalledWith(
+      "11:00 PM already has a breakpoint"
+    );
   });
 
   it("dispatches once the marked breakpoint belongs to a different station hour", () => {

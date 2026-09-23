@@ -2,6 +2,7 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import type { StationHourBreakpoint } from "@/src/utilities/stationTime";
 import {
   STATION_TIME_ZONE,
+  breakpointGuardRejectionMessage,
   closestStationHour,
   formatStationClockTime,
   formatStationDateTime,
@@ -258,6 +259,23 @@ describe("stationTime", () => {
     ])("renders %s as an empty label rather than Invalid Date", (_label, value) => {
       expect(formatStationClockTime(value as string | null | undefined)).toBe("");
     });
+  });
+});
+
+describe("breakpointGuardRejectionMessage", () => {
+  it("names the hour rather than just the rule", () => {
+    expect(breakpointGuardRejectionMessage("7:00 PM")).toBe(
+      "7:00 PM already has a breakpoint"
+    );
+  });
+
+  it("takes the label as given, doing no rounding or re-resolution of its own", () => {
+    // Taking a resolved label rather than a Date is what lets a caller pass
+    // the one clock read its guard check also used; a second read here could
+    // round to a different hour than the check looked at.
+    expect(breakpointGuardRejectionMessage("12:00 AM")).toBe(
+      "12:00 AM already has a breakpoint"
+    );
   });
 });
 
