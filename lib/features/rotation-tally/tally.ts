@@ -1,5 +1,5 @@
 import type { FlowsheetRangeEntry, FlowsheetRangeShow } from "@wxyc/shared";
-import { STATION_TIME_ZONE } from "@/src/utilities/stationTime";
+import { STATION_TIME_ZONE, startOfStationHour } from "@/src/utilities/stationTime";
 
 /**
  * The weekly rotation tally, rebuilt from the flowsheet.
@@ -35,40 +35,6 @@ export type RankedPlay = {
 };
 
 const MS_PER_HOUR = 3_600_000;
-
-const hourParts = new Intl.DateTimeFormat("en-US", {
-  timeZone: STATION_TIME_ZONE,
-  hour12: false,
-  minute: "numeric",
-  second: "numeric",
-});
-
-/**
- * The instant at the top of the station hour containing `ms`.
- *
- * Subtracts the station-local minutes and seconds rather than rounding the
- * epoch value down, because a zone whose offset is not a whole hour would put
- * `Math.floor(ms / MS_PER_HOUR)` in the middle of a local hour.
- *
- * The milliseconds have to go too, and they are the whole reason this is not a
- * one-line truncation: every zone offset is a whole number of seconds, so the
- * remainder carries straight through the subtraction above. Leaving it turns
- * two shows that began in the same hour into two buckets that differ only in
- * their millisecond tail, and each one counts as another play.
- */
-function startOfStationHour(ms: number): number {
-  let minute = 0;
-  let second = 0;
-  for (const part of hourParts.formatToParts(new Date(ms))) {
-    if (part.type === "minute") minute = Number(part.value);
-    if (part.type === "second") second = Number(part.value);
-  }
-  return ms - minute * 60_000 - second * 1_000 - modFloor(ms, 1_000);
-}
-
-// `%` keeps the sign of the dividend, which would push a pre-1970 instant
-// forward into the next hour instead of back to the top of its own.
-const modFloor = (value: number, by: number) => ((value % by) + by) % by;
 
 /** The top of the station hour a row was logged in, when the wire carries one. */
 function loggedHour(entry: FlowsheetRangeEntry): number | null {

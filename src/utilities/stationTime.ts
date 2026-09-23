@@ -15,28 +15,104 @@ const MS_PER_HOUR = 3_600_000;
 // agree.
 const BREAKPOINT_SUFFIX = "Breakpoint";
 
+// Reads the station-local minute and second directly off the wall clock
+// rather than assuming anything about the offset. Scoped to just these two
+// fields (no year/month/day) because startOfStationHour runs once per
+// flowsheet row in the rotation tally's counting loop.
+const hourParts = new Intl.DateTimeFormat("en-US", {
+  timeZone: STATION_TIME_ZONE,
+  hour12: false,
+  minute: "numeric",
+  second: "numeric",
+});
+
+// `%` keeps the sign of the dividend, so a bare `value % by` returns a
+// negative remainder for a pre-1970 instant and the subtraction below adds
+// the millisecond tail back instead of removing it -- landing one second past
+// the top of the hour rather than on it. That splits one hour into two
+// buckets for exactly the rows whose tail is non-zero, which is the same
+// double-count the millisecond term exists to prevent. (The hour-scale
+// version of this same sign trap is what ruled out `ms % MS_PER_HOUR`
+// entirely; see startOfStationHour below.)
+const modFloor = (value: number, by: number) => ((value % by) + by) % by;
+
+/**
+ * Floors an instant to the top of the station hour it falls in -- distinct
+ * from closestStationHour, which rounds a target instant to its NEAREST
+ * station hour (rounding up past :30). A stored radio_hour is not a target to
+ * round; it is a server-stamped instant already claiming a specific hour, so
+ * comparing it to a guard target requires floor, never round.
+ *
+ * Subtracts the station-local minutes, seconds, and milliseconds read off
+ * `Intl.DateTimeFormat`, rather than flooring the raw epoch value
+ * (`ms - (ms % MS_PER_HOUR)`). America/New_York's offset happens to always be
+ * a whole number of hours, so the two forms agree for every instant this is
+ * actually called with today -- but that agreement is a fact about the one
+ * zone this file has ever been asked to handle, not a property of the epoch
+ * arithmetic. Under a standing half-hour offset (Asia/Kolkata, +05:30) the
+ * epoch form lands in the middle of every local hour, where reading the wall
+ * clock lands on the local boundary.
+ *
+ * That offset case is the whole of the generality bought here, and the limit
+ * is worth stating because it is invisible from the code: subtracting the
+ * local minute assumes every local hour is a whole hour long, which is a fact
+ * about a zone's DST SHIFT, not its offset. Australia/Lord_Howe shifts by 30
+ * minutes, so its transition hour reads 01:00 -> 01:59 -> 02:30, and
+ * 02:45 local floors to 01:30 local -- not a top-of-hour at all. Eastern only
+ * ever shifts a whole hour, so this is unreachable while STATION_TIME_ZONE is
+ * America/New_York; anyone retargeting that constant has to check the new
+ * zone's shift, not just its offset.
+ *
+ * The epoch form also has a second, independent defect that would settle the
+ * choice even if the zone argument didn't: `%` keeps the sign of the
+ * DIVIDEND, so `ms - (ms % MS_PER_HOUR)` CEILS a pre-1970 instant instead of
+ * flooring it (e.g. ms = -100 floors here to 1969-12-31T23:00:00Z, but the
+ * epoch form returns 1970-01-01T00:00:00Z). Unreachable in practice -- WXYC
+ * signed on in 1977, so no flowsheet row or radio_hour can predate the
+ * epoch -- recorded because it is what decided which implementation this is.
+ *
+ * The milliseconds have to go too, and they are the whole reason this is not
+ * a one-line truncation: every zone offset is a whole number of seconds, so
+ * the remainder carries straight through the subtraction above. Leaving it
+ * turns two shows that began in the same hour into two buckets that differ
+ * only in their millisecond tail, and each one counts as another play in the
+ * rotation tally.
+ */
+export function startOfStationHour(ms: number): number {
+  let minute = 0;
+  let second = 0;
+  for (const part of hourParts.formatToParts(new Date(ms))) {
+    if (part.type === "minute") minute = Number(part.value);
+    if (part.type === "second") second = Number(part.value);
+  }
+  return ms - minute * 60_000 - second * 1_000 - modFloor(ms, 1_000);
+}
+
 // Rounds an instant to the nearest top-of-hour: strictly past :30 rounds up,
 // exactly :30 rounds down.
 //
-// Rounding on the raw epoch is equivalent to rounding the Eastern wall clock:
-// the Eastern offset is always a whole number of hours, so a UTC hour boundary
-// is also an Eastern hour boundary and the minutes-into-hour are identical in
-// both. This makes DST transitions and midnight/day rollover fall out for free.
+// minutesIntoHour is derived from the SAME floor startOfStationHour returns,
+// rather than recomputed independently off the epoch. Two arithmetically
+// different ways of asking "how far into the hour is this instant" can
+// disagree -- the epoch form and the Intl form used to, for a pre-1970
+// instant -- and a rounding function whose floor and whose minutes-into-hour
+// disagree about the current hour is worse than either alone: it could floor
+// into one hour and round toward a DIFFERENT one. Deriving both from one
+// floor makes that impossible by construction, and midnight/day rollover
+// falls out for free either way, since it lives inside startOfStationHour.
+//
+// DST does not fall out for free, because the `+ MS_PER_HOUR` step is outside
+// the floor and assumes the next local hour opens exactly an hour later. True
+// of every whole-hour shift and so of Eastern; false under Lord Howe's
+// 30-minute shift, where 01:15 local floors to 01:00 and `+ MS_PER_HOUR`
+// lands on 02:30, which is not a top-of-hour. Left as arithmetic rather than
+// a second wall-clock read: the station has one zone, and one caller runs
+// this in a render body.
 export function closestStationHour(now: Date = new Date()): Date {
   const ms = now.getTime();
-  const minutesIntoHour = (ms % MS_PER_HOUR) / 60_000;
   const flooredToHour = startOfStationHour(ms);
+  const minutesIntoHour = (ms - flooredToHour) / 60_000;
   return new Date(minutesIntoHour > 30 ? flooredToHour + MS_PER_HOUR : flooredToHour);
-}
-
-// Floors an instant to the top of the station hour it falls in -- distinct
-// from closestStationHour, which rounds a target instant to its NEAREST
-// station hour (rounding up past :30). A stored radio_hour is not a target to
-// round; it is a server-stamped instant already claiming a specific hour, so
-// comparing it to a guard target requires floor, never round. Same whole-hour
-// Eastern-offset argument as closestStationHour applies.
-function startOfStationHour(ms: number): number {
-  return ms - (ms % MS_PER_HOUR);
 }
 
 // e.g. "2:00 PM" — the station-local closest hour, no leading zero.
