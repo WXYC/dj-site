@@ -674,6 +674,25 @@ describe("backend", () => {
         expect((result as { data?: unknown }).data).toBeUndefined();
       });
 
+      it("surfaces an aborted request as an error rather than soft-failing it", async () => {
+        // The soft-handle exists for a body that could not be parsed; an abort
+        // produced no body at all. Swallowing one into `{ data: null }` would
+        // resolve the caller's success path on an empty payload and hide the
+        // very failure the request ceiling exists to make visible.
+        const timedOut = {
+          error: { status: "TIMEOUT_ERROR", error: "AbortError: signal timed out" },
+          meta: undefined,
+        };
+        mockInnerBaseQuery.mockResolvedValueOnce(timedOut);
+
+        const baseQuery = backendBaseQuery("flowsheet");
+        const result = await baseQuery({ url: "/latest" }, fakeApi, fakeExtra);
+
+        expect(result).toBe(timedOut);
+        expect((result as { data?: unknown }).data).toBeUndefined();
+        expect(mockCaptureException).not.toHaveBeenCalled();
+      });
+
       it("does not retry a 304 on a mutation", async () => {
         const notModified = { error: { status: 304 }, meta: undefined };
         mockInnerBaseQuery.mockResolvedValueOnce(notModified);
