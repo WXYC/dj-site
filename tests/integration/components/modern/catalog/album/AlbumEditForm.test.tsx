@@ -274,15 +274,17 @@ describe("AlbumEditForm", () => {
         expect(screen.getByLabelText("Disc Quantity")).toHaveValue(1);
       });
 
-      it("renders album_artist read-only with an explanatory note", async () => {
+      // BS#2004: the column gained a write path, so the field is an input seeded
+      // from the album rather than a disabled echo with an apology under it.
+      it("renders album_artist editable, seeded from the album", async () => {
         renderWithProviders(
           <AlbumEditForm album={juanaMolinaAlbum({ album_artist: "Various Artists" })} />,
         );
 
         const field = await screen.findByLabelText("Album Artist");
         expect(field).toHaveValue("Various Artists");
-        expect(field).toBeDisabled();
-        expect(screen.getByText(/isn't supported yet/)).toBeInTheDocument();
+        expect(field).not.toBeDisabled();
+        expect(screen.queryByText(/isn't supported yet/)).not.toBeInTheDocument();
       });
 
       it("disables Save until a field changes", async () => {
@@ -363,18 +365,56 @@ describe("AlbumEditForm", () => {
         });
       });
 
-      it("never includes album_artist in the outgoing body", async () => {
-        const album = juanaMolinaAlbum({ album_artist: "Various Artists" });
-        const { getReceivedBody } = mockPatch({ album });
-        const { user } = renderWithProviders(<AlbumEditForm album={album} />);
+      describe("album_artist (BS#2004)", () => {
+        it("omits album_artist from the body when it is unchanged", async () => {
+          const album = juanaMolinaAlbum({ album_artist: "Various Artists" });
+          const { getReceivedBody } = mockPatch({ album });
+          const { user } = renderWithProviders(<AlbumEditForm album={album} />);
 
-        const title = await screen.findByLabelText("Title");
-        await user.clear(title);
-        await user.type(title, "New Title");
-        await user.click(screen.getByRole("button", SAVE_BUTTON));
+          const title = await screen.findByLabelText("Title");
+          await user.clear(title);
+          await user.type(title, "New Title");
+          await user.click(screen.getByRole("button", SAVE_BUTTON));
 
-        await waitFor(() => expect(getReceivedBody()).toBeDefined());
-        expect(getReceivedBody()).not.toHaveProperty("album_artist");
+          await waitFor(() => expect(getReceivedBody()).toBeDefined());
+          expect(getReceivedBody()).not.toHaveProperty("album_artist");
+        });
+
+        it("sends a changed album_artist trimmed", async () => {
+          const album = juanaMolinaAlbum();
+          const { getReceivedBody } = mockPatch({ album });
+          const { user } = renderWithProviders(<AlbumEditForm album={album} />);
+
+          const field = await screen.findByLabelText("Album Artist");
+          await user.type(field, "  Kruder & Dorfmeister  ");
+          await user.click(screen.getByRole("button", SAVE_BUTTON));
+
+          await waitFor(() => expect(getReceivedBody()).toBeDefined());
+          expect(getReceivedBody()).toEqual({ album_artist: "Kruder & Dorfmeister" });
+        });
+
+        it("sends null when the album_artist is cleared", async () => {
+          const album = juanaMolinaAlbum({ album_artist: "Various Artists" });
+          const { getReceivedBody } = mockPatch({ album });
+          const { user } = renderWithProviders(<AlbumEditForm album={album} />);
+
+          const field = await screen.findByLabelText("Album Artist");
+          await user.clear(field);
+          await user.click(screen.getByRole("button", SAVE_BUTTON));
+
+          await waitFor(() => expect(getReceivedBody()).toBeDefined());
+          expect(getReceivedBody()).toEqual({ album_artist: null });
+        });
+
+        it("blocks Save and explains when album_artist exceeds the column width", async () => {
+          const { user } = renderWithProviders(<AlbumEditForm album={juanaMolinaAlbum()} />);
+
+          const field = await screen.findByLabelText("Album Artist");
+          await user.type(field, "a".repeat(129));
+
+          expect(screen.getByText(/Album artist must be 128 characters or fewer/)).toBeInTheDocument();
+          expect(screen.getByRole("button", SAVE_BUTTON)).toBeDisabled();
+        });
       });
 
       // Save is disabled the instant the click dispatches (the button is in its

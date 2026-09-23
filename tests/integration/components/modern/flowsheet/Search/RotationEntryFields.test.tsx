@@ -556,18 +556,16 @@ describe("RotationEntryFields", () => {
       );
     });
 
-    it("overwrites via the album_artist compilation signal even when the artist name isn't V/A-shaped", () => {
-      // A compilation can be filed under a credited album artist (the
-      // api.yaml example: a DJ-Kicks filed under "Kruder & Dorfmeister").
-      // NOTE: BS's GET /library/rotation does not currently emit
-      // album_artist (getRotationFromDB omits the column), so on today's
-      // rotation wire this arm is only reachable via catalog-sourced
-      // entries; this test pins the component contract for when BS wires
-      // it through.
+    // BS#2004: `album_artist` is now a librarian-written credit that may sit on
+    // a release filed under a named artist, so it can no longer stand in for
+    // "this is a compilation". The shelf does: `isVariousArtists(lettercode)`.
+    // The name here is deliberately NOT a compilation designation, so the
+    // overwrite below can only be coming from the call letters.
+    it("overwrites via the V/A shelf even when the artist name isn't V/A-shaped", () => {
       const djKicks = createTestAlbum({
         id: 11,
         title: "DJ-Kicks",
-        artist: createTestArtist({ name: "Kruder & Dorfmeister" }),
+        artist: createTestArtist({ name: "Kruder & Dorfmeister", lettercode: "V/A" }),
         album_artist: "Kruder & Dorfmeister",
         rotation_id: 45,
         rotation_bin: "H",
@@ -591,6 +589,40 @@ describe("RotationEntryFields", () => {
         "Kruder & Dorfmeister",
         "Rockers Hi-Fi",
       ]);
+    });
+
+    // The inverse, and the reason the credit cannot be the signal: the same
+    // record filed under a named artist is a normal release, and its Discogs
+    // per-track credits are contributors, not performers -- the #763 shape.
+    it("does not overwrite for a named-artist release that carries a credited album artist (BS#2004)", () => {
+      const djKicks = createTestAlbum({
+        id: 11,
+        title: "DJ-Kicks",
+        artist: createTestArtist({ name: "Kruder & Dorfmeister" }),
+        album_artist: "Kruder & Dorfmeister",
+        rotation_id: 45,
+        rotation_bin: "H",
+      });
+      mockRotationData = [djKicks];
+      mockTracksData = [
+        {
+          position: "A1",
+          title: "Donaueschingen",
+          duration: null,
+          artists: ["Rockers Hi-Fi"],
+        },
+      ];
+
+      const { store } = renderWithProviders(inModernTheme(<RotationEntryFields disabled={false} />));
+      const dispatchSpy = vi.spyOn(store, "dispatch");
+      selectBinAndRelease(djKicks);
+      selectTrack(0);
+
+      expect(artistValues(dispatchSpy)).toEqual(["Kruder & Dorfmeister"]);
+      // The track title itself must still auto-fill.
+      expect(dispatchSpy).toHaveBeenCalledWith(
+        flowsheetSlice.actions.setSearchProperty({ name: "song", value: "Donaueschingen" })
+      );
     });
 
     it("known gap: split releases filed under a band name keep the release artist", () => {

@@ -143,6 +143,29 @@ describe("mergeAlbumIntoSearchResult", () => {
     expect(merged.discogsUnavailableNote).toBeNull();
   });
 
+  // BS#2004: the credit is writable and clearable, so a `null` from the PATCH
+  // re-read is a real clear, not an absent field.
+  it("passes through an explicit null album_artist (credit cleared on the server)", () => {
+    const existing = createTestAlbum({ id: 42, album_artist: "Kruder & Dorfmeister" });
+    const updated = createTestAlbum({
+      id: 42,
+      album_artist: null as unknown as string,
+    });
+
+    const merged = mergeAlbumIntoSearchResult(existing, updated);
+
+    expect(merged.album_artist).toBeNull();
+  });
+
+  it("falls back to the cached album_artist when the response omits it", () => {
+    const existing = createTestAlbum({ id: 42, album_artist: "Kruder & Dorfmeister" });
+    const updated = createTestAlbum({ id: 42, album_artist: undefined });
+
+    const merged = mergeAlbumIntoSearchResult(existing, updated);
+
+    expect(merged.album_artist).toBe("Kruder & Dorfmeister");
+  });
+
   it("falls back to the cached discogsUnavailableNote when the response omits it", () => {
     const existing = createTestAlbum({
       id: 42,

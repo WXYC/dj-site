@@ -83,9 +83,10 @@ import Tracklist from "./Tracklist";
  *
  * That link and the tracklist below it must agree on what a compilation is, or
  * a credit is enterable through the one and unreadable in the other. Both use
- * `isVariousArtists(artist.lettercode)` — never `album_artist`, which the
- * nightly catalog import alone writes and which is therefore absent on a
- * release filed today.
+ * `isVariousArtists(artist.lettercode)` — never `album_artist`. Since BS#2004
+ * that column is an ordinary librarian-written credit, present on any release
+ * someone chose to record one for, so its presence says nothing about which
+ * shelf the release is on.
  */
 export default function ReleaseCard({ albumId }: { albumId: number }) {
   const { data, isLoading, isError } = useGetInformationQuery({ album_id: albumId });
@@ -96,6 +97,7 @@ export default function ReleaseCard({ albumId }: { albumId: number }) {
 
   const [title, setTitle] = useState("");
   const [altArtist, setAltArtist] = useState("");
+  const [albumArtist, setAlbumArtist] = useState("");
   const [formatId, setFormatId] = useState<number | "">("");
   const [codeNumber, setCodeNumber] = useState("");
   const [volumeLetters, setVolumeLetters] = useState("");
@@ -118,6 +120,7 @@ export default function ReleaseCard({ albumId }: { albumId: number }) {
     seededRelease.current = albumId;
     setTitle(data.title);
     setAltArtist(data.alternate_artist ?? "");
+    setAlbumArtist(data.album_artist ?? "");
     setFormatId(data.format_id ?? "");
     setCodeNumber(String(data.entry));
     setVolumeLetters(data.code_volume_letters ?? "");
@@ -153,7 +156,8 @@ export default function ReleaseCard({ albumId }: { albumId: number }) {
     code_volume_letters: data.code_volume_letters ?? null,
   });
 
-  const displayArtist = data.album_artist ? "Various Artists" : data.artist.name;
+  // Decided by the shelf, not by the credit -- see the component docblock.
+  const displayArtist = isVariousArtists(data.artist.lettercode) ? "Various Artists" : data.artist.name;
   const artistCode = `${data.artist.lettercode} ${data.artist.numbercode}`;
   const missing = !!data.date_lost && !data.date_found;
   const added = data.add_date ? formatStationDateTime(data.add_date) : undefined;
@@ -162,6 +166,7 @@ export default function ReleaseCard({ albumId }: { albumId: number }) {
   // the button cannot come to disagree with what submitting would send.
   const editedTitle = title.trim();
   const editedAltArtist = altArtist.trim() === "" ? null : altArtist.trim();
+  const editedAlbumArtist = albumArtist.trim() === "" ? null : albumArtist.trim();
   const editedFormatId = formatId === "" ? null : Number(formatId);
   const editedCodeNumber = codeNumber.trim();
   // Both sides folded to the casing this input files in, so re-typing the
@@ -180,9 +185,11 @@ export default function ReleaseCard({ albumId }: { albumId: number }) {
   // trims, so a stray space is not an edit, and treating it as one would let
   // Save post a body identical to the row it already holds.
   const storedAltArtist = (data.alternate_artist ?? "").trim();
+  const storedAlbumArtist = (data.album_artist ?? "").trim();
   const dirty =
     editedTitle !== (data.title ?? "").trim() ||
     editedAltArtist !== (storedAltArtist === "" ? null : storedAltArtist) ||
+    editedAlbumArtist !== (storedAlbumArtist === "" ? null : storedAlbumArtist) ||
     editedFormatId !== (data.format_id ?? null) ||
     codeNumberChanged ||
     volumeLettersChanged;
@@ -217,6 +224,9 @@ export default function ReleaseCard({ albumId }: { albumId: number }) {
         body: {
           album_title: editedTitle,
           alternate_artist_name: editedAltArtist,
+          // BS#2004: same wire shape as the alternate name -- always sent,
+          // null when blank, so an emptied field clears the stored credit.
+          album_artist: editedAlbumArtist,
           // Omitted rather than sent as null when unset -- the wire shape the
           // endpoint has always received from this screen.
           ...(editedFormatId === null ? {} : { format_id: editedFormatId }),
@@ -337,7 +347,16 @@ export default function ReleaseCard({ albumId }: { albumId: number }) {
               <td style={{ textAlign: "right" }}>
                 <b>Album Artist:</b>
               </td>
-              <td>{data.album_artist ?? ""}</td>
+              <td>
+                <input
+                  type="text"
+                  name="albumArtist"
+                  size={50}
+                  aria-label="Album Artist"
+                  value={albumArtist}
+                  onChange={(event) => setAlbumArtist(event.target.value)}
+                />
+              </td>
             </tr>
             <tr>
               <td style={{ textAlign: "right" }}>

@@ -186,6 +186,79 @@ describe("Classic ReleaseCard", () => {
     expect(screen.getByDisplayValue("Save")).toHaveProperty("disabled", false);
   });
 
+  // BS#2004: `album_artist` gained a write path. The screen sends it the way it
+  // sends `alternate_artist_name` -- always, `null` when blank -- so an emptied
+  // field clears the column instead of leaving a stale credit behind.
+  describe("album artist (BS#2004)", () => {
+    it("enables Save for an album-artist change", async () => {
+      const user = userEvent.setup();
+      mockGetInformationQuery.mockReturnValue({ data: album(), isLoading: false, isError: false });
+
+      renderWithProviders(<ReleaseCard albumId={53375} />);
+
+      await user.type(screen.getByLabelText("Album Artist"), "Kruder & Dorfmeister");
+
+      expect(screen.getByDisplayValue("Save")).toHaveProperty("disabled", false);
+    });
+
+    it("submits the trimmed album artist", async () => {
+      const user = userEvent.setup();
+      mockUpdateAlbum.mockClear();
+      mockUpdateAlbum.mockReturnValue({ unwrap: () => Promise.resolve({}) });
+      mockGetInformationQuery.mockReturnValue({ data: album(), isLoading: false, isError: false });
+
+      renderWithProviders(<ReleaseCard albumId={53375} />);
+
+      await user.type(screen.getByLabelText("Album Artist"), "  Kruder & Dorfmeister  ");
+      await user.click(screen.getByDisplayValue("Save"));
+
+      expect(mockUpdateAlbum).toHaveBeenCalledWith({
+        albumId: 53375,
+        body: expect.objectContaining({ album_artist: "Kruder & Dorfmeister" }),
+      });
+    });
+
+    it("clears the album artist with an explicit null", async () => {
+      const user = userEvent.setup();
+      mockUpdateAlbum.mockClear();
+      mockUpdateAlbum.mockReturnValue({ unwrap: () => Promise.resolve({}) });
+      mockGetInformationQuery.mockReturnValue({
+        data: album({ album_artist: "Stale Credit" }),
+        isLoading: false,
+        isError: false,
+      });
+
+      renderWithProviders(<ReleaseCard albumId={53375} />);
+
+      expect(screen.getByLabelText("Album Artist")).toHaveProperty("value", "Stale Credit");
+      await user.clear(screen.getByLabelText("Album Artist"));
+      await user.click(screen.getByDisplayValue("Save"));
+
+      expect(mockUpdateAlbum).toHaveBeenCalledWith({
+        albumId: 53375,
+        body: expect.objectContaining({ album_artist: null }),
+      });
+    });
+
+    // The artist line is decided by the shelf, not by the credit: a release filed
+    // under a named artist keeps that name even once a librarian records who the
+    // record is credited to. Before BS#2004 the credit was never set, so the old
+    // `album_artist ? "Various Artists"` gate was unreachable; now it would
+    // mislabel every non-compilation the moment the field was filled.
+    it("keeps the filed artist, not 'Various Artists', for a non-V/A release carrying a credit", () => {
+      mockGetInformationQuery.mockReturnValue({
+        data: album({ album_artist: "Kruder & Dorfmeister" }),
+        isLoading: false,
+        isError: false,
+      });
+
+      renderWithProviders(<ReleaseCard albumId={53375} />);
+
+      expect(screen.queryByText("Various Artists")).toBeNull();
+      expect(screen.getByLabelText("Album Artist")).toHaveProperty("value", "Kruder & Dorfmeister");
+    });
+  });
+
   it("submits an edited call number and uppercased call letter", async () => {
     const user = userEvent.setup();
     mockUpdateAlbum.mockClear();

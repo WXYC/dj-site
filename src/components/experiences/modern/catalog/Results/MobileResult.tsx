@@ -22,6 +22,7 @@ import { ReleaseChips } from "./ReleaseChips";
 import { RotationLocationPill } from "./RotationLocationPill";
 import { toast } from "sonner";
 import { memo } from "react";
+import { isVariousArtists } from "@/lib/features/catalog/libraryCode";
 
 // Rendered below the `sm` breakpoint in place of the desktop table.
 // `live`/`addToQueue` are hoisted into Results (shared across rows); memoized
@@ -37,7 +38,9 @@ function CatalogMobileResult({
 }) {
   const router = useRouter();
 
-  const artistDisplay = album.album_artist ? "Various Artists" : album.artist.name;
+  // Decided by the shelf, not by the credit -- BS#2004 made `album_artist` a
+  // librarian-written field, so it no longer implies a compilation.
+  const artistDisplay = isVariousArtists(album.artist.lettercode) ? "Various Artists" : album.artist.name;
 
   // Rows without a library id have no album page to open.
   const openDetail = () => {

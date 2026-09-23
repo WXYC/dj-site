@@ -151,9 +151,36 @@ describe("CatalogResult WXYC Exclusive badge", () => {
 });
 
 describe("CatalogResult Various Artists display", () => {
-  it("should display 'Various Artists' when album_artist is set", () => {
+  // The artist line is decided by the shelf (`isVariousArtists(lettercode)`),
+  // not by whether a credit is recorded. BS#2004 made `album_artist` writable,
+  // so the old `album_artist ? "Various Artists"` gate would now relabel any
+  // named-artist release the moment a librarian recorded who it is credited to.
+  it("keeps the filed artist for a non-V/A release that carries a credited album artist", () => {
     const album = createTestAlbum({
       artist: createTestArtist({ name: "Autechre", lettercode: "EL", numbercode: 5 }),
+      album_artist: "Sean Booth",
+      title: "All Tomorrow's Parties",
+    });
+
+    renderWithProviders(
+      <table>
+        <tbody>
+          <CatalogResult album={album} live={false} addToQueue={vi.fn()} />
+        </tbody>
+      </table>
+    );
+
+    expect(screen.getAllByText("Autechre").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Various Artists")).toBeNull();
+  });
+
+  it("displays 'Various Artists' for a release filed on the V/A shelf", () => {
+    const album = createTestAlbum({
+      artist: createTestArtist({
+        name: "Various Artists - Electronic - A",
+        lettercode: "V/A",
+        numbercode: 0,
+      }),
       album_artist: "Autechre",
       title: "All Tomorrow's Parties",
     });

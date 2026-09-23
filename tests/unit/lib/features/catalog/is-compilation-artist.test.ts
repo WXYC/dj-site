@@ -98,13 +98,29 @@ describe("isCompilationRelease", () => {
     }
   );
 
-  it("returns true when album_artist is populated, regardless of artist name", () => {
+  // BS#2004: `album_artist` became a librarian-written credit that can sit on
+  // a release filed under a named artist, so it no longer implies a
+  // compilation. The shelf decides.
+  it("returns false for a named-artist release even when album_artist is populated (BS#2004)", () => {
     expect(
       isCompilationRelease({
         album_artist: "Kruder & Dorfmeister",
-        artist: { name: "Kruder & Dorfmeister" },
-      })
-    ).toBe(true);
+        artist: { name: "Stereolab", lettercode: "ST" },
+      } as Parameters<typeof isCompilationRelease>[0]),
+    ).toBe(false);
+  });
+
+  it.each(["V/A", "v/a", " V/A ", "Z--", "Z-A"])(
+    "returns true for a release on the V/A shelf by call letters %s, whatever the name",
+    (lettercode) => {
+      expect(
+        isCompilationRelease({ artist: { name: "Soundtracks - L", lettercode } }),
+      ).toBe(true);
+    },
+  );
+
+  it("does not treat a non-V/A lettercode as a compilation", () => {
+    expect(isCompilationRelease({ artist: { name: "Stereolab", lettercode: "ST" } })).toBe(false);
   });
 
   it("returns true for a V/A-shaped artist name without album_artist", () => {
@@ -121,9 +137,4 @@ describe("isCompilationRelease", () => {
     expect(isCompilationRelease({ artist: null })).toBe(false);
   });
 
-  it("returns false for an empty album_artist string", () => {
-    expect(
-      isCompilationRelease({ album_artist: "", artist: { name: "Cat Power" } })
-    ).toBe(false);
-  });
 });

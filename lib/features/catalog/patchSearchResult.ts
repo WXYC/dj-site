@@ -81,7 +81,12 @@ export function mergeAlbumIntoSearchResult(
       updated.date_lost === undefined ? existing.date_lost : updated.date_lost,
     date_found:
       updated.date_found === undefined ? existing.date_found : updated.date_found,
-    album_artist: updated.album_artist ?? existing.album_artist,
+    // `null` is a meaningful write since BS#2004 (credit cleared) and must
+    // pass through; only an absent (`undefined`) field keeps the cached value.
+    // Same rule as `discogsUnavailableNote` below -- `??` here left a cleared
+    // credit on the cached row until the next refetch.
+    album_artist:
+      updated.album_artist === undefined ? existing.album_artist : updated.album_artist,
     discogsUnavailable: updated.discogsUnavailable ?? existing.discogsUnavailable,
     // `null` is a meaningful write (note cleared) and must pass through;
     // only an absent (`undefined`) field falls back to the cached value.

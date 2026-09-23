@@ -45,6 +45,7 @@ type SavedFields = {
   formatId: number | undefined;
   artistId: number | undefined;
   alternateArtistName: string;
+  albumArtist: string;
   discQuantity: number | undefined;
 };
 
@@ -78,6 +79,7 @@ function snapshotFromAlbum(album: AlbumEntry): SavedFields {
     formatId: album.format_id,
     artistId: album.artist_id ?? album.artist.id,
     alternateArtistName: (album.alternate_artist ?? "").trim(),
+    albumArtist: (album.album_artist ?? "").trim(),
     discQuantity: album.disc_quantity,
   };
 }
@@ -128,6 +130,7 @@ function AlbumEditFormFields({ album }: AlbumEditFormProps) {
   const [alternateArtistName, setAlternateArtistName] = useState(
     saved.alternateArtistName,
   );
+  const [albumArtist, setAlbumArtist] = useState(saved.albumArtist);
   const [discQuantity, setDiscQuantity] = useState<number | undefined>(
     saved.discQuantity,
   );
@@ -185,6 +188,7 @@ function AlbumEditFormFields({ album }: AlbumEditFormProps) {
   const trimmedTitle = title.trim();
   const trimmedLabel = label.trim();
   const trimmedAlternateArtistName = alternateArtistName.trim();
+  const trimmedAlbumArtist = albumArtist.trim();
 
   // A link resolved under a different genre names no row under the current one,
   // and a link whose name no longer matches the field names an artist the MD is
@@ -209,6 +213,7 @@ function AlbumEditFormFields({ album }: AlbumEditFormProps) {
   const labelTooLong = trimmedLabel.length > ALBUM_TEXT_MAX_LENGTH;
   const alternateArtistNameTooLong =
     trimmedAlternateArtistName.length > ALBUM_TEXT_MAX_LENGTH;
+  const albumArtistTooLong = trimmedAlbumArtist.length > ALBUM_TEXT_MAX_LENGTH;
   // Blanking a previously-set disc_quantity has no way to reach the server
   // (the field isn't nullable in this contract) — blocking Save keeps the
   // draft from being silently discarded on the post-save reseed below.
@@ -256,6 +261,10 @@ function AlbumEditFormFields({ album }: AlbumEditFormProps) {
     changes.alternate_artist_name =
       trimmedAlternateArtistName.length > 0 ? trimmedAlternateArtistName : null;
   }
+  // BS#2004: same clear-with-null shape as the alternate name.
+  if (!albumArtistTooLong && trimmedAlbumArtist !== saved.albumArtist) {
+    changes.album_artist = trimmedAlbumArtist.length > 0 ? trimmedAlbumArtist : null;
+  }
   if (!discQuantityInvalid && discQuantity !== undefined && discQuantity !== saved.discQuantity) {
     changes.disc_quantity = discQuantity;
   }
@@ -272,6 +281,7 @@ function AlbumEditFormFields({ album }: AlbumEditFormProps) {
     !titleTooLong &&
     !labelTooLong &&
     !alternateArtistNameTooLong &&
+    !albumArtistTooLong &&
     !discQuantityInvalid &&
     !saving;
 
@@ -300,6 +310,7 @@ function AlbumEditFormFields({ album }: AlbumEditFormProps) {
     setArtistName(updated.artist.name);
     setArtistLink(artistLinkFrom(nextSaved, updated.artist.name));
     setAlternateArtistName(nextSaved.alternateArtistName);
+    setAlbumArtist(nextSaved.albumArtist);
     setDiscQuantity(nextSaved.discQuantity);
     toast.success("Album updated");
   };
@@ -447,13 +458,23 @@ function AlbumEditFormFields({ album }: AlbumEditFormProps) {
 
       <Divider />
 
-      <FormControl>
+      <FormControl error={albumArtistTooLong}>
         <FormLabel>Album Artist</FormLabel>
-        <Input size="sm" value={album.album_artist ?? ""} disabled />
+        <Input
+          size="sm"
+          value={albumArtist}
+          disabled={saving}
+          onChange={(e) => setAlbumArtist(e.target.value)}
+        />
         <Typography level="body-xs" sx={{ mt: 0.5, color: "text.tertiary" }}>
-          Set by tubafrenzy for compilations; editing it here isn&apos;t
-          supported yet.
+          Who a compilation is credited to, when that differs from the shelf it
+          is filed under. Leave blank for an ordinary release.
         </Typography>
+        {albumArtistTooLong && (
+          <FormHelperText>
+            Album artist must be {ALBUM_TEXT_MAX_LENGTH} characters or fewer.
+          </FormHelperText>
+        )}
       </FormControl>
 
       <Stack direction="row" justifyContent="flex-end">
