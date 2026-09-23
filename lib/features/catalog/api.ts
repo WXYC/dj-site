@@ -3,7 +3,7 @@ import type { FetchBaseQueryError } from "@reduxjs/toolkit/query";
 import type { RootState } from "@/lib/store";
 import type { LibraryFilingRequest, LibraryFilingResponse } from "@wxyc/shared";
 import { hasLinkedAlbumId } from "../flowsheet/linkage";
-import { backendBaseQuery } from "../backend";
+import { backendBaseQuery, LML_BACKED_REQUEST_TIMEOUT_MS } from "../backend";
 import { rotationApi } from "../rotation/api";
 import {
   isAddArtistConflict,
@@ -502,6 +502,9 @@ export const catalogApi = createApi({
       query: (url) => ({
         url: "/releases/discogs-prefill",
         params: { url },
+        // Resolution runs through the metadata-lookup cascade, which on a cold
+        // release legitimately takes longer than the default ceiling allows.
+        timeout: LML_BACKED_REQUEST_TIMEOUT_MS,
       }),
       // The shared base query soft-fails an unparseable body (a gateway's HTML
       // 502/504/524, Express's HTML 404 for a route not yet deployed) into a

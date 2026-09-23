@@ -18,9 +18,55 @@ type BackendBaseQuery = BaseQueryFn<
   FetchBaseQueryMeta
 >;
 
+/**
+ * Ceiling on a single Backend-Service request.
+ *
+ * A request with no ceiling is not merely slow: a backend that accepts the
+ * connection and never answers leaves the mutation's `isLoading` true for as
+ * long as the browser's own network stack waits, and controls gated on that
+ * flag — the flowsheet's Add button among them — stay disabled with no
+ * recovery short of a reload. Aborting converts that open-ended lockout into
+ * an error the DJ can see and retry.
+ *
+ * Healthy reads settle in the low hundreds of milliseconds, so this leaves
+ * more than an order of magnitude of headroom: it is sized to catch a wedged
+ * backend, not to police a slow one.
+ */
+export const BACKEND_REQUEST_TIMEOUT_MS = 8_000;
+
+/**
+ * Ceiling for requests answered by the metadata-lookup service rather than by
+ * Backend-Service's own store.
+ *
+ * Their cold path walks an external-metadata cascade that legitimately runs
+ * for seconds — the slowest observed walk finished just under 23 s — so the
+ * default ceiling would abort work that was going to succeed. Every endpoint
+ * that wears this is lazy and none gates the flowsheet's write controls, so
+ * the longer wait costs a spinner rather than a DJ's ability to log a track.
+ */
+export const LML_BACKED_REQUEST_TIMEOUT_MS = 30_000;
+
+/**
+ * Backend-Service's `proxy` namespace is the pass-through to the metadata
+ * lookup service: a request under it inherits that service's latency, not
+ * Backend-Service's. Keying the ceiling on the domain rather than on a list of
+ * endpoints means a route added to that namespace later cannot quietly get a
+ * ceiling sized for a local read.
+ *
+ * An endpoint outside this namespace that still resolves through the cascade
+ * carries `timeout: LML_BACKED_REQUEST_TIMEOUT_MS` in its own fetch args.
+ */
+const LML_PROXY_DOMAIN = "proxy";
+
+const requestTimeoutFor = (domain: string): number =>
+  domain === LML_PROXY_DOMAIN
+    ? LML_BACKED_REQUEST_TIMEOUT_MS
+    : BACKEND_REQUEST_TIMEOUT_MS;
+
 const innerBaseQuery = (domain: string): BackendBaseQuery =>
   fetchBaseQuery({
     baseUrl: `${process.env.NEXT_PUBLIC_BACKEND_URL}/${domain}`,
+    timeout: requestTimeoutFor(domain),
     prepareHeaders: async (headers) => {
       headers.set("Content-Type", "application/json");
       headers.set("X-Request-Id", crypto.randomUUID());
