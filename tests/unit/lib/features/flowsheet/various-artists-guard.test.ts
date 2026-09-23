@@ -66,6 +66,95 @@ describe("isVariousArtistsEntry", () => {
     expect(isVariousArtistsEntry(input)).toBe(false);
   });
 
+  // The letter-subdivided shelves: 26 names each, matched by shape.
+  it.each([
+    "Soundtracks - A",
+    "Soundtracks - Z",
+    "Various Artists - Rock - A",
+    "Various Artists - Rock - Z",
+  ])("refuses the letter-subdivided shelf label %s", (input) => {
+    expect(isVariousArtistsEntry(input)).toBe(true);
+  });
+
+  // The twelve genre buckets. "Various Artists - Soundtracks" is distinct
+  // from the "Soundtracks - <L>" shelf, and "Rock" is not among these — it
+  // is the letter shelf above.
+  it.each([
+    "Various Artists - Africa",
+    "Various Artists - Asia",
+    "Various Artists - Blues",
+    "Various Artists - Classical",
+    "Various Artists - Comedy",
+    "Various Artists - Electronic",
+    "Various Artists - Hiphop",
+    "Various Artists - Latin",
+    "Various Artists - OCS",
+    "Various Artists - Soundtracks",
+    "Various Artists - Spoken",
+    "Various Artists - Xmas",
+  ])("refuses the genre bucket %s", (input) => {
+    expect(isVariousArtistsEntry(input)).toBe(true);
+  });
+
+  // The bracketed form, matched by shape rather than the literal "[group]" —
+  // a thirteenth bracketed bucket must not require a code change.
+  it.each(["Various Artists [group]", "Various Artists [anything]"])(
+    "refuses the bracketed shelf label %s",
+    (input) => {
+      expect(isVariousArtistsEntry(input)).toBe(true);
+    }
+  );
+
+  // A bucket name absent from the test corpus must still be refused by
+  // shape, and a DJ appending the real performer to the label must still
+  // be refused.
+  it.each(["Various Artists - Reggae", "Soundtracks - G Frou Frou"])(
+    "refuses an unlisted or hand-appended shelf label %s",
+    (input) => {
+      expect(isVariousArtistsEntry(input)).toBe(true);
+    }
+  );
+
+  // Observed leaks from the prod measurement, verbatim.
+  it.each([
+    "Soundtracks - C",
+    "Soundtracks - S",
+    "Various Artists - Rock - B",
+    "Various Artists - Rock - M",
+    "Various Artists - Rock - P",
+    "Various Artists - Rock - S",
+    "Various Artists - Rock - V",
+    "Various Artists - Blues",
+    "Various Artists - Hiphop",
+    "Various Artists - Asia",
+    "Various Artists - OCS",
+    "Various Artists - Electronic",
+    "Soundtracks - G Frou Frou",
+  ])("refuses the observed leaked row %s", (input) => {
+    expect(isVariousArtistsEntry(input)).toBe(true);
+  });
+
+  // Real catalog names that lack the " - " separator the shapes require —
+  // the separator is load-bearing, and bare prefix matching would break
+  // every one of these.
+  it.each([
+    "Soundtracks For The Blind",
+    "Soundtracks Zum Untergang",
+    "Soundtracks Of My Life",
+    "Various Positions",
+    "Soundtrack of Our Lives",
+    "The Soundtrack of Our Lives",
+  ])("allows the real artist name %s", (input) => {
+    expect(isVariousArtistsEntry(input)).toBe(false);
+  });
+
+  // Keeps a future widening of the bracket pattern honest: it is anchored
+  // at "various artists" and must never reach a real band name that merely
+  // carries brackets.
+  it("allows a bracket-bearing real artist name", () => {
+    expect(isVariousArtistsEntry("Zappa [Live]")).toBe(false);
+  });
+
   it.each([null, undefined, "", "   "])(
     "allows empty input %s — emptiness is a separate check",
     (input) => {
