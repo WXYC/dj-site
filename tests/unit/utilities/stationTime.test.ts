@@ -11,6 +11,7 @@ import {
   formatStationTimestampLabel,
   isStationHourBreakpointPresent,
   stationBreakpointMessage,
+  startOfStationHour,
   startOfStationWeek,
   addStationWeeks,
   stationWeekWindow,
@@ -50,6 +51,63 @@ describe("stationTime", () => {
     it("returns a top-of-hour instant", () => {
       const rounded = closestStationHour(new Date("2026-07-17T03:15:00Z"));
       expect(rounded.getTime() % 3_600_000).toBe(0);
+    });
+  });
+
+  describe("startOfStationHour", () => {
+    it("floors a modern instant to the containing station hour", () => {
+      // 2026-09-18T15:01:53Z is 11:01:53 EDT -> floors to 11:00 AM EDT.
+      expect(startOfStationHour(Date.parse("2026-09-18T15:01:53Z"))).toBe(
+        Date.parse("2026-09-18T15:00:00Z"),
+      );
+    });
+
+    // The whole reason a shared implementation exists rather than
+    // `ms - (ms % MS_PER_HOUR)`: `%` keeps the sign of the dividend, so that
+    // form CEILS a pre-1970 instant instead of flooring it. Unreachable by
+    // any real flowsheet row -- WXYC signed on in 1977 -- but pinned because
+    // it is the fact that decided which implementation survived.
+    it("floors a pre-1970 instant correctly instead of ceiling it", () => {
+      expect(startOfStationHour(-100)).toBe(Date.parse("1969-12-31T23:00:00Z"));
+    });
+
+    it("floors a pre-1970 instant that is not near a UTC hour boundary", () => {
+      // 1969-07-20T20:17:40Z is 4:17:40 PM EDT -> floors to 4:00 PM EDT. The
+      // epoch form (`ms - (ms % MS_PER_HOUR)`) instead ceils this to 9PM UTC.
+      expect(startOfStationHour(Date.parse("1969-07-20T20:17:40Z"))).toBe(
+        Date.parse("1969-07-20T20:00:00Z"),
+      );
+    });
+  });
+
+  describe("closestStationHour and startOfStationHour stay internally consistent", () => {
+    // closestStationHour derives its minutes-into-hour from
+    // startOfStationHour's own floor rather than recomputing it a second,
+    // independent way, so the two can never disagree about which hour is
+    // "current" for a given instant -- pinned here by checking the rounded
+    // result is always either the floor itself or exactly one hour later.
+    it.each([
+      "2026-07-17T03:15:00Z",
+      "2026-07-17T03:30:00Z", // exactly :30 -> rounds down
+      "2026-07-17T03:31:00Z", // strictly past :30 -> rounds up
+      "2026-03-08T06:59:00Z", // just before spring-forward
+      "2026-03-08T07:01:00Z", // just after spring-forward
+      "2026-11-01T05:30:00Z", // first 1 AM EDT repeat, fall-back
+      "2026-11-01T06:30:00Z", // second 1 AM EST repeat
+    ])("rounds %s to its own floor or the next one", (iso) => {
+      const ms = Date.parse(iso);
+      const floor = startOfStationHour(ms);
+      const rounded = closestStationHour(new Date(ms)).getTime();
+      expect([floor, floor + 3_600_000]).toContain(rounded);
+    });
+
+    it("rounds down at exactly :30 and up strictly past it", () => {
+      const exactlyThirty = closestStationHour(new Date("2026-07-17T03:30:00Z"));
+      const pastThirty = closestStationHour(new Date("2026-07-17T03:31:00Z"));
+      expect(exactlyThirty.getTime()).toBe(startOfStationHour(Date.parse("2026-07-17T03:30:00Z")));
+      expect(pastThirty.getTime()).toBe(
+        startOfStationHour(Date.parse("2026-07-17T03:31:00Z")) + 3_600_000,
+      );
     });
   });
 
