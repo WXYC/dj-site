@@ -212,6 +212,25 @@ export function isStationHourBreakpointPresent(
   return false;
 }
 
+/**
+ * Copy for the one-per-hour guard's rejection, built from an hour label that
+ * has already been resolved, e.g. "7:00 PM" -> "7:00 PM already has a
+ * breakpoint". Naming the claimed hour rather than restating the rule is the
+ * point: which hour the guard read is the one fact a DJ cannot recover from
+ * the screen, and without it a refusal is indistinguishable from a failed
+ * write.
+ *
+ * Takes a resolved label rather than a `Date`, the same split as
+ * `breakpointMessageForHourLabel` above, so each caller passes the single
+ * clock read its guard check also used instead of this function silently
+ * taking a second one that could round to a different hour.
+ *
+ * Shared by both experiences so the two cannot drift on wording.
+ */
+export function breakpointGuardRejectionMessage(hourLabel: string): string {
+  return `${hourLabel} already has a breakpoint`;
+}
+
 const partValue = (parts: Intl.DateTimeFormatPart[], type: Intl.DateTimeFormatPartTypes) =>
   parts.find((p) => p.type === type)?.value ?? "";
 

@@ -16,6 +16,8 @@ import {
 } from "@/lib/features/flowsheet/various-artists-guard";
 import { FlowsheetEntryType } from "@wxyc/shared/dtos";
 import {
+  breakpointGuardRejectionMessage,
+  formatStationHourLabel,
   isStationHourBreakpointPresent,
   stationBreakpointMessage,
 } from "@/src/utilities/stationTime";
@@ -52,6 +54,17 @@ export default function EntryForm({
   const [labelName, setLabelName] = useState("");
   const [requestFlag, setRequestFlag] = useState(false);
   const [segue, setSegue] = useState(false);
+  // Written only by the breakpoint guard below, never derived during render --
+  // a render-time value goes stale past an hour boundary for the same reason a
+  // `disabled` Add button would. Every path off Breakpoint clears it, and the
+  // guard clears it the moment a submission passes, so it is non-null only
+  // while Breakpoint is selected and always names the hour the guard last read.
+  // Residue: nothing re-renders the form on an hour boundary, so an untouched
+  // message keeps naming its hour after the clock rolls past :30, until the
+  // DJ's next action re-derives it.
+  const [breakpointRejection, setBreakpointRejection] = useState<string | null>(
+    null
+  );
 
   const { data: rotationData } = useGetRotationQuery();
   const breakpointHours = useCurrentBreakpointHours();
@@ -151,9 +164,26 @@ export default function EntryForm({
       // Enforced here rather than by disabling Add: `breakpointHours` is a
       // render-time read with no hour-boundary re-render, so a disabled control
       // could outlive its station hour and lock out the next, legitimate one.
-      if (isStationHourBreakpointPresent(breakpointHours)) return;
+      //
+      // One clock read for the whole branch. The check, the rejection copy, and
+      // the message written on success all resolve from `now`, so they cannot
+      // disagree about which station hour this submission is for -- independent
+      // `new Date()` calls can straddle the :30 rounding boundary and name an
+      // hour the check never looked at.
+      const now = new Date();
+      if (isStationHourBreakpointPresent(breakpointHours, now)) {
+        setBreakpointRejection(
+          breakpointGuardRejectionMessage(formatStationHourLabel(now))
+        );
+        return;
+      }
+      // The guard just passed for this hour, so a message still on screen is
+      // from an earlier attempt. Left up it would impersonate this submission's
+      // outcome whenever the write itself fails and the form stays on
+      // Breakpoint.
+      setBreakpointRejection(null);
       submissionData = {
-        message: stationBreakpointMessage(),
+        message: stationBreakpointMessage(now),
         entry_type: FlowsheetEntryType.breakpoint,
       };
     } else if (releaseType === "rotationRelease" && selectedRotationId > 0) {
@@ -244,7 +274,14 @@ export default function EntryForm({
             id="addEntryType"
             name="addEntryType"
             value={entryType}
-            onChange={(e) => setEntryType(e.target.value as EntryType)}
+            onChange={(e) => {
+              setEntryType(e.target.value as EntryType);
+              // Load-bearing, not tidying: the message renders on its own
+              // presence, so leaving it set would keep a breakpoint refusal on
+              // screen under Track or Talkset, still naming an hour that may
+              // no longer be the one in conflict.
+              setBreakpointRejection(null);
+            }}
             disabled={!isLive}
           >
             <option value="track">Track</option>
@@ -261,8 +298,25 @@ export default function EntryForm({
                 type="submit"
                 value="Add"
                 disabled={!isLive || isLoading || !canSubmit}
+                aria-describedby={
+                  breakpointRejection ? "breakpointGuardError" : undefined
+                }
               />
             </>
+          )}
+          {/* Submit-level rather than field-level, so it takes the centered
+              `validation-message` slot the other Classic forms refuse a
+              submission in -- not the Various Artists guard's
+              `artist-error-message`, which the stylesheet scopes to sit
+              directly under a 300px text input. */}
+          {breakpointRejection && (
+            <div
+              id="breakpointGuardError"
+              role="alert"
+              className="validation-message visible"
+            >
+              {breakpointRejection}
+            </div>
           )}
         </div>
 

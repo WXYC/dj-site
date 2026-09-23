@@ -6,6 +6,7 @@ import {
   useFlowsheetSearch,
 } from "@/src/hooks/flowsheetHooks";
 import {
+  breakpointGuardRejectionMessage,
   formatStationHourLabel,
   isStationHourBreakpointPresent,
   stationBreakpointMessage,
@@ -13,6 +14,7 @@ import {
 import { FlowsheetEntryType } from "@wxyc/shared/dtos";
 import { Timer } from "@mui/icons-material";
 import { IconButton, Tooltip } from "@mui/joy";
+import { toast } from "sonner";
 
 export default function BreakpointButton() {
   const [addToFlowsheet, _] = useAddToFlowsheetMutation();
@@ -45,9 +47,22 @@ export default function BreakpointButton() {
           // hour-boundary re-render, so a disabled button could outlive its
           // station hour (structural sharing keeps the data reference stable
           // across quiet polls) and lock out the next, legitimate hour.
-          if (isStationHourBreakpointPresent(breakpointHours)) return;
+          //
+          // One clock read for the check, the toast copy, and the written
+          // message alike: independent `new Date()` calls can straddle the :30
+          // rounding boundary and name an hour the check never looked at.
+          const now = new Date();
+          if (isStationHourBreakpointPresent(breakpointHours, now)) {
+            // The tooltip states the rule on hover, but a click has to answer
+            // for itself -- toast is how the rest of the flowsheet tree
+            // reports a refused write.
+            toast.error(
+              breakpointGuardRejectionMessage(formatStationHourLabel(now))
+            );
+            return;
+          }
           addToFlowsheet({
-            message: stationBreakpointMessage(),
+            message: stationBreakpointMessage(now),
             entry_type: FlowsheetEntryType.breakpoint,
           });
         }}

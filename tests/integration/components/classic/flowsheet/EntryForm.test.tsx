@@ -653,7 +653,7 @@ describe("Classic EntryForm — one-per-station-hour breakpoint guard", () => {
 
   afterEach(restoreRealTime);
 
-  it("refuses a second breakpoint for an hour the current show already has", async () => {
+  it("refuses a second breakpoint for an hour the current show already has, and says so", async () => {
     mockCurrentTime(duringTheSevenPmHour);
     mockBreakpointHours = [{ message: "7:00 PM Breakpoint" }];
 
@@ -661,6 +661,11 @@ describe("Classic EntryForm — one-per-station-hour breakpoint guard", () => {
     await chooseBreakpointAndAdd();
 
     expect(addToFlowsheetMock).not.toHaveBeenCalled();
+    // The user-visible signal is the subject here, not the absent mutation: a
+    // refusal nobody can see is indistinguishable from a failed write.
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "7:00 PM already has a breakpoint"
+    );
   });
 
   it("still allows a breakpoint for a station hour not yet marked in this show", async () => {
@@ -674,6 +679,76 @@ describe("Classic EntryForm — one-per-station-hour breakpoint guard", () => {
     expect(addToFlowsheetMock.mock.calls[0][0].message).toBe(
       "7:00 PM Breakpoint"
     );
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("names the rounded station hour, not the wall-clock hour the DJ is in", async () => {
+    // 7:31 PM ET: the DJ's clock reads 7-something, but the station hour this
+    // submission targets is 8 PM, because closestStationHour flips strictly
+    // past :30. The rejection has to name the hour the guard keyed on, or it
+    // points the DJ at a row that isn't the one in conflict.
+    mockCurrentTime(new Date("2026-07-17T23:31:00.000Z"));
+    mockBreakpointHours = [{ message: "8:00 PM Breakpoint" }];
+
+    renderWithProviders(<EntryForm />);
+    await chooseBreakpointAndAdd();
+
+    expect(addToFlowsheetMock).not.toHaveBeenCalled();
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "8:00 PM already has a breakpoint"
+    );
+  });
+
+  it("clears the rejection message once the DJ navigates away from Breakpoint", async () => {
+    // fireEvent-based setFieldValue rather than user.selectOptions: this test
+    // holds a mockCurrentTime fake clock, and userEvent's internal delays
+    // need real time to advance (documented on chooseBreakpointAndAdd above).
+    mockCurrentTime(duringTheSevenPmHour);
+    mockBreakpointHours = [{ message: "7:00 PM Breakpoint" }];
+
+    renderWithProviders(<EntryForm />);
+    await chooseBreakpointAndAdd();
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+
+    // Picking Track, which the guard has no opinion on, must not carry a
+    // stale rejection along -- otherwise a return trip to Breakpoint later
+    // in the same show could show an hour the guard didn't just re-check.
+    setFieldValue(getNamedSelect("addEntryType"), "track");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("drops a rejection once the guard passes, even when the write then fails", async () => {
+    mockCurrentTime(duringTheSevenPmHour);
+    mockBreakpointHours = [{ message: "7:00 PM Breakpoint" }];
+
+    renderWithProviders(<EntryForm />);
+    await chooseBreakpointAndAdd();
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+
+    // The station hour rolls to 8 PM while the 7 PM rejection is still up --
+    // nothing re-renders the form on an hour boundary, so it is now naming an
+    // hour that is no longer the one being submitted. The next Add passes the
+    // guard but loses the write, leaving the form on Breakpoint: exactly where
+    // a surviving rejection would be read as this attempt's outcome, wearing
+    // the previous hour's label. Clicking Add directly rather than re-picking
+    // Breakpoint keeps the subject on the guard, not on the select's reset.
+    mockCurrentTime(new Date("2026-07-18T00:15:00.000Z"));
+    addToFlowsheetMock.mockReturnValue({
+      unwrap: () => Promise.reject(new Error("network")),
+    });
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /^add$/i }));
+    });
+    consoleError.mockRestore();
+
+    expect(addToFlowsheetMock).toHaveBeenCalledTimes(1);
+    expect(addToFlowsheetMock.mock.calls[0][0].message).toBe(
+      "8:00 PM Breakpoint"
+    );
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
   it("dedupes on radio_hour even when the row's own message names a different hour", async () => {
