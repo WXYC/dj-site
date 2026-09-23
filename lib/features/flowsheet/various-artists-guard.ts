@@ -14,6 +14,23 @@ const ABBREVIATED_COMPILATION_CREDITS: readonly RegExp[] = [
 ];
 
 /**
+ * Compilation shelf labels: WXYC files compilations on a Z-prefixed shelf
+ * subdivided by physical shelf position, so `artists.artist_name` for those
+ * rows is the bucket label ("Soundtracks - A", "Various Artists - Blues",
+ * "Various Artists [group]") rather than a performer. Matched by shape, not
+ * by enumerating the buckets, so a new one never needs a code change. Not
+ * `SHELF_LETTER_SUFFIX` (`compilationShelf.ts`) — that extracts a letter
+ * from a known shelf owner's name to preselect a filing bucket; this
+ * classifies arbitrary typed text and must also catch the genre-word
+ * buckets that carry no trailing letter.
+ */
+const COMPILATION_SHELF_LABELS: readonly RegExp[] = [
+  /^various artists\s*-\s*.+$/,
+  /^soundtracks\s*-\s*.+$/,
+  /^various artists\s*\[.+\]$/,
+];
+
+/**
  * Copy for every refusal, in both experiences. Names the fix rather than the
  * rule: the DJ needs to know what to type, not which predicate matched.
  */
@@ -65,8 +82,11 @@ export function isVariousArtistsEntry(
   if (!artist) return false;
   if (isCompilationReleaseArtistName(artist)) return true;
   const normalized = artist.trim().toLowerCase().replace(/\s+/g, " ");
-  return ABBREVIATED_COMPILATION_CREDITS.some((pattern) =>
-    pattern.test(normalized)
+  return (
+    ABBREVIATED_COMPILATION_CREDITS.some((pattern) =>
+      pattern.test(normalized)
+    ) ||
+    COMPILATION_SHELF_LABELS.some((pattern) => pattern.test(normalized))
   );
 }
 
