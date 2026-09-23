@@ -695,6 +695,35 @@ describe("flowsheet conversions", () => {
         expect(isFlowsheetBreakpointEntry(result)).toBe(true);
       });
 
+      // The guard (stationTime.ts) deliberately treats an unparseable
+      // radio_hour as absent rather than as an instant matching nothing. The
+      // display path follows the same policy, so one bad value cannot make a
+      // row forget both the hour its own text names and its logging instant.
+      it("falls back to the message and add_time when radio_hour will not parse", () => {
+        const entry = createTestV2BreakpointEntry({
+          message: "--- 3:00 PM BREAKPOINT ---",
+          add_time: "2026-08-23T01:02:03.000Z",
+          radio_hour: "not-a-date",
+        });
+        const result = convertV2Entry(entry) as FlowsheetBreakpointEntry;
+
+        expect(result.message).toBe("3:00 PM Breakpoint");
+        expect(result.day).not.toBe("Unknown");
+        expect(result.time).not.toBe("Unknown");
+      });
+
+      it("keeps an unparseable radio_hour on the row for the guard to reject", () => {
+        const entry = createTestV2BreakpointEntry({
+          message: "--- 3:00 PM BREAKPOINT ---",
+          radio_hour: "not-a-date",
+        });
+        const result = convertV2Entry(entry) as FlowsheetBreakpointEntry;
+
+        // Not silently nulled: the row reports what the wire sent, and the
+        // guard applies its own parseability policy to it.
+        expect(result.radio_hour).toBe("not-a-date");
+      });
+
       it("treats a null message the same as one naming no hour", () => {
         const entry = createTestV2BreakpointEntry({
           message: null,
