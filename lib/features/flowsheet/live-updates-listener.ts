@@ -248,6 +248,14 @@ export function createLiveUpdatesListenerMiddleware(
    * removed because the shape invariant that put it here is gone, and leaving
    * it would tell the next reader the converted row has no `radio_hour`.
    *
+   * What that unreachability is now load-bearing FOR, should it ever stop
+   * holding: the breakpoint conversion derives `message`, `day` and `time`
+   * FROM `radio_hour`, and this merge does not recompute them. So a merged
+   * `radio_hour` would leave the row's stated hour disagreeing with the label
+   * rendered beside it — the exact divergence the derivation exists to close.
+   * If a breakpoint ever becomes reachable here, this key alone is not the
+   * fix; the derived trio has to be recomputed with it.
+   *
    * `timestamp` is the opposite case, not a second instance of the `add_time`
    * exception: it exists only on the V2 `show_start`/`show_end` wire shape
    * (`FlowsheetV2ShowStartEntry`/`FlowsheetV2ShowEndEntry`), and the value

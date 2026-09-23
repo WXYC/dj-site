@@ -1,5 +1,8 @@
 import { safeCapture } from "@/lib/posthog";
-import { formatStationDateTime } from "@/src/utilities/stationTime";
+import {
+  closestStationHour,
+  formatStationDateTime,
+} from "@/src/utilities/stationTime";
 import { hasLinkedAlbumId } from "./linkage";
 import { isFlowsheetBreakpointEntry } from "./types";
 import type {
@@ -101,13 +104,19 @@ export function buildOptimisticEntry(
     };
     // isFlowsheetBreakpointEntry keys on the message text alone, so this row
     // reaches Classic's breakpoint branch — which reads entry.time — before
-    // the server has ever seen it. formatStationDateTime pins the station's
-    // zone (the instant is still the browser's), and is the producer
-    // convertV2Entry's breakpoint arm uses, so the server row that replaces
-    // this one is formatted the same way.
+    // the server has ever seen it.
+    //
+    // Formatted from the hour this breakpoint MARKS, not the instant it was
+    // logged, because that is what the server row replacing it will say: the
+    // server stamps `radio_hour` and the conversion derives the displayed
+    // day/time from that. Logging just before the hour is the normal case,
+    // so using the logging instant here would show the previous hour — and
+    // just before midnight, the previous day — until the response landed, and
+    // then visibly snap forward. `closestStationHour` is already the producer
+    // behind this row's own `message`, so the two agree by construction.
     if (isFlowsheetBreakpointEntry(entry)) {
       const { day, time, isToday } = formatStationDateTime(
-        new Date().toISOString()
+        closestStationHour().toISOString()
       );
       return { entry: { ...entry, day, time, isToday }, tempId };
     }

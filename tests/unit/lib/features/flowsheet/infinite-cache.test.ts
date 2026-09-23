@@ -1,10 +1,15 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { isFlowsheetBreakpointEntry } from "@/lib/features/flowsheet/types";
 import type {
+  FlowsheetBreakpointEntry,
   FlowsheetSongEntry,
   FlowsheetSubmissionParams,
 } from "@/lib/features/flowsheet/types";
-import { isStationHourBreakpointPresent } from "@/src/utilities/stationTime";
+import { convertV2Entry } from "@/lib/features/flowsheet/conversions";
+import {
+  isStationHourBreakpointPresent,
+  stationBreakpointMessage,
+} from "@/src/utilities/stationTime";
 
 const safeCaptureMock = vi.fn();
 vi.mock("@/lib/posthog", () => ({
@@ -509,8 +514,11 @@ describe("infinite-cache", () => {
       expect("time" in entry).toBe(false);
     });
 
-    // The expected day/time are that instant in the station's zone, not the
+    // The expected day is that instant in the station's zone, not the
     // runner's — which is what proves the wiring goes through station time.
+    // The time is the hour the breakpoint MARKS, not the instant it was
+    // logged: the row is a marker for the top of the hour, and the server row
+    // that replaces it says so too.
     it("builds a breakpoint message with station day/time/isToday, satisfying isFlowsheetBreakpointEntry", () => {
       vi.useFakeTimers();
       vi.setSystemTime(new Date("2026-07-17T03:15:30Z")); // 11:15:30 PM EDT on 7/16
@@ -521,8 +529,39 @@ describe("infinite-cache", () => {
       );
       expect(isFlowsheetBreakpointEntry(entry)).toBe(true);
       expect("day" in entry && entry.day).toBe("7/16/2026");
-      expect("time" in entry && entry.time).toBe("11:15:30 PM");
+      expect("time" in entry && entry.time).toBe("11:00:00 PM");
       expect("isToday" in entry && entry.isToday).toBe(true);
+    });
+
+    // The optimistic row is what the DJ looks at until the response lands, so
+    // it has to name the same hour the server row will. Logging a breakpoint
+    // just before the hour is the normal case, not an edge one — that is what
+    // "a breakpoint is logged either side of the hour it marks" means — so a
+    // row built from the logging instant would show the previous hour and then
+    // visibly snap forward when the server's answer arrived.
+    it("names the same hour the server row will, for a click just before the hour", () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-08-23T03:59:12Z")); // 11:59:12 PM EDT on 8/22
+      const draft = { pages: [[song(1, 10, 7)]], pageParams: [0] };
+      const { entry } = buildOptimisticEntry(
+        { message: stationBreakpointMessage() },
+        draft
+      );
+
+      // What the server stamps for that click, converted back for display.
+      const serverRow = convertV2Entry({
+        id: 99,
+        play_order: 11,
+        show_id: 7,
+        entry_type: "breakpoint",
+        message: "12:00 AM Breakpoint",
+        add_time: "2026-08-23T03:59:12.000Z",
+        radio_hour: "2026-08-23T04:00:00.000Z",
+      } as never) as FlowsheetBreakpointEntry;
+
+      expect("day" in entry && entry.day).toBe(serverRow.day);
+      expect("time" in entry && entry.time).toBe(serverRow.time);
+      expect("message" in entry && entry.message).toBe(serverRow.message);
     });
 
     // Regression for the guard's re-key onto radio_hour: the optimistic row

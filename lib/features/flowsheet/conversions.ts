@@ -14,6 +14,7 @@ import {
   FlowsheetQuery,
   FlowsheetSongEntry,
   FlowsheetSubmissionParams,
+  FlowsheetV2BreakpointEntryJSON,
   FlowsheetV2EntryJSON,
   FlowsheetV2PaginatedResponseJSON,
   OnAirDJData,
@@ -403,21 +404,27 @@ function stationDayTime(isoString: string | null | undefined): {
  * for both fields whenever it is present; the row's own stored text and
  * `add_time` are fallbacks for rows predating that column's producer.
  */
-function breakpointDisplayFields(entry: {
-  message?: string | null;
-  radio_hour?: string | null;
-  add_time?: string | null;
-}): {
+function breakpointDisplayFields(
+  entry: FlowsheetV2BreakpointEntryJSON | FlowsheetRangeEntry
+): {
   message: string;
   radio_hour: string | null;
   day: string;
   time: string;
   isToday: boolean;
 } {
+  // A `radio_hour` states the row's hour only if it actually parses. An
+  // unparseable one is treated as absent rather than as an instant that
+  // happens to match nothing -- the same policy the one-per-hour guard
+  // applies -- so a single bad value cannot cost the row both the hour its
+  // own text names and its logging instant, leaving it to render as a bare
+  // "Breakpoint" at an Unknown time.
+  const markedHour = usableInstant(entry.radio_hour);
+
   return {
     message: breakpointMessageForHourLabel(
-      entry.radio_hour
-        ? formatStationClockTime(entry.radio_hour)
+      markedHour
+        ? formatStationClockTime(markedHour)
         : clockTimeNamedInMessage(entry.message)
     ),
     // Carried through under its own name so the one-per-hour guard
@@ -428,8 +435,22 @@ function breakpointDisplayFields(entry: {
     // rows), and normalizing to one absent value keeps every reader's "does
     // this row have a radio_hour" check a single truthiness test.
     radio_hour: entry.radio_hour ?? null,
-    ...stationDayTime(entry.radio_hour ?? entry.add_time),
+    ...stationDayTime(markedHour ?? entry.add_time),
   };
+}
+
+/**
+ * `iso` when it names a real instant, null when it names nothing usable --
+ * absent, null, or a string `Date` cannot parse.
+ *
+ * Collapsing "missing" and "malformed" to one absent value is what lets every
+ * reader downstream ask a single question ("is there an instant here?") rather
+ * than each inventing its own handling for a value that is present but means
+ * nothing.
+ */
+function usableInstant(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  return Number.isNaN(new Date(iso).getTime()) ? null : iso;
 }
 
 /**
