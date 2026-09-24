@@ -2,7 +2,11 @@
 
 import { authenticationSlice } from "@/lib/features/authentication/frontend";
 import { AccountModification } from "@/lib/features/authentication/types";
-import { authClient } from "@/lib/features/authentication/client";
+import {
+  authClient,
+  updateIdentity,
+  type UpdateIdentityRequest,
+} from "@/lib/features/authentication/client";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
@@ -82,11 +86,18 @@ export function useDJAccount() {
             throw new Error("User not authenticated");
           }
 
+          // realName/djName do NOT go through authClient.updateUser. BS#2297
+          // locks both to `input: false` in better-auth's additionalFields, so
+          // the public POST /auth/update-user rejects them outright — see
+          // `updateIdentity` in lib/features/authentication/client.ts. They go
+          // to the dedicated self-service route; everything else is unchanged.
+          const identityData: UpdateIdentityRequest = {};
+          if (data.realName) identityData.realName = data.realName;
+          if (data.djName) identityData.djName = data.djName;
+
           // Update user via better-auth non-admin updateUser (updates current user)
           // Custom metadata fields go at the top level
           const updateData: Record<string, any> = {};
-          if (data.realName) updateData.realName = data.realName;
-          if (data.djName) updateData.djName = data.djName;
           if (data.email) updateData.email = data.email;
           // Optional profile fields - use !== undefined to allow clearing
           if (data.pronouns !== undefined) updateData.pronouns = data.pronouns;
@@ -97,10 +108,22 @@ export function useDJAccount() {
           if (data.bio !== undefined) updateData.bio = data.bio;
           if (data.location !== undefined) updateData.location = data.location;
 
-          if (Object.keys(updateData).length > 0) {
-            const result = await authClient.updateUser(updateData);
+          const hasIdentityEdits = Object.keys(identityData).length > 0;
 
-            throwIfBetterAuthError(result, "Failed to update user");
+          if (hasIdentityEdits || Object.keys(updateData).length > 0) {
+            // Identity first: it is the write that was failing, and a throw
+            // here must abort before the profile write so a half-save can't be
+            // reported as a whole one. Both calls are inside the same try, so
+            // either failure lands in the catch below with the flags intact.
+            if (hasIdentityEdits) {
+              await updateIdentity(identityData);
+            }
+
+            if (Object.keys(updateData).length > 0) {
+              const result = await authClient.updateUser(updateData);
+
+              throwIfBetterAuthError(result, "Failed to update user");
+            }
 
             // Update successful. Reset the modify flags only now, on a
             // confirmed save — never after a failure, which must keep Save
