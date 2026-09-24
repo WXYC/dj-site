@@ -39,6 +39,21 @@ export const handlers = [
     return HttpResponse.json({ message: "Not Authenticated" });
   }),
 
+  // better-auth JWT token endpoint. `AuthorizedView` fires `getJWTToken()` from
+  // an effect on any `userId` (via `fetchOrganizationRoleForUserClient`), and
+  // the auth base is `${window.location.origin}/auth` in jsdom — not
+  // `BACKEND_URL` — so without this handler the request bypasses MSW
+  // (`onUnhandledRequest: "bypass"`) and hits the dead network. The fire-and-
+  // forget rejection then lands after test teardown and flakes whole shards
+  // ("Failed to get JWT token: fetch failed"), all tests still passing.
+  // `{ token: null }` is behaviour-preserving: with no token and no
+  // NEXT_PUBLIC_APP_ORGANIZATION set in tests, the role lookup returns
+  // undefined (no listMembers fallback) and AuthorizedView fails closed to
+  // Authorization.NO — exactly as it does today when the real fetch fails.
+  // Regex-matched by any origin. Tests exercising real auth mock
+  // organization-utils/getJWTToken per-file and never reach here. (dj-site#1646)
+  http.get(/\/auth\/token$/, () => HttpResponse.json({ token: null })),
+
   // Flowsheet API handlers
   http.get(`${BACKEND_URL}/flowsheet/`, () => {
     return HttpResponse.json([]);
