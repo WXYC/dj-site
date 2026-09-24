@@ -134,12 +134,16 @@ describe("Classic SearchResults matched_via chip", () => {
   // source-based change cannot silently drop folded locations.
   it("folds a V/A shelf location into results as a Various Artists row carrying a matched-on-track chip", () => {
     const soundtrack = createTestAlbum({
-      album_artist: "Various Artists",
+      // A folded V/A-shelf soundtrack: the catalog import collapses these to a
+      // `Z-<letter>` call code (see libraryCode getter), so isVariousArtists over
+      // the shelf letters -- not album_artist -- is the marker. Since BS#2004,
+      // album_artist is a display-only librarian credit and must NOT drive the
+      // V/A label (that was the #763 relabel risk); see is-compilation-artist.ts.
       title: "Lost in Translation",
       artist: createTestArtist({
         name: "Soundtracks - L",
         genre: "Soundtracks",
-        lettercode: "OST",
+        lettercode: "Z-L",
         numbercode: 12,
       }),
       matched_via: [
