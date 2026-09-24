@@ -18,12 +18,14 @@ vi.mock("sonner", () => ({
 
 const mockUpdateUser = vi.fn();
 const mockGetSession = vi.fn();
+const mockUpdateIdentity = vi.fn();
 vi.mock("@/lib/features/authentication/client", () => ({
   authBaseURL: "http://auth.test",
   authClient: {
     updateUser: (...args: any[]) => mockUpdateUser(...args),
     getSession: (...args: any[]) => mockGetSession(...args),
   },
+  updateIdentity: (...args: any[]) => mockUpdateIdentity(...args),
 }));
 
 vi.mock("@/src/utilities/throwIfBetterAuthError", () => ({
@@ -71,6 +73,7 @@ describe("useDJAccount", () => {
     vi.clearAllMocks();
     mockGetSession.mockResolvedValue({ data: { user: { id: "user-dj1" } } });
     mockUpdateUser.mockResolvedValue({ data: { user: { id: "user-dj1" } } });
+    mockUpdateIdentity.mockResolvedValue({ status: true, userId: "user-dj1" });
   });
 
   describe("clearing profile fields (#609)", () => {
@@ -150,7 +153,10 @@ describe("useDJAccount", () => {
         );
       });
 
-      expect(mockUpdateUser).toHaveBeenCalledWith({ realName: "Juana Molina" });
+      expect(mockUpdateIdentity).toHaveBeenCalledWith({
+        realName: "Juana Molina",
+      });
+      expect(mockUpdateUser).not.toHaveBeenCalled();
     });
 
     it("ignores fields that were never modified", async () => {
@@ -198,11 +204,130 @@ describe("useDJAccount", () => {
       expect(mockUpdateUser).toHaveBeenCalledWith({
         bio: "Late-night freeform.",
       });
+      expect(mockUpdateIdentity).not.toHaveBeenCalled();
       expect(toast.error).toHaveBeenCalledWith(
         "Real name and DJ name can't be empty — keeping the previous value."
       );
       // …and no reset fires: the dropped field still needs fixing.
       expect(modifications(store)).toContain("realName");
+    });
+  });
+
+  // BS#2297 locked `realName`/`djName` to `input: false` in better-auth's
+  // `user.additionalFields`, so the public POST /auth/update-user this hook
+  // used to send them through answers
+  // `400 {field} is not allowed to be set`. They now go to the dedicated
+  // self-service route instead; every other profile field is unaffected and
+  // still rides `authClient.updateUser`.
+  describe("identity fields route to /wxyc/update-identity", () => {
+    const identityFields: (keyof ModifiableData)[] = ["realName", "djName"];
+
+    it.each(identityFields)(
+      "sends %s to updateIdentity, never to authClient.updateUser",
+      async (field) => {
+        const store = createTestStore();
+        store.dispatch(
+          authenticationSlice.actions.modify({ key: field, value: true })
+        );
+
+        const { useDJAccount } = await import("@/src/hooks/djHooks");
+        const { result } = renderHook(() => useDJAccount(), {
+          wrapper: createWrapper(store),
+        });
+
+        await act(async () => {
+          await result.current.handleSaveData(
+            formEvent({ [field]: "DJ spacetime" })
+          );
+        });
+
+        expect(mockUpdateIdentity).toHaveBeenCalledWith({
+          [field]: "DJ spacetime",
+        });
+        expect(mockUpdateUser).not.toHaveBeenCalled();
+      }
+    );
+
+    it("splits a mixed submission across both calls", async () => {
+      const store = createTestStore();
+      for (const key of ["djName", "bio"] as (keyof ModifiableData)[]) {
+        store.dispatch(authenticationSlice.actions.modify({ key, value: true }));
+      }
+
+      const { useDJAccount } = await import("@/src/hooks/djHooks");
+      const { result } = renderHook(() => useDJAccount(), {
+        wrapper: createWrapper(store),
+      });
+
+      await act(async () => {
+        await result.current.handleSaveData(
+          formEvent({ djName: "DJ spacetime", bio: "Late-night freeform." })
+        );
+      });
+
+      expect(mockUpdateIdentity).toHaveBeenCalledWith({
+        djName: "DJ spacetime",
+      });
+      expect(mockUpdateUser).toHaveBeenCalledWith({
+        bio: "Late-night freeform.",
+      });
+      expect(modifications(store)).toEqual([]);
+      expect(toast.success).toHaveBeenCalled();
+    });
+
+    // The whole point of the fix: a rejected identity write must surface, not
+    // be reported as a save. The 400 that started this was invisible to the
+    // DJ except as a toast that said the opposite.
+    it("reports an identity failure and keeps the flags for a retry", async () => {
+      const store = createTestStore();
+      store.dispatch(
+        authenticationSlice.actions.modify({ key: "djName", value: true })
+      );
+      mockUpdateIdentity.mockRejectedValue(
+        new Error("djName is not allowed to be set")
+      );
+
+      const { useDJAccount } = await import("@/src/hooks/djHooks");
+      const { result } = renderHook(() => useDJAccount(), {
+        wrapper: createWrapper(store),
+      });
+
+      await act(async () => {
+        await result.current.handleSaveData(
+          formEvent({ djName: "DJ spacetime" })
+        );
+      });
+
+      expect(toast.error).toHaveBeenCalledWith(
+        "djName is not allowed to be set"
+      );
+      expect(toast.success).not.toHaveBeenCalled();
+      expect(modifications(store)).toContain("djName");
+    });
+
+    // Ordering matters: if the identity write fails there is nothing to undo,
+    // but if the profile write fails after a successful identity write the
+    // user must still be told the save failed rather than half-succeeded.
+    it("does not report success when the profile write fails after the identity write", async () => {
+      const store = createTestStore();
+      for (const key of ["djName", "bio"] as (keyof ModifiableData)[]) {
+        store.dispatch(authenticationSlice.actions.modify({ key, value: true }));
+      }
+      mockUpdateUser.mockRejectedValue(new Error("network down"));
+
+      const { useDJAccount } = await import("@/src/hooks/djHooks");
+      const { result } = renderHook(() => useDJAccount(), {
+        wrapper: createWrapper(store),
+      });
+
+      await act(async () => {
+        await result.current.handleSaveData(
+          formEvent({ djName: "DJ spacetime", bio: "Late-night freeform." })
+        );
+      });
+
+      expect(toast.success).not.toHaveBeenCalled();
+      expect(modifications(store)).toContain("bio");
     });
   });
 

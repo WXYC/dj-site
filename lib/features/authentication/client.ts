@@ -209,6 +209,50 @@ export async function stationSignup(
   };
 }
 
+export type UpdateIdentityRequest = {
+  realName?: string;
+  djName?: string;
+};
+
+export type UpdateIdentityResponse = {
+  status: true;
+  userId: string;
+  realName?: string;
+  djName?: string;
+};
+
+/**
+ * Update the signed-in DJ's own personal name / on-air handle.
+ *
+ * These two fields do NOT go through `authClient.updateUser`. Backend-Service
+ * locks them to `input: false` in better-auth's `user.additionalFields`
+ * (BS#2297), so the public `POST /auth/update-user` answers
+ * `400 {"code":"FIELD_NOT_ALLOWED","message":"djName is not allowed to be set"}`
+ * — which is exactly what the settings form returned for every DJ between
+ * that lock landing and this route existing. The dedicated endpoint writes
+ * the same two columns through an allowlist, scoped to the session's own row.
+ *
+ * Throws on a non-2xx, matching `completeOnboarding` — `useDJAccount`'s catch
+ * is what turns it into a toast, and a rejected write must never reach the
+ * success path.
+ */
+export async function updateIdentity(
+  body: UpdateIdentityRequest,
+): Promise<UpdateIdentityResponse> {
+  const { ok, data } = await authFetch<
+    UpdateIdentityResponse | { error?: string; message?: string }
+  >("/wxyc/update-identity", {
+    method: "POST",
+    json: body,
+  });
+
+  if (!ok) {
+    throw new Error(authErrorMessage(data, "Failed to update your profile"));
+  }
+
+  return data as UpdateIdentityResponse;
+}
+
 export type CompleteOnboardingRequest = {
   token?: string;
   newPassword?: string;
