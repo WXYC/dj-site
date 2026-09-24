@@ -225,12 +225,11 @@ export type UpdateIdentityResponse = {
  * Update the signed-in DJ's own personal name / on-air handle.
  *
  * These two fields do NOT go through `authClient.updateUser`. Backend-Service
- * locks them to `input: false` in better-auth's `user.additionalFields`
- * (BS#2297), so the public `POST /auth/update-user` answers
+ * locks them to `input: false` in better-auth's `user.additionalFields`, so
+ * the public `POST /auth/update-user` answers
  * `400 {"code":"FIELD_NOT_ALLOWED","message":"djName is not allowed to be set"}`
- * — which is exactly what the settings form returned for every DJ between
- * that lock landing and this route existing. The dedicated endpoint writes
- * the same two columns through an allowlist, scoped to the session's own row.
+ * for either of them. The dedicated endpoint writes the same two columns
+ * through an allowlist, scoped to the session's own row.
  *
  * Throws on a non-2xx, matching `completeOnboarding` — `useDJAccount`'s catch
  * is what turns it into a toast, and a rejected write must never reach the

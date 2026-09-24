@@ -86,11 +86,12 @@ export function useDJAccount() {
             throw new Error("User not authenticated");
           }
 
-          // realName/djName do NOT go through authClient.updateUser. BS#2297
-          // locks both to `input: false` in better-auth's additionalFields, so
-          // the public POST /auth/update-user rejects them outright — see
-          // `updateIdentity` in lib/features/authentication/client.ts. They go
-          // to the dedicated self-service route; everything else is unchanged.
+          // realName/djName do NOT go through authClient.updateUser. The auth
+          // service locks both to `input: false` in better-auth's
+          // additionalFields, so the public POST /auth/update-user rejects them
+          // outright — see `updateIdentity` in
+          // lib/features/authentication/client.ts. They go to the dedicated
+          // self-service route; everything else is unchanged.
           const identityData: UpdateIdentityRequest = {};
           if (data.realName) identityData.realName = data.realName;
           if (data.djName) identityData.djName = data.djName;
@@ -117,6 +118,18 @@ export function useDJAccount() {
             // either failure lands in the catch below with the flags intact.
             if (hasIdentityEdits) {
               await updateIdentity(identityData);
+
+              // better-auth refetches the client session only for paths on its
+              // own hardcoded `$sessionSignal` matcher list (`/update-user`,
+              // `/change-email`, …). `updateIdentity` is a raw `authFetch`, so
+              // it matches nothing and the session atom keeps the OLD name.
+              // Without this, a DJ who edits only their DJ name — the exact
+              // case this route exists for — gets "saved" while `useRegistry`,
+              // the sidebar and StartShow's prefill all still show the
+              // previous handle until the tab loses and regains focus. A mixed
+              // submission masks it, because `updateUser` below fires the
+              // signal itself.
+              authClient.$store.notify("$sessionSignal");
             }
 
             if (Object.keys(updateData).length > 0) {

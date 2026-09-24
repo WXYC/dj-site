@@ -19,11 +19,13 @@ vi.mock("sonner", () => ({
 const mockUpdateUser = vi.fn();
 const mockGetSession = vi.fn();
 const mockUpdateIdentity = vi.fn();
+const mockNotify = vi.fn();
 vi.mock("@/lib/features/authentication/client", () => ({
   authBaseURL: "http://auth.test",
   authClient: {
     updateUser: (...args: any[]) => mockUpdateUser(...args),
     getSession: (...args: any[]) => mockGetSession(...args),
+    $store: { notify: (...args: any[]) => mockNotify(...args) },
   },
   updateIdentity: (...args: any[]) => mockUpdateIdentity(...args),
 }));
@@ -213,9 +215,9 @@ describe("useDJAccount", () => {
     });
   });
 
-  // BS#2297 locked `realName`/`djName` to `input: false` in better-auth's
-  // `user.additionalFields`, so the public POST /auth/update-user this hook
-  // used to send them through answers
+  // The auth service locks `realName`/`djName` to `input: false` in
+  // better-auth's `user.additionalFields`, so the public POST
+  // /auth/update-user this hook used to send them through answers
   // `400 {field} is not allowed to be set`. They now go to the dedicated
   // self-service route instead; every other profile field is unaffected and
   // still rides `authClient.updateUser`.
@@ -273,6 +275,81 @@ describe("useDJAccount", () => {
       });
       expect(modifications(store)).toEqual([]);
       expect(toast.success).toHaveBeenCalled();
+    });
+
+    // Without a profile edit co-submitted, `updateUser` would not have been
+    // called regardless, so asserting it wasn't proves nothing about the
+    // early abort. This is the shape that actually pins the ordering claim.
+    it("aborts before the profile write when the identity write is rejected", async () => {
+      const store = createTestStore();
+      for (const key of ["djName", "bio"] as (keyof ModifiableData)[]) {
+        store.dispatch(authenticationSlice.actions.modify({ key, value: true }));
+      }
+      mockUpdateIdentity.mockRejectedValue(
+        new Error("djName is not allowed to be set")
+      );
+
+      const { useDJAccount } = await import("@/src/hooks/djHooks");
+      const { result } = renderHook(() => useDJAccount(), {
+        wrapper: createWrapper(store),
+      });
+
+      await act(async () => {
+        await result.current.handleSaveData(
+          formEvent({ djName: "DJ spacetime", bio: "Late-night freeform." })
+        );
+      });
+
+      expect(mockUpdateIdentity).toHaveBeenCalled();
+      expect(mockUpdateUser).not.toHaveBeenCalled();
+      expect(toast.success).not.toHaveBeenCalled();
+      expect(modifications(store)).toEqual(
+        expect.arrayContaining(["djName", "bio"])
+      );
+    });
+
+    // better-auth only refetches its session atom for paths on its own
+    // matcher list, which this route is not on. Identity-only is the case
+    // that would otherwise leave the whole app showing the old name.
+    it("refreshes the client session after an identity-only save", async () => {
+      const store = createTestStore();
+      store.dispatch(
+        authenticationSlice.actions.modify({ key: "djName", value: true })
+      );
+
+      const { useDJAccount } = await import("@/src/hooks/djHooks");
+      const { result } = renderHook(() => useDJAccount(), {
+        wrapper: createWrapper(store),
+      });
+
+      await act(async () => {
+        await result.current.handleSaveData(
+          formEvent({ djName: "DJ spacetime" })
+        );
+      });
+
+      expect(mockNotify).toHaveBeenCalledWith("$sessionSignal");
+    });
+
+    it("does not refresh the session when the identity write failed", async () => {
+      const store = createTestStore();
+      store.dispatch(
+        authenticationSlice.actions.modify({ key: "djName", value: true })
+      );
+      mockUpdateIdentity.mockRejectedValue(new Error("network down"));
+
+      const { useDJAccount } = await import("@/src/hooks/djHooks");
+      const { result } = renderHook(() => useDJAccount(), {
+        wrapper: createWrapper(store),
+      });
+
+      await act(async () => {
+        await result.current.handleSaveData(
+          formEvent({ djName: "DJ spacetime" })
+        );
+      });
+
+      expect(mockNotify).not.toHaveBeenCalled();
     });
 
     // The whole point of the fix: a rejected identity write must surface, not
