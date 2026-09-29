@@ -1,0 +1,419 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Card Assignment Panel (interactive)</title>
+<style>
+  * { box-sizing: border-box; margin: 0; }
+  body { font-family: -apple-system, "Segoe UI", Roboto, Helvetica, sans-serif; background: #f4f6f9; color: #172b4d; padding: 36px; line-height: 1.45; }
+  h1 { font-size: 22px; margin-bottom: 4px; }
+  .lede { color: #5a6b85; margin-bottom: 18px; max-width: 84ch; }
+  .lede code, li code, p code { background:#e8edf3; border-radius:4px; padding:1px 5px; font-size: 13px; }
+  a.back { color:#0b6bcb; font-size: 13px; text-decoration:none; font-weight:600; }
+  .demobar { display:flex; align-items:center; gap:14px; flex-wrap:wrap; max-width: 1080px; background:#e8f1fb; border:1px solid #b6d4f2; border-radius:10px; padding:10px 16px; font-size:13.5px; color:#0b3d70; margin-bottom: 12px; }
+  .demobar button { margin-left:auto; border:1px solid #0b6bcb; color:#0b6bcb; background:#fff; border-radius:8px; font-size:13px; font-weight:700; padding:5px 14px; cursor:pointer; flex:none; }
+  .demobar label { display:flex; align-items:center; gap:6px; font-size:13px; cursor:pointer; }
+  .net { max-width:1080px; background:#fff; border:1px solid #d7dfe9; border-radius:10px; padding:8px 16px; margin-bottom:22px; font-family: ui-monospace, monospace; font-size:12px; color:#42526e; display:flex; gap:18px; flex-wrap:wrap; }
+  .net .lbl { font-family: -apple-system, "Segoe UI", Roboto, Helvetica, sans-serif; font-weight:700; color:#42526e; font-size:11.5px; text-transform:uppercase; letter-spacing:.05em; }
+  .net b { color:#0b6bcb; }
+  .net .zero b { color:#14532d; }
+  .page { max-width: 1080px; background: #fff; border: 1px solid #d7dfe9; border-radius: 16px; box-shadow: 0 12px 28px rgba(23,43,77,.10); padding: 0 0 28px; overflow: hidden; }
+  .adminbar { background: #172b4d; color: #cfd9e6; padding: 10px 28px; font-size: 13px; display:flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+  .adminbar .brand { font-weight: 800; color:#fff; letter-spacing:.02em; margin-right: 6px; }
+  .adminbar .tab { padding: 4px 12px; border-radius: 999px; }
+  .adminbar .tab.inert { opacity: .5; }
+  .adminbar .tab.on { background: #0b6bcb; color: #fff; font-weight: 700; }
+  .adminbar .route { margin-left:auto; font-family: ui-monospace, monospace; font-size: 11.5px; color:#8ba3bd; }
+  .pagehead { display: flex; align-items: baseline; gap: 14px; border-bottom: 1px solid #eef2f6; padding: 20px 28px 14px; margin-bottom: 20px; flex-wrap:wrap; }
+  .pagehead h3 { font-size: 19px; }
+  .mdgate { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #7a5b0f; background: #fff3cd; border: 1px solid #f0d488; border-radius: 999px; padding: 3px 10px; }
+  .view { padding: 0 28px; }
+  .inp { border: 1px solid #cdd7e1; border-radius: 8px; padding: 8px 11px; font-size: 14px; background: #fff; color: #172b4d; }
+  .inp:focus { outline:none; border-color:#0b6bcb; box-shadow:0 0 0 3px rgba(11,107,203,.15); }
+  .hint { font-size: 12.5px; color: #8b97a8; margin-top: 5px; }
+  /* cards grid (the live Cards tab) */
+  .cardsgrid { display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap:18px; max-width: 1020px; }
+  .cardscol { background:#f8fafc; border:1px solid #e3e9f0; border-radius:12px; padding:14px 16px; }
+  .colhead { font-weight:800; font-size:14px; margin-bottom:12px; }
+  .colcode { color:#8b97a8; font-weight:700; font-size:12px; }
+  .cardrow { background:#fff; border:1px solid #e3e9f0; border-radius:10px; padding:7px 10px; margin-bottom:8px; }
+  .cardrow.flash { animation: flash 1.4s ease-out; }
+  @keyframes flash { from { background:#e6f4ea; border-color:#8fcf9f; } to { background:#fff; border-color:#e3e9f0; } }
+  .cardrow .top { display:flex; align-items:center; gap:8px; }
+  .badge { display:inline-flex; width:22px; height:22px; border-radius:50%; border:2px solid #0b6bcb; color:#0b6bcb; font-weight:800; font-size:12px; align-items:center; justify-content:center; flex:none; }
+  .cardrow .nm { flex:1; font-size:13px; color:#172b4d; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .cardrow .nm.empty { color:#b0bccb; font-style:italic; }
+  .cardrow .cnt { font-size:11.5px; color:#5a6b85; flex:none; }
+  .cardrow .x { color:#d0d7e0; font-weight:700; flex:none; font-size:13px; }
+  .assign { display:inline-block; margin-top:5px; font-size:12px; font-weight:700; color:#0b6bcb; cursor:pointer; border:none; background:none; padding:0; }
+  .assign:hover { text-decoration:underline; }
+  .addcard { font-size:12px; color:#8b97a8; margin-top:4px; }
+  /* drawer */
+  .scrim { position:fixed; inset:0; background:rgba(23,43,77,.38); z-index:10; }
+  .drawer { position:fixed; top:0; right:0; bottom:0; width:min(580px, 100%); background:#fff; z-index:11; display:flex; flex-direction:column; box-shadow:-18px 0 40px rgba(23,43,77,.22); }
+  .dhead { padding:18px 22px 12px; border-bottom:1px solid #eef2f6; }
+  .dtitle { display:flex; align-items:center; gap:10px; }
+  .dtitle h2 { font-size:20px; }
+  .dtitle .cname { color:#5a6b85; font-size:14px; }
+  .dtitle .close { margin-left:auto; border:none; background:none; font-size:20px; color:#5a6b85; cursor:pointer; line-height:1; padding:4px 6px; border-radius:6px; }
+  .dtitle .close:hover { background:#eef2f6; }
+  .dsub { font-size:13px; color:#5a6b85; margin-top:6px; }
+  .dctl { display:flex; gap:10px; align-items:center; margin-top:12px; flex-wrap:wrap; }
+  .dctl input[type=search] { flex:1; min-width:180px; padding:7px 10px; font-size:13.5px; }
+  .seg { display:inline-flex; border:1px solid #cdd7e1; border-radius:8px; overflow:hidden; flex:none; }
+  .seg span { padding:6px 11px; font-size:12.5px; font-weight:700; color:#42526e; cursor:pointer; user-select:none; }
+  .seg span + span { border-left:1px solid #cdd7e1; }
+  .seg span.sel { background:#0b6bcb; color:#fff; }
+  .dbody { flex:1; overflow-y:auto; padding:6px 22px 16px; }
+  .sect { font-size:11.5px; text-transform:uppercase; letter-spacing:.06em; color:#5a6b85; margin:14px 0 8px; display:flex; align-items:center; gap:6px; }
+  .rec { display:flex; align-items:flex-start; gap:10px; padding:8px 10px; border:1px solid #e3e9f0; border-radius:9px; margin-bottom:6px; cursor:pointer; background:#fff; }
+  .rec:hover { border-color:#b6d4f2; }
+  .rec.locked { cursor:default; background:#f8fafc; }
+  .rec.locked:hover { border-color:#e3e9f0; }
+  .rec.pend { border-color:#e8590c; background:#fffaf5; }
+  .rec.failed { border-color:#b42318; background:#fff7f6; }
+  .rec input { margin-top:3px; width:16px; height:16px; flex:none; accent-color:#0b6bcb; }
+  .rec .body { flex:1; min-width:0; }
+  .rec .t { font-size:13.5px; }
+  .rec .code { color:#0b6bcb; font-weight:700; font-size:12px; margin-left:6px; }
+  .rec .meta { display:flex; align-items:center; gap:8px; margin-top:4px; flex-wrap:wrap; font-size:12px; color:#5a6b85; }
+  .loc { display:inline-block; border:1px solid #cdd7e1; border-radius:999px; padding:1px 9px; font-size:11.5px; font-weight:700; color:#42526e; background:#fff; }
+  .loc.move { border-color:#f0b27a; color:#9a3412; background:#fff3e8; }
+  .st { font-size:11.5px; font-weight:700; }
+  .st.ok { color:#14532d; }
+  .st.bad { color:#b42318; }
+  .st.busy { color:#0b6bcb; }
+  .lock { font-size:11.5px; color:#8b97a8; }
+  .empty { font-size:13px; color:#8b97a8; padding:10px 2px; }
+  .dfoot { border-top:1px solid #eef2f6; padding:12px 22px 16px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#fcfdfe; }
+  .dfoot .sum { font-size:13px; color:#42526e; flex:1; min-width:180px; }
+  .dfoot .sum b { color:#9a3412; }
+  .dfoot .sum .okc { color:#14532d; }
+  .dfoot .sum .badc { color:#b42318; }
+  .btn { border:1px solid #cdd7e1; background:#fff; color:#42526e; border-radius:8px; font-size:13px; font-weight:700; padding:7px 14px; cursor:pointer; }
+  .btn.pri { background:#0b6bcb; border-color:#0b6bcb; color:#fff; }
+  .btn.danger { border-color:#b42318; color:#b42318; }
+  .btn:disabled { opacity:.45; cursor:default; }
+  .mark { display: inline-flex; width: 18px; height: 18px; border-radius: 50%; background: #e8590c; color: #fff; font-size: 11.5px; font-weight: 700; align-items: center; justify-content: center; vertical-align: middle; margin-left: 6px; flex: none; font-style:normal; text-transform:none; letter-spacing:0; }
+  .mark.cost { background:#5a6b85; }
+  .legend { margin-top: 36px; max-width: 1080px; background: #fff; border: 1px solid #d7dfe9; border-radius: 12px; padding: 18px 22px; }
+  .legend h2 { font-size: 14px; margin-bottom: 10px; }
+  .legend li { font-size: 13.5px; margin: 8px 0 8px 4px; list-style: none; display: flex; gap: 10px; }
+  .legend .mark { margin: 2px 0 0; }
+  .legend .key { font-size:12.5px; color:#5a6b85; margin-bottom:14px; }
+  @media (max-width: 640px) { body { padding: 16px; } .view, .pagehead { padding-left:16px; padding-right:16px; } }
+</style>
+</head>
+<body>
+  <a class="back" href="index.html">&larr; All mockups</a>
+  <h1>Card assignment panel</h1>
+  <p class="lede">The tool for the one-time re-carding pass (<a href="https://github.com/WXYC/dj-site/issues/1674">B3</a> / <a href="https://github.com/WXYC/dj-site/issues/1675">B4</a> in the <a href="https://github.com/WXYC/dj-site/issues/1663">rotation age epic</a>). When Rotation Admin launched, the backfill put every active record on <b>card 1 of its bin</b>. The only way to move them today is the per-row select on the Rotation list, one record at a time. This panel turns the pass into a walk along the shelf: open a card, tick what is physically on it, save, open the next.</p>
+
+  <div class="demobar">▶ Live demo &mdash; open <b>Assign records</b> on <b>Heavy 3</b>, switch the filter to <b>Still on Heavy 1</b>, tick a few, and <b>Save &amp; open Heavy 4</b>. Tick the box to make one move fail and see the retry ledger.
+    <label><input type="checkbox" id="failNext"> Fail one move on the next save</label>
+    <button onclick="location.reload()">Reset demo</button></div>
+  <div class="net" id="net"></div>
+
+  <div class="page" id="page">
+    <div class="adminbar">
+      <span class="brand">Rotation Admin</span>
+      <span class="tab inert">Add to rotation</span>
+      <span class="tab inert">Rotation list</span>
+      <span class="tab on">Cards</span>
+      <span class="route">/dashboard/admin/rotation/cards</span>
+    </div>
+    <div class="pagehead">
+      <h3>Cards</h3>
+      <span class="mdgate">Music Directors</span>
+      <span style="font-size:12.5px;color:#8b97a8">Rename, add and delete cards as today &mdash; plus <b>Assign records</b> on each <span class="mark">1</span></span>
+    </div>
+    <div class="view">
+      <div class="cardsgrid" id="cardsGrid"></div>
+      <p class="hint" style="margin-top:14px">Card names are editable in place and the ✕ deletes a bin's last empty card, exactly as the live tab does; this mockup leaves both inert and adds only the <b>Assign records</b> link.</p>
+    </div>
+  </div>
+
+  <div id="drawerRoot"></div>
+
+  <div class="legend">
+    <h2>Annotations</h2>
+    <p class="key"><span class="mark">n</span> design note &nbsp;&nbsp; <span class="mark cost">n</span> depends on backend work &mdash; everything else is dj-site only</p>
+    <ol>
+      <li><span class="mark">1</span><span><b>Card-centric because the pass is a walk along the shelf.</b> An MD stands at one physical card, looks at what is on it, and makes the database agree. Entering from the card, rather than from each record, turns a few hundred per-row selects into one pass per card. The existing rename, add and delete controls on the tab are unchanged.</span></li>
+      <li><span class="mark">2</span><span><b>Only this bin's active records appear.</b> Moving a record between bins is add-then-kill (<code>addThenRetire.ts</code>), not a card change, so another bin's records never show up here. Killed records are not on any physical card. The list reads <code>GET /library/rotation?status=active</code>, never <code>status=all</code>: the Cards tab should not pay for the full rotation history.</span></li>
+      <li><span class="mark">3</span><span><b>Records already on this card are ticked and locked.</b> Unticking would leave a record with nowhere to go. A record comes off a card only by being ticked onto the card it actually sits on, so every save is a set of moves <em>onto</em> the open card, which fits a card-by-card walk. The row's hover text says so.</span></li>
+      <li><span class="mark">4</span><span><b>"Still on Heavy 1" narrows to the backfill pile.</b> On 2026-09-15 the migration put every active record on card 1 of its bin, so most of the pass pulls from there. The filter is named for the card, not "unassigned", because card 1 is also a real card, and plenty of records legitimately belong on it.</span></li>
+      <li><span class="mark">5</span><span><b>Every record shows where it is now, and a tick previews the move</b> (<code>Heavy 1 → Heavy 3</code>). Nothing is written until Save.</span></li>
+      <li><span class="mark">6</span><span><b>One batch, one refetch.</b> Save sends the existing <code>PATCH /library/rotation/:id {card_id}</code> once per moved record; there is no new endpoint. It goes through a single <code>moveRotationRowsToCard</code> mutation, not <code>updateRotationRow</code> in a loop. <code>updateRotationRow</code> refetches the cards list and the rotation list after <em>every</em> call, which would shuffle the checkboxes mid-save. The batch refetches both once, when it settles; watch the counters above. It also moves each saved record in the cached Rotation list, so that tab is correct without another read.</span></li>
+      <li><span class="mark">7</span><span><b>Not transactional, so the outcome is per record.</b> Each move either lands or it doesn't. Moved records lock onto this card; a failed one stays ticked, marked, with <b>Retry</b> resending only the failures. A single "something went wrong" would leave the MD unable to tell what is on the card now.</span></li>
+      <li><span class="mark">8</span><span><b>Save &amp; open the next card</b> is the walk. It only advances when every move landed; with any failure it stays put and shows the retry ledger.</span></li>
+      <li><span class="mark cost">9</span><span><b>Every move stamps two cards</b>, the one the record left and this one. That comes from Backend-Service's <code>rotation_cards.last_changed_at</code> trigger (B2), which is why the pass (B4) should run only after B2 is confirmed live: before it, the reorganization leaves no timestamps. This page does not display the stamp; showing it is B5.</span></li>
+      <li><span class="mark cost">10</span><span><b>Duplicate active rows are invisible here.</b> The active rotation read collapses several active rows for the same release in one bin into one (<code>DISTINCT ON</code>, a leftover of tubafrenzy re-adds). A hidden duplicate could never be re-carded, and it would keep stamping card 1. B4's first step finds them with a read-only query, and an MD kills them on the Rotation list, which shows every row.</span></li>
+      <li><span class="mark">11</span><span><b>Named the way MDs say it: "Heavy 3", not "card 3".</b> Asked about "rotation cards", Sam replied <em>"Is that like 'Heavy 9'?"</em> The tab keeps its name, but the panel, its buttons and its summaries lead with bin and number.</span></li>
+      <li><span class="mark">12</span><span><b>Mostly a one-time tool, so it stays plain.</b> Sam: <em>"we always trade things out piece wise never all at once so far."</em> Day-to-day swaps are one record at a time, and the bench's card picker and the Rotation list's per-row select already cover them. This panel pays for itself on the pass and any future reshuffle, which is why it is checkboxes and a save button, not drag-and-drop.</span></li>
+    </ol>
+  </div>
+
+<script>
+/* ---------- fixture ---------- */
+var BINS = ['H', 'M', 'L', 'S'];
+var BIN_NAMES = { H: 'Heavy', M: 'Medium', L: 'Light', S: 'Singles' };
+
+var CARDS = [
+  { id: 11, bin: 'H', n: 1, name: '' },
+  { id: 12, bin: 'H', n: 2, name: 'Late summer' },
+  { id: 13, bin: 'H', n: 3, name: 'September' },
+  { id: 14, bin: 'H', n: 4, name: '' },
+  { id: 21, bin: 'M', n: 1, name: '' },
+  { id: 22, bin: 'M', n: 2, name: 'Local' },
+  { id: 31, bin: 'L', n: 1, name: '' },
+  { id: 32, bin: 'L', n: 2, name: '' },
+  { id: 41, bin: 'S', n: 1, name: '' }
+];
+
+/* Active rows only: the panel reads status=active. Most of each bin still sits on card 1. */
+var ROWS = [
+  { id: 101, bin: 'H', card: 11, artist: 'Stereolab', title: 'Instant Holograms on Metal Film', code: 'Rock SL 1/9' },
+  { id: 102, bin: 'H', card: 11, artist: 'Mdou Moctar', title: 'Funeral for Justice', code: 'Rock MD 1/3' },
+  { id: 103, bin: 'H', card: 11, artist: 'Nilüfer Yanya', title: 'My Method Actor', code: 'Rock NI 2/3' },
+  { id: 104, bin: 'H', card: 11, artist: 'Mary Lattimore', title: 'Goodbye, Hotel Arkada', code: 'Rock LA 4/5' },
+  { id: 105, bin: 'H', card: 11, artist: 'Nourished by Time', title: 'The Passionate Ones', code: 'Electronic NO 1/2' },
+  { id: 106, bin: 'H', card: 11, artist: 'Little Simz', title: 'Lotus', code: 'Hiphop LI 3/6' },
+  { id: 107, bin: 'H', card: 11, artist: 'Sessa', title: 'Pequena Vertigem de Amor', code: 'Rock SE 2/3' },
+  { id: 108, bin: 'H', card: 11, artist: 'Colleen', title: 'Le jour et la nuit du réel', code: 'Electronic CO 1/7' },
+  { id: 109, bin: 'H', card: 11, artist: 'Jennifer Castle', title: 'Camelot', code: 'Rock CA 6/5' },
+  { id: 110, bin: 'H', card: 11, artist: 'Rafael Toral', title: 'Spectral Evolution', code: 'Electronic TO 1/4' },
+  { id: 111, bin: 'H', card: 11, artist: 'Mary Halvorson', title: 'Cloudward', code: 'Jazz HA 2/8' },
+  { id: 112, bin: 'H', card: 11, artist: 'Tinariwen', title: 'Amatssou', code: 'Rock TI 1/9' },
+  { id: 113, bin: 'H', card: 12, artist: 'Hermanos Gutiérrez', title: 'Sonido Cósmico', code: 'Rock GU 1/4' },
+  { id: 114, bin: 'H', card: 12, artist: 'Jessica Pratt', title: 'Here in the Pitch', code: 'Rock PR 3/4' },
+  { id: 115, bin: 'H', card: 13, artist: 'Juana Molina', title: 'DOGA', code: 'Rock MO 1/7' },
+  { id: 201, bin: 'M', card: 21, artist: 'Chuquimamani-Condori', title: 'Edits', code: 'Electronic CH 2/1' },
+  { id: 202, bin: 'M', card: 21, artist: 'Cat Power', title: 'Cat Power Sings Dylan', code: 'Rock CA 5/12' },
+  { id: 203, bin: 'M', card: 21, artist: 'Kelela', title: 'Raven', code: 'Soul KE 1/2' },
+  { id: 204, bin: 'M', card: 21, artist: 'Oneohtrix Point Never', title: 'Again', code: 'Electronic ON 1/9' },
+  { id: 205, bin: 'M', card: 22, artist: 'Hermanos Gutiérrez', title: 'El Bueno y el Malo', code: 'Rock GU 1/3' },
+  { id: 301, bin: 'L', card: 31, artist: 'Duke Ellington & John Coltrane', title: 'Duke Ellington & John Coltrane', code: 'Jazz EL 1/14' },
+  { id: 302, bin: 'L', card: 31, artist: 'Jessica Pratt', title: 'On Your Own Love Again', code: 'Rock PR 3/3' },
+  { id: 303, bin: 'L', card: 31, artist: 'Arthur Russell', title: 'Picture of Bunny Rabbit', code: 'Electronic RU 1/6' },
+  { id: 401, bin: 'S', card: 41, artist: 'Sonido Dueñez', title: 'Cumbia Maricha', code: 'Latin DU 1/1' }
+];
+
+/* ---------- helpers ---------- */
+var $ = function (id) { return document.getElementById(id); };
+var esc = function (s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'); };
+var norm = function (s) { return s.normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase(); };
+function cardById(id) { return CARDS.filter(function (c) { return c.id === id; })[0]; }
+function label(c) { return BIN_NAMES[c.bin] + ' ' + c.n; }
+function binCards(bin) { return CARDS.filter(function (c) { return c.bin === bin; }).sort(function (a, b) { return a.n - b.n; }); }
+function activeCount(id) { return ROWS.filter(function (r) { return r.card === id; }).length; }
+function nextCard(c) {
+  var order = [];
+  BINS.forEach(function (b) { order = order.concat(binCards(b)); });
+  var i = order.indexOf(c);
+  return i >= 0 && i < order.length - 1 ? order[i + 1] : null;
+}
+
+/* ---------- network counters (what the batch design is for) ---------- */
+var NET = { patches: 0, cardsReads: 1, activeReads: 0, allReads: 0 };
+function renderNet() {
+  $('net').innerHTML = '<span class="lbl">Requests</span>'
+    + '<span>GET /library/rotation/cards &times; <b>' + NET.cardsReads + '</b></span>'
+    + '<span>GET /library/rotation?status=active &times; <b>' + NET.activeReads + '</b></span>'
+    + '<span class="zero">GET /library/rotation?status=all &times; <b>' + NET.allReads + '</b></span>'
+    + '<span>PATCH /library/rotation/:id &times; <b>' + NET.patches + '</b></span>';
+}
+
+/* ---------- cards grid ---------- */
+var flashIds = {};
+function renderGrid() {
+  $('cardsGrid').innerHTML = BINS.map(function (b) {
+    var cs = binCards(b);
+    return '<div class="cardscol"><div class="colhead">' + BIN_NAMES[b]
+      + ' <span class="colcode">' + b + ' · ' + cs.length + ' card' + (cs.length === 1 ? '' : 's') + '</span></div>'
+      + cs.map(function (c) {
+          return '<div class="cardrow' + (flashIds[c.id] ? ' flash' : '') + '">'
+            + '<div class="top"><span class="badge">' + c.n + '</span>'
+            + '<span class="nm' + (c.name ? '' : ' empty') + '">' + (c.name ? esc(c.name) : 'unnamed') + '</span>'
+            + '<span class="cnt">' + activeCount(c.id) + ' active</span><span class="x">✕</span></div>'
+            + '<button class="assign" onclick="openPanel(' + c.id + ')">Assign records &rarr;</button>'
+            + '</div>';
+        }).join('')
+      + '<div class="addcard">+ Add card</div></div>';
+  }).join('');
+  flashIds = {};
+}
+
+/* ---------- panel state ---------- */
+var P = null; /* { card, pending:{id:true}, status:{id:'busy'|'ok'|'bad'}, pile:bool, q:'', saving:bool, confirmClose:bool, ledger:{ok,bad}|null } */
+var activeLoaded = false;
+
+function openPanel(id) {
+  if (!activeLoaded) { NET.activeReads++; activeLoaded = true; renderNet(); }
+  P = { card: cardById(id), pending: {}, status: {}, pile: false, q: '', saving: false, confirmClose: false, ledger: null };
+  renderPanel();
+  var s = document.getElementById('dq'); if (s) s.focus();
+}
+function closePanel(force) {
+  if (!P) return;
+  if (P.saving) return;
+  if (!force && pendingIds().length && !P.confirmClose) { P.confirmClose = true; renderFooter(); return; }
+  P = null;
+  $('drawerRoot').innerHTML = '';
+}
+function pendingIds() { return Object.keys(P.pending).map(Number); }
+
+function toggle(id) {
+  if (P.saving) return;
+  if (P.pending[id]) delete P.pending[id]; else P.pending[id] = true;
+  if (P.status[id] === 'bad' && !P.pending[id]) delete P.status[id];
+  P.confirmClose = false;
+  renderList(); renderFooter();
+}
+function setPile(on) { P.pile = on; renderPanel(); }
+function setQuery(v) { P.q = v; renderList(); }
+
+/* ---------- panel render ---------- */
+function renderPanel() {
+  var c = P.card, first = binCards(c.bin)[0];
+  var inBin = ROWS.filter(function (r) { return r.bin === c.bin; });
+  var onFirst = inBin.filter(function (r) { return r.card === first.id; }).length;
+  var html = '<div class="scrim" onclick="closePanel(false)"></div>'
+    + '<div class="drawer" role="dialog" aria-label="Assign records to ' + esc(label(c)) + '">'
+    + '<div class="dhead"><div class="dtitle"><h2>' + esc(label(c)) + '<span class="mark">11</span></h2>'
+    + (c.name ? '<span class="cname">' + esc(c.name) + '</span>' : '')
+    + '<button class="close" aria-label="Close" onclick="closePanel(false)">✕</button></div>'
+    + '<p class="dsub">Tick every record physically on ' + esc(label(c)) + '. Ticking a record from another card moves it here. <span class="mark">3</span></p>'
+    + '<div class="dctl"><input class="inp" type="search" id="dq" placeholder="Search ' + BIN_NAMES[c.bin] + '&hellip;" value="' + esc(P.q) + '" oninput="setQuery(this.value)">'
+    + (c.id === first.id ? ''
+        : '<span class="seg"><span class="' + (P.pile ? '' : 'sel') + '" onclick="setPile(false)">All of ' + BIN_NAMES[c.bin] + ' (' + inBin.length + ')</span>'
+          + '<span class="' + (P.pile ? 'sel' : '') + '" onclick="setPile(true)">Still on ' + esc(label(first)) + ' (' + onFirst + ')</span></span><span class="mark">4</span>')
+    + '</div></div>'
+    + '<div class="dbody" id="dbody"></div>'
+    + '<div class="dfoot" id="dfoot"></div></div>';
+  $('drawerRoot').innerHTML = html;
+  renderList(); renderFooter();
+}
+
+function recRow(r, here) {
+  var c = P.card, cur = cardById(r.card);
+  var st = P.status[r.id], pend = !!P.pending[r.id];
+  var cls = 'rec' + (here ? ' locked' : '') + (pend && st !== 'bad' ? ' pend' : '') + (st === 'bad' ? ' failed' : '');
+  var meta;
+  if (here) {
+    meta = st === 'ok' ? '<span class="st ok">✓ moved here</span>' : '<span class="lock">On ' + esc(label(c)) + '</span>';
+  } else if (st === 'busy') {
+    meta = '<span class="loc move">' + esc(label(cur)) + ' &rarr; ' + esc(label(c)) + '</span><span class="st busy">moving&hellip;</span>';
+  } else if (st === 'bad') {
+    meta = '<span class="loc">' + esc(label(cur)) + '</span><span class="st bad">✕ didn\'t move — Couldn\'t reach the server</span>';
+  } else if (pend) {
+    meta = '<span class="loc move">' + esc(label(cur)) + ' &rarr; ' + esc(label(c)) + '</span>';
+  } else {
+    meta = '<span class="loc">' + esc(label(cur)) + (cur.name ? ' · ' + esc(cur.name) : '') + '</span>';
+  }
+  var title = here ? ' title="To take this off ' + esc(label(c)) + ', open the card it actually sits on and tick it there."' : '';
+  return '<div class="' + cls + '"' + title + (here ? '' : ' onclick="toggle(' + r.id + ')"') + '>'
+    + '<input type="checkbox" tabindex="-1"' + (here || pend ? ' checked' : '') + (here ? ' disabled' : '') + ' aria-label="' + esc(r.artist + ' — ' + r.title) + '">'
+    + '<div class="body"><div class="t"><b>' + esc(r.artist) + '</b> — ' + esc(r.title) + '<span class="code">' + esc(r.code) + '</span></div>'
+    + '<div class="meta">' + meta + '</div></div></div>';
+}
+
+function renderList() {
+  var c = P.card, first = binCards(c.bin)[0], q = norm(P.q);
+  var match = function (r) { return !q || norm(r.artist + ' ' + r.title + ' ' + r.code).indexOf(q) !== -1; };
+  var here = ROWS.filter(function (r) { return r.bin === c.bin && r.card === c.id && match(r); })
+    .sort(function (a, b) { return norm(a.artist).localeCompare(norm(b.artist)); });
+  var elsewhere = ROWS.filter(function (r) {
+      return r.bin === c.bin && r.card !== c.id && match(r) && (!P.pile || r.card === first.id || P.pending[r.id]);
+    })
+    .sort(function (a, b) { return cardById(a.card).n - cardById(b.card).n || norm(a.artist).localeCompare(norm(b.artist)); });
+  var html = '<div class="sect">On ' + esc(label(c)) + ' now · ' + here.length + '</div>'
+    + (here.length ? here.map(function (r) { return recRow(r, true); }).join('') : '<div class="empty">Nothing on this card yet.</div>')
+    + '<div class="sect">' + (P.pile ? 'Still on ' + esc(label(first)) : 'Elsewhere in ' + BIN_NAMES[c.bin]) + ' · ' + elsewhere.length
+    + '<span class="mark">2</span><span class="mark">5</span><span class="mark cost">10</span></div>'
+    + (elsewhere.length ? elsewhere.map(function (r) { return recRow(r, false); }).join('') : '<div class="empty">' + (q ? 'No match.' : 'Every ' + BIN_NAMES[c.bin] + ' record is on this card.') + '</div>');
+  var body = $('dbody'), top = body.scrollTop;
+  body.innerHTML = html;
+  body.scrollTop = top;
+}
+
+function renderFooter() {
+  var c = P.card, n = pendingIds().length, nxt = nextCard(c), html;
+  if (P.confirmClose) {
+    html = '<span class="sum">Discard <b>' + n + ' unsaved move' + (n === 1 ? '' : 's') + '</b>?</span>'
+      + '<button class="btn" onclick="P.confirmClose=false;renderFooter()">Keep editing</button>'
+      + '<button class="btn danger" onclick="closePanel(true)">Discard</button>';
+  } else if (P.saving) {
+    html = '<span class="sum">Moving ' + Math.min(P.saving.done + 1, P.saving.total) + ' of ' + P.saving.total + ' to ' + esc(label(c)) + '&hellip;</span>'
+      + '<button class="btn" disabled>Save</button>';
+  } else {
+    var sum;
+    if (P.ledger && P.ledger.bad) {
+      sum = '<span class="okc"><b class="okc">' + P.ledger.ok + ' moved</b></span> · <b class="badc">' + P.ledger.bad + ' didn\'t</b> — still ticked below<span class="mark">7</span>';
+    } else if (P.ledger && !n) {
+      sum = '<b class="okc">' + P.ledger.ok + ' moved to ' + esc(label(c)) + '.</b>';
+    } else if (n) {
+      sum = '<b>' + n + ' record' + (n === 1 ? '' : 's') + '</b> will move to ' + esc(label(c));
+    } else {
+      sum = 'Tick the records that are physically on ' + esc(label(c)) + '.';
+    }
+    var failedPending = pendingIds().filter(function (id) { return P.status[id] === 'bad'; }).length;
+    var retry = P.ledger && P.ledger.bad && n && failedPending === n;
+    html = '<span class="sum">' + sum + '</span>'
+      + '<button class="btn" onclick="closePanel(false)">' + (n ? 'Cancel' : 'Close') + '</button>'
+      + (retry
+          ? '<button class="btn pri" onclick="save(false)">Retry ' + n + ' failed</button>'
+          : '<button class="btn pri"' + (n ? '' : ' disabled') + ' onclick="save(false)">Save<span class="mark">6</span></button>'
+            + (nxt ? '<button class="btn pri"' + (n ? '' : ' disabled') + ' onclick="save(true)">Save &amp; open ' + esc(label(nxt)) + ' &rarr;<span class="mark">8</span></button>' : ''));
+  }
+  $('dfoot').innerHTML = html;
+}
+
+/* ---------- save: one batch mutation, sequential PATCHes, one refetch ---------- */
+function save(andNext) {
+  var ids = pendingIds();
+  if (!ids.length || P.saving) return;
+  var failOne = $('failNext').checked ? ids[Math.min(1, ids.length - 1)] : null;
+  var target = P.card, ok = 0, bad = 0, i = 0;
+  P.saving = { total: ids.length, done: 0 }; P.ledger = null;
+  ids.forEach(function (id) { if (P.status[id] === 'bad') delete P.status[id]; });
+  renderFooter();
+  (function step() {
+    if (!P || P.card !== target) return;
+    if (i === ids.length) return settle();
+    var id = ids[i++];
+    P.status[id] = 'busy'; renderList();
+    setTimeout(function () {
+      NET.patches++; renderNet();
+      if (id === failOne) { P.status[id] = 'bad'; bad++; }
+      else {
+        var row = ROWS.filter(function (r) { return r.id === id; })[0];
+        flashIds[row.card] = true; flashIds[target.id] = true;
+        row.card = target.id; P.status[id] = 'ok'; delete P.pending[id]; ok++;
+      }
+      P.saving.done++;
+      renderList(); renderFooter(); step();
+    }, 260);
+  })();
+  function settle() {
+    /* invalidate list + cards tags once, after the whole batch */
+    NET.cardsReads++; NET.activeReads++; renderNet();
+    if (failOne !== null) $('failNext').checked = false;
+    P.saving = false; P.ledger = { ok: ok, bad: bad };
+    renderGrid(); renderPanel();
+    if (andNext && !bad) {
+      var nxt = nextCard(target);
+      if (nxt) setTimeout(function () { openPanel(nxt.id); }, 450);
+    }
+  }
+}
+
+document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closePanel(false); });
+
+/* ---------- boot ---------- */
+renderNet();
+renderGrid();
+</script>
+</body>
+</html>

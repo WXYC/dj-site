@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>D — Capture Queue (interactive)</title>
+<style>
+  * { box-sizing: border-box; margin: 0; }
+  body { font-family: -apple-system, "Segoe UI", Roboto, Helvetica, sans-serif; background: #f4f6f9; color: #172b4d; padding: 36px; line-height: 1.45; }
+  h1 { font-size: 22px; margin-bottom: 4px; }
+  .lede { color: #5a6b85; margin-bottom: 18px; max-width: 82ch; }
+  .lede code, li code { background:#e8edf3; border-radius:4px; padding:1px 5px; font-size: 13px; }
+  a.back { color:#0b6bcb; font-size: 13px; text-decoration:none; font-weight:600; }
+  .demobar { display:flex; align-items:center; gap:14px; max-width: 1000px; background:#e8f1fb; border:1px solid #b6d4f2; border-radius:10px; padding:10px 16px; font-size:13.5px; color:#0b3d70; margin-bottom: 24px; }
+  .demobar button { margin-left:auto; border:1px solid #0b6bcb; color:#0b6bcb; background:#fff; border-radius:8px; font-size:13px; font-weight:700; padding:5px 14px; cursor:pointer; flex:none; }
+  .panes { display: flex; gap: 30px; flex-wrap: wrap; align-items: flex-start; }
+  .pane > h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .07em; color: #5a6b85; margin-bottom: 10px; }
+  .pane > h2 .new { color:#0b8a3e; }
+  .classic { background: #fff; border: 1px solid #999; padding: 18px 22px; font-family: "Times New Roman", Times, serif; font-size: 15px; color: #000; width: 440px; }
+  .classic.wide { width: 720px; }
+  .classic h3 { font-size: 18px; font-weight: 700; margin-bottom: 10px; }
+  .classic table.form td { padding: 4px 8px 4px 0; font-size: 15px; vertical-align: middle; }
+  .classic input[type=text], .classic select { font-family: "Times New Roman", Times, serif; font-size: 15px; border: 1px solid #7f7f7f; padding: 2px 4px; background: #fff; width: 200px; }
+  .classic .jlink { color: #00c; text-decoration: underline; font-size: 13.5px; cursor: pointer; }
+  .classic .radios label { margin-right: 14px; font-size: 15px; cursor:pointer; }
+  .classic .submit { font-family: "Times New Roman", Times, serif; font-size: 15px; border: 1px solid #7f7f7f; background: #e6e6e6; padding: 3px 12px; margin-top: 10px; cursor:pointer; }
+  .classic .submit:active { background:#d0d0d0; }
+  .classic table.list { border-collapse: collapse; width: 100%; margin-top: 6px; }
+  .classic table.list th, .classic table.list td { border: 1px solid #999; padding: 4px 8px; font-size: 14px; text-align: left; }
+  .classic table.list th { background: #e6e6e6; font-weight: 700; }
+  .classic .facets { font-size: 14px; margin-bottom: 10px; }
+  .classic .facets .on { font-weight: 700; }
+  .classic tr.killed td { color: #777; }
+  .classic .err { color:#b00; font-size:13px; font-family:-apple-system,sans-serif; min-height:16px; margin-top:6px; }
+  .classic .capmatch { font-size:12.5px; font-family:-apple-system,sans-serif; min-height:15px; }
+  .classic .capmatch.ok { color:#0b8a3e; }
+  .classic .capmatch.miss { color:#a66a00; }
+  .importpanel { border: 2px solid #00c; margin-top: 14px; padding: 12px 14px; }
+  .importpanel h4 { font-size: 16px; font-weight: 700; margin-bottom: 8px; }
+  .importpanel .sect { margin-top: 10px; padding-top: 8px; border-top: 1px dashed #999; }
+  .matchline { background: #eef; border: 1px solid #99c; padding: 6px 10px; font-size: 14px; }
+  .willfile { font-weight: 700; margin-top: 8px; }
+  .confirmline { background: #efe; border: 1px solid #9c9; padding: 6px 10px; font-size: 14px; margin-top: 14px; }
+  .subnote { font-size:12.5px; font-family:-apple-system,sans-serif; color:#8b97a8; margin-top:10px; }
+  .mark { display: inline-flex; width: 18px; height: 18px; border-radius: 50%; background: #e8590c; color: #fff; font-size: 11.5px; font-weight: 700; align-items: center; justify-content: center; vertical-align: middle; margin-left: 6px; flex: none; font-family: -apple-system, sans-serif; }
+  .legend { margin-top: 36px; max-width: 1000px; background: #fff; border: 1px solid #d7dfe9; border-radius: 12px; padding: 18px 22px; }
+  .legend h2 { font-size: 14px; margin-bottom: 10px; }
+  .legend li { font-size: 13.5px; margin: 8px 0 8px 4px; list-style: none; display: flex; gap: 10px; }
+  .legend .mark { margin: 2px 0 0; }
+</style>
+</head>
+<body>
+  <a class="back" href="index.html">&larr; All mockups</a>
+  <h1>D — Capture queue (rotation-first, draft-and-promote)</h1>
+  <p class="lede">The time-sensitive act is getting the record into a bin, not into the card catalog. Capture takes seconds with zero catalog knowledge; cataloging is a second pass over the queue via the import screen — which already matches or creates the artist and files the release in one action. The structural change: <b>Import unlocks for active rows</b>.</p>
+  <div class="demobar">▶ Live demo — the capture form live-matches the artist name (<b>Juana Molina</b> is seeded; try misspelling it). Capture a record, watch it join the queue, then click <b>Import</b> on it: a matched artist auto-selects; an unknown one gets the inline new-artist form. Kill/Unkill work too. <button onclick="location.reload()">Reset demo</button></div>
+
+  <div class="panes">
+    <div class="pane">
+      <h2>Capture — exists today, unchanged</h2>
+      <div class="classic">
+        <h3>Add to Rotation</h3>
+        <table class="form">
+          <tr><td>Artist's Presentation Name:</td><td><input type="text" id="cArtist" value="Juana Molina" oninput="renderCapMatch()"> <span class="jlink" onclick="document.getElementById('cArtist').value='Various Artists';renderCapMatch()">Various Artists</span></td></tr>
+          <tr><td></td><td><div class="capmatch" id="capMatch"></div></td></tr>
+          <tr><td>Title:</td><td><input type="text" id="cTitle" value="DOGA"></td></tr>
+          <tr><td>Record Label:</td><td><input type="text" id="cLabel" value="Sonamos"> <span class="jlink" onclick="document.getElementById('cLabel').value='self-released'">self-released</span></td></tr>
+          <tr><td>Format:</td><td><select id="cFmt"><option>CD</option><option>LP</option><option>7"</option></select></td></tr>
+          <tr><td>Rotation:</td><td class="radios">
+            <label><input type="radio" name="bin" value="H" checked> H</label>
+            <label><input type="radio" name="bin" value="M"> M</label>
+            <label><input type="radio" name="bin" value="L"> L</label>
+            <label><input type="radio" name="bin" value="S"> S</label>
+            <span class="mark">1</span>
+          </td></tr>
+        </table>
+        <button class="submit" onclick="capture()">Add to Rotation</button>
+        <div class="err" id="cErr"></div>
+        <div class="subnote">No catalog knowledge needed — seconds per record. <span class="mark">2</span></div>
+      </div>
+    </div>
+
+    <div class="pane">
+      <h2><span class="new">Proposed</span> — the queue, with Import on active rows</h2>
+      <div class="classic wide">
+        <h3>Rotation</h3>
+        <div class="facets">
+          <span class="jlink">All</span> · <span class="jlink">Active</span> · <span class="jlink">Killed</span> · <span class="on">Awaiting Cataloging (<span id="qCount"></span>)</span> <span class="mark">3</span>
+        </div>
+        <table class="list">
+          <thead><tr><th>Artist</th><th>Title</th><th>Label</th><th>Fmt</th><th>Bin</th><th>Added</th><th></th></tr></thead>
+          <tbody id="qBody"></tbody>
+        </table>
+        <div id="importPanel" class="importpanel" hidden></div>
+        <div id="confirmLine" class="confirmline" hidden></div>
+        <div class="subnote">Import → one screen that matches or creates the artist, files the release, and links the row. <span class="mark">5</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <h2>Annotations</h2>
+    <ol>
+      <li><span class="mark">1</span><span>Heavy is already the default (<code>DEFAULT_BIN</code> in <code>RotationReleaseInsert</code>) — right for a new-record workflow where most arrivals open heavy or medium.</span></li>
+      <li><span class="mark">2</span><span>The capture form is untouched — this strategy is a policy change plus one unlock. Its virtue is rush-proofness: nothing about cataloging blocks airplay.</span></li>
+      <li><span class="mark">3</span><span>"Awaiting Cataloging" is the <code>getUncataloguedRotation</code> facet. The visible count is deliberate: this strategy fails quietly if nobody owns the second pass, so the backlog number needs to be in someone's face.</span></li>
+      <li><span class="mark">4</span><span><b>The change:</b> today <code>RotationReleaseList</code> renders Import only for rows that are killed <em>and</em> unlinked — the fast path and the catalog can only meet after the record leaves rotation. Unlocking active rows is a one-condition change in the row-action logic. The killed Csillagrablók row shows today's only-after-death behavior.</span></li>
+      <li><span class="mark">5</span><span>The import panel mirrors <code>RotationImportScreen</code>, already the best filing UX in the app: library-wide artist match with auto-select and an escape hatch, inline new-artist form with <code>suggestCallLetters</code> and computed next code, one Catalog&nbsp;&amp;&nbsp;Link action. Strategy D is "make the good screen reachable in time to matter."</span></li>
+    </ol>
+  </div>
+
+  <div class="legend" style="border-left:4px solid #b42318">
+    <h2>Tradeoffs to weigh before choosing this as primary</h2>
+    <ol>
+      <li><span class="mark">!</span><span>The library lags rotation: until import, the row has no <code>album_id</code>, so catalog search won't find it and album-linked surfaces can't show it.</span></li>
+      <li><span class="mark">!</span><span>Every record is touched twice, and free-text typos at capture become the import screen's matching problem later (try capturing "Juana Nolina" — the auto-match misses and you're in the new-artist form for an artist that exists).</span></li>
+      <li><span class="mark">!</span><span>Queue ownership is a people problem, not a UI one — without a norm ("imports happen at the weekly meeting"), Awaiting Cataloging becomes a debt counter.</span></li>
+    </ol>
+  </div>
+
+<script>
+const norm = s => s.normalize('NFD').replace(/[̀-ͯ]/g,'').trim().toLowerCase();
+const suggestLetters = name => {
+  const n = norm(name).replace(/^the\s+/,'');
+  return ((n.match(/[a-z]/g)||[]).slice(0,2).join('').toUpperCase()) || 'A';
+};
+const LIB = [
+  {name:"Stereolab", genre:"Rock", letters:"SL", num:1, releases:["Transient Random-Noise Bursts with Announcements","Dots and Loops"]},
+  {name:"Jessica Pratt", genre:"Rock", letters:"JP", num:3, releases:["Quiet Signs"]},
+  {name:"Nilüfer Yanya", genre:"Rock", letters:"NI", num:2, releases:["Miss Universe","Painless"]},
+  {name:"Cat Power", genre:"Rock", letters:"CA", num:5, releases:["Moon Pix","Covers"]},
+  {name:"Hermanos Gutiérrez", genre:"Rock", letters:"HG", num:1, releases:["El Bueno y el Malo"]},
+  {name:"Juana Molina", genre:"Rock", letters:"JM", num:1, releases:["Wed 21","Halo"]},
+  {name:"Chuquimamani-Condori", genre:"Electronic", letters:"CH", num:2, releases:["Edits"]},
+  {name:"Duke Ellington & John Coltrane", genre:"Jazz", letters:"DU", num:1, releases:["Duke Ellington & John Coltrane"]},
+];
+let queue = [
+  {artist:"Juana Molina", title:"DOGA", label:"Sonamos", fmt:"CD", bin:"H", added:"Sep 12", killed:false},
+  {artist:"Nilüfer Yanya", title:"My Method Actor", label:"Partisan", fmt:"CD", bin:"M", added:"Sep 12", killed:false},
+  {artist:"Duke Ellington & John Coltrane", title:"Duke Ellington & John Coltrane", label:"Impulse", fmt:"LP", bin:"L", added:"Sep 5", killed:false},
+  {artist:"Csillagrablók", title:"Ezt is elviszem magammal", label:"self-released", fmt:"LP", bin:"M", added:"Jun 2", killed:true},
+];
+const $ = id => document.getElementById(id);
+const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;');
+let importIdx = null, importAsNew = false;
+
+function render() {
+  $('qCount').textContent = queue.length;
+  $('qBody').innerHTML = queue.map((r, i) => {
+    const actions = r.killed
+      ? '<span class="jlink" onclick="toggleKill(' + i + ')">Unkill</span> · <span class="jlink" onclick="openImport(' + i + ')">Import</span> <span style="font-size:12px;font-family:-apple-system,sans-serif;color:#777">(today: only this row gets Import)</span>'
+      : '<span class="jlink" onclick="toggleKill(' + i + ')">Kill</span> · <b><span class="jlink" onclick="openImport(' + i + ')">Import</span></b> <span class="mark">4</span>';
+    return '<tr' + (r.killed ? ' class="killed"' : '') + '><td>' + esc(r.artist) + '</td><td>' + esc(r.title) + '</td><td>' + esc(r.label) + '</td><td>' + r.fmt + '</td><td>' + r.bin + '</td><td>' + r.added + (r.killed ? ' — killed' : '') + '</td><td>' + actions + '</td></tr>';
+  }).join('');
+}
+function capture() {
+  const artist = $('cArtist').value.trim(), title = $('cTitle').value.trim();
+  let label = $('cLabel').value.trim() || 'self-released';
+  if (!artist || !title) { $('cErr').textContent = 'Artist and title are required.'; return; }
+  $('cErr').textContent = '';
+  const bin = document.querySelector('input[name=bin]:checked').value;
+  queue.push({artist, title, label, fmt: $('cFmt').value, bin, added: 'Sep 13', killed: false});
+  $('cArtist').value = ''; $('cTitle').value = ''; $('cLabel').value = '';
+  renderCapMatch();
+  $('confirmLine').hidden = true;
+  render();
+}
+function renderCapMatch() {
+  const q = $('cArtist').value.trim(), el = $('capMatch');
+  if (q.length < 2) { el.textContent = ''; el.className = 'capmatch'; return; }
+  const m = findMatch(q);
+  if (m) { el.textContent = '✓ will auto-match ' + m.name + ' · ' + m.genre + ' ' + m.letters + ' ' + m.num + ' at import'; el.className = 'capmatch ok'; }
+  else { el.textContent = '✗ no library match — Import will open the new-artist form'; el.className = 'capmatch miss'; }
+}
+function toggleKill(i) { queue[i].killed = !queue[i].killed; closeImport(); render(); }
+function findMatch(name) {
+  return LIB.find(a => norm(a.name) === norm(name)) ||
+         LIB.find(a => norm(a.name).includes(norm(name)) || norm(name).includes(norm(a.name)));
+}
+function openImport(i) {
+  importIdx = i; importAsNew = false;
+  $('confirmLine').hidden = true;
+  renderImport();
+}
+function renderImport() {
+  const r = queue[importIdx];
+  const m = importAsNew ? null : findMatch(r.artist);
+  let html = '<h4>Import: catalog &amp; link this rotation release</h4>' +
+    '<div>' + esc(r.artist) + ' — <i>' + esc(r.title) + '</i> · ' + esc(r.label) + ' · ' + r.fmt + ' · bin ' + r.bin + ' · added ' + r.added + '</div>';
+  if (m) {
+    html += '<div class="sect"><div class="matchline">Library match: <b>' + esc(m.name) + ' · ' + m.genre + ' ' + m.letters + ' ' + m.num + '</b> — auto-selected. <span class="jlink" onclick="chooseNew()">Choose a different artist / create new</span></div>' +
+      '<div class="willfile">Will file as ' + m.genre + ' ' + m.letters + ' ' + m.num + '/' + (m.releases.length + 1) + '</div></div>';
+  } else {
+    const letters = suggestLetters(r.artist);
+    const nums = LIB.filter(a => a.genre === 'Rock' && a.letters === letters).map(a => a.num);
+    const next = nums.length ? Math.max.apply(null, nums) + 1 : 1;
+    html += '<div class="sect"><b>New artist</b> (no library match' + (importAsNew ? ' — creating new by choice' : '') + ')' +
+      '<table class="form">' +
+      '<tr><td>Genre:</td><td><select id="iGenre" onchange="renderImportPeek()"><option>Rock</option><option>Electronic</option><option>Jazz</option></select></td></tr>' +
+      '<tr><td>Presentation name:</td><td><input type="text" id="iName" value="' + esc(r.artist) + '"></td></tr>' +
+      '<tr><td>Call letters:</td><td><input type="text" id="iLetters" value="' + letters + '" maxlength="2" oninput="renderImportPeek()" style="width:50px"> <span id="iPeek">next code: ' + next + '</span></td></tr>' +
+      '<tr><td>Code number:</td><td><input type="text" id="iNum" value="' + next + '" style="width:50px"></td></tr>' +
+      '</table></div>';
+  }
+  html += '<div class="sect"><button class="submit" onclick="catalogAndLink()">Catalog &amp; link release</button> <button class="submit" onclick="closeImport()">Cancel</button></div>';
+  $('importPanel').innerHTML = html;
+  $('importPanel').hidden = false;
+}
+function chooseNew() { importAsNew = true; renderImport(); }
+function renderImportPeek() {
+  const letters = $('iLetters').value.toUpperCase(); $('iLetters').value = letters;
+  const g = $('iGenre').value;
+  const nums = LIB.filter(a => a.genre === g && a.letters === letters).map(a => a.num);
+  const next = nums.length ? Math.max.apply(null, nums) + 1 : 1;
+  $('iPeek').textContent = 'next code: ' + next;
+  $('iNum').value = next;
+}
+function catalogAndLink() {
+  const r = queue[importIdx];
+  let a = importAsNew ? null : findMatch(r.artist);
+  if (!a) {
+    const name = $('iName').value.trim(), letters = $('iLetters').value.toUpperCase(), v = parseInt($('iNum').value, 10);
+    if (!name || !letters || !(v >= 1)) return;
+    a = {name, genre: $('iGenre').value, letters, num: v, releases: []};
+    LIB.push(a);
+  }
+  a.releases.push(r.title);
+  const code = a.genre + ' ' + a.letters + ' ' + a.num + '/' + a.releases.length;
+  queue.splice(importIdx, 1);
+  closeImport();
+  $('confirmLine').innerHTML = 'Filed as <b>' + code + '</b> and linked to the rotation row — off the queue. ✓';
+  $('confirmLine').hidden = false;
+  render();
+}
+function closeImport() { importIdx = null; $('importPanel').hidden = true; }
+render();
+renderCapMatch();
+</script>
+</body>
+</html>

@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>E — Search-Miss Entry (interactive)</title>
+<style>
+  * { box-sizing: border-box; margin: 0; }
+  body { font-family: -apple-system, "Segoe UI", Roboto, Helvetica, sans-serif; background: #f4f6f9; color: #172b4d; padding: 36px; line-height: 1.45; }
+  h1 { font-size: 22px; margin-bottom: 4px; }
+  .lede { color: #5a6b85; margin-bottom: 18px; max-width: 80ch; }
+  .lede code, li code { background:#e8edf3; border-radius:4px; padding:1px 5px; font-size: 13px; }
+  a.back { color:#0b6bcb; font-size: 13px; text-decoration:none; font-weight:600; }
+  .demobar { display:flex; align-items:center; gap:14px; max-width: 860px; background:#e8f1fb; border:1px solid #b6d4f2; border-radius:10px; padding:10px 16px; font-size:13.5px; color:#0b3d70; margin-bottom: 24px; }
+  .demobar button { margin-left:auto; border:1px solid #0b6bcb; color:#0b6bcb; background:#fff; border-radius:8px; font-size:13px; font-weight:700; padding:5px 14px; cursor:pointer; flex:none; }
+  .page { max-width: 860px; background: #fff; border: 1px solid #d7dfe9; border-radius: 16px; box-shadow: 0 12px 28px rgba(23,43,77,.10); padding: 26px 30px; }
+  .page h3 { font-size: 18px; margin-bottom: 16px; }
+  .qb { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; background: #f8fafc; border: 1px solid #e3e9f0; border-radius: 12px; padding: 12px 14px; }
+  .qrow { display: inline-flex; align-items: center; border: 1px solid #cdd7e1; background: #fff; border-radius: 8px; overflow: hidden; font-size: 13.5px; }
+  .qrow .field { background: #eef2f6; color: #5a6b85; font-weight: 700; padding: 7px 10px; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+  .qrow input { border: none; padding: 7px 12px; font-weight: 600; font-size: 13.5px; font-family: inherit; color:#172b4d; width: 220px; }
+  .qrow input:focus { outline: none; background:#f4f9ff; }
+  .op { font-size: 12px; font-weight: 700; color: #8b97a8; }
+  .results { margin-top: 22px; }
+  table.hits { border-collapse: collapse; width: 100%; }
+  table.hits th, table.hits td { text-align: left; padding: 9px 12px; font-size: 13.5px; border-bottom: 1px solid #eef2f6; }
+  table.hits th { color: #5a6b85; font-size: 11.5px; text-transform: uppercase; letter-spacing: .05em; }
+  .codecell { color:#0b6bcb; font-weight: 700; }
+  .empty { border: 1.5px dashed #cdd7e1; border-radius: 14px; padding: 32px 30px; text-align: center; }
+  .empty .glyph { font-size: 30px; margin-bottom: 8px; }
+  .empty h4 { font-size: 17px; margin-bottom: 4px; }
+  .empty p { font-size: 13.5px; color: #5a6b85; max-width: 52ch; margin: 0 auto 18px; }
+  .empty p b { color:#172b4d; }
+  .cta { display: inline-block; background: #0b6bcb; color: #fff; font-size: 14.5px; font-weight: 700; border-radius: 10px; padding: 11px 22px; text-decoration: none; }
+  .cta:hover { background:#0a5cae; }
+  .cta small { display: block; font-weight: 500; font-size: 12px; opacity: .85; margin-top: 2px; }
+  .alt { margin-top: 14px; font-size: 12.5px; color: #8b97a8; }
+  .mark { display: inline-flex; width: 18px; height: 18px; border-radius: 50%; background: #e8590c; color: #fff; font-size: 11.5px; font-weight: 700; align-items: center; justify-content: center; vertical-align: middle; margin-left: 6px; flex: none; }
+  .legend { margin-top: 36px; max-width: 860px; background: #fff; border: 1px solid #d7dfe9; border-radius: 12px; padding: 18px 22px; }
+  .legend h2 { font-size: 14px; margin-bottom: 10px; }
+  .legend li { font-size: 13.5px; margin: 8px 0 8px 4px; list-style: none; display: flex; gap: 10px; }
+  .legend .mark { margin: 2px 0 0; }
+</style>
+</head>
+<body>
+  <a class="back" href="index.html">&larr; All mockups</a>
+  <h1>E — Search-miss entry ("no results → file it")</h1>
+  <p class="lede">The search <em>is</em> the entry point: the zero-results state offers to file the release, seeded from the structured query rows — an exact field mapping, no fuzzy parsing. Directors get dedup for free because searching first is exactly the check fast entry skips.</p>
+  <div class="demobar">▶ Live demo — the seeded query is a <b>partial match</b> (artist exists, release doesn't). Try album <b>"Hijos del Sol"</b> for a full hit, change the artist to something unknown for a full miss, or clear the album to browse the artist. The CTA really hops to the filing bench pre-seeded (open from disk). <button onclick="location.reload()">Reset demo</button></div>
+
+  <div class="page">
+    <h3>Card Catalog</h3>
+    <div class="qb">
+      <span class="qrow"><span class="field">artist</span><input id="qArtist" value="Hermanos Gutiérrez" oninput="evaluate()"></span>
+      <span class="op">AND</span>
+      <span class="qrow"><span class="field">album</span><input id="qAlbum" value="Sonido Cósmico" oninput="evaluate()"></span>
+      <span class="mark">1</span>
+    </div>
+    <div class="results" id="results"></div>
+  </div>
+
+  <div class="legend">
+    <h2>Annotations</h2>
+    <ol>
+      <li><span class="mark">1</span><span>The query rows already carry <code>{field, value}</code> (<code>catalogSlice</code>'s <code>CatalogSearchRow</code>), so "artist" and "album" map to bench fields exactly — the structure was already paid for. This is what makes E cheap here where it's fuzzy elsewhere.</span></li>
+      <li><span class="mark">2</span><span>The partial-match state is the real dedup win: "artist exists, release doesn't" vs. "neither exists" tells the MD which half of the filing they're doing — and the CTA pre-selects the matched artist in the bench, skipping the create-artist branch entirely.</span></li>
+      <li><span class="mark">3</span><span>Entry point, not a flow: the CTA routes to mockup A's bench with <code>?artist=&amp;album=</code> — in this demo that's a real link, and the bench really reads it. E only pays off once A (or B) exists behind it.</span></li>
+      <li><span class="mark">4</span><span>Gate the CTA on the MD role (the <code>RequireMD</code> wrapper <code>AddReleasePanel</code> already uses); DJs keep the plain empty state so search stays a read-only surface for them.</span></li>
+    </ol>
+  </div>
+
+<script>
+const norm = s => s.normalize('NFD').replace(/[̀-ͯ]/g,'').trim().toLowerCase();
+const LIB = [
+  {name:"Stereolab", genre:"Rock", letters:"SL", num:1, releases:["Transient Random-Noise Bursts with Announcements","Dots and Loops","Instant Holograms on Metal Film"]},
+  {name:"Jessica Pratt", genre:"Rock", letters:"JP", num:3, releases:["Quiet Signs"]},
+  {name:"Nilüfer Yanya", genre:"Rock", letters:"NI", num:2, releases:["Miss Universe","Painless"]},
+  {name:"Cat Power", genre:"Rock", letters:"CA", num:5, releases:["Moon Pix","Covers"]},
+  {name:"Hermanos Gutiérrez", genre:"Rock", letters:"HG", num:1, releases:["El Bueno y el Malo","Hijos del Sol"]},
+  {name:"Juana Molina", genre:"Rock", letters:"JM", num:1, releases:["Wed 21","Halo"]},
+  {name:"Chuquimamani-Condori", genre:"Electronic", letters:"CH", num:2, releases:["Edits"]},
+  {name:"Duke Ellington & John Coltrane", genre:"Jazz", letters:"DU", num:1, releases:["Duke Ellington & John Coltrane"]},
+];
+const $ = id => document.getElementById(id);
+const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;');
+const benchUrl = (artist, album) => '3-filing-bench.html?artist=' + encodeURIComponent(artist) + '&album=' + encodeURIComponent(album);
+
+function evaluate() {
+  const qa = $('qArtist').value.trim(), ql = $('qAlbum').value.trim();
+  const out = $('results');
+  if (qa.length < 2 && ql.length < 2) {
+    out.innerHTML = '<div class="empty"><div class="glyph">🗃️</div><h4>Type a query</h4><p>Both rows empty — this state mirrors today\'s idle search.</p></div>';
+    return;
+  }
+  const artistHits = qa.length >= 2 ? LIB.filter(a => norm(a.name).includes(norm(qa))) : [];
+  // full hits: (artist, release) pairs matching both rows
+  const hits = [];
+  const pool = qa.length >= 2 ? artistHits : LIB;
+  pool.forEach(a => a.releases.forEach((r, i) => {
+    if (ql.length < 2 || norm(r).includes(norm(ql))) hits.push({a, r, n: i + 1});
+  }));
+  if (hits.length && (ql.length >= 2 || artistHits.length)) {
+    out.innerHTML = '<table class="hits"><tr><th>Artist</th><th>Release</th><th>Code</th></tr>' +
+      hits.map(h => '<tr><td>' + esc(h.a.name) + '</td><td>' + esc(h.r) + '</td><td class="codecell">' + h.a.genre + ' ' + h.a.letters + ' ' + h.a.num + '/' + h.n + '</td></tr>').join('') +
+      '</table><div class="alt">Already in the library — nothing to file. (Dedup did its job.)</div>';
+    return;
+  }
+  if (artistHits.length && ql.length >= 2) {
+    const a = artistHits[0];
+    out.innerHTML = '<div class="empty"><div class="glyph">🗃️</div><h4>Nothing in the catalog matches</h4>' +
+      '<p>' + artistHits.length + ' artist' + (artistHits.length > 1 ? 's' : '') + ' matched — <b>' + esc(a.name) + ' · ' + a.genre + ' ' + a.letters + '&nbsp;' + a.num + '</b> — but none of their ' + a.releases.length + ' releases is titled "' + esc(ql) + '". <span class="mark">2</span></p>' +
+      '<a class="cta" href="' + benchUrl(a.name, ql) + '">File "' + esc(ql) + '" by ' + esc(a.name) + '<small>opens the filing bench with the artist pre-selected</small></a> <span class="mark">3</span>' +
+      '<div class="alt">Music Directors only — DJs see the plain empty state. <span class="mark">4</span></div></div>';
+    return;
+  }
+  const artistLabel = qa || 'Unknown Artist', albumLabel = ql || 'Untitled';
+  out.innerHTML = '<div class="empty"><div class="glyph">🗃️</div><h4>Nothing in the catalog matches</h4>' +
+    '<p>No artist or release matches the query — this is a whole-cloth filing: new artist and new release.</p>' +
+    '<a class="cta" href="' + benchUrl(artistLabel, albumLabel) + '">File "' + esc(albumLabel) + '" by ' + esc(artistLabel) + '<small>opens the filing bench with the create-artist branch pre-filled</small></a> <span class="mark">3</span>' +
+    '<div class="alt">Music Directors only — DJs see the plain empty state. <span class="mark">4</span></div></div>';
+}
+evaluate();
+</script>
+</body>
+</html>

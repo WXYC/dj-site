@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rotation Filing Mockups</title>
+<style>
+  * { box-sizing: border-box; margin: 0; }
+  body { font-family: -apple-system, "Segoe UI", Roboto, Helvetica, sans-serif; background: #f4f6f9; color: #172b4d; padding: 40px; line-height: 1.5; }
+  .wrap { max-width: 880px; margin: 0 auto; }
+  h1 { font-size: 26px; margin-bottom: 6px; }
+  h2 { font-size: 15px; margin: 30px 0 10px; color: #42526e; }
+  .lede { color: #5a6b85; margin-bottom: 24px; max-width: 68ch; }
+  .headline { background: #fff; border: 1px solid #b6d4f2; border-left: 5px solid #0b6bcb; border-radius: 12px; padding: 18px 22px; box-shadow: 0 6px 18px rgba(23,43,77,.06); }
+  .headline a.big { font-size: 17px; font-weight: 800; color: #0b6bcb; text-decoration: none; }
+  .headline p { font-size: 14px; color: #42526e; margin-top: 6px; }
+  table { border-collapse: collapse; width: 100%; background: #fff; border: 1px solid #d7dfe9; border-radius: 12px; overflow: hidden; }
+  th, td { text-align: left; padding: 11px 16px; font-size: 13.5px; vertical-align: top; }
+  th { background: #f8fafc; color: #5a6b85; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; border-bottom: 1px solid #e3e9f0; }
+  tr + tr td { border-top: 1px solid #eef2f6; }
+  a { color: #0b6bcb; font-weight: 600; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .tag { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: #e8f1fb; color: #0b6bcb; margin-right: 6px; }
+  .st { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; }
+  .st.folded { background: #e6f4ea; color: #14532d; }
+  .st.rejected { background: #fdecea; color: #b42318; }
+  .st.superseded { background: #eef2f6; color: #5a6b85; }
+  .muted { color: #8b97a8; font-size: 13px; margin-top: 18px; }
+  code { background:#e8edf3; border-radius:4px; padding:1px 5px; font-size: 12.5px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Rotation filing — interactive demos</h1>
+  <p class="lede">Working demos against a small in-memory WXYC library. The consolidated direction is at the top; the earlier explorations that fed it are kept below with their status.</p>
+
+  <div class="headline" style="margin-bottom:14px">
+    <a class="big" href="rotation-admin.html">Rotation Admin</a> &nbsp;<span class="st folded">current direction</span>
+    <p>The bench is <b>the</b> way rotation items are created, and it lives in the admin interface as its own Rotation Admin area — no Add Release button on the catalog page. Three separate views: <b>"Add to rotation"</b> (match-or-create artist → file release → bin → card; code number auto-fills from the peek), the <b>"Rotation list"</b> (search + bin filters + card sub-filter, Kill/Unkill, bin moves via add-then-kill, per-row card reassignment), and <b>"Cards"</b> — bins subdivide into numbered, optionally-named cards (1…N per bin), modeled nowhere in the system today; the tab renames, adds, and deletes them. Partial-failure ledger with Retry included.</p>
+  </div>
+
+  <div class="headline">
+    <a class="big" href="catalog-search-rotation.html">Catalog Search — Rotation Location</a> &nbsp;<span class="st folded">current direction</span>
+    <p>Companion surface to the admin area: a release in rotation is <b>not on the stacks</b>, so for actively-rotating rows both experiences' catalog search results swap the call-number cell for the record's real location — <b>bin + card</b> (card name in the tooltip). Flag toggle shows before/after; ships behind the same <code>NEXT_PUBLIC_ROTATION_ADMIN_ENABLED</code> flag.</p>
+  </div>
+
+  <div class="headline" style="margin-top:14px">
+    <a class="big" href="rotation-age.html">Rotation Age &amp; Card Staleness</a> &nbsp;<span class="st folded">proposal</span>
+    <p>Answers the MD ask for the site to say <i>"[x] album has been in Medium 7 [for] [x] days"</i> and <i>"Light 6 has not been updated in [x] days"</i>. Two additions to surfaces that already exist: <b>per-record age</b> on the Rotation list (with sort-by-oldest and a per-bin replacement window), and <b>per-card last activity</b> on the Cards tab, counting kills as well as adds. Three nudge treatments &mdash; quiet, flagged, loud &mdash; are switchable at the top. The record age is free from data already on the wire; <b>card dwell time is not derivable</b> and would need a <code>card_assigned_at</code> column, which the page marks rather than fakes. Thresholds are placeholders for the MDs to set.</p>
+  </div>
+
+  <div class="headline" style="margin-top:14px">
+    <a class="big" href="card-assignment.html">Card Assignment Panel</a> &nbsp;<span class="st folded">proposal</span>
+    <p>The tool for the one-time <b>re-carding pass</b> (B3 of the <a href="https://github.com/WXYC/dj-site/issues/1663">rotation age epic</a>). The launch backfill put every active record on card 1 of its bin, and the only way to move them today is one select per record. From the Cards tab, <b>Assign records</b> on a card opens a panel listing its bin's active records: tick what is physically on the card, save, and move on to the next with <b>Save &amp; open Heavy 4</b>. Records already on the card are locked (a record leaves a card only by being ticked onto another), a <b>Still on Heavy 1</b> filter narrows to the backfill pile, and saving sends one batch with a per-record result and a retry for failures. A request counter shows the cards list refetching once per save, not once per record.</p>
+  </div>
+
+  <h2>Earlier explorations</h2>
+  <table>
+    <tr><th style="width:220px">Demo</th><th style="width:110px">Status</th><th>Disposition</th></tr>
+    <tr>
+      <td><span class="tag">A</span><a href="3-filing-bench.html">Filing bench</a></td>
+      <td><span class="st folded">evolved</span></td>
+      <td>Became the Rotation Admin page above — same form and chain, now placed in admin chrome with rotation management alongside.</td>
+    </tr>
+    <tr>
+      <td><span class="tag">B</span><a href="2-inline-artist-create.html">Inline artist create</a></td>
+      <td><span class="st folded">folded in</span></td>
+      <td>The component survives as the bench's artist create panel (suggested call letters, one-click peek accept, conflict banner). Its original home — the catalog's Add Release modal — is rejected as an entry point.</td>
+    </tr>
+    <tr>
+      <td><span class="tag">C</span><a href="1-success-continuation.html">Success continuation</a></td>
+      <td><span class="st rejected">rejected</span></td>
+      <td>Built on the catalog-page Add Release button, which shouldn't exist. The surviving ideas — batch stickiness and instant undo — live on in the admin page (keep-values + Kill beside create).</td>
+    </tr>
+    <tr>
+      <td><span class="tag">E</span><a href="4-search-miss.html">Search-miss entry</a></td>
+      <td><span class="st superseded">parked</span></td>
+      <td>The catalog stays a read/search surface with no filing CTA. Could return later as a link into the admin bench; not part of the current direction.</td>
+    </tr>
+    <tr>
+      <td><span class="tag">D</span><a href="5-capture-queue.html">Capture queue</a></td>
+      <td><span class="st superseded">superseded</span></td>
+      <td>The bench replaces free-text capture as the creation path. The import screen remains what it is today: the recovery path for legacy uncatalogued rows.</td>
+    </tr>
+  </table>
+
+  <p class="muted">Interactive simulations — each page has its own in-memory library and a Reset button (reload). Example data is canonical WXYC fixture material. Open the folder from disk so links between pages work.</p>
+</div>
+</body>
+</html>
