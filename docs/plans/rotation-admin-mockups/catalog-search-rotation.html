@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Catalog Search — Rotation Location (interactive)</title>
+<style>
+  * { box-sizing: border-box; margin: 0; }
+  body { font-family: -apple-system, "Segoe UI", Roboto, Helvetica, sans-serif; background: #f4f6f9; color: #172b4d; padding: 36px; line-height: 1.45; }
+  h1 { font-size: 22px; margin-bottom: 4px; }
+  .lede { color: #5a6b85; margin-bottom: 18px; max-width: 84ch; }
+  .lede code, li code { background:#e8edf3; border-radius:4px; padding:1px 5px; font-size: 13px; }
+  a.back { color:#0b6bcb; font-size: 13px; text-decoration:none; font-weight:600; }
+  .demobar { display:flex; align-items:center; gap:14px; max-width: 1080px; background:#e8f1fb; border:1px solid #b6d4f2; border-radius:10px; padding:10px 16px; font-size:13.5px; color:#0b3d70; margin-bottom: 20px; }
+  .demobar button { margin-left:auto; border:1px solid #0b6bcb; color:#0b6bcb; background:#fff; border-radius:8px; font-size:13px; font-weight:700; padding:5px 14px; cursor:pointer; flex:none; }
+  .controls { display:flex; align-items:center; gap:18px; max-width:1080px; margin-bottom:22px; flex-wrap:wrap; }
+  .flagbox { display:flex; align-items:center; gap:10px; background:#fff; border:1px solid #d7dfe9; border-radius:10px; padding:9px 14px; font-size:13px; }
+  .flagbox code { background:#e8edf3; border-radius:4px; padding:1px 6px; font-size:12px; }
+  .switch { position:relative; width:44px; height:24px; border-radius:999px; background:#c9d2dc; cursor:pointer; transition:background .15s; flex:none; }
+  .switch::after { content:""; position:absolute; top:2px; left:2px; width:20px; height:20px; border-radius:50%; background:#fff; box-shadow:0 1px 3px rgba(23,43,77,.3); transition:left .15s; }
+  .switch.on { background:#0b8a3e; }
+  .switch.on::after { left:22px; }
+  .flagstate { font-weight:800; font-size:12px; width:28px; }
+  .flagstate.on { color:#0b8a3e; } .flagstate.off { color:#8b97a8; }
+  .searchbox { flex:1; min-width:260px; max-width:420px; }
+  .searchbox input { width:100%; border:1px solid #cdd7e1; border-radius:8px; padding:8px 12px; font-size:14px; background:#fff; color:#172b4d; }
+  .searchbox input:focus { outline:none; border-color:#0b6bcb; box-shadow:0 0 0 3px rgba(11,107,203,.15); }
+  .exphead { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: #5a6b85; margin: 26px 0 10px; max-width:1080px; display:flex; align-items:baseline; gap:10px; }
+  .exphead .file { text-transform:none; letter-spacing:0; font-family: ui-monospace, monospace; font-size:11.5px; color:#8b97a8; }
+  .page { max-width: 1080px; background: #fff; border: 1px solid #d7dfe9; border-radius: 16px; box-shadow: 0 12px 28px rgba(23,43,77,.10); overflow: hidden; }
+  .appbar { background: #172b4d; color: #cfd9e6; padding: 10px 24px; font-size: 13px; display:flex; gap: 14px; align-items: center; }
+  .appbar .brand { font-weight: 800; color:#fff; letter-spacing:.02em; }
+  .appbar .route { margin-left:auto; font-family: ui-monospace, monospace; font-size: 11.5px; color:#8ba3bd; }
+  .modernwrap { padding: 18px 24px 22px; }
+  table.mtable { border-collapse: collapse; width: 100%; }
+  .mtable th { text-align:left; font-size:11.5px; text-transform:uppercase; letter-spacing:.05em; color:#5a6b85; padding:8px 10px; border-bottom:2px solid #e3e9f0; }
+  .mtable td { padding:10px; font-size:13.5px; border-bottom:1px solid #f0f3f7; vertical-align:middle; }
+  .mtable .rel { font-weight:700; }
+  .mtable .art { color:#42526e; }
+  .mchip { display:inline-block; border-radius:999px; padding:2px 10px; font-size:11px; font-weight:700; margin-right:5px; border:1px solid #cdd7e1; color:#42526e; background:#fff; }
+  .mchip.bin { background:#e8f1fb; border-color:#9cc3e8; color:#0b6bcb; }
+  .mchip.excl { background:#fff3cd; border-color:#f0d488; color:#7a5b0f; }
+  .callnum { font-family: ui-monospace, monospace; font-size:13px; color:#42526e; white-space:nowrap; }
+  .rotloc { display:inline-flex; align-items:center; gap:6px; background:#e8f1fb; border:1px solid #9cc3e8; color:#0b6bcb; border-radius:8px; padding:3px 10px; font-size:12.5px; font-weight:800; white-space:nowrap; cursor:default; }
+  .rotloc .cardno { font-weight:600; color:#0b3d70; }
+  .plays { color:#5a6b85; }
+  .plays.zero { color:#b0bccb; }
+  .nores { padding:20px 10px; color:#8b97a8; font-style:italic; font-size:13.5px; }
+  /* classic experience — tubafrenzy xerox */
+  .classicwrap { padding: 16px 20px 20px; font-family: "Times New Roman", Times, serif; }
+  .classicwrap .summary { font-size: 15px; margin-bottom: 10px; }
+  table.ctable { border-collapse: collapse; width: 100%; }
+  .ctable th { background:#d9d9d9; text-align:left; font-size:13.5px; padding:6px 8px; border:1px solid #b5b5b5; }
+  .ctable td { font-size:14.5px; padding:6px 8px; border:1px solid #d5d5d5; }
+  .ctable tr.even td { background:#f2f2f2; }
+  .ctable a { color:#00e; }
+  .ctable .ccode { white-space:nowrap; }
+  .crotloc { font-weight:bold; white-space:nowrap; cursor:default; }
+  .mark { display: inline-flex; width: 18px; height: 18px; border-radius: 50%; background: #e8590c; color: #fff; font-size: 11.5px; font-weight: 700; align-items: center; justify-content: center; vertical-align: middle; margin-left: 6px; flex: none; font-family: -apple-system, "Segoe UI", Roboto, Helvetica, sans-serif; }
+  .legend { margin-top: 36px; max-width: 1080px; background: #fff; border: 1px solid #d7dfe9; border-radius: 12px; padding: 18px 22px; }
+  .legend h2 { font-size: 14px; margin-bottom: 10px; }
+  .legend li { font-size: 13.5px; margin: 8px 0 8px 4px; list-style: none; display: flex; gap: 10px; }
+  .legend .mark { margin: 2px 0 0; }
+</style>
+</head>
+<body>
+<a class="back" href="index.html">&larr; All mockups</a>
+<h1 style="margin-top:10px">Catalog search — rotation location instead of call number</h1>
+<p class="lede">A release in rotation is <b>not on the stacks</b>: its call number sends a DJ to a shelf slot that's empty. For actively-rotating rows, both experiences' search results swap the call-number cell for the record's real location — <b>rotation bin + card</b>. Everything else about the results is unchanged.</p>
+
+<div class="demobar">
+  <span>Try it: flip the flag to compare today's display with the new one; search <b>pratt</b>, <b>duke</b>, or <b>yanya</b>; hover a blue location pill to see the card's name.</span>
+  <button onclick="location.reload()">Reset demo</button>
+</div>
+
+<div class="controls">
+  <div class="flagbox">
+    <code>NEXT_PUBLIC_ROTATION_ADMIN_ENABLED</code>
+    <div class="switch on" id="flagSw" onclick="toggleFlag()"></div>
+    <span class="flagstate on" id="flagTxt">ON</span>
+    <span class="mark">6</span>
+  </div>
+  <div class="searchbox"><input id="q" placeholder="Search artists and releases…" oninput="render()"></div>
+</div>
+
+<div class="exphead">Modern experience <span class="file">catalog/Results/Result.tsx</span></div>
+<div class="page">
+  <div class="appbar"><span class="brand">WXYC</span><span>Card Catalog</span><span class="route">/dashboard/catalog</span></div>
+  <div class="modernwrap">
+    <table class="mtable">
+      <thead><tr>
+        <th style="width:30%">Release</th>
+        <th style="width:24%">Artist</th>
+        <th style="width:24%"></th>
+        <th style="width:13%">Call №</th>
+        <th style="width:9%">Plays</th>
+      </tr></thead>
+      <tbody id="mBody"></tbody>
+    </table>
+    <div class="nores" id="mNone" style="display:none">No results.</div>
+  </div>
+</div>
+
+<div class="exphead">Classic experience <span class="file">catalog/SearchResults.tsx</span></div>
+<div class="page">
+  <div class="classicwrap">
+    <div class="summary" id="cSummary"></div>
+    <table class="ctable">
+      <thead><tr class="chead">
+        <th style="width:12%">Genre</th>
+        <th style="width:14%">Code</th>
+        <th style="width:28%">Artist</th>
+        <th style="width:34%">Release</th>
+        <th style="width:12%">Format</th>
+      </tr></thead>
+      <tbody id="cBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="legend">
+  <h2>What the annotations mean</h2>
+  <ul>
+    <li><span class="mark">1</span><span><code>AlbumSearchResult.rotation_bin</code> is already the <b>CURRENT_DATE-filtered</b> value — non-null means actively rotating, today. The new <code>card</code> field rides the same JOIN with the same filter (S1 contract + B6 emission), so a killed row can never point at a card it left.</span></li>
+    <li><span class="mark">2</span><span>The swap itself (decision&nbsp;6): a rotating row's call-number cell shows <b>bin + card</b> in place of <code>lettercode numbercode/entry</code>. The call number isn't shown at all — displaying both would still send DJs to the stacks. Non-rotating rows are untouched.</span></li>
+    <li><span class="mark">3</span><span>The card's optional name travels as a <code>title</code> tooltip on the location pill, not as columns — search results stay scannable, and an unnamed card needs no empty space reserved.</span></li>
+    <li><span class="mark">4</span><span>The modern bin chip in <code>ReleaseChips</code> <b>already exists and stays</b> — it marks rotation membership at a glance; the location pill answers the different question "where do I physically find it." Only the call-number cell changes (D10).</span></li>
+    <li><span class="mark">5</span><span>Classic gets the identical swap in its Code column (<code>SearchResults.tsx</code>), rendered in the JSP's own idiom — bold text, no pill chrome. The <code>card</code> field threads through <code>convertToAlbumEntry</code>, a hand-maintained mapping in the same drift class as <code>RotationListRow</code>.</span></li>
+    <li><span class="mark">6</span><span>Flag-gated with the same <code>NEXT_PUBLIC_ROTATION_ADMIN_ENABLED</code> flag as the admin area: until the card backfill (B7) and MD adoption, cards carry no signal — the search display flips together with the admin launch (D7). Flip the switch to see today's behavior.</span></li>
+  </ul>
+</div>
+
+<script>
+// In-memory library: canonical WXYC fixture artists. `rot` mirrors what the
+// search projections will emit — bin + card only while actively rotating.
+const ROWS = [
+  { genre:"Rock", fmt:"CD", letters:"PR", anum:15, entry:3, artist:"Jessica Pratt", title:"On Your Own Love Again", label:"Drag City", plays:41, rot:{bin:"H", card:2, name:""} },
+  { genre:"Rock", fmt:"LP", letters:"MO", anum:8, entry:6, artist:"Juana Molina", title:"DOGA", label:"Sonamos", plays:37, rot:{bin:"H", card:1, name:"Late Aug"} },
+  { genre:"Electronic", fmt:"LP", letters:"CH", anum:2, entry:1, artist:"Chuquimamani-Condori", title:"Edits", label:"self-released", plays:29, rot:{bin:"M", card:2, name:"Fresh Arrivals"} },
+  { genre:"Rock", fmt:"CD", letters:"YA", anum:4, entry:2, artist:"Nilüfer Yanya", title:"My Method Actor", label:"Partisan", plays:18, rot:{bin:"H", card:2, name:""} },
+  { genre:"Rock", fmt:"LP", letters:"GU", anum:11, entry:4, artist:"Hermanos Gutiérrez", title:"Sonido Cósmico", label:"Easy Eye Sound", plays:12, rot:{bin:"S", card:1, name:""} },
+  { genre:"Rock", fmt:"CD", letters:"ST", anum:44, entry:7, artist:"Stereolab", title:"Dots and Loops", label:"Duophonic", plays:0, rot:null },
+  { genre:"Rock", fmt:"LP", letters:"CA", anum:9, entry:2, artist:"Cat Power", title:"Moon Pix", label:"Matador", plays:3, rot:null },
+  { genre:"Jazz", fmt:"LP", letters:"EL", anum:1, entry:5, artist:"Duke Ellington & John Coltrane", title:"Duke Ellington & John Coltrane", label:"Impulse Records", plays:7, rot:null },
+];
+const BIN_LABELS = { H:"Heavy", M:"Medium", L:"Light", S:"Singles" };
+
+let flagOn = true;
+
+function toggleFlag() {
+  flagOn = !flagOn;
+  document.getElementById('flagSw').classList.toggle('on', flagOn);
+  const t = document.getElementById('flagTxt');
+  t.textContent = flagOn ? 'ON' : 'OFF';
+  t.className = 'flagstate ' + (flagOn ? 'on' : 'off');
+  render();
+}
+
+function norm(s) { return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); }
+function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function locTitle(rot) {
+  return BIN_LABELS[rot.bin] + ' rotation, card ' + rot.card + (rot.name ? ' “' + rot.name + '”' : '');
+}
+
+function render() {
+  const q = norm(document.getElementById('q').value.trim());
+  const hits = ROWS.filter(r => !q || norm(r.artist).includes(q) || norm(r.title).includes(q));
+
+  // modern
+  const showLoc = r => flagOn && r.rot;
+  document.getElementById('mBody').innerHTML = hits.map((r, i) =>
+    '<tr>' +
+    '<td class="rel">' + esc(r.title) + '</td>' +
+    '<td class="art">' + esc(r.artist) + '</td>' +
+    '<td>' +
+      '<span class="mchip">' + esc(r.genre) + '</span>' +
+      '<span class="mchip">' + esc(r.fmt) + '</span>' +
+      (r.rot ? '<span class="mchip bin">' + r.rot.bin + '</span>' + (i === 0 ? '<span class="mark">4</span>' : '') : '') +
+    '</td>' +
+    '<td>' +
+      (showLoc(r)
+        ? '<span class="rotloc" title="' + esc(locTitle(r.rot)) + '">' + r.rot.bin + ' &middot; <span class="cardno">card ' + r.rot.card + '</span></span>' + (i === 0 ? '<span class="mark">2</span><span class="mark">3</span>' : '')
+        : '<span class="callnum">' + r.letters + ' ' + r.anum + '/' + r.entry + '</span>' + (r.rot && !flagOn && i === 0 ? '<span class="mark">1</span>' : '')) +
+    '</td>' +
+    '<td class="plays' + (r.plays ? '' : ' zero') + '">' + (r.plays || '—') + '</td>' +
+    '</tr>').join('');
+  document.getElementById('mNone').style.display = hits.length ? 'none' : '';
+
+  // classic
+  document.getElementById('cSummary').innerHTML = q
+    ? 'Your search <b>&quot;' + esc(document.getElementById('q').value.trim()) + '&quot;</b> matched <b>' + hits.length + '</b> releases.'
+    : 'Browsing <b>' + hits.length + '</b> releases.';
+  document.getElementById('cBody').innerHTML = hits.map((r, i) =>
+    '<tr class="' + (i % 2 === 0 ? 'even' : 'odd') + '">' +
+    '<td>' + esc(r.genre) + '</td>' +
+    '<td class="ccode">' +
+      (showLoc(r)
+        ? '<span class="crotloc" title="' + esc(locTitle(r.rot)) + '">' + r.rot.bin + ' &middot; card ' + r.rot.card + '</span>' + (i === 0 ? '<span class="mark">5</span>' : '')
+        : r.letters + ' ' + r.anum + '/' + r.entry) +
+    '</td>' +
+    '<td><a href="javascript:void(0)">' + esc(r.artist) + '</a></td>' +
+    '<td><a href="javascript:void(0)">' + esc(r.title) + '</a></td>' +
+    '<td>' + esc(r.fmt) + '</td>' +
+    '</tr>').join('');
+}
+
+render();
+</script>
+</body>
+</html>

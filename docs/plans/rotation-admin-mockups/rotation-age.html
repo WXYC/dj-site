@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rotation Age &amp; Card Staleness (interactive)</title>
+<style>
+  * { box-sizing: border-box; margin: 0; }
+  body { font-family: -apple-system, "Segoe UI", Roboto, Helvetica, sans-serif; background: #f4f6f9; color: #172b4d; padding: 36px; line-height: 1.45; }
+  h1 { font-size: 22px; margin-bottom: 4px; }
+  .lede { color: #5a6b85; margin-bottom: 18px; max-width: 84ch; }
+  .lede code, li code, p code { background:#e8edf3; border-radius:4px; padding:1px 5px; font-size: 13px; }
+  a.back { color:#0b6bcb; font-size: 13px; text-decoration:none; font-weight:600; }
+  .demobar { display:flex; align-items:center; gap:14px; max-width: 1080px; background:#e8f1fb; border:1px solid #b6d4f2; border-radius:10px; padding:10px 16px; font-size:13.5px; color:#0b3d70; margin-bottom: 18px; }
+  .demobar button { margin-left:auto; border:1px solid #0b6bcb; color:#0b6bcb; background:#fff; border-radius:8px; font-size:13px; font-weight:700; padding:5px 14px; cursor:pointer; flex:none; }
+  .switcher { max-width:1080px; background:#fff; border:1px solid #d7dfe9; border-radius:10px; padding:10px 16px; margin-bottom:22px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; font-size:13px; }
+  .switcher .lbl { font-weight:700; color:#42526e; font-size:12px; text-transform:uppercase; letter-spacing:.05em; }
+  .switcher .note { color:#8b97a8; font-size:12.5px; }
+  .page { max-width: 1080px; background: #fff; border: 1px solid #d7dfe9; border-radius: 16px; box-shadow: 0 12px 28px rgba(23,43,77,.10); padding: 0 0 28px; overflow: hidden; }
+  .adminbar { background: #172b4d; color: #cfd9e6; padding: 10px 28px; font-size: 13px; display:flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+  .adminbar .brand { font-weight: 800; color:#fff; letter-spacing:.02em; margin-right: 6px; }
+  .adminbar .tab { padding: 4px 12px; border-radius: 999px; cursor: pointer; }
+  .adminbar .tab.inert { cursor: default; opacity: .5; }
+  .adminbar .tab.on { background: #0b6bcb; color: #fff; font-weight: 700; }
+  .adminbar .route { margin-left:auto; font-family: ui-monospace, monospace; font-size: 11.5px; color:#8ba3bd; }
+  .pagehead { display: flex; align-items: baseline; gap: 14px; border-bottom: 1px solid #eef2f6; padding: 20px 28px 14px; margin-bottom: 20px; flex-wrap:wrap; }
+  .pagehead h3 { font-size: 19px; }
+  .mdgate { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #7a5b0f; background: #fff3cd; border: 1px solid #f0d488; border-radius: 999px; padding: 3px 10px; }
+  .view { padding: 0 28px; }
+  .inp, select.inp { border: 1px solid #cdd7e1; border-radius: 8px; padding: 8px 11px; font-size: 14px; background: #fff; color: #172b4d; }
+  .inp:focus { outline:none; border-color:#0b6bcb; box-shadow:0 0 0 3px rgba(11,107,203,.15); }
+  .hint { font-size: 12.5px; color: #8b97a8; margin-top: 5px; }
+  .secthead { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: #5a6b85; margin-bottom: 12px; }
+  .filterbar { display:flex; gap:12px; align-items:center; margin-bottom:14px; flex-wrap:wrap; }
+  .filterbar input[type=search] { min-width: 240px; }
+  .filterrow { display:flex; align-items:center; gap:6px; flex-wrap: wrap; }
+  .fchip { display:inline-block; border:1px solid #cdd7e1; border-radius:999px; padding:4px 14px; font-size:12.5px; font-weight:700; color:#42526e; background:#fff; cursor:pointer; user-select:none; }
+  .fchip:hover { border-color:#0b6bcb; color:#0b6bcb; }
+  .fchip.sel { background:#0b6bcb; border-color:#0b6bcb; color:#fff; }
+  .sortwrap { margin-left:auto; display:flex; align-items:center; gap:7px; font-size:12.5px; color:#5a6b85; }
+  .sortwrap select { padding:5px 9px; font-size:12.5px; }
+  .rotgrid { max-width: 880px; }
+  .rrow { background:#fff; border:1px solid #e3e9f0; border-left:4px solid transparent; border-radius:10px; padding:10px 12px; margin-bottom:10px; font-size:13px; }
+  .rrow .rmain { font-size:13.5px; }
+  .rcode { color:#0b6bcb; font-weight:700; font-size:12.5px; margin-left:6px; }
+  .rmeta { display:flex; align-items:center; gap:10px; margin-top:7px; flex-wrap:wrap; color:#5a6b85; font-size:12.5px; }
+  .loc { display:inline-block; border:1px solid #cdd7e1; border-radius:999px; padding:2px 10px; font-size:11.5px; font-weight:700; color:#42526e; background:#fff; }
+  .age { font-weight:700; color:#42526e; }
+  .plays { color:#a3afbe; }
+  .rkill { color:#b42318; font-weight:700; font-size:12.5px; cursor:pointer; margin-left:auto; }
+  /* age treatments */
+  .over { display:inline-block; border-radius:999px; padding:2px 10px; font-size:11.5px; font-weight:800; }
+  .t-flag .rrow.stale { border-left-color:#e8590c; background:#fffaf5; }
+  .t-flag .rrow.stale .age, .t-loud .rrow.stale .age { color:#b45309; }
+  .t-flag .rrow.stale .over, .t-loud .rrow.stale .over { background:#fff3cd; border:1px solid #f0d488; color:#7a5b0f; }
+  .t-loud .rrow.stale { border-left-color:#b42318; background:#fff7f6; }
+  .t-quiet .over { display:none; }
+  .t-quiet .rrow.stale { border-left-color:transparent; background:#fff; }
+  .banner { display:none; background:#fdecea; border:1px solid #f0b8b1; border-left:5px solid #b42318; border-radius:10px; padding:12px 16px; margin-bottom:16px; font-size:13px; color:#7a1710; }
+  .t-loud .banner { display:block; }
+  .banner b { color:#b42318; }
+  .banner ul { margin:7px 0 0 18px; }
+  .banner li { margin:3px 0; }
+  .banner .dismiss { float:right; color:#b42318; font-weight:700; cursor:pointer; font-size:12px; }
+  .tally { font-size:12.5px; color:#5a6b85; margin-bottom:12px; }
+  .tally b { color:#b45309; }
+  .t-quiet .tally b { color:#42526e; }
+  .unk { display:inline-flex; align-items:center; gap:4px; border:1px dashed #cdb26a; background:#fffbf0; color:#7a5b0f; border-radius:999px; padding:1px 9px; font-size:11px; font-weight:700; cursor:help; }
+  /* cards */
+  .cardsgrid { display:grid; grid-template-columns: repeat(auto-fit, minmax(245px, 1fr)); gap:18px; max-width: 1020px; }
+  .cardscol { background:#f8fafc; border:1px solid #e3e9f0; border-radius:12px; padding:14px 16px; }
+  .colhead { font-weight:800; font-size:14px; margin-bottom:12px; }
+  .colcode { color:#8b97a8; font-weight:700; font-size:12px; }
+  .cardrow { background:#fff; border:1px solid #e3e9f0; border-left:4px solid transparent; border-radius:10px; padding:8px 10px; margin-bottom:8px; }
+  .cardrow .top { display:flex; align-items:center; gap:8px; }
+  .cardrow .cn { font-weight:800; color:#0b6bcb; font-size:13px; flex:none; }
+  .cardrow .nm { flex:1; font-size:13px; color:#172b4d; }
+  .cardrow .nm.empty { color:#b0bccb; font-style:italic; }
+  .cardrow .cnt { font-size:11.5px; color:#5a6b85; flex:none; }
+  .cardrow .sub { margin-top:4px; font-size:11.5px; color:#8b97a8; }
+  .cardrow .sub b { color:#42526e; }
+  .t-flag .cardrow.stale, .t-loud .cardrow.stale { border-left-color:#e8590c; background:#fffaf5; }
+  .t-flag .cardrow.stale .sub b, .t-loud .cardrow.stale .sub b { color:#b45309; }
+  /* thresholds */
+  .thr { max-width: 620px; }
+  .thrrow { display:flex; align-items:center; gap:12px; background:#fff; border:1px solid #e3e9f0; border-radius:10px; padding:10px 14px; margin-bottom:9px; }
+  .thrrow .bn { font-weight:800; font-size:14px; width:82px; flex:none; }
+  .thrrow input { width:78px; text-align:right; }
+  .thrrow .unit { color:#8b97a8; font-size:12.5px; flex:none; }
+  .thrrow .now { margin-left:auto; font-size:12.5px; color:#5a6b85; }
+  .thrrow .now b { color:#b45309; }
+  .guess { background:#fff3cd; border:1px solid #f0d488; border-radius:10px; padding:11px 15px; font-size:13px; color:#7a5b0f; margin-bottom:18px; }
+  .mark { display: inline-flex; width: 18px; height: 18px; border-radius: 50%; background: #e8590c; color: #fff; font-size: 11.5px; font-weight: 700; align-items: center; justify-content: center; vertical-align: middle; margin-left: 6px; flex: none; }
+  .mark.cost { background:#5a6b85; }
+  .legend { margin-top: 36px; max-width: 1080px; background: #fff; border: 1px solid #d7dfe9; border-radius: 12px; padding: 18px 22px; }
+  .legend h2 { font-size: 14px; margin-bottom: 10px; }
+  .legend li { font-size: 13.5px; margin: 8px 0 8px 4px; list-style: none; display: flex; gap: 10px; }
+  .legend .mark { margin: 2px 0 0; }
+  .legend .key { font-size:12.5px; color:#5a6b85; margin-bottom:14px; }
+</style>
+</head>
+<body>
+  <a class="back" href="index.html">&larr; All mockups</a>
+  <h1>Rotation age &amp; card staleness</h1>
+  <p class="lede">Answering the MD ask: <em>"some way for the site itself to be like 'hey!, [x] album has been in Medium 7 [for] [x] days' or 'Light 6 has not been updated in [x] days'."</em> Two separate features on two existing surfaces — <b>per-record age</b> on the Rotation list, and <b>per-card last activity</b> on the Cards tab — plus the station policy that decides what counts as overdue. Nothing here is a new page.</p>
+
+  <div class="demobar">▶ Live demo — switch the <b>nudge treatment</b> below to see how loud the surface gets. Sort by <b>Most overdue</b>, then open <b>Cards</b> to see per-card last activity, and <b>Thresholds</b> to re-dial the windows and watch both views recompute. <button onclick="location.reload()">Reset demo</button></div>
+
+  <div class="switcher">
+    <span class="lbl">Nudge treatment</span>
+    <span class="fchip" id="tQuiet" onclick="setTreat('quiet')">Quiet</span>
+    <span class="fchip sel" id="tFlag" onclick="setTreat('flag')">Flagged</span>
+    <span class="fchip" id="tLoud" onclick="setTreat('loud')">Loud</span>
+    <span class="note" id="treatNote"></span>
+  </div>
+
+  <div class="page t-flag" id="page">
+    <div class="adminbar">
+      <span class="brand">Rotation Admin</span>
+      <span class="tab inert">Add to rotation</span>
+      <span class="tab on" id="tabList" onclick="showTab('list')">Rotation list</span>
+      <span class="tab" id="tabCards" onclick="showTab('cards')">Cards</span>
+      <span class="tab" id="tabThr" onclick="showTab('thr')">Thresholds</span>
+      <span class="route" id="routeShow">/dashboard/admin/rotation</span>
+    </div>
+
+    <div id="listView">
+      <div class="pagehead">
+        <h3>Rotation list</h3>
+        <span class="mdgate">Music Directors</span>
+        <span style="font-size:12.5px;color:#8b97a8">How long each record has been where it is <span class="mark">1</span></span>
+      </div>
+      <div class="view">
+        <div class="rotgrid">
+          <div class="banner" id="banner"></div>
+          <div class="filterbar">
+            <input class="inp" type="search" id="rotSearch" placeholder="Search artist, title, or code&hellip;" oninput="renderRot()">
+            <div class="filterrow" id="filterRow"></div>
+            <div class="sortwrap">
+              <label for="sortSel">Sort</label>
+              <select class="inp" id="sortSel" onchange="renderRot()">
+                <option value="card">Card order</option>
+                <option value="oldest" selected>Oldest first</option>
+                <option value="overdue">Most overdue</option>
+              </select>
+              <span class="mark">3</span>
+            </div>
+          </div>
+          <div class="tally" id="tally"></div>
+          <div id="activeRows"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="cardsView" hidden>
+      <div class="pagehead">
+        <h3>Cards</h3>
+        <span class="mdgate">Music Directors</span>
+        <span style="font-size:12.5px;color:#8b97a8">When each card was last touched <span class="mark">5</span></span>
+      </div>
+      <div class="view">
+        <div class="cardsgrid" id="cardsGrid"></div>
+        <p class="hint" style="margin-top:14px">"Last change" counts both halves of the job: a record filed onto the card <em>and</em> a record killed off it. A card whose only recent event was a kill has been worked, even though nothing new went in.</p>
+      </div>
+    </div>
+
+    <div id="thrView" hidden>
+      <div class="pagehead">
+        <h3>Thresholds</h3>
+        <span class="mdgate">Music Directors</span>
+        <span style="font-size:12.5px;color:#8b97a8">Station policy, not a technical constant <span class="mark">7</span></span>
+      </div>
+      <div class="view">
+        <div class="thr">
+          <div class="guess"><b>These four numbers are placeholders.</b> How long a record holds in each bin is the MDs' call &mdash; the mockup ships guesses so the demo has something to compare against. Nothing gets built until the real numbers come back.</div>
+          <div class="secthead">Replacement window per bin</div>
+          <div id="thrRows"></div>
+          <div class="secthead" style="margin-top:22px">Card staleness</div>
+          <div class="thrrow">
+            <span class="bn">Any card</span>
+            <input class="inp" type="number" id="cardThr" min="1" max="365" value="30" oninput="setCardThr(this.value)">
+            <span class="unit">days without a change</span>
+            <span class="now" id="cardThrNow"></span>
+          </div>
+          <p class="hint">One number for every bin here, on the theory that "nobody has touched this card in a month" means the same thing wherever it sits. Split it per bin if that turns out to be wrong.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <h2>Annotations</h2>
+    <p class="key"><span class="mark">n</span> design note &nbsp;&nbsp; <span class="mark cost">n</span> costs backend work &mdash; everything else is dj-site only</p>
+    <ol>
+      <li><span class="mark">1</span><span>Both features land on surfaces that already exist and are already live in prod (<code>NEXT_PUBLIC_ROTATION_ADMIN_ENABLED</code>, on since 2026-09-15). No new route, no new nav entry.</span></li>
+      <li><span class="mark">2</span><span>The age figure is free. Every row from <code>GET /library/rotation?status=all</code> already carries <code>rotation_add_date</code>, and <code>RotationAdminList.tsx</code> already renders it as a bare <code>added 07/28/26</code>. This replaces that with elapsed days. A <em>bin</em> move is add-then-kill (<code>addThenRetire.ts</code>) &mdash; a new row with a fresh <code>add_date</code> &mdash; so "days in Heavy" is exactly right, not an approximation.</span></li>
+      <li><span class="mark">3</span><span>Sorting is the quietest possible version of "hey!": put the oldest record at the top and the question answers itself every time an MD opens the page. Client-side over the one read the list already does; <code>add_date</code> is unindexed on <code>rotation</code>, which doesn't matter at ~125 active rows but would if this ever moved server-side.</span></li>
+      <li><span class="mark cost">4</span><span><b>Card dwell time is not derivable.</b> Card reassignment within a bin is a plain <code>card_id</code> PATCH &mdash; no timestamp, no history &mdash; and <code>rotation_cards</code> is <code>(id, bin, number, name)</code> with no dates at all. So for a record that has been shuffled between cards, "84 days on Medium 1" is unknowable; the honest answer is the bin figure with the ambiguity marked (hover the Duke Ellington row). If the MDs need the literal card number, that's a <code>card_assigned_at</code> column on <code>rotation</code> &mdash; Backend-Service work, not dj-site.</span></li>
+      <li><span class="mark">5</span><span>Card last-activity is <code>max(add_date, kill_date)</code> across the rows carrying that <code>card_id</code>. Killed rows keep their <code>card_id</code> in the database &mdash; the kill writer doesn't null it, only the <em>catalog-search</em> projection blanks <code>card</code> for killed rows &mdash; so removals count as work done, not just adds. Derivable client-side from the same <code>status=all</code> read the list already holds.</span></li>
+      <li><span class="mark cost">6</span><span>The tidier version serves <code>last_activity</code> next to the existing <code>active_count</code> on <code>GET /library/rotation/cards</code>, so the Cards tab stops depending on the list's read. Worth doing only if the client-side derivation proves awkward &mdash; ship without it first.</span></li>
+      <li><span class="mark">7</span><span>The thresholds are the part engineering can't supply. "Overdue" is a policy number per bin, and the MDs own it. Hard-coding a guess would produce a surface that cries wolf and gets ignored, which is worse than no surface.</span></li>
+      <li><span class="mark">8</span><span>Three nudge treatments, because "be like hey!" spans a wide range. <b>Quiet</b> is age text plus sort &mdash; no judgement, nothing to dismiss. <b>Flagged</b> marks overdue rows and counts them. <b>Loud</b> names them in a banner at the top of the page. There is no push channel for MDs in dj-site today, so a real notification (email, Slack) is a separate, larger piece of work &mdash; these three are all reachable now.</span></li>
+      <li><span class="mark">9</span><span>The play count on each row is <code>library.plays</code> &mdash; the album's <b>lifetime</b> total, not spins during this rotation stint. It reads like the "is this record working?" signal and isn't: a reissue can show hundreds of plays from twenty years ago. Shown greyed here precisely so nobody wires a decision to it. A real spins-since-filed figure needs a flowsheet range query, the shape <code>lib/features/rotation-tally/tally.ts</code> already does weekly.</span></li>
+      <li><span class="mark">10</span><span>This isn't hypothetical maintenance. Backend-Service#2184 found <b>196 rotation records added before 2026 and never killed</b> &mdash; oldest 2004-12-20, one titled <code>test / test</code> sitting in Heavy since 2008 &mdash; because label-less records failed a join in the old tubafrenzy admin and were invisible to the person who kills them. No rotation predicate has an age bound, so all 196 read as current rotation and badged live plays on dj-site. An age column is the instrument that surfaces exactly that.</span></li>
+    </ol>
+  </div>
+
+<script>
+/* ---------- fixture ---------- */
+var TODAY = '2026-09-24';
+var BINS = ['H','M','L','S'];
+var BIN_NAMES = {H:'Heavy', M:'Medium', L:'Light', S:'Singles'};
+var WINDOW = {H:42, M:56, L:84, S:42};
+var CARD_THR = 30;
+
+var CARDS = {
+  H: [{n:1, name:'Late July'}, {n:2, name:'September'}],
+  M: [{n:1, name:''}, {n:2, name:'Summer holds'}, {n:3, name:'Fresh arrivals'}],
+  L: [{n:1, name:''}, {n:2, name:''}],
+  S: [{n:1, name:''}]
+};
+
+var ROT = [
+  {artist:'Stereolab', title:'Instant Holograms on Metal Film', code:'Rock SL 1/3', bin:'H', card:2, added:'2026-09-05', killed:null, plays:31},
+  {artist:'Cat Power', title:'Covers', code:'Rock CA 5/2', bin:'H', card:1, added:'2026-07-28', killed:null, plays:88},
+  {artist:'Nilüfer Yanya', title:'Painless', code:'Rock NI 2/2', bin:'H', card:2, added:'2026-09-15', killed:null, plays:12},
+  {artist:'Chuquimamani-Condori', title:'Edits', code:'Electronic CH 2/1', bin:'M', card:3, added:'2026-08-30', killed:null, plays:19},
+  {artist:'Juana Molina', title:'Halo', code:'Rock JM 1/2', bin:'M', card:2, added:'2026-06-12', killed:null, plays:64},
+  {artist:'Duke Ellington & John Coltrane', title:'Duke Ellington & John Coltrane', code:'Jazz DU 1/1', bin:'M', card:1, added:'2026-07-18', killed:null, plays:417, movedCard:true},
+  {artist:'Hermanos Gutiérrez', title:'El Bueno y el Malo', code:'Rock HG 1/1', bin:'L', card:2, added:'2026-08-22', killed:null, plays:27},
+  {artist:'Jessica Pratt', title:'Quiet Signs', code:'Rock JP 3/1', bin:'L', card:1, added:'2026-04-02', killed:null, plays:53},
+  {artist:'Csillagrablók', title:'Ezt is elviszem magammal', code:'Rock CS 4/1', bin:'S', card:1, added:'2026-08-12', killed:null, plays:8},
+  /* killed rows: invisible on the list, but they are what makes a card "worked" */
+  {artist:'Stereolab', title:'Dots and Loops', code:'Rock SL 1/2', bin:'M', card:1, added:'2026-06-02', killed:'2026-09-01', plays:140},
+  {artist:'Juana Molina', title:'Wed 21', code:'Rock JM 1/1', bin:'L', card:1, added:'2026-05-20', killed:'2026-08-20', plays:71}
+];
+
+/* ---------- helpers ---------- */
+var $ = function (id) { return document.getElementById(id); };
+var esc = function (s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;'); };
+var norm = function (s) { return s.normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase(); };
+
+function toUTC(iso) { var p = iso.split('-'); return Date.UTC(+p[0], +p[1] - 1, +p[2]); }
+function daysSince(iso) { return Math.round((toUTC(TODAY) - toUTC(iso)) / 86400000); }
+function ageOf(r) { return daysSince(r.added); }
+function overBy(r) { return ageOf(r) - WINDOW[r.bin]; }
+function isStale(r) { return overBy(r) > 0; }
+function cardName(bin, n) { var c = CARDS[bin].filter(function (c) { return c.n === n; })[0]; return c && c.name ? c.name : ''; }
+function locLabel(r) { return BIN_NAMES[r.bin] + ' ' + r.card; }
+
+/* last add-or-kill on a card, in days; null if the card has never held anything */
+function cardLastChange(bin, n) {
+  var events = [];
+  ROT.forEach(function (r) {
+    if (r.bin !== bin || r.card !== n) return;
+    events.push(daysSince(r.added));
+    if (r.killed) events.push(daysSince(r.killed));
+  });
+  if (!events.length) return null;
+  return Math.min.apply(null, events);
+}
+function cardActiveCount(bin, n) {
+  return ROT.filter(function (r) { return !r.killed && r.bin === bin && r.card === n; }).length;
+}
+
+/* ---------- treatment ---------- */
+var treat = 'flag';
+var NOTES = {
+  quiet: 'Age text and sort only — no judgement, nothing to dismiss.',
+  flag: 'Overdue rows marked and counted in place. Recommended default.',
+  loud: 'Overdue records named in a banner at the top of the page.'
+};
+function setTreat(t) {
+  treat = t;
+  $('page').className = 'page t-' + t;
+  ['quiet', 'flag', 'loud'].forEach(function (k) {
+    $('t' + k.charAt(0).toUpperCase() + k.slice(1)).className = 'fchip' + (k === t ? ' sel' : '');
+  });
+  $('treatNote').textContent = NOTES[t];
+  renderRot();
+}
+
+/* ---------- tabs ---------- */
+var ROUTES = { list: '/dashboard/admin/rotation', cards: '/dashboard/admin/rotation/cards', thr: '/dashboard/admin/rotation/cards' };
+function showTab(t) {
+  var views = { list: 'listView', cards: 'cardsView', thr: 'thrView' };
+  Object.keys(views).forEach(function (k) { $(views[k]).hidden = k !== t; });
+  ['List', 'Cards', 'Thr'].forEach(function (k, i) {
+    $('tab' + k).className = 'tab' + (['list', 'cards', 'thr'][i] === t ? ' on' : '');
+  });
+  $('routeShow').textContent = ROUTES[t];
+  if (t === 'cards') renderCards();
+  if (t === 'thr') renderThr();
+}
+
+/* ---------- rotation list ---------- */
+var binFilter = null;
+function renderFilters() {
+  var html = '<span class="fchip' + (binFilter === null ? ' sel' : '') + '" onclick="setBin(null)">All bins</span>';
+  BINS.forEach(function (b) {
+    html += '<span class="fchip' + (binFilter === b ? ' sel' : '') + '" onclick="setBin(\'' + b + '\')">' + BIN_NAMES[b] + '</span>';
+  });
+  $('filterRow').innerHTML = html;
+}
+function setBin(b) { binFilter = b; renderFilters(); renderRot(); }
+
+function renderRot() {
+  var q = norm($('rotSearch').value);
+  var sort = $('sortSel').value;
+  var rows = ROT.filter(function (r) { return !r.killed; })
+    .filter(function (r) { return binFilter === null || r.bin === binFilter; })
+    .filter(function (r) {
+      if (!q) return true;
+      return norm(r.artist + ' ' + r.title + ' ' + r.code).indexOf(q) !== -1;
+    });
+
+  if (sort === 'oldest') rows.sort(function (a, b) { return ageOf(b) - ageOf(a); });
+  else if (sort === 'overdue') rows.sort(function (a, b) { return overBy(b) - overBy(a); });
+  else rows.sort(function (a, b) {
+    return BINS.indexOf(a.bin) - BINS.indexOf(b.bin) || a.card - b.card || ageOf(b) - ageOf(a);
+  });
+
+  var overdue = rows.filter(isStale);
+  $('tally').innerHTML = rows.length + ' in rotation · <b>' + overdue.length + ' past its window</b>';
+
+  $('banner').innerHTML = overdue.length
+    ? '<span class="dismiss" onclick="this.parentNode.style.display=\'none\'">Dismiss</span>'
+      + '<b>' + overdue.length + ' record' + (overdue.length === 1 ? '' : 's') + ' past the replacement window.</b><ul>'
+      + overdue.slice(0, 4).map(function (r) {
+          return '<li>' + esc(r.artist) + ' — <i>' + esc(r.title) + '</i> — ' + ageOf(r)
+            + ' days in ' + locLabel(r) + ' (' + overBy(r) + ' over)</li>';
+        }).join('')
+      + '</ul>'
+    : '<b>Nothing is past its window.</b>';
+
+  $('activeRows').innerHTML = rows.map(function (r) {
+    var age = ageOf(r), over = overBy(r), stale = over > 0;
+    var cn = cardName(r.bin, r.card);
+    return '<div class="rrow' + (stale ? ' stale' : '') + '">'
+      + '<div class="rmain"><b>' + esc(r.artist) + '</b> — ' + esc(r.title)
+      + '<span class="rcode">' + esc(r.code) + '</span></div>'
+      + '<div class="rmeta">'
+      + '<span class="loc"' + (cn ? ' title="' + esc(cn) + '"' : '') + '>' + locLabel(r) + (cn ? ' · ' + esc(cn) : '') + '</span>'
+      + '<span class="age">' + age + ' days in ' + BIN_NAMES[r.bin] + '</span>'
+      + (stale ? '<span class="over">' + over + ' over</span>' : '')
+      + (r.movedCard ? '<span class="unk" title="This record was moved between cards within Medium. Nothing records when that happened, so its time on card 1 is unknown — the figure shown is time in the bin.">? card dwell</span>' : '')
+      + '<span class="plays">' + r.plays + ' lifetime plays</span>'
+      + '<span class="rkill">Kill</span>'
+      + '</div></div>';
+  }).join('');
+}
+
+/* ---------- cards ---------- */
+function renderCards() {
+  $('cardsGrid').innerHTML = BINS.map(function (b) {
+    var cards = CARDS[b].map(function (c) {
+      var last = cardLastChange(b, c.n);
+      var cnt = cardActiveCount(b, c.n);
+      var stale = last !== null && last > CARD_THR;
+      var when = last === null ? 'never used'
+        : last === 0 ? 'changed today'
+        : 'last change <b>' + last + ' day' + (last === 1 ? '' : 's') + ' ago</b>';
+      return '<div class="cardrow' + (stale ? ' stale' : '') + '">'
+        + '<div class="top"><span class="cn">' + c.n + '</span>'
+        + '<span class="nm' + (c.name ? '' : ' empty') + '">' + (c.name ? esc(c.name) : 'unnamed') + '</span>'
+        + '<span class="cnt">' + cnt + ' active</span></div>'
+        + '<div class="sub">' + when + '</div>'
+        + '</div>';
+    }).join('');
+    return '<div class="cardscol"><div class="colhead">' + BIN_NAMES[b]
+      + ' <span class="colcode">' + b + '</span></div>' + cards + '</div>';
+  }).join('');
+}
+
+/* ---------- thresholds ---------- */
+function renderThr() {
+  $('thrRows').innerHTML = BINS.map(function (b) {
+    var n = ROT.filter(function (r) { return !r.killed && r.bin === b && isStale(r); }).length;
+    return '<div class="thrrow"><span class="bn">' + BIN_NAMES[b] + '</span>'
+      + '<input class="inp" type="number" min="1" max="365" value="' + WINDOW[b]
+      + '" oninput="setWindow(\'' + b + '\', this.value)">'
+      + '<span class="unit">days</span>'
+      + '<span class="now">' + (n ? '<b>' + n + ' over</b>' : 'none over') + '</span></div>';
+  }).join('');
+  var sc = 0;
+  BINS.forEach(function (b) {
+    CARDS[b].forEach(function (c) {
+      var last = cardLastChange(b, c.n);
+      if (last !== null && last > CARD_THR) sc++;
+    });
+  });
+  $('cardThrNow').innerHTML = sc ? '<b>' + sc + ' stale</b>' : 'none stale';
+}
+function setWindow(b, v) {
+  var n = parseInt(v, 10);
+  if (!isNaN(n) && n > 0) { WINDOW[b] = n; renderRot(); renderThr(); }
+}
+function setCardThr(v) {
+  var n = parseInt(v, 10);
+  if (!isNaN(n) && n > 0) { CARD_THR = n; renderCards(); renderThr(); }
+}
+
+/* ---------- boot ---------- */
+renderFilters();
+setTreat('flag');
+renderCards();
+renderThr();
+</script>
+</body>
+</html>

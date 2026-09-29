@@ -1,0 +1,644 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rotation Admin (interactive)</title>
+<style>
+  * { box-sizing: border-box; margin: 0; }
+  body { font-family: -apple-system, "Segoe UI", Roboto, Helvetica, sans-serif; background: #f4f6f9; color: #172b4d; padding: 36px; line-height: 1.45; }
+  h1 { font-size: 22px; margin-bottom: 4px; }
+  .lede { color: #5a6b85; margin-bottom: 18px; max-width: 84ch; }
+  .lede code, li code { background:#e8edf3; border-radius:4px; padding:1px 5px; font-size: 13px; }
+  a.back { color:#0b6bcb; font-size: 13px; text-decoration:none; font-weight:600; }
+  .demobar { display:flex; align-items:center; gap:14px; max-width: 1080px; background:#e8f1fb; border:1px solid #b6d4f2; border-radius:10px; padding:10px 16px; font-size:13.5px; color:#0b3d70; margin-bottom: 24px; }
+  .demobar button { margin-left:auto; border:1px solid #0b6bcb; color:#0b6bcb; background:#fff; border-radius:8px; font-size:13px; font-weight:700; padding:5px 14px; cursor:pointer; flex:none; }
+  .page { max-width: 1080px; background: #fff; border: 1px solid #d7dfe9; border-radius: 16px; box-shadow: 0 12px 28px rgba(23,43,77,.10); padding: 0 0 28px; overflow: hidden; }
+  .adminbar { background: #172b4d; color: #cfd9e6; padding: 10px 28px; font-size: 13px; display:flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+  .adminbar .brand { font-weight: 800; color:#fff; letter-spacing:.02em; margin-right: 6px; }
+  .adminbar .tab { padding: 4px 12px; border-radius: 999px; cursor: pointer; }
+  .adminbar .tab.inert { cursor: default; opacity: .7; }
+  .adminbar .tab.on { background: #0b6bcb; color: #fff; font-weight: 700; }
+  .adminbar .route { margin-left:auto; font-family: ui-monospace, monospace; font-size: 11.5px; color:#8ba3bd; }
+  .pagehead { display: flex; align-items: baseline; gap: 14px; border-bottom: 1px solid #eef2f6; padding: 20px 28px 14px; margin-bottom: 20px; }
+  .pagehead h3 { font-size: 19px; }
+  .mdgate { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #7a5b0f; background: #fff3cd; border: 1px solid #f0d488; border-radius: 999px; padding: 3px 10px; }
+  .view { padding: 0 28px; }
+  .form { max-width: 560px; }
+  label.f { display: block; font-size: 12.5px; font-weight: 600; color: #42526e; margin: 14px 0 4px; }
+  .inp, select.inp { width: 100%; border: 1px solid #cdd7e1; border-radius: 8px; padding: 8px 11px; font-size: 14px; background: #fff; color: #172b4d; }
+  .inp:focus { outline:none; border-color:#0b6bcb; box-shadow:0 0 0 3px rgba(11,107,203,.15); }
+  .inp.bad { border-color:#b42318; box-shadow:0 0 0 3px rgba(180,35,24,.12); }
+  .inp.dis { background: #f1f4f8; color: #8b97a8; }
+  .row { display: flex; gap: 14px; } .row > div { flex: 1; }
+  .listbox { border: 1px solid #cdd7e1; border-radius: 0 0 10px 10px; background: #fff; box-shadow: 0 10px 18px rgba(23,43,77,.08); overflow: hidden; margin-top:-2px; }
+  .opt { padding: 9px 12px; font-size: 13.5px; color: #42526e; border-top: 1px solid #f0f3f7; cursor:pointer; }
+  .opt:hover { background:#f4f9ff; }
+  .opt .code { color:#8b97a8; font-size:12.5px; }
+  .opt.none { color: #8b97a8; font-style: italic; cursor:default; } .opt.none:hover { background:#fff; }
+  .opt.create { background: #e8f1fb; color: #0b6bcb; font-weight: 700; } .opt.create:hover { background:#d9e9fa; }
+  .inline-create { margin-top: 10px; border: 1px solid #b6d4f2; background: #f4f9ff; border-radius: 10px; padding: 14px; }
+  .inline-create h5 { font-size: 13.5px; color: #0b6bcb; margin-bottom: 2px; }
+  .hint { font-size: 12.5px; color: #8b97a8; margin-top: 5px; }
+  .conflict { margin-top:10px; background:#fdecea; border:1px solid #f0b8b1; border-radius:8px; padding:8px 12px; font-size:12.5px; color:#b42318; }
+  .selchip { display: inline-flex; align-items: center; gap: 8px; background: #e6f4ea; border: 1px solid #b7e0c3; color: #14532d; border-radius: 999px; padding: 6px 14px; font-size: 13.5px; font-weight: 700; }
+  .selchip a { color: #0b6bcb; font-weight: 600; font-size: 12.5px; text-decoration: none; cursor:pointer; }
+  .preview { margin-top: 16px; background: #f4f9ff; border: 1px solid #b6d4f2; border-radius: 10px; padding: 10px 14px; font-size: 14px; color: #0b3d70; }
+  .preview b { color: #0b6bcb; }
+  .chip { display: inline-block; border: 1px solid #cdd7e1; border-radius: 999px; padding: 6px 16px; font-size: 13.5px; font-weight: 700; color: #42526e; background: #fff; margin-right: 8px; cursor:pointer; user-select:none; transition: all .12s; }
+  .chip:hover { border-color:#0b6bcb; color:#0b6bcb; }
+  .chip.sel { background: #0b6bcb; border-color: #0b6bcb; color: #fff; }
+  .binline { margin-top: 6px; display: flex; align-items: center; flex-wrap:wrap; }
+  .binskip { font-size: 12.5px; color: #8b97a8; margin-left: 4px; }
+  .cardline { margin-top: 4px; }
+  .urlrow { display:flex; gap:8px; margin-bottom:8px; align-items:center; }
+  .urlrow .inp { flex:1; }
+  .iconbtn { width:32px; height:32px; border-radius:8px; border:1px solid #cdd7e1; background:#fff; color:#0b6bcb; font-size:16px; font-weight:700; display:flex; align-items:center; justify-content:center; cursor:pointer; flex:none; user-select:none; }
+  .iconbtn:hover { border-color:#0b6bcb; background:#e8f1fb; }
+  .iconbtn.minus { color:#b42318; }
+  .iconbtn.minus:hover { border-color:#b42318; background:#fdecea; }
+  .linkcount { color:#8b97a8; }
+  .btnrow { display: flex; gap: 12px; margin-top: 22px; align-items: center; flex-wrap:wrap; }
+  .btn { border-radius: 8px; padding: 9px 18px; font-size: 14px; font-weight: 600; border: 1px solid transparent; cursor:pointer; }
+  .btn.primary { background: #0b6bcb; color: #fff; } .btn.primary:hover { background:#0a5cae; }
+  .btn.primary:disabled { opacity:.5; cursor:wait; }
+  .btn.sm { padding:6px 12px; font-size:13px; }
+  .keep { font-size: 13px; color: #42526e; display: flex; align-items: center; gap: 6px; }
+  .failtoggle { font-size: 12.5px; color: #7a5b0f; background:#fff8e6; border:1px solid #f0d488; border-radius:8px; padding:6px 10px; display:flex; align-items:center; gap:6px; margin-top:14px; width:fit-content; }
+  .steps { margin-top: 12px; font-size: 13px; color:#42526e; min-height: 18px; }
+  .steps .ok { color:#0b8a3e; font-weight:700; }
+  .steps .bad { color:#b42318; font-weight:700; }
+  .steps a { color:#0b6bcb; font-weight:700; cursor:pointer; text-decoration:none; }
+  .err { font-size: 12.5px; color:#b42318; margin-top: 8px; min-height: 16px; }
+  .ledger { margin-top: 24px; border-top: 1px dashed #d7dfe9; padding-top: 12px; max-width: 560px; }
+  .ledger h4, .secthead { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: #5a6b85; margin-bottom: 12px; }
+  .lrow { background: #fff; border: 1px solid #e3e9f0; border-radius: 10px; padding: 8px 12px; margin-bottom: 8px; font-size: 12.5px; }
+  .lrow .t { font-weight: 700; }
+  .lrow .m { color: #5a6b85; margin-top: 1px; }
+  .ok { color: #0b8a3e; font-weight: 700; }
+  .fail { color: #b42318; font-weight: 700; }
+  .retry { display: inline-block; border: 1px solid #b42318; color: #b42318; background: #fff; border-radius: 999px; font-size: 12px; font-weight: 700; padding: 2px 10px; margin-left: 6px; cursor:pointer; }
+  .retry:hover { background:#fdecea; }
+  .lrow.partial { border-color: #f0b8b1; background: #fff8f7; }
+  .lempty { font-size: 12.5px; color:#8b97a8; font-style: italic; }
+  .filterbar { display:flex; gap:12px; align-items:center; margin-bottom:6px; flex-wrap:wrap; }
+  .filterbar input { max-width: 300px; }
+  .filterrow { display:flex; align-items:center; gap:6px; flex-wrap: wrap; }
+  .subfilter { margin: 4px 0 16px; min-height: 4px; }
+  .fchip { display:inline-block; border:1px solid #cdd7e1; border-radius:999px; padding:4px 14px; font-size:12.5px; font-weight:700; color:#42526e; background:#fff; cursor:pointer; user-select:none; }
+  .fchip:hover { border-color:#0b6bcb; color:#0b6bcb; }
+  .fchip.sel { background:#0b6bcb; border-color:#0b6bcb; color:#fff; }
+  .fchip.sm { padding:3px 11px; font-size:11.5px; }
+  .rotgrid { max-width: 760px; }
+  .rrow { background:#fff; border:1px solid #e3e9f0; border-radius:10px; padding:10px 12px; margin-bottom:10px; font-size:13px; }
+  .rrow.freshrow { border-color:#b7e0c3; background:#f2faf4; }
+  .rrow .rmain { font-size:13.5px; }
+  .rrow .rmain b { font-weight:700; }
+  .rcode { color:#0b6bcb; font-weight:700; font-size:12.5px; margin-left:6px; }
+  .rmeta { display:flex; align-items:center; gap:10px; margin-top:7px; flex-wrap:wrap; color:#5a6b85; font-size:12.5px; }
+  .minichip { display:inline-block; border:1px solid #cdd7e1; border-radius:999px; padding:2px 10px; font-size:11.5px; font-weight:700; color:#42526e; background:#fff; margin-right:4px; cursor:pointer; user-select:none; }
+  .minichip:hover { border-color:#0b6bcb; color:#0b6bcb; }
+  .minichip.sel { background:#0b6bcb; border-color:#0b6bcb; color:#fff; cursor:default; }
+  .minichip.big { padding:5px 13px; font-size:12.5px; margin:0 6px 6px 0; }
+  .minichip.newcard { border-style:dashed; color:#0b6bcb; border-color:#9cc3e8; cursor:pointer; }
+  .minichip.newcard:hover { background:#e8f1fb; }
+  .cardsel { border:1px solid #cdd7e1; border-radius:8px; padding:2px 6px; font-size:12px; font-family:inherit; color:#42526e; background:#fff; cursor:pointer; }
+  .rkill { color:#b42318; font-weight:700; font-size:12.5px; cursor:pointer; margin-left:auto; }
+  .runkill { color:#0b6bcb; font-weight:700; font-size:12.5px; cursor:pointer; margin-left:auto; }
+  .rnote { margin-top:6px; font-size:12px; color:#0b6bcb; }
+  .killedhead { font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:#8b97a8; margin:22px 0 10px; }
+  .rrow.dead { opacity:.65; }
+  .cardsgrid { display:grid; grid-template-columns: repeat(auto-fit, minmax(235px, 1fr)); gap:18px; max-width: 1020px; }
+  .cardscol { background:#f8fafc; border:1px solid #e3e9f0; border-radius:12px; padding:14px 16px; }
+  .colhead { font-weight:800; font-size:14px; margin-bottom:12px; }
+  .colcode { color:#8b97a8; font-weight:700; font-size:12px; }
+  .cardrow { display:flex; align-items:center; gap:8px; background:#fff; border:1px solid #e3e9f0; border-radius:10px; padding:7px 10px; margin-bottom:8px; }
+  .cardrow .cn { font-weight:800; color:#0b6bcb; font-size:13px; width:16px; text-align:center; flex:none; }
+  .namein { flex:1; border:1px solid transparent; border-radius:6px; padding:4px 6px; font-size:13px; color:#172b4d; background:transparent; min-width:60px; }
+  .namein::placeholder { color:#b0bccb; font-style:italic; }
+  .namein:hover { border-color:#cdd7e1; background:#fff; }
+  .namein:focus { outline:none; border-color:#0b6bcb; background:#fff; box-shadow:0 0 0 2px rgba(11,107,203,.12); }
+  .cardrow .cnt { font-size:11.5px; color:#5a6b85; flex:none; }
+  .delbtn { color:#b42318; font-weight:700; cursor:pointer; font-size:12px; flex:none; }
+  .delbtn.off { color:#c9d2dc; cursor:not-allowed; }
+  .addcard { border:1.5px dashed #9cc3e8; color:#0b6bcb; border-radius:10px; padding:7px 10px; text-align:center; font-size:12.5px; font-weight:700; cursor:pointer; }
+  .addcard:hover { background:#e8f1fb; }
+  .mark { display: inline-flex; width: 18px; height: 18px; border-radius: 50%; background: #e8590c; color: #fff; font-size: 11.5px; font-weight: 700; align-items: center; justify-content: center; vertical-align: middle; margin-left: 6px; flex: none; }
+  .legend { margin-top: 36px; max-width: 1080px; background: #fff; border: 1px solid #d7dfe9; border-radius: 12px; padding: 18px 22px; }
+  .legend h2 { font-size: 14px; margin-bottom: 10px; }
+  .legend li { font-size: 13.5px; margin: 8px 0 8px 4px; list-style: none; display: flex; gap: 10px; }
+  .legend .mark { margin: 2px 0 0; }
+</style>
+</head>
+<body>
+  <a class="back" href="index.html">&larr; All mockups</a>
+  <h1>Rotation Admin</h1>
+  <p class="lede">The bench is <em>the</em> way rotation items are created, living in its own Rotation Admin area of the admin interface. Three views: <b>Add to rotation</b> (create), the <b>Rotation list</b> (manage), and <b>Cards</b> — because bins subdivide into numbered cards (1…N per bin, each optionally named), a fact modeled nowhere in the system today. Every rotation item lives on a card within its bin.</p>
+  <div class="demobar">▶ Live demo — type <b>"nil"</b>, pick Nilüfer Yanya, note the <b>card picker</b> under the bin (defaults to the bin's newest card; ＋ adds one) and the <b>URLs</b> field (＋ adds rows, − removes), file it, then follow "view in Rotation list". There: search + bin chips; filtering to one bin reveals its <b>card sub-filter</b>; each row's card is a dropdown (plain edit). The <b>Cards</b> tab renames, adds, and deletes cards. <button onclick="location.reload()">Reset demo</button></div>
+
+  <div class="page">
+    <div class="adminbar">
+      <span class="brand">Rotation Admin</span>
+      <span class="tab on" id="tabAdd" onclick="showTab('add')">Add to rotation</span>
+      <span class="tab" id="tabList" onclick="showTab('list')">Rotation list</span>
+      <span class="tab" id="tabCards" onclick="showTab('cards')">Cards</span>
+      <span class="tab inert">Roster</span>
+      <span class="route" id="routeShow">/dashboard/admin/rotation/new <span class="mark">1</span></span>
+    </div>
+
+    <div id="addView">
+      <div class="pagehead">
+        <h3>Add to rotation</h3>
+        <span class="mdgate">Music Directors</span>
+        <span style="font-size:12.5px;color:#8b97a8">One pass: artist → release → bin → card <span class="mark">2</span></span>
+      </div>
+      <div class="view">
+        <div class="form">
+          <label class="f">Artist</label>
+          <div id="artistPicker">
+            <input class="inp" id="artistInput" placeholder="Search the whole library — a miss offers to create…" autocomplete="off" oninput="onArtistType()">
+            <div class="listbox" id="listbox" hidden></div>
+            <div class="inline-create" id="createPanel" hidden>
+              <h5>New artist</h5>
+              <div class="row">
+                <div><label class="f">Name</label><input class="inp" id="cName"></div>
+                <div><label class="f">Genre</label>
+                  <select class="inp" id="cGenre" onchange="updatePeek()"><option>Rock</option><option>Electronic</option><option>Jazz</option></select></div>
+              </div>
+              <div class="row">
+                <div><label class="f">Call letters</label><input class="inp" id="cLetters" maxlength="2" oninput="updatePeek()"></div>
+                <div><label class="f">Code number <span class="mark">3</span></label><input class="inp" id="cNum" oninput="onNumInput()">
+                  <div class="hint" id="numHint"></div>
+                </div>
+              </div>
+              <div class="conflict" id="conflict" hidden></div>
+              <div class="err" id="cErr"></div>
+              <div class="btnrow" style="margin-top:12px">
+                <button class="btn primary sm" id="createBtn" onclick="createArtist()">Create &amp; select</button>
+              </div>
+            </div>
+            <div id="selWrap" hidden><span class="selchip">✓ <span id="selText"></span> <a onclick="changeArtist()">change</a></span></div>
+          </div>
+
+          <label class="f">Album title</label>
+          <input class="inp" id="title" value="My Method Actor" oninput="this.classList.remove('bad');updatePreview()">
+
+          <div class="row">
+            <div><label class="f">Label</label><input class="inp" id="label" value="Partisan" oninput="this.classList.remove('bad')"></div>
+            <div><label class="f">Format</label>
+              <select class="inp" id="format"><option>CD</option><option>LP</option><option>7"</option></select></div>
+            <div><label class="f">Genre</label><input class="inp dis" id="genreShow" value="— from artist" readonly></div>
+          </div>
+
+          <label class="f">URLs <span class="mark">10</span></label>
+          <div id="urlRows"></div>
+
+          <div class="preview" id="preview" hidden>Will file as <b id="previewCode"></b></div>
+
+          <label class="f">Rotation bin</label>
+          <div class="binline">
+            <span id="chips"></span>
+            <span class="binskip" id="binNote">Heavy preselected — deselect for a library-only filing <span class="mark">4</span></span>
+          </div>
+
+          <div class="cardline" id="cardLine">
+            <label class="f">Card within <span id="cardBinName">Heavy</span> <span class="mark">8</span></label>
+            <div id="cardChips"></div>
+          </div>
+
+          <div class="failtoggle"><input type="checkbox" id="failToggle"> <label for="failToggle" style="cursor:pointer">Simulate a rotation-service failure on the next filing</label></div>
+
+          <div class="err" id="err"></div>
+          <div class="btnrow">
+            <button class="btn primary" id="fileBtn" onclick="fileRelease()">Add to rotation</button>
+            <label class="keep"><input type="checkbox" id="keepVals" checked> Keep label, format, bin &amp; card for the next record</label>
+          </div>
+          <div class="steps" id="steps"></div>
+        </div>
+
+        <div class="ledger">
+          <h4>Filed this session <span class="mark">6</span></h4>
+          <div id="ledgerRows"><div class="lempty">Nothing filed yet.</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="listView" hidden>
+      <div class="pagehead">
+        <h3>Rotation list</h3>
+        <span class="mdgate">Music Directors</span>
+        <span style="font-size:12.5px;color:#8b97a8">Search, filter, kill, revive, move — the management half <span class="mark">5</span></span>
+      </div>
+      <div class="view">
+        <div class="rotgrid">
+          <div class="filterbar">
+            <input class="inp" type="search" id="rotSearch" placeholder="Search artist, title, or code…" oninput="renderRot()">
+            <span class="mark">7</span>
+            <div class="filterrow" id="filterRow"></div>
+          </div>
+          <div class="subfilter" id="cardFilterRow"></div>
+          <div class="secthead">Active (<span id="activeCount"></span>)</div>
+          <div id="activeRows"></div>
+          <div class="killedhead">Killed (<span id="killedCount"></span>)</div>
+          <div id="killedRows"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="cardsView" hidden>
+      <div class="pagehead">
+        <h3>Cards</h3>
+        <span class="mdgate">Music Directors</span>
+        <span style="font-size:12.5px;color:#8b97a8">Numbered 1…N per bin, optionally named <span class="mark">9</span></span>
+      </div>
+      <div class="view">
+        <div class="cardsgrid" id="cardsGrid"></div>
+        <div class="hint" style="margin-top:12px">Names save as you type. Only the last card of a bin can be deleted, and only when it holds no active records — numbering stays contiguous.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <h2>Annotations</h2>
+    <ol>
+      <li><span class="mark">1</span><span>Three routes in one admin area: <code>/dashboard/admin/rotation/new</code> (create), <code>/dashboard/admin/rotation</code> (manage), <code>/dashboard/admin/rotation/cards</code> (structure), gated by <code>RequireMD</code>. The catalog page keeps no Add Release button — filing is an admin task, searching is everyone's.</span></li>
+      <li><span class="mark">2</span><span>One pass, one submit: match-or-create the artist, file the release, add the rotation entry to a bin <em>and card</em> — the <code>runRotationImport</code>-style chain. Missing fields outline in red; success links straight to the list view.</span></li>
+      <li><span class="mark">3</span><span>The code number fills itself from the peek (<code>GET /library/artists/peek-code</code>) and re-syncs until you type your own value; the conflict check guards the override. End state: server-side assignment (<code>code_number</code> optional on <code>POST /library/artists</code>) and this field disappears.</span></li>
+      <li><span class="mark">4</span><span>The bin defaults to Heavy (<code>DEFAULT_BIN</code>); deselecting files library-only, so the bench still covers plain cataloging without a separate button anywhere.</span></li>
+      <li><span class="mark">5</span><span>Kill = <code>killRotationEntry</code>; Unkill = <code>updateRotationRow({kill_date: null})</code>; moving between <em>bins</em> is add-then-kill (no endpoint edits a bin) and lands on the target bin's newest card. The Killed section assumes the catalogued+killed read gets built (today's backend can't list those rows).</span></li>
+      <li><span class="mark">6</span><span>The session ledger stays on the add view — batch receipt and partial-failure retry for this sitting, distinct from the full rotation list. A transactional <code>POST /library/file</code> would collapse it to a plain receipt.</span></li>
+      <li><span class="mark">7</span><span>Search matches artist, title, and shelf code (diacritic-insensitive) and composes with the bin chips; both narrow the Killed section too. Filtering to a single bin reveals that bin's <b>card chips as a sub-filter</b> — pull one card's worth of records at a glance. All client-side over the single <code>GET /library/rotation</code> read.</span></li>
+      <li><span class="mark">8</span><span><b>Cards are net-new modeling</b>: bins subdivide into cards numbered 1…N per bin, each optionally named, and every rotation item lives on one. Assignment defaults to the bin's newest card (where new records physically go); ＋ adds card N+1 and selects it — name it later in the Cards tab. Within a bin, a row's card is a <b>plain field edit</b> (the dropdown on each list row → <code>PATCH /library/rotation/:id</code> gains <code>card</code>), unlike bin moves.</span></li>
+      <li><span class="mark">9</span><span>Card management: rename inline (names are optional), add card N+1, delete only the last card and only when empty — numbering stays contiguous 1…N, a spec decision to confirm. Backend shape: a <code>rotation_cards</code> table (<code>bin, number, name</code>) plus a card column on rotation rows — <b>net-new schema, Backend-first</b> per the tubafrenzy Phase 1 freeze (no new legacy sync for new data).</span></li>
+      <li><span class="mark">10</span><span>Optional URLs travel with the rotation entry (Bandcamp, Discogs, …). The ＋ at the end of the field adds another row; a − appears on every row once there's more than one. Empty rows are dropped on submit; filed links surface as the 🔗 count on the list row (hover for the URLs). Backend: a URLs child table (or array column) on the rotation row — net-new, like cards.</span></li>
+    </ol>
+  </div>
+
+<script>
+const norm = s => s.normalize('NFD').replace(/[̀-ͯ]/g,'').trim().toLowerCase();
+const suggestLetters = name => {
+  const n = norm(name).replace(/^the\s+/,'');
+  return ((n.match(/[a-z]/g)||[]).slice(0,2).join('').toUpperCase()) || 'A';
+};
+const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;');
+const escAttr = s => esc(s).replace(/"/g,'&quot;');
+const LIB = [
+  {name:"Stereolab", genre:"Rock", letters:"SL", num:1, releases:["Transient Random-Noise Bursts with Announcements","Dots and Loops","Instant Holograms on Metal Film"]},
+  {name:"Jessica Pratt", genre:"Rock", letters:"JP", num:3, releases:["Quiet Signs"]},
+  {name:"Nilüfer Yanya", genre:"Rock", letters:"NI", num:2, releases:["Miss Universe","Painless"]},
+  {name:"Cat Power", genre:"Rock", letters:"CA", num:5, releases:["Moon Pix","Covers"]},
+  {name:"Hermanos Gutiérrez", genre:"Rock", letters:"HG", num:1, releases:["El Bueno y el Malo"]},
+  {name:"Juana Molina", genre:"Rock", letters:"JM", num:1, releases:["Wed 21","Halo"]},
+  {name:"Chuquimamani-Condori", genre:"Electronic", letters:"CH", num:2, releases:["Edits"]},
+  {name:"Duke Ellington & John Coltrane", genre:"Jazz", letters:"DU", num:1, releases:["Duke Ellington & John Coltrane"]},
+];
+const CARDS = {
+  H: [{n:1, name:"Late Aug"}, {n:2, name:""}],
+  M: [{n:1, name:""}, {n:2, name:"Fresh Arrivals"}, {n:3, name:""}],
+  L: [{n:1, name:""}, {n:2, name:""}],
+  S: [{n:1, name:""}]
+};
+let ROT = [
+  {name:"Stereolab", title:"Instant Holograms on Metal Film", code:"Rock SL 1/3", bin:"H", card:2, urls:["stereolab.bandcamp.com/album/instant-holograms-on-metal-film","discogs.com/release/33127974"], added:"Sep 5", killed:null, note:""},
+  {name:"Cat Power", title:"Covers", code:"Rock CA 5/2", bin:"H", card:1, added:"Aug 28", killed:null, note:""},
+  {name:"Chuquimamani-Condori", title:"Edits", code:"Electronic CH 2/1", bin:"M", card:2, added:"Aug 30", killed:null, note:""},
+  {name:"Juana Molina", title:"Halo", code:"Rock JM 1/2", bin:"M", card:2, added:"Aug 25", killed:null, note:""},
+  {name:"Duke Ellington & John Coltrane", title:"Duke Ellington & John Coltrane", code:"Jazz DU 1/1", bin:"M", card:1, added:"Aug 18", killed:null, note:""},
+  {name:"Hermanos Gutiérrez", title:"El Bueno y el Malo", code:"Rock HG 1/1", bin:"L", card:2, added:"Aug 22", killed:null, note:""},
+  {name:"Jessica Pratt", title:"Quiet Signs", code:"Rock JP 3/1", bin:"L", card:1, added:"Aug 15", killed:null, note:""},
+  {name:"Csillagrablók", title:"Ezt is elviszem magammal", code:"Rock CS 4/1", bin:"S", card:1, added:"Aug 12", killed:null, note:""},
+  {name:"Stereolab", title:"Dots and Loops", code:"Rock SL 1/2", bin:"M", card:1, added:"Jun 2", killed:"Sep 1", note:""},
+  {name:"Juana Molina", title:"Wed 21", code:"Rock JM 1/1", bin:"L", card:1, added:"May 20", killed:"Aug 20", note:""},
+];
+const BINS = ["H","M","L","S"];
+const BIN_NAMES = {H:"Heavy", M:"Medium", L:"Light", S:"Singles"};
+const TODAY = "Sep 13";
+const $ = id => document.getElementById(id);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const maxCard = bin => CARDS[bin][CARDS[bin].length - 1].n;
+const cardName = (bin, n) => { const c = CARDS[bin].find(c => c.n === n); return c && c.name ? c.name : ''; };
+const cardLabel = (bin, n) => 'card ' + n + (cardName(bin, n) ? ' — ' + cardName(bin, n) : '');
+const countOnCard = (bin, n) => ROT.filter(r => !r.killed && r.bin === bin && r.card === n).length;
+let selected = null, selectedIsNew = false, binSel = "H", cardSel = maxCard("H");
+let ledger = [], cNumDirty = false, binFilter = null, cardFilter = null;
+let urls = [''];
+
+/* ---------- URL rows ---------- */
+function renderUrls() {
+  $('urlRows').innerHTML = urls.map((u, i) =>
+    '<div class="urlrow">' +
+    '<input class="inp" placeholder="bandcamp.com, discogs.com, etc." value="' + escAttr(u) + '" oninput="urls[' + i + ']=this.value">' +
+    (urls.length > 1 ? '<span class="iconbtn minus" onclick="delUrl(' + i + ')" title="Remove this URL">−</span>' : '') +
+    (i === urls.length - 1 ? '<span class="iconbtn" onclick="addUrl()" title="Add another URL">＋</span>' : '') +
+    '</div>').join('');
+}
+function addUrl() {
+  urls.push(''); renderUrls();
+  const ins = document.querySelectorAll('#urlRows input');
+  ins[ins.length - 1].focus();
+}
+function delUrl(i) { urls.splice(i, 1); renderUrls(); }
+
+/* ---------- tabs ---------- */
+function showTab(t) {
+  const views = {add: 'addView', list: 'listView', cards: 'cardsView'};
+  Object.keys(views).forEach(k => $(views[k]).hidden = k !== t);
+  $('tabAdd').classList.toggle('on', t === 'add');
+  $('tabList').classList.toggle('on', t === 'list');
+  $('tabCards').classList.toggle('on', t === 'cards');
+  const routes = {add: '/dashboard/admin/rotation/new', list: '/dashboard/admin/rotation', cards: '/dashboard/admin/rotation/cards'};
+  $('routeShow').innerHTML = routes[t] + ' <span class="mark">1</span>';
+  if (t === 'list') renderRot();
+  if (t === 'cards') renderCardsTab();
+  if (t === 'add') renderChips();
+}
+
+/* ---------- artist picker ---------- */
+function onArtistType() {
+  const q = $('artistInput').value;
+  $('createPanel').hidden = true;
+  if (q.trim().length < 2) { $('listbox').hidden = true; return; }
+  const matches = LIB.filter(a => norm(a.name).includes(norm(q)));
+  let html = matches.map(a =>
+    '<div class="opt" onclick="selectByName(\'' + encodeURIComponent(a.name).replace(/'/g, '%27') + '\')">' + esc(a.name) +
+    ' <span class="code">· ' + a.genre + ' ' + a.letters + ' ' + a.num + '</span></div>').join('');
+  if (!matches.length) html = '<div class="opt none">No artists in the library match "' + esc(q) + '"</div>';
+  html += '<div class="opt create" onclick="openCreate()">＋ File "' + esc(q.trim()) + '" as a new artist…</div>';
+  $('listbox').innerHTML = html;
+  $('listbox').hidden = false;
+}
+function selectByName(enc) { selectArtist(LIB.find(x => x.name === decodeURIComponent(enc)), false); }
+function selectArtist(a, isNew) {
+  selected = a; selectedIsNew = !!isNew;
+  $('artistInput').classList.remove('bad');
+  $('artistInput').hidden = true; $('listbox').hidden = true; $('createPanel').hidden = true;
+  $('selText').textContent = a.name + ' · ' + a.genre + ' ' + a.letters + ' ' + a.num + (isNew ? ' (new)' : '');
+  $('selWrap').hidden = false;
+  $('genreShow').value = a.genre;
+  $('err').textContent = '';
+  updatePreview();
+}
+function changeArtist() {
+  selected = null; selectedIsNew = false;
+  $('selWrap').hidden = true;
+  $('genreShow').value = '— from artist';
+  $('artistInput').hidden = false; $('artistInput').focus();
+  updatePreview(); onArtistType();
+}
+function openCreate() {
+  const q = $('artistInput').value.trim();
+  $('listbox').hidden = true;
+  $('cName').value = q;
+  $('cLetters').value = suggestLetters(q);
+  cNumDirty = false;
+  $('conflict').hidden = true; $('createBtn').disabled = false; $('cErr').textContent = '';
+  updatePeek();
+  $('createPanel').hidden = false;
+}
+function nextCode(letters, genre) {
+  const nums = LIB.filter(a => a.genre === genre && a.letters === letters).map(a => a.num);
+  return nums.length ? Math.max.apply(null, nums) + 1 : 1;
+}
+function updatePeek() {
+  const letters = $('cLetters').value.toUpperCase();
+  $('cLetters').value = letters;
+  const g = $('cGenre').value;
+  const n = nextCode(letters, g);
+  if (!cNumDirty) {
+    $('cNum').value = n;
+    $('cNum').classList.remove('bad');
+    $('numHint').textContent = 'auto-filled: next free ' + (letters || '—') + ' code in ' + g + ' — edit to override';
+  } else {
+    $('numHint').textContent = 'next free ' + (letters || '—') + ' code in ' + g + ' is ' + n;
+  }
+  checkConflict();
+}
+function onNumInput() {
+  cNumDirty = $('cNum').value.trim() !== '';
+  $('cNum').classList.remove('bad');
+  if (!cNumDirty) { updatePeek(); return; }
+  const letters = $('cLetters').value.toUpperCase(), g = $('cGenre').value;
+  $('numHint').textContent = 'next free ' + (letters || '—') + ' code in ' + g + ' is ' + nextCode(letters, g);
+  checkConflict();
+}
+function checkConflict() {
+  const letters = $('cLetters').value.toUpperCase(), g = $('cGenre').value, v = parseInt($('cNum').value, 10);
+  const holder = LIB.find(a => a.genre === g && a.letters === letters && a.num === v);
+  if (holder) {
+    $('conflict').textContent = g + ' ' + letters + ' ' + v + ' is already assigned to ' + holder.name + '.';
+    $('conflict').hidden = false; $('createBtn').disabled = true;
+  } else { $('conflict').hidden = true; $('createBtn').disabled = false; }
+}
+function createArtist() {
+  const name = $('cName').value.trim(), letters = $('cLetters').value.toUpperCase(), v = parseInt($('cNum').value, 10);
+  $('cName').classList.toggle('bad', !name);
+  $('cLetters').classList.toggle('bad', !letters);
+  $('cNum').classList.toggle('bad', !(v >= 1 && v <= 32767));
+  if (!name || !letters || !(v >= 1 && v <= 32767)) {
+    $('cErr').textContent = 'Name, call letters, and a code number 1–32767 are required.';
+    return;
+  }
+  $('cErr').textContent = '';
+  const a = {name, genre: $('cGenre').value, letters, num: v, releases: []};
+  selectArtist(a, true); // pushed to LIB only when the filing chain "creates" it
+}
+
+/* ---------- form: bin + card ---------- */
+function updatePreview() {
+  if (selected && $('title').value.trim()) {
+    $('previewCode').textContent = selected.genre + ' ' + selected.letters + ' ' + selected.num + '/' + (selected.releases.length + 1);
+    $('preview').hidden = false;
+  } else $('preview').hidden = true;
+}
+function renderChips() {
+  $('chips').innerHTML = BINS.map(b =>
+    '<span class="chip' + (binSel === b ? ' sel' : '') + '" title="' + BIN_NAMES[b] + '" onclick="toggleBin(\'' + b + '\')">' + b + '</span>').join('');
+  $('binNote').style.display = binSel ? '' : 'none';
+  $('fileBtn').textContent = binSel ? 'Add to rotation' : 'File release (library only)';
+  if (binSel) {
+    $('cardLine').hidden = false;
+    $('cardBinName').textContent = BIN_NAMES[binSel];
+    $('cardChips').innerHTML = CARDS[binSel].map(c =>
+      '<span class="minichip big' + (cardSel === c.n ? ' sel' : '') + '" onclick="pickCard(' + c.n + ')">' + c.n + (c.name ? ' · ' + esc(c.name) : '') + '</span>').join('') +
+      '<span class="minichip big newcard" onclick="newCardFromForm()">＋ new card ' + (maxCard(binSel) + 1) + '</span>';
+  } else $('cardLine').hidden = true;
+}
+function toggleBin(b) {
+  binSel = binSel === b ? null : b;
+  if (binSel) cardSel = maxCard(binSel);
+  renderChips();
+}
+function pickCard(n) { cardSel = n; renderChips(); }
+function newCardFromForm() {
+  CARDS[binSel].push({n: maxCard(binSel) + 1, name: ''});
+  cardSel = maxCard(binSel);
+  renderChips();
+}
+
+async function fileRelease() {
+  const title = $('title').value.trim(), label = $('label').value.trim();
+  $('title').classList.toggle('bad', !title);
+  $('label').classList.toggle('bad', !label);
+  $('artistInput').classList.toggle('bad', !selected);
+  if (!selected || !title || !label) {
+    $('err').textContent = 'Missing ' + [!selected && 'an artist (select or create one above)', !title && 'the album title', !label && 'the label'].filter(Boolean).join(', ') + '.';
+    return;
+  }
+  $('err').textContent = '';
+  $('fileBtn').disabled = true;
+  const steps = $('steps');
+  steps.innerHTML = selectedIsNew ? '1 creating artist…' : '1 <span class="ok">✓ artist exists</span>';
+  if (selectedIsNew) { await sleep(350); LIB.push(selected); steps.innerHTML = '1 <span class="ok">✓ artist created (' + selected.genre + ' ' + selected.letters + ' ' + selected.num + ')</span>'; }
+  await sleep(350);
+  selected.releases.push(title);
+  const code = selected.genre + ' ' + selected.letters + ' ' + selected.num + '/' + selected.releases.length;
+  steps.innerHTML += ' &nbsp; 2 <span class="ok">✓ filed as ' + code + '</span>';
+  const cleanUrls = urls.map(u => u.trim()).filter(Boolean);
+  const entry = { name: selected.name, title, code, bin: binSel, card: cardSel, urls: cleanUrls, status: 'library' };
+  if (binSel) {
+    await sleep(350);
+    if ($('failToggle').checked) {
+      steps.innerHTML += ' &nbsp; 3 <span class="bad">✗ rotation add failed</span>';
+      entry.status = 'partial';
+      $('failToggle').checked = false;
+    } else {
+      steps.innerHTML += ' &nbsp; 3 <span class="ok">✓ in ' + BIN_NAMES[binSel] + ' · ' + cardLabel(binSel, cardSel) + '</span> · <a onclick="showTab(\'list\')">view in Rotation list →</a>';
+      entry.status = 'ok';
+      ROT.unshift({name: selected.name, title, code, bin: binSel, card: cardSel, urls: cleanUrls, added: TODAY, killed: null, note: 'just filed'});
+    }
+  }
+  ledger.push(entry);
+  renderLedger();
+  changeArtist(); $('artistInput').value = ''; $('listbox').hidden = true;
+  $('title').value = '';
+  urls = ['']; renderUrls();
+  if (!$('keepVals').checked) { $('label').value = ''; $('format').selectedIndex = 0; binSel = 'H'; cardSel = maxCard('H'); renderChips(); }
+  $('fileBtn').disabled = false;
+  $('artistInput').focus();
+}
+
+/* ---------- session ledger ---------- */
+function renderLedger() {
+  if (!ledger.length) return;
+  $('ledgerRows').innerHTML = ledger.map((e, i) => {
+    let status;
+    if (e.status === 'ok') status = '<span class="ok">✓ in ' + BIN_NAMES[e.bin] + ' · card ' + e.card + '</span>';
+    else if (e.status === 'library') status = '<span class="ok">✓ filed</span> · library only';
+    else if (e.status === 'retrying') status = 'retrying rotation add…';
+    else status = '<span class="fail">release filed, rotation add failed</span><span class="retry" onclick="retryRow(' + i + ')">Retry step 3</span>';
+    return '<div class="lrow' + (e.status === 'partial' ? ' partial' : '') + '"><div class="t">' + esc(e.name) + ' — ' + esc(e.title) + '</div><div class="m">' + e.code + ' · ' + status + '</div></div>';
+  }).reverse().join('');
+}
+function retryRow(i) {
+  ledger[i].status = 'retrying'; renderLedger();
+  setTimeout(() => {
+    ledger[i].status = 'ok';
+    const card = Math.min(ledger[i].card, maxCard(ledger[i].bin));
+    ROT.unshift({name: ledger[i].name, title: ledger[i].title, code: ledger[i].code, bin: ledger[i].bin, card, urls: ledger[i].urls, added: TODAY, killed: null, note: 'added on retry'});
+    renderLedger();
+  }, 500);
+}
+
+/* ---------- rotation list ---------- */
+function renderRot() {
+  const qv = $('rotSearch').value.trim();
+  const q = qv ? norm(qv) : '';
+  const hitQ = r => !q || norm(r.name).includes(q) || norm(r.title).includes(q) || norm(r.code).includes(q);
+  const searched = ROT.filter(hitQ);
+  const active = searched.filter(r => !r.killed), killed = searched.filter(r => r.killed);
+  const totalActive = ROT.filter(r => !r.killed).length, totalKilled = ROT.length - totalActive;
+  const binHit = r => !binFilter || r.bin === binFilter;
+  const cardHit = r => !cardFilter || r.card === cardFilter;
+  const shown = active.filter(r => binHit(r) && cardHit(r));
+  const shownKilled = killed.filter(r => binHit(r) && cardHit(r));
+  const narrowed = q || binFilter;
+  const counts = {}; BINS.forEach(b => counts[b] = active.filter(r => r.bin === b).length);
+  $('filterRow').innerHTML =
+    '<span class="fchip' + (binFilter === null ? ' sel' : '') + '" onclick="setFilter(null)">All (' + active.length + ')</span>' +
+    BINS.map(b => '<span class="fchip' + (binFilter === b ? ' sel' : '') + '" onclick="setFilter(\'' + b + '\')" title="' + BIN_NAMES[b] + '">' + b + ' (' + counts[b] + ')</span>').join('');
+  if (binFilter) {
+    const cc = {}; CARDS[binFilter].forEach(c => cc[c.n] = active.filter(r => r.bin === binFilter && r.card === c.n).length);
+    $('cardFilterRow').innerHTML =
+      '<span class="fchip sm' + (cardFilter === null ? ' sel' : '') + '" onclick="setCardFilter(null)">All cards</span> ' +
+      CARDS[binFilter].map(c => '<span class="fchip sm' + (cardFilter === c.n ? ' sel' : '') + '" onclick="setCardFilter(' + c.n + ')">' + c.n + (c.name ? ' · ' + esc(c.name) : '') + ' (' + cc[c.n] + ')</span>').join(' ');
+  } else $('cardFilterRow').innerHTML = '';
+  $('activeCount').textContent = narrowed ? shown.length + ' of ' + totalActive : totalActive;
+  $('killedCount').textContent = narrowed ? shownKilled.length + ' of ' + totalKilled : totalKilled;
+  $('activeRows').innerHTML = shown.map(r => {
+    const i = ROT.indexOf(r);
+    const cardOpts = CARDS[r.bin].map(c => '<option value="' + c.n + '"' + (r.card === c.n ? ' selected' : '') + '>card ' + c.n + (c.name ? ' — ' + escAttr(c.name) : '') + '</option>').join('');
+    return '<div class="rrow' + (r.note === 'just filed' ? ' freshrow' : '') + '">' +
+      '<div class="rmain"><b>' + esc(r.name) + '</b> — ' + esc(r.title) + '<span class="rcode">' + r.code + '</span></div>' +
+      '<div class="rmeta">' + BINS.map(b => '<span class="minichip' + (r.bin === b ? ' sel' : '') + '" title="' + (r.bin === b ? BIN_NAMES[b] : 'Move to ' + BIN_NAMES[b] + ' (add-then-kill)') + '" onclick="moveBin(' + i + ',\'' + b + '\')">' + b + '</span>').join('') +
+      '<select class="cardsel" onchange="setCard(' + i + ', this.value)">' + cardOpts + '</select>' +
+      (r.urls && r.urls.length ? '<span class="linkcount" title="' + escAttr(r.urls.join('\n')) + '">🔗 ' + r.urls.length + '</span>' : '') +
+      '<span>added ' + r.added + '</span><span class="rkill" onclick="kill(' + i + ')">Kill</span></div>' +
+      (r.note ? '<div class="rnote">' + r.note + '</div>' : '') +
+      '</div>';
+  }).join('') || '<div class="lempty">No active entries' + (binFilter ? ' in ' + BIN_NAMES[binFilter] : '') + (cardFilter ? ', card ' + cardFilter + ',' : '') + (q ? ' match "' + esc(qv) + '"' : '') + '.</div>';
+  $('killedRows').innerHTML = shownKilled.map(r => {
+    const i = ROT.indexOf(r);
+    return '<div class="rrow dead"><div class="rmain"><b>' + esc(r.name) + '</b> — ' + esc(r.title) + '<span class="rcode">' + r.code + '</span></div>' +
+      '<div class="rmeta"><span>' + r.bin + ' · card ' + r.card + ' · added ' + r.added + ' · killed ' + r.killed + '</span><span class="runkill" onclick="unkill(' + i + ')">Unkill</span></div>' +
+      (r.note ? '<div class="rnote">' + r.note + '</div>' : '') +
+      '</div>';
+  }).join('') || '<div class="lempty">No killed entries' + (binFilter ? ' in ' + BIN_NAMES[binFilter] : '') + (q ? ' match "' + esc(qv) + '"' : '') + '.</div>';
+}
+function setFilter(b) { binFilter = b; cardFilter = null; renderRot(); }
+function setCardFilter(n) { cardFilter = n; renderRot(); }
+function setCard(i, v) {
+  ROT[i].card = parseInt(v, 10);
+  ROT[i].note = 'moved to ' + cardLabel(ROT[i].bin, ROT[i].card) + ' — a plain field edit, unlike bin moves';
+  renderRot();
+}
+function kill(i) { ROT[i].killed = TODAY; ROT[i].note = ''; renderRot(); }
+function unkill(i) {
+  ROT[i].killed = null;
+  ROT[i].card = Math.min(ROT[i].card, maxCard(ROT[i].bin));
+  ROT[i].note = 'revived — kill_date cleared';
+  renderRot();
+}
+function moveBin(i, b) {
+  if (ROT[i].bin === b) return;
+  const old = ROT[i];
+  const card = maxCard(b);
+  // add-then-kill: new entry first, then retire the old one — the order that fails safe
+  ROT.unshift({name: old.name, title: old.title, code: old.code, bin: b, card, added: TODAY, killed: null, note: 'moved to ' + BIN_NAMES[b] + ' · ' + cardLabel(b, card) + ' — new entry filed, previous one retired (no bin-move endpoint)'});
+  old.killed = TODAY; old.note = 'retired by the move to ' + BIN_NAMES[b];
+  renderRot();
+}
+
+/* ---------- cards tab ---------- */
+function renderCardsTab() {
+  $('cardsGrid').innerHTML = BINS.map(b => {
+    const rows = CARDS[b].map(c => {
+      const cnt = countOnCard(b, c.n);
+      const can = c.n === maxCard(b) && cnt === 0 && CARDS[b].length > 1;
+      return '<div class="cardrow"><span class="cn">' + c.n + '</span>' +
+        '<input class="namein" placeholder="unnamed" value="' + escAttr(c.name) + '" oninput="renameCard(\'' + b + '\',' + c.n + ',this.value)">' +
+        '<span class="cnt">' + cnt + ' record' + (cnt === 1 ? '' : 's') + '</span>' +
+        '<span class="delbtn' + (can ? '' : ' off') + '" title="' + (can ? 'Delete this card' : 'Only the last card can be deleted, and only when empty') + '"' + (can ? ' onclick="delCard(\'' + b + '\')"' : '') + '>✕</span></div>';
+    }).join('');
+    return '<div class="cardscol"><div class="colhead">' + BIN_NAMES[b] + ' <span class="colcode">' + b + ' · ' + CARDS[b].length + ' card' + (CARDS[b].length === 1 ? '' : 's') + '</span></div>' + rows +
+      '<div class="addcard" onclick="addCard(\'' + b + '\')">＋ Add card ' + (maxCard(b) + 1) + '</div></div>';
+  }).join('');
+}
+function renameCard(b, n, v) { CARDS[b].find(c => c.n === n).name = v; }
+function addCard(b) { CARDS[b].push({n: maxCard(b) + 1, name: ''}); renderCardsTab(); }
+function delCard(b) {
+  const last = CARDS[b][CARDS[b].length - 1];
+  if (CARDS[b].length > 1 && countOnCard(b, last.n) === 0) {
+    CARDS[b].pop();
+    if (binSel === b) cardSel = Math.min(cardSel, maxCard(b));
+    if (binFilter === b && cardFilter === last.n) cardFilter = null;
+    renderCardsTab();
+  }
+}
+
+renderChips();
+renderUrls();
+renderRot();
+renderCardsTab();
+</script>
+</body>
+</html>

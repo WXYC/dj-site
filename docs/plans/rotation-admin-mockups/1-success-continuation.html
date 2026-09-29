@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>C — Success Continuation (interactive)</title>
+<style>
+  * { box-sizing: border-box; margin: 0; }
+  body { font-family: -apple-system, "Segoe UI", Roboto, Helvetica, sans-serif; background: #f4f6f9; color: #172b4d; padding: 36px; line-height: 1.45; }
+  h1 { font-size: 22px; margin-bottom: 4px; }
+  .lede { color: #5a6b85; margin-bottom: 18px; max-width: 78ch; }
+  .lede code, li code { background:#e8edf3; border-radius:4px; padding:1px 5px; font-size: 13px; }
+  a.back { color:#0b6bcb; font-size: 13px; text-decoration:none; font-weight:600; }
+  .demobar { display:flex; align-items:center; gap:14px; max-width: 900px; background:#e8f1fb; border:1px solid #b6d4f2; border-radius:10px; padding:10px 16px; font-size:13.5px; color:#0b3d70; margin-bottom: 24px; }
+  .demobar button { margin-left:auto; border:1px solid #0b6bcb; color:#0b6bcb; background:#fff; border-radius:8px; font-size:13px; font-weight:700; padding:5px 14px; cursor:pointer; }
+  .modal { width: 480px; background: #fff; border: 1px solid #d7dfe9; border-radius: 14px; box-shadow: 0 12px 28px rgba(23,43,77,.10); padding: 22px; }
+  .modal h3 { font-size: 17px; margin-bottom: 4px; }
+  .modal .sub { font-size: 13px; color: #8b97a8; margin-bottom: 10px; }
+  label.f { display: block; font-size: 12.5px; font-weight: 600; color: #42526e; margin: 12px 0 4px; }
+  .inp, select.inp { width: 100%; border: 1px solid #cdd7e1; border-radius: 8px; padding: 8px 11px; font-size: 14px; background: #fff; color: #172b4d; }
+  .inp:focus { outline:none; border-color:#0b6bcb; box-shadow:0 0 0 3px rgba(11,107,203,.15); }
+  .row { display: flex; gap: 12px; } .row > div { flex: 1; }
+  .btnrow { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; align-items: center; }
+  .btn { border-radius: 8px; padding: 8px 16px; font-size: 14px; font-weight: 600; border: 1px solid transparent; cursor:pointer; }
+  .btn.primary { background: #0b6bcb; color: #fff; } .btn.primary:hover { background:#095galib; background:#0a5cae; }
+  .btn.ghost { background: #fff; color: #42526e; border-color: #cdd7e1; } .btn.ghost:hover { background:#f4f7fa; }
+  .err { font-size: 12.5px; color:#b42318; margin-top: 8px; min-height: 16px; }
+  .matchline { font-size: 12.5px; margin-top: 5px; min-height: 16px; }
+  .matchline.ok { color: #0b8a3e; font-weight: 600; }
+  .matchline.miss { color: #7a5b0f; }
+  .chip { display: inline-block; border: 1px solid #cdd7e1; border-radius: 999px; padding: 6px 16px; font-size: 13.5px; font-weight: 700; color: #42526e; background: #fff; margin-right: 8px; cursor:pointer; user-select:none; transition: all .12s; }
+  .chip:hover { border-color:#0b6bcb; color:#0b6bcb; }
+  .chip.sel { background: #0b6bcb; border-color: #0b6bcb; color: #fff; }
+  .chip.last { border-style: dashed; border-color:#0b6bcb; color:#0b6bcb; }
+  .success-head { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; }
+  .check { width: 34px; height: 34px; border-radius: 50%; background: #e6f4ea; color: #0b8a3e; font-size: 19px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex: none; }
+  .filedas { font-size: 16px; font-weight: 700; }
+  .filedas .code { color: #0b6bcb; }
+  .binprompt { margin-top: 16px; padding: 14px; background: #f8fafc; border: 1px solid #e3e9f0; border-radius: 10px; }
+  .binprompt .q { font-size: 13.5px; font-weight: 600; color: #42526e; margin-bottom: 10px; }
+  .binprompt .skip { font-size: 12.5px; color: #8b97a8; margin-top: 10px; }
+  .confirm { margin-top: 16px; padding: 12px 14px; background: #e6f4ea; border: 1px solid #b7e0c3; border-radius: 10px; font-size: 14px; color: #14532d; display:flex; justify-content: space-between; align-items:center; }
+  .confirm a { color: #0b6bcb; font-weight: 700; text-decoration: none; cursor:pointer; }
+  .ledger { margin-top: 16px; font-size: 12.5px; color: #5a6b85; border-top: 1px dashed #d7dfe9; padding-top: 10px; }
+  .ledger b { color:#172b4d; }
+  .sticky-note { font-size: 12.5px; color: #8b97a8; margin-right: auto; }
+  .mark { display: inline-flex; width: 18px; height: 18px; border-radius: 50%; background: #e8590c; color: #fff; font-size: 11.5px; font-weight: 700; align-items: center; justify-content: center; vertical-align: middle; margin-left: 6px; flex: none; }
+  .legend { margin-top: 36px; max-width: 900px; background: #fff; border: 1px solid #d7dfe9; border-radius: 12px; padding: 18px 22px; }
+  .legend h2 { font-size: 14px; margin-bottom: 10px; }
+  .legend li { font-size: 13.5px; margin: 8px 0 8px 4px; list-style: none; display: flex; gap: 10px; }
+  .legend .mark { margin: 2px 0 0; }
+  .donebox { text-align:center; padding: 18px 0 6px; }
+  .donebox h4 { font-size: 17px; margin: 10px 0 4px; }
+  .donebox p { font-size: 13.5px; color:#5a6b85; margin-bottom: 16px; }
+</style>
+</head>
+<body>
+  <a class="back" href="index.html">&larr; All mockups</a>
+  <h1>C — Success continuation (task chaining)</h1>
+  <p class="lede">Today <code>AddReleasePanel.handleSubmit</code> toasts and closes, discarding <code>created.id</code>. Here the modal swaps to a success step that offers the bin immediately, an undo, and batch continuation.</p>
+  <div class="demobar">▶ Live demo — the artist field live-matches the library (<b>Jessica Pratt</b> is seeded; edit the name to see the match react). File the release, pick a bin, undo it, then "Save &amp; add another" and file a second one. <button onclick="location.reload()">Reset demo</button></div>
+
+  <div class="modal">
+    <div id="formStep">
+      <h3>Add a release</h3>
+      <p class="sub">Files a new release under an existing artist — the artist field live-matches the library as you type.</p>
+      <label class="f">Album title</label>
+      <input class="inp" id="title" value="On Your Own Love Again">
+      <div class="row">
+        <div><label class="f">Genre</label>
+          <select class="inp" id="genre"><option>Rock</option><option>Electronic</option><option>Jazz</option></select></div>
+        <div><label class="f">Format</label>
+          <select class="inp" id="format"><option>CD</option><option>LP</option><option>7"</option></select></div>
+      </div>
+      <label class="f">Artist</label>
+      <input class="inp" id="artist" value="Jessica Pratt" oninput="renderArtistMatch()">
+      <div class="matchline" id="artistMatch"></div>
+      <label class="f">Label</label>
+      <input class="inp" id="label" value="Drag City">
+      <div class="err" id="err"></div>
+      <div class="btnrow">
+        <span class="sticky-note" id="stickyNote" hidden>Genre &amp; format carried over <span class="mark">3</span></span>
+        <button class="btn primary" onclick="fileRelease()">Add release</button>
+      </div>
+    </div>
+
+    <div id="successStep" hidden>
+      <div class="success-head">
+        <div class="check">✓</div>
+        <div>
+          <div class="filedas">Filed as <span class="code" id="filedCode"></span> <span class="mark">1</span></div>
+          <div class="sub" style="margin:0" id="filedSub"></div>
+        </div>
+      </div>
+      <div class="binprompt">
+        <div class="q">Add to rotation? <span class="mark">2</span></div>
+        <span id="chips"></span>
+        <div class="skip">Skip if it's a library-only filing — the release is already saved.</div>
+      </div>
+      <div class="confirm" id="confirm" hidden>
+        <span id="confText"></span>
+        <span><a onclick="undoBin()">Undo</a> <span class="mark">4</span></span>
+      </div>
+      <div class="ledger" id="ledgerBox"></div>
+      <div class="btnrow">
+        <button class="btn ghost" onclick="finishSession()">Done</button>
+        <button class="btn primary" onclick="saveAndAnother()">Save &amp; add another</button>
+      </div>
+    </div>
+
+    <div id="doneStep" hidden>
+      <div class="donebox">
+        <div class="check" style="margin:0 auto">✓</div>
+        <h4>Session complete</h4>
+        <p id="doneSummary"></p>
+        <button class="btn primary" onclick="location.reload()">Restart demo</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <h2>Annotations</h2>
+    <ol>
+      <li><span class="mark">1</span><span>The shelf code comes off the <code>POST /library</code> response (<code>code_number</code> / <code>code_volume_letters</code>) — here it's computed from the demo's in-memory library, so filing a second Jessica Pratt release increments the release number.</span></li>
+      <li><span class="mark">2</span><span>The chips reuse <code>CatalogRotationBinPicker</code> and call <code>POST /library/rotation</code> with the <code>created.id</code> in hand — no catalog re-search. After your first pick, the next record shows your last bin as a dashed suggestion (still needs a click).</span></li>
+      <li><span class="mark">3</span><span>"Save &amp; add another" keeps genre and format — directors file stacks where those rarely change record-to-record. Watch the note appear on the second pass.</span></li>
+      <li><span class="mark">4</span><span>Undo kills the seconds-old rotation entry (<code>killRotationEntry</code>). In the real implementation, switching chips after the fact is add-then-kill (<code>useAlbumRotationActions.setRotation</code>) because <strong>no endpoint moves a release between bins</strong>.</span></li>
+    </ol>
+  </div>
+
+<script>
+const norm = s => s.normalize('NFD').replace(/[̀-ͯ]/g,'').trim().toLowerCase();
+const suggestLetters = name => {
+  const n = norm(name).replace(/^the\s+/,'');
+  return ((n.match(/[a-z]/g)||[]).slice(0,2).join('').toUpperCase()) || 'A';
+};
+const LIB = [
+  {name:"Stereolab", genre:"Rock", letters:"SL", num:1, releases:["Transient Random-Noise Bursts with Announcements","Dots and Loops","Instant Holograms on Metal Film"]},
+  {name:"Jessica Pratt", genre:"Rock", letters:"JP", num:3, releases:["Quiet Signs"]},
+  {name:"Nilüfer Yanya", genre:"Rock", letters:"NI", num:2, releases:["Miss Universe","Painless"]},
+  {name:"Cat Power", genre:"Rock", letters:"CA", num:5, releases:["Moon Pix","Covers"]},
+  {name:"Hermanos Gutiérrez", genre:"Rock", letters:"HG", num:1, releases:["El Bueno y el Malo"]},
+  {name:"Juana Molina", genre:"Rock", letters:"JM", num:1, releases:["Wed 21","Halo"]},
+  {name:"Chuquimamani-Condori", genre:"Electronic", letters:"CH", num:2, releases:["Edits"]},
+  {name:"Duke Ellington & John Coltrane", genre:"Jazz", letters:"DU", num:1, releases:["Duke Ellington & John Coltrane"]},
+];
+const BINS = ["H","M","L","S"];
+const BIN_NAMES = {H:"Heavy", M:"Medium", L:"Light", S:"Singles"};
+const $ = id => document.getElementById(id);
+let ledger = [], lastBin = null, current = null;
+
+function libMatch(q) {
+  return LIB.find(x => norm(x.name) === norm(q)) || LIB.find(x => norm(x.name).includes(norm(q)));
+}
+function renderArtistMatch() {
+  const q = $('artist').value.trim(), el = $('artistMatch');
+  if (q.length < 2) { el.textContent = ''; el.className = 'matchline'; return; }
+  const a = libMatch(q);
+  if (a) { el.textContent = '✓ In the library: ' + a.name + ' · ' + a.genre + ' ' + a.letters + ' ' + a.num; el.className = 'matchline ok'; }
+  else { el.textContent = '✗ No library match — the real flow offers inline create here (mockup B); this demo files it as a new artist.'; el.className = 'matchline miss'; }
+}
+function fileRelease() {
+  const title = $('title').value.trim(), artist = $('artist').value.trim(), label = $('label').value.trim();
+  const genre = $('genre').value, format = $('format').value;
+  if (!title || !artist || !label) { $('err').textContent = 'Album title, artist, and label are all required'; return; }
+  $('err').textContent = '';
+  let a = libMatch(artist);
+  let name, letters, num, rel;
+  if (a) { name = a.name; letters = a.letters; num = a.num; a.releases.push(title); rel = a.releases.length; }
+  else { name = artist; letters = suggestLetters(artist); num = 1; rel = 1; LIB.push({name, genre, letters, num, releases:[title]}); }
+  current = { name, title, label, format, code: genre + " " + letters + " " + num + "/" + rel, bin: null };
+  ledger.push(current);
+  $('filedCode').textContent = current.code;
+  $('filedSub').textContent = name + " — " + title + " · " + label + " · " + format;
+  $('confirm').hidden = true;
+  renderChips(); renderLedger();
+  $('formStep').hidden = true; $('successStep').hidden = false;
+}
+function renderChips() {
+  $('chips').innerHTML = BINS.map(b => {
+    let cls = 'chip';
+    if (current.bin === b) cls += ' sel';
+    else if (current.bin === null && lastBin === b) cls += ' last';
+    return '<span class="' + cls + '" title="' + BIN_NAMES[b] + (lastBin === b && current.bin === null ? ' (last used)' : '') + '" onclick="pickBin(\'' + b + '\')">' + b + '</span>';
+  }).join('');
+}
+function pickBin(b) {
+  current.bin = b; lastBin = b;
+  renderChips();
+  $('confText').innerHTML = 'In <b>' + BIN_NAMES[b] + '</b> rotation as of today';
+  $('confirm').hidden = false;
+  renderLedger();
+}
+function undoBin() { current.bin = null; renderChips(); $('confirm').hidden = true; renderLedger(); }
+function renderLedger() {
+  $('ledgerBox').innerHTML = 'Filed this session: <b>' + ledger.length + '</b> — ' +
+    ledger.map(e => e.name + ' <em>' + e.title + '</em> (' + (e.bin || 'library only') + ')').join(', ');
+}
+function saveAndAnother() {
+  $('title').value = ''; $('artist').value = ''; $('label').value = '';
+  renderArtistMatch();
+  $('stickyNote').hidden = false;
+  $('successStep').hidden = true; $('formStep').hidden = false;
+  $('title').focus();
+}
+function finishSession() {
+  const inRot = ledger.filter(e => e.bin).length;
+  $('doneSummary').textContent = ledger.length + ' release' + (ledger.length === 1 ? '' : 's') + ' filed, ' + inRot + ' added to rotation — zero catalog searches.';
+  $('successStep').hidden = true; $('doneStep').hidden = false;
+}
+renderArtistMatch();
+</script>
+</body>
+</html>

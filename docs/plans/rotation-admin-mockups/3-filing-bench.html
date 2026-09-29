@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A — Filing Bench (interactive)</title>
+<style>
+  * { box-sizing: border-box; margin: 0; }
+  body { font-family: -apple-system, "Segoe UI", Roboto, Helvetica, sans-serif; background: #f4f6f9; color: #172b4d; padding: 36px; line-height: 1.45; }
+  h1 { font-size: 22px; margin-bottom: 4px; }
+  .lede { color: #5a6b85; margin-bottom: 18px; max-width: 82ch; }
+  .lede code, li code { background:#e8edf3; border-radius:4px; padding:1px 5px; font-size: 13px; }
+  a.back { color:#0b6bcb; font-size: 13px; text-decoration:none; font-weight:600; }
+  .demobar { display:flex; align-items:center; gap:14px; max-width: 1000px; background:#e8f1fb; border:1px solid #b6d4f2; border-radius:10px; padding:10px 16px; font-size:13.5px; color:#0b3d70; margin-bottom: 24px; }
+  .demobar button { margin-left:auto; border:1px solid #0b6bcb; color:#0b6bcb; background:#fff; border-radius:8px; font-size:13px; font-weight:700; padding:5px 14px; cursor:pointer; flex:none; }
+  .seedbanner { max-width:1000px; background:#e6f4ea; border:1px solid #b7e0c3; border-radius:10px; padding:9px 16px; font-size:13px; color:#14532d; margin-bottom:16px; }
+  .page { max-width: 1000px; background: #fff; border: 1px solid #d7dfe9; border-radius: 16px; box-shadow: 0 12px 28px rgba(23,43,77,.10); padding: 28px 32px; }
+  .pagehead { display: flex; align-items: baseline; gap: 14px; border-bottom: 1px solid #eef2f6; padding-bottom: 14px; margin-bottom: 20px; }
+  .pagehead h3 { font-size: 19px; }
+  .mdgate { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #7a5b0f; background: #fff3cd; border: 1px solid #f0d488; border-radius: 999px; padding: 3px 10px; }
+  .cols { display: flex; gap: 32px; align-items: flex-start; flex-wrap: wrap; }
+  .form { flex: 1.6; min-width: 420px; }
+  .ledger { flex: 1; min-width: 300px; background: #f8fafc; border: 1px solid #e3e9f0; border-radius: 12px; padding: 16px 18px; }
+  label.f { display: block; font-size: 12.5px; font-weight: 600; color: #42526e; margin: 14px 0 4px; }
+  .inp, select.inp { width: 100%; border: 1px solid #cdd7e1; border-radius: 8px; padding: 8px 11px; font-size: 14px; background: #fff; color: #172b4d; }
+  .inp:focus { outline:none; border-color:#0b6bcb; box-shadow:0 0 0 3px rgba(11,107,203,.15); }
+  .inp.bad { border-color:#b42318; box-shadow:0 0 0 3px rgba(180,35,24,.12); }
+  .inp.dis { background: #f1f4f8; color: #8b97a8; }
+  .row { display: flex; gap: 14px; } .row > div { flex: 1; }
+  .listbox { border: 1px solid #cdd7e1; border-radius: 0 0 10px 10px; background: #fff; box-shadow: 0 10px 18px rgba(23,43,77,.08); overflow: hidden; margin-top:-2px; }
+  .opt { padding: 9px 12px; font-size: 13.5px; color: #42526e; border-top: 1px solid #f0f3f7; cursor:pointer; }
+  .opt:hover { background:#f4f9ff; }
+  .opt .code { color:#8b97a8; font-size:12.5px; }
+  .opt.none { color: #8b97a8; font-style: italic; cursor:default; } .opt.none:hover { background:#fff; }
+  .opt.create { background: #e8f1fb; color: #0b6bcb; font-weight: 700; } .opt.create:hover { background:#d9e9fa; }
+  .inline-create { margin-top: 10px; border: 1px solid #b6d4f2; background: #f4f9ff; border-radius: 10px; padding: 14px; }
+  .inline-create h4 { font-size: 13.5px; color: #0b6bcb; margin-bottom: 2px; }
+  .hint { font-size: 12.5px; color: #8b97a8; margin-top: 5px; }
+  .peek { display: flex; align-items: center; gap: 10px; margin-top: 8px; font-size: 13px; color: #42526e; flex-wrap:wrap; }
+  .peek .val { font-weight: 700; }
+  .usebtn { border: 1px solid #0b6bcb; color: #0b6bcb; background: #fff; border-radius: 999px; font-size: 12.5px; font-weight: 700; padding: 3px 12px; cursor:pointer; }
+  .conflict { margin-top:10px; background:#fdecea; border:1px solid #f0b8b1; border-radius:8px; padding:8px 12px; font-size:12.5px; color:#b42318; }
+  .selchip { display: inline-flex; align-items: center; gap: 8px; background: #e6f4ea; border: 1px solid #b7e0c3; color: #14532d; border-radius: 999px; padding: 6px 14px; font-size: 13.5px; font-weight: 700; }
+  .selchip a { color: #0b6bcb; font-weight: 600; font-size: 12.5px; text-decoration: none; cursor:pointer; }
+  .preview { margin-top: 16px; background: #f4f9ff; border: 1px solid #b6d4f2; border-radius: 10px; padding: 10px 14px; font-size: 14px; color: #0b3d70; }
+  .preview b { color: #0b6bcb; }
+  .chip { display: inline-block; border: 1px solid #cdd7e1; border-radius: 999px; padding: 6px 16px; font-size: 13.5px; font-weight: 700; color: #42526e; background: #fff; margin-right: 8px; cursor:pointer; user-select:none; transition: all .12s; }
+  .chip:hover { border-color:#0b6bcb; color:#0b6bcb; }
+  .chip.sel { background: #0b6bcb; border-color: #0b6bcb; color: #fff; }
+  .binline { margin-top: 6px; display: flex; align-items: center; flex-wrap:wrap; }
+  .binskip { font-size: 12.5px; color: #8b97a8; margin-left: 4px; }
+  .btnrow { display: flex; gap: 12px; margin-top: 22px; align-items: center; flex-wrap:wrap; }
+  .btn { border-radius: 8px; padding: 9px 18px; font-size: 14px; font-weight: 600; border: 1px solid transparent; cursor:pointer; }
+  .btn.primary { background: #0b6bcb; color: #fff; } .btn.primary:hover { background:#0a5cae; }
+  .btn.primary:disabled { opacity:.5; cursor:wait; }
+  .keep { font-size: 13px; color: #42526e; display: flex; align-items: center; gap: 6px; }
+  .failtoggle { font-size: 12.5px; color: #7a5b0f; background:#fff8e6; border:1px solid #f0d488; border-radius:8px; padding:6px 10px; display:flex; align-items:center; gap:6px; margin-top:14px; width:fit-content; }
+  .steps { margin-top: 12px; font-size: 13px; color:#42526e; min-height: 18px; }
+  .steps .ok { color:#0b8a3e; font-weight:700; }
+  .steps .bad { color:#b42318; font-weight:700; }
+  .err { font-size: 12.5px; color:#b42318; margin-top: 8px; min-height: 16px; }
+  .ledger h4 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: #5a6b85; margin-bottom: 12px; }
+  .lrow { background: #fff; border: 1px solid #e3e9f0; border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; font-size: 13px; }
+  .lrow .t { font-weight: 700; }
+  .lrow .m { color: #5a6b85; margin-top: 2px; }
+  .ok { color: #0b8a3e; font-weight: 700; }
+  .fail { color: #b42318; font-weight: 700; }
+  .retry { display: inline-block; border: 1px solid #b42318; color: #b42318; background: #fff; border-radius: 999px; font-size: 12px; font-weight: 700; padding: 2px 10px; margin-left: 6px; cursor:pointer; }
+  .retry:hover { background:#fdecea; }
+  .lrow.partial { border-color: #f0b8b1; background: #fff8f7; }
+  .lempty { font-size: 13px; color:#8b97a8; font-style: italic; }
+  .mark { display: inline-flex; width: 18px; height: 18px; border-radius: 50%; background: #e8590c; color: #fff; font-size: 11.5px; font-weight: 700; align-items: center; justify-content: center; vertical-align: middle; margin-left: 6px; flex: none; }
+  .legend { margin-top: 36px; max-width: 1000px; background: #fff; border: 1px solid #d7dfe9; border-radius: 12px; padding: 18px 22px; }
+  .legend h2 { font-size: 14px; margin-bottom: 10px; }
+  .legend li { font-size: 13.5px; margin: 8px 0 8px 4px; list-style: none; display: flex; gap: 10px; }
+  .legend .mark { margin: 2px 0 0; }
+</style>
+</head>
+<body>
+  <a class="back" href="index.html">&larr; All mockups</a>
+  <h1>A — The filing bench (composite task page)</h1>
+  <p class="lede">The <code>docs/plans/catalog-filing-bench.md</code> proposal, live: artist, release, and bin in one pass and one submit, running the <code>runRotationImport</code>-style chain (create artist if new → file release → add to rotation) with a session ledger and named partial-failure recovery.</p>
+  <div class="demobar">▶ Live demo — type <b>"nil"</b>, pick Nilüfer Yanya, hit <b>File release</b> (title &amp; label are pre-filled) and watch the chain animate into the ledger. Type an unknown name and <b>Create &amp; select</b> collapses it to a green chip. Arm the failure toggle for the partial-failure row and its Retry. <button onclick="location.reload()">Reset demo</button></div>
+  <div class="seedbanner" id="seedBanner" hidden></div>
+
+  <div class="page">
+    <div class="pagehead">
+      <h3>File a release</h3>
+      <span class="mdgate">Music Directors</span>
+      <span style="font-size:12.5px;color:#8b97a8">One pass: artist → release → rotation</span>
+    </div>
+    <div class="cols">
+      <div class="form">
+        <label class="f">Artist <span class="mark">1</span></label>
+        <div id="artistPicker">
+          <input class="inp" id="artistInput" placeholder="Search the whole library — a miss offers to create…" autocomplete="off" oninput="onArtistType()">
+          <div class="listbox" id="listbox" hidden></div>
+          <div class="inline-create" id="createPanel" hidden>
+            <h4>New artist</h4>
+            <div class="row">
+              <div><label class="f">Name</label><input class="inp" id="cName"></div>
+              <div><label class="f">Genre</label>
+                <select class="inp" id="cGenre" onchange="updatePeek()"><option>Rock</option><option>Electronic</option><option>Jazz</option></select></div>
+            </div>
+            <div class="row">
+              <div><label class="f">Call letters</label><input class="inp" id="cLetters" maxlength="2" oninput="updatePeek()"></div>
+              <div><label class="f">Code number</label><input class="inp" id="cNum" placeholder="—" oninput="checkConflict()">
+                <div class="peek">Next code for <span class="val" id="peekLetters"></span>: <span class="val" id="peekNum"></span> <button class="usebtn" onclick="usePeek()">Use <span id="useNum"></span></button></div>
+              </div>
+            </div>
+            <div class="conflict" id="conflict" hidden></div>
+            <div class="err" id="cErr"></div>
+            <div class="btnrow" style="margin-top:12px">
+              <button class="btn primary" style="padding:6px 12px;font-size:13px" id="createBtn" onclick="createArtist()">Create &amp; select</button>
+            </div>
+          </div>
+          <div id="selWrap" hidden><span class="selchip">✓ <span id="selText"></span> <a onclick="changeArtist()">change</a></span></div>
+        </div>
+
+        <label class="f">Album title</label>
+        <input class="inp" id="title" value="My Method Actor" oninput="this.classList.remove('bad');updatePreview()">
+
+        <div class="row">
+          <div><label class="f">Label</label><input class="inp" id="label" value="Partisan" oninput="this.classList.remove('bad')"></div>
+          <div><label class="f">Format</label>
+            <select class="inp" id="format"><option>CD</option><option>LP</option><option>7"</option></select></div>
+          <div><label class="f">Genre</label><input class="inp dis" id="genreShow" value="— from artist" readonly></div>
+        </div>
+
+        <div class="preview" id="preview" hidden>Will file as <b id="previewCode"></b> <span class="mark">2</span></div>
+
+        <label class="f">Rotation</label>
+        <div class="binline">
+          <span id="chips"></span>
+          <span class="binskip">· or none — the bench also files library-only <span class="mark">3</span></span>
+        </div>
+
+        <div class="failtoggle"><input type="checkbox" id="failToggle"> <label for="failToggle" style="cursor:pointer">Simulate a rotation-service failure on the next filing <span class="mark">5</span></label></div>
+
+        <div class="err" id="err"></div>
+        <div class="btnrow">
+          <button class="btn primary" id="fileBtn" onclick="fileRelease()">File release</button>
+          <label class="keep"><input type="checkbox" id="keepVals" checked> Keep label, format &amp; bin for the next record</label>
+        </div>
+        <div class="steps" id="steps"></div>
+      </div>
+
+      <div class="ledger">
+        <h4>Filed this session <span class="mark">4</span></h4>
+        <div id="ledgerRows"><div class="lempty">Nothing filed yet — the ledger is the batch receipt and the retry surface in one.</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <h2>Annotations</h2>
+    <ol>
+      <li><span class="mark">1</span><span>Artist-first inverts today's genre-first modal (artist field disabled until a genre is chosen). The library-wide search (<code>searchLibraryArtists</code>) makes dedup automatic, and genre falls out of the selection instead of gating it. The create branch is mockup B's panel, plus a genre select since the bench isn't genre-scoped.</span></li>
+      <li><span class="mark">2</span><span>The live shelf-code preview needs a release-code peek the backend doesn't have (strategy F) — today the import screen computes max+1 in the browser by paginating <code>getArtistReleases</code>. Watch it increment as you file repeat artists.</span></li>
+      <li><span class="mark">3</span><span>Bin optional — click a chip to toggle it off. The bench replaces both of today's paths: library-only filing and rotation filing.</span></li>
+      <li><span class="mark">4</span><span>The plan's <code>FiledSoFar</code> ledger, persisted for the session. Directors file stacks; "Keep label, format &amp; bin" makes the per-record cost two fields.</span></li>
+      <li><span class="mark">5</span><span>Three sequential writes, no transaction — partial failure is a real state. Arm the toggle: the release files but the rotation add fails, and the ledger row carries "Retry step 3" (the <code>runRotationImport</code> outcome-union pattern). A transactional <code>POST /library/file</code> would delete this entire class of UX.</span></li>
+    </ol>
+  </div>
+
+<script>
+const norm = s => s.normalize('NFD').replace(/[̀-ͯ]/g,'').trim().toLowerCase();
+const suggestLetters = name => {
+  const n = norm(name).replace(/^the\s+/,'');
+  return ((n.match(/[a-z]/g)||[]).slice(0,2).join('').toUpperCase()) || 'A';
+};
+const LIB = [
+  {name:"Stereolab", genre:"Rock", letters:"SL", num:1, releases:["Transient Random-Noise Bursts with Announcements","Dots and Loops"]},
+  {name:"Jessica Pratt", genre:"Rock", letters:"JP", num:3, releases:["Quiet Signs"]},
+  {name:"Nilüfer Yanya", genre:"Rock", letters:"NI", num:2, releases:["Miss Universe","Painless"]},
+  {name:"Cat Power", genre:"Rock", letters:"CA", num:5, releases:["Moon Pix","Covers"]},
+  {name:"Hermanos Gutiérrez", genre:"Rock", letters:"HG", num:1, releases:["El Bueno y el Malo"]},
+  {name:"Juana Molina", genre:"Rock", letters:"JM", num:1, releases:["Wed 21","Halo"]},
+  {name:"Chuquimamani-Condori", genre:"Electronic", letters:"CH", num:2, releases:["Edits"]},
+  {name:"Duke Ellington & John Coltrane", genre:"Jazz", letters:"DU", num:1, releases:["Duke Ellington & John Coltrane"]},
+];
+const BINS = ["H","M","L","S"];
+const BIN_NAMES = {H:"Heavy", M:"Medium", L:"Light", S:"Singles"};
+const $ = id => document.getElementById(id);
+const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;');
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+let selected = null, selectedIsNew = false, binSel = null, ledger = [];
+
+function onArtistType() {
+  const q = $('artistInput').value;
+  $('createPanel').hidden = true;
+  if (q.trim().length < 2) { $('listbox').hidden = true; return; }
+  const matches = LIB.filter(a => norm(a.name).includes(norm(q)));
+  let html = matches.map(a =>
+    '<div class="opt" onclick="selectByName(\'' + encodeURIComponent(a.name).replace(/'/g, '%27') + '\')">' + esc(a.name) +
+    ' <span class="code">· ' + a.genre + ' ' + a.letters + ' ' + a.num + '</span></div>').join('');
+  if (!matches.length) html = '<div class="opt none">No artists in the library match "' + esc(q) + '"</div>';
+  html += '<div class="opt create" onclick="openCreate()">＋ File "' + esc(q.trim()) + '" as a new artist…</div>';
+  $('listbox').innerHTML = html;
+  $('listbox').hidden = false;
+}
+function selectByName(enc) { selectArtist(LIB.find(x => x.name === decodeURIComponent(enc)), false); }
+function selectArtist(a, isNew) {
+  selected = a; selectedIsNew = !!isNew;
+  $('artistInput').classList.remove('bad');
+  $('artistInput').hidden = true; $('listbox').hidden = true; $('createPanel').hidden = true;
+  $('selText').textContent = a.name + ' · ' + a.genre + ' ' + a.letters + ' ' + a.num + (isNew ? ' (new)' : '');
+  $('selWrap').hidden = false;
+  $('genreShow').value = a.genre;
+  $('err').textContent = '';
+  updatePreview();
+}
+function changeArtist() {
+  selected = null; selectedIsNew = false;
+  $('selWrap').hidden = true;
+  $('genreShow').value = '— from artist';
+  $('artistInput').hidden = false; $('artistInput').focus();
+  updatePreview(); onArtistType();
+}
+function openCreate() {
+  const q = $('artistInput').value.trim();
+  $('listbox').hidden = true;
+  $('cName').value = q;
+  $('cLetters').value = suggestLetters(q);
+  $('cNum').value = '';
+  $('conflict').hidden = true; $('createBtn').disabled = false; $('cErr').textContent = '';
+  updatePeek();
+  $('createPanel').hidden = false;
+}
+function nextCode(letters, genre) {
+  const nums = LIB.filter(a => a.genre === genre && a.letters === letters).map(a => a.num);
+  return nums.length ? Math.max.apply(null, nums) + 1 : 1;
+}
+function updatePeek() {
+  const letters = $('cLetters').value.toUpperCase();
+  $('cLetters').value = letters;
+  const n = nextCode(letters, $('cGenre').value);
+  $('peekLetters').textContent = (letters || '—') + ' in ' + $('cGenre').value;
+  $('peekNum').textContent = n; $('useNum').textContent = n;
+  checkConflict();
+}
+function usePeek() { $('cNum').value = $('peekNum').textContent; checkConflict(); }
+function checkConflict() {
+  const letters = $('cLetters').value.toUpperCase(), g = $('cGenre').value, v = parseInt($('cNum').value, 10);
+  const holder = LIB.find(a => a.genre === g && a.letters === letters && a.num === v);
+  if (holder) {
+    $('conflict').textContent = g + ' ' + letters + ' ' + v + ' is already assigned to ' + holder.name + '.';
+    $('conflict').hidden = false; $('createBtn').disabled = true;
+  } else { $('conflict').hidden = true; $('createBtn').disabled = false; }
+}
+function createArtist() {
+  const name = $('cName').value.trim(), letters = $('cLetters').value.toUpperCase(), v = parseInt($('cNum').value, 10);
+  $('cName').classList.toggle('bad', !name);
+  $('cLetters').classList.toggle('bad', !letters);
+  $('cNum').classList.toggle('bad', !(v >= 1 && v <= 32767));
+  if (!name || !letters || !(v >= 1 && v <= 32767)) {
+    $('cErr').textContent = 'Name, call letters, and a code number 1–32767 are required — "Use ' + $('peekNum').textContent + '" accepts the peek.';
+    return;
+  }
+  $('cErr').textContent = '';
+  const a = {name, genre: $('cGenre').value, letters, num: v, releases: []};
+  selectArtist(a, true); // pushed to LIB only when the filing chain "creates" it
+}
+function updatePreview() {
+  if (selected && $('title').value.trim()) {
+    $('previewCode').textContent = selected.genre + ' ' + selected.letters + ' ' + selected.num + '/' + (selected.releases.length + 1);
+    $('preview').hidden = false;
+  } else $('preview').hidden = true;
+}
+function renderChips() {
+  $('chips').innerHTML = BINS.map(b =>
+    '<span class="chip' + (binSel === b ? ' sel' : '') + '" title="' + BIN_NAMES[b] + '" onclick="toggleBin(\'' + b + '\')">' + b + '</span>').join('');
+}
+function toggleBin(b) { binSel = binSel === b ? null : b; renderChips(); }
+function renderLedger() {
+  if (!ledger.length) return;
+  $('ledgerRows').innerHTML = ledger.map((e, i) => {
+    let status;
+    if (e.status === 'ok') status = '<span class="ok">✓ filed' + (e.bin ? ' &amp; in ' + BIN_NAMES[e.bin] : '') + '</span>';
+    else if (e.status === 'library') status = '<span class="ok">✓ filed</span> · library only';
+    else if (e.status === 'retrying') status = 'retrying rotation add…';
+    else status = '<span class="fail">release filed, rotation add failed</span><span class="retry" onclick="retryRow(' + i + ')">Retry step 3</span>';
+    return '<div class="lrow' + (e.status === 'partial' ? ' partial' : '') + '"><div class="t">' + esc(e.name) + ' — ' + esc(e.title) + '</div><div class="m">' + e.code + (e.bin ? ' · ' + e.bin : '') + ' · ' + status + '</div></div>';
+  }).reverse().join('');
+}
+function retryRow(i) {
+  ledger[i].status = 'retrying'; renderLedger();
+  setTimeout(() => { ledger[i].status = 'ok'; renderLedger(); }, 500);
+}
+async function fileRelease() {
+  const title = $('title').value.trim(), label = $('label').value.trim();
+  $('title').classList.toggle('bad', !title);
+  $('label').classList.toggle('bad', !label);
+  $('artistInput').classList.toggle('bad', !selected);
+  if (!selected || !title || !label) {
+    $('err').textContent = 'Missing ' + [!selected && 'an artist (select or create one above)', !title && 'the album title', !label && 'the label'].filter(Boolean).join(', ') + '.';
+    return;
+  }
+  $('err').textContent = '';
+  $('fileBtn').disabled = true;
+  const steps = $('steps');
+  steps.innerHTML = selectedIsNew ? '1 creating artist…' : '1 <span class="ok">✓ artist exists</span>';
+  if (selectedIsNew) { await sleep(350); LIB.push(selected); steps.innerHTML = '1 <span class="ok">✓ artist created (' + selected.genre + ' ' + selected.letters + ' ' + selected.num + ')</span>'; }
+  await sleep(350);
+  selected.releases.push(title);
+  const code = selected.genre + ' ' + selected.letters + ' ' + selected.num + '/' + selected.releases.length;
+  steps.innerHTML += ' &nbsp; 2 <span class="ok">✓ filed as ' + code + '</span>';
+  const entry = { name: selected.name, title, code, bin: binSel, status: 'library' };
+  if (binSel) {
+    await sleep(350);
+    if ($('failToggle').checked) {
+      steps.innerHTML += ' &nbsp; 3 <span class="bad">✗ rotation add failed</span>';
+      entry.status = 'partial';
+      $('failToggle').checked = false;
+    } else {
+      steps.innerHTML += ' &nbsp; 3 <span class="ok">✓ in ' + BIN_NAMES[binSel] + '</span>';
+      entry.status = 'ok';
+    }
+  }
+  ledger.push(entry);
+  renderLedger();
+  // reset for the next record
+  changeArtist(); $('artistInput').value = ''; $('listbox').hidden = true;
+  $('title').value = '';
+  if (!$('keepVals').checked) { $('label').value = ''; $('format').selectedIndex = 0; binSel = null; renderChips(); }
+  $('fileBtn').disabled = false;
+  $('artistInput').focus();
+}
+renderChips();
+// Seeding from mockup E (search-miss): ?artist=&album=
+const params = new URLSearchParams(location.search);
+if (params.get('artist') || params.get('album')) {
+  const pa = params.get('artist') || '', pt = params.get('album') || '';
+  $('seedBanner').textContent = 'Seeded from catalog search: ' + [pa, pt].filter(Boolean).join(' — ') + ' (an exact field mapping — the query builder is structured, no parsing)';
+  $('seedBanner').hidden = false;
+  $('title').value = pt;
+  const m = LIB.find(a => norm(a.name) === norm(pa));
+  if (m) selectArtist(m, false);
+  else if (pa) { $('artistInput').value = pa; onArtistType(); }
+  updatePreview();
+}
+</script>
+</body>
+</html>

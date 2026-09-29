@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>B — Inline Artist Create (interactive)</title>
+<style>
+  * { box-sizing: border-box; margin: 0; }
+  body { font-family: -apple-system, "Segoe UI", Roboto, Helvetica, sans-serif; background: #f4f6f9; color: #172b4d; padding: 36px; line-height: 1.45; }
+  h1 { font-size: 22px; margin-bottom: 4px; }
+  .lede { color: #5a6b85; margin-bottom: 18px; max-width: 80ch; }
+  .lede code, li code { background:#e8edf3; border-radius:4px; padding:1px 5px; font-size: 13px; }
+  a.back { color:#0b6bcb; font-size: 13px; text-decoration:none; font-weight:600; }
+  .demobar { display:flex; align-items:center; gap:14px; max-width: 900px; background:#e8f1fb; border:1px solid #b6d4f2; border-radius:10px; padding:10px 16px; font-size:13.5px; color:#0b3d70; margin-bottom: 24px; }
+  .demobar button { margin-left:auto; border:1px solid #0b6bcb; color:#0b6bcb; background:#fff; border-radius:8px; font-size:13px; font-weight:700; padding:5px 14px; cursor:pointer; flex:none; }
+  .modal { width: 480px; background: #fff; border: 1px solid #d7dfe9; border-radius: 14px; box-shadow: 0 12px 28px rgba(23,43,77,.10); padding: 22px; }
+  .modal h3 { font-size: 17px; margin-bottom: 12px; }
+  label.f { display: block; font-size: 12.5px; font-weight: 600; color: #42526e; margin: 12px 0 4px; }
+  .inp, select.inp { width: 100%; border: 1px solid #cdd7e1; border-radius: 8px; padding: 8px 11px; font-size: 14px; background: #fff; color: #172b4d; }
+  .inp:focus { outline:none; border-color:#0b6bcb; box-shadow:0 0 0 3px rgba(11,107,203,.15); }
+  .row { display: flex; gap: 12px; } .row > div { flex: 1; }
+  .listbox { border: 1px solid #cdd7e1; border-radius: 0 0 10px 10px; background: #fff; box-shadow: 0 10px 18px rgba(23,43,77,.08); overflow: hidden; margin-top:-2px; }
+  .opt { padding: 9px 12px; font-size: 13.5px; color: #42526e; border-top: 1px solid #f0f3f7; cursor:pointer; }
+  .opt:hover { background:#f4f9ff; }
+  .opt .code { color:#8b97a8; font-size:12.5px; }
+  .opt.none { color: #8b97a8; font-style: italic; cursor:default; }
+  .opt.none:hover { background:#fff; }
+  .opt.create { background: #e8f1fb; color: #0b6bcb; font-weight: 700; }
+  .opt.create:hover { background:#d9e9fa; }
+  .inline-create { margin-top: 10px; border: 1px solid #b6d4f2; background: #f4f9ff; border-radius: 10px; padding: 14px; }
+  .inline-create h4 { font-size: 13.5px; color: #0b6bcb; margin-bottom: 2px; }
+  .hint { font-size: 12px; color: #5a6b85; margin-top: 4px; }
+  .peek { display: flex; align-items: center; gap: 10px; margin-top: 8px; font-size: 13px; color: #42526e; flex-wrap:wrap; }
+  .peek .val { font-weight: 700; }
+  .usebtn { border: 1px solid #0b6bcb; color: #0b6bcb; background: #fff; border-radius: 999px; font-size: 12.5px; font-weight: 700; padding: 3px 12px; cursor:pointer; }
+  .usebtn:hover { background:#e8f1fb; }
+  .conflict { margin-top:10px; background:#fdecea; border:1px solid #f0b8b1; border-radius:8px; padding:8px 12px; font-size:12.5px; color:#b42318; }
+  .btnrow { display: flex; gap: 10px; justify-content: flex-end; margin-top: 14px; }
+  .btn { border-radius: 8px; padding: 8px 16px; font-size: 14px; font-weight: 600; border: 1px solid transparent; cursor:pointer; }
+  .btn.primary { background: #0b6bcb; color: #fff; } .btn.primary:hover { background:#0a5cae; }
+  .btn.primary:disabled { opacity:.45; cursor:not-allowed; }
+  .btn.ghost { background: #fff; color: #42526e; border-color: #cdd7e1; } .btn.ghost:hover { background:#f4f7fa; }
+  .btn.sm { padding: 6px 12px; font-size: 13px; }
+  .selchip { display: inline-flex; align-items: center; gap: 8px; background: #e6f4ea; border: 1px solid #b7e0c3; color: #14532d; border-radius: 999px; padding: 6px 14px; font-size: 13.5px; font-weight: 700; }
+  .selchip a { color: #0b6bcb; font-weight: 600; font-size: 12.5px; text-decoration: none; cursor:pointer; }
+  .err { font-size: 12.5px; color:#b42318; margin-top: 8px; min-height: 16px; }
+  .success { margin-top: 14px; padding: 12px 14px; background: #e6f4ea; border: 1px solid #b7e0c3; border-radius: 10px; font-size: 14px; color: #14532d; }
+  .mark { display: inline-flex; width: 18px; height: 18px; border-radius: 50%; background: #e8590c; color: #fff; font-size: 11.5px; font-weight: 700; align-items: center; justify-content: center; vertical-align: middle; margin-left: 6px; flex: none; }
+  .legend { margin-top: 36px; max-width: 900px; background: #fff; border: 1px solid #d7dfe9; border-radius: 12px; padding: 18px 22px; }
+  .legend h2 { font-size: 14px; margin-bottom: 10px; }
+  .legend li { font-size: 13.5px; margin: 8px 0 8px 4px; list-style: none; display: flex; gap: 10px; }
+  .legend .mark { margin: 2px 0 0; }
+</style>
+</head>
+<body>
+  <a class="back" href="index.html">&larr; All mockups</a>
+  <h1>B — Inline artist create (combobox-with-create)</h1>
+  <p class="lede">The typeahead's <code>CREATE_HIGHLIGHT</code> sentinel stops being a dead end: it expands the already-extracted <code>NewArtistFields</code> in place, pre-filled by <code>suggestCallLetters</code>, with the code peek promoted to a one-click accept.</p>
+  <div class="demobar">▶ Live demo — type <b>"ste"</b> in the artist field to see matches, then clear it and type <b>"Csillagrablók"</b> (or anything unknown) and click the create row. Try call letters <b>SL</b> + number <b>1</b> to see the conflict banner. <button onclick="location.reload()">Reset demo</button></div>
+
+  <div class="modal">
+    <h3>Add a release</h3>
+    <label class="f">Album title</label>
+    <input class="inp" id="title" value="Ezt is elviszem magammal">
+    <div class="row">
+      <div><label class="f">Genre <span class="mark">1</span></label>
+        <select class="inp" id="genre" onchange="onGenreChange()"><option>Rock</option><option>Electronic</option><option>Jazz</option></select></div>
+      <div><label class="f">Format</label>
+        <select class="inp" id="format"><option>LP</option><option>CD</option><option>7"</option></select></div>
+    </div>
+
+    <label class="f">Artist</label>
+    <div id="artistPicker">
+      <input class="inp" id="artistInput" placeholder="Type at least 2 characters…" autocomplete="off" oninput="onArtistType()">
+      <div class="listbox" id="listbox" hidden></div>
+      <div class="inline-create" id="createPanel" hidden>
+        <h4>New <span id="cpGenre">Rock</span> artist <span class="mark">2</span></h4>
+        <div class="row">
+          <div><label class="f">Name</label><input class="inp" id="cName"></div>
+          <div><label class="f">Alphabetical name</label><input class="inp" id="cAlpha"></div>
+        </div>
+        <div class="row">
+          <div><label class="f">Call letters</label><input class="inp" id="cLetters" maxlength="2" oninput="updatePeek()"><div class="hint">suggested from the name <span class="mark">3</span></div></div>
+          <div><label class="f">Code number</label><input class="inp" id="cNum" placeholder="—" oninput="checkConflict()">
+            <div class="peek">Next code for <span class="val" id="peekLetters"></span> in <span class="val" id="peekGenre"></span>: <span class="val" id="peekNum"></span> <button class="usebtn" onclick="usePeek()">Use <span id="useNum"></span></button> <span class="mark">4</span></div>
+          </div>
+        </div>
+        <div class="conflict" id="conflict" hidden></div>
+        <div class="btnrow">
+          <button class="btn ghost sm" onclick="cancelCreate()">Cancel</button>
+          <button class="btn primary sm" id="createBtn" onclick="createArtist()">Create artist &amp; continue</button>
+        </div>
+      </div>
+      <div id="selWrap" hidden><span class="selchip">✓ <span id="selText"></span> <a onclick="changeArtist()">change</a></span> <span class="mark">5</span></div>
+    </div>
+
+    <label class="f">Label</label>
+    <input class="inp" id="label" value="self-released">
+    <div class="err" id="err"></div>
+    <div class="btnrow">
+      <button class="btn primary" onclick="addRelease()">Add release</button>
+    </div>
+    <div class="success" id="success" hidden></div>
+  </div>
+
+  <div class="legend">
+    <h2>Annotations</h2>
+    <ol>
+      <li><span class="mark">1</span><span>Matches are genre-scoped, like the real <code>searchArtistsInGenre</code> — switch the genre and the same search returns different rows (and a held selection is cleared, mirroring <code>handleGenreChange</code>).</span></li>
+      <li><span class="mark">2</span><span>The create row exists in <code>ArtistSearchTypeahead</code> today (<code>CREATE_HIGHLIGHT</code>); only its handler changes — from "show an advisory telling the MD to leave" to expanding this panel. Every consumer of the typeahead inherits the fix.</span></li>
+      <li><span class="mark">3</span><span><code>suggestCallLetters()</code> already exists (<code>lib/features/rotation/importSuggestions.ts</code>) — today it's only used on the rotation import screen. Edit the letters and watch the peek recompute.</span></li>
+      <li><span class="mark">4</span><span><code>GET /library/artists/peek-code</code> already returns this number; today three forms render it read-only and make the MD retype it. "Use N" is the one-click accept. The conflict banner mirrors the code-triple 409 from <code>adminCreateArtistValidation.ts</code> — try SL 1 in Rock (Stereolab's code).</span></li>
+      <li><span class="mark">5</span><span>On create, the panel collapses to a selected chip and the release fields are exactly as you left them — no modal exit, no retyping. What happens after "Add release" is mockup C's subject.</span></li>
+    </ol>
+  </div>
+
+<script>
+const norm = s => s.normalize('NFD').replace(/[̀-ͯ]/g,'').trim().toLowerCase();
+const suggestLetters = name => {
+  const n = norm(name).replace(/^the\s+/,'');
+  return ((n.match(/[a-z]/g)||[]).slice(0,2).join('').toUpperCase()) || 'A';
+};
+const LIB = [
+  {name:"Stereolab", genre:"Rock", letters:"SL", num:1, releases:["Transient Random-Noise Bursts with Announcements","Dots and Loops","Instant Holograms on Metal Film"]},
+  {name:"Jessica Pratt", genre:"Rock", letters:"JP", num:3, releases:["Quiet Signs"]},
+  {name:"Nilüfer Yanya", genre:"Rock", letters:"NI", num:2, releases:["Miss Universe","Painless"]},
+  {name:"Cat Power", genre:"Rock", letters:"CA", num:5, releases:["Moon Pix","Covers"]},
+  {name:"Hermanos Gutiérrez", genre:"Rock", letters:"HG", num:1, releases:["El Bueno y el Malo"]},
+  {name:"Juana Molina", genre:"Rock", letters:"JM", num:1, releases:["Wed 21","Halo"]},
+  {name:"Chuquimamani-Condori", genre:"Electronic", letters:"CH", num:2, releases:["Edits"]},
+  {name:"Duke Ellington & John Coltrane", genre:"Jazz", letters:"DU", num:1, releases:["Duke Ellington & John Coltrane"]},
+];
+const $ = id => document.getElementById(id);
+const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;');
+let selected = null;
+
+function onArtistType() {
+  const q = $('artistInput').value;
+  $('createPanel').hidden = true;
+  if (q.trim().length < 2) { $('listbox').hidden = true; return; }
+  const g = $('genre').value;
+  const matches = LIB.filter(a => a.genre === g && norm(a.name).includes(norm(q)));
+  let html = matches.map((a, i) =>
+    '<div class="opt" onclick="selectByName(\'' + encodeURIComponent(a.name).replace(/'/g, '%27') + '\')">' + esc(a.name) +
+    ' <span class="code">· ' + a.genre + ' ' + a.letters + ' ' + a.num + '</span></div>').join('');
+  if (!matches.length) html = '<div class="opt none">No artists filed under ' + g + ' match "' + esc(q) + '"</div>';
+  html += '<div class="opt create" onclick="openCreate()">＋ File "' + esc(q.trim()) + '" as a new ' + g + ' artist…</div>';
+  $('listbox').innerHTML = html;
+  $('listbox').hidden = false;
+}
+function selectByName(enc) {
+  const a = LIB.find(x => x.name === decodeURIComponent(enc));
+  selectArtist(a);
+}
+function selectArtist(a) {
+  selected = a;
+  $('artistInput').hidden = true; $('listbox').hidden = true; $('createPanel').hidden = true;
+  $('selText').textContent = a.name + ' · ' + a.genre + ' ' + a.letters + ' ' + a.num;
+  $('selWrap').hidden = false;
+  $('err').textContent = '';
+}
+function changeArtist() {
+  selected = null;
+  $('selWrap').hidden = true;
+  $('artistInput').hidden = false;
+  $('artistInput').focus();
+  onArtistType();
+}
+function onGenreChange() {
+  if (selected) { changeArtist(); $('err').textContent = 'Genre changed — reselect the artist.'; }
+  else if (!$('createPanel').hidden) { $('cpGenre').textContent = $('genre').value; updatePeek(); }
+  else onArtistType();
+}
+function openCreate() {
+  const q = $('artistInput').value.trim();
+  $('listbox').hidden = true;
+  $('cpGenre').textContent = $('genre').value;
+  $('cName').value = q;
+  $('cAlpha').value = q.replace(/^the\s+/i, '');
+  $('cLetters').value = suggestLetters(q);
+  $('cNum').value = '';
+  $('conflict').hidden = true; $('createBtn').disabled = false;
+  updatePeek();
+  $('createPanel').hidden = false;
+}
+function nextCode(letters, genre) {
+  const nums = LIB.filter(a => a.genre === genre && a.letters === letters).map(a => a.num);
+  return nums.length ? Math.max.apply(null, nums) + 1 : 1;
+}
+function updatePeek() {
+  const letters = $('cLetters').value.toUpperCase();
+  $('cLetters').value = letters;
+  const g = $('genre').value;
+  const n = nextCode(letters, g);
+  $('peekLetters').textContent = letters || '—';
+  $('peekGenre').textContent = g;
+  $('peekNum').textContent = n;
+  $('useNum').textContent = n;
+  checkConflict();
+}
+function usePeek() { $('cNum').value = $('peekNum').textContent; checkConflict(); }
+function checkConflict() {
+  const letters = $('cLetters').value.toUpperCase(), g = $('genre').value, v = parseInt($('cNum').value, 10);
+  const holder = LIB.find(a => a.genre === g && a.letters === letters && a.num === v);
+  if (holder) {
+    $('conflict').textContent = g + ' ' + letters + ' ' + v + ' is already assigned to ' + holder.name + '. Pick another number.';
+    $('conflict').hidden = false; $('createBtn').disabled = true;
+  } else { $('conflict').hidden = true; $('createBtn').disabled = false; }
+}
+function cancelCreate() { $('createPanel').hidden = true; $('artistInput').focus(); onArtistType(); }
+function createArtist() {
+  const name = $('cName').value.trim(), letters = $('cLetters').value.toUpperCase(), v = parseInt($('cNum').value, 10);
+  if (!name || letters.length < 1 || !(v >= 1 && v <= 32767)) { $('err').textContent = 'Name, call letters, and a code number 1–32767 are required.'; return; }
+  const a = {name, genre: $('genre').value, letters, num: v, releases: []};
+  LIB.push(a);
+  selectArtist(a);
+}
+function addRelease() {
+  const title = $('title').value.trim(), label = $('label').value.trim();
+  if (!title || !selected || !label) { $('err').textContent = 'Album title, artist, and label are all required — the artist must be selected or created.'; return; }
+  $('err').textContent = '';
+  selected.releases.push(title);
+  $('success').innerHTML = '✓ Filed as <b>' + selected.genre + ' ' + selected.letters + ' ' + selected.num + '/' + selected.releases.length + '</b> — ' + esc(selected.name) + ', <em>' + esc(title) + '</em>. One pass, no modal exit.';
+  $('success').hidden = false;
+}
+</script>
+</body>
+</html>
