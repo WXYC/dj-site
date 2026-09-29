@@ -150,18 +150,26 @@ export default function SearchForm() {
             <h3 className="modal-title">Search Tips</h3>
             <ul>
               <li>Queries match against artist name and album/release title.</li>
-              <li>Results are shown in order of relevance; closest matches first.</li>
               <li>
-                Double quotes (&quot;&quot;) signify an exact phrase.{" "}
-                <b>Example:</b> <em>&quot;jimmy carl black&quot;</em>
+                Multiple words are AND-combined &mdash; every word must
+                match.
               </li>
               <li>
-                All-caps Boolean operators like <b>AND</b>, <b>OR</b>, and{" "}
-                <b>NOT</b> can be used. <b>Example:</b> <em>rolling NOT stones</em>
+                The last word you type is matched as a prefix. <b>Example:</b>{" "}
+                <em>stereola</em> finds Stereolab. Earlier words must be
+                complete.
               </li>
               <li>
-                An asterisk (*) can be used for wildcard matching.{" "}
-                <b>Example:</b> <em>elect*</em>
+                Whole-word matches rank above prefix-only matches; ties break
+                by relevance.
+              </li>
+              <li>
+                Quotes, <b>AND</b>, <b>OR</b>, <b>NOT</b>, <b>*</b>, and a
+                leading <b>-</b> have no special meaning.
+              </li>
+              <li>
+                A search that doesn&rsquo;t match any word falls back to
+                fuzzy matching, so small typos still find results.
               </li>
               <li>
                 Click <b>Browse Exclusive Albums</b> to discover releases not
