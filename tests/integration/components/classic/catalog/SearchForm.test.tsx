@@ -128,9 +128,25 @@ describe("Classic catalog SearchForm — search tips modal", () => {
     renderWithProviders(<SearchForm />);
     fireEvent.click(screen.getByTitle(/search tips/i));
     expect(screen.getByText("Search Tips")).toBeDefined();
-    expect(screen.getByText(/exact phrase/i)).toBeDefined();
+    expect(screen.getByText(/matched as a prefix/i)).toBeDefined();
     fireEvent.click(screen.getByRole("button", { name: /close/i }));
     expect(screen.queryByText("Search Tips")).toBeNull();
+  });
+
+  it("does not claim quotes, Boolean operators or the asterisk have special meaning", () => {
+    renderWithProviders(<SearchForm />);
+    fireEvent.click(screen.getByTitle(/search tips/i));
+    expect(screen.queryByText(/exact phrase/i)).toBeNull();
+    expect(screen.queryByText(/wildcard matching/i)).toBeNull();
+    expect(screen.queryByText(/rolling not stones/i)).toBeNull();
+  });
+
+  it("describes AND-combination, the last-word prefix and whole-word ranking", () => {
+    renderWithProviders(<SearchForm />);
+    fireEvent.click(screen.getByTitle(/search tips/i));
+    expect(screen.getByText(/AND-combined/i)).toBeDefined();
+    expect(screen.getByText(/matched as a prefix/i)).toBeDefined();
+    expect(screen.getByText(/rank above prefix-only matches/i)).toBeDefined();
   });
 });
 
