@@ -1,6 +1,7 @@
 import { combineSlices, configureStore } from "@reduxjs/toolkit";
 import { rtkQueryErrorLogger } from "./rtk-query-error-logger";
 import { applicationSlice } from "./features/application/frontend";
+import { archiveStreamApi } from "./features/archive-stream/api";
 import { authenticationSlice } from "./features/authentication/frontend";
 import { experienceApi } from "./features/experiences/api";
 import { flowsheetApi } from "./features/flowsheet/api";
@@ -26,6 +27,7 @@ import { playlistSearchSlice } from "./features/playlist-search/frontend";
 const publicRootReducer = combineSlices(
   authenticationSlice,
   applicationSlice,
+  archiveStreamApi,
   experienceApi,
   flowsheetSlice,
   flowsheetApi,
@@ -42,6 +44,7 @@ export const makePublicStore = () => {
       return getDefaultMiddleware()
         .prepend(liveUpdatesListener.middleware)
         .concat(rtkQueryErrorLogger)
+        .concat(archiveStreamApi.middleware)
         .concat(experienceApi.middleware)
         .concat(flowsheetApi.middleware)
         .concat(playlistSearchApi.middleware);

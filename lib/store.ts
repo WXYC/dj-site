@@ -4,6 +4,7 @@ import { rtkQueryErrorLogger } from "./rtk-query-error-logger";
 import { adminApi } from "./features/admin/api";
 import { adminSlice } from "./features/admin/frontend";
 import { applicationApi } from "./features/application/api";
+import { archiveStreamApi } from "./features/archive-stream/api";
 import { applicationSlice } from "./features/application/frontend";
 import { authenticationSlice } from "./features/authentication/frontend";
 import { autoDJApi } from "./features/autoDJ/api";
@@ -33,6 +34,7 @@ const rootReducer = combineSlices(
   authenticationSlice,
   applicationSlice,
   applicationApi,
+  archiveStreamApi,
   autoDJApi,
   experienceApi,
   catalogSlice,
@@ -67,6 +69,7 @@ export const makeStore = (preloadedState?: Partial<RootState>) => {
         .prepend(liveUpdatesListener.middleware)
         .concat(rtkQueryErrorLogger)
         .concat(applicationApi.middleware)
+        .concat(archiveStreamApi.middleware)
         .concat(autoDJApi.middleware)
         .concat(experienceApi.middleware)
         .concat(catalogApi.middleware)
