@@ -208,6 +208,23 @@ describe("backend", () => {
           "Bearer valid-token"
         );
       });
+
+      it("should skip getJWTToken entirely when skipAuth is set, even with a token available", async () => {
+        backendBaseQuery("test", { skipAuth: true });
+
+        const prepareHeaders = (mockFetchBaseQuery as any).lastConfig.prepareHeaders;
+        const mockHeaders = new Map<string, string>();
+        const setFn = vi.fn();
+        mockHeaders.set = setFn;
+
+        mockedGetJWTToken.mockResolvedValue("valid-token");
+
+        await prepareHeaders(mockHeaders);
+
+        expect(mockedGetJWTToken).not.toHaveBeenCalled();
+        expect(setFn).toHaveBeenCalledWith("Content-Type", "application/json");
+        expect(setFn).not.toHaveBeenCalledWith("Authorization", expect.anything());
+      });
     });
 
     describe("different backend URLs", () => {

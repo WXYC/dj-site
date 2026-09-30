@@ -81,7 +81,11 @@ export const MAX_WINDOWS_PER_PAGE = 16;
 
 export const archiveStreamApi = createApi({
   reducerPath: "archiveStreamApi",
-  baseQuery: backendBaseQuery("flowsheet"),
+  // `/flowsheet/range` is public and the walk sends nothing that depends on
+  // identity, so resolving a JWT for it would cost a signed-out visitor an
+  // `/auth/token` round trip -- up to once per window -- for a token the
+  // route never checks.
+  baseQuery: backendBaseQuery("flowsheet", { skipAuth: true }),
   endpoints: (builder) => ({
     getArchiveStream: builder.infiniteQuery<
       ArchiveStreamPage,

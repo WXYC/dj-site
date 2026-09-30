@@ -63,7 +63,7 @@ const requestTimeoutFor = (domain: string): number =>
     ? LML_BACKED_REQUEST_TIMEOUT_MS
     : BACKEND_REQUEST_TIMEOUT_MS;
 
-const innerBaseQuery = (domain: string): BackendBaseQuery =>
+const innerBaseQuery = (domain: string, options?: BackendExtraOptions): BackendBaseQuery =>
   fetchBaseQuery({
     baseUrl: `${process.env.NEXT_PUBLIC_BACKEND_URL}/${domain}`,
     timeout: requestTimeoutFor(domain),
@@ -71,9 +71,11 @@ const innerBaseQuery = (domain: string): BackendBaseQuery =>
       headers.set("Content-Type", "application/json");
       headers.set("X-Request-Id", crypto.randomUUID());
 
-      const token = await getJWTToken();
-      if (token) {
-        headers.set("Authorization", `Bearer ${token}`);
+      if (!options?.skipAuth) {
+        const token = await getJWTToken();
+        if (token) {
+          headers.set("Authorization", `Bearer ${token}`);
+        }
       }
       return headers;
     },
@@ -200,6 +202,14 @@ const logNonJsonResponse = (
  */
 type BackendExtraOptions = {
   surfaceNonJsonAsError?: boolean;
+  /**
+   * Skips `getJWTToken()` in `prepareHeaders` entirely, so a public route
+   * never blocks on -- or triggers -- token resolution. Off by default:
+   * every consumer but a route that is genuinely public (`archiveStreamApi`)
+   * needs the bearer token. `backendBaseQuery` takes this at the domain
+   * level, not per endpoint, since the whole domain it wraps is public.
+   */
+  skipAuth?: boolean;
 };
 
 /**
@@ -232,8 +242,11 @@ const isGetRequest = (args: string | FetchArgs): boolean => {
  * confusing toast. A GET endpoint that wants the loud behavior anyway can
  * opt out per-endpoint via `extraOptions: { surfaceNonJsonAsError: true }`.
  */
-export const backendBaseQuery = (domain: string): BackendBaseQuery => {
-  const inner = innerBaseQuery(domain);
+export const backendBaseQuery = (
+  domain: string,
+  options?: BackendExtraOptions
+): BackendBaseQuery => {
+  const inner = innerBaseQuery(domain, options);
 
   return async (args, api: BaseQueryApi, extraOptions) => {
     const result = await inner(args, api, extraOptions);
