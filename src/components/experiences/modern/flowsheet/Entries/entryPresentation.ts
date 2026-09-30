@@ -1,8 +1,7 @@
 import { ENTRY_TONES } from "@/lib/features/experiences/modern/tokens/roles";
+import { getMarkerText } from "@/lib/features/flowsheet/marker-text";
 import {
-  FlowsheetBreakpointEntry,
   FlowsheetEntry,
-  FlowsheetMessageEntry,
   isFlowsheetBreakpointEntry,
   isFlowsheetEndShowEntry,
   isFlowsheetStartShowEntry,
@@ -42,13 +41,15 @@ export type MessageEntryPresentation = {
 export function getMessageEntryPresentation(
   entry: FlowsheetEntry
 ): MessageEntryPresentation {
+  const { headline, caption } = getMarkerText(entry);
+
   if (isFlowsheetStartShowEntry(entry)) {
     return {
       Icon: Headphones,
       color: ENTRY_TONES.startShow.color,
       textColor: ENTRY_TONES.startShow.color,
-      headline: entry.dj_name,
-      caption: "started the set",
+      headline,
+      caption,
       time: { day: entry.day, time: entry.time, isToday: entry.isToday },
       editable: false,
     };
@@ -59,8 +60,8 @@ export function getMessageEntryPresentation(
       Icon: Logout,
       color: ENTRY_TONES.endShow.color,
       textColor: ENTRY_TONES.endShow.color,
-      headline: entry.dj_name,
-      caption: "ended the set",
+      headline,
+      caption,
       time: { day: entry.day, time: entry.time, isToday: entry.isToday },
       editable: false,
     };
@@ -71,7 +72,7 @@ export function getMessageEntryPresentation(
       Icon: Mic,
       color: ENTRY_TONES.talkset.color,
       textColor: ENTRY_TONES.talkset.color,
-      headline: (entry as FlowsheetMessageEntry).message,
+      headline,
       editable: true,
     };
   }
@@ -81,7 +82,7 @@ export function getMessageEntryPresentation(
       Icon: Timer,
       color: ENTRY_TONES.breakpoint.color,
       textColor: ENTRY_TONES.breakpoint.color,
-      headline: (entry as FlowsheetBreakpointEntry).message,
+      headline,
       editable: true,
     };
   }
@@ -90,22 +91,7 @@ export function getMessageEntryPresentation(
     Icon: Notifications,
     color: ENTRY_TONES.generic.color,
     textColor: ENTRY_TONES.generic.color,
-    // Callers only reach here for message-shaped entries (they route song
-    // entries to SongEntry before consulting the presentation), but the
-    // guards above don't narrow the union enough for TS to know that.
-    headline: (entry as unknown as FlowsheetMessageEntry).message,
+    headline,
     editable: true,
   };
-}
-
-/**
- * A message row's copy as one line, e.g. "DJ Chowder started the set".
- *
- * For surfaces that render the marker as text rather than as a row — the
- * classic schedule drill-in — so they read the same switch as the row
- * renderers instead of keeping a third copy of it.
- */
-export function messageEntryLabel(entry: FlowsheetEntry): string {
-  const { headline, caption } = getMessageEntryPresentation(entry);
-  return caption ? `${headline} ${caption}` : headline;
 }
