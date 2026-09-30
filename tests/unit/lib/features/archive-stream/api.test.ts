@@ -86,6 +86,12 @@ describe("archiveStreamApi", () => {
       expect(Number(end) - Number(start)).toBeGreaterThan(0);
       expect(Number(end) - Number(start)).toBeLessThanOrEqual(MAX_WINDOW_MS);
     }
+    // Each step's end must pick up exactly where the previous step's start
+    // left off -- a gap would skip rows, and true overlap would re-walk them
+    // outside of the single-row boundary case dedup exists to absorb.
+    for (let i = 1; i < requests.length; i++) {
+      expect(Number(requests[i].get("end"))).toBe(Number(requests[i - 1].get("start")));
+    }
   });
 
   it("walks backward across windows, accumulating in chronological order until pageSize is met", async () => {
@@ -171,7 +177,11 @@ describe("archiveStreamApi", () => {
     expect(result.data?.nextCursor).toBeNull();
   });
 
-  it("treats an unparseable window body as empty rather than throwing", async () => {
+  it("fails the page on an unparseable window body instead of mistaking it for an empty one", async () => {
+    // A transient gateway error mid-walk must not collapse to "no more
+    // entries here" -- the walk's empty-window bound would then trip on
+    // noise instead of genuine archive history (unlike scheduleWeekApi's
+    // single independent window, this one carries state across requests).
     queueRangeResponses([null]);
 
     const store = archiveStreamStore();
@@ -182,9 +192,7 @@ describe("archiveStreamApi", () => {
       }),
     );
 
-    expect(result.isError).toBeFalsy();
-    expect(result.data?.entries).toEqual([]);
-    expect(result.data?.reachedStart).toBe(true);
+    expect(result.isError).toBe(true);
   });
 
   it("propagates a genuine backend error instead of masking it as an empty window", async () => {
