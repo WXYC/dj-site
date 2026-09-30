@@ -2,6 +2,7 @@ import { createApi } from "@reduxjs/toolkit/query/react";
 import type { FetchBaseQueryError } from "@reduxjs/toolkit/query";
 import { backendBaseQuery } from "../backend";
 import type { FlowsheetRangeEntry, FlowsheetRangeResponse } from "@wxyc/shared";
+import { ARCHIVE_START_MS, MIN_WINDOW_MS, computeHeadWindow, orderNewestFirst } from "./head-window";
 
 export type ArchiveStreamArg = {
   /** How many entries a page holds before its walk stops. The walk never splits
@@ -40,35 +41,9 @@ export type ArchiveStreamPage = {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-/** The step after a window that turned up rows. */
-const MIN_WINDOW_MS = DAY_MS;
-
 /** `/flowsheet/range` rejects a window wider than 8 days (`MAX_RANGE_MS`,
  * Backend-Service `flowsheet.controller.ts`). */
 const MAX_WINDOW_MS = 8 * DAY_MS;
-
-/**
- * How far the head page's first window reaches past the device's clock. A
- * clock running behind the server's would otherwise leave the newest rows out
- * of the listing; nothing is logged in the future, so the reach costs nothing.
- */
-const CLOCK_SKEW_ALLOWANCE_MS = DAY_MS;
-
-/**
- * The walk ends here, not after some run of empty windows, because the
- * archive has real gaps: no rows at all from 2020-04-01 to 2020-05-12 (41.7
- * days), then weekly shows 6.9 days apart through that summer. Any empty-run
- * bound cheap enough to walk would stop at that gap and hide the fifteen years
- * before it. Per-month counts from 2004-11 through 2026-09 found no other
- * month thin enough to hide a gap of more than a few days.
- *
- * The first row (id 154) was logged the evening of 2004-11-03, station time;
- * neither `/flowsheet/search` in date order nor the id sequence has anything
- * older, and `/flowsheet/range` is empty for the 8 days before this floor,
- * which is the UTC midnight preceding that row. Rows backfilled from before it
- * are unreachable until it moves.
- */
-export const ARCHIVE_START_MS = Date.UTC(2004, 10, 4);
 
 /**
  * Most requests one page makes. An empty window doubles the next one's width
@@ -109,8 +84,9 @@ export const archiveStreamApi = createApi({
       queryFn: async ({ queryArg, pageParam }, _api, _extraOptions, fetchWithBQ) => {
         const seenIds = new Set<number>();
         const entries: FlowsheetRangeEntry[] = [];
-        let windowEnd = pageParam === "now" ? Date.now() : pageParam;
-        let requestEnd = pageParam === "now" ? windowEnd + CLOCK_SKEW_ALLOWANCE_MS : windowEnd;
+        const head = pageParam === "now" ? computeHeadWindow(Date.now()) : null;
+        let windowEnd = pageParam === "now" ? head!.end : pageParam;
+        let requestEnd = head ? head.requestEnd : windowEnd;
         let width = MIN_WINDOW_MS;
 
         for (
@@ -121,7 +97,8 @@ export const archiveStreamApi = createApi({
           windowEnd > ARCHIVE_START_MS;
           windows++
         ) {
-          const windowStart = Math.max(windowEnd - width, ARCHIVE_START_MS);
+          const windowStart =
+            windows === 0 && head ? head.start : Math.max(windowEnd - width, ARCHIVE_START_MS);
           const result = await fetchWithBQ({
             url: "/range",
             // Epoch milliseconds, not ISO strings: the endpoint rejects
@@ -149,9 +126,9 @@ export const archiveStreamApi = createApi({
 
           const fresh = rangeWindow.entries.filter((entry) => !seenIds.has(entry.id));
           fresh.forEach((entry) => seenIds.add(entry.id));
-          // Each window arrives oldest first and is older than everything
-          // already accumulated, so reversed it continues the newest-first run.
-          entries.push(...fresh.reverse());
+          // Each window is older than everything already accumulated, so its
+          // own newest-first order continues the run.
+          entries.push(...orderNewestFirst(fresh));
 
           // "No new rows", not "no rows": a window that only re-serves rows
           // this page already holds is walked like a gap, not a busy day.
