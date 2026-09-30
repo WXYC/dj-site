@@ -1,11 +1,11 @@
 import "server-only";
 
-import type { FlowsheetRangeEntry, FlowsheetRangeResponse } from "@wxyc/shared";
+import type { FlowsheetV2Entry, FlowsheetRangeResponse } from "@wxyc/shared";
 import { fetchBackendSeed } from "../server-fetch";
 import { computeHeadWindow, reverseWireOrder } from "./head-window";
 
 export type ArchiveStreamSeed = {
-  entries: FlowsheetRangeEntry[];
+  entries: FlowsheetV2Entry[];
 };
 
 // The head page's first window is canonical, request-time-knowable data

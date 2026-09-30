@@ -1,7 +1,7 @@
 import type {
-  FlowsheetRangeEntry,
   FlowsheetRangeResponse,
   FlowsheetRangeShow,
+  FlowsheetV2Entry,
 } from "@wxyc/shared";
 import {
   stationDaysOfWeek,
@@ -88,7 +88,7 @@ export function resolveShowEnd(
  * evidence where "now" is only a guess.
  */
 export function collectShowEndMarkers(
-  entries: readonly FlowsheetRangeEntry[],
+  entries: readonly FlowsheetV2Entry[],
 ): Map<number, number> {
   const endMarkers = new Map<number, number>();
   for (const e of entries) {
@@ -138,7 +138,7 @@ export function buildWeekGrid(
   const days = stationDaysOfWeek(weekStart);
   const dayBounds = [...days.map((d) => d.getTime()), window.endMs];
 
-  const entries = response.entries as FlowsheetRangeEntry[];
+  const entries = response.entries;
   const endMarkers = collectShowEndMarkers(entries);
   const unattributedEntryCount = entries.filter(
     (e) => e.show_id === null || e.show_id === undefined,

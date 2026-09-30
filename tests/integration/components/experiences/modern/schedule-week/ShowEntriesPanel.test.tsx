@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen } from "@testing-library/react";
 import { renderWithProviders as render } from "@/tests/helpers";
 import ShowEntriesPanel from "@/src/components/experiences/modern/schedule-week/ShowEntriesPanel";
-import type { FlowsheetRangeEntry, FlowsheetRangeShow } from "@wxyc/shared";
+import type { FlowsheetV2Entry, FlowsheetRangeShow } from "@wxyc/shared";
 import { FlowsheetEntryType } from "@wxyc/shared/dtos";
 
 // The drill-in renders the live flowsheet's own row elements, so the row's
@@ -42,7 +42,7 @@ const show = {
   end_time: "2026-08-23T00:01:00.000Z",
 } as FlowsheetRangeShow;
 
-const entry = (over: Partial<FlowsheetRangeEntry> & { id: number }) =>
+const entry = (over: Partial<FlowsheetV2Entry> & { id: number }) =>
   ({
     play_order: 1,
     show_id: show.id,
@@ -53,10 +53,10 @@ const entry = (over: Partial<FlowsheetRangeEntry> & { id: number }) =>
     track_title: "Back, Baby",
     album_title: "On Your Own Love Again",
     ...over,
-  }) as unknown as FlowsheetRangeEntry;
+  }) as unknown as FlowsheetV2Entry;
 
 const panel = (
-  entries: FlowsheetRangeEntry[],
+  entries: FlowsheetV2Entry[],
   highlightedEntryId: number | null = null
 ) => (
   <ShowEntriesPanel
@@ -239,7 +239,7 @@ describe("ShowEntriesPanel", () => {
             request_flag: true,
             segue: true,
             on_streaming: false,
-          } as Partial<FlowsheetRangeEntry> & { id: number }),
+          } as Partial<FlowsheetV2Entry> & { id: number }),
         ]),
       );
 

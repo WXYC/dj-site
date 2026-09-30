@@ -22,6 +22,11 @@ function makeResult(id: number): PlaylistSearchResult {
     record_label: "Duophonic",
     dj_name: "DJ Test",
     show_id: 1,
+    // Type-level only: confirms the contract still exposes the badge fields
+    // dj-site#1653 reads, not that this module reads them yet.
+    rotation_bin: null,
+    request_flag: false,
+    on_streaming: null,
   };
 }
 

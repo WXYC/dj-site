@@ -1,5 +1,7 @@
-import type { FlowsheetRangeEntry } from "@wxyc/shared";
-import { convertRangeEntry } from "@/lib/features/flowsheet/conversions";
+import {
+  convertRangeEntry,
+  type FlowsheetRangeEntryWire,
+} from "@/lib/features/flowsheet/conversions";
 import { messageEntryLabel } from "@/lib/features/flowsheet/marker-text";
 
 /**
@@ -13,6 +15,6 @@ import { messageEntryLabel } from "@/lib/features/flowsheet/marker-text";
  * wording identical to the live flowsheet's, which a second switch could not
  * promise.
  */
-export function describeNonTrackEntry(entry: FlowsheetRangeEntry): string {
+export function describeNonTrackEntry(entry: FlowsheetRangeEntryWire): string {
   return messageEntryLabel(convertRangeEntry(entry));
 }

@@ -1,7 +1,7 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
 import type { FetchBaseQueryError } from "@reduxjs/toolkit/query";
 import { backendBaseQuery } from "../backend";
-import type { FlowsheetRangeEntry, FlowsheetRangeResponse } from "@wxyc/shared";
+import type { FlowsheetRangeResponse, FlowsheetV2Entry } from "@wxyc/shared";
 import { ARCHIVE_START_MS, DAY_MS, MIN_WINDOW_MS, computeHeadWindow, reverseWireOrder } from "./head-window";
 
 export type ArchiveStreamArg = {
@@ -33,7 +33,7 @@ export type ArchiveStreamPage = {
    * `/flowsheet/range` window's wire order. Pages also run newest to oldest,
    * so appending each page's entries in page order reads as one unbroken
    * newest-first stream. */
-  entries: FlowsheetRangeEntry[];
+  entries: FlowsheetV2Entry[];
 } & (
   | { reachedStart: true; nextCursor: null }
   | { reachedStart: false; nextCursor: number }
@@ -82,7 +82,7 @@ export const archiveStreamApi = createApi({
       },
       queryFn: async ({ queryArg, pageParam }, _api, _extraOptions, fetchWithBQ) => {
         const seenIds = new Set<number>();
-        const entries: FlowsheetRangeEntry[] = [];
+        const entries: FlowsheetV2Entry[] = [];
         const now = Date.now();
         const head = pageParam === "now" ? computeHeadWindow(now) : null;
         let windowEnd = pageParam === "now" ? now : pageParam;

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import type { FlowsheetRangeEntry } from "@wxyc/shared";
+import type { FlowsheetV2Entry } from "@wxyc/shared";
 import {
   computeHeadWindow,
   reverseWireOrder,
@@ -8,13 +8,14 @@ import {
   ARCHIVE_START_MS,
 } from "@/lib/features/archive-stream/head-window";
 
-function rangeEntry(id: number): FlowsheetRangeEntry {
+function rangeEntry(id: number): FlowsheetV2Entry {
   return {
     id,
     play_order: id,
     show_id: 1,
     request_flag: false,
     entry_type: "track",
+    add_time: new Date(0).toISOString(),
   };
 }
 

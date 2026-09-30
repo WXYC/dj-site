@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import type {
   FlowsheetRangeResponse,
   FlowsheetRangeShow,
-  FlowsheetRangeEntry,
+  FlowsheetV2Entry,
 } from "@wxyc/shared";
 import {
   buildWeekGrid,
@@ -33,19 +33,19 @@ function show(over: Partial<FlowsheetRangeShow> & { id: number }): FlowsheetRang
   } as FlowsheetRangeShow;
 }
 
-function entry(over: Partial<FlowsheetRangeEntry> & { id: number }): FlowsheetRangeEntry {
+function entry(over: Partial<FlowsheetV2Entry> & { id: number }): FlowsheetV2Entry {
   return {
     play_order: 1,
     show_id: 1,
     add_time: at(0, 1),
     entry_type: "track",
     ...over,
-  } as unknown as FlowsheetRangeEntry;
+  } as unknown as FlowsheetV2Entry;
 }
 
 const res = (
   shows: FlowsheetRangeShow[],
-  entries: FlowsheetRangeEntry[] = [],
+  entries: FlowsheetV2Entry[] = [],
 ): FlowsheetRangeResponse => ({ shows, entries }) as FlowsheetRangeResponse;
 
 const NOW = new Date(WEEK.getTime() + 8 * 86_400_000); // after the fixture week

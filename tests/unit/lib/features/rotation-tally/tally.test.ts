@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import type { FlowsheetRangeEntry, FlowsheetRangeShow } from "@wxyc/shared";
+import type { FlowsheetV2Entry, FlowsheetRangeShow } from "@wxyc/shared";
 import {
   countDistinctDeclaredHours,
   rankWeeklyPlays,
@@ -14,7 +14,7 @@ const HOUR = 3_600_000;
 const SHOW_START = Date.parse("2026-09-07T00:00:00Z");
 
 let nextId = 1;
-const entry = (o: Partial<FlowsheetRangeEntry>): FlowsheetRangeEntry =>
+const entry = (o: Partial<FlowsheetV2Entry>): FlowsheetV2Entry =>
   ({
     id: nextId++,
     show_id: 1,
@@ -23,7 +23,7 @@ const entry = (o: Partial<FlowsheetRangeEntry>): FlowsheetRangeEntry =>
     add_time: new Date(SHOW_START).toISOString(),
     request_flag: false,
     ...o,
-  }) as FlowsheetRangeEntry;
+  }) as FlowsheetV2Entry;
 
 const show = (o: Partial<FlowsheetRangeShow> = {}): FlowsheetRangeShow =>
   ({

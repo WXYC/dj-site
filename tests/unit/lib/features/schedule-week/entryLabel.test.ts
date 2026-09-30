@@ -1,8 +1,10 @@
 import { describe, it, expect } from "vitest";
 import { describeNonTrackEntry } from "@/lib/features/schedule-week/entryLabel";
-import type { FlowsheetRangeEntry } from "@wxyc/shared";
+import type { FlowsheetRangeEntryWire } from "@/lib/features/flowsheet/conversions";
 
-const entry = (over: Partial<FlowsheetRangeEntry>): FlowsheetRangeEntry =>
+const entry = (
+  over: Partial<FlowsheetRangeEntryWire>
+): FlowsheetRangeEntryWire =>
   ({
     id: 1,
     play_order: 1,
@@ -10,7 +12,7 @@ const entry = (over: Partial<FlowsheetRangeEntry>): FlowsheetRangeEntry =>
     request_flag: false,
     add_time: "2026-08-27T19:02:03.000Z",
     ...over,
-  }) as FlowsheetRangeEntry;
+  }) as FlowsheetRangeEntryWire;
 
 // The label is the flowsheet's own row copy, resolved through the one switch
 // that also drives the live sheet's icons and tones. A second copy here is what

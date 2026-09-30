@@ -1,4 +1,3 @@
-import type { FlowsheetRangeEntry } from "@wxyc/shared";
 import { Rotation } from "../rotation/types";
 import {
   breakpointMessageForHourLabel,
@@ -14,7 +13,6 @@ import {
   FlowsheetQuery,
   FlowsheetSongEntry,
   FlowsheetSubmissionParams,
-  FlowsheetV2BreakpointEntryJSON,
   FlowsheetV2EntryJSON,
   FlowsheetV2PaginatedResponseJSON,
   OnAirDJData,
@@ -321,18 +319,67 @@ export function convertV2Entry(entry: FlowsheetV2EntryJSON): FlowsheetEntry {
 }
 
 /**
- * `on_streaming` rides the `GET /flowsheet/range` payload without being
- * declared on `FlowsheetEntryFields`, which is the field set that endpoint and
- * `GET /flowsheet` share. Widened here rather than dropped: every reader tests
- * `=== false`, so an absent field is simply no badge.
- *
- * The V2 routes need no such widening — `FlowsheetV2TrackEntry` declares
- * `on_streaming` itself, three-state, with the "false means WXYC library
- * exclusive, null if unknown" reading this file's consumers implement. The
- * widening applies only where the contract is genuinely silent.
+ * The flat shape `v2ToRangeShape` normalizes a published `FlowsheetV2Entry`
+ * into, and `ClassicShowEntries` reads every field of unconditionally rather
+ * than narrowing on `entry_type` row by row. Every variant-specific field a
+ * consumer reads without narrowing lives here as optional; `request_flag`
+ * alone is unconditional, since every variant converts to one (false for
+ * anything but a track).
  */
-export type FlowsheetRangeEntryWire = FlowsheetRangeEntry & {
+export type FlowsheetRangeEntryWire = {
+  id: number;
+  show_id: number | null;
+  play_order: number;
+  add_time: string;
+  entry_type: string;
+  request_flag: boolean;
+  dj_name?: string;
+  message?: string;
+  radio_hour?: string | null;
+  track_title?: string;
+  artist_name?: string;
+  album_title?: string;
+  record_label?: string;
+  segue?: boolean;
+  album_id?: number;
+  rotation_id?: number;
+  rotation_bin?: Rotation;
   on_streaming?: boolean | null;
+  artwork_url?: string | null;
+  discogsUnavailable?: boolean;
+  discogsUnavailableNote?: string | null;
+};
+
+/**
+ * `convertRangeEntry`'s own input: either a raw `FlowsheetV2Entry` straight off
+ * `GET /flowsheet/range` (the modern schedule-week panel, fed directly), or
+ * the classic experience's already-normalized `FlowsheetRangeEntryWire` (the
+ * modern previous-sets panel gets this shape too, via `v2ToRangeShape`). Both
+ * name every field the switch below reads, so one loosely-typed shape serves
+ * every caller instead of a duplicate conversion per caller.
+ */
+export type FlowsheetRangeEntryInput = {
+  id: number;
+  show_id: number | null;
+  play_order: number;
+  add_time: string;
+  entry_type: string;
+  request_flag?: boolean;
+  dj_name?: string | null;
+  message?: string | null;
+  radio_hour?: string | null;
+  track_title?: string | null;
+  artist_name?: string | null;
+  album_title?: string | null;
+  record_label?: string | null;
+  segue?: boolean | null;
+  album_id?: number | null;
+  rotation_id?: number | null;
+  rotation_bin?: Rotation | null;
+  on_streaming?: boolean | null;
+  artwork_url?: string | null;
+  discogsUnavailable?: boolean;
+  discogsUnavailableNote?: string | null;
 };
 
 // Both the client type guard and the backend's entry-type inference
@@ -404,9 +451,11 @@ function stationDayTime(isoString: string | null | undefined): {
  * for both fields whenever it is present; the row's own stored text and
  * `add_time` are fallbacks for rows predating that column's producer.
  */
-function breakpointDisplayFields(
-  entry: FlowsheetV2BreakpointEntryJSON | FlowsheetRangeEntry
-): {
+function breakpointDisplayFields(entry: {
+  radio_hour?: string | null;
+  message?: string | null;
+  add_time: string;
+}): {
   message: string;
   radio_hour: string | null;
   day: string;
@@ -458,10 +507,10 @@ function usableInstant(iso: string | null | undefined): string | null {
  * surface can render a past set with the live flowsheet's own row elements
  * instead of a fourth copy of them.
  *
- * `FlowsheetRangeEntry` and `FlowsheetEntryResponse` are pinned to one field
- * set by the contract, so most of this is the same rename `convertV2Entry`
- * does (`rotation_bin` → `rotation`). What it adds is the normalization the
- * live endpoint performs server-side and the range endpoint does not: the range
+ * `FlowsheetV2Entry` and `FlowsheetEntryResponse` are pinned to one field set
+ * by the contract, so most of this is the same rename `convertV2Entry` does
+ * (`rotation_bin` → `rotation`). What it adds is the normalization the live
+ * endpoint performs server-side and the range endpoint does not: the range
  * payload carries the raw legacy marker column ("TALKSET",
  * "--- 3:00 PM BREAKPOINT ---") where `GET /flowsheet` carries "Talkset" and
  * "3:00 PM Breakpoint". The row presentation switch keys on that text, so an
@@ -471,9 +520,7 @@ function usableInstant(iso: string | null | undefined): string | null {
  * renders, because the vocabulary is server-owned and a missing arm in a
  * displayable-types switch makes the row disappear rather than fail loudly.
  */
-export function convertRangeEntry(entry: FlowsheetRangeEntry): FlowsheetEntry {
-  const wire = entry as FlowsheetRangeEntryWire;
-
+export function convertRangeEntry(entry: FlowsheetRangeEntryInput): FlowsheetEntry {
   const base = {
     id: entry.id,
     play_order: entry.play_order,
@@ -494,7 +541,7 @@ export function convertRangeEntry(entry: FlowsheetRangeEntry): FlowsheetEntry {
     album_id: entry.album_id ?? undefined,
     rotation_id: entry.rotation_id ?? undefined,
     rotation: entry.rotation_bin ?? undefined,
-    on_streaming: wire.on_streaming ?? undefined,
+    on_streaming: entry.on_streaming ?? undefined,
     artwork_url: entry.artwork_url ?? undefined,
     discogsUnavailable: entry.discogsUnavailable ?? undefined,
     discogsUnavailableNote: entry.discogsUnavailableNote ?? undefined,
@@ -526,7 +573,7 @@ export function convertRangeEntry(entry: FlowsheetRangeEntry): FlowsheetEntry {
       return asMarker(false);
 
     case "talkset":
-      return asMessage(recognizableTalksetMessage(entry.message));
+      return asMessage(recognizableTalksetMessage(entry.message ?? undefined));
 
     // See breakpointDisplayFields: shared verbatim with convertV2Entry so
     // live and archived can never disagree about the hour one wire row marks.

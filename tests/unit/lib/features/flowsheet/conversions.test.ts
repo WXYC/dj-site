@@ -22,7 +22,7 @@ import {
   isFlowsheetSongEntry,
   isFlowsheetTalksetEntry,
 } from "@/lib/features/flowsheet/types";
-import type { FlowsheetRangeEntry } from "@wxyc/shared";
+import type { FlowsheetRangeEntryInput } from "@/lib/features/flowsheet/conversions";
 import { FlowsheetEntryType } from "@wxyc/shared/dtos";
 import { Rotation } from "@/lib/features/rotation/types";
 
@@ -1142,8 +1142,8 @@ describe("flowsheet conversions", () => {
   // to happen: the row presentation switch keys on the message text.
   describe("convertRangeEntry", () => {
     const rangeEntry = (
-      over: Partial<FlowsheetRangeEntry> & { id: number }
-    ): FlowsheetRangeEntry =>
+      over: Partial<FlowsheetRangeEntryInput> & { id: number }
+    ): FlowsheetRangeEntryInput =>
       ({
         play_order: 1,
         show_id: TEST_ENTITY_IDS.SHOW.CURRENT_SHOW,
@@ -1151,7 +1151,7 @@ describe("flowsheet conversions", () => {
         add_time: "2026-08-27T19:03:39.466Z",
         entry_type: "track",
         ...over,
-      }) as FlowsheetRangeEntry;
+      }) as FlowsheetRangeEntryInput;
 
     it("renames rotation_bin onto the field the status chips read", () => {
       const converted = convertRangeEntry(
@@ -1175,7 +1175,7 @@ describe("flowsheet conversions", () => {
           request_flag: true,
           segue: true,
           on_streaming: false,
-        } as Partial<FlowsheetRangeEntry> & { id: number })
+        } as Partial<FlowsheetRangeEntryInput> & { id: number })
       ) as FlowsheetSongEntry;
 
       expect(converted).toMatchObject({

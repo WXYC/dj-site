@@ -2,8 +2,11 @@
 
 import { useMemo } from "react";
 import { Box, CircularProgress, Sheet, Table, Typography } from "@mui/joy";
-import type { FlowsheetRangeEntry, FlowsheetRangeShow } from "@wxyc/shared";
-import { convertRangeEntry } from "@/lib/features/flowsheet/conversions";
+import type { FlowsheetRangeShow } from "@wxyc/shared";
+import {
+  convertRangeEntry,
+  type FlowsheetRangeEntryInput,
+} from "@/lib/features/flowsheet/conversions";
 import { formatStationClockTime } from "@/src/utilities/stationTime";
 import Entry from "@/src/components/experiences/modern/flowsheet/Entries/Entry";
 import {
@@ -11,7 +14,7 @@ import {
   FlowsheetColumnSizingRow,
 } from "@/src/components/experiences/modern/flowsheet/Entries/tableStyles";
 
-const timeOf = (entry: FlowsheetRangeEntry) =>
+const timeOf = (entry: FlowsheetRangeEntryInput) =>
   // A breakpoint is logged roughly a minute either side of the hour it marks,
   // so its own add_time reads the wrong hour. radio_hour is the hour it stands
   // for.
@@ -30,7 +33,7 @@ export default function ShowEntriesPanel({
   highlightedEntryId = null,
 }: {
   show: FlowsheetRangeShow;
-  entries: FlowsheetRangeEntry[];
+  entries: FlowsheetRangeEntryInput[];
   isPartial: boolean;
   partialEdge: "before" | "after" | null;
   isLoading: boolean;

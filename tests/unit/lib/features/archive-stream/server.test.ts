@@ -12,18 +12,18 @@ import { computeHeadWindow, DAY_MS } from "@/lib/features/archive-stream/head-wi
 import { archiveStreamApi } from "@/lib/features/archive-stream/api";
 import { TEST_BACKEND_URL } from "@/tests/helpers/constants";
 import { server as mswServer } from "@/tests/fakes/server";
-import type { FlowsheetRangeEntry } from "@wxyc/shared";
+import type { FlowsheetV2Entry } from "@wxyc/shared";
 
 const NOW = Date.parse("2026-09-26T16:00:00.000Z");
 
-function rangeEntry(id: number, at?: number): FlowsheetRangeEntry {
+function rangeEntry(id: number, at?: number): FlowsheetV2Entry {
   return {
     id,
     play_order: id,
     show_id: 1,
     request_flag: false,
     entry_type: "track",
-    ...(at === undefined ? {} : { add_time: new Date(at).toISOString() }),
+    add_time: new Date(at ?? 0).toISOString(),
   };
 }
 
