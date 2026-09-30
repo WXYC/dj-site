@@ -50,6 +50,15 @@ export const archiveStreamApi = createApi({
       // Nothing about an already-walked page changes later, so the only cost
       // of holding onto it is memory -- matches scheduleWeekApi's reasoning.
       keepUnusedDataFor: 600,
+      // Unlike scheduleWeekApi's single independent window, this walk carries
+      // state (seenIds, emptyStreak) across many requests. The shared base
+      // query's default soft-fail would turn a transient gateway error into
+      // an indistinguishable "empty window", which here doesn't just lose
+      // that window's rows -- enough of them in a row trips the empty-window
+      // bound and reports reachedStart from noise instead of genuine archive
+      // history. Opting out makes a broken response fail the whole page
+      // instead, so the caller can refetch it.
+      extraOptions: { surfaceNonJsonAsError: true },
       queryFn: async ({ cursor, pageSize }, _queryApi, _extraOptions, fetchWithBQ) => {
         const seenIds = new Set<number>();
         const entries: FlowsheetRangeEntry[] = [];
@@ -69,9 +78,9 @@ export const archiveStreamApi = createApi({
             return { error: result.error };
           }
 
-          // The shared base query soft-fails an unparseable body to `{ data:
-          // null }` rather than throwing, so a window that hit that path must
-          // read as empty rather than assuming a parsed body below.
+          // `null` still reaches here for the one case `surfaceNonJsonAsError`
+          // does not cover -- a request the client itself aborted -- so this
+          // fallback is live, not dead code (see backendBaseQuery).
           const window = (result.data as FlowsheetRangeResponse | null) ?? EMPTY_RANGE;
 
           const newEntries = window.entries.filter((entry) => !seenIds.has(entry.id));
