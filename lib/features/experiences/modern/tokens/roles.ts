@@ -134,6 +134,14 @@ export const ROTATION_TONES: Record<Rotation, Tone> = {
   S: { color: "neutral", variant: "solid" },
 };
 
+// Caption-scale status pills, matching the catalog table's chip language.
+export const STATUS_CHIP_SX = {
+  fontSize: "0.65rem",
+  fontWeight: 500,
+  "--Chip-minHeight": "16px",
+  "--Chip-paddingInline": "6px",
+} as const;
+
 export type EntryRole =
   | "startShow"
   | "endShow"

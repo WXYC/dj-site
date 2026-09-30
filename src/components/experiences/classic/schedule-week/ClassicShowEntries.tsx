@@ -6,10 +6,8 @@ import type { FlowsheetRangeEntryWire } from "@/lib/features/flowsheet/conversio
 import { formatStationClockTime } from "@/src/utilities/stationTime";
 import { describeNonTrackEntry } from "@/lib/features/schedule-week/entryLabel";
 import { entryAnchorId } from "@/lib/features/schedule-week/showUrl";
-import {
-  Capsule,
-  capsulesForSongEntry,
-} from "@/src/components/experiences/classic/flowsheet/Capsule";
+import { Capsule } from "@/src/components/experiences/classic/flowsheet/Capsule";
+import { capsulesForSongEntry } from "@/lib/features/flowsheet/indicators";
 import "@/src/styles/classic/wxyc.css";
 import "@/src/styles/classic/schedule-week.css";
 

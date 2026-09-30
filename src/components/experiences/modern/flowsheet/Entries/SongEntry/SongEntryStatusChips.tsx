@@ -1,17 +1,13 @@
 "use client";
 
 import { FlowsheetSongEntry } from "@/lib/features/flowsheet/types";
+import { isExclusive } from "@/lib/features/flowsheet/indicators";
 import { WXYC_EXCLUSIVE_PURPLE } from "@/src/utilities/modern/brandColors";
-import { ROTATION_TONES } from "@/lib/features/experiences/modern/tokens/roles";
+import {
+  ROTATION_TONES,
+  STATUS_CHIP_SX,
+} from "@/lib/features/experiences/modern/tokens/roles";
 import { Chip } from "@mui/joy";
-
-// Caption-scale status pills, matching the catalog table's chip language.
-export const STATUS_CHIP_SX = {
-  fontSize: "0.65rem",
-  fontWeight: 500,
-  "--Chip-minHeight": "16px",
-  "--Chip-paddingInline": "6px",
-} as const;
 
 // Read-only status pills for a song entry: rotation bin, WXYC exclusive, and
 // (on non-editable rows, where the interactive checkboxes are hidden) the
@@ -36,7 +32,7 @@ export default function SongEntryStatusChips({
           {entry.rotation}
         </Chip>
       )}
-      {entry.on_streaming === false && (
+      {isExclusive(entry) && (
         <Chip
           variant="soft"
           size="sm"
