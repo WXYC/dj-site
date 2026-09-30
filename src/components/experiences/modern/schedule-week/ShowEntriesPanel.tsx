@@ -7,22 +7,12 @@ import {
   convertRangeEntry,
   type FlowsheetRangeEntryWire,
 } from "@/lib/features/flowsheet/conversions";
-import { formatStationClockTime } from "@/src/utilities/stationTime";
+import { timeOf } from "@/lib/features/flowsheet/entry-time";
 import Entry from "@/src/components/experiences/modern/flowsheet/Entries/Entry";
 import {
   FLOWSHEET_TABLE_SX,
   FlowsheetColumnSizingRow,
 } from "@/src/components/experiences/modern/flowsheet/Entries/tableStyles";
-
-const timeOf = (entry: FlowsheetRangeEntryWire) =>
-  // A breakpoint is logged roughly a minute either side of the hour it marks,
-  // so its own add_time reads the wrong hour. radio_hour is the hour it stands
-  // for.
-  formatStationClockTime(
-    entry.entry_type === "breakpoint" && entry.radio_hour != null
-      ? entry.radio_hour
-      : entry.add_time
-  );
 
 export default function ShowEntriesPanel({
   show,
@@ -49,7 +39,7 @@ export default function ShowEntriesPanel({
     () =>
       entries.map((entry) => ({
         id: entry.id,
-        timeLabel: timeOf(entry),
+        timeLabel: timeOf(entry, entry.entry_type === "breakpoint"),
         converted: convertRangeEntry(entry),
       })),
     [entries]

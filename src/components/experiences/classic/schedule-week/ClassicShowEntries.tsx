@@ -3,7 +3,7 @@
 import { Fragment } from "react";
 import type { FlowsheetRangeShow } from "@wxyc/shared";
 import type { FlowsheetRangeEntryWire } from "@/lib/features/flowsheet/conversions";
-import { formatStationClockTime } from "@/src/utilities/stationTime";
+import { timeOf } from "@/lib/features/flowsheet/entry-time";
 import { describeNonTrackEntry } from "@/lib/features/schedule-week/entryLabel";
 import { entryAnchorId } from "@/lib/features/schedule-week/showUrl";
 import { Capsule } from "@/src/components/experiences/classic/flowsheet/Capsule";
@@ -22,15 +22,6 @@ import "@/src/styles/classic/schedule-week.css";
 // way, since hiding a column leaves the marker spanning all that remain.
 const COLUMN_COUNT = 6;
 const MARKER_SPAN = COLUMN_COUNT - 1;
-
-const timeOf = (entry: FlowsheetRangeEntryWire) =>
-  // A breakpoint is logged roughly a minute either side of the hour it marks,
-  // so its add_time reads the wrong hour. radio_hour is the hour it stands for.
-  formatStationClockTime(
-    entry.entry_type === "breakpoint" && entry.radio_hour != null
-      ? entry.radio_hour
-      : entry.add_time
-  );
 
 const isMarker = (entry: FlowsheetRangeEntryWire) =>
   entry.entry_type != null && entry.entry_type !== "track";
@@ -123,7 +114,9 @@ export default function ClassicShowEntries({
                     : rowClass(entry, index)
                 }
               >
-                <td className="classic-schedule-week-time">{timeOf(entry)}</td>
+                <td className="classic-schedule-week-time">
+                  {timeOf(entry, entry.entry_type === "breakpoint")}
+                </td>
                 {isMarker(entry) ? (
                   // Alignment is set here rather than in the stylesheet because
                   // that is where the JSP sets it: `.breakpoint-row td` declares
