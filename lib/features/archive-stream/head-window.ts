@@ -1,6 +1,6 @@
 import type { FlowsheetRangeEntry } from "@wxyc/shared";
 
-const DAY_MS = 24 * 60 * 60 * 1000;
+export const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** The step after a window that turned up rows, and the width of the head
  * page's first window. */
@@ -32,10 +32,7 @@ export const ARCHIVE_START_MS = Date.UTC(2004, 10, 4);
 export type HeadWindow = {
   /** Inclusive lower bound of the `/flowsheet/range` request. */
   start: number;
-  /** The moment the window is anchored on -- also the cursor a page that
-   * stops here would hand the next one. */
-  end: number;
-  /** Exclusive upper bound of the `/flowsheet/range` request -- `end` plus
+  /** Exclusive upper bound of the `/flowsheet/range` request -- `now` plus
    * `CLOCK_SKEW_ALLOWANCE_MS`. */
   requestEnd: number;
 };
@@ -49,15 +46,16 @@ export type HeadWindow = {
 export function computeHeadWindow(now: number): HeadWindow {
   return {
     start: Math.max(now - MIN_WINDOW_MS, ARCHIVE_START_MS),
-    end: now,
     requestEnd: now + CLOCK_SKEW_ALLOWANCE_MS,
   };
 }
 
 /**
- * Newest first by `add_time`, then by `id` -- the reverse of a
- * `/flowsheet/range` window's wire order.
+ * Reverses a `/flowsheet/range` window's wire order (oldest first by
+ * `add_time`, then by `id`) into newest first. Correct only on entries
+ * already in that wire order -- applying it to already-reversed entries
+ * undoes the reversal instead of re-sorting them.
  */
-export function orderNewestFirst(entries: FlowsheetRangeEntry[]): FlowsheetRangeEntry[] {
+export function reverseWireOrder(entries: FlowsheetRangeEntry[]): FlowsheetRangeEntry[] {
   return [...entries].reverse();
 }
