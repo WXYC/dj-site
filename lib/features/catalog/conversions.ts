@@ -124,7 +124,9 @@ export function convertToAlbumEntry(
     alternate_artist: isSearchResult(response)
       ? ((response as Record<string, unknown>).alternate_artist_name as string | undefined) ?? ""
       : "",
-    album_artist: isSearchResult(response) ? response.album_artist : undefined,
+    album_artist: isSearchResult(response)
+      ? (response.album_artist ?? undefined)
+      : undefined,
     // rotation_bin/rotation_id populate on every rotation row independently
     // of the LEFT JOIN to library, so must NOT be gated on isSearchResult
     // (keyed on library.id) — that dropped rotation linkage for unlinked

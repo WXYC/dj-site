@@ -1,4 +1,4 @@
-import type { FlowsheetRangeEntry } from "@wxyc/shared";
+import type { FlowsheetV2Entry } from "@wxyc/shared";
 
 export const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -56,6 +56,6 @@ export function computeHeadWindow(now: number): HeadWindow {
  * already in that wire order -- applying it to already-reversed entries
  * undoes the reversal instead of re-sorting them.
  */
-export function reverseWireOrder(entries: FlowsheetRangeEntry[]): FlowsheetRangeEntry[] {
+export function reverseWireOrder(entries: FlowsheetV2Entry[]): FlowsheetV2Entry[] {
   return [...entries].reverse();
 }

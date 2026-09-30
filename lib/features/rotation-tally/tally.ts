@@ -1,4 +1,6 @@
-import type { FlowsheetRangeEntry, FlowsheetRangeShow } from "@wxyc/shared";
+import type { FlowsheetV2Entry, FlowsheetRangeShow } from "@wxyc/shared";
+
+type FlowsheetRangeTrackEntry = Extract<FlowsheetV2Entry, { entry_type: "track" }>;
 import { STATION_TIME_ZONE, startOfStationHour } from "@/src/utilities/stationTime";
 
 /**
@@ -37,7 +39,7 @@ export type RankedPlay = {
 const MS_PER_HOUR = 3_600_000;
 
 /** The top of the station hour a row was logged in, when the wire carries one. */
-function loggedHour(entry: FlowsheetRangeEntry): number | null {
+function loggedHour(entry: FlowsheetV2Entry): number | null {
   if (!entry.add_time) return null;
   const ms = Date.parse(entry.add_time);
   return Number.isNaN(ms) ? null : startOfStationHour(ms);
@@ -46,7 +48,7 @@ function loggedHour(entry: FlowsheetRangeEntry): number | null {
 // play_order repeats within a show after a reorder, so id is a required
 // tie-break rather than a defensive one: equal values would otherwise walk in
 // an order that changes between passes, moving a play across an hour boundary.
-const byPlayOrder = (a: FlowsheetRangeEntry, b: FlowsheetRangeEntry) =>
+const byPlayOrder = (a: FlowsheetV2Entry, b: FlowsheetV2Entry) =>
   (a.play_order ?? 0) - (b.play_order ?? 0) || a.id - b.id;
 
 /**
@@ -62,14 +64,14 @@ const byPlayOrder = (a: FlowsheetRangeEntry, b: FlowsheetRangeEntry) =>
  */
 export function countDistinctDeclaredHours(
   shows: readonly FlowsheetRangeShow[],
-  entries: readonly FlowsheetRangeEntry[],
+  entries: readonly FlowsheetV2Entry[],
 ): Map<number, number> {
   const showStart = new Map<number, number>();
   for (const s of shows) {
     if (s.start_time) showStart.set(s.id, startOfStationHour(Date.parse(s.start_time)));
   }
 
-  const byShow = new Map<number, FlowsheetRangeEntry[]>();
+  const byShow = new Map<number, FlowsheetV2Entry[]>();
   for (const e of entries) {
     // `/flowsheet/range` orders by add_time across the whole window, so a
     // multi-show week interleaves; play_order is only meaningful within a show.
@@ -96,6 +98,10 @@ export function countDistinctDeclaredHours(
         if (marked !== null) current = marked;
         continue;
       }
+
+      // Only track rows ever carry a rotation link; every other entry type
+      // would fall through the `<= 0` check below anyway.
+      if (e.entry_type !== "track") continue;
 
       const rotationId = e.rotation_id ?? 0;
       // `ROTATION_RELEASE_ID > 0` in the original: an unlinked play is not a
@@ -140,14 +146,16 @@ const caseInsensitive = (a: string, b: string) => {
  */
 function tallyAll(
   shows: readonly FlowsheetRangeShow[],
-  entries: readonly FlowsheetRangeEntry[],
+  entries: readonly FlowsheetV2Entry[],
 ): RankedPlay[] {
   const hours = countDistinctDeclaredHours(shows, entries);
 
   // First linked appearance names the release: later rows carry the same
-  // rotation_id, and a re-typed free-text row should not rename the chart entry.
-  const naming = new Map<number, FlowsheetRangeEntry>();
+  // rotation_id, and a re-typed free-text row should not rename the chart
+  // entry. Only track rows carry a rotation link.
+  const naming = new Map<number, FlowsheetRangeTrackEntry>();
   for (const e of entries) {
+    if (e.entry_type !== "track") continue;
     const id = e.rotation_id ?? 0;
     if (id > 0 && !naming.has(id)) naming.set(id, e);
   }
@@ -175,7 +183,7 @@ function tallyAll(
 
 export function rankWeeklyPlays(
   shows: readonly FlowsheetRangeShow[],
-  entries: readonly FlowsheetRangeEntry[],
+  entries: readonly FlowsheetV2Entry[],
   minimumPlays: number,
 ): RankedPlay[] {
   return tallyAll(shows, entries).filter((p) => p.plays >= minimumPlays);

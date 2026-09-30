@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook } from "@testing-library/react";
-import type { FlowsheetRangeEntry, FlowsheetRangeShow } from "@wxyc/shared";
+import type { FlowsheetV2Entry, FlowsheetRangeShow } from "@wxyc/shared";
 
 const mockReplace = vi.fn();
 let searchParams = new URLSearchParams();
@@ -119,7 +119,7 @@ describe("useShowEntries supplement window", () => {
         entry_type: "show_end",
         add_time: new Date(marker).toISOString(),
       },
-    ] as unknown as FlowsheetRangeEntry[];
+    ] as unknown as FlowsheetV2Entry[];
     const narrow = { startMs: marker - DAY, endMs: marker - 1 };
 
     renderHook(() =>

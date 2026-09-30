@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import type { FlowsheetRangeEntry, FlowsheetRangeShow } from "@wxyc/shared";
+import type { FlowsheetRangeShow, FlowsheetV2Entry } from "@wxyc/shared";
 import { useGetFlowsheetRangeQuery } from "@/lib/features/schedule-week/api";
 import {
   buildWeekGrid,
@@ -149,7 +149,7 @@ export type ScheduleWeek = {
   window: { startMs: number; endMs: number };
   grid: WeekGrid;
   shows: FlowsheetRangeShow[];
-  entries: FlowsheetRangeEntry[];
+  entries: FlowsheetV2Entry[];
   isLoading: boolean;
   isError: boolean;
   /** True once the requested week has passed, so "next week" can be blocked. */
@@ -179,7 +179,7 @@ export function useScheduleWeek(weekStart: Date): ScheduleWeek {
     window,
     grid,
     shows: (data?.shows ?? []) as FlowsheetRangeShow[],
-    entries: (data?.entries ?? []) as FlowsheetRangeEntry[],
+    entries: data?.entries ?? [],
     isLoading: isFetching,
     isError,
     hasNextWeek: addStationWeeks(weekStart, 1).getTime() <= now.getTime(),
@@ -193,14 +193,14 @@ export function useScheduleWeek(weekStart: Date): ScheduleWeek {
  */
 const MAX_RANGE_MS = 8 * 86_400_000;
 
-const byPlayOrder = (a: FlowsheetRangeEntry, b: FlowsheetRangeEntry) =>
+const byPlayOrder = (a: FlowsheetV2Entry, b: FlowsheetV2Entry) =>
   // The tie-break is required, not defensive: play_order repeats within a show
   // after a reorder, and without a stable second key equal values render in an
   // arbitrary order that changes between passes.
   (a.play_order ?? 0) - (b.play_order ?? 0) || a.id - b.id;
 
 export type ShowEntries = {
-  entries: FlowsheetRangeEntry[];
+  entries: FlowsheetV2Entry[];
   /** The week's payload holds only part of this show; the rest is elsewhere. */
   isPartial: boolean;
   /**
@@ -223,7 +223,7 @@ export type ShowEntries = {
  */
 export function useShowEntries(
   show: FlowsheetRangeShow | null,
-  weekEntries: FlowsheetRangeEntry[],
+  weekEntries: FlowsheetV2Entry[],
   window: { startMs: number; endMs: number },
   now: Date,
 ): ShowEntries {
@@ -271,8 +271,8 @@ export function useShowEntries(
     if (!show || !needsSupplement) return inWindow;
     if (!supplement) return inWindow;
     // The two windows overlap by construction, so rows arrive twice.
-    const merged = new Map<number, FlowsheetRangeEntry>();
-    for (const e of [...inWindow, ...(supplement.entries as FlowsheetRangeEntry[])]) {
+    const merged = new Map<number, FlowsheetV2Entry>();
+    for (const e of [...inWindow, ...supplement.entries]) {
       if (e.show_id === show.id) merged.set(e.id, e);
     }
     return [...merged.values()].sort(byPlayOrder);

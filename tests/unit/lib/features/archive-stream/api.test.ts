@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { configureStore } from "@reduxjs/toolkit";
 import { http, HttpResponse } from "msw";
-import type { FlowsheetRangeEntry, FlowsheetRangeResponse } from "@wxyc/shared";
+import type { FlowsheetV2Entry, FlowsheetRangeResponse } from "@wxyc/shared";
 import {
   archiveStreamApi,
   useGetArchiveStreamInfiniteQuery,
@@ -24,14 +24,14 @@ const NOW = Date.parse("2026-09-26T16:00:00.000Z");
 /** A requested `/flowsheet/range` window, with the raw params it was sent as. */
 type RangeWindow = { start: number; end: number; params: URLSearchParams };
 
-function rangeEntry(id: number, at?: number): FlowsheetRangeEntry {
+function rangeEntry(id: number, at?: number): FlowsheetV2Entry {
   return {
     id,
     play_order: id,
     show_id: 1,
     request_flag: false,
     entry_type: "track",
-    ...(at === undefined ? {} : { add_time: new Date(at).toISOString() }),
+    add_time: new Date(at ?? 0).toISOString(),
   };
 }
 
