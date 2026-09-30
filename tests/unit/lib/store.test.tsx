@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { makeStore } from "@/lib/store";
 import { makePublicStore } from "@/lib/store-public";
 import { scheduleWeekApi } from "@/lib/features/schedule-week/api";
+import { archiveStreamApi } from "@/lib/features/archive-stream/api";
 import { applicationSlice } from "@/lib/features/application/frontend";
 import { renderWithProviders } from "@/tests/helpers/render";
 
@@ -149,5 +150,15 @@ describe("store boundaries", () => {
   it("registers the weekly schedule in the dashboard store", () => {
     const state = makeStore().getState() as Record<string, unknown>;
     expect(state).toHaveProperty(scheduleWeekApi.reducerPath);
+  });
+
+  // The opposite placement on purpose: the public archive listing reads the
+  // same unauthenticated range endpoint, so this one must live in both.
+  it.each([
+    ["public", makePublicStore],
+    ["dashboard", makeStore],
+  ])("registers the archive stream in the %s store", (_label, make) => {
+    const state = make().getState() as Record<string, unknown>;
+    expect(state).toHaveProperty(archiveStreamApi.reducerPath);
   });
 });
