@@ -1,73 +1,108 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
+import type { FetchBaseQueryError } from "@reduxjs/toolkit/query";
 import { backendBaseQuery } from "../backend";
 import type { FlowsheetRangeEntry, FlowsheetRangeResponse } from "@wxyc/shared";
 
 export type ArchiveStreamArg = {
-  /** Exclusive upper bound to walk backwards from, epoch milliseconds. Omitted means "now". */
-  cursor?: number;
-  /** Floor on how many entries to accumulate before returning a page -- the
-   * walk stops as soon as it has at least this many rather than slicing mid-
-   * window, so a page can come back somewhat larger than requested. */
+  /** How many entries a page holds before its walk stops. The walk never splits
+   * a window and a window spans at least a day -- a few hundred rows at the
+   * station's usual pace -- so this is a floor, and a page usually runs well
+   * past it. */
   pageSize: number;
 };
 
+/**
+ * Where a page's walk starts: an exclusive upper bound in epoch milliseconds,
+ * or `null` for "now". The head page resolves "now" when it is fetched, so a
+ * refetch re-anchors it on the present instead of replaying the moment the
+ * listing first opened.
+ */
+export type ArchiveStreamCursor = number | null;
+
+/**
+ * `reachedStart` is the only end-of-archive signal. A page short of `pageSize`
+ * without it -- even an empty one -- spent `MAX_WINDOWS_PER_PAGE` inside a quiet
+ * stretch, and the walk resumes from `nextCursor`.
+ */
 export type ArchiveStreamPage = {
   /** Oldest first, matching the wire order of each `/flowsheet/range` window. */
   entries: FlowsheetRangeEntry[];
-  /** Pass back as `cursor` to continue the walk. `null` once `reachedStart` is true. */
-  nextCursor: number | null;
-  /** True once the walk gave up looking for older rows -- see
-   * `MAX_CONSECUTIVE_EMPTY_WINDOWS`. A short page (`entries.length < pageSize`
-   * asked for) happens if and only if this is true; a page never falls short
-   * for any other reason. */
-  reachedStart: boolean;
-};
+} & (
+  | { reachedStart: true; nextCursor: null }
+  | { reachedStart: false; nextCursor: number }
+);
 
-const EMPTY_RANGE: FlowsheetRangeResponse = { shows: [], entries: [] };
+const DAY_MS = 24 * 60 * 60 * 1000;
 
-/**
- * Width of each backward step. `/flowsheet/range` rejects anything wider than
- * an 8-day window (`MAX_RANGE_MS`, Backend-Service `flowsheet.controller.ts`);
- * this stays far under that cap so a step never risks the 400, and so a single
- * non-empty window rarely dwarfs a requested page.
- */
-const WINDOW_MS = 24 * 60 * 60 * 1000;
+/** The step after a window that turned up rows. */
+const MIN_WINDOW_MS = DAY_MS;
+
+/** `/flowsheet/range` rejects a window wider than 8 days (`MAX_RANGE_MS`,
+ * Backend-Service `flowsheet.controller.ts`). */
+const MAX_WINDOW_MS = 8 * DAY_MS;
 
 /**
- * Consecutive empty windows tolerated before the walk concludes it has
- * reached the start of the archive. The station goes dark for stretches
- * longer than a single quiet day -- a holiday, an outage -- so stopping on
- * the first empty window would truncate the archive at the first gap rather
- * than at its actual start.
+ * The walk ends here, not after some run of empty windows, because the
+ * archive has real gaps: no rows at all from 2020-04-01 to 2020-05-12 (41.7
+ * days), then weekly shows 6.9 days apart through that summer. Any empty-run
+ * bound cheap enough to walk would stop at that gap and hide the fifteen years
+ * before it. Per-month counts from 2004-11 through 2026-09 found no other
+ * month thin enough to hide a gap of more than a few days.
+ *
+ * The first row (id 154) was logged the evening of 2004-11-03, station time;
+ * neither `/flowsheet/search` in date order nor the id sequence has anything
+ * older, and `/flowsheet/range` is empty for the 8 days before this floor,
+ * which is the UTC midnight preceding that row. Rows backfilled from before it
+ * are unreachable until it moves.
  */
-export const MAX_CONSECUTIVE_EMPTY_WINDOWS = 7;
+export const ARCHIVE_START_MS = Date.UTC(2004, 10, 4);
+
+/**
+ * Most requests one page makes. An empty window doubles the next one's width
+ * up to the 8-day cap, so the 41.7-day gap above takes 8 windows to cross;
+ * twice that leaves a page room for the rows on either side. It bounds a public
+ * page's sequential request count if the backend ever answers every window
+ * empty, which would otherwise walk all the way back to `ARCHIVE_START_MS`.
+ */
+export const MAX_WINDOWS_PER_PAGE = 16;
 
 export const archiveStreamApi = createApi({
   reducerPath: "archiveStreamApi",
   baseQuery: backendBaseQuery("flowsheet"),
   endpoints: (builder) => ({
-    getArchiveStream: builder.query<ArchiveStreamPage, ArchiveStreamArg>({
-      // Nothing about an already-walked page changes later, so the only cost
-      // of holding onto it is memory -- matches scheduleWeekApi's reasoning.
-      keepUnusedDataFor: 600,
-      // Unlike scheduleWeekApi's single independent window, this walk carries
-      // state (seenIds, emptyStreak) across many requests. The shared base
-      // query's default soft-fail would turn a transient gateway error into
-      // an indistinguishable "empty window", which here doesn't just lose
-      // that window's rows -- enough of them in a row trips the empty-window
-      // bound and reports reachedStart from noise instead of genuine archive
-      // history. Opting out makes a broken response fail the whole page
-      // instead, so the caller can refetch it.
+    getArchiveStream: builder.infiniteQuery<
+      ArchiveStreamPage,
+      ArchiveStreamArg,
+      ArchiveStreamCursor
+    >({
+      // The head page goes stale from the moment it is anchored, and every
+      // later page chains off it, so a walk retained past its screen would
+      // greet the next arrival without whatever aired in between. Dropping it
+      // on the last unsubscribe makes each arrival start from the present.
+      keepUnusedDataFor: 0,
+      // The walk carries state across many requests, so a broken window must
+      // fail the page rather than read as a quiet stretch and silently drop
+      // that window's rows from the listing.
       extraOptions: { surfaceNonJsonAsError: true },
-      queryFn: async ({ cursor, pageSize }, _queryApi, _extraOptions, fetchWithBQ) => {
+      infiniteQueryOptions: {
+        initialPageParam: null,
+        getNextPageParam: (lastPage) =>
+          lastPage.reachedStart ? undefined : lastPage.nextCursor,
+      },
+      queryFn: async ({ queryArg, pageParam }, _api, _extraOptions, fetchWithBQ) => {
         const seenIds = new Set<number>();
         const entries: FlowsheetRangeEntry[] = [];
-        let windowEnd = cursor ?? Date.now();
-        let emptyStreak = 0;
-        let reachedStart = false;
+        let windowEnd = pageParam ?? Date.now();
+        let width = MIN_WINDOW_MS;
 
-        while (entries.length < pageSize) {
-          const windowStart = windowEnd - WINDOW_MS;
+        for (
+          let windows = 0;
+          windows < MAX_WINDOWS_PER_PAGE &&
+          entries.length < queryArg.pageSize &&
+          windowEnd > ARCHIVE_START_MS;
+          windows++
+        ) {
+          const windowStart = Math.max(windowEnd - width, ARCHIVE_START_MS);
           const result = await fetchWithBQ({
             url: "/range",
             // Epoch milliseconds, not ISO strings: the endpoint rejects
@@ -78,36 +113,42 @@ export const archiveStreamApi = createApi({
             return { error: result.error };
           }
 
-          // `null` still reaches here for the one case `surfaceNonJsonAsError`
-          // does not cover -- a request the client itself aborted -- so this
-          // fallback is live, not dead code (see backendBaseQuery).
-          const window = (result.data as FlowsheetRangeResponse | null) ?? EMPTY_RANGE;
+          // RTK's JSON handler resolves a zero-length 2xx body to `null`
+          // without an error, which the opt-out above never sees. This route
+          // always answers an object, so an empty body is a broken hop, and
+          // it fails the page the same way an unparseable one does.
+          const rangeWindow = result.data as FlowsheetRangeResponse | null;
+          if (!rangeWindow) {
+            const emptyBody: FetchBaseQueryError = {
+              status: "PARSING_ERROR",
+              originalStatus: result.meta?.response?.status ?? 200,
+              data: "",
+              error: "Empty response body",
+            };
+            return { error: emptyBody };
+          }
 
-          const newEntries = window.entries.filter((entry) => !seenIds.has(entry.id));
-          newEntries.forEach((entry) => seenIds.add(entry.id));
+          const fresh = rangeWindow.entries.filter((entry) => !seenIds.has(entry.id));
+          fresh.forEach((entry) => seenIds.add(entry.id));
           // Windows are walked newest-first, so each older window's own
           // (already ascending) entries slot in before what's accumulated.
-          entries.unshift(...newEntries);
+          entries.unshift(...fresh);
 
-          emptyStreak = window.entries.length === 0 ? emptyStreak + 1 : 0;
+          // "No new rows", not "no rows": a window that only re-serves rows
+          // this page already holds is walked like a gap, not a busy day.
+          width = fresh.length === 0 ? Math.min(width * 2, MAX_WINDOW_MS) : MIN_WINDOW_MS;
           windowEnd = windowStart;
-
-          if (emptyStreak >= MAX_CONSECUTIVE_EMPTY_WINDOWS) {
-            reachedStart = true;
-            break;
-          }
         }
 
         return {
-          data: {
-            entries,
-            nextCursor: reachedStart ? null : windowEnd,
-            reachedStart,
-          },
+          data:
+            windowEnd <= ARCHIVE_START_MS
+              ? { entries, reachedStart: true, nextCursor: null }
+              : { entries, reachedStart: false, nextCursor: windowEnd },
         };
       },
     }),
   }),
 });
 
-export const { useGetArchiveStreamQuery } = archiveStreamApi;
+export const { useGetArchiveStreamInfiniteQuery } = archiveStreamApi;
