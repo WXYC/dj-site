@@ -186,8 +186,9 @@ describe("convertLmlItemToAlbumEntry", () => {
 
   it("should pass on_streaming:false through so the EXCLUSIVE chip renders (dj-site#605)", () => {
     // The catalog/flowsheet result rows render the WXYC EXCLUSIVE chip on
-    // `on_streaming === false` (see SearchResults.tsx / Capsule.tsx). Dropping
-    // the field silently hid the chip on LML-sourced results.
+    // `on_streaming === false` (see SearchResults.tsx /
+    // FlowsheetBackendResult.tsx). Dropping the field silently hid the chip on
+    // LML-sourced results.
     const item = createTestLmlLibraryItem({ on_streaming: false });
     const result = convertLmlItemToAlbumEntry(item);
     expect(result.on_streaming).toBe(false);
