@@ -63,7 +63,7 @@ const requestTimeoutFor = (domain: string): number =>
     ? LML_BACKED_REQUEST_TIMEOUT_MS
     : BACKEND_REQUEST_TIMEOUT_MS;
 
-const innerBaseQuery = (domain: string, options?: BackendExtraOptions): BackendBaseQuery =>
+const innerBaseQuery = (domain: string, options?: BackendBaseQueryOptions): BackendBaseQuery =>
   fetchBaseQuery({
     baseUrl: `${process.env.NEXT_PUBLIC_BACKEND_URL}/${domain}`,
     timeout: requestTimeoutFor(domain),
@@ -202,12 +202,20 @@ const logNonJsonResponse = (
  */
 type BackendExtraOptions = {
   surfaceNonJsonAsError?: boolean;
+};
+
+/**
+ * Options for `backendBaseQuery` itself, resolved once per domain rather than
+ * per endpoint -- unlike `BackendExtraOptions`, which each endpoint sets in
+ * its own `builder.query(...)` definition.
+ */
+type BackendBaseQueryOptions = {
   /**
    * Skips `getJWTToken()` in `prepareHeaders` entirely, so a public route
    * never blocks on -- or triggers -- token resolution. Off by default:
    * every consumer but a route that is genuinely public (`archiveStreamApi`)
-   * needs the bearer token. `backendBaseQuery` takes this at the domain
-   * level, not per endpoint, since the whole domain it wraps is public.
+   * needs the bearer token. Set at the domain level, not per endpoint, since
+   * the whole domain it wraps is public.
    */
   skipAuth?: boolean;
 };
@@ -229,7 +237,8 @@ const isGetRequest = (args: string | FetchArgs): boolean => {
  * Backend base query for RTK Query APIs.
  *
  * Wraps `fetchBaseQuery` with two extras:
- * 1. Adds the JWT bearer token and a request id (in `prepareHeaders`).
+ * 1. Adds the JWT bearer token and a request id (in `prepareHeaders`), unless
+ *    the domain is public and passes `{ skipAuth: true }`.
  * 2. Soft-handles non-JSON responses (most notably Express's HTML 404s)
  *    **for GET requests by default**: the query resolves with
  *    `{ data: null }` (hook `data` may be `null` even when the endpoint
@@ -244,7 +253,7 @@ const isGetRequest = (args: string | FetchArgs): boolean => {
  */
 export const backendBaseQuery = (
   domain: string,
-  options?: BackendExtraOptions
+  options?: BackendBaseQueryOptions
 ): BackendBaseQuery => {
   const inner = innerBaseQuery(domain, options);
 
