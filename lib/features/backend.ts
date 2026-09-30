@@ -205,17 +205,23 @@ type BackendExtraOptions = {
 };
 
 /**
- * Options for `backendBaseQuery` itself, resolved once per domain rather than
- * per endpoint -- unlike `BackendExtraOptions`, which each endpoint sets in
- * its own `builder.query(...)` definition.
+ * Options for one `backendBaseQuery` call, resolved once for that base query
+ * rather than per endpoint -- unlike `BackendExtraOptions`, which each
+ * endpoint sets in its own `builder.query(...)` definition. Scoped to the
+ * `createApi` built on top of this base query, not to the domain string it's
+ * built with: two `createApi`s can pass the same domain and different
+ * `skipAuth` values, so a domain being mostly gated or mostly public says
+ * nothing about what any one base query needs.
  */
 type BackendBaseQueryOptions = {
   /**
-   * Skips `getJWTToken()` in `prepareHeaders` entirely, so a public route
-   * never blocks on -- or triggers -- token resolution. Off by default:
-   * every consumer but a route that is genuinely public (`archiveStreamApi`)
-   * needs the bearer token. Set at the domain level, not per endpoint, since
-   * the whole domain it wraps is public.
+   * Skips `getJWTToken()` in `prepareHeaders` entirely, so none of the
+   * endpoints built on this base query ever block on -- or trigger -- token
+   * resolution. Off by default. Set this only when every endpoint on this
+   * particular `createApi` is genuinely unauthenticated: a domain can mix
+   * gated and public routes (Backend-Service's `flowsheet` domain does), so
+   * the flag has to be judged per base query, not inferred from the domain
+   * name.
    */
   skipAuth?: boolean;
 };
@@ -238,7 +244,7 @@ const isGetRequest = (args: string | FetchArgs): boolean => {
  *
  * Wraps `fetchBaseQuery` with two extras:
  * 1. Adds the JWT bearer token and a request id (in `prepareHeaders`), unless
- *    the domain is public and passes `{ skipAuth: true }`.
+ *    this base query is built with `{ skipAuth: true }`.
  * 2. Soft-handles non-JSON responses (most notably Express's HTML 404s)
  *    **for GET requests by default**: the query resolves with
  *    `{ data: null }` (hook `data` may be `null` even when the endpoint
