@@ -1,13 +1,19 @@
 import { describe, it, expect } from "vitest";
-import { capsulesForSongEntry, isExclusive } from "@/lib/features/flowsheet/indicators";
+import {
+  capsulesForSongEntry,
+  isExclusive,
+  type Capsulable,
+} from "@/lib/features/flowsheet/indicators";
 
 describe("isExclusive", () => {
-  it("is true only when on_streaming is explicitly false", () => {
-    expect(isExclusive({ on_streaming: false })).toBe(true);
-    expect(isExclusive({ on_streaming: true })).toBe(false);
-    expect(isExclusive({ on_streaming: null })).toBe(false);
-    expect(isExclusive({ on_streaming: undefined })).toBe(false);
-    expect(isExclusive({})).toBe(false);
+  it.each<[string, boolean, Pick<Capsulable, "on_streaming">]>([
+    ["false", true, { on_streaming: false }],
+    ["true", false, { on_streaming: true }],
+    ["null", false, { on_streaming: null }],
+    ["undefined", false, { on_streaming: undefined }],
+    ["absent", false, {}],
+  ])("on_streaming %s -> %s", (_name, expected, entry) => {
+    expect(isExclusive(entry)).toBe(expected);
   });
 });
 
