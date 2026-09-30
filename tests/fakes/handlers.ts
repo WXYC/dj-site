@@ -88,6 +88,10 @@ export const handlers = [
     return HttpResponse.json({ results: [], total: 0, page: 0, totalPages: 0 });
   }),
 
+  http.get(`${BACKEND_URL}/flowsheet/range`, () => {
+    return HttpResponse.json({ shows: [], entries: [] });
+  }),
+
   // Rotation API handlers
   http.get(`${BACKEND_URL}/rotation/`, () => {
     return HttpResponse.json([]);
