@@ -2,8 +2,9 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen } from "@testing-library/react";
 import { renderWithProviders as render } from "@/tests/helpers";
 import ShowEntriesPanel from "@/src/components/experiences/modern/schedule-week/ShowEntriesPanel";
-import type { FlowsheetV2Entry, FlowsheetRangeShow } from "@wxyc/shared";
+import type { FlowsheetRangeShow } from "@wxyc/shared";
 import { FlowsheetEntryType } from "@wxyc/shared/dtos";
+import type { FlowsheetRangeEntryWire } from "@/lib/features/flowsheet/conversions";
 
 // The drill-in renders the live flowsheet's own row elements, so the row's
 // live-show hooks are the one thing that would otherwise decide whether an
@@ -42,7 +43,7 @@ const show = {
   end_time: "2026-08-23T00:01:00.000Z",
 } as FlowsheetRangeShow;
 
-const entry = (over: Partial<FlowsheetV2Entry> & { id: number }) =>
+const entry = (over: Partial<FlowsheetRangeEntryWire> & { id: number }) =>
   ({
     play_order: 1,
     show_id: show.id,
@@ -53,10 +54,10 @@ const entry = (over: Partial<FlowsheetV2Entry> & { id: number }) =>
     track_title: "Back, Baby",
     album_title: "On Your Own Love Again",
     ...over,
-  }) as unknown as FlowsheetV2Entry;
+  }) as unknown as FlowsheetRangeEntryWire;
 
 const panel = (
-  entries: FlowsheetV2Entry[],
+  entries: FlowsheetRangeEntryWire[],
   highlightedEntryId: number | null = null
 ) => (
   <ShowEntriesPanel
@@ -239,7 +240,7 @@ describe("ShowEntriesPanel", () => {
             request_flag: true,
             segue: true,
             on_streaming: false,
-          } as Partial<FlowsheetV2Entry> & { id: number }),
+          } as Partial<FlowsheetRangeEntryWire> & { id: number }),
         ]),
       );
 

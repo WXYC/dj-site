@@ -320,11 +320,22 @@ export function convertV2Entry(entry: FlowsheetV2EntryJSON): FlowsheetEntry {
 
 /**
  * The flat shape `v2ToRangeShape` normalizes a published `FlowsheetV2Entry`
- * into, and `ClassicShowEntries` reads every field of unconditionally rather
- * than narrowing on `entry_type` row by row. Every variant-specific field a
- * consumer reads without narrowing lives here as optional; `request_flag`
- * alone is unconditional, since every variant converts to one (false for
- * anything but a track).
+ * into, and the shape `convertRangeEntry` and every classic/previous-sets
+ * reader of a range row actually takes. Every variant-specific field a
+ * consumer reads without narrowing on `entry_type` lives here as optional;
+ * `request_flag` alone is unconditional, since every variant converts to one
+ * (false for anything but a track).
+ *
+ * Hand-declared rather than aliased off the contract's `FlowsheetEntryResponse`:
+ * that type is still exported in 10.6.0, but it's the V1 shape, not this one,
+ * and it disagrees with this shape field for field -- `add_time` and
+ * `entry_type` are optional there where every reader here needs them present,
+ * it carries enrichment fields (`rotation_label`, `label_id`, the
+ * streaming-service URLs, `artist_bio`, `metadata_status`, ...) no reader
+ * here touches, and it does not declare `on_streaming` at all, which
+ * `GET /flowsheet/range` does emit. Composing off it would still need every
+ * one of those patched back in, so this stays the plain subset the switch
+ * below actually narrows on.
  */
 export type FlowsheetRangeEntryWire = {
   id: number;
@@ -344,38 +355,6 @@ export type FlowsheetRangeEntryWire = {
   album_id?: number;
   rotation_id?: number;
   rotation_bin?: Rotation;
-  on_streaming?: boolean | null;
-  artwork_url?: string | null;
-  discogsUnavailable?: boolean;
-  discogsUnavailableNote?: string | null;
-};
-
-/**
- * `convertRangeEntry`'s own input: either a raw `FlowsheetV2Entry` straight off
- * `GET /flowsheet/range` (the modern schedule-week panel, fed directly), or
- * the classic experience's already-normalized `FlowsheetRangeEntryWire` (the
- * modern previous-sets panel gets this shape too, via `v2ToRangeShape`). Both
- * name every field the switch below reads, so one loosely-typed shape serves
- * every caller instead of a duplicate conversion per caller.
- */
-export type FlowsheetRangeEntryInput = {
-  id: number;
-  show_id: number | null;
-  play_order: number;
-  add_time: string;
-  entry_type: string;
-  request_flag?: boolean;
-  dj_name?: string | null;
-  message?: string | null;
-  radio_hour?: string | null;
-  track_title?: string | null;
-  artist_name?: string | null;
-  album_title?: string | null;
-  record_label?: string | null;
-  segue?: boolean | null;
-  album_id?: number | null;
-  rotation_id?: number | null;
-  rotation_bin?: Rotation | null;
   on_streaming?: boolean | null;
   artwork_url?: string | null;
   discogsUnavailable?: boolean;
@@ -416,8 +395,10 @@ function recognizableTalksetMessage(raw: string | undefined): string {
  * on the row that the row never claimed.
  *
  * Accepts `null` as well as `undefined` for the same reason `radio_hour` does:
- * the V2 wire message is nullable where the range wire message is merely
- * optional, and this reads either the same way -- no clock text named.
+ * the breakpoint variant's own `message` field is nullable in the published
+ * contract (`FlowsheetV2BreakpointEntry.message`), and `FlowsheetRangeEntryWire`
+ * mirrors that nullability rather than widening it away, so this reads either
+ * absence the same way -- no clock text named.
  */
 function clockTimeNamedInMessage(raw: string | null | undefined): string {
   const match = raw?.match(CLOCK_TIME);
@@ -507,9 +488,11 @@ function usableInstant(iso: string | null | undefined): string | null {
  * surface can render a past set with the live flowsheet's own row elements
  * instead of a fourth copy of them.
  *
- * `FlowsheetV2Entry` and `FlowsheetEntryResponse` are pinned to one field set
- * by the contract, so most of this is the same rename `convertV2Entry` does
- * (`rotation_bin` → `rotation`). What it adds is the normalization the live
+ * `entry` is the flat `FlowsheetRangeEntryWire` -- `FlowsheetV2Entry` is a
+ * discriminated union whose fields differ by `entry_type` variant, not one
+ * field set, so `v2ToRangeShape` has already narrowed and flattened it by
+ * the time it reaches here. This is therefore the same rename `convertV2Entry`
+ * does (`rotation_bin` → `rotation`), plus the normalization the live
  * endpoint performs server-side and the range endpoint does not: the range
  * payload carries the raw legacy marker column ("TALKSET",
  * "--- 3:00 PM BREAKPOINT ---") where `GET /flowsheet` carries "Talkset" and
@@ -520,7 +503,7 @@ function usableInstant(iso: string | null | undefined): string | null {
  * renders, because the vocabulary is server-owned and a missing arm in a
  * displayable-types switch makes the row disappear rather than fail loudly.
  */
-export function convertRangeEntry(entry: FlowsheetRangeEntryInput): FlowsheetEntry {
+export function convertRangeEntry(entry: FlowsheetRangeEntryWire): FlowsheetEntry {
   const base = {
     id: entry.id,
     play_order: entry.play_order,

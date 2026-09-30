@@ -602,7 +602,7 @@ export type AlbumEntry = {
    */
   code_volume_letters?: string | null;
   alternate_artist: string | undefined;
-  album_artist?: string;
+  album_artist?: string | null;
   rotation_bin: Rotation | undefined;
   rotation_id: number | undefined;
   /** The rotation entry's named card, when known. Converted from search/rotation rows that carry the wire field (`AlbumSearchResult.card`, non-null only while actively rotating) and threaded from add/kill rotation mutation responses. `null` is the positive claim "on no card"; absent means no source has reported one. */

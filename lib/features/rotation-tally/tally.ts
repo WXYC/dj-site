@@ -1,6 +1,4 @@
-import type { FlowsheetV2Entry, FlowsheetRangeShow } from "@wxyc/shared";
-
-type FlowsheetRangeTrackEntry = Extract<FlowsheetV2Entry, { entry_type: "track" }>;
+import type { FlowsheetV2Entry, FlowsheetV2TrackEntry, FlowsheetRangeShow } from "@wxyc/shared";
 import { STATION_TIME_ZONE, startOfStationHour } from "@/src/utilities/stationTime";
 
 /**
@@ -38,7 +36,7 @@ export type RankedPlay = {
 
 const MS_PER_HOUR = 3_600_000;
 
-/** The top of the station hour a row was logged in, when the wire carries one. */
+/** The top of the station hour a row was logged in, or null when its `add_time` fails to parse. */
 function loggedHour(entry: FlowsheetV2Entry): number | null {
   if (!entry.add_time) return null;
   const ms = Date.parse(entry.add_time);
@@ -108,10 +106,12 @@ export function countDistinctDeclaredHours(
       // rotation play and never reached the tally.
       if (rotationId <= 0) continue;
 
-      // `add_time` is optional on the wire, so a row before any breakpoint in
-      // a show whose start_time is also missing cannot be placed in an hour at
-      // all. Dropping it undercounts by one; bucketing it at the epoch would
-      // merge every such row into one spurious shared hour.
+      // `current` is null for a row before any breakpoint in a show whose
+      // `start_time` failed to parse; `loggedHour` then falls back to this
+      // row's own `add_time`, which is required on the wire but still only
+      // a null-if-unparseable guard away from leaving the row unplaceable.
+      // Dropping it undercounts by one; bucketing it at the epoch would merge
+      // every such row into one spurious shared hour.
       const bucket = current ?? loggedHour(e);
       if (bucket === null) continue;
 
@@ -153,7 +153,7 @@ function tallyAll(
   // First linked appearance names the release: later rows carry the same
   // rotation_id, and a re-typed free-text row should not rename the chart
   // entry. Only track rows carry a rotation link.
-  const naming = new Map<number, FlowsheetRangeTrackEntry>();
+  const naming = new Map<number, FlowsheetV2TrackEntry>();
   for (const e of entries) {
     if (e.entry_type !== "track") continue;
     const id = e.rotation_id ?? 0;
