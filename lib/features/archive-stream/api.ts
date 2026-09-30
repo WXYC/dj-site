@@ -7,17 +7,20 @@ export type ArchiveStreamArg = {
   /** How many entries a page holds before its walk stops. The walk never splits
    * a window and a window spans at least a day -- a few hundred rows at the
    * station's usual pace -- so this is a floor, and a page usually runs well
-   * past it. */
+   * past it. The window that reaches the far side of a gap longer than a week
+   * can be 8 days wide, so that page can carry a few thousand rows (2,861 and
+   * 3.4 MB for the densest recent 8 days). Every page walks at least one
+   * window, whatever this is. */
   pageSize: number;
 };
 
 /**
  * Where a page's walk starts: an exclusive upper bound in epoch milliseconds,
- * or `null` for "now". The head page resolves "now" when it is fetched, so a
- * refetch re-anchors it on the present instead of replaying the moment the
- * listing first opened.
+ * or `"now"`. The head page resolves "now" when it is fetched, so a refetch
+ * re-anchors it on the present instead of replaying the moment the listing
+ * first opened. Not `null`: RTK reads a nullish page param as "no page".
  */
-export type ArchiveStreamCursor = number | null;
+export type ArchiveStreamCursor = number | "now";
 
 /**
  * `reachedStart` is the only end-of-archive signal. A page short of `pageSize`
@@ -40,6 +43,13 @@ const MIN_WINDOW_MS = DAY_MS;
 /** `/flowsheet/range` rejects a window wider than 8 days (`MAX_RANGE_MS`,
  * Backend-Service `flowsheet.controller.ts`). */
 const MAX_WINDOW_MS = 8 * DAY_MS;
+
+/**
+ * How far the head page's first window reaches past the device's clock. A
+ * clock running behind the server's would otherwise leave the newest rows out
+ * of the listing; nothing is logged in the future, so the reach costs nothing.
+ */
+const CLOCK_SKEW_ALLOWANCE_MS = DAY_MS;
 
 /**
  * The walk ends here, not after some run of empty windows, because the
@@ -85,20 +95,22 @@ export const archiveStreamApi = createApi({
       // that window's rows from the listing.
       extraOptions: { surfaceNonJsonAsError: true },
       infiniteQueryOptions: {
-        initialPageParam: null,
+        initialPageParam: "now",
         getNextPageParam: (lastPage) =>
           lastPage.reachedStart ? undefined : lastPage.nextCursor,
       },
       queryFn: async ({ queryArg, pageParam }, _api, _extraOptions, fetchWithBQ) => {
         const seenIds = new Set<number>();
         const entries: FlowsheetRangeEntry[] = [];
-        let windowEnd = pageParam ?? Date.now();
+        let windowEnd = pageParam === "now" ? Date.now() : pageParam;
+        let requestEnd = pageParam === "now" ? windowEnd + CLOCK_SKEW_ALLOWANCE_MS : windowEnd;
         let width = MIN_WINDOW_MS;
 
         for (
           let windows = 0;
           windows < MAX_WINDOWS_PER_PAGE &&
-          entries.length < queryArg.pageSize &&
+          // At least one window, so a page always moves the cursor.
+          (windows === 0 || entries.length < queryArg.pageSize) &&
           windowEnd > ARCHIVE_START_MS;
           windows++
         ) {
@@ -107,7 +119,7 @@ export const archiveStreamApi = createApi({
             url: "/range",
             // Epoch milliseconds, not ISO strings: the endpoint rejects
             // anything that is not an integer.
-            params: { start: windowStart, end: windowEnd },
+            params: { start: windowStart, end: requestEnd },
           });
           if (result.error) {
             return { error: result.error };
@@ -138,6 +150,7 @@ export const archiveStreamApi = createApi({
           // this page already holds is walked like a gap, not a busy day.
           width = fresh.length === 0 ? Math.min(width * 2, MAX_WINDOW_MS) : MIN_WINDOW_MS;
           windowEnd = windowStart;
+          requestEnd = windowStart;
         }
 
         return {

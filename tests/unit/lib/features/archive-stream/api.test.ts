@@ -6,6 +6,7 @@ import {
   archiveStreamApi,
   useGetArchiveStreamInfiniteQuery,
   MAX_WINDOWS_PER_PAGE,
+  type ArchiveStreamCursor,
 } from "@/lib/features/archive-stream/api";
 import { TEST_BACKEND_URL } from "@/tests/helpers/constants";
 import { server } from "@/tests/fakes/server";
@@ -86,13 +87,19 @@ function queueRangeResponses(bodies: (() => Response)[]): RangeWindow[] {
 
 const json = (page: FlowsheetRangeResponse) => () => HttpResponse.json(page);
 
-async function fetchFirstPage(pageSize: number) {
+/** `from` other than "now" walks from a fixed cursor, as every page after the head does. */
+async function fetchFirstPage(pageSize: number, from: ArchiveStreamCursor = "now") {
   const store = archiveStreamStore();
   const result = await store.dispatch(
-    archiveStreamApi.endpoints.getArchiveStream.initiate({ pageSize }),
+    archiveStreamApi.endpoints.getArchiveStream.initiate(
+      { pageSize },
+      { initialPageParam: from },
+    ),
   );
   return { store, result, page: result.data?.pages[0] };
 }
+
+const widthsInDays = (windows: RangeWindow[]) => windows.map((w) => (w.end - w.start) / DAY_MS);
 
 describe("archiveStreamApi", () => {
   afterEach(() => {
@@ -117,13 +124,15 @@ describe("archiveStreamApi", () => {
     // millisecond early skips the second -- and dedup is per page, so neither
     // is caught anywhere else.
     const windows = serveArchive([
+      // Logged after the device's clock reads, as when that clock runs slow.
+      { id: 4, at: NOW + 5 * 60_000 },
       { id: 3, at: NOW - 60_000 },
       { id: 2, at: boundary },
       { id: 1, at: boundary - 1 },
     ]);
 
     const { store, page } = await fetchFirstPage(2);
-    expect(windows[0].end).toBe(NOW);
+    expect(windows[0]).toMatchObject({ start: boundary, end: NOW + DAY_MS });
     expect(page?.nextCursor).toBe(boundary);
 
     const headWindows = windows.length;
@@ -135,8 +144,8 @@ describe("archiveStreamApi", () => {
     );
 
     expect(windows[headWindows].end).toBe(boundary);
-    expect(result.data?.pageParams).toEqual([null, boundary]);
-    expect(result.data?.pages.flatMap((p) => p.entries.map((e) => e.id))).toEqual([2, 3, 1]);
+    expect(result.data?.pageParams).toEqual(["now", boundary]);
+    expect(result.data?.pages.flatMap((p) => p.entries.map((e) => e.id))).toEqual([2, 3, 4, 1]);
   });
 
   it("re-anchors the head page on the present when the walk is refetched", async () => {
@@ -152,7 +161,7 @@ describe("archiveStreamApi", () => {
     now.mockReturnValue(NOW + DAY_MS);
     await subscription.refetch();
 
-    expect(windows.map((w) => w.end)).toEqual([NOW, NOW + DAY_MS, NOW]);
+    expect(windows.map((w) => w.start)).toEqual([NOW - DAY_MS, NOW, NOW - 2 * DAY_MS]);
     subscription.unsubscribe();
   });
 
@@ -175,7 +184,6 @@ describe("archiveStreamApi", () => {
   });
 
   it("crosses a 42-day gap -- longer than the archive's longest, spring 2020's 41.7 days -- inside one page", async () => {
-    vi.spyOn(Date, "now").mockReturnValue(NOW);
     const afterGap = NOW - DAY_MS / 2;
     const beforeGap = afterGap - 42 * DAY_MS;
     const windows = serveArchive([
@@ -183,37 +191,36 @@ describe("archiveStreamApi", () => {
       { id: 2, at: afterGap },
     ]);
 
-    const { page } = await fetchFirstPage(2);
+    const { page } = await fetchFirstPage(2, NOW);
 
     expect(page?.entries.map((e) => e.id)).toEqual([1, 2]);
     expect(page?.reachedStart).toBe(false);
-    // Empty windows double up to the cap, and a window with rows drops back to
-    // one day so a busy stretch never lands a week of rows on one page.
-    expect(windows.map((w) => (w.end - w.start) / DAY_MS)).toEqual([1, 1, 2, 4, 8, 8, 8, 8, 8]);
+    // Empty windows double up to the 8-day cap.
+    expect(widthsInDays(windows)).toEqual([1, 1, 2, 4, 8, 8, 8, 8, 8]);
   });
 
   it("drops back to one-day windows once a gap gives way to rows", async () => {
-    vi.spyOn(Date, "now").mockReturnValue(NOW);
     const windows = serveArchive([
       { id: 2, at: NOW - 3 * DAY_MS },
       { id: 1, at: NOW - 3.5 * DAY_MS },
     ]);
 
-    const { page } = await fetchFirstPage(2);
+    const { page } = await fetchFirstPage(2, NOW);
 
     expect(page?.entries.map((e) => e.id)).toEqual([1, 2]);
-    expect(windows.map((w) => (w.end - w.start) / DAY_MS)).toEqual([1, 2, 1]);
+    // A wide window that finds rows is followed by a narrow one, so the rest
+    // of a busy stretch isn't pulled in a week at a time.
+    expect(widthsInDays(windows)).toEqual([1, 2, 1]);
   });
 
   it("walks back to the archive's first row, logged the evening of 2004-11-03, and reports reachedStart there", async () => {
     const firstRow = Date.parse("2004-11-04T03:06:41.391Z");
-    vi.spyOn(Date, "now").mockReturnValue(firstRow + 30 * DAY_MS);
     const windows = serveArchive([
       { id: 154, at: firstRow },
       { id: 155, at: firstRow + 20 * DAY_MS },
     ]);
 
-    const { page } = await fetchFirstPage(50);
+    const { page } = await fetchFirstPage(50, firstRow + 30 * DAY_MS);
 
     expect(page?.entries.map((e) => e.id)).toEqual([154, 155]);
     expect(page?.reachedStart).toBe(true);
@@ -238,14 +245,26 @@ describe("archiveStreamApi", () => {
   it("ends a page whose every window re-serves rows it already has", async () => {
     const windows = queueRangeResponses([json({ shows: [], entries: [rangeEntry(7)] })]);
 
-    const { page } = await fetchFirstPage(2);
+    const { page } = await fetchFirstPage(2, NOW);
 
     expect(windows).toHaveLength(MAX_WINDOWS_PER_PAGE);
     expect(page?.entries.map((e) => e.id)).toEqual([7]);
     expect(page?.reachedStart).toBe(false);
     // Nothing new is a gap, however many rows came back.
-    expect(windows.slice(0, 5).map((w) => (w.end - w.start) / DAY_MS)).toEqual([1, 1, 2, 4, 8]);
+    expect(widthsInDays(windows.slice(0, 5))).toEqual([1, 1, 2, 4, 8]);
   });
+
+  it.each([0, -1, Number.NaN])(
+    "still walks a window, and so still moves the cursor, when pageSize is %s",
+    async (pageSize) => {
+      const windows = serveArchive([]);
+
+      const { page } = await fetchFirstPage(pageSize, NOW);
+
+      expect(windows).toHaveLength(1);
+      expect(page?.nextCursor).toBe(NOW - DAY_MS);
+    },
+  );
 
   it("dedupes an entry the server re-sends across an overlapping window boundary", async () => {
     // The row nearest the boundary (id 31) reappears in the older window too.
