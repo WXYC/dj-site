@@ -28,7 +28,10 @@ export type ArchiveStreamCursor = number | "now";
  * stretch, and the walk resumes from `nextCursor`.
  */
 export type ArchiveStreamPage = {
-  /** Oldest first, matching the wire order of each `/flowsheet/range` window. */
+  /** Newest first by `add_time`, then by `id` -- the reverse of each
+   * `/flowsheet/range` window's wire order. Pages also run newest to oldest,
+   * so appending each page's entries in page order reads as one unbroken
+   * newest-first stream. */
   entries: FlowsheetRangeEntry[];
 } & (
   | { reachedStart: true; nextCursor: null }
@@ -142,9 +145,9 @@ export const archiveStreamApi = createApi({
 
           const fresh = rangeWindow.entries.filter((entry) => !seenIds.has(entry.id));
           fresh.forEach((entry) => seenIds.add(entry.id));
-          // Windows are walked newest-first, so each older window's own
-          // (already ascending) entries slot in before what's accumulated.
-          entries.unshift(...fresh);
+          // Each window arrives oldest first and is older than everything
+          // already accumulated, so reversed it continues the newest-first run.
+          entries.push(...fresh.reverse());
 
           // "No new rows", not "no rows": a window that only re-serves rows
           // this page already holds is walked like a gap, not a busy day.
