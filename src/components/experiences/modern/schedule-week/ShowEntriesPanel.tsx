@@ -7,7 +7,7 @@ import {
   convertRangeEntry,
   type FlowsheetRangeEntryWire,
 } from "@/lib/features/flowsheet/conversions";
-import { timeOf } from "@/lib/features/flowsheet/entry-time";
+import { rangeEntryTime } from "@/lib/features/flowsheet/entry-time";
 import Entry from "@/src/components/experiences/modern/flowsheet/Entries/Entry";
 import {
   FLOWSHEET_TABLE_SX,
@@ -39,7 +39,7 @@ export default function ShowEntriesPanel({
     () =>
       entries.map((entry) => ({
         id: entry.id,
-        timeLabel: timeOf(entry, entry.entry_type === "breakpoint"),
+        timeLabel: rangeEntryTime(entry),
         converted: convertRangeEntry(entry),
       })),
     [entries]

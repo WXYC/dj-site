@@ -3,7 +3,7 @@
 import { Fragment } from "react";
 import type { FlowsheetRangeShow } from "@wxyc/shared";
 import type { FlowsheetRangeEntryWire } from "@/lib/features/flowsheet/conversions";
-import { timeOf } from "@/lib/features/flowsheet/entry-time";
+import { rangeEntryTime } from "@/lib/features/flowsheet/entry-time";
 import { describeNonTrackEntry } from "@/lib/features/schedule-week/entryLabel";
 import { entryAnchorId } from "@/lib/features/schedule-week/showUrl";
 import { Capsule } from "@/src/components/experiences/classic/flowsheet/Capsule";
@@ -115,7 +115,7 @@ export default function ClassicShowEntries({
                 }
               >
                 <td className="classic-schedule-week-time">
-                  {timeOf(entry, entry.entry_type === "breakpoint")}
+                  {rangeEntryTime(entry)}
                 </td>
                 {isMarker(entry) ? (
                   // Alignment is set here rather than in the stylesheet because

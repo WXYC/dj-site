@@ -1,66 +1,124 @@
-import { describe, it, expect } from "vitest";
-import { timeOf } from "@/lib/features/flowsheet/entry-time";
+import { describe, it, expect, afterEach, vi } from "vitest";
+import { rangeEntryTime, flowsheetEntryTime } from "@/lib/features/flowsheet/entry-time";
 import { convertV2Entry } from "@/lib/features/flowsheet/conversions";
-import { isFlowsheetBreakpointEntry } from "@/lib/features/flowsheet/types";
-import { createTestV2BreakpointEntry } from "@/tests/fixtures/fixtures";
+import {
+  createTestV2BreakpointEntry,
+  createTestV2TrackEntry,
+  createTestV2TalksetEntry,
+  createTestV2ShowStartEntry,
+} from "@/tests/fixtures/fixtures";
 
-// This suite runs under the process's default time zone, which is not
-// America/New_York in this environment (nor CI's), so any accidental switch
-// to a local-zone formatter fails these cases instead of passing by
-// coincidence.
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
-describe("timeOf", () => {
+describe("rangeEntryTime", () => {
   it("shows the marked hour for a breakpoint with radio_hour", () => {
     expect(
-      timeOf(
-        { add_time: "2026-01-15T20:01:00Z", radio_hour: "2026-01-15T20:00:00Z" },
-        true
-      )
+      rangeEntryTime({
+        entry_type: "breakpoint",
+        add_time: "2026-01-15T20:01:00Z",
+        radio_hour: "2026-01-15T20:00:00Z",
+      })
     ).toBe("3:00 PM");
   });
 
   it("falls back to add_time when a breakpoint's radio_hour is null", () => {
     expect(
-      timeOf({ add_time: "2026-01-15T20:01:00Z", radio_hour: null }, true)
+      rangeEntryTime({
+        entry_type: "breakpoint",
+        add_time: "2026-01-15T20:01:00Z",
+        radio_hour: null,
+      })
     ).toBe("3:01 PM");
   });
 
   it("falls back to add_time when a breakpoint's radio_hour is absent", () => {
-    expect(timeOf({ add_time: "2026-01-15T20:01:00Z" }, true)).toBe("3:01 PM");
-  });
-
-  it.each([
-    ["track", { add_time: "2026-01-15T20:01:00Z" }],
-    ["talkset", { add_time: "2026-01-15T20:01:00Z" }],
-    ["show-marker", { add_time: "2026-01-15T20:01:00Z" }],
-  ] as const)("shows add_time for a non-breakpoint %s row", (_kind, entry) => {
-    expect(timeOf(entry, false)).toBe("3:01 PM");
-  });
-
-  it("ignores radio_hour on a non-breakpoint row", () => {
     expect(
-      timeOf(
-        { add_time: "2026-01-15T20:01:00Z", radio_hour: "2026-01-15T20:00:00Z" },
-        false
-      )
+      rangeEntryTime({ entry_type: "breakpoint", add_time: "2026-01-15T20:01:00Z" })
     ).toBe("3:01 PM");
   });
 
+  it.each([
+    ["track", "track"],
+    ["talkset", "talkset"],
+    ["show-marker", "show_start"],
+  ] as const)(
+    "shows add_time and ignores radio_hour for a non-breakpoint %s row",
+    (_kind, entry_type) => {
+      expect(
+        rangeEntryTime({
+          entry_type,
+          add_time: "2026-01-15T20:01:00Z",
+          // Would render 3:00 PM if the rule mistook this row for a
+          // breakpoint -- only entry_type may select radio_hour.
+          radio_hour: "2026-01-15T20:00:00Z",
+        })
+      ).toBe("3:01 PM");
+    }
+  );
+
   it("returns an empty string when add_time is missing", () => {
-    expect(timeOf({}, false)).toBe("");
+    expect(rangeEntryTime({ entry_type: "track" })).toBe("");
   });
 
   it("returns an empty string for a breakpoint with neither timestamp", () => {
-    expect(timeOf({}, true)).toBe("");
+    expect(rangeEntryTime({ entry_type: "breakpoint" })).toBe("");
   });
 
-  it("accepts a converted live breakpoint without conversion to the wire shape", () => {
+  it("renders station time under a non-Eastern process zone", () => {
+    // 2026-01-15T20:01:00Z is 3:01 PM in the station's zone (America/New_York,
+    // EST at this date) and 12:01 PM in Asia/Tokyo's calendar day ahead -- a
+    // formatter that fell back to the process's local zone instead of the
+    // explicit station zone would print a different hour here.
+    vi.stubEnv("TZ", "Asia/Tokyo");
+    expect(
+      rangeEntryTime({ entry_type: "track", add_time: "2026-01-15T20:01:00Z" })
+    ).toBe("3:01 PM");
+  });
+});
+
+describe("flowsheetEntryTime", () => {
+  it("shows the marked hour for a converted breakpoint with radio_hour", () => {
     const entry = convertV2Entry(
       createTestV2BreakpointEntry({
         add_time: "2026-01-15T20:01:00Z",
         radio_hour: "2026-01-15T20:00:00Z",
       })
     );
-    expect(timeOf(entry, isFlowsheetBreakpointEntry(entry))).toBe("3:00 PM");
+    expect(flowsheetEntryTime(entry)).toBe("3:00 PM");
+  });
+
+  it("falls back to add_time when a converted breakpoint's radio_hour is null", () => {
+    const entry = convertV2Entry(
+      createTestV2BreakpointEntry({
+        add_time: "2026-01-15T20:01:00Z",
+        radio_hour: null,
+      })
+    );
+    expect(flowsheetEntryTime(entry)).toBe("3:01 PM");
+  });
+
+  it.each([
+    ["track", createTestV2TrackEntry],
+    ["talkset", createTestV2TalksetEntry],
+    ["show-marker", createTestV2ShowStartEntry],
+  ] as const)(
+    "shows add_time for a converted non-breakpoint %s row",
+    (_kind, factory) => {
+      const entry = convertV2Entry(factory({ add_time: "2026-01-15T20:01:00Z" }));
+      expect(flowsheetEntryTime(entry)).toBe("3:01 PM");
+    }
+  );
+
+  it("renders station time under a non-Eastern process zone", () => {
+    vi.stubEnv("TZ", "Asia/Tokyo");
+    const entry = convertV2Entry(
+      createTestV2BreakpointEntry({
+        add_time: "2026-01-15T20:01:00Z",
+        radio_hour: "2026-01-15T20:00:00Z",
+      })
+    );
+    expect(flowsheetEntryTime(entry)).toBe("3:00 PM");
   });
 });
