@@ -2,7 +2,7 @@ import { createApi } from "@reduxjs/toolkit/query/react";
 import type { FetchBaseQueryError } from "@reduxjs/toolkit/query";
 import { backendBaseQuery } from "../backend";
 import type { FlowsheetRangeEntry, FlowsheetRangeResponse } from "@wxyc/shared";
-import { ARCHIVE_START_MS, MIN_WINDOW_MS, computeHeadWindow, orderNewestFirst } from "./head-window";
+import { ARCHIVE_START_MS, DAY_MS, MIN_WINDOW_MS, computeHeadWindow, reverseWireOrder } from "./head-window";
 
 export type ArchiveStreamArg = {
   /** How many entries a page holds before its walk stops. The walk never splits
@@ -39,18 +39,17 @@ export type ArchiveStreamPage = {
   | { reachedStart: false; nextCursor: number }
 );
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-
 /** `/flowsheet/range` rejects a window wider than 8 days (`MAX_RANGE_MS`,
  * Backend-Service `flowsheet.controller.ts`). */
 const MAX_WINDOW_MS = 8 * DAY_MS;
 
 /**
  * Most requests one page makes. An empty window doubles the next one's width
- * up to the 8-day cap, so the 41.7-day gap above takes 8 windows to cross;
- * twice that leaves a page room for the rows on either side. It bounds a public
- * page's sequential request count if the backend ever answers every window
- * empty, which would otherwise walk all the way back to `ARCHIVE_START_MS`.
+ * up to the 8-day cap, so the 41.7-day gap documented at `ARCHIVE_START_MS`
+ * in `./head-window` takes 8 windows to cross; twice that leaves a page room
+ * for the rows on either side. It bounds a public page's sequential request
+ * count if the backend ever answers every window empty, which would
+ * otherwise walk all the way back to `ARCHIVE_START_MS`.
  */
 export const MAX_WINDOWS_PER_PAGE = 16;
 
@@ -84,8 +83,9 @@ export const archiveStreamApi = createApi({
       queryFn: async ({ queryArg, pageParam }, _api, _extraOptions, fetchWithBQ) => {
         const seenIds = new Set<number>();
         const entries: FlowsheetRangeEntry[] = [];
-        const head = pageParam === "now" ? computeHeadWindow(Date.now()) : null;
-        let windowEnd = pageParam === "now" ? head!.end : pageParam;
+        const now = Date.now();
+        const head = pageParam === "now" ? computeHeadWindow(now) : null;
+        let windowEnd = pageParam === "now" ? now : pageParam;
         let requestEnd = head ? head.requestEnd : windowEnd;
         let width = MIN_WINDOW_MS;
 
@@ -128,7 +128,7 @@ export const archiveStreamApi = createApi({
           fresh.forEach((entry) => seenIds.add(entry.id));
           // Each window is older than everything already accumulated, so its
           // own newest-first order continues the run.
-          entries.push(...orderNewestFirst(fresh));
+          entries.push(...reverseWireOrder(fresh));
 
           // "No new rows", not "no rows": a window that only re-serves rows
           // this page already holds is walked like a gap, not a busy day.

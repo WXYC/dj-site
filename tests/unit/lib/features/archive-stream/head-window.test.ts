@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import type { FlowsheetRangeEntry } from "@wxyc/shared";
 import {
   computeHeadWindow,
-  orderNewestFirst,
+  reverseWireOrder,
   MIN_WINDOW_MS,
   CLOCK_SKEW_ALLOWANCE_MS,
   ARCHIVE_START_MS,
@@ -24,7 +24,6 @@ describe("computeHeadWindow", () => {
 
     expect(computeHeadWindow(now)).toEqual({
       start: now - MIN_WINDOW_MS,
-      end: now,
       requestEnd: now + CLOCK_SKEW_ALLOWANCE_MS,
     });
   });
@@ -36,17 +35,17 @@ describe("computeHeadWindow", () => {
   });
 });
 
-describe("orderNewestFirst", () => {
+describe("reverseWireOrder", () => {
   it("reverses a window's oldest-first wire order", () => {
     const entries = [rangeEntry(1), rangeEntry(2), rangeEntry(3)];
 
-    expect(orderNewestFirst(entries).map((e) => e.id)).toEqual([3, 2, 1]);
+    expect(reverseWireOrder(entries).map((e) => e.id)).toEqual([3, 2, 1]);
   });
 
   it("does not mutate its input", () => {
     const entries = [rangeEntry(1), rangeEntry(2)];
 
-    orderNewestFirst(entries);
+    reverseWireOrder(entries);
 
     expect(entries.map((e) => e.id)).toEqual([1, 2]);
   });

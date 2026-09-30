@@ -8,7 +8,7 @@ vi.mock("@/lib/features/authentication/client", () => ({
 }));
 
 import { fetchArchiveStreamSeed } from "@/lib/features/archive-stream/server";
-import { computeHeadWindow } from "@/lib/features/archive-stream/head-window";
+import { computeHeadWindow, DAY_MS } from "@/lib/features/archive-stream/head-window";
 import { archiveStreamApi } from "@/lib/features/archive-stream/api";
 import { TEST_BACKEND_URL } from "@/tests/helpers/constants";
 import { server as mswServer } from "@/tests/fakes/server";
@@ -16,13 +16,14 @@ import type { FlowsheetRangeEntry } from "@wxyc/shared";
 
 const NOW = Date.parse("2026-09-26T16:00:00.000Z");
 
-function rangeEntry(id: number): FlowsheetRangeEntry {
+function rangeEntry(id: number, at?: number): FlowsheetRangeEntry {
   return {
     id,
     play_order: id,
     show_id: 1,
     request_flag: false,
     entry_type: "track",
+    ...(at === undefined ? {} : { add_time: new Date(at).toISOString() }),
   };
 }
 
@@ -100,17 +101,29 @@ describe("fetchArchiveStreamSeed", () => {
     expect(seed).toEqual({ entries: [] });
   });
 
-  it("requests the same window and entry order as the reader's head page", async () => {
+  it("requests the same window as the reader's head page, and that window's entries lead the reader's first page", async () => {
     process.env.NEXT_PUBLIC_BACKEND_URL = TEST_BACKEND_URL;
+    // One row inside the head window and one a day further back, so a
+    // pageSize of 2 forces the reader to walk a second, older window before
+    // it has enough rows -- otherwise the seed (the head window alone) and
+    // the reader's first page would coincidentally hold the same rows
+    // regardless of whether the seed is actually a prefix of the page.
+    const rows = [
+      { id: 2, at: NOW - 60_000 },
+      { id: 1, at: NOW - 1.5 * DAY_MS },
+    ];
     const seedWindows: { start: string | null; end: string | null }[] = [];
     mswServer.use(
       http.get(`${TEST_BACKEND_URL}/flowsheet/range`, ({ request }) => {
         const params = new URL(request.url).searchParams;
         seedWindows.push({ start: params.get("start"), end: params.get("end") });
-        return HttpResponse.json({
-          shows: [],
-          entries: [rangeEntry(1), rangeEntry(2)],
-        });
+        const start = Number(params.get("start"));
+        const end = Number(params.get("end"));
+        const entries = rows
+          .filter((row) => row.at >= start && row.at < end)
+          .sort((a, b) => a.at - b.at)
+          .map((row) => rangeEntry(row.id, row.at));
+        return HttpResponse.json({ shows: [], entries });
       }),
     );
 
@@ -124,10 +137,16 @@ describe("fetchArchiveStreamSeed", () => {
       archiveStreamApi.endpoints.getArchiveStream.initiate({ pageSize: 2 }),
     );
 
-    expect(seedWindows).toHaveLength(2);
+    // The seed's request is the reader's first window, and the reader went
+    // on to a second, older one to fill the page.
+    expect(seedWindows).toHaveLength(3);
     expect(seedWindows[0]).toEqual(seedWindows[1]);
-    expect(seed.entries.map((e) => e.id)).toEqual(
-      result.data?.pages[0]?.entries.map((e) => e.id),
-    );
+    expect(seed.entries.map((e) => e.id)).toEqual([2]);
+
+    const firstPageIds = result.data?.pages[0]?.entries.map((e) => e.id);
+    expect(firstPageIds).toEqual([2, 1]);
+    // The seed must be a prefix of the reader's first page, not the whole of
+    // it, since a multi-window page holds rows the seed never requested.
+    expect(firstPageIds?.slice(0, seed.entries.length)).toEqual(seed.entries.map((e) => e.id));
   });
 });
