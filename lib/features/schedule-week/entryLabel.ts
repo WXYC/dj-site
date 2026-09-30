@@ -5,7 +5,7 @@ import { messageEntryLabel } from "@/lib/features/flowsheet/marker-text";
 /**
  * Display line for an entry the schedule panel does not render as a track.
  *
- * Resolved through the flowsheet's own row-presentation switch rather than a
+ * Resolved through the flowsheet's shared marker-text switch rather than a
  * local copy of it: `show_start` and `show_end` carry no `message` at all —
  * they name the DJ in `dj_name` — so a `message ?? entry_type` fallback prints
  * the wire token "show_start" into the panel, and every drill-in opens and
