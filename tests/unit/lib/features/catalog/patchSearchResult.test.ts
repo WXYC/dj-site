@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { createTestAlbum, createTestArtist } from "@/tests/fixtures/fixtures";
+import { createTestAlbum, createTestArtist, createTestAlbumSearchResult } from "@/tests/fixtures/fixtures";
+import { convertToAlbumEntry } from "@/lib/features/catalog/conversions";
 import { mergeAlbumIntoSearchResult } from "@/lib/features/catalog/patchSearchResult";
 import { Rotation } from "@/lib/features/rotation/types";
 
@@ -151,6 +152,16 @@ describe("mergeAlbumIntoSearchResult", () => {
       id: 42,
       album_artist: null as unknown as string,
     });
+
+    const merged = mergeAlbumIntoSearchResult(existing, updated);
+
+    expect(merged.album_artist).toBeNull();
+  });
+
+  it("clears a cached album_artist when a converted server response reports null", () => {
+    const existing = createTestAlbum({ id: 42, album_artist: "Kruder & Dorfmeister" });
+    const response = createTestAlbumSearchResult({ id: 42, album_artist: null });
+    const updated = convertToAlbumEntry(response);
 
     const merged = mergeAlbumIntoSearchResult(existing, updated);
 

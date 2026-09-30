@@ -285,6 +285,16 @@ describe("convertToAlbumEntry", () => {
           expect(result.album_artist).toBeUndefined();
         },
       },
+      {
+        name: "should pass through an explicit null album_artist (credit cleared)",
+        input: createTestAlbumSearchResult({
+          artist_name: "Autechre",
+          album_artist: null,
+        }),
+        assertions: (result) => {
+          expect(result.album_artist).toBeNull();
+        },
+      },
     ]
   );
 

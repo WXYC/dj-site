@@ -124,9 +124,11 @@ export function convertToAlbumEntry(
     alternate_artist: isSearchResult(response)
       ? ((response as Record<string, unknown>).alternate_artist_name as string | undefined) ?? ""
       : "",
-    album_artist: isSearchResult(response)
-      ? (response.album_artist ?? undefined)
-      : undefined,
+    // `null` is the positive claim "credit cleared" and must pass through
+    // unchanged; only an absent field (a bin row, which carries no such
+    // column) is `undefined`, which `mergeAlbumIntoSearchResult` reads as
+    // "the response didn't say, keep the cached value."
+    album_artist: isSearchResult(response) ? response.album_artist : undefined,
     // rotation_bin/rotation_id populate on every rotation row independently
     // of the LEFT JOIN to library, so must NOT be gated on isSearchResult
     // (keyed on library.id) — that dropped rotation linkage for unlinked

@@ -5,7 +5,7 @@ import { Box, CircularProgress, Sheet, Table, Typography } from "@mui/joy";
 import type { FlowsheetRangeShow } from "@wxyc/shared";
 import {
   convertRangeEntry,
-  type FlowsheetRangeEntryInput,
+  type FlowsheetRangeEntryWire,
 } from "@/lib/features/flowsheet/conversions";
 import { formatStationClockTime } from "@/src/utilities/stationTime";
 import Entry from "@/src/components/experiences/modern/flowsheet/Entries/Entry";
@@ -14,7 +14,7 @@ import {
   FlowsheetColumnSizingRow,
 } from "@/src/components/experiences/modern/flowsheet/Entries/tableStyles";
 
-const timeOf = (entry: FlowsheetRangeEntryInput) =>
+const timeOf = (entry: FlowsheetRangeEntryWire) =>
   // A breakpoint is logged roughly a minute either side of the hour it marks,
   // so its own add_time reads the wrong hour. radio_hour is the hour it stands
   // for.
@@ -33,7 +33,7 @@ export default function ShowEntriesPanel({
   highlightedEntryId = null,
 }: {
   show: FlowsheetRangeShow;
-  entries: FlowsheetRangeEntryInput[];
+  entries: FlowsheetRangeEntryWire[];
   isPartial: boolean;
   partialEdge: "before" | "after" | null;
   isLoading: boolean;

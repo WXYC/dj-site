@@ -3,7 +3,7 @@ import { screen, waitFor } from "@testing-library/react";
 import { renderWithProviders as render } from "@/tests/helpers";
 import ShowView from "@/src/components/experiences/modern/previous-sets/ShowView";
 import type { ShowPlaylist } from "@/src/hooks/showPlaylistHooks";
-import type { FlowsheetV2Entry } from "@wxyc/shared";
+import type { FlowsheetRangeEntryWire } from "@/lib/features/flowsheet/conversions";
 
 // The real better-auth client installs listeners whose teardown is deferred a
 // second past the last subscriber; a file that finishes inside that second runs
@@ -59,7 +59,7 @@ const entry = (
     artist_name: artist,
     track_title,
     album_title: "On Your Own Love Again",
-  }) as unknown as FlowsheetV2Entry;
+  }) as unknown as FlowsheetRangeEntryWire;
 
 const playlist = (over: Partial<ShowPlaylist> = {}): ShowPlaylist =>
   ({
