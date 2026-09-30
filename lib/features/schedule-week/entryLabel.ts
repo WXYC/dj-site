@@ -1,6 +1,6 @@
 import type { FlowsheetRangeEntry } from "@wxyc/shared";
 import { convertRangeEntry } from "@/lib/features/flowsheet/conversions";
-import { messageEntryLabel } from "@/src/components/experiences/modern/flowsheet/Entries/entryPresentation";
+import { messageEntryLabel } from "@/lib/features/flowsheet/marker-text";
 
 /**
  * Display line for an entry the schedule panel does not render as a track.
