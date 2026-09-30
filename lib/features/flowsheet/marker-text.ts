@@ -17,7 +17,9 @@ export type MarkerText = {
 
 // The single source of the message-row text switch, shared by the row
 // renderers (via getMessageEntryPresentation) and the classic schedule
-// drill-in (via messageEntryLabel) so the two can't drift.
+// drill-in (via messageEntryLabel) so the two can't drift. Modern picks the
+// row's icon and tones with its own switch in getMessageEntryPresentation,
+// which classifies in this same order; change the two together.
 export function getMarkerText(entry: FlowsheetEntry): MarkerText {
   if (isFlowsheetStartShowEntry(entry)) {
     return { headline: entry.dj_name, caption: "started the set" };
