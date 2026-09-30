@@ -18,6 +18,10 @@ vi.mock("@/lib/features/authentication/client", () => ({
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const MAX_WINDOW_MS = 8 * DAY_MS;
+// The instants where `Date#toISOString` changes form, outside which the
+// backend refuses an epoch-millisecond param.
+const MIN_EPOCH_MS = -62167219200000;
+const MAX_EPOCH_MS = 253402300799999;
 const EMPTY_PAGE: FlowsheetRangeResponse = { shows: [], entries: [] };
 const NOW = Date.parse("2026-09-26T16:00:00.000Z");
 
@@ -49,6 +53,29 @@ function captureWindow(request: Request, windows: RangeWindow[]): RangeWindow {
   return requested;
 }
 
+const parseEpochMillis = (raw: string | null): number | null => {
+  if (raw === null || !/^-?\d+$/.test(raw)) return null;
+  const value = Number(raw);
+  return Number.isInteger(value) && value >= MIN_EPOCH_MS && value <= MAX_EPOCH_MS ? value : null;
+};
+
+/**
+ * The 400 that `/flowsheet/range` answers for a window it refuses, or `null`
+ * for one it serves -- the same checks in the same order as Backend-Service's
+ * `getEntriesInRange`, so a fake that is laxer than the route can't hide a
+ * request the route would reject.
+ */
+function rangeRejection({ params }: RangeWindow): Response | null {
+  const badRequest = (message: string) => HttpResponse.json({ message }, { status: 400 });
+  const start = parseEpochMillis(params.get("start"));
+  if (start === null) return badRequest("start must be an integer number of epoch milliseconds");
+  const end = parseEpochMillis(params.get("end"));
+  if (end === null) return badRequest("end must be an integer number of epoch milliseconds");
+  if (end <= start) return badRequest("end must be strictly greater than start");
+  if (end - start > MAX_WINDOW_MS) return badRequest("window must not exceed 8 days");
+  return null;
+}
+
 /**
  * A fake archive that answers the way the backend does: every row whose
  * `add_time` falls in the half-open window `[start, end)`, oldest first.
@@ -58,7 +85,10 @@ function serveArchive(rows: { id: number; at: number }[]): RangeWindow[] {
   const windows: RangeWindow[] = [];
   server.use(
     http.get(`${TEST_BACKEND_URL}/flowsheet/range`, ({ request }) => {
-      const { start, end } = captureWindow(request, windows);
+      const requested = captureWindow(request, windows);
+      const rejection = rangeRejection(requested);
+      if (rejection) return rejection;
+      const { start, end } = requested;
       const entries = rows
         .filter((row) => row.at >= start && row.at < end)
         .sort((a, b) => a.at - b.at || a.id - b.id)
@@ -78,8 +108,7 @@ function queueRangeResponses(bodies: (() => Response)[]): RangeWindow[] {
   server.use(
     http.get(`${TEST_BACKEND_URL}/flowsheet/range`, ({ request }) => {
       const body = bodies[Math.min(windows.length, bodies.length - 1)];
-      captureWindow(request, windows);
-      return body();
+      return rangeRejection(captureWindow(request, windows)) ?? body();
     }),
   );
   return windows;
@@ -145,7 +174,39 @@ describe("archiveStreamApi", () => {
 
     expect(windows[headWindows].end).toBe(boundary);
     expect(result.data?.pageParams).toEqual(["now", boundary]);
-    expect(result.data?.pages.flatMap((p) => p.entries.map((e) => e.id))).toEqual([2, 3, 4, 1]);
+    expect(result.data?.pages.flatMap((p) => p.entries.map((e) => e.id))).toEqual([4, 3, 2, 1]);
+  });
+
+  it("reads newest first across consecutive pages, ties on add_time broken by id", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(NOW);
+    const HOUR_MS = 60 * 60 * 1000;
+    // Ids deliberately disagree with time order, so only (add_time, id) sorts these.
+    serveArchive([
+      { id: 21, at: NOW - HOUR_MS },
+      { id: 24, at: NOW - HOUR_MS },
+      { id: 30, at: NOW - 2 * HOUR_MS },
+      { id: 3, at: NOW - DAY_MS - HOUR_MS / 2 },
+      { id: 1, at: NOW - DAY_MS - HOUR_MS },
+      { id: 2, at: NOW - DAY_MS - HOUR_MS },
+    ]);
+
+    const { store } = await fetchFirstPage(3);
+    const result = await store.dispatch(
+      archiveStreamApi.endpoints.getArchiveStream.initiate(
+        { pageSize: 3 },
+        { direction: "forward" },
+      ),
+    );
+
+    // Flattened the way an infinite listing renders pages: in page order.
+    const stream = result.data!.pages.flatMap((p) => p.entries);
+    expect(result.data?.pages).toHaveLength(2);
+    expect(stream).toHaveLength(6);
+    for (let i = 1; i < stream.length; i++) {
+      const newer = Date.parse(stream[i - 1].add_time!);
+      const older = Date.parse(stream[i].add_time!);
+      expect(older < newer || (older === newer && stream[i].id < stream[i - 1].id)).toBe(true);
+    }
   });
 
   it("re-anchors the head page on the present when the walk is refetched", async () => {
@@ -163,6 +224,8 @@ describe("archiveStreamApi", () => {
 
     expect(windows.map((w) => w.start)).toEqual([NOW - DAY_MS, NOW, NOW - 2 * DAY_MS]);
     subscription.unsubscribe();
+    // Nothing outlives the last subscriber, so a returning listener starts from a fresh head.
+    await vi.waitFor(() => expect(store.getState()[archiveStreamApi.reducerPath].queries).toEqual({}));
   });
 
   it("requests contiguous integer epoch-millisecond windows no wider than the 8-day cap", async () => {
@@ -193,7 +256,7 @@ describe("archiveStreamApi", () => {
 
     const { page } = await fetchFirstPage(2, NOW);
 
-    expect(page?.entries.map((e) => e.id)).toEqual([1, 2]);
+    expect(page?.entries.map((e) => e.id)).toEqual([2, 1]);
     expect(page?.reachedStart).toBe(false);
     // Empty windows double up to the 8-day cap.
     expect(widthsInDays(windows)).toEqual([1, 1, 2, 4, 8, 8, 8, 8, 8]);
@@ -207,7 +270,7 @@ describe("archiveStreamApi", () => {
 
     const { page } = await fetchFirstPage(2, NOW);
 
-    expect(page?.entries.map((e) => e.id)).toEqual([1, 2]);
+    expect(page?.entries.map((e) => e.id)).toEqual([2, 1]);
     // A wide window that finds rows is followed by a narrow one, so the rest
     // of a busy stretch isn't pulled in a week at a time.
     expect(widthsInDays(windows)).toEqual([1, 2, 1]);
@@ -222,7 +285,7 @@ describe("archiveStreamApi", () => {
 
     const { page } = await fetchFirstPage(50, firstRow + 30 * DAY_MS);
 
-    expect(page?.entries.map((e) => e.id)).toEqual([154, 155]);
+    expect(page?.entries.map((e) => e.id)).toEqual([155, 154]);
     expect(page?.reachedStart).toBe(true);
     expect(page?.nextCursor).toBeNull();
     // Nothing older exists, so nothing older is asked for: the last window is
@@ -275,7 +338,7 @@ describe("archiveStreamApi", () => {
 
     const { page } = await fetchFirstPage(2);
 
-    expect(page?.entries.map((e) => e.id)).toEqual([10, 31]);
+    expect(page?.entries.map((e) => e.id)).toEqual([31, 10]);
   });
 
   const GATEWAY_PAGE = "<!DOCTYPE html><html></html>";
