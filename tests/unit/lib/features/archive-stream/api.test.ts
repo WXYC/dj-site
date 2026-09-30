@@ -12,10 +12,6 @@ import { TEST_BACKEND_URL } from "@/tests/helpers/constants";
 import { server } from "@/tests/fakes/server";
 import { describeApi } from "@/tests/helpers/api-harness";
 
-vi.mock("@/lib/features/authentication/client", () => ({
-  getJWTToken: vi.fn().mockResolvedValue("test-token"),
-}));
-
 const DAY_MS = 24 * 60 * 60 * 1000;
 const MAX_WINDOW_MS = 8 * DAY_MS;
 // The instants where `Date#toISOString` changes form, outside which the
