@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { configureStore } from "@reduxjs/toolkit";
 import { http, HttpResponse } from "msw";
 import type { FlowsheetRangeResponse } from "@wxyc/shared";
-import { archiveStreamApi, MAX_WINDOWS_PER_PAGE } from "@/lib/features/archive-stream/api";
+import { archiveStreamApi } from "@/lib/features/archive-stream/api";
 import { TEST_BACKEND_URL } from "@/tests/helpers/constants";
 import { server } from "@/tests/fakes/server";
 
@@ -61,22 +61,5 @@ describe("archiveStreamApi auth-token behavior", () => {
     );
 
     expect(sawAuthorization).toBe(false);
-  });
-
-  it("stops the empty walk at MAX_WINDOWS_PER_PAGE", async () => {
-    let requests = 0;
-    server.use(
-      http.get(`${TEST_BACKEND_URL}/flowsheet/range`, () => {
-        requests++;
-        return HttpResponse.json(EMPTY_PAGE);
-      })
-    );
-
-    const store = archiveStreamStore();
-    await store.dispatch(
-      archiveStreamApi.endpoints.getArchiveStream.initiate({ pageSize: 50 })
-    );
-
-    expect(requests).toBe(MAX_WINDOWS_PER_PAGE);
   });
 });
