@@ -3,7 +3,6 @@
 import { FlowsheetSongEntry } from "@/lib/features/flowsheet/types";
 import { flowsheetArtistRejection } from "@/lib/features/flowsheet/various-artists-guard";
 import { useFlowsheetActions, useLiveStatus } from "@/src/hooks/flowsheetHooks";
-import { toTitleCase } from "@/src/utilities/stringutilities";
 import { Box, IconButton, Tooltip, Typography, TypographyProps } from "@mui/joy";
 import { CheckRounded, EditOutlined } from "@mui/icons-material";
 import { ClickAwayListener } from "@mui/base/ClickAwayListener";
@@ -11,6 +10,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { useAppDispatch } from "@/lib/hooks";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
+import EntryFieldText from "../EntryFieldText";
 
 // A compact edit/save affordance tucked at the end of the field.
 const FIELD_ACTION_SX = {
@@ -175,36 +175,13 @@ export default function FlowsheetEntryField({
         }),
       }}
     >
-      {/* A real Tooltip (not the native title attr, which browsers surface
-          unreliably) so truncated values are always recoverable on hover. */}
-      <Tooltip
-        title={String(entry[name])}
-        variant="outlined"
-        size="sm"
-        placement="top-start"
-        enterDelay={400}
-      >
-        <Typography
-          {...props}
-          sx={{
-            ...props.sx,
-            // The value stretches so the pencil sits at the cell's right edge.
-            flex: "1 1 auto",
-            minWidth: 0,
-            whiteSpace: "nowrap",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            cursor: canEdit ? "text" : "default",
-            opacity: String(entry[name]).length > 0 ? 1 : 0.5,
-          }}
-          onDoubleClick={() => setEditing(canEdit)}
-        >
-          {String(entry[name]).length > 0
-            ? String(entry[name])
-            : `${toTitleCase(label)} Unspecified`}
-          &nbsp;
-        </Typography>
-      </Tooltip>
+      <EntryFieldText
+        {...props}
+        value={String(entry[name])}
+        label={label}
+        cursor={canEdit ? "text" : "default"}
+        onDoubleClick={() => setEditing(canEdit)}
+      />
       {canEdit && (
         <Tooltip title={`Edit ${label}`} variant="outlined" size="sm">
           <IconButton
