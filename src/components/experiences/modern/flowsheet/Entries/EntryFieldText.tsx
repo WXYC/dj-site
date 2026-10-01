@@ -13,6 +13,10 @@ import { CSSProperties } from "react";
  * Joy's generated class name is a hash of `sx`'s declarations in the order
  * they're written, so moving `cursor` relative to its neighbors would change
  * every live field's class.
+ *
+ * No motion, no live-show hooks, so a server-rendered read-only row can
+ * render this directly: `cursor` and `onDoubleClick`, the live row's only
+ * interactive pieces, are optional for exactly that caller.
  */
 export default function EntryFieldText({
   value,
@@ -23,8 +27,8 @@ export default function EntryFieldText({
 }: {
   value: string;
   label: string;
-  cursor: CSSProperties["cursor"];
-  onDoubleClick: () => void;
+  cursor?: CSSProperties["cursor"];
+  onDoubleClick?: () => void;
 } & Omit<TypographyProps, "whiteSpace" | "overflow" | "textOverflow" | "onDoubleClick">) {
   return (
     <Tooltip title={value} variant="outlined" size="sm" placement="top-start" enterDelay={400}>

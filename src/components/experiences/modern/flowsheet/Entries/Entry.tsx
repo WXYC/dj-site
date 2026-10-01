@@ -4,10 +4,8 @@ import {
   isFlowsheetSongEntry,
   isFlowsheetStartShowEntry,
 } from "@/lib/features/flowsheet/types";
-import { Stack, Typography } from "@mui/joy";
 import { memo } from "react";
-import DateTimeStack from "./Components/DateTimeStack";
-import { getMessageEntryPresentation } from "./entryPresentation";
+import { getMessageEntrySlots } from "./messageEntrySlots";
 import MessageEntry from "./MessageEntry";
 import SongEntry from "./SongEntry/SongEntry";
 
@@ -64,39 +62,22 @@ const Entry = memo(function Entry({
     );
   }
 
-  const p = getMessageEntryPresentation(entry);
+  const slots = getMessageEntrySlots(entry);
 
   return (
     <MessageEntry
       entry={entry}
-      startDecorator={<p.Icon sx={{ mb: -0.5, mr: 0.5 }} />}
-      endDecorator={
-        p.time && (
-          <DateTimeStack
-            day={p.time.day}
-            time={p.time.time}
-            isToday={p.time.isToday}
-          />
-        )
-      }
-      color={p.color}
+      startDecorator={slots.startDecorator}
+      endDecorator={slots.endDecorator}
+      color={slots.color}
       variant="soft"
-      disableEditing={!p.editable}
+      disableEditing={!slots.editable}
       readOnly={readOnly}
       timeLabel={timeLabel}
       draggable={resolvedDraggable}
       highlighted={highlighted}
     >
-      <Stack direction="row" spacing={0.5}>
-        <Typography level="body-lg" color={p.textColor}>
-          {p.headline}
-        </Typography>
-        {p.caption && (
-          <Typography textColor={"text.tertiary"} sx={{ alignSelf: "center" }}>
-            {p.caption}
-          </Typography>
-        )}
-      </Stack>
+      {slots.messageBlock}
     </MessageEntry>
   );
 });

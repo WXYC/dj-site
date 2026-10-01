@@ -3,15 +3,15 @@
 import { FlowsheetSongEntry } from "@/lib/features/flowsheet/types";
 import { useShowControl } from "@/src/hooks/flowsheetHooks";
 import { useMediaQuery } from "@/src/hooks/useMediaQuery";
-import { NotOnDiscogsBadge } from "@/src/components/experiences/modern/catalog/AlbumArtwork";
 import { entryFieldTextColor } from "@/src/utilities/modern/entryFieldColors";
 import { PlayArrow } from "@mui/icons-material";
-import { AspectRatio, Box, IconButton, Stack, Tooltip } from "@mui/joy";
+import { Box, IconButton, Stack, Tooltip } from "@mui/joy";
 import { useDragControls } from "motion/react";
 import { memo, useState } from "react";
 import DragButton from "../Components/DragButton";
 import EntryTimeCell from "../Components/EntryTimeCell";
 import DraggableEntryWrapper from "../DraggableEntryWrapper";
+import { SongEntryArtwork } from "../EntryArtwork";
 import { flowsheetChipsReservePx, FLOWSHEET_XL_QUERY } from "../tableStyles";
 import FlowsheetEntryField from "./FlowsheetEntryField";
 import SongEntryControls from "./SongEntryControls";
@@ -60,8 +60,6 @@ const SongEntry = memo(function SongEntry({
   // resolving false, which would tie a view of a past set to live-show state.
   const editable = !readOnly && (queue || (live && entry.show_id == currentShow));
 
-  const image = entry.artwork_url ?? "/img/cassette.png";
-
   const handleMouseEnter = () => {
     if (queue && live) {
       setCanClose(true);
@@ -106,25 +104,7 @@ const SongEntry = memo(function SongEntry({
       >
         {editable && draggable && <DragButton controls={controls} />}
         <Stack direction="row" sx={{ position: "relative" }}>
-          <AspectRatio
-            ratio={1}
-            sx={{
-              flexBasis: "calc(60px - 12px)",
-              borderRadius: "9px",
-              minWidth: "48px",
-              minHeight: "48px",
-            }}
-          >
-            {entry.discogsUnavailable === true ? (
-              <NotOnDiscogsBadge size={48} note={entry.discogsUnavailableNote} />
-            ) : (
-              <img
-                src={image}
-                alt="album art"
-                style={{ minWidth: "48px", minHeight: "48px" }}
-              />
-            )}
-          </AspectRatio>
+          <SongEntryArtwork entry={entry} />
           {canClose && queue && (
             <Tooltip
               title="Play this song now (add to flowsheet)"

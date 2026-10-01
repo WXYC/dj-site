@@ -7,19 +7,13 @@ import {
 } from "@/lib/features/flowsheet/types";
 import { useShowControl } from "@/src/hooks/flowsheetHooks";
 import { useMediaQuery } from "@/src/hooks/useMediaQuery";
-import {
-  AspectRatio,
-  Box,
-  ColorPaletteProp,
-  Stack,
-  Typography,
-  VariantProp,
-} from "@mui/joy";
+import { Box, ColorPaletteProp, Stack, Typography, VariantProp } from "@mui/joy";
 import { useDragControls } from "motion/react";
 import DragButton from "./Components/DragButton";
 import EntryTimeCell from "./Components/EntryTimeCell";
 import RemoveButton from "./Components/RemoveButton";
 import DraggableEntryWrapper from "./DraggableEntryWrapper";
+import { MarkerEntryArtwork } from "./EntryArtwork";
 import { FLOWSHEET_XL_QUERY } from "./tableStyles";
 
 export default function MessageEntry({
@@ -82,18 +76,7 @@ export default function MessageEntry({
       {timeLabel !== undefined && <EntryTimeCell label={timeLabel} />}
       <td style={{ position: "relative" }}>
         {live && editable && draggable && <DragButton controls={controls} />}
-        <AspectRatio
-          ratio={1.5}
-          variant="plain"
-          sx={{
-            flexBasis: "calc(60px - 12px)",
-            borderRadius: "9px",
-            minWidth: "48px",
-            minHeight: "20px",
-          }}
-        >
-          <Typography>{startDecorator}</Typography>
-        </AspectRatio>
+        <MarkerEntryArtwork icon={startDecorator} />
       </td>
       {/* The middle spans every text column. Because SongEntry collapses its
           artist and label columns below xl (6 → 4 columns), the marker's span
