@@ -59,7 +59,7 @@ const entry = (
     artist_name: artist,
     track_title,
     album_title: "On Your Own Love Again",
-  }) as unknown as FlowsheetRangeEntryWire;
+  }) satisfies FlowsheetRangeEntryWire;
 
 const playlist = (over: Partial<ShowPlaylist> = {}): ShowPlaylist =>
   ({

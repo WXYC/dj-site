@@ -1,4 +1,5 @@
 import { Rotation } from "../rotation/types";
+import type { FlowsheetEntryType } from "@wxyc/shared/dtos";
 import {
   breakpointMessageForHourLabel,
   formatStationClockTime,
@@ -327,22 +328,21 @@ export function convertV2Entry(entry: FlowsheetV2EntryJSON): FlowsheetEntry {
  * (false for anything but a track).
  *
  * Hand-declared rather than aliased off the contract's `FlowsheetEntryResponse`:
- * that type is still exported in 10.6.0, but it's the V1 shape, not this one,
- * and it disagrees with this shape field for field -- `add_time` and
- * `entry_type` are optional there where every reader here needs them present,
- * it carries enrichment fields (`rotation_label`, `label_id`, the
- * streaming-service URLs, `artist_bio`, `metadata_status`, ...) no reader
- * here touches, and it does not declare `on_streaming` at all, which
- * `GET /flowsheet/range` does emit. Composing off it would still need every
- * one of those patched back in, so this stays the plain subset the switch
- * below actually narrows on.
+ * that type is the V1 shape, not this one, and it disagrees with this shape
+ * field for field -- `add_time` and `entry_type` are optional there where
+ * every reader here needs them present, it carries enrichment fields
+ * (`rotation_label`, `label_id`, the streaming-service URLs, `artist_bio`,
+ * `metadata_status`, ...) no reader here touches, and it does not declare
+ * `on_streaming` at all, which `GET /flowsheet/range` does emit. Composing
+ * off it would still need every one of those patched back in, so this stays
+ * the plain subset the switch below actually narrows on.
  */
 export type FlowsheetRangeEntryWire = {
   id: number;
   show_id: number | null;
   play_order: number;
   add_time: string;
-  entry_type: string;
+  entry_type: FlowsheetEntryType;
   request_flag: boolean;
   dj_name?: string;
   message?: string;
@@ -394,11 +394,12 @@ function recognizableTalksetMessage(raw: string | undefined): string {
  * are logged either side of the hour they mark, so rounding would put an hour
  * on the row that the row never claimed.
  *
- * Accepts `null` as well as `undefined` for the same reason `radio_hour` does:
- * the breakpoint variant's own `message` field is nullable in the published
- * contract (`FlowsheetV2BreakpointEntry.message`), and `FlowsheetRangeEntryWire`
- * mirrors that nullability rather than widening it away, so this reads either
- * absence the same way -- no clock text named.
+ * Accepts `null` as well as `undefined` because `breakpointDisplayFields` feeds
+ * it from two callers with different nullability: `convertV2Entry` passes a
+ * live `FlowsheetV2BreakpointEntry`, whose `message` is `string | null`, while
+ * `convertRangeEntry` passes the flat `FlowsheetRangeEntryWire`, whose
+ * `message` is merely optional (`string | undefined`). Reading both absences
+ * the same way -- no clock text named -- is what lets one function serve both.
  */
 function clockTimeNamedInMessage(raw: string | null | undefined): string {
   const match = raw?.match(CLOCK_TIME);

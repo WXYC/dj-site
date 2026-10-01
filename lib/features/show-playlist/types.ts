@@ -3,8 +3,7 @@ import type { FlowsheetV2EntryJSON } from "@/lib/features/flowsheet/types";
 /**
  * One show as `GET /flowsheet/playlist?show_id=` actually serves it.
  *
- * `@wxyc/shared`'s `ShowPlaylist` now matches this response far more closely
- * than it once did: it declares V2-projected `entries`, sends
+ * `@wxyc/shared`'s `ShowPlaylist` declares V2-projected `entries`, sends
  * `specialty_show_name`, and identifies the show as `id`. This local type
  * persists as a narrower projection onto only the fields dj-site reads --
  * the contract's `ShowPlaylist` also carries `specialty_id`, `primary_dj_id`,
