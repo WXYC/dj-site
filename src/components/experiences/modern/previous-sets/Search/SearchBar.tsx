@@ -1,7 +1,7 @@
 "use client";
 
 import type { SearchField } from "@/lib/features/playlist-search/frontend";
-import { usePlaylistSearch } from "@/src/hooks/playlistSearchHooks";
+import { usePlaylistSearchControls } from "@/src/hooks/playlistSearchHooks";
 import { Add, Cancel, Remove, Troubleshoot } from "@mui/icons-material";
 import { Box, IconButton, Input, Option, Select, Stack } from "@mui/joy";
 import SortBySelect from "./SortBySelect";
@@ -24,7 +24,7 @@ const OPERATOR_OPTIONS = [
 ];
 
 export default function SearchBar() {
-  const { rows, addRow, removeRow, updateRow } = usePlaylistSearch();
+  const { rows, addRow, removeRow, updateRow } = usePlaylistSearchControls();
 
   return (
     <Box sx={{ py: 2, display: { xs: "none", sm: "block" } }}>
