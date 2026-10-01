@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
 import { createElement, type ReactNode } from "react";
 import { Provider } from "react-redux";
@@ -56,6 +56,7 @@ vi.mock("@/lib/features/playlist-search/api", async () => {
 
 import {
   usePlaylistSearch,
+  usePlaylistSearchControls,
   usePlaylistSearchResults,
   isDefaultQuery,
   isRealQuery,
@@ -495,6 +496,70 @@ describe("usePlaylistSearch", () => {
         );
       });
     });
+  });
+});
+
+describe("controls/key debounce isolation", () => {
+  // The hook's documented debounce; not exported, so pinned here as the value
+  // that identifies a search debounce timer among any other setTimeout calls
+  // a render may produce.
+  const SEARCH_DEBOUNCE_MS = 300;
+
+  let setTimeoutSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    setTimeoutSpy = vi.spyOn(global, "setTimeout");
+  });
+
+  afterEach(() => {
+    setTimeoutSpy.mockRestore();
+  });
+
+  function countDebounceTimersArmed(): number {
+    return setTimeoutSpy.mock.calls.filter(
+      (call: unknown[]) => call[1] === SEARCH_DEBOUNCE_MS,
+    ).length;
+  }
+
+  it("usePlaylistSearchControls alone arms no debounce timer, on mount or on a query change", () => {
+    const { store, wrapper } = createWrapper();
+    const rowId = store.getState().playlistSearch.rows[0].id;
+
+    renderHook(() => usePlaylistSearchControls(), { wrapper });
+    expect(countDebounceTimersArmed()).toBe(0);
+
+    act(() => {
+      store.dispatch(
+        playlistSearchSlice.actions.updateRow({
+          id: rowId,
+          updates: { value: "autechre" },
+        }),
+      );
+    });
+
+    expect(countDebounceTimersArmed()).toBe(0);
+  });
+
+  it("usePlaylistSearch arms one debounce timer on mount and one more per query change", () => {
+    const { store, wrapper } = createWrapper();
+    const rowId = store.getState().playlistSearch.rows[0].id;
+
+    renderHook(() => usePlaylistSearch(), { wrapper });
+
+    act(() => {
+      store.dispatch(
+        playlistSearchSlice.actions.updateRow({
+          id: rowId,
+          updates: { value: "autechre" },
+        }),
+      );
+    });
+
+    // One debounce instance arms once on mount and once more when the query
+    // changes. Reading the controls' rows/sort through the slice directly
+    // (rather than through a second `usePlaylistSearchKey`) keeps that at a
+    // single instance, so a mount plus one change arms exactly two timers.
+    expect(countDebounceTimersArmed()).toBe(2);
   });
 });
 

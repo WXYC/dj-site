@@ -168,7 +168,7 @@ function usePlaylistSearchKey() {
     [effectiveQuery, sortBy, sortOrder],
   );
 
-  return { rows, sortBy, sortOrder, effectiveQuery, isPartialQuery, queryArg };
+  return { effectiveQuery, isPartialQuery, queryArg };
 }
 
 /**
@@ -217,11 +217,80 @@ export function usePlaylistSearchSubscription(listingVisible: boolean): void {
   );
 }
 
-export function usePlaylistSearch() {
+/**
+ * The slice half of {@link usePlaylistSearch}: rows, sort and their actions,
+ * with no subscription to `playlistSearchApi`.
+ *
+ * For a consumer that only edits the search — the search bar's rows, the sort
+ * select — composing this in directly, rather than going through
+ * `usePlaylistSearch`, keeps it off the query's subscriber list entirely.
+ *
+ * Reads `rows`/`sortBy`/`sortOrder` straight off the slice rather than through
+ * `usePlaylistSearchKey`: that helper also builds the query string and runs
+ * the search debounce, both of which only the query-subscribed half needs. A
+ * consumer here would receive and then discard them, and — because
+ * `usePlaylistSearch` composes this hook in and also calls
+ * `usePlaylistSearchKey` directly for the query — sharing it would double the
+ * debounce's state and timer for every `usePlaylistSearch` consumer.
+ */
+export function usePlaylistSearchControls() {
   const dispatch = useAppDispatch();
+  const rows = useAppSelector(playlistSearchSlice.selectors.getRows);
+  const sortBy = useAppSelector(playlistSearchSlice.selectors.getSortBy);
+  const sortOrder = useAppSelector(playlistSearchSlice.selectors.getSortOrder);
 
-  const { rows, sortBy, sortOrder, effectiveQuery, isPartialQuery, queryArg } =
-    usePlaylistSearchKey();
+  const addRow = useCallback(
+    () => dispatch(playlistSearchSlice.actions.addRow()),
+    [dispatch],
+  );
+
+  const removeRow = useCallback(
+    (id: string) => dispatch(playlistSearchSlice.actions.removeRow(id)),
+    [dispatch],
+  );
+
+  const updateRow = useCallback(
+    (id: string, updates: Partial<SearchRow>) =>
+      dispatch(playlistSearchSlice.actions.updateRow({ id, updates })),
+    [dispatch],
+  );
+
+  const setSort = useCallback(
+    (next: { sortBy: SortField; sortOrder: SortOrder }) =>
+      dispatch(playlistSearchSlice.actions.setSort(next)),
+    [dispatch],
+  );
+
+  const handleSort = useCallback(
+    (field: SortField) =>
+      dispatch(playlistSearchSlice.actions.toggleSort(field)),
+    [dispatch],
+  );
+
+  return {
+    rows,
+    sortBy,
+    sortOrder,
+    addRow,
+    removeRow,
+    updateRow,
+    setSort,
+    handleSort,
+  };
+}
+
+export function usePlaylistSearch() {
+  const {
+    rows,
+    sortBy,
+    sortOrder,
+    addRow,
+    removeRow,
+    updateRow,
+    setSort,
+    handleSort,
+  } = usePlaylistSearchControls();
+  const { effectiveQuery, isPartialQuery, queryArg } = usePlaylistSearchKey();
 
   // No refetch-on-mount. Freshness is a lifetime here rather than a refetch:
   // the entry is dropped the moment the screen is left (keepUnusedDataFor: 0),
@@ -253,34 +322,6 @@ export function usePlaylistSearch() {
     }
     return flat;
   }, [data?.pages]);
-
-  const addRow = useCallback(
-    () => dispatch(playlistSearchSlice.actions.addRow()),
-    [dispatch],
-  );
-
-  const removeRow = useCallback(
-    (id: string) => dispatch(playlistSearchSlice.actions.removeRow(id)),
-    [dispatch],
-  );
-
-  const updateRow = useCallback(
-    (id: string, updates: Partial<SearchRow>) =>
-      dispatch(playlistSearchSlice.actions.updateRow({ id, updates })),
-    [dispatch],
-  );
-
-  const setSort = useCallback(
-    (next: { sortBy: SortField; sortOrder: SortOrder }) =>
-      dispatch(playlistSearchSlice.actions.setSort(next)),
-    [dispatch],
-  );
-
-  const handleSort = useCallback(
-    (field: SortField) =>
-      dispatch(playlistSearchSlice.actions.toggleSort(field)),
-    [dispatch],
-  );
 
   // No-op when there is no next page (last page or response not yet arrived),
   // and no-op once a page has failed. A rejected page is not appended, so the

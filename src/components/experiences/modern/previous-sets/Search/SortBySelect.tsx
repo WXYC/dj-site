@@ -4,7 +4,7 @@ import type {
   SortField,
   SortOrder,
 } from "@/lib/features/playlist-search/frontend";
-import { usePlaylistSearch } from "@/src/hooks/playlistSearchHooks";
+import { usePlaylistSearchControls } from "@/src/hooks/playlistSearchHooks";
 import { Option, Select } from "@mui/joy";
 
 type SortChoice = {
@@ -22,7 +22,7 @@ const SORT_OPTIONS: SortChoice[] = [
 ];
 
 export default function SortBySelect() {
-  const { sortBy, sortOrder, setSort } = usePlaylistSearch();
+  const { sortBy, sortOrder, setSort } = usePlaylistSearchControls();
 
   const sortValue = `${sortBy}-${sortOrder}` as SortChoice["value"];
 
