@@ -317,6 +317,32 @@ describe("stationTime", () => {
     ])("renders %s as an empty label rather than Invalid Date", (_label, value) => {
       expect(formatStationClockTime(value as string | null | undefined)).toBe("");
     });
+
+    it("builds no new Intl.DateTimeFormat on repeated calls", () => {
+      // A bare vi.spyOn mock lacks the real prototype, so `new` through the
+      // spy would return an object with no `format` method -- passing
+      // through to the real constructor is what lets production code keep
+      // working (and the assertion below, not a TypeError, be the failure)
+      // if per-call construction is ever reintroduced.
+      // Production calls the constructor with `new`, and an arrow function
+      // cannot be `new`-called, so the implementation has to be a function
+      // expression.
+      const OriginalDateTimeFormat = Intl.DateTimeFormat;
+      const ctorSpy = vi
+        .spyOn(Intl, "DateTimeFormat")
+        .mockImplementation(function (
+          ...args: ConstructorParameters<typeof Intl.DateTimeFormat>
+        ) {
+          return new OriginalDateTimeFormat(...args);
+        });
+      try {
+        formatStationClockTime("2026-07-17T03:15:30Z");
+        formatStationClockTime("2026-07-18T12:00:00Z");
+        expect(ctorSpy).not.toHaveBeenCalled();
+      } finally {
+        ctorSpy.mockRestore();
+      }
+    });
   });
 });
 
