@@ -1,5 +1,5 @@
 import { formatStationClockTime } from "@/src/utilities/stationTime";
-import { FlowsheetEntry, isFlowsheetBreakpointEntry } from "./types";
+import { FlowsheetEntry } from "./types";
 
 export type RangeTimedEntry = {
   entry_type?: string | null;
@@ -28,10 +28,16 @@ export function rangeEntryTime(entry: RangeTimedEntry): string {
   return stationClockTimeFor(entry, entry.entry_type === "breakpoint");
 }
 
-// The converted FlowsheetEntry union carries no entry_type; its
-// breakpoint-ness test is isFlowsheetBreakpointEntry, the same predicate
-// convertV2Entry/convertRangeEntry already gate radio_hour on, so a
-// non-breakpoint member of the union can never carry one.
+// The converted FlowsheetEntry union carries no entry_type, so it needs its
+// own breakpoint test, and `isFlowsheetBreakpointEntry` is the wrong one: that
+// predicate matches on message text ("Breakpoint"), which a talkset or plain
+// message row's own text can also contain without the row being one.
+// conversions.ts attaches `radio_hour` only via `breakpointDisplayFields`,
+// which only the wire `case "breakpoint"` arm of convertV2Entry and
+// convertRangeEntry calls -- every other arm leaves the key off entirely. So
+// a converted row's own `radio_hour` key is the discriminator conversion
+// actually produces: present, whatever it resolves to, only on a converted
+// breakpoint.
 export function flowsheetEntryTime(entry: FlowsheetEntry): string {
-  return stationClockTimeFor(entry, isFlowsheetBreakpointEntry(entry));
+  return stationClockTimeFor(entry, "radio_hour" in entry);
 }
