@@ -1,114 +1,35 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { configureStore } from "@reduxjs/toolkit";
-import { http, HttpResponse } from "msw";
-import type { FlowsheetV2Entry, FlowsheetRangeResponse } from "@wxyc/shared";
+import { HttpResponse } from "msw";
+import type { FlowsheetRangeResponse } from "@wxyc/shared";
 import {
   archiveStreamApi,
   useGetArchiveStreamInfiniteQuery,
   MAX_WINDOWS_PER_PAGE,
   type ArchiveStreamCursor,
 } from "@/lib/features/archive-stream/api";
-import { TEST_BACKEND_URL } from "@/tests/helpers/constants";
-import { server } from "@/tests/fakes/server";
 import { describeApi } from "@/tests/helpers/api-harness";
+import {
+  rangeEntry,
+  archiveStreamStore,
+  serveArchive,
+  queueRangeResponses,
+  EMPTY_PAGE,
+  MAX_WINDOW_MS,
+  type RangeWindow,
+} from "@/tests/fakes/flowsheetRange";
+import {
+  createTestV2TrackEntry,
+  createTestV2ShowStartEntry,
+  createTestV2ShowEndEntry,
+  createTestV2DJJoinEntry,
+  createTestV2DJLeaveEntry,
+  createTestV2TalksetEntry,
+  createTestV2BreakpointEntry,
+  createTestV2MessageEntry,
+} from "@/tests/fixtures/fixtures";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-const MAX_WINDOW_MS = 8 * DAY_MS;
-// The instants where `Date#toISOString` changes form, outside which the
-// backend refuses an epoch-millisecond param.
-const MIN_EPOCH_MS = -62167219200000;
-const MAX_EPOCH_MS = 253402300799999;
-const EMPTY_PAGE: FlowsheetRangeResponse = { shows: [], entries: [] };
 const NOW = Date.parse("2026-09-26T16:00:00.000Z");
-
-/** A requested `/flowsheet/range` window, with the raw params it was sent as. */
-type RangeWindow = { start: number; end: number; params: URLSearchParams };
-
-function rangeEntry(id: number, at?: number): FlowsheetV2Entry {
-  return {
-    id,
-    play_order: id,
-    show_id: 1,
-    request_flag: false,
-    entry_type: "track",
-    add_time: new Date(at ?? 0).toISOString(),
-  };
-}
-
-function archiveStreamStore() {
-  return configureStore({
-    reducer: { [archiveStreamApi.reducerPath]: archiveStreamApi.reducer },
-    middleware: (gdm) => gdm().concat(archiveStreamApi.middleware),
-  });
-}
-
-function captureWindow(request: Request, windows: RangeWindow[]): RangeWindow {
-  const params = new URL(request.url).searchParams;
-  const requested = { start: Number(params.get("start")), end: Number(params.get("end")), params };
-  windows.push(requested);
-  return requested;
-}
-
-const parseEpochMillis = (raw: string | null): number | null => {
-  if (raw === null || !/^-?\d+$/.test(raw)) return null;
-  const value = Number(raw);
-  return Number.isInteger(value) && value >= MIN_EPOCH_MS && value <= MAX_EPOCH_MS ? value : null;
-};
-
-/**
- * The 400 that `/flowsheet/range` answers for a window it refuses, or `null`
- * for one it serves -- the same checks in the same order as Backend-Service's
- * `getEntriesInRange`, so a fake that is laxer than the route can't hide a
- * request the route would reject.
- */
-function rangeRejection({ params }: RangeWindow): Response | null {
-  const badRequest = (message: string) => HttpResponse.json({ message }, { status: 400 });
-  const start = parseEpochMillis(params.get("start"));
-  if (start === null) return badRequest("start must be an integer number of epoch milliseconds");
-  const end = parseEpochMillis(params.get("end"));
-  if (end === null) return badRequest("end must be an integer number of epoch milliseconds");
-  if (end <= start) return badRequest("end must be strictly greater than start");
-  if (end - start > MAX_WINDOW_MS) return badRequest("window must not exceed 8 days");
-  return null;
-}
-
-/**
- * A fake archive that answers the way the backend does: every row whose
- * `add_time` falls in the half-open window `[start, end)`, oldest first.
- * Returns the requested windows in call order.
- */
-function serveArchive(rows: { id: number; at: number }[]): RangeWindow[] {
-  const windows: RangeWindow[] = [];
-  server.use(
-    http.get(`${TEST_BACKEND_URL}/flowsheet/range`, ({ request }) => {
-      const requested = captureWindow(request, windows);
-      const rejection = rangeRejection(requested);
-      if (rejection) return rejection;
-      const { start, end } = requested;
-      const entries = rows
-        .filter((row) => row.at >= start && row.at < end)
-        .sort((a, b) => a.at - b.at || a.id - b.id)
-        .map((row) => rangeEntry(row.id, row.at));
-      return HttpResponse.json({ shows: [], entries });
-    }),
-  );
-  return windows;
-}
-
-/**
- * Serves `bodies` in order, one per request, repeating the final one once
- * exhausted. Returns the requested windows in call order.
- */
-function queueRangeResponses(bodies: (() => Response)[]): RangeWindow[] {
-  const windows: RangeWindow[] = [];
-  server.use(
-    http.get(`${TEST_BACKEND_URL}/flowsheet/range`, ({ request }) => {
-      const body = bodies[Math.min(windows.length, bodies.length - 1)];
-      return rangeRejection(captureWindow(request, windows)) ?? body();
-    }),
-  );
-  return windows;
-}
 
 const json = (page: FlowsheetRangeResponse) => () => HttpResponse.json(page);
 
@@ -240,6 +161,51 @@ describe("archiveStreamApi", () => {
     for (let i = 1; i < windows.length; i++) {
       expect(windows[i].end).toBe(windows[i - 1].start);
     }
+  });
+
+  it("serves all eight entry types in window order, not input or id order", async () => {
+    const HOUR_MS = 60 * 60 * 1000;
+    const hoursAgo = (h: number) => new Date(NOW - h * HOUR_MS).toISOString();
+
+    // Ids deliberately disagree with add_time order (neither ascending nor
+    // descending alongside it), so only (add_time, id) sorts these correctly.
+    const track = createTestV2TrackEntry({ id: 50, add_time: hoursAgo(20) });
+    const showStart = createTestV2ShowStartEntry({ id: 10, add_time: hoursAgo(17) });
+    const showEnd = createTestV2ShowEndEntry({ id: 70, add_time: hoursAgo(14) });
+    const djJoin = createTestV2DJJoinEntry({ id: 30, add_time: hoursAgo(11) });
+    const djLeave = createTestV2DJLeaveEntry({ id: 90, add_time: hoursAgo(8) });
+    const talkset = createTestV2TalksetEntry({ id: 20, add_time: hoursAgo(5) });
+    const breakpoint = createTestV2BreakpointEntry({ id: 60, add_time: hoursAgo(2) });
+    const message = createTestV2MessageEntry({ id: 40, add_time: hoursAgo(1) });
+    // Older than the walked window ([NOW - DAY_MS, NOW)): must not be served.
+    const beforeWindow = createTestV2TrackEntry({ id: 5, add_time: hoursAgo(25) });
+
+    serveArchive([
+      // Passed out of time order too, so input order can't stand in for either.
+      djLeave,
+      beforeWindow,
+      message,
+      track,
+      breakpoint,
+      talkset,
+      showStart,
+      djJoin,
+      showEnd,
+    ]);
+
+    const { page } = await fetchFirstPage(8, NOW);
+
+    expect(page?.entries).toEqual([
+      message,
+      breakpoint,
+      talkset,
+      djLeave,
+      djJoin,
+      showEnd,
+      showStart,
+      track,
+    ]);
+    expect(page?.entries.some((e) => e.id === beforeWindow.id)).toBe(false);
   });
 
   it("crosses a 42-day gap -- longer than the archive's longest, spring 2020's 41.7 days -- inside one page", async () => {
