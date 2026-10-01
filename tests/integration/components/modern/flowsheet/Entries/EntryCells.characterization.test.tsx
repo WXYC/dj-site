@@ -1,0 +1,366 @@
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { Reorder } from "motion/react";
+import { fireEvent } from "@testing-library/react";
+import { renderWithProviders } from "@/tests/helpers/render";
+import Entry from "@/src/components/experiences/modern/flowsheet/Entries/Entry";
+import SongEntry from "@/src/components/experiences/modern/flowsheet/Entries/SongEntry/SongEntry";
+import {
+  FlowsheetSongEntry,
+  FlowsheetMessageEntry,
+  FlowsheetBreakpointEntry,
+  FlowsheetShowBlockEntry,
+} from "@/lib/features/flowsheet/types";
+
+/**
+ * Pins what DraggableEntryWrapper.characterization.test.tsx deliberately
+ * leaves out: the cells inside the row, not just its own opening tag. For
+ * every row kind this covers -- how many cells render, their order, classes
+ * and colSpan -- plus the exact markup (generated class names included) of
+ * whichever of the three subtrees a future extraction moves out of the live
+ * row files applies to that kind: a song row's four field texts and its
+ * artwork, a message row's marker artwork and headline/caption block. A
+ * later extraction (of the field text, the message block, or the artwork)
+ * must reproduce these byte-for-byte; this spec is what makes "byte-for-byte"
+ * checkable instead of asserted.
+ *
+ * Only the data hooks (live-show state, flowsheet mutations) and routing are
+ * stubbed; every presentational component between `Entry` and the row stays
+ * real, so what's pinned below is whatever the real tree actually renders,
+ * not a hand-written transcription of it.
+ */
+
+const mockUseShowControl = vi.fn();
+const mockUseLiveStatus = vi.fn();
+const mockUseFlowsheetActions = vi.fn();
+
+vi.mock("@/src/hooks/flowsheetHooks", () => ({
+  useShowControl: () => mockUseShowControl(),
+  useLiveStatus: () => mockUseLiveStatus(),
+  useFlowsheetActions: () => mockUseFlowsheetActions(),
+}));
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
+}));
+
+const SONG_ENTRY: FlowsheetSongEntry = {
+  id: 1,
+  play_order: 0,
+  show_id: 100,
+  track_title: "la paradoja",
+  artist_name: "Juana Molina",
+  album_title: "DOGA",
+  record_label: "Sonamos",
+  request_flag: false,
+  segue: false,
+};
+
+const TALKSET_ENTRY: FlowsheetMessageEntry = {
+  id: 2,
+  play_order: 1,
+  show_id: 100,
+  message: "Talkset",
+};
+
+const BREAKPOINT_ENTRY: FlowsheetBreakpointEntry = {
+  id: 3,
+  play_order: 2,
+  show_id: 100,
+  message: "Breakpoint",
+  day: "Monday",
+  time: "11:00 PM",
+};
+
+const MARKER_ENTRY: FlowsheetShowBlockEntry = {
+  id: 4,
+  play_order: 3,
+  show_id: 100,
+  dj_name: "DJ Test",
+  day: "Monday",
+  time: "10:00 PM",
+  isStart: true,
+};
+
+// Mirrors the live flowsheet page: a row requested as draggable mounts inside
+// a real Reorder.Group; a row requested as non-draggable (the archive's
+// previous-shows tbody, and every "readOnly" case here, since Entry forces
+// resolvedDraggable false whenever readOnly is true) renders in a plain
+// tbody outside the motion tree entirely.
+function renderRow(
+  entry: FlowsheetSongEntry | FlowsheetMessageEntry | FlowsheetShowBlockEntry,
+  draggable: boolean,
+  readOnly: boolean
+): HTMLTableRowElement {
+  const rows = (
+    <Entry entry={entry} playing={false} draggable={draggable} readOnly={readOnly} />
+  );
+  const table = draggable ? (
+    <table>
+      <Reorder.Group as="tbody" axis="y" values={[entry]} onReorder={() => {}}>
+        {rows}
+      </Reorder.Group>
+    </table>
+  ) : (
+    <table>
+      <tbody>{rows}</tbody>
+    </table>
+  );
+  const { container } = renderWithProviders(table);
+  const row = container.querySelector(`[data-testid="flowsheet-entry-${entry.id}"]`);
+  if (!(row instanceof HTMLTableRowElement)) {
+    throw new Error(`Expected a <tr> for entry ${entry.id}, found ${row?.tagName ?? "nothing"}.`);
+  }
+  return row;
+}
+
+type CellShape = { tag: string; className: string; colSpan: string | null };
+
+function cellShapes(row: HTMLTableRowElement): CellShape[] {
+  return Array.from(row.children).map((cell) => ({
+    tag: cell.tagName,
+    className: cell.className,
+    colSpan: cell.getAttribute("colspan"),
+  }));
+}
+
+// The AspectRatio a shared artwork component would own: the row's first
+// cell always holds it (directly for a message row's marker icon, or inside
+// SongEntry's drag-handling Stack for a song row), whether or not a drag
+// grip also renders there.
+function artworkHtml(row: HTMLTableRowElement): string | undefined {
+  return row.children[0].querySelector(".MuiAspectRatio-root")?.outerHTML;
+}
+
+// The Tooltip+Typography a shared field-text component would own. Joy's
+// Tooltip clones its single child rather than wrapping it, so the element
+// this finds (by the full-value aria-label the live Tooltip sets) is already
+// the exact node such a component would render -- no wrapper to strip first.
+function fieldHtml(row: HTMLTableRowElement, value: string): string | undefined {
+  return row.querySelector(`[aria-label="${value}"]`)?.outerHTML;
+}
+
+// The headline/caption Stack a shared message-block component would own:
+// always the direct (and only) child of the row's middle cell.
+function messageBlockHtml(row: HTMLTableRowElement): string | undefined {
+  return row.children[1].firstElementChild?.outerHTML;
+}
+
+const SONG_ARTWORK_HTML =
+  '<div class="MuiAspectRatio-root css-1stm5m6-JoyAspectRatio-root"><div class="MuiAspectRatio-content MuiAspectRatio-variantSoft MuiAspectRatio-colorNeutral css-6e7lq1-JoyAspectRatio-content"><img alt="album art" style="min-width: 48px; min-height: 48px;" data-first-child="" src="/img/cassette.png"></div></div>';
+
+describe("Entry row cells (characterization)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockUseShowControl.mockReturnValue({ live: true, autoplay: false, currentShow: 100 });
+    mockUseLiveStatus.mockReturnValue({
+      live: true,
+      loading: false,
+      userData: { id: "test-dj" },
+      userloading: false,
+    });
+    mockUseFlowsheetActions.mockReturnValue({
+      addToFlowsheet: vi.fn().mockResolvedValue(undefined),
+      removeFromFlowsheet: vi.fn(),
+      updateFlowsheet: vi.fn(),
+      switchEntries: vi.fn(),
+      removeFromQueue: vi.fn(),
+    });
+  });
+
+  describe("song", () => {
+    const SONG_CELLS: CellShape[] = [
+      { tag: "TD", className: "", colSpan: null },
+      { tag: "TD", className: "", colSpan: null },
+      { tag: "TD", className: "", colSpan: null },
+      { tag: "TD", className: "", colSpan: null },
+    ];
+
+    it("readOnly", () => {
+      const row = renderRow(SONG_ENTRY, false, true);
+
+      expect(cellShapes(row)).toEqual(SONG_CELLS);
+      expect(artworkHtml(row)).toBe(SONG_ARTWORK_HTML);
+      expect(fieldHtml(row, "la paradoja")).toBe(
+        '<p aria-label="la paradoja" class="MuiTypography-root MuiTypography-title-sm css-124gg8z-JoyTypography-root">la paradoja&nbsp;</p>'
+      );
+      expect(fieldHtml(row, "Juana Molina")).toBe(
+        '<span aria-label="Juana Molina" class="MuiTypography-root MuiTypography-body-xs css-1xj2hey-JoyTypography-root">Juana Molina&nbsp;</span>'
+      );
+      expect(fieldHtml(row, "DOGA")).toBe(
+        '<p aria-label="DOGA" class="MuiTypography-root MuiTypography-body-sm css-billxu-JoyTypography-root">DOGA&nbsp;</p>'
+      );
+      expect(fieldHtml(row, "Sonamos")).toBe(
+        '<span aria-label="Sonamos" class="MuiTypography-root MuiTypography-body-xs css-1xj2hey-JoyTypography-root">Sonamos&nbsp;</span>'
+      );
+    });
+
+    // canEdit (live && editable) changes the field's own cursor declaration,
+    // which changes its generated class: a shared field component that
+    // reorders or drops that declaration relative to its sx neighbors would
+    // silently restyle every live field. The artwork is unaffected: it
+    // carries no editing state of its own.
+    it("editable + draggable", () => {
+      const row = renderRow(SONG_ENTRY, true, false);
+
+      expect(cellShapes(row)).toEqual(SONG_CELLS);
+      expect(artworkHtml(row)).toBe(SONG_ARTWORK_HTML);
+      expect(fieldHtml(row, "la paradoja")).toBe(
+        '<p aria-label="la paradoja" class="MuiTypography-root MuiTypography-title-sm css-1wnp3kj-JoyTypography-root">la paradoja&nbsp;</p>'
+      );
+      expect(fieldHtml(row, "Juana Molina")).toBe(
+        '<span aria-label="Juana Molina" class="MuiTypography-root MuiTypography-body-xs css-y6ceb6-JoyTypography-root">Juana Molina&nbsp;</span>'
+      );
+      expect(fieldHtml(row, "DOGA")).toBe(
+        '<p aria-label="DOGA" class="MuiTypography-root MuiTypography-body-sm css-1kzpq29-JoyTypography-root">DOGA&nbsp;</p>'
+      );
+      expect(fieldHtml(row, "Sonamos")).toBe(
+        '<span aria-label="Sonamos" class="MuiTypography-root MuiTypography-body-xs css-y6ceb6-JoyTypography-root">Sonamos&nbsp;</span>'
+      );
+    });
+  });
+
+  describe("talkset", () => {
+    const MESSAGE_CELLS: CellShape[] = [
+      { tag: "TD", className: "", colSpan: null },
+      { tag: "TD", className: "MuiBox-root css-0", colSpan: "2" },
+      { tag: "TD", className: "", colSpan: null },
+    ];
+    const TALKSET_ARTWORK_HTML =
+      '<div class="MuiAspectRatio-root css-4mstob-JoyAspectRatio-root"><div class="MuiAspectRatio-content MuiAspectRatio-variantPlain MuiAspectRatio-colorNeutral css-1dbufxu-JoyAspectRatio-content"><p data-first-child="" class="MuiTypography-root MuiTypography-body-md css-ff7dcq-JoyTypography-root"><svg class="MuiSvgIcon-root MuiSvgIcon-fontSizeMedium css-5pnok8-MuiSvgIcon-root" focusable="false" aria-hidden="true" viewBox="0 0 24 24" data-testid="MicIcon"><path d="M12 14c1.66 0 2.99-1.34 2.99-3L15 5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3m5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72z"></path></svg></p></div></div>';
+    const TALKSET_MESSAGE_HTML =
+      '<div class="MuiStack-root css-ktu002-JoyStack-root"><p class="MuiTypography-root MuiTypography-body-lg MuiTypography-colorDanger css-lo7d5y-JoyTypography-root">Talkset</p></div>';
+
+    it("readOnly", () => {
+      const row = renderRow(TALKSET_ENTRY, false, true);
+
+      expect(cellShapes(row)).toEqual(MESSAGE_CELLS);
+      expect(artworkHtml(row)).toBe(TALKSET_ARTWORK_HTML);
+      expect(messageBlockHtml(row)).toBe(TALKSET_MESSAGE_HTML);
+    });
+
+    // The headline/caption block carries no editing state of its own (only
+    // the end cell's RemoveButton does, out of scope for this spec), so it's
+    // identical to the readOnly case; pinned again here so a future change
+    // that makes the block editable-aware is caught in both forms.
+    it("editable + draggable", () => {
+      const row = renderRow(TALKSET_ENTRY, true, false);
+
+      expect(cellShapes(row)).toEqual(MESSAGE_CELLS);
+      expect(artworkHtml(row)).toBe(TALKSET_ARTWORK_HTML);
+      expect(messageBlockHtml(row)).toBe(TALKSET_MESSAGE_HTML);
+    });
+  });
+
+  describe("breakpoint", () => {
+    const MESSAGE_CELLS: CellShape[] = [
+      { tag: "TD", className: "", colSpan: null },
+      { tag: "TD", className: "MuiBox-root css-0", colSpan: "2" },
+      { tag: "TD", className: "", colSpan: null },
+    ];
+    const BREAKPOINT_ARTWORK_HTML =
+      '<div class="MuiAspectRatio-root css-4mstob-JoyAspectRatio-root"><div class="MuiAspectRatio-content MuiAspectRatio-variantPlain MuiAspectRatio-colorNeutral css-1dbufxu-JoyAspectRatio-content"><p data-first-child="" class="MuiTypography-root MuiTypography-body-md css-ff7dcq-JoyTypography-root"><svg class="MuiSvgIcon-root MuiSvgIcon-fontSizeMedium css-5pnok8-MuiSvgIcon-root" focusable="false" aria-hidden="true" viewBox="0 0 24 24" data-testid="TimerIcon"><path d="M9 1h6v2H9zm10.03 6.39 1.42-1.42c-.43-.51-.9-.99-1.41-1.41l-1.42 1.42C16.07 4.74 14.12 4 12 4c-4.97 0-9 4.03-9 9s4.02 9 9 9 9-4.03 9-9c0-2.12-.74-4.07-1.97-5.61M13 14h-2V8h2z"></path></svg></p></div></div>';
+    const BREAKPOINT_MESSAGE_HTML =
+      '<div class="MuiStack-root css-ktu002-JoyStack-root"><p class="MuiTypography-root MuiTypography-body-lg MuiTypography-colorWarning css-th0jkn-JoyTypography-root">Breakpoint</p></div>';
+
+    it("readOnly", () => {
+      const row = renderRow(BREAKPOINT_ENTRY, false, true);
+
+      expect(cellShapes(row)).toEqual(MESSAGE_CELLS);
+      expect(artworkHtml(row)).toBe(BREAKPOINT_ARTWORK_HTML);
+      expect(messageBlockHtml(row)).toBe(BREAKPOINT_MESSAGE_HTML);
+    });
+
+    it("editable + draggable", () => {
+      const row = renderRow(BREAKPOINT_ENTRY, true, false);
+
+      expect(cellShapes(row)).toEqual(MESSAGE_CELLS);
+      expect(artworkHtml(row)).toBe(BREAKPOINT_ARTWORK_HTML);
+      expect(messageBlockHtml(row)).toBe(BREAKPOINT_MESSAGE_HTML);
+    });
+  });
+
+  describe("show marker", () => {
+    const MESSAGE_CELLS: CellShape[] = [
+      { tag: "TD", className: "", colSpan: null },
+      { tag: "TD", className: "MuiBox-root css-0", colSpan: "2" },
+      { tag: "TD", className: "", colSpan: null },
+    ];
+    const MARKER_ARTWORK_HTML =
+      '<div class="MuiAspectRatio-root css-4mstob-JoyAspectRatio-root"><div class="MuiAspectRatio-content MuiAspectRatio-variantPlain MuiAspectRatio-colorNeutral css-1dbufxu-JoyAspectRatio-content"><p data-first-child="" class="MuiTypography-root MuiTypography-body-md css-ff7dcq-JoyTypography-root"><svg class="MuiSvgIcon-root MuiSvgIcon-fontSizeMedium css-5pnok8-MuiSvgIcon-root" focusable="false" aria-hidden="true" viewBox="0 0 24 24" data-testid="HeadphonesIcon"><path d="M12 3c-4.97 0-9 4.03-9 9v7c0 1.1.9 2 2 2h4v-8H5v-1c0-3.87 3.13-7 7-7s7 3.13 7 7v1h-4v8h4c1.1 0 2-.9 2-2v-7c0-4.97-4.03-9-9-9"></path></svg></p></div></div>';
+    const MARKER_MESSAGE_HTML =
+      '<div class="MuiStack-root css-ktu002-JoyStack-root"><p class="MuiTypography-root MuiTypography-body-lg MuiTypography-colorSuccess css-1w3h90d-JoyTypography-root">DJ Test</p><p class="MuiTypography-root MuiTypography-body-md css-ljoq8r-JoyTypography-root">started the set</p></div>';
+
+    it("readOnly", () => {
+      const row = renderRow(MARKER_ENTRY, false, true);
+
+      expect(cellShapes(row)).toEqual(MESSAGE_CELLS);
+      expect(artworkHtml(row)).toBe(MARKER_ARTWORK_HTML);
+      expect(messageBlockHtml(row)).toBe(MARKER_MESSAGE_HTML);
+    });
+
+    // A show marker is never editable (Entry hardcodes disableEditing=true
+    // for it via getMessageEntryPresentation) and never draggable (Entry's
+    // isMarker check forces resolvedDraggable false), whatever draggable and
+    // readOnly say -- so this form renders byte-identical to readOnly's.
+    // Pinned anyway, as its own case, so a change to either hardcoding is
+    // caught here rather than only in the row-level <tr> characterization.
+    it("editable + draggable (identical to readOnly by design)", () => {
+      const row = renderRow(MARKER_ENTRY, true, false);
+
+      expect(cellShapes(row)).toEqual(MESSAGE_CELLS);
+      expect(artworkHtml(row)).toBe(MARKER_ARTWORK_HTML);
+      expect(messageBlockHtml(row)).toBe(MARKER_MESSAGE_HTML);
+    });
+  });
+
+  // The queue page (@queue/page.tsx) renders SongEntry directly rather than
+  // through Entry, and its artwork cell holds the hover-revealed Play-now
+  // button -- a sibling of the AspectRatio a shared artwork component would
+  // own, not a wrapper around it, so the cell's hover behavior survives an
+  // extraction that owns only the AspectRatio.
+  describe("queue song entry", () => {
+    function renderQueueRow(): HTMLTableRowElement {
+      const entry = SONG_ENTRY;
+      const { container } = renderWithProviders(
+        <table>
+          <Reorder.Group as="tbody" axis="y" values={[entry]} onReorder={() => {}}>
+            <SongEntry entry={entry} playing={false} queue />
+          </Reorder.Group>
+        </table>
+      );
+      const row = container.querySelector(`[data-testid="flowsheet-entry-${entry.id}"]`);
+      if (!(row instanceof HTMLTableRowElement)) {
+        throw new Error(`Expected a <tr> for entry ${entry.id}, found ${row?.tagName ?? "nothing"}.`);
+      }
+      return row;
+    }
+
+    it("renders the same field texts and artwork as the live editable row", () => {
+      const row = renderQueueRow();
+
+      expect(cellShapes(row)).toEqual([
+        { tag: "TD", className: "", colSpan: null },
+        { tag: "TD", className: "", colSpan: null },
+        { tag: "TD", className: "", colSpan: null },
+        { tag: "TD", className: "", colSpan: null },
+      ]);
+      expect(artworkHtml(row)).toBe(SONG_ARTWORK_HTML);
+      expect(fieldHtml(row, "la paradoja")).toBe(
+        '<p aria-label="la paradoja" class="MuiTypography-root MuiTypography-title-sm css-1wnp3kj-JoyTypography-root">la paradoja&nbsp;</p>'
+      );
+      expect(fieldHtml(row, "Sonamos")).toBe(
+        '<span aria-label="Sonamos" class="MuiTypography-root MuiTypography-body-xs css-y6ceb6-JoyTypography-root">Sonamos&nbsp;</span>'
+      );
+    });
+
+    it("keeps the Play-now button beside the artwork, not inside it, once hovered", () => {
+      const row = renderQueueRow();
+      fireEvent.mouseEnter(row.children[0]);
+
+      expect(artworkHtml(row)).toBe(SONG_ARTWORK_HTML);
+      expect(
+        row.children[0].querySelector('[aria-label="Play this song now (add to flowsheet)"]')
+      ).not.toBeNull();
+    });
+  });
+});
