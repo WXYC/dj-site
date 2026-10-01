@@ -106,12 +106,13 @@ export function countDistinctDeclaredHours(
       // rotation play and never reached the tally.
       if (rotationId <= 0) continue;
 
-      // `current` is null for a row before any breakpoint in a show whose
-      // `start_time` failed to parse; `loggedHour` then falls back to this
-      // row's own `add_time`, which is required on the wire but still only
-      // a null-if-unparseable guard away from leaving the row unplaceable.
-      // Dropping it undercounts by one; bucketing it at the epoch would merge
-      // every such row into one spurious shared hour.
+      // `current` is null for a row whose show has no `showStart` entry: an
+      // unattributed row (`show_id` null, grouped under key 0), a show absent
+      // from `shows`, or a show whose own `start_time` is empty. `loggedHour`
+      // then falls back to this row's own `add_time`, which is required on
+      // the wire but still only a null-if-unparseable guard away from leaving
+      // the row unplaceable. Dropping it undercounts by one; bucketing it at
+      // the epoch would merge every such row into one spurious shared hour.
       const bucket = current ?? loggedHour(e);
       if (bucket === null) continue;
 

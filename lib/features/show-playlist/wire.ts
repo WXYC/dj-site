@@ -4,12 +4,14 @@ import type { ShowPlaylistEntryWire } from "./types";
 /**
  * Adapts one published V2 entry to the flat shape `convertRangeEntry` reads.
  *
- * Both ends of this boundary are declared in `api.yaml`, so the conversion is
- * exactly the places the two declarations disagree, and nothing else. They
- * disagree twice, in one direction each.
+ * Only the V2 end of this boundary is declared in `api.yaml`. The flat end,
+ * `FlowsheetRangeEntryWire`, is dj-site's own hand-declared type (see
+ * conversions.ts), so the conversion is exactly the places the V2 union's
+ * nullability disagrees with that hand-declared shape's optionality, and
+ * nothing else. They disagree twice, in one direction each.
  *
- * The V2 track variant types six fields nullable where `FlowsheetEntryFields`
- * types them plain — `album_id`, `rotation_id`, `artist_name`, `album_title`,
+ * The V2 track variant types six fields nullable where `FlowsheetRangeEntryWire`
+ * types them optional — `album_id`, `rotation_id`, `artist_name`, `album_title`,
  * `track_title`, `record_label` — as does the V2 breakpoint variant's
  * `message`. Each null becomes an absent key rather than being coerced or cast
  * away: absence is the only one of the two the flat shape can hold, and every
@@ -26,9 +28,10 @@ import type { ShowPlaylistEntryWire } from "./types";
  * What that buys is narrower than "the schemas can no longer drift unnoticed",
  * and the difference matters because an over-promising comment here is what let
  * the last defect through. A field both shapes declare, typed more loosely on
- * one, arrives as a compile error. A field only the V2 shape declares does not:
- * it rides `...rest` into the flat shape, and TypeScript applies no excess-
- * property check to spread-in properties. Several already do exactly that.
+ * the V2 side, arrives as a compile error against `FlowsheetRangeEntryWire`'s
+ * return type. A field only the V2 shape declares does not: it rides `...rest`
+ * into the flat shape, and TypeScript applies no excess-property check to
+ * spread-in properties. Several already do exactly that.
  */
 export function v2ToRangeShape(
   entry: ShowPlaylistEntryWire

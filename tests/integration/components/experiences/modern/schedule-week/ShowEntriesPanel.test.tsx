@@ -54,7 +54,7 @@ const entry = (over: Partial<FlowsheetRangeEntryWire> & { id: number }) =>
     track_title: "Back, Baby",
     album_title: "On Your Own Love Again",
     ...over,
-  }) as unknown as FlowsheetRangeEntryWire;
+  }) satisfies FlowsheetRangeEntryWire;
 
 const panel = (
   entries: FlowsheetRangeEntryWire[],
