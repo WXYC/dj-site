@@ -284,6 +284,9 @@ describe("ShowEntriesPanel", () => {
       expect(
         screen.queryByRole("button", { name: /Play this song now/i }),
       ).toBeNull();
+      // The album-info button isn't an editing affordance, so read-only
+      // suppresses the segue/request toggles around it without hiding it too.
+      expect(screen.getByLabelText("Album information")).toBeInTheDocument();
     });
   });
 

@@ -71,9 +71,21 @@ export const FLOWSHEET_TABLE_SX: SxProps = {
   borderSpacing: "0 4px",
   "--TableCell-paddingX": FLOWSHEET_CELL_PADDING_X,
   // See FLOWSHEET_XL_QUERY: below xl these columns hide and reflow into
-  // title/album as second lines (SongEntry).
-  "& .col-artist, & .col-label": {
+  // title/album as second lines (SongEntry). The read-only row's xl-only
+  // marker cell shares the rule (col-marker-xl) so its colSpan-4 middle cell
+  // hides in lock-step with the song columns it sits beside.
+  "& .col-artist, & .col-label, & .col-marker-xl": {
     display: { xs: "none", xl: "table-cell" },
+  },
+  // The read-only row's below-xl counterparts: the stacked artist/label
+  // second lines (ReadOnlySongEntry) and the colSpan-2 marker cell
+  // (ReadOnlyMessageEntry). Inverse of the rule above so exactly one copy of
+  // each paints at a given width.
+  "& .field-second-line": {
+    display: { xs: "block", xl: "none" },
+  },
+  "& .col-marker-compact": {
+    display: { xs: "table-cell", xl: "none" },
   },
   "& tbody tr > td": {
     backgroundColor: "var(--row-bg, transparent)",

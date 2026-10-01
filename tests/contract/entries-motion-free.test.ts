@@ -3,13 +3,14 @@ import { walkImportGraph } from "@/tests/helpers/import-graph";
 
 /**
  * Every motion-free, hook-free presentational module under
- * src/components/experiences/modern/flowsheet/Entries/ exists so a future
+ * src/components/experiences/modern/flowsheet/Entries/ exists so a
  * read-only surface can render a piece of the live row without pulling
- * `motion/react` or any live-show hook or API module into its bundle. A
- * later edit that reaches for one of those from inside one of these modules
- * -- even transitively, even via a dynamic `import()` this walk can't
- * resolve a destination for -- silently reopens that bundle, so the walk
- * fails closed on anything it can't prove static and clean: a banned
+ * `motion/react` or any live-show hook or API module into its bundle --
+ * ReadOnlyEntry.tsx (under Entries/ReadOnly/) is that surface, composing all
+ * four. A later edit that reaches for one of those from inside one of these
+ * modules -- even transitively, even via a dynamic `import()` this walk
+ * can't resolve a destination for -- silently reopens that bundle, so the
+ * walk fails closed on anything it can't prove static and clean: a banned
  * import, a dynamic import it can't resolve, or a local import (`@/...` or
  * relative) that resolves to no file at all. One parameterized test covers
  * every module in the family rather than a near-identical copy per module,
@@ -63,6 +64,19 @@ const MODULES = [
     mustContain: [
       "src/components/experiences/modern/flowsheet/Entries/entryPresentation.ts",
       "src/components/experiences/modern/flowsheet/Entries/Components/DateTimeStack.tsx",
+    ],
+  },
+  {
+    name: "ReadOnlyEntry",
+    file: "src/components/experiences/modern/flowsheet/Entries/ReadOnly/ReadOnlyEntry.tsx",
+    // Proves the read-only row actually composes the four modules above
+    // (not copies of them) rather than merely avoiding the same banned
+    // imports they do.
+    mustContain: [
+      "src/components/experiences/modern/flowsheet/Entries/EntryRow.tsx",
+      "src/components/experiences/modern/flowsheet/Entries/EntryFieldText.tsx",
+      "src/components/experiences/modern/flowsheet/Entries/EntryArtwork.tsx",
+      "src/components/experiences/modern/flowsheet/Entries/messageEntrySlots.tsx",
     ],
   },
 ];
