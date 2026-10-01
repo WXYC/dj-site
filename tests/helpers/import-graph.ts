@@ -3,17 +3,21 @@ import { dirname, join, resolve } from "node:path";
 import * as ts from "typescript";
 
 /**
- * A static import-graph walker shared by every module-graph contract test in
- * this directory: it parses each visited file with the TypeScript compiler
- * API (so a comment that happens to hold a quote or a semicolon can't hide
- * or fake an import) and follows every static import, re-export, side-effect
- * import, and `import()`/`require()` call, including backtick-quoted
- * specifiers. It fails closed on anything it can't prove static and clean: a
- * banned local module, a banned package root, a dynamic import whose
- * argument isn't a plain string literal, or a local specifier (`@/...` or
- * relative) that resolves to no file at all -- a walk that silently dropped
- * one of those edges would make its caller's forbidden-import assertion pass
- * vacuously for exactly the edge that matters.
+ * A static import-graph walker shared by every module-graph contract test
+ * under tests/contract/: it parses each visited file with the TypeScript
+ * compiler API (so a comment that happens to hold a quote or a semicolon
+ * can't hide or fake an import) and follows every static import, re-export,
+ * side-effect import, and `import()`/`require()` call, including
+ * backtick-quoted specifiers. It fails closed on anything it can't prove
+ * static and clean: a banned local module, a banned package root, a dynamic
+ * import whose argument isn't a plain string literal, or a local specifier
+ * (`@/...` or relative) that resolves to no file at all -- a walk that
+ * silently dropped one of those edges would make its caller's
+ * forbidden-import assertion pass vacuously for exactly the edge that
+ * matters.
+ *
+ * Not exported from the helpers barrel: the node-tier specs that use this
+ * import it directly, per the no-barrel rule for that tier.
  */
 
 const ROOT = process.cwd();
@@ -153,8 +157,8 @@ export type ImportGraphResult = {
 // `bannedLocalSpecifiers` are resolved to files once, up front, so the walk
 // compares files rather than specifier text: a banned module reached by a
 // relative path or an explicit extension resolves to the same file a
-// `@/`-prefixed import would, and is caught the same way. `
-// bannedPackageSpecifiers` are package roots (e.g. "motion"), matched by
+// `@/`-prefixed import would, and is caught the same way.
+// `bannedPackageSpecifiers` are package roots (e.g. "motion"), matched by
 // specifier text since an npm package has no local file to resolve to --
 // banning a root also bans every subpath under it.
 export function walkImportGraph(
