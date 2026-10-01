@@ -234,6 +234,13 @@ export function breakpointGuardRejectionMessage(hourLabel: string): string {
 const partValue = (parts: Intl.DateTimeFormatPart[], type: Intl.DateTimeFormatPartTypes) =>
   parts.find((p) => p.type === type)?.value ?? "";
 
+const stationClockTimeFormatter = new Intl.DateTimeFormat("en-US", {
+  timeZone: STATION_TIME_ZONE,
+  hour: "numeric",
+  minute: "2-digit",
+  hour12: true,
+});
+
 /**
  * An instant as the station's wall clock, e.g. "9:03 PM" — no rounding, no
  * seconds, and no leading zero.
@@ -249,12 +256,7 @@ export function formatStationClockTime(
   if (!isoString) return "";
   const date = new Date(isoString);
   if (Number.isNaN(date.getTime())) return "";
-  return new Intl.DateTimeFormat("en-US", {
-    timeZone: STATION_TIME_ZONE,
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  }).format(date);
+  return stationClockTimeFormatter.format(date);
 }
 
 // Station-tz counterpart of conversions.ts `formatAddTime`: renders a backend

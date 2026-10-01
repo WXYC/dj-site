@@ -3,6 +3,7 @@ import { rangeEntryTime } from "@/lib/features/flowsheet/entry-time";
 
 afterEach(() => {
   vi.unstubAllEnvs();
+  vi.resetModules();
 });
 
 describe("rangeEntryTime", () => {
@@ -59,7 +60,7 @@ describe("rangeEntryTime", () => {
     expect(rangeEntryTime({ entry_type: "breakpoint" })).toBe("");
   });
 
-  it("renders station time under a non-Eastern process zone", () => {
+  it("renders station time under a non-Eastern process zone", async () => {
     // 2026-01-15T20:01:00Z is 3:01 PM in the station's zone (America/New_York,
     // EST at this date) and 5:01 AM the next day in Asia/Tokyo -- a formatter
     // that fell back to the process's local zone instead of the explicit
@@ -71,16 +72,31 @@ describe("rangeEntryTime", () => {
     // (vitest's `forks` pool runs each test file in its own forked process,
     // which keeps that trap). A worker thread's process.env is a plain copy
     // without the trap, so the same assignment is silently inert there, and
-    // the case below would pass vacuously on its original (station) zone
-    // regardless of the bug this test exists to catch -- hence the guard
+    // the case below would run in the process's original zone and never
+    // reach the zone it stubs -- hence the guard
     // below, and why this file must run under vitest's default `forks`
     // pool, never `--pool=threads`.
     expect(
       new Intl.DateTimeFormat().resolvedOptions().timeZone,
       "TZ stub did not take effect in this process -- rerun this file under vitest's default `forks` pool, not `--pool=threads`"
     ).toBe("Asia/Tokyo");
+    // stationTime builds its formatter once, at module scope, so the
+    // top-of-file import of entry-time (and the stationTime module behind
+    // it) was already evaluated under the process's original zone, well
+    // before the TZ stub above ever ran. Re-importing after the stub is
+    // the only way to get a formatter actually built under Asia/Tokyo --
+    // the already-imported rangeEntryTime follows the zone the process
+    // started in, so asserting against it would not exercise the stubbed
+    // zone at all.
+    vi.resetModules();
+    const { rangeEntryTime: rangeEntryTimeUnderTokyo } = await import(
+      "@/lib/features/flowsheet/entry-time"
+    );
     expect(
-      rangeEntryTime({ entry_type: "track", add_time: "2026-01-15T20:01:00Z" })
+      rangeEntryTimeUnderTokyo({
+        entry_type: "track",
+        add_time: "2026-01-15T20:01:00Z",
+      })
     ).toBe("3:01 PM");
   });
 });
