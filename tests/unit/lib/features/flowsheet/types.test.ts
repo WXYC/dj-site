@@ -3,13 +3,10 @@ import {
   isFlowsheetSongEntry,
   isFlowsheetStartShowEntry,
   isFlowsheetEndShowEntry,
-  isFlowsheetTalksetEntry,
-  isFlowsheetBreakpointEntry,
   type FlowsheetEntry,
   type FlowsheetSongEntry,
   type FlowsheetShowBlockEntry,
   type FlowsheetMessageEntry,
-  type FlowsheetBreakpointEntry,
 } from "@/lib/features/flowsheet/types";
 
 describe("flowsheet types", () => {
@@ -142,112 +139,6 @@ describe("flowsheet types", () => {
       };
 
       expect(isFlowsheetEndShowEntry(messageEntry as FlowsheetEntry)).toBe(false);
-    });
-  });
-
-  describe("isFlowsheetTalksetEntry", () => {
-    it("should return true for talkset entries", () => {
-      const talksetEntry: FlowsheetMessageEntry = {
-        ...baseEntry,
-        entry_type: "talkset",
-        message: "Talkset",
-      };
-
-      expect(isFlowsheetTalksetEntry(talksetEntry)).toBe(true);
-    });
-
-    it("should return true for a talkset entry whose message also happens to say Talkset", () => {
-      const talksetEntry: FlowsheetMessageEntry = {
-        ...baseEntry,
-        entry_type: "talkset",
-        message: "Talkset: DJ discussing upcoming event",
-      };
-
-      expect(isFlowsheetTalksetEntry(talksetEntry)).toBe(true);
-    });
-
-    it("should return false for non-talkset message entries", () => {
-      const messageEntry: FlowsheetMessageEntry = {
-        ...baseEntry,
-        entry_type: "message",
-        message: "PSA: Community announcement",
-      };
-
-      expect(isFlowsheetTalksetEntry(messageEntry)).toBe(false);
-    });
-
-    it("should return false for song entries", () => {
-      const songEntry: FlowsheetSongEntry = {
-        ...baseEntry,
-        entry_type: "track",
-        track_title: "Test Track",
-        artist_name: "Test Artist",
-        album_title: "Test Album",
-        record_label: "Test Label",
-        request_flag: false,
-      };
-
-      expect(isFlowsheetTalksetEntry(songEntry as FlowsheetEntry)).toBe(false);
-    });
-  });
-
-  describe("isFlowsheetBreakpointEntry", () => {
-    it("should return true for breakpoint entries", () => {
-      const breakpointEntry: FlowsheetBreakpointEntry = {
-        ...baseEntry,
-        entry_type: "breakpoint",
-        message: "Breakpoint: Station ID",
-        day: "Monday",
-        time: "10:00",
-      };
-
-      expect(isFlowsheetBreakpointEntry(breakpointEntry)).toBe(true);
-    });
-
-    it("should return true for a breakpoint entry whose message also happens to say Breakpoint", () => {
-      const breakpointEntry: FlowsheetBreakpointEntry = {
-        ...baseEntry,
-        entry_type: "breakpoint",
-        message: "Breakpoint: PSA at 10:30",
-        day: "Monday",
-        time: "10:30",
-      };
-
-      expect(isFlowsheetBreakpointEntry(breakpointEntry)).toBe(true);
-    });
-
-    it("should return false for non-breakpoint message entries", () => {
-      const messageEntry: FlowsheetMessageEntry = {
-        ...baseEntry,
-        entry_type: "message",
-        message: "PSA: Community announcement",
-      };
-
-      expect(isFlowsheetBreakpointEntry(messageEntry as FlowsheetEntry)).toBe(false);
-    });
-
-    it("should return false for talkset entries", () => {
-      const talksetEntry: FlowsheetMessageEntry = {
-        ...baseEntry,
-        entry_type: "talkset",
-        message: "Talkset",
-      };
-
-      expect(isFlowsheetBreakpointEntry(talksetEntry as FlowsheetEntry)).toBe(false);
-    });
-
-    it("should return false for song entries", () => {
-      const songEntry: FlowsheetSongEntry = {
-        ...baseEntry,
-        entry_type: "track",
-        track_title: "Test Track",
-        artist_name: "Test Artist",
-        album_title: "Test Album",
-        record_label: "Test Label",
-        request_flag: false,
-      };
-
-      expect(isFlowsheetBreakpointEntry(songEntry as FlowsheetEntry)).toBe(false);
     });
   });
 });

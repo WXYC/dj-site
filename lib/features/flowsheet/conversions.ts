@@ -308,7 +308,11 @@ export function convertV2Entry(entry: FlowsheetV2EntryJSON): FlowsheetEntry {
     case "breakpoint":
       return { ...base, ...breakpointDisplayFields(entry) };
 
+    // Shared with convertRangeEntry, so the two conversions turn one talkset
+    // into the same text.
     case "talkset":
+      return { ...base, message: talksetDisplayMessage(entry.message) };
+
     case "message":
       return {
         ...base,
@@ -362,7 +366,7 @@ export type FlowsheetRangeEntryWire = {
   discogsUnavailableNote?: string | null;
 };
 
-// The label an archived talkset displays. A row's kind comes from its
+// The word every talkset label carries. A row's kind comes from its
 // entry_type, never from this word.
 const TALKSET_LABEL = "Talkset";
 
@@ -372,22 +376,17 @@ const MARKER_DECORATION = /^[\s\-\u2013\u2014*]+|[\s\-\u2013\u2014*]+$/g;
 const CLOCK_TIME = /(\d{1,2}):(\d{2})\s*([AP])\.?M\.?/i;
 
 /**
- * A talkset row's message in its display spelling.
+ * A talkset's stored text, rewritten to its display spelling.
  *
  * A talkset logged through this app stores "Talkset"; one mirrored from the
- * legacy flowsheet stores the legacy column's text, which is the uppercase
- * token. This strips the leading and trailing runs of whitespace, hyphens,
- * en and em dashes and asterisks (`MARKER_DECORATION`), then returns the
- * first of these that applies:
- *
- * - "Talkset", when nothing is left;
- * - the stripped text unchanged, when it contains "Talkset" in that casing;
- * - the stripped text with its first occurrence of the word respelled
- *   "Talkset", when it contains the word in another casing;
- * - "Talkset: " followed by the stripped text, when it does not contain the
- *   word in any casing.
+ * legacy flowsheet stores that system's marker text, the uppercase token,
+ * sometimes wrapped in a run of rules. Both must read alike in a listing that
+ * mixes them, so the label always carries the word in one spelling. Only the
+ * leading and trailing runs of `MARKER_DECORATION` are dropped; the rest of
+ * the text is kept, and text that never names a talkset is prefixed with the
+ * word.
  */
-function recognizableTalksetMessage(raw: string | undefined): string {
+function talksetDisplayMessage(raw: string | undefined): string {
   const text = (raw ?? "").replace(MARKER_DECORATION, "");
   if (!text) return TALKSET_LABEL;
   if (text.includes(TALKSET_LABEL)) return text;
@@ -506,11 +505,9 @@ function usableInstant(iso: string | null | undefined): string | null {
  * (`rotation_bin` → `rotation`) and normalizes marker text: a row mirrored
  * from the legacy flowsheet carries the legacy marker column ("TALKSET",
  * "--- 3:00 PM BREAKPOINT ---"), and this rewrites it to the display spelling
- * ("Talkset", "3:00 PM Breakpoint"). The breakpoint rewrite is
- * `breakpointDisplayFields`, which `convertV2Entry` applies too. The talkset
- * rewrite is `recognizableTalksetMessage`, which `convertV2Entry` does not
- * apply: it copies a talkset's message unchanged. `entry_type`, not this
- * text, decides the row's kind, icon and tone.
+ * ("Talkset", "3:00 PM Breakpoint"). `convertV2Entry` applies the same two
+ * rewrites, so one wire row converts to the same text live and archived.
+ * `entry_type`, not this text, decides the row's kind, icon and tone.
  *
  * Every branch returns a row. An entry type this build has never seen still
  * renders, because the vocabulary is server-owned and a missing arm in a
@@ -576,7 +573,7 @@ export function convertRangeEntry(entry: FlowsheetRangeEntryWire): FlowsheetEntr
       return asMarker(false);
 
     case "talkset":
-      return asMessage(recognizableTalksetMessage(entry.message ?? undefined));
+      return asMessage(talksetDisplayMessage(entry.message ?? undefined));
 
     // See breakpointDisplayFields: shared verbatim with convertV2Entry so
     // live and archived can never disagree about the hour one wire row marks.

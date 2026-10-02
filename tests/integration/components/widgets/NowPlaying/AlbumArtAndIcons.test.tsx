@@ -10,7 +10,6 @@ import type {
 import { convertV2Entry } from "@/lib/features/flowsheet/conversions";
 import {
   createTestV2MessageEntry,
-  createTestV2TalksetEntry,
 } from "@/tests/fixtures/fixtures";
 import { renderWithProviders } from "@/tests/helpers";
 
@@ -199,13 +198,16 @@ describe("AlbumArtAndIcons", () => {
     });
   });
 
-  // The tubafrenzy-mirrored talkset's wire message is the legacy column's
-  // raw uppercase token -- entry_type, not that text, decides this is a
-  // talkset, so it gets the mic icon rather than falling through to the
-  // generic cassette-artwork fallback.
-  describe("when entry is the tubafrenzy-mirrored live talkset", () => {
+  // entry_type alone makes a row a talkset: one whose text never says the
+  // word in that spelling still gets the mic icon rather than falling
+  // through to the generic cassette-artwork fallback.
+  describe("when entry is a talkset whose text does not say Talkset", () => {
     it("should display the Mic icon, not the default cassette artwork", () => {
-      const entry = convertV2Entry(createTestV2TalksetEntry({ message: "TALKSET" }));
+      const entry: FlowsheetMessageEntry = {
+        ...baseEntry,
+        entry_type: "talkset",
+        message: "TALKSET",
+      };
 
       renderWithProviders(<AlbumArtAndIcons entry={entry} />);
 

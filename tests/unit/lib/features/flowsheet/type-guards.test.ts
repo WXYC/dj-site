@@ -53,18 +53,6 @@ const breakpointEntry: FlowsheetEntry = {
   time: "9:00:00 PM",
 };
 
-const undefinedMessageEntry: FlowsheetEntry = {
-  ...base,
-  entry_type: "message",
-  message: undefined as unknown as string,
-};
-
-const nullMessageEntry: FlowsheetEntry = {
-  ...base,
-  entry_type: "message",
-  message: null as unknown as string,
-};
-
 describe("isFlowsheetTalksetEntry / isFlowsheetBreakpointEntry classify by entry_type, not message text", () => {
   it.each([
     {
@@ -103,6 +91,10 @@ describe("isFlowsheetTalksetEntry / isFlowsheetBreakpointEntry classify by entry
       isTalkset: true,
       isBreakpoint: false,
     },
+    { name: "a talkset", entry: talksetEntry, isTalkset: true, isBreakpoint: false },
+    { name: "a breakpoint", entry: breakpointEntry, isTalkset: false, isBreakpoint: true },
+    { name: "a song", entry: songEntry, isTalkset: false, isBreakpoint: false },
+    { name: "a show start", entry: startShowEntry, isTalkset: false, isBreakpoint: false },
   ])("$name", ({ entry, isTalkset, isBreakpoint }) => {
     expect(isFlowsheetTalksetEntry(entry)).toBe(isTalkset);
     expect(isFlowsheetBreakpointEntry(entry)).toBe(isBreakpoint);
@@ -145,50 +137,6 @@ describe("flowsheet type guards", () => {
 
     it("returns false for show start", () => {
       expect(isFlowsheetEndShowEntry(startShowEntry)).toBe(false);
-    });
-  });
-
-  describe("isFlowsheetTalksetEntry", () => {
-    it("returns true for talkset messages", () => {
-      expect(isFlowsheetTalksetEntry(talksetEntry)).toBe(true);
-    });
-
-    it("returns false for breakpoint messages", () => {
-      expect(isFlowsheetTalksetEntry(breakpointEntry)).toBe(false);
-    });
-
-    it("returns false for song entries", () => {
-      expect(isFlowsheetTalksetEntry(songEntry)).toBe(false);
-    });
-
-    it("does not crash when message is null", () => {
-      expect(isFlowsheetTalksetEntry(nullMessageEntry)).toBe(false);
-    });
-
-    it("does not crash when message is undefined", () => {
-      expect(isFlowsheetTalksetEntry(undefinedMessageEntry)).toBe(false);
-    });
-  });
-
-  describe("isFlowsheetBreakpointEntry", () => {
-    it("returns true for breakpoint messages", () => {
-      expect(isFlowsheetBreakpointEntry(breakpointEntry)).toBe(true);
-    });
-
-    it("returns false for talkset messages", () => {
-      expect(isFlowsheetBreakpointEntry(talksetEntry)).toBe(false);
-    });
-
-    it("returns false for song entries", () => {
-      expect(isFlowsheetBreakpointEntry(songEntry)).toBe(false);
-    });
-
-    it("does not crash when message is null", () => {
-      expect(isFlowsheetBreakpointEntry(nullMessageEntry)).toBe(false);
-    });
-
-    it("does not crash when message is undefined", () => {
-      expect(isFlowsheetBreakpointEntry(undefinedMessageEntry)).toBe(false);
     });
   });
 });

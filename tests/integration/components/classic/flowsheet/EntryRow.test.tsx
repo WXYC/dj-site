@@ -17,7 +17,6 @@ import {
 } from "@/lib/features/flowsheet/various-artists-guard";
 import { convertV2Entry } from "@/lib/features/flowsheet/conversions";
 import {
-  createTestV2TalksetEntry,
   createTestV2MessageEntry,
 } from "@/tests/fixtures/fixtures";
 import EntryRow from "@/src/components/experiences/classic/flowsheet/EntryRow";
@@ -452,8 +451,14 @@ describe("Classic EntryRow markers", () => {
 // Pins the entry_type-driven classification at the reader that decides
 // whether a row exists at all, not just at the shared predicates.
 describe("Classic EntryRow classifies by entry_type, not message text", () => {
-  it("renders a talkset row for the tubafrenzy-mirrored talkset, whose message is the legacy column's uppercase spelling", () => {
-    const entry = convertV2Entry(createTestV2TalksetEntry({ message: "TALKSET" }));
+  it("renders a talkset row for a talkset whose text does not say Talkset", () => {
+    const entry: FlowsheetEntry = {
+      id: 9,
+      play_order: 1,
+      show_id: 1,
+      entry_type: "talkset",
+      message: "TALKSET",
+    };
     const { container } = renderRow({ entry });
     expect(container.querySelector("tr.talkset-row")).not.toBeNull();
   });

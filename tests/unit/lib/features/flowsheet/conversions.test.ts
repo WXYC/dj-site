@@ -39,6 +39,18 @@ type QuerySubmission = {
   rotation_bin?: string;
 };
 
+// One table for both conversions: a talkset's stored text has to come out as
+// the same label whichever endpoint served the row.
+const TALKSET_LABELS = [
+  { stored: "Talkset", label: "Talkset" },
+  { stored: "Talkset about music", label: "Talkset about music" },
+  { stored: "TALKSET", label: "Talkset" },
+  { stored: "--- TALKSET ---", label: "Talkset" },
+  { stored: "--- TALKSET - station ID ---", label: "Talkset - station ID" },
+  { stored: "station ID", label: "Talkset: station ID" },
+  { stored: "", label: "Talkset" },
+];
+
 describe("flowsheet conversions", () => {
   describe("convertQueryToSubmission", () => {
     // Type for the actual return shape from convertQueryToSubmission
@@ -651,26 +663,26 @@ describe("flowsheet conversions", () => {
         expect(result.day).toBe(expectedDay);
       });
 
-      it("should convert talkset to FlowsheetMessageEntry", () => {
-        const entry = createTestV2TalksetEntry({ message: "Talkset about music" });
-        const result = convertV2Entry(entry) as FlowsheetMessageEntry;
+      it.each(TALKSET_LABELS)(
+        "labels a talkset storing $stored as $label",
+        ({ stored, label }) => {
+          const result = convertV2Entry(
+            createTestV2TalksetEntry({ message: stored })
+          );
 
-        expect(result.message).toBe("Talkset about music");
-        expect(result.id).toBe(TEST_ENTITY_IDS.FLOWSHEET.ENTRY_1);
-      });
+          expect(isFlowsheetTalksetEntry(result) && result.message).toBe(label);
+          expect(result.id).toBe(TEST_ENTITY_IDS.FLOWSHEET.ENTRY_1);
+        }
+      );
 
-      // The tubafrenzy-mirrored talkset: Backend-Service types it from the
-      // legacy column (7 -> 'talkset') and copies the legacy ARTIST_NAME
-      // verbatim into message, so the live wire row's message is the raw
-      // uppercase token. Unlike convertRangeEntry (the archive path),
-      // convertV2Entry's talkset arm does not normalize message text -- the
-      // row classifies as a talkset by entry_type alone.
-      it("classifies a live-path legacy talkset by entry_type, leaving its uppercase message untouched", () => {
-        const entry = createTestV2TalksetEntry({ message: "TALKSET" });
-        const result = convertV2Entry(entry);
+      // The label rewrite belongs to talksets alone: a message row is free
+      // text, and may say anything, this word included.
+      it("leaves a message row's text as stored, even when it reads like a legacy talkset", () => {
+        const result = convertV2Entry(
+          createTestV2MessageEntry({ message: "--- TALKSET ---" })
+        ) as FlowsheetMessageEntry;
 
-        expect(isFlowsheetTalksetEntry(result)).toBe(true);
-        expect(isFlowsheetTalksetEntry(result) && result.message).toBe("TALKSET");
+        expect(result.message).toBe("--- TALKSET ---");
       });
 
       // Mirrors convertRangeEntry's breakpoint arm: the displayed hour comes
@@ -1237,27 +1249,18 @@ describe("flowsheet conversions", () => {
       }
     );
 
-    it("normalizes the legacy talkset token to the display spelling (the row switch already recognizes the row by entry_type)", () => {
-      const converted = convertRangeEntry(
-        rangeEntry({ id: 4, entry_type: "talkset", message: "TALKSET" })
-      ) as FlowsheetMessageEntry;
+    it.each(TALKSET_LABELS)(
+      "labels a talkset storing $stored as $label",
+      ({ stored, label }) => {
+        const converted = convertRangeEntry(
+          rangeEntry({ id: 4, entry_type: "talkset", message: stored })
+        );
 
-      expect(converted.message).toBe("Talkset");
-      expect(isFlowsheetTalksetEntry(converted)).toBe(true);
-    });
-
-    it("keeps whatever else a talkset row says", () => {
-      const converted = convertRangeEntry(
-        rangeEntry({
-          id: 5,
-          entry_type: "talkset",
-          message: "--- TALKSET - station ID ---",
-        })
-      ) as FlowsheetMessageEntry;
-
-      expect(converted.message).toBe("Talkset - station ID");
-      expect(isFlowsheetTalksetEntry(converted)).toBe(true);
-    });
+        expect(isFlowsheetTalksetEntry(converted) && converted.message).toBe(
+          label
+        );
+      }
+    );
 
     it("labels a breakpoint by the hour it marks, not the minute it was logged", () => {
       const converted = convertRangeEntry(
