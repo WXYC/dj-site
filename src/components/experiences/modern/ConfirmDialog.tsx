@@ -46,7 +46,8 @@ export type ConfirmDialogProps = {
 };
 
 /**
- * Shared shell for the modern experience's confirm dialogs.
+ * Shared shell for the modern experience's modal dialogs: a confirmation by
+ * default, or with `role="dialog"` a panel of work the user carries on with.
  *
  * No `onConfirm`/`onCancel`: the call sites disagree on how many actions they
  * need and what each one means, so `actions` is a slot the caller fills with

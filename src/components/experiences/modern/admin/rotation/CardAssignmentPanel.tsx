@@ -96,9 +96,12 @@ function CardAssignmentRow({
  * Save/Retry while a save runs, while the read is fetching, and while it is
  * in error; an unknown or failed read renders as loading or as an error
  * with Retry, never as an empty bin. The row lock does not depend on how
- * that refetch ends, or on whether it has started: a row whose last outcome
- * is moved stays ticked and disabled for as long as the list shows it
- * elsewhere, and is never among the ids a save sends.
+ * that refetch ends, or on whether it has started: a row the last save or
+ * its retries moved shows ticked and disabled for as long as the list shows
+ * it elsewhere, and is left out of the ids sent. It lasts only as long as
+ * those results do. A later fresh save replaces them, and a record an
+ * earlier save moved that the list still shows on its old card then reads
+ * unticked: it is sent again only if it is ticked again.
  *
  * Only a running save blocks closing: a read in flight writes nothing.
  *
@@ -147,7 +150,13 @@ export default function CardAssignmentPanel({
     moveIds.length > 0 &&
     moveIds.length === unresolvedCount &&
     moveIds.every((id) => results.get(id)?.ok === false);
-  const commit = () => void (retryOnly ? retry() : save(moveIds));
+  // A record that moved gives up its tick: its row lock lives in `results`,
+  // which the next fresh save replaces, and a tick left behind would then be
+  // counted and sent again from a list that still showed its old card.
+  const commit = () =>
+    void (retryOnly ? retry() : save(moveIds)).then((outcome) =>
+      setTickedRowIds((prev) => new Set([...prev].filter((id) => !outcome?.moved.includes(id)))),
+    );
 
   return (
     <ConfirmDialog
