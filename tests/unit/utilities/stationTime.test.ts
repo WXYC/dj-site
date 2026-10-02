@@ -591,20 +591,33 @@ describe("station week boundaries", () => {
   });
 });
 
-// Two clocks, two columns: a server-stamped `date` column (kill_date,
-// add_date) is a UTC calendar day, and a human-picked calendar (the classic
-// recent-dates picker) is a station calendar day. These helpers name each one
-// so neither gets spelled out inline again.
+// Two clocks, chosen by who picked the day rather than by which column holds
+// it: a day the server stamps itself (now(), CURRENT_DATE) is a UTC calendar
+// day, and a day a person picks from a calendar (the classic recent-dates
+// picker) is a station calendar day -- even though that picker writes its
+// choice into the same add_date/kill_date columns the server otherwise
+// stamps in UTC. These helpers name each clock so neither gets spelled out
+// inline again.
 describe("stationDateISO and utcDateISO", () => {
   it.each([
     // Eastern-evening instant where the UTC day and the station day differ.
     ["2026-07-17T03:30:00Z", "2026-07-17", "2026-07-16"],
-    // Spring-forward transition.
-    ["2026-03-08T06:59:00Z", "2026-03-08", "2026-03-08"],
-    ["2026-03-08T07:01:00Z", "2026-03-08", "2026-03-08"],
-    // Fall-back transition.
-    ["2026-11-01T05:30:00Z", "2026-11-01", "2026-11-01"],
-    ["2026-11-01T06:30:00Z", "2026-11-01", "2026-11-01"],
+    // Spring-forward transition, still pre-transition: the station offset is
+    // -5, so the station day trails the UTC day by one. A fixed -4 offset
+    // would read the UTC day instead of this.
+    ["2026-03-08T04:30:00Z", "2026-03-08", "2026-03-07"],
+    // Spring-forward transition, now post-transition: the station offset has
+    // moved to -4, so the station day matches the UTC day. A fixed -5
+    // offset would still read the day before.
+    ["2026-03-09T04:30:00Z", "2026-03-09", "2026-03-09"],
+    // Fall-back transition, still pre-transition: the station offset is
+    // still -4, so the station day matches the UTC day. A fixed -5 offset
+    // would read the day before.
+    ["2026-11-01T04:30:00Z", "2026-11-01", "2026-11-01"],
+    // Fall-back transition, now post-transition: the station offset has
+    // moved to -5, so the station day trails the UTC day by one. A fixed -4
+    // offset would read the UTC day instead of this.
+    ["2026-11-02T04:30:00Z", "2026-11-02", "2026-11-01"],
   ])(
     "at %s, utcDateISO is %s and stationDateISO is %s",
     (iso, expectedUtc, expectedStation) => {
@@ -619,9 +632,9 @@ describe("stationDateISO and utcDateISO", () => {
     expect(formatStationWeekParam(weekStart)).toBe(stationDateISO(weekStart));
   });
 
-  // The runner is pinned to UTC, where local `Date` getters and the station
-  // zone agree at every instant, so this is the only case that can tell a
-  // correct implementation apart from one built on local getters.
+  // The runner is pinned to UTC, where local `Date` getters and UTC agree at
+  // every instant, so this is the only case that can tell a correct
+  // implementation apart from one built on local getters.
   it("reads the UTC day under a non-UTC process zone", () => {
     stubProcessTimeZone("America/New_York");
     expect(utcDateISO(new Date("2026-09-25T00:30:00Z"))).toBe("2026-09-25");
@@ -629,26 +642,68 @@ describe("stationDateISO and utcDateISO", () => {
 });
 
 describe("previousStationDay", () => {
-  it("steps back exactly one station day across the spring-forward transition", () => {
-    const day = previousStationDay(new Date("2026-03-08T12:00:00Z"));
-    expect(stationDateISO(day)).toBe("2026-03-07");
+  // Returns station midnight of the previous station day -- an instant, not
+  // an offset from the input -- so the exact returned instant is pinned
+  // rather than only the day name it falls on. An implementation that
+  // returns the intermediate probe (today's midnight minus twelve hours)
+  // fails every row here.
+  it.each([
+    // An ordinary day: no transition anywhere nearby.
+    ["2026-07-17T15:00:00Z", "2026-07-16T04:00:00.000Z"],
+    // The day after the spring-forward transition: the previous station day
+    // is the 23-hour day, so its midnight is only 23 hours before this
+    // instant's own station midnight (2026-03-09T04:00:00.000Z), not the
+    // usual 24.
+    ["2026-03-09T04:30:00Z", "2026-03-08T05:00:00.000Z"],
+    // The day after the fall-back transition: the previous station day is
+    // the 25-hour day, so its midnight is 25 hours before this instant's own
+    // station midnight (2026-11-02T05:00:00.000Z), not the usual 24.
+    ["2026-11-02T15:00:00Z", "2026-11-01T04:00:00.000Z"],
+  ])("returns station midnight of the previous day for %s", (iso, expectedInstant) => {
+    expect(previousStationDay(new Date(iso)).toISOString()).toBe(expectedInstant);
   });
 
-  it("steps back exactly one station day across the fall-back transition", () => {
-    const day = previousStationDay(new Date("2026-11-01T12:00:00Z"));
+  // Flat 24-hour subtraction -- from the input instant or from the input's
+  // own station midnight -- skips the 23-hour spring-forward day entirely
+  // when stepping away from the day after it: both land on 2026-03-07
+  // instead of 2026-03-08.
+  it("steps into the 23-hour spring-forward day rather than past it", () => {
+    const day = previousStationDay(new Date("2026-03-09T04:30:00Z"));
+    expect(stationDateISO(day)).toBe("2026-03-08");
+  });
+
+  // Flat subtraction of the input instant minus 24 hours lands back inside
+  // the 25-hour fall-back day itself instead of stepping past it to the day
+  // before.
+  it("steps fully past the 25-hour fall-back day rather than landing inside it", () => {
+    const day = previousStationDay(new Date("2026-11-02T04:30:00Z"));
     expect(stationDateISO(day)).toBe("2026-10-31");
   });
 
-  // Started in the last station hour of a day after the autumn transition:
-  // subtracting MS_PER_DAY from this instant lands on 2026-11-01 twice, so a
-  // naive implementation would fail this case where it passes at midday.
-  it("yields ten distinct days walking back across the fall-back transition", () => {
+  // Started in the last station hour of a day after the autumn transition
+  // (2026-11-05T04:30:00Z is 23:30 EST on 11-04): subtracting MS_PER_DAY
+  // from this instant lands on 2026-11-01 twice, so a naive implementation
+  // repeats a day here where it would not at midday. The exact sequence is
+  // asserted, not just its size, so a walk that skips a day instead of
+  // repeating one fails too.
+  it("yields the exact ten-day sequence walking back across the fall-back transition", () => {
     let instant = new Date("2026-11-05T04:30:00Z"); // 23:30 EST
-    const days = new Set<string>();
+    const days: string[] = [];
     for (let i = 0; i < 10; i++) {
-      days.add(stationDateISO(instant));
+      days.push(stationDateISO(instant));
       instant = previousStationDay(instant);
     }
-    expect(days.size).toBe(10);
+    expect(days).toEqual([
+      "2026-11-04",
+      "2026-11-03",
+      "2026-11-02",
+      "2026-11-01",
+      "2026-10-31",
+      "2026-10-30",
+      "2026-10-29",
+      "2026-10-28",
+      "2026-10-27",
+      "2026-10-26",
+    ]);
   });
 });
