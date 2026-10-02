@@ -10,7 +10,6 @@ import type {
 import { convertV2Entry } from "@/lib/features/flowsheet/conversions";
 import {
   createTestV2MessageEntry,
-  createTestV2TalksetEntry,
 } from "@/tests/fixtures/fixtures";
 import { renderWithProviders } from "@/tests/helpers";
 
@@ -165,17 +164,24 @@ describe("EntryText", () => {
     });
   });
 
-  // The tubafrenzy-mirrored talkset's wire message is the legacy column's
-  // raw uppercase token -- entry_type, not that text, decides this is a
-  // talkset, so the label stays "Talkset" rather than the raw "TALKSET".
-  describe("when entry is the tubafrenzy-mirrored live talkset", () => {
-    it("should display the talkset label, not the raw wire message", () => {
-      const entry = convertV2Entry(createTestV2TalksetEntry({ message: "TALKSET" }));
+  // Now Playing prints its own fixed label for a talkset, never the row's
+  // text. Text that differs from the label, and lacks the word in that
+  // spelling, pins both halves: the row is a talkset by entry_type alone, and
+  // what it says is not shown.
+  describe("when entry is a talkset whose text is not the label", () => {
+    it("should display the fixed talkset label, not the row's text", () => {
+      const talksetEntry: FlowsheetMessageEntry = {
+        ...baseEntry,
+        entry_type: "talkset",
+        message: "TALKSET - station ID",
+      };
 
-      renderWithProviders(<EntryText entry={entry} />);
+      renderWithProviders(<EntryText entry={talksetEntry} />);
 
       expect(screen.getByText("Talkset")).toBeInTheDocument();
-      expect(screen.queryByText("TALKSET")).not.toBeInTheDocument();
+      expect(
+        screen.queryByText("TALKSET - station ID")
+      ).not.toBeInTheDocument();
     });
   });
 
