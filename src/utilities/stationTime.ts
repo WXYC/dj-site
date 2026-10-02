@@ -464,12 +464,50 @@ export function stationDaysOfWeek(weekStart: Date): Date[] {
   return days;
 }
 
+/**
+ * The station (America/New_York) calendar day as `YYYY-MM-DD`. For columns a
+ * human picks from a station-local calendar -- e.g. the classic recent-dates
+ * picker -- where "yesterday" means the station's yesterday, not UTC's.
+ */
+export function stationDateISO(instant: Date): string {
+  const f = stationFields(instant);
+  return `${f.year}-${String(f.month).padStart(2, "0")}-${String(f.day).padStart(2, "0")}`;
+}
+
+/**
+ * The UTC calendar day as `YYYY-MM-DD`. For columns the server stamps itself
+ * -- `rotation.add_date` (defaults to `now()`) and `kill_date` (stamped
+ * `CURRENT_DATE`) -- whose session runs in UTC, so comparing against them
+ * (e.g. reproducing `kill_date > CURRENT_DATE` client-side) needs the UTC
+ * day, not the station day.
+ */
+export function utcDateISO(instant: Date): string {
+  return instant.toISOString().slice(0, 10);
+}
+
+/**
+ * One station day earlier. Resolves today's station midnight exactly, then
+ * steps back a day and forward a half-day cushion -- net half a day -- which
+ * lands inside the previous station day regardless of its length (23-25h
+ * under DST), the same re-derive-after-stepping technique stationDaysOfWeek
+ * uses forward. Never subtracts MS_PER_DAY directly: at the autumn
+ * transition that lands on the same station day twice instead of stepping
+ * to the previous one.
+ */
+export function previousStationDay(instant: Date): Date {
+  const f = stationFields(instant);
+  const todayMidnight = stationMidnightInstant(f.year, f.month, f.day);
+  const back = stationFields(
+    new Date(todayMidnight.getTime() - MS_PER_DAY + MS_PER_DAY / 2),
+  );
+  return stationMidnightInstant(back.year, back.month, back.day);
+}
+
 const WEEK_PARAM_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
 
 /** The `YYYY-MM-DD` station date naming a week, for the URL. */
 export function formatStationWeekParam(weekStart: Date): string {
-  const f = stationFields(weekStart);
-  return `${f.year}-${String(f.month).padStart(2, "0")}-${String(f.day).padStart(2, "0")}`;
+  return stationDateISO(weekStart);
 }
 
 /**
