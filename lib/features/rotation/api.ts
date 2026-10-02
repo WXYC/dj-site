@@ -539,9 +539,19 @@ function patchRotationRowCard(
  * The card-assignment batch save's one refetch -- dispatched after
  * `moveRowsOntoCard` settles instead of each row's own write invalidating
  * these tags, so a card's worth of rows costs one refetch, not one per row.
+ *
+ * The `status=all` read joins only when a row failed. A rejected PATCH can
+ * have committed on the server with its response lost, and a rejection
+ * patches nothing, so that cache would keep the row on its old card with
+ * nothing left to correct it. A batch that landed whole has already patched
+ * every row and must not pay for the full-history read.
  */
-export const refetchRotationCardAssignments = () =>
-  rotationApi.util.invalidateTags([ROTATION_LIST_TAG, ROTATION_CARDS_LIST_TAG]);
+export const refetchRotationCardAssignments = ({ anyRowFailed }: { anyRowFailed: boolean }) =>
+  rotationApi.util.invalidateTags([
+    ROTATION_LIST_TAG,
+    ROTATION_CARDS_LIST_TAG,
+    ...(anyRowFailed ? [ROTATION_STATUS_ALL_TAG] : []),
+  ]);
 
 export type RotationTrack = {
   position: string;

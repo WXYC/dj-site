@@ -10,27 +10,33 @@ export type MoveRowsOntoCardOutcome = {
  * Moves rows onto a card one at a time, in the style of `addThenRetire`:
  * every row is attempted even after an earlier one fails, `onRowSettled`
  * fires once per row in order as it lands, and `settle` fires exactly once,
- * after the last row -- the one refetch point. Rejections never escape.
+ * after the last row, with the batch's outcome -- the one refetch point.
  * Imports nothing from React or RTK.
+ *
+ * A rejection from `move` never escapes: it becomes that row's failed
+ * outcome. The two callbacks are the caller's responsibility and run outside
+ * that guard, so a throw from either stops the loop and rejects the returned
+ * promise. Catching it would report a row whose write had landed as failed,
+ * and a retry built on that report would resend it.
  */
 export async function moveRowsOntoCard(
   rotationIds: readonly number[],
   move: (rotationId: number) => Promise<unknown>,
   onRowSettled: (rotationId: number, outcome: CardMoveRowOutcome) => void,
-  settle: () => void,
+  settle: (outcome: MoveRowsOntoCardOutcome) => void,
 ): Promise<MoveRowsOntoCardOutcome> {
-  const moved: number[] = [];
-  const failed: MoveRowsOntoCardOutcome["failed"] = [];
+  const outcome: MoveRowsOntoCardOutcome = { moved: [], failed: [] };
   for (const rotationId of rotationIds) {
+    let rowOutcome: CardMoveRowOutcome = { ok: true };
     try {
       await move(rotationId);
-      moved.push(rotationId);
-      onRowSettled(rotationId, { ok: true });
+      outcome.moved.push(rotationId);
     } catch (error) {
-      failed.push({ rotationId, error });
-      onRowSettled(rotationId, { ok: false, error });
+      outcome.failed.push({ rotationId, error });
+      rowOutcome = { ok: false, error };
     }
+    onRowSettled(rotationId, rowOutcome);
   }
-  settle();
-  return { moved, failed };
+  settle(outcome);
+  return outcome;
 }
