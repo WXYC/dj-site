@@ -25,10 +25,13 @@ const NO_RESULTS: CardMoveResults = new Map();
  * the open panel, not Redux.
  *
  * `save` and `retry` resolve to the loop's outcome, so a caller knows
- * whether every move landed before it acts on that. `retry` resends only the
- * rows `results` marks failed, with the progress total reset to that count.
- * A run with no rows resolves to an empty outcome and changes nothing; a
- * call made while a run is in flight is ignored and resolves to `null`.
+ * whether every move landed before it acts on that. `progress.done` counts
+ * only rows the loop attempted -- a row the batch stopped before reaching
+ * never advances it. `retry` resends the rows `results` marks failed or not
+ * attempted, in their original order, with the progress total reset to that
+ * count. A run with no rows resolves to an empty outcome and changes
+ * nothing; a call made while a run is in flight is ignored and resolves to
+ * `null`.
  *
  * A save belongs to the card it was started against, because the hook's
  * owner can stay mounted while `cardId` changes: its rows keep going to
@@ -56,7 +59,7 @@ export function useCardAssignmentSave(cardId: number) {
     carried: CardMoveResults,
   ): Promise<MoveRowsOntoCardOutcome | null> => {
     if (inFlight.current) return null;
-    if (rotationIds.length === 0) return { moved: [], failed: [] };
+    if (rotationIds.length === 0) return { moved: [], failed: [], notAttempted: [] };
     inFlight.current = true;
     setRunning(true);
     setLastSave({ cardId, done: 0, total: rotationIds.length, results: carried });
@@ -73,8 +76,21 @@ export function useCardAssignmentSave(cardId: number) {
                 results: new Map(prev.results).set(rotationId, outcome),
               },
           ),
-        ({ failed }) =>
-          dispatch(refetchRotationCardAssignments({ anyRowFailed: failed.length > 0 })),
+        ({ failed, notAttempted }) => {
+          if (notAttempted.length > 0) {
+            setLastSave(
+              (prev) =>
+                prev && {
+                  ...prev,
+                  results: notAttempted.reduce(
+                    (results, rotationId) => results.set(rotationId, { ok: false, notAttempted: true }),
+                    new Map(prev.results),
+                  ),
+                },
+            );
+          }
+          dispatch(refetchRotationCardAssignments({ anyRowFailed: failed.length > 0 }));
+        },
       );
     } finally {
       inFlight.current = false;
