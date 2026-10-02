@@ -67,4 +67,51 @@ describe("useDebouncedValue", () => {
 
     expect(result.current).toBe("abcd");
   });
+
+  describe("with a settle key", () => {
+    type Props = { value: string; settleKey: number };
+
+    function renderSettling(initial: Props) {
+      return renderHook(
+        ({ value, settleKey }: Props) =>
+          useDebouncedValue(value, 150, settleKey),
+        { initialProps: initial },
+      );
+    }
+
+    it("adopts the current value at once when the key changes", () => {
+      const { result, rerender } = renderSettling({ value: "a", settleKey: 0 });
+
+      rerender({ value: "b", settleKey: 1 });
+
+      expect(result.current).toBe("b");
+    });
+
+    it("keeps waiting while the key is unchanged", () => {
+      const { result, rerender } = renderSettling({ value: "a", settleKey: 0 });
+
+      rerender({ value: "b", settleKey: 0 });
+      act(() => {
+        vi.advanceTimersByTime(149);
+      });
+
+      expect(result.current).toBe("a");
+    });
+
+    it("holds the settled value against the next change until that change's own delay passes", () => {
+      const { result, rerender } = renderSettling({ value: "a", settleKey: 0 });
+
+      rerender({ value: "b", settleKey: 1 });
+      rerender({ value: "c", settleKey: 1 });
+      act(() => {
+        vi.advanceTimersByTime(149);
+      });
+      expect(result.current).toBe("b");
+
+      act(() => {
+        vi.advanceTimersByTime(1);
+      });
+      expect(result.current).toBe("c");
+    });
+  });
 });

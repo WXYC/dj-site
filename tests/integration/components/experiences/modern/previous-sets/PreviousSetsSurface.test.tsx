@@ -194,6 +194,57 @@ describe("PreviousSetsSurface — a sub-threshold detour", () => {
   });
 });
 
+describe("PreviousSetsSurface — removing a search row", () => {
+  const { addRow, updateRow } = playlistSearchSlice.actions;
+
+  function storeWithTwoRows() {
+    const store = createTestStore();
+    store.dispatch(addRow());
+    const [first, second] = store.getState().playlistSearch.rows;
+    store.dispatch(updateRow({ id: first.id, updates: { value: "stereolab" } }));
+    store.dispatch(
+      updateRow({ id: second.id, updates: { value: "jessica pratt" } }),
+    );
+    return store;
+  }
+
+  function removeButtons(): HTMLElement[] {
+    return screen
+      .getAllByTestId("RemoveIcon")
+      .map((icon) => icon.closest("button") as HTMLElement);
+  }
+
+  function queriesInFlight(store: ReturnType<typeof createTestStore>) {
+    return Object.values(store.getState().playlistSearchApi.queries)
+      .filter((entry) => entry?.status === "pending")
+      .map((entry) => (entry?.originalArgs as { q: string }).q);
+  }
+
+  // Read off the store in the tick of the click, not off the network after a
+  // wait: a request that sat out the typing delay would reach the network too,
+  // and only the tick it started in tells the two apart.
+  it.each([
+    { removed: "first", index: 0, remaining: "artist:jessica pratt" },
+    { removed: "second", index: 1, remaining: "stereolab" },
+  ])(
+    "requests the remaining query on the click that removes the $removed row",
+    async ({ index, remaining }) => {
+      const fake = playlistSearchFake({ archiveSize: ARCHIVE });
+      server.use(fake.handler);
+      const store = storeWithTwoRows();
+
+      renderWithProviders(<PreviousSetsSurface />, { store });
+      await settleFirstPage();
+      expect(queriesInFlight(store)).toEqual([]);
+
+      fireEvent.click(removeButtons()[index]);
+
+      expect(queriesInFlight(store)).toEqual([remaining]);
+      await waitFor(() => expect(fake.requests.at(-1)?.q).toBe(remaining));
+    },
+  );
+});
+
 describe("PreviousSetsSurface — arriving fresh", () => {
   it("fetches a fresh first page rather than serving what the last visit walked", async () => {
     const fake = playlistSearchFake({ archiveSize: ARCHIVE });
