@@ -1,9 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
-import { http, HttpResponse } from "msw";
 import type { PropsWithChildren, ReactElement } from "react";
 import { Provider } from "react-redux";
-import { createTestStore, server, TEST_BACKEND_URL } from "@/tests/helpers";
+import { createTestStore } from "@/tests/helpers";
+import { fakeRotationAdminEndpoints, type FakeRotationAdminRow } from "@/tests/fakes/rotation";
 import { rotationApi } from "@/lib/features/rotation/api";
 import type { MoveRowsOntoCardOutcome } from "@/lib/features/rotation/moveRowsOntoCard";
 import type { AppStore } from "@/lib/store";
@@ -15,6 +15,18 @@ vi.mock("@/lib/features/authentication/client", () => ({
 
 const CARD_ID = 3;
 const OTHER_CARD_ID = 4;
+const CARDS = [
+  { id: CARD_ID, bin: "H", number: 3, name: null },
+  { id: OTHER_CARD_ID, bin: "H", number: 4, name: null },
+];
+// Every id any test below sends -- the fake's own row content never matters
+// to these specs, only the PATCH gate and the write log do.
+const ROWS: FakeRotationAdminRow[] = Array.from({ length: 8 }, (_, i) => ({
+  id: null,
+  rotation_id: 900 + i,
+  rotation_bin: "H",
+  rotation_kill_date: null,
+}));
 
 type SaveResult = Promise<MoveRowsOntoCardOutcome | null>;
 
@@ -31,77 +43,21 @@ const refusal = (status: number) => ({
 const failedWith = (status: number) => ({ ok: false, error: refusal(status) });
 const NOT_ATTEMPTED = { ok: false, notAttempted: true };
 
-function row(id: number) {
-  return { id, album_id: null, rotation_bin: "H", add_date: "2026-09-01", kill_date: null };
-}
-
-/**
- * Gates every `PATCH /library/rotation/:id` until the test releases it, so
- * the assertions below can catch the loop mid-batch instead of racing a
- * same-tick MSW response -- the same shape as `fakeRotationEndpointsWithGatedKill`.
- */
 function installGatedCardMoveHandler() {
-  const resolvers = new Map<number, () => void>();
-  const released = new Map<number, number>();
-  const failing = new Map<number, number>();
-  const bodies: { id: number; body: unknown }[] = [];
-
-  server.use(
-    http.patch(`${TEST_BACKEND_URL}/library/rotation/:id`, async ({ request, params }) => {
-      const id = Number(params.id);
-      bodies.push({ id, body: await request.json() });
-      await new Promise<void>((resolve) => resolvers.set(id, resolve));
-      const refusal = failing.get(id);
-      if (refusal !== undefined) {
-        return HttpResponse.json({ message: "refused" }, { status: refusal });
-      }
-      return HttpResponse.json(row(id));
-    }),
-  );
-
+  const fake = fakeRotationAdminEndpoints(ROWS, CARDS, { gateCardMoves: true });
+  // `status=all` and `status=active` are the two facets these specs read.
+  const listCount = (status: "all" | "active") =>
+    fake.listStatuses().filter((candidate) => candidate === status).length;
   return {
-    // Rows move one at a time, so the loop issues its next PATCH only once
-    // the current one resolves -- waiting for the request to land before
-    // releasing it is what keeps these releases from racing the loop. The
-    // wait counts this id's requests rather than looking for one: a retry
-    // re-requests an id an earlier save already sent, and releasing on the
-    // earlier request would call a resolver that has already settled and
-    // leave the retry's own request gated for good.
-    releaseOnceRequested: async (id: number) => {
-      const nth = (released.get(id) ?? 0) + 1;
-      await waitFor(() => expect(bodies.filter((call) => call.id === id)).toHaveLength(nth));
-      released.set(id, nth);
-      resolvers.get(id)?.();
-    },
-    failFor: (ids: number[], status = 500) => {
-      failing.clear();
-      ids.forEach((id) => failing.set(id, status));
-    },
-    bodies: () => [...bodies],
+    releaseOnceRequested: fake.releaseCardMoveOnceRequested,
+    failFor: fake.failCardMove,
+    bodies: fake.updateBodies,
+    counts: () => ({
+      cards: fake.cardsRequests(),
+      list: listCount("all"),
+      activeList: listCount("active"),
+    }),
   };
-}
-
-/**
- * Counts the three reads a save can owe a refetch: the cards read, the
- * bounded `status=active` facet (`activeList`) and the unbounded
- * `status=all` read (`list`). The cards read serves the destination card:
- * a move onto a card missing from that cache re-serves `status=all` per
- * row, which would drown the per-batch counts these specs judge.
- */
-function installReadCounters() {
-  const counts = { cards: 0, list: 0, activeList: 0 };
-  server.use(
-    http.get(`${TEST_BACKEND_URL}/library/rotation/cards`, () => {
-      counts.cards += 1;
-      return HttpResponse.json([{ id: CARD_ID, bin: "H", number: 3, name: null, active_count: 0 }]);
-    }),
-    http.get(`${TEST_BACKEND_URL}/library/rotation`, ({ request }) => {
-      if (new URL(request.url).searchParams.get("status") === "active") counts.activeList += 1;
-      else counts.list += 1;
-      return HttpResponse.json([]);
-    }),
-  );
-  return counts;
 }
 
 async function storeHoldingEveryRead() {
@@ -311,9 +267,8 @@ describe("useCardAssignmentSave", () => {
   // read and the bounded list facet are owed a refetch -- once per save.
   it("refetches the cards read and the list facet once per save, and never the status=all read, when every row moves", async () => {
     const handler = installGatedCardMoveHandler();
-    const counts = installReadCounters();
     const store = await storeHoldingEveryRead();
-    expect(counts).toEqual({ cards: 1, list: 1, activeList: 1 });
+    expect(handler.counts()).toEqual({ cards: 1, list: 1, activeList: 1 });
     const { result } = renderSaveHook(store);
 
     act(() => {
@@ -325,7 +280,7 @@ describe("useCardAssignmentSave", () => {
 
     await waitFor(() => expect(result.current.running).toBe(false));
     await settleReads(store);
-    expect(counts).toEqual({ cards: 2, list: 1, activeList: 2 });
+    expect(handler.counts()).toEqual({ cards: 2, list: 1, activeList: 2 });
   });
 
   // A refused PATCH can have committed with its response lost. Nothing
@@ -334,7 +289,6 @@ describe("useCardAssignmentSave", () => {
   it("also re-serves the status=all read, once, when a row fails", async () => {
     const handler = installGatedCardMoveHandler();
     handler.failFor([901]);
-    const counts = installReadCounters();
     const store = await storeHoldingEveryRead();
     const { result } = renderSaveHook(store);
 
@@ -347,13 +301,12 @@ describe("useCardAssignmentSave", () => {
 
     await waitFor(() => expect(result.current.running).toBe(false));
     await settleReads(store);
-    expect(counts).toEqual({ cards: 2, list: 2, activeList: 2 });
+    expect(handler.counts()).toEqual({ cards: 2, list: 2, activeList: 2 });
   });
 
   it("ignores a save or a retry called while a run is in flight", async () => {
     const handler = installGatedCardMoveHandler();
     handler.failFor([901]);
-    const counts = installReadCounters();
     const store = await storeHoldingEveryRead();
     const { result } = renderSaveHook(store);
 
@@ -386,7 +339,7 @@ describe("useCardAssignmentSave", () => {
 
     expect(handler.bodies().map((call) => call.id)).toEqual([900, 901, 901]);
     expect(result.current.progress).toEqual({ done: 1, total: 1 });
-    expect(counts.cards).toBe(3);
+    expect(handler.counts().cards).toBe(3);
     await expect(retried).resolves.toEqual({ moved: [901], failed: [], notAttempted: [] });
     await expect(secondSave).resolves.toBeNull();
     await expect(secondRetry).resolves.toBeNull();
@@ -418,7 +371,6 @@ describe("useCardAssignmentSave", () => {
 
   it("does nothing for an empty save or a retry with nothing failed", async () => {
     const handler = installGatedCardMoveHandler();
-    const counts = installReadCounters();
     const store = await storeHoldingEveryRead();
     const runningSeen: boolean[] = [];
     const { result } = renderHook(
@@ -436,7 +388,7 @@ describe("useCardAssignmentSave", () => {
     await handler.releaseOnceRequested(900);
     await waitFor(() => expect(result.current.running).toBe(false));
     await settleReads(store);
-    const countsAfterSave = { ...counts };
+    const countsAfterSave = handler.counts();
     runningSeen.length = 0;
 
     let emptySave: MoveRowsOntoCardOutcome | null = null;
@@ -453,7 +405,7 @@ describe("useCardAssignmentSave", () => {
     expect(result.current.progress).toEqual({ done: 1, total: 1 });
     expect(result.current.results.get(900)).toEqual({ ok: true });
     expect(handler.bodies().map((call) => call.id)).toEqual([900]);
-    expect(counts).toEqual(countsAfterSave);
+    expect(handler.counts()).toEqual(countsAfterSave);
   });
 
   describe("when a batch stops after three consecutive failures", () => {
