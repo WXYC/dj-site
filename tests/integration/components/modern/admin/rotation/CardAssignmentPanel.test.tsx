@@ -161,6 +161,29 @@ describe("CardAssignmentPanel", () => {
     expect(screen.getByRole("checkbox", { name: "Chuquimamani-Condori — Edits" })).toBeDisabled();
   });
 
+  // The hook's own `retry()` has no way to narrow its resend, so unticking a
+  // failed record must fall through to a fresh `save` rather than calling
+  // it -- otherwise a record a librarian just decided does not belong here
+  // would still get sent.
+  it("sends a fresh save, not a blanket retry, once a failed record is unticked", async () => {
+    const { fake, user } = renderPanel();
+    await screen.findByText("On Heavy 3 now · 1");
+    fake.failCardMove([901, 902]);
+
+    await user.click(screen.getByRole("checkbox", { name: "Juana Molina — DOGA" }));
+    await user.click(screen.getByRole("checkbox", { name: "Chuquimamani-Condori — Edits" }));
+    await user.click(screen.getByRole("button", { name: "Save 2" }));
+    await waitFor(() => expect(screen.getAllByText("refused")).toHaveLength(2));
+
+    fake.failCardMove([]);
+    await user.click(screen.getByRole("checkbox", { name: "Chuquimamani-Condori — Edits" }));
+    await user.click(screen.getByRole("button", { name: "Save 1" }));
+
+    await waitFor(() => expect(screen.getByText("On Heavy 3 now · 2")).toBeInTheDocument());
+    expect(fake.updateBodies().map((update) => update.id)).toEqual([901, 902, 901]);
+    expect(screen.getByRole("checkbox", { name: "Chuquimamani-Condori — Edits" })).not.toBeChecked();
+  });
+
   it("shows moved, failed and not-attempted records distinctly after a stopped batch, with one Retry covering both", async () => {
     const stopRows: FakeRotationAdminRow[] = [
       { id: 1, rotation_id: 900, rotation_bin: "H", rotation_kill_date: null, card: CARD },

@@ -130,7 +130,16 @@ export default function CardAssignmentPanel({
   };
 
   const moveIds = rotationRowsToMoveOntoCard(binRows, card, [...tickedRowIds]);
-  const retryOnly = moveIds.length > 0 && moveIds.every((id) => results.get(id)?.ok === false);
+  // `retry()` is the hook's own blanket resend of every unresolved row from
+  // the last save, with no way to narrow it -- so it is only safe to call
+  // when the ticked set still names exactly that set. A row unticked since
+  // (second-guessing a failure) must fall through to a fresh `save`, or
+  // `retry()` would resend it against the tick that just took it back.
+  const unresolvedCount = [...results.values()].filter((outcome) => !outcome.ok).length;
+  const retryOnly =
+    moveIds.length > 0 &&
+    moveIds.length === unresolvedCount &&
+    moveIds.every((id) => results.get(id)?.ok === false);
   const commit = () => void (retryOnly ? retry() : save(moveIds));
 
   return (
