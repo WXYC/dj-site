@@ -121,7 +121,9 @@ function CardRow({
       <Button
         variant="plain"
         size="sm"
-        aria-label={`Assign records: ${cardName}`}
+        disabled={pending}
+        // The card as MDs say it and as the panel is titled: "Heavy 3".
+        aria-label={`Assign records: ${binLabel} ${card.number}`}
         sx={{ px: 0, mt: 0.25, justifyContent: "flex-start" }}
         onClick={onAssign}
       >
@@ -154,9 +156,12 @@ export default function CardsManager(): JSX.Element {
   // create — a phantom card the physical bin doesn't have, which every
   // omitted-card_id rotation add then lands on.
   const [pendingAddBin, setPendingAddBin] = useState<RotationBin | null>(null);
-  const [assigningCard, setAssigningCard] = useState<RotationCardWithCount | null>(null);
+  const [assigningCardId, setAssigningCardId] = useState<number | null>(null);
 
   const cardsByBin = useMemo(() => groupRotationCardsByBin(cards ?? []), [cards]);
+  // Derived from the cards read, never held beside it: a card that leaves
+  // the list takes its open panel with it.
+  const assigningCard = cards?.find((card) => card.id === assigningCardId);
 
   const withPendingCard = async (cardId: number, run: () => Promise<unknown>) => {
     setPendingCardIds((prev) => new Set(prev).add(cardId));
@@ -275,7 +280,7 @@ export default function CardsManager(): JSX.Element {
                   pending={pendingCardIds.has(card.id)}
                   onRename={(name) => renameCard(card.id, name)}
                   onDelete={() => deleteCard(card.id)}
-                  onAssign={() => setAssigningCard(card)}
+                  onAssign={() => setAssigningCardId(card.id)}
                 />
               ))}
               <Button
@@ -297,7 +302,12 @@ export default function CardsManager(): JSX.Element {
         );
       })}
       {assigningCard && (
-        <CardAssignmentPanel card={assigningCard} onClose={() => setAssigningCard(null)} />
+        <CardAssignmentPanel
+          // The panel's ticks belong to one card and must not ride to the next.
+          key={assigningCard.id}
+          card={assigningCard}
+          onClose={() => setAssigningCardId(null)}
+        />
       )}
     </Box>
   );
