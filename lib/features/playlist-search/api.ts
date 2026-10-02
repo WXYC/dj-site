@@ -5,15 +5,12 @@ import type {
   PlaylistSearchResponse,
 } from "@wxyc/shared";
 
-// Backend-Service /flowsheet/search accepts an opaque cursor and returns
-// nextCursor; @wxyc/shared's api.yaml has not yet added cursor pagination.
-export type PlaylistSearchResponseWithCursor = PlaylistSearchResponse & {
-  nextCursor?: string;
-};
-
 // Search key for the infinite query — everything except pagination. `page` and
 // the cursor are supplied per-page from pageParam.
-export type PlaylistSearchInfiniteArg = Omit<PlaylistSearchParams, "page">;
+export type PlaylistSearchInfiniteArg = Omit<
+  PlaylistSearchParams,
+  "page" | "cursor"
+>;
 
 type SortField = PlaylistSearchParams["sort"];
 
@@ -54,7 +51,7 @@ export const playlistSearchApi = createApi({
   baseQuery: backendBaseQuery("flowsheet"),
   endpoints: (builder) => ({
     searchPlaylists: builder.infiniteQuery<
-      PlaylistSearchResponseWithCursor,
+      PlaylistSearchResponse,
       PlaylistSearchInfiniteArg,
       PlaylistSearchPageParam
     >({
@@ -128,8 +125,8 @@ export const playlistSearchApi = createApi({
       // without an error, and a request the client aborted — so the fallback
       // is live, not dead code.
       transformResponse: (
-        response: PlaylistSearchResponseWithCursor | null,
-      ): PlaylistSearchResponseWithCursor =>
+        response: PlaylistSearchResponse | null,
+      ): PlaylistSearchResponse =>
         response ?? { results: [], total: 0, page: 0, totalPages: 0 },
     }),
   }),
