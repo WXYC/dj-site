@@ -349,7 +349,7 @@ describe("byMostRecentlyKilled", () => {
 
 describe("recentRotationDates", () => {
   it("offers the JSP's ten days, today first and one calendar day apart", () => {
-    const days = recentRotationDates(new Date(2026, 8, 12, 23, 30));
+    const days = recentRotationDates(new Date("2026-09-12T23:30:00Z"));
 
     expect(days).toHaveLength(10);
     expect(days[0]).toBe("2026-09-12");
@@ -357,22 +357,22 @@ describe("recentRotationDates", () => {
   });
 
   it("steps back across a month boundary without skipping or repeating a day", () => {
-    const days = recentRotationDates(new Date(2026, 2, 3, 1, 0));
+    const days = recentRotationDates(new Date("2026-03-03T01:00:00Z")); // 20:00 EST on 03-02
 
     expect(days.slice(0, 4)).toEqual(["2026-03-02", "2026-03-01", "2026-02-28", "2026-02-27"]);
     expect(new Set(days).size).toBe(days.length);
   });
 
   it("reads the station's calendar day, not the UTC one", () => {
-    expect(recentRotationDates(new Date(2026, 8, 12, 23, 59))[0]).toBe("2026-09-12");
+    // 21:00 EDT on 09-24; the UTC day is already 09-25.
+    expect(recentRotationDates(new Date("2026-09-25T01:00:00Z"))[0]).toBe("2026-09-24");
   });
 
-  it("reads the station's calendar day even where it diverges from the UTC one", () => {
-    expect(recentRotationDates(new Date(2026, 8, 25, 1, 0))[0]).toBe("2026-09-24");
-  });
-
+  // Started in the last station hour of a day: from midday, a walk that
+  // subtracts 24 hours offers the same ten days as one that steps by station
+  // day, and the case stops telling them apart.
   it("walks the autumn DST transition as ten distinct, consecutive station days", () => {
-    const days = recentRotationDates(new Date(2026, 10, 5, 4, 30));
+    const days = recentRotationDates(new Date("2026-11-05T04:30:00Z")); // 23:30 EST on 11-04
 
     expect(days).toEqual([
       "2026-11-04",
@@ -387,10 +387,25 @@ describe("recentRotationDates", () => {
       "2026-10-26",
     ]);
   });
+
+  // The spring transition day is 23 hours long, so stepping 24 hours back
+  // from the midnight after it lands on the day before it.
+  it("offers the spring DST transition day rather than stepping over it", () => {
+    const days = recentRotationDates(new Date("2026-03-12T15:00:00Z"));
+
+    expect(days.slice(0, 6)).toEqual([
+      "2026-03-12",
+      "2026-03-11",
+      "2026-03-10",
+      "2026-03-09",
+      "2026-03-08",
+      "2026-03-07",
+    ]);
+  });
 });
 
 describe("the rotation editor's day pickers", () => {
-  const NOON = new Date(2026, 8, 12, 12, 0);
+  const NOON = new Date("2026-09-12T12:00:00Z");
 
   it.each([
     {
