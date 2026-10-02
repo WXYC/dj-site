@@ -359,12 +359,33 @@ describe("recentRotationDates", () => {
   it("steps back across a month boundary without skipping or repeating a day", () => {
     const days = recentRotationDates(new Date(2026, 2, 3, 1, 0));
 
-    expect(days.slice(0, 4)).toEqual(["2026-03-03", "2026-03-02", "2026-03-01", "2026-02-28"]);
+    expect(days.slice(0, 4)).toEqual(["2026-03-02", "2026-03-01", "2026-02-28", "2026-02-27"]);
     expect(new Set(days).size).toBe(days.length);
   });
 
-  it("reads the viewer's local calendar day, not the UTC one", () => {
+  it("reads the station's calendar day, not the UTC one", () => {
     expect(recentRotationDates(new Date(2026, 8, 12, 23, 59))[0]).toBe("2026-09-12");
+  });
+
+  it("reads the station's calendar day even where it diverges from the UTC one", () => {
+    expect(recentRotationDates(new Date(2026, 8, 25, 1, 0))[0]).toBe("2026-09-24");
+  });
+
+  it("walks the autumn DST transition as ten distinct, consecutive station days", () => {
+    const days = recentRotationDates(new Date(2026, 10, 5, 4, 30));
+
+    expect(days).toEqual([
+      "2026-11-04",
+      "2026-11-03",
+      "2026-11-02",
+      "2026-11-01",
+      "2026-10-31",
+      "2026-10-30",
+      "2026-10-29",
+      "2026-10-28",
+      "2026-10-27",
+      "2026-10-26",
+    ]);
   });
 });
 
