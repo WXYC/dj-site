@@ -12,6 +12,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 export default defineConfig({
   plugins: [react()],
   test: {
+    env: { TZ: "UTC" },
     setupFiles: ["./tests/setup/vitest.setup.ts"],
     exclude: ["node_modules", ".claude/**"],
     globals: true,
