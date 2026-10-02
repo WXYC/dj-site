@@ -1,4 +1,4 @@
-import { http, HttpResponse } from "msw";
+import { delay, http, HttpResponse } from "msw";
 import { configureStore } from "@reduxjs/toolkit";
 import type { FlowsheetV2Entry, FlowsheetRangeResponse } from "@wxyc/shared";
 import { archiveStreamApi } from "@/lib/features/archive-stream/api";
@@ -13,6 +13,14 @@ import { server } from "./server";
  * `rangeRejection` answers the route's own 400s in the route's own order, so
  * that a fake that is laxer than the route can't hide a request the route
  * would reject.
+ *
+ * `serveArchive` and `queueRangeResponses` each take an optional `{ delayMs }`
+ * that holds the response behind a real `delay()`, so a spec can observe the
+ * in-flight state between the request and the response; omitted or zero, the
+ * handler answers without waiting. Every window either of them records carries
+ * `answered`, false while its request is being handled and true from the point
+ * the handler returns that request's response, so a spec can wait for a
+ * response to have been sent instead of for a length of time.
  *
  * Deliberately not part of the base `handlers` set: `serveArchive` and
  * `queueRangeResponses` each install their own `server.use` handler for
@@ -29,8 +37,19 @@ const MAX_EPOCH_MS = 253402300799999;
 
 export const EMPTY_PAGE: FlowsheetRangeResponse = { shows: [], entries: [] };
 
-/** A requested `/flowsheet/range` window, with the raw params it was sent as. */
-export type RangeWindow = { start: number; end: number; params: URLSearchParams };
+/**
+ * A requested `/flowsheet/range` window, with the raw params it was sent as
+ * and whether the fake has returned its response yet.
+ */
+export type RangeWindow = {
+  start: number;
+  end: number;
+  params: URLSearchParams;
+  answered: boolean;
+};
+
+/** How long a fake response waits before answering; see the file docblock. */
+export type FakeResponseDelay = { delayMs?: number };
 
 export function rangeEntry(id: number, at?: number): FlowsheetV2Entry {
   return {
@@ -52,7 +71,12 @@ export function archiveStreamStore() {
 
 function captureWindow(request: Request, windows: RangeWindow[]): RangeWindow {
   const params = new URL(request.url).searchParams;
-  const requested = { start: Number(params.get("start")), end: Number(params.get("end")), params };
+  const requested = {
+    start: Number(params.get("start")),
+    end: Number(params.get("end")),
+    params,
+    answered: false,
+  };
   windows.push(requested);
   return requested;
 }
@@ -100,12 +124,17 @@ function atOf(row: ArchiveRow): number {
  * `add_time` falls in the half-open window `[start, end)`, oldest first.
  * Returns the requested windows in call order.
  */
-export function serveArchive(rows: ArchiveRow[]): RangeWindow[] {
+export function serveArchive(
+  rows: ArchiveRow[],
+  { delayMs }: FakeResponseDelay = {},
+): RangeWindow[] {
   const windows: RangeWindow[] = [];
   server.use(
-    http.get(`${TEST_BACKEND_URL}/flowsheet/range`, ({ request }) => {
+    http.get(`${TEST_BACKEND_URL}/flowsheet/range`, async ({ request }) => {
       const requested = captureWindow(request, windows);
       const rejection = rangeRejection(requested);
+      if (delayMs) await delay(delayMs);
+      requested.answered = true;
       if (rejection) return rejection;
       const { start, end } = requested;
       const entries = rows
@@ -122,12 +151,19 @@ export function serveArchive(rows: ArchiveRow[]): RangeWindow[] {
  * Serves `bodies` in order, one per request, repeating the final one once
  * exhausted. Returns the requested windows in call order.
  */
-export function queueRangeResponses(bodies: (() => Response)[]): RangeWindow[] {
+export function queueRangeResponses(
+  bodies: (() => Response)[],
+  { delayMs }: FakeResponseDelay = {},
+): RangeWindow[] {
   const windows: RangeWindow[] = [];
   server.use(
-    http.get(`${TEST_BACKEND_URL}/flowsheet/range`, ({ request }) => {
+    http.get(`${TEST_BACKEND_URL}/flowsheet/range`, async ({ request }) => {
       const body = bodies[Math.min(windows.length, bodies.length - 1)];
-      return rangeRejection(captureWindow(request, windows)) ?? body();
+      const requested = captureWindow(request, windows);
+      const rejection = rangeRejection(requested);
+      if (delayMs) await delay(delayMs);
+      requested.answered = true;
+      return rejection ?? body();
     }),
   );
   return windows;

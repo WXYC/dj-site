@@ -3,11 +3,8 @@
 import { useMemo } from "react";
 import { Box, CircularProgress, Sheet, Table, Typography } from "@mui/joy";
 import type { FlowsheetRangeShow } from "@wxyc/shared";
-import {
-  convertRangeEntry,
-  type FlowsheetRangeEntryWire,
-} from "@/lib/features/flowsheet/conversions";
-import { rangeEntryTime } from "@/lib/features/flowsheet/entry-time";
+import type { FlowsheetRangeEntryWire } from "@/lib/features/flowsheet/conversions";
+import { toArchiveStreamRow } from "@/lib/features/flowsheet/stream-row";
 import Entry from "@/src/components/experiences/modern/flowsheet/Entries/Entry";
 import {
   FLOWSHEET_TABLE_SX,
@@ -35,15 +32,7 @@ export default function ShowEntriesPanel({
   // highlighted id is deliberately not part of this key — it is compared at
   // the map site below, where a changed mark re-renders only the two rows
   // whose boolean flipped instead of reconverting every row in the set.
-  const rows = useMemo(
-    () =>
-      entries.map((entry) => ({
-        id: entry.id,
-        timeLabel: rangeEntryTime(entry),
-        converted: convertRangeEntry(entry),
-      })),
-    [entries]
-  );
+  const rows = useMemo(() => entries.map(toArchiveStreamRow), [entries]);
 
   return (
     <Sheet
@@ -94,10 +83,10 @@ export default function ShowEntriesPanel({
               <FlowsheetColumnSizingRow leadingTimeColumn />
             </thead>
             <tbody>
-              {rows.map(({ id, timeLabel, converted }) => (
+              {rows.map(({ id, timeLabel, entry }) => (
                 <Entry
                   key={id}
-                  entry={converted}
+                  entry={entry}
                   playing={false}
                   draggable={false}
                   readOnly

@@ -56,6 +56,7 @@ import {
   isDefaultQuery,
   isRealQuery,
   shouldShowResults,
+  isChronologicalMode,
 } from "@/src/hooks/playlistSearchHooks";
 
 function createWrapper(store?: AppStore) {
@@ -424,6 +425,19 @@ describe("query-shape predicates", () => {
     expect(isDefaultQuery(q)).toBe(isDefault);
     expect(isRealQuery(q)).toBe(isReal);
   });
+
+  it.each([
+    { q: "", sortBy: "date", sortOrder: "desc", expected: true, why: "the chronological listing itself" },
+    { q: "", sortBy: "artist", sortOrder: "desc", expected: false, why: "the default query in a different sort" },
+    { q: "", sortBy: "date", sortOrder: "asc", expected: false, why: "oldest first is not the listing" },
+    { q: "au", sortBy: "date", sortOrder: "desc", expected: false, why: "a real query is a search, not the listing" },
+    { q: "a", sortBy: "date", sortOrder: "desc", expected: false, why: "a sub-threshold partial is not the empty query" },
+  ] as const)(
+    "isChronologicalMode($q, $sortBy, $sortOrder) is $expected because $why",
+    ({ q, sortBy, sortOrder, expected }) => {
+      expect(isChronologicalMode(q, sortBy, sortOrder)).toBe(expected);
+    },
+  );
 });
 
 describe("usePlaylistSearchResults", () => {
