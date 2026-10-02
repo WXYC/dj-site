@@ -142,6 +142,7 @@ describe("Classic EntryRow grip handle (drag-to-reorder)", () => {
       id: 10,
       show_id: 1,
       play_order: 1,
+      entry_type: "talkset",
       message: "Talkset - station ID",
     };
     const { container } = renderRow({ entry });
@@ -155,6 +156,7 @@ describe("Classic EntryRow grip handle (drag-to-reorder)", () => {
       id: 11,
       show_id: 1,
       play_order: 2,
+      entry_type: "breakpoint",
       message: "Breakpoint - 5:00 PM",
       day: "11/14/2023",
       time: "5:00:00 PM",
@@ -170,6 +172,7 @@ describe("Classic EntryRow grip handle (drag-to-reorder)", () => {
       id: 12,
       show_id: 1,
       play_order: 0,
+      entry_type: "show_start",
       dj_name: "DJ Cool",
       isStart: true,
       day: "11/14/2023",
@@ -186,6 +189,7 @@ describe("Classic EntryRow grip handle (drag-to-reorder)", () => {
       id: 13,
       show_id: 1,
       play_order: 99,
+      entry_type: "show_end",
       dj_name: "DJ Cool",
       isStart: false,
       day: "11/14/2023",
@@ -230,6 +234,7 @@ describe("Classic EntryRow read-only context (no drag handlers wired)", () => {
       id: 20,
       show_id: 1,
       play_order: 1,
+      entry_type: "talkset",
       message: "Talkset - station ID",
     };
     const { container } = renderRow({ entry, dragHandlers: false });
@@ -271,6 +276,7 @@ describe("Classic EntryRow markers", () => {
       id: 1,
       show_id: 1,
       play_order: 1,
+      entry_type: "talkset" as const,
       message: "Talkset - station ID",
     };
 
@@ -300,6 +306,7 @@ describe("Classic EntryRow markers", () => {
       id: 2,
       show_id: 1,
       play_order: 2,
+      entry_type: "breakpoint" as const,
       message: "Breakpoint - 5:00 PM",
       day: "11/14/2023",
       time: "5:00:00 PM",
@@ -330,6 +337,7 @@ describe("Classic EntryRow markers", () => {
         id: 2,
         show_id: 1,
         play_order: 2,
+        entry_type: "breakpoint" as const,
         message: "5:00 PM Breakpoint",
       };
       const { container } = renderRow({ entry });
@@ -343,6 +351,7 @@ describe("Classic EntryRow markers", () => {
       id: 3,
       show_id: 1,
       play_order: 3,
+      entry_type: "show_start" as const,
       dj_name: "DJ Cool",
       isStart: true,
       day: "11/14/2023",
@@ -369,6 +378,7 @@ describe("Classic EntryRow markers", () => {
       id: 4,
       show_id: 1,
       play_order: 4,
+      entry_type: "show_end" as const,
       dj_name: "DJ Cool",
       isStart: false,
       day: "11/14/2023",
@@ -402,6 +412,7 @@ describe("Classic EntryRow markers", () => {
           id: 5,
           show_id: 1,
           play_order: 5,
+          entry_type: "show_start",
           dj_name: "DJ Test",
           isStart: true,
           day,
@@ -419,6 +430,7 @@ describe("Classic EntryRow markers", () => {
         id: 6,
         show_id: 1,
         play_order: 6,
+        entry_type: "show_start",
         dj_name: "DJ Test",
         isStart: true,
         day: "Unknown",
@@ -708,6 +720,7 @@ describe("Classic EntryRow action menu + inline edit (song rows)", () => {
       id: 30,
       show_id: 1,
       play_order: 1,
+      entry_type: "talkset",
       message: "Talkset - station ID",
     };
     renderRow({ entry });
@@ -721,6 +734,7 @@ describe("Classic EntryRow action menu + inline edit (song rows)", () => {
       id: 31,
       show_id: 1,
       play_order: 2,
+      entry_type: "breakpoint",
       message: "Breakpoint - 5:00 PM",
       day: "11/14/2023",
       time: "5:00:00 PM",

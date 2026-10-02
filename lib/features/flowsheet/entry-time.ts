@@ -1,7 +1,8 @@
+import type { FlowsheetEntryType } from "@wxyc/shared/dtos";
 import { formatStationClockTime } from "@/src/utilities/stationTime";
 
 export type RangeTimedEntry = {
-  entry_type?: string | null;
+  entry_type: FlowsheetEntryType;
   add_time?: string | null;
   radio_hour?: string | null;
 };

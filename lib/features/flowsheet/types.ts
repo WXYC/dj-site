@@ -89,6 +89,13 @@ export type FlowsheetEntryBase = {
    * optimistic rows, which have not been logged yet.
    */
   add_time?: string;
+  /**
+   * The row's type, in the contract's vocabulary. On a row converted from the
+   * wire it is the server's value. On a row the client builds (an optimistic
+   * entry, a queue row) it is the client's own, and no reader may assume it
+   * matches the row the server later returns.
+   */
+  entry_type: FlowsheetEntryType;
 };
 
 export type FlowsheetSongBase = {
@@ -198,7 +205,9 @@ export type FlowsheetSubmissionParams =
     }
   | {
       message: string;
-      entry_type?: FlowsheetEntryType;
+      // Required so buildOptimisticEntry never has to guess a message row's
+      // type.
+      entry_type: FlowsheetEntryType;
     };
 
 export type FlowsheetEntry =

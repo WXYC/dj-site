@@ -22,7 +22,12 @@ export const loadQueueFromStorage = (): FlowsheetSongEntry[] => {
     if (!stored) return [];
     const parsed = JSON.parse(stored);
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter(isValidQueueEntry);
+    // Every queued row is a song and none comes from the server, so
+    // entry_type is set here, not read from storage: the guard does not check
+    // it, and a row stored before the field existed has none.
+    return parsed
+      .filter(isValidQueueEntry)
+      .map((entry) => ({ ...entry, entry_type: "track" }));
   } catch (error) {
     console.error("Failed to load queue from localStorage:", error);
     return [];

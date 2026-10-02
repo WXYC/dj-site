@@ -22,6 +22,7 @@ function song(id: number, play_order: number): FlowsheetSongEntry {
     id,
     play_order,
     show_id: SHOW,
+    entry_type: "track",
     track_title: `Track ${id}`,
     artist_name: "Stereolab",
     album_title: "DOGA",
@@ -35,6 +36,7 @@ function talkset(id: number, play_order: number): FlowsheetMessageEntry {
     id,
     play_order,
     show_id: SHOW,
+    entry_type: "talkset",
     message: "Talkset",
   };
 }

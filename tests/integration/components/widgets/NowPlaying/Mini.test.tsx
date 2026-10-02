@@ -377,6 +377,7 @@ describe("NowPlayingMini", () => {
     it("should pass song entry to AlbumArtAndIcons", () => {
       const songEntry: FlowsheetSongEntry = {
         ...baseEntry,
+        entry_type: "track",
         track_title: "Test Track",
         artist_name: "Test Artist",
         album_title: "Test Album",
@@ -394,6 +395,7 @@ describe("NowPlayingMini", () => {
     it("should pass song entry to EntryText", () => {
       const songEntry: FlowsheetSongEntry = {
         ...baseEntry,
+        entry_type: "track",
         track_title: "Test Track",
         artist_name: "Test Artist",
         album_title: "Test Album",
@@ -412,6 +414,7 @@ describe("NowPlayingMini", () => {
       const breakpointEntry: FlowsheetBreakpointEntry = {
         ...baseEntry,
         id: 2,
+        entry_type: "breakpoint",
         message: "Breakpoint: Station ID",
         day: "Monday",
         time: "10:00",
@@ -427,6 +430,7 @@ describe("NowPlayingMini", () => {
       const showBlockEntry: FlowsheetShowBlockEntry = {
         ...baseEntry,
         id: 3,
+        entry_type: "show_start",
         dj_name: "DJ Cool",
         isStart: true,
         day: "Monday",
@@ -443,6 +447,7 @@ describe("NowPlayingMini", () => {
       const messageEntry: FlowsheetMessageEntry = {
         ...baseEntry,
         id: 4,
+        entry_type: "message",
         message: "PSA: Community announcement",
       };
 

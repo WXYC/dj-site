@@ -14,7 +14,12 @@ import {
   FlowsheetShowBlockEntry,
   FlowsheetSongEntry,
 } from "@/lib/features/flowsheet/types";
-import { createTestFlowsheetEntry } from "@/tests/fixtures/fixtures";
+import { convertV2Entry } from "@/lib/features/flowsheet/conversions";
+import {
+  createTestFlowsheetEntry,
+  createTestV2DJJoinEntry,
+  createTestV2DJLeaveEntry,
+} from "@/tests/fixtures/fixtures";
 
 // ReadOnlyEntry's module graph is pinned by
 // tests/contract/entries-motion-free.test.ts, not by this file: the public
@@ -49,6 +54,7 @@ const startShowEntry: FlowsheetShowBlockEntry = {
   id: 10,
   play_order: 0,
   show_id: 100,
+  entry_type: "show_start",
   dj_name: "DJ Juana",
   day: "Monday",
   time: "10:00 PM",
@@ -58,6 +64,7 @@ const startShowEntry: FlowsheetShowBlockEntry = {
 const endShowEntry: FlowsheetShowBlockEntry = {
   ...startShowEntry,
   id: 11,
+  entry_type: "show_end",
   isStart: false,
 };
 
@@ -65,6 +72,7 @@ const talksetEntry: FlowsheetMessageEntry = {
   id: 12,
   play_order: 5,
   show_id: 100,
+  entry_type: "talkset",
   message: "Talkset - Station ID",
 };
 
@@ -72,29 +80,29 @@ const breakpointEntry: FlowsheetBreakpointEntry = {
   id: 13,
   play_order: 7,
   show_id: 100,
+  entry_type: "breakpoint",
   message: "Breakpoint - Hour Mark",
   day: "Monday",
   time: "11:00 PM",
 };
 
-const djJoinEntry: FlowsheetMessageEntry = {
-  id: 14,
-  play_order: 8,
-  show_id: 100,
-  message: "DJ joined the show",
-};
+// dj_join/dj_leave carry no message at all -- their content is dj_name -- so
+// they are show-block-shaped like the show_start/show_end rows above, never
+// message-shaped. Built through the real conversion rather than hand-built,
+// so the fixture can't drift from what a producer actually emits.
+const djJoinEntry = convertV2Entry(
+  createTestV2DJJoinEntry({ id: 14, play_order: 8, show_id: 100, dj_name: "DJ Marz" })
+) as FlowsheetShowBlockEntry;
 
-const djLeaveEntry: FlowsheetMessageEntry = {
-  id: 15,
-  play_order: 9,
-  show_id: 100,
-  message: "DJ left the show",
-};
+const djLeaveEntry = convertV2Entry(
+  createTestV2DJLeaveEntry({ id: 15, play_order: 9, show_id: 100, dj_name: "DJ Marz" })
+) as FlowsheetShowBlockEntry;
 
 const genericMessageEntry: FlowsheetMessageEntry = {
   id: 16,
   play_order: 10,
   show_id: 100,
+  entry_type: "message",
   message: "Generic notification message",
 };
 
@@ -145,8 +153,8 @@ describe("ReadOnlyEntry", () => {
     ["show_end", endShowEntry, endShowEntry.dj_name],
     ["talkset", talksetEntry, talksetEntry.message],
     ["breakpoint", breakpointEntry, breakpointEntry.message],
-    ["dj_join", djJoinEntry, djJoinEntry.message],
-    ["dj_leave", djLeaveEntry, djLeaveEntry.message],
+    ["dj_join", djJoinEntry, djJoinEntry.dj_name],
+    ["dj_leave", djLeaveEntry, djLeaveEntry.dj_name],
     ["message", genericMessageEntry, genericMessageEntry.message],
   ])("renders non-empty output for FlowsheetEntryType %s", (_type, entry, expectedText) => {
     const { container } = renderWithPublicProviders(

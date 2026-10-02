@@ -19,10 +19,18 @@ describe("flowsheet types", () => {
     show_id: 1,
   };
 
+  it("does not accept a row built without entry_type", () => {
+    // @ts-expect-error entry_type is required on every row
+    const untyped: FlowsheetMessageEntry = { ...baseEntry, message: "Talkset" };
+
+    expect(untyped.entry_type).toBeUndefined();
+  });
+
   describe("isFlowsheetSongEntry", () => {
     it("should return true for song entries", () => {
       const songEntry: FlowsheetSongEntry = {
         ...baseEntry,
+        entry_type: "track",
         track_title: "Test Track",
         artist_name: "Test Artist",
         album_title: "Test Album",
@@ -36,6 +44,7 @@ describe("flowsheet types", () => {
     it("should return false for message entries", () => {
       const messageEntry: FlowsheetMessageEntry = {
         ...baseEntry,
+        entry_type: "message",
         message: "PSA: Community announcement",
       };
 
@@ -45,6 +54,7 @@ describe("flowsheet types", () => {
     it("should return false for show block entries", () => {
       const showEntry: FlowsheetShowBlockEntry = {
         ...baseEntry,
+        entry_type: "show_start",
         dj_name: "DJ Cool",
         isStart: true,
         day: "Monday",
@@ -59,6 +69,7 @@ describe("flowsheet types", () => {
     it("should return true for start show entries", () => {
       const startShowEntry: FlowsheetShowBlockEntry = {
         ...baseEntry,
+        entry_type: "show_start",
         dj_name: "DJ Cool",
         isStart: true,
         day: "Monday",
@@ -71,6 +82,7 @@ describe("flowsheet types", () => {
     it("should return false for end show entries", () => {
       const endShowEntry: FlowsheetShowBlockEntry = {
         ...baseEntry,
+        entry_type: "show_end",
         dj_name: "DJ Cool",
         isStart: false,
         day: "Monday",
@@ -83,6 +95,7 @@ describe("flowsheet types", () => {
     it("should return false for song entries", () => {
       const songEntry: FlowsheetSongEntry = {
         ...baseEntry,
+        entry_type: "track",
         track_title: "Test Track",
         artist_name: "Test Artist",
         album_title: "Test Album",
@@ -98,6 +111,7 @@ describe("flowsheet types", () => {
     it("should return true for end show entries", () => {
       const endShowEntry: FlowsheetShowBlockEntry = {
         ...baseEntry,
+        entry_type: "show_end",
         dj_name: "DJ Cool",
         isStart: false,
         day: "Monday",
@@ -110,6 +124,7 @@ describe("flowsheet types", () => {
     it("should return false for start show entries", () => {
       const startShowEntry: FlowsheetShowBlockEntry = {
         ...baseEntry,
+        entry_type: "show_start",
         dj_name: "DJ Cool",
         isStart: true,
         day: "Monday",
@@ -122,6 +137,7 @@ describe("flowsheet types", () => {
     it("should return false for message entries", () => {
       const messageEntry: FlowsheetMessageEntry = {
         ...baseEntry,
+        entry_type: "message",
         message: "PSA: Community announcement",
       };
 
@@ -133,6 +149,7 @@ describe("flowsheet types", () => {
     it("should return true for talkset entries", () => {
       const talksetEntry: FlowsheetMessageEntry = {
         ...baseEntry,
+        entry_type: "talkset",
         message: "Talkset",
       };
 
@@ -142,6 +159,7 @@ describe("flowsheet types", () => {
     it("should return true for entries with Talkset in message", () => {
       const talksetEntry: FlowsheetMessageEntry = {
         ...baseEntry,
+        entry_type: "talkset",
         message: "Talkset: DJ discussing upcoming event",
       };
 
@@ -151,6 +169,7 @@ describe("flowsheet types", () => {
     it("should return false for non-talkset message entries", () => {
       const messageEntry: FlowsheetMessageEntry = {
         ...baseEntry,
+        entry_type: "message",
         message: "PSA: Community announcement",
       };
 
@@ -160,6 +179,7 @@ describe("flowsheet types", () => {
     it("should return false for song entries", () => {
       const songEntry: FlowsheetSongEntry = {
         ...baseEntry,
+        entry_type: "track",
         track_title: "Test Track",
         artist_name: "Test Artist",
         album_title: "Test Album",
@@ -175,6 +195,7 @@ describe("flowsheet types", () => {
     it("should return true for breakpoint entries", () => {
       const breakpointEntry: FlowsheetBreakpointEntry = {
         ...baseEntry,
+        entry_type: "breakpoint",
         message: "Breakpoint: Station ID",
         day: "Monday",
         time: "10:00",
@@ -186,6 +207,7 @@ describe("flowsheet types", () => {
     it("should return true for entries with Breakpoint in message", () => {
       const breakpointEntry: FlowsheetBreakpointEntry = {
         ...baseEntry,
+        entry_type: "breakpoint",
         message: "Breakpoint: PSA at 10:30",
         day: "Monday",
         time: "10:30",
@@ -197,6 +219,7 @@ describe("flowsheet types", () => {
     it("should return false for non-breakpoint message entries", () => {
       const messageEntry: FlowsheetMessageEntry = {
         ...baseEntry,
+        entry_type: "message",
         message: "PSA: Community announcement",
       };
 
@@ -206,6 +229,7 @@ describe("flowsheet types", () => {
     it("should return false for talkset entries", () => {
       const talksetEntry: FlowsheetMessageEntry = {
         ...baseEntry,
+        entry_type: "talkset",
         message: "Talkset",
       };
 
@@ -215,6 +239,7 @@ describe("flowsheet types", () => {
     it("should return false for song entries", () => {
       const songEntry: FlowsheetSongEntry = {
         ...baseEntry,
+        entry_type: "track",
         track_title: "Test Track",
         artist_name: "Test Artist",
         album_title: "Test Album",

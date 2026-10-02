@@ -241,6 +241,7 @@ export const flowsheetSlice = createAppSlice({
           id: newId,
           play_order: state.queue.length,
           show_id: -1,
+          entry_type: "track",
           track_title: action.payload.song,
           artist_name: action.payload.artist,
           album_title: action.payload.album,

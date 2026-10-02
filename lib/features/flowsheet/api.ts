@@ -200,6 +200,11 @@ export const flowsheetApi = createApi({
             getState()
           );
         const tempId = nextOptimisticTempId();
+        // The marker's type is a guess from `intent`, replaced by the server's
+        // row on refetch. The server writes `dj_join` for a co-host join and
+        // `show_start` for a fresh show or an honored takeover, but it ignores
+        // `intent` and co-hosts while its takeover flag is off, and it starts
+        // a fresh show when the open one closed before the request arrived.
         const marker: FlowsheetShowBlockEntry = {
           id: tempId,
           play_order:
@@ -209,6 +214,7 @@ export const flowsheetApi = createApi({
           isStart: true,
           day: "",
           time: "",
+          entry_type: arg.intent === "join" ? "dj_join" : "show_start",
         };
         const patchEntries = dispatch(
           flowsheetApi.util.updateQueryData(
@@ -308,6 +314,10 @@ export const flowsheetApi = createApi({
           isStart: false,
           day: "",
           time: "",
+          // The server writes `dj_leave` instead when the departing DJ is a
+          // co-host, not the primary DJ, but the client doesn't know which it
+          // is; the row shape (`isStart`, `dj_name`) is the same either way.
+          entry_type: "show_end",
         };
         const patchNowPlaying = dispatch(
           flowsheetApi.util.updateQueryData(

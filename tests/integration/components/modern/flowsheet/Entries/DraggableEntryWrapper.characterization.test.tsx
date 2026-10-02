@@ -40,6 +40,7 @@ const SONG_ENTRY: FlowsheetSongEntry = {
   id: 1,
   play_order: 0,
   show_id: 100,
+  entry_type: "track",
   track_title: "la paradoja",
   artist_name: "Juana Molina",
   album_title: "DOGA",
@@ -52,6 +53,7 @@ const TALKSET_ENTRY: FlowsheetMessageEntry = {
   id: 2,
   play_order: 1,
   show_id: 100,
+  entry_type: "talkset",
   message: "Talkset",
 };
 
@@ -59,6 +61,7 @@ const MARKER_ENTRY: FlowsheetShowBlockEntry = {
   id: 3,
   play_order: 2,
   show_id: 100,
+  entry_type: "show_start",
   dj_name: "DJ Test",
   day: "Monday",
   time: "10:00 PM",

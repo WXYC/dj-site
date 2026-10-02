@@ -58,6 +58,7 @@ describe("Entry", () => {
       id: 1,
       play_order: 0,
       show_id: 100,
+      entry_type: "track",
       track_title: "Test Track",
       artist_name: "Test Artist",
       album_title: "Test Album",
@@ -97,6 +98,7 @@ describe("Entry", () => {
       id: 2,
       play_order: 0,
       show_id: 100,
+      entry_type: "show_start",
       dj_name: "DJ TestName",
       day: "Monday",
       time: "10:00 PM",
@@ -163,6 +165,7 @@ describe("Entry", () => {
       id: 3,
       play_order: 10,
       show_id: 100,
+      entry_type: "show_end",
       dj_name: "DJ EndTest",
       day: "Tuesday",
       time: "2:00 AM",
@@ -216,6 +219,7 @@ describe("Entry", () => {
       id: 4,
       play_order: 5,
       show_id: 100,
+      entry_type: "talkset",
       message: "Talkset - Station ID",
     };
 
@@ -266,6 +270,7 @@ describe("Entry", () => {
       id: 5,
       play_order: 7,
       show_id: 100,
+      entry_type: "breakpoint",
       message: "Breakpoint - Hour Mark",
       day: "Wednesday",
       time: "11:00 PM",
@@ -309,6 +314,7 @@ describe("Entry", () => {
       id: 6,
       play_order: 8,
       show_id: 100,
+      entry_type: "message",
       message: "Generic notification message",
     };
 
@@ -350,6 +356,7 @@ describe("Entry", () => {
       id: 1,
       play_order: 0,
       show_id: 100,
+      entry_type: "track",
       track_title: "Test Track",
       artist_name: "Test Artist",
       album_title: "Test Album",
