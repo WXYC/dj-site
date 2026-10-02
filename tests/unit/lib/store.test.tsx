@@ -162,3 +162,16 @@ describe("store boundaries", () => {
     expect(state).toHaveProperty(archiveStreamApi.reducerPath);
   });
 });
+
+// The jsdom-lib project includes only the specs pinned in
+// DOM_DEPENDENT_LIB_TESTS, so its zone check has to live inside one of them.
+describe("runner time zone", () => {
+  it("is pinned to UTC for this process, not merely declared in config", ({ task }) => {
+    // The zone check proves a project only while this file runs in it;
+    // routed to another project it would keep passing and prove that one.
+    expect(task.file.projectName).toBe("jsdom-lib");
+    // Behavioral, not textual: proves the zone the jsdom-lib project's worker
+    // actually resolved to, not just that a TZ line exists in the config.
+    expect(new Intl.DateTimeFormat().resolvedOptions().timeZone).toBe("UTC");
+  });
+});

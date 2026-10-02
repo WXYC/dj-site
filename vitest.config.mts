@@ -12,6 +12,15 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 export default defineConfig({
   plugins: [react()],
   test: {
+    // Fixes the zone every project's tests run in (each project extends this
+    // root), so a day-boundary assertion means the same thing on every
+    // machine. It holds only under the default `forks` pool: a forked child
+    // is spawned with TZ already in its environment and derives its zone
+    // from it at startup, whereas a worker thread shares its parent
+    // process's zone and merely sees the variable -- under `threads` or
+    // `vmThreads` this line would still read UTC while every test ran in the
+    // host zone. It also wins over a TZ set in the shell; a spec that needs
+    // another zone sets it itself with vi.stubEnv("TZ", ...).
     env: { TZ: "UTC" },
     setupFiles: ["./tests/setup/vitest.setup.ts"],
     exclude: ["node_modules", ".claude/**"],
