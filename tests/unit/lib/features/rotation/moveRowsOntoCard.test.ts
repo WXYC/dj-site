@@ -83,9 +83,12 @@ describe("moveRowsOntoCard", () => {
   });
 
   // The guarantee covers `move` alone. A row whose write landed must never be
-  // reported as failed because the caller's own callback threw afterwards:
-  // a retry built on that report would resend a row that already moved.
-  it("lets a throw from onRowSettled escape instead of recording the row's move as failed", async () => {
+  // reported as failed, nor as not attempted, because the caller's own
+  // callback threw afterwards: a retry built on either report would resend a
+  // row that already moved. `settle` still fires, so the rows that moved are
+  // refetched, and the only row it names not attempted is the one the loop
+  // never reached.
+  it("lets a throw from onRowSettled escape after settling once, with the row it threw on still recorded as moved", async () => {
     const callbackBug = new Error("callback bug");
     const move = vi.fn(() => Promise.resolve());
     const onRowSettled = vi.fn(() => {
@@ -99,27 +102,32 @@ describe("moveRowsOntoCard", () => {
 
     expect(onRowSettled.mock.calls).toEqual([[900, { ok: true }]]);
     expect(move.mock.calls).toEqual([[900]]);
-  });
-
-  // A throwing callback still leaves rows that already moved unrefetched if
-  // `settle` never runs -- so `settle` fires before the throw propagates,
-  // naming the row the throw happened on as not attempted since its own
-  // write was never sent.
-  it("calls settle exactly once when onRowSettled throws, naming the unreached row not attempted, and still lets the throw propagate", async () => {
-    const callbackBug = new Error("callback bug");
-    const move = vi.fn(() => Promise.resolve());
-    const onRowSettled = vi.fn(() => {
-      throw callbackBug;
-    });
-    const settle = vi.fn();
-
-    await expect(moveRowsOntoCard([900, 901], move, onRowSettled, settle)).rejects.toBe(
-      callbackBug,
-    );
-
     expect(settle).toHaveBeenCalledTimes(1);
     expect(settle).toHaveBeenCalledWith({ moved: [900], failed: [], notAttempted: [901] });
-    expect(move.mock.calls).toEqual([[900]]);
+  });
+
+  // `settle` runs last and outside the guard as well, so its throw is the one
+  // the caller sees -- over a throw from `onRowSettled` that was already on
+  // its way out, too.
+  it.each([
+    ["after every row has landed", () => {}],
+    [
+      "in place of a throw from onRowSettled",
+      () => {
+        throw new Error("callback bug");
+      },
+    ],
+  ])("rejects with settle's own throw %s", async (_when, onRowSettled) => {
+    const settleBug = new Error("settle bug");
+    const settle = vi.fn(() => {
+      throw settleBug;
+    });
+
+    await expect(
+      moveRowsOntoCard([900, 901], () => Promise.resolve(), onRowSettled, settle),
+    ).rejects.toBe(settleBug);
+
+    expect(settle).toHaveBeenCalledTimes(1);
   });
 
   it("stops after three consecutive failures, leaving the rest not attempted", async () => {
@@ -151,6 +159,28 @@ describe("moveRowsOntoCard", () => {
     });
     expect(settle).toHaveBeenCalledTimes(1);
     expect(settle).toHaveBeenCalledWith(outcome);
+  });
+
+  it("names no row not attempted when the stop lands on the batch's last three rows", async () => {
+    const boom = { status: 500 };
+    const failing = new Set([901, 902, 903]);
+    const move = vi.fn((rotationId: number) =>
+      failing.has(rotationId) ? Promise.reject(boom) : Promise.resolve(),
+    );
+    const settle = vi.fn();
+
+    const outcome = await moveRowsOntoCard([900, 901, 902, 903], move, vi.fn(), settle);
+
+    expect(outcome).toEqual({
+      moved: [900],
+      failed: [
+        { rotationId: 901, error: boom },
+        { rotationId: 902, error: boom },
+        { rotationId: 903, error: boom },
+      ],
+      notAttempted: [],
+    });
+    expect(settle).toHaveBeenCalledTimes(1);
   });
 
   it("resets the consecutive-failure count on a success, so the batch does not stop early", async () => {
