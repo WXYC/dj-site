@@ -250,8 +250,8 @@ describe("runner time zone", () => {
 describe("forceRerunTriggers", () => {
   // `--changed` reads this list from the root config alone and tests each
   // changed file's absolute path against it, so a change to a file that
-  // shapes every spec's run re-runs the suite only if the list holds that
-  // exact path.
+  // configures the runner or a whole project re-runs the suite only if the
+  // list holds that exact path.
   const triggers = vitestConfig.test?.forceRerunTriggers ?? [];
 
   it("extends vitest's defaults instead of replacing them", () => {

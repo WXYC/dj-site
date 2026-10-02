@@ -22,15 +22,15 @@ export default defineConfig({
     // host zone. It also wins over a TZ set in the shell; a spec that must
     // tell local time from UTC sets its own zone as docs/testing.md describes.
     env: { TZ: "UTC" },
-    // Files that shape every spec's run. Under `--changed` a change to one of
-    // them re-runs the suite only if this list names it: vitest's default
-    // "**/{vitest,vite}.config.*/**" entry matches paths beneath a directory
-    // of that name, not this file, and the only setup files vitest adds on
-    // its own are the root's, not a project's. `--changed` reads the list
-    // from the root config alone and tests each changed file's absolute path
-    // against it, so each entry is an absolute path: a "**/"-prefixed glob
-    // stops at a dot-prefixed directory, which a worktree under .claude/ sits
-    // beneath.
+    // Files that configure the runner or a whole project rather than one
+    // spec. Under `--changed` a change to one of them re-runs the suite only
+    // if this list names it: vitest's default "**/{vitest,vite}.config.*/**"
+    // entry matches paths beneath a directory of that name, not this file,
+    // and the only setup files vitest adds on its own are the root's, not a
+    // project's. `--changed` reads the list from the root config alone and
+    // tests each changed file's absolute path against it, so each entry is an
+    // absolute path: a "**/"-prefixed glob stops at a dot-prefixed directory,
+    // which a worktree under .claude/ sits beneath.
     forceRerunTriggers: [
       ...configDefaults.forceRerunTriggers,
       resolve(__dirname, "vitest.config.mts"),
