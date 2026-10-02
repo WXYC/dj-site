@@ -45,7 +45,8 @@ export function useAlbumRotationActions(album: AlbumEntry) {
   const killQuiet = async (rotationId: number) => {
     setKillingIds((prev) => new Set(prev).add(rotationId));
     try {
-      // No kill_date: the server dates it, avoiding the browser's UTC-tomorrow problem.
+      // No kill_date: the server dates it, one write with no client/server
+      // clock skew.
       await killRotationEntry({ rotation_id: rotationId }).unwrap();
     } finally {
       setKillingIds((prev) => {
