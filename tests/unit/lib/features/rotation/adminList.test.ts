@@ -10,18 +10,8 @@ import {
 import { RotationBin, type RotationListRow } from "@/lib/features/rotation/types";
 import { createTestRotationListRow } from "@/tests/fixtures/fixtures";
 
-const row = (overrides: Partial<RotationListRow> = {}): RotationListRow =>
-  createTestRotationListRow({
-    id: 9001,
-    add_date: "2026-09-05",
-    rotation_add_date: "2026-09-05",
-    plays: null,
-    legacy_release_id: null,
-    ...overrides,
-  });
-
 const unlinked = (overrides: Partial<RotationListRow> = {}): RotationListRow =>
-  row({
+  createTestRotationListRow({
     id: null,
     code_letters: null,
     code_artist_number: null,
@@ -36,8 +26,8 @@ const unlinked = (overrides: Partial<RotationListRow> = {}): RotationListRow =>
 
 describe("rotationRowCode", () => {
   it.each([
-    ["all parts present", row(), "Rock SL 1/3"],
-    ["no genre name", row({ genre_name: null }), "SL 1/3"],
+    ["all parts present", createTestRotationListRow(), "Rock SL 1/3"],
+    ["no genre name", createTestRotationListRow({ genre_name: null }), "SL 1/3"],
     ["unlinked row (no code columns)", unlinked(), null],
   ])("%s", (_name, input, expected) => {
     expect(rotationRowCode(input)).toBe(expected);
@@ -52,13 +42,15 @@ describe("rotationRowPresentation", () => {
     ["killed in the past", "2026-09-01", "killed"],
     ["future-dated kill", "2099-01-01", "killed"],
   ])("%s -> %s", (_name, killDate, expected) => {
-    expect(rotationRowPresentation(row({ rotation_kill_date: killDate }))).toBe(expected);
+    expect(rotationRowPresentation(createTestRotationListRow({ rotation_kill_date: killDate }))).toBe(
+      expected,
+    );
   });
 });
 
 describe("selectRotationAdminView", () => {
-  const IHOMF = row(); // H, added 09-05, active
-  const NILUFER = row({
+  const IHOMF = createTestRotationListRow(); // H, added 09-05, active
+  const NILUFER = createTestRotationListRow({
     rotation_id: 5002,
     id: 9002,
     artist_name: "Nilüfer Yanya",
@@ -70,7 +62,7 @@ describe("selectRotationAdminView", () => {
     rotation_add_date: "2026-09-03",
     card: { id: 31, bin: RotationBin.H, number: 1, name: "Late Aug" },
   });
-  const HALO = row({
+  const HALO = createTestRotationListRow({
     rotation_id: 5003,
     id: 9003,
     artist_name: "Juana Molina",
@@ -84,7 +76,7 @@ describe("selectRotationAdminView", () => {
     card: { id: 22, bin: RotationBin.M, number: 2, name: "Fresh Arrivals" },
   });
   const CHUQUI = unlinked({ rotation_id: 5004, rotation_bin: RotationBin.M, rotation_add_date: "2026-08-30" });
-  const DOTS_KILLED = row({
+  const DOTS_KILLED = createTestRotationListRow({
     rotation_id: 5005,
     id: 9004,
     album_title: "Dots and Loops",
@@ -114,7 +106,7 @@ describe("selectRotationAdminView", () => {
   });
 
   it("never dedupes same-artist re-adds — every row is a row an MD may kill", () => {
-    const readd = row({ rotation_id: 5006, rotation_bin: RotationBin.L, rotation_add_date: "2026-09-06" });
+    const readd = createTestRotationListRow({ rotation_id: 5006, rotation_bin: RotationBin.L, rotation_add_date: "2026-09-06" });
     const view = selectRotationAdminView([IHOMF, readd], none);
     expect(view.active.map((r) => r.rotation_id)).toEqual([5006, 5001]);
   });
@@ -158,6 +150,18 @@ describe("selectRotationAdminView", () => {
     expect(view.active.map((r) => r.rotation_id)).toEqual([5003]);
     expect(view.killed).toEqual([]);
     expect(view.narrowed).toBe(true);
+  });
+
+  it("treats a row with no card key — a backend older than the card join — the same as an explicitly uncarded row", () => {
+    const haloMissingCardKey: RotationListRow = { ...HALO };
+    delete haloMissingCardKey.card;
+    const rows = [IHOMF, NILUFER, haloMissingCardKey, CHUQUI, DOTS_KILLED];
+    // Hidden by the card filter, exactly like an uncarded row.
+    const filteredByCard = selectRotationAdminView(rows, { ...none, bin: RotationBin.M, cardId: 22 });
+    expect(filteredByCard.active).toEqual([]);
+    // Still present with no card filter selected.
+    const filteredByBinOnly = selectRotationAdminView(rows, { ...none, bin: RotationBin.M });
+    expect(filteredByBinOnly.active.map((r) => r.rotation_id)).toEqual([5004, 5003]);
   });
 
   it("search composes with bin and card filters", () => {
@@ -222,6 +226,13 @@ describe("freeTextRotationMoveRequest", () => {
     expect(request).not.toHaveProperty("urls");
   });
 
+  it("omits urls for a row with no urls key — a backend older than the card join omits the key, not just an empty array", () => {
+    const rowMissingUrlsKey: RotationListRow = unlinked();
+    delete rowMissingUrlsKey.urls;
+    const request = freeTextRotationMoveRequest(rowMissingUrlsKey, RotationBin.L, noDetail);
+    expect(request).not.toHaveProperty("urls");
+  });
+
   it.each([
     ["a null artist", { artist_name: null }],
     ["a blank title", { album_title: "  " }],
@@ -231,23 +242,23 @@ describe("freeTextRotationMoveRequest", () => {
 });
 
 describe("rotationMoveRetireIds", () => {
-  const moved = row(); // id 9001, rotation 5001, H, active
+  const moved = createTestRotationListRow(); // rotation 5001, H, active
 
   it("retires only the moved row when the album is not already in the target bin", () => {
-    const elsewhere = row({ rotation_id: 5008, rotation_bin: RotationBin.L });
+    const elsewhere = createTestRotationListRow({ rotation_id: 5008, rotation_bin: RotationBin.L });
     expect(rotationMoveRetireIds([moved, elsewhere], moved, RotationBin.M)).toEqual([5001]);
   });
 
   it("also retires the album's active rows already in the target bin — an in-bin duplicate is invisible to every consumer", () => {
-    const targetDuplicate = row({ rotation_id: 5008, rotation_bin: RotationBin.M });
-    const otherAlbum = row({ rotation_id: 5009, id: 9002, rotation_bin: RotationBin.M });
+    const targetDuplicate = createTestRotationListRow({ rotation_id: 5008, rotation_bin: RotationBin.M });
+    const otherAlbum = createTestRotationListRow({ rotation_id: 5009, id: 9002, rotation_bin: RotationBin.M });
     expect(rotationMoveRetireIds([moved, targetDuplicate, otherAlbum], moved, RotationBin.M)).toEqual(
       [5001, 5008],
     );
   });
 
   it("leaves the album's killed target-bin rows alone", () => {
-    const killedDuplicate = row({
+    const killedDuplicate = createTestRotationListRow({
       rotation_id: 5008,
       rotation_bin: RotationBin.M,
       rotation_kill_date: "2026-09-01",
@@ -279,7 +290,7 @@ describe("rotationMoveRetireIds", () => {
 
   it("never collapses the linked and unlinked arms into each other, however alike their titles", () => {
     const movedUnlinked = unlinked({ rotation_id: 5004, rotation_bin: RotationBin.M });
-    const linkedTwin = row({
+    const linkedTwin = createTestRotationListRow({
       rotation_id: 5008,
       rotation_bin: RotationBin.L,
       artist_name: "Chuquimamani-Condori",
@@ -288,7 +299,7 @@ describe("rotationMoveRetireIds", () => {
     expect(rotationMoveRetireIds([movedUnlinked, linkedTwin], movedUnlinked, RotationBin.L)).toEqual(
       [5004],
     );
-    const movedLinked = row({ rotation_id: 5001, rotation_bin: RotationBin.H });
+    const movedLinked = createTestRotationListRow({ rotation_id: 5001, rotation_bin: RotationBin.H });
     const unlinkedTwin = unlinked({
       rotation_id: 5009,
       rotation_bin: RotationBin.M,
@@ -303,9 +314,9 @@ describe("rotationMoveRetireIds", () => {
 
 describe("canMoveRotationRow", () => {
   it.each([
-    ["a catalogued row", row(), true],
+    ["a catalogued row", createTestRotationListRow(), true],
     // A catalogued row moves by album_id; its display snapshot is irrelevant.
-    ["a catalogued row with no titles", row({ artist_name: null, album_title: null }), true],
+    ["a catalogued row with no titles", createTestRotationListRow({ artist_name: null, album_title: null }), true],
     ["an unlinked row with a full snapshot", unlinked(), true],
     ["an unlinked row missing its title", unlinked({ album_title: null }), false],
   ])("%s", (_name, input, expected) => {

@@ -5,6 +5,7 @@ import {
   server,
   TEST_BACKEND_URL,
   fakeRotationAdminEndpoints,
+  createTestRotationListRow,
   type FakeRotationAdminRow,
   type FakeRotationCard,
 } from "@/tests/helpers";
@@ -37,7 +38,6 @@ vi.mock("sonner", () => ({
 
 import RotationAdminList from "@/src/components/experiences/modern/admin/rotation/RotationAdminList";
 import { catalogSlice } from "@/lib/features/catalog/frontend";
-import { createTestRotationListRow } from "@/tests/fixtures/fixtures";
 import type { RotationListRow } from "@/lib/features/rotation/types";
 
 const CARDS: FakeRotationCard[] = [
@@ -48,14 +48,10 @@ const CARDS: FakeRotationCard[] = [
   { id: 11, bin: "L", number: 1, name: null },
 ];
 
-const listRow = (overrides: Partial<FakeRotationAdminRow> = {}): FakeRotationAdminRow =>
+const listRow = (overrides: Partial<RotationListRow> = {}): RotationListRow =>
   createTestRotationListRow({
     id: 9001,
-    add_date: "2026-09-05",
-    rotation_add_date: "2026-09-05",
-    plays: null,
-    legacy_release_id: null,
-    ...(overrides as Partial<RotationListRow>),
+    ...overrides,
   });
 
 const IHOMF = listRow({
@@ -118,7 +114,7 @@ const activeSection = () => within(screen.getByTestId("rotation-admin-active"));
 const killedSection = () => within(screen.getByTestId("rotation-admin-killed"));
 
 async function renderList(
-  rows = ALL_ROWS,
+  rows: FakeRotationAdminRow[] = ALL_ROWS,
   cards = CARDS,
   options?: Parameters<typeof fakeRotationAdminEndpoints>[2],
 ) {
@@ -221,6 +217,18 @@ describe("RotationAdminList", () => {
     // letter-space-digits/digits shape can't collide with the MM/DD/YY dates
     // the row also renders.
     expect(rowSheet.queryByText(/[A-Z]{2} \d+\/\d+/)).not.toBeInTheDocument();
+  });
+
+  it("renders a row with no card or urls key the same as one carrying card: null and urls: [] — a backend older than the card join omits both keys", async () => {
+    const chuquiMissingKeys: RotationListRow = { ...CHUQUI_UNLINKED };
+    delete chuquiMissingKeys.card;
+    delete chuquiMissingKeys.urls;
+    await renderList([...ALL_ROWS.filter((row) => row !== CHUQUI_UNLINKED), chuquiMissingKeys]);
+    await activeSection().findByText("Edits");
+
+    const rowSheet = within(screen.getByTestId("rotation-admin-row-5004"));
+    expect(rowSheet.getByText("no card")).toBeInTheDocument();
+    expect(rowSheet.queryByTestId("LinkIcon")).not.toBeInTheDocument();
   });
 
   it("search narrows every section and reports N of total", async () => {
