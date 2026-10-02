@@ -11,7 +11,10 @@ import {
   useCurrentBreakpointHours,
 } from "@/src/hooks/flowsheetHooks";
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
-import { convertQueryToSubmission } from "@/lib/features/flowsheet/conversions";
+import {
+  convertQueryToSubmission,
+  convertV2Entry,
+} from "@/lib/features/flowsheet/conversions";
 import { MISSING_ARTIST_REJECTION_MESSAGE } from "@/lib/features/flowsheet/various-artists-guard";
 import { useAppDispatch } from "@/lib/hooks";
 import { catalogSlice } from "@/lib/features/catalog/frontend";
@@ -22,6 +25,7 @@ import {
   createTestAlbum,
   createTestArtist,
 } from "@/tests/helpers";
+import { createTestV2MessageEntry } from "@/tests/fixtures/fixtures";
 
 // Mock authentication hooks
 const mockUserInfo = {
@@ -158,16 +162,22 @@ vi.mock("@/lib/features/flowsheet/api", () => ({
 }));
 
 // Mock conversions
-vi.mock("@/lib/features/flowsheet/conversions", () => ({
-  convertQueryToSubmission: vi.fn((query) => ({
-    track_title: query.song,
-    artist_name: query.artist,
-    album_title: query.album,
-    record_label: query.label,
-    request_flag: query.request,
-    album_id: query.album_id,
-  })),
-}));
+vi.mock("@/lib/features/flowsheet/conversions", async () => {
+  const actual = await vi.importActual<
+    typeof import("@/lib/features/flowsheet/conversions")
+  >("@/lib/features/flowsheet/conversions");
+  return {
+    ...actual,
+    convertQueryToSubmission: vi.fn((query) => ({
+      track_title: query.song,
+      artist_name: query.artist,
+      album_title: query.album,
+      record_label: query.label,
+      request_flag: query.request,
+      album_id: query.album_id,
+    })),
+  };
+});
 
 const mockToastError = vi.fn();
 vi.mock("sonner", () => ({
@@ -765,6 +775,7 @@ describe("flowsheetHooks", () => {
         id: 500,
         play_order: 1,
         show_id: CURRENT_SHOW_ID,
+        entry_type: "breakpoint",
         message: "11:00 PM Breakpoint",
         ...overrides,
       };
@@ -853,6 +864,29 @@ describe("flowsheetHooks", () => {
         radio_hour: null,
         message: "11:00 PM Breakpoint",
       });
+    });
+
+    // The filter keys on entry_type, not on what the message names -- a
+    // message row whose text reads like a breakpoint must not slip into the
+    // guard's hour count.
+    it("excludes a message-typed row whose text reads like a breakpoint", () => {
+      mockInfiniteEntries([
+        [
+          convertV2Entry(
+            createTestV2MessageEntry({
+              id: 503,
+              show_id: CURRENT_SHOW_ID,
+              message: "11:00 PM Breakpoint",
+            })
+          ),
+        ],
+      ]);
+
+      const { result } = renderHook(() => useCurrentBreakpointHours(), {
+        wrapper: createWrapper(),
+      });
+
+      expect(result.current).toEqual([]);
     });
   });
 

@@ -7,6 +7,12 @@ import type {
   FlowsheetShowBlockEntry,
   FlowsheetMessageEntry,
 } from "@/lib/features/flowsheet/types";
+import { convertV2Entry } from "@/lib/features/flowsheet/conversions";
+import {
+  createTestV2MessageEntry,
+  createTestV2TalksetEntry,
+} from "@/tests/fixtures/fixtures";
+import { renderWithProviders } from "@/tests/helpers";
 
 // Mock MUI components - render children to allow img testing
 vi.mock("@mui/joy", () => ({
@@ -191,6 +197,43 @@ describe("AlbumArtAndIcons", () => {
 
       expect(screen.getByTestId("aspect-ratio")).toBeInTheDocument();
     });
+  });
+
+  // The tubafrenzy-mirrored talkset's wire message is the legacy column's
+  // raw uppercase token -- entry_type, not that text, decides this is a
+  // talkset, so it gets the mic icon rather than falling through to the
+  // generic cassette-artwork fallback.
+  describe("when entry is the tubafrenzy-mirrored live talkset", () => {
+    it("should display the Mic icon, not the default cassette artwork", () => {
+      const entry = convertV2Entry(createTestV2TalksetEntry({ message: "TALKSET" }));
+
+      renderWithProviders(<AlbumArtAndIcons entry={entry} />);
+
+      expect(screen.getByTestId("mic-icon")).toBeInTheDocument();
+      expect(screen.queryByTestId("aspect-ratio")).not.toBeInTheDocument();
+    });
+  });
+
+  describe("when a message-typed entry's text reads like another kind", () => {
+    it.each([
+      ["Talkset", "mic-icon"],
+      ["3:00 PM Breakpoint", "timer-icon"],
+    ])(
+      "should display the default cassette artwork for %j, not the %s",
+      (message, kindIconTestId) => {
+        const entry = convertV2Entry(createTestV2MessageEntry({ message }));
+
+        const { container } = renderWithProviders(
+          <AlbumArtAndIcons entry={entry} />
+        );
+
+        expect(screen.queryByTestId(kindIconTestId)).not.toBeInTheDocument();
+        expect(container.querySelector("img")).toHaveAttribute(
+          "src",
+          "/img/cassette.png"
+        );
+      }
+    );
   });
 
 });

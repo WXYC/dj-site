@@ -362,8 +362,8 @@ export type FlowsheetRangeEntryWire = {
   discogsUnavailableNote?: string | null;
 };
 
-// Both the client type guard and the backend's entry-type inference
-// discriminate on this word, so only its casing may ever be rewritten.
+// The label an archived talkset displays. A row's kind comes from its
+// entry_type, never from this word.
 const TALKSET_LABEL = "Talkset";
 
 // Legacy marker text arrives wrapped in a run of rules ("--- TALKSET ---").
@@ -372,11 +372,20 @@ const MARKER_DECORATION = /^[\s\-\u2013\u2014*]+|[\s\-\u2013\u2014*]+$/g;
 const CLOCK_TIME = /(\d{1,2}):(\d{2})\s*([AP])\.?M\.?/i;
 
 /**
- * A talkset row's message in the spelling the row switch recognizes.
+ * A talkset row's message in its display spelling.
  *
- * `GET /flowsheet` serves "Talkset"; `GET /flowsheet/range` serves the raw
- * legacy column, which is the uppercase token. Only the casing is rewritten —
- * a row that says more than the token keeps everything it says.
+ * A talkset logged through this app stores "Talkset"; one mirrored from the
+ * legacy flowsheet stores the legacy column's text, which is the uppercase
+ * token. This strips the leading and trailing runs of whitespace, hyphens,
+ * en and em dashes and asterisks (`MARKER_DECORATION`), then returns the
+ * first of these that applies:
+ *
+ * - "Talkset", when nothing is left;
+ * - the stripped text unchanged, when it contains "Talkset" in that casing;
+ * - the stripped text with its first occurrence of the word respelled
+ *   "Talkset", when it contains the word in another casing;
+ * - "Talkset: " followed by the stripped text, when it does not contain the
+ *   word in any casing.
  */
 function recognizableTalksetMessage(raw: string | undefined): string {
   const text = (raw ?? "").replace(MARKER_DECORATION, "");
@@ -493,13 +502,15 @@ function usableInstant(iso: string | null | undefined): string | null {
  * `entry` is the flat `FlowsheetRangeEntryWire` -- `FlowsheetV2Entry` is a
  * discriminated union whose fields differ by `entry_type` variant, not one
  * field set, so `v2ToRangeShape` has already narrowed and flattened it by
- * the time it reaches here. This is therefore the same rename `convertV2Entry`
- * does (`rotation_bin` → `rotation`), plus the normalization the live
- * endpoint performs server-side and the range endpoint does not: the range
- * payload carries the raw legacy marker column ("TALKSET",
- * "--- 3:00 PM BREAKPOINT ---") where `GET /flowsheet` carries "Talkset" and
- * "3:00 PM Breakpoint". The row presentation switch keys on that text, so an
- * un-normalized row silently loses its icon and tone to the generic arm.
+ * the time it reaches here. It does the same rename `convertV2Entry` does
+ * (`rotation_bin` → `rotation`) and normalizes marker text: a row mirrored
+ * from the legacy flowsheet carries the legacy marker column ("TALKSET",
+ * "--- 3:00 PM BREAKPOINT ---"), and this rewrites it to the display spelling
+ * ("Talkset", "3:00 PM Breakpoint"). The breakpoint rewrite is
+ * `breakpointDisplayFields`, which `convertV2Entry` applies too. The talkset
+ * rewrite is `recognizableTalksetMessage`, which `convertV2Entry` does not
+ * apply: it copies a talkset's message unchanged. `entry_type`, not this
+ * text, decides the row's kind, icon and tone.
  *
  * Every branch returns a row. An entry type this build has never seen still
  * renders, because the vocabulary is server-owned and a missing arm in a

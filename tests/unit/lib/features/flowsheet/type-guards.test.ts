@@ -65,6 +65,50 @@ const nullMessageEntry: FlowsheetEntry = {
   message: null as unknown as string,
 };
 
+describe("isFlowsheetTalksetEntry / isFlowsheetBreakpointEntry classify by entry_type, not message text", () => {
+  it.each([
+    {
+      name: "a message row whose text says Breakpoint",
+      entry: { ...base, entry_type: "message", message: "Breakpoint" } satisfies FlowsheetEntry,
+      isTalkset: false,
+      isBreakpoint: false,
+    },
+    {
+      name: "a talkset whose text says Breakpoint",
+      entry: { ...base, entry_type: "talkset", message: "Breakpoint" } satisfies FlowsheetEntry,
+      isTalkset: true,
+      isBreakpoint: false,
+    },
+    {
+      name: "a breakpoint whose text says Talkset",
+      entry: { ...base, entry_type: "breakpoint", message: "Talkset" } satisfies FlowsheetEntry,
+      isTalkset: false,
+      isBreakpoint: true,
+    },
+    {
+      name: "a message whose text says Talkset",
+      entry: { ...base, entry_type: "message", message: "Talkset" } satisfies FlowsheetEntry,
+      isTalkset: false,
+      isBreakpoint: false,
+    },
+    {
+      name: "a breakpoint whose text says neither",
+      entry: { ...base, entry_type: "breakpoint", message: "3:00 PM" } satisfies FlowsheetEntry,
+      isTalkset: false,
+      isBreakpoint: true,
+    },
+    {
+      name: "a talkset whose text says neither",
+      entry: { ...base, entry_type: "talkset", message: "" } satisfies FlowsheetEntry,
+      isTalkset: true,
+      isBreakpoint: false,
+    },
+  ])("$name", ({ entry, isTalkset, isBreakpoint }) => {
+    expect(isFlowsheetTalksetEntry(entry)).toBe(isTalkset);
+    expect(isFlowsheetBreakpointEntry(entry)).toBe(isBreakpoint);
+  });
+});
+
 describe("flowsheet type guards", () => {
   describe("isFlowsheetSongEntry", () => {
     it("returns true for song entries", () => {
