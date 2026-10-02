@@ -61,7 +61,7 @@
     "@types/react-dom": "^19.3.0",
     "@types/react-transition-group": "^4.4.12",
     "@vitejs/plugin-react": "^6.1.1",
-    "@vitest/coverage-v8": "^4.1.11",
+    "@vitest/coverage-v8": "^5.0.1",
     "@vitest/ui": "^4.0.18",
     "bats": "^1.11.0",
     "eslint": "^10.10.0",
