@@ -161,6 +161,24 @@ describe("useCardAssignmentSave", () => {
     ]);
   });
 
+  it("sends a row given more than once only once, in the place it was first given", async () => {
+    const handler = installGatedCardMoveHandler();
+    const { result } = renderSaveHook();
+
+    let saved!: SaveResult;
+    act(() => {
+      saved = result.current.save([901, 900, 901, 900]);
+    });
+    await waitFor(() => expect(result.current.progress).toEqual({ done: 0, total: 2 }));
+    await handler.releaseOnceRequested(901);
+    await handler.releaseOnceRequested(900);
+    await waitFor(() => expect(result.current.running).toBe(false));
+
+    expect(handler.bodies().map((call) => call.id)).toEqual([901, 900]);
+    expect(result.current.progress).toEqual({ done: 2, total: 2 });
+    await expect(saved).resolves.toEqual({ moved: [901, 900], failed: [], notAttempted: [] });
+  });
+
   it("reports a failing row as failed and the rest as moved, and resolves to that outcome", async () => {
     const handler = installGatedCardMoveHandler();
     handler.failFor([901]);
@@ -545,10 +563,10 @@ describe("useCardAssignmentSave", () => {
 
     // A retry can stop too. The rows it did not reach keep the state they
     // had: a row that failed earlier stays failed, with the refusal it got,
-    // and only a row never sent at all is still not attempted. Were the
-    // earlier failures demoted to not attempted, they would go back to the
-    // head of the next retry and stop it ahead of the rows still unsent.
-    it("keeps a stopped retry's unreached rows in the state they had, so the next retry still starts with the rows never sent", async () => {
+    // and only a row never sent at all is still not attempted. Reporting the
+    // earlier failures as not attempted would discard the one error each of
+    // them has.
+    it("keeps a stopped retry's unreached rows in the state they had, and starts the next retry with the rows never sent", async () => {
       const handler = installGatedCardMoveHandler();
       handler.failFor([900, 901, 902]);
       const { result } = renderSaveHook();
@@ -610,6 +628,75 @@ describe("useCardAssignmentSave", () => {
       for (const id of [900, 901, 902, 903, 904, 905]) {
         expect(result.current.results.get(id)).toEqual(failedWith(409));
       }
+    });
+
+    // The save's rows are a queue, and a row that fails goes to the back, so
+    // a retry runs least recently attempted first. 900, 901 and 903 are
+    // refused every time; 904 is refused once, in the save, and would land
+    // from then on.
+    //   save:    900 901 902 903 904   902 lands, never three failures in a row
+    //   retry 1: 900 901 903           three in a row: stopped before 904
+    //   retry 2: 904 900 901 903       904 was attempted longest ago, and lands
+    // Resent in the save's own order, every retry would be retry 1 again.
+    it("lands a row that failed once behind three rows refused every time, within two retries", async () => {
+      const handler = installGatedCardMoveHandler();
+      handler.failFor([900, 901, 903, 904]);
+      const { result } = renderSaveHook();
+
+      act(() => {
+        void result.current.save([900, 901, 902, 903, 904]);
+      });
+      for (const id of [900, 901, 902, 903, 904]) {
+        await handler.releaseOnceRequested(id);
+      }
+      await waitFor(() => expect(result.current.running).toBe(false));
+      expect(result.current.progress).toEqual({ done: 5, total: 5 });
+      expect(result.current.results.get(904)).toEqual(failedWith(500));
+
+      // From here the three refusals carry a different status, so 904 still
+      // showing the save's status was not touched by the retry that stopped.
+      handler.failFor([900, 901, 903], 409);
+      let firstRetry!: SaveResult;
+      act(() => {
+        firstRetry = result.current.retry();
+      });
+      await waitFor(() => expect(result.current.progress).toEqual({ done: 0, total: 4 }));
+      for (const id of [900, 901, 903]) {
+        await handler.releaseOnceRequested(id);
+      }
+      await waitFor(() => expect(result.current.running).toBe(false));
+
+      expect(result.current.progress).toEqual({ done: 3, total: 4 });
+      expect(result.current.results.get(904)).toEqual(failedWith(500));
+      await expect(firstRetry).resolves.toEqual({
+        moved: [],
+        failed: [900, 901, 903].map((rotationId) => ({ rotationId, error: refusal(409) })),
+        notAttempted: [904],
+      });
+
+      let secondRetry!: SaveResult;
+      act(() => {
+        secondRetry = result.current.retry();
+      });
+      await waitFor(() => expect(result.current.progress).toEqual({ done: 0, total: 4 }));
+      for (const id of [904, 900, 901, 903]) {
+        await handler.releaseOnceRequested(id);
+      }
+      await waitFor(() => expect(result.current.running).toBe(false));
+
+      expect(handler.bodies().map((call) => call.id)).toEqual([
+        900, 901, 902, 903, 904, 900, 901, 903, 904, 900, 901, 903,
+      ]);
+      expect(result.current.results.get(902)).toEqual({ ok: true });
+      expect(result.current.results.get(904)).toEqual({ ok: true });
+      for (const id of [900, 901, 903]) {
+        expect(result.current.results.get(id)).toEqual(failedWith(409));
+      }
+      await expect(secondRetry).resolves.toEqual({
+        moved: [904],
+        failed: [900, 901, 903].map((rotationId) => ({ rotationId, error: refusal(409) })),
+        notAttempted: [],
+      });
     });
   });
 
