@@ -6,12 +6,12 @@
  */
 
 /**
- * Gates the Rotation Admin surface (rotation card management, the free-form
- * filing bench) reached from the catalog admin screens.
+ * Gates the Rotation Admin surface -- rotation card management and the
+ * free-form filing bench -- reached from the modern sidebar's "Rotation"
+ * entry, plus the DJ-facing rotation displays in catalog search and on the
+ * modern album card. See docs/env-vars.md for the full route list.
  *
- * Defaults to OFF; flip on by setting NEXT_PUBLIC_ROTATION_ADMIN_ENABLED to
- * "true" (or "1") once Backend-Service is serving the rotation cards and
- * filings endpoints in that environment.
+ * Flip on by setting NEXT_PUBLIC_ROTATION_ADMIN_ENABLED to "true" (or "1").
  */
 export function isRotationAdminEnabled(): boolean {
   const envValue = process.env.NEXT_PUBLIC_ROTATION_ADMIN_ENABLED;
