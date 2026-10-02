@@ -1,7 +1,9 @@
 import { http, HttpResponse } from "msw";
 import type { RequestHandler } from "msw";
-import type { PlaylistSearchResult } from "@wxyc/shared";
-import type { PlaylistSearchResponseWithCursor } from "@/lib/features/playlist-search/api";
+import type {
+  PlaylistSearchResponse,
+  PlaylistSearchResult,
+} from "@wxyc/shared";
 import { TEST_BACKEND_URL } from "../helpers/constants";
 
 /**
@@ -148,7 +150,7 @@ export function playlistSearchFake({
     // Typed against the client's own response shape, so a drift in the wire
     // contract fails to compile here rather than passing a spec on a body the
     // endpoint no longer sends.
-    const body: PlaylistSearchResponseWithCursor = {
+    const body: PlaylistSearchResponse = {
       results,
       total,
       page,

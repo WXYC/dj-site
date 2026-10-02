@@ -50,7 +50,7 @@ async function stubSearch(page: Page): Promise<string[]> {
       : Number(params.get("page") ?? 0) * limit;
     const results = ARCHIVE.slice(offset, offset + limit);
 
-    const body: PlaylistSearchResponse & { nextCursor?: string } = {
+    const body: PlaylistSearchResponse = {
       results,
       total: ARCHIVE.length,
       page: 0,

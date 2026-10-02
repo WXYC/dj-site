@@ -1,8 +1,10 @@
 import "server-only";
 
-import type { PlaylistSearchResult } from "@wxyc/shared";
+import type {
+  PlaylistSearchResponse,
+  PlaylistSearchResult,
+} from "@wxyc/shared";
 import { fetchBackendSeed } from "../server-fetch";
-import type { PlaylistSearchResponseWithCursor } from "./api";
 
 export type RecentPlaylistsSeed = {
   results: PlaylistSearchResult[];
@@ -21,7 +23,7 @@ export async function fetchRecentPlaylistsSeed(): Promise<RecentPlaylistsSeed> {
     sort: "date",
     order: "desc",
   });
-  const raw = await fetchBackendSeed<PlaylistSearchResponseWithCursor | null>(
+  const raw = await fetchBackendSeed<PlaylistSearchResponse | null>(
     `/flowsheet/search?${params.toString()}`,
   );
   return {
