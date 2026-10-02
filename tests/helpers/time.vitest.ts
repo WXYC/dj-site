@@ -22,14 +22,20 @@ export function restoreRealTime(): void {
 // `Intl.DateTimeFormat` at module scope before this call keeps the zone it
 // was built in; a module under test with one must be re-imported after the
 // stub (this helper does not reset modules itself -- only the caller knows
-// whether the module under test holds a module-scope formatter).
+// whether the module under test holds a module-scope formatter). `zone`
+// must be the canonical IANA name (e.g. "America/New_York", not the
+// "US/Eastern" alias) or the assertion below fails even though the stub
+// took effect, because Intl resolves aliases to their canonical form.
 export function stubProcessTimeZone(zone: string): void {
   vi.stubEnv("TZ", zone);
+  // Registered before the assertion below so a failed assertion still
+  // restores the zone for the rest of the file, instead of leaking the
+  // stub into every later test.
+  onTestFinished(() => {
+    vi.unstubAllEnvs();
+  });
   expect(
     new Intl.DateTimeFormat().resolvedOptions().timeZone,
     "TZ stub did not take effect in this process -- rerun this file under vitest's default `forks` pool, not `--pool=threads`"
   ).toBe(zone);
-  onTestFinished(() => {
-    vi.unstubAllEnvs();
-  });
 }
