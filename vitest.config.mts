@@ -19,19 +19,23 @@ export default defineConfig({
     // from it at startup, whereas a worker thread shares its parent
     // process's zone and merely sees the variable -- under `threads` or
     // `vmThreads` this line would still read UTC while every test ran in the
-    // host zone. It also wins over a TZ set in the shell; a spec that needs
-    // another zone sets it itself with vi.stubEnv("TZ", ...).
+    // host zone. It also wins over a TZ set in the shell; a spec that must
+    // tell local time from UTC sets its own zone as docs/testing.md describes.
     env: { TZ: "UTC" },
-    // The default "**/{vitest,vite}.config.*/**" entry doesn't match this
-    // file's own name (only "...config.*" directories), so `--changed`
-    // selected nothing when only this file -- or the module it builds its
-    // projects from -- changed. Vitest resolves changed files to absolute
-    // paths before matching, so each pattern needs its own leading "**/" to
-    // match regardless of where the repo is checked out.
+    // Files that shape every spec's run. Under `--changed` a change to one of
+    // them re-runs the suite only if this list names it: vitest's default
+    // "**/{vitest,vite}.config.*/**" entry matches paths beneath a directory
+    // of that name, not this file, and the only setup files vitest adds on
+    // its own are the root's, not a project's. `--changed` reads the list
+    // from the root config alone and tests each changed file's absolute path
+    // against it, so each entry is an absolute path: a "**/"-prefixed glob
+    // stops at a dot-prefixed directory, which a worktree under .claude/ sits
+    // beneath.
     forceRerunTriggers: [
       ...configDefaults.forceRerunTriggers,
-      "**/vitest.config.mts",
-      "**/tests/setup/vitest-projects.ts",
+      resolve(__dirname, "vitest.config.mts"),
+      resolve(__dirname, "tests/setup/vitest-projects.ts"),
+      resolve(__dirname, "tests/setup/vitest.setup.dom.ts"),
     ],
     setupFiles: ["./tests/setup/vitest.setup.ts"],
     exclude: ["node_modules", ".claude/**"],

@@ -1,7 +1,5 @@
-// Shared between vitest.config.mts and tests/unit/vitest.config.test.ts —
-// the config cannot be imported from a test (TS forbids importing an .mts
-// path without allowImportingTsExtensions), so the project-partition inputs
-// live here where both sides can reach them.
+// Shared between vitest.config.mts and tests/unit/vitest.config.test.ts, so
+// the project-partition inputs have one definition that both sides read.
 //
 // eslint.config.mjs also imports this module directly, which runs it through
 // Node's own ESM loader (native type-stripping) rather than Vite's/Vitest's
