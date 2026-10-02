@@ -465,9 +465,13 @@ export function stationDaysOfWeek(weekStart: Date): Date[] {
 }
 
 /**
- * The station (America/New_York) calendar day as `YYYY-MM-DD`. For columns a
- * human picks from a station-local calendar -- e.g. the classic recent-dates
- * picker -- where "yesterday" means the station's yesterday, not UTC's.
+ * The station (America/New_York) calendar day as `YYYY-MM-DD`. For a day a
+ * person picks from a station-local calendar -- e.g. the classic
+ * recent-dates picker -- where "yesterday" means the station's yesterday,
+ * not UTC's. That picker writes its choice into `rotation.add_date` /
+ * `kill_date`, the same columns the server otherwise stamps in UTC: which
+ * clock applies is decided by who chose the day already in the column, not
+ * by the column's name.
  */
 export function stationDateISO(instant: Date): string {
   const f = stationFields(instant);
@@ -475,24 +479,33 @@ export function stationDateISO(instant: Date): string {
 }
 
 /**
- * The UTC calendar day as `YYYY-MM-DD`. For columns the server stamps itself
- * -- `rotation.add_date` (defaults to `now()`) and `kill_date` (stamped
- * `CURRENT_DATE`) -- whose session runs in UTC, so comparing against them
- * (e.g. reproducing `kill_date > CURRENT_DATE` client-side) needs the UTC
- * day, not the station day.
+ * The UTC calendar day as `YYYY-MM-DD`. For a day the server stamps itself --
+ * `rotation.add_date` defaulting to `now()`, or `kill_date` stamped
+ * `CURRENT_DATE` -- whose session runs in UTC, so comparing against a
+ * server-stamped value (e.g. reproducing `kill_date > CURRENT_DATE`
+ * client-side) needs the UTC day. Those same columns can instead hold a
+ * station day, when a person picked it through the classic recent-dates
+ * picker: which clock applies is decided by who chose the day already in
+ * the column, not by the column's name.
  */
 export function utcDateISO(instant: Date): string {
   return instant.toISOString().slice(0, 10);
 }
 
 /**
- * One station day earlier. Resolves today's station midnight exactly, then
- * steps back a day and forward a half-day cushion -- net half a day -- which
- * lands inside the previous station day regardless of its length (23-25h
- * under DST), the same re-derive-after-stepping technique stationDaysOfWeek
- * uses forward. Never subtracts MS_PER_DAY directly: at the autumn
- * transition that lands on the same station day twice instead of stepping
- * to the previous one.
+ * Station midnight (00:00 station time) of the station day immediately
+ * before the one `instant` falls in -- an instant, not a day name, so two
+ * inputs anywhere in the same station day return the same result. A caller
+ * that wants the day's name, not its midnight, passes the result to
+ * `stationDateISO`.
+ *
+ * Resolves today's station midnight exactly, then steps back a day and
+ * forward a half-day cushion -- net half a day -- which lands inside the
+ * previous station day regardless of its length (23-25h under DST), the same
+ * re-derive-after-stepping technique stationDaysOfWeek uses forward. Never
+ * subtracts MS_PER_DAY directly: flat subtraction skips the 23-hour
+ * spring-forward day entirely when stepping away from the day after it, and
+ * lands on the 25-hour fall-back day twice instead of stepping past it.
  */
 export function previousStationDay(instant: Date): Date {
   const f = stationFields(instant);
