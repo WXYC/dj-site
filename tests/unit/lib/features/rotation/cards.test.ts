@@ -6,7 +6,7 @@ import {
   rotationCardDeleteConflictReason,
   rotationRowsToMoveOntoCard,
 } from "@/lib/features/rotation/cards";
-import type { RotationCardWithCount, RotationListRow } from "@/lib/features/rotation/types";
+import type { RotationCardWithCount } from "@/lib/features/rotation/types";
 import { RotationBin } from "@/lib/features/rotation/types";
 import { createTestRotationListRow } from "@/tests/fixtures/fixtures";
 
@@ -57,22 +57,9 @@ describe("canDeleteRotationCard", () => {
 describe("rotationRowsToMoveOntoCard", () => {
   const HEAVY_CARD_2 = { id: 32, bin: RotationBin.H, number: 2, name: null };
 
-  const row = (overrides: Partial<RotationListRow> = {}): RotationListRow =>
-    createTestRotationListRow({
-      id: 1,
-      code_letters: null,
-      code_artist_number: null,
-      code_number: null,
-      add_date: "2026-09-01",
-      rotation_add_date: "2026-09-01",
-      plays: null,
-      legacy_release_id: null,
-      ...overrides,
-    });
-
   it("excludes ticked rows already on the card", () => {
-    const onTheCard = row({ rotation_id: 5001, card: HEAVY_CARD_2 });
-    const elsewhere = row({ rotation_id: 5002, card: null });
+    const onTheCard = createTestRotationListRow({ rotation_id: 5001, card: HEAVY_CARD_2 });
+    const elsewhere = createTestRotationListRow({ rotation_id: 5002, card: null });
 
     expect(
       rotationRowsToMoveOntoCard([onTheCard, elsewhere], HEAVY_CARD_2, [5001, 5002]),
@@ -81,21 +68,25 @@ describe("rotationRowsToMoveOntoCard", () => {
 
   it("returns ticked rows filed on a different card in the same bin", () => {
     const otherCardInBin = { id: 31, bin: RotationBin.H, number: 1, name: null };
-    const onOtherCard = row({ rotation_id: 5002, card: otherCardInBin });
+    const onOtherCard = createTestRotationListRow({ rotation_id: 5002, card: otherCardInBin });
 
     expect(rotationRowsToMoveOntoCard([onOtherCard], HEAVY_CARD_2, [5002])).toEqual([5002]);
   });
 
   it("never returns a ticked row from another bin", () => {
-    const mediumRow = row({ rotation_id: 6001, rotation_bin: RotationBin.M, card: null });
+    const mediumRow = createTestRotationListRow({
+      rotation_id: 6001,
+      rotation_bin: RotationBin.M,
+      card: null,
+    });
 
     expect(rotationRowsToMoveOntoCard([mediumRow], HEAVY_CARD_2, [6001])).toEqual([]);
   });
 
   it("returns nothing for an empty tick set", () => {
-    expect(rotationRowsToMoveOntoCard([row({ rotation_id: 5001 })], HEAVY_CARD_2, [])).toEqual(
-      [],
-    );
+    expect(
+      rotationRowsToMoveOntoCard([createTestRotationListRow({ rotation_id: 5001 })], HEAVY_CARD_2, []),
+    ).toEqual([]);
   });
 });
 
