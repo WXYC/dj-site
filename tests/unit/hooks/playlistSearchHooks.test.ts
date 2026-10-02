@@ -13,6 +13,9 @@ type MockQueryArg = { q?: string; limit?: number; sort?: string; order?: string 
 
 let lastQueryArg: MockQueryArg | undefined;
 let lastSkip = false;
+// Every key the hook asked for, oldest first: a key that was in effect for a
+// single render is invisible to `lastQueryArg`.
+const queryArgLog: MockQueryArg[] = [];
 
 // Mutable canned result for the infinite query. `data.pages` is the RTK page
 // array the hook flattens; hasNextPage is RTK's projection of nextCursor via
@@ -36,6 +39,7 @@ vi.mock("@/lib/features/playlist-search/api", async () => {
     ) => {
       lastQueryArg = queryArg;
       lastSkip = options?.skip ?? false;
+      queryArgLog.push(queryArg);
       if (options?.skip) {
         return {
           data: undefined,
@@ -72,6 +76,7 @@ beforeEach(() => {
   mockFetchNextPage.mockReset();
   lastQueryArg = undefined;
   lastSkip = false;
+  queryArgLog.length = 0;
   mockInfiniteState.data = undefined;
   mockInfiniteState.isFetching = false;
   mockInfiniteState.isError = false;
@@ -167,6 +172,92 @@ describe("usePlaylistSearch", () => {
         expect(lastQueryArg?.q).toBe("au");
         expect(lastSkip).toBe(false);
       });
+    });
+  });
+
+  describe("removing a row", () => {
+    const BOTH_ROWS = "stereolab AND artist:jessica pratt";
+
+    /** Two filled rows, in place before the hook mounts so nothing is pending. */
+    function seedTwoRows(store: AppStore): [string, string] {
+      store.dispatch(playlistSearchSlice.actions.addRow());
+      const [first, second] = store.getState().playlistSearch.rows;
+      store.dispatch(
+        playlistSearchSlice.actions.updateRow({
+          id: first.id,
+          updates: { value: "stereolab" },
+        }),
+      );
+      store.dispatch(
+        playlistSearchSlice.actions.updateRow({
+          id: second.id,
+          updates: { value: "jessica pratt" },
+        }),
+      );
+      return [first.id, second.id];
+    }
+
+    // Asserted in the same tick as the removal, with no wait: a removal that
+    // sat out the typing delay would still read the two-row query here.
+    it.each([
+      { removed: "first", index: 0, remaining: "artist:jessica pratt" },
+      { removed: "second", index: 1, remaining: "stereolab" },
+    ])(
+      "applies the remaining query at once when the $removed row goes",
+      ({ index, remaining }) => {
+        const { store, wrapper } = createWrapper();
+        const ids = seedTwoRows(store);
+
+        const { result } = renderHook(() => usePlaylistSearch(), { wrapper });
+        expect(result.current.effectiveQuery).toBe(BOTH_ROWS);
+
+        act(() => {
+          result.current.removeRow(ids[index]);
+        });
+
+        expect(result.current.effectiveQuery).toBe(remaining);
+        expect(lastQueryArg?.q).toBe(remaining);
+      },
+    );
+
+    it("keeps the remaining query in effect while a keystroke after the removal settles", async () => {
+      const { store, wrapper } = createWrapper();
+      const [first, second] = seedTwoRows(store);
+
+      const { result } = renderHook(() => usePlaylistSearch(), { wrapper });
+
+      act(() => {
+        result.current.removeRow(first);
+      });
+      queryArgLog.length = 0;
+      act(() => {
+        result.current.updateRow(second, { value: "jessica p" });
+      });
+
+      expect(result.current.effectiveQuery).toBe("artist:jessica pratt");
+      await waitFor(() =>
+        expect(result.current.effectiveQuery).toBe("artist:jessica p"),
+      );
+      expect(queryArgLog.map((arg) => arg.q)).not.toContain(BOTH_ROWS);
+    });
+
+    it("leaves a pending keystroke waiting when a row is added", async () => {
+      const { store, wrapper } = createWrapper();
+      const rowId = store.getState().playlistSearch.rows[0].id;
+
+      const { result } = renderHook(() => usePlaylistSearch(), { wrapper });
+
+      act(() => {
+        result.current.updateRow(rowId, { value: "stereolab" });
+      });
+      act(() => {
+        result.current.addRow();
+      });
+
+      expect(result.current.effectiveQuery).toBe("");
+      await waitFor(() =>
+        expect(result.current.effectiveQuery).toBe("stereolab"),
+      );
     });
   });
 

@@ -12,7 +12,7 @@ import {
 } from "@/lib/features/playlist-search/frontend";
 import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { useDebouncedValue } from "@/src/hooks/useDebouncedValue";
-import { useCallback, useMemo, useRef } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import type { PlaylistSearchResult } from "@wxyc/shared";
 
 export const MIN_QUERY_LENGTH = 2;
@@ -109,6 +109,18 @@ function buildQuery(rows: SearchRow[]): string {
   return parts.join(" ");
 }
 
+/** How many times `count` has come in lower than on the render before. */
+function useDecreaseCount(count: number): number {
+  const [seen, setSeen] = useState({ count, decreases: 0 });
+  if (count !== seen.count) {
+    setSeen({
+      count,
+      decreases: seen.decreases + (count < seen.count ? 1 : 0),
+    });
+  }
+  return seen.decreases;
+}
+
 /**
  * Which cache entry the screen means, derived from the slice.
  *
@@ -129,7 +141,18 @@ function usePlaylistSearchKey() {
   // lags the keystroke. Everything downstream reads the settled value, which is
   // what keeps "Found N results" describing the search that actually ran rather
   // than the one still being typed.
-  const effectiveQuery = useDebouncedValue(typedQuery, SEARCH_DEBOUNCE_MS);
+  //
+  // A removed row is the exception: it is one finished edit, with no further
+  // keystroke for the wait to absorb, so the query it leaves settles at once.
+  // The settled query is written into the debounce rather than returned in
+  // its place, or the next keystroke would put the pre-removal query back in
+  // effect until its own wait ran out.
+  const rowsRemoved = useDecreaseCount(rows.length);
+  const effectiveQuery = useDebouncedValue(
+    typedQuery,
+    SEARCH_DEBOUNCE_MS,
+    rowsRemoved,
+  );
 
   // A single-character partial isn't worth a request; an empty query is the
   // "show recent tracks" default and must fire.
