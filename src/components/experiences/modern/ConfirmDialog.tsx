@@ -38,6 +38,8 @@ export type ConfirmDialogProps = {
    * labels correctly but grows the stylesheet.
    */
   titleId?: string;
+  /** `alertdialog` asks for a decision; a shell hosting work to carry on with passes `dialog`. */
+  role?: "alertdialog" | "dialog";
   /** `data-testid` on the `ModalDialog`. */
   testId?: string;
   sx?: SxProps;
@@ -58,6 +60,7 @@ export default function ConfirmDialog({
   children,
   actions,
   titleId,
+  role = "alertdialog",
   testId,
   sx,
 }: ConfirmDialogProps) {
@@ -73,7 +76,7 @@ export default function ConfirmDialog({
     >
       <ModalDialog
         variant="outlined"
-        role="alertdialog"
+        role={role}
         aria-labelledby={labelId}
         data-testid={testId}
         sx={sx}

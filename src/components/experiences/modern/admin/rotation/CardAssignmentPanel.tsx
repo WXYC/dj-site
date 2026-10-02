@@ -9,7 +9,7 @@ import type { CardMoveRowOutcome } from "@/lib/features/rotation/moveRowsOntoCar
 import { ROTATION_BIN_LABELS, type RotationListRow } from "@/lib/features/rotation/types";
 import { rotationWriteErrorMessage } from "@/lib/features/rotation/writeErrorMessage";
 import ConfirmDialog from "@/src/components/experiences/modern/ConfirmDialog";
-import { Button, Checkbox, Stack, Typography } from "@mui/joy";
+import { Alert, Button, Checkbox, LinearProgress, Stack, Typography } from "@mui/joy";
 import { useCardAssignmentSave } from "./useCardAssignmentSave";
 
 export type CardAssignmentPanelProps = { card: RotationCard; onClose: () => void };
@@ -18,20 +18,21 @@ type RowProps = {
   row: RotationListRow;
   here: boolean;
   checked: boolean;
-  locked: boolean;
+  disabled: boolean;
   onToggle: (rotationId: number) => void;
   targetLabel: string;
   outcome: CardMoveRowOutcome | undefined;
 };
 
-// A row's status line, in priority order: locked members read against this
-// card; everything else reads against the last save's outcome for this row,
+// A row's status line, in priority order: members read against this card;
+// everything else reads against the last save's outcome for this row,
 // falling back to a plain tick preview, falling back to its current card.
+// The line is the checkbox's description, so it is read out with the record.
 function CardAssignmentRow({
   row,
   here,
   checked,
-  locked,
+  disabled,
   onToggle,
   targetLabel,
   outcome,
@@ -39,45 +40,40 @@ function CardAssignmentRow({
   const currentLabel = row.card
     ? `${ROTATION_BIN_LABELS[row.rotation_bin]} ${row.card.number}`
     : "No card";
-  const title = `${row.artist_name ?? "Unknown artist"} — ${row.album_title ?? "Untitled"}`;
-  const status = here ? (
-    <Typography level="body-xs" textColor="text.tertiary">
-      On {targetLabel}
-    </Typography>
-  ) : outcome?.ok ? (
-    <Typography level="body-xs" color="success">
-      Moved to {targetLabel}
-    </Typography>
-  ) : outcome && "notAttempted" in outcome ? (
-    <Typography level="body-xs" color="neutral">
-      Not attempted — still on {currentLabel}
-    </Typography>
-  ) : outcome ? (
-    <Typography level="body-xs" color="danger">
-      {rotationWriteErrorMessage(outcome.error, "Couldn't move this record.")}
-    </Typography>
-  ) : checked ? (
-    <Typography level="body-xs" color="warning">
-      {currentLabel} → {targetLabel}
-    </Typography>
-  ) : (
-    <Typography level="body-xs" textColor="text.tertiary">
-      {currentLabel}
-    </Typography>
-  );
+  const statusId = `card-assignment-status-${row.rotation_id}`;
+  const [status, color] = here
+    ? [`On ${targetLabel}`, undefined]
+    : outcome?.ok
+      ? [`Moved to ${targetLabel}`, "success" as const]
+      : outcome && "notAttempted" in outcome
+        ? [`Not attempted — still on ${currentLabel}`, "neutral" as const]
+        : outcome
+          ? [
+              rotationWriteErrorMessage(outcome.error, "Couldn't move this record."),
+              "danger" as const,
+            ]
+          : checked
+            ? [`${currentLabel} → ${targetLabel}`, "warning" as const]
+            : [currentLabel, undefined];
   return (
-    <Stack direction="row" spacing={1} alignItems="flex-start" sx={{ py: 0.5 }}>
+    <Stack sx={{ py: 0.5 }}>
       <Checkbox
         size="sm"
+        label={`${row.artist_name ?? "Unknown artist"} — ${row.album_title ?? "Untitled"}`}
         checked={checked}
-        disabled={here || locked}
-        slotProps={{ input: { "aria-label": title } }}
+        disabled={disabled}
+        slotProps={{ input: { "aria-describedby": statusId } }}
         onChange={() => onToggle(row.rotation_id)}
       />
-      <Stack sx={{ minWidth: 0 }}>
-        <Typography level="body-sm">{title}</Typography>
+      <Typography
+        id={statusId}
+        level="body-xs"
+        color={color}
+        textColor={color ? undefined : "text.tertiary"}
+        sx={{ pl: 3.5 }}
+      >
         {status}
-      </Stack>
+      </Typography>
     </Stack>
   );
 }
@@ -93,16 +89,24 @@ function CardAssignmentRow({
  * (`here`); every other active row in the bin is tickable, and a tick
  * previews the move (`Heavy 1 → Heavy 3`).
  *
- * `locked` gates both ticking and Save/Retry, and covers the save itself
- * *and* the `status=active` refetch that follows it: a per-row write only
- * patches the `status=all` cache, so until that refetch lands, a record this
- * save just moved still reads here as elsewhere and would still be tickable.
+ * That read is a write precondition, so it fails closed, at two levels. A
+ * per-row write only patches the `status=all` cache, so a record this save
+ * just moved still reads here as elsewhere until the refetch after the save
+ * shows it on the card. The panel lock (`locked`) refuses ticking and
+ * Save/Retry while a save runs, while the read is fetching, and while it is
+ * in error; an unknown or failed read renders as loading or as an error
+ * with Retry, never as an empty bin. The row lock does not depend on how
+ * that refetch ends, or on whether it has started: a row whose last outcome
+ * is moved stays ticked and disabled for as long as the list shows it
+ * elsewhere, and is never among the ids a save sends.
  *
- * The Save/Retry control is one button: when every currently ticked record
- * the last save touched came back unresolved (failed or not attempted), and
- * nothing new has been ticked since, it resends exactly those via `retry()`;
- * otherwise it starts a fresh batch via `save()` with whatever is ticked now,
- * any such unresolved records included.
+ * Only a running save blocks closing: a read in flight writes nothing.
+ *
+ * The Save/Retry control is one button. It resends through `retry()` only
+ * when the ticked records still to move are exactly the records the last
+ * save left unresolved (failed or not attempted): none of those unticked,
+ * none besides them ticked. Anything else starts a fresh batch through
+ * `save()` with the ticked records still to move.
  */
 export default function CardAssignmentPanel({
   card,
@@ -110,14 +114,15 @@ export default function CardAssignmentPanel({
 }: CardAssignmentPanelProps): JSX.Element {
   const binLabel = ROTATION_BIN_LABELS[card.bin];
   const cardLabel = `${binLabel} ${card.number}`;
-  const { data, isFetching } = useGetRotationListQuery("active");
+  const { data, isFetching, isError, refetch } = useGetRotationListQuery("active");
   const { running, progress, results, save, retry } = useCardAssignmentSave(card.id);
   const [tickedRowIds, setTickedRowIds] = useState<ReadonlySet<number>>(() => new Set());
 
-  const locked = running || isFetching;
+  const locked = running || isFetching || isError;
   const binRows = (data ?? []).filter((row) => row.rotation_bin === card.bin);
   const hereRows = binRows.filter((row) => row.card?.id === card.id);
   const elsewhereRows = binRows.filter((row) => row.card?.id !== card.id);
+  const moved = (rotationId: number) => results.get(rotationId)?.ok === true;
 
   const toggle = (rotationId: number) => {
     if (locked) return;
@@ -129,7 +134,9 @@ export default function CardAssignmentPanel({
     });
   };
 
-  const moveIds = rotationRowsToMoveOntoCard(binRows, card, [...tickedRowIds]);
+  const moveIds = rotationRowsToMoveOntoCard(binRows, card, [...tickedRowIds]).filter(
+    (rotationId) => !moved(rotationId),
+  );
   // `retry()` is the hook's own blanket resend of every unresolved row from
   // the last save, with no way to narrow it -- so it is only safe to call
   // when the ticked set still names exactly that set. A row unticked since
@@ -146,12 +153,14 @@ export default function CardAssignmentPanel({
     <ConfirmDialog
       open
       onClose={onClose}
-      pending={locked}
+      pending={running}
+      role="dialog"
       title={cardLabel}
+      titleId="card-assignment-title"
       sx={{ maxWidth: 560, width: "100%" }}
       actions={
         <Stack direction="row" spacing={1} sx={{ width: "100%", justifyContent: "flex-end" }}>
-          <Button variant="plain" color="neutral" disabled={locked} onClick={onClose}>
+          <Button variant="plain" color="neutral" disabled={running} onClick={onClose}>
             Close
           </Button>
           <Button variant="solid" disabled={locked || moveIds.length === 0} onClick={commit}>
@@ -173,40 +182,54 @@ export default function CardAssignmentPanel({
           Moving {progress.done} of {progress.total} to {cardLabel}…
         </Typography>
       )}
-      <Typography level="title-sm" sx={{ mb: 0.5 }}>
-        On {cardLabel} now · {hereRows.length}
-      </Typography>
-      <Stack spacing={0.25} sx={{ mb: 2 }}>
-        {hereRows.map((row) => (
-          <CardAssignmentRow
-            key={row.rotation_id}
-            row={row}
-            here
-            checked
-            locked={locked}
-            onToggle={toggle}
-            targetLabel={cardLabel}
-            outcome={undefined}
-          />
-        ))}
-      </Stack>
-      <Typography level="title-sm" sx={{ mb: 0.5 }}>
-        Elsewhere in {binLabel} · {elsewhereRows.length}
-      </Typography>
-      <Stack spacing={0.25}>
-        {elsewhereRows.map((row) => (
-          <CardAssignmentRow
-            key={row.rotation_id}
-            row={row}
-            here={false}
-            checked={tickedRowIds.has(row.rotation_id)}
-            locked={locked}
-            onToggle={toggle}
-            targetLabel={cardLabel}
-            outcome={results.get(row.rotation_id)}
-          />
-        ))}
-      </Stack>
+      {isError && (
+        <Alert color="danger" sx={{ justifyContent: "space-between", mb: 1 }}>
+          <Typography>Could not load the rotation list.</Typography>
+          <Button variant="outlined" color="danger" size="sm" onClick={() => void refetch()}>
+            Retry
+          </Button>
+        </Alert>
+      )}
+      {data == null ? (
+        !isError && <LinearProgress aria-label="Loading rotation" />
+      ) : (
+        <>
+          <Typography level="title-sm" sx={{ mb: 0.5 }}>
+            On {cardLabel} now · {hereRows.length}
+          </Typography>
+          <Stack spacing={0.25} sx={{ mb: 2 }}>
+            {hereRows.map((row) => (
+              <CardAssignmentRow
+                key={row.rotation_id}
+                row={row}
+                here
+                checked
+                disabled
+                onToggle={toggle}
+                targetLabel={cardLabel}
+                outcome={undefined}
+              />
+            ))}
+          </Stack>
+          <Typography level="title-sm" sx={{ mb: 0.5 }}>
+            Elsewhere in {binLabel} · {elsewhereRows.length}
+          </Typography>
+          <Stack spacing={0.25}>
+            {elsewhereRows.map((row) => (
+              <CardAssignmentRow
+                key={row.rotation_id}
+                row={row}
+                here={false}
+                checked={moved(row.rotation_id) || tickedRowIds.has(row.rotation_id)}
+                disabled={locked || moved(row.rotation_id)}
+                onToggle={toggle}
+                targetLabel={cardLabel}
+                outcome={results.get(row.rotation_id)}
+              />
+            ))}
+          </Stack>
+        </>
+      )}
     </ConfirmDialog>
   );
 }
