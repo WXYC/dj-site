@@ -43,16 +43,17 @@ export const ROTATION_BIN_LABELS: Record<RotationBin, string> = {
 /**
  * Wire shape of a `GET /library/rotation` row — Backend's `Rotation`
  * interface (`apps/backend/services/library.service.ts`), hand-mirrored
- * rather than imported from `@wxyc/shared`. The published `Rotation` carries
- * the same fields plus `card`, `urls` and a `reconciled_identity` this row
- * omits, but declares every property optional, including `rotation_id`,
- * `rotation_bin` and `rotation_add_date` -- the ones this screen needs
- * present. dj-site's pre-existing `getRotation` query works around the drift
- * by treating the response as an `AlbumSearchResultJSON` for its overlapping
- * field names and dropping the rest -- this screen needs exactly the fields
- * that drops: `rotation_id` (the row Kill/Unkill/Edit act on, not `id`, which
- * is the library row and is `null` on an unlinked release), `rotation_bin`,
- * `rotation_add_date`, `rotation_kill_date`.
+ * rather than imported from `@wxyc/shared`. The published `Rotation` declares
+ * no `required` list, so every property on it is optional, including
+ * `rotation_id`, `rotation_bin` and `rotation_add_date`, which the rotation
+ * lists read as always present. It also carries `reconciled_identity`, which
+ * this row does not declare.
+ *
+ * `getRotation` reads the same endpoint but converts each row to an
+ * `AlbumEntry`, which carries neither `rotation_add_date` nor
+ * `rotation_kill_date`; this type is the row unconverted. `rotation_id` is
+ * the row Kill/Unkill/Edit act on, not `id`, which is the library row and is
+ * `null` on an unlinked release.
  */
 export type RotationListRow = {
   id: number | null;
@@ -74,22 +75,20 @@ export type RotationListRow = {
   plays: number | null;
   legacy_release_id: number | null;
   /**
-   * Optional, mirroring the published schema exactly (`card?` on `Rotation`):
-   * the deployed `GET /library/rotation` now emits the key on every row, so
-   * `?` only covers an older backend that predates the join. Absent means
-   * "the server didn't say"; `null` is the positive claim "no card". The
-   * admin list's card-absent guard (`adminList.ts`, `RotationAdminList.tsx`)
-   * stays correct for that older-backend case, not because the key is still
-   * missing today.
+   * Optional, mirroring the published schema exactly (`card?` on `Rotation`).
+   * `GET /library/rotation` emits the key on every row, so `?` covers only a
+   * backend older than the card join. Absent means "the server didn't say";
+   * `null` is the positive claim "no card". The admin list's card guards
+   * (`adminList.ts`, `RotationAdminList.tsx`) treat absent and `null` alike,
+   * which keeps them correct against that older backend.
    */
   card?: RotationCard | null;
   /**
-   * Optional for the same reason as `card` above: the deployed endpoint now
-   * emits it unconditionally, and `?` only covers an older backend. The
-   * published field's own warning applies here verbatim: plain strings, not
-   * `format: uri` -- MDs paste bare domains, so a value carries no scheme
-   * guarantee and a renderer must not bind one into an href without checking
-   * it.
+   * Optional for the same reason as `card` above: the endpoint emits it on
+   * every row, and `?` covers only an older backend. The published field's
+   * own warning applies here verbatim: plain strings, not `format: uri` --
+   * MDs paste bare domains, so a value carries no scheme guarantee and a
+   * renderer must not bind one into an href without checking it.
    */
   urls?: string[];
 };
@@ -168,12 +167,13 @@ export type UpdateRotationArgs = {
 };
 
 /**
- * `POST /library/rotation` body for a release with no catalogued album --
- * Backend relaxed the endpoint to accept `artist_name` + `album_title` in
- * place of `album_id`. Deliberately not the published `@wxyc/shared`
- * `AddRotationRequest`: that type still requires `album_id: number` and has
- * not been widened for the free-text path (see `pickAddRotationFields` in
- * `apps/backend/controllers/library.controller.ts`).
+ * `POST /library/rotation` body for a release with no catalogued album: the
+ * endpoint accepts `artist_name` + `album_title` in place of `album_id` (see
+ * `pickAddRotationFields` in
+ * `apps/backend/controllers/library.controller.ts`). Hand-declared because
+ * the published `AddRotationRequest` is `RotationCreateFields` plus a
+ * required `album_id: number`, with no free-text arm; the generated type
+ * replaces this one when the contract declares that arm.
  *
  * `format_id` and `label_id` are accepted only on that same uncatalogued
  * branch, exactly like the free-text trio: on a linked add the format and the
@@ -181,11 +181,6 @@ export type UpdateRotationArgs = {
  * from it. Both are optional-and-omitted rather than nullable: Backend picks
  * them with `!= null`, so an explicit `null` reads as absent, and a caller
  * that means "no label" must leave the key off rather than send one.
- *
- * Still hand-declared: the published `AddRotationRequest` is
- * `RotationCreateFields` plus a required `album_id: number`, with no
- * free-text arm. Delete this type in favor of the generated one once that
- * widening ships.
  */
 export type FreeTextRotationAddRequest = {
   rotation_bin: RotationBin;
