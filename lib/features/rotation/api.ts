@@ -70,8 +70,6 @@ export const rotationApi = createApi({
         response ? response.map(convertToAlbumEntry) : [],
       providesTags: [ROTATION_LIST_TAG],
     }),
-    // The argument is the published `AddRotationRequest`, whose `album_id`
-    // is typed as a `number`.
     addRotationEntry: builder.mutation<RotationEntry, AddRotationRequest>({
       query: (rotation) => ({
         url: "",
@@ -135,10 +133,9 @@ export const rotationApi = createApi({
           const { data } = await queryFulfilled;
           // A kill's new date is knowable only from the response -- the
           // server stamps CURRENT_DATE itself (see the endpoint comment
-          // above). Move the row in the cached
-          // `status=all` read by patching that date in; the presentation
-          // split is derived from it, so the row changes sections without a
-          // full-history refetch.
+          // above). Move the row in the cached `status=all` read by patching
+          // that date in; the presentation split is derived from it, so the
+          // row changes sections without a full-history refetch.
           const killDate = data.kill_date;
           if (killDate != null) {
             patchRotationStatusAllRow(dispatch, getState as () => RootState, data.id, (row) => {
@@ -153,9 +150,7 @@ export const rotationApi = createApi({
           // The request carries only `rotation_id`, so the album whose cached
           // catalog rows need clearing is knowable only from the updated row.
           // Entries that never linked to a library album have none, and there
-          // is nothing in the catalog to patch for them. `RotationEntry.album_id`
-          // is the null arm of a nullable field in the shared contract, for a
-          // row that never linked to a library album.
+          // is nothing in the catalog to patch for them.
           if (typeof data.album_id !== "number") return;
           // Retiring a superseded entry says nothing about the album's
           // rotation, so clearing here would retract a newer entry the cache
