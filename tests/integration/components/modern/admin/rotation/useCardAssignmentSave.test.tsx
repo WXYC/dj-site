@@ -176,6 +176,7 @@ describe("useCardAssignmentSave", () => {
           error: { rotationWriteError: expect.objectContaining({ status: 500 }) },
         },
       ],
+      notAttempted: [],
     });
   });
 
@@ -207,7 +208,53 @@ describe("useCardAssignmentSave", () => {
     expect(result.current.progress).toEqual({ done: 1, total: 1 });
     expect(result.current.results.get(900)).toEqual({ ok: true });
     expect(result.current.results.get(901)).toEqual({ ok: true });
-    await expect(retried).resolves.toEqual({ moved: [901], failed: [] });
+    await expect(retried).resolves.toEqual({ moved: [901], failed: [], notAttempted: [] });
+  });
+
+  it("retries two failed rows where only one lands, keeping the row that already landed", async () => {
+    const handler = installGatedCardMoveHandler();
+    handler.failFor([901, 902]);
+    const { result } = renderSaveHook();
+
+    act(() => {
+      void result.current.save([900, 901, 902]);
+    });
+    await handler.releaseOnceRequested(900);
+    await handler.releaseOnceRequested(901);
+    await handler.releaseOnceRequested(902);
+    await waitFor(() => expect(result.current.running).toBe(false));
+    expect(result.current.results.get(900)).toEqual({ ok: true });
+    expect(result.current.results.get(901)).toMatchObject({ ok: false });
+    expect(result.current.results.get(902)).toMatchObject({ ok: false });
+
+    // 901 now goes through; 902 is refused again, with a new error.
+    handler.failFor([902]);
+    let retried!: SaveResult;
+    act(() => {
+      retried = result.current.retry();
+    });
+    await waitFor(() => expect(result.current.progress).toEqual({ done: 0, total: 2 }));
+    await handler.releaseOnceRequested(901);
+    await handler.releaseOnceRequested(902);
+    await waitFor(() => expect(result.current.running).toBe(false));
+
+    expect(result.current.results.get(900)).toEqual({ ok: true });
+    expect(result.current.results.get(901)).toEqual({ ok: true });
+    const secondFailure = result.current.results.get(902);
+    expect(secondFailure).toMatchObject({ ok: false });
+    await expect(retried).resolves.toMatchObject({ moved: [901], notAttempted: [] });
+
+    // A second retry sends only the row still failed.
+    handler.failFor([]);
+    act(() => {
+      void result.current.retry();
+    });
+    await waitFor(() => expect(result.current.progress).toEqual({ done: 0, total: 1 }));
+    await handler.releaseOnceRequested(902);
+    await waitFor(() => expect(result.current.running).toBe(false));
+
+    expect(handler.bodies().map((call) => call.id)).toEqual([900, 901, 902, 901, 902, 902]);
+    expect(result.current.results.get(902)).toEqual({ ok: true });
   });
 
   it("starts each save from an empty result list, where a retry keeps the rows that landed", async () => {
@@ -313,9 +360,33 @@ describe("useCardAssignmentSave", () => {
     expect(handler.bodies().map((call) => call.id)).toEqual([900, 901, 901]);
     expect(result.current.progress).toEqual({ done: 1, total: 1 });
     expect(counts.cards).toBe(3);
-    await expect(retried).resolves.toEqual({ moved: [901], failed: [] });
+    await expect(retried).resolves.toEqual({ moved: [901], failed: [], notAttempted: [] });
     await expect(secondSave).resolves.toBeNull();
     await expect(secondRetry).resolves.toBeNull();
+  });
+
+  // `inFlight` is a ref, not state: it is set before the first `await` inside
+  // `save`, so a second call made synchronously in the same tick sees it
+  // already true even though `running` has not yet re-rendered to reflect
+  // the first call. A guard built on `running` alone would miss this.
+  it("ignores a second save() made in the same tick as the first, before any re-render", async () => {
+    const handler = installGatedCardMoveHandler();
+    const { result } = renderSaveHook();
+
+    let firstSave!: SaveResult;
+    let secondSave!: SaveResult;
+    act(() => {
+      firstSave = result.current.save([900, 901]);
+      secondSave = result.current.save([902, 903]);
+    });
+
+    await handler.releaseOnceRequested(900);
+    await handler.releaseOnceRequested(901);
+    await waitFor(() => expect(result.current.running).toBe(false));
+
+    expect(handler.bodies().map((call) => call.id)).toEqual([900, 901]);
+    await expect(firstSave).resolves.toEqual({ moved: [900, 901], failed: [], notAttempted: [] });
+    await expect(secondSave).resolves.toBeNull();
   });
 
   it("does nothing for an empty save or a retry with nothing failed", async () => {
@@ -349,13 +420,70 @@ describe("useCardAssignmentSave", () => {
     });
     await settleReads(store);
 
-    expect(emptySave).toEqual({ moved: [], failed: [] });
-    expect(emptyRetry).toEqual({ moved: [], failed: [] });
+    expect(emptySave).toEqual({ moved: [], failed: [], notAttempted: [] });
+    expect(emptyRetry).toEqual({ moved: [], failed: [], notAttempted: [] });
     expect(runningSeen).not.toContain(true);
     expect(result.current.progress).toEqual({ done: 1, total: 1 });
     expect(result.current.results.get(900)).toEqual({ ok: true });
     expect(handler.bodies().map((call) => call.id)).toEqual([900]);
     expect(counts).toEqual(countsAfterSave);
+  });
+
+  describe("when a batch stops after three consecutive failures", () => {
+    it("reports the moved, failed and not-attempted rows, counts only attempted rows in progress, and retries both with the total reset", async () => {
+      const handler = installGatedCardMoveHandler();
+      handler.failFor([901, 902, 903]);
+      const { result } = renderSaveHook();
+
+      let saved!: SaveResult;
+      act(() => {
+        saved = result.current.save([900, 901, 902, 903, 904, 905]);
+      });
+      await handler.releaseOnceRequested(900);
+      await handler.releaseOnceRequested(901);
+      await handler.releaseOnceRequested(902);
+      await handler.releaseOnceRequested(903);
+      await waitFor(() => expect(result.current.running).toBe(false));
+
+      expect(handler.bodies().map((call) => call.id)).toEqual([900, 901, 902, 903]);
+      expect(result.current.progress).toEqual({ done: 4, total: 6 });
+      expect(result.current.results.get(900)).toEqual({ ok: true });
+      expect(result.current.results.get(901)).toMatchObject({ ok: false });
+      expect(result.current.results.get(902)).toMatchObject({ ok: false });
+      expect(result.current.results.get(903)).toMatchObject({ ok: false });
+      expect(result.current.results.get(904)).toEqual({ ok: false, notAttempted: true });
+      expect(result.current.results.get(905)).toEqual({ ok: false, notAttempted: true });
+      await expect(saved).resolves.toMatchObject({
+        moved: [900],
+        notAttempted: [904, 905],
+      });
+
+      handler.failFor([]);
+      let retried!: SaveResult;
+      act(() => {
+        retried = result.current.retry();
+      });
+      await waitFor(() => expect(result.current.progress).toEqual({ done: 0, total: 5 }));
+      await handler.releaseOnceRequested(901);
+      await handler.releaseOnceRequested(902);
+      await handler.releaseOnceRequested(903);
+      await handler.releaseOnceRequested(904);
+      await handler.releaseOnceRequested(905);
+      await waitFor(() => expect(result.current.running).toBe(false));
+
+      expect(handler.bodies().map((call) => call.id)).toEqual([
+        900, 901, 902, 903, 901, 902, 903, 904, 905,
+      ]);
+      expect(result.current.progress).toEqual({ done: 5, total: 5 });
+      for (const id of [900, 901, 902, 903, 904, 905]) {
+        expect(result.current.results.get(id)).toEqual({ ok: true });
+      }
+      await expect(retried).resolves.toEqual({
+        moved: [901, 902, 903, 904, 905],
+        failed: [],
+        notAttempted: [],
+      });
+    });
   });
 
   // The hook's owner can stay mounted while the card it is pointed at
@@ -395,6 +523,34 @@ describe("useCardAssignmentSave", () => {
       expect(result.current.results.get(901)).toMatchObject({ ok: false });
     });
 
+    // The two-row spec above re-points the hook while the batch's last row
+    // is pending, so nothing is left to redirect. A third row that is still
+    // to be sent after the re-point is what this one can catch going to the
+    // wrong card.
+    it("sends a row still pending after a mid-run card change to the card the save started against", async () => {
+      const handler = installGatedCardMoveHandler();
+      const { result, rerender } = renderSaveHook();
+
+      act(() => {
+        void result.current.save([900, 901, 902]);
+      });
+      await handler.releaseOnceRequested(900);
+      await waitFor(() => expect(result.current.progress).toEqual({ done: 1, total: 3 }));
+
+      rerender({ cardId: OTHER_CARD_ID });
+      await handler.releaseOnceRequested(901);
+      await handler.releaseOnceRequested(902);
+      await waitFor(() => expect(result.current.running).toBe(false));
+
+      rerender({ cardId: CARD_ID });
+      expect(handler.bodies()).toEqual([
+        { id: 900, body: { card_id: CARD_ID } },
+        { id: 901, body: { card_id: CARD_ID } },
+        { id: 902, body: { card_id: CARD_ID } },
+      ]);
+      expect(result.current.progress).toEqual({ done: 3, total: 3 });
+    });
+
     it("retry never moves one card's failed rows onto another card", async () => {
       const handler = installGatedCardMoveHandler();
       handler.failFor([901]);
@@ -413,7 +569,7 @@ describe("useCardAssignmentSave", () => {
       await act(async () => {
         retriedOnOtherCard = await result.current.retry();
       });
-      expect(retriedOnOtherCard).toEqual({ moved: [], failed: [] });
+      expect(retriedOnOtherCard).toEqual({ moved: [], failed: [], notAttempted: [] });
       expect(result.current.running).toBe(false);
       expect(handler.bodies().map((call) => call.id)).toEqual([900, 901]);
 
