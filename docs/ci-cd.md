@@ -4,7 +4,7 @@
 
 Runs on push to `main` (full suite) and on PRs (scoped to changed code):
 1. **Lint & Type Check** -- `npm run lint` (`eslint .`), then `npx tsc --noEmit`
-2. **Unit Tests** -- On PRs, uses `vitest --changed origin/main` to only run tests affected by the diff. On `main` pushes, runs all tests.
+2. **Unit Tests** -- On PRs, uses `vitest --changed origin/main` to only run tests affected by the diff. On `main` pushes, runs all tests. The `test` job sets `TZ: America/Los_Angeles`, since GitHub's runners are otherwise already UTC and would let `vitest.config.mts`'s own UTC pin (and the zone assertions guarding it) go unverified.
 3. **Build** -- `npm run build`
 4. **Script Tests** -- `npm run test:scripts` (bats suites over `scripts/deploy/*.sh`; hermetic — fake `curl`/`wrangler` on PATH).
 5. **Preview** (PRs) -- builds and Direct-Uploads a per-PR Cloudflare Pages preview, then smoke-probes it (see Deployment).
