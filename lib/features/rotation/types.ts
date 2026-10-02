@@ -71,20 +71,21 @@ export type RotationListRow = {
   legacy_release_id: number | null;
   /**
    * Optional, mirroring the published schema exactly (`card?` on `Rotation`
-   * in `@wxyc/shared@5.4.0`): the deployed `GET /library/rotation` does not
-   * emit the key yet, so every row reads `undefined` today. Absent means "the
-   * server didn't say"; `null` is the positive claim "on no card". Until a
-   * backend that serves the key is deployed, the admin
-   * list's card sub-filter is inert — no row matches a card chip and every
-   * card count reads 0 — and that same absent-card degradation covers any
-   * older backend.
+   * in `@wxyc/shared@5.4.0`): the deployed `GET /library/rotation` now emits
+   * the key on every row, so `?` only covers an older backend that predates
+   * the join. Absent means "the server didn't say"; `null` is the positive
+   * claim "no card". The admin list's card-absent guard (`adminList.ts`,
+   * `RotationAdminList.tsx`) stays correct for that older-backend case, not
+   * because the key is still missing today.
    */
   card?: RotationCard | null;
   /**
-   * Optional, same reason as `card` above. The published field's own warning
-   * applies here verbatim: plain strings, not `format: uri` -- MDs paste bare
-   * domains, so a value carries no scheme guarantee and a renderer must not
-   * bind one into an href without checking it.
+   * Optional for the same reason as `card` above: the deployed endpoint now
+   * emits it unconditionally, and `?` only covers an older backend. The
+   * published field's own warning applies here verbatim: plain strings, not
+   * `format: uri` -- MDs paste bare domains, so a value carries no scheme
+   * guarantee and a renderer must not bind one into an href without checking
+   * it.
    */
   urls?: string[];
 };
@@ -193,11 +194,9 @@ export type FreeTextRotationAddRequest = {
    * Storage order, the published `AddRotationRequest.urls` shape verbatim
    * (plain strings, never `format: uri` — see `RotationListRow.urls`).
    * Carried on a move so a re-filing keeps the source row's links instead
-   * of orphaning them on the row it retires. Storing the carry requires the
-   * Backend that admits `urls` on both POST arms; an older
-   * backend's add allowlist silently drops the key — harmless, the carry is
-   * inert until that write half deploys, the same staging as
-   * `RotationListRow.urls`' read-half gap.
+   * of orphaning them on the row it retires. The deployed Backend admits
+   * `urls` on both POST arms, so the carry is live; an older backend's add
+   * allowlist would silently drop the key instead.
    */
   urls?: string[];
 };
