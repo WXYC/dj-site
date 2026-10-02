@@ -102,6 +102,8 @@ TEST_BACKEND_URL                      // from env or "http://localhost:3001"
 
 ### Time Utilities
 
+The runner's own time zone is pinned to UTC (`test.env.TZ` in `vitest.config.mts`) so day-boundary assertions mean the same thing on a developer's machine as in CI, rather than depending on `America/Los_Angeles` locally.
+
 ```typescript
 TEST_TIMESTAMPS.NOW           // 2024-06-15T14:30:00.000Z
 TEST_TIMESTAMPS.ONE_HOUR_AGO
