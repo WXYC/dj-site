@@ -174,7 +174,12 @@ export type FakeRotationCard = {
   bin: string;
   number: number;
   name?: string | null;
-  /** The cards GET's active-row count; the fakes default it to 0 when omitted. */
+  /**
+   * The cards GET's active-row count. `fakeRotationCardsEndpoints` defaults
+   * it to 0 when omitted; `fakeRotationAdminEndpoints` derives it from its
+   * own rows instead and ignores whatever is set here, since that fake's
+   * whole point is a count that follows a row's moves and kills.
+   */
   active_count?: number;
 };
 
@@ -203,9 +208,9 @@ export type FakeRotationAdminRow = {
  * exactly the read that retains killed rows, so removal here would make the
  * consumer's Killed presentation untestable. The GET arm filters by the
  * `status` it's asked for (`active` = no kill date, `killed` = a kill date,
- * anything else, including `all` = every row) — a spec that asks for the
- * wrong facet now gets that facet's rows rather than the whole fixture
- * passing as a smaller one.
+ * anything else, including `all` = every row), so a spec that asks for the
+ * wrong facet gets that facet's rows, not the whole fixture passing as a
+ * smaller one.
  *
  * The POST arm appends a row the list read then serves: a catalogued add
  * (`album_id`) copies the library-join fields from an existing row with that
