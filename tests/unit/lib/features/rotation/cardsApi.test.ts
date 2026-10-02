@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { configureStore } from "@reduxjs/toolkit";
 import { http, HttpResponse } from "msw";
 import { refetchRotationCardAssignments, rotationApi } from "@/lib/features/rotation/api";
+import { isUnmessagedHttpError } from "@/lib/rtk-query-error-logger";
 import { TEST_BACKEND_URL } from "@/tests/helpers/constants";
 import { server } from "@/tests/fakes/server";
 import { describeApi } from "@/tests/helpers/api-harness";
@@ -283,6 +284,28 @@ describe("rotationApi — rotation card CRUD", () => {
       });
       expect(handlers.counts.cards).toBe(1);
       expect(handlers.counts.list).toBe(1);
+    });
+
+    // A card move the server refuses still has to reach the batch loop's
+    // own per-row result, not a second, separate toast on top of it -- the
+    // wrapped shape is what keeps the shared rejected-query middleware quiet
+    // (see `isUnmessagedHttpError`), exactly as it does for `updateRotationRow`.
+    it("wraps a refused moveRotationRowToCard like updateRotationRow", async () => {
+      server.use(
+        http.patch(`${ROTATION_BASE}/:id`, () =>
+          HttpResponse.json({ message: "card not in this bin" }, { status: 409 }),
+        ),
+      );
+      const store = rotationStore();
+
+      const result = await store.dispatch(
+        rotationApi.endpoints.moveRotationRowToCard.initiate({ rotation_id: 5001, card_id: 3 }),
+      );
+
+      expect(result.error).toMatchObject({
+        rotationWriteError: { status: 409, data: { message: "card not in this bin" } },
+      });
+      expect(isUnmessagedHttpError(result.error)).toBe(true);
     });
 
     it("refetchRotationCardAssignments refetches the cards read once", async () => {

@@ -457,7 +457,11 @@ export const rotationApi = createApi({
     // The card-assignment batch save's per-row write
     // (`useCardAssignmentSave`): the same PATCH `updateRotationRow` sends for
     // a card move, but invalidating nothing -- the batch refetches once
-    // itself (`refetchRotationCardAssignments`) when it settles.
+    // itself (`refetchRotationCardAssignments`) when it settles. Wrapped out
+    // of the shared rejected-query middleware like `updateRotationRow`: the
+    // batch loop's own per-row result is the one place a refusal surfaces,
+    // and an unwrapped rejection would additionally toast once per failed
+    // row.
     moveRotationRowToCard: builder.mutation<
       RotationRowSummary,
       { rotation_id: number; card_id: number }
@@ -467,14 +471,13 @@ export const rotationApi = createApi({
         method: "PATCH",
         body: { card_id },
       }),
+      transformErrorResponse: wrapRotationWriteError,
       async onQueryStarted({ rotation_id, card_id }, { dispatch, getState, queryFulfilled }) {
         try {
           await queryFulfilled;
-          // Shares `updateRotationRow`'s card-move cache patch rather than
-          // copying it -- see `patchRotationRowCard`.
           patchRotationRowCard(dispatch, getState as () => RootState, rotation_id, card_id);
         } catch {
-          // Swallowed: the loop's own per-row result is how this reaches the caller.
+          // Swallowed, matching every handler above.
         }
       },
     }),
