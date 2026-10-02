@@ -1,4 +1,5 @@
-import { describe, it, expect, afterEach, vi } from "vitest";
+import { describe, it, expect } from "vitest";
+import { stubProcessTimeZone } from "@/tests/helpers/time.vitest";
 import {
   isRotationRowActive,
   formatRotationDate,
@@ -77,10 +78,6 @@ describe("isRotationRowActive", () => {
 });
 
 describe("formatRotationDate", () => {
-  afterEach(() => {
-    vi.unstubAllEnvs();
-  });
-
   it("formats an ISO date as MM/DD/YY, matching DateTimeManager.getLongDateAsMMDDYY", () => {
     expect(formatRotationDate("2026-08-01")).toBe("08/01/26");
   });
@@ -96,14 +93,8 @@ describe("formatRotationDate", () => {
     //
     // The runner's own zone is UTC, where local time and UTC agree and that
     // shift cannot appear, so this case moves the process to the station's
-    // zone itself. Assigning process.env.TZ re-derives the local zone only
-    // in a forked process, never in a worker thread -- the guard turns a
-    // stub that silently did nothing into a failure instead of a pass.
-    vi.stubEnv("TZ", "America/New_York");
-    expect(
-      new Intl.DateTimeFormat().resolvedOptions().timeZone,
-      "TZ stub did not take effect in this process -- rerun this file under vitest's default `forks` pool, not `--pool=threads`",
-    ).toBe("America/New_York");
+    // zone itself.
+    stubProcessTimeZone("America/New_York");
     expect(formatRotationDate("2026-01-01")).toBe("01/01/26");
   });
 });

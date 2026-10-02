@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { stubProcessTimeZone } from "@/tests/helpers/time.vitest";
 
 describe("runner time zone", () => {
   it("is pinned to UTC for this process, not merely declared in config", ({ task }) => {
@@ -7,6 +8,15 @@ describe("runner time zone", () => {
     expect(task.file.projectName).toBe("node");
     // Behavioral, not textual: proves the zone the node project's worker
     // actually resolved to, not just that a TZ line exists in the config.
+    expect(new Intl.DateTimeFormat().resolvedOptions().timeZone).toBe("UTC");
+  });
+
+  it("moves this process's resolved zone to the one asked for", () => {
+    stubProcessTimeZone("Asia/Tokyo");
+    expect(new Intl.DateTimeFormat().resolvedOptions().timeZone).toBe("Asia/Tokyo");
+  });
+
+  it("is back to the UTC pin in the next test, proving the stub's own cleanup ran", () => {
     expect(new Intl.DateTimeFormat().resolvedOptions().timeZone).toBe("UTC");
   });
 });

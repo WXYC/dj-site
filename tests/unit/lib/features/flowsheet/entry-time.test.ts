@@ -1,8 +1,8 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
 import { rangeEntryTime } from "@/lib/features/flowsheet/entry-time";
+import { stubProcessTimeZone } from "@/tests/helpers/time.vitest";
 
 afterEach(() => {
-  vi.unstubAllEnvs();
   vi.resetModules();
 });
 
@@ -72,21 +72,7 @@ describe("rangeEntryTime", () => {
     // EST at this date) and 5:01 AM the next day in Asia/Tokyo -- a formatter
     // that fell back to the process's local zone instead of the explicit
     // station zone would print a different hour here.
-    vi.stubEnv("TZ", "Asia/Tokyo");
-    // process.env.TZ has a setter trap in Node's main process that resets
-    // its cached Intl/Date local-zone derivation whenever the property is
-    // assigned, so vi.stubEnv's assignment here takes effect immediately
-    // (vitest's `forks` pool runs each test file in its own forked process,
-    // which keeps that trap). A worker thread's process.env is a plain copy
-    // without the trap, so the same assignment is silently inert there, and
-    // the case below would run in the process's original zone and never
-    // reach the zone it stubs -- hence the guard
-    // below, and why this file must run under vitest's default `forks`
-    // pool, never `--pool=threads`.
-    expect(
-      new Intl.DateTimeFormat().resolvedOptions().timeZone,
-      "TZ stub did not take effect in this process -- rerun this file under vitest's default `forks` pool, not `--pool=threads`"
-    ).toBe("Asia/Tokyo");
+    stubProcessTimeZone("Asia/Tokyo");
     // stationTime builds its formatter once, at module scope, so the
     // top-of-file import of entry-time (and the stationTime module behind
     // it) was already evaluated under the process's original zone, well
