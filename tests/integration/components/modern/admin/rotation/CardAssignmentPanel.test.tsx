@@ -201,7 +201,10 @@ describe("CardAssignmentPanel", () => {
     expect(onClose).not.toHaveBeenCalled();
 
     await releaseMove(901);
-    expect(await screen.findByRole("status")).toHaveTextContent("Moving 1 of 2 to Heavy 3");
+    // The line is already on screen at 0 of 2, so the count is waited for.
+    await waitFor(() =>
+      expect(screen.getByRole("status")).toHaveTextContent("Moving 1 of 2 to Heavy 3"),
+    );
     await releaseMove(902);
 
     await waitFor(() => expect(button("Close")).toBeEnabled());
