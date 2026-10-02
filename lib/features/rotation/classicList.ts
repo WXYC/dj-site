@@ -3,11 +3,10 @@ import { hasLinkedAlbumId } from "../flowsheet/linkage";
 import type { RotationBin, RotationListRow, RotationRowSummary } from "./types";
 
 /**
- * The viewer's local calendar day as `YYYY-MM-DD`, for the recent-dates
- * pickers below where a librarian wants to pick from their own evening, not
- * the server's day. Not for comparing against a server-stamped column --
- * `isRotationRowActive` below uses `utcDateISO` for that, since the
- * database's own day is the UTC day, not the viewer's.
+ * The viewer's local calendar day as `YYYY-MM-DD`. Only the recent-dates
+ * pickers below read it. `isRotationRowActive` does not: it mirrors the
+ * server's `CURRENT_DATE`, which is the UTC day, and compares against
+ * `utcDateISO`.
  */
 function localTodayISO(now: Date): string {
   const year = now.getFullYear();

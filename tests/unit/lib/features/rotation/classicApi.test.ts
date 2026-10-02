@@ -379,6 +379,9 @@ describe("rotationApi — classic list + free-text add additions", () => {
       onTestFinished(() => {
         vi.useRealTimers();
       });
+      // On the real clock this kill date is in the past for every predicate,
+      // so the case only tells them apart while the fake is in force.
+      expect(new Date().toISOString()).toBe("2026-09-25T00:30:00.000Z");
 
       server.use(
         http.patch(`${BASE}/:id`, () =>
