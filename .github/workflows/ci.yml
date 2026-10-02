@@ -133,10 +133,10 @@ jobs:
     needs: changes
     if: github.event_name != 'pull_request' || needs.changes.outputs.app_source == 'true'
     runs-on: ubuntu-latest
-    # GitHub's runners are already UTC, so every zone assertion vitest.config.mts's
-    # TZ pin guards would pass here even with the pin removed. A non-UTC host
-    # zone makes the pin's absence observable in CI instead of only on a
-    # developer machine that happens to run outside UTC.
+    # GitHub's runners are UTC, the zone vitest.config.mts pins the test
+    # workers to, so the zone assertions that guard the pin pass here with or
+    # without it. A non-UTC host zone makes them fail when the pin is missing
+    # or has stopped taking effect.
     env:
       TZ: America/Los_Angeles
     strategy:
