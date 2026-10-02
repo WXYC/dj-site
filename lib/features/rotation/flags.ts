@@ -6,10 +6,13 @@
  */
 
 /**
- * Gates the Rotation Admin surface -- rotation card management and the
- * free-form filing bench -- reached from the modern sidebar's "Rotation"
- * entry, plus the DJ-facing rotation displays in catalog search and on the
- * modern album card. See docs/env-vars.md for the full route list.
+ * Gates the Rotation Admin surface: the modern routes under
+ * `/dashboard/admin/rotation` and the modern sidebar's "Rotation" entry they
+ * are reached from. Also gates two DJ-facing displays outside that surface:
+ * in catalog search results (classic and modern), the rotation bin + card
+ * location that replaces the call number for a release in rotation; and on
+ * the modern album card, the release's definitive Listen links. See
+ * docs/env-vars.md for the routes.
  *
  * Flip on by setting NEXT_PUBLIC_ROTATION_ADMIN_ENABLED to "true" (or "1").
  */
