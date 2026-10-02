@@ -1,4 +1,9 @@
-import { RotationBin, type RotationCard, type RotationRowSummary } from "@wxyc/shared/dtos";
+import {
+  RotationBin,
+  type RotationCard,
+  type RotationConflictReason,
+  type RotationRowSummary,
+} from "@wxyc/shared/dtos";
 
 export { RotationBin };
 
@@ -38,17 +43,16 @@ export const ROTATION_BIN_LABELS: Record<RotationBin, string> = {
 /**
  * Wire shape of a `GET /library/rotation` row — Backend's `Rotation`
  * interface (`apps/backend/services/library.service.ts`), hand-mirrored
- * rather than imported from `@wxyc/shared`. The published `Rotation` DTO
- * there predates the LEFT JOIN rework that lets an unlinked rotation row
- * surface alongside a linked one, and carries a different, narrower field
- * set (`play_freq` instead of `rotation_bin`, no
- * `rotation_add_date`/`rotation_kill_date` split, no `id`/`legacy_release_id`
- * linkage pair). dj-site's pre-existing `getRotation` query works around the
- * drift by treating the response as an `AlbumSearchResultJSON` for its
- * overlapping field names and dropping the rest -- this screen needs exactly
- * the fields that drops: `rotation_id` (the row Kill/Unkill/Edit act on, not
- * `id`, which is the library row and is `null` on an unlinked release),
- * `rotation_bin`, `rotation_add_date`, `rotation_kill_date`.
+ * rather than imported from `@wxyc/shared`. The published `Rotation` carries
+ * the same fields plus `card`, `urls` and a `reconciled_identity` this row
+ * omits, but declares every property optional, including `rotation_id`,
+ * `rotation_bin` and `rotation_add_date` -- the ones this screen needs
+ * present. dj-site's pre-existing `getRotation` query works around the drift
+ * by treating the response as an `AlbumSearchResultJSON` for its overlapping
+ * field names and dropping the rest -- this screen needs exactly the fields
+ * that drops: `rotation_id` (the row Kill/Unkill/Edit act on, not `id`, which
+ * is the library row and is `null` on an unlinked release), `rotation_bin`,
+ * `rotation_add_date`, `rotation_kill_date`.
  */
 export type RotationListRow = {
   id: number | null;
@@ -70,13 +74,13 @@ export type RotationListRow = {
   plays: number | null;
   legacy_release_id: number | null;
   /**
-   * Optional, mirroring the published schema exactly (`card?` on `Rotation`
-   * in `@wxyc/shared@5.4.0`): the deployed `GET /library/rotation` now emits
-   * the key on every row, so `?` only covers an older backend that predates
-   * the join. Absent means "the server didn't say"; `null` is the positive
-   * claim "no card". The admin list's card-absent guard (`adminList.ts`,
-   * `RotationAdminList.tsx`) stays correct for that older-backend case, not
-   * because the key is still missing today.
+   * Optional, mirroring the published schema exactly (`card?` on `Rotation`):
+   * the deployed `GET /library/rotation` now emits the key on every row, so
+   * `?` only covers an older backend that predates the join. Absent means
+   * "the server didn't say"; `null` is the positive claim "no card". The
+   * admin list's card-absent guard (`adminList.ts`, `RotationAdminList.tsx`)
+   * stays correct for that older-backend case, not because the key is still
+   * missing today.
    */
   card?: RotationCard | null;
   /**
@@ -178,10 +182,10 @@ export type UpdateRotationArgs = {
  * them with `!= null`, so an explicit `null` reads as absent, and a caller
  * that means "no label" must leave the key off rather than send one.
  *
- * Still hand-declared as of `@wxyc/shared@5.4.0`: the published
- * `AddRotationRequest` still requires `album_id: number` and has not been
- * widened for this free-text path (wxyc-shared#354). Delete this type in
- * favor of the generated one once that widening ships.
+ * Still hand-declared: the published `AddRotationRequest` is
+ * `RotationCreateFields` plus a required `album_id: number`, with no
+ * free-text arm. Delete this type in favor of the generated one once that
+ * widening ships.
  */
 export type FreeTextRotationAddRequest = {
   rotation_bin: RotationBin;
@@ -203,9 +207,11 @@ export type FreeTextRotationAddRequest = {
 
 /**
  * A `GET /library/rotation/cards` row: the published card plus how many
- * active rotation rows are filed on it. The wire shape is contract-main's
- * `allOf[RotationCard, {active_count}]`, which `@wxyc/shared@5.4.0` predates
- * — swap to the generated shape with the 5.5.0 upgrade.
+ * active rotation rows are filed on it. The contract declares the cards-list
+ * item as an inline `allOf[RotationCard, {active_count}]` on the response
+ * rather than a named `components.schemas` entry, and the package only
+ * generates named types for the latter -- there is no generated shape to
+ * swap to until the contract names this one.
  */
 export type RotationCardWithCount = RotationCard & { active_count: number };
 
@@ -213,17 +219,17 @@ export type RotationCardWithCount = RotationCard & { active_count: number };
  * The typed half of a rotation-cards DELETE 409 (`{message, reason}`): the
  * server's delete guard is conjunctive — the card must be its bin's
  * highest-numbered AND hold zero active rotation rows — and the reason names
- * which half refused. A local closed type because the contract enum
- * (`RotationConflictReason`) is contract-main only and not exported by
- * `@wxyc/shared@5.4.0` — replace with the generated enum on the 5.5.0
- * upgrade. That enum's third value
+ * which half refused. Narrowed to these two values rather than the full
+ * published `RotationConflictReason`: that enum's third value
  * (`rotation_card_bin_mismatch`) belongs to the rotation add path and can
- * never arrive on a delete.
+ * never arrive on a delete. The `satisfies` clause below ties the narrowing
+ * to the published enum, so a renamed contract value is a compile error
+ * instead of a silent mismatch.
  */
 export const ROTATION_CARD_DELETE_CONFLICT_REASONS = [
   "card_not_highest_in_bin",
   "card_has_active_rotations",
-] as const;
+] as const satisfies readonly RotationConflictReason[];
 export type RotationCardDeleteConflictReason =
   (typeof ROTATION_CARD_DELETE_CONFLICT_REASONS)[number];
 

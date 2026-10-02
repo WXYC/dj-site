@@ -35,9 +35,11 @@ function listRow(overrides: Partial<RotationListRow> = {}): RotationListRow {
     rotation_kill_date: null,
     plays: 3,
     legacy_release_id: 7001,
-    // `card`/`urls` deliberately absent: the deployed GET /library/rotation
-    // omits both keys, so the factory's default row matches what every
-    // consumer actually receives today.
+    // Matches the deployed GET /library/rotation wire shape: every row
+    // carries both keys, with no card and no urls as the no-card, no-link
+    // case.
+    card: null,
+    urls: [],
     ...overrides,
   };
 }
