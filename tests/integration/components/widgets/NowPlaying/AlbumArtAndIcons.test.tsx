@@ -62,6 +62,7 @@ describe("AlbumArtAndIcons", () => {
     it("should render the artwork from entry.artwork_url", () => {
       const songEntry: FlowsheetSongEntry = {
         ...baseEntry,
+        entry_type: "track",
         track_title: "Test Track",
         artist_name: "Test Artist",
         album_title: "Test Album",
@@ -80,6 +81,7 @@ describe("AlbumArtAndIcons", () => {
     it("should fall back to the default cassette image when artwork_url is missing", () => {
       const songEntry: FlowsheetSongEntry = {
         ...baseEntry,
+        entry_type: "track",
         track_title: "Test Track",
         artist_name: "Test Artist",
         album_title: "Test Album",
@@ -97,6 +99,7 @@ describe("AlbumArtAndIcons", () => {
     it("should render aspect-ratio wrapper", () => {
       const songEntry: FlowsheetSongEntry = {
         ...baseEntry,
+        entry_type: "track",
         track_title: "Test Track",
         artist_name: "Test Artist",
         album_title: "Test Album",
@@ -116,6 +119,7 @@ describe("AlbumArtAndIcons", () => {
     it("should display Timer icon", () => {
       const breakpointEntry: FlowsheetBreakpointEntry = {
         ...baseEntry,
+        entry_type: "breakpoint",
         message: "Breakpoint: Station ID",
         day: "Monday",
         time: "10:00",
@@ -131,6 +135,7 @@ describe("AlbumArtAndIcons", () => {
     it("should display Headphones icon", () => {
       const startShowEntry: FlowsheetShowBlockEntry = {
         ...baseEntry,
+        entry_type: "show_start",
         dj_name: "DJ Cool",
         isStart: true,
         day: "Monday",
@@ -147,6 +152,7 @@ describe("AlbumArtAndIcons", () => {
     it("should display Logout icon", () => {
       const endShowEntry: FlowsheetShowBlockEntry = {
         ...baseEntry,
+        entry_type: "show_end",
         dj_name: "DJ Cool",
         isStart: false,
         day: "Monday",
@@ -163,6 +169,7 @@ describe("AlbumArtAndIcons", () => {
     it("should display Mic icon", () => {
       const talksetEntry: FlowsheetMessageEntry = {
         ...baseEntry,
+        entry_type: "talkset",
         message: "Talkset",
       };
 
@@ -176,6 +183,7 @@ describe("AlbumArtAndIcons", () => {
     it("should render aspect ratio wrapper for fallback", () => {
       const messageEntry: FlowsheetMessageEntry = {
         ...baseEntry,
+        entry_type: "message",
         message: "PSA: Community announcement",
       };
 

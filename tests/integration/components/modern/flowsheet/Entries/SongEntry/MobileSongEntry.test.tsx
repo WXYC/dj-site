@@ -52,6 +52,7 @@ const entry: FlowsheetSongEntry = {
   id: 7,
   play_order: 4,
   show_id: 100,
+  entry_type: "track",
   track_title: "la paradoja",
   artist_name: "Juana Molina",
   album_title: "DOGA",

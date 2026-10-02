@@ -38,6 +38,7 @@ const queueEntry = (overrides: Partial<FlowsheetSongEntry>): FlowsheetSongEntry 
   id: 3,
   play_order: 3,
   show_id: 7,
+  entry_type: "track",
   track_title: "la paradoja",
   artist_name: "Juana Molina",
   album_title: "DOGA",

@@ -47,6 +47,7 @@ describe("EntryText", () => {
   describe("when entry is a song entry", () => {
     const songEntry: FlowsheetSongEntry = {
       ...baseEntry,
+      entry_type: "track",
       track_title: "la paradoja",
       artist_name: "Juana Molina",
       album_title: "DOGA",
@@ -82,6 +83,7 @@ describe("EntryText", () => {
     it("should display breakpoint message with warning color", () => {
       const breakpointEntry: FlowsheetBreakpointEntry = {
         ...baseEntry,
+        entry_type: "breakpoint",
         message: "Breakpoint: Station ID",
         day: "Monday",
         time: "10:00",
@@ -97,6 +99,7 @@ describe("EntryText", () => {
     it("should display DJ name and 'started the set' message", () => {
       const startShowEntry: FlowsheetShowBlockEntry = {
         ...baseEntry,
+        entry_type: "show_start",
         dj_name: "DJ Cool",
         isStart: true,
         day: "Monday",
@@ -114,6 +117,7 @@ describe("EntryText", () => {
     it("should display DJ name and 'ended the set' message", () => {
       const endShowEntry: FlowsheetShowBlockEntry = {
         ...baseEntry,
+        entry_type: "show_end",
         dj_name: "DJ Cool",
         isStart: false,
         day: "Monday",
@@ -131,6 +135,7 @@ describe("EntryText", () => {
     it("should display 'Talkset' with danger color", () => {
       const talksetEntry: FlowsheetMessageEntry = {
         ...baseEntry,
+        entry_type: "talkset",
         message: "Talkset",
       };
 
@@ -144,6 +149,7 @@ describe("EntryText", () => {
     it("should display the message", () => {
       const messageEntry: FlowsheetMessageEntry = {
         ...baseEntry,
+        entry_type: "message",
         message: "PSA: Community announcement",
       };
 

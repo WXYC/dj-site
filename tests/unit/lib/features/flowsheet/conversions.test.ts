@@ -897,6 +897,23 @@ describe("flowsheet conversions", () => {
         expect(result.dj_name).toBe("");
         expect(result.isStart).toBe(true);
       });
+
+      it.each([
+        ["track", createTestV2TrackEntry()],
+        ["show_start", createTestV2ShowStartEntry()],
+        ["show_end", createTestV2ShowEndEntry()],
+        ["dj_join", createTestV2DJJoinEntry()],
+        ["dj_leave", createTestV2DJLeaveEntry()],
+        ["talkset", createTestV2TalksetEntry()],
+        ["breakpoint", createTestV2BreakpointEntry()],
+        ["message", createTestV2MessageEntry()],
+      ] as const)(
+        "carries the wire entry_type %s through onto the converted entry",
+        (entryType, wireEntry) => {
+          const result = convertV2Entry(wireEntry);
+          expect(result.entry_type).toBe(entryType);
+        }
+      );
     });
 
     describe("convertV2FlowsheetResponse", () => {
@@ -1283,6 +1300,16 @@ describe("flowsheet conversions", () => {
       expect(converted.message).toBe("Fund drive pitch");
     });
 
+    it("sets entry_type to track when the wire row carries none at all", () => {
+      // A row with no type is off-contract and renders as a track; the
+      // converted row's required field must not carry `undefined`.
+      const converted = convertRangeEntry(
+        rangeEntry({ id: 14, entry_type: undefined })
+      ) as FlowsheetSongEntry;
+
+      expect(converted.entry_type).toBe("track");
+    });
+
     it("maps an unattributed entry's null show_id onto the no-show sentinel", () => {
       // 0 collides with a real show id and would mis-partition these rows.
       expect(convertRangeEntry(rangeEntry({ id: 10, show_id: null })).show_id).toBe(
@@ -1304,14 +1331,38 @@ describe("flowsheet conversions", () => {
       expect(converted.message).toBe("Underwriting credit");
     });
 
-    it("covers every entry type the contract declares", () => {
+    it("covers every entry type the contract declares, carrying each through onto the converted row", () => {
       // Sourced from the contract enum, not from sampled data: dj_join and
       // dj_leave are rare enough that a sampled day holds none.
       for (const entry_type of Object.values(FlowsheetEntryType)) {
-        expect(() =>
-          convertRangeEntry(rangeEntry({ id: 12, entry_type }))
-        ).not.toThrow();
+        const converted = convertRangeEntry(rangeEntry({ id: 12, entry_type }));
+        expect(converted.entry_type).toBe(entry_type);
       }
+    });
+
+    it("carries an entry_type this build has never seen through unchanged, rather than re-inferring one", () => {
+      const converted = convertRangeEntry(
+        rangeEntry({
+          id: 13,
+          entry_type: "underwriting" as (typeof FlowsheetEntryType)[keyof typeof FlowsheetEntryType],
+          message: "Underwriting credit",
+        })
+      );
+
+      expect(converted.entry_type).toBe("underwriting");
+    });
+
+    it("carries an unknown entry_type through on a row it renders as a track", () => {
+      const converted = convertRangeEntry(
+        rangeEntry({
+          id: 15,
+          entry_type: "underwriting" as (typeof FlowsheetEntryType)[keyof typeof FlowsheetEntryType],
+          track_title: "la paradoja",
+        })
+      );
+
+      expect("track_title" in converted).toBe(true);
+      expect(converted.entry_type).toBe("underwriting");
     });
   });
 });

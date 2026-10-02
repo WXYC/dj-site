@@ -75,6 +75,27 @@ describe("queue-storage (Bug 33)", () => {
       localStorage.setItem(QUEUE_STORAGE_KEY, JSON.stringify(data));
       expect(loadQueueFromStorage()).toEqual([]);
     });
+
+    it("defaults entry_type to track on a row persisted before the field existed", () => {
+      const legacyRow: Record<string, unknown> = createTestFlowsheetEntry({ id: 20 });
+      delete legacyRow.entry_type;
+      localStorage.setItem(QUEUE_STORAGE_KEY, JSON.stringify([legacyRow]));
+
+      const result = loadQueueFromStorage();
+      expect(result).toHaveLength(1);
+      expect(result[0].entry_type).toBe("track");
+    });
+
+    it("overwrites a stored row's own entry_type with track, since queue rows never come from the server", () => {
+      // A corrupted or hand-edited row could carry anything in storage; the
+      // loader must not trust it, because every queued row is a song.
+      const corruptRow: Record<string, unknown> = createTestFlowsheetEntry({ id: 21 });
+      corruptRow.entry_type = "garbage";
+      localStorage.setItem(QUEUE_STORAGE_KEY, JSON.stringify([corruptRow]));
+
+      const result = loadQueueFromStorage();
+      expect(result[0].entry_type).toBe("track");
+    });
   });
 
   describe("saveQueueToStorage", () => {

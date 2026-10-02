@@ -227,6 +227,7 @@ export function convertV2Entry(entry: FlowsheetV2EntryJSON): FlowsheetEntry {
     // derive from it: the go-live handoff prompt needs an elapsed time, and a
     // display string cannot be subtracted.
     add_time: entry.add_time,
+    entry_type: entry.entry_type,
   };
 
   switch (entry.entry_type) {
@@ -512,6 +513,10 @@ export function convertRangeEntry(entry: FlowsheetRangeEntryWire): FlowsheetEntr
     // id and would mis-partition unattributed entries into it.
     show_id: entry.show_id ?? -1,
     add_time: entry.add_time,
+    // Carried through unchanged, including for an entry_type this switch's
+    // default arm has never seen -- the backend is the sole authority on
+    // what a legacy row's type is, so the client doesn't get to re-infer one.
+    entry_type: entry.entry_type,
   };
 
   const asTrack = (): FlowsheetSongEntry => ({
@@ -544,9 +549,12 @@ export function convertRangeEntry(entry: FlowsheetRangeEntryWire): FlowsheetEntr
   });
 
   switch (entry.entry_type) {
+    // The wire type declares entry_type required, so a row without one is
+    // off-contract. It renders as a track, and the converted row's required
+    // field must not carry `undefined`.
     case undefined:
     case "track":
-      return asTrack();
+      return { ...asTrack(), entry_type: "track" };
 
     case "show_start":
     case "dj_join":

@@ -13,6 +13,7 @@ const base = { id: 1, play_order: 1, show_id: 1 };
 
 const songEntry: FlowsheetEntry = {
   ...base,
+  entry_type: "track",
   track_title: "VI Scose Poise",
   artist_name: "Autechre",
   album_title: "Confield",
@@ -22,6 +23,7 @@ const songEntry: FlowsheetEntry = {
 
 const startShowEntry: FlowsheetEntry = {
   ...base,
+  entry_type: "show_start",
   dj_name: "DJ Bluejay",
   isStart: true,
   day: "4/4/2026",
@@ -30,6 +32,7 @@ const startShowEntry: FlowsheetEntry = {
 
 const endShowEntry: FlowsheetEntry = {
   ...base,
+  entry_type: "show_end",
   dj_name: "DJ Bluejay",
   isStart: false,
   day: "4/4/2026",
@@ -38,11 +41,13 @@ const endShowEntry: FlowsheetEntry = {
 
 const talksetEntry: FlowsheetEntry = {
   ...base,
+  entry_type: "talkset",
   message: "------ Talkset -------",
 };
 
 const breakpointEntry: FlowsheetEntry = {
   ...base,
+  entry_type: "breakpoint",
   message: "--- 9:00 PM Breakpoint ---",
   day: "4/4/2026",
   time: "9:00:00 PM",
@@ -50,11 +55,13 @@ const breakpointEntry: FlowsheetEntry = {
 
 const undefinedMessageEntry: FlowsheetEntry = {
   ...base,
+  entry_type: "message",
   message: undefined as unknown as string,
 };
 
 const nullMessageEntry: FlowsheetEntry = {
   ...base,
+  entry_type: "message",
   message: null as unknown as string,
 };
 

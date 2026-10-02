@@ -16,6 +16,7 @@ const mockSongEntry = {
   id: 1,
   play_order: 0,
   show_id: 1,
+  entry_type: "track" as const,
   track_title: "Test Song",
   artist_name: "Test Artist",
   album_title: "Test Album",
@@ -28,7 +29,8 @@ const mockBreakpointEntry = {
   id: 2,
   play_order: 1,
   show_id: 1,
-  message: "Station ID",
+  entry_type: "breakpoint" as const,
+  message: "Breakpoint",
 };
 
 describe("RemoveButton", () => {

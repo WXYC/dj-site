@@ -72,6 +72,7 @@ function makeSongEntry(overrides: Partial<FlowsheetSongEntry> = {}): FlowsheetSo
     id: 9001,
     play_order: 1,
     show_id: 7000,
+    entry_type: "track",
     track_title: "la paradoja",
     artist_name: "Juana Molina",
     album_title: "DOGA",
@@ -378,6 +379,7 @@ describe("live-updates listener middleware", () => {
         type: "update",
         payload: createTestInsertWirePayload({
           id: 9001,
+          entry_type: "breakpoint",
           record_label: null,
           show_id: null,
           rotation_bin: "H",
@@ -395,12 +397,16 @@ describe("live-updates listener middleware", () => {
       record_label: "Sonamos",
       show_id: 7000,
       artwork_url: "https://cdn.example/artwork.jpg",
+      // WIRE_ONLY_UPDATE_KEYS drops the update payload's entry_type, so the
+      // row keeps the value its own conversion produced (SEED_WIRE_ROW's
+      // "track") even though this payload claims "breakpoint" — a row's
+      // type is fixed at conversion time, and an update frame must never
+      // reclassify an already-cached row.
+      entry_type: "track",
     });
-    // Wire-only keys must not graft onto the converted cache row —
     // rotation_bin in particular maps to the converted `rotation` key, so a
     // raw merge would write a field the badge never reads.
     const patched = after?.pages?.[0]?.[0] as Record<string, unknown>;
-    expect("entry_type" in patched).toBe(false);
     expect("metadata_status" in patched).toBe(false);
     expect("rotation_bin" in patched).toBe(false);
     // `add_time` is not a wire-only key: the conversion carries it onto every
@@ -674,10 +680,11 @@ describe("live-updates listener middleware", () => {
       artist_name: "Jessica Pratt",
       record_label: "", // converted, never the literal null / "null"
       show_id: -1, // convertV2Entry's orphan sentinel, not raw null
+      // convertV2Entry's own entry_type field, copied from the wire row --
+      // not a graft from the raw payload (metadata_status is, and must not
+      // appear at all).
+      entry_type: "track",
     });
-    // Internal wire keys must not graft onto the typed cache row. `add_time`
-    // is not one of them — the conversion carries it deliberately.
-    expect("entry_type" in inserted).toBe(false);
     expect("metadata_status" in inserted).toBe(false);
     expect("add_time" in inserted).toBe(true);
 
@@ -755,6 +762,7 @@ describe("live-updates listener middleware", () => {
             id: -777,
             play_order: 2,
             show_id: 7000,
+            entry_type: "track",
             track_title: "Back, Baby",
             artist_name: "Jessica Pratt",
             album_title: "On Your Own Love Again",

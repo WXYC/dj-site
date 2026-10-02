@@ -211,13 +211,21 @@ export function createLiveUpdatesListenerMiddleware(
   }
 
   /**
-   * Keys that exist only on the wire row, or that map to a DIFFERENT key in
-   * the converted shape. Grafting them onto a cached converted row would
-   * fork the cache's shape by event history (the insert path's conversion
-   * invariant is that none of these ever appear on a cached entry), and
-   * `rotation_bin` specifically converts to the `rotation` key — a raw merge
-   * would write a field the badge never reads while the real badge field
-   * silently stays stale.
+   * Keys that must never be merged from an update payload onto a cached
+   * converted row. Most are structural: a key that exists only on the wire
+   * row would fork the cache's shape by event history (the insert path's
+   * conversion invariant is that these never appear on a cached entry), and
+   * `rotation_bin` specifically converts to a DIFFERENT key, `rotation` — a
+   * raw merge would write a field the badge never reads while the real badge
+   * field silently stays stale.
+   *
+   * `entry_type` is excluded for a different reason: it IS on every cached
+   * entry, under the same name and the same value, so merging it would
+   * usually be a no-op. It stays excluded anyway because a row's type is
+   * fixed once, at the conversion that first produced it, and an `update`
+   * frame carries evidence about a row that already exists — it must never
+   * be the thing that reclassifies one. Dropping the key is what keeps that
+   * true regardless of what a given update payload happens to claim.
    *
    * `add_time` is deliberately NOT here: the conversion now carries it onto
    * every entry under the same name and the same ISO value, so merging it

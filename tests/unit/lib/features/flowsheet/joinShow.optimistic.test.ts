@@ -127,7 +127,11 @@ describe("joinShow optimistic patch", () => {
     );
     // The only current-show entry is the optimistic show-start marker.
     expect(current).toHaveLength(1);
-    expect(current[0]).toMatchObject({ isStart: true, dj_name: "Test DJ" });
+    expect(current[0]).toMatchObject({
+      isStart: true,
+      dj_name: "Test DJ",
+      entry_type: "show_start",
+    });
 
     await promise;
   });
@@ -233,6 +237,7 @@ describe("joinShow optimistic patch", () => {
     expect(selectNowPlayingCache(store)).toMatchObject({
       isStart: true,
       dj_name: "Test DJ",
+      entry_type: "show_start",
     });
 
     await promise;
@@ -264,6 +269,47 @@ describe("joinShow optimistic patch", () => {
     expect(selectNowPlayingCache(store)).toEqual(before);
   });
 
+  it("uses dj_join for the optimistic marker when the DJ has confirmed a co-host join", async () => {
+    const store = await seedStore();
+
+    const promise = store.dispatch(
+      flowsheetApi.endpoints.joinShow.initiate({
+        dj_id: "test-user-1",
+        dj_name: "Test DJ",
+        intent: "join",
+      })
+    );
+
+    expect(selectNowPlayingCache(store)).toMatchObject({
+      isStart: true,
+      dj_name: "Test DJ",
+      entry_type: "dj_join",
+    });
+
+    await promise;
+  });
+
+  it("still uses show_start for the optimistic marker on a takeover, which ends the open show rather than joining it", async () => {
+    const store = await seedStore();
+
+    const promise = store.dispatch(
+      flowsheetApi.endpoints.joinShow.initiate({
+        dj_id: "test-user-1",
+        dj_name: "Test DJ",
+        intent: "takeover",
+        expected_show_id: 1951224,
+      })
+    );
+
+    expect(selectNowPlayingCache(store)).toMatchObject({
+      isStart: true,
+      dj_name: "Test DJ",
+      entry_type: "show_start",
+    });
+
+    await promise;
+  });
+
   it("flips the Now Playing card to the show-end state carrying the departing DJ's name", async () => {
     const store = await seedStore([{ id: "test-user-1", dj_name: "Test DJ" }]);
 
@@ -274,6 +320,7 @@ describe("joinShow optimistic patch", () => {
     expect(selectNowPlayingCache(store)).toMatchObject({
       isStart: false,
       dj_name: "Test DJ",
+      entry_type: "show_end",
     });
 
     await promise;

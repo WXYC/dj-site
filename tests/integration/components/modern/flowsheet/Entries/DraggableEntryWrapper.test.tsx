@@ -82,6 +82,7 @@ describe("DraggableEntryWrapper", () => {
     record_label: "Sonamos",
     request_flag: false,
     segue: false,
+    entry_type: "track",
   };
 
   const mockMessageEntry: FlowsheetMessageEntry = {
@@ -89,6 +90,7 @@ describe("DraggableEntryWrapper", () => {
     play_order: 1,
     show_id: 100,
     message: "Talkset",
+    entry_type: "talkset",
   };
 
   const mockDragControls: DragControls = {

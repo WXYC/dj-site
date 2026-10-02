@@ -438,6 +438,7 @@ describeSlice(flowsheetSlice, defaultFlowsheetFrontendState, ({ harness, actions
       expect(result.queue[0].record_label).toBe(query.label);
       expect(result.queue[0].request_flag).toBe(query.request);
       expect(result.queue[0].show_id).toBe(-1);
+      expect(result.queue[0].entry_type).toBe("track");
       expect(result.queueIdCounter).toBe(1);
     });
 

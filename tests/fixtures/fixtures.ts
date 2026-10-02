@@ -243,6 +243,7 @@ export function createTestFlowsheetEntry(
     album_id: TEST_ENTITY_IDS.ALBUM.ROCK_ALBUM,
     rotation_id: undefined,
     rotation: undefined,
+    entry_type: "track",
     ...overrides,
   };
 }

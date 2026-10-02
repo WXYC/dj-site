@@ -101,6 +101,7 @@ export function buildOptimisticEntry(
       play_order,
       show_id,
       message: arg.message,
+      entry_type: arg.entry_type,
     };
     // isFlowsheetBreakpointEntry keys on the message text alone, so this row
     // reaches Classic's breakpoint branch — which reads entry.time — before
@@ -140,6 +141,7 @@ export function buildOptimisticEntry(
       album_id: arg.album_id,
       rotation_id: arg.rotation_id,
       rotation: arg.rotation_bin,
+      entry_type: "track",
     };
     return { entry, tempId };
   }
@@ -156,6 +158,7 @@ export function buildOptimisticEntry(
     record_label: arg.record_label ?? "",
     request_flag: arg.request_flag,
     segue: arg.segue,
+    entry_type: "track",
   };
   return { entry, tempId };
 }

@@ -7,6 +7,13 @@ afterEach(() => {
 });
 
 describe("rangeEntryTime", () => {
+  it("does not accept a row with no entry_type", () => {
+    expect(
+      // @ts-expect-error entry_type is required: a row without one must not compile
+      rangeEntryTime({ add_time: "2026-01-15T20:01:00Z" })
+    ).toBe("3:01 PM");
+  });
+
   it("shows the marked hour for a breakpoint with radio_hour", () => {
     expect(
       rangeEntryTime({

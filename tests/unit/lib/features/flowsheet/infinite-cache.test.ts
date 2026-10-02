@@ -38,6 +38,7 @@ function song(
     id,
     play_order,
     show_id,
+    entry_type: "track",
     track_title: `t${id}`,
     artist_name: "a",
     album_title: "al",
@@ -405,6 +406,25 @@ describe("infinite-cache", () => {
     expect(tempId).toBeLessThan(0);
     expect(entry.play_order).toBe(11);
     expect("track_title" in entry && entry.track_title).toBe("X");
+    expect(entry.entry_type).toBe("track");
+  });
+
+  it("buildOptimisticEntry sets entry_type to track on the catalog (album_id) branch", () => {
+    const draft = { pages: [[song(1, 10, 7)]], pageParams: [0] };
+    const { entry } = buildOptimisticEntry(
+      { album_id: 42, track_title: "X", request_flag: false },
+      draft
+    );
+    expect(entry.entry_type).toBe("track");
+  });
+
+  it("buildOptimisticEntry takes the message's own entry_type on the message branch, not the message text", () => {
+    const draft = { pages: [[song(1, 10, 7)]], pageParams: [0] };
+    const { entry } = buildOptimisticEntry(
+      { message: "Talkset", entry_type: "message" },
+      draft
+    );
+    expect(entry.entry_type).toBe("message");
   });
 
   it("buildOptimisticEntry carries `segue` through the freeform (no album_id) branch", () => {
@@ -506,7 +526,7 @@ describe("infinite-cache", () => {
     it("builds a talkset message with no day/time (a talkset has no timestamp to show)", () => {
       const draft = { pages: [[song(1, 10, 7)]], pageParams: [0] };
       const { entry } = buildOptimisticEntry(
-        { message: "Talkset - station ID" },
+        { message: "Talkset - station ID", entry_type: "talkset" },
         draft
       );
       expect("message" in entry && entry.message).toBe("Talkset - station ID");
@@ -524,10 +544,11 @@ describe("infinite-cache", () => {
       vi.setSystemTime(new Date("2026-07-17T03:15:30Z")); // 11:15:30 PM EDT on 7/16
       const draft = { pages: [[song(1, 10, 7)]], pageParams: [0] };
       const { entry } = buildOptimisticEntry(
-        { message: "11:00 PM Breakpoint" },
+        { message: "11:00 PM Breakpoint", entry_type: "breakpoint" },
         draft
       );
       expect(isFlowsheetBreakpointEntry(entry)).toBe(true);
+      expect(entry.entry_type).toBe("breakpoint");
       expect("day" in entry && entry.day).toBe("7/16/2026");
       expect("time" in entry && entry.time).toBe("11:00:00 PM");
       expect("isToday" in entry && entry.isToday).toBe(true);
@@ -544,7 +565,7 @@ describe("infinite-cache", () => {
       vi.setSystemTime(new Date("2026-08-23T03:59:12Z")); // 11:59:12 PM EDT on 8/22
       const draft = { pages: [[song(1, 10, 7)]], pageParams: [0] };
       const { entry } = buildOptimisticEntry(
-        { message: stationBreakpointMessage() },
+        { message: stationBreakpointMessage(), entry_type: "breakpoint" },
         draft
       );
 
@@ -575,7 +596,7 @@ describe("infinite-cache", () => {
       vi.setSystemTime(new Date("2026-07-17T03:15:30Z")); // 11:15:30 PM EDT
       const draft = { pages: [[song(1, 10, 7)]], pageParams: [0] };
       const { entry } = buildOptimisticEntry(
-        { message: "11:00 PM Breakpoint" },
+        { message: "11:00 PM Breakpoint", entry_type: "breakpoint" },
         draft
       );
 
