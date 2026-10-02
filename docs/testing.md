@@ -77,6 +77,7 @@ All factories accept a `Partial<T>` overrides argument:
 | `createTestBinQueryResponse(overrides?)` | `BinQueryResponse` | Bin entry |
 | `createTestOnAirDJResponse(overrides?)` | On-air DJ object | `{ id, dj_name }` |
 | `createTestInsertWirePayload(overrides?)` | `InsertWirePayload` | Raw SSE `LiveFsInsertEvent` row (nullable-widened `FlowsheetEntryResponse`) |
+| `createTestRotationListRow(overrides?)` | `RotationListRow` | Deployed `GET /library/rotation` wire shape — every declared field present, `card: null`, `urls: []`, a Stereolab row |
 
 List factories: `createTestAlbumList(count?)`, `createTestFlowsheetEntryList(count?)`
 
