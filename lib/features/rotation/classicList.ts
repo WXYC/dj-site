@@ -1,15 +1,13 @@
-import { formatLongCalendarDate } from "@/src/utilities/stationTime";
+import { formatLongCalendarDate, utcDateISO } from "@/src/utilities/stationTime";
 import { hasLinkedAlbumId } from "../flowsheet/linkage";
 import type { RotationBin, RotationListRow, RotationRowSummary } from "./types";
 
 /**
- * The viewer's local calendar day as `YYYY-MM-DD`. Deliberately local, not
- * UTC: `rotation.kill_date`/`rotation.add_date` are plain SQL `date` columns
- * with no time component, and the station's DJs and the database both live
- * in Eastern time -- comparing against a UTC "today" would misclassify a row
- * killed earlier today as still-active for however many hours UTC runs
- * ahead of the viewer's evening (the same trap `rotationApi`'s
- * `killRotationEntry` comment documents for the write side).
+ * The viewer's local calendar day as `YYYY-MM-DD`, for the recent-dates
+ * pickers below where a librarian wants to pick from their own evening, not
+ * the server's day. Not for comparing against a server-stamped column --
+ * `isRotationRowActive` below uses `utcDateISO` for that, since the
+ * database's own day is the UTC day, not the viewer's.
  */
 function localTodayISO(now: Date): string {
   const year = now.getFullYear();
@@ -92,6 +90,11 @@ export function killDateOptions(
  * string has no timezone to get wrong, and lexicographic comparison of two
  * zero-padded ISO dates is exactly calendar-day comparison.
  *
+ * Compares against `utcDateISO`, not `localTodayISO`: `CURRENT_DATE` is read
+ * in the database's own session, which runs in UTC, so a viewer west of UTC
+ * mirroring the predicate against their own calendar day disagrees with the
+ * server for however many hours UTC runs ahead of their evening.
+ *
  * Absent and null both mean never killed. The published rotation contract
  * declares its nullable columns optional, so a row arrives carrying either.
  */
@@ -100,7 +103,7 @@ export function isRotationRowActive(
   now: Date = new Date(),
 ): boolean {
   if (killDate == null) return true;
-  return killDate > localTodayISO(now);
+  return killDate > utcDateISO(now);
 }
 
 /**

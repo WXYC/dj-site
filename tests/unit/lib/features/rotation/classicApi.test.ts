@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, onTestFinished } from "vitest";
 import { configureStore } from "@reduxjs/toolkit";
 import { http, HttpResponse } from "msw";
 import { rotationApi } from "@/lib/features/rotation/api";
@@ -6,6 +6,7 @@ import { rtkQueryErrorLogger } from "@/lib/rtk-query-error-logger";
 import { TEST_BACKEND_URL } from "@/tests/helpers/constants";
 import { server } from "@/tests/fakes/server";
 import { describeApi } from "@/tests/helpers/api-harness";
+import { stubProcessTimeZone } from "@/tests/helpers/time.vitest";
 
 vi.mock("@/lib/features/authentication/client", () => ({
   getJWTToken: vi.fn().mockResolvedValue("test-token"),
@@ -362,6 +363,44 @@ describe("rotationApi — classic list + free-text add additions", () => {
       expect(patchCatalogSearchRotation).toHaveBeenCalledWith(expect.anything(), expect.anything(), 42, {
         rotation_bin: "M",
         rotation_id: 5001,
+      });
+    });
+
+    // The handler calls `isRotationRowActive(data.kill_date)` with no `now`,
+    // so this case has to move the real clock, not just pass one in. Stub
+    // the zone first, then fake `Date` alone -- MSW and RTK Query's own
+    // timers keep running -- and restore the fake clock, since the zone
+    // helper only restores `TZ`.
+    it("clears the catalog badge for a kill date that has arrived in UTC, even while it's still evening for the viewer", async () => {
+      patchCatalogSearchRotation.mockClear();
+      stubProcessTimeZone("America/New_York");
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date("2026-09-25T00:30:00.000Z"));
+      onTestFinished(() => {
+        vi.useRealTimers();
+      });
+
+      server.use(
+        http.patch(`${BASE}/:id`, () =>
+          HttpResponse.json({
+            id: 5001,
+            album_id: 42,
+            rotation_bin: "M",
+            add_date: "2026-08-01",
+            kill_date: "2026-09-25",
+          }),
+        ),
+      );
+
+      const store = rotationStore();
+      await store.dispatch(
+        rotationApi.endpoints.updateRotationRow.initiate({ rotation_id: 5001, kill_date: "2026-09-25" }),
+      );
+
+      expect(patchCatalogSearchRotation).toHaveBeenCalledWith(expect.anything(), expect.anything(), 42, {
+        rotation_bin: undefined,
+        rotation_id: undefined,
+        card: null,
       });
     });
 

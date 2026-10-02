@@ -69,6 +69,23 @@ describe("isRotationRowActive", () => {
   });
 });
 
+describe("isRotationRowActive — compares against the UTC day, not the viewer's", () => {
+  // 2026-09-25T00:30:00Z is 20:30 EDT on the 24th: the viewer's local day and
+  // the UTC day disagree. The runner's own zone is UTC, where the two days
+  // never diverge, so the Eastern case below is the one that can actually
+  // fail against the unfixed function.
+  const INSTANT = new Date("2026-09-25T00:30:00.000Z");
+
+  it("treats a row killed this UTC day as not active under the pinned UTC zone", () => {
+    expect(isRotationRowActive("2026-09-25", INSTANT)).toBe(false);
+  });
+
+  it("treats the same row as not active under the viewer's Eastern evening", () => {
+    stubProcessTimeZone("America/New_York");
+    expect(isRotationRowActive("2026-09-25", INSTANT)).toBe(false);
+  });
+});
+
 describe("formatRotationDate", () => {
   it("formats an ISO date as MM/DD/YY, matching DateTimeManager.getLongDateAsMMDDYY", () => {
     expect(formatRotationDate("2026-08-01")).toBe("08/01/26");
@@ -157,6 +174,15 @@ describe("toDisplayRowFromList", () => {
     const row = toDisplayRowFromList(listRow({ rotation_id: 5001, id: 42 }), NOW);
     expect(row.rotationId).toBe(5001);
   });
+
+  it("reports a row killed this UTC day as not active under the viewer's Eastern evening", () => {
+    stubProcessTimeZone("America/New_York");
+    const row = toDisplayRowFromList(
+      listRow({ rotation_kill_date: "2026-09-25" }),
+      new Date("2026-09-25T00:30:00.000Z"),
+    );
+    expect(row.active).toBe(false);
+  });
 });
 
 describe("toDisplayRowFromUncatalogued", () => {
@@ -193,6 +219,16 @@ describe("toDisplayRowFromUncatalogued", () => {
     { label: "no formats list at all", row: { format_id: 3 }, formats: undefined },
   ])("renders an em dash for $label rather than a bare id", ({ row, formats }) => {
     expect(toDisplayRowFromUncatalogued(uncataloguedRow(row), formats, NOW).formatName).toBe("\u2014");
+  });
+
+  it("reports a row killed this UTC day as not active under the viewer's Eastern evening", () => {
+    stubProcessTimeZone("America/New_York");
+    const row = toDisplayRowFromUncatalogued(
+      uncataloguedRow({ kill_date: "2026-09-25" }),
+      undefined,
+      new Date("2026-09-25T00:30:00.000Z"),
+    );
+    expect(row.active).toBe(false);
   });
 });
 

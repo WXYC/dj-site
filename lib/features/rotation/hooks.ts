@@ -60,8 +60,8 @@ export function useRotationRowActions() {
     }
   };
 
-  // No kill_date on the kill: the server stamps CURRENT_DATE in the
-  // database's own timezone, avoiding the browser's UTC-tomorrow problem.
+  // No kill_date on the kill: the server stamps CURRENT_DATE itself, one
+  // write with no client/server clock skew.
   const kill = (rotationId: number) =>
     withPending(rotationId, () => killRotationEntry({ rotation_id: rotationId }).unwrap(), "kill");
 
