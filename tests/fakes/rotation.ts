@@ -1,10 +1,30 @@
-import { expect } from "vitest";
-import { waitFor } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { server } from "./server";
 import { TEST_BACKEND_URL as BACKEND_URL } from "../helpers/constants";
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * A count a spec can await: `reached(n)` resolves once `bump()` has run `n`
+ * times, at once if it already has. The gates below are built on it rather
+ * than on a polling wait, so this module imports no testing library and the
+ * node tier can load it.
+ */
+function awaitableCount() {
+  let count = 0;
+  const waiters: { n: number; resolve: () => void }[] = [];
+  return {
+    bump: () => {
+      count += 1;
+      waiters.filter((waiter) => waiter.n <= count).forEach((waiter) => waiter.resolve());
+    },
+    reached: (n: number) =>
+      new Promise<void>((resolve) => {
+        if (count >= n) resolve();
+        else waiters.push({ n, resolve });
+      }),
+  };
+}
 
 export type FakeRotationRow = {
   id: number;
@@ -243,6 +263,15 @@ export type FakeRotationAdminRow = {
  * this fake's own PATCH arm and silently stop `updateBodies()` recording.
  * Off by default: every other consumer of this fake expects an immediate
  * PATCH response.
+ *
+ * `holdActiveListReads` does the same for the `status=active` list read, the
+ * one a batch save refetches when it settles: from that call on, each such
+ * read waits for `releaseActiveListReads`, so a spec can look at what a
+ * consumer shows between a save's last write and that refetch landing.
+ * Reads of any other status are never held.
+ *
+ * Both releases return plain promises and wait on nothing but the request
+ * itself. A spec rendering React awaits them inside `act`.
  */
 export function fakeRotationAdminEndpoints(
   initialRows: FakeRotationAdminRow[],
@@ -268,7 +297,12 @@ export function fakeRotationAdminEndpoints(
   const killBodies: unknown[] = [];
   const updates: { id: number; body: Record<string, unknown> }[] = [];
   const cardMoveResolvers = new Map<number, () => void>();
+  const cardMoveRequests = new Map<number, ReturnType<typeof awaitableCount>>();
   const cardMoveReleased = new Map<number, number>();
+  let holdingActiveList = false;
+  const heldActiveListReads: (() => void)[] = [];
+  const activeListHolds = awaitableCount();
+  let activeListHoldsReleased = 0;
   const cardMoveRefusals = new Map<number, number>();
   // One sequence across the two write arms: add-before-kill is the bin
   // move's safety property, and per-arm logs cannot express it.
@@ -278,15 +312,29 @@ export function fakeRotationAdminEndpoints(
   const isActive = (row: FakeRotationAdminRow) =>
     row.rotation_kill_date == null || row.rotation_kill_date > today;
 
+  const requestsFor = (id: number) => {
+    const requests = cardMoveRequests.get(id) ?? awaitableCount();
+    cardMoveRequests.set(id, requests);
+    return requests;
+  };
+
   const newestCard = (bin: string) =>
     cards
       .filter((card) => card.bin === bin)
       .sort((left, right) => right.number - left.number || right.id - left.id)[0] ?? null;
 
   server.use(
-    http.get(`${BACKEND_URL}/library/rotation`, ({ request }) => {
+    http.get(`${BACKEND_URL}/library/rotation`, async ({ request }) => {
       const status = new URL(request.url).searchParams.get("status");
       listStatuses.push(status);
+      if (status === "active" && holdingActiveList) {
+        // Held before the rows are read, so the answer is the list as it
+        // stands at the release.
+        await new Promise<void>((resolve) => {
+          heldActiveListReads.push(resolve);
+          activeListHolds.bump();
+        });
+      }
       const filtered =
         status === "active"
           ? rows.filter(isActive)
@@ -390,9 +438,13 @@ export function fakeRotationAdminEndpoints(
       const id = Number(params.id);
       const body = (await request.json()) as Record<string, unknown>;
       updates.push({ id, body });
-      if (gateCardMoves) {
-        await new Promise<void>((resolve) => cardMoveResolvers.set(id, resolve));
-      }
+      // The resolver is registered before the request is announced, so a
+      // release woken by the announcement always finds this request's own.
+      const held = gateCardMoves
+        ? new Promise<void>((resolve) => cardMoveResolvers.set(id, resolve))
+        : undefined;
+      requestsFor(id).bump();
+      await held;
       const refusedStatus = cardMoveRefusals.get(id);
       if (refusedStatus !== undefined) {
         return HttpResponse.json({ message: "refused" }, { status: refusedStatus });
@@ -429,21 +481,36 @@ export function fakeRotationAdminEndpoints(
     /** Every add/kill write this fake saw, in the order it saw them. */
     callOrder: () => [...calls],
     /**
-     * Releases the `id`th-held PATCH `/:id` once it has actually landed,
-     * rather than the first registered resolver -- a retry re-requests an id
-     * an earlier save already sent, and releasing on that earlier request
-     * would call a resolver that already settled and leave the retry's own
-     * request gated for good.
+     * Releases the next held `PATCH /:id` for `id` -- its nth request, where
+     * n - 1 have been released already -- waiting until that request has
+     * been made. Counted per id rather than taking whichever resolver is
+     * registered: a retry re-requests an id an earlier save already sent,
+     * and releasing on that earlier request would call a resolver that had
+     * already settled and leave the retry's own request held for good.
      */
     releaseCardMoveOnceRequested: async (id: number) => {
       const nth = (cardMoveReleased.get(id) ?? 0) + 1;
-      await waitFor(() => expect(updates.filter((update) => update.id === id)).toHaveLength(nth));
+      await requestsFor(id).reached(nth);
       cardMoveReleased.set(id, nth);
       cardMoveResolvers.get(id)?.();
     },
     failCardMove: (ids: number[], status = 500) => {
       cardMoveRefusals.clear();
       ids.forEach((id) => cardMoveRefusals.set(id, status));
+    },
+    /** Holds every `status=active` list read made from here on. */
+    holdActiveListReads: () => {
+      holdingActiveList = true;
+    },
+    /**
+     * Stops holding and lets every held `status=active` read through,
+     * waiting first until one this call has not already released is held.
+     */
+    releaseActiveListReads: async () => {
+      await activeListHolds.reached(activeListHoldsReleased + 1);
+      holdingActiveList = false;
+      activeListHoldsReleased += heldActiveListReads.length;
+      heldActiveListReads.splice(0).forEach((release) => release());
     },
   };
 }

@@ -129,6 +129,22 @@ describe("node project stays free of @testing-library/react", () => {
   });
 });
 
+// A node-tier spec reaches tests/fakes/ by deep path, and the scan above reads
+// only each spec's own specifiers -- a fake importing RTL would load it into
+// the node project with nothing there failing.
+const FAKES_DIR = "tests/fakes";
+const fakeFiles = readdirSync(resolve(ROOT, FAKES_DIR))
+  .filter((entry) => /\.(ts|tsx)$/.test(entry))
+  .map((entry) => `${FAKES_DIR}/${entry}`);
+
+describe("tests/fakes stays free of @testing-library/react", () => {
+  it.each(fakeFiles)("%s does not reach RTL directly", (relPath) => {
+    const source = readFileSync(resolve(ROOT, relPath), "utf8");
+    const offending = importSpecifiers(source).filter(reachesRtlDirectly);
+    expect(offending).toEqual([]);
+  });
+});
+
 // The lint override that bans the @/tests/helpers barrel derives its `files`
 // from DOM_FREE_TIERS via widenTierGlobToAnyTsFile (eslint.config.mjs)
 // rather than hand-copying the directories, so the assertions below exist

@@ -290,6 +290,8 @@ The PATCH arm mirrors the backend's `isISODate` gate, rejecting any `kill_date` 
 
 One deliberate gap: a kill *removes* the row rather than stamping `kill_date` on it, so neither fake reproduces the production read's retention of a future-dated kill. Every consumer derives membership from the rows the list returns, so retaining a killed row would read as still active -- modelling that needs the GET arm to apply the backend's kill_date-in-the-future filter alongside the field, and no spec needs it yet.
 
+`fakeRotationAdminEndpoints` in the same module is the Rotation Admin surface's fake, documented on the function. It has two gates for asserting on a consumer between a write and the read that follows it: `gateCardMoves` holds each `PATCH /library/rotation/:id` until `releaseCardMoveOnceRequested(id)`, and `holdActiveListReads()` holds each `status=active` list read until `releaseActiveListReads()`. Both releases return plain promises that wait on the request itself, never on a polling `waitFor`: no module under `tests/fakes/` imports `@testing-library/*`, because node-tier specs load them by deep path, and `tests/unit/vitest.config.test.ts` asserts it file by file. A spec that renders React awaits a release inside `act` (`await act(() => fake.releaseCardMoveOnceRequested(901))`), since the released response settles into component state.
+
 ## Test Organization
 
 Tests are never co-located with source. Every vitest test lives under `tests/`, mirroring the path of the source it covers:
