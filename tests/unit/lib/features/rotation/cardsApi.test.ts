@@ -125,8 +125,15 @@ describe("rotationApi — rotation card CRUD", () => {
     // both of which move the per-card counts the cards surface reports. A
     // plain snapshot edit crosses neither wall in the wrong direction; any
     // reach beyond these is a regression these counters exist to catch.
-    function installCountingHandlers() {
-      const counts = { cards: 0, list: 0 };
+    //
+    // `list` counts the `status=all` read and `activeList` the bounded
+    // `status=active` facet, separately: the two carry different tags, so a
+    // write can owe one a refetch and the other none.
+    function installCountingHandlers({
+      rows = [STEREOLAB_ROW],
+      refusedRowIds = [],
+    }: { rows?: (typeof STEREOLAB_ROW)[]; refusedRowIds?: number[] } = {}) {
+      const counts = { cards: 0, list: 0, activeList: 0 };
       let requested: URL | undefined;
       let requestBody: unknown;
       server.use(
@@ -134,9 +141,10 @@ describe("rotationApi — rotation card CRUD", () => {
           counts.cards += 1;
           return HttpResponse.json([HEAVY_2]);
         }),
-        http.get(ROTATION_BASE, () => {
-          counts.list += 1;
-          return HttpResponse.json([STEREOLAB_ROW]);
+        http.get(ROTATION_BASE, ({ request }) => {
+          if (new URL(request.url).searchParams.get("status") === "active") counts.activeList += 1;
+          else counts.list += 1;
+          return HttpResponse.json(rows);
         }),
         // The bodyless-path kill (`PATCH /library/rotation`): the server
         // stamps the date itself and answers with the updated row.
@@ -150,12 +158,15 @@ describe("rotationApi — rotation card CRUD", () => {
             kill_date: "2026-09-12",
           });
         }),
-        http.patch(`${ROTATION_BASE}/:id`, async ({ request }) => {
+        http.patch(`${ROTATION_BASE}/:id`, async ({ request, params }) => {
           requested = new URL(request.url);
           const body = (await request.json()) as Record<string, unknown>;
           requestBody = body;
+          if (refusedRowIds.includes(Number(params.id))) {
+            return HttpResponse.json({ message: "card not in this bin" }, { status: 409 });
+          }
           return HttpResponse.json({
-            id: 5001,
+            id: Number(params.id),
             album_id: null,
             rotation_bin: "H",
             add_date: "2026-09-01",
@@ -168,6 +179,13 @@ describe("rotationApi — rotation card CRUD", () => {
 
     const cachedAllList = (store: ReturnType<typeof rotationStore>) =>
       rotationApi.endpoints.getRotationList.select("all")(store.getState()).data;
+
+    // Resolves once every read the store has in flight has landed. A refetch
+    // owed to an invalidation is started in the same dispatch that settles
+    // the write, so a count read after this cannot pass while a wrong
+    // refetch is still on its way.
+    const settleReads = (store: ReturnType<typeof rotationStore>) =>
+      Promise.all(store.dispatch(rotationApi.util.getRunningQueriesThunk()));
 
     it("PATCHes {card_id} alone to /library/rotation/:id, refetches the cards read, and patches the cached row's card without a list refetch", async () => {
       const handlers = installCountingHandlers();
@@ -264,7 +282,7 @@ describe("rotationApi — rotation card CRUD", () => {
     });
 
     // The card-assignment batch save's per-row write: the same PATCH as
-    // `updateRotationRow`'s card move, but it must invalidate neither read —
+    // `updateRotationRow`'s card move, but it must invalidate no read —
     // the batch refetches once itself (`refetchRotationCardAssignments`),
     // not once per row.
     it("moveRotationRowToCard PATCHes {card_id}, invalidates no tags, and patches the cached row's card", async () => {
@@ -272,6 +290,7 @@ describe("rotationApi — rotation card CRUD", () => {
       const store = rotationStore();
       await store.dispatch(rotationApi.endpoints.getRotationCards.initiate());
       await store.dispatch(rotationApi.endpoints.getRotationList.initiate("all"));
+      await store.dispatch(rotationApi.endpoints.getRotationList.initiate("active"));
 
       await store.dispatch(
         rotationApi.endpoints.moveRotationRowToCard.initiate({ rotation_id: 5001, card_id: 3 }),
@@ -282,20 +301,96 @@ describe("rotationApi — rotation card CRUD", () => {
       await vi.waitFor(() => {
         expect(cachedAllList(store)).toEqual([{ ...STEREOLAB_ROW, card: HEAVY_2 }]);
       });
-      expect(handlers.counts.cards).toBe(1);
-      expect(handlers.counts.list).toBe(1);
+      await settleReads(store);
+      expect(handlers.counts).toEqual({ cards: 1, list: 1, activeList: 1 });
     });
+
+    // The panel's own rows are the `status=active` facet, the read a list-tag
+    // invalidation reaches. A refetch of it after every row would move the
+    // checkboxes under the MD mid-save.
+    it("moving several rows refetches neither the cards read nor a mounted list facet", async () => {
+      const handlers = installCountingHandlers();
+      const store = rotationStore();
+      await store.dispatch(rotationApi.endpoints.getRotationCards.initiate());
+      await store.dispatch(rotationApi.endpoints.getRotationList.initiate("active"));
+
+      for (const rotation_id of [5001, 5002, 5003]) {
+        await store.dispatch(
+          rotationApi.endpoints.moveRotationRowToCard.initiate({ rotation_id, card_id: 3 }),
+        );
+      }
+
+      await settleReads(store);
+      expect(handlers.counts).toEqual({ cards: 1, list: 0, activeList: 1 });
+    });
+
+    // A refused row is ordered ahead of an accepted one, and the accepted
+    // row's patch is what the assertion waits on: by the time it is visible,
+    // anything the refused write was going to do to the cache has happened.
+    it("a row whose moveRotationRowToCard PATCH failed stays on its old card in the cached status=all read", async () => {
+      const YANYA_ROW = { ...STEREOLAB_ROW, rotation_id: 5002, artist_name: "Nilüfer Yanya" };
+      const handlers = installCountingHandlers({
+        rows: [STEREOLAB_ROW, YANYA_ROW],
+        refusedRowIds: [5001],
+      });
+      const store = rotationStore();
+      await store.dispatch(rotationApi.endpoints.getRotationCards.initiate());
+      await store.dispatch(rotationApi.endpoints.getRotationList.initiate("all"));
+
+      const refused = await store.dispatch(
+        rotationApi.endpoints.moveRotationRowToCard.initiate({ rotation_id: 5001, card_id: 3 }),
+      );
+      await store.dispatch(
+        rotationApi.endpoints.moveRotationRowToCard.initiate({ rotation_id: 5002, card_id: 3 }),
+      );
+
+      expect(refused.error).toBeDefined();
+      await vi.waitFor(() =>
+        expect(cachedAllList(store)).toEqual([STEREOLAB_ROW, { ...YANYA_ROW, card: HEAVY_2 }]),
+      );
+      await settleReads(store);
+      expect(handlers.counts).toEqual({ cards: 1, list: 1, activeList: 0 });
+    });
+
+    // A card move's response carries no `card`, so the patch needs the entity
+    // from the cards read. With that read uncached there is nothing to copy,
+    // and the row must be re-served rather than left claiming its old card.
+    type Store = ReturnType<typeof rotationStore>;
+    it.each<[string, (store: Store) => Promise<unknown>]>([
+      [
+        "moveRotationRowToCard",
+        (store) =>
+          store.dispatch(
+            rotationApi.endpoints.moveRotationRowToCard.initiate({ rotation_id: 5001, card_id: 3 }),
+          ),
+      ],
+      [
+        "updateRotationRow",
+        (store) =>
+          store.dispatch(
+            rotationApi.endpoints.updateRotationRow.initiate({ rotation_id: 5001, card_id: 3 }),
+          ),
+      ],
+    ])(
+      "%s re-serves the status=all read when the destination card is not in the cards cache",
+      async (_name, dispatchWrite) => {
+        const handlers = installCountingHandlers();
+        const store = rotationStore();
+        await store.dispatch(rotationApi.endpoints.getRotationList.initiate("all"));
+        expect(handlers.counts.list).toBe(1);
+
+        await dispatchWrite(store);
+
+        await vi.waitFor(() => expect(handlers.counts.list).toBe(2));
+      },
+    );
 
     // A card move the server refuses still has to reach the batch loop's
     // own per-row result, not a second, separate toast on top of it -- the
     // wrapped shape is what keeps the shared rejected-query middleware quiet
     // (see `isUnmessagedHttpError`), exactly as it does for `updateRotationRow`.
     it("wraps a refused moveRotationRowToCard like updateRotationRow", async () => {
-      server.use(
-        http.patch(`${ROTATION_BASE}/:id`, () =>
-          HttpResponse.json({ message: "card not in this bin" }, { status: 409 }),
-        ),
-      );
+      installCountingHandlers({ refusedRowIds: [5001] });
       const store = rotationStore();
 
       const result = await store.dispatch(
@@ -308,32 +403,30 @@ describe("rotationApi — rotation card CRUD", () => {
       expect(isUnmessagedHttpError(result.error)).toBe(true);
     });
 
-    it("refetchRotationCardAssignments refetches the cards read once", async () => {
-      const handlers = installCountingHandlers();
-      const store = rotationStore();
-      await store.dispatch(rotationApi.endpoints.getRotationCards.initiate());
-      expect(handlers.counts.cards).toBe(1);
+    // The batch's one refetch owes the cards read and the list facets a
+    // refetch each, exactly once. The `status=all` read joins only when a row
+    // failed: a refused PATCH can have committed with its response lost,
+    // which leaves that cache on the old card with no patch to correct it,
+    // while a batch that landed whole has already patched every row and must
+    // not pay the unbounded full-history read.
+    it.each([
+      ["every row moved", false, { cards: 2, list: 1, activeList: 2 }],
+      ["a row failed", true, { cards: 2, list: 2, activeList: 2 }],
+    ])(
+      "refetchRotationCardAssignments after a batch where %s refetches each read it owes exactly once",
+      async (_name, anyRowFailed, expectedCounts) => {
+        const handlers = installCountingHandlers();
+        const store = rotationStore();
+        await store.dispatch(rotationApi.endpoints.getRotationCards.initiate());
+        await store.dispatch(rotationApi.endpoints.getRotationList.initiate("all"));
+        await store.dispatch(rotationApi.endpoints.getRotationList.initiate("active"));
 
-      store.dispatch(refetchRotationCardAssignments());
+        store.dispatch(refetchRotationCardAssignments({ anyRowFailed }));
 
-      await vi.waitFor(() => expect(handlers.counts.cards).toBe(2));
-    });
-
-    it("calling moveRotationRowToCard for several rows never refetches the cards read on its own", async () => {
-      const handlers = installCountingHandlers();
-      const store = rotationStore();
-      await store.dispatch(rotationApi.endpoints.getRotationCards.initiate());
-
-      await store.dispatch(
-        rotationApi.endpoints.moveRotationRowToCard.initiate({ rotation_id: 5001, card_id: 3 }),
-      );
-      await store.dispatch(
-        rotationApi.endpoints.moveRotationRowToCard.initiate({ rotation_id: 5001, card_id: 3 }),
-      );
-
-      expect(handlers.counts.cards).toBe(1);
-      expect(handlers.counts.list).toBe(0);
-    });
+        await settleReads(store);
+        expect(handlers.counts).toEqual(expectedCounts);
+      },
+    );
   });
 
   describe("membership writes and the cards read", () => {

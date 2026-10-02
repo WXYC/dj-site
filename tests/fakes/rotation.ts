@@ -207,10 +207,18 @@ export type FakeRotationAdminRow = {
  * `rotation_kill_date` on it: the `status=all` read this fake feeds is
  * exactly the read that retains killed rows, so removal here would make the
  * consumer's Killed presentation untestable. The GET arm filters by the
- * `status` it's asked for (`active` = no kill date, `killed` = a kill date,
- * anything else, including `all` = every row), so a spec that asks for the
- * wrong facet gets that facet's rows, not the whole fixture passing as a
- * smaller one.
+ * `status` it's asked for, with the server's own predicates: `active` is no
+ * kill date or one after `today`, `killed` is any kill date, and anything
+ * else, including `all`, is every row. The two facets overlap rather than
+ * partition -- a kill scheduled for a later day is in both, and still counts
+ * toward its card's `active_count` -- while a kill dated `today` is already
+ * out of `active`. A spec that asks for the wrong facet gets that facet's
+ * rows, not the whole fixture passing as a smaller one.
+ *
+ * `today` is the server's `CURRENT_DATE` as `YYYY-MM-DD`. The database
+ * session runs in UTC, so it defaults to the current UTC day; a spec whose
+ * fixture dates are fixed passes its own so the outcome does not depend on
+ * when it runs.
  *
  * The POST arm appends a row the list read then serves: a catalogued add
  * (`album_id`) copies the library-join fields from an existing row with that
@@ -232,10 +240,12 @@ export function fakeRotationAdminEndpoints(
   {
     killDate = "2026-09-12",
     addDate = "2026-09-13",
+    today = new Date().toISOString().slice(0, 10),
     rowSummaries = {},
   }: {
     killDate?: string;
     addDate?: string;
+    today?: string;
     rowSummaries?: Record<number, { format_id?: number | null; label_id?: number | null }>;
   } = {},
 ) {
@@ -249,6 +259,10 @@ export function fakeRotationAdminEndpoints(
   // move's safety property, and per-arm logs cannot express it.
   const calls: ("add" | "kill")[] = [];
 
+  // Plain string comparison: two zero-padded ISO dates order as calendar days.
+  const isActive = (row: FakeRotationAdminRow) =>
+    row.rotation_kill_date == null || row.rotation_kill_date > today;
+
   const newestCard = (bin: string) =>
     cards
       .filter((card) => card.bin === bin)
@@ -260,7 +274,7 @@ export function fakeRotationAdminEndpoints(
       listStatuses.push(status);
       const filtered =
         status === "active"
-          ? rows.filter((row) => row.rotation_kill_date == null)
+          ? rows.filter(isActive)
           : status === "killed"
             ? rows.filter((row) => row.rotation_kill_date != null)
             : rows;
@@ -315,9 +329,7 @@ export function fakeRotationAdminEndpoints(
       return HttpResponse.json(
         cards.map((card) => ({
           ...card,
-          active_count: rows.filter(
-            (row) => row.card?.id === card.id && row.rotation_kill_date == null,
-          ).length,
+          active_count: rows.filter((row) => row.card?.id === card.id && isActive(row)).length,
         })),
       );
     }),

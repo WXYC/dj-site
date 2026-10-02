@@ -50,23 +50,59 @@ describe("fakeRotationAdminEndpoints", () => {
     expect(cards.find((candidate) => candidate.id === 32)?.active_count).toBe(1);
   });
 
+  // The server's facets overlap rather than partition: `active` is "no kill
+  // date, or one that hasn't arrived" and `killed` is "has a kill date", so a
+  // kill scheduled for a later day is in both, and one dated today is only
+  // in `killed`.
+  const TODAY = "2026-09-15";
+  const FACET_ROWS = [
+    row({ rotation_id: 5001, rotation_kill_date: null }),
+    row({ rotation_id: 5002, rotation_kill_date: "2026-09-01" }),
+    row({ rotation_id: 5003, rotation_kill_date: TODAY }),
+    row({ rotation_id: 5004, rotation_kill_date: "2026-09-16" }),
+  ];
+
   it.each([
-    ["active", [5001]],
-    ["killed", [5002]],
-    ["all", [5001, 5002]],
+    ["active", [5001, 5004]],
+    ["killed", [5002, 5003, 5004]],
+    ["all", [5001, 5002, 5003, 5004]],
   ])("filters the list GET by status=%s", async (status, expectedIds) => {
-    fakeRotationAdminEndpoints(
-      [
-        row({ rotation_id: 5001, rotation_kill_date: null }),
-        row({ rotation_id: 5002, rotation_kill_date: "2026-09-01" }),
-      ],
-      [],
-    );
+    fakeRotationAdminEndpoints(FACET_ROWS, [], { today: TODAY });
 
     const rows = (await (
       await fetch(`${TEST_BACKEND_URL}/library/rotation?status=${status}`)
     ).json()) as { rotation_id: number }[];
 
     expect(rows.map((candidate) => candidate.rotation_id)).toEqual(expectedIds);
+  });
+
+  it("counts a future-dated kill in active_count, and a kill dated today out of it", async () => {
+    fakeRotationAdminEndpoints(FACET_ROWS, [{ id: 31, bin: "H", number: 1, name: null }], {
+      today: TODAY,
+    });
+
+    const cards = (await (
+      await fetch(`${TEST_BACKEND_URL}/library/rotation/cards`)
+    ).json()) as { id: number; active_count: number }[];
+
+    expect(cards).toEqual([expect.objectContaining({ id: 31, active_count: 2 })]);
+  });
+
+  it("defaults today to the day the spec runs on", async () => {
+    const utcDay = (offsetDays: number) =>
+      new Date(Date.now() + offsetDays * 86_400_000).toISOString().slice(0, 10);
+    fakeRotationAdminEndpoints(
+      [
+        row({ rotation_id: 5001, rotation_kill_date: utcDay(-2) }),
+        row({ rotation_id: 5002, rotation_kill_date: utcDay(2) }),
+      ],
+      [],
+    );
+
+    const rows = (await (
+      await fetch(`${TEST_BACKEND_URL}/library/rotation?status=active`)
+    ).json()) as { rotation_id: number }[];
+
+    expect(rows.map((candidate) => candidate.rotation_id)).toEqual([5002]);
   });
 });
