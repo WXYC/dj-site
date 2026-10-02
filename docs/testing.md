@@ -102,7 +102,7 @@ TEST_BACKEND_URL                      // from env or "http://localhost:3001"
 
 ### Time Utilities
 
-The runner's own time zone is pinned to UTC (`test.env.TZ` in `vitest.config.mts`), so a day-boundary assertion means the same thing on every machine as it does in CI; each of the three vitest projects asserts the zone its worker actually resolved to. Under the pin local time and UTC are the same clock, so a spec that has to tell them apart -- "the local day, not the UTC day", or a guard against a `Date` round-trip shifting a date-only string -- passes whether or not the code is right unless it sets its own zone: `vi.stubEnv("TZ", ...)`, an assertion that the zone actually changed, and `vi.unstubAllEnvs()` afterwards. `tests/unit/lib/features/flowsheet/entry-time.test.ts` is the pattern.
+The runner's own time zone is pinned to UTC (`test.env.TZ` in `vitest.config.mts`), so a day-boundary assertion means the same thing on every machine as it does in CI; each of the three vitest projects asserts the zone its worker actually resolved to. Under the pin local time and UTC are the same clock, so a spec that has to tell them apart -- "the local day, not the UTC day", or a guard against a `Date` round-trip shifting a date-only string -- passes whether or not the code is right unless it moves its own process off the pin. `stubProcessTimeZone(zone)` is that move in one call: it stubs `TZ`, asserts the zone actually changed, and registers its own cleanup, so the caller writes no `afterEach`.
 
 ```typescript
 TEST_TIMESTAMPS.NOW           // 2024-06-15T14:30:00.000Z
@@ -115,6 +115,7 @@ restoreRealTime()             // vi.useRealTimers()
 toISOString(date)             // date.toISOString()
 toDateString(date)            // "YYYY-MM-DD"
 offsetFromNow(ms)             // new Date relative to TEST_TIMESTAMPS.NOW
+stubProcessTimeZone(zone)     // moves this process's resolved zone, self-cleaning
 ```
 
 ### Test Harnesses
