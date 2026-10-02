@@ -45,17 +45,19 @@ const NOT_ATTEMPTED = { ok: false, notAttempted: true };
 
 function installGatedCardMoveHandler() {
   const fake = fakeRotationAdminEndpoints(ROWS, CARDS, { gateCardMoves: true });
-  // `status=all` and `status=active` are the two facets these specs read.
-  const listCount = (status: "all" | "active") =>
-    fake.listStatuses().filter((candidate) => candidate === status).length;
+  const activeListReads = () =>
+    fake.listStatuses().filter((status) => status === "active").length;
   return {
-    releaseOnceRequested: fake.releaseCardMoveOnceRequested,
+    // The released write settles into hook state, so the wait runs in `act`.
+    releaseOnceRequested: (id: number) => act(() => fake.releaseCardMoveOnceRequested(id)),
     failFor: fake.failCardMove,
     bodies: fake.updateBodies,
     counts: () => ({
       cards: fake.cardsRequests(),
-      list: listCount("all"),
-      activeList: listCount("active"),
+      // Every list read that is not the bounded facet, whatever status it
+      // asked for: "never the status=all read" must fail on any of them.
+      list: fake.listStatuses().length - activeListReads(),
+      activeList: activeListReads(),
     }),
   };
 }
