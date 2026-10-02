@@ -58,22 +58,22 @@ describe("DOM_DEPENDENT_LIB_TESTS", () => {
 const NODE_TIER_DIRS = DOM_FREE_TIERS.map(tierDir);
 const PINNED = new Set(DOM_DEPENDENT_LIB_TESTS);
 
-function collectTestFiles(relDir: string): string[] {
+function collectFiles(relDir: string, pattern: RegExp): string[] {
   const files: string[] = [];
   for (const entry of readdirSync(resolve(ROOT, relDir))) {
     const relPath = `${relDir}/${entry}`;
     if (statSync(resolve(ROOT, relPath)).isDirectory()) {
-      files.push(...collectTestFiles(relPath));
-    } else if (/\.test\.(ts|tsx)$/.test(entry)) {
+      files.push(...collectFiles(relPath, pattern));
+    } else if (pattern.test(entry)) {
       files.push(relPath);
     }
   }
   return files;
 }
 
-const nodeTierFiles = NODE_TIER_DIRS.flatMap(collectTestFiles).filter(
-  (relPath) => !PINNED.has(relPath),
-);
+const nodeTierFiles = NODE_TIER_DIRS.flatMap((dir) =>
+  collectFiles(dir, /\.test\.(ts|tsx)$/),
+).filter((relPath) => !PINNED.has(relPath));
 
 const HELPERS_DIR = "tests/helpers";
 
@@ -131,16 +131,24 @@ describe("node project stays free of @testing-library/react", () => {
 
 // A node-tier spec reaches tests/fakes/ by deep path, and the scan above reads
 // only each spec's own specifiers -- a fake importing RTL would load it into
-// the node project with nothing there failing.
-const FAKES_DIR = "tests/fakes";
-const fakeFiles = readdirSync(resolve(ROOT, FAKES_DIR))
-  .filter((entry) => /\.(ts|tsx)$/.test(entry))
-  .map((entry) => `${FAKES_DIR}/${entry}`);
+// the node project with nothing there failing. Read recursively, so a fake
+// in a subdirectory is held to the same rule.
+const fakeFiles = collectFiles("tests/fakes", /\.(ts|tsx)$/);
+
+// The barrel re-exports the RTL-bearing helpers, so importing any name from
+// it loads RTL; the lint ban on it covers the node tiers, not tests/fakes.
+// A fake in a subdirectory reaches it with one more `../`.
+function reachesHelpersBarrel(rawSpecifier: string): boolean {
+  const specifier = rawSpecifier.replace(/\.(ts|tsx)$/, "").replace(/\/index$/, "");
+  return specifier === "@/tests/helpers" || /^(\.\.\/)+helpers$/.test(specifier);
+}
 
 describe("tests/fakes stays free of @testing-library/react", () => {
-  it.each(fakeFiles)("%s does not reach RTL directly", (relPath) => {
+  it.each(fakeFiles)("%s reaches RTL neither directly nor through the helpers barrel", (relPath) => {
     const source = readFileSync(resolve(ROOT, relPath), "utf8");
-    const offending = importSpecifiers(source).filter(reachesRtlDirectly);
+    const offending = importSpecifiers(source).filter(
+      (specifier) => reachesRtlDirectly(specifier) || reachesHelpersBarrel(specifier),
+    );
     expect(offending).toEqual([]);
   });
 });
