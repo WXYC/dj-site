@@ -8,30 +8,17 @@ import {
   selectRotationAdminView,
 } from "@/lib/features/rotation/adminList";
 import { RotationBin, type RotationListRow } from "@/lib/features/rotation/types";
+import { createTestRotationListRow } from "@/tests/fixtures/fixtures";
 
-function row(overrides: Partial<RotationListRow> = {}): RotationListRow {
-  return {
+const row = (overrides: Partial<RotationListRow> = {}): RotationListRow =>
+  createTestRotationListRow({
     id: 9001,
-    code_letters: "SL",
-    code_artist_number: 1,
-    code_number: 3,
-    artist_name: "Stereolab",
-    alphabetical_name: "Stereolab",
-    album_title: "Instant Holograms on Metal Film",
-    record_label: "Duophonic",
-    label_id: null,
-    genre_name: "Rock",
-    format_name: "CD",
-    rotation_id: 5001,
     add_date: "2026-09-05",
     rotation_add_date: "2026-09-05",
-    rotation_bin: RotationBin.H,
-    rotation_kill_date: null,
     plays: null,
     legacy_release_id: null,
     ...overrides,
-  };
-}
+  });
 
 const unlinked = (overrides: Partial<RotationListRow> = {}): RotationListRow =>
   row({

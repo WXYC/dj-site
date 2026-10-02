@@ -8,6 +8,7 @@ import {
 } from "@/lib/features/rotation/cards";
 import type { RotationCardWithCount, RotationListRow } from "@/lib/features/rotation/types";
 import { RotationBin } from "@/lib/features/rotation/types";
+import { createTestRotationListRow } from "@/tests/fixtures/fixtures";
 
 function card(overrides: Partial<RotationCardWithCount> = {}): RotationCardWithCount {
   return { id: 31, bin: RotationBin.H, number: 1, name: "Late Aug", active_count: 0, ...overrides };
@@ -56,30 +57,18 @@ describe("canDeleteRotationCard", () => {
 describe("rotationRowsToMoveOntoCard", () => {
   const HEAVY_CARD_2 = { id: 32, bin: RotationBin.H, number: 2, name: null };
 
-  function row(overrides: Partial<RotationListRow> = {}): RotationListRow {
-    return {
+  const row = (overrides: Partial<RotationListRow> = {}): RotationListRow =>
+    createTestRotationListRow({
       id: 1,
       code_letters: null,
       code_artist_number: null,
       code_number: null,
-      artist_name: "Stereolab",
-      alphabetical_name: "Stereolab",
-      album_title: "Instant Holograms on Metal Film",
-      record_label: "Duophonic",
-      label_id: null,
-      genre_name: "Rock",
-      format_name: "CD",
-      rotation_id: 5001,
       add_date: "2026-09-01",
       rotation_add_date: "2026-09-01",
-      rotation_bin: RotationBin.H,
-      rotation_kill_date: null,
       plays: null,
       legacy_release_id: null,
-      card: null,
       ...overrides,
-    };
-  }
+    });
 
   it("excludes ticked rows already on the card", () => {
     const onTheCard = row({ rotation_id: 5001, card: HEAVY_CARD_2 });

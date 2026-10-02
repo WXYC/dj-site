@@ -41,7 +41,7 @@ import {
   FlowsheetSongEntry,
   OnAirDJResponse,
 } from "@/lib/features/flowsheet/types";
-import { Rotation } from "@/lib/features/rotation/types";
+import { Rotation, type RotationListRow } from "@/lib/features/rotation/types";
 import { TEST_ENTITY_IDS, TEST_SEARCH_STRINGS } from "@/tests/helpers/constants";
 import { TEST_TIMESTAMPS, toDateString, toISOString } from "@/tests/helpers/time";
 
@@ -326,6 +326,37 @@ export function createTestRotationAlbum(
     rotation_id: TEST_ENTITY_IDS.ROTATION.HEAVY,
     ...overrides,
   });
+}
+
+// Deployed GET /library/rotation wire shape: every declared field present,
+// including `card` and `urls`, which the type declares optional only to cover
+// a backend older than the card join.
+export function createTestRotationListRow(
+  overrides: Partial<RotationListRow> = {}
+): RotationListRow {
+  return {
+    id: TEST_ENTITY_IDS.ALBUM.ROTATION_ALBUM,
+    code_letters: "SL",
+    code_artist_number: 1,
+    code_number: 3,
+    artist_name: "Stereolab",
+    alphabetical_name: "Stereolab",
+    album_title: "Instant Holograms on Metal Film",
+    record_label: "Duophonic",
+    label_id: null,
+    genre_name: "Rock",
+    format_name: "CD",
+    rotation_id: TEST_ENTITY_IDS.ROTATION.HEAVY,
+    add_date: "2026-09-05",
+    rotation_add_date: "2026-09-05",
+    rotation_bin: Rotation.H,
+    rotation_kill_date: null,
+    plays: null,
+    legacy_release_id: TEST_ENTITY_IDS.LEGACY_RELEASE.ROTATION_ALBUM,
+    card: null,
+    urls: [],
+    ...overrides,
+  };
 }
 
 // Authentication fixtures

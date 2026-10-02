@@ -13,11 +13,12 @@ import {
   toDisplayRowFromUncatalogued,
 } from "@/lib/features/rotation/classicList";
 import { RotationBin, type RotationListRow, type RotationRowSummary } from "@/lib/features/rotation/types";
+import { createTestRotationListRow } from "@/tests/fixtures/fixtures";
 
 const NOW = new Date("2026-08-29T12:00:00.000Z");
 
-function listRow(overrides: Partial<RotationListRow> = {}): RotationListRow {
-  return {
+const listRow = (overrides: Partial<RotationListRow> = {}): RotationListRow =>
+  createTestRotationListRow({
     id: 1001,
     code_letters: "MOL",
     code_artist_number: 1,
@@ -27,23 +28,12 @@ function listRow(overrides: Partial<RotationListRow> = {}): RotationListRow {
     album_title: "DOGA",
     record_label: "Sonamos",
     label_id: 5,
-    genre_name: "Rock",
-    format_name: "CD",
-    rotation_id: 5001,
-    add_date: "2026-08-01",
     rotation_add_date: "2026-08-01",
-    rotation_bin: RotationBin.H,
-    rotation_kill_date: null,
+    add_date: "2026-08-01",
     plays: 3,
     legacy_release_id: 7001,
-    // Matches the deployed GET /library/rotation wire shape: every row
-    // carries both keys, with no card and no urls as the no-card, no-link
-    // case.
-    card: null,
-    urls: [],
     ...overrides,
-  };
-}
+  });
 
 function uncataloguedRow(overrides: Partial<RotationRowSummary> = {}): RotationRowSummary {
   return {
