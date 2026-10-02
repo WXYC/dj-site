@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
+import { stubProcessTimeZone } from "@/tests/helpers/time.vitest";
 import type { StationHourBreakpoint } from "@/src/utilities/stationTime";
 import {
   STATION_TIME_ZONE,
@@ -19,6 +20,9 @@ import {
   stationDaysOfWeek,
   formatStationWeekParam,
   parseStationWeekParam,
+  stationDateISO,
+  utcDateISO,
+  previousStationDay,
 } from "@/src/utilities/stationTime";
 
 // The utility derives everything from an explicit IANA zone, so its output is
@@ -584,5 +588,67 @@ describe("station week boundaries", () => {
         formatStationWeekParam(parseStationWeekParam("2026-08-26")!),
       ).toBe("2026-08-23");
     });
+  });
+});
+
+// Two clocks, two columns: a server-stamped `date` column (kill_date,
+// add_date) is a UTC calendar day, and a human-picked calendar (the classic
+// recent-dates picker) is a station calendar day. These helpers name each one
+// so neither gets spelled out inline again.
+describe("stationDateISO and utcDateISO", () => {
+  it.each([
+    // Eastern-evening instant where the UTC day and the station day differ.
+    ["2026-07-17T03:30:00Z", "2026-07-17", "2026-07-16"],
+    // Spring-forward transition.
+    ["2026-03-08T06:59:00Z", "2026-03-08", "2026-03-08"],
+    ["2026-03-08T07:01:00Z", "2026-03-08", "2026-03-08"],
+    // Fall-back transition.
+    ["2026-11-01T05:30:00Z", "2026-11-01", "2026-11-01"],
+    ["2026-11-01T06:30:00Z", "2026-11-01", "2026-11-01"],
+  ])(
+    "at %s, utcDateISO is %s and stationDateISO is %s",
+    (iso, expectedUtc, expectedStation) => {
+      const instant = new Date(iso);
+      expect(utcDateISO(instant)).toBe(expectedUtc);
+      expect(stationDateISO(instant)).toBe(expectedStation);
+    },
+  );
+
+  it("formatStationWeekParam delegates to stationDateISO", () => {
+    const weekStart = startOfStationWeek(new Date("2026-08-26T12:00:00Z"));
+    expect(formatStationWeekParam(weekStart)).toBe(stationDateISO(weekStart));
+  });
+
+  // The runner is pinned to UTC, where local `Date` getters and the station
+  // zone agree at every instant, so this is the only case that can tell a
+  // correct implementation apart from one built on local getters.
+  it("reads the UTC day under a non-UTC process zone", () => {
+    stubProcessTimeZone("America/New_York");
+    expect(utcDateISO(new Date("2026-09-25T00:30:00Z"))).toBe("2026-09-25");
+  });
+});
+
+describe("previousStationDay", () => {
+  it("steps back exactly one station day across the spring-forward transition", () => {
+    const day = previousStationDay(new Date("2026-03-08T12:00:00Z"));
+    expect(stationDateISO(day)).toBe("2026-03-07");
+  });
+
+  it("steps back exactly one station day across the fall-back transition", () => {
+    const day = previousStationDay(new Date("2026-11-01T12:00:00Z"));
+    expect(stationDateISO(day)).toBe("2026-10-31");
+  });
+
+  // Started in the last station hour of a day after the autumn transition:
+  // subtracting MS_PER_DAY from this instant lands on 2026-11-01 twice, so a
+  // naive implementation would fail this case where it passes at midday.
+  it("yields ten distinct days walking back across the fall-back transition", () => {
+    let instant = new Date("2026-11-05T04:30:00Z"); // 23:30 EST
+    const days = new Set<string>();
+    for (let i = 0; i < 10; i++) {
+      days.add(stationDateISO(instant));
+      instant = previousStationDay(instant);
+    }
+    expect(days.size).toBe(10);
   });
 });
