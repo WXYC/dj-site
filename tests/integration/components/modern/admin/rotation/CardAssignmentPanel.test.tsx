@@ -244,9 +244,16 @@ describe("CardAssignmentPanel", () => {
     expect(box(902)).toBeEnabled();
   });
 
-  it("keeps moved records locked and never resends them when the refetch after a save fails", async () => {
+  it("keeps moved records locked when the refetch after a save fails, and never counts or resends them after a later save", async () => {
     const { fake, user } = await renderPanel();
     server.use(http.get(LIST_URL, failedListRead));
+    // The list as it was first read: what a read that predates every save
+    // here answers with.
+    const stale = ROWS.filter((row) => row.rotation_id !== KILLED_TODAY);
+    const retryReadAnsweredStale = async () => {
+      server.use(http.get(LIST_URL, () => HttpResponse.json(stale), { once: true }));
+      await user.click(button("Retry"));
+    };
 
     await tick(user, [901, 902]);
     await user.click(button("Save 2"));
@@ -263,9 +270,7 @@ describe("CardAssignmentPanel", () => {
 
     // The retried read succeeds but still predates the save: the panel
     // unlocks, and the moved records stay locked on their own.
-    const stale = ROWS.filter((row) => row.rotation_id !== KILLED_TODAY);
-    server.use(http.get(LIST_URL, () => HttpResponse.json(stale), { once: true }));
-    await user.click(button("Retry"));
+    await retryReadAnsweredStale();
 
     await waitFor(() => expect(box(903)).toBeEnabled());
     expect(screen.queryByText("Could not load the rotation list.")).not.toBeInTheDocument();
@@ -279,6 +284,27 @@ describe("CardAssignmentPanel", () => {
     await user.click(button("Save 1"));
 
     await waitFor(() => expect(patchedIds(fake)).toEqual([901, 902, 903]));
+
+    // That save's refetch fails too, and its retry is as stale as the last.
+    // The row lock now belongs to 903, the latest save's record. 901 and 902
+    // have lost it, so they must not still be ticked: a tick nobody made
+    // would be counted by Save and sent again.
+    expect(await screen.findByText("Could not load the rotation list.")).toBeInTheDocument();
+    await retryReadAnsweredStale();
+
+    await waitFor(() => expect(box(904)).toBeEnabled());
+    expect(box(903)).toBeDisabled();
+    expect(box(903)).toHaveAccessibleDescription("Moved to Heavy 3");
+    for (const id of [901, 902]) {
+      expect(box(id)).not.toBeChecked();
+      expect(box(id)).toHaveAccessibleDescription("Heavy 1");
+    }
+    expect(button("Save")).toBeDisabled();
+
+    await tick(user, [904]);
+    await user.click(button("Save 1"));
+
+    await waitFor(() => expect(patchedIds(fake)).toEqual([901, 902, 903, 904]));
   });
 
   it("shows a partial failure distinctly, and Retry resends only the failed record", async () => {
