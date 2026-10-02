@@ -229,12 +229,13 @@ export const rotationApi = createApi({
         url: `/${rotationId}/tracks`,
       }),
     }),
-    // The classic list's Active facet. Distinct from `getRotation` above,
-    // which converts the same `GET /library/rotation` response into
-    // `AlbumEntry[]` for the modern add-to-rotation picker and drops every
-    // field that conversion doesn't read (`rotation_id`, `rotation_bin`,
-    // `rotation_add_date`, `rotation_kill_date`) -- exactly the fields the
-    // classic list's Type/Added/Killed columns and Kill/Unkill actions need.
+    // The rotation lists' read: the classic list and the modern admin list
+    // both take `GET /library/rotation` rows unconverted. Distinct from
+    // `getRotation` above, which converts the same response into
+    // `AlbumEntry[]`. That conversion keeps `rotation_id` and `rotation_bin`
+    // and drops `rotation_add_date` and `rotation_kill_date`, which both
+    // lists display and the second of which decides whether a row reads as
+    // active or killed.
     // A second endpoint against the same URL costs a second request when a
     // page uses both shapes; no page does today.
     // Opts out of the shared soft-JSON-failure handling
