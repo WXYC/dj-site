@@ -1,3 +1,5 @@
+import { expect } from "vitest";
+import { waitFor } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { server } from "./server";
 import { TEST_BACKEND_URL as BACKEND_URL } from "../helpers/constants";
@@ -233,6 +235,14 @@ export type FakeRotationAdminRow = {
  * are the rotation row's OWN pre-catalog fields, while the list row's
  * `label_id` is the library join's — serving one for the other would bake
  * the exact conflation the two reads' referent rule forbids into the fake.
+ *
+ * `gateCardMoves` holds every `PATCH /library/rotation/:id` until the caller
+ * releases it with `releaseCardMoveOnceRequested`, and `failCardMove` refuses
+ * named ids once released -- the card-assignment batch save's own gate, so a
+ * spec exercising it never needs a second overlay handler that would shadow
+ * this fake's own PATCH arm and silently stop `updateBodies()` recording.
+ * Off by default: every other consumer of this fake expects an immediate
+ * PATCH response.
  */
 export function fakeRotationAdminEndpoints(
   initialRows: FakeRotationAdminRow[],
@@ -242,11 +252,13 @@ export function fakeRotationAdminEndpoints(
     addDate = "2026-09-13",
     today = new Date().toISOString().slice(0, 10),
     rowSummaries = {},
+    gateCardMoves = false,
   }: {
     killDate?: string;
     addDate?: string;
     today?: string;
     rowSummaries?: Record<number, { format_id?: number | null; label_id?: number | null }>;
+    gateCardMoves?: boolean;
   } = {},
 ) {
   const rows = initialRows.map((row) => ({ ...row }));
@@ -255,6 +267,9 @@ export function fakeRotationAdminEndpoints(
   const addBodies: unknown[] = [];
   const killBodies: unknown[] = [];
   const updates: { id: number; body: Record<string, unknown> }[] = [];
+  const cardMoveResolvers = new Map<number, () => void>();
+  const cardMoveReleased = new Map<number, number>();
+  const cardMoveRefusals = new Map<number, number>();
   // One sequence across the two write arms: add-before-kill is the bin
   // move's safety property, and per-arm logs cannot express it.
   const calls: ("add" | "kill")[] = [];
@@ -375,6 +390,13 @@ export function fakeRotationAdminEndpoints(
       const id = Number(params.id);
       const body = (await request.json()) as Record<string, unknown>;
       updates.push({ id, body });
+      if (gateCardMoves) {
+        await new Promise<void>((resolve) => cardMoveResolvers.set(id, resolve));
+      }
+      const refusedStatus = cardMoveRefusals.get(id);
+      if (refusedStatus !== undefined) {
+        return HttpResponse.json({ message: "refused" }, { status: refusedStatus });
+      }
       const row = rows.find((candidate) => candidate.rotation_id === id);
       if (row) {
         if ("kill_date" in body) row.rotation_kill_date = body.kill_date as string | null;
@@ -406,6 +428,23 @@ export function fakeRotationAdminEndpoints(
     updateBodies: () => updates.map((update) => ({ id: update.id, body: { ...update.body } })),
     /** Every add/kill write this fake saw, in the order it saw them. */
     callOrder: () => [...calls],
+    /**
+     * Releases the `id`th-held PATCH `/:id` once it has actually landed,
+     * rather than the first registered resolver -- a retry re-requests an id
+     * an earlier save already sent, and releasing on that earlier request
+     * would call a resolver that already settled and leave the retry's own
+     * request gated for good.
+     */
+    releaseCardMoveOnceRequested: async (id: number) => {
+      const nth = (cardMoveReleased.get(id) ?? 0) + 1;
+      await waitFor(() => expect(updates.filter((update) => update.id === id)).toHaveLength(nth));
+      cardMoveReleased.set(id, nth);
+      cardMoveResolvers.get(id)?.();
+    },
+    failCardMove: (ids: number[], status = 500) => {
+      cardMoveRefusals.clear();
+      ids.forEach((id) => cardMoveRefusals.set(id, status));
+    },
   };
 }
 

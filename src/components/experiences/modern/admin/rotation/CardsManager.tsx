@@ -24,6 +24,7 @@ import {
 import { rotationWriteErrorMessage } from "@/lib/features/rotation/writeErrorMessage";
 import { isUnmessagedHttpError } from "@/lib/rtk-query-error-logger";
 import { RotationCardBadge } from "@/src/components/shared/RotationCardBadge";
+import CardAssignmentPanel from "./CardAssignmentPanel";
 import { Add, Close } from "@mui/icons-material";
 import {
   Alert,
@@ -45,6 +46,7 @@ function CardRow({
   pending,
   onRename,
   onDelete,
+  onAssign,
 }: {
   card: RotationCardWithCount;
   bin: RotationBin;
@@ -53,6 +55,7 @@ function CardRow({
   pending: boolean;
   onRename: (name: string | null) => void;
   onDelete: () => void;
+  onAssign: () => void;
 }): JSX.Element {
   // Named per card: a grid of identical unlabeled inputs and ✕ buttons tells
   // a screen-reader user nothing about which card they are about to touch.
@@ -115,6 +118,15 @@ function CardRow({
           <Close fontSize="small" />
         </IconButton>
       </Stack>
+      <Button
+        variant="plain"
+        size="sm"
+        aria-label={`Assign records: ${cardName}`}
+        sx={{ px: 0, mt: 0.25, justifyContent: "flex-start" }}
+        onClick={onAssign}
+      >
+        Assign records
+      </Button>
     </Sheet>
   );
 }
@@ -142,6 +154,7 @@ export default function CardsManager(): JSX.Element {
   // create — a phantom card the physical bin doesn't have, which every
   // omitted-card_id rotation add then lands on.
   const [pendingAddBin, setPendingAddBin] = useState<RotationBin | null>(null);
+  const [assigningCard, setAssigningCard] = useState<RotationCardWithCount | null>(null);
 
   const cardsByBin = useMemo(() => groupRotationCardsByBin(cards ?? []), [cards]);
 
@@ -262,6 +275,7 @@ export default function CardsManager(): JSX.Element {
                   pending={pendingCardIds.has(card.id)}
                   onRename={(name) => renameCard(card.id, name)}
                   onDelete={() => deleteCard(card.id)}
+                  onAssign={() => setAssigningCard(card)}
                 />
               ))}
               <Button
@@ -282,6 +296,9 @@ export default function CardsManager(): JSX.Element {
           </Sheet>
         );
       })}
+      {assigningCard && (
+        <CardAssignmentPanel card={assigningCard} onClose={() => setAssigningCard(null)} />
+      )}
     </Box>
   );
 }
