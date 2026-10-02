@@ -7,6 +7,12 @@ import type {
   FlowsheetShowBlockEntry,
   FlowsheetMessageEntry,
 } from "@/lib/features/flowsheet/types";
+import { convertV2Entry } from "@/lib/features/flowsheet/conversions";
+import {
+  createTestV2MessageEntry,
+  createTestV2TalksetEntry,
+} from "@/tests/fixtures/fixtures";
+import { renderWithProviders } from "@/tests/helpers";
 
 // Mock MUI Joy components
 vi.mock("@mui/joy", () => ({
@@ -157,5 +163,34 @@ describe("EntryText", () => {
 
       expect(screen.getByText("PSA: Community announcement")).toBeInTheDocument();
     });
+  });
+
+  // The tubafrenzy-mirrored talkset's wire message is the legacy column's
+  // raw uppercase token -- entry_type, not that text, decides this is a
+  // talkset, so the label stays "Talkset" rather than the raw "TALKSET".
+  describe("when entry is the tubafrenzy-mirrored live talkset", () => {
+    it("should display the talkset label, not the raw wire message", () => {
+      const entry = convertV2Entry(createTestV2TalksetEntry({ message: "TALKSET" }));
+
+      renderWithProviders(<EntryText entry={entry} />);
+
+      expect(screen.getByText("Talkset")).toBeInTheDocument();
+      expect(screen.queryByText("TALKSET")).not.toBeInTheDocument();
+    });
+  });
+
+  // The talkset and breakpoint branches each set a color on the line they
+  // print; the generic branch prints the row's message with none.
+  describe("when a message-typed entry's text reads like another kind", () => {
+    it.each(["Talkset", "3:00 PM Breakpoint"])(
+      "should display %j as a plain message, with no kind color",
+      (message) => {
+        const entry = convertV2Entry(createTestV2MessageEntry({ message }));
+
+        renderWithProviders(<EntryText entry={entry} />);
+
+        expect(screen.getByText(message)).not.toHaveAttribute("data-color");
+      }
+    );
   });
 });

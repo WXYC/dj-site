@@ -129,10 +129,13 @@ export function formatStationHourLabel(now: Date = new Date()): string {
  * The exact string persisted as a breakpoint's `message`, built from an hour
  * label that has already been resolved, e.g. "2:00 PM" → "2:00 PM Breakpoint".
  *
- * Must keep the word "Breakpoint" — both the client type guard and the backend
- * entry-type inference discriminate on it — so this is the only place the two
- * halves are joined. An empty label yields the bare word rather than a leading
- * space, for archive rows that name no hour at all.
+ * This is the only place in this app where the two halves are joined. The
+ * one-per-hour guard below compares a row's message with this exact string
+ * when the row carries no usable `radio_hour`. Backend-Service reads the word,
+ * not the whole string: for a POST that carries a `message` and no
+ * `entry_type`, it infers `breakpoint` when the message contains "Breakpoint"
+ * and does not contain "Talkset". An empty label yields the bare word rather
+ * than a leading space, for archive rows that name no hour at all.
  */
 export function breakpointMessageForHourLabel(hourLabel: string): string {
   return hourLabel ? `${hourLabel} ${BREAKPOINT_SUFFIX}` : BREAKPOINT_SUFFIX;

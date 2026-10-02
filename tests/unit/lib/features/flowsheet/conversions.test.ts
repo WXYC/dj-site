@@ -659,6 +659,20 @@ describe("flowsheet conversions", () => {
         expect(result.id).toBe(TEST_ENTITY_IDS.FLOWSHEET.ENTRY_1);
       });
 
+      // The tubafrenzy-mirrored talkset: Backend-Service types it from the
+      // legacy column (7 -> 'talkset') and copies the legacy ARTIST_NAME
+      // verbatim into message, so the live wire row's message is the raw
+      // uppercase token. Unlike convertRangeEntry (the archive path),
+      // convertV2Entry's talkset arm does not normalize message text -- the
+      // row classifies as a talkset by entry_type alone.
+      it("classifies a live-path legacy talkset by entry_type, leaving its uppercase message untouched", () => {
+        const entry = createTestV2TalksetEntry({ message: "TALKSET" });
+        const result = convertV2Entry(entry);
+
+        expect(isFlowsheetTalksetEntry(result)).toBe(true);
+        expect(isFlowsheetTalksetEntry(result) && result.message).toBe("TALKSET");
+      });
+
       // Mirrors convertRangeEntry's breakpoint arm: the displayed hour comes
       // from radio_hour when it is known, so a skew-damaged message can no
       // longer disagree with what the server says the row marks.
@@ -1153,10 +1167,11 @@ describe("flowsheet conversions", () => {
     });
   });
 
-  // `GET /flowsheet/range` carries the same field set as `GET /flowsheet` but
-  // serves the raw legacy marker column instead of the normalized text the live
-  // endpoint produces, so the archive adapter is where that normalization has
-  // to happen: the row presentation switch keys on the message text.
+  // A row mirrored from the legacy flowsheet carries the legacy marker text
+  // ("TALKSET", "--- 3:00 PM BREAKPOINT ---") in `message`, on `GET /flowsheet`
+  // and `GET /flowsheet/range` alike. `convertRangeEntry` rewrites it to the
+  // display spelling. A talkset's or a breakpoint's kind comes from
+  // `entry_type`, which the conversion copies onto the converted row.
   describe("convertRangeEntry", () => {
     const rangeEntry = (
       over: Partial<FlowsheetRangeEntryWire> & { id: number }
@@ -1222,7 +1237,7 @@ describe("flowsheet conversions", () => {
       }
     );
 
-    it("normalizes the legacy talkset token so the shared row switch recognizes it", () => {
+    it("normalizes the legacy talkset token to the display spelling (the row switch already recognizes the row by entry_type)", () => {
       const converted = convertRangeEntry(
         rangeEntry({ id: 4, entry_type: "talkset", message: "TALKSET" })
       ) as FlowsheetMessageEntry;

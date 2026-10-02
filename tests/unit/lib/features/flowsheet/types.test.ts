@@ -156,7 +156,7 @@ describe("flowsheet types", () => {
       expect(isFlowsheetTalksetEntry(talksetEntry)).toBe(true);
     });
 
-    it("should return true for entries with Talkset in message", () => {
+    it("should return true for a talkset entry whose message also happens to say Talkset", () => {
       const talksetEntry: FlowsheetMessageEntry = {
         ...baseEntry,
         entry_type: "talkset",
@@ -204,7 +204,7 @@ describe("flowsheet types", () => {
       expect(isFlowsheetBreakpointEntry(breakpointEntry)).toBe(true);
     });
 
-    it("should return true for entries with Breakpoint in message", () => {
+    it("should return true for a breakpoint entry whose message also happens to say Breakpoint", () => {
       const breakpointEntry: FlowsheetBreakpointEntry = {
         ...baseEntry,
         entry_type: "breakpoint",

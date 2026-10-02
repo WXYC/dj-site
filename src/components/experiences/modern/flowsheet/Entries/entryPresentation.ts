@@ -37,8 +37,7 @@ export type MessageEntryPresentation = {
 // The message-row icon and tone switch, shared by the desktop table renderer
 // (Entry → MessageEntry) and the mobile card renderer (MobileEntry) so the two
 // can't drift. The copy comes from getMarkerText, a separate switch that must
-// classify in this same order — show markers before talkset and breakpoint,
-// which match on message text — or a row's text and icon name different kinds.
+// classify a row the same way, or a row's text and icon name different kinds.
 // Tones come from the semantic role map (Layer B), not hardcoded palette names.
 export function getMessageEntryPresentation(
   entry: FlowsheetEntry

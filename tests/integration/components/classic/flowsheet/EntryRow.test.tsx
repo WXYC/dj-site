@@ -15,6 +15,11 @@ import {
   MISSING_ARTIST_REJECTION_MESSAGE,
   VARIOUS_ARTISTS_REJECTION_MESSAGE,
 } from "@/lib/features/flowsheet/various-artists-guard";
+import { convertV2Entry } from "@/lib/features/flowsheet/conversions";
+import {
+  createTestV2TalksetEntry,
+  createTestV2MessageEntry,
+} from "@/tests/fixtures/fixtures";
 import EntryRow from "@/src/components/experiences/classic/flowsheet/EntryRow";
 
 const toastErrorMock = vi.fn();
@@ -330,8 +335,8 @@ describe("Classic EntryRow markers", () => {
       expect(container.querySelector(".littlegreenlabel")).toBeNull();
     });
 
-    // A message-shaped entry classifies as a breakpoint on its message text
-    // alone, so an optimistic row reaches this branch before day/time exist.
+    // isFlowsheetBreakpointEntry tests entry_type and does not check that
+    // day/time are present, and this branch reads entry.time.
     it("renders without throwing when day/time are absent", () => {
       const entry = {
         id: 2,
@@ -441,6 +446,32 @@ describe("Classic EntryRow markers", () => {
     expect(cell!.textContent).toBe(
       "Start of show — DJ Test @ Unknown Unknown"
     );
+  });
+});
+
+// Pins the entry_type-driven classification at the reader that decides
+// whether a row exists at all, not just at the shared predicates.
+describe("Classic EntryRow classifies by entry_type, not message text", () => {
+  it("renders a talkset row for the tubafrenzy-mirrored talkset, whose message is the legacy column's uppercase spelling", () => {
+    const entry = convertV2Entry(createTestV2TalksetEntry({ message: "TALKSET" }));
+    const { container } = renderRow({ entry });
+    expect(container.querySelector("tr.talkset-row")).not.toBeNull();
+  });
+
+  it("renders no talkset row for a message-typed entry whose text reads Talkset", () => {
+    const entry = convertV2Entry(createTestV2MessageEntry({ message: "Talkset" }));
+    const { container } = renderRow({ entry });
+    expect(container.querySelector("tr.talkset-row")).toBeNull();
+    expect(container.querySelector("tr")).toBeNull();
+  });
+
+  it("renders no breakpoint row for a message-typed entry whose text reads a breakpoint time", () => {
+    const entry = convertV2Entry(
+      createTestV2MessageEntry({ message: "3:00 PM Breakpoint" })
+    );
+    const { container } = renderRow({ entry });
+    expect(container.querySelector("tr.breakpoint-row")).toBeNull();
+    expect(container.querySelector("tr")).toBeNull();
   });
 });
 

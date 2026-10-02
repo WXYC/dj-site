@@ -103,9 +103,9 @@ export function buildOptimisticEntry(
       message: arg.message,
       entry_type: arg.entry_type,
     };
-    // isFlowsheetBreakpointEntry keys on the message text alone, so this row
-    // reaches Classic's breakpoint branch — which reads entry.time — before
-    // the server has ever seen it.
+    // isFlowsheetBreakpointEntry keys on this submission's entry_type, so this
+    // row reaches Classic's breakpoint branch — which reads entry.time —
+    // before the server has ever seen it.
     //
     // Formatted from the hour this breakpoint MARKS, not the instant it was
     // logged, because that is what the server row replacing it will say: the

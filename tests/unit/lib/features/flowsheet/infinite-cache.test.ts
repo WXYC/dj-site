@@ -607,5 +607,33 @@ describe("infinite-cache", () => {
         )
       ).toBe(true);
     });
+
+    // The day/time stamp follows the submission's own entry_type, not
+    // whatever its message text says -- the two can disagree.
+    it("stamps station day/time for a breakpoint-typed submission whose text names no hour", () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-07-17T03:15:30Z")); // 11:15:30 PM EDT on 7/16
+      const draft = { pages: [[song(1, 10, 7)]], pageParams: [0] };
+      const { entry } = buildOptimisticEntry(
+        { message: "station ID", entry_type: "breakpoint" },
+        draft
+      );
+
+      expect(isFlowsheetBreakpointEntry(entry)).toBe(true);
+      expect("day" in entry).toBe(true);
+      expect("time" in entry).toBe(true);
+    });
+
+    it("leaves day/time unstamped for a message-typed submission whose text names an hour", () => {
+      const draft = { pages: [[song(1, 10, 7)]], pageParams: [0] };
+      const { entry } = buildOptimisticEntry(
+        { message: "11:00 PM Breakpoint", entry_type: "message" },
+        draft
+      );
+
+      expect(isFlowsheetBreakpointEntry(entry)).toBe(false);
+      expect("day" in entry).toBe(false);
+      expect("time" in entry).toBe(false);
+    });
   });
 });
