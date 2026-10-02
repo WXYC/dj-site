@@ -5,6 +5,7 @@ import {
   type RotationBin,
   type RotationCardDeleteConflictReason,
   type RotationCardWithCount,
+  type RotationListRow,
 } from "./types";
 
 /**
@@ -48,6 +49,26 @@ export function canDeleteRotationCard(
     binCards.length > 1 &&
     binCards.every((sibling) => sibling.number <= card.number)
   );
+}
+
+/**
+ * Which ticked rows the card-assignment batch save
+ * (`useCardAssignmentSave`) actually sends: the ticked rows in `binActiveRows`
+ * that belong to `card`'s bin and are not already filed on it. A row ticked
+ * from another bin is never returned -- the panel shows one bin's active
+ * rows at a time, but a stale tick set carried across a bin switch must
+ * never become a cross-bin move.
+ */
+export function rotationRowsToMoveOntoCard(
+  binActiveRows: readonly RotationListRow[],
+  card: RotationCard,
+  tickedRowIds: readonly number[],
+): number[] {
+  const ticked = new Set(tickedRowIds);
+  return binActiveRows
+    .filter((row) => row.rotation_bin === card.bin && ticked.has(row.rotation_id))
+    .filter((row) => row.card?.id !== card.id)
+    .map((row) => row.rotation_id);
 }
 
 /**

@@ -201,10 +201,11 @@ export type FakeRotationAdminRow = {
  * Unlike `fakeRotationEndpoints` above, a kill KEEPS the row and stamps
  * `rotation_kill_date` on it: the `status=all` read this fake feeds is
  * exactly the read that retains killed rows, so removal here would make the
- * consumer's Killed presentation untestable. The GET arm serves every row
- * regardless of the `status` it records — the one consumer asks for `all`,
- * and a fake that silently filtered would let a wrong `status` pass as a
- * smaller fixture.
+ * consumer's Killed presentation untestable. The GET arm filters by the
+ * `status` it's asked for (`active` = no kill date, `killed` = a kill date,
+ * anything else, including `all` = every row) — a spec that asks for the
+ * wrong facet now gets that facet's rows rather than the whole fixture
+ * passing as a smaller one.
  *
  * The POST arm appends a row the list read then serves: a catalogued add
  * (`album_id`) copies the library-join fields from an existing row with that
@@ -250,8 +251,15 @@ export function fakeRotationAdminEndpoints(
 
   server.use(
     http.get(`${BACKEND_URL}/library/rotation`, ({ request }) => {
-      listStatuses.push(new URL(request.url).searchParams.get("status"));
-      return HttpResponse.json(rows);
+      const status = new URL(request.url).searchParams.get("status");
+      listStatuses.push(status);
+      const filtered =
+        status === "active"
+          ? rows.filter((row) => row.rotation_kill_date == null)
+          : status === "killed"
+            ? rows.filter((row) => row.rotation_kill_date != null)
+            : rows;
+      return HttpResponse.json(filtered);
     }),
     http.post(`${BACKEND_URL}/library/rotation`, async ({ request }) => {
       const body = (await request.json()) as {
@@ -296,9 +304,17 @@ export function fakeRotationAdminEndpoints(
     }),
     http.get(`${BACKEND_URL}/library/rotation/cards`, () => {
       cardsRequests += 1;
-      // The wire row always carries `active_count`; fixtures that don't care
-      // get the empty-card default rather than an off-contract omission.
-      return HttpResponse.json(cards.map((card) => ({ active_count: 0, ...card })));
+      // Derived from the rows, not a fixed default: the card-assignment
+      // batch save moves rows onto a card by PATCHing them in place, and a
+      // fixed count here would make "the count follows the move" untestable.
+      return HttpResponse.json(
+        cards.map((card) => ({
+          ...card,
+          active_count: rows.filter(
+            (row) => row.card?.id === card.id && row.rotation_kill_date == null,
+          ).length,
+        })),
+      );
     }),
     // Registered after the /cards arm: `:id` would otherwise swallow it.
     http.get(`${BACKEND_URL}/library/rotation/:id`, ({ params }) => {

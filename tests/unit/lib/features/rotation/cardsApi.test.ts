@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { configureStore } from "@reduxjs/toolkit";
 import { http, HttpResponse } from "msw";
-import { rotationApi } from "@/lib/features/rotation/api";
+import { refetchRotationCardAssignments, rotationApi } from "@/lib/features/rotation/api";
 import { TEST_BACKEND_URL } from "@/tests/helpers/constants";
 import { server } from "@/tests/fakes/server";
 import { describeApi } from "@/tests/helpers/api-harness";
@@ -24,7 +24,7 @@ const HEAVY_2 = { id: 3, bin: "H", number: 2, name: "Heavy 2" };
 describe("rotationApi — rotation card CRUD", () => {
   describeApi(rotationApi, {
     queries: ["getRotationCards"],
-    mutations: ["addRotationCard", "updateRotationCard", "deleteRotationCard"],
+    mutations: ["addRotationCard", "updateRotationCard", "deleteRotationCard", "moveRotationRowToCard"],
     reducerPath: "rotationApi",
   });
 
@@ -260,6 +260,56 @@ describe("rotationApi — rotation card CRUD", () => {
 
       await vi.waitFor(() => expect(handlers.counts.list).toBe(2));
       expect(handlers.counts.cards).toBe(1);
+    });
+
+    // The card-assignment batch save's per-row write: the same PATCH as
+    // `updateRotationRow`'s card move, but it must invalidate neither read —
+    // the batch refetches once itself (`refetchRotationCardAssignments`),
+    // not once per row.
+    it("moveRotationRowToCard PATCHes {card_id}, invalidates no tags, and patches the cached row's card", async () => {
+      const handlers = installCountingHandlers();
+      const store = rotationStore();
+      await store.dispatch(rotationApi.endpoints.getRotationCards.initiate());
+      await store.dispatch(rotationApi.endpoints.getRotationList.initiate("all"));
+
+      await store.dispatch(
+        rotationApi.endpoints.moveRotationRowToCard.initiate({ rotation_id: 5001, card_id: 3 }),
+      );
+
+      expect(handlers.requested()?.pathname).toBe("/library/rotation/5001");
+      expect(handlers.requestBody()).toEqual({ card_id: 3 });
+      await vi.waitFor(() => {
+        expect(cachedAllList(store)).toEqual([{ ...STEREOLAB_ROW, card: HEAVY_2 }]);
+      });
+      expect(handlers.counts.cards).toBe(1);
+      expect(handlers.counts.list).toBe(1);
+    });
+
+    it("refetchRotationCardAssignments refetches the cards read once", async () => {
+      const handlers = installCountingHandlers();
+      const store = rotationStore();
+      await store.dispatch(rotationApi.endpoints.getRotationCards.initiate());
+      expect(handlers.counts.cards).toBe(1);
+
+      store.dispatch(refetchRotationCardAssignments());
+
+      await vi.waitFor(() => expect(handlers.counts.cards).toBe(2));
+    });
+
+    it("calling moveRotationRowToCard for several rows never refetches the cards read on its own", async () => {
+      const handlers = installCountingHandlers();
+      const store = rotationStore();
+      await store.dispatch(rotationApi.endpoints.getRotationCards.initiate());
+
+      await store.dispatch(
+        rotationApi.endpoints.moveRotationRowToCard.initiate({ rotation_id: 5001, card_id: 3 }),
+      );
+      await store.dispatch(
+        rotationApi.endpoints.moveRotationRowToCard.initiate({ rotation_id: 5001, card_id: 3 }),
+      );
+
+      expect(handlers.counts.cards).toBe(1);
+      expect(handlers.counts.list).toBe(0);
     });
   });
 

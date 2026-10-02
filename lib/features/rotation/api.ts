@@ -398,23 +398,15 @@ export const rotationApi = createApi({
           // Move the row in the cached `status=all` read for the two writes
           // whose result is fully known client-side (see `invalidatesTags`
           // above): the kill-date change rides the response, and the card
-          // rides the cards cache -- the summary response carries no `card`,
-          // and every surface offering the move renders its options from
-          // that same cache, so the entity is there to copy.
-          const movedCard =
-            arg.card_id === undefined
-              ? undefined
-              : rotationApi.endpoints.getRotationCards
-                  .select()(getState() as RootState)
-                  .data?.find((card) => card.id === arg.card_id);
-          patchRotationStatusAllRow(dispatch, getState as () => RootState, arg.rotation_id, (row) => {
-            if (arg.kill_date !== undefined) row.rotation_kill_date = data.kill_date ?? null;
-            if (movedCard !== undefined) row.card = movedCard;
-          });
-          if (arg.card_id !== undefined && movedCard === undefined) {
-            // A caller moved a card this tab never loaded; re-serve the list
-            // rather than leave the row claiming its old card.
-            dispatch(rotationApi.util.invalidateTags([ROTATION_STATUS_ALL_TAG]));
+          // move is shared with `moveRotationRowToCard` below via
+          // `patchRotationRowCard`.
+          if (arg.kill_date !== undefined) {
+            patchRotationStatusAllRow(dispatch, getState as () => RootState, arg.rotation_id, (row) => {
+              row.rotation_kill_date = data.kill_date ?? null;
+            });
+          }
+          if (arg.card_id !== undefined) {
+            patchRotationRowCard(dispatch, getState as () => RootState, arg.rotation_id, arg.card_id);
           }
           // The mirror image of `killRotationEntry`'s patch, and not
           // optional: that handler writes a per-album "no rotation" override
@@ -462,6 +454,30 @@ export const rotationApi = createApi({
         }
       },
     }),
+    // The card-assignment batch save's per-row write
+    // (`useCardAssignmentSave`): the same PATCH `updateRotationRow` sends for
+    // a card move, but invalidating nothing -- the batch refetches once
+    // itself (`refetchRotationCardAssignments`) when it settles.
+    moveRotationRowToCard: builder.mutation<
+      RotationRowSummary,
+      { rotation_id: number; card_id: number }
+    >({
+      query: ({ rotation_id, card_id }) => ({
+        url: `/${rotation_id}`,
+        method: "PATCH",
+        body: { card_id },
+      }),
+      async onQueryStarted({ rotation_id, card_id }, { dispatch, getState, queryFulfilled }) {
+        try {
+          await queryFulfilled;
+          // Shares `updateRotationRow`'s card-move cache patch rather than
+          // copying it -- see `patchRotationRowCard`.
+          patchRotationRowCard(dispatch, getState as () => RootState, rotation_id, card_id);
+        } catch {
+          // Swallowed: the loop's own per-row result is how this reaches the caller.
+        }
+      },
+    }),
   }),
 });
 
@@ -491,6 +507,39 @@ function patchRotationStatusAllRow(
   }
 }
 
+/**
+ * Moves a row onto `cardId` in the cached `status=all` read, copying the
+ * card entity from the `getRotationCards` cache -- a card move's response
+ * carries no `card`. Falls back to invalidating the read when the card isn't
+ * in that cache, rather than leaving the row claiming its old one. Shared by
+ * `updateRotationRow`'s card-move arm and `moveRotationRowToCard`.
+ */
+function patchRotationRowCard(
+  dispatch: AppDispatch,
+  getState: () => RootState,
+  rotationId: number,
+  cardId: number,
+): void {
+  const movedCard = rotationApi.endpoints.getRotationCards
+    .select()(getState())
+    .data?.find((card) => card.id === cardId);
+  if (movedCard === undefined) {
+    dispatch(rotationApi.util.invalidateTags([ROTATION_STATUS_ALL_TAG]));
+    return;
+  }
+  patchRotationStatusAllRow(dispatch, getState, rotationId, (row) => {
+    row.card = movedCard;
+  });
+}
+
+/**
+ * The card-assignment batch save's one refetch -- dispatched after
+ * `moveRowsOntoCard` settles instead of each row's own write invalidating
+ * these tags, so a card's worth of rows costs one refetch, not one per row.
+ */
+export const refetchRotationCardAssignments = () =>
+  rotationApi.util.invalidateTags([ROTATION_LIST_TAG, ROTATION_CARDS_LIST_TAG]);
+
 export type RotationTrack = {
   position: string;
   title: string;
@@ -514,5 +563,6 @@ export const {
   useLinkRotationToAlbumMutation,
   useAddFreeTextRotationEntryMutation,
   useUpdateRotationRowMutation,
+  useMoveRotationRowToCardMutation,
   usePrefetch: useRotationPrefetch,
 } = rotationApi;

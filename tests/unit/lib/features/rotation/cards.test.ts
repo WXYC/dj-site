@@ -4,8 +4,9 @@ import {
   groupRotationCardsByBin,
   rotationCardDeleteConflictMessage,
   rotationCardDeleteConflictReason,
+  rotationRowsToMoveOntoCard,
 } from "@/lib/features/rotation/cards";
-import type { RotationCardWithCount } from "@/lib/features/rotation/types";
+import type { RotationCardWithCount, RotationListRow } from "@/lib/features/rotation/types";
 import { RotationBin } from "@/lib/features/rotation/types";
 
 function card(overrides: Partial<RotationCardWithCount> = {}): RotationCardWithCount {
@@ -49,6 +50,63 @@ describe("canDeleteRotationCard", () => {
   it("refuses a bin's only card even when empty — a bin never runs out of cards", () => {
     const onlyCard = card({ id: 31, number: 1, active_count: 0 });
     expect(canDeleteRotationCard(onlyCard, [onlyCard])).toBe(false);
+  });
+});
+
+describe("rotationRowsToMoveOntoCard", () => {
+  const HEAVY_CARD_2 = { id: 32, bin: RotationBin.H, number: 2, name: null };
+
+  function row(overrides: Partial<RotationListRow> = {}): RotationListRow {
+    return {
+      id: 1,
+      code_letters: null,
+      code_artist_number: null,
+      code_number: null,
+      artist_name: "Stereolab",
+      alphabetical_name: "Stereolab",
+      album_title: "Instant Holograms on Metal Film",
+      record_label: "Duophonic",
+      label_id: null,
+      genre_name: "Rock",
+      format_name: "CD",
+      rotation_id: 5001,
+      add_date: "2026-09-01",
+      rotation_add_date: "2026-09-01",
+      rotation_bin: RotationBin.H,
+      rotation_kill_date: null,
+      plays: null,
+      legacy_release_id: null,
+      card: null,
+      ...overrides,
+    };
+  }
+
+  it("excludes ticked rows already on the card", () => {
+    const onTheCard = row({ rotation_id: 5001, card: HEAVY_CARD_2 });
+    const elsewhere = row({ rotation_id: 5002, card: null });
+
+    expect(
+      rotationRowsToMoveOntoCard([onTheCard, elsewhere], HEAVY_CARD_2, [5001, 5002]),
+    ).toEqual([5002]);
+  });
+
+  it("returns ticked rows filed on a different card in the same bin", () => {
+    const otherCardInBin = { id: 31, bin: RotationBin.H, number: 1, name: null };
+    const onOtherCard = row({ rotation_id: 5002, card: otherCardInBin });
+
+    expect(rotationRowsToMoveOntoCard([onOtherCard], HEAVY_CARD_2, [5002])).toEqual([5002]);
+  });
+
+  it("never returns a ticked row from another bin", () => {
+    const mediumRow = row({ rotation_id: 6001, rotation_bin: RotationBin.M, card: null });
+
+    expect(rotationRowsToMoveOntoCard([mediumRow], HEAVY_CARD_2, [6001])).toEqual([]);
+  });
+
+  it("returns nothing for an empty tick set", () => {
+    expect(rotationRowsToMoveOntoCard([row({ rotation_id: 5001 })], HEAVY_CARD_2, [])).toEqual(
+      [],
+    );
   });
 });
 
