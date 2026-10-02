@@ -1,6 +1,6 @@
 import { dirname, resolve } from "path";
 import { fileURLToPath } from "url";
-import { defineConfig } from "vitest/config";
+import { configDefaults, defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 import {
   DOM_DEPENDENT_LIB_TESTS,
@@ -22,6 +22,17 @@ export default defineConfig({
     // host zone. It also wins over a TZ set in the shell; a spec that needs
     // another zone sets it itself with vi.stubEnv("TZ", ...).
     env: { TZ: "UTC" },
+    // The default "**/{vitest,vite}.config.*/**" entry doesn't match this
+    // file's own name (only "...config.*" directories), so `--changed`
+    // selected nothing when only this file -- or the module it builds its
+    // projects from -- changed. Vitest resolves changed files to absolute
+    // paths before matching, so each pattern needs its own leading "**/" to
+    // match regardless of where the repo is checked out.
+    forceRerunTriggers: [
+      ...configDefaults.forceRerunTriggers,
+      "**/vitest.config.mts",
+      "**/tests/setup/vitest-projects.ts",
+    ],
     setupFiles: ["./tests/setup/vitest.setup.ts"],
     exclude: ["node_modules", ".claude/**"],
     globals: true,

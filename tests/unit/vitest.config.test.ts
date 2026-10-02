@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { existsSync, readFileSync, readdirSync, statSync } from "fs";
 import { resolve } from "path";
+import pm from "picomatch";
 import {
   DOM_DEPENDENT_LIB_TESTS,
   DOM_FREE_TIERS,
@@ -240,5 +241,39 @@ describe("runner time zone", () => {
     // Behavioral, not textual: proves the zone the jsdom project's worker
     // actually resolved to, not just that a TZ line exists in the config.
     expect(new Intl.DateTimeFormat().resolvedOptions().timeZone).toBe("UTC");
+  });
+});
+
+describe("forceRerunTriggers", () => {
+  // Extracted from source rather than imported: vitest.config.mts can't be
+  // imported from a test (TS forbids importing an .mts path without
+  // allowImportingTsExtensions -- the same restriction vitest-projects.ts's
+  // own top comment documents).
+  const source = readFileSync(resolve(ROOT, "vitest.config.mts"), "utf8");
+  const match = source.match(/forceRerunTriggers:\s*\[([^\]]*)\]/s);
+  const triggerLiterals = [
+    ...(match?.[1].matchAll(/["']([^"']+)["']/g) ?? []),
+  ].map((m) => m[1]);
+
+  it("spreads vitest's own defaults", () => {
+    expect(match).not.toBeNull();
+    expect(match![1]).toMatch(/\.\.\.configDefaults\.forceRerunTriggers/);
+  });
+
+  // Vitest resolves every changed file to an absolute path before matching
+  // it against forceRerunTriggers (see its vcs findChangedFiles), so a bare
+  // relative pattern like "vitest.config.mts" never matches -- only a
+  // leading "**/" does. Matched with the same picomatch vitest uses
+  // internally (a direct dependency of vite, which vitest depends on) rather
+  // than asserting the pattern's text, so a correctly-named but
+  // wrongly-anchored entry still fails this.
+  it.each([
+    ["vitest.config.mts", resolve(ROOT, "vitest.config.mts")],
+    [
+      "tests/setup/vitest-projects.ts",
+      resolve(ROOT, "tests/setup/vitest-projects.ts"),
+    ],
+  ])("matches the absolute path of %s", (_label, absolutePath) => {
+    expect(pm.isMatch(absolutePath, triggerLiterals)).toBe(true);
   });
 });
