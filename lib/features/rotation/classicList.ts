@@ -1,32 +1,21 @@
-import { formatLongCalendarDate, utcDateISO } from "@/src/utilities/stationTime";
+import { formatLongCalendarDate, previousStationDay, stationDateISO, utcDateISO } from "@/src/utilities/stationTime";
 import { hasLinkedAlbumId } from "../flowsheet/linkage";
 import type { RotationBin, RotationListRow, RotationRowSummary } from "./types";
 
 /**
- * The viewer's local calendar day as `YYYY-MM-DD`. Only the recent-dates
- * pickers below read it. `isRotationRowActive` does not: it mirrors the
- * server's `CURRENT_DATE`, which is the UTC day, and compares against
- * `utcDateISO`.
- */
-function localTodayISO(now: Date): string {
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-/**
  * The ten days the rotation editor's Added / Removed pickers offer, today
- * first. Walked with `setDate`, which normalizes across month, year and DST
+ * first -- the station's calendar days, since an MD dates a promo by the day
+ * it arrived at WXYC, not by the viewer's browser zone. Walked with
+ * `previousStationDay`, which normalizes across month, year and DST
  * boundaries -- subtracting 86,400,000 ms does not, and lands on the previous
  * day twice on the autumn transition.
  */
 export function recentRotationDates(now: Date = new Date(), count = 10): string[] {
-  const cursor = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  let cursor = now;
   const days: string[] = [];
   for (let offset = 0; offset < count; offset += 1) {
-    days.push(localTodayISO(cursor));
-    cursor.setDate(cursor.getDate() - 1);
+    days.push(stationDateISO(cursor));
+    cursor = previousStationDay(cursor);
   }
   return days;
 }
@@ -89,10 +78,10 @@ export function killDateOptions(
  * string has no timezone to get wrong, and lexicographic comparison of two
  * zero-padded ISO dates is exactly calendar-day comparison.
  *
- * Compares against `utcDateISO`, not `localTodayISO`: `CURRENT_DATE` is read
- * in the database's own session, which runs in UTC, so a viewer west of UTC
- * mirroring the predicate against their own calendar day disagrees with the
- * server for however many hours UTC runs ahead of their evening.
+ * Compares against `utcDateISO`, not `stationDateISO`: `CURRENT_DATE` is read
+ * in the database's own session, which runs in UTC, so mirroring the
+ * predicate against the station's calendar day disagrees with the server for
+ * however many hours UTC runs ahead of the station's evening.
  *
  * Absent and null both mean never killed. The published rotation contract
  * declares its nullable columns optional, so a row arrives carrying either.
