@@ -19,4 +19,15 @@ describe("runner time zone", () => {
   it("is back to the UTC pin in the next test, proving the stub's own cleanup ran", () => {
     expect(new Intl.DateTimeFormat().resolvedOptions().timeZone).toBe("UTC");
   });
+
+  it("restores the zone even when the stub's own assertion fails", () => {
+    // "US/Eastern" is a valid IANA zone name but not the canonical one --
+    // Intl resolves it to "America/New_York", so the helper's own assertion
+    // throws here. That throw must not skip the helper's cleanup.
+    expect(() => stubProcessTimeZone("US/Eastern")).toThrow();
+  });
+
+  it("is still back to the UTC pin after that failed call", () => {
+    expect(new Intl.DateTimeFormat().resolvedOptions().timeZone).toBe("UTC");
+  });
 });
