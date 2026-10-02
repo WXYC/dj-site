@@ -13,7 +13,15 @@ import {
 } from "@/lib/features/rotation/moveRowsOntoCard";
 
 type CardMoveResults = ReadonlyMap<number, CardMoveRowOutcome>;
-type CardSave = { cardId: number; done: number; total: number; results: CardMoveResults };
+type CardSave = {
+  cardId: number;
+  // The rows `save` was given, in the order it was given them. `retry` orders
+  // by this rather than by however `results` happens to iterate.
+  order: readonly number[];
+  done: number;
+  total: number;
+  results: CardMoveResults;
+};
 
 const NO_RESULTS: CardMoveResults = new Map();
 
@@ -27,11 +35,20 @@ const NO_RESULTS: CardMoveResults = new Map();
  * `save` and `retry` resolve to the loop's outcome, so a caller knows
  * whether every move landed before it acts on that. `progress.done` counts
  * only rows the loop attempted -- a row the batch stopped before reaching
- * never advances it. `retry` resends the rows `results` marks failed or not
- * attempted, in their original order, with the progress total reset to that
- * count. A run with no rows resolves to an empty outcome and changes
- * nothing; a call made while a run is in flight is ignored and resolves to
- * `null`.
+ * never advances it. A run with no rows resolves to an empty outcome and
+ * changes nothing; a call made while a run is in flight is ignored and
+ * resolves to `null`.
+ *
+ * `retry` resends the rows `results` marks not attempted and then the rows
+ * it marks failed, each group in the order `save` was given them, with the
+ * progress total reset to that count. The rows never sent go first because
+ * a batch stops after consecutive failures: rows the server refuses every
+ * time would otherwise head every retry, stop it, and starve the rows
+ * behind them. For the same reason a row a stopped retry did not reach
+ * keeps the result it had -- one that failed earlier stays failed, with its
+ * last refusal, and only a row never sent at all is not attempted -- so
+ * `results` can differ from that retry's own outcome, whose `notAttempted`
+ * names every row that one run did not reach.
  *
  * A save belongs to the card it was started against, because the hook's
  * owner can stay mounted while `cardId` changes: its rows keep going to
@@ -56,13 +73,14 @@ export function useCardAssignmentSave(cardId: number) {
 
   const run = async (
     rotationIds: readonly number[],
+    order: readonly number[],
     carried: CardMoveResults,
   ): Promise<MoveRowsOntoCardOutcome | null> => {
     if (inFlight.current) return null;
     if (rotationIds.length === 0) return { moved: [], failed: [], notAttempted: [] };
     inFlight.current = true;
     setRunning(true);
-    setLastSave({ cardId, done: 0, total: rotationIds.length, results: carried });
+    setLastSave({ cardId, order, done: 0, total: rotationIds.length, results: carried });
     try {
       return await moveRowsOntoCard(
         rotationIds,
@@ -83,7 +101,10 @@ export function useCardAssignmentSave(cardId: number) {
                 prev && {
                   ...prev,
                   results: notAttempted.reduce(
-                    (results, rotationId) => results.set(rotationId, { ok: false, notAttempted: true }),
+                    (results, rotationId) =>
+                      results.has(rotationId)
+                        ? results
+                        : results.set(rotationId, { ok: false, notAttempted: true }),
                     new Map(prev.results),
                   ),
                 },
@@ -98,13 +119,14 @@ export function useCardAssignmentSave(cardId: number) {
     }
   };
 
-  const save = (rotationIds: readonly number[]) => run(rotationIds, NO_RESULTS);
+  const save = (rotationIds: readonly number[]) => run(rotationIds, rotationIds, NO_RESULTS);
 
-  const retry = () =>
-    run(
-      [...results].filter(([, outcome]) => !outcome.ok).map(([rotationId]) => rotationId),
-      results,
-    );
+  const retry = () => {
+    const order = shown?.order ?? [];
+    const rowsCarrying = (key: "notAttempted" | "error") =>
+      order.filter((rotationId) => key in (results.get(rotationId) ?? {}));
+    return run([...rowsCarrying("notAttempted"), ...rowsCarrying("error")], order, results);
+  };
 
   return { running, progress, results, save, retry };
 }

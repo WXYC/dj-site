@@ -22,6 +22,15 @@ function wrapper(store: AppStore): (props: PropsWithChildren) => ReactElement {
   return ({ children }) => <Provider store={store}>{children}</Provider>;
 }
 
+// Both states that did not move are `ok: false`, so "not ok" cannot tell a
+// refused row from one that was never sent. These name each state whole, and
+// are compared with `toEqual`: a row reported in the other state fails.
+const refusal = (status: number) => ({
+  rotationWriteError: expect.objectContaining({ status }),
+});
+const failedWith = (status: number) => ({ ok: false, error: refusal(status) });
+const NOT_ATTEMPTED = { ok: false, notAttempted: true };
+
 function row(id: number) {
   return { id, album_id: null, rotation_bin: "H", add_date: "2026-09-01", kill_date: null };
 }
@@ -34,7 +43,7 @@ function row(id: number) {
 function installGatedCardMoveHandler() {
   const resolvers = new Map<number, () => void>();
   const released = new Map<number, number>();
-  const failing = new Set<number>();
+  const failing = new Map<number, number>();
   const bodies: { id: number; body: unknown }[] = [];
 
   server.use(
@@ -42,8 +51,9 @@ function installGatedCardMoveHandler() {
       const id = Number(params.id);
       bodies.push({ id, body: await request.json() });
       await new Promise<void>((resolve) => resolvers.set(id, resolve));
-      if (failing.has(id)) {
-        return HttpResponse.json({ message: "refused" }, { status: 500 });
+      const refusal = failing.get(id);
+      if (refusal !== undefined) {
+        return HttpResponse.json({ message: "refused" }, { status: refusal });
       }
       return HttpResponse.json(row(id));
     }),
@@ -63,9 +73,9 @@ function installGatedCardMoveHandler() {
       released.set(id, nth);
       resolvers.get(id)?.();
     },
-    failFor: (ids: number[]) => {
+    failFor: (ids: number[], status = 500) => {
       failing.clear();
-      ids.forEach((id) => failing.add(id));
+      ids.forEach((id) => failing.set(id, status));
     },
     bodies: () => [...bodies],
   };
@@ -166,16 +176,11 @@ describe("useCardAssignmentSave", () => {
 
     await waitFor(() => expect(result.current.running).toBe(false));
     expect(result.current.results.get(900)).toEqual({ ok: true });
-    expect(result.current.results.get(901)).toMatchObject({ ok: false });
+    expect(result.current.results.get(901)).toEqual(failedWith(500));
     expect(result.current.results.get(902)).toEqual({ ok: true });
     await expect(saved).resolves.toEqual({
       moved: [900, 902],
-      failed: [
-        {
-          rotationId: 901,
-          error: { rotationWriteError: expect.objectContaining({ status: 500 }) },
-        },
-      ],
+      failed: [{ rotationId: 901, error: refusal(500) }],
       notAttempted: [],
     });
   });
@@ -191,7 +196,7 @@ describe("useCardAssignmentSave", () => {
     await handler.releaseOnceRequested(900);
     await handler.releaseOnceRequested(901);
     await waitFor(() => expect(result.current.running).toBe(false));
-    expect(result.current.results.get(901)).toMatchObject({ ok: false });
+    expect(result.current.results.get(901)).toEqual(failedWith(500));
 
     // The retried row now goes through: a librarian who retries after fixing
     // whatever the server refused for expects the resend to actually land.
@@ -224,11 +229,12 @@ describe("useCardAssignmentSave", () => {
     await handler.releaseOnceRequested(902);
     await waitFor(() => expect(result.current.running).toBe(false));
     expect(result.current.results.get(900)).toEqual({ ok: true });
-    expect(result.current.results.get(901)).toMatchObject({ ok: false });
-    expect(result.current.results.get(902)).toMatchObject({ ok: false });
+    expect(result.current.results.get(901)).toEqual(failedWith(500));
+    expect(result.current.results.get(902)).toEqual(failedWith(500));
 
-    // 901 now goes through; 902 is refused again, with a new error.
-    handler.failFor([902]);
+    // 901 now goes through; 902 is refused again, with a different status,
+    // so the error it ends up carrying can only be the retry's.
+    handler.failFor([902], 409);
     let retried!: SaveResult;
     act(() => {
       retried = result.current.retry();
@@ -240,9 +246,12 @@ describe("useCardAssignmentSave", () => {
 
     expect(result.current.results.get(900)).toEqual({ ok: true });
     expect(result.current.results.get(901)).toEqual({ ok: true });
-    const secondFailure = result.current.results.get(902);
-    expect(secondFailure).toMatchObject({ ok: false });
-    await expect(retried).resolves.toMatchObject({ moved: [901], notAttempted: [] });
+    expect(result.current.results.get(902)).toEqual(failedWith(409));
+    await expect(retried).resolves.toEqual({
+      moved: [901],
+      failed: [{ rotationId: 902, error: refusal(409) }],
+      notAttempted: [],
+    });
 
     // A second retry sends only the row still failed.
     handler.failFor([]);
@@ -430,7 +439,7 @@ describe("useCardAssignmentSave", () => {
   });
 
   describe("when a batch stops after three consecutive failures", () => {
-    it("reports the moved, failed and not-attempted rows, counts only attempted rows in progress, and retries both with the total reset", async () => {
+    it("reports the moved, failed and not-attempted rows, counts only attempted rows in progress, and retries the not-attempted rows and then the failed ones with the total reset", async () => {
       const handler = installGatedCardMoveHandler();
       handler.failFor([901, 902, 903]);
       const { result } = renderSaveHook();
@@ -448,13 +457,14 @@ describe("useCardAssignmentSave", () => {
       expect(handler.bodies().map((call) => call.id)).toEqual([900, 901, 902, 903]);
       expect(result.current.progress).toEqual({ done: 4, total: 6 });
       expect(result.current.results.get(900)).toEqual({ ok: true });
-      expect(result.current.results.get(901)).toMatchObject({ ok: false });
-      expect(result.current.results.get(902)).toMatchObject({ ok: false });
-      expect(result.current.results.get(903)).toMatchObject({ ok: false });
-      expect(result.current.results.get(904)).toEqual({ ok: false, notAttempted: true });
-      expect(result.current.results.get(905)).toEqual({ ok: false, notAttempted: true });
-      await expect(saved).resolves.toMatchObject({
+      expect(result.current.results.get(901)).toEqual(failedWith(500));
+      expect(result.current.results.get(902)).toEqual(failedWith(500));
+      expect(result.current.results.get(903)).toEqual(failedWith(500));
+      expect(result.current.results.get(904)).toEqual(NOT_ATTEMPTED);
+      expect(result.current.results.get(905)).toEqual(NOT_ATTEMPTED);
+      await expect(saved).resolves.toEqual({
         moved: [900],
+        failed: [901, 902, 903].map((rotationId) => ({ rotationId, error: refusal(500) })),
         notAttempted: [904, 905],
       });
 
@@ -464,25 +474,142 @@ describe("useCardAssignmentSave", () => {
         retried = result.current.retry();
       });
       await waitFor(() => expect(result.current.progress).toEqual({ done: 0, total: 5 }));
+      await handler.releaseOnceRequested(904);
+      await handler.releaseOnceRequested(905);
       await handler.releaseOnceRequested(901);
       await handler.releaseOnceRequested(902);
       await handler.releaseOnceRequested(903);
-      await handler.releaseOnceRequested(904);
-      await handler.releaseOnceRequested(905);
       await waitFor(() => expect(result.current.running).toBe(false));
 
       expect(handler.bodies().map((call) => call.id)).toEqual([
-        900, 901, 902, 903, 901, 902, 903, 904, 905,
+        900, 901, 902, 903, 904, 905, 901, 902, 903,
       ]);
       expect(result.current.progress).toEqual({ done: 5, total: 5 });
       for (const id of [900, 901, 902, 903, 904, 905]) {
         expect(result.current.results.get(id)).toEqual({ ok: true });
       }
       await expect(retried).resolves.toEqual({
-        moved: [901, 902, 903, 904, 905],
+        moved: [904, 905, 901, 902, 903],
         failed: [],
         notAttempted: [],
       });
+    });
+
+    // Rows the server refuses every time would, resent in their original
+    // order, stop every retry before it reached anything behind them.
+    it("does not let three rows refused on every attempt starve the rows behind them: one retry lands every other row", async () => {
+      const handler = installGatedCardMoveHandler();
+      handler.failFor([900, 901, 902]);
+      const { result } = renderSaveHook();
+
+      act(() => {
+        void result.current.save([900, 901, 902, 903, 904, 905]);
+      });
+      await handler.releaseOnceRequested(900);
+      await handler.releaseOnceRequested(901);
+      await handler.releaseOnceRequested(902);
+      await waitFor(() => expect(result.current.running).toBe(false));
+      expect(result.current.progress).toEqual({ done: 3, total: 6 });
+
+      let retried!: SaveResult;
+      act(() => {
+        retried = result.current.retry();
+      });
+      await waitFor(() => expect(result.current.progress).toEqual({ done: 0, total: 6 }));
+      await handler.releaseOnceRequested(903);
+      await handler.releaseOnceRequested(904);
+      await handler.releaseOnceRequested(905);
+      await handler.releaseOnceRequested(900);
+      await handler.releaseOnceRequested(901);
+      await handler.releaseOnceRequested(902);
+      await waitFor(() => expect(result.current.running).toBe(false));
+
+      expect(handler.bodies().map((call) => call.id)).toEqual([
+        900, 901, 902, 903, 904, 905, 900, 901, 902,
+      ]);
+      for (const id of [903, 904, 905]) {
+        expect(result.current.results.get(id)).toEqual({ ok: true });
+      }
+      for (const id of [900, 901, 902]) {
+        expect(result.current.results.get(id)).toEqual(failedWith(500));
+      }
+      // The stop landed on the retry's last three rows, so it left nothing
+      // unattempted.
+      expect(result.current.progress).toEqual({ done: 6, total: 6 });
+      await expect(retried).resolves.toEqual({
+        moved: [903, 904, 905],
+        failed: [900, 901, 902].map((rotationId) => ({ rotationId, error: refusal(500) })),
+        notAttempted: [],
+      });
+    });
+
+    // A retry can stop too. The rows it did not reach keep the state they
+    // had: a row that failed earlier stays failed, with the refusal it got,
+    // and only a row never sent at all is still not attempted. Were the
+    // earlier failures demoted to not attempted, they would go back to the
+    // head of the next retry and stop it ahead of the rows still unsent.
+    it("keeps a stopped retry's unreached rows in the state they had, so the next retry still starts with the rows never sent", async () => {
+      const handler = installGatedCardMoveHandler();
+      handler.failFor([900, 901, 902]);
+      const { result } = renderSaveHook();
+
+      act(() => {
+        void result.current.save([900, 901, 902, 903, 904, 905, 906, 907]);
+      });
+      await handler.releaseOnceRequested(900);
+      await handler.releaseOnceRequested(901);
+      await handler.releaseOnceRequested(902);
+      await waitFor(() => expect(result.current.running).toBe(false));
+
+      // The first retry's refusals carry a different status, so a row still
+      // showing the save's status was not overwritten by the retry.
+      handler.failFor([900, 901, 902, 903, 904, 905], 409);
+      let retried!: SaveResult;
+      act(() => {
+        retried = result.current.retry();
+      });
+      await waitFor(() => expect(result.current.progress).toEqual({ done: 0, total: 8 }));
+      await handler.releaseOnceRequested(903);
+      await handler.releaseOnceRequested(904);
+      await handler.releaseOnceRequested(905);
+      await waitFor(() => expect(result.current.running).toBe(false));
+
+      expect(result.current.progress).toEqual({ done: 3, total: 8 });
+      for (const id of [900, 901, 902]) {
+        expect(result.current.results.get(id)).toEqual(failedWith(500));
+      }
+      for (const id of [903, 904, 905]) {
+        expect(result.current.results.get(id)).toEqual(failedWith(409));
+      }
+      expect(result.current.results.get(906)).toEqual(NOT_ATTEMPTED);
+      expect(result.current.results.get(907)).toEqual(NOT_ATTEMPTED);
+      // The outcome describes this one run, in the order it was sent: every
+      // row it did not reach, whatever happened to that row before.
+      await expect(retried).resolves.toEqual({
+        moved: [],
+        failed: [903, 904, 905].map((rotationId) => ({ rotationId, error: refusal(409) })),
+        notAttempted: [906, 907, 900, 901, 902],
+      });
+
+      act(() => {
+        void result.current.retry();
+      });
+      await waitFor(() => expect(result.current.progress).toEqual({ done: 0, total: 8 }));
+      await handler.releaseOnceRequested(906);
+      await handler.releaseOnceRequested(907);
+      await handler.releaseOnceRequested(900);
+      await handler.releaseOnceRequested(901);
+      await handler.releaseOnceRequested(902);
+      await waitFor(() => expect(result.current.running).toBe(false));
+
+      expect(handler.bodies().map((call) => call.id)).toEqual([
+        900, 901, 902, 903, 904, 905, 906, 907, 900, 901, 902,
+      ]);
+      expect(result.current.results.get(906)).toEqual({ ok: true });
+      expect(result.current.results.get(907)).toEqual({ ok: true });
+      for (const id of [900, 901, 902, 903, 904, 905]) {
+        expect(result.current.results.get(id)).toEqual(failedWith(409));
+      }
     });
   });
 
@@ -520,7 +647,7 @@ describe("useCardAssignmentSave", () => {
       rerender({ cardId: CARD_ID });
       expect(result.current.progress).toEqual({ done: 2, total: 2 });
       expect(result.current.results.get(900)).toEqual({ ok: true });
-      expect(result.current.results.get(901)).toMatchObject({ ok: false });
+      expect(result.current.results.get(901)).toEqual(failedWith(500));
     });
 
     // The two-row spec above re-points the hook while the batch's last row

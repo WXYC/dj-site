@@ -1,11 +1,15 @@
 /** How many move rejections in a row stop the batch. A success resets the count. */
 export const CONSECUTIVE_FAILURE_STOP_THRESHOLD = 3;
 
-/** The outcome `onRowSettled` reports for a single row as it lands. */
-export type CardMoveRowOutcome =
-  | { ok: true }
-  | { ok: false; error: unknown }
-  | { ok: false; notAttempted: true };
+/** How one attempted move ended: what `onRowSettled` reports for a row as it lands. */
+export type CardMoveAttemptOutcome = { ok: true } | { ok: false; error: unknown };
+
+/**
+ * A row's state in a caller's record of a batch: moved, failed, or not
+ * attempted. Both states that did not move are `ok: false`, so `!ok` means
+ * "still to move", not "failed" -- the failed row is the one carrying `error`.
+ */
+export type CardMoveRowOutcome = CardMoveAttemptOutcome | { ok: false; notAttempted: true };
 
 export type MoveRowsOntoCardOutcome = {
   moved: number[];
@@ -31,12 +35,15 @@ export type MoveRowsOntoCardOutcome = {
  * failed, and a retry built on that report would resend it. `settle` still
  * fires exactly once in that case, with the rows left behind named in
  * `notAttempted`, so a batch that already moved rows before the throw is
- * still refetched; the throw itself still propagates after `settle` runs.
+ * still refetched; the throw itself propagates once `settle` has returned.
+ *
+ * `settle` runs outside the guard as well: a throw from it rejects the
+ * returned promise, in place of a throw from `onRowSettled` if there was one.
  */
 export async function moveRowsOntoCard(
   rotationIds: readonly number[],
   move: (rotationId: number) => Promise<unknown>,
-  onRowSettled: (rotationId: number, outcome: CardMoveRowOutcome) => void,
+  onRowSettled: (rotationId: number, outcome: CardMoveAttemptOutcome) => void,
   settle: (outcome: MoveRowsOntoCardOutcome) => void,
 ): Promise<MoveRowsOntoCardOutcome> {
   const outcome: MoveRowsOntoCardOutcome = { moved: [], failed: [], notAttempted: [] };
@@ -45,7 +52,7 @@ export async function moveRowsOntoCard(
   try {
     for (; index < rotationIds.length; index++) {
       const rotationId = rotationIds[index];
-      let rowOutcome: CardMoveRowOutcome = { ok: true };
+      let rowOutcome: CardMoveAttemptOutcome = { ok: true };
       try {
         await move(rotationId);
         outcome.moved.push(rotationId);
