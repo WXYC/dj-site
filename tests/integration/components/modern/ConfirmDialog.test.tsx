@@ -31,6 +31,13 @@ describe("ConfirmDialog", () => {
     expect(screen.getByRole("button", { name: "Confirm" })).toBeInTheDocument();
   });
 
+  it("renders as a plain dialog for a caller hosting work rather than a decision", () => {
+    setup({ role: "dialog" });
+
+    expect(screen.getByRole("dialog", { name: "Discard changes?" })).toBeInTheDocument();
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+  });
+
   it("labels the dialog with its title via aria-labelledby", () => {
     setup();
 
