@@ -45,6 +45,20 @@ export const isRealQuery = (query: string): boolean =>
 export const shouldShowResults = (query: string): boolean =>
   isDefaultQuery(query) || isRealQuery(query);
 
+/**
+ * The chronological "Previous Sets" listing's own mode: the default query,
+ * newest first. Takes the sort pair explicitly rather than reading the slice
+ * itself, since an empty query sorted by artist is the default query in a
+ * different mode, not this one. Takes the query exactly as handed -- a
+ * caller passes the settled `effectiveQuery`, never the typed one -- paired
+ * with the live sort.
+ */
+export const isChronologicalMode = (
+  query: string,
+  sortBy: SortField,
+  sortOrder: SortOrder,
+): boolean => isDefaultQuery(query) && sortBy === "date" && sortOrder === "desc";
+
 // Stable identity for the no-seed case; a fresh [] each render would make
 // displayResults a new reference on every pass.
 const NO_SEED: readonly PlaylistSearchResult[] = [];
