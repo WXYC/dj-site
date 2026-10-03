@@ -7,7 +7,7 @@ import { walkImportGraph } from "@/tests/helpers/import-graph";
  * read-only surface can render a piece of the live row without pulling
  * `motion/react` or any live-show hook or API module into its bundle --
  * ReadOnlyEntry.tsx (under Entries/ReadOnly/) is that surface, composing all
- * four. A later edit that reaches for one of those from inside one of these
+ * five. A later edit that reaches for one of those from inside one of these
  * modules -- even transitively, even via a dynamic `import()` this walk
  * can't resolve a destination for -- silently reopens that bundle, so the
  * walk fails closed on anything it can't prove static and clean: a banned
@@ -59,6 +59,11 @@ const MODULES = [
     ],
   },
   {
+    name: "AlbumInfoButton",
+    file: "src/components/experiences/modern/flowsheet/Entries/AlbumInfoButton.tsx",
+    mustContain: ["lib/features/flowsheet/types.ts"],
+  },
+  {
     name: "messageEntrySlots",
     file: "src/components/experiences/modern/flowsheet/Entries/messageEntrySlots.tsx",
     mustContain: [
@@ -69,7 +74,7 @@ const MODULES = [
   {
     name: "ReadOnlyEntry",
     file: "src/components/experiences/modern/flowsheet/Entries/ReadOnly/ReadOnlyEntry.tsx",
-    // Proves the read-only row actually composes the four modules above
+    // Proves the read-only row actually composes the five modules above
     // (not copies of them) rather than merely avoiding the same banned
     // imports they do.
     mustContain: [
@@ -77,6 +82,7 @@ const MODULES = [
       "src/components/experiences/modern/flowsheet/Entries/EntryFieldText.tsx",
       "src/components/experiences/modern/flowsheet/Entries/EntryArtwork.tsx",
       "src/components/experiences/modern/flowsheet/Entries/messageEntrySlots.tsx",
+      "src/components/experiences/modern/flowsheet/Entries/AlbumInfoButton.tsx",
     ],
   },
 ];

@@ -11,12 +11,14 @@ import {
 } from "@/src/utilities/modern/entryFieldColors";
 import { Box, Stack, Typography } from "@mui/joy";
 import { memo } from "react";
+import AlbumInfoButton from "../AlbumInfoButton";
 import EntryTimeCell from "../Components/EntryTimeCell";
 import { MarkerEntryArtwork, SongEntryArtwork } from "../EntryArtwork";
 import EntryFieldText from "../EntryFieldText";
 import { StaticEntryRow, useEntryRowAttributes } from "../EntryRow";
 import { getMessageEntrySlots } from "../messageEntrySlots";
 import SongEntryStatusChips from "../SongEntry/SongEntryStatusChips";
+import { flowsheetChipsReservePx } from "../tableStyles";
 
 // Both the col-artist/col-label cells and their below-xl stacked second lines
 // render at every width; FLOWSHEET_TABLE_SX's CSS breakpoints, not a
@@ -26,12 +28,19 @@ const ReadOnlySongEntry = memo(function ReadOnlySongEntry({
   entry,
   timeLabel,
   highlighted = false,
+  albumInfo = false,
 }: {
   playing: boolean;
   entry: FlowsheetSongEntry;
   timeLabel?: string;
   /** The row an archive link named; see EntryRow's `EntryRowAttributesInput`. */
   highlighted?: boolean;
+  /**
+   * Renders the album-information control in a song row's last cell; marker
+   * rows ignore it. The control opens a signed-in dashboard page, so leave it
+   * off on a public route.
+   */
+  albumInfo?: boolean;
 }) {
   const field = (
     label: EntryFieldName,
@@ -79,10 +88,21 @@ const ReadOnlySongEntry = memo(function ReadOnlySongEntry({
         </Box>
       </td>
       <td className="col-label">{field("label", "record_label", "body-sm")}</td>
-      <td>
-        <Stack direction="row" gap={0.75} alignItems="center" flexWrap="wrap">
+      <td style={{ position: "relative" }}>
+        <Stack
+          direction="row"
+          gap={0.75}
+          alignItems="center"
+          flexWrap="wrap"
+          sx={albumInfo ? { pr: `${flowsheetChipsReservePx(false)}px` } : undefined}
+        >
           <SongEntryStatusChips entry={entry} editable={false} />
         </Stack>
+        {albumInfo && (
+          <Box sx={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)" }}>
+            <AlbumInfoButton entry={entry} />
+          </Box>
+        )}
       </td>
     </StaticEntryRow>
   );
@@ -157,10 +177,11 @@ function ReadOnlyMessageEntry({
  * tests/contract/entries-motion-free.test.ts for the enforced list — so it is
  * safe to mount on a public, unauthenticated route.
  *
- * It renders no action cluster. The live row's "Album information" button
- * lives in SongEntryControls, which imports the live-show hooks this row
- * must not reach; the `.row-actions` Stack that holds it and the 36px the
- * chip Stack reserves for it, both in SongEntry, are left out with it.
+ * It renders no action cluster. The live row's segue/request toggles and
+ * remove button live in SongEntryControls, which imports the live-show hooks
+ * this row must not reach, so they are left out; the "Album information"
+ * button is the one live control this row can opt into (`albumInfo`), since
+ * AlbumInfoButton itself reaches none of those hooks.
  * Smaller differences from the live row under `readOnly`: field text carries
  * no `cursor: default`, and two wrappers are absent: the flex Box around
  * each field, which hosts the live row's edit pencil, and the
@@ -180,12 +201,19 @@ const ReadOnlyEntry = memo(function ReadOnlyEntry({
   playing,
   timeLabel,
   highlighted = false,
+  albumInfo = false,
 }: {
   entry: FlowsheetEntry;
   playing: boolean;
   timeLabel?: string;
   /** The row an archive link named; see EntryRow's `EntryRowAttributesInput`. */
   highlighted?: boolean;
+  /**
+   * Renders the album-information control in a song row's last cell; marker
+   * rows ignore it. The control opens a signed-in dashboard page, so leave it
+   * off on a public route.
+   */
+  albumInfo?: boolean;
 }) {
   if (isFlowsheetSongEntry(entry)) {
     return (
@@ -194,6 +222,7 @@ const ReadOnlyEntry = memo(function ReadOnlyEntry({
         entry={entry}
         timeLabel={timeLabel}
         highlighted={highlighted}
+        albumInfo={albumInfo}
       />
     );
   }
