@@ -1,4 +1,4 @@
-# Reviews surface mirrors the iOS model — many per release, scoped to an intake item or a library release, locked at print, consent-gated per surface
+# Reviews are many per release, scoped to an intake item or a library release, locked at print, consent-gated per surface
 
 Canonical source: [`wxyc-dj-ios/docs/cross-repo-adrs.md` ADR 0005](https://github.com/WXYC/wxyc-dj-ios/blob/main/docs/cross-repo-adrs.md#adr-0005--reviews-are-many-per-release-scoped-to-an-intake-item-or-a-library-release-locked-at-print-consent-gated-per-surface). This file mirrors that decision for the dj-site surface and does not restate it in full; where the two disagree, the canonical ADR wins.
 
@@ -25,9 +25,11 @@ These are the dj-site specifics for this mirror. The DJ and music director scree
 
 ## Build-time values
 
-- `NEXT_PUBLIC_REVIEWS_ENABLED` turns the review screens on. Turning it on is what opens the overlap with the form, and it stays on after cutover, when intake filing is the only way a new release enters the library. It is inlined at build time, so changing it requires a rebuild and deploy.
-- `NEXT_PUBLIC_REVIEW_GATE_CUTOVER_DATE` (`YYYY-MM-DD`, station time; unset means off) drives the cutover changes in dj-site's UI: from that date the classic typed-text rotation add and the three catalog add-release screens disappear, and the standalone filing bench points to the intake pile. Like every `NEXT_PUBLIC_*` value it is inlined at build time, so setting or changing it needs a dj-site production deploy; only the date's arrival needs no deploy, because dj-site compares it with the current date at run time. It does not configure the gate itself. The hard gate is Backend-Service's `REVIEW_GATE_CUTOVER_DATE`, and the two must be set to the same date.
+- `NEXT_PUBLIC_REVIEWS_ENABLED` turns the review screens on. Turning it on is what opens the overlap with the form, and it stays on after cutover, when intake filing is the only way a new release enters the library, apart from the legacy import described under Backend contract. It is inlined at build time, so changing it requires a rebuild and deploy.
+- `NEXT_PUBLIC_REVIEW_GATE_CUTOVER_DATE` (`YYYY-MM-DD`, station time; unset means off) drives the cutover changes in dj-site's UI: from that date each of the four create screens (the classic typed-text rotation add, the three catalog add-release screens, and the standalone filing bench) is replaced by a pointer to the intake pile, not removed. Like every `NEXT_PUBLIC_*` value it is inlined at build time, so setting or changing it needs a dj-site production deploy; only the date's arrival needs no deploy, because dj-site compares it with the current date at run time. It does not configure the gate itself. The hard gate is Backend-Service's `REVIEW_GATE_CUTOVER_DATE`, and the two must be set to the same date.
 
 ## Backend contract
 
 dj-site consumes the Backend-Service `/intake` and `/reviews` endpoints and the `reviews` permission key described in the canonical ADR. Library and rotation inserts enforce the cutover gate on the server; dj-site surfaces the gate's refusals but does not decide them.
+
+Two paths survive the cutover (canonical decision 17): a typed-text rotation record from before the cutover may still change bins after it, and keeps its right to be imported into the library by the librarian. In dj-site the classic import of a legacy typed-text row sends `POST /library` with `from_rotation_id`, and modern's cross-bin move of an unlinked row sends `moved_from_rotation_id`. Both keep working after the cutover date; the pointers above replace only the create paths.
