@@ -87,6 +87,11 @@ export const FLOWSHEET_TABLE_SX: SxProps = {
   "& .col-marker-compact": {
     display: { xs: "table-cell", xl: "none" },
   },
+  // Seen only in a head that labels its columns (FlowsheetColumnSizingRow's
+  // `labeled`); a sizing-only head is visibility-collapsed. The opaque band
+  // is what a sticky head needs to cover the rows scrolling under it.
+  "--TableCell-headBackground": (theme) => theme.vars.palette.background.level1,
+  "--Table-headerUnderlineThickness": "1px",
   "& tbody tr > td": {
     backgroundColor: "var(--row-bg, transparent)",
     transition: "background-color 120ms",
@@ -154,6 +159,11 @@ export const FLOWSHEET_COL_TIME_PX = 76;
  * artist before song). Every row type must render exactly these 6 column units
  * (4 below xl) or fixed-layout sizing silently degrades.
  *
+ * `labeled` renders the same units as the table's visible column headers, for
+ * a table with no entry bar above it to stand in for them. Below xl the Song
+ * and Release headers stack the Artist and Label labels under themselves, as
+ * the rows stack those fields.
+ *
  * `leadingTimeColumn` adds a 7th unit (5 below xl) in front, for the archive
  * drill-in, whose rows each carry their own time — the live sheet shows time
  * only on show markers, inside the row. The variant is one switch on purpose:
@@ -163,20 +173,37 @@ export const FLOWSHEET_COL_TIME_PX = 76;
  */
 export function FlowsheetColumnSizingRow({
   leadingTimeColumn = false,
+  labeled = false,
 }: {
   leadingTimeColumn?: boolean;
+  labeled?: boolean;
 } = {}) {
+  const Cell = labeled ? "th" : "td";
   return (
     <tr>
       {leadingTimeColumn && (
-        <td className="col-time" style={{ width: `${FLOWSHEET_COL_TIME_PX}px` }}></td>
+        <Cell className="col-time" style={{ width: `${FLOWSHEET_COL_TIME_PX}px` }}>
+          {labeled && "Time"}
+        </Cell>
       )}
-      <td style={{ width: `${FLOWSHEET_COL_ART_PX}px` }}></td>
-      <td className="col-artist"></td>
-      <td></td>
-      <td></td>
-      <td className="col-label"></td>
-      <td style={{ width: `${FLOWSHEET_COL_ACTIONS_PX}px` }}></td>
+      <Cell style={{ width: `${FLOWSHEET_COL_ART_PX}px` }}></Cell>
+      <Cell className="col-artist">{labeled && "Artist"}</Cell>
+      <Cell>
+        {labeled && (
+          <>
+            Song<div className="field-second-line">Artist</div>
+          </>
+        )}
+      </Cell>
+      <Cell>
+        {labeled && (
+          <>
+            Release<div className="field-second-line">Label</div>
+          </>
+        )}
+      </Cell>
+      <Cell className="col-label">{labeled && "Label"}</Cell>
+      <Cell style={{ width: `${FLOWSHEET_COL_ACTIONS_PX}px` }}></Cell>
     </tr>
   );
 }
