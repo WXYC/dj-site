@@ -75,17 +75,6 @@ const MODULES = [
     ],
   },
   {
-    name: "ArchiveStreamTable",
-    file: "src/components/experiences/modern/previous-sets/ArchiveStreamTable.tsx",
-    // The shared table reaches the read-only row and the notice it renders
-    // outside its table, and the showUrl helper its row links are built with.
-    mustContain: [
-      "src/components/experiences/modern/flowsheet/Entries/ReadOnly/ReadOnlyEntry.tsx",
-      "src/components/experiences/modern/previous-sets/FailedSearchNotice.tsx",
-      "lib/features/schedule-week/showUrl.ts",
-    ],
-  },
-  {
     name: "ReadOnlyEntry",
     file: "src/components/experiences/modern/flowsheet/Entries/ReadOnly/ReadOnlyEntry.tsx",
     // Proves the read-only row actually composes the five modules above
@@ -97,6 +86,16 @@ const MODULES = [
       "src/components/experiences/modern/flowsheet/Entries/EntryArtwork.tsx",
       "src/components/experiences/modern/flowsheet/Entries/messageEntrySlots.tsx",
       "src/components/experiences/modern/flowsheet/Entries/AlbumInfoButton.tsx",
+    ],
+  },  {
+    name: "ArchiveStreamTable",
+    file: "src/components/experiences/modern/previous-sets/ArchiveStreamTable.tsx",
+    // The shared table reaches the read-only row and the notice it renders
+    // outside its table, and the showUrl helper its row links are built with.
+    mustContain: [
+      "src/components/experiences/modern/flowsheet/Entries/ReadOnly/ReadOnlyEntry.tsx",
+      "src/components/experiences/modern/previous-sets/FailedSearchNotice.tsx",
+      "lib/features/schedule-week/showUrl.ts",
     ],
   },
 ];
