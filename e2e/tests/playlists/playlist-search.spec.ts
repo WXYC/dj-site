@@ -79,11 +79,12 @@ test.describe("Previous Sets sort control", () => {
       await page.getByRole("option", { name: choose, exact: true }).click();
     };
 
-    // The archive starts in November 2004, so the default listing must be
-    // newest-first or today's plays sit thousands of pages down.
-    await expect
-      .poll(() => recorded.at(-1))
-      .toEqual({ sort: "date", order: "desc" });
+    // Date (Newest) with an empty query is the chronological archive, which
+    // reads the stream rather than the search endpoint.
+    await expect(
+      page.getByRole("table", { name: "playlist archive" }),
+    ).toBeVisible();
+    expect(recorded).toEqual([]);
 
     await pickSort("Artist (A-Z)");
     await expect
@@ -95,10 +96,12 @@ test.describe("Previous Sets sort control", () => {
       .poll(() => recorded.at(-1))
       .toEqual({ sort: "date", order: "asc" });
 
+    const searchesBeforeReturn = recorded.length;
     await pickSort("Date (Newest)");
-    await expect
-      .poll(() => recorded.at(-1))
-      .toEqual({ sort: "date", order: "desc" });
+    await expect(
+      page.getByRole("table", { name: "playlist archive" }),
+    ).toBeVisible();
+    expect(recorded).toHaveLength(searchesBeforeReturn);
   });
 
   test("announces the active sort direction on the results table", async ({
@@ -109,14 +112,17 @@ test.describe("Previous Sets sort control", () => {
     await page.goto("/dashboard/playlists");
     await page.waitForLoadState("domcontentloaded");
 
-    const dateHeader = page.getByRole("columnheader", { name: "Date" });
-    await expect(dateHeader).toHaveAttribute("aria-sort", "descending");
+    await page.getByRole("combobox", { name: "Sort by" }).click();
+    await page.getByRole("option", { name: "Artist (A-Z)", exact: true }).click();
+
+    const artistHeader = page.getByRole("columnheader", { name: "Artist" });
+    await expect(artistHeader).toHaveAttribute("aria-sort", "ascending");
 
     // The click target is the label itself, not the padded cell around it.
-    await dateHeader.getByText("Date", { exact: true }).click();
-    await expect(dateHeader).toHaveAttribute("aria-sort", "ascending");
+    await artistHeader.getByText("Artist", { exact: true }).click();
+    await expect(artistHeader).toHaveAttribute("aria-sort", "descending");
     await expect
       .poll(() => recorded.at(-1))
-      .toEqual({ sort: "date", order: "asc" });
+      .toEqual({ sort: "artist", order: "desc" });
   });
 });

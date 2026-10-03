@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { act, screen, waitFor, fireEvent, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import {
@@ -9,6 +9,7 @@ import {
 } from "@/tests/helpers";
 import { playlistSearchFake } from "@/tests/fakes/playlistSearch";
 import { playlistSearchSlice } from "@/lib/features/playlist-search/frontend";
+import { rangeEntry, serveArchive } from "@/tests/fakes/flowsheetRange";
 
 // The base query's prepareHeaders fetches a JWT; no auth server runs here.
 vi.mock("@/lib/features/authentication/client", async () => {
@@ -49,6 +50,19 @@ const ARCHIVE = 120;
 beforeEach(() => {
   currentParams = new URLSearchParams();
 });
+
+/**
+ * The ranked listing as the walk specs below expect it: a non-chronological
+ * sort, so the flat table mounts. Date (Oldest) keeps the date cursor the
+ * fake's walk assertions are written against.
+ */
+function rankedStore() {
+  const store = createTestStore();
+  store.dispatch(
+    playlistSearchSlice.actions.setSort({ sortBy: "date", sortOrder: "asc" }),
+  );
+  return store;
+}
 
 function scrollport(): HTMLElement {
   return screen.getByTestId("previous-sets-scrollport");
@@ -112,7 +126,7 @@ describe("PreviousSetsSurface — returning from a show", () => {
     server.use(fake.handler);
 
     const { rerender } = renderWithProviders(<PreviousSetsSurface />, {
-      store: createTestStore(),
+      store: rankedStore(),
     });
 
     await settleFirstPage();
@@ -139,7 +153,7 @@ describe("PreviousSetsSurface — returning from a show", () => {
     server.use(fake.handler);
 
     const { rerender } = renderWithProviders(<PreviousSetsSurface />, {
-      store: createTestStore(),
+      store: rankedStore(),
     });
 
     await settleFirstPage();
@@ -166,7 +180,7 @@ describe("PreviousSetsSurface — a sub-threshold detour", () => {
   it("keeps the walk across a character typed and deleted", async () => {
     const fake = playlistSearchFake({ archiveSize: ARCHIVE });
     server.use(fake.handler);
-    const store = createTestStore();
+    const store = rankedStore();
 
     renderWithProviders(<PreviousSetsSurface />, { store });
     await settleFirstPage();
@@ -249,7 +263,7 @@ describe("PreviousSetsSurface — arriving fresh", () => {
   it("fetches a fresh first page rather than serving what the last visit walked", async () => {
     const fake = playlistSearchFake({ archiveSize: ARCHIVE });
     server.use(fake.handler);
-    const store = createTestStore();
+    const store = rankedStore();
 
     const first = renderWithProviders(<PreviousSetsSurface />, { store });
     await settleFirstPage();
@@ -279,7 +293,7 @@ describe("PreviousSetsSurface — arriving fresh", () => {
 
     openShow();
     const { rerender } = renderWithProviders(<PreviousSetsSurface />, {
-      store: createTestStore(),
+      store: rankedStore(),
     });
     await screen.findByText("show 3");
 
@@ -292,6 +306,244 @@ describe("PreviousSetsSurface — arriving fresh", () => {
 
     await settleFirstPage();
     expect(fake.requests).toHaveLength(1);
+  });
+});
+
+describe("PreviousSetsSurface — the chronological default", () => {
+  const { setSort, updateRow } = playlistSearchSlice.actions;
+  // Fixed rather than read off the wall clock: the archive-stream walk
+  // anchors its head window on Date.now(), and a fixture pinned to a
+  // calendar date would fall out of that window's reach as real time passes.
+  const BASE = Date.parse("2026-10-01T18:00:00.000Z");
+  const archiveRows = Array.from({ length: 60 }, (_, i) =>
+    rangeEntry(900000 + i, BASE - i * 60_000),
+  );
+
+  // Jsdom lays nothing out, so every scroll height reads zero and the
+  // bottom-of-scrollport check would walk the whole archive on its own.
+  // A tall scrollport keeps the walk to the pages each spec asks for.
+  //
+  // The descriptors are saved and restored rather than deleted: jsdom
+  // defines these getters on Element.prototype itself, so `delete` removes
+  // jsdom's own getters along with this override, leaving every later test
+  // in the file reading `undefined` instead of jsdom's real (zero) layout.
+  let scrollHeightDescriptor: PropertyDescriptor | undefined;
+  let clientHeightDescriptor: PropertyDescriptor | undefined;
+
+  beforeEach(() => {
+    vi.spyOn(Date, "now").mockReturnValue(BASE);
+    scrollHeightDescriptor = Object.getOwnPropertyDescriptor(
+      Element.prototype,
+      "scrollHeight",
+    );
+    clientHeightDescriptor = Object.getOwnPropertyDescriptor(
+      Element.prototype,
+      "clientHeight",
+    );
+    Object.defineProperty(Element.prototype, "scrollHeight", {
+      configurable: true,
+      get: () => 100_000,
+    });
+    Object.defineProperty(Element.prototype, "clientHeight", {
+      configurable: true,
+      get: () => 500,
+    });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    if (scrollHeightDescriptor) {
+      Object.defineProperty(Element.prototype, "scrollHeight", scrollHeightDescriptor);
+    }
+    if (clientHeightDescriptor) {
+      Object.defineProperty(Element.prototype, "clientHeight", clientHeightDescriptor);
+    }
+  });
+
+  function archiveTable() {
+    return screen.getByRole("table", { name: "playlist archive" });
+  }
+
+  it("lists the archive, not a search, with the search bar and sort mounted", async () => {
+    const fake = playlistSearchFake({ archiveSize: ARCHIVE });
+    server.use(fake.handler);
+    const windows = serveArchive(archiveRows);
+
+    renderWithProviders(<PreviousSetsSurface />, {
+      store: createTestStore(),
+    });
+
+    await waitFor(() =>
+      expect(within(archiveTable()).getAllByRole("row").length).toBeGreaterThan(1),
+    );
+    expect(windows.length).toBeGreaterThan(0);
+    expect(fake.requests).toHaveLength(0);
+    expect(
+      screen.queryByRole("table", { name: "playlist search results" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("swaps to the ranked table when sorted away, and back without re-walking the archive", async () => {
+    const fake = playlistSearchFake({ archiveSize: ARCHIVE });
+    server.use(fake.handler);
+    const windows = serveArchive(archiveRows);
+    const store = createTestStore();
+
+    renderWithProviders(<PreviousSetsSurface />, { store });
+    await waitFor(() => expect(windows.length).toBeGreaterThan(0));
+    const walked = windows.length;
+
+    act(() => {
+      store.dispatch(setSort({ sortBy: "artist", sortOrder: "asc" }));
+    });
+    await waitFor(() => expect(fake.requests).toHaveLength(1));
+    expect(
+      screen.getByRole("table", { name: "playlist search results" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("table", { name: "playlist archive" }),
+    ).not.toBeInTheDocument();
+
+    act(() => {
+      store.dispatch(setSort({ sortBy: "date", sortOrder: "desc" }));
+    });
+    await waitFor(() => expect(archiveTable()).toBeInTheDocument());
+    expect(windows).toHaveLength(walked);
+  });
+
+  it("keeps the walked archive across a show visit", async () => {
+    const fake = playlistSearchFake({ archiveSize: ARCHIVE });
+    server.use(fake.handler);
+    const windows = serveArchive(archiveRows);
+
+    const { rerender } = renderWithProviders(<PreviousSetsSurface />, {
+      store: createTestStore(),
+    });
+    await waitFor(() => expect(windows.length).toBeGreaterThan(0));
+    const walked = windows.length;
+
+    openShow();
+    rerender(<PreviousSetsSurface />);
+    await screen.findByText("show 3");
+
+    closeShow();
+    rerender(<PreviousSetsSurface />);
+
+    await waitFor(() => expect(archiveTable()).toBeInTheDocument());
+    expect(windows).toHaveLength(walked);
+    expect(fake.requests).toHaveLength(0);
+  });
+
+  it("keeps each mode's scroll offset to itself", async () => {
+    const fake = playlistSearchFake({ archiveSize: ARCHIVE });
+    server.use(fake.handler);
+    serveArchive(archiveRows);
+    const store = createTestStore();
+
+    renderWithProviders(<PreviousSetsSurface />, { store });
+    await waitFor(() => expect(archiveTable()).toBeInTheDocument());
+    scrollport().scrollTop = 840;
+
+    act(() => {
+      store.dispatch(setSort({ sortBy: "artist", sortOrder: "asc" }));
+    });
+    await waitFor(() =>
+      expect(
+        screen.getByRole("table", { name: "playlist search results" }),
+      ).toBeInTheDocument(),
+    );
+    expect(scrollport().scrollTop).toBe(0);
+  });
+
+  it("puts the chronological listing back at the offset it was left at", async () => {
+    const fake = playlistSearchFake({ archiveSize: ARCHIVE });
+    server.use(fake.handler);
+    const windows = serveArchive(archiveRows);
+
+    const { rerender } = renderWithProviders(<PreviousSetsSurface />, {
+      store: createTestStore(),
+    });
+    await waitFor(() => expect(archiveTable()).toBeInTheDocument());
+    const walked = windows.length;
+    scrollport().scrollTop = 840;
+
+    openShow();
+    rerender(<PreviousSetsSurface />);
+    await screen.findByText("show 3");
+
+    closeShow();
+    rerender(<PreviousSetsSurface />);
+
+    await waitFor(() => expect(archiveTable()).toBeInTheDocument());
+    expect(scrollport().scrollTop).toBe(840);
+    expect(windows).toHaveLength(walked);
+  });
+
+  it("drops the held search key once the listing returns to the chronological default", async () => {
+    const fake = playlistSearchFake({ archiveSize: ARCHIVE });
+    server.use(fake.handler);
+    serveArchive(archiveRows);
+    const store = createTestStore();
+
+    renderWithProviders(<PreviousSetsSurface />, { store });
+    await waitFor(() => expect(archiveTable()).toBeInTheDocument());
+
+    const rowId = store.getState().playlistSearch.rows[0].id;
+    const type = (value: string) =>
+      act(() => {
+        store.dispatch(updateRow({ id: rowId, updates: { value } }));
+      });
+
+    type("stereolab");
+    await waitFor(() => expect(fake.requests).toHaveLength(1));
+    expect(fake.requests[0].q).toBe("stereolab");
+
+    // Returning to the chronological default must not leave the search
+    // key latched: nothing here asks for it again, but the latch has to be
+    // cleared or the next sub-threshold partial below would resubscribe it.
+    type("");
+    await waitFor(() => expect(archiveTable()).toBeInTheDocument());
+
+    type("j");
+    await waitFor(() =>
+      expect(
+        screen.getByText("Keep typing to search previous sets…"),
+      ).toBeInTheDocument(),
+    );
+
+    expect(fake.requests).toHaveLength(1);
+  });
+
+  it("spends no archive window on a permalink straight into a show, then starts the walk once it closes", async () => {
+    const fake = playlistSearchFake({ archiveSize: ARCHIVE });
+    server.use(fake.handler);
+    const windows = serveArchive(archiveRows);
+
+    openShow();
+    const { rerender } = renderWithProviders(<PreviousSetsSurface />, {
+      store: createTestStore(),
+    });
+    await screen.findByText("show 3");
+
+    // A listing nobody has asked for must not spend a request on an
+    // endpoint whose result count is capped because it is expensive.
+    await waitFor(() => expect(windows).toHaveLength(0));
+
+    closeShow();
+    rerender(<PreviousSetsSurface />);
+
+    await waitFor(() => expect(windows.length).toBeGreaterThan(0));
+  });
+
+  it("requests no archive window while the ranked table is showing", async () => {
+    const fake = playlistSearchFake({ archiveSize: ARCHIVE });
+    server.use(fake.handler);
+    const windows = serveArchive(archiveRows);
+
+    renderWithProviders(<PreviousSetsSurface />, { store: rankedStore() });
+    await settleFirstPage();
+
+    expect(windows).toHaveLength(0);
   });
 });
 
@@ -343,7 +595,9 @@ describe("PreviousSetsSurface — the Week toggle from inside a show", () => {
   });
 
   it("opens the current week when no show is open", async () => {
-    renderWithProviders(<PreviousSetsSurface />, { store: createTestStore() });
+    // Ranked, so no archive walk runs behind the toggle: against jsdom's zero
+    // layout every landed page reads as the bottom and the walk never stops.
+    renderWithProviders(<PreviousSetsSurface />, { store: rankedStore() });
     // The toggle, not the listing: this asserts where the week comes from with
     // nothing open, and the listing behind it is another spec's subject.
     await screen.findByRole("button", { name: /week/i });

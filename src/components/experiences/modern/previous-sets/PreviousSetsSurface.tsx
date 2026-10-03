@@ -2,29 +2,24 @@
 
 import { useRef } from "react";
 import { Box } from "@mui/joy";
-import type { PlaylistSearchResult } from "@wxyc/shared";
 import { usePlaylistSearchSubscription } from "@/src/hooks/playlistSearchHooks";
+import { useArchiveStreamSubscription } from "@/src/hooks/archiveStreamHooks";
 import { useScheduleWeekParams } from "@/src/hooks/scheduleWeekHooks";
 import { useShowPlaylist } from "@/src/hooks/showPlaylistHooks";
 import { ScheduleWeekView } from "@/src/components/experiences/modern/schedule-week";
 import ShowView from "./ShowView";
 import SearchBar from "./Search/SearchBar";
-import Results from "./Results/Results";
+import Results, { type RetainedScrollTops } from "./Results/Results";
 import ViewToggle from "./ViewToggle";
 
 /**
  * Owns the Search-vs-Week branch.
  *
- * The page above is a Server Component so it can seed the default listing, but
- * the branch itself reads the URL through useSearchParams and so has to live on
- * the client. Splitting it here keeps toggling a client transition instead of a
- * server round-trip per click.
+ * The page above is a Server Component, but the branch itself reads the URL
+ * through useSearchParams and so has to live on the client. Splitting it here
+ * keeps toggling a client transition instead of a server round-trip per click.
  */
-export default function PreviousSetsSurface({
-  initialResults,
-}: {
-  initialResults?: readonly PlaylistSearchResult[];
-}) {
+export default function PreviousSetsSurface() {
   const { isWeekView, setView, selectedShowId, selectedEntryId } =
     useScheduleWeekParams();
 
@@ -39,9 +34,19 @@ export default function PreviousSetsSurface({
 
   // Both of these outlive the listing on purpose. The branch below unmounts it
   // to open a show, which would otherwise drop the walked pages and the offset
-  // into them — the two halves of the place the reader was.
-  usePlaylistSearchSubscription(listingVisible);
-  const listingScrollTop = useRef(0);
+  // into them — the two halves of the place the reader was. The chronological
+  // listing's pages are the archive stream's, so the default query is skipped
+  // here and held by the stream subscription instead.
+  const { chronological } = usePlaylistSearchSubscription(listingVisible, {
+    skipChronological: true,
+  });
+  useArchiveStreamSubscription(listingVisible && chronological);
+  // One offset per mode: restoring the chronological offset into the ranked
+  // table, or the reverse, would land on rows that are not the ones left.
+  const listingScrollTop: RetainedScrollTops = {
+    chronological: useRef(0),
+    ranked: useRef(0),
+  };
 
   return (
     <>
@@ -59,10 +64,7 @@ export default function PreviousSetsSurface({
       ) : (
         <>
           <SearchBar />
-          <Results
-            initialResults={initialResults}
-            retainedScrollTop={listingScrollTop}
-          />
+          <Results retainedScrollTop={listingScrollTop} />
         </>
       )}
     </>

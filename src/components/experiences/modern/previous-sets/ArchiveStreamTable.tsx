@@ -38,9 +38,9 @@ export default function ArchiveStreamTable({
 
   return (
     <>
-      <Table borderAxis="none" sx={FLOWSHEET_TABLE_SX} aria-label="playlist archive">
-        <thead style={{ visibility: "collapse" }}>
-          <FlowsheetColumnSizingRow leadingTimeColumn />
+      <Table borderAxis="none" stickyHeader sx={FLOWSHEET_TABLE_SX} aria-label="playlist archive">
+        <thead>
+          <FlowsheetColumnSizingRow leadingTimeColumn labeled />
         </thead>
         <tbody>
           {rows.map((row) => (
