@@ -349,7 +349,10 @@ export function createTestRotationListRow(
     genre_name: "Rock",
     format_name: "CD",
     rotation_id: TEST_ENTITY_IDS.ROTATION.HEAVY,
-    add_date: "2026-09-05",
+    // The wire's own rendering of `library.add_date` (a timestamptz), deliberately
+    // distinct from `rotation_add_date` below: the two are different facts
+    // (library add vs. rotation add) and no production code reads this field.
+    add_date: "2026-09-05 00:00:00+00",
     rotation_add_date: "2026-09-05",
     rotation_bin: Rotation.H,
     rotation_kill_date: null,

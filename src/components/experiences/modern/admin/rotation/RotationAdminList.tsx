@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { catalogSlice } from "@/lib/features/catalog/frontend";
 import { addThenRetire } from "@/lib/features/rotation/addThenRetire";
+import { ROTATION_WINDOW_DAYS, daysInBin, daysPastWindow, isPastWindow } from "@/lib/features/rotation/age";
 import {
   canMoveRotationRow,
   freeTextRotationMoveRequest,
@@ -35,6 +36,7 @@ import {
 } from "@/lib/features/rotation/types";
 import { useAppDispatch } from "@/lib/hooks";
 import { RotationCardBadge } from "@/src/components/shared/RotationCardBadge";
+import { useUtcDayClock } from "@/src/hooks/useUtcDayClock";
 import {
   ROTATION_BIN_PALETTE_SLOT,
   rotationBinSurfaceStyle,
@@ -110,6 +112,7 @@ function RotationAdminRow({
   binCards,
   pending,
   moveLocked,
+  now,
   onKill,
   onUnkill,
   onSelectCard,
@@ -121,12 +124,23 @@ function RotationAdminRow({
   pending: boolean;
   /** Disables the cross-bin move chips beyond this row's own pending state. */
   moveLocked: boolean;
+  /** Age and the overdue chip read this clock — a killed row ignores it. The count above the list reads the same clock, in the parent. */
+  now: Date;
   onKill: () => void;
   onUnkill: () => void;
   onSelectCard: (cardId: number) => void;
   onMoveBin: (bin: RotationBin) => void;
 }): JSX.Element {
   const killed = rotationRowPresentation(row) === "killed";
+  // A killed row left its bin on its kill date -- "N days in Heavy" counted
+  // to today would be false, so age applies to the Active presentation only.
+  const age = killed ? null : daysInBin(row, now);
+  const windowDays = windowFor(row.rotation_bin);
+  // `isPastWindow`/`daysPastWindow` re-run `daysInBin` rather than reusing
+  // `age` above -- a few extra subtractions, and the one boundary rule stays
+  // read through one function instead of two call sites agreeing by hand.
+  const overdue = !killed && isPastWindow(row, windowDays, now);
+  const daysOver = overdue ? daysPastWindow(row, windowDays, now) : null;
   const code = rotationRowCode(row);
   const urls = row.urls ?? [];
   // Named per row: a list of identical "Kill" buttons tells a screen-reader
@@ -269,7 +283,19 @@ function RotationAdminRow({
             {urls.length}
           </Typography>
         )}
-        <Typography level="body-xs">added {formatRotationDate(row.rotation_add_date)}</Typography>
+        <Typography level="body-xs">
+          added {formatRotationDate(row.rotation_add_date)}
+          {/* A future-dated add, or a client clock briefly behind the server's
+              right after UTC midnight, yields a negative age -- rendered as no
+              age clause at all rather than "-1 days in Heavy". */}
+          {age != null && age >= 0 &&
+            ` · ${age} day${age === 1 ? "" : "s"} in ${ROTATION_BIN_LABELS[row.rotation_bin]}`}
+        </Typography>
+        {overdue && (
+          <Chip size="sm" variant="soft" color="warning">
+            {daysOver} over
+          </Chip>
+        )}
         {killed && (
           <Typography level="body-xs" color="danger">
             killed {formatRotationDate(row.rotation_kill_date)}
@@ -314,10 +340,22 @@ function RotationAdminRow({
  */
 const KILLED_RENDER_BATCH = 50;
 
+/**
+ * A bin's replacement window. `ROTATION_WINDOW_DAYS` is read nowhere else in
+ * this file — this is the one place. A later store-backed, per-bin-editable
+ * window is a query read, not a constant lookup, so it can't stay a
+ * module-level function: it would move into `RotationAdminList`, get passed
+ * back down to `RotationAdminRow` (or the row given its `windowDays`
+ * directly), and join both `shownOverdueCount` and `totalOverdueCount`'s memo
+ * dependencies.
+ */
+const windowFor = (bin: RotationBin): number => ROTATION_WINDOW_DAYS[bin];
+
 type RowActions = {
   cardsByBin: ReadonlyMap<RotationBin, RotationCard[]>;
   pendingRotationIds: ReadonlySet<number>;
   moveLocked: boolean;
+  now: Date;
   onKill: (rotationId: number) => void;
   onUnkill: (rotationId: number) => void;
   onSelectCard: (rotationId: number, cardId: number) => void;
@@ -360,6 +398,7 @@ function RowSection({
               binCards={actions.cardsByBin.get(row.rotation_bin) ?? []}
               pending={actions.pendingRotationIds.has(row.rotation_id)}
               moveLocked={actions.moveLocked}
+              now={actions.now}
               onKill={() => actions.onKill(row.rotation_id)}
               onUnkill={() => actions.onUnkill(row.rotation_id)}
               onSelectCard={(cardId) => actions.onSelectCard(row.rotation_id, cardId)}
@@ -386,8 +425,31 @@ function RowSection({
  * add-then-kill through the shared `addThenRetire` ordering, because no
  * endpoint edits a bin in place.
  */
-export default function RotationAdminList(): JSX.Element {
-  const { data: rows, isFetching, isError, refetch } = useGetRotationListQuery("all");
+export default function RotationAdminList({ now: nowProp }: { now?: Date } = {}): JSX.Element {
+  const {
+    data: rows,
+    isFetching,
+    isError,
+    refetch,
+    fulfilledTimeStamp,
+  } = useGetRotationListQuery("all");
+  // Ages are differenced against the moment the rows were read, not against
+  // when this component mounted: a row the server stamps after the page
+  // opened (a bin move filed across UTC midnight) is aged against the read
+  // that shows it, never a clock stuck on an earlier day. From there the
+  // clock keeps advancing on its own while the tab stays open: `useUtcDayClock`
+  // rolls `now` forward across a UTC midnight with no refetch, so an age and
+  // its overdue chip can still turn over in a tab nobody touched since
+  // yesterday. `new Date()` in render is impure, so a caller that wants a
+  // fixed clock (tests) passes its own; otherwise this re-anchors from
+  // `fulfilledTimeStamp`, which RTK Query advances on every successful
+  // refetch of this read (and holds on a failed one). The memo keys on the
+  // clock's own identity rather than reading it inline so it stays stable
+  // between renders neither the read nor the tick has changed, and memos
+  // keyed on `now` don't recompute for nothing. No fulfilled read yet means
+  // no rows to age, so the epoch placeholder is never seen.
+  const utcDayClock = useUtcDayClock(fulfilledTimeStamp);
+  const now = useMemo(() => nowProp ?? utcDayClock ?? new Date(0), [nowProp, utcDayClock]);
   // The card sub-filter's vocabulary. A failed cards read must not impair the
   // list itself: the rows still render (each knows its own card), only the
   // sub-filter stays hidden until a retryable refetch succeeds.
@@ -413,6 +475,24 @@ export default function RotationAdminList(): JSX.Element {
   const view = useMemo(
     () => selectRotationAdminView(rows ?? [], { search, bin, cardId }),
     [rows, search, bin, cardId],
+  );
+  // The list-wide overdue total, counted over every active row regardless of
+  // the current filter — an MD narrowing to one bin still needs to know the
+  // overdue total across the whole list. `shownOverdueCount` below narrows
+  // the same predicate to `view.active`, the rows the current filter actually
+  // shows, so the count line can report "N of M" the same way the section
+  // headings do.
+  const totalOverdueCount = useMemo(
+    () =>
+      (rows ?? []).filter(
+        (row) =>
+          rotationRowPresentation(row) === "active" && isPastWindow(row, windowFor(row.rotation_bin), now),
+      ).length,
+    [rows, now],
+  );
+  const shownOverdueCount = useMemo(
+    () => view.active.filter((row) => isPastWindow(row, windowFor(row.rotation_bin), now)).length,
+    [view.active, now],
   );
   const cardsByBin = useMemo(() => groupRotationCardsByBin(cards ?? []), [cards]);
   const binCards = bin == null ? [] : (cardsByBin.get(bin) ?? []);
@@ -521,6 +601,7 @@ export default function RotationAdminList(): JSX.Element {
   const actions: RowActions = {
     cardsByBin,
     pendingRotationIds,
+    now,
     // The move chips stay disabled while the list refetches: the add half
     // invalidates the rotation list, and every row keeps rendering its old
     // bin until that refetch lands — a second click in that window would
@@ -602,6 +683,18 @@ export default function RotationAdminList(): JSX.Element {
             />
           ))}
         </Stack>
+      )}
+
+      {totalOverdueCount > 0 && (
+        <Typography level="body-sm" color="warning" data-testid="rotation-admin-overdue-count">
+          {/* The grammar follows the list-wide total, not the shown count: a
+              filter that narrows to zero overdue rows out of a nonzero total
+              still reads "records"/"their", because the total is what is
+              plural. */}
+          {view.narrowed ? `${shownOverdueCount} of ${totalOverdueCount}` : totalOverdueCount} record
+          {totalOverdueCount === 1 ? "" : "s"} past{" "}
+          {totalOverdueCount === 1 ? "its" : "their"} bin's window
+        </Typography>
       )}
 
       <RowSection

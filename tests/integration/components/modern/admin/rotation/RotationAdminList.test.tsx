@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { screen, waitFor, within } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, onTestFinished } from "vitest";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import {
   server,
@@ -113,13 +113,20 @@ const ALL_ROWS = [IHOMF, NILUFER, HALO, CHUQUI_UNLINKED, DOTS_KILLED];
 const activeSection = () => within(screen.getByTestId("rotation-admin-active"));
 const killedSection = () => within(screen.getByTestId("rotation-admin-killed"));
 
+// Noon UTC, a few days after the fixtures' latest add date: every active
+// fixture row is only days old here, nowhere near its 60-day window, so no
+// existing case starts rendering an overdue row or the count line by
+// accident.
+const DEFAULT_NOW = new Date("2026-09-13T12:00:00Z");
+
 async function renderList(
   rows: FakeRotationAdminRow[] = ALL_ROWS,
   cards = CARDS,
   options?: Parameters<typeof fakeRotationAdminEndpoints>[2],
+  now: Date = DEFAULT_NOW,
 ) {
   const fake = fakeRotationAdminEndpoints(rows, cards, options);
-  const rendered = renderWithProviders(<RotationAdminList />);
+  const rendered = renderWithProviders(<RotationAdminList now={now} />);
   await screen.findByTestId("rotation-admin-active");
   return { fake, ...rendered };
 }
@@ -679,6 +686,250 @@ describe("RotationAdminList", () => {
         screen.queryByRole("button", { name: "Move to Heavy: Dots and Loops" }),
       ).not.toBeInTheDocument();
       expect(within(screen.getByTestId("rotation-admin-row-5005")).getByText("M")).toBeInTheDocument();
+    });
+  });
+
+  describe("rotation age", () => {
+    // Pinned on its own rather than riding on `renderList`'s default: these
+    // figures (104 days, 44 over, 3 days, 1 day) are derived from this exact
+    // instant, so a future change to the default must not silently move them.
+    const AGE_NOW = new Date("2026-09-13T12:00:00Z");
+
+    const OVERDUE = listRow({
+      rotation_id: 6001,
+      id: 9005,
+      artist_name: "Cat Power",
+      album_title: "Sun",
+      rotation_add_date: "2026-06-01",
+    });
+    const FRESH = listRow({
+      rotation_id: 6002,
+      id: 9006,
+      artist_name: "Jessica Pratt",
+      album_title: "On Your Own Love Again",
+      rotation_add_date: "2026-09-10",
+    });
+
+    it("renders the overdue chip and counts it, alongside a fresh row that gets neither", async () => {
+      await renderList([OVERDUE, FRESH], CARDS, undefined, AGE_NOW);
+      await activeSection().findByText("Sun");
+
+      const overdueRow = within(screen.getByTestId("rotation-admin-row-6001"));
+      expect(overdueRow.getByText("added 06/01/26 · 104 days in Heavy")).toBeInTheDocument();
+      expect(overdueRow.getByText("44 over")).toBeInTheDocument();
+      expect(
+        screen.getByText("1 record past its bin's window"),
+      ).toBeInTheDocument();
+
+      const freshRow = within(screen.getByTestId("rotation-admin-row-6002"));
+      expect(freshRow.getByText("added 09/10/26 · 3 days in Heavy")).toBeInTheDocument();
+      expect(freshRow.queryByText(/over$/)).not.toBeInTheDocument();
+    });
+
+    it("singularizes the age text for a one-day-old row", async () => {
+      const oneDayOld = listRow({
+        rotation_id: 6004,
+        id: 9007,
+        artist_name: "Chuquimamani-Condori",
+        album_title: "Edits",
+        rotation_add_date: "2026-09-12",
+      });
+      await renderList([oneDayOld], CARDS, undefined, AGE_NOW);
+      await activeSection().findByText("Edits");
+
+      expect(screen.getByText("added 09/12/26 · 1 day in Heavy")).toBeInTheDocument();
+    });
+
+    it("renders a killed row's date with no age, chip, or count contribution even past its window", async () => {
+      const killedOverdue = { ...OVERDUE, rotation_id: 6003, rotation_kill_date: "2026-09-01" };
+      await renderList([killedOverdue], CARDS, undefined, AGE_NOW);
+      await killedSection().findByText("Sun");
+
+      const row = within(screen.getByTestId("rotation-admin-row-6003"));
+      expect(row.getByText("added 06/01/26")).toBeInTheDocument();
+      expect(row.queryByText(/days in/)).not.toBeInTheDocument();
+      expect(row.queryByText(/over$/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/past its bin's window/)).not.toBeInTheDocument();
+    });
+
+    it("omits the age clause entirely for a future-dated add, rather than a negative day count", async () => {
+      const futureDated = listRow({
+        rotation_id: 6011,
+        id: 9014,
+        artist_name: "Jessica Pratt",
+        album_title: "On Your Own Love Again",
+        rotation_add_date: "2026-09-14",
+      });
+      await renderList([futureDated], CARDS, undefined, AGE_NOW);
+      await activeSection().findByText("On Your Own Love Again");
+
+      const row = within(screen.getByTestId("rotation-admin-row-6011"));
+      expect(row.getByText("added 09/14/26")).toBeInTheDocument();
+      expect(row.queryByText(/days in/)).not.toBeInTheDocument();
+      expect(row.queryByText(/over$/)).not.toBeInTheDocument();
+    });
+
+    it("reads 0 of N when the bin a filter narrows to holds none of the list's overdue total", async () => {
+      const overdueM = listRow({
+        rotation_id: 6012,
+        id: 9015,
+        artist_name: "Cat Power",
+        album_title: "Sun",
+        rotation_bin: "M",
+        rotation_add_date: "2026-06-01",
+      });
+      const overdueS = listRow({
+        rotation_id: 6013,
+        id: 9016,
+        artist_name: "Stereolab",
+        album_title: "Dots and Loops",
+        rotation_bin: "S",
+        rotation_add_date: "2026-06-01",
+      });
+      const freshL = listRow({
+        rotation_id: 6014,
+        id: 9017,
+        artist_name: "Jessica Pratt",
+        album_title: "On Your Own Love Again",
+        rotation_bin: "L",
+        rotation_add_date: "2026-09-10",
+      });
+      const { user } = await renderList([overdueM, overdueS, freshL], CARDS, undefined, AGE_NOW);
+      await activeSection().findByText("On Your Own Love Again");
+
+      await user.click(screen.getByRole("button", { name: "L (1)" }));
+
+      expect(screen.getByText("0 of 2 records past their bin's window")).toBeInTheDocument();
+    });
+
+    it("counts overdue rows among only the ones a bin filter shows, with grammar still following the list-wide total", async () => {
+      const overdueH = listRow({
+        rotation_id: 6015,
+        id: 9018,
+        artist_name: "Cat Power",
+        album_title: "Sun",
+        rotation_add_date: "2026-06-01",
+      });
+      const overdueM = listRow({
+        rotation_id: 6016,
+        id: 9019,
+        artist_name: "Stereolab",
+        album_title: "Dots and Loops",
+        rotation_bin: "M",
+        rotation_add_date: "2026-06-01",
+      });
+      const freshH = listRow({
+        rotation_id: 6017,
+        id: 9020,
+        artist_name: "Jessica Pratt",
+        album_title: "On Your Own Love Again",
+        rotation_add_date: "2026-09-10",
+      });
+      const { user } = await renderList([overdueH, overdueM, freshH], CARDS, undefined, AGE_NOW);
+      await activeSection().findByText("Sun");
+
+      await user.click(screen.getByRole("button", { name: "H (2)" }));
+
+      expect(screen.getByText("1 of 2 records past their bin's window")).toBeInTheDocument();
+    });
+  });
+
+  describe("default clock", () => {
+    // Only `Date` is faked -- MSW and userEvent's own `setTimeout` delays
+    // keep running on the real clock, which this userEvent-heavy spec needs.
+    it("re-reads its clock from the list refetch, so a bin move stamped after UTC midnight never reads a negative age", async () => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date("2026-09-12T23:50:00Z"));
+      onTestFinished(() => {
+        vi.useRealTimers();
+      });
+      // Proves the Date fake is in force before trusting anything the row renders.
+      expect(new Date().toISOString()).toBe("2026-09-12T23:50:00.000Z");
+
+      const movingRow = listRow({
+        rotation_id: 7001,
+        id: 9101,
+        artist_name: "Hermanos Gutiérrez",
+        album_title: "El Bueno y el Malo",
+        rotation_bin: "H",
+        rotation_add_date: "2026-08-20",
+        card: { id: 32, bin: "H", number: 2, name: null },
+      });
+      fakeRotationAdminEndpoints([movingRow], CARDS, { addDate: "2026-09-13" });
+
+      // No `now` prop: this is the default-clock path the other cases in
+      // this file bypass by passing their own fixed instant.
+      const { user } = renderWithProviders(<RotationAdminList />);
+      await screen.findByTestId("rotation-admin-active");
+      await activeSection().findByText("El Bueno y el Malo");
+
+      // 19:50 EDT to 20:10 EDT, an ordinary 20 minutes at the station -- but
+      // the UTC calendar day has turned over underneath it.
+      vi.setSystemTime(new Date("2026-09-13T00:10:00Z"));
+
+      await user.click(
+        screen.getByRole("button", { name: "Move to Medium: El Bueno y el Malo" }),
+      );
+      await waitFor(() =>
+        expect(toastSuccessMock).toHaveBeenCalledWith("Moved to Medium rotation."),
+      );
+
+      // The fake stamps the move with addDate, "2026-09-13" -- the UTC day
+      // this spec sets after the mount, not the UTC day the test happens to
+      // run on. A clock still holding the pre-midnight day would read the
+      // new row as -1 days old instead of 0.
+      const movedRow = within(await screen.findByTestId("rotation-admin-row-7002"));
+      expect(movedRow.getByText("added 09/13/26 · 0 days in Medium")).toBeInTheDocument();
+    });
+
+    // `shouldAdvanceTime` keeps every faked timer (including the hook's own
+    // interval) running near real wall-clock pace, which is what lets MSW's
+    // fetch and `findByTestId` resolve normally here -- `toFake: ["Date"]`
+    // alone (the case above) can't be used for this one, because the clock
+    // has to tick forward on its own for the row's age to roll at all.
+    it("advances a row's age across UTC midnight on its own, with no refetch", async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true, now: new Date("2026-09-12T23:58:00Z") });
+      onTestFinished(() => {
+        vi.useRealTimers();
+      });
+
+      const tickingRow = listRow({
+        rotation_id: 7101,
+        id: 9201,
+        artist_name: "Hermanos Gutiérrez",
+        album_title: "Sonido Cósmico",
+        rotation_bin: "H",
+        rotation_add_date: "2026-09-10",
+      });
+      const fake = fakeRotationAdminEndpoints([tickingRow], CARDS);
+
+      // No `now` prop, same as the case above: this is the ticking default
+      // clock, not a fixed one.
+      renderWithProviders(<RotationAdminList />);
+      await screen.findByTestId("rotation-admin-active");
+      await activeSection().findByText("Sonido Cósmico");
+
+      expect(
+        within(screen.getByTestId("rotation-admin-row-7101")).getByText(
+          "added 09/10/26 · 2 days in Heavy",
+        ),
+      ).toBeInTheDocument();
+
+      // Three of the hook's own 60-second ticks, well past the UTC midnight
+      // that falls two minutes after mount -- no refetch, no new `now` prop.
+      act(() => {
+        vi.advanceTimersByTime(3 * 60_000);
+      });
+
+      expect(
+        within(screen.getByTestId("rotation-admin-row-7101")).getByText(
+          "added 09/10/26 · 3 days in Heavy",
+        ),
+      ).toBeInTheDocument();
+      // A refetch mid-advance would re-anchor `fulfilledTimeStamp` and could
+      // pass the assertions above for the wrong reason -- pin the read count
+      // so the advance is provably the clock ticking on its own.
+      expect(fake.listStatuses()).toEqual(["all"]);
     });
   });
 
