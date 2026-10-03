@@ -7,9 +7,10 @@ const COLUMNS = ["Call #", "Album", "Artist", "Label", "Format"] as const;
 /**
  * The library call number a DJ reads off the shelf: lettercode, artist number,
  * then the album's entry — e.g. `RO 12/3`, or `V/A-1` for a compilation.
- * Matches the format shown on catalog results (see Result.tsx). No genre
- * prefix: this printout is one column among several, with no room to repeat
- * the genre the DJ already filed the bin by.
+ * Composed by the same formatter as catalog results (see Result.tsx), but a
+ * bin row carries no volume letters, so a volumed release prints without its
+ * `-A` suffix. No genre prefix: this printout is one column among several,
+ * with no room to repeat the genre the DJ already filed the bin by.
  */
 export function callNumberFor(entry: AlbumEntry): string {
   return formatEntireLibraryCode({
