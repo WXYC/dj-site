@@ -2,7 +2,7 @@
 
 Canonical source: [`wxyc-dj-ios/docs/cross-repo-adrs.md` ADR 0005](https://github.com/WXYC/wxyc-dj-ios/blob/main/docs/cross-repo-adrs.md#adr-0005--reviews-are-many-per-release-scoped-to-an-intake-item-or-a-library-release-locked-at-print-consent-gated-per-surface). This file mirrors that decision for the dj-site surface and does not restate it in full; where the two disagree, the canonical ADR wins.
 
-Status: Accepted, 2026-10-03. Supersedes the one-per-album model with a music-director approval queue that this file used to record; that version survives only in this file's git history.
+Status: Accepted, 2026-10-02, with the canonical ADR. Supersedes the one-per-album, author-owned model with an MD-curated claim queue (DJs claimed and released queued albums under 14-day soft locks) that this file used to record; that version survives only in this file's git history.
 
 A review is about an intake item (a physical copy the station holds, logged by a music director) or an existing library release, never a record the station does not hold. A release can have many reviews. A review carries the printed slip's free-text content (buzzwords, an artist paragraph, the review itself, recommended tracks, and FCC notes) plus per-surface publishing consent. There is no rating, no headline, no per-track polarity, and no curated tag vocabulary. A review carries no routing: the music director alone decides rotation versus shelf when filing.
 
