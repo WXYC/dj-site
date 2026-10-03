@@ -72,6 +72,10 @@ export function useCardAssignmentSave(cardId: number) {
   // `running` is a render behind within the tick that starts a run, so a
   // second call in that tick can only be refused on a ref.
   const inFlight = useRef(false);
+  // Kept current every render so `retry` reads the save as it stands when
+  // it is called, not as it stood in the render that produced it.
+  const lastSaveRef = useRef(lastSave);
+  lastSaveRef.current = lastSave;
 
   const shown = lastSave?.cardId === cardId ? lastSave : null;
   const progress = { done: shown?.done ?? 0, total: shown?.total ?? 0 };
@@ -135,8 +139,13 @@ export function useCardAssignmentSave(cardId: number) {
 
   const save = (rotationIds: readonly number[]) => run([...new Set(rotationIds)], NO_RESULTS);
 
-  const retry = () =>
-    run((shown?.order ?? []).filter((rotationId) => !results.get(rotationId)?.ok), results);
+  const retry = () => {
+    const current = lastSaveRef.current?.cardId === cardId ? lastSaveRef.current : null;
+    return run(
+      (current?.order ?? []).filter((rotationId) => !current?.results.get(rotationId)?.ok),
+      current?.results ?? NO_RESULTS,
+    );
+  };
 
   return { running, progress, results, save, retry };
 }
