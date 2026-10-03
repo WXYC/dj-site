@@ -65,9 +65,9 @@ describe("CardsManager", () => {
     await heavyColumn().findByTestId("rotation-card-31");
 
     expect(screen.getByRole("heading", { name: /Heavy/ })).toHaveTextContent("H · 2 cards");
-    expect(heavyColumn().getByLabelText("Name for Heavy card 1")).toHaveValue("Late Aug");
-    // The number rides in a decorative circle; the accessible "card 1" reading
-    // stays on the name input's label above, so the badge is aria-hidden.
+    expect(heavyColumn().getByLabelText("Name for Heavy 1")).toHaveValue("Late Aug");
+    // The number rides in a decorative circle; the accessible "Name for Heavy 1"
+    // reading stays on the name input's label above, so the badge is aria-hidden.
     const badge = within(screen.getByTestId("rotation-card-31")).getByText("1");
     expect(badge).toHaveAttribute("aria-hidden", "true");
     expect(within(screen.getByTestId("rotation-card-31")).getByText("3 active")).toBeInTheDocument();
@@ -79,7 +79,7 @@ describe("CardsManager", () => {
 
   it("renames a card on blur and round-trips the server's name", async () => {
     const { fake, user } = await renderCards();
-    const input = await heavyColumn().findByLabelText("Name for Heavy card 2");
+    const input = await heavyColumn().findByLabelText("Name for Heavy 2");
 
     await user.click(input);
     await user.type(input, "Early Sep");
@@ -89,13 +89,13 @@ describe("CardsManager", () => {
       expect(fake.renameBodies()).toEqual([{ id: 32, body: { name: "Early Sep" } }]),
     );
     await waitFor(() =>
-      expect(heavyColumn().getByLabelText("Name for Heavy card 2")).toHaveValue("Early Sep"),
+      expect(heavyColumn().getByLabelText("Name for Heavy 2")).toHaveValue("Early Sep"),
     );
   });
 
   it("clears a name as null and never PATCHes an unchanged one", async () => {
     const { fake, user } = await renderCards();
-    const named = await heavyColumn().findByLabelText("Name for Heavy card 1");
+    const named = await heavyColumn().findByLabelText("Name for Heavy 1");
 
     // Blur with no edit: no write.
     await user.click(named);
@@ -117,11 +117,11 @@ describe("CardsManager", () => {
     // The request names only the bin — the number is the server's to assign.
     await waitFor(() => expect(fake.addBodies()).toEqual([{ bin: "H" }]));
     await waitFor(() =>
-      expect(toastSuccessMock).toHaveBeenCalledWith("Added card 3 to Heavy."),
+      expect(toastSuccessMock).toHaveBeenCalledWith("Added Heavy 3."),
     );
     // The new card renders from the refetched list, not from local math.
     await waitFor(() =>
-      expect(heavyColumn().getByLabelText("Name for Heavy card 3")).toBeInTheDocument(),
+      expect(heavyColumn().getByLabelText("Name for Heavy 3")).toBeInTheDocument(),
     );
   });
 
@@ -156,14 +156,14 @@ describe("CardsManager", () => {
     ).toBeDisabled();
 
     release();
-    await waitFor(() => expect(toastSuccessMock).toHaveBeenCalledWith("Added card 3 to Heavy."));
+    await waitFor(() => expect(toastSuccessMock).toHaveBeenCalledWith("Added Heavy 3."));
     await waitFor(() => expect(addToHeavy).toBeEnabled());
     expect(posts).toBe(1);
   });
 
   it("locks a card's Assign records control while that card's rename is in flight", async () => {
     const { user } = await renderCards();
-    const input = await heavyColumn().findByLabelText("Name for Heavy card 2");
+    const input = await heavyColumn().findByLabelText("Name for Heavy 2");
     let release!: () => void;
     const gate = new Promise<void>((resolve) => {
       release = resolve;
@@ -196,10 +196,10 @@ describe("CardsManager", () => {
     // Highest-numbered but occupied (M card 2), and lower-numbered but empty
     // (H card 1 is occupied; M card 1 occupied) — the one deletable card is
     // H card 2: highest in its bin with zero active rows.
-    expect(screen.getByRole("button", { name: "Delete: Heavy card 1" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Delete: Medium card 1" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Delete: Medium card 2" })).toBeDisabled();
-    const deletable = screen.getByRole("button", { name: "Delete: Heavy card 2" });
+    expect(screen.getByRole("button", { name: "Delete: Heavy 1" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Delete: Medium 1" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Delete: Medium 2" })).toBeDisabled();
+    const deletable = screen.getByRole("button", { name: "Delete: Heavy 2" });
     expect(deletable).toBeEnabled();
 
     await user.click(deletable);
@@ -224,7 +224,7 @@ describe("CardsManager", () => {
       ),
     );
 
-    await user.click(screen.getByRole("button", { name: "Delete: Heavy card 2" }));
+    await user.click(screen.getByRole("button", { name: "Delete: Heavy 2" }));
 
     await waitFor(() =>
       expect(toastErrorMock).toHaveBeenCalledWith(
@@ -350,6 +350,173 @@ describe("CardsManager", () => {
 
       await waitFor(() => expect(screen.queryByTestId("rotation-card-32")).not.toBeInTheDocument());
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+  });
+
+  describe("Save & open the next card", () => {
+    const PILE_CARD = { id: 11, bin: "H", number: 1, name: null };
+    const OPEN_CARD = { id: 13, bin: "H", number: 3, name: null };
+    const NEXT_CARD = { id: 14, bin: "H", number: 4, name: null };
+    const PILE_ROW: FakeRotationAdminRow = {
+      id: 7001,
+      rotation_id: 7001,
+      rotation_bin: "H",
+      rotation_kill_date: null,
+      card: PILE_CARD,
+      artist_name: "Juana Molina",
+      album_title: "DOGA",
+    };
+    // Stays on Heavy 1 through the whole walk -- a positive control proving
+    // the filter still finds a genuine card-1 row once the refetch lands,
+    // not just that it stops finding the one that moved.
+    const STILL_ON_PILE_ROW: FakeRotationAdminRow = {
+      id: 7002,
+      rotation_id: 7002,
+      rotation_bin: "H",
+      rotation_kill_date: null,
+      card: PILE_CARD,
+      artist_name: "Stereolab",
+      album_title: "Dots and Loops",
+    };
+
+    it("holds the just-moved record under the 'Still on Heavy 1' filter, locked, until the refetch lands -- then drops it", async () => {
+      // A real bin: Heavy 1 sits alongside the open and next cards, and the
+      // pile rows the walk is moving off of are filed there.
+      const fake = fakeRotationAdminEndpoints(
+        [PILE_ROW, STILL_ON_PILE_ROW],
+        [PILE_CARD, OPEN_CARD, NEXT_CARD],
+      );
+      const { user } = renderWithProviders(<CardsManager />);
+      await screen.findByTestId(`rotation-card-${OPEN_CARD.id}`);
+
+      await user.click(screen.getByRole("button", { name: "Assign records: Heavy 3" }));
+      const openPanel = within(await screen.findByRole("dialog", { name: "Heavy 3" }));
+      await user.click(await openPanel.findByRole("checkbox", { name: "Juana Molina — DOGA" }));
+
+      // Held before the walk's save, so its own refetch -- the one the
+      // next card's panel subscribes to on mount -- lands into the hold.
+      fake.holdActiveListReads();
+      await user.click(openPanel.getByRole("button", { name: "Save & open Heavy 4" }));
+
+      const nextPanel = within(await screen.findByRole("dialog", { name: "Heavy 4" }));
+      await user.click(nextPanel.getByRole("checkbox", { name: "Still on Heavy 1" }));
+
+      // The remount dropped the row's own lock along with its tick, so what
+      // keeps it from being ticked again here is the panel lock: the stale
+      // list still shows it on Heavy 1, so the filter still offers it, and
+      // it renders disabled.
+      const staleRow = nextPanel.getByRole("checkbox", { name: "Juana Molina — DOGA" });
+      expect(staleRow).toBeInTheDocument();
+      expect(staleRow).toBeDisabled();
+      expect(staleRow).not.toBeChecked();
+      expect(nextPanel.getByRole("button", { name: "Save" })).toBeDisabled();
+
+      await act(() => fake.releaseActiveListReads());
+
+      // Once the read lands, the moved record carries card N (Heavy 3) as
+      // its current card, so the toggle -- still on -- stops offering it.
+      await waitFor(() =>
+        expect(
+          nextPanel.queryByRole("checkbox", { name: "Juana Molina — DOGA" }),
+        ).not.toBeInTheDocument(),
+      );
+      // The row that never left Heavy 1 still is -- the filter is finding
+      // genuine card-1 rows, not just emptied out.
+      expect(
+        nextPanel.getByRole("checkbox", { name: "Stereolab — Dots and Loops" }),
+      ).toBeInTheDocument();
+
+      // Off the filter, the moved record's own line confirms where it landed.
+      await user.click(nextPanel.getByRole("checkbox", { name: "Still on Heavy 1" }));
+      expect(
+        nextPanel.getByRole("checkbox", { name: "Juana Molina — DOGA" }),
+      ).toHaveAccessibleDescription("Heavy 3");
+    });
+
+    it("carries the 'Still on Heavy 1' toggle through Save & open, and resets it on close and on a fresh Assign records", async () => {
+      fakeRotationAdminEndpoints([PILE_ROW], [PILE_CARD, OPEN_CARD, NEXT_CARD]);
+      const { user } = renderWithProviders(<CardsManager />);
+      await screen.findByTestId(`rotation-card-${OPEN_CARD.id}`);
+
+      await user.click(screen.getByRole("button", { name: "Assign records: Heavy 3" }));
+      const openPanel = within(await screen.findByRole("dialog", { name: "Heavy 3" }));
+      await user.click(await openPanel.findByRole("checkbox", { name: "Still on Heavy 1" }));
+      await user.click(openPanel.getByRole("checkbox", { name: "Juana Molina — DOGA" }));
+
+      await user.click(openPanel.getByRole("button", { name: "Save & open Heavy 4" }));
+
+      const nextPanel = within(await screen.findByRole("dialog", { name: "Heavy 4" }));
+      expect(await nextPanel.findByRole("checkbox", { name: "Still on Heavy 1" })).toBeChecked();
+
+      await user.click(nextPanel.getByRole("button", { name: "Close" }));
+      await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+
+      await user.click(screen.getByRole("button", { name: "Assign records: Heavy 3" }));
+      const reopened = within(await screen.findByRole("dialog", { name: "Heavy 3" }));
+      expect(await reopened.findByRole("checkbox", { name: "Still on Heavy 1" })).not.toBeChecked();
+    });
+
+    it("carries the 'Still on Heavy 1' toggle through the Open step too, not only Save & open", async () => {
+      fakeRotationAdminEndpoints([PILE_ROW], [PILE_CARD, OPEN_CARD, NEXT_CARD]);
+      const { user } = renderWithProviders(<CardsManager />);
+      await screen.findByTestId(`rotation-card-${OPEN_CARD.id}`);
+
+      await user.click(screen.getByRole("button", { name: "Assign records: Heavy 3" }));
+      const openPanel = within(await screen.findByRole("dialog", { name: "Heavy 3" }));
+      await user.click(await openPanel.findByRole("checkbox", { name: "Still on Heavy 1" }));
+
+      await user.click(openPanel.getByRole("button", { name: "Open Heavy 4" }));
+
+      const nextPanel = within(await screen.findByRole("dialog", { name: "Heavy 4" }));
+      expect(await nextPanel.findByRole("checkbox", { name: "Still on Heavy 1" })).toBeChecked();
+    });
+
+    it("advances via the Open step with nothing ticked, sending no writes", async () => {
+      const fake = fakeRotationAdminEndpoints([PILE_ROW], [PILE_CARD, OPEN_CARD, NEXT_CARD]);
+      const { user } = renderWithProviders(<CardsManager />);
+      await screen.findByTestId(`rotation-card-${OPEN_CARD.id}`);
+
+      await user.click(screen.getByRole("button", { name: "Assign records: Heavy 3" }));
+      const openPanel = within(await screen.findByRole("dialog", { name: "Heavy 3" }));
+      await openPanel.findByText(/On Heavy 3 now/);
+
+      await user.click(openPanel.getByRole("button", { name: "Open Heavy 4" }));
+
+      await screen.findByRole("dialog", { name: "Heavy 4" });
+      expect(fake.updateBodies()).toEqual([]);
+    });
+  });
+
+  describe("the next card is scoped to its own bin", () => {
+    it("opens the bin's last card with no Save & open, and never hands a card another bin's", async () => {
+      const HEAVY_1 = { id: 31, bin: "H", number: 1, name: null };
+      const HEAVY_2 = { id: 32, bin: "H", number: 2, name: null };
+      const MEDIUM_1 = { id: 21, bin: "M", number: 1, name: null };
+      const MEDIUM_2 = { id: 22, bin: "M", number: 2, name: null };
+      // Heavy's last card sits between two Medium cards in the cards read's
+      // own order -- a next-card derivation that trusted that order instead
+      // of grouping per bin would hand Heavy 2 a Medium sibling as "next".
+      fakeRotationAdminEndpoints([], [HEAVY_1, MEDIUM_1, HEAVY_2, MEDIUM_2]);
+      const { user } = renderWithProviders(<CardsManager />);
+      await screen.findByTestId("rotation-cards-bin-H");
+
+      await user.click(screen.getByRole("button", { name: "Assign records: Heavy 1" }));
+      const firstPanel = within(await screen.findByRole("dialog", { name: "Heavy 1" }));
+      await firstPanel.findByText(/On Heavy 1 now/);
+      // Nothing is ticked, so the walk step is the no-op "Open" form.
+      expect(firstPanel.getByRole("button", { name: "Open Heavy 2" })).toBeInTheDocument();
+      await user.click(firstPanel.getByRole("button", { name: "Close" }));
+      await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+
+      await user.click(screen.getByRole("button", { name: "Assign records: Heavy 2" }));
+      const lastPanel = within(await screen.findByRole("dialog", { name: "Heavy 2" }));
+      await lastPanel.findByText(/On Heavy 2 now/);
+      // No walk control at all, named for any bin's number -- a narrower
+      // query for the literal "Heavy 3" would miss a next card mislabeled
+      // with a sibling bin's own numbering (see the Medium cards above).
+      expect(
+        lastPanel.queryAllByRole("button", { name: /^(Open|Save & open) / }),
+      ).toHaveLength(0);
     });
   });
 });

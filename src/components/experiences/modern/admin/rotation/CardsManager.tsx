@@ -59,7 +59,8 @@ function CardRow({
 }): JSX.Element {
   // Named per card: a grid of identical unlabeled inputs and ✕ buttons tells
   // a screen-reader user nothing about which card they are about to touch.
-  const cardName = `${binLabel} card ${card.number}`;
+  // Spelled the way MDs say it, same as the panel's own title ("Heavy 2").
+  const cardName = `${binLabel} ${card.number}`;
 
   const commitRename = (raw: string) => {
     const next = raw.trim() || null;
@@ -74,7 +75,7 @@ function CardRow({
     >
       <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
         {/* Decorative badge; the card's number stays in the accessible tree
-            through the name input's "…card N" label beside it. */}
+            through the name input's "Name for <Bin> N" label beside it. */}
         <RotationCardBadge number={card.number} bin={bin} />
         <Input
           // Uncontrolled, remounted whenever the server's name changes: the
@@ -143,6 +144,15 @@ function CardRow({
  * Per-card active counts come from the cards read itself; the membership
  * mutations invalidate it, so list-side kills, adds, and moves reach these
  * counts through the same refetch every other consumer relies on.
+ *
+ * Owns which card the assignment panel is open on and, from that, the next
+ * card along the shelf (`nextAssigningCard`) that Save & open advances to.
+ * The panel is keyed by card id, so advancing remounts it onto the next card
+ * fresh rather than retargeting the mounted one. Also owns the "Still on
+ * `<Bin>` 1" toggle, beside `assigningCardId`, so it is the two of them
+ * together -- not the remount -- that decide what the next panel opens
+ * with: the toggle rides along through `next.open()` but is reset to off by
+ * `onClose` and by a fresh `onAssign`.
  */
 export default function CardsManager(): JSX.Element {
   const { data: cards, isFetching, isError, refetch } = useGetRotationCardsQuery();
@@ -157,11 +167,18 @@ export default function CardsManager(): JSX.Element {
   // omitted-card_id rotation add then lands on.
   const [pendingAddBin, setPendingAddBin] = useState<RotationBin | null>(null);
   const [assigningCardId, setAssigningCardId] = useState<number | null>(null);
+  const [stillOnFirstCardOnly, setStillOnFirstCardOnly] = useState(false);
 
   const cardsByBin = useMemo(() => groupRotationCardsByBin(cards ?? []), [cards]);
   // Derived from the cards read, never held beside it: a card that leaves
   // the list takes its open panel with it.
   const assigningCard = cards?.find((card) => card.id === assigningCardId);
+  // The walk's next step: the same bin's cards are already in number order, so
+  // the card one past the open one's index is the next one along the shelf.
+  const binCardsForAssign = assigningCard ? cardsByBin.get(assigningCard.bin) ?? [] : [];
+  const nextAssigningCard = assigningCard
+    ? binCardsForAssign[binCardsForAssign.findIndex((c) => c.id === assigningCard.id) + 1] ?? null
+    : null;
 
   const withPendingCard = async (cardId: number, run: () => Promise<unknown>) => {
     setPendingCardIds((prev) => new Set(prev).add(cardId));
@@ -212,7 +229,7 @@ export default function CardsManager(): JSX.Element {
       try {
         const created = await addRotationCard({ bin }).unwrap();
         // The server's assignment, echoed — never a locally computed max+1.
-        toast.success(`Added card ${created.number} to ${ROTATION_BIN_LABELS[bin]}.`);
+        toast.success(`Added ${ROTATION_BIN_LABELS[bin]} ${created.number}.`);
       } catch (err) {
         if (isUnmessagedHttpError(err)) {
           toast.error(
@@ -280,7 +297,10 @@ export default function CardsManager(): JSX.Element {
                   pending={pendingCardIds.has(card.id)}
                   onRename={(name) => renameCard(card.id, name)}
                   onDelete={() => deleteCard(card.id)}
-                  onAssign={() => setAssigningCardId(card.id)}
+                  onAssign={() => {
+                    setAssigningCardId(card.id);
+                    setStillOnFirstCardOnly(false);
+                  }}
                 />
               ))}
               <Button
@@ -306,7 +326,17 @@ export default function CardsManager(): JSX.Element {
           // The panel's ticks belong to one card and must not ride to the next.
           key={assigningCard.id}
           card={assigningCard}
-          onClose={() => setAssigningCardId(null)}
+          onClose={() => {
+            setAssigningCardId(null);
+            setStillOnFirstCardOnly(false);
+          }}
+          next={
+            nextAssigningCard
+              ? { card: nextAssigningCard, open: () => setAssigningCardId(nextAssigningCard.id) }
+              : undefined
+          }
+          stillOnFirstCardOnly={stillOnFirstCardOnly}
+          setStillOnFirstCardOnly={setStillOnFirstCardOnly}
         />
       )}
     </Box>
