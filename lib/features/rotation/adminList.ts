@@ -1,4 +1,5 @@
 import { foldForSearch } from "../admin/roster-filter";
+import { formatEntireLibraryCode } from "../catalog/libraryCode";
 import { byMostRecentlyAdded } from "./classicList";
 import {
   ROTATION_BINS,
@@ -42,16 +43,25 @@ export function rotationRowPresentation(row: RotationListRow): RotationRowPresen
 }
 
 /**
- * The row's shelf code as the card catalog spells it (`Rock SL 1/3`), or
- * `null` for a row whose release was never catalogued — the code columns are
- * the library join's and are all null on an unlinked row.
+ * The row's shelf code as the card catalog spells it (`Rock SL 1/3`, or
+ * `Rock V/A-3` for a compilation), or `null` for a row whose release was never
+ * catalogued — the code columns are the library join's and are all null on an
+ * unlinked row.
  */
 export function rotationRowCode(row: RotationListRow): string | null {
   if (row.code_letters == null || row.code_artist_number == null || row.code_number == null) {
     return null;
   }
-  const code = `${row.code_letters} ${row.code_artist_number}/${row.code_number}`;
-  return row.genre_name == null ? code : `${row.genre_name} ${code}`;
+  // The list row carries no genre id or volume letters, so neither the
+  // Rock/Soundtracks sub-bucket nor a volume suffix can render here.
+  return formatEntireLibraryCode({
+    genreName: row.genre_name ?? undefined,
+    code_letters: row.code_letters,
+    code_artist_number: row.code_artist_number,
+    genre_id: undefined,
+    code_number: row.code_number,
+    code_volume_letters: undefined,
+  });
 }
 
 /**

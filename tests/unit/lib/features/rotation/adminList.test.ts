@@ -28,6 +28,13 @@ describe("rotationRowCode", () => {
   it.each([
     ["all parts present", createTestRotationListRow(), "Rock SL 1/3"],
     ["no genre name", createTestRotationListRow({ genre_name: null }), "SL 1/3"],
+    // Backend-Service files every compilation at code_letters "V/A",
+    // code_artist_number 0 -- joined naively that is the nonexistent "V/A 0/3".
+    [
+      "Various Artists bucket",
+      createTestRotationListRow({ code_letters: "V/A", code_artist_number: 0 }),
+      "Rock V/A-3",
+    ],
     ["unlinked row (no code columns)", unlinked(), null],
   ])("%s", (_name, input, expected) => {
     expect(rotationRowCode(input)).toBe(expected);
