@@ -49,8 +49,11 @@ export function useListingRetry({
   // can announce the new failure.
   const [failedRetries, setFailedRetries] = useState(0);
   // Adjusted during render, not in an effect, so the retry state never paints
-  // a render behind the flags it derives from. `started` is latched because
-  // `isFetching` is still false on the render right after `retry` is called.
+  // a render behind the flags it derives from. Only a request seen in flight
+  // can end a retry: `started` latches the first render where `isFetching` is
+  // up, so a render before it rises never reads as the request having settled.
+  // The key check runs first, so a retry abandoned by a key change is dropped
+  // rather than counted as a failed one.
   if (retrying && retrying.key !== key) {
     setRetrying(null);
   } else if (retrying && !retrying.started && isFetching) {
