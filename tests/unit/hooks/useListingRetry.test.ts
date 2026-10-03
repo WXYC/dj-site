@@ -155,6 +155,20 @@ describe("useListingRetry keys", () => {
     expect(result.current.failedPage).toBe("first");
   });
 
+  it("does not count a retry abandoned in flight as a failed one", () => {
+    const { result, rerender } = setUp({
+      ...IDLE,
+      isError: true,
+      hasAnyPages: false,
+    });
+    act(() => result.current.retry());
+    rerender({ ...IDLE, isFetching: true, hasAnyPages: false });
+    rerender({ ...IDLE, key: "other", isError: true, hasAnyPages: false });
+
+    expect(result.current.isRetrying).toBe(false);
+    expect(result.current.failedRetries).toBe(0);
+  });
+
   it("keeps a retry while the same key object is passed on every render", () => {
     const key = { q: "artist:Juana Molina" };
     const { result, rerender } = setUp({
