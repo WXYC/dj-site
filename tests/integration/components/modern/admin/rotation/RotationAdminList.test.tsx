@@ -170,6 +170,53 @@ describe("RotationAdminList", () => {
     ]);
   });
 
+  it("switching the sort control to oldest first reorders the Active rows and leaves Killed alone", async () => {
+    // A second killed row, added after DOTS_KILLED, so the Killed section has
+    // a real order (most recently added first) to prove it holds rather than
+    // trivially passing with a single row.
+    const MARS_KILLED = listRow({
+      rotation_id: 5008,
+      id: 9005,
+      artist_name: "Stereolab",
+      album_title: "Mars Audiac Quintet",
+      code_number: 4,
+      rotation_bin: "M",
+      rotation_add_date: "2026-09-02",
+      rotation_kill_date: "2026-09-05",
+      card: null,
+    });
+    const killedOrder = () =>
+      Array.from(
+        screen
+          .getByTestId("rotation-admin-killed")
+          .querySelectorAll('[data-testid^="rotation-admin-row-"]'),
+      ).map((node) => node.getAttribute("data-testid"));
+
+    const { user } = await renderList([...ALL_ROWS, MARS_KILLED]);
+    await activeSection().findByText("Instant Holograms on Metal Film");
+    expect(killedOrder()).toEqual(["rotation-admin-row-5008", "rotation-admin-row-5005"]);
+
+    await user.click(screen.getByRole("combobox", { name: "Sort rotation" }));
+    await user.click(await screen.findByRole("option", { name: "Oldest first" }));
+
+    await waitFor(() => {
+      const order = Array.from(
+        screen
+          .getByTestId("rotation-admin-active")
+          .querySelectorAll('[data-testid^="rotation-admin-row-"]'),
+      ).map((node) => node.getAttribute("data-testid"));
+      expect(order).toEqual([
+        "rotation-admin-row-5003",
+        "rotation-admin-row-5004",
+        "rotation-admin-row-5002",
+        "rotation-admin-row-5001",
+      ]);
+    });
+    expect(killedOrder()).toEqual(["rotation-admin-row-5008", "rotation-admin-row-5005"]);
+    expect(screen.getByRole("heading", { name: "Active (4)" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Killed (2)" })).toBeInTheDocument();
+  });
+
   it("mounts killed rows in batches while counting and filtering over the full set", async () => {
     // Distinct add dates make the most-recently-added ordering deterministic:
     // row 0 is the oldest, so it sorts last and sits beyond the render cap.

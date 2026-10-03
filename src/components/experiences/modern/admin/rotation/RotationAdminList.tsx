@@ -13,6 +13,7 @@ import {
   selectRotationAdminView,
   rotationRowCode,
   rotationRowPresentation,
+  type RotationAdminSort,
 } from "@/lib/features/rotation/adminList";
 import { groupRotationCardsByBin } from "@/lib/features/rotation/cards";
 import {
@@ -470,11 +471,12 @@ export default function RotationAdminList({ now: nowProp }: { now?: Date } = {})
   const [search, setSearch] = useState("");
   const [bin, setBin] = useState<RotationBin | null>(null);
   const [cardId, setCardId] = useState<number | null>(null);
+  const [sort, setSort] = useState<RotationAdminSort>("newest");
   const [killedRenderCap, setKilledRenderCap] = useState(KILLED_RENDER_BATCH);
 
   const view = useMemo(
-    () => selectRotationAdminView(rows ?? [], { search, bin, cardId }),
-    [rows, search, bin, cardId],
+    () => selectRotationAdminView(rows ?? [], { search, bin, cardId, sort }),
+    [rows, search, bin, cardId, sort],
   );
   // The list-wide overdue total, counted over every active row regardless of
   // the current filter — an MD narrowing to one bin still needs to know the
@@ -669,6 +671,18 @@ export default function RotationAdminList({ now: nowProp }: { now?: Date } = {})
             onClick={() => selectBin(bin === candidate ? null : candidate)}
           />
         ))}
+        <Select
+          size="sm"
+          value={sort}
+          onChange={(_event, next) => {
+            if (next != null) setSort(next);
+          }}
+          slotProps={{ button: { "aria-label": "Sort rotation" } }}
+          sx={{ minWidth: 150 }}
+        >
+          <Option value="newest">Newest first</Option>
+          <Option value="oldest">Oldest first</Option>
+        </Select>
       </Stack>
 
       {bin != null && binCards.length > 0 && (
