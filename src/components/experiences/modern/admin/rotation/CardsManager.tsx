@@ -7,19 +7,23 @@ import {
   useAddRotationCardMutation,
   useDeleteRotationCardMutation,
   useGetRotationCardsQuery,
+  useGetRotationListQuery,
   useUpdateRotationCardMutation,
 } from "@/lib/features/rotation/api";
 import {
   canDeleteRotationCard,
   groupRotationCardsByBin,
+  groupRotationRowsByCardId,
   rotationCardDeleteConflictMessage,
   rotationCardDeleteConflictReason,
+  rotationRecordLabel,
 } from "@/lib/features/rotation/cards";
 import {
   ROTATION_BINS,
   ROTATION_BIN_LABELS,
   type RotationBin,
   type RotationCardWithCount,
+  type RotationListRow,
 } from "@/lib/features/rotation/types";
 import { rotationWriteErrorMessage } from "@/lib/features/rotation/writeErrorMessage";
 import { isUnmessagedHttpError } from "@/lib/rtk-query-error-logger";
@@ -38,12 +42,16 @@ import {
   Typography,
 } from "@mui/joy";
 
+// A design-review proposal, kept in one place so changing it is a one-line edit.
+const CARD_RECORDS_PREVIEW = 5;
+
 function CardRow({
   card,
   bin,
   binLabel,
   deletable,
   pending,
+  records,
   onRename,
   onDelete,
   onAssign,
@@ -53,6 +61,8 @@ function CardRow({
   binLabel: string;
   deletable: boolean;
   pending: boolean;
+  /** Null until a list read succeeds, so an unread card never claims "Nothing on this card yet." */
+  records: readonly RotationListRow[] | null;
   onRename: (name: string | null) => void;
   onDelete: () => void;
   onAssign: () => void;
@@ -61,6 +71,21 @@ function CardRow({
   // a screen-reader user nothing about which card they are about to touch.
   // Spelled the way MDs say it, same as the panel's own title ("Heavy 2").
   const cardName = `${binLabel} ${card.number}`;
+  const [expanded, setExpanded] = useState(false);
+  // A CardRow is keyed by card id and survives the refetches that resize its
+  // own list, so `expanded` would otherwise outlive a dip to the preview
+  // count or below -- where the toggle is hidden, so nothing can set it back
+  // to false -- and reappear fully open, with a "Show fewer" nobody pressed,
+  // once the count climbs past the preview again. React's "adjust state
+  // while rendering" pattern (comparing against the last count seen, and
+  // resetting inline before this render's JSX is produced) collapses the
+  // card the moment it stops needing the toggle, with no effect.
+  const recordCount = records?.length ?? 0;
+  const [lastRecordCount, setLastRecordCount] = useState(recordCount);
+  if (recordCount !== lastRecordCount) {
+    setLastRecordCount(recordCount);
+    if (recordCount <= CARD_RECORDS_PREVIEW) setExpanded(false);
+  }
 
   const commitRename = (raw: string) => {
     const next = raw.trim() || null;
@@ -130,6 +155,64 @@ function CardRow({
       >
         Assign records
       </Button>
+      {/* active_count above is the server's own count of every active row on
+          this card; the list below is the deduplicated status=active read,
+          which collapses several active rows for one release in one bin into
+          the most recently added one. The two can disagree for as long as a
+          duplicate stays active -- that is expected, and the two are never
+          reconciled against each other. When they disagree with an empty
+          list -- the card's one active row is a duplicate the read collapsed
+          onto a sibling card -- "Nothing on this card yet." stays off too:
+          an empty list is not the same claim as an empty card, and showing
+          the empty line here would make it one. */}
+      {records != null && records.length === 0 && card.active_count === 0 && (
+        <Typography level="body-xs" textColor="text.tertiary" sx={{ mt: 0.5 }}>
+          Nothing on this card yet.
+        </Typography>
+      )}
+      {records != null && records.length > 0 && (
+        <>
+          <Box
+            component="ul"
+            // listStyle: none drops the implicit list role in WebKit, so
+            // state it explicitly for screen-reader users.
+            role="list"
+            aria-label={`Records on ${cardName}`}
+            sx={{ listStyle: "none", m: 0, mt: 0.5, p: 0 }}
+          >
+            {(expanded ? records : records.slice(0, CARD_RECORDS_PREVIEW)).map((row) => (
+              <Typography
+                component="li"
+                key={row.rotation_id}
+                level="body-xs"
+                noWrap
+                title={rotationRecordLabel(row)}
+              >
+                {rotationRecordLabel(row)}
+              </Typography>
+            ))}
+          </Box>
+          {records.length > CARD_RECORDS_PREVIEW && (
+            <Button
+              variant="plain"
+              size="sm"
+              aria-expanded={expanded}
+              // Visible text stays short ("Show all N" / "Show fewer");
+              // the accessible name carries which card it's for, like
+              // every other control in the row.
+              aria-label={
+                expanded
+                  ? `Show fewer records on ${cardName}`
+                  : `Show all ${records.length} records on ${cardName}`
+              }
+              sx={{ px: 0, justifyContent: "flex-start" }}
+              onClick={() => setExpanded((open) => !open)}
+            >
+              {expanded ? "Show fewer" : `Show all ${records.length}`}
+            </Button>
+          )}
+        </>
+      )}
     </Sheet>
   );
 }
@@ -156,6 +239,8 @@ function CardRow({
  */
 export default function CardsManager(): JSX.Element {
   const { data: cards, isFetching, isError, refetch } = useGetRotationCardsQuery();
+  // The panel's own cache entry: `status=active`, never `status=all`.
+  const list = useGetRotationListQuery("active");
   const [addRotationCard] = useAddRotationCardMutation();
   const [updateRotationCard] = useUpdateRotationCardMutation();
   const [deleteRotationCard] = useDeleteRotationCardMutation();
@@ -170,6 +255,10 @@ export default function CardsManager(): JSX.Element {
   const [stillOnFirstCardOnly, setStillOnFirstCardOnly] = useState(false);
 
   const cardsByBin = useMemo(() => groupRotationCardsByBin(cards ?? []), [cards]);
+  const recordsByCardId = useMemo(
+    () => (list.data ? groupRotationRowsByCardId(list.data) : null),
+    [list.data],
+  );
   // Derived from the cards read, never held beside it: a card that leaves
   // the list takes its open panel with it.
   const assigningCard = cards?.find((card) => card.id === assigningCardId);
@@ -271,6 +360,20 @@ export default function CardsManager(): JSX.Element {
         maxWidth: 1020,
       }}
     >
+      {list.isError && list.data == null && (
+        <Alert color="danger" sx={{ gridColumn: "1 / -1", justifyContent: "space-between" }}>
+          <Typography>Couldn't load the records on these cards.</Typography>
+          <Button
+            variant="outlined"
+            color="danger"
+            size="sm"
+            loading={list.isFetching}
+            onClick={() => void list.refetch()}
+          >
+            Retry
+          </Button>
+        </Alert>
+      )}
       {ROTATION_BINS.map((bin) => {
         const binCards = cardsByBin.get(bin) ?? [];
         return (
@@ -295,6 +398,7 @@ export default function CardsManager(): JSX.Element {
                   binLabel={ROTATION_BIN_LABELS[bin]}
                   deletable={canDeleteRotationCard(card, binCards)}
                   pending={pendingCardIds.has(card.id)}
+                  records={recordsByCardId ? (recordsByCardId.get(card.id) ?? []) : null}
                   onRename={(name) => renameCard(card.id, name)}
                   onDelete={() => deleteCard(card.id)}
                   onAssign={() => {

@@ -204,13 +204,14 @@ describe("CardAssignmentPanel", () => {
     expect(fake.listStatuses()).toEqual(["active"]);
   });
 
-  it("lists the elsewhere records by card then artist, folding case and diacritics", async () => {
+  it("lists the elsewhere records by card then artist, through base-sensitivity collation", async () => {
     // ROWS's own elsewhere names never diverge from their raw-code-unit
-    // order, so that fixture would pass this even with folding ripped out.
-    // Aşıq Altay vs Autechre does diverge: folded, "asiq altay" sorts ahead
-    // of "autechre" on its second letter (s before u), but the accented ş
-    // (U+015F) outranks every plain ASCII letter unfolded, so a raw compare
-    // would put Autechre first instead.
+    // order, so that fixture would pass this even with collation ripped out.
+    // Aşıq Altay vs Autechre does diverge: compared at base sensitivity, "ş"
+    // is its base letter "s", so Aşıq Altay sorts ahead of Autechre on their
+    // second letter (s before u). Compared by raw code unit instead, the
+    // accented ş (U+015F) outranks every plain ASCII letter and would put
+    // Autechre first.
     const orderingRows: RotationListRow[] = (
       [
         [970, { artist_name: "Autechre", album_title: "Elseq 1-5", card: OTHER_CARD,
@@ -636,10 +637,10 @@ describe("CardAssignmentPanel", () => {
           rotation_add_date: "2026-09-19" }],
         [932, { artist_name: "Stereolab", album_title: "Instant Holograms on Metal Film", card: CARD,
           rotation_add_date: "2026-09-10" }],
-        // Diverge at the second letter: folded, "Aşıq Altay" -> "asiq altay"
-        // sorts ahead of "Autechre" (s before u), but the accented ş
-        // (U+015F) outranks every plain ASCII letter unfolded, so a raw
-        // code-unit compare would reverse these two.
+        // Diverge at the second letter: compared at base sensitivity, "ş" is
+        // its base letter "s", so "Aşıq Altay" sorts ahead of "Autechre" (s
+        // before u). Compared by raw code unit instead, the accented ş
+        // (U+015F) outranks every plain ASCII letter and would reverse these.
         [933, { artist_name: "Aşıq Altay", album_title: "Dolu Kaval", card: CARD,
           rotation_add_date: "2026-09-13" }],
         [934, { artist_name: "Autechre", album_title: "Elseq 1-5", card: CARD,
@@ -652,7 +653,7 @@ describe("CardAssignmentPanel", () => {
     };
     const hereBox = (rotationId: number) => screen.getByRole("checkbox", { name: hereTitle(rotationId) });
 
-    it("renders 'On <Card> now' ordered by artist, folding case and diacritics", async () => {
+    it("renders 'On <Card> now' ordered by artist, through base-sensitivity collation", async () => {
       fakeRotationAdminEndpoints(HERE_ROWS, [CARD, OTHER_CARD], { today: TODAY });
       renderWithProviders(<TestCardAssignmentPanel card={CARD} onClose={vi.fn()} />);
       await screen.findByText("On Heavy 3 now · 5");

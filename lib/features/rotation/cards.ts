@@ -1,5 +1,4 @@
 import type { RotationCard } from "@wxyc/shared";
-import { foldForSearch } from "../admin/roster-filter";
 import { bodyReason, unwrapEndpointError } from "@/lib/rtk-endpoint-error";
 import { rowMatchesTerms, searchTerms } from "./adminList";
 import {
@@ -82,18 +81,29 @@ export type CardAssignmentRows = {
   elsewhere: RotationListRow[];
 };
 
-/** Folded string comparison -- case- and diacritic-insensitive, matching `rowMatchesTerms`'s own folding. */
-function compareFolded(left: string | null, right: string | null): number {
-  const foldedLeft = foldForSearch(left ?? "");
-  const foldedRight = foldForSearch(right ?? "");
-  if (foldedLeft === foldedRight) return 0;
-  return foldedLeft < foldedRight ? -1 : 1;
+// Built once at module level, and pinned to "en" rather than a runtime
+// default, so the order a viewer sees never shifts with their browser's
+// locale or a CI runner's.
+const NAME_COLLATOR = new Intl.Collator("en", { sensitivity: "base" });
+
+/** Accent- and case-insensitive string comparison, so letters NFD cannot decompose (`ł`, `ø`) still sort by base letter. */
+function compareNames(left: string | null, right: string | null): number {
+  return NAME_COLLATOR.compare(left ?? "", right ?? "");
 }
 
+/** The one display string for a record, shared by the panel's rows and the Cards tab's list. */
+export function rotationRecordLabel(row: RotationListRow): string {
+  return `${row.artist_name ?? "Unknown artist"} — ${row.album_title ?? "Untitled"}`;
+}
+
+/**
+ * A card's records in the order the panel gives its "On <card> now" section:
+ * artist, then album title, then rotation id, for a stable total order.
+ */
 function byArtistThenTitle(left: RotationListRow, right: RotationListRow): number {
   return (
-    compareFolded(left.artist_name, right.artist_name) ||
-    compareFolded(left.album_title, right.album_title) ||
+    compareNames(left.artist_name, right.artist_name) ||
+    compareNames(left.album_title, right.album_title) ||
     left.rotation_id - right.rotation_id
   );
 }
@@ -103,10 +113,29 @@ function byArtistThenTitle(left: RotationListRow, right: RotationListRow): numbe
 function byCardThenArtistThenTitle(left: RotationListRow, right: RotationListRow): number {
   return (
     (left.card?.number ?? 0) - (right.card?.number ?? 0) ||
-    compareFolded(left.artist_name, right.artist_name) ||
-    compareFolded(left.album_title, right.album_title) ||
+    compareNames(left.artist_name, right.artist_name) ||
+    compareNames(left.album_title, right.album_title) ||
     left.rotation_id - right.rotation_id
   );
+}
+
+/**
+ * Active rows grouped by the id of the card they sit on, each group in
+ * `byArtistThenTitle` order. The rows arrive grouped by a hash, so the sort is
+ * explicit. A card with no rows has no entry.
+ */
+export function groupRotationRowsByCardId(
+  rows: readonly RotationListRow[],
+): ReadonlyMap<number, RotationListRow[]> {
+  const byCardId = new Map<number, RotationListRow[]>();
+  for (const row of rows) {
+    if (row.card == null) continue;
+    const list = byCardId.get(row.card.id) ?? [];
+    list.push(row);
+    byCardId.set(row.card.id, list);
+  }
+  for (const list of byCardId.values()) list.sort(byArtistThenTitle);
+  return byCardId;
 }
 
 /**
