@@ -254,6 +254,27 @@ describe("CatalogResult call number column", () => {
     expect(callCell!.querySelectorAll(".MuiChip-root")).toHaveLength(0);
   });
 
+  // Backend-Service stores every compilation as code_letters = "V/A" with
+  // code_artist_number = 0; composing the cell inline rendered the
+  // nonexistent shelf code "V/A 0/1" instead of the real "V/A-1".
+  it("should render a Various Artists bucket's call number as V/A-<entry>, not V/A 0/entry", () => {
+    const compilation = createTestAlbum({
+      artist: createTestArtist({ name: "Various Artists", lettercode: "V/A", numbercode: 0 }),
+      entry: 1,
+    });
+
+    renderWithProviders(
+      <table>
+        <tbody>
+          <CatalogResult album={compilation} live={false} addToQueue={vi.fn()} />
+        </tbody>
+      </table>
+    );
+
+    expect(screen.getByText("V/A-1")).toBeDefined();
+    expect(screen.queryByText("V/A 0/1")).toBeNull();
+  });
+
   it("should never wrap the call number", () => {
     renderWithProviders(
       <table>

@@ -52,6 +52,48 @@ describe("formatArtistCodeWithPunctuation — ArtistLibraryCode.java:98", () => 
     ).toBe("X-");
   });
 
+  // GenreId.ROCK — 11, the other id chooserValidation's
+  // isRockCompLettersRequired hardcodes alongside Soundtracks.
+  // ArtistLibraryCode.java prefixes the Rock sub-bucket letter with "V/A ",
+  // unlike Soundtracks's bare letter -- so the two genres must not render
+  // identically.
+  it("renders a Rock compilation as V/A plus its sub-bucket letter, not the bare letter", () => {
+    expect(
+      formatArtistCodeWithPunctuation({
+        code_letters: "Z-X",
+        code_artist_number: 4,
+        genre_id: 11,
+      }),
+    ).toBe("V/A X-");
+  });
+
+  // Every compilation Backend-Service actually serves arrives as the literal
+  // `V/A`, never the legacy `Z-<letter>` spelling -- so the Rock/Soundtracks
+  // dispatch above is unreachable on real data, and a Rock bucket in that
+  // (real) shape still collapses to the plain V/A-.
+  it("renders a Rock V/A bucket in the Backend-served form identically to any other genre", () => {
+    expect(
+      formatArtistCodeWithPunctuation({
+        code_letters: "V/A",
+        code_artist_number: 0,
+        genre_id: 11,
+      }),
+    ).toBe("V/A-");
+  });
+
+  // A response that predates the field (or a caller that never resolved a
+  // genre) must not crash or accidentally dispatch into the Rock/Soundtracks
+  // branches -- it falls through to the generic bucket letters.
+  it("treats a missing genre_id as an ordinary Various Artists bucket", () => {
+    expect(
+      formatArtistCodeWithPunctuation({
+        code_letters: "Z-X",
+        code_artist_number: 4,
+        genre_id: undefined,
+      }),
+    ).toBe("V/A-");
+  });
+
   // Backend-Service is the source here, not tubafrenzy's MySQL, and the two
   // spell a compilation bucket differently: the catalog import rewrites
   // `Z-<letter>` to the literal `V/A` on the way in, so the `Z-` form never

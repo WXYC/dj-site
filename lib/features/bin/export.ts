@@ -1,18 +1,24 @@
 import type { AlbumEntry } from "@/lib/features/catalog/types";
+import { formatEntireLibraryCode } from "@/lib/features/catalog/libraryCode";
 
 /** Columns shared by every export format, in display order. */
 const COLUMNS = ["Call #", "Album", "Artist", "Label", "Format"] as const;
 
 /**
  * The library call number a DJ reads off the shelf: lettercode, artist number,
- * then the album's entry — e.g. `RO 12/3`. Matches the format shown on catalog
- * results (see Result.tsx). Missing parts collapse gracefully so a partial
- * record still yields something scannable.
+ * then the album's entry — e.g. `RO 12/3`, or `V/A-1` for a compilation.
+ * Matches the format shown on catalog results (see Result.tsx). No genre
+ * prefix: this printout is one column among several, with no room to repeat
+ * the genre the DJ already filed the bin by.
  */
 export function callNumberFor(entry: AlbumEntry): string {
-  const { lettercode, numbercode } = entry.artist;
-  const prefix = [lettercode, numbercode].filter((p) => p != null && p !== "").join(" ");
-  return entry.entry != null ? `${prefix}/${entry.entry}`.trim() : prefix.trim();
+  return formatEntireLibraryCode({
+    code_letters: entry.artist.lettercode,
+    code_artist_number: entry.artist.numbercode,
+    genre_id: entry.artist.genre_id,
+    code_number: entry.entry,
+    code_volume_letters: entry.code_volume_letters,
+  });
 }
 
 function cellsFor(entry: AlbumEntry): string[] {

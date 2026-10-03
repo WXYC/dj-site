@@ -28,6 +28,14 @@
  */
 
 /**
+ * `GenreId.ROCK`. Hardcoded rather than resolved by name, matching
+ * `chooserValidation.isRockCompLettersRequired`, which hardcodes the same id
+ * for the same reason: the JSPs branch on the id, and a genre rename upstream
+ * must not silently change how a shelf code renders.
+ */
+const ROCK_GENRE_ID = 11;
+
+/**
  * `GenreId.SOUNDTRACKS`. Hardcoded rather than resolved by name, matching
  * `chooserValidation.isRockCompLettersRequired`, which hardcodes the same id
  * for the same reason: the JSPs branch on the id, and a genre rename upstream
@@ -45,12 +53,26 @@ export type ArtistCodeParts = {
    * joins it and always has a number.
    */
   code_artist_number: number | null;
-  genre_id: number;
+  /**
+   * `undefined` for a caller that never resolved (or never carried) which
+   * genre this code is scoped to — a response predating the field, or a
+   * screen with no genre list loaded yet. Only the Rock/Soundtracks
+   * Various-Artists dispatch in `formatArtistCodeWithPunctuation` reads this,
+   * and an unresolved value must fall through to the generic bucket rather
+   * than coincidentally matching one of the two hardcoded ids.
+   */
+  genre_id: number | undefined;
 };
 
 export type ReleaseCodeParts = {
   code_number: number;
-  code_volume_letters: string | null;
+  /**
+   * `null` is a release with no volume letters; `undefined` mirrors
+   * `AlbumEntry.code_volume_letters` -- a source that carries no such column
+   * at all (a bin row, an LML-only search row). `formatReleaseCode` treats
+   * both the same way: either is "no volume letter to render."
+   */
+  code_volume_letters: string | null | undefined;
 };
 
 /**
@@ -166,8 +188,11 @@ export function formatArtistLibraryCode({
 
 /**
  * The artist half of a call number, with its trailing punctuation: `MO 12/`
- * for a named artist, `V/A-` for a compilation bucket, and the sub-bucket
- * letter alone (`X-`) for a Soundtracks compilation.
+ * for a named artist, `V/A-` for a compilation bucket in any other genre,
+ * `V/A X-` for a Rock compilation's sub-bucket, and the bare sub-bucket
+ * letter (`X-`) for a Soundtracks compilation — Rock keeps the `V/A` word
+ * ahead of its letter where Soundtracks drops it, matching
+ * `ArtistLibraryCode.getCallLettersAndNumbersWithPunctuation()`.
  *
  * The V/A branches drop `code_artist_number` entirely — that is the Java's
  * behavior, not an omission: a compilation bucket is filed by its letter, so
@@ -181,19 +206,25 @@ export function formatArtistCodeWithPunctuation({
   if (isVariousArtists(code_letters)) {
     const trimmed = code_letters.trim();
     // `callLetters.substring(2, 3)` — the single character after the `Z-`
-    // prefix, which is the Soundtracks sub-bucket letter.
+    // prefix, which is the Rock or Soundtracks sub-bucket letter.
     //
     // Reachable only on the legacy `Z-<letter>` spelling. The `V/A` form
     // Backend-Service serves has already lost that letter — the import
     // collapses every `Z-<letter>` to the same three characters. It survives
-    // in the artist's NAME (`Soundtracks - K`), which this screen shows in its
-    // heading, so the sub-bucket stays legible to a librarian; it is simply
-    // not recoverable from the code, and digging it back out of the name is
-    // the name-matching this file exists to avoid.
-    const bucket =
-      genre_id === SOUNDTRACKS_GENRE_ID && trimmed.startsWith("Z-")
+    // in the artist's NAME (`Various Artists - Rock - K`, `Soundtracks - K`),
+    // which this screen shows in its heading, so the sub-bucket stays legible
+    // to a librarian; it is simply not recoverable from the code, and digging
+    // it back out of the name is the name-matching this file exists to avoid.
+    const subBucketLetter =
+      trimmed.startsWith("Z-") && (genre_id === ROCK_GENRE_ID || genre_id === SOUNDTRACKS_GENRE_ID)
         ? trimmed.substring(2, 3)
-        : VARIOUS_ARTISTS_CODE_LETTERS;
+        : null;
+    const bucket =
+      subBucketLetter === null
+        ? VARIOUS_ARTISTS_CODE_LETTERS
+        : genre_id === ROCK_GENRE_ID
+          ? `${VARIOUS_ARTISTS_CODE_LETTERS} ${subBucketLetter}`
+          : subBucketLetter;
     return `${bucket}-`;
   }
   // The named-artist form is the same string the no-punctuation getter

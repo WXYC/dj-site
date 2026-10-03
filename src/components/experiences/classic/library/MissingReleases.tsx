@@ -8,7 +8,7 @@ import { CATALOG_QUERY_MAX_LIMIT } from "@/lib/features/catalog/constants";
 import { hasLinkedAlbumId } from "@/lib/features/flowsheet/linkage";
 import { isUnmessagedHttpError } from "@/lib/rtk-query-error-logger";
 import { useMissingReleases } from "@/src/hooks/catalogHooks";
-import { isVariousArtists } from "@/lib/features/catalog/libraryCode";
+import { formatEntireLibraryCode, isVariousArtists } from "@/lib/features/catalog/libraryCode";
 
 function formatMissingSince(dateLost: string | null | undefined): string {
   if (!dateLost) return "Unknown";
@@ -147,7 +147,13 @@ export default function MissingReleases() {
                     <td style={{ textAlign: "center" }}>{release.format}</td>
                     <td style={{ textAlign: "right" }}>{release.artist?.genre ?? ""}</td>
                     <td style={{ textAlign: "left" }}>
-                      {release.artist?.lettercode} {release.artist?.numbercode}/{release.entry}
+                      {formatEntireLibraryCode({
+                        code_letters: release.artist?.lettercode ?? "",
+                        code_artist_number: release.artist?.numbercode ?? null,
+                        genre_id: release.artist?.genre_id,
+                        code_number: release.entry,
+                        code_volume_letters: release.code_volume_letters,
+                      })}
                     </td>
                     <td style={{ textAlign: "left" }}>
                       {isVariousArtists(release.artist?.lettercode ?? "")
