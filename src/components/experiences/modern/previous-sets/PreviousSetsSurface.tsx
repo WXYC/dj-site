@@ -15,10 +15,9 @@ import ViewToggle from "./ViewToggle";
 /**
  * Owns the Search-vs-Week branch.
  *
- * The page above is a Server Component so it can seed the default listing, but
- * the branch itself reads the URL through useSearchParams and so has to live on
- * the client. Splitting it here keeps toggling a client transition instead of a
- * server round-trip per click.
+ * The page above is a Server Component, but the branch itself reads the URL
+ * through useSearchParams and so has to live on the client. Splitting it here
+ * keeps toggling a client transition instead of a server round-trip per click.
  */
 export default function PreviousSetsSurface() {
   const { isWeekView, setView, selectedShowId, selectedEntryId } =
