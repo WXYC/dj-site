@@ -125,16 +125,16 @@ describe("useCardAssignmentSave", () => {
 
     let saved!: SaveResult;
     act(() => {
-      saved = result.current.save([901, 900, 901, 900]);
+      saved = result.current.save([900, 901, 900]);
     });
     await waitFor(() => expect(result.current.progress).toEqual({ done: 0, total: 2 }));
-    await handler.releaseOnceRequested(901);
     await handler.releaseOnceRequested(900);
+    await handler.releaseOnceRequested(901);
     await waitFor(() => expect(result.current.running).toBe(false));
 
-    expect(handler.bodies().map((call) => call.id)).toEqual([901, 900]);
+    expect(handler.bodies().map((call) => call.id)).toEqual([900, 901]);
     expect(result.current.progress).toEqual({ done: 2, total: 2 });
-    await expect(saved).resolves.toEqual({ moved: [901, 900], failed: [], notAttempted: [] });
+    await expect(saved).resolves.toEqual({ moved: [900, 901], failed: [], notAttempted: [] });
   });
 
   it("reports a failing row as failed and the rest as moved, and resolves to that outcome", async () => {
@@ -189,6 +189,42 @@ describe("useCardAssignmentSave", () => {
     expect(result.current.progress).toEqual({ done: 1, total: 1 });
     expect(result.current.results.get(900)).toEqual({ ok: true });
     expect(result.current.results.get(901)).toEqual({ ok: true });
+    await expect(retried).resolves.toEqual({ moved: [901], failed: [], notAttempted: [] });
+  });
+
+  it("retry held from a render taken mid-run resends only the rows still unlanded when it is called", async () => {
+    const handler = installGatedCardMoveHandler();
+    handler.failFor([901]);
+    const { result } = renderSaveHook();
+
+    act(() => {
+      void result.current.save([900, 901, 902]);
+    });
+    await handler.releaseOnceRequested(900);
+    await waitFor(() => expect(result.current.progress).toEqual({ done: 1, total: 3 }));
+    // Held while 901 and 902 are still in flight: a render taken here has
+    // not yet seen either settle.
+    const heldRetry = result.current.retry;
+
+    await handler.releaseOnceRequested(901);
+    await handler.releaseOnceRequested(902);
+    await waitFor(() => expect(result.current.running).toBe(false));
+    expect(result.current.results.get(901)).toEqual(failedWith(500));
+    expect(result.current.results.get(902)).toEqual({ ok: true });
+
+    handler.failFor([]);
+    let retried!: SaveResult;
+    act(() => {
+      retried = heldRetry();
+    });
+    await waitFor(() => expect(result.current.progress).toEqual({ done: 0, total: 1 }));
+    await handler.releaseOnceRequested(901);
+    await waitFor(() => expect(result.current.running).toBe(false));
+
+    expect(handler.bodies().map((call) => call.id)).toEqual([900, 901, 902, 901]);
+    expect(result.current.results.get(900)).toEqual({ ok: true });
+    expect(result.current.results.get(901)).toEqual({ ok: true });
+    expect(result.current.results.get(902)).toEqual({ ok: true });
     await expect(retried).resolves.toEqual({ moved: [901], failed: [], notAttempted: [] });
   });
 
@@ -465,6 +501,29 @@ describe("useCardAssignmentSave", () => {
         failed: [],
         notAttempted: [],
       });
+    });
+
+    // The two refetch specs above only cover a batch that ran to the end.
+    // This one stops after three consecutive failures and must be refetched
+    // exactly the same way: the failure crosses the threshold, but it is
+    // still a failure, and `settle` still fires exactly once.
+    it("refetches the cards read and the list facet once, and re-serves the status=all read once, when the batch stops", async () => {
+      const handler = installGatedCardMoveHandler();
+      handler.failFor([901, 902, 903]);
+      const store = await storeHoldingEveryRead();
+      const { result } = renderSaveHook(store);
+
+      act(() => {
+        void result.current.save([900, 901, 902, 903, 904, 905]);
+      });
+      await handler.releaseOnceRequested(900);
+      await handler.releaseOnceRequested(901);
+      await handler.releaseOnceRequested(902);
+      await handler.releaseOnceRequested(903);
+
+      await waitFor(() => expect(result.current.running).toBe(false));
+      await settleReads(store);
+      expect(handler.counts()).toEqual({ cards: 2, list: 2, activeList: 2 });
     });
 
     // Rows the server refuses every time would, resent in their original
