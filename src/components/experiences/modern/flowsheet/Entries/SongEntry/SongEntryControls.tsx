@@ -4,15 +4,14 @@ import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import { FlowsheetSongEntry } from "@/lib/features/flowsheet/types";
 import { useAppDispatch } from "@/lib/hooks";
 import { useFlowsheetActions } from "@/src/hooks/flowsheetHooks";
-import { useRouter } from "next/navigation";
 import {
-  InfoOutlined,
   LinkOff,
   LinkRounded,
   PhoneDisabled,
   PhoneEnabled,
 } from "@mui/icons-material";
-import { Checkbox, IconButton, Tooltip } from "@mui/joy";
+import { Checkbox, Tooltip } from "@mui/joy";
+import AlbumInfoButton from "../AlbumInfoButton";
 import RemoveButton from "../Components/RemoveButton";
 
 // The interactive controls for a song entry — segue + request toggles, the
@@ -32,7 +31,6 @@ export default function SongEntryControls({
   showRemove?: boolean;
 }) {
   const dispatch = useAppDispatch();
-  const router = useRouter();
   const { updateFlowsheet } = useFlowsheetActions();
 
   const commit = (field: "segue" | "request_flag", value: boolean) => {
@@ -99,16 +97,7 @@ export default function SongEntryControls({
           </Tooltip>
         </>
       )}
-      <IconButton
-        color="neutral"
-        variant="plain"
-        size="sm"
-        disabled={!entry?.album_id || entry.album_id < 0}
-        aria-label="Album information"
-        onClick={() => router.push(`/dashboard/album/${entry.album_id}`)}
-      >
-        <InfoOutlined />
-      </IconButton>
+      <AlbumInfoButton entry={entry} />
       {editable && showRemove && <RemoveButton queue={queue} entry={entry} />}
     </>
   );

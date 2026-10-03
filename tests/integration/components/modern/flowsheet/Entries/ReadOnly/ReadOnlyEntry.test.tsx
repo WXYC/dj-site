@@ -7,6 +7,7 @@ import ReadOnlyEntry from "@/src/components/experiences/modern/flowsheet/Entries
 import {
   FLOWSHEET_TABLE_SX,
   FLOWSHEET_XL_QUERY,
+  flowsheetChipsReservePx,
 } from "@/src/components/experiences/modern/flowsheet/Entries/tableStyles";
 import {
   FlowsheetBreakpointEntry,
@@ -202,6 +203,70 @@ describe("ReadOnlyEntry", () => {
     await waitFor(() => {
       expect(screen.getAllByText(songEntry.track_title)).toHaveLength(2);
     });
+  });
+});
+
+describe("ReadOnlyEntry albumInfo prop", () => {
+  it("renders no album information control by default, and reserves no room for one", () => {
+    const { container } = renderWithPublicProviders(
+      <ReadOnlyEntry entry={songEntry} playing={false} />
+    );
+
+    expect(
+      screen.queryByRole("button", { name: "Album information" })
+    ).not.toBeInTheDocument();
+    const chips = container.querySelector("tr")?.lastElementChild?.firstElementChild;
+    if (!(chips instanceof HTMLElement)) throw new Error("no chip strip");
+    expect(getComputedStyle(chips).paddingRight).not.toBe(
+      `${flowsheetChipsReservePx(false)}px`
+    );
+  });
+
+  it("renders the album information control, enabled, when asked for a linked entry", () => {
+    renderWithPublicProviders(
+      <ReadOnlyEntry entry={songEntry} playing={false} albumInfo />
+    );
+
+    expect(
+      screen.getByRole("button", { name: "Album information" })
+    ).toHaveProperty("disabled", false);
+  });
+
+  // The control sits over the chip cell's right edge, so the chips must keep
+  // clear of it, and it must stay clickable above a row-wide overlay link.
+  it("keeps the chips clear of the control and leaves the control clickable", () => {
+    renderWithPublicProviders(
+      <ReadOnlyEntry entry={songEntry} playing={false} albumInfo />
+    );
+
+    const button = screen.getByRole("button", { name: "Album information" });
+    const cell = button.closest("td");
+    const chips = cell?.firstElementChild;
+    if (!(chips instanceof HTMLElement)) throw new Error("no chip strip");
+    expect(getComputedStyle(chips).paddingRight).toBe(
+      `${flowsheetChipsReservePx(false)}px`
+    );
+
+    for (
+      let el: HTMLElement | null = button;
+      el !== null && el !== cell;
+      el = el.parentElement
+    ) {
+      const style = getComputedStyle(el);
+      expect(style.pointerEvents).not.toBe("none");
+      expect(Number.parseInt(style.zIndex, 10) || 0).toBeGreaterThanOrEqual(0);
+    }
+  });
+
+  it("disables the album information control for a row with no album_id", () => {
+    const unlinked = createTestFlowsheetEntry({ ...songEntry, album_id: undefined });
+    renderWithPublicProviders(
+      <ReadOnlyEntry entry={unlinked} playing={false} albumInfo />
+    );
+
+    expect(
+      screen.getByRole("button", { name: "Album information" })
+    ).toHaveProperty("disabled", true);
   });
 });
 
