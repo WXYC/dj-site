@@ -1,5 +1,5 @@
 import type { AlbumEntry } from "@/lib/features/catalog/types";
-import { formatEntireLibraryCode } from "@/lib/features/catalog/libraryCode";
+import { formatAlbumEntryLibraryCode } from "@/lib/features/catalog/libraryCode";
 
 /** Columns shared by every export format, in display order. */
 const COLUMNS = ["Call #", "Album", "Artist", "Label", "Format"] as const;
@@ -13,13 +13,7 @@ const COLUMNS = ["Call #", "Album", "Artist", "Label", "Format"] as const;
  * with no room to repeat the genre the DJ already filed the bin by.
  */
 export function callNumberFor(entry: AlbumEntry): string {
-  return formatEntireLibraryCode({
-    code_letters: entry.artist.lettercode,
-    code_artist_number: entry.artist.numbercode,
-    genre_id: entry.artist.genre_id,
-    code_number: entry.entry,
-    code_volume_letters: entry.code_volume_letters,
-  });
+  return formatAlbumEntryLibraryCode(entry);
 }
 
 function cellsFor(entry: AlbumEntry): string[] {

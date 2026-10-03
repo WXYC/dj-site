@@ -7,7 +7,7 @@ import { useSearchCatalogQuery } from "@/lib/features/catalog/api";
 import { isRotationAdminEnabled } from "@/lib/features/rotation/flags";
 import { rotationLocationFor } from "@/lib/features/rotation/location";
 import { artistCardHref } from "@/lib/features/catalog/artistCardRoute";
-import { formatEntireLibraryCode, isVariousArtists } from "@/lib/features/catalog/libraryCode";
+import { formatAlbumEntryLibraryCode, isVariousArtists } from "@/lib/features/catalog/libraryCode";
 import { MatchedTrackChips } from "./MatchedTrackChips";
 
 /**
@@ -211,13 +211,7 @@ export default function SearchResults({ canModify }: { canModify: boolean }) {
                     )}
                   </b>
                 ) : (
-                  formatEntireLibraryCode({
-                    code_letters: result.artist?.lettercode ?? "",
-                    code_artist_number: result.artist?.numbercode ?? null,
-                    genre_id: result.artist?.genre_id,
-                    code_number: result.entry,
-                    code_volume_letters: result.code_volume_letters,
-                  })
+                  formatAlbumEntryLibraryCode(result)
                 )}
               </td>
               <td>

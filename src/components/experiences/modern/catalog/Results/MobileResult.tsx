@@ -22,7 +22,7 @@ import { ReleaseChips } from "./ReleaseChips";
 import { RotationLocationPill } from "./RotationLocationPill";
 import { toast } from "sonner";
 import { memo } from "react";
-import { formatEntireLibraryCode, isVariousArtists } from "@/lib/features/catalog/libraryCode";
+import { formatAlbumEntryLibraryCode, isVariousArtists } from "@/lib/features/catalog/libraryCode";
 
 // Rendered below the `sm` breakpoint in place of the desktop table.
 // `live`/`addToQueue` are hoisted into Results (shared across rows); memoized
@@ -64,13 +64,7 @@ function CatalogMobileResult({
   const meta = [
     rotationLocation
       ? null
-      : formatEntireLibraryCode({
-          code_letters: album.artist.lettercode,
-          code_artist_number: album.artist.numbercode,
-          genre_id: album.artist.genre_id,
-          code_number: album.entry,
-          code_volume_letters: album.code_volume_letters,
-        }),
+      : formatAlbumEntryLibraryCode(album),
     album.plays != null && album.plays > 0 ? `${album.plays} plays` : null,
     album.label || null,
   ]
