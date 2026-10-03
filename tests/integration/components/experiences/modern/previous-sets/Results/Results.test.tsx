@@ -499,8 +499,9 @@ describe("Results (modern previous sets)", () => {
 
       render(<Results />);
 
+      // The table renders before its rows, so wait for the link itself.
       const table = await screen.findByRole("table", { name: "playlist archive" });
-      expect(within(table).getByRole("link")).toHaveAttribute(
+      expect(await within(table).findByRole("link")).toHaveAttribute(
         "href",
         "?show=1&entry=800001#entry-800001",
       );
