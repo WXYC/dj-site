@@ -167,7 +167,7 @@ export function canMoveRotationRow(row: RotationListRow): boolean {
 }
 
 /** Split a raw query into the folded terms every match must satisfy — the roster search's own shape. */
-function searchTerms(query: string): string[] {
+export function searchTerms(query: string): string[] {
   return foldForSearch(query).split(/\s+/).filter(Boolean);
 }
 
@@ -175,9 +175,11 @@ function searchTerms(query: string): string[] {
  * Terms match independently across artist, title, and shelf code, folded
  * case- and diacritic-insensitively (`nilufer` finds Nilüfer Yanya), so
  * "stereolab holograms" narrows to the one row carrying both and word order
- * does not matter.
+ * does not matter. Exported so every surface that searches rotation rows —
+ * the admin list and the card-assignment panel — narrows through the one
+ * matcher.
  */
-function rowMatchesTerms(row: RotationListRow, terms: string[]): boolean {
+export function rowMatchesTerms(row: RotationListRow, terms: string[]): boolean {
   if (terms.length === 0) return true;
   const haystack = [row.artist_name ?? "", row.album_title ?? "", rotationRowCode(row) ?? ""].map(
     foldForSearch,

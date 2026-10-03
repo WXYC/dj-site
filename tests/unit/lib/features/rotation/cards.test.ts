@@ -2,11 +2,12 @@ import { describe, it, expect } from "vitest";
 import {
   canDeleteRotationCard,
   groupRotationCardsByBin,
+  narrowCardAssignmentRows,
   rotationCardDeleteConflictMessage,
   rotationCardDeleteConflictReason,
   rotationRowsToMoveOntoCard,
 } from "@/lib/features/rotation/cards";
-import type { RotationCardWithCount } from "@/lib/features/rotation/types";
+import type { RotationCardWithCount, RotationListRow } from "@/lib/features/rotation/types";
 import { RotationBin } from "@/lib/features/rotation/types";
 import { createTestRotationListRow } from "@/tests/fixtures/fixtures";
 
@@ -87,6 +88,174 @@ describe("rotationRowsToMoveOntoCard", () => {
     expect(
       rotationRowsToMoveOntoCard([createTestRotationListRow({ rotation_id: 5001 })], HEAVY_CARD_2, []),
     ).toEqual([]);
+  });
+});
+
+describe("narrowCardAssignmentRows", () => {
+  const CARD_1 = { id: 11, bin: RotationBin.H, number: 1, name: null };
+  const CARD_2 = { id: 12, bin: RotationBin.H, number: 2, name: null };
+  const CARD_3 = { id: 13, bin: RotationBin.H, number: 3, name: "September" };
+  const none = { search: "", stillOnFirstCardOnly: false };
+  const ids = (rows: RotationListRow[]) => rows.map((row) => row.rotation_id);
+
+  const ON_CARD_1 = createTestRotationListRow({
+    rotation_id: 901,
+    artist_name: "Juana Molina",
+    album_title: "DOGA",
+    card: CARD_1,
+  });
+  const NILUFER_HERE = createTestRotationListRow({
+    rotation_id: 902,
+    artist_name: "Nilüfer Yanya",
+    album_title: "PAINLESS",
+    card: CARD_3,
+  });
+  const UNCARDED = createTestRotationListRow({
+    rotation_id: 903,
+    artist_name: "Stereolab",
+    album_title: "Dots and Loops",
+    card: null,
+  });
+  // Factory defaults (artist "Stereolab", title "Instant Holograms on Metal
+  // Film"): a two-word query must match when its words fall in different
+  // fields, artist and title together.
+  const STEREOLAB_HOLOGRAMS_HERE = createTestRotationListRow({
+    rotation_id: 904,
+    card: CARD_3,
+  });
+  const ROWS = [ON_CARD_1, NILUFER_HERE, UNCARDED, STEREOLAB_HOLOGRAMS_HERE];
+
+  it("splits a bin's rows into here and elsewhere with neither filter active", () => {
+    const { here, elsewhere } = narrowCardAssignmentRows(ROWS, CARD_3, none);
+    expect(ids(here)).toEqual([902, 904]);
+    expect(ids(elsewhere)).toEqual([903, 901]);
+  });
+
+  it("keeps only elsewhere rows on the bin's card 1 when the toggle is on, leaving here untouched", () => {
+    const { here, elsewhere } = narrowCardAssignmentRows(ROWS, CARD_3, {
+      ...none,
+      stillOnFirstCardOnly: true,
+    });
+    expect(ids(elsewhere)).toEqual([901]);
+    expect(ids(here)).toEqual([902, 904]);
+  });
+
+  it.each([
+    ["an artist query", "molina", [901]],
+    ["a title query", "dots", [903]],
+    ["a two-word query across artist and title", "stereolab holograms", [904]],
+    ["a diacritic-insensitive query", "nilufer", [902]],
+  ] as const)("narrows through the shared matcher: %s", (_label, search, expected) => {
+    const { here, elsewhere } = narrowCardAssignmentRows(ROWS, CARD_3, { ...none, search });
+    expect(ids([...here, ...elsewhere])).toEqual([...expected]);
+  });
+
+  it("narrows here as well as elsewhere", () => {
+    const { here, elsewhere } = narrowCardAssignmentRows(ROWS, CARD_3, {
+      ...none,
+      search: "nilufer",
+    });
+    expect(ids(here)).toEqual([902]);
+    expect(elsewhere).toEqual([]);
+  });
+
+  it("composes the toggle and search", () => {
+    const { elsewhere } = narrowCardAssignmentRows(ROWS, CARD_3, {
+      search: "nilufer",
+      stillOnFirstCardOnly: true,
+    });
+    expect(elsewhere).toEqual([]);
+  });
+
+  it("ignores the 'still on card 1' toggle when the open card is card 1 itself", () => {
+    // The panel hides this checkbox on card 1, so a row on another card must
+    // still show up elsewhere even if the toggle were somehow still on.
+    const onCard2 = createTestRotationListRow({ rotation_id: 1201, card: CARD_2 });
+    const { elsewhere } = narrowCardAssignmentRows([onCard2], CARD_1, {
+      ...none,
+      stillOnFirstCardOnly: true,
+    });
+    expect(ids(elsewhere)).toEqual([1201]);
+  });
+
+  it("orders here by artist, folding case and diacritics", () => {
+    const wednesday = createTestRotationListRow({
+      rotation_id: 1001,
+      artist_name: "Wednesday",
+      album_title: "Rat Saw God",
+      card: CARD_3,
+    });
+    // Stylized lowercase in real use -- a naive case-sensitive compare would
+    // sort it after "Wednesday", not before.
+    const deerhoof = createTestRotationListRow({
+      rotation_id: 1002,
+      artist_name: "deerhoof",
+      album_title: "Miracle-Level",
+      card: CARD_3,
+    });
+    // Folded, "Aşıq Altay" -> "asiq altay" sorts ahead of "Autechre" on its
+    // second letter (s before u) -- but compared without folding, the
+    // accented ş (U+015F) outranks every plain ASCII letter, so a raw
+    // code-unit compare would put Autechre first instead.
+    const asiqAltay = createTestRotationListRow({
+      rotation_id: 1003,
+      artist_name: "Aşıq Altay",
+      album_title: "Dolu Kaval",
+      card: CARD_3,
+    });
+    const autechre = createTestRotationListRow({
+      rotation_id: 1004,
+      artist_name: "Autechre",
+      album_title: "Elseq 1-5",
+      card: CARD_3,
+    });
+    const { here } = narrowCardAssignmentRows(
+      [wednesday, deerhoof, NILUFER_HERE, asiqAltay, autechre],
+      CARD_3,
+      none,
+    );
+    expect(ids(here)).toEqual([1003, 1004, 1002, 902, 1001]);
+  });
+
+  it("breaks an artist tie on the folded album title", () => {
+    // The later-numbered row holds the alphabetically earlier title, so a
+    // tiebreak that fell through to `rotation_id` instead of the title would
+    // land these in the opposite order.
+    const soundDust = createTestRotationListRow({
+      rotation_id: 1100,
+      artist_name: "Stereolab",
+      album_title: "Sound-Dust",
+      card: CARD_3,
+    });
+    const dotsAndLoops = createTestRotationListRow({
+      rotation_id: 1101,
+      artist_name: "Stereolab",
+      album_title: "Dots and Loops",
+      card: CARD_3,
+    });
+    const { here } = narrowCardAssignmentRows([soundDust, dotsAndLoops], CARD_3, none);
+    expect(ids(here)).toEqual([1101, 1100]);
+  });
+
+  it("orders elsewhere by card number then artist, a card-less row first", () => {
+    const card1Hermanos = createTestRotationListRow({
+      rotation_id: 905,
+      artist_name: "Hermanos Gutiérrez",
+      album_title: "El Bueno y el Malo",
+      card: CARD_1,
+    });
+    const card2Arthur = createTestRotationListRow({
+      rotation_id: 906,
+      artist_name: "Arthur Russell",
+      album_title: "Picture of Bunny Rabbit",
+      card: CARD_2,
+    });
+    const { elsewhere } = narrowCardAssignmentRows(
+      [card2Arthur, ON_CARD_1, UNCARDED, card1Hermanos],
+      CARD_3,
+      none,
+    );
+    expect(ids(elsewhere)).toEqual([903, 905, 901, 906]);
   });
 });
 

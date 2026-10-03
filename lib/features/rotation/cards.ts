@@ -1,5 +1,7 @@
 import type { RotationCard } from "@wxyc/shared";
+import { foldForSearch } from "../admin/roster-filter";
 import { bodyReason, unwrapEndpointError } from "@/lib/rtk-endpoint-error";
+import { rowMatchesTerms, searchTerms } from "./adminList";
 import {
   ROTATION_CARD_DELETE_CONFLICT_REASONS,
   type RotationBin,
@@ -69,6 +71,77 @@ export function rotationRowsToMoveOntoCard(
     .filter((row) => row.rotation_bin === card.bin && ticked.has(row.rotation_id))
     .filter((row) => row.card?.id !== card.id)
     .map((row) => row.rotation_id);
+}
+
+/** The card-assignment panel's search text plus the "still on card 1" toggle. */
+export type CardAssignmentQuery = { search: string; stillOnFirstCardOnly: boolean };
+
+/** The panel's two sections, already filtered and ordered. */
+export type CardAssignmentRows = {
+  here: RotationListRow[];
+  elsewhere: RotationListRow[];
+};
+
+/** Folded string comparison -- case- and diacritic-insensitive, matching `rowMatchesTerms`'s own folding. */
+function compareFolded(left: string | null, right: string | null): number {
+  const foldedLeft = foldForSearch(left ?? "");
+  const foldedRight = foldForSearch(right ?? "");
+  if (foldedLeft === foldedRight) return 0;
+  return foldedLeft < foldedRight ? -1 : 1;
+}
+
+function byArtistThenTitle(left: RotationListRow, right: RotationListRow): number {
+  return (
+    compareFolded(left.artist_name, right.artist_name) ||
+    compareFolded(left.album_title, right.album_title) ||
+    left.rotation_id - right.rotation_id
+  );
+}
+
+// A card-less row is unplaced, like the pile, so it sorts ahead of card 1
+// rather than behind every numbered card.
+function byCardThenArtistThenTitle(left: RotationListRow, right: RotationListRow): number {
+  return (
+    (left.card?.number ?? 0) - (right.card?.number ?? 0) ||
+    compareFolded(left.artist_name, right.artist_name) ||
+    compareFolded(left.album_title, right.album_title) ||
+    left.rotation_id - right.rotation_id
+  );
+}
+
+/**
+ * The panel's "On `<card>` now" and "Elsewhere" sections, filtered and
+ * ordered -- the component does neither of its own. Search (the matcher
+ * `selectRotationAdminView` also uses) narrows both; the "still on card 1"
+ * toggle narrows elsewhere only, since a member is never a pile candidate.
+ * A ticked row that search or the toggle hides is still one
+ * `rotationRowsToMoveOntoCard` sends, since that reads the ticked ids
+ * against the un-narrowed rows this function is given.
+ *
+ * "On `<card>` now" orders by artist, then album title, then rotation id,
+ * for a stable total order. Elsewhere orders by card number first -- a
+ * card-less row sorts ahead of card 1 -- then the same artist/title
+ * tiebreak.
+ */
+export function narrowCardAssignmentRows(
+  binRows: readonly RotationListRow[],
+  card: RotationCard,
+  query: CardAssignmentQuery,
+): CardAssignmentRows {
+  const terms = searchTerms(query.search);
+  const matching = binRows.filter((row) => rowMatchesTerms(row, terms));
+  // The panel hides the toggle's own checkbox when the open card is card 1 --
+  // there is no lower card for it to mean anything against -- so a stale or
+  // defensively-passed `true` here must not narrow either: card 1 never
+  // filters by itself.
+  const toggleActive = query.stillOnFirstCardOnly && card.number !== 1;
+  return {
+    here: matching.filter((row) => row.card?.id === card.id).sort(byArtistThenTitle),
+    elsewhere: matching
+      .filter((row) => row.card?.id !== card.id)
+      .filter((row) => !toggleActive || row.card?.number === 1)
+      .sort(byCardThenArtistThenTitle),
+  };
 }
 
 /**

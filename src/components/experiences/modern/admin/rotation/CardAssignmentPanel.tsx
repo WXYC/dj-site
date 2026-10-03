@@ -4,15 +4,33 @@ import type { JSX } from "react";
 import { useState } from "react";
 import type { RotationCard } from "@wxyc/shared";
 import { useGetRotationListQuery } from "@/lib/features/rotation/api";
-import { rotationRowsToMoveOntoCard } from "@/lib/features/rotation/cards";
-import type { CardMoveRowOutcome } from "@/lib/features/rotation/moveRowsOntoCard";
+import { narrowCardAssignmentRows, rotationRowsToMoveOntoCard } from "@/lib/features/rotation/cards";
+import type {
+  CardMoveRowOutcome,
+  MoveRowsOntoCardOutcome,
+} from "@/lib/features/rotation/moveRowsOntoCard";
 import { ROTATION_BIN_LABELS, type RotationListRow } from "@/lib/features/rotation/types";
 import { rotationWriteErrorMessage } from "@/lib/features/rotation/writeErrorMessage";
 import ConfirmDialog from "@/src/components/experiences/modern/ConfirmDialog";
-import { Alert, Button, Checkbox, LinearProgress, Stack, Typography } from "@mui/joy";
+import { Alert, Button, Checkbox, Input, LinearProgress, Stack, Typography } from "@mui/joy";
 import { useCardAssignmentSave } from "./useCardAssignmentSave";
 
-export type CardAssignmentPanelProps = { card: RotationCard; onClose: () => void };
+export type CardAssignmentPanelProps = {
+  card: RotationCard;
+  onClose: () => void;
+  /**
+   * The bin's next card and how to open it, absent on the bin's last card —
+   * gates Save & open. One prop carrying both rather than two independent
+   * ones, so a caller cannot wire up a next card with no way to open it.
+   */
+  next?: { card: RotationCard; open: () => void };
+  /**
+   * The "Still on `<Bin>` 1" toggle, lifted to `CardsManager` so it survives
+   * Save & open's remount -- a prop, not local state, is what persists it.
+   */
+  stillOnFirstCardOnly: boolean;
+  setStillOnFirstCardOnly: (value: boolean) => void;
+};
 
 type RowProps = {
   row: RotationListRow;
@@ -82,7 +100,11 @@ function CardAssignmentRow({
  * The Cards tab's re-carding tool: ticks a bin's active records onto the
  * open card. Presentational only -- every save belongs to
  * `useCardAssignmentSave(card.id)`, which owns `running`, `progress` and
- * `results`; this component holds nothing but which rows are ticked.
+ * `results`; this component holds only the tick set and the search text.
+ * The "Still on `<Bin>` 1" toggle is `CardsManager`'s, beside
+ * `assigningCardId`, passed down as a prop -- it is what survives advancing
+ * to the next card. Advancing remounts the panel (`CardsManager` keys it by
+ * card id), which resets the tick set and the search text, nothing else.
  *
  * Reads `getRotationList("active")`, never `status=all` -- the Cards tab
  * must not pay for the unbounded history read. Members are ticked and locked
@@ -110,36 +132,68 @@ function CardAssignmentRow({
  * save left unresolved (failed or not attempted): none of those unticked,
  * none besides them ticked. Anything else starts a fresh batch through
  * `save()` with the ticked records still to move.
+ *
+ * The search box narrows both sections; the "Still on `<Bin>` 1" toggle
+ * narrows elsewhere only (`narrowCardAssignmentRows`) -- a tick survives
+ * being filtered out of either, since `moveIds` below reads the tick set
+ * against the un-narrowed `binRows`, and the footer names any ticked row
+ * search or the toggle has hidden from view. Save & open advances via
+ * `next.open()` only once the save's own outcome names no failed and no
+ * not-attempted row; it never waits for the refetch that follows, so the
+ * panel lock above -- not a row lock, which a remount drops with the ticks --
+ * is what keeps card N+1's list from being ticked against a read that still
+ * shows the just-moved records elsewhere. With nothing ticked and a next
+ * card, the control reads "Open" instead and sends nothing: a walk through
+ * cards already correct needs no save, only `next.open()`, gated solely by
+ * `running` since no write is at stake.
  */
 export default function CardAssignmentPanel({
   card,
   onClose,
+  next,
+  stillOnFirstCardOnly,
+  setStillOnFirstCardOnly,
 }: CardAssignmentPanelProps): JSX.Element {
   const binLabel = ROTATION_BIN_LABELS[card.bin];
   const cardLabel = `${binLabel} ${card.number}`;
   const { data, isFetching, isError, refetch } = useGetRotationListQuery("active");
   const { running, progress, results, save, retry } = useCardAssignmentSave(card.id);
   const [tickedRowIds, setTickedRowIds] = useState<ReadonlySet<number>>(() => new Set());
+  const [search, setSearch] = useState("");
 
   const locked = running || isFetching || isError;
   const binRows = (data ?? []).filter((row) => row.rotation_bin === card.bin);
-  const hereRows = binRows.filter((row) => row.card?.id === card.id);
-  const elsewhereRows = binRows.filter((row) => row.card?.id !== card.id);
+  const { here, elsewhere } = narrowCardAssignmentRows(binRows, card, {
+    search,
+    stillOnFirstCardOnly,
+  });
   const moved = (rotationId: number) => results.get(rotationId)?.ok === true;
 
   const toggle = (rotationId: number) => {
     if (locked) return;
     setTickedRowIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(rotationId)) next.delete(rotationId);
-      else next.add(rotationId);
-      return next;
+      const nextTicked = new Set(prev);
+      if (nextTicked.has(rotationId)) nextTicked.delete(rotationId);
+      else nextTicked.add(rotationId);
+      return nextTicked;
     });
   };
 
   const moveIds = rotationRowsToMoveOntoCard(binRows, card, [...tickedRowIds]).filter(
     (rotationId) => !moved(rotationId),
   );
+  // Ticked rows the current search/filter has hidden from view -- still
+  // counted in `moveIds` above, so the label says so rather than letting a
+  // narrowed list look like it undercounts what Save will actually send.
+  const hiddenCount = moveIds.filter(
+    (rotationId) => !elsewhere.some((row) => row.rotation_id === rotationId),
+  ).length;
+  const hiddenSuffix = hiddenCount > 0 ? ` (${hiddenCount} hidden)` : "";
+  // Not gated on `data != null`: the Open step this feeds sends nothing
+  // either way, so a read still loading or one that failed is no different
+  // from a read that landed and found nothing to move -- all three read
+  // "nothing to save" here, and `running` alone is what disables Open.
+  const nothingToSave = moveIds.length === 0;
   // `retry()` is the hook's own blanket resend of every unresolved row from
   // the last save, with no way to narrow it -- so it is only safe to call
   // when the ticked set still names exactly that set. A row unticked since
@@ -153,15 +207,38 @@ export default function CardAssignmentPanel({
   // A record that moved gives up its tick: its row lock lives in `results`,
   // which the next fresh save replaces, and a tick left behind would then be
   // counted and sent again from a list that still showed its old card.
-  const commit = () =>
-    void (retryOnly ? retry() : save(moveIds)).then((outcome) =>
-      setTickedRowIds((prev) => new Set([...prev].filter((id) => !outcome?.moved.includes(id)))),
-    );
+  const dropMovedTicks = (outcome: MoveRowsOntoCardOutcome | null) =>
+    setTickedRowIds((prev) => new Set([...prev].filter((id) => !outcome?.moved.includes(id))));
+  const commit = () => void (retryOnly ? retry() : save(moveIds)).then(dropMovedTicks);
+  // Never offered mid-retry -- a stopped batch's failures want Retry, not a
+  // fresh save that would also carry the walk forward past them.
+  const commitAndAdvance = () =>
+    void save(moveIds).then((outcome) => {
+      dropMovedTicks(outcome);
+      if (next && outcome && outcome.failed.length === 0 && outcome.notAttempted.length === 0) {
+        next.open();
+      }
+    });
+
+  // All three dismissal routes (the Close button, the backdrop, and Escape)
+  // share this one path -- ConfirmDialog's `onClose` already covers the
+  // latter two, and the Close button calls it directly below. Counts
+  // `moveIds`, not the tick set: a ticked record the active read no longer
+  // carries (killed elsewhere) is nothing Save could send, so it must not
+  // prompt for a move that cannot be seen or saved.
+  const requestClose = () => {
+    if (moveIds.length === 0) {
+      onClose();
+      return;
+    }
+    const count = moveIds.length;
+    if (confirm(`Discard ${count} unsaved move${count === 1 ? "" : "s"}?`)) onClose();
+  };
 
   return (
     <ConfirmDialog
       open
-      onClose={onClose}
+      onClose={requestClose}
       pending={running}
       role="dialog"
       title={cardLabel}
@@ -169,16 +246,27 @@ export default function CardAssignmentPanel({
       sx={{ maxWidth: 560, width: "100%" }}
       actions={
         <Stack direction="row" spacing={1} sx={{ width: "100%", justifyContent: "flex-end" }}>
-          <Button variant="plain" color="neutral" disabled={running} onClick={onClose}>
+          <Button variant="plain" color="neutral" disabled={running} onClick={requestClose}>
             Close
           </Button>
           <Button variant="solid" disabled={locked || moveIds.length === 0} onClick={commit}>
             {retryOnly
               ? `Retry ${moveIds.length}`
               : moveIds.length > 0
-                ? `Save ${moveIds.length}`
+                ? `Save ${moveIds.length}${hiddenSuffix}`
                 : "Save"}
           </Button>
+          {next && nothingToSave && (
+            <Button variant="solid" disabled={running} onClick={next.open}>
+              Open {binLabel} {next.card.number} <span aria-hidden="true">→</span>
+            </Button>
+          )}
+          {next && !retryOnly && !nothingToSave && (
+            <Button variant="solid" disabled={locked} onClick={commitAndAdvance}>
+              Save & open {binLabel} {next.card.number}
+              {hiddenSuffix} <span aria-hidden="true">→</span>
+            </Button>
+          )}
         </Stack>
       }
     >
@@ -204,10 +292,10 @@ export default function CardAssignmentPanel({
       ) : (
         <>
           <Typography level="title-sm" sx={{ mb: 0.5 }}>
-            On {cardLabel} now · {hereRows.length}
+            On {cardLabel} now · {here.length}
           </Typography>
           <Stack spacing={0.25} sx={{ mb: 2 }}>
-            {hereRows.map((row) => (
+            {here.map((row) => (
               <CardAssignmentRow
                 key={row.rotation_id}
                 row={row}
@@ -220,11 +308,31 @@ export default function CardAssignmentPanel({
               />
             ))}
           </Stack>
+          <Stack direction="row" spacing={1.5} sx={{ mb: 1, alignItems: "center", flexWrap: "wrap" }}>
+            <Input
+              size="sm"
+              type="search"
+              placeholder={`Search ${binLabel}…`}
+              aria-label={`Search ${binLabel}`}
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              sx={{ flex: 1, minWidth: 160 }}
+            />
+            {card.number !== 1 && (
+              <Checkbox
+                size="sm"
+                label={`Still on ${binLabel} 1`}
+                checked={stillOnFirstCardOnly}
+                onChange={(event) => setStillOnFirstCardOnly(event.target.checked)}
+              />
+            )}
+          </Stack>
           <Typography level="title-sm" sx={{ mb: 0.5 }}>
-            Elsewhere in {binLabel} · {elsewhereRows.length}
+            {stillOnFirstCardOnly ? `Still on ${binLabel} 1` : `Elsewhere in ${binLabel}`} ·{" "}
+            {elsewhere.length}
           </Typography>
           <Stack spacing={0.25}>
-            {elsewhereRows.map((row) => (
+            {elsewhere.map((row) => (
               <CardAssignmentRow
                 key={row.rotation_id}
                 row={row}
