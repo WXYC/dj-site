@@ -301,7 +301,7 @@ Tests are never co-located with source. Every vitest test lives under `tests/`, 
 - `tests/contract/` -- Wire-shape contracts (charset round-trip, backend soft-fail), bundled-asset budget guards, and module-graph contracts (see below)
 - `tests/helpers/` -- Factories and harnesses
 - `tests/fakes/` -- MSW handlers
-- `tests/fixtures/` -- Static fixture data
+- `tests/fixtures/` -- Static fixture data, including `V2_ENTRY_FACTORIES_BY_TYPE`, the entry-type-keyed table every-entry-type test cases should take their V2 entry factories from
 - `tests/setup/` -- Vitest setup files
 
 Playwright specs stay in `e2e/`, and bats scripts in `scripts/__tests__/`.

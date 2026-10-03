@@ -9,7 +9,7 @@ import {
   extractFlowsheetEntries,
   formatOnAirSummary,
 } from "@/lib/features/flowsheet/conversions";
-import { createTestFlowsheetQuery, createTestOnAirDJResponse, createTestV2TrackEntry, createTestV2ShowStartEntry, createTestV2ShowEndEntry, createTestV2DJJoinEntry, createTestV2DJLeaveEntry, createTestV2TalksetEntry, createTestV2BreakpointEntry, createTestV2MessageEntry } from "@/tests/fixtures/fixtures";
+import { createTestFlowsheetQuery, createTestOnAirDJResponse, createTestV2TrackEntry, createTestV2ShowStartEntry, createTestV2ShowEndEntry, createTestV2DJJoinEntry, createTestV2DJLeaveEntry, createTestV2TalksetEntry, createTestV2BreakpointEntry, createTestV2MessageEntry, V2_ENTRY_FACTORIES_BY_TYPE } from "@/tests/fixtures/fixtures";
 import { TEST_ENTITY_IDS, TEST_SEARCH_STRINGS } from "@/tests/helpers/constants";
 import type {
   FlowsheetSongEntry,
@@ -912,19 +912,10 @@ describe("flowsheet conversions", () => {
         expect(result.isStart).toBe(true);
       });
 
-      it.each([
-        ["track", createTestV2TrackEntry()],
-        ["show_start", createTestV2ShowStartEntry()],
-        ["show_end", createTestV2ShowEndEntry()],
-        ["dj_join", createTestV2DJJoinEntry()],
-        ["dj_leave", createTestV2DJLeaveEntry()],
-        ["talkset", createTestV2TalksetEntry()],
-        ["breakpoint", createTestV2BreakpointEntry()],
-        ["message", createTestV2MessageEntry()],
-      ] as const)(
+      it.each(Object.values(FlowsheetEntryType))(
         "carries the wire entry_type %s through onto the converted entry",
-        (entryType, wireEntry) => {
-          const result = convertV2Entry(wireEntry);
+        (entryType) => {
+          const result = convertV2Entry(V2_ENTRY_FACTORIES_BY_TYPE[entryType]());
           expect(result.entry_type).toBe(entryType);
         }
       );

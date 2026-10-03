@@ -10,17 +10,9 @@ import {
   isFlowsheetStartShowEntry,
   isFlowsheetEndShowEntry,
 } from "@/lib/features/flowsheet/types";
-import {
-  createTestV2TrackEntry,
-  createTestV2ShowStartEntry,
-  createTestV2ShowEndEntry,
-  createTestV2DJJoinEntry,
-  createTestV2DJLeaveEntry,
-  createTestV2TalksetEntry,
-  createTestV2BreakpointEntry,
-  createTestV2MessageEntry,
-} from "@/tests/fixtures/fixtures";
+import { createTestV2TrackEntry, V2_ENTRY_FACTORIES_BY_TYPE } from "@/tests/fixtures/fixtures";
 import type { FlowsheetV2Entry } from "@wxyc/shared";
+import { FlowsheetEntryType } from "@wxyc/shared/dtos";
 
 const ADD_TIME = "2026-01-15T20:01:00.000Z";
 const RADIO_HOUR = "2026-01-15T20:00:00.000Z";
@@ -36,20 +28,19 @@ function contentOf(entry: FlowsheetEntry): string {
 // Every `FlowsheetEntryType` member, built through the real V2 factories and
 // the real conversion -- a hand-written `FlowsheetEntry` literal would pin a
 // shape the conversion is supposed to produce rather than exercise it.
-const cases: Array<[string, () => FlowsheetV2Entry, string]> = [
-  ["track", () => createTestV2TrackEntry({ add_time: ADD_TIME }), "3:01 PM"],
-  ["show_start", () => createTestV2ShowStartEntry({ add_time: ADD_TIME }), "3:01 PM"],
-  ["show_end", () => createTestV2ShowEndEntry({ add_time: ADD_TIME }), "3:01 PM"],
-  ["dj_join", () => createTestV2DJJoinEntry({ add_time: ADD_TIME }), "3:01 PM"],
-  ["dj_leave", () => createTestV2DJLeaveEntry({ add_time: ADD_TIME }), "3:01 PM"],
-  ["talkset", () => createTestV2TalksetEntry({ add_time: ADD_TIME }), "3:01 PM"],
-  [
-    "breakpoint",
-    () => createTestV2BreakpointEntry({ add_time: ADD_TIME, radio_hour: RADIO_HOUR }),
-    "3:00 PM",
-  ],
-  ["message", () => createTestV2MessageEntry({ add_time: ADD_TIME }), "3:01 PM"],
-];
+const cases: Array<[string, () => FlowsheetV2Entry, string]> = Object.values(
+  FlowsheetEntryType
+).map((entryType) => [
+  entryType,
+  () =>
+    entryType === "breakpoint"
+      ? V2_ENTRY_FACTORIES_BY_TYPE.breakpoint({
+          add_time: ADD_TIME,
+          radio_hour: RADIO_HOUR,
+        })
+      : V2_ENTRY_FACTORIES_BY_TYPE[entryType]({ add_time: ADD_TIME }),
+  entryType === "breakpoint" ? "3:00 PM" : "3:01 PM",
+]);
 
 describe("toArchiveStreamRow", () => {
   it.each(cases)(
