@@ -9,8 +9,9 @@ import {
   EntryFieldName,
   entryFieldTextColor,
 } from "@/src/utilities/modern/entryFieldColors";
-import { Box, Stack, Typography } from "@mui/joy";
-import { memo } from "react";
+import { Box, Link, Stack, Typography } from "@mui/joy";
+import NextLink from "next/link";
+import { MouseEvent, memo, useRef } from "react";
 import AlbumInfoButton from "../AlbumInfoButton";
 import EntryTimeCell from "../Components/EntryTimeCell";
 import { MarkerEntryArtwork, SongEntryArtwork } from "../EntryArtwork";
@@ -20,6 +21,11 @@ import { getMessageEntrySlots } from "../messageEntrySlots";
 import SongEntryStatusChips from "../SongEntry/SongEntryStatusChips";
 import { flowsheetChipsReservePx } from "../tableStyles";
 
+/** The overlay link's stacking level in a linked row; the artwork and chips cells stay below it. */
+export const SHOW_LINK_Z_INDEX = 1;
+/** Controls above the overlay link: field tooltips, the Not-on-Discogs badge and the album control. */
+export const RAISED_Z_INDEX = 2;
+
 // Both the col-artist/col-label cells and their below-xl stacked second lines
 // render at every width; FLOWSHEET_TABLE_SX's CSS breakpoints, not a
 // media-query hook, decide which copy paints.
@@ -27,12 +33,14 @@ const ReadOnlySongEntry = memo(function ReadOnlySongEntry({
   playing,
   entry,
   timeLabel,
+  showHref,
   highlighted = false,
   albumInfo = false,
 }: {
   playing: boolean;
   entry: FlowsheetSongEntry;
   timeLabel?: string;
+  showHref?: string | null;
   /** The row an archive link named; see EntryRow's `EntryRowAttributesInput`. */
   highlighted?: boolean;
   /**
@@ -42,6 +50,20 @@ const ReadOnlySongEntry = memo(function ReadOnlySongEntry({
    */
   albumInfo?: boolean;
 }) {
+  const linkRef = useRef<HTMLAnchorElement>(null);
+  const linkHref = typeof showHref === "string" ? showHref : null;
+  const linked = linkHref !== null;
+  const raisesArtwork = linked && entry.discogsUnavailable === true;
+  const showName = `${entry.track_title} by ${entry.artist_name}`;
+
+  // A plain primary click on a raised field stands in for a click on the link.
+  // Modified clicks and clicks that end a text selection stay with the field.
+  const forwardClick = (event: MouseEvent<HTMLElement>) => {
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    if ((window.getSelection()?.toString() ?? "") !== "") return;
+    linkRef.current?.click();
+  };
+
   const field = (
     label: EntryFieldName,
     name: keyof FlowsheetSongEntry,
@@ -52,6 +74,9 @@ const ReadOnlySongEntry = memo(function ReadOnlySongEntry({
       label={label}
       level={level}
       textColor={entryFieldTextColor(label, playing)}
+      cursor={linked ? "pointer" : undefined}
+      onClick={linked ? forwardClick : undefined}
+      sx={linked ? { position: "relative", zIndex: RAISED_Z_INDEX, width: "fit-content", maxWidth: "100%" } : undefined}
     />
   );
 
@@ -62,14 +87,34 @@ const ReadOnlySongEntry = memo(function ReadOnlySongEntry({
     entry,
     variant: highlighted ? "soft" : playing ? "solid" : "plain",
     color: highlighted ? "danger" : playing ? "primary" : "neutral",
-    style: { height: "60px", borderRadius: "md" },
+    style: { height: "60px", borderRadius: "md", ...(linked ? { position: "relative", isolation: "isolate" } : {}) },
     highlighted,
   });
 
   return (
     <StaticEntryRow {...attributes}>
-      {timeLabel !== undefined && <EntryTimeCell label={timeLabel} />}
-      <td style={{ position: "relative" }}>
+      {timeLabel !== undefined &&
+        (linkHref !== null ? (
+          <td className="col-time">
+            <Link
+              ref={linkRef}
+              component={NextLink}
+              href={linkHref}
+              prefetch={false}
+              overlay
+              underline="none"
+              level="body-xs"
+              textColor="text.tertiary"
+              aria-label={timeLabel ? `${timeLabel} — see the full show for ${showName}` : `See the full show for ${showName}`}
+              sx={{ "&::after": { zIndex: SHOW_LINK_Z_INDEX } }}
+            >
+              {timeLabel}
+            </Link>
+          </td>
+        ) : (
+          <EntryTimeCell label={timeLabel} />
+        ))}
+      <td style={{ position: "relative", zIndex: raisesArtwork ? RAISED_Z_INDEX : undefined }}>
         <SongEntryArtwork entry={entry} />
       </td>
       <td className="col-artist">
@@ -99,7 +144,7 @@ const ReadOnlySongEntry = memo(function ReadOnlySongEntry({
           <SongEntryStatusChips entry={entry} editable={false} />
         </Stack>
         {albumInfo && (
-          <Box sx={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)" }}>
+          <Box sx={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", zIndex: linked ? RAISED_Z_INDEX : undefined }}>
             <AlbumInfoButton entry={entry} />
           </Box>
         )}
@@ -172,6 +217,15 @@ function ReadOnlyMessageEntry({
 }
 
 /**
+ * `showHref` links a song row's Time cell, so it requires `timeLabel`. Marker
+ * rows ignore it. A linked row is not supported while playing: the `row-playing`
+ * cells' `clip-path` would confine the overlay to the Time cell.
+ */
+type ShowLinkProps =
+  | { timeLabel?: string; showHref?: null }
+  | { timeLabel: string; showHref?: string | null };
+
+/**
  * A read-only flowsheet row (song, talkset, breakpoint, or show marker) whose
  * module graph reaches no live-show hook, bin API, or LML API — see
  * tests/contract/entries-motion-free.test.ts for the enforced list — so it is
@@ -200,12 +254,12 @@ const ReadOnlyEntry = memo(function ReadOnlyEntry({
   entry,
   playing,
   timeLabel,
+  showHref,
   highlighted = false,
   albumInfo = false,
 }: {
   entry: FlowsheetEntry;
   playing: boolean;
-  timeLabel?: string;
   /** The row an archive link named; see EntryRow's `EntryRowAttributesInput`. */
   highlighted?: boolean;
   /**
@@ -214,13 +268,14 @@ const ReadOnlyEntry = memo(function ReadOnlyEntry({
    * off on a public route.
    */
   albumInfo?: boolean;
-}) {
+} & ShowLinkProps) {
   if (isFlowsheetSongEntry(entry)) {
     return (
       <ReadOnlySongEntry
         playing={playing}
         entry={entry}
         timeLabel={timeLabel}
+        showHref={showHref}
         highlighted={highlighted}
         albumInfo={albumInfo}
       />

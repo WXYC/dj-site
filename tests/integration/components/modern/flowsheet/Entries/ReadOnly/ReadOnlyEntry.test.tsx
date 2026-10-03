@@ -1,9 +1,12 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithPublicProviders, renderWithProviders } from "@/tests/helpers/render";
 import Entry from "@/src/components/experiences/modern/flowsheet/Entries/Entry";
-import ReadOnlyEntry from "@/src/components/experiences/modern/flowsheet/Entries/ReadOnly/ReadOnlyEntry";
+import ReadOnlyEntry, {
+  RAISED_Z_INDEX,
+  SHOW_LINK_Z_INDEX,
+} from "@/src/components/experiences/modern/flowsheet/Entries/ReadOnly/ReadOnlyEntry";
 import {
   FLOWSHEET_TABLE_SX,
   FLOWSHEET_XL_QUERY,
@@ -11,6 +14,7 @@ import {
 } from "@/src/components/experiences/modern/flowsheet/Entries/tableStyles";
 import {
   FlowsheetBreakpointEntry,
+  FlowsheetEntry,
   FlowsheetMessageEntry,
   FlowsheetShowBlockEntry,
   FlowsheetSongEntry,
@@ -605,5 +609,181 @@ describe("ReadOnlyEntry matches the live Entry's other readOnly-invisible signal
     } finally {
       window.matchMedia = originalMatchMedia;
     }
+  });
+});
+
+const SHOW_HREF = "/dashboard/archive/show/100#entry-3001";
+
+function renderLinkedSongRow(entry: FlowsheetSongEntry = songEntry, albumInfo = false) {
+  return renderWithPublicProviders(
+    <ReadOnlyEntry
+      entry={entry}
+      playing={false}
+      timeLabel="9:15 PM"
+      showHref={SHOW_HREF}
+      albumInfo={albumInfo}
+    />
+  );
+}
+
+describe("ReadOnlyEntry showHref prop", () => {
+  it.each<[string, string, string]>([
+    ["with a time", "9:15 PM", `9:15 PM — see the full show for ${songEntry.track_title} by ${songEntry.artist_name}`],
+    ["without a time", "", `See the full show for ${songEntry.track_title} by ${songEntry.artist_name}`],
+  ])("links a song row %s, named for the show", (_label, timeLabel, name) => {
+    renderWithPublicProviders(
+      <ReadOnlyEntry entry={songEntry} playing={false} timeLabel={timeLabel} showHref={SHOW_HREF} />
+    );
+
+    const links = screen.getAllByRole("link");
+    expect(links).toHaveLength(1);
+    expect(links[0]).toHaveAccessibleName(name);
+    expect(links[0]).toHaveAttribute("href", SHOW_HREF);
+    expect(links[0].closest("td")).toHaveClass("col-time");
+    expect(links[0]).toHaveTextContent(timeLabel);
+  });
+
+  it.each<[string, { showHref?: null }]>([
+    ["no showHref", {}],
+    ["a null showHref", { showHref: null }],
+  ])("renders no link for %s, leaving the Time cell unlinked", (_label, extra) => {
+    renderWithPublicProviders(
+      <ReadOnlyEntry entry={songEntry} playing={false} timeLabel="9:15 PM" {...extra} />
+    );
+
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+    expect(screen.getByText("9:15 PM").closest("td")).toHaveClass("col-time");
+  });
+
+  it.each<[string, FlowsheetEntry]>([
+    ["talkset", talksetEntry],
+    ["breakpoint", breakpointEntry],
+    ["generic message", genericMessageEntry],
+    ["show start", startShowEntry],
+    ["show end", endShowEntry],
+    ["DJ join", djJoinEntry],
+    ["DJ leave", djLeaveEntry],
+  ])("renders no link on a %s row, even with a showHref", (_kind, entry) => {
+    renderWithPublicProviders(
+      <ReadOnlyEntry entry={entry} playing={false} timeLabel="9:15 PM" showHref={SHOW_HREF} />
+    );
+
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+  });
+
+  it("rejects a showHref without a timeLabel at the type level", () => {
+    // @ts-expect-error a link needs the Time cell it sits in
+    renderWithPublicProviders(<ReadOnlyEntry entry={songEntry} playing={false} showHref={SHOW_HREF} />);
+
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+  });
+
+  it("makes the linked row its own stacking context, and leaves its Time cell unpositioned", () => {
+    renderLinkedSongRow();
+
+    const row = screen.getByTestId(`flowsheet-entry-${songEntry.id}`);
+    expect(getComputedStyle(row).position).toBe("relative");
+    expect(getComputedStyle(row).isolation).toBe("isolate");
+    expect(getComputedStyle(screen.getByRole("link").closest("td")!).position).not.toBe("relative");
+  });
+
+  it("leaves an unlinked row unpositioned and unisolated", () => {
+    renderWithPublicProviders(<ReadOnlyEntry entry={songEntry} playing={false} timeLabel="9:15 PM" />);
+
+    const row = screen.getByTestId(`flowsheet-entry-${songEntry.id}`);
+    expect(getComputedStyle(row).position).not.toBe("relative");
+    expect(getComputedStyle(row).isolation).not.toBe("isolate");
+  });
+
+  it.each<string>([songEntry.track_title, songEntry.artist_name, songEntry.album_title, songEntry.record_label])(
+    "raises every copy of the field %s above the show link",
+    (value) => {
+      renderLinkedSongRow();
+
+      const copies = screen.getAllByText(value);
+      expect(copies.length).toBeGreaterThan(0);
+      for (const copy of copies) {
+        expect(getComputedStyle(copy).position).toBe("relative");
+        expect(Number(getComputedStyle(copy).zIndex)).toBe(RAISED_Z_INDEX);
+      }
+    }
+  );
+
+  it("raises the Not-on-Discogs artwork cell above the show link", () => {
+    const unavailable = createTestFlowsheetEntry({ ...songEntry, discogsUnavailable: true });
+    renderLinkedSongRow(unavailable);
+
+    const artworkCell = screen.getByTestId(`flowsheet-entry-${unavailable.id}`).querySelector(":scope > td:nth-child(2)");
+    if (!(artworkCell instanceof HTMLElement)) throw new Error("no artwork cell");
+    expect(Number(getComputedStyle(artworkCell).zIndex)).toBe(RAISED_Z_INDEX);
+  });
+
+  it("leaves ordinary artwork under the show link", () => {
+    renderLinkedSongRow();
+
+    const artworkCell = screen.getByTestId(`flowsheet-entry-${songEntry.id}`).querySelector(":scope > td:nth-child(2)");
+    if (!(artworkCell instanceof HTMLElement)) throw new Error("no artwork cell");
+    expect(Number.parseInt(getComputedStyle(artworkCell).zIndex, 10) || 0).toBeLessThan(SHOW_LINK_Z_INDEX);
+  });
+
+  it("raises the album control's wrapper above the show link and keeps the control enabled", () => {
+    renderLinkedSongRow(songEntry, true);
+
+    const button = screen.getByRole("button", { name: "Album information" });
+    expect(button).toHaveProperty("disabled", false);
+    expect(Number(getComputedStyle(button.parentElement!).zIndex)).toBe(RAISED_Z_INDEX);
+  });
+
+  it("keeps a raised field's tooltip opening on hover", async () => {
+    const user = userEvent.setup();
+    renderLinkedSongRow();
+
+    await user.hover(screen.getByText(songEntry.track_title));
+
+    await waitFor(() => {
+      expect(screen.getAllByText(songEntry.track_title)).toHaveLength(2);
+    });
+  });
+
+  it.each<[string, MouseEventInit, number]>([
+    ["plain primary click", {}, 1],
+    ["metaKey click", { metaKey: true }, 0],
+    ["ctrlKey click", { ctrlKey: true }, 0],
+    ["shiftKey click", { shiftKey: true }, 0],
+    ["altKey click", { altKey: true }, 0],
+    ["middle-button click", { button: 1 }, 0],
+    ["secondary-button click", { button: 2 }, 0],
+  ])("applies the forwarding rule to a field's %s", (_label, init, calls) => {
+    renderLinkedSongRow();
+    const clickSpy = vi.spyOn(screen.getByRole("link"), "click");
+
+    fireEvent.click(screen.getByText(songEntry.track_title), init);
+
+    expect(clickSpy).toHaveBeenCalledTimes(calls);
+    clickSpy.mockRestore();
+  });
+
+  it("does not forward a field click that ends a text selection", () => {
+    renderLinkedSongRow();
+    const clickSpy = vi.spyOn(screen.getByRole("link"), "click");
+    const field = screen.getByText(songEntry.track_title);
+
+    const range = document.createRange();
+    range.selectNodeContents(field);
+    window.getSelection()?.removeAllRanges();
+    window.getSelection()?.addRange(range);
+    fireEvent.click(field);
+    window.getSelection()?.removeAllRanges();
+
+    expect(clickSpy).not.toHaveBeenCalled();
+    clickSpy.mockRestore();
+  });
+
+  it("gives an unlinked row's field no link to forward to", () => {
+    renderWithPublicProviders(<ReadOnlyEntry entry={songEntry} playing={false} timeLabel="9:15 PM" />);
+
+    fireEvent.click(screen.getByText(songEntry.track_title));
+
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
   });
 });
