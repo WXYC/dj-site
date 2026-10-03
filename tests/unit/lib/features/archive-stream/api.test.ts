@@ -17,16 +17,8 @@ import {
   MAX_WINDOW_MS,
   type RangeWindow,
 } from "@/tests/fakes/flowsheetRange";
-import {
-  createTestV2TrackEntry,
-  createTestV2ShowStartEntry,
-  createTestV2ShowEndEntry,
-  createTestV2DJJoinEntry,
-  createTestV2DJLeaveEntry,
-  createTestV2TalksetEntry,
-  createTestV2BreakpointEntry,
-  createTestV2MessageEntry,
-} from "@/tests/fixtures/fixtures";
+import { V2_ENTRY_FACTORIES_BY_TYPE } from "@/tests/fixtures/fixtures";
+import { FlowsheetEntryType } from "@wxyc/shared/dtos";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const NOW = Date.parse("2026-09-26T16:00:00.000Z");
@@ -163,48 +155,41 @@ describe("archiveStreamApi", () => {
     }
   });
 
-  it("serves all eight entry types in window order, not input or id order", async () => {
+  it("serves every entry type in window order, not input or id order", async () => {
     const HOUR_MS = 60 * 60 * 1000;
     const hoursAgo = (h: number) => new Date(NOW - h * HOUR_MS).toISOString();
 
     // Ids deliberately disagree with add_time order (neither ascending nor
     // descending alongside it), so only (add_time, id) sorts these correctly.
-    const track = createTestV2TrackEntry({ id: 50, add_time: hoursAgo(20) });
-    const showStart = createTestV2ShowStartEntry({ id: 10, add_time: hoursAgo(17) });
-    const showEnd = createTestV2ShowEndEntry({ id: 70, add_time: hoursAgo(14) });
-    const djJoin = createTestV2DJJoinEntry({ id: 30, add_time: hoursAgo(11) });
-    const djLeave = createTestV2DJLeaveEntry({ id: 90, add_time: hoursAgo(8) });
-    const talkset = createTestV2TalksetEntry({ id: 20, add_time: hoursAgo(5) });
-    const breakpoint = createTestV2BreakpointEntry({ id: 60, add_time: hoursAgo(2) });
-    const message = createTestV2MessageEntry({ id: 40, add_time: hoursAgo(1) });
+    // Keyed by the contract's enum, so a new entry type cannot be left out.
+    const placement = {
+      track: { id: 50, hoursAgo: 20 },
+      show_start: { id: 10, hoursAgo: 17 },
+      show_end: { id: 70, hoursAgo: 14 },
+      dj_join: { id: 30, hoursAgo: 11 },
+      dj_leave: { id: 90, hoursAgo: 8 },
+      talkset: { id: 20, hoursAgo: 5 },
+      breakpoint: { id: 60, hoursAgo: 2 },
+      message: { id: 40, hoursAgo: 1 },
+    } satisfies Record<FlowsheetEntryType, { id: number; hoursAgo: number }>;
+    const entries = Object.values(FlowsheetEntryType).map((entryType) =>
+      V2_ENTRY_FACTORIES_BY_TYPE[entryType]({
+        id: placement[entryType].id,
+        add_time: hoursAgo(placement[entryType].hoursAgo),
+      })
+    );
     // Older than the walked window ([NOW - DAY_MS, NOW)): must not be served.
-    const beforeWindow = createTestV2TrackEntry({ id: 5, add_time: hoursAgo(25) });
+    const beforeWindow = V2_ENTRY_FACTORIES_BY_TYPE.track({ id: 5, add_time: hoursAgo(25) });
 
-    serveArchive([
-      // Passed out of time order too, so input order can't stand in for either.
-      djLeave,
-      beforeWindow,
-      message,
-      track,
-      breakpoint,
-      talkset,
-      showStart,
-      djJoin,
-      showEnd,
-    ]);
+    // Passed in id order, which disagrees with time order, so neither input
+    // order nor id order can stand in for it.
+    serveArchive([beforeWindow, ...[...entries].sort((a, b) => a.id - b.id)]);
 
-    const { page } = await fetchFirstPage(8, NOW);
+    const { page } = await fetchFirstPage(entries.length, NOW);
 
-    expect(page?.entries).toEqual([
-      message,
-      breakpoint,
-      talkset,
-      djLeave,
-      djJoin,
-      showEnd,
-      showStart,
-      track,
-    ]);
+    expect(page?.entries).toEqual(
+      [...entries].sort((a, b) => b.add_time.localeCompare(a.add_time))
+    );
     expect(page?.entries.some((e) => e.id === beforeWindow.id)).toBe(false);
   });
 

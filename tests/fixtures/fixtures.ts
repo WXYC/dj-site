@@ -17,6 +17,7 @@ import {
 import type {
   BinLibraryDetails,
   FlowsheetEntryResponse,
+  FlowsheetEntryType,
 } from "@wxyc/shared/dtos";
 import type {
   FlowsheetV2TrackEntryJSON,
@@ -27,6 +28,7 @@ import type {
   FlowsheetV2TalksetEntryJSON,
   FlowsheetV2BreakpointEntryJSON,
   FlowsheetV2MessageEntryJSON,
+  FlowsheetV2EntryJSON,
 } from "@/lib/features/flowsheet/types";
 import {
   AlbumEntry,
@@ -703,6 +705,34 @@ export function createTestV2MessageEntry(
     ...overrides,
   };
 }
+
+type V2EntryJSONOf<K extends FlowsheetEntryType> = Extract<
+  FlowsheetV2EntryJSON,
+  { entry_type: K }
+>;
+
+type V2EntryFactoryTable = {
+  [K in FlowsheetEntryType]: (
+    overrides?: Partial<V2EntryJSONOf<K>>
+  ) => V2EntryJSONOf<K>;
+};
+
+/**
+ * One factory per `FlowsheetEntryType` member. The `satisfies` check fails
+ * `tsc` if a member is missing or a key's factory returns another member's
+ * shape, so every-entry-type test tables can be built from this instead of
+ * hand-listing the eight factories.
+ */
+export const V2_ENTRY_FACTORIES_BY_TYPE = {
+  track: createTestV2TrackEntry,
+  show_start: createTestV2ShowStartEntry,
+  show_end: createTestV2ShowEndEntry,
+  dj_join: createTestV2DJJoinEntry,
+  dj_leave: createTestV2DJLeaveEntry,
+  talkset: createTestV2TalksetEntry,
+  breakpoint: createTestV2BreakpointEntry,
+  message: createTestV2MessageEntry,
+} satisfies V2EntryFactoryTable;
 
 // LML library search fixtures
 import type { LmlLibraryItem } from "@/lib/features/lml/types";
