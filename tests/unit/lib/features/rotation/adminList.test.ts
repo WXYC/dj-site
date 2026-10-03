@@ -171,6 +171,89 @@ describe("selectRotationAdminView", () => {
     expect(missed.active).toEqual([]);
     expect(missed.killed).toEqual([]);
   });
+
+  describe("sort", () => {
+    const KILLED_OLD_ADD = createTestRotationListRow({
+      rotation_id: 5006,
+      id: 9005,
+      album_title: "Mars Audiac Quintet",
+      rotation_bin: RotationBin.H,
+      rotation_add_date: "2026-07-01",
+      rotation_kill_date: "2026-09-02",
+    });
+    const KILLED_NEW_ADD = createTestRotationListRow({
+      rotation_id: 5007,
+      id: 9006,
+      album_title: "Emperor Tomato Ketchup",
+      rotation_bin: RotationBin.H,
+      rotation_add_date: "2026-09-04",
+      rotation_kill_date: "2026-09-10",
+    });
+    const WITH_KILLED = [...ALL, KILLED_OLD_ADD, KILLED_NEW_ADD];
+    const ids = (rows: RotationListRow[]) => rows.map((r) => r.rotation_id);
+
+    it("an absent sort and an explicit newest sort both keep most recently added first", () => {
+      expect(ids(selectRotationAdminView(ALL, none).active)).toEqual([5001, 5002, 5004, 5003]);
+      expect(ids(selectRotationAdminView(ALL, { ...none, sort: "newest" }).active)).toEqual([
+        5001, 5002, 5004, 5003,
+      ]);
+    });
+
+    it("oldest-first orders the Active cohort by rotation_add_date ascending", () => {
+      const view = selectRotationAdminView(ALL, { ...none, sort: "oldest" });
+      expect(ids(view.active)).toEqual([5003, 5004, 5002, 5001]);
+      expect(view.active.map((r) => r.rotation_add_date)).toEqual([
+        "2026-08-25",
+        "2026-08-30",
+        "2026-09-03",
+        "2026-09-05",
+      ]);
+    });
+
+    it("breaks a same-day tie by rotation_id ascending — filing order — regardless of input order", () => {
+      const filedSecond = createTestRotationListRow({
+        rotation_id: 5011,
+        id: 9007,
+        artist_name: "Cat Power",
+        album_title: "Moon Pix",
+        rotation_add_date: "2026-09-10",
+      });
+      const filedFirst = createTestRotationListRow({
+        rotation_id: 5010,
+        id: 9008,
+        artist_name: "Juana Molina",
+        album_title: "DOGA",
+        rotation_add_date: "2026-09-10",
+      });
+      const view = selectRotationAdminView([filedSecond, filedFirst], { ...none, sort: "oldest" });
+      expect(ids(view.active)).toEqual([5010, 5011]);
+    });
+
+    it.each([
+      ["newest", [5007, 5006, 5005]],
+      ["oldest", [5007, 5006, 5005]],
+    ] as const)("keeps the Killed cohort in most-recently-added order under %s", (sort, expected) => {
+      const view = selectRotationAdminView(WITH_KILLED, { ...none, sort });
+      expect(ids(view.killed)).toEqual(expected);
+    });
+
+    it("is not a filter: the narrowed flag and every count are the same under either sort", () => {
+      const newest = selectRotationAdminView(WITH_KILLED, { ...none, sort: "newest" });
+      const oldest = selectRotationAdminView(WITH_KILLED, { ...none, sort: "oldest" });
+      expect(oldest.narrowed).toBe(false);
+      expect(oldest.narrowed).toBe(newest.narrowed);
+      expect(oldest.activeTotal).toBe(newest.activeTotal);
+      expect(oldest.killedTotal).toBe(newest.killedTotal);
+      expect(oldest.searchedActiveCount).toBe(newest.searchedActiveCount);
+      expect(oldest.binCounts).toEqual(newest.binCounts);
+    });
+
+    it("composes with a bin filter, still ordering only the rows the filter shows", () => {
+      const view = selectRotationAdminView(WITH_KILLED, { ...none, bin: RotationBin.M, sort: "oldest" });
+      expect(ids(view.active)).toEqual([5003, 5004]);
+      expect(view.narrowed).toBe(true);
+    });
+  });
 });
 
 describe("freeTextRotationMoveRequest", () => {

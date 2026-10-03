@@ -187,15 +187,61 @@ export function rowMatchesTerms(row: RotationListRow, terms: string[]): boolean 
   return terms.every((term) => haystack.some((field) => field.includes(term)));
 }
 
-/** The admin list's three composable filters. `null` means "not narrowing". */
+/**
+ * The Active cohort's order. The sort exists to surface records that have sat
+ * longest in their bin; a killed record is no longer in a bin, so Killed
+ * stays in the list's default order under either value.
+ */
+export type RotationAdminSort = "newest" | "oldest";
+
+/**
+ * `rotation_add_date` is a calendar day, so same-day records tie. Ascending
+ * by date, then by `rotation_id` ascending (filing order) within a tie, so
+ * the whole list reads oldest to newest — not `byMostRecentlyAdded(right,
+ * left)`, which would also reverse its tiebreak and list a same-day cohort
+ * most-recently-filed first.
+ */
+const byOldestAdded = (left: RotationListRow, right: RotationListRow): number => {
+  if (left.rotation_add_date !== right.rotation_add_date) {
+    return left.rotation_add_date > right.rotation_add_date ? 1 : -1;
+  }
+  return left.rotation_id - right.rotation_id;
+};
+
+/**
+ * Total over `RotationAdminSort` rather than a two-way ternary, so a sort
+ * added to the union fails to compile here until this table names its
+ * comparator, instead of silently falling back to "newest". `newest` carries
+ * `null`, not `byMostRecentlyAdded`, because `shown` below is already in that
+ * order — it descends from `searched`, which is explicitly sorted that way,
+ * through nothing but `.filter()`s, which preserve relative order.
+ */
+const ACTIVE_SORT_COMPARATORS: Record<
+  RotationAdminSort,
+  ((left: RotationListRow, right: RotationListRow) => number) | null
+> = {
+  newest: null,
+  oldest: byOldestAdded,
+};
+
+/**
+ * The admin list's three filters and its Active-cohort sort. `null` means
+ * "not narrowing". The sort reorders rows but never removes them, so it is
+ * deliberately absent from `narrowed` and from every count. An absent `sort`
+ * is `"newest"`.
+ */
 export type RotationAdminQuery = {
   search: string;
   bin: RotationBin | null;
   cardId: number | null;
+  sort?: RotationAdminSort;
 };
 
 export type RotationAdminView = {
-  /** Rows passing every filter, in each presentation, most recently added first. */
+  /**
+   * Rows passing every filter. Active is ordered by the query's `sort`; killed
+   * is always most recently added first.
+   */
   active: RotationListRow[];
   killed: RotationListRow[];
   /** Whole-dataset totals — the "of N" the section heads report against. */
@@ -253,8 +299,10 @@ export function selectRotationAdminView(
   );
   const activeTotal = rows.filter((row) => rotationRowPresentation(row) === "active").length;
 
+  const activeComparator = ACTIVE_SORT_COMPARATORS[query.sort ?? "newest"];
+  const active = shown.filter((row) => rotationRowPresentation(row) === "active");
   return {
-    active: shown.filter((row) => rotationRowPresentation(row) === "active"),
+    active: activeComparator ? active.sort(activeComparator) : active,
     killed: shown.filter((row) => rotationRowPresentation(row) === "killed"),
     activeTotal,
     killedTotal: rows.length - activeTotal,
