@@ -112,12 +112,30 @@ describe("ArchiveStreamTable rows", () => {
     const rows = [rowOf("track", { id: 1 }), rowOf("breakpoint", { id: 2 })];
     const { table, bodyRows } = renderTable(createTestArchiveStreamListing({ rows }));
 
-    expect(table.querySelectorAll("thead > tr > td")).toHaveLength(7);
+    expect(table.querySelectorAll("thead > tr > th")).toHaveLength(7);
     bodyRows.forEach((bodyRow, i) => {
       const timeCells = bodyRow.querySelectorAll(".col-time");
       expect(timeCells).toHaveLength(1);
       expect(timeCells[0]).toHaveTextContent(rows[i].timeLabel);
     });
+  });
+
+  it("labels its columns, with the narrow layout's stacked labels under Song and Release", () => {
+    const { table } = renderTable(createTestArchiveStreamListing({ rows: [rowOf("track")] }));
+
+    const heads = Array.from(table.querySelectorAll("thead > tr > th"));
+    expect(heads.map((th) => th.firstChild?.textContent ?? "")).toEqual([
+      "Time",
+      "",
+      "Artist",
+      "Song",
+      "Release",
+      "Label",
+      "",
+    ]);
+    expect(
+      Array.from(table.querySelectorAll("thead .field-second-line"), (line) => line.textContent),
+    ).toEqual(["Artist", "Label"]);
   });
 });
 
