@@ -4,7 +4,11 @@ import type { JSX } from "react";
 import { useState } from "react";
 import type { RotationCard } from "@wxyc/shared";
 import { useGetRotationListQuery } from "@/lib/features/rotation/api";
-import { narrowCardAssignmentRows, rotationRowsToMoveOntoCard } from "@/lib/features/rotation/cards";
+import {
+  narrowCardAssignmentRows,
+  rotationRecordLabel,
+  rotationRowsToMoveOntoCard,
+} from "@/lib/features/rotation/cards";
 import type {
   CardMoveRowOutcome,
   MoveRowsOntoCardOutcome,
@@ -77,7 +81,7 @@ function CardAssignmentRow({
     <Stack sx={{ py: 0.5 }}>
       <Checkbox
         size="sm"
-        label={`${row.artist_name ?? "Unknown artist"} — ${row.album_title ?? "Untitled"}`}
+        label={rotationRecordLabel(row)}
         checked={checked}
         disabled={disabled}
         slotProps={{ input: { "aria-describedby": statusId } }}

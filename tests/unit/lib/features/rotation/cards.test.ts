@@ -2,9 +2,11 @@ import { describe, it, expect } from "vitest";
 import {
   canDeleteRotationCard,
   groupRotationCardsByBin,
+  groupRotationRowsByCardId,
   narrowCardAssignmentRows,
   rotationCardDeleteConflictMessage,
   rotationCardDeleteConflictReason,
+  rotationRecordLabel,
   rotationRowsToMoveOntoCard,
 } from "@/lib/features/rotation/cards";
 import type { RotationCardWithCount, RotationListRow } from "@/lib/features/rotation/types";
@@ -178,7 +180,7 @@ describe("narrowCardAssignmentRows", () => {
     expect(ids(elsewhere)).toEqual([1201]);
   });
 
-  it("orders here by artist, folding case and diacritics", () => {
+  it("orders here by artist, through base-sensitivity collation (case and accents ignored)", () => {
     const wednesday = createTestRotationListRow({
       rotation_id: 1001,
       artist_name: "Wednesday",
@@ -193,10 +195,10 @@ describe("narrowCardAssignmentRows", () => {
       album_title: "Miracle-Level",
       card: CARD_3,
     });
-    // Folded, "Aşıq Altay" -> "asiq altay" sorts ahead of "Autechre" on its
-    // second letter (s before u) -- but compared without folding, the
-    // accented ş (U+015F) outranks every plain ASCII letter, so a raw
-    // code-unit compare would put Autechre first instead.
+    // Base-sensitivity collation compares "ş" as its base letter "s", so
+    // "Aşıq Altay" sorts ahead of "Autechre" on their second letter (s before
+    // u). Compared by raw code unit instead, the accented ş (U+015F) outranks
+    // every plain ASCII letter and would put Autechre first.
     const asiqAltay = createTestRotationListRow({
       rotation_id: 1003,
       artist_name: "Aşıq Altay",
@@ -217,7 +219,32 @@ describe("narrowCardAssignmentRows", () => {
     expect(ids(here)).toEqual([1003, 1004, 1002, 902, 1001]);
   });
 
-  it("breaks an artist tie on the folded album title", () => {
+  it("orders a letter with no NFD decomposition by collation, not code point", () => {
+    // Folding strips only combining marks, so "Ł" keeps a code point above
+    // every ASCII letter and a fold-then-compare sort would put it after "Z".
+    const littleSimz = createTestRotationListRow({
+      rotation_id: 1200,
+      artist_name: "Little Simz",
+      album_title: "Sometimes I Might Be Introvert",
+      card: CARD_3,
+    });
+    const lukasz = createTestRotationListRow({
+      rotation_id: 1201,
+      artist_name: "Łukasz",
+      album_title: "Sample Record",
+      card: CARD_3,
+    });
+    const lungfish = createTestRotationListRow({
+      rotation_id: 1202,
+      artist_name: "Lungfish",
+      album_title: "Hall of Ideas",
+      card: CARD_3,
+    });
+    const { here } = narrowCardAssignmentRows([lungfish, lukasz, littleSimz], CARD_3, none);
+    expect(ids(here)).toEqual([1200, 1201, 1202]);
+  });
+
+  it("breaks an artist tie on the collated album title", () => {
     // The later-numbered row holds the alphabetically earlier title, so a
     // tiebreak that fell through to `rotation_id` instead of the title would
     // land these in the opposite order.
@@ -256,6 +283,62 @@ describe("narrowCardAssignmentRows", () => {
       none,
     );
     expect(ids(elsewhere)).toEqual([903, 905, 901, 906]);
+  });
+
+  it("orders elsewhere by collation, not code point, when card numbers tie", () => {
+    // All three share a card number, so the artist tiebreak alone decides --
+    // "Łukasz" has no NFD decomposition, so a fold-then-code-unit compare
+    // would place it after "Z" instead of between these two.
+    const littleSimz = createTestRotationListRow({
+      rotation_id: 1210,
+      artist_name: "Little Simz",
+      album_title: "Sometimes I Might Be Introvert",
+      card: CARD_1,
+    });
+    const lukasz = createTestRotationListRow({
+      rotation_id: 1211,
+      artist_name: "Łukasz",
+      album_title: "Sample Record",
+      card: CARD_1,
+    });
+    const lungfish = createTestRotationListRow({
+      rotation_id: 1212,
+      artist_name: "Lungfish",
+      album_title: "Hall of Ideas",
+      card: CARD_1,
+    });
+    const { elsewhere } = narrowCardAssignmentRows([lungfish, lukasz, littleSimz], CARD_3, none);
+    expect(ids(elsewhere)).toEqual([1210, 1211, 1212]);
+  });
+});
+
+describe("rotationRecordLabel", () => {
+  it("names a record as artist and title, with placeholders for a missing side", () => {
+    expect(
+      rotationRecordLabel(
+        createTestRotationListRow({ artist_name: "Juana Molina", album_title: "DOGA" }),
+      ),
+    ).toBe("Juana Molina — DOGA");
+    expect(
+      rotationRecordLabel(createTestRotationListRow({ artist_name: null, album_title: null })),
+    ).toBe("Unknown artist — Untitled");
+  });
+});
+
+describe("groupRotationRowsByCardId", () => {
+  const HEAVY_1 = { id: 31, bin: RotationBin.H, number: 1, name: null };
+  const HEAVY_2 = { id: 32, bin: RotationBin.H, number: 2, name: null };
+
+  it("groups each card's rows by card id, in artist order, and leaves card-less rows out", () => {
+    const rows = groupRotationRowsByCardId([
+      createTestRotationListRow({ rotation_id: 1, artist_name: "Stereolab", card: HEAVY_1 }),
+      createTestRotationListRow({ rotation_id: 2, artist_name: "Autechre", card: HEAVY_1 }),
+      createTestRotationListRow({ rotation_id: 3, artist_name: "Juana Molina", card: HEAVY_2 }),
+      createTestRotationListRow({ rotation_id: 4, artist_name: "Wednesday", card: null }),
+    ]);
+    expect([...rows.keys()].sort()).toEqual([31, 32]);
+    expect(rows.get(31)?.map((row) => row.rotation_id)).toEqual([2, 1]);
+    expect(rows.get(32)?.map((row) => row.rotation_id)).toEqual([3]);
   });
 });
 

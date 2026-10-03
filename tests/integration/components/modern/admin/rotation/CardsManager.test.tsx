@@ -6,10 +6,11 @@ import {
   TEST_BACKEND_URL,
   fakeRotationAdminEndpoints,
   fakeRotationCardsEndpoints,
-  type FakeRotationAdminRow,
   type FakeRotationCard,
 } from "@/tests/helpers";
 import { rotationApi } from "@/lib/features/rotation/api";
+import { RotationBin, type RotationListRow } from "@/lib/features/rotation/types";
+import { createTestRotationListRow } from "@/tests/fixtures/fixtures";
 
 vi.mock("next/font/google", () => ({
   Kanit: () => ({ style: { fontFamily: "Kanit, sans-serif" } }),
@@ -48,12 +49,17 @@ const CARDS: FakeRotationCard[] = [
 
 const heavyColumn = () => within(screen.getByTestId("rotation-cards-bin-H"));
 
+// Serves no list read, so the default empty `status=active` answer applies:
+// the cases here do not cover the records each card lists, and every card
+// shows "Nothing on this card yet." beside its count.
 async function renderCards(cards = CARDS) {
   const fake = fakeRotationCardsEndpoints(cards);
   const rendered = renderWithProviders(<CardsManager />);
   await screen.findByTestId("rotation-cards-bin-H");
   return { fake, ...rendered };
 }
+
+type RotationCardRef = NonNullable<RotationListRow["card"]>;
 
 describe("CardsManager", () => {
   beforeEach(() => {
@@ -252,25 +258,43 @@ describe("CardsManager", () => {
   // these run on the admin fake alone: it serves the cards read too, with
   // each card's count derived from the rows a save has moved.
   describe("assigning records to a card", () => {
-    const HEAVY_1 = { id: 31, bin: "H", number: 1, name: "Late Aug" };
-    const HEAVY_2 = { id: 32, bin: "H", number: 2, name: null };
-    const MEDIUM_1 = { id: 21, bin: "M", number: 1, name: null };
-    const ADMIN_ROWS: FakeRotationAdminRow[] = (
-      [
-        [5001, "H", HEAVY_1, "Juana Molina", "DOGA"],
-        [5002, "H", HEAVY_1, "Jessica Pratt", "On Your Own Love Again"],
-        [5003, "H", HEAVY_1, "Chuquimamani-Condori", "Edits"],
-        [5004, "M", MEDIUM_1, "Stereolab", "Dots and Loops"],
-      ] as const
-    ).map(([rotation_id, rotation_bin, card, artist_name, album_title]) => ({
-      id: rotation_id,
-      rotation_id,
-      rotation_bin,
-      rotation_kill_date: null,
-      card,
-      artist_name,
-      album_title,
-    }));
+    const HEAVY_1 = { id: 31, bin: RotationBin.H, number: 1, name: "Late Aug" };
+    const HEAVY_2 = { id: 32, bin: RotationBin.H, number: 2, name: null };
+    const MEDIUM_1 = { id: 21, bin: RotationBin.M, number: 1, name: null };
+    const ADMIN_ROWS = [
+      createTestRotationListRow({
+        id: 5001,
+        rotation_id: 5001,
+        rotation_bin: RotationBin.H,
+        card: HEAVY_1,
+        artist_name: "Juana Molina",
+        album_title: "DOGA",
+      }),
+      createTestRotationListRow({
+        id: 5002,
+        rotation_id: 5002,
+        rotation_bin: RotationBin.H,
+        card: HEAVY_1,
+        artist_name: "Jessica Pratt",
+        album_title: "On Your Own Love Again",
+      }),
+      createTestRotationListRow({
+        id: 5003,
+        rotation_id: 5003,
+        rotation_bin: RotationBin.H,
+        card: HEAVY_1,
+        artist_name: "Chuquimamani-Condori",
+        album_title: "Edits",
+      }),
+      createTestRotationListRow({
+        id: 5004,
+        rotation_id: 5004,
+        rotation_bin: RotationBin.M,
+        card: MEDIUM_1,
+        artist_name: "Stereolab",
+        album_title: "Dots and Loops",
+      }),
+    ];
     const activeCount = (cardId: number) =>
       within(screen.getByTestId(`rotation-card-${cardId}`)).getByText(/ active$/).textContent;
 
@@ -354,30 +378,28 @@ describe("CardsManager", () => {
   });
 
   describe("Save & open the next card", () => {
-    const PILE_CARD = { id: 11, bin: "H", number: 1, name: null };
+    const PILE_CARD = { id: 11, bin: RotationBin.H, number: 1, name: null };
     const OPEN_CARD = { id: 13, bin: "H", number: 3, name: null };
     const NEXT_CARD = { id: 14, bin: "H", number: 4, name: null };
-    const PILE_ROW: FakeRotationAdminRow = {
+    const PILE_ROW = createTestRotationListRow({
       id: 7001,
       rotation_id: 7001,
-      rotation_bin: "H",
-      rotation_kill_date: null,
+      rotation_bin: RotationBin.H,
       card: PILE_CARD,
       artist_name: "Juana Molina",
       album_title: "DOGA",
-    };
+    });
     // Stays on Heavy 1 through the whole walk -- a positive control proving
     // the filter still finds a genuine card-1 row once the refetch lands,
     // not just that it stops finding the one that moved.
-    const STILL_ON_PILE_ROW: FakeRotationAdminRow = {
+    const STILL_ON_PILE_ROW = createTestRotationListRow({
       id: 7002,
       rotation_id: 7002,
-      rotation_bin: "H",
-      rotation_kill_date: null,
+      rotation_bin: RotationBin.H,
       card: PILE_CARD,
       artist_name: "Stereolab",
       album_title: "Dots and Loops",
-    };
+    });
 
     it("holds the just-moved record under the 'Still on Heavy 1' filter, locked, until the refetch lands -- then drops it", async () => {
       // A real bin: Heavy 1 sits alongside the open and next cards, and the
@@ -484,6 +506,326 @@ describe("CardsManager", () => {
 
       await screen.findByRole("dialog", { name: "Heavy 4" });
       expect(fake.updateBodies()).toEqual([]);
+    });
+  });
+
+  describe("the records on each card", () => {
+    const HEAVY_1 = { id: 31, bin: RotationBin.H, number: 1, name: "Late Aug" };
+    const HEAVY_2 = { id: 32, bin: RotationBin.H, number: 2, name: null };
+    const MEDIUM_1 = { id: 21, bin: RotationBin.M, number: 1, name: null };
+    const onCard = (
+      card: RotationCardRef,
+      rotationId: number,
+      artistName: string,
+      albumTitle: string,
+    ) =>
+      createTestRotationListRow({
+        id: rotationId,
+        rotation_id: rotationId,
+        rotation_bin: card.bin,
+        card,
+        artist_name: artistName,
+        album_title: albumTitle,
+      });
+    const recordLines = (cardId: number) =>
+      within(screen.getByTestId(`rotation-card-${cardId}`))
+        .queryAllByRole("listitem")
+        .map((item) => item.textContent);
+
+    it("lists each card's own active records as Artist — Title, in the panel's order", async () => {
+      fakeRotationAdminEndpoints(
+        [
+          onCard(HEAVY_1, 5101, "Nilüfer Yanya", "PAINLESS"),
+          onCard(HEAVY_1, 5102, "Autechre", "Elseq 1-5"),
+          // "Łukasz" (from the vendored charset corpus) has no NFD
+          // decomposition, so a fold-then-code-unit compare would sort it
+          // after every ASCII letter -- after "Nilüfer Yanya", not between
+          // "Little Simz" and "Lungfish". Only the collator gets this right.
+          onCard(HEAVY_1, 5103, "Łukasz", "Sample Record"),
+          onCard(HEAVY_1, 5104, "Little Simz", "Sometimes I Might Be Introvert"),
+          onCard(HEAVY_1, 5105, "Lungfish", "Hall of Ideas"),
+          onCard(HEAVY_2, 5106, "Juana Molina", "DOGA"),
+          onCard(MEDIUM_1, 5107, "Wednesday", "Rat Saw God"),
+        ],
+        [HEAVY_1, HEAVY_2, MEDIUM_1],
+      );
+      renderWithProviders(<CardsManager />);
+      await screen.findByTestId("rotation-card-31");
+
+      await waitFor(() =>
+        expect(recordLines(31)).toEqual([
+          "Autechre — Elseq 1-5",
+          "Little Simz — Sometimes I Might Be Introvert",
+          "Łukasz — Sample Record",
+          "Lungfish — Hall of Ideas",
+          "Nilüfer Yanya — PAINLESS",
+        ]),
+      );
+      expect(recordLines(32)).toEqual(["Juana Molina — DOGA"]);
+      expect(recordLines(21)).toEqual(["Wednesday — Rat Saw God"]);
+      expect(screen.getByRole("list", { name: "Records on Heavy 1" })).toBeInTheDocument();
+    });
+
+    it("shows five records and expands in place to all of them, then collapses", async () => {
+      const six = ["Anna", "Bruce", "Cora", "Dale", "Erin", "Finn"].map((artist, index) =>
+        onCard(HEAVY_1, 5200 + index, artist, "Side A"),
+      );
+      fakeRotationAdminEndpoints(six, [HEAVY_1]);
+      const { user } = renderWithProviders(<CardsManager />);
+      await screen.findByTestId("rotation-card-31");
+
+      const expand = await screen.findByRole("button", { name: "Show all 6 records on Heavy 1" });
+      expect(expand).toHaveAttribute("aria-expanded", "false");
+      expect(expand).toHaveTextContent("Show all 6");
+      expect(recordLines(31)).toHaveLength(5);
+
+      await user.click(expand);
+      expect(recordLines(31)).toHaveLength(6);
+      const collapse = screen.getByRole("button", { name: "Show fewer records on Heavy 1" });
+      expect(collapse).toHaveAttribute("aria-expanded", "true");
+      expect(collapse).toHaveTextContent("Show fewer");
+
+      await user.click(collapse);
+      expect(recordLines(31)).toHaveLength(5);
+      expect(
+        screen.getByRole("button", { name: "Show all 6 records on Heavy 1" }),
+      ).toBeInTheDocument();
+    });
+
+    it("drops the expanded state once a refetch dips the count to the preview, even after it climbs back", async () => {
+      const six = ["Anna", "Bruce", "Cora", "Dale", "Erin", "Finn"].map((artist, index) =>
+        onCard(HEAVY_1, 5250 + index, artist, "Side A"),
+      );
+      fakeRotationAdminEndpoints(six, [HEAVY_1]);
+      let activeReads = 0;
+      server.use(
+        http.get(`${TEST_BACKEND_URL}/library/rotation`, ({ request }) => {
+          const status = new URL(request.url).searchParams.get("status");
+          if (status !== "active") return HttpResponse.json(six);
+          activeReads += 1;
+          // The second active read (after the expand, before the count
+          // climbs back) answers with one fewer -- every other read,
+          // including the one after, answers with all six.
+          return HttpResponse.json(activeReads === 2 ? six.slice(0, 5) : six);
+        }),
+      );
+      const { user, store } = renderWithProviders(<CardsManager />);
+      await screen.findByTestId("rotation-card-31");
+
+      await user.click(await screen.findByRole("button", { name: "Show all 6 records on Heavy 1" }));
+      expect(recordLines(31)).toHaveLength(6);
+
+      await act(async () => {
+        await store.dispatch(
+          rotationApi.endpoints.getRotationList.initiate("active", { forceRefetch: true }),
+        );
+      });
+      // At or below the preview, the toggle has nothing to show -- and so no
+      // way for anyone to have pressed it back to collapsed.
+      await waitFor(() => expect(recordLines(31)).toHaveLength(5));
+      expect(screen.queryByRole("button", { name: /^Show (all|fewer)/ })).not.toBeInTheDocument();
+
+      await act(async () => {
+        await store.dispatch(
+          rotationApi.endpoints.getRotationList.initiate("active", { forceRefetch: true }),
+        );
+      });
+
+      // Back above the preview with nobody having pressed anything: the card
+      // reopens collapsed, not still expanded from before the dip. Waited
+      // for, not asserted bare -- the cache updates synchronously with the
+      // dispatch above, but the subscribed component's re-render does not.
+      await waitFor(() =>
+        expect(
+          screen.getByRole("button", { name: "Show all 6 records on Heavy 1" }),
+        ).toHaveTextContent("Show all 6"),
+      );
+      expect(recordLines(31)).toHaveLength(5);
+    });
+
+    it("shows no expand control for a card with five or fewer records", async () => {
+      fakeRotationAdminEndpoints(
+        ["Anna", "Bruce", "Cora", "Dale", "Erin"].map((artist, index) =>
+          onCard(HEAVY_1, 5300 + index, artist, "Side A"),
+        ),
+        [HEAVY_1],
+      );
+      renderWithProviders(<CardsManager />);
+      await screen.findByTestId("rotation-card-31");
+
+      await waitFor(() => expect(recordLines(31)).toHaveLength(5));
+      expect(screen.queryByRole("button", { name: /^Show (all|fewer)/ })).not.toBeInTheDocument();
+    });
+
+    it("says a card is empty only when the list read succeeded and holds nothing for it", async () => {
+      fakeRotationAdminEndpoints(
+        [onCard(HEAVY_1, 5401, "Stereolab", "Dots and Loops")],
+        [HEAVY_1, HEAVY_2],
+      );
+      renderWithProviders(<CardsManager />);
+
+      expect(
+        await within(await screen.findByTestId("rotation-card-32")).findByText(
+          "Nothing on this card yet.",
+        ),
+      ).toBeInTheDocument();
+      expect(
+        within(screen.getByTestId("rotation-card-31")).queryByText("Nothing on this card yet."),
+      ).not.toBeInTheDocument();
+    });
+
+    it("shows the empty line only when the count also says the card is empty", async () => {
+      // The list read's dedup can hide a card's only active row -- a newer
+      // row for the same release sits on a sibling card in the bin -- so an
+      // empty list and a positive count both describe this card at once.
+      fakeRotationAdminEndpoints([], [HEAVY_1, HEAVY_2]);
+      server.use(
+        http.get(`${TEST_BACKEND_URL}/library/rotation/cards`, () =>
+          HttpResponse.json([
+            { ...HEAVY_1, active_count: 0 },
+            { ...HEAVY_2, active_count: 1 },
+          ]),
+        ),
+      );
+      renderWithProviders(<CardsManager />);
+      await screen.findByTestId("rotation-card-32");
+
+      // Count 0, list empty: the card genuinely holds nothing.
+      expect(
+        within(screen.getByTestId("rotation-card-31")).getByText("Nothing on this card yet."),
+      ).toBeInTheDocument();
+      // Count 1, list empty: neither the empty line nor any record line --
+      // reporting it as empty would be as wrong as inventing a record.
+      expect(
+        within(screen.getByTestId("rotation-card-32")).queryByText("Nothing on this card yet."),
+      ).not.toBeInTheDocument();
+      expect(recordLines(32)).toEqual([]);
+    });
+
+    it("shows neither records nor the empty line while the list read is pending", async () => {
+      const fake = fakeRotationAdminEndpoints(
+        [onCard(HEAVY_1, 5501, "Stereolab", "Dots and Loops")],
+        [HEAVY_1, HEAVY_2],
+      );
+      fake.holdActiveListReads();
+      renderWithProviders(<CardsManager />);
+      await screen.findByTestId("rotation-card-32");
+
+      expect(screen.queryByText("Nothing on this card yet.")).not.toBeInTheDocument();
+      expect(screen.queryByRole("list", { name: /^Records on/ })).not.toBeInTheDocument();
+      // The list read being held must never lock the cards CRUD surface --
+      // it reads from the cards query, not this one.
+      expect(screen.getByLabelText("Name for Heavy 2")).toBeEnabled();
+      expect(screen.getByRole("button", { name: "Assign records: Heavy 2" })).toBeEnabled();
+      expect(screen.getByRole("button", { name: "Add a card to Heavy" })).toBeEnabled();
+      expect(screen.getByRole("button", { name: "Delete: Heavy 2" })).toBeEnabled();
+
+      await act(() => fake.releaseActiveListReads());
+      await waitFor(() => expect(recordLines(31)).toEqual(["Stereolab — Dots and Loops"]));
+    });
+
+    it("shows one retryable message for a failed list read, and keeps card controls working", async () => {
+      fakeRotationAdminEndpoints(
+        [onCard(HEAVY_1, 5601, "Stereolab", "Dots and Loops")],
+        [HEAVY_1, HEAVY_2],
+      );
+      // The cards CRUD surface, kept independent of the list read that fails
+      // below -- rename, add, delete and Assign records read from the cards
+      // query, not the rotation list, so they must work no matter its state.
+      const cardsFake = fakeRotationCardsEndpoints([
+        { ...HEAVY_1, active_count: 1 },
+        { ...HEAVY_2, active_count: 0 },
+      ]);
+      let failures = 1;
+      server.use(
+        http.get(`${TEST_BACKEND_URL}/library/rotation`, () => {
+          if (failures === 0) return undefined;
+          failures -= 1;
+          return HttpResponse.json({ error: "boom" }, { status: 500 });
+        }),
+      );
+      const { user } = renderWithProviders(<CardsManager />);
+
+      expect(
+        await screen.findByText("Couldn't load the records on these cards."),
+      ).toBeInTheDocument();
+      expect(screen.queryByText("Nothing on this card yet.")).not.toBeInTheDocument();
+      expect(screen.getByLabelText("Name for Heavy 2")).toBeEnabled();
+      expect(screen.getByRole("button", { name: "Assign records: Heavy 2" })).toBeEnabled();
+      expect(screen.getByRole("button", { name: "Add a card to Heavy" })).toBeEnabled();
+      const deletable = screen.getByRole("button", { name: "Delete: Heavy 2" });
+      expect(deletable).toBeEnabled();
+
+      // Exercised, not just checked enabled: the one deletable card in this
+      // fixture actually goes away while the list read is still broken.
+      await user.click(deletable);
+      await waitFor(() => expect(cardsFake.deletedIds()).toEqual([32]));
+      await waitFor(() => expect(screen.queryByTestId("rotation-card-32")).not.toBeInTheDocument());
+
+      await user.click(screen.getByRole("button", { name: "Retry" }));
+
+      // Wait on the records themselves, not on the error message's exit --
+      // that happens as soon as the refetch is dispatched, before the rows
+      // the retry fetched have rendered.
+      await waitFor(() => expect(recordLines(31)).toEqual(["Stereolab — Dots and Loops"]));
+      expect(
+        screen.queryByText("Couldn't load the records on these cards."),
+      ).not.toBeInTheDocument();
+    });
+
+    it("reads only the active list, never status=all -- the same cache entry the panel uses", async () => {
+      const fake = fakeRotationAdminEndpoints(
+        [onCard(HEAVY_1, 5701, "Stereolab", "Dots and Loops")],
+        [HEAVY_1],
+      );
+      const { user } = renderWithProviders(<CardsManager />);
+      await waitFor(() => expect(recordLines(31)).toHaveLength(1));
+
+      expect(fake.listStatuses()).toEqual(["active"]);
+
+      // If the tab and the panel keyed the list query differently (one on
+      // "active", the other on no argument), RTK Query would treat them as
+      // separate cache entries and opening the panel would issue a second
+      // network read here.
+      await user.click(screen.getByRole("button", { name: "Assign records: Heavy 1" }));
+      await screen.findByRole("dialog", { name: "Heavy 1" });
+
+      expect(fake.listStatuses()).toEqual(["active"]);
+    });
+
+    it("moves a record from one card's list to another once the panel's save refetch lands", async () => {
+      fakeRotationAdminEndpoints(
+        [
+          onCard(HEAVY_1, 5801, "Juana Molina", "DOGA"),
+          onCard(HEAVY_1, 5802, "Stereolab", "Dots and Loops"),
+        ],
+        [HEAVY_1, HEAVY_2],
+      );
+      const { user } = renderWithProviders(<CardsManager />);
+      await screen.findByTestId("rotation-card-31");
+
+      await waitFor(() =>
+        expect(recordLines(31)).toEqual(["Juana Molina — DOGA", "Stereolab — Dots and Loops"]),
+      );
+      expect(recordLines(32)).toEqual([]);
+
+      await user.click(screen.getByRole("button", { name: "Assign records: Heavy 2" }));
+      const panel = within(await screen.findByRole("dialog", { name: "Heavy 2" }));
+      await user.click(await panel.findByRole("checkbox", { name: "Stereolab — Dots and Loops" }));
+      await user.click(panel.getByRole("button", { name: "Save 1" }));
+      await waitFor(() => expect(panel.getByText("On Heavy 2 now · 1")).toBeInTheDocument());
+
+      // The tab sits behind the open dialog, which MUI hides from the
+      // accessibility tree while it's open -- close it to see the tab again,
+      // the way an MD would after filing a move.
+      await user.click(panel.getByRole("button", { name: "Close" }));
+      await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+
+      // The move landed through the same "active" cache entry both the tab
+      // and the panel read, so the tab's own list reflects it with no
+      // refetch of the tab's own.
+      expect(recordLines(32)).toEqual(["Stereolab — Dots and Loops"]);
+      expect(recordLines(31)).toEqual(["Juana Molina — DOGA"]);
     });
   });
 
