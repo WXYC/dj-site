@@ -387,6 +387,21 @@ describe("FlowsheetBackendResult", () => {
       expect(screen.getByText(/Rock AB 123\/5/)).toBeInTheDocument();
     });
 
+    // Backend-Service stores every compilation as code_letters = "V/A" with
+    // code_artist_number = 0; composing the CODE cell inline rendered the
+    // nonexistent shelf code "Rock V/A 0/5" instead of the real "Rock V/A-5".
+    it("should render a Various Artists bucket as V/A-<entry>, not V/A 0/entry", () => {
+      const compilation = createTestAlbum({
+        ...mockEntry,
+        artist: createTestArtist({ name: "Various Artists", lettercode: "V/A", numbercode: 0, genre: "Rock" }),
+      });
+
+      renderWithProviders(<FlowsheetBackendResult entry={compilation} index={1} />);
+
+      expect(screen.getByText(/Rock V\/A-5/)).toBeInTheDocument();
+      expect(screen.queryByText(/Rock V\/A 0\/5/)).not.toBeInTheDocument();
+    });
+
     it("should handle various genres", () => {
       const genres = ["Rock", "Jazz", "Electronic", "Hiphop", "Classical"];
 

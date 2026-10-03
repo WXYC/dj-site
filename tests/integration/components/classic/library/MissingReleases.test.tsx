@@ -156,6 +156,25 @@ describe("Classic MissingReleases — missingReleases.jsp", () => {
       expect(screen.queryByText("Autechre")).not.toBeInTheDocument();
     });
 
+    // Backend-Service stores every compilation as code_letters = "V/A" with
+    // code_artist_number = 0; composing the cell inline rendered the
+    // nonexistent shelf code "V/A 0/1" instead of the real "V/A-1".
+    it("renders a V/A-shelf row's library code as V/A-<entry>, not V/A 0/entry", async () => {
+      mockMissingReleasePages([
+        missingRow({
+          artist_name: "Various Artists",
+          code_letters: "V/A",
+          code_artist_number: 0,
+          code_number: 1,
+        }),
+      ]);
+
+      await renderAndSettle();
+
+      expect(screen.getByText("V/A-1")).toBeInTheDocument();
+      expect(screen.queryByText("V/A 0/1")).not.toBeInTheDocument();
+    });
+
     // BS#2004: the shelf (code_letters) decides the label, not album_artist,
     // which is now an ordinary librarian-written credit that can sit on a
     // named-artist release.

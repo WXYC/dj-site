@@ -11,6 +11,7 @@ import {
 } from "@/lib/features/experiences/modern/tokens/roles";
 import { Box, Chip, Typography } from "@mui/joy";
 import { memo } from "react";
+import { formatEntireLibraryCode } from "@/lib/features/catalog/libraryCode";
 import {
   ENTRY_BAR_CELL_PADDING_X,
   ENTRY_BAR_GRID_TEMPLATE,
@@ -103,8 +104,14 @@ function FlowsheetBackendResult({
           color: lit ? "neutral.300" : "text.tertiary",
         }}
       >
-        {entry.artist?.genre} {entry.artist?.lettercode}{" "}
-        {entry.artist?.numbercode}/{entry.entry}
+        {formatEntireLibraryCode({
+          genreName: entry.artist?.genre,
+          code_letters: entry.artist?.lettercode ?? "",
+          code_artist_number: entry.artist?.numbercode ?? null,
+          genre_id: entry.artist?.genre_id,
+          code_number: entry.entry,
+          code_volume_letters: entry.code_volume_letters,
+        })}
       </Typography>
       <Box sx={{ minWidth: 0, px: ENTRY_BAR_CELL_PADDING_X }}>
         <Typography sx={cellTextSx(lit, Boolean(entry.artist?.name))}>

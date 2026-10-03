@@ -67,6 +67,23 @@ describe("CatalogMobileResult", () => {
     expect(screen.getByText("Vinyl")).toBeDefined();
   });
 
+  // Backend-Service stores every compilation as code_letters = "V/A" with
+  // code_artist_number = 0; composing the metadata line inline rendered the
+  // nonexistent shelf code "V/A 0/4" instead of the real "V/A-4".
+  it("renders a Various Artists bucket's call number as V/A-<entry>, not V/A 0/entry", () => {
+    const compilation = createTestAlbum({
+      ...album,
+      artist: createTestArtist({ name: "Various Artists", lettercode: "V/A", numbercode: 0 }),
+    });
+
+    renderWithProviders(
+      <CatalogMobileResult album={compilation} live={false} addToQueue={vi.fn()} />
+    );
+
+    expect(screen.getByText(/V\/A-4/)).toBeDefined();
+    expect(screen.queryByText(/V\/A 0\/4/)).toBeNull();
+  });
+
   it("omits empty metadata segments", () => {
     renderWithProviders(
       <CatalogMobileResult album={createTestAlbum({ ...album, plays: 0, label: "" })} live={false} addToQueue={vi.fn()} />

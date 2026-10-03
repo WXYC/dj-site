@@ -77,6 +77,44 @@ describe("Classic SearchResults Various Artists display", () => {
   });
 });
 
+describe("Classic SearchResults Code column", () => {
+  it("should render the library code as LETTERS NUMBER/ENTRY for a named artist", () => {
+    const album = createTestAlbum({
+      artist: createTestArtist({ name: "Stereolab", lettercode: "RO", numbercode: 87 }),
+      entry: 4,
+    });
+    mockSearchCatalogQuery.mockReturnValue({
+      data: [album],
+      isLoading: false,
+      error: undefined,
+    });
+
+    renderWithProviders(<SearchResults canModify={false} />);
+
+    expect(screen.getByText("RO 87/4")).toBeDefined();
+  });
+
+  // Backend-Service stores every compilation as code_letters = "V/A" with
+  // code_artist_number = 0; composing the cell inline rendered the
+  // nonexistent shelf code "V/A 0/1" instead of the real "V/A-1".
+  it("should render a Various Artists bucket as V/A-<entry>, not V/A 0/entry", () => {
+    const album = createTestAlbum({
+      artist: createTestArtist({ name: "Various Artists", lettercode: "V/A", numbercode: 0 }),
+      entry: 1,
+    });
+    mockSearchCatalogQuery.mockReturnValue({
+      data: [album],
+      isLoading: false,
+      error: undefined,
+    });
+
+    renderWithProviders(<SearchResults canModify={false} />);
+
+    expect(screen.getByText("V/A-1")).toBeDefined();
+    expect(screen.queryByText("V/A 0/1")).toBeNull();
+  });
+});
+
 describe("Classic SearchResults EXCLUSIVE capsule", () => {
   it("should render the EXCLUSIVE capsule on rows where on_streaming === false", () => {
     const album = createTestAlbum({

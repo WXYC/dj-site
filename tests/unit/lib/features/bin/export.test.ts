@@ -93,4 +93,23 @@ describe("callNumberFor", () => {
   it("formats lettercode, numbercode and entry as `LL N/E`", () => {
     expect(callNumberFor(stereolab)).toBe("JM 12/3");
   });
+
+  // Backend-Service stores every compilation as code_letters = "V/A" with
+  // code_artist_number = 0, so a naive join of the two parts renders the
+  // nonexistent shelf code "V/A 0/1" instead of the real "V/A-1".
+  it("renders a Various Artists bucket as V/A-<entry>, dropping the 0 artist number", () => {
+    const compilation = createTestAlbum({
+      title: "WXYC Benefit Compilation",
+      artist: createTestArtist({
+        name: "Various Artists",
+        lettercode: "V/A",
+        numbercode: 0,
+      }),
+      entry: 1,
+      label: "self-released",
+      format: "CD",
+    });
+
+    expect(callNumberFor(compilation)).toBe("V/A-1");
+  });
 });
