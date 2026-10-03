@@ -6,6 +6,7 @@ import {
   narrowCardAssignmentRows,
   rotationCardDeleteConflictMessage,
   rotationCardDeleteConflictReason,
+  rotationCardName,
   rotationRecordLabel,
   rotationRowsToMoveOntoCard,
 } from "@/lib/features/rotation/cards";
@@ -375,5 +376,16 @@ describe("rotationCardDeleteConflictMessage", () => {
     expect(rotationCardDeleteConflictMessage("card_has_active_rotations")).toMatch(
       /active rotation releases/,
     );
+  });
+});
+
+describe("rotationCardName", () => {
+  it.each([
+    [RotationBin.H, 3, "Heavy 3"],
+    [RotationBin.M, 1, "Medium 1"],
+    [RotationBin.L, 2, "Light 2"],
+    [RotationBin.S, 4, "Singles 4"],
+  ])("names a %s card %i %j", (bin, number, expected) => {
+    expect(rotationCardName(bin, number)).toBe(expected);
   });
 });

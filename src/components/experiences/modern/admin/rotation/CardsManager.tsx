@@ -16,6 +16,7 @@ import {
   groupRotationRowsByCardId,
   rotationCardDeleteConflictMessage,
   rotationCardDeleteConflictReason,
+  rotationCardName,
   rotationRecordLabel,
 } from "@/lib/features/rotation/cards";
 import {
@@ -42,13 +43,12 @@ import {
   Typography,
 } from "@mui/joy";
 
-// A design-review proposal, kept in one place so changing it is a one-line edit.
+// Kept in one place so changing it is a one-line edit.
 const CARD_RECORDS_PREVIEW = 5;
 
 function CardRow({
   card,
   bin,
-  binLabel,
   deletable,
   pending,
   records,
@@ -58,7 +58,6 @@ function CardRow({
 }: {
   card: RotationCardWithCount;
   bin: RotationBin;
-  binLabel: string;
   deletable: boolean;
   pending: boolean;
   /** Null until a list read succeeds, so an unread card never claims "Nothing on this card yet." */
@@ -69,8 +68,7 @@ function CardRow({
 }): JSX.Element {
   // Named per card: a grid of identical unlabeled inputs and ✕ buttons tells
   // a screen-reader user nothing about which card they are about to touch.
-  // Spelled the way MDs say it, same as the panel's own title ("Heavy 2").
-  const cardName = `${binLabel} ${card.number}`;
+  const cardName = rotationCardName(bin, card.number);
   const [expanded, setExpanded] = useState(false);
   // A CardRow is keyed by card id and survives the refetches that resize its
   // own list, so `expanded` would otherwise outlive a dip to the preview
@@ -148,8 +146,7 @@ function CardRow({
         variant="plain"
         size="sm"
         disabled={pending}
-        // The card as MDs say it and as the panel is titled: "Heavy 3".
-        aria-label={`Assign records: ${binLabel} ${card.number}`}
+        aria-label={`Assign records: ${cardName}`}
         sx={{ px: 0, mt: 0.25, justifyContent: "flex-start" }}
         onClick={onAssign}
       >
@@ -318,7 +315,7 @@ export default function CardsManager(): JSX.Element {
       try {
         const created = await addRotationCard({ bin }).unwrap();
         // The server's assignment, echoed — never a locally computed max+1.
-        toast.success(`Added ${ROTATION_BIN_LABELS[bin]} ${created.number}.`);
+        toast.success(`Added ${rotationCardName(bin, created.number)}.`);
       } catch (err) {
         if (isUnmessagedHttpError(err)) {
           toast.error(
@@ -395,7 +392,6 @@ export default function CardsManager(): JSX.Element {
                   key={card.id}
                   card={card}
                   bin={bin}
-                  binLabel={ROTATION_BIN_LABELS[bin]}
                   deletable={canDeleteRotationCard(card, binCards)}
                   pending={pendingCardIds.has(card.id)}
                   records={recordsByCardId ? (recordsByCardId.get(card.id) ?? []) : null}

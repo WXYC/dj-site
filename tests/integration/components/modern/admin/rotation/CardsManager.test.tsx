@@ -50,8 +50,8 @@ const CARDS: FakeRotationCard[] = [
 const heavyColumn = () => within(screen.getByTestId("rotation-cards-bin-H"));
 
 // Serves no list read, so the default empty `status=active` answer applies:
-// the cases here do not cover the records each card lists, and every card
-// shows "Nothing on this card yet." beside its count.
+// the cases here do not cover the records each card lists, so a card whose
+// active_count is 0 shows "Nothing on this card yet." beside its count.
 async function renderCards(cards = CARDS) {
   const fake = fakeRotationCardsEndpoints(cards);
   const rendered = renderWithProviders(<CardsManager />);

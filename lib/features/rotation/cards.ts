@@ -2,6 +2,7 @@ import type { RotationCard } from "@wxyc/shared";
 import { bodyReason, unwrapEndpointError } from "@/lib/rtk-endpoint-error";
 import { rowMatchesTerms, searchTerms } from "./adminList";
 import {
+  ROTATION_BIN_LABELS,
   ROTATION_CARD_DELETE_CONFLICT_REASONS,
   type RotationBin,
   type RotationCardDeleteConflictReason,
@@ -26,6 +27,15 @@ export function groupRotationCardsByBin<Card extends RotationCard>(
   }
   for (const list of byBin.values()) list.sort((left, right) => left.number - right.number);
   return byBin;
+}
+
+/**
+ * A card's spoken name: the bin label and the card number, the way music
+ * directors say it ("Heavy 3"). Used in visible text and accessible names
+ * alike, so the rule lives in one place.
+ */
+export function rotationCardName(bin: RotationBin, number: number): string {
+  return `${ROTATION_BIN_LABELS[bin]} ${number}`;
 }
 
 /**
