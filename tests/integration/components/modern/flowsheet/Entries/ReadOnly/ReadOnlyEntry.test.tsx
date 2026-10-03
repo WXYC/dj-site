@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { FlowsheetEntryType } from "@wxyc/shared/dtos";
 import { renderWithPublicProviders, renderWithProviders } from "@/tests/helpers/render";
 import Entry from "@/src/components/experiences/modern/flowsheet/Entries/Entry";
 import ReadOnlyEntry, {
@@ -13,16 +14,14 @@ import {
 } from "@/src/components/experiences/modern/flowsheet/Entries/tableStyles";
 import {
   FlowsheetBreakpointEntry,
-  FlowsheetEntry,
   FlowsheetMessageEntry,
   FlowsheetShowBlockEntry,
   FlowsheetSongEntry,
 } from "@/lib/features/flowsheet/types";
 import { convertV2Entry } from "@/lib/features/flowsheet/conversions";
 import {
+  V2_ENTRY_FACTORIES_BY_TYPE,
   createTestFlowsheetEntry,
-  createTestV2DJJoinEntry,
-  createTestV2DJLeaveEntry,
 } from "@/tests/fixtures/fixtures";
 
 // ReadOnlyEntry's module graph is pinned by
@@ -65,13 +64,6 @@ const startShowEntry: FlowsheetShowBlockEntry = {
   isStart: true,
 };
 
-const endShowEntry: FlowsheetShowBlockEntry = {
-  ...startShowEntry,
-  id: 11,
-  entry_type: "show_end",
-  isStart: false,
-};
-
 const talksetEntry: FlowsheetMessageEntry = {
   id: 12,
   play_order: 5,
@@ -90,25 +82,20 @@ const breakpointEntry: FlowsheetBreakpointEntry = {
   time: "11:00 PM",
 };
 
-// dj_join/dj_leave carry no message at all -- their content is dj_name -- so
-// they are show-block-shaped like the show_start/show_end rows above, never
-// message-shaped. Built through the real conversion rather than hand-built,
-// so the fixture can't drift from what a producer actually emits.
-const djJoinEntry = convertV2Entry(
-  createTestV2DJJoinEntry({ id: 14, play_order: 8, show_id: 100, dj_name: "DJ Marz" })
-) as FlowsheetShowBlockEntry;
-
-const djLeaveEntry = convertV2Entry(
-  createTestV2DJLeaveEntry({ id: 15, play_order: 9, show_id: 100, dj_name: "DJ Marz" })
-) as FlowsheetShowBlockEntry;
-
-const genericMessageEntry: FlowsheetMessageEntry = {
-  id: 16,
-  play_order: 10,
-  show_id: 100,
-  entry_type: "message",
-  message: "Generic notification message",
-};
+// Every-entry-type cases, built through the V2 factory for each kind so no
+// row is hand-built. `overrides` carries what the kind's text comes from;
+// `text` is what its row must render. Keyed by the contract enum, so a new
+// kind fails `tsc` here until it has a case.
+const ENTRY_TYPE_CASES = {
+  track: { overrides: { track_title: "Track title" }, text: "Track title" },
+  show_start: { overrides: { dj_name: "DJ Juana" }, text: "DJ Juana" },
+  show_end: { overrides: { dj_name: "DJ Juana" }, text: "DJ Juana" },
+  dj_join: { overrides: { dj_name: "DJ Marz" }, text: "DJ Marz" },
+  dj_leave: { overrides: { dj_name: "DJ Marz" }, text: "DJ Marz" },
+  talkset: { overrides: { message: "Talkset - Station ID" }, text: "Talkset - Station ID" },
+  breakpoint: { overrides: { message: "3:00 PM Breakpoint", radio_hour: null }, text: "3:00 PM Breakpoint" },
+  message: { overrides: { message: "Generic notification message" }, text: "Generic notification message" },
+} satisfies Record<FlowsheetEntryType, { overrides: object; text: string }>;
 
 describe("ReadOnlyEntry", () => {
   it("renders every field for a song entry, both xl and below-xl copies", () => {
@@ -151,21 +138,14 @@ describe("ReadOnlyEntry", () => {
     expect(screen.getByText("REQ")).toBeInTheDocument();
   });
 
-  it.each<[string, FlowsheetSongEntry | FlowsheetShowBlockEntry | FlowsheetMessageEntry | FlowsheetBreakpointEntry, string]>([
-    ["track", songEntry, songEntry.track_title],
-    ["show_start", startShowEntry, startShowEntry.dj_name],
-    ["show_end", endShowEntry, endShowEntry.dj_name],
-    ["talkset", talksetEntry, talksetEntry.message],
-    ["breakpoint", breakpointEntry, breakpointEntry.message],
-    ["dj_join", djJoinEntry, djJoinEntry.dj_name],
-    ["dj_leave", djLeaveEntry, djLeaveEntry.dj_name],
-    ["message", genericMessageEntry, genericMessageEntry.message],
-  ])("renders non-empty output for FlowsheetEntryType %s", (_type, entry, expectedText) => {
+  it.each(Object.values(FlowsheetEntryType))("renders non-empty output for FlowsheetEntryType %s", (type) => {
+    const { overrides, text } = ENTRY_TYPE_CASES[type];
+    const entry = convertV2Entry(V2_ENTRY_FACTORIES_BY_TYPE[type](overrides));
     const { container } = renderWithPublicProviders(
       <ReadOnlyEntry entry={entry} playing={false} />
     );
 
-    expect(screen.getAllByText(expectedText).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(text).length).toBeGreaterThan(0);
     expect(container.textContent?.trim().length).toBeGreaterThan(0);
   });
 
@@ -677,15 +657,9 @@ describe("ReadOnlyEntry showHref prop", () => {
     expect(screen.getByText("9:15 PM").closest("td")).toHaveClass("col-time");
   });
 
-  it.each<[string, FlowsheetEntry]>([
-    ["talkset", talksetEntry],
-    ["breakpoint", breakpointEntry],
-    ["generic message", genericMessageEntry],
-    ["show start", startShowEntry],
-    ["show end", endShowEntry],
-    ["DJ join", djJoinEntry],
-    ["DJ leave", djLeaveEntry],
-  ])("renders no link on a %s row, even with a showHref", (_kind, entry) => {
+  const markerTypes = Object.values(FlowsheetEntryType).filter((type) => type !== "track");
+  it.each(markerTypes)("renders no link on a %s row, even with a showHref", (type) => {
+    const entry = convertV2Entry(V2_ENTRY_FACTORIES_BY_TYPE[type](ENTRY_TYPE_CASES[type].overrides));
     renderWithPublicProviders(
       <ReadOnlyEntry entry={entry} playing={false} timeLabel="9:15 PM" showHref={SHOW_HREF} />
     );

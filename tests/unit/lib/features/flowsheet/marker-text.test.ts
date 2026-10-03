@@ -1,56 +1,68 @@
 import { describe, it, expect } from "vitest";
+import { FlowsheetEntryType } from "@wxyc/shared/dtos";
 import { convertV2Entry } from "@/lib/features/flowsheet/conversions";
 import {
   getMarkerText,
   messageEntryLabel,
+  type MarkerText,
 } from "@/lib/features/flowsheet/marker-text";
 import {
-  createTestV2BreakpointEntry,
-  createTestV2DJJoinEntry,
-  createTestV2DJLeaveEntry,
-  createTestV2MessageEntry,
-  createTestV2ShowEndEntry,
-  createTestV2ShowStartEntry,
-  createTestV2TalksetEntry,
+  V2_ENTRY_FACTORIES_BY_TYPE,
 } from "@/tests/fixtures/fixtures";
 
 // Built through convertV2Entry so each row has the shape the live sheet hands
 // the switch: dj_join/dj_leave only read as set markers after conversion folds
 // them into the show-marker shape.
 const startShow = convertV2Entry(
-  createTestV2ShowStartEntry({ dj_name: "DJ Chowder" })
+  V2_ENTRY_FACTORIES_BY_TYPE.show_start({ dj_name: "DJ Chowder" })
 );
-const endShow = convertV2Entry(
-  createTestV2ShowEndEntry({ dj_name: "DJ Chowder" })
-);
-const djJoin = convertV2Entry(
-  createTestV2DJJoinEntry({ dj_name: "DJ Chowder" })
-);
-const djLeave = convertV2Entry(
-  createTestV2DJLeaveEntry({ dj_name: "DJ Chowder" })
-);
-const talkset = convertV2Entry(createTestV2TalksetEntry({ message: "Talkset" }));
-const breakpoint = convertV2Entry(
-  createTestV2BreakpointEntry({
-    message: "3:00 PM Breakpoint",
-    radio_hour: null,
-  })
-);
-const generic = convertV2Entry(
-  createTestV2MessageEntry({ message: "Fund drive pitch" })
+
+type MarkerType = Exclude<FlowsheetEntryType, "track">;
+
+// Keyed by every non-track kind, so a new kind fails `tsc` here until it has
+// a case. Track is left out because marker text only applies to message-shaped
+// rows; a track's linked row has its own tests.
+const MARKER_CASES = {
+  show_start: {
+    overrides: { dj_name: "DJ Chowder" },
+    expected: { headline: "DJ Chowder", caption: "started the set" },
+  },
+  show_end: {
+    overrides: { dj_name: "DJ Chowder" },
+    expected: { headline: "DJ Chowder", caption: "ended the set" },
+  },
+  dj_join: {
+    overrides: { dj_name: "DJ Chowder" },
+    expected: { headline: "DJ Chowder", caption: "started the set" },
+  },
+  dj_leave: {
+    overrides: { dj_name: "DJ Chowder" },
+    expected: { headline: "DJ Chowder", caption: "ended the set" },
+  },
+  talkset: {
+    overrides: { message: "Talkset" },
+    expected: { headline: "Talkset", caption: undefined },
+  },
+  breakpoint: {
+    overrides: { message: "3:00 PM Breakpoint", radio_hour: null },
+    expected: { headline: "3:00 PM Breakpoint", caption: undefined },
+  },
+  message: {
+    overrides: { message: "Fund drive pitch" },
+    expected: { headline: "Fund drive pitch", caption: undefined },
+  },
+} satisfies Record<MarkerType, { overrides: object; expected: MarkerText }>;
+
+const markerTypes = Object.values(FlowsheetEntryType).filter(
+  (type): type is MarkerType => type !== "track"
 );
 
 describe("getMarkerText", () => {
-  it.each([
-    ["show_start", startShow, "DJ Chowder", "started the set"],
-    ["show_end", endShow, "DJ Chowder", "ended the set"],
-    ["dj_join", djJoin, "DJ Chowder", "started the set"],
-    ["dj_leave", djLeave, "DJ Chowder", "ended the set"],
-    ["talkset", talkset, "Talkset", undefined],
-    ["breakpoint", breakpoint, "3:00 PM Breakpoint", undefined],
-    ["generic message", generic, "Fund drive pitch", undefined],
-  ] as const)("%s", (_kind, entry, headline, caption) => {
-    expect(getMarkerText(entry)).toEqual({ headline, caption });
+  it.each(markerTypes)("%s", (type) => {
+    const { overrides, expected } = MARKER_CASES[type];
+    const entry = convertV2Entry(V2_ENTRY_FACTORIES_BY_TYPE[type](overrides));
+
+    expect(getMarkerText(entry)).toEqual(expected);
   });
 });
 
@@ -60,6 +72,9 @@ describe("messageEntryLabel", () => {
   });
 
   it("returns the headline alone when there is no caption", () => {
+    const talkset = convertV2Entry(
+      V2_ENTRY_FACTORIES_BY_TYPE.talkset({ message: "Talkset" })
+    );
     expect(messageEntryLabel(talkset)).toBe("Talkset");
   });
 });
