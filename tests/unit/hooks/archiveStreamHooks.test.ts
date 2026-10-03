@@ -398,6 +398,95 @@ describe("useArchiveStreamListing", () => {
   });
 });
 
+describe("useArchiveStreamListing retry state", () => {
+  const RETRY_DELAY_MS = 120;
+
+  it.each([
+    {
+      name: "a head failure",
+      responses: [errorResponse, json({ shows: [], entries: syntheticEntries(1, PAGE_SIZE) })],
+      arrange: async (result: { current: ReturnType<typeof useArchiveStreamListing> }) => {
+        await waitFor(() => expect(result.current.headFailed).toBe(true));
+      },
+      failedPage: "first",
+      settledRows: PAGE_SIZE,
+    },
+    {
+      name: "a next-page failure",
+      responses: [
+        json({ shows: [], entries: syntheticEntries(1, PAGE_SIZE) }),
+        errorResponse,
+        json({ shows: [], entries: syntheticEntries(1000, PAGE_SIZE) }),
+      ],
+      arrange: async (result: { current: ReturnType<typeof useArchiveStreamListing> }) => {
+        await waitFor(() => expect(result.current.hasMore).toBe(true));
+        act(() => result.current.loadNextPage());
+        await waitFor(() => expect(result.current.nextPageFailed).toBe(true));
+      },
+      failedPage: "later",
+      settledRows: PAGE_SIZE * 2,
+    },
+  ])(
+    "holds $name's page and isRetrying through the in-flight retry, then clears both on success",
+    async ({ responses, arrange, failedPage, settledRows }) => {
+      vi.spyOn(Date, "now").mockReturnValue(NOW);
+      queueRangeResponses(responses, { delayMs: RETRY_DELAY_MS });
+      const { wrapper } = createWrapper();
+      const { result } = renderHook(() => useArchiveStreamListing(), { wrapper });
+      await arrange(result);
+
+      act(() => result.current.retry());
+      await waitFor(() => expect(result.current.isRetrying).toBe(true));
+      expect(result.current.failedPage).toBe(failedPage);
+
+      await waitFor(() => expect(result.current.isRetrying).toBe(false));
+      expect(result.current.failedPage).toBeNull();
+      expect(result.current.rows).toHaveLength(settledRows);
+      expect(result.current.failedRetries).toBe(0);
+    },
+  );
+
+  it.each([
+    {
+      name: "a head failure",
+      responses: [errorResponse, errorResponse],
+      arrange: async (result: { current: ReturnType<typeof useArchiveStreamListing> }) => {
+        await waitFor(() => expect(result.current.headFailed).toBe(true));
+      },
+      failedPage: "first",
+    },
+    {
+      name: "a next-page failure",
+      responses: [
+        json({ shows: [], entries: syntheticEntries(1, PAGE_SIZE) }),
+        errorResponse,
+        errorResponse,
+      ],
+      arrange: async (result: { current: ReturnType<typeof useArchiveStreamListing> }) => {
+        await waitFor(() => expect(result.current.hasMore).toBe(true));
+        act(() => result.current.loadNextPage());
+        await waitFor(() => expect(result.current.nextPageFailed).toBe(true));
+      },
+      failedPage: "later",
+    },
+  ])(
+    "counts a retry of $name that fails again, and keeps its page held",
+    async ({ responses, arrange, failedPage }) => {
+      vi.spyOn(Date, "now").mockReturnValue(NOW);
+      queueRangeResponses(responses, { delayMs: RETRY_DELAY_MS });
+      const { wrapper } = createWrapper();
+      const { result } = renderHook(() => useArchiveStreamListing(), { wrapper });
+      await arrange(result);
+
+      act(() => result.current.retry());
+      await waitFor(() => expect(result.current.failedRetries).toBe(1));
+
+      expect(result.current.isRetrying).toBe(false);
+      expect(result.current.failedPage).toBe(failedPage);
+    },
+  );
+});
+
 describe("useArchiveStreamSubscription", () => {
   function Listing({ onRows }: { onRows: (ids: number[]) => void }) {
     const { rows } = useArchiveStreamListing();

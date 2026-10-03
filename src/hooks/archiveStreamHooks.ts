@@ -11,7 +11,7 @@ import {
   toArchiveStreamRowFromStreamEntry,
   type ArchiveStreamRow,
 } from "@/lib/features/flowsheet/stream-row";
-import { classifyListingFailure } from "./listingFailureClassification";
+import { useListingRetry, type FailedPage } from "./useListingRetry";
 
 const QUERY_ARG: ArchiveStreamArg = { pageSize: 50 };
 
@@ -21,6 +21,12 @@ export type ArchiveStreamListing = {
   isNextPageLoading: boolean;
   headFailed: boolean;
   nextPageFailed: boolean;
+  /** The page whose failure is shown, held from a retry's click until its request settles. */
+  failedPage: FailedPage | null;
+  /** True from a retry's click until its request settles, so a notice stays up through it. */
+  isRetrying: boolean;
+  /** Retries that failed again, so a notice that stayed mounted can announce each one. */
+  failedRetries: number;
   /** Read from `reachedStart` alone -- an empty page that still carries a
    * cursor is a quiet stretch, not the end of the archive. */
   hasMore: boolean;
@@ -81,19 +87,25 @@ export function useArchiveStreamListing(): ArchiveStreamListing {
   }, [data?.pages]);
 
   const hasAnyPages = (data?.pages.length ?? 0) > 0;
-  const { headFailed, nextPageFailed } = classifyListingFailure(
+  const {
+    headFailed,
+    nextPageFailed,
+    retry,
+    failedPage,
+    isRetrying,
+    failedRetries,
+  } = useListingRetry({
+    key: QUERY_ARG,
+    isFetching,
     isError,
     hasAnyPages,
-  );
+    refetch,
+    fetchNextPage,
+  });
 
   const loadNextPage = useCallback(() => {
     if (hasNextPage && !nextPageFailed) void fetchNextPage();
   }, [hasNextPage, nextPageFailed, fetchNextPage]);
-
-  const retry = useCallback(() => {
-    if (headFailed) void refetch();
-    else if (nextPageFailed) void fetchNextPage();
-  }, [headFailed, nextPageFailed, refetch, fetchNextPage]);
 
   // Latched, not read live: once the query has answered (data or an error),
   // it stays answered for the life of this hook instance. The live
@@ -113,6 +125,9 @@ export function useArchiveStreamListing(): ArchiveStreamListing {
     isNextPageLoading: isFetchingNextPage,
     headFailed,
     nextPageFailed,
+    failedPage,
+    isRetrying,
+    failedRetries,
     hasMore: hasNextPage ?? false,
     loadNextPage,
     retry,
