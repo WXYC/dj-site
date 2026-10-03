@@ -11,6 +11,7 @@ import {
   toArchiveStreamRowFromStreamEntry,
   type ArchiveStreamRow,
 } from "@/lib/features/flowsheet/stream-row";
+import { classifyListingFailure } from "./listingFailureClassification";
 
 const QUERY_ARG: ArchiveStreamArg = { pageSize: 50 };
 
@@ -80,8 +81,10 @@ export function useArchiveStreamListing(): ArchiveStreamListing {
   }, [data?.pages]);
 
   const hasAnyPages = (data?.pages.length ?? 0) > 0;
-  const headFailed = isError && !hasAnyPages;
-  const nextPageFailed = isError && hasAnyPages;
+  const { headFailed, nextPageFailed } = classifyListingFailure(
+    isError,
+    hasAnyPages,
+  );
 
   const loadNextPage = useCallback(() => {
     if (hasNextPage && !nextPageFailed) void fetchNextPage();

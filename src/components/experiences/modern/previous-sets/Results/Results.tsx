@@ -12,6 +12,7 @@ import NextLink from "next/link";
 import { useCallback, useEffect, useRef, type RefObject } from "react";
 import { hrefForShowEntry } from "@/lib/features/schedule-week/showUrl";
 import { useRetainedScrollOffset } from "@/src/hooks/useRetainedScrollOffset";
+import FailedSearchNotice from "../FailedSearchNotice";
 import ResultsContainer from "./ResultsContainer";
 
 function SortableHeader({
@@ -130,6 +131,10 @@ export default function Results({
     showResults,
     isRealQuery,
     usingSeed,
+    retry,
+    failedPage,
+    isRetrying,
+    failedRetries,
   } = usePlaylistSearchResults({ initialResults });
 
   const ariaSort = (field: SortField) =>
@@ -245,7 +250,7 @@ export default function Results({
             </tr>
           </thead>
           <tbody>
-            {isLoading && displayResults.length === 0 ? (
+            {isLoading && !isRetrying && displayResults.length === 0 ? (
               <tr style={{ background: "transparent" }}>
                 <td
                   colSpan={6}
@@ -293,7 +298,7 @@ export default function Results({
               ))
             )}
 
-            {isLoading && displayResults.length > 0 && (
+            {isLoading && !isRetrying && displayResults.length > 0 && (
               <tr style={{ background: "transparent" }}>
                 <td
                   colSpan={6}
@@ -307,15 +312,17 @@ export default function Results({
             {/* Unlike the empty-state row below, not scoped to a real query:
                 the default listing is exactly where an unreadable response
                 is indistinguishable from an archive with nothing in it. */}
-            {isError && !isLoading && (
+            {failedPage !== null && (
               <tr style={{ background: "transparent" }}>
                 <td
                   colSpan={6}
                   style={{ textAlign: "center", paddingTop: "2rem" }}
                 >
-                  <Typography level="body-sm" color="danger">
-                    An error occurred while searching. Please try again.
-                  </Typography>
+                  <FailedSearchNotice
+                    onRetry={retry}
+                    retrying={isRetrying}
+                    failedRetries={failedRetries}
+                  />
                 </td>
               </tr>
             )}

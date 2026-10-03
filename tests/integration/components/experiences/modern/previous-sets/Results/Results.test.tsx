@@ -3,6 +3,7 @@ import { screen } from "@testing-library/react";
 import { renderWithProviders as render } from "@/tests/helpers";
 import type { PlaylistSearchResult } from "@wxyc/shared";
 import Results from "@/src/components/experiences/modern/previous-sets/Results/Results";
+import type { FailedPage } from "@/src/hooks/playlistSearchHooks";
 
 const mockUsePlaylistSearchResults = vi.fn();
 
@@ -53,6 +54,9 @@ const base = {
   showResults: true,
   isRealQuery: false,
   usingSeed: false,
+  retry: vi.fn(),
+  failedPage: null as FailedPage | null,
+  isRetrying: false,
 };
 
 const CURTAIN = /keep typing/i;
@@ -124,6 +128,7 @@ describe("Results (modern previous sets)", () => {
       showResults: true,
       isRealQuery: false,
       isError: true,
+      failedPage: "first" as const,
     });
 
     render(<Results />);
@@ -140,6 +145,7 @@ describe("Results (modern previous sets)", () => {
       showResults: true,
       isRealQuery: true,
       isError: true,
+      failedPage: "first" as const,
     });
 
     render(<Results />);
@@ -149,6 +155,50 @@ describe("Results (modern previous sets)", () => {
       screen.getByText(/an error occurred while searching/i),
     ).toBeInTheDocument();
   });
+
+  it("calls retry when the failed-search notice's control is used", async () => {
+    const retry = vi.fn();
+    mockUsePlaylistSearchResults.mockReturnValue({
+      ...base,
+      displayResults: [],
+      showResults: true,
+      isError: true,
+      failedPage: "first" as const,
+      retry,
+    });
+
+    const { user } = render(<Results />);
+    await user.click(screen.getByRole("button", { name: "Try again" }));
+
+    expect(retry).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    { listing: "an empty listing", rows: [] as PlaylistSearchResult[] },
+    { listing: "rows already on screen", rows: [makeResult(1), makeResult(2)] },
+  ])(
+    "keeps the notice on screen, inert, while a retry runs over $listing, with no spinner",
+    async ({ rows }) => {
+      const retry = vi.fn();
+      mockUsePlaylistSearchResults.mockReturnValue({
+        ...base,
+        displayResults: rows,
+        showResults: true,
+        isLoading: true,
+        failedPage: (rows.length ? "later" : "first") as FailedPage,
+        isRetrying: true,
+        retry,
+      });
+
+      const { user } = render(<Results />);
+      const control = screen.getByRole("button", { name: "Retrying…" });
+      await user.click(control);
+
+      expect(control).toHaveAttribute("aria-disabled", "true");
+      expect(retry).not.toHaveBeenCalled();
+      expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+    },
+  );
 
   it("does not accuse the default listing of being empty while it loads", () => {
     mockUsePlaylistSearchResults.mockReturnValue({

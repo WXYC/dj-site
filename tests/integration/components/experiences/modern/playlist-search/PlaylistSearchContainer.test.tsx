@@ -3,6 +3,7 @@ import { screen } from "@testing-library/react";
 import { renderWithProviders as render } from "@/tests/helpers";
 import type { PlaylistSearchResult } from "@wxyc/shared";
 import { PlaylistSearchContainer } from "@/src/components/experiences/modern/playlist-search";
+import type { FailedPage } from "@/src/hooks/playlistSearchHooks";
 
 const mockUsePlaylistSearchResults = vi.fn();
 
@@ -69,6 +70,9 @@ const baseHookReturn = {
   loadNextPage: vi.fn(),
   showResults: true,
   isRealQuery: false,
+  retry: vi.fn(),
+  failedPage: null as FailedPage | null,
+  isRetrying: false,
 };
 
 /** Mirrors what usePlaylistSearchResults returns for a given query shape. */
@@ -152,6 +156,7 @@ describe("PlaylistSearchContainer", () => {
     mockUsePlaylistSearchResults.mockReturnValue({
       ...forDefaultQuery([]),
       isError: true,
+      failedPage: "first" as const,
     });
     render(<PlaylistSearchContainer initialResults={[]} />);
     expect(
@@ -163,12 +168,41 @@ describe("PlaylistSearchContainer", () => {
     mockUsePlaylistSearchResults.mockReturnValue({
       ...forRealQuery([], 0),
       isError: true,
+      failedPage: "first" as const,
     });
     render(<PlaylistSearchContainer />);
     expect(
       screen.getByText(/an error occurred while searching/i),
     ).toBeInTheDocument();
     expect(screen.queryByText(/no results found/i)).not.toBeInTheDocument();
+  });
+
+  it("calls retry when the failed-search notice's control is used", async () => {
+    const retry = vi.fn();
+    mockUsePlaylistSearchResults.mockReturnValue({
+      ...forDefaultQuery([]),
+      isError: true,
+      failedPage: "first" as const,
+      retry,
+    });
+    const { user } = render(<PlaylistSearchContainer initialResults={[]} />);
+
+    await user.click(screen.getByRole("button", { name: "Try again" }));
+
+    expect(retry).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the notice, not a 'Searching...' line, on screen while a retry runs", () => {
+    mockUsePlaylistSearchResults.mockReturnValue({
+      ...forRealQuery([], 0),
+      isLoading: true,
+      failedPage: "first" as const,
+      isRetrying: true,
+    });
+    render(<PlaylistSearchContainer />);
+
+    expect(screen.getByRole("button", { name: "Retrying…" })).toBeInTheDocument();
+    expect(screen.queryByText(/searching\.\.\./i)).not.toBeInTheDocument();
   });
 
   it("does not render the table when there are no rows to show", () => {

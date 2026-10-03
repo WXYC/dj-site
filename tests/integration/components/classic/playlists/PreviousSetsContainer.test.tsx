@@ -4,6 +4,7 @@ import { renderWithProviders } from "@/tests/helpers/render";
 import type { PlaylistSearchResult } from "@wxyc/shared/dtos";
 
 const mockFetchNextPage = vi.fn();
+const mockRefetch = vi.fn();
 const mockQueryState = {
   data: undefined as
     | {
@@ -16,6 +17,9 @@ const mockQueryState = {
         }>;
       }
     | undefined,
+  // The current key's own pages; `null` means "the same as data". RTK keeps
+  // `data` from the last key that answered and `currentData` from this one.
+  currentData: null as { pages: unknown[] } | undefined | null,
   isFetching: false,
   isError: false,
   hasNextPage: false,
@@ -30,7 +34,12 @@ vi.mock("@/lib/features/playlist-search/api", async () => {
     useSearchPlaylistsInfiniteQuery: () =>
       ({
         ...mockQueryState,
+        currentData:
+          mockQueryState.currentData === null
+            ? mockQueryState.data
+            : mockQueryState.currentData,
         fetchNextPage: mockFetchNextPage,
+        refetch: mockRefetch,
       }) as unknown as ReturnType<
         typeof actual.useSearchPlaylistsInfiniteQuery
       >,
@@ -42,7 +51,9 @@ import PreviousSetsContainer from "@/src/components/experiences/classic/playlist
 
 beforeEach(() => {
   mockFetchNextPage.mockReset();
+  mockRefetch.mockReset();
   mockQueryState.data = undefined;
+  mockQueryState.currentData = null;
   mockQueryState.isFetching = false;
   mockQueryState.isError = false;
   mockQueryState.hasNextPage = false;
@@ -327,6 +338,92 @@ describe("Classic Previous Sets PreviousSetsContainer", () => {
     // to zero. Left ungated, this line answers the DJ's search with "no
     // results" directly above the notice saying the search never ran.
     expect(screen.queryByText(/no results found/i)).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "Try again" }));
+    expect(mockRefetch).toHaveBeenCalledTimes(1);
+  });
+
+  describe("the failure notice", () => {
+    const page = {
+      results: [
+        {
+          id: 10001,
+          play_date: "2026-01-01T00:00:00.000Z",
+          artist_name: "Juana Molina",
+          track_title: "la paradoja",
+          album_title: "DOGA",
+          record_label: "Sonamos",
+          dj_name: "DJ Chowder",
+          show_id: 301,
+        },
+      ],
+      total: 120,
+      page: 0,
+      totalPages: 3,
+    };
+
+    // Placed where the reader is looking: above the listing when the search
+    // itself failed (here a re-sorted search, so the previous sort's rows are
+    // still on screen), below its rows when a page failed while scrolling.
+    it.each([
+      { failed: "the first page", currentData: undefined, below: false },
+      { failed: "a later page", currentData: null, below: true },
+    ])("sits below the rows only when $failed failed", ({ currentData, below }) => {
+      mockQueryState.data = { pages: [page] };
+      mockQueryState.currentData = currentData;
+      mockQueryState.hasNextPage = true;
+      mockQueryState.isError = true;
+
+      renderWithProviders(<PreviousSetsContainer initialResults={[page.results[0]]} />);
+
+      const notice = screen.getByRole("alert");
+      const rows = screen.getByRole("table");
+      const following =
+        rows.compareDocumentPosition(notice) & Node.DOCUMENT_POSITION_FOLLOWING;
+      expect(following !== 0).toBe(below);
+    });
+
+    it("stays up, inert, while the retry runs, and leaves when it succeeds", async () => {
+      mockQueryState.isError = true;
+      const { user, rerender } = renderWithProviders(<PreviousSetsContainer />);
+
+      await user.click(screen.getByRole("button", { name: "Try again" }));
+      expect(mockRefetch).toHaveBeenCalledTimes(1);
+
+      mockQueryState.isError = false;
+      mockQueryState.isFetching = true;
+      rerender(<PreviousSetsContainer />);
+      const control = await screen.findByRole("button", { name: "Retrying…" });
+      expect(control).toHaveAttribute("aria-disabled", "true");
+      expect(control).not.toHaveAttribute("disabled");
+      await user.click(control);
+      expect(mockRefetch).toHaveBeenCalledTimes(1);
+
+      mockQueryState.isFetching = false;
+      mockQueryState.data = { pages: [page] };
+      rerender(<PreviousSetsContainer />);
+      await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+    });
+  });
+
+  it("gives the control back, and announces again, when the retry fails too", async () => {
+    mockQueryState.isError = true;
+    const { user, rerender } = renderWithProviders(<PreviousSetsContainer />);
+    const firstAnnouncement = screen.getByRole("alert");
+
+    await user.click(screen.getByRole("button", { name: "Try again" }));
+    mockQueryState.isError = false;
+    mockQueryState.isFetching = true;
+    rerender(<PreviousSetsContainer />);
+    await screen.findByRole("button", { name: "Retrying…" });
+
+    mockQueryState.isFetching = false;
+    mockQueryState.isError = true;
+    rerender(<PreviousSetsContainer />);
+
+    const control = await screen.findByRole("button", { name: "Try again" });
+    expect(control).not.toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByRole("alert")).not.toBe(firstAnnouncement);
   });
 
   // tubafrenzy's own summary line, above its results table for twenty years.

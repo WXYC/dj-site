@@ -36,11 +36,36 @@ export default function PreviousSetsContainer({
     total,
     hasMore,
     isLoading,
-    isError,
     loadNextPage,
     showResults,
     isRealQuery,
+    retry,
+    failedPage,
+    isRetrying,
+    failedRetries,
   } = usePlaylistSearchResults({ initialResults });
+
+  // `aria-disabled`, not `disabled`, while retrying: a browser moves focus off
+  // a button the moment it becomes disabled. Only the sentence is a live
+  // region, remounted by `failedRetries` so a repeated failure announces.
+  const failureNotice = (
+    <p
+      className="redlabel"
+      style={{ textAlign: "center", padding: "0.5em" }}
+    >
+      <span key={failedRetries} role="alert">
+        An error occurred while searching.
+      </span>{" "}
+      <button
+        type="button"
+        className="label"
+        aria-disabled={isRetrying}
+        onClick={isRetrying ? undefined : retry}
+      >
+        {isRetrying ? "Retrying…" : "Try again"}
+      </button>
+    </p>
+  );
 
   useRetainedScrollOffset(retainedScrollTop, shellScrollport);
 
@@ -71,7 +96,7 @@ export default function PreviousSetsContainer({
               would otherwise answer "no results" beneath the notice saying the
               search never ran — and it would do that for every failure shape,
               not only the unreadable bodies the base query can recognize. */}
-          {isRealQuery && !isError && (
+          {isRealQuery && failedPage === null && (
             <p
               className="text"
               style={{ textAlign: "center", padding: "0.5em" }}
@@ -84,14 +109,7 @@ export default function PreviousSetsContainer({
             </p>
           )}
 
-          {isError && (
-            <p
-              className="redlabel"
-              style={{ textAlign: "center", padding: "0.5em" }}
-            >
-              An error occurred while searching. Please try again.
-            </p>
-          )}
+          {failedPage === "first" && failureNotice}
 
           {/* tubafrenzy's own summary line, verbatim: nothing else on the
               screen says a row goes anywhere. */}
@@ -113,6 +131,10 @@ export default function PreviousSetsContainer({
               <ResultTable results={displayResults} />
             </InfiniteScroll>
           )}
+
+          {/* Below the rows, where a reader who scrolled down to load them is
+              looking when the next page fails. */}
+          {failedPage === "later" && failureNotice}
         </>
       )}
     </div>
