@@ -4,8 +4,12 @@ import type {
   SortField,
   SortOrder,
 } from "@/lib/features/playlist-search/frontend";
-import { usePlaylistSearchResults } from "@/src/hooks/playlistSearchHooks";
+import {
+  isChronologicalMode,
+  usePlaylistSearchResults,
+} from "@/src/hooks/playlistSearchHooks";
 import type { PlaylistSearchResult } from "@wxyc/shared";
+import { useArchiveStreamListing } from "@/src/hooks/archiveStreamHooks";
 import { ArrowDownward, ArrowUpward } from "@mui/icons-material";
 import { Box, CircularProgress, Link, Table, Typography } from "@mui/joy";
 import NextLink from "next/link";
@@ -13,6 +17,7 @@ import { useCallback, useEffect, useRef, type RefObject } from "react";
 import { hrefForShowEntry } from "@/lib/features/schedule-week/showUrl";
 import { useRetainedScrollOffset } from "@/src/hooks/useRetainedScrollOffset";
 import FailedSearchNotice from "../FailedSearchNotice";
+import ArchiveStreamTable from "../ArchiveStreamTable";
 import ResultsContainer from "./ResultsContainer";
 
 function SortableHeader({
@@ -107,19 +112,59 @@ function ResultDateCell({ result }: { result: PlaylistSearchResult }) {
   );
 }
 
+/** Each mode's offset into the listing, held by the surface above both. */
+export type RetainedScrollTops = {
+  chronological: RefObject<number>;
+  ranked: RefObject<number>;
+};
+
+/**
+ * The chronological listing, mounted only in that mode so its archive-stream
+ * walk starts on first need. It drives the walk from the scrollport its parent
+ * owns: the parent's scroll handler runs only on a scroll event, so a page that
+ * adds no rows, or a head too short to fill the scrollport, re-checks the
+ * bottom when it lands.
+ */
+function ChronologicalRows({
+  scrollRef,
+}: {
+  scrollRef: RefObject<HTMLDivElement | null>;
+}) {
+  const listing = useArchiveStreamListing();
+  const { rows, isHeadLoading, isNextPageLoading, hasMore, loadNextPage } =
+    listing;
+
+  useEffect(() => {
+    const scroller = scrollRef.current;
+    if (!scroller) return;
+
+    const loadWhenAtBottom = () => {
+      const scrolledToBottom =
+        scroller.scrollHeight <=
+        scroller.scrollTop + scroller.clientHeight + 100;
+      if (scrolledToBottom && !isHeadLoading && !isNextPageLoading && hasMore) {
+        loadNextPage();
+      }
+    };
+
+    loadWhenAtBottom();
+    scroller.addEventListener("scroll", loadWhenAtBottom);
+    return () => scroller.removeEventListener("scroll", loadWhenAtBottom);
+  }, [scrollRef, rows, isHeadLoading, isNextPageLoading, hasMore, loadNextPage]);
+
+  return <ArchiveStreamTable listing={listing} albumInfo rowLinks />;
+}
+
 export default function Results({
-  initialResults,
   retainedScrollTop,
 }: {
-  // Server-rendered first page for the default query, so the initial HTML
-  // carries rows rather than an empty table that fills in on hydration.
-  initialResults?: readonly PlaylistSearchResult[];
   // Where this listing's scroll offset lives while the listing does not.
   // Opening a show unmounts this component, so the offset has to be held above
   // the branch that does it. Absent wherever the listing is never left.
-  retainedScrollTop?: RefObject<number>;
+  retainedScrollTop?: RetainedScrollTops;
 } = {}) {
   const {
+    effectiveQuery,
     displayResults,
     hasMore,
     isLoading,
@@ -135,7 +180,8 @@ export default function Results({
     failedPage,
     isRetrying,
     failedRetries,
-  } = usePlaylistSearchResults({ initialResults });
+  } = usePlaylistSearchResults({ skipChronological: true });
+  const chronological = isChronologicalMode(effectiveQuery, sortBy, sortOrder);
 
   const ariaSort = (field: SortField) =>
     sortBy === field
@@ -148,7 +194,7 @@ export default function Results({
 
   useEffect(() => {
     const scroller = scrollRef.current;
-    if (!scroller) return;
+    if (!scroller || chronological) return;
 
     const onScroll = () => {
       const scrolledToBottom =
@@ -162,19 +208,22 @@ export default function Results({
 
     scroller.addEventListener("scroll", onScroll);
     return () => scroller.removeEventListener("scroll", onScroll);
-  }, [isLoading, hasMore, loadNextPage]);
+  }, [isLoading, hasMore, loadNextPage, chronological]);
 
   // Restoring needs no wait for row height: the walked pages are still in the
   // RTK cache when this remounts, so the rows are in the very commit the
   // restore runs after.
   const resolveScrollport = useCallback(() => scrollRef.current, []);
-  useRetainedScrollOffset(retainedScrollTop, resolveScrollport);
+  useRetainedScrollOffset(
+    retainedScrollTop?.[chronological ? "chronological" : "ranked"],
+    resolveScrollport,
+  );
 
   return (
     <ResultsContainer showResults={showResults}>
       {/* tubafrenzy's own summary line, verbatim: nothing else on the screen
           says a row goes anywhere. */}
-      {displayResults.length > 0 && (
+      {(chronological || displayResults.length > 0) && (
         <Typography
           level="body-xs"
           sx={{ px: 1.5, py: 1, color: "text.secondary", flex: "0 0 auto" }}
@@ -195,7 +244,8 @@ export default function Results({
           overflowY: "auto",
         }}
       >
-        <Table
+        {chronological && <ChronologicalRows scrollRef={scrollRef} />}
+        {!chronological && <Table
           aria-label="playlist search results"
           stickyHeader
           hoverRow
@@ -362,7 +412,7 @@ export default function Results({
               </tr>
             )}
           </tbody>
-        </Table>
+        </Table>}
       </Box>
     </ResultsContainer>
   );

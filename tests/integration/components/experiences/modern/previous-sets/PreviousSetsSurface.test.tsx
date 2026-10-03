@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { act, screen, waitFor, fireEvent, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import {
@@ -9,6 +9,7 @@ import {
 } from "@/tests/helpers";
 import { playlistSearchFake } from "@/tests/fakes/playlistSearch";
 import { playlistSearchSlice } from "@/lib/features/playlist-search/frontend";
+import { rangeEntry, serveArchive } from "@/tests/fakes/flowsheetRange";
 
 // The base query's prepareHeaders fetches a JWT; no auth server runs here.
 vi.mock("@/lib/features/authentication/client", async () => {
@@ -49,6 +50,19 @@ const ARCHIVE = 120;
 beforeEach(() => {
   currentParams = new URLSearchParams();
 });
+
+/**
+ * The ranked listing as the walk specs below expect it: a non-chronological
+ * sort, so the flat table mounts. Date (Oldest) keeps the date cursor the
+ * fake's walk assertions are written against.
+ */
+function rankedStore() {
+  const store = createTestStore();
+  store.dispatch(
+    playlistSearchSlice.actions.setSort({ sortBy: "date", sortOrder: "asc" }),
+  );
+  return store;
+}
 
 function scrollport(): HTMLElement {
   return screen.getByTestId("previous-sets-scrollport");
@@ -112,7 +126,7 @@ describe("PreviousSetsSurface — returning from a show", () => {
     server.use(fake.handler);
 
     const { rerender } = renderWithProviders(<PreviousSetsSurface />, {
-      store: createTestStore(),
+      store: rankedStore(),
     });
 
     await settleFirstPage();
@@ -139,7 +153,7 @@ describe("PreviousSetsSurface — returning from a show", () => {
     server.use(fake.handler);
 
     const { rerender } = renderWithProviders(<PreviousSetsSurface />, {
-      store: createTestStore(),
+      store: rankedStore(),
     });
 
     await settleFirstPage();
@@ -166,7 +180,7 @@ describe("PreviousSetsSurface — a sub-threshold detour", () => {
   it("keeps the walk across a character typed and deleted", async () => {
     const fake = playlistSearchFake({ archiveSize: ARCHIVE });
     server.use(fake.handler);
-    const store = createTestStore();
+    const store = rankedStore();
 
     renderWithProviders(<PreviousSetsSurface />, { store });
     await settleFirstPage();
@@ -249,7 +263,7 @@ describe("PreviousSetsSurface — arriving fresh", () => {
   it("fetches a fresh first page rather than serving what the last visit walked", async () => {
     const fake = playlistSearchFake({ archiveSize: ARCHIVE });
     server.use(fake.handler);
-    const store = createTestStore();
+    const store = rankedStore();
 
     const first = renderWithProviders(<PreviousSetsSurface />, { store });
     await settleFirstPage();
@@ -279,7 +293,7 @@ describe("PreviousSetsSurface — arriving fresh", () => {
 
     openShow();
     const { rerender } = renderWithProviders(<PreviousSetsSurface />, {
-      store: createTestStore(),
+      store: rankedStore(),
     });
     await screen.findByText("show 3");
 
@@ -292,6 +306,128 @@ describe("PreviousSetsSurface — arriving fresh", () => {
 
     await settleFirstPage();
     expect(fake.requests).toHaveLength(1);
+  });
+});
+
+describe("PreviousSetsSurface — the chronological default", () => {
+  const { setSort } = playlistSearchSlice.actions;
+  const BASE = Date.parse("2026-10-01T18:00:00.000Z");
+  const archiveRows = Array.from({ length: 60 }, (_, i) =>
+    rangeEntry(900000 + i, BASE - i * 60_000),
+  );
+
+  // Jsdom lays nothing out, so every scroll height reads zero and the
+  // bottom-of-scrollport check would walk the whole archive on its own.
+  // A tall scrollport keeps the walk to the pages each spec asks for.
+  beforeEach(() => {
+    Object.defineProperty(Element.prototype, "scrollHeight", {
+      configurable: true,
+      get: () => 100_000,
+    });
+    Object.defineProperty(Element.prototype, "clientHeight", {
+      configurable: true,
+      get: () => 500,
+    });
+  });
+
+  afterEach(() => {
+    delete (Element.prototype as { scrollHeight?: number }).scrollHeight;
+    delete (Element.prototype as { clientHeight?: number }).clientHeight;
+  });
+
+  function archiveTable() {
+    return screen.getByRole("table", { name: "playlist archive" });
+  }
+
+  it("lists the archive, not a search, with the search bar and sort mounted", async () => {
+    const fake = playlistSearchFake({ archiveSize: ARCHIVE });
+    server.use(fake.handler);
+    const windows = serveArchive(archiveRows);
+
+    renderWithProviders(<PreviousSetsSurface />, {
+      store: createTestStore(),
+    });
+
+    await waitFor(() =>
+      expect(within(archiveTable()).getAllByRole("row").length).toBeGreaterThan(1),
+    );
+    expect(windows.length).toBeGreaterThan(0);
+    expect(fake.requests).toHaveLength(0);
+    expect(
+      screen.queryByRole("table", { name: "playlist search results" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("swaps to the ranked table when sorted away, and back without re-walking the archive", async () => {
+    const fake = playlistSearchFake({ archiveSize: ARCHIVE });
+    server.use(fake.handler);
+    const windows = serveArchive(archiveRows);
+    const store = createTestStore();
+
+    renderWithProviders(<PreviousSetsSurface />, { store });
+    await waitFor(() => expect(windows.length).toBeGreaterThan(0));
+    const walked = windows.length;
+
+    act(() => {
+      store.dispatch(setSort({ sortBy: "artist", sortOrder: "asc" }));
+    });
+    await waitFor(() => expect(fake.requests).toHaveLength(1));
+    expect(
+      screen.getByRole("table", { name: "playlist search results" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("table", { name: "playlist archive" }),
+    ).not.toBeInTheDocument();
+
+    act(() => {
+      store.dispatch(setSort({ sortBy: "date", sortOrder: "desc" }));
+    });
+    await waitFor(() => expect(archiveTable()).toBeInTheDocument());
+    expect(windows).toHaveLength(walked);
+  });
+
+  it("keeps the walked archive across a show visit", async () => {
+    const fake = playlistSearchFake({ archiveSize: ARCHIVE });
+    server.use(fake.handler);
+    const windows = serveArchive(archiveRows);
+
+    const { rerender } = renderWithProviders(<PreviousSetsSurface />, {
+      store: createTestStore(),
+    });
+    await waitFor(() => expect(windows.length).toBeGreaterThan(0));
+    const walked = windows.length;
+
+    openShow();
+    rerender(<PreviousSetsSurface />);
+    await screen.findByText("show 3");
+
+    closeShow();
+    rerender(<PreviousSetsSurface />);
+
+    await waitFor(() => expect(archiveTable()).toBeInTheDocument());
+    expect(windows).toHaveLength(walked);
+    expect(fake.requests).toHaveLength(0);
+  });
+
+  it("keeps each mode's scroll offset to itself", async () => {
+    const fake = playlistSearchFake({ archiveSize: ARCHIVE });
+    server.use(fake.handler);
+    serveArchive(archiveRows);
+    const store = createTestStore();
+
+    renderWithProviders(<PreviousSetsSurface />, { store });
+    await waitFor(() => expect(archiveTable()).toBeInTheDocument());
+    scrollport().scrollTop = 840;
+
+    act(() => {
+      store.dispatch(setSort({ sortBy: "artist", sortOrder: "asc" }));
+    });
+    await waitFor(() =>
+      expect(
+        screen.getByRole("table", { name: "playlist search results" }),
+      ).toBeInTheDocument(),
+    );
+    expect(scrollport().scrollTop).toBe(0);
   });
 });
 
