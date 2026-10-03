@@ -6,6 +6,7 @@ import { Box, Typography } from "@mui/joy";
 import PlaylistResultsTable from "./PlaylistResultsTable";
 import PlaylistInfiniteScroll from "./PlaylistInfiniteScroll";
 import SearchBar from "@/src/components/experiences/modern/previous-sets/Search/SearchBar";
+import FailedSearchNotice from "@/src/components/experiences/modern/previous-sets/FailedSearchNotice";
 
 export interface PlaylistSearchContainerProps {
   // Server-rendered "recent playlists" listing for the empty default query.
@@ -23,11 +24,14 @@ export default function PlaylistSearchContainer({
     total,
     hasMore,
     isLoading,
-    isError,
     loadNextPage,
     displayResults,
     showResults,
     isRealQuery,
+    retry,
+    failedPage,
+    isRetrying,
+    failedRetries,
   } = usePlaylistSearchResults({ initialResults });
 
   return (
@@ -47,7 +51,7 @@ export default function PlaylistSearchContainer({
           {/* Withheld from a failed query: `total` falls back to 0 when there
               is no page to read it from, so this line would otherwise answer
               "no results" beneath the notice saying the search never ran. */}
-          {isRealQuery && !isError && (
+          {isRealQuery && failedPage === null && (
             <Typography level="body-sm" sx={{ mb: 1, color: "text.secondary" }}>
               {isLoading
                 ? "Searching..."
@@ -60,10 +64,15 @@ export default function PlaylistSearchContainer({
           {/* Not scoped to a real query, as the count line above is: the
               default listing is the case where an unreadable response is
               indistinguishable from an archive with nothing in it. */}
-          {isError && (
-            <Typography level="body-sm" color="danger" sx={{ mb: 2 }}>
-              An error occurred while searching. Please try again.
-            </Typography>
+          {failedPage !== null && (
+            <Box sx={{ mb: 2 }}>
+              <FailedSearchNotice
+                onRetry={retry}
+                retrying={isRetrying}
+                failedRetries={failedRetries}
+                align="start"
+              />
+            </Box>
           )}
 
           {displayResults.length > 0 && (

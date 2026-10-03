@@ -14,8 +14,12 @@ import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import { useDebouncedValue } from "@/src/hooks/useDebouncedValue";
 import { useCallback, useMemo, useRef, useState } from "react";
 import type { PlaylistSearchResult } from "@wxyc/shared";
+import { classifyListingFailure } from "./listingFailureClassification";
 
 export const MIN_QUERY_LENGTH = 2;
+
+/** The page whose request failed: the first page of the search, or a later one. */
+export type FailedPage = "first" | "later";
 const LIMIT = 50;
 
 /**
@@ -305,8 +309,15 @@ export function usePlaylistSearch() {
   // view can run for hours and come back to the page 1 it left. The archive
   // gains entries continuously, so this is staleness traded for the walk, not
   // staleness nobody pays.
-  const { data, isFetching, isError, hasNextPage, fetchNextPage } =
-    useSearchPlaylistsInfiniteQuery(queryArg, { skip: isPartialQuery });
+  const {
+    data,
+    currentData,
+    isFetching,
+    isError,
+    hasNextPage,
+    fetchNextPage,
+    refetch,
+  } = useSearchPlaylistsInfiniteQuery(queryArg, { skip: isPartialQuery });
 
   const results = useMemo<PlaylistSearchResult[]>(() => {
     if (!data?.pages?.length) return [];
@@ -335,6 +346,54 @@ export function usePlaylistSearch() {
     if (hasNextPage && !isError) void fetchNextPage();
   }, [hasNextPage, isError, fetchNextPage]);
 
+  // `currentData`, not `data`: after a sort or query change, `data` still
+  // holds the previous key's pages until the new key succeeds, which would
+  // read a failed first page of the new search as a failed later page.
+  const hasAnyPages = (currentData?.pages?.length ?? 0) > 0;
+  const { headFailed, nextPageFailed } = classifyListingFailure(
+    isError,
+    hasAnyPages,
+  );
+
+  // The failure a retry answers, held from the click until the retried
+  // search stops fetching: `isError` clears the moment the request starts, and
+  // a notice that unmounted then would drop keyboard focus from the control
+  // just used. Tied to the search key, so a sort or query change mid-retry
+  // drops it instead of lending it to the new search.
+  const [retrying, setRetrying] = useState<{
+    failedPage: FailedPage;
+    started: boolean;
+    key: typeof queryArg;
+  } | null>(null);
+  // Retries that failed again, so a notice that stayed mounted through one
+  // can announce the new failure.
+  const [failedRetries, setFailedRetries] = useState(0);
+  if (retrying && retrying.key !== queryArg) {
+    setRetrying(null);
+  } else if (retrying && !retrying.started && isFetching) {
+    setRetrying({ ...retrying, started: true });
+  } else if (retrying?.started && !isFetching) {
+    setRetrying(null);
+    if (isError) setFailedRetries(failedRetries + 1);
+  }
+
+  // A failed later page goes back in through `fetchNextPage()`, never
+  // `refetch()`: a forced infinite query re-walks every cached page from the
+  // first and never reaches the one that failed.
+  const retry = useCallback(() => {
+    if (headFailed) {
+      setRetrying({ failedPage: "first", started: false, key: queryArg });
+      void refetch();
+    } else if (nextPageFailed) {
+      setRetrying({ failedPage: "later", started: false, key: queryArg });
+      void fetchNextPage();
+    }
+  }, [headFailed, nextPageFailed, refetch, fetchNextPage, queryArg]);
+
+  const failedPage: FailedPage | null =
+    retrying?.failedPage ??
+    (headFailed ? "first" : nextPageFailed ? "later" : null);
+
   return {
     rows,
     sortBy,
@@ -352,6 +411,10 @@ export function usePlaylistSearch() {
 
     isLoading: isFetching,
     isError,
+    // Which page the failure notice is about, kept while a retry of it runs.
+    failedPage,
+    isRetrying: retrying !== null,
+    failedRetries,
 
     addRow,
     removeRow,
@@ -359,6 +422,7 @@ export function usePlaylistSearch() {
     setSort,
     handleSort,
     loadNextPage,
+    retry,
   };
 }
 

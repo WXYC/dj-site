@@ -7,6 +7,7 @@ import { playlistSearchSlice } from "@/lib/features/playlist-search/frontend";
 import type { PlaylistSearchResult } from "@wxyc/shared";
 
 const mockFetchNextPage = vi.fn();
+const mockRefetch = vi.fn();
 
 type MockPage = { results: { id: number }[]; total: number; nextCursor?: string };
 type MockQueryArg = { q?: string; limit?: number; sort?: string; order?: string };
@@ -22,6 +23,9 @@ const queryArgLog: MockQueryArg[] = [];
 // getNextPageParam.
 const mockInfiniteState = {
   data: undefined as { pages: MockPage[] } | undefined,
+  // The current key's own data. `null` stands for "same as data": RTK keeps
+  // `data` from the last key that answered and `currentData` from this one.
+  currentData: null as { pages: MockPage[] } | undefined | null,
   isFetching: false,
   isError: false,
   hasNextPage: false,
@@ -43,13 +47,23 @@ vi.mock("@/lib/features/playlist-search/api", async () => {
       if (options?.skip) {
         return {
           data: undefined,
+          currentData: undefined,
           isFetching: false,
           isError: false,
           hasNextPage: false,
           fetchNextPage: mockFetchNextPage,
+          refetch: mockRefetch,
         };
       }
-      return { ...mockInfiniteState, fetchNextPage: mockFetchNextPage };
+      return {
+        ...mockInfiniteState,
+        currentData:
+          mockInfiniteState.currentData === null
+            ? mockInfiniteState.data
+            : mockInfiniteState.currentData,
+        fetchNextPage: mockFetchNextPage,
+        refetch: mockRefetch,
+      };
     },
   };
 });
@@ -75,10 +89,12 @@ function createWrapper(store?: AppStore) {
 
 beforeEach(() => {
   mockFetchNextPage.mockReset();
+  mockRefetch.mockReset();
   lastQueryArg = undefined;
   lastSkip = false;
   queryArgLog.length = 0;
   mockInfiniteState.data = undefined;
+  mockInfiniteState.currentData = null;
   mockInfiniteState.isFetching = false;
   mockInfiniteState.isError = false;
   mockInfiniteState.hasNextPage = false;
@@ -368,6 +384,95 @@ describe("usePlaylistSearch", () => {
 
       await waitFor(() => expect(lastQueryArg?.q).toBe("autechre"));
       expect(lastQueryArg).not.toHaveProperty("cursor");
+    });
+  });
+
+  describe("retry", () => {
+    it("refetches when the first page failed and no page is held", async () => {
+      const { wrapper } = createWrapper();
+      mockInfiniteState.data = undefined;
+      mockInfiniteState.isError = true;
+
+      const { result } = renderHook(() => usePlaylistSearch(), { wrapper });
+      await waitFor(() => expect(result.current.isError).toBe(true));
+
+      act(() => {
+        result.current.retry();
+      });
+
+      expect(mockRefetch).toHaveBeenCalledTimes(1);
+      expect(mockFetchNextPage).not.toHaveBeenCalled();
+    });
+
+    it("fetches the next page when a later page failed and a page is held", async () => {
+      const { wrapper } = createWrapper();
+      mockInfiniteState.data = { pages: [{ results: [{ id: 1 }], total: 1 }] };
+      mockInfiniteState.isError = true;
+
+      const { result } = renderHook(() => usePlaylistSearch(), { wrapper });
+      await waitFor(() => expect(result.current.isError).toBe(true));
+
+      act(() => {
+        result.current.retry();
+      });
+
+      expect(mockFetchNextPage).toHaveBeenCalledTimes(1);
+      expect(mockRefetch).not.toHaveBeenCalled();
+    });
+
+    it("refetches when a new key's first page failed while the previous key's pages are still held", async () => {
+      const { wrapper } = createWrapper();
+      mockInfiniteState.data = { pages: [{ results: [{ id: 1 }], total: 1 }] };
+      mockInfiniteState.currentData = undefined;
+      mockInfiniteState.isError = true;
+
+      const { result } = renderHook(() => usePlaylistSearch(), { wrapper });
+      await waitFor(() => expect(result.current.isError).toBe(true));
+
+      act(() => {
+        result.current.retry();
+      });
+
+      expect(mockRefetch).toHaveBeenCalledTimes(1);
+      expect(mockFetchNextPage).not.toHaveBeenCalled();
+    });
+
+    it("drops a held retry when the search changes before it settles", async () => {
+      const { wrapper } = createWrapper();
+      mockInfiniteState.data = undefined;
+      mockInfiniteState.isError = true;
+
+      const { result } = renderHook(() => usePlaylistSearch(), { wrapper });
+      await waitFor(() => expect(result.current.isError).toBe(true));
+
+      act(() => {
+        result.current.retry();
+      });
+      expect(result.current.isRetrying).toBe(true);
+
+      mockInfiniteState.isError = false;
+      act(() => {
+        result.current.setSort({ sortBy: "artist", sortOrder: "asc" });
+      });
+
+      expect(result.current.isRetrying).toBe(false);
+      expect(result.current.failedPage).toBeNull();
+    });
+
+    it("does nothing when nothing has failed", async () => {
+      const { wrapper } = createWrapper();
+      mockInfiniteState.data = { pages: [{ results: [{ id: 1 }], total: 1 }] };
+      mockInfiniteState.isError = false;
+
+      const { result } = renderHook(() => usePlaylistSearch(), { wrapper });
+      await waitFor(() => expect(result.current.isError).toBe(false));
+
+      act(() => {
+        result.current.retry();
+      });
+
+      expect(mockRefetch).not.toHaveBeenCalled();
+      expect(mockFetchNextPage).not.toHaveBeenCalled();
     });
   });
 
