@@ -4,6 +4,7 @@ import type { JSX } from "react";
 import Link from "next/link";
 import { Sheet, Stack, Typography } from "@mui/joy";
 import type { LibraryFilingResponse } from "@wxyc/shared";
+import { formatEntireLibraryCode } from "@/lib/features/catalog/libraryCode";
 import { ROTATION_BIN_LABELS } from "@/lib/features/rotation/types";
 
 export interface FiledThisSessionProps {
@@ -42,8 +43,13 @@ export default function FiledThisSession({ filings }: FiledThisSessionProps): JS
                 {filing.artist.artist_name} — {filing.release.album_title}
               </Typography>
               <Typography level="body-xs" sx={{ color: "text.secondary" }}>
-                {filing.artist.code_letters} {filing.artist.code_artist_number}/
-                {filing.release.code_number}
+                {formatEntireLibraryCode({
+                  code_letters: filing.artist.code_letters,
+                  code_artist_number: filing.artist.code_artist_number,
+                  genre_id: filing.artist.genre_id,
+                  code_number: filing.release.code_number,
+                  code_volume_letters: filing.release.code_volume_letters,
+                })}
                 {" · "}
                 {filing.rotation
                   ? ROTATION_BIN_LABELS[filing.rotation.rotation_bin]

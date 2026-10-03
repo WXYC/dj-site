@@ -15,7 +15,11 @@ import {
   releaseVolumeLettersTooLong,
   RELEASE_VOLUME_LETTERS_TOO_LONG_MESSAGE,
 } from "@/lib/features/catalog/adminCreateArtistValidation";
-import { formatEntireLibraryCode, isVariousArtists } from "@/lib/features/catalog/libraryCode";
+import {
+  formatCallLettersAndNumbers,
+  formatEntireLibraryCode,
+  isVariousArtists,
+} from "@/lib/features/catalog/libraryCode";
 import { formatStationDateTime } from "@/src/utilities/stationTime";
 import Tracklist from "./Tracklist";
 
@@ -158,7 +162,10 @@ export default function ReleaseCard({ albumId }: { albumId: number }) {
 
   // Decided by the shelf, not by the credit -- see the component docblock.
   const displayArtist = isVariousArtists(data.artist.lettercode) ? "Various Artists" : data.artist.name;
-  const artistCode = `${data.artist.lettercode} ${data.artist.numbercode}`;
+  const artistCode = formatCallLettersAndNumbers({
+    code_letters: data.artist.lettercode,
+    code_artist_number: data.artist.numbercode,
+  });
   const missing = !!data.date_lost && !data.date_found;
   const added = data.add_date ? formatStationDateTime(data.add_date) : undefined;
 

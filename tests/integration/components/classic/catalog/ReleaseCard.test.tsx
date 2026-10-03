@@ -83,6 +83,10 @@ describe("Classic ReleaseCard", () => {
 
     // Not "Electronic V/A 0/1" — the shelf has no such call number.
     expect(screen.getByTestId("release-library-code").textContent).toBe("Electronic V/A-1");
+    // The Artist row's code is the bucket alone, as `getCallLettersAndNumbers()`
+    // renders it -- not "V/A 0".
+    expect(screen.getByText(/^V\/A - Various Artists/)).toBeInTheDocument();
+    expect(screen.queryByText(/V\/A 0 - /)).toBeNull();
   });
 
   it("submits the fields Backend actually accepts", async () => {
