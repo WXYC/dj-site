@@ -10,9 +10,6 @@ import {
   V2_ENTRY_FACTORIES_BY_TYPE,
 } from "@/tests/fixtures/fixtures";
 
-// Built through convertV2Entry so each row has the shape the live sheet hands
-// the switch: dj_join/dj_leave only read as set markers after conversion folds
-// them into the show-marker shape.
 const startShow = convertV2Entry(
   V2_ENTRY_FACTORIES_BY_TYPE.show_start({ dj_name: "DJ Chowder" })
 );
@@ -20,8 +17,8 @@ const startShow = convertV2Entry(
 type MarkerType = Exclude<FlowsheetEntryType, "track">;
 
 // Keyed by every non-track kind, so a new kind fails `tsc` here until it has
-// a case. Track is left out because marker text only applies to message-shaped
-// rows; a track's linked row has its own tests.
+// a case. Track is left out because callers route song entries away before
+// they consult the text switch.
 const MARKER_CASES = {
   show_start: {
     overrides: { dj_name: "DJ Chowder" },
@@ -60,6 +57,9 @@ const markerTypes = Object.values(FlowsheetEntryType).filter(
 describe("getMarkerText", () => {
   it.each(markerTypes)("%s", (type) => {
     const { overrides, expected } = MARKER_CASES[type];
+    // Built through convertV2Entry so each row has the shape the live sheet
+    // hands the switch: dj_join/dj_leave only read as set markers after
+    // conversion folds them into the show-marker shape.
     const entry = convertV2Entry(V2_ENTRY_FACTORIES_BY_TYPE[type](overrides));
 
     expect(getMarkerText(entry)).toEqual(expected);
