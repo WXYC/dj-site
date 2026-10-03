@@ -27,6 +27,7 @@
  * `code_number` and `code_volume_letters` come off `library`.
  */
 
+import type { AlbumEntry } from "./types";
 import { isRockCompLettersRequired } from "./chooserValidation";
 
 /**
@@ -255,6 +256,27 @@ export function formatEntireLibraryCode({
 }: ArtistCodeParts & ReleaseCodeParts & { genreName?: string }): string {
   const code = `${formatArtistCodeWithPunctuation(parts)}${formatReleaseCode(parts)}`;
   return genreName ? `${genreName} ${code}` : code;
+}
+
+/**
+ * `formatEntireLibraryCode` over an `AlbumEntry`, the shape every catalog,
+ * flowsheet-search and bin row is converted to -- one mapping from its field
+ * names to the formatter's, so no surface can drop `genre_id` or the volume
+ * letters and quietly render a different code from the rest. `genreName` is
+ * opt-in because most of those surfaces show the genre elsewhere on the row.
+ *
+ * `artist` is read optionally despite its type: search and flowsheet rows
+ * with a null artist do reach these surfaces, and the row must still render.
+ */
+export function formatAlbumEntryLibraryCode(album: AlbumEntry, genreName?: string): string {
+  return formatEntireLibraryCode({
+    genreName,
+    code_letters: album.artist?.lettercode ?? "",
+    code_artist_number: album.artist?.numbercode ?? null,
+    genre_id: album.artist?.genre_id,
+    code_number: album.entry,
+    code_volume_letters: album.code_volume_letters,
+  });
 }
 
 export type ReleaseArtistTitleParts = {

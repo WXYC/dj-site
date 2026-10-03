@@ -25,7 +25,7 @@ import { convertBinToQueue } from "@/lib/features/bin/conversions";
 import { queueAdditionMessage } from "@/lib/features/flowsheet/various-artists-guard";
 import { toast } from "sonner";
 import { memo } from "react";
-import { formatEntireLibraryCode, isVariousArtists } from "@/lib/features/catalog/libraryCode";
+import { formatAlbumEntryLibraryCode, isVariousArtists } from "@/lib/features/catalog/libraryCode";
 
 // `live` and `addToQueue` are hoisted into Results and passed down so every
 // row shares one useLiveStatus/useQueue subscription; memoized so a query
@@ -171,13 +171,7 @@ function CatalogResult({
             textColor="text.secondary"
             sx={{ fontFamily: "code", whiteSpace: "nowrap" }}
           >
-            {formatEntireLibraryCode({
-              code_letters: album.artist.lettercode,
-              code_artist_number: album.artist.numbercode,
-              genre_id: album.artist.genre_id,
-              code_number: album.entry,
-              code_volume_letters: album.code_volume_letters,
-            })}
+            {formatAlbumEntryLibraryCode(album)}
           </Typography>
         )}
       </td>
