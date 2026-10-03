@@ -118,6 +118,15 @@ export type RetainedScrollTops = {
   ranked: RefObject<number>;
 };
 
+/** How close to the bottom, in pixels, counts as "there" for either listing's
+ * load-more check. Shared so the ranked and chronological listings cannot
+ * drift onto two different thresholds. */
+const LOAD_MORE_THRESHOLD_PX = 100;
+
+function isNearBottom(el: Element): boolean {
+  return el.scrollHeight <= el.scrollTop + el.clientHeight + LOAD_MORE_THRESHOLD_PX;
+}
+
 /**
  * The chronological listing, mounted only in that mode so its archive-stream
  * walk starts on first need. It drives the walk from the scrollport its parent
@@ -139,10 +148,7 @@ function ChronologicalRows({
     if (!scroller) return;
 
     const loadWhenAtBottom = () => {
-      const scrolledToBottom =
-        scroller.scrollHeight <=
-        scroller.scrollTop + scroller.clientHeight + 100;
-      if (scrolledToBottom && !isHeadLoading && !isNextPageLoading && hasMore) {
+      if (isNearBottom(scroller) && !isHeadLoading && !isNextPageLoading && hasMore) {
         loadNextPage();
       }
     };
@@ -197,11 +203,7 @@ export default function Results({
     if (!scroller || chronological) return;
 
     const onScroll = () => {
-      const scrolledToBottom =
-        scroller.scrollHeight <=
-        scroller.scrollTop + scroller.clientHeight + 100;
-
-      if (scrolledToBottom && !isLoading && hasMore) {
+      if (isNearBottom(scroller) && !isLoading && hasMore) {
         loadNextPage();
       }
     };
