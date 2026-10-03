@@ -595,7 +595,9 @@ describe("PreviousSetsSurface — the Week toggle from inside a show", () => {
   });
 
   it("opens the current week when no show is open", async () => {
-    renderWithProviders(<PreviousSetsSurface />, { store: createTestStore() });
+    // Ranked, so no archive walk runs behind the toggle: against jsdom's zero
+    // layout every landed page reads as the bottom and the walk never stops.
+    renderWithProviders(<PreviousSetsSurface />, { store: rankedStore() });
     // The toggle, not the listing: this asserts where the week comes from with
     // nothing open, and the listing behind it is another spec's subject.
     await screen.findByRole("button", { name: /week/i });
