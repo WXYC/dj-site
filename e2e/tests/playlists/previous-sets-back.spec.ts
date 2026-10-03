@@ -29,13 +29,18 @@ const ARCHIVE: PlaylistSearchResult[] = Array.from(
 );
 
 /**
- * Sorts the listing by artist, which mounts the ranked table the walk below
- * drives. The default listing is the chronological archive, which reads the
- * stream rather than the search endpoint, so the walk needs a ranked sort.
+ * Sorts the listing by Date (Oldest), which mounts the ranked table the walk
+ * below drives. The default listing is the chronological archive, which reads
+ * the stream rather than the search endpoint, so the walk needs a ranked
+ * sort — and it has to be the date sort specifically: `sort=date` is the one
+ * pagination style the frontend walks by cursor rather than by `page`, which
+ * is what lets the cursor assertions below actually fail on a regression.
+ * `stubSearch` ignores `sort`/`order` and serves straight off `ARCHIVE`'s own
+ * order, so switching the sort option does not change which row lands where.
  */
-async function sortByArtist(page: Page): Promise<void> {
+async function sortByDateOldest(page: Page): Promise<void> {
   await page.getByRole("combobox", { name: "Sort by" }).click();
-  await page.getByRole("option", { name: "Artist (A-Z)", exact: true }).click();
+  await page.getByRole("option", { name: "Date (Oldest)", exact: true }).click();
 }
 
 /**
@@ -158,7 +163,7 @@ test.describe("Returning from an archived show — modern", () => {
     await stubShow(page);
 
     await page.goto("/dashboard/playlists");
-    await sortByArtist(page);
+    await sortByDateOldest(page);
     const deepRow = page.getByRole("link", {
       name: new RegExp(`see the full show for Track ${DEEP_ROW} by`),
     });
@@ -214,7 +219,7 @@ test.describe("Returning from an archived show — modern", () => {
     const searches = await stubSearch(page);
 
     await page.goto("/dashboard/playlists");
-    await sortByArtist(page);
+    await sortByDateOldest(page);
     await expect(
       page.getByRole("link", { name: /see the full show for Track 1 by/ }),
     ).toBeVisible();
@@ -222,7 +227,7 @@ test.describe("Returning from an archived show — modern", () => {
 
     await page.goto("/dashboard/catalog");
     await page.goto("/dashboard/playlists");
-    await sortByArtist(page);
+    await sortByDateOldest(page);
     await expect(
       page.getByRole("link", { name: /see the full show for Track 1 by/ }),
     ).toBeVisible();
