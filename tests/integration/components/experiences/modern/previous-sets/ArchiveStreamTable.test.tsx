@@ -100,6 +100,14 @@ describe("ArchiveStreamTable rows", () => {
     expect(bodyRows[0]).toHaveTextContent(contentOf(row.entry));
   });
 
+  it("renders no row as playing", () => {
+    const rows = ENTRY_TYPES.map((entryType, i) => rowOf(entryType, { id: i + 1 }));
+    const { bodyRows } = renderTable(createTestArchiveStreamListing({ rows }), { rowLinks: true });
+
+    expect(bodyRows).toHaveLength(ENTRY_TYPES.length);
+    bodyRows.forEach((bodyRow) => expect(bodyRow).not.toHaveClass("row-playing"));
+  });
+
   it("sizes the head with a leading Time unit and gives every row its own Time cell", () => {
     const rows = [rowOf("track", { id: 1 }), rowOf("breakpoint", { id: 2 })];
     const { table, bodyRows } = renderTable(createTestArchiveStreamListing({ rows }));

@@ -1,6 +1,6 @@
 "use client";
 
-import { CircularProgress, Stack, Table, Typography } from "@mui/joy";
+import { Box, CircularProgress, Stack, Table, Typography } from "@mui/joy";
 import { hrefForShowEntry } from "@/lib/features/schedule-week/showUrl";
 import type { ArchiveStreamListing } from "@/src/hooks/archiveStreamHooks";
 import ReadOnlyEntry from "@/src/components/experiences/modern/flowsheet/Entries/ReadOnly/ReadOnlyEntry";
@@ -66,13 +66,13 @@ export default function ArchiveStreamTable({
         </Stack>
       )}
       {failedPage !== null && (
-        <Stack alignItems="center" sx={{ pt: 4 }}>
+        <Box sx={{ pt: 4 }}>
           <FailedSearchNotice
             onRetry={listing.retry}
             retrying={isRetrying}
             failedRetries={listing.failedRetries}
           />
-        </Stack>
+        </Box>
       )}
       {hasAnswered && !hasMore && failedPage === null && (
         <Typography level="body-xs" textAlign="center" sx={{ py: 2 }}>
