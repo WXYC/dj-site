@@ -6,6 +6,7 @@ import type { RotationCard } from "@wxyc/shared";
 import { useGetRotationListQuery } from "@/lib/features/rotation/api";
 import {
   narrowCardAssignmentRows,
+  rotationCardName,
   rotationRecordLabel,
   rotationRowsToMoveOntoCard,
 } from "@/lib/features/rotation/cards";
@@ -60,7 +61,7 @@ function CardAssignmentRow({
   outcome,
 }: RowProps): JSX.Element {
   const currentLabel = row.card
-    ? `${ROTATION_BIN_LABELS[row.rotation_bin]} ${row.card.number}`
+    ? rotationCardName(row.rotation_bin, row.card.number)
     : "No card";
   const statusId = `card-assignment-status-${row.rotation_id}`;
   const [status, color] = here
@@ -159,7 +160,9 @@ export default function CardAssignmentPanel({
   setStillOnFirstCardOnly,
 }: CardAssignmentPanelProps): JSX.Element {
   const binLabel = ROTATION_BIN_LABELS[card.bin];
-  const cardLabel = `${binLabel} ${card.number}`;
+  const cardLabel = rotationCardName(card.bin, card.number);
+  const firstCardLabel = rotationCardName(card.bin, 1);
+  const nextCardLabel = next ? rotationCardName(next.card.bin, next.card.number) : null;
   const { data, isFetching, isError, refetch } = useGetRotationListQuery("active");
   const { running, progress, results, save, retry } = useCardAssignmentSave(card.id);
   const [tickedRowIds, setTickedRowIds] = useState<ReadonlySet<number>>(() => new Set());
@@ -262,12 +265,12 @@ export default function CardAssignmentPanel({
           </Button>
           {next && nothingToSave && (
             <Button variant="solid" disabled={running} onClick={next.open}>
-              Open {binLabel} {next.card.number} <span aria-hidden="true">→</span>
+              Open {nextCardLabel} <span aria-hidden="true">→</span>
             </Button>
           )}
           {next && !retryOnly && !nothingToSave && (
             <Button variant="solid" disabled={locked} onClick={commitAndAdvance}>
-              Save & open {binLabel} {next.card.number}
+              Save & open {nextCardLabel}
               {hiddenSuffix} <span aria-hidden="true">→</span>
             </Button>
           )}
@@ -325,14 +328,14 @@ export default function CardAssignmentPanel({
             {card.number !== 1 && (
               <Checkbox
                 size="sm"
-                label={`Still on ${binLabel} 1`}
+                label={`Still on ${firstCardLabel}`}
                 checked={stillOnFirstCardOnly}
                 onChange={(event) => setStillOnFirstCardOnly(event.target.checked)}
               />
             )}
           </Stack>
           <Typography level="title-sm" sx={{ mb: 0.5 }}>
-            {stillOnFirstCardOnly ? `Still on ${binLabel} 1` : `Elsewhere in ${binLabel}`} ·{" "}
+            {stillOnFirstCardOnly ? `Still on ${firstCardLabel}` : `Elsewhere in ${binLabel}`} ·{" "}
             {elsewhere.length}
           </Typography>
           <Stack spacing={0.25}>
