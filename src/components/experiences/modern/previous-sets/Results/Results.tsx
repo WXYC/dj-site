@@ -223,17 +223,6 @@ export default function Results({
 
   return (
     <ResultsContainer showResults={showResults}>
-      {/* tubafrenzy's own summary line, verbatim: nothing else on the screen
-          says a row goes anywhere. */}
-      {(chronological || displayResults.length > 0) && (
-        <Typography
-          level="body-xs"
-          sx={{ px: 1.5, py: 1, color: "text.secondary", flex: "0 0 auto" }}
-        >
-          Click a track to see the full show.
-        </Typography>
-      )}
-
       <Box
         ref={scrollRef}
         data-testid="previous-sets-scrollport"

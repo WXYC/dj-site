@@ -395,33 +395,6 @@ describe("Results (modern previous sets)", () => {
       expect(screen.queryByRole("link")).toBeNull();
       expect(screen.getByText("Back, Baby")).toBeInTheDocument();
     });
-
-    it("tells the reader the rows are clickable", () => {
-      mockUsePlaylistSearchResults.mockReturnValue({
-        ...base,
-        displayResults: [makeResult(1)],
-      });
-
-      render(<Results />);
-
-      expect(
-        screen.getByText("Click a track to see the full show."),
-      ).toBeInTheDocument();
-    });
-
-    it("keeps that invitation off an empty listing", () => {
-      mockUsePlaylistSearchResults.mockReturnValue({
-        ...base,
-        displayResults: [],
-        isRealQuery: true,
-      });
-
-      render(<Results />);
-
-      expect(
-        screen.queryByText("Click a track to see the full show."),
-      ).toBeNull();
-    });
   });
 
   describe("chronological mode", () => {
