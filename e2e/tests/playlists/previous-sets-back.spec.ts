@@ -29,6 +29,16 @@ const ARCHIVE: PlaylistSearchResult[] = Array.from(
 );
 
 /**
+ * Sorts the listing by artist, which mounts the ranked table the walk below
+ * drives. The default listing is the chronological archive, which reads the
+ * stream rather than the search endpoint, so the walk needs a ranked sort.
+ */
+async function sortByArtist(page: Page): Promise<void> {
+  await page.getByRole("combobox", { name: "Sort by" }).click();
+  await page.getByRole("option", { name: "Artist (A-Z)", exact: true }).click();
+}
+
+/**
  * Answers the archive with a real cursor walk, as `sort=date` is served.
  *
  * Depth is the spec's to choose rather than the seeded database's, which is
@@ -148,6 +158,7 @@ test.describe("Returning from an archived show — modern", () => {
     await stubShow(page);
 
     await page.goto("/dashboard/playlists");
+    await sortByArtist(page);
     const deepRow = page.getByRole("link", {
       name: new RegExp(`see the full show for Track ${DEEP_ROW} by`),
     });
@@ -203,6 +214,7 @@ test.describe("Returning from an archived show — modern", () => {
     const searches = await stubSearch(page);
 
     await page.goto("/dashboard/playlists");
+    await sortByArtist(page);
     await expect(
       page.getByRole("link", { name: /see the full show for Track 1 by/ }),
     ).toBeVisible();
@@ -210,6 +222,7 @@ test.describe("Returning from an archived show — modern", () => {
 
     await page.goto("/dashboard/catalog");
     await page.goto("/dashboard/playlists");
+    await sortByArtist(page);
     await expect(
       page.getByRole("link", { name: /see the full show for Track 1 by/ }),
     ).toBeVisible();
