@@ -310,7 +310,10 @@ describe("PreviousSetsSurface — arriving fresh", () => {
 });
 
 describe("PreviousSetsSurface — the chronological default", () => {
-  const { setSort } = playlistSearchSlice.actions;
+  const { setSort, updateRow } = playlistSearchSlice.actions;
+  // Fixed rather than read off the wall clock: the archive-stream walk
+  // anchors its head window on Date.now(), and a fixture pinned to a
+  // calendar date would fall out of that window's reach as real time passes.
   const BASE = Date.parse("2026-10-01T18:00:00.000Z");
   const archiveRows = Array.from({ length: 60 }, (_, i) =>
     rangeEntry(900000 + i, BASE - i * 60_000),
@@ -319,7 +322,24 @@ describe("PreviousSetsSurface — the chronological default", () => {
   // Jsdom lays nothing out, so every scroll height reads zero and the
   // bottom-of-scrollport check would walk the whole archive on its own.
   // A tall scrollport keeps the walk to the pages each spec asks for.
+  //
+  // The descriptors are saved and restored rather than deleted: jsdom
+  // defines these getters on Element.prototype itself, so `delete` removes
+  // jsdom's own getters along with this override, leaving every later test
+  // in the file reading `undefined` instead of jsdom's real (zero) layout.
+  let scrollHeightDescriptor: PropertyDescriptor | undefined;
+  let clientHeightDescriptor: PropertyDescriptor | undefined;
+
   beforeEach(() => {
+    vi.spyOn(Date, "now").mockReturnValue(BASE);
+    scrollHeightDescriptor = Object.getOwnPropertyDescriptor(
+      Element.prototype,
+      "scrollHeight",
+    );
+    clientHeightDescriptor = Object.getOwnPropertyDescriptor(
+      Element.prototype,
+      "clientHeight",
+    );
     Object.defineProperty(Element.prototype, "scrollHeight", {
       configurable: true,
       get: () => 100_000,
@@ -331,8 +351,13 @@ describe("PreviousSetsSurface — the chronological default", () => {
   });
 
   afterEach(() => {
-    delete (Element.prototype as { scrollHeight?: number }).scrollHeight;
-    delete (Element.prototype as { clientHeight?: number }).clientHeight;
+    vi.restoreAllMocks();
+    if (scrollHeightDescriptor) {
+      Object.defineProperty(Element.prototype, "scrollHeight", scrollHeightDescriptor);
+    }
+    if (clientHeightDescriptor) {
+      Object.defineProperty(Element.prototype, "clientHeight", clientHeightDescriptor);
+    }
   });
 
   function archiveTable() {
@@ -428,6 +453,97 @@ describe("PreviousSetsSurface — the chronological default", () => {
       ).toBeInTheDocument(),
     );
     expect(scrollport().scrollTop).toBe(0);
+  });
+
+  it("puts the chronological listing back at the offset it was left at", async () => {
+    const fake = playlistSearchFake({ archiveSize: ARCHIVE });
+    server.use(fake.handler);
+    const windows = serveArchive(archiveRows);
+
+    const { rerender } = renderWithProviders(<PreviousSetsSurface />, {
+      store: createTestStore(),
+    });
+    await waitFor(() => expect(archiveTable()).toBeInTheDocument());
+    const walked = windows.length;
+    scrollport().scrollTop = 840;
+
+    openShow();
+    rerender(<PreviousSetsSurface />);
+    await screen.findByText("show 3");
+
+    closeShow();
+    rerender(<PreviousSetsSurface />);
+
+    await waitFor(() => expect(archiveTable()).toBeInTheDocument());
+    expect(scrollport().scrollTop).toBe(840);
+    expect(windows).toHaveLength(walked);
+  });
+
+  it("drops the held search key once the listing returns to the chronological default", async () => {
+    const fake = playlistSearchFake({ archiveSize: ARCHIVE });
+    server.use(fake.handler);
+    serveArchive(archiveRows);
+    const store = createTestStore();
+
+    renderWithProviders(<PreviousSetsSurface />, { store });
+    await waitFor(() => expect(archiveTable()).toBeInTheDocument());
+
+    const rowId = store.getState().playlistSearch.rows[0].id;
+    const type = (value: string) =>
+      act(() => {
+        store.dispatch(updateRow({ id: rowId, updates: { value } }));
+      });
+
+    type("stereolab");
+    await waitFor(() => expect(fake.requests).toHaveLength(1));
+    expect(fake.requests[0].q).toBe("stereolab");
+
+    // Returning to the chronological default must not leave the search
+    // key latched: nothing here asks for it again, but the latch has to be
+    // cleared or the next sub-threshold partial below would resubscribe it.
+    type("");
+    await waitFor(() => expect(archiveTable()).toBeInTheDocument());
+
+    type("j");
+    await waitFor(() =>
+      expect(
+        screen.getByText("Keep typing to search previous sets…"),
+      ).toBeInTheDocument(),
+    );
+
+    expect(fake.requests).toHaveLength(1);
+  });
+
+  it("spends no archive window on a permalink straight into a show, then starts the walk once it closes", async () => {
+    const fake = playlistSearchFake({ archiveSize: ARCHIVE });
+    server.use(fake.handler);
+    const windows = serveArchive(archiveRows);
+
+    openShow();
+    const { rerender } = renderWithProviders(<PreviousSetsSurface />, {
+      store: createTestStore(),
+    });
+    await screen.findByText("show 3");
+
+    // A listing nobody has asked for must not spend a request on an
+    // endpoint whose result count is capped because it is expensive.
+    await waitFor(() => expect(windows).toHaveLength(0));
+
+    closeShow();
+    rerender(<PreviousSetsSurface />);
+
+    await waitFor(() => expect(windows.length).toBeGreaterThan(0));
+  });
+
+  it("requests no archive window while the ranked table is showing", async () => {
+    const fake = playlistSearchFake({ archiveSize: ARCHIVE });
+    server.use(fake.handler);
+    const windows = serveArchive(archiveRows);
+
+    renderWithProviders(<PreviousSetsSurface />, { store: rankedStore() });
+    await settleFirstPage();
+
+    expect(windows).toHaveLength(0);
   });
 });
 

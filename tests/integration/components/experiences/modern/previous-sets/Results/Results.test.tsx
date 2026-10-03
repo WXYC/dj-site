@@ -1,10 +1,26 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { screen } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { renderWithProviders as render } from "@/tests/helpers";
 import type { PlaylistSearchResult } from "@wxyc/shared";
 import Results from "@/src/components/experiences/modern/previous-sets/Results/Results";
-import type { FailedPage } from "@/src/hooks/playlistSearchHooks";
-import { rangeEntry, serveArchive } from "@/tests/fakes/flowsheetRange";
+import type {
+  FailedPage,
+  usePlaylistSearchResults,
+} from "@/src/hooks/playlistSearchHooks";
+import {
+  queueRangeResponses,
+  rangeEntry,
+  serveArchive,
+} from "@/tests/fakes/flowsheetRange";
+import { ARCHIVE_START_MS, DAY_MS } from "@/lib/features/archive-stream/head-window";
+import { MAX_WINDOWS_PER_PAGE } from "@/lib/features/archive-stream/api";
+import { HttpResponse } from "msw";
+
+// The chronological listing's album-information control reads the app
+// router; no navigation happens in these specs.
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: () => {} }),
+}));
 
 const mockUsePlaylistSearchResults = vi.fn();
 
@@ -44,23 +60,34 @@ function makeResult(id: number): PlaylistSearchResult {
 
 // Ranked by default: the chronological listing is its own describe below, and
 // these cases exercise the flat table, which only a non-chronological sort mounts.
-const base = {
+// Typed as the hook's own return rather than left to inference, so a field
+// this mock omits fails tsc instead of reading as undefined in the component.
+const base: ReturnType<typeof usePlaylistSearchResults> = {
+  rows: [],
   effectiveQuery: "",
-  sortBy: "artist" as const,
-  sortOrder: "asc" as const,
+  sortBy: "artist",
+  sortOrder: "asc",
+  addRow: vi.fn(),
+  removeRow: vi.fn(),
+  updateRow: vi.fn(),
+  setSort: vi.fn(),
   handleSort: vi.fn(),
+  results: [],
   displayResults: [] as PlaylistSearchResult[],
   total: 0,
   hasMore: false,
+  hasAnswered: true,
   isLoading: false,
   isError: false,
   loadNextPage: vi.fn(),
   showResults: true,
   isRealQuery: false,
+  isDefaultQuery: true,
   usingSeed: false,
   retry: vi.fn(),
   failedPage: null as FailedPage | null,
   isRetrying: false,
+  failedRetries: 0,
 };
 
 const CURTAIN = /keep typing/i;
@@ -404,9 +431,29 @@ describe("Results (modern previous sets)", () => {
       sortOrder: "desc" as const,
     };
 
-    // Jsdom lays nothing out, so every scroll height reads zero and the
-    // bottom-of-scrollport check would walk the whole archive on its own.
+    // Fixed rather than read off the wall clock, so the archive-stream head
+    // window these fixtures sit in never drifts out of reach as real time
+    // passes.
+    const NOW = Date.parse("2026-10-02T00:00:00.000Z");
+    const BASE = Date.parse("2026-10-01T18:00:00.000Z");
+
+    // Jsdom defines these getters on Element.prototype itself, so saving and
+    // restoring the descriptor -- not `delete`-ing the override -- is what
+    // keeps a later test in the file reading jsdom's real (zero) layout
+    // instead of `undefined`.
+    let scrollHeightDescriptor: PropertyDescriptor | undefined;
+    let clientHeightDescriptor: PropertyDescriptor | undefined;
+
     beforeEach(() => {
+      vi.spyOn(Date, "now").mockReturnValue(NOW);
+      scrollHeightDescriptor = Object.getOwnPropertyDescriptor(
+        Element.prototype,
+        "scrollHeight",
+      );
+      clientHeightDescriptor = Object.getOwnPropertyDescriptor(
+        Element.prototype,
+        "clientHeight",
+      );
       Object.defineProperty(Element.prototype, "scrollHeight", {
         configurable: true,
         get: () => 100_000,
@@ -418,12 +465,16 @@ describe("Results (modern previous sets)", () => {
     });
 
     afterEach(() => {
-      delete (Element.prototype as { scrollHeight?: number }).scrollHeight;
-      delete (Element.prototype as { clientHeight?: number }).clientHeight;
+      vi.restoreAllMocks();
+      if (scrollHeightDescriptor) {
+        Object.defineProperty(Element.prototype, "scrollHeight", scrollHeightDescriptor);
+      }
+      if (clientHeightDescriptor) {
+        Object.defineProperty(Element.prototype, "clientHeight", clientHeightDescriptor);
+      }
     });
 
     it("mounts the archive table in place of the ranked table", async () => {
-      const BASE = Date.parse("2026-10-01T18:00:00.000Z");
       serveArchive(
         Array.from({ length: 5 }, (_, i) => rangeEntry(800000 + i, BASE - i * 60_000)),
       );
@@ -440,6 +491,95 @@ describe("Results (modern previous sets)", () => {
       expect(
         screen.queryByRole("columnheader", { name: "Date" }),
       ).not.toBeInTheDocument();
+    });
+
+    it("links a chronological playcut to its show and offers the album-information control", async () => {
+      serveArchive([rangeEntry(800001, BASE)]);
+      mockUsePlaylistSearchResults.mockReturnValue({ ...base, ...chronological });
+
+      render(<Results />);
+
+      const table = await screen.findByRole("table", { name: "playlist archive" });
+      expect(within(table).getByRole("link")).toHaveAttribute(
+        "href",
+        "?show=1&entry=800001#entry-800001",
+      );
+      expect(
+        within(table).getByRole("button", { name: "Album information" }),
+      ).toBeInTheDocument();
+    });
+
+    it("shows exactly one failure notice and no spinner when the chronological head fails", async () => {
+      queueRangeResponses([
+        () => HttpResponse.json({ message: "window read failed" }, { status: 500 }),
+      ]);
+      mockUsePlaylistSearchResults.mockReturnValue({ ...base, ...chronological });
+
+      render(<Results />);
+
+      await waitFor(() => expect(screen.getByRole("alert")).toBeInTheDocument());
+      expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+    });
+
+    it("re-checks the bottom on landing, walking past one page's window cap when the head page comes back empty", async () => {
+      // Positioned so the walk reaches the archive's floor -- and hasMore
+      // genuinely turns false -- a little past the first page's own 16-window
+      // cap. An archive that stays empty forever relative to "now" would
+      // never stop walking once nothing is left to serve.
+      vi.spyOn(Date, "now").mockReturnValue(ARCHIVE_START_MS + 170 * DAY_MS);
+      // An empty scrollport (scrollHeight === clientHeight) is "at the
+      // bottom" from the first render, which is the state this spec needs in
+      // order to walk with no scroll event.
+      Object.defineProperty(Element.prototype, "scrollHeight", {
+        configurable: true,
+        get: () => 500,
+      });
+      Object.defineProperty(Element.prototype, "clientHeight", {
+        configurable: true,
+        get: () => 500,
+      });
+      const windows = serveArchive([]);
+      mockUsePlaylistSearchResults.mockReturnValue({ ...base, ...chronological });
+
+      const { unmount } = render(<Results />);
+
+      await waitFor(() =>
+        expect(screen.getByText("Beginning of the archive")).toBeInTheDocument(),
+      );
+      expect(windows.length).toBeGreaterThan(MAX_WINDOWS_PER_PAGE);
+      unmount();
+    });
+
+    it("loads the next page's windows on one scroll to the bottom", async () => {
+      const windows = serveArchive(
+        Array.from({ length: 5 }, (_, i) => rangeEntry(800000 + i, BASE - i * 60_000)),
+      );
+      mockUsePlaylistSearchResults.mockReturnValue({ ...base, ...chronological });
+
+      const { unmount } = render(<Results />);
+      const table = await screen.findByRole("table", { name: "playlist archive" });
+      // Waits for the head page's own rows, not merely the table landmark --
+      // the table renders before any row does, so a wait keyed on it alone
+      // would capture the window count before the head request is even sent.
+      await waitFor(() =>
+        expect(within(table).getAllByRole("row").length).toBeGreaterThan(1),
+      );
+      const headWindows = windows.length;
+
+      const scroller = screen.getByTestId("previous-sets-scrollport");
+      Object.defineProperty(scroller, "scrollHeight", {
+        value: 2000,
+        configurable: true,
+      });
+      Object.defineProperty(scroller, "clientHeight", {
+        value: 500,
+        configurable: true,
+      });
+      scroller.scrollTop = 1500;
+      fireEvent.scroll(scroller);
+
+      await waitFor(() => expect(windows.length).toBeGreaterThan(headWindows));
+      unmount();
     });
   });
 });
