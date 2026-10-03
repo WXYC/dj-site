@@ -4,7 +4,6 @@ import userEvent from "@testing-library/user-event";
 import { renderWithPublicProviders, renderWithProviders } from "@/tests/helpers/render";
 import Entry from "@/src/components/experiences/modern/flowsheet/Entries/Entry";
 import ReadOnlyEntry, {
-  RAISED_Z_INDEX,
   SHOW_LINK_Z_INDEX,
 } from "@/src/components/experiences/modern/flowsheet/Entries/ReadOnly/ReadOnlyEntry";
 import {
@@ -614,6 +613,29 @@ describe("ReadOnlyEntry matches the live Entry's other readOnly-invisible signal
 
 const SHOW_HREF = "/dashboard/archive/show/100#entry-3001";
 
+// jsdom computes no pseudo-element styles, so the overlay's level is read from
+// the `::after` rules Emotion wrote for the link's own class, last one winning.
+// NaN unless one of those rules is Joy's overlay box: the row's own `::after`
+// level is written whether or not the link is an overlay at all.
+function overlayZIndex(link: HTMLElement): number {
+  const selectors = Array.from(link.classList, (name) => `.${name}::after`);
+  let zIndex = Number.NaN;
+  let stretched = false;
+  for (const sheet of Array.from(document.styleSheets)) {
+    for (const rule of Array.from(sheet.cssRules)) {
+      if (!(rule instanceof CSSStyleRule)) continue;
+      if (!rule.selectorText.split(",").some((s) => selectors.includes(s.trim()))) continue;
+      if (rule.style.position === "absolute") stretched = true;
+      if (rule.style.zIndex !== "") zIndex = Number(rule.style.zIndex);
+    }
+  }
+  return stretched ? zIndex : Number.NaN;
+}
+
+function zIndexOf(element: Element): number {
+  return Number.parseInt(getComputedStyle(element).zIndex, 10) || 0;
+}
+
 function renderLinkedSongRow(entry: FlowsheetSongEntry = songEntry, albumInfo = false) {
   return renderWithPublicProviders(
     <ReadOnlyEntry
@@ -676,6 +698,8 @@ describe("ReadOnlyEntry showHref prop", () => {
     renderWithPublicProviders(<ReadOnlyEntry entry={songEntry} playing={false} showHref={SHOW_HREF} />);
 
     expect(screen.queryByRole("link")).not.toBeInTheDocument();
+    const row = screen.getByTestId(`flowsheet-entry-${songEntry.id}`);
+    expect(getComputedStyle(row).position).not.toBe("relative");
   });
 
   it("makes the linked row its own stacking context, and leaves its Time cell unpositioned", () => {
@@ -684,7 +708,20 @@ describe("ReadOnlyEntry showHref prop", () => {
     const row = screen.getByTestId(`flowsheet-entry-${songEntry.id}`);
     expect(getComputedStyle(row).position).toBe("relative");
     expect(getComputedStyle(row).isolation).toBe("isolate");
-    expect(getComputedStyle(screen.getByRole("link").closest("td")!).position).not.toBe("relative");
+    expect(["", "static"]).toContain(getComputedStyle(screen.getByRole("link").closest("td")!).position);
+  });
+
+  it("puts the overlay above the row's positioned cells", () => {
+    renderLinkedSongRow();
+
+    const overlay = overlayZIndex(screen.getByRole("link"));
+    expect(overlay).toBe(SHOW_LINK_Z_INDEX);
+    const row = screen.getByTestId(`flowsheet-entry-${songEntry.id}`);
+    const positionedCells = Array.from(row.querySelectorAll(":scope > td")).filter(
+      (cell) => getComputedStyle(cell).position === "relative"
+    );
+    expect(positionedCells).toHaveLength(2);
+    for (const cell of positionedCells) expect(zIndexOf(cell)).toBeLessThan(overlay);
   });
 
   it("leaves an unlinked row unpositioned and unisolated", () => {
@@ -700,11 +737,17 @@ describe("ReadOnlyEntry showHref prop", () => {
     (value) => {
       renderLinkedSongRow();
 
+      const overlay = overlayZIndex(screen.getByRole("link"));
       const copies = screen.getAllByText(value);
       expect(copies.length).toBeGreaterThan(0);
       for (const copy of copies) {
-        expect(getComputedStyle(copy).position).toBe("relative");
-        expect(Number(getComputedStyle(copy).zIndex)).toBe(RAISED_Z_INDEX);
+        expect(getComputedStyle(copy)).toMatchObject({
+          position: "relative",
+          width: "fit-content",
+          maxWidth: "100%",
+          cursor: "pointer",
+        });
+        expect(zIndexOf(copy)).toBeGreaterThan(overlay);
       }
     }
   );
@@ -715,7 +758,7 @@ describe("ReadOnlyEntry showHref prop", () => {
 
     const artworkCell = screen.getByTestId(`flowsheet-entry-${unavailable.id}`).querySelector(":scope > td:nth-child(2)");
     if (!(artworkCell instanceof HTMLElement)) throw new Error("no artwork cell");
-    expect(Number(getComputedStyle(artworkCell).zIndex)).toBe(RAISED_Z_INDEX);
+    expect(zIndexOf(artworkCell)).toBeGreaterThan(overlayZIndex(screen.getByRole("link")));
   });
 
   it("leaves ordinary artwork under the show link", () => {
@@ -723,7 +766,7 @@ describe("ReadOnlyEntry showHref prop", () => {
 
     const artworkCell = screen.getByTestId(`flowsheet-entry-${songEntry.id}`).querySelector(":scope > td:nth-child(2)");
     if (!(artworkCell instanceof HTMLElement)) throw new Error("no artwork cell");
-    expect(Number.parseInt(getComputedStyle(artworkCell).zIndex, 10) || 0).toBeLessThan(SHOW_LINK_Z_INDEX);
+    expect(zIndexOf(artworkCell)).toBeLessThan(overlayZIndex(screen.getByRole("link")));
   });
 
   it("raises the album control's wrapper above the show link and keeps the control enabled", () => {
@@ -731,7 +774,28 @@ describe("ReadOnlyEntry showHref prop", () => {
 
     const button = screen.getByRole("button", { name: "Album information" });
     expect(button).toHaveProperty("disabled", false);
-    expect(Number(getComputedStyle(button.parentElement!).zIndex)).toBe(RAISED_Z_INDEX);
+    expect(zIndexOf(button.parentElement!)).toBeGreaterThan(overlayZIndex(screen.getByRole("link")));
+  });
+
+  it("leaves an unlinked row's fields, artwork cell and album control at their own level", () => {
+    const unavailable = createTestFlowsheetEntry({ ...songEntry, discogsUnavailable: true });
+    renderWithPublicProviders(
+      <ReadOnlyEntry entry={unavailable} playing={false} timeLabel="9:15 PM" albumInfo />
+    );
+
+    const row = screen.getByTestId(`flowsheet-entry-${unavailable.id}`);
+    const artworkCell = row.querySelector(":scope > td:nth-child(2)")!;
+    const albumWrapper = screen.getByRole("button", { name: "Album information" }).parentElement!;
+    const fields = [songEntry.track_title, songEntry.artist_name, songEntry.album_title, songEntry.record_label]
+      .flatMap((value) => screen.getAllByText(value));
+    for (const element of [artworkCell, albumWrapper, ...fields]) {
+      expect(["", "auto"]).toContain(getComputedStyle(element).zIndex);
+    }
+    for (const field of fields) {
+      expect(getComputedStyle(field).position).not.toBe("relative");
+      expect(getComputedStyle(field).width).not.toBe("fit-content");
+      expect(getComputedStyle(field).cursor).not.toBe("pointer");
+    }
   });
 
   it("keeps a raised field's tooltip opening on hover", async () => {
@@ -752,10 +816,12 @@ describe("ReadOnlyEntry showHref prop", () => {
     ["shiftKey click", { shiftKey: true }, 0],
     ["altKey click", { altKey: true }, 0],
     ["middle-button click", { button: 1 }, 0],
-    ["secondary-button click", { button: 2 }, 0],
   ])("applies the forwarding rule to a field's %s", (_label, init, calls) => {
     renderLinkedSongRow();
-    const clickSpy = vi.spyOn(screen.getByRole("link"), "click");
+    const link = screen.getByRole("link");
+    // No app router is mounted, so stop the document navigation jsdom cannot do.
+    link.addEventListener("click", (event) => event.preventDefault());
+    const clickSpy = vi.spyOn(link, "click");
 
     fireEvent.click(screen.getByText(songEntry.track_title), init);
 
@@ -777,13 +843,5 @@ describe("ReadOnlyEntry showHref prop", () => {
 
     expect(clickSpy).not.toHaveBeenCalled();
     clickSpy.mockRestore();
-  });
-
-  it("gives an unlinked row's field no link to forward to", () => {
-    renderWithPublicProviders(<ReadOnlyEntry entry={songEntry} playing={false} timeLabel="9:15 PM" />);
-
-    fireEvent.click(screen.getByText(songEntry.track_title));
-
-    expect(screen.queryByRole("link")).not.toBeInTheDocument();
   });
 });

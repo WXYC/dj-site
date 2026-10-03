@@ -21,10 +21,16 @@ import { getMessageEntrySlots } from "../messageEntrySlots";
 import SongEntryStatusChips from "../SongEntry/SongEntryStatusChips";
 import { flowsheetChipsReservePx } from "../tableStyles";
 
-/** The overlay link's stacking level in a linked row; the artwork and chips cells stay below it. */
+/**
+ * The overlay link's stacking level in a linked row. The artwork and chips
+ * cells are positioned with `z-index: auto`, so this keeps them under it.
+ */
 export const SHOW_LINK_Z_INDEX = 1;
-/** Controls above the overlay link: field tooltips, the Not-on-Discogs badge and the album control. */
-export const RAISED_Z_INDEX = 2;
+/**
+ * Above the overlay link: the field tooltip triggers, the Not-on-Discogs
+ * badge's cell and the album control, which must keep taking the pointer.
+ */
+const RAISED_Z_INDEX = 2;
 
 // Both the col-artist/col-label cells and their below-xl stacked second lines
 // render at every width; FLOWSHEET_TABLE_SX's CSS breakpoints, not a
@@ -40,6 +46,7 @@ const ReadOnlySongEntry = memo(function ReadOnlySongEntry({
   playing: boolean;
   entry: FlowsheetSongEntry;
   timeLabel?: string;
+  /** See `ReadOnlyEntry`'s `showHref`. */
   showHref?: string | null;
   /** The row an archive link named; see EntryRow's `EntryRowAttributesInput`. */
   highlighted?: boolean;
@@ -51,7 +58,8 @@ const ReadOnlySongEntry = memo(function ReadOnlySongEntry({
   albumInfo?: boolean;
 }) {
   const linkRef = useRef<HTMLAnchorElement>(null);
-  const linkHref = typeof showHref === "string" ? showHref : null;
+  const linkHref =
+    typeof showHref === "string" && timeLabel !== undefined ? showHref : null;
   const linked = linkHref !== null;
   const raisesArtwork = linked && entry.discogsUnavailable === true;
   const showName = `${entry.track_title} by ${entry.artist_name}`;
@@ -59,7 +67,8 @@ const ReadOnlySongEntry = memo(function ReadOnlySongEntry({
   // A plain primary click on a raised field stands in for a click on the link.
   // Modified clicks and clicks that end a text selection stay with the field.
   const forwardClick = (event: MouseEvent<HTMLElement>) => {
-    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    if (event.button !== 0) return;
+    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
     if ((window.getSelection()?.toString() ?? "") !== "") return;
     linkRef.current?.click();
   };
@@ -76,7 +85,17 @@ const ReadOnlySongEntry = memo(function ReadOnlySongEntry({
       textColor={entryFieldTextColor(label, playing)}
       cursor={linked ? "pointer" : undefined}
       onClick={linked ? forwardClick : undefined}
-      sx={linked ? { position: "relative", zIndex: RAISED_Z_INDEX, width: "fit-content", maxWidth: "100%" } : undefined}
+      // Only as wide as its text, so a cell's empty space stays on the link.
+      sx={
+        linked
+          ? {
+              position: "relative",
+              zIndex: RAISED_Z_INDEX,
+              width: "fit-content",
+              maxWidth: "100%",
+            }
+          : undefined
+      }
     />
   );
 
@@ -87,7 +106,14 @@ const ReadOnlySongEntry = memo(function ReadOnlySongEntry({
     entry,
     variant: highlighted ? "soft" : playing ? "solid" : "plain",
     color: highlighted ? "danger" : playing ? "primary" : "neutral",
-    style: { height: "60px", borderRadius: "md", ...(linked ? { position: "relative", isolation: "isolate" } : {}) },
+    // A linked row is the overlay's containing block, since Joy's `overlay`
+    // drops the link's own positioning. Isolating it keeps the z-indices below
+    // inside the row, under the table's sticky header.
+    style: {
+      height: "60px",
+      borderRadius: "md",
+      ...(linked ? { position: "relative", isolation: "isolate" } : {}),
+    },
     highlighted,
   });
 
@@ -105,7 +131,13 @@ const ReadOnlySongEntry = memo(function ReadOnlySongEntry({
               underline="none"
               level="body-xs"
               textColor="text.tertiary"
-              aria-label={timeLabel ? `${timeLabel} — see the full show for ${showName}` : `See the full show for ${showName}`}
+              aria-label={
+                timeLabel
+                  ? `${timeLabel} — see the full show for ${showName}`
+                  : `See the full show for ${showName}`
+              }
+              // Joy's overlay `::after` has no z-index, so the positioned
+              // cells after it in the row would paint over it.
               sx={{ "&::after": { zIndex: SHOW_LINK_Z_INDEX } }}
             >
               {timeLabel}
@@ -144,7 +176,15 @@ const ReadOnlySongEntry = memo(function ReadOnlySongEntry({
           <SongEntryStatusChips entry={entry} editable={false} />
         </Stack>
         {albumInfo && (
-          <Box sx={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", zIndex: linked ? RAISED_Z_INDEX : undefined }}>
+          <Box
+            sx={{
+              position: "absolute",
+              right: 8,
+              top: "50%",
+              transform: "translateY(-50%)",
+              zIndex: linked ? RAISED_Z_INDEX : undefined,
+            }}
+          >
             <AlbumInfoButton entry={entry} />
           </Box>
         )}
@@ -216,14 +256,18 @@ function ReadOnlyMessageEntry({
   );
 }
 
-/**
- * `showHref` links a song row's Time cell, so it requires `timeLabel`. Marker
- * rows ignore it. A linked row is not supported while playing: the `row-playing`
- * cells' `clip-path` would confine the overlay to the Time cell.
- */
 type ShowLinkProps =
   | { timeLabel?: string; showHref?: null }
-  | { timeLabel: string; showHref?: string | null };
+  | {
+      timeLabel: string;
+      /**
+       * Links a song row to its show from the Time cell, which is why it
+       * requires `timeLabel`. Marker rows ignore it. Not supported on a
+       * playing row: the `row-playing` cells' `clip-path` would confine the
+       * overlay to the Time cell.
+       */
+      showHref?: string | null;
+    };
 
 /**
  * A read-only flowsheet row (song, talkset, breakpoint, or show marker) whose
