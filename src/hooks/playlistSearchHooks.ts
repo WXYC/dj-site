@@ -172,7 +172,7 @@ function usePlaylistSearchKey() {
     [effectiveQuery, sortBy, sortOrder],
   );
 
-  return { effectiveQuery, isPartialQuery, queryArg };
+  return { effectiveQuery, isPartialQuery, queryArg, sortBy, sortOrder };
 }
 
 /**
@@ -189,8 +189,14 @@ function usePlaylistSearchKey() {
  * listing nobody asked for — but once the listing has been on screen, its pages
  * are worth holding for the rest of the visit.
  */
-export function usePlaylistSearchSubscription(listingVisible: boolean): void {
-  const { queryArg, isPartialQuery } = usePlaylistSearchKey();
+export function usePlaylistSearchSubscription(
+  listingVisible: boolean,
+  { skipChronological = false }: { skipChronological?: boolean } = {},
+): { chronological: boolean } {
+  const { queryArg, isPartialQuery, effectiveQuery, sortBy, sortOrder } =
+    usePlaylistSearchKey();
+  const chronological = isChronologicalMode(effectiveQuery, sortBy, sortOrder);
+  const skip = skipChronological && chronological;
 
   // Null until the listing has actually been on screen, and that null is what
   // gates the request: a permalink opening straight into a show, or into the
@@ -206,8 +212,11 @@ export function usePlaylistSearchSubscription(listingVisible: boolean): void {
   // This keeps the pages, not the place: a partial empties the listing, so the
   // scrollport collapses and the browser clamps the offset to the top before
   // anything can record it. The walk surviving is the expensive half.
+  //
+  // A chronological listing is not held: its pages are the archive stream's,
+  // so latching the default key here would walk the archive a second time.
   const heldArg = useRef<typeof queryArg | null>(null);
-  if (listingVisible && !isPartialQuery) {
+  if (listingVisible && !isPartialQuery && !skip) {
     heldArg.current = queryArg;
   }
 
@@ -217,8 +226,10 @@ export function usePlaylistSearchSubscription(listingVisible: boolean): void {
   // status changes.
   playlistSearchApi.endpoints.searchPlaylists.useInfiniteQuerySubscription(
     heldArg.current ?? queryArg,
-    { skip: heldArg.current === null },
+    { skip: heldArg.current === null || skip },
   );
+
+  return { chronological };
 }
 
 /**
@@ -283,7 +294,9 @@ export function usePlaylistSearchControls() {
   };
 }
 
-export function usePlaylistSearch() {
+export function usePlaylistSearch({
+  skipChronological = false,
+}: { skipChronological?: boolean } = {}) {
   const {
     rows,
     sortBy,
@@ -295,6 +308,10 @@ export function usePlaylistSearch() {
     handleSort,
   } = usePlaylistSearchControls();
   const { effectiveQuery, isPartialQuery, queryArg } = usePlaylistSearchKey();
+  const skip =
+    isPartialQuery ||
+    (skipChronological &&
+      isChronologicalMode(effectiveQuery, sortBy, sortOrder));
 
   // No refetch-on-mount. Freshness is a lifetime here rather than a refetch:
   // the entry is dropped the moment the screen is left (keepUnusedDataFor: 0),
@@ -317,7 +334,7 @@ export function usePlaylistSearch() {
     hasNextPage,
     fetchNextPage,
     refetch,
-  } = useSearchPlaylistsInfiniteQuery(queryArg, { skip: isPartialQuery });
+  } = useSearchPlaylistsInfiniteQuery(queryArg, { skip });
 
   const results = useMemo<PlaylistSearchResult[]>(() => {
     if (!data?.pages?.length) return [];
@@ -397,6 +414,11 @@ export interface UsePlaylistSearchResultsOptions {
    * carries rows instead of an empty table that fills in on hydration.
    */
   initialResults?: readonly PlaylistSearchResult[];
+  /**
+   * Set only by a surface that renders the chronological listing from the
+   * archive stream instead, so the default query is not fetched here.
+   */
+  skipChronological?: boolean;
 }
 
 /**
@@ -411,7 +433,9 @@ export interface UsePlaylistSearchResultsOptions {
 export function usePlaylistSearchResults(
   options: UsePlaylistSearchResultsOptions = {},
 ) {
-  const search = usePlaylistSearch();
+  const search = usePlaylistSearch({
+    skipChronological: options.skipChronological,
+  });
   const { results, effectiveQuery, hasAnswered } = search;
   const initialResults = options.initialResults ?? NO_SEED;
 

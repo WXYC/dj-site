@@ -1,9 +1,10 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { screen } from "@testing-library/react";
 import { renderWithProviders as render } from "@/tests/helpers";
 import type { PlaylistSearchResult } from "@wxyc/shared";
 import Results from "@/src/components/experiences/modern/previous-sets/Results/Results";
 import type { FailedPage } from "@/src/hooks/playlistSearchHooks";
+import { rangeEntry, serveArchive } from "@/tests/fakes/flowsheetRange";
 
 const mockUsePlaylistSearchResults = vi.fn();
 
@@ -41,9 +42,12 @@ function makeResult(id: number): PlaylistSearchResult {
   return { id, ...ROWS[id % ROWS.length] };
 }
 
+// Ranked by default: the chronological listing is its own describe below, and
+// these cases exercise the flat table, which only a non-chronological sort mounts.
 const base = {
-  sortBy: "date" as const,
-  sortOrder: "desc" as const,
+  effectiveQuery: "",
+  sortBy: "artist" as const,
+  sortOrder: "asc" as const,
   handleSort: vi.fn(),
   displayResults: [] as PlaylistSearchResult[],
   total: 0,
@@ -259,7 +263,8 @@ describe("Results (modern previous sets)", () => {
       { field: "dj" as const, header: "DJ" },
     ];
 
-    it.each(SORTABLE)(
+    // Date descending is the chronological listing, which has no Date column.
+    it.each(SORTABLE.filter((column) => column.field !== "date"))(
       "announces a descending $header sort to assistive tech",
       ({ field, header }) => {
         mockUsePlaylistSearchResults.mockReturnValue({
@@ -299,7 +304,7 @@ describe("Results (modern previous sets)", () => {
       mockUsePlaylistSearchResults.mockReturnValue({
         ...base,
         sortBy: "date",
-        sortOrder: "desc",
+        sortOrder: "asc",
         displayResults: [makeResult(0)],
       });
 
@@ -389,6 +394,52 @@ describe("Results (modern previous sets)", () => {
       expect(
         screen.queryByText("Click a track to see the full show."),
       ).toBeNull();
+    });
+  });
+
+  describe("chronological mode", () => {
+    const chronological = {
+      effectiveQuery: "",
+      sortBy: "date" as const,
+      sortOrder: "desc" as const,
+    };
+
+    // Jsdom lays nothing out, so every scroll height reads zero and the
+    // bottom-of-scrollport check would walk the whole archive on its own.
+    beforeEach(() => {
+      Object.defineProperty(Element.prototype, "scrollHeight", {
+        configurable: true,
+        get: () => 100_000,
+      });
+      Object.defineProperty(Element.prototype, "clientHeight", {
+        configurable: true,
+        get: () => 500,
+      });
+    });
+
+    afterEach(() => {
+      delete (Element.prototype as { scrollHeight?: number }).scrollHeight;
+      delete (Element.prototype as { clientHeight?: number }).clientHeight;
+    });
+
+    it("mounts the archive table in place of the ranked table", async () => {
+      const BASE = Date.parse("2026-10-01T18:00:00.000Z");
+      serveArchive(
+        Array.from({ length: 5 }, (_, i) => rangeEntry(800000 + i, BASE - i * 60_000)),
+      );
+      mockUsePlaylistSearchResults.mockReturnValue({ ...base, ...chronological });
+
+      render(<Results />);
+
+      expect(
+        await screen.findByRole("table", { name: "playlist archive" }),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole("table", { name: "playlist search results" }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("columnheader", { name: "Date" }),
+      ).not.toBeInTheDocument();
     });
   });
 });
