@@ -188,6 +188,13 @@ function usePlaylistSearchKey() {
  * straight into a show, or into the week grid, must not spend a request on a
  * listing nobody asked for — but once the listing has been on screen, its pages
  * are worth holding for the rest of the visit.
+ *
+ * `skipChronological`, set by a surface that renders the chronological
+ * default from the archive stream instead, skips this subscription whenever
+ * the settled query is in chronological mode. The returned `chronological`
+ * tells that caller when that is — it already has the sort and query in hand
+ * to compute it, but this is the one place the mode is derived, so a second
+ * computation of it could drift from this one.
  */
 export function usePlaylistSearchSubscription(
   listingVisible: boolean,
@@ -215,8 +222,14 @@ export function usePlaylistSearchSubscription(
   //
   // A chronological listing is not held: its pages are the archive stream's,
   // so latching the default key here would walk the archive a second time.
+  // The skip check runs first and clears the ref outright -- a ranked key
+  // latched before the reader turned the sort to chronological must not
+  // survive the turn, or a later sub-threshold partial (which also blocks
+  // the latch) would resubscribe that stale key instead of finding it empty.
   const heldArg = useRef<typeof queryArg | null>(null);
-  if (listingVisible && !isPartialQuery && !skip) {
+  if (skip) {
+    heldArg.current = null;
+  } else if (listingVisible && !isPartialQuery) {
     heldArg.current = queryArg;
   }
 
@@ -294,6 +307,17 @@ export function usePlaylistSearchControls() {
   };
 }
 
+/**
+ * Rows, sort and the ranked query's results together, subscribed through
+ * `playlistSearchApi`.
+ *
+ * `skipChronological`, set by a surface that renders the chronological
+ * default from the archive stream instead, skips the query here whenever the
+ * settled query is in chronological mode — this hook's own query, not
+ * `usePlaylistSearchSubscription`'s held one, so the two must be given the
+ * same flag by the same caller or they would disagree about whose rows are
+ * on screen.
+ */
 export function usePlaylistSearch({
   skipChronological = false,
 }: { skipChronological?: boolean } = {}) {
