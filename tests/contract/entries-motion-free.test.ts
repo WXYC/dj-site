@@ -12,7 +12,9 @@ import { walkImportGraph } from "@/tests/helpers/import-graph";
  * can't resolve a destination for -- silently reopens that bundle, so the
  * walk fails closed on anything it can't prove static and clean: a banned
  * import, a dynamic import it can't resolve, or a local import (`@/...` or
- * relative) that resolves to no file at all. One parameterized test covers
+ * relative) that resolves to no file at all. ArchiveStreamTable.tsx, the
+ * shared chronological table of read-only rows, is held to the same walk on
+ * the same terms as the row it renders. One parameterized test covers
  * every module in the family rather than a near-identical copy per module,
  * so a new banned specifier only has to be added once.
  */
@@ -26,6 +28,7 @@ const BANNED_LOCAL_SPECIFIERS = [
   "@/src/hooks/authenticationHooks",
   "@/lib/features/bin/api",
   "@/lib/features/lml/api",
+  "@/lib/features/schedule-week/api",
 ];
 
 // Motion's own package entry points, plus the two packages that hold its
@@ -69,6 +72,17 @@ const MODULES = [
     mustContain: [
       "src/components/experiences/modern/flowsheet/Entries/entryPresentation.ts",
       "src/components/experiences/modern/flowsheet/Entries/Components/DateTimeStack.tsx",
+    ],
+  },
+  {
+    name: "ArchiveStreamTable",
+    file: "src/components/experiences/modern/previous-sets/ArchiveStreamTable.tsx",
+    // The shared table reaches the read-only row and the notice it renders
+    // outside its table, and the showUrl helper its row links are built with.
+    mustContain: [
+      "src/components/experiences/modern/flowsheet/Entries/ReadOnly/ReadOnlyEntry.tsx",
+      "src/components/experiences/modern/previous-sets/FailedSearchNotice.tsx",
+      "lib/features/schedule-week/showUrl.ts",
     ],
   },
   {
