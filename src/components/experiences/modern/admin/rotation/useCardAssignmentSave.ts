@@ -58,9 +58,11 @@ const NO_RESULTS: CardMoveResults = new Map();
  *
  * A save belongs to the card it was started against, because the hook's
  * owner can stay mounted while `cardId` changes: its rows keep going to
- * that card, and `progress` and `results` are exposed only while `cardId`
- * is that card -- so `retry`, which reads them, can never move one card's
- * failed rows onto another.
+ * that card. `retry` and the exposed `progress`/`results` share one rule
+ * for which save belongs to the open card, so a retry can never move one
+ * card's failed rows onto another. A caller can rely on `retry` acting on
+ * the save as it stands when it is called, whichever render it was taken
+ * from.
  *
  * `running` covers the writes, not the refetch that follows them.
  */
@@ -72,12 +74,23 @@ export function useCardAssignmentSave(cardId: number) {
   // `running` is a render behind within the tick that starts a run, so a
   // second call in that tick can only be refused on a ref.
   const inFlight = useRef(false);
-  // Kept current every render so `retry` reads the save as it stands when
-  // it is called, not as it stood in the render that produced it.
-  const lastSaveRef = useRef(lastSave);
-  lastSaveRef.current = lastSave;
+  // Every write to the save goes through the ref first, inside `run`, so
+  // `retry` acts on the save as it stands when called -- whichever render
+  // produced it, and whether or not a render has happened since the last
+  // row settled.
+  const lastSaveRef = useRef<CardSave | null>(null);
 
-  const shown = lastSave?.cardId === cardId ? lastSave : null;
+  const writeSave = (
+    update: CardSave | null | ((prev: CardSave | null) => CardSave | null),
+  ) => {
+    const next = typeof update === "function" ? update(lastSaveRef.current) : update;
+    lastSaveRef.current = next;
+    setLastSave(next);
+  };
+
+  const saveForCard = (save: CardSave | null) => (save?.cardId === cardId ? save : null);
+
+  const shown = saveForCard(lastSave);
   const progress = { done: shown?.done ?? 0, total: shown?.total ?? 0 };
   const results = shown?.results ?? NO_RESULTS;
 
@@ -89,7 +102,7 @@ export function useCardAssignmentSave(cardId: number) {
     if (rotationIds.length === 0) return { moved: [], failed: [], notAttempted: [] };
     inFlight.current = true;
     setRunning(true);
-    setLastSave({
+    writeSave({
       cardId,
       order: rotationIds,
       done: 0,
@@ -101,7 +114,7 @@ export function useCardAssignmentSave(cardId: number) {
         rotationIds,
         (rotationId) => moveRotationRowToCard({ rotation_id: rotationId, card_id: cardId }).unwrap(),
         (rotationId, outcome) =>
-          setLastSave(
+          writeSave(
             (prev) =>
               prev && {
                 ...prev,
@@ -114,7 +127,7 @@ export function useCardAssignmentSave(cardId: number) {
           ),
         ({ failed, notAttempted }) => {
           if (notAttempted.length > 0) {
-            setLastSave(
+            writeSave(
               (prev) =>
                 prev && {
                   ...prev,
@@ -140,10 +153,11 @@ export function useCardAssignmentSave(cardId: number) {
   const save = (rotationIds: readonly number[]) => run([...new Set(rotationIds)], NO_RESULTS);
 
   const retry = () => {
-    const current = lastSaveRef.current?.cardId === cardId ? lastSaveRef.current : null;
+    const current = saveForCard(lastSaveRef.current);
+    if (!current) return run([], NO_RESULTS);
     return run(
-      (current?.order ?? []).filter((rotationId) => !current?.results.get(rotationId)?.ok),
-      current?.results ?? NO_RESULTS,
+      current.order.filter((rotationId) => !current.results.get(rotationId)?.ok),
+      current.results,
     );
   };
 

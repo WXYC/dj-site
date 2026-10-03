@@ -202,8 +202,8 @@ describe("useCardAssignmentSave", () => {
     });
     await handler.releaseOnceRequested(900);
     await waitFor(() => expect(result.current.progress).toEqual({ done: 1, total: 3 }));
-    // Held while 901 and 902 are still in flight: a render taken here has
-    // not yet seen either settle.
+    // Held while 901 is in flight and 902 not yet sent: a render taken here
+    // has not yet seen either settle.
     const heldRetry = result.current.retry;
 
     await handler.releaseOnceRequested(901);
@@ -503,10 +503,8 @@ describe("useCardAssignmentSave", () => {
       });
     });
 
-    // The two refetch specs above only cover a batch that ran to the end.
-    // This one stops after three consecutive failures and must be refetched
-    // exactly the same way: the failure crosses the threshold, but it is
-    // still a failure, and `settle` still fires exactly once.
+    // A batch that stops is still a failure, so `status=all` is re-served
+    // and `settle` fires once.
     it("refetches the cards read and the list facet once, and re-serves the status=all read once, when the batch stops", async () => {
       const handler = installGatedCardMoveHandler();
       handler.failFor([901, 902, 903]);
