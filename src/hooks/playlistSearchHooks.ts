@@ -192,9 +192,10 @@ function usePlaylistSearchKey() {
  * `skipChronological`, set by a surface that renders the chronological
  * default from the archive stream instead, skips this subscription whenever
  * the settled query is in chronological mode. The returned `chronological`
- * tells that caller when that is — it already has the sort and query in hand
- * to compute it, but this is the one place the mode is derived, so a second
- * computation of it could drift from this one.
+ * tells that caller when that is, read off this hook's own settled key: the
+ * surface holds neither the query nor the sort. `Results` derives the mode
+ * from its own settled key, so the two can disagree for a render while a
+ * query settles.
  */
 export function usePlaylistSearchSubscription(
   listingVisible: boolean,
