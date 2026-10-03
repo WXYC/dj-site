@@ -27,21 +27,16 @@
  * `code_number` and `code_volume_letters` come off `library`.
  */
 
-/**
- * `GenreId.ROCK`. Hardcoded rather than resolved by name, matching
- * `chooserValidation.isRockCompLettersRequired`, which hardcodes the same id
- * for the same reason: the JSPs branch on the id, and a genre rename upstream
- * must not silently change how a shelf code renders.
- */
-const ROCK_GENRE_ID = 11;
+import { isRockCompLettersRequired } from "./chooserValidation";
 
 /**
- * `GenreId.SOUNDTRACKS`. Hardcoded rather than resolved by name, matching
- * `chooserValidation.isRockCompLettersRequired`, which hardcodes the same id
- * for the same reason: the JSPs branch on the id, and a genre rename upstream
- * must not silently change how a shelf code renders.
+ * `GenreId.ROCK`. Hardcoded rather than resolved by name, matching
+ * `chooserValidation.isRockCompLettersRequired` (which owns the Rock +
+ * Soundtracks pair of genres that carry a sub-bucket letter) for the same
+ * reason: the JSPs branch on the id, and a genre rename upstream must not
+ * silently change how a shelf code renders.
  */
-const SOUNDTRACKS_GENRE_ID = 12;
+const ROCK_GENRE_ID = 11;
 
 export type ArtistCodeParts = {
   code_letters: string;
@@ -215,17 +210,11 @@ export function formatArtistCodeWithPunctuation({
     // which this screen shows in its heading, so the sub-bucket stays legible
     // to a librarian; it is simply not recoverable from the code, and digging
     // it back out of the name is the name-matching this file exists to avoid.
-    const subBucketLetter =
-      trimmed.startsWith("Z-") && (genre_id === ROCK_GENRE_ID || genre_id === SOUNDTRACKS_GENRE_ID)
-        ? trimmed.substring(2, 3)
-        : null;
-    const bucket =
-      subBucketLetter === null
-        ? VARIOUS_ARTISTS_CODE_LETTERS
-        : genre_id === ROCK_GENRE_ID
-          ? `${VARIOUS_ARTISTS_CODE_LETTERS} ${subBucketLetter}`
-          : subBucketLetter;
-    return `${bucket}-`;
+    if (trimmed.startsWith("Z-") && isRockCompLettersRequired(genre_id ?? null)) {
+      const letter = trimmed.substring(2, 3);
+      return genre_id === ROCK_GENRE_ID ? `${VARIOUS_ARTISTS_CODE_LETTERS} ${letter}-` : `${letter}-`;
+    }
+    return `${VARIOUS_ARTISTS_CODE_LETTERS}-`;
   }
   // The named-artist form is the same string the no-punctuation getter
   // renders, which is how the Java relates the two -- delegated so the pair
