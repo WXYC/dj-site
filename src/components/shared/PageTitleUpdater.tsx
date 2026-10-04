@@ -10,7 +10,6 @@ import { getPageTitle } from "@/lib/utils/page-title";
 // one writer per route — adding a route here that also renders PageHeader
 // reintroduces the race this map was trimmed to remove (#640 follow-up).
 const PATH_TO_TITLE: Record<string, string> = {
-  "/live": "Listen Live",
   "/login": "Login",
   "/onboarding": "Onboarding",
 };
