@@ -8,6 +8,7 @@ import {
   sortRosterForDisplay,
 } from "@/lib/features/admin/roster-filter";
 import { Authorization } from "@/lib/features/admin/types";
+import { CHARSET_TORTURE_ENTRIES } from "@/tests/fixtures/charset-torture";
 import { createTestAccountResult } from "@/tests/fixtures/fixtures";
 
 const juana = createTestAccountResult({
@@ -42,9 +43,32 @@ describe("foldForSearch", () => {
     ["Nilüfer", "nilufer"],
     ["Hermanos Gutiérrez", "hermanos gutierrez"],
     ["CSILLAGRABLÓK", "csillagrablok"],
+    ["Røyksopp", "royksopp"],
+    ["Straße", "strasse"],
+    ["Kælan Mikla", "kaelan mikla"],
+    ["Cœur de pirate", "coeur de pirate"],
+    ["Đặng Thái Sơn", "dang thai son"],
+    ["Hildur Guðnadóttir", "hildur gudnadottir"],
+    ["Þeyr", "theyr"],
+    ["Ħ Ŧ Ŋ Ŀ", "h t n l"],
   ])("folds %s to %s", (input, expected) => {
     expect(foldForSearch(input)).toBe(expected);
   });
+
+  const latinExtended = CHARSET_TORTURE_ENTRIES.filter((e) => e.category === "latin_extended");
+
+  // An empty table registers no tests, so a renamed corpus category would
+  // silently drop the ł and ı cases below.
+  it("finds the corpus's latin_extended entries", () => {
+    expect(latinExtended.map((e) => e.input)).toContain("Łukasz");
+  });
+
+  it.each(latinExtended.map((e) => [e.input, e.expected_ascii_form] as const))(
+    "folds corpus entry %s to %s",
+    (input, expected) => {
+      expect(foldForSearch(input)).toBe(expected);
+    },
+  );
 });
 
 describe("accountMatchesSearch", () => {
