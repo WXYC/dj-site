@@ -2,7 +2,8 @@
 
 import { useGetOpenShowsQuery } from "@/lib/features/flowsheet/api";
 import type { OpenShow } from "@/lib/features/flowsheet/types";
-import { Alert, Button, Chip, Sheet, Stack, Table, Typography } from "@mui/joy";
+import ReadRetryAlert from "@/src/components/experiences/modern/admin/ReadRetryAlert";
+import { Button, Chip, Sheet, Stack, Table, Typography } from "@mui/joy";
 import { useState } from "react";
 import ForceEndDialog from "./ForceEndDialog";
 
@@ -27,18 +28,11 @@ export default function OpenShowsTable() {
   // report the cleanup as done.
   if (isError) {
     return (
-      <Alert color="danger" sx={{ m: 2, justifyContent: "space-between" }}>
-        <Typography>Could not load the open shows list.</Typography>
-        <Button
-          variant="outlined"
-          color="danger"
-          size="sm"
-          loading={isFetching}
-          onClick={() => void refetch()}
-        >
-          Retry
-        </Button>
-      </Alert>
+      <ReadRetryAlert
+        message="Could not load the open shows list."
+        onRetry={() => void refetch()}
+        sx={{ m: 2 }}
+      />
     );
   }
 

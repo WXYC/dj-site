@@ -17,7 +17,8 @@ import type {
 import { ROTATION_BIN_LABELS, type RotationListRow } from "@/lib/features/rotation/types";
 import { rotationWriteErrorMessage } from "@/lib/features/rotation/writeErrorMessage";
 import ConfirmDialog from "@/src/components/experiences/modern/ConfirmDialog";
-import { Alert, Button, Checkbox, Input, LinearProgress, Stack, Typography } from "@mui/joy";
+import ReadRetryAlert from "@/src/components/experiences/modern/admin/ReadRetryAlert";
+import { Button, Checkbox, Input, LinearProgress, Stack, Typography } from "@mui/joy";
 import { useCardAssignmentSave } from "./useCardAssignmentSave";
 
 export type CardAssignmentPanelProps = {
@@ -287,12 +288,11 @@ export default function CardAssignmentPanel({
         </Typography>
       )}
       {isError && (
-        <Alert color="danger" sx={{ justifyContent: "space-between", mb: 1 }}>
-          <Typography>Could not load the rotation list.</Typography>
-          <Button variant="outlined" color="danger" size="sm" onClick={() => void refetch()}>
-            Retry
-          </Button>
-        </Alert>
+        <ReadRetryAlert
+          message="Could not load the rotation list."
+          onRetry={() => void refetch()}
+          sx={{ mb: 1 }}
+        />
       )}
       {data == null ? (
         !isError && <LinearProgress aria-label="Loading rotation" />

@@ -28,11 +28,11 @@ import {
 } from "@/lib/features/rotation/types";
 import { rotationWriteErrorMessage } from "@/lib/features/rotation/writeErrorMessage";
 import { isUnmessagedHttpError } from "@/lib/rtk-query-error-logger";
+import ReadRetryAlert from "@/src/components/experiences/modern/admin/ReadRetryAlert";
 import { RotationCardBadge } from "@/src/components/shared/RotationCardBadge";
 import CardAssignmentPanel from "./CardAssignmentPanel";
 import { Add, Close } from "@mui/icons-material";
 import {
-  Alert,
   Box,
   Button,
   IconButton,
@@ -235,7 +235,7 @@ function CardRow({
  * `onClose` and by a fresh `onAssign`.
  */
 export default function CardsManager(): JSX.Element {
-  const { data: cards, isFetching, isError, refetch } = useGetRotationCardsQuery();
+  const { data: cards, isError, refetch } = useGetRotationCardsQuery();
   // The panel's own cache entry: `status=active`, never `status=all`.
   const list = useGetRotationListQuery("active");
   const [addRotationCard] = useAddRotationCardMutation();
@@ -332,18 +332,7 @@ export default function CardsManager(): JSX.Element {
   // query-fed grid must never render an outage as "there are none".
   if (isError && cards == null) {
     return (
-      <Alert color="danger" sx={{ justifyContent: "space-between" }}>
-        <Typography>Could not load the rotation cards.</Typography>
-        <Button
-          variant="outlined"
-          color="danger"
-          size="sm"
-          loading={isFetching}
-          onClick={() => void refetch()}
-        >
-          Retry
-        </Button>
-      </Alert>
+      <ReadRetryAlert message="Could not load the rotation cards." onRetry={() => void refetch()} />
     );
   }
   if (cards == null) return <LinearProgress aria-label="Loading rotation cards" />;
@@ -358,18 +347,11 @@ export default function CardsManager(): JSX.Element {
       }}
     >
       {list.isError && list.data == null && (
-        <Alert color="danger" sx={{ gridColumn: "1 / -1", justifyContent: "space-between" }}>
-          <Typography>Couldn't load the records on these cards.</Typography>
-          <Button
-            variant="outlined"
-            color="danger"
-            size="sm"
-            loading={list.isFetching}
-            onClick={() => void list.refetch()}
-          >
-            Retry
-          </Button>
-        </Alert>
+        <ReadRetryAlert
+          message="Couldn't load the records on these cards."
+          onRetry={() => void list.refetch()}
+          sx={{ gridColumn: "1 / -1" }}
+        />
       )}
       {ROTATION_BINS.map((bin) => {
         const binCards = cardsByBin.get(bin) ?? [];
