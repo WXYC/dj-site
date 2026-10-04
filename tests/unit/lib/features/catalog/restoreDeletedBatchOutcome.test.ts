@@ -171,6 +171,13 @@ describe("interpretRestoreError — missing_reference", () => {
     expect(outcome.message).not.toMatch(/its own artist/);
   });
 
+  it("names a ripped_by reference as a DJ account", () => {
+    const outcome = interpretRestoreError(wrapped(409, body("auth_user", "digital_asset", "ripped_by")));
+
+    expect(outcome.message).toBe(RESTORE_MISSING_REFERENCE_MESSAGES["digital_asset.ripped_by"]);
+    expect(outcome.message).toMatch(/a DJ account it refers to/);
+  });
+
   it("falls back to generic wording for a reference it has no plain name for", () => {
     const outcome = interpretRestoreError(wrapped(409, body("something_new", "library", "something_new")));
 
@@ -181,19 +188,31 @@ describe("interpretRestoreError — missing_reference", () => {
 });
 
 describe("describeRestoreDeviations", () => {
-  const dev = (kind: "nulled" | "dropped", table: string) => ({
+  const dev = (kind: "nulled" | "dropped", table: string, captured_value = "9") => ({
     kind,
     table,
     row_id: 1,
     column: kind === "nulled" ? "card_id" : null,
-    captured_value: "9",
+    captured_value,
   });
 
   it.each([
     [[dev("dropped", "bins")], ["1 bin entry was left out because that DJ's account was removed."]],
     [
       [dev("dropped", "bins"), dev("dropped", "bins")],
+      ["2 bin entries were left out because that DJ's account was removed."],
+    ],
+    [
+      [dev("dropped", "bins", "user-1"), dev("dropped", "bins", "user-2")],
       ["2 bin entries were left out because the DJs' accounts were removed."],
+    ],
+    [
+      [dev("dropped", "bins", "user-1"), dev("dropped", "bins", "user-1"), dev("dropped", "bins", "user-2")],
+      ["3 bin entries were left out because the DJs' accounts were removed."],
+    ],
+    [
+      [dev("nulled", "other_table"), dev("nulled", "another_table")],
+      ["2 records came back with a reference left blank."],
     ],
     [
       [dev("nulled", "compilation_track_artist")],
