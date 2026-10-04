@@ -140,12 +140,12 @@ describe("restoreAnsweredWithoutWriting", () => {
 });
 
 describe("interpretRestoreError — missing_reference", () => {
-  const body = (target_table: string) => ({
+  const body = (target_table: string, table = "library", column = "artist_id") => ({
     message: "Cannot restore: a record this release depends on was deleted.",
     reason: "missing_reference",
-    table: "library",
+    table,
     row_id: 53375,
-    column: "artist_id",
+    column,
     target_table,
     captured_value: "812",
   });
@@ -155,14 +155,24 @@ describe("interpretRestoreError — missing_reference", () => {
 
     expect(outcome.reason).toBe("missing_reference");
     expect(outcome.retryable).toBe(false);
-    expect(outcome.message).toBe(RESTORE_MISSING_REFERENCE_MESSAGES.artists);
-    expect(outcome.message).toMatch(/its artist/);
+    expect(outcome.message).toBe(RESTORE_MISSING_REFERENCE_MESSAGES["library.artist_id"]);
+    expect(outcome.message).toMatch(/its own artist/);
     expect(outcome.message).toMatch(/permanent/);
     expect(outcome.message).not.toMatch(/812|53375/);
   });
 
-  it("falls back to generic wording for a target table it has no plain name for", () => {
-    const outcome = interpretRestoreError(wrapped(409, body("something_new")));
+  it("says a cross-referenced artist was deleted, not the release's own artist", () => {
+    const outcome = interpretRestoreError(
+      wrapped(409, { ...body("artists", "artist_library_crossreference", "artist_id"), row_id: null }),
+    );
+
+    expect(outcome.reason).toBe("missing_reference");
+    expect(outcome.message).toMatch(/cross-referenced under/);
+    expect(outcome.message).not.toMatch(/its own artist/);
+  });
+
+  it("falls back to generic wording for a reference it has no plain name for", () => {
+    const outcome = interpretRestoreError(wrapped(409, body("something_new", "library", "something_new")));
 
     expect(outcome.reason).toBe("missing_reference");
     expect(outcome.retryable).toBe(false);
@@ -183,15 +193,23 @@ describe("describeRestoreDeviations", () => {
     [[dev("dropped", "bins")], ["1 bin entry was left out because that DJ's account was removed."]],
     [
       [dev("dropped", "bins"), dev("dropped", "bins")],
-      ["2 bin entries were left out because that DJ's account was removed."],
+      ["2 bin entries were left out because the DJs' accounts were removed."],
+    ],
+    [
+      [dev("nulled", "compilation_track_artist")],
+      ["1 compilation track came back without its track artist link."],
+    ],
+    [
+      [dev("nulled", "compilation_track_artist"), dev("nulled", "compilation_track_artist")],
+      ["2 compilation tracks came back without their track artist links."],
     ],
     [[dev("nulled", "rotation")], ["1 rotation entry came back without its card filing."]],
     [
       [dev("nulled", "rotation"), dev("nulled", "rotation"), dev("nulled", "rotation")],
       ["3 rotation entries came back without their card filing."],
     ],
-    [[dev("nulled", "other_table")], ["1 other_table row came back with a reference left blank."]],
-    [[dev("dropped", "other_table")], ["1 other_table row was left out because a record it depended on was gone."]],
+    [[dev("nulled", "other_table")], ["1 record came back with a reference left blank."]],
+    [[dev("dropped", "other_table")], ["1 record was left out because a record it depended on was gone."]],
     [[], []],
     [undefined, []],
   ])("describes %j", (deviations, expected) => {

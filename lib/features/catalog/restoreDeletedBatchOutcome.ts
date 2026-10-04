@@ -11,7 +11,9 @@ import {
  * the endpoint raises routinely is named: the stale-listing 409
  * (`unrestorable_kind`), the reissued-code refusal (`resolution_required`),
  * which stays unresolved here because no resolution UI exists on this screen,
- * the idempotency 409 (`already_restored`), and the lock stand-down.
+ * the idempotency 409 (`already_restored`), the permanent 409 for a record
+ * deleted after the release that references it (`missing_reference`), and the
+ * lock stand-down.
  *
  * `already_restored` is named rather than collapsed for the same reason the
  * others are: it is the ordinary second press, not an edge case. No field on
@@ -61,14 +63,18 @@ export const RESTORE_ALREADY_RESTORED_MESSAGE =
 /**
  * The 409 for a restored row whose `NO ACTION` reference points at a record
  * deleted afterwards. Permanent today: no endpoint puts the record back under
- * its old id. Keyed by the body's `target_table`; ids and names are never shown.
+ * its old id. Keyed by the body's reference, `table.column`, not `target_table`:
+ * two references point at `artists` (the release's own artist, and an artist it
+ * is cross-referenced under) and name different things. Ids and names are never
+ * shown.
  */
 const missingReferenceMessage = (dependency: string) =>
   `This release cannot be restored: ${dependency} was deleted after it. This is permanent, not retryable.`;
 
 export const RESTORE_MISSING_REFERENCE_MESSAGES: Record<string, string> = {
-  artists: missingReferenceMessage("its artist"),
-  auth_user: missingReferenceMessage("a DJ account it refers to"),
+  "library.artist_id": missingReferenceMessage("its own artist"),
+  "artist_library_crossreference.artist_id": missingReferenceMessage("an artist it is cross-referenced under"),
+  "digital_asset.ripped_by": missingReferenceMessage("a DJ account it refers to"),
 };
 
 const RESTORE_MISSING_REFERENCE_FALLBACK_MESSAGE = missingReferenceMessage("a record it depends on");
@@ -145,11 +151,13 @@ export function interpretRestoreError(err: unknown): RestoreRefusal {
     };
   }
   if (status === 409 && reason === "missing_reference") {
-    const targetTable = (data as { target_table?: unknown }).target_table;
+    const { table, column } = data as { table?: unknown; column?: unknown };
     return {
       reason: "missing_reference",
       message:
-        (typeof targetTable === "string" && RESTORE_MISSING_REFERENCE_MESSAGES[targetTable]) ||
+        (typeof table === "string" &&
+          typeof column === "string" &&
+          RESTORE_MISSING_REFERENCE_MESSAGES[`${table}.${column}`]) ||
         RESTORE_MISSING_REFERENCE_FALLBACK_MESSAGE,
       retryable: false,
     };
@@ -173,7 +181,13 @@ const DEVIATION_WORDING: Record<string, Partial<Record<RestoreDeviation["kind"],
   bins: {
     dropped: {
       one: "bin entry was left out because that DJ's account was removed",
-      many: "bin entries were left out because that DJ's account was removed",
+      many: "bin entries were left out because the DJs' accounts were removed",
+    },
+  },
+  compilation_track_artist: {
+    nulled: {
+      one: "compilation track came back without its track artist link",
+      many: "compilation tracks came back without their track artist links",
     },
   },
   rotation: {
@@ -184,15 +198,16 @@ const DEVIATION_WORDING: Record<string, Partial<Record<RestoreDeviation["kind"],
   },
 };
 
-const genericWording = (kind: RestoreDeviation["kind"], table: string): DeviationWording =>
+/** For a table with no plain name above. Never interpolates the table: a raw identifier means nothing to a librarian. */
+const genericWording = (kind: RestoreDeviation["kind"]): DeviationWording =>
   kind === "dropped"
     ? {
-        one: `${table} row was left out because a record it depended on was gone`,
-        many: `${table} rows were left out because a record they depended on was gone`,
+        one: "record was left out because a record it depended on was gone",
+        many: "records were left out because a record they depended on was gone",
       }
     : {
-        one: `${table} row came back with a reference left blank`,
-        many: `${table} rows came back with a reference left blank`,
+        one: "record came back with a reference left blank",
+        many: "records came back with a reference left blank",
       };
 
 /**
@@ -210,7 +225,7 @@ export function describeRestoreDeviations(deviations: RestoreDeviation[] | undef
     groups.set(key, group);
   }
   return [...groups.values()].map(({ kind, table, count }) => {
-    const wording = DEVIATION_WORDING[table]?.[kind] ?? genericWording(kind, table);
+    const wording = DEVIATION_WORDING[table]?.[kind] ?? genericWording(kind);
     return `${count} ${count === 1 ? wording.one : wording.many}.`;
   });
 }

@@ -80,8 +80,8 @@ function RestoreRefusalNotice({ children }: { children: string }) {
  * replaces with a searchable, paged, permanent record.
  *
  * Restore only ever succeeds when the card's original call-code slot is still
- * free. A taken slot, an already-restored batch, and a kind with no restore
- * plan all render as a readable refusal in place of the row's Restore button
+ * free. A taken slot, an already-restored batch, a kind with no restore
+ * plan, and a record deleted after the release all render as a readable refusal in place of the row's Restore button
  * — `restoreDeletedBatchOutcome.ts` owns the wording — never a silent failure
  * or a relocated card nobody asked to relocate. Offering a free code instead
  * of reporting the conflict is deliberately not this screen's job.
@@ -116,7 +116,7 @@ export default function DeletedArchiveListing() {
     setOutcomes(({ [batchId]: _cleared, ...rest }) => rest);
     try {
       const restored = await restoreBatch({ batchId }).unwrap();
-      const notes = describeRestoreDeviations(restored.entities?.flatMap((e) => e.deviations ?? []));
+      const notes = describeRestoreDeviations(restored.entities.flatMap((e) => e.deviations ?? []));
       setOutcomes((prev) => ({ ...prev, [batchId]: { kind: "restored", notes } }));
     } catch (err) {
       setOutcomes((prev) => ({
