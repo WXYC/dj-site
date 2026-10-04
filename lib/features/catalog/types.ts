@@ -906,5 +906,5 @@ export type RestoreDeviation = {
  */
 export type RestoreBatchResponse = {
   batch_id: string;
-  entities?: { deviations?: RestoreDeviation[] }[];
+  entities: { deviations?: RestoreDeviation[] }[];
 };

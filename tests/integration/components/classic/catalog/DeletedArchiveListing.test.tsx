@@ -171,7 +171,7 @@ describe("classic Recently Deleted listing — /dashboard/library/deleted", () =
     const batch = restorableBatch();
     mockListing([batch]);
     server.use(
-      http.post(restoreUrl(batch.batch_id), () => HttpResponse.json({ batch_id: batch.batch_id })),
+      http.post(restoreUrl(batch.batch_id), () => HttpResponse.json({ batch_id: batch.batch_id, entities: [] })),
     );
 
     renderWithProviders(<DeletedArchiveListing />);
@@ -251,7 +251,7 @@ describe("classic Recently Deleted listing — /dashboard/library/deleted", () =
     await clickRestore();
 
     const cell = await screen.findByTestId("deleted-archive-restore-cell");
-    expect(within(cell).getByRole("alert").textContent).toMatch(/its artist.*permanent/);
+    expect(within(cell).getByRole("alert").textContent).toMatch(/its own artist.*permanent/);
     expect(within(cell).queryByRole("button", { name: "Restore" })).toBeNull();
   });
 
