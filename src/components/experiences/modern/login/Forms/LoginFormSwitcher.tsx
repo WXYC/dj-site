@@ -32,14 +32,15 @@ export default function LoginFormSwitcher({
   useLayoutEffect(() => {
     if (hasSyncedRef.current) return;
     hasSyncedRef.current = true;
-    // ?signup=1 arrives from a /login?signup=1 link (the classic form emits
-    // one), and this is the only place the modern tree reads it. Flag off keeps the
-    // param inert — same rule as ClassicLoginSlotSwitcher. Not a sign-in
-    // method: never saved as the preferred login method, and one-shot so
-    // "Back to sign in" isn't fought after it clears the param. Reset links
-    // never reach here — LoginSlotSwitcher routes ?token=/?error= to the
-    // reset slot before this mounts — so reset still wins over a stray
-    // signup param.
+    // ?signup=1 reaches the modern tree only from a typed or shared
+    // /login?signup=1 URL (the classic form's link is consumed by
+    // ClassicLoginSlotSwitcher), and this is the only place the modern tree
+    // reads it. Flag off keeps the param inert — same rule as
+    // ClassicLoginSlotSwitcher. Not a sign-in method: never saved as the
+    // preferred login method, and one-shot so "Back to sign in" isn't fought
+    // after it clears the param. Reset links never reach here —
+    // LoginSlotSwitcher routes ?token=/?error= to the reset slot before this
+    // mounts — so reset still wins over a stray signup param.
     if (isStationSignupEnabled() && hasSignupParam(searchParams)) {
       if (authStage !== "signup") {
         dispatch(applicationSlice.actions.setAuthStage("signup"));
