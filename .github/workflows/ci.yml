@@ -527,7 +527,9 @@ jobs:
         env:
           DEPLOY_URL: ${{ steps.deploy.outputs.deployment_url }}
         run: |
-          PROBE_URL="${DEPLOY_URL%/}/"
+          # /login, not /: the root only redirects, so a 3xx there proves the
+          # worker booted but never exercises a page render.
+          PROBE_URL="${DEPLOY_URL%/}/login"
           echo "Probing ${PROBE_URL}"
 
           # A Direct-Upload deployment is not instantly live: the new
@@ -550,8 +552,8 @@ jobs:
           echo "Preview ${PROBE_URL} returned HTTP ${HTTP_CODE}"
           echo "http_code=${HTTP_CODE}" >> "$GITHUB_OUTPUT"
 
-          # 2xx and 3xx are success. 401/403 are expected for auth-gated routes
-          # — `/` may redirect through middleware; treat them as success too.
+          # 2xx and 3xx are success. 401/403 are expected for auth-gated routes;
+          # treat them as success too.
           # Any 5xx is the failure mode we are guarding against. Any other 4xx
           # or a network failure (000) is unexpected enough to flag.
           case "$HTTP_CODE" in
@@ -631,7 +633,7 @@ jobs:
           elif printf '%s' "$HTTP_CODE" | grep -qE '^(2|3|401|403)'; then
             BODY="Preview fold check failed: \`POST /auth/sign-out\` at ${DEPLOY_URL} returned \`${SETCOOKIE_COUNT:-no}\` Set-Cookie header(s) (status: \`${SIGNOUT_STATUS:-unknown}\`), expected 3. Multiple Set-Cookie headers are being folded into one (opennextjs-cloudflare#501) — the regression \`app/auth/[...path]/route.ts\` fixes. See the workflow run: ${RUN_URL}."
           else
-            BODY="Preview smoke check failed: ${DEPLOY_URL}/ returned HTTP \`${HTTP_CODE}\`. A 5xx response usually means the Cloudflare worker failed at boot — see the workflow run: ${RUN_URL}. Merging is blocked until the preview URL returns a non-5xx response."
+            BODY="Preview smoke check failed: ${DEPLOY_URL}/login returned HTTP \`${HTTP_CODE}\`. A 5xx response usually means the Cloudflare worker failed at boot — see the workflow run: ${RUN_URL}. Merging is blocked until the preview URL returns a non-5xx response."
           fi
 
           gh pr comment "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --body "$BODY"

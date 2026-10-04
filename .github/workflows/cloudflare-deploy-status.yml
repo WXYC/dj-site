@@ -56,10 +56,11 @@ jobs:
           # Cloudflare reports `success` when the BUILD succeeded, not when the
           # worker actually serves traffic. The 2026-06-03 outage shipped a build
           # that compiled fine but 500'd on every request. Add a runtime smoke
-          # check: GET / and treat 5xx (or unexpected non-2xx/3xx outside of the
-          # auth-gated 401/403) as a deployment failure. Use --write-out to
-          # surface the code without -f, which would crash the step on 4xx/5xx.
-          HTTP_CODE=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 30 https://dj.wxyc.org/ || true)
+          # check: GET /login and treat 5xx (or unexpected non-2xx/3xx outside of
+          # the auth-gated 401/403) as a deployment failure. Not GET /: the root
+          # only redirects, so it never exercises a page render. Use --write-out
+          # to surface the code without -f, which would crash the step on 4xx/5xx.
+          HTTP_CODE=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 30 https://dj.wxyc.org/login || true)
 
           if [ -z "$HTTP_CODE" ]; then
             HTTP_CODE="000"
@@ -115,7 +116,7 @@ jobs:
           BODY="The latest production deployment to Cloudflare Pages is unhealthy.
 
           - **Cloudflare build status:** ${CF_STATUS}
-          - **Runtime smoke check (GET https://dj.wxyc.org/):** HTTP ${HTTP_CODE}
+          - **Runtime smoke check (GET https://dj.wxyc.org/login):** HTTP ${HTTP_CODE}
           - **Commit:** ${COMMIT_SHA} (${COMMIT_MSG})
           - **Deployment ID:** ${DEPLOY_ID}
           - **Dashboard:** https://dash.cloudflare.com/${{ vars.CLOUDFLARE_ACCOUNT_ID }}/pages/view/wxyc-dj/${DEPLOY_ID}
