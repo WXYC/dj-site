@@ -126,6 +126,12 @@ describe("narrowCardAssignmentRows", () => {
     rotation_id: 904,
     card: CARD_3,
   });
+  const LUKASZ_HERE = createTestRotationListRow({
+    rotation_id: 905,
+    artist_name: "Łukasz",
+    album_title: "Sample Record",
+    card: CARD_3,
+  });
   const ROWS = [ON_CARD_1, NILUFER_HERE, UNCARDED, STEREOLAB_HOLOGRAMS_HERE];
 
   it("splits a bin's rows into here and elsewhere with neither filter active", () => {
@@ -148,8 +154,9 @@ describe("narrowCardAssignmentRows", () => {
     ["a title query", "dots", [903]],
     ["a two-word query across artist and title", "stereolab holograms", [904]],
     ["a diacritic-insensitive query", "nilufer", [902]],
+    ["a query for a letter NFD cannot decompose", "lukasz", [905]],
   ] as const)("narrows through the shared matcher: %s", (_label, search, expected) => {
-    const { here, elsewhere } = narrowCardAssignmentRows(ROWS, CARD_3, { ...none, search });
+    const { here, elsewhere } = narrowCardAssignmentRows([...ROWS, LUKASZ_HERE], CARD_3, { ...none, search });
     expect(ids([...here, ...elsewhere])).toEqual([...expected]);
   });
 

@@ -138,6 +138,14 @@ describe("selectRotationAdminView", () => {
     rotation_kill_date: "2026-09-01",
     card: { id: 21, bin: RotationBin.M, number: 1, name: null },
   });
+  const LUKASZ = createTestRotationListRow({
+    rotation_id: 5007,
+    id: 9007,
+    artist_name: "Łukasz",
+    album_title: "Sample Record",
+    code_letters: "LU",
+    rotation_add_date: "2026-08-20",
+  });
   const ALL = [IHOMF, NILUFER, HALO, CHUQUI, DOTS_KILLED];
   const none = { search: "", bin: null, cardId: null };
 
@@ -166,11 +174,12 @@ describe("selectRotationAdminView", () => {
   it.each([
     ["case-insensitively by artist", "stereolab", [5001], [5005]],
     ["diacritic-insensitively", "nilufer", [5002], []],
+    ["a letter NFD cannot decompose", "lukasz", [5007], []],
     ["by album title", "halo", [5003], []],
     ["by shelf code", "SL 1/3", [5001], []],
     ["with terms matched independently across fields", "stereolab dots", [], [5005]],
   ])("searches %s", (_name, search, activeIds, killedIds) => {
-    const view = selectRotationAdminView(ALL, { ...none, search });
+    const view = selectRotationAdminView([...ALL, LUKASZ], { ...none, search });
     expect(view.active.map((r) => r.rotation_id)).toEqual(activeIds);
     expect(view.killed.map((r) => r.rotation_id)).toEqual(killedIds);
     expect(view.narrowed).toBe(true);

@@ -11,15 +11,41 @@ import { Account, Authorization } from "./types";
 
 const COMBINING_MARKS = /\p{Diacritic}/gu;
 
+const UNDECOMPOSED_LETTERS: Record<string, string> = {
+  ł: "l",
+  ø: "o",
+  æ: "ae",
+  œ: "oe",
+  ß: "ss",
+  ı: "i",
+  đ: "d",
+  ð: "d",
+  þ: "th",
+  ħ: "h",
+  ŧ: "t",
+  ŋ: "n",
+  ŀ: "l",
+};
+const UNDECOMPOSED_PATTERN = new RegExp(`[${Object.keys(UNDECOMPOSED_LETTERS).join("")}]`, "g");
+
 /**
  * Case- and diacritic-insensitive form for substring matching.
  *
  * Diacritics fold on both sides so a name typed off an ASCII keyboard finds
  * the account that carries the mark (`nilufer` -> Nilüfer Yanya); DJs enter
  * names both ways and neither spelling is the wrong one to search by.
+ *
+ * The rule is to fold to what an ASCII keyboard types. NFD covers the letters
+ * that decompose into base + mark; `UNDECOMPOSED_LETTERS` maps the European
+ * Latin letters NFD leaves whole (`lukasz` -> Łukasz, `gudnadottir` -> Guðnadóttir).
+ * It runs after lowercasing, so it lists lowercase letters only.
  */
 export function foldForSearch(value: string): string {
-  return value.normalize("NFD").replace(COMBINING_MARKS, "").toLowerCase();
+  return value
+    .normalize("NFD")
+    .replace(COMBINING_MARKS, "")
+    .toLowerCase()
+    .replace(UNDECOMPOSED_PATTERN, (letter) => UNDECOMPOSED_LETTERS[letter]);
 }
 
 /**
