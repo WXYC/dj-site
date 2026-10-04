@@ -182,6 +182,79 @@ describe("classic Recently Deleted listing — /dashboard/library/deleted", () =
     expect(screen.queryByRole("button", { name: "Restore" })).toBeNull();
   });
 
+  describe("restore deviations", () => {
+    const restoreWith = async (body: Record<string, unknown>) => {
+      const batch = restorableBatch();
+      mockListing([batch]);
+      server.use(http.post(restoreUrl(batch.batch_id), () => HttpResponse.json(body)));
+      renderWithProviders(<DeletedArchiveListing />);
+      await screen.findByTestId("deleted-archive-row");
+      await clickRestore();
+      return await screen.findByTestId("deleted-archive-restore-cell");
+    };
+    const entity = (deviations?: unknown[]) => ({
+      kind: "library",
+      id: 53375,
+      relocated_code_number: null,
+      ...(deviations === undefined ? {} : { deviations }),
+    });
+
+    it("says the card is back and lists what was not restored", async () => {
+      const cell = await restoreWith({
+        batch_id: "batch-restorable",
+        entities: [
+          entity([
+            { kind: "dropped", table: "bins", row_id: 7, column: null, captured_value: "user-1" },
+            { kind: "nulled", table: "rotation", row_id: 9, column: "card_id", captured_value: "4" },
+          ]),
+        ],
+      });
+
+      expect(cell).toHaveTextContent("Restored");
+      expect(within(cell).getByText("1 bin entry was left out because that DJ's account was removed.")).toBeInTheDocument();
+      expect(within(cell).getByText("1 rotation entry came back without its card filing.")).toBeInTheDocument();
+    });
+
+    it.each([
+      ["an empty deviations list", [entity([])]],
+      ["no deviations key, as an older backend answers", [entity()]],
+    ])("renders the plain success for %s", async (_label, entities) => {
+      const cell = await restoreWith({ batch_id: "batch-restorable", entities });
+
+      expect(cell).toHaveTextContent(/^Restored$/);
+      expect(within(cell).queryByRole("list")).toBeNull();
+    });
+  });
+
+  it("names a missing_reference 409 as permanent and offers no retry", async () => {
+    const batch = restorableBatch();
+    mockListing([batch]);
+    server.use(
+      http.post(restoreUrl(batch.batch_id), () =>
+        HttpResponse.json(
+          {
+            message: "Cannot restore: a record this release depends on was deleted.",
+            reason: "missing_reference",
+            table: "library",
+            row_id: 53375,
+            column: "artist_id",
+            target_table: "artists",
+            captured_value: "812",
+          },
+          { status: 409 },
+        ),
+      ),
+    );
+
+    renderWithProviders(<DeletedArchiveListing />);
+    await screen.findByTestId("deleted-archive-row");
+    await clickRestore();
+
+    const cell = await screen.findByTestId("deleted-archive-restore-cell");
+    expect(within(cell).getByRole("alert").textContent).toMatch(/its artist.*permanent/);
+    expect(within(cell).queryByRole("button", { name: "Restore" })).toBeNull();
+  });
+
   // A row can be LISTED as restorable and still be refused when the operator
   // presses Restore minutes later, because `restorable` is computed at read
   // time. The message must say permanent, not retryable, and the button must

@@ -884,13 +884,27 @@ export type DeletedArchivePage = {
 };
 
 /**
- * `POST /library/deleted/{batchId}/restore`'s 200, trimmed to `batch_id`
- * alone: a restore only reaches its 200 when the original call-code slot was
- * free (a taken slot answers `400 resolution_required` instead, which this
- * screen reports rather than resolves), so the `entities[]` the wire also
- * sends — each restored row's id and its `relocated_code_number` — can only
- * ever report the slot it already had.
+ * One way a restore came back different from its snapshot: a nullable
+ * reference whose target was deleted afterwards came back blank (`nulled`), or
+ * a captured child row whose parent is gone was left out (`dropped`). Ids only.
+ */
+export type RestoreDeviation = {
+  kind: "nulled" | "dropped";
+  table: string;
+  row_id: number;
+  column: string | null;
+  captured_value: string | null;
+};
+
+/**
+ * `POST /library/deleted/{batchId}/restore`'s 200, trimmed to what this screen
+ * reads: `batch_id`, and each restored entity's `deviations`. A restore only
+ * reaches its 200 when the original call-code slot was free (a taken slot
+ * answers `400 resolution_required` instead), so an entity's
+ * `relocated_code_number` can only ever report the slot it already had.
+ * `deviations` is absent when an older backend answers.
  */
 export type RestoreBatchResponse = {
   batch_id: string;
+  entities?: { deviations?: RestoreDeviation[] }[];
 };

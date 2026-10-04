@@ -1,11 +1,13 @@
 import { describe, it, expect } from "vitest";
 import {
+  describeRestoreDeviations,
   interpretRestoreError,
   restoreAnsweredWithoutWriting,
   RESTORE_ALREADY_RESTORED_MESSAGE,
   RESTORE_FALLBACK_MESSAGE,
   RESTORE_INDETERMINATE_MESSAGE,
   RESTORE_LOCK_MESSAGE,
+  RESTORE_MISSING_REFERENCE_MESSAGES,
   RESTORE_RESOLUTION_REQUIRED_MESSAGE,
   RESTORE_UNRESTORABLE_KIND_MESSAGE,
 } from "@/lib/features/catalog/restoreDeletedBatchOutcome";
@@ -134,5 +136,65 @@ describe("restoreAnsweredWithoutWriting", () => {
     // `invalidatesTags` calls this with `undefined` on success, and a `true`
     // here would skip every invalidation a successful restore needs.
     expect(restoreAnsweredWithoutWriting(undefined)).toBe(false);
+  });
+});
+
+describe("interpretRestoreError — missing_reference", () => {
+  const body = (target_table: string) => ({
+    message: "Cannot restore: a record this release depends on was deleted.",
+    reason: "missing_reference",
+    table: "library",
+    row_id: 53375,
+    column: "artist_id",
+    target_table,
+    captured_value: "812",
+  });
+
+  it("names the refusal as permanent instead of falling through to unknown", () => {
+    const outcome = interpretRestoreError(wrapped(409, body("artists")));
+
+    expect(outcome.reason).toBe("missing_reference");
+    expect(outcome.retryable).toBe(false);
+    expect(outcome.message).toBe(RESTORE_MISSING_REFERENCE_MESSAGES.artists);
+    expect(outcome.message).toMatch(/its artist/);
+    expect(outcome.message).toMatch(/permanent/);
+    expect(outcome.message).not.toMatch(/812|53375/);
+  });
+
+  it("falls back to generic wording for a target table it has no plain name for", () => {
+    const outcome = interpretRestoreError(wrapped(409, body("something_new")));
+
+    expect(outcome.reason).toBe("missing_reference");
+    expect(outcome.retryable).toBe(false);
+    expect(outcome.message).toMatch(/a record it depends on/);
+  });
+});
+
+describe("describeRestoreDeviations", () => {
+  const dev = (kind: "nulled" | "dropped", table: string) => ({
+    kind,
+    table,
+    row_id: 1,
+    column: kind === "nulled" ? "card_id" : null,
+    captured_value: "9",
+  });
+
+  it.each([
+    [[dev("dropped", "bins")], ["1 bin entry was left out because that DJ's account was removed."]],
+    [
+      [dev("dropped", "bins"), dev("dropped", "bins")],
+      ["2 bin entries were left out because that DJ's account was removed."],
+    ],
+    [[dev("nulled", "rotation")], ["1 rotation entry came back without its card filing."]],
+    [
+      [dev("nulled", "rotation"), dev("nulled", "rotation"), dev("nulled", "rotation")],
+      ["3 rotation entries came back without their card filing."],
+    ],
+    [[dev("nulled", "other_table")], ["1 other_table row came back with a reference left blank."]],
+    [[dev("dropped", "other_table")], ["1 other_table row was left out because a record it depended on was gone."]],
+    [[], []],
+    [undefined, []],
+  ])("describes %j", (deviations, expected) => {
+    expect(describeRestoreDeviations(deviations)).toEqual(expected);
   });
 });

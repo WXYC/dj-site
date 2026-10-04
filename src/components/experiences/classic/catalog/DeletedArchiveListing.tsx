@@ -8,6 +8,7 @@ import {
 import { DELETED_ARCHIVE_PAGE_LIMIT } from "@/lib/features/catalog/constants";
 import { formatReleaseArtistTitle, formatReleaseCode } from "@/lib/features/catalog/libraryCode";
 import {
+  describeRestoreDeviations,
   interpretRestoreError,
   type RestoreRefusal,
 } from "@/lib/features/catalog/restoreDeletedBatchOutcome";
@@ -57,7 +58,7 @@ function batchCallCode({ entities }: DeletedArchiveBatch): string {
 const NOT_RESTORABLE_MESSAGE =
   "No restore plan exists for this entry, so it cannot be brought back from this screen.";
 
-type RowOutcome = { kind: "restored" } | { kind: "refused"; refusal: RestoreRefusal };
+type RowOutcome = { kind: "restored"; notes: string[] } | { kind: "refused"; refusal: RestoreRefusal };
 
 // Every reason a row cannot be restored goes through one wrapper, whichever
 // branch produced it. A refusal rendered as bare cell text is announced to
@@ -114,8 +115,9 @@ export default function DeletedArchiveListing() {
     setPendingBatchId(batchId);
     setOutcomes(({ [batchId]: _cleared, ...rest }) => rest);
     try {
-      await restoreBatch({ batchId }).unwrap();
-      setOutcomes((prev) => ({ ...prev, [batchId]: { kind: "restored" } }));
+      const restored = await restoreBatch({ batchId }).unwrap();
+      const notes = describeRestoreDeviations(restored.entities?.flatMap((e) => e.deviations ?? []));
+      setOutcomes((prev) => ({ ...prev, [batchId]: { kind: "restored", notes } }));
     } catch (err) {
       setOutcomes((prev) => ({
         ...prev,
@@ -194,7 +196,16 @@ export default function DeletedArchiveListing() {
                   <td style={CENTERED}>{batch.actor.role ?? "Unknown"}</td>
                   <td style={CENTERED} data-testid="deleted-archive-restore-cell">
                     {outcome?.kind === "restored" ? (
-                      "Restored"
+                      <>
+                        Restored
+                        {outcome.notes.length > 0 && (
+                          <ul className="text">
+                            {outcome.notes.map((note) => (
+                              <li key={note}>{note}</li>
+                            ))}
+                          </ul>
+                        )}
+                      </>
                     ) : !batch.restorable ? (
                       <RestoreRefusalNotice>{NOT_RESTORABLE_MESSAGE}</RestoreRefusalNotice>
                     ) : outcome?.kind === "refused" && !outcome.refusal.retryable ? (

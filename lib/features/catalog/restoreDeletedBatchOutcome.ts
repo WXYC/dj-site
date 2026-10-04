@@ -1,3 +1,4 @@
+import type { RestoreDeviation } from "@/lib/features/catalog/types";
 import {
   bodyReason,
   serverMessage,
@@ -29,6 +30,7 @@ export type RestoreRefusalReason =
   | "resolution_required"
   | "already_restored"
   | "lock_unavailable"
+  | "missing_reference"
   | "indeterminate"
   | "unknown";
 
@@ -55,6 +57,21 @@ export const RESTORE_RESOLUTION_REQUIRED_MESSAGE =
  */
 export const RESTORE_ALREADY_RESTORED_MESSAGE =
   "This batch is already back in the catalog. It may already have been restored.";
+
+/**
+ * The 409 for a restored row whose `NO ACTION` reference points at a record
+ * deleted afterwards. Permanent today: no endpoint puts the record back under
+ * its old id. Keyed by the body's `target_table`; ids and names are never shown.
+ */
+const missingReferenceMessage = (dependency: string) =>
+  `This release cannot be restored: ${dependency} was deleted after it. This is permanent, not retryable.`;
+
+export const RESTORE_MISSING_REFERENCE_MESSAGES: Record<string, string> = {
+  artists: missingReferenceMessage("its artist"),
+  auth_user: missingReferenceMessage("a DJ account it refers to"),
+};
+
+const RESTORE_MISSING_REFERENCE_FALLBACK_MESSAGE = missingReferenceMessage("a record it depends on");
 
 export const RESTORE_LOCK_MESSAGE =
   "Could not restore: the catalog is being written to right now. Try again in a moment.";
@@ -127,6 +144,16 @@ export function interpretRestoreError(err: unknown): RestoreRefusal {
       retryable: false,
     };
   }
+  if (status === 409 && reason === "missing_reference") {
+    const targetTable = (data as { target_table?: unknown }).target_table;
+    return {
+      reason: "missing_reference",
+      message:
+        (typeof targetTable === "string" && RESTORE_MISSING_REFERENCE_MESSAGES[targetTable]) ||
+        RESTORE_MISSING_REFERENCE_FALLBACK_MESSAGE,
+      retryable: false,
+    };
+  }
   if (status === 503 && reason === "lock_unavailable") {
     return {
       reason: "lock_unavailable",
@@ -138,4 +165,52 @@ export function interpretRestoreError(err: unknown): RestoreRefusal {
   return restoreAnsweredWithoutWriting(err)
     ? { reason: "unknown", message: RESTORE_FALLBACK_MESSAGE, retryable: false }
     : indeterminate;
+}
+
+type DeviationWording = { one: string; many: string };
+
+const DEVIATION_WORDING: Record<string, Partial<Record<RestoreDeviation["kind"], DeviationWording>>> = {
+  bins: {
+    dropped: {
+      one: "bin entry was left out because that DJ's account was removed",
+      many: "bin entries were left out because that DJ's account was removed",
+    },
+  },
+  rotation: {
+    nulled: {
+      one: "rotation entry came back without its card filing",
+      many: "rotation entries came back without their card filing",
+    },
+  },
+};
+
+const genericWording = (kind: RestoreDeviation["kind"], table: string): DeviationWording =>
+  kind === "dropped"
+    ? {
+        one: `${table} row was left out because a record it depended on was gone`,
+        many: `${table} rows were left out because a record they depended on was gone`,
+      }
+    : {
+        one: `${table} row came back with a reference left blank`,
+        many: `${table} rows came back with a reference left blank`,
+      };
+
+/**
+ * One plain sentence per deviation kind and table, with a count, for a 200's
+ * `entities[].deviations`. Counts only: the ids stay out of the librarian's
+ * view. A missing list reads as empty so an older backend renders a plain
+ * success.
+ */
+export function describeRestoreDeviations(deviations: RestoreDeviation[] | undefined): string[] {
+  const groups = new Map<string, { kind: RestoreDeviation["kind"]; table: string; count: number }>();
+  for (const { kind, table } of deviations ?? []) {
+    const key = `${kind}:${table}`;
+    const group = groups.get(key) ?? { kind, table, count: 0 };
+    group.count += 1;
+    groups.set(key, group);
+  }
+  return [...groups.values()].map(({ kind, table, count }) => {
+    const wording = DEVIATION_WORDING[table]?.[kind] ?? genericWording(kind, table);
+    return `${count} ${count === 1 ? wording.one : wording.many}.`;
+  });
 }
