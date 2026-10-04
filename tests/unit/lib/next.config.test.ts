@@ -119,6 +119,28 @@ describe("next.config", () => {
     });
   });
 
+  describe("retired public pages", () => {
+    type Redirect = { source?: string; destination?: string; permanent?: boolean };
+
+    // The listener-facing pages moved to the station site; dj-site keeps only
+    // the DJ tools, so the old URLs forward rather than 404.
+    it.each(["/live", "/playlists"])(
+      "permanently redirects %s to the station site's live playlist",
+      async (source) => {
+        const config = (await loadConfig()) as {
+          redirects?: () => Promise<Redirect[]>;
+        };
+        const redirects = config.redirects ? await config.redirects() : [];
+
+        expect(redirects.find((r) => r.source === source)).toEqual({
+          source,
+          destination: "https://wxyc.org/playlist",
+          permanent: true,
+        });
+      },
+    );
+  });
+
   describe("security headers (#631)", () => {
     it("applies the security header set to all paths", async () => {
       const config = (await loadConfig()) as {

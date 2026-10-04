@@ -205,6 +205,13 @@ const nextConfig = {
           process.env.NEXT_PUBLIC_DASHBOARD_HOME_PAGE || "/dashboard/catalog",
         permanent: false,
       },
+      // The listener-facing pages moved to the station site, whose live
+      // playlist covers both what is on air and earlier sets.
+      ...["/live", "/playlists"].map((source) => ({
+        source,
+        destination: "https://wxyc.org/playlist",
+        permanent: true,
+      })),
     ];
   },
 };

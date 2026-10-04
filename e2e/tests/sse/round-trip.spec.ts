@@ -1,8 +1,8 @@
-import { test, expect, Browser, Page } from "@playwright/test";
+import { test, expect, Browser } from "@playwright/test";
 import path from "path";
 import { FlowsheetPage } from "../../pages/flowsheet.page";
 import { pgNotify } from "../../helpers/pg-notify";
-import { waitForSSEConnected, waitForSSEHandshake } from "../../helpers/sse-wait";
+import { waitForSSEConnected } from "../../helpers/sse-wait";
 import { buildFlowsheetUpdatePayload } from "../../fixtures/sse-cdc-payloads";
 
 const authDir = path.join(__dirname, "..", "..", ".auth");
@@ -29,12 +29,9 @@ test.describe("SSE Tier 1 — round-trip", () => {
 
   test.beforeAll(async ({ browser }) => {
     // One-time go-live so each test's `ensureLive` is a fast no-op instead
-    // of paying the ~3s status-probe + click + reload chain. Also seeds a
-    // song row so /latest renders a real album-art <img> (not a show-start
-    // icon) for tests #2/#3 to assert on.
+    // of paying the ~3s status-probe + click + reload chain.
     await withAuthedFlowsheet(browser, async (fs) => {
       await fs.ensureLive();
-      await addRow(fs, "Stereolab", "Aluminum Tunes");
     });
   });
 
@@ -45,7 +42,7 @@ test.describe("SSE Tier 1 — round-trip", () => {
   });
 
   /**
-   * Test #1: a `liveFs:update` for an in-cache dashboard row patches the
+   * A `liveFs:update` for an in-cache dashboard row patches the
    * row's mutated fields into the rendered DOM within 5s. Pins the
    * cache-patch path (id-in-cache branch of routeUpdateEvent).
    */
@@ -73,50 +70,6 @@ test.describe("SSE Tier 1 — round-trip", () => {
       { timeout: 5_000 }
     );
   });
-
-  /**
-   * Test #2: anonymous `/live` viewer receives the same update without
-   * cookies. Pins LIVE_FS_PUBLIC_TOPIC_NO_AUTH — if BS-1's route-level auth
-   * guard is reinstated, the handshake fails on status 401/403.
-   */
-  test("/live anonymous viewer receives liveFs:update with no cookies", async ({ browser }) => {
-    await withAnonLive(browser, async ({ anonPage, latestRowId, handshake }) => {
-      expect(handshake.status()).toBe(200);
-      expect(handshake.headers()["content-type"]).toContain("text/event-stream");
-
-      const newArtworkUrl = `https://example.org/tier1-anon-${latestRowId}.jpg`;
-      await pgNotify(
-        "cdc",
-        buildFlowsheetUpdatePayload({ id: latestRowId, artwork_url: newArtworkUrl })
-      );
-      await expect(anonPage.locator(`img[src="${newArtworkUrl}"]`).first()).toBeVisible({
-        timeout: 5_000,
-      });
-    });
-  });
-
-  /**
-   * Test #3: surgical regression test for BS-2 — the broadcast carries the
-   * full row, not just `{id, metadata_status}`. The unique artwork URL in
-   * the payload must appear verbatim as an <img src>. If BS-2 reverts to
-   * the minimal shape, tests #1 and #2 may incidentally pass (the cache
-   * patch is a shallow merge; prior artwork sticks around), but the new
-   * artwork field never renders.
-   */
-  test("artwork_url from the full-row payload renders on /live (BS-2 contract)", async ({
-    browser,
-  }) => {
-    await withAnonLive(browser, async ({ anonPage, latestRowId }) => {
-      const artworkUrl = `https://example.org/tier1-fullrow-${latestRowId}-bs2.jpg`;
-      await pgNotify(
-        "cdc",
-        buildFlowsheetUpdatePayload({ id: latestRowId, artwork_url: artworkUrl })
-      );
-      await expect(anonPage.locator(`img[src="${artworkUrl}"]`).first()).toBeVisible({
-        timeout: 5_000,
-      });
-    });
-  });
 });
 
 /**
@@ -136,44 +89,6 @@ async function withAuthedFlowsheet(
     await body(fs);
   } finally {
     await context.close();
-  }
-}
-
-/**
- * Open an anonymous /live, wait for the SSE handshake, capture whichever id
- * /flowsheet/latest returned, and pass them to `body`.
- *
- * The "whichever id" matters: /latest is globally scoped, so parallel tests
- * adding rows can shift it. The test stays robust by NOTIFYing for the id
- * that /live's own getNowPlaying cache actually has, instead of asserting on
- * a row we hope is still latest.
- */
-async function withAnonLive(
-  browser: Browser,
-  body: (ctx: {
-    anonPage: Page;
-    latestRowId: number;
-    handshake: Awaited<ReturnType<typeof waitForSSEHandshake>>;
-  }) => Promise<void>
-): Promise<void> {
-  const anonContext = await browser.newContext({ baseURL: BASE_URL });
-  try {
-    const anonPage = await anonContext.newPage();
-    const handshakePromise = waitForSSEHandshake(anonPage, 15_000);
-    const latestRespPromise = anonPage.waitForResponse(
-      (r) =>
-        /\/flowsheet\/latest\b/.test(r.url()) &&
-        r.request().method() === "GET" &&
-        r.status() === 200,
-      { timeout: 15_000 }
-    );
-    await anonPage.goto("/live");
-    const handshake = await handshakePromise;
-    const latestRow = await (await latestRespPromise).json();
-    expect(typeof latestRow?.id).toBe("number");
-    await body({ anonPage, latestRowId: latestRow.id, handshake });
-  } finally {
-    await anonContext.close();
   }
 }
 
