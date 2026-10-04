@@ -218,10 +218,11 @@ describe("next.config", () => {
       ).not.toContain("sentry.io");
     });
 
-    it("declares the live audio stream and broad image origins", async () => {
+    it("declares broad image origins and no third-party media origin", async () => {
       const { buildContentSecurityPolicy } = await loadModule();
       const csp = buildContentSecurityPolicy(env());
-      expect(csp).toContain("media-src 'self' https://audio-mp3.ibiblio.org");
+      // Nothing plays media, so media falls back to default-src 'self'.
+      expect(csp).not.toContain("media-src");
       expect(csp).toContain("img-src 'self' https: data: blob:");
       expect(csp).toContain("frame-ancestors 'none'");
     });

@@ -36,8 +36,6 @@ const distDir = process.env.NEXT_DIST_DIR_SUFFIX
 //                blob: cover inline SVG and canvas.
 //   font-src     'self' data: — next/font self-hosts under /_next/static; no
 //                fonts.googleapis/gstatic requests exist. data: is defensive.
-//   media-src    audio-mp3.ibiblio.org — the live stream AUDIO_SRC in
-//                src/widgets/NowPlaying/index.tsx.
 //   connect-src  backend origin — RTK Query (lib/features/backend.ts) and the
 //                SSE EventSource (lib/features/flowsheet/live-updates-listener.ts)
 //                hit NEXT_PUBLIC_BACKEND_URL directly; PostHog host + assets for
@@ -80,8 +78,6 @@ function posthogAssetsOrigin(origin) {
     "https://$1-assets.i.posthog.com"
   );
 }
-
-const AUDIO_STREAM_ORIGIN = "https://audio-mp3.ibiblio.org";
 
 // A Sentry DSN is a URL (https://<key>@<ingest-host>/<project-id>); its origin
 // is where the browser SDK posts event envelopes. Only connect-src needs it —
@@ -126,7 +122,6 @@ export function buildContentSecurityPolicy(env = process.env) {
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' https: data: blob:",
     "font-src 'self' data:",
-    `media-src 'self' ${AUDIO_STREAM_ORIGIN}`,
     `connect-src ${connectSrc.join(" ")}`,
     "worker-src 'self' blob:",
     "manifest-src 'self'",

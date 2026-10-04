@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { screen, fireEvent } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import { renderWithProviders as render } from "@/tests/helpers";
 import type {
   FlowsheetSongEntry,
@@ -8,7 +8,6 @@ import type {
   FlowsheetMessageEntry,
   OnAirDJResponse,
 } from "@/lib/features/flowsheet/types";
-import type { MutableRefObject, RefObject } from "react";
 
 // Mock child components
 vi.mock("@/src/widgets/NowPlaying/AlbumArtAndIcons", () => ({
@@ -23,21 +22,7 @@ vi.mock("@/src/widgets/NowPlaying/EntryText", () => ({
   ),
 }));
 
-// Mock GradientAudioVisualizer -- now takes props instead of ref
-vi.mock("@/src/widgets/NowPlaying/GradientAudioVisualizer", () => ({
-  GradientAudioVisualizer: ({ isPlaying, overlayColor }: any) => (
-    <div
-      data-testid="gradient-visualizer"
-      data-is-playing={isPlaying}
-      data-overlay-color={overlayColor}
-    />
-  ),
-}));
-
-// Mock useColorScheme hook
-const mockMode = vi.fn(() => "light" as string | undefined);
 vi.mock("@mui/joy/styles", () => ({
-  useColorScheme: () => ({ mode: mockMode() }),
   // `renderWithProviders` wraps every render in this; the rest of the file
   // mocks Joy away, so it has to resolve to something renderable.
   CssVarsProvider: ({ children }: any) => <>{children}</>,
@@ -75,16 +60,6 @@ vi.mock("@mui/joy", () => ({
       {children}
     </div>
   ),
-  IconButton: ({ children, onClick, "aria-label": ariaLabel, ...props }: any) => (
-    <button
-      data-testid="icon-button"
-      onClick={onClick}
-      aria-label={ariaLabel}
-      {...props}
-    >
-      {children}
-    </button>
-  ),
   Stack: ({ children, direction, ...props }: any) => (
     <div data-testid="stack" data-direction={direction} {...props}>
       {children}
@@ -95,8 +70,6 @@ vi.mock("@mui/joy", () => ({
 // Mock MUI icons
 vi.mock("@mui/icons-material", () => ({
   Headset: () => <span data-testid="headset-icon" />,
-  Pause: () => <span data-testid="pause-icon" />,
-  PlayArrow: () => <span data-testid="play-icon" />,
 }));
 
 // Import after mocks are set up
@@ -105,12 +78,6 @@ import NowPlayingMini from "@/src/widgets/NowPlaying/Mini";
 function createDefaultProps(overrides: Record<string, any> = {}) {
   return {
     live: false as boolean,
-    audioRef: { current: null } as RefObject<HTMLAudioElement | null>,
-    isPlaying: false,
-    onTogglePlay: vi.fn(),
-    audioContext: null as AudioContext | null,
-    analyserNode: null as AnalyserNode | null,
-    animationFrameRef: { current: null } as MutableRefObject<number | null>,
     ...overrides,
   };
 }
@@ -124,7 +91,6 @@ describe("NowPlayingMini", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mockMode.mockReturnValue("light");
   });
 
   describe("rendering", () => {
@@ -140,11 +106,6 @@ describe("NowPlayingMini", () => {
       );
     });
 
-    it("should render GradientAudioVisualizer", () => {
-      render(<NowPlayingMini {...createDefaultProps()} />);
-      expect(screen.getByTestId("gradient-visualizer")).toBeInTheDocument();
-    });
-
     it("should render AlbumArtAndIcons component", () => {
       render(<NowPlayingMini {...createDefaultProps()} />);
       expect(screen.getByTestId("album-art-icons")).toBeInTheDocument();
@@ -156,58 +117,10 @@ describe("NowPlayingMini", () => {
     });
   });
 
-  describe("overlay color", () => {
-    it("masks the visualizer with the themed surface in every mode", () => {
-      for (const mode of ["light", "dark", undefined] as const) {
-        mockMode.mockReturnValue(mode);
-        const { unmount } = render(<NowPlayingMini {...createDefaultProps()} />);
-        expect(screen.getByTestId("gradient-visualizer")).toHaveAttribute(
-          "data-overlay-color",
-          "background.surface"
-        );
-        unmount();
-      }
-    });
-  });
-
-  describe("play/pause toggle", () => {
-    it("should show PlayArrow icon when not playing", () => {
-      render(<NowPlayingMini {...createDefaultProps({ isPlaying: false })} />);
-      expect(screen.getByTestId("play-icon")).toBeInTheDocument();
-    });
-
-    it("should show Pause icon when playing", () => {
-      render(<NowPlayingMini {...createDefaultProps({ isPlaying: true })} />);
-      expect(screen.getByTestId("pause-icon")).toBeInTheDocument();
-    });
-
-    it("should call onTogglePlay when clicking the button", () => {
-      const onTogglePlay = vi.fn();
-      render(<NowPlayingMini {...createDefaultProps({ onTogglePlay })} />);
-      const button = screen.getByTestId("icon-button");
-      fireEvent.click(button);
-      expect(onTogglePlay).toHaveBeenCalledTimes(1);
-    });
-
-    it("should call onTogglePlay on second click too", () => {
-      const onTogglePlay = vi.fn();
-      render(<NowPlayingMini {...createDefaultProps({ onTogglePlay })} />);
-      const button = screen.getByTestId("icon-button");
-      fireEvent.click(button);
-      fireEvent.click(button);
-      expect(onTogglePlay).toHaveBeenCalledTimes(2);
-    });
-
-    it("should have correct aria-label when not playing", () => {
-      render(<NowPlayingMini {...createDefaultProps({ isPlaying: false })} />);
-      const button = screen.getByTestId("icon-button");
-      expect(button).toHaveAttribute("aria-label", "Play audio");
-    });
-
-    it("should have correct aria-label when playing", () => {
-      render(<NowPlayingMini {...createDefaultProps({ isPlaying: true })} />);
-      const button = screen.getByTestId("icon-button");
-      expect(button).toHaveAttribute("aria-label", "Pause audio");
+  describe("stream player", () => {
+    it("renders no play control", () => {
+      render(<NowPlayingMini {...createDefaultProps({ live: true })} />);
+      expect(screen.queryByRole("button")).not.toBeInTheDocument();
     });
   });
 

@@ -1,19 +1,15 @@
 "use client";
 
 import { FlowsheetEntry } from "@/lib/features/flowsheet/types";
-import { Pause, PlayArrow } from "@mui/icons-material";
 import { Box, CircularProgress } from "@mui/joy";
 import AspectRatio from "@mui/joy/AspectRatio";
 import Card from "@mui/joy/Card";
 import CardContent from "@mui/joy/CardContent";
 import CardOverflow from "@mui/joy/CardOverflow";
 import Divider from "@mui/joy/Divider";
-import IconButton from "@mui/joy/IconButton";
 import Typography from "@mui/joy/Typography";
-import { MutableRefObject, RefObject } from "react";
 import AlbumArtAndIcons from "./AlbumArtAndIcons";
 import EntryText from "./EntryText";
-import { GradientAudioVisualizer } from "./GradientAudioVisualizer";
 
 export default function NowPlayingMain({
   width,
@@ -22,12 +18,6 @@ export default function NowPlayingMain({
   live,
   onAirDJ,
   loading,
-  audioRef,
-  isPlaying,
-  onTogglePlay,
-  audioContext,
-  analyserNode,
-  animationFrameRef,
 }: {
   entry?: FlowsheetEntry;
   live: boolean;
@@ -35,12 +25,6 @@ export default function NowPlayingMain({
   loading?: boolean;
   width?: number;
   height?: number;
-  audioRef: RefObject<HTMLAudioElement | null>;
-  isPlaying: boolean;
-  onTogglePlay: () => void;
-  audioContext: AudioContext | null;
-  analyserNode: AnalyserNode | null;
-  animationFrameRef: MutableRefObject<number | null>;
 }) {
   return (
     <Card
@@ -55,31 +39,12 @@ export default function NowPlayingMain({
     >
       <CardOverflow>
         <AspectRatio ratio="2.5" variant="plain">
-          <GradientAudioVisualizer
-            audioRef={audioRef}
-            isPlaying={isPlaying}
-            audioContext={audioContext}
-            analyserNode={analyserNode}
-            animationFrameRef={animationFrameRef}
+          <Box
+            sx={{
+              background: "linear-gradient(135deg, #ff6ec4, #7873f5, #00f2fe)",
+            }}
           />
         </AspectRatio>
-        <IconButton
-          aria-label={isPlaying ? "Pause audio" : "Play audio"}
-          size="lg"
-          variant="solid"
-          color="danger"
-          sx={{
-            position: "absolute",
-            zIndex: 2,
-            borderRadius: "50%",
-            right: "1rem",
-            bottom: 0,
-            transform: "translateY(50%)",
-          }}
-          onClick={onTogglePlay}
-        >
-          {isPlaying ? <Pause /> : <PlayArrow />}
-        </IconButton>
         <Box
           sx={{
             position: "absolute",
