@@ -28,12 +28,12 @@ describe("PageTitleUpdater", () => {
     expect(document.title).toBe(getPageTitle("Login"));
   });
 
-  it("maps exactly '/' without acting as a universal prefix", () => {
+  it("skips '/', which only redirects and never renders", () => {
     vi.mocked(usePathname).mockReturnValue("/");
 
     renderWithProviders(<PageTitleUpdater />);
 
-    expect(document.title).toBe(getPageTitle("DJ Site"));
+    expect(document.title).toBe("untouched-sentinel");
   });
 
   it("skips an unmapped route entirely", () => {

@@ -6,11 +6,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   return [
     {
-      url: origin,
-      changeFrequency: "monthly",
-      priority: 1,
-    },
-    {
       // Live view reflects the current on-air flowsheet in real time.
       url: `${origin}/live`,
       changeFrequency: "always",

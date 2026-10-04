@@ -10,7 +10,6 @@ import { getPageTitle } from "@/lib/utils/page-title";
 // one writer per route — adding a route here that also renders PageHeader
 // reintroduces the race this map was trimmed to remove (#640 follow-up).
 const PATH_TO_TITLE: Record<string, string> = {
-  "/": "DJ Site",
   "/live": "Listen Live",
   "/login": "Login",
   "/onboarding": "Onboarding",
@@ -27,13 +26,11 @@ export default function PageTitleUpdater() {
 
   useEffect(() => {
     // Exact match first; otherwise a segment-boundary prefix match
-    // (e.g. /onboarding/step matches /onboarding). "/" is excluded from
-    // prefix matching — every path starts with "/", so it would be a
-    // catch-all that overwrites titles on unmapped routes.
+    // (e.g. /onboarding/step matches /onboarding).
     const title =
       PATH_TO_TITLE[pathname] ??
-      Object.entries(PATH_TO_TITLE).find(
-        ([path]) => path !== "/" && pathname.startsWith(`${path}/`),
+      Object.entries(PATH_TO_TITLE).find(([path]) =>
+        pathname.startsWith(`${path}/`),
       )?.[1];
 
     if (title) {
