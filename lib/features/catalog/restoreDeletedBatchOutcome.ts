@@ -181,7 +181,7 @@ const DEVIATION_WORDING: Record<string, Partial<Record<RestoreDeviation["kind"],
   bins: {
     dropped: {
       one: "bin entry was left out because that DJ's account was removed",
-      many: "bin entries were left out because the DJs' accounts were removed",
+      many: "bin entries were left out because that DJ's account was removed",
     },
   },
   compilation_track_artist: {
@@ -210,22 +210,32 @@ const genericWording = (kind: RestoreDeviation["kind"]): DeviationWording =>
         many: "records came back with a reference left blank",
       };
 
+/** Several bin entries can belong to one DJ (one row per track), so the account count is read from the dropped `dj_id`s, not the entry count. */
+const SEVERAL_DJS_WORDING = "bin entries were left out because the DJs' accounts were removed";
+
 /**
  * One plain sentence per deviation kind and table, with a count, for a 200's
  * `entities[].deviations`. Counts only: the ids stay out of the librarian's
- * view. A missing list reads as empty so an older backend renders a plain
- * success.
+ * view. Tables with no plain name are grouped by kind alone so two unknown
+ * tables never yield the same sentence twice. A missing list reads as empty so
+ * an older backend renders a plain success.
  */
 export function describeRestoreDeviations(deviations: RestoreDeviation[] | undefined): string[] {
-  const groups = new Map<string, { kind: RestoreDeviation["kind"]; table: string; count: number }>();
-  for (const { kind, table } of deviations ?? []) {
-    const key = `${kind}:${table}`;
-    const group = groups.get(key) ?? { kind, table, count: 0 };
+  const groups = new Map<
+    string,
+    { kind: RestoreDeviation["kind"]; table: string | null; count: number; owners: Set<string> }
+  >();
+  for (const { kind, table, captured_value } of deviations ?? []) {
+    const named = DEVIATION_WORDING[table]?.[kind] !== undefined;
+    const key = `${kind}:${named ? table : ""}`;
+    const group = groups.get(key) ?? { kind, table: named ? table : null, count: 0, owners: new Set<string>() };
     group.count += 1;
+    if (captured_value != null) group.owners.add(captured_value);
     groups.set(key, group);
   }
-  return [...groups.values()].map(({ kind, table, count }) => {
-    const wording = DEVIATION_WORDING[table]?.[kind] ?? genericWording(kind);
-    return `${count} ${count === 1 ? wording.one : wording.many}.`;
+  return [...groups.values()].map(({ kind, table, count, owners }) => {
+    const wording = (table && DEVIATION_WORDING[table]?.[kind]) || genericWording(kind);
+    const several = table === "bins" && kind === "dropped" && owners.size > 1;
+    return `${count} ${several ? SEVERAL_DJS_WORDING : count === 1 ? wording.one : wording.many}.`;
   });
 }
