@@ -36,6 +36,7 @@ import {
   type RotationRowSummary,
 } from "@/lib/features/rotation/types";
 import { useAppDispatch } from "@/lib/hooks";
+import ReadRetryAlert from "@/src/components/experiences/modern/admin/ReadRetryAlert";
 import { RotationCardBadge } from "@/src/components/shared/RotationCardBadge";
 import { useUtcDayClock } from "@/src/hooks/useUtcDayClock";
 import {
@@ -44,7 +45,6 @@ import {
 } from "@/src/utilities/modern/rotationBinColors";
 import { Link as LinkIcon } from "@mui/icons-material";
 import {
-  Alert,
   Box,
   Button,
   Chip,
@@ -624,18 +624,7 @@ export default function RotationAdminList({ now: nowProp }: { now?: Date } = {})
   // query-fed list must never render an outage as "there are none".
   if (isError && rows == null) {
     return (
-      <Alert color="danger" sx={{ justifyContent: "space-between" }}>
-        <Typography>Could not load the rotation list.</Typography>
-        <Button
-          variant="outlined"
-          color="danger"
-          size="sm"
-          loading={isFetching}
-          onClick={() => void refetch()}
-        >
-          Retry
-        </Button>
-      </Alert>
+      <ReadRetryAlert message="Could not load the rotation list." onRetry={() => void refetch()} />
     );
   }
   if (rows == null) return <LinearProgress aria-label="Loading rotation" />;
