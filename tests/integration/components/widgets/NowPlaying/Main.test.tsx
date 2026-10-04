@@ -1,12 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import type {
   FlowsheetSongEntry,
   FlowsheetBreakpointEntry,
   FlowsheetShowBlockEntry,
   FlowsheetMessageEntry,
 } from "@/lib/features/flowsheet/types";
-import type { MutableRefObject, RefObject } from "react";
 
 // Mock child components
 vi.mock("@/src/widgets/NowPlaying/AlbumArtAndIcons", () => ({
@@ -21,21 +20,10 @@ vi.mock("@/src/widgets/NowPlaying/EntryText", () => ({
   ),
 }));
 
-// Mock GradientAudioVisualizer -- now takes props instead of ref
-vi.mock("@/src/widgets/NowPlaying/GradientAudioVisualizer", () => ({
-  GradientAudioVisualizer: ({ isPlaying, overlayColor }: any) => (
-    <div
-      data-testid="gradient-visualizer"
-      data-is-playing={isPlaying}
-      data-overlay-color={overlayColor}
-    />
-  ),
-}));
-
 // Mock MUI Joy components
 vi.mock("@mui/joy", () => ({
-  Box: ({ children, ...props }: any) => (
-    <div data-testid="box" {...props}>
+  Box: ({ children, sx, ...props }: any) => (
+    <div data-testid="box" data-background={sx?.background} {...props}>
       {children}
     </div>
   ),
@@ -92,19 +80,6 @@ vi.mock("@mui/joy/Divider", () => ({
   ),
 }));
 
-vi.mock("@mui/joy/IconButton", () => ({
-  default: ({ children, onClick, "aria-label": ariaLabel, ...props }: any) => (
-    <button
-      data-testid="icon-button"
-      onClick={onClick}
-      aria-label={ariaLabel}
-      {...props}
-    >
-      {children}
-    </button>
-  ),
-}));
-
 vi.mock("@mui/joy/Typography", () => ({
   default: ({ children, level, ...props }: any) => (
     <span data-testid="typography" data-level={level} {...props}>
@@ -113,24 +88,12 @@ vi.mock("@mui/joy/Typography", () => ({
   ),
 }));
 
-// Mock MUI icons
-vi.mock("@mui/icons-material", () => ({
-  Pause: () => <span data-testid="pause-icon" />,
-  PlayArrow: () => <span data-testid="play-icon" />,
-}));
-
 // Import after mocks are set up
 import NowPlayingMain from "@/src/widgets/NowPlaying/Main";
 
 function createDefaultProps(overrides: Record<string, any> = {}) {
   return {
     live: false as boolean,
-    audioRef: { current: null } as RefObject<HTMLAudioElement | null>,
-    isPlaying: false,
-    onTogglePlay: vi.fn(),
-    audioContext: null as AudioContext | null,
-    analyserNode: null as AnalyserNode | null,
-    animationFrameRef: { current: null } as MutableRefObject<number | null>,
     ...overrides,
   };
 }
@@ -156,11 +119,6 @@ describe("NowPlayingMain", () => {
     it("should render Card component", () => {
       render(<NowPlayingMain {...createDefaultProps()} />);
       expect(screen.getByTestId("card")).toBeInTheDocument();
-    });
-
-    it("should render GradientAudioVisualizer", () => {
-      render(<NowPlayingMain {...createDefaultProps()} />);
-      expect(screen.getByTestId("gradient-visualizer")).toBeInTheDocument();
     });
 
     it("should render AlbumArtAndIcons component", () => {
@@ -196,35 +154,16 @@ describe("NowPlayingMain", () => {
     });
   });
 
-  describe("play/pause toggle", () => {
-    it("should show PlayArrow icon when not playing", () => {
-      render(<NowPlayingMain {...createDefaultProps({ isPlaying: false })} />);
-      expect(screen.getByTestId("play-icon")).toBeInTheDocument();
+  describe("banner", () => {
+    it("paints the static gradient behind the artwork", () => {
+      render(<NowPlayingMain {...createDefaultProps()} />);
+      const banner = within(screen.getByTestId("aspect-ratio")).getByTestId("box");
+      expect(banner.dataset.background).toMatch(/^linear-gradient\(/);
     });
 
-    it("should show Pause icon when playing", () => {
-      render(<NowPlayingMain {...createDefaultProps({ isPlaying: true })} />);
-      expect(screen.getByTestId("pause-icon")).toBeInTheDocument();
-    });
-
-    it("should call onTogglePlay when clicking the button", () => {
-      const onTogglePlay = vi.fn();
-      render(<NowPlayingMain {...createDefaultProps({ onTogglePlay })} />);
-      const button = screen.getByTestId("icon-button");
-      fireEvent.click(button);
-      expect(onTogglePlay).toHaveBeenCalledTimes(1);
-    });
-
-    it("should have correct aria-label when not playing", () => {
-      render(<NowPlayingMain {...createDefaultProps({ isPlaying: false })} />);
-      const button = screen.getByTestId("icon-button");
-      expect(button).toHaveAttribute("aria-label", "Play audio");
-    });
-
-    it("should have correct aria-label when playing", () => {
-      render(<NowPlayingMain {...createDefaultProps({ isPlaying: true })} />);
-      const button = screen.getByTestId("icon-button");
-      expect(button).toHaveAttribute("aria-label", "Pause audio");
+    it("renders no play control", () => {
+      render(<NowPlayingMain {...createDefaultProps({ live: true })} />);
+      expect(screen.queryByRole("button")).not.toBeInTheDocument();
     });
   });
 

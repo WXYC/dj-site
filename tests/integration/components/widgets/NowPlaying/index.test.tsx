@@ -1,6 +1,5 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { act, screen } from "@testing-library/react";
-import { StrictMode } from "react";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { screen } from "@testing-library/react";
 import { renderWithProviders as render } from "@/tests/helpers";
 import NowPlaying from "@/src/widgets/NowPlaying";
 import type {
@@ -33,13 +32,11 @@ vi.mock("@/src/widgets/NowPlaying/Main", () => ({
     live,
     onAirDJ,
     loading,
-    audioContext,
   }: {
     entry?: any;
     live: boolean;
     onAirDJ?: string;
     loading?: boolean;
-    audioContext?: AudioContext | null;
   }) => (
     <div
       data-testid="now-playing-main"
@@ -48,7 +45,6 @@ vi.mock("@/src/widgets/NowPlaying/Main", () => ({
       data-live={live}
       data-on-air-dj={onAirDJ || ""}
       data-loading={loading}
-      data-has-audio-context={audioContext != null}
     />
   ),
 }));
@@ -127,16 +123,11 @@ describe("NowPlaying", () => {
       expect(screen.queryByTestId("now-playing-main")).not.toBeInTheDocument();
     });
 
-    it("should render audio element", () => {
-      const { container } = render(<NowPlaying mini={false} />);
-      const audio = container.querySelector("audio#now-playing-music");
-      expect(audio).toBeInTheDocument();
-    });
-
-    it("should set crossOrigin on audio element", () => {
-      const { container } = render(<NowPlaying mini={false} />);
-      const audio = container.querySelector("audio");
-      expect(audio).toHaveAttribute("crossOrigin", "anonymous");
+    // A station tab playing the stream in the studio feeds the delayed
+    // broadcast back into the mic, so the widget only shows what is on air.
+    it.each([false, true])("renders no audio element when mini=%s", (mini) => {
+      const { container } = render(<NowPlaying mini={mini} />);
+      expect(container.querySelector("audio")).toBeNull();
     });
   });
 
@@ -359,103 +350,11 @@ describe("NowPlaying", () => {
     });
   });
 
-  describe("Web Audio lifecycle (#634)", () => {
-    // A minimal fake Web Audio graph so the init effect runs in jsdom (which
-    // has no AudioContext). createMediaElementSource is the once-per-element
-    // call the double-mount guard must protect; close is the call the
-    // real-unmount teardown must make (and StrictMode must NOT make).
-    let createMediaElementSource: ReturnType<typeof vi.fn>;
-    let closeCalls: ReturnType<typeof vi.fn>[];
-
-    function installFakeAudio() {
-      createMediaElementSource = vi.fn(() => ({ connect: vi.fn() }));
-      closeCalls = [];
-      const sourceFactory = createMediaElementSource;
-      const closes = closeCalls;
-      class FakeAudioContext {
-        destination = {};
-        createAnalyser = vi.fn(() => ({ fftSize: 0, connect: vi.fn() }));
-        createMediaElementSource = sourceFactory;
-        resume = vi.fn();
-        close = vi.fn(() => Promise.resolve());
-        constructor() {
-          closes.push(this.close);
-        }
-      }
-      vi.stubGlobal("AudioContext", FakeAudioContext);
-    }
-
-    // The unmount cleanup defers its element-still-connected check by a
-    // setTimeout(0); flush it inside act so state updates settle.
-    async function flushDeferredTeardown() {
-      await act(async () => {
-        await new Promise((resolve) => setTimeout(resolve, 0));
-      });
-    }
-
-    afterEach(() => {
-      vi.unstubAllGlobals();
-    });
-
-    it("promotes the AudioContext to state so children re-render with it", () => {
-      installFakeAudio();
-      render(<NowPlaying mini={false} />);
-      // Refs wouldn't have triggered this re-render; state does.
-      expect(screen.getByTestId("now-playing-main")).toHaveAttribute(
-        "data-has-audio-context",
-        "true"
-      );
-    });
-
-    it("calls createMediaElementSource once under a Strict Mode double mount and keeps the context open", async () => {
-      installFakeAudio();
-      // Strict Mode double-invokes the init effect on the SAME audio element;
-      // the WeakMap cache must make the second invocation reuse the graph
-      // instead of calling createMediaElementSource again (which would throw
-      // InvalidStateError and leave a silently dead analyser).
-      render(
-        <StrictMode>
-          <NowPlaying mini={false} />
-        </StrictMode>
-      );
-      expect(createMediaElementSource).toHaveBeenCalledTimes(1);
-
-      // The synthetic cleanup ran with the element still connected, so the
-      // deferred teardown must leave the cached context open.
-      await flushDeferredTeardown();
-      for (const close of closeCalls) {
-        expect(close).not.toHaveBeenCalled();
-      }
-      expect(closeCalls.length).toBeGreaterThan(0);
-    });
-
-    it("closes the context on a real unmount and builds a fresh graph on remount", async () => {
-      installFakeAudio();
-      // A genuine unmount detaches the <audio> node; the deferred teardown
-      // must close its context (Chromium caps ~6 live AudioContexts per page,
-      // so leaking one per remount eventually breaks the visualizer).
-      const { unmount } = render(<NowPlaying mini={false} />);
-      expect(createMediaElementSource).toHaveBeenCalledTimes(1);
-
-      unmount();
-      await flushDeferredTeardown();
-      expect(closeCalls[0]).toHaveBeenCalledTimes(1);
-
-      // A remount renders a NEW element → cache miss → fresh working graph.
-      render(<NowPlaying mini={false} />);
-      expect(createMediaElementSource).toHaveBeenCalledTimes(2);
-      expect(screen.getByTestId("now-playing-main")).toHaveAttribute(
-        "data-has-audio-context",
-        "true"
-      );
-    });
-  });
-
   describe("API polling", () => {
-    it("polls both hooks on the shared cadence, skipping unfocused, refetching on focus by default", () => {
+    it("polls both hooks on the shared cadence, skipping unfocused, refetching on focus", () => {
       render(<NowPlaying mini={false} />);
-      // The dashboard default pauses the poll on a hidden/blurred tab but
-      // resyncs the moment it regains focus.
+      // The poll pauses on a hidden/blurred tab and resyncs the moment it
+      // regains focus.
       expect(mockUseGetNowPlayingQuery).toHaveBeenCalledWith(undefined, {
         pollingInterval: 60000,
         skipPollingIfUnfocused: true,
@@ -466,22 +365,6 @@ describe("NowPlaying", () => {
       expect(mockUseWhoIsLiveQuery).toHaveBeenCalledWith(undefined, {
         pollingInterval: 60000,
         skipPollingIfUnfocused: true,
-        refetchOnFocus: true,
-      });
-    });
-
-    it("keeps both polls alive on blurred tabs when pollInBackground is set", () => {
-      render(<NowPlaying mini={false} pollInBackground />);
-      // The listen-live surface plays audio in a background tab, so polls must
-      // survive blur.
-      expect(mockUseGetNowPlayingQuery).toHaveBeenCalledWith(undefined, {
-        pollingInterval: 60000,
-        skipPollingIfUnfocused: false,
-        refetchOnFocus: true,
-      });
-      expect(mockUseWhoIsLiveQuery).toHaveBeenCalledWith(undefined, {
-        pollingInterval: 60000,
-        skipPollingIfUnfocused: false,
         refetchOnFocus: true,
       });
     });
