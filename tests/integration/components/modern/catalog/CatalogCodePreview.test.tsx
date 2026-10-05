@@ -193,6 +193,7 @@ describe("CatalogCodePreview", () => {
     const slot = container.querySelector('[aria-hidden="true"].MuiTypography-root');
     expect(slot).not.toBeNull();
     expect(slot).toHaveStyle({ visibility: "hidden" });
-    expect(slot?.textContent?.trim()).toBe("");
+    // Exactly one NBSP: an empty slot collapses the layout this test guards.
+    expect(slot?.textContent).toBe("\u00a0");
   });
 });

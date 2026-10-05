@@ -643,7 +643,7 @@ describe("RotationFilingBench", () => {
       // autopopulate.
       await selectGenre(user);
       await pickExistingArtist(user);
-      expect(screen.getByText(/Filing under Juana Molina/)).toBeInTheDocument();
+      expect(screen.getByText("Filing under Juana Molina (JM 1)")).toBeInTheDocument();
 
       await user.type(screen.getByLabelText("Autopopulate with Discogs link"), DISCOGS_LINK);
       await user.click(screen.getByRole("button", { name: "Autopopulate" }));
