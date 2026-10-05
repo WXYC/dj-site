@@ -16,6 +16,8 @@ export type LmlLibraryItem = {
   label?: string | null;
   on_streaming?: boolean | null;
   matched_via?: TrackMatchHint[];
+  // Absent until the deployed LML serves it on /library/search.
+  call_number?: string;
 };
 
 export type LmlLibrarySearchResponse = {

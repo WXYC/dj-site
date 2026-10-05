@@ -104,7 +104,7 @@ function FlowsheetBackendResult({
           color: lit ? "neutral.300" : "text.tertiary",
         }}
       >
-        {formatAlbumEntryLibraryCode(entry, entry.artist?.genre)}
+        {entry.call_number ?? formatAlbumEntryLibraryCode(entry, entry.artist?.genre)}
       </Typography>
       <Box sx={{ minWidth: 0, px: ENTRY_BAR_CELL_PADDING_X }}>
         <Typography sx={cellTextSx(lit, Boolean(entry.artist?.name))}>

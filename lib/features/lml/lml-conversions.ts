@@ -8,6 +8,14 @@ import type { LmlLibraryItem } from "./types";
  * `on_streaming`, and `matched_via` DO ride on the response (dj-site#605); a
  * missing/null `on_streaming` stays `undefined` so it is not mistaken for the
  * `false` value that renders the WXYC EXCLUSIVE chip.
+ *
+ * The call number is LML's, not ours: `call_number` is carried verbatim and
+ * rendered as served, so LML stays the only composer of a string it already
+ * composes (section letters, compilation buckets, partial rows included). The
+ * parts below are the fallback for an LML that predates the field. A null
+ * artist number stays null rather than becoming a fabricated `0`; the release
+ * number keeps its `?? 0` because `AlbumEntry.entry` is a required number
+ * across every catalog surface, and LML never files a release without one.
  */
 export function convertLmlItemToAlbumEntry(item: LmlLibraryItem): AlbumEntry {
   return {
@@ -20,11 +28,12 @@ export function convertLmlItemToAlbumEntry(item: LmlLibraryItem): AlbumEntry {
     // The marker the freeze path's interim album_id write-gate keys on; see
     // AlbumEntry.lml_source for the removal condition.
     lml_source: true,
+    call_number: item.call_number,
     title: item.title ?? "",
     artist: {
       name: item.artist ?? "",
       lettercode: item.call_letters ?? "",
-      numbercode: item.artist_call_number ?? 0,
+      numbercode: item.artist_call_number,
       // Verbatim; the sentinel is for a row with no genre. See `ArtistEntry.genre`.
       genre: item.genre ?? "Unknown",
       // LML answers out of its own `library.db`, which carries a genre NAME
