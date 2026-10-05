@@ -2,6 +2,7 @@
 
 import type { JSX } from "react";
 import { Button, Sheet, Stack, Typography } from "@mui/joy";
+import { formatCallLettersAndNumbers } from "@/lib/features/catalog/libraryCode";
 import { UNTRUSTWORTHY_CODE_ANSWER_MESSAGE } from "@/lib/features/catalog/libraryCodeResolution";
 import type { ArtistByCodeOwner } from "@/lib/features/catalog/types";
 import type { CompilationBucketOutcome } from "@/src/hooks/useCompilationBucketResolution";
@@ -79,8 +80,12 @@ export default function CompilationBucketPanel({
 
       {outcome === "existing" && owners.length === 1 && (
         <Typography level="body-sm">
-          Filing under {owners[0].artist_name} ({owners[0].code_letters}{" "}
-          {owners[0].code_number})
+          Filing under {owners[0].artist_name} (
+          {formatCallLettersAndNumbers({
+            code_letters: owners[0].code_letters,
+            code_artist_number: owners[0].code_number,
+          })}
+          )
         </Typography>
       )}
 

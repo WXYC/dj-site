@@ -39,6 +39,7 @@ import { isLibraryFilingConflict } from "@/lib/features/catalog/fileReleaseConfl
 import { isGenresUnavailable } from "@/lib/features/catalog/genreAvailability";
 import { isCompilationReleaseArtistName } from "@/lib/features/catalog/is-compilation-artist";
 import {
+  formatCallLettersAndNumbers,
   VARIOUS_ARTISTS_CODE_LETTERS,
   VARIOUS_ARTISTS_CODE_NUMBER,
 } from "@/lib/features/catalog/libraryCode";
@@ -711,8 +712,12 @@ export default function RotationFilingBench(): JSX.Element {
                 </FormHelperText>
               ) : selectedArtist ? (
                 <FormHelperText>
-                  Filing under {selectedArtist.artist_name} ({selectedArtist.code_letters}{" "}
-                  {selectedArtist.code_number})
+                  Filing under {selectedArtist.artist_name} (
+                  {formatCallLettersAndNumbers({
+                    code_letters: selectedArtist.code_letters,
+                    code_artist_number: selectedArtist.code_number,
+                  })}
+                  )
                 </FormHelperText>
               ) : showCreatePanel && dedup.existingArtist ? (
                 <FormHelperText sx={{ color: "danger.500" }}>

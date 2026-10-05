@@ -58,8 +58,19 @@ describe("CompilationBucketPanel — outcomes", () => {
 
   it("names the genre's only shelf, with no choice to make", () => {
     renderPanel({ outcome: "existing", owners: PLAIN_SHELF, resolvedArtistId: 8301 });
-    expect(within(panel()).getByText("Filing under Various Artists (V/A 0)")).toBeInTheDocument();
+    expect(within(panel()).getByText("Filing under Various Artists (V/A)")).toBeInTheDocument();
     expect(within(panel()).queryByRole("radio")).not.toBeInTheDocument();
+  });
+
+  it("leaves a named artist's number in the filing line", () => {
+    renderPanel({
+      outcome: "existing",
+      owners: [
+        { id: 9001, artist_name: "Rob Ofarrell", code_letters: "RO", code_number: 12, genre_id: 3 },
+      ],
+      resolvedArtistId: 9001,
+    });
+    expect(within(panel()).getByText("Filing under Rob Ofarrell (RO 12)")).toBeInTheDocument();
   });
 
   it("lists the shelves verbatim when the genre has several", () => {
