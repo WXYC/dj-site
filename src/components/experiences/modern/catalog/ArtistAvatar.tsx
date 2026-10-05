@@ -1,5 +1,9 @@
 import type { JSX } from "react";
 import { ArtistEntry } from "@/lib/features/catalog/types";
+import {
+  formatArtistCodeWithPunctuation,
+  isVariousArtists,
+} from "@/lib/features/catalog/libraryCode";
 import { Rotation } from "@/lib/features/rotation/types";
 import {
   formatTone,
@@ -29,15 +33,24 @@ export const ArtistAvatar = (props: ArtistAvatarProps): JSX.Element => {
   const color_choice = tone.color;
   const variant_choice = tone.variant;
   const formatColor = formatTone(props.format).color;
+  const isCompilation =
+    props.artist !== undefined && isVariousArtists(props.artist.lettercode);
+  // A compilation bucket has no artist number, so its stored 0 is hidden
+  // rather than shown as if it were one.
+  const artistCode = props.artist
+    ? formatArtistCodeWithPunctuation({
+        code_letters: props.artist.lettercode,
+        code_artist_number: props.artist.numbercode,
+        genre_id: undefined,
+      })
+    : "&& ##/";
 
   return (
     <Tooltip
       variant="outlined"
       title={`${props.artist?.genre ?? "[Genre]"} ${
         props.format == "Unknown" ? "[Format]" : props.format ?? "[Format]"
-      }   ♪   ${props.artist?.lettercode ?? "&&"} ${
-        props.artist?.numbercode ?? "##"
-      }/${props.entry ?? "##"}`}
+      }   ♪   ${artistCode}${props.entry ?? "##"}`}
       placement="top"
     >
       <Badge
@@ -82,7 +95,7 @@ export const ArtistAvatar = (props: ArtistAvatarProps): JSX.Element => {
                 level="body-xs"
                 sx={{ color: "text.primary", fontSize: "0.6rem" }}
               >
-                {props.artist?.numbercode ?? "|"}
+                {isCompilation ? null : props.artist?.numbercode ?? "|"}
               </Typography>
               <Avatar
                 variant={variant_choice == "solid" ? "soft" : "solid"}
