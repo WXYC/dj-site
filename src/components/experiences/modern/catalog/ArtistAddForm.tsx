@@ -25,6 +25,7 @@ import {
   validateNewArtistFields,
 } from "@/lib/features/catalog/adminCreateArtistValidation";
 import { isGenresUnavailable } from "@/lib/features/catalog/genreAvailability";
+import { formatCallLettersAndNumbers } from "@/lib/features/catalog/libraryCode";
 import type { AddArtistRequestBody } from "@/lib/features/catalog/types";
 import { useArtistDedupCheck } from "@/src/hooks/catalogHooks";
 import ArtistSearchTypeahead from "@/src/components/shared/inputs/ArtistSearchTypeahead";
@@ -317,8 +318,12 @@ function ArtistAddFields() {
 
           {added && (
             <Typography level="body-sm" color="success" role="status">
-              Added as {added.code_letters}
-              {added.code_number}.
+              Added as{" "}
+              {formatCallLettersAndNumbers({
+                code_letters: added.code_letters,
+                code_artist_number: added.code_number,
+              })}
+              .
             </Typography>
           )}
 

@@ -19,6 +19,7 @@ import {
   validateNewArtistFields,
 } from "@/lib/features/catalog/adminCreateArtistValidation";
 import type { AddArtistConflict } from "@/lib/features/catalog/types";
+import { formatCallLettersAndNumbers } from "@/lib/features/catalog/libraryCode";
 import CallLetterPeekControl from "@/src/components/shared/inputs/CallLetterPeekControl";
 import { useArtistCodePeek } from "@/src/hooks/useArtistCodePeek";
 
@@ -266,8 +267,13 @@ function NewArtistFields({
           </Typography>
         ) : (
           <Typography level="body-sm" color="danger" role="alert">
-            {conflict.code_letters}
-            {conflict.code_number} is already taken by{" "}
+            {formatCallLettersAndNumbers({
+              code_letters: conflict.code_letters,
+              code_artist_number: Number.isNaN(Number.parseInt(conflict.code_number, 10))
+                ? null
+                : Number.parseInt(conflict.code_number, 10),
+            })}{" "}
+            is already taken by{" "}
             {conflict.response.artist.artist_name}.
           </Typography>
         ))}

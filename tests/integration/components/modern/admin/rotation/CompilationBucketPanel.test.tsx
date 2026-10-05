@@ -66,11 +66,11 @@ describe("CompilationBucketPanel — outcomes", () => {
     renderPanel({
       outcome: "existing",
       owners: [
-        { id: 9001, artist_name: "Rob Ofarrell", code_letters: "RO", code_number: 12, genre_id: 3 },
+        { id: 9001, artist_name: "Stereolab", code_letters: "RO", code_number: 87, genre_id: 3 },
       ],
       resolvedArtistId: 9001,
     });
-    expect(within(panel()).getByText("Filing under Rob Ofarrell (RO 12)")).toBeInTheDocument();
+    expect(within(panel()).getByText("Filing under Stereolab (RO 87)")).toBeInTheDocument();
   });
 
   it("lists the shelves verbatim when the genre has several", () => {
@@ -154,11 +154,11 @@ describe("CompilationBucketPanel — refusals and disabling", () => {
     const { user } = renderPanel({
       outcome: "create",
       owners: [],
-      conflict: { message: "Various Artists already holds V/A 0 in this genre." },
+      conflict: { message: "Various Artists already holds V/A in this genre." },
       onRetry,
     });
 
-    expect(within(panel()).getByRole("alert")).toHaveTextContent(/already holds V\/A 0/);
+    expect(within(panel()).getByRole("alert")).toHaveTextContent(/already holds V\/A in this genre/);
     await user.click(within(panel()).getByRole("button", { name: "Look again" }));
     expect(onRetry).toHaveBeenCalled();
   });

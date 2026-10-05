@@ -476,7 +476,7 @@ describe("RotationFilingBench", () => {
       await user.click(screen.getByRole("button", { name: "Add to rotation" }));
 
       const alert = await screen.findByRole("alert");
-      expect(alert).toHaveTextContent("CH12 is already taken by Stereolab.");
+      expect(alert).toHaveTextContent("CH 12 is already taken by Stereolab.");
       expect(filings.bodies()).toHaveLength(1);
       expect(within(ledger()).getByText("Nothing filed yet.")).toBeInTheDocument();
       expect(screen.getByLabelText("Album title")).toHaveValue("Edits");
@@ -521,7 +521,7 @@ describe("RotationFilingBench", () => {
       await user.click(screen.getByRole("button", { name: "Add to rotation" }));
 
       expect(await screen.findByRole("alert")).toHaveTextContent(
-        "CH12 is already taken by Stereolab.",
+        "CH 12 is already taken by Stereolab.",
       );
       expect(screen.getByRole("button", { name: "Add to rotation" })).toBeDisabled();
 

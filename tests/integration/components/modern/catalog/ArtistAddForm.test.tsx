@@ -272,9 +272,9 @@ describe("ArtistAddForm", () => {
       await user.click(screen.getByRole("button", { name: /add artist/i }));
 
       expect(
-        await screen.findByText(new RegExp(`${STEREOLAB}44`)),
+        await screen.findByText(new RegExp(`${STEREOLAB} 44`)),
       ).toBeInTheDocument();
-      expect(screen.queryByText(new RegExp(`${MOLINA}12`))).not.toBeInTheDocument();
+      expect(screen.queryByText(new RegExp(`${MOLINA} 12`))).not.toBeInTheDocument();
     });
 
     it("clears the fields and confirms by name after a successful add", async () => {
@@ -330,7 +330,7 @@ describe("ArtistAddForm", () => {
       const alert = await screen.findByRole("alert");
       expect(alert).toHaveTextContent("Juana Molina");
       expect(alert).toHaveTextContent("Stereolab");
-      expect(alert).not.toHaveTextContent(`${MOLINA}12`);
+      expect(alert).not.toHaveTextContent(`${MOLINA} 12`);
       expect(toast.error).not.toHaveBeenCalled();
     });
 
@@ -347,7 +347,7 @@ describe("ArtistAddForm", () => {
 
         await fillCoreFields(user);
         await user.click(screen.getByRole("button", { name: /add artist/i }));
-        expect(await screen.findByRole("alert")).toHaveTextContent(`${MOLINA}12`);
+        expect(await screen.findByRole("alert")).toHaveTextContent(`${MOLINA} 12`);
 
         // Editing a field the server actually saw must drop the banner rather
         // than have it keep reporting the new, unsubmitted value as taken.
@@ -394,7 +394,7 @@ describe("ArtistAddForm", () => {
 
       await fillCoreFields(user);
       await user.click(screen.getByRole("button", { name: /add artist/i }));
-      expect(await screen.findByRole("alert")).toHaveTextContent(`${MOLINA}12`);
+      expect(await screen.findByRole("alert")).toHaveTextContent(`${MOLINA} 12`);
 
       // (code_letters, genre_id, code_number) is the uniqueness triple — a
       // code rejected under one genre may be free under another, so moving
@@ -802,7 +802,7 @@ describe("ArtistAddForm", () => {
         await fillCoreFields(user);
         await user.click(screen.getByRole("button", { name: /add artist/i }));
         expect(await screen.findByRole("status")).toHaveTextContent(
-          `Added as ${MOLINA}12.`,
+          `Added as ${MOLINA} 12.`,
         );
 
         // An MD filing a batch who transcribes the next card's code before its
@@ -811,7 +811,7 @@ describe("ArtistAddForm", () => {
         await edit(user);
 
         expect(
-          screen.queryByText(new RegExp(`Added as ${MOLINA}12`)),
+          screen.queryByText(new RegExp(`Added as ${MOLINA} 12`)),
         ).not.toBeInTheDocument();
       });
     });
@@ -1023,7 +1023,7 @@ describe("ArtistAddForm", () => {
 
         await fillCoreFields(user);
         await user.click(screen.getByRole("button", { name: /add artist/i }));
-        expect(await screen.findByRole("alert")).toHaveTextContent(`${MOLINA}12`);
+        expect(await screen.findByRole("alert")).toHaveTextContent(`${MOLINA} 12`);
 
         // The (code_letters, genre_id, code_number) triple the server just
         // rejected has not changed, so a second click can only reach the same
@@ -1040,7 +1040,7 @@ describe("ArtistAddForm", () => {
 
         await fillCoreFields(user);
         await user.click(screen.getByRole("button", { name: /add artist/i }));
-        expect(await screen.findByRole("alert")).toHaveTextContent(`${MOLINA}12`);
+        expect(await screen.findByRole("alert")).toHaveTextContent(`${MOLINA} 12`);
 
         await user.type(screen.getByLabelText(/call letters/i), "X");
 
@@ -1056,7 +1056,7 @@ describe("ArtistAddForm", () => {
 
         await fillCoreFields(user);
         await user.click(screen.getByRole("button", { name: /add artist/i }));
-        expect(await screen.findByRole("alert")).toHaveTextContent(`${MOLINA}12`);
+        expect(await screen.findByRole("alert")).toHaveTextContent(`${MOLINA} 12`);
 
         // The artist name is not part of the (code_letters, genre_id,
         // code_number) triple a code-triple conflict rejected, so editing it
@@ -1065,7 +1065,7 @@ describe("ArtistAddForm", () => {
         // must not clear a still-accurate code conflict.
         await user.type(screen.getByPlaceholderText("Search artists..."), " II");
 
-        expect(screen.getByRole("alert")).toHaveTextContent(`${MOLINA}12`);
+        expect(screen.getByRole("alert")).toHaveTextContent(`${MOLINA} 12`);
         expect(screen.getByRole("button", { name: /add artist/i })).toBeDisabled();
       });
 
