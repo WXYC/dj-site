@@ -160,4 +160,22 @@ describe("CatalogCodePreview", () => {
     expect(badge).toHaveTextContent("M");
     expect(badge).not.toHaveAttribute("title");
   });
+  it.each([
+    ["a compilation", "V/A", 0, false],
+    ["a named artist", "RO", 12, true],
+  ])("shows the artist number slot only for %s's real number", (_, letters, number, shown) => {
+    renderWithProviders(
+      inModernTheme(<CatalogCodePreview
+        genreName="Rock"
+        codeLetters={letters}
+        artistNumber={number}
+        albumEntry="651"
+        formatLabel="CD"
+        size="sm"
+      />
+      )
+    );
+    if (shown) expect(screen.getByText(String(number))).toBeInTheDocument();
+    else expect(screen.queryByText("0")).not.toBeInTheDocument();
+  });
 });
