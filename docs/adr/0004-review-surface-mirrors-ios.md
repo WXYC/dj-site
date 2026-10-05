@@ -8,7 +8,7 @@ A review is about an intake item (a physical copy the station holds, logged by a
 
 ## Many reviews, one chosen
 
-A record becomes reviewed only when a music director chooses one of its submitted reviews for the cover. Submitting a review does not move the record; it notifies the music directors. The music director can change the choice at any time, before or after filing, which is how a review is replaced. There is no reject or send-back step: an unwanted review is simply not chosen, or is deleted.
+A record becomes reviewed only when a music director chooses one of its submitted reviews for the cover. Submitting a review does not move the record; a review of a pile item notifies the music directors by email, and a review of a library release notifies nobody. The music director can change the choice at any time, before or after filing, which is how a review is replaced. There is no reject or send-back step: an unwanted review is simply not chosen, or is deleted.
 
 A review a music director records (on someone's behalf, or handwritten) becomes the record's review by default, with an opt-out, and can be recorded at any stage of the record's life.
 
@@ -18,7 +18,7 @@ An author edits their own review at any time, printed or not. Music directors ma
 
 ## Printing
 
-The slip prints the chosen review and the record's confirmed FCC notes, and can be printed as soon as a review is chosen; filing first is not required. A music director can also print a typed review of any library release, including one with no pile record.
+The slip prints the chosen review and the record's confirmed FCC notes, and can be printed as soon as a review is chosen; filing first is not required. A handwritten review stays on the sleeve, and nothing is printed for it. A music director can also print a typed review of any library release, including one with no pile record.
 
 A record that cites a release takes its cover review from that release. If the cited release is later deleted from the catalog, the record keeps its own complete copy of that review (decision 35 in the epic, WXYC/Backend-Service#2875; the canonical ADR does not say this yet).
 
@@ -51,8 +51,9 @@ The form archive (Backend-Service ADR 0011) stays a separate table; it is cited 
 These are the dj-site specifics for this mirror. The DJ and music director screens are on the web surface; the DJ mobile apps are not in v1.
 
 - The DJ pile and review editor at `/dashboard/reviews` and `/dashboard/reviews/{id}`. These are modern-experience screens; the classic experience shows `ExperienceGap`. The editor shows the consent controls only to the review's author.
-- The review history page at `/dashboard/reviews/{id}/history`, listing every version of a submitted review and marking the one on the cover.
-- The MD intake admin at `/dashboard/admin/intake` and `/dashboard/admin/intake/{id}`, covering logging and requesting items, recording reviews on behalf of others and handwritten ones, choosing the review for the cover, filing with a call number, and the slip print view, including printing a typed review of a library release. These are modern-experience screens.
+- The review history page at `/dashboard/reviews/{id}/history`, listing every version of a submitted review and marking the one on the cover. This is a modern-experience screen; the classic experience shows `ExperienceGap`.
+- The MD intake admin at `/dashboard/admin/intake` and `/dashboard/admin/intake/{id}`, covering logging and requesting items, recording reviews on behalf of others and handwritten ones, choosing the review for the cover, filing with a call number, and the slip print view at `/dashboard/admin/intake/{id}/slip`. These are modern-experience screens.
+- The library slip at `/dashboard/admin/library/{albumId}/slip/{reviewId}`: the same slip print view, for a typed review of a release already in the library, including one with no pile record. This is a modern-experience screen.
 - The reviews panel on the shared album page `/dashboard/album/{id}`: "the review on the cover" first, then the other reviews, newest first (a handwritten one shows as "on the sleeve"); the form archive's entries as cited prior takes; and "Review this release", where a DJ starts a review of a release already in the library. The screens never say "intake review" or "release review".
 - The FCC notes panel on the album page, where any DJ reports a note and music directors confirm or remove them, and the same report action on a pile item.
 - The librarian's finalize step on the classic Awaiting Cataloging list. This is classic-first because the librarian works in the classic experience.
