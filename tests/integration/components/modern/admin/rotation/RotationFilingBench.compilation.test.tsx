@@ -240,6 +240,23 @@ describe("RotationFilingBench — Various Artists compilations", () => {
       );
     });
 
+    it("renders a V/A bucket picked from the typeahead as V/A, never V/A 0", async () => {
+      mockShelf({ owners: [PLAIN_BUCKET] });
+      const bucket = { ...PLAIN_BUCKET, id: 8110, artist_name: "Various Artists - Rock - K" };
+      server.use(
+        http.get(`${TEST_BACKEND_URL}/library/artists/search`, () =>
+          HttpResponse.json({ artists: [bucket] }),
+        ),
+      );
+      const { user } = renderBench();
+
+      await selectGenre(user);
+      await user.type(screen.getByPlaceholderText("Search artists..."), "Various");
+      await user.click(await screen.findByRole("option", { name: bucket.artist_name }));
+
+      expect(screen.getByText("Filing under Various Artists - Rock - K (V/A)")).toBeInTheDocument();
+    });
+
     it("never shows the dedup warnings or searches for the retained name while checked", async () => {
       mockShelf({ owners: [PLAIN_BUCKET] });
       const searches: string[] = [];
@@ -613,6 +630,10 @@ describe("RotationFilingBench — Various Artists compilations", () => {
       // create panel's banner (which is not mounted in compilation state).
       const alert = await within(shelfPanel()).findByRole("alert");
       expect(alert).toHaveTextContent(/Various Artists/);
+      // The shelf's code is `V/A`: the number slot is meaningless for a bucket
+      // and must never be printed as `V/A 0`.
+      expect(alert).toHaveTextContent(/already holds V\/A in this genre/);
+      expect(alert).not.toHaveTextContent("V/A 0");
       expect(within(ledger()).getByText("Nothing filed yet.")).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Add to rotation" })).toBeDisabled();
 

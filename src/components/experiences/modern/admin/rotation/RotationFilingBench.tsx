@@ -211,6 +211,10 @@ export default function RotationFilingBench(): JSX.Element {
   // snapshot: on the `existing` arm the snapshot holds the create-panel
   // drafts, which are empty in compilation state. Every compilation files at
   // the one pair, so the constants are right on both arms.
+  const compilationShelfCode = formatCallLettersAndNumbers({
+    code_letters: VARIOUS_ARTISTS_CODE_LETTERS,
+    code_artist_number: VARIOUS_ARTISTS_CODE_NUMBER,
+  });
   const compilationConflict =
     compilationActive && artistConflict !== null
       ? {
@@ -218,8 +222,8 @@ export default function RotationFilingBench(): JSX.Element {
             conflict?.data.reason === "artist_name_conflict"
               ? `${COMPILATION_BUCKET_NAME} already exists in this genre — file under that shelf instead.`
               : artistConflict.response
-                ? `${artistConflict.response.artist.artist_name} already holds ${VARIOUS_ARTISTS_CODE_LETTERS} ${VARIOUS_ARTISTS_CODE_NUMBER} in this genre — file under that shelf instead.`
-                : `${VARIOUS_ARTISTS_CODE_LETTERS} ${VARIOUS_ARTISTS_CODE_NUMBER} is already taken in this genre.`,
+                ? `${artistConflict.response.artist.artist_name} already holds ${compilationShelfCode} in this genre — file under that shelf instead.`
+                : `${compilationShelfCode} is already taken in this genre.`,
         }
       : null;
 

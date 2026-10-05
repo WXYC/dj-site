@@ -430,8 +430,28 @@ describe("NewArtistFields", () => {
     );
 
     expect(screen.getByRole("alert")).toHaveTextContent(
-      "ST87 is already taken by Cat Power.",
+      "ST 87 is already taken by Cat Power.",
     );
+  });
+
+  it("names a rejected Various Artists code as V/A, never V/A 0", () => {
+    renderWithProviders(
+      <Harness
+        conflict={{
+          code_letters: "V/A",
+          code_number: "0",
+          name: "Habibi Funk",
+          response: {
+            artist: { artist_id: 8100, artist_name: "Various Artists", code_letters: "V/A" },
+          },
+        }}
+      />,
+    );
+
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveTextContent("V/A is already taken by Various Artists.");
+    expect(alert).not.toHaveTextContent("V/A 0");
+    expect(alert).not.toHaveTextContent("V/A0");
   });
 
   it("names the artist holding a rejected name", () => {
