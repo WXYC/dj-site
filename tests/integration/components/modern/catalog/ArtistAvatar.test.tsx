@@ -47,6 +47,16 @@ describe("ArtistAvatar", () => {
     expect(container.textContent).not.toMatch(/(^|\D)0(\D|$)/);
   });
 
+  it("keeps the compilation number slot in the layout but invisible and unannounced", () => {
+    const { container } = renderWithProviders(
+      inModernTheme(<ArtistAvatar artist={artist("V/A", 0)} entry={651} format="CD" />)
+    );
+    const slot = container.querySelector('[aria-hidden="true"].MuiTypography-root');
+    expect(slot).not.toBeNull();
+    expect(slot).toHaveStyle({ visibility: "hidden" });
+    expect(slot?.textContent?.trim()).toBe("");
+  });
+
   it("keeps the number slot for a named artist", () => {
     const { container } = renderWithProviders(
       inModernTheme(<ArtistAvatar artist={artist("RO", 12)} entry={3} format="CD" />)

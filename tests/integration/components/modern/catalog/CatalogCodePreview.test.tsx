@@ -178,4 +178,21 @@ describe("CatalogCodePreview", () => {
     if (shown) expect(screen.getByText(String(number))).toBeInTheDocument();
     else expect(screen.queryByText("0")).not.toBeInTheDocument();
   });
+  it("keeps a compilation's number slot in the layout but invisible and unannounced", () => {
+    const { container } = renderWithProviders(
+      inModernTheme(<CatalogCodePreview
+        genreName="Rock"
+        codeLetters="V/A"
+        artistNumber={0}
+        albumEntry="651"
+        formatLabel="CD"
+        size="sm"
+      />
+      )
+    );
+    const slot = container.querySelector('[aria-hidden="true"].MuiTypography-root');
+    expect(slot).not.toBeNull();
+    expect(slot).toHaveStyle({ visibility: "hidden" });
+    expect(slot?.textContent?.trim()).toBe("");
+  });
 });

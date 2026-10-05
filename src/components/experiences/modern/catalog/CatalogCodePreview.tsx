@@ -72,9 +72,11 @@ export default function CatalogCodePreview({
     codeLetters.trim().length > 0
       ? codeLetters.trim().toUpperCase().slice(0, 4)
       : "&&";
-  // A compilation bucket has no artist number, so its stored 0 is hidden.
-  const num = isVariousArtists(codeLetters)
-    ? null
+  // A compilation bucket has no artist number, so its stored 0 is not shown;
+  // the slot stays (hidden) so the badge geometry matches a named artist's.
+  const isCompilation = isVariousArtists(codeLetters);
+  const num = isCompilation
+    ? "\u00a0"
     : artistNumber !== null &&
         artistNumber !== "" &&
         String(artistNumber).trim().length > 0
@@ -142,7 +144,12 @@ export default function CatalogCodePreview({
           <Stack direction="column" sx={{ textAlign: "center" }}>
             <Typography
               level="body-xs"
-              sx={{ color: "text.primary", fontSize: s.text }}
+              aria-hidden={isCompilation ? true : undefined}
+              sx={{
+                color: "text.primary",
+                fontSize: s.text,
+                ...(isCompilation && { visibility: "hidden" }),
+              }}
             >
               {num}
             </Typography>

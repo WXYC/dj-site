@@ -20,6 +20,8 @@ interface ArtistAvatarProps {
   format?: string;
 }
 
+const NBSP = "\u00a0";
+
 /**
  * Two-letter badge for a genre or format. `||`, not `??`: either can arrive as
  * the empty string — the adapters carry server text verbatim and map only null
@@ -35,8 +37,9 @@ export const ArtistAvatar = (props: ArtistAvatarProps): JSX.Element => {
   const formatColor = formatTone(props.format).color;
   const isCompilation =
     props.artist !== undefined && isVariousArtists(props.artist.lettercode);
-  // A compilation bucket has no artist number, so its stored 0 is hidden
-  // rather than shown as if it were one.
+  // A compilation bucket has no artist number, so its stored 0 is not shown as
+  // if it were one. The slot stays (hidden, with a non-breaking space for line
+  // height) so the badge geometry matches a named artist's.
   const artistCode = props.artist
     ? formatArtistCodeWithPunctuation({
         code_letters: props.artist.lettercode,
@@ -93,9 +96,14 @@ export const ArtistAvatar = (props: ArtistAvatarProps): JSX.Element => {
             >
               <Typography
                 level="body-xs"
-                sx={{ color: "text.primary", fontSize: "0.6rem" }}
+                aria-hidden={isCompilation ? true : undefined}
+                sx={{
+                  color: "text.primary",
+                  fontSize: "0.6rem",
+                  ...(isCompilation && { visibility: "hidden" }),
+                }}
               >
-                {isCompilation ? null : props.artist?.numbercode ?? "|"}
+                {isCompilation ? NBSP : props.artist?.numbercode ?? "|"}
               </Typography>
               <Avatar
                 variant={variant_choice == "solid" ? "soft" : "solid"}
