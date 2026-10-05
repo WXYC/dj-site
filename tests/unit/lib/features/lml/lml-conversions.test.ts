@@ -69,11 +69,21 @@ describe("convertLmlItemToAlbumEntry", () => {
     expect(result.title).toBe("");
     expect(result.artist.name).toBe("");
     expect(result.artist.lettercode).toBe("");
-    expect(result.artist.numbercode).toBe(0);
+    expect(result.artist.numbercode).toBeNull();
     expect(result.artist.genre).toBe("Unknown");
     expect(result.entry).toBe(0);
     expect(result.format).toBe("Unknown");
     expect(result.alternate_artist).toBe("");
+  });
+
+  it("carries LML's served call_number verbatim", () => {
+    const item = createTestLmlLibraryItem({ call_number: "Rock cd V/A M-121" });
+
+    expect(convertLmlItemToAlbumEntry(item).call_number).toBe("Rock cd V/A M-121");
+  });
+
+  it("leaves call_number undefined when LML does not serve it", () => {
+    expect(convertLmlItemToAlbumEntry(createTestLmlLibraryItem()).call_number).toBeUndefined();
   });
 
   // The format vocabulary is server-owned — GET /library/formats is the

@@ -440,5 +440,32 @@ describe("FlowsheetBackendResult", () => {
       expect(codeText).toHaveStyle({ fontFamily: "monospace" });
     });
 
+
+  describe("LML-served call number", () => {
+    it("renders the call number LML served instead of recomposing it", () => {
+      const entry = createTestAlbum({
+        ...mockEntry,
+        lml_source: true,
+        call_number: "Rock cd V/A M-121",
+        artist: createTestArtist({ name: "Various Artists", lettercode: "V/A", numbercode: 0, genre: "Rock" }),
+        entry: 121,
+      });
+      renderWithProviders(<FlowsheetBackendResult entry={entry} index={1} />);
+
+      expect(screen.getByText("Rock cd V/A M-121")).toBeInTheDocument();
+    });
+
+    it("never renders a 0 artist number for a row with no artist number", () => {
+      const entry = createTestAlbum({
+        ...mockEntry,
+        lml_source: true,
+        artist: createTestArtist({ name: "Soundtrack Artist", lettercode: "ST", numbercode: null, genre: "Rock" }),
+        entry: 3,
+      });
+      renderWithProviders(<FlowsheetBackendResult entry={entry} index={1} />);
+
+      expect(screen.getByText("Rock ST/3")).toBeInTheDocument();
+    });
+  });
   });
 });

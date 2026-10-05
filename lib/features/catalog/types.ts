@@ -571,6 +571,12 @@ export type AlbumEntry = {
    * that point keeps the corrected links out of the flowsheet.
    */
   lml_source?: true;
+  /**
+   * The call number exactly as LML composed it (`Rock cd V/A M-121`), carried
+   * only by LML-sourced rows whose server serves the field. A display string:
+   * render it as-is, never parse it or recompose it from the parts.
+   */
+  call_number?: string;
   title: string;
   artist: ArtistEntry;
   entry: number;
@@ -639,7 +645,7 @@ export type AlbumEntry = {
 export type ArtistEntry = {
   name: string;
   lettercode: string;
-  numbercode: number;
+  numbercode: number | null;
   /**
    * The genre name exactly as the server filed it. The vocabulary is
    * server-owned — `GET /library/genres` is the authority and the table grows
