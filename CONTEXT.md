@@ -1,6 +1,6 @@
 # dj-site
 
-The DJ flowsheet and card catalog frontend for WXYC 89.3 FM. DJs use this app during their shows to log what they play; listeners hit `/live` to see what's playing now.
+The DJ flowsheet and card catalog frontend for WXYC 89.3 FM. DJs use this app during their shows to log what they play. It has no listener-facing pages: `/live` and `/playlists` redirect to the station site's playlist at wxyc.org/playlist.
 
 ## Language
 
@@ -13,9 +13,6 @@ _Avoid_: active show, current show, on-air show.
 
 **Live DJ**: A human DJ on air (as distinct from AutoDJ).
 _Avoid_: real DJ, human DJ once "live DJ" is the local term.
-
-**Live view**: The public page at `app/live/` that listeners (not DJs) hit. Renders the `NowPlaying` widget.
-_Avoid_: now-playing page (the widget is reused elsewhere), listener view.
 
 **Live updates**: Real-time UI updates driven by SSE events from Backend-Service. The flowsheet refreshes immediately on event receipt, not on a polling cycle.
 _Avoid_: real-time updates, push updates, streaming updates.
@@ -38,10 +35,10 @@ _Avoid_: flowsheet record, fs entry.
 
 ## Example dialogue
 
-> A: "Why is the live view stale right now?"
+> A: "Why is the flowsheet stale right now?"
 >
-> B: "Live updates are off behind the feature flag, so the live view is still on the 60-second polling cycle. Once we flip `NEXT_PUBLIC_FLOWSHEET_SSE_LIVE_VIEW_ENABLED` on, it'll subscribe to liveFs and the now-playing row will refresh whenever a liveFs:update arrives — which fires every time a row's LML enrichment lands. If the enrichment never completes, the live update never fires, but the 5-minute safety poll catches the gap."
+> B: "Live updates are off behind the feature flag, so the dashboard flowsheet is still on the 60-second polling cycle. Once we flip `NEXT_PUBLIC_FLOWSHEET_SSE_DASHBOARD_ENABLED` on, it'll subscribe to liveFs and each row will refresh whenever a liveFs:update arrives — which fires every time a row's LML enrichment lands. If the enrichment never completes, the live update never fires, but the 5-minute safety poll catches the gap."
 >
 > A: "What if the live DJ adds a song and enrichment hasn't run yet?"
 >
-> B: "DJ A sees the row immediately because the optimistic update from the mutation hits their own cache. DJ B and the live view see it once enrichment fires liveFs:update — typically a few seconds later. For coarse changes like ETL batch imports, it's liveFs:refetch instead, and we invalidate the whole flowsheet cache."
+> B: "DJ A sees the row immediately because the optimistic update from the mutation hits their own cache. DJ B sees it once enrichment fires liveFs:update — typically a few seconds later. For coarse changes like ETL batch imports, it's liveFs:refetch instead, and we invalidate the whole flowsheet cache."
