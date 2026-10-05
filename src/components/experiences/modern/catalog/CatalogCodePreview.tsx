@@ -6,6 +6,7 @@ import {
   genreTone,
   ROTATION_TONES,
 } from "@/lib/features/experiences/modern/tokens/roles";
+import { isVariousArtists } from "@/lib/features/catalog/libraryCode";
 import { Avatar, Badge, Stack, Typography } from "@mui/joy";
 
 export type CatalogCodePreviewProps = {
@@ -71,10 +72,12 @@ export default function CatalogCodePreview({
     codeLetters.trim().length > 0
       ? codeLetters.trim().toUpperCase().slice(0, 4)
       : "&&";
-  const num =
-    artistNumber !== null &&
-    artistNumber !== "" &&
-    String(artistNumber).trim().length > 0
+  // A compilation bucket has no artist number, so its stored 0 is hidden.
+  const num = isVariousArtists(codeLetters)
+    ? null
+    : artistNumber !== null &&
+        artistNumber !== "" &&
+        String(artistNumber).trim().length > 0
       ? String(artistNumber)
       : "|";
   const entry =
