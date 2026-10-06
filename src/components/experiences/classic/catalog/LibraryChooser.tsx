@@ -21,14 +21,17 @@ import SearchResults from "./SearchResults";
  * permanent leak, and would measure dwell on exactly the wrong population --
  * abandonments, never the fast successful visits.
  *
- * TWO searches reach the screen and they answer different questions: a
- * contested code (evidence that codes collide) and a call-letters browse (a
- * librarian reading a shelf section). `browse` separates them, and every
- * query that means "codes collide" has to filter on it -- a raw count of
- * SHOWN is inflated by browses. It is a property rather than a second event
- * name because the two EXITS are shared: splitting only the arrival would
- * leave every browse's ending unattributable, which is precisely the pairing
- * the two halves exist for.
+ * THREE searches reach the screen and they answer different questions: a
+ * contested code (evidence that codes collide), a call-letters browse (a
+ * librarian reading a shelf section), and a compilation section letter that
+ * matched no bucket (a typo or an unused letter, with zero artists to list).
+ * `browse` separates the browse from the other two, and `letter_miss` marks
+ * the third, so every query that means "codes collide" has to filter on
+ * `browse = false AND letter_miss = false` -- a raw count of SHOWN is inflated
+ * by both. They are properties rather than extra event names because the
+ * EXITS are shared: splitting only the arrival would leave every browse's and
+ * letter miss's ending unattributable, which is precisely the pairing the two
+ * halves exist for.
  */
 const LIBRARY_CHOOSER_EVENTS = {
   MULTI_MATCH_SHOWN: "library_multi_match_shown",
@@ -88,6 +91,15 @@ const LIBRARY_CHOOSER_EVENTS = {
  */
 const isBrowse = (result: MultiMatchResult) => result.codeNumber === null;
 
+/**
+ * A compilation section letter that named no bucket: a non-browse (it has a
+ * number) with nobody to list. Derived because a fully specified lookup with
+ * zero owners is refused upstream and never reaches the screen, so the pair
+ * identifies the case exactly.
+ */
+const isLetterMiss = (result: MultiMatchResult) =>
+  !isBrowse(result) && result.artists.length === 0;
+
 export default function LibraryChooser() {
   const [multiMatch, setMultiMatch] = useState<MultiMatchResult | null>(null);
   // Held here, not only inside the two forms, because they both unmount for
@@ -107,6 +119,7 @@ export default function LibraryChooser() {
       // Putting one here would name a row the librarian never searched for.
       code_number: result.codeNumber,
       browse: isBrowse(result),
+      letter_miss: isLetterMiss(result),
     });
     setMultiMatch(result);
   };
@@ -144,13 +157,14 @@ function MultiMatchScreen({
 }) {
   // Both exits carry the same identifying facts as the arrival, so a session's
   // SHOWN can be paired with whichever ending it got -- `browse` included,
-  // since a browse's ending counted against the collision population would
-  // break exactly that pairing.
+  // since a browse's or letter miss's ending counted against the collision
+  // population would break exactly that pairing.
   const ending = {
     owner_count: result.artists.length,
     code_letters: result.codeLetters,
     code_number: result.codeNumber,
     browse: isBrowse(result),
+    letter_miss: isLetterMiss(result),
   };
 
   return (

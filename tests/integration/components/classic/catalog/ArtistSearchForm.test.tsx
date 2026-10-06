@@ -372,7 +372,11 @@ describe("classic ArtistSearchForm — chooseLibraryCodeOrArtist.jsp's artistSea
       await user.click(screen.getByRole("button", { name: "Search!" }));
 
       await waitFor(() =>
-        expect(mockOnMultiMatch).toHaveBeenCalledWith(expect.objectContaining({ artists: shown })),
+        expect(mockOnMultiMatch).toHaveBeenCalledWith(
+          // `codeNumber: 0` is what makes this a non-browse: null would route
+          // the screen's telemetry and header down the browse path.
+          expect.objectContaining({ artists: shown, codeNumber: 0 }),
+        ),
       );
       expect(mockPush).not.toHaveBeenCalled();
     });
