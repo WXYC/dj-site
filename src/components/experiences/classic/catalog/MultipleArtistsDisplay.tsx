@@ -33,10 +33,11 @@ type MultipleArtistsDisplayProps = MultiMatchResult & {
  * off the bottom of the list. A defensive client-side sort would hide a
  * Backend regression in exactly the requirement this screen exists to meet.
  *
- * A compilation code is the case that makes the fully-specified arm
- * load-bearing rather than defensive: every Various Artists bucket in a genre
- * collides on one triple, so picking the bucket by name is the only way
- * through. See `composeLibraryCodeSearchArgs` for why. Those rows are also the
+ * A compilation code collides on one triple across every Various Artists
+ * bucket in a genre. A typed section letter narrows them (see
+ * `narrowCompilationOwners`), landing directly on a lettered bucket; this list
+ * appears for an un-backfilled catalog, where no owner carries a letter, and
+ * picking by name is then the way through. Those rows are also the
  * reason each link is built by `artistCardHref` rather than hard-coded: a
  * bucket is filed and edited as a shelf section, on a different card from a
  * performer.
@@ -54,8 +55,10 @@ type MultipleArtistsDisplayProps = MultiMatchResult & {
  * browse, and the header drops to the partial code the servlet composes for
  * it (`genre.getReferenceName() + " " + artistLetters`).
  *
- * The JSP's "no results" branch IS reproduced, and the browse is what reaches
- * it. It was unreachable while every caller was a fully-specified lookup --
+ * The JSP's "no results" branch IS reproduced. The browse reaches it, and so
+ * does a compilation section letter that matches no bucket (a non-browse with
+ * `codeNumber` set and no artists -- a divergence from the JSP, which sends
+ * that case back to the blank chooser form). It was unreachable while every caller was a fully-specified lookup --
  * an unassigned code answers 404, and a zero-length 200 is refused upstream as
  * untrustworthy -- but unused call letters are a 200 with no rows, and a
  * librarian checking whether a section is free is asking a normal question.

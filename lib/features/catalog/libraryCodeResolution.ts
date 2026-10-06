@@ -16,7 +16,6 @@ import {
   VARIOUS_ARTISTS_CODE_LETTERS,
   VARIOUS_ARTISTS_CODE_NUMBER,
 } from "./libraryCode";
-import { isRockCompLettersRequired } from "./chooserValidation";
 import type { ArtistByCodeOwner, ResolveArtistByCodeQuery } from "./types";
 
 export type LibraryCodeSearchValues = {
@@ -184,18 +183,21 @@ export function composeLibraryCodeSearchArgs(
  * Matching goes through `compilationSectionLetter` so the chooser, the badge
  * and the call number agree on which bucket has which letter.
  *
- * Only genres 11/12 have section letters; elsewhere the owners pass through,
- * as they do when no owner carries a letter yet (the catalog is not backfilled)
- * -- the caller then shows the disambiguation list. Letters present with no
- * match is `[]`, the JSP's empty chooser.
+ * Only genres 11/12 have section letters (`compilationSectionLetter` reads ""
+ * for any other genre), so elsewhere the owners pass through, as they do when
+ * no owner carries a letter yet (the catalog is not backfilled) -- the caller
+ * then shows the disambiguation list. Passthrough requires EVERY owner to be
+ * unlettered: with a mix, an unlettered owner is simply not picked by any typed
+ * letter, so it is reachable only through the artist-name search. Letters
+ * present with no match is `[]`; the caller shows a no-match results screen.
  */
 export function narrowCompilationOwners(
   owners: ArtistByCodeOwner[],
-  genreId: number,
   typedLetter: string,
 ): ArtistByCodeOwner[] {
-  if (!isRockCompLettersRequired(genreId)) return owners;
-  const letters = owners.map((o) => compilationSectionLetter({ ...o, code_comp_letter: o.code_comp_letter ?? null }));
+  const letters = owners.map((o) =>
+    compilationSectionLetter({ ...o, code_comp_letter: o.code_comp_letter ?? null }),
+  );
   if (letters.every((letter) => letter === "")) return owners;
   const typed = typedLetter.trim().toUpperCase();
   return owners.filter((_, i) => letters[i] === typed);
