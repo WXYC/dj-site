@@ -55,9 +55,7 @@ export type ArtistCodeParts = {
   /**
    * `undefined` for a caller that never resolved (or never carried) which
    * genre this code is scoped to — a response predating the field, or a
-   * screen with no genre list loaded yet. Bin and rotation rows are in
-   * this case today: they serve the letter but no `genre_id` (Backend-Service#2917),
-   * so they render `V/A-<n>`. The Rock/Soundtracks Various-Artists dispatch in
+   * screen with no genre list loaded yet. The Rock/Soundtracks Various-Artists dispatch in
    * `formatArtistCodeWithPunctuation` and `formatCallLettersAndNumbers`, and the
    * avatar badge, read this; an unresolved value must fall through to the generic bucket rather
    * than coincidentally matching one of the two hardcoded ids.
@@ -67,9 +65,7 @@ export type ArtistCodeParts = {
    * The Rock/Soundtracks compilation section letter Backend-Service serves
    * structurally beside the artist number. `null` or `undefined` for a source
    * that carries none (an LML-only row, a response predating the field, a
-   * filing that created the artist) -- either renders the letterless `V/A`. A
-   * bin or rotation row does carry the letter but, with no `genre_id`, still
-   * renders `V/A-<n>` until Backend-Service#2917. Read only for a compilation
+   * filing that created the artist) -- either renders the letterless `V/A`. Read only for a compilation
    * in Rock or Soundtracks; never derived from the artist's name.
    */
   code_comp_letter: string | null | undefined;

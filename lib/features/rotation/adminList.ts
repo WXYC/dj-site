@@ -52,16 +52,14 @@ export function rotationRowCode(row: RotationListRow): string | null {
   if (row.code_letters == null || row.code_artist_number == null || row.code_number == null) {
     return null;
   }
-  // The list row carries no genre id or volume letters, so neither the
-  // Rock/Soundtracks sub-bucket nor a volume suffix can render here.
   return formatEntireLibraryCode({
     genreName: row.genre_name ?? undefined,
     code_letters: row.code_letters,
     code_artist_number: row.code_artist_number,
-    genre_id: undefined,
-    code_comp_letter: undefined,
+    genre_id: row.genre_id ?? undefined,
+    code_comp_letter: row.code_comp_letter,
     code_number: row.code_number,
-    code_volume_letters: undefined,
+    code_volume_letters: row.code_volume_letters,
   });
 }
 
