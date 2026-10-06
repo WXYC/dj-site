@@ -104,25 +104,21 @@ export function convertToAlbumEntry(
       // No sentinel counterpart to `"Unknown"` above: a made-up genre id would
       // scope a card to the wrong shelf, where a made-up genre NAME only
       // renders oddly. Absent stays absent.
-      genre_id: isSearchResult(response)
-        ? ((response as Record<string, unknown>).genre_id as number | undefined)
-        : undefined,
+      genre_id: (response as Record<string, unknown>).genre_id as
+        | number
+        | undefined,
       id: isSearchResult(response)
         ? ((response as Record<string, unknown>).artist_id as number | undefined)
         : undefined,
     },
     entry: response.code_number ?? 0,
-    // Gated on `isSearchResult` like the other reach-arounds below: a bin row
-    // carries no such column, and `undefined` there says "this source does not
+    // Read off the raw response on both arms (the shared wire types predate
+    // the field). A missing key stays `undefined` -- "this source does not
     // report volume letters" rather than "this release has none" -- the
     // distinction `mergeAlbumIntoSearchResult` relies on to avoid blanking a
     // cached value.
-    code_volume_letters: isSearchResult(response)
-      ? ((response as Record<string, unknown>).code_volume_letters as
-          | string
-          | null
-          | undefined)
-      : undefined,
+    code_volume_letters: (response as Record<string, unknown>)
+      .code_volume_letters as string | null | undefined,
     // Verbatim; the sentinel is for a row with no format. See `AlbumEntry.format`.
     format: response.format_name ?? "Unknown",
     alternate_artist: isSearchResult(response)
@@ -174,9 +170,7 @@ export function convertToAlbumEntry(
     artist_id: isSearchResult(response)
       ? (response as Record<string, unknown>).artist_id as number | undefined
       : undefined,
-    genre_id: isSearchResult(response)
-      ? (response as Record<string, unknown>).genre_id as number | undefined
-      : undefined,
+    genre_id: (response as Record<string, unknown>).genre_id as number | undefined,
     format_id: isSearchResult(response)
       ? (response as Record<string, unknown>).format_id as number | undefined
       : undefined,

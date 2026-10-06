@@ -168,6 +168,21 @@ describe("catalog conversions", () => {
       });
     });
 
+    describe("genre_id and code_volume_letters", () => {
+      it.each([
+        ["bin arm, present", binDetails, { genre_id: 11, code_volume_letters: "B" }, 11, "B"],
+        ["bin arm, absent", binDetails, {}, undefined, undefined],
+        ["bin arm, null", binDetails, { genre_id: null, code_volume_letters: null }, null, null],
+        ["search arm, present", linkedRow, { genre_id: 11, code_volume_letters: "B" }, 11, "B"],
+        ["search arm, absent", linkedRow, {}, undefined, undefined],
+      ])("%s", (_name, row, extra, genreId, volume) => {
+        const result = convertToAlbumEntry({ ...row, ...extra } as unknown as AlbumSearchResultJSON | BinLibraryDetails);
+        expect(result.artist.genre_id).toBe(genreId);
+        expect(result.genre_id).toBe(genreId);
+        expect(result.code_volume_letters).toBe(volume);
+      });
+    });
+
     // Genre is server-owned data, not a dj-site vocabulary: GET /library/genres
     // is the authority and lists more genres than the modern experience has
     // chip colors for. Both conversion paths (Backend here, LML in

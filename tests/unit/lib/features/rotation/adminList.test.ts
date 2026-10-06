@@ -36,6 +36,51 @@ describe("rotationRowCode", () => {
       "Rock V/A-3",
     ],
     ["unlinked row (no code columns)", unlinked(), null],
+    [
+      "lettered Rock compilation",
+      createTestRotationListRow({
+        genre_id: 11,
+        code_letters: "V/A",
+        code_artist_number: 0,
+        code_comp_letter: "M",
+        code_number: 121,
+      }),
+      "Rock V/A M-121",
+    ],
+    [
+      "lettered Soundtracks compilation",
+      createTestRotationListRow({
+        genre_name: "Soundtracks",
+        genre_id: 12,
+        code_letters: "V/A",
+        code_artist_number: 0,
+        code_comp_letter: "M",
+        code_number: 121,
+      }),
+      "Soundtracks M-121",
+    ],
+    [
+      "volume letter trimmed and upper-cased",
+      createTestRotationListRow({
+        genre_id: 11,
+        code_letters: "V/A",
+        code_artist_number: 0,
+        code_comp_letter: "M",
+        code_number: 121,
+        code_volume_letters: " b ",
+      }),
+      "Rock V/A M-121-B",
+    ],
+    [
+      "compilation without genre_id stays letterless",
+      createTestRotationListRow({
+        code_letters: "V/A",
+        code_artist_number: 0,
+        code_comp_letter: "M",
+        code_number: 121,
+      }),
+      "Rock V/A-121",
+    ],
   ])("%s", (_name, input, expected) => {
     expect(rotationRowCode(input)).toBe(expected);
   });

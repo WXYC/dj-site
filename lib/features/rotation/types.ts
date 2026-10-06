@@ -75,6 +75,13 @@ export type RotationListRow = {
   plays: number | null;
   legacy_release_id: number | null;
   /**
+   * Optional like `card` below: the endpoint emits all three on every row, and
+   * `?` covers only an older backend. The shared wire type predates them.
+   */
+  genre_id?: number | null;
+  code_comp_letter?: string | null;
+  code_volume_letters?: string | null;
+  /**
    * Optional, mirroring the published schema exactly (`card?` on `Rotation`).
    * `GET /library/rotation` emits the key on every row, so `?` covers only a
    * backend older than the card join. Absent means "the server didn't say";
