@@ -153,12 +153,6 @@ const catalogSearchRow: AlbumSearchResultJSON = {
 
 describe("catalog conversions", () => {
   describe("convertToAlbumEntry", () => {
-    // Genre is server-owned data, not a dj-site vocabulary: GET /library/genres
-    // is the authority and lists more genres than the modern experience has
-    // chip colors for. Both conversion paths (Backend here, LML in
-    // lml-conversions) must carry the value through as-is; the "Unknown"
-    // sentinel is a UI fallback for a *missing* genre, not a substitute for
-    // one dj-site has no styling for.
     describe("code_comp_letter", () => {
       it.each([
         ["search arm, present", linkedRow, "M", "M"],
@@ -174,6 +168,12 @@ describe("catalog conversions", () => {
       });
     });
 
+    // Genre is server-owned data, not a dj-site vocabulary: GET /library/genres
+    // is the authority and lists more genres than the modern experience has
+    // chip colors for. Both conversion paths (Backend here, LML in
+    // lml-conversions) must carry the value through as-is; the "Unknown"
+    // sentinel is a UI fallback for a *missing* genre, not a substitute for
+    // one dj-site has no styling for.
     describe("genre passthrough", () => {
       it.each(["Africa", "Asia", "Comedy", "Latin", "Spoken", "Xmas", "Country"])(
         "carries the genre %s through even though no chip color is defined for it",
