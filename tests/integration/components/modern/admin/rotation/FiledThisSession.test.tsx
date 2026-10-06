@@ -9,9 +9,16 @@ const ROCK_GENRE_ID = 11;
 function filing(
   artist: Pick<LibraryFilingResponse["artist"], "artist_name" | "code_letters" | "code_artist_number">,
   release: Pick<LibraryFilingResponse["release"], "id" | "album_title" | "code_number">,
+  codeCompLetter?: string | null,
 ): LibraryFilingResponse {
   return {
-    artist: { id: 700, genre_id: ROCK_GENRE_ID, ...artist },
+    // The wire type predates `code_comp_letter`; the create arm answers null.
+    artist: {
+      id: 700,
+      genre_id: ROCK_GENRE_ID,
+      code_comp_letter: codeCompLetter,
+      ...artist,
+    } as LibraryFilingResponse["artist"],
     release: { artist_id: 700, genre_id: ROCK_GENRE_ID, format_id: 1, ...release },
   };
 }
@@ -36,6 +43,15 @@ describe("FiledThisSession", () => {
         { id: 9002, album_title: "Music for Plants", code_number: 121 },
       ),
       "V/A-121",
+    ],
+    [
+      "a Rock bucket with a served section letter",
+      filing(
+        { artist_name: "Various Artists - Rock - M", code_letters: "V/A", code_artist_number: 0 },
+        { id: 9003, album_title: "Music for Plants", code_number: 121 },
+        "M",
+      ),
+      "V/A M-121",
     ],
   ])("renders %s's shelf code", (_name, filed, expected) => {
     renderWithProviders(<FiledThisSession filings={[filed]} />);

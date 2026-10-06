@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { suggestCallLetters } from "@/lib/features/rotation/importSuggestions";
+import { artistShelfCode, suggestCallLetters } from "@/lib/features/rotation/importSuggestions";
 
 describe("suggestCallLetters", () => {
   it.each([
@@ -33,5 +33,27 @@ describe("suggestCallLetters", () => {
     { label: "undefined", name: undefined },
   ])("suggests nothing for $label", ({ name }) => {
     expect(suggestCallLetters(name)).toBe("");
+  });
+});
+
+describe("artistShelfCode", () => {
+  // The artist search serves `code_comp_letter` beside `code_number`, so a
+  // Rock section match reads as its own section rather than as every section.
+  it.each([
+    { label: "a Rock section letter", genre_id: 11, letter: "K", expected: "Rock V/A K-" },
+    { label: "a Soundtracks section letter", genre_id: 12, letter: "M", expected: "Soundtracks M-" },
+    { label: "no letter served", genre_id: 11, letter: null, expected: "Rock V/A-" },
+    { label: "an absent letter", genre_id: 11, letter: undefined, expected: "Rock V/A-" },
+  ])("renders $label", ({ genre_id, letter, expected }) => {
+    const genre_name = genre_id === 11 ? "Rock" : "Soundtracks";
+    expect(
+      artistShelfCode({
+        code_letters: "V/A",
+        code_number: 0,
+        genre_id,
+        genre_name,
+        code_comp_letter: letter,
+      }),
+    ).toBe(expected);
   });
 });

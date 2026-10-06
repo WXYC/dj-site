@@ -798,6 +798,8 @@ export type ReleaseCrossReferenceRow = {
   code_artist_number: number | null;
   code_number: number;
   code_volume_letters: string | null;
+  /** The release's Rock/Soundtracks compilation section letter; null when it has none. */
+  code_comp_letter?: string | null;
   comment: string | null;
 };
 

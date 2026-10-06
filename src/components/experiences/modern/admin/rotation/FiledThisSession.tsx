@@ -47,7 +47,10 @@ export default function FiledThisSession({ filings }: FiledThisSessionProps): JS
                   code_letters: filing.artist.code_letters,
                   code_artist_number: filing.artist.code_artist_number,
                   genre_id: filing.artist.genre_id,
-                  code_comp_letter: undefined,
+                  // The filing response serves the letter (null on the create arm);
+                  // the shared type predates it.
+                  code_comp_letter: (filing.artist as { code_comp_letter?: string | null })
+                    .code_comp_letter,
                   code_number: filing.release.code_number,
                   code_volume_letters: filing.release.code_volume_letters,
                 })}

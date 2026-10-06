@@ -55,17 +55,21 @@ export type ArtistCodeParts = {
   /**
    * `undefined` for a caller that never resolved (or never carried) which
    * genre this code is scoped to — a response predating the field, or a
-   * screen with no genre list loaded yet. Only the Rock/Soundtracks
-   * Various-Artists dispatch in `formatArtistCodeWithPunctuation` reads this,
-   * and an unresolved value must fall through to the generic bucket rather
+   * screen with no genre list loaded yet. Bin and rotation rows are in
+   * this case today: they serve the letter but no `genre_id` (Backend-Service#2917),
+   * so they render `V/A-<n>`. The Rock/Soundtracks Various-Artists dispatch in
+   * `formatArtistCodeWithPunctuation` and `formatCallLettersAndNumbers`, and the
+   * avatar badge, read this; an unresolved value must fall through to the generic bucket rather
    * than coincidentally matching one of the two hardcoded ids.
    */
   genre_id: number | undefined;
   /**
    * The Rock/Soundtracks compilation section letter Backend-Service serves
    * structurally beside the artist number. `null` or `undefined` for a source
-   * that carries none (a bin row, an LML-only row, a response predating the
-   * field) -- either renders the letterless `V/A`. Read only for a compilation
+   * that carries none (an LML-only row, a response predating the field, a
+   * filing that created the artist) -- either renders the letterless `V/A`. A
+   * bin or rotation row does carry the letter but, with no `genre_id`, still
+   * renders `V/A-<n>` until Backend-Service#2917. Read only for a compilation
    * in Rock or Soundtracks; never derived from the artist's name.
    */
   code_comp_letter: string | null | undefined;
@@ -102,7 +106,8 @@ export const VARIOUS_ARTISTS_CODE_LETTERS = "V/A";
  * which is the disambiguation screen's actual production trigger:
  * `V/A`/12/0 has 27 owners and `V/A`/11/0 has 26 in the current catalog. A
  * lookup at this pair answers with the genre's whole bucket set, never one
- * bucket, and the sub-bucket letter survives only in the artist's name.
+ * bucket, and the sub-bucket letter is served structurally as `code_comp_letter`
+ * (see `compilationSectionLetter`); it is not derived from the artist's name.
  */
 export const VARIOUS_ARTISTS_CODE_NUMBER = 0;
 
