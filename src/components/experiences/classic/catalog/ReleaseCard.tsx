@@ -156,6 +156,7 @@ export default function ReleaseCard({ albumId }: { albumId: number }) {
     code_letters: data.artist.lettercode,
     code_artist_number: data.artist.numbercode,
     genre_id: data.genre_id ?? 0,
+    code_comp_letter: data.artist.code_comp_letter,
     code_number: data.entry,
     code_volume_letters: data.code_volume_letters ?? null,
   });
@@ -165,6 +166,8 @@ export default function ReleaseCard({ albumId }: { albumId: number }) {
   const artistCode = formatCallLettersAndNumbers({
     code_letters: data.artist.lettercode,
     code_artist_number: data.artist.numbercode,
+    genre_id: data.genre_id ?? 0,
+    code_comp_letter: data.artist.code_comp_letter,
   });
   const missing = !!data.date_lost && !data.date_found;
   const added = data.add_date ? formatStationDateTime(data.add_date) : undefined;

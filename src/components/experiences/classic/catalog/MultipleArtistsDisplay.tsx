@@ -79,6 +79,8 @@ export default function MultipleArtistsDisplay({
   const searchedCode = formatCallLettersAndNumbers({
     code_letters: codeLetters,
     code_artist_number: codeNumber,
+    genre_id: undefined,
+    code_comp_letter: undefined,
   });
 
   return (
@@ -150,6 +152,8 @@ export default function MultipleArtistsDisplay({
                   {formatCallLettersAndNumbers({
                     code_letters: artist.code_letters,
                     code_artist_number: artist.code_number,
+                    genre_id: artist.genre_id,
+                    code_comp_letter: artist.code_comp_letter,
                   })}
                 </td>
                 <td>

@@ -159,6 +159,21 @@ describe("catalog conversions", () => {
     // lml-conversions) must carry the value through as-is; the "Unknown"
     // sentinel is a UI fallback for a *missing* genre, not a substitute for
     // one dj-site has no styling for.
+    describe("code_comp_letter", () => {
+      it.each([
+        ["search arm, present", linkedRow, "M", "M"],
+        ["search arm, absent", linkedRow, undefined, null],
+        ["search arm, null", linkedRow, null, null],
+        ["bin arm, present", binDetails, "M", "M"],
+        ["bin arm, absent", binDetails, undefined, null],
+      ])("%s", (_name, row, letter, expected) => {
+        const result = convertToAlbumEntry(
+          (letter === undefined ? row : { ...row, code_comp_letter: letter }) as AlbumSearchResultJSON | BinLibraryDetails,
+        );
+        expect(result.artist.code_comp_letter).toBe(expected);
+      });
+    });
+
     describe("genre passthrough", () => {
       it.each(["Africa", "Asia", "Comedy", "Latin", "Spoken", "Xmas", "Country"])(
         "carries the genre %s through even though no chip color is defined for it",

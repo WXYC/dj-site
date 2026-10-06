@@ -6,12 +6,16 @@ import {
   genreTone,
   ROTATION_TONES,
 } from "@/lib/features/experiences/modern/tokens/roles";
-import { isVariousArtists } from "@/lib/features/catalog/libraryCode";
+import { compilationSectionLetter, isVariousArtists } from "@/lib/features/catalog/libraryCode";
 import { Avatar, Badge, Stack, Typography } from "@mui/joy";
 
 export type CatalogCodePreviewProps = {
   /** Display genre name (maps to `Genre` tones when possible). */
   genreName: string | null;
+  /** Genre id behind `genreName`; with `compLetter` decides whether a compilation shows its section letter. */
+  genreId?: number | null;
+  /** Rock/Soundtracks compilation section letter, shown in the number slot of a compilation. */
+  compLetter?: string | null;
   codeLetters: string;
   /** Artist number in genre; shown as "|" when empty. */
   artistNumber: string | number | null;
@@ -52,6 +56,8 @@ const SIZE_STYLES = {
 // The filing code in ArtistAvatar's visual language, driven by loose strings so forms can preview a live draft.
 export default function CatalogCodePreview({
   genreName,
+  genreId,
+  compLetter,
   codeLetters,
   artistNumber,
   albumEntry,
@@ -73,10 +79,19 @@ export default function CatalogCodePreview({
       ? codeLetters.trim().toUpperCase().slice(0, 4)
       : "&&";
   // A compilation bucket has no artist number, so its stored 0 is not shown;
-  // the slot stays (hidden) so the badge geometry matches a named artist's.
+  // the slot carries the section letter, else stays (hidden) so the badge
+  // geometry matches a named artist's.
   const isCompilation = isVariousArtists(codeLetters);
+  const sectionLetter = isCompilation
+    ? compilationSectionLetter({
+        code_letters: codeLetters,
+        genre_id: genreId ?? undefined,
+        code_comp_letter: compLetter,
+      })
+    : "";
+  const hideNumberSlot = isCompilation && sectionLetter === "";
   const num = isCompilation
-    ? "\u00a0"
+    ? sectionLetter || "\u00a0"
     : artistNumber !== null &&
         artistNumber !== "" &&
         String(artistNumber).trim().length > 0
@@ -144,11 +159,11 @@ export default function CatalogCodePreview({
           <Stack direction="column" sx={{ textAlign: "center" }}>
             <Typography
               level="body-xs"
-              aria-hidden={isCompilation ? true : undefined}
+              aria-hidden={hideNumberSlot ? true : undefined}
               sx={{
                 color: "text.primary",
                 fontSize: s.text,
-                ...(isCompilation && { visibility: "hidden" }),
+                ...(hideNumberSlot && { visibility: "hidden" }),
               }}
             >
               {num}

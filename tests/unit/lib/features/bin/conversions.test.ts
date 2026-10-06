@@ -252,6 +252,7 @@ describe("bin conversions", () => {
             numbercode: 1,
             genre: "Unknown",
             genre_id: undefined,
+            code_comp_letter: null,
           },
         });
         const result = convertBinToFlowsheet(binEntry) as FreeformResult;
@@ -348,6 +349,7 @@ describe("bin conversions", () => {
           numbercode: 1,
           genre: "Electronic",
           genre_id: undefined,
+          code_comp_letter: null,
         },
       });
       const result = convertBinToQueue(binEntry);

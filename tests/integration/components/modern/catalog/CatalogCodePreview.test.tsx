@@ -196,4 +196,27 @@ describe("CatalogCodePreview", () => {
     // Exactly one NBSP: an empty slot collapses the layout this test guards.
     expect(slot?.textContent).toBe("\u00a0");
   });
+
+  it.each([
+    ["Rock + M", 11, "M", "M", true],
+    ["Soundtracks + M", 12, "M", "M", true],
+    ["Hiphop + M", 7, "M", "\u00a0", false],
+    ["Rock, no letter", 11, null, "\u00a0", false],
+  ])("compilation number slot, %s", (_name, genreId, compLetter, text, visible) => {
+    const { container } = renderWithProviders(
+      inModernTheme(<CatalogCodePreview
+        genreName="Rock"
+        genreId={genreId}
+        compLetter={compLetter}
+        codeLetters="V/A"
+        artistNumber={0}
+        albumEntry={121}
+        formatLabel="CD"
+      />
+      )
+    );
+    const slot = container.querySelectorAll(".MuiTypography-root")[1];
+    expect(slot?.textContent).toBe(text);
+    expect(slot?.getAttribute("aria-hidden") === "true").toBe(!visible);
+  });
 });

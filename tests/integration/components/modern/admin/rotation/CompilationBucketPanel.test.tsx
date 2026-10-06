@@ -73,6 +73,15 @@ describe("CompilationBucketPanel — outcomes", () => {
     expect(within(panel()).getByText("Filing under Stereolab (RO 87)")).toBeInTheDocument();
   });
 
+  it("names the section letter of a Rock bucket owner", () => {
+    renderPanel({
+      outcome: "existing",
+      owners: [{ ...ROCK_SHELVES[0], code_comp_letter: "K" }],
+      resolvedArtistId: 8110,
+    });
+    expect(within(panel()).getByText("Filing under Various Artists - Rock - H (V/A K)")).toBeInTheDocument();
+  });
+
   it("lists the shelves verbatim when the genre has several", () => {
     renderPanel();
     expect(within(panel()).getByText("Which compilation shelf?")).toBeInTheDocument();

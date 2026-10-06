@@ -158,6 +158,7 @@ export function RotationImportLinkConflict({
           code_letters: linked.artist.lettercode,
           code_artist_number: linked.artist.numbercode,
           genre_id: linked.genre_id ?? 0,
+          code_comp_letter: undefined,
           code_number: linked.entry,
           code_volume_letters: null,
         })

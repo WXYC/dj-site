@@ -176,6 +176,7 @@ export function createTestArtist(overrides: Partial<ArtistEntry> = {}): ArtistEn
     genre: "Rock",
     // Absent by default: most callers don't exercise genre scoping, and a
     // default id would silently add `?genre_id=` to every link assertion.
+    code_comp_letter: null,
     genre_id: undefined,
     ...overrides,
   };

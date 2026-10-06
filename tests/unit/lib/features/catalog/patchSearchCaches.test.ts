@@ -72,6 +72,7 @@ describe("patchCatalogSearchCaches", () => {
         numbercode: 1,
         genre: "Rock",
         genre_id: undefined,
+        code_comp_letter: null,
         id: 1,
       },
     });

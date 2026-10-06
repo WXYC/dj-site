@@ -37,6 +37,7 @@ describe("convertLmlItemToAlbumEntry", () => {
         lettercode: "RO",
         numbercode: 15,
         genre: "Rock",
+        code_comp_letter: null,
         id: undefined,
       },
       entry: 3,

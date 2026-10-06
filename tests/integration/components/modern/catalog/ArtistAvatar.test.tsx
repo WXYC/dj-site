@@ -19,11 +19,19 @@ const inModernTheme = (ui: ReactElement) => (
   <CssVarsProvider theme={modernTheme}>{ui}</CssVarsProvider>
 );
 
-const artist = (lettercode: string, numbercode: number): ArtistEntry => ({
+const artist = (
+  lettercode: string,
+  numbercode: number,
+  genre = "Rock",
+  genre_id: number | undefined = undefined,
+  code_comp_letter: string | null = null,
+): ArtistEntry => ({
   name: "Juana Molina",
   lettercode,
   numbercode,
-  genre: "Rock",
+  genre,
+  genre_id,
+  code_comp_letter,
   id: 1,
 }) as ArtistEntry;
 
@@ -63,5 +71,29 @@ describe("ArtistAvatar", () => {
       inModernTheme(<ArtistAvatar artist={artist("RO", 12)} entry={3} format="CD" />)
     );
     expect(container.textContent).toContain("12");
+  });
+
+  it.each([
+    ["Rock + M", artist("V/A", 0, "Rock", 11, "M"), "Rock CD ♪ V/A M-651"],
+    ["Soundtracks + M", artist("V/A", 0, "Soundtracks", 12, "M"), "Soundtracks CD ♪ M-651"],
+    ["Rock, no genre id", artist("V/A", 0, "Rock", undefined, "M"), "Rock CD ♪ V/A-651"],
+  ])("threads the section letter into the tooltip: %s", (_, a, title) => {
+    renderWithProviders(inModernTheme(<ArtistAvatar artist={a} entry={651} format="CD" />));
+    expect(screen.getByLabelText(title)).toBeInTheDocument();
+  });
+
+  it("shows the section letter in the number slot of a Rock compilation", () => {
+    const { container } = renderWithProviders(
+      inModernTheme(<ArtistAvatar artist={artist("V/A", 0, "Rock", 11, "M")} entry={121} format="CD" />)
+    );
+    expect(container.querySelector('[aria-hidden="true"].MuiTypography-root')).toBeNull();
+    expect(screen.getByText("M")).toBeVisible();
+  });
+
+  it("keeps the slot hidden for a compilation in another genre despite a letter", () => {
+    const { container } = renderWithProviders(
+      inModernTheme(<ArtistAvatar artist={artist("V/A", 0, "Hiphop", 7, "M")} entry={651} format="CD" />)
+    );
+    expect(container.querySelector('[aria-hidden="true"].MuiTypography-root')?.textContent).toBe("\u00a0");
   });
 });

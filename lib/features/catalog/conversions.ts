@@ -95,6 +95,10 @@ export function convertToAlbumEntry(
       name: response.artist_name ?? "",
       lettercode: response.code_letters ?? "",
       numbercode: response.code_artist_number ?? 0,
+      // Absent is `null`, on both union arms. The shared wire types predate the
+      // field, so it is read off the raw response.
+      code_comp_letter:
+        (response as { code_comp_letter?: string | null }).code_comp_letter ?? null,
       // Verbatim; the sentinel is for a row with no genre. See `ArtistEntry.genre`.
       genre: response.genre_name ?? "Unknown",
       // No sentinel counterpart to `"Unknown"` above: a made-up genre id would

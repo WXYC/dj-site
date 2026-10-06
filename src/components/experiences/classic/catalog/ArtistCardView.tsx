@@ -75,6 +75,7 @@ export default function ArtistCardView({
     code_letters: artist.code_letters,
     code_artist_number: artist.code_artist_number,
     genre_id: artist.genre_id,
+    code_comp_letter: artist.code_comp_letter,
   });
   const releases = releaseData?.releases ?? [];
   const total = releaseData?.total ?? 0;
@@ -123,6 +124,7 @@ export default function ArtistCardView({
                       code_letters: release.code_letters,
                       code_artist_number: release.code_artist_number,
                       genre_id: release.genre_id,
+                      code_comp_letter: artist.code_comp_letter,
                       code_number: release.code_number,
                       code_volume_letters: release.code_volume_letters,
                     })}
