@@ -1,10 +1,10 @@
 # Reviews are many per release, scoped to an intake item or a library release, chosen for the cover by a music director, consent-gated per surface
 
-Canonical source: [`wxyc-dj-ios/docs/cross-repo-adrs.md` ADR 0005](https://github.com/WXYC/wxyc-dj-ios/blob/main/docs/cross-repo-adrs.md#adr-0005--reviews-are-many-per-release-one-accepted-by-a-music-director-as-the-records-review-consent-gated-per-surface). This file mirrors that decision for the dj-site surface and does not restate it in full; where the two disagree, the canonical ADR wins. Two points follow the plan of record (epic WXYC/Backend-Service#2791) instead, because it is newer than the canonical text: the email to the music directors when an FCC note is reported, and decision 35 (a record keeps its own copy of a cited review).
+Canonical source: [`wxyc-dj-ios/docs/cross-repo-adrs.md` ADR 0005](https://github.com/WXYC/wxyc-dj-ios/blob/main/docs/cross-repo-adrs.md#adr-0005--reviews-are-many-per-release-one-accepted-by-a-music-director-as-the-records-review-consent-gated-per-surface). This file mirrors that decision for the dj-site surface and does not restate it in full; where the two disagree, the canonical ADR wins.
 
 Status: Accepted, 2026-10-02, with the canonical ADR; amended 2026-10-04 to the station's decisions of that date. The earlier text survives only in this file's git history. The 2026-10-02 version superseded the one-per-album, author-owned model with an MD-curated claim queue that this file recorded before it.
 
-A review is about an intake item (a physical copy the station holds, logged by a music director) or an existing library release, never a record the station does not hold. A release can have many reviews. A review carries the printed slip's free-text content (buzzwords, an artist paragraph, the review itself, recommended tracks, and FCC notes) plus per-surface publishing consent. There is no rating, no headline, no per-track polarity, and no curated tag vocabulary. A review carries no routing: the music director alone decides rotation versus shelf when filing.
+A review is about an intake item (a physical copy the station holds, logged by a music director) or an existing library release, never a record the station does not hold. A release can have many reviews. A review carries the printed slip's free-text content (buzzwords, an artist paragraph, the review itself, recommended tracks, and an FCC line) plus per-surface publishing consent. There is no rating, no headline, no per-track polarity, and no curated tag vocabulary. A review carries no routing: the music director alone decides rotation versus shelf when filing.
 
 ## Many reviews, one chosen
 
@@ -20,11 +20,11 @@ An author edits their own review at any time, printed or not. Music directors ma
 
 The slip prints the chosen review and the record's confirmed FCC notes, and can be printed as soon as a review is chosen; filing first is not required. A handwritten review stays on the sleeve, and nothing is printed for it. A music director can also print a typed review of any library release, including one with no pile record.
 
-A record that cites a release takes its cover review from that release. If the cited release is later deleted from the catalog, the record keeps its own complete copy of that review (decision 35 in the epic, WXYC/Backend-Service#2875; the canonical ADR does not say this yet).
+A record that cites a release takes its cover review from that release. If the cited release is later deleted from the catalog, the record keeps its own complete copy of that review (decision 35 in the epic, WXYC/Backend-Service#2875).
 
 ## Consent belongs to the author
 
-Consent is collected per surface: one checkbox each for the website, the WXYC apps, and Instagram, plus one credit choice: DJ name (offered only if the account has one), real name, or no name. Only a review's author, through their own account, sets these choices. Nobody else can, a music director included. A review recorded on someone's behalf starts with nothing ticked. When it is linked to a DJ's account, that DJ is its author and alone sets its consent. A review with no linked account has nobody who can set its consent. The editor shows the consent controls only to the author. FCC notes are never published on any surface. v1 collects consent and publishes nothing new with it. Author names may be shown anywhere inside the station, including dj-site.
+Consent is collected per surface: one checkbox each for the website, the WXYC apps, and Instagram, plus one credit choice: DJ name (offered only if the account has one), real name, or no name. Only a review's author, through their own account, sets these choices. Nobody else can, a music director included. A review recorded on someone's behalf starts with nothing ticked. When it is linked to a DJ's account, that DJ is its author and alone sets its consent. A review with no linked account has nobody who can set its consent. The editor shows the consent controls only to the author. A review's FCC line is never published, on any surface, and neither are the record's FCC notes. v1 collects consent and publishes nothing new with it. Author names may be shown anywhere inside the station, including dj-site.
 
 ## Deleting
 
