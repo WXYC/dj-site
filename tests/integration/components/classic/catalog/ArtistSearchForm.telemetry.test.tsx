@@ -124,6 +124,24 @@ describe("classic ArtistSearchForm — code search telemetry", () => {
     });
   });
 
+  // A typed section letter naming no bucket is a librarian's miss, not the
+  // refused empty 200 that `empty_owner_list` records.
+  it("reports a compilation letter that matches no bucket apart from an empty owner list", async () => {
+    const buckets = [{ ...owner(1, "V/A"), code_number: 0, code_comp_letter: "A" }];
+    server.use(http.get(BY_CODE_URL, () => HttpResponse.json({ artists: buckets })));
+    const { user } = renderWithProviders(<ArtistSearchForm onMultiMatch={mockOnMultiMatch} />);
+
+    await screen.findByRole("option", { name: "Rock" });
+    await user.selectOptions(screen.getByLabelText(/^genre/i), "Rock");
+    await user.click(screen.getByRole("radio", { name: /various artists/i }));
+    await user.type(screen.getByLabelText(/rock comp/i), "Z");
+    await user.click(screen.getByRole("button", { name: "Search!" }));
+
+    await waitFor(() => expect(mockOnMultiMatch).toHaveBeenCalledTimes(1));
+    expect(codeSearchCaptures()).toHaveLength(1);
+    expect(codeSearchCaptures()[0][1]).toMatchObject({ outcome: "letter_no_match", owner_count: 0 });
+  });
+
   it("reports an unassigned code, which reads as a failure but is the create path", async () => {
     server.use(
       http.get(BY_CODE_URL, () =>

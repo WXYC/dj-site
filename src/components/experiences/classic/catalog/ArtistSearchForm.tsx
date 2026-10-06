@@ -45,6 +45,7 @@ type LibraryCodeSearchOutcome =
   | "genre_not_found"
   | "lookup_untrusted"
   | "empty_owner_list"
+  | "letter_no_match"
   | "single_owner"
   | "multi_match"
   | "browse_results"
@@ -71,9 +72,10 @@ const REFUSAL_BY_VALIDATION_FIELD: Record<ArtistSearchValidationField, CodeSearc
 
 /**
  * A search that ends on `MultipleArtistsDisplay` rather than on an artist
- * card -- `LibraryChooser` swaps screens on this. Two searches reach it: a
- * fully specified code with more than one owner, and a call-letters browse at
- * any size, including none.
+ * card -- `LibraryChooser` swaps screens on this. Three searches reach it: a
+ * fully specified code with more than one owner, a call-letters browse at
+ * any size, including none, and a compilation section letter that matches no
+ * bucket (a non-browse with zero artists).
  *
  * `codeNumber` is the HEADER's number and is `null` for a browse, which has no
  * single number to name. It is deliberately not the rows' number: those travel
@@ -89,7 +91,7 @@ export type MultiMatchResult = {
 type ArtistSearchFormProps = {
   /**
    * Called instead of navigating when a search ends on a list: a contested
-   * code, or any call-letters browse. Required rather than optional: a caller
+   * code, any call-letters browse, or a compilation letter matching no bucket. Required rather than optional: a caller
    * that omits it has no results screen to show, and both branches would leave
    * the librarian looking at a Search button that did nothing.
    */
@@ -316,19 +318,23 @@ export default function ArtistSearchForm({ onMultiMatch }: ArtistSearchFormProps
     // untrustworthy shape refused below, not a letter that matched nothing.
     const narrowing = callLetterMode === "compilation" && owners.length > 0;
     if (narrowing) {
-      owners = narrowCompilationOwners(owners, composed.args.genre_id, rockCompLetters);
+      owners = narrowCompilationOwners(owners, rockCompLetters);
     }
 
     // Every ending is reached at the same point with the same facts, so the
     // arm and the count name the outcome once rather than being restated as a
     // literal per branch -- where `0` and `1` could only ever be wrong.
+    // `letter_no_match` is a typed section letter that named no bucket -- a
+    // librarian's miss. `empty_owner_list` stays the refused untrustworthy 200.
     captureSearch(
       browsing
         ? owners.length === 0
           ? "browse_empty"
           : "browse_results"
         : owners.length === 0
-          ? "empty_owner_list"
+          ? narrowing
+            ? "letter_no_match"
+            : "empty_owner_list"
           : owners.length === 1
             ? "single_owner"
             : "multi_match",
@@ -353,7 +359,9 @@ export default function ArtistSearchForm({ onMultiMatch }: ArtistSearchFormProps
       return;
     }
 
-    // A typed section letter that names no bucket: the JSP's empty chooser.
+    // A typed section letter that names no bucket. This is a deliberate
+    // divergence: the JSP redirects to `chooseLibraryCodePrompt`, which forwards
+    // to the blank chooser form; here a no-match results screen is shown.
     if (narrowing && owners.length === 0) {
       onMultiMatch({
         genreName,

@@ -377,6 +377,38 @@ describe("classic ArtistSearchForm — chooseLibraryCodeOrArtist.jsp's artistSea
       expect(mockPush).not.toHaveBeenCalled();
     });
 
+    it("lands on the lettered bucket when a sibling bucket has no letter", async () => {
+      const mixed = [bucket(3, SOUNDTRACKS_GENRE_ID, "Soundtracks - A", "A"), bucket(4, SOUNDTRACKS_GENRE_ID, "Soundtracks", null)];
+      server.use(http.get(BY_CODE_URL, () => HttpResponse.json({ artists: mixed })));
+      const { user } = renderWithProviders(<ArtistSearchForm onMultiMatch={mockOnMultiMatch} />);
+      await selectGenre(user, "Soundtracks");
+      await user.click(screen.getByRole("radio", { name: /various artists/i }));
+      await user.type(screen.getByLabelText(/rock comp/i), "A");
+      await user.click(screen.getByRole("button", { name: "Search!" }));
+
+      await waitFor(() => expect(mockPush).toHaveBeenCalledWith("/dashboard/library/various/3"));
+      expect(mockOnMultiMatch).not.toHaveBeenCalled();
+    });
+
+    // The letter input is hidden in textbox mode but its state survives the
+    // radio switch; it must not narrow a lookup the librarian typed by hand.
+    it("does not narrow a textbox lookup by a stale hidden section letter", async () => {
+      server.use(http.get(BY_CODE_URL, () => HttpResponse.json({ artists: rockBuckets })));
+      const { user } = renderWithProviders(<ArtistSearchForm onMultiMatch={mockOnMultiMatch} />);
+      await selectGenre(user, "Rock");
+      await user.click(screen.getByRole("radio", { name: /various artists/i }));
+      await user.type(screen.getByLabelText(/rock comp/i), "A");
+      await user.click(screen.getByRole("radio", { name: /call letters:/i }));
+      await user.type(screen.getByLabelText("Call letters:"), "V/A");
+      await user.type(screen.getByLabelText(/call numbers:/i), "0");
+      await user.click(screen.getByRole("button", { name: "Search!" }));
+
+      await waitFor(() =>
+        expect(mockOnMultiMatch).toHaveBeenCalledWith(expect.objectContaining({ artists: rockBuckets })),
+      );
+      expect(mockPush).not.toHaveBeenCalled();
+    });
+
     it("still refuses an empty answer for a compilation lookup", async () => {
       server.use(http.get(BY_CODE_URL, () => HttpResponse.json({ artists: [] })));
       const { user } = renderWithProviders(<ArtistSearchForm onMultiMatch={mockOnMultiMatch} />);

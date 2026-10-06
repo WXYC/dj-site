@@ -378,6 +378,9 @@ describe("narrowCompilationOwners", () => {
   const rock = [owner(1, 11, "A"), owner(2, 11, "B"), owner(3, 11, "C")];
   const unfilled = [owner(1, 11), owner(2, 11), owner(3, 11)];
   const soundtracks = [owner(4, 12, "A"), owner(5, 12, "B")];
+  // Soundtracks' likely steady state after the backfill: some buckets lettered,
+  // at least one not. A typed letter must still narrow among the lettered ones.
+  const mixed = [owner(1, 12, "A"), owner(2, 12)];
 
   it.each([
     ["a single match", rock, 11, "B", [rock[1]]],
@@ -385,8 +388,10 @@ describe("narrowCompilationOwners", () => {
     ["a padded typed letter", soundtracks, 12, " a ", [soundtracks[0]]],
     ["no owner carrying a letter (pre-backfill)", unfilled, 11, "A", unfilled],
     ["letters present but none matching", rock, 11, "Z", []],
+    ["a mix of lettered and unlettered owners, letter matching", mixed, 12, "A", [mixed[0]]],
+    ["a mix of lettered and unlettered owners, letter not matching", mixed, 12, "Q", []],
     ["a genre outside 11/12, whatever letter is typed", [owner(6, 3, "A"), owner(7, 3)], 3, "Q", [owner(6, 3, "A"), owner(7, 3)]],
-  ])("narrows %s", (_label, owners, genreId, typed, expected) => {
-    expect(narrowCompilationOwners(owners, genreId, typed)).toEqual(expected);
+  ])("narrows %s", (_label, owners, _genreId, typed, expected) => {
+    expect(narrowCompilationOwners(owners, typed)).toEqual(expected);
   });
 });
