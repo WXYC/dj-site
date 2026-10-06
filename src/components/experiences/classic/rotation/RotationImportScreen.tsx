@@ -315,6 +315,7 @@ export default function RotationImportScreen({ rotationId }: { rotationId: numbe
             code_letters: request.codeLetters,
             code_artist_number: request.newArtist?.code_number ?? selected?.code_number ?? null,
             genre_id: request.album.genre_id,
+            code_comp_letter: undefined,
             code_number: codeNumber ?? 0,
             code_volume_letters: codeVolumeLetters ?? null,
           }),

@@ -218,6 +218,7 @@ export type ArtistCard = {
   genre_id: number;
   code_letters: string;
   code_artist_number: number;
+  code_comp_letter?: string | null;
   release_count: number;
   cross_reference_source_count: number;
   cross_reference_target_count: number;
@@ -410,6 +411,7 @@ export type ArtistByCodeOwner = {
   code_letters: string;
   code_number: number;
   genre_id: number;
+  code_comp_letter?: string | null;
 };
 
 /**
@@ -670,6 +672,11 @@ export type ArtistEntry = {
    * back to the unscoped card rather than naming a genre it does not know.
    */
   genre_id: number | undefined;
+  /**
+   * Rock/Soundtracks compilation section letter (`genre_artist_crossreference.code_comp_letter`),
+   * `null` when the source carries none. See `ArtistCodeParts.code_comp_letter`.
+   */
+  code_comp_letter: string | null;
   id: number | undefined;
 };
 

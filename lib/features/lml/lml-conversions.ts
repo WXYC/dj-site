@@ -40,6 +40,7 @@ export function convertLmlItemToAlbumEntry(item: LmlLibraryItem): AlbumEntry {
       // and no Backend `genres.id` — so an LML-sourced row cannot scope an
       // artist card, and says so rather than guessing one from the name.
       genre_id: undefined,
+      code_comp_letter: null,
       id: undefined,
     },
     entry: item.release_call_number ?? 0,

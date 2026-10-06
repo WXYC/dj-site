@@ -1,6 +1,7 @@
 import type { JSX } from "react";
 import { ArtistEntry } from "@/lib/features/catalog/types";
 import {
+  compilationSectionLetter,
   formatArtistCodeWithPunctuation,
   isVariousArtists,
 } from "@/lib/features/catalog/libraryCode";
@@ -38,15 +39,18 @@ export const ArtistAvatar = (props: ArtistAvatarProps): JSX.Element => {
   const isCompilation =
     props.artist !== undefined && isVariousArtists(props.artist.lettercode);
   // A compilation bucket has no artist number, so its stored 0 is not shown as
-  // if it were one. The slot stays (hidden, with a non-breaking space for line
-  // height) so the badge geometry matches a named artist's.
-  const artistCode = props.artist
-    ? formatArtistCodeWithPunctuation({
-        code_letters: props.artist.lettercode,
-        code_artist_number: props.artist.numbercode,
-        genre_id: undefined,
-      })
-    : "&& ##/";
+  // if it were one: the slot carries the section letter when there is one, and
+  // otherwise stays (hidden, with a non-breaking space for line height) so the
+  // badge geometry matches a named artist's.
+  const codeParts = props.artist && {
+    code_letters: props.artist.lettercode,
+    code_artist_number: props.artist.numbercode,
+    genre_id: props.artist.genre_id,
+    code_comp_letter: props.artist.code_comp_letter,
+  };
+  const sectionLetter = codeParts && isCompilation ? compilationSectionLetter(codeParts) : "";
+  const hideNumberSlot = isCompilation && sectionLetter === "";
+  const artistCode = codeParts ? formatArtistCodeWithPunctuation(codeParts) : "&& ##/";
 
   return (
     <Tooltip
@@ -96,14 +100,14 @@ export const ArtistAvatar = (props: ArtistAvatarProps): JSX.Element => {
             >
               <Typography
                 level="body-xs"
-                aria-hidden={isCompilation ? true : undefined}
+                aria-hidden={hideNumberSlot ? true : undefined}
                 sx={{
                   color: "text.primary",
                   fontSize: "0.6rem",
-                  ...(isCompilation && { visibility: "hidden" }),
+                  ...(hideNumberSlot && { visibility: "hidden" }),
                 }}
               >
-                {isCompilation ? NBSP : props.artist?.numbercode ?? "|"}
+                {isCompilation ? sectionLetter || NBSP : props.artist?.numbercode ?? "|"}
               </Typography>
               <Avatar
                 variant={variant_choice == "solid" ? "soft" : "solid"}

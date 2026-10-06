@@ -16,6 +16,7 @@ describe("formatArtistCodeWithPunctuation — ArtistLibraryCode.java:98", () => 
         code_letters: "ABC",
         code_artist_number: 123,
         genre_id: 1,
+        code_comp_letter: undefined,
       }),
     ).toBe("ABC 123/");
   });
@@ -26,6 +27,7 @@ describe("formatArtistCodeWithPunctuation — ArtistLibraryCode.java:98", () => 
         code_letters: "mo",
         code_artist_number: 12,
         genre_id: 1,
+        code_comp_letter: undefined,
       }),
     ).toBe("MO 12/");
   });
@@ -50,6 +52,7 @@ describe("formatArtistCodeWithPunctuation — ArtistLibraryCode.java:98", () => 
         code_letters: codeLetters,
         code_artist_number: 4,
         genre_id: genreId,
+        code_comp_letter: undefined,
       }),
     ).toBe(expected);
   });
@@ -67,6 +70,7 @@ describe("formatArtistCodeWithPunctuation — ArtistLibraryCode.java:98", () => 
           code_letters: codeLetters,
           code_artist_number: 0,
           genre_id: 11,
+          code_comp_letter: undefined,
         }),
       ).toBe("V/A-");
     },
@@ -78,6 +82,7 @@ describe("formatArtistCodeWithPunctuation — ArtistLibraryCode.java:98", () => 
         code_letters: "  Z-X",
         code_artist_number: 4,
         genre_id: 1,
+        code_comp_letter: undefined,
       }),
     ).toBe("V/A-");
   });
@@ -102,7 +107,7 @@ describe("isVariousArtists", () => {
 describe("formatCallLettersAndNumbers — ArtistLibraryCode.java:85, no trailing punctuation", () => {
   it("renders a regular artist code as LETTERS NUMBER", () => {
     expect(
-      formatCallLettersAndNumbers({ code_letters: "mo", code_artist_number: 12 }),
+      formatCallLettersAndNumbers({ code_letters: "mo", code_artist_number: 12, genre_id: undefined, code_comp_letter: undefined }),
     ).toBe("MO 12");
   });
 
@@ -114,7 +119,7 @@ describe("formatCallLettersAndNumbers — ArtistLibraryCode.java:85, no trailing
     "renders a Various Artists bucket (%j) as V/A, dropping the number",
     (codeLetters) => {
       expect(
-        formatCallLettersAndNumbers({ code_letters: codeLetters, code_artist_number: 0 }),
+        formatCallLettersAndNumbers({ code_letters: codeLetters, code_artist_number: 0, genre_id: undefined, code_comp_letter: undefined }),
       ).toBe("V/A");
     },
   );
@@ -144,6 +149,7 @@ describe("formatEntireLibraryCode — LibraryRelease.java:129", () => {
         code_letters: "MO",
         code_artist_number: 12,
         genre_id: 1,
+        code_comp_letter: undefined,
         code_number: 5,
         code_volume_letters: "a",
       }),
@@ -160,6 +166,7 @@ describe("formatEntireLibraryCode — LibraryRelease.java:129", () => {
         code_letters: "MO",
         code_artist_number: 12,
         genre_id: 1,
+        code_comp_letter: undefined,
         code_number: 5,
         code_volume_letters: null,
       }),
@@ -212,13 +219,13 @@ describe("formatCallLettersAndNumbers — an artist with no genre_artist_crossre
   // client. The letters alone are still a code a librarian can act on.
   it("renders the call letters alone when the artist number is null", () => {
     expect(
-      formatCallLettersAndNumbers({ code_letters: "mo", code_artist_number: null }),
+      formatCallLettersAndNumbers({ code_letters: "mo", code_artist_number: null, genre_id: undefined, code_comp_letter: undefined }),
     ).toBe("MO");
   });
 
   it("still renders a Various Artists bucket as V/A, which never carried a number", () => {
     expect(
-      formatCallLettersAndNumbers({ code_letters: "V/A", code_artist_number: null }),
+      formatCallLettersAndNumbers({ code_letters: "V/A", code_artist_number: null, genre_id: undefined, code_comp_letter: undefined }),
     ).toBe("V/A");
   });
 
@@ -228,6 +235,7 @@ describe("formatCallLettersAndNumbers — an artist with no genre_artist_crossre
         code_letters: "CO",
         code_artist_number: null,
         genre_id: 6002,
+        code_comp_letter: undefined,
       }),
     ).toBe("CO/");
   });
@@ -239,6 +247,7 @@ describe("formatCallLettersAndNumbers — an artist with no genre_artist_crossre
         code_letters: "CO",
         code_artist_number: null,
         genre_id: 6002,
+        code_comp_letter: undefined,
         code_number: 3,
         code_volume_letters: null,
       }),
@@ -283,5 +292,42 @@ describe("formatReleaseArtistTitle — LibraryRelease.java:145", () => {
         album_title: "A Love Supreme",
       }),
     ).toBe("A Love Supreme");
+  });
+});
+
+// The Various Artists split, off `genre_id` and the structural
+// `code_comp_letter`: Rock with a letter is `V/A <L>`, Soundtracks with one is
+// `<L>`, and everything else (another genre, no letter, no genre) is `V/A`.
+describe("compilation section letter", () => {
+  it.each([
+    ["Rock + M", "V/A", 11, "M", "V/A M-121", "V/A M"],
+    ["Soundtracks + M", "V/A", 12, "M", "M-121", "M"],
+    ["Hiphop + null", "V/A", 1, null, "V/A-121", "V/A"],
+    ["Rock + null", "V/A", 11, null, "V/A-121", "V/A"],
+    ["Rock + undefined", "V/A", 11, undefined, "V/A-121", "V/A"],
+    ["Hiphop + M ignores the letter", "V/A", 1, "M", "V/A-121", "V/A"],
+    ["undefined genre + M", "V/A", undefined, "M", "V/A-121", "V/A"],
+    ["Rock Z-- is not a section letter", "Z--", 11, null, "V/A-121", "V/A"],
+    ["Rock + lowercase letter", "V/A", 11, "m", "V/A M-121", "V/A M"],
+    ["Rock + padded letter", "V/A", 11, " m ", "V/A M-121", "V/A M"],
+    ["Rock + blank letter", "V/A", 11, "  ", "V/A-121", "V/A"],
+    ["named artist unchanged", "MO", 11, "M", "MO 4/121", "MO 4"],
+  ])("%s", (_name, letters, genreId, compLetter, entire, noPunctuation) => {
+    const parts = {
+      code_letters: letters,
+      code_artist_number: 4,
+      genre_id: genreId,
+      code_comp_letter: compLetter,
+    };
+    expect(formatEntireLibraryCode({ ...parts, code_number: 121, code_volume_letters: null })).toBe(entire);
+    expect(formatCallLettersAndNumbers(parts)).toBe(noPunctuation);
+  });
+
+  it.each([
+    [" b ", "5-B"],
+    ["b", "5-B"],
+    ["\t", "5"],
+  ])("renders volume letters %j as %s", (volume, expected) => {
+    expect(formatReleaseCode({ code_number: 5, code_volume_letters: volume })).toBe(expected);
   });
 });

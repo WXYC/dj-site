@@ -167,6 +167,7 @@ export default function ReleaseMoveForm({ albumId }: { albumId: number }) {
     code_letters: data.artist.lettercode,
     code_artist_number: data.artist.numbercode,
     genre_id: data.genre_id ?? 0,
+    code_comp_letter: data.artist.code_comp_letter,
     code_number: data.entry,
     code_volume_letters: data.code_volume_letters ?? null,
   });

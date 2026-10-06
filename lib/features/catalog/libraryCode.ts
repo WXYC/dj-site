@@ -9,11 +9,11 @@
  * - `LibraryRelease.getPreferredArtistString()` (`:138`)
  * - `LibraryRelease.getEntireArtistTitleString()` (`:145`)
  *
- * Rule-for-rule except where the Java recovers a Various Artists sub-bucket
- * letter by substring-ing the legacy `Z-<letter>` spelling. That letter is
- * gone from the data these functions are given -- see `isVariousArtists`
- * below -- so the substring would slice the `V/A` literal itself and render
- * a letter the shelf does not use. Each such branch names the divergence.
+ * Rule-for-rule. The Java recovers a Various Artists sub-bucket letter by
+ * substring-ing the legacy `Z-<letter>` spelling; the `V/A` form Backend-Service
+ * serves has lost that spelling, so the letter comes from the structural
+ * `code_comp_letter` instead (see `compilationSectionLetter`) -- never from
+ * the artist's name.
  *
  * These are not cosmetic. The composed string is the physical call number a
  * librarian reads off the screen and walks to the stacks with, so its
@@ -58,6 +58,14 @@ export type ArtistCodeParts = {
    * than coincidentally matching one of the two hardcoded ids.
    */
   genre_id: number | undefined;
+  /**
+   * The Rock/Soundtracks compilation section letter Backend-Service serves
+   * structurally beside the artist number. `null` or `undefined` for a source
+   * that carries none (a bin row, an LML-only row, a response predating the
+   * field) -- either renders the letterless `V/A`. Read only for a compilation
+   * in Rock or Soundtracks; never derived from the artist's name.
+   */
+  code_comp_letter: string | null | undefined;
 };
 
 export type ReleaseCodeParts = {
@@ -121,26 +129,56 @@ export function isVariousArtists(codeLetters: string): boolean {
 }
 
 /**
+ * A Various Artists bucket's section letter, or `""` when it has none to show.
+ * The letter is read from the legacy `Z-<letter>` spelling
+ * (`callLetters.substring(2, 3)`, as the Java does) or else from
+ * `code_comp_letter`, the structural field Backend-Service serves for the
+ * collapsed `V/A` form -- never from the artist's name. A `-` after `Z-` is
+ * the empty-section spelling (`Z--`), not a letter. Only Rock and Soundtracks
+ * carry one. Also the badge's number-slot content, so the call number and the
+ * avatars cannot disagree about which compilations have a letter.
+ */
+export function compilationSectionLetter({
+  code_letters,
+  genre_id,
+  code_comp_letter,
+}: Pick<ArtistCodeParts, "code_letters" | "genre_id" | "code_comp_letter">): string {
+  const trimmed = code_letters.trim();
+  const legacy = trimmed.startsWith("Z-") ? trimmed.substring(2, 3) : "";
+  const letter = legacy !== "" && legacy !== "-" ? legacy : (code_comp_letter?.trim().toUpperCase() ?? "");
+  return isRockCompLettersRequired(genre_id ?? null) ? letter : "";
+}
+
+/** A Various Artists bucket's call-letters label: `V/A <L>` (Rock), `<L>` (Soundtracks), else `V/A`. */
+function compilationLabel(parts: Pick<ArtistCodeParts, "code_letters" | "genre_id" | "code_comp_letter">): string {
+  const letter = compilationSectionLetter(parts);
+  if (letter === "") {
+    return VARIOUS_ARTISTS_CODE_LETTERS;
+  }
+  return parts.genre_id === ROCK_GENRE_ID ? `${VARIOUS_ARTISTS_CODE_LETTERS} ${letter}` : letter;
+}
+
+/**
  * The artist half of a call number, with no trailing punctuation: `MO 12`
  * for a named artist, `V/A` for a compilation bucket, and the letters alone
  * for an artist that carries no genre code at all.
  *
- * The Java splits the Various Artists case three ways off `genre_id` —
+ * A Various Artists bucket splits three ways off `genre_id`, as the Java does:
  * `V/A <letter>` for Rock, the bare `<letter>` for Soundtracks, and `V/A` for
- * every other genre — by taking `callLetters.substring(2, 3)` out of a
- * `Z-<letter>` code. This takes no `genre_id` because that split has no input
- * left: `multipleArtistsDisplay.jsp` is the one screen rendering this getter,
- * and it only ever receives rows the catalog import already collapsed to the
- * literal `V/A`, where `substring(2, 3)` would slice out the `A` of `V/A`.
- * The sub-bucket survives in the artist's NAME, which this screen's own
- * Artist Name column shows, so the librarian still tells the buckets apart.
+ * every other genre or a bucket with no letter. See `compilationLabel` for
+ * where the letter comes from.
  */
 export function formatCallLettersAndNumbers({
   code_letters,
   code_artist_number,
-}: Pick<ArtistCodeParts, "code_letters" | "code_artist_number">): string {
+  genre_id,
+  code_comp_letter,
+}: Pick<
+  ArtistCodeParts,
+  "code_letters" | "code_artist_number" | "genre_id" | "code_comp_letter"
+>): string {
   if (isVariousArtists(code_letters)) {
-    return VARIOUS_ARTISTS_CODE_LETTERS;
+    return compilationLabel({ code_letters, genre_id, code_comp_letter });
   }
   // A bucket never carried a number, so the branch above needs none; an
   // ordinary code with no genre row has only its letters left, and those are
@@ -175,7 +213,12 @@ export function formatArtistLibraryCode({
 }: Pick<ArtistCodeParts, "code_letters" | "code_artist_number"> & {
   genreName?: string;
 }): string {
-  const code = formatCallLettersAndNumbers({ code_letters, code_artist_number });
+  const code = formatCallLettersAndNumbers({
+    code_letters,
+    code_artist_number,
+    genre_id: undefined,
+    code_comp_letter: null,
+  });
   if (!genreName || isVariousArtists(code_letters)) {
     return code;
   }
@@ -194,33 +237,14 @@ export function formatArtistLibraryCode({
  * behavior, not an omission: a compilation bucket is filed by its letter, so
  * the artist number never reaches the shelf.
  */
-export function formatArtistCodeWithPunctuation({
-  code_letters,
-  code_artist_number,
-  genre_id,
-}: ArtistCodeParts): string {
-  if (isVariousArtists(code_letters)) {
-    const trimmed = code_letters.trim();
-    // `callLetters.substring(2, 3)` — the single character after the `Z-`
-    // prefix, which is the Rock or Soundtracks sub-bucket letter.
-    //
-    // Reachable only on the legacy `Z-<letter>` spelling. The `V/A` form
-    // Backend-Service serves has already lost that letter — the import
-    // collapses every `Z-<letter>` to the same three characters. It survives
-    // in the artist's NAME (`Various Artists - Rock - K`, `Soundtracks - K`),
-    // which this screen shows in its heading, so the sub-bucket stays legible
-    // to a librarian; it is simply not recoverable from the code, and digging
-    // it back out of the name is the name-matching this file exists to avoid.
-    if (trimmed.startsWith("Z-") && isRockCompLettersRequired(genre_id ?? null)) {
-      const letter = trimmed.substring(2, 3);
-      return genre_id === ROCK_GENRE_ID ? `${VARIOUS_ARTISTS_CODE_LETTERS} ${letter}-` : `${letter}-`;
-    }
-    return `${VARIOUS_ARTISTS_CODE_LETTERS}-`;
+export function formatArtistCodeWithPunctuation(parts: ArtistCodeParts): string {
+  if (isVariousArtists(parts.code_letters)) {
+    return `${compilationLabel(parts)}-`;
   }
   // The named-artist form is the same string the no-punctuation getter
   // renders, which is how the Java relates the two -- delegated so the pair
   // cannot drift into disagreeing about a code neither branch calls V/A.
-  return `${formatCallLettersAndNumbers({ code_letters, code_artist_number })}/`;
+  return `${formatCallLettersAndNumbers(parts)}/`;
 }
 
 /**
@@ -233,10 +257,8 @@ export function formatReleaseCode({
   code_number,
   code_volume_letters,
 }: ReleaseCodeParts): string {
-  if (!code_volume_letters || code_volume_letters.trim() === "") {
-    return String(code_number);
-  }
-  return `${code_number}-${code_volume_letters.toUpperCase()}`;
+  const letters = code_volume_letters?.trim().toUpperCase();
+  return letters ? `${code_number}-${letters}` : String(code_number);
 }
 
 /**
@@ -274,6 +296,7 @@ export function formatAlbumEntryLibraryCode(album: AlbumEntry, genreName?: strin
     code_letters: album.artist?.lettercode ?? "",
     code_artist_number: album.artist?.numbercode ?? null,
     genre_id: album.artist?.genre_id,
+    code_comp_letter: album.artist?.code_comp_letter,
     code_number: album.entry,
     code_volume_letters: album.code_volume_letters,
   });

@@ -322,6 +322,8 @@ function ArtistAddFields() {
               {formatCallLettersAndNumbers({
                 code_letters: added.code_letters,
                 code_artist_number: added.code_number,
+                genre_id: undefined,
+                code_comp_letter: undefined,
               })}
               .
             </Typography>

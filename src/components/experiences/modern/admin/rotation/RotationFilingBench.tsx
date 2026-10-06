@@ -214,6 +214,8 @@ export default function RotationFilingBench(): JSX.Element {
   const compilationShelfCode = formatCallLettersAndNumbers({
     code_letters: VARIOUS_ARTISTS_CODE_LETTERS,
     code_artist_number: VARIOUS_ARTISTS_CODE_NUMBER,
+    genre_id: undefined,
+    code_comp_letter: undefined,
   });
   const compilationConflict =
     compilationActive && artistConflict !== null
@@ -720,6 +722,8 @@ export default function RotationFilingBench(): JSX.Element {
                   {formatCallLettersAndNumbers({
                     code_letters: selectedArtist.code_letters,
                     code_artist_number: selectedArtist.code_number,
+                    genre_id: undefined,
+                    code_comp_letter: undefined,
                   })}
                   )
                 </FormHelperText>

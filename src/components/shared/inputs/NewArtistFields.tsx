@@ -272,6 +272,8 @@ function NewArtistFields({
               code_artist_number: Number.isNaN(Number.parseInt(conflict.code_number, 10))
                 ? null
                 : Number.parseInt(conflict.code_number, 10),
+              genre_id: undefined,
+              code_comp_letter: undefined,
             })}{" "}
             is already taken by{" "}
             {conflict.response.artist.artist_name}.

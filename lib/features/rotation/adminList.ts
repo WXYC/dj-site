@@ -59,6 +59,7 @@ export function rotationRowCode(row: RotationListRow): string | null {
     code_letters: row.code_letters,
     code_artist_number: row.code_artist_number,
     genre_id: undefined,
+    code_comp_letter: undefined,
     code_number: row.code_number,
     code_volume_letters: undefined,
   });

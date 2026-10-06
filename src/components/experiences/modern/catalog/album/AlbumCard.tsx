@@ -103,6 +103,8 @@ export default function AlbumCard({
               alt={`${album.title} cover`}
               codePreview={{
                 genreName: album.artist.genre,
+                genreId: album.artist.genre_id,
+                compLetter: album.artist.code_comp_letter,
                 codeLetters: album.artist.lettercode,
                 artistNumber: album.artist.numbercode,
                 albumEntry: album.entry,

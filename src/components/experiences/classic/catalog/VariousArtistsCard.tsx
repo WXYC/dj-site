@@ -173,6 +173,7 @@ export default function VariousArtistsCard({ artistId, message, imported }: Vari
                 code_letters: artist.code_letters,
                 code_artist_number: artist.code_artist_number,
                 genre_id: artist.genre_id,
+                code_comp_letter: artist.code_comp_letter,
                 code_number: imported.codeNumber,
                 code_volume_letters: imported.volumeLetters ?? null,
               })
@@ -199,6 +200,7 @@ export default function VariousArtistsCard({ artistId, message, imported }: Vari
         code_letters: artist.code_letters,
         code_artist_number: artist.code_artist_number,
         genre_id: artist.genre_id,
+        code_comp_letter: artist.code_comp_letter,
       })
     : "";
 
@@ -259,6 +261,7 @@ export default function VariousArtistsCard({ artistId, message, imported }: Vari
               code_letters: artist.code_letters,
               code_artist_number: artist.code_artist_number,
               genre_id: artist.genre_id,
+              code_comp_letter: artist.code_comp_letter,
               code_number: codeNumber,
               code_volume_letters:
                 typeof created.code_volume_letters === "string"
@@ -560,6 +563,7 @@ export default function VariousArtistsCard({ artistId, message, imported }: Vari
                         code_letters: release.code_letters,
                         code_artist_number: release.code_artist_number,
                         genre_id: release.genre_id,
+                        code_comp_letter: artist.code_comp_letter,
                         code_number: release.code_number,
                         code_volume_letters: release.code_volume_letters,
                       })}

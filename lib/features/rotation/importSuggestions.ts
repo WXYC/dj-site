@@ -63,6 +63,7 @@ export function artistShelfCode(match: {
     code_letters: match.code_letters,
     code_artist_number: match.code_number,
     genre_id: match.genre_id ?? 0,
+    code_comp_letter: undefined,
   });
   return match.genre_name ? `${match.genre_name} ${code}` : code;
 }

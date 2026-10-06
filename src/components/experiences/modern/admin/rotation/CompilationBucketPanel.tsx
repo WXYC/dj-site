@@ -84,6 +84,8 @@ export default function CompilationBucketPanel({
           {formatCallLettersAndNumbers({
             code_letters: owners[0].code_letters,
             code_artist_number: owners[0].code_number,
+            genre_id: owners[0].genre_id,
+            code_comp_letter: owners[0].code_comp_letter,
           })}
           )
         </Typography>

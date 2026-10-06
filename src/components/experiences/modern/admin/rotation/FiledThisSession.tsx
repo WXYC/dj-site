@@ -47,6 +47,7 @@ export default function FiledThisSession({ filings }: FiledThisSessionProps): JS
                   code_letters: filing.artist.code_letters,
                   code_artist_number: filing.artist.code_artist_number,
                   genre_id: filing.artist.genre_id,
+                  code_comp_letter: undefined,
                   code_number: filing.release.code_number,
                   code_volume_letters: filing.release.code_volume_letters,
                 })}
