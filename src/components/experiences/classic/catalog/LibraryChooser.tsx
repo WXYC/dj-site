@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useGetGenresQuery } from "@/lib/features/catalog/api";
 import { safeCapture } from "@/lib/posthog";
-import ArtistSearchForm, { type MultiMatchResult } from "./ArtistSearchForm";
+import ArtistSearchForm, { type ChooserPrefill, type MultiMatchResult } from "./ArtistSearchForm";
 import MultipleArtistsDisplay from "./MultipleArtistsDisplay";
 import NewArtistForm from "./NewArtistForm";
 import SearchForm from "./SearchForm";
@@ -102,6 +102,9 @@ const isLetterMiss = (result: MultiMatchResult) =>
 
 export default function LibraryChooser() {
   const [multiMatch, setMultiMatch] = useState<MultiMatchResult | null>(null);
+  // Survives the swap for the same reason as the genres subscription: the form
+  // remounts on the way back and would otherwise lose a letter-miss search.
+  const [prefill, setPrefill] = useState<ChooserPrefill | undefined>();
   // Held here, not only inside the two forms, because they both unmount for
   // the length of the disambiguation screen. Scanning a 27-owner compilation
   // bucket outlasts RTK Query's unsubscribed-cache window, so without a
@@ -133,11 +136,17 @@ export default function LibraryChooser() {
       <SearchResults canModify />
       <hr />
       {multiMatch ? (
-        <MultiMatchScreen result={multiMatch} onDismiss={() => setMultiMatch(null)} />
+        <MultiMatchScreen
+          result={multiMatch}
+          onDismiss={() => {
+            setPrefill(multiMatch.letterMiss);
+            setMultiMatch(null);
+          }}
+        />
       ) : (
         // The instrumented setter, never the raw one: reaching the screen is
         // what MULTI_MATCH_SHOWN records, and it has no other trigger.
-        <JspBlocks onMultiMatch={showMultiMatch} />
+        <JspBlocks onMultiMatch={showMultiMatch} prefill={prefill} />
       )}
     </>
   );
@@ -190,7 +199,13 @@ function MultiMatchScreen({
  * call-number form, and the new-artist form. Split out only so the swap above
  * reads as one expression.
  */
-function JspBlocks({ onMultiMatch }: { onMultiMatch: (m: MultiMatchResult) => void }) {
+function JspBlocks({
+  onMultiMatch,
+  prefill,
+}: {
+  onMultiMatch: (m: MultiMatchResult) => void;
+  prefill: ChooserPrefill | undefined;
+}) {
   return (
     <>
       <table cellPadding={10}>
@@ -211,7 +226,7 @@ function JspBlocks({ onMultiMatch }: { onMultiMatch: (m: MultiMatchResult) => vo
         </tbody>
       </table>
       <hr />
-      <ArtistSearchForm onMultiMatch={onMultiMatch} />
+      <ArtistSearchForm onMultiMatch={onMultiMatch} prefill={prefill} />
       <NewArtistForm />
     </>
   );
