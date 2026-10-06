@@ -91,9 +91,10 @@ export type MultiMatchResult = {
 type ArtistSearchFormProps = {
   /**
    * Called instead of navigating when a search ends on a list: a contested
-   * code, any call-letters browse, or a compilation letter matching no bucket. Required rather than optional: a caller
-   * that omits it has no results screen to show, and both branches would leave
-   * the librarian looking at a Search button that did nothing.
+   * code, any call-letters browse, or a compilation letter matching no
+   * bucket. Required rather than optional: a caller that omits it has no
+   * results screen to show, and both branches would leave the librarian
+   * looking at a Search button that did nothing.
    */
   onMultiMatch: (result: MultiMatchResult) => void;
 };

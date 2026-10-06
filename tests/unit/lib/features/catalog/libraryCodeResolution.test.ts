@@ -383,15 +383,15 @@ describe("narrowCompilationOwners", () => {
   const mixed = [owner(1, 12, "A"), owner(2, 12)];
 
   it.each([
-    ["a single match", rock, 11, "B", [rock[1]]],
-    ["a lowercase typed letter", rock, 11, "c", [rock[2]]],
-    ["a padded typed letter", soundtracks, 12, " a ", [soundtracks[0]]],
-    ["no owner carrying a letter (pre-backfill)", unfilled, 11, "A", unfilled],
-    ["letters present but none matching", rock, 11, "Z", []],
-    ["a mix of lettered and unlettered owners, letter matching", mixed, 12, "A", [mixed[0]]],
-    ["a mix of lettered and unlettered owners, letter not matching", mixed, 12, "Q", []],
-    ["a genre outside 11/12, whatever letter is typed", [owner(6, 3, "A"), owner(7, 3)], 3, "Q", [owner(6, 3, "A"), owner(7, 3)]],
-  ])("narrows %s", (_label, owners, _genreId, typed, expected) => {
+    ["a single match", rock, "B", [rock[1]]],
+    ["a lowercase typed letter", rock, "c", [rock[2]]],
+    ["a padded typed letter", soundtracks, " a ", [soundtracks[0]]],
+    ["no owner carrying a letter (pre-backfill)", unfilled, "A", unfilled],
+    ["letters present but none matching", rock, "Z", []],
+    ["a mix of lettered and unlettered owners, letter matching", mixed, "A", [mixed[0]]],
+    ["a mix of lettered and unlettered owners, letter not matching", mixed, "Q", []],
+    ["a genre outside 11/12, whatever letter is typed", [owner(6, 3, "A"), owner(7, 3)], "Q", [owner(6, 3, "A"), owner(7, 3)]],
+  ])("narrows %s", (_label, owners, typed, expected) => {
     expect(narrowCompilationOwners(owners, typed)).toEqual(expected);
   });
 });

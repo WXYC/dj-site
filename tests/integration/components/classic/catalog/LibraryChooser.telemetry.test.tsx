@@ -89,6 +89,17 @@ const BUCKET_BROWSE = {
   ],
 };
 
+/**
+ * The third arrival: a compilation section letter that named no bucket. It has
+ * a number (so it is not a browse) and nobody to list.
+ */
+const LETTER_MISS = {
+  genreName: "Rock",
+  codeLetters: "V/A",
+  codeNumber: 0,
+  artists: [] as unknown[],
+};
+
 const capturesNamed = (event: string) =>
   mockSafeCapture.mock.calls.filter((call) => call[0] === event);
 
@@ -136,6 +147,25 @@ describe("classic LibraryChooser — disambiguation screen telemetry", () => {
       code_number: null,
       browse: true,
     });
+  });
+
+  // `browse=false` alone would count a typed-letter miss as a code collision,
+  // so the miss carries its own flag on the arrival and on both shared exits,
+  // and a real collision and a browse are both explicitly not a miss.
+  it.each([
+    ["a contested code", MULTI_MATCH, false],
+    ["a call-letters browse", BUCKET_BROWSE, false],
+    ["a letter that matched no bucket", LETTER_MISS, true],
+  ])("flags %s with letter_miss=%s on arrival and both exits", async (_label, arrival, miss) => {
+    const { user } = renderWithProviders(<LibraryChooser />);
+    act(() => capturedOnMultiMatch!(arrival));
+    await screen.findByTestId("multiple-artists-display");
+    await user.click(screen.getByRole("button", { name: "choose" }));
+    await user.click(screen.getByRole("button", { name: "back" }));
+
+    expect(capturesNamed("library_multi_match_shown")[0][1]).toMatchObject({ letter_miss: miss });
+    expect(capturesNamed("library_multi_match_resolved")[0][1]).toMatchObject({ letter_miss: miss });
+    expect(capturesNamed("library_multi_match_dismissed")[0][1]).toMatchObject({ letter_miss: miss });
   });
 
   // The exits are shared by both arrivals, so they carry the same flag: a

@@ -58,10 +58,11 @@ type MultipleArtistsDisplayProps = MultiMatchResult & {
  * The JSP's "no results" branch IS reproduced. The browse reaches it, and so
  * does a compilation section letter that matches no bucket (a non-browse with
  * `codeNumber` set and no artists -- a divergence from the JSP, which sends
- * that case back to the blank chooser form). It was unreachable while every caller was a fully-specified lookup --
- * an unassigned code answers 404, and a zero-length 200 is refused upstream as
- * untrustworthy -- but unused call letters are a 200 with no rows, and a
- * librarian checking whether a section is free is asking a normal question.
+ * that case back to the blank chooser form). It was unreachable while every
+ * caller was a fully-specified lookup -- an unassigned code answers 404, and a
+ * zero-length 200 is refused upstream as untrustworthy -- but unused call
+ * letters are a 200 with no rows, and a librarian checking whether a section is
+ * free is asking a normal question.
  *
  * Selection affordance matches the JSP's real behavior, which its own markup
  * misstates: the row link carries `mode=view`, but `ArtistViewServlet` never
