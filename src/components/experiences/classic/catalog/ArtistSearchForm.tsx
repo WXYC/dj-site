@@ -86,9 +86,21 @@ export type MultiMatchResult = {
   codeLetters: string;
   codeNumber: number | null;
   artists: ArtistByCodeOwner[];
+  /**
+   * Set only on the compilation letter-miss screen: the genre and the typed
+   * section letter (trimmed, upper-cased -- the value `narrowCompilationOwners`
+   * matched against) that named no bucket. Names the letter in the header and
+   * lets the way back restore the inputs.
+   */
+  letterMiss?: ChooserPrefill;
 };
 
+/** The compilation search a librarian typed, to restore on returning to the form. */
+export type ChooserPrefill = { genreId: number; letter: string };
+
 type ArtistSearchFormProps = {
+  /** Restores a compilation search the librarian just came back from. */
+  prefill?: ChooserPrefill;
   /**
    * Called instead of navigating when a search ends on a list: a contested
    * code, any call-letters browse, or a compilation letter matching no
@@ -146,7 +158,7 @@ type ArtistSearchFormProps = {
  * widening of the shared validator, which would make a JSP-faithful state
  * read as a JSP-parity failure.
  */
-export default function ArtistSearchForm({ onMultiMatch }: ArtistSearchFormProps) {
+export default function ArtistSearchForm({ onMultiMatch, prefill }: ArtistSearchFormProps) {
   const router = useRouter();
   const genreFieldId = useId();
   const lettersId = useId();
@@ -161,11 +173,13 @@ export default function ArtistSearchForm({ onMultiMatch }: ArtistSearchFormProps
   const genresUnavailable = isGenresUnavailable(genresQuery);
   const [resolveArtistByCode, { isFetching: isResolving }] = useLazyResolveArtistByCodeQuery();
 
-  const [genreId, setGenreId] = useState<number | null>(null);
-  const [callLetterMode, setCallLetterMode] = useState<CallLetterMode>(null);
+  const [genreId, setGenreId] = useState<number | null>(prefill?.genreId ?? null);
+  const [callLetterMode, setCallLetterMode] = useState<CallLetterMode>(
+    prefill ? "compilation" : null,
+  );
   const [artistLettersTextbox, setArtistLettersTextbox] = useState("");
   const [artistNumbersTextbox, setArtistNumbersTextbox] = useState("");
-  const [rockCompLetters, setRockCompLetters] = useState("");
+  const [rockCompLetters, setRockCompLetters] = useState(prefill?.letter ?? "");
   const [validationMessage, setValidationMessage] = useState<string | null>(null);
 
   // The JSP's <select name="genreID"> carries no empty option, so the browser
@@ -362,13 +376,18 @@ export default function ArtistSearchForm({ onMultiMatch }: ArtistSearchFormProps
 
     // A typed section letter that names no bucket. This is a deliberate
     // divergence: the JSP redirects to `chooseLibraryCodePrompt`, which forwards
-    // to the blank chooser form; here a no-match results screen is shown.
+    // to the blank chooser form; here a no-match results screen is shown, its
+    // header naming the typed letter and its way back restoring the inputs.
     if (narrowing && owners.length === 0) {
       onMultiMatch({
         genreName,
         codeLetters: composed.args.code_letters,
         codeNumber: composed.args.code_number ?? null,
         artists: owners,
+        letterMiss: {
+          genreId: composed.args.genre_id,
+          letter: rockCompLetters.trim().toUpperCase(),
+        },
       });
       return;
     }

@@ -57,8 +57,10 @@ type MultipleArtistsDisplayProps = MultiMatchResult & {
  *
  * The JSP's "no results" branch IS reproduced. The browse reaches it, and so
  * does a compilation section letter that matches no bucket (a non-browse with
- * `codeNumber` set and no artists -- a divergence from the JSP, which sends
- * that case back to the blank chooser form). It was unreachable while every
+ * `codeNumber` set and no artists). That is a divergence from the JSP, which
+ * silently returns to the blank chooser form: here the header names the typed
+ * letter (`letterMiss`) so the librarian can see which one missed, and the way
+ * back restores the genre, compilation mode and letter. It was unreachable while every
  * caller was a fully-specified lookup -- an unassigned code answers 404, and a
  * zero-length 200 is refused upstream as untrustworthy -- but unused call
  * letters are a 200 with no rows, and a librarian checking whether a section is
@@ -77,14 +79,18 @@ export default function MultipleArtistsDisplay({
   codeLetters,
   codeNumber,
   artists,
+  letterMiss,
   onChooseAgain,
   onChoose,
 }: MultipleArtistsDisplayProps) {
   const searchedCode = formatCallLettersAndNumbers({
     code_letters: codeLetters,
     code_artist_number: codeNumber,
-    genre_id: undefined,
-    code_comp_letter: undefined,
+    // A letter miss carries the typed letter so the header reads like the
+    // bucket's own call number: `V/A Q` under Rock, the bare `Q` under
+    // Soundtracks.
+    genre_id: letterMiss?.genreId,
+    code_comp_letter: letterMiss?.letter,
   });
 
   return (
