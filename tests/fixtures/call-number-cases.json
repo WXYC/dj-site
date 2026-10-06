@@ -10,8 +10,8 @@
       "call_letters": "Artist code letters as stored, verbatim (V/A, Z-M, ST, ...), or null.",
       "artist_number": "Artist number, or null.",
       "release_number": "Release number, or null.",
-      "volume_letters": "Per-release volume letters as stored (verbatim, so a row can be lower-case, padded or whitespace-only), or null. Rendered as -<LETTER> after the release number, trimmed and upper-cased (decision 5), and dropped when blank or when the row has no release number. dj-site's formatReleaseCode and Backend's computeCallNumber (Backend-Service#2827, PR #2880) render it; LML does not yet (LML#1373).",
-      "comp_letter": "Compilation bin letter as a first-class input, or null. No composer reads it yet (LML#1431, Backend-Service#2837, dj-site#1791). A row with comp_letter null and a bin only on artist_name pins the TARGET that the name is ignored, so LML and Backend diverge until they delete their name-reading.",
+      "volume_letters": "Per-release volume letters as stored (verbatim, so a row can be lower-case, padded or whitespace-only), or null. Rendered as -<LETTER> after the release number, trimmed and upper-cased (decision 5), and dropped when blank or when the row has no release number.",
+      "comp_letter": "Compilation bin letter as a first-class input, or null. A row with comp_letter null and a bin only on artist_name pins the TARGET that the name is ignored, so a composer that still reads the name diverges.",
       "artist_name": "Artist name as stored, or null. Kept only so a row can pin that the name is ignored once name-reading is deleted.",
       "full": "The LML/Backend string: <Genre> <Format> <artist half><release half>, where the artist half drops dj-site's trailing '/' or '-' when there is no release number. Empty only when the row has nothing to compose.",
       "artist_half": "What dj-site formatArtistCodeWithPunctuation returns (trailing punctuation included), or null when the row has no artist half dj-site would render.",
@@ -238,7 +238,7 @@
     },
     {
       "id": "rock-with-comp-letter",
-      "why": "The Rock bin letter supplied structurally as comp_letter, with no name to read, renders V/A <L>-Release. No composer reads comp_letter yet.",
+      "why": "The Rock bin letter supplied structurally as comp_letter, with no name to read, renders V/A <L>-Release.",
       "genre": "Rock",
       "format": "cd",
       "call_letters": "V/A",
@@ -268,7 +268,7 @@
     },
     {
       "id": "soundtracks-with-comp-letter",
-      "why": "The Soundtracks bin letter supplied as comp_letter renders the bare letter with no V/A word. No composer reads comp_letter yet.",
+      "why": "The Soundtracks bin letter supplied as comp_letter renders the bare letter with no V/A word.",
       "genre": "Soundtracks",
       "format": "cd",
       "call_letters": "V/A",
@@ -538,7 +538,7 @@
     },
     {
       "id": "no-release-number-with-comp-letter",
-      "why": "A null release number on a Rock compilation with comp_letter keeps the bin and drops the trailing hyphen. No composer reads comp_letter yet.",
+      "why": "A null release number on a Rock compilation with comp_letter keeps the bin and drops the trailing hyphen.",
       "genre": "Rock",
       "format": "cd",
       "call_letters": "V/A",
