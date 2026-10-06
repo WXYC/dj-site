@@ -113,3 +113,29 @@ describe("callNumberFor", () => {
     expect(callNumberFor(compilation)).toBe("V/A-1");
   });
 });
+
+describe("callNumberFor with a lettered compilation", () => {
+  const compilation = (genre_id: number, code_comp_letter: string, code_volume_letters?: string | null) =>
+    createTestAlbum({
+      entry: 7,
+      code_volume_letters,
+      artist: createTestArtist({
+        lettercode: "V/A",
+        numbercode: 3,
+        genre_id,
+        code_comp_letter,
+      }),
+    });
+
+  it.each([
+    ["Rock prints V/A <L>-<n>", compilation(11, "b"), "V/A B-7"],
+    ["Soundtracks prints <L>-<n>", compilation(12, "c"), "C-7"],
+    [
+      "a volume letter is the trimmed, upper-cased suffix",
+      compilation(11, "b", " d "),
+      "V/A B-7-D",
+    ],
+  ])("%s", (_name, album, expected) => {
+    expect(callNumberFor(album)).toBe(expected);
+  });
+});
