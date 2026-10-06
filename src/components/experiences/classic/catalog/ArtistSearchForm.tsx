@@ -312,7 +312,10 @@ export default function ArtistSearchForm({ onMultiMatch }: ArtistSearchFormProps
       return;
     }
 
-    if (callLetterMode === "compilation") {
+    // Only a non-empty answer is narrowed: an empty 200 is still the
+    // untrustworthy shape refused below, not a letter that matched nothing.
+    const narrowing = callLetterMode === "compilation" && owners.length > 0;
+    if (narrowing) {
       owners = narrowCompilationOwners(owners, composed.args.genre_id, rockCompLetters);
     }
 
@@ -351,7 +354,7 @@ export default function ArtistSearchForm({ onMultiMatch }: ArtistSearchFormProps
     }
 
     // A typed section letter that names no bucket: the JSP's empty chooser.
-    if (callLetterMode === "compilation" && owners.length === 0) {
+    if (narrowing && owners.length === 0) {
       onMultiMatch({
         genreName,
         codeLetters: composed.args.code_letters,
