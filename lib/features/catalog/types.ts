@@ -600,7 +600,7 @@ export type AlbumEntry = {
    * The other half of the release's shelf code (`library.code_volume_letters`),
    * which subdivides one call number into volumes — `5-A` beside `5`. `null`
    * is a release with no volume letters; absent means the row came from a
-   * source that carries no such column (a bin row, an LML-only search row),
+   * source that carries no such column (an LML-only search row),
    * which is why a reader must not read absence as "no letters".
    *
    * The published response contract does not declare the column even though
@@ -668,10 +668,11 @@ export type ArtistEntry = {
    * pair — so this, not `id`, is what picks which card the artist opens.
    * `numbercode` above is that artist's code IN this genre.
    *
-   * `undefined` when the response predates the field; a link must then fall
+   * `null` or `undefined` when the response predates the field (or the bin
+   * row carried a null); a link must then fall
    * back to the unscoped card rather than naming a genre it does not know.
    */
-  genre_id: number | undefined;
+  genre_id: number | null | undefined;
   /**
    * Rock/Soundtracks compilation section letter (`genre_artist_crossreference.code_comp_letter`),
    * `null` when the source carries none. See `ArtistCodeParts.code_comp_letter`.

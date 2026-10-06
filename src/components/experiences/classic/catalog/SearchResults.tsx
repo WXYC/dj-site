@@ -226,7 +226,7 @@ export default function SearchResults({ canModify }: { canModify: boolean }) {
                       {
                         id: result.artist.id,
                         lettercode: result.artist.lettercode,
-                        genre_id: result.artist.genre_id,
+                        genre_id: result.artist.genre_id ?? undefined,
                       },
                       canModify,
                     )}

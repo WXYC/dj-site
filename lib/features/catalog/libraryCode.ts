@@ -60,7 +60,7 @@ export type ArtistCodeParts = {
    * avatar badge, read this; an unresolved value must fall through to the generic bucket rather
    * than coincidentally matching one of the two hardcoded ids.
    */
-  genre_id: number | undefined;
+  genre_id: number | null | undefined;
   /**
    * The Rock/Soundtracks compilation section letter Backend-Service serves
    * structurally beside the artist number. `null` or `undefined` for a source
@@ -76,7 +76,7 @@ export type ReleaseCodeParts = {
   /**
    * `null` is a release with no volume letters; `undefined` mirrors
    * `AlbumEntry.code_volume_letters` -- a source that carries no such column
-   * at all (a bin row, an LML-only search row). `formatReleaseCode` treats
+   * at all (an LML-only search row). `formatReleaseCode` treats
    * both the same way: either is "no volume letter to render."
    */
   code_volume_letters: string | null | undefined;
