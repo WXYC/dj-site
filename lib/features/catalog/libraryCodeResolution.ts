@@ -195,7 +195,7 @@ export function narrowCompilationOwners(
   typedLetter: string,
 ): ArtistByCodeOwner[] {
   if (!isRockCompLettersRequired(genreId)) return owners;
-  const letters = owners.map(compilationSectionLetter);
+  const letters = owners.map((o) => compilationSectionLetter({ ...o, code_comp_letter: o.code_comp_letter ?? null }));
   if (letters.every((letter) => letter === "")) return owners;
   const typed = typedLetter.trim().toUpperCase();
   return owners.filter((_, i) => letters[i] === typed);

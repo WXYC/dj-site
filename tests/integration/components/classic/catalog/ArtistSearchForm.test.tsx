@@ -377,6 +377,18 @@ describe("classic ArtistSearchForm — chooseLibraryCodeOrArtist.jsp's artistSea
       expect(mockPush).not.toHaveBeenCalled();
     });
 
+    it("still refuses an empty answer for a compilation lookup", async () => {
+      server.use(http.get(BY_CODE_URL, () => HttpResponse.json({ artists: [] })));
+      const { user } = renderWithProviders(<ArtistSearchForm onMultiMatch={mockOnMultiMatch} />);
+      await selectGenre(user, "Rock");
+      await user.click(screen.getByRole("radio", { name: /various artists/i }));
+      await user.type(screen.getByLabelText(/rock comp/i), "A");
+      await user.click(screen.getByRole("button", { name: "Search!" }));
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(/couldn't check that library code/i);
+      expect(mockOnMultiMatch).not.toHaveBeenCalled();
+    });
+
     it("resolves a compilation in a genre outside 11/12 without a letter", async () => {
       server.use(
         http.get(BY_CODE_URL, () =>
