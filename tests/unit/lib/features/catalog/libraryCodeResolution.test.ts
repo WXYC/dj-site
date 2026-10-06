@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   composeLibraryCodeSearchArgs,
+  narrowCompilationOwners,
   resolveArtistByCodeErrorReason,
 } from "@/lib/features/catalog/libraryCodeResolution";
 import { VARIOUS_ARTISTS_CODE_NUMBER } from "@/lib/features/catalog/libraryCode";
@@ -362,5 +363,30 @@ describe("resolveArtistByCodeErrorReason", () => {
     expect(resolveArtistByCodeErrorReason({ status: 404, data: { reason: "code_not_assigned" } })).toBeUndefined();
     expect(resolveArtistByCodeErrorReason(undefined)).toBeUndefined();
     expect(resolveArtistByCodeErrorReason(null)).toBeUndefined();
+  });
+});
+
+describe("narrowCompilationOwners", () => {
+  const owner = (id: number, genre_id: number, code_comp_letter: string | null = null) => ({
+    id,
+    artist_name: `Bucket ${id}`,
+    code_letters: "V/A",
+    code_number: 0,
+    genre_id,
+    code_comp_letter,
+  });
+  const rock = [owner(1, 11, "A"), owner(2, 11, "B"), owner(3, 11, "C")];
+  const unfilled = [owner(1, 11), owner(2, 11), owner(3, 11)];
+  const soundtracks = [owner(4, 12, "A"), owner(5, 12, "B")];
+
+  it.each([
+    ["a single match", rock, 11, "B", [rock[1]]],
+    ["a lowercase typed letter", rock, 11, "c", [rock[2]]],
+    ["a padded typed letter", soundtracks, 12, " a ", [soundtracks[0]]],
+    ["no owner carrying a letter (pre-backfill)", unfilled, 11, "A", unfilled],
+    ["letters present but none matching", rock, 11, "Z", []],
+    ["a genre outside 11/12, whatever letter is typed", [owner(6, 3, "A"), owner(7, 3)], 3, "Q", [owner(6, 3, "A"), owner(7, 3)]],
+  ])("narrows %s", (_label, owners, genreId, typed, expected) => {
+    expect(narrowCompilationOwners(owners, genreId, typed)).toEqual(expected);
   });
 });

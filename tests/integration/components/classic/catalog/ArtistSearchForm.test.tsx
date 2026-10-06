@@ -323,6 +323,75 @@ describe("classic ArtistSearchForm — chooseLibraryCodeOrArtist.jsp's artistSea
     );
   });
 
+  // chooseLibraryCodeOrArtist.jsp resolves a compilation on genre + section
+  // letter, so a lettered bucket is a direct landing, not a 26/27-row list.
+  describe("compilation section letter", () => {
+    const bucket = (id: number, genre_id: number, name: string, code_comp_letter: string | null) => ({
+      id,
+      artist_name: name,
+      code_letters: "V/A",
+      code_number: 0,
+      genre_id,
+      code_comp_letter,
+    });
+    const rockBuckets = [
+      bucket(1, ROCK_GENRE_ID, "Various Artists - Rock - A", "A"),
+      bucket(2, ROCK_GENRE_ID, "Various Artists - Rock - B", "B"),
+    ];
+    const soundtrackBuckets = [
+      bucket(3, SOUNDTRACKS_GENRE_ID, "Soundtracks - A", "A"),
+      bucket(4, SOUNDTRACKS_GENRE_ID, "Soundtracks - B", "B"),
+    ];
+    const unfilledBuckets = rockBuckets.map((b) => ({ ...b, code_comp_letter: null }));
+
+    it.each([
+      ["Rock", "A", rockBuckets, "/dashboard/library/various/1"],
+      ["Rock", "b", rockBuckets, "/dashboard/library/various/2"],
+      ["Soundtracks", "B", soundtrackBuckets, "/dashboard/library/various/4"],
+    ])("lands %s + letter %s directly on its bucket", async (genre, letter, artists, href) => {
+      server.use(http.get(BY_CODE_URL, () => HttpResponse.json({ artists })));
+      const { user } = renderWithProviders(<ArtistSearchForm onMultiMatch={mockOnMultiMatch} />);
+      await selectGenre(user, genre);
+      await user.click(screen.getByRole("radio", { name: /various artists/i }));
+      await user.type(screen.getByLabelText(/rock comp/i), letter);
+      await user.click(screen.getByRole("button", { name: "Search!" }));
+
+      await waitFor(() => expect(mockPush).toHaveBeenCalledWith(href));
+      expect(mockOnMultiMatch).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ["no owner carries a letter yet", unfilledBuckets, unfilledBuckets],
+      ["letters are present but none matches", rockBuckets, []],
+    ])("hands the chooser the right owners when %s", async (_label, served, shown) => {
+      server.use(http.get(BY_CODE_URL, () => HttpResponse.json({ artists: served })));
+      const { user } = renderWithProviders(<ArtistSearchForm onMultiMatch={mockOnMultiMatch} />);
+      await selectGenre(user, "Rock");
+      await user.click(screen.getByRole("radio", { name: /various artists/i }));
+      await user.type(screen.getByLabelText(/rock comp/i), "Z");
+      await user.click(screen.getByRole("button", { name: "Search!" }));
+
+      await waitFor(() =>
+        expect(mockOnMultiMatch).toHaveBeenCalledWith(expect.objectContaining({ artists: shown })),
+      );
+      expect(mockPush).not.toHaveBeenCalled();
+    });
+
+    it("resolves a compilation in a genre outside 11/12 without a letter", async () => {
+      server.use(
+        http.get(BY_CODE_URL, () =>
+          HttpResponse.json({ artists: [bucket(9, BLUES_GENRE_ID, "Various Artists", null)] }),
+        ),
+      );
+      const { user } = renderWithProviders(<ArtistSearchForm onMultiMatch={mockOnMultiMatch} />);
+      await selectGenre(user, "Blues");
+      await user.click(screen.getByRole("radio", { name: /various artists/i }));
+      await user.click(screen.getByRole("button", { name: "Search!" }));
+
+      await waitFor(() => expect(mockPush).toHaveBeenCalledWith("/dashboard/library/various/9"));
+    });
+  });
+
   it("hands a multi-owner match to onMultiMatch instead of navigating", async () => {
     const owners = [
       { id: 1, artist_name: "Various Artists - Rock - A", code_letters: "V/A", code_number: 0, genre_id: ROCK_GENRE_ID },

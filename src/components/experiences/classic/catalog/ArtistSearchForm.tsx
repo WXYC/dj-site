@@ -13,6 +13,7 @@ import {
 import { isGenresUnavailable } from "@/lib/features/catalog/genreAvailability";
 import {
   composeLibraryCodeSearchArgs,
+  narrowCompilationOwners,
   resolveArtistByCodeErrorReason,
   UNTRUSTWORTHY_CODE_ANSWER_MESSAGE,
   type LibraryCodeCompositionRefusal,
@@ -132,10 +133,8 @@ type ArtistSearchFormProps = {
  *    behavior it promises is reproduced with it.
  *
  * The compilation radio always searches the fixed `V/A`/0 pair for the
- * selected genre, never a value composed from `rockCompLetters`: see
- * `composeLibraryCodeSearchArgs`'s doc for why that field cannot narrow a
- * Backend-Service search, even though it is still collected and validated
- * for JSP parity.
+ * selected genre; `rockCompLetters` then picks the bucket out of the owners
+ * returned (see `narrowCompilationOwners`), since it cannot narrow the query.
  *
  * `library-code-form.js`'s textbox branch reads only `artistLettersTextbox`,
  * never `genreID`, so a submit landing inside this form's client-side genre
@@ -313,6 +312,10 @@ export default function ArtistSearchForm({ onMultiMatch }: ArtistSearchFormProps
       return;
     }
 
+    if (callLetterMode === "compilation") {
+      owners = narrowCompilationOwners(owners, composed.args.genre_id, rockCompLetters);
+    }
+
     // Every ending is reached at the same point with the same facts, so the
     // arm and the count name the outcome once rather than being restated as a
     // literal per branch -- where `0` and `1` could only ever be wrong.
@@ -342,6 +345,17 @@ export default function ArtistSearchForm({ onMultiMatch }: ArtistSearchFormProps
         genreName,
         codeLetters: composed.args.code_letters,
         codeNumber: null,
+        artists: owners,
+      });
+      return;
+    }
+
+    // A typed section letter that names no bucket: the JSP's empty chooser.
+    if (callLetterMode === "compilation" && owners.length === 0) {
+      onMultiMatch({
+        genreName,
+        codeLetters: composed.args.code_letters,
+        codeNumber: composed.args.code_number ?? null,
         artists: owners,
       });
       return;

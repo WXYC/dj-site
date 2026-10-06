@@ -12,10 +12,12 @@ import {
   parseRequiredNonNegativeInt,
 } from "./adminCreateArtistValidation";
 import {
+  compilationSectionLetter,
   VARIOUS_ARTISTS_CODE_LETTERS,
   VARIOUS_ARTISTS_CODE_NUMBER,
 } from "./libraryCode";
-import type { ResolveArtistByCodeQuery } from "./types";
+import { isRockCompLettersRequired } from "./chooserValidation";
+import type { ArtistByCodeOwner, ResolveArtistByCodeQuery } from "./types";
 
 export type LibraryCodeSearchValues = {
   callLetterMode: CallLetterMode;
@@ -80,9 +82,9 @@ export function composeLibraryCodeSearchArgs(
   }
 
   if (values.callLetterMode === "compilation") {
-    // The compilation radio can only ever search the one pair, so the
-    // sub-bucket letter is left to `rockCompLetters`' JSP-parity validation
-    // alone -- nothing here can narrow the search by it.
+    // `code_letters` collapses every sub-bucket to `V/A`, so the query cannot
+    // be narrowed by the letter; the owners it returns carry the letter as
+    // `code_comp_letter`, and `narrowCompilationOwners` picks among them.
     return {
       ready: true,
       args: {
@@ -174,6 +176,29 @@ export function composeLibraryCodeSearchArgs(
     reason: "call_letter_mode_required",
     message: CALL_LETTER_MODE_REQUIRED_MESSAGE,
   };
+}
+
+/**
+ * Picks the compilation bucket a typed section letter names out of the
+ * `(genre, V/A, 0)` owners, as the JSP's `findByGenreAndCallLetters` does.
+ * Matching goes through `compilationSectionLetter` so the chooser, the badge
+ * and the call number agree on which bucket has which letter.
+ *
+ * Only genres 11/12 have section letters; elsewhere the owners pass through,
+ * as they do when no owner carries a letter yet (the catalog is not backfilled)
+ * -- the caller then shows the disambiguation list. Letters present with no
+ * match is `[]`, the JSP's empty chooser.
+ */
+export function narrowCompilationOwners(
+  owners: ArtistByCodeOwner[],
+  genreId: number,
+  typedLetter: string,
+): ArtistByCodeOwner[] {
+  if (!isRockCompLettersRequired(genreId)) return owners;
+  const letters = owners.map(compilationSectionLetter);
+  if (letters.every((letter) => letter === "")) return owners;
+  const typed = typedLetter.trim().toUpperCase();
+  return owners.filter((_, i) => letters[i] === typed);
 }
 
 /**
