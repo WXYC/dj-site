@@ -121,7 +121,7 @@ export default function ReleaseDeleteConfirm({ albumId }: { albumId: number }) {
     code_letters: release.artist.lettercode,
     code_artist_number: release.artist.numbercode,
     genre_id: release.genre_id ?? 0,
-    code_comp_letter: undefined,
+    code_comp_letter: release.artist.code_comp_letter,
     code_number: release.entry,
     code_volume_letters: release.code_volume_letters ?? null,
   });

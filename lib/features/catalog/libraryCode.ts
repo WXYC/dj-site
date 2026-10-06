@@ -9,11 +9,14 @@
  * - `LibraryRelease.getPreferredArtistString()` (`:138`)
  * - `LibraryRelease.getEntireArtistTitleString()` (`:145`)
  *
- * Rule-for-rule. The Java recovers a Various Artists sub-bucket letter by
+ * Rule-for-rule, with three named divergences. (1) The Java recovers a Various Artists sub-bucket letter by
  * substring-ing the legacy `Z-<letter>` spelling; the `V/A` form Backend-Service
  * serves has lost that spelling, so the letter comes from the structural
  * `code_comp_letter` instead (see `compilationSectionLetter`) -- never from
- * the artist's name.
+ * the artist's name. (2) A Rock `Z--` (a compilation slot with no section
+ * letter) renders `V/A-<n>`, matching Backend and LML, where the Java's
+ * `substring(2, 3)` would give `V/A --<n>`. (3) `formatReleaseCode` trims a
+ * padded volume letter, as Backend and wxyc-catalog do, where the Java does not.
  *
  * These are not cosmetic. The composed string is the physical call number a
  * librarian reads off the screen and walks to the stacks with, so its

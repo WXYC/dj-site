@@ -37,9 +37,10 @@ describe("formatArtistCodeWithPunctuation — ArtistLibraryCode.java:98", () => 
   // chooserValidation's isRockCompLettersRequired names: Rock (11) prefixes
   // it with "V/A ", Soundtracks (12) renders it bare, and every other genre
   // drops it. A genre_id the caller never resolved must not dispatch into
-  // either branch. The literal `V/A` Backend-Service actually serves has lost
-  // the letter, so it collapses to V/A- even in Rock. The artist number is
-  // dropped throughout.
+  // either branch. The literal `V/A` Backend-Service serves carries no letter of
+  // its own, so with no `code_comp_letter` it collapses to V/A- even in Rock
+  // (see "compilation section letter" below for the structural letter). The
+  // artist number is dropped throughout.
   it.each([
     ["Z-X", 1, "V/A-"],
     ["Z-X", 12, "X-"],
@@ -111,10 +112,9 @@ describe("formatCallLettersAndNumbers — ArtistLibraryCode.java:85, no trailing
     ).toBe("MO 12");
   });
 
-  // Backend-Service's collapsed `V/A` storage has already lost the
-  // Rock/Soundtracks sub-bucket letter the JSP's own getter recovers by
-  // substring-ing the legacy `Z-<letter>` spelling (see this file's header) --
-  // every Various Artists bucket renders identically here regardless of genre.
+  // With no genre and no `code_comp_letter`, every Various Artists bucket
+  // renders identically here as the bare `V/A`; the genre split is covered by
+  // "compilation section letter" below.
   it.each([["V/A"], ["Z-X"], ["Z--"]])(
     "renders a Various Artists bucket (%j) as V/A, dropping the number",
     (codeLetters) => {

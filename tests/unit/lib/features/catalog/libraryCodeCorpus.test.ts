@@ -16,9 +16,9 @@ const ROCK = 11;
 const SOUNDTRACKS = 12;
 const OTHER_GENRE = 1;
 
-// Row id -> this repo's open ticket for it (`owner/repo#N`). A listed row is
-// expected to fail; the self-check below fails once it passes, so the PR that
-// closes the divergence deletes its own entry.
+// Row id -> why this repo still renders it differently from the corpus. A
+// listed row is expected to fail; the self-check below fails once it passes,
+// so the change that closes the divergence deletes its own entry.
 const KNOWN_DIVERGENCES: Record<string, string> = {};
 
 const genreId = (genre: string | null): number | undefined =>
