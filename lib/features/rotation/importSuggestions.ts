@@ -58,12 +58,18 @@ export function artistShelfCode(match: {
   code_number: number;
   genre_id?: number | null;
   genre_name?: string | null;
+  /**
+   * Served beside `code_number` by `GET /library/artists/search`; the shared
+   * `ArtistSearchMatch` predates it, so callers holding that type pass the
+   * wire object through and the field rides along at runtime.
+   */
+  code_comp_letter?: string | null;
 }): string {
   const code = formatArtistCodeWithPunctuation({
     code_letters: match.code_letters,
     code_artist_number: match.code_number,
     genre_id: match.genre_id ?? 0,
-    code_comp_letter: undefined,
+    code_comp_letter: match.code_comp_letter,
   });
   return match.genre_name ? `${match.genre_name} ${code}` : code;
 }
