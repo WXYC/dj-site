@@ -52,6 +52,13 @@ describe("interpretArtistRefileError", () => {
       retryable: false,
     },
     {
+      label: "conflict whose holder has no code_letters string",
+      err: wrapped(409, { message: "held", reason: "artist_code_conflict", artist: { id: 7, artist_name: "Autechre", code_letters: null } }),
+      reason: "conflict",
+      holder: undefined,
+      retryable: false,
+    },
+    {
       label: "lettered compilation section",
       err: wrapped(409, { message: "x", reason: "lettered_compilation_section" }),
       reason: "lettered_section",

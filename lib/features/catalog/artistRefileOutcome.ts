@@ -49,7 +49,8 @@ export function interpretArtistRefileError(err: unknown): ArtistRefileRefusal {
     const artist = (data as { artist?: unknown }).artist;
     const holder =
       artist && typeof artist === "object" && typeof (artist as { id?: unknown }).id === "number" &&
-      typeof (artist as { artist_name?: unknown }).artist_name === "string"
+      typeof (artist as { artist_name?: unknown }).artist_name === "string" &&
+      typeof (artist as { code_letters?: unknown }).code_letters === "string"
         ? (artist as ArtistRefileConflictHolder)
         : undefined;
     return { reason: "conflict", holder, message: ARTIST_REFILE_CONFLICT_MESSAGE, retryable: false };
