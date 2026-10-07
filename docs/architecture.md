@@ -161,6 +161,7 @@ A segment layout that renders feature-identifying content must repeat its pages'
 | `/dashboard/admin/rotation/new` | `ExperienceGap` | Filing bench | MD, behind `NEXT_PUBLIC_ROTATION_ADMIN_ENABLED` |
 | `/dashboard/admin/rotation/cards` | `ExperienceGap` | Card management | MD, behind `NEXT_PUBLIC_ROTATION_ADMIN_ENABLED` |
 | `/dashboard/admin/rotation/thresholds` | `ExperienceGap` | Threshold editing (placeholder body, not yet linked) | MD, behind `NEXT_PUBLIC_ROTATION_ADMIN_ENABLED` |
+| `/dashboard/reviews` | `ExperienceGap` | Reviews shell (empty for now) | Authenticated, behind `NEXT_PUBLIC_REVIEWS_ENABLED` via `canSeeReviews` (`staff` shows it to MD and above) |
 
 ### Previous sets: two views behind one URL
 
