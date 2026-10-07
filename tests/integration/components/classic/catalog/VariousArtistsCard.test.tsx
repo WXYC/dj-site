@@ -21,6 +21,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 import VariousArtistsCard from "@/src/components/experiences/classic/catalog/VariousArtistsCard";
+import { catalogApi } from "@/lib/features/catalog/api";
 
 const BUCKET_ID = 4211;
 const UMBRELLA_BUCKET_ID = 19923;
@@ -760,6 +761,9 @@ describe("classic VariousArtistsCard — variousArtistsCardModify.jsp", () => {
       const error = await screen.findByTestId("va-release-table-error");
       expect(error.textContent).toMatch(/not a complete list/i);
       expect(rows(screen.getByTestId("va-release-table"))).toHaveLength(100);
+      // The alert already says the list is partial; a second message for the
+      // same cause would read as a second problem.
+      expect(screen.queryByText(/Showing the first/)).toBeNull();
     });
 
     // A whole section takes several page reads; an empty table in the
@@ -774,9 +778,23 @@ describe("classic VariousArtistsCard — variousArtistsCardModify.jsp", () => {
 
       renderWithProviders(<VariousArtistsCard artistId={BUCKET_ID} />);
 
-      await screen.findByTestId("va-bucket-header");
+      const header = await screen.findByTestId("va-bucket-header");
       expect(screen.getByText("Loading releases…")).toBeDefined();
       expect(screen.queryByText("The artist does not have any library releases")).toBeNull();
+      expect(within(header).queryByText("0")).toBeNull();
+    });
+
+    // A librarian who has just filed a release and sees the old list, with no
+    // sign it is old, concludes the filing did not land and files it again.
+    it("withdraws the table when a re-read fails rather than showing the previous list", async () => {
+      const { store } = renderWithProviders(<VariousArtistsCard artistId={BUCKET_ID} />);
+      await screen.findByTestId("va-release-table");
+
+      serveArtistReleasePages(BUCKET_ID, shelf, { failPages: [0] });
+      store.dispatch(catalogApi.util.invalidateTags([{ type: "ArtistReleaseList", id: "LIST" }]));
+
+      expect(await screen.findByTestId("va-release-table-error")).toBeDefined();
+      expect(screen.queryByTestId("va-release-table")).toBeNull();
     });
   });
 

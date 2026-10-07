@@ -505,13 +505,15 @@ describe("classic ArtistCard — artistCardModify.jsp", () => {
       );
       renderWithProviders(<ArtistCard artistId={ARTIST_ID} />);
 
-      await screen.findByTestId("modify-artist-form");
+      const modify = await screen.findByTestId("modify-artist-form");
       await waitFor(() =>
         expect(
           screen.queryByText("The artist does not have any library releases"),
         ).toBeNull(),
       );
       expect(await screen.findByTestId("release-table-error")).toBeDefined();
+      // Nor a release count of zero, which is the same claim in the header.
+      expect(within(modify).queryByText("0")).toBeNull();
     });
 
     describe("a shelf longer than one page", () => {
@@ -544,6 +546,7 @@ describe("classic ArtistCard — artistCardModify.jsp", () => {
         const error = await screen.findByTestId("release-table-error");
         expect(error.textContent).toMatch(/not a complete list/i);
         expect(rows(screen.getByTestId("artist-release-table"))).toHaveLength(100);
+        expect(screen.queryByText(/Showing the first/)).toBeNull();
       });
     });
   });
