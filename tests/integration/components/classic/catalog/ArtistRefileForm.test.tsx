@@ -145,6 +145,7 @@ describe("classic ArtistRefileForm", () => {
 
   it.each([
     { name: "lettered section", status: 409, body: { reason: "lettered_compilation_section" }, text: "lettered compilation section" },
+    { name: "various artists section", status: 409, body: { reason: "various_artists_section" }, text: "Various Artists section" },
     { name: "not filed", status: 404, body: { message: "Artist not filed under genre 6" }, text: "not filed under that genre" },
     { name: "not found", status: 404, body: { message: "Artist not found" }, text: "no longer in the catalog" },
     { name: "lock", status: 503, body: {}, text: "someone else is editing the shelf" },
@@ -205,6 +206,7 @@ describe("classic ArtistRefileForm", () => {
 
   it.each([
     { name: "lettered section", status: 409, body: { reason: "lettered_compilation_section" } },
+    { name: "various artists section", status: 409, body: { reason: "various_artists_section" } },
     { name: "not filed", status: 404, body: { message: "Artist not filed under genre 6" } },
     { name: "not found", status: 404, body: { message: "Artist not found" } },
   ])("withdraws Continue after a $name refusal on the merits", async ({ status, body }) => {

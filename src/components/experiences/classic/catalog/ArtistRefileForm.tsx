@@ -85,6 +85,7 @@ export default function ArtistRefileForm({
   // goes (a retryable refusal or a conflict leaves it standing).
   const withdrawn =
     refusal?.reason === "lettered_section" ||
+    refusal?.reason === "various_artists_section" ||
     refusal?.reason === "not_filed_in_genre" ||
     refusal?.reason === "artist_not_found";
   const ineligible = card.code_comp_letter != null
