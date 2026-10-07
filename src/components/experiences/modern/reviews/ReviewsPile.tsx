@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { Button, Chip, List, ListItem, Stack, Typography } from "@mui/joy";
 import type { IntakeItem } from "@wxyc/shared";
 import { toast } from "sonner";
@@ -35,6 +35,11 @@ export default function ReviewsPile() {
   const [accept] = useAcceptIntakeItemMutation();
   const [pass] = usePassIntakeItemMutation();
   const [returning, setReturning] = useState<IntakeItem | null>(null);
+  // The write in flight per row, by item id: its button shows loading and the
+  // row's others are disabled. The ref is the synchronous guard, so a second
+  // click that lands before the re-render is a no-op too.
+  const inFlight = useRef(new Map<number, string>());
+  const [pending, setPending] = useState<ReadonlyMap<number, string>>(() => new Map());
 
   if (!visible) return null;
   if (open.isError || reviewed.isError) {
@@ -52,18 +57,34 @@ export default function ReviewsPile() {
     ...reviewed.data.filter((i) => i.effective_state === "reviewed" && i.checked_out_by === me),
   ];
 
-  const act = async (run: () => { unwrap: () => Promise<unknown> }) => {
+  // A double-click's second POST would find the record already moved and
+  // answer 409 state_changed, telling the DJ someone else took the record they
+  // just took; one write per row at a time.
+  const act = async (id: number, action: string, run: () => { unwrap: () => Promise<unknown> }) => {
+    if (inFlight.current.has(id)) return;
+    inFlight.current.set(id, action);
+    setPending(new Map(inFlight.current));
     try {
       await run().unwrap();
     } catch (err) {
-      // Both lists refetch on a write, lost race or not.
-      toast.error(
-        isIntakeStateChanged(err)
-          ? "Someone else got to this record first. The lists are up to date."
-          : "Couldn't do that. Please try again.",
-      );
+      // Both lists refetch on a write, lost race or not. A lost race is not an
+      // error, so it is not an error toast.
+      if (isIntakeStateChanged(err)) {
+        toast("Someone else got to this record first. The lists are up to date.");
+      } else {
+        toast.error("Couldn't do that. Please try again.");
+      }
+    } finally {
+      inFlight.current.delete(id);
+      setPending(new Map(inFlight.current));
     }
   };
+
+  // Joy's Button disables itself while `loading`.
+  const lock = (i: IntakeItem, action: string) => ({
+    loading: pending.get(i.id) === action,
+    disabled: pending.has(i.id),
+  });
 
   const describe = (i: IntakeItem) => {
     const format = formats?.find((f) => f.id === i.format_id)?.format_name;
@@ -95,7 +116,7 @@ export default function ReviewsPile() {
       {section("The Pile", inPile, "Nothing is waiting in the Pile.", (i) => (
         <>
           <Typography level="body-sm">Logged {day(i.logged_at)}</Typography>
-          <Button size="sm" onClick={() => act(() => checkout(i.id))}>Check out</Button>
+          <Button size="sm" {...lock(i, "checkout")} onClick={() => act(i.id, "checkout", () => checkout(i.id))}>Check out</Button>
         </>
       ))}
       {section("My checkouts", checkouts, "You have no records checked out.", (i) => (
@@ -105,14 +126,14 @@ export default function ReviewsPile() {
           {i.effective_state === "reviewed" && (
             <Typography level="body-sm">Reviewed. Bring the record back to the music office.</Typography>
           )}
-          <Button size="sm" variant="outlined" onClick={() => setReturning(i)}>Return to the Pile</Button>
+          <Button size="sm" variant="outlined" {...lock(i, "release")} onClick={() => setReturning(i)}>Return to the Pile</Button>
         </>
       ))}
       {section("Requests for me", requests, "No one has asked you for a review.", (i) => (
         <>
           <Typography level="body-sm">Asked {day(i.requested_at)}</Typography>
-          <Button size="sm" onClick={() => act(() => accept(i.id))}>Accept</Button>
-          <Button size="sm" variant="outlined" onClick={() => act(() => pass(i.id))}>Pass</Button>
+          <Button size="sm" {...lock(i, "accept")} onClick={() => act(i.id, "accept", () => accept(i.id))}>Accept</Button>
+          <Button size="sm" variant="outlined" {...lock(i, "pass")} onClick={() => act(i.id, "pass", () => pass(i.id))}>Pass</Button>
         </>
       ))}
       <ConfirmDialog
@@ -122,10 +143,11 @@ export default function ReviewsPile() {
         actions={
           <>
             <Button
+              {...(returning ? lock(returning, "release") : {})}
               onClick={async () => {
                 const id = returning!.id;
                 setReturning(null);
-                await act(() => release(id));
+                await act(id, "release", () => release(id));
               }}
             >
               Return to the Pile

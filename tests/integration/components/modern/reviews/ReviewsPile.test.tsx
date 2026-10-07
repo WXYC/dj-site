@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
-import { http, HttpResponse } from "msw";
+import { delay, http, HttpResponse } from "msw";
 import type { IntakeItem } from "@wxyc/shared";
 import { Authorization } from "@/lib/features/admin/types";
 import { renderWithProviders, server, TEST_BACKEND_URL } from "@/tests/helpers";
@@ -10,7 +10,9 @@ vi.mock("@/lib/features/authentication/client", async () => {
   return createAuthClientModuleMock();
 });
 
-vi.mock("sonner", () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
+vi.mock("sonner", () => ({
+  toast: Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn(), info: vi.fn() }),
+}));
 
 const ME = "dj-me";
 const mockAuth = vi.hoisted(() => ({ authority: 1 as number }));
@@ -56,10 +58,14 @@ function serveIntake(open: IntakeItem[], reviewed: IntakeItem[] = []) {
 
 const section = (name: string) => screen.findByRole("region", { name });
 
+const RACE_LINE = "Someone else got to this record first. The lists are up to date.";
+const FAILURE_LINE = "Couldn't do that. Please try again.";
+
 describe("ReviewsPile", () => {
   beforeEach(() => {
     vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "true");
     mockAuth.authority = Authorization.DJ;
+    vi.mocked(toast).mockClear();
     vi.mocked(toast.error).mockClear();
   });
   afterEach(() => vi.unstubAllEnvs());
@@ -132,6 +138,37 @@ describe("ReviewsPile", () => {
     await waitFor(() => expect(within(mine).queryByText(/Stereolab/)).not.toBeInTheDocument());
   });
 
+  it("asks before returning an ordinary checkout, then releases that record and clears the row", async () => {
+    let released: string | undefined;
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/intake`, ({ request }) =>
+        HttpResponse.json(
+          new URL(request.url).searchParams.get("state") === "reviewed" || released
+            ? []
+            : [item({ id: 2, state: "checked_out", effective_state: "checked_out", checked_out_by: ME })],
+        ),
+      ),
+      http.get(`${TEST_BACKEND_URL}/library/formats`, () => HttpResponse.json([])),
+      http.post(`${TEST_BACKEND_URL}/intake/:id/release`, ({ request }) => {
+        released = new URL(request.url).pathname;
+        return HttpResponse.json(item({ id: 2 }));
+      }),
+    );
+
+    const { user } = renderWithProviders(<ReviewsPile />);
+    const mine = await section("My checkouts");
+    await within(mine).findByText(/Stereolab/);
+
+    await user.click(within(mine).getByRole("button", { name: "Return to the Pile" }));
+    const dialog = await screen.findByRole("alertdialog");
+    expect(within(dialog).getByText("Put this record back in the Pile?")).toBeInTheDocument();
+    expect(within(dialog).queryByText("Have you brought this record back to the station?")).not.toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Return to the Pile" }));
+
+    await waitFor(() => expect(released).toBe("/intake/2/release"));
+    await waitFor(() => expect(within(mine).queryByText(/Stereolab/)).not.toBeInTheDocument());
+  });
+
   it("lets me accept or pass a request made of me, and hides one made of someone else", async () => {
     serveIntake([
       item({ id: 11, state: "requested", effective_state: "requested", requested_dj_id: ME, requested_at: "2026-09-30T12:00:00Z" }),
@@ -155,7 +192,7 @@ describe("ReviewsPile", () => {
     await waitFor(() => expect(paths).toEqual(["/intake/11/accept", "/intake/11/pass"]));
   });
 
-  it("answers a lost race with our own line, not the server's message, and refetches", async () => {
+  it("answers a lost race with our own line as a neutral toast, never an error toast or the server's message, and refetches", async () => {
     let lists = 0;
     server.use(
       http.get(`${TEST_BACKEND_URL}/intake`, () => {
@@ -174,10 +211,67 @@ describe("ReviewsPile", () => {
     const before = lists;
     await user.click(within(pile).getByRole("button", { name: "Check out" }));
 
-    await waitFor(() =>
-      expect(toast.error).toHaveBeenCalledWith("Someone else got to this record first. The lists are up to date."),
-    );
+    await waitFor(() => expect(toast).toHaveBeenCalledWith(RACE_LINE));
     await waitFor(() => expect(lists).toBeGreaterThan(before));
+    expect(toast).not.toHaveBeenCalledWith("server words");
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+
+  it("answers a failed write with the generic line as an error toast, not the race line", async () => {
+    serveIntake([item({ id: 5 })]);
+    server.use(
+      http.post(`${TEST_BACKEND_URL}/intake/5/checkout`, () =>
+        HttpResponse.json({ message: "server words" }, { status: 500 }),
+      ),
+    );
+
+    const { user } = renderWithProviders(<ReviewsPile />);
+    const pile = await section("The Pile");
+    await within(pile).findByText(/Aluminum Tunes/);
+    await user.click(within(pile).getByRole("button", { name: "Check out" }));
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(FAILURE_LINE));
+    expect(toast.error).toHaveBeenCalledTimes(1);
+    expect(toast).not.toHaveBeenCalled();
+  });
+
+  // The second POST of a double-click would find the record already moved and
+  // answer 409 state_changed, telling the DJ someone else took the record they
+  // just took.
+  it.each([
+    ["Check out", "The Pile", item({ id: 5 }), "/intake/5/checkout"],
+    [
+      "Accept",
+      "Requests for me",
+      item({ id: 5, state: "requested", effective_state: "requested", requested_dj_id: ME }),
+      "/intake/5/accept",
+    ],
+  ] as const)("sends one POST when %s is double-clicked, and shows no race line", async (button, title, row, path) => {
+    let moved = false;
+    const posts: string[] = [];
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/intake`, ({ request }) =>
+        HttpResponse.json(new URL(request.url).searchParams.get("state") === "reviewed" || moved ? [] : [row]),
+      ),
+      http.get(`${TEST_BACKEND_URL}/library/formats`, () => HttpResponse.json([])),
+      http.post(`${TEST_BACKEND_URL}/intake/:id/:action`, async ({ request }) => {
+        posts.push(new URL(request.url).pathname);
+        await delay(100);
+        if (moved) return HttpResponse.json({ message: "server words", reason: "state_changed" }, { status: 409 });
+        moved = true;
+        return HttpResponse.json(row);
+      }),
+    );
+
+    const { user } = renderWithProviders(<ReviewsPile />);
+    const region = await section(title);
+    await within(region).findByText(/Stereolab/);
+    await user.dblClick(within(region).getByRole("button", { name: button }));
+
+    await waitFor(() => expect(within(region).queryByText(/Stereolab/)).not.toBeInTheDocument());
+    expect(posts).toEqual([path]);
+    expect(toast).not.toHaveBeenCalledWith(RACE_LINE);
+    expect(toast.error).not.toHaveBeenCalled();
   });
 
   it("says the Pile could not load rather than showing it empty when the body is not JSON", async () => {
@@ -194,14 +288,24 @@ describe("ReviewsPile", () => {
   it.each([
     ["the flag is off", "", Authorization.MD],
     ["a DJ is under staff", "staff", Authorization.DJ],
-  ])("renders nothing when %s", async (_label, flag, authority) => {
+  ])("renders nothing and reads nothing when %s", async (_label, flag, authority) => {
     vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", flag);
     mockAuth.authority = authority;
     serveIntake([item({})]);
+    const requested: string[] = [];
+    const log = ({ request }: { request: Request }) => {
+      requested.push(new URL(request.url).pathname);
+    };
+    server.events.on("request:start", log);
 
-    const { container } = renderWithProviders(<ReviewsPile />);
+    try {
+      const { container } = renderWithProviders(<ReviewsPile />);
 
-    await new Promise((r) => setTimeout(r, 50));
-    expect(container).toBeEmptyDOMElement();
+      await new Promise((r) => setTimeout(r, 50));
+      expect(requested.filter((p) => p.startsWith("/intake"))).toEqual([]);
+      expect(container).toBeEmptyDOMElement();
+    } finally {
+      server.events.removeListener("request:start", log);
+    }
   });
 });
