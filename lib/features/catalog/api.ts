@@ -212,8 +212,10 @@ export const catalogApi = createApi({
       // A refused `from_rotation_id` import is stated by the import screen in
       // its own words; the server's `message` is dropped so the global
       // rejected-query middleware does not toast a second, different line.
-      transformErrorResponse: (error) => {
-        if (!isRotationImportRefused(error)) return error;
+      // Only for that request: an ordinary add-release form refused with the
+      // same 409 has no other explanation than the toasted message.
+      transformErrorResponse: (error, _meta, body) => {
+        if (body.from_rotation_id == null || !isRotationImportRefused(error)) return error;
         const data = { ...(error.data as Record<string, unknown>) };
         delete data.message;
         return { ...error, data };
@@ -239,6 +241,20 @@ export const catalogApi = createApi({
           id: body.artist_id != null ? String(body.artist_id) : "LIST",
         },
       ],
+      // A `from_rotation_id` import also links the rotation row, which lives
+      // in `rotationApi`'s separate tag registry that `invalidatesTags` cannot
+      // reach (see `fileRelease`). Cross-dispatched so the import queue and the
+      // cached row stop offering a release that is now catalogued.
+      async onQueryStarted(arg, { dispatch, queryFulfilled }) {
+        if (arg.from_rotation_id == null) return;
+        try {
+          await queryFulfilled;
+          dispatch(rotationApi.util.invalidateTags(["Rotation"]));
+        } catch {
+          // A rejected `queryFulfilled` must not escape `onQueryStarted`;
+          // the caller's own `.unwrap()` already owns surfacing the failure.
+        }
+      },
     }),
     updateAlbum: builder.mutation<AlbumEntry, { albumId: number; body: UpdateAlbumRequestBody }>({
       query: ({ albumId, body }) => ({

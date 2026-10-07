@@ -678,6 +678,35 @@ describe("classic RotationImportScreen — the new-artist submit chain", () => {
     expect(screen.getByText(/do not create the artist again/i)).toBeInTheDocument();
   });
 
+  // A refused release create after a fresh artist: a retry would be refused
+  // again, so the alert is the approved line plus only the fact that the
+  // artist now exists -- no instruction to add the release to it.
+  it("shows the approved refusal and only notes the created artist when the release create is refused", async () => {
+    server.use(
+      http.post(`${LIBRARY}/artists`, () => HttpResponse.json({ id: 771 }, { status: 201 })),
+      http.post(`${LIBRARY}/`, () =>
+        HttpResponse.json(
+          {
+            message:
+              "This rotation entry cannot be imported. It was added after reviews moved into the DJ site.",
+            reason: "rotation_not_eligible",
+          },
+          { status: 409 },
+        ),
+      ),
+    );
+
+    const { user } = renderWithProviders(<RotationImportScreen rotationId={6002} />);
+    await fillNewArtist(user);
+    await user.click(screen.getByRole("button", { name: "Create Artist and Import to Library" }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("alert").textContent).toBe(
+        "This entry can't be imported here. It may already be linked to a release, it may have moved to another bin, or it may have been added after reviews moved into the DJ site. Reload the list to see where it stands now. The library code was created, but the release was not.",
+      ),
+    );
+  });
+
   // The artist-name conflict and the taken-code conflict share a status and
   // call for different remedies.
   it("tells the artist step's two 409s apart", async () => {
