@@ -158,7 +158,7 @@ function ChronologicalRows({
     return () => scroller.removeEventListener("scroll", loadWhenAtBottom);
   }, [scrollRef, rows, isHeadLoading, isNextPageLoading, hasMore, loadNextPage]);
 
-  return <ArchiveStreamTable listing={listing} albumInfo rowLinks />;
+  return <ArchiveStreamTable listing={listing} />;
 }
 
 export default function Results({

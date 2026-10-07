@@ -22,17 +22,7 @@ import FailedSearchNotice from "./FailedSearchNotice";
  * `playing` is always false. A playing row's cells carry a `clip-path` that
  * would confine a row link's overlay to the Time cell.
  */
-export default function ArchiveStreamTable({
-  listing,
-  albumInfo = false,
-  rowLinks = false,
-}: {
-  listing: ArchiveStreamListing;
-  /** Shows the album-information control on song rows. */
-  albumInfo?: boolean;
-  /** Links each playcut's Time cell to its show. */
-  rowLinks?: boolean;
-}) {
+export default function ArchiveStreamTable({ listing }: { listing: ArchiveStreamListing }) {
   const { rows, isHeadLoading, isNextPageLoading, failedPage, isRetrying, hasMore, hasAnswered } =
     listing;
 
@@ -49,8 +39,8 @@ export default function ArchiveStreamTable({
               entry={row.entry}
               playing={false}
               timeLabel={row.timeLabel}
-              albumInfo={albumInfo}
-              showHref={rowLinks && row.showId !== null ? hrefForShowEntry(row.showId, row.id) : null}
+              albumInfo
+              showHref={row.showId !== null ? hrefForShowEntry(row.showId, row.id) : null}
             />
           ))}
         </tbody>

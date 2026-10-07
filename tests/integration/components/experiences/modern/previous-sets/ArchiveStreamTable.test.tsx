@@ -82,11 +82,8 @@ function contentOf(entry: FlowsheetEntry): string {
   return entry.message;
 }
 
-function renderTable(
-  listing: ArchiveStreamListing,
-  props: { albumInfo?: boolean; rowLinks?: boolean } = {},
-) {
-  render(<ArchiveStreamTable listing={listing} {...props} />);
+function renderTable(listing: ArchiveStreamListing) {
+  render(<ArchiveStreamTable listing={listing} />);
   const table = screen.getByRole("table", { name: "playlist archive" });
   return { table, bodyRows: table.querySelectorAll("tbody > tr") };
 }
@@ -102,7 +99,7 @@ describe("ArchiveStreamTable rows", () => {
 
   it("renders no row as playing", () => {
     const rows = ENTRY_TYPES.map((entryType, i) => rowOf(entryType, { id: i + 1 }));
-    const { bodyRows } = renderTable(createTestArchiveStreamListing({ rows }), { rowLinks: true });
+    const { bodyRows } = renderTable(createTestArchiveStreamListing({ rows }));
 
     expect(bodyRows).toHaveLength(ENTRY_TYPES.length);
     bodyRows.forEach((bodyRow) => expect(bodyRow).not.toHaveClass("row-playing"));
@@ -142,9 +139,7 @@ describe("ArchiveStreamTable rows", () => {
 describe("ArchiveStreamTable row links", () => {
   it.each(LINK_CASES)("links a %s row to its show only when it is a playcut", (entryType, linked) => {
     const row = rowOf(entryType, { id: ENTRY_ID, show_id: SHOW_ID });
-    const { bodyRows } = renderTable(createTestArchiveStreamListing({ rows: [row] }), {
-      rowLinks: true,
-    });
+    const { bodyRows } = renderTable(createTestArchiveStreamListing({ rows: [row] }));
 
     const links = bodyRows[0].querySelectorAll("a");
     if (linked) {
@@ -157,30 +152,17 @@ describe("ArchiveStreamTable row links", () => {
 
   it("leaves a playcut with no show unlinked", () => {
     const row = rowOf("track", { id: ENTRY_ID, show_id: null });
-    const { bodyRows } = renderTable(createTestArchiveStreamListing({ rows: [row] }), {
-      rowLinks: true,
-    });
+    const { bodyRows } = renderTable(createTestArchiveStreamListing({ rows: [row] }));
 
     expect(bodyRows[0].querySelectorAll("a")).toHaveLength(0);
-  });
-
-  it("renders no link anywhere while rowLinks is off", () => {
-    const { table } = renderTable(createTestArchiveStreamListing({ rows: rowsOf(2) }));
-
-    expect(table.querySelectorAll("a")).toHaveLength(0);
   });
 });
 
 describe("ArchiveStreamTable album information", () => {
-  it.each([
-    [true, 1],
-    [false, 0],
-  ])("with albumInfo %s, renders %i album-information control(s)", (albumInfo, count) => {
-    const { table } = renderTable(createTestArchiveStreamListing({ rows: rowsOf(1) }), {
-      albumInfo,
-    });
+  it("renders one album-information control per song row", () => {
+    const { table } = renderTable(createTestArchiveStreamListing({ rows: rowsOf(2) }));
 
-    expect(within(table).queryAllByRole("button", { name: "Album information" })).toHaveLength(count);
+    expect(within(table).queryAllByRole("button", { name: "Album information" })).toHaveLength(2);
   });
 });
 
