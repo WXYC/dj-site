@@ -26,11 +26,11 @@ export const ARTIST_REFILE_NOT_FOUND_MESSAGE =
 export const ARTIST_REFILE_CONFLICT_MESSAGE =
   "That number is held by another artist. Nothing was changed.";
 export const ARTIST_REFILE_SHARED_LETTERS_MESSAGE =
-  "This artist is also filed under another genre, so changing its letters would re-letter that shelf too. Nothing was changed.";
+  "This artist's letters are used in another genre (another membership, or a release filed there), so changing them would re-letter that shelf too. Nothing was changed.";
 export const ARTIST_REFILE_ALREADY_FILED_MESSAGE =
   "This artist already has a membership or a release in that genre. Nothing was changed.";
 export const ARTIST_REFILE_GENRE_NOT_FOUND_MESSAGE =
-  "That genre no longer exists. Reload the page. Nothing was changed.";
+  "That genre was not found. Reload the card. Nothing was changed.";
 export const ARTIST_REFILE_FALLBACK_MESSAGE =
   "This artist could not be re-filed, and the reason could not be read. Nothing was changed.";
 export const ARTIST_REFILE_INDETERMINATE_MESSAGE =
@@ -65,8 +65,9 @@ export type ArtistRefileErrorContext = {
 function otherGenreNames(
   memberships: unknown,
   { genres, genreId }: ArtistRefileErrorContext,
-): string | undefined {
-  if (!genres || !Array.isArray(memberships)) return undefined;
+): { names: string; count: number } | undefined {
+  // `memberships` always includes the genre being edited, so without it every genre would be listed as "other".
+  if (!genres || genreId === undefined || !Array.isArray(memberships)) return undefined;
   const names: string[] = [];
   for (const m of memberships as Partial<ArtistGenreMembership>[]) {
     if (typeof m?.genre_id !== "number") return undefined;
@@ -76,7 +77,8 @@ function otherGenreNames(
     names.push(name);
   }
   if (names.length === 0) return undefined;
-  return names.length === 1 ? names[0] : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+  const joined = names.length === 1 ? names[0] : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+  return { names: joined, count: names.length };
 }
 
 /** Interprets a rejected `refileArtist`; never throws on an unexpected body. */
@@ -112,7 +114,7 @@ export function interpretArtistRefileError(
     return {
       reason: "letters_shared_across_genres",
       message: others
-        ? `${context.artistName ?? "This artist"} is also filed under ${others}, so changing its letters would re-letter that shelf too. Nothing was changed.`
+        ? `${context.artistName ?? "This artist"} is also filed under ${others.names}, so changing its letters would re-letter ${others.count === 1 ? "that shelf" : "those shelves"} too. Nothing was changed.`
         : ARTIST_REFILE_SHARED_LETTERS_MESSAGE,
       retryable: false,
     };

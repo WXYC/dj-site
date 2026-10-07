@@ -229,13 +229,23 @@ describe("interpretArtistRefileError: letters and genre moves", () => {
       message: "Jam Money is also filed under Electronic, so changing its letters would re-letter that shelf too. Nothing was changed.",
     },
     {
-      label: "names every genre when the moving one is unknown",
+      label: "degrades when the moving genre is unknown, since memberships includes it",
       err: shared,
       context: { genres },
-      message: "Jam Money is also filed under Jazz and Electronic, so changing its letters would re-letter that shelf too. Nothing was changed.",
+      message: ARTIST_REFILE_SHARED_LETTERS_MESSAGE,
     },
     {
-      label: "degrades to a count when the genre list is unavailable",
+      label: "pluralizes the shelves for several other genres",
+      err: wrapped(409, {
+        message: "x",
+        reason: "letters_shared_across_genres",
+        memberships: [...memberships, { genre_id: 12, code_artist_number: 2 }],
+      }),
+      context: { genres, genreId: 6 },
+      message: "Jam Money is also filed under Electronic and Rock, so changing its letters would re-letter those shelves too. Nothing was changed.",
+    },
+    {
+      label: "degrades to the generic message when the genre list is unavailable",
       err: shared,
       context: { genreId: 6 },
       message: ARTIST_REFILE_SHARED_LETTERS_MESSAGE,

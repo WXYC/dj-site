@@ -34,12 +34,15 @@ const COUNT_KEYS = [
   "catalog", "info", "artistReleases", "typeahead", "artistXref", "releaseXref",
 ] as const;
 type Calls = Record<(typeof COUNT_KEYS)[number], number>;
+/** By-code buckets subscribed beyond the IS:6 and AU:15 pair, counted per `genre:letters` key. */
+const EXTRA_BUCKETS = ["6:AU", "15:JA"];
 const ZERO = Object.fromEntries(COUNT_KEYS.map((k) => [k, 1])) as Calls;
 const bump = (calls: Calls, key: keyof Calls) => (calls[key] += 1);
 
 /** Counts reads for every cache the refile should (or should not) touch. */
 async function subscribed() {
   const calls = Object.fromEntries(COUNT_KEYS.map((k) => [k, 0])) as Calls;
+  const extra: Record<string, number> = Object.fromEntries(EXTRA_BUCKETS.map((k) => [k, 0]));
   const L = `${TEST_BACKEND_URL}/library`;
   const json = (key: keyof Calls, body: unknown) => () => {
     bump(calls, key);
@@ -49,7 +52,10 @@ async function subscribed() {
     http.get(`${L}/artists/${ARTIST_ID}`, json("card", RESULT)),
     http.get(`${L}/artists/peek-code`, json("peek", { next_code_number: 2 })),
     http.get(`${L}/artists/by-code`, ({ request }) => {
-      bump(calls, new URL(request.url).searchParams.get("code_letters") === "IS" ? "byCodeScoped" : "byCodeOther");
+      const q = new URL(request.url).searchParams;
+      const key = `${q.get("genre_id")}:${q.get("code_letters")}`;
+      if (key in extra) extra[key] += 1;
+      else bump(calls, key === `${GENRE_ID}:IS` ? "byCodeScoped" : "byCodeOther");
       return HttpResponse.json({ artists: [] });
     }),
     http.get(`${TEST_BACKEND_URL}/djs/bin`, json("bin", [])),
@@ -68,6 +74,10 @@ async function subscribed() {
     store.dispatch(e.peekArtistCode.initiate({ code_letters: "IS", genre_id: GENRE_ID })),
     store.dispatch(e.resolveArtistByCode.initiate({ code_letters: "IS", genre_id: GENRE_ID, code_number: 31 })),
     store.dispatch(e.resolveArtistByCode.initiate({ code_letters: "AU", genre_id: 15, code_number: 3 })),
+    ...EXTRA_BUCKETS.map((b) => {
+      const [genre_id, code_letters] = b.split(":");
+      return store.dispatch(e.resolveArtistByCode.initiate({ code_letters, genre_id: Number(genre_id), code_number: 3 }));
+    }),
     store.dispatch(binApi.endpoints.getBin.initiate({ dj_id: "dj-1" })),
     store.dispatch(rotationApi.endpoints.getRotation.initiate()),
     store.dispatch(e.searchCatalog.initiate({ artist_name: "Isis", album_title: undefined, n: undefined })),
@@ -79,7 +89,8 @@ async function subscribed() {
   ];
   await Promise.all(subs);
   expect(calls).toEqual(ZERO);
-  return { store, calls, unsubscribe: () => subs.forEach((s) => s.unsubscribe()) };
+  expect(extra).toEqual({ "6:AU": 1, "15:JA": 1 });
+  return { store, calls, extra, unsubscribe: () => subs.forEach((s) => s.unsubscribe()) };
 }
 
 const settle = () => new Promise((resolve) => setTimeout(resolve, 60));
@@ -120,6 +131,8 @@ describe("refileArtist", () => {
       body: { genre_id: GENRE_ID, code_artist_number: 31 },
       scoped: 2,
       other: 2,
+      destination: "6:AU",
+      destinationCalls: 1,
     },
     {
       label: "re-letter into AU: source IS and requested AU bucket both refetch",
@@ -127,9 +140,11 @@ describe("refileArtist", () => {
       body: { genre_id: GENRE_ID, code_artist_number: 31, code_letters: "AU" },
       scoped: 2,
       other: 1,
+      destination: "6:AU",
+      destinationCalls: 2,
     },
-  ])("scopes the code tags to both buckets: $label", async ({ result, body, scoped, other }) => {
-    const { store, calls, unsubscribe } = await subscribed();
+  ])("scopes the code tags to both buckets: $label", async ({ result, body, scoped, other, destination, destinationCalls }) => {
+    const { store, calls, extra, unsubscribe } = await subscribed();
     server.use(http.post(REFILE_URL, () => HttpResponse.json(result)));
 
     await store.dispatch(catalogApi.endpoints.refileArtist.initiate({ ...ARG, body }));
@@ -137,6 +152,17 @@ describe("refileArtist", () => {
     await settle();
     expect(calls.peek).toBe(2);
     expect(calls.byCodeOther).toBe(other);
+    expect(extra[destination]).toBe(destinationCalls);
+    unsubscribe();
+  });
+
+  it("normalizes requested letters the way the server stores them on an error path", async () => {
+    const { store, extra, unsubscribe } = await subscribed();
+    server.use(http.post(REFILE_URL, () => HttpResponse.json({ message: "boom" }, { status: 500 })));
+
+    const body = { genre_id: GENRE_ID, code_artist_number: 3, code_letters: " ja ", to_genre_id: 15 };
+    await store.dispatch(catalogApi.endpoints.refileArtist.initiate({ ...ARG, body }));
+    await vi.waitFor(() => expect(extra["15:JA"]).toBe(2));
     unsubscribe();
   });
 

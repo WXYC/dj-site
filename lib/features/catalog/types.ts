@@ -240,8 +240,10 @@ export type ArtistCard = {
  * `code_letters`, and `code_artist_number` with a 400 naming why rather than
  * dropping them silently, so widening this type would turn a compile-time
  * constraint into a runtime rejection. `code_artist_number` is writable, but
- * only through `POST /library/artists/{id}/refile` (the re-file screen), as
- * are `code_letters` and the genre (`to_genre_id`).
+ * only through `POST /library/artists/{id}/refile` (the re-file screen).
+ * That endpoint also accepts `code_letters` and the genre (`to_genre_id`),
+ * though the screen gains inputs for them in later changes; neither is
+ * writable through this PATCH.
  */
 export type UpdateArtistRequestBody = {
   alphabetical_name: string;
