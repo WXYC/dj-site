@@ -16,6 +16,8 @@ export const ARTIST_REFILE_LOCK_MESSAGE =
   "Could not re-file: someone else is editing the shelf right now. Try again in a moment.";
 export const ARTIST_REFILE_LETTERED_MESSAGE =
   "This artist is filed in a lettered compilation section, whose number cannot be changed here. Nothing was changed.";
+export const ARTIST_REFILE_VARIOUS_ARTISTS_MESSAGE =
+  "This is a Various Artists section, whose number cannot be changed here. Nothing was changed.";
 export const ARTIST_REFILE_NOT_FILED_MESSAGE =
   "This artist is not filed under that genre any more. Reload the card. Nothing was changed.";
 export const ARTIST_REFILE_NOT_FOUND_MESSAGE =
@@ -33,7 +35,10 @@ type Common = { message: string; retryable: boolean };
 export type ArtistRefileRefusal =
   | (Common & { reason: "conflict"; holder?: ArtistRefileConflictHolder })
   | (Common & {
-      reason: "lettered_section" | "not_filed_in_genre" | "artist_not_found" | "lock_unavailable" | "generic";
+      reason:
+        | "lettered_section"
+        | "various_artists_section"
+        | "not_filed_in_genre" | "artist_not_found" | "lock_unavailable" | "generic";
     });
 
 /** Interprets a rejected `refileArtist`; never throws on an unexpected body. */
@@ -57,6 +62,9 @@ export function interpretArtistRefileError(err: unknown): ArtistRefileRefusal {
   }
   if (status === 409 && reason === "lettered_compilation_section") {
     return { reason: "lettered_section", message: ARTIST_REFILE_LETTERED_MESSAGE, retryable: false };
+  }
+  if (status === 409 && reason === "various_artists_section") {
+    return { reason: "various_artists_section", message: ARTIST_REFILE_VARIOUS_ARTISTS_MESSAGE, retryable: false };
   }
   if (status === 404) {
     return serverMessage(data)?.startsWith("Artist not filed under genre")

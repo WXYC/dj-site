@@ -5,6 +5,7 @@ import {
   ARTIST_REFILE_FALLBACK_MESSAGE,
   ARTIST_REFILE_INDETERMINATE_MESSAGE,
   ARTIST_REFILE_LOCK_MESSAGE,
+  ARTIST_REFILE_VARIOUS_ARTISTS_MESSAGE,
 } from "@/lib/features/catalog/artistRefileOutcome";
 
 const wrapped = (status: number | string, data?: unknown) => ({
@@ -63,6 +64,13 @@ describe("interpretArtistRefileError", () => {
       err: wrapped(409, { message: "x", reason: "lettered_compilation_section" }),
       reason: "lettered_section",
       retryable: false,
+    },
+    {
+      label: "various artists section",
+      err: wrapped(409, { message: "x", reason: "various_artists_section" }),
+      reason: "various_artists_section",
+      retryable: false,
+      message: ARTIST_REFILE_VARIOUS_ARTISTS_MESSAGE,
     },
     {
       label: "not filed in genre",
