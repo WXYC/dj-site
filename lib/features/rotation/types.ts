@@ -126,17 +126,6 @@ export type RotationListRow = {
 export type { RotationRowSummary };
 
 /**
- * Arguments for `PATCH /library/rotation/:rotation_id/link`: the row in the
- * path and the release in the body. Deliberately not the published
- * `LinkRotationRequest`, which is the body alone (`{ album_id }`) and so
- * cannot name the row being linked.
- */
-export type LinkRotationArgs = {
-  rotation_id: number;
-  album_id: number;
-};
-
-/**
  * Arguments for `PATCH /library/rotation/:id`, the field-level rotation
  * editor: the row in the path, every other key in the body.
  *

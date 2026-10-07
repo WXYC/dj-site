@@ -2,7 +2,6 @@ import { describe, it, expect, vi } from "vitest";
 import { configureStore } from "@reduxjs/toolkit";
 import { http, HttpResponse } from "msw";
 import { rotationApi } from "@/lib/features/rotation/api";
-import { rtkQueryErrorLogger } from "@/lib/rtk-query-error-logger";
 import { TEST_BACKEND_URL } from "@/tests/helpers/constants";
 import { server } from "@/tests/fakes/server";
 import { describeApi } from "@/tests/helpers/api-harness";
@@ -22,13 +21,6 @@ function rotationStore() {
   });
 }
 
-function rotationStoreWithErrorLogger() {
-  return configureStore({
-    reducer: { [rotationApi.reducerPath]: rotationApi.reducer },
-    middleware: (gdm) => gdm().concat(rtkQueryErrorLogger).concat(rotationApi.middleware),
-  });
-}
-
 const BASE = `${TEST_BACKEND_URL}/library/rotation`;
 
 const ROTATION_ROW = {
@@ -44,10 +36,9 @@ const ROTATION_ROW = {
   label_id: null,
 };
 
-describe("rotationApi — the import screen's single-row read and link write", () => {
+describe("rotationApi — the import screen's single-row read", () => {
   describeApi(rotationApi, {
     queries: ["getRotationRow"],
-    mutations: ["linkRotationToAlbum"],
     reducerPath: "rotationApi",
   });
 
@@ -111,70 +102,6 @@ describe("rotationApi — the import screen's single-row read and link write", (
 
       expect(reads).toBe(2);
       expect(recheck.data?.album_id).toBe(42);
-    });
-  });
-
-  describe("linkRotationToAlbum", () => {
-    it("PATCHes /library/rotation/:rotation_id/link with album_id alone", async () => {
-      let requestBody: unknown;
-      let requested: URL | undefined;
-      server.use(
-        http.patch(`${BASE}/:rotationId/link`, async ({ request }) => {
-          requested = new URL(request.url);
-          requestBody = await request.json();
-          return HttpResponse.json({ ...ROTATION_ROW, album_id: 42 });
-        }),
-      );
-
-      const store = rotationStore();
-      const result = await store.dispatch(
-        rotationApi.endpoints.linkRotationToAlbum.initiate({ rotation_id: 5001, album_id: 42 }),
-      );
-
-      expect(requested?.pathname).toBe("/library/rotation/5001/link");
-      expect(requestBody).toEqual({ album_id: 42 });
-      expect(result.data).toMatchObject({ id: 5001, album_id: 42 });
-    });
-
-    it("invalidates a cached Rotation-tagged query on success, so the queue drops the row", async () => {
-      server.use(
-        http.get(`${BASE}/uncatalogued`, () => HttpResponse.json([])),
-        http.patch(`${BASE}/:rotationId/link`, () => HttpResponse.json({ ...ROTATION_ROW, album_id: 42 })),
-      );
-
-      const store = rotationStore();
-      await store.dispatch(rotationApi.endpoints.getUncataloguedRotation.initiate());
-      await store.dispatch(
-        rotationApi.endpoints.linkRotationToAlbum.initiate({ rotation_id: 5001, album_id: 42 }),
-      );
-
-      expect(rotationApi.util.selectInvalidatedBy(store.getState(), [{ type: "Rotation" }])).toEqual([
-        expect.objectContaining({ endpointName: "getUncataloguedRotation" }),
-      ]);
-    });
-
-    // Both post-create screens state the refusal themselves, naming the
-    // release this submission already created. A second, vaguer sentence
-    // toasted over them reports one failure twice.
-    it("keeps its rejection out of the global toast", async () => {
-      const { toast } = await import("sonner");
-      vi.mocked(toast.error).mockClear();
-      server.use(
-        http.patch(`${BASE}/:rotationId/link`, () =>
-          HttpResponse.json(
-            { message: "Rotation entry is already linked to a library release" },
-            { status: 409 },
-          ),
-        ),
-      );
-
-      const store = rotationStoreWithErrorLogger();
-      const result = await store.dispatch(
-        rotationApi.endpoints.linkRotationToAlbum.initiate({ rotation_id: 5001, album_id: 42 }),
-      );
-
-      expect("error" in result).toBe(true);
-      expect(toast.error).not.toHaveBeenCalled();
     });
   });
 });

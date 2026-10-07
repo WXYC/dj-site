@@ -17,6 +17,7 @@ import { artistDeleteAnsweredWithoutWriting } from "./artistDeleteOutcome";
 import { bodyReason, unwrapEndpointErrorOrRaw } from "@/lib/rtk-endpoint-error";
 import { artistRefileAnsweredWithoutWriting } from "./artistRefileOutcome";
 import { deleteAnsweredWithoutWriting } from "./releaseDeleteOutcome";
+import { isRotationImportRefused } from "../rotation/importOutcome";
 import { restoreAnsweredWithoutWriting } from "./restoreDeletedBatchOutcome";
 import {
   AddAlbumRequestBody,
@@ -208,6 +209,15 @@ export const catalogApi = createApi({
         method: "POST",
         body,
       }),
+      // A refused `from_rotation_id` import is stated by the import screen in
+      // its own words; the server's `message` is dropped so the global
+      // rejected-query middleware does not toast a second, different line.
+      transformErrorResponse: (error) => {
+        if (!isRotationImportRefused(error)) return error;
+        const data = { ...(error.data as Record<string, unknown>) };
+        delete data.message;
+        return { ...error, data };
+      },
       // The POST response isn't a full AlbumEntry and the browse is a
       // paginated/sorted infinite query, so a new row can't be patched into
       // the cache coherently (its correct page may be unloaded). Invalidate

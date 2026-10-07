@@ -15,6 +15,8 @@ vi.mock("sonner", () => ({
   toast: { error: vi.fn(), success: vi.fn() },
 }));
 
+import { toast } from "sonner";
+
 const mockPush = vi.fn();
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: mockPush }),
@@ -336,22 +338,22 @@ describe("classic RotationImportScreen — rotationReleaseImport.jsp's release f
 });
 
 describe("classic RotationImportScreen — the existing-artist submit chain", () => {
-  function mockWrites(overrides: { link?: Response } = {}) {
-    const seen: { album?: Record<string, unknown>; link?: Record<string, unknown> } = {};
+  function mockWrites(overrides: { album?: Response } = {}) {
+    const seen: { album?: Record<string, unknown>; linkRequests: number } = { linkRequests: 0 };
     server.use(
       http.post(`${LIBRARY}/`, async ({ request }) => {
         seen.album = (await request.json()) as Record<string, unknown>;
-        return HttpResponse.json({ id: 8801, code_number: 8 }, { status: 201 });
+        return overrides.album ?? HttpResponse.json({ id: 8801, code_number: 8 }, { status: 201 });
       }),
-      http.patch(`${LIBRARY}/rotation/:rotationId/link`, async ({ request }) => {
-        seen.link = (await request.json()) as Record<string, unknown>;
-        return overrides.link ?? HttpResponse.json({ ...ROTATION_ROW, album_id: 8801 });
+      http.patch(`${LIBRARY}/rotation/:rotationId/link`, () => {
+        seen.linkRequests += 1;
+        return HttpResponse.json({ ...ROTATION_ROW, album_id: 8801 });
       }),
     );
     return seen;
   }
 
-  it("creates the release and links the rotation row, then lands on the artist card", async () => {
+  it("creates and links in one request carrying from_rotation_id, then lands on the artist card", async () => {
     mockMatches([MATCH]);
     const seen = mockWrites();
     const { user } = renderWithProviders(<RotationImportScreen rotationId={6002} />);
@@ -359,8 +361,10 @@ describe("classic RotationImportScreen — the existing-artist submit chain", ()
     await screen.findByText(/Adding to:/);
     await user.click(screen.getByRole("button", { name: "Import to Library" }));
 
-    await waitFor(() => expect(seen.link).toEqual({ album_id: 8801 }));
+    await waitFor(() => expect(mockPush).toHaveBeenCalled());
+    expect(seen.linkRequests).toBe(0);
     expect(seen.album).toMatchObject({
+      from_rotation_id: 6002,
       artist_id: 771,
       album_title: "Edits",
       genre_id: 5,
@@ -575,37 +579,41 @@ describe("classic RotationImportScreen — the existing-artist submit chain", ()
     expect(screen.getByLabelText("Title:")).toHaveValue("Edits");
   });
 
-  it("hands a failed link to the created-not-linked screen, which warns against resubmitting", async () => {
-    mockMatches([MATCH]);
-    mockWrites({ link: new HttpResponse(null, { status: 503 }) });
-    const { user } = renderWithProviders(<RotationImportScreen rotationId={6002} />);
+  // The screen's own approved wording, never the server's text: the refusal
+  // body here is the backend's current message, which must not be rendered.
+  it.each(["rotation_not_eligible", "review_required"])(
+    "shows the approved refusal for a %s 409 and no created-release recovery screen",
+    async (reason) => {
+      vi.mocked(toast.error).mockClear();
+      mockMatches([MATCH]);
+      const seen = mockWrites({
+        album: HttpResponse.json(
+          {
+            message:
+              "This rotation entry cannot be imported. It was added after reviews moved into the DJ site.",
+            reason,
+          },
+          { status: 409 },
+        ),
+      });
+      const { user } = renderWithProviders(<RotationImportScreen rotationId={6002} />);
 
-    await screen.findByText(/Adding to:/);
-    await user.click(screen.getByRole("button", { name: "Import to Library" }));
+      await screen.findByText(/Adding to:/);
+      await user.click(screen.getByRole("button", { name: "Import to Library" }));
 
-    expect(
-      await screen.findByText(/The library release was created, but the rotation release was not linked/),
-    ).toBeInTheDocument();
-    expect(screen.getByText(/Do not submit the import form again/i)).toBeInTheDocument();
-  });
-
-  it("hands an already-linked refusal to the backstop instead of offering a retry", async () => {
-    mockMatches([MATCH]);
-    mockWrites({
-      link: HttpResponse.json(
-        { message: "Rotation entry is already linked to a library release" },
-        { status: 409 },
-      ),
-    });
-    const { user } = renderWithProviders(<RotationImportScreen rotationId={6002} />);
-
-    await screen.findByText(/Adding to:/);
-    await user.click(screen.getByRole("button", { name: "Import to Library" }));
-
-    expect(
-      await screen.findByText(/This rotation release was linked while you were cataloging it/),
-    ).toBeInTheDocument();
-  });
+      await waitFor(() =>
+        expect(screen.getByRole("alert").textContent).toBe(
+          "This entry can't be imported here. It may already be linked to a release, it may have moved to another bin, or it may have been added after reviews moved into the DJ site. Reload the list to see where it stands now.",
+        ),
+      );
+      expect(screen.queryByText(/cannot be imported/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/was created, but/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/linked while you were cataloging/)).not.toBeInTheDocument();
+      expect(seen.linkRequests).toBe(0);
+      expect(mockPush).not.toHaveBeenCalled();
+      expect(toast.error).not.toHaveBeenCalled();
+    },
+  );
 });
 
 describe("classic RotationImportScreen — the new-artist submit chain", () => {
@@ -615,7 +623,7 @@ describe("classic RotationImportScreen — the new-artist submit chain", () => {
     await user.type(screen.getByLabelText("Call Numbers:"), "12");
   }
 
-  it("creates the artist, then the release under it, then links", async () => {
+  it("creates the artist, then the release under it", async () => {
     const seen: Record<string, unknown> = {};
     server.use(
       http.post(`${LIBRARY}/artists`, async ({ request }) => {
@@ -626,9 +634,6 @@ describe("classic RotationImportScreen — the new-artist submit chain", () => {
         seen.album = await request.json();
         return HttpResponse.json({ id: 8801, code_number: 1 }, { status: 201 });
       }),
-      http.patch(`${LIBRARY}/rotation/:rotationId/link`, () =>
-        HttpResponse.json({ ...ROTATION_ROW, album_id: 8801 }),
-      ),
     );
 
     const { user } = renderWithProviders(<RotationImportScreen rotationId={6002} />);
@@ -711,9 +716,6 @@ describe("classic RotationImportScreen — the new-artist submit chain", () => {
       }),
       http.post(`${LIBRARY}/`, () =>
         HttpResponse.json({ id: 8801, code_number: 1 }, { status: 201 }),
-      ),
-      http.patch(`${LIBRARY}/rotation/:rotationId/link`, () =>
-        HttpResponse.json({ ...ROTATION_ROW, album_id: 8801 }),
       ),
     );
 
