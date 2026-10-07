@@ -26,7 +26,11 @@ import {
 } from "@/lib/features/rotation/api";
 import { formatRotationDate } from "@/lib/features/rotation/classicList";
 import { useRotationRowActions } from "@/lib/features/rotation/hooks";
-import { rotationWriteErrorMessage } from "@/lib/features/rotation/writeErrorMessage";
+import {
+  ROTATION_MOVE_NOT_ELIGIBLE_MESSAGE,
+  isRotationMoveNotEligible,
+  rotationWriteErrorMessage,
+} from "@/lib/features/rotation/writeErrorMessage";
 import { isUnmessagedHttpError } from "@/lib/rtk-query-error-logger";
 import {
   ROTATION_BINS,
@@ -553,6 +557,11 @@ export default function RotationAdminList({ now: nowProp }: { now?: Date } = {})
       );
 
       if (outcome.step === "add-failed") {
+        if (isRotationMoveNotEligible(outcome.error)) {
+          toast.error(ROTATION_MOVE_NOT_ELIGIBLE_MESSAGE);
+          void refetch();
+          return;
+        }
         // The free-text add's refusals are wrapped out of the middleware toast
         // (so the server's own sentence lands here); the catalogued add's
         // reach it, and only the shapes it stays silent about are this row's.

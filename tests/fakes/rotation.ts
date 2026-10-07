@@ -292,6 +292,7 @@ export function fakeRotationAdminEndpoints(
 ) {
   const rows = initialRows.map((row) => ({ ...row }));
   const listStatuses: (string | null)[] = [];
+  let listRequests = 0;
   let cardsRequests = 0;
   const addBodies: unknown[] = [];
   const killBodies: unknown[] = [];
@@ -327,6 +328,7 @@ export function fakeRotationAdminEndpoints(
     http.get(`${BACKEND_URL}/library/rotation`, async ({ request }) => {
       const status = new URL(request.url).searchParams.get("status");
       listStatuses.push(status);
+      listRequests += 1;
       if (status === "active" && holdingActiveList) {
         // Held before the rows are read, so the answer is the list as it
         // stands at the release.
@@ -351,9 +353,13 @@ export function fakeRotationAdminEndpoints(
         album_title?: string;
         record_label?: string;
         urls?: string[];
+        moved_from_rotation_id?: number | null;
       };
       addBodies.push(body);
       calls.push("add");
+      // The server retires a legacy move's source in the add's own transaction.
+      const movedFrom = rows.find((row) => row.rotation_id === body.moved_from_rotation_id);
+      if (movedFrom) movedFrom.rotation_kill_date = killDate;
       const rotationId = rows.reduce((max, row) => Math.max(max, row.rotation_id), 0) + 1;
       const source = body.album_id != null ? rows.find((row) => row.id === body.album_id) : undefined;
       rows.push({
@@ -474,6 +480,7 @@ export function fakeRotationAdminEndpoints(
   return {
     /** The `status` query param of every list GET, in order. */
     listStatuses: () => [...listStatuses],
+    listRequests: () => listRequests,
     cardsRequests: () => cardsRequests,
     addBodies: () => [...addBodies],
     killBodies: () => [...killBodies],

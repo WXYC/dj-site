@@ -326,6 +326,7 @@ describe("freeTextRotationMoveRequest", () => {
       artist_name: "Chuquimamani-Condori",
       album_title: "Edits",
       record_label: "self-released",
+      moved_from_rotation_id: 5001,
     });
   });
 
@@ -343,6 +344,7 @@ describe("freeTextRotationMoveRequest", () => {
       format_id: 7,
       label_id: 42,
       urls: ["chuquimamani.bandcamp.com/album/edits"],
+      moved_from_rotation_id: 5001,
     });
   });
 
@@ -359,6 +361,7 @@ describe("freeTextRotationMoveRequest", () => {
       rotation_bin: RotationBin.L,
       artist_name: "Chuquimamani-Condori",
       album_title: "Edits",
+      moved_from_rotation_id: 5001,
     });
     expect(request).not.toHaveProperty("record_label");
   });
@@ -387,6 +390,11 @@ describe("freeTextRotationMoveRequest", () => {
 
 describe("rotationMoveRetireIds", () => {
   const moved = createTestRotationListRow(); // rotation 5001, H, active
+
+  it("retires nothing for an unlinked row with no duplicate — the server kills the source with the add", () => {
+    const movedUnlinked = unlinked({ rotation_id: 5004, rotation_bin: RotationBin.M });
+    expect(rotationMoveRetireIds([movedUnlinked], movedUnlinked, RotationBin.L)).toEqual([]);
+  });
 
   it("retires only the moved row when the album is not already in the target bin", () => {
     const elsewhere = createTestRotationListRow({ rotation_id: 5008, rotation_bin: RotationBin.L });
@@ -429,7 +437,7 @@ describe("rotationMoveRetireIds", () => {
         movedUnlinked,
         RotationBin.L,
       ),
-    ).toEqual([5004, 5008]);
+    ).toEqual([5008]);
   });
 
   it("never collapses the linked and unlinked arms into each other, however alike their titles", () => {
@@ -441,7 +449,7 @@ describe("rotationMoveRetireIds", () => {
       album_title: "Edits",
     });
     expect(rotationMoveRetireIds([movedUnlinked, linkedTwin], movedUnlinked, RotationBin.L)).toEqual(
-      [5004],
+      [],
     );
     const movedLinked = createTestRotationListRow({ rotation_id: 5001, rotation_bin: RotationBin.H });
     const unlinkedTwin = unlinked({
