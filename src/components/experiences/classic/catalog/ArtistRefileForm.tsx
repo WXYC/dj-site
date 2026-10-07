@@ -89,6 +89,9 @@ export default function ArtistRefileForm({
     various_artists_section: true,
     not_filed_in_genre: true,
     artist_not_found: true,
+    genre_not_found: true,
+    letters_shared_across_genres: true,
+    already_filed_in_genre: true,
     lock_unavailable: false,
     generic: false,
   } satisfies Record<ArtistRefileRefusal["reason"], boolean>;

@@ -5,7 +5,7 @@ import {
   unwrapEndpointError,
   unwrapEndpointErrorOrRaw,
 } from "@/lib/rtk-endpoint-error";
-import type { ArtistRefileConflictHolder } from "./types";
+import type { ArtistGenreMembership, ArtistRefileConflictHolder, LibraryGenreRow } from "./types";
 
 /** A sub-500 answer reached a handler that declined before writing; anything else may have written. Mirrors `artistDeleteAnsweredWithoutWriting`. */
 export function artistRefileAnsweredWithoutWriting(err: unknown): boolean {
@@ -25,6 +25,12 @@ export const ARTIST_REFILE_NOT_FOUND_MESSAGE =
   "This artist is no longer in the catalog. Nothing was changed.";
 export const ARTIST_REFILE_CONFLICT_MESSAGE =
   "That number is held by another artist. Nothing was changed.";
+export const ARTIST_REFILE_SHARED_LETTERS_MESSAGE =
+  "This artist is also filed under another genre, so changing its letters would re-letter that shelf too. Nothing was changed.";
+export const ARTIST_REFILE_ALREADY_FILED_MESSAGE =
+  "This artist already has a membership or a release in that genre. Nothing was changed.";
+export const ARTIST_REFILE_GENRE_NOT_FOUND_MESSAGE =
+  "That genre no longer exists. Reload the page. Nothing was changed.";
 export const ARTIST_REFILE_FALLBACK_MESSAGE =
   "This artist could not be re-filed, and the reason could not be read. Nothing was changed.";
 export const ARTIST_REFILE_INDETERMINATE_MESSAGE =
@@ -40,13 +46,44 @@ export type ArtistRefileRefusal =
         | "lettered_section"
         | "various_artists_section"
         | "not_filed_in_genre"
+        | "genre_not_found"
+        | "letters_shared_across_genres"
+        | "already_filed_in_genre"
         | "artist_not_found"
         | "lock_unavailable"
         | "generic";
     });
 
+/** What the interpreter needs to name genres: the genre list (omit while it is unavailable), the membership being moved, and the artist. */
+export type ArtistRefileErrorContext = {
+  genres?: readonly Pick<LibraryGenreRow, "id" | "genre_name">[];
+  genreId?: number;
+  artistName?: string;
+};
+
+/** "Electronic", "Electronic and Rock", or undefined if any genre is unresolvable (a partial list would understate the blast radius). */
+function otherGenreNames(
+  memberships: unknown,
+  { genres, genreId }: ArtistRefileErrorContext,
+): string | undefined {
+  if (!genres || !Array.isArray(memberships)) return undefined;
+  const names: string[] = [];
+  for (const m of memberships as Partial<ArtistGenreMembership>[]) {
+    if (typeof m?.genre_id !== "number") return undefined;
+    if (m.genre_id === genreId) continue;
+    const name = genres.find((g) => g.id === m.genre_id)?.genre_name;
+    if (!name) return undefined;
+    names.push(name);
+  }
+  if (names.length === 0) return undefined;
+  return names.length === 1 ? names[0] : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+}
+
 /** Interprets a rejected `refileArtist`; never throws on an unexpected body. */
-export function interpretArtistRefileError(err: unknown): ArtistRefileRefusal {
+export function interpretArtistRefileError(
+  err: unknown,
+  context: ArtistRefileErrorContext = {},
+): ArtistRefileRefusal {
   const inner = unwrapEndpointError("refileArtistError", err);
   if (!inner) {
     return { reason: "generic", message: ARTIST_REFILE_INDETERMINATE_MESSAGE, retryable: true };
@@ -70,6 +107,19 @@ export function interpretArtistRefileError(err: unknown): ArtistRefileRefusal {
   if (status === 409 && reason === "various_artists_section") {
     return { reason: "various_artists_section", message: ARTIST_REFILE_VARIOUS_ARTISTS_MESSAGE, retryable: false };
   }
+  if (status === 409 && reason === "letters_shared_across_genres") {
+    const others = otherGenreNames((data as { memberships?: unknown }).memberships, context);
+    return {
+      reason: "letters_shared_across_genres",
+      message: others
+        ? `${context.artistName ?? "This artist"} is also filed under ${others}, so changing its letters would re-letter that shelf too. Nothing was changed.`
+        : ARTIST_REFILE_SHARED_LETTERS_MESSAGE,
+      retryable: false,
+    };
+  }
+  if (status === 409 && reason === "already_filed_in_genre") {
+    return { reason: "already_filed_in_genre", message: ARTIST_REFILE_ALREADY_FILED_MESSAGE, retryable: false };
+  }
   if (status === 404) {
     // `code` first. A string code this module does not know is a newer
     // Backend's answer: refuse generically rather than guess from the
@@ -78,6 +128,9 @@ export function interpretArtistRefileError(err: unknown): ArtistRefileRefusal {
     const code = bodyCode(data);
     if (code === "artist_not_filed_in_genre") {
       return { reason: "not_filed_in_genre", message: ARTIST_REFILE_NOT_FILED_MESSAGE, retryable: false };
+    }
+    if (code === "genre_not_found") {
+      return { reason: "genre_not_found", message: ARTIST_REFILE_GENRE_NOT_FOUND_MESSAGE, retryable: false };
     }
     if (code === "artist_not_found") {
       return { reason: "artist_not_found", message: ARTIST_REFILE_NOT_FOUND_MESSAGE, retryable: false };
