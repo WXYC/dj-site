@@ -20,15 +20,17 @@ import {
   normalizeCodeLetters,
   resolveReleaseCodeFields,
 } from "@/lib/features/catalog/adminCreateArtistValidation";
-import { artistDeleteHref } from "@/lib/features/catalog/artistCardRoute";
+import { artistDeleteHref, artistRefileHref } from "@/lib/features/catalog/artistCardRoute";
 import { artistDeleteIsOffered } from "@/lib/features/catalog/artistDeleteOutcome";
 import { validateNewArtistNames } from "@/lib/features/catalog/chooserValidation";
 import {
   formatArtistCodeWithPunctuation,
+  formatArtistLibraryCode,
   formatEntireLibraryCode,
   isVariousArtists,
 } from "@/lib/features/catalog/libraryCode";
 import type { AddAlbumRequestBody, ArtistRelease } from "@/lib/features/catalog/types";
+import type { RefiledParams } from "@/lib/features/catalog/refiledConfirmation";
 import {
   importedConfirmation,
   type ImportedReleaseParams,
@@ -62,6 +64,12 @@ type ArtistCardProps = {
    * this card holds the artist half of the shelf code.
    */
   imported?: ImportedReleaseParams;
+  /**
+   * Where a re-file landed, when this card is one's landing: the old call
+   * number and how many records need new labels. The new code is read off this
+   * card's own data, never the URL.
+   */
+  refiled?: RefiledParams;
 };
 
 /** `artist-card-modify.js` `validateAddRelease`, verbatim. */
@@ -81,8 +89,9 @@ const EMPTY_TITLE_MESSAGE = "Please enter a title before adding this release.";
  *   /library/artists/:id` allowlists `alphabetical_name` and `artist_name`
  *   and *rejects* `genre_id`, `code_letters`, and `code_artist_number` with a
  *   400 naming why. Rendering them as editable inputs would offer an edit
- *   that always fails. Those three have no write path anywhere in
- *   Backend-Service.
+ *   that always fails. The call number has a write path of its own -- the
+ *   re-file screen, linked beside it -- which moves it on one shelf and
+ *   re-labels every release under it; genre and call letters still have none.
  * - **The genre renders as text, not the JSP's `<select>`.** Same cause: with
  *   no write path, a dropdown would be a control that cannot commit.
  * - **No "Time Last Modified" row for the artist.** `GET /library/artists/:id`
@@ -126,7 +135,7 @@ const EMPTY_TITLE_MESSAGE = "Please enter a title before adding this release.";
  * not reach this state -- each shelf was its own row there, so a shelf with no
  * releases genuinely had no dependents.
  */
-export default function ArtistCard({ artistId, genreId, message, imported }: ArtistCardProps) {
+export default function ArtistCard({ artistId, genreId, message, imported, refiled }: ArtistCardProps) {
   const router = useRouter();
   const alphabeticalNameId = useId();
   const presentationNameId = useId();
@@ -248,6 +257,13 @@ export default function ArtistCard({ artistId, genreId, message, imported }: Art
             : null,
           imported.rotationId,
         )
+      : undefined;
+
+  // Artist half only: a re-file moves the shelf, not a release, so the old and
+  // new codes differ in the number alone (same genre, same letters).
+  const refiledMessage =
+    refiled && artist
+      ? `Re-filed from ${formatArtistLibraryCode({ genreName, code_letters: artist.code_letters, code_artist_number: refiled.from })} to ${formatArtistLibraryCode({ genreName, code_letters: artist.code_letters, code_artist_number: artist.code_artist_number })}. Relabel ${refiled.releases} ${refiled.releases === 1 ? "record" : "records"} on the shelf.`
       : undefined;
 
   // `fn:trim(format.referenceName)` -- the JSP omits blank-named formats from
@@ -476,9 +492,9 @@ export default function ArtistCard({ artistId, genreId, message, imported }: Art
       <div style={{ textAlign: "center" }}>
         <h3>ARTIST:&nbsp;{artist.artist_name}&nbsp;</h3>
       </div>
-      {(message ?? importedMessage) && (
+      {(message ?? importedMessage ?? refiledMessage) && (
         <div style={{ textAlign: "center" }} role="status">
-          <h5>&nbsp;{message ?? importedMessage}&nbsp;</h5>
+          <h5>&nbsp;{message ?? importedMessage ?? refiledMessage}&nbsp;</h5>
         </div>
       )}
       <hr />
@@ -557,6 +573,11 @@ export default function ArtistCard({ artistId, genreId, message, imported }: Art
                 <b>Artist Call Number:</b>
               </td>
               <td>{artist.code_artist_number}</td>
+              {genreId != null && artist.code_comp_letter == null ? (
+                <td>
+                  <a href={artistRefileHref(artistId, genreId)}>Change</a>
+                </td>
+              ) : null}
             </tr>
             <tr>
               <td style={{ textAlign: "right" }}>

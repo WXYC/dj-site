@@ -128,3 +128,12 @@ export function artistDeleteHref(
   const screen = `/dashboard/library/artist/${artistId}/delete`;
   return genreId == null ? screen : `${screen}?${genreQuery(genreId)}`;
 }
+
+/**
+ * The artist card's re-file screen. `genreId` is required and non-nullable:
+ * a call number is genre-scoped, so the screen has no meaning without the
+ * shelf it re-files.
+ */
+export function artistRefileHref(artistId: number, genreId: number): string {
+  return `/dashboard/library/artist/${artistId}/refile?${genreQuery(genreId)}`;
+}

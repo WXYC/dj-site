@@ -1191,6 +1191,45 @@ describe("classic ArtistCard — artistCardModify.jsp", () => {
     expect(screen.queryByTestId("modify-artist-form")).toBeNull();
   });
 
+  describe("re-file", () => {
+    it("composes the banner from the old number and the refetched card", async () => {
+      renderWithProviders(<ArtistCard artistId={ARTIST_ID} refiled={{ from: 1, releases: 2 }} />);
+
+      await screen.findByTestId("modify-artist-form");
+      await waitFor(() =>
+        expect(screen.getByRole("status")).toHaveTextContent(
+          "Re-filed from Rock MO 1 to Rock MO 12. Relabel 2 records on the shelf.",
+        ),
+      );
+    });
+
+    it("says 'record' for one", async () => {
+      renderWithProviders(<ArtistCard artistId={ARTIST_ID} refiled={{ from: 1, releases: 1 }} />);
+
+      await screen.findByTestId("modify-artist-form");
+      await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Relabel 1 record on the shelf."));
+    });
+
+    it.each([
+      { label: "a genre-scoped, non-lettered card", genreId: GENRE_ID, comp: null, shown: true },
+      { label: "an unscoped card", genreId: undefined, comp: null, shown: false },
+      { label: "a lettered compilation section", genreId: GENRE_ID, comp: "L", shown: false },
+    ])("offers Change for $label: $shown", async ({ genreId, comp, shown }) => {
+      mockCard({ ...artist, code_comp_letter: comp });
+      renderWithProviders(<ArtistCard artistId={ARTIST_ID} genreId={genreId} />);
+
+      await screen.findByTestId("modify-artist-form");
+      const link = screen.queryByRole("link", { name: "Change" });
+      if (shown) {
+        expect(link?.getAttribute("href")).toBe(
+          `/dashboard/library/artist/${ARTIST_ID}/refile?genre_id=${GENRE_ID}`,
+        );
+      } else {
+        expect(link).toBeNull();
+      }
+    });
+  });
+
   describe("import confirmation", () => {
     // The raw `imported` / `code` / `vol` triple, shaped exactly as
     // `ClassicArtistCardPage` reads it off the URL's search params -- so the

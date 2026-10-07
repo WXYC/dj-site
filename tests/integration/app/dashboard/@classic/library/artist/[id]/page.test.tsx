@@ -34,8 +34,23 @@ vi.mock("@/src/components/experiences/classic/Layout/Main", () => ({
   default: ({ children }: { children: React.ReactNode }) => <div data-testid="classic-main">{children}</div>,
 }));
 vi.mock("@/src/components/experiences/classic/catalog/ArtistCard", () => ({
-  default: ({ artistId, genreId, message }: { artistId: number; genreId?: number; message?: string }) => (
-    <div data-testid="artist-card" data-artist-id={artistId} data-genre-id={genreId ?? ""}>
+  default: ({
+    artistId,
+    genreId,
+    message,
+    refiled,
+  }: {
+    artistId: number;
+    genreId?: number;
+    message?: string;
+    refiled?: { from: number; releases: number };
+  }) => (
+    <div
+      data-testid="artist-card"
+      data-artist-id={artistId}
+      data-genre-id={genreId ?? ""}
+      data-refiled={refiled ? `${refiled.from}:${refiled.releases}` : ""}
+    >
       {message}
     </div>
   ),
@@ -46,6 +61,9 @@ import ClassicArtistCardPage from "@/app/dashboard/@classic/library/artist/[id]/
 type ArtistCardSearchParams = {
   created?: string;
   genre_id?: string | string[];
+  refiled?: string;
+  from?: string;
+  n?: string;
 };
 
 const page = (id = "42", search: ArtistCardSearchParams = {}) =>
@@ -138,5 +156,21 @@ describe("classic /dashboard/library/artist/[id] page — artistCardModify.jsp",
     setUpClassicPageAuthority("musicDirector");
 
     await expect(page("not-an-id")).rejects.toThrow("NEXT_NOT_FOUND");
+  });
+
+  // The parse's own taxonomy lives in `refiledConfirmation.test.ts`; this tier
+  // owes that the page wires it and that a bad triple costs only the banner.
+  it.each([
+    { search: { refiled: "1", from: "1", n: "2" }, expected: "1:2" },
+    { search: { refiled: "1", from: "0", n: "0" }, expected: "0:0" },
+    { search: { refiled: "1", from: "x", n: "2" }, expected: "" },
+    { search: { refiled: "1", from: "1", n: "-2" }, expected: "" },
+    { search: { refiled: "1", n: "2" }, expected: "" },
+    { search: { from: "1", n: "2" }, expected: "" },
+  ])("hands the card the re-file banner only for a well-formed triple ($search)", async ({ search, expected }) => {
+    setUpClassicPageAuthority("musicDirector");
+
+    await assertReachesClassicPage(() => page("431", { genre_id: "6", ...search }), "classic-main", "artist-card");
+    expect(screen.getByTestId("artist-card").getAttribute("data-refiled")).toBe(expected);
   });
 });

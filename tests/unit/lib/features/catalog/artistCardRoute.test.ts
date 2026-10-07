@@ -176,3 +176,10 @@ describe("parseArtistCardGenreId", () => {
     },
   );
 });
+
+describe("artistRefileHref", () => {
+  it("names the screen and the shelf", async () => {
+    const { artistRefileHref } = await import("@/lib/features/catalog/artistCardRoute");
+    expect(artistRefileHref(431, 6)).toBe("/dashboard/library/artist/431/refile?genre_id=6");
+  });
+});
