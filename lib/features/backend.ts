@@ -224,6 +224,15 @@ type BackendBaseQueryOptions = {
    * name.
    */
   skipAuth?: boolean;
+  /**
+   * Makes loud failure on a non-JSON GET body this base query's default, for an
+   * API whose every read has an empty state that states a fact and so must
+   * never mistake an outage for "nothing here". The per-endpoint
+   * `extraOptions.surfaceNonJsonAsError` does the same for one endpoint; this
+   * saves each endpoint added later from having to remember it. Aborted
+   * requests stay silent either way. Off by default.
+   */
+  surfaceNonJsonAsError?: boolean;
 };
 
 /**
@@ -283,7 +292,8 @@ export const backendBaseQuery = (
     if (result.error && isNonJsonParsingError(result.error) && isGet) {
       const aborted = isAbortedQueryError(result.error);
       const surfaceAsError =
-        (extraOptions as BackendExtraOptions | undefined)?.surfaceNonJsonAsError === true &&
+        (options?.surfaceNonJsonAsError === true ||
+          (extraOptions as BackendExtraOptions | undefined)?.surfaceNonJsonAsError === true) &&
         !aborted;
       if (!surfaceAsError) {
         // An abort is not reported: it says nothing about the backend, and it
