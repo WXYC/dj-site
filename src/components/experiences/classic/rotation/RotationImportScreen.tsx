@@ -20,12 +20,10 @@ import {
   releaseVolumeLettersTooLong,
 } from "@/lib/features/catalog/adminCreateArtistValidation";
 import { artistCardHref } from "@/lib/features/catalog/artistCardRoute";
-import { formatEntireLibraryCode } from "@/lib/features/catalog/libraryCode";
 import type { AddAlbumRequestBody, ArtistSearchMatch } from "@/lib/features/catalog/types";
 import {
   useGetRotationRowQuery,
   useLazyGetRotationRowQuery,
-  useLinkRotationToAlbumMutation,
 } from "@/lib/features/rotation/api";
 import { formatRotationDate } from "@/lib/features/rotation/classicList";
 import { artistShelfCode, suggestCallLetters } from "@/lib/features/rotation/importSuggestions";
@@ -35,10 +33,10 @@ import {
   TITLE_REQUIRED_MESSAGE,
 } from "@/lib/features/rotation/releaseFormValidation";
 import {
-  runRotationImport,
-  type ImportOutcome,
-  type ImportRequest,
-} from "@/lib/features/rotation/importSubmit";
+  isRotationImportRefused,
+  ROTATION_IMPORT_REFUSED_MESSAGE,
+} from "@/lib/features/rotation/importOutcome";
+import { runRotationImport, type ImportRequest } from "@/lib/features/rotation/importSubmit";
 import { ROTATION_BIN_LABELS } from "@/lib/features/rotation/types";
 import RotationImportArtistMatch from "./RotationImportArtistMatch";
 import {
@@ -46,10 +44,6 @@ import {
   RotationImportReleaseForm,
   type NewArtistFormState,
 } from "./RotationImportForms";
-import {
-  RotationImportCreatedNotLinked,
-  RotationImportLinkConflict,
-} from "./RotationImportRecovery";
 import type { ReleaseFormState } from "./RotationImportReleaseFields";
 
 const IMPORT_QUEUE_HREF = "/dashboard/rotation?status=uncataloged";
@@ -135,7 +129,6 @@ export default function RotationImportScreen({ rotationId }: { rotationId: numbe
     alphabeticalName: "",
   });
   const [validationMessage, setValidationMessage] = useState<string | null>(null);
-  const [outcome, setOutcome] = useState<ImportOutcome | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [staleRefusal, setStaleRefusal] = useState(false);
   const [seededFor, setSeededFor] = useState<string | null>(null);
@@ -143,7 +136,6 @@ export default function RotationImportScreen({ rotationId }: { rotationId: numbe
   const [readRotationRow] = useLazyGetRotationRowQuery();
   const [addArtist] = useAddArtistMutation();
   const [addAlbum] = useAddAlbumMutation();
-  const [linkRotationToAlbum] = useLinkRotationToAlbumMutation();
 
   // The artist's existing shelf, for the next free call number and the
   // in-use advisory. Walked to its last page because the table is ordered by
@@ -215,32 +207,6 @@ export default function RotationImportScreen({ rotationId }: { rotationId: numbe
     );
   }
 
-  if (outcome?.kind === "link-failed") {
-    return (
-      <Chrome>
-        <RotationImportCreatedNotLinked
-          rotationId={rotationId}
-          created={outcome.created}
-          linkError={outcome.error}
-          onLinked={() => router.push(IMPORT_QUEUE_HREF)}
-          onAlreadyLinked={() => setOutcome({ kind: "already-linked", created: outcome.created })}
-        />
-      </Chrome>
-    );
-  }
-
-  if (outcome?.kind === "already-linked") {
-    return (
-      <Chrome>
-        <RotationImportLinkConflict
-          rotationId={rotationId}
-          created={outcome.created}
-          onDeleted={() => router.push(IMPORT_QUEUE_HREF)}
-        />
-      </Chrome>
-    );
-  }
-
   const formatName = formats?.find((format) => format.id === row.format_id)?.format_name ?? "";
   const needsLabel = row.label_id == null;
   const defaultCodeNumber = String(selected ? nextCodeNumber : 1);
@@ -306,23 +272,6 @@ export default function RotationImportScreen({ rotationId }: { rotationId: numbe
         readRotationRow: (id) => readRotationRow(id).unwrap(),
         createArtist: (body) => addArtist(body).unwrap(),
         createAlbum: (body) => addAlbum(body).unwrap(),
-        linkRotation: (args) => linkRotationToAlbum(args).unwrap(),
-        composeLibraryCode: ({ codeNumber, codeVolumeLetters }) =>
-          formatEntireLibraryCode({
-            genreName: request.newArtist
-              ? genres?.find((genre) => genre.id === request.newArtist?.genre_id)?.genre_name
-              : (selected?.genre_name ?? undefined),
-            code_letters: request.codeLetters,
-            code_artist_number: request.newArtist?.code_number ?? selected?.code_number ?? null,
-            genre_id: request.album.genre_id,
-            // Served by the artist search but not yet on the shared type. A new
-            // artist is filed by the form's own genre and carries no letter.
-            code_comp_letter: request.newArtist
-              ? undefined
-              : (selected as { code_comp_letter?: string | null } | null)?.code_comp_letter,
-            code_number: codeNumber ?? 0,
-            code_volume_letters: codeVolumeLetters ?? null,
-          }),
       });
 
       if (result.kind === "linked") {
@@ -366,15 +315,21 @@ export default function RotationImportScreen({ rotationId }: { rotationId: numbe
         setValidationMessage(addArtistFailureMessage(result.error));
         return;
       }
-      if (result.kind === "album-failed") {
+      const createdArtistNote =
+        "The library code was created, but the release was not. Choose that artist above and add the release to it — do not create the artist again.";
+      if (isRotationImportRefused(result.error)) {
         setValidationMessage(
           result.createdArtist
-            ? "The library code was created, but the release was not. Choose that artist above and add the release to it — do not create the artist again."
-            : "The release could not be created, so nothing was changed.",
+            ? `${ROTATION_IMPORT_REFUSED_MESSAGE} ${createdArtistNote}`
+            : ROTATION_IMPORT_REFUSED_MESSAGE,
         );
         return;
       }
-      setOutcome(result);
+      setValidationMessage(
+        result.createdArtist
+          ? createdArtistNote
+          : "The release could not be created, so nothing was changed.",
+      );
     } finally {
       setSubmitting(false);
     }

@@ -1,21 +1,11 @@
 import type { RotationRowSummary } from "@wxyc/shared/dtos";
 import type { AddAlbumRequestBody, AddArtistRequestBody } from "../catalog/types";
-import { isRotationAlreadyLinked } from "./importOutcome";
-import type { LinkRotationArgs } from "./types";
-
-/** The library release an import created, named well enough to act on. */
-export type ImportCreatedRelease = {
-  albumId: number;
-  artistName: string;
-  albumTitle: string;
-  libraryCode: string;
-  artistId?: number;
-};
 
 /**
- * Where an import ended up. Every arm but `linked` names what was already
- * created, because the whole hazard of this workflow is a half-finished
- * import whose next step is invisible.
+ * Where an import ended up. The release create carries `from_rotation_id`, so
+ * it links the row in the same transaction: a created-but-unlinked release
+ * cannot exist, and a refused create writes nothing. Only an artist this
+ * import created in its own earlier request can outlive a failure.
  */
 export type ImportOutcome =
   | {
@@ -31,9 +21,7 @@ export type ImportOutcome =
   /** The staleness re-read itself failed, so it is not known whether the row is free. */
   | { kind: "unchecked"; error: unknown }
   | { kind: "artist-failed"; error: unknown }
-  | { kind: "album-failed"; error: unknown; artistId: number; createdArtist: boolean }
-  | { kind: "link-failed"; created: ImportCreatedRelease; error: unknown }
-  | { kind: "already-linked"; created: ImportCreatedRelease };
+  | { kind: "album-failed"; error: unknown; artistId: number; createdArtist: boolean };
 
 export type ImportChainDeps = {
   /** Re-reads the rotation row. Must issue a request rather than replay a cached one. */
@@ -42,12 +30,6 @@ export type ImportChainDeps = {
   createAlbum: (
     body: AddAlbumRequestBody,
   ) => Promise<{ id: number } & Record<string, unknown>>;
-  linkRotation: (args: LinkRotationArgs) => Promise<unknown>;
-  /** Composes the shelf code for the release just created, for the failure screens. */
-  composeLibraryCode: (parts: {
-    codeNumber: number | undefined;
-    codeVolumeLetters: string | undefined;
-  }) => string;
 };
 
 export type ImportRequest = {
@@ -65,7 +47,7 @@ export type ImportRequest = {
   codeLetters: string;
   /** Present on the new-artist branch. */
   newArtist?: AddArtistRequestBody;
-  album: Omit<AddAlbumRequestBody, "artist_id" | "album_title">;
+  album: Omit<AddAlbumRequestBody, "artist_id" | "album_title" | "from_rotation_id">;
 };
 
 const numberOrUndefined = (value: unknown): number | undefined =>
@@ -74,19 +56,18 @@ const stringOrUndefined = (value: unknown): string | undefined =>
   typeof value === "string" ? value : undefined;
 
 /**
- * Create the library release and link the rotation row to it, as one action.
+ * Create the library release and link the rotation row to it, as one request.
  *
  * The link is not a step a librarian is trusted to remember: the backlog of
  * unlinked rotation rows this screen exists to work through is the measured
- * cost of a design where linking lived on its own screen. So every arm of the
- * result either finishes the link or says exactly what is left half-done.
+ * cost of a design where linking lived on its own screen. So the release
+ * create names the row (`from_rotation_id`) and the backend links it in the
+ * same transaction.
  *
- * The re-read at the top is the cheap half of that guarantee. A tab left open
- * while the row was catalogued elsewhere would otherwise mint a second library
- * release for the same record, and the create-then-link 409 that used to be
- * the only guard fires *after* the duplicate exists. A re-read that itself
- * fails is reported as `unchecked` rather than assumed free: not knowing
- * whether the row is linked is not the same as knowing it is not.
+ * The re-read at the top spares a tab left open while the row was catalogued
+ * elsewhere a refused request. A re-read that itself fails is reported as
+ * `unchecked` rather than assumed free: not knowing whether the row is linked
+ * is not the same as knowing it is not.
  */
 export async function runRotationImport(
   request: ImportRequest,
@@ -120,6 +101,7 @@ export async function runRotationImport(
       ...request.album,
       artist_id: artistId,
       album_title: request.albumTitle,
+      from_rotation_id: request.rotationId,
     });
   } catch (error) {
     return { kind: "album-failed", error, artistId, createdArtist };
@@ -127,22 +109,6 @@ export async function runRotationImport(
 
   const codeNumber = numberOrUndefined(album.code_number);
   const codeVolumeLetters = stringOrUndefined(album.code_volume_letters);
-  const created: ImportCreatedRelease = {
-    albumId: album.id,
-    artistId,
-    artistName: request.artistName,
-    albumTitle: request.albumTitle,
-    libraryCode: deps.composeLibraryCode({ codeNumber, codeVolumeLetters }),
-  };
-
-  try {
-    await deps.linkRotation({ rotation_id: request.rotationId, album_id: album.id });
-  } catch (error) {
-    return isRotationAlreadyLinked(error)
-      ? { kind: "already-linked", created }
-      : { kind: "link-failed", created, error };
-  }
-
   return {
     kind: "linked",
     artistId,

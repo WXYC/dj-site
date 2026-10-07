@@ -21,8 +21,6 @@ function deps(overrides: Partial<ImportChainDeps> = {}): ImportChainDeps {
     readRotationRow: vi.fn(async () => UNLINKED),
     createArtist: vi.fn(async () => ({ id: 771 })),
     createAlbum: vi.fn(async () => ({ id: 8801, code_number: 4, code_volume_letters: null })),
-    linkRotation: vi.fn(async () => undefined),
-    composeLibraryCode: ({ codeNumber }) => `Electronic CHU 12/${codeNumber}`,
     ...overrides,
   };
 }
@@ -51,12 +49,8 @@ const newArtistRequest: ImportRequest = {
   album: { label: "self-released", genre_id: 5, format_id: 3 },
 };
 
-const linkFailure = (status: number, message = "") => ({
-  linkRotationError: { status, data: { message } },
-});
-
 describe("runRotationImport — the existing-artist chain", () => {
-  it("re-reads, creates the release, then links, in that order", async () => {
+  it("re-reads, then creates the release, in that order", async () => {
     const order: string[] = [];
     const d = deps({
       readRotationRow: vi.fn(async () => {
@@ -67,16 +61,12 @@ describe("runRotationImport — the existing-artist chain", () => {
         order.push("create");
         return { id: 8801, code_number: 4 };
       }),
-      linkRotation: vi.fn(async () => {
-        order.push("link");
-      }),
     });
 
     const outcome = await runRotationImport(existingArtistRequest, d);
 
-    expect(order).toEqual(["read", "create", "link"]);
+    expect(order).toEqual(["read", "create"]);
     expect(outcome).toMatchObject({ kind: "linked", artistId: 771, codeLetters: "CHU", codeNumber: 4 });
-    expect(d.linkRotation).toHaveBeenCalledWith({ rotation_id: 6002, album_id: 8801 });
   });
 
   it("sends the artist and title alongside the release fields the form collected", async () => {
@@ -86,6 +76,7 @@ describe("runRotationImport — the existing-artist chain", () => {
     expect(createAlbum).toHaveBeenCalledWith({
       artist_id: 771,
       album_title: "Edits",
+      from_rotation_id: 6002,
       label: "self-released",
       genre_id: 5,
       format_id: 3,
@@ -102,7 +93,6 @@ describe("runRotationImport — the staleness check", () => {
     expect(await runRotationImport(existingArtistRequest, d)).toEqual({ kind: "stale" });
     expect(d.createAlbum).not.toHaveBeenCalled();
     expect(d.createArtist).not.toHaveBeenCalled();
-    expect(d.linkRotation).not.toHaveBeenCalled();
   });
 
   // Not knowing whether the row is linked is not the same as knowing it is
@@ -120,12 +110,12 @@ describe("runRotationImport — the staleness check", () => {
 });
 
 describe("runRotationImport — the new-artist chain", () => {
-  it("creates the artist, then the release under it, then links", async () => {
+  it("creates the artist, then the release under it", async () => {
     const d = deps();
     const outcome = await runRotationImport(newArtistRequest, d);
 
     expect(d.createArtist).toHaveBeenCalledWith(newArtistRequest.newArtist);
-    expect(d.createAlbum).toHaveBeenCalledWith(expect.objectContaining({ artist_id: 771 }));
+    expect(d.createAlbum).toHaveBeenCalledWith(expect.objectContaining({ artist_id: 771, from_rotation_id: 6002 }));
     expect(outcome).toMatchObject({ kind: "linked", artistId: 771 });
   });
 
@@ -166,41 +156,6 @@ describe("runRotationImport — the new-artist chain", () => {
     expect(await runRotationImport(existingArtistRequest, d)).toMatchObject({
       kind: "album-failed",
       createdArtist: false,
-    });
-  });
-});
-
-describe("runRotationImport — a link that does not land", () => {
-  it("names the release it created when the link fails", async () => {
-    const d = deps({
-      linkRotation: vi.fn(async () => {
-        throw linkFailure(503);
-      }),
-    });
-
-    expect(await runRotationImport(existingArtistRequest, d)).toMatchObject({
-      kind: "link-failed",
-      created: {
-        albumId: 8801,
-        artistName: "Chuquimamani-Condori",
-        albumTitle: "Edits",
-        libraryCode: "Electronic CHU 12/4",
-      },
-    });
-  });
-
-  // Already-linked is a different situation from a failed link: a second
-  // release now exists, and retrying can never resolve that.
-  it("separates the already-linked refusal from every other link failure", async () => {
-    const d = deps({
-      linkRotation: vi.fn(async () => {
-        throw linkFailure(409, "Rotation entry is already linked to a library release");
-      }),
-    });
-
-    expect(await runRotationImport(existingArtistRequest, d)).toMatchObject({
-      kind: "already-linked",
-      created: { albumId: 8801 },
     });
   });
 });

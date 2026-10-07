@@ -18,7 +18,6 @@ import type {
   UpdateRotationCardRequest,
 } from "@wxyc/shared";
 import type {
-  LinkRotationArgs,
   RotationCardWithCount,
   RotationListRow,
   RotationListStatusFilter,
@@ -305,29 +304,6 @@ export const rotationApi = createApi({
       extraOptions: { surfaceNonJsonAsError: true },
       providesTags: (_result, _error, rotationId) => [{ type: "Rotation", id: rotationId }],
     }),
-    // `PATCH /library/rotation/:rotation_id/link` -- the second half of one
-    // user action, never a step a librarian is trusted to remember: the pile
-    // of unlinked rotation rows this screen exists to work through is the
-    // measured cost of a design where linking lived on its own screen.
-    //
-    // Refusals are wrapped out of the shared rejected-query middleware's
-    // `payload.data.message` lookup, matching `addFreeTextRotationEntry` and
-    // `deleteAlbum`. Every one of them lands on a screen that states the
-    // refusal itself and names the library release this submission already
-    // created; a second, vaguer sentence toasted over that reports one
-    // failure twice. `lib/features/rotation/importOutcome.ts` is the one
-    // owner of reading the wrapped rejection.
-    linkRotationToAlbum: builder.mutation<RotationRowSummary, LinkRotationArgs>({
-      query: ({ rotation_id, album_id }) => ({
-        url: `/${rotation_id}/link`,
-        method: "PATCH",
-        body: { album_id },
-      }),
-      transformErrorResponse: (
-        response: FetchBaseQueryError,
-      ): { linkRotationError: FetchBaseQueryError } => ({ linkRotationError: response }),
-      invalidatesTags: ["Rotation"],
-    }),
     // `PATCH /library/rotation/:id`, the field-level rotation editor: the
     // classic modify screen's save, and the list's Unkill (which is this same
     // write with `kill_date: null` and nothing else). Distinct from
@@ -565,7 +541,6 @@ export const {
   useGetUncataloguedRotationQuery,
   useGetRotationRowQuery,
   useLazyGetRotationRowQuery,
-  useLinkRotationToAlbumMutation,
   useAddFreeTextRotationEntryMutation,
   useUpdateRotationRowMutation,
   useMoveRotationRowToCardMutation,
