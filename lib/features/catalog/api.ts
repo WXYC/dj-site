@@ -4,6 +4,7 @@ import type { RootState } from "@/lib/store";
 import type { LibraryFilingRequest, LibraryFilingResponse } from "@wxyc/shared";
 import { hasLinkedAlbumId } from "../flowsheet/linkage";
 import { backendBaseQuery, LML_BACKED_REQUEST_TIMEOUT_MS } from "../backend";
+import { binApi } from "../bin/api";
 import { rotationApi } from "../rotation/api";
 import {
   isAddArtistConflict,
@@ -13,6 +14,7 @@ import { CATALOG_QUERY_MAX_LIMIT, CATALOG_QUERY_PAGE_LIMIT } from "./constants";
 import { convertToAlbumEntry } from "./conversions";
 import { patchCatalogSearchCaches } from "./patchSearchCaches";
 import { artistDeleteAnsweredWithoutWriting } from "./artistDeleteOutcome";
+import { artistRefileAnsweredWithoutWriting } from "./artistRefileOutcome";
 import { deleteAnsweredWithoutWriting } from "./releaseDeleteOutcome";
 import { restoreAnsweredWithoutWriting } from "./restoreDeletedBatchOutcome";
 import {
@@ -57,6 +59,8 @@ import {
   SearchCatalogQueryParams,
   UpdateAlbumRequestBody,
   UpdateArtistRequestBody,
+  RefileArtistRequestBody,
+  ArtistRefileResult,
 } from "./types";
 
 type LibraryQueryResponseJSON = {
@@ -642,6 +646,62 @@ export const catalogApi = createApi({
               "ArtistCodePeek",
               "ArtistByCode",
             ],
+    }),
+    /**
+     * `POST /library/artists/{artistId}/refile` -- move an artist to another
+     * call number on one genre shelf. `code_letters` rides in the arg (not the
+     * body, which rejects unknown keys) only to scope the by-code caches.
+     * `interpretArtistRefileError` owns the refusal taxonomy.
+     *
+     * Cross-slice audit (which other slices carry the artist number): `binApi`
+     * `getBin` (BinLibraryDetails -> `convertToAlbumEntry`, tag `Bin`) and
+     * `rotationApi` `getRotation` / `getRotationList` / `getRotationRow`
+     * (tag `Rotation`) do; `RotationCards` does not (`RotationCardWithCount`
+     * has no artist number), so it is left alone. LML is deliberately not
+     * invalidated: `searchLibrary` reads LML's own library.db, which only sees
+     * a re-file on its next sync, so a refetch would return the same stale code.
+     */
+    refileArtist: builder.mutation<
+      ArtistRefileResult,
+      { artistId: number; code_letters: string; body: RefileArtistRequestBody }
+    >({
+      query: ({ artistId, body }) => ({
+        url: `/artists/${artistId}/refile`,
+        method: "POST",
+        body,
+      }),
+      // Wrapped so the shared toast middleware stays quiet; the screen states
+      // the refusal once.
+      transformErrorResponse: (
+        response: FetchBaseQueryError,
+      ): { refileArtistError: FetchBaseQueryError } => ({ refileArtistError: response }),
+      // A refusal below 500 wrote nothing; a 5xx or a lost answer may have.
+      invalidatesTags: (_result, error, { artistId, code_letters, body }) =>
+        artistRefileAnsweredWithoutWriting(error)
+          ? []
+          : [
+              { type: "ArtistCard", id: String(artistId) },
+              ...artistReleaseTags(artistId),
+              { type: "CatalogList", id: "LIST" },
+              "AlbumDetail",
+              { type: "ArtistSearch", id: "LIST" },
+              { type: "ArtistCodePeek", id: `${body.genre_id}:${code_letters}` },
+              { type: "ArtistByCode", id: `${body.genre_id}:${code_letters}` },
+            ],
+      async onQueryStarted(_arg, { dispatch, queryFulfilled }) {
+        const invalidateOtherSlices = () => {
+          dispatch(binApi.util.invalidateTags(["Bin"]));
+          dispatch(rotationApi.util.invalidateTags(["Rotation"]));
+        };
+        try {
+          await queryFulfilled;
+          invalidateOtherSlices();
+        } catch (caught) {
+          if (!artistRefileAnsweredWithoutWriting((caught as { error?: unknown })?.error)) {
+            invalidateOtherSlices();
+          }
+        }
+      },
     }),
     /**
      * `modifyArtist`'s two writable fields. See `UpdateArtistRequestBody` for
@@ -1263,6 +1323,7 @@ export const {
   useGetArtistCardQuery,
   useDeleteArtistMutation,
   useUpdateArtistCardMutation,
+  useRefileArtistMutation,
   useGetArtistReleasesQuery,
   useGetAllArtistReleasesQuery,
   useGetNextReleaseNumberQuery,
