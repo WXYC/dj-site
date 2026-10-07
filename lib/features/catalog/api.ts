@@ -9,7 +9,7 @@ import {
   isAddArtistConflict,
   isArtistNameConflictData,
 } from "./adminCreateArtistValidation";
-import { CATALOG_QUERY_PAGE_LIMIT } from "./constants";
+import { CATALOG_QUERY_MAX_LIMIT, CATALOG_QUERY_PAGE_LIMIT } from "./constants";
 import { convertToAlbumEntry } from "./conversions";
 import { patchCatalogSearchCaches } from "./patchSearchCaches";
 import { artistDeleteAnsweredWithoutWriting } from "./artistDeleteOutcome";
@@ -26,6 +26,7 @@ import {
   ArtistCard,
   ArtistCardQuery,
   ArtistCrossReferenceRow,
+  AllArtistReleasesResponse,
   ArtistReleasesQuery,
   ArtistReleasesResponse,
   CompilationTrackInput,
@@ -719,6 +720,55 @@ export const catalogApi = createApi({
       providesTags: (_result, _error, { artistId }) => artistReleaseTags(artistId),
     }),
     /**
+     * The artist's whole release table, for the classic cards, whose JSPs
+     * listed every release with no pager. The endpoint serves at most
+     * `CATALOG_QUERY_MAX_LIMIT` rows a page (Backend reuses `/library/query`'s
+     * cap), so this reads page 0 for `totalPages` and then the rest in
+     * parallel.
+     *
+     * A later page that fails does not fail the query: the result keeps the
+     * pages before the first failure, which are still the head of the shelf in
+     * shelf order, and sets `incomplete` so the card says the list is partial.
+     * A failed page 0 is an error, as on `getArtistReleases`, and for the same
+     * reason opts into `surfaceNonJsonAsError`.
+     */
+    getAllArtistReleases: builder.query<
+      AllArtistReleasesResponse,
+      Pick<ArtistReleasesQuery, "artistId" | "genre_id">
+    >({
+      async queryFn({ artistId, genre_id }, _api, _extraOptions, baseQuery) {
+        const readPage = (page: number) =>
+          baseQuery({
+            url: `/artists/${artistId}/releases`,
+            params: {
+              page,
+              limit: CATALOG_QUERY_MAX_LIMIT,
+              ...(genre_id != null ? { genre_id } : {}),
+            },
+          });
+        const first = await readPage(0);
+        if (first.error) return { error: first.error };
+        const head = first.data as ArtistReleasesResponse;
+        const rest = await Promise.all(
+          Array.from({ length: Math.max(0, head.totalPages - 1) }, (_, i) => readPage(i + 1)),
+        );
+        const failed = rest.findIndex((page) => page.error);
+        const read = failed === -1 ? rest : rest.slice(0, failed);
+        return {
+          data: {
+            artist_id: head.artist_id,
+            releases: head.releases.concat(
+              ...read.map((page) => (page.data as ArtistReleasesResponse).releases),
+            ),
+            total: head.total,
+            incomplete: failed !== -1,
+          },
+        };
+      },
+      extraOptions: { surfaceNonJsonAsError: true },
+      providesTags: (_result, _error, { artistId }) => artistReleaseTags(artistId),
+    }),
+    /**
      * The call number a new release filed under this artist, on this genre's
      * shelf, would be assigned, previewed for the add-release form. Soft-fails
      * like `peekArtistCode` rather than opting into `surfaceNonJsonAsError`:
@@ -1182,6 +1232,7 @@ export const {
   useDeleteArtistMutation,
   useUpdateArtistCardMutation,
   useGetArtistReleasesQuery,
+  useGetAllArtistReleasesQuery,
   useGetNextReleaseNumberQuery,
   usePeekArtistCodeQuery,
   useLazyPeekArtistCodeQuery,

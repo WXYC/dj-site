@@ -1,8 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { http, HttpResponse } from "msw";
+import { http, HttpResponse, delay } from "msw";
 import { renderWithProviders, server, TEST_BACKEND_URL } from "@/tests/helpers";
+import { serveArtistReleasePages } from "@/tests/fakes/artistReleases";
 
 vi.mock("@/lib/features/authentication/client", async () => {
   const { createAuthClientModuleMock } = await import(
@@ -64,17 +65,7 @@ function mockReleases(
   releases: unknown[] = [release()],
   total = releases.length,
 ) {
-  server.use(
-    http.get(`${TEST_BACKEND_URL}/library/artists/${artistId}/releases`, () =>
-      HttpResponse.json({
-        artist_id: artistId,
-        releases,
-        total,
-        page: 0,
-        totalPages: Math.max(1, Math.ceil(total / 50)),
-      }),
-    ),
-  );
+  serveArtistReleasePages(artistId, releases, { total });
 }
 
 function mockGenres() {
@@ -740,12 +731,60 @@ describe("classic VariousArtistsCard — variousArtistsCardModify.jsp", () => {
     expect(within(table).queryByText("Rock V/A-7")).toBeNull();
   });
 
-  it("says the shelf is cut short rather than showing a silently truncated list", async () => {
+  describe("a section longer than one page", () => {
+    // Backend serves at most 100 rows a page, and a compilation bucket is the
+    // largest kind of section in the catalog: a lettered Rock section holds
+    // ~78 releases, the umbrella bucket ~3,100. The JSP listed all of them.
+    const shelf = Array.from({ length: 230 }, (_, i) =>
+      release({ id: 2000 + i, code_number: i + 1, album_title: `Volume ${i + 1}` }),
+    );
+    const rows = (table: HTMLElement) => table.querySelectorAll("tr.entry-row");
+
+    it("lists every release, read at Backend's largest page, with no truncation notice", async () => {
+      const requests = serveArtistReleasePages(BUCKET_ID, shelf);
+
+      renderWithProviders(<VariousArtistsCard artistId={BUCKET_ID} />);
+
+      const table = await screen.findByTestId("va-release-table");
+      expect(rows(table)).toHaveLength(230);
+      expect(within(table).getByText("Volume 230")).toBeDefined();
+      expect(screen.queryByText(/Showing the first/)).toBeNull();
+      expect(requests.map((p) => p.get("limit"))).toEqual(["100", "100", "100"]);
+    });
+
+    it("shows the rows it read and says the list is incomplete when a later page fails", async () => {
+      serveArtistReleasePages(BUCKET_ID, shelf, { failPages: [1] });
+
+      renderWithProviders(<VariousArtistsCard artistId={BUCKET_ID} />);
+
+      const error = await screen.findByTestId("va-release-table-error");
+      expect(error.textContent).toMatch(/not a complete list/i);
+      expect(rows(screen.getByTestId("va-release-table"))).toHaveLength(100);
+    });
+
+    // A whole section takes several page reads; an empty table in the
+    // meantime would read as the JSP's "does not have any library releases".
+    it("claims nothing about the shelf while its pages are still being read", async () => {
+      server.use(
+        http.get(`${TEST_BACKEND_URL}/library/artists/${BUCKET_ID}/releases`, async () => {
+          await delay("infinite");
+          return HttpResponse.json({});
+        }),
+      );
+
+      renderWithProviders(<VariousArtistsCard artistId={BUCKET_ID} />);
+
+      await screen.findByTestId("va-bucket-header");
+      expect(screen.getByText("Loading releases…")).toBeDefined();
+      expect(screen.queryByText("The artist does not have any library releases")).toBeNull();
+    });
+  });
+
+  it("says the shelf is cut short when the server reports more releases than it served", async () => {
     mockCard(BUCKET_ID);
-    // A compilation bucket is the largest kind of section in the catalog, so
-    // this is the ordinary case here, not an edge one: the header prints the
-    // server's true total while the table shows one page. A librarian who
-    // scans the short list without being told files a duplicate.
+    // A release filed between two page reads leaves the total ahead of the
+    // rows. A librarian who scans the short list without being told files a
+    // duplicate.
     mockReleases(BUCKET_ID, [release()], 214);
 
     renderWithProviders(<VariousArtistsCard artistId={BUCKET_ID} />);

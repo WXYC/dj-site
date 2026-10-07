@@ -282,6 +282,18 @@ export type ArtistReleasesResponse = {
   totalPages: number;
 };
 
+/**
+ * Every page of `GET /library/artists/:id/releases`, joined in shelf order.
+ * `incomplete` is set when a page after the first could not be read; the
+ * releases are then the pages before it, so `total` exceeds their count.
+ */
+export type AllArtistReleasesResponse = {
+  artist_id: number;
+  releases: ArtistRelease[];
+  total: number;
+  incomplete: boolean;
+};
+
 export type PeekArtistCodeQuery = {
   code_letters: string;
   genre_id: number;

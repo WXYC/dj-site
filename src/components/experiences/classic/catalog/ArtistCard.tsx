@@ -7,7 +7,7 @@ import { useEffect, useId, useState } from "react";
 import {
   useAddAlbumMutation,
   useGetArtistCardQuery,
-  useGetArtistReleasesQuery,
+  useGetAllArtistReleasesQuery,
   useGetFormatsQuery,
   useGetGenresQuery,
   useGetNextReleaseNumberQuery,
@@ -141,9 +141,9 @@ export default function ArtistCard({ artistId, genreId, message, imported }: Art
     isError: artistError,
   } = useGetArtistCardQuery({ artistId, genre_id: genreId });
   const {
-    data: releasePage,
+    data: releaseList,
     isError: releasesError,
-  } = useGetArtistReleasesQuery({ artistId, genre_id: genreId });
+  } = useGetAllArtistReleasesQuery({ artistId, genre_id: genreId });
   // The peek is genre-scoped, and `artist.genre_id` is only known once the
   // card query resolves. `skipToken` rather than a placeholder genre plus
   // `{ skip }`: a fabricated `genre_id` would be a real value in the arg, and
@@ -452,8 +452,8 @@ export default function ArtistCard({ artistId, genreId, message, imported }: Art
     return <div role="status">Loading…</div>;
   }
 
-  const releases = releasePage?.releases ?? [];
-  const total = releasePage?.total ?? 0;
+  const releases = releaseList?.releases ?? [];
+  const total = releaseList?.total ?? 0;
 
   return (
     <>
@@ -558,8 +558,8 @@ export default function ArtistCard({ artistId, genreId, message, imported }: Art
               <td style={{ textAlign: "right" }}>
                 <b># of releases:</b>
               </td>
-              {/* The server's total, not `releases.length`: the table is
-                  paginated, so the row count is a page size. */}
+              {/* The server's total, not `releases.length`: when a page of the
+                  table could not be read, the row count falls short. */}
               <td>{total}</td>
             </tr>
             <tr>
@@ -765,15 +765,20 @@ export default function ArtistCard({ artistId, genreId, message, imported }: Art
 
       <hr />
 
-      {releasesError ? (
+      {(releasesError || releaseList?.incomplete) && (
         <div
           data-testid="release-table-error"
           role="alert"
           className="artist-error-message"
         >
-          This artist&apos;s releases could not be loaded, so this is not a
+          This artist&apos;s releases could not all be loaded, so this is not a
           complete list of what is on the shelf.
         </div>
+      )}
+      {/* Nothing until a read lands: an empty table here is the JSP's "does not
+          have any library releases", a claim about the shelf. */}
+      {!releaseList ? (
+        !releasesError && <div role="status">Loading releases…</div>
       ) : (
         <table className="entry-table" data-testid="artist-release-table">
           <tbody>
@@ -838,9 +843,10 @@ export default function ArtistCard({ artistId, genreId, message, imported }: Art
         </div>
       )}
 
-      {/* The JSP pages this table through `queryResultsSubset`; the endpoint
-          pages too, and a librarian with more releases than one page must be
-          told rather than shown a silently truncated shelf. */}
+      {/* The JSP listed every release; the table is read a page at a time,
+          so it can hold fewer rows than the total (a page that failed, or a
+          release filed between two page reads), and a librarian must be told
+          rather than shown a silently truncated shelf. */}
       {total > releases.length && (
         <div className="label" style={{ textAlign: "center" }}>
           Showing the first {releases.length} of {total} releases.

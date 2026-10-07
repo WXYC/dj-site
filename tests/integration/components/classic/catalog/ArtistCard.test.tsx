@@ -3,6 +3,7 @@ import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { renderWithProviders, server, TEST_BACKEND_URL } from "@/tests/helpers";
+import { serveArtistReleasePages } from "@/tests/fakes/artistReleases";
 
 vi.mock("@/lib/features/authentication/client", async () => {
   const { createAuthClientModuleMock } = await import(
@@ -67,17 +68,7 @@ function mockCard(body: unknown = artist, status = 200) {
 }
 
 function mockReleases(releases: unknown[] = [release()], total = releases.length) {
-  server.use(
-    http.get(`${TEST_BACKEND_URL}/library/artists/${ARTIST_ID}/releases`, () =>
-      HttpResponse.json({
-        artist_id: ARTIST_ID,
-        releases,
-        total,
-        page: 0,
-        totalPages: Math.max(1, Math.ceil(total / 50)),
-      }),
-    ),
-  );
+  serveArtistReleasePages(ARTIST_ID, releases, { total });
 }
 
 function mockGenres() {
@@ -521,6 +512,39 @@ describe("classic ArtistCard — artistCardModify.jsp", () => {
         ).toBeNull(),
       );
       expect(await screen.findByTestId("release-table-error")).toBeDefined();
+    });
+
+    describe("a shelf longer than one page", () => {
+      // Backend serves at most 100 rows a page; the JSP listed every release.
+      const shelf = Array.from({ length: 230 }, (_, i) =>
+        release({ id: 2000 + i, code_number: i + 1, album_title: `DOGA ${i + 1}` }),
+      );
+      const rows = (table: HTMLElement) => table.querySelectorAll("tr.entry-row");
+
+      it("lists every release in the card's genre, read at Backend's largest page", async () => {
+        const requests = serveArtistReleasePages(ARTIST_ID, shelf);
+
+        renderWithProviders(<ArtistCard artistId={ARTIST_ID} genreId={GENRE_ID} />);
+
+        const table = await screen.findByTestId("artist-release-table");
+        expect(rows(table)).toHaveLength(230);
+        expect(within(table).getByText("DOGA 230")).toBeDefined();
+        expect(screen.queryByText(/Showing the first/)).toBeNull();
+        expect(requests.map((p) => p.get("limit"))).toEqual(["100", "100", "100"]);
+        expect(requests.map((p) => p.get("genre_id"))).toEqual(
+          Array(3).fill(String(GENRE_ID)),
+        );
+      });
+
+      it("shows the rows it read and says the list is incomplete when a later page fails", async () => {
+        serveArtistReleasePages(ARTIST_ID, shelf, { failPages: [1] });
+
+        renderWithProviders(<ArtistCard artistId={ARTIST_ID} />);
+
+        const error = await screen.findByTestId("release-table-error");
+        expect(error.textContent).toMatch(/not a complete list/i);
+        expect(rows(screen.getByTestId("artist-release-table"))).toHaveLength(100);
+      });
     });
   });
 
