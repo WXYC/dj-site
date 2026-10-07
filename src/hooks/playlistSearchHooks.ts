@@ -376,30 +376,20 @@ export function usePlaylistSearch({
     return flat;
   }, [data?.pages]);
 
-  // No-op when there is no next page (last page or response not yet arrived),
-  // and no-op once a page has failed. A rejected page is not appended, so the
-  // walk's next param survives and `hasNextPage` stays true — and the callers
-  // that drive this are re-armed by the very status change a failure produces
-  // (classic rebuilds its IntersectionObserver whenever `isLoading` flips, and
-  // a fresh observer fires immediately for a sentinel already in view). Left
-  // ungated, one broken page becomes an unthrottled retry loop against an
-  // endpoint this file's own retention notes call expensive.
-  const loadNextPage = useCallback(() => {
-    if (hasNextPage && !isError) void fetchNextPage();
-  }, [hasNextPage, isError, fetchNextPage]);
-
   // `currentData`, not `data`: after a sort or query change, `data` still
   // holds the previous key's pages until the new key succeeds, which would
   // read a failed first page of the new search as a failed later page.
   const hasAnyPages = (currentData?.pages?.length ?? 0) > 0;
-  const { retry, failedPage, isRetrying, failedRetries } = useListingRetry({
-    key: queryArg,
-    isFetching,
-    isError,
-    hasAnyPages,
-    refetch,
-    fetchNextPage,
-  });
+  const { retry, loadNextPage, failedPage, isRetrying, failedRetries } =
+    useListingRetry({
+      key: queryArg,
+      isFetching,
+      isError,
+      hasAnyPages,
+      hasNextPage,
+      refetch,
+      fetchNextPage,
+    });
 
   return {
     rows,

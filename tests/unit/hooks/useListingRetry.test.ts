@@ -1,13 +1,13 @@
 import { describe, it, expect, vi } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { useListingRetry } from "@/src/hooks/useListingRetry";
-import { classifyListingFailure } from "@/src/hooks/listingFailureClassification";
 
 type Props = {
   key: unknown;
   isFetching: boolean;
   isError: boolean;
   hasAnyPages: boolean;
+  hasNextPage: boolean | undefined;
 };
 
 const IDLE: Props = {
@@ -15,6 +15,7 @@ const IDLE: Props = {
   isFetching: false,
   isError: false,
   hasAnyPages: true,
+  hasNextPage: undefined,
 };
 
 function setUp(initial: Props = IDLE) {
@@ -186,18 +187,61 @@ describe("useListingRetry keys", () => {
 
 describe("useListingRetry classification", () => {
   it.each([
-    { isError: false, hasAnyPages: false },
-    { isError: false, hasAnyPages: true },
-    { isError: true, hasAnyPages: false },
-    { isError: true, hasAnyPages: true },
+    { isError: false, hasAnyPages: false, head: false, next: false },
+    { isError: false, hasAnyPages: true, head: false, next: false },
+    { isError: true, hasAnyPages: false, head: true, next: false },
+    { isError: true, hasAnyPages: true, head: false, next: true },
   ])(
-    "matches classifyListingFailure for isError=$isError hasAnyPages=$hasAnyPages",
-    ({ isError, hasAnyPages }) => {
+    "isError=$isError hasAnyPages=$hasAnyPages gives headFailed=$head nextPageFailed=$next",
+    ({ isError, hasAnyPages, head, next }) => {
       const { result } = setUp({ ...IDLE, isError, hasAnyPages });
-      expect({
-        headFailed: result.current.headFailed,
-        nextPageFailed: result.current.nextPageFailed,
-      }).toEqual(classifyListingFailure(isError, hasAnyPages));
+      expect(result.current.headFailed).toBe(head);
+      expect(result.current.nextPageFailed).toBe(next);
     },
   );
+});
+
+describe("useListingRetry loadNextPage", () => {
+  it.each([
+    {
+      name: "no next page",
+      hasNextPage: false,
+      isError: false,
+      hasAnyPages: true,
+      calls: 0,
+    },
+    {
+      name: "an undefined next page",
+      hasNextPage: undefined,
+      isError: false,
+      hasAnyPages: true,
+      calls: 0,
+    },
+    {
+      name: "a head failure",
+      hasNextPage: true,
+      isError: true,
+      hasAnyPages: false,
+      calls: 0,
+    },
+    {
+      name: "a next-page failure",
+      hasNextPage: true,
+      isError: true,
+      hasAnyPages: true,
+      calls: 0,
+    },
+    {
+      name: "a next page with nothing failed",
+      hasNextPage: true,
+      isError: false,
+      hasAnyPages: true,
+      calls: 1,
+    },
+  ])("with $name fetches the next page $calls times", ({ calls, ...props }) => {
+    const { result, fetchNextPage } = setUp({ ...IDLE, ...props });
+    act(() => result.current.loadNextPage());
+
+    expect(fetchNextPage).toHaveBeenCalledTimes(calls);
+  });
 });

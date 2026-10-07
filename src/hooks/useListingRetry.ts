@@ -1,11 +1,19 @@
 import { useCallback, useState } from "react";
-import { classifyListingFailure } from "./listingFailureClassification";
 
 /** The page whose request failed: the first page of the listing, or a later one. */
 export type FailedPage = "first" | "later";
 
 /**
- * Classifies a cursor-paged listing's failure and retries it.
+ * Classifies a cursor-paged listing's failure, retries it, and gates loading
+ * more pages on it.
+ *
+ * `headFailed` is a failure with no page held for `key`, `nextPageFailed` one
+ * with pages held. Once either holds, `retry` is the only way back in and
+ * `loadNextPage` is a no-op. A rejected page is not appended, so `hasNextPage`
+ * stays true, and the callers that drive `loadNextPage` are re-armed by the very
+ * status change a failure produces (an IntersectionObserver rebuilt on a loading
+ * flip fires at once for a sentinel already in view); left ungated, one broken
+ * page becomes an unthrottled retry loop.
  *
  * `key` names the listing a failure belongs to; a retry is dropped when it changes
  * identity, so a sort or query change mid-retry cannot carry the old failure onto
@@ -25,6 +33,7 @@ export function useListingRetry({
   isFetching,
   isError,
   hasAnyPages,
+  hasNextPage,
   refetch,
   fetchNextPage,
 }: {
@@ -32,13 +41,12 @@ export function useListingRetry({
   isFetching: boolean;
   isError: boolean;
   hasAnyPages: boolean;
+  hasNextPage: boolean | undefined;
   refetch: () => unknown;
   fetchNextPage: () => unknown;
 }) {
-  const { headFailed, nextPageFailed } = classifyListingFailure(
-    isError,
-    hasAnyPages,
-  );
+  const headFailed = isError && !hasAnyPages;
+  const nextPageFailed = isError && hasAnyPages;
 
   const [retrying, setRetrying] = useState<{
     failedPage: FailedPage;
@@ -76,10 +84,15 @@ export function useListingRetry({
     }
   }, [headFailed, nextPageFailed, refetch, fetchNextPage, key]);
 
+  const loadNextPage = useCallback(() => {
+    if (hasNextPage && !isError) void fetchNextPage();
+  }, [hasNextPage, isError, fetchNextPage]);
+
   return {
     headFailed,
     nextPageFailed,
     retry,
+    loadNextPage,
     failedPage:
       retrying?.failedPage ??
       (headFailed ? "first" : nextPageFailed ? "later" : null),
