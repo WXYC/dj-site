@@ -85,6 +85,30 @@ describe("interpretArtistRefileError", () => {
       retryable: false,
     },
     {
+      label: "404 code not filed, message reworded",
+      err: wrapped(404, { message: "No shelf entry", code: "artist_not_filed_in_genre" }),
+      reason: "not_filed_in_genre",
+      retryable: false,
+    },
+    {
+      label: "404 code not found, message reworded",
+      err: wrapped(404, { message: "Artist not filed under genre 6", code: "artist_not_found" }),
+      reason: "artist_not_found",
+      retryable: false,
+    },
+    {
+      label: "404 unknown code falls back to the prefix",
+      err: wrapped(404, { message: "Artist not filed under genre 6", code: "from_the_future" }),
+      reason: "not_filed_in_genre",
+      retryable: false,
+    },
+    {
+      label: "404 unknown code, other message",
+      err: wrapped(404, { message: "Artist not found", code: "from_the_future" }),
+      reason: "artist_not_found",
+      retryable: false,
+    },
+    {
       label: "404 with no body",
       err: wrapped(404),
       reason: "artist_not_found",

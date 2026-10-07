@@ -1,4 +1,5 @@
 import {
+  bodyCode,
   bodyReason,
   serverMessage,
   unwrapEndpointError,
@@ -70,7 +71,13 @@ export function interpretArtistRefileError(err: unknown): ArtistRefileRefusal {
     return { reason: "various_artists_section", message: ARTIST_REFILE_VARIOUS_ARTISTS_MESSAGE, retryable: false };
   }
   if (status === 404) {
-    return serverMessage(data)?.startsWith("Artist not filed under genre")
+    // `code` first; a body without a recognized one (a Backend that predates
+    // it) falls back to the message prefix.
+    const code = bodyCode(data);
+    const notFiled =
+      code === "artist_not_filed_in_genre" ||
+      (code !== "artist_not_found" && serverMessage(data)?.startsWith("Artist not filed under genre"));
+    return notFiled
       ? { reason: "not_filed_in_genre", message: ARTIST_REFILE_NOT_FILED_MESSAGE, retryable: false }
       : { reason: "artist_not_found", message: ARTIST_REFILE_NOT_FOUND_MESSAGE, retryable: false };
   }
