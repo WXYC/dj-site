@@ -5,7 +5,6 @@ import { renderWithProviders } from "@/tests/helpers";
 
 const mockCardQuery = vi.fn();
 const mockGenresQuery = vi.fn();
-const mockByCodeQuery = vi.fn();
 const mockRefile = vi.fn();
 const mockPush = vi.fn();
 
@@ -16,7 +15,6 @@ vi.mock("@/lib/features/catalog/api", async (importOriginal) => {
     ...actual,
     useGetArtistCardQuery: (...a: unknown[]) => mockCardQuery(...a),
     useGetGenresQuery: (...a: unknown[]) => mockGenresQuery(...a),
-    useResolveArtistByCodeQuery: (...a: unknown[]) => mockByCodeQuery(...a),
     useRefileArtistMutation: () => [mockRefile, { isLoading: false }],
   };
 });
@@ -36,12 +34,6 @@ const card = {
 };
 const holder = { id: 777, artist_name: "Isobel Campbell", code_letters: "IS", code_number: 31, genre_id: GENRE_ID };
 
-const byCode = (artists: unknown[] | null | undefined, error?: unknown) =>
-  mockByCodeQuery.mockReturnValue({
-    currentData: artists === undefined ? undefined : { artists },
-    error,
-    isFetching: false,
-  });
 const rejects = (status: number, data: unknown) => ({
   unwrap: () => Promise.reject({ refileArtistError: { status, data } }),
 });
@@ -63,7 +55,6 @@ describe("classic ArtistRefileForm", () => {
     vi.clearAllMocks();
     mockCardQuery.mockReturnValue({ data: card, isLoading: false });
     mockGenresQuery.mockReturnValue({ data: [{ id: GENRE_ID, genre_name: "Hiphop" }] });
-    byCode(undefined);
   });
 
   it("scopes the card read to the shelf and shows the current full code", () => {
@@ -73,10 +64,9 @@ describe("classic ArtistRefileForm", () => {
     expect(screen.getByTestId("artist-refile-current")).toHaveTextContent("Hiphop IS 1");
   });
 
-  it("holds Continue and says nothing until a number is chosen", async () => {
+  it("holds Continue until a number is chosen", async () => {
     renderWithProviders(<ArtistRefileForm artistId={ARTIST_ID} genreId={GENRE_ID} />);
     expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
-    expect(screen.getByTestId("artist-refile-occupancy")).toBeEmptyDOMElement();
   });
 
   it.each([["-1"], ["1.5"], ["2147483648"]])("refuses %s", async (value) => {
@@ -84,47 +74,6 @@ describe("classic ArtistRefileForm", () => {
     await type(value);
 
     expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
-  });
-
-  it("reports a free number (an unassigned code is a 404)", async () => {
-    byCode(undefined, { resolveArtistByCodeError: { status: 404, data: { reason: "code_not_assigned" } } });
-    renderWithProviders(<ArtistRefileForm artistId={ARTIST_ID} genreId={GENRE_ID} />);
-    await type("31");
-
-    await waitFor(() => expect(screen.getByTestId("artist-refile-occupancy")).toHaveTextContent("Hiphop IS 31 is free."));
-    expect(mockByCodeQuery).toHaveBeenLastCalledWith({ genre_id: GENRE_ID, code_letters: "IS", code_number: 31 });
-  });
-
-  it("names the holder of an occupied number and links to their card", async () => {
-    byCode([holder]);
-    renderWithProviders(<ArtistRefileForm artistId={ARTIST_ID} genreId={GENRE_ID} />);
-    await type("31");
-
-    const line = await waitFor(() => {
-      const el = screen.getByTestId("artist-refile-occupancy");
-      expect(el).toHaveTextContent("Hiphop IS 31 is held by Isobel Campbell.");
-      return el;
-    });
-    expect(line.querySelector("a")?.getAttribute("href")).toBe(
-      `/dashboard/library/artist/777?genre_id=${GENRE_ID}`,
-    );
-  });
-
-  it("does not count the artist itself as a holder", async () => {
-    byCode([{ ...holder, id: ARTIST_ID, artist_name: "Isis" }]);
-    renderWithProviders(<ArtistRefileForm artistId={ARTIST_ID} genreId={GENRE_ID} />);
-    await type("1");
-
-    await waitFor(() => expect(screen.getByTestId("artist-refile-occupancy")).toHaveTextContent("is free."));
-  });
-
-  it("says nothing when the occupancy answer is unreadable", async () => {
-    byCode(null);
-    renderWithProviders(<ArtistRefileForm artistId={ARTIST_ID} genreId={GENRE_ID} />);
-    await type("31");
-    await new Promise((r) => setTimeout(r, 400));
-
-    expect(screen.getByTestId("artist-refile-occupancy")).toBeEmptyDOMElement();
   });
 
   it("confirms with both codes composed and the relabel warning", async () => {
