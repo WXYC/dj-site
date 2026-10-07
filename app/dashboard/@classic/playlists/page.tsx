@@ -8,8 +8,8 @@ export const metadata: Metadata = {
 };
 
 export default async function ClassicPreviousSetsPage() {
-  // See the Modern page: the seed is the client query's own first page, so the
-  // initial HTML carries rows instead of an empty table.
+  // The seed is the client query's own first page, so the initial HTML carries
+  // rows instead of an empty table.
   const { results } = await fetchRecentPlaylistsSeed();
 
   return <ClassicPreviousSetsSurface initialResults={results} />;
