@@ -292,8 +292,12 @@ export default function VariousArtistsCard({ artistId, message, imported }: Vari
     return <div role="status">Loading…</div>;
   }
 
-  const releases = releaseList?.releases ?? [];
-  const total = releaseList?.total ?? 0;
+  // A failed re-read leaves the previous list in the cache. Shown beside the
+  // alert it would pass an out-of-date shelf off as current, and a librarian
+  // missing the release they just filed would file it again.
+  const shelf = releasesError ? undefined : releaseList;
+  const releases = shelf?.releases ?? [];
+  const total = shelf?.total ?? 0;
   const isUmbrellaBucket = artistId === UMBRELLA_BUCKET_ARTIST_ID;
 
   const navigationLinks = (
@@ -338,9 +342,9 @@ export default function VariousArtistsCard({ artistId, message, imported }: Vari
             <td style={{ textAlign: "right" }}>
               <b># of releases:</b>
             </td>
-            {/* The server's total, not `releases.length`: when a page of the
-                table below could not be read, the row count falls short. */}
-            <td>{total}</td>
+            {/* The server's total, not `releases.length`. Blank until a read
+                lands: 0 would claim an empty shelf. */}
+            <td>{shelf && total}</td>
           </tr>
         </tbody>
       </table>
@@ -518,7 +522,7 @@ export default function VariousArtistsCard({ artistId, message, imported }: Vari
         </>
       )}
 
-      {(releasesError || releaseList?.incomplete) && (
+      {(releasesError || shelf?.incomplete) && (
         <div
           data-testid="va-release-table-error"
           role="alert"
@@ -531,7 +535,7 @@ export default function VariousArtistsCard({ artistId, message, imported }: Vari
       {/* Nothing until a read lands: an empty table here is the JSP's "does not
           have any library releases", a claim about the shelf, and a whole
           section takes several page reads to arrive. */}
-      {!releaseList ? (
+      {!shelf ? (
         !releasesError && <div role="status">Loading releases…</div>
       ) : (
         <table className="entry-table" data-testid="va-release-table">
@@ -594,13 +598,10 @@ export default function VariousArtistsCard({ artistId, message, imported }: Vari
         </table>
       )}
 
-      {/* The table is read a page at a time, so it can hold fewer rows than
-          the header's total: a page that failed, or a release filed between
-          two page reads. A librarian who scans a silently-cut list and doesn't
-          find the compilation files a duplicate, which is the whole failure
-          this screen exists to prevent. Same notice the artist card carries,
-          for the same reason. */}
-      {total > releases.length && (
+      {/* Only a server that counts more rows than it serves leaves the table
+          short without the read noticing; say so rather than show a silently
+          cut list. A partial read is already announced by the alert above. */}
+      {!shelf?.incomplete && total > releases.length && (
         <div className="label" style={{ textAlign: "center" }}>
           Showing the first {releases.length} of {total} releases.
         </div>

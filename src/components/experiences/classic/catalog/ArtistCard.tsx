@@ -452,8 +452,12 @@ export default function ArtistCard({ artistId, genreId, message, imported }: Art
     return <div role="status">Loading…</div>;
   }
 
-  const releases = releaseList?.releases ?? [];
-  const total = releaseList?.total ?? 0;
+  // A failed re-read leaves the previous list in the cache. Shown beside the
+  // alert it would pass an out-of-date shelf off as current, and a librarian
+  // missing the release they just filed would file it again.
+  const shelf = releasesError ? undefined : releaseList;
+  const releases = shelf?.releases ?? [];
+  const total = shelf?.total ?? 0;
 
   return (
     <>
@@ -558,9 +562,9 @@ export default function ArtistCard({ artistId, genreId, message, imported }: Art
               <td style={{ textAlign: "right" }}>
                 <b># of releases:</b>
               </td>
-              {/* The server's total, not `releases.length`: when a page of the
-                  table could not be read, the row count falls short. */}
-              <td>{total}</td>
+              {/* The server's total, not `releases.length`. Blank until a
+                  read lands: 0 would claim an empty shelf. */}
+              <td>{shelf && total}</td>
             </tr>
             <tr>
               <td />
@@ -765,7 +769,7 @@ export default function ArtistCard({ artistId, genreId, message, imported }: Art
 
       <hr />
 
-      {(releasesError || releaseList?.incomplete) && (
+      {(releasesError || shelf?.incomplete) && (
         <div
           data-testid="release-table-error"
           role="alert"
@@ -777,7 +781,7 @@ export default function ArtistCard({ artistId, genreId, message, imported }: Art
       )}
       {/* Nothing until a read lands: an empty table here is the JSP's "does not
           have any library releases", a claim about the shelf. */}
-      {!releaseList ? (
+      {!shelf ? (
         !releasesError && <div role="status">Loading releases…</div>
       ) : (
         <table className="entry-table" data-testid="artist-release-table">
@@ -843,11 +847,10 @@ export default function ArtistCard({ artistId, genreId, message, imported }: Art
         </div>
       )}
 
-      {/* The JSP listed every release; the table is read a page at a time,
-          so it can hold fewer rows than the total (a page that failed, or a
-          release filed between two page reads), and a librarian must be told
-          rather than shown a silently truncated shelf. */}
-      {total > releases.length && (
+      {/* Only a server that counts more rows than it serves leaves the table
+          short without the read noticing; say so rather than show a silently
+          cut list. A partial read is already announced by the alert above. */}
+      {!shelf?.incomplete && total > releases.length && (
         <div className="label" style={{ textAlign: "center" }}>
           Showing the first {releases.length} of {total} releases.
         </div>

@@ -93,22 +93,39 @@ function transformLibraryQueryResponse(
 }
 
 /**
- * The tags an artist's shelf reads provide, in one place because the two reads
- * that use them are now definitionally coupled: the next call number a release
+ * The tags an artist's shelf reads provide, in one place because the reads
+ * that use them are definitionally coupled: the next call number a release
  * would be assigned is a function of what is already on the shelf, so anything
- * that changes the shelf makes both `getArtistReleases` and
+ * that changes the shelf makes `getArtistReleases`, `getAllArtistReleases` and
  * `getNextReleaseNumber` stale together. The id-scoped tag lets a same-artist
  * writer (`addAlbum`) refetch just that artist; the shared `LIST` tag catches
  * writers that cannot name the artist ahead of the write — the modern filing
  * bench's `fileRelease`, a re-attributing `updateAlbum` — which invalidate
  * `LIST` alone. Providing only the id-scoped tag on `getNextReleaseNumber`
  * would miss those, leaving a call number the bench just consumed prepopulated
- * on the classic add card, so both reads must provide both tags.
+ * on the classic add card, so every one of these reads must provide both tags.
  */
 const artistReleaseTags = (artistId: number) => [
   { type: "ArtistReleaseList" as const, id: String(artistId) },
   { type: "ArtistReleaseList" as const, id: "LIST" as const },
 ];
+
+/** One page of `GET /library/artists/:id/releases`; unset params are omitted. */
+const artistReleasesRequest = ({ artistId, page, limit, genre_id }: ArtistReleasesQuery) => ({
+  url: `/artists/${artistId}/releases`,
+  params: {
+    ...(page != null ? { page } : {}),
+    ...(limit != null ? { limit } : {}),
+    ...(genre_id != null ? { genre_id } : {}),
+  },
+});
+
+/**
+ * Page reads `getAllArtistReleases` keeps in flight at once. Backend answers
+ * each with three queries on a pool the live flowsheet shares, and the browser
+ * queues requests past six per host while their timeout is already running.
+ */
+const RELEASE_PAGE_READ_CONCURRENCY = 4;
 
 export const catalogApi = createApi({
   reducerPath: "catalogApi",
@@ -704,14 +721,7 @@ export const catalogApi = createApi({
      * filtered short page would read as the end of the shelf.
      */
     getArtistReleases: builder.query<ArtistReleasesResponse, ArtistReleasesQuery>({
-      query: ({ artistId, page, limit, genre_id }) => ({
-        url: `/artists/${artistId}/releases`,
-        params: {
-          ...(page != null ? { page } : {}),
-          ...(limit != null ? { limit } : {}),
-          ...(genre_id != null ? { genre_id } : {}),
-        },
-      }),
+      query: artistReleasesRequest,
       // Same opt-out as the card above, for the sharper reason: soft-failing
       // resolves to `{ releases: [] }`, which this screen renders as the JSP's
       // "The artist does not have any library releases" -- a positive claim
@@ -723,49 +733,71 @@ export const catalogApi = createApi({
      * The artist's whole release table, for the classic cards, whose JSPs
      * listed every release with no pager. The endpoint serves at most
      * `CATALOG_QUERY_MAX_LIMIT` rows a page (Backend reuses `/library/query`'s
-     * cap), so this reads page 0 for `totalPages` and then the rest in
-     * parallel.
+     * cap), so this reads page 0 for `totalPages` and then the rest,
+     * `RELEASE_PAGE_READ_CONCURRENCY` at a time.
      *
-     * A later page that fails does not fail the query: the result keeps the
-     * pages before the first failure, which are still the head of the shelf in
-     * shelf order, and sets `incomplete` so the card says the list is partial.
+     * The result is `incomplete`, and the card says the list is partial, when:
+     *  - a later page could not be read (failed, or its body read aborted,
+     *    which the base query reports as `{ data: null }`). The pages before
+     *    the first such page are kept: still the head of the shelf, in order.
+     *  - the shelf changed between page reads. Each page is its own OFFSET
+     *    read, so a filing repeats the previous page's last row and pushes the
+     *    shelf's last release off the end while the count still matches. A
+     *    page whose `total` differs from page 0's gives this away; repeated
+     *    rows are dropped as well, so React never sees a duplicate key.
      * A failed page 0 is an error, as on `getArtistReleases`, and for the same
      * reason opts into `surfaceNonJsonAsError`.
+     *
+     * An incomplete result is re-read by the next subscriber rather than
+     * served from cache: it records a transient failure, not the shelf.
      */
     getAllArtistReleases: builder.query<
       AllArtistReleasesResponse,
       Pick<ArtistReleasesQuery, "artistId" | "genre_id">
     >({
       async queryFn({ artistId, genre_id }, _api, _extraOptions, baseQuery) {
-        const readPage = (page: number) =>
-          baseQuery({
-            url: `/artists/${artistId}/releases`,
-            params: {
-              page,
-              limit: CATALOG_QUERY_MAX_LIMIT,
-              ...(genre_id != null ? { genre_id } : {}),
-            },
-          });
+        const readPage = async (page: number) => {
+          const result = await baseQuery(
+            artistReleasesRequest({ artistId, genre_id, page, limit: CATALOG_QUERY_MAX_LIMIT }),
+          );
+          return { error: result.error, data: (result.data ?? null) as ArtistReleasesResponse | null };
+        };
         const first = await readPage(0);
         if (first.error) return { error: first.error };
-        const head = first.data as ArtistReleasesResponse;
-        const rest = await Promise.all(
-          Array.from({ length: Math.max(0, head.totalPages - 1) }, (_, i) => readPage(i + 1)),
-        );
-        const failed = rest.findIndex((page) => page.error);
-        const read = failed === -1 ? rest : rest.slice(0, failed);
+        if (!first.data) {
+          return { error: { status: "CUSTOM_ERROR", error: "The release page read was aborted" } };
+        }
+        const head = first.data;
+
+        const later: (ArtistReleasesResponse | null)[] = [];
+        let next = 1;
+        const readNext = async () => {
+          while (next < head.totalPages) {
+            const page = next++;
+            later[page - 1] = (await readPage(page)).data;
+          }
+        };
+        await Promise.all(Array.from({ length: RELEASE_PAGE_READ_CONCURRENCY }, readNext));
+
+        const failed = later.findIndex((page) => !page);
+        const read = [head, ...(failed === -1 ? later : later.slice(0, failed))] as ArtistReleasesResponse[];
+        const rows = read.flatMap((page) => page.releases);
+        // A Map keeps each id at its first position, so shelf order survives.
+        const releases = [...new Map(rows.map((release) => [release.id, release])).values()];
+        const shifted =
+          releases.length < rows.length || read.some((page) => page.total !== head.total);
         return {
           data: {
             artist_id: head.artist_id,
-            releases: head.releases.concat(
-              ...read.map((page) => (page.data as ArtistReleasesResponse).releases),
-            ),
+            releases,
             total: head.total,
-            incomplete: failed !== -1,
+            incomplete: failed !== -1 || shifted,
           },
         };
       },
       extraOptions: { surfaceNonJsonAsError: true },
+      forceRefetch: ({ endpointState }) =>
+        (endpointState?.data as AllArtistReleasesResponse | undefined)?.incomplete === true,
       providesTags: (_result, _error, { artistId }) => artistReleaseTags(artistId),
     }),
     /**

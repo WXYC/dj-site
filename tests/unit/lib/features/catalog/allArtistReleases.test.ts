@@ -103,4 +103,98 @@ describe("getAllArtistReleases", () => {
     await vi.waitFor(() => expect(requests).toHaveLength(4));
     sub.unsubscribe();
   });
+
+  // Every page is its own OFFSET read, so a release filed or removed between
+  // two of them shifts the rows under the later pages: a filing repeats the
+  // last row of the page before and pushes the shelf's last release off the
+  // end, with the row count still matching page 0's total.
+  it("drops a repeated row and marks the list incomplete when the shelf changes between page reads", async () => {
+    const before = shelf(200);
+    const filed = { id: 999, code_number: 0 };
+    const after = [filed, ...before];
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/library/artists/${ARTIST_ID}/releases`, ({ request }) => {
+        const page = Number(new URL(request.url).searchParams.get("page"));
+        const rows = page === 0 ? before : after;
+        return HttpResponse.json({
+          artist_id: ARTIST_ID,
+          releases: rows.slice(page * 100, (page + 1) * 100),
+          total: rows.length,
+          page,
+          totalPages: Math.ceil(rows.length / 100),
+        });
+      }),
+    );
+
+    const { data } = await readAll({ artistId: ARTIST_ID });
+
+    const ids = data?.releases.map((r) => r.id) ?? [];
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(data?.incomplete).toBe(true);
+  });
+
+  // Backend runs three queries per page on a pool the live flowsheet shares,
+  // and the browser queues past six connections per host, with the request
+  // timeout already running while a request waits in that queue.
+  it("keeps at most four page reads in flight", async () => {
+    const concurrency = { inFlight: 0, peak: 0 };
+    const requests = serveArtistReleasePages(ARTIST_ID, shelf(1000), { concurrency });
+
+    const { data } = await readAll({ artistId: ARTIST_ID });
+
+    expect(data?.releases).toHaveLength(1000);
+    expect(requests).toHaveLength(10);
+    expect(concurrency.peak).toBeLessThanOrEqual(4);
+  });
+
+  it("re-reads a partial shelf on the next visit rather than serving it from cache", async () => {
+    const store = createTestStore();
+    serveArtistReleasePages(ARTIST_ID, shelf(230), { failPages: [1] });
+    const first = store.dispatch(
+      catalogApi.endpoints.getAllArtistReleases.initiate({ artistId: ARTIST_ID }),
+    );
+    expect((await first).data?.incomplete).toBe(true);
+    first.unsubscribe();
+
+    serveArtistReleasePages(ARTIST_ID, shelf(230));
+    const second = store.dispatch(
+      catalogApi.endpoints.getAllArtistReleases.initiate({ artistId: ARTIST_ID }),
+    );
+    const { data } = await second;
+    second.unsubscribe();
+
+    expect(data?.incomplete).toBe(false);
+    expect(data?.releases).toHaveLength(230);
+  });
+
+  // The base query reports a body read cut off by an abort as `{ data: null }`
+  // with no error, since an abort says nothing about the backend.
+  it("counts a page whose body read was aborted as a page it could not read", async () => {
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/library/artists/${ARTIST_ID}/releases`, ({ request }) => {
+        const page = Number(new URL(request.url).searchParams.get("page"));
+        if (page === 1) {
+          const body = new ReadableStream({
+            start(controller) {
+              controller.error(new DOMException("The operation was aborted.", "AbortError"));
+            },
+          });
+          return new HttpResponse(body, { headers: { "Content-Type": "application/json" } });
+        }
+        return HttpResponse.json({
+          artist_id: ARTIST_ID,
+          releases: shelf(230).slice(page * 100, (page + 1) * 100),
+          total: 230,
+          page,
+          totalPages: 3,
+        });
+      }),
+    );
+
+    const { data, isError } = await readAll({ artistId: ARTIST_ID });
+
+    expect(isError).toBe(false);
+    expect(data?.releases).toHaveLength(100);
+    expect(data?.incomplete).toBe(true);
+  });
 });
