@@ -12,7 +12,7 @@ import "@/src/styles/classic/previous-sets.css";
 //
 // Callers must gate on results.length > 0 — the table doesn't render its
 // own empty state. PreviousSetsContainer surfaces "No results found" copy
-// above the table, mirroring Modern's PlaylistSearchContainer.
+// above the table.
 export default function ResultTable({
   results,
 }: {
