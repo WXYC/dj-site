@@ -188,6 +188,17 @@ export function parseReleaseCodeNumber(raw: string): number | null {
 }
 
 /**
+ * An artist's call number as `genre_artist_crossreference.artist_genre_code`
+ * stores it: a non-negative base-10 integer within the column's int4 range.
+ * Zero is valid (compilation sections are filed at 0). Distinct from
+ * `parseReleaseCodeNumber`, whose column is a positive smallint.
+ */
+export function parseArtistCodeNumber(raw: string): number | null {
+  const parsed = parseRequiredNonNegativeInt(raw);
+  return parsed !== null && parsed <= CODE_NUMBER_MAX ? parsed : null;
+}
+
+/**
  * Length check for `code_volume_letters`: like `code_letters`, this column is
  * gated on length alone at the point of filing. `isCanonicalCodeLetters`
  * below is not a filing rule at all -- it answers what `GET

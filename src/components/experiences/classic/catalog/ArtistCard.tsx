@@ -148,6 +148,7 @@ export default function ArtistCard({ artistId, genreId, message, imported, refil
     data: artist,
     isLoading: artistLoading,
     isError: artistError,
+    isFetching: artistFetching,
   } = useGetArtistCardQuery({ artistId, genre_id: genreId });
   const {
     data: releaseList,
@@ -261,8 +262,11 @@ export default function ArtistCard({ artistId, genreId, message, imported, refil
 
   // Artist half only: a re-file moves the shelf, not a release, so the old and
   // new codes differ in the number alone (same genre, same letters).
+  // Only from settled data that already shows the move: the cache can still
+  // hold the pre-re-file card while the invalidated refetch is in flight, and
+  // a banner composed from it would read "from IS 1 to IS 1".
   const refiledMessage =
-    refiled && artist
+    refiled && artist && !artistFetching && artist.code_artist_number !== refiled.from
       ? `Re-filed from ${formatArtistLibraryCode({ genreName, code_letters: artist.code_letters, code_artist_number: refiled.from })} to ${formatArtistLibraryCode({ genreName, code_letters: artist.code_letters, code_artist_number: artist.code_artist_number })}. Relabel ${refiled.releases} ${refiled.releases === 1 ? "record" : "records"} on the shelf.`
       : undefined;
 
