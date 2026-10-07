@@ -792,7 +792,6 @@ describe("usePlaylistSearchResults", () => {
     });
     rerender();
 
-    expect(result.current.usingSeed).toBe(false);
     expect(result.current.displayResults).toEqual([]);
   });
 

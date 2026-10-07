@@ -436,8 +436,8 @@ export interface UsePlaylistSearchResultsOptions {
 }
 
 /**
- * Owns *which* rows a playlist surface renders, and whether the server seed is
- * still standing in for the client query.
+ * Owns *which* rows a playlist surface renders, including when a server seed
+ * gives way to the client query.
  *
  * Every playlist surface consumes this rather than assembling the rules itself.
  * The seed-retirement rule below is subtle enough that a second copy of it will
@@ -477,7 +477,6 @@ export function usePlaylistSearchResults(
     displayResults: usingSeed
       ? (initialResults as PlaylistSearchResult[])
       : results,
-    usingSeed,
     showResults: shouldShowResults(effectiveQuery),
     isRealQuery: isRealQuery(effectiveQuery),
     isDefaultQuery: isDefaultQuery(effectiveQuery),
