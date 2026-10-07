@@ -240,6 +240,35 @@ export type UpdateArtistRequestBody = {
   artist_name?: string;
 };
 
+/** POST /library/artists/:id/refile. Any other key is a 400. */
+export type RefileArtistRequestBody = {
+  genre_id: number;
+  code_artist_number: number;
+};
+
+/** 200 from the refile endpoint: the genre-scoped card plus what changed. */
+export type ArtistRefileResult = ArtistCard & {
+  changed: boolean;
+  previous_code_artist_number: number;
+  /** Records on the shelf whose labels now need reprinting. */
+  releases_to_relabel: number;
+};
+
+/** The `artist` in a refile 409: the contract's Artist schema (keyed `id`), `code_artist_number` = the target. */
+export type ArtistRefileConflictHolder = {
+  id: number;
+  artist_name: string;
+  code_artist_number?: number;
+  [key: string]: unknown;
+};
+
+/** The 409 body of the refile endpoint. */
+export type ArtistRefileConflictBody = {
+  message?: string;
+  reason: "artist_code_conflict" | "lettered_compilation_section";
+  artist?: ArtistRefileConflictHolder;
+};
+
 /** One row of the artist card's release table (GET /library/artists/:id/releases). */
 export type ArtistRelease = {
   id: number;
