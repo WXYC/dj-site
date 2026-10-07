@@ -134,6 +134,7 @@ export NEXT_PUBLIC_STATION_SIGNUP_ADMIN_ENABLED=true
 # (e2e-tests.yml). No spec exercises it yet; exported so the local dj-site
 # build inlines the same flag set as CI's and the two can't diverge on it.
 export NEXT_PUBLIC_ROTATION_ADMIN_ENABLED=true
+export NEXT_PUBLIC_REVIEWS_ENABLED=true
 
 echo "==> Building dj-site (primary)..."
 # Primary build -> .next/

@@ -24,6 +24,7 @@ import { lmlApi } from "./features/lml/api";
 import { metadataApi } from "./features/metadata/api";
 import { playlistSearchApi } from "./features/playlist-search/api";
 import { playlistSearchSlice } from "./features/playlist-search/frontend";
+import { reviewsApi } from "./features/reviews/api";
 import { rotationApi } from "./features/rotation/api";
 import { scheduleWeekApi } from "./features/schedule-week/api";
 import { showPlaylistApi } from "./features/show-playlist/api";
@@ -49,6 +50,7 @@ const rootReducer = combineSlices(
   playlistSearchSlice,
   playlistSearchApi,
   rotationSlice,
+  reviewsApi,
   rotationApi,
   scheduleWeekApi,
   showPlaylistApi,
@@ -79,6 +81,7 @@ export const makeStore = (preloadedState?: Partial<RootState>) => {
         .concat(lmlApi.middleware)
         .concat(metadataApi.middleware)
         .concat(playlistSearchApi.middleware)
+        .concat(reviewsApi.middleware)
         .concat(rotationApi.middleware)
         .concat(scheduleWeekApi.middleware)
         .concat(showPlaylistApi.middleware)
