@@ -158,6 +158,7 @@ describe("refileArtist", () => {
 
   it.each([
     { label: "lettered section 409", status: 409, body: { message: "x", reason: "lettered_compilation_section" } },
+    { label: "various artists section 409", status: 409, body: { message: "x", reason: "various_artists_section" } },
     { label: "unknown 409", status: 409, body: { message: "x", reason: "from_the_future" } },
     { label: "404", status: 404, body: { message: "Artist not found" } },
     { label: "400", status: 400, body: { message: "bad" } },
