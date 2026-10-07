@@ -1,11 +1,13 @@
 "use client";
 
+import { skipToken } from "@reduxjs/toolkit/query";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   useGetArtistCardQuery,
   useGetGenresQuery,
   useRefileArtistMutation,
+  useResolveArtistByCodeQuery,
 } from "@/lib/features/catalog/api";
 import { CODE_NUMBER_MAX, parseArtistCodeNumber } from "@/lib/features/catalog/adminCreateArtistValidation";
 import { artistCardHref } from "@/lib/features/catalog/artistCardRoute";
@@ -14,12 +16,15 @@ import {
   type ArtistRefileRefusal,
 } from "@/lib/features/catalog/artistRefileOutcome";
 import { formatArtistLibraryCode, isVariousArtists } from "@/lib/features/catalog/libraryCode";
+import { resolveArtistByCodeErrorReason } from "@/lib/features/catalog/libraryCodeResolution";
+
+const OCCUPANCY_DEBOUNCE_MS = 300;
 
 /**
  * Re-file an artist's call number on one genre shelf -- two steps, like the
- * delete screen's confirm page: Choose the number, then Confirm. The server's
- * 409 is the authority on whether a number is taken, and its holder is named
- * (and linked) when it lands. Every refusal is stated once here -- the
+ * delete screen's confirm page: Choose the number (with an advisory occupancy
+ * line), then Confirm. The occupancy line is advisory only; the server's 409
+ * is the authority, and its holder is named (and linked) when it lands. Every refusal is stated once here -- the
  * mutation wraps its errors so no toast doubles it.
  */
 export default function ArtistRefileForm({
@@ -42,6 +47,18 @@ export default function ArtistRefileForm({
   const [submitted, setSubmitted] = useState(false);
 
   const target = parseArtistCodeNumber(text);
+
+  const [debounced, setDebounced] = useState<number | null>(null);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebounced(target), OCCUPANCY_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [target]);
+
+  const occupancy = useResolveArtistByCodeQuery(
+    card && debounced !== null && debounced !== card.code_artist_number
+      ? { genre_id: genreId, code_letters: card.code_letters, code_number: debounced }
+      : skipToken,
+  );
 
   if (!card) {
     return isLoading ? (
@@ -83,6 +100,18 @@ export default function ArtistRefileForm({
     );
   }
 
+
+  // Advisory line for the number the box holds now: stale (still debouncing or
+  // refetching) and unreadable answers say nothing rather than guess.
+  const isCurrent = target === card.code_artist_number;
+  const settled = target !== null && !isCurrent && debounced === target && !occupancy.isFetching;
+  const owners = settled ? occupancy.currentData?.artists : undefined;
+  const holder = owners?.find((owner) => owner.id !== artistId);
+  const free =
+    settled &&
+    (occupancy.currentData
+      ? owners !== null && owners !== undefined && holder === undefined
+      : resolveArtistByCodeErrorReason(occupancy.error) === "code_not_assigned");
   const conflictHolder = refusal?.reason === "conflict" ? refusal.holder : undefined;
 
   const submit = async () => {
@@ -157,6 +186,18 @@ export default function ArtistRefileForm({
                       setRefusal(null);
                     }}
                   />
+                  <div data-testid="artist-refile-occupancy" role="status">
+                    {isCurrent ? (
+                      "That is the current call number."
+                    ) : holder ? (
+                      <>
+                        {codeOf(holder.code_number)} is held by{" "}
+                        <a href={artistCardHref(holder, { genreId })}>{holder.artist_name}</a>.
+                      </>
+                    ) : free && target !== null ? (
+                      `${codeOf(target)} is free.`
+                    ) : null}
+                  </div>
                 </td>
               </tr>
               <tr>

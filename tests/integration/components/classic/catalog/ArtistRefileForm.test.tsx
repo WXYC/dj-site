@@ -7,6 +7,7 @@ const mockCardQuery = vi.fn();
 const mockGenresQuery = vi.fn();
 const mockRefile = vi.fn();
 const mockPush = vi.fn();
+const mockByCodeQuery = vi.fn();
 const mockRefiling = { value: false };
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: mockPush, replace: vi.fn() }) }));
@@ -16,6 +17,7 @@ vi.mock("@/lib/features/catalog/api", async (importOriginal) => {
     ...actual,
     useGetArtistCardQuery: (...a: unknown[]) => mockCardQuery(...a),
     useGetGenresQuery: (...a: unknown[]) => mockGenresQuery(...a),
+    useResolveArtistByCodeQuery: (...a: unknown[]) => mockByCodeQuery(...a),
     useRefileArtistMutation: () => [mockRefile, { isLoading: mockRefiling.value }],
   };
 });
@@ -35,6 +37,18 @@ const card = {
 };
 const holder = { id: 777, artist_name: "Isobel Campbell", code_letters: "IS", code_number: 31, genre_id: GENRE_ID };
 
+const byCode = (artists: unknown[] | null | undefined, error?: unknown, isFetching = false) =>
+  mockByCodeQuery.mockReturnValue({
+    currentData: artists === undefined ? undefined : { artists },
+    error,
+    isFetching,
+  });
+const NOT_ASSIGNED = { resolveArtistByCodeError: { status: 404, data: { reason: "code_not_assigned" } } };
+const occupancyText = () => screen.getByTestId("artist-refile-occupancy");
+const lookedUp = (n: number) =>
+  waitFor(() =>
+    expect(mockByCodeQuery).toHaveBeenLastCalledWith({ genre_id: GENRE_ID, code_letters: "IS", code_number: n }),
+  );
 const rejects = (status: number, data: unknown) => ({
   unwrap: () => Promise.reject({ refileArtistError: { status, data } }),
 });
@@ -55,6 +69,7 @@ describe("classic ArtistRefileForm", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockRefiling.value = false;
+    byCode(undefined);
     mockCardQuery.mockReturnValue({ data: card, isLoading: false });
     mockGenresQuery.mockReturnValue({ data: [{ id: GENRE_ID, genre_name: "Hiphop" }] });
   });
@@ -248,5 +263,72 @@ describe("classic ArtistRefileForm", () => {
     );
     expect(screen.getByRole("button", { name: "Re-file The Artist" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Back" })).toBeDisabled();
+  });
+
+  describe("advisory occupancy line", () => {
+    it("says nothing until a number is chosen, and before the debounce elapses", async () => {
+      byCode(undefined, NOT_ASSIGNED);
+      renderWithProviders(<ArtistRefileForm artistId={ARTIST_ID} genreId={GENRE_ID} />);
+      expect(occupancyText()).toBeEmptyDOMElement();
+
+      await type("31");
+      // Typed, but the lookup has not been issued yet.
+      expect(occupancyText()).toBeEmptyDOMElement();
+      await lookedUp(31);
+    });
+
+    it("reports a free number (an unassigned code is a 404)", async () => {
+      byCode(undefined, NOT_ASSIGNED);
+      renderWithProviders(<ArtistRefileForm artistId={ARTIST_ID} genreId={GENRE_ID} />);
+      await type("31");
+
+      await waitFor(() => expect(occupancyText()).toHaveTextContent("Hiphop IS 31 is free."));
+    });
+
+    it("names the holder of an occupied number and links to their card", async () => {
+      byCode([holder]);
+      renderWithProviders(<ArtistRefileForm artistId={ARTIST_ID} genreId={GENRE_ID} />);
+      await type("31");
+
+      await waitFor(() => expect(occupancyText()).toHaveTextContent("Hiphop IS 31 is held by Isobel Campbell."));
+      expect(occupancyText().querySelector("a")?.getAttribute("href")).toBe(
+        `/dashboard/library/artist/777?genre_id=${GENRE_ID}`,
+      );
+    });
+
+    it("does not count the artist itself as a holder", async () => {
+      byCode([{ ...holder, id: ARTIST_ID, artist_name: "Isis" }]);
+      renderWithProviders(<ArtistRefileForm artistId={ARTIST_ID} genreId={GENRE_ID} />);
+      await type("31");
+
+      await waitFor(() => expect(occupancyText()).toHaveTextContent("is free."));
+    });
+
+    it("calls the artist's own number the current one, not free, and does not look it up", async () => {
+      renderWithProviders(<ArtistRefileForm artistId={ARTIST_ID} genreId={GENRE_ID} />);
+      await type("1");
+
+      expect(occupancyText()).toHaveTextContent("That is the current call number.");
+      expect(mockByCodeQuery).not.toHaveBeenCalledWith(expect.objectContaining({ code_number: 1 }));
+    });
+
+    it.each([
+      { name: "an in-flight lookup", artists: [holder], error: undefined, fetching: true },
+      { name: "an unreadable body", artists: null, error: undefined, fetching: false },
+      { name: "a non-404 error", artists: undefined, error: { resolveArtistByCodeError: { status: 500, data: {} } }, fetching: false },
+      {
+        name: "a genre_not_found 404",
+        artists: undefined,
+        error: { resolveArtistByCodeError: { status: 404, data: { reason: "genre_not_found" } } },
+        fetching: false,
+      },
+    ])("says nothing for $name", async ({ artists, error, fetching }) => {
+      byCode(artists, error, fetching);
+      renderWithProviders(<ArtistRefileForm artistId={ARTIST_ID} genreId={GENRE_ID} />);
+      await type("31");
+      await lookedUp(31);
+
+      expect(occupancyText()).toBeEmptyDOMElement();
+    });
   });
 });
