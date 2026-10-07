@@ -174,40 +174,6 @@ export type UpdateRotationArgs = {
 };
 
 /**
- * `POST /library/rotation` body for a release with no catalogued album: the
- * endpoint accepts `artist_name` + `album_title` in place of `album_id` (see
- * `pickAddRotationFields` in
- * `apps/backend/controllers/library.controller.ts`). Hand-declared because
- * the published `AddRotationRequest` is `RotationCreateFields` plus a
- * required `album_id: number`, with no free-text arm; the generated type
- * replaces this one when the contract declares that arm.
- *
- * `format_id` and `label_id` are accepted only on that same uncatalogued
- * branch, exactly like the free-text trio: on a linked add the format and the
- * label are the library row's to state, and a rotation-side copy would drift
- * from it. Both are optional-and-omitted rather than nullable: Backend picks
- * them with `!= null`, so an explicit `null` reads as absent, and a caller
- * that means "no label" must leave the key off rather than send one.
- */
-export type FreeTextRotationAddRequest = {
-  rotation_bin: RotationBin;
-  artist_name: string;
-  album_title: string;
-  record_label?: string;
-  format_id?: number;
-  label_id?: number;
-  /**
-   * Storage order, the published `AddRotationRequest.urls` shape verbatim
-   * (plain strings, never `format: uri` — see `RotationListRow.urls`).
-   * Carried on a move so a re-filing keeps the source row's links instead
-   * of orphaning them on the row it retires. The deployed Backend admits
-   * `urls` on both POST arms, so the carry is live; an older backend's add
-   * allowlist would silently drop the key instead.
-   */
-  urls?: string[];
-};
-
-/**
  * A `GET /library/rotation/cards` row: the published card plus how many
  * active rotation rows are filed on it. The contract declares the cards-list
  * item as an inline `allOf[RotationCard, {active_count}]` on the response

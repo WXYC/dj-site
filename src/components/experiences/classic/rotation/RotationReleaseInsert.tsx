@@ -7,8 +7,8 @@ import {
   RotationBin,
   ROTATION_BINS,
   ROTATION_BIN_LABELS,
-  type FreeTextRotationAddRequest,
 } from "@/lib/features/rotation/types";
+import type { AddRotationTypedTextRequest } from "@wxyc/shared";
 import { useAddFreeTextRotationEntryMutation } from "@/lib/features/rotation/api";
 import { useGetFormatsQuery } from "@/lib/features/catalog/api";
 import { rotationReleaseRefusal } from "@/lib/features/rotation/releaseFormValidation";
@@ -108,7 +108,7 @@ export default function RotationReleaseInsert() {
     setValidationMessage(null);
 
     const trimmedLabel = recordLabel.trim();
-    const body: FreeTextRotationAddRequest = {
+    const body: AddRotationTypedTextRequest = {
       rotation_bin: rotationBin,
       artist_name: artistPresentationName.trim(),
       album_title: title.trim(),

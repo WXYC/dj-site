@@ -11,13 +11,13 @@ import { AlbumEntry, AlbumSearchResultJSON } from "../catalog/types";
 import type {
   AddRotationCardRequest,
   AddRotationRequest,
+  AddRotationTypedTextRequest,
   KillRotationRequest,
   RotationCard,
   RotationEntry,
   UpdateRotationCardRequest,
 } from "@wxyc/shared";
 import type {
-  FreeTextRotationAddRequest,
   LinkRotationArgs,
   RotationCardWithCount,
   RotationListRow,
@@ -281,7 +281,7 @@ export const rotationApi = createApi({
     // which is typed against the published `AddRotationRequest` and requires
     // `album_id`. The response is the full raw `rotation` row, a superset of
     // `RotationRowSummary`'s fields.
-    addFreeTextRotationEntry: builder.mutation<RotationRowSummary, FreeTextRotationAddRequest>({
+    addFreeTextRotationEntry: builder.mutation<RotationRowSummary, AddRotationTypedTextRequest>({
       query: (body) => ({ url: "", method: "POST", body }),
       transformErrorResponse: wrapRotationWriteError,
       // Crosses the tag wall for the same reason as `addRotationEntry`.

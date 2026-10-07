@@ -641,15 +641,51 @@ describe("RotationAdminList", () => {
             format_id: 7,
             label_id: 42,
             urls: ["chuquimamani.bandcamp.com/album/edits"],
+            moved_from_rotation_id: 5004,
           },
         ]),
       );
-      await waitFor(() => expect(fake.killBodies()).toEqual([{ rotation_id: 5004 }]));
-      expect(fake.callOrder()).toEqual(["add", "kill"]);
+      // The server retires the source in the add's own transaction, so the
+      // client sends no kill for it.
+      await killedSection().findByText("Edits");
+      expect(fake.killBodies()).toEqual([]);
+      expect(fake.callOrder()).toEqual(["add"]);
 
       const movedRow = await screen.findByTestId("rotation-admin-row-5006");
       expect(within(movedRow).getByText("Chuquimamani-Condori")).toBeInTheDocument();
       await killedSection().findByText("Edits");
+    });
+
+    describe("a refused unlinked move", () => {
+      const APPROVED_LINE =
+        "This entry can't be moved here. It may already be linked to a release, it may have been taken out of rotation or moved already, or it may have been added after reviews moved into the DJ site. Reload the list to see where it stands now.";
+      const SERVER_MESSAGES = [
+        "This rotation entry can't be moved to another bin this way. It is already linked to a release, or it was added after reviews moved into the DJ site.",
+        "This rotation entry was taken out of rotation, linked, or moved before the move could save. Nothing was changed; reload to see where it stands.",
+      ];
+
+      it.each(SERVER_MESSAGES)(
+        "shows the screen's own line, never the server's message, and refetches the list: %s",
+        async (message) => {
+          const { fake, user } = await renderList();
+          await activeSection().findByText("Edits");
+          const listReads = fake.listRequests();
+          server.use(
+            http.post(`${TEST_BACKEND_URL}/library/rotation`, () =>
+              HttpResponse.json({ message, reason: "rotation_not_eligible" }, { status: 409 }),
+            ),
+          );
+
+          await user.click(screen.getByRole("button", { name: "Move to Light: Edits" }));
+
+          await waitFor(() => expect(toastErrorMock).toHaveBeenCalledTimes(1));
+          expect(toastErrorMock.mock.calls[0][0]).toBe(APPROVED_LINE);
+          expect(JSON.stringify(toastErrorMock.mock.calls)).not.toContain(message);
+          expect(screen.queryByText(message)).not.toBeInTheDocument();
+          await waitFor(() => expect(fake.listRequests()).toBeGreaterThan(listReads));
+          expect(fake.killBodies()).toEqual([]);
+        },
+      );
     });
 
     it("refuses an unlinked move when the single-row read fails — nothing changed", async () => {

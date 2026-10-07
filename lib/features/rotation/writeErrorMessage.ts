@@ -1,6 +1,6 @@
 import type { FetchBaseQueryError } from "@reduxjs/toolkit/query";
 import { backendWriteErrorMessage } from "@/lib/backend-error-message";
-import { unwrapEndpointError } from "@/lib/rtk-endpoint-error";
+import { bodyReason, unwrapEndpointError } from "@/lib/rtk-endpoint-error";
 
 type WrappedRotationWriteError = { rotationWriteError: FetchBaseQueryError };
 
@@ -29,4 +29,14 @@ export function rotationWriteErrorMessage(err: unknown, fallback: string): strin
     isWrapped ? unwrapEndpointError("rotationWriteError", err) : err,
     fallback,
   );
+}
+
+/** This screen's own line for a refused legacy move; the server's `message` is never shown for it. */
+export const ROTATION_MOVE_NOT_ELIGIBLE_MESSAGE =
+  "This entry can't be moved here. It may already be linked to a release, it may have been taken out of rotation or moved already, or it may have been added after reviews moved into the DJ site. Reload the list to see where it stands now.";
+
+/** Whether a free-text add's rejection is the 409 `rotation_not_eligible` refusal of a move. */
+export function isRotationMoveNotEligible(err: unknown): boolean {
+  const response = unwrapEndpointError("rotationWriteError", err);
+  return response?.status === 409 && bodyReason(response.data) === "rotation_not_eligible";
 }

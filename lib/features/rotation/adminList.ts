@@ -1,9 +1,9 @@
+import type { AddRotationTypedTextRequest } from "@wxyc/shared";
 import { foldForSearch } from "../admin/roster-filter";
 import { formatEntireLibraryCode } from "../catalog/libraryCode";
 import { byMostRecentlyAdded } from "./classicList";
 import {
   ROTATION_BINS,
-  type FreeTextRotationAddRequest,
   type RotationBin,
   type RotationListRow,
   type RotationRowSummary,
@@ -76,7 +76,7 @@ export function rotationRowCode(row: RotationListRow): string | null {
  */
 function movableSnapshot(
   row: RotationListRow,
-): Pick<FreeTextRotationAddRequest, "artist_name" | "album_title" | "record_label"> | null {
+): Pick<AddRotationTypedTextRequest, "artist_name" | "album_title" | "record_label"> | null {
   const artist = row.artist_name?.trim();
   const title = row.album_title?.trim();
   if (!artist || !title) return null;
@@ -95,18 +95,21 @@ function movableSnapshot(
  * and `urls` from the row itself, and the pre-catalog `format_id`/`label_id`
  * from `detail` — the single-row read's answer, the one place those fields
  * are readable (see `movableSnapshot`). All three optional fields are
- * omitted-never-null, matching the endpoint's `!= null` pick.
+ * omitted-never-null, matching the endpoint's `!= null` pick. The request
+ * names the source row (`moved_from_rotation_id`), which the server retires
+ * with the add.
  */
 export function freeTextRotationMoveRequest(
   row: RotationListRow,
   targetBin: RotationBin,
   detail: Pick<RotationRowSummary, "format_id" | "label_id">,
-): FreeTextRotationAddRequest | null {
+): AddRotationTypedTextRequest | null {
   const snapshot = movableSnapshot(row);
   if (snapshot == null) return null;
   return {
     rotation_bin: targetBin,
     ...snapshot,
+    moved_from_rotation_id: row.rotation_id,
     ...(detail.format_id != null ? { format_id: detail.format_id } : {}),
     ...(detail.label_id != null ? { label_id: detail.label_id } : {}),
     ...(row.urls?.length ? { urls: row.urls } : {}),
@@ -162,7 +165,9 @@ export function rotationMoveRetireIds(
         sameIdentity(candidate),
     )
     .map((candidate) => candidate.rotation_id);
-  return [row.rotation_id, ...targetBinDuplicates];
+  // An unlinked row's add names it in `moved_from_rotation_id` and the server
+  // kills it in the same transaction, so it is never retired here.
+  return row.id != null ? [row.rotation_id, ...targetBinDuplicates] : targetBinDuplicates;
 }
 
 /**
