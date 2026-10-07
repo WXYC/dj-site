@@ -113,15 +113,46 @@ describe("refileArtist", () => {
     unsubscribe();
   });
 
-  it("scopes the code tags from the result's stored bucket on success", async () => {
+  it.each([
+    {
+      label: "result moved to another bucket: source and stored bucket both refetch",
+      result: { ...RESULT, code_letters: "AU", genre_id: 15 },
+      body: { genre_id: GENRE_ID, code_artist_number: 31 },
+      scoped: 2,
+      other: 2,
+    },
+    {
+      label: "re-letter into AU: source IS and requested AU bucket both refetch",
+      result: { ...RESULT, code_letters: "AU", previous_code_letters: "IS" },
+      body: { genre_id: GENRE_ID, code_artist_number: 31, code_letters: "AU" },
+      scoped: 2,
+      other: 1,
+    },
+  ])("scopes the code tags to both buckets: $label", async ({ result, body, scoped, other }) => {
     const { store, calls, unsubscribe } = await subscribed();
-    server.use(http.post(REFILE_URL, () => HttpResponse.json({ ...RESULT, code_letters: "AU", genre_id: 15 })));
+    server.use(http.post(REFILE_URL, () => HttpResponse.json(result)));
 
-    await store.dispatch(catalogApi.endpoints.refileArtist.initiate(ARG));
+    await store.dispatch(catalogApi.endpoints.refileArtist.initiate({ ...ARG, body }));
+    await vi.waitFor(() => expect(calls.byCodeScoped).toBe(scoped));
+    await settle();
+    expect(calls.peek).toBe(2);
+    expect(calls.byCodeOther).toBe(other);
+    unsubscribe();
+  });
+
+  it("a 409 conflict on a genre move refetches the destination and the source buckets", async () => {
+    const { store, calls, unsubscribe } = await subscribed();
+    server.use(
+      http.post(REFILE_URL, () =>
+        HttpResponse.json({ message: "held", reason: "artist_code_conflict" }, { status: 409 }),
+      ),
+    );
+
+    const body = { genre_id: GENRE_ID, code_artist_number: 3, code_letters: "AU", to_genre_id: 15 };
+    await store.dispatch(catalogApi.endpoints.refileArtist.initiate({ ...ARG, body }));
     await vi.waitFor(() => expect(calls.byCodeOther).toBe(2));
     await settle();
-    expect(calls.byCodeScoped).toBe(1);
-    expect(calls.peek).toBe(1);
+    expect(calls).toEqual({ ...ZERO, peek: 2, byCodeScoped: 2, byCodeOther: 2 });
     unsubscribe();
   });
 

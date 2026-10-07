@@ -240,8 +240,8 @@ export type ArtistCard = {
  * `code_letters`, and `code_artist_number` with a 400 naming why rather than
  * dropping them silently, so widening this type would turn a compile-time
  * constraint into a runtime rejection. `code_artist_number` is writable, but
- * only through `POST /library/artists/{id}/refile` (the re-file screen);
- * `genre_id` and `code_letters` are not writable by any endpoint.
+ * only through `POST /library/artists/{id}/refile` (the re-file screen), as
+ * are `code_letters` and the genre (`to_genre_id`).
  */
 export type UpdateArtistRequestBody = {
   alphabetical_name: string;
@@ -250,6 +250,17 @@ export type UpdateArtistRequestBody = {
 
 /** POST /library/artists/:id/refile. Any other key is a 400. */
 export type RefileArtistRequestBody = {
+  /** The membership being moved. */
+  genre_id: number;
+  code_artist_number: number;
+  /** New call letters; omit to keep the current ones. The server trims and upper-cases. */
+  code_letters?: string;
+  /** Destination genre; omit (or send `genre_id`) to stay in this genre. */
+  to_genre_id?: number;
+};
+
+/** One genre membership of an artist, as carried by a `letters_shared_across_genres` 409. */
+export type ArtistGenreMembership = {
   genre_id: number;
   code_artist_number: number;
 };
@@ -268,6 +279,10 @@ export type ArtistRefileCard = Omit<
 export type ArtistRefileResult = ArtistRefileCard & {
   changed: boolean;
   previous_code_artist_number: number;
+  /** Absent from a server that predates the letters/genre re-file. */
+  previous_code_letters?: string;
+  /** Absent from a server that predates the letters/genre re-file. */
+  previous_genre_id?: number;
   /** Records on the shelf whose labels now need reprinting. */
   releases_to_relabel: number;
 };

@@ -2,6 +2,9 @@ import { describe, it, expect } from "vitest";
 import {
   artistRefileAnsweredWithoutWriting,
   interpretArtistRefileError,
+  ARTIST_REFILE_ALREADY_FILED_MESSAGE,
+  ARTIST_REFILE_GENRE_NOT_FOUND_MESSAGE,
+  ARTIST_REFILE_SHARED_LETTERS_MESSAGE,
   ARTIST_REFILE_FALLBACK_MESSAGE,
   ARTIST_REFILE_INDETERMINATE_MESSAGE,
   ARTIST_REFILE_LOCK_MESSAGE,
@@ -203,5 +206,78 @@ describe("interpretArtistRefileError", () => {
 
   it("never treats a prototype key as a reason", () => {
     expect(interpretArtistRefileError(wrapped(409, { reason: "__proto__" })).reason).toBe("generic");
+  });
+});
+
+describe("interpretArtistRefileError: letters and genre moves", () => {
+  const genres = [
+    { id: 6, genre_name: "Jazz" },
+    { id: 9, genre_name: "Electronic" },
+    { id: 12, genre_name: "Rock" },
+  ];
+  const memberships = [
+    { genre_id: 6, code_artist_number: 36 },
+    { genre_id: 9, code_artist_number: 4 },
+  ];
+  const shared = wrapped(409, { message: "x", reason: "letters_shared_across_genres", memberships });
+
+  it.each([
+    {
+      label: "names the other genres, leaving out the one being moved",
+      err: shared,
+      context: { genres, genreId: 6 },
+      message: "Jam Money is also filed under Electronic, so changing its letters would re-letter that shelf too. Nothing was changed.",
+    },
+    {
+      label: "names every genre when the moving one is unknown",
+      err: shared,
+      context: { genres },
+      message: "Jam Money is also filed under Jazz and Electronic, so changing its letters would re-letter that shelf too. Nothing was changed.",
+    },
+    {
+      label: "degrades to a count when the genre list is unavailable",
+      err: shared,
+      context: { genreId: 6 },
+      message: ARTIST_REFILE_SHARED_LETTERS_MESSAGE,
+    },
+    {
+      label: "degrades when a membership names an unknown genre",
+      err: shared,
+      context: { genres: [genres[0]], genreId: 6 },
+      message: ARTIST_REFILE_SHARED_LETTERS_MESSAGE,
+    },
+    {
+      label: "degrades when memberships is not an array",
+      err: wrapped(409, { message: "x", reason: "letters_shared_across_genres", memberships: "no" }),
+      context: { genres, genreId: 6 },
+      message: ARTIST_REFILE_SHARED_LETTERS_MESSAGE,
+    },
+    {
+      label: "no context at all",
+      err: shared,
+      context: undefined,
+      message: ARTIST_REFILE_SHARED_LETTERS_MESSAGE,
+    },
+  ])("letters_shared_across_genres $label", ({ err, context, message }) => {
+    const out = interpretArtistRefileError(err, { artistName: "Jam Money", ...context });
+    expect(out).toMatchObject({ reason: "letters_shared_across_genres", retryable: false });
+    expect(out.message).toBe(message);
+  });
+
+  it.each([
+    {
+      label: "already_filed_in_genre",
+      err: wrapped(409, { message: "x", reason: "already_filed_in_genre" }),
+      reason: "already_filed_in_genre",
+      message: ARTIST_REFILE_ALREADY_FILED_MESSAGE,
+    },
+    {
+      label: "genre_not_found",
+      err: wrapped(404, { message: "x", code: "genre_not_found" }),
+      reason: "genre_not_found",
+      message: ARTIST_REFILE_GENRE_NOT_FOUND_MESSAGE,
+    },
+  ])("$label", ({ err, reason, message }) => {
+    expect(interpretArtistRefileError(err)).toEqual({ reason, message, retryable: false });
   });
 });

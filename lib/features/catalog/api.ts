@@ -676,8 +676,9 @@ export const catalogApi = createApi({
     }),
     /**
      * `POST /library/artists/{artistId}/refile` -- move an artist to another
-     * call number on one genre shelf. `code_letters` rides in the arg (not the
-     * body, which rejects unknown keys) only to scope the by-code caches.
+     * call number, call letters or genre. `code_letters` rides in the arg (not
+     * the body, which rejects unknown keys) as the SOURCE letters, only to
+     * scope the by-code caches.
      * `interpretArtistRefileError` owns the refusal taxonomy.
      *
      * Cross-slice audit (which other slices carry the artist number): `binApi`
@@ -705,16 +706,23 @@ export const catalogApi = createApi({
       // A refusal below 500 wrote nothing, and so did a 200 with `changed:
       // false`; a 5xx or a lost answer may have written. The one refusal that
       // is evidence is a 409 `artist_code_conflict`: it proves the cached
-      // by-code/peek answers for the target bucket are stale. On success the
-      // code tags come from the result (the stored shelf), on error paths from
-      // the arg.
+      // by-code/peek answers for the target bucket are stale. A write can
+      // change two buckets (a re-letter or genre move vacates the source and
+      // fills the destination), so the code tags cover both: the destination
+      // from the result (the stored shelf) or, on error paths, from the
+      // request; the source from the arg.
       invalidatesTags: (result, error, { artistId, code_letters, body }) => {
         if (result?.changed === false) return [];
-        const bucket = `${result?.genre_id ?? body.genre_id}:${result?.code_letters ?? code_letters}`;
-        const codeTags = [
-          { type: "ArtistCodePeek" as const, id: bucket },
-          { type: "ArtistByCode" as const, id: bucket },
-        ];
+        const buckets = new Set([
+          `${body.genre_id}:${code_letters}`,
+          result
+            ? `${result.genre_id}:${result.code_letters}`
+            : `${body.to_genre_id ?? body.genre_id}:${body.code_letters ?? code_letters}`,
+        ]);
+        const codeTags = [...buckets].flatMap((id) => [
+          { type: "ArtistCodePeek" as const, id },
+          { type: "ArtistByCode" as const, id },
+        ]);
         if (artistRefileAnsweredWithoutWriting(error)) {
           return bodyReason(unwrapEndpointErrorOrRaw("refileArtistError", error)?.data) === "artist_code_conflict"
             ? codeTags
