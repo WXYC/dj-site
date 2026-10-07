@@ -681,11 +681,13 @@ export const catalogApi = createApi({
      * scope the by-code caches.
      * `interpretArtistRefileError` owns the refusal taxonomy.
      *
-     * Cross-slice audit (which other slices carry the artist number): `binApi`
+     * Cross-slice audit (which other slices carry the artist's call code:
+     * number, letters or genre): `binApi`
      * `getBin` (BinLibraryDetails -> `convertToAlbumEntry`, tag `Bin`) and
      * `rotationApi` `getRotation` / `getRotationList` / `getRotationRow`
      * (tag `Rotation`) do; `RotationCards` does not (`RotationCardWithCount`
-     * has no artist number), so it is left alone. LML is deliberately not
+     * has no artist code), so it is left alone. Bin and rotation are invalidated
+     * by bare type, so letters and genre changes reach them too. LML is deliberately not
      * invalidated: `searchLibrary` reads LML's own library.db, which only sees
      * a re-file on its next sync, so a refetch would return the same stale code.
      */
@@ -710,14 +712,24 @@ export const catalogApi = createApi({
       // change two buckets (a re-letter or genre move vacates the source and
       // fills the destination), so the code tags cover both: the destination
       // from the result (the stored shelf) or, on error paths, from the
-      // request; the source from the arg.
+      // request (letters trimmed and upper-cased as the server stores them);
+      // the source from the arg. A 409 conflict refetches both buckets too:
+      // the extra source refetch is cheap and the conflict proves only the
+      // destination stale, but the error path cannot tell which bucket moved.
+      // The ArtistCard tag below is id-scoped, so a genre move would also
+      // refetch the still-mounted source-genre card, which 404s; a genre move
+      // must not refetch that entry (to be handled when the form gains the
+      // genre input). The form's WITHDRAWN table must likewise clear the three
+      // newer refusals once its inputs can resolve them, and the optional
+      // `previous_code_letters`/`previous_genre_id` should become required
+      // when the form first reads them.
       invalidatesTags: (result, error, { artistId, code_letters, body }) => {
         if (result?.changed === false) return [];
         const buckets = new Set([
           `${body.genre_id}:${code_letters}`,
           result
             ? `${result.genre_id}:${result.code_letters}`
-            : `${body.to_genre_id ?? body.genre_id}:${body.code_letters ?? code_letters}`,
+            : `${body.to_genre_id ?? body.genre_id}:${body.code_letters?.trim().toUpperCase() ?? code_letters}`,
         ]);
         const codeTags = [...buckets].flatMap((id) => [
           { type: "ArtistCodePeek" as const, id },
