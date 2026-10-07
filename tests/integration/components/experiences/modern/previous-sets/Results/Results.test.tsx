@@ -83,7 +83,6 @@ const base: ReturnType<typeof usePlaylistSearchResults> = {
   showResults: true,
   isRealQuery: false,
   isDefaultQuery: true,
-  usingSeed: false,
   retry: vi.fn(),
   failedPage: null as FailedPage | null,
   isRetrying: false,
@@ -245,25 +244,6 @@ describe("Results (modern previous sets)", () => {
     expect(screen.queryByText("No results found")).not.toBeInTheDocument();
   });
 
-  it("claims no total while the server seed is standing in", () => {
-    // `total` and `hasMore` describe the client query, which has not answered
-    // yet. Rendered anyway, the footer sits under a full page of seeded rows
-    // announcing "0 results" — an end-of-list claim about a list it cannot
-    // see.
-    mockUsePlaylistSearchResults.mockReturnValue({
-      ...base,
-      displayResults: [makeResult(0), makeResult(1)],
-      usingSeed: true,
-      total: 0,
-      hasMore: false,
-    });
-
-    render(<Results />);
-
-    expect(screen.getByText("la paradoja")).toBeInTheDocument();
-    expect(screen.queryByText(/0 results/i)).toBeNull();
-  });
-
   it("never claims a total the list cannot reach", () => {
     // The backend caps its count and reports a sentinel past the cap, so
     // `total` can exceed what scrolling reaches. The footer is an end-of-list
@@ -271,7 +251,6 @@ describe("Results (modern previous sets)", () => {
     mockUsePlaylistSearchResults.mockReturnValue({
       ...base,
       displayResults: [makeResult(0), makeResult(1)],
-      usingSeed: false,
       total: 10001,
       hasMore: false,
     });

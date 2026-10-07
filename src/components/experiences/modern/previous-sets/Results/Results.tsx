@@ -193,7 +193,6 @@ export default function Results({
     loadNextPage,
     showResults,
     isRealQuery,
-    usingSeed,
     retry,
     failedPage,
     isRetrying,
@@ -385,16 +384,11 @@ export default function Results({
               </tr>
             )}
 
-            {/* Suppressed while the server seed is on screen. `hasMore`
-                describes the client query, which has not answered yet, so the
-                footer would sit under fifty seeded rows announcing the end of
-                a list it cannot see.
-
-                It counts the rows on screen rather than the response's
-                `total`, which the backend caps and reports a sentinel past —
-                an end-of-list claim must not name a figure scrolling cannot
+            {/* Counts the rows on screen rather than the response's `total`,
+                which the backend caps and reports a sentinel past — an
+                end-of-list claim must not name a figure scrolling cannot
                 reach. */}
-            {!usingSeed && !isLoading && !hasMore && displayResults.length > 0 && (
+            {!isLoading && !hasMore && displayResults.length > 0 && (
               <tr style={{ background: "transparent" }}>
                 <td
                   colSpan={6}

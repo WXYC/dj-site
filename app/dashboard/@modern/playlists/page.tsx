@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   title: getPageTitle("Previous Sets"),
 };
 
-export default async function PreviousSetsPage() {
+export default function PreviousSetsPage() {
   return (
     <>
       <PageHeader title="Previous Sets" />
