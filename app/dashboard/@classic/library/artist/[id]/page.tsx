@@ -7,6 +7,7 @@ import Main from "@/src/components/experiences/classic/Layout/Main";
 import ArtistCard from "@/src/components/experiences/classic/catalog/ArtistCard";
 import { firstSearchParam } from "@/lib/utils/search-params";
 import { artistCardGenreIdOrNotFound } from "@/lib/features/catalog/artistCardRoute.server";
+import { parseRefiledParams } from "@/lib/features/catalog/refiledConfirmation";
 import { parseImportedReleaseParams } from "@/lib/features/rotation/importedConfirmation";
 
 export const metadata: Metadata = {
@@ -29,6 +30,9 @@ type ClassicArtistCardPageProps = {
     code?: string | string[];
     vol?: string | string[];
     genre_id?: string | string[];
+    refiled?: string | string[];
+    from?: string | string[];
+    n?: string | string[];
   }>;
 };
 
@@ -67,6 +71,11 @@ export default async function ClassicArtistCardPage({
           firstSearchParam(search.imported),
           firstSearchParam(search.code),
           firstSearchParam(search.vol),
+        )}
+        refiled={parseRefiledParams(
+          firstSearchParam(search.refiled),
+          firstSearchParam(search.from),
+          firstSearchParam(search.n),
         )}
       />
     </Main>
