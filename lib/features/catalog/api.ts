@@ -14,6 +14,7 @@ import { CATALOG_QUERY_MAX_LIMIT, CATALOG_QUERY_PAGE_LIMIT } from "./constants";
 import { convertToAlbumEntry } from "./conversions";
 import { patchCatalogSearchCaches } from "./patchSearchCaches";
 import { artistDeleteAnsweredWithoutWriting } from "./artistDeleteOutcome";
+import { bodyReason, unwrapEndpointErrorOrRaw } from "@/lib/rtk-endpoint-error";
 import { artistRefileAnsweredWithoutWriting } from "./artistRefileOutcome";
 import { deleteAnsweredWithoutWriting } from "./releaseDeleteOutcome";
 import { restoreAnsweredWithoutWriting } from "./restoreDeletedBatchOutcome";
@@ -134,7 +135,7 @@ const RELEASE_PAGE_READ_CONCURRENCY = 4;
 export const catalogApi = createApi({
   reducerPath: "catalogApi",
   baseQuery: backendBaseQuery("library"),
-  tagTypes: ["Rotation", "AlbumDetail", "CatalogList", "ArtistSearch", "FormatList", "GenreList", "ArtistCodePeek", "ArtistByCode", "CompilationTracks", "ArtistCard", "ArtistReleaseList", "DeletedArchive"],
+  tagTypes: ["Rotation", "AlbumDetail", "CatalogList", "ArtistSearch", "FormatList", "GenreList", "ArtistCodePeek", "ArtistByCode", "CompilationTracks", "ArtistCard", "ArtistReleaseList", "DeletedArchive", "CrossReferenceList"],
   endpoints: (builder) => ({
     searchCatalog: builder.query<AlbumEntry[], SearchCatalogQueryParams>({
       query: ({ artist_name, album_title, n, on_streaming }) => ({
@@ -675,27 +676,42 @@ export const catalogApi = createApi({
       transformErrorResponse: (
         response: FetchBaseQueryError,
       ): { refileArtistError: FetchBaseQueryError } => ({ refileArtistError: response }),
-      // A refusal below 500 wrote nothing; a 5xx or a lost answer may have.
-      invalidatesTags: (_result, error, { artistId, code_letters, body }) =>
-        artistRefileAnsweredWithoutWriting(error)
-          ? []
-          : [
-              { type: "ArtistCard", id: String(artistId) },
-              ...artistReleaseTags(artistId),
-              { type: "CatalogList", id: "LIST" },
-              "AlbumDetail",
-              { type: "ArtistSearch", id: "LIST" },
-              { type: "ArtistCodePeek", id: `${body.genre_id}:${code_letters}` },
-              { type: "ArtistByCode", id: `${body.genre_id}:${code_letters}` },
-            ],
+      // A refusal below 500 wrote nothing, and so did a 200 with `changed:
+      // false`; a 5xx or a lost answer may have written. The one refusal that
+      // is evidence is a 409 `artist_code_conflict`: it proves the cached
+      // by-code/peek answers for the target bucket are stale. On success the
+      // code tags come from the result (the stored shelf), on error paths from
+      // the arg.
+      invalidatesTags: (result, error, { artistId, code_letters, body }) => {
+        if (result?.changed === false) return [];
+        const bucket = `${result?.genre_id ?? body.genre_id}:${result?.code_letters ?? code_letters}`;
+        const codeTags = [
+          { type: "ArtistCodePeek" as const, id: bucket },
+          { type: "ArtistByCode" as const, id: bucket },
+        ];
+        if (artistRefileAnsweredWithoutWriting(error)) {
+          return bodyReason(unwrapEndpointErrorOrRaw("refileArtistError", error)?.data) === "artist_code_conflict"
+            ? codeTags
+            : [];
+        }
+        return [
+          { type: "ArtistCard", id: String(artistId) },
+          ...artistReleaseTags(artistId),
+          { type: "CatalogList", id: "LIST" },
+          "AlbumDetail",
+          { type: "ArtistSearch", id: "LIST" },
+          { type: "CrossReferenceList", id: "LIST" },
+          ...codeTags,
+        ];
+      },
       async onQueryStarted(_arg, { dispatch, queryFulfilled }) {
         const invalidateOtherSlices = () => {
           dispatch(binApi.util.invalidateTags(["Bin"]));
           dispatch(rotationApi.util.invalidateTags(["Rotation"]));
         };
         try {
-          await queryFulfilled;
-          invalidateOtherSlices();
+          const { data } = await queryFulfilled;
+          if (data.changed !== false) invalidateOtherSlices();
         } catch (caught) {
           if (!artistRefileAnsweredWithoutWriting((caught as { error?: unknown })?.error)) {
             invalidateOtherSlices();
@@ -1182,10 +1198,10 @@ export const catalogApi = createApi({
     /**
      * The two frozen `/wxycdb` cross-reference collections, read-only.
      *
-     * Neither carries `providesTags`, and that is deliberate rather than an
-     * omission: no mutation anywhere in this client can change either set, so
-     * a tag would name an invalidation that can never be issued. The sets are
-     * frozen by project decision, so there is no write sibling to add one.
+     * Both provide `CrossReferenceList`. The sets themselves are frozen by
+     * project decision, but the rows render an artist's call number
+     * (`target_code_artist_number`, `code_artist_number`), which `refileArtist`
+     * can change -- that is the only invalidator.
      *
      * Both opt out of the shared soft-fail. An unparseable body — Express's
      * HTML 404 from a backend that does not serve these routes yet, or a
@@ -1206,6 +1222,7 @@ export const catalogApi = createApi({
         },
       }),
       extraOptions: { surfaceNonJsonAsError: true },
+      providesTags: [{ type: "CrossReferenceList", id: "LIST" }],
     }),
     listReleaseCrossReferences: builder.query<
       CrossReferencePage<ReleaseCrossReferenceRow>,
@@ -1219,6 +1236,7 @@ export const catalogApi = createApi({
         },
       }),
       extraOptions: { surfaceNonJsonAsError: true },
+      providesTags: [{ type: "CrossReferenceList", id: "LIST" }],
     }),
     // Opts into `surfaceNonJsonAsError` like the two cross-reference listings
     // above, but the mechanism is not theirs: those screens render a
