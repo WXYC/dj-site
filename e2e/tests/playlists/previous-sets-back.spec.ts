@@ -1,6 +1,7 @@
 import path from "path";
 import type { Page } from "@playwright/test";
 import type {
+  FlowsheetRangeResponse,
   PlaylistSearchResponse,
   PlaylistSearchResult,
 } from "@wxyc/shared/dtos";
@@ -83,6 +84,64 @@ async function stubSearch(page: Page): Promise<string[]> {
   });
 
   return searches;
+}
+
+const HOUR_MS = 60 * 60 * 1000;
+const DAY_MS = 24 * HOUR_MS;
+/** Sparse enough that one page spans several daily windows, so a second page is
+ * a second walk and not a slice of the first. */
+const STREAM_ROWS = 200;
+/** Past the first page's rows, so reaching it proves a second page landed. */
+const STREAM_DEEP_ROW = 100;
+
+/**
+ * Serves the archive stream from an hourly grid hung off the first request's
+ * own upper bound, so the fixture never depends on the run's wall clock. The
+ * head window reaches a day past `Date.now()`; the grid's newest row is the
+ * hour at that "now". Rows run out after `STREAM_ROWS`, and every window past
+ * them is empty, so the walk still ends at the archive's start.
+ *
+ * Returns the requests made, for counting.
+ */
+async function stubArchiveStream(page: Page): Promise<string[]> {
+  const requests: string[] = [];
+  let newestMs: number | null = null;
+
+  await page.route("**/flowsheet/range**", async (route) => {
+    requests.push(route.request().url());
+    const params = new URL(route.request().url()).searchParams;
+    const start = Number(params.get("start"));
+    const end = Number(params.get("end"));
+    newestMs ??= Math.floor((end - DAY_MS) / HOUR_MS) * HOUR_MS;
+    const newest = newestMs;
+
+    const entries: FlowsheetRangeResponse["entries"] = [];
+    for (let index = STREAM_ROWS - 1; index >= 0; index--) {
+      const at = newest - index * HOUR_MS;
+      if (at < start || at >= end) continue;
+      entries.push({
+        id: FIRST_ROW_ID + STREAM_ROWS - index,
+        show_id: 1 + Math.floor(index / 20),
+        play_order: index,
+        add_time: new Date(at).toISOString(),
+        entry_type: "track",
+        request_flag: false,
+        artist_name: `Artist ${index + 1}`,
+        track_title: `Track ${index + 1}`,
+        album_title: "On Your Own Love Again",
+        record_label: "Drag City",
+      });
+    }
+
+    const body: FlowsheetRangeResponse = { shows: [], entries };
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(body),
+    });
+  });
+
+  return requests;
 }
 
 /** The show a result row opens; its contents are another spec's subject. */
@@ -237,6 +296,69 @@ test.describe("Returning from an archived show — modern", () => {
     // refetch-on-mount used to buy, without its whole-walk price.
     await expect.poll(() => searches.length).toBe(arrived * 2);
     expect(searches.at(-1)).not.toContain("cursor=");
+  });
+});
+
+/**
+ * The default listing reads the archive stream, a walk of `/flowsheet/range`
+ * windows that the surface keeps alive across a show visit. The jsdom suite
+ * stores any offset it is given, so only a browser can tell a restore that
+ * ran once the rows were laid out from one that ran too early and was clamped.
+ */
+test.describe("Returning to the chronological listing — modern", () => {
+  test.use({ storageState: path.join(authDir, "dj2.json") });
+  test.setTimeout(90_000);
+
+  test("restores the offset and walks no further across back, forward and back", async ({
+    page,
+  }) => {
+    const ranges = await stubArchiveStream(page);
+    await stubShow(page);
+
+    await page.goto("/dashboard/playlists");
+    const deepRow = page.getByRole("link", {
+      name: new RegExp(`see the full show for Track ${STREAM_DEEP_ROW} by`),
+    });
+    const scrollport = page.getByTestId("previous-sets-scrollport");
+    await expect(
+      page.getByRole("table", { name: "playlist archive" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: /see the full show for Track 1 by/ }),
+    ).toBeVisible();
+    const headWalk = ranges.length;
+
+    await wheelUntil(page, centreOf(page), (timeout) =>
+      expect(deepRow).toBeVisible({ timeout }),
+    );
+    // Settles the scroll a click would otherwise make, so the offset read
+    // below is the one the listing is left at.
+    await deepRow.scrollIntoViewIfNeeded();
+
+    const walked = ranges.length;
+    expect(walked).toBeGreaterThan(headWalk);
+    const offset = await scrollport.evaluate((el) => el.scrollTop);
+    expect(offset).toBeGreaterThan(0);
+
+    await deepRow.click();
+    await expect(page.getByText("Disc Jockey: DJ Chowder")).toBeVisible();
+
+    await page.goBack();
+    await expect(deepRow).toBeVisible();
+    await expect
+      .poll(() => scrollport.evaluate((el) => el.scrollTop))
+      .toBe(offset);
+    expect(ranges).toHaveLength(walked);
+
+    await page.goForward();
+    await expect(page.getByText("Disc Jockey: DJ Chowder")).toBeVisible();
+
+    await page.goBack();
+    await expect(deepRow).toBeVisible();
+    await expect
+      .poll(() => scrollport.evaluate((el) => el.scrollTop))
+      .toBe(offset);
+    expect(ranges).toHaveLength(walked);
   });
 });
 
