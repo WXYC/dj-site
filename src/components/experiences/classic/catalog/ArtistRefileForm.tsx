@@ -83,11 +83,16 @@ export default function ArtistRefileForm({
   const genreKnown = genreName !== undefined;
   // Refused on the merits: nothing on this screen can fix it, so the action
   // goes (a retryable refusal or a conflict leaves it standing).
-  const withdrawn =
-    refusal?.reason === "lettered_section" ||
-    refusal?.reason === "various_artists_section" ||
-    refusal?.reason === "not_filed_in_genre" ||
-    refusal?.reason === "artist_not_found";
+  const WITHDRAWN = {
+    conflict: false,
+    lettered_section: true,
+    various_artists_section: true,
+    not_filed_in_genre: true,
+    artist_not_found: true,
+    lock_unavailable: false,
+    generic: false,
+  } satisfies Record<ArtistRefileRefusal["reason"], boolean>;
+  const withdrawn = refusal ? WITHDRAWN[refusal.reason] : false;
   const ineligible = card.code_comp_letter != null
     ? "This artist is filed in a lettered compilation section, which is filed at 0 by letter and is not re-numbered here."
     : isVariousArtists(card.code_letters)

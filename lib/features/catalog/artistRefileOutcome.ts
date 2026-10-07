@@ -17,7 +17,7 @@ export const ARTIST_REFILE_LOCK_MESSAGE =
 export const ARTIST_REFILE_LETTERED_MESSAGE =
   "This artist is filed in a lettered compilation section, whose number cannot be changed here. Nothing was changed.";
 export const ARTIST_REFILE_VARIOUS_ARTISTS_MESSAGE =
-  "This is a Various Artists section, whose number cannot be changed here. Nothing was changed.";
+  "This artist is filed in a Various Artists section, whose number cannot be changed here. Reload the card. Nothing was changed.";
 export const ARTIST_REFILE_NOT_FILED_MESSAGE =
   "This artist is not filed under that genre any more. Reload the card. Nothing was changed.";
 export const ARTIST_REFILE_NOT_FOUND_MESSAGE =
@@ -38,7 +38,10 @@ export type ArtistRefileRefusal =
       reason:
         | "lettered_section"
         | "various_artists_section"
-        | "not_filed_in_genre" | "artist_not_found" | "lock_unavailable" | "generic";
+        | "not_filed_in_genre"
+        | "artist_not_found"
+        | "lock_unavailable"
+        | "generic";
     });
 
 /** Interprets a rejected `refileArtist`; never throws on an unexpected body. */
