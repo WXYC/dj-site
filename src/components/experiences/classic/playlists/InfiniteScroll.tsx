@@ -2,9 +2,8 @@
 
 import { useEffect, useRef, type ReactNode } from "react";
 
-// Classic-flavored intersection-observer wrapper. Mirrors Modern's
-// `PlaylistInfiniteScroll` minus the MUI Joy chrome — pure HTML + the
-// Classic .text class for messaging.
+// Classic-flavored intersection-observer wrapper: pure HTML + the Classic
+// .text class for messaging, no MUI Joy chrome.
 export default function InfiniteScroll({
   children,
   hasMore,
