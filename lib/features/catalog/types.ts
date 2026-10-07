@@ -112,6 +112,13 @@ export type AddAlbumRequestBody = {
   label_id?: number;
   code_number?: number;
   code_volume_letters?: string;
+  /**
+   * The typed-text rotation row this release catalogues. The backend creates
+   * the release and links the row in one transaction, refusing both with a 409
+   * (`rotation_not_eligible`, `review_required`) when the row cannot be
+   * imported.
+   */
+  from_rotation_id?: number;
 };
 
 /**
