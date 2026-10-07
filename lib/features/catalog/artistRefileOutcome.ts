@@ -71,13 +71,21 @@ export function interpretArtistRefileError(err: unknown): ArtistRefileRefusal {
     return { reason: "various_artists_section", message: ARTIST_REFILE_VARIOUS_ARTISTS_MESSAGE, retryable: false };
   }
   if (status === 404) {
-    // `code` first; a body without a recognized one (a Backend that predates
-    // it) falls back to the message prefix.
+    // `code` first. A string code this module does not know is a newer
+    // Backend's answer: refuse generically rather than guess from the
+    // message. Only a body with no string code (a Backend that predates it)
+    // falls back to the message prefix.
     const code = bodyCode(data);
-    const notFiled =
-      code === "artist_not_filed_in_genre" ||
-      (code !== "artist_not_found" && serverMessage(data)?.startsWith("Artist not filed under genre"));
-    return notFiled
+    if (code === "artist_not_filed_in_genre") {
+      return { reason: "not_filed_in_genre", message: ARTIST_REFILE_NOT_FILED_MESSAGE, retryable: false };
+    }
+    if (code === "artist_not_found") {
+      return { reason: "artist_not_found", message: ARTIST_REFILE_NOT_FOUND_MESSAGE, retryable: false };
+    }
+    if (code !== undefined) {
+      return { reason: "generic", message: ARTIST_REFILE_FALLBACK_MESSAGE, retryable: false };
+    }
+    return serverMessage(data)?.startsWith("Artist not filed under genre")
       ? { reason: "not_filed_in_genre", message: ARTIST_REFILE_NOT_FILED_MESSAGE, retryable: false }
       : { reason: "artist_not_found", message: ARTIST_REFILE_NOT_FOUND_MESSAGE, retryable: false };
   }
