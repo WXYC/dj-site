@@ -232,8 +232,9 @@ export type ArtistCard = {
  * Two fields, not the JSP's five. The backend **rejects** `genre_id`,
  * `code_letters`, and `code_artist_number` with a 400 naming why rather than
  * dropping them silently, so widening this type would turn a compile-time
- * constraint into a runtime rejection. Those three have no write path
- * anywhere in Backend-Service.
+ * constraint into a runtime rejection. `code_artist_number` is writable, but
+ * only through `POST /library/artists/{id}/refile` (the re-file screen);
+ * `genre_id` and `code_letters` are not writable by any endpoint.
  */
 export type UpdateArtistRequestBody = {
   alphabetical_name: string;
