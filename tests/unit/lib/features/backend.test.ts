@@ -725,5 +725,57 @@ describe("backend", () => {
         expect(result).toBe(notModified);
       });
     });
+
+    // A base-query-wide default for an API whose every read has an empty state
+    // that states a fact, so no endpoint has to remember its own opt-in.
+    describe("{ surfaceNonJsonAsError: true } base query option", () => {
+      const fakeApi = {} as any;
+      const htmlError = {
+        error: {
+          status: "PARSING_ERROR" as const,
+          originalStatus: 502,
+          data: "<!DOCTYPE html>",
+          error: "SyntaxError",
+        },
+        meta: undefined,
+      };
+
+      it("surfaces a non-JSON GET as an error without a per-endpoint flag", async () => {
+        mockInnerBaseQuery.mockResolvedValueOnce(htmlError);
+
+        const baseQuery = backendBaseQuery("", { surfaceNonJsonAsError: true });
+        const result = await baseQuery("intake", fakeApi, {});
+
+        expect((result as { error?: unknown }).error).toEqual(
+          expect.objectContaining({ status: "PARSING_ERROR" })
+        );
+        expect((result as { data?: unknown }).data).toBeUndefined();
+      });
+
+      it("still swallows an aborted request silently", async () => {
+        mockInnerBaseQuery.mockResolvedValueOnce({
+          error: { ...htmlError.error, originalStatus: 200, data: "", error: "AbortError: aborted" },
+          meta: undefined,
+        });
+        const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+        const baseQuery = backendBaseQuery("", { surfaceNonJsonAsError: true });
+        const result = await baseQuery("intake", fakeApi, {});
+
+        expect(result).toEqual(expect.objectContaining({ data: null }));
+        expect(mockCaptureException).not.toHaveBeenCalled();
+        warnSpy.mockRestore();
+      });
+
+      it("is off by default: another API's GET still soft-fails", async () => {
+        mockInnerBaseQuery.mockResolvedValueOnce(htmlError);
+        const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+        const result = await backendBaseQuery("flowsheet")("/x", fakeApi, {});
+
+        expect(result).toEqual(expect.objectContaining({ data: null }));
+        warnSpy.mockRestore();
+      });
+    });
   });
 });
