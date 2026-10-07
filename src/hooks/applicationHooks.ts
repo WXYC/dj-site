@@ -3,6 +3,7 @@ import { applicationSlice } from "@/lib/features/application/frontend";
 import { authenticationSlice } from "@/lib/features/authentication/frontend";
 import { resetOrganizationIdCache } from "@/lib/features/authentication/organization-utils";
 import { binApi } from "@/lib/features/bin/api";
+import { reviewsApi } from "@/lib/features/reviews/api";
 import { catalogApi } from "@/lib/features/catalog/api";
 import { catalogSlice } from "@/lib/features/catalog/frontend";
 import { flowsheetApi } from "@/lib/features/flowsheet/api";
@@ -82,6 +83,9 @@ export function resetApplication(dispatch: ReturnType<typeof useAppDispatch>) {
   dispatch(catalogApi.util.resetApiState());
   dispatch(catalogSlice.actions.reset());
   dispatch(binApi.util.resetApiState());
+  // The Pile's cached intake items carry draft authors; a music director's
+  // list must not survive into the next session on the same browser.
+  dispatch(reviewsApi.util.resetApiState());
   dispatch(authenticationSlice.actions.reset());
   // Wipe UI + admin state so a previous user's open panel, sidebar, roster
   // search string, and page index don't survive into the next session on the

@@ -6,6 +6,7 @@ import {
   resolveOrganizationIdAdmin,
   resetOrganizationIdCache,
 } from "@/lib/features/authentication/organization-utils";
+import { reviewsApi } from "@/lib/features/reviews/api";
 import { resetApplication } from "@/src/hooks/applicationHooks";
 
 describe("resetApplication (logout state hygiene) — #639/#616", () => {
@@ -41,6 +42,16 @@ describe("resetApplication (logout state hygiene) — #639/#616", () => {
     expect(applicationSlice.selectors.getAuthStage(store.getState())).toBe("otp-email");
     expect(adminSlice.selectors.getSearchString(store.getState())).toBe("");
     expect(adminSlice.selectors.getPage(store.getState())).toBe(0);
+  });
+
+  it("drops the Pile's cached intake items so a music director's list can't leak into the next session", async () => {
+    const store = makeStore();
+    await store.dispatch(reviewsApi.util.upsertQueryData("getIntakeItems", undefined, []));
+    expect(reviewsApi.endpoints.getIntakeItems.select(undefined)(store.getState()).data).toEqual([]);
+
+    resetApplication(store.dispatch);
+
+    expect(reviewsApi.endpoints.getIntakeItems.select(undefined)(store.getState()).data).toBeUndefined();
   });
 
   it("clears the admin org-id cache so it can't leak into the next session", async () => {

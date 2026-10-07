@@ -24,7 +24,7 @@ export function reviewsAudience(): ReviewsAudience {
 /**
  * Whether an account with this authorization is shown the reviews screens.
  * Hides screens only: Backend-Service serves the review routes either way.
- * A signed-out account (`Authorization.NO`) never sees them.
+ * A member without DJ access (`Authorization.NO`) never sees them.
  */
 export function canSeeReviews(authorization: Authorization): boolean {
   if (authorization < Authorization.DJ) return false;
