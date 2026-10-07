@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { delay, http, HttpResponse } from "msw";
 import type { IntakeItem } from "@wxyc/shared";
 import { Authorization } from "@/lib/features/admin/types";
@@ -233,6 +233,48 @@ describe("ReviewsPile", () => {
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith(FAILURE_LINE));
     expect(toast.error).toHaveBeenCalledTimes(1);
     expect(toast).not.toHaveBeenCalled();
+    // The lists refetch and the row is still in the Pile, so it unlocks.
+    await waitFor(() => expect(within(pile).getByRole("button", { name: "Check out" })).toBeEnabled());
+  });
+
+  // The row only leaves its section once the refetched lists land; until then
+  // a second click would 409 and claim someone else took the record.
+  it("keeps the row locked after a successful write until the refetched lists land", async () => {
+    let moved = false;
+    const posts: string[] = [];
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/intake`, async ({ request }) => {
+        if (moved) await delay(300);
+        return HttpResponse.json(
+          new URL(request.url).searchParams.get("state") === "reviewed" || moved ? [] : [item({ id: 5 })],
+        );
+      }),
+      http.get(`${TEST_BACKEND_URL}/library/formats`, () => HttpResponse.json([])),
+      http.post(`${TEST_BACKEND_URL}/intake/5/checkout`, () => {
+        posts.push("checkout");
+        if (moved) return HttpResponse.json({ message: "server words", reason: "state_changed" }, { status: 409 });
+        moved = true;
+        return HttpResponse.json(item({ id: 5, state: "checked_out" }));
+      }),
+    );
+
+    const { user } = renderWithProviders(<ReviewsPile />);
+    const pile = await section("The Pile");
+    await within(pile).findByText(/Stereolab/);
+    await user.click(within(pile).getByRole("button", { name: "Check out" }));
+    await waitFor(() => expect(posts).toHaveLength(1));
+    await new Promise((r) => setTimeout(r, 100));
+
+    expect(within(pile).getByText(/Stereolab/)).toBeInTheDocument();
+    const again = within(pile).getByRole("button", { name: "Check out" });
+    expect(again).toBeDisabled();
+    // user-event refuses a pointer on a locked button; a DJ's click still lands.
+    fireEvent.click(again);
+
+    await waitFor(() => expect(within(pile).queryByText(/Stereolab/)).not.toBeInTheDocument());
+    expect(posts).toHaveLength(1);
+    expect(toast).not.toHaveBeenCalledWith(RACE_LINE);
+    expect(toast.error).not.toHaveBeenCalled();
   });
 
   // The second POST of a double-click would find the record already moved and

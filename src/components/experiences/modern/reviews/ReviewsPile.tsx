@@ -75,8 +75,16 @@ export default function ReviewsPile() {
         toast.error("Couldn't do that. Please try again.");
       }
     } finally {
-      inFlight.current.delete(id);
-      setPending(new Map(inFlight.current));
+      // The row leaves its section only when the refetched lists land, so it
+      // stays locked until then. A failed write or a lost race refetches too,
+      // so the row unlocks once the lists settle either way. Each `refetch`
+      // joins the one the write's invalidation already started.
+      try {
+        await Promise.all([open.refetch(), reviewed.refetch()]);
+      } finally {
+        inFlight.current.delete(id);
+        setPending(new Map(inFlight.current));
+      }
     }
   };
 
@@ -143,7 +151,6 @@ export default function ReviewsPile() {
         actions={
           <>
             <Button
-              {...(returning ? lock(returning, "release") : {})}
               onClick={async () => {
                 const id = returning!.id;
                 setReturning(null);
