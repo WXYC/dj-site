@@ -7,6 +7,7 @@ const mockCardQuery = vi.fn();
 const mockGenresQuery = vi.fn();
 const mockRefile = vi.fn();
 const mockPush = vi.fn();
+const mockRefiling = { value: false };
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: mockPush, replace: vi.fn() }) }));
 vi.mock("@/lib/features/catalog/api", async (importOriginal) => {
@@ -15,7 +16,7 @@ vi.mock("@/lib/features/catalog/api", async (importOriginal) => {
     ...actual,
     useGetArtistCardQuery: (...a: unknown[]) => mockCardQuery(...a),
     useGetGenresQuery: (...a: unknown[]) => mockGenresQuery(...a),
-    useRefileArtistMutation: () => [mockRefile, { isLoading: false }],
+    useRefileArtistMutation: () => [mockRefile, { isLoading: mockRefiling.value }],
   };
 });
 
@@ -53,6 +54,7 @@ const toConfirm = async (value = "31") => {
 describe("classic ArtistRefileForm", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockRefiling.value = false;
     mockCardQuery.mockReturnValue({ data: card, isLoading: false });
     mockGenresQuery.mockReturnValue({ data: [{ id: GENRE_ID, genre_name: "Hiphop" }] });
   });
@@ -141,5 +143,110 @@ describe("classic ArtistRefileForm", () => {
     expect(await screen.findAllByRole("alert")).toHaveLength(1);
     expect(screen.getByTestId("artist-refile-refusal")).toHaveTextContent(text);
     expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { label: "a lettered compilation section", body: { code_comp_letter: "L" }, text: "lettered compilation section" },
+    { label: "Various Artists", body: { code_letters: "V/A" }, text: "Compilation sections are not re-filed" },
+  ])("renders a refusal and no form for $label", ({ body, text }) => {
+    mockCardQuery.mockReturnValue({ data: { ...card, ...body }, isLoading: false });
+    renderWithProviders(<ArtistRefileForm artistId={ARTIST_ID} genreId={GENRE_ID} />);
+
+    expect(screen.getByTestId("artist-refile-ineligible")).toHaveTextContent(text);
+    expect(screen.getByRole("link", { name: "Back to the Artist Card" })).toBeDefined();
+    expect(screen.queryByLabelText("New Call Number:")).toBeNull();
+  });
+
+  it("shows a loading line, then a load error, while the card has no data", () => {
+    mockCardQuery.mockReturnValue({ data: undefined, isLoading: true });
+    const { unmount } = renderWithProviders(<ArtistRefileForm artistId={ARTIST_ID} genreId={GENRE_ID} />);
+    expect(screen.getByText("Loading the artist...")).toBeDefined();
+    unmount();
+
+    mockCardQuery.mockReturnValue({ data: undefined, isLoading: false });
+    renderWithProviders(<ArtistRefileForm artistId={ARTIST_ID} genreId={GENRE_ID} />);
+    expect(screen.getByTestId("artist-refile-error")).toHaveTextContent("could not be loaded");
+  });
+
+  it("holds Continue until the genre name is known", async () => {
+    mockGenresQuery.mockReturnValue({ data: undefined });
+    renderWithProviders(<ArtistRefileForm artistId={ARTIST_ID} genreId={GENRE_ID} />);
+    await type("31");
+
+    expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
+  });
+
+  it("clears a refusal when the number is edited", async () => {
+    mockRefile.mockReturnValue(rejects(409, { reason: "artist_code_conflict", artist: { ...holder, code_artist_number: 31 } }));
+    renderWithProviders(<ArtistRefileForm artistId={ARTIST_ID} genreId={GENRE_ID} />);
+    const user = await toConfirm();
+    await user.click(screen.getByRole("button", { name: "Re-file The Artist" }));
+    await screen.findByTestId("artist-refile-refusal");
+
+    await user.type(screen.getByLabelText("New Call Number:"), "2");
+
+    expect(screen.queryByTestId("artist-refile-refusal")).toBeNull();
+  });
+
+  it.each([
+    { name: "lettered section", status: 409, body: { reason: "lettered_compilation_section" } },
+    { name: "not filed", status: 404, body: { message: "Artist not filed under genre 6" } },
+    { name: "not found", status: 404, body: { message: "Artist not found" } },
+  ])("withdraws Continue after a $name refusal on the merits", async ({ status, body }) => {
+    mockRefile.mockReturnValue(rejects(status, body));
+    renderWithProviders(<ArtistRefileForm artistId={ARTIST_ID} genreId={GENRE_ID} />);
+    const user = await toConfirm();
+    await user.click(screen.getByRole("button", { name: "Re-file The Artist" }));
+
+    await screen.findByTestId("artist-refile-refusal");
+    expect(screen.queryByRole("button", { name: "Continue" })).toBeNull();
+    expect(screen.getByRole("link", { name: "Back to the Artist Card" })).toBeDefined();
+  });
+
+  it.each([
+    { name: "lock", status: 503, body: {} },
+    { name: "server error", status: 500, body: {} },
+  ])("keeps Continue after a retryable $name refusal", async ({ status, body }) => {
+    mockRefile.mockReturnValue(rejects(status, body));
+    renderWithProviders(<ArtistRefileForm artistId={ARTIST_ID} genreId={GENRE_ID} />);
+    const user = await toConfirm();
+    await user.click(screen.getByRole("button", { name: "Re-file The Artist" }));
+
+    await screen.findByTestId("artist-refile-refusal");
+    expect(screen.getByRole("button", { name: "Continue" })).toBeEnabled();
+  });
+
+  it("says the outcome is unknown when no answer came back", async () => {
+    mockRefile.mockReturnValue({ unwrap: () => Promise.reject(new Error("network")) });
+    renderWithProviders(<ArtistRefileForm artistId={ARTIST_ID} genreId={GENRE_ID} />);
+    const user = await toConfirm();
+    await user.click(screen.getByRole("button", { name: "Re-file The Artist" }));
+
+    expect(await screen.findByTestId("artist-refile-refusal")).toHaveTextContent("may or may not have been re-filed");
+  });
+
+  it("disables both buttons while a submit is in flight", async () => {
+    const { rerender } = renderWithProviders(<ArtistRefileForm artistId={ARTIST_ID} genreId={GENRE_ID} />);
+    await toConfirm();
+    mockRefiling.value = true;
+    rerender(<ArtistRefileForm artistId={ARTIST_ID} genreId={GENRE_ID} />);
+
+    expect(screen.getByRole("button", { name: "Re-file The Artist" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Back" })).toBeDisabled();
+  });
+
+  it("keeps both buttons disabled and drops the stale copy once the re-file lands", async () => {
+    mockRefile.mockReturnValue(resolves({ code_artist_number: 31, changed: true, previous_code_artist_number: 1, releases_to_relabel: 2 }));
+    // The refetched card now carries the new number, as the invalidation would deliver.
+    renderWithProviders(<ArtistRefileForm artistId={ARTIST_ID} genreId={GENRE_ID} />);
+    const user = await toConfirm();
+    mockCardQuery.mockReturnValue({ data: { ...card, code_artist_number: 31 }, isLoading: false });
+    await user.click(screen.getByRole("button", { name: "Re-file The Artist" }));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("artist-refile-confirm-copy")).toHaveTextContent("Re-filed; returning to the card"),
+    );
+    expect(screen.getByRole("button", { name: "Re-file The Artist" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Back" })).toBeDisabled();
   });
 });

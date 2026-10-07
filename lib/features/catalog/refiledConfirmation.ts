@@ -1,12 +1,10 @@
-import { CODE_NUMBER_MAX, parseRequiredNonNegativeInt } from "./adminCreateArtistValidation";
+import { parseArtistCodeNumber } from "./adminCreateArtistValidation";
 
 /** What a re-file carries onto the artist card it lands on: the old number and the relabel count. */
 export type RefiledParams = { from: number; releases: number };
 
-const readable = (raw: string | undefined): number | null => {
-  const parsed = raw === undefined ? null : parseRequiredNonNegativeInt(raw);
-  return parsed !== null && parsed <= CODE_NUMBER_MAX ? parsed : null;
-};
+const readable = (raw: string | undefined): number | null =>
+  raw === undefined ? null : parseArtistCodeNumber(raw);
 
 /**
  * Reads the `refiled` / `from` / `n` triple off a card URL, or `undefined`

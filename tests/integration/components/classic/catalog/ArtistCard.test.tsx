@@ -20,6 +20,7 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), replace: mockReplace }),
 }));
 
+import { catalogApi } from "@/lib/features/catalog/api";
 import ArtistCard from "@/src/components/experiences/classic/catalog/ArtistCard";
 import { parseImportedReleaseParams } from "@/lib/features/rotation/importedConfirmation";
 
@@ -1201,6 +1202,35 @@ describe("classic ArtistCard — artistCardModify.jsp", () => {
           "Re-filed from Rock MO 1 to Rock MO 12. Relabel 2 records on the shelf.",
         ),
       );
+    });
+
+    it("shows no banner when the card still holds the old number", async () => {
+      renderWithProviders(<ArtistCard artistId={ARTIST_ID} refiled={{ from: 12, releases: 2 }} />);
+
+      await screen.findByTestId("modify-artist-form");
+      expect(screen.queryByText(/Re-filed from/)).toBeNull();
+    });
+
+    it("holds the banner while the invalidated card refetches, then composes it from fresh data", async () => {
+      let release: () => void = () => {};
+      const gate = new Promise<void>((resolve) => (release = resolve));
+      let calls = 0;
+      server.use(
+        http.get(`${TEST_BACKEND_URL}/library/artists/${ARTIST_ID}`, async () => {
+          calls += 1;
+          if (calls > 1) await gate;
+          return HttpResponse.json(artist);
+        }),
+      );
+      const { store } = renderWithProviders(
+        <ArtistCard artistId={ARTIST_ID} refiled={{ from: 1, releases: 2 }} />,
+      );
+      await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Re-filed from"));
+
+      store.dispatch(catalogApi.util.invalidateTags([{ type: "ArtistCard", id: String(ARTIST_ID) }]));
+      await waitFor(() => expect(screen.queryByText(/Re-filed from/)).toBeNull());
+      release();
+      await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Re-filed from"));
     });
 
     it("says 'record' for one", async () => {

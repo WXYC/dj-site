@@ -7,16 +7,13 @@ import {
   useGetGenresQuery,
   useRefileArtistMutation,
 } from "@/lib/features/catalog/api";
-import {
-  CODE_NUMBER_MAX,
-  parseRequiredNonNegativeInt,
-} from "@/lib/features/catalog/adminCreateArtistValidation";
+import { CODE_NUMBER_MAX, parseArtistCodeNumber } from "@/lib/features/catalog/adminCreateArtistValidation";
 import { artistCardHref } from "@/lib/features/catalog/artistCardRoute";
 import {
   interpretArtistRefileError,
   type ArtistRefileRefusal,
 } from "@/lib/features/catalog/artistRefileOutcome";
-import { formatArtistLibraryCode } from "@/lib/features/catalog/libraryCode";
+import { formatArtistLibraryCode, isVariousArtists } from "@/lib/features/catalog/libraryCode";
 
 /**
  * Re-file an artist's call number on one genre shelf -- two steps, like the
@@ -42,8 +39,9 @@ export default function ArtistRefileForm({
   const [refusal, setRefusal] = useState<ArtistRefileRefusal | null>(null);
   const [unchanged, setUnchanged] = useState(false);
 
-  const parsed = parseRequiredNonNegativeInt(text);
-  const target = parsed !== null && parsed <= CODE_NUMBER_MAX ? parsed : null;
+  const [submitted, setSubmitted] = useState(false);
+
+  const target = parseArtistCodeNumber(text);
 
   if (!card) {
     return isLoading ? (
@@ -64,6 +62,26 @@ export default function ArtistRefileForm({
     { id: artistId, code_letters: card.code_letters },
     { genreId },
   );
+  // Without the genre word the codes read "IS 31", which names two shelves.
+  const genreKnown = genreName !== undefined;
+  // Refused on the merits: nothing on this screen can fix it, so the action
+  // goes (a retryable refusal or a conflict leaves it standing).
+  const withdrawn =
+    refusal?.reason === "lettered_section" ||
+    refusal?.reason === "not_filed_in_genre" ||
+    refusal?.reason === "artist_not_found";
+  const ineligible = card.code_comp_letter != null
+    ? "This artist is filed in a lettered compilation section, which is filed at 0 by letter and is not re-numbered here."
+    : isVariousArtists(card.code_letters)
+      ? "Compilation sections are not re-filed from this screen."
+      : null;
+  if (ineligible) {
+    return (
+      <div data-testid="artist-refile-ineligible" role="alert" className="artist-error-message">
+        {ineligible} <a href={cardHref}>Back to the Artist Card</a>
+      </div>
+    );
+  }
 
   const conflictHolder = refusal?.reason === "conflict" ? refusal.holder : undefined;
 
@@ -76,6 +94,7 @@ export default function ArtistRefileForm({
         code_letters: card.code_letters,
         body: { genre_id: genreId, code_artist_number: target },
       }).unwrap();
+      if (result.changed) setSubmitted(true);
       if (!result.changed) {
         setUnchanged(true);
         setStep("choose");
@@ -135,6 +154,7 @@ export default function ArtistRefileForm({
                     onChange={(event) => {
                       setText(event.target.value);
                       setUnchanged(false);
+                      setRefusal(null);
                     }}
                   />
                 </td>
@@ -142,15 +162,19 @@ export default function ArtistRefileForm({
               <tr>
                 <td></td>
                 <td>
-                  <button
-                    type="button"
-                    disabled={target === null || target === card.code_artist_number}
-                    onClick={() => setStep("confirm")}
-                  >
-                    Continue
-                  </button>
+                  {withdrawn ? null : (
+                    <button
+                      type="button"
+                      disabled={
+                        !genreKnown || target === null || target === card.code_artist_number
+                      }
+                      onClick={() => setStep("confirm")}
+                    >
+                      Continue
+                    </button>
+                  )}
                   &nbsp;&nbsp;
-                  <a href={cardHref}>Cancel</a>
+                  <a href={cardHref}>{withdrawn ? "Back to the Artist Card" : "Cancel"}</a>
                 </td>
               </tr>
             </>
@@ -158,15 +182,21 @@ export default function ArtistRefileForm({
             <tr>
               <td></td>
               <td data-testid="artist-refile-confirm-copy">
-                Move {card.artist_name} from {codeOf(card.code_artist_number)} to{" "}
-                {codeOf(target ?? 0)}. Every release under this shelf re-labels at once; the
-                records on the shelf will need new labels.
+                {submitted ? (
+                  "Re-filed; returning to the card…"
+                ) : (
+                  <>
+                    Move {card.artist_name} from {codeOf(card.code_artist_number)} to{" "}
+                    {codeOf(target ?? 0)}. Every release under this shelf re-labels at once; the
+                    records on the shelf will need new labels.
+                  </>
+                )}
                 <div>
-                  <button type="button" onClick={submit} disabled={refiling}>
+                  <button type="button" onClick={submit} disabled={refiling || submitted}>
                     Re-file The Artist
                   </button>
                   &nbsp;&nbsp;
-                  <button type="button" onClick={() => setStep("choose")} disabled={refiling}>
+                  <button type="button" onClick={() => setStep("choose")} disabled={refiling || submitted}>
                     Back
                   </button>
                 </div>

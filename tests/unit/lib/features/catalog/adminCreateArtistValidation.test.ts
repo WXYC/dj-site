@@ -7,6 +7,7 @@ import {
   CODE_NUMBER_MAX,
   isArtistNameConflictData,
   normalizeCodeLetters,
+  parseArtistCodeNumber,
   parseReleaseCodeNumber,
   parseRequiredNonNegativeInt,
   parseRequiredPositiveInt,
@@ -259,6 +260,23 @@ describe("isArtistNameConflictData", () => {
     ["undefined", undefined],
   ])("is false for %s", (_label, data) => {
     expect(isArtistNameConflictData(data)).toBe(false);
+  });
+});
+
+describe("parseArtistCodeNumber", () => {
+  it.each([
+    ["0", 0],
+    ["31", 31],
+    [" 3", 3],
+    [String(CODE_NUMBER_MAX), CODE_NUMBER_MAX],
+    ["-1", null],
+    ["1.5", null],
+    ["3a", null],
+    ["03", null],
+    ["", null],
+    [String(CODE_NUMBER_MAX + 1), null],
+  ])("parses %j as %j", (raw, expected) => {
+    expect(parseArtistCodeNumber(raw)).toBe(expected);
   });
 });
 
