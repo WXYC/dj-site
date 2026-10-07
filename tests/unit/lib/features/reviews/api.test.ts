@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { http, HttpResponse } from "msw";
 import { configureStore } from "@reduxjs/toolkit";
-import { reviewsApi } from "@/lib/features/reviews/api";
+import { isIntakeStateChanged, reviewsApi } from "@/lib/features/reviews/api";
 import { describeApi } from "@/tests/helpers/api-harness";
 import { TEST_BACKEND_URL } from "@/tests/helpers/constants";
 import { server } from "@/tests/fakes/server";
@@ -49,6 +49,56 @@ describe("reviewsApi", () => {
     await makeReviewsStore().dispatch(reviewsApi.endpoints[endpoint].initiate(7));
 
     expect(seen).toEqual({ method: "POST", path: `/intake/7/${action}` });
+  });
+
+  // Nested whole under one key, so the shared error toast stays quiet (the
+  // screen words its own refusal) while status, reason and message survive
+  // for whichever caller needs them.
+  it.each([
+    ["checkoutIntakeItem"],
+    ["releaseIntakeItem"],
+    ["acceptIntakeItem"],
+    ["passIntakeItem"],
+  ] as const)("%s rejects with the whole error nested under intakeWriteError", async (endpoint) => {
+    const body = { message: "server words", reason: "state_changed" };
+    server.use(
+      http.post(`${TEST_BACKEND_URL}/intake/:id/:action`, () =>
+        HttpResponse.json(body, { status: 409 })
+      )
+    );
+
+    const result = await makeReviewsStore().dispatch(reviewsApi.endpoints[endpoint].initiate(7));
+
+    expect("error" in result && result.error).toEqual({
+      intakeWriteError: { status: 409, data: body },
+    });
+  });
+
+  it.each([
+    ["a 409 state_changed", 409, { message: "m", reason: "state_changed" }, true],
+    ["a 409 with another reason", 409, { message: "m", reason: "not_holder" }, false],
+    ["a 403 state_changed", 403, { message: "m", reason: "state_changed" }, false],
+    ["a 500", 500, { message: "m" }, false],
+  ] as const)("isIntakeStateChanged reads %s as %s", async (_label, status, body, expected) => {
+    server.use(
+      http.post(`${TEST_BACKEND_URL}/intake/:id/checkout`, () =>
+        HttpResponse.json(body, { status })
+      )
+    );
+
+    const result = await makeReviewsStore().dispatch(
+      reviewsApi.endpoints.checkoutIntakeItem.initiate(7)
+    );
+
+    expect(isIntakeStateChanged("error" in result ? result.error : undefined)).toBe(expected);
+  });
+
+  it.each([
+    ["an unwrapped 409 state_changed", { status: 409, data: { reason: "state_changed" } }],
+    ["undefined", undefined],
+    ["a bare string", "Not signed in"],
+  ])("isIntakeStateChanged reads %s as false", (_label, err) => {
+    expect(isIntakeStateChanged(err)).toBe(false);
   });
 
   it("getIntakeItems GETs exactly /intake with the state filter", async () => {
