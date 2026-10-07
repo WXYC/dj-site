@@ -11,7 +11,7 @@ const wrapped = (status: number | string, data?: unknown) => ({
   refileArtistError: { status, data },
 });
 
-const holder = { id: 7, artist_name: "Autechre", code_artist_number: 31 };
+const holder = { id: 7, artist_name: "Autechre", code_letters: "IS", code_artist_number: 31, genre_id: 6 };
 
 describe("artistRefileAnsweredWithoutWriting", () => {
   it.each([
@@ -40,6 +40,13 @@ describe("interpretArtistRefileError", () => {
     {
       label: "conflict with no readable holder",
       err: wrapped(409, { message: "held", reason: "artist_code_conflict" }),
+      reason: "conflict",
+      holder: undefined,
+      retryable: false,
+    },
+    {
+      label: "conflict whose holder has no numeric id",
+      err: wrapped(409, { message: "held", reason: "artist_code_conflict", artist: { artist_name: "Autechre" } }),
       reason: "conflict",
       holder: undefined,
       retryable: false,
