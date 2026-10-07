@@ -315,19 +315,19 @@ export default function RotationImportScreen({ rotationId }: { rotationId: numbe
         setValidationMessage(addArtistFailureMessage(result.error));
         return;
       }
-      const createdArtistNote =
-        "The library code was created, but the release was not. Choose that artist above and add the release to it — do not create the artist again.";
+      // A refused import would be refused again on retry, so after a fresh
+      // artist the refusal only notes that the artist now exists.
       if (isRotationImportRefused(result.error)) {
         setValidationMessage(
           result.createdArtist
-            ? `${ROTATION_IMPORT_REFUSED_MESSAGE} ${createdArtistNote}`
+            ? `${ROTATION_IMPORT_REFUSED_MESSAGE} The library code was created, but the release was not.`
             : ROTATION_IMPORT_REFUSED_MESSAGE,
         );
         return;
       }
       setValidationMessage(
         result.createdArtist
-          ? createdArtistNote
+          ? "The library code was created, but the release was not. Choose that artist above and add the release to it — do not create the artist again."
           : "The release could not be created, so nothing was changed.",
       );
     } finally {
