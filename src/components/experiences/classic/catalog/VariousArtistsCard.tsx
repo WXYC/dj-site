@@ -6,7 +6,7 @@ import { useEffect, useId, useState } from "react";
 import {
   useAddAlbumMutation,
   useGetArtistCardQuery,
-  useGetArtistReleasesQuery,
+  useGetAllArtistReleasesQuery,
   useGetFormatsQuery,
   useGetGenresQuery,
 } from "@/lib/features/catalog/api";
@@ -110,7 +110,7 @@ export default function VariousArtistsCard({ artistId, message, imported }: Vari
     isLoading: artistLoading,
     isError: artistError,
   } = useGetArtistCardQuery({ artistId });
-  const { data: releasePage, isError: releasesError } = useGetArtistReleasesQuery({
+  const { data: releaseList, isError: releasesError } = useGetAllArtistReleasesQuery({
     artistId,
   });
   const { data: genres } = useGetGenresQuery();
@@ -292,8 +292,8 @@ export default function VariousArtistsCard({ artistId, message, imported }: Vari
     return <div role="status">Loading…</div>;
   }
 
-  const releases = releasePage?.releases ?? [];
-  const total = releasePage?.total ?? 0;
+  const releases = releaseList?.releases ?? [];
+  const total = releaseList?.total ?? 0;
   const isUmbrellaBucket = artistId === UMBRELLA_BUCKET_ARTIST_ID;
 
   const navigationLinks = (
@@ -338,8 +338,8 @@ export default function VariousArtistsCard({ artistId, message, imported }: Vari
             <td style={{ textAlign: "right" }}>
               <b># of releases:</b>
             </td>
-            {/* The server's total, not `releases.length`: the table below is
-                paginated, so the row count is a page size. */}
+            {/* The server's total, not `releases.length`: when a page of the
+                table below could not be read, the row count falls short. */}
             <td>{total}</td>
           </tr>
         </tbody>
@@ -518,15 +518,21 @@ export default function VariousArtistsCard({ artistId, message, imported }: Vari
         </>
       )}
 
-      {releasesError ? (
+      {(releasesError || releaseList?.incomplete) && (
         <div
           data-testid="va-release-table-error"
           role="alert"
           className="artist-error-message"
         >
-          This section&apos;s releases could not be loaded, so this is not a complete
-          list of what is on the shelf.
+          This section&apos;s releases could not all be loaded, so this is not a
+          complete list of what is on the shelf.
         </div>
+      )}
+      {/* Nothing until a read lands: an empty table here is the JSP's "does not
+          have any library releases", a claim about the shelf, and a whole
+          section takes several page reads to arrive. */}
+      {!releaseList ? (
+        !releasesError && <div role="status">Loading releases…</div>
       ) : (
         <table className="entry-table" data-testid="va-release-table">
           <tbody>
@@ -588,13 +594,12 @@ export default function VariousArtistsCard({ artistId, message, imported }: Vari
         </table>
       )}
 
-      {/* The endpoint pages, and this is the shelf where paging always bites:
-          a compilation bucket is the largest kind of section in the catalog,
-          so the table above is truncated as a matter of course while the
-          header two rows up prints the server's true total. A librarian who
-          scans a silently-cut list and doesn't find the compilation files a
-          duplicate — which is the whole failure this screen exists to
-          prevent. Same notice the artist card carries, for the same reason. */}
+      {/* The table is read a page at a time, so it can hold fewer rows than
+          the header's total: a page that failed, or a release filed between
+          two page reads. A librarian who scans a silently-cut list and doesn't
+          find the compilation files a duplicate, which is the whole failure
+          this screen exists to prevent. Same notice the artist card carries,
+          for the same reason. */}
       {total > releases.length && (
         <div className="label" style={{ textAlign: "center" }}>
           Showing the first {releases.length} of {total} releases.
