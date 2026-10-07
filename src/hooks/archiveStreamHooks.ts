@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef } from "react";
+import { useMemo, useRef } from "react";
 import type { FlowsheetV2Entry } from "@wxyc/shared";
 import {
   archiveStreamApi,
@@ -30,8 +30,6 @@ export type ArchiveStreamListing = {
   /** Read from `reachedStart` alone -- an empty page that still carries a
    * cursor is a quiet stretch, not the end of the archive. */
   hasMore: boolean;
-  /** A no-op once the current next page has failed; `retry` is the only way
-   * back in, so one broken page cannot become an unthrottled retry loop. */
   loadNextPage: () => void;
   /** `refetch()` after a head failure, `fetchNextPage()` after a next-page
    * failure, and a no-op when neither has failed -- each as of the render
@@ -91,6 +89,7 @@ export function useArchiveStreamListing(): ArchiveStreamListing {
     headFailed,
     nextPageFailed,
     retry,
+    loadNextPage,
     failedPage,
     isRetrying,
     failedRetries,
@@ -99,13 +98,10 @@ export function useArchiveStreamListing(): ArchiveStreamListing {
     isFetching,
     isError,
     hasAnyPages,
+    hasNextPage,
     refetch,
     fetchNextPage,
   });
-
-  const loadNextPage = useCallback(() => {
-    if (hasNextPage && !nextPageFailed) void fetchNextPage();
-  }, [hasNextPage, nextPageFailed, fetchNextPage]);
 
   // Latched, not read live: once the query has answered (data or an error),
   // it stays answered for the life of this hook instance. The live
