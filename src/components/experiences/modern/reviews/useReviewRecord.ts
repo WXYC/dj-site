@@ -18,10 +18,10 @@ export type ReviewRecord = {
  * item for an intake review, the library release for a library-release review.
  * `undefined` until the read lands.
  */
-export function useReviewRecord(review: Review, skip = false): ReviewRecord | undefined {
-  const intake = useGetIntakeItemQuery(!skip && review.intake_item_id != null ? review.intake_item_id : skipToken);
+export function useReviewRecord(review: Review): ReviewRecord | undefined {
+  const intake = useGetIntakeItemQuery(review.intake_item_id != null ? review.intake_item_id : skipToken);
   const album = useGetInformationQuery(
-    !skip && review.intake_item_id == null && review.album_id != null ? { album_id: review.album_id } : skipToken,
+    review.intake_item_id == null && review.album_id != null ? { album_id: review.album_id } : skipToken,
   );
   if (intake.data) {
     const { artist_name, album_title, record_label, format_id } = intake.data;

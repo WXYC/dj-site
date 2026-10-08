@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { waitFor } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, onTestFinished } from "vitest";
+import { configure, waitFor } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { Authorization } from "@/lib/features/admin/types";
 import { fakeReviewsEndpoints, renderWithProviders, review, server, TEST_BACKEND_URL } from "@/tests/helpers";
@@ -52,6 +52,27 @@ describe("NewReview", () => {
     renderWithProviders(<NewReview albumId={7} />);
 
     await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/dashboard/reviews/55"));
+    expect(bodies).toEqual([{ album_id: 7 }]);
+  });
+
+  it("starts exactly one draft when its effect runs twice", async () => {
+    // Strict Mode runs every effect twice on mount. renderWithProviders does not
+    // wrap in it (next.config has reactStrictMode: false too), so turn on Testing
+    // Library's own wrapper, which sits outside the providers, for this test only.
+    configure({ reactStrictMode: true });
+    onTestFinished(() => configure({ reactStrictMode: false }));
+    const bodies: unknown[] = [];
+    server.use(
+      http.post(`${TEST_BACKEND_URL}/reviews`, async ({ request }) => {
+        bodies.push(await request.json());
+        return HttpResponse.json(review({ id: 55, intake_item_id: null, album_id: 7 }), { status: 201 });
+      }),
+    );
+
+    renderWithProviders(<NewReview albumId={7} />);
+
+    await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/dashboard/reviews/55"));
+    await new Promise((r) => setTimeout(r, 50));
     expect(bodies).toEqual([{ album_id: 7 }]);
   });
 
