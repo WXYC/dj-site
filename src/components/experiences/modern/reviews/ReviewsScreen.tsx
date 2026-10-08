@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
-import { Button, Chip, Link, List, ListItem, Stack, Typography } from "@mui/joy";
+import { useState } from "react";
+import { Button, Chip, Link, Stack, Typography } from "@mui/joy";
 import type { IntakeItem, Review } from "@wxyc/shared";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -26,6 +26,7 @@ import { useAuthentication } from "@/src/hooks/authenticationHooks";
 import { useAppDispatch } from "@/lib/hooks";
 import { useRowWrite } from "@/src/hooks/useRowWrite";
 import ConfirmDialog from "../ConfirmDialog";
+import IntakeLane from "./IntakeLane";
 import { REVIEW_COPY } from "./copy";
 import { intakeRecord, recordLine } from "./recordLine";
 import { useReviewRecord } from "./useReviewRecord";
@@ -108,41 +109,15 @@ export default function ReviewsScreen() {
 
   const describe = (i: IntakeItem) => recordLine(intakeRecord(i), formats);
 
-  const section = <Row extends { id: number }>(
-    title: string,
-    rows: Row[],
-    empty: string,
-    label: (row: Row) => ReactNode,
-    extra: (row: Row) => ReactNode,
-  ) => (
-    <section aria-label={title}>
-      <Typography level="title-lg">{title}</Typography>
-      {rows.length === 0 ? (
-        <Typography level="body-sm">{empty}</Typography>
-      ) : (
-        <List>
-          {rows.map((i) => (
-            <ListItem key={i.id}>
-              <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-                <Typography>{label(i)}</Typography>
-                {extra(i)}
-              </Stack>
-            </ListItem>
-          ))}
-        </List>
-      )}
-    </section>
-  );
-
   return (
     <Stack spacing={3}>
-      {section(REVIEW_COPY.screen.shelfTitle, onShelf, REVIEW_COPY.screen.shelfEmpty, describe, (i) => (
+      <IntakeLane title={REVIEW_COPY.screen.shelfTitle} rows={onShelf} empty={REVIEW_COPY.screen.shelfEmpty} label={(i) => <Typography>{describe(i)}</Typography>} extra={(i) => (
         <>
           <Typography level="body-sm">{`${REVIEW_COPY.screen.logged} ${day(i.logged_at)}`}</Typography>
           <Button size="sm" {...lock(i.id, "checkout")} onClick={() => write(i.id, "checkout", () => checkout(i.id).unwrap())}>{REVIEW_COPY.screen.checkOut}</Button>
         </>
-      ))}
-      {section(REVIEW_COPY.screen.checkoutsTitle, checkouts, REVIEW_COPY.screen.checkoutsEmpty, describe, (i) => {
+      )} />
+      <IntakeLane title={REVIEW_COPY.screen.checkoutsTitle} rows={checkouts} empty={REVIEW_COPY.screen.checkoutsEmpty} label={(i) => <Typography>{describe(i)}</Typography>} extra={(i) => {
         const mineHere = mine.data.filter((r) => r.intake_item_id === i.id);
         const submitted = mineHere.find((r) => r.status === "submitted");
         const draft = mineHere.find((r) => r.status === "draft");
@@ -175,20 +150,20 @@ export default function ReviewsScreen() {
           <Button size="sm" variant="outlined" {...lock(i.id, "release")} onClick={() => setReturning(i)}>{REVIEW_COPY.screen.returnToShelf}</Button>
         </>
         );
-      })}
-      {section(REVIEW_COPY.screen.requestsTitle, requests, REVIEW_COPY.screen.requestsEmpty, describe, (i) => (
+      }} />
+      <IntakeLane title={REVIEW_COPY.screen.requestsTitle} rows={requests} empty={REVIEW_COPY.screen.requestsEmpty} label={(i) => <Typography>{describe(i)}</Typography>} extra={(i) => (
         <>
           <Typography level="body-sm">{`${REVIEW_COPY.screen.asked} ${day(i.requested_at)}`}</Typography>
           <Button size="sm" {...lock(i.id, "accept")} onClick={() => write(i.id, "accept", () => accept(i.id).unwrap())}>{REVIEW_COPY.screen.accept}</Button>
           <Button size="sm" variant="outlined" {...lock(i.id, "pass")} onClick={() => write(i.id, "pass", () => pass(i.id).unwrap())}>{REVIEW_COPY.screen.pass}</Button>
         </>
-      ))}
-      {section(REVIEW_COPY.myReviews.title, mine.data, REVIEW_COPY.myReviews.empty, (r) => <DraftLabel review={r} formats={formats} />, (r) => (
+      )} />
+      <IntakeLane title={REVIEW_COPY.myReviews.title} rows={mine.data} empty={REVIEW_COPY.myReviews.empty} label={(r) => <Typography><DraftLabel review={r} formats={formats} /></Typography>} extra={(r) => (
         <>
           <Typography level="body-sm">{r.status === "draft" ? REVIEW_COPY.myReviews.draft : REVIEW_COPY.myReviews.submitted}</Typography>
           <Link href={`/dashboard/reviews/${r.id}`}>{REVIEW_COPY.myReviews.open}</Link>
         </>
-      ))}
+      )} />
       <ConfirmDialog
         open={returning !== null}
         onClose={() => setReturning(null)}
