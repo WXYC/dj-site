@@ -2,13 +2,23 @@
 
 import { useState } from "react";
 import { Button, FormControl, FormHelperText, FormLabel, Stack, Textarea, Typography } from "@mui/joy";
-import type { Review } from "@wxyc/shared";
+import type { Review, ReviewPatch } from "@wxyc/shared";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { Authorization } from "@/lib/features/admin/types";
 import {
+  isReviewInUse,
+  isReviewNotDraft,
+  useDeleteReviewMutation,
   useGetReviewQuery,
+  useSubmitReviewMutation,
   useUpdateReviewMutation,
 } from "@/lib/features/reviews/api";
+import { serverMessage, unwrapEndpointErrorOrRaw } from "@/lib/rtk-endpoint-error";
+import { useAuthentication } from "@/src/hooks/authenticationHooks";
 import { useCanSeeReviews } from "@/src/hooks/useCanSeeReviews";
+import ConfirmDialog from "../ConfirmDialog";
+import ConsentBlock, { type Consent } from "./ConsentBlock";
 import { REVIEW_COPY } from "./copy";
 import SlipPreview from "./SlipPreview";
 import { useReviewRecord } from "./useReviewRecord";
@@ -16,26 +26,84 @@ import { useReviewRecord } from "./useReviewRecord";
 const FIELD_NAMES = ["buzzwords", "artist_blurb", "review", "recommended_tracks", "fcc"] as const;
 type FieldName = (typeof FIELD_NAMES)[number];
 
+const orNull = (text: string) => (text.trim() === "" ? null : text);
+
+type Confirming = "submit" | "delete" | null;
+
 function Form({ review }: { review: Review }) {
+  const { data: auth } = useAuthentication();
+  const user = "user" in auth ? auth.user : undefined;
+  const isAuthor = user?.id != null && user.id === review.author_user_id;
+  const isMusicDirector = !isAuthor && (user?.authority ?? Authorization.NO) >= Authorization.MD;
   const [values, setValues] = useState<Record<FieldName, string>>(
     () => Object.fromEntries(FIELD_NAMES.map((n) => [n, review[n] ?? ""])) as Record<FieldName, string>,
   );
+  const [consent, setConsent] = useState<Consent>(() => ({
+    publish_website: review.publish_website,
+    publish_apps: review.publish_apps,
+    publish_instagram: review.publish_instagram,
+    credit: review.credit,
+  }));
+  const [confirming, setConfirming] = useState<Confirming>(null);
+  const [refusedInUse, setRefusedInUse] = useState(false);
   const [update, { isLoading }] = useUpdateReviewMutation();
+  const [submit, { isLoading: submitting }] = useSubmitReviewMutation();
+  const [remove, { isLoading: deleting }] = useDeleteReviewMutation();
+  const router = useRouter();
   const record = useReviewRecord(review);
+  const draft = review.status === "draft";
+  const blank = values.review.trim() === "";
+  const inUse = review.in_use || refusedInUse;
+
+  // A non-author's patch carries no consent: the service accepts it only from the author.
+  const patch = (): ReviewPatch => ({
+    ...(Object.fromEntries(FIELD_NAMES.map((n) => [n, orNull(values[n])])) as ReviewPatch),
+    ...(isAuthor ? consent : {}),
+  });
+  const failure = (err: unknown, fallback: string) =>
+    toast.error(serverMessage(unwrapEndpointErrorOrRaw("reviewWriteError", err)?.data) ?? fallback);
 
   const save = async () => {
     try {
-      await update({ id: review.id, patch: values }).unwrap();
-      toast.success(REVIEW_COPY.saved);
-    } catch {
-      toast.error(REVIEW_COPY.couldNotSave);
+      await update({ id: review.id, patch: patch() }).unwrap();
+      toast.success(draft ? REVIEW_COPY.saved : REVIEW_COPY.savedChange);
+    } catch (err) {
+      failure(err, REVIEW_COPY.couldNotSave);
+    }
+  };
+
+  const submitReview = async () => {
+    setConfirming(null);
+    try {
+      await update({ id: review.id, patch: patch() }).unwrap();
+      await submit(review.id).unwrap();
+    } catch (err) {
+      if (isReviewNotDraft(err)) toast.error(REVIEW_COPY.alreadySubmitted);
+      else failure(err, REVIEW_COPY.couldNotSubmit);
+    }
+  };
+
+  const deleteReview = async () => {
+    setConfirming(null);
+    try {
+      await remove(review.id).unwrap();
+      router.replace("/dashboard/reviews");
+    } catch (err) {
+      if (isReviewInUse(err)) setRefusedInUse(true);
+      else toast.error(REVIEW_COPY.couldNotDelete);
     }
   };
 
   return (
     <Stack direction="row" spacing={3} alignItems="flex-start" flexWrap="wrap">
       <Stack spacing={2} sx={{ flex: 1, minWidth: 280 }}>
-        {review.status === "draft" && <Typography level="body-sm">{REVIEW_COPY.draftPrivacy}</Typography>}
+        {draft && <Typography level="body-sm">{REVIEW_COPY.draftPrivacy}</Typography>}
+        {isAuthor && !draft && <Typography level="body-sm">{REVIEW_COPY.submittedBanner}</Typography>}
+        {isMusicDirector && (
+          <Typography level="body-sm">
+            {REVIEW_COPY.editingOthers(review.author ?? "", !draft && review.author_user_id != null)}
+          </Typography>
+        )}
         {FIELD_NAMES.map((name) => (
           <FormControl key={name}>
             <FormLabel>{REVIEW_COPY.fields[name].label}</FormLabel>
@@ -43,7 +111,26 @@ function Form({ review }: { review: Review }) {
             <FormHelperText>{REVIEW_COPY.fields[name].help}</FormHelperText>
           </FormControl>
         ))}
-        <Button loading={isLoading} onClick={save}>{REVIEW_COPY.saveDraft}</Button>
+        {isAuthor ? (
+          <ConsentBlock value={consent} onChange={setConsent} djName={user?.djName} realName={user?.realName} />
+        ) : (
+          <Typography level="body-sm">{REVIEW_COPY.authorOnlyConsent}</Typography>
+        )}
+        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+          <Button variant={draft ? "outlined" : "solid"} loading={isLoading} onClick={save}>
+            {draft ? REVIEW_COPY.saveDraft : REVIEW_COPY.save}
+          </Button>
+          {draft && (
+            <Button loading={submitting} disabled={blank} onClick={() => setConfirming("submit")}>{REVIEW_COPY.submit}</Button>
+          )}
+          {isAuthor && (
+            <Button color="danger" variant="outlined" loading={deleting} disabled={inUse} onClick={() => setConfirming("delete")}>
+              {REVIEW_COPY.delete}
+            </Button>
+          )}
+        </Stack>
+        {draft && blank && <Typography level="body-sm">{REVIEW_COPY.submitNeedsReview}</Typography>}
+        {isAuthor && inUse && <Typography level="body-sm" role="status">{REVIEW_COPY.inUse}</Typography>}
       </Stack>
       <SlipPreview
         artist={record?.artist ?? ""}
@@ -53,6 +140,25 @@ function Form({ review }: { review: Review }) {
         date={review.add_date}
         fields={values}
       />
+      <ConfirmDialog
+        open={confirming !== null}
+        onClose={() => setConfirming(null)}
+        title={confirming === "delete" ? REVIEW_COPY.delete : REVIEW_COPY.submit}
+        actions={
+          <>
+            <Button onClick={confirming === "delete" ? deleteReview : submitReview}>
+              {confirming === "delete" ? REVIEW_COPY.delete : REVIEW_COPY.submit}
+            </Button>
+            <Button variant="plain" onClick={() => setConfirming(null)}>{REVIEW_COPY.cancel}</Button>
+          </>
+        }
+      >
+        {confirming === "delete"
+          ? REVIEW_COPY.deleteConfirm
+          : review.intake_item_id != null
+            ? REVIEW_COPY.submitConfirmLogged
+            : REVIEW_COPY.submitConfirmRelease}
+      </ConfirmDialog>
     </Stack>
   );
 }
@@ -62,6 +168,6 @@ export default function ReviewEditor({ id }: { id: number }) {
   const { data, isError } = useGetReviewQuery(id, { skip: !visible });
 
   if (!visible) return null;
-  if (isError) return <Typography role="alert">{REVIEW_COPY.couldNotLoad}</Typography>;
+  if (isError && !data) return <Typography role="alert">{REVIEW_COPY.couldNotLoad}</Typography>;
   return data ? <Form review={data} /> : null;
 }
