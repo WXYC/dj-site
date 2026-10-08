@@ -15,22 +15,26 @@ export type FakeIntakeOptions = {
 /**
  * The `intake/...` reads:
  *
- * - `GET /intake` answers the first row of the query table that matches
- *   (`awaiting_acceptance=true` -> `awaiting`, `state=reviewed` -> `reviewed`,
- *   `state=filed` -> `filed`), else `open`. A new filter is a new row.
+ * - `GET /intake` answers like the server: `awaiting_acceptance=true` ->
+ *   `awaiting` (that rule lives on the server). Anything else reads the union
+ *   of `open`, `reviewed` and `filed`, de-duplicated by `id` and ordered by
+ *   `logged_at` descending then `id` descending, so an unfiltered read carries
+ *   every state; `state=` filters that union by each row's `effective_state`.
+ *   A row's lane is its `effective_state`, whichever option it was passed in.
  * - `GET /intake/:id` answers the matching row of `records`, 404 otherwise
  */
 export function fakeIntakeEndpoints({ open = [], reviewed = [], awaiting = [], filed = [], records = [] }: FakeIntakeOptions = {}) {
-  const queryTable: [param: string, value: string, rows: Rows<IntakeItem>][] = [
-    ["awaiting_acceptance", "true", awaiting],
-    ["state", "reviewed", reviewed],
-    ["state", "filed", filed],
-  ];
+  const everyState = () => {
+    const byId = new Map<number, IntakeItem>();
+    for (const row of [open, reviewed, filed].flatMap(resolve)) byId.set(row.id, row);
+    return [...byId.values()].sort((a, b) => b.logged_at.localeCompare(a.logged_at) || b.id - a.id);
+  };
   server.use(
     http.get(`${BACKEND_URL}/intake`, ({ request }) => {
       const query = new URL(request.url).searchParams;
-      const hit = queryTable.find(([param, value]) => query.get(param) === value);
-      return HttpResponse.json(resolve(hit ? hit[2] : open));
+      if (query.get("awaiting_acceptance") === "true") return HttpResponse.json(resolve(awaiting));
+      const state = query.get("state");
+      return HttpResponse.json(everyState().filter((row) => !state || row.effective_state === state));
     }),
     http.get(`${BACKEND_URL}/intake/:id`, ({ params }) => {
       const found = records.find((row) => String(row.id) === params.id);

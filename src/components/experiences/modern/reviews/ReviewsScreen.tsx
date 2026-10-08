@@ -52,9 +52,8 @@ function DraftLabel({ review, formats }: { review: Review; formats: { id: number
 }
 
 // One argument per list, shared by its hook and the post-write reload so the
-// reload reaches the same cache entry.
-const OPEN_LISTS = undefined;
-const REVIEWED_LIST = { state: "reviewed" } as const;
+// reload reaches the same cache entry. The unfiltered read carries every state.
+const EVERY_STATE = undefined;
 const MY_REVIEWS = undefined;
 
 export default function ReviewsScreen() {
@@ -63,8 +62,7 @@ export default function ReviewsScreen() {
   const me = user?.id;
   const visible = useCanSeeReviews();
 
-  const open = useGetIntakeItemsQuery(OPEN_LISTS, { skip: !visible });
-  const reviewed = useGetIntakeItemsQuery(REVIEWED_LIST, { skip: !visible });
+  const everyState = useGetIntakeItemsQuery(EVERY_STATE, { skip: !visible });
   const mine = useGetMyReviewsQuery(MY_REVIEWS, { skip: !visible });
   const { data: formats } = useGetFormatsQuery(undefined, { skip: !visible });
 
@@ -82,8 +80,7 @@ export default function ReviewsScreen() {
   // write's invalidation already started.
   const { write, lock } = useRowWrite<Action>({
     reload: () => [
-      dispatch(intakeApi.endpoints.getIntakeItems.initiate(OPEN_LISTS, { subscribe: false, forceRefetch: true })),
-      dispatch(intakeApi.endpoints.getIntakeItems.initiate(REVIEWED_LIST, { subscribe: false, forceRefetch: true })),
+      dispatch(intakeApi.endpoints.getIntakeItems.initiate(EVERY_STATE, { subscribe: false, forceRefetch: true })),
       dispatch(reviewApi.endpoints.getMyReviews.initiate(MY_REVIEWS, { subscribe: false, forceRefetch: true })),
     ],
     isLostRace: (err) => isIntakeStateChanged(err) || isReviewSubjectNotHeld(err),
@@ -93,20 +90,20 @@ export default function ReviewsScreen() {
   });
 
   if (!visible) return null;
-  if ([open, reviewed, mine].some(hasNothingToShow)) {
+  if ([everyState, mine].some(hasNothingToShow)) {
     return <Typography role="alert">{REVIEW_COPY.screen.loadFailed}</Typography>;
   }
 
-  // Until both lists land, an empty-state sentence would read as a fact.
-  if (!open.data || !reviewed.data || !mine.data) return null;
+  // Until both reads land, an empty-state sentence would read as a fact.
+  if (!everyState.data || !mine.data) return null;
 
-  const items = open.data;
+  const items = everyState.data;
   const myReviews = mine.data;
   const onShelf = items.filter((i) => i.effective_state === "pool");
   const requests = items.filter((i) => i.effective_state === "requested" && i.requested_dj_id === me);
   const checkouts = [
     ...items.filter((i) => i.effective_state === "checked_out" && i.checked_out_by === me),
-    ...reviewed.data.filter((i) => i.effective_state === "reviewed" && i.checked_out_by === me),
+    ...items.filter((i) => i.effective_state === "reviewed" && i.checked_out_by === me),
   ];
 
   const describe = (i: IntakeItem) => recordLine(intakeRecord(i), formats);

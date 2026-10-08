@@ -23,21 +23,18 @@ import { hasNothingToShow } from "@/lib/has-nothing-to-show";
 
 const COPY = REVIEW_COPY.intake;
 
-// One argument per lane, shared by its hook and the post-write reload so the
-// reload reaches the same cache entry.
-const OPEN_LANES = undefined;
+// One argument per read, shared by its hook and the post-write reload so the
+// reload reaches the same cache entry. The unfiltered read carries every
+// state; the lanes are its rows grouped by `effective_state`.
+const EVERY_STATE = undefined;
 const AWAITING_LANE = { awaiting_acceptance: true } as const;
-const REVIEWED_LANE = { state: "reviewed" } as const;
-const FILED_LANE = { state: "filed" } as const;
 
 const EMPTY_FORM = { artist: "", album: "", label: "", labelId: null as number | null, formatId: null as number | null, discogs: "" };
 
 export default function IntakeScreen() {
   const visible = useCanSeeReviews();
-  const open = useGetIntakeItemsQuery(OPEN_LANES, { skip: !visible });
+  const everyState = useGetIntakeItemsQuery(EVERY_STATE, { skip: !visible });
   const awaiting = useGetIntakeItemsQuery(AWAITING_LANE, { skip: !visible });
-  const reviewed = useGetIntakeItemsQuery(REVIEWED_LANE, { skip: !visible });
-  const filed = useGetIntakeItemsQuery(FILED_LANE, { skip: !visible });
   const { data: formats } = useGetFormatsQuery(undefined, { skip: !visible });
   const [logItem, { isLoading: logging }] = useLogIntakeItemMutation();
   const [release] = useReleaseIntakeItemMutation();
@@ -46,7 +43,7 @@ export default function IntakeScreen() {
   const [notice, setNotice] = useState<string | null>(null);
   const { write, lock } = useRowWrite<"release">({
     reload: () =>
-      [OPEN_LANES, AWAITING_LANE, REVIEWED_LANE, FILED_LANE].map((arg) =>
+      [EVERY_STATE, AWAITING_LANE].map((arg) =>
         dispatch(intakeApi.endpoints.getIntakeItems.initiate(arg, { subscribe: false, forceRefetch: true })),
       ),
     isLostRace: isIntakeStateChanged,
@@ -61,14 +58,14 @@ export default function IntakeScreen() {
   };
 
   if (!visible) return null;
-  if ([open, awaiting, reviewed, filed].some(hasNothingToShow)) {
+  if ([everyState, awaiting].some(hasNothingToShow)) {
     return <Typography role="alert">{REVIEW_COPY.screen.loadFailed}</Typography>;
   }
   // Until every lane lands, an empty-state sentence would read as a fact.
-  if (!open.data || !awaiting.data || !reviewed.data || !filed.data) return null;
+  if (!everyState.data || !awaiting.data) return null;
 
   const waitingIds = new Set(awaiting.data.map((i) => i.id));
-  const inState = (state: IntakeItem["effective_state"]) => open.data!.filter((i) => i.effective_state === state);
+  const inState = (state: IntakeItem["effective_state"]) => everyState.data!.filter((i) => i.effective_state === state);
 
   const submit = async () => {
     setNotice(null);
@@ -168,7 +165,7 @@ export default function IntakeScreen() {
       <IntakeLane title={COPY.checkedOut} rows={inState("checked_out")} empty={COPY.empty} label={laneLabel} extra={physical} />
       <IntakeLane
         title={COPY.reviewed}
-        rows={reviewed.data}
+        rows={inState("reviewed")}
         empty={COPY.empty}
         label={laneLabel}
         extra={(i) =>
@@ -184,7 +181,7 @@ export default function IntakeScreen() {
           )
         }
       />
-      <IntakeLane title={COPY.filed} rows={filed.data} empty={COPY.empty} label={laneLabel} />
+      <IntakeLane title={COPY.filed} rows={inState("filed")} empty={COPY.empty} label={laneLabel} />
     </Stack>
   );
 }
