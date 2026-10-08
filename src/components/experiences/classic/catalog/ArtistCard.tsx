@@ -17,6 +17,7 @@ import {
   ARTIST_NAME_MAX_LENGTH,
   artistNameTooLong,
   isAddArtistConflict,
+  isCanonicalCodeLetters,
   normalizeCodeLetters,
   resolveReleaseCodeFields,
 } from "@/lib/features/catalog/adminCreateArtistValidation";
@@ -94,8 +95,9 @@ const EMPTY_TITLE_MESSAGE = "Please enter a title before adding this release.";
  *   re-labels every release under it. That endpoint also writes call letters
  *   (the re-file screen takes them) and the genre, but this card offers no
  *   input for either and shows both as text.
- * - **The genre renders as text, not the JSP's `<select>`.** Same cause: with
- *   no write path, a dropdown would be a control that cannot commit.
+ * - **The genre renders as text, not the JSP's `<select>`.** Same cause: this
+ *   card has no write path for it (the re-file endpoint can move a genre, but
+ *   no input here is wired to it), so a dropdown would not commit.
  * - **No "Time Last Modified" row for the artist.** `GET /library/artists/:id`
  *   does not project one. Rendering a blank labelled row would read as "never
  *   modified", which is a claim, so the row is dropped instead.
@@ -263,17 +265,25 @@ export default function ArtistCard({ artistId, genreId, message, imported, refil
       : undefined;
 
   // Artist half only: a re-file moves the shelf, not a release, so the old and
-  // new codes differ in the number alone (same genre, same letters).
+  // new codes differ in the number and, since letters became editable, the letters.
   // Only from settled data that already shows the move: the cache can still
   // hold the pre-re-file card while the invalidated refetch is in flight, and
   // a banner composed from it would read "from IS 1 to IS 1".
+  const fromClause =
+    refiled?.fromLetters === null
+      ? ""
+      : `from ${formatArtistLibraryCode({ genreName, code_letters: refiled?.fromLetters ?? artist?.code_letters ?? "", code_artist_number: refiled?.from ?? 0 })} `;
   const refiledMessage =
     refiled &&
     artist &&
     !artistFetching &&
     (artist.code_artist_number !== refiled.from ||
-      (refiled.fromLetters !== undefined && refiled.fromLetters !== artist.code_letters))
-      ? `Re-filed from ${formatArtistLibraryCode({ genreName, code_letters: refiled.fromLetters ?? artist.code_letters, code_artist_number: refiled.from })} to ${formatArtistLibraryCode({ genreName, code_letters: artist.code_letters, code_artist_number: artist.code_artist_number })}. Relabel ${refiled.releases} ${refiled.releases === 1 ? "record" : "records"} on the shelf.`
+      // Old letters that cannot be shown: the stale card still holds them, and
+      // the new letters are always canonical, so a canonical card is the move.
+      (refiled.fromLetters === null
+        ? isCanonicalCodeLetters(artist.code_letters)
+        : refiled.fromLetters !== undefined && refiled.fromLetters !== artist.code_letters))
+      ? `Re-filed ${fromClause}to ${formatArtistLibraryCode({ genreName, code_letters: artist.code_letters, code_artist_number: artist.code_artist_number })}. Relabel ${refiled.releases} ${refiled.releases === 1 ? "record" : "records"} on the shelf.`
       : undefined;
 
   // `fn:trim(format.referenceName)` -- the JSP omits blank-named formats from

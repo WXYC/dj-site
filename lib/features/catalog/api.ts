@@ -719,10 +719,8 @@ export const catalogApi = createApi({
       // The ArtistCard tag below is id-scoped, so a genre move would also
       // refetch the still-mounted source-genre card, which 404s; a genre move
       // must not refetch that entry (to be handled when the form gains the
-      // genre input). The form's WITHDRAWN table must likewise clear the three
-      // newer refusals once its inputs can resolve them, and the optional
-      // `previous_code_letters`/`previous_genre_id` should become required
-      // when the form first reads them.
+      // genre input). The form's WITHDRAWN table keeps `already_filed_in_genre`
+      // and `genre_not_found` withdrawn until that input can resolve them.
       invalidatesTags: (result, error, { artistId, code_letters, body }) => {
         if (result?.changed === false) return [];
         const buckets = new Set([

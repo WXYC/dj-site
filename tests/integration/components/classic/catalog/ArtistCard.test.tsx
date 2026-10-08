@@ -1227,6 +1227,37 @@ describe("classic ArtistCard — artistCardModify.jsp", () => {
       await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(text));
     });
 
+    it.each([
+      {
+        label: "an unrepresentable old code with a new number",
+        refiled: { from: 35, fromLetters: null, releases: 2 },
+        text: "Re-filed to Rock MO 12. Relabel 2 records on the shelf.",
+      },
+      {
+        label: "an unrepresentable old code at the same number",
+        refiled: { from: 12, fromLetters: null, releases: 1 },
+        text: "Re-filed to Rock MO 12. Relabel 1 record on the shelf.",
+      },
+    ])("banner drops the 'from' code for $label, never inventing one", async ({ refiled, text }) => {
+      renderWithProviders(<ArtistCard artistId={ARTIST_ID} refiled={refiled} />);
+
+      await screen.findByTestId("modify-artist-form");
+      await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(text));
+      expect(screen.getByRole("status")).not.toHaveTextContent("from");
+    });
+
+    it("holds the banner for an unrepresentable old code while the card still shows non-canonical letters", async () => {
+      server.use(
+        http.get(`${TEST_BACKEND_URL}/library/artists/${ARTIST_ID}`, () =>
+          HttpResponse.json({ ...artist, code_letters: "??" }),
+        ),
+      );
+      renderWithProviders(<ArtistCard artistId={ARTIST_ID} refiled={{ from: 12, fromLetters: null, releases: 2 }} />);
+
+      await screen.findByTestId("modify-artist-form");
+      expect(screen.queryByText(/Re-filed/)).toBeNull();
+    });
+
     it("shows no banner when the card still holds the old letters and number", async () => {
       renderWithProviders(<ArtistCard artistId={ARTIST_ID} refiled={{ from: 12, fromLetters: "MO", releases: 2 }} />);
 

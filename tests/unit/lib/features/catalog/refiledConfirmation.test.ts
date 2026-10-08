@@ -28,20 +28,21 @@ describe("parseRefiledParams", () => {
 });
 
 describe("parseRefiledParams from_letters", () => {
+  // string = carried old letters; null = the letters changed but the old ones cannot be shown; absent = they did not change.
   it.each([
     { fromLetters: "RE", expected: { from: 36, releases: 2, fromLetters: "RE" } },
     { fromLetters: "V/A", expected: { from: 36, releases: 2, fromLetters: "V/A" } },
     { fromLetters: "12", expected: { from: 36, releases: 2, fromLetters: "12" } },
     { fromLetters: undefined, expected: { from: 36, releases: 2 } },
-    { fromLetters: "", expected: { from: 36, releases: 2 } },
-    { fromLetters: "??", expected: { from: 36, releases: 2 } },
-    { fromLetters: "Z-L", expected: { from: 36, releases: 2 } },
-    { fromLetters: "<b>x</b>", expected: { from: 36, releases: 2 } },
-    { fromLetters: "Jam Money", expected: { from: 36, releases: 2 } },
-    { fromLetters: "TOOLONG", expected: { from: 36, releases: 2 } },
-    { fromLetters: " RE", expected: { from: 36, releases: 2 } },
+    { fromLetters: "", expected: { from: 36, releases: 2, fromLetters: null } },
+    { fromLetters: "??", expected: { from: 36, releases: 2, fromLetters: null } },
+    { fromLetters: "Z-L", expected: { from: 36, releases: 2, fromLetters: null } },
+    { fromLetters: "<b>x</b>", expected: { from: 36, releases: 2, fromLetters: null } },
+    { fromLetters: "Jam Money", expected: { from: 36, releases: 2, fromLetters: null } },
+    { fromLetters: "TOOLONG", expected: { from: 36, releases: 2, fromLetters: null } },
+    { fromLetters: " RE", expected: { from: 36, releases: 2, fromLetters: null } },
   ])("from_letters=$fromLetters", ({ fromLetters, expected }) => {
-    expect(parseRefiledParams("1", "36", "2", fromLetters)).toEqual(expected);
+    expect(parseRefiledParams("1", "36", "2", fromLetters)).toStrictEqual(expected);
   });
 
   it("a malformed triple still drops the whole banner, whatever from_letters says", () => {

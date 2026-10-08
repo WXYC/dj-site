@@ -48,7 +48,8 @@ export default function ArtistRefileForm({
   const genres = isGenresUnavailable(genresQuery) ? undefined : genresQuery.data;
   const [refile, { isLoading: refiling }] = useRefileArtistMutation();
 
-  const [text, setText] = useState("");
+  // null = untouched, so the box shows the card's current number without copying it into state.
+  const [text, setText] = useState<string | null>(null);
   const [step, setStep] = useState<"choose" | "confirm">("choose");
   const [refusal, setRefusal] = useState<ArtistRefileRefusal | null>(null);
   const [unchanged, setUnchanged] = useState(false);
@@ -57,19 +58,26 @@ export default function ArtistRefileForm({
   // null = untouched, so the field shows the card's letters without copying them into state.
   const [lettersInput, setLettersInput] = useState<string | null>(null);
 
-  const target = parseArtistCodeNumber(text);
-  const letters = normalizeCodeLetters((lettersInput ?? card?.code_letters ?? "").trim());
-  const lettersError =
-    lettersInput === null
-      ? null
-      : letters === ""
-        ? "Enter the call letters."
-        : isVariousArtists(letters)
-          ? "Various Artists sections cannot be filed here."
-          : codeLettersTooLong(letters) || !isCanonicalCodeLetters(letters)
-            ? "Call letters are 1 to 4 letters, digits or /."
+  const numberText = text ?? (card ? String(card.code_artist_number) : "");
+  const target = parseArtistCodeNumber(numberText);
+  // The server trims and upper-cases both sides before comparing, so the stored
+  // letters are normalized too. The pattern check runs on the trimmed input
+  // BEFORE upper-casing, which would turn "ß" into "SS" and "ı" into "I".
+  const typedLetters = (lettersInput ?? card?.code_letters ?? "").trim();
+  const letters = normalizeCodeLetters(typedLetters);
+  const lettersEdited = lettersInput !== null && letters !== normalizeCodeLetters((card?.code_letters ?? "").trim());
+  const lettersError = !lettersEdited
+    ? null
+    : typedLetters === ""
+      ? "Enter the call letters."
+      : isVariousArtists(typedLetters)
+        ? "Various Artists sections cannot be filed here."
+        : codeLettersTooLong(typedLetters)
+          ? "Call letters are at most 4 characters."
+          : !isCanonicalCodeLetters(typedLetters)
+            ? "Call letters may use only letters A-Z, digits and /."
             : null;
-  const lettersChanged = lettersInput !== null && lettersError === null && letters !== card?.code_letters;
+  const lettersChanged = lettersEdited && lettersError === null;
   const destLetters = lettersChanged ? letters : (card?.code_letters ?? "");
 
   const [debounced, setDebounced] = useState<{ number: number | null; letters: string } | null>(null);
@@ -140,7 +148,7 @@ export default function ArtistRefileForm({
 
   // Advisory line for the number the box holds now: stale (still debouncing or
   // refetching) and unreadable answers say nothing rather than guess.
-  const isCurrent = target === card.code_artist_number && !lettersChanged;
+  const isCurrent = target === card.code_artist_number && !lettersChanged && lettersError === null;
   const settled =
     target !== null &&
     !isCurrent &&
@@ -186,6 +194,7 @@ export default function ArtistRefileForm({
               refiled: "1",
               from: String(result.previous_code_artist_number),
               n: String(result.releases_to_relabel),
+              // Raw: a legacy old code ("??") still has to say the letters changed.
               ...(result.previous_code_letters !== result.code_letters
                 ? { from_letters: result.previous_code_letters }
                 : {}),
@@ -252,7 +261,7 @@ export default function ArtistRefileForm({
                     type="number"
                     min={0}
                     max={CODE_NUMBER_MAX}
-                    value={text}
+                    value={numberText}
                     onChange={(event) => {
                       setText(event.target.value);
                       setUnchanged(false);
@@ -302,11 +311,7 @@ export default function ArtistRefileForm({
                   <>
                     Move {card.artist_name} from {codeOf(card.code_artist_number)} to{" "}
                     {codeOf(target ?? 0, destLetters)}. Every release under this shelf re-labels at
-                    once;{" "}
-                    {card.release_count != null
-                      ? `${card.release_count} ${card.release_count === 1 ? "record" : "records"} on the shelf`
-                      : "the records on the shelf"}{" "}
-                    will need new labels.
+                    once; the records on the shelf will need new labels.
                   </>
                 )}
                 <div>
@@ -327,7 +332,7 @@ export default function ArtistRefileForm({
         <div data-testid="artist-refile-refusal" role="alert" className="artist-error-message">
           {conflictHolder ? (
             <>
-              That number is held by{" "}
+              {lettersChanged ? `${codeOf(conflictHolder.code_artist_number, destLetters)} is held by` : "That number is held by"}{" "}
               <a href={artistCardHref(conflictHolder, { genreId })}>{conflictHolder.artist_name}</a>.
               Nothing was changed.
             </>
