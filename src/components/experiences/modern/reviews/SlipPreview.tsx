@@ -3,9 +3,10 @@ import type { ReviewFields } from "@wxyc/shared";
 import { REVIEW_COPY } from "./copy";
 
 export type SlipPreviewProps = {
-  artist: string;
-  album: string;
-  label: string;
+  /** The record rows are left off together when the slip is not about this page's record. */
+  artist?: string;
+  album?: string;
+  label?: string;
   reviewer: string;
   date: string;
   fields: Pick<ReviewFields, "buzzwords" | "artist_blurb" | "review" | "recommended_tracks" | "fcc">;
@@ -33,9 +34,9 @@ export default function SlipPreview({ artist, album, label, reviewer, date, fiel
   const { fields: names, slip } = REVIEW_COPY;
   return (
     <div aria-label={slip.name} role="group" style={{ width: "4.25in", border: "1px solid currentColor", padding: "0.1in", display: "grid", gap: "0.06in", fontSize: "0.8rem" }}>
-      {row(slip.artist, artist)}
-      {row(slip.album, album)}
-      {row(slip.label, label)}
+      {artist !== undefined && row(slip.artist, artist)}
+      {album !== undefined && row(slip.album, album)}
+      {label !== undefined && row(slip.label, label)}
       {row(names.buzzwords.label, fields.buzzwords)}
       {row(slip.artistBlurb, fields.artist_blurb)}
       {row(slip.review, fields.review)}
