@@ -52,6 +52,12 @@ export default function IntakeScreen() {
     onLostRace: () => setNotice(COPY.raceReleased),
   });
 
+  // The notice describes the action that lost, so the next action starts without it.
+  const act = (id: number, run: () => Promise<unknown>) => {
+    setNotice(null);
+    return write(id, "release", run);
+  };
+
   if (!visible) return null;
   if (open.isError || awaiting.isError || reviewed.isError || filed.isError) {
     return <Typography role="alert">{REVIEW_COPY.screen.loadFailed}</Typography>;
@@ -63,6 +69,7 @@ export default function IntakeScreen() {
   const inState = (state: IntakeItem["effective_state"]) => open.data!.filter((i) => i.effective_state === state);
 
   const submit = async () => {
+    setNotice(null);
     try {
       await logItem({
         artist_name: form.artist,
@@ -83,7 +90,9 @@ export default function IntakeScreen() {
       ? COPY.onShelf
       : i.effective_state === "requested"
         ? `${COPY.heldFor} ${i.requested_dj_name}`
-        : `${COPY.checkedOutTo} ${i.checked_out_by_name}`;
+        : i.checked_out_by_name
+          ? `${COPY.checkedOutTo} ${i.checked_out_by_name}`
+          : COPY.holderRemovedNow;
 
   const lane = (title: string, rows: IntakeItem[], extra?: (i: IntakeItem) => React.ReactNode) => (
     <section aria-label={title} key={title}>
@@ -107,7 +116,7 @@ export default function IntakeScreen() {
   );
 
   const physical = (i: IntakeItem) => waitingIds.has(i.id) && <Chip size="sm">{COPY.reviewWaitingMark}</Chip>;
-  const reviewCount = (n: number) => `${n} ${n === 1 ? "review" : "reviews"}`;
+  const reviewCount = (n: number) => `${n} ${n === 1 ? COPY.reviewOne : COPY.reviewMany}`;
 
   return (
     <Stack spacing={3}>
@@ -169,7 +178,7 @@ export default function IntakeScreen() {
             <Typography level="body-sm">
               {i.checked_out_by ? `${COPY.stillOutTo} ${i.checked_out_by_name}` : COPY.holderRemoved}
             </Typography>
-            <Button size="sm" variant="outlined" {...lock(i.id, "release")} onClick={() => write(i.id, "release", () => release(i.id).unwrap())}>
+            <Button size="sm" variant="outlined" {...lock(i.id, "release")} onClick={() => act(i.id, () => release(i.id).unwrap())}>
               {COPY.returned}
             </Button>
           </>

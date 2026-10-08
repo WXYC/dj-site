@@ -62,13 +62,14 @@ export const reviewsApi = createApi({
   tagTypes: ["Intake", "Review"],
   endpoints: (builder) => ({
     getIntakeItems: builder.query<IntakeItem[], { state?: IntakeItemState; awaiting_acceptance?: boolean } | void>({
-      query: (args) => ({
-        url: "intake",
-        params: {
+      query: (args) => {
+        const params = {
           ...(args && args.state ? { state: args.state } : {}),
           ...(args && args.awaiting_acceptance ? { awaiting_acceptance: true } : {}),
-        },
-      }),
+        };
+        // An empty params object still serializes to a dangling `?`.
+        return { url: "intake", ...(Object.keys(params).length > 0 && { params }) };
+      },
       providesTags: ["Intake"],
     }),
     logIntakeItem: builder.mutation<IntakeItem, NewIntakeItemRequest>({
