@@ -42,11 +42,7 @@ export default function ArtistRefileForm({
   genreId: number;
 }) {
   const router = useRouter();
-  const { data: card, isLoading } = useGetArtistCardQuery(
-    { artistId, genre_id: genreId },
-    // The artist may have moved genres since this entry was cached; a stale one would offer a re-file of a shelf it no longer holds.
-    { refetchOnMountOrArgChange: true },
-  );
+  const { data: card, isLoading } = useGetArtistCardQuery({ artistId, genre_id: genreId });
   const genresQuery = useGetGenresQuery();
   // An outage must not read as "no genres": the refusal copy degrades instead of naming a partial list.
   const genres = isGenresUnavailable(genresQuery) ? undefined : genresQuery.data;
@@ -63,6 +59,8 @@ export default function ArtistRefileForm({
   const [lettersInput, setLettersInput] = useState<string | null>(null);
   // null = untouched: the destination genre is the card's own.
   const [genreInput, setGenreInput] = useState<number | null>(null);
+  // The genre a submit last asked for, kept so a "not filed" answer to a retry can point at where the artist may now be.
+  const [requestedGenre, setRequestedGenre] = useState<number | null>(null);
   const touched = text !== null || lettersInput !== null || genreInput !== null;
 
   const numberText = text ?? (card ? String(card.code_artist_number) : "");
@@ -191,6 +189,7 @@ export default function ArtistRefileForm({
   const submit = async () => {
     if (target === null) return;
     setRefusal(null);
+    setRequestedGenre(genreChanged ? destGenreId : null);
     try {
       const result = await refile({
         artistId,
@@ -335,7 +334,9 @@ export default function ArtistRefileForm({
                         <a href={artistCardHref(holder, { genreId: destGenreId })}>{holder.artist_name}</a>.
                       </>
                     ) : free && target !== null ? (
-                      `${destCodeOf(target)} is free.`
+                      genreChanged
+                      ? `${destCodeOf(target)} is not held by another artist.`
+                      : `${destCodeOf(target)} is free.`
                     ) : null}
                   </div>
                 </td>
@@ -395,6 +396,14 @@ export default function ArtistRefileForm({
               {destCodeOf(conflictHolder.code_artist_number)} is held by{" "}
               <a href={artistCardHref(conflictHolder, { genreId: destGenreId })}>{conflictHolder.artist_name}</a>.
               Nothing was changed.
+            </>
+          ) : refusal.reason === "not_filed_in_genre" && requestedGenre !== null ? (
+            <>
+              {refusal.message} It may already be under {destGenreName}: {" "}
+              <a href={artistCardHref({ id: artistId, code_letters: destLetters }, { genreId: requestedGenre })}>
+                open the {destGenreName} card
+              </a>
+              .
             </>
           ) : refusal.reason === "conflict" && target !== null ? (
             `${destCodeOf(target)} is held by another artist. Nothing was changed.`

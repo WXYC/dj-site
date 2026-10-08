@@ -30,7 +30,7 @@ const RESULT = {
 };
 
 const COUNT_KEYS = [
-  "card", "sourceCard", "peek", "byCodeScoped", "byCodeOther", "bin", "rotation",
+  "card", "peek", "byCodeScoped", "byCodeOther", "bin", "rotation",
   "catalog", "info", "artistReleases", "typeahead", "artistXref", "releaseXref",
 ] as const;
 type Calls = Record<(typeof COUNT_KEYS)[number], number>;
@@ -49,10 +49,7 @@ async function subscribed() {
     return HttpResponse.json(body as never);
   };
   server.use(
-    http.get(`${L}/artists/${ARTIST_ID}`, ({ request }) => {
-      bump(calls, new URL(request.url).searchParams.get("genre_id") === String(GENRE_ID) ? "sourceCard" : "card");
-      return HttpResponse.json(RESULT);
-    }),
+    http.get(`${L}/artists/${ARTIST_ID}`, json("card", RESULT)),
     http.get(`${L}/artists/peek-code`, json("peek", { next_code_number: 2 })),
     http.get(`${L}/artists/by-code`, ({ request }) => {
       const q = new URL(request.url).searchParams;
@@ -74,7 +71,6 @@ async function subscribed() {
   const e = catalogApi.endpoints;
   const subs = [
     store.dispatch(e.getArtistCard.initiate({ artistId: ARTIST_ID })),
-    store.dispatch(e.getArtistCard.initiate({ artistId: ARTIST_ID, genre_id: GENRE_ID })),
     store.dispatch(e.peekArtistCode.initiate({ code_letters: "IS", genre_id: GENRE_ID })),
     store.dispatch(e.resolveArtistByCode.initiate({ code_letters: "IS", genre_id: GENRE_ID, code_number: 31 })),
     store.dispatch(e.resolveArtistByCode.initiate({ code_letters: "AU", genre_id: 15, code_number: 3 })),
@@ -189,57 +185,53 @@ describe("refileArtist", () => {
   it.each([
     { label: "success", respond: () => HttpResponse.json({ ...RESULT, code_letters: "AU", genre_id: 15, previous_genre_id: GENRE_ID }) },
     { label: "500", respond: () => HttpResponse.json({ message: "boom" }, { status: 500 }) },
-  ])("a genre move ($label) fires every invalidation except the source-genre card", async ({ respond }) => {
+  ])("a genre move ($label) fires every invalidation", async ({ respond }) => {
     const { store, calls, unsubscribe } = await subscribed();
     server.use(http.post(REFILE_URL, respond));
 
     const body = { genre_id: GENRE_ID, code_artist_number: 3, code_letters: "AU", to_genre_id: 15 };
     await store.dispatch(catalogApi.endpoints.refileArtist.initiate({ ...ARG, body }));
-    await vi.waitFor(() => expect(calls).toEqual({ ...everything, sourceCard: 1 }));
-    await settle();
-    expect(calls).toEqual({ ...everything, sourceCard: 1 });
+    await vi.waitFor(() => expect(calls).toEqual(everything));
     unsubscribe();
   });
 
-  it.each([
-    { label: "success", respond: () => HttpResponse.json({ ...RESULT, genre_id: 15 }) },
-    { label: "500", respond: () => HttpResponse.json({ message: "boom" }, { status: 500 }) },
-  ])("a genre move ($label) does not refetch the source-genre card (it would 404), but refetches the destination and unscoped cards", async ({ respond }) => {
+  it("after a genre move the source-genre card is re-read, answers 'not filed' as an expected (quiet) error, and serves no pre-move data", async () => {
     const L = `${TEST_BACKEND_URL}/library`;
-    const hits = { source: 0, destination: 0, unscoped: 0 };
+    let moved = false;
     server.use(
       http.get(`${L}/artists/${ARTIST_ID}`, ({ request }) => {
         const genre = new URL(request.url).searchParams.get("genre_id");
-        if (genre === String(GENRE_ID)) {
-          hits.source += 1;
-          return HttpResponse.json({ message: "Artist not filed under genre 6" }, { status: 404 });
-        }
-        hits[genre === "15" ? "destination" : "unscoped"] += 1;
-        return HttpResponse.json({ ...RESULT, genre_id: 15 });
+        return moved && genre === String(GENRE_ID)
+          ? HttpResponse.json({ message: "Artist not filed under genre 6" }, { status: 404 })
+          : HttpResponse.json({ ...RESULT, genre_id: Number(genre ?? GENRE_ID) });
       }),
-      http.post(REFILE_URL, respond),
+      http.post(REFILE_URL, () => {
+        moved = true;
+        return HttpResponse.json({ ...RESULT, genre_id: 15, previous_genre_id: GENRE_ID });
+      }),
     );
     const store = createTestStore();
     const e = catalogApi.endpoints;
-    const subs = [
-      store.dispatch(e.getArtistCard.initiate({ artistId: ARTIST_ID, genre_id: 15 })),
-      store.dispatch(e.getArtistCard.initiate({ artistId: ARTIST_ID })),
-    ];
-    await Promise.all(subs);
-    // The source-genre entry is the one the still-mounted form holds; it already exists and resolves as the move lands.
-    hits.source = 0;
-    hits.destination = 0;
-    hits.unscoped = 0;
     const source = store.dispatch(e.getArtistCard.initiate({ artistId: ARTIST_ID, genre_id: GENRE_ID }));
     await source;
-    expect(hits.source).toBe(1);
 
     await store.dispatch(e.refileArtist.initiate({ ...ARG, body: { ...ARG.body, to_genre_id: 15 } }));
-    await vi.waitFor(() => expect(hits.destination).toBe(1));
-    await settle();
-    expect(hits).toEqual({ source: 1, destination: 1, unscoped: 1 });
-    subs.forEach((sub) => sub.unsubscribe());
+    await vi.waitFor(() => expect(e.getArtistCard.select({ artistId: ARTIST_ID, genre_id: GENRE_ID })(store.getState()).status).toBe("rejected"));
+    const state = e.getArtistCard.select({ artistId: ARTIST_ID, genre_id: GENRE_ID })(store.getState());
+    expect(state.error).toMatchObject({ status: 404, expected: true });
     source.unsubscribe();
+  });
+
+  it.each([
+    { label: "a different 404", status: 404, message: "Artist not found" },
+    { label: "a 500", status: 500, message: "Artist not filed under genre 6" },
+  ])("getArtistCard does not mark $label as expected", async ({ status, message }) => {
+    server.use(http.get(`${TEST_BACKEND_URL}/library/artists/${ARTIST_ID}`, () => HttpResponse.json({ message }, { status })));
+    const store = createTestStore();
+    const sub = store.dispatch(catalogApi.endpoints.getArtistCard.initiate({ artistId: ARTIST_ID, genre_id: GENRE_ID }));
+    const result = await sub;
+    expect(result.error).not.toHaveProperty("expected");
+    sub.unsubscribe();
   });
 
   it("changed:false wrote nothing: refetches nothing anywhere", async () => {

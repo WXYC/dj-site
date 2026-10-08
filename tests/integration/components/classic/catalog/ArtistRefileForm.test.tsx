@@ -82,11 +82,7 @@ describe("classic ArtistRefileForm", () => {
   it("scopes the card read to the shelf and shows the current full code", () => {
     renderWithProviders(<ArtistRefileForm artistId={ARTIST_ID} genreId={GENRE_ID} />);
 
-    expect(mockCardQuery).toHaveBeenCalledWith(
-      { artistId: ARTIST_ID, genre_id: GENRE_ID },
-      // The artist may have moved genres since this entry was cached.
-      { refetchOnMountOrArgChange: true },
-    );
+    expect(mockCardQuery).toHaveBeenCalledWith({ artistId: ARTIST_ID, genre_id: GENRE_ID });
     expect(screen.getByTestId("artist-refile-current")).toHaveTextContent("Hiphop IS 1");
   });
 
@@ -844,7 +840,9 @@ describe("classic ArtistRefileForm", () => {
       await waitFor(() =>
         expect(mockByCodeQuery).toHaveBeenLastCalledWith({ genre_id: ELECTRONIC, code_letters: "RE", code_number: 36 }),
       );
-      await waitFor(() => expect(occupancyText()).toHaveTextContent("Electronic RE 36 is free."));
+      // The code is unheld, but the server may still refuse the move, so the line never says the move will fit.
+      await waitFor(() => expect(occupancyText()).toHaveTextContent("Electronic RE 36 is not held by another artist."));
+      expect(occupancyText()).not.toHaveTextContent("free");
     });
 
     it("names the holder of the destination code, linked to the destination genre", async () => {
@@ -935,6 +933,35 @@ describe("classic ArtistRefileForm", () => {
       expect(await screen.findByTestId("artist-refile-refusal")).toHaveTextContent(text);
       expect(screen.getByRole("button", { name: "Continue" })).toBeEnabled();
       expect(mockPush).not.toHaveBeenCalled();
+    });
+
+    it("after an indeterminate move, a not-filed answer offers the requested genre's card", async () => {
+      mockRefile
+        .mockReturnValueOnce({ unwrap: () => Promise.reject({ refileArtistError: { status: 503, data: {} } }) })
+        .mockReturnValueOnce(rejects(404, { message: "Artist not filed under genre 3", code: "artist_not_filed_in_genre" }));
+      render();
+      const user = await toElectronic();
+      await confirm(user);
+      await submit(user);
+      await screen.findByTestId("artist-refile-refusal");
+      await confirm(user);
+      await submit(user);
+
+      const refusal = await screen.findByTestId("artist-refile-refusal");
+      expect(refusal).toHaveTextContent("It may already be under Electronic");
+      expect(refusal.querySelector("a")?.getAttribute("href")).toBe(`/dashboard/library/artist/${JAM_ID}?genre_id=${ELECTRONIC}`);
+    });
+
+    it("offers no destination link for a not-filed answer when no genre move was requested", async () => {
+      mockRefile.mockReturnValue(rejects(404, { message: "Artist not filed under genre 3", code: "artist_not_filed_in_genre" }));
+      render();
+      const user = userEvent.setup();
+      await user.clear(screen.getByLabelText("New Call Number:"));
+      await user.type(screen.getByLabelText("New Call Number:"), "37");
+      await confirm(user);
+      await submit(user);
+
+      expect(await screen.findByTestId("artist-refile-refusal")).not.toHaveTextContent("may already be under");
     });
 
     it("clears a standing refusal when the genre is changed", async () => {
