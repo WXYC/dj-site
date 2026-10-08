@@ -90,7 +90,7 @@ describe("classic RotationReleaseList — rotationReleaseList.jsp", () => {
   });
 
   it("renders the JSP's header links, heading, and facet chip bar", () => {
-    renderWithProviders(<RotationReleaseList statusFilter="active" canWrite={true} />);
+    renderWithProviders(<RotationReleaseList statusFilter="active" canWrite={true} canSeeFiled={false} />);
 
     expect(screen.getByRole("link", { name: "Add Rotation Release" })).toHaveAttribute(
       "href",
@@ -121,7 +121,7 @@ describe("classic RotationReleaseList — rotationReleaseList.jsp", () => {
   // stays exactly as it is for every role.
   describe("canWrite=false (DJ)", () => {
     it("omits the Add Rotation Release link but keeps the other header links and facet chips", () => {
-      renderWithProviders(<RotationReleaseList statusFilter="active" canWrite={false} />);
+      renderWithProviders(<RotationReleaseList statusFilter="active" canWrite={false} canSeeFiled={false} />);
 
       expect(screen.queryByRole("link", { name: "Add Rotation Release" })).not.toBeInTheDocument();
       expect(screen.getByRole("link", { name: "Format Tallysheets" })).toHaveAttribute(
@@ -134,7 +134,7 @@ describe("classic RotationReleaseList — rotationReleaseList.jsp", () => {
 
     it("drops the Actions column entirely -- header cell included -- rather than rendering it empty", async () => {
       mockActiveList([JUANA, CHUQUI_UNLINKED]);
-      renderWithProviders(<RotationReleaseList statusFilter="active" canWrite={false} />);
+      renderWithProviders(<RotationReleaseList statusFilter="active" canWrite={false} canSeeFiled={false} />);
 
       await screen.findByText("Juana Molina");
 
@@ -158,7 +158,7 @@ describe("classic RotationReleaseList — rotationReleaseList.jsp", () => {
 
     it("offers no row Edit, Import, Kill or Unkill affordance", async () => {
       mockActiveList([JUANA, CHUQUI_UNLINKED]);
-      renderWithProviders(<RotationReleaseList statusFilter="active" canWrite={false} />);
+      renderWithProviders(<RotationReleaseList statusFilter="active" canWrite={false} canSeeFiled={false} />);
 
       await screen.findByText("Juana Molina");
 
@@ -183,7 +183,7 @@ describe("classic RotationReleaseList — rotationReleaseList.jsp", () => {
           label_id: null,
         },
       ]);
-      renderWithProviders(<RotationReleaseList statusFilter="uncataloged" canWrite={false} />);
+      renderWithProviders(<RotationReleaseList statusFilter="uncataloged" canWrite={false} canSeeFiled={false} />);
 
       await screen.findByText("LOS THUTHANAKA");
       expect(screen.queryByRole("columnheader", { name: "Actions" })).not.toBeInTheDocument();
@@ -192,7 +192,7 @@ describe("classic RotationReleaseList — rotationReleaseList.jsp", () => {
   });
 
   it("marks the current facet's chip active", () => {
-    renderWithProviders(<RotationReleaseList statusFilter="uncataloged" canWrite={true} />);
+    renderWithProviders(<RotationReleaseList statusFilter="uncataloged" canWrite={true} canSeeFiled={false} />);
     expect(screen.getByRole("link", { name: "Awaiting Cataloging" })).toHaveClass("active");
     expect(screen.getByRole("link", { name: "Active" })).not.toHaveClass("active");
   });
@@ -200,7 +200,7 @@ describe("classic RotationReleaseList — rotationReleaseList.jsp", () => {
   describe("Active facet", () => {
     it("renders the JSP's nine columns for a linked and an unlinked row", async () => {
       mockActiveList([JUANA, CHUQUI_UNLINKED]);
-      renderWithProviders(<RotationReleaseList statusFilter="active" canWrite={true} />);
+      renderWithProviders(<RotationReleaseList statusFilter="active" canWrite={true} canSeeFiled={false} />);
 
       expect(await screen.findByText("Juana Molina")).toBeInTheDocument();
       const juanaRow = screen.getByText("Juana Molina").closest("tr") as HTMLElement;
@@ -224,7 +224,7 @@ describe("classic RotationReleaseList — rotationReleaseList.jsp", () => {
     // one has nothing left to import.
     it("offers Import exactly where the Library column reads Uncataloged", async () => {
       mockActiveList([JUANA, CHUQUI_UNLINKED]);
-      renderWithProviders(<RotationReleaseList statusFilter="active" canWrite={true} />);
+      renderWithProviders(<RotationReleaseList statusFilter="active" canWrite={true} canSeeFiled={false} />);
 
       await screen.findByText("Juana Molina");
       const chuquiRow = screen.getByText("Chuquimamani-Condori").closest("tr") as HTMLElement;
@@ -242,7 +242,7 @@ describe("classic RotationReleaseList — rotationReleaseList.jsp", () => {
     // two rotation dates stay editable here.
     it("offers Edit on every row, catalogued or not", async () => {
       mockActiveList([JUANA, CHUQUI_UNLINKED]);
-      renderWithProviders(<RotationReleaseList statusFilter="active" canWrite={true} />);
+      renderWithProviders(<RotationReleaseList statusFilter="active" canWrite={true} canSeeFiled={false} />);
 
       await screen.findByText("Juana Molina");
       expect(screen.getByRole("link", { name: "Edit: DOGA" })).toHaveAttribute(
@@ -261,7 +261,7 @@ describe("classic RotationReleaseList — rotationReleaseList.jsp", () => {
     it("shows a future kill date and offers Unkill, not a green Active and Kill", async () => {
       const future = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
       mockActiveList([{ ...JUANA, rotation_kill_date: future }]);
-      renderWithProviders(<RotationReleaseList statusFilter="active" canWrite={true} />);
+      renderWithProviders(<RotationReleaseList statusFilter="active" canWrite={true} canSeeFiled={false} />);
 
       const row = (await screen.findByText("Juana Molina")).closest("tr") as HTMLElement;
       expect(within(row).getByRole("button", { name: /^Unkill: / })).toBeInTheDocument();
@@ -274,7 +274,7 @@ describe("classic RotationReleaseList — rotationReleaseList.jsp", () => {
         { ...JUANA, rotation_id: 1, artist_name: "Jessica Pratt", album_title: "On Your Own Love Again", rotation_add_date: "2026-08-01" },
         { ...JUANA, rotation_id: 2, artist_name: "Stereolab", album_title: "Dots and Loops", rotation_add_date: "2026-08-20" },
       ]);
-      renderWithProviders(<RotationReleaseList statusFilter="active" canWrite={true} />);
+      renderWithProviders(<RotationReleaseList statusFilter="active" canWrite={true} canSeeFiled={false} />);
 
       await screen.findByText("Stereolab");
       const artists = screen.getAllByRole("row").slice(1).map((row) => row.children[1]?.textContent);
@@ -287,7 +287,7 @@ describe("classic RotationReleaseList — rotationReleaseList.jsp", () => {
       mockActiveList([JUANA]);
       server.use(http.patch(BASE, () => new HttpResponse(null, { status: 503 })));
 
-      const { user } = renderWithProviders(<RotationReleaseList statusFilter="active" canWrite={true} />);
+      const { user } = renderWithProviders(<RotationReleaseList statusFilter="active" canWrite={true} canSeeFiled={false} />);
       await screen.findByText("Juana Molina");
       await user.click(screen.getByRole("button", { name: /^Kill: / }));
 
@@ -300,7 +300,7 @@ describe("classic RotationReleaseList — rotationReleaseList.jsp", () => {
         { ...JUANA, rotation_id: 1 },
         { ...JUANA, rotation_id: 2 },
       ]);
-      renderWithProviders(<RotationReleaseList statusFilter="active" canWrite={true} />);
+      renderWithProviders(<RotationReleaseList statusFilter="active" canWrite={true} canSeeFiled={false} />);
 
       await screen.findByText("Juana Molina");
       expect(screen.getAllByText("Juana Molina")).toHaveLength(1);
@@ -308,7 +308,7 @@ describe("classic RotationReleaseList — rotationReleaseList.jsp", () => {
 
     it("shows the JSP's empty-state message for a genuinely empty result", async () => {
       mockActiveList([]);
-      renderWithProviders(<RotationReleaseList statusFilter="active" canWrite={true} />);
+      renderWithProviders(<RotationReleaseList statusFilter="active" canWrite={true} canSeeFiled={false} />);
 
       expect(await screen.findByText("No rotation releases found for this filter.")).toBeInTheDocument();
     });
@@ -326,7 +326,7 @@ describe("classic RotationReleaseList — rotationReleaseList.jsp", () => {
             }),
         ),
       );
-      renderWithProviders(<RotationReleaseList statusFilter="active" canWrite={true} />);
+      renderWithProviders(<RotationReleaseList statusFilter="active" canWrite={true} canSeeFiled={false} />);
 
       expect(await screen.findByRole("alert")).toHaveTextContent(/unavailable/i);
       expect(screen.queryByText("No rotation releases found for this filter.")).not.toBeInTheDocument();
@@ -342,7 +342,7 @@ describe("classic RotationReleaseList — rotationReleaseList.jsp", () => {
         }),
       );
 
-      const { user } = renderWithProviders(<RotationReleaseList statusFilter="active" canWrite={true} />);
+      const { user } = renderWithProviders(<RotationReleaseList statusFilter="active" canWrite={true} canSeeFiled={false} />);
       await screen.findByText("Juana Molina");
       await user.click(screen.getByRole("button", { name: /^Kill: / }));
 
@@ -361,7 +361,7 @@ describe("classic RotationReleaseList — rotationReleaseList.jsp", () => {
         }),
       );
 
-      const { user } = renderWithProviders(<RotationReleaseList statusFilter="active" canWrite={true} />);
+      const { user } = renderWithProviders(<RotationReleaseList statusFilter="active" canWrite={true} canSeeFiled={false} />);
       await screen.findByText("Chuquimamani-Condori");
       await user.click(screen.getByRole("button", { name: /^Unkill: / }));
 
@@ -405,7 +405,7 @@ describe("classic RotationReleaseList — rotationReleaseList.jsp", () => {
         ),
       );
       mockUncatalogued([ACTIVE_UNCATALOGUED]);
-      renderWithProviders(<RotationReleaseList statusFilter="uncataloged" canWrite={true} />);
+      renderWithProviders(<RotationReleaseList statusFilter="uncataloged" canWrite={true} canSeeFiled={false} />);
 
       const row = (await screen.findByText("LOS THUTHANAKA")).closest("tr") as HTMLElement;
       // The sixth cell is the JSP's Format column; the em dash also lives in
@@ -420,7 +420,7 @@ describe("classic RotationReleaseList — rotationReleaseList.jsp", () => {
         ),
       );
       mockUncatalogued([{ ...ACTIVE_UNCATALOGUED, format_id: null }]);
-      renderWithProviders(<RotationReleaseList statusFilter="uncataloged" canWrite={true} />);
+      renderWithProviders(<RotationReleaseList statusFilter="uncataloged" canWrite={true} canSeeFiled={false} />);
 
       const row = (await screen.findByText("LOS THUTHANAKA")).closest("tr") as HTMLElement;
       expect(row.children[5]).toHaveTextContent("\u2014");
@@ -428,7 +428,7 @@ describe("classic RotationReleaseList — rotationReleaseList.jsp", () => {
 
     it("funnels the killed backlog into the import screen and leaves the active rows alone", async () => {
       mockUncatalogued([ACTIVE_UNCATALOGUED, KILLED_UNCATALOGUED]);
-      const { user } = renderWithProviders(<RotationReleaseList statusFilter="uncataloged" canWrite={true} />);
+      const { user } = renderWithProviders(<RotationReleaseList statusFilter="uncataloged" canWrite={true} canSeeFiled={false} />);
 
       await screen.findByText("LOS THUTHANAKA");
       expect(screen.queryByRole("link", { name: /^Import: / })).not.toBeInTheDocument();
@@ -441,7 +441,7 @@ describe("classic RotationReleaseList — rotationReleaseList.jsp", () => {
 
     it("defaults to active-only, hiding the killed backlog", async () => {
       mockUncatalogued([ACTIVE_UNCATALOGUED, KILLED_UNCATALOGUED]);
-      renderWithProviders(<RotationReleaseList statusFilter="uncataloged" canWrite={true} />);
+      renderWithProviders(<RotationReleaseList statusFilter="uncataloged" canWrite={true} canSeeFiled={false} />);
 
       expect(await screen.findByText("LOS THUTHANAKA")).toBeInTheDocument();
       expect(screen.queryByText("ear")).not.toBeInTheDocument();
@@ -449,7 +449,7 @@ describe("classic RotationReleaseList — rotationReleaseList.jsp", () => {
 
     it("reveals the killed backlog when the toggle is switched on", async () => {
       mockUncatalogued([ACTIVE_UNCATALOGUED, KILLED_UNCATALOGUED]);
-      const { user } = renderWithProviders(<RotationReleaseList statusFilter="uncataloged" canWrite={true} />);
+      const { user } = renderWithProviders(<RotationReleaseList statusFilter="uncataloged" canWrite={true} canSeeFiled={false} />);
       await screen.findByText("LOS THUTHANAKA");
 
       await user.click(screen.getByRole("checkbox", { name: /show killed/i }));
@@ -465,14 +465,14 @@ describe("classic RotationReleaseList — rotationReleaseList.jsp", () => {
         artist_name: `Artist ${index}`,
       }));
       mockUncatalogued(full);
-      renderWithProviders(<RotationReleaseList statusFilter="uncataloged" canWrite={true} />);
+      renderWithProviders(<RotationReleaseList statusFilter="uncataloged" canWrite={true} canSeeFiled={false} />);
 
       expect(await screen.findByText(/older entries in the backlog are not listed here/i)).toBeInTheDocument();
     });
 
     it("says nothing about truncation for a short page", async () => {
       mockUncatalogued([ACTIVE_UNCATALOGUED]);
-      renderWithProviders(<RotationReleaseList statusFilter="uncataloged" canWrite={true} />);
+      renderWithProviders(<RotationReleaseList statusFilter="uncataloged" canWrite={true} canSeeFiled={false} />);
 
       await screen.findByText("LOS THUTHANAKA");
       expect(screen.queryByText(/older entries in the backlog are not listed here/i)).not.toBeInTheDocument();
@@ -483,7 +483,7 @@ describe("classic RotationReleaseList — rotationReleaseList.jsp", () => {
         { ...ACTIVE_UNCATALOGUED, id: 1 },
         { ...ACTIVE_UNCATALOGUED, id: 2 },
       ]);
-      renderWithProviders(<RotationReleaseList statusFilter="uncataloged" canWrite={true} />);
+      renderWithProviders(<RotationReleaseList statusFilter="uncataloged" canWrite={true} canSeeFiled={false} />);
 
       expect(await screen.findAllByText("LOS THUTHANAKA")).toHaveLength(2);
     });
@@ -499,7 +499,7 @@ describe("classic RotationReleaseList — rotationReleaseList.jsp", () => {
             }),
         ),
       );
-      renderWithProviders(<RotationReleaseList statusFilter="uncataloged" canWrite={true} />);
+      renderWithProviders(<RotationReleaseList statusFilter="uncataloged" canWrite={true} canSeeFiled={false} />);
 
       expect(await screen.findByRole("alert")).toHaveTextContent(/unavailable/i);
       expect(screen.queryByText("No rotation releases found for this filter.")).not.toBeInTheDocument();
@@ -522,7 +522,7 @@ describe("classic RotationReleaseList — rotationReleaseList.jsp", () => {
       "shows on status=%s the catalogued-and-killed rows neither other facet reaches",
       async (statusFilter) => {
         mockRotationListByStatus({ all: [KILLED_CATALOGUED] });
-        renderWithProviders(<RotationReleaseList statusFilter={statusFilter} canWrite={true} />);
+        renderWithProviders(<RotationReleaseList statusFilter={statusFilter} canWrite={true} canSeeFiled={false} />);
 
         const row = (await screen.findByText("Drag City")).closest("tr")!;
         expect(within(row).getByText("Jessica Pratt")).toBeInTheDocument();
@@ -539,7 +539,7 @@ describe("classic RotationReleaseList — rotationReleaseList.jsp", () => {
           { ...KILLED_CATALOGUED, rotation_id: 2, rotation_bin: "L" },
         ],
       });
-      renderWithProviders(<RotationReleaseList statusFilter="killed" canWrite={true} />);
+      renderWithProviders(<RotationReleaseList statusFilter="killed" canWrite={true} canSeeFiled={false} />);
 
       expect(await screen.findAllByText("Jessica Pratt")).toHaveLength(2);
     });
@@ -547,14 +547,14 @@ describe("classic RotationReleaseList — rotationReleaseList.jsp", () => {
     it("narrows Killed to the rows carrying a kill date, where All keeps both", async () => {
       mockRotationListByStatus({ all: [JUANA, KILLED_CATALOGUED] });
       const { unmount } = renderWithProviders(
-        <RotationReleaseList statusFilter="killed" canWrite={true} />,
+        <RotationReleaseList statusFilter="killed" canWrite={true} canSeeFiled={false} />,
       );
 
       await screen.findByText("Jessica Pratt");
       expect(screen.queryByText("Juana Molina")).not.toBeInTheDocument();
       unmount();
 
-      renderWithProviders(<RotationReleaseList statusFilter="all" canWrite={true} />);
+      renderWithProviders(<RotationReleaseList statusFilter="all" canWrite={true} canSeeFiled={false} />);
       expect(await screen.findByText("Juana Molina")).toBeInTheDocument();
       expect(screen.getByText("Jessica Pratt")).toBeInTheDocument();
     });
@@ -569,7 +569,7 @@ describe("classic RotationReleaseList — rotationReleaseList.jsp", () => {
         http.patch(`${BASE}/:id`, () => HttpResponse.json({ ...CHUQUI_UNLINKED, kill_date: null })),
       );
       const { user } = renderWithProviders(
-        <RotationReleaseList statusFilter="killed" canWrite={true} />,
+        <RotationReleaseList statusFilter="killed" canWrite={true} canSeeFiled={false} />,
       );
 
       await screen.findByText("Chuquimamani-Condori");
@@ -593,7 +593,7 @@ describe("classic RotationReleaseList — rotationReleaseList.jsp", () => {
           { ...KILLED_CATALOGUED, rotation_id: 2, artist_name: "Cat Power", rotation_add_date: "2026-08-20" },
         ],
       });
-      renderWithProviders(<RotationReleaseList statusFilter="all" canWrite={true} />);
+      renderWithProviders(<RotationReleaseList statusFilter="all" canWrite={true} canSeeFiled={false} />);
 
       await screen.findByText("Cat Power");
       const artists = screen.getAllByRole("row").slice(1).map((row) => row.children[1]?.textContent);
@@ -623,7 +623,7 @@ describe("classic RotationReleaseList — rotationReleaseList.jsp", () => {
           },
         ],
       });
-      renderWithProviders(<RotationReleaseList statusFilter="killed" canWrite={true} />);
+      renderWithProviders(<RotationReleaseList statusFilter="killed" canWrite={true} canSeeFiled={false} />);
 
       await screen.findByText("Cat Power");
       const artists = screen.getAllByRole("row").slice(1).map((row) => row.children[1]?.textContent);
@@ -637,7 +637,7 @@ describe("classic RotationReleaseList — rotationReleaseList.jsp", () => {
           { ...KILLED_CATALOGUED, rotation_id: 2, artist_name: "Cat Power", rotation_add_date: "2025-10-01", rotation_kill_date: "2026-09-14" },
         ],
       });
-      renderWithProviders(<RotationReleaseList statusFilter="all" canWrite={true} />);
+      renderWithProviders(<RotationReleaseList statusFilter="all" canWrite={true} canSeeFiled={false} />);
 
       await screen.findByText("Stereolab");
       const artists = screen.getAllByRole("row").slice(1).map((row) => row.children[1]?.textContent);
@@ -646,7 +646,7 @@ describe("classic RotationReleaseList — rotationReleaseList.jsp", () => {
 
     it("offers Import on a killed row that was never catalogued", async () => {
       mockRotationListByStatus({ all: [{ ...CHUQUI_UNLINKED }] });
-      renderWithProviders(<RotationReleaseList statusFilter="killed" canWrite={true} />);
+      renderWithProviders(<RotationReleaseList statusFilter="killed" canWrite={true} canSeeFiled={false} />);
 
       const row = (await screen.findByText("Chuquimamani-Condori")).closest("tr")!;
       expect(within(row).getByText("Uncataloged")).toBeInTheDocument();
@@ -658,7 +658,7 @@ describe("classic RotationReleaseList — rotationReleaseList.jsp", () => {
 
     it("shows the JSP's empty-state message for a genuinely empty facet", async () => {
       mockRotationListByStatus({ all: [] });
-      renderWithProviders(<RotationReleaseList statusFilter="killed" canWrite={true} />);
+      renderWithProviders(<RotationReleaseList statusFilter="killed" canWrite={true} canSeeFiled={false} />);
 
       expect(await screen.findByText("No rotation releases found for this filter.")).toBeInTheDocument();
     });
@@ -674,7 +674,7 @@ describe("classic RotationReleaseList — rotationReleaseList.jsp", () => {
             }),
         ),
       );
-      renderWithProviders(<RotationReleaseList statusFilter="killed" canWrite={true} />);
+      renderWithProviders(<RotationReleaseList statusFilter="killed" canWrite={true} canSeeFiled={false} />);
 
       expect(await screen.findByRole("alert")).toHaveTextContent(/unavailable/i);
       expect(screen.queryByText("No rotation releases found for this filter.")).not.toBeInTheDocument();
@@ -690,7 +690,7 @@ describe("classic RotationReleaseList — rotationReleaseList.jsp", () => {
         rotation_add_date: `2026-07-${String(28 - (index % 28)).padStart(2, "0")}`,
       }));
       mockRotationListByStatus({ all: history });
-      const { user } = renderWithProviders(<RotationReleaseList statusFilter="all" canWrite={true} />);
+      const { user } = renderWithProviders(<RotationReleaseList statusFilter="all" canWrite={true} canSeeFiled={false} />);
 
       await screen.findByRole("button", { name: `Show ${overflow} more` });
       const mountedRows = () => screen.getAllByRole("row").length - 1;

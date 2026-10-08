@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { screen } from "@testing-library/react";
 import { renderWithProviders } from "@/tests/helpers";
 import {
@@ -27,8 +27,21 @@ vi.mock("@/lib/features/authentication/organization-utils.server", async () => {
 });
 
 vi.mock("@/src/components/experiences/classic/rotation/RotationReleaseList", () => ({
-  default: ({ statusFilter, canWrite }: { statusFilter: string; canWrite: boolean }) => (
-    <div data-testid="rotation-release-list" data-status-filter={statusFilter} data-can-write={canWrite} />
+  default: ({
+    statusFilter,
+    canWrite,
+    canSeeFiled,
+  }: {
+    statusFilter: string;
+    canWrite: boolean;
+    canSeeFiled: boolean;
+  }) => (
+    <div
+      data-testid="rotation-release-list"
+      data-status-filter={statusFilter}
+      data-can-write={canWrite}
+      data-can-see-filed={canSeeFiled}
+    />
   ),
 }));
 vi.mock("@/src/components/experiences/classic/Navigation", () => ({
@@ -83,6 +96,24 @@ describe("Classic /dashboard/rotation page — rotationReleaseList.jsp, DJ-reada
       () => ClassicRotationListPage({ searchParams: noStatus }),
       "/login?bounced=no-session",
     );
+  });
+});
+
+describe("Classic /dashboard/rotation page — filed intake items follow the reviews flag", () => {
+  setUpClassicPageAuthorityEnv();
+  afterEach(() => vi.unstubAllEnvs());
+
+  it.each([
+    { flag: "", role: "musicDirector" as const, canSeeFiled: false },
+    { flag: "staff", role: "dj" as const, canSeeFiled: false },
+    { flag: "staff", role: "musicDirector" as const, canSeeFiled: true },
+    { flag: "true", role: "dj" as const, canSeeFiled: true },
+  ])("flag=$flag, $role -> canSeeFiled=$canSeeFiled", async ({ flag, role, canSeeFiled }) => {
+    vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", flag);
+    setUpClassicPageAuthority(role);
+    renderWithProviders(await ClassicRotationListPage({ searchParams: noStatus }));
+
+    expect(screen.getByTestId("rotation-release-list")).toHaveAttribute("data-can-see-filed", String(canSeeFiled));
   });
 });
 

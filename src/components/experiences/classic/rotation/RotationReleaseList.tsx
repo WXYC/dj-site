@@ -16,6 +16,7 @@ import {
   type RotationDisplayRow,
 } from "@/lib/features/rotation/classicList";
 import { useRotationRowActions } from "@/lib/features/rotation/hooks";
+import FiledIntakeItems from "./FiledIntakeItems";
 import {
   ROTATION_STATUS_FACET_RENDER_BATCH,
   UNCATALOGUED_ROTATION_PAGE_SIZE,
@@ -238,11 +239,13 @@ function ActiveFacet({
  */
 function UncataloguedFacet({
   canWrite,
+  canSeeFiled,
   onKill,
   onUnkill,
   pendingRotationIds,
 }: {
   canWrite: boolean;
+  canSeeFiled: boolean;
   onKill: (rotationId: number) => void;
   onUnkill: (rotationId: number) => void;
   pendingRotationIds: ReadonlySet<number>;
@@ -276,6 +279,7 @@ function UncataloguedFacet({
 
   return (
     <>
+      {canSeeFiled && <FiledIntakeItems canWrite={canWrite} />}
       <p style={{ textAlign: "center" }}>
         <label>
           <input
@@ -448,9 +452,11 @@ function StatusFacet({
 export default function RotationReleaseList({
   statusFilter,
   canWrite,
+  canSeeFiled,
 }: {
   statusFilter: RotationStatusFilter;
   canWrite: boolean;
+  canSeeFiled: boolean;
 }) {
   const { pendingRotationIds, kill: handleKill, unkill: handleUnkill } = useRotationRowActions();
 
@@ -496,6 +502,7 @@ export default function RotationReleaseList({
       {statusFilter === "uncataloged" && (
         <UncataloguedFacet
           canWrite={canWrite}
+          canSeeFiled={canSeeFiled}
           onKill={handleKill}
           onUnkill={handleUnkill}
           pendingRotationIds={pendingRotationIds}
