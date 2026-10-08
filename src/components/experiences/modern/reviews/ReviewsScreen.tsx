@@ -139,28 +139,40 @@ export default function ReviewsScreen() {
           <Button size="sm" {...lock(i.id, "checkout")} onClick={() => write(i.id, "checkout", () => checkout(i.id).unwrap())}>{REVIEW_COPY.screen.checkOut}</Button>
         </>
       ))}
-      {section(REVIEW_COPY.screen.checkoutsTitle, checkouts, REVIEW_COPY.screen.checkoutsEmpty, describe, (i) => (
+      {section(REVIEW_COPY.screen.checkoutsTitle, checkouts, REVIEW_COPY.screen.checkoutsEmpty, describe, (i) => {
+        const mineHere = mine.data.filter((r) => r.intake_item_id === i.id);
+        const submitted = mineHere.find((r) => r.status === "submitted");
+        const draft = mineHere.find((r) => r.status === "draft");
+        return (
         <>
           <Typography level="body-sm">{`${REVIEW_COPY.screen.taken} ${day(i.checked_out_at)}`}</Typography>
           {i.overdue && <Chip color="danger">{REVIEW_COPY.screen.overdue}</Chip>}
           {i.effective_state === "reviewed" && (
             <Typography level="body-sm">{REVIEW_COPY.screen.reviewedReturn}</Typography>
           )}
-          <Button
-            size="sm"
-            {...lock(i.id, "write")}
-            onClick={() =>
-              write(i.id, "write", async () => {
-                const review = await createReview({ intake_item_id: i.id }).unwrap();
-                router.push(`/dashboard/reviews/${review.id}`);
-              })
-            }
-          >
-            {REVIEW_COPY.writeReview}
-          </Button>
+          {submitted ? (
+            <>
+              <Typography level="body-sm">{REVIEW_COPY.screen.reviewSubmitted}</Typography>
+              <Button size="sm" onClick={() => router.push(`/dashboard/reviews/${submitted.id}`)}>{REVIEW_COPY.screen.editReview}</Button>
+            </>
+          ) : (
+            <Button
+              size="sm"
+              {...lock(i.id, "write")}
+              onClick={() =>
+                write(i.id, "write", async () => {
+                  const review = draft ?? (await createReview({ intake_item_id: i.id }).unwrap());
+                  router.push(`/dashboard/reviews/${review.id}`);
+                })
+              }
+            >
+              {REVIEW_COPY.writeReview}
+            </Button>
+          )}
           <Button size="sm" variant="outlined" {...lock(i.id, "release")} onClick={() => setReturning(i)}>{REVIEW_COPY.screen.returnToShelf}</Button>
         </>
-      ))}
+        );
+      })}
       {section(REVIEW_COPY.screen.requestsTitle, requests, REVIEW_COPY.screen.requestsEmpty, describe, (i) => (
         <>
           <Typography level="body-sm">{`${REVIEW_COPY.screen.asked} ${day(i.requested_at)}`}</Typography>
