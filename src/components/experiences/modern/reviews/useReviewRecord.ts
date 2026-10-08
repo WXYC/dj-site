@@ -2,6 +2,7 @@ import type { Review } from "@wxyc/shared";
 import { skipToken } from "@reduxjs/toolkit/query";
 import { useGetInformationQuery } from "@/lib/features/catalog/api";
 import { useGetIntakeItemQuery } from "@/lib/features/reviews/api";
+import { intakeRecord } from "./recordLine";
 
 export type ReviewRecord = {
   artist: string;
@@ -24,8 +25,7 @@ export function useReviewRecord(review: Review): ReviewRecord | undefined {
     review.intake_item_id == null && review.album_id != null ? { album_id: review.album_id } : skipToken,
   );
   if (intake.data) {
-    const { artist_name, album_title, record_label, format_id } = intake.data;
-    return { artist: artist_name, album: album_title, label: record_label ?? "", formatId: format_id };
+    return intakeRecord(intake.data);
   }
   if (album.data) {
     return { artist: album.data.artist.name, album: album.data.title, label: album.data.label, format: album.data.format };
