@@ -5,18 +5,24 @@ import { Button, Chip, FormControl, FormLabel, Input, Link, Option, Select, Stac
 import type { IntakeItem } from "@wxyc/shared";
 import { toast } from "sonner";
 import { useGetFormatsQuery } from "@/lib/features/catalog/api";
+import { useGetRosterQuery } from "@/lib/features/admin/api";
+import { Authorization } from "@/lib/features/admin/types";
 import {
+  isIntakeRequestRefused,
   isIntakeStateChanged,
   intakeApi,
+  useCancelIntakeRequestMutation,
   useGetIntakeItemsQuery,
   useLogIntakeItemMutation,
   useReleaseIntakeItemMutation,
+  useRequestIntakeItemMutation,
 } from "@/lib/features/reviews/intakeApi";
 import { useAppDispatch } from "@/lib/hooks";
 import { useCanSeeReviews } from "@/src/hooks/useCanSeeReviews";
 import { useRowWrite } from "@/src/hooks/useRowWrite";
 import LabelSearchTypeahead from "../catalog/AddRelease/LabelSearchTypeahead";
 import IntakeLane from "./IntakeLane";
+import IntakeRequestPicker from "./IntakeRequestPicker";
 import { REVIEW_COPY } from "./copy";
 import { intakeRecord, recordLine } from "./recordLine";
 import { hasNothingToShow } from "@/lib/has-nothing-to-show";
@@ -29,32 +35,52 @@ const COPY = REVIEW_COPY.intake;
 const EVERY_STATE = undefined;
 const AWAITING_LANE = { awaiting_acceptance: true } as const;
 
+// `return` is the Reviewed lane's Mark as returned; both it and `release` call /release.
+type Action = "request" | "cancel" | "release" | "return";
+
+/** What a lost race (409 `state_changed`) means for each button, shown once the lists have reloaded. */
+const RACE_NOTICE: Record<Action, string> = {
+  request: COPY.raceRequest,
+  cancel: COPY.raceCancel,
+  release: COPY.raceCheckoutReleased,
+  return: COPY.raceReleased,
+};
+
 const EMPTY_FORM = { artist: "", album: "", label: "", labelId: null as number | null, formatId: null as number | null, discogs: "" };
 
-export default function IntakeScreen() {
+/** `organizationSlug` is the station organization, read server-side by the page, for the DJ picker's roster. */
+export default function IntakeScreen({ organizationSlug }: { organizationSlug: string }) {
   const visible = useCanSeeReviews();
   const everyState = useGetIntakeItemsQuery(EVERY_STATE, { skip: !visible });
   const awaiting = useGetIntakeItemsQuery(AWAITING_LANE, { skip: !visible });
+  const roster = useGetRosterQuery({ organizationSlug }, { skip: !visible });
   const { data: formats } = useGetFormatsQuery(undefined, { skip: !visible });
   const [logItem, { isLoading: logging }] = useLogIntakeItemMutation();
   const [release] = useReleaseIntakeItemMutation();
+  const [requestReview] = useRequestIntakeItemMutation();
+  const [cancelRequest] = useCancelIntakeRequestMutation();
   const dispatch = useAppDispatch();
   const [form, setForm] = useState(EMPTY_FORM);
   const [notice, setNotice] = useState<string | null>(null);
-  const { write, lock } = useRowWrite<"release">({
+  const { write, lock } = useRowWrite<Action>({
     reload: () =>
       [EVERY_STATE, AWAITING_LANE].map((arg) =>
         dispatch(intakeApi.endpoints.getIntakeItems.initiate(arg, { subscribe: false, forceRefetch: true })),
       ),
     isLostRace: isIntakeStateChanged,
-    onFailure: () => toast.error(REVIEW_COPY.screen.writeFailed),
-    onLostRace: () => setNotice(COPY.raceReleased),
+    onFailure: (err, _id, action) => {
+      if (action === "request" && isIntakeRequestRefused(err)) {
+        setNotice(COPY.requestRefused);
+        void roster.refetch();
+      } else toast.error(REVIEW_COPY.screen.writeFailed);
+    },
+    onLostRace: (_id, action) => setNotice(RACE_NOTICE[action]),
   });
 
   // The notice describes the action that lost, so the next action starts without it.
-  const act = (id: number, run: () => Promise<unknown>) => {
+  const act = (id: number, action: Action, run: () => Promise<unknown>) => {
     setNotice(null);
-    return write(id, "release", run);
+    return write(id, action, run);
   };
 
   if (!visible) return null;
@@ -64,6 +90,10 @@ export default function IntakeScreen() {
   // Until every lane lands, an empty-state sentence would read as a fact.
   if (!everyState.data || !awaiting.data) return null;
 
+  // Holding `reviews: write` is what a DJ account (or above) is; the server refuses anyone else.
+  const djs = (roster.data?.accounts ?? []).flatMap((a) =>
+    a.id && a.authorization >= Authorization.DJ ? [{ id: a.id, name: a.djName ?? a.userName }] : [],
+  );
   const waitingIds = new Set(awaiting.data.map((i) => i.id));
   const inState = (state: IntakeItem["effective_state"]) => everyState.data!.filter((i) => i.effective_state === state);
 
@@ -160,9 +190,56 @@ export default function IntakeScreen() {
           )}
         />
       )}
-      <IntakeLane title={COPY.onShelf} rows={inState("pool")} empty={COPY.empty} label={laneLabel} extra={physical} />
-      <IntakeLane title={COPY.requested} rows={inState("requested")} empty={COPY.empty} label={laneLabel} extra={physical} />
-      <IntakeLane title={COPY.checkedOut} rows={inState("checked_out")} empty={COPY.empty} label={laneLabel} extra={physical} />
+      <IntakeLane
+        title={COPY.onShelf}
+        rows={inState("pool")}
+        empty={COPY.empty}
+        label={laneLabel}
+        extra={(i) => (
+          <>
+            {physical(i)}
+            {hasNothingToShow(roster) ? (
+              <Typography role="alert">{REVIEW_COPY.screen.loadFailed}</Typography>
+            ) : (
+              <IntakeRequestPicker
+                djs={djs}
+                busy={lock(i.id, "request")}
+                onRequest={(djId) => act(i.id, "request", () => requestReview({ id: i.id, djId }).unwrap())}
+              />
+            )}
+          </>
+        )}
+      />
+      <IntakeLane
+        title={COPY.requested}
+        rows={inState("requested")}
+        empty={COPY.empty}
+        label={laneLabel}
+        extra={(i) => (
+          <>
+            {physical(i)}
+            <Typography level="body-sm">{where(i)}</Typography>
+            <Button size="sm" variant="outlined" {...lock(i.id, "cancel")} onClick={() => act(i.id, "cancel", () => cancelRequest(i.id).unwrap())}>
+              {COPY.cancelRequest}
+            </Button>
+          </>
+        )}
+      />
+      <IntakeLane
+        title={COPY.checkedOut}
+        rows={inState("checked_out")}
+        empty={COPY.empty}
+        label={laneLabel}
+        extra={(i) => (
+          <>
+            {physical(i)}
+            <Typography level="body-sm">{where(i)}</Typography>
+            <Button size="sm" variant="outlined" {...lock(i.id, "release")} onClick={() => act(i.id, "release", () => release(i.id).unwrap())}>
+              {COPY.release}
+            </Button>
+          </>
+        )}
+      />
       <IntakeLane
         title={COPY.reviewed}
         rows={inState("reviewed")}
@@ -174,7 +251,7 @@ export default function IntakeScreen() {
               <Typography level="body-sm">
                 {i.checked_out_by ? `${COPY.stillOutTo} ${i.checked_out_by_name}` : COPY.holderRemoved}
               </Typography>
-              <Button size="sm" variant="outlined" {...lock(i.id, "release")} onClick={() => act(i.id, () => release(i.id).unwrap())}>
+              <Button size="sm" variant="outlined" {...lock(i.id, "return")} onClick={() => act(i.id, "return", () => release(i.id).unwrap())}>
                 {COPY.returned}
               </Button>
             </>

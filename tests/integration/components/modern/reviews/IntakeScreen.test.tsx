@@ -4,10 +4,21 @@ import { http, HttpResponse } from "msw";
 import { fakeReviewsEndpoints, intakeItem, renderWithProviders, server, TEST_BACKEND_URL } from "@/tests/helpers";
 import { Authorization } from "@/lib/features/admin/types";
 
+const roster = vi.hoisted(() => ({ listUsers: vi.fn(), listMembers: vi.fn() }));
+
 vi.mock("@/lib/features/authentication/client", async () => {
   const { createAuthClientModuleMock } = await import("@/tests/helpers/auth-client-mock");
-  return createAuthClientModuleMock();
+  const mock = createAuthClientModuleMock();
+  return {
+    ...mock,
+    authClient: { ...mock.authClient, admin: { listUsers: roster.listUsers }, organization: { listMembers: roster.listMembers } },
+  };
 });
+
+vi.mock("@/lib/features/authentication/organization-utils", async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  resolveOrganizationIdAdmin: async () => "org-1",
+}));
 
 vi.mock("sonner", () => ({
   toast: Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn(), info: vi.fn() }),
@@ -22,6 +33,7 @@ vi.mock("@/src/hooks/authenticationHooks", () => ({
   }),
 }));
 
+import { toast } from "sonner";
 import IntakeScreen from "@/src/components/experiences/modern/reviews/IntakeScreen";
 
 const moonPix = (overrides = {}) =>
@@ -31,6 +43,26 @@ const waiting = (id: number, overrides = {}) =>
   moonPix({ id, state: "checked_out", effective_state: "checked_out", checked_out_by: "dj-1", checked_out_by_name: "DJ Sam", submitted_review_count: 1, accepted_review_id: null, ...overrides });
 
 const lane = (name: string) => screen.findByRole("region", { name });
+
+const account = (id: string, djName: string, role: string) => ({
+  id, name: djName, email: `${id}@example.org`, username: id, role, emailVerified: true, djName,
+  createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z",
+});
+const ROSTER = [
+  account("dj-sam", "DJ Sam", "dj"),
+  account("dj-pat", "DJ Pat", "dj"),
+  account("md-me", "DJ Me", "musicDirector"),
+  account("mem-1", "Member Max", "member"),
+];
+
+beforeEach(() => {
+  vi.mocked(toast.error).mockClear();
+  roster.listUsers.mockReset().mockImplementation(async () => ({ data: { users: ROSTER, total: ROSTER.length }, error: null }));
+  roster.listMembers.mockReset().mockImplementation(async () => ({
+    data: { members: ROSTER.map((u) => ({ userId: u.id, role: u.role })) },
+    error: null,
+  }));
+});
 
 describe("IntakeScreen", () => {
   beforeEach(() => {
@@ -47,7 +79,7 @@ describe("IntakeScreen", () => {
     authority = who;
     fakeReviewsEndpoints({ open: [moonPix()] });
 
-    const { container } = renderWithProviders(<IntakeScreen />);
+    const { container } = renderWithProviders(<IntakeScreen organizationSlug="wxyc" />);
 
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(container).toBeEmptyDOMElement();
@@ -64,7 +96,7 @@ describe("IntakeScreen", () => {
       filed: [moonPix({ id: 5, state: "filed", effective_state: "filed" })],
     });
 
-    renderWithProviders(<IntakeScreen />);
+    renderWithProviders(<IntakeScreen organizationSlug="wxyc" />);
 
     const shelf = await lane("On the review shelf");
     expect(within(shelf).getByText("Cat Power · Moon Pix · Matador · cd")).toBeInTheDocument();
@@ -88,7 +120,7 @@ describe("IntakeScreen", () => {
       }),
     );
 
-    renderWithProviders(<IntakeScreen />);
+    renderWithProviders(<IntakeScreen organizationSlug="wxyc" />);
 
     const where = { "On the review shelf": "On Shelf", "Checked out": "Out", Reviewed: "Done", Filed: "Shelved" };
     for (const [name, album] of Object.entries(where)) {
@@ -106,7 +138,7 @@ describe("IntakeScreen", () => {
   it("renders no Review waiting lane when only open records are served", async () => {
     fakeReviewsEndpoints({ open: [moonPix()] });
 
-    renderWithProviders(<IntakeScreen />);
+    renderWithProviders(<IntakeScreen organizationSlug="wxyc" />);
 
     await lane("On the review shelf");
     expect(screen.queryByRole("region", { name: /Review waiting/ })).not.toBeInTheDocument();
@@ -119,7 +151,7 @@ describe("IntakeScreen", () => {
     const item = waiting(7, { submitted_review_count: count });
     fakeReviewsEndpoints({ open: [item, waiting(8, { submitted_review_count: 3 })], awaiting: [item, waiting(8, { submitted_review_count: 3 })] });
 
-    renderWithProviders(<IntakeScreen />);
+    renderWithProviders(<IntakeScreen organizationSlug="wxyc" />);
 
     const lane1 = await lane("Review waiting (2)");
     expect(within(lane1).getAllByText("Checked out to DJ Sam")).toHaveLength(2);
@@ -132,7 +164,7 @@ describe("IntakeScreen", () => {
     const orphan = waiting(9, { checked_out_by: null, checked_out_by_name: null });
     fakeReviewsEndpoints({ open: [orphan], awaiting: [orphan] });
 
-    renderWithProviders(<IntakeScreen />);
+    renderWithProviders(<IntakeScreen organizationSlug="wxyc" />);
 
     const lane1 = await lane("Review waiting (1)");
     expect(within(lane1).getByText("Holder removed")).toBeInTheDocument();
@@ -149,7 +181,7 @@ describe("IntakeScreen", () => {
       ],
     });
 
-    renderWithProviders(<IntakeScreen />);
+    renderWithProviders(<IntakeScreen organizationSlug="wxyc" />);
 
     const reviewed = await lane("Reviewed");
     expect(within(reviewed).getByText("Still out: checked out to DJ Sam")).toBeInTheDocument();
@@ -170,7 +202,7 @@ describe("IntakeScreen", () => {
       }),
     );
 
-    const { user } = renderWithProviders(<IntakeScreen />);
+    const { user } = renderWithProviders(<IntakeScreen organizationSlug="wxyc" />);
     await user.click(await screen.findByRole("button", { name: "Mark as returned" }));
 
     await waitFor(() => expect(screen.queryByText(/^Still out/)).not.toBeInTheDocument());
@@ -212,7 +244,7 @@ describe("IntakeScreen", () => {
         }),
       );
 
-      const { user } = renderWithProviders(<IntakeScreen />);
+      const { user } = renderWithProviders(<IntakeScreen organizationSlug="wxyc" />);
       const returned = await screen.findByRole("button", { name: "Mark as returned" });
       await user.click(returned);
 
@@ -252,7 +284,7 @@ describe("IntakeScreen", () => {
       }),
     );
 
-    const { user } = renderWithProviders(<IntakeScreen />);
+    const { user } = renderWithProviders(<IntakeScreen organizationSlug="wxyc" />);
     const [first, second] = await screen.findAllByRole("button", { name: "Mark as returned" });
     await user.click(first);
     expect(await screen.findByText(LOST_RACE)).toBeInTheDocument();
@@ -277,7 +309,7 @@ describe("IntakeScreen", () => {
       }),
     );
 
-    const { user } = renderWithProviders(<IntakeScreen />);
+    const { user } = renderWithProviders(<IntakeScreen organizationSlug="wxyc" />);
     await user.type(await screen.findByLabelText(/^Artist/), "Cat Power");
     await user.type(screen.getByLabelText(/^Album/), "Moon Pix");
     await user.click(screen.getByRole("combobox", { name: /^Format/ }));
@@ -300,7 +332,7 @@ describe("IntakeScreen — a failed background refetch", () => {
 
   it("keeps the loaded lanes and shows no load-failure line when the reload after a write fails", async () => {
     fakeReviewsEndpoints({ reviewed: [moonPix({ id: 11, effective_state: "reviewed", checked_out_at: "2026-09-01T12:00:00Z", checked_out_by: "dj-1", checked_out_by_name: "DJ Sam" })] });
-    const { user } = renderWithProviders(<IntakeScreen />);
+    const { user } = renderWithProviders(<IntakeScreen organizationSlug="wxyc" />);
     const button = await screen.findByRole("button", { name: "Mark as returned" });
 
     server.use(
@@ -316,7 +348,171 @@ describe("IntakeScreen — a failed background refetch", () => {
 
   it("shows the load-failure line when a first load fails", async () => {
     server.use(http.get(`${TEST_BACKEND_URL}/intake`, () => HttpResponse.json({ message: "down" }, { status: 500 })));
-    renderWithProviders(<IntakeScreen />);
+    renderWithProviders(<IntakeScreen organizationSlug="wxyc" />);
     expect(await screen.findByRole("alert")).toBeInTheDocument();
   });
+});
+
+const HELD = { checked_out_at: "2026-09-01T12:00:00Z", checked_out_by: "dj-1", checked_out_by_name: "DJ Sam" };
+const requestedRow = (id: number) =>
+  moonPix({ id, state: "requested", effective_state: "requested", requested_dj_id: "dj-pat", requested_dj_name: "DJ Pat" });
+const outRow = (id: number, overrides = {}) =>
+  moonPix({ id, state: "checked_out", effective_state: "checked_out", ...HELD, ...overrides });
+
+describe("IntakeScreen — request, cancel and release", () => {
+  beforeEach(() => {
+    authority = Authorization.MD;
+    vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "staff");
+  });
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("offers only accounts that can review in the picker, and requests the chosen DJ", async () => {
+    let body: unknown;
+    let asked = false;
+    fakeReviewsEndpoints({
+      open: () => [asked ? requestedRow(11) : moonPix({ id: 11 })],
+    });
+    server.use(
+      http.post(`${TEST_BACKEND_URL}/intake/11/request`, async ({ request }) => {
+        body = await request.json();
+        asked = true;
+        return HttpResponse.json(requestedRow(11));
+      }),
+    );
+
+    const { user } = renderWithProviders(<IntakeScreen organizationSlug="wxyc" />);
+    await user.click(await screen.findByRole("combobox", { name: "DJ to ask" }));
+    expect(screen.getAllByRole("option").map((o) => o.textContent)).toEqual(["DJ Sam", "DJ Pat", "DJ Me"]);
+    await user.click(screen.getByRole("option", { name: "DJ Pat" }));
+    await user.click(screen.getByRole("button", { name: "Request a review" }));
+
+    await waitFor(() => expect(body).toEqual({ dj_id: "dj-pat" }));
+    expect(await within(await lane("Requested")).findByText("Held for DJ Pat")).toBeInTheDocument();
+  });
+
+  it("keeps Request a review off until a DJ is chosen", async () => {
+    fakeReviewsEndpoints({ open: [moonPix({ id: 11 })] });
+    renderWithProviders(<IntakeScreen organizationSlug="wxyc" />);
+    expect(await screen.findByRole("button", { name: "Request a review" })).toBeDisabled();
+  });
+
+  it("answers a 400 on /request with the approved line, no server message, and a fresh DJ list", async () => {
+    fakeReviewsEndpoints({ open: [moonPix({ id: 11 })] });
+    server.use(
+      http.post(`${TEST_BACKEND_URL}/intake/11/request`, () =>
+        HttpResponse.json({ message: "dj_id must name an account that can review" }, { status: 400 }),
+      ),
+    );
+
+    const { user } = renderWithProviders(<IntakeScreen organizationSlug="wxyc" />);
+    await user.click(await screen.findByRole("combobox", { name: "DJ to ask" }));
+    await user.click(screen.getByRole("option", { name: "DJ Pat" }));
+    await waitFor(() => expect(roster.listUsers).toHaveBeenCalledTimes(1));
+    await user.click(screen.getByRole("button", { name: "Request a review" }));
+
+    expect(await screen.findByText(
+      "That DJ can't be asked to review: their account was removed, or it's no longer a DJ account. Pick someone else.",
+    )).toBeInTheDocument();
+    await waitFor(() => expect(roster.listUsers).toHaveBeenCalledTimes(2));
+    expect(screen.queryByText(/dj_id must name/)).not.toBeInTheDocument();
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+
+  it("shows the load-failure line in place of the picker when the DJ list cannot be read", async () => {
+    roster.listUsers.mockImplementation(async () => ({ data: null, error: { message: "down" } }));
+    fakeReviewsEndpoints({ open: [moonPix({ id: 11 })] });
+    renderWithProviders(<IntakeScreen organizationSlug="wxyc" />);
+    expect(await screen.findByRole("alert")).toHaveTextContent("Couldn't load the review shelf. Please try again.");
+    expect(screen.queryByRole("combobox", { name: "DJ to ask" })).not.toBeInTheDocument();
+  });
+
+  it("cancels a request from the Requested lane", async () => {
+    let cancelled = false;
+    fakeReviewsEndpoints({ open: () => [cancelled ? moonPix({ id: 11 }) : requestedRow(11)] });
+    server.use(
+      http.post(`${TEST_BACKEND_URL}/intake/11/cancel-request`, () => {
+        cancelled = true;
+        return HttpResponse.json(moonPix({ id: 11 }));
+      }),
+    );
+
+    const { user } = renderWithProviders(<IntakeScreen organizationSlug="wxyc" />);
+    await user.click(await within(await lane("Requested")).findByRole("button", { name: "Cancel request" }));
+
+    await waitFor(() => expect(within(screen.getByRole("region", { name: "Requested" })).queryByRole("button")).not.toBeInTheDocument());
+    expect(within(await lane("On the review shelf")).getByText(/Moon Pix/)).toBeInTheDocument();
+  });
+
+  it("releases a checkout, including one whose holder was removed", async () => {
+    const released: string[] = [];
+    fakeReviewsEndpoints({
+      open: () => [outRow(11, released.includes("11") ? { effective_state: "pool", state: "pool", checked_out_at: null, checked_out_by: null } : {}), outRow(12, { checked_out_by: null, checked_out_by_name: null })],
+    });
+    server.use(
+      http.post(`${TEST_BACKEND_URL}/intake/:id/release`, ({ params }) => {
+        released.push(String(params.id));
+        return HttpResponse.json(moonPix({ id: Number(params.id) }));
+      }),
+    );
+
+    const { user } = renderWithProviders(<IntakeScreen organizationSlug="wxyc" />);
+    const checkedOut = await lane("Checked out");
+    expect(within(checkedOut).getByText("Holder removed")).toBeInTheDocument();
+    expect(within(checkedOut).getByText("Checked out to DJ Sam")).toBeInTheDocument();
+    expect(within(checkedOut).getAllByRole("button", { name: "Release" })).toHaveLength(2);
+    await user.click(within(within(checkedOut).getByText("Holder removed").closest("li")!).getByRole("button", { name: "Release" }));
+
+    await waitFor(() => expect(released).toEqual(["12"]));
+  });
+
+});
+
+describe("IntakeScreen — lost races", () => {
+  beforeEach(() => {
+    authority = Authorization.MD;
+    vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "staff");
+  });
+  afterEach(() => vi.unstubAllEnvs());
+
+  const RACE_LINES = {
+    request: "This record has left the review shelf since the page loaded, so it can't be requested. The lists have been reloaded.",
+    cancel: "This request was already answered, or it expired. The lists have been reloaded.",
+    release: "This record has already been returned. The lists have been reloaded.",
+    return: "This record has already been returned or filed. The lists have been reloaded.",
+  };
+
+  it.each([
+    ["request", "request", () => ({ open: [moonPix({ id: 11 })] }), "Request a review"],
+    ["cancel", "cancel-request", () => ({ open: [requestedRow(11)] }), "Cancel request"],
+    ["release", "release", () => ({ open: [outRow(11)] }), "Release"],
+    ["return", "release", () => ({ reviewed: [moonPix({ id: 11, effective_state: "reviewed", ...HELD })] }), "Mark as returned"],
+  ] as const)(
+    "a lost %s reloads both reads, then shows its own line and never the server message",
+    async (action, path, rows, button) => {
+      let reads = 0;
+      fakeReviewsEndpoints(rows());
+      server.use(
+        http.post(`${TEST_BACKEND_URL}/intake/11/${path}`, () =>
+          HttpResponse.json({ message: "server words", reason: "state_changed" }, { status: 409 }),
+        ),
+      );
+      const { user } = renderWithProviders(<IntakeScreen organizationSlug="wxyc" />);
+      if (action === "request") {
+        await user.click(await screen.findByRole("combobox", { name: "DJ to ask" }));
+        await user.click(screen.getByRole("option", { name: "DJ Pat" }));
+      }
+      await screen.findByRole("button", { name: button });
+      const counting = http.get(`${TEST_BACKEND_URL}/intake`, () => {
+        reads += 1;
+        return undefined;
+      });
+      server.use(counting);
+      await user.click(screen.getByRole("button", { name: button }));
+
+      expect(await screen.findByText(RACE_LINES[action])).toBeInTheDocument();
+      expect(reads).toBeGreaterThanOrEqual(2);
+      expect(screen.queryByText("server words")).not.toBeInTheDocument();
+      expect(toast.error).not.toHaveBeenCalled();
+    },
+  );
 });
