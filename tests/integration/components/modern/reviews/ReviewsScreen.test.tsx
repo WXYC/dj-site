@@ -25,7 +25,7 @@ vi.mock("@/src/hooks/authenticationHooks", () => ({
 }));
 
 import { toast } from "sonner";
-import ReviewsPile from "@/src/components/experiences/modern/reviews/ReviewsPile";
+import ReviewsScreen from "@/src/components/experiences/modern/reviews/ReviewsScreen";
 
 const item = (overrides: Partial<IntakeItem>): IntakeItem =>
   ({
@@ -66,7 +66,7 @@ const SHELF_RACE = "This record left the review shelf before your click went thr
 const REQUEST_RACE = "This request is no longer open; it may have expired. The lists have been reloaded.";
 const RELEASE_RACE = "This record is no longer checked out to you. The lists have been reloaded.";
 
-describe("ReviewsPile", () => {
+describe("ReviewsScreen", () => {
   beforeEach(() => {
     vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "true");
     mockAuth.authority = Authorization.DJ;
@@ -85,11 +85,11 @@ describe("ReviewsPile", () => {
       }),
     );
 
-    const { user } = renderWithProviders(<ReviewsPile />);
-    const pile = await section(SHELF);
-    expect(within(pile).getByText(/Aluminum Tunes/)).toBeInTheDocument();
-    expect(within(pile).getByText(/cd/)).toBeInTheDocument();
-    await user.click(within(pile).getByRole("button", { name: "Check out" }));
+    const { user } = renderWithProviders(<ReviewsScreen />);
+    const shelf = await section(SHELF);
+    expect(within(shelf).getByText(/Aluminum Tunes/)).toBeInTheDocument();
+    expect(within(shelf).getByText(/cd/)).toBeInTheDocument();
+    await user.click(within(shelf).getByRole("button", { name: "Check out" }));
 
     await waitFor(() => expect(posted).toBe("/intake/5/checkout"));
   });
@@ -100,7 +100,7 @@ describe("ReviewsPile", () => {
       item({ id: 3, artist_name: "Cat Power", effective_state: "checked_out", checked_out_by: "someone-else" }),
     ]);
 
-    renderWithProviders(<ReviewsPile />);
+    renderWithProviders(<ReviewsScreen />);
     const mine = await section("My checkouts");
     await within(mine).findByText(/Stereolab/);
     expect(within(mine).getByText("Overdue")).toBeInTheDocument();
@@ -129,7 +129,7 @@ describe("ReviewsPile", () => {
       }),
     );
 
-    const { user } = renderWithProviders(<ReviewsPile />);
+    const { user } = renderWithProviders(<ReviewsScreen />);
     const mine = await section("My checkouts");
     await within(mine).findByText("Reviewed. Bring the record back to the music office.");
     expect(within(mine).getByText("Overdue")).toBeInTheDocument();
@@ -161,7 +161,7 @@ describe("ReviewsPile", () => {
       }),
     );
 
-    const { user } = renderWithProviders(<ReviewsPile />);
+    const { user } = renderWithProviders(<ReviewsScreen />);
     const mine = await section("My checkouts");
     await within(mine).findByText(/Stereolab/);
 
@@ -187,7 +187,7 @@ describe("ReviewsPile", () => {
       }),
     );
 
-    const { user } = renderWithProviders(<ReviewsPile />);
+    const { user } = renderWithProviders(<ReviewsScreen />);
     const requests = await section("Requests for me");
     await within(requests).findByText(/Stereolab/);
     expect(within(requests).queryByText(/Cat Power/)).not.toBeInTheDocument();
@@ -228,7 +228,7 @@ describe("ReviewsPile", () => {
         return "";
       });
 
-      const { user } = renderWithProviders(<ReviewsPile />);
+      const { user } = renderWithProviders(<ReviewsScreen />);
       const region = await section(title);
       await within(region).findByText(/Stereolab/);
       await user.click(within(region).getByRole("button", { name: button }));
@@ -272,7 +272,7 @@ describe("ReviewsPile", () => {
     process.on("unhandledRejection", onRejection);
 
     try {
-      const { user, unmount } = renderWithProviders(<ReviewsPile />);
+      const { user, unmount } = renderWithProviders(<ReviewsScreen />);
       const shelf = await section(SHELF);
       await within(shelf).findByText(/Stereolab/);
       await user.click(within(shelf).getByRole("button", { name: "Check out" }));
@@ -296,16 +296,16 @@ describe("ReviewsPile", () => {
       ),
     );
 
-    const { user } = renderWithProviders(<ReviewsPile />);
-    const pile = await section(SHELF);
-    await within(pile).findByText(/Aluminum Tunes/);
-    await user.click(within(pile).getByRole("button", { name: "Check out" }));
+    const { user } = renderWithProviders(<ReviewsScreen />);
+    const shelf = await section(SHELF);
+    await within(shelf).findByText(/Aluminum Tunes/);
+    await user.click(within(shelf).getByRole("button", { name: "Check out" }));
 
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith(FAILURE_LINE));
     expect(toast.error).toHaveBeenCalledTimes(1);
     expect(toast).not.toHaveBeenCalled();
     // The lists refetch and the row is still on the review shelf, so it unlocks.
-    await waitFor(() => expect(within(pile).getByRole("button", { name: "Check out" })).toBeEnabled());
+    await waitFor(() => expect(within(shelf).getByRole("button", { name: "Check out" })).toBeEnabled());
   });
 
   // The row only leaves its section once the refetched lists land; until then
@@ -329,20 +329,20 @@ describe("ReviewsPile", () => {
       }),
     );
 
-    const { user } = renderWithProviders(<ReviewsPile />);
-    const pile = await section(SHELF);
-    await within(pile).findByText(/Stereolab/);
-    await user.click(within(pile).getByRole("button", { name: "Check out" }));
+    const { user } = renderWithProviders(<ReviewsScreen />);
+    const shelf = await section(SHELF);
+    await within(shelf).findByText(/Stereolab/);
+    await user.click(within(shelf).getByRole("button", { name: "Check out" }));
     await waitFor(() => expect(posts).toHaveLength(1));
     await new Promise((r) => setTimeout(r, 100));
 
-    expect(within(pile).getByText(/Stereolab/)).toBeInTheDocument();
-    const again = within(pile).getByRole("button", { name: "Check out" });
+    expect(within(shelf).getByText(/Stereolab/)).toBeInTheDocument();
+    const again = within(shelf).getByRole("button", { name: "Check out" });
     expect(again).toBeDisabled();
     // user-event refuses a pointer on a locked button; a DJ's click still lands.
     fireEvent.click(again);
 
-    await waitFor(() => expect(within(pile).queryByText(/Stereolab/)).not.toBeInTheDocument(), { timeout: 3000 });
+    await waitFor(() => expect(within(shelf).queryByText(/Stereolab/)).not.toBeInTheDocument(), { timeout: 3000 });
     expect(posts).toHaveLength(1);
     expect(toast).not.toHaveBeenCalled();
     expect(toast.error).not.toHaveBeenCalled();
@@ -376,7 +376,7 @@ describe("ReviewsPile", () => {
       }),
     );
 
-    const { user } = renderWithProviders(<ReviewsPile />);
+    const { user } = renderWithProviders(<ReviewsScreen />);
     const region = await section(title);
     await within(region).findByText(/Stereolab/);
     await user.dblClick(within(region).getByRole("button", { name: button }));
@@ -393,7 +393,7 @@ describe("ReviewsPile", () => {
       http.get(`${TEST_BACKEND_URL}/library/formats`, () => HttpResponse.json([])),
     );
 
-    renderWithProviders(<ReviewsPile />);
+    renderWithProviders(<ReviewsScreen />);
 
     expect(await screen.findByRole("alert")).toHaveTextContent(/^Couldn't load the review shelf\. Please try again\.$/);
   });
@@ -405,7 +405,7 @@ describe("ReviewsPile", () => {
   ])("says %s is empty in so many words", async (title, empty) => {
     serveIntake([]);
 
-    renderWithProviders(<ReviewsPile />);
+    renderWithProviders(<ReviewsScreen />);
 
     expect(await within(await section(title)).findByText(empty)).toBeInTheDocument();
   });
@@ -424,7 +424,7 @@ describe("ReviewsPile", () => {
     server.events.on("request:start", log);
 
     try {
-      const { container } = renderWithProviders(<ReviewsPile />);
+      const { container } = renderWithProviders(<ReviewsScreen />);
 
       await new Promise((r) => setTimeout(r, 50));
       expect(requested.filter((p) => p.startsWith("/intake"))).toEqual([]);
