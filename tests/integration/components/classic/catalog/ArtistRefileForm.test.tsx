@@ -52,7 +52,10 @@ const lookedUp = (n: number) =>
 const rejects = (status: number, data: unknown) => ({
   unwrap: () => Promise.reject({ refileArtistError: { status, data } }),
 });
-const resolves = (body: object) => ({ unwrap: () => Promise.resolve({ ...card, ...body }) });
+const resolves = (body: object) => ({
+  unwrap: () =>
+    Promise.resolve({ ...card, previous_code_letters: card.code_letters, previous_genre_id: card.genre_id, ...body }),
+});
 
 const type = async (value: string) => {
   const user = userEvent.setup();
@@ -332,6 +335,264 @@ describe("classic ArtistRefileForm", () => {
       await lookedUp(31);
 
       expect(occupancyText()).toBeEmptyDOMElement();
+    });
+  });
+
+  describe("call letters", () => {
+    const JAM_ID = 52;
+    const JAZZ = 3;
+    const ELECTRONIC = 9;
+    // Jam Money, Jazz RE 36 -> JA 36.
+    const jam = {
+      artist_id: JAM_ID,
+      artist_name: "Jam Money",
+      alphabetical_name: "Jam Money",
+      genre_id: JAZZ,
+      code_letters: "RE",
+      code_artist_number: 36,
+      release_count: 4,
+    };
+    const jamHolder = { id: 901, artist_name: "Jessica Pratt", code_letters: "JA", code_number: 36, genre_id: JAZZ };
+    const jamResolves = (body: object = {}) => ({
+      unwrap: () =>
+        Promise.resolve({
+          ...jam,
+          code_letters: "JA",
+          changed: true,
+          previous_code_artist_number: 36,
+          previous_code_letters: "RE",
+          previous_genre_id: JAZZ,
+          releases_to_relabel: 4,
+          ...body,
+        }),
+    });
+    const lettersBox = () => screen.getByLabelText("New Call Letters:");
+    const setLetters = async (user: ReturnType<typeof userEvent.setup>, value: string) => {
+      await user.clear(lettersBox());
+      if (value) await user.type(lettersBox(), value);
+    };
+    const render = () => renderWithProviders(<ArtistRefileForm artistId={JAM_ID} genreId={JAZZ} />);
+    const reLettered = async (letters = "ja", number = "36") => {
+      const user = userEvent.setup();
+      await setLetters(user, letters);
+      await user.type(screen.getByLabelText("New Call Number:"), number);
+      await user.click(screen.getByRole("button", { name: "Continue" }));
+      return user;
+    };
+    const submit = (user: ReturnType<typeof userEvent.setup>) =>
+      user.click(screen.getByRole("button", { name: "Re-file The Artist" }));
+
+    beforeEach(() => {
+      mockCardQuery.mockReturnValue({ data: jam, isLoading: false });
+      mockGenresQuery.mockReturnValue({
+        data: [
+          { id: JAZZ, genre_name: "Jazz" },
+          { id: ELECTRONIC, genre_name: "Electronic" },
+        ],
+      });
+    });
+
+    it("seeds the letters from the card and leaves the number empty", () => {
+      render();
+
+      expect(lettersBox()).toHaveValue("RE");
+      expect(screen.getByLabelText("New Call Number:")).toHaveValue(null);
+    });
+
+    it("confirms with both full codes and the relabel count", async () => {
+      render();
+      await reLettered();
+
+      expect(screen.getByTestId("artist-refile-confirm-copy")).toHaveTextContent(
+        "Move Jam Money from Jazz RE 36 to Jazz JA 36. Every release under this shelf re-labels at once; 4 records on the shelf will need new labels.",
+      );
+    });
+
+    it("sends code_letters normalized, the source letters in the arg, and lands on the result's letters", async () => {
+      mockRefile.mockReturnValue(jamResolves());
+      render();
+      const user = await reLettered(" ja ");
+      await submit(user);
+
+      expect(mockRefile).toHaveBeenCalledWith({
+        artistId: JAM_ID,
+        code_letters: "RE",
+        body: { genre_id: JAZZ, code_artist_number: 36, code_letters: "JA" },
+      });
+      await waitFor(() =>
+        expect(mockPush).toHaveBeenCalledWith(
+          `/dashboard/library/artist/${JAM_ID}?genre_id=${JAZZ}&refiled=1&from=36&n=4&from_letters=RE`,
+        ),
+      );
+    });
+
+    it("routes by the result's letters, not the old card's", async () => {
+      mockRefile.mockReturnValue(jamResolves({ code_letters: "V/A", previous_code_letters: "RE" }));
+      render();
+      const user = await reLettered("ja");
+      await submit(user);
+
+      await waitFor(() => expect(mockPush).toHaveBeenCalled());
+      expect(mockPush.mock.calls[0][0]).not.toContain(`genre_id=${JAZZ}`);
+    });
+
+    it.each([
+      { label: "untouched", letters: null },
+      { label: "retyped identically", letters: "RE" },
+      { label: "retyped in lower case with spaces", letters: " re " },
+    ])("omits code_letters when the letters are $label", async ({ letters }) => {
+      mockRefile.mockReturnValue(
+        jamResolves({ code_letters: "RE", code_artist_number: 37, previous_code_artist_number: 36 }),
+      );
+      render();
+      const user = userEvent.setup();
+      if (letters !== null) await setLetters(user, letters);
+      await user.type(screen.getByLabelText("New Call Number:"), "37");
+      await user.click(screen.getByRole("button", { name: "Continue" }));
+      await submit(user);
+
+      expect(mockRefile).toHaveBeenCalledWith({
+        artistId: JAM_ID,
+        code_letters: "RE",
+        body: { genre_id: JAZZ, code_artist_number: 37 },
+      });
+      await waitFor(() => expect(mockPush).toHaveBeenCalledWith(expect.not.stringContaining("from_letters")));
+    });
+
+    it("holds Continue when neither the letters nor the number changed", async () => {
+      render();
+      const user = userEvent.setup();
+      await user.type(screen.getByLabelText("New Call Number:"), "36");
+
+      expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
+      expect(occupancyText()).toHaveTextContent("That is the current call number.");
+    });
+
+    it("allows a letters-only change at the same number", async () => {
+      render();
+      const user = userEvent.setup();
+      await setLetters(user, "JA");
+      await user.type(screen.getByLabelText("New Call Number:"), "36");
+
+      expect(screen.getByRole("button", { name: "Continue" })).toBeEnabled();
+    });
+
+    it.each([
+      { label: "empty", value: "" },
+      { label: "too long", value: "ABCDE" },
+      { label: "a Various Artists bucket", value: "v/a" },
+      { label: "a legacy compilation prefix", value: "Z-" },
+      { label: "punctuation", value: "J.A" },
+    ])("refuses $label letters client-side", async ({ value }) => {
+      render();
+      const user = userEvent.setup();
+      await setLetters(user, value);
+      await user.type(screen.getByLabelText("New Call Number:"), "36");
+
+      expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
+      expect(screen.getByTestId("artist-refile-letters-error")).toBeDefined();
+      expect(mockByCodeQuery).not.toHaveBeenCalledWith(expect.objectContaining({ code_letters: value.toUpperCase() }));
+    });
+
+    it("shows no letters error for valid letters", async () => {
+      render();
+      const user = userEvent.setup();
+      await setLetters(user, "ja");
+
+      expect(screen.queryByTestId("artist-refile-letters-error")).toBeNull();
+    });
+
+    it("follows the destination bucket for the occupancy lookup", async () => {
+      byCode(undefined, NOT_ASSIGNED);
+      render();
+      const user = userEvent.setup();
+      await setLetters(user, "ja");
+      await user.type(screen.getByLabelText("New Call Number:"), "36");
+
+      await waitFor(() =>
+        expect(mockByCodeQuery).toHaveBeenLastCalledWith({ genre_id: JAZZ, code_letters: "JA", code_number: 36 }),
+      );
+      await waitFor(() => expect(occupancyText()).toHaveTextContent("Jazz JA 36 is free."));
+    });
+
+    it("names the holder of the destination code", async () => {
+      byCode([jamHolder]);
+      render();
+      const user = userEvent.setup();
+      await setLetters(user, "ja");
+      await user.type(screen.getByLabelText("New Call Number:"), "36");
+
+      await waitFor(() => expect(occupancyText()).toHaveTextContent("Jazz JA 36 is held by Jessica Pratt."));
+    });
+
+    it("looks up the current letters when only the number changes", async () => {
+      byCode(undefined, NOT_ASSIGNED);
+      render();
+      const user = userEvent.setup();
+      await user.type(screen.getByLabelText("New Call Number:"), "37");
+
+      await waitFor(() =>
+        expect(mockByCodeQuery).toHaveBeenLastCalledWith({ genre_id: JAZZ, code_letters: "RE", code_number: 37 }),
+      );
+    });
+
+    it.each([
+      {
+        name: "letters shared across genres, naming the other genre",
+        status: 409,
+        body: {
+          reason: "letters_shared_across_genres",
+          memberships: [
+            { genre_id: JAZZ, code_artist_number: 36 },
+            { genre_id: ELECTRONIC, code_artist_number: 4 },
+          ],
+        },
+        text: "Jam Money is also filed under Electronic, so changing its letters would re-letter that shelf too.",
+        keepsContinue: true,
+      },
+      {
+        name: "letters shared across genres, memberships unreadable",
+        status: 409,
+        body: { reason: "letters_shared_across_genres" },
+        text: "letters are used in another genre",
+        keepsContinue: true,
+      },
+      {
+        name: "already filed in genre",
+        status: 409,
+        body: { reason: "already_filed_in_genre" },
+        text: "already has a membership or a release in that genre",
+        keepsContinue: false,
+      },
+      {
+        name: "genre not found",
+        status: 404,
+        body: { message: "x", code: "genre_not_found" },
+        text: "That genre was not found",
+        keepsContinue: false,
+      },
+    ])("states a $name refusal once; Continue stays: $keepsContinue", async ({ status, body, text, keepsContinue }) => {
+      mockRefile.mockReturnValue(rejects(status, body));
+      render();
+      const user = await reLettered();
+      await submit(user);
+
+      expect(await screen.findAllByRole("alert")).toHaveLength(1);
+      expect(screen.getByTestId("artist-refile-refusal")).toHaveTextContent(text);
+      expect(screen.queryByRole("button", { name: "Continue" }) !== null).toBe(keepsContinue);
+      expect(mockPush).not.toHaveBeenCalled();
+    });
+
+    it("clears a standing refusal when the letters are edited", async () => {
+      mockRefile.mockReturnValue(rejects(409, { reason: "letters_shared_across_genres" }));
+      render();
+      const user = await reLettered();
+      await submit(user);
+      await screen.findByTestId("artist-refile-refusal");
+
+      await user.type(lettersBox(), "X");
+
+      expect(screen.queryByTestId("artist-refile-refusal")).toBeNull();
     });
   });
 });
