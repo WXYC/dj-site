@@ -206,6 +206,29 @@ describe("classic Awaiting Cataloging — filed intake items", () => {
     expect(patched).toEqual({ code_number: 7 });
   });
 
+  it("shows the row's failure line, and finalizes nothing, when the call-number PATCH fails", async () => {
+    let finalizes = 0;
+    server.use(
+      http.patch(`${TEST_BACKEND_URL}/library/42`, () => HttpResponse.json({ message: "server words" }, { status: 500 })),
+      http.post(`${TEST_BACKEND_URL}/intake/1/finalize`, () => {
+        finalizes += 1;
+        return HttpResponse.json(filed({ state: "finalized" }));
+      }),
+    );
+    const { user } = renderFacet({ canSeeFiled: true, canWrite: true });
+
+    await user.click(await screen.findByRole("button", { name: "Change the code: DOGA" }));
+    const number = screen.getByLabelText("Call number");
+    await user.clear(number);
+    await user.type(number, "7");
+    await user.click(screen.getByRole("button", { name: "Save and confirm" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Couldn't do that. Please try again.");
+    expect(screen.queryByText(/server words/)).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Save and confirm" })).toBeEnabled());
+    expect(finalizes).toBe(0);
+  });
+
   it("shows the server's message on a 409 in_rotation and re-reads active rotation, which hides the row", async () => {
     const message = "This release is in rotation until 2026-12-01.";
     let rotationReads = 0;

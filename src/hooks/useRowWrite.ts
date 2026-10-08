@@ -1,5 +1,17 @@
 import { useEffect, useRef, useState } from "react";
 
+/** False once the component has unmounted, so a write that outlives it sets no state. */
+export function useMounted() {
+  const mounted = useRef(false);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+  return mounted;
+}
+
 type RowWriteOptions<Action extends string> = {
   /**
    * Re-reads every list the screen renders, one promise per list. Dispatch
@@ -44,13 +56,7 @@ export function useRowWrite<Action extends string>({
 }: RowWriteOptions<Action>) {
   const inFlight = useRef(new Map<number, Action>());
   const [pending, setPending] = useState<ReadonlyMap<number, Action>>(() => new Map());
-  const mounted = useRef(false);
-  useEffect(() => {
-    mounted.current = true;
-    return () => {
-      mounted.current = false;
-    };
-  }, []);
+  const mounted = useMounted();
 
   const write = async (id: number, action: Action, run: () => Promise<unknown>) => {
     if (inFlight.current.has(id)) return;
