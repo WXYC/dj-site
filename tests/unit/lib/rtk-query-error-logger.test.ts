@@ -196,3 +196,22 @@ describe("error reporting", () => {
     expect(mockCaptureException).not.toHaveBeenCalled();
   });
 });
+
+describe("expected rejections", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it.each([
+    { label: "marked expected", payload: { status: 404, data: { message: "Artist not filed under genre 6" }, expected: true }, quiet: true },
+    { label: "the same answer unmarked", payload: { status: 404, data: { message: "Artist not filed under genre 6" } }, quiet: false },
+    { label: "expected: 'true' (not boolean)", payload: { status: 404, data: { message: "x" }, expected: "true" }, quiet: false },
+  ])("$label", ({ payload, quiet }) => {
+    const next = vi.fn();
+    rtkQueryErrorLogger({} as never)(next)(rejectedAction(payload));
+
+    expect(next).toHaveBeenCalledTimes(1);
+    expect(mockToastError).toHaveBeenCalledTimes(quiet ? 0 : 1);
+    expect(mockCaptureException).toHaveBeenCalledTimes(quiet ? 0 : 1);
+  });
+});

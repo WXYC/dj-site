@@ -21,6 +21,7 @@ import {
   normalizeCodeLetters,
   resolveReleaseCodeFields,
 } from "@/lib/features/catalog/adminCreateArtistValidation";
+import { isGenresUnavailable } from "@/lib/features/catalog/genreAvailability";
 import { artistDeleteHref, artistRefileHref } from "@/lib/features/catalog/artistCardRoute";
 import { artistDeleteIsOffered } from "@/lib/features/catalog/artistDeleteOutcome";
 import { validateNewArtistNames } from "@/lib/features/catalog/chooserValidation";
@@ -183,7 +184,8 @@ export default function ArtistCard({ artistId, genreId, message, imported, refil
     isFetching: nextReleaseFetching,
     isUninitialized: nextReleaseUninitialized,
   } = useGetNextReleaseNumberQuery(nextReleaseArg);
-  const { data: genres } = useGetGenresQuery();
+  const genresQuery = useGetGenresQuery();
+  const genres = genresQuery.data;
   const { data: formats } = useGetFormatsQuery();
 
   const [updateArtist, { isLoading: savingArtist }] = useUpdateArtistCardMutation();
@@ -282,10 +284,14 @@ export default function ArtistCard({ artistId, genreId, message, imported, refil
     refiled?.fromLetters === null || (genreMoved && (!fromGenreName || !genreName))
       ? ""
       : `from ${formatArtistLibraryCode({ genreName: fromGenreName, code_letters: refiled?.fromLetters ?? artist?.code_letters ?? "", code_artist_number: refiled?.from ?? 0 })} `;
+  // After a genre move the codes are ambiguous without genre names: wait for
+  // the list, and if it is unavailable say the move happened without any code.
+  const genresUnavailable = isGenresUnavailable(genresQuery);
   const refiledMessage =
     refiled &&
     artist &&
     !artistFetching &&
+    !(genreMoved && !genres && !genresUnavailable) &&
     (artist.code_artist_number !== refiled.from ||
       genreMoved ||
       // Old letters that cannot be shown: the stale card still holds them, and
@@ -297,7 +303,7 @@ export default function ArtistCard({ artistId, genreId, message, imported, refil
       (refiled.fromLetters === null
         ? isCanonicalCodeLetters(artist.code_letters)
         : refiled.fromLetters !== undefined && refiled.fromLetters !== artist.code_letters))
-      ? `Re-filed ${fromClause}to ${formatArtistLibraryCode({ genreName, code_letters: artist.code_letters, code_artist_number: artist.code_artist_number })}. Relabel ${refiled.releases} ${refiled.releases === 1 ? "record" : "records"} on the shelf.`
+      ? `Re-filed${genreMoved && genresUnavailable ? "" : ` ${fromClause}to ${formatArtistLibraryCode({ genreName, code_letters: artist.code_letters, code_artist_number: artist.code_artist_number })}`}. Relabel ${refiled.releases} ${refiled.releases === 1 ? "record" : "records"} on the shelf.`
       : undefined;
 
   // `fn:trim(format.referenceName)` -- the JSP omits blank-named formats from

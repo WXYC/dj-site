@@ -14,7 +14,7 @@ import { CATALOG_QUERY_MAX_LIMIT, CATALOG_QUERY_PAGE_LIMIT } from "./constants";
 import { convertToAlbumEntry } from "./conversions";
 import { patchCatalogSearchCaches } from "./patchSearchCaches";
 import { artistDeleteAnsweredWithoutWriting } from "./artistDeleteOutcome";
-import { bodyReason, unwrapEndpointErrorOrRaw } from "@/lib/rtk-endpoint-error";
+import { bodyReason, serverMessage, unwrapEndpointErrorOrRaw } from "@/lib/rtk-endpoint-error";
 import { artistRefileAnsweredWithoutWriting } from "./artistRefileOutcome";
 import { deleteAnsweredWithoutWriting } from "./releaseDeleteOutcome";
 import { isRotationImportRefused } from "../rotation/importOutcome";
@@ -132,16 +132,6 @@ const artistReleasesRequest = ({ artistId, page, limit, genre_id }: ArtistReleas
  * queues requests past six per host while their timeout is already running.
  */
 const RELEASE_PAGE_READ_CONCURRENCY = 4;
-
-/** Whether a re-file moved (result known) or tried to move (no answer) the artist to another genre. */
-function movesGenre(
-  result: ArtistRefileResult | undefined,
-  body: RefileArtistRequestBody,
-): boolean {
-  return result
-    ? result.genre_id !== body.genre_id
-    : body.to_genre_id !== undefined && body.to_genre_id !== body.genre_id;
-}
 
 export const catalogApi = createApi({
   reducerPath: "catalogApi",
@@ -606,6 +596,13 @@ export const catalogApi = createApi({
       // whose add-release form would then file against an id the librarian
       // was never shown the name of.
       extraOptions: { surfaceNonJsonAsError: true },
+      // Reading a genre the artist has left ("Artist not filed under genre N")
+      // is an expected answer after a genre move, not a failure to toast or
+      // report; the card page renders its own not-found state.
+      transformErrorResponse: (response: FetchBaseQueryError): FetchBaseQueryError =>
+        response.status === 404 && serverMessage(response.data)?.startsWith("Artist not filed under genre")
+          ? ({ ...response, expected: true } as FetchBaseQueryError)
+          : response,
       providesTags: (_result, _error, { artistId }) => [
         { type: "ArtistCard", id: String(artistId) },
       ],
@@ -726,11 +723,9 @@ export const catalogApi = createApi({
       // the source from the arg. A 409 conflict refetches both buckets too:
       // the extra source refetch is cheap and the conflict proves only the
       // destination stale, but the error path cannot tell which bucket moved.
-      // The ArtistCard tag is id-scoped, so on a genre move it would refetch
-      // the still-mounted source-genre card, which now 404s ("Artist not filed
-      // under genre N") and would raise an error toast and a Sentry event. A
-      // confirmed move therefore leaves that tag out and `onQueryStarted`
-      // refetches every cached card entry except the source genre's.
+      // The id-scoped ArtistCard tag also refetches the source-genre card
+      // entry after a genre move; that read now answers "not filed under genre
+      // N", which `getArtistCard` marks as expected so it stays quiet.
       invalidatesTags: (result, error, { artistId, code_letters, body }) => {
         if (result?.changed === false) return [];
         const buckets = new Set([
@@ -748,12 +743,8 @@ export const catalogApi = createApi({
             ? codeTags
             : [];
         }
-        // With no answer (5xx / lost) the request says whether a move was attempted:
-        // the write is one transaction, so the source card is unchanged or gone,
-        // and refetching it is useless or a 404.
-        const movedGenre = movesGenre(result, body);
         return [
-          ...(movedGenre ? [] : [{ type: "ArtistCard" as const, id: String(artistId) }]),
+          { type: "ArtistCard", id: String(artistId) },
           ...artistReleaseTags(artistId),
           { type: "CatalogList", id: "LIST" },
           "AlbumDetail",
@@ -762,32 +753,17 @@ export const catalogApi = createApi({
           ...codeTags,
         ];
       },
-      async onQueryStarted(arg, { dispatch, getState, queryFulfilled }) {
+      async onQueryStarted(_arg, { dispatch, queryFulfilled }) {
         const invalidateOtherSlices = () => {
           dispatch(binApi.util.invalidateTags(["Bin"]));
           dispatch(rotationApi.util.invalidateTags(["Rotation"]));
         };
-        // The tag is left out of a genre move (see `invalidatesTags`), so the
-        // cached cards that can still be answered are refetched by hand.
-        const refetchCardsExceptSource = () => {
-          const cards = catalogApi.util.selectInvalidatedBy(getState(), [
-            { type: "ArtistCard", id: String(arg.artistId) },
-          ]);
-          for (const { endpointName, originalArgs } of cards) {
-            const cardArgs = originalArgs as ArtistCardQuery;
-            if (endpointName === "getArtistCard" && cardArgs.genre_id !== arg.body.genre_id) {
-              dispatch(catalogApi.endpoints.getArtistCard.initiate(cardArgs, { forceRefetch: true, subscribe: false }));
-            }
-          }
-        };
         try {
           const { data } = await queryFulfilled;
           if (data.changed !== false) invalidateOtherSlices();
-          if (data.changed && movesGenre(data, arg.body)) refetchCardsExceptSource();
         } catch (caught) {
           if (!artistRefileAnsweredWithoutWriting((caught as { error?: unknown })?.error)) {
             invalidateOtherSlices();
-            if (movesGenre(undefined, arg.body)) refetchCardsExceptSource();
           }
         }
       },

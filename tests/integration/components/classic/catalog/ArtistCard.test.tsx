@@ -1281,13 +1281,35 @@ describe("classic ArtistCard — artistCardModify.jsp", () => {
       await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(text));
     });
 
-    it("drops the 'from' clause of a genre move while the genre list is unavailable", async () => {
+    it("renders a genre move's banner without any code while the genre list is unavailable", async () => {
       server.use(http.get(`${TEST_BACKEND_URL}/library/genres`, () => HttpResponse.json({ message: "down" }, { status: 500 })));
       renderWithProviders(<ArtistCard artistId={ARTIST_ID} refiled={{ from: 12, fromGenre: OTHER_GENRE_ID, releases: 2 }} />);
 
       await screen.findByTestId("modify-artist-form");
-      await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Re-filed to MO 12. Relabel 2 records on the shelf."));
-      expect(screen.getByRole("status")).not.toHaveTextContent("from");
+      await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Re-filed. Relabel 2 records on the shelf."));
+      expect(screen.getByRole("status")).not.toHaveTextContent("MO 12");
+    });
+
+    it("holds a genre move's banner while the genre list is still loading, then names the codes", async () => {
+      let release: () => void = () => {};
+      const gate = new Promise<void>((resolve) => (release = resolve));
+      server.use(
+        http.get(`${TEST_BACKEND_URL}/library/genres`, async () => {
+          await gate;
+          return HttpResponse.json([
+            { id: OTHER_GENRE_ID, genre_name: "Jazz" },
+            { id: GENRE_ID, genre_name: "Rock" },
+          ]);
+        }),
+      );
+      renderWithProviders(<ArtistCard artistId={ARTIST_ID} refiled={{ from: 12, fromGenre: OTHER_GENRE_ID, releases: 2 }} />);
+
+      await screen.findByTestId("modify-artist-form");
+      expect(screen.queryByText(/Re-filed/)).toBeNull();
+      release();
+      await waitFor(() =>
+        expect(screen.getByRole("status")).toHaveTextContent("Re-filed from Jazz MO 12 to Rock MO 12."),
+      );
     });
 
     it("shows no banner when the old genre is the card's own genre and nothing else moved", async () => {

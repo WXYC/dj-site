@@ -7,6 +7,8 @@ type RejectionPayload = {
   data?: { message?: unknown };
   status?: unknown;
   error?: unknown;
+  /** Set by an endpoint's `transformErrorResponse` on an answer that is part of normal operation. */
+  expected?: unknown;
 };
 
 /**
@@ -74,6 +76,8 @@ export const rtkQueryErrorLogger: Middleware =
   () => (next) => (action) => {
     if (isRejectedWithValue(action)) {
       const payload = action.payload as RejectionPayload;
+      // An expected answer (e.g. a card read for a genre the artist has left) is the caller's to handle: no toast, no report.
+      if (payload?.expected === true) return next(action);
 
       const endpointName = (action as any)?.meta?.arg?.endpointName;
 
