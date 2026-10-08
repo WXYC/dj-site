@@ -44,7 +44,7 @@ describe("resetApplication (logout state hygiene) — #639/#616", () => {
     expect(adminSlice.selectors.getPage(store.getState())).toBe(0);
   });
 
-  it("drops the Pile's cached intake items so a music director's list can't leak into the next session", async () => {
+  it("drops the review shelf's cached intake items so a music director's list can't leak into the next session", async () => {
     const store = makeStore();
     await store.dispatch(reviewsApi.util.upsertQueryData("getIntakeItems", undefined, []));
     expect(reviewsApi.endpoints.getIntakeItems.select(undefined)(store.getState()).data).toEqual([]);

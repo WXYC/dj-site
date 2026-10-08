@@ -37,7 +37,7 @@ const RACE_NOTICE: Record<Action, string> = {
 const OPEN_LISTS = undefined;
 const REVIEWED_LIST = { state: "reviewed" } as const;
 
-export default function ReviewsPile() {
+export default function ReviewsScreen() {
   const { data: auth } = useAuthentication();
   const user = "user" in auth ? auth.user : undefined;
   const me = user?.id;
@@ -77,7 +77,7 @@ export default function ReviewsPile() {
   if (!open.data || !reviewed.data) return null;
 
   const items = open.data;
-  const inPile = items.filter((i) => i.effective_state === "pool");
+  const onShelf = items.filter((i) => i.effective_state === "pool");
   const requests = items.filter((i) => i.effective_state === "requested" && i.requested_dj_id === me);
   const checkouts = [
     ...items.filter((i) => i.effective_state === "checked_out" && i.checked_out_by === me),
@@ -153,7 +153,7 @@ export default function ReviewsPile() {
 
   return (
     <Stack spacing={3}>
-      {section("The review shelf", inPile, "Nothing is waiting on the review shelf.", (i) => (
+      {section("The review shelf", onShelf, "Nothing is waiting on the review shelf.", (i) => (
         <>
           <Typography level="body-sm">Logged {day(i.logged_at)}</Typography>
           <Button size="sm" {...lock(i, "checkout")} onClick={() => act(i.id, "checkout", () => checkout(i.id))}>Check out</Button>

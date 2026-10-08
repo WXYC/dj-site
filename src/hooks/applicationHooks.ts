@@ -83,7 +83,7 @@ export function resetApplication(dispatch: ReturnType<typeof useAppDispatch>) {
   dispatch(catalogApi.util.resetApiState());
   dispatch(catalogSlice.actions.reset());
   dispatch(binApi.util.resetApiState());
-  // The Pile's cached intake items carry draft authors; a music director's
+  // The review shelf's cached intake items carry draft authors; a music director's
   // list must not survive into the next session on the same browser.
   dispatch(reviewsApi.util.resetApiState());
   dispatch(authenticationSlice.actions.reset());
