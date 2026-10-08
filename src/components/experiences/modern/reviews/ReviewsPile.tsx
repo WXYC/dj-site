@@ -1,12 +1,13 @@
 "use client";
 
-import { useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Button, Chip, List, ListItem, Stack, Typography } from "@mui/joy";
 import type { IntakeItem } from "@wxyc/shared";
 import { toast } from "sonner";
 import { useGetFormatsQuery } from "@/lib/features/catalog/api";
 import {
   isIntakeStateChanged,
+  reviewsApi,
   useAcceptIntakeItemMutation,
   useCheckoutIntakeItemMutation,
   useGetIntakeItemsQuery,
@@ -16,6 +17,7 @@ import {
 import { canSeeReviews } from "@/lib/features/reviews/flags";
 import { Authorization } from "@/lib/features/admin/types";
 import { useAuthentication } from "@/src/hooks/authenticationHooks";
+import { useAppDispatch } from "@/lib/hooks";
 import ConfirmDialog from "../ConfirmDialog";
 
 const day = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString() : "");
@@ -30,14 +32,19 @@ const RACE_NOTICE: Record<Action, string> = {
   release: "This record is no longer checked out to you. The lists have been reloaded.",
 };
 
+// One argument per list, shared by its hook and the post-write reload so the
+// reload reaches the same cache entry.
+const OPEN_LISTS = undefined;
+const REVIEWED_LIST = { state: "reviewed" } as const;
+
 export default function ReviewsPile() {
   const { data: auth } = useAuthentication();
   const user = "user" in auth ? auth.user : undefined;
   const me = user?.id;
   const visible = canSeeReviews(user?.authority ?? Authorization.NO);
 
-  const open = useGetIntakeItemsQuery(undefined, { skip: !visible });
-  const reviewed = useGetIntakeItemsQuery({ state: "reviewed" }, { skip: !visible });
+  const open = useGetIntakeItemsQuery(OPEN_LISTS, { skip: !visible });
+  const reviewed = useGetIntakeItemsQuery(REVIEWED_LIST, { skip: !visible });
   const { data: formats } = useGetFormatsQuery(undefined, { skip: !visible });
 
   const [checkout] = useCheckoutIntakeItemMutation();
@@ -50,6 +57,16 @@ export default function ReviewsPile() {
   // click that lands before the re-render is a no-op too.
   const inFlight = useRef(new Map<number, Action>());
   const [pending, setPending] = useState<ReadonlyMap<number, Action>>(() => new Map());
+  const dispatch = useAppDispatch();
+  // A write outlives the page when the DJ navigates away mid-click; what
+  // follows it must then touch neither React state nor the screen's toasts.
+  const mounted = useRef(false);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
 
   if (!visible) return null;
   if (open.isError || reviewed.isError) {
@@ -88,17 +105,19 @@ export default function ReviewsPile() {
     } finally {
       // The row leaves its section only when the refetched lists land, so it
       // stays locked until then. A failed write or a lost race refetches too,
-      // so the row unlocks once the lists settle either way. Each `refetch`
-      // joins the one the write's invalidation already started.
-      try {
-        await Promise.all([open.refetch(), reviewed.refetch()]);
-      } finally {
-        inFlight.current.delete(id);
-        setPending(new Map(inFlight.current));
-      }
+      // so the row unlocks once the lists settle either way. Each reload joins
+      // the one the write's invalidation already started. It goes through the
+      // store, not the hooks' `refetch`, which throws once the page has
+      // unmounted; `allSettled` never rejects.
+      await Promise.allSettled([
+        dispatch(reviewsApi.endpoints.getIntakeItems.initiate(OPEN_LISTS, { subscribe: false, forceRefetch: true })),
+        dispatch(reviewsApi.endpoints.getIntakeItems.initiate(REVIEWED_LIST, { subscribe: false, forceRefetch: true })),
+      ]);
+      inFlight.current.delete(id);
+      if (mounted.current) setPending(new Map(inFlight.current));
     }
     // The notice says the lists have been reloaded, so it waits until they have.
-    if (raced) toast(RACE_NOTICE[action]);
+    if (raced && mounted.current) toast(RACE_NOTICE[action]);
   };
 
   // Joy's Button disables itself while `loading`.

@@ -137,4 +137,33 @@ describe("reviewsApi", () => {
     expect(result.isError).toBe(true);
     expect(result.data).toBeUndefined();
   });
+
+  // The other half: a read the client itself tore down mid-body (superseded
+  // args, an unmount) says nothing about the backend, so it must not show the
+  // load-failure alert. The body stream errors with the DOMException a browser
+  // raises when the request's signal aborts during the read.
+  it("does not resolve a query aborted mid-body-read as an error", async () => {
+    server.use(
+      http.get(
+        `${TEST_BACKEND_URL}/intake`,
+        () =>
+          new HttpResponse(
+            new ReadableStream({
+              start(controller) {
+                controller.enqueue(new TextEncoder().encode("[{"));
+                controller.error(new DOMException("This operation was aborted", "AbortError"));
+              },
+            }),
+            { status: 200, headers: { "Content-Type": "application/json" } }
+          )
+      )
+    );
+
+    const result = await makeReviewsStore().dispatch(
+      reviewsApi.endpoints.getIntakeItems.initiate()
+    );
+
+    expect(result.isError).toBe(false);
+    expect(result.error).toBeUndefined();
+  });
 });

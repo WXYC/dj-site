@@ -248,6 +248,46 @@ describe("ReviewsPile", () => {
     },
   );
 
+  // A DJ who clicks and then leaves the page: the write still settles, and its
+  // reload and lock release must not reject into the global error handler.
+  it.each([
+    ["a successful write", 200],
+    ["a lost race", 409],
+  ] as const)("leaves nothing unhandled when the page unmounts during %s", async (_label, status) => {
+    serveIntake([item({ id: 5 })]);
+    let answered = false;
+    server.use(
+      http.post(`${TEST_BACKEND_URL}/intake/5/checkout`, async () => {
+        await delay(150);
+        answered = true;
+        return status === 200
+          ? HttpResponse.json(item({ id: 5, state: "checked_out" }))
+          : HttpResponse.json({ message: "server words", reason: "state_changed" }, { status });
+      }),
+    );
+    const rejections: unknown[] = [];
+    const onRejection = (reason: unknown) => {
+      rejections.push(reason);
+    };
+    process.on("unhandledRejection", onRejection);
+
+    try {
+      const { user, unmount } = renderWithProviders(<ReviewsPile />);
+      const shelf = await section(SHELF);
+      await within(shelf).findByText(/Stereolab/);
+      await user.click(within(shelf).getByRole("button", { name: "Check out" }));
+      unmount();
+
+      await waitFor(() => expect(answered).toBe(true));
+      await new Promise((r) => setTimeout(r, 300));
+      expect(rejections).toEqual([]);
+      expect(toast).not.toHaveBeenCalled();
+      expect(toast.error).not.toHaveBeenCalled();
+    } finally {
+      process.off("unhandledRejection", onRejection);
+    }
+  });
+
   it("answers a failed write with the generic line as an error toast, not the race line", async () => {
     serveIntake([item({ id: 5 })]);
     server.use(
