@@ -42,7 +42,11 @@ export default function ArtistRefileForm({
   genreId: number;
 }) {
   const router = useRouter();
-  const { data: card, isLoading } = useGetArtistCardQuery({ artistId, genre_id: genreId });
+  const { data: card, isLoading } = useGetArtistCardQuery(
+    { artistId, genre_id: genreId },
+    // The artist may have moved genres since this entry was cached; a stale one would offer a re-file of a shelf it no longer holds.
+    { refetchOnMountOrArgChange: true },
+  );
   const genresQuery = useGetGenresQuery();
   // An outage must not read as "no genres": the refusal copy degrades instead of naming a partial list.
   const genres = isGenresUnavailable(genresQuery) ? undefined : genresQuery.data;
@@ -175,6 +179,8 @@ export default function ArtistRefileForm({
     !occupancy.isFetching;
   const owners = settled ? occupancy.currentData?.artists : undefined;
   const holder = owners?.find((owner) => owner.id !== artistId);
+  // Already holding the destination code in another genre: the server refuses it as already filed there.
+  const alreadyFiledThere = genreChanged && owners?.some((owner) => owner.id === artistId) === true;
   const free =
     settled &&
     (occupancy.currentData
@@ -294,7 +300,7 @@ export default function ArtistRefileForm({
                     </select>
                   ) : isGenresUnavailable(genresQuery) ? (
                     <div data-testid="artist-refile-genres-unavailable">
-                      The genre list could not be loaded, so the genre cannot be changed or named here. Reload to try again.
+                      The genre list could not be loaded, so nothing can be re-filed until it loads. Reload to try again.
                     </div>
                   ) : null}
                 </td>
@@ -321,6 +327,8 @@ export default function ArtistRefileForm({
                   <div data-testid="artist-refile-occupancy" role="status">
                     {isCurrent ? (
                       touched ? "That is the current call number." : null
+                    ) : alreadyFiledThere ? (
+                      `${card.artist_name} is already filed under ${destGenreName}.`
                     ) : holder ? (
                       <>
                         {destCodeOf(holder.code_number)} is held by{" "}
@@ -339,7 +347,7 @@ export default function ArtistRefileForm({
                     <button
                       type="button"
                       disabled={
-                        !genreKnown || target === null || isCurrent || lettersError !== null
+                        !genreKnown || target === null || isCurrent || lettersError !== null || alreadyFiledThere
                       }
                       onClick={() => setStep("confirm")}
                     >
@@ -361,9 +369,9 @@ export default function ArtistRefileForm({
                   <>
                     Move {card.artist_name} from {codeOf(card.code_artist_number)} to{" "}
                     {destCodeOf(target ?? 0)}.{" "}
-                    {genreChanged ? `Its releases filed under ${genreName} move with it. ` : ""}
-                    Every release under this shelf re-labels at once; the records on the shelf will
-                    need new labels.
+                    {genreChanged
+                      ? `Its releases filed under ${genreName} move with it and re-label at once; the records will need new labels.`
+                      : `Its releases filed under ${genreName} re-label at once; the records will need new labels.`}
                   </>
                 )}
                 <div>
@@ -384,10 +392,12 @@ export default function ArtistRefileForm({
         <div data-testid="artist-refile-refusal" role="alert" className="artist-error-message">
           {conflictHolder ? (
             <>
-              {lettersChanged || genreChanged ? `${destCodeOf(conflictHolder.code_artist_number)} is held by` : "That number is held by"}{" "}
+              {destCodeOf(conflictHolder.code_artist_number)} is held by{" "}
               <a href={artistCardHref(conflictHolder, { genreId: destGenreId })}>{conflictHolder.artist_name}</a>.
               Nothing was changed.
             </>
+          ) : refusal.reason === "conflict" && target !== null ? (
+            `${destCodeOf(target)} is held by another artist. Nothing was changed.`
           ) : (
             refusal.message
           )}

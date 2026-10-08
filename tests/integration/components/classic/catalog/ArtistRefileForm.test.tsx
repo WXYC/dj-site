@@ -82,7 +82,11 @@ describe("classic ArtistRefileForm", () => {
   it("scopes the card read to the shelf and shows the current full code", () => {
     renderWithProviders(<ArtistRefileForm artistId={ARTIST_ID} genreId={GENRE_ID} />);
 
-    expect(mockCardQuery).toHaveBeenCalledWith({ artistId: ARTIST_ID, genre_id: GENRE_ID });
+    expect(mockCardQuery).toHaveBeenCalledWith(
+      { artistId: ARTIST_ID, genre_id: GENRE_ID },
+      // The artist may have moved genres since this entry was cached.
+      { refetchOnMountOrArgChange: true },
+    );
     expect(screen.getByTestId("artist-refile-current")).toHaveTextContent("Hiphop IS 1");
   });
 
@@ -112,7 +116,7 @@ describe("classic ArtistRefileForm", () => {
     await toConfirm();
 
     expect(screen.getByTestId("artist-refile-confirm-copy")).toHaveTextContent(
-      "Move Isis from Hiphop IS 1 to Hiphop IS 31. Every release under this shelf re-labels at once; the records on the shelf will need new labels.",
+      "Move Isis from Hiphop IS 1 to Hiphop IS 31. Its releases filed under Hiphop re-label at once; the records will need new labels.",
     );
   });
 
@@ -151,7 +155,7 @@ describe("classic ArtistRefileForm", () => {
     await user.click(screen.getByRole("button", { name: "Re-file The Artist" }));
 
     const refusal = await screen.findByTestId("artist-refile-refusal");
-    expect(refusal).toHaveTextContent("That number is held by Isobel Campbell. Nothing was changed.");
+    expect(refusal).toHaveTextContent("Hiphop IS 31 is held by Isobel Campbell. Nothing was changed.");
     expect(refusal.querySelector("a")?.getAttribute("href")).toBe(`/dashboard/library/artist/777?genre_id=${GENRE_ID}`);
     expect(screen.getByTestId("artist-refile-choose")).toBeDefined();
     expect(mockPush).not.toHaveBeenCalled();
@@ -437,7 +441,7 @@ describe("classic ArtistRefileForm", () => {
       await reLettered();
 
       expect(screen.getByTestId("artist-refile-confirm-copy")).toHaveTextContent(
-        "Move Jam Money from Jazz RE 36 to Jazz JA 36. Every release under this shelf re-labels at once; the records on the shelf will need new labels.",
+        "Move Jam Money from Jazz RE 36 to Jazz JA 36. Its releases filed under Jazz re-label at once; the records will need new labels.",
       );
       expect(screen.getByTestId("artist-refile-confirm-copy")).not.toHaveTextContent("12");
     });
@@ -759,7 +763,7 @@ describe("classic ArtistRefileForm", () => {
       await confirm(user);
 
       expect(screen.getByTestId("artist-refile-confirm-copy")).toHaveTextContent(
-        "Move Jam Money from Jazz RE 36 to Electronic RE 36. Its releases filed under Jazz move with it.",
+        "Move Jam Money from Jazz RE 36 to Electronic RE 36. Its releases filed under Jazz move with it and re-label at once; the records will need new labels.",
       );
       await submit(user);
       expect(mockRefile).toHaveBeenCalledWith({
@@ -866,14 +870,39 @@ describe("classic ArtistRefileForm", () => {
       expect(occupancyText()).toHaveTextContent("That is the current call number.");
     });
 
-    it("states the genre-list outage, disables the genre, and says what still works", () => {
+    it("states the genre-list outage and holds Continue, since nothing can be re-filed until the names load", async () => {
       mockGenresQuery.mockReturnValue({ data: undefined, isUninitialized: false, isLoading: false });
       render();
 
       expect(screen.queryByLabelText("New Genre:")).toBeNull();
       expect(screen.getByTestId("artist-refile-genres-unavailable")).toHaveTextContent("genre list could not be loaded");
-      expect(screen.getByLabelText("New Call Letters:")).toBeEnabled();
-      expect(screen.getByLabelText("New Call Number:")).toBeEnabled();
+      expect(screen.getByTestId("artist-refile-genres-unavailable")).toHaveTextContent("nothing can be re-filed until");
+      const user = userEvent.setup();
+      await user.clear(screen.getByLabelText("New Call Number:"));
+      await user.type(screen.getByLabelText("New Call Number:"), "37");
+      expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
+    });
+
+    it("says the artist is already filed there, instead of 'free', and holds Continue", async () => {
+      byCode([{ id: JAM_ID, artist_name: "Jam Money", code_letters: "RE", code_number: 36, genre_id: ELECTRONIC }]);
+      render();
+      await toElectronic();
+
+      await waitFor(() => expect(occupancyText()).toHaveTextContent("Jam Money is already filed under Electronic."));
+      expect(occupancyText()).not.toHaveTextContent("free");
+      expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
+    });
+
+    it("names the destination code when the holder cannot be read", async () => {
+      mockRefile.mockReturnValue(rejects(409, { reason: "artist_code_conflict" }));
+      render();
+      const user = await toElectronic();
+      await confirm(user);
+      await submit(user);
+
+      expect(await screen.findByTestId("artist-refile-refusal")).toHaveTextContent(
+        "Electronic RE 36 is held by another artist. Nothing was changed.",
+      );
     });
 
     it("conflict after a genre move names the destination code", async () => {

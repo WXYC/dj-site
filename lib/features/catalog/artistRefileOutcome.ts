@@ -30,7 +30,7 @@ export const ARTIST_REFILE_SHARED_LETTERS_MESSAGE =
 export const ARTIST_REFILE_ALREADY_FILED_MESSAGE =
   "This artist already has a membership or a release in that genre; choose another genre. Nothing was changed.";
 export const ARTIST_REFILE_GENRE_NOT_FOUND_MESSAGE =
-  "That genre was not found. Reload the card. Nothing was changed.";
+  "That genre was not found. Reload the page. Nothing was changed.";
 export const ARTIST_REFILE_FALLBACK_MESSAGE =
   "This artist could not be re-filed, and the reason could not be read. Nothing was changed.";
 export const ARTIST_REFILE_INDETERMINATE_MESSAGE =

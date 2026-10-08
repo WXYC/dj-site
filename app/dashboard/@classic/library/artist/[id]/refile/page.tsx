@@ -8,7 +8,7 @@ import ArtistRefileForm from "@/src/components/experiences/classic/catalog/Artis
 import { artistCardGenreIdOrNotFound } from "@/lib/features/catalog/artistCardRoute.server";
 
 export const metadata: Metadata = {
-  title: getPageTitle("Change The Artist Call Number"),
+  title: getPageTitle("Change The Artist Call Letters, Number Or Genre"),
 };
 
 type ClassicArtistRefilePageProps = {
@@ -17,10 +17,10 @@ type ClassicArtistRefilePageProps = {
 };
 
 /**
- * Re-files an artist's call number on one genre shelf (`POST
+ * Re-files an artist's call letters, number or genre (`POST
  * /library/artists/:id/refile`), reached from the artist card's "Change" link.
- * `genre_id` is required: a call number belongs to one shelf, so a link that
- * names none has nothing to re-file.
+ * `genre_id` is required: it names which of the artist's shelves is being
+ * moved, so a link that names none has nothing to re-file.
  */
 export default async function ClassicArtistRefilePage({
   params,

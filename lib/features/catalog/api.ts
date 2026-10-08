@@ -133,6 +133,16 @@ const artistReleasesRequest = ({ artistId, page, limit, genre_id }: ArtistReleas
  */
 const RELEASE_PAGE_READ_CONCURRENCY = 4;
 
+/** Whether a re-file moved (result known) or tried to move (no answer) the artist to another genre. */
+function movesGenre(
+  result: ArtistRefileResult | undefined,
+  body: RefileArtistRequestBody,
+): boolean {
+  return result
+    ? result.genre_id !== body.genre_id
+    : body.to_genre_id !== undefined && body.to_genre_id !== body.genre_id;
+}
+
 export const catalogApi = createApi({
   reducerPath: "catalogApi",
   baseQuery: backendBaseQuery("library"),
@@ -738,7 +748,10 @@ export const catalogApi = createApi({
             ? codeTags
             : [];
         }
-        const movedGenre = result !== undefined && result.genre_id !== body.genre_id;
+        // With no answer (5xx / lost) the request says whether a move was attempted:
+        // the write is one transaction, so the source card is unchanged or gone,
+        // and refetching it is useless or a 404.
+        const movedGenre = movesGenre(result, body);
         return [
           ...(movedGenre ? [] : [{ type: "ArtistCard" as const, id: String(artistId) }]),
           ...artistReleaseTags(artistId),
@@ -754,23 +767,27 @@ export const catalogApi = createApi({
           dispatch(binApi.util.invalidateTags(["Bin"]));
           dispatch(rotationApi.util.invalidateTags(["Rotation"]));
         };
+        // The tag is left out of a genre move (see `invalidatesTags`), so the
+        // cached cards that can still be answered are refetched by hand.
+        const refetchCardsExceptSource = () => {
+          const cards = catalogApi.util.selectInvalidatedBy(getState(), [
+            { type: "ArtistCard", id: String(arg.artistId) },
+          ]);
+          for (const { endpointName, originalArgs } of cards) {
+            const cardArgs = originalArgs as ArtistCardQuery;
+            if (endpointName === "getArtistCard" && cardArgs.genre_id !== arg.body.genre_id) {
+              dispatch(catalogApi.endpoints.getArtistCard.initiate(cardArgs, { forceRefetch: true, subscribe: false }));
+            }
+          }
+        };
         try {
           const { data } = await queryFulfilled;
           if (data.changed !== false) invalidateOtherSlices();
-          if (data.changed && data.genre_id !== arg.body.genre_id) {
-            const cards = catalogApi.util.selectInvalidatedBy(getState(), [
-              { type: "ArtistCard", id: String(arg.artistId) },
-            ]);
-            for (const { endpointName, originalArgs } of cards) {
-              const cardArgs = originalArgs as ArtistCardQuery;
-              if (endpointName === "getArtistCard" && cardArgs.genre_id !== arg.body.genre_id) {
-                dispatch(catalogApi.endpoints.getArtistCard.initiate(cardArgs, { forceRefetch: true, subscribe: false }));
-              }
-            }
-          }
+          if (data.changed && movesGenre(data, arg.body)) refetchCardsExceptSource();
         } catch (caught) {
           if (!artistRefileAnsweredWithoutWriting((caught as { error?: unknown })?.error)) {
             invalidateOtherSlices();
+            if (movesGenre(undefined, arg.body)) refetchCardsExceptSource();
           }
         }
       },

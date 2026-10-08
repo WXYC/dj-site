@@ -30,7 +30,7 @@ const RESULT = {
 };
 
 const COUNT_KEYS = [
-  "card", "peek", "byCodeScoped", "byCodeOther", "bin", "rotation",
+  "card", "sourceCard", "peek", "byCodeScoped", "byCodeOther", "bin", "rotation",
   "catalog", "info", "artistReleases", "typeahead", "artistXref", "releaseXref",
 ] as const;
 type Calls = Record<(typeof COUNT_KEYS)[number], number>;
@@ -49,7 +49,10 @@ async function subscribed() {
     return HttpResponse.json(body as never);
   };
   server.use(
-    http.get(`${L}/artists/${ARTIST_ID}`, json("card", RESULT)),
+    http.get(`${L}/artists/${ARTIST_ID}`, ({ request }) => {
+      bump(calls, new URL(request.url).searchParams.get("genre_id") === String(GENRE_ID) ? "sourceCard" : "card");
+      return HttpResponse.json(RESULT);
+    }),
     http.get(`${L}/artists/peek-code`, json("peek", { next_code_number: 2 })),
     http.get(`${L}/artists/by-code`, ({ request }) => {
       const q = new URL(request.url).searchParams;
@@ -71,6 +74,7 @@ async function subscribed() {
   const e = catalogApi.endpoints;
   const subs = [
     store.dispatch(e.getArtistCard.initiate({ artistId: ARTIST_ID })),
+    store.dispatch(e.getArtistCard.initiate({ artistId: ARTIST_ID, genre_id: GENRE_ID })),
     store.dispatch(e.peekArtistCode.initiate({ code_letters: "IS", genre_id: GENRE_ID })),
     store.dispatch(e.resolveArtistByCode.initiate({ code_letters: "IS", genre_id: GENRE_ID, code_number: 31 })),
     store.dispatch(e.resolveArtistByCode.initiate({ code_letters: "AU", genre_id: 15, code_number: 3 })),
@@ -182,7 +186,25 @@ describe("refileArtist", () => {
     unsubscribe();
   });
 
-  it("a genre move does not refetch the source-genre card (it would 404), but refetches the destination and unscoped cards", async () => {
+  it.each([
+    { label: "success", respond: () => HttpResponse.json({ ...RESULT, code_letters: "AU", genre_id: 15, previous_genre_id: GENRE_ID }) },
+    { label: "500", respond: () => HttpResponse.json({ message: "boom" }, { status: 500 }) },
+  ])("a genre move ($label) fires every invalidation except the source-genre card", async ({ respond }) => {
+    const { store, calls, unsubscribe } = await subscribed();
+    server.use(http.post(REFILE_URL, respond));
+
+    const body = { genre_id: GENRE_ID, code_artist_number: 3, code_letters: "AU", to_genre_id: 15 };
+    await store.dispatch(catalogApi.endpoints.refileArtist.initiate({ ...ARG, body }));
+    await vi.waitFor(() => expect(calls).toEqual({ ...everything, sourceCard: 1 }));
+    await settle();
+    expect(calls).toEqual({ ...everything, sourceCard: 1 });
+    unsubscribe();
+  });
+
+  it.each([
+    { label: "success", respond: () => HttpResponse.json({ ...RESULT, genre_id: 15 }) },
+    { label: "500", respond: () => HttpResponse.json({ message: "boom" }, { status: 500 }) },
+  ])("a genre move ($label) does not refetch the source-genre card (it would 404), but refetches the destination and unscoped cards", async ({ respond }) => {
     const L = `${TEST_BACKEND_URL}/library`;
     const hits = { source: 0, destination: 0, unscoped: 0 };
     server.use(
@@ -195,7 +217,7 @@ describe("refileArtist", () => {
         hits[genre === "15" ? "destination" : "unscoped"] += 1;
         return HttpResponse.json({ ...RESULT, genre_id: 15 });
       }),
-      http.post(REFILE_URL, () => HttpResponse.json({ ...RESULT, genre_id: 15, previous_genre_id: GENRE_ID })),
+      http.post(REFILE_URL, respond),
     );
     const store = createTestStore();
     const e = catalogApi.endpoints;
