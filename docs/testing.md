@@ -170,7 +170,7 @@ describeConversion("convertToSong", convertToSong, [
 
 ### Classic Page Authority Harness
 
-`tests/helpers/classic-page-authority-harness.ts` covers the `requireAuth()` -> `requireRole()` gate that every page under `app/dashboard/@classic/**` runs in front of its screen-specific content. The dynamic imports inside the `vi.mock` factories must name the harness by path — factories cannot close over statically-imported bindings. The top-level static import of the setUp/assert functions is ordinary; it targets the harness module directly because the `@/tests/helpers` barrel does not re-export it.
+`tests/helpers/classic-page-authority-harness.ts` covers the `requireAuth()` -> `requireRole()` gate that every page under `app/dashboard/@classic/**` runs in front of its screen-specific content. It also serves the gated modern server pages (`app/dashboard/@modern/reviews/**`), whose gate refuses with `notFound()`: its navigation mock throws `NEXT_NOT_FOUND`, and `assertNotFoundPage(page)` asserts it. Those page tests arrange the session with `setUpClassicPageAuthority(role)` and the flag with `process.env.NEXT_PUBLIC_REVIEWS_ENABLED`, and keep one case proving the page calls its gate; the gate's own flag-by-role matrix is tested once, in its own file. The dynamic imports inside the `vi.mock` factories must name the harness by path — factories cannot close over statically-imported bindings. The top-level static import of the setUp/assert functions is ordinary; it targets the harness module directly because the `@/tests/helpers` barrel does not re-export it.
 
 ```tsx
 import {

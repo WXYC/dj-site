@@ -6,12 +6,15 @@ import { DEFAULT_DASHBOARD_HOME_PAGE } from "@/lib/features/application/constant
 import { renderWithProviders } from "./render";
 
 /**
- * Shared mock preamble + assertions for the classic dashboard page-authority
- * tests (`tests/integration/app/dashboard/@classic/**`). Every one of those
- * pages runs the same `requireAuth()` -> `requireRole()` gate in front of
- * screen-specific content, so the server-session/role/flag mock stack and the
+ * Shared mock preamble + assertions for the server-page authority tests: the
+ * classic dashboard pages (`tests/integration/app/dashboard/@classic/**`) and
+ * the gated modern pages (`tests/integration/app/dashboard/@modern/reviews/**`).
+ * Every one of those pages runs the same server-session -> role gate in front
+ * of screen-specific content, so the session/role/flag mock stack and the
  * "did it actually render" assertions are identical across pages -- only the
- * required role, the granted role(s), and the rendered landmark differ.
+ * required role, the granted role(s), and the rendered landmark differ. The
+ * classic pages refuse by redirecting (`assertDeniedClassicPage`); the modern
+ * review pages refuse with `notFound()` (`assertNotFoundPage`).
  *
  * `vi.mock` factories cannot close over statically-imported bindings (see
  * `auth-client-mock.ts`), so pull the mock-shape functions in by path inside
@@ -42,6 +45,11 @@ export const mockRedirect = vi.fn((url: string) => {
   throw new Error(`NEXT_REDIRECT:${url}`);
 });
 
+// notFound() throws the same marker shape as redirect() for the same reason.
+export const mockNotFound = vi.fn(() => {
+  throw new Error("NEXT_NOT_FOUND");
+});
+
 export const mockGetSession = vi.fn();
 export const mockGetUserRoleInOrganization = vi.fn();
 export const mockGetAppOrganizationId = vi.fn(() => undefined);
@@ -53,7 +61,7 @@ export function classicPageAuthorityHeadersMock() {
 
 /**
  * Replacement for `next/navigation`. The pages under test only call
- * `redirect()`, but replacing the module replaces it for everything the page
+ * `redirect()` or `notFound()`, but replacing the module replaces it for everything the page
  * renders — and the classic pages render through `Layout/Main` ->
  * `Navigation`, whose client hooks (`usePathname`, `useRouter`,
  * `useSearchParams`) would otherwise come back undefined and throw. The
@@ -62,6 +70,7 @@ export function classicPageAuthorityHeadersMock() {
 export function classicPageAuthorityNavigationMock() {
   return {
     redirect: (url: string) => mockRedirect(url),
+    notFound: () => mockNotFound(),
     usePathname: () => "/dashboard",
     useRouter: () => ({
       push: vi.fn(),
@@ -191,4 +200,14 @@ export async function assertDeniedClassicPage(
 ) {
   await expect(page()).rejects.toThrow(`NEXT_REDIRECT:${destination}`);
   expect(mockRedirect).toHaveBeenCalledWith(destination);
+}
+
+/**
+ * Asserts the page refuses by calling `notFound()`. Pairs with the
+ * `NEXT_NOT_FOUND` marker `mockNotFound` throws, so a page that merely
+ * rejected for another reason does not pass.
+ */
+export async function assertNotFoundPage(page: () => Promise<ReactElement>) {
+  await expect(page()).rejects.toThrow("NEXT_NOT_FOUND");
+  expect(mockNotFound).toHaveBeenCalled();
 }
