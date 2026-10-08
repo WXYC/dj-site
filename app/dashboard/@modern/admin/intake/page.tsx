@@ -24,7 +24,7 @@ export default async function IntakePage() {
   return (
     <>
       <PageHeader title={REVIEW_COPY.intake.title} />
-      <IntakeScreen />
+      <IntakeScreen organizationSlug={process.env.NEXT_PUBLIC_APP_ORGANIZATION || ""} />
     </>
   );
 }
