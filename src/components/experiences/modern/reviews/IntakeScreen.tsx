@@ -7,11 +7,11 @@ import { toast } from "sonner";
 import { useGetFormatsQuery } from "@/lib/features/catalog/api";
 import {
   isIntakeStateChanged,
-  reviewsApi,
+  intakeApi,
   useGetIntakeItemsQuery,
   useLogIntakeItemMutation,
   useReleaseIntakeItemMutation,
-} from "@/lib/features/reviews/api";
+} from "@/lib/features/reviews/intakeApi";
 import { useAppDispatch } from "@/lib/hooks";
 import { useCanSeeReviews } from "@/src/hooks/useCanSeeReviews";
 import { useRowWrite } from "@/src/hooks/useRowWrite";
@@ -45,7 +45,7 @@ export default function IntakeScreen() {
   const { write, lock } = useRowWrite<"release">({
     reload: () =>
       [OPEN_LANES, AWAITING_LANE, REVIEWED_LANE, FILED_LANE].map((arg) =>
-        dispatch(reviewsApi.endpoints.getIntakeItems.initiate(arg, { subscribe: false, forceRefetch: true })),
+        dispatch(intakeApi.endpoints.getIntakeItems.initiate(arg, { subscribe: false, forceRefetch: true })),
       ),
     isLostRace: isIntakeStateChanged,
     onFailure: () => toast.error(REVIEW_COPY.screen.writeFailed),

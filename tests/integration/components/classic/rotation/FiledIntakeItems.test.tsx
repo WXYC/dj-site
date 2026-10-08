@@ -4,7 +4,7 @@ import { http, HttpResponse } from "msw";
 import type { IntakeItem } from "@wxyc/shared";
 import { renderWithProviders, server, TEST_BACKEND_URL } from "@/tests/helpers";
 import { rotationApi } from "@/lib/features/rotation/api";
-import { reviewsApi } from "@/lib/features/reviews/api";
+import { intakeApi } from "@/lib/features/reviews/intakeApi";
 
 vi.mock("@/lib/features/authentication/client", async () => {
   const { createAuthClientModuleMock } = await import("@/tests/helpers/auth-client-mock");
@@ -146,7 +146,7 @@ describe("classic Awaiting Cataloging — filed intake items", () => {
       const state = store.getState();
       const read =
         resolved === "intake"
-          ? reviewsApi.endpoints.getIntakeItems.select(FILED)(state)
+          ? intakeApi.endpoints.getIntakeItems.select(FILED)(state)
           : rotationApi.endpoints.getRotationList.select("active")(state);
       expect(read.status).toBe("fulfilled");
     });

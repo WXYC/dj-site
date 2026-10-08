@@ -13,7 +13,7 @@ import {
   useGetReviewQuery,
   useSubmitReviewMutation,
   useUpdateReviewMutation,
-} from "@/lib/features/reviews/api";
+} from "@/lib/features/reviews/reviewApi";
 import { serverMessage, unwrapEndpointErrorOrRaw } from "@/lib/rtk-endpoint-error";
 import { useAuthentication } from "@/src/hooks/authenticationHooks";
 import { useCanSeeReviews } from "@/src/hooks/useCanSeeReviews";
