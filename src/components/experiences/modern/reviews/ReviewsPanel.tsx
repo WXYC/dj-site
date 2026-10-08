@@ -11,7 +11,7 @@ import SlipPreview, { SlipFccRow } from "./SlipPreview";
 
 const { albumPanel: copy } = REVIEW_COPY;
 
-export type PanelRecord = { artist: string; album: string; label: string };
+type PanelRecord = { artist: string; album: string; label: string };
 
 /** Named empty region the album's FCC notes are rendered into. */
 export function FccNotesSlot({ albumId }: { albumId: number }) {

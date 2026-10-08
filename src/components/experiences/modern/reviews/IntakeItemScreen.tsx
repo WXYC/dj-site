@@ -66,6 +66,8 @@ export default function IntakeItemScreen({ id }: { id: number }) {
       if (refusal === null) throw unwrapEndpointError("intakeWriteError", err) ?? err;
       await item.refetch();
       setNotice(refusal);
+      // Nothing was filed, so the bench keeps what was typed.
+      return false;
     }
   };
 
