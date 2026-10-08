@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { http, HttpResponse } from "msw";
 import { configureStore } from "@reduxjs/toolkit";
-import { isIntakeInRotation, isIntakeStateChanged, reviewsApi } from "@/lib/features/reviews/api";
+import { isIntakeInRotation, isIntakeStateChanged, isReviewSubjectNotHeld, reviewsApi } from "@/lib/features/reviews/api";
 import { describeApi } from "@/tests/helpers/api-harness";
 import { TEST_BACKEND_URL } from "@/tests/helpers/constants";
 import { server } from "@/tests/fakes/server";
@@ -20,12 +20,14 @@ const makeReviewsStore = () =>
 
 describe("reviewsApi", () => {
   describeApi(reviewsApi, {
-    queries: ["getIntakeItems"],
+    queries: ["getIntakeItems", "getMyReviews", "getReview"],
     mutations: [
       "checkoutIntakeItem",
       "releaseIntakeItem",
       "acceptIntakeItem",
       "passIntakeItem",
+      "createReview",
+      "updateReview",
     ],
     reducerPath: "reviewsApi",
   });
@@ -179,5 +181,79 @@ describe("reviewsApi", () => {
 
     expect(result.isError).toBe(false);
     expect(result.error).toBeUndefined();
+  });
+  it("getMyReviews GETs /reviews?mine=true", async () => {
+    let seen: URL | undefined;
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/reviews`, ({ request }) => {
+        seen = new URL(request.url);
+        return HttpResponse.json([]);
+      })
+    );
+
+    await makeReviewsStore().dispatch(reviewsApi.endpoints.getMyReviews.initiate());
+
+    expect(seen?.pathname).toBe("/reviews");
+    expect(seen?.searchParams.get("mine")).toBe("true");
+  });
+
+  it("getReview GETs /reviews/7", async () => {
+    let path: string | undefined;
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/reviews/:id`, ({ request }) => {
+        path = new URL(request.url).pathname;
+        return HttpResponse.json({ id: 7 });
+      })
+    );
+
+    await makeReviewsStore().dispatch(reviewsApi.endpoints.getReview.initiate(7));
+
+    expect(path).toBe("/reviews/7");
+  });
+
+  it("createReview POSTs the request to /reviews and updateReview PATCHes the patch to /reviews/7", async () => {
+    const seen: { method: string; path: string; body: unknown }[] = [];
+    server.use(
+      http.all(`${TEST_BACKEND_URL}/reviews/:id?`, async ({ request }) => {
+        seen.push({ method: request.method, path: new URL(request.url).pathname, body: await request.json() });
+        return HttpResponse.json({ id: 7 });
+      })
+    );
+    const store = makeReviewsStore();
+
+    await store.dispatch(reviewsApi.endpoints.createReview.initiate({ intake_item_id: 3 }));
+    await store.dispatch(reviewsApi.endpoints.updateReview.initiate({ id: 7, patch: { buzzwords: "hushed" } }));
+
+    expect(seen).toEqual([
+      { method: "POST", path: "/reviews", body: { intake_item_id: 3 } },
+      { method: "PATCH", path: "/reviews/7", body: { buzzwords: "hushed" } },
+    ]);
+  });
+
+  it.each(["createReview", "updateReview"] as const)("%s rejects with the whole error nested under reviewWriteError", async (endpoint) => {
+    const body = { message: "server words", reason: "subject_not_held" };
+    server.use(
+      http.all(`${TEST_BACKEND_URL}/reviews/:id?`, () => HttpResponse.json(body, { status: 409 }))
+    );
+    const store = makeReviewsStore();
+
+    const result =
+      endpoint === "createReview"
+        ? await store.dispatch(reviewsApi.endpoints.createReview.initiate({ intake_item_id: 3 }))
+        : await store.dispatch(reviewsApi.endpoints.updateReview.initiate({ id: 7, patch: {} }));
+
+    expect("error" in result && result.error).toEqual({
+      reviewWriteError: { status: 409, data: body },
+    });
+  });
+
+  it.each([
+    ["a wrapped 409 subject_not_held", { reviewWriteError: { status: 409, data: { reason: "subject_not_held" } } }, true],
+    ["a raw 409 subject_not_held", { status: 409, data: { reason: "subject_not_held" } }, true],
+    ["a wrapped 409 not_draft", { reviewWriteError: { status: 409, data: { reason: "not_draft" } } }, false],
+    ["a wrapped 403 subject_not_held", { reviewWriteError: { status: 403, data: { reason: "subject_not_held" } } }, false],
+    ["undefined", undefined, false],
+  ])("isReviewSubjectNotHeld reads %s as %s", (_label, err, expected) => {
+    expect(isReviewSubjectNotHeld(err)).toBe(expected);
   });
 });

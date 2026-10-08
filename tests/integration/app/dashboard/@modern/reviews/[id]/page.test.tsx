@@ -44,11 +44,16 @@ vi.mock("@/lib/features/authentication/organization-utils.server", () => ({
 
 // The page's own responsibility under test is the flag + auth gate, not the
 // header chrome.
+vi.mock("@/src/components/experiences/modern/reviews/ReviewEditor", () => ({
+  default: ({ id }: { id: number }) => <div data-testid="editor">{id}</div>,
+}));
+
 vi.mock("@/src/components/experiences/modern/Header/PageHeader", () => ({
   default: ({ title }: { title: string }) => <div data-testid="page-header">{title}</div>,
 }));
 
-import ReviewsPage from "@/app/dashboard/@modern/reviews/page";
+import ReviewEditorPage from "@/app/dashboard/@modern/reviews/[id]/page";
+import { REVIEW_COPY } from "@/src/components/experiences/modern/reviews/copy";
 
 function sessionData() {
   return {
@@ -65,7 +70,7 @@ function sessionData() {
   };
 }
 
-describe("reviews page", () => {
+describe("review editor page", () => {
   const originalEnv = process.env;
 
   beforeEach(() => {
@@ -81,34 +86,42 @@ describe("reviews page", () => {
     process.env = originalEnv;
   });
 
-  it.each([
-    [undefined, "dj"],
-    [undefined, "musicDirector"],
-    [undefined, "stationManager"],
-    ["false", "stationManager"],
-    ["staff", "dj"],
-  ])("is not found when the flag is %s for a %s", async (flag, role) => {
-    if (flag === undefined) delete process.env.NEXT_PUBLIC_REVIEWS_ENABLED;
-    else process.env.NEXT_PUBLIC_REVIEWS_ENABLED = flag;
-    mockGetUserRoleInOrganization.mockResolvedValue(role);
-
-    await expect(ReviewsPage()).rejects.toThrow("NEXT_NOT_FOUND");
-    expect(mockNotFound).toHaveBeenCalled();
-  });
+  const open = (id = "40") => ReviewEditorPage({ params: Promise.resolve({ id }) });
 
   it.each([
     ["staff", "musicDirector"],
-    ["staff", "stationManager"],
     ["true", "dj"],
-    ["1", "dj"],
-  ])("renders the Reviews shell when the flag is %s for a %s", async (flag, role) => {
+  ])("renders the editor when the flag is %s for a %s", async (flag, role) => {
     process.env.NEXT_PUBLIC_REVIEWS_ENABLED = flag;
     mockGetUserRoleInOrganization.mockResolvedValue(role);
 
-    const result = await ReviewsPage();
-    renderWithProviders(result);
+    renderWithProviders(await open());
 
-    expect(mockNotFound).not.toHaveBeenCalled();
-    expect(screen.getByTestId("page-header")).toHaveTextContent("Reviews");
+    expect(screen.getByTestId("editor")).toHaveTextContent("40");
+  });
+
+  it("shows a DJ exactly the staff-only line, and no editor, under staff", async () => {
+    process.env.NEXT_PUBLIC_REVIEWS_ENABLED = "staff";
+    mockGetUserRoleInOrganization.mockResolvedValue("dj");
+
+    renderWithProviders(await open());
+
+    expect(REVIEW_COPY.staffOnly).toBe("Reviews are open to music directors for now. You'll be able to open this review when they open to every DJ.");
+    expect(screen.getByText(REVIEW_COPY.staffOnly)).toBeInTheDocument();
+    expect(screen.queryByTestId("editor")).not.toBeInTheDocument();
+  });
+
+  it.each([["dj"], ["musicDirector"]])("is not found for a %s when the flag is off", async (role) => {
+    delete process.env.NEXT_PUBLIC_REVIEWS_ENABLED;
+    mockGetUserRoleInOrganization.mockResolvedValue(role);
+
+    await expect(open()).rejects.toThrow("NEXT_NOT_FOUND");
+  });
+
+  it("is not found for an id that is not a positive integer", async () => {
+    process.env.NEXT_PUBLIC_REVIEWS_ENABLED = "true";
+    mockGetUserRoleInOrganization.mockResolvedValue("dj");
+
+    await expect(open("abc")).rejects.toThrow("NEXT_NOT_FOUND");
   });
 });

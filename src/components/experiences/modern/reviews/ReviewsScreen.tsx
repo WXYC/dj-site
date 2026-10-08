@@ -1,13 +1,17 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { Button, Chip, List, ListItem, Stack, Typography } from "@mui/joy";
-import type { IntakeItem } from "@wxyc/shared";
+import { Button, Chip, Link, List, ListItem, Stack, Typography } from "@mui/joy";
+import type { IntakeItem, Review } from "@wxyc/shared";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useGetFormatsQuery } from "@/lib/features/catalog/api";
 import {
   isIntakeStateChanged,
+  isReviewSubjectNotHeld,
   reviewsApi,
+  useCreateReviewMutation,
+  useGetMyReviewsQuery,
   useAcceptIntakeItemMutation,
   useCheckoutIntakeItemMutation,
   useGetIntakeItemsQuery,
@@ -20,10 +24,11 @@ import { useAuthentication } from "@/src/hooks/authenticationHooks";
 import { useAppDispatch } from "@/lib/hooks";
 import { useRowWrite } from "@/src/hooks/useRowWrite";
 import ConfirmDialog from "../ConfirmDialog";
+import { REVIEW_COPY } from "./copy";
 
 const day = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString() : "");
 
-type Action = "checkout" | "accept" | "pass" | "release";
+type Action = "checkout" | "accept" | "pass" | "release" | "write";
 
 /** What a lost race (409 `state_changed`) means for each button, shown once the lists have reloaded. */
 const RACE_NOTICE: Record<Action, string> = {
@@ -31,12 +36,14 @@ const RACE_NOTICE: Record<Action, string> = {
   accept: "This request is no longer open; it may have expired. The lists have been reloaded.",
   pass: "This request is no longer open; it may have expired. The lists have been reloaded.",
   release: "This record is no longer checked out to you. The lists have been reloaded.",
+  write: REVIEW_COPY.subjectNotHeld,
 };
 
 // One argument per list, shared by its hook and the post-write reload so the
 // reload reaches the same cache entry.
 const OPEN_LISTS = undefined;
 const REVIEWED_LIST = { state: "reviewed" } as const;
+const MY_REVIEWS = undefined;
 
 export default function ReviewsScreen() {
   const { data: auth } = useAuthentication();
@@ -46,12 +53,15 @@ export default function ReviewsScreen() {
 
   const open = useGetIntakeItemsQuery(OPEN_LISTS, { skip: !visible });
   const reviewed = useGetIntakeItemsQuery(REVIEWED_LIST, { skip: !visible });
+  const mine = useGetMyReviewsQuery(MY_REVIEWS, { skip: !visible });
   const { data: formats } = useGetFormatsQuery(undefined, { skip: !visible });
 
   const [checkout] = useCheckoutIntakeItemMutation();
   const [release] = useReleaseIntakeItemMutation();
   const [accept] = useAcceptIntakeItemMutation();
   const [pass] = usePassIntakeItemMutation();
+  const [createReview] = useCreateReviewMutation();
+  const router = useRouter();
   const [returning, setReturning] = useState<IntakeItem | null>(null);
   const dispatch = useAppDispatch();
   // A double-click's second POST would find the record already moved and
@@ -62,19 +72,21 @@ export default function ReviewsScreen() {
     reload: () => [
       dispatch(reviewsApi.endpoints.getIntakeItems.initiate(OPEN_LISTS, { subscribe: false, forceRefetch: true })),
       dispatch(reviewsApi.endpoints.getIntakeItems.initiate(REVIEWED_LIST, { subscribe: false, forceRefetch: true })),
+      dispatch(reviewsApi.endpoints.getMyReviews.initiate(MY_REVIEWS, { subscribe: false, forceRefetch: true })),
     ],
-    isLostRace: isIntakeStateChanged,
-    onFailure: () => toast.error("Couldn't do that. Please try again."),
+    isLostRace: (err) => isIntakeStateChanged(err) || isReviewSubjectNotHeld(err),
+    onFailure: (_err, _id, action) =>
+      toast.error(action === "write" ? REVIEW_COPY.couldNotStart : "Couldn't do that. Please try again."),
     onLostRace: (_id, action) => toast(RACE_NOTICE[action]),
   });
 
   if (!visible) return null;
-  if (open.isError || reviewed.isError) {
+  if (open.isError || reviewed.isError || mine.isError) {
     return <Typography role="alert">Couldn't load the review shelf. Please try again.</Typography>;
   }
 
   // Until both lists land, an empty-state sentence would read as a fact.
-  if (!open.data || !reviewed.data) return null;
+  if (!open.data || !reviewed.data || !mine.data) return null;
 
   const items = open.data;
   const onShelf = items.filter((i) => i.effective_state === "pool");
@@ -89,7 +101,18 @@ export default function ReviewsScreen() {
     return [i.artist_name, i.album_title, i.record_label, format].filter(Boolean).join(" · ");
   };
 
-  const section = (title: string, rows: IntakeItem[], empty: string, extra: (i: IntakeItem) => ReactNode) => (
+  const draftLabel = (r: Review) => {
+    const record = [...items, ...reviewed.data].find((i) => i.id === r.intake_item_id);
+    return record ? describe(record) : REVIEW_COPY.myReviews.libraryRelease;
+  };
+
+  const section = <Row extends { id: number }>(
+    title: string,
+    rows: Row[],
+    empty: string,
+    label: (row: Row) => string,
+    extra: (row: Row) => ReactNode,
+  ) => (
     <section aria-label={title}>
       <Typography level="title-lg">{title}</Typography>
       {rows.length === 0 ? (
@@ -99,7 +122,7 @@ export default function ReviewsScreen() {
           {rows.map((i) => (
             <ListItem key={i.id}>
               <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-                <Typography>{describe(i)}</Typography>
+                <Typography>{label(i)}</Typography>
                 {extra(i)}
               </Stack>
             </ListItem>
@@ -111,27 +134,45 @@ export default function ReviewsScreen() {
 
   return (
     <Stack spacing={3}>
-      {section("The review shelf", onShelf, "Nothing is waiting on the review shelf.", (i) => (
+      {section("The review shelf", onShelf, "Nothing is waiting on the review shelf.", describe, (i) => (
         <>
           <Typography level="body-sm">Logged {day(i.logged_at)}</Typography>
           <Button size="sm" {...lock(i.id, "checkout")} onClick={() => write(i.id, "checkout", () => checkout(i.id).unwrap())}>Check out</Button>
         </>
       ))}
-      {section("My checkouts", checkouts, "You have no records checked out.", (i) => (
+      {section("My checkouts", checkouts, "You have no records checked out.", describe, (i) => (
         <>
           <Typography level="body-sm">Taken {day(i.checked_out_at)}</Typography>
           {i.overdue && <Chip color="danger">Overdue</Chip>}
           {i.effective_state === "reviewed" && (
             <Typography level="body-sm">Reviewed. Bring the record back to the music office.</Typography>
           )}
+          <Button
+            size="sm"
+            {...lock(i.id, "write")}
+            onClick={() =>
+              write(i.id, "write", async () => {
+                const review = await createReview({ intake_item_id: i.id }).unwrap();
+                router.push(`/dashboard/reviews/${review.id}`);
+              })
+            }
+          >
+            {REVIEW_COPY.writeReview}
+          </Button>
           <Button size="sm" variant="outlined" {...lock(i.id, "release")} onClick={() => setReturning(i)}>Return to the review shelf</Button>
         </>
       ))}
-      {section("Requests for me", requests, "No one has asked you for a review.", (i) => (
+      {section("Requests for me", requests, "No one has asked you for a review.", describe, (i) => (
         <>
           <Typography level="body-sm">Asked {day(i.requested_at)}</Typography>
           <Button size="sm" {...lock(i.id, "accept")} onClick={() => write(i.id, "accept", () => accept(i.id).unwrap())}>Accept</Button>
           <Button size="sm" variant="outlined" {...lock(i.id, "pass")} onClick={() => write(i.id, "pass", () => pass(i.id).unwrap())}>Pass</Button>
+        </>
+      ))}
+      {section(REVIEW_COPY.myReviews.title, mine.data, REVIEW_COPY.myReviews.empty, draftLabel, (r) => (
+        <>
+          <Typography level="body-sm">{r.status === "draft" ? REVIEW_COPY.myReviews.draft : REVIEW_COPY.myReviews.submitted}</Typography>
+          <Link href={`/dashboard/reviews/${r.id}`}>{REVIEW_COPY.myReviews.open}</Link>
         </>
       ))}
       <ConfirmDialog

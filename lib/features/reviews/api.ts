@@ -1,5 +1,5 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
-import type { IntakeItem, IntakeItemState } from "@wxyc/shared";
+import type { IntakeItem, IntakeItemState, NewReviewRequest, Review, ReviewPatch } from "@wxyc/shared";
 import type { FetchBaseQueryError } from "@reduxjs/toolkit/query";
 import { backendBaseQuery } from "../backend";
 import { isRefusal } from "@/lib/rtk-endpoint-error";
@@ -29,6 +29,17 @@ export const isIntakeStateChanged = (err: unknown): boolean =>
 export const isIntakeInRotation = (err: unknown): boolean =>
   isRefusal(err, { status: 409, reasons: ["in_rotation"], key: "intakeWriteError" });
 
+/** The review writes' counterpart of `IntakeWriteError`, nested under its own key for the same reason. */
+export type ReviewWriteError = { reviewWriteError: FetchBaseQueryError };
+
+const wrapReviewWriteError = (response: FetchBaseQueryError): ReviewWriteError => ({
+  reviewWriteError: response,
+});
+
+/** True when starting a draft was refused because the DJ no longer holds the record. */
+export const isReviewSubjectNotHeld = (err: unknown): boolean =>
+  isRefusal(err, { status: 409, reasons: ["subject_not_held"], key: "reviewWriteError" });
+
 /**
  * Rooted at the Backend-Service root, not at one domain: every endpoint's `url`
  * carries its own (`intake/...`, `reviews/...`, `fcc-notes...`). Review
@@ -40,7 +51,7 @@ export const isIntakeInRotation = (err: unknown): boolean =>
 export const reviewsApi = createApi({
   reducerPath: "reviewsApi",
   baseQuery: backendBaseQuery("", { surfaceNonJsonAsError: true }),
-  tagTypes: ["Intake"],
+  tagTypes: ["Intake", "Review"],
   endpoints: (builder) => ({
     getIntakeItems: builder.query<IntakeItem[], { state?: IntakeItemState } | void>({
       query: (args) => ({
@@ -79,6 +90,24 @@ export const reviewsApi = createApi({
       transformErrorResponse: wrapIntakeWriteError,
       invalidatesTags: ["Intake"],
     }),
+    getMyReviews: builder.query<Review[], void>({
+      query: () => ({ url: "reviews", params: { mine: true } }),
+      providesTags: ["Review"],
+    }),
+    getReview: builder.query<Review, number>({
+      query: (id) => ({ url: `reviews/${id}` }),
+      providesTags: ["Review"],
+    }),
+    createReview: builder.mutation<Review, NewReviewRequest>({
+      query: (body) => ({ url: "reviews", method: "POST", body }),
+      transformErrorResponse: wrapReviewWriteError,
+      invalidatesTags: ["Intake", "Review"],
+    }),
+    updateReview: builder.mutation<Review, { id: number; patch: ReviewPatch }>({
+      query: ({ id, patch }) => ({ url: `reviews/${id}`, method: "PATCH", body: patch }),
+      transformErrorResponse: wrapReviewWriteError,
+      invalidatesTags: ["Review"],
+    }),
   }),
 });
 
@@ -89,4 +118,8 @@ export const {
   useAcceptIntakeItemMutation,
   usePassIntakeItemMutation,
   useFinalizeIntakeItemMutation,
+  useGetMyReviewsQuery,
+  useGetReviewQuery,
+  useCreateReviewMutation,
+  useUpdateReviewMutation,
 } = reviewsApi;

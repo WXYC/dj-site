@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { delay, http, HttpResponse } from "msw";
-import type { IntakeItem } from "@wxyc/shared";
+import type { IntakeItem, Review } from "@wxyc/shared";
 import { Authorization } from "@/lib/features/admin/types";
 import { renderWithProviders, server, TEST_BACKEND_URL } from "@/tests/helpers";
 
@@ -14,6 +14,9 @@ vi.mock("sonner", () => ({
   toast: Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn(), info: vi.fn() }),
 }));
 
+const router = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn() }));
+vi.mock("next/navigation", () => ({ useRouter: () => router }));
+
 const ME = "dj-me";
 const mockAuth = vi.hoisted(() => ({ authority: 1 as number }));
 vi.mock("@/src/hooks/authenticationHooks", () => ({
@@ -25,6 +28,7 @@ vi.mock("@/src/hooks/authenticationHooks", () => ({
 }));
 
 import { toast } from "sonner";
+import { REVIEW_COPY } from "@/src/components/experiences/modern/reviews/copy";
 import ReviewsScreen from "@/src/components/experiences/modern/reviews/ReviewsScreen";
 
 const item = (overrides: Partial<IntakeItem>): IntakeItem =>
@@ -45,8 +49,12 @@ const item = (overrides: Partial<IntakeItem>): IntakeItem =>
     ...overrides,
   }) as IntakeItem;
 
-function serveIntake(open: IntakeItem[], reviewed: IntakeItem[] = []) {
+const review = (overrides: Partial<Review> = {}): Review =>
+  ({ id: 40, intake_item_id: 2, album_id: null, status: "draft", ...overrides }) as Review;
+
+function serveIntake(open: IntakeItem[], reviewed: IntakeItem[] = [], mine: Review[] = []) {
   server.use(
+    http.get(`${TEST_BACKEND_URL}/reviews`, () => HttpResponse.json(mine)),
     http.get(`${TEST_BACKEND_URL}/intake`, ({ request }) =>
       HttpResponse.json(new URL(request.url).searchParams.get("state") === "reviewed" ? reviewed : open),
     ),
@@ -70,6 +78,9 @@ describe("ReviewsScreen", () => {
   beforeEach(() => {
     vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "true");
     mockAuth.authority = Authorization.DJ;
+    server.use(http.get(`${TEST_BACKEND_URL}/reviews`, () => HttpResponse.json([])));
+    router.push.mockClear();
+    router.replace.mockClear();
     vi.mocked(toast).mockClear();
     vi.mocked(toast.error).mockClear();
   });
@@ -408,6 +419,79 @@ describe("ReviewsScreen", () => {
     renderWithProviders(<ReviewsScreen />);
 
     expect(await within(await section(title)).findByText(empty)).toBeInTheDocument();
+  });
+
+  const HELD = item({ id: 2, state: "checked_out", effective_state: "checked_out", checked_out_by: ME });
+
+  it("starts a draft from a My checkouts row and opens it", async () => {
+    serveIntake([HELD]);
+    let body: unknown;
+    server.use(
+      http.post(`${TEST_BACKEND_URL}/reviews`, async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json(review({ id: 41 }));
+      }),
+    );
+
+    const { user } = renderWithProviders(<ReviewsScreen />);
+    const mine = await section("My checkouts");
+    await user.click(await within(mine).findByRole("button", { name: REVIEW_COPY.writeReview }));
+
+    await waitFor(() => expect(router.push).toHaveBeenCalledWith("/dashboard/reviews/41"));
+    expect(body).toEqual({ intake_item_id: 2 });
+  });
+
+  it("answers a 409 subject_not_held on a row with the approved line, once the lists have reloaded and the row is gone", async () => {
+    let raced = false;
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/intake`, ({ request }) =>
+        HttpResponse.json(raced || new URL(request.url).searchParams.get("state") === "reviewed" ? [] : [HELD]),
+      ),
+      http.get(`${TEST_BACKEND_URL}/library/formats`, () => HttpResponse.json([])),
+      http.post(`${TEST_BACKEND_URL}/reviews`, () => {
+        raced = true;
+        return HttpResponse.json(
+          { message: "You do not hold this intake item, or the subject does not exist", reason: "subject_not_held" },
+          { status: 409 },
+        );
+      }),
+    );
+
+    const { user } = renderWithProviders(<ReviewsScreen />);
+    const mine = await section("My checkouts");
+    await user.click(await within(mine).findByRole("button", { name: REVIEW_COPY.writeReview }));
+
+    await waitFor(() => expect(toast).toHaveBeenCalledTimes(1));
+    expect(toast).toHaveBeenCalledWith("You no longer have this record checked out, so a review can't be started here.");
+    expect(within(mine).queryByText(/Stereolab/)).not.toBeInTheDocument();
+    expect(toast.error).not.toHaveBeenCalled();
+    expect(router.push).not.toHaveBeenCalled();
+  });
+
+  it("lists my drafts and submitted reviews as a fourth section with a link to each", async () => {
+    serveIntake([HELD], [], [review({ id: 40 }), review({ id: 41, intake_item_id: null, status: "submitted" })]);
+
+    renderWithProviders(<ReviewsScreen />);
+    const reviews = await section(REVIEW_COPY.myReviews.title);
+
+    expect(within(reviews).getByText(REVIEW_COPY.myReviews.draft)).toBeInTheDocument();
+    expect(within(reviews).getByText(REVIEW_COPY.myReviews.submitted)).toBeInTheDocument();
+    expect(within(reviews).getByText(/Stereolab/)).toBeInTheDocument();
+    expect(within(reviews).getAllByRole("link").map((a) => a.getAttribute("href"))).toEqual([
+      "/dashboard/reviews/40",
+      "/dashboard/reviews/41",
+    ]);
+  });
+
+  it("says my reviews are empty in so many words, and shows the load-failure line when that read fails", async () => {
+    serveIntake([]);
+    const first = renderWithProviders(<ReviewsScreen />);
+    expect(await within(await section(REVIEW_COPY.myReviews.title)).findByText(REVIEW_COPY.myReviews.empty)).toBeInTheDocument();
+    first.unmount();
+
+    server.use(http.get(`${TEST_BACKEND_URL}/reviews`, () => HttpResponse.json({ message: "down" }, { status: 500 })));
+    renderWithProviders(<ReviewsScreen />);
+    expect(await screen.findByRole("alert")).toHaveTextContent(/^Couldn't load the review shelf\. Please try again\.$/);
   });
 
   it.each([
