@@ -328,7 +328,7 @@ describe("classic RotationReleaseList — rotationReleaseList.jsp", () => {
       );
       renderWithProviders(<RotationReleaseList statusFilter="active" canWrite={true} canSeeFiled={false} />);
 
-      expect(await screen.findByText("Rotation releases are unavailable right now.")).toBeInTheDocument();
+      expect(within(await screen.findByRole("alert")).getByText("Rotation releases are unavailable right now.")).toBeInTheDocument();
       expect(screen.queryByText("No rotation releases found for this filter.")).not.toBeInTheDocument();
     });
 
@@ -501,7 +501,7 @@ describe("classic RotationReleaseList — rotationReleaseList.jsp", () => {
       );
       renderWithProviders(<RotationReleaseList statusFilter="uncataloged" canWrite={true} canSeeFiled={false} />);
 
-      expect(await screen.findByText("Rotation releases are unavailable right now.")).toBeInTheDocument();
+      expect(within(await screen.findByRole("alert")).getByText("Rotation releases are unavailable right now.")).toBeInTheDocument();
       expect(screen.queryByText("No rotation releases found for this filter.")).not.toBeInTheDocument();
     });
   });
@@ -676,7 +676,7 @@ describe("classic RotationReleaseList — rotationReleaseList.jsp", () => {
       );
       renderWithProviders(<RotationReleaseList statusFilter="killed" canWrite={true} canSeeFiled={false} />);
 
-      expect(await screen.findByText("Rotation releases are unavailable right now.")).toBeInTheDocument();
+      expect(within(await screen.findByRole("alert")).getByText("Rotation releases are unavailable right now.")).toBeInTheDocument();
       expect(screen.queryByText("No rotation releases found for this filter.")).not.toBeInTheDocument();
     });
 
