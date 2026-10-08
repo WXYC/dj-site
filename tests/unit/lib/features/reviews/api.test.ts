@@ -94,11 +94,14 @@ describe("reviewsApi", () => {
   });
 
   it.each([
-    ["an unwrapped 409 state_changed", { status: 409, data: { reason: "state_changed" } }],
     ["undefined", undefined],
     ["a bare string", "Not signed in"],
   ])("isIntakeStateChanged reads %s as false", (_label, err) => {
     expect(isIntakeStateChanged(err)).toBe(false);
+  });
+
+  it("isIntakeStateChanged reads a raw 409 state_changed through the shared reader", () => {
+    expect(isIntakeStateChanged({ status: 409, data: { reason: "state_changed" } })).toBe(true);
   });
 
   it("getIntakeItems GETs exactly /intake with the state filter", async () => {

@@ -1,6 +1,6 @@
 import type { FetchBaseQueryError } from "@reduxjs/toolkit/query";
 import { backendWriteErrorMessage } from "@/lib/backend-error-message";
-import { bodyReason, unwrapEndpointError } from "@/lib/rtk-endpoint-error";
+import { isRefusal, unwrapEndpointError } from "@/lib/rtk-endpoint-error";
 
 type WrappedRotationWriteError = { rotationWriteError: FetchBaseQueryError };
 
@@ -37,6 +37,5 @@ export const ROTATION_MOVE_NOT_ELIGIBLE_MESSAGE =
 
 /** Whether a free-text add's rejection is the 409 `rotation_not_eligible` refusal of a move. */
 export function isRotationMoveNotEligible(err: unknown): boolean {
-  const response = unwrapEndpointError("rotationWriteError", err);
-  return response?.status === 409 && bodyReason(response.data) === "rotation_not_eligible";
+  return isRefusal(err, { status: 409, reasons: ["rotation_not_eligible"], key: "rotationWriteError" });
 }

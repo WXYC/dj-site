@@ -80,3 +80,20 @@ export function bodyCode(data: unknown): string | undefined {
   const code = (data as { code?: unknown }).code;
   return typeof code === "string" ? code : undefined;
 }
+
+/**
+ * Whether `err` is a refused write: a rejection with `status` whose body
+ * `reason` is one of `reasons`. Reads wrapped (`{ [key]: rejection }`) and raw
+ * rejections alike, so a predicate does not depend on whether the endpoint's
+ * `transformErrorResponse` nests or strips. Anything else -- a different
+ * status or reason, a `FETCH_ERROR`, an `Error`, a nest under another key --
+ * is `false`.
+ */
+export function isRefusal(
+  err: unknown,
+  { status, reasons, key }: { status: number; reasons: readonly string[]; key: string },
+): boolean {
+  const inner = unwrapEndpointErrorOrRaw(key, err);
+  const reason = bodyReason(inner?.data);
+  return inner?.status === status && reason !== undefined && reasons.includes(reason);
+}
