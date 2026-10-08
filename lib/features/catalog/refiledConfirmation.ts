@@ -1,4 +1,4 @@
-import { isCanonicalCodeLetters, parseArtistCodeNumber } from "./adminCreateArtistValidation";
+import { isCanonicalCodeLetters, parseArtistCodeNumber, parseRequiredPositiveInt } from "./adminCreateArtistValidation";
 
 /** What a re-file carries onto the artist card it lands on: the old number, the old letters when they changed, and the relabel count. */
 export type RefiledParams = {
@@ -6,6 +6,8 @@ export type RefiledParams = {
   releases: number;
   /** The old letters when they changed and can be shown; `null` when they changed but cannot (a legacy code); absent when they did not change. */
   fromLetters?: string | null;
+  /** The genre the artist was filed under before, when it moved. Resolved to a name by the card; never shown as text. */
+  fromGenre?: number;
 };
 
 const readable = (raw: string | undefined): number | null =>
@@ -26,11 +28,19 @@ export function parseRefiledParams(
   from: string | undefined,
   n: string | undefined,
   fromLetters?: string,
+  fromGenre?: string,
 ): RefiledParams | undefined {
   if (refiled !== "1") return undefined;
   const fromNumber = readable(from);
   const releases = readable(n);
   if (fromNumber === null || releases === null) return undefined;
-  if (fromLetters === undefined) return { from: fromNumber, releases };
-  return { from: fromNumber, releases, fromLetters: isCanonicalCodeLetters(fromLetters) ? fromLetters : null };
+  const genre = fromGenre === undefined ? null : parseRequiredPositiveInt(fromGenre);
+  return {
+    from: fromNumber,
+    releases,
+    ...(fromLetters === undefined
+      ? {}
+      : { fromLetters: isCanonicalCodeLetters(fromLetters) ? fromLetters : null }),
+    ...(genre === null ? {} : { fromGenre: genre }),
+  };
 }

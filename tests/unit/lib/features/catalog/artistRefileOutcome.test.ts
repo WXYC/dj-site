@@ -3,6 +3,7 @@ import {
   artistRefileAnsweredWithoutWriting,
   interpretArtistRefileError,
   ARTIST_REFILE_ALREADY_FILED_MESSAGE,
+  ARTIST_REFILE_CONFLICT_MESSAGE,
   ARTIST_REFILE_GENRE_NOT_FOUND_MESSAGE,
   ARTIST_REFILE_SHARED_LETTERS_MESSAGE,
   ARTIST_REFILE_FALLBACK_MESSAGE,
@@ -61,6 +62,14 @@ describe("interpretArtistRefileError", () => {
       reason: "conflict",
       holder: undefined,
       retryable: false,
+    },
+    {
+      label: "conflict whose holder has no numeric code_artist_number",
+      err: wrapped(409, { message: "held", reason: "artist_code_conflict", artist: { ...holder, code_artist_number: "31" } }),
+      reason: "conflict",
+      holder: undefined,
+      retryable: false,
+      message: ARTIST_REFILE_CONFLICT_MESSAGE,
     },
     {
       label: "lettered compilation section",

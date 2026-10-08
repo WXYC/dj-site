@@ -1258,6 +1258,36 @@ describe("classic ArtistCard — artistCardModify.jsp", () => {
       expect(screen.queryByText(/Re-filed/)).toBeNull();
     });
 
+    it.each([
+      {
+        label: "a genre move at the same code names the old genre",
+        refiled: { from: 12, fromGenre: OTHER_GENRE_ID, releases: 2 },
+        text: "Re-filed from Jazz MO 12 to Rock MO 12. Relabel 2 records on the shelf.",
+      },
+      {
+        label: "a genre and letters move",
+        refiled: { from: 12, fromGenre: OTHER_GENRE_ID, fromLetters: "RE", releases: 2 },
+        text: "Re-filed from Jazz RE 12 to Rock MO 12.",
+      },
+      {
+        label: "an unknown old genre drops the genre word, never free text",
+        refiled: { from: 12, fromGenre: 4242, releases: 2 },
+        text: "Re-filed from MO 12 to Rock MO 12.",
+      },
+    ])("banner: $label", async ({ refiled, text }) => {
+      renderWithProviders(<ArtistCard artistId={ARTIST_ID} refiled={refiled} />);
+
+      await screen.findByTestId("modify-artist-form");
+      await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(text));
+    });
+
+    it("shows no banner when the old genre is the card's own genre and nothing else moved", async () => {
+      renderWithProviders(<ArtistCard artistId={ARTIST_ID} refiled={{ from: 12, fromGenre: GENRE_ID, releases: 2 }} />);
+
+      await screen.findByTestId("modify-artist-form");
+      expect(screen.queryByText(/Re-filed/)).toBeNull();
+    });
+
     it("shows no banner when the card still holds the old letters and number", async () => {
       renderWithProviders(<ArtistCard artistId={ARTIST_ID} refiled={{ from: 12, fromLetters: "MO", releases: 2 }} />);
 

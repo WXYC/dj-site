@@ -269,17 +269,28 @@ export default function ArtistCard({ artistId, genreId, message, imported, refil
   // Only from settled data that already shows the move: the cache can still
   // hold the pre-re-file card while the invalidated refetch is in flight, and
   // a banner composed from it would read "from IS 1 to IS 1".
+  // `fromGenre` is an id resolved here, never text; an unknown one drops the
+  // genre word from the "from" code rather than guessing.
+  const genreMoved = refiled?.fromGenre !== undefined && refiled.fromGenre !== artist?.genre_id;
+  const fromGenreName = genreMoved
+    ? genres?.find((genre) => genre.id === refiled?.fromGenre)?.genre_name
+    : genreName;
   const fromClause =
     refiled?.fromLetters === null
       ? ""
-      : `from ${formatArtistLibraryCode({ genreName, code_letters: refiled?.fromLetters ?? artist?.code_letters ?? "", code_artist_number: refiled?.from ?? 0 })} `;
+      : `from ${formatArtistLibraryCode({ genreName: fromGenreName, code_letters: refiled?.fromLetters ?? artist?.code_letters ?? "", code_artist_number: refiled?.from ?? 0 })} `;
   const refiledMessage =
     refiled &&
     artist &&
     !artistFetching &&
     (artist.code_artist_number !== refiled.from ||
+      genreMoved ||
       // Old letters that cannot be shown: the stale card still holds them, and
       // the new letters are always canonical, so a canonical card is the move.
+      // A hand-made link with an invalid `from_letters` at an unchanged number
+      // and genre can therefore show a banner on a card that never moved; that
+      // gap is accepted, since the sentence is composed from the card's own
+      // data and carries no link-supplied text.
       (refiled.fromLetters === null
         ? isCanonicalCodeLetters(artist.code_letters)
         : refiled.fromLetters !== undefined && refiled.fromLetters !== artist.code_letters))

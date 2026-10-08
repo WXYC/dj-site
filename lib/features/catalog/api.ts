@@ -716,11 +716,11 @@ export const catalogApi = createApi({
       // the source from the arg. A 409 conflict refetches both buckets too:
       // the extra source refetch is cheap and the conflict proves only the
       // destination stale, but the error path cannot tell which bucket moved.
-      // The ArtistCard tag below is id-scoped, so a genre move would also
-      // refetch the still-mounted source-genre card, which 404s; a genre move
-      // must not refetch that entry (to be handled when the form gains the
-      // genre input). The form's WITHDRAWN table keeps `already_filed_in_genre`
-      // and `genre_not_found` withdrawn until that input can resolve them.
+      // The ArtistCard tag is id-scoped, so on a genre move it would refetch
+      // the still-mounted source-genre card, which now 404s ("Artist not filed
+      // under genre N") and would raise an error toast and a Sentry event. A
+      // confirmed move therefore leaves that tag out and `onQueryStarted`
+      // refetches every cached card entry except the source genre's.
       invalidatesTags: (result, error, { artistId, code_letters, body }) => {
         if (result?.changed === false) return [];
         const buckets = new Set([
@@ -738,8 +738,9 @@ export const catalogApi = createApi({
             ? codeTags
             : [];
         }
+        const movedGenre = result !== undefined && result.genre_id !== body.genre_id;
         return [
-          { type: "ArtistCard", id: String(artistId) },
+          ...(movedGenre ? [] : [{ type: "ArtistCard" as const, id: String(artistId) }]),
           ...artistReleaseTags(artistId),
           { type: "CatalogList", id: "LIST" },
           "AlbumDetail",
@@ -748,7 +749,7 @@ export const catalogApi = createApi({
           ...codeTags,
         ];
       },
-      async onQueryStarted(_arg, { dispatch, queryFulfilled }) {
+      async onQueryStarted(arg, { dispatch, getState, queryFulfilled }) {
         const invalidateOtherSlices = () => {
           dispatch(binApi.util.invalidateTags(["Bin"]));
           dispatch(rotationApi.util.invalidateTags(["Rotation"]));
@@ -756,6 +757,17 @@ export const catalogApi = createApi({
         try {
           const { data } = await queryFulfilled;
           if (data.changed !== false) invalidateOtherSlices();
+          if (data.changed && data.genre_id !== arg.body.genre_id) {
+            const cards = catalogApi.util.selectInvalidatedBy(getState(), [
+              { type: "ArtistCard", id: String(arg.artistId) },
+            ]);
+            for (const { endpointName, originalArgs } of cards) {
+              const cardArgs = originalArgs as ArtistCardQuery;
+              if (endpointName === "getArtistCard" && cardArgs.genre_id !== arg.body.genre_id) {
+                dispatch(catalogApi.endpoints.getArtistCard.initiate(cardArgs, { forceRefetch: true, subscribe: false }));
+              }
+            }
+          }
         } catch (caught) {
           if (!artistRefileAnsweredWithoutWriting((caught as { error?: unknown })?.error)) {
             invalidateOtherSlices();
