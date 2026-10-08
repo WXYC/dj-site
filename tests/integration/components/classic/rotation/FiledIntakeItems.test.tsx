@@ -17,6 +17,7 @@ vi.mock("sonner", () => ({
   toast: { error: vi.fn(), success: vi.fn() },
 }));
 
+import FiledIntakeItems from "@/src/components/experiences/classic/rotation/FiledIntakeItems";
 import RotationReleaseList from "@/src/components/experiences/classic/rotation/RotationReleaseList";
 
 const filed = (overrides: Partial<IntakeItem>): IntakeItem =>
@@ -61,7 +62,7 @@ function serve({ items, rotating = [] }: { items: IntakeItem[]; rotating?: unkno
 
 const ROTATING_DOGA = { ...ALBUM, id: 42, rotation_id: 9, rotation_bin: "H", rotation_add_date: "2026-08-01", rotation_kill_date: null };
 const MOON_PIX = filed({ id: 2, album_id: 43, artist_name: "Cat Power", album_title: "Moon Pix" });
-const OUTAGE = "Rotation releases are unavailable right now.";
+const OUTAGE = "Filed records waiting for a call number can't be shown right now.";
 
 const renderFacet = (props: { canSeeFiled: boolean; canWrite: boolean }) =>
   renderWithProviders(<RotationReleaseList statusFilter="uncataloged" {...props} />);
@@ -128,6 +129,36 @@ describe("classic Awaiting Cataloging — filed intake items", () => {
 
     expect(await screen.findByText("DOGA")).toBeInTheDocument();
     expect(screen.queryByText(OUTAGE)).not.toBeInTheDocument();
+  });
+
+  it("shows the loading line while the reads are pending, and no table", async () => {
+    server.use(http.get(`${TEST_BACKEND_URL}/intake`, () => new Promise(() => {})));
+    renderWithProviders(<FiledIntakeItems canWrite />);
+
+    expect(await screen.findByText("Loading...")).toBeInTheDocument();
+    expect(screen.queryByRole("table", { name: "Filed, awaiting your confirmation" })).not.toBeInTheDocument();
+  });
+
+  it("renders no empty table once the last filed row is hidden but its refusal line stays", async () => {
+    const message = "This release is in rotation until 2026-12-01.";
+    let rotationReads = 0;
+    serve({ items: [filed({})] });
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/library/rotation`, () => {
+        rotationReads += 1;
+        return HttpResponse.json(rotationReads === 1 ? [] : [ROTATING_DOGA]);
+      }),
+      http.post(`${TEST_BACKEND_URL}/intake/1/finalize`, () =>
+        HttpResponse.json({ message, reason: "in_rotation" }, { status: 409 }),
+      ),
+    );
+    const { user } = renderFacet({ canSeeFiled: true, canWrite: true });
+
+    await user.click(await screen.findByRole("button", { name: "Confirm: DOGA" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(message);
+    expect(screen.queryByText("DOGA")).not.toBeInTheDocument();
+    expect(screen.queryByRole("table", { name: "Filed, awaiting your confirmation" })).not.toBeInTheDocument();
   });
 
   it("confirms with a POST to finalize", async () => {

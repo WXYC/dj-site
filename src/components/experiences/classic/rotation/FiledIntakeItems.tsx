@@ -22,6 +22,8 @@ import { useMounted, useRowWrite } from "@/src/hooks/useRowWrite";
 import OutagePanel from "./OutagePanel";
 
 const FILED = { state: "filed" } as const;
+/** Approved. */
+const FILED_OUTAGE = "Filed records waiting for a call number can't be shown right now.";
 const FAILURE_LINE = "Couldn't do that. Please try again.";
 type Action = "finalize";
 
@@ -167,6 +169,7 @@ export default function FiledIntakeItems({ canWrite }: { canWrite: boolean }) {
   if ((items.isError && items.data == null) || (rotating.isError && rotating.data == null)) {
     return (
       <OutagePanel
+        message={FILED_OUTAGE}
         onRetry={() => {
           if (items.isError) items.refetch();
           if (rotating.isError) rotating.refetch();

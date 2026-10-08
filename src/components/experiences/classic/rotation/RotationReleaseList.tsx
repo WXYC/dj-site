@@ -18,6 +18,8 @@ import {
 import { useRotationRowActions } from "@/lib/features/rotation/hooks";
 import FiledIntakeItems from "./FiledIntakeItems";
 import OutagePanel from "./OutagePanel";
+
+const ROTATION_OUTAGE = "Rotation releases are unavailable right now.";
 import {
   ROTATION_STATUS_FACET_RENDER_BATCH,
   UNCATALOGUED_ROTATION_PAGE_SIZE,
@@ -193,7 +195,7 @@ function ActiveFacet({
   const hasNothingToShow = isError && data == null;
 
   if (isLoading) return <p style={{ textAlign: "center" }}>Loading...</p>;
-  if (hasNothingToShow) return <OutagePanel onRetry={refetch} retrying={isFetching} />;
+  if (hasNothingToShow) return <OutagePanel message={ROTATION_OUTAGE} onRetry={refetch} retrying={isFetching} />;
 
   const rows = dedupeRotationListByArtistTitle(data ?? []).map((row) => toDisplayRowFromList(row));
   return (
@@ -256,7 +258,7 @@ function UncataloguedFacet({
   const hasNothingToShow = isError && data == null;
 
   if (isLoading) return <p style={{ textAlign: "center" }}>Loading...</p>;
-  if (hasNothingToShow) return <OutagePanel onRetry={refetch} retrying={isFetching} />;
+  if (hasNothingToShow) return <OutagePanel message={ROTATION_OUTAGE} onRetry={refetch} retrying={isFetching} />;
 
   const page = data ?? [];
   const allRows = page.map((row) => toDisplayRowFromUncatalogued(row, formatNames));
@@ -373,7 +375,7 @@ function StatusFacet({
   const hasNothingToShow = isError && data == null;
 
   if (isLoading) return <p style={{ textAlign: "center" }}>Loading...</p>;
-  if (hasNothingToShow) return <OutagePanel onRetry={refetch} retrying={isFetching} />;
+  if (hasNothingToShow) return <OutagePanel message={ROTATION_OUTAGE} onRetry={refetch} retrying={isFetching} />;
 
   const rows = history.slice(0, renderCap).map((row) => toDisplayRowFromList(row));
   const remaining = history.length - rows.length;
