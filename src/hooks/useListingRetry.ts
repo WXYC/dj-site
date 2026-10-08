@@ -5,7 +5,7 @@ export type FailedPage = "first" | "later";
 
 /**
  * Classifies a cursor-paged listing's failure, retries it, and gates loading
- * more pages on it.
+ * more pages on it and on the listing being idle.
  *
  * `headFailed` is a failure with no page held for `key`, `nextPageFailed` one
  * with pages held. Once either holds, `retry` is the only way back in and
@@ -13,7 +13,9 @@ export type FailedPage = "first" | "later";
  * stays true, and the callers that drive `loadNextPage` are re-armed by the very
  * status change a failure produces (an IntersectionObserver rebuilt on a loading
  * flip fires at once for a sentinel already in view); left ungated, one broken
- * page becomes an unthrottled retry loop.
+ * page becomes an unthrottled retry loop. `loadNextPage` is likewise a no-op
+ * while the listing is fetching, so callers need no loading flag of their own
+ * and a re-check while a fetch is pending is a clean no-op.
  *
  * `key` names the listing a failure belongs to; a retry is dropped when it changes
  * identity, so a sort or query change mid-retry cannot carry the old failure onto
@@ -85,8 +87,8 @@ export function useListingRetry({
   }, [headFailed, nextPageFailed, refetch, fetchNextPage, key]);
 
   const loadNextPage = useCallback(() => {
-    if (hasNextPage && !isError) void fetchNextPage();
-  }, [hasNextPage, isError, fetchNextPage]);
+    if (hasNextPage && !isError && !isFetching) void fetchNextPage();
+  }, [hasNextPage, isError, isFetching, fetchNextPage]);
 
   return {
     headFailed,

@@ -397,6 +397,90 @@ describe("Results (modern previous sets)", () => {
     });
   });
 
+  describe("ranked load-more", () => {
+    // Jsdom defines these getters on Element.prototype itself, so the
+    // descriptors are saved and restored rather than deleted.
+    let scrollHeightDescriptor: PropertyDescriptor | undefined;
+    let clientHeightDescriptor: PropertyDescriptor | undefined;
+
+    beforeEach(() => {
+      scrollHeightDescriptor = Object.getOwnPropertyDescriptor(
+        Element.prototype,
+        "scrollHeight",
+      );
+      clientHeightDescriptor = Object.getOwnPropertyDescriptor(
+        Element.prototype,
+        "clientHeight",
+      );
+    });
+
+    afterEach(() => {
+      if (scrollHeightDescriptor) {
+        Object.defineProperty(Element.prototype, "scrollHeight", scrollHeightDescriptor);
+      }
+      if (clientHeightDescriptor) {
+        Object.defineProperty(Element.prototype, "clientHeight", clientHeightDescriptor);
+      }
+    });
+
+    it.each([
+      { name: "a first page too short to fill the scrollport", scrollHeight: 300, clientHeight: 500, calls: 1 },
+      { name: "a scrollport with no height", scrollHeight: 0, clientHeight: 0, calls: 0 },
+      { name: "a first page that overfills the scrollport", scrollHeight: 100_000, clientHeight: 500, calls: 0 },
+    ])(
+      "with $name, asks for the next page $calls time(s) when it lands, with no scroll event",
+      ({ scrollHeight, clientHeight, calls }) => {
+        Object.defineProperty(Element.prototype, "scrollHeight", {
+          configurable: true,
+          get: () => scrollHeight,
+        });
+        Object.defineProperty(Element.prototype, "clientHeight", {
+          configurable: true,
+          get: () => clientHeight,
+        });
+        const loadNextPage = vi.fn();
+        mockUsePlaylistSearchResults.mockReturnValue({
+          ...base,
+          displayResults: [makeResult(1)],
+          hasMore: true,
+          loadNextPage,
+        });
+
+        render(<Results />);
+
+        expect(loadNextPage).toHaveBeenCalledTimes(calls);
+      },
+    );
+
+    it("asks again when a page lands while the scrollport is still at its bottom, though the callback is unchanged", () => {
+      Object.defineProperty(Element.prototype, "scrollHeight", {
+        configurable: true,
+        get: () => 300,
+      });
+      Object.defineProperty(Element.prototype, "clientHeight", {
+        configurable: true,
+        get: () => 500,
+      });
+      const loadNextPage = vi.fn();
+      const listing = { ...base, hasMore: true, loadNextPage };
+      mockUsePlaylistSearchResults.mockReturnValue({
+        ...listing,
+        displayResults: [makeResult(1)],
+      });
+
+      const { rerender } = render(<Results />);
+      expect(loadNextPage).toHaveBeenCalledTimes(1);
+
+      mockUsePlaylistSearchResults.mockReturnValue({
+        ...listing,
+        displayResults: [makeResult(1), makeResult(2)],
+      });
+      rerender(<Results />);
+
+      expect(loadNextPage).toHaveBeenCalledTimes(2);
+    });
+  });
+
   describe("chronological mode", () => {
     const chronological = {
       effectiveQuery: "",

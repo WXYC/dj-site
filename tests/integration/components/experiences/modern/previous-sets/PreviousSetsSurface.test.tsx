@@ -85,11 +85,15 @@ async function settleFirstPage() {
  * handler's `scrollHeight <= scrollTop + clientHeight + 100` is true for any
  * formula of that shape, so a dropped term would still pass here — and would
  * fetch a page on every scroll event in a browser.
+ *
+ * The height follows the rendered rows, as a browser's does: a fixed height
+ * would keep claiming the bottom after the second page lands, and the
+ * listing's re-check on landing would walk on to the third.
  */
 async function loadSecondPage() {
   const scroller = scrollport();
   Object.defineProperty(scroller, "scrollHeight", {
-    value: 2000,
+    get: () => scroller.querySelectorAll("tr").length * 40,
     configurable: true,
   });
   Object.defineProperty(scroller, "clientHeight", {
@@ -319,9 +323,9 @@ describe("PreviousSetsSurface — the chronological default", () => {
     rangeEntry(900000 + i, BASE - i * 60_000),
   );
 
-  // Jsdom lays nothing out, so every scroll height reads zero and the
-  // bottom-of-scrollport check would walk the whole archive on its own.
-  // A tall scrollport keeps the walk to the pages each spec asks for.
+  // Jsdom lays nothing out. A tall scrollport states the not-at-bottom case
+  // outright rather than leaning on the listing treating a zero-height
+  // scrollport as not at its bottom, so the walk is the pages each spec asks for.
   //
   // The descriptors are saved and restored rather than deleted: jsdom
   // defines these getters on Element.prototype itself, so `delete` removes
@@ -595,8 +599,7 @@ describe("PreviousSetsSurface — the Week toggle from inside a show", () => {
   });
 
   it("opens the current week when no show is open", async () => {
-    // Ranked, so no archive walk runs behind the toggle: against jsdom's zero
-    // layout every landed page reads as the bottom and the walk never stops.
+    // Ranked, so no archive walk runs behind the toggle.
     renderWithProviders(<PreviousSetsSurface />, { store: rankedStore() });
     // The toggle, not the listing: this asserts where the week comes from with
     // nothing open, and the listing behind it is another spec's subject.

@@ -232,6 +232,14 @@ describe("useListingRetry loadNextPage", () => {
       calls: 0,
     },
     {
+      name: "a next page while a fetch is in flight",
+      isFetching: true,
+      hasNextPage: true,
+      isError: false,
+      hasAnyPages: true,
+      calls: 0,
+    },
+    {
       name: "a next page with nothing failed",
       hasNextPage: true,
       isError: false,

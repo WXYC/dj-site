@@ -118,21 +118,49 @@ export type RetainedScrollTops = {
   ranked: RefObject<number>;
 };
 
-/** How close to the bottom, in pixels, counts as "there" for either listing's
- * load-more check. Shared so the ranked and chronological listings cannot
- * drift onto two different thresholds. */
+/** How close to the bottom, in pixels, counts as "there" for the load-more check. */
 const LOAD_MORE_THRESHOLD_PX = 100;
 
+/** A scrollport with no layout height satisfies the bottom test trivially, so
+ * without the clientHeight guard it would read as at its bottom on every check
+ * and walk the whole listing. */
 function isNearBottom(el: Element): boolean {
-  return el.scrollHeight <= el.scrollTop + el.clientHeight + LOAD_MORE_THRESHOLD_PX;
+  return (
+    el.clientHeight > 0 &&
+    el.scrollHeight <= el.scrollTop + el.clientHeight + LOAD_MORE_THRESHOLD_PX
+  );
+}
+
+/**
+ * Calls `onReachBottom` when the scrollport is near its bottom, on a scroll and
+ * again whenever `landedKey` changes or `onReachBottom` does: the scroll handler
+ * runs only on a scroll event, so a page that adds no rows, or a first page too
+ * short to fill the scrollport, would otherwise wait for a scroll that cannot
+ * happen. The callback owns every paging gate. A null callback turns the driver off.
+ */
+function useLoadMoreAtBottom(
+  scrollRef: RefObject<HTMLDivElement | null>,
+  onReachBottom: (() => void) | null,
+  landedKey: unknown,
+) {
+  useEffect(() => {
+    const scroller = scrollRef.current;
+    if (!scroller || !onReachBottom) return;
+
+    const loadWhenAtBottom = () => {
+      if (isNearBottom(scroller)) onReachBottom();
+    };
+
+    loadWhenAtBottom();
+    scroller.addEventListener("scroll", loadWhenAtBottom);
+    return () => scroller.removeEventListener("scroll", loadWhenAtBottom);
+  }, [scrollRef, onReachBottom, landedKey]);
 }
 
 /**
  * The chronological listing, mounted only in that mode so its archive-stream
  * walk starts on first need. It drives the walk from the scrollport its parent
- * owns: the parent's scroll handler runs only on a scroll event, so a page that
- * adds no rows, or a head too short to fill the scrollport, re-checks the
- * bottom when it lands.
+ * owns.
  */
 function ChronologicalRows({
   scrollRef,
@@ -140,23 +168,7 @@ function ChronologicalRows({
   scrollRef: RefObject<HTMLDivElement | null>;
 }) {
   const listing = useArchiveStreamListing();
-  const { rows, isHeadLoading, isNextPageLoading, hasMore, loadNextPage } =
-    listing;
-
-  useEffect(() => {
-    const scroller = scrollRef.current;
-    if (!scroller) return;
-
-    const loadWhenAtBottom = () => {
-      if (isNearBottom(scroller) && !isHeadLoading && !isNextPageLoading && hasMore) {
-        loadNextPage();
-      }
-    };
-
-    loadWhenAtBottom();
-    scroller.addEventListener("scroll", loadWhenAtBottom);
-    return () => scroller.removeEventListener("scroll", loadWhenAtBottom);
-  }, [scrollRef, rows, isHeadLoading, isNextPageLoading, hasMore, loadNextPage]);
+  useLoadMoreAtBottom(scrollRef, listing.loadNextPage, listing.rows);
 
   return <ArchiveStreamTable listing={listing} />;
 }
@@ -198,19 +210,11 @@ export default function Results({
 
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const scroller = scrollRef.current;
-    if (!scroller || chronological) return;
-
-    const onScroll = () => {
-      if (isNearBottom(scroller) && !isLoading && hasMore) {
-        loadNextPage();
-      }
-    };
-
-    scroller.addEventListener("scroll", onScroll);
-    return () => scroller.removeEventListener("scroll", onScroll);
-  }, [isLoading, hasMore, loadNextPage, chronological]);
+  useLoadMoreAtBottom(
+    scrollRef,
+    chronological ? null : loadNextPage,
+    displayResults,
+  );
 
   // Restoring needs no wait for row height: the walked pages are still in the
   // RTK cache when this remounts, so the rows are in the very commit the
