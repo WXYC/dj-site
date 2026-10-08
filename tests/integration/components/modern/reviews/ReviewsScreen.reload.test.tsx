@@ -9,6 +9,9 @@ vi.mock("@/lib/features/authentication/client", async () => {
   return createAuthClientModuleMock();
 });
 
+// "Write a review" opens the new draft through the app router.
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), replace: vi.fn() }) }));
+
 vi.mock("sonner", () => ({
   toast: Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn(), info: vi.fn() }),
 }));
@@ -54,6 +57,8 @@ describe("ReviewsScreen — a row stays locked until every rendered list has rel
     });
     let heldReads = 0;
     server.use(
+      // My reviews (GET /reviews?mine=true) must load before the screen renders.
+      http.get(`${TEST_BACKEND_URL}/reviews`, () => HttpResponse.json([])),
       http.get(`${TEST_BACKEND_URL}/intake`, async ({ request }) => {
         const state = new URL(request.url).searchParams.get("state");
         if (written && state === heldState) {
