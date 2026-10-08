@@ -2,7 +2,7 @@ import { createApi } from "@reduxjs/toolkit/query/react";
 import type { IntakeItem, IntakeItemState } from "@wxyc/shared";
 import type { FetchBaseQueryError } from "@reduxjs/toolkit/query";
 import { backendBaseQuery } from "../backend";
-import { bodyReason, unwrapEndpointError } from "@/lib/rtk-endpoint-error";
+import { isRefusal } from "@/lib/rtk-endpoint-error";
 
 /**
  * What a rejected intake write carries to its caller: the whole rejection,
@@ -19,10 +19,8 @@ const wrapIntakeWriteError = (response: FetchBaseQueryError): IntakeWriteError =
 });
 
 /** True when an intake write lost its race: someone else got there first, or the request expired. */
-export const isIntakeStateChanged = (err: unknown): boolean => {
-  const inner = unwrapEndpointError("intakeWriteError", err);
-  return inner?.status === 409 && bodyReason(inner.data) === "state_changed";
-};
+export const isIntakeStateChanged = (err: unknown): boolean =>
+  isRefusal(err, { status: 409, reasons: ["state_changed"], key: "intakeWriteError" });
 
 /**
  * Rooted at the Backend-Service root, not at one domain: every endpoint's `url`

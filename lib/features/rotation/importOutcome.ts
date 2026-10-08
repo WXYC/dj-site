@@ -1,4 +1,4 @@
-import { bodyReason } from "@/lib/rtk-endpoint-error";
+import { isRefusal } from "@/lib/rtk-endpoint-error";
 
 /**
  * The station-approved line for a `POST /library` import the backend refused
@@ -11,7 +11,9 @@ export const ROTATION_IMPORT_REFUSED_MESSAGE =
 
 /** True for the 409s `POST /library` answers a `from_rotation_id` import with, having written nothing. */
 export function isRotationImportRefused(err: unknown): boolean {
-  const { status, data } = (err ?? {}) as { status?: unknown; data?: unknown };
-  const reason = bodyReason(data);
-  return status === 409 && (reason === "rotation_not_eligible" || reason === "review_required");
+  return isRefusal(err, {
+    status: 409,
+    reasons: ["rotation_not_eligible", "review_required"],
+    key: "rotationWriteError",
+  });
 }
