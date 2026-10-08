@@ -246,10 +246,10 @@ describe("reviewsApi", () => {
     ]);
   });
 
-  it("submitReview POSTs to /reviews/7/submit and deleteReview DELETEs /reviews/7", async () => {
+  it("submitReview POSTs to /reviews/7/submit and deleteReview DELETEs /reviews/7, answered with an empty 204", async () => {
     const seen: { method: string; path: string }[] = [];
     server.use(
-      http.all(`${TEST_BACKEND_URL}/reviews/:id/:action?`, ({ request }) => {
+      http.post(`${TEST_BACKEND_URL}/reviews/:id/submit`, ({ request }) => {
         seen.push({ method: request.method, path: new URL(request.url).pathname });
         return HttpResponse.json({ id: 7 });
       }),
@@ -260,20 +260,23 @@ describe("reviewsApi", () => {
     );
     const store = makeReviewsStore();
 
-    await store.dispatch(reviewsApi.endpoints.submitReview.initiate(7));
-    await store.dispatch(reviewsApi.endpoints.deleteReview.initiate(7));
+    const submitted = await store.dispatch(reviewsApi.endpoints.submitReview.initiate(7));
+    const deleted = await store.dispatch(reviewsApi.endpoints.deleteReview.initiate(7));
 
     expect(seen).toEqual([
       { method: "POST", path: "/reviews/7/submit" },
       { method: "DELETE", path: "/reviews/7" },
     ]);
+    expect(submitted).toEqual(expect.objectContaining({ data: { id: 7 } }));
+    expect("error" in deleted).toBe(false);
   });
 
   it.each(["submitReview", "deleteReview"] as const)("%s rejects with the whole error nested under reviewWriteError", async (endpoint) => {
     const body = { message: "server words", reason: "in_use" };
+    const answered: string[] = [];
     server.use(
-      http.all(`${TEST_BACKEND_URL}/reviews/:id/:action?`, () => HttpResponse.json(body, { status: 409 })),
-      http.delete(`${TEST_BACKEND_URL}/reviews/:id`, () => HttpResponse.json(body, { status: 409 })),
+      http.post(`${TEST_BACKEND_URL}/reviews/:id/submit`, () => (answered.push("POST"), HttpResponse.json(body, { status: 409 }))),
+      http.delete(`${TEST_BACKEND_URL}/reviews/:id`, () => (answered.push("DELETE"), HttpResponse.json(body, { status: 409 }))),
     );
     const store = makeReviewsStore();
 
@@ -282,6 +285,7 @@ describe("reviewsApi", () => {
         ? await store.dispatch(reviewsApi.endpoints.submitReview.initiate(7))
         : await store.dispatch(reviewsApi.endpoints.deleteReview.initiate(7));
 
+    expect(answered).toEqual([endpoint === "submitReview" ? "POST" : "DELETE"]);
     expect("error" in result && result.error).toEqual({ reviewWriteError: { status: 409, data: body } });
   });
 
