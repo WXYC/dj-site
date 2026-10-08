@@ -416,6 +416,31 @@ describe("ReviewsScreen", () => {
     expect(body).toEqual({ intake_item_id: 2 });
   });
 
+  it("opens the existing draft of mine on Write a review and creates nothing", async () => {
+    serveIntake([HELD], [], [review({ id: 40, intake_item_id: 2 })]);
+    let posts = 0;
+    server.use(http.post(`${TEST_BACKEND_URL}/reviews`, () => (posts++, HttpResponse.json(review({ id: 41 })))));
+
+    const { user } = renderWithProviders(<ReviewsScreen />);
+    const mine = await section("My checkouts");
+    await user.click(await within(mine).findByRole("button", { name: "Write a review" }));
+
+    await waitFor(() => expect(router.push).toHaveBeenCalledWith("/dashboard/reviews/40"));
+    expect(posts).toBe(0);
+  });
+
+  it("shows the submitted line and Edit review in place of Write a review once I have submitted", async () => {
+    serveIntake([HELD], [], [review({ id: 40, intake_item_id: 2, status: "submitted" })]);
+
+    const { user } = renderWithProviders(<ReviewsScreen />);
+    const mine = await section("My checkouts");
+
+    expect(await within(mine).findByText("Review submitted. A music director will choose the review for the cover.")).toBeInTheDocument();
+    expect(within(mine).queryByRole("button", { name: "Write a review" })).not.toBeInTheDocument();
+    await user.click(within(mine).getByRole("button", { name: "Edit review" }));
+    expect(router.push).toHaveBeenCalledWith("/dashboard/reviews/40");
+  });
+
   it("sends one POST /reviews when Write a review is double-clicked", async () => {
     serveIntake([HELD]);
     let posts = 0;

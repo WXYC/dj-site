@@ -40,6 +40,14 @@ const wrapReviewWriteError = (response: FetchBaseQueryError): ReviewWriteError =
 export const isReviewSubjectNotHeld = (err: unknown): boolean =>
   isRefusal(err, { status: 409, reasons: ["subject_not_held"], key: "reviewWriteError" });
 
+/** True when a submit found the review already submitted. */
+export const isReviewNotDraft = (err: unknown): boolean =>
+  isRefusal(err, { status: 409, reasons: ["not_draft"], key: "reviewWriteError" });
+
+/** True when a delete was refused because a music director is using the review as the record's review. */
+export const isReviewInUse = (err: unknown): boolean =>
+  isRefusal(err, { status: 409, reasons: ["in_use"], key: "reviewWriteError" });
+
 /**
  * Rooted at the Backend-Service root, not at one domain: every endpoint's `url`
  * carries its own (`intake/...`, `reviews/...`, `fcc-notes...`). Review
@@ -122,6 +130,16 @@ export const reviewsApi = createApi({
       transformErrorResponse: wrapReviewWriteError,
       invalidatesTags: ["Review"],
     }),
+    submitReview: builder.mutation<Review, number>({
+      query: (id) => ({ url: `reviews/${id}/submit`, method: "POST" }),
+      transformErrorResponse: wrapReviewWriteError,
+      invalidatesTags: ["Review"],
+    }),
+    deleteReview: builder.mutation<void, number>({
+      query: (id) => ({ url: `reviews/${id}`, method: "DELETE" }),
+      transformErrorResponse: wrapReviewWriteError,
+      invalidatesTags: ["Intake", "Review"],
+    }),
   }),
 });
 
@@ -139,4 +157,6 @@ export const {
   useGetReviewQuery,
   useCreateReviewMutation,
   useUpdateReviewMutation,
+  useSubmitReviewMutation,
+  useDeleteReviewMutation,
 } = reviewsApi;
