@@ -1,10 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { fakeReviewsEndpoints, intakeItem, renderWithProviders, review, server, TEST_BACKEND_URL } from "@/tests/helpers";
 import { fakeRotationCardsEndpoints } from "@/tests/fakes/rotation";
-import { fakeLibraryFilingsEndpoint } from "@/tests/fakes/libraryFilings";
+import { fakeLibraryFilingsEndpoint, filingConflictResponse } from "@/tests/fakes/libraryFilings";
 import { Authorization } from "@/lib/features/admin/types";
+import { reviewsApi } from "@/lib/features/reviews/api";
 
 // The bench's artist field is gated by AuthorizedView, which resolves the music director tier from the session.
 vi.mock("@/lib/features/authentication/client", () => ({
@@ -64,12 +65,13 @@ const submitted = (id: number, overrides = {}) =>
 
 const FILED_ITEM_PATH = `${TEST_BACKEND_URL}/intake/${ITEM_ID}`;
 
-/** Serves the item through a mutable box, so a spec can change the answer between reads. */
+/** Serves the item through a mutable box, so a spec can change the answer between reads, or hold a read in flight. */
 function serveItem(initial: ReturnType<typeof dogaItem>) {
-  const box = { item: initial, reads: 0, fail: false };
+  const box = { item: initial, reads: 0, fail: false, hold: null as Promise<void> | null };
   server.use(
-    http.get(FILED_ITEM_PATH, () => {
+    http.get(FILED_ITEM_PATH, async () => {
       box.reads += 1;
+      if (box.hold) await box.hold;
       return box.fail ? HttpResponse.json({ message: "boom" }, { status: 500 }) : HttpResponse.json(box.item);
     }),
   );
@@ -213,13 +215,14 @@ describe("IntakeItemScreen", () => {
     };
 
     it("prefills the bench from the item and files as a new release with its kind", async () => {
-      setUp(dogaItem({ format_id: 1, discogs_release_id: 1234 }));
+      const box = setUp(dogaItem({ format_id: 1, discogs_release_id: 1234 }));
       const filings = fakeLibraryFilingsEndpoint({ existingArtists: [] });
       const fileBodies: unknown[] = [];
       server.use(
         http.post(`${TEST_BACKEND_URL}/intake/${ITEM_ID}/file`, async ({ request }) => {
           fileBodies.push(await request.json());
-          return HttpResponse.json(dogaItem({ state: "filed", effective_state: "filed" }));
+          box.item = dogaItem({ format_id: 1, discogs_release_id: 1234, state: "filed", effective_state: "filed" });
+          return HttpResponse.json(box.item);
         }),
       );
       const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
@@ -242,9 +245,48 @@ describe("IntakeItemScreen", () => {
         rotation: { rotation_bin: "H", card_id: 32 },
       });
       expect(filings.bodies()).toEqual([]);
+      // The confirmation repeats the slip link, which does not depend on filing.
+      expect(await screen.findByText("Filed.")).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "Print the slip" })).toHaveAttribute("href", `/dashboard/admin/intake/${ITEM_ID}/slip`);
     });
 
-    it("says the chosen review was removed, with the approved line, and reloads the record", async () => {
+    it("offers no filing arm for a cited record with no review chosen, and files once one is chosen", async () => {
+      const cited = dogaItem({ format_id: 1, accepted_review_id: null, cited_album_id: 7 });
+      fakeReviewsEndpoints({
+        records: [cited],
+        reviews: [submitted(90, { intake_item_id: null, album_id: 7, review: "From the cited release." })],
+        forItem: { [ITEM_ID]: [] },
+      });
+      const box = serveItem(cited);
+      const fileBodies: unknown[] = [];
+      server.use(
+        http.post(`${TEST_BACKEND_URL}/intake/${ITEM_ID}/file`, async ({ request }) => {
+          fileBodies.push(await request.json());
+          return HttpResponse.json(dogaItem({ state: "filed", effective_state: "filed" }));
+        }),
+      );
+      const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      expect(await screen.findByText("Choose a review for the cover before filing this record.")).toBeInTheDocument();
+      expect(screen.queryByRole("combobox", { name: "Genre" })).not.toBeInTheDocument();
+
+      // The citation screen (WXYC/dj-site#1766) is not built; the choice arrives as the item's next answer.
+      box.item = dogaItem({ format_id: 1, accepted_review_id: 90, cited_album_id: 7 });
+      act(() => {
+        store.dispatch(reviewsApi.util.invalidateTags(["Intake"]));
+      });
+
+      expect(await screen.findByText("From the cited release.")).toBeInTheDocument();
+      expect(screen.queryByText("Choose a review for the cover before filing this record.")).not.toBeInTheDocument();
+      await waitFor(() => expect(screen.getByRole("combobox", { name: "Format" })).toHaveTextContent("cd"));
+      await readyBench(user);
+      await user.click(screen.getByRole("button", { name: "Add to rotation" }));
+
+      await waitFor(() => expect(fileBodies).toHaveLength(1));
+      expect(fileBodies[0]).toMatchObject({ kind: "new_release" });
+    });
+
+    it("says the chosen review was removed, and reloads the record", async () => {
       const box = setUp();
       server.use(
         http.post(`${TEST_BACKEND_URL}/intake/${ITEM_ID}/file`, () => {
@@ -284,11 +326,41 @@ describe("IntakeItemScreen", () => {
       expect(screen.queryByRole("combobox", { name: "Genre" })).not.toBeInTheDocument();
     });
 
-    it("shows the bench's conflict panel, not its generic failure, for a library conflict from /file", async () => {
+    const REFUSALS = [
+      ["state_changed", "This record has already been filed. The page has been reloaded."],
+      ["not_reviewed", "This record has no review chosen for the cover, so it can't be filed yet."],
+    ] as const;
+
+    it.each(REFUSALS)("shows the %s notice only once the record has reloaded", async (reason, line) => {
+      const box = setUp();
+      let release!: () => void;
+      server.use(
+        http.post(`${TEST_BACKEND_URL}/intake/${ITEM_ID}/file`, () => {
+          box.hold = new Promise<void>((resolve) => {
+            release = resolve;
+          });
+          return HttpResponse.json({ message: "server words", reason }, { status: 409 });
+        }),
+      );
+      const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      await readyBench(user);
+      const readsBefore = box.reads;
+      await user.click(screen.getByRole("button", { name: "Add to rotation" }));
+
+      await waitFor(() => expect(box.reads).toBe(readsBefore + 1));
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(screen.queryByRole("status")).not.toBeInTheDocument();
+
+      release();
+      expect((await screen.findByRole("status")).textContent).toBe(line);
+    });
+
+    it.each(REFUSALS)("keeps the bench's form as typed when a %s refusal files nothing", async (reason, line) => {
       setUp();
       server.use(
         http.post(`${TEST_BACKEND_URL}/intake/${ITEM_ID}/file`, () =>
-          HttpResponse.json({ message: "server words", reason: "rotation_card_bin_mismatch" }, { status: 409 }),
+          HttpResponse.json({ message: "server words", reason }, { status: 409 }),
         ),
       );
       const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
@@ -296,7 +368,42 @@ describe("IntakeItemScreen", () => {
       await readyBench(user);
       await user.click(screen.getByRole("button", { name: "Add to rotation" }));
 
-      expect(await screen.findByRole("alert")).toHaveTextContent("That card belongs to a different bin");
+      expect((await screen.findByRole("status")).textContent).toBe(line);
+      expect(screen.getByLabelText("Album title")).toHaveValue("DOGA");
+      expect(screen.getByDisplayValue("Juana Molina")).toBeInTheDocument();
+      expect(screen.getByText("Nothing filed yet.")).toBeInTheDocument();
+    });
+
+    it("shows the bench's conflict panel, not its generic failure, for a call-number collision from /file", async () => {
+      setUp();
+      const fileBodies: unknown[] = [];
+      server.use(
+        http.get(`${TEST_BACKEND_URL}/library/artists/search`, () => HttpResponse.json({ artists: [] })),
+        http.post(`${TEST_BACKEND_URL}/intake/${ITEM_ID}/file`, async ({ request }) => {
+          fileBodies.push(await request.json());
+          return filingConflictResponse("artist_code_conflict", {
+            id: 5,
+            artist_name: "Stereolab",
+            code_letters: "CH",
+            code_artist_number: 12,
+            genre_id: GENRE_ID,
+          });
+        }),
+      );
+      const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      await user.click(await screen.findByRole("combobox", { name: "Genre" }));
+      await user.click(await screen.findByRole("option", { name: "Rock" }));
+      const artist = await screen.findByPlaceholderText("Search artists...");
+      await user.clear(artist);
+      await user.type(artist, "Juana Molina");
+      await user.click(await screen.findByRole("option", { name: 'Create new artist "Juana Molina"' }));
+      await waitFor(() => expect(screen.getByLabelText("Code number")).toHaveValue("7"));
+      await waitFor(() => expect(screen.getByRole("button", { name: "2" })).toHaveAttribute("aria-pressed", "true"));
+      await user.click(screen.getByRole("button", { name: "Add to rotation" }));
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(/is already taken by Stereolab\./);
+      expect(fileBodies).toHaveLength(1);
       expect(screen.queryByText(/Filing failed/)).not.toBeInTheDocument();
     });
 
@@ -339,7 +446,6 @@ describe("IntakeItemScreen", () => {
       server.use(
         http.post(`${TEST_BACKEND_URL}/intake/${ITEM_ID}/file`, () => {
           box.fail = true;
-          server.use(http.get(`${TEST_BACKEND_URL}/reviews`, () => HttpResponse.json({ message: "boom" }, { status: 500 })));
           return HttpResponse.json(dogaItem({ state: "filed", effective_state: "filed" }));
         }),
       );
@@ -353,6 +459,41 @@ describe("IntakeItemScreen", () => {
       expect(screen.queryByText("Couldn't load this record. Please try again.")).not.toBeInTheDocument();
       expect(screen.getByText("Take 40.")).toBeInTheDocument();
       expect(screen.getByText("Take 41.")).toBeInTheDocument();
+    });
+
+    // Later writes on this page (choosing a review, citing a release) refetch these reads; each is failed alone, after it succeeded once.
+    it.each([
+      ["the item", "Intake", `${TEST_BACKEND_URL}/intake/${ITEM_ID}`, dogaItem(), []],
+      ["the item's reviews", "Review", `${TEST_BACKEND_URL}/reviews`, dogaItem(), []],
+      [
+        "a cover review fetched by id",
+        "Review",
+        `${TEST_BACKEND_URL}/reviews/90`,
+        dogaItem({ accepted_review_id: 90 }),
+        [submitted(90, { intake_item_id: null, album_id: 7, review: "From the cited release." })],
+      ],
+    ] as const)("keeps the page when the refetch of %s fails", async (_name, tag, path, item, byId) => {
+      fakeReviewsEndpoints({ records: [item], reviews: [...byId], forItem: { [ITEM_ID]: [submitted(40), submitted(41)] } });
+      const { store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+      await screen.findByRole("heading", { name: "Other reviews" });
+
+      let refused = 0;
+      server.use(
+        http.get(path, () => {
+          refused += 1;
+          return HttpResponse.json({ message: "boom" }, { status: 500 });
+        }),
+      );
+      act(() => {
+        store.dispatch(reviewsApi.util.invalidateTags([tag]));
+      });
+      await waitFor(() => expect(refused).toBeGreaterThan(0));
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      expect(screen.queryByText("Couldn't load this record. Please try again.")).not.toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "The review on the cover" })).toBeInTheDocument();
+      expect(screen.getByText("Take 41.")).toBeInTheDocument();
+      expect(screen.getByText(byId.length ? "From the cited release." : "Take 40.")).toBeInTheDocument();
     });
 
     it("shows the load-failure line when the first read of the item fails", async () => {

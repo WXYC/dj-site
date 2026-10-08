@@ -85,9 +85,11 @@ type FilingConflict = {
  * Where the bench sends its composed request. A target that rejects must throw
  * the `FetchBaseQueryError` itself, the shape `isLibraryFilingConflict` reads;
  * a target that resolves has handled the outcome, so only a
- * `LibraryFilingResponse` joins the session receipt.
+ * `LibraryFilingResponse` joins the session receipt. A target that handled a
+ * refusal and filed nothing resolves `false`: the bench keeps the form as
+ * typed, where any other resolution clears it for the next record.
  */
-export type FilingSubmit = (request: LibraryFilingRequest) => Promise<LibraryFilingResponse | void>;
+export type FilingSubmit = (request: LibraryFilingRequest) => Promise<LibraryFilingResponse | false | void>;
 
 /** A record the bench starts out describing, when it files a logged item. */
 export type FilingInitial = {
@@ -556,6 +558,7 @@ export default function RotationFilingBench({
     setIsFiling(true);
     try {
       const filed = await (submit ?? ((body) => fileRelease(body).unwrap()))(request);
+      if (filed === false) return;
       if (filed) setFilings((previous) => [...previous, filed]);
       // Ready for the next record of the batch: the artist and its release
       // clear; genre, label, format, bin and card persist, since an MD files
