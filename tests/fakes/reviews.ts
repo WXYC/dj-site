@@ -52,6 +52,9 @@ const resolve = <Row>(rows: Rows<Row>) => (typeof rows === "function" ? rows() :
  * - `GET /intake` answers `reviewed` when `state=reviewed`, else `open`
  * - `GET /reviews?mine=true` answers `mine`
  * - `GET /reviews/:id` answers the matching row of `reviews`, 404 otherwise
+ * - `GET /intake/:id` answers the matching row of `records`, 404 otherwise
+ * - `GET /library/info?album_id=` answers the matching row of `releases` (the
+ *   raw wire shape), 404 otherwise
  * - `GET /library/formats` answers `formats` (one `cd` format by default)
  *
  * Lists default to empty. A spec that holds, counts or fails a read layers its
@@ -63,12 +66,16 @@ export function fakeReviewsEndpoints({
   reviewed = [],
   mine = [],
   reviews = [],
+  records = [],
+  releases = [],
   formats = [{ id: 1, format_name: "cd" }],
 }: {
   open?: Rows<IntakeItem>;
   reviewed?: Rows<IntakeItem>;
   mine?: Rows<Review>;
   reviews?: Review[];
+  records?: IntakeItem[];
+  releases?: { id: number; [key: string]: unknown }[];
   formats?: { id: number; format_name: string }[];
 } = {}) {
   server.use(
@@ -78,6 +85,15 @@ export function fakeReviewsEndpoints({
     http.get(`${BACKEND_URL}/reviews`, () => HttpResponse.json(resolve(mine))),
     http.get(`${BACKEND_URL}/reviews/:id`, ({ params }) => {
       const found = reviews.find((row) => String(row.id) === params.id);
+      return found ? HttpResponse.json(found) : HttpResponse.json({ message: "not found" }, { status: 404 });
+    }),
+    http.get(`${BACKEND_URL}/intake/:id`, ({ params }) => {
+      const found = records.find((row) => String(row.id) === params.id);
+      return found ? HttpResponse.json(found) : HttpResponse.json({ message: "not found" }, { status: 404 });
+    }),
+    http.get(`${BACKEND_URL}/library/info`, ({ request }) => {
+      const id = new URL(request.url).searchParams.get("album_id");
+      const found = releases.find((row) => String(row.id) === id);
       return found ? HttpResponse.json(found) : HttpResponse.json({ message: "not found" }, { status: 404 });
     }),
     http.get(`${BACKEND_URL}/library/formats`, () => HttpResponse.json(formats)),

@@ -20,7 +20,7 @@ const makeReviewsStore = () =>
 
 describe("reviewsApi", () => {
   describeApi(reviewsApi, {
-    queries: ["getIntakeItems", "getMyReviews", "getReview"],
+    queries: ["getIntakeItems", "getIntakeItem", "getMyReviews", "getReview"],
     mutations: [
       "checkoutIntakeItem",
       "releaseIntakeItem",
@@ -51,6 +51,20 @@ describe("reviewsApi", () => {
     await makeReviewsStore().dispatch(reviewsApi.endpoints[endpoint].initiate(7));
 
     expect(seen).toEqual({ method: "POST", path: `/intake/7/${action}` });
+  });
+
+  it("getIntakeItem GETs exactly /intake/7", async () => {
+    let seen: { method: string; path: string } | undefined;
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/intake/:id`, ({ request }) => {
+        seen = { method: request.method, path: new URL(request.url).pathname };
+        return HttpResponse.json({ id: 7 });
+      })
+    );
+
+    await makeReviewsStore().dispatch(reviewsApi.endpoints.getIntakeItem.initiate(7));
+
+    expect(seen).toEqual({ method: "GET", path: "/intake/7" });
   });
 
   // Nested whole under one key, so the shared error toast stays quiet (the

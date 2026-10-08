@@ -25,6 +25,7 @@ import { useAppDispatch } from "@/lib/hooks";
 import { useRowWrite } from "@/src/hooks/useRowWrite";
 import ConfirmDialog from "../ConfirmDialog";
 import { REVIEW_COPY } from "./copy";
+import { useReviewRecord } from "./useReviewRecord";
 
 const day = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString() : "");
 
@@ -38,6 +39,13 @@ const RACE_NOTICE: Record<Action, string> = {
   release: REVIEW_COPY.screen.raceRelease,
   write: REVIEW_COPY.subjectNotHeld,
 };
+
+function DraftLabel({ review, formats }: { review: Review; formats: { id: number; format_name: string }[] | undefined }) {
+  const record = useReviewRecord(review);
+  if (!record) return review.intake_item_id == null ? REVIEW_COPY.myReviews.libraryRelease : null;
+  const format = record.format ?? formats?.find((f) => f.id === record.formatId)?.format_name;
+  return [record.artist, record.album, record.label, format].filter(Boolean).join(" · ");
+}
 
 // One argument per list, shared by its hook and the post-write reload so the
 // reload reaches the same cache entry.
@@ -101,16 +109,11 @@ export default function ReviewsScreen() {
     return [i.artist_name, i.album_title, i.record_label, format].filter(Boolean).join(" · ");
   };
 
-  const draftLabel = (r: Review) => {
-    const record = [...items, ...reviewed.data].find((i) => i.id === r.intake_item_id);
-    return record ? describe(record) : REVIEW_COPY.myReviews.libraryRelease;
-  };
-
   const section = <Row extends { id: number }>(
     title: string,
     rows: Row[],
     empty: string,
-    label: (row: Row) => string,
+    label: (row: Row) => ReactNode,
     extra: (row: Row) => ReactNode,
   ) => (
     <section aria-label={title}>
@@ -169,7 +172,7 @@ export default function ReviewsScreen() {
           <Button size="sm" variant="outlined" {...lock(i.id, "pass")} onClick={() => write(i.id, "pass", () => pass(i.id).unwrap())}>{REVIEW_COPY.screen.pass}</Button>
         </>
       ))}
-      {section(REVIEW_COPY.myReviews.title, mine.data, REVIEW_COPY.myReviews.empty, draftLabel, (r) => (
+      {section(REVIEW_COPY.myReviews.title, mine.data, REVIEW_COPY.myReviews.empty, (r) => <DraftLabel review={r} formats={formats} />, (r) => (
         <>
           <Typography level="body-sm">{r.status === "draft" ? REVIEW_COPY.myReviews.draft : REVIEW_COPY.myReviews.submitted}</Typography>
           <Link href={`/dashboard/reviews/${r.id}`}>{REVIEW_COPY.myReviews.open}</Link>

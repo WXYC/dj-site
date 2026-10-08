@@ -5,7 +5,6 @@ import { Button, FormControl, FormHelperText, FormLabel, Stack, Textarea, Typogr
 import type { Review } from "@wxyc/shared";
 import { toast } from "sonner";
 import {
-  useGetIntakeItemsQuery,
   useGetReviewQuery,
   useUpdateReviewMutation,
 } from "@/lib/features/reviews/api";
@@ -14,6 +13,7 @@ import { Authorization } from "@/lib/features/admin/types";
 import { useAuthentication } from "@/src/hooks/authenticationHooks";
 import { REVIEW_COPY } from "./copy";
 import SlipPreview from "./SlipPreview";
+import { useReviewRecord } from "./useReviewRecord";
 
 const FIELD_NAMES = ["buzzwords", "artist_blurb", "review", "recommended_tracks", "fcc"] as const;
 type FieldName = (typeof FIELD_NAMES)[number];
@@ -23,10 +23,7 @@ function Form({ review }: { review: Review }) {
     () => Object.fromEntries(FIELD_NAMES.map((n) => [n, review[n] ?? ""])) as Record<FieldName, string>,
   );
   const [update, { isLoading }] = useUpdateReviewMutation();
-  // The same arguments as the reviews screen's lists, so these reads share its cache entries.
-  const open = useGetIntakeItemsQuery(undefined);
-  const reviewed = useGetIntakeItemsQuery({ state: "reviewed" });
-  const record = [...(open.data ?? []), ...(reviewed.data ?? [])].find((i) => i.id === review.intake_item_id);
+  const record = useReviewRecord(review);
 
   const save = async () => {
     try {
@@ -51,9 +48,9 @@ function Form({ review }: { review: Review }) {
         <Button loading={isLoading} onClick={save}>{REVIEW_COPY.saveDraft}</Button>
       </Stack>
       <SlipPreview
-        artist={record?.artist_name ?? ""}
-        album={record?.album_title ?? ""}
-        label={record?.record_label ?? ""}
+        artist={record?.artist ?? ""}
+        album={record?.album ?? ""}
+        label={record?.label ?? ""}
         reviewer={review.author ?? ""}
         date={review.add_date}
         fields={values}
