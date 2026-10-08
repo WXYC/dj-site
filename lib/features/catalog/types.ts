@@ -281,10 +281,8 @@ export type ArtistRefileCard = Omit<
 export type ArtistRefileResult = ArtistRefileCard & {
   changed: boolean;
   previous_code_artist_number: number;
-  /** Absent from a server that predates the letters/genre re-file. */
-  previous_code_letters?: string;
-  /** Absent from a server that predates the letters/genre re-file. */
-  previous_genre_id?: number;
+  previous_code_letters: string;
+  previous_genre_id: number;
   /** Records on the shelf whose labels now need reprinting. */
   releases_to_relabel: number;
 };

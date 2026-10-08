@@ -1204,6 +1204,36 @@ describe("classic ArtistCard — artistCardModify.jsp", () => {
       );
     });
 
+    it.each([
+      {
+        label: "a letters-only move (same number) composes both codes",
+        refiled: { from: 12, fromLetters: "RE", releases: 2 },
+        text: "Re-filed from Rock RE 12 to Rock MO 12. Relabel 2 records on the shelf.",
+      },
+      {
+        label: "a letters and number move",
+        refiled: { from: 1, fromLetters: "RE", releases: 2 },
+        text: "Re-filed from Rock RE 1 to Rock MO 12. Relabel 2 records on the shelf.",
+      },
+      {
+        label: "no from_letters keeps the card's own letters on both sides",
+        refiled: { from: 1, releases: 2 },
+        text: "Re-filed from Rock MO 1 to Rock MO 12.",
+      },
+    ])("banner: $label", async ({ refiled, text }) => {
+      renderWithProviders(<ArtistCard artistId={ARTIST_ID} refiled={refiled} />);
+
+      await screen.findByTestId("modify-artist-form");
+      await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(text));
+    });
+
+    it("shows no banner when the card still holds the old letters and number", async () => {
+      renderWithProviders(<ArtistCard artistId={ARTIST_ID} refiled={{ from: 12, fromLetters: "MO", releases: 2 }} />);
+
+      await screen.findByTestId("modify-artist-form");
+      expect(screen.queryByText(/Re-filed from/)).toBeNull();
+    });
+
     it("shows no banner when the card still holds the old number", async () => {
       renderWithProviders(<ArtistCard artistId={ARTIST_ID} refiled={{ from: 12, releases: 2 }} />);
 

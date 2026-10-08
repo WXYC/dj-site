@@ -66,7 +66,7 @@ type ArtistCardProps = {
   imported?: ImportedReleaseParams;
   /**
    * Where a re-file landed, when this card is one's landing: the old call
-   * number and how many records need new labels. The new code is read off this
+   * number (and letters, when they changed) and how many records need new labels. The new code is read off this
    * card's own data, never the URL.
    */
   refiled?: RefiledParams;
@@ -91,7 +91,9 @@ const EMPTY_TITLE_MESSAGE = "Please enter a title before adding this release.";
  *   400 naming why. Rendering them as editable inputs would offer an edit
  *   that always fails. The call number has a write path of its own -- the
  *   re-file screen, linked beside it -- which moves it on one shelf and
- *   re-labels every release under it; genre and call letters still have none.
+ *   re-labels every release under it. That endpoint also writes call letters
+ *   (the re-file screen takes them) and the genre, but this card offers no
+ *   input for either and shows both as text.
  * - **The genre renders as text, not the JSP's `<select>`.** Same cause: with
  *   no write path, a dropdown would be a control that cannot commit.
  * - **No "Time Last Modified" row for the artist.** `GET /library/artists/:id`
@@ -266,8 +268,12 @@ export default function ArtistCard({ artistId, genreId, message, imported, refil
   // hold the pre-re-file card while the invalidated refetch is in flight, and
   // a banner composed from it would read "from IS 1 to IS 1".
   const refiledMessage =
-    refiled && artist && !artistFetching && artist.code_artist_number !== refiled.from
-      ? `Re-filed from ${formatArtistLibraryCode({ genreName, code_letters: artist.code_letters, code_artist_number: refiled.from })} to ${formatArtistLibraryCode({ genreName, code_letters: artist.code_letters, code_artist_number: artist.code_artist_number })}. Relabel ${refiled.releases} ${refiled.releases === 1 ? "record" : "records"} on the shelf.`
+    refiled &&
+    artist &&
+    !artistFetching &&
+    (artist.code_artist_number !== refiled.from ||
+      (refiled.fromLetters !== undefined && refiled.fromLetters !== artist.code_letters))
+      ? `Re-filed from ${formatArtistLibraryCode({ genreName, code_letters: refiled.fromLetters ?? artist.code_letters, code_artist_number: refiled.from })} to ${formatArtistLibraryCode({ genreName, code_letters: artist.code_letters, code_artist_number: artist.code_artist_number })}. Relabel ${refiled.releases} ${refiled.releases === 1 ? "record" : "records"} on the shelf.`
       : undefined;
 
   // `fn:trim(format.referenceName)` -- the JSP omits blank-named formats from
