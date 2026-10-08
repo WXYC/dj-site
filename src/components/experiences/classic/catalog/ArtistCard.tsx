@@ -67,8 +67,9 @@ type ArtistCardProps = {
   imported?: ImportedReleaseParams;
   /**
    * Where a re-file landed, when this card is one's landing: the old call
-   * number (and letters, when they changed) and how many records need new labels. The new code is read off this
-   * card's own data, never the URL.
+   * number, plus the letters and genre when they changed (the genre as an
+   * id resolved here), and how many records need new labels. The new code is
+   * read off this card's own data, never the URL.
    */
   refiled?: RefiledParams;
 };
@@ -275,8 +276,10 @@ export default function ArtistCard({ artistId, genreId, message, imported, refil
   const fromGenreName = genreMoved
     ? genres?.find((genre) => genre.id === refiled?.fromGenre)?.genre_name
     : genreName;
+  // A moved genre whose name (old or new) is unresolved would print a bare
+  // code that names two shelves, so the "from" clause goes instead.
   const fromClause =
-    refiled?.fromLetters === null
+    refiled?.fromLetters === null || (genreMoved && (!fromGenreName || !genreName))
       ? ""
       : `from ${formatArtistLibraryCode({ genreName: fromGenreName, code_letters: refiled?.fromLetters ?? artist?.code_letters ?? "", code_artist_number: refiled?.from ?? 0 })} `;
   const refiledMessage =

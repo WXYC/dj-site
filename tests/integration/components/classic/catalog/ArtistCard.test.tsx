@@ -1270,15 +1270,24 @@ describe("classic ArtistCard — artistCardModify.jsp", () => {
         text: "Re-filed from Jazz RE 12 to Rock MO 12.",
       },
       {
-        label: "an unknown old genre drops the genre word, never free text",
+        label: "an unknown old genre drops the 'from' clause rather than naming a bare code, never free text",
         refiled: { from: 12, fromGenre: 4242, releases: 2 },
-        text: "Re-filed from MO 12 to Rock MO 12.",
+        text: "Re-filed to Rock MO 12. Relabel 2 records on the shelf.",
       },
     ])("banner: $label", async ({ refiled, text }) => {
       renderWithProviders(<ArtistCard artistId={ARTIST_ID} refiled={refiled} />);
 
       await screen.findByTestId("modify-artist-form");
       await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(text));
+    });
+
+    it("drops the 'from' clause of a genre move while the genre list is unavailable", async () => {
+      server.use(http.get(`${TEST_BACKEND_URL}/library/genres`, () => HttpResponse.json({ message: "down" }, { status: 500 })));
+      renderWithProviders(<ArtistCard artistId={ARTIST_ID} refiled={{ from: 12, fromGenre: OTHER_GENRE_ID, releases: 2 }} />);
+
+      await screen.findByTestId("modify-artist-form");
+      await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Re-filed to MO 12. Relabel 2 records on the shelf."));
+      expect(screen.getByRole("status")).not.toHaveTextContent("from");
     });
 
     it("shows no banner when the old genre is the card's own genre and nothing else moved", async () => {

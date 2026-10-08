@@ -242,8 +242,8 @@ export type ArtistCard = {
  * constraint into a runtime rejection. `code_artist_number` is writable, but
  * only through `POST /library/artists/{id}/refile` (the re-file screen).
  * That endpoint also accepts `code_letters` and the genre (`to_genre_id`),
- * though the screen gains inputs for them in later changes; neither is
- * writable through this PATCH.
+ * and the screen has an input for each; neither is writable through this
+ * PATCH.
  */
 export type UpdateArtistRequestBody = {
   alphabetical_name: string;
