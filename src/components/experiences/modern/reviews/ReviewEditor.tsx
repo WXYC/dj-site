@@ -40,7 +40,7 @@ function Form({ review }: { review: Review }) {
   return (
     <Stack direction="row" spacing={3} alignItems="flex-start" flexWrap="wrap">
       <Stack spacing={2} sx={{ flex: 1, minWidth: 280 }}>
-        <Typography level="body-sm">{REVIEW_COPY.draftPrivacy}</Typography>
+        {review.status === "draft" && <Typography level="body-sm">{REVIEW_COPY.draftPrivacy}</Typography>}
         {FIELD_NAMES.map((name) => (
           <FormControl key={name}>
             <FormLabel>{REVIEW_COPY.fields[name].label}</FormLabel>

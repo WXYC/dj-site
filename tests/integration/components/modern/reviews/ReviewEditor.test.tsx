@@ -41,6 +41,8 @@ const DRAFT = {
   fcc: null,
 } as Review;
 
+const PRIVACY = "Only you can read this draft. Music directors can see that you have one in progress, not what it says.";
+
 const RECORD = { id: 2, artist_name: "Stereolab", album_title: "Aluminum Tunes", record_label: "Duophonic" } as IntakeItem;
 
 function serve(review: Review = DRAFT) {
@@ -62,7 +64,7 @@ describe("ReviewEditor", () => {
     serve();
     renderWithProviders(<ReviewEditor id={40} />);
 
-    expect(await screen.findByText("Only you can read this draft. Music directors can see that you have one in progress, not what it says.")).toBeInTheDocument();
+    expect(await screen.findByText(PRIVACY)).toBeInTheDocument();
     for (const { label, help } of Object.values(REVIEW_COPY.fields)) {
       expect(screen.getByLabelText(label)).toBeInTheDocument();
       expect(screen.getByText(help)).toBeInTheDocument();
@@ -73,22 +75,59 @@ describe("ReviewEditor", () => {
   it("reflects each field in the slip preview as it is typed", async () => {
     serve();
     const { user } = renderWithProviders(<ReviewEditor id={40} />);
-    const preview = await screen.findByRole("group", { name: "Slip preview" });
+    const preview = await screen.findByRole("group", { name: REVIEW_COPY.slip.name });
     expect(await within(preview).findByText("Stereolab")).toBeInTheDocument();
     expect(within(preview).getByText("Duophonic")).toBeInTheDocument();
 
-    for (const [name, text] of [
+    // Every typed value differs from every value the fixtures carry, so a
+    // preview that shows the saved review instead of the typing cannot pass.
+    const typed = [
       ["buzzwords", "hushed"],
       ["artist_blurb", "A Paris band"],
-      ["review", "Warm."],
+      ["review", "Bright."],
       ["recommended_tracks", "A1, B4"],
       ["fcc", "Track two"],
-    ] as const) {
+    ] as const;
+    const fixtureValues = [...Object.values(DRAFT), ...Object.values(RECORD)].map(String);
+    for (const [name, text] of typed) {
+      expect(fixtureValues).not.toContain(text);
       const field = screen.getByLabelText(REVIEW_COPY.fields[name].label);
       await user.clear(field);
       await user.type(field, text);
       expect(within(preview).getByText(text)).toBeInTheDocument();
     }
+    expect(within(preview).queryByText("Warm.")).not.toBeInTheDocument();
+  });
+
+  it("labels the slip's rows from the copy module, in the printed slip's order", async () => {
+    serve();
+    renderWithProviders(<ReviewEditor id={40} />);
+    const preview = await screen.findByRole("group", { name: REVIEW_COPY.slip.name });
+
+    const { slip, fields } = REVIEW_COPY;
+    expect(Array.from(preview.querySelectorAll("strong"), (el) => el.textContent)).toEqual([
+      slip.artist,
+      slip.album,
+      slip.label,
+      fields.buzzwords.label,
+      slip.artistBlurb,
+      slip.review,
+      slip.reviewer,
+      slip.recommended,
+      fields.fcc.label,
+    ]);
+  });
+
+  it.each([
+    ["shows", "draft", true],
+    ["does not show", "submitted", false],
+  ] as const)("%s the draft-privacy line for a %s review", async (_verb, status, shown) => {
+    serve({ ...DRAFT, status } as Review);
+    renderWithProviders(<ReviewEditor id={40} />);
+
+    expect(await screen.findByLabelText(REVIEW_COPY.fields.review.label)).toHaveValue("Warm.");
+    if (shown) expect(screen.getByText(PRIVACY)).toBeInTheDocument();
+    else expect(screen.queryByText(PRIVACY)).not.toBeInTheDocument();
   });
 
   it("saves the draft with a PATCH of the fields", async () => {

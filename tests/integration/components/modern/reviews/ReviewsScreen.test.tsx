@@ -441,6 +441,27 @@ describe("ReviewsScreen", () => {
     expect(body).toEqual({ intake_item_id: 2 });
   });
 
+  it("sends one POST /reviews when Write a review is double-clicked", async () => {
+    serveIntake([HELD]);
+    let posts = 0;
+    server.use(
+      http.post(`${TEST_BACKEND_URL}/reviews`, async () => {
+        posts += 1;
+        await delay(100);
+        return HttpResponse.json(review({ id: 41 }));
+      }),
+    );
+
+    const { user } = renderWithProviders(<ReviewsScreen />);
+    const mine = await section("My checkouts");
+    await user.dblClick(await within(mine).findByRole("button", { name: REVIEW_COPY.writeReview }));
+
+    await waitFor(() => expect(router.push).toHaveBeenCalledWith("/dashboard/reviews/41"));
+    await new Promise((r) => setTimeout(r, 150));
+    expect(posts).toBe(1);
+    expect(router.push).toHaveBeenCalledTimes(1);
+  });
+
   it("answers a 409 subject_not_held on a row with the approved line, once the lists have reloaded and the row is gone", async () => {
     let raced = false;
     server.use(
