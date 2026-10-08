@@ -25,6 +25,7 @@ import { useAppDispatch } from "@/lib/hooks";
 import { useRowWrite } from "@/src/hooks/useRowWrite";
 import ConfirmDialog from "../ConfirmDialog";
 import { REVIEW_COPY } from "./copy";
+import { intakeRecord, recordLine } from "./recordLine";
 import { useReviewRecord } from "./useReviewRecord";
 
 const day = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString() : "");
@@ -43,8 +44,7 @@ const RACE_NOTICE: Record<Action, string> = {
 function DraftLabel({ review, formats }: { review: Review; formats: { id: number; format_name: string }[] | undefined }) {
   const record = useReviewRecord(review);
   if (!record) return review.intake_item_id == null ? REVIEW_COPY.myReviews.libraryRelease : null;
-  const format = record.format ?? formats?.find((f) => f.id === record.formatId)?.format_name;
-  return [record.artist, record.album, record.label, format].filter(Boolean).join(" · ");
+  return recordLine(record, formats);
 }
 
 // One argument per list, shared by its hook and the post-write reload so the
@@ -104,10 +104,7 @@ export default function ReviewsScreen() {
     ...reviewed.data.filter((i) => i.effective_state === "reviewed" && i.checked_out_by === me),
   ];
 
-  const describe = (i: IntakeItem) => {
-    const format = formats?.find((f) => f.id === i.format_id)?.format_name;
-    return [i.artist_name, i.album_title, i.record_label, format].filter(Boolean).join(" · ");
-  };
+  const describe = (i: IntakeItem) => recordLine(intakeRecord(i), formats);
 
   const section = <Row extends { id: number }>(
     title: string,
