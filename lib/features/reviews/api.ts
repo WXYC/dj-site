@@ -18,9 +18,16 @@ const wrapIntakeWriteError = (response: FetchBaseQueryError): IntakeWriteError =
   intakeWriteError: response,
 });
 
+// Intake refusal predicates live here, one `isRefusal` call each, so a screen
+// reads a rejected intake write one way.
+
 /** True when an intake write lost its race: someone else got there first, or the request expired. */
 export const isIntakeStateChanged = (err: unknown): boolean =>
   isRefusal(err, { status: 409, reasons: ["state_changed"], key: "intakeWriteError" });
+
+/** True when finalizing was refused because the release is in active rotation. */
+export const isIntakeInRotation = (err: unknown): boolean =>
+  isRefusal(err, { status: 409, reasons: ["in_rotation"], key: "intakeWriteError" });
 
 /**
  * Rooted at the Backend-Service root, not at one domain: every endpoint's `url`
