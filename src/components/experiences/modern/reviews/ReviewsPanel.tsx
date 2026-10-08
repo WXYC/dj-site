@@ -6,7 +6,7 @@ import type { Review } from "@wxyc/shared";
 import { useGetAlbumReviewsForReleaseQuery, useGetReviewsForReleaseQuery } from "@/lib/features/reviews/api";
 import { useCanSeeReviews } from "@/src/hooks/useCanSeeReviews";
 import { REVIEW_COPY } from "./copy";
-import SlipPreview from "./SlipPreview";
+import SlipPreview, { SlipFccRow } from "./SlipPreview";
 
 const { albumPanel: copy } = REVIEW_COPY;
 
@@ -17,16 +17,20 @@ export function FccNotesSlot({ albumId }: { albumId: number }) {
   return <div data-testid="fcc-notes-slot" data-album-id={albumId} />;
 }
 
-function ReviewItem({ review, record }: { review: Review; record: PanelRecord }) {
+function ReviewItem({ review, albumId, record }: { review: Review; albumId: number; record: PanelRecord }) {
   const onTheSleeve = review.medium === "handwritten" && !review.review;
   return (
     <Stack spacing={0.5} component="li" sx={{ listStyle: "none" }}>
       {onTheSleeve ? (
-        <Typography level="body-sm">
-          {review.author} · {copy.onTheSleeve}
-        </Typography>
+        <>
+          <Typography level="body-sm">
+            {review.author} · {copy.onTheSleeve}
+          </Typography>
+          {review.fcc && <SlipFccRow fcc={review.fcc} />}
+        </>
       ) : (
-        <SlipPreview {...record} reviewer={review.author ?? ""} date={review.add_date} fields={review} />
+        // A review of a release this copy cites is not about this page's record.
+        <SlipPreview {...(review.album_id === albumId ? record : {})} reviewer={review.author ?? ""} date={review.add_date} fields={review} />
       )}
       {review.revision_count > 1 && (
         <JoyLink component={Link} href={`/dashboard/reviews/${review.id}/history`} level="body-xs">
@@ -37,13 +41,13 @@ function ReviewItem({ review, record }: { review: Review; record: PanelRecord })
   );
 }
 
-function Group({ title, reviews, record }: { title: string; reviews: Review[]; record: PanelRecord }) {
+function Group({ title, reviews, albumId, record }: { title: string; reviews: Review[]; albumId: number; record: PanelRecord }) {
   return (
     <Stack component="section" spacing={1}>
       <Typography level="title-sm" component="h3">{title}</Typography>
       <Stack component="ul" spacing={1.5} sx={{ p: 0, m: 0 }}>
         {reviews.map((review) => (
-          <ReviewItem key={review.id} review={review} record={record} />
+          <ReviewItem key={review.id} review={review} albumId={albumId} record={record} />
         ))}
       </Stack>
     </Stack>
@@ -66,10 +70,10 @@ export default function ReviewsPanel({ albumId, record }: { albumId: number; rec
       <FccNotesSlot albumId={albumId} />
       {reviews.isError && <Typography role="alert">{copy.loadFailed}</Typography>}
       {onCover.length > 0 && (
-        <Group title={onCover.length > 1 ? copy.coverMany : copy.coverOne} reviews={onCover} record={record} />
+        <Group title={onCover.length > 1 ? copy.coverMany : copy.coverOne} reviews={onCover} albumId={albumId} record={record} />
       )}
       {rest.length > 0 && (
-        <Group title={onCover.length > 0 ? copy.others : copy.all} reviews={rest} record={record} />
+        <Group title={onCover.length > 0 ? copy.others : copy.all} reviews={rest} albumId={albumId} record={record} />
       )}
       {!!archive.data?.length && (
         <Stack component="section" spacing={1}>

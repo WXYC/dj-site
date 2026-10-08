@@ -43,11 +43,13 @@ describe("ReviewsPanel", () => {
   });
 
   it("lists the review on the cover, then the others, in the server's order", async () => {
-    serve([submitted(1, { on_cover: true }), submitted(2), submitted(3)]);
+    serve([submitted(1, { on_cover: true }), submitted(3), submitted(2)]);
     renderPanel();
 
     await screen.findByText("Reviewer 1", { exact: false });
     expect(headings()).toEqual(["The review on the cover", "Other reviews"]);
+    const others = screen.getByText("Other reviews").closest("section")!;
+    expect(within(others).getAllByRole("listitem").map((li) => /Reviewer \d+/.exec(li.textContent ?? "")?.[0])).toEqual(["Reviewer 3", "Reviewer 2"]);
     expect(screen.queryByText("Reviewer 999", { exact: false })).not.toBeInTheDocument();
   });
 
@@ -80,6 +82,27 @@ describe("ReviewsPanel", () => {
     renderPanel();
 
     expect(await screen.findByText("Reviewer One · on the sleeve")).toBeInTheDocument();
+  });
+
+  it("shows the FCC line of a handwritten review without text beside its on the sleeve line", async () => {
+    serve([submitted(1, { medium: "handwritten", review: null, author: "Reviewer One", fcc: "Contains no obscenity" })]);
+    renderPanel();
+
+    expect(await screen.findByText("Reviewer One · on the sleeve")).toBeInTheDocument();
+    expect(screen.getByText("Contains no obscenity")).toBeInTheDocument();
+  });
+
+  it("does not name this page's record on the slip of a review of a cited release", async () => {
+    serve([submitted(1, { album_id: ALBUM_ID + 1 }), submitted(2)]);
+    renderPanel();
+
+    const slips = await screen.findAllByRole("group", { name: REVIEW_COPY.slip.name });
+    const cited = slips.find((slip) => within(slip).queryByText("Text 1"))!;
+    const own = slips.find((slip) => within(slip).queryByText("Text 2"))!;
+    expect(within(cited).queryByText(RECORD.album)).not.toBeInTheDocument();
+    expect(within(cited).queryByText(RECORD.artist)).not.toBeInTheDocument();
+    expect(within(cited).queryByText(RECORD.label)).not.toBeInTheDocument();
+    expect(within(own).getByText(RECORD.album)).toBeInTheDocument();
   });
 
   it("links to the history only for a review edited after submitting", async () => {
