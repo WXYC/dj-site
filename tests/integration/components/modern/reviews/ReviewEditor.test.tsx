@@ -34,7 +34,7 @@ const PRIVACY = "Only you can read this draft. Music directors can see that you 
 const RECORD = intakeItem({ id: 2 });
 
 function serve(served: Review = DRAFT) {
-  fakeReviewsEndpoints({ reviews: [served], open: [RECORD] });
+  fakeReviewsEndpoints({ reviews: [served], records: [RECORD] });
 }
 
 describe("ReviewEditor", () => {
@@ -55,6 +55,19 @@ describe("ReviewEditor", () => {
       expect(screen.getByText(help)).toBeInTheDocument();
     }
     expect(screen.getByLabelText("Review")).toHaveValue("Warm.");
+  });
+
+  it("previews the library release of a library-release review", async () => {
+    fakeReviewsEndpoints({
+      reviews: [review({ intake_item_id: null, album_id: 7 })],
+      releases: [{ id: 7, artist_name: "Juana Molina", album_title: "DOGA", record_label: "Sonamos", format_name: "CD", legacy_release_id: 1 }],
+    });
+    renderWithProviders(<ReviewEditor id={40} />);
+
+    const preview = await screen.findByRole("group", { name: REVIEW_COPY.slip.name });
+    expect(await within(preview).findByText("Juana Molina")).toBeInTheDocument();
+    expect(within(preview).getByText("DOGA")).toBeInTheDocument();
+    expect(within(preview).getByText("Sonamos")).toBeInTheDocument();
   });
 
   it("reflects each field in the slip preview as it is typed", async () => {

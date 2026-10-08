@@ -60,6 +60,10 @@ export const reviewsApi = createApi({
       }),
       providesTags: ["Intake"],
     }),
+    getIntakeItem: builder.query<IntakeItem, number>({
+      query: (id) => ({ url: `intake/${id}` }),
+      providesTags: ["Intake"],
+    }),
     checkoutIntakeItem: builder.mutation<IntakeItem, number>({
       query: (id) => ({ url: `intake/${id}/checkout`, method: "POST" }),
       transformErrorResponse: wrapIntakeWriteError,
@@ -113,6 +117,7 @@ export const reviewsApi = createApi({
 
 export const {
   useGetIntakeItemsQuery,
+  useGetIntakeItemQuery,
   useCheckoutIntakeItemMutation,
   useReleaseIntakeItemMutation,
   useAcceptIntakeItemMutation,

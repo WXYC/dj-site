@@ -41,8 +41,8 @@ import { toast } from "sonner";
 import { REVIEW_COPY } from "@/src/components/experiences/modern/reviews/copy";
 import ReviewsScreen from "@/src/components/experiences/modern/reviews/ReviewsScreen";
 
-function serveIntake(open: IntakeItem[], reviewed: IntakeItem[] = [], mine: Review[] = []) {
-  fakeReviewsEndpoints({ open, reviewed, mine });
+function serveIntake(open: IntakeItem[], reviewed: IntakeItem[] = [], mine: Review[] = [], records: IntakeItem[] = open) {
+  fakeReviewsEndpoints({ open, reviewed, mine, records });
 }
 
 const section = (name: string) => screen.findByRole("region", { name });
@@ -471,11 +471,29 @@ describe("ReviewsScreen", () => {
 
     expect(within(reviews).getByText(REVIEW_COPY.myReviews.draft)).toBeInTheDocument();
     expect(within(reviews).getByText(REVIEW_COPY.myReviews.submitted)).toBeInTheDocument();
-    expect(within(reviews).getByText(/Stereolab/)).toBeInTheDocument();
+    expect(await within(reviews).findByText(/Stereolab/)).toBeInTheDocument();
     expect(within(reviews).getAllByRole("link").map((a) => a.getAttribute("href"))).toEqual([
       "/dashboard/reviews/40",
       "/dashboard/reviews/41",
     ]);
+  });
+
+  it("shows a review's record from its own subject, not from the lists", async () => {
+    const filed = item({ id: 9, artist_name: "Cat Power", album_title: "Moon Pix", record_label: "Matador", state: "filed", effective_state: "filed" });
+    fakeReviewsEndpoints({
+      mine: [review({ id: 40, intake_item_id: 9 }), review({ id: 41, intake_item_id: null, album_id: 7 }), review({ id: 42, intake_item_id: 404 })],
+      records: [filed],
+      releases: [{ id: 7, artist_name: "Juana Molina", album_title: "DOGA", record_label: "Sonamos", format_name: "CD", legacy_release_id: 1 }],
+    });
+
+    renderWithProviders(<ReviewsScreen />);
+    const reviews = await section(REVIEW_COPY.myReviews.title);
+
+    expect(await within(reviews).findByText("Cat Power · Moon Pix · Matador · cd")).toBeInTheDocument();
+    expect(await within(reviews).findByText("Juana Molina · DOGA · Sonamos · CD")).toBeInTheDocument();
+    // A record whose read has not landed (here, never) is not mislabeled as a library release.
+    expect(within(reviews).queryByText(REVIEW_COPY.myReviews.libraryRelease)).not.toBeInTheDocument();
+    expect(within(reviews).getAllByRole("link")).toHaveLength(3);
   });
 
   it("says my reviews are empty in so many words, and shows the load-failure line when that read fails", async () => {

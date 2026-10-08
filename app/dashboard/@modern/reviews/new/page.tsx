@@ -1,5 +1,5 @@
 import { gateReviewRoute } from "@/src/components/experiences/modern/reviews/gateReviewRoute";
-import ReviewEditor from "@/src/components/experiences/modern/reviews/ReviewEditor";
+import NewReview from "@/src/components/experiences/modern/reviews/NewReview";
 import { REVIEW_COPY } from "@/src/components/experiences/modern/reviews/copy";
 import PageHeader from "@/src/components/experiences/modern/Header/PageHeader";
 import { Metadata } from "next";
@@ -10,16 +10,16 @@ export const metadata: Metadata = {
   title: getPageTitle(REVIEW_COPY.pageTitle),
 };
 
-export default async function ReviewEditorPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function NewReviewPage({ searchParams }: { searchParams: Promise<{ album_id?: string }> }) {
   const gated = await gateReviewRoute();
-  const reviewId = Number((await params).id);
-  if (!Number.isInteger(reviewId) || reviewId <= 0) notFound();
+  const albumId = Number((await searchParams).album_id);
+  if (!Number.isInteger(albumId) || albumId <= 0) notFound();
   if (gated) return gated;
 
   return (
     <>
       <PageHeader title={REVIEW_COPY.pageTitle} />
-      <ReviewEditor id={reviewId} />
+      <NewReview albumId={albumId} />
     </>
   );
 }
