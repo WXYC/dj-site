@@ -59,6 +59,10 @@ describe("gateReviewRoute", () => {
 
     expect(screen.getByTestId("page-header")).toHaveTextContent(REVIEW_COPY.pageTitle);
     expect(screen.getByText(REVIEW_COPY.staffOnly)).toBeInTheDocument();
+    // The station approved this line on 2026-10-07; pin its words, not just the constant.
+    expect(REVIEW_COPY.staffOnly).toBe(
+      "Reviews are open to music directors for now. You'll be able to open this review when they open to every DJ.",
+    );
   });
 
   it.each([
@@ -71,6 +75,6 @@ describe("gateReviewRoute", () => {
   ] as const)("is not found when the flag is %s for a %s", async (flag, role) => {
     arrange(flag, role);
 
-    await assertNotFoundPage(() => gateReviewRoute() as Promise<never>);
+    await assertNotFoundPage(() => gateReviewRoute());
   });
 });
