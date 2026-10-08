@@ -499,6 +499,7 @@ describe("Leftbar", () => {
     ["staff", Authorization.MD, true],
     ["staff", Authorization.DJ, false],
     ["true", Authorization.MD, true],
+    ["true", Authorization.DJ, false],
     [undefined, Authorization.MD, false],
   ] as const)("with the reviews flag %s, an account at authority %s sees the Review shelf link: %s", async (flag, authority, shown) => {
     if (flag === undefined) vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "");
