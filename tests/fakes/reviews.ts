@@ -31,6 +31,7 @@ export const review = (overrides: Partial<Review> = {}): Review =>
     author: "DJ Me",
     add_date: "2026-10-07",
     status: "draft",
+    medium: "typed",
     buzzwords: null,
     artist_blurb: null,
     review: "Warm.",

@@ -299,12 +299,30 @@ describe("ReviewEditor", () => {
       await waitFor(() => expect(seen).toEqual(["patch", "submit"]));
     });
 
-    it("disables Submit with a reason while the Review is blank or whitespace", async () => {
-      serve(review({ author_user_id: "dj-me", review: "   " }));
+    it.each([null, "   "])("disables Submit with a reason while a typed review's text is %j", async (text) => {
+      serve(review({ author_user_id: "dj-me", medium: "typed", review: text }));
       renderWithProviders(<ReviewEditor id={40} />);
 
       expect(await screen.findByRole("button", { name: "Submit" })).toBeDisabled();
       expect(screen.getByText(REVIEW_COPY.submitNeedsReview)).toBeInTheDocument();
+    });
+
+    it("submits a handwritten review that has no text", async () => {
+      serve(review({ author_user_id: "dj-me", medium: "handwritten", review: null }));
+      const seen: string[] = [];
+      server.use(
+        http.patch(`${TEST_BACKEND_URL}/reviews/40`, () => (seen.push("patch"), HttpResponse.json(DRAFT))),
+        http.post(`${TEST_BACKEND_URL}/reviews/40/submit`, () => (seen.push("submit"), HttpResponse.json(SUBMITTED))),
+      );
+      const { user } = renderWithProviders(<ReviewEditor id={40} />);
+
+      const submit = await screen.findByRole("button", { name: "Submit" });
+      expect(submit).toBeEnabled();
+      expect(screen.queryByText(REVIEW_COPY.submitNeedsReview)).not.toBeInTheDocument();
+      await user.click(submit);
+      await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Submit" }));
+
+      await waitFor(() => expect(seen).toEqual(["patch", "submit"]));
     });
 
     it("shows the server's message for a 400 on submit", async () => {
