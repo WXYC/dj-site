@@ -58,8 +58,13 @@ function serveIntake(open: IntakeItem[], reviewed: IntakeItem[] = []) {
 
 const section = (name: string) => screen.findByRole("region", { name });
 
-const RACE_LINE = "Someone else got to this record first. The lists are up to date.";
+const SHELF = "The review shelf";
+const RETURN = "Return to the review shelf";
+const BROUGHT_BACK = "Have you brought this record back to the station?";
 const FAILURE_LINE = "Couldn't do that. Please try again.";
+const SHELF_RACE = "This record left the review shelf before your click went through. The lists have been reloaded.";
+const REQUEST_RACE = "This request is no longer open; it may have expired. The lists have been reloaded.";
+const RELEASE_RACE = "This record is no longer checked out to you. The lists have been reloaded.";
 
 describe("ReviewsPile", () => {
   beforeEach(() => {
@@ -70,7 +75,7 @@ describe("ReviewsPile", () => {
   });
   afterEach(() => vi.unstubAllEnvs());
 
-  it("lists the Pile with Check out, and a checkout sends the POST", async () => {
+  it("lists the review shelf with Check out, and a checkout sends the POST", async () => {
     serveIntake([item({ id: 5 })]);
     let posted: string | undefined;
     server.use(
@@ -81,7 +86,7 @@ describe("ReviewsPile", () => {
     );
 
     const { user } = renderWithProviders(<ReviewsPile />);
-    const pile = await section("The Pile");
+    const pile = await section(SHELF);
     expect(within(pile).getByText(/Aluminum Tunes/)).toBeInTheDocument();
     expect(within(pile).getByText(/cd/)).toBeInTheDocument();
     await user.click(within(pile).getByRole("button", { name: "Check out" }));
@@ -130,9 +135,10 @@ describe("ReviewsPile", () => {
     expect(within(mine).getByText("Overdue")).toBeInTheDocument();
     expect(within(mine).queryByText(/Cat Power|Jessica Pratt/)).not.toBeInTheDocument();
 
-    await user.click(within(mine).getByRole("button", { name: "Return to the Pile" }));
-    expect(await screen.findByText("Have you brought this record back to the station?")).toBeInTheDocument();
-    await user.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Return to the Pile" }));
+    await user.click(within(mine).getByRole("button", { name: RETURN }));
+    const reviewedDialog = await screen.findByRole("alertdialog", { name: RETURN });
+    expect(within(reviewedDialog).getByText(BROUGHT_BACK)).toBeInTheDocument();
+    await user.click(within(reviewedDialog).getByRole("button", { name: RETURN }));
 
     await waitFor(() => expect(released).toBe(true));
     await waitFor(() => expect(within(mine).queryByText(/Stereolab/)).not.toBeInTheDocument());
@@ -159,11 +165,10 @@ describe("ReviewsPile", () => {
     const mine = await section("My checkouts");
     await within(mine).findByText(/Stereolab/);
 
-    await user.click(within(mine).getByRole("button", { name: "Return to the Pile" }));
-    const dialog = await screen.findByRole("alertdialog");
-    expect(within(dialog).getByText("Put this record back in the Pile?")).toBeInTheDocument();
-    expect(within(dialog).queryByText("Have you brought this record back to the station?")).not.toBeInTheDocument();
-    await user.click(within(dialog).getByRole("button", { name: "Return to the Pile" }));
+    await user.click(within(mine).getByRole("button", { name: RETURN }));
+    const dialog = await screen.findByRole("alertdialog", { name: RETURN });
+    expect(within(dialog).getByText(BROUGHT_BACK)).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: RETURN }));
 
     await waitFor(() => expect(released).toBe("/intake/2/release"));
     await waitFor(() => expect(within(mine).queryByText(/Stereolab/)).not.toBeInTheDocument());
@@ -192,30 +197,56 @@ describe("ReviewsPile", () => {
     await waitFor(() => expect(paths).toEqual(["/intake/11/accept", "/intake/11/pass"]));
   });
 
-  it("answers a lost race with our own line as a neutral toast, never an error toast or the server's message, and refetches", async () => {
-    let lists = 0;
-    server.use(
-      http.get(`${TEST_BACKEND_URL}/intake`, () => {
-        lists += 1;
-        return HttpResponse.json([item({ id: 5 })]);
-      }),
-      http.get(`${TEST_BACKEND_URL}/library/formats`, () => HttpResponse.json([])),
-      http.post(`${TEST_BACKEND_URL}/intake/5/checkout`, () =>
-        HttpResponse.json({ message: "server words", reason: "state_changed" }, { status: 409 }),
-      ),
-    );
+  // The notice says the lists have been reloaded, so it waits until they have.
+  it.each([
+    ["Check out", SHELF, "checkout", item({ id: 5 }), SHELF_RACE],
+    ["Accept", "Requests for me", "accept", item({ id: 5, state: "requested", effective_state: "requested", requested_dj_id: ME }), REQUEST_RACE],
+    ["Pass", "Requests for me", "pass", item({ id: 5, state: "requested", effective_state: "requested", requested_dj_id: ME }), REQUEST_RACE],
+    [RETURN, "My checkouts", "release", item({ id: 5, state: "checked_out", effective_state: "checked_out", checked_out_by: ME }), RELEASE_RACE],
+  ] as const)(
+    "answers a lost race on %s with its own neutral notice once the lists have reloaded, never an error toast or the server's message",
+    async (button, title, action, row, notice) => {
+      let raced = false;
+      let reloaded = 0;
+      let reloadedAtNotice: number | undefined;
+      server.use(
+        http.get(`${TEST_BACKEND_URL}/intake`, async ({ request }) => {
+          const reviewedOnly = new URL(request.url).searchParams.get("state") === "reviewed";
+          if (!raced) return HttpResponse.json(reviewedOnly ? [] : [row]);
+          await delay(300);
+          reloaded += 1;
+          return HttpResponse.json([]);
+        }),
+        http.get(`${TEST_BACKEND_URL}/library/formats`, () => HttpResponse.json([])),
+        http.post(`${TEST_BACKEND_URL}/intake/5/${action}`, () => {
+          raced = true;
+          return HttpResponse.json({ message: "server words", reason: "state_changed" }, { status: 409 });
+        }),
+      );
+      vi.mocked(toast).mockImplementation(() => {
+        reloadedAtNotice = reloaded;
+        return "";
+      });
 
-    const { user } = renderWithProviders(<ReviewsPile />);
-    const pile = await section("The Pile");
-    await within(pile).findByText(/Aluminum Tunes/);
-    const before = lists;
-    await user.click(within(pile).getByRole("button", { name: "Check out" }));
+      const { user } = renderWithProviders(<ReviewsPile />);
+      const region = await section(title);
+      await within(region).findByText(/Stereolab/);
+      await user.click(within(region).getByRole("button", { name: button }));
+      if (action === "release") {
+        await user.click(within(await screen.findByRole("alertdialog", { name: RETURN })).getByRole("button", { name: RETURN }));
+      }
+      await waitFor(() => expect(raced).toBe(true));
+      await new Promise((r) => setTimeout(r, 100));
+      expect(toast).not.toHaveBeenCalled();
 
-    await waitFor(() => expect(toast).toHaveBeenCalledWith(RACE_LINE));
-    await waitFor(() => expect(lists).toBeGreaterThan(before));
-    expect(toast).not.toHaveBeenCalledWith("server words");
-    expect(toast.error).not.toHaveBeenCalled();
-  });
+      // The reload is delayed 300 ms; leave room for a loaded runner.
+      await waitFor(() => expect(toast).toHaveBeenCalledWith(notice), { timeout: 3000 });
+      expect(toast).toHaveBeenCalledTimes(1);
+      expect(reloadedAtNotice).toBe(2);
+      expect(toast).not.toHaveBeenCalledWith("server words");
+      expect(toast.error).not.toHaveBeenCalled();
+    },
+  );
 
   it("answers a failed write with the generic line as an error toast, not the race line", async () => {
     serveIntake([item({ id: 5 })]);
@@ -226,14 +257,14 @@ describe("ReviewsPile", () => {
     );
 
     const { user } = renderWithProviders(<ReviewsPile />);
-    const pile = await section("The Pile");
+    const pile = await section(SHELF);
     await within(pile).findByText(/Aluminum Tunes/);
     await user.click(within(pile).getByRole("button", { name: "Check out" }));
 
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith(FAILURE_LINE));
     expect(toast.error).toHaveBeenCalledTimes(1);
     expect(toast).not.toHaveBeenCalled();
-    // The lists refetch and the row is still in the Pile, so it unlocks.
+    // The lists refetch and the row is still on the review shelf, so it unlocks.
     await waitFor(() => expect(within(pile).getByRole("button", { name: "Check out" })).toBeEnabled());
   });
 
@@ -259,7 +290,7 @@ describe("ReviewsPile", () => {
     );
 
     const { user } = renderWithProviders(<ReviewsPile />);
-    const pile = await section("The Pile");
+    const pile = await section(SHELF);
     await within(pile).findByText(/Stereolab/);
     await user.click(within(pile).getByRole("button", { name: "Check out" }));
     await waitFor(() => expect(posts).toHaveLength(1));
@@ -271,9 +302,9 @@ describe("ReviewsPile", () => {
     // user-event refuses a pointer on a locked button; a DJ's click still lands.
     fireEvent.click(again);
 
-    await waitFor(() => expect(within(pile).queryByText(/Stereolab/)).not.toBeInTheDocument());
+    await waitFor(() => expect(within(pile).queryByText(/Stereolab/)).not.toBeInTheDocument(), { timeout: 3000 });
     expect(posts).toHaveLength(1);
-    expect(toast).not.toHaveBeenCalledWith(RACE_LINE);
+    expect(toast).not.toHaveBeenCalled();
     expect(toast.error).not.toHaveBeenCalled();
   });
 
@@ -281,7 +312,7 @@ describe("ReviewsPile", () => {
   // answer 409 state_changed, telling the DJ someone else took the record they
   // just took.
   it.each([
-    ["Check out", "The Pile", item({ id: 5 }), "/intake/5/checkout"],
+    ["Check out", SHELF, item({ id: 5 }), "/intake/5/checkout"],
     [
       "Accept",
       "Requests for me",
@@ -312,11 +343,11 @@ describe("ReviewsPile", () => {
 
     await waitFor(() => expect(within(region).queryByText(/Stereolab/)).not.toBeInTheDocument());
     expect(posts).toEqual([path]);
-    expect(toast).not.toHaveBeenCalledWith(RACE_LINE);
+    expect(toast).not.toHaveBeenCalled();
     expect(toast.error).not.toHaveBeenCalled();
   });
 
-  it("says the Pile could not load rather than showing it empty when the body is not JSON", async () => {
+  it("says the review shelf could not load rather than showing it empty when the body is not JSON", async () => {
     server.use(
       http.get(`${TEST_BACKEND_URL}/intake`, () => new HttpResponse("<html>Bad Gateway</html>", { status: 200, headers: { "Content-Type": "text/html" } })),
       http.get(`${TEST_BACKEND_URL}/library/formats`, () => HttpResponse.json([])),
@@ -324,7 +355,19 @@ describe("ReviewsPile", () => {
 
     renderWithProviders(<ReviewsPile />);
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("Couldn't load the Pile");
+    expect(await screen.findByRole("alert")).toHaveTextContent(/^Couldn't load the review shelf\. Please try again\.$/);
+  });
+
+  it.each([
+    [SHELF, "Nothing is waiting on the review shelf."],
+    ["My checkouts", "You have no records checked out."],
+    ["Requests for me", "No one has asked you for a review."],
+  ])("says %s is empty in so many words", async (title, empty) => {
+    serveIntake([]);
+
+    renderWithProviders(<ReviewsPile />);
+
+    expect(await within(await section(title)).findByText(empty)).toBeInTheDocument();
   });
 
   it.each([

@@ -20,6 +20,16 @@ import ConfirmDialog from "../ConfirmDialog";
 
 const day = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString() : "");
 
+type Action = "checkout" | "accept" | "pass" | "release";
+
+/** What a lost race (409 `state_changed`) means for each button, shown once the lists have reloaded. */
+const RACE_NOTICE: Record<Action, string> = {
+  checkout: "This record left the review shelf before your click went through. The lists have been reloaded.",
+  accept: "This request is no longer open; it may have expired. The lists have been reloaded.",
+  pass: "This request is no longer open; it may have expired. The lists have been reloaded.",
+  release: "This record is no longer checked out to you. The lists have been reloaded.",
+};
+
 export default function ReviewsPile() {
   const { data: auth } = useAuthentication();
   const user = "user" in auth ? auth.user : undefined;
@@ -38,12 +48,12 @@ export default function ReviewsPile() {
   // The write in flight per row, by item id: its button shows loading and the
   // row's others are disabled. The ref is the synchronous guard, so a second
   // click that lands before the re-render is a no-op too.
-  const inFlight = useRef(new Map<number, string>());
-  const [pending, setPending] = useState<ReadonlyMap<number, string>>(() => new Map());
+  const inFlight = useRef(new Map<number, Action>());
+  const [pending, setPending] = useState<ReadonlyMap<number, Action>>(() => new Map());
 
   if (!visible) return null;
   if (open.isError || reviewed.isError) {
-    return <Typography role="alert">Couldn't load the Pile. Please try again.</Typography>;
+    return <Typography role="alert">Couldn't load the review shelf. Please try again.</Typography>;
   }
 
   // Until both lists land, an empty-state sentence would read as a fact.
@@ -60,17 +70,18 @@ export default function ReviewsPile() {
   // A double-click's second POST would find the record already moved and
   // answer 409 state_changed, telling the DJ someone else took the record they
   // just took; one write per row at a time.
-  const act = async (id: number, action: string, run: () => { unwrap: () => Promise<unknown> }) => {
+  const act = async (id: number, action: Action, run: () => { unwrap: () => Promise<unknown> }) => {
     if (inFlight.current.has(id)) return;
     inFlight.current.set(id, action);
     setPending(new Map(inFlight.current));
+    let raced = false;
     try {
       await run().unwrap();
     } catch (err) {
       // Both lists refetch on a write, lost race or not. A lost race is not an
       // error, so it is not an error toast.
       if (isIntakeStateChanged(err)) {
-        toast("Someone else got to this record first. The lists are up to date.");
+        raced = true;
       } else {
         toast.error("Couldn't do that. Please try again.");
       }
@@ -86,10 +97,12 @@ export default function ReviewsPile() {
         setPending(new Map(inFlight.current));
       }
     }
+    // The notice says the lists have been reloaded, so it waits until they have.
+    if (raced) toast(RACE_NOTICE[action]);
   };
 
   // Joy's Button disables itself while `loading`.
-  const lock = (i: IntakeItem, action: string) => ({
+  const lock = (i: IntakeItem, action: Action) => ({
     loading: pending.get(i.id) === action,
     disabled: pending.has(i.id),
   });
@@ -121,7 +134,7 @@ export default function ReviewsPile() {
 
   return (
     <Stack spacing={3}>
-      {section("The Pile", inPile, "Nothing is waiting in the Pile.", (i) => (
+      {section("The review shelf", inPile, "Nothing is waiting on the review shelf.", (i) => (
         <>
           <Typography level="body-sm">Logged {day(i.logged_at)}</Typography>
           <Button size="sm" {...lock(i, "checkout")} onClick={() => act(i.id, "checkout", () => checkout(i.id))}>Check out</Button>
@@ -134,7 +147,7 @@ export default function ReviewsPile() {
           {i.effective_state === "reviewed" && (
             <Typography level="body-sm">Reviewed. Bring the record back to the music office.</Typography>
           )}
-          <Button size="sm" variant="outlined" {...lock(i, "release")} onClick={() => setReturning(i)}>Return to the Pile</Button>
+          <Button size="sm" variant="outlined" {...lock(i, "release")} onClick={() => setReturning(i)}>Return to the review shelf</Button>
         </>
       ))}
       {section("Requests for me", requests, "No one has asked you for a review.", (i) => (
@@ -147,7 +160,7 @@ export default function ReviewsPile() {
       <ConfirmDialog
         open={returning !== null}
         onClose={() => setReturning(null)}
-        title="Return to the Pile"
+        title="Return to the review shelf"
         actions={
           <>
             <Button
@@ -157,15 +170,13 @@ export default function ReviewsPile() {
                 await act(id, "release", () => release(id));
               }}
             >
-              Return to the Pile
+              Return to the review shelf
             </Button>
             <Button variant="plain" onClick={() => setReturning(null)}>Cancel</Button>
           </>
         }
       >
-        {returning?.effective_state === "reviewed"
-          ? "Have you brought this record back to the station?"
-          : "Put this record back in the Pile?"}
+        Have you brought this record back to the station?
       </ConfirmDialog>
     </Stack>
   );
