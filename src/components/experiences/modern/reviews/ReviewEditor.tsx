@@ -8,9 +8,7 @@ import {
   useGetReviewQuery,
   useUpdateReviewMutation,
 } from "@/lib/features/reviews/api";
-import { canSeeReviews } from "@/lib/features/reviews/flags";
-import { Authorization } from "@/lib/features/admin/types";
-import { useAuthentication } from "@/src/hooks/authenticationHooks";
+import { useCanSeeReviews } from "@/src/hooks/useCanSeeReviews";
 import { REVIEW_COPY } from "./copy";
 import SlipPreview from "./SlipPreview";
 import { useReviewRecord } from "./useReviewRecord";
@@ -60,8 +58,7 @@ function Form({ review }: { review: Review }) {
 }
 
 export default function ReviewEditor({ id }: { id: number }) {
-  const { data: auth } = useAuthentication();
-  const visible = canSeeReviews(("user" in auth ? auth.user?.authority : undefined) ?? Authorization.NO);
+  const visible = useCanSeeReviews();
   const { data, isError } = useGetReviewQuery(id, { skip: !visible });
 
   if (!visible) return null;
