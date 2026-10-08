@@ -1,14 +1,17 @@
 import type { JSX } from "react";
 import { Authorization } from "@/lib/features/admin/types";
 import { requireAuth, getUserFromSession } from "@/lib/features/authentication/server-utils";
+import { canSeeReviews } from "@/lib/features/reviews/flags";
 import { isRotationAdminEnabled } from "@/lib/features/rotation/flags";
 import { EditCalendar, ManageAccounts, Sensors } from "@mui/icons-material";
 import AlbumIcon from "@mui/icons-material/Album";
 import LibraryMusicIcon from "@mui/icons-material/LibraryMusic";
+import InboxIcon from "@mui/icons-material/Inbox";
 import QueueMusicIcon from "@mui/icons-material/QueueMusic";
 import StorageIcon from "@mui/icons-material/Storage";
 import Divider from "@mui/joy/Divider";
 import List from "@mui/joy/List";
+import { REVIEW_COPY } from "../reviews/copy";
 import FlowsheetLink from "./FlowsheetLink";
 import LeftbarContainer from "./LeftbarContainer";
 import LeftbarLink from "./LeftbarLink";
@@ -49,6 +52,11 @@ export default async function Leftbar(): Promise<JSX.Element> {
             {isRotationAdminEnabled() && (
               <LeftbarLink path="/dashboard/admin/rotation" title="Rotation">
                 <QueueMusicIcon />
+              </LeftbarLink>
+            )}
+            {canSeeReviews(user.authority) && (
+              <LeftbarLink path="/dashboard/admin/intake" title={REVIEW_COPY.intake.title}>
+                <InboxIcon />
               </LeftbarLink>
             )}
             {/* Not disabled below SM like the roster link: the whole admin

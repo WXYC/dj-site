@@ -30,6 +30,7 @@ describe("reviewsApi", () => {
       "updateReview",
       "submitReview",
       "deleteReview",
+      "logIntakeItem",
     ],
     reducerPath: "reviewsApi",
   });
@@ -325,5 +326,38 @@ describe("reviewsApi", () => {
     expect(predicate({ reviewWriteError: { status: 409, data: { reason: other } } })).toBe(false);
     expect(predicate({ reviewWriteError: { status: 400, data: { reason } } })).toBe(false);
     expect(predicate(undefined)).toBe(false);
+  });
+
+  it.each([
+    ["asked for", { awaiting_acceptance: true }, "true"],
+    ["not asked for", { state: "reviewed" as const }, null],
+    ["asked for with a state", { state: "filed" as const, awaiting_acceptance: true }, "true"],
+  ])("getIntakeItems sends awaiting_acceptance when %s", async (_label, arg, expected) => {
+    let seen: URL | undefined;
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/intake`, ({ request }) => {
+        seen = new URL(request.url);
+        return HttpResponse.json([]);
+      })
+    );
+
+    await makeReviewsStore().dispatch(reviewsApi.endpoints.getIntakeItems.initiate(arg));
+
+    expect(seen?.searchParams.get("awaiting_acceptance")).toBe(expected);
+  });
+
+  it("logIntakeItem POSTs the logging fields to /intake", async () => {
+    let seen: { method: string; path: string; body: unknown } | undefined;
+    server.use(
+      http.post(`${TEST_BACKEND_URL}/intake`, async ({ request }) => {
+        seen = { method: request.method, path: new URL(request.url).pathname, body: await request.json() };
+        return HttpResponse.json({ id: 9 });
+      })
+    );
+    const body = { artist_name: "Cat Power", album_title: "Moon Pix", format_id: 1 };
+
+    await makeReviewsStore().dispatch(reviewsApi.endpoints.logIntakeItem.initiate(body));
+
+    expect(seen).toEqual({ method: "POST", path: "/intake", body });
   });
 });

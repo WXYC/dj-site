@@ -495,4 +495,22 @@ describe("Leftbar", () => {
       screen.queryByTestId("leftbar-link--dashboard-admin-rotation")
     ).not.toBeInTheDocument();
   });
+  it.each([
+    ["staff", Authorization.MD, true],
+    ["staff", Authorization.DJ, false],
+    ["true", Authorization.MD, true],
+    [undefined, Authorization.MD, false],
+  ] as const)("with the reviews flag %s, an account at authority %s sees the Review shelf link: %s", async (flag, authority, shown) => {
+    if (flag === undefined) vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "");
+    else vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", flag);
+    const { getUserFromSession } = await import("@/lib/features/authentication/server-utils");
+    vi.mocked(getUserFromSession).mockResolvedValue({ ...mockUser, authority });
+
+    renderWithProviders(await Leftbar());
+
+    const link = screen.queryByTestId("leftbar-link--dashboard-admin-intake");
+    expect(link !== null).toBe(shown);
+    if (shown) expect(link).toHaveTextContent("Review shelf");
+    vi.unstubAllEnvs();
+  });
 });
