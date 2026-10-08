@@ -4,15 +4,12 @@ import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { isReviewSubjectNotHeld, useCreateReviewMutation } from "@/lib/features/reviews/api";
-import { canSeeReviews } from "@/lib/features/reviews/flags";
-import { Authorization } from "@/lib/features/admin/types";
-import { useAuthentication } from "@/src/hooks/authenticationHooks";
+import { useCanSeeReviews } from "@/src/hooks/useCanSeeReviews";
 import { REVIEW_COPY } from "./copy";
 
 /** Starts a draft for a library release and opens it; renders nothing itself. */
 export default function NewReview({ albumId }: { albumId: number }) {
-  const { data: auth } = useAuthentication();
-  const visible = canSeeReviews(("user" in auth ? auth.user?.authority : undefined) ?? Authorization.NO);
+  const visible = useCanSeeReviews();
   const [createReview] = useCreateReviewMutation();
   const router = useRouter();
   // Strict Mode runs the effect twice; a second POST would start a second draft.

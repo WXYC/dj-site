@@ -4,7 +4,7 @@ import { useAuthentication } from "@/src/hooks/authenticationHooks";
 
 /**
  * Whether the signed-in account is shown the reviews screens. No session, or
- * one still loading, counts as `Authorization.NO`.
+ * one whose session read is still pending, counts as `Authorization.NO`.
  */
 export function useCanSeeReviews(): boolean {
   const { data: auth } = useAuthentication();
