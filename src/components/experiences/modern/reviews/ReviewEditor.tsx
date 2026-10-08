@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Button, FormControl, FormHelperText, FormLabel, Stack, Textarea, Typography } from "@mui/joy";
+import { Button, Stack, Typography } from "@mui/joy";
 import type { Review, ReviewPatch } from "@wxyc/shared";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -20,13 +20,9 @@ import { useCanSeeReviews } from "@/src/hooks/useCanSeeReviews";
 import ConfirmDialog from "../ConfirmDialog";
 import ConsentBlock, { type Consent } from "./ConsentBlock";
 import { REVIEW_COPY } from "./copy";
+import SlipFields, { toFieldPatch, toFieldValues } from "./SlipFields";
 import SlipPreview from "./SlipPreview";
 import { useReviewRecord } from "./useReviewRecord";
-
-const FIELD_NAMES = ["buzzwords", "artist_blurb", "review", "recommended_tracks", "fcc"] as const;
-type FieldName = (typeof FIELD_NAMES)[number];
-
-const orNull = (text: string) => (text.trim() === "" ? null : text);
 
 type Confirming = "submit" | "delete" | null;
 
@@ -35,9 +31,7 @@ function Form({ review }: { review: Review }) {
   const user = "user" in auth ? auth.user : undefined;
   const isAuthor = user?.id != null && user.id === review.author_user_id;
   const isMusicDirector = !isAuthor && (user?.authority ?? Authorization.NO) >= Authorization.MD;
-  const [values, setValues] = useState<Record<FieldName, string>>(
-    () => Object.fromEntries(FIELD_NAMES.map((n) => [n, review[n] ?? ""])) as Record<FieldName, string>,
-  );
+  const [values, setValues] = useState(() => toFieldValues(review));
   const [consent, setConsent] = useState<Consent>(() => ({
     publish_website: review.publish_website,
     publish_apps: review.publish_apps,
@@ -58,7 +52,7 @@ function Form({ review }: { review: Review }) {
 
   // A non-author's patch carries no consent: the service accepts it only from the author.
   const patch = (): ReviewPatch => ({
-    ...(Object.fromEntries(FIELD_NAMES.map((n) => [n, orNull(values[n])])) as ReviewPatch),
+    ...toFieldPatch(values),
     ...(isAuthor ? consent : {}),
   });
   const failure = (err: unknown, fallback: string) =>
@@ -105,13 +99,7 @@ function Form({ review }: { review: Review }) {
             {REVIEW_COPY.editingOthers(review.author ?? "", !draft && review.author_user_id != null)}
           </Typography>
         )}
-        {FIELD_NAMES.map((name) => (
-          <FormControl key={name}>
-            <FormLabel>{REVIEW_COPY.fields[name].label}</FormLabel>
-            <Textarea minRows={name === "review" ? 6 : 1} value={values[name]} onChange={(e) => setValues({ ...values, [name]: e.target.value })} />
-            <FormHelperText>{REVIEW_COPY.fields[name].help}</FormHelperText>
-          </FormControl>
-        ))}
+        <SlipFields values={values} onChange={setValues} />
         {isAuthor ? (
           <ConsentBlock value={consent} onChange={setConsent} djName={user?.djName} realName={user?.realName} />
         ) : (
