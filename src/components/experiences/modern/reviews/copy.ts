@@ -1,8 +1,8 @@
 /**
- * Every string the review editor, its slip preview, and the screen's draft
- * rows show. The two lines marked approved were approved by the station
- * verbatim; the rest are drafted from the Google Form's question wording and
- * wait for the station's approval before launch.
+ * Every string the reviews screen and the review editor (with its slip
+ * preview) show. Lines marked approved were approved by the station verbatim;
+ * the rest are drafted (the editor's from the Google Form's question wording)
+ * and wait for the station's approval before launch.
  */
 export const REVIEW_COPY = {
   /** Approved. Shown in place of a draft the DJ can no longer start. */
@@ -42,6 +42,46 @@ export const REVIEW_COPY = {
     review: "Review",
     reviewer: "Reviewer",
     recommended: "Recommended",
+  },
+  screen: {
+    /** Approved. */
+    shelfTitle: "The review shelf",
+    /** Approved. */
+    shelfEmpty: "Nothing is waiting on the review shelf.",
+    /** Approved. */
+    checkoutsTitle: "My checkouts",
+    /** Approved. */
+    checkoutsEmpty: "You have no records checked out.",
+    /** Approved. */
+    requestsTitle: "Requests for me",
+    /** Approved. */
+    requestsEmpty: "No one has asked you for a review.",
+    /** Approved. The page's load failure. */
+    loadFailed: "Couldn't load the review shelf. Please try again.",
+    /** Approved. Any failed write other than starting a review. */
+    writeFailed: "Couldn't do that. Please try again.",
+    /** Approved. */
+    overdue: "Overdue",
+    /** Approved. The button and the confirm dialog's title. */
+    returnToShelf: "Return to the review shelf",
+    /** Approved. The confirm dialog's question. */
+    returnQuestion: "Have you brought this record back to the station?",
+    /** Shown on a checkout whose review is done. */
+    reviewedReturn: "Reviewed. Bring the record back to the music office.",
+    /** Each is followed by a date. */
+    logged: "Logged",
+    taken: "Taken",
+    asked: "Asked",
+    checkOut: "Check out",
+    accept: "Accept",
+    pass: "Pass",
+    cancel: "Cancel",
+    /** Approved. Lost races, shown once the lists have reloaded. */
+    raceCheckout: "This record left the review shelf before your click went through. The lists have been reloaded.",
+    /** Approved. Accept and Pass share it. */
+    raceRequest: "This request is no longer open; it may have expired. The lists have been reloaded.",
+    /** Approved. */
+    raceRelease: "This record is no longer checked out to you. The lists have been reloaded.",
   },
   myReviews: {
     title: "My reviews",
