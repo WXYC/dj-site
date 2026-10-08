@@ -207,7 +207,7 @@ export async function assertDeniedClassicPage(
  * `NEXT_NOT_FOUND` marker `mockNotFound` throws, so a page that merely
  * rejected for another reason does not pass.
  */
-export async function assertNotFoundPage(page: () => Promise<ReactElement>) {
+export async function assertNotFoundPage(page: () => Promise<unknown>) {
   await expect(page()).rejects.toThrow("NEXT_NOT_FOUND");
   expect(mockNotFound).toHaveBeenCalled();
 }
