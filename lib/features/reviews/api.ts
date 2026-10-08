@@ -65,6 +65,13 @@ export const reviewsApi = createApi({
       transformErrorResponse: wrapIntakeWriteError,
       invalidatesTags: ["Intake"],
     }),
+    // The librarian shelving a filed record. Refuses 409 `in_rotation` while
+    // the release is in active rotation.
+    finalizeIntakeItem: builder.mutation<IntakeItem, number>({
+      query: (id) => ({ url: `intake/${id}/finalize`, method: "POST" }),
+      transformErrorResponse: wrapIntakeWriteError,
+      invalidatesTags: ["Intake"],
+    }),
   }),
 });
 
@@ -74,4 +81,5 @@ export const {
   useReleaseIntakeItemMutation,
   useAcceptIntakeItemMutation,
   usePassIntakeItemMutation,
+  useFinalizeIntakeItemMutation,
 } = reviewsApi;
