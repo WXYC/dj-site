@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { isReviewSubjectNotHeld, useCreateReviewMutation } from "@/lib/features/reviews/api";
+import { isReviewSubjectNotHeld, useCreateReviewMutation } from "@/lib/features/reviews/reviewApi";
 import { useCanSeeReviews } from "@/src/hooks/useCanSeeReviews";
 import { REVIEW_COPY } from "./copy";
 

@@ -12,10 +12,10 @@ import { rotationApi, useGetRotationListQuery } from "@/lib/features/rotation/ap
 import {
   isIntakeInRotation,
   isIntakeStateChanged,
-  reviewsApi,
+  intakeApi,
   useFinalizeIntakeItemMutation,
   useGetIntakeItemsQuery,
-} from "@/lib/features/reviews/api";
+} from "@/lib/features/reviews/intakeApi";
 import { useAppDispatch } from "@/lib/hooks";
 import { serverMessage, unwrapEndpointErrorOrRaw } from "@/lib/rtk-endpoint-error";
 import { useMounted, useRowWrite } from "@/src/hooks/useRowWrite";
@@ -145,7 +145,7 @@ export default function FiledIntakeItems({ canWrite }: { canWrite: boolean }) {
     // Finalize invalidates only the intake list; the active rotation list is
     // what a 409 `in_rotation` says is stale.
     reload: () => [
-      dispatch(reviewsApi.endpoints.getIntakeItems.initiate(FILED, { subscribe: false, forceRefetch: true })),
+      dispatch(intakeApi.endpoints.getIntakeItems.initiate(FILED, { subscribe: false, forceRefetch: true })),
       dispatch(rotationApi.endpoints.getRotationList.initiate("active", { subscribe: false, forceRefetch: true })),
     ],
     // A lost race (someone else finalized it first) is not an error: the

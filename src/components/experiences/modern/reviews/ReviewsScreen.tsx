@@ -8,16 +8,19 @@ import { toast } from "sonner";
 import { useGetFormatsQuery } from "@/lib/features/catalog/api";
 import {
   isIntakeStateChanged,
-  isReviewSubjectNotHeld,
-  reviewsApi,
-  useCreateReviewMutation,
-  useGetMyReviewsQuery,
+  intakeApi,
   useAcceptIntakeItemMutation,
   useCheckoutIntakeItemMutation,
   useGetIntakeItemsQuery,
   usePassIntakeItemMutation,
   useReleaseIntakeItemMutation,
-} from "@/lib/features/reviews/api";
+} from "@/lib/features/reviews/intakeApi";
+import {
+  isReviewSubjectNotHeld,
+  reviewApi,
+  useCreateReviewMutation,
+  useGetMyReviewsQuery,
+} from "@/lib/features/reviews/reviewApi";
 import { useCanSeeReviews } from "@/src/hooks/useCanSeeReviews";
 import { useAuthentication } from "@/src/hooks/authenticationHooks";
 import { useAppDispatch } from "@/lib/hooks";
@@ -77,9 +80,9 @@ export default function ReviewsScreen() {
   // write's invalidation already started.
   const { write, lock } = useRowWrite<Action>({
     reload: () => [
-      dispatch(reviewsApi.endpoints.getIntakeItems.initiate(OPEN_LISTS, { subscribe: false, forceRefetch: true })),
-      dispatch(reviewsApi.endpoints.getIntakeItems.initiate(REVIEWED_LIST, { subscribe: false, forceRefetch: true })),
-      dispatch(reviewsApi.endpoints.getMyReviews.initiate(MY_REVIEWS, { subscribe: false, forceRefetch: true })),
+      dispatch(intakeApi.endpoints.getIntakeItems.initiate(OPEN_LISTS, { subscribe: false, forceRefetch: true })),
+      dispatch(intakeApi.endpoints.getIntakeItems.initiate(REVIEWED_LIST, { subscribe: false, forceRefetch: true })),
+      dispatch(reviewApi.endpoints.getMyReviews.initiate(MY_REVIEWS, { subscribe: false, forceRefetch: true })),
     ],
     isLostRace: (err) => isIntakeStateChanged(err) || isReviewSubjectNotHeld(err),
     onFailure: (_err, _id, action) =>

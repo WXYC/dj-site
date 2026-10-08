@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { Button, Link as JoyLink, Stack, Typography } from "@mui/joy";
 import type { Review } from "@wxyc/shared";
-import { useGetAlbumReviewsForReleaseQuery, useGetReviewsForReleaseQuery } from "@/lib/features/reviews/api";
+import { useGetReviewsForReleaseQuery } from "@/lib/features/reviews/reviewApi";
+import { useGetAlbumReviewsForReleaseQuery } from "@/lib/features/reviews/albumReviewApi";
 import { useCanSeeReviews } from "@/src/hooks/useCanSeeReviews";
 import { REVIEW_COPY } from "./copy";
 import SlipPreview, { SlipFccRow } from "./SlipPreview";

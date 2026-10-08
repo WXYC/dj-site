@@ -1,7 +1,37 @@
-import { http, HttpResponse } from "msw";
-import type { AlbumReview, IntakeItem, Review } from "@wxyc/shared";
-import { server } from "./server";
-import { TEST_BACKEND_URL as BACKEND_URL } from "../helpers/constants";
+import type { IntakeItem, Review } from "@wxyc/shared";
+import { fakeAlbumReviewEndpoints, type FakeAlbumReviewOptions } from "./reviews/albumReview";
+import { fakeIntakeEndpoints, type FakeIntakeOptions } from "./reviews/intake";
+import { fakeLibraryLookupEndpoints, type FakeLibraryOptions } from "./reviews/library";
+import { fakeReviewEndpoints, type FakeReviewOptions } from "./reviews/review";
+
+/**
+ * Stand-in for every GET the reviews screen and the review editor make, so a
+ * spec that renders either one cannot fall through to the network (MSW
+ * bypasses unhandled requests, and a missing read shows up as the component's
+ * load-failure line). `fakeReviewsEndpoints` is only a composite: it hands its
+ * options to one builder per route family in `./reviews/`, and each builder's
+ * doc comment lists the routes it answers.
+ *
+ * Where a fake goes: in the builder for its route family, the first path
+ * segment of the route's `url` (the same rule as the endpoints in
+ * `lib/features/reviews/api.ts`). A new filter on an existing route is a new
+ * option on that builder plus a row in its query table. A new route family gets
+ * its own builder and one line in the composite. A fake never goes in the
+ * composite itself.
+ *
+ * Lists default to empty. A spec that holds, counts or fails a read layers its
+ * own `server.use(...)` over these defaults. When the screen or the editor
+ * gains a read, add its default to the builder so no other spec has to learn
+ * about it.
+ */
+export function fakeReviewsEndpoints(
+  options: FakeIntakeOptions & FakeReviewOptions & FakeAlbumReviewOptions & FakeLibraryOptions = {},
+) {
+  fakeIntakeEndpoints(options);
+  fakeReviewEndpoints(options);
+  fakeAlbumReviewEndpoints(options);
+  fakeLibraryLookupEndpoints(options);
+}
 
 /** An intake record on the review shelf, with WXYC-representative data. */
 export const intakeItem = (overrides: Partial<IntakeItem> = {}): IntakeItem =>
@@ -39,85 +69,3 @@ export const review = (overrides: Partial<Review> = {}): Review =>
     fcc: null,
     ...overrides,
   }) as Review;
-
-/** A list given as rows, or as a function so a spec can change the answer over time. */
-type Rows<Row> = Row[] | (() => Row[]);
-const resolve = <Row>(rows: Rows<Row>) => (typeof rows === "function" ? rows() : rows);
-
-/**
- * Stand-in for every GET the reviews screen and the review editor make, so a
- * spec that renders either one cannot fall through to the network (MSW
- * bypasses unhandled requests, and a missing read shows up as the component's
- * load-failure line):
- *
- * - `GET /intake` answers `awaiting` when `awaiting_acceptance=true`, else `reviewed`
- *   when `state=reviewed`, `filed` when `state=filed`, else `open`
- * - `GET /reviews?mine=true` answers `mine`
- * - `GET /reviews?album_id=` answers `forRelease[album_id]` (empty when absent)
- * - `GET /album-reviews?album_id=` answers `archive[album_id]` as the archive page shape
- * - `GET /reviews/:id` answers the matching row of `reviews`, 404 otherwise
- * - `GET /intake/:id` answers the matching row of `records`, 404 otherwise
- * - `GET /library/info?album_id=` answers the matching row of `releases` (the
- *   raw wire shape), 404 otherwise
- * - `GET /library/formats` answers `formats` (one `cd` format by default)
- *
- * Lists default to empty. A spec that holds, counts or fails a read layers its
- * own `server.use(...)` over these defaults. When the screen or the editor
- * gains a read, add its default here so no other spec has to learn about it.
- */
-export function fakeReviewsEndpoints({
-  open = [],
-  reviewed = [],
-  awaiting = [],
-  filed = [],
-  mine = [],
-  reviews = [],
-  forRelease = {},
-  archive = {},
-  records = [],
-  releases = [],
-  formats = [{ id: 1, format_name: "cd" }],
-}: {
-  open?: Rows<IntakeItem>;
-  reviewed?: Rows<IntakeItem>;
-  awaiting?: Rows<IntakeItem>;
-  filed?: Rows<IntakeItem>;
-  mine?: Rows<Review>;
-  reviews?: Review[];
-  forRelease?: Record<string, Review[]>;
-  archive?: Record<string, AlbumReview[]>;
-  records?: IntakeItem[];
-  releases?: { id: number; [key: string]: unknown }[];
-  formats?: { id: number; format_name: string }[];
-} = {}) {
-  server.use(
-    http.get(`${BACKEND_URL}/intake`, ({ request }) => {
-      const query = new URL(request.url).searchParams;
-      if (query.get("awaiting_acceptance") === "true") return HttpResponse.json(resolve(awaiting));
-      const byState = { reviewed, filed };
-      return HttpResponse.json(resolve(byState[query.get("state") as keyof typeof byState] ?? open));
-    }),
-    http.get(`${BACKEND_URL}/reviews`, ({ request }) => {
-      const albumId = new URL(request.url).searchParams.get("album_id");
-      return HttpResponse.json(albumId === null ? resolve(mine) : (forRelease[albumId] ?? []));
-    }),
-    http.get(`${BACKEND_URL}/album-reviews`, ({ request }) => {
-      const albumId = new URL(request.url).searchParams.get("album_id") ?? "";
-      return HttpResponse.json({ album_reviews: archive[albumId] ?? [], pagination: {} });
-    }),
-    http.get(`${BACKEND_URL}/reviews/:id`, ({ params }) => {
-      const found = reviews.find((row) => String(row.id) === params.id);
-      return found ? HttpResponse.json(found) : HttpResponse.json({ message: "not found" }, { status: 404 });
-    }),
-    http.get(`${BACKEND_URL}/intake/:id`, ({ params }) => {
-      const found = records.find((row) => String(row.id) === params.id);
-      return found ? HttpResponse.json(found) : HttpResponse.json({ message: "not found" }, { status: 404 });
-    }),
-    http.get(`${BACKEND_URL}/library/info`, ({ request }) => {
-      const id = new URL(request.url).searchParams.get("album_id");
-      const found = releases.find((row) => String(row.id) === id);
-      return found ? HttpResponse.json(found) : HttpResponse.json({ message: "not found" }, { status: 404 });
-    }),
-    http.get(`${BACKEND_URL}/library/formats`, () => HttpResponse.json(formats)),
-  );
-}

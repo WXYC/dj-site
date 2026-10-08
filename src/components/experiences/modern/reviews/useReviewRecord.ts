@@ -1,7 +1,7 @@
 import type { Review } from "@wxyc/shared";
 import { skipToken } from "@reduxjs/toolkit/query";
 import { useGetInformationQuery } from "@/lib/features/catalog/api";
-import { useGetIntakeItemQuery } from "@/lib/features/reviews/api";
+import { useGetIntakeItemQuery } from "@/lib/features/reviews/intakeApi";
 import { intakeRecord } from "./recordLine";
 
 export type ReviewRecord = {
