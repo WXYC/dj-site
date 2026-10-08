@@ -14,10 +14,11 @@ import { fakeReviewEndpoints, type FakeReviewOptions } from "./reviews/review";
  *
  * Where a fake goes: in the builder for its route family, the first path
  * segment of the route's `url` (the same rule as the endpoints in
- * `lib/features/reviews/api.ts`). A new filter on an existing route is a new
- * option on that builder plus a row in its query table. A new route family gets
- * its own builder and one line in the composite. A fake never goes in the
- * composite itself.
+ * `lib/features/reviews/api.ts`). A new filter on an existing route is handled
+ * inside that route's handler in the builder (for intake, `state=` filters the
+ * union of every state), with a case in that builder's own spec. A new route
+ * family gets its own builder and one line in the composite. A fake never goes
+ * in the composite itself.
  *
  * Lists default to empty. A spec that holds, counts or fails a read layers its
  * own `server.use(...)` over these defaults. When the screen or the editor
