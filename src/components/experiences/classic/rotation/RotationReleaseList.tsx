@@ -25,6 +25,7 @@ import {
   type RotationListStatusFilter,
   type RotationStatusFilter,
 } from "@/lib/features/rotation/types";
+import { hasNothingToShow } from "@/lib/has-nothing-to-show";
 
 const ROTATION_OUTAGE = "Rotation releases are unavailable right now.";
 
@@ -193,10 +194,10 @@ function ActiveFacet({
   // Absence-of-list, not the error flag: a background refetch can leave
   // isError true while the last-good rows are still on screen, and a
   // request that never went out reports neither.
-  const hasNothingToShow = isError && data == null;
+  const nothingToShow = hasNothingToShow({ isError, data });
 
   if (isLoading) return <p style={{ textAlign: "center" }}>Loading...</p>;
-  if (hasNothingToShow) return <OutagePanel message={ROTATION_OUTAGE} onRetry={refetch} retrying={isFetching} />;
+  if (nothingToShow) return <OutagePanel message={ROTATION_OUTAGE} onRetry={refetch} retrying={isFetching} />;
 
   const rows = dedupeRotationListByArtistTitle(data ?? []).map((row) => toDisplayRowFromList(row));
   return (
@@ -256,10 +257,10 @@ function UncataloguedFacet({
     [formats],
   );
 
-  const hasNothingToShow = isError && data == null;
+  const nothingToShow = hasNothingToShow({ isError, data });
 
   if (isLoading) return <p style={{ textAlign: "center" }}>Loading...</p>;
-  if (hasNothingToShow) return <OutagePanel message={ROTATION_OUTAGE} onRetry={refetch} retrying={isFetching} />;
+  if (nothingToShow) return <OutagePanel message={ROTATION_OUTAGE} onRetry={refetch} retrying={isFetching} />;
 
   const page = data ?? [];
   const allRows = page.map((row) => toDisplayRowFromUncatalogued(row, formatNames));
@@ -373,10 +374,10 @@ function StatusFacet({
   // Absence-of-list, not the error flag, for the reason the Active facet
   // gives: a background refetch can leave isError true with the last-good
   // rows still on screen.
-  const hasNothingToShow = isError && data == null;
+  const nothingToShow = hasNothingToShow({ isError, data });
 
   if (isLoading) return <p style={{ textAlign: "center" }}>Loading...</p>;
-  if (hasNothingToShow) return <OutagePanel message={ROTATION_OUTAGE} onRetry={refetch} retrying={isFetching} />;
+  if (nothingToShow) return <OutagePanel message={ROTATION_OUTAGE} onRetry={refetch} retrying={isFetching} />;
 
   const rows = history.slice(0, renderCap).map((row) => toDisplayRowFromList(row));
   const remaining = history.length - rows.length;

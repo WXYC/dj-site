@@ -23,6 +23,7 @@ import { REVIEW_COPY } from "./copy";
 import SlipFields, { toFieldPatch, toFieldValues } from "./SlipFields";
 import SlipPreview from "./SlipPreview";
 import { useReviewRecord } from "./useReviewRecord";
+import { hasNothingToShow } from "@/lib/has-nothing-to-show";
 
 type Confirming = "submit" | "delete" | null;
 
@@ -157,6 +158,6 @@ export default function ReviewEditor({ id }: { id: number }) {
   const { data, isError } = useGetReviewQuery(id, { skip: !visible });
 
   if (!visible) return null;
-  if (isError && !data) return <Typography role="alert">{REVIEW_COPY.couldNotLoad}</Typography>;
+  if (hasNothingToShow({ isError, data })) return <Typography role="alert">{REVIEW_COPY.couldNotLoad}</Typography>;
   return data ? <Form review={data} /> : null;
 }

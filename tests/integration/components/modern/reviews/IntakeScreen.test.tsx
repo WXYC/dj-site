@@ -262,3 +262,33 @@ describe("IntakeScreen", () => {
     );
   });
 });
+
+describe("IntakeScreen — a failed background refetch", () => {
+  beforeEach(() => {
+    authority = Authorization.MD;
+    vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "staff");
+  });
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("keeps the loaded lanes and shows no load-failure line when the reload after a write fails", async () => {
+    fakeReviewsEndpoints({ reviewed: [moonPix({ id: 11, effective_state: "reviewed", checked_out_at: "2026-09-01T12:00:00Z", checked_out_by: "dj-1", checked_out_by_name: "DJ Sam" })] });
+    const { user } = renderWithProviders(<IntakeScreen />);
+    const button = await screen.findByRole("button", { name: "Mark as returned" });
+
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/intake`, () => HttpResponse.json({ message: "down" }, { status: 500 })),
+      http.post(`${TEST_BACKEND_URL}/intake/11/release`, () => HttpResponse.json(moonPix({ id: 11 }))),
+    );
+    await user.click(button);
+
+    await waitFor(() => expect(button).toBeEnabled());
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(within(await lane("Reviewed")).getByText(/Cat Power · Moon Pix/)).toBeInTheDocument();
+  });
+
+  it("shows the load-failure line when a first load fails", async () => {
+    server.use(http.get(`${TEST_BACKEND_URL}/intake`, () => HttpResponse.json({ message: "down" }, { status: 500 })));
+    renderWithProviders(<IntakeScreen />);
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+  });
+});

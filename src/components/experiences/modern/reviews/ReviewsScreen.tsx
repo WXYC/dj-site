@@ -30,6 +30,7 @@ import IntakeLane from "./IntakeLane";
 import { REVIEW_COPY } from "./copy";
 import { intakeRecord, recordLine } from "./recordLine";
 import { useReviewRecord } from "./useReviewRecord";
+import { hasNothingToShow } from "@/lib/has-nothing-to-show";
 
 const day = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString() : "");
 
@@ -92,7 +93,7 @@ export default function ReviewsScreen() {
   });
 
   if (!visible) return null;
-  if (open.isError || reviewed.isError || mine.isError) {
+  if ([open, reviewed, mine].some(hasNothingToShow)) {
     return <Typography role="alert">{REVIEW_COPY.screen.loadFailed}</Typography>;
   }
 
@@ -100,6 +101,7 @@ export default function ReviewsScreen() {
   if (!open.data || !reviewed.data || !mine.data) return null;
 
   const items = open.data;
+  const myReviews = mine.data;
   const onShelf = items.filter((i) => i.effective_state === "pool");
   const requests = items.filter((i) => i.effective_state === "requested" && i.requested_dj_id === me);
   const checkouts = [
@@ -118,7 +120,7 @@ export default function ReviewsScreen() {
         </>
       )} />
       <IntakeLane title={REVIEW_COPY.screen.checkoutsTitle} rows={checkouts} empty={REVIEW_COPY.screen.checkoutsEmpty} label={(i) => <Typography>{describe(i)}</Typography>} extra={(i) => {
-        const mineHere = mine.data.filter((r) => r.intake_item_id === i.id);
+        const mineHere = myReviews.filter((r) => r.intake_item_id === i.id);
         const submitted = mineHere.find((r) => r.status === "submitted");
         const draft = mineHere.find((r) => r.status === "draft");
         return (
@@ -158,7 +160,7 @@ export default function ReviewsScreen() {
           <Button size="sm" variant="outlined" {...lock(i.id, "pass")} onClick={() => write(i.id, "pass", () => pass(i.id).unwrap())}>{REVIEW_COPY.screen.pass}</Button>
         </>
       )} />
-      <IntakeLane title={REVIEW_COPY.myReviews.title} rows={mine.data} empty={REVIEW_COPY.myReviews.empty} label={(r) => <Typography><DraftLabel review={r} formats={formats} /></Typography>} extra={(r) => (
+      <IntakeLane title={REVIEW_COPY.myReviews.title} rows={myReviews} empty={REVIEW_COPY.myReviews.empty} label={(r) => <Typography><DraftLabel review={r} formats={formats} /></Typography>} extra={(r) => (
         <>
           <Typography level="body-sm">{r.status === "draft" ? REVIEW_COPY.myReviews.draft : REVIEW_COPY.myReviews.submitted}</Typography>
           <Link href={`/dashboard/reviews/${r.id}`}>{REVIEW_COPY.myReviews.open}</Link>

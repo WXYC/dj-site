@@ -603,3 +603,28 @@ describe("ReviewsScreen", () => {
     }
   });
 });
+
+describe("ReviewsScreen — a failed background refetch", () => {
+  beforeEach(() => {
+    vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "true");
+    mockAuth.authority = Authorization.DJ;
+  });
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("keeps the loaded lists and shows no load-failure line when the reload after Check out fails", async () => {
+    serveIntake([item({ id: 5 })]);
+    const { user } = renderWithProviders(<ReviewsScreen />);
+    const shelf = await section(SHELF);
+    const checkout = await within(shelf).findByRole("button", { name: "Check out" });
+
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/intake`, () => HttpResponse.json({ message: "down" }, { status: 500 })),
+      http.post(`${TEST_BACKEND_URL}/intake/5/checkout`, () => HttpResponse.json({ ...item({ id: 5 }), state: "checked_out" })),
+    );
+    await user.click(checkout);
+
+    await waitFor(() => expect(checkout).toBeEnabled());
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(within(shelf).getByText(/Aluminum Tunes/)).toBeInTheDocument();
+  });
+});
