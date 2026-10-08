@@ -48,11 +48,9 @@ export const REVIEW_COPY = {
     shelfTitle: "The review shelf",
     /** Approved. */
     shelfEmpty: "Nothing is waiting on the review shelf.",
-    /** Approved. */
     checkoutsTitle: "My checkouts",
     /** Approved. */
     checkoutsEmpty: "You have no records checked out.",
-    /** Approved. */
     requestsTitle: "Requests for me",
     /** Approved. */
     requestsEmpty: "No one has asked you for a review.",
