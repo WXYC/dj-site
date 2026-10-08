@@ -73,7 +73,8 @@ describe("ReviewsScreen — a row stays locked until every rendered list has rel
   it("reads intake once on load, and finds a reviewed checkout in that one read", async () => {
     const intakeReads: string[] = [];
     fakeReviewsEndpoints({
-      open: [ON_SHELF, intakeItem({ id: 8, artist_name: "Cat Power", state: "reviewed", effective_state: "reviewed", checked_out_by: "dj-me", checked_out_at: "2026-09-02T12:00:00Z" })],
+      open: [ON_SHELF],
+      reviewed: [intakeItem({ id: 8, artist_name: "Cat Power", state: "reviewed", effective_state: "reviewed", checked_out_by: "dj-me", checked_out_at: "2026-09-02T12:00:00Z" })],
     });
     server.use(
       http.get(`${TEST_BACKEND_URL}/intake`, ({ request }) => {
