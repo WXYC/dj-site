@@ -56,7 +56,8 @@ export const reviewApi = reviewsApi.injectEndpoints({
     submitReview: builder.mutation<Review, number>({
       query: (id) => ({ url: `reviews/${id}/submit`, method: "POST" }),
       transformErrorResponse: wrapReviewWriteError,
-      invalidatesTags: ["Review"],
+      // A submit changes the item's submitted_review_count and its Review waiting membership.
+      invalidatesTags: ["Intake", "Review"],
     }),
     deleteReview: builder.mutation<void, number>({
       query: (id) => ({ url: `reviews/${id}`, method: "DELETE" }),

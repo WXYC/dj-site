@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { http, HttpResponse } from "msw";
 import { configureStore } from "@reduxjs/toolkit";
 import { reviewsApi } from "@/lib/features/reviews/api";
+import { intakeApi } from "@/lib/features/reviews/intakeApi";
 import { isReviewInUse, isReviewNotDraft, isReviewSubjectNotHeld, reviewApi } from "@/lib/features/reviews/reviewApi";
 import { describeApi } from "@/tests/helpers/api-harness";
 import { TEST_BACKEND_URL } from "@/tests/helpers/constants";
@@ -97,6 +98,22 @@ describe("reviewApi", () => {
     ]);
     expect(submitted).toEqual(expect.objectContaining({ data: { id: 7 } }));
     expect("error" in deleted).toBe(false);
+  });
+
+  it("a successful submitReview refetches the awaiting-acceptance intake read", async () => {
+    let intakeReads = 0;
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/intake`, () => (intakeReads++, HttpResponse.json([]))),
+      http.post(`${TEST_BACKEND_URL}/reviews/:id/submit`, () => HttpResponse.json({ id: 7 })),
+    );
+    const store = makeReviewsStore();
+    const subscription = store.dispatch(intakeApi.endpoints.getIntakeItems.initiate({ awaiting_acceptance: true }));
+    await subscription;
+    expect(intakeReads).toBe(1);
+
+    await store.dispatch(reviewApi.endpoints.submitReview.initiate(7));
+    await vi.waitFor(() => expect(intakeReads).toBe(2));
+    subscription.unsubscribe();
   });
 
   it.each(["submitReview", "deleteReview"] as const)("%s rejects with the whole error nested under reviewWriteError", async (endpoint) => {
