@@ -30,17 +30,17 @@ export function SlipFccRow({ fcc, notes = [] }: { fcc?: string | null; notes?: s
 
 /** The station's printed slip: a ruled box 4.25 in wide with a 0.82 in label column. */
 export default function SlipPreview({ artist, album, label, reviewer, date, fields, fccNotes }: SlipPreviewProps) {
-  const { fields: names } = REVIEW_COPY;
+  const { fields: names, slip } = REVIEW_COPY;
   return (
-    <div aria-label="Slip preview" role="group" style={{ width: "4.25in", border: "1px solid currentColor", padding: "0.1in", display: "grid", gap: "0.06in", fontSize: "0.8rem" }}>
-      {row("Artist", artist)}
-      {row("Album", album)}
-      {row("Label", label)}
+    <div aria-label={slip.name} role="group" style={{ width: "4.25in", border: "1px solid currentColor", padding: "0.1in", display: "grid", gap: "0.06in", fontSize: "0.8rem" }}>
+      {row(slip.artist, artist)}
+      {row(slip.album, album)}
+      {row(slip.label, label)}
       {row(names.buzzwords.label, fields.buzzwords)}
-      {row("Artist", fields.artist_blurb)}
-      {row("Review", fields.review)}
-      {row("Reviewer", `${reviewer} ${date}`.trim())}
-      {row("Recommended", fields.recommended_tracks)}
+      {row(slip.artistBlurb, fields.artist_blurb)}
+      {row(slip.review, fields.review)}
+      {row(slip.reviewer, `${reviewer} ${date}`.trim())}
+      {row(slip.recommended, fields.recommended_tracks)}
       <SlipFccRow fcc={fields.fcc} notes={fccNotes} />
     </div>
   );

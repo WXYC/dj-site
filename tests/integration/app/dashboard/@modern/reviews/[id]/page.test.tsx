@@ -52,7 +52,8 @@ vi.mock("@/src/components/experiences/modern/Header/PageHeader", () => ({
   default: ({ title }: { title: string }) => <div data-testid="page-header">{title}</div>,
 }));
 
-import ReviewEditorPage from "@/app/dashboard/@modern/reviews/[id]/page";
+import ReviewEditorPage, { metadata } from "@/app/dashboard/@modern/reviews/[id]/page";
+import { getPageTitle } from "@/lib/utils/page-title";
 import { REVIEW_COPY } from "@/src/components/experiences/modern/reviews/copy";
 
 function sessionData() {
@@ -98,6 +99,11 @@ describe("review editor page", () => {
     renderWithProviders(await open());
 
     expect(screen.getByTestId("editor")).toHaveTextContent("40");
+    expect(screen.getByTestId("page-header")).toHaveTextContent(REVIEW_COPY.pageTitle);
+  });
+
+  it("titles the tab from the copy module", () => {
+    expect(metadata.title).toBe(getPageTitle(REVIEW_COPY.pageTitle));
   });
 
   it("shows a DJ exactly the staff-only line, and no editor, under staff", async () => {
@@ -108,6 +114,7 @@ describe("review editor page", () => {
 
     expect(REVIEW_COPY.staffOnly).toBe("Reviews are open to music directors for now. You'll be able to open this review when they open to every DJ.");
     expect(screen.getByText(REVIEW_COPY.staffOnly)).toBeInTheDocument();
+    expect(screen.getByTestId("page-header")).toHaveTextContent(REVIEW_COPY.pageTitle);
     expect(screen.queryByTestId("editor")).not.toBeInTheDocument();
   });
 

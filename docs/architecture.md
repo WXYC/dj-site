@@ -161,7 +161,7 @@ A segment layout that renders feature-identifying content must repeat its pages'
 | `/dashboard/admin/rotation/new` | `ExperienceGap` | Filing bench | MD, behind `NEXT_PUBLIC_ROTATION_ADMIN_ENABLED` |
 | `/dashboard/admin/rotation/cards` | `ExperienceGap` | Card management | MD, behind `NEXT_PUBLIC_ROTATION_ADMIN_ENABLED` |
 | `/dashboard/admin/rotation/thresholds` | `ExperienceGap` | Threshold editing (placeholder body, not yet linked) | MD, behind `NEXT_PUBLIC_ROTATION_ADMIN_ENABLED` |
-| `/dashboard/reviews` | `ExperienceGap` | Reviews screen: the review shelf, My checkouts, Requests for me | Authenticated, behind `NEXT_PUBLIC_REVIEWS_ENABLED` via `canSeeReviews` (`staff` shows it to MD and above) |
+| `/dashboard/reviews` | `ExperienceGap` | Reviews screen: the review shelf, My checkouts, Requests for me, My reviews (`GET /reviews?mine=true`) | Authenticated, behind `NEXT_PUBLIC_REVIEWS_ENABLED` via `canSeeReviews` (`staff` shows it to MD and above) |
 | `/dashboard/reviews/{id}` | `ExperienceGap` | Review editor: the slip's five fields beside a live slip preview; Save draft. While reviews are staff-only, a DJ sees one line instead | Authenticated, behind `NEXT_PUBLIC_REVIEWS_ENABLED` via `canSeeReviews`; under `staff` a DJ gets the staff-only line, under `off` not-found |
 
 ### Previous sets: two views behind one URL

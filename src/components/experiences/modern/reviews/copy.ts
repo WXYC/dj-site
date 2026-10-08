@@ -9,6 +9,9 @@ export const REVIEW_COPY = {
   subjectNotHeld: "You no longer have this record checked out, so a review can't be started here.",
   /** Approved. Shown in place of the editor while reviews are open to music directors only. */
   staffOnly: "Reviews are open to music directors for now. You'll be able to open this review when they open to every DJ.",
+  /** The editor page's header and browser-tab title. */
+  pageTitle: "Review",
+  /** Shown above the fields of a draft only; a submitted review is no longer private. */
   draftPrivacy: "Only you can read this draft. Music directors can see that you have one in progress, not what it says.",
   writeReview: "Write a review",
   couldNotStart: "Couldn't start a review. Please try again.",
@@ -22,6 +25,23 @@ export const REVIEW_COPY = {
     review: { label: "Review", help: "What you want a listener to know." },
     recommended_tracks: { label: "Recommended tracks", help: "Name tracks by side and position, like A1, B4." },
     fcc: { label: "FCC", help: "Optional. Anything on the record that is not safe to broadcast." },
+  },
+  /**
+   * The printed slip's own row labels, which follow the station's paper slip
+   * rather than the editor's field labels. The Buzzwords and FCC rows reuse
+   * the field labels above.
+   */
+  slip: {
+    /** The preview's accessible name. */
+    name: "Slip preview",
+    artist: "Artist",
+    album: "Album",
+    label: "Label",
+    /** The artist paragraph's row. */
+    artistBlurb: "Artist",
+    review: "Review",
+    reviewer: "Reviewer",
+    recommended: "Recommended",
   },
   myReviews: {
     title: "My reviews",

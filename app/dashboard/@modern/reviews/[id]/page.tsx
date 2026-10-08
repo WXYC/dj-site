@@ -3,13 +3,14 @@ import { Authorization } from "@/lib/features/admin/types";
 import { canSeeReviews, reviewsAudience } from "@/lib/features/reviews/flags";
 import ReviewEditor from "@/src/components/experiences/modern/reviews/ReviewEditor";
 import ReviewStaffOnlyNotice from "@/src/components/experiences/modern/reviews/ReviewStaffOnlyNotice";
+import { REVIEW_COPY } from "@/src/components/experiences/modern/reviews/copy";
 import PageHeader from "@/src/components/experiences/modern/Header/PageHeader";
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getPageTitle } from "@/lib/utils/page-title";
 
 export const metadata: Metadata = {
-  title: getPageTitle("Review"),
+  title: getPageTitle(REVIEW_COPY.pageTitle),
 };
 
 export default async function ReviewEditorPage({ params }: { params: Promise<{ id: string }> }) {
@@ -24,7 +25,7 @@ export default async function ReviewEditorPage({ params }: { params: Promise<{ i
     if (reviewsAudience() !== "staff" || authority < Authorization.DJ) notFound();
     return (
       <>
-        <PageHeader title="Review" />
+        <PageHeader title={REVIEW_COPY.pageTitle} />
         <ReviewStaffOnlyNotice />
       </>
     );
@@ -32,7 +33,7 @@ export default async function ReviewEditorPage({ params }: { params: Promise<{ i
 
   return (
     <>
-      <PageHeader title="Review" />
+      <PageHeader title={REVIEW_COPY.pageTitle} />
       <ReviewEditor id={reviewId} />
     </>
   );
