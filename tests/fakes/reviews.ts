@@ -49,7 +49,8 @@ const resolve = <Row>(rows: Rows<Row>) => (typeof rows === "function" ? rows() :
  * bypasses unhandled requests, and a missing read shows up as the component's
  * load-failure line):
  *
- * - `GET /intake` answers `reviewed` when `state=reviewed`, else `open`
+ * - `GET /intake` answers `awaiting` when `awaiting_acceptance=true`, else `reviewed`
+ *   when `state=reviewed`, `filed` when `state=filed`, else `open`
  * - `GET /reviews?mine=true` answers `mine`
  * - `GET /reviews/:id` answers the matching row of `reviews`, 404 otherwise
  * - `GET /intake/:id` answers the matching row of `records`, 404 otherwise
@@ -64,6 +65,8 @@ const resolve = <Row>(rows: Rows<Row>) => (typeof rows === "function" ? rows() :
 export function fakeReviewsEndpoints({
   open = [],
   reviewed = [],
+  awaiting = [],
+  filed = [],
   mine = [],
   reviews = [],
   records = [],
@@ -72,6 +75,8 @@ export function fakeReviewsEndpoints({
 }: {
   open?: Rows<IntakeItem>;
   reviewed?: Rows<IntakeItem>;
+  awaiting?: Rows<IntakeItem>;
+  filed?: Rows<IntakeItem>;
   mine?: Rows<Review>;
   reviews?: Review[];
   records?: IntakeItem[];
@@ -79,9 +84,12 @@ export function fakeReviewsEndpoints({
   formats?: { id: number; format_name: string }[];
 } = {}) {
   server.use(
-    http.get(`${BACKEND_URL}/intake`, ({ request }) =>
-      HttpResponse.json(resolve(new URL(request.url).searchParams.get("state") === "reviewed" ? reviewed : open)),
-    ),
+    http.get(`${BACKEND_URL}/intake`, ({ request }) => {
+      const query = new URL(request.url).searchParams;
+      if (query.get("awaiting_acceptance") === "true") return HttpResponse.json(resolve(awaiting));
+      const byState = { reviewed, filed };
+      return HttpResponse.json(resolve(byState[query.get("state") as keyof typeof byState] ?? open));
+    }),
     http.get(`${BACKEND_URL}/reviews`, () => HttpResponse.json(resolve(mine))),
     http.get(`${BACKEND_URL}/reviews/:id`, ({ params }) => {
       const found = reviews.find((row) => String(row.id) === params.id);

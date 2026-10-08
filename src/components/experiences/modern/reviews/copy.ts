@@ -81,6 +81,36 @@ export const REVIEW_COPY = {
     /** Approved. */
     raceRelease: "This record is no longer checked out to you. The lists have been reloaded.",
   },
+  /** The music directors' review shelf page, `/dashboard/admin/intake`. */
+  intake: {
+    /** Approved. The menu entry and the page heading. */
+    title: "Review shelf",
+    /** Approved. Shown once the lists have reloaded after Mark as returned lost a race. */
+    raceReleased: "This record has already been returned or filed. The lists have been reloaded.",
+    logTitle: "Log an item",
+    artist: "Artist",
+    album: "Album",
+    label: "Label",
+    format: "Format",
+    discogsReleaseId: "Discogs release id (optional)",
+    log: "Log item",
+    waiting: "Review waiting",
+    onShelf: "On the review shelf",
+    requested: "Requested",
+    checkedOut: "Checked out",
+    /** Each is followed by a DJ name. */
+    heldFor: "Held for",
+    checkedOutTo: "Checked out to",
+    reviewed: "Reviewed",
+    filed: "Filed",
+    /** The small mark on a row in a physical lane whose record also has a review waiting. */
+    reviewWaitingMark: "review waiting",
+    returned: "Mark as returned",
+    /** Followed by the holder's name. */
+    stillOutTo: "Still out: checked out to",
+    holderRemoved: "Still out: holder removed",
+    empty: "Nothing here.",
+  },
   myReviews: {
     title: "My reviews",
     empty: "You have not started a review.",
