@@ -18,7 +18,7 @@ import {
 } from "@/lib/features/reviews/api";
 import { useAppDispatch } from "@/lib/hooks";
 import { serverMessage, unwrapEndpointErrorOrRaw } from "@/lib/rtk-endpoint-error";
-import { useRowWrite } from "@/src/hooks/useRowWrite";
+import { useMounted, useRowWrite } from "@/src/hooks/useRowWrite";
 import OutagePanel from "./OutagePanel";
 
 const FILED = { state: "filed" } as const;
@@ -46,6 +46,7 @@ function FiledRow({
   const [number, setNumber] = useState("");
   const [error, setError] = useState<string>();
   const { disabled: busy } = lock(item.id, "finalize");
+  const mounted = useMounted();
 
   // The row stays locked until the refetched lists land, so it leaves the
   // table or is shown again as it now stands. The PATCH's failure is this
@@ -57,7 +58,7 @@ function FiledRow({
         try {
           await updateAlbum({ albumId, body: { code_number: change } }).unwrap();
         } catch {
-          setError(FAILURE_LINE);
+          if (mounted.current) setError(FAILURE_LINE);
           return;
         }
       }

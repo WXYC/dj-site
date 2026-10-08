@@ -2,6 +2,22 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { useRowWrite } from "@/src/hooks/useRowWrite";
 
+// Every setter `useState` hands out, so a test can assert that none ran after unmount
+// (React 19 no longer warns about that, so the absence of a warning proves nothing).
+const setters = vi.hoisted(() => [] as ReturnType<typeof vi.fn>[]);
+vi.mock("react", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("react")>();
+  return {
+    ...actual,
+    useState: ((initial: unknown) => {
+      const [value, set] = actual.useState(initial);
+      const spy = vi.fn(set as (...args: unknown[]) => void);
+      setters.push(spy);
+      return [value, spy];
+    }) as unknown as typeof actual.useState,
+  };
+});
+
 type Action = "checkout" | "release";
 
 const LOST_RACE = { lostRace: true };
@@ -66,11 +82,13 @@ describe("useRowWrite", () => {
     const run = vi.fn(() => write.promise);
     const { result } = setUp();
 
+    // Not awaited: a regressed guard would start a second write that never settles,
+    // and awaiting it would hang this file instead of failing this assertion.
     let done!: Promise<void>;
-    await act(async () => {
+    act(() => {
       done = result.current.write(1, "checkout", run);
-      await result.current.write(1, "checkout", run);
-      await result.current.write(1, "release", run);
+      void result.current.write(1, "checkout", run);
+      void result.current.write(1, "release", run);
     });
 
     expect(run).toHaveBeenCalledTimes(1);
@@ -174,9 +192,8 @@ describe("useRowWrite", () => {
     ["resolves", (d: Deferred) => d.resolve()],
     ["fails", (d: Deferred) => d.reject(new Error("boom"))],
     ["loses the race", (d: Deferred) => d.reject(LOST_RACE)],
-  ] as const)("touches no state and calls no callback when the page unmounts mid-write that %s", async (_label, settle) => {
+  ] as const)("sets no state and calls no callback when the page unmounts mid-write that %s", async (_label, settle) => {
     process.on("unhandledRejection", onUnhandled);
-    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
     const { result, unmount, onFailure, onLostRace } = setUp(() => [Promise.reject(new Error("store torn down"))]);
 
     const run = deferred();
@@ -185,14 +202,14 @@ describe("useRowWrite", () => {
       done = result.current.write(1, "checkout", () => run.promise);
     });
     unmount();
+    setters.forEach((setter) => setter.mockClear());
     settle(run);
     await done;
     await new Promise((resolve) => setTimeout(resolve, 0));
 
+    expect(setters.flatMap((setter) => setter.mock.calls)).toEqual([]);
     expect(onFailure).not.toHaveBeenCalled();
     expect(onLostRace).not.toHaveBeenCalled();
-    expect(errors).not.toHaveBeenCalled();
     expect(unhandled).toEqual([]);
-    errors.mockRestore();
   });
 });
