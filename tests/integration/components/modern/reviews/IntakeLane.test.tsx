@@ -33,4 +33,21 @@ describe("IntakeLane", () => {
     expect(items[1].textContent).toBe("Stereolabextra 2");
     expect(screen.queryByText("Nothing here.")).not.toBeInTheDocument();
   });
+
+  it("adds no wrapper around the label: it sits beside the extras in the row container", () => {
+    renderWithProviders(
+      <IntakeLane
+        title="Checkouts"
+        rows={rows}
+        empty="Nothing here."
+        label={(r) => <a href={`/x/${r.id}`}>{r.name}</a>}
+        extra={(r) => <span>{`extra ${r.id}`}</span>}
+      />,
+    );
+    const [item] = within(screen.getByRole("region", { name: "Checkouts" })).getAllByRole("listitem");
+    const link = within(item).getByRole("link", { name: "Juana Molina" });
+    const extra = within(item).getByText("extra 1");
+    expect(link.parentElement).toBe(extra.parentElement);
+    expect(link.parentElement).not.toBe(item);
+  });
 });
