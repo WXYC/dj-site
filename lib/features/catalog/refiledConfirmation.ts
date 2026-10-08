@@ -1,7 +1,12 @@
 import { isCanonicalCodeLetters, parseArtistCodeNumber } from "./adminCreateArtistValidation";
 
 /** What a re-file carries onto the artist card it lands on: the old number, the old letters when they changed, and the relabel count. */
-export type RefiledParams = { from: number; releases: number; fromLetters?: string };
+export type RefiledParams = {
+  from: number;
+  releases: number;
+  /** The old letters when they changed and can be shown; `null` when they changed but cannot (a legacy code); absent when they did not change. */
+  fromLetters?: string | null;
+};
 
 const readable = (raw: string | undefined): number | null =>
   raw === undefined ? null : parseArtistCodeNumber(raw);
@@ -12,8 +17,9 @@ const readable = (raw: string | undefined): number | null =>
  * sentence is composed by the card from its own data (the new code comes from
  * the refetched card, never the URL). The only text that crosses is the old
  * call letters, and only when they are canonical (`isCanonicalCodeLetters`):
- * a legacy or hand-made value drops just the "from" letters, so a link can
- * never put free text in the station's voice.
+ * a legacy or hand-made value is reported as `null` ("the letters changed,
+ * old ones not shown"), so a link can never put free text in the station's
+ * voice.
  */
 export function parseRefiledParams(
   refiled: string | undefined,
@@ -25,7 +31,6 @@ export function parseRefiledParams(
   const fromNumber = readable(from);
   const releases = readable(n);
   if (fromNumber === null || releases === null) return undefined;
-  const letters =
-    fromLetters !== undefined && isCanonicalCodeLetters(fromLetters) ? { fromLetters } : {};
-  return { from: fromNumber, releases, ...letters };
+  if (fromLetters === undefined) return { from: fromNumber, releases };
+  return { from: fromNumber, releases, fromLetters: isCanonicalCodeLetters(fromLetters) ? fromLetters : null };
 }

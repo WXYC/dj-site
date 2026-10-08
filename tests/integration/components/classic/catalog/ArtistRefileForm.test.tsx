@@ -59,6 +59,8 @@ const resolves = (body: object) => ({
 
 const type = async (value: string) => {
   const user = userEvent.setup();
+  // The box starts at the current number.
+  await user.clear(screen.getByLabelText("New Call Number:"));
   await user.type(screen.getByLabelText("New Call Number:"), value);
   return user;
 };
@@ -84,8 +86,17 @@ describe("classic ArtistRefileForm", () => {
     expect(screen.getByTestId("artist-refile-current")).toHaveTextContent("Hiphop IS 1");
   });
 
-  it("holds Continue until a number is chosen", async () => {
+  it("starts at the current number, which holds Continue", async () => {
     renderWithProviders(<ArtistRefileForm artistId={ARTIST_ID} genreId={GENRE_ID} />);
+    expect(screen.getByLabelText("New Call Number:")).toHaveValue(card.code_artist_number);
+    expect(occupancyText()).toHaveTextContent("That is the current call number.");
+    expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
+  });
+
+  it("holds Continue when the number is cleared", async () => {
+    renderWithProviders(<ArtistRefileForm artistId={ARTIST_ID} genreId={GENRE_ID} />);
+    const user = userEvent.setup();
+    await user.clear(screen.getByLabelText("New Call Number:"));
     expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
   });
 
@@ -272,10 +283,10 @@ describe("classic ArtistRefileForm", () => {
   });
 
   describe("advisory occupancy line", () => {
-    it("says nothing until a number is chosen, and before the debounce elapses", async () => {
+    it("says only that the seeded number is current, then nothing before the debounce elapses", async () => {
       byCode(undefined, NOT_ASSIGNED);
       renderWithProviders(<ArtistRefileForm artistId={ARTIST_ID} genreId={GENRE_ID} />);
-      expect(occupancyText()).toBeEmptyDOMElement();
+      expect(occupancyText()).toHaveTextContent("That is the current call number.");
 
       await type("31");
       // Typed, but the lookup has not been issued yet.
@@ -350,7 +361,7 @@ describe("classic ArtistRefileForm", () => {
       genre_id: JAZZ,
       code_letters: "RE",
       code_artist_number: 36,
-      release_count: 4,
+      release_count: 12,
     };
     const jamHolder = { id: 901, artist_name: "Jessica Pratt", code_letters: "JA", code_number: 36, genre_id: JAZZ };
     const jamResolves = (body: object = {}) => ({
@@ -367,15 +378,20 @@ describe("classic ArtistRefileForm", () => {
         }),
     });
     const lettersBox = () => screen.getByLabelText("New Call Letters:");
+    const numberBox = () => screen.getByLabelText("New Call Number:");
     const setLetters = async (user: ReturnType<typeof userEvent.setup>, value: string) => {
       await user.clear(lettersBox());
       if (value) await user.type(lettersBox(), value);
+    };
+    const setNumber = async (user: ReturnType<typeof userEvent.setup>, value: string) => {
+      await user.clear(numberBox());
+      await user.type(numberBox(), value);
     };
     const render = () => renderWithProviders(<ArtistRefileForm artistId={JAM_ID} genreId={JAZZ} />);
     const reLettered = async (letters = "ja", number = "36") => {
       const user = userEvent.setup();
       await setLetters(user, letters);
-      await user.type(screen.getByLabelText("New Call Number:"), number);
+      await setNumber(user, number);
       await user.click(screen.getByRole("button", { name: "Continue" }));
       return user;
     };
@@ -392,20 +408,37 @@ describe("classic ArtistRefileForm", () => {
       });
     });
 
-    it("seeds the letters from the card and leaves the number empty", () => {
+    it("seeds the letters and the number from the card", () => {
       render();
 
       expect(lettersBox()).toHaveValue("RE");
-      expect(screen.getByLabelText("New Call Number:")).toHaveValue(null);
+      expect(numberBox()).toHaveValue(36);
+      expect(occupancyText()).toHaveTextContent("That is the current call number.");
     });
 
-    it("confirms with both full codes and the relabel count", async () => {
+    it("re-letters at the same number with no retyping, sending only what changed", async () => {
+      mockRefile.mockReturnValue(jamResolves());
+      render();
+      const user = userEvent.setup();
+      await setLetters(user, "ja");
+      await user.click(screen.getByRole("button", { name: "Continue" }));
+      await submit(user);
+
+      expect(mockRefile).toHaveBeenCalledWith({
+        artistId: JAM_ID,
+        code_letters: "RE",
+        body: { genre_id: JAZZ, code_artist_number: 36, code_letters: "JA" },
+      });
+    });
+
+    it("confirms with both full codes and no per-card count (it spans every genre)", async () => {
       render();
       await reLettered();
 
       expect(screen.getByTestId("artist-refile-confirm-copy")).toHaveTextContent(
-        "Move Jam Money from Jazz RE 36 to Jazz JA 36. Every release under this shelf re-labels at once; 4 records on the shelf will need new labels.",
+        "Move Jam Money from Jazz RE 36 to Jazz JA 36. Every release under this shelf re-labels at once; the records on the shelf will need new labels.",
       );
+      expect(screen.getByTestId("artist-refile-confirm-copy")).not.toHaveTextContent("12");
     });
 
     it("sends code_letters normalized, the source letters in the arg, and lands on the result's letters", async () => {
@@ -426,6 +459,20 @@ describe("classic ArtistRefileForm", () => {
       );
     });
 
+    it("carries a non-canonical old code so the card can tell the letters changed", async () => {
+      mockCardQuery.mockReturnValue({ data: { ...jam, code_letters: "??", code_artist_number: 35 }, isLoading: false });
+      mockRefile.mockReturnValue(jamResolves({ previous_code_letters: "??", previous_code_artist_number: 35 }));
+      render();
+      const user = await reLettered("ja", "36");
+      await submit(user);
+
+      await waitFor(() =>
+        expect(mockPush).toHaveBeenCalledWith(
+          `/dashboard/library/artist/${JAM_ID}?genre_id=${JAZZ}&refiled=1&from=35&n=4&from_letters=%3F%3F`,
+        ),
+      );
+    });
+
     it("routes by the result's letters, not the old card's", async () => {
       mockRefile.mockReturnValue(jamResolves({ code_letters: "V/A", previous_code_letters: "RE" }));
       render();
@@ -442,12 +489,12 @@ describe("classic ArtistRefileForm", () => {
       { label: "retyped in lower case with spaces", letters: " re " },
     ])("omits code_letters when the letters are $label", async ({ letters }) => {
       mockRefile.mockReturnValue(
-        jamResolves({ code_letters: "RE", code_artist_number: 37, previous_code_artist_number: 36 }),
+        jamResolves({ code_letters: "RE", code_artist_number: 37, previous_code_artist_number: 36, previous_code_letters: "RE" }),
       );
       render();
       const user = userEvent.setup();
       if (letters !== null) await setLetters(user, letters);
-      await user.type(screen.getByLabelText("New Call Number:"), "37");
+      await setNumber(user, "37");
       await user.click(screen.getByRole("button", { name: "Continue" }));
       await submit(user);
 
@@ -459,39 +506,66 @@ describe("classic ArtistRefileForm", () => {
       await waitFor(() => expect(mockPush).toHaveBeenCalledWith(expect.not.stringContaining("from_letters")));
     });
 
-    it("holds Continue when neither the letters nor the number changed", async () => {
+    it("lets a card with non-canonical letters re-number after its letters box is edited and put back", async () => {
+      mockCardQuery.mockReturnValue({ data: { ...jam, code_letters: "??" }, isLoading: false });
+      mockRefile.mockReturnValue(jamResolves({ code_letters: "??", previous_code_letters: "??" }));
       render();
       const user = userEvent.setup();
-      await user.type(screen.getByLabelText("New Call Number:"), "36");
+      await setLetters(user, "ja");
+      await setLetters(user, "??");
+      await setNumber(user, "37");
 
-      expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
-      expect(occupancyText()).toHaveTextContent("That is the current call number.");
+      expect(screen.queryByTestId("artist-refile-letters-error")).toBeNull();
+      await user.click(screen.getByRole("button", { name: "Continue" }));
+      await submit(user);
+      expect(mockRefile).toHaveBeenCalledWith(
+        expect.objectContaining({ body: { genre_id: JAZZ, code_artist_number: 37 } }),
+      );
     });
 
-    it("allows a letters-only change at the same number", async () => {
+    it("compares against the stored letters the way the server does (trimmed, upper-cased)", async () => {
+      mockCardQuery.mockReturnValue({ data: { ...jam, code_letters: " re " }, isLoading: false });
+      mockRefile.mockReturnValue(jamResolves({ code_letters: "RE", code_artist_number: 37 }));
       render();
       const user = userEvent.setup();
-      await setLetters(user, "JA");
-      await user.type(screen.getByLabelText("New Call Number:"), "36");
+      await setLetters(user, "RE");
+      await setNumber(user, "37");
+      await user.click(screen.getByRole("button", { name: "Continue" }));
+      await submit(user);
 
-      expect(screen.getByRole("button", { name: "Continue" })).toBeEnabled();
+      expect(mockRefile).toHaveBeenCalledWith(
+        expect.objectContaining({ body: { genre_id: JAZZ, code_artist_number: 37 } }),
+      );
+    });
+
+    it("holds Continue when neither the letters nor the number changed", async () => {
+      render();
+
+      expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
     });
 
     it.each([
-      { label: "empty", value: "" },
-      { label: "too long", value: "ABCDE" },
-      { label: "a Various Artists bucket", value: "v/a" },
-      { label: "a legacy compilation prefix", value: "Z-" },
-      { label: "punctuation", value: "J.A" },
-    ])("refuses $label letters client-side", async ({ value }) => {
+      { label: "empty", value: "", text: "Enter the call letters." },
+      { label: "too long", value: "ABCDE", text: "at most 4 characters" },
+      { label: "a Various Artists bucket", value: "v/a", text: "Various Artists sections cannot be filed here." },
+      { label: "a legacy compilation prefix", value: "Z-", text: "Various Artists sections cannot be filed here." },
+      { label: "punctuation", value: "J.A", text: "only letters A-Z, digits and /" },
+      { label: "a letter that upper-cases to two (ß)", value: "ß", text: "only letters A-Z, digits and /" },
+      { label: "a letter that upper-cases to ASCII (ı)", value: "ı", text: "only letters A-Z, digits and /" },
+      { label: "a ligature (ﬀ)", value: "ﬀ", text: "only letters A-Z, digits and /" },
+    ])("refuses $label letters client-side", async ({ value, text }) => {
+      byCode(undefined, NOT_ASSIGNED);
       render();
       const user = userEvent.setup();
       await setLetters(user, value);
-      await user.type(screen.getByLabelText("New Call Number:"), "36");
+      await setNumber(user, "37");
+      await new Promise((resolve) => setTimeout(resolve, 400));
 
       expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
-      expect(screen.getByTestId("artist-refile-letters-error")).toBeDefined();
+      expect(screen.getByTestId("artist-refile-letters-error")).toHaveTextContent(text);
+      expect(occupancyText()).toBeEmptyDOMElement();
       expect(mockByCodeQuery).not.toHaveBeenCalledWith(expect.objectContaining({ code_letters: value.toUpperCase() }));
+      expect(mockRefile).not.toHaveBeenCalled();
     });
 
     it("shows no letters error for valid letters", async () => {
@@ -507,7 +581,6 @@ describe("classic ArtistRefileForm", () => {
       render();
       const user = userEvent.setup();
       await setLetters(user, "ja");
-      await user.type(screen.getByLabelText("New Call Number:"), "36");
 
       await waitFor(() =>
         expect(mockByCodeQuery).toHaveBeenLastCalledWith({ genre_id: JAZZ, code_letters: "JA", code_number: 36 }),
@@ -520,19 +593,49 @@ describe("classic ArtistRefileForm", () => {
       render();
       const user = userEvent.setup();
       await setLetters(user, "ja");
-      await user.type(screen.getByLabelText("New Call Number:"), "36");
 
       await waitFor(() => expect(occupancyText()).toHaveTextContent("Jazz JA 36 is held by Jessica Pratt."));
+    });
+
+    it("blanks the line after a letters change until the new bucket's lookup settles", async () => {
+      byCode(undefined, NOT_ASSIGNED);
+      const { rerender } = render();
+      const user = userEvent.setup();
+      await setNumber(user, "37");
+      await waitFor(() => expect(occupancyText()).toHaveTextContent("Jazz RE 37 is free."));
+
+      // The JA lookup is still in flight: the RE answer must not speak for JA.
+      byCode(undefined, NOT_ASSIGNED, true);
+      await setLetters(user, "ja");
+      rerender(<ArtistRefileForm artistId={JAM_ID} genreId={JAZZ} />);
+      expect(occupancyText()).toBeEmptyDOMElement();
+
+      byCode(undefined, NOT_ASSIGNED, false);
+      rerender(<ArtistRefileForm artistId={JAM_ID} genreId={JAZZ} />);
+      await waitFor(() => expect(occupancyText()).toHaveTextContent("Jazz JA 37 is free."));
     });
 
     it("looks up the current letters when only the number changes", async () => {
       byCode(undefined, NOT_ASSIGNED);
       render();
       const user = userEvent.setup();
-      await user.type(screen.getByLabelText("New Call Number:"), "37");
+      await setNumber(user, "37");
 
       await waitFor(() =>
         expect(mockByCodeQuery).toHaveBeenLastCalledWith({ genre_id: JAZZ, code_letters: "RE", code_number: 37 }),
+      );
+    });
+
+    it("names the destination code, not 'that number', when a letters change hits a holder", async () => {
+      mockRefile.mockReturnValue(
+        rejects(409, { reason: "artist_code_conflict", artist: { ...jamHolder, code_artist_number: 36 } }),
+      );
+      render();
+      const user = await reLettered();
+      await submit(user);
+
+      expect(await screen.findByTestId("artist-refile-refusal")).toHaveTextContent(
+        "Jazz JA 36 is held by Jessica Pratt. Nothing was changed.",
       );
     });
 
