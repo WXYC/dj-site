@@ -75,6 +75,34 @@ describe("IntakeScreen", () => {
     expect(within(shelf).getByRole("link")).toHaveAttribute("href", "/dashboard/admin/intake/1");
   });
 
+  it("puts each state's rows in its own lane only, and reads intake exactly twice", async () => {
+    const reads: string[] = [];
+    fakeReviewsEndpoints({
+      open: [moonPix({ id: 1, album_title: "On Shelf" }), waiting(3, { album_title: "Out" })],
+      reviewed: [moonPix({ id: 4, album_title: "Done", state: "reviewed", effective_state: "reviewed" })],
+      filed: [moonPix({ id: 5, album_title: "Shelved", state: "filed", effective_state: "filed" })],
+    });
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/intake`, ({ request }) => {
+        reads.push(new URL(request.url).search);
+      }),
+    );
+
+    renderWithProviders(<IntakeScreen />);
+
+    const where = { "On the review shelf": "On Shelf", "Checked out": "Out", Reviewed: "Done", Filed: "Shelved" };
+    for (const [name, album] of Object.entries(where)) {
+      const region = await lane(name);
+      for (const other of Object.values(where)) {
+        const check = expect(within(region).queryByText(new RegExp(other)));
+        if (other === album) check.toBeInTheDocument();
+        else check.not.toBeInTheDocument();
+      }
+    }
+    expect(within(await lane("Requested")).queryByRole("link")).not.toBeInTheDocument();
+    expect([...reads].sort()).toEqual(["", "?awaiting_acceptance=true"]);
+  });
+
   it("renders no Review waiting lane when only open records are served", async () => {
     fakeReviewsEndpoints({ open: [moonPix()] });
 
@@ -153,14 +181,14 @@ describe("IntakeScreen", () => {
   const LOST_RACE = "This record has already been returned or filed. The lists have been reloaded.";
   const laneKey = (url: string) => {
     const query = new URL(url).searchParams;
-    return query.get("awaiting_acceptance") ? "awaiting" : (query.get("state") ?? "open");
+    return query.get("awaiting_acceptance") ? "awaiting" : "unfiltered";
   };
 
-  // The 409's own tag invalidation refetches every lane by itself, so only a
-  // lane read that is held pending can tell "reloaded, then noticed" from
-  // "noticed" or "reloaded only some lanes".
-  it.each(["open", "awaiting", "reviewed", "filed"])(
-    "a 409 state_changed keeps the row locked and shows no notice while the %s lane is still reloading, then shows the approved notice and no server message",
+  // The 409's own tag invalidation refetches every read by itself, so only a
+  // read that is held pending can tell "reloaded, then noticed" from
+  // "noticed" or "reloaded only some reads".
+  it.each(["unfiltered", "awaiting"])(
+    "a 409 state_changed keeps the row locked and shows no notice while the %s read is still reloading, then shows the approved notice and no server message",
     async (heldLane) => {
       let lost = false;
       let heldReads = 0;
@@ -176,7 +204,7 @@ describe("IntakeScreen", () => {
             heldReads += 1;
             await held;
           }
-          return HttpResponse.json(key === "reviewed" ? [moonPix({ id: 11, effective_state: "reviewed", ...HOLDER })] : []);
+          return HttpResponse.json(key === "unfiltered" ? [moonPix({ id: 11, effective_state: "reviewed", ...HOLDER })] : []);
         }),
         http.post(`${TEST_BACKEND_URL}/intake/11/release`, () => {
           lost = true;
@@ -188,7 +216,7 @@ describe("IntakeScreen", () => {
       const returned = await screen.findByRole("button", { name: "Mark as returned" });
       await user.click(returned);
 
-      // Every other lane has long since landed; only the held one is outstanding.
+      // The other read has long since landed; only the held one is outstanding.
       await waitFor(() => expect(heldReads).toBeGreaterThan(0));
       await new Promise((resolve) => setTimeout(resolve, 100));
       expect(screen.queryByText(LOST_RACE)).not.toBeInTheDocument();
@@ -209,18 +237,18 @@ describe("IntakeScreen", () => {
     });
     fakeReviewsEndpoints({
       reviewed: [
-        moonPix({ id: 11, effective_state: "reviewed", ...HOLDER }),
-        moonPix({ id: 12, album_title: "Dark Side", effective_state: "reviewed", ...HOLDER }),
+        moonPix({ id: 11, album_title: "Dark Side", effective_state: "reviewed", ...HOLDER }),
+        moonPix({ id: 12, effective_state: "reviewed", ...HOLDER }),
       ],
     });
     server.use(
-      http.post(`${TEST_BACKEND_URL}/intake/11/release`, () =>
+      http.post(`${TEST_BACKEND_URL}/intake/12/release`, () =>
         HttpResponse.json({ message: "server words", reason: "state_changed" }, { status: 409 }),
       ),
-      http.post(`${TEST_BACKEND_URL}/intake/12/release`, async () => {
+      http.post(`${TEST_BACKEND_URL}/intake/11/release`, async () => {
         await secondWrite;
         releasedSecond = true;
-        return HttpResponse.json(moonPix({ id: 12, effective_state: "reviewed" }));
+        return HttpResponse.json(moonPix({ id: 11, effective_state: "reviewed" }));
       }),
     );
 

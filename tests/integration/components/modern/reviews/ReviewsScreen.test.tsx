@@ -102,10 +102,9 @@ describe("ReviewsScreen", () => {
   it("keeps a reviewed record I hold, marked, and the release sends and clears the row", async () => {
     let released = false;
     server.use(
-      http.get(`${TEST_BACKEND_URL}/intake`, ({ request }) => {
-        const reviewedOnly = new URL(request.url).searchParams.get("state") === "reviewed";
+      http.get(`${TEST_BACKEND_URL}/intake`, () => {
         return HttpResponse.json(
-          reviewedOnly && !released
+          !released
             ? [
                 item({ id: 8, state: "reviewed", effective_state: "reviewed", checked_out_by: ME, overdue: true }),
                 item({ id: 9, artist_name: "Cat Power", state: "reviewed", effective_state: "reviewed", checked_out_by: "someone-else" }),
@@ -138,9 +137,9 @@ describe("ReviewsScreen", () => {
   it("asks before returning an ordinary checkout, then releases that record and clears the row", async () => {
     let released: string | undefined;
     server.use(
-      http.get(`${TEST_BACKEND_URL}/intake`, ({ request }) =>
+      http.get(`${TEST_BACKEND_URL}/intake`, () =>
         HttpResponse.json(
-          new URL(request.url).searchParams.get("state") === "reviewed" || released
+          released
             ? []
             : [item({ id: 2, state: "checked_out", effective_state: "checked_out", checked_out_by: ME })],
         ),
@@ -200,9 +199,8 @@ describe("ReviewsScreen", () => {
       let reloaded = 0;
       let reloadedAtNotice: number | undefined;
       server.use(
-        http.get(`${TEST_BACKEND_URL}/intake`, async ({ request }) => {
-          const reviewedOnly = new URL(request.url).searchParams.get("state") === "reviewed";
-          if (!raced) return HttpResponse.json(reviewedOnly ? [] : [row]);
+        http.get(`${TEST_BACKEND_URL}/intake`, async () => {
+          if (!raced) return HttpResponse.json([row]);
           await delay(300);
           reloaded += 1;
           return HttpResponse.json([]);
@@ -231,7 +229,7 @@ describe("ReviewsScreen", () => {
       // The reload is delayed 300 ms; leave room for a loaded runner.
       await waitFor(() => expect(toast).toHaveBeenCalledWith(notice), { timeout: 3000 });
       expect(toast).toHaveBeenCalledTimes(1);
-      expect(reloadedAtNotice).toBe(2);
+      expect(reloadedAtNotice).toBe(1);
       expect(toast).not.toHaveBeenCalledWith("server words");
       expect(toast.error).not.toHaveBeenCalled();
     },
@@ -303,11 +301,9 @@ describe("ReviewsScreen", () => {
     let moved = false;
     const posts: string[] = [];
     server.use(
-      http.get(`${TEST_BACKEND_URL}/intake`, async ({ request }) => {
+      http.get(`${TEST_BACKEND_URL}/intake`, async () => {
         if (moved) await delay(300);
-        return HttpResponse.json(
-          new URL(request.url).searchParams.get("state") === "reviewed" || moved ? [] : [item({ id: 5 })],
-        );
+        return HttpResponse.json(moved ? [] : [item({ id: 5 })]);
       }),
       http.post(`${TEST_BACKEND_URL}/intake/5/checkout`, () => {
         posts.push("checkout");
@@ -351,8 +347,7 @@ describe("ReviewsScreen", () => {
     let moved = false;
     const posts: string[] = [];
     server.use(
-      http.get(`${TEST_BACKEND_URL}/intake`, ({ request }) =>
-        HttpResponse.json(new URL(request.url).searchParams.get("state") === "reviewed" || moved ? [] : [row]),
+      http.get(`${TEST_BACKEND_URL}/intake`, () => HttpResponse.json(moved ? [] : [row]),
       ),
       http.post(`${TEST_BACKEND_URL}/intake/:id/:action`, async ({ request }) => {
         posts.push(new URL(request.url).pathname);
@@ -441,10 +436,10 @@ describe("ReviewsScreen", () => {
 
     let reloads = 0;
     server.use(
-      http.get(`${TEST_BACKEND_URL}/intake`, async ({ request }) => {
+      http.get(`${TEST_BACKEND_URL}/intake`, async () => {
         reloads += 1;
         await delay(300);
-        return HttpResponse.json(new URL(request.url).searchParams.get("state") === "reviewed" ? [] : [HELD]);
+        return HttpResponse.json([HELD]);
       }),
     );
     await user.click(write);
@@ -492,8 +487,8 @@ describe("ReviewsScreen", () => {
   it("answers a 409 subject_not_held on a row with the approved line, once the lists have reloaded and the row is gone", async () => {
     let raced = false;
     server.use(
-      http.get(`${TEST_BACKEND_URL}/intake`, ({ request }) =>
-        HttpResponse.json(raced || new URL(request.url).searchParams.get("state") === "reviewed" ? [] : [HELD]),
+      http.get(`${TEST_BACKEND_URL}/intake`, () =>
+        HttpResponse.json(raced ? [] : [HELD]),
       ),
       http.post(`${TEST_BACKEND_URL}/reviews`, () => {
         raced = true;

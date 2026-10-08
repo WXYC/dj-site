@@ -34,10 +34,7 @@ describe("ReviewsScreen — a row stays locked until every rendered list has rel
   beforeEach(() => vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "true"));
   afterEach(() => vi.unstubAllEnvs());
 
-  it.each([
-    ["open", null],
-    ["reviewed", "reviewed"],
-  ])("holds the row while the %s list's reload is still in flight", async (_list, heldState) => {
+  it("holds the row while the intake list's reload is still in flight", async () => {
     let written = false;
     let releaseHeld!: () => void;
     const held = new Promise<void>((resolve) => {
@@ -46,13 +43,12 @@ describe("ReviewsScreen — a row stays locked until every rendered list has rel
     let heldReads = 0;
     fakeReviewsEndpoints({ open: [ON_SHELF] });
     server.use(
-      http.get(`${TEST_BACKEND_URL}/intake`, async ({ request }) => {
-        const state = new URL(request.url).searchParams.get("state");
-        if (written && state === heldState) {
+      http.get(`${TEST_BACKEND_URL}/intake`, async () => {
+        if (written) {
           heldReads += 1;
           await held;
         }
-        return HttpResponse.json(state === "reviewed" ? [] : [ON_SHELF]);
+        return HttpResponse.json([ON_SHELF]);
       }),
       http.post(`${TEST_BACKEND_URL}/intake/5/checkout`, () => {
         written = true;
@@ -65,12 +61,29 @@ describe("ReviewsScreen — a row stays locked until every rendered list has rel
     const checkout = within(shelf).getByRole("button", { name: "Check out" });
     await user.click(checkout);
 
-    // The other list has long since landed; only the held one is outstanding.
+    // The my-reviews list has long since landed; only the intake list is outstanding.
     await waitFor(() => expect(heldReads).toBeGreaterThan(0));
     await new Promise((resolve) => setTimeout(resolve, 100));
     expect(checkout).toBeDisabled();
 
     releaseHeld();
     await waitFor(() => expect(checkout).toBeEnabled());
+  });
+
+  it("reads intake once on load, and finds a reviewed checkout in that one read", async () => {
+    const intakeReads: string[] = [];
+    fakeReviewsEndpoints({
+      open: [ON_SHELF, intakeItem({ id: 8, artist_name: "Cat Power", state: "reviewed", effective_state: "reviewed", checked_out_by: "dj-me", checked_out_at: "2026-09-02T12:00:00Z" })],
+    });
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/intake`, ({ request }) => {
+        intakeReads.push(new URL(request.url).search);
+      }),
+    );
+
+    renderWithProviders(<ReviewsScreen />);
+    const checkouts = await screen.findByRole("region", { name: "My checkouts" });
+    await within(checkouts).findByText(/Cat Power/);
+    expect(intakeReads).toEqual([""]);
   });
 });
