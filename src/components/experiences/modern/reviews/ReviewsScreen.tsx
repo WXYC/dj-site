@@ -18,8 +18,7 @@ import {
   usePassIntakeItemMutation,
   useReleaseIntakeItemMutation,
 } from "@/lib/features/reviews/api";
-import { canSeeReviews } from "@/lib/features/reviews/flags";
-import { Authorization } from "@/lib/features/admin/types";
+import { useCanSeeReviews } from "@/src/hooks/useCanSeeReviews";
 import { useAuthentication } from "@/src/hooks/authenticationHooks";
 import { useAppDispatch } from "@/lib/hooks";
 import { useRowWrite } from "@/src/hooks/useRowWrite";
@@ -57,7 +56,7 @@ export default function ReviewsScreen() {
   const { data: auth } = useAuthentication();
   const user = "user" in auth ? auth.user : undefined;
   const me = user?.id;
-  const visible = canSeeReviews(user?.authority ?? Authorization.NO);
+  const visible = useCanSeeReviews();
 
   const open = useGetIntakeItemsQuery(OPEN_LISTS, { skip: !visible });
   const reviewed = useGetIntakeItemsQuery(REVIEWED_LIST, { skip: !visible });
