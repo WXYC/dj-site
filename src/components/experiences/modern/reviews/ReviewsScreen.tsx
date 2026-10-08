@@ -32,10 +32,10 @@ type Action = "checkout" | "accept" | "pass" | "release" | "write";
 
 /** What a lost race (409 `state_changed`) means for each button, shown once the lists have reloaded. */
 const RACE_NOTICE: Record<Action, string> = {
-  checkout: "This record left the review shelf before your click went through. The lists have been reloaded.",
-  accept: "This request is no longer open; it may have expired. The lists have been reloaded.",
-  pass: "This request is no longer open; it may have expired. The lists have been reloaded.",
-  release: "This record is no longer checked out to you. The lists have been reloaded.",
+  checkout: REVIEW_COPY.screen.raceCheckout,
+  accept: REVIEW_COPY.screen.raceRequest,
+  pass: REVIEW_COPY.screen.raceRequest,
+  release: REVIEW_COPY.screen.raceRelease,
   write: REVIEW_COPY.subjectNotHeld,
 };
 
@@ -76,13 +76,13 @@ export default function ReviewsScreen() {
     ],
     isLostRace: (err) => isIntakeStateChanged(err) || isReviewSubjectNotHeld(err),
     onFailure: (_err, _id, action) =>
-      toast.error(action === "write" ? REVIEW_COPY.couldNotStart : "Couldn't do that. Please try again."),
+      toast.error(action === "write" ? REVIEW_COPY.couldNotStart : REVIEW_COPY.screen.writeFailed),
     onLostRace: (_id, action) => toast(RACE_NOTICE[action]),
   });
 
   if (!visible) return null;
   if (open.isError || reviewed.isError || mine.isError) {
-    return <Typography role="alert">Couldn't load the review shelf. Please try again.</Typography>;
+    return <Typography role="alert">{REVIEW_COPY.screen.loadFailed}</Typography>;
   }
 
   // Until both lists land, an empty-state sentence would read as a fact.
@@ -134,18 +134,18 @@ export default function ReviewsScreen() {
 
   return (
     <Stack spacing={3}>
-      {section("The review shelf", onShelf, "Nothing is waiting on the review shelf.", describe, (i) => (
+      {section(REVIEW_COPY.screen.shelfTitle, onShelf, REVIEW_COPY.screen.shelfEmpty, describe, (i) => (
         <>
-          <Typography level="body-sm">Logged {day(i.logged_at)}</Typography>
-          <Button size="sm" {...lock(i.id, "checkout")} onClick={() => write(i.id, "checkout", () => checkout(i.id).unwrap())}>Check out</Button>
+          <Typography level="body-sm">{`${REVIEW_COPY.screen.logged} ${day(i.logged_at)}`}</Typography>
+          <Button size="sm" {...lock(i.id, "checkout")} onClick={() => write(i.id, "checkout", () => checkout(i.id).unwrap())}>{REVIEW_COPY.screen.checkOut}</Button>
         </>
       ))}
-      {section("My checkouts", checkouts, "You have no records checked out.", describe, (i) => (
+      {section(REVIEW_COPY.screen.checkoutsTitle, checkouts, REVIEW_COPY.screen.checkoutsEmpty, describe, (i) => (
         <>
-          <Typography level="body-sm">Taken {day(i.checked_out_at)}</Typography>
-          {i.overdue && <Chip color="danger">Overdue</Chip>}
+          <Typography level="body-sm">{`${REVIEW_COPY.screen.taken} ${day(i.checked_out_at)}`}</Typography>
+          {i.overdue && <Chip color="danger">{REVIEW_COPY.screen.overdue}</Chip>}
           {i.effective_state === "reviewed" && (
-            <Typography level="body-sm">Reviewed. Bring the record back to the music office.</Typography>
+            <Typography level="body-sm">{REVIEW_COPY.screen.reviewedReturn}</Typography>
           )}
           <Button
             size="sm"
@@ -159,14 +159,14 @@ export default function ReviewsScreen() {
           >
             {REVIEW_COPY.writeReview}
           </Button>
-          <Button size="sm" variant="outlined" {...lock(i.id, "release")} onClick={() => setReturning(i)}>Return to the review shelf</Button>
+          <Button size="sm" variant="outlined" {...lock(i.id, "release")} onClick={() => setReturning(i)}>{REVIEW_COPY.screen.returnToShelf}</Button>
         </>
       ))}
-      {section("Requests for me", requests, "No one has asked you for a review.", describe, (i) => (
+      {section(REVIEW_COPY.screen.requestsTitle, requests, REVIEW_COPY.screen.requestsEmpty, describe, (i) => (
         <>
-          <Typography level="body-sm">Asked {day(i.requested_at)}</Typography>
-          <Button size="sm" {...lock(i.id, "accept")} onClick={() => write(i.id, "accept", () => accept(i.id).unwrap())}>Accept</Button>
-          <Button size="sm" variant="outlined" {...lock(i.id, "pass")} onClick={() => write(i.id, "pass", () => pass(i.id).unwrap())}>Pass</Button>
+          <Typography level="body-sm">{`${REVIEW_COPY.screen.asked} ${day(i.requested_at)}`}</Typography>
+          <Button size="sm" {...lock(i.id, "accept")} onClick={() => write(i.id, "accept", () => accept(i.id).unwrap())}>{REVIEW_COPY.screen.accept}</Button>
+          <Button size="sm" variant="outlined" {...lock(i.id, "pass")} onClick={() => write(i.id, "pass", () => pass(i.id).unwrap())}>{REVIEW_COPY.screen.pass}</Button>
         </>
       ))}
       {section(REVIEW_COPY.myReviews.title, mine.data, REVIEW_COPY.myReviews.empty, draftLabel, (r) => (
@@ -178,7 +178,7 @@ export default function ReviewsScreen() {
       <ConfirmDialog
         open={returning !== null}
         onClose={() => setReturning(null)}
-        title="Return to the review shelf"
+        title={REVIEW_COPY.screen.returnToShelf}
         actions={
           <>
             <Button
@@ -188,13 +188,13 @@ export default function ReviewsScreen() {
                 await write(id, "release", () => release(id).unwrap());
               }}
             >
-              Return to the review shelf
+              {REVIEW_COPY.screen.returnToShelf}
             </Button>
-            <Button variant="plain" onClick={() => setReturning(null)}>Cancel</Button>
+            <Button variant="plain" onClick={() => setReturning(null)}>{REVIEW_COPY.screen.cancel}</Button>
           </>
         }
       >
-        Have you brought this record back to the station?
+        {REVIEW_COPY.screen.returnQuestion}
       </ConfirmDialog>
     </Stack>
   );
