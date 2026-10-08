@@ -89,4 +89,24 @@ export const REVIEW_COPY = {
     open: "Open",
     libraryRelease: "A library release",
   },
+  albumPanel: {
+    /** Approved. */
+    coverOne: "The review on the cover",
+    /** Approved. */
+    coverMany: "The reviews on the cover",
+    /** Approved. */
+    others: "Other reviews",
+    /** Approved. Heading when no review is on the cover. */
+    all: "Reviews",
+    /** Approved. Shown for a handwritten review without text, beside its author. */
+    onTheSleeve: "on the sleeve",
+    /** Approved. Links to the review's history. */
+    history: "Edited · see history",
+    /** Approved. */
+    reviewThisRelease: "Review this release",
+    /** Approved. Sits beside the button. */
+    nudge: "New to reviewing? New arrivals on the review shelf need reviews most.",
+    archiveTitle: "Earlier takes",
+    loadFailed: "Couldn't load the reviews. Please try again.",
+  },
 } as const;

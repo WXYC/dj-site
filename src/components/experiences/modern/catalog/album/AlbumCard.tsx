@@ -18,6 +18,7 @@ import {
 } from "@mui/joy";
 import { useRef, useState, useEffect } from "react";
 import { NotOnDiscogsBadge } from "@/src/components/experiences/modern/catalog/AlbumArtwork";
+import ReviewsPanel from "@/src/components/experiences/modern/reviews/ReviewsPanel";
 import AlbumArtworkWithRotationBadge from "./AlbumArtworkWithRotationBadge";
 import AlbumEditForm from "./AlbumEditForm";
 import CompilationCreditsControl from "./CompilationCreditsControl";
@@ -222,6 +223,13 @@ export default function AlbumCard({
               </Link>
             )}
           </>
+        )}
+        {album.id != null && (
+          <ReviewsPanel
+            key={`reviews-${album.id}`}
+            albumId={album.id}
+            record={{ artist: album.artist.name, album: album.title, label: album.label ?? "" }}
+          />
         )}
         <Divider sx={{ my: 1 }} />
         {isDiscogsUnavailable ? null : metadataLoading ? (

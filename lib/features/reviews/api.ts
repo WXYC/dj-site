@@ -1,5 +1,5 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
-import type { IntakeItem, IntakeItemState, NewReviewRequest, Review, ReviewPatch } from "@wxyc/shared";
+import type { AlbumReview, AlbumReviewsResponse, IntakeItem, IntakeItemState, NewReviewRequest, Review, ReviewPatch } from "@wxyc/shared";
 import type { FetchBaseQueryError } from "@reduxjs/toolkit/query";
 import { backendBaseQuery } from "../backend";
 import { isRefusal } from "@/lib/rtk-endpoint-error";
@@ -98,6 +98,16 @@ export const reviewsApi = createApi({
       query: () => ({ url: "reviews", params: { mine: true } }),
       providesTags: ["Review"],
     }),
+    // The server's order is the panel's order: reviews on the cover first, then the rest.
+    getReviewsForRelease: builder.query<Review[], number>({
+      query: (albumId) => ({ url: "reviews", params: { album_id: albumId } }),
+      providesTags: ["Review"],
+    }),
+    // The Google Form archive: read-only earlier takes, never merged into `Review`.
+    getAlbumReviewsForRelease: builder.query<AlbumReview[], number>({
+      query: (albumId) => ({ url: "album-reviews", params: { album_id: albumId } }),
+      transformResponse: (response: AlbumReviewsResponse) => response.album_reviews,
+    }),
     getReview: builder.query<Review, number>({
       query: (id) => ({ url: `reviews/${id}` }),
       providesTags: ["Review"],
@@ -124,6 +134,8 @@ export const {
   usePassIntakeItemMutation,
   useFinalizeIntakeItemMutation,
   useGetMyReviewsQuery,
+  useGetReviewsForReleaseQuery,
+  useGetAlbumReviewsForReleaseQuery,
   useGetReviewQuery,
   useCreateReviewMutation,
   useUpdateReviewMutation,

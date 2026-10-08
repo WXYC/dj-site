@@ -1,5 +1,5 @@
 import { http, HttpResponse } from "msw";
-import type { IntakeItem, Review } from "@wxyc/shared";
+import type { AlbumReview, IntakeItem, Review } from "@wxyc/shared";
 import { server } from "./server";
 import { TEST_BACKEND_URL as BACKEND_URL } from "../helpers/constants";
 
@@ -51,6 +51,8 @@ const resolve = <Row>(rows: Rows<Row>) => (typeof rows === "function" ? rows() :
  *
  * - `GET /intake` answers `reviewed` when `state=reviewed`, else `open`
  * - `GET /reviews?mine=true` answers `mine`
+ * - `GET /reviews?album_id=` answers `forRelease[album_id]` (empty when absent)
+ * - `GET /album-reviews?album_id=` answers `archive[album_id]` as the archive page shape
  * - `GET /reviews/:id` answers the matching row of `reviews`, 404 otherwise
  * - `GET /intake/:id` answers the matching row of `records`, 404 otherwise
  * - `GET /library/info?album_id=` answers the matching row of `releases` (the
@@ -66,6 +68,8 @@ export function fakeReviewsEndpoints({
   reviewed = [],
   mine = [],
   reviews = [],
+  forRelease = {},
+  archive = {},
   records = [],
   releases = [],
   formats = [{ id: 1, format_name: "cd" }],
@@ -74,6 +78,8 @@ export function fakeReviewsEndpoints({
   reviewed?: Rows<IntakeItem>;
   mine?: Rows<Review>;
   reviews?: Review[];
+  forRelease?: Record<string, Review[]>;
+  archive?: Record<string, AlbumReview[]>;
   records?: IntakeItem[];
   releases?: { id: number; [key: string]: unknown }[];
   formats?: { id: number; format_name: string }[];
@@ -82,7 +88,14 @@ export function fakeReviewsEndpoints({
     http.get(`${BACKEND_URL}/intake`, ({ request }) =>
       HttpResponse.json(resolve(new URL(request.url).searchParams.get("state") === "reviewed" ? reviewed : open)),
     ),
-    http.get(`${BACKEND_URL}/reviews`, () => HttpResponse.json(resolve(mine))),
+    http.get(`${BACKEND_URL}/reviews`, ({ request }) => {
+      const albumId = new URL(request.url).searchParams.get("album_id");
+      return HttpResponse.json(albumId === null ? resolve(mine) : (forRelease[albumId] ?? []));
+    }),
+    http.get(`${BACKEND_URL}/album-reviews`, ({ request }) => {
+      const albumId = new URL(request.url).searchParams.get("album_id") ?? "";
+      return HttpResponse.json({ album_reviews: archive[albumId] ?? [], pagination: {} });
+    }),
     http.get(`${BACKEND_URL}/reviews/:id`, ({ params }) => {
       const found = reviews.find((row) => String(row.id) === params.id);
       return found ? HttpResponse.json(found) : HttpResponse.json({ message: "not found" }, { status: 404 });
