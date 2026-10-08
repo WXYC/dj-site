@@ -43,13 +43,13 @@ vi.mock("@/src/components/experiences/classic/catalog/ArtistCard", () => ({
     artistId: number;
     genreId?: number;
     message?: string;
-    refiled?: { from: number; releases: number; fromLetters?: string };
+    refiled?: { from: number; releases: number; fromLetters?: string | null; fromGenre?: number };
   }) => (
     <div
       data-testid="artist-card"
       data-artist-id={artistId}
       data-genre-id={genreId ?? ""}
-      data-refiled={refiled ? `${refiled.from}:${refiled.releases}:${refiled.fromLetters ?? ""}` : ""}
+      data-refiled={refiled ? `${refiled.from}:${refiled.releases}:${refiled.fromLetters ?? ""}:${refiled.fromGenre ?? ""}` : ""}
     >
       {message}
     </div>
@@ -65,6 +65,7 @@ type ArtistCardSearchParams = {
   from?: string;
   n?: string;
   from_letters?: string;
+  from_genre?: string;
 };
 
 const page = (id = "42", search: ArtistCardSearchParams = {}) =>
@@ -162,10 +163,12 @@ describe("classic /dashboard/library/artist/[id] page — artistCardModify.jsp",
   // The parse's own taxonomy lives in `refiledConfirmation.test.ts`; this tier
   // owes that the page wires it and that a bad triple costs only the banner.
   it.each([
-    { search: { refiled: "1", from: "1", n: "2" }, expected: "1:2:" },
-    { search: { refiled: "1", from: "0", n: "0" }, expected: "0:0:" },
-    { search: { refiled: "1", from: "36", n: "2", from_letters: "RE" }, expected: "36:2:RE" },
-    { search: { refiled: "1", from: "36", n: "2", from_letters: "<b>x" }, expected: "36:2:" },
+    { search: { refiled: "1", from: "1", n: "2" }, expected: "1:2::" },
+    { search: { refiled: "1", from: "0", n: "0" }, expected: "0:0::" },
+    { search: { refiled: "1", from: "36", n: "2", from_letters: "RE" }, expected: "36:2:RE:" },
+    { search: { refiled: "1", from: "36", n: "2", from_letters: "<b>x" }, expected: "36:2::" },
+    { search: { refiled: "1", from: "36", n: "2", from_genre: "9" }, expected: "36:2::9" },
+    { search: { refiled: "1", from: "36", n: "2", from_genre: "<b>" }, expected: "36:2::" },
     { search: { refiled: "1", from: "x", n: "2" }, expected: "" },
     { search: { refiled: "1", from: "1", n: "-2" }, expected: "" },
     { search: { refiled: "1", n: "2" }, expected: "" },

@@ -89,7 +89,7 @@ describe("classic ArtistRefileForm", () => {
   it("starts at the current number, which holds Continue", async () => {
     renderWithProviders(<ArtistRefileForm artistId={ARTIST_ID} genreId={GENRE_ID} />);
     expect(screen.getByLabelText("New Call Number:")).toHaveValue(card.code_artist_number);
-    expect(occupancyText()).toHaveTextContent("That is the current call number.");
+    expect(occupancyText()).toBeEmptyDOMElement();
     expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
   });
 
@@ -283,10 +283,10 @@ describe("classic ArtistRefileForm", () => {
   });
 
   describe("advisory occupancy line", () => {
-    it("says only that the seeded number is current, then nothing before the debounce elapses", async () => {
+    it("says nothing on load, and nothing before the debounce elapses", async () => {
       byCode(undefined, NOT_ASSIGNED);
       renderWithProviders(<ArtistRefileForm artistId={ARTIST_ID} genreId={GENRE_ID} />);
-      expect(occupancyText()).toHaveTextContent("That is the current call number.");
+      expect(occupancyText()).toBeEmptyDOMElement();
 
       await type("31");
       // Typed, but the lookup has not been issued yet.
@@ -413,7 +413,8 @@ describe("classic ArtistRefileForm", () => {
 
       expect(lettersBox()).toHaveValue("RE");
       expect(numberBox()).toHaveValue(36);
-      expect(occupancyText()).toHaveTextContent("That is the current call number.");
+      // Nothing touched yet: the live region stays quiet on load.
+      expect(occupancyText()).toBeEmptyDOMElement();
     });
 
     it("re-letters at the same number with no retyping, sending only what changed", async () => {
@@ -665,14 +666,14 @@ describe("classic ArtistRefileForm", () => {
         status: 409,
         body: { reason: "already_filed_in_genre" },
         text: "already has a membership or a release in that genre",
-        keepsContinue: false,
+        keepsContinue: true,
       },
       {
         name: "genre not found",
         status: 404,
         body: { message: "x", code: "genre_not_found" },
         text: "That genre was not found",
-        keepsContinue: false,
+        keepsContinue: true,
       },
     ])("states a $name refusal once; Continue stays: $keepsContinue", async ({ status, body, text, keepsContinue }) => {
       mockRefile.mockReturnValue(rejects(status, body));
@@ -696,6 +697,233 @@ describe("classic ArtistRefileForm", () => {
       await user.type(lettersBox(), "X");
 
       expect(screen.queryByTestId("artist-refile-refusal")).toBeNull();
+    });
+  });
+
+  describe("genre", () => {
+    const JAM_ID = 52;
+    const JAZZ = 3;
+    const ELECTRONIC = 9;
+    const jam = {
+      artist_id: JAM_ID,
+      artist_name: "Jam Money",
+      alphabetical_name: "Jam Money",
+      genre_id: JAZZ,
+      code_letters: "RE",
+      code_artist_number: 36,
+    };
+    const GENRES = [
+      { id: JAZZ, genre_name: "Jazz" },
+      { id: ELECTRONIC, genre_name: "Electronic" },
+    ];
+    const movedResult = (body: object = {}) => ({
+      unwrap: () =>
+        Promise.resolve({
+          ...jam,
+          genre_id: ELECTRONIC,
+          changed: true,
+          previous_code_artist_number: 36,
+          previous_code_letters: "RE",
+          previous_genre_id: JAZZ,
+          releases_to_relabel: 4,
+          ...body,
+        }),
+    });
+    const genreBox = () => screen.getByLabelText("New Genre:");
+    const render = () => renderWithProviders(<ArtistRefileForm artistId={JAM_ID} genreId={JAZZ} />);
+    const toElectronic = async (user = userEvent.setup()) => {
+      await user.selectOptions(genreBox(), String(ELECTRONIC));
+      return user;
+    };
+    const confirm = (user: ReturnType<typeof userEvent.setup>) =>
+      user.click(screen.getByRole("button", { name: "Continue" }));
+    const submit = (user: ReturnType<typeof userEvent.setup>) =>
+      user.click(screen.getByRole("button", { name: "Re-file The Artist" }));
+
+    beforeEach(() => {
+      mockCardQuery.mockReturnValue({ data: jam, isLoading: false });
+      mockGenresQuery.mockReturnValue({ data: GENRES });
+    });
+
+    it("defaults the genre to the card's and holds Continue until something changes", () => {
+      render();
+
+      expect(genreBox()).toHaveValue(String(JAZZ));
+      expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
+    });
+
+    it("moves the genre only: sends to_genre_id, keeps the letters and number, and lands on the destination card", async () => {
+      mockRefile.mockReturnValue(movedResult());
+      render();
+      const user = await toElectronic();
+      await confirm(user);
+
+      expect(screen.getByTestId("artist-refile-confirm-copy")).toHaveTextContent(
+        "Move Jam Money from Jazz RE 36 to Electronic RE 36. Its releases filed under Jazz move with it.",
+      );
+      await submit(user);
+      expect(mockRefile).toHaveBeenCalledWith({
+        artistId: JAM_ID,
+        code_letters: "RE",
+        body: { genre_id: JAZZ, code_artist_number: 36, to_genre_id: ELECTRONIC },
+      });
+      await waitFor(() =>
+        expect(mockPush).toHaveBeenCalledWith(
+          `/dashboard/library/artist/${JAM_ID}?genre_id=${ELECTRONIC}&refiled=1&from=36&n=4&from_genre=${JAZZ}`,
+        ),
+      );
+    });
+
+    it.each([
+      {
+        label: "genre and letters",
+        letters: "ja",
+        number: null,
+        body: { genre_id: JAZZ, code_artist_number: 36, code_letters: "JA", to_genre_id: ELECTRONIC },
+        copy: "from Jazz RE 36 to Electronic JA 36",
+        result: { code_letters: "JA", previous_code_letters: "RE" },
+        url: `genre_id=${ELECTRONIC}&refiled=1&from=36&n=4&from_letters=RE&from_genre=${JAZZ}`,
+      },
+      {
+        label: "genre and number",
+        letters: null,
+        number: "4",
+        body: { genre_id: JAZZ, code_artist_number: 4, to_genre_id: ELECTRONIC },
+        copy: "from Jazz RE 36 to Electronic RE 4",
+        result: { code_artist_number: 4 },
+        url: `genre_id=${ELECTRONIC}&refiled=1&from=36&n=4&from_genre=${JAZZ}`,
+      },
+    ])("moves $label together", async ({ letters, number, body, copy, result, url }) => {
+      mockRefile.mockReturnValue(movedResult(result));
+      render();
+      const user = userEvent.setup();
+      if (letters) {
+        await user.clear(screen.getByLabelText("New Call Letters:"));
+        await user.type(screen.getByLabelText("New Call Letters:"), letters);
+      }
+      if (number) {
+        await user.clear(screen.getByLabelText("New Call Number:"));
+        await user.type(screen.getByLabelText("New Call Number:"), number);
+      }
+      await toElectronic(user);
+      await confirm(user);
+      expect(screen.getByTestId("artist-refile-confirm-copy")).toHaveTextContent(copy);
+      await submit(user);
+
+      expect(mockRefile).toHaveBeenCalledWith({ artistId: JAM_ID, code_letters: "RE", body });
+      await waitFor(() => expect(mockPush).toHaveBeenCalledWith(expect.stringContaining(url)));
+    });
+
+    it("omits to_genre_id when the genre is chosen and put back", async () => {
+      mockRefile.mockReturnValue(movedResult({ genre_id: JAZZ, code_artist_number: 37, previous_genre_id: JAZZ }));
+      render();
+      const user = userEvent.setup();
+      await toElectronic(user);
+      await user.selectOptions(genreBox(), String(JAZZ));
+      await user.clear(screen.getByLabelText("New Call Number:"));
+      await user.type(screen.getByLabelText("New Call Number:"), "37");
+      await confirm(user);
+      await submit(user);
+
+      expect(mockRefile).toHaveBeenCalledWith({
+        artistId: JAM_ID,
+        code_letters: "RE",
+        body: { genre_id: JAZZ, code_artist_number: 37 },
+      });
+    });
+
+    it("re-points the occupancy lookup and line at the destination genre", async () => {
+      byCode(undefined, NOT_ASSIGNED);
+      render();
+      await toElectronic();
+
+      await waitFor(() =>
+        expect(mockByCodeQuery).toHaveBeenLastCalledWith({ genre_id: ELECTRONIC, code_letters: "RE", code_number: 36 }),
+      );
+      await waitFor(() => expect(occupancyText()).toHaveTextContent("Electronic RE 36 is free."));
+    });
+
+    it("names the holder of the destination code, linked to the destination genre", async () => {
+      byCode([{ id: 901, artist_name: "Chuquimamani-Condori", code_letters: "RE", code_number: 36, genre_id: ELECTRONIC }]);
+      render();
+      await toElectronic();
+
+      await waitFor(() =>
+        expect(occupancyText()).toHaveTextContent("Electronic RE 36 is held by Chuquimamani-Condori."),
+      );
+      expect(occupancyText().querySelector("a")?.getAttribute("href")).toBe(
+        `/dashboard/library/artist/901?genre_id=${ELECTRONIC}`,
+      );
+    });
+
+    it("stays quiet about the current code until a field is touched, then says it", async () => {
+      render();
+      expect(occupancyText()).toBeEmptyDOMElement();
+      const user = userEvent.setup();
+      await user.clear(screen.getByLabelText("New Call Number:"));
+      await user.type(screen.getByLabelText("New Call Number:"), "36");
+
+      expect(occupancyText()).toHaveTextContent("That is the current call number.");
+    });
+
+    it("states the genre-list outage, disables the genre, and says what still works", () => {
+      mockGenresQuery.mockReturnValue({ data: undefined, isUninitialized: false, isLoading: false });
+      render();
+
+      expect(screen.queryByLabelText("New Genre:")).toBeNull();
+      expect(screen.getByTestId("artist-refile-genres-unavailable")).toHaveTextContent("genre list could not be loaded");
+      expect(screen.getByLabelText("New Call Letters:")).toBeEnabled();
+      expect(screen.getByLabelText("New Call Number:")).toBeEnabled();
+    });
+
+    it("conflict after a genre move names the destination code", async () => {
+      mockRefile.mockReturnValue(
+        rejects(409, {
+          reason: "artist_code_conflict",
+          artist: { id: 901, artist_name: "Chuquimamani-Condori", code_letters: "RE", code_artist_number: 36, genre_id: ELECTRONIC },
+        }),
+      );
+      render();
+      const user = await toElectronic();
+      await confirm(user);
+      await submit(user);
+
+      expect(await screen.findByTestId("artist-refile-refusal")).toHaveTextContent(
+        "Electronic RE 36 is held by Chuquimamani-Condori. Nothing was changed.",
+      );
+    });
+
+    it.each([
+      { name: "already filed in genre", status: 409, body: { reason: "already_filed_in_genre" }, text: "choose another genre" },
+      { name: "genre not found", status: 404, body: { message: "x", code: "genre_not_found" }, text: "That genre was not found" },
+    ])("keeps Continue after a $name refusal, since the genre can be changed here", async ({ status, body, text }) => {
+      mockRefile.mockReturnValue(rejects(status, body));
+      render();
+      const user = await toElectronic();
+      await confirm(user);
+      await submit(user);
+
+      expect(await screen.findByTestId("artist-refile-refusal")).toHaveTextContent(text);
+      expect(screen.getByRole("button", { name: "Continue" })).toBeEnabled();
+      expect(mockPush).not.toHaveBeenCalled();
+    });
+
+    it("clears a standing refusal when the genre is changed", async () => {
+      mockRefile.mockReturnValue(rejects(409, { reason: "already_filed_in_genre" }));
+      render();
+      const user = await toElectronic();
+      await confirm(user);
+      await submit(user);
+      await screen.findByTestId("artist-refile-refusal");
+
+      await user.selectOptions(genreBox(), String(JAZZ));
+
+      expect(screen.queryByTestId("artist-refile-refusal")).toBeNull();
+    });
+
+    it("the heading and load error cover letters and genre", () => {
+      render();
+      expect(screen.getByRole("heading", { level: 3 })).toHaveTextContent("Letters, Number Or Genre");
     });
   });
 });

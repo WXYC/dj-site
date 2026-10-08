@@ -182,6 +182,44 @@ describe("refileArtist", () => {
     unsubscribe();
   });
 
+  it("a genre move does not refetch the source-genre card (it would 404), but refetches the destination and unscoped cards", async () => {
+    const L = `${TEST_BACKEND_URL}/library`;
+    const hits = { source: 0, destination: 0, unscoped: 0 };
+    server.use(
+      http.get(`${L}/artists/${ARTIST_ID}`, ({ request }) => {
+        const genre = new URL(request.url).searchParams.get("genre_id");
+        if (genre === String(GENRE_ID)) {
+          hits.source += 1;
+          return HttpResponse.json({ message: "Artist not filed under genre 6" }, { status: 404 });
+        }
+        hits[genre === "15" ? "destination" : "unscoped"] += 1;
+        return HttpResponse.json({ ...RESULT, genre_id: 15 });
+      }),
+      http.post(REFILE_URL, () => HttpResponse.json({ ...RESULT, genre_id: 15, previous_genre_id: GENRE_ID })),
+    );
+    const store = createTestStore();
+    const e = catalogApi.endpoints;
+    const subs = [
+      store.dispatch(e.getArtistCard.initiate({ artistId: ARTIST_ID, genre_id: 15 })),
+      store.dispatch(e.getArtistCard.initiate({ artistId: ARTIST_ID })),
+    ];
+    await Promise.all(subs);
+    // The source-genre entry is the one the still-mounted form holds; it already exists and resolves as the move lands.
+    hits.source = 0;
+    hits.destination = 0;
+    hits.unscoped = 0;
+    const source = store.dispatch(e.getArtistCard.initiate({ artistId: ARTIST_ID, genre_id: GENRE_ID }));
+    await source;
+    expect(hits.source).toBe(1);
+
+    await store.dispatch(e.refileArtist.initiate({ ...ARG, body: { ...ARG.body, to_genre_id: 15 } }));
+    await vi.waitFor(() => expect(hits.destination).toBe(1));
+    await settle();
+    expect(hits).toEqual({ source: 1, destination: 1, unscoped: 1 });
+    subs.forEach((sub) => sub.unsubscribe());
+    source.unsubscribe();
+  });
+
   it("changed:false wrote nothing: refetches nothing anywhere", async () => {
     const { store, calls, unsubscribe } = await subscribed();
     server.use(http.post(REFILE_URL, () => HttpResponse.json({ ...RESULT, changed: false, releases_to_relabel: 0 })));

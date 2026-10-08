@@ -28,7 +28,7 @@ import { resolveArtistByCodeErrorReason } from "@/lib/features/catalog/libraryCo
 const OCCUPANCY_DEBOUNCE_MS = 300;
 
 /**
- * Re-file an artist's call letters and number on one genre shelf -- two steps,
+ * Re-file an artist's call letters, number and genre -- two steps,
  * like the delete screen's confirm page: Choose them (with an advisory
  * occupancy line for the destination code), then Confirm. The occupancy line is advisory only; the server's 409
  * is the authority, and its holder is named (and linked) when it lands. Every refusal is stated once here -- the
@@ -57,6 +57,9 @@ export default function ArtistRefileForm({
   const [submitted, setSubmitted] = useState(false);
   // null = untouched, so the field shows the card's letters without copying them into state.
   const [lettersInput, setLettersInput] = useState<string | null>(null);
+  // null = untouched: the destination genre is the card's own.
+  const [genreInput, setGenreInput] = useState<number | null>(null);
+  const touched = text !== null || lettersInput !== null || genreInput !== null;
 
   const numberText = text ?? (card ? String(card.code_artist_number) : "");
   const target = parseArtistCodeNumber(numberText);
@@ -80,17 +83,27 @@ export default function ArtistRefileForm({
   const lettersChanged = lettersEdited && lettersError === null;
   const destLetters = lettersChanged ? letters : (card?.code_letters ?? "");
 
-  const [debounced, setDebounced] = useState<{ number: number | null; letters: string } | null>(null);
+  const destGenreId = genreInput ?? genreId;
+  const genreChanged = destGenreId !== genreId;
+
+  const [debounced, setDebounced] = useState<{ number: number | null; letters: string; genre: number } | null>(null);
   useEffect(() => {
-    const timer = setTimeout(() => setDebounced({ number: target, letters: destLetters }), OCCUPANCY_DEBOUNCE_MS);
+    const timer = setTimeout(
+      () => setDebounced({ number: target, letters: destLetters, genre: destGenreId }),
+      OCCUPANCY_DEBOUNCE_MS,
+    );
     return () => clearTimeout(timer);
-  }, [target, destLetters]);
+  }, [target, destLetters, destGenreId]);
 
   const occupancy = useResolveArtistByCodeQuery(
     card &&
       debounced?.number != null &&
-      !(debounced.number === card.code_artist_number && debounced.letters === card.code_letters)
-      ? { genre_id: genreId, code_letters: debounced.letters, code_number: debounced.number }
+      !(
+        debounced.number === card.code_artist_number &&
+        debounced.letters === card.code_letters &&
+        debounced.genre === genreId
+      )
+      ? { genre_id: debounced.genre, code_letters: debounced.letters, code_number: debounced.number }
       : skipToken,
   );
 
@@ -101,33 +114,35 @@ export default function ArtistRefileForm({
       </div>
     ) : (
       <div data-testid="artist-refile-error" role="alert" className="artist-error-message">
-        This artist could not be loaded, so its call number cannot be changed.
+        This artist could not be loaded, so its call letters, number or genre cannot be changed.
       </div>
     );
   }
 
   const genreName = genres?.find((genre) => genre.id === card.genre_id)?.genre_name;
-  const codeOf = (number: number, code_letters = card.code_letters) =>
-    formatArtistLibraryCode({ genreName, code_letters, code_artist_number: number });
+  const destGenreName = genres?.find((genre) => genre.id === destGenreId)?.genre_name;
+  const codeOf = (number: number, code_letters = card.code_letters, name = genreName) =>
+    formatArtistLibraryCode({ genreName: name, code_letters, code_artist_number: number });
+  const destCodeOf = (number: number) => codeOf(number, destLetters, destGenreName);
   const cardHref = artistCardHref(
     { id: artistId, code_letters: card.code_letters },
     { genreId },
   );
   // Without the genre word the codes read "IS 31", which names two shelves.
-  const genreKnown = genreName !== undefined;
+  const genreKnown = genreName !== undefined && destGenreName !== undefined;
   // Refused on the merits: nothing on this screen can fix it, so the action
-  // goes (a retryable refusal or a conflict leaves it standing). Shared
-  // letters stands because the letters field can be put back; the genre
-  // refusals cannot arise until the screen can change the genre.
+  // goes (a retryable refusal or a conflict leaves it standing). The shared
+  // letters and the two genre refusals stand because the letters or the genre
+  // can be put back or changed here.
   const WITHDRAWN = {
     conflict: false,
     lettered_section: true,
     various_artists_section: true,
     not_filed_in_genre: true,
     artist_not_found: true,
-    genre_not_found: true,
+    genre_not_found: false,
     letters_shared_across_genres: false,
-    already_filed_in_genre: true,
+    already_filed_in_genre: false,
     lock_unavailable: false,
     generic: false,
   } satisfies Record<ArtistRefileRefusal["reason"], boolean>;
@@ -148,13 +163,15 @@ export default function ArtistRefileForm({
 
   // Advisory line for the number the box holds now: stale (still debouncing or
   // refetching) and unreadable answers say nothing rather than guess.
-  const isCurrent = target === card.code_artist_number && !lettersChanged && lettersError === null;
+  const isCurrent =
+    target === card.code_artist_number && !lettersChanged && lettersError === null && !genreChanged;
   const settled =
     target !== null &&
     !isCurrent &&
     lettersError === null &&
     debounced?.number === target &&
     debounced.letters === destLetters &&
+    debounced.genre === destGenreId &&
     !occupancy.isFetching;
   const owners = settled ? occupancy.currentData?.artists : undefined;
   const holder = owners?.find((owner) => owner.id !== artistId);
@@ -176,6 +193,7 @@ export default function ArtistRefileForm({
           genre_id: genreId,
           code_artist_number: target,
           ...(lettersChanged ? { code_letters: letters } : {}),
+          ...(genreChanged ? { to_genre_id: destGenreId } : {}),
         },
       }).unwrap();
       if (result.changed) setSubmitted(true);
@@ -189,7 +207,8 @@ export default function ArtistRefileForm({
           // The route depends on the letters, so the result's, not the old card's.
           { id: artistId, code_letters: result.code_letters },
           {
-            genreId,
+            // The destination: the old genre-scoped URL would 404 after a move.
+            genreId: result.genre_id,
             params: {
               refiled: "1",
               from: String(result.previous_code_artist_number),
@@ -198,6 +217,7 @@ export default function ArtistRefileForm({
               ...(result.previous_code_letters !== result.code_letters
                 ? { from_letters: result.previous_code_letters }
                 : {}),
+              ...(result.previous_genre_id !== result.genre_id ? { from_genre: result.previous_genre_id } : {}),
             },
           },
         ),
@@ -210,7 +230,7 @@ export default function ArtistRefileForm({
 
   return (
     <div id="artistRefileCard" data-testid={`artist-refile-${step}`}>
-      <h3>Change The Artist Call Number</h3>
+      <h3>Change The Artist Call Letters, Number Or Genre</h3>
       <table cellPadding={5}>
         <tbody>
           <tr>
@@ -251,6 +271,36 @@ export default function ArtistRefileForm({
               </tr>
               <tr>
                 <th scope="row" style={{ textAlign: "right" }}>
+                  <label htmlFor="artistRefileGenre">
+                    <b>New Genre:</b>
+                  </label>
+                </th>
+                <td>
+                  {genres ? (
+                    <select
+                      id="artistRefileGenre"
+                      value={destGenreId}
+                      onChange={(event) => {
+                        setGenreInput(Number(event.target.value));
+                        setUnchanged(false);
+                        setRefusal(null);
+                      }}
+                    >
+                      {genres.map((genre) => (
+                        <option key={genre.id} value={genre.id}>
+                          {genre.genre_name}
+                        </option>
+                      ))}
+                    </select>
+                  ) : isGenresUnavailable(genresQuery) ? (
+                    <div data-testid="artist-refile-genres-unavailable">
+                      The genre list could not be loaded, so the genre cannot be changed or named here. Reload to try again.
+                    </div>
+                  ) : null}
+                </td>
+              </tr>
+              <tr>
+                <th scope="row" style={{ textAlign: "right" }}>
                   <label htmlFor="artistRefileNumber">
                     <b>New Call Number:</b>
                   </label>
@@ -270,14 +320,14 @@ export default function ArtistRefileForm({
                   />
                   <div data-testid="artist-refile-occupancy" role="status">
                     {isCurrent ? (
-                      "That is the current call number."
+                      touched ? "That is the current call number." : null
                     ) : holder ? (
                       <>
-                        {codeOf(holder.code_number, destLetters)} is held by{" "}
-                        <a href={artistCardHref(holder, { genreId })}>{holder.artist_name}</a>.
+                        {destCodeOf(holder.code_number)} is held by{" "}
+                        <a href={artistCardHref(holder, { genreId: destGenreId })}>{holder.artist_name}</a>.
                       </>
                     ) : free && target !== null ? (
-                      `${codeOf(target, destLetters)} is free.`
+                      `${destCodeOf(target)} is free.`
                     ) : null}
                   </div>
                 </td>
@@ -310,8 +360,10 @@ export default function ArtistRefileForm({
                 ) : (
                   <>
                     Move {card.artist_name} from {codeOf(card.code_artist_number)} to{" "}
-                    {codeOf(target ?? 0, destLetters)}. Every release under this shelf re-labels at
-                    once; the records on the shelf will need new labels.
+                    {destCodeOf(target ?? 0)}.{" "}
+                    {genreChanged ? `Its releases filed under ${genreName} move with it. ` : ""}
+                    Every release under this shelf re-labels at once; the records on the shelf will
+                    need new labels.
                   </>
                 )}
                 <div>
@@ -332,8 +384,8 @@ export default function ArtistRefileForm({
         <div data-testid="artist-refile-refusal" role="alert" className="artist-error-message">
           {conflictHolder ? (
             <>
-              {lettersChanged ? `${codeOf(conflictHolder.code_artist_number, destLetters)} is held by` : "That number is held by"}{" "}
-              <a href={artistCardHref(conflictHolder, { genreId })}>{conflictHolder.artist_name}</a>.
+              {lettersChanged || genreChanged ? `${destCodeOf(conflictHolder.code_artist_number)} is held by` : "That number is held by"}{" "}
+              <a href={artistCardHref(conflictHolder, { genreId: destGenreId })}>{conflictHolder.artist_name}</a>.
               Nothing was changed.
             </>
           ) : (

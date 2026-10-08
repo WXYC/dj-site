@@ -49,3 +49,29 @@ describe("parseRefiledParams from_letters", () => {
     expect(parseRefiledParams("1", "x", "2", "RE")).toBeUndefined();
   });
 });
+
+describe("parseRefiledParams from_genre", () => {
+  it.each([
+    { fromGenre: "3", expected: { from: 36, releases: 2, fromGenre: 3 } },
+    { fromGenre: "12", expected: { from: 36, releases: 2, fromGenre: 12 } },
+    { fromGenre: undefined, expected: { from: 36, releases: 2 } },
+    { fromGenre: "", expected: { from: 36, releases: 2 } },
+    { fromGenre: "0", expected: { from: 36, releases: 2 } },
+    { fromGenre: "-3", expected: { from: 36, releases: 2 } },
+    { fromGenre: "3.5", expected: { from: 36, releases: 2 } },
+    { fromGenre: "Electronic", expected: { from: 36, releases: 2 } },
+    { fromGenre: "<b>3</b>", expected: { from: 36, releases: 2 } },
+    { fromGenre: "03", expected: { from: 36, releases: 2 } },
+  ])("from_genre=$fromGenre", ({ fromGenre, expected }) => {
+    expect(parseRefiledParams("1", "36", "2", undefined, fromGenre)).toStrictEqual(expected);
+  });
+
+  it("carries letters and genre together", () => {
+    expect(parseRefiledParams("1", "36", "2", "RE", "3")).toStrictEqual({
+      from: 36,
+      releases: 2,
+      fromLetters: "RE",
+      fromGenre: 3,
+    });
+  });
+});

@@ -24,11 +24,11 @@ export const ARTIST_REFILE_NOT_FILED_MESSAGE =
 export const ARTIST_REFILE_NOT_FOUND_MESSAGE =
   "This artist is no longer in the catalog. Nothing was changed.";
 export const ARTIST_REFILE_CONFLICT_MESSAGE =
-  "That number is held by another artist. Nothing was changed.";
+  "That call number is held by another artist. Nothing was changed.";
 export const ARTIST_REFILE_SHARED_LETTERS_MESSAGE =
   "This artist's letters are used in another genre (another membership, or a release filed there), so changing them would re-letter that shelf too. Nothing was changed.";
 export const ARTIST_REFILE_ALREADY_FILED_MESSAGE =
-  "This artist already has a membership or a release in that genre. Nothing was changed.";
+  "This artist already has a membership or a release in that genre; choose another genre. Nothing was changed.";
 export const ARTIST_REFILE_GENRE_NOT_FOUND_MESSAGE =
   "That genre was not found. Reload the card. Nothing was changed.";
 export const ARTIST_REFILE_FALLBACK_MESSAGE =
@@ -98,7 +98,8 @@ export function interpretArtistRefileError(
     const holder =
       artist && typeof artist === "object" && typeof (artist as { id?: unknown }).id === "number" &&
       typeof (artist as { artist_name?: unknown }).artist_name === "string" &&
-      typeof (artist as { code_letters?: unknown }).code_letters === "string"
+      typeof (artist as { code_letters?: unknown }).code_letters === "string" &&
+      typeof (artist as { code_artist_number?: unknown }).code_artist_number === "number"
         ? (artist as ArtistRefileConflictHolder)
         : undefined;
     return { reason: "conflict", holder, message: ARTIST_REFILE_CONFLICT_MESSAGE, retryable: false };

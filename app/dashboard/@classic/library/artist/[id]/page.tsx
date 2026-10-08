@@ -34,6 +34,7 @@ type ClassicArtistCardPageProps = {
     from?: string | string[];
     n?: string | string[];
     from_letters?: string | string[];
+    from_genre?: string | string[];
   }>;
 };
 
@@ -78,6 +79,7 @@ export default async function ClassicArtistCardPage({
           firstSearchParam(search.from),
           firstSearchParam(search.n),
           firstSearchParam(search.from_letters),
+          firstSearchParam(search.from_genre),
         )}
       />
     </Main>
