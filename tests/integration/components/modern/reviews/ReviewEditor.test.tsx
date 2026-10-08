@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
-import type { IntakeItem, Review } from "@wxyc/shared";
+import type { Review } from "@wxyc/shared";
 import { Authorization } from "@/lib/features/admin/types";
-import { renderWithProviders, server, TEST_BACKEND_URL } from "@/tests/helpers";
+import { fakeReviewsEndpoints, intakeItem, renderWithProviders, review, server, TEST_BACKEND_URL } from "@/tests/helpers";
 
 vi.mock("@/lib/features/authentication/client", async () => {
   const { createAuthClientModuleMock } = await import("@/tests/helpers/auth-client-mock");
@@ -27,29 +27,14 @@ import { toast } from "sonner";
 import ReviewEditor from "@/src/components/experiences/modern/reviews/ReviewEditor";
 import { REVIEW_COPY } from "@/src/components/experiences/modern/reviews/copy";
 
-const DRAFT = {
-  id: 40,
-  intake_item_id: 2,
-  album_id: null,
-  author: "DJ Me",
-  add_date: "2026-10-07",
-  status: "draft",
-  buzzwords: null,
-  artist_blurb: null,
-  review: "Warm.",
-  recommended_tracks: null,
-  fcc: null,
-} as Review;
+const DRAFT = review();
 
 const PRIVACY = "Only you can read this draft. Music directors can see that you have one in progress, not what it says.";
 
-const RECORD = { id: 2, artist_name: "Stereolab", album_title: "Aluminum Tunes", record_label: "Duophonic" } as IntakeItem;
+const RECORD = intakeItem({ id: 2 });
 
-function serve(review: Review = DRAFT) {
-  server.use(
-    http.get(`${TEST_BACKEND_URL}/reviews/40`, () => HttpResponse.json(review)),
-    http.get(`${TEST_BACKEND_URL}/intake`, () => HttpResponse.json([RECORD])),
-  );
+function serve(served: Review = DRAFT) {
+  fakeReviewsEndpoints({ reviews: [served], open: [RECORD] });
 }
 
 describe("ReviewEditor", () => {
