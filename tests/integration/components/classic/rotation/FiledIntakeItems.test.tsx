@@ -4,6 +4,7 @@ import { http, HttpResponse } from "msw";
 import type { IntakeItem } from "@wxyc/shared";
 import { renderWithProviders, server, TEST_BACKEND_URL } from "@/tests/helpers";
 import { rotationApi } from "@/lib/features/rotation/api";
+import { reviewsApi } from "@/lib/features/reviews/api";
 
 vi.mock("@/lib/features/authentication/client", async () => {
   const { createAuthClientModuleMock } = await import("@/tests/helpers/auth-client-mock");
@@ -62,6 +63,7 @@ function serve({ items, rotating = [] }: { items: IntakeItem[]; rotating?: unkno
 
 const ROTATING_DOGA = { ...ALBUM, id: 42, rotation_id: 9, rotation_bin: "H", rotation_add_date: "2026-08-01", rotation_kill_date: null };
 const MOON_PIX = filed({ id: 2, album_id: 43, artist_name: "Cat Power", album_title: "Moon Pix" });
+const FILED = { state: "filed" } as const;
 const OUTAGE = "Filed records waiting for a call number can't be shown right now.";
 
 const renderFacet = (props: { canSeeFiled: boolean; canWrite: boolean }) =>
@@ -121,7 +123,7 @@ describe("classic Awaiting Cataloging — filed intake items", () => {
     );
     const { user } = renderFacet({ canSeeFiled: true, canWrite: true });
 
-    expect(await screen.findByText(OUTAGE)).toBeInTheDocument();
+    expect(within(await screen.findByRole("alert")).getByText(OUTAGE)).toBeInTheDocument();
     expect(screen.queryByText("DOGA")).not.toBeInTheDocument();
 
     failing = false;
@@ -131,11 +133,25 @@ describe("classic Awaiting Cataloging — filed intake items", () => {
     expect(screen.queryByText(OUTAGE)).not.toBeInTheDocument();
   });
 
-  it("shows the loading line while the reads are pending, and no table", async () => {
-    server.use(http.get(`${TEST_BACKEND_URL}/intake`, () => new Promise(() => {})));
-    renderWithProviders(<FiledIntakeItems canWrite />);
+  it.each([
+    ["the intake read is pending and the rotation read has resolved", "/intake", "rotation"],
+    ["the rotation read is pending and the intake read has resolved", "/library/rotation", "intake"],
+  ])("keeps the loading line, and no table, while %s", async (_case, pendingPath, resolved) => {
+    serve({ items: [filed({})] });
+    server.use(http.get(`${TEST_BACKEND_URL}${pendingPath}`, () => new Promise(() => {})));
+    const { store } = renderWithProviders(<FiledIntakeItems canWrite />);
 
-    expect(await screen.findByText("Loading...")).toBeInTheDocument();
+    // Both reads are loading on first render, so wait until the other one has landed.
+    await waitFor(() => {
+      const state = store.getState();
+      const read =
+        resolved === "intake"
+          ? reviewsApi.endpoints.getIntakeItems.select(FILED)(state)
+          : rotationApi.endpoints.getRotationList.select("active")(state);
+      expect(read.status).toBe("fulfilled");
+    });
+
+    expect(screen.getByText("Loading...")).toBeInTheDocument();
     expect(screen.queryByRole("table", { name: "Filed, awaiting your confirmation" })).not.toBeInTheDocument();
   });
 

@@ -19,13 +19,14 @@ import { useRotationRowActions } from "@/lib/features/rotation/hooks";
 import FiledIntakeItems from "./FiledIntakeItems";
 import OutagePanel from "./OutagePanel";
 
-const ROTATION_OUTAGE = "Rotation releases are unavailable right now.";
 import {
   ROTATION_STATUS_FACET_RENDER_BATCH,
   UNCATALOGUED_ROTATION_PAGE_SIZE,
   type RotationListStatusFilter,
   type RotationStatusFilter,
 } from "@/lib/features/rotation/types";
+
+const ROTATION_OUTAGE = "Rotation releases are unavailable right now.";
 
 const FACETS: { value: RotationStatusFilter; label: string }[] = [
   { value: "all", label: "All" },
