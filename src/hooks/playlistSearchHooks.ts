@@ -408,7 +408,6 @@ export function usePlaylistSearch({
 
     isLoading: isFetching,
     isError,
-    // Which page the failure notice is about, kept while a retry of it runs.
     failedPage,
     isRetrying,
     failedRetries,

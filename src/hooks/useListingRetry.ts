@@ -4,12 +4,34 @@ import { useCallback, useState } from "react";
 export type FailedPage = "first" | "later";
 
 /**
+ * A cursor-paged listing's failure, retry and load-more state, as returned by
+ * `useListingRetry`; each listing hook includes it in its own return value.
+ */
+export type ListingRetryState = {
+  /** A failure with no page held for this listing: nothing to show yet. */
+  headFailed: boolean;
+  /** A failure with pages held for this listing: the rows already loaded still stand. */
+  nextPageFailed: boolean;
+  /** The page whose failure is shown, held from a retry's click until its request settles. */
+  failedPage: FailedPage | null;
+  /** True from a retry's click until its request settles, so a notice stays up through it. */
+  isRetrying: boolean;
+  /** Retries that failed again, so a notice that stayed mounted can announce each one. */
+  failedRetries: number;
+  /** `refetch()` after a head failure, `fetchNextPage()` after a next-page
+   * failure, and a no-op when neither has failed -- each as of the render
+   * this `retry` was returned from. */
+  retry: () => void;
+  /** Requests the next page; a no-op when there is none, after a failure, and while a fetch is in flight. */
+  loadNextPage: () => void;
+};
+
+/**
  * Classifies a cursor-paged listing's failure, retries it, and gates loading
  * more pages on it and on the listing being idle.
  *
- * `headFailed` is a failure with no page held for `key`, `nextPageFailed` one
- * with pages held. Once either holds, `retry` is the only way back in and
- * `loadNextPage` is a no-op. A rejected page is not appended, so `hasNextPage`
+ * Once `headFailed` or `nextPageFailed` holds, `retry` is the only way back in
+ * and `loadNextPage` is a no-op. A rejected page is not appended, so `hasNextPage`
  * stays true, and the callers that drive `loadNextPage` are re-armed by the very
  * status change a failure produces (an IntersectionObserver rebuilt on a loading
  * flip fires at once for a sentinel already in view); left ungated, one broken
@@ -46,7 +68,7 @@ export function useListingRetry({
   hasNextPage: boolean | undefined;
   refetch: () => unknown;
   fetchNextPage: () => unknown;
-}) {
+}): ListingRetryState {
   const headFailed = isError && !hasAnyPages;
   const nextPageFailed = isError && hasAnyPages;
 

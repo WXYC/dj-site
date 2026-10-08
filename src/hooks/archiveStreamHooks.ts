@@ -11,42 +11,30 @@ import {
   toArchiveStreamRowFromStreamEntry,
   type ArchiveStreamRow,
 } from "@/lib/features/flowsheet/stream-row";
-import { useListingRetry, type FailedPage } from "./useListingRetry";
+import { useListingRetry, type ListingRetryState } from "./useListingRetry";
 
 const QUERY_ARG: ArchiveStreamArg = { pageSize: 50 };
 
 export type ArchiveStreamListing = {
+  /** Every row fetched so far, newest first, with repeated entry ids dropped. */
   rows: ArchiveStreamRow[];
+  /** The first page is being requested, including a retry after a head failure. */
   isHeadLoading: boolean;
+  /** A later page is being requested. Stays false while a head is re-requested. */
   isNextPageLoading: boolean;
-  headFailed: boolean;
-  nextPageFailed: boolean;
-  /** The page whose failure is shown, held from a retry's click until its request settles. */
-  failedPage: FailedPage | null;
-  /** True from a retry's click until its request settles, so a notice stays up through it. */
-  isRetrying: boolean;
-  /** Retries that failed again, so a notice that stayed mounted can announce each one. */
-  failedRetries: number;
   /** Read from `reachedStart` alone -- an empty page that still carries a
    * cursor is a quiet stretch, not the end of the archive. */
   hasMore: boolean;
-  loadNextPage: () => void;
-  /** `refetch()` after a head failure, `fetchNextPage()` after a next-page
-   * failure, and a no-op when neither has failed -- each as of the render
-   * this `retry` was returned from. */
-  retry: () => void;
+  /** The query has answered at least once, with data or an error. Latched for
+   * the life of the hook instance: it stays true while a retry is in flight,
+   * unlike a live `data !== undefined || isError`, which drops back to false
+   * while a retry of a failed first page is in flight. */
   hasAnswered: boolean;
-};
+} & ListingRetryState;
 
 /**
  * The chronological listing's rows, flattened newest-first across every page
  * fetched so far, with the controls a scroller drives it through.
- *
- * A failure with no page held is a head failure (nothing to show yet); a
- * failure with pages held is a next-page failure (every row fetched before it
- * still stands). `retry` re-requests the first with `refetch()` and the
- * second with `fetchNextPage()`, which keeps `isNextPageLoading` false while
- * a head is being re-requested.
  */
 export function useArchiveStreamListing(): ArchiveStreamListing {
   const {
@@ -103,11 +91,6 @@ export function useArchiveStreamListing(): ArchiveStreamListing {
     fetchNextPage,
   });
 
-  // Latched, not read live: once the query has answered (data or an error),
-  // it stays answered for the life of this hook instance. The live
-  // expression clears `isError` the moment a retry starts fetching, which
-  // would otherwise read as "never answered" again while a head failure is
-  // being re-requested.
   const hasAnsweredRef = useRef(false);
   if (data !== undefined || isError) hasAnsweredRef.current = true;
 
