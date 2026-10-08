@@ -133,6 +133,20 @@ const artistReleasesRequest = ({ artistId, page, limit, genre_id }: ArtistReleas
  */
 const RELEASE_PAGE_READ_CONCURRENCY = 4;
 
+/**
+ * The catalog caches a filed release makes stale. Shared with every writer that
+ * files a library row outside this API (`fileIntakeItem`), which must dispatch
+ * them through `catalogApi.util.invalidateTags`.
+ */
+export const FILING_INVALIDATED_TAGS = [
+  { type: "ArtistSearch" as const, id: "LIST" as const },
+  { type: "CatalogList" as const, id: "LIST" as const },
+  { type: "ArtistReleaseList" as const, id: "LIST" as const },
+  "ArtistCard" as const,
+  "ArtistCodePeek" as const,
+  "ArtistByCode" as const,
+];
+
 export const catalogApi = createApi({
   reducerPath: "catalogApi",
   baseQuery: backendBaseQuery("library"),
@@ -517,14 +531,7 @@ export const catalogApi = createApi({
       // a "LIST" id would match nothing either provides. A bare tag matches
       // every id of its type (see the `ROTATION_LIST_TAG` comment in
       // rotation/api.ts for the same rule stated once).
-      invalidatesTags: [
-        { type: "ArtistSearch", id: "LIST" },
-        { type: "CatalogList", id: "LIST" },
-        { type: "ArtistReleaseList", id: "LIST" },
-        "ArtistCard",
-        "ArtistCodePeek",
-        "ArtistByCode",
-      ],
+      invalidatesTags: FILING_INVALIDATED_TAGS,
       async onQueryStarted(_arg, { dispatch, queryFulfilled }) {
         try {
           await queryFulfilled;

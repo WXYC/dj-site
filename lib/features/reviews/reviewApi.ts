@@ -39,6 +39,10 @@ export const reviewApi = reviewsApi.injectEndpoints({
       query: (albumId) => ({ url: "reviews", params: { album_id: albumId } }),
       providesTags: ["Review"],
     }),
+    getItemReviews: builder.query<Review[], number>({
+      query: (itemId) => ({ url: "reviews", params: { intake_item_id: itemId } }),
+      providesTags: ["Review"],
+    }),
     getReview: builder.query<Review, number>({
       query: (id) => ({ url: `reviews/${id}` }),
       providesTags: ["Review"],
@@ -70,6 +74,7 @@ export const reviewApi = reviewsApi.injectEndpoints({
 export const {
   useGetMyReviewsQuery,
   useGetReviewsForReleaseQuery,
+  useGetItemReviewsQuery,
   useGetReviewQuery,
   useCreateReviewMutation,
   useUpdateReviewMutation,

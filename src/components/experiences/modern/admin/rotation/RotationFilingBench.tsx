@@ -14,7 +14,7 @@ import {
   Stack,
   Typography,
 } from "@mui/joy";
-import type { LibraryFilingConflictError, LibraryFilingResponse } from "@wxyc/shared";
+import type { LibraryFilingConflictError, LibraryFilingRequest, LibraryFilingResponse } from "@wxyc/shared";
 import {
   useFileReleaseMutation,
   useGetFormatsQuery,
@@ -82,6 +82,23 @@ type FilingConflict = {
 };
 
 /**
+ * Where the bench sends its composed request. A target that rejects must throw
+ * the `FetchBaseQueryError` itself, the shape `isLibraryFilingConflict` reads;
+ * a target that resolves has handled the outcome, so only a
+ * `LibraryFilingResponse` joins the session receipt.
+ */
+export type FilingSubmit = (request: LibraryFilingRequest) => Promise<LibraryFilingResponse | void>;
+
+/** A record the bench starts out describing, when it files a logged item. */
+export type FilingInitial = {
+  artist: string;
+  album: string;
+  label: string;
+  formatId: number;
+  discogsReleaseId?: number | null;
+};
+
+/**
  * The Rotation Admin filing bench: one form, one submit — match-or-create the
  * artist, file the release, and (unless the bin is deselected) add the
  * rotation entry to a bin and card, all through the transactional
@@ -94,16 +111,24 @@ type FilingConflict = {
  * collected at filing time — the LML is the primary source of that truth, and
  * the album card's credits control is where an MD adds it by hand.
  */
-export default function RotationFilingBench(): JSX.Element {
+export default function RotationFilingBench({
+  submit,
+  initial,
+}: {
+  /** Defaults to `POST /library/filings`. */
+  submit?: FilingSubmit;
+  initial?: FilingInitial;
+} = {}): JSX.Element {
   const genresQuery = useGetGenresQuery();
   const formatsQuery = useGetFormatsQuery();
-  const [fileRelease, { isLoading: isFiling }] = useFileReleaseMutation();
+  const [fileRelease] = useFileReleaseMutation();
+  const [isFiling, setIsFiling] = useState(false);
   const [triggerPrefill, { isFetching: isAutofilling }] = useLazyGetDiscogsPrefillQuery();
 
   const [discogsUrl, setDiscogsUrl] = useState("");
   const [autofillError, setAutofillError] = useState<string | null>(null);
   const [genreId, setGenreId] = useState<number | null>(null);
-  const [artistText, setArtistText] = useState("");
+  const [artistText, setArtistText] = useState(initial?.artist ?? "");
   const [selectedArtist, setSelectedArtist] = useState<ArtistInGenreOption | null>(null);
   // The typeahead's CREATE_HIGHLIGHT row expanded the inline panel: the
   // typeahead text is the new artist's name, and the panel holds its filing
@@ -115,12 +140,14 @@ export default function RotationFilingBench(): JSX.Element {
   });
   const [codeNumberRaw, setCodeNumberRaw] = useState("");
   const [alphabeticalName, setAlphabeticalName] = useState("");
-  const [albumTitle, setAlbumTitle] = useState("");
-  const [label, setLabel] = useState("");
-  const [formatId, setFormatId] = useState<number | null>(null);
+  const [albumTitle, setAlbumTitle] = useState(initial?.album ?? "");
+  const [label, setLabel] = useState(initial?.label ?? "");
+  const [formatId, setFormatId] = useState<number | null>(initial?.formatId ?? null);
   const [bin, setBin] = useState<Rotation | null>(RotationBin.H);
   const [cardId, setCardId] = useState<number | null>(null);
-  const [urls, setUrls] = useState<string[]>([]);
+  const [urls, setUrls] = useState<string[]>(
+    initial?.discogsReleaseId ? withDefinitiveDiscogsUrl([], initial.discogsReleaseId) : [],
+  );
   const [conflict, setConflict] = useState<FilingConflict | null>(null);
   const [failed, setFailed] = useState(false);
   const [filings, setFilings] = useState<LibraryFilingResponse[]>([]);
@@ -526,9 +553,10 @@ export default function RotationFilingBench(): JSX.Element {
     });
 
     setFailed(false);
+    setIsFiling(true);
     try {
-      const filed = await fileRelease(request).unwrap();
-      setFilings((previous) => [...previous, filed]);
+      const filed = await (submit ?? ((body) => fileRelease(body).unwrap()))(request);
+      if (filed) setFilings((previous) => [...previous, filed]);
       // Ready for the next record of the batch: the artist and its release
       // clear; genre, label, format, bin and card persist, since an MD files
       // a stack of same-shaped records in one sitting.
@@ -574,6 +602,8 @@ export default function RotationFilingBench(): JSX.Element {
       } else {
         setFailed(true);
       }
+    } finally {
+      setIsFiling(false);
     }
   };
 

@@ -1,9 +1,12 @@
 import type {
+  IntakeFileRequest,
   IntakeItem,
   IntakeItemState,
   NewIntakeItemRequest,
 } from "@wxyc/shared";
 import type { FetchBaseQueryError } from "@reduxjs/toolkit/query";
+import { catalogApi, FILING_INVALIDATED_TAGS } from "@/lib/features/catalog/api";
+import { rotationApi } from "@/lib/features/rotation/api";
 import { isRefusal } from "@/lib/rtk-endpoint-error";
 import { reviewsApi } from "./api";
 
@@ -27,6 +30,10 @@ const wrapIntakeWriteError = (response: FetchBaseQueryError): IntakeWriteError =
 /** True when an intake write lost its race: someone else got there first, or the request expired. */
 export const isIntakeStateChanged = (err: unknown): boolean =>
   isRefusal(err, { status: 409, reasons: ["state_changed"], key: "intakeWriteError" });
+
+/** True when filing was refused because the review chosen for the cover was removed. */
+export const isIntakeNotReviewed = (err: unknown): boolean =>
+  isRefusal(err, { status: 409, reasons: ["not_reviewed"], key: "intakeWriteError" });
 
 /** True when finalizing was refused because the release is in active rotation. */
 export const isIntakeInRotation = (err: unknown): boolean =>
@@ -84,6 +91,22 @@ export const intakeApi = reviewsApi.injectEndpoints({
       transformErrorResponse: wrapIntakeWriteError,
       invalidatesTags: ["Intake"],
     }),
+    // Files a library row and, on the rotation arm, a rotation row. Those caches
+    // live in other `createApi` instances, whose tags `invalidatesTags` cannot reach.
+    fileIntakeItem: builder.mutation<IntakeItem, { id: number; body: IntakeFileRequest }>({
+      query: ({ id, body }) => ({ url: `intake/${id}/file`, method: "POST", body }),
+      transformErrorResponse: wrapIntakeWriteError,
+      invalidatesTags: ["Intake"],
+      async onQueryStarted(_arg, { dispatch, queryFulfilled }) {
+        try {
+          await queryFulfilled;
+          dispatch(catalogApi.util.invalidateTags(FILING_INVALIDATED_TAGS));
+          dispatch(rotationApi.util.invalidateTags(["Rotation"]));
+        } catch {
+          // A rejection is the caller's `.unwrap()` to surface.
+        }
+      },
+    }),
   }),
 });
 
@@ -96,4 +119,5 @@ export const {
   useAcceptIntakeItemMutation,
   usePassIntakeItemMutation,
   useFinalizeIntakeItemMutation,
+  useFileIntakeItemMutation,
 } = intakeApi;

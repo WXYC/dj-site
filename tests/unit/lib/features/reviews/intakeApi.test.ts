@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { http, HttpResponse } from "msw";
 import { configureStore } from "@reduxjs/toolkit";
 import { reviewsApi } from "@/lib/features/reviews/api";
-import { intakeApi, isIntakeInRotation, isIntakeStateChanged } from "@/lib/features/reviews/intakeApi";
+import { intakeApi, isIntakeInRotation, isIntakeNotReviewed, isIntakeStateChanged } from "@/lib/features/reviews/intakeApi";
 import { describeApi } from "@/tests/helpers/api-harness";
 import { TEST_BACKEND_URL } from "@/tests/helpers/constants";
 import { server } from "@/tests/fakes/server";
@@ -28,6 +28,7 @@ describe("intakeApi", () => {
       "acceptIntakeItem",
       "passIntakeItem",
       "logIntakeItem",
+      "fileIntakeItem",
     ],
     reducerPath: "reviewsApi",
   });
@@ -53,6 +54,21 @@ describe("intakeApi", () => {
     expect(seen).toEqual({ method: "POST", path: `/intake/7/${action}` });
   });
 
+  it("fileIntakeItem POSTs the body to exactly /intake/7/file", async () => {
+    let seen: { method: string; path: string; body: unknown } | undefined;
+    server.use(
+      http.post(`${TEST_BACKEND_URL}/intake/:id/file`, async ({ request }) => {
+        seen = { method: request.method, path: new URL(request.url).pathname, body: await request.json() };
+        return HttpResponse.json({ id: 7 });
+      })
+    );
+    const body = { kind: "existing_release", album_id: 3 } as const;
+
+    await makeReviewsStore().dispatch(intakeApi.endpoints.fileIntakeItem.initiate({ id: 7, body }));
+
+    expect(seen).toEqual({ method: "POST", path: "/intake/7/file", body });
+  });
+
   it("getIntakeItem GETs exactly /intake/7", async () => {
     let seen: { method: string; path: string } | undefined;
     server.use(
@@ -71,11 +87,12 @@ describe("intakeApi", () => {
   // screen words its own refusal) while status, reason and message survive
   // for whichever caller needs them.
   it.each([
-    ["checkoutIntakeItem"],
-    ["releaseIntakeItem"],
-    ["acceptIntakeItem"],
-    ["passIntakeItem"],
-  ] as const)("%s rejects with the whole error nested under intakeWriteError", async (endpoint) => {
+    ["checkoutIntakeItem", 7],
+    ["releaseIntakeItem", 7],
+    ["acceptIntakeItem", 7],
+    ["passIntakeItem", 7],
+    ["fileIntakeItem", { id: 7, body: { kind: "existing_release", album_id: 3 } }],
+  ] as const)("%s rejects with the whole error nested under intakeWriteError", async (endpoint, arg) => {
     const body = { message: "server words", reason: "state_changed" };
     server.use(
       http.post(`${TEST_BACKEND_URL}/intake/:id/:action`, () =>
@@ -83,9 +100,9 @@ describe("intakeApi", () => {
       )
     );
 
-    const result = await makeReviewsStore().dispatch(intakeApi.endpoints[endpoint].initiate(7));
+    const result = await makeReviewsStore().dispatch(intakeApi.endpoints[endpoint].initiate(arg as never) as never) as { error?: unknown };
 
-    expect("error" in result && result.error).toEqual({
+    expect(result.error).toEqual({
       intakeWriteError: { status: 409, data: body },
     });
   });
@@ -129,6 +146,16 @@ describe("intakeApi", () => {
     ["undefined", undefined, false],
   ])("isIntakeInRotation reads %s as %s", (_label, err, expected) => {
     expect(isIntakeInRotation(err)).toBe(expected);
+  });
+
+  it.each([
+    ["a wrapped 409 not_reviewed", { intakeWriteError: { status: 409, data: { reason: "not_reviewed" } } }, true],
+    ["a raw 409 not_reviewed", { status: 409, data: { reason: "not_reviewed" } }, true],
+    ["a wrapped 409 state_changed", { intakeWriteError: { status: 409, data: { reason: "state_changed" } } }, false],
+    ["a wrapped 400 not_reviewed", { intakeWriteError: { status: 400, data: { reason: "not_reviewed" } } }, false],
+    ["undefined", undefined, false],
+  ])("isIntakeNotReviewed reads %s as %s", (_label, err, expected) => {
+    expect(isIntakeNotReviewed(err)).toBe(expected);
   });
 
   it("getIntakeItems GETs exactly /intake with the state filter", async () => {
