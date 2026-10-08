@@ -155,6 +155,20 @@ export const REVIEW_COPY = {
     reviewMany: "reviews",
     empty: "Nothing here.",
   },
+  /** The music directors' page for one record, `/dashboard/admin/intake/{id}`. */
+  intakeItem: {
+    loadFailed: "Couldn't load this record. Please try again.",
+    noCover: "No review chosen for the cover yet.",
+    chooseFirst: "Choose a review for the cover before filing this record.",
+    /** Followed by the names of DJs with an unfinished draft. */
+    stillWriting: "Still writing:",
+    notReviewed: "This record has no review chosen for the cover, so it can't be filed yet.",
+    /** Approved. Shown once the record has reloaded after a filing lost its race. */
+    alreadyFiled: "This record has already been filed. The page has been reloaded.",
+    fileNew: "File as a new release",
+    printSlip: "Print the slip",
+    filed: "Filed.",
+  },
   myReviews: {
     title: "My reviews",
     empty: "You have not started a review.",

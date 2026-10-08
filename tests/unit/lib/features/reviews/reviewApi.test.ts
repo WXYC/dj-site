@@ -22,7 +22,7 @@ const makeReviewsStore = () =>
 
 describe("reviewApi", () => {
   describeApi(reviewApi, {
-    queries: ["getMyReviews", "getReview"],
+    queries: ["getMyReviews", "getReview", "getItemReviews"],
     mutations: ["createReview", "updateReview", "submitReview", "deleteReview"],
     reducerPath: "reviewsApi",
   });
@@ -40,6 +40,21 @@ describe("reviewApi", () => {
 
     expect(seen?.pathname).toBe("/reviews");
     expect(seen?.searchParams.get("mine")).toBe("true");
+  });
+
+  it("getItemReviews GETs /reviews?intake_item_id=7", async () => {
+    let seen: URL | undefined;
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/reviews`, ({ request }) => {
+        seen = new URL(request.url);
+        return HttpResponse.json([]);
+      })
+    );
+
+    await makeReviewsStore().dispatch(reviewApi.endpoints.getItemReviews.initiate(7));
+
+    expect(seen?.pathname).toBe("/reviews");
+    expect(seen?.searchParams.get("intake_item_id")).toBe("7");
   });
 
   it("getReview GETs /reviews/7", async () => {
