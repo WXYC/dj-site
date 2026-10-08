@@ -17,6 +17,7 @@ import {
 } from "@/lib/features/rotation/classicList";
 import { useRotationRowActions } from "@/lib/features/rotation/hooks";
 import FiledIntakeItems from "./FiledIntakeItems";
+import OutagePanel from "./OutagePanel";
 import {
   ROTATION_STATUS_FACET_RENDER_BATCH,
   UNCATALOGUED_ROTATION_PAGE_SIZE,
@@ -33,18 +34,6 @@ const FACETS: { value: RotationStatusFilter; label: string }[] = [
 
 function facetHref(status: RotationStatusFilter): string {
   return `/dashboard/rotation?status=${status}`;
-}
-
-/** A query-fed list must never render an unissued or failed request as "there are none". */
-function OutagePanel({ onRetry, retrying }: { onRetry: () => void; retrying: boolean }) {
-  return (
-    <p role="alert" className="artist-error-message" style={{ textAlign: "center" }}>
-      Rotation releases are unavailable right now.{" "}
-      <button type="button" disabled={retrying} onClick={onRetry}>
-        Try again
-      </button>
-    </p>
-  );
 }
 
 function EmptyState() {
