@@ -1,5 +1,5 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
-import type { AlbumReview, AlbumReviewsResponse, IntakeItem, IntakeItemState, NewReviewRequest, Review, ReviewConflictReason, ReviewPatch } from "@wxyc/shared";
+import type { AlbumReview, AlbumReviewsResponse, IntakeItem, IntakeItemState, NewIntakeItemRequest, NewReviewRequest, Review, ReviewConflictReason, ReviewPatch } from "@wxyc/shared";
 import type { FetchBaseQueryError } from "@reduxjs/toolkit/query";
 import { backendBaseQuery } from "../backend";
 import { isRefusal } from "@/lib/rtk-endpoint-error";
@@ -61,12 +61,19 @@ export const reviewsApi = createApi({
   baseQuery: backendBaseQuery("", { surfaceNonJsonAsError: true }),
   tagTypes: ["Intake", "Review"],
   endpoints: (builder) => ({
-    getIntakeItems: builder.query<IntakeItem[], { state?: IntakeItemState } | void>({
+    getIntakeItems: builder.query<IntakeItem[], { state?: IntakeItemState; awaiting_acceptance?: boolean } | void>({
       query: (args) => ({
         url: "intake",
-        params: args && args.state ? { state: args.state } : undefined,
+        params: {
+          ...(args && args.state ? { state: args.state } : {}),
+          ...(args && args.awaiting_acceptance ? { awaiting_acceptance: true } : {}),
+        },
       }),
       providesTags: ["Intake"],
+    }),
+    logIntakeItem: builder.mutation<IntakeItem, NewIntakeItemRequest>({
+      query: (body) => ({ url: "intake", method: "POST", body }),
+      invalidatesTags: ["Intake"],
     }),
     getIntakeItem: builder.query<IntakeItem, number>({
       query: (id) => ({ url: `intake/${id}` }),
@@ -146,6 +153,7 @@ export const reviewsApi = createApi({
 export const {
   useGetIntakeItemsQuery,
   useGetIntakeItemQuery,
+  useLogIntakeItemMutation,
   useCheckoutIntakeItemMutation,
   useReleaseIntakeItemMutation,
   useAcceptIntakeItemMutation,
