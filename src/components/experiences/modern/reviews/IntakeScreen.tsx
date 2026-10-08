@@ -19,6 +19,7 @@ import LabelSearchTypeahead from "../catalog/AddRelease/LabelSearchTypeahead";
 import IntakeLane from "./IntakeLane";
 import { REVIEW_COPY } from "./copy";
 import { intakeRecord, recordLine } from "./recordLine";
+import { hasNothingToShow } from "@/lib/has-nothing-to-show";
 
 const COPY = REVIEW_COPY.intake;
 
@@ -60,7 +61,7 @@ export default function IntakeScreen() {
   };
 
   if (!visible) return null;
-  if (open.isError || awaiting.isError || reviewed.isError || filed.isError) {
+  if ([open, awaiting, reviewed, filed].some(hasNothingToShow)) {
     return <Typography role="alert">{REVIEW_COPY.screen.loadFailed}</Typography>;
   }
   // Until every lane lands, an empty-state sentence would read as a fact.

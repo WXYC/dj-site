@@ -20,6 +20,7 @@ import { useAppDispatch } from "@/lib/hooks";
 import { serverMessage, unwrapEndpointErrorOrRaw } from "@/lib/rtk-endpoint-error";
 import { useMounted, useRowWrite } from "@/src/hooks/useRowWrite";
 import OutagePanel from "./OutagePanel";
+import { hasNothingToShow } from "@/lib/has-nothing-to-show";
 
 const FILED = { state: "filed" } as const;
 /** Approved. */
@@ -166,7 +167,7 @@ export default function FiledIntakeItems({ canWrite }: { canWrite: boolean }) {
   };
 
   if (items.isLoading || rotating.isLoading) return <p style={{ textAlign: "center" }}>Loading...</p>;
-  if ((items.isError && items.data == null) || (rotating.isError && rotating.data == null)) {
+  if (hasNothingToShow(items) || hasNothingToShow(rotating)) {
     return (
       <OutagePanel
         message={FILED_OUTAGE}
