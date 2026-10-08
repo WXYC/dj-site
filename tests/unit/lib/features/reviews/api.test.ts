@@ -149,6 +149,22 @@ describe("reviewsApi", () => {
     expect(seen?.searchParams.get("state")).toBe("reviewed");
   });
 
+  it("getIntakeItems with no argument GETs /intake with no query string at all", async () => {
+    let seen: URL | undefined;
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/intake`, ({ request }) => {
+        seen = new URL(request.url);
+        return HttpResponse.json([]);
+      })
+    );
+
+    await makeReviewsStore().dispatch(reviewsApi.endpoints.getIntakeItems.initiate());
+
+    expect(seen?.pathname).toBe("/intake");
+    expect(seen?.search).toBe("");
+    expect(seen?.href).not.toContain("?");
+  });
+
   it("resolves a query answered with an HTML body as an error, not data: null", async () => {
     server.use(
       http.get(

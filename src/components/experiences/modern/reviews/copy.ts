@@ -109,6 +109,11 @@ export const REVIEW_COPY = {
     /** Followed by the holder's name. */
     stillOutTo: "Still out: checked out to",
     holderRemoved: "Still out: holder removed",
+    /** The Review waiting lane's location line for a checked-out record whose holder's account was removed. */
+    holderRemovedNow: "Holder removed",
+    /** The Review waiting lane's count, "1 review" or "2 reviews". */
+    reviewOne: "review",
+    reviewMany: "reviews",
     empty: "Nothing here.",
   },
   myReviews: {
