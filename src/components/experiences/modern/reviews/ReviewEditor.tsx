@@ -52,7 +52,8 @@ function Form({ review }: { review: Review }) {
   const router = useRouter();
   const record = useReviewRecord(review);
   const draft = review.status === "draft";
-  const blank = values.review.trim() === "";
+  // Only a typed review needs text to submit; a handwritten one may go in with none.
+  const blank = review.medium === "typed" && values.review.trim() === "";
   const inUse = review.in_use || refusedInUse;
 
   // A non-author's patch carries no consent: the service accepts it only from the author.

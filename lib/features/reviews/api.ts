@@ -1,5 +1,5 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
-import type { AlbumReview, AlbumReviewsResponse, IntakeItem, IntakeItemState, NewReviewRequest, Review, ReviewPatch } from "@wxyc/shared";
+import type { AlbumReview, AlbumReviewsResponse, IntakeItem, IntakeItemState, NewReviewRequest, Review, ReviewConflictReason, ReviewPatch } from "@wxyc/shared";
 import type { FetchBaseQueryError } from "@reduxjs/toolkit/query";
 import { backendBaseQuery } from "../backend";
 import { isRefusal } from "@/lib/rtk-endpoint-error";
@@ -42,11 +42,11 @@ export const isReviewSubjectNotHeld = (err: unknown): boolean =>
 
 /** True when a submit found the review already submitted. */
 export const isReviewNotDraft = (err: unknown): boolean =>
-  isRefusal(err, { status: 409, reasons: ["not_draft"], key: "reviewWriteError" });
+  isRefusal(err, { status: 409, reasons: ["not_draft"] satisfies ReviewConflictReason[], key: "reviewWriteError" });
 
 /** True when a delete was refused because a music director is using the review as the record's review. */
 export const isReviewInUse = (err: unknown): boolean =>
-  isRefusal(err, { status: 409, reasons: ["in_use"], key: "reviewWriteError" });
+  isRefusal(err, { status: 409, reasons: ["in_use"] satisfies ReviewConflictReason[], key: "reviewWriteError" });
 
 /**
  * Rooted at the Backend-Service root, not at one domain: every endpoint's `url`

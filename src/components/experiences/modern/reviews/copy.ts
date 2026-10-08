@@ -30,19 +30,18 @@ export const REVIEW_COPY = {
   submitNeedsReview: "Write the review before you submit it.",
   delete: "Delete",
   cancel: "Cancel",
-  /** Approved. Above the form of a submitted review, for its author. */
+  /** Above the form of a submitted review, for its author. */
   submittedBanner: "Submitted. You can keep editing; each saved change is kept in the review's history.",
-  /** Approved. Submit's confirmation for a review of a logged record. */
+  /** Submit's confirmation for a review of a logged record. */
   submitConfirmLogged: "Submit this review? The music directors will be emailed that it is ready. You can keep editing it afterwards.",
   /** Approved. Submit's confirmation for a review of a library release. */
   submitConfirmRelease: "Submit this review? It will appear on the record's page. You can keep editing it afterwards.",
-  /** Approved. */
   deleteConfirm: "Delete this review? Its history goes with it. This cannot be undone.",
   /** Approved. Shown beside a disabled Delete, and when a delete is refused. */
   inUse: "A music director is using this as the record's review. Ask them to remove it.",
-  /** Approved. Shown to anyone but the author in place of the consent controls. */
+  /** Shown to anyone but the author in place of the consent controls. */
   authorOnlyConsent: "Only the author can answer the publishing question.",
-  /** Approved. A music director editing another person's review; the email clause only for a submitted review with a linked author. */
+  /** A music director editing another person's review; the email clause only for a submitted review with a linked author. */
   editingOthers: (author: string, emailed: boolean) =>
     `You are editing ${author}'s review. Your change is saved under your name in the review's history${emailed ? ", and the author is emailed that it was edited." : "."}`,
   consent: {
@@ -103,7 +102,7 @@ export const REVIEW_COPY = {
     returnQuestion: "Have you brought this record back to the station?",
     /** Shown on a checkout whose review is done. */
     reviewedReturn: "Reviewed. Bring the record back to the music office.",
-    /** Approved. Shown on a checkout with a submitted review of mine. */
+    /** Shown on a checkout with a submitted review of mine. */
     reviewSubmitted: "Review submitted. A music director will choose the review for the cover.",
     editReview: "Edit review",
     /** Each is followed by a date. */

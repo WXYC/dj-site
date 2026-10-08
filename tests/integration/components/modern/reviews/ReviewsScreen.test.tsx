@@ -429,6 +429,33 @@ describe("ReviewsScreen", () => {
     expect(posts).toBe(0);
   });
 
+  // Opening the existing draft still goes through the row's write lock, so the
+  // row's buttons stay disabled while the click is handled and the lists reload.
+  it("locks the row while Write a review opens the existing draft", async () => {
+    serveIntake([HELD], [], [review({ id: 40, intake_item_id: 2 })]);
+    const { user } = renderWithProviders(<ReviewsScreen />);
+    const mine = await section("My checkouts");
+    const write = await within(mine).findByRole("button", { name: REVIEW_COPY.writeReview });
+    const returnButton = within(mine).getByRole("button", { name: RETURN });
+    expect(returnButton).toBeEnabled();
+
+    let reloads = 0;
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/intake`, async ({ request }) => {
+        reloads += 1;
+        await delay(300);
+        return HttpResponse.json(new URL(request.url).searchParams.get("state") === "reviewed" ? [] : [HELD]);
+      }),
+    );
+    await user.click(write);
+
+    await waitFor(() => expect(router.push).toHaveBeenCalledWith("/dashboard/reviews/40"));
+    expect(returnButton).toBeDisabled();
+    expect(write).toBeDisabled();
+    await waitFor(() => expect(returnButton).toBeEnabled(), { timeout: 3000 });
+    expect(reloads).toBeGreaterThan(0);
+  });
+
   it("shows the submitted line and Edit review in place of Write a review once I have submitted", async () => {
     serveIntake([HELD], [], [review({ id: 40, intake_item_id: 2, status: "submitted" })]);
 
