@@ -118,6 +118,13 @@ describe("new review page", () => {
     expect(screen.queryByTestId("new-review")).not.toBeInTheDocument();
   });
 
+  it("is not found for a member without DJ access under staff, not the staff-only line", async () => {
+    process.env.NEXT_PUBLIC_REVIEWS_ENABLED = "staff";
+    mockGetUserRoleInOrganization.mockResolvedValue("member");
+
+    await expect(open()).rejects.toThrow("NEXT_NOT_FOUND");
+  });
+
   it.each([["dj"], ["musicDirector"]])("is not found for a %s when the flag is off", async (role) => {
     delete process.env.NEXT_PUBLIC_REVIEWS_ENABLED;
     mockGetUserRoleInOrganization.mockResolvedValue(role);

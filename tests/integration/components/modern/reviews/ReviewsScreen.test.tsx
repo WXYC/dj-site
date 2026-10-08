@@ -496,6 +496,26 @@ describe("ReviewsScreen", () => {
     expect(within(reviews).getAllByRole("link")).toHaveLength(3);
   });
 
+  it("labels a library-release review as such while its release read has not landed", async () => {
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => (release = resolve));
+    fakeReviewsEndpoints({ mine: [review({ id: 41, intake_item_id: null, album_id: 7 })] });
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/library/info`, async () => {
+        await held;
+        return HttpResponse.json({ id: 7, artist_name: "Juana Molina", album_title: "DOGA", record_label: "Sonamos", format_name: "CD", legacy_release_id: 1 });
+      }),
+    );
+
+    renderWithProviders(<ReviewsScreen />);
+    const reviews = await section(REVIEW_COPY.myReviews.title);
+
+    expect(await within(reviews).findByText(REVIEW_COPY.myReviews.libraryRelease)).toBeInTheDocument();
+    release();
+    expect(await within(reviews).findByText("Juana Molina · DOGA · Sonamos · CD")).toBeInTheDocument();
+    expect(within(reviews).queryByText(REVIEW_COPY.myReviews.libraryRelease)).not.toBeInTheDocument();
+  });
+
   it("says my reviews are empty in so many words, and shows the load-failure line when that read fails", async () => {
     serveIntake([]);
     const first = renderWithProviders(<ReviewsScreen />);
