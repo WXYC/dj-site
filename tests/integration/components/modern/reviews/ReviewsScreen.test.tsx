@@ -3,7 +3,14 @@ import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { delay, http, HttpResponse } from "msw";
 import type { IntakeItem, Review } from "@wxyc/shared";
 import { Authorization } from "@/lib/features/admin/types";
-import { renderWithProviders, server, TEST_BACKEND_URL } from "@/tests/helpers";
+import {
+  fakeReviewsEndpoints,
+  intakeItem as item,
+  renderWithProviders,
+  review,
+  server,
+  TEST_BACKEND_URL,
+} from "@/tests/helpers";
 
 vi.mock("@/lib/features/authentication/client", async () => {
   const { createAuthClientModuleMock } = await import("@/tests/helpers/auth-client-mock");
@@ -15,7 +22,10 @@ vi.mock("sonner", () => ({
 }));
 
 const router = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn() }));
-vi.mock("next/navigation", () => ({ useRouter: () => router }));
+vi.mock("next/navigation", async () => {
+  const { createNavigationModuleMock } = await import("@/tests/helpers/navigation-mock");
+  return createNavigationModuleMock(router);
+});
 
 const ME = "dj-me";
 const mockAuth = vi.hoisted(() => ({ authority: 1 as number }));
@@ -31,37 +41,8 @@ import { toast } from "sonner";
 import { REVIEW_COPY } from "@/src/components/experiences/modern/reviews/copy";
 import ReviewsScreen from "@/src/components/experiences/modern/reviews/ReviewsScreen";
 
-const item = (overrides: Partial<IntakeItem>): IntakeItem =>
-  ({
-    id: 1,
-    artist_name: "Stereolab",
-    album_title: "Aluminum Tunes",
-    record_label: "Duophonic",
-    format_id: 1,
-    state: "pool",
-    effective_state: "pool",
-    overdue: false,
-    logged_at: "2026-09-01T12:00:00Z",
-    requested_dj_id: null,
-    requested_at: null,
-    checked_out_by: null,
-    checked_out_at: null,
-    ...overrides,
-  }) as IntakeItem;
-
-const review = (overrides: Partial<Review> = {}): Review =>
-  ({ id: 40, intake_item_id: 2, album_id: null, status: "draft", ...overrides }) as Review;
-
 function serveIntake(open: IntakeItem[], reviewed: IntakeItem[] = [], mine: Review[] = []) {
-  server.use(
-    http.get(`${TEST_BACKEND_URL}/reviews`, () => HttpResponse.json(mine)),
-    http.get(`${TEST_BACKEND_URL}/intake`, ({ request }) =>
-      HttpResponse.json(new URL(request.url).searchParams.get("state") === "reviewed" ? reviewed : open),
-    ),
-    http.get(`${TEST_BACKEND_URL}/library/formats`, () =>
-      HttpResponse.json([{ id: 1, format_name: "cd" }]),
-    ),
-  );
+  fakeReviewsEndpoints({ open, reviewed, mine });
 }
 
 const section = (name: string) => screen.findByRole("region", { name });
@@ -78,7 +59,7 @@ describe("ReviewsScreen", () => {
   beforeEach(() => {
     vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "true");
     mockAuth.authority = Authorization.DJ;
-    server.use(http.get(`${TEST_BACKEND_URL}/reviews`, () => HttpResponse.json([])));
+    fakeReviewsEndpoints();
     router.push.mockClear();
     router.replace.mockClear();
     vi.mocked(toast).mockClear();
@@ -133,7 +114,6 @@ describe("ReviewsScreen", () => {
             : [],
         );
       }),
-      http.get(`${TEST_BACKEND_URL}/library/formats`, () => HttpResponse.json([])),
       http.post(`${TEST_BACKEND_URL}/intake/8/release`, () => {
         released = true;
         return HttpResponse.json(item({ id: 8, state: "reviewed", effective_state: "reviewed" }));
@@ -165,7 +145,6 @@ describe("ReviewsScreen", () => {
             : [item({ id: 2, state: "checked_out", effective_state: "checked_out", checked_out_by: ME })],
         ),
       ),
-      http.get(`${TEST_BACKEND_URL}/library/formats`, () => HttpResponse.json([])),
       http.post(`${TEST_BACKEND_URL}/intake/:id/release`, ({ request }) => {
         released = new URL(request.url).pathname;
         return HttpResponse.json(item({ id: 2 }));
@@ -228,7 +207,6 @@ describe("ReviewsScreen", () => {
           reloaded += 1;
           return HttpResponse.json([]);
         }),
-        http.get(`${TEST_BACKEND_URL}/library/formats`, () => HttpResponse.json([])),
         http.post(`${TEST_BACKEND_URL}/intake/5/${action}`, () => {
           raced = true;
           return HttpResponse.json({ message: "server words", reason: "state_changed" }, { status: 409 });
@@ -331,7 +309,6 @@ describe("ReviewsScreen", () => {
           new URL(request.url).searchParams.get("state") === "reviewed" || moved ? [] : [item({ id: 5 })],
         );
       }),
-      http.get(`${TEST_BACKEND_URL}/library/formats`, () => HttpResponse.json([])),
       http.post(`${TEST_BACKEND_URL}/intake/5/checkout`, () => {
         posts.push("checkout");
         if (moved) return HttpResponse.json({ message: "server words", reason: "state_changed" }, { status: 409 });
@@ -377,7 +354,6 @@ describe("ReviewsScreen", () => {
       http.get(`${TEST_BACKEND_URL}/intake`, ({ request }) =>
         HttpResponse.json(new URL(request.url).searchParams.get("state") === "reviewed" || moved ? [] : [row]),
       ),
-      http.get(`${TEST_BACKEND_URL}/library/formats`, () => HttpResponse.json([])),
       http.post(`${TEST_BACKEND_URL}/intake/:id/:action`, async ({ request }) => {
         posts.push(new URL(request.url).pathname);
         await delay(100);
@@ -401,7 +377,6 @@ describe("ReviewsScreen", () => {
   it("says the review shelf could not load rather than showing it empty when the body is not JSON", async () => {
     server.use(
       http.get(`${TEST_BACKEND_URL}/intake`, () => new HttpResponse("<html>Bad Gateway</html>", { status: 200, headers: { "Content-Type": "text/html" } })),
-      http.get(`${TEST_BACKEND_URL}/library/formats`, () => HttpResponse.json([])),
     );
 
     renderWithProviders(<ReviewsScreen />);
@@ -468,7 +443,6 @@ describe("ReviewsScreen", () => {
       http.get(`${TEST_BACKEND_URL}/intake`, ({ request }) =>
         HttpResponse.json(raced || new URL(request.url).searchParams.get("state") === "reviewed" ? [] : [HELD]),
       ),
-      http.get(`${TEST_BACKEND_URL}/library/formats`, () => HttpResponse.json([])),
       http.post(`${TEST_BACKEND_URL}/reviews`, () => {
         raced = true;
         return HttpResponse.json(
