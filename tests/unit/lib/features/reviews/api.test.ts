@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { http, HttpResponse } from "msw";
 import { configureStore } from "@reduxjs/toolkit";
-import { isIntakeStateChanged, reviewsApi } from "@/lib/features/reviews/api";
+import { isIntakeInRotation, isIntakeStateChanged, reviewsApi } from "@/lib/features/reviews/api";
 import { describeApi } from "@/tests/helpers/api-harness";
 import { TEST_BACKEND_URL } from "@/tests/helpers/constants";
 import { server } from "@/tests/fakes/server";
@@ -102,6 +102,17 @@ describe("reviewsApi", () => {
 
   it("isIntakeStateChanged reads a raw 409 state_changed through the shared reader", () => {
     expect(isIntakeStateChanged({ status: 409, data: { reason: "state_changed" } })).toBe(true);
+  });
+
+  it.each([
+    ["a wrapped 409 in_rotation", { intakeWriteError: { status: 409, data: { reason: "in_rotation" } } }, true],
+    ["a raw 409 in_rotation", { status: 409, data: { reason: "in_rotation" } }, true],
+    ["a wrapped 409 state_changed", { intakeWriteError: { status: 409, data: { reason: "state_changed" } } }, false],
+    ["a wrapped 400 in_rotation", { intakeWriteError: { status: 400, data: { reason: "in_rotation" } } }, false],
+    ["a FETCH_ERROR", { intakeWriteError: { status: "FETCH_ERROR", error: "Failed to fetch" } }, false],
+    ["undefined", undefined, false],
+  ])("isIntakeInRotation reads %s as %s", (_label, err, expected) => {
+    expect(isIntakeInRotation(err)).toBe(expected);
   });
 
   it("getIntakeItems GETs exactly /intake with the state filter", async () => {

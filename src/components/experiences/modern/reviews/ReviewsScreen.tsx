@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Button, Chip, List, ListItem, Stack, Typography } from "@mui/joy";
 import type { IntakeItem } from "@wxyc/shared";
 import { toast } from "sonner";
@@ -18,6 +18,7 @@ import { canSeeReviews } from "@/lib/features/reviews/flags";
 import { Authorization } from "@/lib/features/admin/types";
 import { useAuthentication } from "@/src/hooks/authenticationHooks";
 import { useAppDispatch } from "@/lib/hooks";
+import { useRowWrite } from "@/src/hooks/useRowWrite";
 import ConfirmDialog from "../ConfirmDialog";
 
 const day = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString() : "");
@@ -52,21 +53,20 @@ export default function ReviewsScreen() {
   const [accept] = useAcceptIntakeItemMutation();
   const [pass] = usePassIntakeItemMutation();
   const [returning, setReturning] = useState<IntakeItem | null>(null);
-  // The write in flight per row, by item id: its button shows loading and the
-  // row's others are disabled. The ref is the synchronous guard, so a second
-  // click that lands before the re-render is a no-op too.
-  const inFlight = useRef(new Map<number, Action>());
-  const [pending, setPending] = useState<ReadonlyMap<number, Action>>(() => new Map());
   const dispatch = useAppDispatch();
-  // A write outlives the page when the DJ navigates away mid-click; what
-  // follows it must then touch neither React state nor the screen's toasts.
-  const mounted = useRef(false);
-  useEffect(() => {
-    mounted.current = true;
-    return () => {
-      mounted.current = false;
-    };
-  }, []);
+  // A double-click's second POST would find the record already moved and
+  // answer 409 state_changed, telling the DJ someone else took the record they
+  // just took; one write per row at a time. Each reload joins the one the
+  // write's invalidation already started.
+  const { write, lock } = useRowWrite<Action>({
+    reload: () => [
+      dispatch(reviewsApi.endpoints.getIntakeItems.initiate(OPEN_LISTS, { subscribe: false, forceRefetch: true })),
+      dispatch(reviewsApi.endpoints.getIntakeItems.initiate(REVIEWED_LIST, { subscribe: false, forceRefetch: true })),
+    ],
+    isLostRace: isIntakeStateChanged,
+    onFailure: () => toast.error("Couldn't do that. Please try again."),
+    onLostRace: (_id, action) => toast(RACE_NOTICE[action]),
+  });
 
   if (!visible) return null;
   if (open.isError || reviewed.isError) {
@@ -83,48 +83,6 @@ export default function ReviewsScreen() {
     ...items.filter((i) => i.effective_state === "checked_out" && i.checked_out_by === me),
     ...reviewed.data.filter((i) => i.effective_state === "reviewed" && i.checked_out_by === me),
   ];
-
-  // A double-click's second POST would find the record already moved and
-  // answer 409 state_changed, telling the DJ someone else took the record they
-  // just took; one write per row at a time.
-  const act = async (id: number, action: Action, run: () => { unwrap: () => Promise<unknown> }) => {
-    if (inFlight.current.has(id)) return;
-    inFlight.current.set(id, action);
-    setPending(new Map(inFlight.current));
-    let raced = false;
-    try {
-      await run().unwrap();
-    } catch (err) {
-      // Both lists refetch on a write, lost race or not. A lost race is not an
-      // error, so it is not an error toast.
-      if (isIntakeStateChanged(err)) {
-        raced = true;
-      } else {
-        toast.error("Couldn't do that. Please try again.");
-      }
-    } finally {
-      // The row leaves its section only when the refetched lists land, so it
-      // stays locked until then. A failed write or a lost race refetches too,
-      // so the row unlocks once the lists settle either way. Each reload joins
-      // the one the write's invalidation already started. It goes through the
-      // store, not the hooks' `refetch`, which throws once the page has
-      // unmounted; `allSettled` never rejects.
-      await Promise.allSettled([
-        dispatch(reviewsApi.endpoints.getIntakeItems.initiate(OPEN_LISTS, { subscribe: false, forceRefetch: true })),
-        dispatch(reviewsApi.endpoints.getIntakeItems.initiate(REVIEWED_LIST, { subscribe: false, forceRefetch: true })),
-      ]);
-      inFlight.current.delete(id);
-      if (mounted.current) setPending(new Map(inFlight.current));
-    }
-    // The notice says the lists have been reloaded, so it waits until they have.
-    if (raced && mounted.current) toast(RACE_NOTICE[action]);
-  };
-
-  // Joy's Button disables itself while `loading`.
-  const lock = (i: IntakeItem, action: Action) => ({
-    loading: pending.get(i.id) === action,
-    disabled: pending.has(i.id),
-  });
 
   const describe = (i: IntakeItem) => {
     const format = formats?.find((f) => f.id === i.format_id)?.format_name;
@@ -156,7 +114,7 @@ export default function ReviewsScreen() {
       {section("The review shelf", onShelf, "Nothing is waiting on the review shelf.", (i) => (
         <>
           <Typography level="body-sm">Logged {day(i.logged_at)}</Typography>
-          <Button size="sm" {...lock(i, "checkout")} onClick={() => act(i.id, "checkout", () => checkout(i.id))}>Check out</Button>
+          <Button size="sm" {...lock(i.id, "checkout")} onClick={() => write(i.id, "checkout", () => checkout(i.id).unwrap())}>Check out</Button>
         </>
       ))}
       {section("My checkouts", checkouts, "You have no records checked out.", (i) => (
@@ -166,14 +124,14 @@ export default function ReviewsScreen() {
           {i.effective_state === "reviewed" && (
             <Typography level="body-sm">Reviewed. Bring the record back to the music office.</Typography>
           )}
-          <Button size="sm" variant="outlined" {...lock(i, "release")} onClick={() => setReturning(i)}>Return to the review shelf</Button>
+          <Button size="sm" variant="outlined" {...lock(i.id, "release")} onClick={() => setReturning(i)}>Return to the review shelf</Button>
         </>
       ))}
       {section("Requests for me", requests, "No one has asked you for a review.", (i) => (
         <>
           <Typography level="body-sm">Asked {day(i.requested_at)}</Typography>
-          <Button size="sm" {...lock(i, "accept")} onClick={() => act(i.id, "accept", () => accept(i.id))}>Accept</Button>
-          <Button size="sm" variant="outlined" {...lock(i, "pass")} onClick={() => act(i.id, "pass", () => pass(i.id))}>Pass</Button>
+          <Button size="sm" {...lock(i.id, "accept")} onClick={() => write(i.id, "accept", () => accept(i.id).unwrap())}>Accept</Button>
+          <Button size="sm" variant="outlined" {...lock(i.id, "pass")} onClick={() => write(i.id, "pass", () => pass(i.id).unwrap())}>Pass</Button>
         </>
       ))}
       <ConfirmDialog
@@ -186,7 +144,7 @@ export default function ReviewsScreen() {
               onClick={async () => {
                 const id = returning!.id;
                 setReturning(null);
-                await act(id, "release", () => release(id));
+                await write(id, "release", () => release(id).unwrap());
               }}
             >
               Return to the review shelf

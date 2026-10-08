@@ -558,8 +558,8 @@ export default function RotationAdminList({ now: nowProp }: { now?: Date } = {})
 
       if (outcome.step === "add-failed") {
         if (isRotationMoveNotEligible(outcome.error)) {
+          // The rejected add's tag invalidation rereads the list.
           toast.error(ROTATION_MOVE_NOT_ELIGIBLE_MESSAGE);
-          void refetch();
           return;
         }
         // The free-text add's refusals are wrapped out of the middleware toast

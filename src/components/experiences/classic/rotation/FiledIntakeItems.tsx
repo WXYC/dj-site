@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import type { IntakeItem } from "@wxyc/shared";
 import {
   parseReleaseCodeNumber,
@@ -10,67 +10,59 @@ import { useGetInformationQuery, useUpdateAlbumMutation } from "@/lib/features/c
 import { formatAlbumEntryLibraryCode } from "@/lib/features/catalog/libraryCode";
 import { rotationApi, useGetRotationListQuery } from "@/lib/features/rotation/api";
 import {
+  isIntakeInRotation,
   isIntakeStateChanged,
   reviewsApi,
   useFinalizeIntakeItemMutation,
   useGetIntakeItemsQuery,
 } from "@/lib/features/reviews/api";
 import { useAppDispatch } from "@/lib/hooks";
-import { bodyReason, serverMessage, unwrapEndpointError } from "@/lib/rtk-endpoint-error";
+import { serverMessage, unwrapEndpointErrorOrRaw } from "@/lib/rtk-endpoint-error";
+import { useRowWrite } from "@/src/hooks/useRowWrite";
 import OutagePanel from "./OutagePanel";
 
 const FILED = { state: "filed" } as const;
 const FAILURE_LINE = "Couldn't do that. Please try again.";
-
-/** False once the component has unmounted, so a write that outlives it touches no state. */
-function useMounted() {
-  const mounted = useRef(false);
-  useEffect(() => {
-    mounted.current = true;
-    return () => {
-      mounted.current = false;
-    };
-  }, []);
-  return mounted;
-}
+type Action = "finalize";
 
 function FiledRow({
   item,
   albumId,
   canWrite,
-  onFinalize,
+  write,
+  lock,
+  finalize,
 }: {
   item: IntakeItem;
   albumId: number;
   canWrite: boolean;
-  onFinalize: (id: number) => Promise<void>;
+  write: ReturnType<typeof useRowWrite<Action>>["write"];
+  lock: ReturnType<typeof useRowWrite<Action>>["lock"];
+  finalize: (id: number) => Promise<unknown>;
 }) {
   const { data: album } = useGetInformationQuery({ album_id: albumId });
   const [updateAlbum] = useUpdateAlbumMutation();
   const [editing, setEditing] = useState(false);
   const [number, setNumber] = useState("");
   const [error, setError] = useState<string>();
-  const [busy, setBusy] = useState(false);
-  // The synchronous guard: a second click that lands before the re-render is a no-op.
-  const inFlight = useRef(false);
-  const mounted = useMounted();
+  const { disabled: busy } = lock(item.id, "finalize");
 
-  // `onFinalize` reports its own refusal and resolves only once the refetched
-  // lists have landed, so the row stays locked until it leaves the table or
-  // is shown again as it now stands. Only the PATCH can fail here.
-  const run = async (change?: number) => {
-    if (inFlight.current) return;
-    inFlight.current = true;
-    setBusy(true);
+  // The row stays locked until the refetched lists land, so it leaves the
+  // table or is shown again as it now stands. The PATCH's failure is this
+  // row's own line; the finalize's refusal is reported by the screen.
+  const run = (change?: number) => {
     setError(undefined);
-    try {
-      if (change !== undefined) await updateAlbum({ albumId, body: { code_number: change } }).unwrap();
-      await onFinalize(item.id);
-    } catch {
-      if (mounted.current) setError(FAILURE_LINE);
-    }
-    inFlight.current = false;
-    if (mounted.current) setBusy(false);
+    return write(item.id, "finalize", async () => {
+      if (change !== undefined) {
+        try {
+          await updateAlbum({ albumId, body: { code_number: change } }).unwrap();
+        } catch {
+          setError(FAILURE_LINE);
+          return;
+        }
+      }
+      await finalize(item.id);
+    });
   };
 
   const saveAndConfirm = () => {
@@ -146,32 +138,28 @@ export default function FiledIntakeItems({ canWrite }: { canWrite: boolean }) {
   // `inRotation` marks the server's own explanation of why the row is about
   // to be hidden, which outlives the row; the generic line belongs to its row.
   const [refusal, setRefusal] = useState<{ id: number; text: string; inRotation: boolean }>();
-  const mounted = useMounted();
-
-  const onFinalize = async (id: number) => {
-    setRefusal(undefined);
-    try {
-      await finalize(id).unwrap();
-    } catch (err) {
-      const inner = unwrapEndpointError("intakeWriteError", err);
-      // The one refusal this screen quotes: the server's message names the latest kill date.
-      const inRotation = inner?.status === 409 && bodyReason(inner.data) === "in_rotation";
-      const quoted = inRotation ? serverMessage(inner.data) : undefined;
-      // A lost race (someone else finalized it first) is not an error: the
-      // refetched list drops the row, which says what happened.
-      if (!isIntakeStateChanged(err) && mounted.current) {
-        setRefusal({ id, text: quoted || FAILURE_LINE, inRotation: Boolean(quoted) });
-      }
-    }
-    // Both lists reload on every outcome, and the row stays locked until they
-    // land. Finalize invalidates only the intake list; the active rotation list
-    // is what a 409 `in_rotation` says is stale. Through the store, not the
-    // hooks' `refetch`, which throws once the page has unmounted; `allSettled`
-    // never rejects.
-    await Promise.allSettled([
+  const { write, lock } = useRowWrite<Action>({
+    // Finalize invalidates only the intake list; the active rotation list is
+    // what a 409 `in_rotation` says is stale.
+    reload: () => [
       dispatch(reviewsApi.endpoints.getIntakeItems.initiate(FILED, { subscribe: false, forceRefetch: true })),
       dispatch(rotationApi.endpoints.getRotationList.initiate("active", { subscribe: false, forceRefetch: true })),
-    ]);
+    ],
+    // A lost race (someone else finalized it first) is not an error: the
+    // refetched list drops the row, which says what happened.
+    isLostRace: isIntakeStateChanged,
+    onFailure: (err, id) => {
+      // The one refusal this screen quotes: the server's message names the latest kill date.
+      const quoted = isIntakeInRotation(err)
+        ? serverMessage(unwrapEndpointErrorOrRaw("intakeWriteError", err)?.data)
+        : undefined;
+      setRefusal({ id, text: quoted || FAILURE_LINE, inRotation: Boolean(quoted) });
+    },
+  });
+
+  const finalizeItem = (id: number) => {
+    setRefusal(undefined);
+    return finalize(id).unwrap();
   };
 
   if (items.isLoading || rotating.isLoading) return <p style={{ textAlign: "center" }}>Loading...</p>;
@@ -208,7 +196,15 @@ export default function FiledIntakeItems({ canWrite }: { canWrite: boolean }) {
           <caption>Filed, awaiting your confirmation</caption>
           <tbody>
             {rows.map(({ item, albumId }) => (
-              <FiledRow key={item.id} item={item} albumId={albumId} canWrite={canWrite} onFinalize={onFinalize} />
+              <FiledRow
+                key={item.id}
+                item={item}
+                albumId={albumId}
+                canWrite={canWrite}
+                write={write}
+                lock={lock}
+                finalize={finalizeItem}
+              />
             ))}
           </tbody>
         </table>
