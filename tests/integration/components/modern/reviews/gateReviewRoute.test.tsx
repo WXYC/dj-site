@@ -25,53 +25,52 @@ vi.mock("@/lib/features/authentication/organization-utils.server", async () => {
   return classicPageAuthorityOrganizationUtilsMock();
 });
 
-// The page's own responsibility under test is its id check and what it renders
-// once the gate passes, not the editor or the header chrome.
-vi.mock("@/src/components/experiences/modern/reviews/ReviewEditor", () => ({
-  default: ({ id }: { id: number }) => <div data-testid="editor">{id}</div>,
-}));
-
 vi.mock("@/src/components/experiences/modern/Header/PageHeader", () => ({
   default: ({ title }: { title: string }) => <div data-testid="page-header">{title}</div>,
 }));
 
-import ReviewEditorPage, { metadata } from "@/app/dashboard/@modern/reviews/[id]/page";
-import { getPageTitle } from "@/lib/utils/page-title";
+import { gateReviewRoute } from "@/src/components/experiences/modern/reviews/gateReviewRoute";
 import { REVIEW_COPY } from "@/src/components/experiences/modern/reviews/copy";
 
-describe("review editor page", () => {
+describe("gateReviewRoute", () => {
   setUpClassicPageAuthorityEnv();
 
-  const open = (id = "40") => ReviewEditorPage({ params: Promise.resolve({ id }) });
+  const arrange = (flag: string | undefined, role: Parameters<typeof setUpClassicPageAuthority>[0]) => {
+    if (flag === undefined) delete process.env.NEXT_PUBLIC_REVIEWS_ENABLED;
+    else process.env.NEXT_PUBLIC_REVIEWS_ENABLED = flag;
+    setUpClassicPageAuthority(role);
+  };
 
-  it("renders the editor once the gate passes", async () => {
-    process.env.NEXT_PUBLIC_REVIEWS_ENABLED = "true";
-    setUpClassicPageAuthority("dj");
+  it.each([
+    ["staff", "musicDirector"],
+    ["staff", "stationManager"],
+    ["true", "dj"],
+    ["1", "dj"],
+  ] as const)("lets the page through when the flag is %s for a %s", async (flag, role) => {
+    arrange(flag, role);
 
-    renderWithProviders(await open());
+    expect(await gateReviewRoute()).toBeNull();
+  });
 
-    expect(screen.getByTestId("editor")).toHaveTextContent("40");
+  it("answers a DJ under staff with the staff-only line", async () => {
+    arrange("staff", "dj");
+
+    renderWithProviders((await gateReviewRoute())!);
+
     expect(screen.getByTestId("page-header")).toHaveTextContent(REVIEW_COPY.pageTitle);
-  });
-
-  it("titles the tab from the copy module", () => {
-    expect(metadata.title).toBe(getPageTitle(REVIEW_COPY.pageTitle));
-  });
-
-  it("goes through the gate: a DJ under staff sees the staff-only line and no editor", async () => {
-    process.env.NEXT_PUBLIC_REVIEWS_ENABLED = "staff";
-    setUpClassicPageAuthority("dj");
-
-    renderWithProviders(await open());
-
     expect(screen.getByText(REVIEW_COPY.staffOnly)).toBeInTheDocument();
-    expect(screen.queryByTestId("editor")).not.toBeInTheDocument();
   });
 
-  it("is not found for an id that is not a positive integer", async () => {
-    process.env.NEXT_PUBLIC_REVIEWS_ENABLED = "true";
-    setUpClassicPageAuthority("dj");
+  it.each([
+    ["staff", "member"],
+    ["true", "member"],
+    [undefined, "dj"],
+    [undefined, "musicDirector"],
+    [undefined, "stationManager"],
+    ["false", "stationManager"],
+  ] as const)("is not found when the flag is %s for a %s", async (flag, role) => {
+    arrange(flag, role);
 
-    await assertNotFoundPage(() => open("abc"));
+    await assertNotFoundPage(() => gateReviewRoute() as Promise<never>);
   });
 });
