@@ -2,14 +2,23 @@ import type { ReactNode } from "react";
 import { List, ListItem, Stack, Typography } from "@mui/joy";
 
 interface IntakeLaneProps<Row extends { id: number }> {
+  /** The lane heading. It is also the section's accessible name, so both screens' tests (and any later count suffix) key off it. */
   title: string;
+  /** The lane's rows, keyed by `id`. */
   rows: Row[];
+  /** Shown instead of the list when there are no rows. */
   empty: string;
   /** Returns the whole label node; the lane adds no wrapper, so each screen keeps its own markup. */
   label: (row: Row) => ReactNode;
+  /** Rendered after the label, in the same wrapping row. Omitted by lanes that have none (the Filed lane). */
   extra?: (row: Row) => ReactNode;
 }
 
+/**
+ * One titled lane of review intake: a heading over a list of rows, or an
+ * empty line when there are none. Each row is its `label` followed by its
+ * optional `extra`. Shared by the DJ's reviews page and the review shelf page.
+ */
 export default function IntakeLane<Row extends { id: number }>({ title, rows, empty, label, extra }: IntakeLaneProps<Row>) {
   return (
     <section aria-label={title}>

@@ -172,14 +172,14 @@ export default function IntakeScreen() {
         label={laneLabel}
         extra={(i) =>
           i.checked_out_at && (
-          <>
-            <Typography level="body-sm">
-              {i.checked_out_by ? `${COPY.stillOutTo} ${i.checked_out_by_name}` : COPY.holderRemoved}
-            </Typography>
-            <Button size="sm" variant="outlined" {...lock(i.id, "release")} onClick={() => act(i.id, () => release(i.id).unwrap())}>
-              {COPY.returned}
-            </Button>
-          </>
+            <>
+              <Typography level="body-sm">
+                {i.checked_out_by ? `${COPY.stillOutTo} ${i.checked_out_by_name}` : COPY.holderRemoved}
+              </Typography>
+              <Button size="sm" variant="outlined" {...lock(i.id, "release")} onClick={() => act(i.id, () => release(i.id).unwrap())}>
+                {COPY.returned}
+              </Button>
+            </>
           )
         }
       />
