@@ -247,6 +247,39 @@ describe("classic Awaiting Cataloging — filed intake items", () => {
     expect(screen.queryByText(/server words/)).not.toBeInTheDocument();
   });
 
+  it("shows no failure line on a 409 state_changed while the row is still listed", async () => {
+    let finalizedElsewhere = false;
+    let releaseRead!: () => void;
+    const readHeld = new Promise<void>((resolve) => {
+      releaseRead = resolve;
+    });
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/intake`, async () => {
+        if (!finalizedElsewhere) return HttpResponse.json([filed({}), MOON_PIX]);
+        await readHeld;
+        return HttpResponse.json([MOON_PIX]);
+      }),
+      http.post(`${TEST_BACKEND_URL}/intake/1/finalize`, () => {
+        finalizedElsewhere = true;
+        return HttpResponse.json({ message: "server words", reason: "state_changed" }, { status: 409 });
+      }),
+    );
+    const { user } = renderFacet({ canSeeFiled: true, canWrite: true });
+
+    const confirm = await screen.findByRole("button", { name: "Confirm: DOGA" });
+    await user.click(confirm);
+    // The POST has been refused; the intake reload is still held, so the row is still listed.
+    await waitFor(() => expect(finalizedElsewhere).toBe(true));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(screen.getByText("DOGA")).toBeInTheDocument();
+    expect(confirm).toBeDisabled();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+
+    releaseRead();
+    await waitFor(() => expect(screen.queryByText("DOGA")).not.toBeInTheDocument());
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
   it("shows the screen's own failure line, not the server's text, on any other refusal", async () => {
     server.use(
       http.post(`${TEST_BACKEND_URL}/intake/1/finalize`, () =>
