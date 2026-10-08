@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Button, Chip, FormControl, FormLabel, Input, Link, List, ListItem, Option, Select, Stack, Typography } from "@mui/joy";
+import { Button, Chip, FormControl, FormLabel, Input, Link, Option, Select, Stack, Typography } from "@mui/joy";
 import type { IntakeItem } from "@wxyc/shared";
 import { toast } from "sonner";
 import { useGetFormatsQuery } from "@/lib/features/catalog/api";
@@ -16,6 +16,7 @@ import { useAppDispatch } from "@/lib/hooks";
 import { useCanSeeReviews } from "@/src/hooks/useCanSeeReviews";
 import { useRowWrite } from "@/src/hooks/useRowWrite";
 import LabelSearchTypeahead from "../catalog/AddRelease/LabelSearchTypeahead";
+import IntakeLane from "./IntakeLane";
 import { REVIEW_COPY } from "./copy";
 import { intakeRecord, recordLine } from "./recordLine";
 
@@ -94,27 +95,12 @@ export default function IntakeScreen() {
           ? `${COPY.checkedOutTo} ${i.checked_out_by_name}`
           : COPY.holderRemovedNow;
 
-  const lane = (title: string, rows: IntakeItem[], extra?: (i: IntakeItem) => React.ReactNode) => (
-    <section aria-label={title} key={title}>
-      <Typography level="title-lg">{title}</Typography>
-      {rows.length === 0 ? (
-        <Typography level="body-sm">{COPY.empty}</Typography>
-      ) : (
-        <List>
-          {rows.map((i) => (
-            <ListItem key={i.id}>
-              <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-                <Link href={`/dashboard/admin/intake/${i.id}`}>{recordLine(intakeRecord(i), formats)}</Link>
-                {i.overdue && <Chip color="danger">{REVIEW_COPY.screen.overdue}</Chip>}
-                {extra?.(i)}
-              </Stack>
-            </ListItem>
-          ))}
-        </List>
-      )}
-    </section>
+  const laneLabel = (i: IntakeItem) => (
+    <>
+      <Link href={`/dashboard/admin/intake/${i.id}`}>{recordLine(intakeRecord(i), formats)}</Link>
+      {i.overdue && <Chip color="danger">{REVIEW_COPY.screen.overdue}</Chip>}
+    </>
   );
-
   const physical = (i: IntakeItem) => waitingIds.has(i.id) && <Chip size="sm">{COPY.reviewWaitingMark}</Chip>;
   const reviewCount = (n: number) => `${n} ${n === 1 ? COPY.reviewOne : COPY.reviewMany}`;
 
@@ -162,18 +148,30 @@ export default function IntakeScreen() {
         </Stack>
       </form>
       {notice && <Typography role="status">{notice}</Typography>}
-      {awaiting.data.length > 0 &&
-        lane(`${COPY.waiting} (${awaiting.data.length})`, awaiting.data, (i) => (
-          <>
-            <Typography level="body-sm">{where(i)}</Typography>
-            <Typography level="body-sm">{reviewCount(i.submitted_review_count)}</Typography>
-          </>
-        ))}
-      {lane(COPY.onShelf, inState("pool"), physical)}
-      {lane(COPY.requested, inState("requested"), physical)}
-      {lane(COPY.checkedOut, inState("checked_out"), physical)}
-      {lane(COPY.reviewed, reviewed.data, (i) =>
-        i.checked_out_at && (
+      {awaiting.data.length > 0 && (
+        <IntakeLane
+          title={`${COPY.waiting} (${awaiting.data.length})`}
+          rows={awaiting.data}
+          empty={COPY.empty}
+          label={laneLabel}
+          extra={(i) => (
+            <>
+              <Typography level="body-sm">{where(i)}</Typography>
+              <Typography level="body-sm">{reviewCount(i.submitted_review_count)}</Typography>
+            </>
+          )}
+        />
+      )}
+      <IntakeLane title={COPY.onShelf} rows={inState("pool")} empty={COPY.empty} label={laneLabel} extra={physical} />
+      <IntakeLane title={COPY.requested} rows={inState("requested")} empty={COPY.empty} label={laneLabel} extra={physical} />
+      <IntakeLane title={COPY.checkedOut} rows={inState("checked_out")} empty={COPY.empty} label={laneLabel} extra={physical} />
+      <IntakeLane
+        title={COPY.reviewed}
+        rows={reviewed.data}
+        empty={COPY.empty}
+        label={laneLabel}
+        extra={(i) =>
+          i.checked_out_at && (
           <>
             <Typography level="body-sm">
               {i.checked_out_by ? `${COPY.stillOutTo} ${i.checked_out_by_name}` : COPY.holderRemoved}
@@ -182,9 +180,10 @@ export default function IntakeScreen() {
               {COPY.returned}
             </Button>
           </>
-        ),
-      )}
-      {lane(COPY.filed, filed.data)}
+          )
+        }
+      />
+      <IntakeLane title={COPY.filed} rows={filed.data} empty={COPY.empty} label={laneLabel} />
     </Stack>
   );
 }
