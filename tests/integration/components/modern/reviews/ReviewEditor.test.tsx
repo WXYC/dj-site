@@ -85,6 +85,17 @@ describe("ReviewEditor", () => {
     expect(within(preview).getByText("Sonamos")).toBeInTheDocument();
   });
 
+  it.each([
+    ["a submitted review shows the date it was submitted", { status: "submitted", submitted_at: "2026-10-07T16:00:00Z" }, "DJ Me 2026-10-07"],
+    ["a draft shows the date it was added", { submitted_at: null }, "DJ Me 2026-10-01"],
+  ] as const)("%s", async (_name, overrides, expected) => {
+    serve({ ...DRAFT, add_date: "2026-10-01", ...overrides } as Review);
+    renderWithProviders(<ReviewEditor id={40} />);
+
+    const preview = await screen.findByRole("group", { name: REVIEW_COPY.slip.name });
+    expect(within(preview).getByText(expected)).toBeInTheDocument();
+  });
+
   it("reflects each field in the slip preview as it is typed", async () => {
     serve();
     const { user } = renderWithProviders(<ReviewEditor id={40} />);

@@ -22,6 +22,7 @@ import ConsentBlock, { type Consent } from "./ConsentBlock";
 import { REVIEW_COPY } from "./copy";
 import SlipFields, { toFieldPatch, toFieldValues } from "./SlipFields";
 import SlipPreview from "./SlipPreview";
+import { formatSlipDate } from "./slipDate";
 import { useReviewRecord } from "./useReviewRecord";
 import { hasNothingToShow } from "@/lib/has-nothing-to-show";
 
@@ -127,7 +128,7 @@ function Form({ review }: { review: Review }) {
         album={record?.album ?? ""}
         label={record?.label ?? ""}
         reviewer={review.author ?? ""}
-        date={review.add_date}
+        date={formatSlipDate(review.submitted_at ?? review.add_date)}
         fields={values}
       />
       <ConfirmDialog

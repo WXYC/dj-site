@@ -175,6 +175,17 @@ export const REVIEW_COPY = {
     printSlip: "Print the slip",
     filed: "Filed.",
   },
+  /** The music directors' print page, `/dashboard/admin/intake/{id}/slip`. */
+  intakeSlip: {
+    loadFailed: "Couldn't load this record. Please try again.",
+    /** Followed by a date. */
+    lastPrinted: "Last printed",
+    /** Follows the date and a period. */
+    reprint: "Printing again replaces the slip on the cover.",
+    noCover: "There is no review on the cover yet. Choose one on the record's page, then print.",
+    backToRecord: "Back to the record's page",
+    handwritten: "The record's review is handwritten, so it is already on the sleeve. There is nothing to print.",
+  },
   myReviews: {
     title: "My reviews",
     empty: "You have not started a review.",

@@ -29,6 +29,7 @@ describe("intakeApi", () => {
       "passIntakeItem",
       "logIntakeItem",
       "fileIntakeItem",
+      "printIntakeItem",
     ],
     reducerPath: "reviewsApi",
   });
@@ -52,6 +53,20 @@ describe("intakeApi", () => {
     await makeReviewsStore().dispatch(intakeApi.endpoints[endpoint].initiate(7));
 
     expect(seen).toEqual({ method: "POST", path: `/intake/7/${action}` });
+  });
+
+  it("printIntakeItem POSTs exactly /intake/7/print", async () => {
+    let seen: { method: string; path: string } | undefined;
+    server.use(
+      http.post(`${TEST_BACKEND_URL}/intake/:id/print`, ({ request }) => {
+        seen = { method: request.method, path: new URL(request.url).pathname };
+        return HttpResponse.json({ artist_name: "Stereolab" });
+      })
+    );
+
+    await makeReviewsStore().dispatch(intakeApi.endpoints.printIntakeItem.initiate(7));
+
+    expect(seen).toEqual({ method: "POST", path: "/intake/7/print" });
   });
 
   it("fileIntakeItem POSTs the body to exactly /intake/7/file", async () => {
@@ -91,6 +106,7 @@ describe("intakeApi", () => {
     ["releaseIntakeItem", 7],
     ["acceptIntakeItem", 7],
     ["passIntakeItem", 7],
+    ["printIntakeItem", 7],
     ["fileIntakeItem", { id: 7, body: { kind: "existing_release", album_id: 3 } }],
   ] as const)("%s rejects with the whole error nested under intakeWriteError", async (endpoint, arg) => {
     const body = { message: "server words", reason: "state_changed" };
