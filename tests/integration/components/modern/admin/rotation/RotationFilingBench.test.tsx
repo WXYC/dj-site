@@ -178,6 +178,46 @@ describe("RotationFilingBench", () => {
     fakeRotationCardsEndpoints(CARDS);
   });
 
+  describe("a review_required refusal (the review gate is on)", () => {
+    const APPROVED_LINE =
+      "New releases go onto the review shelf first, and are filed from there once a review is chosen.";
+    const SERVER_MESSAGE = "Every new release needs a review: put it on the review shelf first.";
+
+    // The bench is behind the music directors' route, so the link's absence
+    // for a DJ is pinned on ReviewGateRefusal itself.
+    it("tells a music director to use the review shelf, not that the artist code is taken", async () => {
+      // No organization is configured here, so the tier comes from the session user.
+      const session = sessionWithRole();
+      mockUseSession.mockReturnValue({
+        ...session,
+        data: { ...session.data, user: { ...session.data.user, customRole: "musicDirector", hasCompletedOnboarding: true } },
+      });
+      const filings = fakeLibraryFilingsEndpoint({
+        existingArtists: [MOLINA_ROW],
+        respond: () =>
+          HttpResponse.json({ message: SERVER_MESSAGE, reason: "review_required" }, { status: 409 }),
+      });
+      const { user } = renderBench();
+
+      await selectGenre(user);
+      await pickExistingArtist(user);
+      await fillRelease(user);
+      await awaitDefaultCard();
+      await user.click(screen.getByRole("button", { name: "Add to rotation" }));
+
+      expect(await screen.findByText(APPROVED_LINE)).toBeInTheDocument();
+      expect(filings.bodies()).toHaveLength(1);
+      expect(screen.queryByText(SERVER_MESSAGE)).not.toBeInTheDocument();
+      expect(screen.queryByText(/already taken/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Filing failed/)).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Add to rotation" })).toBeEnabled();
+      expect(await screen.findByRole("link", { name: "Open the review shelf" })).toHaveAttribute(
+        "href",
+        "/dashboard/admin/intake",
+      );
+    });
+  });
+
   it("files an existing artist's release to the default Heavy bin's newest card in one submit", async () => {
     const filings = fakeLibraryFilingsEndpoint({ existingArtists: [MOLINA_ROW] });
     const { user } = renderBench();

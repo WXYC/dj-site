@@ -24,7 +24,7 @@ export default async function RotationBenchPage() {
   return (
     <>
       <PageHeader title="Add to Rotation" />
-      {reviewGateCutoverReached() ? <ReviewGateRefusal /> : <RotationFilingBench />}
+      {reviewGateCutoverReached() ? <ReviewGateRefusal modern /> : <RotationFilingBench />}
     </>
   );
 }

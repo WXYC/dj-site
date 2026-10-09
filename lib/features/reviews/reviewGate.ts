@@ -11,14 +11,7 @@
  * every add is refused.
  */
 
-const STATION_TIME_ZONE = "America/New_York";
-
-const stationDate = new Intl.DateTimeFormat("en-CA", {
-  timeZone: STATION_TIME_ZONE,
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-});
+import { stationDateISO } from "@/src/utilities/stationTime";
 
 let reportedMalformed = false;
 
@@ -40,5 +33,5 @@ export function reviewGateCutoverReached(): boolean {
     }
     return true;
   }
-  return stationDate.format(new Date()) >= configured;
+  return stationDateISO(new Date()) >= configured;
 }
