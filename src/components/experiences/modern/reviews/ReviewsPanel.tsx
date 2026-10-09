@@ -7,6 +7,7 @@ import { useGetReviewsForReleaseQuery } from "@/lib/features/reviews/reviewApi";
 import { useGetAlbumReviewsForReleaseQuery } from "@/lib/features/reviews/albumReviewApi";
 import { useCanSeeReviews } from "@/src/hooks/useCanSeeReviews";
 import { REVIEW_COPY } from "./copy";
+import PrintedVersionNote from "./PrintedVersionNote";
 import SlipPreview, { SlipFccRow } from "./SlipPreview";
 
 const { albumPanel: copy } = REVIEW_COPY;
@@ -19,10 +20,11 @@ export function FccNotesSlot({ albumId }: { albumId: number }) {
 }
 
 /** A review as the page shows it; `record` is set only when the review is about this page's own record. */
-export function ReviewItem({ review, record }: { review: Review; record?: PanelRecord }) {
+export function ReviewItem({ review, record, newSlipHref }: { review: Review; record?: PanelRecord; newSlipHref?: string }) {
   const onTheSleeve = review.medium === "handwritten" && !review.review;
   return (
     <Stack spacing={0.5} component="li" sx={{ listStyle: "none" }}>
+      <PrintedVersionNote review={review} newSlipHref={newSlipHref} />
       {onTheSleeve ? (
         <>
           <Typography level="body-sm">
@@ -43,13 +45,13 @@ export function ReviewItem({ review, record }: { review: Review; record?: PanelR
 }
 
 /** A headed list of reviews; `recordOf` names the record a review is about, or nothing for a review of a release this record cites. */
-export function Group({ title, reviews, recordOf }: { title: string; reviews: Review[]; recordOf: (review: Review) => PanelRecord | undefined }) {
+export function Group({ title, reviews, recordOf, newSlipHref }: { title: string; reviews: Review[]; recordOf: (review: Review) => PanelRecord | undefined; newSlipHref?: string }) {
   return (
     <Stack component="section" spacing={1}>
       <Typography level="title-sm" component="h3">{title}</Typography>
       <Stack component="ul" spacing={1.5} sx={{ p: 0, m: 0 }}>
         {reviews.map((review) => (
-          <ReviewItem key={review.id} review={review} record={recordOf(review)} />
+          <ReviewItem key={review.id} review={review} record={recordOf(review)} newSlipHref={newSlipHref} />
         ))}
       </Stack>
     </Stack>

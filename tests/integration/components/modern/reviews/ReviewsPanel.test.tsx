@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen, within } from "@testing-library/react";
 import { Authorization } from "@/lib/features/admin/types";
-import { fakeReviewsEndpoints, renderWithProviders, review, server } from "@/tests/helpers";
+import { fakeReviewsEndpoints, renderWithProviders, review, reviewRevision, server } from "@/tests/helpers";
 import type { AlbumReview } from "@wxyc/shared";
 
 vi.mock("@/lib/features/authentication/client", async () => {
@@ -168,5 +168,20 @@ describe("ReviewsPanel", () => {
     renderPanel();
 
     expect(await screen.findByTestId("fcc-notes-slot")).toBeInTheDocument();
+  });
+
+  it("shows the printed-version note above a printed review, and none above an unprinted one", async () => {
+    fakeReviewsEndpoints({
+      forRelease: {
+        [ALBUM_ID]: [
+          submitted(1, { printed_revision_id: 11, printed_at: "2026-10-02T16:00:00Z" }),
+          submitted(2),
+        ],
+      },
+      revisions: { "1": [reviewRevision({ id: 11, review_id: 1, revision: 1 })] },
+    });
+    renderPanel();
+
+    expect(await screen.findAllByText("This is the version printed on the cover.")).toHaveLength(1);
   });
 });

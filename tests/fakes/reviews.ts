@@ -1,4 +1,4 @@
-import type { IntakeItem, Review } from "@wxyc/shared";
+import type { IntakeItem, Review, ReviewRevision } from "@wxyc/shared";
 import { fakeAlbumReviewEndpoints, type FakeAlbumReviewOptions } from "./reviews/albumReview";
 import { fakeIntakeEndpoints, type FakeIntakeOptions } from "./reviews/intake";
 import { fakeLibraryLookupEndpoints, type FakeLibraryOptions } from "./reviews/library";
@@ -70,3 +70,20 @@ export const review = (overrides: Partial<Review> = {}): Review =>
     fcc: null,
     ...overrides,
   }) as Review;
+
+/** One saved version of a submitted review. */
+export const reviewRevision = (overrides: Partial<ReviewRevision> = {}): ReviewRevision =>
+  ({
+    id: 100,
+    review_id: 40,
+    revision: 1,
+    edited_by: "DJ Me",
+    edited_by_user_id: "dj-me",
+    edited_at: "2026-10-07T16:00:00Z",
+    review: "Warm.",
+    artist_blurb: null,
+    buzzwords: null,
+    recommended_tracks: null,
+    fcc: null,
+    ...overrides,
+  }) as ReviewRevision;

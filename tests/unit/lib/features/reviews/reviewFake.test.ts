@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import type { Review } from "@wxyc/shared";
 import { fakeReviewEndpoints, type FakeReviewOptions } from "@/tests/fakes/reviews/review";
-import { review } from "@/tests/fakes/reviews";
+import { review, reviewRevision } from "@/tests/fakes/reviews";
 import { TEST_BACKEND_URL } from "@/tests/helpers/constants";
 
 const readIds = async (search: string) => {
@@ -28,5 +28,19 @@ describe("fakeReviewEndpoints GET /reviews", () => {
     fakeReviewEndpoints(OPTIONS);
 
     expect(await readIds(search)).toEqual(expectedIds);
+  });
+});
+
+describe("fakeReviewEndpoints GET /reviews/:id/revisions", () => {
+  const readRevisions = async (id: number) =>
+    ((await (await fetch(`${TEST_BACKEND_URL}/reviews/${id}/revisions`)).json()) as { id: number }[]).map((row) => row.id);
+
+  it.each<[string, number, number[]]>([
+    ["answers the revisions keyed by review id, in the order given", 40, [102, 101]],
+    ["answers an empty list for a review with none", 41, []],
+  ])("%s", async (_name, id, expectedIds) => {
+    fakeReviewEndpoints({ revisions: { "40": [reviewRevision({ id: 102 }), reviewRevision({ id: 101 })] } });
+
+    expect(await readRevisions(id)).toEqual(expectedIds);
   });
 });

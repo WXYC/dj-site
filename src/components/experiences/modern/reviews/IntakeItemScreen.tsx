@@ -78,7 +78,7 @@ export default function IntakeItemScreen({ id }: { id: number }) {
         <Chip>{STATE_LABELS[item.data.effective_state]}</Chip>
       </Stack>
       {cover ? (
-        <Group title={REVIEW_COPY.albumPanel.coverOne} reviews={[cover]} recordOf={recordOf} />
+        <Group title={REVIEW_COPY.albumPanel.coverOne} reviews={[cover]} recordOf={recordOf} newSlipHref={`/dashboard/admin/intake/${id}/slip`} />
       ) : (
         coverId == null && <Typography>{COPY.noCover}</Typography>
       )}
