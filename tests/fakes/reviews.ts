@@ -1,5 +1,6 @@
-import type { IntakeItem, Review } from "@wxyc/shared";
+import type { FccNote, IntakeItem, Review } from "@wxyc/shared";
 import { fakeAlbumReviewEndpoints, type FakeAlbumReviewOptions } from "./reviews/albumReview";
+import { fakeFccNoteEndpoints, type FakeFccNoteOptions } from "./reviews/fccNote";
 import { fakeIntakeEndpoints, type FakeIntakeOptions } from "./reviews/intake";
 import { fakeLibraryLookupEndpoints, type FakeLibraryOptions } from "./reviews/library";
 import { fakeReviewEndpoints, type FakeReviewOptions } from "./reviews/review";
@@ -26,13 +27,33 @@ import { fakeReviewEndpoints, type FakeReviewOptions } from "./reviews/review";
  * about it.
  */
 export function fakeReviewsEndpoints(
-  options: FakeIntakeOptions & FakeReviewOptions & FakeAlbumReviewOptions & FakeLibraryOptions = {},
+  options: FakeIntakeOptions & FakeReviewOptions & FakeAlbumReviewOptions & FakeLibraryOptions & FakeFccNoteOptions = {},
 ) {
   fakeIntakeEndpoints(options);
   fakeReviewEndpoints(options);
   fakeAlbumReviewEndpoints(options);
   fakeLibraryLookupEndpoints(options);
+  fakeFccNoteEndpoints(options);
 }
+
+/** A reported FCC note on the record `intakeItem()` describes. */
+export const fccNote = (overrides: Partial<FccNote> = {}): FccNote =>
+  ({
+    id: 1,
+    album_id: null,
+    intake_item_id: 1,
+    track: "A2",
+    note: "A swear word in the second verse.",
+    status: "reported",
+    reported_by: "DJ Me",
+    reported_by_user_id: "dj-me",
+    reported_at: "2026-10-01T12:00:00Z",
+    confirmed_by: null,
+    confirmed_at: null,
+    artist_name: "Stereolab",
+    album_title: "Aluminum Tunes",
+    ...overrides,
+  }) as FccNote;
 
 /** An intake record on the review shelf, with WXYC-representative data. */
 export const intakeItem = (overrides: Partial<IntakeItem> = {}): IntakeItem =>

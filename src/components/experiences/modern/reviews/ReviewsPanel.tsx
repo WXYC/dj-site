@@ -7,6 +7,7 @@ import { useGetReviewsForReleaseQuery } from "@/lib/features/reviews/reviewApi";
 import { useGetAlbumReviewsForReleaseQuery } from "@/lib/features/reviews/albumReviewApi";
 import { useCanSeeReviews } from "@/src/hooks/useCanSeeReviews";
 import { REVIEW_COPY } from "./copy";
+import FccNotesPanel from "./FccNotesPanel";
 import SlipPreview, { SlipFccRow } from "./SlipPreview";
 
 const { albumPanel: copy } = REVIEW_COPY;
@@ -15,7 +16,11 @@ type PanelRecord = { artist: string; album: string; label: string };
 
 /** Named empty region the album's FCC notes are rendered into. */
 export function FccNotesSlot({ albumId }: { albumId: number }) {
-  return <div data-testid="fcc-notes-slot" data-album-id={albumId} />;
+  return (
+    <div data-testid="fcc-notes-slot" data-album-id={albumId}>
+      <FccNotesPanel albumId={albumId} />
+    </div>
+  );
 }
 
 /** A review as the page shows it; `record` is set only when the review is about this page's own record. */

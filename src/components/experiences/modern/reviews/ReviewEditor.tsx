@@ -20,6 +20,7 @@ import { useCanSeeReviews } from "@/src/hooks/useCanSeeReviews";
 import ConfirmDialog from "../ConfirmDialog";
 import ConsentBlock, { type Consent } from "./ConsentBlock";
 import { REVIEW_COPY } from "./copy";
+import FccNotesPanel from "./FccNotesPanel";
 import SlipFields, { toFieldPatch, toFieldValues } from "./SlipFields";
 import SlipPreview from "./SlipPreview";
 import { formatSlipDate } from "./slipDate";
@@ -123,6 +124,7 @@ function Form({ review }: { review: Review }) {
         {draft && blank && <Typography level="body-sm">{REVIEW_COPY.submitNeedsReview}</Typography>}
         {isAuthor && inUse && <Typography level="body-sm" role="status">{REVIEW_COPY.inUse}</Typography>}
       </Stack>
+      {review.intake_item_id != null && <FccNotesPanel intakeItemId={review.intake_item_id} />}
       <SlipPreview
         artist={record?.artist ?? ""}
         album={record?.album ?? ""}
