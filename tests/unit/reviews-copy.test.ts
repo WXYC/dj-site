@@ -28,8 +28,4 @@ describe("REVIEW_COPY.intakeItem filing onto a record the library has", () => {
   ])("pins %s", (_key, actual, expected) => {
     expect(actual).toBe(expected);
   });
-
-  it("formats a record as artist, title and format", () => {
-    expect(c.recordLine("Juana Molina", "DOGA", "CD")).toBe("Juana Molina — DOGA (CD)");
-  });
 });

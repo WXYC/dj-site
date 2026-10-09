@@ -623,7 +623,7 @@ describe("IntakeItemScreen", () => {
   describe("filing onto a release already in the library", () => {
     const RELEASE_ROW = { id: 5, album_title: "DOGA", artist_name: "Juana Molina", label: "Sonamos", genre_name: "Rock", format_name: "CD", code_letters: "MO", code_artist_number: 1, code_number: 1, add_date: "2026-01-01", plays: 0 };
     const LP_ROW = { ...RELEASE_ROW, id: 6, format_name: "LP", code_number: 2 };
-    const ROW_NAME = "Juana Molina — DOGA (CD)";
+    const ROW_NAME = "Juana Molina · DOGA · CD";
     const FILE_URL = `${TEST_BACKEND_URL}/intake/${ITEM_ID}/file`;
 
     const setUp = (item = dogaItem()) => {
@@ -691,14 +691,14 @@ describe("IntakeItemScreen", () => {
       expect(searches).toEqual([]);
 
       await search(user, "Juana");
-      const cd = await screen.findByRole("button", { name: "Juana Molina — DOGA (CD)" });
-      const lp = screen.getByRole("button", { name: "Juana Molina — DOGA (LP)" });
+      const cd = await screen.findByRole("button", { name: "Juana Molina · DOGA · CD" });
+      const lp = screen.getByRole("button", { name: "Juana Molina · DOGA · LP" });
       expect(screen.queryByRole("button", { name: "File it as this one" })).not.toBeInTheDocument();
       await user.click(lp);
 
       expect(lp).toHaveAttribute("aria-pressed", "true");
       expect(cd).toHaveAttribute("aria-pressed", "false");
-      expect(screen.getAllByText("Juana Molina — DOGA (LP)")).toHaveLength(2);
+      expect(screen.getAllByText("Juana Molina · DOGA · LP")).toHaveLength(2);
     });
 
     it("drops the pick when a new search runs, so the file button never names a release that left the screen", async () => {

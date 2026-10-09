@@ -248,8 +248,6 @@ export const REVIEW_COPY = {
     fileFailed: "Couldn't file this record. Please try again.",
     /** Approved. Shown when the picked album names no library entry (the 400). */
     pickedGone: "That record is no longer in the library. Pick another, or file this one as new.",
-    /** Approved. A search result, and the picked record beside the file button: "Juana Molina — DOGA (CD)". */
-    recordLine: (artist: string, title: string, format: string) => `${artist} — ${title} (${format})`,
     printSlip: "Print the slip",
     /** Approved. */
     filed: "Filed.",

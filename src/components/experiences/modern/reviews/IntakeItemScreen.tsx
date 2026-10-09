@@ -203,7 +203,7 @@ export default function IntakeItemScreen({ id }: { id: number }) {
           {picked && (
             <Stack direction="row" spacing={1} alignItems="center">
               <Button onClick={fileOntoPicked} loading={filing.isLoading}>{COPY.fileOnto}</Button>
-              <Typography>{COPY.recordLine(picked.artist.name, picked.title, picked.format)}</Typography>
+              <Typography>{recordLine({ artist: picked.artist.name, album: picked.title, label: "", format: picked.format })}</Typography>
             </Stack>
           )}
         </>
