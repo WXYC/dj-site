@@ -4,7 +4,7 @@ import { fakeAlbumReviewEndpoints } from "@/tests/fakes/reviews/albumReview";
 import { TEST_BACKEND_URL } from "@/tests/helpers/constants";
 import { readAlbumReviewIds } from "./fakeReads";
 
-const albumReview = (id: number) => ({ id, album_id: 5 }) as unknown as AlbumReview;
+const albumReview = (id: number, albumId: number) => ({ id, album_id: albumId }) as unknown as AlbumReview;
 
 describe("fakeAlbumReviewEndpoints GET /album-reviews", () => {
   it.each<[string, string, number[]]>([
@@ -13,16 +13,16 @@ describe("fakeAlbumReviewEndpoints GET /album-reviews", () => {
     ["an album_id with no row answers an empty page", "?album_id=99", []],
     ["no album_id answers an empty page, not every archive row", "", []],
   ])("%s", async (_name, search, expectedIds) => {
-    fakeAlbumReviewEndpoints({ archive: { "5": [albumReview(1), albumReview(2)], "6": [albumReview(3)] } });
+    fakeAlbumReviewEndpoints({ archive: { "5": [albumReview(1, 5), albumReview(2, 5)], "6": [albumReview(3, 6)] } });
 
     expect(await readAlbumReviewIds(search)).toEqual(expectedIds);
   });
 
   it("answers the archive page shape, with an empty pagination object", async () => {
-    fakeAlbumReviewEndpoints({ archive: { "5": [albumReview(1)] } });
+    fakeAlbumReviewEndpoints({ archive: { "5": [albumReview(1, 5)] } });
 
     const page = await (await fetch(`${TEST_BACKEND_URL}/album-reviews?album_id=5`)).json();
 
-    expect(page).toEqual({ album_reviews: [albumReview(1)], pagination: {} });
+    expect(page).toEqual({ album_reviews: [albumReview(1, 5)], pagination: {} });
   });
 });

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { fakeLibraryLookupEndpoints } from "@/tests/fakes/reviews/library";
+import { fakeLibraryLookupEndpoints, type FakeLibraryOptions } from "@/tests/fakes/reviews/library";
 import { TEST_BACKEND_URL } from "@/tests/helpers/constants";
 
 const RELEASES = [
@@ -22,7 +22,7 @@ describe("fakeLibraryLookupEndpoints", () => {
     expect(await response.json()).toEqual(body);
   });
 
-  it.each<[string, Parameters<typeof fakeLibraryLookupEndpoints>[0], unknown]>([
+  it.each<[string, FakeLibraryOptions | undefined, unknown]>([
     ["defaults to one cd format", undefined, [{ id: 1, format_name: "cd" }]],
     ["answers the formats it was given", { formats: [{ id: 2, format_name: "vinyl" }] }, [{ id: 2, format_name: "vinyl" }]],
   ])("GET /library/formats %s", async (_name, options, expected) => {

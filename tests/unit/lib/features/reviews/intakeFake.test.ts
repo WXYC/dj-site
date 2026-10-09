@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import type { IntakeItem } from "@wxyc/shared";
 import { fakeIntakeEndpoints, type FakeIntakeOptions } from "@/tests/fakes/reviews/intake";
 import { intakeItem } from "@/tests/fakes/reviews";
+import { TEST_BACKEND_URL } from "@/tests/helpers/constants";
 import { readIds } from "./fakeReads";
 
 const inState = (id: number, state: IntakeItem["effective_state"], overrides: Partial<IntakeItem> = {}) =>
@@ -86,9 +87,8 @@ describe("fakeIntakeEndpoints POST /intake/:id/cancel-request", () => {
 
     await cancel(1);
 
-    const rows = (await (await fetch(`${TEST_BACKEND_URL}/intake?state=requested`)).json()) as IntakeItem[];
-    expect(rows.map((row) => row.id)).toEqual([2]);
-    expect(await readIds("?state=pool")).toEqual([1]);
+    expect(await readIds("/intake", "?state=requested")).toEqual([2]);
+    expect(await readIds("/intake", "?state=pool")).toEqual([1]);
   });
 
   it("answers 404 for an id it does not hold", async () => {
