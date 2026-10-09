@@ -299,7 +299,8 @@ describe("RotationFilingBench — Various Artists compilations", () => {
       // it would still be standing here, arming the next record's filing onto
       // the previous record's shelf with no gesture.
       const panel = await screen.findByRole("region", { name: "Various Artists shelf" });
-      expect(within(panel).getByLabelText("Various Artists - Rock - S")).not.toBeChecked();
+      // The panel remounts before its shelves have loaded.
+      expect(await within(panel).findByLabelText("Various Artists - Rock - S")).not.toBeChecked();
       expect(within(panel).getByLabelText("Various Artists - Rock - H")).not.toBeChecked();
       expect(screen.getByRole("button", { name: "Add to rotation" })).toBeDisabled();
     });
