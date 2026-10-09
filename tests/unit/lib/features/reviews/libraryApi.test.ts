@@ -3,6 +3,7 @@ import { http, HttpResponse } from "msw";
 import { configureStore } from "@reduxjs/toolkit";
 import { reviewsApi } from "@/lib/features/reviews/api";
 import { reviewApi } from "@/lib/features/reviews/reviewApi";
+import { intakeApi } from "@/lib/features/reviews/intakeApi";
 import { libraryApi, isLibraryPrintRefused } from "@/lib/features/reviews/libraryApi";
 import { describeApi } from "@/tests/helpers/api-harness";
 import { TEST_BACKEND_URL } from "@/tests/helpers/constants";
@@ -56,6 +57,38 @@ describe("libraryApi", () => {
     await store.dispatch(libraryApi.endpoints.printReleaseReview.initiate({ albumId: 7, reviewId: 40 }));
 
     await vi.waitFor(() => expect(reads).toBe(2));
+  });
+
+  it("printReleaseReview refetches a mounted intake record and list read after a success, and nothing after a refusal", async () => {
+    let itemReads = 0;
+    let listReads = 0;
+    let refuse = false;
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/intake/:id`, () => {
+        itemReads += 1;
+        return HttpResponse.json({ id: 5 });
+      }),
+      http.get(`${TEST_BACKEND_URL}/intake`, () => {
+        listReads += 1;
+        return HttpResponse.json([]);
+      }),
+      http.post(`${TEST_BACKEND_URL}/library/:id/print`, () =>
+        refuse ? HttpResponse.json({ message: "m" }, { status: 400 }) : HttpResponse.json({ artist_name: "Juana Molina" })
+      )
+    );
+    const store = makeReviewsStore();
+    store.dispatch(intakeApi.endpoints.getIntakeItem.initiate(5));
+    store.dispatch(intakeApi.endpoints.getIntakeItems.initiate());
+    await vi.waitFor(() => expect([itemReads, listReads]).toEqual([1, 1]));
+
+    refuse = true;
+    await store.dispatch(libraryApi.endpoints.printReleaseReview.initiate({ albumId: 7, reviewId: 40 }));
+    await new Promise((r) => setTimeout(r, 50));
+    expect([itemReads, listReads]).toEqual([1, 1]);
+
+    refuse = false;
+    await store.dispatch(libraryApi.endpoints.printReleaseReview.initiate({ albumId: 7, reviewId: 40 }));
+    await vi.waitFor(() => expect([itemReads, listReads]).toEqual([2, 2]));
   });
 
   it("printReleaseReview rejects with the whole error nested under libraryPrintError", async () => {

@@ -35,7 +35,9 @@ export const libraryApi = reviewsApi.injectEndpoints({
         body: { review_id: reviewId } satisfies LibraryPrintRequest,
       }),
       transformErrorResponse: wrapLibraryPrintError,
-      invalidatesTags: ["Review"],
+      // A refusal changes nothing, so only a success refreshes the intake reads
+      // (a one-copy print also changes that copy's cover review).
+      invalidatesTags: (result) => (result ? ["Review", "Intake"] : ["Review"]),
     }),
   }),
 });
