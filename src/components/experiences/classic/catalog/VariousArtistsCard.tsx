@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useState } from "react";
+import { reviewGateCutoverReached } from "@/lib/features/reviews/reviewGate";
+import ReviewGateRefusal from "@/src/components/shared/ReviewGateRefusal";
 import {
   useAddAlbumMutation,
   useGetArtistCardQuery,
@@ -353,6 +355,9 @@ export default function VariousArtistsCard({ artistId, message, imported }: Vari
 
       {!isUmbrellaBucket && (
         <>
+          {reviewGateCutoverReached() ? (
+            <ReviewGateRefusal />
+          ) : (
           <form
             name="addRelease"
             data-testid="va-add-release-form"
@@ -518,6 +523,7 @@ export default function VariousArtistsCard({ artistId, message, imported }: Vari
               </tbody>
             </table>
           </form>
+          )}
           <hr />
         </>
       )}

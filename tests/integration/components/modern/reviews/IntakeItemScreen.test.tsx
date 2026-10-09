@@ -250,6 +250,27 @@ describe("IntakeItemScreen", () => {
       expect(screen.getByRole("link", { name: "Print the slip" })).toHaveAttribute("href", `/dashboard/admin/intake/${ITEM_ID}/slip`);
     });
 
+    it("still renders the bench and files through /intake/{id}/file once the review gate cutover has passed", async () => {
+      vi.stubEnv("NEXT_PUBLIC_REVIEW_GATE_CUTOVER_DATE", "2000-01-01");
+      const box = setUp();
+      const fileBodies: unknown[] = [];
+      server.use(
+        http.post(`${TEST_BACKEND_URL}/intake/${ITEM_ID}/file`, async ({ request }) => {
+          fileBodies.push(await request.json());
+          box.item = dogaItem({ state: "filed", effective_state: "filed" });
+          return HttpResponse.json(box.item);
+        }),
+      );
+      const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      expect(await screen.findByLabelText("Album title")).toHaveValue("DOGA");
+      await readyBench(user);
+      await user.click(screen.getByRole("button", { name: "Add to rotation" }));
+
+      await waitFor(() => expect(fileBodies).toHaveLength(1));
+      expect(await screen.findByText("Filed.")).toBeInTheDocument();
+    });
+
     it("offers no filing arm for a cited record with no review chosen, and files once one is chosen", async () => {
       const cited = dogaItem({ format_id: 1, accepted_review_id: null, cited_album_id: 7 });
       fakeReviewsEndpoints({

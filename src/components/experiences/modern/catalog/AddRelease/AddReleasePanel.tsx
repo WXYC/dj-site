@@ -1,5 +1,7 @@
 "use client";
 
+import { reviewGateCutoverReached } from "@/lib/features/reviews/reviewGate";
+import ReviewGateRefusal from "@/src/components/shared/ReviewGateRefusal";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { AddCircle } from "@mui/icons-material";
@@ -493,7 +495,7 @@ function AddReleaseForm() {
 export default function AddReleasePanel() {
   return (
     <RequireMD>
-      <AddReleaseForm />
+      {reviewGateCutoverReached() ? <ReviewGateRefusal /> : <AddReleaseForm />}
     </RequireMD>
   );
 }

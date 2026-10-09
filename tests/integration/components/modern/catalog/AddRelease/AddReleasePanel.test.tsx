@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { renderWithProviders, server, setFieldValue, TEST_BACKEND_URL } from "@/tests/helpers";
@@ -200,6 +200,35 @@ describe("AddReleasePanel", () => {
     mockLookups();
     mockArtistSearch([]);
     mockLabelSearch([]);
+  });
+
+  describe("review gate cutover", () => {
+    afterEach(() => {
+      vi.unstubAllEnvs();
+    });
+
+    it("shows the Add Release trigger before the cutover date", async () => {
+      vi.stubEnv("NEXT_PUBLIC_REVIEW_GATE_CUTOVER_DATE", "2999-12-31");
+      mockFetchOrgRole.mockResolvedValue("musicDirector");
+      mockUseSession.mockReturnValue(sessionWithRole());
+      renderWithProviders(<AddReleasePanel />);
+
+      expect(await screen.findByRole("button", { name: "Add Release" })).toBeInTheDocument();
+    });
+
+    it("replaces the Add Release trigger with the review shelf line from the cutover date", async () => {
+      vi.stubEnv("NEXT_PUBLIC_REVIEW_GATE_CUTOVER_DATE", "2000-01-01");
+      mockFetchOrgRole.mockResolvedValue("musicDirector");
+      mockUseSession.mockReturnValue(sessionWithRole());
+      renderWithProviders(<AddReleasePanel />);
+
+      expect(
+        await screen.findByText(
+          "New releases go onto the review shelf first, and are filed from there once a review is chosen.",
+        ),
+      ).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Add Release" })).not.toBeInTheDocument();
+    });
   });
 
   describe("permission gating", () => {
@@ -667,6 +696,26 @@ describe("AddReleasePanel", () => {
         expect(screen.queryByRole("button", { name: "Save Release" })).not.toBeInTheDocument(),
       );
       confirmSpy.mockRestore();
+    });
+
+    it("toasts the server's review_required sentence for a refused add", async () => {
+      const REVIEW_REQUIRED_MESSAGE = "Every new release needs a review: put it on the review shelf first.";
+      mockAddAlbum(() =>
+        HttpResponse.json({ message: REVIEW_REQUIRED_MESSAGE, reason: "review_required" }, { status: 409 }),
+      );
+      const { user } = renderWithProviders(<AddReleasePanel />);
+
+      await openPanel(user);
+      setFieldValue(screen.getByLabelText(/Album title/), "Edits");
+      await pickGenre(user);
+      await pickFormat(user);
+      setFieldValue(await screen.findByPlaceholderText("Search artists..."), "Chuquimamani-Condori");
+      setFieldValue(await screen.findByPlaceholderText("Search labels..."), "self-released");
+
+      await user.click(screen.getByRole("button", { name: "Save Release" }));
+
+      await waitFor(() => expect(mockToastError).toHaveBeenCalledWith(REVIEW_REQUIRED_MESSAGE));
+      expect(mockToastError).not.toHaveBeenCalledWith(expect.stringMatching(/failed/i));
     });
 
     it("leaves a 400 that is not the genre-scoped miss to the generic error path", async () => {

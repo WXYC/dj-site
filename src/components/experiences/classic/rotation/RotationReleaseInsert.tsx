@@ -13,6 +13,8 @@ import { useAddFreeTextRotationEntryMutation } from "@/lib/features/rotation/api
 import { useGetFormatsQuery } from "@/lib/features/catalog/api";
 import { rotationReleaseRefusal } from "@/lib/features/rotation/releaseFormValidation";
 import { rotationWriteErrorMessage } from "@/lib/features/rotation/writeErrorMessage";
+import { reviewGateCutoverReached } from "@/lib/features/reviews/reviewGate";
+import ReviewGateRefusal from "@/src/components/shared/ReviewGateRefusal";
 import CompanyAutocomplete from "./CompanyAutocomplete";
 
 const DEFAULT_BIN = RotationBin.H;
@@ -138,6 +140,9 @@ export default function RotationReleaseInsert() {
         <Link href="/dashboard/rotation">Rotation Release List</Link>
       </div>
 
+      {reviewGateCutoverReached() ? (
+        <ReviewGateRefusal />
+      ) : (
       <form name="recordInfo" onSubmit={handleSubmit}>
         <table cellPadding={5}>
           <tbody>
@@ -304,6 +309,7 @@ export default function RotationReleaseInsert() {
           </tbody>
         </table>
       </form>
+      )}
     </div>
   );
 }
