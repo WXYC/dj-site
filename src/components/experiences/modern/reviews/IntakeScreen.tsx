@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Button, Chip, FormControl, FormLabel, Input, Link, Option, Select, Stack, Typography } from "@mui/joy";
+import { Button, Chip, FormControl, FormLabel, Input, Link, List, ListItem, Option, Select, Stack, Typography } from "@mui/joy";
 import type { IntakeItem } from "@wxyc/shared";
 import { toast } from "sonner";
 import { useGetFormatsQuery } from "@/lib/features/catalog/api";
@@ -39,6 +39,8 @@ const RACE_NOTICE: Record<Action, string> = {
   release: COPY.raceCheckoutReleased,
   return: COPY.raceReleased,
 };
+
+const RECENT_PASSES = 5;
 
 const EMPTY_FORM = { artist: "", album: "", label: "", labelId: null as number | null, formatId: null as number | null, discogs: "" };
 
@@ -78,6 +80,13 @@ export default function IntakeScreen() {
 
   const waitingIds = new Set(awaiting.data.map((i) => i.id));
   const inState = (state: IntakeItem["effective_state"]) => everyState.data!.filter((i) => i.effective_state === state);
+  // Both checkout lanes put the records a DJ has held past the server's overdue line first; the sort is stable.
+  const overdueFirst = (rows: IntakeItem[]) => [...rows].sort((a, b) => Number(b.overdue) - Number(a.overdue));
+  const reviewed = inState("reviewed");
+  const passes = everyState.data
+    .flatMap((i) => (i.passes ?? []).map((p) => ({ ...p, id: `${i.id}-${p.dj_name}-${p.passed_at}`, item: i })))
+    .sort((a, b) => b.passed_at.localeCompare(a.passed_at))
+    .slice(0, RECENT_PASSES);
 
   const submit = async () => {
     setNotice(null);
@@ -158,6 +167,15 @@ export default function IntakeScreen() {
         </Stack>
       </form>
       {notice && <Typography role="status">{notice}</Typography>}
+      {passes.length > 0 && (
+        <List role="status" aria-label={COPY.recentPasses}>
+          {passes.map((p) => (
+            <ListItem key={p.id}>
+              {`${p.dj_name} ${COPY.passedOn} ${p.item.artist_name} — ${p.item.album_title}`}
+            </ListItem>
+          ))}
+        </List>
+      )}
       {awaiting.data.length > 0 && (
         <IntakeLane
           title={`${COPY.waiting} (${awaiting.data.length})`}
@@ -190,7 +208,7 @@ export default function IntakeScreen() {
       />
       <IntakeLane
         title={COPY.checkedOut}
-        rows={inState("checked_out")}
+        rows={overdueFirst(inState("checked_out"))}
         empty={COPY.empty}
         label={laneLabel}
         extra={(i) => (
@@ -204,8 +222,8 @@ export default function IntakeScreen() {
         )}
       />
       <IntakeLane
-        title={COPY.reviewed}
-        rows={inState("reviewed")}
+        title={reviewed.length > 0 ? `${COPY.reviewed} (${reviewed.length})` : COPY.reviewed}
+        rows={overdueFirst(reviewed)}
         empty={COPY.empty}
         label={laneLabel}
         extra={(i) =>

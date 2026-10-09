@@ -162,6 +162,10 @@ export const REVIEW_COPY = {
     reviewOne: "review",
     reviewMany: "reviews",
     empty: "Nothing here.",
+    /** The notice band's accessible name, over the recent passes. */
+    recentPasses: "Recent passes",
+    /** Between a DJ's name and the record they passed on, in the notice band: "Pat passed on Juana Molina — DOGA". */
+    passedOn: "passed on",
   },
   /** The music directors' page for one record, `/dashboard/admin/intake/{id}`. */
   intakeItem: {

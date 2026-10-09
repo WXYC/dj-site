@@ -73,7 +73,7 @@ describe("IntakeScreen", () => {
     expect(within(shelf).getByText("Cat Power · Moon Pix · Matador · cd")).toBeInTheDocument();
     expect(within(await lane("Requested")).getByText("Cat Power · Moon Pix · Matador · cd")).toBeInTheDocument();
     expect(within(await lane("Checked out")).getByText("Cat Power · Dark Side · Matador · cd")).toBeInTheDocument();
-    expect(within(await lane("Reviewed")).getByText("Cat Power · Moon Pix · Matador · cd")).toBeInTheDocument();
+    expect(within(await lane("Reviewed (1)")).getByText("Cat Power · Moon Pix · Matador · cd")).toBeInTheDocument();
     expect(within(await lane("Filed")).getByText("Cat Power · Moon Pix · Matador · cd")).toBeInTheDocument();
     expect(within(shelf).getByRole("link")).toHaveAttribute("href", "/dashboard/admin/intake/1");
   });
@@ -93,7 +93,7 @@ describe("IntakeScreen", () => {
 
     renderWithProviders(<IntakeScreen />);
 
-    const where = { "On the review shelf": "On Shelf", "Checked out": "Out", Reviewed: "Done", Filed: "Shelved" };
+    const where = { "On the review shelf": "On Shelf", "Checked out": "Out", "Reviewed (1)": "Done", Filed: "Shelved" };
     for (const [name, album] of Object.entries(where)) {
       const region = await lane(name);
       for (const other of Object.values(where)) {
@@ -154,7 +154,7 @@ describe("IntakeScreen", () => {
 
     renderWithProviders(<IntakeScreen />);
 
-    const reviewed = await lane("Reviewed");
+    const reviewed = await lane("Reviewed (3)");
     expect(within(reviewed).getByText("Still out: checked out to DJ Sam")).toBeInTheDocument();
     expect(within(reviewed).getByText("Still out: holder removed")).toBeInTheDocument();
     expect(within(reviewed).getAllByText(/^Still out/)).toHaveLength(2);
@@ -181,7 +181,7 @@ describe("IntakeScreen", () => {
     expect(links.map((a) => a.textContent)).toEqual([expect.stringContaining("Album 2"), expect.stringContaining("Album 1")]);
   });
 
-  it("counts the Reviewed lane's rows in its heading, drops it on a refetch, and keeps it plain when empty", async () => {
+  it("counts the Reviewed lane's rows in its heading, and drops it on a refetch", async () => {
     let returned = false;
     const reviewed = (id: number) => moonPix({ id, state: "reviewed", effective_state: "reviewed", checked_out_at: "2026-09-01T12:00:00Z", checked_out_by: "dj-1", checked_out_by_name: "DJ Sam" });
     fakeReviewsEndpoints({
@@ -196,7 +196,7 @@ describe("IntakeScreen", () => {
 
     const { user } = renderWithProviders(<IntakeScreen />);
     const two = await lane("Reviewed (2)");
-    await user.click(within(two).getAllByRole("button", { name: "Mark as returned" })[1]);
+    await user.click(within(two).getAllByRole("button", { name: "Mark as returned" })[0]);
 
     await lane("Reviewed (1)");
   });
@@ -210,12 +210,22 @@ describe("IntakeScreen", () => {
     expect(screen.queryByText(/Reviewed \(/)).not.toBeInTheDocument();
   });
 
+  it("shows only the five most recent passes", async () => {
+    const passes = [1, 2, 3, 4, 5, 6].map((day) => ({ dj_name: `DJ ${day}`, passed_at: `2026-10-0${day}T12:00:00Z` }));
+    fakeReviewsEndpoints({ open: [moonPix({ id: 1, passes })] });
+
+    renderWithProviders(<IntakeScreen />);
+
+    const band = await screen.findByRole("status", { name: "Recent passes" });
+    expect(within(band).getAllByRole("listitem").map((li) => li.textContent?.split(" ")[1])).toEqual(["6", "5", "4", "3", "2"]);
+  });
+
   it("lists the recent passes from the read, newest first, and shows no band when there are none", async () => {
     const pass = (dj_name: string, passed_at: string) => ({ dj_name, passed_at });
     fakeReviewsEndpoints({
       open: [
-        moonPix({ id: 1, artist_name: "Juana Molina", album_title: "DOGA", passes: [pass("Pat", "2026-10-01T12:00:00Z")] }),
-        moonPix({ id: 2, artist_name: "Stereolab", album_title: "Aluminum Tunes", passes: [pass("Sam", "2026-10-03T12:00:00Z")] }),
+        moonPix({ id: 1, logged_at: "2026-09-02T12:00:00Z", artist_name: "Juana Molina", album_title: "DOGA", passes: [pass("Pat", "2026-10-01T12:00:00Z")] }),
+        moonPix({ id: 2, logged_at: "2026-09-01T12:00:00Z", artist_name: "Stereolab", album_title: "Aluminum Tunes", passes: [pass("Sam", "2026-10-03T12:00:00Z")] }),
       ],
     });
 
@@ -249,7 +259,7 @@ describe("IntakeScreen", () => {
     await user.click(await screen.findByRole("button", { name: "Mark as returned" }));
 
     await waitFor(() => expect(screen.queryByText(/^Still out/)).not.toBeInTheDocument());
-    expect(within(await lane("Reviewed")).getByText("Cat Power · Moon Pix · Matador · cd")).toBeInTheDocument();
+    expect(within(await lane("Reviewed (1)")).getByText("Cat Power · Moon Pix · Matador · cd")).toBeInTheDocument();
   });
 
   const HOLDER = { checked_out_at: "2026-09-01T12:00:00Z", checked_out_by: "dj-1", checked_out_by_name: "DJ Sam" };
@@ -386,7 +396,7 @@ describe("IntakeScreen — a failed background refetch", () => {
 
     await waitFor(() => expect(button).toBeEnabled());
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-    expect(within(await lane("Reviewed")).getByText(/Cat Power · Moon Pix/)).toBeInTheDocument();
+    expect(within(await lane("Reviewed (1)")).getByText(/Cat Power · Moon Pix/)).toBeInTheDocument();
   });
 
   it("shows the load-failure line when a first load fails", async () => {
