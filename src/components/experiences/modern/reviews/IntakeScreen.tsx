@@ -130,7 +130,7 @@ export default function IntakeScreen() {
           <List>
             {passes.map((p) => (
               <ListItem key={p.id}>
-                {`${p.dj_name} ${COPY.passedOn} ${p.item.artist_name} — ${p.item.album_title}`}
+                {COPY.passedLine(p.dj_name, p.item.artist_name, p.item.album_title)}
               </ListItem>
             ))}
           </List>
