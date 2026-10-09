@@ -609,7 +609,7 @@ describe("IntakeItemScreen", () => {
 
     const pickDoga = async (user: User) => {
       await pick(user);
-      await user.click(screen.getByRole("button", { name: "File onto this release" }));
+      await user.click(screen.getByRole("button", { name: "File it as this one" }));
     };
 
     it("files onto the picked release with the existing_release kind and shows the record filed", async () => {
@@ -650,7 +650,7 @@ describe("IntakeItemScreen", () => {
       await search(user, "Juana");
       const cd = await screen.findByRole("button", { name: "Juana Molina — DOGA (CD)" });
       const lp = screen.getByRole("button", { name: "Juana Molina — DOGA (LP)" });
-      expect(screen.queryByRole("button", { name: "File onto this release" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "File it as this one" })).not.toBeInTheDocument();
       await user.click(lp);
 
       expect(lp).toHaveAttribute("aria-pressed", "true");
@@ -662,11 +662,11 @@ describe("IntakeItemScreen", () => {
       setUp();
       const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
       await pick(user);
-      expect(screen.getByRole("button", { name: "File onto this release" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "File it as this one" })).toBeInTheDocument();
 
       await search(user, "Stereolab");
 
-      expect(screen.queryByRole("button", { name: "File onto this release" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "File it as this one" })).not.toBeInTheDocument();
     });
 
     it("sends one request when the file button is pressed twice", async () => {
@@ -687,7 +687,7 @@ describe("IntakeItemScreen", () => {
       const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
       await pick(user);
 
-      const button = screen.getByRole("button", { name: "File onto this release" });
+      const button = screen.getByRole("button", { name: "File it as this one" });
       await user.click(button);
       fireEvent.click(button);
       release();
@@ -794,7 +794,7 @@ describe("IntakeItemScreen", () => {
       await waitFor(() => expect(reviewReads).toBe(1));
       const itemReadsBefore = box.reads;
       const reviewReadsBefore = reviewReads;
-      await user.click(screen.getByRole("button", { name: "File onto this release" }));
+      await user.click(screen.getByRole("button", { name: "File it as this one" }));
       await waitFor(() => expect(posted).toBe(true));
 
       unmount();
@@ -816,7 +816,7 @@ describe("IntakeItemScreen", () => {
 
       await pickDoga(user);
 
-      expect((await screen.findByRole("status")).textContent).toBe("That release can't take this record. Pick another, or file it as a new release.");
+      expect((await screen.findByRole("status")).textContent).toBe("That record is no longer in the library. Pick another, or file this one as new.");
       expect(screen.queryByText("server words")).not.toBeInTheDocument();
     });
 
@@ -832,7 +832,7 @@ describe("IntakeItemScreen", () => {
       await pickDoga(user);
 
       expect((await screen.findByRole("status")).textContent).toBe("Couldn't file this record. Please try again.");
-      expect(screen.queryByText(/can't take this record/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/no longer in the library/)).not.toBeInTheDocument();
       expect(box.reads).toBeGreaterThan(0);
     });
 
@@ -901,13 +901,13 @@ describe("IntakeItemScreen", () => {
       await waitFor(() => expect([catalogReads, rotationReads, releaseReviewReads, fccReads]).toEqual([1, 1, 1, 1]));
 
       await pick(user);
-      await user.click(screen.getByRole("button", { name: "File onto this release" }));
+      await user.click(screen.getByRole("button", { name: "File it as this one" }));
       await screen.findByRole("status");
       await new Promise((resolve) => setTimeout(resolve, 100));
       expect([catalogReads, rotationReads, releaseReviewReads, fccReads]).toEqual([1, 1, 1, 1]);
 
       refuse = false;
-      await user.click(screen.getByRole("button", { name: "File onto this release" }));
+      await user.click(screen.getByRole("button", { name: "File it as this one" }));
 
       await waitFor(() => expect([catalogReads, rotationReads, releaseReviewReads, fccReads]).toEqual([2, 2, 2, 2]));
     });

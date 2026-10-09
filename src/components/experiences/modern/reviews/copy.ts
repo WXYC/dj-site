@@ -177,14 +177,24 @@ export const REVIEW_COPY = {
     notReviewed: "This record has no review chosen for the cover, so it can't be filed yet.",
     /** Approved. Shown once the record has reloaded after a filing lost its race. */
     alreadyFiled: "This record has already been filed. The page has been reloaded.",
-    fileNew: "File as a new release",
+    /** Approved. The heading over the form that files the record as new. */
+    fileNew: "New to the library",
+    /** Approved. The heading over the search for a record the library already has. */
     fileExisting: "Already in the library?",
+    /** Approved. */
     searchLibrary: "Search the library",
+    /** Approved. */
     search: "Search",
+    /** Approved. */
     searchFailed: "Couldn't search the library. Please try again.",
-    fileOnto: "File onto this release",
+    /** Approved. */
+    fileOnto: "File it as this one",
+    /** Approved. */
     fileFailed: "Couldn't file this record. Please try again.",
-    releaseRefused: "That release can't take this record. Pick another, or file it as a new release.",
+    /** Approved. Shown when the picked album names no library entry (the 400). */
+    pickedGone: "That record is no longer in the library. Pick another, or file this one as new.",
+    /** Approved. A search result, and the picked record beside the file button: "Juana Molina — DOGA (CD)". */
+    recordLine: (artist: string, title: string, format: string) => `${artist} — ${title} (${format})`,
     printSlip: "Print the slip",
     filed: "Filed.",
     delete: "Delete",
