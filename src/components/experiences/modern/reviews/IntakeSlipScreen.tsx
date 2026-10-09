@@ -1,10 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { flushSync } from "react-dom";
 import Link from "next/link";
 import { Button, Stack, Typography } from "@mui/joy";
-import type { IntakeSlip } from "@wxyc/shared";
 import { hasNothingToShow } from "@/lib/has-nothing-to-show";
 import {
   isIntakeNotReviewed,
@@ -18,24 +16,17 @@ import { useMounted } from "@/src/hooks/useRowWrite";
 import { REVIEW_COPY } from "./copy";
 import { recordLine, intakeRecord } from "./recordLine";
 import { formatSlipDate } from "./slipDate";
-import SlipPreview from "./SlipPreview";
 import { useItemPageReload } from "./useItemPageReload";
+import { useSlipPrint } from "./useSlipPrint";
 
 const COPY = REVIEW_COPY.intakeSlip;
-
-// Prints the slip alone: the app chrome is hidden, the slip is laid at the page's corner.
-const PRINT_CSS = `@media print {
-  body * { visibility: hidden; }
-  .review-slip-print, .review-slip-print * { visibility: visible; }
-  .review-slip-print { position: absolute; left: 0; top: 0; }
-}`;
 
 /** The music directors' print page for one record's slip. The print request goes out on the press, never on load. */
 export default function IntakeSlipScreen({ id }: { id: number }) {
   const visible = useCanSeeReviews();
   const item = useGetIntakeItemQuery(id, { skip: !visible });
   const [print, { isLoading }] = usePrintIntakeItemMutation();
-  const [slip, setSlip] = useState<IntakeSlip | null>(null);
+  const { showAndPrint, clear, sheet } = useSlipPrint();
   const dispatch = useAppDispatch();
   const mounted = useMounted();
   const reload = useItemPageReload(id);
@@ -53,14 +44,10 @@ export default function IntakeSlipScreen({ id }: { id: number }) {
     setFailed(false);
     try {
       const printed = await print(id).unwrap();
-      // The print is logged either way; a page that has gone has no slip to show and must not open the dialog.
-      if (!mounted.current) return;
-      // The slip must be in the document before the browser snapshots it.
-      flushSync(() => setSlip(printed));
-      window.print();
+      showAndPrint(printed);
     } catch (err) {
       if (!isIntakeNotReviewed(err)) return setFailed(true);
-      if (mounted.current) setSlip(null);
+      clear();
       // Reload first: the page as loaded may be older than the refusal.
       const reloaded = await reload();
       if (!reloaded.mounted) return;
@@ -80,7 +67,6 @@ export default function IntakeSlipScreen({ id }: { id: number }) {
   const lastPrinted = item.data.printed_at;
   return (
     <Stack spacing={2}>
-      <style>{PRINT_CSS}</style>
       <Typography level="title-lg">{recordLine(intakeRecord(item.data))}</Typography>
       {lastPrinted && <Typography>{COPY.lastPrinted} {formatSlipDate(lastPrinted)}. {COPY.reprint}</Typography>}
       {refusal && <Typography role="alert">{COPY[refusal]}</Typography>}
@@ -91,19 +77,7 @@ export default function IntakeSlipScreen({ id }: { id: number }) {
       <Button loading={isLoading} onClick={onPress} sx={{ alignSelf: "flex-start" }}>
         {REVIEW_COPY.intakeItem.printSlip}
       </Button>
-      {slip && (
-        <div className="review-slip-print">
-          <SlipPreview
-            artist={slip.artist_name}
-            album={slip.album_title}
-            label={slip.record_label ?? ""}
-            reviewer={slip.author ?? ""}
-            date={slip.submitted_at ? formatSlipDate(slip.submitted_at) : ""}
-            fields={slip}
-            fccNotes={slip.fcc_notes.map((n) => `${n.track}: ${n.note}`)}
-          />
-        </div>
-      )}
+      {sheet}
     </Stack>
   );
 }

@@ -18,6 +18,14 @@ vi.mock("@/src/hooks/authenticationHooks", () => ({
   }),
 }));
 
+// The real RequireMD resolves the role through the auth client; this stands in with the same rule.
+vi.mock("@/src/components/shared/Authorization", async () => {
+  const { Authorization: Role } = await import("@/lib/features/admin/types");
+  return {
+    RequireMD: ({ children }: { children: React.ReactNode }) => (mockAuth.authority >= Role.MD ? <>{children}</> : null),
+  };
+});
+
 import ReviewsPanel from "@/src/components/experiences/modern/reviews/ReviewsPanel";
 import { REVIEW_COPY } from "@/src/components/experiences/modern/reviews/copy";
 
@@ -103,6 +111,31 @@ describe("ReviewsPanel", () => {
     expect(within(cited).queryByText(RECORD.artist)).not.toBeInTheDocument();
     expect(within(cited).queryByText(RECORD.label)).not.toBeInTheDocument();
     expect(within(own).getByText(RECORD.album)).toBeInTheDocument();
+  });
+
+  it.each([
+    ["a music director", Authorization.MD, {}, true],
+    ["a DJ", Authorization.DJ, {}, false],
+    ["a music director, on a handwritten review", Authorization.MD, { medium: "handwritten", review: null }, false],
+    ["a music director, on a draft", Authorization.MD, { status: "draft" }, false],
+  ])("offers Print this review to %s: %s", async (_who, authority, overrides, offered) => {
+    mockAuth.authority = authority;
+    serve([submitted(1, overrides)]);
+    renderPanel();
+
+    await screen.findByText("Reviewer 1", { exact: false });
+    const link = screen.queryByRole("link", { name: "Print this review" });
+    if (offered) expect(link).toHaveAttribute("href", `/dashboard/admin/library/${ALBUM_ID}/slip/1`);
+    else expect(link).not.toBeInTheDocument();
+  });
+
+  it("does not offer Print this review on the archive's form-era takes", async () => {
+    mockAuth.authority = Authorization.MD;
+    serve([], [{ id: 1, reviewer: "Reviewer One", review: "Old take" }]);
+    renderPanel();
+
+    await screen.findByText("Reviewer One: Old take");
+    expect(screen.queryByRole("link", { name: "Print this review" })).not.toBeInTheDocument();
   });
 
   it("links to the history only for a review edited after submitting", async () => {

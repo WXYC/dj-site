@@ -185,6 +185,15 @@ export const REVIEW_COPY = {
     backToRecord: "Back to the record's page",
     handwritten: "The record's review is handwritten, so it is already on the sleeve. There is nothing to print.",
   },
+  /** The music directors' print page for one typed review of a library record, `/dashboard/admin/library/{albumId}/slip/{reviewId}`. */
+  releaseSlip: {
+    /** Followed by the review's author, then the rest. */
+    lead: (author: string, artist: string, album: string) =>
+      `This prints ${author}'s review for the cover of ${artist} — ${album}. If the cover already has a slip, this one replaces it.`,
+    /** Approved. */
+    refused: "This review can't be printed. It may be handwritten, or it may have been deleted since the page opened.",
+    backToCatalog: "Back to the catalog",
+  },
   history: {
     link: "History",
     version: (n: number) => `Version ${n}`,
@@ -229,6 +238,7 @@ export const REVIEW_COPY = {
     nudge: "New to reviewing? New arrivals on the review shelf need reviews most.",
     archiveTitle: "Earlier takes",
     loadFailed: "Couldn't load the reviews. Please try again.",
+    printReview: "Print this review",
   },
   /** FCC notes on a record, reported by any DJ. */
   fccNotes: {
