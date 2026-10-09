@@ -213,6 +213,32 @@ describe("IntakeItemScreen", () => {
       );
     });
 
+    it.each<[string, Record<string, unknown>, number | "fail" | null, string, number]>([
+      ["never printed", {}, null, "Print the slip", 1],
+      ["printed and unchanged", { printed_revision_id: 401, printed_at: "2026-10-02T16:00:00Z" }, 1, "Print the slip", 1],
+      ["printed and edited since", { printed_revision_id: 401, printed_at: "2026-10-02T16:00:00Z" }, 2, "Print a new slip", 2],
+      ["printed with the revisions failing", { printed_revision_id: 401, printed_at: "2026-10-02T16:00:00Z" }, "fail", "Print the slip", 1],
+    ])("the record's print link, %s, reads %s", async (_name, printed, revisions, linkName, linkCount) => {
+      fakeReviewsEndpoints({ records: [dogaItem()], forItem: { [ITEM_ID]: [submitted(40, printed)] } });
+      server.use(
+        http.get(`${TEST_BACKEND_URL}/reviews/:id/revisions`, () =>
+          revisions === "fail"
+            ? HttpResponse.json({ message: "boom" }, { status: 500 })
+            : HttpResponse.json(
+                Array.from({ length: revisions ?? 0 }, (_, i) => reviewRevision({ id: 401 + i, review_id: 40, revision: i + 1 })),
+              ),
+        ),
+      );
+
+      renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      await screen.findByText("Take 40.");
+      await waitFor(() => expect(screen.getAllByRole("link", { name: linkName })).toHaveLength(linkCount));
+      for (const link of screen.getAllByRole("link", { name: linkName })) {
+        expect(link).toHaveAttribute("href", `/dashboard/admin/intake/${ITEM_ID}/slip`);
+      }
+    });
+
     it("offers no Print this review link on the record's page, which has its own Print the slip", async () => {
       fakeReviewsEndpoints({ records: [dogaItem()], forItem: { [ITEM_ID]: [submitted(40, { medium: "typed", album_id: null })] } });
 
