@@ -38,9 +38,9 @@ export default function ReleaseSlipScreen({ albumId, reviewId }: { albumId: numb
 
   return (
     <Stack spacing={2}>
-      <Typography>{COPY.lead(review.data.author ?? "", album.data.artist.name, album.data.title)}</Typography>
+      <Typography>{COPY.lead(review.data.author, album.data.artist.name, album.data.title)}</Typography>
       {failure === "refused" && <Typography role="alert">{COPY.refused}</Typography>}
-      {failure === "refused" && <Link href="/dashboard/catalog">{COPY.backToCatalog}</Link>}
+      {failure === "refused" && <Link href={`/dashboard/album/${albumId}`}>{COPY.backToAlbum}</Link>}
       {failure === "failed" && <Typography role="alert">{REVIEW_COPY.screen.writeFailed}</Typography>}
       <Button loading={isLoading} onClick={onPress} sx={{ alignSelf: "flex-start" }}>
         {REVIEW_COPY.intakeItem.printSlip}

@@ -187,12 +187,12 @@ export const REVIEW_COPY = {
   },
   /** The music directors' print page for one typed review of a library record, `/dashboard/admin/library/{albumId}/slip/{reviewId}`. */
   releaseSlip: {
-    /** Followed by the review's author, then the rest. */
-    lead: (author: string, artist: string, album: string) =>
-      `This prints ${author}'s review for the cover of ${artist} — ${album}. If the cover already has a slip, this one replaces it.`,
+    /** Names the review's author when there is one; a review that predates the in-app model has none, and the line drops the name clause. */
+    lead: (author: string | null, artist: string, album: string) =>
+      `This prints ${author ? `${author}'s` : "the"} review for the cover of ${artist} — ${album}. If the cover already has a slip, this one replaces it.`,
     /** Approved. */
     refused: "This review can't be printed. It may be handwritten, or it may have been deleted since the page opened.",
-    backToCatalog: "Back to the catalog",
+    backToAlbum: "Back to the album's page",
   },
   history: {
     link: "History",
