@@ -24,6 +24,7 @@ vi.mock("@/src/hooks/authenticationHooks", () => ({
 
 import { toast } from "sonner";
 import IntakeScreen from "@/src/components/experiences/modern/reviews/IntakeScreen";
+import { REVIEW_COPY } from "@/src/components/experiences/modern/reviews/copy";
 
 const moonPix = (overrides = {}) =>
   intakeItem({ id: 11, artist_name: "Cat Power", album_title: "Moon Pix", record_label: "Matador", ...overrides });
@@ -54,6 +55,16 @@ describe("IntakeScreen", () => {
 
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(container).toBeEmptyDOMElement();
+  });
+
+  it.each([
+    ["artist", REVIEW_COPY.intake.artist, "Artist"],
+    ["album", REVIEW_COPY.intake.album, "Album"],
+    ["label", REVIEW_COPY.intake.label, "Label"],
+    ["format", REVIEW_COPY.intake.format, "Format"],
+    ["heldFor", REVIEW_COPY.intake.heldFor, "Held for"],
+  ])("words %s exactly as the station approved it", (_key, actual, approved) => {
+    expect(actual).toBe(approved);
   });
 
   it("names each record with the one record line, in the lane for its state", async () => {

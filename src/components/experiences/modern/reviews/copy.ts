@@ -21,41 +21,57 @@ export const REVIEW_COPY = {
   saved: "Draft saved.",
   couldNotSave: "Couldn't save the draft. Please try again.",
   couldNotLoad: "Couldn't load this review. Please try again.",
+  /** Approved. */
   save: "Save",
+  /** Approved. */
   savedChange: "Saved.",
+  /** Approved. */
   couldNotSubmit: "Couldn't submit the review. Please try again.",
+  /** Approved. */
   couldNotDelete: "Couldn't delete the review. Please try again.",
-  /** Shown when a submit finds the review already submitted; the editor reloads. */
+  /** Approved. Shown when a submit finds the review already submitted; the editor reloads. */
   alreadySubmitted: "This review was already submitted.",
+  /** Approved. */
   submit: "Submit",
-  /** Shown beside a disabled Submit. */
+  /** Approved. Shown beside a disabled Submit. */
   submitNeedsReview: "Write the review before you submit it.",
+  /** Approved. */
   delete: "Delete",
+  /** Approved. */
   cancel: "Cancel",
-  /** Above the form of a submitted review, for its author. */
+  /** Approved. Above the form of a submitted review, for its author. */
   submittedBanner: "Submitted. You can keep editing; each saved change is kept in the review's history.",
-  /** Submit's confirmation for a review of a logged record. */
+  /** Approved. Submit's confirmation for a review of a logged record. */
   submitConfirmLogged: "Submit this review? The music directors will be emailed that it is ready. You can keep editing it afterwards.",
   /** Approved. Submit's confirmation for a review of a library release. */
   submitConfirmRelease: "Submit this review? It will appear on the record's page. You can keep editing it afterwards.",
+  /** Approved. */
   deleteConfirm: "Delete this review? Its history goes with it. This cannot be undone.",
   /** Approved. Shown beside a disabled Delete, and when a delete is refused. */
   inUse: "A music director is using this as the record's review. Ask them to remove it.",
-  /** Shown to anyone but the author in place of the consent controls. */
+  /** Approved. Shown to anyone but the author in place of the consent controls. */
   authorOnlyConsent: "Only the author can answer the publishing question.",
-  /** A music director editing another person's review; the email clause only for a submitted review with a linked author. */
+  /** Approved. A music director editing another person's review; the email clause only for a submitted review with a linked author. */
   editingOthers: (author: string, emailed: boolean) =>
     `You are editing ${author}'s review. Your change is saved under your name in the review's history${emailed ? ", and the author is emailed that it was edited." : "."}`,
   consent: {
+    /** Approved. */
     legend: "Where may this review be published?",
+    /** Approved. */
     website: "Website",
+    /** Approved. */
     apps: "WXYC apps",
+    /** Approved. */
     instagram: "Instagram",
+    /** Approved. */
     creditLegend: "How should we credit you?",
     /** Approved. */
     djName: "DJ name",
+    /** Approved. */
     realName: "Real name",
+    /** Approved. */
     noName: "No name",
+    /** Approved. */
     notPublishedYet: "FCC notes are never published. Nothing is published yet; the station is collecting your answer for later.",
   },
   fields: {
@@ -87,9 +103,11 @@ export const REVIEW_COPY = {
     shelfTitle: "The review shelf",
     /** Approved. */
     shelfEmpty: "Nothing is waiting on the review shelf.",
+    /** Approved. */
     checkoutsTitle: "My checkouts",
     /** Approved. */
     checkoutsEmpty: "You have no records checked out.",
+    /** Approved. */
     requestsTitle: "Requests for me",
     /** Approved. */
     requestsEmpty: "No one has asked you for a review.",
@@ -103,18 +121,25 @@ export const REVIEW_COPY = {
     returnToShelf: "Return to the review shelf",
     /** Approved. The confirm dialog's question. */
     returnQuestion: "Have you brought this record back to the station?",
-    /** Shown on a checkout whose review is done. */
+    /** Approved. Shown on a checkout whose review is done. */
     reviewedReturn: "Reviewed. Bring the record back to the music office.",
-    /** Shown on a checkout with a submitted review of mine. */
+    /** Approved. Shown on a checkout with a submitted review of mine. */
     reviewSubmitted: "Review submitted. A music director will choose the review for the cover.",
+    /** Approved. */
     editReview: "Edit review",
-    /** Each is followed by a date. */
+    /** Approved. Each is followed by a date. */
     logged: "Logged",
+    /** Approved. */
     taken: "Taken",
+    /** Approved. */
     asked: "Asked",
+    /** Approved. */
     checkOut: "Check out",
+    /** Approved. */
     accept: "Accept",
+    /** Approved. */
     pass: "Pass",
+    /** Approved. */
     cancel: "Cancel",
     /** Approved. Lost races, shown once the lists have reloaded. */
     raceCheckout: "This record left the review shelf before your click went through. The lists have been reloaded.",
@@ -137,33 +162,49 @@ export const REVIEW_COPY = {
     release: "Release",
     /** Approved. */
     logTitle: "Log an item",
+    /** Approved. */
     artist: "Artist",
+    /** Approved. */
     album: "Album",
+    /** Approved. */
     label: "Label",
+    /** Approved. */
     format: "Format",
+    /** Approved. */
     discogsReleaseId: "Discogs release id (optional)",
     /** Approved. */
     log: "Log item",
+    /** Approved. */
     waiting: "Review waiting",
+    /** Approved. */
     onShelf: "On the review shelf",
+    /** Approved. */
     requested: "Requested",
+    /** Approved. */
     checkedOut: "Checked out",
-    /** Each is followed by a DJ name. */
+    /** Approved. Each is followed by a DJ name. */
     heldFor: "Held for",
+    /** Approved. */
     checkedOutTo: "Checked out to",
+    /** Approved. */
     reviewed: "Reviewed",
+    /** Approved. */
     filed: "Filed",
-    /** The small mark on a row in a physical lane whose record also has a review waiting. */
+    /** Approved. The small mark on a row in a physical lane whose record also has a review waiting. */
     reviewWaitingMark: "review waiting",
+    /** Approved. */
     returned: "Mark as returned",
-    /** Followed by the holder's name. */
+    /** Approved. Followed by the holder's name. */
     stillOutTo: "Still out: checked out to",
+    /** Approved. */
     holderRemoved: "Still out: holder removed",
-    /** The location line, on the Review waiting and Checked out lanes, for a checked-out record whose holder's account was removed. */
+    /** Approved. The location line, on the Review waiting and Checked out lanes, for a checked-out record whose holder's account was removed. */
     holderRemovedNow: "Holder removed",
-    /** The Review waiting lane's count, "1 review" or "2 reviews". */
+    /** Approved. The Review waiting lane's count, "1 review" or "2 reviews". */
     reviewOne: "review",
+    /** Approved. */
     reviewMany: "reviews",
+    /** Approved. */
     empty: "Nothing here.",
     /** Approved. The notice band's accessible name, over the recent passes. */
     recentPasses: "Recent passes",
@@ -172,11 +213,15 @@ export const REVIEW_COPY = {
   },
   /** The music directors' page for one record, `/dashboard/admin/intake/{id}`. */
   intakeItem: {
+    /** Approved. */
     loadFailed: "Couldn't load this record. Please try again.",
+    /** Approved. */
     noCover: "No review chosen for the cover yet.",
+    /** Approved. */
     chooseFirst: "Choose a review for the cover before filing this record.",
-    /** Followed by the names of DJs with an unfinished draft. */
+    /** Approved. Followed by the names of DJs with an unfinished draft. */
     stillWriting: "Still writing:",
+    /** Approved. */
     notReviewed: "This record has no review chosen for the cover, so it can't be filed yet.",
     /** Approved. Shown once the record has reloaded after a filing lost its race. */
     alreadyFiled: "This record has already been filed. The page has been reloaded.",
@@ -288,7 +333,9 @@ export const REVIEW_COPY = {
     reviewThisRelease: "Review this release",
     /** Approved. Sits beside the button. */
     nudge: "New to reviewing? New arrivals on the review shelf need reviews most.",
+    /** Approved. */
     archiveTitle: "Earlier takes",
+    /** Approved. */
     loadFailed: "Couldn't load the reviews. Please try again.",
     printReview: "Print this review",
   },
