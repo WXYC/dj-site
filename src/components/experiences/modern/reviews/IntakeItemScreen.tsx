@@ -66,9 +66,11 @@ export default function IntakeItemScreen({ id }: { id: number }) {
   const coverId = item.data?.accepted_review_id ?? null;
   const ownCover = reviews.data?.find((r) => r.id === coverId);
   // The review on the cover can be one of a cited or filed release, which the item's own list lacks.
-  const fetchedCover = useGetReviewQuery(coverId ?? 0, { skip: !visible || coverId == null || !reviews.data || !!ownCover });
+  // Decided once: the query below reads it and the reload refreshes it, so the two cannot drift.
+  const coverById = coverId != null && reviews.data && !ownCover ? coverId : undefined;
+  const fetchedCover = useGetReviewQuery(coverById ?? 0, { skip: !visible || coverById === undefined });
 
-  const reload = useItemPageReload(id, reviews.data && !ownCover ? coverId ?? undefined : undefined);
+  const reload = useItemPageReload(id, coverById);
 
   if (!visible) return null;
   if ([item, reviews, fetchedCover].some(hasNothingToShow)) {
