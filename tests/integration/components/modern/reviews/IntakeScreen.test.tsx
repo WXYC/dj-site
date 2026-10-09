@@ -163,42 +163,51 @@ describe("IntakeScreen", () => {
   });
 
   it.each([
-    ["Checked out", "checked_out", "Checked out"],
-    ["Reviewed", "reviewed", "Reviewed (2)"],
-  ])("sorts an overdue row first in the %s lane, whatever order the read returns", async (_name, state, heading) => {
+    ["Checked out", "the overdue row first", "checked_out", "Checked out"],
+    ["Checked out", "the overdue row second", "checked_out", "Checked out"],
+    ["Reviewed", "the overdue row first", "reviewed", "Reviewed (2)"],
+    ["Reviewed", "the overdue row second", "reviewed", "Reviewed (2)"],
+  ])("sorts an overdue row first in the %s lane when the read returns %s", async (_name, readOrder, state, heading) => {
+    // The overdue row is the newer-logged, lower-id one, so neither a date nor an id ordering puts it first.
     const row = (id: number, overrides = {}) =>
       moonPix({ id, album_title: `Album ${id}`, state, effective_state: state, checked_out_by: "dj-1", checked_out_by_name: "DJ Sam", checked_out_at: "2026-09-01T12:00:00Z", ...overrides });
-    fakeReviewsEndpoints({
-      open: [
-        row(1, { logged_at: "2026-09-02T12:00:00Z" }),
-        row(2, { logged_at: "2026-09-01T12:00:00Z", overdue: true }),
-      ],
-    });
+    const overdue = row(1, { logged_at: "2026-09-02T12:00:00Z", overdue: true });
+    const onTime = row(2, { logged_at: "2026-09-01T12:00:00Z" });
+    const read = readOrder === "the overdue row first" ? [overdue, onTime] : [onTime, overdue];
+    fakeReviewsEndpoints();
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/intake`, ({ request }) =>
+        HttpResponse.json(new URL(request.url).searchParams.get("awaiting_acceptance") === "true" ? [] : read),
+      ),
+    );
 
     renderWithProviders(<IntakeScreen />);
 
     const links = within(await lane(heading)).getAllByRole("link");
-    expect(links.map((a) => a.textContent)).toEqual([expect.stringContaining("Album 2"), expect.stringContaining("Album 1")]);
+    expect(links.map((a) => a.textContent)).toEqual([expect.stringContaining("Album 1"), expect.stringContaining("Album 2")]);
   });
 
-  it("counts the Reviewed lane's rows in its heading, and drops it on a refetch", async () => {
-    let returned = false;
-    const reviewed = (id: number) => moonPix({ id, state: "reviewed", effective_state: "reviewed", checked_out_at: "2026-09-01T12:00:00Z", checked_out_by: "dj-1", checked_out_by_name: "DJ Sam" });
+  it("counts the Reviewed lane's rows in its heading, and drops it on a refetch when a record is filed", async () => {
+    let filed = false;
+    const reviewed = (id: number, overrides = {}) => moonPix({ id, album_title: `Album ${id}`, state: "reviewed", effective_state: "reviewed", checked_out_at: "2026-09-01T12:00:00Z", checked_out_by: "dj-1", checked_out_by_name: "DJ Sam", ...overrides });
+    // Releasing record 1 keeps it reviewed; record 2 leaves the lane by changing state, as the read after the write shows.
     fakeReviewsEndpoints({
-      reviewed: () => (returned ? [reviewed(1)] : [reviewed(1), reviewed(2)]),
+      reviewed: () => [reviewed(1), filed ? reviewed(2, { state: "filed", effective_state: "filed" }) : reviewed(2)],
     });
     server.use(
-      http.post(`${TEST_BACKEND_URL}/intake/2/release`, () => {
-        returned = true;
-        return HttpResponse.json(moonPix({ id: 2 }));
+      http.post(`${TEST_BACKEND_URL}/intake/1/release`, () => {
+        filed = true;
+        return HttpResponse.json(moonPix({ id: 1 }));
       }),
     );
 
     const { user } = renderWithProviders(<IntakeScreen />);
     const two = await lane("Reviewed (2)");
-    await user.click(within(two).getAllByRole("button", { name: "Mark as returned" })[0]);
+    await user.click(within(within(two).getByText(/Album 1/).closest("li")!).getByRole("button", { name: "Mark as returned" }));
 
-    await lane("Reviewed (1)");
+    const one = await lane("Reviewed (1)");
+    expect(within(one).getByText(/Album 1/)).toBeInTheDocument();
+    expect(within(one).queryByText(/Album 2/)).not.toBeInTheDocument();
   });
 
   it("keeps the plain Reviewed heading when the lane is empty", async () => {
@@ -216,7 +225,7 @@ describe("IntakeScreen", () => {
 
     renderWithProviders(<IntakeScreen />);
 
-    const band = await screen.findByRole("status", { name: "Recent passes" });
+    const band = await screen.findByRole("region", { name: "Recent passes" });
     expect(within(band).getAllByRole("listitem").map((li) => li.textContent?.split(" ")[1])).toEqual(["6", "5", "4", "3", "2"]);
   });
 
@@ -231,17 +240,22 @@ describe("IntakeScreen", () => {
 
     const { unmount } = renderWithProviders(<IntakeScreen />);
 
-    const band = await screen.findByRole("status", { name: "Recent passes" });
-    expect(within(band).getAllByRole("listitem").map((li) => li.textContent)).toEqual([
+    const band = await screen.findByRole("region", { name: "Recent passes" });
+    expect(within(within(band).getByRole("list")).getAllByRole("listitem").map((li) => li.textContent)).toEqual([
       "Sam passed on Stereolab — Aluminum Tunes",
       "Pat passed on Juana Molina — DOGA",
     ]);
+    expect(band.closest("[role=status]")).toBeNull();
+    expect(band.querySelector("[role=status]")).toBeNull();
+    // The band sits at the top of the page, above the log form.
+    const form = screen.getByRole("form", { name: "Log an item" });
+    expect(band.compareDocumentPosition(form) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     unmount();
 
     fakeReviewsEndpoints({ open: [moonPix({ id: 1, passes: [] })] });
     renderWithProviders(<IntakeScreen />);
     await lane("On the review shelf");
-    expect(screen.queryByRole("status", { name: "Recent passes" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Recent passes" })).not.toBeInTheDocument();
   });
 
   it("Mark as returned sends the release, and the record stays in Reviewed without its line", async () => {

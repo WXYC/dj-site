@@ -125,6 +125,17 @@ export default function IntakeScreen() {
 
   return (
     <Stack spacing={3}>
+      {passes.length > 0 && (
+        <section aria-label={COPY.recentPasses}>
+          <List>
+            {passes.map((p) => (
+              <ListItem key={p.id}>
+                {`${p.dj_name} ${COPY.passedOn} ${p.item.artist_name} — ${p.item.album_title}`}
+              </ListItem>
+            ))}
+          </List>
+        </section>
+      )}
       <form
         aria-label={COPY.logTitle}
         onSubmit={(e) => {
@@ -167,15 +178,6 @@ export default function IntakeScreen() {
         </Stack>
       </form>
       {notice && <Typography role="status">{notice}</Typography>}
-      {passes.length > 0 && (
-        <List role="status" aria-label={COPY.recentPasses}>
-          {passes.map((p) => (
-            <ListItem key={p.id}>
-              {`${p.dj_name} ${COPY.passedOn} ${p.item.artist_name} — ${p.item.album_title}`}
-            </ListItem>
-          ))}
-        </List>
-      )}
       {awaiting.data.length > 0 && (
         <IntakeLane
           title={`${COPY.waiting} (${awaiting.data.length})`}
