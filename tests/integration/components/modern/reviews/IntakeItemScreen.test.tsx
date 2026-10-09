@@ -42,6 +42,7 @@ vi.mock("@/src/hooks/authenticationHooks", () => ({
 }));
 
 import { toast } from "sonner";
+import { REVIEW_COPY } from "@/src/components/experiences/modern/reviews/copy";
 import type { Review } from "@wxyc/shared";
 import { CssVarsProvider } from "@mui/joy/styles";
 import modernTheme from "@/lib/features/experiences/modern/theme";
@@ -213,29 +214,45 @@ describe("IntakeItemScreen", () => {
       );
     });
 
-    it.each<[string, Record<string, unknown>, number | "fail" | null, string, number]>([
-      ["never printed", {}, null, "Print the slip", 1],
-      ["printed and unchanged", { printed_revision_id: 401, printed_at: "2026-10-02T16:00:00Z" }, 1, "Print the slip", 1],
-      ["printed and edited since", { printed_revision_id: 401, printed_at: "2026-10-02T16:00:00Z" }, 2, "Print a new slip", 2],
-      ["printed with the revisions failing", { printed_revision_id: 401, printed_at: "2026-10-02T16:00:00Z" }, "fail", "Print the slip", 1],
-    ])("the record's print link, %s, reads %s", async (_name, printed, revisions, linkName, linkCount) => {
+    const PRINTED = { printed_revision_id: 401, printed_at: "2026-10-02T16:00:00Z" };
+    it.each<{
+      case: string;
+      printed: Record<string, unknown>;
+      revisions: number;
+      fails?: boolean;
+      linkName: string;
+      linkCount: number;
+      settled: string | null;
+    }>([
+      { case: "never printed", printed: {}, revisions: 2, linkName: "Print the slip", linkCount: 1, settled: null },
+      { case: "printed and unchanged", printed: PRINTED, revisions: 1, linkName: "Print the slip", linkCount: 1, settled: REVIEW_COPY.printedNote.isCurrent },
+      { case: "printed and edited since", printed: PRINTED, revisions: 2, linkName: "Print a new slip", linkCount: 2, settled: null },
+      { case: "printed with the revisions failing", printed: PRINTED, revisions: 0, fails: true, linkName: "Print the slip", linkCount: 1, settled: REVIEW_COPY.printedNote.loadFailed },
+    ])("the record's print link, $case, reads $linkName", async ({ printed, revisions, fails, linkName, linkCount, settled }) => {
+      const requested = vi.fn();
       fakeReviewsEndpoints({ records: [dogaItem()], forItem: { [ITEM_ID]: [submitted(40, printed)] } });
       server.use(
-        http.get(`${TEST_BACKEND_URL}/reviews/:id/revisions`, () =>
-          revisions === "fail"
+        http.get(`${TEST_BACKEND_URL}/reviews/:id/revisions`, ({ params }) => {
+          requested(params.id);
+          return fails
             ? HttpResponse.json({ message: "boom" }, { status: 500 })
-            : HttpResponse.json(
-                Array.from({ length: revisions ?? 0 }, (_, i) => reviewRevision({ id: 401 + i, review_id: 40, revision: i + 1 })),
-              ),
-        ),
+            : HttpResponse.json(Array.from({ length: revisions }, (_, i) => reviewRevision({ id: 401 + i, review_id: 40, revision: i + 1 })));
+        }),
       );
 
       renderScreen(<IntakeItemScreen id={ITEM_ID} />);
 
       await screen.findByText("Take 40.");
+      if (settled) await screen.findByText(settled);
       await waitFor(() => expect(screen.getAllByRole("link", { name: linkName })).toHaveLength(linkCount));
       for (const link of screen.getAllByRole("link", { name: linkName })) {
         expect(link).toHaveAttribute("href", `/dashboard/admin/intake/${ITEM_ID}/slip`);
+      }
+      if (printed.printed_revision_id === undefined) {
+        // A never-printed cover review has revisions to serve but is never asked for them.
+        await new Promise((r) => setTimeout(r, 50));
+        expect(requested).not.toHaveBeenCalled();
+        expect(screen.getAllByRole("link", { name: linkName })).toHaveLength(linkCount);
       }
     });
 
