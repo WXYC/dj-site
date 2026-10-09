@@ -13,6 +13,12 @@ const copy = REVIEW_COPY.fccNotes;
 
 type Subject = { albumId: number } | { intakeItemId: number };
 
+/** The record's id as the API names it. */
+type SubjectIds = { album_id: number } | { intake_item_id: number };
+
+/** The only refusals whose server message is written for a DJ to read. */
+const SHOWN_REFUSAL_STATUSES = [400, 403];
+
 /** Confirmed notes first, then reported ones, each newest first. */
 const inPanelOrder = (notes: FccNote[]) =>
   [...notes].sort(
@@ -34,7 +40,7 @@ function FccNoteRow({ note }: { note: FccNote }) {
   );
 }
 
-function ReportForm({ subject, onDone }: { subject: Subject; onDone: () => void }) {
+function ReportForm({ ids, onDone }: { ids: SubjectIds; onDone: () => void }) {
   const [track, setTrack] = useState("");
   const [note, setNote] = useState("");
   const [refusal, setRefusal] = useState<string | null>(null);
@@ -50,11 +56,13 @@ function ReportForm({ subject, onDone }: { subject: Subject; onDone: () => void 
     try {
       await report({
         ...trimmed,
-        ...("albumId" in subject ? { album_id: subject.albumId } : { intake_item_id: subject.intakeItemId }),
+        ...ids,
       }).unwrap();
       onDone();
     } catch (err) {
-      setRefusal(serverMessage(unwrapEndpointError("fccNoteWriteError", err)?.data) ?? copy.couldNotReport);
+      const rejection = unwrapEndpointError("fccNoteWriteError", err);
+      const shown = rejection && SHOWN_REFUSAL_STATUSES.includes(Number(rejection.status));
+      setRefusal((shown ? serverMessage(rejection.data) : undefined) ?? copy.couldNotReport);
     }
   };
 
@@ -81,10 +89,8 @@ function ReportForm({ subject, onDone }: { subject: Subject; onDone: () => void 
 /** The FCC notes on one record: an album's, or a logged record's. */
 export default function FccNotesPanel(subject: Subject) {
   const visible = useCanSeeReviews();
-  const notes = useGetFccNotesQuery(
-    "albumId" in subject ? { album_id: subject.albumId } : { intake_item_id: subject.intakeItemId },
-    { skip: !visible },
-  );
+  const ids: SubjectIds = "albumId" in subject ? { album_id: subject.albumId } : { intake_item_id: subject.intakeItemId };
+  const notes = useGetFccNotesQuery(ids, { skip: !visible });
   const [reporting, setReporting] = useState(false);
   const titleId = useId();
 
@@ -105,7 +111,7 @@ export default function FccNotesPanel(subject: Subject) {
         </Stack>
       )}
       {reporting ? (
-        <ReportForm subject={subject} onDone={() => setReporting(false)} />
+        <ReportForm ids={ids} onDone={() => setReporting(false)} />
       ) : (
         <Button size="sm" variant="outlined" sx={{ alignSelf: "flex-start" }} onClick={() => setReporting(true)}>
           {copy.report}

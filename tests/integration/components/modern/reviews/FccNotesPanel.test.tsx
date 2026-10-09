@@ -68,10 +68,10 @@ describe("FccNotesPanel", () => {
   });
 
   it.each([
-    ["the flag is off", "", Authorization.MD, false],
-    ["a DJ is under staff", "staff", Authorization.DJ, false],
-    ["a music director is under staff", "staff", Authorization.MD, true],
-  ])("when %s, it renders: %s", async (_label, flag, authority, shown) => {
+    { label: "the flag is off", flag: "", authority: Authorization.MD, shown: false },
+    { label: "a DJ is under staff", flag: "staff", authority: Authorization.DJ, shown: false },
+    { label: "a music director is under staff", flag: "staff", authority: Authorization.MD, shown: true },
+  ])("when $label, the panel renders: $shown", async ({ flag, authority, shown }) => {
     vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", flag);
     mockAuth.authority = authority;
     fakeReviewsEndpoints();
@@ -187,6 +187,21 @@ describe("FccNotesPanel", () => {
 
       expect(await screen.findByRole("alert")).toHaveTextContent(message);
       expect(screen.getByText("No FCC notes for this record.")).toBeInTheDocument();
+    });
+
+    it.each<[string, () => Response]>([
+      ["a 500 with a server message", () => HttpResponse.json({ message: "Internal server error" }, { status: 500 })],
+      ["a network error", () => HttpResponse.error()],
+    ])("shows the screen's own line, not the server's message, for %s", async (_label, respond) => {
+      fakeReviewsEndpoints();
+      server.use(http.post(`${TEST_BACKEND_URL}/fcc-notes`, respond));
+      renderWithProviders(<FccNotesPanel albumId={ALBUM_ID} />);
+      const user = await open();
+
+      await fill(user, "A2", "A word.");
+      await user.click(screen.getByRole("button", { name: "Report" }));
+
+      expect((await screen.findByRole("alert")).textContent).toBe("Couldn't report the note. Please try again.");
     });
   });
 });
