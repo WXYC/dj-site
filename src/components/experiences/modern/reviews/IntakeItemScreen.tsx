@@ -105,7 +105,7 @@ export default function IntakeItemScreen({ id }: { id: number }) {
         : isIntakeNotReviewed(err)
           ? COPY.notReviewed
           : isIntakeReleaseRefused(err)
-            ? COPY.releaseRefused
+            ? COPY.pickedGone
             : null;
       if (refusal === null) {
         if (mounted.current) setNotice(COPY.fileFailed);
@@ -198,7 +198,7 @@ export default function IntakeItemScreen({ id }: { id: number }) {
           {picked && (
             <Stack direction="row" spacing={1} alignItems="center">
               <Button onClick={fileOntoPicked} loading={filing.isLoading}>{COPY.fileOnto}</Button>
-              <Typography>{picked.artist.name} — {picked.title} ({picked.format})</Typography>
+              <Typography>{COPY.recordLine(picked.artist.name, picked.title, picked.format)}</Typography>
             </Stack>
           )}
         </>
