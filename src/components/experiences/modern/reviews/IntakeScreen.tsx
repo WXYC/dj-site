@@ -125,12 +125,14 @@ export default function IntakeScreen() {
           ? `${COPY.checkedOutTo} ${i.checked_out_by_name}`
           : COPY.holderRemovedNow;
 
-  const laneLabel = (i: IntakeItem) => (
+  const laneLabel = (i: IntakeItem, linkId?: string) => (
     <>
-      <Link href={`/dashboard/admin/intake/${i.id}`}>{recordLine(intakeRecord(i), formats)}</Link>
+      <Link id={linkId} href={`/dashboard/admin/intake/${i.id}`}>{recordLine(intakeRecord(i), formats)}</Link>
       {i.overdue && <Chip color="danger">{REVIEW_COPY.screen.overdue}</Chip>}
     </>
   );
+  // The review shelf's id is lane-scoped: a record in Review waiting is also in its physical lane.
+  const shelfRecordId = (i: IntakeItem) => `review-shelf-record-${i.id}`;
   const physical = (i: IntakeItem) => waitingIds.has(i.id) && <Chip size="sm">{COPY.reviewWaitingMark}</Chip>;
   const reviewCount = (n: number) => `${n} ${n === 1 ? COPY.reviewOne : COPY.reviewMany}`;
 
@@ -208,12 +210,13 @@ export default function IntakeScreen() {
         title={COPY.onShelf}
         rows={inState("pool")}
         empty={COPY.empty}
-        label={laneLabel}
+        label={(i) => laneLabel(i, shelfRecordId(i))}
         extra={(i) => (
           <>
             {physical(i)}
             <IntakeRequestPicker
               reviewers={reviewers.data ?? []}
+              labelledBy={shelfRecordId(i)}
               busy={lock(i.id, "request")}
               onRequest={(djId) => act(i.id, "request", () => requestReview({ id: i.id, djId }).unwrap())}
             />

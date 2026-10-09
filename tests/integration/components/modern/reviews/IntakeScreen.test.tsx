@@ -4,9 +4,13 @@ import { http, HttpResponse } from "msw";
 import { fakeReviewsEndpoints, intakeItem, renderWithProviders, server, TEST_BACKEND_URL } from "@/tests/helpers";
 import { Authorization } from "@/lib/features/admin/types";
 
+// The page never reads the roster; a spy on the admin client's account list proves it.
+const listUsers = vi.hoisted(() => vi.fn());
+
 vi.mock("@/lib/features/authentication/client", async () => {
   const { createAuthClientModuleMock } = await import("@/tests/helpers/auth-client-mock");
-  return createAuthClientModuleMock();
+  const mock = createAuthClientModuleMock();
+  return { ...mock, authClient: { ...mock.authClient, admin: { listUsers } } };
 });
 
 vi.mock("sonner", () => ({
@@ -34,7 +38,10 @@ const waiting = (id: number, overrides = {}) =>
 
 const lane = (name: string) => screen.findByRole("region", { name });
 
-beforeEach(() => vi.mocked(toast.error).mockClear());
+beforeEach(() => {
+  vi.mocked(toast.error).mockClear();
+  listUsers.mockClear();
+});
 
 describe("IntakeScreen", () => {
   beforeEach(() => {
@@ -431,8 +438,11 @@ describe("IntakeScreen — a failed background refetch", () => {
   });
 });
 
-const pick = async (user: ReturnType<typeof renderWithProviders>["user"], name: string) => {
-  await user.click(await within(await lane("On the review shelf")).findByRole("combobox", { name: "DJ to ask" }));
+/** One review shelf row's controls, reached by the record they act on: the group is named by the row's record line. */
+const rowControls = async (album: string) => within(await within(await lane("On the review shelf")).findByRole("group", { name: new RegExp(album) }));
+
+const pick = async (user: ReturnType<typeof renderWithProviders>["user"], name: string, album = "Moon Pix") => {
+  await user.click(await (await rowControls(album)).findByRole("combobox", { name: "DJ to ask" }));
   await user.click(await screen.findByRole("option", { name }));
 };
 
@@ -495,10 +505,12 @@ describe("IntakeScreen — request a review", () => {
   });
   afterEach(() => vi.unstubAllEnvs());
 
-  it("lists the reviewers by name from one read for the page, and offers the request on the review shelf lane only", async () => {
+  it("lists the reviewers by name from one read for the page, makes no roster request, and offers the request on the review shelf lane only", async () => {
     let reads = 0;
+    const held = waiting(7, { album_title: "Waiting Album" });
     fakeReviewsEndpoints({
-      open: [moonPix({ id: 1 }), moonPix({ id: 2 }), requestedRow(3), outRow(4)],
+      open: [moonPix({ id: 1 }), moonPix({ id: 2, album_title: "Dark Side" }), requestedRow(3), outRow(4), held],
+      awaiting: [held],
       reviewed: [moonPix({ id: 5, effective_state: "reviewed", ...HELD })],
       filed: [moonPix({ id: 6, state: "filed", effective_state: "filed" })],
       reviewers: REVIEWERS,
@@ -513,15 +525,44 @@ describe("IntakeScreen — request a review", () => {
     const { user } = renderWithProviders(<IntakeScreen />);
     const shelf = await lane("On the review shelf");
     expect(within(shelf).getAllByRole("button", { name: "Request a review" })).toHaveLength(2);
-    await user.click(within(shelf).getAllByRole("combobox", { name: "DJ to ask" })[0]);
+    expect(within(shelf).getAllByRole("group")).toHaveLength(2);
+    await user.click(await (await rowControls("Moon Pix")).findByRole("combobox", { name: "DJ to ask" }));
 
     expect(await screen.findByRole("option", { name: "Test Reviewer" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Pat Placeholder" })).toBeInTheDocument();
     expect(reads).toBe(1);
-    for (const other of ["Requested", "Checked out", "Reviewed (1)", "Filed"]) {
+    expect(listUsers).not.toHaveBeenCalled();
+    for (const other of ["Review waiting (1)", "Requested", "Checked out", "Reviewed (1)", "Filed"]) {
       expect(within(await lane(other)).queryByRole("button", { name: "Request a review" })).not.toBeInTheDocument();
       expect(within(await lane(other)).queryByRole("combobox", { name: "DJ to ask" })).not.toBeInTheDocument();
     }
+  });
+
+  it("names each row's picker and button by the record they act on", async () => {
+    const asked: { id: number; body: unknown }[] = [];
+    fakeReviewsEndpoints({
+      open: [moonPix({ id: 1 }), moonPix({ id: 2, album_title: "Dark Side" })],
+      reviewers: REVIEWERS,
+    });
+    server.use(
+      http.post(`${TEST_BACKEND_URL}/intake/2/request`, async ({ request }) => {
+        asked.push({ id: 2, body: await request.clone().json() });
+        return undefined;
+      }),
+      http.post(`${TEST_BACKEND_URL}/intake/1/request`, async ({ request }) => {
+        asked.push({ id: 1, body: await request.clone().json() });
+        return undefined;
+      }),
+    );
+
+    const { user } = renderWithProviders(<IntakeScreen />);
+    await pick(user, "Pat Placeholder", "Dark Side");
+    const darkSide = await rowControls("Dark Side");
+    expect(darkSide.getByRole("button", { name: "Request a review" })).toBeEnabled();
+    expect((await rowControls("Moon Pix")).getByRole("button", { name: "Request a review" })).toBeDisabled();
+    await user.click(darkSide.getByRole("button", { name: "Request a review" }));
+
+    await waitFor(() => expect(asked).toEqual([{ id: 2, body: { dj_id: "dj-pat" } }]));
   });
 
   it("sends the chosen dj_id, and the record moves to the Requested lane held for that DJ", async () => {
@@ -535,7 +576,7 @@ describe("IntakeScreen — request a review", () => {
     );
 
     const { user } = renderWithProviders(<IntakeScreen />);
-    expect(await within(await lane("On the review shelf")).findByRole("button", { name: "Request a review" })).toBeDisabled();
+    expect((await rowControls("Moon Pix")).getByRole("button", { name: "Request a review" })).toBeDisabled();
     await pick(user, "Pat Placeholder");
     await user.click(screen.getByRole("button", { name: "Request a review" }));
 
@@ -592,6 +633,7 @@ describe("IntakeScreen — request a review", () => {
     expect(alerts).toHaveLength(1);
     expect(alerts[0]).toHaveTextContent(REVIEW_COPY.intake.reviewersLoadFailed);
     expect(alerts[0]).not.toHaveTextContent(REVIEW_COPY.screen.loadFailed);
+    expect(alerts[0].compareDocumentPosition(shelf) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 });
 
