@@ -391,6 +391,15 @@ describe("ReviewsScreen", () => {
     expect(await within(await section(title)).findByText(empty)).toBeInTheDocument();
   });
 
+  it.each([
+    ["logged", REVIEW_COPY.screen.logged, "Logged"],
+    ["taken", REVIEW_COPY.screen.taken, "Taken"],
+    ["asked", REVIEW_COPY.screen.asked, "Asked"],
+    ["cancel", REVIEW_COPY.screen.cancel, "Cancel"],
+  ])("words the row detail or button %s exactly as the station approved it", (_key, actual, approved) => {
+    expect(actual).toBe(approved);
+  });
+
   const HELD = item({ id: 2, state: "checked_out", effective_state: "checked_out", checked_out_by: ME });
 
   it("starts a draft from a My checkouts row and opens it", async () => {

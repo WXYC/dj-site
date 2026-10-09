@@ -163,6 +163,13 @@ describe("ReviewsPanel", () => {
     expect(screen.getAllByRole("link", { name: "Edited · see history" })).toHaveLength(1);
   });
 
+  it.each([
+    ["archiveTitle", REVIEW_COPY.albumPanel.archiveTitle, "Earlier takes"],
+    ["loadFailed", REVIEW_COPY.albumPanel.loadFailed, "Couldn't load the reviews. Please try again."],
+  ])("words %s exactly as the station approved it", (_key, actual, approved) => {
+    expect(actual).toBe(approved);
+  });
+
   it("lists the archive's reviews for the release as earlier takes", async () => {
     serve([], [{ id: 1, reviewer: "Reviewer Old", review: "Archived words" }]);
     renderPanel();

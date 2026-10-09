@@ -72,6 +72,21 @@ describe("ReviewEditor", () => {
     expect(screen.getByLabelText("Review")).toHaveValue("Warm.");
   });
 
+  it.each([
+    ["save", REVIEW_COPY.save, "Save"],
+    ["savedChange", REVIEW_COPY.savedChange, "Saved."],
+    ["cancel", REVIEW_COPY.cancel, "Cancel"],
+    ["submitNeedsReview", REVIEW_COPY.submitNeedsReview, "Write the review before you submit it."],
+    ["couldNotSubmit", REVIEW_COPY.couldNotSubmit, "Couldn't submit the review. Please try again."],
+    ["alreadySubmitted", REVIEW_COPY.alreadySubmitted, "This review was already submitted."],
+    ["couldNotDelete", REVIEW_COPY.couldNotDelete, "Couldn't delete the review. Please try again."],
+    ["consent.legend", REVIEW_COPY.consent.legend, "Where may this review be published?"],
+    ["consent.creditLegend", REVIEW_COPY.consent.creditLegend, "How should we credit you?"],
+    ["consent.notPublishedYet", REVIEW_COPY.consent.notPublishedYet, "FCC notes are never published. Nothing is published yet; the station is collecting your answer for later."],
+  ])("words %s exactly as the station approved it", (_key, actual, approved) => {
+    expect(actual).toBe(approved);
+  });
+
   it("previews the library release of a library-release review", async () => {
     fakeReviewsEndpoints({
       reviews: [review({ intake_item_id: null, album_id: 7 })],
