@@ -3,7 +3,7 @@ import { http, HttpResponse } from "msw";
 import { configureStore } from "@reduxjs/toolkit";
 import { reviewsApi } from "@/lib/features/reviews/api";
 import { reviewApi } from "@/lib/features/reviews/reviewApi";
-import { intakeApi, isIntakeInRotation, isIntakeNotReviewed, isIntakeStateChanged } from "@/lib/features/reviews/intakeApi";
+import { intakeApi, isIntakeInRotation, isIntakeNotReviewed, isIntakeRequestRefused, isIntakeStateChanged } from "@/lib/features/reviews/intakeApi";
 import { describeApi } from "@/tests/helpers/api-harness";
 import { TEST_BACKEND_URL } from "@/tests/helpers/constants";
 import { server } from "@/tests/fakes/server";
@@ -26,6 +26,7 @@ describe("intakeApi", () => {
     mutations: [
       "checkoutIntakeItem",
       "releaseIntakeItem",
+      "requestIntakeItem",
       "acceptIntakeItem",
       "passIntakeItem",
       "logIntakeItem",
@@ -55,6 +56,21 @@ describe("intakeApi", () => {
     await makeReviewsStore().dispatch(intakeApi.endpoints[endpoint].initiate(7));
 
     expect(seen).toEqual({ method: "POST", path: `/intake/7/${action}` });
+  });
+
+  it("requestIntakeItem POSTs the chosen dj_id, and a bare 400 reads as a refused request", async () => {
+    let body: unknown;
+    server.use(
+      http.post(`${TEST_BACKEND_URL}/intake/:id/request`, async ({ request }) => {
+        body = await request.clone().json();
+        return HttpResponse.json({ message: "server words" }, { status: 400 });
+      })
+    );
+
+    const result = await makeReviewsStore().dispatch(intakeApi.endpoints.requestIntakeItem.initiate({ id: 7, djId: "dj-pat" }));
+
+    expect(body).toEqual({ dj_id: "dj-pat" });
+    expect(isIntakeRequestRefused("error" in result ? result.error : undefined)).toBe(true);
   });
 
   it("deleteIntakeItem DELETEs exactly /intake/7 and answers the deleted authors", async () => {

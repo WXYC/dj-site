@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { fakeReviewEndpoints, type FakeReviewOptions } from "@/tests/fakes/reviews/review";
 import { review, reviewRevision } from "@/tests/fakes/reviews";
-import { readIds } from "./fakeReads";
+import { readIds, readReviewers } from "./fakeReads";
 
 describe("fakeReviewEndpoints GET /reviews", () => {
   const OPTIONS: FakeReviewOptions = {
@@ -22,6 +22,20 @@ describe("fakeReviewEndpoints GET /reviews", () => {
     fakeReviewEndpoints(OPTIONS);
 
     expect(await readIds("/reviews", search)).toEqual(expectedIds);
+  });
+});
+
+describe("fakeReviewEndpoints GET /reviews/reviewers", () => {
+  it("answers the reviewers option as a { reviewers } object, not the /reviews/:id 404", async () => {
+    fakeReviewEndpoints({ reviewers: [{ id: "dj-1", name: "Test Reviewer" }] });
+
+    expect(await readReviewers()).toEqual([{ id: "dj-1", name: "Test Reviewer" }]);
+  });
+
+  it("defaults to an empty list", async () => {
+    fakeReviewEndpoints();
+
+    expect(await readReviewers()).toEqual([]);
   });
 });
 

@@ -26,8 +26,10 @@ const wrapIntakeWriteError = (response: FetchBaseQueryError): IntakeWriteError =
   intakeWriteError: response,
 });
 
-// Intake refusal predicates live here, one `isRefusal` call each, so a screen
-// reads a rejected intake write one way.
+// Intake refusal predicates live here, so a screen reads a rejected intake write
+// one way. Each is one `isRefusal` call, except a refusal whose server body
+// carries no `reason`: `isRefusal` can never match that, so it is matched by
+// status, and only on a write whose form cannot send any other 400.
 
 /** True when an intake write lost its race: someone else got there first, or the request expired. */
 export const isIntakeStateChanged = (err: unknown): boolean =>
@@ -54,6 +56,14 @@ export const isIntakeInRotation = (err: unknown): boolean =>
  * sends nothing else the route could refuse with a 400.
  */
 export const isIntakeReleaseRefused = (err: unknown): boolean =>
+  unwrapEndpointError("intakeWriteError", err)?.status === 400;
+
+/**
+ * True when a request was refused (400) because the chosen account was removed or is no longer a DJ.
+ * That 400 has no `reason` (the server throws a plain error), so it is matched by status alone; the
+ * request button is disabled until an account is picked, so the route's other 400 cannot arrive.
+ */
+export const isIntakeRequestRefused = (err: unknown): boolean =>
   unwrapEndpointError("intakeWriteError", err)?.status === 400;
 
 /** The `intake/...` endpoints. */
@@ -86,6 +96,12 @@ export const intakeApi = reviewsApi.injectEndpoints({
     // On a `reviewed` record this clears the holder and leaves it reviewed.
     releaseIntakeItem: builder.mutation<IntakeItem, number>({
       query: (id) => ({ url: `intake/${id}/release`, method: "POST" }),
+      transformErrorResponse: wrapIntakeWriteError,
+      invalidatesTags: ["Intake"],
+    }),
+    // A music director asking a DJ to review a record on the review shelf.
+    requestIntakeItem: builder.mutation<IntakeItem, { id: number; djId: string }>({
+      query: ({ id, djId }) => ({ url: `intake/${id}/request`, method: "POST", body: { dj_id: djId } }),
       transformErrorResponse: wrapIntakeWriteError,
       invalidatesTags: ["Intake"],
     }),
@@ -162,6 +178,7 @@ export const {
   useLogIntakeItemMutation,
   useCheckoutIntakeItemMutation,
   useReleaseIntakeItemMutation,
+  useRequestIntakeItemMutation,
   useCancelIntakeRequestMutation,
   useAcceptIntakeItemMutation,
   usePassIntakeItemMutation,

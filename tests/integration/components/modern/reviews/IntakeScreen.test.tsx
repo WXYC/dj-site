@@ -431,6 +431,11 @@ describe("IntakeScreen — a failed background refetch", () => {
   });
 });
 
+const pick = async (user: ReturnType<typeof renderWithProviders>["user"], name: string) => {
+  await user.click(await within(await lane("On the review shelf")).findByRole("combobox", { name: "DJ to ask" }));
+  await user.click(await screen.findByRole("option", { name }));
+};
+
 const HELD = { checked_out_at: "2026-09-01T12:00:00Z", checked_out_by: "dj-1", checked_out_by_name: "DJ Sam" };
 const requestedRow = (id: number) =>
   moonPix({ id, state: "requested", effective_state: "requested", requested_dj_id: "dj-pat", requested_dj_name: "DJ Pat" });
@@ -477,6 +482,119 @@ describe("IntakeScreen — cancel and release", () => {
   });
 });
 
+const REVIEWERS = [
+  { id: "dj-sam", name: "Test Reviewer" },
+  { id: "dj-pat", name: "Pat Placeholder" },
+];
+const REQUEST_REFUSED = "That DJ can't be asked to review: their account was removed, or it's no longer a DJ account. Pick someone else.";
+
+describe("IntakeScreen — request a review", () => {
+  beforeEach(() => {
+    authority = Authorization.MD;
+    vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "staff");
+  });
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("lists the reviewers by name from one read for the page, and offers the request on the review shelf lane only", async () => {
+    let reads = 0;
+    fakeReviewsEndpoints({
+      open: [moonPix({ id: 1 }), moonPix({ id: 2 }), requestedRow(3), outRow(4)],
+      reviewed: [moonPix({ id: 5, effective_state: "reviewed", ...HELD })],
+      filed: [moonPix({ id: 6, state: "filed", effective_state: "filed" })],
+      reviewers: REVIEWERS,
+    });
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/reviews/reviewers`, () => {
+        reads += 1;
+        return HttpResponse.json({ reviewers: REVIEWERS });
+      }),
+    );
+
+    const { user } = renderWithProviders(<IntakeScreen />);
+    const shelf = await lane("On the review shelf");
+    expect(within(shelf).getAllByRole("button", { name: "Request a review" })).toHaveLength(2);
+    await user.click(within(shelf).getAllByRole("combobox", { name: "DJ to ask" })[0]);
+
+    expect(await screen.findByRole("option", { name: "Test Reviewer" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Pat Placeholder" })).toBeInTheDocument();
+    expect(reads).toBe(1);
+    for (const other of ["Requested", "Checked out", "Reviewed (1)", "Filed"]) {
+      expect(within(await lane(other)).queryByRole("button", { name: "Request a review" })).not.toBeInTheDocument();
+      expect(within(await lane(other)).queryByRole("combobox", { name: "DJ to ask" })).not.toBeInTheDocument();
+    }
+  });
+
+  it("sends the chosen dj_id, and the record moves to the Requested lane held for that DJ", async () => {
+    const bodies: unknown[] = [];
+    fakeReviewsEndpoints({ open: [moonPix({ id: 11 })], reviewers: REVIEWERS });
+    server.use(
+      http.post(`${TEST_BACKEND_URL}/intake/11/request`, async ({ request }) => {
+        bodies.push(await request.clone().json());
+        return undefined;
+      }),
+    );
+
+    const { user } = renderWithProviders(<IntakeScreen />);
+    expect(await within(await lane("On the review shelf")).findByRole("button", { name: "Request a review" })).toBeDisabled();
+    await pick(user, "Pat Placeholder");
+    await user.click(screen.getByRole("button", { name: "Request a review" }));
+
+    expect(await within(await lane("Requested")).findByText("Held for Pat Placeholder")).toBeInTheDocument();
+    expect(bodies).toEqual([{ dj_id: "dj-pat" }]);
+  });
+
+  it("shows the approved line on a 400, never the server's message, and reads the reviewers again", async () => {
+    let reads = 0;
+    fakeReviewsEndpoints({ open: [moonPix({ id: 11 })], reviewers: REVIEWERS });
+    server.use(
+      http.post(`${TEST_BACKEND_URL}/intake/11/request`, () => HttpResponse.json({ message: "server words" }, { status: 400 })),
+    );
+
+    const { user } = renderWithProviders(<IntakeScreen />);
+    await pick(user, "Pat Placeholder");
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/reviews/reviewers`, () => {
+        reads += 1;
+        return HttpResponse.json({ reviewers: REVIEWERS });
+      }),
+    );
+    await user.click(screen.getByRole("button", { name: "Request a review" }));
+
+    expect(await screen.findByText(REQUEST_REFUSED)).toBeInTheDocument();
+    expect(screen.queryByText("server words")).not.toBeInTheDocument();
+    expect(reads).toBe(1);
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["cancel", "cancel-request", () => ({ open: [requestedRow(11)] }), "Cancel request"],
+    ["release", "release", () => ({ open: [outRow(11)] }), "Release"],
+  ] as const)("a 400 on a %s is a plain write failure, not the request's line", async (_action, path, rows, button) => {
+    fakeReviewsEndpoints({ ...rows(), reviewers: REVIEWERS });
+    server.use(http.post(`${TEST_BACKEND_URL}/intake/11/${path}`, () => HttpResponse.json({ message: "server words" }, { status: 400 })));
+
+    const { user } = renderWithProviders(<IntakeScreen />);
+    await user.click(await screen.findByRole("button", { name: button }));
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(REVIEW_COPY.screen.writeFailed));
+    expect(screen.queryByText(REQUEST_REFUSED)).not.toBeInTheDocument();
+  });
+
+  it("shows one line above the lanes when the reviewers fail to load, and the lanes still render", async () => {
+    fakeReviewsEndpoints({ open: [moonPix({ id: 1 }), moonPix({ id: 2 })] });
+    server.use(http.get(`${TEST_BACKEND_URL}/reviews/reviewers`, () => HttpResponse.json({ message: "down" }, { status: 500 })));
+
+    renderWithProviders(<IntakeScreen />);
+
+    const shelf = await lane("On the review shelf");
+    expect(within(shelf).getAllByText(/Moon Pix/)).toHaveLength(2);
+    const alerts = await screen.findAllByRole("alert");
+    expect(alerts).toHaveLength(1);
+    expect(alerts[0]).toHaveTextContent(REVIEW_COPY.intake.reviewersLoadFailed);
+    expect(alerts[0]).not.toHaveTextContent(REVIEW_COPY.screen.loadFailed);
+  });
+});
+
 describe("IntakeScreen — lost races", () => {
   beforeEach(() => {
     authority = Authorization.MD;
@@ -488,11 +606,13 @@ describe("IntakeScreen — lost races", () => {
     cancel: "This request was already answered, or it expired. The lists have been reloaded.",
     release: "This record has already been returned. The lists have been reloaded.",
     return: "This record has already been returned or filed. The lists have been reloaded.",
+    request: "This record has left the review shelf since the page loaded, so it can't be requested. The lists have been reloaded.",
   };
 
   it.each([
     ["cancel", "cancel-request", () => ({ open: [requestedRow(11)] }), "Cancel request"],
     ["release", "release", () => ({ open: [outRow(11)] }), "Release"],
+    ["request", "request", () => ({ open: [moonPix({ id: 11 })], reviewers: REVIEWERS }), "Request a review"],
     ["return", "release", () => ({ reviewed: [moonPix({ id: 11, effective_state: "reviewed", ...HELD })] }), "Mark as returned"],
   ] as const)(
     "a lost %s reloads both reads, then shows its own line and never the server message",
@@ -511,6 +631,7 @@ describe("IntakeScreen — lost races", () => {
         return undefined;
       });
       server.use(counting);
+      if (action === "request") await pick(user, "Test Reviewer");
       await user.click(screen.getByRole("button", { name: button }));
 
       expect(await screen.findByText(RACE_LINES[action])).toBeInTheDocument();

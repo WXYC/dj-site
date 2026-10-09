@@ -4,6 +4,7 @@ import type {
   ReviewConflictReason,
   ReviewPatch,
   ReviewRevision,
+  Reviewer,
 } from "@wxyc/shared";
 import type { FetchBaseQueryError } from "@reduxjs/toolkit/query";
 import { isRefusal } from "@/lib/rtk-endpoint-error";
@@ -31,6 +32,11 @@ export const isReviewInUse = (err: unknown): boolean =>
 /** The `reviews/...` endpoints. */
 export const reviewApi = reviewsApi.injectEndpoints({
   endpoints: (builder) => ({
+    // The accounts that can be asked to review, for a picker. `name` is a real name: never send it to telemetry.
+    getReviewers: builder.query<Reviewer[], void>({
+      query: () => ({ url: "reviews/reviewers" }),
+      transformResponse: (response: { reviewers: Reviewer[] }) => response.reviewers,
+    }),
     getMyReviews: builder.query<Review[], void>({
       query: () => ({ url: "reviews", params: { mine: true } }),
       providesTags: [{ type: "Review", id: "LIST" }],
@@ -78,6 +84,7 @@ export const reviewApi = reviewsApi.injectEndpoints({
 });
 
 export const {
+  useGetReviewersQuery,
   useGetMyReviewsQuery,
   useGetReviewsForReleaseQuery,
   useGetItemReviewsQuery,
