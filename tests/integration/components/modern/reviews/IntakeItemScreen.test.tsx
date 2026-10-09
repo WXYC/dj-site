@@ -374,6 +374,66 @@ describe("IntakeItemScreen", () => {
       expect(screen.getByText("Nothing filed yet.")).toBeInTheDocument();
     });
 
+    it.each(REFUSALS)("re-reads the item's reviews as well as the item after a %s refusal", async (reason) => {
+      setUp();
+      let reviewReads = 0;
+      server.use(
+        http.get(`${TEST_BACKEND_URL}/reviews`, () => {
+          reviewReads += 1;
+          return HttpResponse.json([submitted(40)]);
+        }),
+        http.post(`${TEST_BACKEND_URL}/intake/${ITEM_ID}/file`, () =>
+          HttpResponse.json({ message: "server words", reason }, { status: 409 }),
+        ),
+      );
+      const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      await readyBench(user);
+      const readsBefore = reviewReads;
+      await user.click(screen.getByRole("button", { name: "Add to rotation" }));
+
+      await screen.findByRole("status");
+      expect(reviewReads).toBe(readsBefore + 1);
+    });
+
+    it("sets no notice and throws nothing when the page unmounts while the post-refusal reload is held", async () => {
+      const box = setUp();
+      let reviewReads = 0;
+      server.use(
+        http.get(`${TEST_BACKEND_URL}/reviews`, () => {
+          reviewReads += 1;
+          return HttpResponse.json([submitted(40)]);
+        }),
+      );
+      const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+      let release!: () => void;
+      server.use(
+        http.post(`${TEST_BACKEND_URL}/intake/${ITEM_ID}/file`, () => {
+          box.hold = new Promise<void>((resolve) => {
+            release = resolve;
+          });
+          return HttpResponse.json({ message: "server words", reason: "state_changed" }, { status: 409 });
+        }),
+      );
+      const { user, unmount } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      await readyBench(user);
+      const readsBefore = box.reads;
+      const reviewReadsBefore = reviewReads;
+      await user.click(screen.getByRole("button", { name: "Add to rotation" }));
+      await waitFor(() => expect(box.reads).toBe(readsBefore + 1));
+
+      unmount();
+      release();
+      // The reload still reaches the reviews read: a hook refetch() would have thrown at the item.
+      await waitFor(() => expect(reviewReads).toBe(reviewReadsBefore + 1));
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      expect(screen.queryByRole("status")).not.toBeInTheDocument();
+      expect(errors).not.toHaveBeenCalled();
+      errors.mockRestore();
+    });
+
     it("shows the bench's conflict panel, not its generic failure, for a call-number collision from /file", async () => {
       setUp();
       const fileBodies: unknown[] = [];
