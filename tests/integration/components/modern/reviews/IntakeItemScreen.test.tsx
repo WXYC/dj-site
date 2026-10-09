@@ -378,8 +378,8 @@ describe("IntakeItemScreen", () => {
       setUp();
       let reviewReads = 0;
       server.use(
-        http.get(`${TEST_BACKEND_URL}/reviews`, () => {
-          reviewReads += 1;
+        http.get(`${TEST_BACKEND_URL}/reviews`, ({ request }) => {
+          if (new URL(request.url).searchParams.get("intake_item_id") === String(ITEM_ID)) reviewReads += 1;
           return HttpResponse.json([submitted(40)]);
         }),
         http.post(`${TEST_BACKEND_URL}/intake/${ITEM_ID}/file`, () =>
@@ -396,41 +396,67 @@ describe("IntakeItemScreen", () => {
       expect(reviewReads).toBe(readsBefore + 1);
     });
 
-    it("sets no notice and throws nothing when the page unmounts while the post-refusal reload is held", async () => {
+    it("re-reads the cover review by id after a refusal when the item's own reviews lack it", async () => {
+      const item = dogaItem({ accepted_review_id: 90 });
+      fakeReviewsEndpoints({ records: [item], forItem: { [ITEM_ID]: [submitted(40)] }, reviews: [submitted(90, { intake_item_id: 99 })] });
+      serveItem(item);
+      let coverReads = 0;
+      server.use(
+        http.get(`${TEST_BACKEND_URL}/reviews/90`, () => {
+          coverReads += 1;
+          return HttpResponse.json(submitted(90, { intake_item_id: 99 }));
+        }),
+        http.post(`${TEST_BACKEND_URL}/intake/${ITEM_ID}/file`, () =>
+          HttpResponse.json({ message: "server words", reason: "state_changed" }, { status: 409 }),
+        ),
+      );
+      const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      await readyBench(user);
+      expect(coverReads).toBe(1);
+      await user.click(screen.getByRole("button", { name: "Add to rotation" }));
+
+      await screen.findByRole("status");
+      expect(coverReads).toBe(2);
+    });
+
+    it("reloads the item and its reviews, and throws nothing, when the page unmounts while the filing is in flight and is then refused", async () => {
       const box = setUp();
       let reviewReads = 0;
+      let posted = false;
+      let release!: () => void;
+      const held = new Promise<void>((resolve) => {
+        release = resolve;
+      });
       server.use(
-        http.get(`${TEST_BACKEND_URL}/reviews`, () => {
-          reviewReads += 1;
+        http.get(`${TEST_BACKEND_URL}/reviews`, ({ request }) => {
+          if (new URL(request.url).searchParams.get("intake_item_id") === String(ITEM_ID)) reviewReads += 1;
           return HttpResponse.json([submitted(40)]);
         }),
-      );
-      const errors = vi.spyOn(console, "error").mockImplementation(() => {});
-      let release!: () => void;
-      server.use(
-        http.post(`${TEST_BACKEND_URL}/intake/${ITEM_ID}/file`, () => {
-          box.hold = new Promise<void>((resolve) => {
-            release = resolve;
-          });
+        http.post(`${TEST_BACKEND_URL}/intake/${ITEM_ID}/file`, async () => {
+          posted = true;
+          await held;
           return HttpResponse.json({ message: "server words", reason: "state_changed" }, { status: 409 });
         }),
       );
+      const errors = vi.spyOn(console, "error").mockImplementation(() => {});
       const { user, unmount } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
 
       await readyBench(user);
-      const readsBefore = box.reads;
+      const itemReadsBefore = box.reads;
       const reviewReadsBefore = reviewReads;
       await user.click(screen.getByRole("button", { name: "Add to rotation" }));
-      await waitFor(() => expect(box.reads).toBe(readsBefore + 1));
+      await waitFor(() => expect(posted).toBe(true));
 
       unmount();
       release();
-      // The reload still reaches the reviews read: a hook refetch() would have thrown at the item.
+      // A hook refetch() throws here before any request goes out, so the reads below never happen.
+      await waitFor(() => expect(box.reads).toBe(itemReadsBefore + 1));
       await waitFor(() => expect(reviewReads).toBe(reviewReadsBefore + 1));
       await new Promise((resolve) => setTimeout(resolve, 100));
 
-      expect(screen.queryByRole("status")).not.toBeInTheDocument();
       expect(errors).not.toHaveBeenCalled();
+      expect(screen.queryByText(/Filing failed/)).not.toBeInTheDocument();
       errors.mockRestore();
     });
 
