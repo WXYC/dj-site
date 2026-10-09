@@ -6,6 +6,7 @@ import { Button, Chip, Stack, Typography } from "@mui/joy";
 import type { IntakeItem, Review } from "@wxyc/shared";
 import { hasNothingToShow } from "@/lib/has-nothing-to-show";
 import {
+  isIntakeAlreadyFiled,
   isIntakeNotReviewed,
   isIntakeStateChanged,
   useDeleteIntakeItemMutation,
@@ -15,6 +16,7 @@ import {
 import { useGetItemReviewsQuery, useGetReviewQuery } from "@/lib/features/reviews/reviewApi";
 import { unwrapEndpointError } from "@/lib/rtk-endpoint-error";
 import { useCanSeeReviews } from "@/src/hooks/useCanSeeReviews";
+import { useMounted } from "@/src/hooks/useRowWrite";
 import ConfirmDialog from "../ConfirmDialog";
 import RotationFilingBench, { type FilingSubmit } from "../admin/rotation/RotationFilingBench";
 import { REVIEW_COPY } from "./copy";
@@ -57,6 +59,7 @@ export default function IntakeItemScreen({ id }: { id: number }) {
   const fetchedCover = useGetReviewQuery(coverById ?? 0, { skip: !visible || coverById === undefined });
 
   const reload = useItemPageReload(id, coverById);
+  const mounted = useMounted();
 
   if (!visible) return null;
   if (deletedLine !== null) return <Typography role="status">{deletedLine}</Typography>;
@@ -87,16 +90,22 @@ export default function IntakeItemScreen({ id }: { id: number }) {
   };
 
   // The names are for this confirmation only: they never go to analytics, breadcrumbs or logs.
-  const reviewAuthors = distinctNames(reviews.data.map((r) => r.author));
+  // The item's reviews also include drafts the caller can see; only submitted ones are named as reviews.
+  const reviewAuthors = distinctNames(reviews.data.filter((r) => r.status === "submitted").map((r) => r.author));
   const draftAuthors = distinctNames(item.data.draft_authors ?? []);
   const confirmDelete = async () => {
     try {
       const { deleted_review_authors } = await deleteItem(id).unwrap();
+      if (!mounted.current) return;
       const names = distinctNames(deleted_review_authors);
       setDeletedLine(names.length > 0 ? COPY.deleted(names) : COPY.deletedPlain);
-    } catch {
+    } catch (err) {
+      // A delete that lost a race to a filing is a notice, and the page reloads to show the record as filed.
+      const lostRace = isIntakeAlreadyFiled(err);
+      if (lostRace && !(await reload()).mounted) return;
+      if (!mounted.current) return;
       setConfirmingDelete(false);
-      setNotice(COPY.deleteFailed);
+      setNotice(lostRace ? COPY.alreadyFiled : COPY.deleteFailed);
     }
   };
 

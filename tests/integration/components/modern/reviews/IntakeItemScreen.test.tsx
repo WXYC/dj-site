@@ -25,6 +25,10 @@ vi.mock("@/lib/features/authentication/organization-utils", () => ({
   fetchOrganizationRoleForUserClient: vi.fn().mockResolvedValue("musicDirector"),
 }));
 
+vi.mock("sonner", () => ({
+  toast: Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn(), info: vi.fn() }),
+}));
+
 vi.mock("next/font/google", () => ({ Kanit: () => ({ style: { fontFamily: "Kanit, sans-serif" } }) }));
 vi.mock("next/font/local", () => ({ default: () => ({ style: { fontFamily: "Minbus, sans-serif" } }) }));
 
@@ -37,6 +41,8 @@ vi.mock("@/src/hooks/authenticationHooks", () => ({
   }),
 }));
 
+import { toast } from "sonner";
+import type { Review } from "@wxyc/shared";
 import { CssVarsProvider } from "@mui/joy/styles";
 import modernTheme from "@/lib/features/experiences/modern/theme";
 import IntakeItemScreen from "@/src/components/experiences/modern/reviews/IntakeItemScreen";
@@ -681,16 +687,30 @@ describe("IntakeItemScreen", () => {
   describe("deleting the record", () => {
     const TITLE = "Delete Juana Molina — DOGA from the review shelf?";
 
-    /** Serves the item with its reviews and draft authors, and records every DELETE and every draft-content read. */
-    function serveDeletable(reviewAuthors: string[], draftAuthors: string[] | undefined, deleted: string[] = []) {
-      const seen = { deletes: 0, draftReads: 0 };
-      fakeReviewsEndpoints({
-        records: [dogaItem({ draft_authors: draftAuthors, accepted_review_id: null })],
-        forItem: { [ITEM_ID]: reviewAuthors.map((author, i) => submitted(40 + i, { author })) },
-      });
+    /**
+     * Serves the item with its reviews and draft authors, and records every DELETE, every draft-content read, and
+     * every read of the item or its reviews that goes out after the DELETE (the record is gone then, so they 404).
+     */
+    function serveDeletable(reviewAuthors: (string | Review)[], draftAuthors: string[] | undefined, deleted: string[] = []) {
+      const seen = { deletes: 0, draftReads: 0, itemReadsAfter: 0, reviewReadsAfter: 0 };
+      let gone = false;
+      const reviews = reviewAuthors.map((entry, i) => (typeof entry === "string" ? submitted(40 + i, { author: entry }) : entry));
+      fakeReviewsEndpoints({ records: [dogaItem({ draft_authors: draftAuthors, accepted_review_id: null })] });
       server.use(
+        http.get(FILED_ITEM_PATH, () => {
+          if (!gone) return HttpResponse.json(dogaItem({ draft_authors: draftAuthors, accepted_review_id: null }));
+          seen.itemReadsAfter += 1;
+          return HttpResponse.json({ message: "Intake item not found" }, { status: 404 });
+        }),
+        http.get(`${TEST_BACKEND_URL}/reviews`, ({ request }) => {
+          if (new URL(request.url).searchParams.get("intake_item_id") !== String(ITEM_ID)) return HttpResponse.json([]);
+          if (!gone) return HttpResponse.json(reviews);
+          seen.reviewReadsAfter += 1;
+          return HttpResponse.json({ message: "Intake item not found" }, { status: 404 });
+        }),
         http.delete(FILED_ITEM_PATH, () => {
           seen.deletes += 1;
+          gone = true;
           return HttpResponse.json({ deleted_review_authors: deleted });
         }),
         http.get(`${TEST_BACKEND_URL}/reviews/:id`, () => {
@@ -748,7 +768,7 @@ describe("IntakeItemScreen", () => {
       await user.click(await screen.findByRole("button", { name: "Delete" }));
       await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Cancel" }));
 
-      expect(seen).toEqual({ deletes: 0, draftReads: 0 });
+      expect(seen).toMatchObject({ deletes: 0, draftReads: 0 });
       await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
     });
 
@@ -760,8 +780,9 @@ describe("IntakeItemScreen", () => {
       await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Delete" }));
 
       expect(await screen.findByText("Deleted, with the reviews and drafts by Cat Power and Sessa.")).toBeInTheDocument();
-      expect(seen).toEqual({ deletes: 1, draftReads: 0 });
-      expect(screen.queryByText("Jessica Pratt")).not.toBeInTheDocument();
+      expect(seen.deletes).toBe(1);
+      expect(seen.draftReads).toBe(0);
+      expect(screen.queryByText(/Jessica Pratt/)).not.toBeInTheDocument();
     });
 
     it("words its own failure line when the delete is refused", async () => {
@@ -776,13 +797,166 @@ describe("IntakeItemScreen", () => {
       expect(screen.queryByText("server text")).not.toBeInTheDocument();
     });
 
-    it.each(["filed", "finalized"] as const)("does not offer Delete once the record is %s", async (state) => {
-      fakeReviewsEndpoints({ records: [dogaItem({ state, effective_state: state })], forItem: { [ITEM_ID]: [submitted(40)] } });
+    it.each([
+      ["pool", true],
+      ["requested", true],
+      ["checked_out", true],
+      ["reviewed", true],
+      ["filed", false],
+      ["finalized", false],
+    ] as const)("in the %s state, Delete is offered: %s", async (state, offered) => {
+      fakeReviewsEndpoints({
+        records: [dogaItem({ state, effective_state: state, accepted_review_id: null })],
+        forItem: { [ITEM_ID]: [submitted(40)] },
+      });
 
       renderScreen(<IntakeItemScreen id={ITEM_ID} />);
 
-      await screen.findByText("Filed.");
-      expect(screen.queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
+      await screen.findByText("Take 40.");
+      if (offered) expect(await screen.findByRole("button", { name: "Delete" })).toBeInTheDocument();
+      else {
+        await screen.findByText("Filed.");
+        expect(screen.queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
+      }
+    });
+
+    it("names only submitted reviews as reviews when the MD has a draft of their own on the record", async () => {
+      serveDeletable(
+        [submitted(40, { author: "Cat Power" }), submitted(41, { author: "MD", status: "draft" })],
+        ["MD"],
+      );
+      const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      await user.click(await screen.findByRole("button", { name: "Delete" }));
+
+      const dialog = await screen.findByRole("alertdialog", { name: TITLE });
+      expect(within(dialog).getByText("This also deletes the submitted review by Cat Power.")).toBeInTheDocument();
+      expect(
+        within(dialog).getByText("It also deletes an unfinished draft by MD. They have not submitted yet and will lose what they wrote."),
+      ).toBeInTheDocument();
+    });
+
+    it("names authors in first-appearance order, not alphabetical order", async () => {
+      const seen = serveDeletable(["Stereolab", "Cat Power"], ["Sessa", "Jessica Pratt"], ["Stereolab", "Cat Power"]);
+      const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      await user.click(await screen.findByRole("button", { name: "Delete" }));
+
+      const dialog = await screen.findByRole("alertdialog", { name: TITLE });
+      expect(within(dialog).getByText("This also deletes the submitted reviews by Stereolab and Cat Power.")).toBeInTheDocument();
+      expect(
+        within(dialog).getByText("It also deletes unfinished drafts by Sessa and Jessica Pratt. They have not submitted yet and will lose what they wrote."),
+      ).toBeInTheDocument();
+      await user.click(within(dialog).getByRole("button", { name: "Delete" }));
+      expect(await screen.findByText("Deleted, with the reviews and drafts by Stereolab and Cat Power.")).toBeInTheDocument();
+      expect(seen.deletes).toBe(1);
+    });
+
+    it("says only Deleted. when the response names no one", async () => {
+      serveDeletable([], undefined, []);
+      const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      await user.click(await screen.findByRole("button", { name: "Delete" }));
+      await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Delete" }));
+
+      expect(await screen.findByText("Deleted.")).toBeInTheDocument();
+    });
+
+    it("reads neither the deleted record nor its reviews again, and shows no error toast", async () => {
+      vi.mocked(toast.error).mockClear();
+      const seen = serveDeletable(["Cat Power"], undefined, ["Cat Power"]);
+      const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      await user.click(await screen.findByRole("button", { name: "Delete" }));
+      await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Delete" }));
+      expect(await screen.findByText("Deleted, with the reviews and drafts by Cat Power.")).toBeInTheDocument();
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      expect(seen).toMatchObject({ deletes: 1, itemReadsAfter: 0, reviewReadsAfter: 0 });
+      expect(toast.error).not.toHaveBeenCalled();
+    });
+
+    it("sets no state and logs nothing when the page is gone before the delete answers", async () => {
+      const seen = serveDeletable(["Cat Power"], undefined, ["Cat Power"]);
+      let release!: () => void;
+      const held = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      server.use(
+        http.delete(FILED_ITEM_PATH, async () => {
+          await held;
+          return HttpResponse.json({ deleted_review_authors: ["Cat Power"] });
+        }),
+      );
+      const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+      const rejections: unknown[] = [];
+      const onRejection = (reason: unknown) => rejections.push(reason);
+      process.on("unhandledRejection", onRejection);
+      try {
+        const { user, unmount } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+        await user.click(await screen.findByRole("button", { name: "Delete" }));
+        await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Delete" }));
+
+        unmount();
+        release();
+        await new Promise((resolve) => setTimeout(resolve, 100));
+
+        expect(errors).not.toHaveBeenCalled();
+        expect(rejections).toEqual([]);
+        expect(seen.draftReads).toBe(0);
+      } finally {
+        process.off("unhandledRejection", onRejection);
+        errors.mockRestore();
+      }
+    });
+
+    it("reloads and says the record is already filed when the delete loses its race to a filing", async () => {
+      serveDeletable(["Cat Power"], undefined);
+      let reads = 0;
+      let filed = false;
+      server.use(
+        http.get(FILED_ITEM_PATH, () => {
+          reads += 1;
+          return HttpResponse.json(
+            filed ? dogaItem({ state: "filed", effective_state: "filed" }) : dogaItem({ accepted_review_id: null }),
+          );
+        }),
+        http.delete(FILED_ITEM_PATH, () => {
+          filed = true;
+          return HttpResponse.json({ message: "server words", reason: "already_filed" }, { status: 409 });
+        }),
+      );
+      const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      await user.click(await screen.findByRole("button", { name: "Delete" }));
+      const readsBefore = reads;
+      await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Delete" }));
+
+      expect(await screen.findByText("This record has already been filed. The page has been reloaded.")).toBeInTheDocument();
+      expect(reads).toBeGreaterThan(readsBefore);
+      await waitFor(() => expect(screen.queryByRole("button", { name: "Delete" })).not.toBeInTheDocument());
+      expect(screen.queryByText("server words")).not.toBeInTheDocument();
+    });
+
+    it("keeps the generic line and does not reload when the record was already deleted elsewhere (404)", async () => {
+      serveDeletable(["Cat Power"], undefined);
+      let reads = 0;
+      server.use(
+        http.get(FILED_ITEM_PATH, () => {
+          reads += 1;
+          return HttpResponse.json(dogaItem({ accepted_review_id: null }));
+        }),
+        http.delete(FILED_ITEM_PATH, () => HttpResponse.json({ message: "gone" }, { status: 404 })),
+      );
+      const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      await user.click(await screen.findByRole("button", { name: "Delete" }));
+      const readsBefore = reads;
+      await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Delete" }));
+
+      expect(await screen.findByText("Couldn't delete this record. Please try again.")).toBeInTheDocument();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(reads).toBe(readsBefore);
     });
   });
 });
