@@ -52,7 +52,7 @@ export default function ReleasePicker({
           onClick={() => onPick(release)}
           sx={{ justifyContent: "flex-start" }}
         >
-          {release.artist.name} — {release.title} ({release.format})
+          {COPY.recordLine(release.artist.name, release.title, release.format)}
         </Button>
       ))}
     </Stack>
