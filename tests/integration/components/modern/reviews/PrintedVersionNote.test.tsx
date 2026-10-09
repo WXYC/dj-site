@@ -64,6 +64,18 @@ describe("PrintedVersionNote", () => {
     expect(screen.queryByRole("link", { name: "Print a new slip" })).not.toBeInTheDocument();
   });
 
+  it.each<[string, Parameters<typeof printed>[0], ReturnType<typeof reviewRevision>[]]>([
+    ["the revisions list is empty", {}, []],
+    ["the print has no date", { printed_at: null }, [first, second]],
+    ["the print date is not a date", { printed_at: "" }, [first, second]],
+  ])("renders nothing rather than throwing when %s", async (_name, overrides, list) => {
+    fakeReviewsEndpoints({ revisions: { "40": list } });
+    const { container } = renderWithProviders(<PrintedVersionNote review={printed(overrides)} />);
+
+    await new Promise((r) => setTimeout(r, 50));
+    expect(container).toBeEmptyDOMElement();
+  });
+
   it("renders nothing and requests no revisions for a review that was never printed", async () => {
     const requested = vi.fn();
     fakeReviewsEndpoints();
