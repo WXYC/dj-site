@@ -3,7 +3,7 @@ import { screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import type { Review } from "@wxyc/shared";
 import { Authorization } from "@/lib/features/admin/types";
-import { fakeReviewsEndpoints, intakeItem, renderWithProviders, review, server, TEST_BACKEND_URL } from "@/tests/helpers";
+import { fakeReviewsEndpoints, fccNote, intakeItem, renderWithProviders, review, server, TEST_BACKEND_URL } from "@/tests/helpers";
 
 vi.mock("@/lib/features/authentication/client", async () => {
   const { createAuthClientModuleMock } = await import("@/tests/helpers/auth-client-mock");
@@ -191,6 +191,22 @@ describe("ReviewEditor", () => {
     renderWithProviders(<ReviewEditor id={40} />);
 
     expect(await screen.findByRole("alert")).toHaveTextContent(REVIEW_COPY.couldNotLoad);
+  });
+
+  it("shows the record's FCC notes beside the editor for a logged record, and none for a library release", async () => {
+    fakeReviewsEndpoints({
+      reviews: [review({ intake_item_id: 2 }), review({ id: 41, intake_item_id: null, album_id: 7 })],
+      records: [RECORD],
+      fccNotesForItem: { "2": [fccNote({ intake_item_id: 2, track: "B1", note: "A word." })] },
+      fccNotesForRelease: { "7": [fccNote({ id: 2, album_id: 7, intake_item_id: null })] },
+    });
+    const logged = renderWithProviders(<ReviewEditor id={40} />);
+    expect(await screen.findByText("B1: A word.")).toBeInTheDocument();
+    logged.unmount();
+
+    renderWithProviders(<ReviewEditor id={41} />);
+    await screen.findByLabelText("Review");
+    expect(screen.queryByText("FCC notes")).not.toBeInTheDocument();
   });
 
   it.each([

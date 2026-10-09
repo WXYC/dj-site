@@ -213,4 +213,22 @@ export const REVIEW_COPY = {
     archiveTitle: "Earlier takes",
     loadFailed: "Couldn't load the reviews. Please try again.",
   },
+  /** FCC notes on a record, reported by any DJ. */
+  fccNotes: {
+    title: "FCC notes",
+    empty: "No FCC notes for this record.",
+    /** Followed by the reporter's name and ", not yet confirmed". */
+    reportedBy: (reporter: string) => `Reported by ${reporter}, not yet confirmed`,
+    confirmed: "Confirmed",
+    report: "Report an FCC note",
+    intro: "Heard something that can't go on air? Say which track and what's in it. Every DJ sees your note straight away, with your name. A music director will confirm it.",
+    track: "Track",
+    trackPlaceholder: "A2, or the track's name",
+    note: "What's in it",
+    needBoth: "Say which track and what's in it.",
+    submit: "Report",
+    cancel: "Cancel",
+    couldNotReport: "Couldn't report the note. Please try again.",
+    loadFailed: "Couldn't load the FCC notes. Please try again.",
+  },
 } as const;

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { act, screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
-import { fakeReviewsEndpoints, intakeItem, renderWithProviders, review, server, TEST_BACKEND_URL } from "@/tests/helpers";
+import { fakeReviewsEndpoints, fccNote, intakeItem, renderWithProviders, review, server, TEST_BACKEND_URL } from "@/tests/helpers";
 import { fakeRotationCardsEndpoints } from "@/tests/fakes/rotation";
 import { fakeLibraryFilingsEndpoint, filingConflictResponse } from "@/tests/fakes/libraryFilings";
 import { Authorization } from "@/lib/features/admin/types";
@@ -127,6 +127,18 @@ describe("IntakeItemScreen", () => {
 
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(container).toBeEmptyDOMElement();
+  });
+
+  it("shows the record's FCC notes on the page", async () => {
+    fakeReviewsEndpoints({
+      records: [dogaItem()],
+      forItem: { [ITEM_ID]: [submitted(40)] },
+      fccNotesForItem: { [ITEM_ID]: [fccNote({ intake_item_id: ITEM_ID, track: "B1", note: "A word." })] },
+    });
+
+    renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+    expect(await screen.findByText("B1: A word.")).toBeInTheDocument();
   });
 
   describe("the reviews", () => {

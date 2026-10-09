@@ -131,12 +131,12 @@ describe("ReviewsPanel", () => {
     expect(screen.getByText("New to reviewing? New arrivals on the review shelf need reviews most.")).toBeInTheDocument();
   });
 
-  it("renders an empty FCC notes region for the album", async () => {
+  it("fills the album's FCC notes region with the FCC notes panel", async () => {
     serve([]);
     renderPanel();
 
     const slot = await screen.findByTestId("fcc-notes-slot");
-    expect(slot).toBeEmptyDOMElement();
+    expect(await within(slot).findByText("No FCC notes for this record.")).toBeInTheDocument();
     expect(slot).toHaveAttribute("data-album-id", String(ALBUM_ID));
   });
 

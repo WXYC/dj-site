@@ -19,6 +19,7 @@ import { useCanSeeReviews } from "@/src/hooks/useCanSeeReviews";
 import { useMounted } from "@/src/hooks/useRowWrite";
 import RotationFilingBench, { type FilingSubmit } from "../admin/rotation/RotationFilingBench";
 import { REVIEW_COPY } from "./copy";
+import FccNotesPanel from "./FccNotesPanel";
 import { intakeRecord, recordLine } from "./recordLine";
 import { Group } from "./ReviewsPanel";
 
@@ -114,6 +115,7 @@ export default function IntakeItemScreen({ id }: { id: number }) {
       {!!item.data.draft_authors?.length && (
         <Typography level="body-sm">{COPY.stillWriting} {item.data.draft_authors.join(", ")}.</Typography>
       )}
+      <FccNotesPanel intakeItemId={id} />
       {notice && <Typography role="status">{notice}</Typography>}
       {coverId != null && <Link href={`/dashboard/admin/intake/${id}/slip`}>{COPY.printSlip}</Link>}
       {item.data.effective_state === "filed" || item.data.effective_state === "finalized" ? (

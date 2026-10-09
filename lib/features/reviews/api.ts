@@ -40,6 +40,7 @@ export const reviewsApi = createApi({
   reducerPath: "reviewsApi",
   baseQuery: backendBaseQuery("", { surfaceNonJsonAsError: true }),
   tagTypes: [
+    "FccNotes",
     "Intake",
     "Review",
   ],
