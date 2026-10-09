@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { fakeReviewsEndpoints, holdResponse, intakeItem, intakeSlip, renderWithProviders, review, server, TEST_BACKEND_URL } from "@/tests/helpers";
+import { reviewApi } from "@/lib/features/reviews/reviewApi";
 import { Authorization } from "@/lib/features/admin/types";
 
 vi.mock("@/lib/features/authentication/client", () => ({
@@ -269,21 +270,25 @@ describe("IntakeSlipScreen", () => {
     server.use(
       http.get(`${TEST_BACKEND_URL}/reviews/40`, () => {
         coverReads += 1;
-        return coverReads === 1 ? HttpResponse.json(review({ id: 40, medium: "typed" })) : HttpResponse.json({ message: "down" }, { status: 503 });
+        return coverReads <= 2 ? HttpResponse.json(review({ id: 40, medium: "typed" })) : HttpResponse.json({ message: "down" }, { status: 503 });
       }),
     );
     servePrint(() => HttpResponse.json({ message: "server words", reason: "not_reviewed" }, { status: 409 }));
 
-    const { user } = renderWithProviders(<IntakeSlipScreen id={ITEM_ID} />);
+    const { user, store } = renderWithProviders(<IntakeSlipScreen id={ITEM_ID} />);
     const button = await screen.findByRole("button", { name: "Print the slip" });
     await user.click(button);
     expect(await screen.findByText("Couldn't do that. Please try again.")).toBeInTheDocument();
+    // The print invalidates "Review", which evicts an unsubscribed cover; a held subscription keeps the typed cover cached, so the failed read below meets a stale `data`.
+    const subscription = store.dispatch(reviewApi.endpoints.getReview.initiate(40));
+    await subscription;
 
     await user.click(button);
 
     expect(await screen.findByText("Couldn't load this record. Please try again.")).toBeInTheDocument();
-    expect(coverReads).toBe(2);
+    expect(coverReads).toBe(3);
     expect(screen.queryByText("Couldn't do that. Please try again.")).not.toBeInTheDocument();
+    subscription.unsubscribe();
   });
 
   it("refreshes the record after a print, so it says when the slip was last printed", async () => {
@@ -316,14 +321,7 @@ describe("IntakeSlipScreen", () => {
 
   describe("when the page is gone before the print answers", () => {
     it("reloads the record once, and throws nothing, when the answer is a not_reviewed refusal", async () => {
-      let reads = 0;
       fakeReviewsEndpoints({ records: [item()] });
-      server.use(
-        http.get(`${TEST_BACKEND_URL}/intake/${ITEM_ID}`, () => {
-          reads += 1;
-          return HttpResponse.json(item());
-        }),
-      );
       const { calls, release, answered } = holdResponse("post", PRINT_PATH, () => HttpResponse.json({ message: "server words", reason: "not_reviewed" }, { status: 409 }));
       const errors = vi.spyOn(console, "error").mockImplementation(() => {});
       const rejections: unknown[] = [];
@@ -333,15 +331,18 @@ describe("IntakeSlipScreen", () => {
       const { user, unmount } = renderWithProviders(<IntakeSlipScreen id={ITEM_ID} />);
       await user.click(await screen.findByRole("button", { name: "Print the slip" }));
       await waitFor(() => expect(calls.count).toBe(1));
-      const readsBefore = reads;
+      // The reload's read is held, so the spec sees it arrive and settle rather than sleeping.
+      const reload = holdResponse("get", `${TEST_BACKEND_URL}/intake/${ITEM_ID}`, () => HttpResponse.json(item()));
 
       unmount();
       release();
       await answered;
       // A hook refetch() throws here before any request goes out, so the read below never happens.
-      await waitFor(() => expect(reads).toBe(readsBefore + 1));
+      await waitFor(() => expect(reload.calls.count).toBe(1));
+      reload.release();
+      await reload.answered;
 
-      expect(reads).toBe(readsBefore + 1);
+      expect(reload.calls.count).toBe(1);
       expect(errors).not.toHaveBeenCalled();
       expect(rejections).toEqual([]);
       process.off("unhandledRejection", onRejection);

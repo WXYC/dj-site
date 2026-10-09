@@ -74,7 +74,7 @@ export const intakeItem = (overrides: Partial<IntakeItem> = {}): IntakeItem =>
     ...overrides,
   }) as IntakeItem;
 
-/** The slip a print answers with, for the record `intakeItem()` describes. */
+/** The slip a print answers with, for Juana Molina's DOGA: the record the slip specs override `intakeItem()` to, not the builder's default Stereolab record. */
 export const intakeSlip = (overrides: Partial<IntakeSlip> = {}): IntakeSlip => ({
   artist_name: "Juana Molina",
   album_title: "DOGA",
