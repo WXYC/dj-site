@@ -7,7 +7,7 @@ import type {
 import type { FetchBaseQueryError } from "@reduxjs/toolkit/query";
 import { catalogApi, FILING_INVALIDATED_TAGS } from "@/lib/features/catalog/api";
 import { rotationApi } from "@/lib/features/rotation/api";
-import { isRefusal, unwrapEndpointErrorOrRaw } from "@/lib/rtk-endpoint-error";
+import { isRefusal } from "@/lib/rtk-endpoint-error";
 import { reviewsApi } from "./api";
 
 /**
@@ -30,10 +30,6 @@ const wrapIntakeWriteError = (response: FetchBaseQueryError): IntakeWriteError =
 /** True when an intake write lost its race: someone else got there first, or the request expired. */
 export const isIntakeStateChanged = (err: unknown): boolean =>
   isRefusal(err, { status: 409, reasons: ["state_changed"], key: "intakeWriteError" });
-
-/** True when a request was refused because the chosen account can no longer be asked to review. */
-export const isIntakeRequestRefused = (err: unknown): boolean =>
-  unwrapEndpointErrorOrRaw("intakeWriteError", err)?.status === 400;
 
 /** True when filing was refused because the review chosen for the cover was removed. */
 export const isIntakeNotReviewed = (err: unknown): boolean =>
@@ -73,13 +69,6 @@ export const intakeApi = reviewsApi.injectEndpoints({
     // On a `reviewed` record this clears the holder and leaves it reviewed.
     releaseIntakeItem: builder.mutation<IntakeItem, number>({
       query: (id) => ({ url: `intake/${id}/release`, method: "POST" }),
-      transformErrorResponse: wrapIntakeWriteError,
-      invalidatesTags: ["Intake"],
-    }),
-    // A music director asking a DJ to review a record on the review shelf.
-    // Refuses 400 when `djId` names an account that cannot review.
-    requestIntakeItem: builder.mutation<IntakeItem, { id: number; djId: string }>({
-      query: ({ id, djId }) => ({ url: `intake/${id}/request`, method: "POST", body: { dj_id: djId } }),
       transformErrorResponse: wrapIntakeWriteError,
       invalidatesTags: ["Intake"],
     }),
@@ -132,7 +121,6 @@ export const {
   useLogIntakeItemMutation,
   useCheckoutIntakeItemMutation,
   useReleaseIntakeItemMutation,
-  useRequestIntakeItemMutation,
   useCancelIntakeRequestMutation,
   useAcceptIntakeItemMutation,
   usePassIntakeItemMutation,
