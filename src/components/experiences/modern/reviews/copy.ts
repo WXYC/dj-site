@@ -174,6 +174,12 @@ export const REVIEW_COPY = {
     /** Approved. Shown once the record has reloaded after a filing lost its race. */
     alreadyFiled: "This record has already been filed. The page has been reloaded.",
     fileNew: "File as a new release",
+    fileExisting: "Already in the library?",
+    searchLibrary: "Search the library",
+    search: "Search",
+    searchFailed: "Couldn't search the library. Please try again.",
+    fileOnto: "File onto this release",
+    releaseRefused: "That release can't take this record. Pick another, or file it as a new release.",
     printSlip: "Print the slip",
     filed: "Filed.",
     delete: "Delete",
