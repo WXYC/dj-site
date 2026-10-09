@@ -14,7 +14,7 @@ const { albumPanel: copy } = REVIEW_COPY;
 
 type PanelRecord = { artist: string; album: string; label: string };
 
-/** Named empty region the album's FCC notes are rendered into. */
+/** Named region of the album page that holds the album's FCC notes panel. */
 export function FccNotesSlot({ albumId }: { albumId: number }) {
   return (
     <div data-testid="fcc-notes-slot" data-album-id={albumId}>

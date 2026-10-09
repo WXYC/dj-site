@@ -1,13 +1,7 @@
 import { describe, it, expect } from "vitest";
-import type { FccNote } from "@wxyc/shared";
 import { fakeFccNoteEndpoints, type FakeFccNoteOptions } from "@/tests/fakes/reviews/fccNote";
 import { fccNote } from "@/tests/fakes/reviews";
-import { TEST_BACKEND_URL } from "@/tests/helpers/constants";
-
-const readIds = async (search: string) => {
-  const rows = (await (await fetch(`${TEST_BACKEND_URL}/fcc-notes${search}`)).json()) as FccNote[];
-  return rows.map((row) => row.id);
-};
+import { readIds } from "./fakeReads";
 
 describe("fakeFccNoteEndpoints GET /fcc-notes", () => {
   const OPTIONS: FakeFccNoteOptions = {
@@ -25,12 +19,12 @@ describe("fakeFccNoteEndpoints GET /fcc-notes", () => {
   ])("%s", async (_name, search, expectedIds) => {
     fakeFccNoteEndpoints(OPTIONS);
 
-    expect(await readIds(search)).toEqual(expectedIds);
+    expect(await readIds("/fcc-notes", search)).toEqual(expectedIds);
   });
 
   it("answers an empty list by default", async () => {
     fakeFccNoteEndpoints();
 
-    expect(await readIds("?album_id=5")).toEqual([]);
+    expect(await readIds("/fcc-notes", "?album_id=5")).toEqual([]);
   });
 });
