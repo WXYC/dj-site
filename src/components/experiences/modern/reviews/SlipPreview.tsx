@@ -15,7 +15,7 @@ export type SlipPreviewProps = {
 };
 
 const row = (name: string, body: ReactNode) => (
-  <div style={{ display: "flex", gap: "0.1in" }}>
+  <div style={{ display: "flex", gap: "4pt" }}>
     <strong style={{ flex: "0 0 0.82in" }}>{name}</strong>
     <div style={{ flex: 1, whiteSpace: "pre-wrap" }}>{body}</div>
   </div>
@@ -29,7 +29,7 @@ export function SlipFccRow({ fcc, notes = [] }: { fcc?: string | null; notes?: s
   );
 }
 
-/** The station's printed slip: a ruled box 4.25 in wide with a 0.82 in label column. */
+/** The station's printed slip: a ruled box 4.25 in wide with a 0.82 in label column and a 4 pt gap after it. */
 export default function SlipPreview({ artist, album, label, reviewer, date, fields, fccNotes }: SlipPreviewProps) {
   const { fields: names, slip } = REVIEW_COPY;
   return (

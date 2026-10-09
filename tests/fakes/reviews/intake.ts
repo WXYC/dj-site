@@ -1,5 +1,5 @@
 import { http, HttpResponse } from "msw";
-import type { IntakeItem } from "@wxyc/shared";
+import type { IntakeItem, IntakeSlip } from "@wxyc/shared";
 import { server } from "../server";
 import { TEST_BACKEND_URL as BACKEND_URL } from "../../helpers/constants";
 import { resolve, type Rows } from "./rows";
@@ -10,6 +10,8 @@ export type FakeIntakeOptions = {
   awaiting?: Rows<IntakeItem>;
   filed?: Rows<IntakeItem>;
   records?: IntakeItem[];
+  /** The slip `POST /intake/:id/print` answers, by item id. */
+  slips?: Record<number, IntakeSlip>;
 };
 
 /**
@@ -29,8 +31,9 @@ export type FakeIntakeOptions = {
  *   union, back in the `pool` state with no requested DJ, 404 otherwise. Reads
  *   made afterwards show that row in the `pool` state, so a screen sees the
  *   request leave the Requested lane. A spec for a 409 layers its own handler.
+ * - `POST /intake/:id/print` answers the item's entry of `slips`, 409 `not_reviewed` when it has none
  */
-export function fakeIntakeEndpoints({ open = [], reviewed = [], awaiting = [], filed = [], records = [] }: FakeIntakeOptions = {}) {
+export function fakeIntakeEndpoints({ open = [], reviewed = [], awaiting = [], filed = [], records = [], slips = {} }: FakeIntakeOptions = {}) {
   const cancelled = new Set<number>();
   const unrequested = (row: IntakeItem): IntakeItem =>
     ({ ...row, state: "pool", effective_state: "pool", requested_dj_id: null, requested_dj_name: null, requested_at: null }) as IntakeItem;
@@ -55,6 +58,10 @@ export function fakeIntakeEndpoints({ open = [], reviewed = [], awaiting = [], f
       if (!found) return HttpResponse.json({ message: "not found" }, { status: 404 });
       cancelled.add(found.id);
       return HttpResponse.json(unrequested(found));
+    }),
+    http.post(`${BACKEND_URL}/intake/:id/print`, ({ params }) => {
+      const slip = slips[Number(params.id)];
+      return slip ? HttpResponse.json(slip) : HttpResponse.json({ message: "not reviewed", reason: "not_reviewed" }, { status: 409 });
     }),
   );
 }
