@@ -53,6 +53,7 @@ import NewArtistFields, {
   type CodeLettersField,
   type NewArtistConflict,
 } from "@/src/components/shared/inputs/NewArtistFields";
+import ReviewGateRefusal from "@/src/components/shared/ReviewGateRefusal";
 import CardPicker from "@/src/components/shared/inputs/CardPicker";
 import UrlListInput from "@/src/components/shared/inputs/UrlListInput";
 import CatalogRotationBinPicker from "@/src/components/experiences/modern/catalog/CatalogRotationBinPicker";
@@ -80,6 +81,18 @@ type FilingConflict = {
   /** The create-panel values the refused request carried, for the banner to name. */
   typed: { code_letters: string; code_number: string; name: string };
 };
+
+/** True for the 409 `review_required` refusal a filing gets once the review gate is on. */
+function isReviewRequiredRefusal(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const { status, data } = err as { status?: unknown; data?: unknown };
+  return (
+    status === 409 &&
+    !!data &&
+    typeof data === "object" &&
+    (data as { reason?: unknown }).reason === "review_required"
+  );
+}
 
 /**
  * Where the bench sends its composed request. A target that rejects must throw
@@ -152,6 +165,10 @@ export default function RotationFilingBench({
   );
   const [conflict, setConflict] = useState<FilingConflict | null>(null);
   const [failed, setFailed] = useState(false);
+  // The standalone bench was refused with 409 `review_required`: the release
+  // has to go onto the review shelf first. Not a filing conflict, so it
+  // neither names an artist code nor holds the submit.
+  const [reviewRequired, setReviewRequired] = useState(false);
   const [filings, setFilings] = useState<LibraryFilingResponse[]>([]);
   // Written by the checkbox handler and by a Discogs resolve. The mode survives
   // a filing the way genre, label, format and bin do — an MD files compilations
@@ -555,6 +572,7 @@ export default function RotationFilingBench({
     });
 
     setFailed(false);
+    setReviewRequired(false);
     setIsFiling(true);
     try {
       const filed = await (submit ?? ((body) => fileRelease(body).unwrap()))(request);
@@ -583,7 +601,11 @@ export default function RotationFilingBench({
       // fileRelease nests its rejection under `fileReleaseError` to stay out
       // of the shared toast middleware; unwrap the nest before reading it.
       const wrapped = unwrapEndpointErrorOrRaw("fileReleaseError", err);
-      if (isLibraryFilingConflict(wrapped)) {
+      if (submit === undefined && isReviewRequiredRefusal(wrapped)) {
+        // Shown as the station's line, never the server's message; the record
+        // page's `submit` target keeps its own handling.
+        setReviewRequired(true);
+      } else if (isLibraryFilingConflict(wrapped)) {
         setConflict({
           data: wrapped.data,
           // The snapshot records what the request actually carried, so a
@@ -890,6 +912,8 @@ export default function RotationFilingBench({
                   : "That artist code is already taken in this genre."}
               </Typography>
             )}
+
+            {reviewRequired && <ReviewGateRefusal modern />}
 
             {failed && (
               <Typography level="body-sm" color="danger" role="alert">

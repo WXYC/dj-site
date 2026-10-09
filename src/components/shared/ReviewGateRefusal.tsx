@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Link as JoyLink, Stack, Typography } from "@mui/joy";
 import { Authorization } from "@/lib/features/admin/types";
 import { useAuthentication } from "@/src/hooks/authenticationHooks";
 
@@ -11,20 +12,37 @@ export const REVIEW_GATE_COPY = {
   link: "Open the review shelf",
 } as const;
 
+const REVIEW_SHELF_HREF = "/dashboard/admin/intake";
+
 /**
  * Stands where a screen's create action stood once
- * `reviewGateCutoverReached()` is true. The link is for music directors only;
- * the page it opens is theirs.
+ * `reviewGateCutoverReached()` is true, and where the filing bench answers a
+ * `review_required` refusal. The link is for music directors only; the page it
+ * opens is theirs. The modern screens pass `modern` to render with Joy UI; the
+ * classic screens keep plain markup.
  */
-export default function ReviewGateRefusal() {
+export default function ReviewGateRefusal({ modern = false }: { modern?: boolean } = {}) {
   const { data: auth } = useAuthentication();
   const authority = "user" in auth ? auth.user?.authority : undefined;
   const isMD = (authority ?? Authorization.NO) >= Authorization.MD;
 
+  if (modern) {
+    return (
+      <Stack spacing={0.5}>
+        <Typography level="body-md">{REVIEW_GATE_COPY.refusal}</Typography>
+        {isMD && (
+          <JoyLink component={Link} href={REVIEW_SHELF_HREF} level="body-md">
+            {REVIEW_GATE_COPY.link}
+          </JoyLink>
+        )}
+      </Stack>
+    );
+  }
+
   return (
     <div>
       <p>{REVIEW_GATE_COPY.refusal}</p>
-      {isMD && <Link href="/dashboard/admin/intake">{REVIEW_GATE_COPY.link}</Link>}
+      {isMD && <Link href={REVIEW_SHELF_HREF}>{REVIEW_GATE_COPY.link}</Link>}
     </div>
   );
 }

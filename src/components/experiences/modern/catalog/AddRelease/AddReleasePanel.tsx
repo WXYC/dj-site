@@ -495,7 +495,7 @@ function AddReleaseForm() {
 export default function AddReleasePanel() {
   return (
     <RequireMD>
-      {reviewGateCutoverReached() ? <ReviewGateRefusal /> : <AddReleaseForm />}
+      {reviewGateCutoverReached() ? <ReviewGateRefusal modern /> : <AddReleaseForm />}
     </RequireMD>
   );
 }

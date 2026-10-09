@@ -49,6 +49,24 @@ describe("reviewGateCutoverReached", () => {
     expect(reviewGateCutoverReached()).toBe(true);
   });
 
+  // The clocks change at 02:00 station time, after midnight, so the cutover
+  // instant on a change day is still midnight in that day's own offset.
+  it.each([
+    ["2026-11-01", "2026-11-01T03:59:59Z", false],
+    ["2026-11-01", "2026-11-01T04:00:00Z", true],
+    ["2026-11-02", "2026-11-02T04:59:59Z", false],
+    ["2026-11-02", "2026-11-02T05:00:00Z", true],
+    ["2027-03-14", "2027-03-14T04:59:59Z", false],
+    ["2027-03-14", "2027-03-14T05:00:00Z", true],
+    ["2027-03-15", "2027-03-15T03:59:59Z", false],
+    ["2027-03-15", "2027-03-15T04:00:00Z", true],
+  ])("on the DST-change cutover %s, at %s it reads %s", async (date, instant, expected) => {
+    process.env[ENV_KEY] = date;
+    const { reviewGateCutoverReached } = await load();
+    vi.setSystemTime(new Date(instant));
+    expect(reviewGateCutoverReached()).toBe(expected);
+  });
+
   it.each(["tomorrow", "2026-13-01", "2026-02-30", "2026-1-5", "10/15/2026", " 2026-10-15"])(
     "treats the malformed value %j as on and reports it once",
     async (value) => {
