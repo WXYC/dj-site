@@ -177,7 +177,6 @@ export const REVIEW_COPY = {
   },
   /** The music directors' print page, `/dashboard/admin/intake/{id}/slip`. */
   intakeSlip: {
-    loadFailed: "Couldn't load this record. Please try again.",
     /** Followed by a date. */
     lastPrinted: "Last printed",
     /** Follows the date and a period. */

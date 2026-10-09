@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import type { IntakeSlip } from "@wxyc/shared";
-import { fakeReviewsEndpoints, intakeItem, renderWithProviders, server, TEST_BACKEND_URL } from "@/tests/helpers";
+import { fakeReviewsEndpoints, intakeItem, renderWithProviders, review, server, TEST_BACKEND_URL } from "@/tests/helpers";
 import { Authorization } from "@/lib/features/admin/types";
 
 vi.mock("@/lib/features/authentication/client", () => ({
@@ -110,6 +110,17 @@ describe("IntakeSlipScreen", () => {
     expect(print).toHaveBeenCalledTimes(1);
   });
 
+  it("prints the station day of a slip submitted on an evening in station time", async () => {
+    fakeReviewsEndpoints({ records: [item()] });
+    servePrint(() => HttpResponse.json(slip({ submitted_at: "2026-10-08T01:30:00Z" })));
+
+    const { user } = renderWithProviders(<IntakeSlipScreen id={ITEM_ID} />);
+    await user.click(await screen.findByRole("button", { name: "Print the slip" }));
+
+    const preview = await screen.findByRole("group", { name: "Slip preview" });
+    expect(within(preview).getByText("DJ Me 2026-10-07")).toBeInTheDocument();
+  });
+
   it("prints the review's FCC line, then each confirmed note", async () => {
     fakeReviewsEndpoints({ records: [item()] });
     servePrint(() => HttpResponse.json(slip({ fcc_notes: [{ track: "B1", note: "Mild language" }, { track: "C2", note: "Static" }] })));
@@ -200,8 +211,8 @@ describe("IntakeSlipScreen", () => {
     expect(print).not.toHaveBeenCalled();
   });
 
-  it("explains a handwritten review", async () => {
-    fakeReviewsEndpoints({ records: [item()] });
+  it("explains a handwritten review, read from the review on the cover", async () => {
+    fakeReviewsEndpoints({ records: [item()], reviews: [review({ id: 40, medium: "handwritten", review: null })] });
     servePrint(() => HttpResponse.json({ message: "server words", reason: "not_reviewed" }, { status: 409 }));
 
     const { user } = renderWithProviders(<IntakeSlipScreen id={ITEM_ID} />);
@@ -209,6 +220,67 @@ describe("IntakeSlipScreen", () => {
 
     expect(await screen.findByText("The record's review is handwritten, so it is already on the sleeve. There is nothing to print.")).toBeInTheDocument();
     expect(screen.queryByRole("link")).not.toBeInTheDocument();
+  });
+
+  it("words the refusal from the reloaded record: a cover cleared after load never reads as handwritten", async () => {
+    let reads = 0;
+    fakeReviewsEndpoints({ records: [item()], reviews: [review({ id: 40, medium: "handwritten", review: null })] });
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/intake/${ITEM_ID}`, async () => {
+        reads += 1;
+        if (reads === 1) return HttpResponse.json(item());
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        return HttpResponse.json(item({ accepted_review_id: null }));
+      }),
+    );
+    const calls = servePrint(() => HttpResponse.json({ message: "server words", reason: "not_reviewed" }, { status: 409 }));
+
+    const { user } = renderWithProviders(<IntakeSlipScreen id={ITEM_ID} />);
+    await user.click(await screen.findByRole("button", { name: "Print the slip" }));
+    await waitFor(() => expect(calls.count).toBe(1));
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+
+    expect(await screen.findByText("There is no review on the cover yet. Choose one on the record's page, then print.")).toBeInTheDocument();
+    expect(screen.getByRole("link")).toHaveAttribute("href", `/dashboard/admin/intake/${ITEM_ID}`);
+    expect(screen.queryByText(/handwritten/)).not.toBeInTheDocument();
+  });
+
+  it("shows the load-failure line, not a guessed case, when the reload after the refusal fails", async () => {
+    let reads = 0;
+    fakeReviewsEndpoints({ records: [item()], reviews: [review({ id: 40, medium: "handwritten", review: null })] });
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/intake/${ITEM_ID}`, () => {
+        reads += 1;
+        return reads === 1 ? HttpResponse.json(item()) : HttpResponse.json({ message: "down" }, { status: 503 });
+      }),
+    );
+    servePrint(() => HttpResponse.json({ message: "server words", reason: "not_reviewed" }, { status: 409 }));
+
+    const { user } = renderWithProviders(<IntakeSlipScreen id={ITEM_ID} />);
+    await user.click(await screen.findByRole("button", { name: "Print the slip" }));
+
+    expect(await screen.findByText("Couldn't load this record. Please try again.")).toBeInTheDocument();
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    expect(screen.queryByText(/handwritten/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/no review on the cover/)).not.toBeInTheDocument();
+  });
+
+  it("refreshes the record after a print, so it says when the slip was last printed", async () => {
+    let printed = false;
+    fakeReviewsEndpoints({ records: [item()] });
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/intake/${ITEM_ID}`, () => HttpResponse.json(item(printed ? { printed_at: "2026-10-07T16:00:00Z" } : {}))),
+    );
+    servePrint(() => {
+      printed = true;
+      return HttpResponse.json(slip());
+    });
+
+    const { user } = renderWithProviders(<IntakeSlipScreen id={ITEM_ID} />);
+    await user.click(await screen.findByRole("button", { name: "Print the slip" }));
+
+    expect(await screen.findByText("Last printed 2026-10-07. Printing again replaces the slip on the cover.")).toBeInTheDocument();
   });
 
   it("words any other failure itself", async () => {
