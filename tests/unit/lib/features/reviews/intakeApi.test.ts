@@ -73,6 +73,20 @@ describe("intakeApi", () => {
     expect(isIntakeRequestRefused("error" in result ? result.error : undefined)).toBe(true);
   });
 
+  it.each([
+    ["a wrapped 400 with no reason", { intakeWriteError: { status: 400, data: { message: "m" } } }, true],
+    ["a wrapped 404", { intakeWriteError: { status: 404, data: { message: "m" } } }, false],
+    ["a wrapped 409", { intakeWriteError: { status: 409, data: { reason: "state_changed" } } }, false],
+    ["a wrapped 500", { intakeWriteError: { status: 500, data: { message: "m" } } }, false],
+    ["a wrapped FETCH_ERROR", { intakeWriteError: { status: "FETCH_ERROR", error: "x" } }, false],
+    ["a raw 400 that is not wrapped under intakeWriteError", { status: 400, data: { message: "m" } }, false],
+    ["a 400 nested under another endpoint's key", { libraryPrintError: { status: 400, data: {} } }, false],
+    ["a bare Error", new Error("x"), false],
+    ["undefined", undefined, false],
+  ])("isIntakeRequestRefused: %s", (_label, err, expected) => {
+    expect(isIntakeRequestRefused(err)).toBe(expected);
+  });
+
   it("deleteIntakeItem DELETEs exactly /intake/7 and answers the deleted authors", async () => {
     let seen: { method: string; path: string } | undefined;
     server.use(
