@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { screen } from "@testing-library/react";
 import { renderWithProviders } from "@/tests/helpers";
 
 vi.mock("server-only", () => ({}));
@@ -142,5 +143,30 @@ describe("rotation filing bench page", () => {
     // Flag-off is a 404 for everyone — the dark launch must not depend on
     // who is asking, so the auth read is never even attempted.
     expect(mockGetSession).not.toHaveBeenCalled();
+  });
+
+  it("files from the bench before the cutover date", async () => {
+    process.env.NEXT_PUBLIC_REVIEW_GATE_CUTOVER_DATE = "2999-12-31";
+    mockGetSession.mockResolvedValue({ data: sessionData(null), error: null });
+    mockGetUserRoleInOrganization.mockResolvedValue("musicDirector");
+
+    renderWithProviders(await RotationBenchPage());
+
+    expect(screen.getByTestId("rotation-filing-bench")).toBeInTheDocument();
+  });
+
+  it("shows the review shelf line instead of the bench from the cutover date", async () => {
+    process.env.NEXT_PUBLIC_REVIEW_GATE_CUTOVER_DATE = "2000-01-01";
+    mockGetSession.mockResolvedValue({ data: sessionData(null), error: null });
+    mockGetUserRoleInOrganization.mockResolvedValue("musicDirector");
+
+    renderWithProviders(await RotationBenchPage());
+
+    expect(
+      screen.getByText(
+        "New releases go onto the review shelf first, and are filed from there once a review is chosen.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByTestId("rotation-filing-bench")).not.toBeInTheDocument();
   });
 });

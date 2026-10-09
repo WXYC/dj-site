@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse, delay } from "msw";
@@ -836,5 +836,35 @@ describe("classic VariousArtistsCard — variousArtistsCardModify.jsp", () => {
         "The artist/library code below has been added to the database.",
       ),
     ).toBeDefined();
+  });
+});
+
+describe("classic VariousArtistsCard — review gate cutover", () => {
+  beforeEach(() => {
+    mockAll();
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("offers the add-release form before the cutover date", async () => {
+    vi.stubEnv("NEXT_PUBLIC_REVIEW_GATE_CUTOVER_DATE", "2999-12-31");
+    renderWithProviders(<VariousArtistsCard artistId={BUCKET_ID} />);
+
+    expect(await screen.findByTestId("va-add-release-form")).toBeInTheDocument();
+  });
+
+  it("replaces the add-release form with the review shelf line from the cutover date", async () => {
+    vi.stubEnv("NEXT_PUBLIC_REVIEW_GATE_CUTOVER_DATE", "2000-01-01");
+    renderWithProviders(<VariousArtistsCard artistId={BUCKET_ID} />);
+
+    await screen.findByTestId("va-bucket-header");
+    expect(
+      screen.getByText(
+        "New releases go onto the review shelf first, and are filed from there once a review is chosen.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByTestId("va-add-release-form")).toBeNull();
   });
 });

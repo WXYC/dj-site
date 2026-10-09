@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { renderWithProviders, server, TEST_BACKEND_URL } from "@/tests/helpers";
@@ -185,6 +185,26 @@ describe("classic RotationReleaseInsert — rotationReleaseInsert.jsp", () => {
     });
   });
 
+  it("shows the server's review_required sentence inline, not a generic failure", async () => {
+    server.use(
+      http.post(BASE, () =>
+        HttpResponse.json(
+          { message: "Every new release needs a review: put it on the review shelf first.", reason: "review_required" },
+          { status: 409 },
+        ),
+      ),
+    );
+
+    const { user } = renderWithProviders(<RotationReleaseInsert />);
+    await fillRequiredFields(user);
+    await user.click(screen.getByRole("button", { name: "Add this record" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Every new release needs a review: put it on the review shelf first.",
+    );
+    expect(screen.queryByText("Failed to add rotation release.")).not.toBeInTheDocument();
+  });
+
   it("renders the server's refusal message inline, matching the JSP's validationMessage div", async () => {
     server.use(
       http.post(BASE, () =>
@@ -303,5 +323,31 @@ describe("classic RotationReleaseInsert — rotationReleaseInsert.jsp", () => {
       await screen.findByText("Please select a format.");
       expect(posted).toBe(false);
     });
+  });
+});
+
+describe("classic RotationReleaseInsert — review gate cutover", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("offers the add form before the cutover date", () => {
+    vi.stubEnv("NEXT_PUBLIC_REVIEW_GATE_CUTOVER_DATE", "2999-12-31");
+    renderWithProviders(<RotationReleaseInsert />);
+
+    expect(screen.getByRole("button", { name: "Add this record" })).toBeInTheDocument();
+  });
+
+  it("replaces the add form with the review shelf line from the cutover date", () => {
+    vi.stubEnv("NEXT_PUBLIC_REVIEW_GATE_CUTOVER_DATE", "2000-01-01");
+    renderWithProviders(<RotationReleaseInsert />);
+
+    expect(
+      screen.getByText(
+        "New releases go onto the review shelf first, and are filed from there once a review is chosen.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Add this record" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Rotation Release List/i })).toBeInTheDocument();
   });
 });

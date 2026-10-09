@@ -1,5 +1,7 @@
 import { requireAuth, requireRole } from "@/lib/features/authentication/server-utils";
 import { isRotationAdminEnabled } from "@/lib/features/rotation/flags";
+import { reviewGateCutoverReached } from "@/lib/features/reviews/reviewGate";
+import ReviewGateRefusal from "@/src/components/shared/ReviewGateRefusal";
 import { Authorization } from "@/lib/features/admin/types";
 import PageHeader from "@/src/components/experiences/modern/Header/PageHeader";
 import RotationFilingBench from "@/src/components/experiences/modern/admin/rotation/RotationFilingBench";
@@ -22,7 +24,7 @@ export default async function RotationBenchPage() {
   return (
     <>
       <PageHeader title="Add to Rotation" />
-      <RotationFilingBench />
+      {reviewGateCutoverReached() ? <ReviewGateRefusal /> : <RotationFilingBench />}
     </>
   );
 }

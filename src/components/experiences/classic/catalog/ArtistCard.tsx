@@ -1,5 +1,7 @@
 "use client";
 
+import { reviewGateCutoverReached } from "@/lib/features/reviews/reviewGate";
+import ReviewGateRefusal from "@/src/components/shared/ReviewGateRefusal";
 import { skipToken } from "@reduxjs/toolkit/query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -654,6 +656,9 @@ export default function ArtistCard({ artistId, genreId, message, imported, refil
 
       <hr />
 
+      {reviewGateCutoverReached() ? (
+        <ReviewGateRefusal />
+      ) : (
       <form name="addRelease" data-testid="add-release-form" onSubmit={handleAddRelease}>
         <table cellPadding={5} style={{ margin: "0 auto" }}>
           <tbody>
@@ -827,6 +832,7 @@ export default function ArtistCard({ artistId, genreId, message, imported, refil
           </tbody>
         </table>
       </form>
+      )}
 
       <hr />
 
