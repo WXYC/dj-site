@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { act, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { fakeReviewsEndpoints, fccNote, intakeItem, renderWithProviders, review, reviewRevision, server, TEST_BACKEND_URL } from "@/tests/helpers";
 import { fakeRotationCardsEndpoints } from "@/tests/fakes/rotation";
@@ -48,6 +48,8 @@ import modernTheme from "@/lib/features/experiences/modern/theme";
 import IntakeItemScreen from "@/src/components/experiences/modern/reviews/IntakeItemScreen";
 import { useGetRotationListQuery } from "@/lib/features/rotation/api";
 import { useSearchCatalogQuery } from "@/lib/features/catalog/api";
+import { useGetReviewsForReleaseQuery } from "@/lib/features/reviews/reviewApi";
+import { useGetFccNotesQuery } from "@/lib/features/reviews/fccNoteApi";
 
 const ITEM_ID = 11;
 const GENRE_ID = 1;
@@ -576,32 +578,45 @@ describe("IntakeItemScreen", () => {
   });
 
   describe("filing onto a release already in the library", () => {
-    const RELEASE_ROW = { id: 5, album_title: "DOGA", artist_name: "Juana Molina", label: "Sonamos", genre_name: "Rock", format_name: "cd", code_letters: "MO", code_artist_number: 1, code_number: 1, add_date: "2026-01-01", plays: 0 };
+    const RELEASE_ROW = { id: 5, album_title: "DOGA", artist_name: "Juana Molina", label: "Sonamos", genre_name: "Rock", format_name: "CD", code_letters: "MO", code_artist_number: 1, code_number: 1, add_date: "2026-01-01", plays: 0 };
+    const LP_ROW = { ...RELEASE_ROW, id: 6, format_name: "LP", code_number: 2 };
+    const ROW_NAME = "Juana Molina — DOGA (CD)";
+    const FILE_URL = `${TEST_BACKEND_URL}/intake/${ITEM_ID}/file`;
 
     const setUp = (item = dogaItem()) => {
       fakeReviewsEndpoints({ records: [item], forItem: { [ITEM_ID]: item.accepted_review_id ? [submitted(40)] : [] } });
-      const searches: (string | null)[] = [];
+      const searches: Record<string, string>[] = [];
       server.use(
         http.get(`${TEST_BACKEND_URL}/library`, ({ request }) => {
-          searches.push(new URL(request.url).searchParams.get("artist_name"));
+          searches.push(Object.fromEntries(new URL(request.url).searchParams));
           return HttpResponse.json([RELEASE_ROW]);
         }),
       );
       return { box: serveItem(item), searches };
     };
 
-    const pickDoga = async (user: User) => {
-      await user.type(await screen.findByRole("searchbox", { name: "Search the library" }), "Juana");
+    const search = async (user: User, term: string) => {
+      const box = await screen.findByRole("searchbox", { name: "Search the library" });
+      await user.clear(box);
+      await user.type(box, term);
       await user.click(screen.getByRole("button", { name: "Search" }));
-      await user.click(await screen.findByRole("button", { name: "Juana Molina — DOGA" }));
+    };
+
+    const pick = async (user: User, name = ROW_NAME) => {
+      await search(user, "Juana");
+      await user.click(await screen.findByRole("button", { name }));
+    };
+
+    const pickDoga = async (user: User) => {
+      await pick(user);
       await user.click(screen.getByRole("button", { name: "File onto this release" }));
     };
 
     it("files onto the picked release with the existing_release kind and shows the record filed", async () => {
-      const { box, searches } = setUp();
+      const { box } = setUp();
       const fileBodies: unknown[] = [];
       server.use(
-        http.post(`${TEST_BACKEND_URL}/intake/${ITEM_ID}/file`, async ({ request }) => {
+        http.post(FILE_URL, async ({ request }) => {
           fileBodies.push(await request.json());
           box.item = dogaItem({ state: "filed", effective_state: "filed" });
           return HttpResponse.json(box.item);
@@ -613,9 +628,72 @@ describe("IntakeItemScreen", () => {
       await pickDoga(user);
 
       await waitFor(() => expect(fileBodies).toEqual([{ kind: "existing_release", album_id: 5 }]));
-      expect(new Set(searches)).toEqual(new Set(["Juana"]));
       expect(await screen.findByText("Filed.")).toBeInTheDocument();
       expect(screen.queryByText("Already in the library?")).not.toBeInTheDocument();
+    });
+
+    it("searches the term as both artist and title, as the classic catalog does, and asks for as many rows", async () => {
+      const { searches } = setUp();
+      const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      await search(user, "Various Artists");
+
+      await waitFor(() => expect(searches).toEqual([{ artist_name: "Various Artists", album_title: "Various Artists", n: "50" }]));
+    });
+
+    it("shows which release is picked, on its row and beside the file button, and tells a CD from an LP", async () => {
+      const { searches } = setUp();
+      server.use(http.get(`${TEST_BACKEND_URL}/library`, () => HttpResponse.json([RELEASE_ROW, LP_ROW])));
+      const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+      expect(searches).toEqual([]);
+
+      await search(user, "Juana");
+      const cd = await screen.findByRole("button", { name: "Juana Molina — DOGA (CD)" });
+      const lp = screen.getByRole("button", { name: "Juana Molina — DOGA (LP)" });
+      expect(screen.queryByRole("button", { name: "File onto this release" })).not.toBeInTheDocument();
+      await user.click(lp);
+
+      expect(lp).toHaveAttribute("aria-pressed", "true");
+      expect(cd).toHaveAttribute("aria-pressed", "false");
+      expect(screen.getAllByText("Juana Molina — DOGA (LP)")).toHaveLength(2);
+    });
+
+    it("drops the pick when a new search runs, so the file button never names a release that left the screen", async () => {
+      setUp();
+      const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+      await pick(user);
+      expect(screen.getByRole("button", { name: "File onto this release" })).toBeInTheDocument();
+
+      await search(user, "Stereolab");
+
+      expect(screen.queryByRole("button", { name: "File onto this release" })).not.toBeInTheDocument();
+    });
+
+    it("sends one request when the file button is pressed twice", async () => {
+      const { box } = setUp();
+      let posts = 0;
+      let release!: () => void;
+      const held = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      server.use(
+        http.post(FILE_URL, async () => {
+          posts += 1;
+          await held;
+          box.item = dogaItem({ state: "filed", effective_state: "filed" });
+          return HttpResponse.json(box.item);
+        }),
+      );
+      const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+      await pick(user);
+
+      const button = screen.getByRole("button", { name: "File onto this release" });
+      await user.click(button);
+      fireEvent.click(button);
+      release();
+
+      expect(await screen.findByText("Filed.")).toBeInTheDocument();
+      expect(posts).toBe(1);
     });
 
     it("offers neither arm, only the choose-a-review line, when no review is on the cover", async () => {
@@ -627,14 +705,14 @@ describe("IntakeItemScreen", () => {
       expect(screen.queryByRole("searchbox", { name: "Search the library" })).not.toBeInTheDocument();
     });
 
-    it.each([
+    const REFUSALS = [
       ["state_changed", "This record has already been filed. The page has been reloaded."],
       ["not_reviewed", "This record has no review chosen for the cover, so it can't be filed yet."],
-    ] as const)("shows the %s line and rereads the item", async (reason, line) => {
+    ] as const;
+
+    it.each(REFUSALS)("shows the %s line and rereads the item", async (reason, line) => {
       const { box } = setUp();
-      server.use(
-        http.post(`${TEST_BACKEND_URL}/intake/${ITEM_ID}/file`, () => HttpResponse.json({ message: "server words", reason }, { status: 409 })),
-      );
+      server.use(http.post(FILE_URL, () => HttpResponse.json({ message: "server words", reason }, { status: 409 })));
       const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
       await screen.findByText("Already in the library?");
       const readsBefore = box.reads;
@@ -646,11 +724,93 @@ describe("IntakeItemScreen", () => {
       expect(screen.queryByText("server words")).not.toBeInTheDocument();
     });
 
+    it.each(REFUSALS)("shows the %s line only once the record has reloaded", async (reason, line) => {
+      const { box } = setUp();
+      let release!: () => void;
+      server.use(
+        http.post(FILE_URL, () => {
+          box.hold = new Promise<void>((resolve) => {
+            release = resolve;
+          });
+          return HttpResponse.json({ message: "server words", reason }, { status: 409 });
+        }),
+      );
+      const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+      await screen.findByText("Already in the library?");
+      const readsBefore = box.reads;
+
+      await pickDoga(user);
+
+      await waitFor(() => expect(box.reads).toBe(readsBefore + 1));
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(screen.queryByRole("status")).not.toBeInTheDocument();
+
+      release();
+      expect((await screen.findByRole("status")).textContent).toBe(line);
+    });
+
+    it.each(REFUSALS)("rereads the item's reviews after a %s refusal", async (reason) => {
+      setUp();
+      let reviewReads = 0;
+      server.use(
+        http.get(`${TEST_BACKEND_URL}/reviews`, ({ request }) => {
+          if (new URL(request.url).searchParams.get("intake_item_id") === String(ITEM_ID)) reviewReads += 1;
+          return HttpResponse.json([submitted(40)]);
+        }),
+        http.post(FILE_URL, () => HttpResponse.json({ message: "server words", reason }, { status: 409 })),
+      );
+      const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+      await screen.findByText("Already in the library?");
+      await waitFor(() => expect(reviewReads).toBe(1));
+
+      await pickDoga(user);
+
+      await screen.findByRole("status");
+      expect(reviewReads).toBe(2);
+    });
+
+    it("rereads the item and its reviews, and throws nothing, when the page unmounts while the filing is in flight and is then refused", async () => {
+      const { box } = setUp();
+      let reviewReads = 0;
+      let posted = false;
+      let release!: () => void;
+      const held = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      server.use(
+        http.get(`${TEST_BACKEND_URL}/reviews`, ({ request }) => {
+          if (new URL(request.url).searchParams.get("intake_item_id") === String(ITEM_ID)) reviewReads += 1;
+          return HttpResponse.json([submitted(40)]);
+        }),
+        http.post(FILE_URL, async () => {
+          posted = true;
+          await held;
+          return HttpResponse.json({ message: "server words", reason: "state_changed" }, { status: 409 });
+        }),
+      );
+      const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+      const { user, unmount } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+      await pick(user);
+      await waitFor(() => expect(reviewReads).toBe(1));
+      const itemReadsBefore = box.reads;
+      const reviewReadsBefore = reviewReads;
+      await user.click(screen.getByRole("button", { name: "File onto this release" }));
+      await waitFor(() => expect(posted).toBe(true));
+
+      unmount();
+      release();
+      // A hook refetch() throws here before any request goes out, so the reads below never happen.
+      await waitFor(() => expect(box.reads).toBe(itemReadsBefore + 1));
+      await waitFor(() => expect(reviewReads).toBe(reviewReadsBefore + 1));
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      expect(errors).not.toHaveBeenCalled();
+      errors.mockRestore();
+    });
+
     it("words its own line, not the server's, when the release cannot take the record", async () => {
       setUp();
-      server.use(
-        http.post(`${TEST_BACKEND_URL}/intake/${ITEM_ID}/file`, () => HttpResponse.json({ message: "server words" }, { status: 400 })),
-      );
+      server.use(http.post(FILE_URL, () => HttpResponse.json({ message: "server words" }, { status: 400 })));
       const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
       await screen.findByText("Already in the library?");
 
@@ -660,22 +820,53 @@ describe("IntakeItemScreen", () => {
       expect(screen.queryByText("server words")).not.toBeInTheDocument();
     });
 
+    it.each([
+      [500, { message: "server words" }],
+      [403, { message: "server words" }],
+    ] as const)("says the filing failed, not that the release is wrong, when the server answers %s", async (status, body) => {
+      const { box } = setUp();
+      server.use(http.post(FILE_URL, () => HttpResponse.json(body, { status })));
+      const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+      await screen.findByText("Already in the library?");
+
+      await pickDoga(user);
+
+      expect((await screen.findByRole("status")).textContent).toBe("Couldn't file this record. Please try again.");
+      expect(screen.queryByText(/can't take this record/)).not.toBeInTheDocument();
+      expect(box.reads).toBeGreaterThan(0);
+    });
+
     it("shows its own load-failure line when the search fails", async () => {
       setUp();
       server.use(http.get(`${TEST_BACKEND_URL}/library`, () => HttpResponse.json({ message: "down" }, { status: 500 })));
       const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
 
-      await user.type(await screen.findByRole("searchbox", { name: "Search the library" }), "Juana");
-      await user.click(screen.getByRole("button", { name: "Search" }));
+      await search(user, "Juana");
 
       expect(await screen.findByText("Couldn't search the library. Please try again.")).toBeInTheDocument();
       expect(screen.getByText("Already in the library?")).toBeInTheDocument();
     });
 
-    it("refetches a mounted catalog query and a mounted rotation list once each after a successful file", async () => {
+    it("shows the failure line, and not the previous term's rows, when a second search fails", async () => {
+      setUp();
+      const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+      await search(user, "Juana");
+      await screen.findByRole("button", { name: ROW_NAME });
+      server.use(http.get(`${TEST_BACKEND_URL}/library`, () => HttpResponse.json({ message: "down" }, { status: 500 })));
+
+      await search(user, "Stereolab");
+
+      expect(await screen.findByText("Couldn't search the library. Please try again.")).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: ROW_NAME })).not.toBeInTheDocument();
+    });
+
+    it("refetches a mounted catalog query, rotation list, release reviews and FCC notes once each after a successful file, and the reviews and notes not at all after a refusal", async () => {
       setUp();
       let catalogReads = 0;
       let rotationReads = 0;
+      let releaseReviewReads = 0;
+      let fccReads = 0;
+      let refuse = true;
       server.use(
         http.get(`${TEST_BACKEND_URL}/library`, ({ request }) => {
           if (new URL(request.url).searchParams.get("artist_name") === "Stereolab") catalogReads += 1;
@@ -685,19 +876,40 @@ describe("IntakeItemScreen", () => {
           rotationReads += 1;
           return HttpResponse.json([]);
         }),
-        http.post(`${TEST_BACKEND_URL}/intake/${ITEM_ID}/file`, () => HttpResponse.json(dogaItem({ state: "filed", effective_state: "filed" }))),
+        http.get(`${TEST_BACKEND_URL}/reviews`, ({ request }) => {
+          if (new URL(request.url).searchParams.get("album_id") === "5") releaseReviewReads += 1;
+          return HttpResponse.json([submitted(40)]);
+        }),
+        http.get(`${TEST_BACKEND_URL}/fcc-notes`, ({ request }) => {
+          if (new URL(request.url).searchParams.get("album_id") === "5") fccReads += 1;
+          return HttpResponse.json([]);
+        }),
+        http.post(FILE_URL, () =>
+          refuse
+            ? HttpResponse.json({ message: "server words", reason: "state_changed" }, { status: 409 })
+            : HttpResponse.json(dogaItem({ state: "filed", effective_state: "filed" })),
+        ),
       );
       function Mounted() {
         useSearchCatalogQuery({ artist_name: "Stereolab", album_title: undefined, n: 5 });
         useGetRotationListQuery();
+        useGetReviewsForReleaseQuery(5);
+        useGetFccNotesQuery({ album_id: 5 });
         return <IntakeItemScreen id={ITEM_ID} />;
       }
       const { user } = renderScreen(<Mounted />);
-      await waitFor(() => expect([catalogReads, rotationReads]).toEqual([1, 1]));
+      await waitFor(() => expect([catalogReads, rotationReads, releaseReviewReads, fccReads]).toEqual([1, 1, 1, 1]));
 
-      await pickDoga(user);
+      await pick(user);
+      await user.click(screen.getByRole("button", { name: "File onto this release" }));
+      await screen.findByRole("status");
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      expect([catalogReads, rotationReads, releaseReviewReads, fccReads]).toEqual([1, 1, 1, 1]);
 
-      await waitFor(() => expect([catalogReads, rotationReads]).toEqual([2, 2]));
+      refuse = false;
+      await user.click(screen.getByRole("button", { name: "File onto this release" }));
+
+      await waitFor(() => expect([catalogReads, rotationReads, releaseReviewReads, fccReads]).toEqual([2, 2, 2, 2]));
     });
   });
 

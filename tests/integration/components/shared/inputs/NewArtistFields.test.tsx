@@ -266,8 +266,7 @@ describe("NewArtistFields", () => {
       rerender(<ControlledLetters codeLetters={STEREOLAB} />);
 
       await waitFor(() => expect(getRequestCount()).toBe(2));
-      // The request being received is not the number being rendered.
-      expect(await screen.findByTestId("next-code-number")).toHaveTextContent("7");
+      expect(screen.getByTestId("next-code-number")).toHaveTextContent("7");
     });
 
     it("shows a loading state instead of the previous letters' number during the debounce window", async () => {
