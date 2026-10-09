@@ -4,12 +4,27 @@ import { Authorization } from "@/lib/features/admin/types";
 import { fakeReviewsEndpoints, renderWithProviders, review, reviewRevision, server } from "@/tests/helpers";
 import type { AlbumReview } from "@wxyc/shared";
 
-vi.mock("@/lib/features/authentication/client", async () => {
-  const { createAuthClientModuleMock } = await import("@/tests/helpers/auth-client-mock");
-  return createAuthClientModuleMock();
-});
-
+// The Print this review link is gated by the real RequireMD, which resolves the music director tier from the session and the organization role.
+vi.mock("@/lib/features/authentication/client", () => ({
+  authClient: {
+    useSession: () => ({
+      data: { user: { id: "me", email: "me@wxyc.org", name: "Me", username: "me", role: null, emailVerified: true } },
+      isPending: false,
+      error: null,
+    }),
+  },
+  getJWTToken: vi.fn().mockResolvedValue("test-token"),
+}));
+vi.mock("@/lib/features/authentication/organization-config", () => ({
+  getAppOrganizationIdClient: vi.fn(() => undefined),
+}));
 const mockAuth = vi.hoisted(() => ({ authority: 1 as number }));
+vi.mock("@/lib/features/authentication/organization-utils", async () => {
+  const { Authorization: Role } = await import("@/lib/features/admin/types");
+  return {
+    fetchOrganizationRoleForUserClient: vi.fn(async () => (mockAuth.authority >= Role.MD ? "musicDirector" : "dj")),
+  };
+});
 vi.mock("@/src/hooks/authenticationHooks", () => ({
   useAuthentication: () => ({
     data: { user: { id: "dj-me", authority: mockAuth.authority } },
@@ -17,14 +32,6 @@ vi.mock("@/src/hooks/authenticationHooks", () => ({
     authenticated: true,
   }),
 }));
-
-// The real RequireMD resolves the role through the auth client; this stands in with the same rule.
-vi.mock("@/src/components/shared/Authorization", async () => {
-  const { Authorization: Role } = await import("@/lib/features/admin/types");
-  return {
-    RequireMD: ({ children }: { children: React.ReactNode }) => (mockAuth.authority >= Role.MD ? <>{children}</> : null),
-  };
-});
 
 import ReviewsPanel from "@/src/components/experiences/modern/reviews/ReviewsPanel";
 import { REVIEW_COPY } from "@/src/components/experiences/modern/reviews/copy";
@@ -116,7 +123,9 @@ describe("ReviewsPanel", () => {
   it.each([
     ["a music director", Authorization.MD, {}, true],
     ["a DJ", Authorization.DJ, {}, false],
-    ["a music director, on a handwritten review", Authorization.MD, { medium: "handwritten", review: null }, false],
+    ["a music director, on a handwritten review without text", Authorization.MD, { medium: "handwritten", review: null }, false],
+    ["a music director, on a handwritten review with text", Authorization.MD, { medium: "handwritten", review: "Some text" }, false],
+    ["a music director, on a printed review", Authorization.MD, { medium: "printed" }, false],
     ["a music director, on a draft", Authorization.MD, { status: "draft" }, false],
   ])("offers Print this review to %s: %s", async (_who, authority, overrides, offered) => {
     mockAuth.authority = authority;
@@ -124,9 +133,13 @@ describe("ReviewsPanel", () => {
     renderPanel();
 
     await screen.findByText("Reviewer 1", { exact: false });
-    const link = screen.queryByRole("link", { name: "Print this review" });
-    if (offered) expect(link).toHaveAttribute("href", `/dashboard/admin/library/${ALBUM_ID}/slip/1`);
-    else expect(link).not.toBeInTheDocument();
+    if (offered) {
+      expect(await screen.findByRole("link", { name: "Print this review" })).toHaveAttribute("href", `/dashboard/admin/library/${ALBUM_ID}/slip/1`);
+    } else {
+      // Let the gate resolve the role before asserting the link is absent.
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(screen.queryByRole("link", { name: "Print this review" })).not.toBeInTheDocument();
+    }
   });
 
   it("does not offer Print this review on the archive's form-era takes", async () => {
@@ -135,6 +148,7 @@ describe("ReviewsPanel", () => {
     renderPanel();
 
     await screen.findByText("Reviewer One: Old take");
+    await new Promise((resolve) => setTimeout(resolve, 50));
     expect(screen.queryByRole("link", { name: "Print this review" })).not.toBeInTheDocument();
   });
 

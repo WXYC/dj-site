@@ -107,6 +107,18 @@ describe("ReleaseSlipScreen", () => {
     expect(print).toHaveBeenCalledTimes(1);
   });
 
+  it("drops the name clause from the lead line for a review with no author", async () => {
+    fakeReviewsEndpoints({
+      releases: [{ id: ALBUM_ID, album_title: "DOGA", artist_name: "Juana Molina", label: "Sonamos" }],
+      reviews: [review({ id: REVIEW_ID, album_id: ALBUM_ID, intake_item_id: null, author: null, medium: "typed", status: "submitted" })],
+    });
+
+    renderWithProviders(<ReleaseSlipScreen albumId={ALBUM_ID} reviewId={REVIEW_ID} />);
+
+    await screen.findByRole("button", { name: "Print the slip" });
+    expect(screen.getByText("This prints the review for the cover of Juana Molina — DOGA. If the cover already has a slip, this one replaces it.")).toBeInTheDocument();
+  });
+
   it("renders the returned slip with its FCC line and confirmed notes", async () => {
     serveRecord();
     servePrint(() => HttpResponse.json(slip()));
@@ -130,7 +142,7 @@ describe("ReleaseSlipScreen", () => {
 
     const alert = await screen.findByRole("alert");
     expect(alert.textContent).toBe("This review can't be printed. It may be handwritten, or it may have been deleted since the page opened.");
-    expect(screen.getByRole("link")).toHaveAttribute("href", "/dashboard/catalog");
+    expect(screen.getByRole("link")).toHaveAttribute("href", `/dashboard/album/${ALBUM_ID}`);
     expect(screen.queryByText(SERVER_MESSAGE)).not.toBeInTheDocument();
     expect(toast.error).not.toHaveBeenCalledWith(SERVER_MESSAGE);
     expect(print).not.toHaveBeenCalled();

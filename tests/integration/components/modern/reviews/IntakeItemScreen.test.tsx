@@ -205,6 +205,17 @@ describe("IntakeItemScreen", () => {
       );
     });
 
+    it("offers no Print this review link on the record's page, which has its own Print the slip", async () => {
+      fakeReviewsEndpoints({ records: [dogaItem()], forItem: { [ITEM_ID]: [submitted(40, { medium: "typed", album_id: null })] } });
+
+      renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      await screen.findByRole("link", { name: "Print the slip" });
+      // Let the music director gate resolve before asserting the link is absent.
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(screen.queryByRole("link", { name: "Print this review" })).not.toBeInTheDocument();
+    });
+
     it.each([
       ["lists the names of DJs with an unfinished draft", { draft_authors: ["DJ Sam", "DJ Pat"] }, "Still writing: DJ Sam, DJ Pat."],
       ["is absent for an empty list", { draft_authors: [] }, null],
