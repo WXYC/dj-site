@@ -1,8 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
-import type { IntakeSlip } from "@wxyc/shared";
-import { fakeReviewsEndpoints, renderWithProviders, review, server, TEST_BACKEND_URL } from "@/tests/helpers";
+import { fakeReviewsEndpoints, holdResponse, intakeSlip, renderWithProviders, review, server, TEST_BACKEND_URL } from "@/tests/helpers";
 import { Authorization } from "@/lib/features/admin/types";
 
 vi.mock("@/lib/features/authentication/client", () => ({
@@ -33,22 +32,6 @@ const serveRecord = () =>
     releases: [{ id: ALBUM_ID, album_title: "DOGA", artist_name: "Juana Molina", label: "Sonamos" }],
     reviews: [review({ id: REVIEW_ID, album_id: ALBUM_ID, intake_item_id: null, author: "DJ Me", medium: "typed", status: "submitted" })],
   });
-
-const slip = (overrides: Partial<IntakeSlip> = {}): IntakeSlip => ({
-  artist_name: "Juana Molina",
-  album_title: "DOGA",
-  record_label: "Sonamos",
-  buzzwords: "spectral, loops",
-  artist_blurb: "Argentine songwriter.",
-  review: "Hushed and strange.",
-  author: "DJ Me",
-  submitted_at: "2026-10-07T16:00:00Z",
-  recommended_tracks: "A1, B4",
-  fcc: "A2 has a slip of the tongue",
-  revision_id: 3,
-  fcc_notes: [{ track: "B1", note: "Mild language" }],
-  ...overrides,
-});
 
 /** Counts the prints, records their bodies, and answers them with `respond`. */
 function servePrint(respond: () => Response) {
@@ -92,7 +75,7 @@ describe("ReleaseSlipScreen", () => {
 
   it("says whose review prints for which record, sends nothing on load, and sends { review_id } on the press", async () => {
     serveRecord();
-    const calls = servePrint(() => HttpResponse.json(slip()));
+    const calls = servePrint(() => HttpResponse.json(intakeSlip()));
 
     const { user } = renderWithProviders(<ReleaseSlipScreen albumId={ALBUM_ID} reviewId={REVIEW_ID} />);
     const button = await screen.findByRole("button", { name: "Print the slip" });
@@ -121,7 +104,7 @@ describe("ReleaseSlipScreen", () => {
 
   it("renders the returned slip with its FCC line and confirmed notes", async () => {
     serveRecord();
-    servePrint(() => HttpResponse.json(slip()));
+    servePrint(() => HttpResponse.json(intakeSlip()));
 
     const { user } = renderWithProviders(<ReleaseSlipScreen albumId={ALBUM_ID} reviewId={REVIEW_ID} />);
     await user.click(await screen.findByRole("button", { name: "Print the slip" }));
@@ -162,18 +145,7 @@ describe("ReleaseSlipScreen", () => {
 
   it("does not open the print dialog when the page is gone before a success answers", async () => {
     serveRecord();
-    let release!: () => void;
-    const held = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    const calls = { count: 0 };
-    server.use(
-      http.post(PRINT_PATH, async () => {
-        calls.count += 1;
-        await held;
-        return HttpResponse.json(slip());
-      }),
-    );
+    const { calls, release, answered } = holdResponse("post", PRINT_PATH, () => HttpResponse.json(intakeSlip()));
 
     const { user, unmount } = renderWithProviders(<ReleaseSlipScreen albumId={ALBUM_ID} reviewId={REVIEW_ID} />);
     await user.click(await screen.findByRole("button", { name: "Print the slip" }));
@@ -181,7 +153,7 @@ describe("ReleaseSlipScreen", () => {
 
     unmount();
     release();
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await answered;
 
     expect(print).not.toHaveBeenCalled();
   });
