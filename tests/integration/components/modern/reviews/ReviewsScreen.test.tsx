@@ -80,7 +80,7 @@ describe("ReviewsScreen", () => {
     const { user } = renderWithProviders(<ReviewsScreen />);
     const shelf = await section(SHELF);
     expect(within(shelf).getByText(/Aluminum Tunes/)).toBeInTheDocument();
-    expect(within(shelf).getByText(/cd/)).toBeInTheDocument();
+    expect(within(shelf).getByText(/CD/)).toBeInTheDocument();
     await user.click(within(shelf).getByRole("button", { name: "Check out" }));
 
     await waitFor(() => expect(posted).toBe("/intake/5/checkout"));
@@ -545,7 +545,7 @@ describe("ReviewsScreen", () => {
     renderWithProviders(<ReviewsScreen />);
     const reviews = await section(REVIEW_COPY.myReviews.title);
 
-    expect(await within(reviews).findByText("Cat Power · Moon Pix · Matador · cd")).toBeInTheDocument();
+    expect(await within(reviews).findByText("Cat Power · Moon Pix · Matador · CD")).toBeInTheDocument();
     expect(await within(reviews).findByText("Juana Molina · DOGA · Sonamos · CD")).toBeInTheDocument();
     // A record whose read has not landed (here, never) is not mislabeled as a library release.
     expect(within(reviews).queryByText(REVIEW_COPY.myReviews.libraryRelease)).not.toBeInTheDocument();

@@ -1,4 +1,5 @@
 import type { IntakeItem } from "@wxyc/shared";
+import { formatLabel } from "@/lib/features/experiences/modern/tokens/roles";
 import type { ReviewRecord } from "./useReviewRecord";
 
 export function intakeRecord(item: IntakeItem): ReviewRecord {
@@ -7,6 +8,7 @@ export function intakeRecord(item: IntakeItem): ReviewRecord {
 
 /** A record's one-line description; a format name on the record wins over a `formatId` lookup. */
 export function recordLine(record: ReviewRecord, formats?: { id: number; format_name: string }[]): string {
-  const format = record.format ?? formats?.find((f) => f.id === record.formatId)?.format_name;
+  const name = record.format ?? formats?.find((f) => f.id === record.formatId)?.format_name;
+  const format = name && formatLabel(name);
   return [record.artist, record.album, record.label, format].filter(Boolean).join(" · ");
 }

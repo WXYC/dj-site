@@ -88,11 +88,11 @@ describe("IntakeScreen", () => {
     renderWithProviders(<IntakeScreen />);
 
     const shelf = await lane("On the review shelf");
-    expect(within(shelf).getByText("Cat Power · Moon Pix · Matador · cd")).toBeInTheDocument();
-    expect(within(await lane("Requested")).getByText("Cat Power · Moon Pix · Matador · cd")).toBeInTheDocument();
-    expect(within(await lane("Checked out")).getByText("Cat Power · Dark Side · Matador · cd")).toBeInTheDocument();
-    expect(within(await lane("Reviewed (1)")).getByText("Cat Power · Moon Pix · Matador · cd")).toBeInTheDocument();
-    expect(within(await lane("Filed")).getByText("Cat Power · Moon Pix · Matador · cd")).toBeInTheDocument();
+    expect(within(shelf).getByText("Cat Power · Moon Pix · Matador · CD")).toBeInTheDocument();
+    expect(within(await lane("Requested")).getByText("Cat Power · Moon Pix · Matador · CD")).toBeInTheDocument();
+    expect(within(await lane("Checked out")).getByText("Cat Power · Dark Side · Matador · CD")).toBeInTheDocument();
+    expect(within(await lane("Reviewed (1)")).getByText("Cat Power · Moon Pix · Matador · CD")).toBeInTheDocument();
+    expect(within(await lane("Filed")).getByText("Cat Power · Moon Pix · Matador · CD")).toBeInTheDocument();
     expect(within(shelf).getByRole("link")).toHaveAttribute("href", "/dashboard/admin/intake/1");
   });
 
@@ -291,7 +291,7 @@ describe("IntakeScreen", () => {
     await user.click(await screen.findByRole("button", { name: "Mark as returned" }));
 
     await waitFor(() => expect(screen.queryByText(/^Still out/)).not.toBeInTheDocument());
-    expect(within(await lane("Reviewed (1)")).getByText("Cat Power · Moon Pix · Matador · cd")).toBeInTheDocument();
+    expect(within(await lane("Reviewed (1)")).getByText("Cat Power · Moon Pix · Matador · CD")).toBeInTheDocument();
   });
 
   const HOLDER = { checked_out_at: "2026-09-01T12:00:00Z", checked_out_by: "dj-1", checked_out_by_name: "DJ Sam" };
