@@ -183,6 +183,7 @@ export const REVIEW_COPY = {
     search: "Search",
     searchFailed: "Couldn't search the library. Please try again.",
     fileOnto: "File onto this release",
+    fileFailed: "Couldn't file this record. Please try again.",
     releaseRefused: "That release can't take this record. Pick another, or file it as a new release.",
     printSlip: "Print the slip",
     filed: "Filed.",

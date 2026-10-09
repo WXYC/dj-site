@@ -9,7 +9,7 @@ import type {
 import type { FetchBaseQueryError } from "@reduxjs/toolkit/query";
 import { catalogApi, FILING_INVALIDATED_TAGS } from "@/lib/features/catalog/api";
 import { rotationApi } from "@/lib/features/rotation/api";
-import { isRefusal } from "@/lib/rtk-endpoint-error";
+import { isRefusal, unwrapEndpointError } from "@/lib/rtk-endpoint-error";
 import { reviewsApi } from "./api";
 
 /**
@@ -47,6 +47,14 @@ export const isIntakeAlreadyFiled = (err: unknown): boolean =>
 /** True when finalizing was refused because the release is in active rotation. */
 export const isIntakeInRotation = (err: unknown): boolean =>
   isRefusal(err, { status: 409, reasons: ["in_rotation"], key: "intakeWriteError" });
+
+/**
+ * True when filing onto an existing release was refused because `album_id` names no library release (400).
+ * That 400 has no `reason` (the server throws a plain error), so it is matched by status alone; the page
+ * sends nothing else the route could refuse with a 400.
+ */
+export const isIntakeReleaseRefused = (err: unknown): boolean =>
+  unwrapEndpointError("intakeWriteError", err)?.status === 400;
 
 /** The `intake/...` endpoints. */
 export const intakeApi = reviewsApi.injectEndpoints({
@@ -128,7 +136,13 @@ export const intakeApi = reviewsApi.injectEndpoints({
     fileIntakeItem: builder.mutation<IntakeItem, { id: number; body: IntakeFileRequest }>({
       query: ({ id, body }) => ({ url: `intake/${id}/file`, method: "POST", body }),
       transformErrorResponse: wrapIntakeWriteError,
-      invalidatesTags: ["Intake"],
+      // Filing onto an existing release stamps that release's `album_id` on the record's reviews, prints and
+      // FCC notes, so the release's review list, the record's own reviews and the FCC notes are stale once it
+      // succeeds. A rejection changed none of that and refreshes only the record.
+      invalidatesTags: (_result, error, { id, body }) =>
+        error || body.kind !== "existing_release"
+          ? ["Intake"]
+          : ["Intake", { type: "Review", id: "LIST" }, { type: "Review", id: `item-${id}` }, "FccNotes"],
       async onQueryStarted(_arg, { dispatch, queryFulfilled }) {
         try {
           await queryFulfilled;
