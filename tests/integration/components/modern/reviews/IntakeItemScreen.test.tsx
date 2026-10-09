@@ -575,6 +575,132 @@ describe("IntakeItemScreen", () => {
     });
   });
 
+  describe("filing onto a release already in the library", () => {
+    const RELEASE_ROW = { id: 5, album_title: "DOGA", artist_name: "Juana Molina", label: "Sonamos", genre_name: "Rock", format_name: "cd", code_letters: "MO", code_artist_number: 1, code_number: 1, add_date: "2026-01-01", plays: 0 };
+
+    const setUp = (item = dogaItem()) => {
+      fakeReviewsEndpoints({ records: [item], forItem: { [ITEM_ID]: item.accepted_review_id ? [submitted(40)] : [] } });
+      const searches: (string | null)[] = [];
+      server.use(
+        http.get(`${TEST_BACKEND_URL}/library`, ({ request }) => {
+          searches.push(new URL(request.url).searchParams.get("artist_name"));
+          return HttpResponse.json([RELEASE_ROW]);
+        }),
+      );
+      return { box: serveItem(item), searches };
+    };
+
+    const pickDoga = async (user: User) => {
+      await user.type(await screen.findByRole("searchbox", { name: "Search the library" }), "Juana");
+      await user.click(screen.getByRole("button", { name: "Search" }));
+      await user.click(await screen.findByRole("button", { name: "Juana Molina — DOGA" }));
+      await user.click(screen.getByRole("button", { name: "File onto this release" }));
+    };
+
+    it("files onto the picked release with the existing_release kind and shows the record filed", async () => {
+      const { box, searches } = setUp();
+      const fileBodies: unknown[] = [];
+      server.use(
+        http.post(`${TEST_BACKEND_URL}/intake/${ITEM_ID}/file`, async ({ request }) => {
+          fileBodies.push(await request.json());
+          box.item = dogaItem({ state: "filed", effective_state: "filed" });
+          return HttpResponse.json(box.item);
+        }),
+      );
+      const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      expect(await screen.findByText("Already in the library?")).toBeInTheDocument();
+      await pickDoga(user);
+
+      await waitFor(() => expect(fileBodies).toEqual([{ kind: "existing_release", album_id: 5 }]));
+      expect(new Set(searches)).toEqual(new Set(["Juana"]));
+      expect(await screen.findByText("Filed.")).toBeInTheDocument();
+      expect(screen.queryByText("Already in the library?")).not.toBeInTheDocument();
+    });
+
+    it("offers neither arm, only the choose-a-review line, when no review is on the cover", async () => {
+      setUp(dogaItem({ accepted_review_id: null }));
+      renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      expect(await screen.findByText("Choose a review for the cover before filing this record.")).toBeInTheDocument();
+      expect(screen.queryByText("Already in the library?")).not.toBeInTheDocument();
+      expect(screen.queryByRole("searchbox", { name: "Search the library" })).not.toBeInTheDocument();
+    });
+
+    it.each([
+      ["state_changed", "This record has already been filed. The page has been reloaded."],
+      ["not_reviewed", "This record has no review chosen for the cover, so it can't be filed yet."],
+    ] as const)("shows the %s line and rereads the item", async (reason, line) => {
+      const { box } = setUp();
+      server.use(
+        http.post(`${TEST_BACKEND_URL}/intake/${ITEM_ID}/file`, () => HttpResponse.json({ message: "server words", reason }, { status: 409 })),
+      );
+      const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+      await screen.findByText("Already in the library?");
+      const readsBefore = box.reads;
+
+      await pickDoga(user);
+
+      expect((await screen.findByRole("status")).textContent).toBe(line);
+      expect(box.reads).toBe(readsBefore + 1);
+      expect(screen.queryByText("server words")).not.toBeInTheDocument();
+    });
+
+    it("words its own line, not the server's, when the release cannot take the record", async () => {
+      setUp();
+      server.use(
+        http.post(`${TEST_BACKEND_URL}/intake/${ITEM_ID}/file`, () => HttpResponse.json({ message: "server words" }, { status: 400 })),
+      );
+      const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+      await screen.findByText("Already in the library?");
+
+      await pickDoga(user);
+
+      expect((await screen.findByRole("status")).textContent).toBe("That release can't take this record. Pick another, or file it as a new release.");
+      expect(screen.queryByText("server words")).not.toBeInTheDocument();
+    });
+
+    it("shows its own load-failure line when the search fails", async () => {
+      setUp();
+      server.use(http.get(`${TEST_BACKEND_URL}/library`, () => HttpResponse.json({ message: "down" }, { status: 500 })));
+      const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      await user.type(await screen.findByRole("searchbox", { name: "Search the library" }), "Juana");
+      await user.click(screen.getByRole("button", { name: "Search" }));
+
+      expect(await screen.findByText("Couldn't search the library. Please try again.")).toBeInTheDocument();
+      expect(screen.getByText("Already in the library?")).toBeInTheDocument();
+    });
+
+    it("refetches a mounted catalog query and a mounted rotation list once each after a successful file", async () => {
+      setUp();
+      let catalogReads = 0;
+      let rotationReads = 0;
+      server.use(
+        http.get(`${TEST_BACKEND_URL}/library`, ({ request }) => {
+          if (new URL(request.url).searchParams.get("artist_name") === "Stereolab") catalogReads += 1;
+          return HttpResponse.json([RELEASE_ROW]);
+        }),
+        http.get(`${TEST_BACKEND_URL}/library/rotation`, () => {
+          rotationReads += 1;
+          return HttpResponse.json([]);
+        }),
+        http.post(`${TEST_BACKEND_URL}/intake/${ITEM_ID}/file`, () => HttpResponse.json(dogaItem({ state: "filed", effective_state: "filed" }))),
+      );
+      function Mounted() {
+        useSearchCatalogQuery({ artist_name: "Stereolab", album_title: undefined, n: 5 });
+        useGetRotationListQuery();
+        return <IntakeItemScreen id={ITEM_ID} />;
+      }
+      const { user } = renderScreen(<Mounted />);
+      await waitFor(() => expect([catalogReads, rotationReads]).toEqual([1, 1]));
+
+      await pickDoga(user);
+
+      await waitFor(() => expect([catalogReads, rotationReads]).toEqual([2, 2]));
+    });
+  });
+
   describe("load failures", () => {
     it("keeps the item and its reviews on the page when the refetch after a file fails", async () => {
       fakeReviewsEndpoints({ records: [dogaItem()], forItem: { [ITEM_ID]: [submitted(40), submitted(41)] } });
