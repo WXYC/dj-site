@@ -30,6 +30,7 @@ describe("intakeApi", () => {
       "logIntakeItem",
       "fileIntakeItem",
       "printIntakeItem",
+      "deleteIntakeItem",
     ],
     reducerPath: "reviewsApi",
   });
@@ -53,6 +54,29 @@ describe("intakeApi", () => {
     await makeReviewsStore().dispatch(intakeApi.endpoints[endpoint].initiate(7));
 
     expect(seen).toEqual({ method: "POST", path: `/intake/7/${action}` });
+  });
+
+  it("deleteIntakeItem DELETEs exactly /intake/7 and answers the deleted authors", async () => {
+    let seen: { method: string; path: string } | undefined;
+    server.use(
+      http.delete(`${TEST_BACKEND_URL}/intake/:id`, ({ request }) => {
+        seen = { method: request.method, path: new URL(request.url).pathname };
+        return HttpResponse.json({ deleted_review_authors: ["Cat Power"] });
+      })
+    );
+
+    const result = await makeReviewsStore().dispatch(intakeApi.endpoints.deleteIntakeItem.initiate(7));
+
+    expect(seen).toEqual({ method: "DELETE", path: "/intake/7" });
+    expect(result).toMatchObject({ data: { deleted_review_authors: ["Cat Power"] } });
+  });
+
+  it("deleteIntakeItem nests a rejection under intakeWriteError", async () => {
+    server.use(http.delete(`${TEST_BACKEND_URL}/intake/:id`, () => HttpResponse.json({ message: "gone" }, { status: 404 })));
+
+    const result = await makeReviewsStore().dispatch(intakeApi.endpoints.deleteIntakeItem.initiate(7));
+
+    expect(result).toMatchObject({ error: { intakeWriteError: { status: 404 } } });
   });
 
   it("printIntakeItem POSTs exactly /intake/7/print", async () => {

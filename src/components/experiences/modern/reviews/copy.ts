@@ -4,6 +4,8 @@
  * the rest are drafted (the editor's from the Google Form's question wording)
  * and wait for the station's approval before launch.
  */
+const joinNames = (names: string[]) => new Intl.ListFormat("en", { type: "conjunction" }).format(names);
+
 export const REVIEW_COPY = {
   /** Approved. Shown in place of a draft the DJ can no longer start. */
   subjectNotHeld: "You no longer have this record checked out, so a review can't be started here.",
@@ -174,6 +176,26 @@ export const REVIEW_COPY = {
     fileNew: "File as a new release",
     printSlip: "Print the slip",
     filed: "Filed.",
+    delete: "Delete",
+    keep: "Cancel",
+    deleteFailed: "Couldn't delete this record. Please try again.",
+    /** Approved. The delete confirmation's title. */
+    deleteTitle: (artist: string, album: string) => `Delete ${artist} — ${album} from the review shelf?`,
+    /** Approved. Names are distinct, in first-appearance order. */
+    deleteReviews: (names: string[]) =>
+      names.length === 1 ? `This also deletes the submitted review by ${names[0]}.` : `This also deletes the submitted reviews by ${joinNames(names)}.`,
+    /** Approved. Names are distinct, in first-appearance order. */
+    deleteDrafts: (names: string[]) =>
+      names.length === 1
+        ? `It also deletes an unfinished draft by ${names[0]}. They have not submitted yet and will lose what they wrote.`
+        : `It also deletes unfinished drafts by ${joinNames(names)}. They have not submitted yet and will lose what they wrote.`,
+    /** Approved. */
+    deleteNoReviews: "No reviews have been written for it.",
+    /** Approved. */
+    deleteFinal: "This cannot be undone.",
+    deletedPlain: "Deleted.",
+    /** Approved. Built from the response, not the confirmation. */
+    deleted: (names: string[]) => `Deleted, with the reviews and drafts by ${joinNames(names)}.`,
   },
   /** The music directors' print page, `/dashboard/admin/intake/{id}/slip`. */
   intakeSlip: {

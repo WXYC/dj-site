@@ -2,18 +2,20 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Chip, Stack, Typography } from "@mui/joy";
+import { Button, Chip, Stack, Typography } from "@mui/joy";
 import type { IntakeItem, Review } from "@wxyc/shared";
 import { hasNothingToShow } from "@/lib/has-nothing-to-show";
 import {
   isIntakeNotReviewed,
   isIntakeStateChanged,
+  useDeleteIntakeItemMutation,
   useFileIntakeItemMutation,
   useGetIntakeItemQuery,
 } from "@/lib/features/reviews/intakeApi";
 import { useGetItemReviewsQuery, useGetReviewQuery } from "@/lib/features/reviews/reviewApi";
 import { unwrapEndpointError } from "@/lib/rtk-endpoint-error";
 import { useCanSeeReviews } from "@/src/hooks/useCanSeeReviews";
+import ConfirmDialog from "../ConfirmDialog";
 import RotationFilingBench, { type FilingSubmit } from "../admin/rotation/RotationFilingBench";
 import { REVIEW_COPY } from "./copy";
 import FccNotesPanel from "./FccNotesPanel";
@@ -22,6 +24,9 @@ import { Group } from "./ReviewsPanel";
 import { useItemPageReload } from "./useItemPageReload";
 
 const COPY = REVIEW_COPY.intakeItem;
+
+/** Distinct non-empty names, in first-appearance order. */
+const distinctNames = (names: (string | null | undefined)[]) => [...new Set(names.filter((n): n is string => !!n))];
 
 const STATE_LABELS: Record<IntakeItem["effective_state"], string> = {
   pool: REVIEW_COPY.intake.onShelf,
@@ -35,10 +40,14 @@ const STATE_LABELS: Record<IntakeItem["effective_state"], string> = {
 /** The music directors' page for one logged record: its reviews, and the filing bench. */
 export default function IntakeItemScreen({ id }: { id: number }) {
   const visible = useCanSeeReviews();
-  const item = useGetIntakeItemQuery(id, { skip: !visible });
-  const reviews = useGetItemReviewsQuery(id, { skip: !visible });
+  // Set once the record is gone: its reads stop (they would 404) and the page shows only this line.
+  const [deletedLine, setDeletedLine] = useState<string | null>(null);
+  const item = useGetIntakeItemQuery(id, { skip: !visible || deletedLine !== null });
+  const reviews = useGetItemReviewsQuery(id, { skip: !visible || deletedLine !== null });
   const [fileItem] = useFileIntakeItemMutation();
+  const [deleteItem, deletion] = useDeleteIntakeItemMutation();
   const [notice, setNotice] = useState<string | null>(null);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   const coverId = item.data?.accepted_review_id ?? null;
   const ownCover = reviews.data?.find((r) => r.id === coverId);
@@ -50,6 +59,7 @@ export default function IntakeItemScreen({ id }: { id: number }) {
   const reload = useItemPageReload(id, coverById);
 
   if (!visible) return null;
+  if (deletedLine !== null) return <Typography role="status">{deletedLine}</Typography>;
   if ([item, reviews, fetchedCover].some(hasNothingToShow)) {
     return <Typography role="alert">{COPY.loadFailed}</Typography>;
   }
@@ -76,6 +86,20 @@ export default function IntakeItemScreen({ id }: { id: number }) {
     }
   };
 
+  // The names are for this confirmation only: they never go to analytics, breadcrumbs or logs.
+  const reviewAuthors = distinctNames(reviews.data.map((r) => r.author));
+  const draftAuthors = distinctNames(item.data.draft_authors ?? []);
+  const confirmDelete = async () => {
+    try {
+      const { deleted_review_authors } = await deleteItem(id).unwrap();
+      const names = distinctNames(deleted_review_authors);
+      setDeletedLine(names.length > 0 ? COPY.deleted(names) : COPY.deletedPlain);
+    } catch {
+      setConfirmingDelete(false);
+      setNotice(COPY.deleteFailed);
+    }
+  };
+
   return (
     <Stack spacing={2}>
       <Stack direction="row" spacing={1} alignItems="center">
@@ -93,6 +117,29 @@ export default function IntakeItemScreen({ id }: { id: number }) {
       )}
       <FccNotesPanel intakeItemId={id} />
       {notice && <Typography role="status">{notice}</Typography>}
+      {item.data.effective_state !== "filed" && item.data.effective_state !== "finalized" && (
+        <Button color="danger" variant="outlined" onClick={() => setConfirmingDelete(true)} sx={{ alignSelf: "flex-start" }}>
+          {COPY.delete}
+        </Button>
+      )}
+      <ConfirmDialog
+        open={confirmingDelete}
+        onClose={() => setConfirmingDelete(false)}
+        pending={deletion.isLoading}
+        title={COPY.deleteTitle(item.data.artist_name, item.data.album_title)}
+        titleId="delete-intake-item-title"
+        actions={
+          <>
+            <Button variant="plain" onClick={() => setConfirmingDelete(false)} disabled={deletion.isLoading}>{COPY.keep}</Button>
+            <Button color="danger" loading={deletion.isLoading} onClick={confirmDelete}>{COPY.delete}</Button>
+          </>
+        }
+      >
+        {reviewAuthors.length > 0 && <Typography>{COPY.deleteReviews(reviewAuthors)}</Typography>}
+        {draftAuthors.length > 0 && <Typography>{COPY.deleteDrafts(draftAuthors)}</Typography>}
+        {reviewAuthors.length + draftAuthors.length === 0 && <Typography>{COPY.deleteNoReviews}</Typography>}
+        <Typography>{COPY.deleteFinal}</Typography>
+      </ConfirmDialog>
       {coverId != null && <Link href={`/dashboard/admin/intake/${id}/slip`}>{COPY.printSlip}</Link>}
       {item.data.effective_state === "filed" || item.data.effective_state === "finalized" ? (
         <Typography>{COPY.filed}</Typography>
