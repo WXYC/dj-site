@@ -11,12 +11,15 @@ import {
   useGetIntakeItemQuery,
   usePrintIntakeItemMutation,
 } from "@/lib/features/reviews/intakeApi";
-import { useLazyGetReviewQuery } from "@/lib/features/reviews/reviewApi";
+import { reviewApi } from "@/lib/features/reviews/reviewApi";
+import { useAppDispatch } from "@/lib/hooks";
 import { useCanSeeReviews } from "@/src/hooks/useCanSeeReviews";
+import { useMounted } from "@/src/hooks/useRowWrite";
 import { REVIEW_COPY } from "./copy";
 import { recordLine, intakeRecord } from "./recordLine";
 import { formatSlipDate } from "./slipDate";
 import SlipPreview from "./SlipPreview";
+import { useItemPageReload } from "./useItemPageReload";
 
 const COPY = REVIEW_COPY.intakeSlip;
 
@@ -33,7 +36,9 @@ export default function IntakeSlipScreen({ id }: { id: number }) {
   const item = useGetIntakeItemQuery(id, { skip: !visible });
   const [print, { isLoading }] = usePrintIntakeItemMutation();
   const [slip, setSlip] = useState<IntakeSlip | null>(null);
-  const [loadReview] = useLazyGetReviewQuery();
+  const dispatch = useAppDispatch();
+  const mounted = useMounted();
+  const reload = useItemPageReload(id);
   // What the refusal was, decided only from the record as reloaded after it.
   const [refusal, setRefusal] = useState<"noCover" | "handwritten" | null>(null);
   const [reloadFailed, setReloadFailed] = useState(false);
@@ -48,18 +53,23 @@ export default function IntakeSlipScreen({ id }: { id: number }) {
     setFailed(false);
     try {
       const printed = await print(id).unwrap();
+      // The print is logged either way; a page that has gone has no slip to show and must not open the dialog.
+      if (!mounted.current) return;
       // The slip must be in the document before the browser snapshots it.
       flushSync(() => setSlip(printed));
       window.print();
     } catch (err) {
       if (!isIntakeNotReviewed(err)) return setFailed(true);
-      setSlip(null);
+      if (mounted.current) setSlip(null);
       // Reload first: the page as loaded may be older than the refusal.
-      const reloaded = await item.refetch();
-      const coverId = reloaded.data?.accepted_review_id;
-      if (reloaded.isError || reloaded.data == null) return setReloadFailed(true);
+      const reloaded = await reload();
+      if (!reloaded.mounted) return;
+      if (reloaded.item == null) return setReloadFailed(true);
+      const coverId = reloaded.item.accepted_review_id;
       if (coverId == null) return setRefusal("noCover");
-      const cover = await loadReview(coverId).unwrap().catch(() => null);
+      const read = await dispatch(reviewApi.endpoints.getReview.initiate(coverId, { subscribe: false, forceRefetch: true }));
+      if (!mounted.current) return;
+      const cover = read.isError ? null : (read.data ?? null);
       if (cover == null) return setReloadFailed(true);
       // A typed review on the cover means a second press prints.
       if (cover.medium === "handwritten") setRefusal("handwritten");

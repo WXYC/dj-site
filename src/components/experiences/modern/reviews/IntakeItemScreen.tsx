@@ -70,7 +70,7 @@ export default function IntakeItemScreen({ id }: { id: number }) {
     } catch (err) {
       const refusal = isIntakeStateChanged(err) ? COPY.alreadyFiled : isIntakeNotReviewed(err) ? COPY.notReviewed : null;
       if (refusal === null) throw unwrapEndpointError("intakeWriteError", err) ?? err;
-      if (await reload()) setNotice(refusal);
+      if ((await reload()).mounted) setNotice(refusal);
       // Nothing was filed, so the bench keeps what was typed.
       return false;
     }
