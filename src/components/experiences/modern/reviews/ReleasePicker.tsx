@@ -5,6 +5,7 @@ import { Button, Input, Stack, Typography } from "@mui/joy";
 import { useSearchCatalogQuery } from "@/lib/features/catalog/api";
 import type { AlbumEntry } from "@/lib/features/catalog/types";
 import { REVIEW_COPY } from "./copy";
+import { recordLine } from "./recordLine";
 
 const COPY = REVIEW_COPY.intakeItem;
 
@@ -52,7 +53,7 @@ export default function ReleasePicker({
           onClick={() => onPick(release)}
           sx={{ justifyContent: "flex-start" }}
         >
-          {COPY.recordLine(release.artist.name, release.title, release.format)}
+          {recordLine({ artist: release.artist.name, album: release.title, label: "", format: release.format })}
         </Button>
       ))}
     </Stack>
