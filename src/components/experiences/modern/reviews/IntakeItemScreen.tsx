@@ -9,6 +9,7 @@ import { hasNothingToShow } from "@/lib/has-nothing-to-show";
 import {
   isIntakeAlreadyFiled,
   isIntakeNotReviewed,
+  isIntakeReleaseRefused,
   isIntakeStateChanged,
   useDeleteIntakeItemMutation,
   useFileIntakeItemMutation,
@@ -48,7 +49,7 @@ export default function IntakeItemScreen({ id }: { id: number }) {
   const [deletedLine, setDeletedLine] = useState<string | null>(null);
   const item = useGetIntakeItemQuery(id, { skip: !visible || deletedLine !== null });
   const reviews = useGetItemReviewsQuery(id, { skip: !visible || deletedLine !== null });
-  const [fileItem] = useFileIntakeItemMutation();
+  const [fileItem, filing] = useFileIntakeItemMutation();
   const [deleteItem, deletion] = useDeleteIntakeItemMutation();
   const [notice, setNotice] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -93,12 +94,23 @@ export default function IntakeItemScreen({ id }: { id: number }) {
   };
 
   const fileOntoPicked = async () => {
-    if (picked?.id == null) return;
+    if (picked?.id == null || filing.isLoading) return;
     setNotice(null);
     try {
       await fileItem({ id, body: { kind: "existing_release", album_id: picked.id } }).unwrap();
     } catch (err) {
-      const refusal = isIntakeStateChanged(err) ? COPY.alreadyFiled : isIntakeNotReviewed(err) ? COPY.notReviewed : COPY.releaseRefused;
+      // Only a refusal the server worded reloads the record; any other failure files nothing and says so.
+      const refusal = isIntakeStateChanged(err)
+        ? COPY.alreadyFiled
+        : isIntakeNotReviewed(err)
+          ? COPY.notReviewed
+          : isIntakeReleaseRefused(err)
+            ? COPY.releaseRefused
+            : null;
+      if (refusal === null) {
+        if (mounted.current) setNotice(COPY.fileFailed);
+        return;
+      }
       if ((await reload()).mounted) setNotice(refusal);
     }
   };
@@ -182,8 +194,13 @@ export default function IntakeItemScreen({ id }: { id: number }) {
             }}
           />
           <Typography level="title-sm" component="h3">{COPY.fileExisting}</Typography>
-          <ReleasePicker onPick={setPicked} />
-          {picked && <Button onClick={fileOntoPicked} sx={{ alignSelf: "flex-start" }}>{COPY.fileOnto}</Button>}
+          <ReleasePicker onPick={setPicked} selectedId={picked?.id ?? null} onSearch={() => setPicked(null)} />
+          {picked && (
+            <Stack direction="row" spacing={1} alignItems="center">
+              <Button onClick={fileOntoPicked} loading={filing.isLoading}>{COPY.fileOnto}</Button>
+              <Typography>{picked.artist.name} — {picked.title} ({picked.format})</Typography>
+            </Stack>
+          )}
         </>
       )}
     </Stack>
