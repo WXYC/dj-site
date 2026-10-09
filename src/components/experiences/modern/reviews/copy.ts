@@ -52,6 +52,7 @@ export const REVIEW_COPY = {
     apps: "WXYC apps",
     instagram: "Instagram",
     creditLegend: "How should we credit you?",
+    /** Approved. */
     djName: "DJ name",
     realName: "Real name",
     noName: "No name",
@@ -134,12 +135,14 @@ export const REVIEW_COPY = {
     raceCheckoutReleased: "This record has already been returned. The lists have been reloaded.",
     cancelRequest: "Cancel request",
     release: "Release",
+    /** Approved. */
     logTitle: "Log an item",
     artist: "Artist",
     album: "Album",
     label: "Label",
     format: "Format",
     discogsReleaseId: "Discogs release id (optional)",
+    /** Approved. */
     log: "Log item",
     waiting: "Review waiting",
     onShelf: "On the review shelf",
@@ -196,24 +199,31 @@ export const REVIEW_COPY = {
     /** Approved. A search result, and the picked record beside the file button: "Juana Molina — DOGA (CD)". */
     recordLine: (artist: string, title: string, format: string) => `${artist} — ${title} (${format})`,
     printSlip: "Print the slip",
+    /** Approved. */
     filed: "Filed.",
+    /** Approved. */
     delete: "Delete",
+    /** Approved. */
     keep: "Cancel",
+    /** Approved. */
     deleteFailed: "Couldn't delete this record. Please try again.",
     /** Approved. The delete confirmation's title. */
     deleteTitle: (artist: string, album: string) => `Delete ${artist} — ${album} from the review shelf?`,
-    /** Names are distinct, in first-appearance order. */
+    /** Approved. Names are distinct, in first-appearance order. */
     deleteReviews: (names: string[]) =>
       names.length === 1 ? `This also deletes the submitted review by ${names[0]}.` : `This also deletes the submitted reviews by ${joinNames(names)}.`,
-    /** Names are distinct, in first-appearance order. */
+    /** Approved. Names are distinct, in first-appearance order. */
     deleteDrafts: (names: string[]) =>
       names.length === 1
         ? `It also deletes an unfinished draft by ${names[0]}. They have not submitted yet and will lose what they wrote.`
         : `It also deletes unfinished drafts by ${joinNames(names)}. They have not submitted yet and will lose what they wrote.`,
+    /** Approved. */
     deleteNoReviews: "No reviews have been written for it.",
+    /** Approved. */
     deleteFinal: "This cannot be undone.",
+    /** Approved. */
     deletedPlain: "Deleted.",
-    /** Built from the response, not the confirmation. */
+    /** Approved. Built from the response, not the confirmation. */
     deleted: (names: string[]) => `Deleted, with the reviews and drafts by ${joinNames(names)}.`,
   },
   /** The music directors' print page, `/dashboard/admin/intake/{id}/slip`. */
@@ -228,11 +238,12 @@ export const REVIEW_COPY = {
   },
   /** The music directors' print page for one typed review of a library record, `/dashboard/admin/library/{albumId}/slip/{reviewId}`. */
   releaseSlip: {
-    /** Names the review's author when there is one; a review that predates the in-app model has none, and the line drops the name clause. */
+    /** Approved. Names the review's author when there is one; a review that predates the in-app model has none, and the line drops the name clause. */
     lead: (author: string | null, artist: string, album: string) =>
       `This prints ${author ? `${author}'s` : "the"} review for the cover of ${artist} — ${album}. If the cover already has a slip, this one replaces it.`,
     /** Approved. */
     refused: "This review can't be printed. It may be handwritten, or it may have been deleted since the page opened.",
+    /** Approved. */
     backToAlbum: "Back to the album's page",
   },
   history: {

@@ -125,7 +125,7 @@ describe("ReleaseSlipScreen", () => {
 
     const alert = await screen.findByRole("alert");
     expect(alert.textContent).toBe("This review can't be printed. It may be handwritten, or it may have been deleted since the page opened.");
-    expect(screen.getByRole("link")).toHaveAttribute("href", `/dashboard/album/${ALBUM_ID}`);
+    expect(screen.getByRole("link", { name: "Back to the album's page" })).toHaveAttribute("href", `/dashboard/album/${ALBUM_ID}`);
     expect(screen.queryByText(SERVER_MESSAGE)).not.toBeInTheDocument();
     expect(toast.error).not.toHaveBeenCalledWith(SERVER_MESSAGE);
     expect(print).not.toHaveBeenCalled();
