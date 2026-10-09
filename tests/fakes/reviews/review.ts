@@ -1,5 +1,5 @@
 import { http, HttpResponse } from "msw";
-import type { Review } from "@wxyc/shared";
+import type { Review, ReviewRevision } from "@wxyc/shared";
 import { server } from "../server";
 import { TEST_BACKEND_URL as BACKEND_URL } from "../../helpers/constants";
 import { resolve, type Rows } from "./rows";
@@ -9,6 +9,7 @@ export type FakeReviewOptions = {
   reviews?: Review[];
   forRelease?: Record<string, Review[]>;
   forItem?: Record<string, Review[]>;
+  revisions?: Record<string, ReviewRevision[]>;
 };
 
 /**
@@ -19,8 +20,9 @@ export type FakeReviewOptions = {
  * - `GET /reviews?mine=true` answers `mine`
  * - any other `GET /reviews` query answers an empty list, never `mine`
  * - `GET /reviews/:id` answers the matching row of `reviews`, 404 otherwise
+ * - `GET /reviews/:id/revisions` answers `revisions[id]` (empty when absent), in the order given
  */
-export function fakeReviewEndpoints({ mine = [], reviews = [], forRelease = {}, forItem = {} }: FakeReviewOptions = {}) {
+export function fakeReviewEndpoints({ mine = [], reviews = [], forRelease = {}, forItem = {}, revisions = {} }: FakeReviewOptions = {}) {
   server.use(
     http.get(`${BACKEND_URL}/reviews`, ({ request }) => {
       const query = new URL(request.url).searchParams;
@@ -34,5 +36,6 @@ export function fakeReviewEndpoints({ mine = [], reviews = [], forRelease = {}, 
       const found = reviews.find((row) => String(row.id) === params.id);
       return found ? HttpResponse.json(found) : HttpResponse.json({ message: "not found" }, { status: 404 });
     }),
+    http.get(`${BACKEND_URL}/reviews/:id/revisions`, ({ params }) => HttpResponse.json(revisions[String(params.id)] ?? [])),
   );
 }
