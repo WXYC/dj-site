@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Button, Chip, Stack, Typography } from "@mui/joy";
 import type { IntakeItem, Review } from "@wxyc/shared";
+import type { AlbumEntry } from "@/lib/features/catalog/types";
 import { hasNothingToShow } from "@/lib/has-nothing-to-show";
 import {
   isIntakeAlreadyFiled,
@@ -22,6 +23,7 @@ import RotationFilingBench, { type FilingSubmit } from "../admin/rotation/Rotati
 import { REVIEW_COPY } from "./copy";
 import FccNotesPanel from "./FccNotesPanel";
 import { intakeRecord, recordLine } from "./recordLine";
+import ReleasePicker from "./ReleasePicker";
 import { Group } from "./ReviewsPanel";
 import { useItemPageReload } from "./useItemPageReload";
 
@@ -50,6 +52,7 @@ export default function IntakeItemScreen({ id }: { id: number }) {
   const [deleteItem, deletion] = useDeleteIntakeItemMutation();
   const [notice, setNotice] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [picked, setPicked] = useState<AlbumEntry | null>(null);
 
   const coverId = item.data?.accepted_review_id ?? null;
   const ownCover = reviews.data?.find((r) => r.id === coverId);
@@ -86,6 +89,17 @@ export default function IntakeItemScreen({ id }: { id: number }) {
       if ((await reload()).mounted) setNotice(refusal);
       // Nothing was filed, so the bench keeps what was typed.
       return false;
+    }
+  };
+
+  const fileOntoPicked = async () => {
+    if (picked?.id == null) return;
+    setNotice(null);
+    try {
+      await fileItem({ id, body: { kind: "existing_release", album_id: picked.id } }).unwrap();
+    } catch (err) {
+      const refusal = isIntakeStateChanged(err) ? COPY.alreadyFiled : isIntakeNotReviewed(err) ? COPY.notReviewed : COPY.releaseRefused;
+      if ((await reload()).mounted) setNotice(refusal);
     }
   };
 
@@ -167,6 +181,9 @@ export default function IntakeItemScreen({ id }: { id: number }) {
               discogsReleaseId: item.data.discogs_release_id,
             }}
           />
+          <Typography level="title-sm" component="h3">{COPY.fileExisting}</Typography>
+          <ReleasePicker onPick={setPicked} />
+          {picked && <Button onClick={fileOntoPicked} sx={{ alignSelf: "flex-start" }}>{COPY.fileOnto}</Button>}
         </>
       )}
     </Stack>
