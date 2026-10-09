@@ -116,11 +116,11 @@ export default function IntakeItemScreen({ id }: { id: number }) {
         <Chip>{STATE_LABELS[item.data.effective_state]}</Chip>
       </Stack>
       {cover ? (
-        <Group title={REVIEW_COPY.albumPanel.coverOne} reviews={[cover]} recordOf={recordOf} newSlipHref={`/dashboard/admin/intake/${id}/slip`} />
+        <Group title={REVIEW_COPY.albumPanel.coverOne} reviews={[cover]} recordOf={recordOf} newSlipHref={`/dashboard/admin/intake/${id}/slip`} onCover={(r) => r.id === coverId} />
       ) : (
         coverId == null && <Typography>{COPY.noCover}</Typography>
       )}
-      {others.length > 0 && <Group title={REVIEW_COPY.albumPanel.others} reviews={others} recordOf={recordOf} />}
+      {others.length > 0 && <Group title={REVIEW_COPY.albumPanel.others} reviews={others} recordOf={recordOf} onCover={() => false} />}
       {!!item.data.draft_authors?.length && (
         <Typography level="body-sm">{COPY.stillWriting} {item.data.draft_authors.join(", ")}.</Typography>
       )}

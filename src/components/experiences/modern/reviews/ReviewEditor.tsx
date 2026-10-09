@@ -102,7 +102,7 @@ function Form({ review }: { review: Review }) {
             {REVIEW_COPY.history.link}
           </JoyLink>
         )}
-        <PrintedVersionNote review={review} />
+        <PrintedVersionNote review={review} onCover={review.in_use} />
         {draft && <Typography level="body-sm">{REVIEW_COPY.draftPrivacy}</Typography>}
         {isAuthor && !draft && <Typography level="body-sm">{REVIEW_COPY.submittedBanner}</Typography>}
         {isMusicDirector && (
