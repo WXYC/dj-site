@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Link as JoyLink, Stack, Typography } from "@mui/joy";
-import type { Review } from "@wxyc/shared";
+import type { Review, ReviewRevision } from "@wxyc/shared";
 import { hasNothingToShow } from "@/lib/has-nothing-to-show";
 import { useGetReviewRevisionsQuery } from "@/lib/features/reviews/reviewApi";
 import { formatStationLongDate } from "@/src/utilities/stationTime";
@@ -24,13 +24,15 @@ export default function PrintedVersionNote({ review, newSlipHref }: { review: Re
 
   if (!visible || !printed) return null;
   if (hasNothingToShow(revisions)) return <Typography level="body-sm" role="alert">{copy.loadFailed}</Typography>;
-  const newest = revisions.data?.reduce((a, b) => (b.revision > a.revision ? b : a));
+  const newest = revisions.data?.reduce<ReviewRevision | undefined>((a, b) => (a && a.revision >= b.revision ? a : b), undefined);
   if (!newest) return null;
 
   if (newest.id === review.printed_revision_id) return <Typography level="body-sm">{copy.isCurrent}</Typography>;
+  // A print with no usable date cannot say when the cover was printed; say nothing rather than throw.
+  if (!review.printed_at || Number.isNaN(Date.parse(review.printed_at))) return null;
   return (
     <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-      <Typography level="body-sm">{copy.edited(formatStationLongDate(review.printed_at ?? ""))}</Typography>
+      <Typography level="body-sm">{copy.edited(formatStationLongDate(review.printed_at))}</Typography>
       <JoyLink component={Link} href={`/dashboard/reviews/${review.id}/history#printed`} level="body-sm">
         {copy.seePrinted}
       </JoyLink>

@@ -2,7 +2,9 @@ import { Component, type ReactNode } from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import { Authorization } from "@/lib/features/admin/types";
-import { fakeReviewsEndpoints, renderWithProviders, review, reviewRevision } from "@/tests/helpers";
+import { http, HttpResponse } from "msw";
+import { fakeReviewsEndpoints, renderWithProviders, review, reviewRevision, server } from "@/tests/helpers";
+import { TEST_BACKEND_URL } from "@/tests/helpers/constants";
 
 vi.mock("@/lib/features/authentication/client", async () => {
   const { createAuthClientModuleMock } = await import("@/tests/helpers/auth-client-mock");
@@ -78,11 +80,31 @@ describe("ReviewHistory", () => {
   });
 
   it("says a draft has no history and reads no revisions", async () => {
+    const requested = vi.fn();
     fakeReviewsEndpoints({ reviews: [submitted({ status: "draft", revision_count: 0 })], revisions: { "40": revisions } });
+    server.use(http.get(`${TEST_BACKEND_URL}/reviews/:id/revisions`, () => { requested(); return HttpResponse.json(revisions); }));
     renderHistory();
 
     expect(await screen.findByText(REVIEW_COPY.history.draft)).toBeInTheDocument();
+    await new Promise((r) => setTimeout(r, 50));
     expect(screen.queryByText("Version 1")).not.toBeInTheDocument();
+    expect(requested).not.toHaveBeenCalled();
+  });
+
+  it("states a load failure when the revisions cannot be read", async () => {
+    fakeReviewsEndpoints({ reviews: [submitted()] });
+    server.use(http.get(`${TEST_BACKEND_URL}/reviews/:id/revisions`, () => HttpResponse.json({}, { status: 500 })));
+    renderHistory();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(REVIEW_COPY.history.loadFailed);
+  });
+
+  it("shows no empty Reviewer row on any version", async () => {
+    fakeReviewsEndpoints({ reviews: [submitted()], revisions: { "40": revisions } });
+    renderHistory();
+
+    await screen.findByText("Version 3");
+    expect(screen.queryByText(REVIEW_COPY.slip.reviewer)).not.toBeInTheDocument();
   });
 
   it("shows a submitted review with no recorded versions as one current row, with no label and no date when never stamped", async () => {
