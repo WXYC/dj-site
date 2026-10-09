@@ -2,7 +2,9 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen, within } from "@testing-library/react";
 import { Authorization } from "@/lib/features/admin/types";
 import { fakeReviewsEndpoints, renderWithProviders, review, reviewRevision, server } from "@/tests/helpers";
+import { http, HttpResponse } from "msw";
 import type { AlbumReview } from "@wxyc/shared";
+import { TEST_BACKEND_URL } from "@/tests/helpers/constants";
 
 // The Print this review link is gated by the real RequireMD, which resolves the music director tier from the session and the organization role.
 vi.mock("@/lib/features/authentication/client", () => ({
@@ -217,18 +219,32 @@ describe("ReviewsPanel", () => {
     expect(await screen.findByTestId("fcc-notes-slot")).toBeInTheDocument();
   });
 
-  it("shows the printed-version note above a printed review, and none above an unprinted one", async () => {
+  it.each<[string, boolean, ReturnType<typeof reviewRevision>[], string | null]>([
+    ["on the cover, newest revision printed", true, [reviewRevision({ id: 11, review_id: 1, revision: 1 })], "This is the version printed on the cover."],
+    ["on the cover, edited after printing", true, [reviewRevision({ id: 11, review_id: 1, revision: 1 }), reviewRevision({ id: 12, review_id: 1, revision: 2 })], "See the printed version"],
+    ["not on the cover, newest revision printed", false, [reviewRevision({ id: 11, review_id: 1, revision: 1 })], null],
+    ["not on the cover, edited after printing", false, [reviewRevision({ id: 11, review_id: 1, revision: 1 }), reviewRevision({ id: 12, review_id: 1, revision: 2 })], null],
+  ])("printed-version note for a printed review %s", async (_name, onCover, list, expected) => {
+    const requested = vi.fn();
     fakeReviewsEndpoints({
       forRelease: {
         [ALBUM_ID]: [
-          submitted(1, { printed_revision_id: 11, printed_at: "2026-10-02T16:00:00Z" }),
+          submitted(1, { on_cover: onCover, printed_revision_id: 11, printed_at: "2026-10-02T16:00:00Z" }),
           submitted(2),
         ],
       },
-      revisions: { "1": [reviewRevision({ id: 11, review_id: 1, revision: 1 })] },
     });
+    server.use(http.get(`${TEST_BACKEND_URL}/reviews/:id/revisions`, () => { requested(); return HttpResponse.json(list); }));
     renderPanel();
 
-    expect(await screen.findAllByText("This is the version printed on the cover.")).toHaveLength(1);
+    await screen.findByText("Text 1");
+    if (expected) {
+      expect(await screen.findByText(expected)).toBeInTheDocument();
+      expect(requested).toHaveBeenCalledTimes(1);
+    } else {
+      await new Promise((r) => setTimeout(r, 50));
+      expect(screen.queryByText(/printed on the cover|earlier version of this review|printed version/)).not.toBeInTheDocument();
+      expect(requested).not.toHaveBeenCalled();
+    }
   });
 });

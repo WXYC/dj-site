@@ -51,7 +51,7 @@ export default function ReviewHistory({ id }: { id: number }) {
   if (!review.data) return null;
   if (!submitted) return <Typography>{copy.draft}</Typography>;
   if (!revisions.data) return null;
-  const { printed_revision_id: printedId } = review.data;
+  const { printed_revision_id: printedId, in_use: inUse } = review.data;
 
   const rows = [...revisions.data].sort((a, b) => b.revision - a.revision);
   return (
@@ -71,7 +71,7 @@ export default function ReviewHistory({ id }: { id: number }) {
               key={row.id}
               id={printed ? "printed" : undefined}
               heading={copy.version(row.revision)}
-              marks={[...(i === 0 ? [copy.current] : []), ...(printed ? [copy.onTheCover] : [])]}
+              marks={[...(i === 0 ? [copy.current] : []), ...(printed && inUse ? [copy.onTheCover] : [])]}
               byline={row.revision === 1 ? copy.submittedBy(row.edited_by) : copy.editedBy(row.edited_by)}
               at={formatStationTimestampLabel(row.edited_at)}
               fields={row}

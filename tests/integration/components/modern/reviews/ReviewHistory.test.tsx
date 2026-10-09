@@ -50,7 +50,7 @@ describe("ReviewHistory", () => {
   });
 
   it("lists versions newest first, marks the current and printed ones, and words version 1 as submitted", async () => {
-    fakeReviewsEndpoints({ reviews: [submitted({ printed_revision_id: 101 })], revisions: { "40": revisions } });
+    fakeReviewsEndpoints({ reviews: [submitted({ printed_revision_id: 101, in_use: true })], revisions: { "40": revisions } });
     renderHistory();
 
     await screen.findByText("Version 3");
@@ -64,6 +64,15 @@ describe("ReviewHistory", () => {
     expect(within(rows[1]).getByText(/edited by Music Director/)).toBeInTheDocument();
     expect(within(rows[2]).getByText(/Oct 1, 2026/)).toBeInTheDocument();
     expect(within(rows[2]).getByText("First take.")).toBeInTheDocument();
+  });
+
+  it("does not mark the printed version as on the cover once the review is no longer in use", async () => {
+    fakeReviewsEndpoints({ reviews: [submitted({ printed_revision_id: 101, in_use: false })], revisions: { "40": revisions } });
+    renderHistory();
+
+    await screen.findByText("Version 3");
+    expect(screen.getAllByRole("listitem")).toHaveLength(3);
+    expect(screen.queryByText(REVIEW_COPY.history.onTheCover)).not.toBeInTheDocument();
   });
 
   it("scrolls to the printed row when opened with #printed", async () => {

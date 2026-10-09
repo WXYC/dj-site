@@ -469,15 +469,31 @@ describe("ReviewEditor", () => {
       expect(screen.queryByRole("link", { name: "History" })).not.toBeInTheDocument();
     });
 
-    it("shows the printed-version note at the top of a printed review", async () => {
+    it.each<[string, boolean, number, string | null]>([
+      ["in use, newest revision printed", true, 1, "This is the version printed on the cover."],
+      ["in use, edited after printing", true, 2, "See the printed version"],
+      ["not in use, newest revision printed", false, 1, null],
+      ["not in use, edited after printing", false, 2, null],
+    ])("printed-version note on a printed review that is %s", async (_name, inUse, count, expected) => {
+      const requested = vi.fn();
       fakeReviewsEndpoints({
-        reviews: [{ ...SUBMITTED, printed_revision_id: 11, printed_at: "2026-10-02T16:00:00Z" } as Review],
+        reviews: [{ ...SUBMITTED, in_use: inUse, printed_revision_id: 11, printed_at: "2026-10-02T16:00:00Z" } as Review],
         records: [RECORD],
-        revisions: { "40": [reviewRevision({ id: 11, revision: 1 }), reviewRevision({ id: 12, revision: 2 })] },
       });
+      server.use(http.get(`${TEST_BACKEND_URL}/reviews/:id/revisions`, () => {
+        requested();
+        return HttpResponse.json([reviewRevision({ id: 11, revision: 1 }), reviewRevision({ id: 12, revision: 2 })].slice(0, count));
+      }));
       renderWithProviders(<ReviewEditor id={40} />);
 
-      expect(await screen.findByRole("link", { name: "See the printed version" })).toBeInTheDocument();
+      await screen.findByRole("link", { name: "History" });
+      if (expected) {
+        expect(await screen.findByText(expected)).toBeInTheDocument();
+      } else {
+        await new Promise((r) => setTimeout(r, 50));
+        expect(screen.queryByText(/printed on the cover|earlier version of this review|printed version/)).not.toBeInTheDocument();
+        expect(requested).not.toHaveBeenCalled();
+      }
     });
   });
 });

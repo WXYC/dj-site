@@ -35,14 +35,14 @@ describe("PrintedVersionNote", () => {
 
   it("says so when the printed version is the current one", async () => {
     fakeReviewsEndpoints({ revisions: { "40": [first] } });
-    renderWithProviders(<PrintedVersionNote review={printed()} />);
+    renderWithProviders(<PrintedVersionNote onCover review={printed()} />);
 
     expect(await screen.findByText("This is the version printed on the cover.")).toBeInTheDocument();
   });
 
   it("says the cover is earlier after an edit, and links to the printed version", async () => {
     fakeReviewsEndpoints({ revisions: { "40": [second, first] } });
-    renderWithProviders(<PrintedVersionNote review={printed()} />);
+    renderWithProviders(<PrintedVersionNote onCover review={printed()} />);
 
     expect(await screen.findByText("The cover has an earlier version of this review, printed Friday, October 2, 2026.")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "See the printed version" })).toHaveAttribute("href", "/dashboard/reviews/40/history#printed");
@@ -51,14 +51,14 @@ describe("PrintedVersionNote", () => {
 
   it("offers a new slip only when given where it is", async () => {
     fakeReviewsEndpoints({ revisions: { "40": [first, second] } });
-    renderWithProviders(<PrintedVersionNote review={printed()} newSlipHref="/dashboard/admin/intake/9/slip" />);
+    renderWithProviders(<PrintedVersionNote onCover review={printed()} newSlipHref="/dashboard/admin/intake/9/slip" />);
 
     expect(await screen.findByRole("link", { name: "Print a new slip" })).toHaveAttribute("href", "/dashboard/admin/intake/9/slip");
   });
 
   it("does not offer a new slip when the cover is current", async () => {
     fakeReviewsEndpoints({ revisions: { "40": [first] } });
-    renderWithProviders(<PrintedVersionNote review={printed()} newSlipHref="/dashboard/admin/intake/9/slip" />);
+    renderWithProviders(<PrintedVersionNote onCover review={printed()} newSlipHref="/dashboard/admin/intake/9/slip" />);
 
     await screen.findByText(REVIEW_COPY.printedNote.isCurrent);
     expect(screen.queryByRole("link", { name: "Print a new slip" })).not.toBeInTheDocument();
@@ -70,7 +70,7 @@ describe("PrintedVersionNote", () => {
     ["the print date is not a date", { printed_at: "" }, [first, second]],
   ])("renders nothing rather than throwing when %s", async (_name, overrides, list) => {
     fakeReviewsEndpoints({ revisions: { "40": list } });
-    const { container } = renderWithProviders(<PrintedVersionNote review={printed(overrides)} />);
+    const { container } = renderWithProviders(<PrintedVersionNote onCover review={printed(overrides)} />);
 
     await new Promise((r) => setTimeout(r, 50));
     expect(container).toBeEmptyDOMElement();
@@ -80,7 +80,21 @@ describe("PrintedVersionNote", () => {
     const requested = vi.fn();
     fakeReviewsEndpoints();
     server.use(http.get(`${TEST_BACKEND_URL}/reviews/:id/revisions`, () => { requested(); return HttpResponse.json([]); }));
-    const { container } = renderWithProviders(<PrintedVersionNote review={printed({ printed_revision_id: null, printed_at: null })} />);
+    const { container } = renderWithProviders(<PrintedVersionNote onCover review={printed({ printed_revision_id: null, printed_at: null })} />);
+
+    await new Promise((r) => setTimeout(r, 50));
+    expect(container).toBeEmptyDOMElement();
+    expect(requested).not.toHaveBeenCalled();
+  });
+
+  it.each<[string, ReturnType<typeof reviewRevision>[]]>([
+    ["the newest revision was printed", [first]],
+    ["it was edited after printing", [first, second]],
+  ])("renders nothing and requests no revisions for a printed review that is not on a cover now, when %s", async (_name, list) => {
+    const requested = vi.fn();
+    fakeReviewsEndpoints();
+    server.use(http.get(`${TEST_BACKEND_URL}/reviews/:id/revisions`, () => { requested(); return HttpResponse.json(list); }));
+    const { container } = renderWithProviders(<PrintedVersionNote onCover={false} review={printed()} newSlipHref="/dashboard/admin/intake/9/slip" />);
 
     await new Promise((r) => setTimeout(r, 50));
     expect(container).toBeEmptyDOMElement();
@@ -94,7 +108,7 @@ describe("PrintedVersionNote", () => {
     vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", flag);
     mockAuth.authority = authority;
     fakeReviewsEndpoints({ revisions: { "40": [first] } });
-    const { container } = renderWithProviders(<PrintedVersionNote review={printed()} />);
+    const { container } = renderWithProviders(<PrintedVersionNote onCover review={printed()} />);
 
     await new Promise((r) => setTimeout(r, 50));
     expect(container).toBeEmptyDOMElement();
@@ -103,7 +117,7 @@ describe("PrintedVersionNote", () => {
   it("states a load failure when there is nothing else to show", async () => {
     fakeReviewsEndpoints();
     server.use(http.get(`${TEST_BACKEND_URL}/reviews/:id/revisions`, () => HttpResponse.json({}, { status: 500 })));
-    renderWithProviders(<PrintedVersionNote review={printed()} />);
+    renderWithProviders(<PrintedVersionNote onCover review={printed()} />);
 
     expect(await screen.findByRole("alert")).toHaveTextContent(REVIEW_COPY.printedNote.loadFailed);
   });

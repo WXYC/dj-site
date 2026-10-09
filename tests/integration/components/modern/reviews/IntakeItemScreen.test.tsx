@@ -647,7 +647,7 @@ describe("IntakeItemScreen", () => {
     const revisionsOf = (reviewId: number, count: number) =>
       Array.from({ length: count }, (_, i) => reviewRevision({ id: reviewId * 10 + 1 + i, review_id: reviewId, revision: i + 1 }));
 
-    it("offers a new slip only on the review on the cover, and only once it was edited after printing", async () => {
+    it("offers a new slip only on the review on the cover, and shows no note on another printed review", async () => {
       fakeReviewsEndpoints({
         records: [dogaItem()],
         forItem: { [ITEM_ID]: [submitted(40, printedOn), submitted(41, { printed_revision_id: 411, printed_at: printedOn.printed_at })] },
@@ -659,21 +659,38 @@ describe("IntakeItemScreen", () => {
       const cover = (await screen.findByRole("heading", { name: "The review on the cover" })).closest("section")!;
       expect(await within(cover).findByRole("link", { name: "Print a new slip" })).toHaveAttribute("href", `/dashboard/admin/intake/${ITEM_ID}/slip`);
       const others = screen.getByRole("heading", { name: "Other reviews" }).closest("section")!;
-      expect(await within(others).findByText(/The cover has an earlier version/)).toBeInTheDocument();
+      await within(others).findByText("Take 41.");
+      expect(within(others).queryByText(/The cover has an earlier version|printed on the cover/)).not.toBeInTheDocument();
       expect(within(others).queryByRole("link", { name: "Print a new slip" })).not.toBeInTheDocument();
     });
 
-    it("says the printed version is the one on the cover, with no new slip, when it is current", async () => {
+    it.each<[string, number, string | null]>([
+      ["the review on the cover, newest revision printed", 1, "This is the version printed on the cover."],
+      ["the review on the cover, edited after printing", 2, "The cover has an earlier version of this review, printed Friday, October 2, 2026."],
+      ["a printed review that is not on the cover, newest revision printed", 1, null],
+      ["a printed review that is not on the cover, edited after printing", 2, null],
+    ])("note on %s", async (name, count, expected) => {
+      const requested = vi.fn();
+      const onCover = !name.includes("not on");
       fakeReviewsEndpoints({
-        records: [dogaItem()],
-        forItem: { [ITEM_ID]: [submitted(40, { printed_revision_id: 401, printed_at: printedOn.printed_at })] },
-        revisions: { "40": revisionsOf(40, 1) },
+        records: [dogaItem({ accepted_review_id: 40 })],
+        forItem: { [ITEM_ID]: [submitted(40, onCover ? printedOn : {}), submitted(41, onCover ? {} : { printed_revision_id: 411, printed_at: printedOn.printed_at })] },
       });
+      server.use(http.get(`${TEST_BACKEND_URL}/reviews/:id/revisions`, ({ params }) => {
+        requested(params.id);
+        return HttpResponse.json(revisionsOf(Number(params.id), count));
+      }));
 
       renderScreen(<IntakeItemScreen id={ITEM_ID} />);
 
-      expect(await screen.findByText("This is the version printed on the cover.")).toBeInTheDocument();
-      expect(screen.queryByRole("link", { name: "Print a new slip" })).not.toBeInTheDocument();
+      await screen.findByText("Take 40.");
+      if (expected) {
+        expect(await screen.findByText(expected)).toBeInTheDocument();
+      } else {
+        await new Promise((r) => setTimeout(r, 50));
+        expect(screen.queryByText(/printed on the cover|earlier version of this review/)).not.toBeInTheDocument();
+        expect(requested).not.toHaveBeenCalledWith("41");
+      }
     });
 
     it("links to the history from a review that was edited", async () => {

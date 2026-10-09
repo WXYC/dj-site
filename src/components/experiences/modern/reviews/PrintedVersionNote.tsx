@@ -12,14 +12,15 @@ import { REVIEW_COPY } from "./copy";
 const copy = REVIEW_COPY.printedNote;
 
 /**
- * Says whether the text shown is the version taped to the cover. Reads the
- * revisions only for a review that was printed. Whether it changed since is
+ * Says whether the text shown is the version taped to the cover. Shows only
+ * on a review that is on a cover now (`onCover`, which each surface decides from the signal it has), and reads
+ * the revisions only then, for a review that was printed. Whether it changed since is
  * decided from the revisions, never from `last_modified`: a consent change moves
  * that without writing a version.
  */
-export default function PrintedVersionNote({ review, newSlipHref }: { review: Review; newSlipHref?: string }) {
+export default function PrintedVersionNote({ review, onCover, newSlipHref }: { review: Review; onCover: boolean; newSlipHref?: string }) {
   const visible = useCanSeeReviews();
-  const printed = review.printed_revision_id != null;
+  const printed = onCover && review.printed_revision_id != null;
   const revisions = useGetReviewRevisionsQuery(review.id, { skip: !visible || !printed });
 
   if (!visible || !printed) return null;

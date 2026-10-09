@@ -25,12 +25,12 @@ export function FccNotesSlot({ albumId }: { albumId: number }) {
   );
 }
 
-/** A review as the page shows it; `record` is set only when the review is about this page's own record, and `printable` only by the album page's panel, where that record is a library release. */
-export function ReviewItem({ review, record, newSlipHref, printable }: { review: Review; record?: PanelRecord; newSlipHref?: string; printable?: boolean }) {
+/** A review as the page shows it; `record` is set only when the review is about this page's own record, and `printable` only by the album page's panel, where that record is a library release. `onCover` says the review is on a cover now, which is what earns it the printed-version note. */
+export function ReviewItem({ review, record, newSlipHref, printable, onCover }: { review: Review; record?: PanelRecord; newSlipHref?: string; printable?: boolean; onCover: boolean }) {
   const onTheSleeve = review.medium === "handwritten" && !review.review;
   return (
     <Stack spacing={0.5} component="li" sx={{ listStyle: "none" }}>
-      <PrintedVersionNote review={review} newSlipHref={newSlipHref} />
+      <PrintedVersionNote review={review} onCover={onCover} newSlipHref={newSlipHref} />
       {onTheSleeve ? (
         <>
           <Typography level="body-sm">
@@ -58,13 +58,13 @@ export function ReviewItem({ review, record, newSlipHref, printable }: { review:
 }
 
 /** A headed list of reviews; `recordOf` names the record a review is about, or nothing for a review of a release this record cites. */
-export function Group({ title, reviews, recordOf, newSlipHref, printable }: { title: string; reviews: Review[]; recordOf: (review: Review) => PanelRecord | undefined; newSlipHref?: string; printable?: boolean }) {
+export function Group({ title, reviews, recordOf, newSlipHref, printable, onCover }: { title: string; reviews: Review[]; recordOf: (review: Review) => PanelRecord | undefined; newSlipHref?: string; printable?: boolean; onCover: (review: Review) => boolean }) {
   return (
     <Stack component="section" spacing={1}>
       <Typography level="title-sm" component="h3">{title}</Typography>
       <Stack component="ul" spacing={1.5} sx={{ p: 0, m: 0 }}>
         {reviews.map((review) => (
-          <ReviewItem key={review.id} review={review} record={recordOf(review)} newSlipHref={newSlipHref} printable={printable} />
+          <ReviewItem key={review.id} review={review} record={recordOf(review)} newSlipHref={newSlipHref} printable={printable} onCover={onCover(review)} />
         ))}
       </Stack>
     </Stack>
@@ -88,10 +88,10 @@ export default function ReviewsPanel({ albumId, record }: { albumId: number; rec
       <FccNotesSlot albumId={albumId} />
       {reviews.isError && <Typography role="alert">{copy.loadFailed}</Typography>}
       {onCover.length > 0 && (
-        <Group title={onCover.length > 1 ? copy.coverMany : copy.coverOne} reviews={onCover} recordOf={recordOf} printable />
+        <Group title={onCover.length > 1 ? copy.coverMany : copy.coverOne} reviews={onCover} recordOf={recordOf} printable onCover={(r) => r.on_cover} />
       )}
       {rest.length > 0 && (
-        <Group title={onCover.length > 0 ? copy.others : copy.all} reviews={rest} recordOf={recordOf} printable />
+        <Group title={onCover.length > 0 ? copy.others : copy.all} reviews={rest} recordOf={recordOf} printable onCover={(r) => r.on_cover} />
       )}
       {!!archive.data?.length && (
         <Stack component="section" spacing={1}>
