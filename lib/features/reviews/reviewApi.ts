@@ -3,6 +3,7 @@ import type {
   Review,
   ReviewConflictReason,
   ReviewPatch,
+  ReviewRevision,
 } from "@wxyc/shared";
 import type { FetchBaseQueryError } from "@reduxjs/toolkit/query";
 import { isRefusal } from "@/lib/rtk-endpoint-error";
@@ -47,6 +48,10 @@ export const reviewApi = reviewsApi.injectEndpoints({
       query: (id) => ({ url: `reviews/${id}` }),
       providesTags: ["Review"],
     }),
+    getReviewRevisions: builder.query<ReviewRevision[], number>({
+      query: (id) => ({ url: `reviews/${id}/revisions` }),
+      providesTags: ["Review"],
+    }),
     createReview: builder.mutation<Review, NewReviewRequest>({
       query: (body) => ({ url: "reviews", method: "POST", body }),
       transformErrorResponse: wrapReviewWriteError,
@@ -77,6 +82,7 @@ export const {
   useGetItemReviewsQuery,
   useGetReviewQuery,
   useLazyGetReviewQuery,
+  useGetReviewRevisionsQuery,
   useCreateReviewMutation,
   useUpdateReviewMutation,
   useSubmitReviewMutation,

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Button, Stack, Typography } from "@mui/joy";
+import Link from "next/link";
+import { Button, Link as JoyLink, Stack, Typography } from "@mui/joy";
 import type { Review, ReviewPatch } from "@wxyc/shared";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -21,6 +22,7 @@ import ConfirmDialog from "../ConfirmDialog";
 import ConsentBlock, { type Consent } from "./ConsentBlock";
 import { REVIEW_COPY } from "./copy";
 import FccNotesPanel from "./FccNotesPanel";
+import PrintedVersionNote from "./PrintedVersionNote";
 import SlipFields, { toFieldPatch, toFieldValues } from "./SlipFields";
 import SlipPreview from "./SlipPreview";
 import { formatSlipDate } from "./slipDate";
@@ -95,6 +97,12 @@ function Form({ review }: { review: Review }) {
   return (
     <Stack direction="row" spacing={3} alignItems="flex-start" flexWrap="wrap">
       <Stack spacing={2} sx={{ flex: 1, minWidth: 280 }}>
+        {!draft && (
+          <JoyLink component={Link} href={`/dashboard/reviews/${review.id}/history`} level="body-sm">
+            {REVIEW_COPY.history.link}
+          </JoyLink>
+        )}
+        <PrintedVersionNote review={review} />
         {draft && <Typography level="body-sm">{REVIEW_COPY.draftPrivacy}</Typography>}
         {isAuthor && !draft && <Typography level="body-sm">{REVIEW_COPY.submittedBanner}</Typography>}
         {isMusicDirector && (
