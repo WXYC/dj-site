@@ -2,15 +2,10 @@ import { describe, it, expect } from "vitest";
 import type { IntakeItem } from "@wxyc/shared";
 import { fakeIntakeEndpoints, type FakeIntakeOptions } from "@/tests/fakes/reviews/intake";
 import { intakeItem } from "@/tests/fakes/reviews";
-import { TEST_BACKEND_URL } from "@/tests/helpers/constants";
+import { readIds } from "./fakeReads";
 
 const inState = (id: number, state: IntakeItem["effective_state"], overrides: Partial<IntakeItem> = {}) =>
   intakeItem({ id, state, effective_state: state, ...overrides });
-
-const readIds = async (search: string) => {
-  const rows = (await (await fetch(`${TEST_BACKEND_URL}/intake${search}`)).json()) as IntakeItem[];
-  return rows.map((row) => row.id);
-};
 
 describe("fakeIntakeEndpoints GET /intake", () => {
   // Rows are passed under whichever option, but a row's lane is its own
@@ -61,7 +56,7 @@ describe("fakeIntakeEndpoints GET /intake", () => {
   ])("%s", async (_name, options, search, expectedIds) => {
     fakeIntakeEndpoints(options);
 
-    expect(await readIds(search)).toEqual(expectedIds);
+    expect(await readIds("/intake", search)).toEqual(expectedIds);
   });
 });
 

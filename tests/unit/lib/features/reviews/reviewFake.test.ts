@@ -1,13 +1,7 @@
 import { describe, it, expect } from "vitest";
-import type { Review } from "@wxyc/shared";
 import { fakeReviewEndpoints, type FakeReviewOptions } from "@/tests/fakes/reviews/review";
 import { review } from "@/tests/fakes/reviews";
-import { TEST_BACKEND_URL } from "@/tests/helpers/constants";
-
-const readIds = async (search: string) => {
-  const rows = (await (await fetch(`${TEST_BACKEND_URL}/reviews${search}`)).json()) as Review[];
-  return rows.map((row) => row.id);
-};
+import { readIds } from "./fakeReads";
 
 describe("fakeReviewEndpoints GET /reviews", () => {
   const OPTIONS: FakeReviewOptions = {
@@ -27,6 +21,6 @@ describe("fakeReviewEndpoints GET /reviews", () => {
   ])("%s", async (_name, search, expectedIds) => {
     fakeReviewEndpoints(OPTIONS);
 
-    expect(await readIds(search)).toEqual(expectedIds);
+    expect(await readIds("/reviews", search)).toEqual(expectedIds);
   });
 });
