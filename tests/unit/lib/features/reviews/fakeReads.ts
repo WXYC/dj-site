@@ -1,4 +1,4 @@
-import type { AlbumReview } from "@wxyc/shared";
+import type { AlbumReview, Reviewer } from "@wxyc/shared";
 import { TEST_BACKEND_URL } from "@/tests/helpers/constants";
 
 /** GETs `route` + `search` from the fake backend and reads the rows' ids. */
@@ -13,4 +13,10 @@ export const readAlbumReviewIds = async (search: string) => {
     album_reviews: Pick<AlbumReview, "id">[];
   };
   return page.album_reviews.map((row) => row.id);
+};
+
+/** GETs `/reviews/reviewers` and reads the answer's `reviewers`. */
+export const readReviewers = async () => {
+  const page = (await (await fetch(`${TEST_BACKEND_URL}/reviews/reviewers`)).json()) as { reviewers: Reviewer[] };
+  return page.reviewers;
 };

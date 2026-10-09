@@ -98,6 +98,56 @@ describe("fakeIntakeEndpoints POST /intake/:id/cancel-request", () => {
   });
 });
 
+describe("fakeIntakeEndpoints POST /intake/:id/request", () => {
+  const request = (id: number, djId = "dj-pat") =>
+    fetch(`${TEST_BACKEND_URL}/intake/${id}/request`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ dj_id: djId }),
+    });
+  const REVIEWERS = [{ id: "dj-pat", name: "Test Reviewer" }];
+
+  it("answers the row requested of the chosen reviewer", async () => {
+    fakeIntakeEndpoints({ open: [inState(1, "pool")], reviewers: REVIEWERS });
+
+    const response = await request(1);
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      id: 1,
+      state: "requested",
+      effective_state: "requested",
+      requested_dj_id: "dj-pat",
+      requested_dj_name: "Test Reviewer",
+    });
+  });
+
+  it("moves the row to the requested state in later reads, leaving the others alone", async () => {
+    fakeIntakeEndpoints({ open: [inState(1, "pool"), inState(2, "pool")], reviewers: REVIEWERS });
+
+    await request(1);
+
+    expect(await readIds("/intake", "?state=requested")).toEqual([1]);
+    expect(await readIds("/intake", "?state=pool")).toEqual([2]);
+  });
+
+  it("reads a row requested and then cancelled back on the review shelf", async () => {
+    fakeIntakeEndpoints({ open: [inState(1, "pool")], reviewers: REVIEWERS });
+
+    await request(1);
+    await fetch(`${TEST_BACKEND_URL}/intake/1/cancel-request`, { method: "POST" });
+
+    expect(await readIds("/intake", "?state=pool")).toEqual([1]);
+    expect(await readIds("/intake", "?state=requested")).toEqual([]);
+  });
+
+  it("answers 404 for an id it does not hold", async () => {
+    fakeIntakeEndpoints({ open: [inState(1, "pool")], reviewers: REVIEWERS });
+
+    expect((await request(9)).status).toBe(404);
+  });
+});
+
 describe("fakeIntakeEndpoints POST /intake/:id/print", () => {
   const slip = {
     artist_name: "Stereolab",

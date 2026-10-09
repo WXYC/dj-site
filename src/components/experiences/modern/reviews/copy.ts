@@ -160,6 +160,13 @@ export const REVIEW_COPY = {
     raceCheckoutReleased: "This record has already been returned. The lists have been reloaded.",
     cancelRequest: "Cancel request",
     release: "Release",
+    /** Approved. Shown once the lists have reloaded after a request lost its race. */
+    raceRequest: "This record has left the review shelf since the page loaded, so it can't be requested. The lists have been reloaded.",
+    /** Approved. Shown when a request names an account that can no longer be asked to review. */
+    requestRefused: "That DJ can't be asked to review: their account was removed, or it's no longer a DJ account. Pick someone else.",
+    djToAsk: "DJ to ask",
+    request: "Request a review",
+    reviewersLoadFailed: "Couldn't load the DJs who can be asked to review. Please try again.",
     /** Approved. */
     logTitle: "Log an item",
     /** Approved. */
