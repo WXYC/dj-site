@@ -162,6 +162,78 @@ describe("IntakeScreen", () => {
     expect(within(reviewed).getAllByText("Overdue")).toHaveLength(1);
   });
 
+  it.each([
+    ["Checked out", "checked_out", "Checked out"],
+    ["Reviewed", "reviewed", "Reviewed (2)"],
+  ])("sorts an overdue row first in the %s lane, whatever order the read returns", async (_name, state, heading) => {
+    const row = (id: number, overrides = {}) =>
+      moonPix({ id, album_title: `Album ${id}`, state, effective_state: state, checked_out_by: "dj-1", checked_out_by_name: "DJ Sam", checked_out_at: "2026-09-01T12:00:00Z", ...overrides });
+    fakeReviewsEndpoints({
+      open: [
+        row(1, { logged_at: "2026-09-02T12:00:00Z" }),
+        row(2, { logged_at: "2026-09-01T12:00:00Z", overdue: true }),
+      ],
+    });
+
+    renderWithProviders(<IntakeScreen />);
+
+    const links = within(await lane(heading)).getAllByRole("link");
+    expect(links.map((a) => a.textContent)).toEqual([expect.stringContaining("Album 2"), expect.stringContaining("Album 1")]);
+  });
+
+  it("counts the Reviewed lane's rows in its heading, drops it on a refetch, and keeps it plain when empty", async () => {
+    let returned = false;
+    const reviewed = (id: number) => moonPix({ id, state: "reviewed", effective_state: "reviewed", checked_out_at: "2026-09-01T12:00:00Z", checked_out_by: "dj-1", checked_out_by_name: "DJ Sam" });
+    fakeReviewsEndpoints({
+      reviewed: () => (returned ? [reviewed(1)] : [reviewed(1), reviewed(2)]),
+    });
+    server.use(
+      http.post(`${TEST_BACKEND_URL}/intake/2/release`, () => {
+        returned = true;
+        return HttpResponse.json(moonPix({ id: 2 }));
+      }),
+    );
+
+    const { user } = renderWithProviders(<IntakeScreen />);
+    const two = await lane("Reviewed (2)");
+    await user.click(within(two).getAllByRole("button", { name: "Mark as returned" })[1]);
+
+    await lane("Reviewed (1)");
+  });
+
+  it("keeps the plain Reviewed heading when the lane is empty", async () => {
+    fakeReviewsEndpoints({ open: [moonPix()] });
+
+    renderWithProviders(<IntakeScreen />);
+
+    expect(await lane("Reviewed")).toHaveTextContent("Nothing here.");
+    expect(screen.queryByText(/Reviewed \(/)).not.toBeInTheDocument();
+  });
+
+  it("lists the recent passes from the read, newest first, and shows no band when there are none", async () => {
+    const pass = (dj_name: string, passed_at: string) => ({ dj_name, passed_at });
+    fakeReviewsEndpoints({
+      open: [
+        moonPix({ id: 1, artist_name: "Juana Molina", album_title: "DOGA", passes: [pass("Pat", "2026-10-01T12:00:00Z")] }),
+        moonPix({ id: 2, artist_name: "Stereolab", album_title: "Aluminum Tunes", passes: [pass("Sam", "2026-10-03T12:00:00Z")] }),
+      ],
+    });
+
+    const { unmount } = renderWithProviders(<IntakeScreen />);
+
+    const band = await screen.findByRole("status", { name: "Recent passes" });
+    expect(within(band).getAllByRole("listitem").map((li) => li.textContent)).toEqual([
+      "Sam passed on Stereolab — Aluminum Tunes",
+      "Pat passed on Juana Molina — DOGA",
+    ]);
+    unmount();
+
+    fakeReviewsEndpoints({ open: [moonPix({ id: 1, passes: [] })] });
+    renderWithProviders(<IntakeScreen />);
+    await lane("On the review shelf");
+    expect(screen.queryByRole("status", { name: "Recent passes" })).not.toBeInTheDocument();
+  });
+
   it("Mark as returned sends the release, and the record stays in Reviewed without its line", async () => {
     let returned = false;
     const holder = { checked_out_at: "2026-09-01T12:00:00Z", checked_out_by: "dj-1", checked_out_by_name: "DJ Sam" };
