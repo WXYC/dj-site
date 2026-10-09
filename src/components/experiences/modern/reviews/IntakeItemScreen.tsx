@@ -6,14 +6,17 @@ import { Chip, Stack, Typography } from "@mui/joy";
 import type { IntakeItem, Review } from "@wxyc/shared";
 import { hasNothingToShow } from "@/lib/has-nothing-to-show";
 import {
+  intakeApi,
   isIntakeNotReviewed,
   isIntakeStateChanged,
   useFileIntakeItemMutation,
   useGetIntakeItemQuery,
 } from "@/lib/features/reviews/intakeApi";
-import { useGetItemReviewsQuery, useGetReviewQuery } from "@/lib/features/reviews/reviewApi";
+import { reviewApi, useGetItemReviewsQuery, useGetReviewQuery } from "@/lib/features/reviews/reviewApi";
+import { useAppDispatch } from "@/lib/hooks";
 import { unwrapEndpointError } from "@/lib/rtk-endpoint-error";
 import { useCanSeeReviews } from "@/src/hooks/useCanSeeReviews";
+import { useMounted } from "@/src/hooks/useRowWrite";
 import RotationFilingBench, { type FilingSubmit } from "../admin/rotation/RotationFilingBench";
 import { REVIEW_COPY } from "./copy";
 import { intakeRecord, recordLine } from "./recordLine";
@@ -30,6 +33,28 @@ const STATE_LABELS: Record<IntakeItem["effective_state"], string> = {
   finalized: REVIEW_COPY.intake.filed,
 };
 
+/**
+ * Every write on this page reloads through this before its line appears: the
+ * item, its reviews, and the cover review when the page reads it by id
+ * (`coverId`). It follows the `useRowWrite` reload rule: `initiate` with the
+ * hooks' own args, never a hook's `refetch()`, which throws once the page has
+ * unmounted. Resolves to whether the page is still mounted, so the caller sets
+ * no state after it has gone. A failed read does not reject.
+ */
+function useItemPageReload(id: number, coverId?: number) {
+  const dispatch = useAppDispatch();
+  const mounted = useMounted();
+  const refresh = { subscribe: false, forceRefetch: true } as const;
+  return async () => {
+    await Promise.allSettled([
+      dispatch(intakeApi.endpoints.getIntakeItem.initiate(id, refresh)),
+      dispatch(reviewApi.endpoints.getItemReviews.initiate(id, refresh)),
+      ...(coverId === undefined ? [] : [dispatch(reviewApi.endpoints.getReview.initiate(coverId, refresh))]),
+    ]);
+    return mounted.current;
+  };
+}
+
 /** The music directors' page for one logged record: its reviews, and the filing bench. */
 export default function IntakeItemScreen({ id }: { id: number }) {
   const visible = useCanSeeReviews();
@@ -42,6 +67,8 @@ export default function IntakeItemScreen({ id }: { id: number }) {
   const ownCover = reviews.data?.find((r) => r.id === coverId);
   // The review on the cover can be one of a cited or filed release, which the item's own list lacks.
   const fetchedCover = useGetReviewQuery(coverId ?? 0, { skip: !visible || coverId == null || !reviews.data || !!ownCover });
+
+  const reload = useItemPageReload(id, reviews.data && !ownCover ? coverId ?? undefined : undefined);
 
   if (!visible) return null;
   if ([item, reviews, fetchedCover].some(hasNothingToShow)) {
@@ -64,8 +91,7 @@ export default function IntakeItemScreen({ id }: { id: number }) {
     } catch (err) {
       const refusal = isIntakeStateChanged(err) ? COPY.alreadyFiled : isIntakeNotReviewed(err) ? COPY.notReviewed : null;
       if (refusal === null) throw unwrapEndpointError("intakeWriteError", err) ?? err;
-      await item.refetch();
-      setNotice(refusal);
+      if (await reload()) setNotice(refusal);
       // Nothing was filed, so the bench keeps what was typed.
       return false;
     }
