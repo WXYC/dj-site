@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { http, HttpResponse } from "msw";
 import { configureStore } from "@reduxjs/toolkit";
 import { reviewsApi } from "@/lib/features/reviews/api";
+import { reviewApi } from "@/lib/features/reviews/reviewApi";
 import { intakeApi, isIntakeInRotation, isIntakeNotReviewed, isIntakeStateChanged } from "@/lib/features/reviews/intakeApi";
 import { describeApi } from "@/tests/helpers/api-harness";
 import { TEST_BACKEND_URL } from "@/tests/helpers/constants";
@@ -69,6 +70,47 @@ describe("intakeApi", () => {
 
     expect(seen).toEqual({ method: "DELETE", path: "/intake/7" });
     expect(result).toMatchObject({ data: { deleted_review_authors: ["Cat Power"] } });
+  });
+
+  it("deleteIntakeItem refreshes the lists but not the deleted record's own reads", async () => {
+    const reads = { list: 0, item7: 0, item8: 0, itemReviews7: 0, myReviews: 0 };
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/intake`, () => {
+        reads.list += 1;
+        return HttpResponse.json([]);
+      }),
+      http.get(`${TEST_BACKEND_URL}/intake/:id`, ({ params }) => {
+        reads[params.id === "7" ? "item7" : "item8"] += 1;
+        return HttpResponse.json({ id: Number(params.id) });
+      }),
+      http.get(`${TEST_BACKEND_URL}/reviews`, ({ request }) => {
+        const url = new URL(request.url);
+        if (url.searchParams.get("intake_item_id") === "7") reads.itemReviews7 += 1;
+        else reads.myReviews += 1;
+        return HttpResponse.json([]);
+      }),
+      http.delete(`${TEST_BACKEND_URL}/intake/:id`, () => HttpResponse.json({ deleted_review_authors: [] })),
+    );
+    const store = makeReviewsStore();
+    const subscriptions = [
+      store.dispatch(intakeApi.endpoints.getIntakeItems.initiate()),
+      store.dispatch(intakeApi.endpoints.getIntakeItem.initiate(7)),
+      store.dispatch(intakeApi.endpoints.getIntakeItem.initiate(8)),
+      store.dispatch(reviewApi.endpoints.getItemReviews.initiate(7)),
+      store.dispatch(reviewApi.endpoints.getMyReviews.initiate()),
+    ];
+    await Promise.all(subscriptions);
+    const before = { ...reads };
+
+    await store.dispatch(intakeApi.endpoints.deleteIntakeItem.initiate(7));
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    expect(reads.list).toBe(before.list + 1);
+    expect(reads.myReviews).toBe(before.myReviews + 1);
+    expect(reads.item7).toBe(before.item7);
+    expect(reads.itemReviews7).toBe(before.itemReviews7);
+    expect(reads.item8).toBe(before.item8);
+    subscriptions.forEach((s) => s.unsubscribe());
   });
 
   it("deleteIntakeItem nests a rejection under intakeWriteError", async () => {

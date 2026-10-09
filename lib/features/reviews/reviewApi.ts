@@ -33,16 +33,17 @@ export const reviewApi = reviewsApi.injectEndpoints({
   endpoints: (builder) => ({
     getMyReviews: builder.query<Review[], void>({
       query: () => ({ url: "reviews", params: { mine: true } }),
-      providesTags: ["Review"],
+      providesTags: [{ type: "Review", id: "LIST" }],
     }),
     // The server's order is the panel's order: reviews on the cover first, then the rest.
     getReviewsForRelease: builder.query<Review[], number>({
       query: (albumId) => ({ url: "reviews", params: { album_id: albumId } }),
-      providesTags: ["Review"],
+      providesTags: [{ type: "Review", id: "LIST" }],
     }),
+    // Tagged by its item, not as a list: deleting the item must not refetch its own reviews.
     getItemReviews: builder.query<Review[], number>({
       query: (itemId) => ({ url: "reviews", params: { intake_item_id: itemId } }),
-      providesTags: ["Review"],
+      providesTags: (_result, _error, itemId) => [{ type: "Review", id: `item-${itemId}` }],
     }),
     getReview: builder.query<Review, number>({
       query: (id) => ({ url: `reviews/${id}` }),

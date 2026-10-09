@@ -40,6 +40,10 @@ export const isIntakeStateChanged = (err: unknown): boolean =>
 export const isIntakeNotReviewed = (err: unknown): boolean =>
   isRefusal(err, { status: 409, reasons: ["not_reviewed"], key: "intakeWriteError" });
 
+/** True when a delete lost its race to a filing: the record is already filed (409 `already_filed`). */
+export const isIntakeAlreadyFiled = (err: unknown): boolean =>
+  isRefusal(err, { status: 409, reasons: ["already_filed"], key: "intakeWriteError" });
+
 /** True when finalizing was refused because the release is in active rotation. */
 export const isIntakeInRotation = (err: unknown): boolean =>
   isRefusal(err, { status: 409, reasons: ["in_rotation"], key: "intakeWriteError" });
@@ -56,7 +60,7 @@ export const intakeApi = reviewsApi.injectEndpoints({
         // An empty params object still serializes to a dangling `?`.
         return { url: "intake", ...(Object.keys(params).length > 0 && { params }) };
       },
-      providesTags: ["Intake"],
+      providesTags: [{ type: "Intake", id: "LIST" }],
     }),
     logIntakeItem: builder.mutation<IntakeItem, NewIntakeItemRequest>({
       query: (body) => ({ url: "intake", method: "POST", body }),
@@ -64,7 +68,7 @@ export const intakeApi = reviewsApi.injectEndpoints({
     }),
     getIntakeItem: builder.query<IntakeItem, number>({
       query: (id) => ({ url: `intake/${id}` }),
-      providesTags: ["Intake"],
+      providesTags: (_result, _error, id) => [{ type: "Intake", id }],
     }),
     checkoutIntakeItem: builder.mutation<IntakeItem, number>({
       query: (id) => ({ url: `intake/${id}/checkout`, method: "POST" }),
@@ -108,10 +112,16 @@ export const intakeApi = reviewsApi.injectEndpoints({
       invalidatesTags: ["Intake", "Review"],
     }),
     // Takes the item's reviews and unsubmitted drafts with it; the response names their authors.
+    // Refreshes the lists only: the deleted record's own reads (`getIntakeItem(id)`,
+    // `getItemReviews(id)`) are not invalidated, because a refetch would 404 and the
+    // shared error logger would toast and report it.
     deleteIntakeItem: builder.mutation<IntakeDeleteResponse, number>({
       query: (id) => ({ url: `intake/${id}`, method: "DELETE" }),
       transformErrorResponse: wrapIntakeWriteError,
-      invalidatesTags: ["Intake", "Review"],
+      invalidatesTags: [
+        { type: "Intake", id: "LIST" },
+        { type: "Review", id: "LIST" },
+      ],
     }),
     // Files a library row and, on the rotation arm, a rotation row. Those caches
     // live in other `createApi` instances, whose tags `invalidatesTags` cannot reach.
