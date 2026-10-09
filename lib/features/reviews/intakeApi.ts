@@ -32,7 +32,10 @@ const wrapIntakeWriteError = (response: FetchBaseQueryError): IntakeWriteError =
 export const isIntakeStateChanged = (err: unknown): boolean =>
   isRefusal(err, { status: 409, reasons: ["state_changed"], key: "intakeWriteError" });
 
-/** True when filing was refused because the review chosen for the cover was removed. */
+/**
+ * True when a write was refused with `not_reviewed`: filing, because the review chosen for the cover was removed;
+ * or printing the slip, because no review is on the cover or the one there is handwritten.
+ */
 export const isIntakeNotReviewed = (err: unknown): boolean =>
   isRefusal(err, { status: 409, reasons: ["not_reviewed"], key: "intakeWriteError" });
 

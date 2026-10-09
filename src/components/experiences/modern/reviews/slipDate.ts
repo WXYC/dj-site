@@ -1,11 +1,4 @@
-const STATION_TIME_ZONE = "America/New_York";
-
-const STATION_DATE = new Intl.DateTimeFormat("en-CA", {
-  timeZone: STATION_TIME_ZONE,
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-});
+import { stationDateISO } from "@/src/utilities/stationTime";
 
 /**
  * The date a slip shows, as `YYYY-MM-DD`. A date passes through; a date-time is
@@ -13,5 +6,5 @@ const STATION_DATE = new Intl.DateTimeFormat("en-CA", {
  * review always agree on the day.
  */
 export function formatSlipDate(value: string): string {
-  return value.length === 10 ? value : STATION_DATE.format(new Date(value));
+  return value.length === 10 ? value : stationDateISO(new Date(value));
 }

@@ -87,6 +87,7 @@ describe("ReviewEditor", () => {
 
   it.each([
     ["a submitted review shows the date it was submitted", { status: "submitted", submitted_at: "2026-10-07T16:00:00Z" }, "DJ Me 2026-10-07"],
+    ["a review submitted on an evening in station time shows the station day, not the UTC day", { status: "submitted", submitted_at: "2026-10-08T01:30:00Z" }, "DJ Me 2026-10-07"],
     ["a draft shows the date it was added", { submitted_at: null }, "DJ Me 2026-10-01"],
   ] as const)("%s", async (_name, overrides, expected) => {
     serve({ ...DRAFT, add_date: "2026-10-01", ...overrides } as Review);
