@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Button, Link as JoyLink, Stack, Typography } from "@mui/joy";
 import type { Review } from "@wxyc/shared";
+import { RequireMD } from "@/src/components/shared/Authorization";
 import { useGetReviewsForReleaseQuery } from "@/lib/features/reviews/reviewApi";
 import { useGetAlbumReviewsForReleaseQuery } from "@/lib/features/reviews/albumReviewApi";
 import { useCanSeeReviews } from "@/src/hooks/useCanSeeReviews";
@@ -39,6 +40,13 @@ export function ReviewItem({ review, record, newSlipHref }: { review: Review; re
         </>
       ) : (
         <SlipPreview {...record} reviewer={review.author ?? ""} date={review.add_date} fields={review} />
+      )}
+      {record && review.medium === "typed" && review.status === "submitted" && (
+        <RequireMD>
+          <JoyLink component={Link} href={`/dashboard/admin/library/${review.album_id}/slip/${review.id}`} level="body-xs">
+            {copy.printReview}
+          </JoyLink>
+        </RequireMD>
       )}
       {review.revision_count > 1 && (
         <JoyLink component={Link} href={`/dashboard/reviews/${review.id}/history`} level="body-xs">

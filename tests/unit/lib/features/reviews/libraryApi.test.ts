@@ -1,0 +1,81 @@
+import { describe, it, expect, vi } from "vitest";
+import { http, HttpResponse } from "msw";
+import { configureStore } from "@reduxjs/toolkit";
+import { reviewsApi } from "@/lib/features/reviews/api";
+import { reviewApi } from "@/lib/features/reviews/reviewApi";
+import { libraryApi, isLibraryPrintRefused } from "@/lib/features/reviews/libraryApi";
+import { describeApi } from "@/tests/helpers/api-harness";
+import { TEST_BACKEND_URL } from "@/tests/helpers/constants";
+import { server } from "@/tests/fakes/server";
+
+vi.mock("@/lib/features/authentication/client", () => ({
+  getJWTToken: vi.fn().mockResolvedValue("test-token"),
+}));
+
+vi.mock("@/lib/error-reporting", () => ({ safeCaptureException: vi.fn() }));
+
+const makeReviewsStore = () =>
+  configureStore({
+    reducer: { [reviewsApi.reducerPath]: reviewsApi.reducer },
+    middleware: (gdm) => gdm().concat(reviewsApi.middleware),
+  });
+
+describe("libraryApi", () => {
+  describeApi(libraryApi, {
+    mutations: ["printReleaseReview"],
+    reducerPath: "reviewsApi",
+  });
+
+  it("printReleaseReview POSTs { review_id } to exactly /library/7/print", async () => {
+    let seen: { method: string; path: string; body: unknown } | undefined;
+    server.use(
+      http.post(`${TEST_BACKEND_URL}/library/:id/print`, async ({ request }) => {
+        seen = { method: request.method, path: new URL(request.url).pathname, body: await request.json() };
+        return HttpResponse.json({ artist_name: "Juana Molina" });
+      })
+    );
+
+    await makeReviewsStore().dispatch(libraryApi.endpoints.printReleaseReview.initiate({ albumId: 7, reviewId: 40 }));
+
+    expect(seen).toEqual({ method: "POST", path: "/library/7/print", body: { review_id: 40 } });
+  });
+
+  it("printReleaseReview invalidates the release's review list, so the album panel reloads it", async () => {
+    let reads = 0;
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/reviews`, () => {
+        reads += 1;
+        return HttpResponse.json([]);
+      }),
+      http.post(`${TEST_BACKEND_URL}/library/:id/print`, () => HttpResponse.json({ artist_name: "Juana Molina" }))
+    );
+    const store = makeReviewsStore();
+    store.dispatch(reviewApi.endpoints.getReviewsForRelease.initiate(7));
+    await vi.waitFor(() => expect(reads).toBe(1));
+
+    await store.dispatch(libraryApi.endpoints.printReleaseReview.initiate({ albumId: 7, reviewId: 40 }));
+
+    await vi.waitFor(() => expect(reads).toBe(2));
+  });
+
+  it("printReleaseReview rejects with the whole error nested under libraryPrintError", async () => {
+    const body = { message: "review_id must name a typed, submitted review of this release" };
+    server.use(http.post(`${TEST_BACKEND_URL}/library/:id/print`, () => HttpResponse.json(body, { status: 400 })));
+
+    const result = (await makeReviewsStore().dispatch(
+      libraryApi.endpoints.printReleaseReview.initiate({ albumId: 7, reviewId: 40 })
+    )) as { error?: unknown };
+
+    expect(result.error).toEqual({ libraryPrintError: { status: 400, data: body } });
+  });
+
+  it.each([
+    ["a 400 with no reason", { libraryPrintError: { status: 400, data: { message: "m" } } }, true],
+    ["a 404", { libraryPrintError: { status: 404, data: { message: "m" } } }, false],
+    ["a 500", { libraryPrintError: { status: 500, data: { message: "m" } } }, false],
+    ["a 400 nested under another key", { intakeWriteError: { status: 400, data: {} } }, false],
+    ["a bare Error", new Error("x"), false],
+  ])("isLibraryPrintRefused is %s -> %s", (_label, err, expected) => {
+    expect(isLibraryPrintRefused(err)).toBe(expected);
+  });
+});
