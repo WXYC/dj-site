@@ -28,7 +28,7 @@ function Row({ id, heading, marks, byline, at, fields }: {
         <Typography level="body-sm">{[byline, at].filter(Boolean).join(" · ")}</Typography>
         {marks.map((mark) => <Typography key={mark} level="body-xs" fontWeight="lg">{mark}</Typography>)}
       </Stack>
-      <SlipPreview reviewer="" date="" fields={fields} />
+      <SlipPreview fields={fields} />
     </Stack>
   );
 }
