@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { act, screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
-import { fakeReviewsEndpoints, intakeItem, renderWithProviders, review, server, TEST_BACKEND_URL } from "@/tests/helpers";
+import { fakeReviewsEndpoints, intakeItem, renderWithProviders, review, reviewRevision, server, TEST_BACKEND_URL } from "@/tests/helpers";
 import { fakeRotationCardsEndpoints } from "@/tests/fakes/rotation";
 import { fakeLibraryFilingsEndpoint, filingConflictResponse } from "@/tests/fakes/libraryFilings";
 import { Authorization } from "@/lib/features/admin/types";
@@ -589,6 +589,49 @@ describe("IntakeItemScreen", () => {
       renderScreen(<IntakeItemScreen id={ITEM_ID} />);
 
       expect(await screen.findByRole("alert")).toHaveTextContent("Couldn't load this record. Please try again.");
+    });
+  });
+
+  describe("the printed-version note", () => {
+    const printedOn = { printed_revision_id: 401, printed_at: "2026-10-02T16:00:00Z" };
+    const revisionsOf = (reviewId: number, count: number) =>
+      Array.from({ length: count }, (_, i) => reviewRevision({ id: reviewId * 10 + 1 + i, review_id: reviewId, revision: i + 1 }));
+
+    it("offers a new slip only on the review on the cover, and only once it was edited after printing", async () => {
+      fakeReviewsEndpoints({
+        records: [dogaItem()],
+        forItem: { [ITEM_ID]: [submitted(40, printedOn), submitted(41, { printed_revision_id: 411, printed_at: printedOn.printed_at })] },
+        revisions: { "40": revisionsOf(40, 2), "41": revisionsOf(41, 2) },
+      });
+
+      renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      const cover = (await screen.findByRole("heading", { name: "The review on the cover" })).closest("section")!;
+      expect(await within(cover).findByRole("link", { name: "Print a new slip" })).toHaveAttribute("href", `/dashboard/admin/intake/${ITEM_ID}/slip`);
+      const others = screen.getByRole("heading", { name: "Other reviews" }).closest("section")!;
+      expect(await within(others).findByText(/The cover has an earlier version/)).toBeInTheDocument();
+      expect(within(others).queryByRole("link", { name: "Print a new slip" })).not.toBeInTheDocument();
+    });
+
+    it("says the printed version is the one on the cover, with no new slip, when it is current", async () => {
+      fakeReviewsEndpoints({
+        records: [dogaItem()],
+        forItem: { [ITEM_ID]: [submitted(40, { printed_revision_id: 401, printed_at: printedOn.printed_at })] },
+        revisions: { "40": revisionsOf(40, 1) },
+      });
+
+      renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      expect(await screen.findByText("This is the version printed on the cover.")).toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: "Print a new slip" })).not.toBeInTheDocument();
+    });
+
+    it("links to the history from a review that was edited", async () => {
+      fakeReviewsEndpoints({ records: [dogaItem()], forItem: { [ITEM_ID]: [submitted(40, { revision_count: 2 })] } });
+
+      renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      expect(await screen.findByRole("link", { name: "Edited · see history" })).toHaveAttribute("href", "/dashboard/reviews/40/history");
     });
   });
 });

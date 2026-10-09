@@ -175,6 +175,23 @@ export const REVIEW_COPY = {
     printSlip: "Print the slip",
     filed: "Filed.",
   },
+  history: {
+    link: "History",
+    version: (n: number) => `Version ${n}`,
+    editedBy: (name: string | null) => `edited by ${name ?? ""}`.trim(),
+    submittedBy: (name: string | null) => `submitted by ${name ?? ""}`.trim(),
+    current: "Current",
+    onTheCover: "On the cover",
+    draft: "This review has not been submitted yet, so it has no history.",
+    loadFailed: "Couldn't load this review's history. Please try again.",
+  },
+  printedNote: {
+    isCurrent: "This is the version printed on the cover.",
+    edited: (printedOn: string) => `The cover has an earlier version of this review, printed ${printedOn}.`,
+    seePrinted: "See the printed version",
+    printNew: "Print a new slip",
+    loadFailed: "Couldn't check which version is on the cover.",
+  },
   myReviews: {
     title: "My reviews",
     empty: "You have not started a review.",
