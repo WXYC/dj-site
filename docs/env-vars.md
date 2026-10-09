@@ -68,7 +68,9 @@ NEXT_PUBLIC_REVIEW_GATE_CUTOVER_DATE=
 # client-side tier resolution (fetchOrganizationRoleForUserClient). Its
 # `globalThis.process?.env` read is never build-inlined by the bundler, so
 # from the browser's perspective this is always unresolved regardless of
-# what's configured — that client-side fallback has never fired either.
+# what's configured — that client-side fallback has never fired either. The
+# browser's session-to-authority resolution (betterAuthSessionToAuthenticationDataAsync)
+# reads the same JWT role claim and does not need this variable either.
 # Unlike APP_ORGANIZATION, though, this variable IS set in the Cloudflare
 # Pages production environment: the admin roster page
 # (app/dashboard/@modern/admin/roster/page.tsx) reads it directly,

@@ -7,7 +7,7 @@ import {
   User,
   VerifiedData
 } from "./types";
-import { getAppOrganizationId, getAppOrganizationIdClient } from "./organization-config";
+import { getAppOrganizationIdClient } from "./organization-config";
 
 export type BetterAuthSession = {
   user: {
@@ -193,16 +193,15 @@ export async function betterAuthSessionToAuthenticationDataAsync(
 
   let roleToMap: string | undefined;
 
-  const organizationId = typeof window !== "undefined"
-    ? getAppOrganizationIdClient()
-    : getAppOrganizationId();
+  const inBrowser = typeof window !== "undefined";
 
-  if (organizationId && typeof window !== "undefined") {
+  // The JWT's role claim needs no organization id, and a production build has none in the browser.
+  if (inBrowser) {
     try {
       const { fetchOrganizationRoleForUserClient } = await import("./organization-utils");
       const orgRole = await fetchOrganizationRoleForUserClient(
         session.user.id,
-        organizationId
+        getAppOrganizationIdClient()
       );
 
       if (orgRole !== undefined) {
@@ -215,7 +214,8 @@ export async function betterAuthSessionToAuthenticationDataAsync(
   // On server-side, skip organization role fetch here - server-side code should use
   // betterAuthSessionToAuthenticationData with getUserRoleInOrganization separately (as in session.ts)
 
-  if (!roleToMap) {
+  // In the browser user.role is only better-auth's admin flag, never a station tier: fail closed.
+  if (!roleToMap && !inBrowser) {
     const organizationRole = (session.user as any).organization?.role;
     const userRole = (session.user as any).role;
     const metadataRole = (session.user as any).metadata?.role;
