@@ -1,4 +1,5 @@
 import type {
+  IntakeDeleteResponse,
   IntakeFileRequest,
   IntakeItem,
   IntakeItemState,
@@ -106,6 +107,12 @@ export const intakeApi = reviewsApi.injectEndpoints({
       transformErrorResponse: wrapIntakeWriteError,
       invalidatesTags: ["Intake", "Review"],
     }),
+    // Takes the item's reviews and unsubmitted drafts with it; the response names their authors.
+    deleteIntakeItem: builder.mutation<IntakeDeleteResponse, number>({
+      query: (id) => ({ url: `intake/${id}`, method: "DELETE" }),
+      transformErrorResponse: wrapIntakeWriteError,
+      invalidatesTags: ["Intake", "Review"],
+    }),
     // Files a library row and, on the rotation arm, a rotation row. Those caches
     // live in other `createApi` instances, whose tags `invalidatesTags` cannot reach.
     fileIntakeItem: builder.mutation<IntakeItem, { id: number; body: IntakeFileRequest }>({
@@ -137,4 +144,5 @@ export const {
   useFinalizeIntakeItemMutation,
   useFileIntakeItemMutation,
   usePrintIntakeItemMutation,
+  useDeleteIntakeItemMutation,
 } = intakeApi;

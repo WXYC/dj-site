@@ -678,4 +678,111 @@ describe("IntakeItemScreen", () => {
       expect(await screen.findByRole("link", { name: "Edited · see history" })).toHaveAttribute("href", "/dashboard/reviews/40/history");
     });
   });
+  describe("deleting the record", () => {
+    const TITLE = "Delete Juana Molina — DOGA from the review shelf?";
+
+    /** Serves the item with its reviews and draft authors, and records every DELETE and every draft-content read. */
+    function serveDeletable(reviewAuthors: string[], draftAuthors: string[] | undefined, deleted: string[] = []) {
+      const seen = { deletes: 0, draftReads: 0 };
+      fakeReviewsEndpoints({
+        records: [dogaItem({ draft_authors: draftAuthors, accepted_review_id: null })],
+        forItem: { [ITEM_ID]: reviewAuthors.map((author, i) => submitted(40 + i, { author })) },
+      });
+      server.use(
+        http.delete(FILED_ITEM_PATH, () => {
+          seen.deletes += 1;
+          return HttpResponse.json({ deleted_review_authors: deleted });
+        }),
+        http.get(`${TEST_BACKEND_URL}/reviews/:id`, () => {
+          seen.draftReads += 1;
+          return HttpResponse.json({}, { status: 404 });
+        }),
+      );
+      return seen;
+    }
+
+    it.each([
+      ["reviews only, one author", ["Cat Power"], [], ["This also deletes the submitted review by Cat Power."]],
+      ["reviews only, several authors", ["Cat Power", "Stereolab"], [], ["This also deletes the submitted reviews by Cat Power and Stereolab."]],
+      ["a repeated author once", ["Cat Power", "Stereolab", "Cat Power"], [], ["This also deletes the submitted reviews by Cat Power and Stereolab."]],
+      [
+        "drafts only, one author",
+        [],
+        ["Jessica Pratt"],
+        ["It also deletes an unfinished draft by Jessica Pratt. They have not submitted yet and will lose what they wrote."],
+      ],
+      [
+        "drafts only, several authors",
+        [],
+        ["Jessica Pratt", "Sessa", "Jessica Pratt"],
+        ["It also deletes unfinished drafts by Jessica Pratt and Sessa. They have not submitted yet and will lose what they wrote."],
+      ],
+      [
+        "both, naming one author in each",
+        ["Cat Power"],
+        ["Cat Power"],
+        [
+          "This also deletes the submitted review by Cat Power.",
+          "It also deletes an unfinished draft by Cat Power. They have not submitted yet and will lose what they wrote.",
+        ],
+      ],
+      ["neither", [], undefined, ["No reviews have been written for it."]],
+    ])("confirms with the right sentences: %s", async (_label, reviewAuthors, draftAuthors, sentences) => {
+      serveDeletable(reviewAuthors, draftAuthors);
+      const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      await user.click(await screen.findByRole("button", { name: "Delete" }));
+
+      const dialog = await screen.findByRole("alertdialog", { name: TITLE });
+      for (const sentence of sentences) expect(within(dialog).getByText(sentence)).toBeInTheDocument();
+      expect(within(dialog).getByText("This cannot be undone.")).toBeInTheDocument();
+      if (!sentences.includes("No reviews have been written for it.")) {
+        expect(within(dialog).queryByText("No reviews have been written for it.")).not.toBeInTheDocument();
+      }
+    });
+
+    it("sends nothing until the confirmation is accepted, and makes no request for a draft's text", async () => {
+      const seen = serveDeletable(["Cat Power"], ["Jessica Pratt"]);
+      const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      await user.click(await screen.findByRole("button", { name: "Delete" }));
+      await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Cancel" }));
+
+      expect(seen).toEqual({ deletes: 0, draftReads: 0 });
+      await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
+    });
+
+    it("says whom the response deleted, each name once, not whom the confirmation named", async () => {
+      const seen = serveDeletable(["Cat Power"], ["Jessica Pratt"], ["Cat Power", "Sessa", "Cat Power", "Sessa"]);
+      const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      await user.click(await screen.findByRole("button", { name: "Delete" }));
+      await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Delete" }));
+
+      expect(await screen.findByText("Deleted, with the reviews and drafts by Cat Power and Sessa.")).toBeInTheDocument();
+      expect(seen).toEqual({ deletes: 1, draftReads: 0 });
+      expect(screen.queryByText("Jessica Pratt")).not.toBeInTheDocument();
+    });
+
+    it("words its own failure line when the delete is refused", async () => {
+      serveDeletable([], undefined);
+      server.use(http.delete(FILED_ITEM_PATH, () => HttpResponse.json({ message: "server text" }, { status: 500 })));
+      const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      await user.click(await screen.findByRole("button", { name: "Delete" }));
+      await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Delete" }));
+
+      expect(await screen.findByText("Couldn't delete this record. Please try again.")).toBeInTheDocument();
+      expect(screen.queryByText("server text")).not.toBeInTheDocument();
+    });
+
+    it.each(["filed", "finalized"] as const)("does not offer Delete once the record is %s", async (state) => {
+      fakeReviewsEndpoints({ records: [dogaItem({ state, effective_state: state })], forItem: { [ITEM_ID]: [submitted(40)] } });
+
+      renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      await screen.findByText("Filed.");
+      expect(screen.queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
+    });
+  });
 });
