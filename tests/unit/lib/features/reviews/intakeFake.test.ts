@@ -64,3 +64,41 @@ describe("fakeIntakeEndpoints GET /intake", () => {
     expect(await readIds(search)).toEqual(expectedIds);
   });
 });
+
+describe("fakeIntakeEndpoints POST /intake/:id/cancel-request", () => {
+  const requested = (id: number) =>
+    inState(id, "requested", { requested_dj_id: "dj-pat", requested_dj_name: "DJ Pat", requested_at: "2026-09-02T12:00:00Z" });
+  const cancel = (id: number) => fetch(`${TEST_BACKEND_URL}/intake/${id}/cancel-request`, { method: "POST" });
+
+  it("answers the row back in the pool with no requested DJ", async () => {
+    fakeIntakeEndpoints({ open: [requested(1)] });
+
+    const response = await cancel(1);
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      id: 1,
+      state: "pool",
+      effective_state: "pool",
+      requested_dj_id: null,
+      requested_dj_name: null,
+      requested_at: null,
+    });
+  });
+
+  it("moves the row to the pool in later reads, leaving the others alone", async () => {
+    fakeIntakeEndpoints({ open: [requested(1), requested(2)] });
+
+    await cancel(1);
+
+    const rows = (await (await fetch(`${TEST_BACKEND_URL}/intake?state=requested`)).json()) as IntakeItem[];
+    expect(rows.map((row) => row.id)).toEqual([2]);
+    expect(await readIds("?state=pool")).toEqual([1]);
+  });
+
+  it("answers 404 for an id it does not hold", async () => {
+    fakeIntakeEndpoints({ open: [requested(1)] });
+
+    expect((await cancel(9)).status).toBe(404);
+  });
+});

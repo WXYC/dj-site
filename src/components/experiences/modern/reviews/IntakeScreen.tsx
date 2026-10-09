@@ -5,24 +5,19 @@ import { Button, Chip, FormControl, FormLabel, Input, Link, Option, Select, Stac
 import type { IntakeItem } from "@wxyc/shared";
 import { toast } from "sonner";
 import { useGetFormatsQuery } from "@/lib/features/catalog/api";
-import { useGetRosterQuery } from "@/lib/features/admin/api";
-import { Authorization } from "@/lib/features/admin/types";
 import {
-  isIntakeRequestRefused,
   isIntakeStateChanged,
   intakeApi,
   useCancelIntakeRequestMutation,
   useGetIntakeItemsQuery,
   useLogIntakeItemMutation,
   useReleaseIntakeItemMutation,
-  useRequestIntakeItemMutation,
 } from "@/lib/features/reviews/intakeApi";
 import { useAppDispatch } from "@/lib/hooks";
 import { useCanSeeReviews } from "@/src/hooks/useCanSeeReviews";
 import { useRowWrite } from "@/src/hooks/useRowWrite";
 import LabelSearchTypeahead from "../catalog/AddRelease/LabelSearchTypeahead";
 import IntakeLane from "./IntakeLane";
-import IntakeRequestPicker from "./IntakeRequestPicker";
 import { REVIEW_COPY } from "./copy";
 import { intakeRecord, recordLine } from "./recordLine";
 import { hasNothingToShow } from "@/lib/has-nothing-to-show";
@@ -36,11 +31,10 @@ const EVERY_STATE = undefined;
 const AWAITING_LANE = { awaiting_acceptance: true } as const;
 
 // `return` is the Reviewed lane's Mark as returned; both it and `release` call /release.
-type Action = "request" | "cancel" | "release" | "return";
+type Action = "cancel" | "release" | "return";
 
 /** What a lost race (409 `state_changed`) means for each button, shown once the lists have reloaded. */
 const RACE_NOTICE: Record<Action, string> = {
-  request: COPY.raceRequest,
   cancel: COPY.raceCancel,
   release: COPY.raceCheckoutReleased,
   return: COPY.raceReleased,
@@ -48,16 +42,13 @@ const RACE_NOTICE: Record<Action, string> = {
 
 const EMPTY_FORM = { artist: "", album: "", label: "", labelId: null as number | null, formatId: null as number | null, discogs: "" };
 
-/** `organizationSlug` is the station organization, read server-side by the page, for the DJ picker's roster. */
-export default function IntakeScreen({ organizationSlug }: { organizationSlug: string }) {
+export default function IntakeScreen() {
   const visible = useCanSeeReviews();
   const everyState = useGetIntakeItemsQuery(EVERY_STATE, { skip: !visible });
   const awaiting = useGetIntakeItemsQuery(AWAITING_LANE, { skip: !visible });
-  const roster = useGetRosterQuery({ organizationSlug }, { skip: !visible });
   const { data: formats } = useGetFormatsQuery(undefined, { skip: !visible });
   const [logItem, { isLoading: logging }] = useLogIntakeItemMutation();
   const [release] = useReleaseIntakeItemMutation();
-  const [requestReview] = useRequestIntakeItemMutation();
   const [cancelRequest] = useCancelIntakeRequestMutation();
   const dispatch = useAppDispatch();
   const [form, setForm] = useState(EMPTY_FORM);
@@ -68,12 +59,7 @@ export default function IntakeScreen({ organizationSlug }: { organizationSlug: s
         dispatch(intakeApi.endpoints.getIntakeItems.initiate(arg, { subscribe: false, forceRefetch: true })),
       ),
     isLostRace: isIntakeStateChanged,
-    onFailure: (err, _id, action) => {
-      if (action === "request" && isIntakeRequestRefused(err)) {
-        setNotice(COPY.requestRefused);
-        void roster.refetch();
-      } else toast.error(REVIEW_COPY.screen.writeFailed);
-    },
+    onFailure: () => toast.error(REVIEW_COPY.screen.writeFailed),
     onLostRace: (_id, action) => setNotice(RACE_NOTICE[action]),
   });
 
@@ -90,10 +76,6 @@ export default function IntakeScreen({ organizationSlug }: { organizationSlug: s
   // Until every lane lands, an empty-state sentence would read as a fact.
   if (!everyState.data || !awaiting.data) return null;
 
-  // Holding `reviews: write` is what a DJ account (or above) is; the server refuses anyone else.
-  const djs = (roster.data?.accounts ?? []).flatMap((a) =>
-    a.id && a.authorization >= Authorization.DJ ? [{ id: a.id, name: a.djName ?? a.userName }] : [],
-  );
   const waitingIds = new Set(awaiting.data.map((i) => i.id));
   const inState = (state: IntakeItem["effective_state"]) => everyState.data!.filter((i) => i.effective_state === state);
 
@@ -190,26 +172,7 @@ export default function IntakeScreen({ organizationSlug }: { organizationSlug: s
           )}
         />
       )}
-      <IntakeLane
-        title={COPY.onShelf}
-        rows={inState("pool")}
-        empty={COPY.empty}
-        label={laneLabel}
-        extra={(i) => (
-          <>
-            {physical(i)}
-            {hasNothingToShow(roster) ? (
-              <Typography role="alert">{REVIEW_COPY.screen.loadFailed}</Typography>
-            ) : (
-              <IntakeRequestPicker
-                djs={djs}
-                busy={lock(i.id, "request")}
-                onRequest={(djId) => act(i.id, "request", () => requestReview({ id: i.id, djId }).unwrap())}
-              />
-            )}
-          </>
-        )}
-      />
+      <IntakeLane title={COPY.onShelf} rows={inState("pool")} empty={COPY.empty} label={laneLabel} extra={physical} />
       <IntakeLane
         title={COPY.requested}
         rows={inState("requested")}
