@@ -1,5 +1,5 @@
 import { http, HttpResponse } from "msw";
-import type { IntakeItem } from "@wxyc/shared";
+import type { IntakeItem, IntakeSlip } from "@wxyc/shared";
 import { server } from "../server";
 import { TEST_BACKEND_URL as BACKEND_URL } from "../../helpers/constants";
 import { resolve, type Rows } from "./rows";
@@ -10,6 +10,8 @@ export type FakeIntakeOptions = {
   awaiting?: Rows<IntakeItem>;
   filed?: Rows<IntakeItem>;
   records?: IntakeItem[];
+  /** The slip `POST /intake/:id/print` answers, by item id. */
+  slips?: Record<number, IntakeSlip>;
 };
 
 /**
@@ -22,8 +24,9 @@ export type FakeIntakeOptions = {
  *   every state; `state=` filters that union by each row's `effective_state`.
  *   A row's lane is its `effective_state`, whichever option it was passed in.
  * - `GET /intake/:id` answers the matching row of `records`, 404 otherwise
+ * - `POST /intake/:id/print` answers the item's entry of `slips`, 409 `not_reviewed` when it has none
  */
-export function fakeIntakeEndpoints({ open = [], reviewed = [], awaiting = [], filed = [], records = [] }: FakeIntakeOptions = {}) {
+export function fakeIntakeEndpoints({ open = [], reviewed = [], awaiting = [], filed = [], records = [], slips = {} }: FakeIntakeOptions = {}) {
   const everyState = () => {
     const byId = new Map<number, IntakeItem>();
     for (const row of [open, reviewed, filed].flatMap(resolve)) byId.set(row.id, row);
@@ -39,6 +42,10 @@ export function fakeIntakeEndpoints({ open = [], reviewed = [], awaiting = [], f
     http.get(`${BACKEND_URL}/intake/:id`, ({ params }) => {
       const found = records.find((row) => String(row.id) === params.id);
       return found ? HttpResponse.json(found) : HttpResponse.json({ message: "not found" }, { status: 404 });
+    }),
+    http.post(`${BACKEND_URL}/intake/:id/print`, ({ params }) => {
+      const slip = slips[Number(params.id)];
+      return slip ? HttpResponse.json(slip) : HttpResponse.json({ message: "not reviewed", reason: "not_reviewed" }, { status: 409 });
     }),
   );
 }

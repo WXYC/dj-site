@@ -2,6 +2,7 @@ import type {
   IntakeFileRequest,
   IntakeItem,
   IntakeItemState,
+  IntakeSlip,
   NewIntakeItemRequest,
 } from "@wxyc/shared";
 import type { FetchBaseQueryError } from "@reduxjs/toolkit/query";
@@ -91,6 +92,12 @@ export const intakeApi = reviewsApi.injectEndpoints({
       transformErrorResponse: wrapIntakeWriteError,
       invalidatesTags: ["Intake"],
     }),
+    // Every call is recorded in the print log, so a caller sends it on a press, never on load.
+    printIntakeItem: builder.mutation<IntakeSlip, number>({
+      query: (id) => ({ url: `intake/${id}/print`, method: "POST" }),
+      transformErrorResponse: wrapIntakeWriteError,
+      invalidatesTags: ["Intake", "Review"],
+    }),
     // Files a library row and, on the rotation arm, a rotation row. Those caches
     // live in other `createApi` instances, whose tags `invalidatesTags` cannot reach.
     fileIntakeItem: builder.mutation<IntakeItem, { id: number; body: IntakeFileRequest }>({
@@ -120,4 +127,5 @@ export const {
   usePassIntakeItemMutation,
   useFinalizeIntakeItemMutation,
   useFileIntakeItemMutation,
+  usePrintIntakeItemMutation,
 } = intakeApi;

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import type { IntakeItem } from "@wxyc/shared";
+import type { IntakeItem, IntakeSlip } from "@wxyc/shared";
 import { fakeIntakeEndpoints, type FakeIntakeOptions } from "@/tests/fakes/reviews/intake";
 import { intakeItem } from "@/tests/fakes/reviews";
 import { TEST_BACKEND_URL } from "@/tests/helpers/constants";
@@ -62,5 +62,39 @@ describe("fakeIntakeEndpoints GET /intake", () => {
     fakeIntakeEndpoints(options);
 
     expect(await readIds(search)).toEqual(expectedIds);
+  });
+});
+
+describe("fakeIntakeEndpoints POST /intake/:id/print", () => {
+  const slip = {
+    artist_name: "Stereolab",
+    album_title: "Aluminum Tunes",
+    record_label: null,
+    buzzwords: null,
+    artist_blurb: null,
+    review: "Warm.",
+    author: "DJ Me",
+    submitted_at: "2026-10-07T16:00:00Z",
+    recommended_tracks: null,
+    fcc: null,
+    revision_id: 3,
+    fcc_notes: [],
+  } as IntakeSlip;
+
+  it("answers the item's slip", async () => {
+    fakeIntakeEndpoints({ slips: { 7: slip } });
+
+    const response = await fetch(`${TEST_BACKEND_URL}/intake/7/print`, { method: "POST" });
+
+    expect(await response.json()).toEqual(slip);
+  });
+
+  it("answers 409 not_reviewed for an item with no slip", async () => {
+    fakeIntakeEndpoints({ slips: { 7: slip } });
+
+    const response = await fetch(`${TEST_BACKEND_URL}/intake/8/print`, { method: "POST" });
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({ reason: "not_reviewed" });
   });
 });
