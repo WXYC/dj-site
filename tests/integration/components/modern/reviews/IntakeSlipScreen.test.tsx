@@ -1,8 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
-import type { IntakeSlip } from "@wxyc/shared";
-import { fakeReviewsEndpoints, intakeItem, renderWithProviders, review, server, TEST_BACKEND_URL } from "@/tests/helpers";
+import { fakeReviewsEndpoints, holdResponse, intakeItem, intakeSlip, renderWithProviders, review, server, TEST_BACKEND_URL } from "@/tests/helpers";
 import { Authorization } from "@/lib/features/admin/types";
 
 vi.mock("@/lib/features/authentication/client", () => ({
@@ -35,22 +34,6 @@ const item = (overrides = {}) =>
     printed_at: null,
     ...overrides,
   });
-
-const slip = (overrides: Partial<IntakeSlip> = {}): IntakeSlip => ({
-  artist_name: "Juana Molina",
-  album_title: "DOGA",
-  record_label: "Sonamos",
-  buzzwords: "spectral, loops",
-  artist_blurb: "Argentine songwriter.",
-  review: "Hushed and strange.",
-  author: "DJ Me",
-  submitted_at: "2026-10-07T16:00:00Z",
-  recommended_tracks: "A1, B4",
-  fcc: "A2 has a slip of the tongue",
-  revision_id: 3,
-  fcc_notes: [{ track: "B1", note: "Mild language" }],
-  ...overrides,
-});
 
 /** Counts the prints and answers them with `respond`. */
 function servePrint(respond: () => Response) {
@@ -92,7 +75,7 @@ describe("IntakeSlipScreen", () => {
 
   it("sends no print on load, and one on the press, then shows every field and prints", async () => {
     fakeReviewsEndpoints({ records: [item()] });
-    const calls = servePrint(() => HttpResponse.json(slip()));
+    const calls = servePrint(() => HttpResponse.json(intakeSlip()));
 
     const { user } = renderWithProviders(<IntakeSlipScreen id={ITEM_ID} />);
     const button = await screen.findByRole("button", { name: "Print the slip" });
@@ -112,7 +95,7 @@ describe("IntakeSlipScreen", () => {
 
   it("prints the station day of a slip submitted on an evening in station time", async () => {
     fakeReviewsEndpoints({ records: [item()] });
-    servePrint(() => HttpResponse.json(slip({ submitted_at: "2026-10-08T01:30:00Z" })));
+    servePrint(() => HttpResponse.json(intakeSlip({ submitted_at: "2026-10-08T01:30:00Z" })));
 
     const { user } = renderWithProviders(<IntakeSlipScreen id={ITEM_ID} />);
     await user.click(await screen.findByRole("button", { name: "Print the slip" }));
@@ -123,7 +106,7 @@ describe("IntakeSlipScreen", () => {
 
   it("prints the review's FCC line, then each confirmed note", async () => {
     fakeReviewsEndpoints({ records: [item()] });
-    servePrint(() => HttpResponse.json(slip({ fcc_notes: [{ track: "B1", note: "Mild language" }, { track: "C2", note: "Static" }] })));
+    servePrint(() => HttpResponse.json(intakeSlip({ fcc_notes: [{ track: "B1", note: "Mild language" }, { track: "C2", note: "Static" }] })));
 
     const { user } = renderWithProviders(<IntakeSlipScreen id={ITEM_ID} />);
     await user.click(await screen.findByRole("button", { name: "Print the slip" }));
@@ -136,7 +119,7 @@ describe("IntakeSlipScreen", () => {
 
   it("adds nothing under the FCC row when there are no confirmed notes", async () => {
     fakeReviewsEndpoints({ records: [item()] });
-    servePrint(() => HttpResponse.json(slip({ fcc: null, fcc_notes: [] })));
+    servePrint(() => HttpResponse.json(intakeSlip({ fcc: null, fcc_notes: [] })));
 
     const { user } = renderWithProviders(<IntakeSlipScreen id={ITEM_ID} />);
     await user.click(await screen.findByRole("button", { name: "Print the slip" }));
@@ -147,7 +130,7 @@ describe("IntakeSlipScreen", () => {
 
   it("prints an unfiled, reviewed record", async () => {
     fakeReviewsEndpoints({ records: [item({ state: "reviewed", effective_state: "reviewed", album_id: null, filed_at: null })] });
-    servePrint(() => HttpResponse.json(slip()));
+    servePrint(() => HttpResponse.json(intakeSlip()));
 
     const { user } = renderWithProviders(<IntakeSlipScreen id={ITEM_ID} />);
     await user.click(await screen.findByRole("button", { name: "Print the slip" }));
@@ -157,7 +140,7 @@ describe("IntakeSlipScreen", () => {
 
   it("still shows the Label row, empty, when the record has no label", async () => {
     fakeReviewsEndpoints({ records: [item({ record_label: null })] });
-    servePrint(() => HttpResponse.json(slip({ record_label: null })));
+    servePrint(() => HttpResponse.json(intakeSlip({ record_label: null })));
 
     const { user } = renderWithProviders(<IntakeSlipScreen id={ITEM_ID} />);
     await user.click(await screen.findByRole("button", { name: "Print the slip" }));
@@ -168,7 +151,7 @@ describe("IntakeSlipScreen", () => {
 
   it("wraps the slip in the print-only structure that hides the rest of the page", async () => {
     fakeReviewsEndpoints({ records: [item()] });
-    servePrint(() => HttpResponse.json(slip()));
+    servePrint(() => HttpResponse.json(intakeSlip()));
 
     const { user, container } = renderWithProviders(<IntakeSlipScreen id={ITEM_ID} />);
     await user.click(await screen.findByRole("button", { name: "Print the slip" }));
@@ -266,6 +249,43 @@ describe("IntakeSlipScreen", () => {
     expect(screen.queryByText(/no review on the cover/)).not.toBeInTheDocument();
   });
 
+  it("words a refusal the reloaded record does not explain, when the review on the cover is typed", async () => {
+    fakeReviewsEndpoints({ records: [item()], reviews: [review({ id: 40, medium: "typed" })] });
+    servePrint(() => HttpResponse.json({ message: "server words", reason: "not_reviewed" }, { status: 409 }));
+
+    const { user } = renderWithProviders(<IntakeSlipScreen id={ITEM_ID} />);
+    await user.click(await screen.findByRole("button", { name: "Print the slip" }));
+
+    expect(await screen.findByText("Couldn't do that. Please try again.")).toBeInTheDocument();
+    expect(screen.queryByText("server words")).not.toBeInTheDocument();
+    expect(screen.queryByText(/handwritten/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/no review on the cover/)).not.toBeInTheDocument();
+    expect(screen.queryByText("Couldn't load this record. Please try again.")).not.toBeInTheDocument();
+  });
+
+  it("shows the load-failure line when the cover read fails after an earlier press read a typed cover", async () => {
+    let coverReads = 0;
+    fakeReviewsEndpoints({ records: [item()], reviews: [review({ id: 40, medium: "typed" })] });
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/reviews/40`, () => {
+        coverReads += 1;
+        return coverReads === 1 ? HttpResponse.json(review({ id: 40, medium: "typed" })) : HttpResponse.json({ message: "down" }, { status: 503 });
+      }),
+    );
+    servePrint(() => HttpResponse.json({ message: "server words", reason: "not_reviewed" }, { status: 409 }));
+
+    const { user } = renderWithProviders(<IntakeSlipScreen id={ITEM_ID} />);
+    const button = await screen.findByRole("button", { name: "Print the slip" });
+    await user.click(button);
+    expect(await screen.findByText("Couldn't do that. Please try again.")).toBeInTheDocument();
+
+    await user.click(button);
+
+    expect(await screen.findByText("Couldn't load this record. Please try again.")).toBeInTheDocument();
+    expect(coverReads).toBe(2);
+    expect(screen.queryByText("Couldn't do that. Please try again.")).not.toBeInTheDocument();
+  });
+
   it("refreshes the record after a print, so it says when the slip was last printed", async () => {
     let printed = false;
     fakeReviewsEndpoints({ records: [item()] });
@@ -274,7 +294,7 @@ describe("IntakeSlipScreen", () => {
     );
     servePrint(() => {
       printed = true;
-      return HttpResponse.json(slip());
+      return HttpResponse.json(intakeSlip());
     });
 
     const { user } = renderWithProviders(<IntakeSlipScreen id={ITEM_ID} />);
@@ -295,23 +315,6 @@ describe("IntakeSlipScreen", () => {
   });
 
   describe("when the page is gone before the print answers", () => {
-    /** Holds the print until `release`, which answers it with `respond`. */
-    function holdPrint(respond: () => Response) {
-      let release!: () => void;
-      const held = new Promise<void>((resolve) => {
-        release = resolve;
-      });
-      const calls = { count: 0 };
-      server.use(
-        http.post(PRINT_PATH, async () => {
-          calls.count += 1;
-          await held;
-          return respond();
-        }),
-      );
-      return { calls, release };
-    }
-
     it("reloads the record once, and throws nothing, when the answer is a not_reviewed refusal", async () => {
       let reads = 0;
       fakeReviewsEndpoints({ records: [item()] });
@@ -321,7 +324,7 @@ describe("IntakeSlipScreen", () => {
           return HttpResponse.json(item());
         }),
       );
-      const { calls, release } = holdPrint(() => HttpResponse.json({ message: "server words", reason: "not_reviewed" }, { status: 409 }));
+      const { calls, release, answered } = holdResponse("post", PRINT_PATH, () => HttpResponse.json({ message: "server words", reason: "not_reviewed" }, { status: 409 }));
       const errors = vi.spyOn(console, "error").mockImplementation(() => {});
       const rejections: unknown[] = [];
       const onRejection = (reason: unknown) => rejections.push(reason);
@@ -334,9 +337,9 @@ describe("IntakeSlipScreen", () => {
 
       unmount();
       release();
+      await answered;
       // A hook refetch() throws here before any request goes out, so the read below never happens.
       await waitFor(() => expect(reads).toBe(readsBefore + 1));
-      await new Promise((resolve) => setTimeout(resolve, 100));
 
       expect(reads).toBe(readsBefore + 1);
       expect(errors).not.toHaveBeenCalled();
@@ -347,7 +350,7 @@ describe("IntakeSlipScreen", () => {
 
     it("does not open the print dialog when the answer is a success", async () => {
       fakeReviewsEndpoints({ records: [item()] });
-      const { calls, release } = holdPrint(() => HttpResponse.json(slip()));
+      const { calls, release, answered } = holdResponse("post", PRINT_PATH, () => HttpResponse.json(intakeSlip()));
 
       const { user, unmount } = renderWithProviders(<IntakeSlipScreen id={ITEM_ID} />);
       await user.click(await screen.findByRole("button", { name: "Print the slip" }));
@@ -355,7 +358,7 @@ describe("IntakeSlipScreen", () => {
 
       unmount();
       release();
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      await answered;
 
       expect(print).not.toHaveBeenCalled();
     });

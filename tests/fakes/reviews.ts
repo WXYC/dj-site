@@ -1,4 +1,4 @@
-import type { FccNote, IntakeItem, Review, ReviewRevision } from "@wxyc/shared";
+import type { FccNote, IntakeItem, IntakeSlip, Review, ReviewRevision } from "@wxyc/shared";
 import { fakeAlbumReviewEndpoints, type FakeAlbumReviewOptions } from "./reviews/albumReview";
 import { fakeFccNoteEndpoints, type FakeFccNoteOptions } from "./reviews/fccNote";
 import { fakeIntakeEndpoints, type FakeIntakeOptions } from "./reviews/intake";
@@ -73,6 +73,23 @@ export const intakeItem = (overrides: Partial<IntakeItem> = {}): IntakeItem =>
     checked_out_at: null,
     ...overrides,
   }) as IntakeItem;
+
+/** The slip a print answers with, for the record `intakeItem()` describes. */
+export const intakeSlip = (overrides: Partial<IntakeSlip> = {}): IntakeSlip => ({
+  artist_name: "Juana Molina",
+  album_title: "DOGA",
+  record_label: "Sonamos",
+  buzzwords: "spectral, loops",
+  artist_blurb: "Argentine songwriter.",
+  review: "Hushed and strange.",
+  author: "DJ Me",
+  submitted_at: "2026-10-07T16:00:00Z",
+  recommended_tracks: "A1, B4",
+  fcc: "A2 has a slip of the tongue",
+  revision_id: 3,
+  fcc_notes: [{ track: "B1", note: "Mild language" }],
+  ...overrides,
+});
 
 /** A draft review of the record `intakeItem()` describes. */
 export const review = (overrides: Partial<Review> = {}): Review =>
