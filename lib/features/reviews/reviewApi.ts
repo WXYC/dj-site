@@ -81,7 +81,6 @@ export const {
   useGetReviewsForReleaseQuery,
   useGetItemReviewsQuery,
   useGetReviewQuery,
-  useLazyGetReviewQuery,
   useGetReviewRevisionsQuery,
   useCreateReviewMutation,
   useUpdateReviewMutation,

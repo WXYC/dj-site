@@ -293,4 +293,71 @@ describe("IntakeSlipScreen", () => {
     await waitFor(() => expect(screen.getByText("Couldn't do that. Please try again.")).toBeInTheDocument());
     expect(screen.queryByText("server words")).not.toBeInTheDocument();
   });
+
+  describe("when the page is gone before the print answers", () => {
+    /** Holds the print until `release`, which answers it with `respond`. */
+    function holdPrint(respond: () => Response) {
+      let release!: () => void;
+      const held = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const calls = { count: 0 };
+      server.use(
+        http.post(PRINT_PATH, async () => {
+          calls.count += 1;
+          await held;
+          return respond();
+        }),
+      );
+      return { calls, release };
+    }
+
+    it("reloads the record once, and throws nothing, when the answer is a not_reviewed refusal", async () => {
+      let reads = 0;
+      fakeReviewsEndpoints({ records: [item()] });
+      server.use(
+        http.get(`${TEST_BACKEND_URL}/intake/${ITEM_ID}`, () => {
+          reads += 1;
+          return HttpResponse.json(item());
+        }),
+      );
+      const { calls, release } = holdPrint(() => HttpResponse.json({ message: "server words", reason: "not_reviewed" }, { status: 409 }));
+      const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+      const rejections: unknown[] = [];
+      const onRejection = (reason: unknown) => rejections.push(reason);
+      process.on("unhandledRejection", onRejection);
+
+      const { user, unmount } = renderWithProviders(<IntakeSlipScreen id={ITEM_ID} />);
+      await user.click(await screen.findByRole("button", { name: "Print the slip" }));
+      await waitFor(() => expect(calls.count).toBe(1));
+      const readsBefore = reads;
+
+      unmount();
+      release();
+      // A hook refetch() throws here before any request goes out, so the read below never happens.
+      await waitFor(() => expect(reads).toBe(readsBefore + 1));
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      expect(reads).toBe(readsBefore + 1);
+      expect(errors).not.toHaveBeenCalled();
+      expect(rejections).toEqual([]);
+      process.off("unhandledRejection", onRejection);
+      errors.mockRestore();
+    });
+
+    it("does not open the print dialog when the answer is a success", async () => {
+      fakeReviewsEndpoints({ records: [item()] });
+      const { calls, release } = holdPrint(() => HttpResponse.json(slip()));
+
+      const { user, unmount } = renderWithProviders(<IntakeSlipScreen id={ITEM_ID} />);
+      await user.click(await screen.findByRole("button", { name: "Print the slip" }));
+      await waitFor(() => expect(calls.count).toBe(1));
+
+      unmount();
+      release();
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      expect(print).not.toHaveBeenCalled();
+    });
+  });
 });
