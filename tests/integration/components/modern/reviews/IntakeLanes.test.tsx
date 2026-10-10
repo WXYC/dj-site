@@ -519,7 +519,7 @@ describe("IntakeLogForm", () => {
     await user.type(await screen.findByLabelText(/^Artist/), "Cat Power");
     await user.type(screen.getByLabelText(/^Album/), "Moon Pix");
     await user.click(screen.getByRole("combobox", { name: /^Format/ }));
-    await user.click(await screen.findByRole("option", { name: "cd" }));
+    await user.click(await screen.findByRole("option", { name: "CD" }));
     await user.type(screen.getByLabelText("Discogs release id (optional)"), "123");
     await user.click(screen.getByRole("button", { name: "Log item" }));
 
