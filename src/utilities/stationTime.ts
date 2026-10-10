@@ -315,6 +315,37 @@ export function formatStationLongDate(isoString: string): string {
   return stationLongDateFormatter.format(new Date(isoString));
 }
 
+const stationYearFormatter = new Intl.DateTimeFormat("en-US", {
+  timeZone: STATION_TIME_ZONE,
+  year: "numeric",
+});
+
+const stationShortDateFormatter = new Intl.DateTimeFormat("en-US", {
+  timeZone: STATION_TIME_ZONE,
+  month: "short",
+  day: "numeric",
+});
+
+const stationShortDateWithYearFormatter = new Intl.DateTimeFormat("en-US", {
+  timeZone: STATION_TIME_ZONE,
+  year: "numeric",
+  month: "short",
+  day: "numeric",
+});
+
+// A compact date for list rows, e.g. "Oct 8", with the year ("Oct 8, 2025")
+// only when the instant falls outside the current station year. Both the day
+// and the year comparison are read on the station's wall clock, so a record
+// logged at 11pm in Chapel Hill is the same day on every machine, and `now`
+// near New Year's rolls the year at station midnight rather than UTC's.
+export function formatStationShortDate(isoString: string, now: Date = new Date()): string {
+  const instant = new Date(isoString);
+  if (stationYearFormatter.format(instant) === stationYearFormatter.format(now)) {
+    return stationShortDateFormatter.format(instant);
+  }
+  return stationShortDateWithYearFormatter.format(instant);
+}
+
 // The same long form for a `YYYY-MM-DD` column, which names a calendar day and
 // carries no instant -- the rotation dates are stored that way. Read at midday
 // UTC rather than at the midnight `new Date("2026-09-12")` produces, which is

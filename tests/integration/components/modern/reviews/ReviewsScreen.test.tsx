@@ -142,6 +142,22 @@ describe("ReviewsScreen", () => {
     expect(within(mine).queryByText(/Cat Power/)).not.toBeInTheDocument();
   });
 
+  // 03:30Z is still the previous evening in station time, and 2025 is always an
+  // earlier year than the run's, so the expected text holds in any zone or year.
+  it("prints Logged, Taken and Asked dates in station time with the year", async () => {
+    serveIntake([
+      item({ id: 21, state: "pool", effective_state: "pool", logged_at: "2025-10-09T03:30:00Z" }),
+      item({ id: 22, effective_state: "checked_out", checked_out_by: ME, checked_out_at: "2025-08-02T03:30:00Z" }),
+      item({ id: 23, state: "requested", effective_state: "requested", requested_dj_id: ME, requested_at: "2025-09-01T03:30:00Z" }),
+    ]);
+
+    renderWithProviders(<ReviewsScreen />);
+
+    expect(await screen.findByText("Logged Oct 8, 2025")).toBeInTheDocument();
+    expect(screen.getByText("Taken Aug 1, 2025")).toBeInTheDocument();
+    expect(screen.getByText("Asked Aug 31, 2025")).toBeInTheDocument();
+  });
+
   it("keeps a reviewed record I hold, marked, and the release sends and clears the row", async () => {
     let released = false;
     server.use(
