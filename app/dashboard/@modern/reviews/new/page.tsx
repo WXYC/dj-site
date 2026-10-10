@@ -1,7 +1,7 @@
 import { gateReviewRoute } from "@/src/components/experiences/modern/reviews/gateReviewRoute";
 import NewReview from "@/src/components/experiences/modern/reviews/NewReview";
 import { REVIEW_COPY } from "@/src/components/experiences/modern/reviews/copy";
-import ReviewScrollRegion from "@/src/components/experiences/modern/reviews/ReviewScrollRegion";
+import ScrollRegion from "@/src/components/experiences/modern/ScrollRegion";
 import PageHeader from "@/src/components/experiences/modern/Header/PageHeader";
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
@@ -20,9 +20,9 @@ export default async function NewReviewPage({ searchParams }: { searchParams: Pr
   return (
     <>
       <PageHeader title={REVIEW_COPY.pageTitle} />
-      <ReviewScrollRegion>
+      <ScrollRegion>
         <NewReview albumId={albumId} />
-      </ReviewScrollRegion>
+      </ScrollRegion>
     </>
   );
 }

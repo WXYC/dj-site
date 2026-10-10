@@ -26,6 +26,7 @@ import { authClient } from "@/lib/features/authentication/client";
 import { fetchOrganizationRoleForUserClient } from "@/lib/features/authentication/organization-utils";
 import Main from "@/src/components/experiences/modern/Main";
 import CatalogAdminPage from "@/app/dashboard/@modern/admin/catalog/page";
+import { nearestScrollableAncestor, scrollsVertically } from "@/tests/helpers/scroll";
 
 const mockUseSession = authClient.useSession as ReturnType<typeof vi.fn>;
 const mockFetchOrgRole = fetchOrganizationRoleForUserClient as ReturnType<
@@ -48,24 +49,6 @@ function session() {
     isPending: false,
     error: null,
   };
-}
-
-// jsdom's cascade does not expand the `overflow` shorthand into `overflowY`, so
-// an element styled `overflow: auto` reports overflowY as `visible`. Read both.
-function scrollsVertically(element: Element): boolean {
-  const { overflow, overflowY } = window.getComputedStyle(element);
-  return [overflow, overflowY].some(
-    (value) => value === "auto" || value === "scroll",
-  );
-}
-
-function nearestScrollableAncestor(from: Element): Element | null {
-  let node: Element | null = from.parentElement;
-  while (node) {
-    if (scrollsVertically(node)) return node;
-    node = node.parentElement;
-  }
-  return null;
 }
 
 describe("catalog admin page", () => {
