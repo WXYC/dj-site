@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import { Authorization } from "@/lib/features/admin/types";
-import { fakeReviewsEndpoints, renderWithProviders, review, reviewRevision, server } from "@/tests/helpers";
+import { fakeReviewsEndpoints, renderWithProviders, review, reviewRevision, reviewsSettled, server } from "@/tests/helpers";
+import { reviewApi } from "@/lib/features/reviews/reviewApi";
 import { delay, http, HttpResponse } from "msw";
 import type { AlbumReview } from "@wxyc/shared";
 import { TEST_BACKEND_URL } from "@/tests/helpers/constants";
@@ -132,14 +133,14 @@ describe("ReviewsPanel", () => {
   ])("offers the print link to %s: %s", async (_who, authority, overrides, offered) => {
     mockAuth.authority = authority;
     serve([submitted(1, overrides)]);
-    renderPanel();
+    const { store } = renderPanel();
 
     await screen.findByText("Reviewer 1", { exact: false });
     if (offered) {
       expect(await screen.findByRole("link", { name: "Print the slip" })).toHaveAttribute("href", `/dashboard/admin/library/${ALBUM_ID}/slip/1`);
     } else {
       // Let the gate resolve the role before asserting the link is absent.
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      await reviewsSettled(store);
       expect(screen.queryByRole("link", { name: "Print the slip" })).not.toBeInTheDocument();
     }
   });
@@ -147,10 +148,10 @@ describe("ReviewsPanel", () => {
   it("does not offer a print link on the archive's form-era takes", async () => {
     mockAuth.authority = Authorization.MD;
     serve([], [{ id: 1, reviewer: "Reviewer One", review: "Old take" }]);
-    renderPanel();
+    const { store } = renderPanel();
 
     await screen.findByText("Reviewer One: Old take");
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await reviewsSettled(store);
     expect(screen.queryByRole("link", { name: "Print the slip" })).not.toBeInTheDocument();
   });
 
@@ -208,8 +209,8 @@ describe("ReviewsPanel", () => {
     server.events.on("request:start", log);
 
     try {
-      const { container } = renderPanel();
-      await new Promise((r) => setTimeout(r, 50));
+      const { container, store } = renderPanel();
+      await reviewsSettled(store);
       expect(requested).toEqual([]);
       expect(container).toBeEmptyDOMElement();
     } finally {
@@ -242,14 +243,15 @@ describe("ReviewsPanel", () => {
       },
     });
     server.use(http.get(`${TEST_BACKEND_URL}/reviews/:id/revisions`, () => { requested(); return HttpResponse.json(list); }));
-    renderPanel();
+    const { store } = renderPanel();
 
     await screen.findByText("Text 1");
     if (expected) {
       expect(await screen.findByText(expected)).toBeInTheDocument();
       expect(requested).toHaveBeenCalledTimes(1);
     } else {
-      await new Promise((r) => setTimeout(r, 50));
+      expect(reviewApi.endpoints.getReviewRevisions.select(1)(store.getState()).isUninitialized).toBe(true);
+      await reviewsSettled(store);
       expect(screen.queryByText(/printed on the cover|earlier version of this review|printed version/)).not.toBeInTheDocument();
       expect(requested).not.toHaveBeenCalled();
     }
@@ -280,18 +282,19 @@ describe("ReviewsPanel", () => {
           return revisions === "fail" ? new HttpResponse(null, { status: 500 }) : HttpResponse.json(two);
         }),
       );
-      renderPanel();
+      const { store } = renderPanel();
 
       const entry = (await screen.findByText("Text 1")).closest("li")!;
       if (asked) await waitFor(() => expect(requested).toHaveBeenCalled());
       if (settled) await within(entry).findByText(settled);
       // Without text to wait for, give a resolved read time to render before asserting.
-      else if (asked && revisions === "list") await new Promise((r) => setTimeout(r, 50));
+      else if (asked && revisions === "list") await reviewsSettled(store);
       const link = await within(entry).findByRole("link", { name: expected });
       expect(link).toHaveAttribute("href", `/dashboard/admin/library/${ALBUM_ID}/slip/1`);
       expect(within(entry).getAllByRole("link", { name: /^Print (the|a new) slip$/ })).toHaveLength(1);
       if (!asked) {
-        await new Promise((r) => setTimeout(r, 50));
+        expect(reviewApi.endpoints.getReviewRevisions.select(1)(store.getState()).isUninitialized).toBe(true);
+        await reviewsSettled(store);
         expect(requested).not.toHaveBeenCalled();
       }
     });
@@ -301,13 +304,14 @@ describe("ReviewsPanel", () => {
       const requested = vi.fn();
       server.use(http.get(`${TEST_BACKEND_URL}/reviews/:id/revisions`, () => { requested(); return HttpResponse.json(two); }));
       // The record page's other reviews are told they are not on a cover, whatever the review says.
-      renderWithProviders(
+      const { store } = renderWithProviders(
         <Group title="Other reviews" reviews={[submitted(1, { on_cover: true, ...PRINTED })]} recordOf={() => RECORD} printable onCover={() => false} />,
       );
 
       const entry = (await screen.findByText("Text 1")).closest("li")!;
       expect(await within(entry).findByRole("link", { name: "Print the slip" })).toBeInTheDocument();
-      await new Promise((r) => setTimeout(r, 50));
+      expect(reviewApi.endpoints.getReviewRevisions.select(1)(store.getState()).isUninitialized).toBe(true);
+      await reviewsSettled(store);
       expect(requested).not.toHaveBeenCalled();
       expect(within(entry).queryByText(isCurrent)).not.toBeInTheDocument();
     });

@@ -3,11 +3,13 @@ import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { delay, http, HttpResponse } from "msw";
 import type { IntakeItem, Review } from "@wxyc/shared";
 import { Authorization } from "@/lib/features/admin/types";
+import { reviewApi } from "@/lib/features/reviews/reviewApi";
 import {
   fakeReviewsEndpoints,
   intakeItem as item,
   renderWithProviders,
   review,
+  reviewsSettled,
   server,
   TEST_BACKEND_URL,
 } from "@/tests/helpers";
@@ -452,7 +454,9 @@ describe("ReviewsScreen", () => {
     server.use(count);
     const dj = renderWithProviders(<ReviewsScreen />);
     await within(await section(SHELF)).findByText(/Moon Pix/);
-    await new Promise((r) => setTimeout(r, 50));
+    // The read is a skip for a DJ, decided at render: it is never started.
+    expect(reviewApi.endpoints.getReviewers.select(undefined)(dj.store.getState()).isUninitialized).toBe(true);
+    await reviewsSettled(dj.store);
     expect(reads).toEqual([]);
     dj.unmount();
 

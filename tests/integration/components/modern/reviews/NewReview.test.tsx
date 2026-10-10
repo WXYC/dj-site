@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, onTestFinished } from "vitest";
 import { configure, waitFor } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { Authorization } from "@/lib/features/admin/types";
-import { fakeReviewsEndpoints, renderWithProviders, review, server, TEST_BACKEND_URL } from "@/tests/helpers";
+import { fakeReviewsEndpoints, renderWithProviders, review, reviewsSettled, server, TEST_BACKEND_URL } from "@/tests/helpers";
 
 vi.mock("@/lib/features/authentication/client", async () => {
   const { createAuthClientModuleMock } = await import("@/tests/helpers/auth-client-mock");
@@ -69,10 +69,10 @@ describe("NewReview", () => {
       }),
     );
 
-    renderWithProviders(<NewReview albumId={7} />);
+    const { store } = renderWithProviders(<NewReview albumId={7} />);
 
     await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/dashboard/reviews/55"));
-    await new Promise((r) => setTimeout(r, 50));
+    await reviewsSettled(store);
     expect(bodies).toEqual([{ album_id: 7 }]);
   });
 
@@ -110,8 +110,8 @@ describe("NewReview", () => {
     let posted = false;
     server.use(http.post(`${TEST_BACKEND_URL}/reviews`, () => ((posted = true), HttpResponse.json(review(), { status: 201 }))));
 
-    const { container } = renderWithProviders(<NewReview albumId={7} />);
-    await new Promise((r) => setTimeout(r, 50));
+    const { container, store } = renderWithProviders(<NewReview albumId={7} />);
+    await reviewsSettled(store);
 
     expect(posted).toBe(false);
     expect(container).toBeEmptyDOMElement();

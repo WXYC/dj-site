@@ -3,7 +3,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import { Authorization } from "@/lib/features/admin/types";
 import { http, HttpResponse } from "msw";
-import { fakeReviewsEndpoints, renderWithProviders, review, reviewRevision, server } from "@/tests/helpers";
+import { fakeReviewsEndpoints, renderWithProviders, review, reviewRevision, reviewsSettled, server } from "@/tests/helpers";
+import { reviewApi } from "@/lib/features/reviews/reviewApi";
 import { TEST_BACKEND_URL } from "@/tests/helpers/constants";
 
 vi.mock("@/lib/features/authentication/client", async () => {
@@ -105,10 +106,11 @@ describe("ReviewHistory", () => {
     const requested = vi.fn();
     fakeReviewsEndpoints({ reviews: [submitted({ status: "draft", revision_count: 0 })], revisions: { "40": revisions } });
     server.use(http.get(`${TEST_BACKEND_URL}/reviews/:id/revisions`, () => { requested(); return HttpResponse.json(revisions); }));
-    renderHistory();
+    const { store } = renderHistory();
 
     expect(await screen.findByText(REVIEW_COPY.history.draft)).toBeInTheDocument();
-    await new Promise((r) => setTimeout(r, 50));
+    expect(reviewApi.endpoints.getReviewRevisions.select(40)(store.getState()).isUninitialized).toBe(true);
+    await reviewsSettled(store);
     expect(screen.queryByText("Version 1")).not.toBeInTheDocument();
     expect(requested).not.toHaveBeenCalled();
   });
