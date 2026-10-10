@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Button, Chip, Stack, Typography } from "@mui/joy";
 import type { IntakeItem, Review } from "@wxyc/shared";
 import type { AlbumEntry } from "@/lib/features/catalog/types";
+import { itemHolder } from "@/lib/features/reviews/holder";
 import { hasNothingToShow } from "@/lib/has-nothing-to-show";
 import {
   isIntakeAlreadyFiled,
@@ -26,6 +27,7 @@ import FccNotesPanel from "./FccNotesPanel";
 import { intakeRecord, recordLine, releaseRecord } from "./recordLine";
 import ReleasePicker from "./ReleasePicker";
 import { fromLine, newestFirst } from "./ReviewFrom";
+import UseThisReviewButton from "./UseThisReviewButton";
 import { Group } from "./ReviewsPanel";
 import { useItemPageReload } from "./useItemPageReload";
 import { usePrintedVersion } from "./usePrintedVersion";
@@ -43,6 +45,9 @@ const STATE_LABELS: Record<IntakeItem["effective_state"], string> = {
   filed: REVIEW_COPY.intake.filed,
   finalized: REVIEW_COPY.intake.filed,
 };
+
+/** A record whose review is already on the library entry: nothing is left to file. */
+const isFiledState = (state: IntakeItem["effective_state"]) => state === "filed" || state === "finalized";
 
 /** The music directors' page for one logged record: its reviews, and the filing bench. */
 export default function IntakeItemScreen({ id }: { id: number }) {
@@ -86,10 +91,19 @@ export default function IntakeItemScreen({ id }: { id: number }) {
     .sort(newestFirst);
 
   // A draft has not been submitted, and a review of a cited release is not this record's.
-  const fromExtra = (review: Review) => {
-    const line = review.status === "submitted" && review.intake_item_id === id ? fromLine(review, item.data!) : null;
-    return line && <Typography level="body-sm">{line}</Typography>;
+  const othersExtra = (review: Review) => {
+    if (review.status !== "submitted" || review.intake_item_id !== id) return null;
+    const line = fromLine(review, item.data!);
+    return (
+      <>
+        {line && <Typography level="body-sm">{line}</Typography>}
+        <UseThisReviewButton itemId={id} review={review} replacing={coverId != null} reload={reload} onNotice={setNotice} />
+      </>
+    );
   };
+
+  const holder = itemHolder(item.data);
+  const stillOut = cover && holder.kind === "checked_out" && holder.name && holder.id !== cover.author_user_id ? COPY.stillOutWith(holder.name) : null;
 
   // The intake refusals are worded here; the server's text is never shown.
   const submitNew: FilingSubmit = async (request) => {
@@ -158,13 +172,13 @@ export default function IntakeItemScreen({ id }: { id: number }) {
       ) : (
         coverId == null && <Typography>{COPY.noCover}</Typography>
       )}
-      {others.length > 0 && <Group title={REVIEW_COPY.albumPanel.others} reviews={others} recordOf={recordOf} onCover={() => false} extra={fromExtra} />}
+      {others.length > 0 && <Group title={REVIEW_COPY.albumPanel.others} reviews={others} recordOf={recordOf} onCover={() => false} extra={othersExtra} />}
       {!!item.data.draft_authors?.length && (
         <Typography level="body-sm">{COPY.stillWriting} {item.data.draft_authors.join(", ")}.</Typography>
       )}
       <FccNotesPanel intakeItemId={id} />
       {notice && <Typography role="status">{notice}</Typography>}
-      {item.data.effective_state !== "filed" && item.data.effective_state !== "finalized" && (
+      {!isFiledState(item.data.effective_state) && (
         <Button color="danger" variant="outlined" onClick={() => setConfirmingDelete(true)} sx={{ alignSelf: "flex-start" }}>
           {COPY.delete}
         </Button>
@@ -187,8 +201,14 @@ export default function IntakeItemScreen({ id }: { id: number }) {
         {reviewAuthors.length + draftAuthors.length === 0 && <Typography>{COPY.deleteNoReviews}</Typography>}
         <Typography>{COPY.deleteFinal}</Typography>
       </ConfirmDialog>
-      {coverId != null && <Link href={`/dashboard/admin/intake/${id}/slip`}>{printedVersion === "edited" ? REVIEW_COPY.printedNote.printNew : COPY.printSlip}</Link>}
-      {item.data.effective_state === "filed" || item.data.effective_state === "finalized" ? (
+      {coverId != null &&
+        (cover?.medium === "handwritten" ? (
+          <Typography>{REVIEW_COPY.intakeSlip.handwritten}</Typography>
+        ) : (
+          <Link href={`/dashboard/admin/intake/${id}/slip`}>{printedVersion === "edited" ? REVIEW_COPY.printedNote.printNew : COPY.printSlip}</Link>
+        ))}
+      {stillOut && <Typography>{stillOut}</Typography>}
+      {isFiledState(item.data.effective_state) ? (
         <Typography>{COPY.filed}</Typography>
       ) : coverId == null ? (
         <Typography>{COPY.chooseFirst}</Typography>

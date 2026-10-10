@@ -4,7 +4,7 @@ import { configureStore } from "@reduxjs/toolkit";
 import { reviewsApi } from "@/lib/features/reviews/api";
 import { fccNoteApi } from "@/lib/features/reviews/fccNoteApi";
 import { reviewApi } from "@/lib/features/reviews/reviewApi";
-import { intakeApi, isIntakeInRotation, isIntakeReleaseRefused, isIntakeNotReviewed, isIntakeRequestRefused, isIntakeStateChanged } from "@/lib/features/reviews/intakeApi";
+import { intakeApi, isIntakeAcceptReviewRefused, isIntakeInRotation, isIntakeReleaseRefused, isIntakeNotReviewed, isIntakeRequestRefused, isIntakeStateChanged } from "@/lib/features/reviews/intakeApi";
 import { describeApi } from "@/tests/helpers/api-harness";
 import { TEST_BACKEND_URL } from "@/tests/helpers/constants";
 import { server } from "@/tests/fakes/server";
@@ -30,6 +30,7 @@ describe("intakeApi", () => {
       "releaseIntakeItem",
       "requestIntakeItem",
       "acceptIntakeItem",
+      "acceptReview",
       "passIntakeItem",
       "logIntakeItem",
       "fileIntakeItem",
@@ -78,10 +79,26 @@ describe("intakeApi", () => {
   it.each([
     ["isIntakeReleaseRefused", isIntakeReleaseRefused, "intakeWriteError", true],
     ["isIntakeRequestRefused", isIntakeRequestRefused, "intakeWriteError", true],
+    ["isIntakeAcceptReviewRefused", isIntakeAcceptReviewRefused, "intakeWriteError", true],
     ["isIntakeReleaseRefused", isIntakeReleaseRefused, "libraryPrintError", false],
     ["isIntakeRequestRefused", isIntakeRequestRefused, "libraryPrintError", false],
+    ["isIntakeAcceptReviewRefused", isIntakeAcceptReviewRefused, "libraryPrintError", false],
   ])("$0 reads a 400 under $2 -> $3", (_name, predicate, key, expected) => {
     expect(predicate({ [key]: { status: 400, data: { message: "m" } } })).toBe(expected);
+  });
+
+  it("acceptReview POSTs { review_id } to exactly /intake/7/accept-review and refreshes the intake and review reads", async () => {
+    let seen: { path: string; body: unknown } | undefined;
+    server.use(
+      http.post(`${TEST_BACKEND_URL}/intake/:id/accept-review`, async ({ request }) => {
+        seen = { path: new URL(request.url).pathname, body: await request.clone().json() };
+        return HttpResponse.json({ id: 7 });
+      })
+    );
+
+    await makeReviewsStore().dispatch(intakeApi.endpoints.acceptReview.initiate({ id: 7, reviewId: 40 }));
+
+    expect(seen).toEqual({ path: "/intake/7/accept-review", body: { review_id: 40 } });
   });
 
   it("deleteIntakeItem DELETEs exactly /intake/7 and answers the deleted authors", async () => {
@@ -208,6 +225,7 @@ describe("intakeApi", () => {
     ["checkoutIntakeItem", 7],
     ["releaseIntakeItem", 7],
     ["acceptIntakeItem", 7],
+    ["acceptReview", { id: 7, reviewId: 40 }],
     ["passIntakeItem", 7],
     ["printIntakeItem", 7],
     ["fileIntakeItem", { id: 7, body: { kind: "existing_release", album_id: 3 } }],

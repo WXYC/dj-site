@@ -66,6 +66,15 @@ export const isIntakeReleaseRefused = (err: unknown): boolean =>
 export const isIntakeRequestRefused = (err: unknown): boolean =>
   isStatusRefusal(err, { status: 400, key: "intakeWriteError" });
 
+/**
+ * True when "Use this review" was refused (400) because the review is still a draft or belongs to another
+ * record. That 400 has no `reason` (the server throws a plain error), so it is matched by status alone; the
+ * button always sends `review_id`, so the route's other 400 (`review_id is required`) cannot arrive. Read it
+ * only in that button's rejection handler: the same status means something else on every other intake write.
+ */
+export const isIntakeAcceptReviewRefused = (err: unknown): boolean =>
+  isStatusRefusal(err, { status: 400, key: "intakeWriteError" });
+
 /** The `intake/...` endpoints. */
 export const intakeApi = reviewsApi.injectEndpoints({
   endpoints: (builder) => ({
@@ -116,6 +125,14 @@ export const intakeApi = reviewsApi.injectEndpoints({
       query: (id) => ({ url: `intake/${id}/accept`, method: "POST" }),
       transformErrorResponse: wrapIntakeWriteError,
       invalidatesTags: ["Intake"],
+    }),
+    // A music director choosing the review that goes on the cover. Unrelated to the requested DJ
+    // saying yes to a request (`acceptIntakeItem`, `POST intake/{id}/accept`). Works at every state,
+    // which is how a review is replaced.
+    acceptReview: builder.mutation<IntakeItem, { id: number; reviewId: number }>({
+      query: ({ id, reviewId }) => ({ url: `intake/${id}/accept-review`, method: "POST", body: { review_id: reviewId } }),
+      transformErrorResponse: wrapIntakeWriteError,
+      invalidatesTags: ["Intake", "Review"],
     }),
     passIntakeItem: builder.mutation<IntakeItem, number>({
       query: (id) => ({ url: `intake/${id}/pass`, method: "POST" }),
@@ -183,6 +200,7 @@ export const {
   useRequestIntakeItemMutation,
   useCancelIntakeRequestMutation,
   useAcceptIntakeItemMutation,
+  useAcceptReviewMutation,
   usePassIntakeItemMutation,
   useFinalizeIntakeItemMutation,
   useFileIntakeItemMutation,
