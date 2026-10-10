@@ -4,7 +4,8 @@
  * the rest are drafted (the editor's from the Google Form's question wording)
  * and wait for the station's approval before launch.
  */
-const joinNames = (names: string[]) => new Intl.ListFormat("en", { type: "conjunction" }).format(names);
+/** "A", "A and B", "A, B and C": no comma before "and", and no dependence on the runtime's locale data. */
+const joinNames = (names: string[]) => (names.length < 2 ? names.join("") : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`);
 
 export const REVIEW_COPY = {
   /** Approved. Shown in place of a draft the DJ can no longer start. */
