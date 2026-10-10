@@ -12,7 +12,7 @@ export const REVIEW_GATE_COPY = {
   link: "Open the review shelf",
 } as const;
 
-const REVIEW_SHELF_HREF = "/dashboard/admin/intake";
+const REVIEW_SHELF_HREF = "/dashboard/reviews";
 
 /**
  * Stands where a screen's create action stood once

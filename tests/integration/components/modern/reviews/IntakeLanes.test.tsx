@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { fakeReviewsEndpoints, intakeItem, renderWithProviders, server, TEST_BACKEND_URL } from "@/tests/helpers";
 import { Authorization } from "@/lib/features/admin/types";
@@ -13,154 +13,503 @@ vi.mock("sonner", () => ({
   toast: Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn(), info: vi.fn() }),
 }));
 
-// `late` mimics the real hook, which seeds each caller's own state from the session
-// alone (no station role yet) and only switches to the resolved role after an effect and a microtask.
-const roleState = vi.hoisted(() => ({ late: false }));
-
-vi.mock("@/src/hooks/authenticationHooks", async () => {
-  const { useEffect, useState } = await import("react");
-  const resolved = {
-    data: { user: { id: "md-me", authority: Authorization.MD } },
+let authority = Authorization.MD;
+vi.mock("@/src/hooks/authenticationHooks", () => ({
+  useAuthentication: () => ({
+    data: { user: { id: "md-me", authority } },
     authenticating: false,
     authenticated: true,
-  };
-  const pending = { ...resolved, data: { user: { id: "md-me", authority: Authorization.NO } } };
-  return {
-    useAuthentication: () => {
-      const [settled, setSettled] = useState(!roleState.late);
-      useEffect(() => {
-        if (settled) return;
-        void Promise.resolve().then(() => setSettled(true));
-      }, [settled]);
-      return settled ? resolved : pending;
-    },
-  };
-});
+  }),
+}));
 
+import { toast } from "sonner";
 import IntakeLanes from "@/src/components/experiences/modern/reviews/IntakeLanes";
 import IntakeLogForm from "@/src/components/experiences/modern/reviews/IntakeLogForm";
+import { REVIEW_COPY } from "@/src/components/experiences/modern/reviews/copy";
 
 const moonPix = (overrides = {}) =>
   intakeItem({ id: 11, artist_name: "Cat Power", album_title: "Moon Pix", record_label: "Matador", ...overrides });
 
-beforeEach(() => vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "staff"));
-afterEach(() => {
-  vi.unstubAllEnvs();
-  roleState.late = false;
+const waiting = (id: number, overrides = {}) =>
+  moonPix({ id, state: "checked_out", effective_state: "checked_out", checked_out_by: "dj-1", checked_out_by_name: "DJ Sam", submitted_review_count: 1, accepted_review_id: null, ...overrides });
+
+const lane = (name: string) => screen.findByRole("region", { name });
+
+beforeEach(() => {
+  vi.mocked(toast.error).mockClear();
 });
 
-type User = ReturnType<typeof renderWithProviders>["user"];
+describe("IntakeLanes", () => {
+  beforeEach(() => {
+    authority = Authorization.MD;
+    vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "staff");
+  });
+  afterEach(() => vi.unstubAllEnvs());
 
-const requestedRow = (id: number) =>
-  moonPix({ id, state: "requested", effective_state: "requested", requested_dj_id: "dj-pat", requested_dj_name: "DJ Pat" });
-const LOST_CANCEL = "This request was already answered, or it expired. The lists have been reloaded.";
-
-const logMoonPix = async (user: User) => {
-  await user.type(await screen.findByLabelText(/^Artist/), "Cat Power");
-  await user.type(screen.getByLabelText(/^Album/), "Moon Pix");
-  await user.click(screen.getByRole("combobox", { name: /^Format/ }));
-  await user.click(await screen.findByRole("option", { name: "cd" }));
-  await user.click(screen.getByRole("button", { name: "Log item" }));
-};
-
-/** Lose a Cancel request race, so the lanes show the lost-race notice. */
-const loseACancel = async (user: User) => {
-  await user.click(await screen.findByRole("button", { name: "Cancel request" }));
-  return screen.findByText(LOST_CANCEL);
-};
-
-const fakeLostCancel = () => {
-  fakeReviewsEndpoints({ open: [requestedRow(11)] });
-  server.use(
-    http.post(`${TEST_BACKEND_URL}/intake/11/cancel-request`, () =>
-      HttpResponse.json({ message: "server words", reason: "state_changed" }, { status: 409 }),
-    ),
-    http.post(`${TEST_BACKEND_URL}/intake`, () => HttpResponse.json(moonPix())),
-  );
-};
-
-describe("IntakeLanes props", () => {
   it.each([
-    ["neither prop", {}, false, false, false],
-    ["logForm", { logForm: true }, true, false, false],
-    ["shelf", { shelf: true }, false, true, true],
-    ["both", { logForm: true, shelf: true }, true, true, true],
-  ])("with %s (props %j): form shown %s, shelf lane shown %s, reviewers read %s", async (_label, props, form, shelf, reviewersRead) => {
-    let reviewerReads = 0;
+    ["off", "", Authorization.MD],
+    ["staff-only for a DJ", "staff", Authorization.DJ],
+  ])("renders nothing when the flag is %s", async (_label, flag, who) => {
+    vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", flag);
+    authority = who;
     fakeReviewsEndpoints({ open: [moonPix()] });
+
+    const { container } = renderWithProviders(<IntakeLanes />);
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it.each([
+    ["heldFor", REVIEW_COPY.intake.heldFor, "Held for"],
+  ])("words %s exactly as the station approved it", (_key, actual, approved) => {
+    expect(actual).toBe(approved);
+  });
+
+  it("names each record with the one record line, in the lane for its state", async () => {
+    fakeReviewsEndpoints({
+      open: [
+        moonPix({ id: 2, state: "requested", effective_state: "requested", requested_dj_name: "DJ Pat" }),
+        waiting(3, { album_title: "Dark Side" }),
+      ],
+      reviewed: [moonPix({ id: 4, state: "reviewed", effective_state: "reviewed" })],
+      filed: [moonPix({ id: 5, state: "filed", effective_state: "filed" })],
+    });
+
+    renderWithProviders(<IntakeLanes />);
+
+    const requested = await lane("Requested");
+    expect(within(requested).getByText("Cat Power · Moon Pix · Matador · CD")).toBeInTheDocument();
+    expect(within(await lane("Checked out")).getByText("Cat Power · Dark Side · Matador · CD")).toBeInTheDocument();
+    expect(within(await lane("Reviewed (1)")).getByText("Cat Power · Moon Pix · Matador · CD")).toBeInTheDocument();
+    expect(within(await lane("Filed")).getByText("Cat Power · Moon Pix · Matador · CD")).toBeInTheDocument();
+    expect(within(requested).getByRole("link")).toHaveAttribute("href", "/dashboard/admin/intake/2");
+  });
+
+  it("puts each state's rows in its own lane only, and reads intake exactly twice", async () => {
+    const reads: string[] = [];
+    fakeReviewsEndpoints({
+      open: [waiting(3, { album_title: "Out" })],
+      reviewed: [moonPix({ id: 4, album_title: "Done", state: "reviewed", effective_state: "reviewed" })],
+      filed: [moonPix({ id: 5, album_title: "Shelved", state: "filed", effective_state: "filed" })],
+    });
     server.use(
-      http.get(`${TEST_BACKEND_URL}/reviews/reviewers`, () => {
-        reviewerReads += 1;
-        return HttpResponse.json({ reviewers: [] });
+      http.get(`${TEST_BACKEND_URL}/intake`, ({ request }) => {
+        reads.push(new URL(request.url).search);
       }),
     );
 
-    renderWithProviders(<IntakeLanes {...props} />);
+    renderWithProviders(<IntakeLanes />);
 
-    // The Filed lane renders last, so by then every lane the props allow has landed.
-    await screen.findByRole("region", { name: "Filed" });
-    await new Promise((resolve) => setTimeout(resolve, 50));
-    expect(screen.queryByRole("form", { name: "Log an item" }) !== null).toBe(form);
-    expect(screen.queryByRole("region", { name: "On the review shelf" }) !== null).toBe(shelf);
-    expect(reviewerReads > 0).toBe(reviewersRead);
+    const where = { "Checked out": "Out", "Reviewed (1)": "Done", Filed: "Shelved" };
+    for (const [name, album] of Object.entries(where)) {
+      const region = await lane(name);
+      for (const other of Object.values(where)) {
+        const check = expect(within(region).queryByText(new RegExp(other)));
+        if (other === album) check.toBeInTheDocument();
+        else check.not.toBeInTheDocument();
+      }
+    }
+    expect(within(await lane("Requested")).queryByRole("link")).not.toBeInTheDocument();
+    expect([...reads].sort()).toEqual(["", "?awaiting_acceptance=true"]);
+  });
+
+  it("renders no Review waiting lane when only open records are served", async () => {
+    fakeReviewsEndpoints({ open: [moonPix()] });
+
+    renderWithProviders(<IntakeLanes />);
+
+    await lane("Filed");
+    expect(screen.queryByRole("region", { name: /Review waiting/ })).not.toBeInTheDocument();
+  });
+
+  it.each([
+    [1, "1 review"],
+    [2, "2 reviews"],
+  ])("counts %i submitted reviews as %s, and marks the record in its physical lane", async (count, text) => {
+    const item = waiting(7, { submitted_review_count: count });
+    fakeReviewsEndpoints({ open: [item, waiting(8, { submitted_review_count: 3 })], awaiting: [item, waiting(8, { submitted_review_count: 3 })] });
+
+    renderWithProviders(<IntakeLanes />);
+
+    const lane1 = await lane("Review waiting (2)");
+    expect(within(lane1).getAllByText("Checked out to DJ Sam")).toHaveLength(2);
+    expect(within(lane1).getByText(text)).toBeInTheDocument();
+    const checkedOut = await lane("Checked out");
+    expect(within(checkedOut).getAllByText("review waiting")).toHaveLength(2);
+  });
+
+  it("names a removed holder in the Review waiting lane instead of printing null", async () => {
+    const orphan = waiting(9, { checked_out_by: null, checked_out_by_name: null });
+    fakeReviewsEndpoints({ open: [orphan], awaiting: [orphan] });
+
+    renderWithProviders(<IntakeLanes />);
+
+    const lane1 = await lane("Review waiting (1)");
+    expect(within(lane1).getByText("Holder removed")).toBeInTheDocument();
+    expect(within(lane1).queryByText(/Checked out to/)).not.toBeInTheDocument();
+    expect(lane1).not.toHaveTextContent("null");
+  });
+
+  it("shows a reviewed record's holder and overdue mark, and none for a returned one", async () => {
+    fakeReviewsEndpoints({
+      reviewed: [
+        moonPix({ id: 1, effective_state: "reviewed", checked_out_at: "2026-09-01T12:00:00Z", checked_out_by: "dj-1", checked_out_by_name: "DJ Sam", overdue: true }),
+        moonPix({ id: 2, effective_state: "reviewed", checked_out_at: "2026-09-01T12:00:00Z", checked_out_by: null }),
+        moonPix({ id: 3, effective_state: "reviewed" }),
+      ],
+    });
+
+    renderWithProviders(<IntakeLanes />);
+
+    const reviewed = await lane("Reviewed (3)");
+    expect(within(reviewed).getByText("Still out: checked out to DJ Sam")).toBeInTheDocument();
+    expect(within(reviewed).getByText("Still out: holder removed")).toBeInTheDocument();
+    expect(within(reviewed).getAllByText(/^Still out/)).toHaveLength(2);
+    expect(within(reviewed).getAllByRole("button", { name: "Mark as returned" })).toHaveLength(2);
+    expect(within(reviewed).getAllByText("Overdue")).toHaveLength(1);
+  });
+
+  it.each([
+    ["Checked out", "the overdue row first", "checked_out", "Checked out"],
+    ["Checked out", "the overdue row second", "checked_out", "Checked out"],
+    ["Reviewed", "the overdue row first", "reviewed", "Reviewed (2)"],
+    ["Reviewed", "the overdue row second", "reviewed", "Reviewed (2)"],
+  ])("sorts an overdue row first in the %s lane when the read returns %s", async (_name, readOrder, state, heading) => {
+    // The overdue row is the newer-logged, lower-id one, so neither a date nor an id ordering puts it first.
+    const row = (id: number, overrides = {}) =>
+      moonPix({ id, album_title: `Album ${id}`, state, effective_state: state, checked_out_by: "dj-1", checked_out_by_name: "DJ Sam", checked_out_at: "2026-09-01T12:00:00Z", ...overrides });
+    const overdue = row(1, { logged_at: "2026-09-02T12:00:00Z", overdue: true });
+    const onTime = row(2, { logged_at: "2026-09-01T12:00:00Z" });
+    const read = readOrder === "the overdue row first" ? [overdue, onTime] : [onTime, overdue];
+    fakeReviewsEndpoints();
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/intake`, ({ request }) =>
+        HttpResponse.json(new URL(request.url).searchParams.get("awaiting_acceptance") === "true" ? [] : read),
+      ),
+    );
+
+    renderWithProviders(<IntakeLanes />);
+
+    const links = within(await lane(heading)).getAllByRole("link");
+    expect(links.map((a) => a.textContent)).toEqual([expect.stringContaining("Album 1"), expect.stringContaining("Album 2")]);
+  });
+
+  it("counts the Reviewed lane's rows in its heading, and drops it on a refetch when a record is filed", async () => {
+    let filed = false;
+    const reviewed = (id: number, overrides = {}) => moonPix({ id, album_title: `Album ${id}`, state: "reviewed", effective_state: "reviewed", checked_out_at: "2026-09-01T12:00:00Z", checked_out_by: "dj-1", checked_out_by_name: "DJ Sam", ...overrides });
+    // Releasing record 1 keeps it reviewed; record 2 leaves the lane by changing state, as the read after the write shows.
+    fakeReviewsEndpoints({
+      reviewed: () => [reviewed(1), filed ? reviewed(2, { state: "filed", effective_state: "filed" }) : reviewed(2)],
+    });
+    server.use(
+      http.post(`${TEST_BACKEND_URL}/intake/1/release`, () => {
+        filed = true;
+        return HttpResponse.json(moonPix({ id: 1 }));
+      }),
+    );
+
+    const { user } = renderWithProviders(<IntakeLanes />);
+    const two = await lane("Reviewed (2)");
+    await user.click(within(within(two).getByText(/Album 1/).closest("li")!).getByRole("button", { name: "Mark as returned" }));
+
+    const one = await lane("Reviewed (1)");
+    expect(within(one).getByText(/Album 1/)).toBeInTheDocument();
+    expect(within(one).queryByText(/Album 2/)).not.toBeInTheDocument();
+  });
+
+  it("keeps the plain Reviewed heading when the lane is empty", async () => {
+    fakeReviewsEndpoints({ open: [moonPix()] });
+
+    renderWithProviders(<IntakeLanes />);
+
+    expect(await lane("Reviewed")).toHaveTextContent("Nothing here.");
+    expect(screen.queryByText(/Reviewed \(/)).not.toBeInTheDocument();
+  });
+
+  it("shows only the five most recent passes", async () => {
+    const passes = [1, 2, 3, 4, 5, 6].map((day) => ({ dj_name: `DJ ${day}`, passed_at: `2026-10-0${day}T12:00:00Z` }));
+    fakeReviewsEndpoints({ open: [moonPix({ id: 1, passes })] });
+
+    renderWithProviders(<IntakeLanes />);
+
+    const band = await screen.findByRole("region", { name: "Recent passes" });
+    expect(within(band).getAllByRole("listitem").map((li) => li.textContent?.split(" ")[1])).toEqual(["6", "5", "4", "3", "2"]);
+  });
+
+  it("lists the recent passes from the read, newest first, and shows no band when there are none", async () => {
+    const pass = (dj_name: string, passed_at: string) => ({ dj_name, passed_at });
+    fakeReviewsEndpoints({
+      open: [
+        moonPix({ id: 1, logged_at: "2026-09-02T12:00:00Z", artist_name: "Juana Molina", album_title: "DOGA", passes: [pass("Pat", "2026-10-01T12:00:00Z")] }),
+        moonPix({ id: 2, logged_at: "2026-09-01T12:00:00Z", artist_name: "Stereolab", album_title: "Aluminum Tunes", passes: [pass("Sam", "2026-10-03T12:00:00Z")] }),
+      ],
+    });
+
+    const { unmount } = renderWithProviders(<IntakeLanes />);
+
+    const band = await screen.findByRole("region", { name: "Recent passes" });
+    expect(within(within(band).getByRole("list")).getAllByRole("listitem").map((li) => li.textContent)).toEqual([
+      "Sam passed on Stereolab — Aluminum Tunes",
+      "Pat passed on Juana Molina — DOGA",
+    ]);
+    expect(band.closest("[role=status]")).toBeNull();
+    expect(band.querySelector("[role=status]")).toBeNull();
+    // The band sits at the top of the page, above the first lane.
+    const first = screen.getByRole("region", { name: "Requested" });
+    expect(band.compareDocumentPosition(first) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    unmount();
+
+    fakeReviewsEndpoints({ open: [moonPix({ id: 1, passes: [] })] });
+    renderWithProviders(<IntakeLanes />);
+    await lane("Filed");
+    expect(screen.queryByRole("region", { name: "Recent passes" })).not.toBeInTheDocument();
+  });
+
+  it("Mark as returned sends the release, and the record stays in Reviewed without its line", async () => {
+    let returned = false;
+    const holder = { checked_out_at: "2026-09-01T12:00:00Z", checked_out_by: "dj-1", checked_out_by_name: "DJ Sam" };
+    fakeReviewsEndpoints({ reviewed: () => [moonPix({ id: 11, effective_state: "reviewed", ...(returned ? {} : holder) })] });
+    server.use(
+      http.post(`${TEST_BACKEND_URL}/intake/11/release`, () => {
+        returned = true;
+        return HttpResponse.json(moonPix({ id: 11 }));
+      }),
+    );
+
+    const { user } = renderWithProviders(<IntakeLanes />);
+    await user.click(await screen.findByRole("button", { name: "Mark as returned" }));
+
+    await waitFor(() => expect(screen.queryByText(/^Still out/)).not.toBeInTheDocument());
+    expect(within(await lane("Reviewed (1)")).getByText("Cat Power · Moon Pix · Matador · CD")).toBeInTheDocument();
+  });
+
+  const HOLDER = { checked_out_at: "2026-09-01T12:00:00Z", checked_out_by: "dj-1", checked_out_by_name: "DJ Sam" };
+  const LOST_RACE = "This record has already been returned or filed. The lists have been reloaded.";
+  const laneKey = (url: string) => {
+    const query = new URL(url).searchParams;
+    return query.get("awaiting_acceptance") ? "awaiting" : "unfiltered";
+  };
+
+  // The 409's own tag invalidation refetches every read by itself, so only a
+  // read that is held pending can tell "reloaded, then noticed" from
+  // "noticed" or "reloaded only some reads".
+  it.each(["unfiltered", "awaiting"])(
+    "a 409 state_changed keeps the row locked and shows no notice while the %s read is still reloading, then shows the approved notice and no server message",
+    async (heldLane) => {
+      let lost = false;
+      let heldReads = 0;
+      let releaseHeld!: () => void;
+      const held = new Promise<void>((resolve) => {
+        releaseHeld = resolve;
+      });
+      fakeReviewsEndpoints({ reviewed: [moonPix({ id: 11, effective_state: "reviewed", ...HOLDER })] });
+      server.use(
+        http.get(`${TEST_BACKEND_URL}/intake`, async ({ request }) => {
+          const key = laneKey(request.url);
+          if (lost && key === heldLane) {
+            heldReads += 1;
+            await held;
+          }
+          return HttpResponse.json(key === "unfiltered" ? [moonPix({ id: 11, effective_state: "reviewed", ...HOLDER })] : []);
+        }),
+        http.post(`${TEST_BACKEND_URL}/intake/11/release`, () => {
+          lost = true;
+          return HttpResponse.json({ message: "server words", reason: "state_changed" }, { status: 409 });
+        }),
+      );
+
+      const { user } = renderWithProviders(<IntakeLanes />);
+      const returned = await screen.findByRole("button", { name: "Mark as returned" });
+      await user.click(returned);
+
+      // The other read has long since landed; only the held one is outstanding.
+      await waitFor(() => expect(heldReads).toBeGreaterThan(0));
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      expect(screen.queryByText(LOST_RACE)).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Mark as returned" })).toBeDisabled();
+
+      releaseHeld();
+      expect(await screen.findByText(LOST_RACE)).toBeInTheDocument();
+      await waitFor(() => expect(screen.getByRole("button", { name: "Mark as returned" })).toBeEnabled());
+      expect(screen.queryByText("server words")).not.toBeInTheDocument();
+    },
+  );
+
+  it("clears the lost-race notice when the next row action starts", async () => {
+    let releasedSecond = false;
+    let releaseSecondWrite!: () => void;
+    const secondWrite = new Promise<void>((resolve) => {
+      releaseSecondWrite = resolve;
+    });
+    fakeReviewsEndpoints({
+      reviewed: [
+        moonPix({ id: 11, album_title: "Dark Side", effective_state: "reviewed", ...HOLDER }),
+        moonPix({ id: 12, effective_state: "reviewed", ...HOLDER }),
+      ],
+    });
+    server.use(
+      http.post(`${TEST_BACKEND_URL}/intake/12/release`, () =>
+        HttpResponse.json({ message: "server words", reason: "state_changed" }, { status: 409 }),
+      ),
+      http.post(`${TEST_BACKEND_URL}/intake/11/release`, async () => {
+        await secondWrite;
+        releasedSecond = true;
+        return HttpResponse.json(moonPix({ id: 11, effective_state: "reviewed" }));
+      }),
+    );
+
+    const { user } = renderWithProviders(<IntakeLanes />);
+    const [first, second] = await screen.findAllByRole("button", { name: "Mark as returned" });
+    await user.click(first);
+    expect(await screen.findByText(LOST_RACE)).toBeInTheDocument();
+
+    await user.click(second);
+
+    // Gone as the action starts, not after it lands.
+    expect(releasedSecond).toBe(false);
+    expect(screen.queryByText(LOST_RACE)).not.toBeInTheDocument();
+    releaseSecondWrite();
+    await waitFor(() => expect(second).toBeEnabled());
+    expect(screen.queryByText(LOST_RACE)).not.toBeInTheDocument();
   });
 });
 
-describe("IntakeLanes hosting the logging form", () => {
-  it("never paints the lanes without the form when the role resolves after the first paint", async () => {
-    roleState.late = true;
-    fakeReviewsEndpoints({ open: [moonPix()] });
-    const states: string[] = [];
-    const observer = new MutationObserver(() => {
-      const lanes = screen.queryByRole("region", { name: "Filed" }) !== null;
-      const form = screen.queryByRole("form", { name: "Log an item" }) !== null;
-      states.push(`${lanes ? "L" : "-"}${form ? "F" : "-"}`);
+describe("IntakeLanes — a failed background refetch", () => {
+  beforeEach(() => {
+    authority = Authorization.MD;
+    vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "staff");
+  });
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("keeps the loaded lanes and shows no load-failure line when the reload after a write fails", async () => {
+    fakeReviewsEndpoints({ reviewed: [moonPix({ id: 11, effective_state: "reviewed", checked_out_at: "2026-09-01T12:00:00Z", checked_out_by: "dj-1", checked_out_by_name: "DJ Sam" })] });
+    const { user } = renderWithProviders(<IntakeLanes />);
+    const button = await screen.findByRole("button", { name: "Mark as returned" });
+
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/intake`, () => HttpResponse.json({ message: "down" }, { status: 500 })),
+      http.post(`${TEST_BACKEND_URL}/intake/11/release`, () => HttpResponse.json(moonPix({ id: 11 }))),
+    );
+    await user.click(button);
+
+    await waitFor(() => expect(button).toBeEnabled());
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(within(await lane("Reviewed (1)")).getByText(/Cat Power · Moon Pix/)).toBeInTheDocument();
+  });
+
+  it("shows the load-failure line when a first load fails", async () => {
+    server.use(http.get(`${TEST_BACKEND_URL}/intake`, () => HttpResponse.json({ message: "down" }, { status: 500 })));
+    renderWithProviders(<IntakeLanes />);
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+  });
+});
+
+const HELD = { checked_out_at: "2026-09-01T12:00:00Z", checked_out_by: "dj-1", checked_out_by_name: "DJ Sam" };
+const requestedRow = (id: number) =>
+  moonPix({ id, state: "requested", effective_state: "requested", requested_dj_id: "dj-pat", requested_dj_name: "DJ Pat" });
+const outRow = (id: number, overrides = {}) =>
+  moonPix({ id, state: "checked_out", effective_state: "checked_out", ...HELD, ...overrides });
+
+describe("IntakeLanes — cancel and release", () => {
+  beforeEach(() => {
+    authority = Authorization.MD;
+    vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "staff");
+  });
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("cancels a request from the Requested lane, and the record leaves it", async () => {
+    fakeReviewsEndpoints({ open: [requestedRow(11)] });
+
+    const { user } = renderWithProviders(<IntakeLanes />);
+    await user.click(await within(await lane("Requested")).findByRole("button", { name: "Cancel request" }));
+
+    await waitFor(() => expect(within(screen.getByRole("region", { name: "Requested" })).queryByRole("button")).not.toBeInTheDocument());
+    expect(within(screen.getByRole("region", { name: "Requested" })).queryByText(/Moon Pix/)).not.toBeInTheDocument();
+  });
+
+  it("releases a checkout, including one whose holder was removed", async () => {
+    const released: string[] = [];
+    fakeReviewsEndpoints({
+      open: () => [outRow(11, released.includes("11") ? { effective_state: "pool", state: "pool", checked_out_at: null, checked_out_by: null } : {}), outRow(12, { checked_out_by: null, checked_out_by_name: null })],
     });
-    observer.observe(document.body, { childList: true, subtree: true });
+    server.use(
+      http.post(`${TEST_BACKEND_URL}/intake/:id/release`, ({ params }) => {
+        released.push(String(params.id));
+        return HttpResponse.json(moonPix({ id: Number(params.id) }));
+      }),
+    );
 
-    renderWithProviders(<IntakeLanes logForm />);
-    await screen.findByRole("form", { name: "Log an item" });
-    await new Promise((resolve) => setTimeout(resolve, 50));
-    observer.disconnect();
+    const { user } = renderWithProviders(<IntakeLanes />);
+    const checkedOut = await lane("Checked out");
+    expect(within(checkedOut).getByText("Holder removed")).toBeInTheDocument();
+    expect(within(checkedOut).getByText("Checked out to DJ Sam")).toBeInTheDocument();
+    expect(within(checkedOut).getAllByRole("button", { name: "Release" })).toHaveLength(2);
+    await user.click(within(within(checkedOut).getByText("Holder removed").closest("li")!).getByRole("button", { name: "Release" }));
 
-    expect(states).toContain("LF");
-    expect(states).not.toContain("L-");
+    await waitFor(() => expect(released).toEqual(["12"]));
   });
+});
 
-  it("clears the lost-race notice once a record is logged", async () => {
-    fakeLostCancel();
-    const { user } = renderWithProviders(<IntakeLanes logForm />);
-    expect(await loseACancel(user)).toBeInTheDocument();
-
-    await logMoonPix(user);
-
-    await waitFor(() => expect(screen.queryByText(LOST_CANCEL)).not.toBeInTheDocument());
+describe("IntakeLanes — lost races", () => {
+  beforeEach(() => {
+    authority = Authorization.MD;
+    vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "staff");
   });
+  afterEach(() => vi.unstubAllEnvs());
 
-  it("puts the logging form above the lost-race notice", async () => {
-    fakeLostCancel();
-    const { user } = renderWithProviders(<IntakeLanes logForm />);
-    const notice = await loseACancel(user);
+  const RACE_LINES = {
+    cancel: "This request was already answered, or it expired. The lists have been reloaded.",
+    release: "This record has already been returned. The lists have been reloaded.",
+    return: "This record has already been returned or filed. The lists have been reloaded.",
+  };
 
-    const form = screen.getByRole("form", { name: "Log an item" });
-    expect(form.compareDocumentPosition(notice) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-  });
+  it.each([
+    ["cancel", "cancel-request", () => ({ open: [requestedRow(11)] }), "Cancel request"],
+    ["release", "release", () => ({ open: [outRow(11)] }), "Release"],
+    ["return", "release", () => ({ reviewed: [moonPix({ id: 11, effective_state: "reviewed", ...HELD })] }), "Mark as returned"],
+  ] as const)(
+    "a lost %s reloads both reads, then shows its own line and never the server message",
+    async (action, path, rows, button) => {
+      let reads = 0;
+      fakeReviewsEndpoints(rows());
+      server.use(
+        http.post(`${TEST_BACKEND_URL}/intake/11/${path}`, () =>
+          HttpResponse.json({ message: "server words", reason: "state_changed" }, { status: 409 }),
+        ),
+      );
+      const { user } = renderWithProviders(<IntakeLanes />);
+      await screen.findByRole("button", { name: button });
+      const counting = http.get(`${TEST_BACKEND_URL}/intake`, () => {
+        reads += 1;
+        return undefined;
+      });
+      server.use(counting);
+      await user.click(screen.getByRole("button", { name: button }));
+
+      expect(await screen.findByText(RACE_LINES[action])).toBeInTheDocument();
+      expect(reads).toBeGreaterThanOrEqual(2);
+      expect(screen.queryByText("server words")).not.toBeInTheDocument();
+      expect(toast.error).not.toHaveBeenCalled();
+    },
+  );
 });
 
 describe("IntakeLogForm", () => {
-  it("calls onLog before the request goes out, then logs the typed fields", async () => {
-    const order: string[] = [];
+  beforeEach(() => vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "staff"));
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("logs the typed fields", async () => {
     let body: unknown;
     fakeReviewsEndpoints();
     server.use(
       http.post(`${TEST_BACKEND_URL}/intake`, async ({ request }) => {
-        order.push("request");
         body = await request.json();
         return HttpResponse.json(moonPix());
       }),
     );
 
-    const { user } = renderWithProviders(<IntakeLogForm onLog={() => order.push("onLog")} />);
+    const { user } = renderWithProviders(<IntakeLogForm />);
     await user.type(await screen.findByLabelText(/^Artist/), "Cat Power");
     await user.type(screen.getByLabelText(/^Album/), "Moon Pix");
     await user.click(screen.getByRole("combobox", { name: /^Format/ }));
@@ -171,26 +520,27 @@ describe("IntakeLogForm", () => {
     await waitFor(() =>
       expect(body).toEqual({ artist_name: "Cat Power", album_title: "Moon Pix", format_id: 1, discogs_release_id: 123 }),
     );
-    expect(order).toEqual(["onLog", "request"]);
   });
 });
 
 describe("IntakeLanes as the music directors' tab", () => {
+  beforeEach(() => vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "staff"));
+  afterEach(() => vi.unstubAllEnvs());
+
   it("shows the director lanes in the order a record moves, with no review shelf lane and no logging form", async () => {
-    const held = { checked_out_at: "2026-09-01T12:00:00Z", checked_out_by: "dj-1", checked_out_by_name: "DJ Sam" };
     const row = (id: number, state: string, overrides = {}) =>
       moonPix({ id, album_title: `Album ${id}`, state, effective_state: state, ...overrides });
-    const waiting = row(1, "checked_out", held);
+    const waitingRow = row(1, "checked_out", HELD);
     fakeReviewsEndpoints({
-      open: [waiting, requestedRow(2), row(3, "checked_out", held)],
-      awaiting: [waiting],
-      reviewed: [row(4, "reviewed", held)],
-      filed: [row(5, "filed", held)],
+      open: [waitingRow, requestedRow(2), row(3, "checked_out", HELD), moonPix({ id: 6, album_title: "Album 6" })],
+      awaiting: [waitingRow],
+      reviewed: [row(4, "reviewed", HELD)],
+      filed: [row(5, "filed", HELD)],
     });
 
     renderWithProviders(<IntakeLanes />);
 
-    await screen.findByRole("region", { name: "Filed" });
+    await lane("Filed");
     const names = screen.getAllByRole("region").map((r) => r.getAttribute("aria-label") ?? "");
     expect(names.filter((n) => /^(Review waiting|Requested|Checked out|Reviewed|Filed)/.test(n))).toEqual([
       "Review waiting (1)",

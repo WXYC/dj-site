@@ -12,18 +12,12 @@ const COPY = REVIEW_COPY.intake;
 
 const EMPTY_FORM = { artist: "", album: "", label: "", labelId: null as number | null, formatId: null as number | null, discogs: "" };
 
-interface IntakeLogFormProps {
-  /** Called first thing when the form is submitted, so a host can clear a notice about an earlier action. */
-  onLog?: () => void;
-}
-
-export default function IntakeLogForm({ onLog }: IntakeLogFormProps) {
+export default function IntakeLogForm() {
   const { data: formats } = useGetFormatsQuery(undefined);
   const [logItem, { isLoading: logging }] = useLogIntakeItemMutation();
   const [form, setForm] = useState(EMPTY_FORM);
 
   const submit = async () => {
-    onLog?.();
     try {
       await logItem({
         artist_name: form.artist,

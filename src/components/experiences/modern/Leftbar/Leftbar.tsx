@@ -36,6 +36,11 @@ export default async function Leftbar(): Promise<JSX.Element> {
         >
           <StorageIcon />
         </LeftbarLink>
+        {user && canSeeReviews(user.authority) && (
+          <LeftbarLink path="/dashboard/reviews" title={REVIEW_COPY.sidebar.title}>
+            <InboxIcon />
+          </LeftbarLink>
+        )}
         {user && user.authority > Authorization.DJ && (
           <>
             <Divider sx={{ mt: 1.5 }} />
@@ -52,11 +57,6 @@ export default async function Leftbar(): Promise<JSX.Element> {
             {isRotationAdminEnabled() && (
               <LeftbarLink path="/dashboard/admin/rotation" title="Rotation">
                 <QueueMusicIcon />
-              </LeftbarLink>
-            )}
-            {canSeeReviews(user.authority) && (
-              <LeftbarLink path="/dashboard/admin/intake" title={REVIEW_COPY.intake.title}>
-                <InboxIcon />
               </LeftbarLink>
             )}
             {/* Not disabled below SM like the roster link: the whole admin

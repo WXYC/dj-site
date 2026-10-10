@@ -496,22 +496,41 @@ describe("Leftbar", () => {
     ).not.toBeInTheDocument();
   });
   it.each([
-    ["staff", Authorization.MD, true],
-    ["staff", Authorization.DJ, false],
-    ["true", Authorization.MD, true],
-    ["true", Authorization.DJ, false],
-    [undefined, Authorization.MD, false],
-  ] as const)("with the reviews flag %s, an account at authority %s sees the Review shelf link: %s", async (flag, authority, shown) => {
-    if (flag === undefined) vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "");
-    else vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", flag);
+    ["off", "", Authorization.DJ, false],
+    ["off", "", Authorization.MD, false],
+    ["off", "", Authorization.SM, false],
+    ["staff", "staff", Authorization.DJ, false],
+    ["staff", "staff", Authorization.MD, true],
+    ["staff", "staff", Authorization.SM, true],
+    ["true", "true", Authorization.DJ, true],
+    ["true", "true", Authorization.MD, true],
+    ["true", "true", Authorization.SM, true],
+  ] as const)("with the reviews flag %s, an account at authority %s sees the Reviews link: %s", async (_label, flag, authority, shown) => {
+    vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", flag);
     const { getUserFromSession } = await import("@/lib/features/authentication/server-utils");
     vi.mocked(getUserFromSession).mockResolvedValue({ ...mockUser, authority });
 
     renderWithProviders(await Leftbar());
 
-    const link = screen.queryByTestId("leftbar-link--dashboard-admin-intake");
+    const link = screen.queryByTestId("leftbar-link--dashboard-reviews");
     expect(link !== null).toBe(shown);
-    if (shown) expect(link).toHaveTextContent("Review shelf");
+    // The literal, not the copy entry: the station approved these words.
+    if (shown) expect(link).toHaveTextContent("Reviews");
+    expect(screen.queryByTestId("leftbar-link--dashboard-admin-intake")).not.toBeInTheDocument();
+    vi.unstubAllEnvs();
+  });
+
+  it("puts the Reviews link after Previous Sets, outside the admin block a DJ never sees", async () => {
+    vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "true");
+    const { getUserFromSession } = await import("@/lib/features/authentication/server-utils");
+    vi.mocked(getUserFromSession).mockResolvedValue({ ...mockUser, authority: Authorization.DJ });
+
+    renderWithProviders(await Leftbar());
+
+    const previous = screen.getByTestId("leftbar-link--dashboard-playlists");
+    const reviews = screen.getByTestId("leftbar-link--dashboard-reviews");
+    expect(previous.compareDocumentPosition(reviews) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.queryByTestId("leftbar-link--dashboard-admin-catalog")).not.toBeInTheDocument();
     vi.unstubAllEnvs();
   });
 });

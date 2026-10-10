@@ -213,7 +213,7 @@ describe("RotationFilingBench", () => {
       expect(screen.getByRole("button", { name: "Add to rotation" })).toBeEnabled();
       expect(await screen.findByRole("link", { name: "Open the review shelf" })).toHaveAttribute(
         "href",
-        "/dashboard/admin/intake",
+        "/dashboard/reviews",
       );
     });
   });
