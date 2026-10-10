@@ -6,7 +6,9 @@ import { Authorization } from "@/lib/features/admin/types";
 import { reviewApi } from "@/lib/features/reviews/reviewApi";
 import {
   fakeReviewsEndpoints,
+  holdResponse,
   intakeItem as item,
+  renderedFrame,
   renderWithProviders,
   review,
   reviewsSettled,
@@ -223,41 +225,30 @@ describe("ReviewsScreen", () => {
   ] as const)(
     "answers a lost race on %s with its own neutral notice once the lists have reloaded, never an error toast or the server's message",
     async (button, title, action, row, notice) => {
-      let raced = false;
-      let reloaded = 0;
-      let reloadedAtNotice: number | undefined;
       server.use(
-        http.get(`${TEST_BACKEND_URL}/intake`, async () => {
-          if (!raced) return HttpResponse.json([row]);
-          await delay(300);
-          reloaded += 1;
-          return HttpResponse.json([]);
-        }),
-        http.post(`${TEST_BACKEND_URL}/intake/5/${action}`, () => {
-          raced = true;
-          return HttpResponse.json({ message: "server words", reason: "state_changed" }, { status: 409 });
-        }),
+        http.get(`${TEST_BACKEND_URL}/intake`, () => HttpResponse.json([row])),
+        http.post(`${TEST_BACKEND_URL}/intake/5/${action}`, () =>
+          HttpResponse.json({ message: "server words", reason: "state_changed" }, { status: 409 }),
+        ),
       );
-      vi.mocked(toast).mockImplementation(() => {
-        reloadedAtNotice = reloaded;
-        return "";
-      });
 
       const { user } = renderWithProviders(<ReviewsScreen />);
       const region = await section(title);
       await within(region).findByText(/Stereolab/);
+      // The reload after the refusal is held, so the notice is asserted absent while it is outstanding.
+      const reload = holdResponse("get", `${TEST_BACKEND_URL}/intake`, () => HttpResponse.json([]));
       await user.click(within(region).getByRole("button", { name: button }));
       if (action === "release") {
         await user.click(within(await screen.findByRole("alertdialog", { name: RETURN })).getByRole("button", { name: RETURN }));
       }
-      await waitFor(() => expect(raced).toBe(true));
-      await new Promise((r) => setTimeout(r, 100));
+      await waitFor(() => expect(reload.calls.count).toBeGreaterThan(0));
+      await renderedFrame();
       expect(toast).not.toHaveBeenCalled();
 
-      // The reload is delayed 300 ms; leave room for a loaded runner.
-      await waitFor(() => expect(toast).toHaveBeenCalledWith(notice), { timeout: 3000 });
+      reload.release();
+      await reload.answered;
+      await waitFor(() => expect(toast).toHaveBeenCalledWith(notice));
       expect(toast).toHaveBeenCalledTimes(1);
-      expect(reloadedAtNotice).toBe(1);
       expect(toast).not.toHaveBeenCalledWith("server words");
       expect(toast.error).not.toHaveBeenCalled();
     },
@@ -287,14 +278,14 @@ describe("ReviewsScreen", () => {
     process.on("unhandledRejection", onRejection);
 
     try {
-      const { user, unmount } = renderWithProviders(<ReviewsScreen />);
+      const { user, unmount, store } = renderWithProviders(<ReviewsScreen />);
       const shelf = await section(SHELF);
       await within(shelf).findByText(/Stereolab/);
       await user.click(within(shelf).getByRole("button", { name: "Check out" }));
       unmount();
 
       await waitFor(() => expect(answered).toBe(true));
-      await new Promise((r) => setTimeout(r, 300));
+      await reviewsSettled(store);
       expect(rejections).toEqual([]);
       expect(toast).not.toHaveBeenCalled();
       expect(toast.error).not.toHaveBeenCalled();
@@ -329,10 +320,7 @@ describe("ReviewsScreen", () => {
     let moved = false;
     const posts: string[] = [];
     server.use(
-      http.get(`${TEST_BACKEND_URL}/intake`, async () => {
-        if (moved) await delay(300);
-        return HttpResponse.json(moved ? [] : [item({ id: 5 })]);
-      }),
+      http.get(`${TEST_BACKEND_URL}/intake`, () => HttpResponse.json([item({ id: 5 })])),
       http.post(`${TEST_BACKEND_URL}/intake/5/checkout`, () => {
         posts.push("checkout");
         if (moved) return HttpResponse.json({ message: "server words", reason: "state_changed" }, { status: 409 });
@@ -344,9 +332,11 @@ describe("ReviewsScreen", () => {
     const { user } = renderWithProviders(<ReviewsScreen />);
     const shelf = await section(SHELF);
     await within(shelf).findByText(/Stereolab/);
+    const reload = holdResponse("get", `${TEST_BACKEND_URL}/intake`, () => HttpResponse.json([]));
     await user.click(within(shelf).getByRole("button", { name: "Check out" }));
     await waitFor(() => expect(posts).toHaveLength(1));
-    await new Promise((r) => setTimeout(r, 100));
+    await waitFor(() => expect(reload.calls.count).toBeGreaterThan(0));
+    await renderedFrame();
 
     expect(within(shelf).getByText(/Stereolab/)).toBeInTheDocument();
     const again = within(shelf).getByRole("button", { name: "Check out" });
@@ -354,7 +344,9 @@ describe("ReviewsScreen", () => {
     // user-event refuses a pointer on a locked button; a DJ's click still lands.
     fireEvent.click(again);
 
-    await waitFor(() => expect(within(shelf).queryByText(/Stereolab/)).not.toBeInTheDocument(), { timeout: 3000 });
+    reload.release();
+    await reload.answered;
+    expect(within(shelf).queryByText(/Stereolab/)).not.toBeInTheDocument();
     expect(posts).toHaveLength(1);
     expect(toast).not.toHaveBeenCalled();
     expect(toast.error).not.toHaveBeenCalled();
@@ -849,12 +841,12 @@ describe("ReviewsScreen", () => {
       }),
     );
 
-    const { user } = renderWithProviders(<ReviewsScreen />);
+    const { user, store } = renderWithProviders(<ReviewsScreen />);
     const mine = await section("My checkouts");
     await user.dblClick(await within(mine).findByRole("button", { name: REVIEW_COPY.writeReview }));
 
     await waitFor(() => expect(router.push).toHaveBeenCalledWith("/dashboard/reviews/41"));
-    await new Promise((r) => setTimeout(r, 150));
+    await reviewsSettled(store);
     expect(posts).toBe(1);
     expect(router.push).toHaveBeenCalledTimes(1);
   });
@@ -963,9 +955,9 @@ describe("ReviewsScreen", () => {
     server.events.on("request:start", log);
 
     try {
-      const { container } = renderWithProviders(<ReviewsScreen />);
+      const { container, store } = renderWithProviders(<ReviewsScreen />);
 
-      await new Promise((r) => setTimeout(r, 50));
+      await reviewsSettled(store);
       expect(requested.filter((p) => p.startsWith("/intake"))).toEqual([]);
       expect(container).toBeEmptyDOMElement();
     } finally {
@@ -983,9 +975,9 @@ describe("ReviewsScreen", () => {
     mockAuth.authority = who;
     fakeReviewsEndpoints({ open: [moonPix()], reviewers: REVIEWERS });
 
-    const { container } = renderWithProviders(<ReviewsScreen />);
+    const { container, store } = renderWithProviders(<ReviewsScreen />);
 
-    await new Promise((r) => setTimeout(r, 50));
+    await reviewsSettled(store);
     expect(container).toBeEmptyDOMElement();
   });
 });

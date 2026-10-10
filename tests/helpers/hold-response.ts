@@ -1,6 +1,7 @@
 import { http } from "msw";
 import { onTestFinished } from "vitest";
 import { server } from "../fakes/server";
+import { renderedFrame, turns } from "./reviews-settled";
 
 type Method = "get" | "post" | "put" | "patch" | "delete";
 
@@ -9,7 +10,8 @@ type Method = "get" | "post" | "put" | "patch" | "delete";
  * `respond()`. `calls.count` counts the requests that arrived. `answered`
  * settles only once the held answer has been handed to the client (msw's
  * `response:mocked` event for that request) and the client has had the
- * turns it needs to read and act on it, so a spec asserts after the answer
+ * turns it needs to read and act on it and the animation frame RTK batches its
+ * notifications to has rendered it, so a spec asserts on the page after the answer
  * rather than after a fixed sleep. The `response:mocked` listener is removed when the
  * test finishes, so a hold that is never released does not outlive it.
  */
@@ -44,8 +46,8 @@ export function holdResponse(method: Method, url: string, respond: () => Respons
 
   const answered = mocked.then(async () => {
     server.events.removeListener("response:mocked", onMocked);
-    // The client reads the body and settles its promise chain over a few macrotask turns.
-    for (let turn = 0; turn < 10; turn += 1) await new Promise((resolve) => setImmediate(resolve));
+    await turns();
+    await renderedFrame();
   });
 
   return { calls, release, answered };

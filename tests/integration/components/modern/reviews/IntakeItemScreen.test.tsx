@@ -877,13 +877,13 @@ describe("IntakeItemScreen", () => {
           return HttpResponse.json(dogaItem({ state: "filed", effective_state: "filed" }));
         }),
       );
-      const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+      const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
 
       await readyBench(user);
       await user.click(screen.getByRole("button", { name: "Add to rotation" }));
 
       await waitFor(() => expect(box.reads).toBeGreaterThan(1));
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      await reviewsSettled(store);
       expect(screen.queryByText("Couldn't load this record. Please try again.")).not.toBeInTheDocument();
       expect(screen.getByText("Take 40.")).toBeInTheDocument();
       expect(screen.getByText("Take 41.")).toBeInTheDocument();
@@ -916,7 +916,7 @@ describe("IntakeItemScreen", () => {
         store.dispatch(reviewsApi.util.invalidateTags([tag]));
       });
       await waitFor(() => expect(refused).toBeGreaterThan(0));
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      await reviewsSettled(store);
 
       expect(screen.queryByText("Couldn't load this record. Please try again.")).not.toBeInTheDocument();
       expect(screen.getByRole("heading", { name: "The review on the cover" })).toBeInTheDocument();
@@ -1217,12 +1217,12 @@ describe("IntakeItemScreen", () => {
     it("reads neither the deleted record nor its reviews again, and shows no error toast", async () => {
       vi.mocked(toast.error).mockClear();
       const seen = serveDeletable(["Cat Power"], undefined, ["Cat Power"]);
-      const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+      const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
 
       await user.click(await screen.findByRole("button", { name: "Delete" }));
       await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Delete" }));
       expect(await screen.findByText("Deleted, with the reviews and drafts by Cat Power.")).toBeInTheDocument();
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      await reviewsSettled(store);
 
       expect(seen).toMatchObject({ deletes: 1, itemReadsAfter: 0, reviewReadsAfter: 0 });
       expect(toast.error).not.toHaveBeenCalled();
@@ -1342,14 +1342,14 @@ describe("IntakeItemScreen", () => {
         }),
         http.delete(FILED_ITEM_PATH, () => HttpResponse.json({ message: "gone" }, { status: 404 })),
       );
-      const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+      const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
 
       await user.click(await screen.findByRole("button", { name: "Delete" }));
       const readsBefore = reads;
       await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Delete" }));
 
       expect(await screen.findByText("Couldn't delete this record. Please try again.")).toBeInTheDocument();
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      await reviewsSettled(store);
       expect(reads).toBe(readsBefore);
     });
   });

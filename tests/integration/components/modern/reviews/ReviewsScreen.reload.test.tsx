@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
-import { fakeReviewsEndpoints, intakeItem, renderWithProviders, server, TEST_BACKEND_URL } from "@/tests/helpers";
+import { fakeReviewsEndpoints, intakeItem, pendingCount, renderedFrame, renderWithProviders, server, TEST_BACKEND_URL } from "@/tests/helpers";
 
 vi.mock("@/lib/features/authentication/client", async () => {
   const { createAuthClientModuleMock } = await import("@/tests/helpers/auth-client-mock");
@@ -54,14 +54,15 @@ describe("ReviewsScreen — a row stays locked until every rendered list has rel
       }),
     );
 
-    const { user } = renderWithProviders(<ReviewsScreen />);
+    const { user, store } = renderWithProviders(<ReviewsScreen />);
     const shelf = await screen.findByRole("region", { name: "The review shelf" });
     const checkout = within(shelf).getByRole("button", { name: "Check out" });
     await user.click(checkout);
 
-    // The my-reviews list has long since landed; only the intake list is outstanding.
+    // Assert during the hold, once every other read has answered and only the held one is outstanding.
     await waitFor(() => expect(heldReads).toBeGreaterThan(0));
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await waitFor(() => expect(pendingCount(store)).toBe(1));
+    await renderedFrame();
     expect(checkout).toBeDisabled();
 
     releaseHeld();
