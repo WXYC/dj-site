@@ -5,7 +5,6 @@ import { Button, FormControl, FormLabel, Input, Option, Select, Stack, Typograph
 import { toast } from "sonner";
 import { useGetFormatsQuery } from "@/lib/features/catalog/api";
 import { useLogIntakeItemMutation } from "@/lib/features/reviews/intakeApi";
-import { useCanSeeReviews } from "@/src/hooks/useCanSeeReviews";
 import LabelSearchTypeahead from "../catalog/AddRelease/LabelSearchTypeahead";
 import { REVIEW_COPY } from "./copy";
 
@@ -19,12 +18,9 @@ interface IntakeLogFormProps {
 }
 
 export default function IntakeLogForm({ onLog }: IntakeLogFormProps) {
-  const visible = useCanSeeReviews();
-  const { data: formats } = useGetFormatsQuery(undefined, { skip: !visible });
+  const { data: formats } = useGetFormatsQuery(undefined);
   const [logItem, { isLoading: logging }] = useLogIntakeItemMutation();
   const [form, setForm] = useState(EMPTY_FORM);
-
-  if (!visible) return null;
 
   const submit = async () => {
     onLog?.();
