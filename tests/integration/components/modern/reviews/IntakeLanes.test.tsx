@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
-import { fakeReviewsEndpoints, intakeItem, renderWithProviders, server, TEST_BACKEND_URL } from "@/tests/helpers";
+import { fakeReviewsEndpoints, intakeItem, pendingCount, renderedFrame, renderWithProviders, server, TEST_BACKEND_URL } from "@/tests/helpers";
 import { Authorization } from "@/lib/features/admin/types";
 
 vi.mock("@/lib/features/authentication/client", async () => {
@@ -302,6 +302,7 @@ describe("IntakeLanes", () => {
     async (heldLane) => {
       let lost = false;
       let heldReads = 0;
+      let otherReads = 0;
       let releaseHeld!: () => void;
       const held = new Promise<void>((resolve) => {
         releaseHeld = resolve;
@@ -313,6 +314,8 @@ describe("IntakeLanes", () => {
           if (lost && key === heldLane) {
             heldReads += 1;
             await held;
+          } else if (lost) {
+            otherReads += 1;
           }
           return HttpResponse.json(key === "unfiltered" ? [moonPix({ id: 11, effective_state: "reviewed", ...HOLDER })] : []);
         }),
@@ -322,12 +325,16 @@ describe("IntakeLanes", () => {
         }),
       );
 
-      const { user } = renderWithProviders(<IntakeLanes />);
+      const { store, user } = renderWithProviders(<IntakeLanes />);
       const returned = await screen.findByRole("button", { name: "Mark as returned" });
       await user.click(returned);
 
-      // Assert during the hold, once the held read has started.
+      // Assert during the hold, once every read the case depends on has started and only the held one is outstanding:
+      // the other lane's read has answered, so a notice that waited for only some reloads would already show.
       await waitFor(() => expect(heldReads).toBeGreaterThan(0));
+      await waitFor(() => expect(otherReads).toBeGreaterThan(0));
+      await waitFor(() => expect(pendingCount(store)).toBe(1));
+      await renderedFrame();
       expect(screen.queryByText(LOST_RACE)).not.toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Mark as returned" })).toBeDisabled();
 

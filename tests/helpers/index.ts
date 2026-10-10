@@ -24,7 +24,7 @@ export * from "./conversion-harness";
 
 export { server } from "../fakes/server";
 export { holdResponse } from "./hold-response";
-export { reviewsSettled } from "./reviews-settled";
+export { pendingCount, renderedFrame, reviewsSettled } from "./reviews-settled";
 export { handlers } from "../fakes/handlers";
 export { libraryTracksHandler, ONE_TRACK } from "../fakes/libraryTracks";
 export { fakeReviewsEndpoints, fccNote, intakeItem, intakeSlip, review, reviewRevision } from "../fakes/reviews";

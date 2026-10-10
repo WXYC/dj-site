@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
-import { fakeReviewsEndpoints, intakeItem, renderWithProviders, server, TEST_BACKEND_URL } from "@/tests/helpers";
+import { fakeReviewsEndpoints, intakeItem, renderedFrame, renderWithProviders, server, TEST_BACKEND_URL } from "@/tests/helpers";
 import { Authorization } from "@/lib/features/admin/types";
 import { intakeApi } from "@/lib/features/reviews/intakeApi";
 import { REVIEW_COPY } from "@/src/components/experiences/modern/reviews/copy";
@@ -66,7 +66,9 @@ describe("ReviewsTabs", () => {
     await waitFor(() =>
       expect(intakeApi.endpoints.getIntakeItems.select({ awaiting_acceptance: true })(store.getState()).status).toBe(status),
     );
-    await waitFor(() => expect(screen.getByRole("link", { name: "Music directors" })).toBeInTheDocument());
+    // The store settling is not the tab re-rendering: RTK batches its notifications to the next frame.
+    await renderedFrame();
+    expect(screen.getByRole("link", { name: "Music directors" })).toBeInTheDocument();
   });
 
   it.each([
