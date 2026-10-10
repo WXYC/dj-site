@@ -10,6 +10,7 @@ import {
   formatStationHourLabel,
   formatLongCalendarDate,
   formatStationLongDate,
+  formatStationShortDate,
   formatStationTimestampLabel,
   isStationHourBreakpointPresent,
   stationBreakpointMessage,

@@ -36,9 +36,10 @@ import IntakeRequestPicker from "./IntakeRequestPicker";
 import { REVIEW_COPY } from "./copy";
 import { intakeRecord, recordLine } from "./recordLine";
 import { useReviewRecord } from "./useReviewRecord";
+import { formatStationShortDate } from "@/src/utilities/stationTime";
 import { hasNothingToShow } from "@/lib/has-nothing-to-show";
 
-const day = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString() : "");
+const day = (iso: string | null) => (iso ? formatStationShortDate(iso) : "");
 
 type Action = "checkout" | "accept" | "pass" | "release" | "write" | "request";
 
