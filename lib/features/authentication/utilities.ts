@@ -8,6 +8,7 @@ import {
   VerifiedData
 } from "./types";
 import { getAppOrganizationIdClient } from "./organization-config";
+import { markAuthResultUncacheable } from "./auth-result-cacheability";
 
 export type BetterAuthSession = {
   user: {
@@ -181,8 +182,18 @@ export function betterAuthSessionToAuthenticationData(
 }
 
 /**
- * Fetches the user's role from APP_ORGANIZATION organization for proper role-based access control.
- * Falls back to session-based role extraction if organization query fails.
+ * Resolves a session to authentication data with the user's station role.
+ *
+ * In the browser the role comes from the JWT's role claim (the organization
+ * lookup is only an admin-only fallback when an organization id is configured),
+ * and it fails closed: `session.user.role` is better-auth's admin flag, not a
+ * station tier, so a missing, expired, foreign, unparseable or unrecognized
+ * token resolves to `Authorization.NO`. A result that came from a token that
+ * could not be fetched is marked with `markAuthResultUncacheable` so callers
+ * that cache resolutions retry it instead of keeping the failure.
+ *
+ * On the server this only maps session fields; server code resolves the
+ * organization role separately.
  */
 export async function betterAuthSessionToAuthenticationDataAsync(
   session: BetterAuthSession | null | undefined
@@ -192,6 +203,7 @@ export async function betterAuthSessionToAuthenticationDataAsync(
   }
 
   let roleToMap: string | undefined;
+  let tokenUnavailable = false;
 
   const inBrowser = typeof window !== "undefined";
 
@@ -201,14 +213,18 @@ export async function betterAuthSessionToAuthenticationDataAsync(
       const { fetchOrganizationRoleForUserClient } = await import("./organization-utils");
       const orgRole = await fetchOrganizationRoleForUserClient(
         session.user.id,
-        getAppOrganizationIdClient()
+        getAppOrganizationIdClient(),
+        () => {
+          tokenUnavailable = true;
+        }
       );
 
       if (orgRole !== undefined) {
         roleToMap = orgRole;
       }
     } catch (error) {
-      console.warn("Failed to fetch organization role, falling back to session data:", error);
+      tokenUnavailable = true;
+      console.warn("Failed to resolve the station role from the JWT; the browser fails closed to no authority:", error);
     }
   }
   // On server-side, skip organization role fetch here - server-side code should use
@@ -262,9 +278,15 @@ export async function betterAuthSessionToAuthenticationDataAsync(
     updatedAt: session.user.updatedAt,
   };
 
-  return {
+  const result = {
     user,
     accessToken: token,
     token: token, // Session ID (not a JWT)
   } as AuthenticatedUser;
+
+  // Fail-closed NO from a token that could not be fetched is a guess, not an answer.
+  if (inBrowser && tokenUnavailable && !roleToMap) {
+    markAuthResultUncacheable(result);
+  }
+  return result;
 }

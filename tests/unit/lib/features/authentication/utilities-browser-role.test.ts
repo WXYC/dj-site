@@ -16,6 +16,7 @@ vi.mock("@/lib/features/authentication/organization-config", () => ({
 }));
 
 import { betterAuthSessionToAuthenticationDataAsync } from "@/lib/features/authentication/utilities";
+import { isAuthResultUncacheable } from "@/lib/features/authentication/auth-result-cacheability";
 import { createTestBetterAuthSession } from "@/tests/fixtures/fixtures";
 
 const USER_ID = "test-user-id-123";
@@ -53,14 +54,46 @@ describe("betterAuthSessionToAuthenticationDataAsync in the browser without an o
     expect((result as any).user.authority).toBe(expected);
   });
 
-  it("fails closed to no authority when the JWT carries no usable role, whatever auth_user.role says", async () => {
-    mockGetJWTToken.mockResolvedValue(null);
-    const session = createTestBetterAuthSession({
-      user: { ...createTestBetterAuthSession().user, role: "admin" },
-    });
+  // Each case pairs a token that must not yield a station role with
+  // auth_user.role = "admin", so a fallback to session data would show up as SM.
+  // Only the first case is a token that could not be fetched at all.
+  it.each([
+    ["no token could be fetched", null, true],
+    ["an expired token", mintJwt({ role: "stationManager", exp: Math.floor(Date.now() / 1000) - 60 }), false],
+    ["a token whose subject is another user", mintJwt({ id: "someone-else", role: "stationManager" }), false],
+    ["an unparseable token", "not-a-jwt", false],
+    ["an unrecognized role claim", mintJwt({ role: "wizard" }), false],
+  ])(
+    "fails closed to no authority with %s, whatever auth_user.role says",
+    async (_name, token, tokenUnavailable) => {
+      mockGetJWTToken.mockResolvedValue(token);
+      const session = createTestBetterAuthSession({
+        user: { ...createTestBetterAuthSession().user, role: "admin" },
+      });
 
-    const result = await betterAuthSessionToAuthenticationDataAsync(session);
+      const result = await betterAuthSessionToAuthenticationDataAsync(session);
+
+      expect((result as any).user.authority).toBe(Authorization.NO);
+      // Only a missing token is provisional; a fetched token that names no role is an answer.
+      expect(isAuthResultUncacheable(result)).toBe(tokenUnavailable);
+    },
+  );
+
+  it("marks a fetch that throws as provisional too", async () => {
+    mockGetJWTToken.mockRejectedValue(new Error("network down"));
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const result = await betterAuthSessionToAuthenticationDataAsync(createTestBetterAuthSession());
 
     expect((result as any).user.authority).toBe(Authorization.NO);
+    expect(isAuthResultUncacheable(result)).toBe(true);
+  });
+
+  it("does not mark a resolved role as provisional", async () => {
+    mockGetJWTToken.mockResolvedValue(mintJwt({ role: "dj" }));
+
+    const result = await betterAuthSessionToAuthenticationDataAsync(createTestBetterAuthSession());
+
+    expect(isAuthResultUncacheable(result)).toBe(false);
   });
 });

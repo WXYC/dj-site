@@ -127,12 +127,19 @@ export function organizationRoleFromJwtToken(
  * Resolve the current user's organization role on the client.
  * Prefers the JWT (available to every authenticated member); falls back to
  * organization.listMembers when a slug/id is provided (admin-only in practice).
+ * `onTokenUnavailable` is called when no token could be fetched at all.
  */
 export async function fetchOrganizationRoleForUserClient(
   userId: string,
-  organizationSlugOrId?: string
+  organizationSlugOrId?: string,
+  onTokenUnavailable?: () => void
 ): Promise<WXYCRole | undefined> {
   const jwtToken = await getJWTToken();
+  if (!jwtToken) {
+    // Lets the caller tell "no token could be fetched" (retryable) from "a
+    // token was fetched and named no usable role" (settled).
+    onTokenUnavailable?.();
+  }
   if (jwtToken) {
     const jwtRole = organizationRoleFromJwtToken(jwtToken, userId);
     if (jwtRole) {
