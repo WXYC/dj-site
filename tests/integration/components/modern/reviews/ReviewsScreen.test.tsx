@@ -8,6 +8,7 @@ import {
   fakeReviewsEndpoints,
   holdResponse,
   intakeItem as item,
+  pendingCount,
   renderedFrame,
   renderWithProviders,
   review,
@@ -50,6 +51,18 @@ import ReviewsScreen from "@/src/components/experiences/modern/reviews/ReviewsSc
 
 function serveIntake(open: IntakeItem[], reviewed: IntakeItem[] = [], mine: Review[] = [], records: IntakeItem[] = open) {
   fakeReviewsEndpoints({ open, reviewed, mine, records });
+}
+
+/** Counts the `GET /reviews` reads that arrive from now on (the my-reviews reload), answering each with an empty list. */
+function countReviewReads() {
+  const reads = { count: 0 };
+  server.use(
+    http.get(`${TEST_BACKEND_URL}/reviews`, () => {
+      reads.count += 1;
+      return HttpResponse.json([]);
+    }),
+  );
+  return reads;
 }
 
 const section = (name: string) => screen.findByRole("region", { name });
@@ -232,16 +245,21 @@ describe("ReviewsScreen", () => {
         ),
       );
 
-      const { user } = renderWithProviders(<ReviewsScreen />);
+      const { user, store } = renderWithProviders(<ReviewsScreen />);
       const region = await section(title);
       await within(region).findByText(/Stereolab/);
       // The reload after the refusal is held, so the notice is asserted absent while it is outstanding.
       const reload = holdResponse("get", `${TEST_BACKEND_URL}/intake`, () => HttpResponse.json([]));
+      const otherReads = countReviewReads();
       await user.click(within(region).getByRole("button", { name: button }));
       if (action === "release") {
         await user.click(within(await screen.findByRole("alertdialog", { name: RETURN })).getByRole("button", { name: RETURN }));
       }
+      // Assert during the hold, once every read the case depends on has started and only the held one is outstanding:
+      // the my-reviews read has answered, so a notice that waited for it alone would already show.
       await waitFor(() => expect(reload.calls.count).toBeGreaterThan(0));
+      await waitFor(() => expect(otherReads.count).toBeGreaterThan(0));
+      await waitFor(() => expect(pendingCount(store)).toBe(1));
       await renderedFrame();
       expect(toast).not.toHaveBeenCalled();
 
@@ -329,13 +347,17 @@ describe("ReviewsScreen", () => {
       }),
     );
 
-    const { user } = renderWithProviders(<ReviewsScreen />);
+    const { user, store } = renderWithProviders(<ReviewsScreen />);
     const shelf = await section(SHELF);
     await within(shelf).findByText(/Stereolab/);
     const reload = holdResponse("get", `${TEST_BACKEND_URL}/intake`, () => HttpResponse.json([]));
+    const otherReads = countReviewReads();
     await user.click(within(shelf).getByRole("button", { name: "Check out" }));
     await waitFor(() => expect(posts).toHaveLength(1));
+    // Assert during the hold, once every read the case depends on has started and only the held one is outstanding.
     await waitFor(() => expect(reload.calls.count).toBeGreaterThan(0));
+    await waitFor(() => expect(otherReads.count).toBeGreaterThan(0));
+    await waitFor(() => expect(pendingCount(store)).toBe(1));
     await renderedFrame();
 
     expect(within(shelf).getByText(/Stereolab/)).toBeInTheDocument();
