@@ -1,6 +1,7 @@
 import { getUserFromSession, requireAuth, requireRole } from "@/lib/features/authentication/server-utils";
 import { Authorization } from "@/lib/features/admin/types";
 import { canSeeReviews } from "@/lib/features/reviews/flags";
+import ReviewScrollRegion from "@/src/components/experiences/modern/reviews/ReviewScrollRegion";
 import PageHeader from "@/src/components/experiences/modern/Header/PageHeader";
 import { REVIEW_COPY } from "@/src/components/experiences/modern/reviews/copy";
 import IntakeItemScreen from "@/src/components/experiences/modern/reviews/IntakeItemScreen";
@@ -26,7 +27,9 @@ export default async function IntakeItemPage({ params }: { params: Promise<{ id:
   return (
     <>
       <PageHeader title={REVIEW_COPY.intake.title} />
-      <IntakeItemScreen id={itemId} />
+      <ReviewScrollRegion>
+        <IntakeItemScreen id={itemId} />
+      </ReviewScrollRegion>
     </>
   );
 }
