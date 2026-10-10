@@ -12,28 +12,29 @@ const COPY = REVIEW_COPY.intakeItem;
 /**
  * Chooses `review` for the cover of the record `itemId`. It asks first when a review is already on the
  * cover (`replacing`), and says nothing of its own on success: the review moving up is the confirmation.
- * Once the write succeeds the confirmation closes and the button stays disabled until the invalidation reread
- * unmounts it, so a press in that window cannot send the write twice.
+ * Once the write succeeds the confirmation closes and `onWritten` hands the page the reread; the page
+ * disables the button (`disabled`) until that reread settles, so a press in that window cannot send the write twice.
  * `reload` is the page's reload (`useItemPageReload`), which also tells whether the page is still mounted;
  * the line goes out through `onNotice`, so it survives this button leaving the page with a deleted review.
  */
-export default function UseThisReviewButton({ itemId, review, replacing, reload, onNotice }: {
+export default function UseThisReviewButton({ itemId, review, replacing, disabled, reload, onWritten, onNotice }: {
   itemId: number;
   review: Review;
   replacing: boolean;
+  disabled: boolean;
   reload: () => Promise<{ mounted: boolean }>;
+  onWritten: () => Promise<void>;
   onNotice: (line: string | null) => void;
 }) {
   const [accept, { isLoading }] = useAcceptReviewMutation();
   const [confirming, setConfirming] = useState(false);
-  const [chosen, setChosen] = useState(false);
 
   const choose = async () => {
     onNotice(null);
     try {
       await accept({ id: itemId, reviewId: review.id }).unwrap();
       setConfirming(false);
-      setChosen(true);
+      await onWritten();
     } catch (err) {
       setConfirming(false);
       // Only this button's own rejection reads the 400 predicate: filing onto a release is refused with the same status.
@@ -45,7 +46,7 @@ export default function UseThisReviewButton({ itemId, review, replacing, reload,
   const label = replacing ? COPY.useThisReviewInstead : COPY.useThisReview;
   return (
     <>
-      <Button size="sm" variant="outlined" loading={isLoading && !confirming} disabled={chosen} onClick={replacing ? () => setConfirming(true) : choose} sx={{ alignSelf: "flex-start" }}>
+      <Button size="sm" variant="outlined" loading={isLoading && !confirming} disabled={disabled} onClick={replacing ? () => setConfirming(true) : choose} sx={{ alignSelf: "flex-start" }}>
         {label}
       </Button>
       <ConfirmDialog
