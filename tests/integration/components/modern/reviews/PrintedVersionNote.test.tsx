@@ -33,6 +33,16 @@ describe("PrintedVersionNote", () => {
     mockAuth.authority = Authorization.DJ;
   });
 
+  it.each([
+    ["isCurrent", REVIEW_COPY.printedNote.isCurrent, "This is the version printed on the cover."],
+    ["edited", REVIEW_COPY.printedNote.edited("Friday, October 2, 2026"), "The cover has an earlier version of this review, printed Friday, October 2, 2026."],
+    ["seePrinted", REVIEW_COPY.printedNote.seePrinted, "See the printed version"],
+    ["printNew", REVIEW_COPY.printedNote.printNew, "Print a new slip"],
+    ["loadFailed", REVIEW_COPY.printedNote.loadFailed, "Couldn't check which version is on the cover."],
+  ])("words %s exactly as the station approved it", (_key, actual, approved) => {
+    expect(actual).toBe(approved);
+  });
+
   it("says so when the printed version is the current one", async () => {
     fakeReviewsEndpoints({ revisions: { "40": [first] } });
     renderWithProviders(<PrintedVersionNote onCover review={printed()} />);

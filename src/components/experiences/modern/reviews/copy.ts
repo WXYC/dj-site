@@ -173,14 +173,19 @@ export const REVIEW_COPY = {
     raceCancel: "This request was already answered, or it expired. The lists have been reloaded.",
     /** Approved. Shown once the lists have reloaded after the Checked out lane's release lost its race. */
     raceCheckoutReleased: "This record has already been returned. The lists have been reloaded.",
+    /** Approved. */
     cancelRequest: "Cancel request",
+    /** Approved. */
     release: "Release",
     /** Approved. Shown once the lists have reloaded after a request lost its race. */
     raceRequest: "This record has left the review shelf since the page loaded, so it can't be requested. The lists have been reloaded.",
     /** Approved. Shown when a request names an account that can no longer be asked to review. */
     requestRefused: "That DJ can't be asked to review: their account was removed, or it's no longer a DJ account. Pick someone else.",
+    /** Approved. */
     djToAsk: "DJ to ask",
+    /** Approved. */
     request: "Request a review",
+    /** Approved. */
     reviewersLoadFailed: "Couldn't load the DJs who can be asked to review. Please try again.",
     /** Approved. */
     logTitle: "Log an item",
@@ -263,6 +268,7 @@ export const REVIEW_COPY = {
     fileFailed: "Couldn't file this record. Please try again.",
     /** Approved. Shown when the picked album names no library entry (the 400). */
     pickedGone: "That record is no longer in the library. Pick another, or file this one as new.",
+    /** Approved. */
     printSlip: "Print the slip",
     /** Approved. */
     filed: "Filed.",
@@ -293,12 +299,15 @@ export const REVIEW_COPY = {
   },
   /** The music directors' print page, `/dashboard/admin/intake/{id}/slip`. */
   intakeSlip: {
-    /** Followed by a date. */
+    /** Approved. Followed by a date. */
     lastPrinted: "Last printed",
-    /** Follows the date and a period. */
+    /** Approved. Follows the date and a period. */
     reprint: "Printing again replaces the slip on the cover.",
+    /** Approved. */
     noCover: "There is no review on the cover yet. Choose one on the record's page, then print.",
+    /** Approved. */
     backToRecord: "Back to the record's page",
+    /** Approved. */
     handwritten: "The record's review is handwritten, so it is already on the sleeve. There is nothing to print.",
   },
   /** The music directors' print page for one typed review of a library record, `/dashboard/admin/library/{albumId}/slip/{reviewId}`. */
@@ -312,20 +321,33 @@ export const REVIEW_COPY = {
     backToAlbum: "Back to the album's page",
   },
   history: {
+    /** Approved. */
     link: "History",
+    /** Approved. */
     version: (n: number) => `Version ${n}`,
+    /** Approved. */
     editedBy: (name: string | null) => `edited by ${name ?? ""}`.trim(),
+    /** Approved. */
     submittedBy: (name: string | null) => `submitted by ${name ?? ""}`.trim(),
+    /** Approved. */
     current: "Current",
+    /** Approved. */
     onTheCover: "On the cover",
+    /** Approved. */
     draft: "This review has not been submitted yet, so it has no history.",
+    /** Approved. */
     loadFailed: "Couldn't load this review's history. Please try again.",
   },
   printedNote: {
+    /** Approved. */
     isCurrent: "This is the version printed on the cover.",
+    /** Approved. */
     edited: (printedOn: string) => `The cover has an earlier version of this review, printed ${printedOn}.`,
+    /** Approved. */
     seePrinted: "See the printed version",
+    /** Approved. */
     printNew: "Print a new slip",
+    /** Approved. */
     loadFailed: "Couldn't check which version is on the cover.",
   },
   myReviews: {
@@ -361,20 +383,33 @@ export const REVIEW_COPY = {
   },
   /** FCC notes on a record, reported by any DJ. */
   fccNotes: {
+    /** Approved. */
     title: "FCC notes",
+    /** Approved. */
     empty: "No FCC notes for this record.",
-    /** Followed by the reporter's name and ", not yet confirmed". */
+    /** Approved. Followed by the reporter's name and ", not yet confirmed". */
     reportedBy: (reporter: string) => `Reported by ${reporter}, not yet confirmed`,
+    /** Approved. */
     confirmed: "Confirmed",
+    /** Approved. */
     report: "Report an FCC note",
+    /** Approved. */
     intro: "Heard something that can't go on air? Say which track and what's in it. Every DJ sees your note straight away, with your name. A music director will confirm it.",
+    /** Approved. */
     track: "Track",
+    /** Approved. */
     trackPlaceholder: "A2, or the track's name",
+    /** Approved. */
     note: "What's in it",
+    /** Approved. */
     needBoth: "Say which track and what's in it.",
+    /** Approved. */
     submit: "Report",
+    /** Approved. */
     cancel: "Cancel",
+    /** Approved. */
     couldNotReport: "Couldn't report the note. Please try again.",
+    /** Approved. */
     loadFailed: "Couldn't load the FCC notes. Please try again.",
   },
 } as const;
