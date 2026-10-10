@@ -15,7 +15,7 @@ import { useCanSeeReviews } from "@/src/hooks/useCanSeeReviews";
 import { useMounted } from "@/src/hooks/useRowWrite";
 import { REVIEW_COPY } from "./copy";
 import { recordLine, intakeRecord } from "./recordLine";
-import { formatSlipDate } from "./slipDate";
+import { formatStationLongDate } from "@/src/utilities/stationTime";
 import { useItemPageReload } from "./useItemPageReload";
 import { useSlipPrint } from "./useSlipPrint";
 
@@ -68,7 +68,7 @@ export default function IntakeSlipScreen({ id }: { id: number }) {
   return (
     <Stack spacing={2}>
       <Typography level="title-lg">{recordLine(intakeRecord(item.data))}</Typography>
-      {lastPrinted && <Typography>{COPY.lastPrinted} {formatSlipDate(lastPrinted)}. {COPY.reprint}</Typography>}
+      {lastPrinted && <Typography>{COPY.lastPrinted} {formatStationLongDate(lastPrinted)}. {COPY.reprint}</Typography>}
       {refusal && <Typography role="alert">{COPY[refusal]}</Typography>}
       {refusal === "noCover" && (
         <Link href={`/dashboard/admin/intake/${id}`}>{COPY.backToRecord}</Link>

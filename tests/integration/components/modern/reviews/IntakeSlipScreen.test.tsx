@@ -170,7 +170,15 @@ describe("IntakeSlipScreen", () => {
 
     renderWithProviders(<IntakeSlipScreen id={ITEM_ID} />);
 
-    expect(await screen.findByText("Last printed 2026-10-06. Printing again replaces the slip on the cover.")).toBeInTheDocument();
+    expect(await screen.findByText("Last printed Tuesday, October 6, 2026. Printing again replaces the slip on the cover.")).toBeInTheDocument();
+  });
+
+  it("names the station-time day when the print crossed midnight UTC", async () => {
+    fakeReviewsEndpoints({ records: [item({ printed_at: "2026-10-03T01:30:00Z" })] });
+
+    renderWithProviders(<IntakeSlipScreen id={ITEM_ID} />);
+
+    expect(await screen.findByText("Last printed Friday, October 2, 2026. Printing again replaces the slip on the cover.")).toBeInTheDocument();
   });
 
   it("does not say when the slip was last printed for a slip never printed", async () => {
@@ -305,7 +313,7 @@ describe("IntakeSlipScreen", () => {
     const { user } = renderWithProviders(<IntakeSlipScreen id={ITEM_ID} />);
     await user.click(await screen.findByRole("button", { name: "Print the slip" }));
 
-    expect(await screen.findByText("Last printed 2026-10-07. Printing again replaces the slip on the cover.")).toBeInTheDocument();
+    expect(await screen.findByText("Last printed Wednesday, October 7, 2026. Printing again replaces the slip on the cover.")).toBeInTheDocument();
   });
 
   it("words any other failure itself", async () => {
