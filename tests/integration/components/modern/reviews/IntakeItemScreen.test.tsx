@@ -1425,19 +1425,44 @@ describe("IntakeItemScreen", () => {
       expect(screen.queryByText("server words")).not.toBeInTheDocument();
     });
 
-    it("shows the failure line in the notice slot, and it survives the reload", async () => {
-      const { box } = setUp();
-      server.use(http.delete(REVIEW_URL(41), () => HttpResponse.json({ message: "boom" }, { status: 500 })));
+    it.each([
+      ["a 500", 500],
+      ["a 404, the review having been deleted by another music director first", 404],
+    ])("shows the failure line in the notice slot after %s, and it survives the reload that removes the entry", async (_label, status) => {
+      setUp();
+      // The reload answers a list without review 41, as if it were gone, so its entry (and any line held in it) unmounts.
+      let gone = false;
+      let listReads = 0;
+      server.use(
+        http.delete(REVIEW_URL(41), () => {
+          gone = true;
+          return HttpResponse.json({ message: "boom" }, { status });
+        }),
+        http.get(`${TEST_BACKEND_URL}/reviews`, ({ request }) => {
+          if (new URL(request.url).searchParams.get("intake_item_id") !== String(ITEM_ID)) return HttpResponse.json([]);
+          if (gone) listReads += 1;
+          return HttpResponse.json(gone ? [submitted(40, { author: "Stereolab" })] : [submitted(40, { author: "Stereolab" }), submitted(41, { author: "Cat Power" })]);
+        }),
+      );
       const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
 
       const dialog = await open(user, "Delete review by Cat Power");
       await user.click(dialog.getByRole("button", { name: "Delete" }));
 
-      expect(await screen.findByRole("status")).toHaveTextContent("Couldn't delete the review. Please try again.");
+      await waitFor(() => expect(listReads).toBeGreaterThan(0));
+      await waitFor(() => expect(screen.queryByRole("button", { name: "Delete review by Cat Power" })).not.toBeInTheDocument());
       await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
-      await new Promise((resolve) => setTimeout(resolve, 50));
-      expect(screen.getByRole("status")).toHaveTextContent("Couldn't delete the review. Please try again.");
-      expect(box.reads).toBeGreaterThan(1);
+      expect(screen.getByRole("button", { name: "Delete review by Stereolab" })).toBeInTheDocument();
+      await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Couldn't delete the review. Please try again."));
+    });
+
+    it("documents a review with no author: its delete name and confirmation carry an empty author until the station approves wording", async () => {
+      setUp(dogaItem(), [submitted(43, { author: null })]);
+      const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      const dialog = await open(user, "Delete review by");
+
+      expect(dialog.getByText("Delete 's review? Its history goes with it. This cannot be undone.")).toBeInTheDocument();
     });
   });
 
