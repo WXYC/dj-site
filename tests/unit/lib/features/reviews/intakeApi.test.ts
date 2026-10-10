@@ -78,7 +78,7 @@ describe("intakeApi", () => {
     ["isIntakeRequestRefused", isIntakeRequestRefused, "intakeWriteError", true],
     ["isIntakeReleaseRefused", isIntakeReleaseRefused, "libraryPrintError", false],
     ["isIntakeRequestRefused", isIntakeRequestRefused, "libraryPrintError", false],
-  ])("%s reads a 400 under %s -> %s", (_name, predicate, key, expected) => {
+  ])("$0 reads a 400 under $2 -> $3", (_name, predicate, key, expected) => {
     expect(predicate({ [key]: { status: 400, data: { message: "m" } } })).toBe(expected);
   });
 

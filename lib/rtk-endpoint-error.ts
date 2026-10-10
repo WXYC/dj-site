@@ -99,11 +99,7 @@ export function isRefusal(
 }
 
 /**
- * Whether `err` is a refusal with `status` under `key` whose body carries no
- * `reason`, so `isRefusal` can never match it. Reads the wrapped shape only: a
- * raw, unwrapped rejection is `false`. Matching on status alone is only sound
- * where no other response with that status can reach the call site, so a
- * caller must say, at its own definition, why that holds.
+ * Whether `err` carries `status` under `key`, whatever its body holds: it matches on status and key only and never looks at `reason`, so a response with that status that does carry a reason matches too. It exists for refusals whose body carries no `reason`, which `isRefusal` can never match. Reads the wrapped shape only: a raw, unwrapped rejection is `false`. Matching on status alone is only sound where no other response with that status can reach the call site, so a caller is responsible for saying, at its own definition, why that holds.
  */
 export function isStatusRefusal(
   err: unknown,
