@@ -621,8 +621,8 @@ describe("IntakeItemScreen", () => {
   });
 
   describe("filing onto a release already in the library", () => {
-    const RELEASE_ROW = { id: 5, album_title: "DOGA", artist_name: "Juana Molina", label: "Sonamos", genre_name: "Rock", format_name: "CD", code_letters: "MO", code_artist_number: 1, code_number: 1, add_date: "2026-01-01", plays: 0 };
-    const LP_ROW = { ...RELEASE_ROW, id: 6, format_name: "LP", code_number: 2 };
+    const RELEASE_ROW = { id: 5, album_title: "DOGA", artist_name: "Juana Molina", label: "Sonamos", genre_name: "Rock", format_name: "cd", code_letters: "MO", code_artist_number: 1, code_number: 1, add_date: "2026-01-01", plays: 0 };
+    const VINYL_ROW = { ...RELEASE_ROW, id: 6, format_name: "vinyl", code_number: 2 };
     const ROW_NAME = "Juana Molina · DOGA · CD";
     const FILE_URL = `${TEST_BACKEND_URL}/intake/${ITEM_ID}/file`;
 
@@ -684,21 +684,21 @@ describe("IntakeItemScreen", () => {
       await waitFor(() => expect(searches).toEqual([{ artist_name: "Various Artists", album_title: "Various Artists", n: "50" }]));
     });
 
-    it("shows which release is picked, on its row and beside the file button, and tells a CD from an LP", async () => {
+    it("shows which release is picked, on its row and beside the file button, and tells a CD from a vinyl", async () => {
       const { searches } = setUp();
-      server.use(http.get(`${TEST_BACKEND_URL}/library`, () => HttpResponse.json([RELEASE_ROW, LP_ROW])));
+      server.use(http.get(`${TEST_BACKEND_URL}/library`, () => HttpResponse.json([RELEASE_ROW, VINYL_ROW])));
       const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
       expect(searches).toEqual([]);
 
       await search(user, "Juana");
       const cd = await screen.findByRole("button", { name: "Juana Molina · DOGA · CD" });
-      const lp = screen.getByRole("button", { name: "Juana Molina · DOGA · LP" });
+      const vinyl = screen.getByRole("button", { name: "Juana Molina · DOGA · Vinyl" });
       expect(screen.queryByRole("button", { name: "File it as this one" })).not.toBeInTheDocument();
-      await user.click(lp);
+      await user.click(vinyl);
 
-      expect(lp).toHaveAttribute("aria-pressed", "true");
+      expect(vinyl).toHaveAttribute("aria-pressed", "true");
       expect(cd).toHaveAttribute("aria-pressed", "false");
-      expect(screen.getAllByText("Juana Molina · DOGA · LP")).toHaveLength(2);
+      expect(screen.getAllByText("Juana Molina · DOGA · Vinyl")).toHaveLength(2);
     });
 
     it("drops the pick when a new search runs, so the file button never names a release that left the screen", async () => {
@@ -706,6 +706,7 @@ describe("IntakeItemScreen", () => {
       const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
       await pick(user);
       expect(screen.getByRole("button", { name: "File it as this one" })).toBeInTheDocument();
+      expect(screen.getAllByText(ROW_NAME)).toHaveLength(2);
 
       await search(user, "Stereolab");
 

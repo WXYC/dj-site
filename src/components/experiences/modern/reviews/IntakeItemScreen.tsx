@@ -23,7 +23,7 @@ import ConfirmDialog from "../ConfirmDialog";
 import RotationFilingBench, { type FilingSubmit } from "../admin/rotation/RotationFilingBench";
 import { REVIEW_COPY } from "./copy";
 import FccNotesPanel from "./FccNotesPanel";
-import { intakeRecord, recordLine } from "./recordLine";
+import { intakeRecord, recordLine, releaseRecord } from "./recordLine";
 import ReleasePicker from "./ReleasePicker";
 import { Group } from "./ReviewsPanel";
 import { useItemPageReload } from "./useItemPageReload";
@@ -203,7 +203,7 @@ export default function IntakeItemScreen({ id }: { id: number }) {
           {picked && (
             <Stack direction="row" spacing={1} alignItems="center">
               <Button onClick={fileOntoPicked} loading={filing.isLoading}>{COPY.fileOnto}</Button>
-              <Typography>{recordLine({ artist: picked.artist.name, album: picked.title, label: "", format: picked.format })}</Typography>
+              <Typography>{recordLine(releaseRecord(picked))}</Typography>
             </Stack>
           )}
         </>

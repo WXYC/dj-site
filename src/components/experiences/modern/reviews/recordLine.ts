@@ -1,9 +1,15 @@
 import type { IntakeItem } from "@wxyc/shared";
+import type { AlbumEntry } from "@/lib/features/catalog/types";
 import { formatLabel } from "@/lib/features/experiences/modern/tokens/roles";
 import type { ReviewRecord } from "./useReviewRecord";
 
 export function intakeRecord(item: IntakeItem): ReviewRecord {
   return { artist: item.artist_name, album: item.album_title, label: item.record_label ?? "", formatId: item.format_id };
+}
+
+/** A catalog release as a record: the artist, the title and the format name the library holds, with no label. */
+export function releaseRecord(release: AlbumEntry): ReviewRecord {
+  return { artist: release.artist.name, album: release.title, label: "", format: release.format };
 }
 
 /** A record's one-line description; a format name on the record wins over a `formatId` lookup. */
