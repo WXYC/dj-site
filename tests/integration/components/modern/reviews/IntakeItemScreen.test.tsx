@@ -262,15 +262,19 @@ describe("IntakeItemScreen", () => {
       }
     });
 
-    it("offers no Print this review link on the record's page, which has its own Print the slip", async () => {
+    it("links to the record's own slip once, and to no review's print page", async () => {
       fakeReviewsEndpoints({ records: [dogaItem()], forItem: { [ITEM_ID]: [submitted(40, { medium: "typed", album_id: null })] } });
 
       renderScreen(<IntakeItemScreen id={ITEM_ID} />);
 
       await screen.findByRole("link", { name: "Print the slip" });
-      // Let the music director gate resolve before asserting the link is absent.
+      // Let the music director gate resolve before asserting the per-review link is absent.
       await new Promise((resolve) => setTimeout(resolve, 50));
-      expect(screen.queryByRole("link", { name: "Print this review" })).not.toBeInTheDocument();
+      const slipLinks = screen.getAllByRole("link", { name: "Print the slip" });
+      expect(slipLinks).toHaveLength(1);
+      expect(slipLinks[0]).toHaveAttribute("href", `/dashboard/admin/intake/${ITEM_ID}/slip`);
+      const hrefs = screen.getAllByRole("link").map((link) => link.getAttribute("href") ?? "");
+      expect(hrefs.filter((href) => /^\/dashboard\/admin\/library\/[^/]+\/slip\/[^/]+$/.test(href))).toEqual([]);
     });
 
     it.each([

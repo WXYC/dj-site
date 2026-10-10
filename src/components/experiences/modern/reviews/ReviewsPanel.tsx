@@ -26,7 +26,7 @@ export function FccNotesSlot({ albumId }: { albumId: number }) {
   );
 }
 
-/** A review as the page shows it; `record` is set only when the review is about this page's own record, and `printable` only by the album page's panel, where that record is a library release. `onCover` says the review is on a cover now, which is what earns it the printed-version note. */
+/** A review as the page shows it; `record` is set only when the review is about this page's own record, and `printable` only by the album page's panel, where that record is a library release. `onCover` says the review is on a cover now, which is what earns it the printed-version note and also decides the print link's name ("Print a new slip" only for a printed, edited cover review). */
 export function ReviewItem({ review, record, newSlipHref, printable, onCover }: { review: Review; record?: PanelRecord; newSlipHref?: string; printable?: boolean; onCover: boolean }) {
   const printedVersion = usePrintedVersion(review, { onCover });
   const onTheSleeve = review.medium === "handwritten" && !review.review;
