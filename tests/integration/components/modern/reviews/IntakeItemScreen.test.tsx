@@ -830,6 +830,80 @@ describe("IntakeItemScreen", () => {
       expect(posts).toHaveLength(1);
     });
 
+    it("leaves the button pressable after a failed write, so it can be pressed again", async () => {
+      setUp();
+      server.use(http.post(ACCEPT_URL, () => HttpResponse.json({ message: "boom" }, { status: 500 })));
+      const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      await user.click(await screen.findByRole("button", { name: "Use this review" }));
+
+      expect((await screen.findByRole("status")).textContent).toBe("Couldn't do that. Please try again.");
+      await reviewsSettled(store);
+      expect(screen.getByRole("button", { name: "Use this review" })).toBeEnabled();
+    });
+
+    it("leaves the button pressable once the reread settles when the reread fails", async () => {
+      const box = setUp();
+      const posts = recordPosts(box);
+      const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+      const button = await screen.findByRole("button", { name: "Use this review" });
+      await reviewsSettled(store);
+      box.fail = true;
+
+      await user.click(button);
+
+      await waitFor(() => expect(posts).toHaveLength(1));
+      await waitFor(() => expect(screen.getByRole("button", { name: /^Use this review/ })).toBeEnabled());
+    });
+
+    it("asks the replace question of the other reviews' buttons, which are disabled, while the reread is outstanding", async () => {
+      const box = setUp(dogaItem(NOTHING_ON_COVER), [submitted(41), submitted(42)]);
+      recordPosts(box);
+      const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+      const [first] = await screen.findAllByRole("button", { name: "Use this review" });
+      await reviewsSettled(store);
+      const reread = holdResponse("get", FILED_ITEM_PATH, () => HttpResponse.json(box.item));
+
+      await user.click(first);
+
+      await waitFor(() => expect(reread.calls.count).toBe(1));
+      const buttons = await screen.findAllByRole("button", { name: "Use this review instead" });
+      expect(buttons).toHaveLength(2);
+      buttons.forEach((b) => expect(b).toBeDisabled());
+      expect(screen.queryByRole("button", { name: "Use this review" })).not.toBeInTheDocument();
+
+      reread.release();
+      await reread.answered;
+      await reviewsSettled(store);
+    });
+
+    it("disables the chosen review's Delete review while the reread is outstanding, so it cannot skip the cover confirmation", async () => {
+      const box = setUp(dogaItem(NOTHING_ON_COVER), [submitted(41, { author: "Cat Power" })]);
+      recordPosts(box);
+      const deletes: string[] = [];
+      server.use(http.delete(`${TEST_BACKEND_URL}/reviews/:id`, ({ params }) => {
+        deletes.push(String(params.id));
+        return new HttpResponse(null, { status: 204 });
+      }));
+      const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+      const button = await screen.findByRole("button", { name: "Use this review" });
+      await reviewsSettled(store);
+      const reread = holdResponse("get", FILED_ITEM_PATH, () => HttpResponse.json(box.item));
+
+      await user.click(button);
+
+      await waitFor(() => expect(reread.calls.count).toBe(1));
+      const remove = screen.getByRole("button", { name: "Delete review by Cat Power" });
+      expect(remove).toBeDisabled();
+      fireEvent.click(remove);
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+      expect(deletes).toEqual([]);
+
+      reread.release();
+      await reread.answered;
+      await reviewsSettled(store);
+    });
+
     it.each([
       ["finalized", "finalized"],
       ["filed", "filed"],
@@ -845,9 +919,9 @@ describe("IntakeItemScreen", () => {
     });
 
     it.each([
-      ["a holder who is not the author", { author_user_id: "dj-pat" }, true],
-      ["the author as the holder", { author_user_id: "dj-sam" }, false],
-    ])("says the record is still out for %s -> %s", async (_label, authorOverrides, shown) => {
+      ["a holder who is not the author says the record is still out", { author_user_id: "dj-pat" }, true],
+      ["the author as the holder says nothing", { author_user_id: "dj-sam" }, false],
+    ])("%s: the still-out line is shown: %s", async (_label, authorOverrides, shown) => {
       const item = dogaItem({ state: "checked_out", effective_state: "checked_out", checked_out_by: "dj-sam", checked_out_by_name: "Sam", checked_out_at: "2026-10-01T12:00:00Z" });
       setUp(item, [submitted(40, authorOverrides)]);
 
@@ -1454,6 +1528,30 @@ describe("IntakeItemScreen", () => {
       await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
       expect(screen.getByRole("button", { name: "Delete review by Stereolab" })).toBeInTheDocument();
       await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Couldn't delete the review. Please try again."));
+    });
+
+    it("disables every Delete review between a successful delete and its reread, and sends no second DELETE", async () => {
+      const { box, deletes } = setUp();
+      const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+      const dialog = await open(user, "Delete review by Cat Power");
+      await reviewsSettled(store);
+      const reread = holdResponse("get", FILED_ITEM_PATH, () => HttpResponse.json(box.item));
+
+      await user.click(dialog.getByRole("button", { name: "Delete" }));
+
+      await waitFor(() => expect(reread.calls.count).toBe(1));
+      await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
+      const removeCat = screen.getByRole("button", { name: "Delete review by Cat Power" });
+      expect(removeCat).toBeDisabled();
+      expect(screen.getByRole("button", { name: "Delete review by Stereolab" })).toBeDisabled();
+      fireEvent.click(removeCat);
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+      expect(deletes).toEqual(["41"]);
+
+      reread.release();
+      await reread.answered;
+      await reviewsSettled(store);
+      await waitFor(() => expect(screen.getByRole("button", { name: "Delete review by Cat Power" })).toBeEnabled());
     });
 
     it("documents a review with no author: its delete name and confirmation carry an empty author until the station approves wording", async () => {

@@ -62,6 +62,8 @@ export default function IntakeItemScreen({ id }: { id: number }) {
   const [notice, setNotice] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [picked, setPicked] = useState<AlbumEntry | null>(null);
+  // Set from a successful review write until the page's reload settles, so no review button acts on the stale cover.
+  const [awaitingReread, setAwaitingReread] = useState(false);
 
   const coverId = item.data?.accepted_review_id ?? null;
   const ownCover = reviews.data?.find((r) => r.id === coverId);
@@ -77,6 +79,11 @@ export default function IntakeItemScreen({ id }: { id: number }) {
 
   const reload = useItemPageReload(id, coverById);
   const mounted = useMounted();
+  const reviewWritten = async () => {
+    setAwaitingReread(true);
+    await reload();
+    if (mounted.current) setAwaitingReread(false);
+  };
 
   if (!visible) return null;
   if (deletedLine !== null) return <Typography role="status">{deletedLine}</Typography>;
@@ -101,7 +108,9 @@ export default function IntakeItemScreen({ id }: { id: number }) {
         review={review}
         confirmation={isOnCover(review) ? coverConfirmation : COPY.deleteReviewConfirm(review.author ?? "")}
         blocked={isOnCover(review) && isFiledState(item.data!.effective_state)}
+        disabled={awaitingReread}
         reload={reload}
+        onWritten={reviewWritten}
         onNotice={setNotice}
       />
     );
@@ -113,7 +122,7 @@ export default function IntakeItemScreen({ id }: { id: number }) {
     return (
       <>
         {line && <Typography level="body-sm">{line}</Typography>}
-        {submittedHere && <UseThisReviewButton itemId={id} review={review} replacing={coverId != null} reload={reload} onNotice={setNotice} />}
+        {submittedHere && <UseThisReviewButton itemId={id} review={review} replacing={coverId != null || awaitingReread} disabled={awaitingReread} reload={reload} onWritten={reviewWritten} onNotice={setNotice} />}
         {deleteControl(review)}
       </>
     );

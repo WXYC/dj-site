@@ -12,14 +12,17 @@ const COPY = REVIEW_COPY.intakeItem;
 /**
  * Deletes `review` after asking, with the page's own `confirmation` as the question. `blocked` is the
  * filed-cover case the page can already see: the button is disabled and the sentence sits beside it.
+ * `disabled` is the page's reread window after a review write; `onWritten` hands the page the reread after a delete.
  * Every failure reloads the page (`reload`, `useItemPageReload`) and then goes out through `onNotice`,
  * so the line survives the reload that removes this button when the review is already gone.
  */
-export default function DeleteReviewButton({ review, confirmation, blocked, reload, onNotice }: {
+export default function DeleteReviewButton({ review, confirmation, blocked, disabled, reload, onWritten, onNotice }: {
   review: Review;
   confirmation: string;
   blocked: boolean;
+  disabled: boolean;
   reload: () => Promise<{ mounted: boolean }>;
+  onWritten: () => Promise<void>;
   onNotice: (line: string | null) => void;
 }) {
   const [remove, { isLoading }] = useDeleteReviewMutation();
@@ -30,7 +33,7 @@ export default function DeleteReviewButton({ review, confirmation, blocked, relo
     try {
       await remove(review.id).unwrap();
       setConfirming(false);
-      await reload();
+      await onWritten();
     } catch (err) {
       setConfirming(false);
       if ((await reload()).mounted) onNotice(isReviewAccepted(err) ? COPY.deleteCoverFiled : REVIEW_COPY.couldNotDelete);
@@ -43,7 +46,7 @@ export default function DeleteReviewButton({ review, confirmation, blocked, relo
         size="sm"
         color="danger"
         variant="outlined"
-        disabled={blocked}
+        disabled={blocked || disabled}
         onClick={() => setConfirming(true)}
         aria-label={COPY.deleteReviewBy(review.author ?? "")}
         sx={{ alignSelf: "flex-start" }}
