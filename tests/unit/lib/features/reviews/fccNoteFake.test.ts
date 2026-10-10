@@ -25,6 +25,21 @@ describe("fakeFccNoteEndpoints GET /fcc-notes", () => {
     expect(await readIds("/fcc-notes", search)).toEqual(expectedIds);
   });
 
+  it.each<[string, string, number[]]>([
+    ["a record's list is oldest first, then by id", "?intake_item_id=8", [7, 8, 6]],
+    ["status=reported with a subject keeps only the reported notes", "?intake_item_id=8&status=reported", [7, 8]],
+    ["status=confirmed with a subject keeps only the confirmed notes", "?intake_item_id=8&status=confirmed", [6]],
+    ["the waiting list is oldest first, then by id", "?status=reported", [7, 8]],
+  ])("%s", async (_name, search, expectedIds) => {
+    const at = (reported_at: string) => ({ reported_at });
+    const late = fccNote({ id: 8, ...at("2026-10-02T16:00:00Z") });
+    const early = fccNote({ id: 7, ...at("2026-10-02T16:00:00Z") });
+    const confirmedOne = fccNote({ id: 6, status: "confirmed", ...at("2026-10-03T16:00:00Z") });
+    fakeFccNoteEndpoints({ fccNotesForItem: { "8": [confirmedOne, late, early] }, fccNotesToConfirm: [late, early] });
+
+    expect(await readIds("/fcc-notes", search)).toEqual(expectedIds);
+  });
+
   it("answers an empty list by default", async () => {
     fakeFccNoteEndpoints();
 
@@ -45,8 +60,17 @@ describe("fakeFccNoteEndpoints writes", () => {
     const response = await send("POST", "/fcc-notes/4/confirm");
 
     expect(response.status).toBe(200);
-    expect(await response.json()).toMatchObject({ id: 4, status: "confirmed" });
+    expect(await response.json()).toMatchObject({ id: 4, status: "confirmed", confirmed_by: expect.any(String), confirmed_at: expect.any(String) });
     expect(await readIds("/fcc-notes", "?status=reported")).toEqual([5]);
+  });
+
+  it("a confirmed note is read back stamped with who and when", async () => {
+    fakeFccNoteEndpoints(OPTIONS);
+    await send("POST", "/fcc-notes/2/confirm");
+
+    const reread = await (await fetch(`${TEST_BACKEND_URL}/fcc-notes?intake_item_id=7&status=confirmed`)).json();
+
+    expect(reread).toMatchObject([{ id: 2, status: "confirmed", confirmed_by: expect.any(String), confirmed_at: expect.any(String) }]);
   });
 
   it("a delete answers 204 and drops the note from every read", async () => {

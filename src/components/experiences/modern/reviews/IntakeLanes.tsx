@@ -43,7 +43,18 @@ const RACE_NOTICE: Record<Action, string> = {
 
 const RECENT_PASSES = 5;
 
+/** The music directors' tab: the FCC notes waiting on them, read on their own, above the intake lanes. */
 export default function IntakeLanes() {
+  if (!useCanSeeReviews()) return null;
+  return (
+    <Stack spacing={3}>
+      <FccNotesToConfirm />
+      <IntakeLaneGroups />
+    </Stack>
+  );
+}
+
+function IntakeLaneGroups() {
   const visible = useCanSeeReviews();
   const everyState = useGetIntakeItemsQuery(EVERY_STATE, { skip: !visible });
   const awaiting = useGetIntakeItemsQuery(AWAITING_LANE, { skip: !visible });
@@ -102,7 +113,6 @@ export default function IntakeLanes() {
 
   return (
     <Stack spacing={3}>
-      <FccNotesToConfirm />
       {passes.length > 0 && (
         <section aria-label={COPY.recentPasses}>
           <List>

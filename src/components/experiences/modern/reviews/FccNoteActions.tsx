@@ -18,6 +18,7 @@ import ConfirmDialog from "../ConfirmDialog";
 import { REVIEW_COPY } from "./copy";
 
 const copy = REVIEW_COPY.fccNotes;
+const SESSION_READ_TIMEOUT_MS = 2000;
 
 /** The signed-in account's id and whether it is a music director. */
 export function useFccNoteViewer() {
@@ -34,10 +35,13 @@ export function useFccNoteViewer() {
 export function useSendToSignInWhenSessionGone() {
   const router = useRouter();
   return async () => {
-    const { data, error } = await authClient
-      .getSession({ query: { disableCookieCache: true } })
-      .catch(() => ({ data: null, error: true }));
-    if (data || error) return false;
+    // As authenticationHooks' session re-read: the read gets a timeout (better-auth's fetch has none), and only a `user` is a session.
+    const unread = { data: null, error: true };
+    const { data, error } = await Promise.race([
+      authClient.getSession({ query: { disableCookieCache: true } }).catch(() => unread),
+      new Promise<typeof unread>((resolve) => setTimeout(() => resolve(unread), SESSION_READ_TIMEOUT_MS)),
+    ]);
+    if (data?.user || error) return false;
     router.replace("/login?bounced=no-session");
     return true;
   };
@@ -66,7 +70,9 @@ export default function FccNoteActions({ note, onConfirmed, spoken }: Props) {
 
   const reported = note.status === "reported";
   const mine = !viewer.isMD && reported && viewer.id != null && viewer.id === note.reported_by_user_id;
-  if (!viewer.isMD && !mine) return null;
+  const failureLine = failure ? <Typography role="alert" level="body-sm">{failure}</Typography> : null;
+  // A refetch can end the controls (a music director confirmed the note first); the refusal that explains it stays.
+  if (!viewer.isMD && !mine) return failureLine;
 
   const confirm = async () => {
     setFailure(null);
@@ -115,7 +121,7 @@ export default function FccNoteActions({ note, onConfirmed, spoken }: Props) {
           {mine ? copy.removeMine : copy.remove}
         </Button>
       </Stack>
-      {failure && <Typography role="alert" level="body-sm">{failure}</Typography>}
+      {failureLine}
       <ConfirmDialog
         open={asking}
         onClose={() => setAsking(false)}

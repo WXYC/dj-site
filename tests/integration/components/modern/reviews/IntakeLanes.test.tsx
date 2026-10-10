@@ -524,6 +524,15 @@ describe("IntakeLanes — a failed background refetch", () => {
     renderWithProviders(<IntakeLanes />);
     expect(await screen.findByRole("alert")).toBeInTheDocument();
   });
+
+  it("still shows the FCC notes to confirm when an intake read fails", async () => {
+    fakeReviewsEndpoints({ fccNotesToConfirm: [fccNote({ id: 1, intake_item_id: 5 })] });
+    server.use(http.get(`${TEST_BACKEND_URL}/intake`, () => HttpResponse.json({ message: "down" }, { status: 500 })));
+    renderWithProviders(<IntakeLanes />);
+
+    expect(await screen.findByRole("region", { name: "FCC notes to confirm (1)" })).toBeInTheDocument();
+    expect(await screen.findByText(REVIEW_COPY.screen.loadFailed)).toBeInTheDocument();
+  });
 });
 
 const HELD = { checked_out_at: "2026-09-01T12:00:00Z", checked_out_by: "dj-1", checked_out_by_name: "DJ Sam" };
