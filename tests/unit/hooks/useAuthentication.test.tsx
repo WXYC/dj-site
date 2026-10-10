@@ -43,6 +43,8 @@ import {
 describe("useAuthentication async role fetch (#612)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // clearAllMocks keeps queued once-values; drop them so no test inherits another's.
+    mockAsync.mockReset();
     mockSync.mockReturnValue({ message: "Not Authenticated" });
   });
 
@@ -156,6 +158,8 @@ describe("useAuthentication async role fetch (#612)", () => {
 describe("useAuthentication does not cache a provisional resolution", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // clearAllMocks keeps queued once-values; drop them so no test inherits another's.
+    mockAsync.mockReset();
     mockSync.mockReturnValue({ message: "Not Authenticated" });
   });
 
@@ -189,6 +193,8 @@ describe("useAuthentication does not cache a provisional resolution", () => {
 describe("useRegistry referential stability", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // clearAllMocks keeps queued once-values; drop them so no test inherits another's.
+    mockAsync.mockReset();
     mockSync.mockReturnValue({ message: "Not Authenticated" });
   });
 
