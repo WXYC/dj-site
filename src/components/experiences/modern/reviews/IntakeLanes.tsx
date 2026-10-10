@@ -55,10 +55,9 @@ export default function IntakeLanes() {
 }
 
 function IntakeLaneGroups() {
-  const visible = useCanSeeReviews();
-  const everyState = useGetIntakeItemsQuery(EVERY_STATE, { skip: !visible });
-  const awaiting = useGetIntakeItemsQuery(AWAITING_LANE, { skip: !visible });
-  const { data: formats } = useGetFormatsQuery(undefined, { skip: !visible });
+  const everyState = useGetIntakeItemsQuery(EVERY_STATE);
+  const awaiting = useGetIntakeItemsQuery(AWAITING_LANE);
+  const { data: formats } = useGetFormatsQuery();
   const [release] = useReleaseIntakeItemMutation();
   const [cancelRequest] = useCancelIntakeRequestMutation();
   const dispatch = useAppDispatch();
@@ -79,7 +78,6 @@ function IntakeLaneGroups() {
     return write(id, action, run);
   };
 
-  if (!visible) return null;
   if ([everyState, awaiting].some(hasNothingToShow)) {
     return <Typography role="alert">{REVIEW_COPY.screen.loadFailed}</Typography>;
   }
