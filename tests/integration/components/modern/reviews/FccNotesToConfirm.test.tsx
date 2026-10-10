@@ -279,6 +279,62 @@ describe("a 403 on a write", () => {
     else expect(screen.queryByText(copy.confirmedByMd)).not.toBeInTheDocument();
     if (!expectNav) expect(router.replace).not.toHaveBeenCalled();
   });
+
+  it.each([
+    { label: "the session read never settles", read: () => new Promise(() => {}), expectNav: false },
+    { label: "the session read answers no user", read: () => Promise.resolve({ data: { user: null }, error: null }), expectNav: true },
+  ])("on a music director's Confirm when $label", async ({ read, expectNav }) => {
+    vi.mocked(authClient.getSession).mockImplementationOnce(read as never);
+    fakeReviewsEndpoints({ fccNotesToConfirm: [waitingNote()] });
+    server.use(http.post(`${TEST_BACKEND_URL}/fcc-notes/1/confirm`, () => HttpResponse.json({ message: NO_NAME }, { status: 403 })));
+    renderWithProviders(<FccNotesToConfirm />);
+
+    await userEvent.setup().click(await screen.findByRole("button", { name: /^Confirm the note/ }));
+
+    if (expectNav) {
+      await waitFor(() => expect(router.replace).toHaveBeenCalledWith(SIGN_IN));
+    } else {
+      // The stalled read gives up after its 2000 ms timeout and leaves the person where they are.
+      await waitFor(() => expect(screen.getByRole("alert").textContent).toBe(copy.couldNotConfirm), { timeout: 4000 });
+      expect(router.replace).not.toHaveBeenCalled();
+    }
+  });
+
+  it("tells a music director whose Remove is refused the generic line, never the reporter's", async () => {
+    fakeReviewsEndpoints({ fccNotesToConfirm: [waitingNote()] });
+    server.use(http.delete(`${TEST_BACKEND_URL}/fcc-notes/1`, () => HttpResponse.json({ message: DELETE_REFUSED }, { status: 403 })));
+    renderWithProviders(<FccNotesToConfirm />);
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole("button", { name: /^Remove the note/ }));
+    await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Remove" }));
+
+    await waitFor(() => expect(screen.getByRole("alert").textContent).toBe(copy.couldNotRemove));
+    expect(screen.queryByText(copy.confirmedByMd)).not.toBeInTheDocument();
+  });
+
+  it("drops a generic failure line once a music director confirms the note and the controls end", async () => {
+    vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "true");
+    mockAuth.id = "dj-pat";
+    mockAuth.authority = Authorization.DJ;
+    fakeReviewsEndpoints({ fccNotesForItem: { "3": [waitingNote()] } });
+    server.use(
+      http.delete(`${TEST_BACKEND_URL}/fcc-notes/1`, async () => {
+        await fetch(`${TEST_BACKEND_URL}/fcc-notes/1/confirm`, { method: "POST" });
+        return HttpResponse.json({ message: "Internal" }, { status: 500 });
+      }),
+    );
+    renderWithProviders(<FccNotesPanel intakeItemId={3} />);
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole("button", { name: "Remove my note" }));
+    await user.click(within(await screen.findByRole("alertdialog", { name: "Remove your note?" })).getByRole("button", { name: "Remove" }));
+
+    await screen.findByText(copy.confirmed);
+    expect(screen.queryByRole("button", { name: "Remove my note" })).not.toBeInTheDocument();
+    expect(screen.queryByText(copy.couldNotRemove)).not.toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
 });
 
 describe("one write, every list that shows the note", () => {

@@ -71,8 +71,8 @@ export default function FccNoteActions({ note, onConfirmed, spoken }: Props) {
   const reported = note.status === "reported";
   const mine = !viewer.isMD && reported && viewer.id != null && viewer.id === note.reported_by_user_id;
   const failureLine = failure ? <Typography role="alert" level="body-sm">{failure}</Typography> : null;
-  // A refetch can end the controls (a music director confirmed the note first); the refusal that explains it stays.
-  if (!viewer.isMD && !mine) return failureLine;
+  // A refetch can end the controls (a music director confirmed the note first); only the refusal that explains it stays.
+  if (!viewer.isMD && !mine) return failure === copy.confirmedByMd ? failureLine : null;
 
   const confirm = async () => {
     setFailure(null);
