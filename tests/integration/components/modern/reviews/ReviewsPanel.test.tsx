@@ -21,20 +21,17 @@ vi.mock("@/lib/features/authentication/client", () => ({
 vi.mock("@/lib/features/authentication/organization-config", () => ({
   getAppOrganizationIdClient: vi.fn(() => undefined),
 }));
-const mockAuth = vi.hoisted(() => ({ authority: 1 as number }));
+const mockAuth = vi.hoisted(() => ({ id: "dj-me", authority: 1 as number }));
 vi.mock("@/lib/features/authentication/organization-utils", async () => {
   const { Authorization: Role } = await import("@/lib/features/admin/types");
   return {
     fetchOrganizationRoleForUserClient: vi.fn(async () => (mockAuth.authority >= Role.MD ? "musicDirector" : "dj")),
   };
 });
-vi.mock("@/src/hooks/authenticationHooks", () => ({
-  useAuthentication: () => ({
-    data: { user: { id: "dj-me", authority: mockAuth.authority } },
-    authenticating: false,
-    authenticated: true,
-  }),
-}));
+vi.mock("@/src/hooks/authenticationHooks", async () => {
+  const { createAuthenticationHookMock } = await import("@/tests/helpers/auth-hook-mock");
+  return createAuthenticationHookMock(mockAuth);
+});
 
 import ReviewsPanel, { Group } from "@/src/components/experiences/modern/reviews/ReviewsPanel";
 import { REVIEW_COPY } from "@/src/components/experiences/modern/reviews/copy";

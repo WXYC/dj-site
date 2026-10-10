@@ -5,7 +5,6 @@ import type { PropsWithChildren } from "react";
 import { Provider } from "react-redux";
 import { makeStore } from "@/lib/store";
 import { reviewApi } from "@/lib/features/reviews/reviewApi";
-import { Authorization } from "@/lib/features/admin/types";
 import { review, reviewRevision, server } from "@/tests/helpers";
 import { TEST_BACKEND_URL } from "@/tests/helpers/constants";
 
@@ -14,13 +13,11 @@ vi.mock("@/lib/features/authentication/client", async () => {
   return createAuthClientModuleMock();
 });
 
-vi.mock("@/src/hooks/authenticationHooks", () => ({
-  useAuthentication: () => ({
-    data: { user: { id: "dj-me", authority: Authorization.DJ } },
-    authenticating: false,
-    authenticated: true,
-  }),
-}));
+const mockAuth = vi.hoisted(() => ({ id: "dj-me", authority: 1 as number }));
+vi.mock("@/src/hooks/authenticationHooks", async () => {
+  const { createAuthenticationHookMock } = await import("@/tests/helpers/auth-hook-mock");
+  return createAuthenticationHookMock(mockAuth);
+});
 
 import {
   usePrintedVersion,

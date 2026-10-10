@@ -33,14 +33,11 @@ vi.mock("sonner", () => ({
 vi.mock("next/font/google", () => ({ Kanit: () => ({ style: { fontFamily: "Kanit, sans-serif" } }) }));
 vi.mock("next/font/local", () => ({ default: () => ({ style: { fontFamily: "Minbus, sans-serif" } }) }));
 
-let authority = Authorization.MD;
-vi.mock("@/src/hooks/authenticationHooks", () => ({
-  useAuthentication: () => ({
-    data: { user: { id: "md-me", authority } },
-    authenticating: false,
-    authenticated: true,
-  }),
-}));
+const mockAuth = vi.hoisted(() => ({ id: "md-me", authority: 2 as number }));
+vi.mock("@/src/hooks/authenticationHooks", async () => {
+  const { createAuthenticationHookMock } = await import("@/tests/helpers/auth-hook-mock");
+  return createAuthenticationHookMock(mockAuth);
+});
 
 import { toast } from "sonner";
 import { REVIEW_COPY } from "@/src/components/experiences/modern/reviews/copy";
@@ -119,7 +116,7 @@ async function readyBench(user: User) {
 
 describe("IntakeItemScreen", () => {
   beforeEach(() => {
-    authority = Authorization.MD;
+    mockAuth.authority = Authorization.MD;
     vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "staff");
     listsAndCards();
   });
@@ -136,7 +133,7 @@ describe("IntakeItemScreen", () => {
     ["staff-only for a DJ", "staff", Authorization.DJ],
   ])("renders nothing when the flag is %s", async (_label, flag, who) => {
     vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", flag);
-    authority = who;
+    mockAuth.authority = who;
     fakeReviewsEndpoints({ records: [dogaItem()] });
 
     const { container } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);

@@ -9,14 +9,11 @@ vi.mock("@/lib/features/authentication/client", () => ({
   getJWTToken: vi.fn().mockResolvedValue("test-token"),
 }));
 
-let authority = Authorization.MD;
-vi.mock("@/src/hooks/authenticationHooks", () => ({
-  useAuthentication: () => ({
-    data: { user: { id: "md-me", authority } },
-    authenticating: false,
-    authenticated: true,
-  }),
-}));
+const mockAuth = vi.hoisted(() => ({ id: "md-me", authority: 2 as number }));
+vi.mock("@/src/hooks/authenticationHooks", async () => {
+  const { createAuthenticationHookMock } = await import("@/tests/helpers/auth-hook-mock");
+  return createAuthenticationHookMock(mockAuth);
+});
 
 import IntakeSlipScreen from "@/src/components/experiences/modern/reviews/IntakeSlipScreen";
 import { REVIEW_COPY } from "@/src/components/experiences/modern/reviews/copy";
@@ -52,7 +49,7 @@ function servePrint(respond: () => Response) {
 describe("IntakeSlipScreen", () => {
   let print: ReturnType<typeof vi.spyOn>;
   beforeEach(() => {
-    authority = Authorization.MD;
+    mockAuth.authority = Authorization.MD;
     vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "staff");
     print = vi.spyOn(window, "print").mockImplementation(() => {});
   });
@@ -76,7 +73,7 @@ describe("IntakeSlipScreen", () => {
     ["staff-only for a DJ", "staff", Authorization.DJ],
   ])("renders nothing when the flag is %s", async (_label, flag, who) => {
     vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", flag);
-    authority = who;
+    mockAuth.authority = who;
     fakeReviewsEndpoints({ records: [item()] });
 
     const { container } = renderWithProviders(<IntakeSlipScreen id={ITEM_ID} />);

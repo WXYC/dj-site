@@ -36,23 +36,10 @@ vi.mock("next/navigation", async () => {
 const ME = "dj-me";
 // `late` mimics the real hook, which seeds each caller's own state from the session
 // alone (no station role yet) and only switches to the resolved role after an effect and a microtask.
-const mockAuth = vi.hoisted(() => ({ authority: 1 as number, late: false }));
+const mockAuth = vi.hoisted(() => ({ id: "dj-me", authority: 1 as number, late: false }));
 vi.mock("@/src/hooks/authenticationHooks", async () => {
-  const { useEffect, useState } = await import("react");
-  return {
-    useAuthentication: () => {
-      const [settled, setSettled] = useState(!mockAuth.late);
-      useEffect(() => {
-        if (settled) return;
-        void Promise.resolve().then(() => setSettled(true));
-      }, [settled]);
-      return {
-        data: { user: { id: ME, authority: settled ? mockAuth.authority : Authorization.NO } },
-        authenticating: false,
-        authenticated: true,
-      };
-    },
-  };
+  const { createAuthenticationHookMock } = await import("@/tests/helpers/auth-hook-mock");
+  return createAuthenticationHookMock(mockAuth);
 });
 
 import { toast } from "sonner";

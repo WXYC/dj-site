@@ -16,6 +16,7 @@ vi.mock("sonner", () => ({
 }));
 
 const mockAuth = vi.hoisted(() => ({
+  id: "dj-me",
   authority: 1 as number,
   djName: "DJ Me" as string | undefined,
   realName: "Juana Molina" as string | undefined,
@@ -25,13 +26,10 @@ vi.mock("next/navigation", async () => {
   const { createNavigationModuleMock } = await import("@/tests/helpers/navigation-mock");
   return createNavigationModuleMock(router);
 });
-vi.mock("@/src/hooks/authenticationHooks", () => ({
-  useAuthentication: () => ({
-    data: { user: { id: "dj-me", authority: mockAuth.authority, djName: mockAuth.djName, realName: mockAuth.realName } },
-    authenticating: false,
-    authenticated: true,
-  }),
-}));
+vi.mock("@/src/hooks/authenticationHooks", async () => {
+  const { createAuthenticationHookMock } = await import("@/tests/helpers/auth-hook-mock");
+  return createAuthenticationHookMock(mockAuth);
+});
 
 import { toast } from "sonner";
 import ReviewEditor from "@/src/components/experiences/modern/reviews/ReviewEditor";
