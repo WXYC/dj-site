@@ -3,6 +3,7 @@ import { screen, waitFor } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { fakeReviewsEndpoints, intakeItem, renderWithProviders, server, TEST_BACKEND_URL } from "@/tests/helpers";
 import { Authorization } from "@/lib/features/admin/types";
+import { intakeApi } from "@/lib/features/reviews/intakeApi";
 import { REVIEW_COPY } from "@/src/components/experiences/modern/reviews/copy";
 
 const pathname = vi.hoisted(() => ({ current: "/dashboard/reviews" }));
@@ -53,15 +54,18 @@ describe("ReviewsTabs", () => {
   });
 
   it.each([
-    ["no rows", () => fakeReviewsEndpoints({ awaiting: [] })],
-    ["a failed read", () => server.use(http.get(`${TEST_BACKEND_URL}/intake`, () => HttpResponse.json({ message: "x" }, { status: 500 })))],
-    ["a read still loading", () => server.use(http.get(`${TEST_BACKEND_URL}/intake`, () => new Promise(() => {})))],
-  ])("keeps the plain label for %s", async (_label, arrange) => {
+    ["no rows", () => fakeReviewsEndpoints({ awaiting: [] }), "fulfilled"],
+    ["a failed read", () => server.use(http.get(`${TEST_BACKEND_URL}/intake`, () => HttpResponse.json({ message: "x" }, { status: 500 }))), "rejected"],
+    ["a read still loading", () => server.use(http.get(`${TEST_BACKEND_URL}/intake`, () => new Promise(() => {}))), "pending"],
+  ] as const)("keeps the plain label for %s", async (_label, arrange, status) => {
     arrange();
 
-    renderWithProviders(<ReviewsTabs />);
+    const { store } = renderWithProviders(<ReviewsTabs />);
 
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    // Assert once the awaiting read has reached the state the row names: answered, refused, or started and held.
+    await waitFor(() =>
+      expect(intakeApi.endpoints.getIntakeItems.select({ awaiting_acceptance: true })(store.getState()).status).toBe(status),
+    );
     await waitFor(() => expect(screen.getByRole("link", { name: "Music directors" })).toBeInTheDocument());
   });
 

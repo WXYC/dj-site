@@ -4,6 +4,7 @@ import { http, HttpResponse } from "msw";
 import type { PropsWithChildren } from "react";
 import { Provider } from "react-redux";
 import { makeStore } from "@/lib/store";
+import { reviewApi } from "@/lib/features/reviews/reviewApi";
 import { Authorization } from "@/lib/features/admin/types";
 import { review, reviewRevision, server } from "@/tests/helpers";
 import { TEST_BACKEND_URL } from "@/tests/helpers/constants";
@@ -70,8 +71,13 @@ describe("usePrintedVersion", () => {
       wrapper: ({ children }: PropsWithChildren) => <Provider store={store}>{children}</Provider>,
     });
 
-    if (expected === "loading" || expected === "none") {
-      await new Promise((resolve) => setTimeout(resolve, 50));
+    const read = reviewApi.endpoints.getReviewRevisions.select(r.id)(store.getState());
+    if (!requested) {
+      // The skip is decided at render: the read is never started, so nothing is left to wait for.
+      expect(read.isUninitialized).toBe(true);
+    } else if (reply === "hold") {
+      // The held read never answers; assert during the hold, once the request has started.
+      await waitFor(() => expect(seen.length).toBeGreaterThan(0));
     }
     await waitFor(() => expect(result.current).toBe(expected));
     expect(seen.length > 0).toBe(requested);

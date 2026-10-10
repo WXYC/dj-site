@@ -3,7 +3,8 @@ import { screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import type { Review } from "@wxyc/shared";
 import { Authorization } from "@/lib/features/admin/types";
-import { fakeReviewsEndpoints, fccNote, intakeItem, renderWithProviders, review, reviewRevision, server, TEST_BACKEND_URL } from "@/tests/helpers";
+import { fakeReviewsEndpoints, fccNote, intakeItem, renderWithProviders, review, reviewRevision, reviewsSettled, server, TEST_BACKEND_URL } from "@/tests/helpers";
+import { reviewApi } from "@/lib/features/reviews/reviewApi";
 
 vi.mock("@/lib/features/authentication/client", async () => {
   const { createAuthClientModuleMock } = await import("@/tests/helpers/auth-client-mock");
@@ -236,8 +237,8 @@ describe("ReviewEditor", () => {
     server.events.on("request:start", log);
 
     try {
-      const { container } = renderWithProviders(<ReviewEditor id={40} />);
-      await new Promise((r) => setTimeout(r, 50));
+      const { container, store } = renderWithProviders(<ReviewEditor id={40} />);
+      await reviewsSettled(store);
       expect(requested.filter((p) => p.startsWith("/reviews"))).toEqual([]);
       expect(container).toBeEmptyDOMElement();
     } finally {
@@ -499,13 +500,14 @@ describe("ReviewEditor", () => {
         requested();
         return HttpResponse.json([reviewRevision({ id: 11, revision: 1 }), reviewRevision({ id: 12, revision: 2 })].slice(0, count));
       }));
-      renderWithProviders(<ReviewEditor id={40} />);
+      const { store } = renderWithProviders(<ReviewEditor id={40} />);
 
       await screen.findByRole("link", { name: "History" });
       if (expected) {
         expect(await screen.findByText(expected)).toBeInTheDocument();
       } else {
-        await new Promise((r) => setTimeout(r, 50));
+        expect(reviewApi.endpoints.getReviewRevisions.select(40)(store.getState()).isUninitialized).toBe(true);
+        await reviewsSettled(store);
         expect(screen.queryByText(/printed on the cover|earlier version of this review|printed version/)).not.toBeInTheDocument();
         expect(requested).not.toHaveBeenCalled();
       }

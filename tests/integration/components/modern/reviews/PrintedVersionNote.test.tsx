@@ -2,7 +2,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { Authorization } from "@/lib/features/admin/types";
-import { fakeReviewsEndpoints, renderWithProviders, review, reviewRevision, server } from "@/tests/helpers";
+import { fakeReviewsEndpoints, renderWithProviders, review, reviewRevision, reviewsSettled, server } from "@/tests/helpers";
+import { reviewApi } from "@/lib/features/reviews/reviewApi";
 import { TEST_BACKEND_URL } from "@/tests/helpers/constants";
 
 vi.mock("@/lib/features/authentication/client", async () => {
@@ -80,9 +81,9 @@ describe("PrintedVersionNote", () => {
     ["the print date is not a date", { printed_at: "" }, [first, second]],
   ])("renders nothing rather than throwing when %s", async (_name, overrides, list) => {
     fakeReviewsEndpoints({ revisions: { "40": list } });
-    const { container } = renderWithProviders(<PrintedVersionNote onCover review={printed(overrides)} />);
+    const { container, store } = renderWithProviders(<PrintedVersionNote onCover review={printed(overrides)} />);
 
-    await new Promise((r) => setTimeout(r, 50));
+    await reviewsSettled(store);
     expect(container).toBeEmptyDOMElement();
   });
 
@@ -90,9 +91,10 @@ describe("PrintedVersionNote", () => {
     const requested = vi.fn();
     fakeReviewsEndpoints();
     server.use(http.get(`${TEST_BACKEND_URL}/reviews/:id/revisions`, () => { requested(); return HttpResponse.json([]); }));
-    const { container } = renderWithProviders(<PrintedVersionNote onCover review={printed({ printed_revision_id: null, printed_at: null })} />);
+    const { container, store } = renderWithProviders(<PrintedVersionNote onCover review={printed({ printed_revision_id: null, printed_at: null })} />);
 
-    await new Promise((r) => setTimeout(r, 50));
+    expect(reviewApi.endpoints.getReviewRevisions.select(40)(store.getState()).isUninitialized).toBe(true);
+    await reviewsSettled(store);
     expect(container).toBeEmptyDOMElement();
     expect(requested).not.toHaveBeenCalled();
   });
@@ -104,9 +106,10 @@ describe("PrintedVersionNote", () => {
     const requested = vi.fn();
     fakeReviewsEndpoints();
     server.use(http.get(`${TEST_BACKEND_URL}/reviews/:id/revisions`, () => { requested(); return HttpResponse.json(list); }));
-    const { container } = renderWithProviders(<PrintedVersionNote onCover={false} review={printed()} newSlipHref="/dashboard/admin/intake/9/slip" />);
+    const { container, store } = renderWithProviders(<PrintedVersionNote onCover={false} review={printed()} newSlipHref="/dashboard/admin/intake/9/slip" />);
 
-    await new Promise((r) => setTimeout(r, 50));
+    expect(reviewApi.endpoints.getReviewRevisions.select(40)(store.getState()).isUninitialized).toBe(true);
+    await reviewsSettled(store);
     expect(container).toBeEmptyDOMElement();
     expect(requested).not.toHaveBeenCalled();
   });
@@ -118,9 +121,9 @@ describe("PrintedVersionNote", () => {
     vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", flag);
     mockAuth.authority = authority;
     fakeReviewsEndpoints({ revisions: { "40": [first] } });
-    const { container } = renderWithProviders(<PrintedVersionNote onCover review={printed()} />);
+    const { container, store } = renderWithProviders(<PrintedVersionNote onCover review={printed()} />);
 
-    await new Promise((r) => setTimeout(r, 50));
+    await reviewsSettled(store);
     expect(container).toBeEmptyDOMElement();
   });
 

@@ -3,7 +3,7 @@ import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { Authorization } from "@/lib/features/admin/types";
-import { fakeReviewsEndpoints, fccNote, renderWithProviders, server, TEST_BACKEND_URL } from "@/tests/helpers";
+import { fakeReviewsEndpoints, fccNote, renderWithProviders, reviewsSettled, server, TEST_BACKEND_URL } from "@/tests/helpers";
 
 vi.mock("@/lib/features/authentication/client", async () => {
   const { createAuthClientModuleMock } = await import("@/tests/helpers/auth-client-mock");
@@ -100,10 +100,10 @@ describe("FccNotesPanel", () => {
     server.events.on("request:start", log);
 
     try {
-      const { container } = renderWithProviders(<FccNotesPanel intakeItemId={ITEM_ID} />);
-      await new Promise((r) => setTimeout(r, 50));
+      const { container, store } = renderWithProviders(<FccNotesPanel intakeItemId={ITEM_ID} />);
       if (shown) expect(await screen.findByText("FCC notes")).toBeInTheDocument();
       else {
+        await reviewsSettled(store);
         expect(requested).toEqual([]);
         expect(container).toBeEmptyDOMElement();
       }

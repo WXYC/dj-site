@@ -8,6 +8,7 @@ import { libraryApi, isLibraryPrintRefused } from "@/lib/features/reviews/librar
 import { describeApi } from "@/tests/helpers/api-harness";
 import { TEST_BACKEND_URL } from "@/tests/helpers/constants";
 import { server } from "@/tests/fakes/server";
+import { reviewsSettled } from "@/tests/helpers/reviews-settled";
 
 vi.mock("@/lib/features/authentication/client", () => ({
   getJWTToken: vi.fn().mockResolvedValue("test-token"),
@@ -83,7 +84,7 @@ describe("libraryApi", () => {
 
     refuse = true;
     await store.dispatch(libraryApi.endpoints.printReleaseReview.initiate({ albumId: 7, reviewId: 40 }));
-    await new Promise((r) => setTimeout(r, 50));
+    await reviewsSettled(store);
     expect([itemReads, listReads]).toEqual([1, 1]);
 
     refuse = false;

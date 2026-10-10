@@ -326,9 +326,8 @@ describe("IntakeLanes", () => {
       const returned = await screen.findByRole("button", { name: "Mark as returned" });
       await user.click(returned);
 
-      // The other read has long since landed; only the held one is outstanding.
+      // Assert during the hold, once the held read has started.
       await waitFor(() => expect(heldReads).toBeGreaterThan(0));
-      await new Promise((resolve) => setTimeout(resolve, 100));
       expect(screen.queryByText(LOST_RACE)).not.toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Mark as returned" })).toBeDisabled();
 

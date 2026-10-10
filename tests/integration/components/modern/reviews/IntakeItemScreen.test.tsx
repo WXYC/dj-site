@@ -1,11 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
-import { fakeReviewsEndpoints, fccNote, holdResponse, intakeItem, renderWithProviders, review, reviewRevision, server, TEST_BACKEND_URL } from "@/tests/helpers";
+import { fakeReviewsEndpoints, fccNote, holdResponse, intakeItem, renderWithProviders, review, reviewRevision, reviewsSettled, server, TEST_BACKEND_URL } from "@/tests/helpers";
 import { fakeRotationCardsEndpoints } from "@/tests/fakes/rotation";
 import { fakeLibraryFilingsEndpoint, filingConflictResponse } from "@/tests/fakes/libraryFilings";
 import { Authorization } from "@/lib/features/admin/types";
 import { reviewsApi } from "@/lib/features/reviews/api";
+import { reviewApi } from "@/lib/features/reviews/reviewApi";
 
 // The bench's artist field is gated by AuthorizedView, which resolves the music director tier from the session.
 vi.mock("@/lib/features/authentication/client", () => ({
@@ -246,7 +247,7 @@ describe("IntakeItemScreen", () => {
         }),
       );
 
-      renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+      const { store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
 
       await screen.findByText("Take 40.");
       if (settled) await screen.findByText(settled);
@@ -256,7 +257,8 @@ describe("IntakeItemScreen", () => {
       }
       if (printed.printed_revision_id === undefined) {
         // A never-printed cover review has revisions to serve but is never asked for them.
-        await new Promise((r) => setTimeout(r, 50));
+        expect(reviewApi.endpoints.getReviewRevisions.select(40)(store.getState()).isUninitialized).toBe(true);
+        await reviewsSettled(store);
         expect(requested).not.toHaveBeenCalled();
         expect(screen.getAllByRole("link", { name: linkName })).toHaveLength(linkCount);
       }
@@ -265,11 +267,11 @@ describe("IntakeItemScreen", () => {
     it("links to the record's own slip once, and to no review's print page", async () => {
       fakeReviewsEndpoints({ records: [dogaItem()], forItem: { [ITEM_ID]: [submitted(40, { medium: "typed", album_id: null })] } });
 
-      renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+      const { store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
 
       await screen.findByRole("link", { name: "Print the slip" });
       // Let the music director gate resolve before asserting the per-review link is absent.
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      await reviewsSettled(store);
       const slipLinks = screen.getAllByRole("link", { name: "Print the slip" });
       expect(slipLinks).toHaveLength(1);
       expect(slipLinks[0]).toHaveAttribute("href", `/dashboard/admin/intake/${ITEM_ID}/slip`);
@@ -1053,13 +1055,14 @@ describe("IntakeItemScreen", () => {
         return HttpResponse.json(revisionsOf(Number(params.id), count));
       }));
 
-      renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+      const { store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
 
       await screen.findByText("Take 40.");
       if (expected) {
         expect(await screen.findByText(expected)).toBeInTheDocument();
       } else {
-        await new Promise((r) => setTimeout(r, 50));
+        expect(reviewApi.endpoints.getReviewRevisions.select(41)(store.getState()).isUninitialized).toBe(true);
+        await reviewsSettled(store);
         expect(screen.queryByText(/printed on the cover|earlier version of this review/)).not.toBeInTheDocument();
         expect(requested).not.toHaveBeenCalledWith("41");
       }
