@@ -97,3 +97,17 @@ export function isRefusal(
   const reason = bodyReason(inner?.data);
   return inner?.status === status && reason !== undefined && reasons.includes(reason);
 }
+
+/**
+ * Whether `err` is a refusal with `status` under `key` whose body carries no
+ * `reason`, so `isRefusal` can never match it. Reads the wrapped shape only: a
+ * raw, unwrapped rejection is `false`. Matching on status alone is only sound
+ * where no other response with that status can reach the call site, so a
+ * caller must say, at its own definition, why that holds.
+ */
+export function isStatusRefusal(
+  err: unknown,
+  { status, key }: { status: number; key: string },
+): boolean {
+  return unwrapEndpointError(key, err)?.status === status;
+}

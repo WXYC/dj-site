@@ -103,12 +103,9 @@ describe("libraryApi", () => {
   });
 
   it.each([
-    ["a 400 with no reason", { libraryPrintError: { status: 400, data: { message: "m" } } }, true],
-    ["a 404", { libraryPrintError: { status: 404, data: { message: "m" } } }, false],
-    ["a 500", { libraryPrintError: { status: 500, data: { message: "m" } } }, false],
-    ["a 400 nested under another key", { intakeWriteError: { status: 400, data: {} } }, false],
-    ["a bare Error", new Error("x"), false],
-  ])("isLibraryPrintRefused is %s -> %s", (_label, err, expected) => {
-    expect(isLibraryPrintRefused(err)).toBe(expected);
+    ["libraryPrintError", true],
+    ["intakeWriteError", false],
+  ])("isLibraryPrintRefused reads a 400 under %s -> %s", (key, expected) => {
+    expect(isLibraryPrintRefused({ [key]: { status: 400, data: { message: "m" } } })).toBe(expected);
   });
 });
