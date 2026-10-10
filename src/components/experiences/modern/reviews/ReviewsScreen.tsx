@@ -34,6 +34,7 @@ import IntakeLane from "./IntakeLane";
 import IntakeLogForm from "./IntakeLogForm";
 import IntakeRequestPicker from "./IntakeRequestPicker";
 import { REVIEW_COPY } from "./copy";
+import RecordRow from "./RecordRow";
 import { intakeRecord, recordLine } from "./recordLine";
 import { useReviewRecord } from "./useReviewRecord";
 import { formatStationShortDate } from "@/src/utilities/stationTime";
@@ -129,12 +130,18 @@ export default function ReviewsScreen() {
 
   return (
     <Stack spacing={3}>
-      <IntakeLane title={REVIEW_COPY.screen.requestsTitle} rows={requests} empty={REVIEW_COPY.screen.requestsEmpty} label={(i) => <Typography>{describe(i)}</Typography>} extra={(i) => (
-        <>
-          <Typography level="body-sm">{`${REVIEW_COPY.screen.asked} ${day(i.requested_at)}`}</Typography>
-          <Button size="sm" {...lock(i.id, "accept")} onClick={() => write(i.id, "accept", () => accept(i.id).unwrap())}>{REVIEW_COPY.screen.accept}</Button>
-          <Button size="sm" variant="outlined" {...lock(i.id, "pass")} onClick={() => write(i.id, "pass", () => pass(i.id).unwrap())}>{REVIEW_COPY.screen.pass}</Button>
-        </>
+      <IntakeLane title={REVIEW_COPY.screen.requestsTitle} rows={requests} empty={REVIEW_COPY.screen.requestsEmpty} row={(i) => (
+        <RecordRow
+          record={intakeRecord(i)}
+          formats={formats}
+          meta={<Typography level="body-sm">{`${REVIEW_COPY.screen.asked} ${day(i.requested_at)}`}</Typography>}
+          actions={
+            <>
+              <Button size="sm" {...lock(i.id, "accept")} onClick={() => write(i.id, "accept", () => accept(i.id).unwrap())}>{REVIEW_COPY.screen.accept}</Button>
+              <Button size="sm" variant="outlined" {...lock(i.id, "pass")} onClick={() => write(i.id, "pass", () => pass(i.id).unwrap())}>{REVIEW_COPY.screen.pass}</Button>
+            </>
+          }
+        />
       )} />
       <IntakeLane title={REVIEW_COPY.screen.checkoutsTitle} rows={checkouts} empty={REVIEW_COPY.screen.checkoutsEmpty} label={(i) => <Typography>{describe(i)}</Typography>} extra={(i) => {
         const mineHere = myReviews.filter((r) => r.intake_item_id === i.id);
