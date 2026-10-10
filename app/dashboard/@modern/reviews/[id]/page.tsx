@@ -1,6 +1,7 @@
 import { gateReviewRoute } from "@/src/components/experiences/modern/reviews/gateReviewRoute";
 import ReviewEditor from "@/src/components/experiences/modern/reviews/ReviewEditor";
 import { REVIEW_COPY } from "@/src/components/experiences/modern/reviews/copy";
+import ReviewScrollRegion from "@/src/components/experiences/modern/reviews/ReviewScrollRegion";
 import PageHeader from "@/src/components/experiences/modern/Header/PageHeader";
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
@@ -19,7 +20,9 @@ export default async function ReviewEditorPage({ params }: { params: Promise<{ i
   return (
     <>
       <PageHeader title={REVIEW_COPY.pageTitle} />
-      <ReviewEditor id={reviewId} />
+      <ReviewScrollRegion>
+        <ReviewEditor id={reviewId} />
+      </ReviewScrollRegion>
     </>
   );
 }
