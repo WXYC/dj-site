@@ -26,12 +26,14 @@ vi.mock("@/src/components/experiences/modern/Header/PageHeader", () => ({
 }));
 vi.mock("@/src/components/experiences/modern/reviews/IntakeItemScreen", () => ({ default: () => <div data-testid="screen" /> }));
 vi.mock("@/src/components/experiences/modern/reviews/IntakeSlipScreen", () => ({ default: () => <div data-testid="screen" /> }));
+vi.mock("@/src/components/experiences/modern/reviews/ReleaseSlipScreen", () => ({ default: () => <div data-testid="screen" /> }));
 vi.mock("@/src/components/experiences/modern/reviews/NewReview", () => ({ default: () => <div data-testid="screen" /> }));
 vi.mock("@/src/components/experiences/modern/reviews/ReviewEditor", () => ({ default: () => <div data-testid="screen" /> }));
 vi.mock("@/src/components/experiences/modern/reviews/ReviewHistory", () => ({ default: () => <div data-testid="screen" /> }));
 
 import IntakeItemPage from "@/app/dashboard/@modern/admin/intake/[id]/page";
 import IntakeSlipPage from "@/app/dashboard/@modern/admin/intake/[id]/slip/page";
+import ReleaseSlipPage from "@/app/dashboard/@modern/admin/library/[albumId]/slip/[reviewId]/page";
 import NewReviewPage from "@/app/dashboard/@modern/reviews/new/page";
 import ReviewEditorPage from "@/app/dashboard/@modern/reviews/[id]/page";
 import ReviewHistoryPage from "@/app/dashboard/@modern/reviews/[id]/history/page";
@@ -44,6 +46,7 @@ describe("review pages scroll inside Main", () => {
   it.each([
     ["the record's page", () => IntakeItemPage(params)],
     ["the print page", () => IntakeSlipPage(params)],
+    ["the album's print page", () => ReleaseSlipPage({ params: Promise.resolve({ albumId: "7", reviewId: "11" }) })],
     ["a new review", () => NewReviewPage({ searchParams: Promise.resolve({ album_id: "7" }) })],
     ["the review editor", () => ReviewEditorPage(params)],
     ["a review's history", () => ReviewHistoryPage(params)],
