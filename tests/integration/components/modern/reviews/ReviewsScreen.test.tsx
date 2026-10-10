@@ -631,3 +631,250 @@ describe("ReviewsScreen — a failed background refetch", () => {
     expect(within(shelf).getByText(/Aluminum Tunes/)).toBeInTheDocument();
   });
 });
+
+const REVIEWERS = [
+  { id: "dj-sam", name: "Test Reviewer" },
+  { id: "dj-pat", name: "Pat Placeholder" },
+];
+const REQUEST_REFUSED = "That DJ can't be asked to review: their account was removed, or it's no longer a DJ account. Pick someone else.";
+const REQUEST_LOST_RACE =
+  "This record has left the review shelf since the page loaded, so it can't be requested. The lists have been reloaded.";
+
+const moonPix = (overrides = {}) =>
+  item({ id: 11, artist_name: "Cat Power", album_title: "Moon Pix", record_label: "Matador", ...overrides });
+
+/** One review shelf row's controls, reached by the record they act on: the group is named by the row's record line. */
+const rowControls = async (album: string) =>
+  within(await within(await section(SHELF)).findByRole("group", { name: new RegExp(album) }));
+
+const pick = async (user: ReturnType<typeof renderWithProviders>["user"], name: string, album = "Moon Pix") => {
+  await user.click(await (await rowControls(album)).findByRole("combobox", { name: "DJ to ask" }));
+  await user.click(await screen.findByRole("option", { name }));
+};
+
+describe("ReviewsScreen — the new lane order and music directors' controls", () => {
+  beforeEach(() => {
+    vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "true");
+    mockAuth.authority = Authorization.DJ;
+    router.push.mockClear();
+    vi.mocked(toast).mockClear();
+    vi.mocked(toast.error).mockClear();
+  });
+  afterEach(() => vi.unstubAllEnvs());
+
+  it.each([
+    ["a DJ under true", "true", Authorization.DJ, false],
+    ["a music director under true", "true", Authorization.MD, true],
+    ["a music director under staff", "staff", Authorization.MD, true],
+    ["a station manager under true", "true", Authorization.SM, true],
+    ["a station manager under staff", "staff", Authorization.SM, true],
+  ])("%s: the log form, Request a review and the record link are present exactly for %s", async (_label, flag, who, directors) => {
+    vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", flag);
+    mockAuth.authority = who;
+    fakeReviewsEndpoints({ open: [moonPix()], reviewers: REVIEWERS });
+
+    renderWithProviders(<ReviewsScreen />);
+    const shelf = await section(SHELF);
+    await within(shelf).findByText(/Moon Pix/);
+
+    expect(screen.queryByRole("form", { name: "Log an item" }) !== null).toBe(directors);
+    expect(within(shelf).queryAllByRole("button", { name: "Request a review" })).toHaveLength(directors ? 1 : 0);
+    const link = within(shelf).queryByRole("link", { name: /Moon Pix/ });
+    expect(link !== null).toBe(directors);
+    if (link) expect(link).toHaveAttribute("href", "/dashboard/admin/intake/11");
+    expect(within(shelf).getAllByRole("button", { name: "Check out" })).toHaveLength(1);
+  });
+
+  it.each([
+    ["", Authorization.MD],
+    ["", Authorization.SM],
+    ["", Authorization.DJ],
+    ["staff", Authorization.DJ],
+  ])("renders nothing under flag %j for authority %s", async (flag, who) => {
+    vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", flag);
+    mockAuth.authority = who;
+    fakeReviewsEndpoints({ open: [moonPix()], reviewers: REVIEWERS });
+
+    const { container } = renderWithProviders(<ReviewsScreen />);
+
+    await new Promise((r) => setTimeout(r, 50));
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it.each([
+    ["a DJ", Authorization.DJ, false],
+    ["a music director", Authorization.MD, true],
+  ])("lays the lanes out in the order %s works through them", async (_label, who, directors) => {
+    mockAuth.authority = who;
+    fakeReviewsEndpoints({ open: [moonPix()], reviewers: REVIEWERS });
+
+    renderWithProviders(<ReviewsScreen />);
+    await section(SHELF);
+
+    const regions = screen.getAllByRole("region").map((r) => r.getAttribute("aria-label"));
+    expect(regions).toEqual(["Requests for me", "My checkouts", SHELF, "My reviews"]);
+    const form = screen.queryByRole("form", { name: "Log an item" });
+    if (!directors) return expect(form).toBeNull();
+    const shelf = screen.getByRole("region", { name: SHELF });
+    expect(form!.compareDocumentPosition(shelf) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const checkouts = screen.getByRole("region", { name: "My checkouts" });
+    expect(checkouts.compareDocumentPosition(form!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("makes no reviewers request for a DJ, and exactly one for a music director, who picks from the reviewers by name", async () => {
+    const reads: string[] = [];
+    const count = http.get(`${TEST_BACKEND_URL}/reviews/reviewers`, () => {
+      reads.push("read");
+      return HttpResponse.json({ reviewers: REVIEWERS });
+    });
+
+    fakeReviewsEndpoints({ open: [moonPix()], reviewers: REVIEWERS });
+    server.use(count);
+    const dj = renderWithProviders(<ReviewsScreen />);
+    await within(await section(SHELF)).findByText(/Moon Pix/);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(reads).toEqual([]);
+    dj.unmount();
+
+    mockAuth.authority = Authorization.MD;
+    const { user } = renderWithProviders(<ReviewsScreen />);
+    await user.click(await (await rowControls("Moon Pix")).findByRole("combobox", { name: "DJ to ask" }));
+    expect(await screen.findByRole("option", { name: "Test Reviewer" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Pat Placeholder" })).toBeInTheDocument();
+    expect(reads).toHaveLength(1);
+  });
+
+  it("sends the chosen dj_id and the record leaves the review shelf lane for the held state", async () => {
+    mockAuth.authority = Authorization.MD;
+    const bodies: unknown[] = [];
+    let asked = false;
+    fakeReviewsEndpoints({
+      open: () => [asked ? moonPix({ state: "requested", effective_state: "requested", requested_dj_id: "dj-pat", requested_dj_name: "Pat Placeholder" }) : moonPix()],
+      reviewers: REVIEWERS,
+    });
+    server.use(
+      http.post(`${TEST_BACKEND_URL}/intake/11/request`, async ({ request }) => {
+        bodies.push(await request.clone().json());
+        asked = true;
+        return HttpResponse.json(moonPix({ state: "requested", effective_state: "requested" }));
+      }),
+    );
+
+    const { user } = renderWithProviders(<ReviewsScreen />);
+    expect((await rowControls("Moon Pix")).getByRole("button", { name: "Request a review" })).toBeDisabled();
+    await pick(user, "Pat Placeholder");
+    await user.click(screen.getByRole("button", { name: "Request a review" }));
+
+    await waitFor(() => expect(bodies).toEqual([{ dj_id: "dj-pat" }]));
+    await waitFor(() => expect(within(screen.getByRole("region", { name: SHELF })).queryByText(/Moon Pix/)).not.toBeInTheDocument());
+  });
+
+  it("a double click sends one POST", async () => {
+    mockAuth.authority = Authorization.MD;
+    let posts = 0;
+    fakeReviewsEndpoints({ open: [moonPix()], reviewers: REVIEWERS });
+    server.use(
+      http.post(`${TEST_BACKEND_URL}/intake/11/request`, async () => {
+        posts += 1;
+        await delay(100);
+        return HttpResponse.json(moonPix({ state: "requested", effective_state: "requested" }));
+      }),
+    );
+
+    const { user } = renderWithProviders(<ReviewsScreen />);
+    await pick(user, "Pat Placeholder");
+    const button = screen.getByRole("button", { name: "Request a review" });
+    await user.dblClick(button);
+
+    await waitFor(() => expect(posts).toBe(1));
+  });
+
+  it("shows the approved line on a 400, never the server's message, and reads the reviewers again", async () => {
+    mockAuth.authority = Authorization.MD;
+    let reads = 0;
+    fakeReviewsEndpoints({ open: [moonPix()], reviewers: REVIEWERS });
+    server.use(
+      http.post(`${TEST_BACKEND_URL}/intake/11/request`, () => HttpResponse.json({ message: "server words" }, { status: 400 })),
+    );
+
+    const { user } = renderWithProviders(<ReviewsScreen />);
+    await pick(user, "Pat Placeholder");
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/reviews/reviewers`, () => {
+        reads += 1;
+        return HttpResponse.json({ reviewers: REVIEWERS });
+      }),
+    );
+    await user.click(screen.getByRole("button", { name: "Request a review" }));
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(REQUEST_REFUSED));
+    expect(toast.error).not.toHaveBeenCalledWith("server words");
+    await waitFor(() => expect(reads).toBe(1));
+  });
+
+  it("a lost race shows the approved line after the lists reload, never the server's message", async () => {
+    mockAuth.authority = Authorization.MD;
+    let reads = 0;
+    fakeReviewsEndpoints({ open: [moonPix()], reviewers: REVIEWERS });
+    server.use(
+      http.post(`${TEST_BACKEND_URL}/intake/11/request`, () =>
+        HttpResponse.json({ message: "server words", reason: "state_changed" }, { status: 409 }),
+      ),
+    );
+
+    const { user } = renderWithProviders(<ReviewsScreen />);
+    await screen.findByRole("button", { name: "Request a review" });
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/intake`, () => {
+        reads += 1;
+        return undefined;
+      }),
+    );
+    await pick(user, "Test Reviewer");
+    await user.click(screen.getByRole("button", { name: "Request a review" }));
+
+    await waitFor(() => expect(toast).toHaveBeenCalledWith(REQUEST_LOST_RACE));
+    expect(reads).toBeGreaterThanOrEqual(1);
+    expect(toast).not.toHaveBeenCalledWith("server words");
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+
+  it("shows one line above the shelf when the reviewers fail to load, and the lanes still render", async () => {
+    mockAuth.authority = Authorization.MD;
+    fakeReviewsEndpoints({ open: [moonPix({ id: 1 }), moonPix({ id: 2 })] });
+    server.use(http.get(`${TEST_BACKEND_URL}/reviews/reviewers`, () => HttpResponse.json({ message: "down" }, { status: 500 })));
+
+    renderWithProviders(<ReviewsScreen />);
+
+    const shelf = await section(SHELF);
+    expect(within(shelf).getAllByText(/Moon Pix/)).toHaveLength(2);
+    const alerts = await screen.findAllByRole("alert");
+    expect(alerts).toHaveLength(1);
+    expect(alerts[0]).toHaveTextContent(REVIEW_COPY.intake.reviewersLoadFailed);
+    expect(alerts[0].compareDocumentPosition(shelf) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("logs an item from the form and the record appears in The review shelf lane", async () => {
+    mockAuth.authority = Authorization.MD;
+    let logged = false;
+    fakeReviewsEndpoints({
+      open: () => (logged ? [moonPix()] : []),
+      reviewers: REVIEWERS,
+    });
+    server.use(
+      http.post(`${TEST_BACKEND_URL}/intake`, () => {
+        logged = true;
+        return HttpResponse.json(moonPix());
+      }),
+    );
+
+    const { user } = renderWithProviders(<ReviewsScreen />);
+    await user.type(await screen.findByLabelText(/^Artist/), "Cat Power");
+    await user.type(screen.getByLabelText(/^Album/), "Moon Pix");
+    await user.click(screen.getByRole("combobox", { name: /^Format/ }));
+    await user.click(await screen.findByRole("option", { name: "cd" }));
+    await user.click(screen.getByRole("button", { name: "Log item" }));
+
+    expect(await within(await section(SHELF)).findByText(/Moon Pix/)).toBeInTheDocument();
+  });
+});

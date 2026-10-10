@@ -5,8 +5,10 @@ import { Button, Chip, Link, Stack, Typography } from "@mui/joy";
 import type { IntakeItem, Review } from "@wxyc/shared";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { Authorization } from "@/lib/features/admin/types";
 import { useGetFormatsQuery } from "@/lib/features/catalog/api";
 import {
+  isIntakeRequestRefused,
   isIntakeStateChanged,
   intakeApi,
   useAcceptIntakeItemMutation,
@@ -14,12 +16,14 @@ import {
   useGetIntakeItemsQuery,
   usePassIntakeItemMutation,
   useReleaseIntakeItemMutation,
+  useRequestIntakeItemMutation,
 } from "@/lib/features/reviews/intakeApi";
 import {
   isReviewSubjectNotHeld,
   reviewApi,
   useCreateReviewMutation,
   useGetMyReviewsQuery,
+  useGetReviewersQuery,
 } from "@/lib/features/reviews/reviewApi";
 import { useCanSeeReviews } from "@/src/hooks/useCanSeeReviews";
 import { useAuthentication } from "@/src/hooks/authenticationHooks";
@@ -27,6 +31,8 @@ import { useAppDispatch } from "@/lib/hooks";
 import { useRowWrite } from "@/src/hooks/useRowWrite";
 import ConfirmDialog from "../ConfirmDialog";
 import IntakeLane from "./IntakeLane";
+import IntakeLogForm from "./IntakeLogForm";
+import IntakeRequestPicker from "./IntakeRequestPicker";
 import { REVIEW_COPY } from "./copy";
 import { intakeRecord, recordLine } from "./recordLine";
 import { useReviewRecord } from "./useReviewRecord";
@@ -34,7 +40,7 @@ import { hasNothingToShow } from "@/lib/has-nothing-to-show";
 
 const day = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString() : "");
 
-type Action = "checkout" | "accept" | "pass" | "release" | "write";
+type Action = "checkout" | "accept" | "pass" | "release" | "write" | "request";
 
 /** What a lost race (409 `state_changed`) means for each button, shown once the lists have reloaded. */
 const RACE_NOTICE: Record<Action, string> = {
@@ -43,6 +49,7 @@ const RACE_NOTICE: Record<Action, string> = {
   pass: REVIEW_COPY.screen.raceRequest,
   release: REVIEW_COPY.screen.raceRelease,
   write: REVIEW_COPY.subjectNotHeld,
+  request: REVIEW_COPY.intake.raceRequest,
 };
 
 function DraftLabel({ review, formats }: { review: Review; formats: { id: number; format_name: string }[] | undefined }) {
@@ -61,15 +68,18 @@ export default function ReviewsScreen() {
   const user = "user" in auth ? auth.user : undefined;
   const me = user?.id;
   const visible = useCanSeeReviews();
+  const isMD = (user?.authority ?? Authorization.DJ) >= Authorization.MD;
 
   const everyState = useGetIntakeItemsQuery(EVERY_STATE, { skip: !visible });
   const mine = useGetMyReviewsQuery(MY_REVIEWS, { skip: !visible });
   const { data: formats } = useGetFormatsQuery(undefined, { skip: !visible });
+  const reviewers = useGetReviewersQuery(undefined, { skip: !visible || !isMD });
 
   const [checkout] = useCheckoutIntakeItemMutation();
   const [release] = useReleaseIntakeItemMutation();
   const [accept] = useAcceptIntakeItemMutation();
   const [pass] = usePassIntakeItemMutation();
+  const [requestReview] = useRequestIntakeItemMutation();
   const [createReview] = useCreateReviewMutation();
   const router = useRouter();
   const [returning, setReturning] = useState<IntakeItem | null>(null);
@@ -84,8 +94,14 @@ export default function ReviewsScreen() {
       dispatch(reviewApi.endpoints.getMyReviews.initiate(MY_REVIEWS, { subscribe: false, forceRefetch: true })),
     ],
     isLostRace: (err) => isIntakeStateChanged(err) || isReviewSubjectNotHeld(err),
-    onFailure: (_err, _id, action) =>
-      toast.error(action === "write" ? REVIEW_COPY.couldNotStart : REVIEW_COPY.screen.writeFailed),
+    onFailure: (err, _id, action) => {
+      if (action === "request" && isIntakeRequestRefused(err)) {
+        toast.error(REVIEW_COPY.intake.requestRefused);
+        void dispatch(reviewApi.endpoints.getReviewers.initiate(undefined, { subscribe: false, forceRefetch: true }));
+        return;
+      }
+      toast.error(action === "write" ? REVIEW_COPY.couldNotStart : REVIEW_COPY.screen.writeFailed);
+    },
     onLostRace: (_id, action) => toast(RACE_NOTICE[action]),
   });
 
@@ -106,14 +122,17 @@ export default function ReviewsScreen() {
     ...items.filter((i) => i.effective_state === "reviewed" && i.checked_out_by === me),
   ];
 
+  // Names the request picker's group for the record it acts on.
+  const shelfRecordId = (i: IntakeItem) => `review-shelf-record-${i.id}`;
   const describe = (i: IntakeItem) => recordLine(intakeRecord(i), formats);
 
   return (
     <Stack spacing={3}>
-      <IntakeLane title={REVIEW_COPY.screen.shelfTitle} rows={onShelf} empty={REVIEW_COPY.screen.shelfEmpty} label={(i) => <Typography>{describe(i)}</Typography>} extra={(i) => (
+      <IntakeLane title={REVIEW_COPY.screen.requestsTitle} rows={requests} empty={REVIEW_COPY.screen.requestsEmpty} label={(i) => <Typography>{describe(i)}</Typography>} extra={(i) => (
         <>
-          <Typography level="body-sm">{`${REVIEW_COPY.screen.logged} ${day(i.logged_at)}`}</Typography>
-          <Button size="sm" {...lock(i.id, "checkout")} onClick={() => write(i.id, "checkout", () => checkout(i.id).unwrap())}>{REVIEW_COPY.screen.checkOut}</Button>
+          <Typography level="body-sm">{`${REVIEW_COPY.screen.asked} ${day(i.requested_at)}`}</Typography>
+          <Button size="sm" {...lock(i.id, "accept")} onClick={() => write(i.id, "accept", () => accept(i.id).unwrap())}>{REVIEW_COPY.screen.accept}</Button>
+          <Button size="sm" variant="outlined" {...lock(i.id, "pass")} onClick={() => write(i.id, "pass", () => pass(i.id).unwrap())}>{REVIEW_COPY.screen.pass}</Button>
         </>
       )} />
       <IntakeLane title={REVIEW_COPY.screen.checkoutsTitle} rows={checkouts} empty={REVIEW_COPY.screen.checkoutsEmpty} label={(i) => <Typography>{describe(i)}</Typography>} extra={(i) => {
@@ -150,11 +169,20 @@ export default function ReviewsScreen() {
         </>
         );
       }} />
-      <IntakeLane title={REVIEW_COPY.screen.requestsTitle} rows={requests} empty={REVIEW_COPY.screen.requestsEmpty} label={(i) => <Typography>{describe(i)}</Typography>} extra={(i) => (
+      {isMD && <IntakeLogForm />}
+      {isMD && hasNothingToShow(reviewers) && <Typography role="alert">{REVIEW_COPY.intake.reviewersLoadFailed}</Typography>}
+      <IntakeLane title={REVIEW_COPY.screen.shelfTitle} rows={onShelf} empty={REVIEW_COPY.screen.shelfEmpty} label={(i) => (isMD ? <Link id={shelfRecordId(i)} href={`/dashboard/admin/intake/${i.id}`}>{describe(i)}</Link> : <Typography>{describe(i)}</Typography>)} extra={(i) => (
         <>
-          <Typography level="body-sm">{`${REVIEW_COPY.screen.asked} ${day(i.requested_at)}`}</Typography>
-          <Button size="sm" {...lock(i.id, "accept")} onClick={() => write(i.id, "accept", () => accept(i.id).unwrap())}>{REVIEW_COPY.screen.accept}</Button>
-          <Button size="sm" variant="outlined" {...lock(i.id, "pass")} onClick={() => write(i.id, "pass", () => pass(i.id).unwrap())}>{REVIEW_COPY.screen.pass}</Button>
+          <Typography level="body-sm">{`${REVIEW_COPY.screen.logged} ${day(i.logged_at)}`}</Typography>
+          <Button size="sm" {...lock(i.id, "checkout")} onClick={() => write(i.id, "checkout", () => checkout(i.id).unwrap())}>{REVIEW_COPY.screen.checkOut}</Button>
+          {isMD && (
+            <IntakeRequestPicker
+              reviewers={reviewers.data ?? []}
+              labelledBy={shelfRecordId(i)}
+              busy={lock(i.id, "request")}
+              onRequest={(djId) => write(i.id, "request", () => requestReview({ id: i.id, djId }).unwrap())}
+            />
+          )}
         </>
       )} />
       <IntakeLane title={REVIEW_COPY.myReviews.title} rows={myReviews} empty={REVIEW_COPY.myReviews.empty} label={(r) => <Typography><DraftLabel review={r} formats={formats} /></Typography>} extra={(r) => (
