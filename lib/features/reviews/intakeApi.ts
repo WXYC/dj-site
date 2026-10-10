@@ -9,7 +9,7 @@ import type {
 import type { FetchBaseQueryError } from "@reduxjs/toolkit/query";
 import { catalogApi, FILING_INVALIDATED_TAGS } from "@/lib/features/catalog/api";
 import { rotationApi } from "@/lib/features/rotation/api";
-import { isRefusal, isStatusRefusal, unwrapEndpointError } from "@/lib/rtk-endpoint-error";
+import { isRefusal, isStatusRefusal } from "@/lib/rtk-endpoint-error";
 import { reviewsApi } from "./api";
 
 /**
