@@ -174,3 +174,32 @@ describe("IntakeLogForm", () => {
     expect(order).toEqual(["onLog", "request"]);
   });
 });
+
+describe("IntakeLanes as the music directors' tab", () => {
+  it("shows the director lanes in the order a record moves, with no review shelf lane and no logging form", async () => {
+    const held = { checked_out_at: "2026-09-01T12:00:00Z", checked_out_by: "dj-1", checked_out_by_name: "DJ Sam" };
+    const row = (id: number, state: string, overrides = {}) =>
+      moonPix({ id, album_title: `Album ${id}`, state, effective_state: state, ...overrides });
+    const waiting = row(1, "checked_out", held);
+    fakeReviewsEndpoints({
+      open: [waiting, requestedRow(2), row(3, "checked_out", held)],
+      awaiting: [waiting],
+      reviewed: [row(4, "reviewed", held)],
+      filed: [row(5, "filed", held)],
+    });
+
+    renderWithProviders(<IntakeLanes />);
+
+    await screen.findByRole("region", { name: "Filed" });
+    const names = screen.getAllByRole("region").map((r) => r.getAttribute("aria-label") ?? "");
+    expect(names.filter((n) => /^(Review waiting|Requested|Checked out|Reviewed|Filed)/.test(n))).toEqual([
+      "Review waiting (1)",
+      "Requested",
+      "Checked out",
+      "Reviewed (1)",
+      "Filed",
+    ]);
+    expect(screen.queryByRole("region", { name: "On the review shelf" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("form", { name: "Log an item" })).not.toBeInTheDocument();
+  });
+});

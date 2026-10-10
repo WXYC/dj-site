@@ -31,7 +31,7 @@ const COPY = REVIEW_COPY.intake;
 // reload reaches the same cache entry. The unfiltered read carries every
 // state; the lanes are its rows grouped by `effective_state`.
 const EVERY_STATE = undefined;
-const AWAITING_LANE = { awaiting_acceptance: true } as const;
+export const AWAITING_LANE = { awaiting_acceptance: true } as const;
 
 // `return` is the Reviewed lane's Mark as returned; both it and `release` call /release.
 type Action = "request" | "cancel" | "release" | "return";
