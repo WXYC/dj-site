@@ -5,7 +5,7 @@ import { createVariantPalette } from "./tokens";
 import type { ThemeDefinition, ThemeSchemeInput } from "./types";
 
 const bodyFont = Kanit({
-  weight: "400",
+  weight: ["400", "500"],
   style: "normal",
   subsets: ["latin"],
 });
@@ -53,7 +53,12 @@ const modernBase = {
     display: bodyFont.style.fontFamily,
     body: bodyFont.style.fontFamily,
   },
+  // Kanit loads 400 and 500 only; Joy's stock lg (600) would be a synthesized bold.
+  fontWeight: { lg: 500 },
   typography: {
+    "title-lg": { fontWeight: 500 },
+    "title-md": { fontWeight: 500 },
+    "title-sm": { fontWeight: 500 },
     h1: {
       fontFamily: titleFont.style.fontFamily,
       fontWeight: "100",
