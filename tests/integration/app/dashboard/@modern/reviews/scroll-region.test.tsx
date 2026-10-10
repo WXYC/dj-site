@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { screen } from "@testing-library/react";
 import { renderWithProviders } from "@/tests/helpers";
+import { scrollsVertically } from "@/tests/helpers/scroll";
 import { setUpClassicPageAuthority, setUpClassicPageAuthorityEnv } from "@/tests/helpers/classic-page-authority-harness";
 
 vi.mock("server-only", () => ({}));
@@ -60,7 +61,7 @@ describe("review pages scroll inside Main", () => {
     expect(region).toHaveStyle({ flex: "1", minHeight: "0px", overflow: "auto" });
     expect(region).not.toContainElement(screen.getByTestId("page-header"));
     for (let el = region.parentElement; el; el = el.parentElement) {
-      expect(getComputedStyle(el).overflow).not.toBe("auto");
+      expect(scrollsVertically(el)).toBe(false);
     }
   });
 });

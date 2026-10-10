@@ -1,7 +1,7 @@
 import { getUserFromSession, requireAuth, requireRole } from "@/lib/features/authentication/server-utils";
 import { Authorization } from "@/lib/features/admin/types";
 import { canSeeReviews } from "@/lib/features/reviews/flags";
-import ReviewScrollRegion from "@/src/components/experiences/modern/reviews/ReviewScrollRegion";
+import ScrollRegion from "@/src/components/experiences/modern/ScrollRegion";
 import PageHeader from "@/src/components/experiences/modern/Header/PageHeader";
 import { REVIEW_COPY } from "@/src/components/experiences/modern/reviews/copy";
 import IntakeSlipScreen from "@/src/components/experiences/modern/reviews/IntakeSlipScreen";
@@ -27,9 +27,9 @@ export default async function IntakeSlipPage({ params }: { params: Promise<{ id:
   return (
     <>
       <PageHeader title={REVIEW_COPY.intakeItem.printSlip} />
-      <ReviewScrollRegion>
+      <ScrollRegion>
         <IntakeSlipScreen id={itemId} />
-      </ReviewScrollRegion>
+      </ScrollRegion>
     </>
   );
 }
