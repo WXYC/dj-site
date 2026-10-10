@@ -25,6 +25,7 @@ import { REVIEW_COPY } from "./copy";
 import FccNotesPanel from "./FccNotesPanel";
 import { intakeRecord, recordLine, releaseRecord } from "./recordLine";
 import ReleasePicker from "./ReleasePicker";
+import { fromLine, newestFirst } from "./ReviewFrom";
 import { Group } from "./ReviewsPanel";
 import { useItemPageReload } from "./useItemPageReload";
 import { usePrintedVersion } from "./usePrintedVersion";
@@ -82,7 +83,13 @@ export default function IntakeItemScreen({ id }: { id: number }) {
   const recordOf = (review: Review) => (review.intake_item_id === id ? record : undefined);
   const others = reviews.data
     .filter((r) => r.id !== coverId)
-    .sort((a, b) => b.add_date.localeCompare(a.add_date) || b.id - a.id);
+    .sort(newestFirst);
+
+  // A draft has not been submitted, and a review of a cited release is not this record's.
+  const fromExtra = (review: Review) => {
+    const line = review.status === "submitted" && review.intake_item_id === id ? fromLine(review, item.data!) : null;
+    return line && <Typography level="body-sm">{line}</Typography>;
+  };
 
   // The intake refusals are worded here; the server's text is never shown.
   const submitNew: FilingSubmit = async (request) => {
@@ -151,7 +158,7 @@ export default function IntakeItemScreen({ id }: { id: number }) {
       ) : (
         coverId == null && <Typography>{COPY.noCover}</Typography>
       )}
-      {others.length > 0 && <Group title={REVIEW_COPY.albumPanel.others} reviews={others} recordOf={recordOf} onCover={() => false} />}
+      {others.length > 0 && <Group title={REVIEW_COPY.albumPanel.others} reviews={others} recordOf={recordOf} onCover={() => false} extra={fromExtra} />}
       {!!item.data.draft_authors?.length && (
         <Typography level="body-sm">{COPY.stillWriting} {item.data.draft_authors.join(", ")}.</Typography>
       )}

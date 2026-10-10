@@ -12,12 +12,14 @@ import {
   useGetIntakeItemsQuery,
   useReleaseIntakeItemMutation,
 } from "@/lib/features/reviews/intakeApi";
+import { itemHolder } from "@/lib/features/reviews/holder";
 import { useAppDispatch } from "@/lib/hooks";
 import { useCanSeeReviews } from "@/src/hooks/useCanSeeReviews";
 import { useRowWrite } from "@/src/hooks/useRowWrite";
 import IntakeLane from "./IntakeLane";
 import { REVIEW_COPY } from "./copy";
 import { intakeRecord, recordLine } from "./recordLine";
+import { WaitingFrom } from "./ReviewFrom";
 import { hasNothingToShow } from "@/lib/has-nothing-to-show";
 
 const COPY = REVIEW_COPY.intake;
@@ -82,14 +84,12 @@ export default function IntakeLanes() {
     .sort((a, b) => b.passed_at.localeCompare(a.passed_at))
     .slice(0, RECENT_PASSES);
 
-  const where = (i: IntakeItem) =>
-    i.effective_state === "pool"
-      ? COPY.onShelf
-      : i.effective_state === "requested"
-        ? `${COPY.heldFor} ${i.requested_dj_name}`
-        : i.checked_out_by_name
-          ? `${COPY.checkedOutTo} ${i.checked_out_by_name}`
-          : COPY.holderRemovedNow;
+  const where = (i: IntakeItem) => {
+    const holder = itemHolder(i);
+    if (holder.kind === "requested") return `${COPY.heldFor} ${holder.name}`;
+    if (holder.kind === "checked_out") return `${COPY.checkedOutTo} ${holder.name}`;
+    return holder.kind === "removed" ? COPY.holderRemovedNow : COPY.onShelf;
+  };
 
   const laneLabel = (i: IntakeItem) => (
     <>
@@ -98,7 +98,6 @@ export default function IntakeLanes() {
     </>
   );
   const physical = (i: IntakeItem) => waitingIds.has(i.id) && <Chip size="sm">{COPY.reviewWaitingMark}</Chip>;
-  const reviewCount = (n: number) => `${n} ${n === 1 ? COPY.reviewOne : COPY.reviewMany}`;
 
   return (
     <Stack spacing={3}>
@@ -120,12 +119,7 @@ export default function IntakeLanes() {
           rows={awaiting.data}
           empty={COPY.empty}
           label={laneLabel}
-          extra={(i) => (
-            <>
-              <Typography level="body-sm">{where(i)}</Typography>
-              <Typography level="body-sm">{reviewCount(i.submitted_review_count)}</Typography>
-            </>
-          )}
+          extra={(i) => <WaitingFrom item={i} />}
         />
       )}
       <IntakeLane
@@ -163,18 +157,21 @@ export default function IntakeLanes() {
         rows={overdueFirst(reviewed)}
         empty={COPY.empty}
         label={laneLabel}
-        extra={(i) =>
-          i.checked_out_at && (
-            <>
-              <Typography level="body-sm">
-                {i.checked_out_by ? `${COPY.stillOutTo} ${i.checked_out_by_name}` : COPY.holderRemoved}
-              </Typography>
-              <Button size="sm" variant="outlined" {...lock(i.id, "return")} onClick={() => act(i.id, "return", () => release(i.id).unwrap())}>
-                {COPY.returned}
-              </Button>
-            </>
-          )
-        }
+        extra={(i) => {
+          const holder = itemHolder(i);
+          return (
+            holder.kind !== "none" && (
+              <>
+                <Typography level="body-sm">
+                  {holder.kind === "removed" ? COPY.holderRemoved : `${COPY.stillOutTo} ${holder.name}`}
+                </Typography>
+                <Button size="sm" variant="outlined" {...lock(i.id, "return")} onClick={() => act(i.id, "return", () => release(i.id).unwrap())}>
+                  {COPY.returned}
+                </Button>
+              </>
+            )
+          );
+        }}
       />
       <IntakeLane title={COPY.filed} rows={inState("filed")} empty={COPY.empty} label={laneLabel} />
     </Stack>

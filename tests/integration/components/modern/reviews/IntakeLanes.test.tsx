@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
-import { fakeReviewsEndpoints, intakeItem, pendingCount, renderedFrame, renderWithProviders, server, TEST_BACKEND_URL } from "@/tests/helpers";
+import { fakeReviewsEndpoints, intakeItem, pendingCount, renderedFrame, renderWithProviders, review, server, TEST_BACKEND_URL } from "@/tests/helpers";
 import { Authorization } from "@/lib/features/admin/types";
 
 vi.mock("@/lib/features/authentication/client", async () => {
@@ -61,6 +61,7 @@ describe("IntakeLanes", () => {
     ["heldFor", REVIEW_COPY.intake.heldFor, "Held for"],
     ["cancelRequest", REVIEW_COPY.intake.cancelRequest, "Cancel request"],
     ["release", REVIEW_COPY.intake.release, "Release"],
+    ["more", REVIEW_COPY.intake.more(2), "+2 more"],
   ])("words %s exactly as the station approved it", (_key, actual, approved) => {
     expect(actual).toBe(approved);
   });
@@ -123,30 +124,81 @@ describe("IntakeLanes", () => {
     expect(screen.queryByRole("region", { name: /Review waiting/ })).not.toBeInTheDocument();
   });
 
+  // A waiting review as the item's reviews read serves it.
+  const waitingReview = (id: number, itemId: number, overrides = {}) =>
+    review({ id, intake_item_id: itemId, status: "submitted", author: "Jessica Pratt", author_user_id: "dj-jess", add_date: "2026-10-01", ...overrides });
+
   it.each([
-    [1, "1 review"],
-    [2, "2 reviews"],
-  ])("counts %i submitted reviews as %s, and marks the record in its physical lane", async (count, text) => {
-    const item = waiting(7, { submitted_review_count: count });
-    fakeReviewsEndpoints({ open: [item, waiting(8, { submitted_review_count: 3 })], awaiting: [item, waiting(8, { submitted_review_count: 3 })] });
+    ["the author is the DJ who has the record", { checked_out_by: "dj-jess", checked_out_by_name: "Jessica Pratt" }, "From Jessica Pratt, who has this record."],
+    ["someone else wrote it and a DJ has the record", {}, "From Jessica Pratt. The record is with DJ Sam."],
+    [
+      "someone else wrote it and a request is open",
+      { state: "requested", effective_state: "requested", requested_dj_id: "dj-pat", requested_dj_name: "DJ Pat", checked_out_by: null, checked_out_by_name: null },
+      "From Jessica Pratt. The record is being held for DJ Pat.",
+    ],
+    [
+      "someone else wrote it and the record is on the review shelf",
+      { state: "pool", effective_state: "pool", checked_out_by: null, checked_out_by_name: null },
+      "From Jessica Pratt. The record is on the review shelf.",
+    ],
+    [
+      "someone else wrote it and the holder's account was removed",
+      { checked_out_by: null, checked_out_by_name: null, checked_out_at: "2026-09-20T12:00:00Z" },
+      "From Jessica Pratt. The record is checked out; holder removed.",
+    ],
+  ])("says who a waiting review is from when %s", async (_label, itemOverrides, line) => {
+    const item = waiting(7, itemOverrides);
+    fakeReviewsEndpoints({ open: [item], awaiting: [item], forItem: { "7": [waitingReview(70, 7)] } });
 
     renderWithProviders(<IntakeLanes />);
 
-    const lane1 = await lane("Review waiting (2)");
-    expect(within(lane1).getAllByText("Checked out to DJ Sam")).toHaveLength(2);
-    expect(within(lane1).getByText(text)).toBeInTheDocument();
+    const waitingLane = await lane("Review waiting (1)");
+    expect(await within(waitingLane).findByText(line)).toBeInTheDocument();
+    expect(within(waitingLane).queryByText(/review$|reviews$|more$/)).not.toBeInTheDocument();
+  });
+
+  it("names the newest waiting review and counts the rest as +n more, leaving out drafts and the review on the cover", async () => {
+    const item = waiting(7, { submitted_review_count: 4, accepted_review_id: 73 });
+    fakeReviewsEndpoints({
+      open: [item],
+      awaiting: [item],
+      forItem: {
+        "7": [
+          waitingReview(70, 7, { author: "Sessa", add_date: "2026-10-01" }),
+          waitingReview(71, 7, { author: "Cat Power", add_date: "2026-10-05" }),
+          waitingReview(72, 7, { author: "Nilüfer Yanya", status: "draft", add_date: "2026-10-09" }),
+          waitingReview(73, 7, { author: "Stereolab", add_date: "2026-10-08" }),
+        ],
+      },
+    });
+
+    renderWithProviders(<IntakeLanes />);
+
+    const waitingLane = await lane("Review waiting (1)");
+    expect(await within(waitingLane).findByText("From Cat Power. The record is with DJ Sam.")).toBeInTheDocument();
+    expect(within(waitingLane).getByText("+1 more")).toBeInTheDocument();
+    expect(within(waitingLane).queryByText(/Sessa|Nilüfer|Stereolab/)).not.toBeInTheDocument();
+  });
+
+  it("marks the record in its physical lane and leaves the location line there", async () => {
+    const item = waiting(7);
+    fakeReviewsEndpoints({ open: [item], awaiting: [item], forItem: { "7": [waitingReview(70, 7)] } });
+
+    renderWithProviders(<IntakeLanes />);
+
     const checkedOut = await lane("Checked out");
-    expect(within(checkedOut).getAllByText("review waiting")).toHaveLength(2);
+    expect(within(checkedOut).getByText("review waiting")).toBeInTheDocument();
+    expect(within(checkedOut).getByText("Checked out to DJ Sam")).toBeInTheDocument();
   });
 
   it("names a removed holder in the Review waiting lane instead of printing null", async () => {
-    const orphan = waiting(9, { checked_out_by: null, checked_out_by_name: null });
-    fakeReviewsEndpoints({ open: [orphan], awaiting: [orphan] });
+    const orphan = waiting(9, { checked_out_by: null, checked_out_by_name: null, checked_out_at: "2026-09-20T12:00:00Z" });
+    fakeReviewsEndpoints({ open: [orphan], awaiting: [orphan], forItem: { "9": [waitingReview(90, 9)] } });
 
     renderWithProviders(<IntakeLanes />);
 
     const lane1 = await lane("Review waiting (1)");
-    expect(within(lane1).getByText("Holder removed")).toBeInTheDocument();
+    expect(await within(lane1).findByText("From Jessica Pratt. The record is checked out; holder removed.")).toBeInTheDocument();
     expect(within(lane1).queryByText(/Checked out to/)).not.toBeInTheDocument();
     expect(lane1).not.toHaveTextContent("null");
   });

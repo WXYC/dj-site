@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { Button, Link as JoyLink, Stack, Typography } from "@mui/joy";
 import type { Review } from "@wxyc/shared";
@@ -27,7 +28,7 @@ export function FccNotesSlot({ albumId }: { albumId: number }) {
 }
 
 /** A review as the page shows it; `record` is set only when the review is about this page's own record, and `printable` only by the album page's panel, where that record is a library release. `onCover` says the review is on a cover now, which is what earns it the printed-version note and also decides the print link's name ("Print a new slip" only for a printed, edited cover review). */
-export function ReviewItem({ review, record, newSlipHref, printable, onCover }: { review: Review; record?: PanelRecord; newSlipHref?: string; printable?: boolean; onCover: boolean }) {
+export function ReviewItem({ review, record, newSlipHref, printable, onCover, children }: { review: Review; record?: PanelRecord; newSlipHref?: string; printable?: boolean; onCover: boolean; children?: ReactNode }) {
   const printedVersion = usePrintedVersion(review, { onCover });
   const onTheSleeve = review.medium === "handwritten" && !review.review;
   return (
@@ -55,18 +56,21 @@ export function ReviewItem({ review, record, newSlipHref, printable, onCover }: 
           {copy.history}
         </JoyLink>
       )}
+      {children}
     </Stack>
   );
 }
 
-/** A headed list of reviews; `recordOf` names the record a review is about, or nothing for a review of a release this record cites. */
-export function Group({ title, reviews, recordOf, newSlipHref, printable, onCover }: { title: string; reviews: Review[]; recordOf: (review: Review) => PanelRecord | undefined; newSlipHref?: string; printable?: boolean; onCover: (review: Review) => boolean }) {
+/** A headed list of reviews; `recordOf` names the record a review is about, or nothing for a review of a release this record cites. `extra` renders after each review, for a page's own lines and buttons. */
+export function Group({ title, reviews, recordOf, newSlipHref, printable, onCover, extra }: { title: string; reviews: Review[]; recordOf: (review: Review) => PanelRecord | undefined; newSlipHref?: string; printable?: boolean; onCover: (review: Review) => boolean; extra?: (review: Review) => ReactNode }) {
   return (
     <Stack component="section" spacing={1}>
       <Typography level="title-sm" component="h3">{title}</Typography>
       <Stack component="ul" spacing={1.5} sx={{ p: 0, m: 0 }}>
         {reviews.map((review) => (
-          <ReviewItem key={review.id} review={review} record={recordOf(review)} newSlipHref={newSlipHref} printable={printable} onCover={onCover(review)} />
+          <ReviewItem key={review.id} review={review} record={recordOf(review)} newSlipHref={newSlipHref} printable={printable} onCover={onCover(review)}>
+            {extra?.(review)}
+          </ReviewItem>
         ))}
       </Stack>
     </Stack>

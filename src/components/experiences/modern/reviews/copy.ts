@@ -227,10 +227,18 @@ export const REVIEW_COPY = {
     holderRemoved: "Still out: holder removed",
     /** Approved. The location line, on the Review waiting and Checked out lanes, for a checked-out record whose holder's account was removed. */
     holderRemovedNow: "Holder removed",
-    /** Approved. The Review waiting lane's count, "1 review" or "2 reviews". */
-    reviewOne: "review",
-    /** Approved. */
-    reviewMany: "reviews",
+    /** Approved. Who a waiting review is from, when its author is the DJ who has the record. */
+    fromHolder: (author: string) => `From ${author}, who has this record.`,
+    /** Approved. Someone else wrote it and a named DJ has the record. */
+    fromWith: (author: string, holder: string) => `From ${author}. The record is with ${holder}.`,
+    /** Approved. Someone else wrote it and a music director's request to a DJ is still open. */
+    fromHeldFor: (author: string, holder: string) => `From ${author}. The record is being held for ${holder}.`,
+    /** Approved. Someone else wrote it and the record is on the review shelf. */
+    fromShelf: (author: string) => `From ${author}. The record is on the review shelf.`,
+    /** Approved. Someone else wrote it and the holder's account was removed. */
+    fromRemoved: (author: string) => `From ${author}. The record is checked out; holder removed.`,
+    /** Approved. The further waiting reviews on a Review waiting row. */
+    more: (n: number) => `+${n} more`,
     /** Approved. */
     empty: "Nothing here.",
     /** Approved. The notice band's accessible name, over the recent passes. */

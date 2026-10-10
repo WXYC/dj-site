@@ -151,6 +151,11 @@ describe("IntakeItemScreen", () => {
 
   it.each([
     ["printSlip", REVIEW_COPY.intakeItem.printSlip, "Print the slip"],
+    ["fromHolder", REVIEW_COPY.intake.fromHolder("Jessica Pratt"), "From Jessica Pratt, who has this record."],
+    ["fromWith", REVIEW_COPY.intake.fromWith("Jessica Pratt", "Sessa"), "From Jessica Pratt. The record is with Sessa."],
+    ["fromHeldFor", REVIEW_COPY.intake.fromHeldFor("Jessica Pratt", "Sessa"), "From Jessica Pratt. The record is being held for Sessa."],
+    ["fromShelf", REVIEW_COPY.intake.fromShelf("Jessica Pratt"), "From Jessica Pratt. The record is on the review shelf."],
+    ["fromRemoved", REVIEW_COPY.intake.fromRemoved("Jessica Pratt"), "From Jessica Pratt. The record is checked out; holder removed."],
   ])("words %s exactly as the station approved it", (_key, actual, approved) => {
     expect(actual).toBe(approved);
   });
@@ -1351,6 +1356,57 @@ describe("IntakeItemScreen", () => {
       expect(await screen.findByText("Couldn't delete this record. Please try again.")).toBeInTheDocument();
       await reviewsSettled(store);
       expect(reads).toBe(readsBefore);
+    });
+  });
+
+  describe("who each waiting review is from", () => {
+    const HELD_BY_SAM = { checked_out_by: "dj-sam", checked_out_by_name: "DJ Sam", checked_out_at: "2026-09-20T12:00:00Z" };
+    const HELD_BY_JESS = { checked_out_by: "dj-jess", checked_out_by_name: "Jessica Pratt", checked_out_at: "2026-09-20T12:00:00Z" };
+    const REMOVED_HOLDER = { checked_out_by: null, checked_out_by_name: null, checked_out_at: "2026-09-20T12:00:00Z" };
+
+    const waiting = (id: number, overrides = {}) => submitted(id, { author: "Jessica Pratt", author_user_id: "dj-jess", ...overrides });
+    const otherReviews = async () => (await screen.findByRole("heading", { name: "Other reviews" })).closest("section")!;
+
+    it.each([
+      ["the author is the DJ who has the record", HELD_BY_JESS, "From Jessica Pratt, who has this record."],
+      ["someone else wrote it and a DJ has the record", HELD_BY_SAM, "From Jessica Pratt. The record is with DJ Sam."],
+      [
+        "someone else wrote it and a request is open",
+        { state: "requested", effective_state: "requested", requested_dj_id: "dj-pat", requested_dj_name: "DJ Pat" },
+        "From Jessica Pratt. The record is being held for DJ Pat.",
+      ],
+      ["someone else wrote it and the holder's account was removed", REMOVED_HOLDER, "From Jessica Pratt. The record is checked out; holder removed."],
+      [
+        "someone else wrote it and the record is on the review shelf",
+        { state: "pool", effective_state: "pool" },
+        "From Jessica Pratt. The record is on the review shelf.",
+      ],
+    ])("says so under Other reviews when %s", async (_label, overrides, line) => {
+      fakeReviewsEndpoints({ records: [dogaItem(overrides)], forItem: { [ITEM_ID]: [submitted(40), waiting(41)] } });
+
+      renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      expect(await within(await otherReviews()).findByText(line)).toBeInTheDocument();
+      const cover = screen.getByRole("heading", { name: "The review on the cover" }).closest("section")!;
+      expect(within(cover).queryByText(/^From /)).not.toBeInTheDocument();
+    });
+
+    it("matches nobody when the review has no linked account", async () => {
+      fakeReviewsEndpoints({ records: [dogaItem(HELD_BY_JESS)], forItem: { [ITEM_ID]: [submitted(40), waiting(41, { author_user_id: null })] } });
+
+      renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      expect(await within(await otherReviews()).findByText("From Jessica Pratt. The record is with Jessica Pratt.")).toBeInTheDocument();
+    });
+
+    it("says nothing for a record nobody has that is no longer on the review shelf, and for a draft", async () => {
+      fakeReviewsEndpoints({ records: [dogaItem()], forItem: { [ITEM_ID]: [submitted(40), waiting(41), waiting(42, { status: "draft" })] } });
+
+      const { store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      await otherReviews();
+      await reviewsSettled(store);
+      expect(screen.queryByText(/^From /)).not.toBeInTheDocument();
     });
   });
 });
