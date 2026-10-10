@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import { Authorization } from "@/lib/features/admin/types";
 import { fakeReviewsEndpoints, renderWithProviders, review, reviewRevision, server } from "@/tests/helpers";
-import { http, HttpResponse } from "msw";
+import { delay, http, HttpResponse } from "msw";
 import type { AlbumReview } from "@wxyc/shared";
 import { TEST_BACKEND_URL } from "@/tests/helpers/constants";
 
@@ -35,7 +35,7 @@ vi.mock("@/src/hooks/authenticationHooks", () => ({
   }),
 }));
 
-import ReviewsPanel from "@/src/components/experiences/modern/reviews/ReviewsPanel";
+import ReviewsPanel, { Group } from "@/src/components/experiences/modern/reviews/ReviewsPanel";
 import { REVIEW_COPY } from "@/src/components/experiences/modern/reviews/copy";
 
 const RECORD = { artist: "Juana Molina", album: "DOGA", label: "Sonamos" };
@@ -257,30 +257,59 @@ describe("ReviewsPanel", () => {
 
   describe("the print link's name", () => {
     const two = [reviewRevision({ id: 11, review_id: 1, revision: 1 }), reviewRevision({ id: 12, review_id: 1, revision: 2 })];
-    it.each<[string, boolean, Record<string, unknown>, "list" | "fail", string, boolean]>([
-      ["never printed", true, {}, "list", "Print the slip", false],
-      ["printed and unchanged, on the cover", true, { printed_revision_id: 12, printed_at: "2026-10-02T16:00:00Z" }, "list", "Print the slip", true],
-      ["printed and edited since, on the cover", true, { printed_revision_id: 11, printed_at: "2026-10-02T16:00:00Z" }, "list", "Print a new slip", true],
-      ["printed and edited since, not on the cover", false, { printed_revision_id: 11, printed_at: "2026-10-02T16:00:00Z" }, "list", "Print the slip", false],
-      ["printed, on the cover, revisions failing to load", true, { printed_revision_id: 11, printed_at: "2026-10-02T16:00:00Z" }, "fail", "Print the slip", true],
-    ])("reads exactly the approved wording for a review %s", async (_name, onCover, overrides, revisions, expected, asked) => {
+    const PRINTED = { printed_revision_id: 11, printed_at: "2026-10-02T16:00:00Z" };
+    const { isCurrent, seePrinted, loadFailed } = REVIEW_COPY.printedNote;
+    type Revisions = "list" | "fail" | "never";
+    // `settled` is text that only shows once the revisions read has resolved, so the name is asserted on the settled state and not on the loading one (which reads "Print the slip" whatever the settled state would read).
+    it.each<{ case: string; onCover: boolean; overrides: Record<string, unknown>; revisions: Revisions; expected: string; asked: boolean; settled: string | null }>([
+      { case: "never printed", onCover: true, overrides: {}, revisions: "list", expected: "Print the slip", asked: false, settled: null },
+      { case: "printed and unchanged, on the cover", onCover: true, overrides: { printed_revision_id: 12, printed_at: PRINTED.printed_at }, revisions: "list", expected: "Print the slip", asked: true, settled: isCurrent },
+      { case: "printed and edited since, on the cover", onCover: true, overrides: PRINTED, revisions: "list", expected: "Print a new slip", asked: true, settled: seePrinted },
+      { case: "printed and edited since, not on the cover", onCover: false, overrides: PRINTED, revisions: "list", expected: "Print the slip", asked: false, settled: null },
+      { case: "printed, on the cover, revisions failing to load", onCover: true, overrides: PRINTED, revisions: "fail", expected: "Print the slip", asked: true, settled: loadFailed },
+      { case: "printed, on the cover, revisions still loading", onCover: true, overrides: PRINTED, revisions: "never", expected: "Print the slip", asked: true, settled: null },
+      { case: "printed with an unusable printed_at, on the cover, newer revision", onCover: true, overrides: { printed_revision_id: 11, printed_at: "not a date" }, revisions: "list", expected: "Print the slip", asked: true, settled: null },
+    ])("reads exactly the approved wording for a review $case", async ({ onCover, overrides, revisions, expected, asked, settled }) => {
       mockAuth.authority = Authorization.MD;
       const requested = vi.fn();
       fakeReviewsEndpoints({ forRelease: { [ALBUM_ID]: [submitted(1, { on_cover: onCover, ...overrides }), submitted(2)] } });
       server.use(
-        http.get(`${TEST_BACKEND_URL}/reviews/:id/revisions`, () => {
+        http.get(`${TEST_BACKEND_URL}/reviews/:id/revisions`, async () => {
           requested();
+          if (revisions === "never") await delay("infinite");
           return revisions === "fail" ? new HttpResponse(null, { status: 500 }) : HttpResponse.json(two);
         }),
       );
       renderPanel();
 
       const entry = (await screen.findByText("Text 1")).closest("li")!;
+      if (asked) await waitFor(() => expect(requested).toHaveBeenCalled());
+      if (settled) await within(entry).findByText(settled);
+      // Without text to wait for, give a resolved read time to render before asserting.
+      else if (asked && revisions === "list") await new Promise((r) => setTimeout(r, 50));
       const link = await within(entry).findByRole("link", { name: expected });
       expect(link).toHaveAttribute("href", `/dashboard/admin/library/${ALBUM_ID}/slip/1`);
       expect(within(entry).getAllByRole("link", { name: /^Print (the|a new) slip$/ })).toHaveLength(1);
-      if (asked) await waitFor(() => expect(requested).toHaveBeenCalled());
-      else expect(requested).not.toHaveBeenCalled();
+      if (!asked) {
+        await new Promise((r) => setTimeout(r, 50));
+        expect(requested).not.toHaveBeenCalled();
+      }
+    });
+
+    it("decides from the onCover it is given, not from the review's own on_cover", async () => {
+      mockAuth.authority = Authorization.MD;
+      const requested = vi.fn();
+      server.use(http.get(`${TEST_BACKEND_URL}/reviews/:id/revisions`, () => { requested(); return HttpResponse.json(two); }));
+      // The record page's other reviews are told they are not on a cover, whatever the review says.
+      renderWithProviders(
+        <Group title="Other reviews" reviews={[submitted(1, { on_cover: true, ...PRINTED })]} recordOf={() => RECORD} printable onCover={() => false} />,
+      );
+
+      const entry = (await screen.findByText("Text 1")).closest("li")!;
+      expect(await within(entry).findByRole("link", { name: "Print the slip" })).toBeInTheDocument();
+      await new Promise((r) => setTimeout(r, 50));
+      expect(requested).not.toHaveBeenCalled();
+      expect(within(entry).queryByText(isCurrent)).not.toBeInTheDocument();
     });
   });
 });
