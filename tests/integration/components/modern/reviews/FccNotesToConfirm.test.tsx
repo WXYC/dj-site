@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { Authorization } from "@/lib/features/admin/types";
@@ -280,24 +280,51 @@ describe("a 403 on a write", () => {
     if (!expectNav) expect(router.replace).not.toHaveBeenCalled();
   });
 
-  it.each([
-    { label: "the session read never settles", read: () => new Promise(() => {}), expectNav: false },
-    { label: "the session read answers no user", read: () => Promise.resolve({ data: { user: null }, error: null }), expectNav: true },
-  ])("on a music director's Confirm when $label", async ({ read, expectNav }) => {
-    vi.mocked(authClient.getSession).mockImplementationOnce(read as never);
+  it("on a music director's Confirm when the session read answers no user, sends them to sign-in", async () => {
+    vi.mocked(authClient.getSession).mockImplementationOnce((() => Promise.resolve({ data: { user: null }, error: null })) as never);
     fakeReviewsEndpoints({ fccNotesToConfirm: [waitingNote()] });
     server.use(http.post(`${TEST_BACKEND_URL}/fcc-notes/1/confirm`, () => HttpResponse.json({ message: NO_NAME }, { status: 403 })));
     renderWithProviders(<FccNotesToConfirm />);
 
     await userEvent.setup().click(await screen.findByRole("button", { name: /^Confirm the note/ }));
 
-    if (expectNav) {
-      await waitFor(() => expect(router.replace).toHaveBeenCalledWith(SIGN_IN));
-    } else {
-      // The stalled read gives up after its 2000 ms timeout and leaves the person where they are.
-      await waitFor(() => expect(screen.getByRole("alert").textContent).toBe(copy.couldNotConfirm), { timeout: 4000 });
+    await waitFor(() => expect(router.replace).toHaveBeenCalledWith(SIGN_IN));
+  });
+
+  describe("when the session read never settles", () => {
+    beforeEach(() => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+    });
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("gives up at exactly 2000 ms and leaves the music director on the page with the generic line", async () => {
+      let readAt = 0;
+      vi.mocked(authClient.getSession).mockImplementationOnce((() => {
+        // The timeout is armed in the same tick as the read, so this is the moment its 2000 ms start from.
+        readAt = Date.now();
+        return new Promise(() => {});
+      }) as never);
+      fakeReviewsEndpoints({ fccNotesToConfirm: [waitingNote()] });
+      server.use(http.post(`${TEST_BACKEND_URL}/fcc-notes/1/confirm`, () => HttpResponse.json({ message: NO_NAME }, { status: 403 })));
+      renderWithProviders(<FccNotesToConfirm />);
+
+      await userEvent.setup({ advanceTimers: vi.advanceTimersByTime }).click(await screen.findByRole("button", { name: /^Confirm the note/ }));
+      await waitFor(() => expect(readAt).toBeGreaterThan(0));
+
+      // One millisecond short of the timeout the read is still pending: no line, no redirect.
+      await act(() => vi.advanceTimersByTimeAsync(readAt + 1999 - Date.now()));
+      expect(Date.now() - readAt).toBe(1999);
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
       expect(router.replace).not.toHaveBeenCalled();
-    }
+
+      // At 2000 ms the read gives up as unread: the generic line shows and nobody is sent to sign-in.
+      await act(() => vi.advanceTimersByTimeAsync(readAt + 2000 - Date.now()));
+      expect(Date.now() - readAt).toBe(2000);
+      expect(screen.getByRole("alert").textContent).toBe(copy.couldNotConfirm);
+      expect(router.replace).not.toHaveBeenCalled();
+    });
   });
 
   it("tells a music director whose Remove is refused the generic line, never the reporter's", async () => {
