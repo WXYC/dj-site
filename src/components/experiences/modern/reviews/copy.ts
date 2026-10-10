@@ -158,7 +158,12 @@ export const REVIEW_COPY = {
     /** Approved. The label, then the number of reviews waiting, as `Music directors (3)`. */
     count: (label: string, n: number) => `${label} (${n})`,
   },
-  /** The music directors' review shelf page, `/dashboard/admin/intake`. */
+  /** The sidebar's one entry for the Reviews page. */
+  sidebar: {
+    /** Approved. */
+    title: "Reviews",
+  },
+  /** The music directors' lanes, on the Reviews page's second tab. */
   intake: {
     /** Approved. The menu entry and the page heading. */
     title: "Review shelf",

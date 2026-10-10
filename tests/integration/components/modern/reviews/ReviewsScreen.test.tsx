@@ -12,9 +12,13 @@ import {
   TEST_BACKEND_URL,
 } from "@/tests/helpers";
 
+// The page never reads the roster; a spy on the admin client's account list proves it.
+const listUsers = vi.hoisted(() => vi.fn());
+
 vi.mock("@/lib/features/authentication/client", async () => {
   const { createAuthClientModuleMock } = await import("@/tests/helpers/auth-client-mock");
-  return createAuthClientModuleMock();
+  const mock = createAuthClientModuleMock();
+  return { ...mock, authClient: { ...mock.authClient, admin: { listUsers } } };
 });
 
 vi.mock("sonner", () => ({
@@ -28,14 +32,26 @@ vi.mock("next/navigation", async () => {
 });
 
 const ME = "dj-me";
-const mockAuth = vi.hoisted(() => ({ authority: 1 as number }));
-vi.mock("@/src/hooks/authenticationHooks", () => ({
-  useAuthentication: () => ({
-    data: { user: { id: ME, authority: mockAuth.authority } },
-    authenticating: false,
-    authenticated: true,
-  }),
-}));
+// `late` mimics the real hook, which seeds each caller's own state from the session
+// alone (no station role yet) and only switches to the resolved role after an effect and a microtask.
+const mockAuth = vi.hoisted(() => ({ authority: 1 as number, late: false }));
+vi.mock("@/src/hooks/authenticationHooks", async () => {
+  const { useEffect, useState } = await import("react");
+  return {
+    useAuthentication: () => {
+      const [settled, setSettled] = useState(!mockAuth.late);
+      useEffect(() => {
+        if (settled) return;
+        void Promise.resolve().then(() => setSettled(true));
+      }, [settled]);
+      return {
+        data: { user: { id: ME, authority: settled ? mockAuth.authority : Authorization.NO } },
+        authenticating: false,
+        authenticated: true,
+      };
+    },
+  };
+});
 
 import { toast } from "sonner";
 import { REVIEW_COPY } from "@/src/components/experiences/modern/reviews/copy";
@@ -82,10 +98,14 @@ describe("ReviewsScreen", () => {
     fakeReviewsEndpoints();
     router.push.mockClear();
     router.replace.mockClear();
+    listUsers.mockClear();
     vi.mocked(toast).mockClear();
     vi.mocked(toast.error).mockClear();
   });
-  afterEach(() => vi.unstubAllEnvs());
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    mockAuth.late = false;
+  });
 
   it("lists the review shelf with Check out, and a checkout sends the POST", async () => {
     serveIntake([item({ id: 5 })]);
@@ -571,6 +591,94 @@ describe("ReviewsScreen", () => {
     expect(toast.error).not.toHaveBeenCalled();
   });
 
+  it("makes no roster request, and offers the request on the review shelf lane only", async () => {
+    mockAuth.authority = Authorization.MD;
+    const held = item({ id: 7, album_title: "Waiting Album", effective_state: "checked_out", checked_out_by: ME });
+    fakeReviewsEndpoints({
+      open: [moonPix({ id: 1 }), moonPix({ id: 2, album_title: "Dark Side" }), held],
+      reviewers: REVIEWERS,
+    });
+
+    const { user } = renderWithProviders(<ReviewsScreen />);
+    const shelf = await section(SHELF);
+    expect(await within(shelf).findAllByRole("button", { name: "Request a review" })).toHaveLength(2);
+    await user.click(await (await rowControls("Moon Pix")).findByRole("combobox", { name: "DJ to ask" }));
+    await screen.findByRole("option", { name: "Test Reviewer" });
+
+    expect(listUsers).not.toHaveBeenCalled();
+    for (const other of ["Requests for me", "My checkouts", "My reviews"]) {
+      expect(within(await section(other)).queryByRole("button", { name: "Request a review" })).not.toBeInTheDocument();
+      expect(within(await section(other)).queryByRole("combobox", { name: "DJ to ask" })).not.toBeInTheDocument();
+    }
+  });
+
+  it("leaves another row's Request a review disabled when a DJ is picked in one row", async () => {
+    mockAuth.authority = Authorization.MD;
+    fakeReviewsEndpoints({
+      open: [moonPix({ id: 1 }), moonPix({ id: 2, album_title: "Dark Side" })],
+      reviewers: REVIEWERS,
+    });
+
+    const { user } = renderWithProviders(<ReviewsScreen />);
+    await pick(user, "Pat Placeholder", "Dark Side");
+
+    expect((await rowControls("Dark Side")).getByRole("button", { name: "Request a review" })).toBeEnabled();
+    expect((await rowControls("Moon Pix")).getByRole("button", { name: "Request a review" })).toBeDisabled();
+  });
+
+  // `isIntakeRequestRefused` is true for any 400 under `intakeWriteError`, so only the action tells a refused request apart.
+  it.each([
+    ["Check out", SHELF, "checkout", item({ id: 5 })],
+    ["Accept", "Requests for me", "accept", item({ id: 5, state: "requested", effective_state: "requested", requested_dj_id: ME })],
+    ["Pass", "Requests for me", "pass", item({ id: 5, state: "requested", effective_state: "requested", requested_dj_id: ME })],
+  ] as const)("a 400 on %s is a plain write failure, not the request's line", async (button, title, action, row) => {
+    serveIntake([row]);
+    server.use(http.post(`${TEST_BACKEND_URL}/intake/5/${action}`, () => HttpResponse.json({ message: "server words" }, { status: 400 })));
+
+    const { user } = renderWithProviders(<ReviewsScreen />);
+    await user.click(await within(await section(title)).findByRole("button", { name: button }));
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(REVIEW_COPY.screen.writeFailed));
+    expect(toast.error).not.toHaveBeenCalledWith(REQUEST_REFUSED);
+  });
+
+  it("a 400 on Return to the review shelf is a plain write failure, not the request's line", async () => {
+    serveIntake([item({ id: 5, state: "checked_out", effective_state: "checked_out", checked_out_by: ME })]);
+    server.use(http.post(`${TEST_BACKEND_URL}/intake/5/release`, () => HttpResponse.json({ message: "server words" }, { status: 400 })));
+
+    const { user } = renderWithProviders(<ReviewsScreen />);
+    await user.click(await within(await section("My checkouts")).findByRole("button", { name: RETURN }));
+    await user.click(within(await screen.findByRole("alertdialog", { name: RETURN })).getByRole("button", { name: RETURN }));
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(REVIEW_COPY.screen.writeFailed));
+    expect(toast.error).not.toHaveBeenCalledWith(REQUEST_REFUSED);
+  });
+
+  it("never paints the review shelf lane without the logging form and Request a review when the role resolves after the first paint", async () => {
+    mockAuth.authority = Authorization.MD;
+    mockAuth.late = true;
+    fakeReviewsEndpoints({ open: [moonPix()], reviewers: REVIEWERS });
+    const states: string[] = [];
+    const observer = new MutationObserver(() => {
+      const shelf = screen.queryByRole("region", { name: SHELF });
+      if (!shelf) return;
+      const form = screen.queryByRole("form", { name: "Log an item" }) !== null;
+      const row = within(shelf).queryByText(/Moon Pix/) !== null;
+      const request = within(shelf).queryByRole("button", { name: "Request a review" }) !== null;
+      states.push(`${form ? "F" : "-"}${row ? (request ? "R" : "-") : "."}`);
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+
+    renderWithProviders(<ReviewsScreen />);
+    await screen.findByRole("form", { name: "Log an item" });
+    await within(await section(SHELF)).findByRole("button", { name: "Request a review" });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    observer.disconnect();
+
+    expect(states).toContain("FR");
+    expect(states.filter((state) => state[0] === "-" || state[1] === "-")).toEqual([]);
+  });
+
   it("shows one line above the shelf when the reviewers fail to load, and the lanes still render", async () => {
     mockAuth.authority = Authorization.MD;
     fakeReviewsEndpoints({ open: [moonPix({ id: 1 }), moonPix({ id: 2 })] });
@@ -643,6 +751,10 @@ describe("ReviewsScreen", () => {
   });
 
   it.each([
+    ["artist", REVIEW_COPY.intake.artist, "Artist"],
+    ["album", REVIEW_COPY.intake.album, "Album"],
+    ["label", REVIEW_COPY.intake.label, "Label"],
+    ["format", REVIEW_COPY.intake.format, "Format"],
     ["logged", REVIEW_COPY.screen.logged, "Logged"],
     ["taken", REVIEW_COPY.screen.taken, "Taken"],
     ["asked", REVIEW_COPY.screen.asked, "Asked"],

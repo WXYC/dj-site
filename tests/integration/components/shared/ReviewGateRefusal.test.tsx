@@ -36,7 +36,7 @@ describe("ReviewGateRefusal", () => {
     renderWithProviders(<ReviewGateRefusal />);
 
     const link = screen.queryByRole("link", { name: "Open the review shelf" });
-    if (linked) expect(link).toHaveAttribute("href", "/dashboard/admin/intake");
+    if (linked) expect(link).toHaveAttribute("href", "/dashboard/reviews");
     else expect(link).not.toBeInTheDocument();
   });
 });

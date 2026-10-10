@@ -10,17 +10,12 @@ import {
   intakeApi,
   useCancelIntakeRequestMutation,
   useGetIntakeItemsQuery,
-  isIntakeRequestRefused,
   useReleaseIntakeItemMutation,
-  useRequestIntakeItemMutation,
 } from "@/lib/features/reviews/intakeApi";
-import { reviewApi, useGetReviewersQuery } from "@/lib/features/reviews/reviewApi";
 import { useAppDispatch } from "@/lib/hooks";
 import { useCanSeeReviews } from "@/src/hooks/useCanSeeReviews";
 import { useRowWrite } from "@/src/hooks/useRowWrite";
 import IntakeLane from "./IntakeLane";
-import IntakeLogForm from "./IntakeLogForm";
-import IntakeRequestPicker from "./IntakeRequestPicker";
 import { REVIEW_COPY } from "./copy";
 import { intakeRecord, recordLine } from "./recordLine";
 import { hasNothingToShow } from "@/lib/has-nothing-to-show";
@@ -34,11 +29,10 @@ const EVERY_STATE = undefined;
 export const AWAITING_LANE = { awaiting_acceptance: true } as const;
 
 // `return` is the Reviewed lane's Mark as returned; both it and `release` call /release.
-type Action = "request" | "cancel" | "release" | "return";
+type Action = "cancel" | "release" | "return";
 
 /** What a lost race (409 `state_changed`) means for each button, shown once the lists have reloaded. */
 const RACE_NOTICE: Record<Action, string> = {
-  request: COPY.raceRequest,
   cancel: COPY.raceCancel,
   release: COPY.raceCheckoutReleased,
   return: COPY.raceReleased,
@@ -46,20 +40,11 @@ const RACE_NOTICE: Record<Action, string> = {
 
 const RECENT_PASSES = 5;
 
-interface IntakeLanesProps {
-  /** Renders the logging form above the lanes. */
-  logForm?: boolean;
-  /** Renders the review shelf lane, with its request picker, and reads the reviewers it needs. */
-  shelf?: boolean;
-}
-
-export default function IntakeLanes({ logForm = false, shelf = false }: IntakeLanesProps) {
+export default function IntakeLanes() {
   const visible = useCanSeeReviews();
   const everyState = useGetIntakeItemsQuery(EVERY_STATE, { skip: !visible });
   const awaiting = useGetIntakeItemsQuery(AWAITING_LANE, { skip: !visible });
   const { data: formats } = useGetFormatsQuery(undefined, { skip: !visible });
-  const reviewers = useGetReviewersQuery(undefined, { skip: !visible || !shelf });
-  const [requestReview] = useRequestIntakeItemMutation();
   const [release] = useReleaseIntakeItemMutation();
   const [cancelRequest] = useCancelIntakeRequestMutation();
   const dispatch = useAppDispatch();
@@ -70,11 +55,7 @@ export default function IntakeLanes({ logForm = false, shelf = false }: IntakeLa
         dispatch(intakeApi.endpoints.getIntakeItems.initiate(arg, { subscribe: false, forceRefetch: true })),
       ),
     isLostRace: isIntakeStateChanged,
-    onFailure: (err, _id, action) => {
-      if (action !== "request" || !isIntakeRequestRefused(err)) return toast.error(REVIEW_COPY.screen.writeFailed);
-      setNotice(COPY.requestRefused);
-      void dispatch(reviewApi.endpoints.getReviewers.initiate(undefined, { subscribe: false, forceRefetch: true }));
-    },
+    onFailure: () => toast.error(REVIEW_COPY.screen.writeFailed),
     onLostRace: (_id, action) => setNotice(RACE_NOTICE[action]),
   });
 
@@ -110,14 +91,12 @@ export default function IntakeLanes({ logForm = false, shelf = false }: IntakeLa
           ? `${COPY.checkedOutTo} ${i.checked_out_by_name}`
           : COPY.holderRemovedNow;
 
-  const laneLabel = (i: IntakeItem, linkId?: string) => (
+  const laneLabel = (i: IntakeItem) => (
     <>
-      <Link id={linkId} href={`/dashboard/admin/intake/${i.id}`}>{recordLine(intakeRecord(i), formats)}</Link>
+      <Link href={`/dashboard/admin/intake/${i.id}`}>{recordLine(intakeRecord(i), formats)}</Link>
       {i.overdue && <Chip color="danger">{REVIEW_COPY.screen.overdue}</Chip>}
     </>
   );
-  // The review shelf's id is lane-scoped: a record in Review waiting is also in its physical lane.
-  const shelfRecordId = (i: IntakeItem) => `review-shelf-record-${i.id}`;
   const physical = (i: IntakeItem) => waitingIds.has(i.id) && <Chip size="sm">{COPY.reviewWaitingMark}</Chip>;
   const reviewCount = (n: number) => `${n} ${n === 1 ? COPY.reviewOne : COPY.reviewMany}`;
 
@@ -134,9 +113,7 @@ export default function IntakeLanes({ logForm = false, shelf = false }: IntakeLa
           </List>
         </section>
       )}
-      {logForm && <IntakeLogForm onLog={() => setNotice(null)} />}
       {notice && <Typography role="status">{notice}</Typography>}
-      {shelf && hasNothingToShow(reviewers) && <Typography role="alert">{COPY.reviewersLoadFailed}</Typography>}
       {awaiting.data.length > 0 && (
         <IntakeLane
           title={`${COPY.waiting} (${awaiting.data.length})`}
@@ -147,25 +124,6 @@ export default function IntakeLanes({ logForm = false, shelf = false }: IntakeLa
             <>
               <Typography level="body-sm">{where(i)}</Typography>
               <Typography level="body-sm">{reviewCount(i.submitted_review_count)}</Typography>
-            </>
-          )}
-        />
-      )}
-      {shelf && (
-        <IntakeLane
-          title={COPY.onShelf}
-          rows={inState("pool")}
-          empty={COPY.empty}
-          label={(i) => laneLabel(i, shelfRecordId(i))}
-          extra={(i) => (
-            <>
-              {physical(i)}
-              <IntakeRequestPicker
-                reviewers={reviewers.data ?? []}
-                labelledBy={shelfRecordId(i)}
-                busy={lock(i.id, "request")}
-                onRequest={(djId) => act(i.id, "request", () => requestReview({ id: i.id, djId }).unwrap())}
-              />
             </>
           )}
         />
