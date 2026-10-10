@@ -245,7 +245,7 @@ describe("ReviewsScreen", () => {
     await waitFor(() => expect(paths).toEqual(["/intake/11/accept", "/intake/11/pass"]));
   });
 
-  it("draws each request as a record row: the parts separately, Asked beside them, Accept and Pass in the actions", async () => {
+  it("draws each request as a record row: the parts separately, Asked beside them, and Accept and Pass together in the actions region", async () => {
     serveIntake([item({ id: 11, state: "requested", effective_state: "requested", requested_dj_id: ME, requested_at: "2026-09-30T12:00:00Z" })]);
     renderWithProviders(<ReviewsScreen />);
     const requests = await section("Requests for me");
@@ -255,6 +255,11 @@ describe("ReviewsScreen", () => {
     expect(within(requests).queryByText(/·/)).not.toBeInTheDocument();
     expect(within(requests).getByText(/^Asked /)).toBeInTheDocument();
     expect(within(requests).getAllByRole("listitem")).toHaveLength(1);
+    const accept = within(requests).getByRole("button", { name: "Accept" });
+    const pass = within(requests).getByRole("button", { name: "Pass" });
+    expect(accept.parentElement).toBe(pass.parentElement);
+    expect(accept.parentElement).not.toContainElement(within(requests).getByText("Stereolab"));
+    expect(accept.parentElement).not.toContainElement(within(requests).getByText(/^Asked /));
   });
 
   // The notice says the lists have been reloaded, so it waits until they have.
