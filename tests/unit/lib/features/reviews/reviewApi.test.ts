@@ -145,6 +145,27 @@ describe("reviewApi", () => {
     subscription.unsubscribe();
   });
 
+  it("a successful deleteReview refetches the intake lists and the release's review list, so the lanes and the album card drop the review", async () => {
+    let intakeReads = 0;
+    let releaseReviewReads = 0;
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/intake`, () => (intakeReads++, HttpResponse.json([]))),
+      http.get(`${TEST_BACKEND_URL}/reviews`, () => (releaseReviewReads++, HttpResponse.json([]))),
+      http.delete(`${TEST_BACKEND_URL}/reviews/:id`, () => new HttpResponse(null, { status: 204 })),
+    );
+    const store = makeReviewsStore();
+    const lanes = store.dispatch(intakeApi.endpoints.getIntakeItems.initiate());
+    const card = store.dispatch(reviewApi.endpoints.getReviewsForRelease.initiate(7));
+    await Promise.all([lanes, card]);
+    expect([intakeReads, releaseReviewReads]).toEqual([1, 1]);
+
+    await store.dispatch(reviewApi.endpoints.deleteReview.initiate(7));
+
+    await vi.waitFor(() => expect([intakeReads, releaseReviewReads]).toEqual([2, 2]));
+    lanes.unsubscribe();
+    card.unsubscribe();
+  });
+
   it.each(["submitReview", "deleteReview"] as const)("%s rejects with the whole error nested under reviewWriteError", async (endpoint) => {
     const body = { message: "server words", reason: "in_use" };
     const answered: string[] = [];
