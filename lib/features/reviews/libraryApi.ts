@@ -1,6 +1,6 @@
 import type { FetchBaseQueryError } from "@reduxjs/toolkit/query";
 import type { IntakeSlip, LibraryPrintRequest } from "@wxyc/shared";
-import { unwrapEndpointError } from "@/lib/rtk-endpoint-error";
+import { isStatusRefusal } from "@/lib/rtk-endpoint-error";
 import { reviewsApi } from "./api";
 
 /**
@@ -22,7 +22,7 @@ const wrapLibraryPrintError = (response: FetchBaseQueryError): LibraryPrintError
  * `review_id` it was opened with, so the route's other 400 cannot arrive.
  */
 export const isLibraryPrintRefused = (err: unknown): boolean =>
-  unwrapEndpointError("libraryPrintError", err)?.status === 400;
+  isStatusRefusal(err, { status: 400, key: "libraryPrintError" });
 
 /** The `library/...` endpoints of the reviews API. */
 export const libraryApi = reviewsApi.injectEndpoints({

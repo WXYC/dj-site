@@ -9,7 +9,7 @@ import type {
 import type { FetchBaseQueryError } from "@reduxjs/toolkit/query";
 import { catalogApi, FILING_INVALIDATED_TAGS } from "@/lib/features/catalog/api";
 import { rotationApi } from "@/lib/features/rotation/api";
-import { isRefusal, unwrapEndpointError } from "@/lib/rtk-endpoint-error";
+import { isRefusal, isStatusRefusal, unwrapEndpointError } from "@/lib/rtk-endpoint-error";
 import { reviewsApi } from "./api";
 
 /**
@@ -28,8 +28,8 @@ const wrapIntakeWriteError = (response: FetchBaseQueryError): IntakeWriteError =
 
 // Intake refusal predicates live here, so a screen reads a rejected intake write
 // one way. Each is one `isRefusal` call, except a refusal whose server body
-// carries no `reason`: `isRefusal` can never match that, so it is matched by
-// status, and only on a write whose form cannot send any other 400.
+// carries no `reason`: `isRefusal` can never match that, so it is one
+// `isStatusRefusal` call, and only on a write whose form cannot send any other 400.
 
 /** True when an intake write lost its race: someone else got there first, or the request expired. */
 export const isIntakeStateChanged = (err: unknown): boolean =>
@@ -56,7 +56,7 @@ export const isIntakeInRotation = (err: unknown): boolean =>
  * sends nothing else the route could refuse with a 400.
  */
 export const isIntakeReleaseRefused = (err: unknown): boolean =>
-  unwrapEndpointError("intakeWriteError", err)?.status === 400;
+  isStatusRefusal(err, { status: 400, key: "intakeWriteError" });
 
 /**
  * True when a request was refused (400) because the chosen account was removed or is no longer a DJ.
@@ -64,7 +64,7 @@ export const isIntakeReleaseRefused = (err: unknown): boolean =>
  * request button is disabled until an account is picked, so the route's other 400 cannot arrive.
  */
 export const isIntakeRequestRefused = (err: unknown): boolean =>
-  unwrapEndpointError("intakeWriteError", err)?.status === 400;
+  isStatusRefusal(err, { status: 400, key: "intakeWriteError" });
 
 /** The `intake/...` endpoints. */
 export const intakeApi = reviewsApi.injectEndpoints({

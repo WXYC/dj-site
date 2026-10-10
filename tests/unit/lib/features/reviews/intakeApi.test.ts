@@ -3,7 +3,7 @@ import { http, HttpResponse } from "msw";
 import { configureStore } from "@reduxjs/toolkit";
 import { reviewsApi } from "@/lib/features/reviews/api";
 import { reviewApi } from "@/lib/features/reviews/reviewApi";
-import { intakeApi, isIntakeInRotation, isIntakeNotReviewed, isIntakeRequestRefused, isIntakeStateChanged } from "@/lib/features/reviews/intakeApi";
+import { intakeApi, isIntakeInRotation, isIntakeReleaseRefused, isIntakeNotReviewed, isIntakeRequestRefused, isIntakeStateChanged } from "@/lib/features/reviews/intakeApi";
 import { describeApi } from "@/tests/helpers/api-harness";
 import { TEST_BACKEND_URL } from "@/tests/helpers/constants";
 import { server } from "@/tests/fakes/server";
@@ -74,17 +74,12 @@ describe("intakeApi", () => {
   });
 
   it.each([
-    ["a wrapped 400 with no reason", { intakeWriteError: { status: 400, data: { message: "m" } } }, true],
-    ["a wrapped 404", { intakeWriteError: { status: 404, data: { message: "m" } } }, false],
-    ["a wrapped 409", { intakeWriteError: { status: 409, data: { reason: "state_changed" } } }, false],
-    ["a wrapped 500", { intakeWriteError: { status: 500, data: { message: "m" } } }, false],
-    ["a wrapped FETCH_ERROR", { intakeWriteError: { status: "FETCH_ERROR", error: "x" } }, false],
-    ["a raw 400 that is not wrapped under intakeWriteError", { status: 400, data: { message: "m" } }, false],
-    ["a 400 nested under another endpoint's key", { libraryPrintError: { status: 400, data: {} } }, false],
-    ["a bare Error", new Error("x"), false],
-    ["undefined", undefined, false],
-  ])("isIntakeRequestRefused: %s", (_label, err, expected) => {
-    expect(isIntakeRequestRefused(err)).toBe(expected);
+    ["isIntakeReleaseRefused", isIntakeReleaseRefused, "intakeWriteError", true],
+    ["isIntakeRequestRefused", isIntakeRequestRefused, "intakeWriteError", true],
+    ["isIntakeReleaseRefused", isIntakeReleaseRefused, "libraryPrintError", false],
+    ["isIntakeRequestRefused", isIntakeRequestRefused, "libraryPrintError", false],
+  ])("%s reads a 400 under %s -> %s", (_name, predicate, key, expected) => {
+    expect(predicate({ [key]: { status: 400, data: { message: "m" } } })).toBe(expected);
   });
 
   it("deleteIntakeItem DELETEs exactly /intake/7 and answers the deleted authors", async () => {

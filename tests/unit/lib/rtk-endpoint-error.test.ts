@@ -4,6 +4,7 @@ import {
   bodyCode,
   bodyReason,
   isRefusal,
+  isStatusRefusal,
   serverMessage,
   unwrapEndpointError,
   unwrapEndpointErrorOrRaw,
@@ -108,5 +109,27 @@ describe("isRefusal", () => {
     ["a nest under a different key", { otherWriteError: raw(409, "state_changed") }, false],
   ])("%s -> %p", (_label, err, expected) => {
     expect(isRefusal(err, opts)).toBe(expected);
+  });
+});
+
+describe("isStatusRefusal", () => {
+  const opts = { status: 400, key: "someWriteError" };
+  const wrapped = (status: number | string, data: unknown = { message: "m" }) => ({
+    someWriteError: { status, data },
+  });
+
+  it.each([
+    ["a wrapped 400", wrapped(400), true],
+    ["a wrapped 400 whose body has a reason", wrapped(400, { reason: "x" }), true],
+    ["a wrapped 404", wrapped(404), false],
+    ["a wrapped 409", wrapped(409), false],
+    ["a wrapped 500", wrapped(500), false],
+    ["a wrapped FETCH_ERROR", { someWriteError: { status: "FETCH_ERROR", error: "x" } }, false],
+    ["a raw unwrapped 400", { status: 400, data: { message: "m" } }, false],
+    ["a 400 nested under another key", { otherWriteError: { status: 400, data: {} } }, false],
+    ["a bare Error", new Error("x"), false],
+    ["undefined", undefined, false],
+  ])("%s -> %p", (_label, err, expected) => {
+    expect(isStatusRefusal(err, opts)).toBe(expected);
   });
 });
