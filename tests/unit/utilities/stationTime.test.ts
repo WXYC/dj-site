@@ -384,6 +384,22 @@ describe("formatStationLongDate — DateTimeManager.DATE_FULL", () => {
   });
 })
 
+describe("formatStationShortDate", () => {
+  it.each([
+    { name: "current station year", iso: "2026-10-08T16:00:00Z", now: "2026-10-10T16:00:00Z", expected: "Oct 8" },
+    { name: "earlier year", iso: "2025-10-08T16:00:00Z", now: "2026-10-10T16:00:00Z", expected: "Oct 8, 2025" },
+    { name: "Dec 31 station time, now is Jan 1 of the next year", iso: "2026-12-31T16:00:00Z", now: "2027-01-01T16:00:00Z", expected: "Dec 31, 2026" },
+    { name: "Jan 1 station time, now is Dec 31 of the prior year", iso: "2027-01-01T16:00:00Z", now: "2026-12-31T16:00:00Z", expected: "Jan 1, 2027" },
+    { name: "station midnight: 03:30Z is still Oct 8", iso: "2026-10-09T03:30:00Z", now: "2026-10-10T16:00:00Z", expected: "Oct 8" },
+    { name: "UTC year differs from station year for now", iso: "2026-06-01T16:00:00Z", now: "2027-01-01T03:00:00Z", expected: "Jun 1" },
+    { name: "UTC year differs from station year for the instant", iso: "2027-01-01T03:00:00Z", now: "2026-06-01T16:00:00Z", expected: "Dec 31" },
+    { name: "before the spring DST change", iso: "2026-03-08T06:30:00Z", now: "2026-10-10T16:00:00Z", expected: "Mar 8" },
+    { name: "after the fall DST change", iso: "2026-11-02T04:30:00Z", now: "2026-12-01T16:00:00Z", expected: "Nov 1" },
+  ])("$name", ({ iso, now, expected }) => {
+    expect(formatStationShortDate(iso, new Date(now))).toBe(expected);
+  });
+});
+
 describe("formatLongCalendarDate — the same form for a date-only column", () => {
   it.each([
     { iso: "2026-09-12", expected: "Saturday, September 12, 2026" },
