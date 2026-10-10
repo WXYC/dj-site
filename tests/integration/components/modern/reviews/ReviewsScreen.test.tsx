@@ -895,6 +895,36 @@ describe("ReviewsScreen", () => {
     expect(router.push).toHaveBeenCalledWith("/dashboard/reviews/40");
   });
 
+  const REVIEWED_RETURN = "Reviewed. Bring the record back to the music office.";
+  const SUBMITTED_LINE = "Review submitted. A music director will choose the review for the cover.";
+
+  it.each([
+    { name: "checked out, no review", state: "checked_out", mine: [], line: null, main: "Write a review", other: RETURN },
+    { name: "checked out, draft", state: "checked_out", mine: [{ status: "draft" }], line: null, main: "Write a review", other: RETURN },
+    { name: "checked out, submitted", state: "checked_out", mine: [{ status: "submitted" }], line: SUBMITTED_LINE, main: "Edit review", other: RETURN },
+    { name: "reviewed, submitted", state: "reviewed", mine: [{ status: "submitted" }], line: REVIEWED_RETURN, main: RETURN, other: "Edit review" },
+    { name: "reviewed, no review", state: "reviewed", mine: [], line: REVIEWED_RETURN, main: RETURN, other: "Write a review" },
+    { name: "reviewed, draft", state: "reviewed", mine: [{ status: "draft" }], line: REVIEWED_RETURN, main: RETURN, other: "Write a review" },
+  ])("shows one state line and one solid main action on a $name row", async ({ state, mine, line, main, other }) => {
+    serveIntake(
+      [item({ id: 2, state, effective_state: state, checked_out_by: ME } as Partial<IntakeItem>)],
+      [],
+      mine.map((m, n) => review({ id: 40 + n, intake_item_id: 2, status: m.status } as Partial<Review>)),
+    );
+
+    renderWithProviders(<ReviewsScreen />);
+    const lane = await section("My checkouts");
+    const mainButton = await within(lane).findByRole("button", { name: main });
+    const otherButton = within(lane).getByRole("button", { name: other });
+
+    expect(mainButton).toHaveClass("MuiButton-variantSolid");
+    expect(otherButton).toHaveClass("MuiButton-variantOutlined");
+    for (const text of [REVIEWED_RETURN, SUBMITTED_LINE]) {
+      if (text === line) expect(within(lane).getByText(text)).toBeInTheDocument();
+      else expect(within(lane).queryByText(text)).not.toBeInTheDocument();
+    }
+  });
+
   it("sends one POST /reviews when Write a review is double-clicked", async () => {
     serveIntake([HELD]);
     let posts = 0;

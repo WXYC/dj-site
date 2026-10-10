@@ -140,21 +140,20 @@ export default function ReviewsScreen() {
         const mineHere = myReviews.filter((r) => r.intake_item_id === i.id);
         const submitted = mineHere.find((r) => r.status === "submitted");
         const draft = mineHere.find((r) => r.status === "draft");
+        const reviewed = i.effective_state === "reviewed";
         return (
         <>
           <Typography level="body-sm">{`${REVIEW_COPY.screen.taken} ${day(i.checked_out_at)}`}</Typography>
           {i.overdue && <Chip color="danger">{REVIEW_COPY.screen.overdue}</Chip>}
-          {i.effective_state === "reviewed" && (
-            <Typography level="body-sm">{REVIEW_COPY.screen.reviewedReturn}</Typography>
+          {(reviewed || submitted) && (
+            <Typography level="body-sm">{reviewed ? REVIEW_COPY.screen.reviewedReturn : REVIEW_COPY.screen.reviewSubmitted}</Typography>
           )}
           {submitted ? (
-            <>
-              <Typography level="body-sm">{REVIEW_COPY.screen.reviewSubmitted}</Typography>
-              <Button size="sm" onClick={() => router.push(`/dashboard/reviews/${submitted.id}`)}>{REVIEW_COPY.screen.editReview}</Button>
-            </>
+            <Button size="sm" variant={reviewed ? "outlined" : "solid"} onClick={() => router.push(`/dashboard/reviews/${submitted.id}`)}>{REVIEW_COPY.screen.editReview}</Button>
           ) : (
             <Button
               size="sm"
+              variant={reviewed ? "outlined" : "solid"}
               {...lock(i.id, "write")}
               onClick={() =>
                 write(i.id, "write", async () => {
@@ -166,7 +165,7 @@ export default function ReviewsScreen() {
               {REVIEW_COPY.writeReview}
             </Button>
           )}
-          <Button size="sm" variant="outlined" {...lock(i.id, "release")} onClick={() => setReturning(i)}>{REVIEW_COPY.screen.returnToShelf}</Button>
+          <Button size="sm" variant={reviewed ? "solid" : "outlined"} {...lock(i.id, "release")} onClick={() => setReturning(i)}>{REVIEW_COPY.screen.returnToShelf}</Button>
         </>
         );
       }} />
