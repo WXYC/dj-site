@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
-import { fakeReviewsEndpoints, fccNote, holdResponse, intakeItem, renderWithProviders, review, reviewRevision, reviewsSettled, server, TEST_BACKEND_URL } from "@/tests/helpers";
+import { fakeReviewsEndpoints, fccNote, holdResponse, intakeItem, pendingCount, renderedFrame, renderWithProviders, review, reviewRevision, reviewsSettled, server, TEST_BACKEND_URL } from "@/tests/helpers";
 import { fakeRotationCardsEndpoints } from "@/tests/fakes/rotation";
 import { fakeLibraryFilingsEndpoint, filingConflictResponse } from "@/tests/fakes/libraryFilings";
 import { Authorization } from "@/lib/features/admin/types";
@@ -106,13 +106,40 @@ type User = ReturnType<typeof renderWithProviders>["user"];
 async function readyBench(user: User) {
   await user.click(await screen.findByRole("combobox", { name: "Genre" }));
   await user.click(await screen.findByRole("option", { name: "Rock" }));
-  await new Promise((r) => setTimeout(r, 300));
   const artist = await screen.findByDisplayValue("Juana Molina");
   await user.clear(artist);
   await user.type(artist, "Juana");
   await user.click(await screen.findByRole("option", { name: "Juana Molina" }));
   await waitFor(() => expect(screen.getByRole("button", { name: "2" })).toHaveAttribute("aria-pressed", "true"));
 }
+
+const RELEASE_ROW = { id: 5, album_title: "DOGA", artist_name: "Juana Molina", label: "Sonamos", genre_name: "Rock", format_name: "cd", code_letters: "MO", code_artist_number: 1, code_number: 1, add_date: "2026-01-01", plays: 0 };
+const VINYL_ROW = { ...RELEASE_ROW, id: 6, format_name: "vinyl", code_number: 2 };
+const ROW_NAME = "Juana Molina · DOGA · CD";
+const FILE_URL = `${TEST_BACKEND_URL}/intake/${ITEM_ID}/file`;
+
+const search = async (user: User, term: string) => {
+  const box = await screen.findByRole("searchbox", { name: "Search the library" });
+  await user.clear(box);
+  await user.type(box, term);
+  await user.click(screen.getByRole("button", { name: "Search" }));
+};
+
+const pick = async (user: User, name = ROW_NAME) => {
+  await search(user, "Juana");
+  await user.click(await screen.findByRole("button", { name }));
+};
+
+const pickDoga = async (user: User) => {
+  await pick(user);
+  await user.click(screen.getByRole("button", { name: "File it as this one" }));
+};
+
+/** What each refusal's line is, and what the page shows once the record has reloaded after it. */
+const REFUSALS = [
+  ["state_changed", "This record has already been filed. The page has been reloaded.", "filed"],
+  ["not_reviewed", "This record has no review chosen for the cover, so it can't be filed yet.", "unchosen"],
+] as const;
 
 describe("IntakeItemScreen", () => {
   beforeEach(() => {
@@ -390,76 +417,6 @@ describe("IntakeItemScreen", () => {
       expect(fileBodies[0]).toMatchObject({ kind: "new_release" });
     });
 
-    it("says the chosen review was removed, and reloads the record", async () => {
-      const box = setUp();
-      server.use(
-        http.post(`${TEST_BACKEND_URL}/intake/${ITEM_ID}/file`, () => {
-          box.item = dogaItem({ accepted_review_id: null });
-          return HttpResponse.json({ message: "server words", reason: "not_reviewed" }, { status: 409 });
-        }),
-      );
-      const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
-
-      await readyBench(user);
-      const readsBefore = box.reads;
-      await user.click(screen.getByRole("button", { name: "Add to rotation" }));
-
-      expect(await screen.findByText("This record has no review chosen for the cover, so it can't be filed yet.")).toBeInTheDocument();
-      expect(box.reads).toBe(readsBefore + 1);
-      expect(screen.queryByText("server words")).not.toBeInTheDocument();
-      expect(await screen.findByText("Choose a review for the cover before filing this record.")).toBeInTheDocument();
-    });
-
-    it("shows the approved notice when someone filed it first, and reloads the record", async () => {
-      const box = setUp();
-      server.use(
-        http.post(`${TEST_BACKEND_URL}/intake/${ITEM_ID}/file`, () => {
-          box.item = dogaItem({ state: "filed", effective_state: "filed" });
-          return HttpResponse.json({ message: "server words", reason: "state_changed" }, { status: 409 });
-        }),
-      );
-      const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
-
-      await readyBench(user);
-      const readsBefore = box.reads;
-      await user.click(screen.getByRole("button", { name: "Add to rotation" }));
-
-      const notice = await screen.findByRole("status");
-      expect(notice.textContent).toBe("This record has already been filed. The page has been reloaded.");
-      expect(box.reads).toBe(readsBefore + 1);
-      expect(screen.queryByRole("combobox", { name: "Genre" })).not.toBeInTheDocument();
-    });
-
-    const REFUSALS = [
-      ["state_changed", "This record has already been filed. The page has been reloaded."],
-      ["not_reviewed", "This record has no review chosen for the cover, so it can't be filed yet."],
-    ] as const;
-
-    it.each(REFUSALS)("shows the %s notice only once the record has reloaded", async (reason, line) => {
-      const box = setUp();
-      let release!: () => void;
-      server.use(
-        http.post(`${TEST_BACKEND_URL}/intake/${ITEM_ID}/file`, () => {
-          box.hold = new Promise<void>((resolve) => {
-            release = resolve;
-          });
-          return HttpResponse.json({ message: "server words", reason }, { status: 409 });
-        }),
-      );
-      const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
-
-      await readyBench(user);
-      const readsBefore = box.reads;
-      await user.click(screen.getByRole("button", { name: "Add to rotation" }));
-
-      await waitFor(() => expect(box.reads).toBe(readsBefore + 1));
-      await new Promise((resolve) => setTimeout(resolve, 50));
-      expect(screen.queryByRole("status")).not.toBeInTheDocument();
-
-      release();
-      expect((await screen.findByRole("status")).textContent).toBe(line);
-    });
-
     it.each(REFUSALS)("keeps the bench's form as typed when a %s refusal files nothing", async (reason, line) => {
       setUp();
       server.use(
@@ -476,52 +433,6 @@ describe("IntakeItemScreen", () => {
       expect(screen.getByLabelText("Album title")).toHaveValue("DOGA");
       expect(screen.getByDisplayValue("Juana Molina")).toBeInTheDocument();
       expect(screen.getByText("Nothing filed yet.")).toBeInTheDocument();
-    });
-
-    it.each(REFUSALS)("re-reads the item's reviews as well as the item after a %s refusal", async (reason) => {
-      setUp();
-      let reviewReads = 0;
-      server.use(
-        http.get(`${TEST_BACKEND_URL}/reviews`, ({ request }) => {
-          if (new URL(request.url).searchParams.get("intake_item_id") === String(ITEM_ID)) reviewReads += 1;
-          return HttpResponse.json([submitted(40)]);
-        }),
-        http.post(`${TEST_BACKEND_URL}/intake/${ITEM_ID}/file`, () =>
-          HttpResponse.json({ message: "server words", reason }, { status: 409 }),
-        ),
-      );
-      const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
-
-      await readyBench(user);
-      const readsBefore = reviewReads;
-      await user.click(screen.getByRole("button", { name: "Add to rotation" }));
-
-      await screen.findByRole("status");
-      expect(reviewReads).toBe(readsBefore + 1);
-    });
-
-    it("re-reads the cover review by id after a refusal when the item's own reviews lack it", async () => {
-      const item = dogaItem({ accepted_review_id: 90 });
-      fakeReviewsEndpoints({ records: [item], forItem: { [ITEM_ID]: [submitted(40)] }, reviews: [submitted(90, { intake_item_id: 99 })] });
-      serveItem(item);
-      let coverReads = 0;
-      server.use(
-        http.get(`${TEST_BACKEND_URL}/reviews/90`, () => {
-          coverReads += 1;
-          return HttpResponse.json(submitted(90, { intake_item_id: 99 }));
-        }),
-        http.post(`${TEST_BACKEND_URL}/intake/${ITEM_ID}/file`, () =>
-          HttpResponse.json({ message: "server words", reason: "state_changed" }, { status: 409 }),
-        ),
-      );
-      const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
-
-      await readyBench(user);
-      expect(coverReads).toBe(1);
-      await user.click(screen.getByRole("button", { name: "Add to rotation" }));
-
-      await screen.findByRole("status");
-      expect(coverReads).toBe(2);
     });
 
     it("shows the bench's conflict panel, not its generic failure, for a call-number collision from /file", async () => {
@@ -556,45 +467,9 @@ describe("IntakeItemScreen", () => {
       expect(fileBodies).toHaveLength(1);
       expect(screen.queryByText(/Filing failed/)).not.toBeInTheDocument();
     });
-
-    it("refetches a mounted catalog query and a mounted rotation list once each after a successful file", async () => {
-      setUp();
-      let catalogReads = 0;
-      let rotationReads = 0;
-      server.use(
-        http.get(`${TEST_BACKEND_URL}/library`, () => {
-          catalogReads += 1;
-          return HttpResponse.json([]);
-        }),
-        http.get(`${TEST_BACKEND_URL}/library/rotation`, () => {
-          rotationReads += 1;
-          return HttpResponse.json([]);
-        }),
-        http.post(`${TEST_BACKEND_URL}/intake/${ITEM_ID}/file`, () =>
-          HttpResponse.json(dogaItem({ state: "filed", effective_state: "filed" })),
-        ),
-      );
-      function Mounted() {
-        useSearchCatalogQuery({ artist_name: "Juana Molina", album_title: undefined, n: 5 });
-        useGetRotationListQuery();
-        return <IntakeItemScreen id={ITEM_ID} />;
-      }
-      const { user } = renderScreen(<Mounted />);
-
-      await readyBench(user);
-      await waitFor(() => expect([catalogReads, rotationReads]).toEqual([1, 1]));
-      await user.click(screen.getByRole("button", { name: "Add to rotation" }));
-
-      await waitFor(() => expect([catalogReads, rotationReads]).toEqual([2, 2]));
-    });
   });
 
   describe("filing onto a release already in the library", () => {
-    const RELEASE_ROW = { id: 5, album_title: "DOGA", artist_name: "Juana Molina", label: "Sonamos", genre_name: "Rock", format_name: "cd", code_letters: "MO", code_artist_number: 1, code_number: 1, add_date: "2026-01-01", plays: 0 };
-    const VINYL_ROW = { ...RELEASE_ROW, id: 6, format_name: "vinyl", code_number: 2 };
-    const ROW_NAME = "Juana Molina · DOGA · CD";
-    const FILE_URL = `${TEST_BACKEND_URL}/intake/${ITEM_ID}/file`;
-
     const setUp = (item = dogaItem()) => {
       fakeReviewsEndpoints({ records: [item], forItem: { [ITEM_ID]: item.accepted_review_id ? [submitted(40)] : [] } });
       const searches: Record<string, string>[] = [];
@@ -605,23 +480,6 @@ describe("IntakeItemScreen", () => {
         }),
       );
       return { box: serveItem(item), searches };
-    };
-
-    const search = async (user: User, term: string) => {
-      const box = await screen.findByRole("searchbox", { name: "Search the library" });
-      await user.clear(box);
-      await user.type(box, term);
-      await user.click(screen.getByRole("button", { name: "Search" }));
-    };
-
-    const pick = async (user: User, name = ROW_NAME) => {
-      await search(user, "Juana");
-      await user.click(await screen.findByRole("button", { name }));
-    };
-
-    const pickDoga = async (user: User) => {
-      await pick(user);
-      await user.click(screen.getByRole("button", { name: "File it as this one" }));
     };
 
     it("files onto the picked release with the existing_release kind and shows the record filed", async () => {
@@ -718,70 +576,6 @@ describe("IntakeItemScreen", () => {
       expect(screen.queryByRole("searchbox", { name: "Search the library" })).not.toBeInTheDocument();
     });
 
-    const REFUSALS = [
-      ["state_changed", "This record has already been filed. The page has been reloaded."],
-      ["not_reviewed", "This record has no review chosen for the cover, so it can't be filed yet."],
-    ] as const;
-
-    it.each(REFUSALS)("shows the %s line and rereads the item", async (reason, line) => {
-      const { box } = setUp();
-      server.use(http.post(FILE_URL, () => HttpResponse.json({ message: "server words", reason }, { status: 409 })));
-      const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
-      await screen.findByText("Already in the library?");
-      const readsBefore = box.reads;
-
-      await pickDoga(user);
-
-      expect((await screen.findByRole("status")).textContent).toBe(line);
-      expect(box.reads).toBe(readsBefore + 1);
-      expect(screen.queryByText("server words")).not.toBeInTheDocument();
-    });
-
-    it.each(REFUSALS)("shows the %s line only once the record has reloaded", async (reason, line) => {
-      const { box } = setUp();
-      let release!: () => void;
-      server.use(
-        http.post(FILE_URL, () => {
-          box.hold = new Promise<void>((resolve) => {
-            release = resolve;
-          });
-          return HttpResponse.json({ message: "server words", reason }, { status: 409 });
-        }),
-      );
-      const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
-      await screen.findByText("Already in the library?");
-      const readsBefore = box.reads;
-
-      await pickDoga(user);
-
-      await waitFor(() => expect(box.reads).toBe(readsBefore + 1));
-      await new Promise((resolve) => setTimeout(resolve, 50));
-      expect(screen.queryByRole("status")).not.toBeInTheDocument();
-
-      release();
-      expect((await screen.findByRole("status")).textContent).toBe(line);
-    });
-
-    it.each(REFUSALS)("rereads the item's reviews after a %s refusal", async (reason) => {
-      setUp();
-      let reviewReads = 0;
-      server.use(
-        http.get(`${TEST_BACKEND_URL}/reviews`, ({ request }) => {
-          if (new URL(request.url).searchParams.get("intake_item_id") === String(ITEM_ID)) reviewReads += 1;
-          return HttpResponse.json([submitted(40)]);
-        }),
-        http.post(FILE_URL, () => HttpResponse.json({ message: "server words", reason }, { status: 409 })),
-      );
-      const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
-      await screen.findByText("Already in the library?");
-      await waitFor(() => expect(reviewReads).toBe(1));
-
-      await pickDoga(user);
-
-      await screen.findByRole("status");
-      expect(reviewReads).toBe(2);
-    });
-
     it("words its own line, not the server's, when the release cannot take the record", async () => {
       setUp();
       server.use(http.post(FILE_URL, () => HttpResponse.json({ message: "server words" }, { status: 400 })));
@@ -834,22 +628,12 @@ describe("IntakeItemScreen", () => {
       expect(screen.queryByRole("button", { name: ROW_NAME })).not.toBeInTheDocument();
     });
 
-    it("refetches a mounted catalog query, rotation list, release reviews and FCC notes once each after a successful file, and the reviews and notes not at all after a refusal", async () => {
+    it("refetches the release's mounted reviews and FCC notes once each after a successful file, and not at all after a refusal", async () => {
       setUp();
-      let catalogReads = 0;
-      let rotationReads = 0;
       let releaseReviewReads = 0;
       let fccReads = 0;
       let refuse = true;
       server.use(
-        http.get(`${TEST_BACKEND_URL}/library`, ({ request }) => {
-          if (new URL(request.url).searchParams.get("artist_name") === "Stereolab") catalogReads += 1;
-          return HttpResponse.json([RELEASE_ROW]);
-        }),
-        http.get(`${TEST_BACKEND_URL}/library/rotation`, () => {
-          rotationReads += 1;
-          return HttpResponse.json([]);
-        }),
         http.get(`${TEST_BACKEND_URL}/reviews`, ({ request }) => {
           if (new URL(request.url).searchParams.get("album_id") === "5") releaseReviewReads += 1;
           return HttpResponse.json([submitted(40)]);
@@ -865,67 +649,204 @@ describe("IntakeItemScreen", () => {
         ),
       );
       function Mounted() {
-        useSearchCatalogQuery({ artist_name: "Stereolab", album_title: undefined, n: 5 });
-        useGetRotationListQuery();
         useGetReviewsForReleaseQuery(5);
         useGetFccNotesQuery({ album_id: 5 });
         return <IntakeItemScreen id={ITEM_ID} />;
       }
-      const { user } = renderScreen(<Mounted />);
-      await waitFor(() => expect([catalogReads, rotationReads, releaseReviewReads, fccReads]).toEqual([1, 1, 1, 1]));
+      const { user, store } = renderScreen(<Mounted />);
+      await waitFor(() => expect([releaseReviewReads, fccReads]).toEqual([1, 1]));
 
       await pick(user);
       await user.click(screen.getByRole("button", { name: "File it as this one" }));
       await screen.findByRole("status");
-      await new Promise((resolve) => setTimeout(resolve, 100));
-      expect([catalogReads, rotationReads, releaseReviewReads, fccReads]).toEqual([1, 1, 1, 1]);
+      await reviewsSettled(store);
+      expect([releaseReviewReads, fccReads]).toEqual([1, 1]);
 
       refuse = false;
       await user.click(screen.getByRole("button", { name: "File it as this one" }));
 
-      await waitFor(() => expect([catalogReads, rotationReads, releaseReviewReads, fccReads]).toEqual([2, 2, 2, 2]));
+      await waitFor(() => expect([releaseReviewReads, fccReads]).toEqual([2, 2]));
     });
   });
 
-  describe("when the page is gone before the filing answers", () => {
-    const RELEASE_ROW = { id: 5, album_title: "DOGA", artist_name: "Juana Molina", label: "Sonamos", genre_name: "Rock", format_name: "cd", code_letters: "MO", code_artist_number: 1, code_number: 1, add_date: "2026-01-01", plays: 0 };
+  // A new write on this page that reloads through useItemPageReload before it shows a line adds a row here.
+  const ARMS = [
+    {
+      arm: "the new-release bench",
+      ready: readyBench,
+      submit: async (user: User) => {
+        await user.click(screen.getByRole("button", { name: "Add to rotation" }));
+      },
+    },
+    {
+      arm: "the existing-release picker",
+      ready: async (user: User) => {
+        await pick(user);
+      },
+      submit: async (user: User) => {
+        await user.click(screen.getByRole("button", { name: "File it as this one" }));
+      },
+    },
+  ];
 
-    it.each([
-      [
-        "the new-release bench",
-        async (user: User) => {
-          await readyBench(user);
-          await user.click(screen.getByRole("button", { name: "Add to rotation" }));
-        },
-      ],
-      [
-        "the existing-release picker",
-        async (user: User) => {
-          const box = await screen.findByRole("searchbox", { name: "Search the library" });
-          await user.type(box, "Juana");
-          await user.click(screen.getByRole("button", { name: "Search" }));
-          await user.click(await screen.findByRole("button", { name: "Juana Molina · DOGA · CD" }));
-          await user.click(screen.getByRole("button", { name: "File it as this one" }));
-        },
-      ],
-    ])("rereads the item and its reviews once, and throws nothing, when %s is refused", async (_arm, file) => {
-      fakeReviewsEndpoints({ records: [dogaItem()], forItem: { [ITEM_ID]: [submitted(40)] } });
+  describe.each(ARMS)("filing through $arm", ({ ready, submit }) => {
+    const setUp = (item = dogaItem()) => {
+      fakeReviewsEndpoints({ records: [item], forItem: { [ITEM_ID]: item.accepted_review_id ? [submitted(40)] : [] } });
+      server.use(http.get(`${TEST_BACKEND_URL}/library`, () => HttpResponse.json([RELEASE_ROW])));
+      return serveItem(item);
+    };
+
+    it.each(REFUSALS)("shows the %s line after one reread of the item, and never the server's words", async (reason, line, reloaded) => {
+      const box = setUp();
+      server.use(
+        http.post(FILE_URL, () => {
+          box.item = reloaded === "filed" ? dogaItem({ state: "filed", effective_state: "filed" }) : dogaItem({ accepted_review_id: null });
+          return HttpResponse.json({ message: "server words", reason }, { status: 409 });
+        }),
+      );
+      const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+      await ready(user);
+      const readsBefore = box.reads;
+      await submit(user);
+
+      expect((await screen.findByRole("status")).textContent).toBe(line);
+      await reviewsSettled(store);
+      expect(box.reads).toBe(readsBefore + 1);
+      expect(screen.queryByText("server words")).not.toBeInTheDocument();
+      if (reloaded === "filed") {
+        expect(screen.queryByRole("combobox", { name: "Genre" })).not.toBeInTheDocument();
+        expect(screen.queryByText("Already in the library?")).not.toBeInTheDocument();
+      } else {
+        expect(screen.getByText("Choose a review for the cover before filing this record.")).toBeInTheDocument();
+      }
+    });
+
+    it.each(REFUSALS)("shows the %s line only once the record has reloaded", async (reason, line) => {
+      const box = setUp();
+      let release!: () => void;
+      server.use(
+        http.post(FILE_URL, () => {
+          box.hold = new Promise<void>((resolve) => {
+            release = resolve;
+          });
+          return HttpResponse.json({ message: "server words", reason }, { status: 409 });
+        }),
+      );
+      const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+      await ready(user);
+      const readsBefore = box.reads;
+      await submit(user);
+
+      await waitFor(() => expect(box.reads).toBe(readsBefore + 1));
+      // The held item read is the only request left, so the filing's refusal has been handled.
+      await waitFor(() => expect(pendingCount(store)).toBe(1));
+      await renderedFrame();
+      expect(screen.queryByRole("status")).not.toBeInTheDocument();
+
+      release();
+      expect((await screen.findByRole("status")).textContent).toBe(line);
+    });
+
+    it.each(REFUSALS)("rereads the item's reviews after a %s refusal", async (reason) => {
+      setUp();
       let reviewReads = 0;
       server.use(
-        http.get(`${TEST_BACKEND_URL}/library`, () => HttpResponse.json([RELEASE_ROW])),
+        http.get(`${TEST_BACKEND_URL}/reviews`, ({ request }) => {
+          if (new URL(request.url).searchParams.get("intake_item_id") === String(ITEM_ID)) reviewReads += 1;
+          return HttpResponse.json([submitted(40)]);
+        }),
+        http.post(FILE_URL, () => HttpResponse.json({ message: "server words", reason }, { status: 409 })),
+      );
+      const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+      await waitFor(() => expect(reviewReads).toBe(1));
+      await ready(user);
+      const readsBefore = reviewReads;
+      await submit(user);
+
+      await screen.findByRole("status");
+      expect(reviewReads).toBe(readsBefore + 1);
+    });
+
+    it("rereads the cover review by id after a refusal when the item's own reviews lack it", async () => {
+      const item = dogaItem({ accepted_review_id: 90 });
+      fakeReviewsEndpoints({ records: [item], forItem: { [ITEM_ID]: [submitted(40)] }, reviews: [submitted(90, { intake_item_id: 99 })] });
+      serveItem(item);
+      server.use(http.get(`${TEST_BACKEND_URL}/library`, () => HttpResponse.json([RELEASE_ROW])));
+      let coverReads = 0;
+      server.use(
+        http.get(`${TEST_BACKEND_URL}/reviews/90`, () => {
+          coverReads += 1;
+          return HttpResponse.json(submitted(90, { intake_item_id: 99 }));
+        }),
+        http.post(FILE_URL, () => HttpResponse.json({ message: "server words", reason: "state_changed" }, { status: 409 })),
+      );
+      const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+      await waitFor(() => expect(coverReads).toBe(1));
+      await ready(user);
+      await submit(user);
+
+      await screen.findByRole("status");
+      expect(coverReads).toBe(2);
+    });
+
+    it("refetches a mounted catalog query and a mounted rotation list once each after a successful file, and not at all after a refusal", async () => {
+      setUp();
+      let catalogReads = 0;
+      let rotationReads = 0;
+      let refuse = true;
+      server.use(
+        http.get(`${TEST_BACKEND_URL}/library`, ({ request }) => {
+          if (new URL(request.url).searchParams.get("artist_name") === "Stereolab") catalogReads += 1;
+          return HttpResponse.json([RELEASE_ROW]);
+        }),
+        http.get(`${TEST_BACKEND_URL}/library/rotation`, () => {
+          rotationReads += 1;
+          return HttpResponse.json([]);
+        }),
+        http.post(FILE_URL, () =>
+          refuse
+            ? HttpResponse.json({ message: "server words", reason: "state_changed" }, { status: 409 })
+            : HttpResponse.json(dogaItem({ state: "filed", effective_state: "filed" })),
+        ),
+      );
+      function Mounted() {
+        useSearchCatalogQuery({ artist_name: "Stereolab", album_title: undefined, n: 5 });
+        useGetRotationListQuery();
+        return <IntakeItemScreen id={ITEM_ID} />;
+      }
+      const { user, store } = renderScreen(<Mounted />);
+      await ready(user);
+      await waitFor(() => expect([catalogReads, rotationReads]).toEqual([1, 1]));
+
+      await submit(user);
+      await screen.findByRole("status");
+      await reviewsSettled(store);
+      expect([catalogReads, rotationReads]).toEqual([1, 1]);
+
+      refuse = false;
+      await submit(user);
+
+      await waitFor(() => expect([catalogReads, rotationReads]).toEqual([2, 2]));
+    });
+
+    it("rereads the item and its reviews once, and throws nothing, when the page is gone before the filing is refused", async () => {
+      setUp();
+      let reviewReads = 0;
+      server.use(
         http.get(`${TEST_BACKEND_URL}/reviews`, ({ request }) => {
           if (new URL(request.url).searchParams.get("intake_item_id") === String(ITEM_ID)) reviewReads += 1;
           return HttpResponse.json([submitted(40)]);
         }),
       );
-      const { calls, release, answered } = holdResponse("post", `${TEST_BACKEND_URL}/intake/${ITEM_ID}/file`, () =>
+      const { calls, release, answered } = holdResponse("post", FILE_URL, () =>
         HttpResponse.json({ message: "server words", reason: "state_changed" }, { status: 409 }),
       );
       const errors = vi.spyOn(console, "error").mockImplementation(() => {});
       const { user, unmount } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
       await waitFor(() => expect(reviewReads).toBe(1));
 
-      await file(user);
+      await ready(user);
+      await submit(user);
       await waitFor(() => expect(calls.count).toBe(1));
       const reviewReadsBefore = reviewReads;
       // The reload's item read is held, so the spec sees it arrive and settle rather than sleeping.
