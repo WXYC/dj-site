@@ -16,6 +16,7 @@ import { itemHolder } from "@/lib/features/reviews/holder";
 import { useAppDispatch } from "@/lib/hooks";
 import { useCanSeeReviews } from "@/src/hooks/useCanSeeReviews";
 import { useRowWrite } from "@/src/hooks/useRowWrite";
+import FccNotesToConfirm from "./FccNotesToConfirm";
 import IntakeLane from "./IntakeLane";
 import { REVIEW_COPY } from "./copy";
 import { intakeRecord, recordLine } from "./recordLine";
@@ -101,6 +102,7 @@ export default function IntakeLanes() {
 
   return (
     <Stack spacing={3}>
+      <FccNotesToConfirm />
       {passes.length > 0 && (
         <section aria-label={COPY.recentPasses}>
           <List>

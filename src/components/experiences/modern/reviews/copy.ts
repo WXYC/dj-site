@@ -418,5 +418,41 @@ export const REVIEW_COPY = {
     couldNotReport: "Couldn't report the note. Please try again.",
     /** Approved. */
     loadFailed: "Couldn't load the FCC notes. Please try again.",
+    /** Approved. Button on a note a music director may act on. */
+    confirm: "Confirm",
+    /** Approved. Button on a note a music director may act on. */
+    remove: "Remove",
+    /** Approved. Asked before a music director removes a note nobody has confirmed. */
+    removeQuestion: (reporter: string) => `Remove this note? ${reporter} reported it.`,
+    /** Approved. Asked before a music director removes a confirmed note. */
+    removeConfirmedQuestion: "Remove this confirmed note? It will no longer be printed on the slip.",
+    /** Approved. Shown once after a music director confirms a note. */
+    reprint: "Confirmed notes are printed on the slip. If this record's slip is already on the cover, print the slip again to replace it.",
+    /** Approved. Button on a DJ's own note while nobody has confirmed it. */
+    removeMine: "Remove my note",
+    /** Approved. The question `removeMine` asks. */
+    removeMineQuestion: "Remove your note?",
+    /** Approved. Shown to the reporter when a music director confirmed the note while they were taking it back. */
+    confirmedByMd: "A music director has confirmed this note, so only they can remove it.",
+    /** Approved. Heading of the waiting list; the number is how many notes are waiting. */
+    toConfirmTitle: (count: number) => `FCC notes to confirm (${count})`,
+    /** Approved. A waiting-list row's record, which links to it. */
+    toConfirmRecord: (artist: string, album: string) => `${artist} — ${album}`,
+    /** Approved. A waiting-list row's track and note. */
+    toConfirmNote: (track: string, note: string) => `${track}: ${note}`,
+    /** Approved. Who reported a waiting-list note and when; the date is the station's long date. */
+    toConfirmReportedOn: (reporter: string, date: string) => `Reported by ${reporter} on ${date}`,
+    /** Approved. Spoken name of Confirm on a waiting-list row; the visible word stays `Confirm`. */
+    toConfirmSpokenConfirm: (artist: string, album: string, track: string) =>
+      `Confirm the note on ${artist} — ${album}, ${track}`,
+    /** Approved. Spoken name of Remove on a waiting-list row; the visible word stays `Remove`. */
+    toConfirmSpokenRemove: (artist: string, album: string, track: string) =>
+      `Remove the note on ${artist} — ${album}, ${track}`,
+    /** Approved. */
+    toConfirmLoadFailed: "Couldn't load the FCC notes to confirm. Please try again.",
+    /** Approved. */
+    couldNotConfirm: "Couldn't confirm the note. Please try again.",
+    /** Approved. */
+    couldNotRemove: "Couldn't remove the note. Please try again.",
   },
 } as const;
