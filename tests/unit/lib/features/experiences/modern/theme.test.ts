@@ -7,13 +7,14 @@ type ThemeWithComponents = Theme &
   Pick<Required<CssVarsThemeOptions>, "components">;
 
 // Mock next/font/google before importing the theme
-vi.mock("next/font/google", () => ({
-  Kanit: () => ({
+const { kanitLoader } = vi.hoisted(() => ({
+  kanitLoader: vi.fn(() => ({
     style: {
       fontFamily: "Kanit, sans-serif",
     },
-  }),
+  })),
 }));
+vi.mock("next/font/google", () => ({ Kanit: kanitLoader }));
 
 // Mock next/font/local before importing the theme
 vi.mock("next/font/local", () => ({
@@ -97,6 +98,26 @@ describe("modern theme", () => {
     it("should have consistent display and body fonts", () => {
       expect(modernTheme.fontFamily?.display).toBe(modernTheme.fontFamily?.body);
     });
+  });
+
+  describe("medium weight", () => {
+    it("should load Kanit at weights 400 and 500", () => {
+      expect(kanitLoader).toHaveBeenCalledWith(
+        expect.objectContaining({ weight: ["400", "500"] })
+      );
+    });
+
+    it("should set fontWeight.lg to 500", () => {
+      expect(modernTheme.fontWeight.lg).toBe(500);
+    });
+
+    it.each(["title-lg", "title-md", "title-sm"] as const)(
+      "should render %s at 500",
+      (level) => {
+        const style = modernTheme.typography?.[level] as { fontWeight: number };
+        expect(style.fontWeight).toBe(500);
+      }
+    );
   });
 
   describe("typography", () => {
