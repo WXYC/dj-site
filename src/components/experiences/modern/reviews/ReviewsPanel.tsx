@@ -10,6 +10,7 @@ import { useCanSeeReviews } from "@/src/hooks/useCanSeeReviews";
 import { REVIEW_COPY } from "./copy";
 import FccNotesPanel from "./FccNotesPanel";
 import PrintedVersionNote from "./PrintedVersionNote";
+import { usePrintedVersion } from "./usePrintedVersion";
 import SlipPreview, { SlipFccRow } from "./SlipPreview";
 
 const { albumPanel: copy } = REVIEW_COPY;
@@ -27,6 +28,7 @@ export function FccNotesSlot({ albumId }: { albumId: number }) {
 
 /** A review as the page shows it; `record` is set only when the review is about this page's own record, and `printable` only by the album page's panel, where that record is a library release. `onCover` says the review is on a cover now, which is what earns it the printed-version note. */
 export function ReviewItem({ review, record, newSlipHref, printable, onCover }: { review: Review; record?: PanelRecord; newSlipHref?: string; printable?: boolean; onCover: boolean }) {
+  const printedVersion = usePrintedVersion(review, { onCover });
   const onTheSleeve = review.medium === "handwritten" && !review.review;
   return (
     <Stack spacing={0.5} component="li" sx={{ listStyle: "none" }}>
@@ -44,7 +46,7 @@ export function ReviewItem({ review, record, newSlipHref, printable, onCover }: 
       {printable && record && review.medium === "typed" && review.status === "submitted" && (
         <RequireMD>
           <JoyLink component={Link} href={`/dashboard/admin/library/${review.album_id}/slip/${review.id}`} level="body-xs">
-            {copy.printReview}
+            {printedVersion === "edited" ? REVIEW_COPY.printedNote.printNew : REVIEW_COPY.intakeItem.printSlip}
           </JoyLink>
         </RequireMD>
       )}

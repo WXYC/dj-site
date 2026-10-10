@@ -379,7 +379,6 @@ export const REVIEW_COPY = {
     archiveTitle: "Earlier takes",
     /** Approved. */
     loadFailed: "Couldn't load the reviews. Please try again.",
-    printReview: "Print this review",
   },
   /** FCC notes on a record, reported by any DJ. */
   fccNotes: {
