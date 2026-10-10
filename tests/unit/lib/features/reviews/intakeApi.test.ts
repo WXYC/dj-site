@@ -101,6 +101,42 @@ describe("intakeApi", () => {
     expect(seen).toEqual({ path: "/intake/7/accept-review", body: { review_id: 40 } });
   });
 
+  it("acceptReview refetches the item and the lists of reviews, so the album's cover review and the item's cards follow the choice", async () => {
+    const reads = { item7: 0, list: 0, releaseReviews: 0, myReviews: 0 };
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/intake`, () => {
+        reads.list += 1;
+        return HttpResponse.json([]);
+      }),
+      http.get(`${TEST_BACKEND_URL}/intake/:id`, () => {
+        reads.item7 += 1;
+        return HttpResponse.json({ id: 7 });
+      }),
+      http.get(`${TEST_BACKEND_URL}/reviews`, ({ request }) => {
+        reads[new URL(request.url).searchParams.has("album_id") ? "releaseReviews" : "myReviews"] += 1;
+        return HttpResponse.json([]);
+      }),
+      http.post(`${TEST_BACKEND_URL}/intake/:id/accept-review`, () => HttpResponse.json({ id: 7 })),
+    );
+    const store = makeReviewsStore();
+    const subscriptions = [
+      store.dispatch(intakeApi.endpoints.getIntakeItems.initiate()),
+      store.dispatch(intakeApi.endpoints.getIntakeItem.initiate(7)),
+      store.dispatch(reviewApi.endpoints.getReviewsForRelease.initiate(3)),
+      store.dispatch(reviewApi.endpoints.getMyReviews.initiate()),
+    ];
+    await Promise.all(subscriptions);
+    const before = { ...reads };
+
+    await store.dispatch(intakeApi.endpoints.acceptReview.initiate({ id: 7, reviewId: 40 }));
+    await vi.waitFor(() => expect(reads.item7).toBe(before.item7 + 1));
+    await vi.waitFor(() => expect(reads.releaseReviews).toBe(before.releaseReviews + 1));
+    await reviewsSettled(store);
+
+    expect(reads).toEqual({ item7: before.item7 + 1, list: before.list + 1, releaseReviews: before.releaseReviews + 1, myReviews: before.myReviews + 1 });
+    subscriptions.forEach((s) => s.unsubscribe());
+  });
+
   it("deleteIntakeItem DELETEs exactly /intake/7 and answers the deleted authors", async () => {
     let seen: { method: string; path: string } | undefined;
     server.use(

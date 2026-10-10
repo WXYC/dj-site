@@ -780,6 +780,28 @@ describe("IntakeItemScreen", () => {
       await waitFor(() => expect(posts).toEqual([{ path: `/intake/${ITEM_ID}/accept-review`, body: { review_id: 41 } }]));
     });
 
+    it("closes the question once the write succeeds and sends the write once while the item reread is outstanding", async () => {
+      const box = setUp(dogaItem());
+      const posts = recordPosts(box);
+      const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+      const button = await screen.findByRole("button", { name: "Use this review instead" });
+      await reviewsSettled(store);
+      const reread = holdResponse("get", FILED_ITEM_PATH, () => HttpResponse.json(box.item));
+
+      await user.click(button);
+      await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Use this review instead" }));
+
+      await waitFor(() => expect(reread.calls.count).toBe(1));
+      await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
+      expect(screen.getByRole("button", { name: "Use this review instead" })).toBeDisabled();
+      expect(posts).toEqual([{ path: `/intake/${ITEM_ID}/accept-review`, body: { review_id: 41 } }]);
+
+      reread.release();
+      await reread.answered;
+      await reviewsSettled(store);
+      expect(posts).toHaveLength(1);
+    });
+
     it.each([
       ["finalized", "finalized"],
       ["filed", "filed"],
@@ -801,9 +823,10 @@ describe("IntakeItemScreen", () => {
       const item = dogaItem({ state: "checked_out", effective_state: "checked_out", checked_out_by: "dj-sam", checked_out_by_name: "Sam", checked_out_at: "2026-10-01T12:00:00Z" });
       setUp(item, [submitted(40, authorOverrides)]);
 
-      renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+      const { store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
 
       await screen.findByRole("heading", { name: "The review on the cover" });
+      await reviewsSettled(store);
       if (shown) expect(screen.getByText("The record is still out with Sam.")).toBeInTheDocument();
       else expect(screen.queryByText(/still out with/)).not.toBeInTheDocument();
     });
@@ -811,9 +834,10 @@ describe("IntakeItemScreen", () => {
     it("says a handwritten review is already on the sleeve in place of the print link", async () => {
       setUp(dogaItem(), [submitted(40, { medium: "handwritten", review: null })]);
 
-      renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+      const { store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
 
       expect(await screen.findByText("The record's review is handwritten, so it is already on the sleeve. There is nothing to print.")).toBeInTheDocument();
+      await reviewsSettled(store);
       const slipLinks = screen.queryAllByRole("link").filter((link) => link.getAttribute("href") === SLIP_HREF);
       expect(slipLinks).toEqual([]);
     });
@@ -925,12 +949,13 @@ describe("IntakeItemScreen", () => {
     ])("a 400 on $write", ({ item, own, other, act }) => {
       it("shows its own line and not the other write's", async () => {
         setUp(item);
-        const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+        const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
         await screen.findByRole("heading", { name: "Other reviews" });
 
         await act(user);
 
         await waitFor(() => expect(screen.getByRole("status").textContent).toBe(own));
+        await reviewsSettled(store);
         expect(screen.queryByText(other)).not.toBeInTheDocument();
       });
     });
