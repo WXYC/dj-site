@@ -50,4 +50,10 @@ describe("IntakeLane", () => {
     expect(link.parentElement).toBe(extra.parentElement);
     expect(link.parentElement).not.toBe(item);
   });
+
+  it("renders a row's own content in place of label and extra when given a `row` render prop", () => {
+    renderWithProviders(<IntakeLane title="Requests" rows={rows} empty="Nothing here." row={(r) => <span>{`row ${r.id}`}</span>} />);
+    const items = within(screen.getByRole("region", { name: "Requests" })).getAllByRole("listitem");
+    expect(items.map((li) => li.textContent)).toEqual(["row 1", "row 2"]);
+  });
 });

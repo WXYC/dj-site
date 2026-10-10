@@ -245,6 +245,18 @@ describe("ReviewsScreen", () => {
     await waitFor(() => expect(paths).toEqual(["/intake/11/accept", "/intake/11/pass"]));
   });
 
+  it("draws each request as a record row: the parts separately, Asked beside them, Accept and Pass in the actions", async () => {
+    serveIntake([item({ id: 11, state: "requested", effective_state: "requested", requested_dj_id: ME, requested_at: "2026-09-30T12:00:00Z" })]);
+    renderWithProviders(<ReviewsScreen />);
+    const requests = await section("Requests for me");
+    for (const part of ["Stereolab", "Aluminum Tunes", "Duophonic"]) {
+      expect((await within(requests).findByText(part)).textContent).toBe(part);
+    }
+    expect(within(requests).queryByText(/·/)).not.toBeInTheDocument();
+    expect(within(requests).getByText(/^Asked /)).toBeInTheDocument();
+    expect(within(requests).getAllByRole("listitem")).toHaveLength(1);
+  });
+
   // The notice says the lists have been reloaded, so it waits until they have.
   it.each([
     ["Check out", SHELF, "checkout", item({ id: 5 }), SHELF_RACE],
