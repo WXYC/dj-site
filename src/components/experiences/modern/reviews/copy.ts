@@ -304,6 +304,16 @@ export const REVIEW_COPY = {
     deletedPlain: "Deleted.",
     /** Approved. Built from the response, not the confirmation. */
     deleted: (names: string[]) => `Deleted, with the reviews and drafts by ${joinNames(names)}.`,
+    /** Approved. The button under Other reviews while nothing is on the cover. */
+    useThisReview: "Use this review",
+    /** Approved. The button under Other reviews while a review is on the cover; also the confirmation's confirm button. */
+    useThisReviewInstead: "Use this review instead",
+    /** Approved. The replace confirmation's question. */
+    replaceCover: "Replace the review on the cover with this one? If a slip is already taped to the record, print the slip again to replace it.",
+    /** Approved. Shown while the record is checked out to someone other than the review on the cover's author. */
+    stillOutWith: (holder: string) => `The record is still out with ${holder}.`,
+    /** Approved. Shown, with no server words, once the page has reloaded after the chosen review was refused. */
+    reviewGone: "That review can't be used for this record any more. It may have been deleted since the page opened. The page has been refreshed.",
   },
   /** The music directors' print page, `/dashboard/admin/intake/{id}/slip`. */
   intakeSlip: {

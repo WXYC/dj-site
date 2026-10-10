@@ -161,6 +161,25 @@ describe("IntakeItemScreen", () => {
     ["fromHeldFor", REVIEW_COPY.intake.fromHeldFor("Jessica Pratt", "Sessa"), "From Jessica Pratt. The record is being held for Sessa."],
     ["fromShelf", REVIEW_COPY.intake.fromShelf("Jessica Pratt"), "From Jessica Pratt. The record is on the review shelf."],
     ["fromRemoved", REVIEW_COPY.intake.fromRemoved("Jessica Pratt"), "From Jessica Pratt. The record is checked out; holder removed."],
+    ["useThisReview", REVIEW_COPY.intakeItem.useThisReview, "Use this review"],
+    ["useThisReviewInstead", REVIEW_COPY.intakeItem.useThisReviewInstead, "Use this review instead"],
+    [
+      "replaceCover",
+      REVIEW_COPY.intakeItem.replaceCover,
+      "Replace the review on the cover with this one? If a slip is already taped to the record, print the slip again to replace it.",
+    ],
+    ["stillOutWith", REVIEW_COPY.intakeItem.stillOutWith("Sessa"), "The record is still out with Sessa."],
+    [
+      "reviewGone",
+      REVIEW_COPY.intakeItem.reviewGone,
+      "That review can't be used for this record any more. It may have been deleted since the page opened. The page has been refreshed.",
+    ],
+    ["writeFailed", REVIEW_COPY.screen.writeFailed, "Couldn't do that. Please try again."],
+    [
+      "handwritten",
+      REVIEW_COPY.intakeSlip.handwritten,
+      "The record's review is handwritten, so it is already on the sleeve. There is nothing to print.",
+    ],
   ])("words %s exactly as the station approved it", (_key, actual, approved) => {
     expect(actual).toBe(approved);
   });
@@ -679,7 +698,245 @@ describe("IntakeItemScreen", () => {
     });
   });
 
-  // A new write on this page that reloads through useItemPageReload before it shows a line adds a row here.
+  describe("using a review", () => {
+    const ACCEPT_URL = `${TEST_BACKEND_URL}/intake/${ITEM_ID}/accept-review`;
+    const SLIP_HREF = `/dashboard/admin/intake/${ITEM_ID}/slip`;
+    const SERVER_WORDS = "review_id must name a submitted review of this record";
+    const NOTHING_ON_COVER = { accepted_review_id: null };
+
+    beforeEach(() => {
+      vi.mocked(toast).mockClear();
+      vi.mocked(toast.error).mockClear();
+    });
+
+    // Review 40 is on the cover when the item has one; review 41 is the other review.
+    const setUp = (item = dogaItem(NOTHING_ON_COVER), reviews: Review[] = item.accepted_review_id ? [submitted(40), submitted(41)] : [submitted(41)]) => {
+      fakeReviewsEndpoints({ records: [item], forItem: { [ITEM_ID]: reviews } });
+      return serveItem(item);
+    };
+
+    /** Records each POST to /intake/{id}/{action}, and moves the served item's cover to the review sent. */
+    const recordPosts = (box: ReturnType<typeof serveItem>) => {
+      const posts: { path: string; body: unknown }[] = [];
+      server.use(
+        http.post(`${TEST_BACKEND_URL}/intake/:id/:action`, async ({ request }) => {
+          const body = (await request.clone().json()) as { review_id: number };
+          posts.push({ path: new URL(request.url).pathname, body });
+          box.item = { ...box.item, accepted_review_id: body.review_id };
+          return HttpResponse.json(box.item);
+        }),
+      );
+      return posts;
+    };
+
+    /** Counts the reads of this item's reviews, answering each with `list`. */
+    const countItemReviewReads = (list: Review[]) => {
+      const reads = { count: 0 };
+      server.use(
+        http.get(`${TEST_BACKEND_URL}/reviews`, ({ request }) => {
+          if (new URL(request.url).searchParams.get("intake_item_id") === String(ITEM_ID)) reads.count += 1;
+          return HttpResponse.json(list);
+        }),
+      );
+      return reads;
+    };
+
+    const refuseWith400 = () =>
+      server.use(http.post(ACCEPT_URL, () => HttpResponse.json({ message: SERVER_WORDS }, { status: 400 })));
+
+    it("sends { review_id } to accept-review at once when nothing is on the cover, never to accept, and says nothing of its own", async () => {
+      const box = setUp();
+      const posts = recordPosts(box);
+      const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      await user.click(await screen.findByRole("button", { name: "Use this review" }));
+
+      const cover = (await screen.findByRole("heading", { name: "The review on the cover" })).closest("section")!;
+      expect(await within(cover).findByText("Take 41.")).toBeInTheDocument();
+      await reviewsSettled(store);
+      expect(posts).toEqual([{ path: `/intake/${ITEM_ID}/accept-review`, body: { review_id: 41 } }]);
+      expect(screen.queryByRole("status")).not.toBeInTheDocument();
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+      expect(toast).not.toHaveBeenCalled();
+      expect(toast.error).not.toHaveBeenCalled();
+    });
+
+    it("asks before replacing the review on the cover, and sends nothing when the question is cancelled", async () => {
+      const box = setUp(dogaItem());
+      const posts = recordPosts(box);
+      const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      await user.click(await screen.findByRole("button", { name: "Use this review instead" }));
+      const dialog = await screen.findByRole("alertdialog");
+      expect(within(dialog).getByText(REVIEW_COPY.intakeItem.replaceCover)).toBeInTheDocument();
+      await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+      await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
+      await reviewsSettled(store);
+      expect(posts).toEqual([]);
+
+      await user.click(screen.getByRole("button", { name: "Use this review instead" }));
+      await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Use this review instead" }));
+
+      await waitFor(() => expect(posts).toEqual([{ path: `/intake/${ITEM_ID}/accept-review`, body: { review_id: 41 } }]));
+    });
+
+    it.each([
+      ["finalized", "finalized"],
+      ["filed", "filed"],
+    ] as const)("works on a %s record, which is how a review is replaced", async (state, effective) => {
+      const box = setUp(dogaItem({ state, effective_state: effective }));
+      const posts = recordPosts(box);
+      const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      await user.click(await screen.findByRole("button", { name: "Use this review instead" }));
+      await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Use this review instead" }));
+
+      await waitFor(() => expect(posts).toEqual([{ path: `/intake/${ITEM_ID}/accept-review`, body: { review_id: 41 } }]));
+    });
+
+    it.each([
+      ["a holder who is not the author", { author_user_id: "dj-pat" }, true],
+      ["the author as the holder", { author_user_id: "dj-sam" }, false],
+    ])("says the record is still out for %s -> %s", async (_label, authorOverrides, shown) => {
+      const item = dogaItem({ state: "checked_out", effective_state: "checked_out", checked_out_by: "dj-sam", checked_out_by_name: "Sam", checked_out_at: "2026-10-01T12:00:00Z" });
+      setUp(item, [submitted(40, authorOverrides)]);
+
+      renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      await screen.findByRole("heading", { name: "The review on the cover" });
+      if (shown) expect(screen.getByText("The record is still out with Sam.")).toBeInTheDocument();
+      else expect(screen.queryByText(/still out with/)).not.toBeInTheDocument();
+    });
+
+    it("says a handwritten review is already on the sleeve in place of the print link", async () => {
+      setUp(dogaItem(), [submitted(40, { medium: "handwritten", review: null })]);
+
+      renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      expect(await screen.findByText("The record's review is handwritten, so it is already on the sleeve. There is nothing to print.")).toBeInTheDocument();
+      const slipLinks = screen.queryAllByRole("link").filter((link) => link.getAttribute("href") === SLIP_HREF);
+      expect(slipLinks).toEqual([]);
+    });
+
+    it("names the print link Print the slip after a replacement on a printed copy", async () => {
+      const printedAt = "2026-10-02T16:00:00Z";
+      const box = setUp(dogaItem({ printed_at: printedAt }), [submitted(40, { printed_revision_id: 401, printed_at: printedAt }), submitted(41)]);
+      recordPosts(box);
+      server.use(
+        http.get(`${TEST_BACKEND_URL}/reviews/:id/revisions`, () =>
+          HttpResponse.json([reviewRevision({ id: 401, review_id: 40, revision: 1 }), reviewRevision({ id: 402, review_id: 40, revision: 2 })]),
+        ),
+      );
+      const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+      expect(await screen.findAllByRole("link", { name: "Print a new slip" })).not.toHaveLength(0);
+
+      await user.click(await screen.findByRole("button", { name: "Use this review instead" }));
+      await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Use this review instead" }));
+
+      const link = await screen.findByRole("link", { name: "Print the slip" });
+      await reviewsSettled(store);
+      expect(link).toHaveAttribute("href", SLIP_HREF);
+      expect(screen.getAllByRole("link", { name: "Print the slip" })).toHaveLength(1);
+      expect(screen.queryByRole("link", { name: "Print a new slip" })).not.toBeInTheDocument();
+    });
+
+    it("shows its approved line after one reread of the item and its reviews on a 400, and never the server's words", async () => {
+      const box = setUp();
+      const reviewReads = countItemReviewReads([submitted(41)]);
+      refuseWith400();
+      const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+      const button = await screen.findByRole("button", { name: "Use this review" });
+      await waitFor(() => expect(reviewReads.count).toBe(1));
+      const itemReads = box.reads;
+
+      await user.click(button);
+
+      expect((await screen.findByRole("status")).textContent).toBe(REVIEW_COPY.intakeItem.reviewGone);
+      await reviewsSettled(store);
+      expect(box.reads).toBe(itemReads + 1);
+      expect(reviewReads.count).toBe(2);
+      expect(screen.queryByText(SERVER_WORDS)).not.toBeInTheDocument();
+      expect(toast.error).not.toHaveBeenCalledWith(SERVER_WORDS);
+      expect(toast.error).not.toHaveBeenCalled();
+    });
+
+    it("shows no line while the reload is outstanding", async () => {
+      const box = setUp();
+      const reviewReads = countItemReviewReads([submitted(41)]);
+      refuseWith400();
+      const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+      const button = await screen.findByRole("button", { name: "Use this review" });
+      await waitFor(() => expect(reviewReads.count).toBe(1));
+      const reload = holdResponse("get", FILED_ITEM_PATH, () => HttpResponse.json(box.item));
+
+      await user.click(button);
+
+      // Every other read the reload starts has begun, and the held item read is the only request left.
+      await waitFor(() => expect(reload.calls.count).toBe(1));
+      await waitFor(() => expect(reviewReads.count).toBe(2));
+      await waitFor(() => expect(pendingCount(store)).toBe(1));
+      await renderedFrame();
+      expect(screen.queryByRole("status")).not.toBeInTheDocument();
+
+      reload.release();
+      await reload.answered;
+      expect(screen.getByRole("status").textContent).toBe(REVIEW_COPY.intakeItem.reviewGone);
+    });
+
+    it("answers any other failure with the Reviews page's line", async () => {
+      setUp();
+      server.use(http.post(ACCEPT_URL, () => HttpResponse.json({ message: "boom" }, { status: 500 })));
+      const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      await user.click(await screen.findByRole("button", { name: "Use this review" }));
+
+      expect((await screen.findByRole("status")).textContent).toBe("Couldn't do that. Please try again.");
+      await reviewsSettled(store);
+      expect(screen.queryByText(REVIEW_COPY.intakeItem.reviewGone)).not.toBeInTheDocument();
+      expect(toast.error).not.toHaveBeenCalledWith("boom");
+    });
+
+    // The two writes are refused with the same status; only the call site tells them apart.
+    describe.each([
+      {
+        write: "Use this review",
+        item: dogaItem(NOTHING_ON_COVER),
+        own: REVIEW_COPY.intakeItem.reviewGone,
+        other: REVIEW_COPY.intakeItem.pickedGone,
+        act: async (user: User) => {
+          refuseWith400();
+          await user.click(await screen.findByRole("button", { name: "Use this review" }));
+        },
+      },
+      {
+        write: "filing onto an existing release",
+        item: dogaItem(),
+        own: REVIEW_COPY.intakeItem.pickedGone,
+        other: REVIEW_COPY.intakeItem.reviewGone,
+        act: async (user: User) => {
+          server.use(
+            http.get(`${TEST_BACKEND_URL}/library`, () => HttpResponse.json([RELEASE_ROW])),
+            http.post(FILE_URL, () => HttpResponse.json({ message: "server words" }, { status: 400 })),
+          );
+          await pick(user);
+          await user.click(screen.getByRole("button", { name: "File it as this one" }));
+        },
+      },
+    ])("a 400 on $write", ({ item, own, other, act }) => {
+      it("shows its own line and not the other write's", async () => {
+        setUp(item);
+        const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+        await screen.findByRole("heading", { name: "Other reviews" });
+
+        await act(user);
+
+        await waitFor(() => expect(screen.getByRole("status").textContent).toBe(own));
+        expect(screen.queryByText(other)).not.toBeInTheDocument();
+      });
+    });
+  });
+
+  // A new filing arm adds a row here. Another write's refusal cases go in their own describe.
   const ARMS = [
     {
       arm: "the new-release bench",
