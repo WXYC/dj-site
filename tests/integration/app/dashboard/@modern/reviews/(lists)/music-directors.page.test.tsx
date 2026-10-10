@@ -4,6 +4,7 @@ import { renderWithProviders } from "@/tests/helpers";
 import {
   setUpClassicPageAuthority,
   setUpClassicPageAuthorityEnv,
+  assertDeniedClassicPage,
   assertNotFoundPage,
 } from "@/tests/helpers/classic-page-authority-harness";
 
@@ -25,21 +26,22 @@ vi.mock("@/lib/features/authentication/organization-utils.server", async () => {
   return classicPageAuthorityOrganizationUtilsMock();
 });
 
-// The page's own responsibility under test is the flag + auth gate, not the
-// header chrome.
+// The page's own responsibility under test is the flag + role gate.
 vi.mock("@/src/components/experiences/modern/Header/PageHeader", () => ({
   default: ({ title }: { title: string }) => <div data-testid="page-header">{title}</div>,
 }));
+vi.mock("@/src/components/experiences/modern/reviews/IntakeLanes", () => ({
+  default: (props: object) => <div data-testid="intake-lanes" data-props={JSON.stringify(props)} />,
+}));
 
-import ReviewsPage from "@/app/dashboard/@modern/reviews/(lists)/page";
+import MusicDirectorsPage from "@/app/dashboard/@modern/reviews/(lists)/music-directors/page";
 
-describe("reviews page", () => {
+describe("reviews music directors page", () => {
   setUpClassicPageAuthorityEnv();
 
   it.each([
-    [undefined, "dj"],
     [undefined, "musicDirector"],
-    [undefined, "stationManager"],
+    [undefined, "dj"],
     ["false", "stationManager"],
     ["staff", "dj"],
   ] as const)("is not found when the flag is %s for a %s", async (flag, role) => {
@@ -47,20 +49,28 @@ describe("reviews page", () => {
     else process.env.NEXT_PUBLIC_REVIEWS_ENABLED = flag;
     setUpClassicPageAuthority(role);
 
-    await assertNotFoundPage(() => ReviewsPage());
+    await assertNotFoundPage(() => MusicDirectorsPage());
+  });
+
+  it("sends a DJ home when the flag is open to every DJ", async () => {
+    process.env.NEXT_PUBLIC_REVIEWS_ENABLED = "true";
+    setUpClassicPageAuthority("dj");
+
+    await assertDeniedClassicPage(() => MusicDirectorsPage());
   });
 
   it.each([
     ["staff", "musicDirector"],
     ["staff", "stationManager"],
-    ["true", "dj"],
-    ["1", "dj"],
-  ] as const)("renders the Reviews shell when the flag is %s for a %s", async (flag, role) => {
+    ["true", "musicDirector"],
+    ["true", "stationManager"],
+  ] as const)("renders the bare lanes under the Reviews heading when the flag is %s for a %s", async (flag, role) => {
     process.env.NEXT_PUBLIC_REVIEWS_ENABLED = flag;
     setUpClassicPageAuthority(role);
 
-    renderWithProviders(await ReviewsPage());
+    renderWithProviders(await MusicDirectorsPage());
 
     expect(screen.getByTestId("page-header")).toHaveTextContent("Reviews");
+    expect(screen.getByTestId("intake-lanes")).toHaveAttribute("data-props", "{}");
   });
 });

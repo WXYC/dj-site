@@ -148,6 +148,15 @@ export const REVIEW_COPY = {
     /** Approved. */
     raceRelease: "This record is no longer checked out to you. The lists have been reloaded.",
   },
+  /** The strip over the Reviews page's two tabs. */
+  tabs: {
+    /** Approved. */
+    reviewing: "Reviewing",
+    /** Approved. */
+    directors: "Music directors",
+    /** Approved. The label, then the number of reviews waiting, as `Music directors (3)`. */
+    count: (label: string, n: number) => `${label} (${n})`,
+  },
   /** The music directors' review shelf page, `/dashboard/admin/intake`. */
   intake: {
     /** Approved. The menu entry and the page heading. */
