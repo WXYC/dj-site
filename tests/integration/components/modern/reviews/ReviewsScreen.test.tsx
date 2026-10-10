@@ -594,9 +594,12 @@ describe("ReviewsScreen", () => {
   it("makes no roster request, and offers the request on the review shelf lane only", async () => {
     mockAuth.authority = Authorization.MD;
     const held = item({ id: 7, album_title: "Waiting Album", effective_state: "checked_out", checked_out_by: ME });
+    // Each other lane holds a real row, so its absence checks run against a row that could have carried the picker.
+    const asked = item({ id: 8, album_title: "Asked Album", state: "requested", effective_state: "requested", requested_dj_id: ME });
     fakeReviewsEndpoints({
-      open: [moonPix({ id: 1 }), moonPix({ id: 2, album_title: "Dark Side" }), held],
+      open: [moonPix({ id: 1 }), moonPix({ id: 2, album_title: "Dark Side" }), held, asked],
       reviewers: REVIEWERS,
+      mine: [review({ id: 40 })],
     });
 
     const { user } = renderWithProviders(<ReviewsScreen />);
@@ -606,7 +609,13 @@ describe("ReviewsScreen", () => {
     await screen.findByRole("option", { name: "Test Reviewer" });
 
     expect(listUsers).not.toHaveBeenCalled();
-    for (const other of ["Requests for me", "My checkouts", "My reviews"]) {
+    const rowMarkers = {
+      "Requests for me": () => within(screen.getByRole("region", { name: "Requests for me" })).getByRole("button", { name: REVIEW_COPY.screen.accept }),
+      "My checkouts": () => within(screen.getByRole("region", { name: "My checkouts" })).getByRole("button", { name: RETURN }),
+      "My reviews": () => within(screen.getByRole("region", { name: "My reviews" })).getByRole("link", { name: REVIEW_COPY.myReviews.open }),
+    };
+    for (const other of ["Requests for me", "My checkouts", "My reviews"] as const) {
+      expect(rowMarkers[other]()).toBeInTheDocument();
       expect(within(await section(other)).queryByRole("button", { name: "Request a review" })).not.toBeInTheDocument();
       expect(within(await section(other)).queryByRole("combobox", { name: "DJ to ask" })).not.toBeInTheDocument();
     }

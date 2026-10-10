@@ -165,7 +165,7 @@ export const REVIEW_COPY = {
   },
   /** The music directors' lanes, on the Reviews page's second tab. */
   intake: {
-    /** Approved. The menu entry and the page heading. */
+    /** Approved. The heading and tab title of a record's page under the music directors' admin area; it is not a menu entry (the sidebar reads `sidebar.title`). */
     title: "Review shelf",
     /** Approved. Shown once the lists have reloaded after Mark as returned lost a race. */
     raceReleased: "This record has already been returned or filed. The lists have been reloaded.",

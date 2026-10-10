@@ -17,7 +17,7 @@ interface IntakeLaneProps<Row extends { id: number }> {
 /**
  * One titled lane of review intake: a heading over a list of rows, or an
  * empty line when there are none. Each row is its `label` followed by its
- * optional `extra`. Shared by the DJ's reviews page and the review shelf page.
+ * optional `extra`. Shared by the lanes of the Reviews page: the DJ's own lanes and the music directors' tab.
  */
 export default function IntakeLane<Row extends { id: number }>({ title, rows, empty, label, extra }: IntakeLaneProps<Row>) {
   return (
