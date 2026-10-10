@@ -174,6 +174,34 @@ describe("IntakeItemScreen", () => {
       REVIEW_COPY.intakeItem.reviewGone,
       "That review can't be used for this record any more. It may have been deleted since the page opened. The page has been refreshed.",
     ],
+    ["deleteReview", REVIEW_COPY.intakeItem.deleteReview, "Delete review"],
+    ["deleteReviewBy", REVIEW_COPY.intakeItem.deleteReviewBy("Cat Power"), "Delete review by Cat Power"],
+    [
+      "deleteReviewConfirm",
+      REVIEW_COPY.intakeItem.deleteReviewConfirm("Cat Power"),
+      "Delete Cat Power's review? Its history goes with it. This cannot be undone.",
+    ],
+    [
+      "deleteCoverHeld",
+      REVIEW_COPY.intakeItem.deleteCoverHeld("Sessa"),
+      "This is the review on the cover. Deleting it sends the record back to Sessa. Its history goes with it. This cannot be undone.",
+    ],
+    [
+      "deleteCoverShelf",
+      REVIEW_COPY.intakeItem.deleteCoverShelf,
+      "This is the review on the cover. Deleting it sends the record back to the review shelf. Its history goes with it. This cannot be undone.",
+    ],
+    [
+      "deleteCoverRemoved",
+      REVIEW_COPY.intakeItem.deleteCoverRemoved,
+      "This is the review on the cover. Deleting it puts the record back as checked out; its holder's account was removed.",
+    ],
+    [
+      "coverFiled",
+      REVIEW_COPY.intakeItem.deleteCoverFiled,
+      "This is the record's review and the record is already filed. Choose another review for the cover first, then delete this one.",
+    ],
+    ["couldNotDelete", REVIEW_COPY.couldNotDelete, "Couldn't delete the review. Please try again."],
     ["writeFailed", REVIEW_COPY.screen.writeFailed, "Couldn't do that. Please try again."],
     [
       "handwritten",
@@ -1286,6 +1314,133 @@ describe("IntakeItemScreen", () => {
       expect(await screen.findByRole("link", { name: "Edited · see history" })).toHaveAttribute("href", "/dashboard/reviews/40/history");
     });
   });
+  describe("deleting one review", () => {
+    const REVIEW_URL = (id: number) => `${TEST_BACKEND_URL}/reviews/${id}`;
+    const COVER_LINE = REVIEW_COPY.intakeItem.deleteCoverFiled;
+    const HOLDER_ITEM = { state: "checked_out", effective_state: "checked_out", checked_out_by: "dj-sessa", checked_out_by_name: "Sessa", checked_out_at: "2026-10-02T12:00:00Z" };
+    const REMOVED_ITEM = { ...HOLDER_ITEM, checked_out_by: null, checked_out_by_name: null };
+    const SHELF_ITEM = { state: "pool", effective_state: "pool", checked_out_by: null, checked_out_by_name: null, checked_out_at: null };
+
+    beforeEach(() => {
+      vi.mocked(toast).mockClear();
+    });
+
+    // Review 40 is on the cover; 41 is another submitted review; 42 is a draft of this record; 90 is a cited release's.
+    const setUp = (item = dogaItem(), extra: Review[] = []) => {
+      const reviews = [submitted(40, { author: "Stereolab" }), submitted(41, { author: "Cat Power" }), ...extra];
+      fakeReviewsEndpoints({ records: [item], forItem: { [ITEM_ID]: reviews } });
+      const box = serveItem(item);
+      const deletes: string[] = [];
+      server.use(
+        http.delete(`${TEST_BACKEND_URL}/reviews/:id`, ({ params }) => {
+          deletes.push(String(params.id));
+          return new HttpResponse(null, { status: 204 });
+        }),
+      );
+      return { box, deletes };
+    };
+
+    const open = async (user: User, name: string) => {
+      await user.click(await screen.findByRole("button", { name }));
+      return within(await screen.findByRole("alertdialog"));
+    };
+
+    it("finds the record's Delete and each review's Delete review by name on one page", async () => {
+      setUp(dogaItem({ state: "reviewed", effective_state: "reviewed" }));
+      renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      expect(await screen.findByRole("button", { name: "Delete" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Delete review by Stereolab" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Delete review by Cat Power" })).toBeInTheDocument();
+    });
+
+    it("offers Delete review on a draft of this record, with no Use this review, and never on a cited release's review", async () => {
+      setUp(dogaItem(), [submitted(42, { author: "Jessica Pratt", status: "draft" }), submitted(90, { author: "Sessa", intake_item_id: null, album_id: 5 })]);
+      renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      expect(await screen.findByRole("button", { name: "Delete review by Jessica Pratt" })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Delete review by Sessa" })).not.toBeInTheDocument();
+      expect(screen.getAllByRole("button", { name: "Use this review instead" })).toHaveLength(1);
+    });
+
+    it("confirms an ordinary review with its author named, then deletes it and reloads the page", async () => {
+      const { box, deletes } = setUp();
+      const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      const dialog = await open(user, "Delete review by Cat Power");
+      expect(dialog.getByText("Delete Cat Power's review? Its history goes with it. This cannot be undone.")).toBeInTheDocument();
+      const reads = box.reads;
+      await user.click(dialog.getByRole("button", { name: "Delete" }));
+
+      await waitFor(() => expect(deletes).toEqual(["41"]));
+      await waitFor(() => expect(box.reads).toBeGreaterThan(reads));
+      await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
+    });
+
+    it("keeps the review when Cancel is pressed", async () => {
+      const { deletes } = setUp();
+      const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      const dialog = await open(user, "Delete review by Cat Power");
+      await user.click(dialog.getByRole("button", { name: "Cancel" }));
+
+      await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
+      expect(deletes).toEqual([]);
+    });
+
+    it.each([
+      ["a named DJ holds the record", HOLDER_ITEM, REVIEW_COPY.intakeItem.deleteCoverHeld("Sessa")],
+      ["the holder's account was removed", REMOVED_ITEM, REVIEW_COPY.intakeItem.deleteCoverRemoved],
+      ["nobody holds the record", SHELF_ITEM, REVIEW_COPY.intakeItem.deleteCoverShelf],
+    ])("words the cover review's confirmation for a record where %s", async (_label, held, line) => {
+      setUp(dogaItem(held));
+      const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      const dialog = await open(user, "Delete review by Stereolab");
+
+      expect(dialog.getByText(line)).toBeInTheDocument();
+    });
+
+    it("disables Delete on the cover review of a filed record and says why beside it", async () => {
+      const { deletes } = setUp(dogaItem({ state: "filed", effective_state: "filed" }));
+      renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      expect(await screen.findByRole("button", { name: "Delete review by Stereolab" })).toBeDisabled();
+      expect(screen.getByText(COVER_LINE)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Delete review by Cat Power" })).toBeEnabled();
+      expect(deletes).toEqual([]);
+    });
+
+    it("shows the cover sentence in the notice slot when the server refuses with accepted_review, reloading first", async () => {
+      const { box } = setUp();
+      server.use(http.delete(REVIEW_URL(40), () => HttpResponse.json({ message: "server words", reason: "accepted_review" }, { status: 409 })));
+      const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      const dialog = await open(user, "Delete review by Stereolab");
+      const reads = box.reads;
+      await user.click(dialog.getByRole("button", { name: "Delete" }));
+
+      expect(await screen.findByRole("status")).toHaveTextContent(COVER_LINE);
+      expect(box.reads).toBeGreaterThan(reads);
+      expect(screen.queryByText("server words")).not.toBeInTheDocument();
+    });
+
+    it("shows the failure line in the notice slot, and it survives the reload", async () => {
+      const { box } = setUp();
+      server.use(http.delete(REVIEW_URL(41), () => HttpResponse.json({ message: "boom" }, { status: 500 })));
+      const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      const dialog = await open(user, "Delete review by Cat Power");
+      await user.click(dialog.getByRole("button", { name: "Delete" }));
+
+      expect(await screen.findByRole("status")).toHaveTextContent("Couldn't delete the review. Please try again.");
+      await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(screen.getByRole("status")).toHaveTextContent("Couldn't delete the review. Please try again.");
+      expect(box.reads).toBeGreaterThan(1);
+    });
+  });
+
   describe("deleting the record", () => {
     const TITLE = "Delete Juana Molina — DOGA from the review shelf?";
 

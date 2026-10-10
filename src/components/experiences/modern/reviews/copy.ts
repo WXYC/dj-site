@@ -314,6 +314,22 @@ export const REVIEW_COPY = {
     stillOutWith: (holder: string) => `The record is still out with ${holder}.`,
     /** Approved. Shown, with no server words, once the page has reloaded after the chosen review was refused. */
     reviewGone: "That review can't be used for this record any more. It may have been deleted since the page opened. The page has been refreshed.",
+    /** Approved. The button that deletes one review, on the review on the cover and under Other reviews. */
+    deleteReview: "Delete review",
+    /** Approved. The spoken name of that button. */
+    deleteReviewBy: (author: string) => `Delete review by ${author}`,
+    /** Approved. An ordinary review's confirmation. */
+    deleteReviewConfirm: (author: string) => `Delete ${author}'s review? Its history goes with it. This cannot be undone.`,
+    /** Approved. The cover review's confirmation while a named DJ holds the record. */
+    deleteCoverHeld: (holder: string) =>
+      `This is the review on the cover. Deleting it sends the record back to ${holder}. Its history goes with it. This cannot be undone.`,
+    /** Approved. The cover review's confirmation while nobody holds the record. */
+    deleteCoverShelf:
+      "This is the review on the cover. Deleting it sends the record back to the review shelf. Its history goes with it. This cannot be undone.",
+    /** Approved. The cover review's confirmation while the holder's account was removed. */
+    deleteCoverRemoved: "This is the review on the cover. Deleting it puts the record back as checked out; its holder's account was removed.",
+    /** Approved. Shown beside the disabled Delete review of a filed record's cover review, and when the server refuses anyway. */
+    deleteCoverFiled: "This is the record's review and the record is already filed. Choose another review for the cover first, then delete this one.",
   },
   /** The music directors' print page, `/dashboard/admin/intake/{id}/slip`. */
   intakeSlip: {
