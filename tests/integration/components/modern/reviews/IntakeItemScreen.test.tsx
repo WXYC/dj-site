@@ -1160,6 +1160,47 @@ describe("IntakeItemScreen", () => {
       }
     });
 
+    it.each([
+      ["deleteReviews", ["Cat Power"], "This also deletes the submitted review by Cat Power."],
+      ["deleteReviews", ["Cat Power", "Stereolab"], "This also deletes the submitted reviews by Cat Power and Stereolab."],
+      ["deleteReviews", ["Cat Power", "Stereolab", "Sessa"], "This also deletes the submitted reviews by Cat Power, Stereolab and Sessa."],
+      [
+        "deleteReviews",
+        ["Cat Power", "Stereolab", "Sessa", "Jessica Pratt"],
+        "This also deletes the submitted reviews by Cat Power, Stereolab, Sessa and Jessica Pratt.",
+      ],
+      [
+        "deleteDrafts",
+        ["Cat Power"],
+        "It also deletes an unfinished draft by Cat Power. They have not submitted yet and will lose what they wrote.",
+      ],
+      [
+        "deleteDrafts",
+        ["Cat Power", "Stereolab"],
+        "It also deletes unfinished drafts by Cat Power and Stereolab. They have not submitted yet and will lose what they wrote.",
+      ],
+      [
+        "deleteDrafts",
+        ["Cat Power", "Stereolab", "Sessa"],
+        "It also deletes unfinished drafts by Cat Power, Stereolab and Sessa. They have not submitted yet and will lose what they wrote.",
+      ],
+      [
+        "deleteDrafts",
+        ["Cat Power", "Stereolab", "Sessa", "Jessica Pratt"],
+        "It also deletes unfinished drafts by Cat Power, Stereolab, Sessa and Jessica Pratt. They have not submitted yet and will lose what they wrote.",
+      ],
+      ["deleted", ["Cat Power"], "Deleted, with the reviews and drafts by Cat Power."],
+      ["deleted", ["Cat Power", "Stereolab"], "Deleted, with the reviews and drafts by Cat Power and Stereolab."],
+      ["deleted", ["Cat Power", "Stereolab", "Sessa"], "Deleted, with the reviews and drafts by Cat Power, Stereolab and Sessa."],
+      [
+        "deleted",
+        ["Cat Power", "Stereolab", "Sessa", "Jessica Pratt"],
+        "Deleted, with the reviews and drafts by Cat Power, Stereolab, Sessa and Jessica Pratt.",
+      ],
+    ] as const)("writes %s with no comma before 'and': %j", (line, names, expected) => {
+      expect(REVIEW_COPY.intakeItem[line]([...names])).toBe(expected);
+    });
+
     it("sends nothing until the confirmation is accepted, and makes no request for a draft's text", async () => {
       const seen = serveDeletable(["Cat Power"], ["Jessica Pratt"]);
       const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
