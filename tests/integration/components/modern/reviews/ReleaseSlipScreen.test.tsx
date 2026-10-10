@@ -10,14 +10,11 @@ vi.mock("@/lib/features/authentication/client", () => ({
 
 vi.mock("sonner", () => ({ toast: { error: vi.fn(), success: vi.fn(), info: vi.fn() } }));
 
-let authority = Authorization.MD;
-vi.mock("@/src/hooks/authenticationHooks", () => ({
-  useAuthentication: () => ({
-    data: { user: { id: "md-me", authority } },
-    authenticating: false,
-    authenticated: true,
-  }),
-}));
+const mockAuth = vi.hoisted(() => ({ id: "md-me", authority: 2 as number }));
+vi.mock("@/src/hooks/authenticationHooks", async () => {
+  const { createAuthenticationHookMock } = await import("@/tests/helpers/auth-hook-mock");
+  return createAuthenticationHookMock(mockAuth);
+});
 
 import { toast } from "sonner";
 import ReleaseSlipScreen from "@/src/components/experiences/modern/reviews/ReleaseSlipScreen";
@@ -49,7 +46,7 @@ function servePrint(respond: () => Response) {
 describe("ReleaseSlipScreen", () => {
   let print: ReturnType<typeof vi.spyOn>;
   beforeEach(() => {
-    authority = Authorization.MD;
+    mockAuth.authority = Authorization.MD;
     vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "staff");
     print = vi.spyOn(window, "print").mockImplementation(() => {});
     vi.mocked(toast.error).mockClear();
@@ -64,7 +61,7 @@ describe("ReleaseSlipScreen", () => {
     ["staff-only for a DJ", "staff", Authorization.DJ],
   ])("renders nothing when the flag is %s", async (_label, flag, who) => {
     vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", flag);
-    authority = who;
+    mockAuth.authority = who;
     serveRecord();
 
     const { container } = renderWithProviders(<ReleaseSlipScreen albumId={ALBUM_ID} reviewId={REVIEW_ID} />);

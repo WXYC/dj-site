@@ -13,14 +13,11 @@ vi.mock("sonner", () => ({
   toast: Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn(), info: vi.fn() }),
 }));
 
-let authority = Authorization.MD;
-vi.mock("@/src/hooks/authenticationHooks", () => ({
-  useAuthentication: () => ({
-    data: { user: { id: "md-me", authority } },
-    authenticating: false,
-    authenticated: true,
-  }),
-}));
+const mockAuth = vi.hoisted(() => ({ id: "md-me", authority: 2 as number }));
+vi.mock("@/src/hooks/authenticationHooks", async () => {
+  const { createAuthenticationHookMock } = await import("@/tests/helpers/auth-hook-mock");
+  return createAuthenticationHookMock(mockAuth);
+});
 
 import { toast } from "sonner";
 import IntakeLanes from "@/src/components/experiences/modern/reviews/IntakeLanes";
@@ -41,7 +38,7 @@ beforeEach(() => {
 
 describe("IntakeLanes", () => {
   beforeEach(() => {
-    authority = Authorization.MD;
+    mockAuth.authority = Authorization.MD;
     vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "staff");
   });
   afterEach(() => vi.unstubAllEnvs());
@@ -51,7 +48,7 @@ describe("IntakeLanes", () => {
     ["staff-only for a DJ", "staff", Authorization.DJ],
   ])("renders nothing when the flag is %s", async (_label, flag, who) => {
     vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", flag);
-    authority = who;
+    mockAuth.authority = who;
     fakeReviewsEndpoints({ open: [moonPix()] });
 
     const { container } = renderWithProviders(<IntakeLanes />);
@@ -386,7 +383,7 @@ describe("IntakeLanes", () => {
 
 describe("IntakeLanes — a failed background refetch", () => {
   beforeEach(() => {
-    authority = Authorization.MD;
+    mockAuth.authority = Authorization.MD;
     vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "staff");
   });
   afterEach(() => vi.unstubAllEnvs());
@@ -422,7 +419,7 @@ const outRow = (id: number, overrides = {}) =>
 
 describe("IntakeLanes — cancel and release", () => {
   beforeEach(() => {
-    authority = Authorization.MD;
+    mockAuth.authority = Authorization.MD;
     vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "staff");
   });
   afterEach(() => vi.unstubAllEnvs());
@@ -462,7 +459,7 @@ describe("IntakeLanes — cancel and release", () => {
 
 describe("IntakeLanes — lost races", () => {
   beforeEach(() => {
-    authority = Authorization.MD;
+    mockAuth.authority = Authorization.MD;
     vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "staff");
   });
   afterEach(() => vi.unstubAllEnvs());

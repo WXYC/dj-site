@@ -249,6 +249,8 @@ vi.mock("@/lib/features/authentication/client", async () => {
 
 Import the helper by path inside the factory: `vi.mock` factories cannot close over imports, and the `@/tests/helpers` barrel pulls in the Redux store, which imports the module being replaced.
 
+Likewise, `createAuthenticationHookMock(state)` (`tests/helpers/auth-hook-mock.ts`) replaces `@/src/hooks/authenticationHooks` from a `vi.hoisted` `{ id, authority, late?, djName?, realName? }` object read on every call; `late: true` makes the first render answer `Authorization.NO` and the resolved authority after a microtask, as the real hook does, so a screen's first paint before its role resolves can be specced. Import it by path inside the factory, for the same reason.
+
 ### MSW Setup
 
 Default handlers in `tests/fakes/handlers.ts` return empty responses for `/library/`, `/authentication/`, `/flowsheet/`, `/rotation/`. Override in individual tests:

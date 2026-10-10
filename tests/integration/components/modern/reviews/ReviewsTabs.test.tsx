@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { fakeReviewsEndpoints, intakeItem, renderedFrame, renderWithProviders, server, TEST_BACKEND_URL } from "@/tests/helpers";
-import { Authorization } from "@/lib/features/admin/types";
 import { intakeApi } from "@/lib/features/reviews/intakeApi";
 import { REVIEW_COPY } from "@/src/components/experiences/modern/reviews/copy";
 
@@ -13,13 +12,11 @@ vi.mock("@/lib/features/authentication/client", async () => {
   const { createAuthClientModuleMock } = await import("@/tests/helpers/auth-client-mock");
   return createAuthClientModuleMock();
 });
-vi.mock("@/src/hooks/authenticationHooks", () => ({
-  useAuthentication: () => ({
-    data: { user: { id: "md-me", authority: Authorization.MD } },
-    authenticating: false,
-    authenticated: true,
-  }),
-}));
+const mockAuth = vi.hoisted(() => ({ id: "md-me", authority: 2 as number }));
+vi.mock("@/src/hooks/authenticationHooks", async () => {
+  const { createAuthenticationHookMock } = await import("@/tests/helpers/auth-hook-mock");
+  return createAuthenticationHookMock(mockAuth);
+});
 
 import ReviewsTabs from "@/src/components/experiences/modern/reviews/ReviewsTabs";
 

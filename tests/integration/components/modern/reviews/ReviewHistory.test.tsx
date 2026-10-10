@@ -1,7 +1,6 @@
 import { Component, type ReactNode } from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
-import { Authorization } from "@/lib/features/admin/types";
 import { http, HttpResponse } from "msw";
 import { fakeReviewsEndpoints, renderWithProviders, review, reviewRevision, reviewsSettled, server } from "@/tests/helpers";
 import { reviewApi } from "@/lib/features/reviews/reviewApi";
@@ -18,13 +17,11 @@ vi.mock("next/navigation", () => ({
   },
 }));
 
-vi.mock("@/src/hooks/authenticationHooks", () => ({
-  useAuthentication: () => ({
-    data: { user: { id: "dj-me", authority: Authorization.DJ } },
-    authenticating: false,
-    authenticated: true,
-  }),
-}));
+const mockAuth = vi.hoisted(() => ({ id: "dj-me", authority: 1 as number }));
+vi.mock("@/src/hooks/authenticationHooks", async () => {
+  const { createAuthenticationHookMock } = await import("@/tests/helpers/auth-hook-mock");
+  return createAuthenticationHookMock(mockAuth);
+});
 
 import ReviewHistory from "@/src/components/experiences/modern/reviews/ReviewHistory";
 import { REVIEW_COPY } from "@/src/components/experiences/modern/reviews/copy";
