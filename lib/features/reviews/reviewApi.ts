@@ -29,6 +29,10 @@ export const isReviewNotDraft = (err: unknown): boolean =>
 export const isReviewInUse = (err: unknown): boolean =>
   isRefusal(err, { status: 409, reasons: ["in_use"] satisfies ReviewConflictReason[], key: "reviewWriteError" });
 
+/** True when a delete was refused because the review is on the cover of a filed or finalized record. */
+export const isReviewAccepted = (err: unknown): boolean =>
+  isRefusal(err, { status: 409, reasons: ["accepted_review"] satisfies ReviewConflictReason[], key: "reviewWriteError" });
+
 /** The `reviews/...` endpoints. */
 export const reviewApi = reviewsApi.injectEndpoints({
   endpoints: (builder) => ({

@@ -27,6 +27,7 @@ import FccNotesPanel from "./FccNotesPanel";
 import { intakeRecord, recordLine, releaseRecord } from "./recordLine";
 import ReleasePicker from "./ReleasePicker";
 import { fromLine, newestFirst } from "./ReviewFrom";
+import DeleteReviewButton from "./DeleteReviewButton";
 import UseThisReviewButton from "./UseThisReviewButton";
 import { Group } from "./ReviewsPanel";
 import { useItemPageReload } from "./useItemPageReload";
@@ -90,19 +91,34 @@ export default function IntakeItemScreen({ id }: { id: number }) {
     .filter((r) => r.id !== coverId)
     .sort(newestFirst);
 
-  // A draft has not been submitted, and a review of a cited release is not this record's.
+  const holder = itemHolder(item.data);
+  const coverConfirmation =
+    holder.kind === "checked_out" ? COPY.deleteCoverHeld(holder.name) : holder.kind === "removed" ? COPY.deleteCoverRemoved : COPY.deleteCoverShelf;
+  // Every review of this record can be deleted, drafts included; a cited release's review is deleted from its own record's page.
+  const deleteControl = (review: Review) =>
+    review.intake_item_id === id && (
+      <DeleteReviewButton
+        review={review}
+        confirmation={isOnCover(review) ? coverConfirmation : COPY.deleteReviewConfirm(review.author ?? "")}
+        blocked={isOnCover(review) && isFiledState(item.data!.effective_state)}
+        reload={reload}
+        onNotice={setNotice}
+      />
+    );
+
+  // The From line and Use this review are for a submitted review of this record only.
   const othersExtra = (review: Review) => {
-    if (review.status !== "submitted" || review.intake_item_id !== id) return null;
-    const line = fromLine(review, item.data!);
+    const submittedHere = review.status === "submitted" && review.intake_item_id === id;
+    const line = submittedHere ? fromLine(review, item.data!) : null;
     return (
       <>
         {line && <Typography level="body-sm">{line}</Typography>}
-        <UseThisReviewButton itemId={id} review={review} replacing={coverId != null} reload={reload} onNotice={setNotice} />
+        {submittedHere && <UseThisReviewButton itemId={id} review={review} replacing={coverId != null} reload={reload} onNotice={setNotice} />}
+        {deleteControl(review)}
       </>
     );
   };
 
-  const holder = itemHolder(item.data);
   const stillOut = cover && holder.kind === "checked_out" && holder.name && holder.id !== cover.author_user_id ? COPY.stillOutWith(holder.name) : null;
 
   // The intake refusals are worded here; the server's text is never shown.
@@ -168,7 +184,7 @@ export default function IntakeItemScreen({ id }: { id: number }) {
         <Chip>{STATE_LABELS[item.data.effective_state]}</Chip>
       </Stack>
       {cover ? (
-        <Group title={REVIEW_COPY.albumPanel.coverOne} reviews={[cover]} recordOf={recordOf} newSlipHref={`/dashboard/admin/intake/${id}/slip`} onCover={isOnCover} />
+        <Group title={REVIEW_COPY.albumPanel.coverOne} reviews={[cover]} recordOf={recordOf} newSlipHref={`/dashboard/admin/intake/${id}/slip`} onCover={isOnCover} extra={deleteControl} />
       ) : (
         coverId == null && <Typography>{COPY.noCover}</Typography>
       )}

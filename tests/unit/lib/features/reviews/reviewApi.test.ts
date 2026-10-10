@@ -3,7 +3,7 @@ import { http, HttpResponse } from "msw";
 import { configureStore } from "@reduxjs/toolkit";
 import { reviewsApi } from "@/lib/features/reviews/api";
 import { intakeApi } from "@/lib/features/reviews/intakeApi";
-import { isReviewInUse, isReviewNotDraft, isReviewSubjectNotHeld, reviewApi } from "@/lib/features/reviews/reviewApi";
+import { isReviewAccepted, isReviewInUse, isReviewNotDraft, isReviewSubjectNotHeld, reviewApi } from "@/lib/features/reviews/reviewApi";
 import { describeApi } from "@/tests/helpers/api-harness";
 import { TEST_BACKEND_URL } from "@/tests/helpers/constants";
 import { server } from "@/tests/fakes/server";
@@ -193,6 +193,7 @@ describe("reviewApi", () => {
   it.each([
     ["isReviewNotDraft", isReviewNotDraft, "not_draft", "in_use"],
     ["isReviewInUse", isReviewInUse, "in_use", "not_draft"],
+    ["isReviewAccepted", isReviewAccepted, "accepted_review", "in_use"],
   ] as const)("%s reads wrapped and raw 409s of its reason only", (_name, predicate, reason, other) => {
     expect(predicate({ reviewWriteError: { status: 409, data: { reason } } })).toBe(true);
     expect(predicate({ status: 409, data: { reason } })).toBe(true);
