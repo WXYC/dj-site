@@ -125,6 +125,12 @@ describe("IntakeItemScreen", () => {
   afterEach(() => vi.unstubAllEnvs());
 
   it.each([
+    ["printSlip", REVIEW_COPY.intakeItem.printSlip, "Print the slip"],
+  ])("words %s exactly as the station approved it", (_key, actual, approved) => {
+    expect(actual).toBe(approved);
+  });
+
+  it.each([
     ["off", "", Authorization.MD],
     ["staff-only for a DJ", "staff", Authorization.DJ],
   ])("renders nothing when the flag is %s", async (_label, flag, who) => {

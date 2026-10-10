@@ -49,6 +49,19 @@ describe("ReviewHistory", () => {
     vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "true");
   });
 
+  it.each([
+    ["link", REVIEW_COPY.history.link, "History"],
+    ["version", REVIEW_COPY.history.version(2), "Version 2"],
+    ["editedBy", REVIEW_COPY.history.editedBy("Pat"), "edited by Pat"],
+    ["submittedBy", REVIEW_COPY.history.submittedBy("Pat"), "submitted by Pat"],
+    ["current", REVIEW_COPY.history.current, "Current"],
+    ["onTheCover", REVIEW_COPY.history.onTheCover, "On the cover"],
+    ["draft", REVIEW_COPY.history.draft, "This review has not been submitted yet, so it has no history."],
+    ["loadFailed", REVIEW_COPY.history.loadFailed, "Couldn't load this review's history. Please try again."],
+  ])("words %s exactly as the station approved it", (_key, actual, approved) => {
+    expect(actual).toBe(approved);
+  });
+
   it("lists versions newest first, marks the current and printed ones, and words version 1 as submitted", async () => {
     fakeReviewsEndpoints({ reviews: [submitted({ printed_revision_id: 101, in_use: true })], revisions: { "40": revisions } });
     renderHistory();

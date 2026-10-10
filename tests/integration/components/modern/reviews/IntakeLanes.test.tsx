@@ -62,6 +62,8 @@ describe("IntakeLanes", () => {
 
   it.each([
     ["heldFor", REVIEW_COPY.intake.heldFor, "Held for"],
+    ["cancelRequest", REVIEW_COPY.intake.cancelRequest, "Cancel request"],
+    ["release", REVIEW_COPY.intake.release, "Release"],
   ])("words %s exactly as the station approved it", (_key, actual, approved) => {
     expect(actual).toBe(approved);
   });

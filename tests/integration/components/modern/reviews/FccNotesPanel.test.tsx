@@ -20,6 +20,7 @@ vi.mock("@/src/hooks/authenticationHooks", () => ({
 }));
 
 import FccNotesPanel from "@/src/components/experiences/modern/reviews/FccNotesPanel";
+import { REVIEW_COPY } from "@/src/components/experiences/modern/reviews/copy";
 
 const ALBUM_ID = 7;
 const ITEM_ID = 3;
@@ -28,6 +29,25 @@ describe("FccNotesPanel", () => {
   beforeEach(() => {
     vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "true");
     mockAuth.authority = Authorization.DJ;
+  });
+
+  it.each([
+    ["title", REVIEW_COPY.fccNotes.title, "FCC notes"],
+    ["empty", REVIEW_COPY.fccNotes.empty, "No FCC notes for this record."],
+    ["reportedBy", REVIEW_COPY.fccNotes.reportedBy("Pat"), "Reported by Pat, not yet confirmed"],
+    ["confirmed", REVIEW_COPY.fccNotes.confirmed, "Confirmed"],
+    ["report", REVIEW_COPY.fccNotes.report, "Report an FCC note"],
+    ["intro", REVIEW_COPY.fccNotes.intro, "Heard something that can't go on air? Say which track and what's in it. Every DJ sees your note straight away, with your name. A music director will confirm it."],
+    ["track", REVIEW_COPY.fccNotes.track, "Track"],
+    ["trackPlaceholder", REVIEW_COPY.fccNotes.trackPlaceholder, "A2, or the track's name"],
+    ["note", REVIEW_COPY.fccNotes.note, "What's in it"],
+    ["needBoth", REVIEW_COPY.fccNotes.needBoth, "Say which track and what's in it."],
+    ["submit", REVIEW_COPY.fccNotes.submit, "Report"],
+    ["cancel", REVIEW_COPY.fccNotes.cancel, "Cancel"],
+    ["couldNotReport", REVIEW_COPY.fccNotes.couldNotReport, "Couldn't report the note. Please try again."],
+    ["loadFailed", REVIEW_COPY.fccNotes.loadFailed, "Couldn't load the FCC notes. Please try again."],
+  ])("words %s exactly as the station approved it", (_key, actual, approved) => {
+    expect(actual).toBe(approved);
   });
 
   it("lists confirmed notes first, then reported ones, each newest first, with their status lines", async () => {

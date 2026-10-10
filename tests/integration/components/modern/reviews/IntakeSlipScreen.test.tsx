@@ -19,6 +19,7 @@ vi.mock("@/src/hooks/authenticationHooks", () => ({
 }));
 
 import IntakeSlipScreen from "@/src/components/experiences/modern/reviews/IntakeSlipScreen";
+import { REVIEW_COPY } from "@/src/components/experiences/modern/reviews/copy";
 
 const ITEM_ID = 11;
 const PRINT_PATH = `${TEST_BACKEND_URL}/intake/${ITEM_ID}/print`;
@@ -58,6 +59,16 @@ describe("IntakeSlipScreen", () => {
   afterEach(() => {
     vi.unstubAllEnvs();
     print.mockRestore();
+  });
+
+  it.each([
+    ["lastPrinted", REVIEW_COPY.intakeSlip.lastPrinted, "Last printed"],
+    ["reprint", REVIEW_COPY.intakeSlip.reprint, "Printing again replaces the slip on the cover."],
+    ["noCover", REVIEW_COPY.intakeSlip.noCover, "There is no review on the cover yet. Choose one on the record's page, then print."],
+    ["backToRecord", REVIEW_COPY.intakeSlip.backToRecord, "Back to the record's page"],
+    ["handwritten", REVIEW_COPY.intakeSlip.handwritten, "The record's review is handwritten, so it is already on the sleeve. There is nothing to print."],
+  ])("words %s exactly as the station approved it", (_key, actual, approved) => {
+    expect(actual).toBe(approved);
   });
 
   it.each([
