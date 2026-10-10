@@ -58,7 +58,8 @@ export default function FccNotesToConfirm() {
           </Stack>
         </>
       )}
-      {reprint && <Typography role="status" level="body-sm">{copy.reprint}</Typography>}
+      {/* With no heading left, the reprint line names the region. */}
+      {reprint && <Typography id={rows.length === 0 ? titleId : undefined} role="status" level="body-sm">{copy.reprint}</Typography>}
     </Stack>
   );
 }

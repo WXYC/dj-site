@@ -165,6 +165,7 @@ describe("FccNotesToConfirm", () => {
 
     expect(await screen.findByText(copy.reprint)).toBeInTheDocument();
     expect(screen.queryByRole("list")).not.toBeInTheDocument();
+    expect(screen.getByRole("region", { name: copy.reprint })).toBeInTheDocument();
   });
 
   it("asks who reported it before a remove, and a Cancel sends nothing", async () => {
@@ -202,6 +203,26 @@ describe("FccNotesToConfirm", () => {
     expect(screen.queryByText(copy.reprint)).not.toBeInTheDocument();
   });
 
+  it("shows no message when a Remove finds the note already gone (404)", async () => {
+    let answered = false;
+    fakeReviewsEndpoints({ fccNotesToConfirm: [waitingNote()] });
+    server.use(
+      http.delete(`${TEST_BACKEND_URL}/fcc-notes/1`, () => {
+        answered = true;
+        return HttpResponse.json({ message: "x" }, { status: 404 });
+      }),
+    );
+    renderWithProviders(<FccNotesToConfirm />);
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole("button", { name: /^Remove the note/ }));
+    await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Remove" }));
+
+    await waitFor(() => expect(answered).toBe(true));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
   it("shows the station's failure line for a confirm that fails", async () => {
     fakeReviewsEndpoints({ fccNotesToConfirm: [waitingNote()] });
     server.use(http.post(`${TEST_BACKEND_URL}/fcc-notes/1/confirm`, () => HttpResponse.json({ message: "Internal" }, { status: 500 })));
@@ -215,41 +236,48 @@ describe("FccNotesToConfirm", () => {
 
 describe("a 403 on a write", () => {
   const NO_NAME = "Your account has no name to confirm under.";
+  const DELETE_REFUSED = "You may not delete this FCC note";
 
   it.each([
-    { label: "a music director's Confirm, no session left", session: "gone", expectNav: true, line: null },
-    { label: "a music director's Confirm, session still there", session: "there", expectNav: false, line: copy.couldNotConfirm },
-  ])("on $label", async ({ session, expectNav, line }) => {
+    { label: "a music director's Confirm, no session left", reporter: false, session: "gone", expectNav: true, line: null },
+    { label: "a music director's Confirm, session still there", reporter: false, session: "there", expectNav: false, line: copy.couldNotConfirm },
+    { label: "the reporter's Remove, a music director having confirmed the note", reporter: true, session: "unread", expectNav: false, line: copy.confirmedByMd },
+  ])("on $label", async ({ reporter, session, expectNav, line }) => {
     if (session === "there") sessionStill();
-    fakeReviewsEndpoints({ fccNotesToConfirm: [waitingNote()] });
-    server.use(http.post(`${TEST_BACKEND_URL}/fcc-notes/1/confirm`, () => HttpResponse.json({ message: NO_NAME }, { status: 403 })));
-    renderWithProviders(<FccNotesToConfirm />);
-
-    await userEvent.setup().click(await screen.findByRole("button", { name: /^Confirm the note/ }));
+    const user = userEvent.setup();
+    if (reporter) {
+      vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "true");
+      mockAuth.id = "dj-pat";
+      mockAuth.authority = Authorization.DJ;
+      fakeReviewsEndpoints({ fccNotesForItem: { "3": [waitingNote()] } });
+      // The race: the confirm lands first, so the Remove is refused and every re-read answers the note as confirmed.
+      server.use(
+        http.delete(`${TEST_BACKEND_URL}/fcc-notes/1`, async () => {
+          await fetch(`${TEST_BACKEND_URL}/fcc-notes/1/confirm`, { method: "POST" });
+          return HttpResponse.json({ message: DELETE_REFUSED }, { status: 403 });
+        }),
+      );
+      renderWithProviders(<FccNotesPanel intakeItemId={3} />);
+      await user.click(await screen.findByRole("button", { name: "Remove my note" }));
+      await user.click(within(await screen.findByRole("alertdialog", { name: "Remove your note?" })).getByRole("button", { name: "Remove" }));
+      // The refetch has settled once the panel shows the note as confirmed; the line must outlive it.
+      await screen.findByText(copy.confirmed);
+    } else {
+      fakeReviewsEndpoints({ fccNotesToConfirm: [waitingNote()] });
+      server.use(http.post(`${TEST_BACKEND_URL}/fcc-notes/1/confirm`, () => HttpResponse.json({ message: NO_NAME }, { status: 403 })));
+      renderWithProviders(<FccNotesToConfirm />);
+      await user.click(await screen.findByRole("button", { name: /^Confirm the note/ }));
+    }
 
     if (expectNav) await waitFor(() => expect(router.replace).toHaveBeenCalledWith(SIGN_IN));
     else await waitFor(() => expect(screen.getByRole("alert").textContent).toBe(line));
-    expect(vi.mocked(authClient.getSession)).toHaveBeenCalledWith({ query: { disableCookieCache: true } });
+    if (reporter) expect(vi.mocked(authClient.getSession)).not.toHaveBeenCalled();
+    else expect(vi.mocked(authClient.getSession)).toHaveBeenCalledWith({ query: { disableCookieCache: true } });
     expect(screen.queryByText(NO_NAME)).not.toBeInTheDocument();
+    expect(screen.queryByText(DELETE_REFUSED)).not.toBeInTheDocument();
+    if (reporter) expect(screen.getByText(copy.confirmedByMd)).toBeInTheDocument();
+    else expect(screen.queryByText(copy.confirmedByMd)).not.toBeInTheDocument();
     if (!expectNav) expect(router.replace).not.toHaveBeenCalled();
-  });
-
-  it("on the reporter's Remove shows the station's line and does not navigate", async () => {
-    vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "true");
-    mockAuth.id = "dj-pat";
-    mockAuth.authority = Authorization.DJ;
-    fakeReviewsEndpoints({ fccNotesForItem: { "3": [waitingNote()] } });
-    server.use(http.delete(`${TEST_BACKEND_URL}/fcc-notes/1`, () => HttpResponse.json({ message: "You may not delete this FCC note" }, { status: 403 })));
-    renderWithProviders(<FccNotesPanel intakeItemId={3} />);
-    const user = userEvent.setup();
-
-    await user.click(await screen.findByRole("button", { name: "Remove my note" }));
-    await user.click(within(await screen.findByRole("alertdialog", { name: "Remove your note?" })).getByRole("button", { name: "Remove" }));
-
-    expect(await screen.findByText(copy.confirmedByMd)).toBeInTheDocument();
-    expect(screen.queryByText("You may not delete this FCC note")).not.toBeInTheDocument();
-    expect(router.replace).not.toHaveBeenCalled();
-    expect(vi.mocked(authClient.getSession)).not.toHaveBeenCalled();
   });
 });
 
