@@ -79,8 +79,7 @@ describe("ReviewsScreen", () => {
 
     const { user } = renderWithProviders(<ReviewsScreen />);
     const shelf = await section(SHELF);
-    expect(within(shelf).getByText(/Aluminum Tunes/)).toBeInTheDocument();
-    expect(within(shelf).getByText(/CD/)).toBeInTheDocument();
+    expect(within(shelf).getByText("Stereolab · Aluminum Tunes · Duophonic · CD")).toBeInTheDocument();
     await user.click(within(shelf).getByRole("button", { name: "Check out" }));
 
     await waitFor(() => expect(posted).toBe("/intake/5/checkout"));
@@ -539,7 +538,7 @@ describe("ReviewsScreen", () => {
     fakeReviewsEndpoints({
       mine: [review({ id: 40, intake_item_id: 9 }), review({ id: 41, intake_item_id: null, album_id: 7 }), review({ id: 42, intake_item_id: 404 })],
       records: [filed],
-      releases: [{ id: 7, artist_name: "Juana Molina", album_title: "DOGA", record_label: "Sonamos", format_name: "CD", legacy_release_id: 1 }],
+      releases: [{ id: 7, artist_name: "Juana Molina", album_title: "DOGA", record_label: "Sonamos", format_name: "cd", legacy_release_id: 1 }],
     });
 
     renderWithProviders(<ReviewsScreen />);
@@ -559,7 +558,7 @@ describe("ReviewsScreen", () => {
     server.use(
       http.get(`${TEST_BACKEND_URL}/library/info`, async () => {
         await held;
-        return HttpResponse.json({ id: 7, artist_name: "Juana Molina", album_title: "DOGA", record_label: "Sonamos", format_name: "CD", legacy_release_id: 1 });
+        return HttpResponse.json({ id: 7, artist_name: "Juana Molina", album_title: "DOGA", record_label: "Sonamos", format_name: "cd", legacy_release_id: 1 });
       }),
     );
 
