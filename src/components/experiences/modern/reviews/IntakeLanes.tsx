@@ -119,7 +119,7 @@ export default function IntakeLanes() {
           rows={awaiting.data}
           empty={COPY.empty}
           label={laneLabel}
-          extra={(i) => <WaitingFrom item={i} />}
+          extra={(i) => <WaitingFrom item={i} where={where(i)} />}
         />
       )}
       <IntakeLane
