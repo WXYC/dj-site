@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Button, FormControl, FormLabel, Input, Option, Select, Stack, Typography } from "@mui/joy";
 import { toast } from "sonner";
 import { useGetFormatsQuery } from "@/lib/features/catalog/api";
+import { formatLabel } from "@/lib/features/experiences/modern/tokens/roles";
 import { useLogIntakeItemMutation } from "@/lib/features/reviews/intakeApi";
 import LabelSearchTypeahead from "../catalog/AddRelease/LabelSearchTypeahead";
 import { REVIEW_COPY } from "./copy";
@@ -64,7 +65,7 @@ export default function IntakeLogForm() {
           <FormLabel>{COPY.format}</FormLabel>
           <Select value={form.formatId} onChange={(_e, formatId) => setForm((f) => ({ ...f, formatId }))}>
             {(formats ?? []).map((f) => (
-              <Option key={f.id} value={f.id}>{f.format_name}</Option>
+              <Option key={f.id} value={f.id}>{formatLabel(f.format_name)}</Option>
             ))}
           </Select>
         </FormControl>
