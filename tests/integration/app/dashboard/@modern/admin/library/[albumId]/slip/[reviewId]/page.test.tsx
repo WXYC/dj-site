@@ -80,7 +80,7 @@ describe("release slip page", () => {
 
     renderWithProviders(await ReleaseSlipPage(params("7", "40")));
 
-    expect(screen.getByTestId("page-header")).toHaveTextContent("Print this review");
+    expect(screen.getByTestId("page-header")).toHaveTextContent("Print the slip");
     expect(screen.getByTestId("release-slip-screen")).toHaveAttribute("data-album-id", "7");
     expect(screen.getByTestId("release-slip-screen")).toHaveAttribute("data-review-id", "40");
   });

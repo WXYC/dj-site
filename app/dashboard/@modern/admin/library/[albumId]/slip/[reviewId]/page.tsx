@@ -9,7 +9,7 @@ import { notFound } from "next/navigation";
 import { getPageTitle } from "@/lib/utils/page-title";
 
 export const metadata: Metadata = {
-  title: getPageTitle(REVIEW_COPY.albumPanel.printReview),
+  title: getPageTitle(REVIEW_COPY.intakeItem.printSlip),
 };
 
 export default async function ReleaseSlipPage({ params }: { params: Promise<{ albumId: string; reviewId: string }> }) {
@@ -27,7 +27,7 @@ export default async function ReleaseSlipPage({ params }: { params: Promise<{ al
 
   return (
     <>
-      <PageHeader title={REVIEW_COPY.albumPanel.printReview} />
+      <PageHeader title={REVIEW_COPY.intakeItem.printSlip} />
       <ReleaseSlipScreen albumId={album} reviewId={review} />
     </>
   );
