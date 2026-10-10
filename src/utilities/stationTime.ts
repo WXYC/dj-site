@@ -333,13 +333,18 @@ const stationShortDateWithYearFormatter = new Intl.DateTimeFormat("en-US", {
   day: "numeric",
 });
 
-// A compact date for list rows, e.g. "Oct 8", with the year ("Oct 8, 2025")
-// only when the instant falls outside the current station year. Both the day
-// and the year comparison are read on the station's wall clock, so a record
-// logged at 11pm in Chapel Hill is the same day on every machine, and `now`
-// near New Year's rolls the year at station midnight rather than UTC's.
+/**
+ * A compact date for list rows, formatted in station time, e.g. "Oct 8" for an
+ * instant in the current station year and "Oct 8, 2025" for any earlier (or
+ * later) year. Both the day and the year comparison are read on the station's
+ * wall clock, so a record logged at 11pm in Chapel Hill is the same day on
+ * every machine, and `now` near New Year's rolls the year at station midnight
+ * rather than UTC's. An unparseable value gives "" rather than throwing, so a
+ * single bad row cannot take down the screen that renders it.
+ */
 export function formatStationShortDate(isoString: string, now: Date = new Date()): string {
   const instant = new Date(isoString);
+  if (Number.isNaN(instant.getTime())) return "";
   if (stationYearFormatter.format(instant) === stationYearFormatter.format(now)) {
     return stationShortDateFormatter.format(instant);
   }
