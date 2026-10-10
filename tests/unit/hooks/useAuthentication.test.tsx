@@ -31,6 +31,7 @@ vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("@/src/hooks/applicationHooks", () => ({ resetApplication: vi.fn() }));
 vi.mock("@/lib/posthog", () => ({ safeCapture: vi.fn() }));
 
+import { markAuthResultUncacheable } from "@/lib/features/authentication/auth-result-cacheability";
 import {
   useAuthentication,
   useRegistry,
@@ -149,6 +150,39 @@ describe("useAuthentication async role fetch (#612)", () => {
       expect(h.result.current.data).toEqual(data);
     }
     hooks.forEach((h) => h.unmount());
+  });
+});
+
+describe("useAuthentication does not cache a provisional resolution", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockSync.mockReturnValue({ message: "Not Authenticated" });
+  });
+
+  it("resolves again for the same session after an uncacheable result", async () => {
+    const session = { user: { id: "provisional-A" } };
+    const provisional = { message: "Authenticated", user: { id: "provisional-A", authority: 0 } };
+    const settled = { message: "Authenticated", user: { id: "provisional-A", authority: 2 } };
+    markAuthResultUncacheable(provisional as any);
+    mockAsync.mockResolvedValueOnce(provisional).mockResolvedValueOnce(settled);
+    mockUseSession.mockReturnValue({ data: session, isPending: false, error: null });
+
+    const first = renderHook(() => useAuthentication());
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(first.result.current.data).toBe(provisional);
+    first.unmount();
+
+    const second = renderHook(() => useAuthentication());
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(mockAsync).toHaveBeenCalledTimes(2);
+    expect(second.result.current.data).toBe(settled);
+    second.unmount();
   });
 });
 

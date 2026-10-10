@@ -26,6 +26,7 @@ import {
   VerifiedData,
 } from "@/lib/features/authentication/types";
 import { betterAuthSessionToAuthenticationData, betterAuthSessionToAuthenticationDataAsync } from "@/lib/features/authentication/utilities";
+import { isAuthResultUncacheable } from "@/lib/features/authentication/auth-result-cacheability";
 import { Authorization } from "@/lib/features/admin/types";
 import { DEFAULT_DASHBOARD_HOME_PAGE } from "@/lib/features/application/constants";
 import { applicationSlice } from "@/lib/features/application/frontend";
@@ -523,8 +524,12 @@ function resolveSessionAuthData(session: unknown): Promise<AuthenticationData> {
   const promise = betterAuthSessionToAuthenticationDataAsync(session as any)
     .then((data) => {
       if (inflightAuthKey === key) {
-        cachedAuthKey = key;
-        cachedAuthData = data;
+        // A fail-closed NO that came from a token that could not be fetched is
+        // provisional: leave the slot empty so the next resolution retries it.
+        if (!isAuthResultUncacheable(data)) {
+          cachedAuthKey = key;
+          cachedAuthData = data;
+        }
         inflightAuthKey = null;
         inflightAuthData = null;
       }
