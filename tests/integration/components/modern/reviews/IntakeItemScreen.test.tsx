@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
-import { fakeReviewsEndpoints, fccNote, intakeItem, renderWithProviders, review, reviewRevision, server, TEST_BACKEND_URL } from "@/tests/helpers";
+import { fakeReviewsEndpoints, fccNote, holdResponse, intakeItem, renderWithProviders, review, reviewRevision, server, TEST_BACKEND_URL } from "@/tests/helpers";
 import { fakeRotationCardsEndpoints } from "@/tests/fakes/rotation";
 import { fakeLibraryFilingsEndpoint, filingConflictResponse } from "@/tests/fakes/libraryFilings";
 import { Authorization } from "@/lib/features/admin/types";
@@ -515,46 +515,6 @@ describe("IntakeItemScreen", () => {
       expect(coverReads).toBe(2);
     });
 
-    it("reloads the item and its reviews, and throws nothing, when the page unmounts while the filing is in flight and is then refused", async () => {
-      const box = setUp();
-      let reviewReads = 0;
-      let posted = false;
-      let release!: () => void;
-      const held = new Promise<void>((resolve) => {
-        release = resolve;
-      });
-      server.use(
-        http.get(`${TEST_BACKEND_URL}/reviews`, ({ request }) => {
-          if (new URL(request.url).searchParams.get("intake_item_id") === String(ITEM_ID)) reviewReads += 1;
-          return HttpResponse.json([submitted(40)]);
-        }),
-        http.post(`${TEST_BACKEND_URL}/intake/${ITEM_ID}/file`, async () => {
-          posted = true;
-          await held;
-          return HttpResponse.json({ message: "server words", reason: "state_changed" }, { status: 409 });
-        }),
-      );
-      const errors = vi.spyOn(console, "error").mockImplementation(() => {});
-      const { user, unmount } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
-
-      await readyBench(user);
-      const itemReadsBefore = box.reads;
-      const reviewReadsBefore = reviewReads;
-      await user.click(screen.getByRole("button", { name: "Add to rotation" }));
-      await waitFor(() => expect(posted).toBe(true));
-
-      unmount();
-      release();
-      // A hook refetch() throws here before any request goes out, so the reads below never happen.
-      await waitFor(() => expect(box.reads).toBe(itemReadsBefore + 1));
-      await waitFor(() => expect(reviewReads).toBe(reviewReadsBefore + 1));
-      await new Promise((resolve) => setTimeout(resolve, 100));
-
-      expect(errors).not.toHaveBeenCalled();
-      expect(screen.queryByText(/Filing failed/)).not.toBeInTheDocument();
-      errors.mockRestore();
-    });
-
     it("shows the bench's conflict panel, not its generic failure, for a call-number collision from /file", async () => {
       setUp();
       const fileBodies: unknown[] = [];
@@ -813,45 +773,6 @@ describe("IntakeItemScreen", () => {
       expect(reviewReads).toBe(2);
     });
 
-    it("rereads the item and its reviews, and throws nothing, when the page unmounts while the filing is in flight and is then refused", async () => {
-      const { box } = setUp();
-      let reviewReads = 0;
-      let posted = false;
-      let release!: () => void;
-      const held = new Promise<void>((resolve) => {
-        release = resolve;
-      });
-      server.use(
-        http.get(`${TEST_BACKEND_URL}/reviews`, ({ request }) => {
-          if (new URL(request.url).searchParams.get("intake_item_id") === String(ITEM_ID)) reviewReads += 1;
-          return HttpResponse.json([submitted(40)]);
-        }),
-        http.post(FILE_URL, async () => {
-          posted = true;
-          await held;
-          return HttpResponse.json({ message: "server words", reason: "state_changed" }, { status: 409 });
-        }),
-      );
-      const errors = vi.spyOn(console, "error").mockImplementation(() => {});
-      const { user, unmount } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
-      await pick(user);
-      await waitFor(() => expect(reviewReads).toBe(1));
-      const itemReadsBefore = box.reads;
-      const reviewReadsBefore = reviewReads;
-      await user.click(screen.getByRole("button", { name: "File it as this one" }));
-      await waitFor(() => expect(posted).toBe(true));
-
-      unmount();
-      release();
-      // A hook refetch() throws here before any request goes out, so the reads below never happen.
-      await waitFor(() => expect(box.reads).toBe(itemReadsBefore + 1));
-      await waitFor(() => expect(reviewReads).toBe(reviewReadsBefore + 1));
-      await new Promise((resolve) => setTimeout(resolve, 100));
-
-      expect(errors).not.toHaveBeenCalled();
-      errors.mockRestore();
-    });
-
     it("words its own line, not the server's, when the release cannot take the record", async () => {
       setUp();
       server.use(http.post(FILE_URL, () => HttpResponse.json({ message: "server words" }, { status: 400 })));
@@ -954,6 +875,65 @@ describe("IntakeItemScreen", () => {
       await user.click(screen.getByRole("button", { name: "File it as this one" }));
 
       await waitFor(() => expect([catalogReads, rotationReads, releaseReviewReads, fccReads]).toEqual([2, 2, 2, 2]));
+    });
+  });
+
+  describe("when the page is gone before the filing answers", () => {
+    const RELEASE_ROW = { id: 5, album_title: "DOGA", artist_name: "Juana Molina", label: "Sonamos", genre_name: "Rock", format_name: "cd", code_letters: "MO", code_artist_number: 1, code_number: 1, add_date: "2026-01-01", plays: 0 };
+
+    it.each([
+      [
+        "the new-release bench",
+        async (user: User) => {
+          await readyBench(user);
+          await user.click(screen.getByRole("button", { name: "Add to rotation" }));
+        },
+      ],
+      [
+        "the existing-release picker",
+        async (user: User) => {
+          const box = await screen.findByRole("searchbox", { name: "Search the library" });
+          await user.type(box, "Juana");
+          await user.click(screen.getByRole("button", { name: "Search" }));
+          await user.click(await screen.findByRole("button", { name: "Juana Molina · DOGA · CD" }));
+          await user.click(screen.getByRole("button", { name: "File it as this one" }));
+        },
+      ],
+    ])("rereads the item and its reviews once, and throws nothing, when %s is refused", async (_arm, file) => {
+      fakeReviewsEndpoints({ records: [dogaItem()], forItem: { [ITEM_ID]: [submitted(40)] } });
+      let reviewReads = 0;
+      server.use(
+        http.get(`${TEST_BACKEND_URL}/library`, () => HttpResponse.json([RELEASE_ROW])),
+        http.get(`${TEST_BACKEND_URL}/reviews`, ({ request }) => {
+          if (new URL(request.url).searchParams.get("intake_item_id") === String(ITEM_ID)) reviewReads += 1;
+          return HttpResponse.json([submitted(40)]);
+        }),
+      );
+      const { calls, release, answered } = holdResponse("post", `${TEST_BACKEND_URL}/intake/${ITEM_ID}/file`, () =>
+        HttpResponse.json({ message: "server words", reason: "state_changed" }, { status: 409 }),
+      );
+      const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+      const { user, unmount } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+      await waitFor(() => expect(reviewReads).toBe(1));
+
+      await file(user);
+      await waitFor(() => expect(calls.count).toBe(1));
+      const reviewReadsBefore = reviewReads;
+      // The reload's item read is held, so the spec sees it arrive and settle rather than sleeping.
+      const reload = holdResponse("get", FILED_ITEM_PATH, () => HttpResponse.json(dogaItem()));
+
+      unmount();
+      release();
+      await answered;
+      // A hook refetch() throws here before any request goes out, so the read below never happens.
+      await waitFor(() => expect(reload.calls.count).toBe(1));
+      reload.release();
+      await reload.answered;
+
+      expect(reload.calls.count).toBe(1);
+      expect(reviewReads).toBe(reviewReadsBefore + 1);
+      expect(errors).not.toHaveBeenCalled();
+      errors.mockRestore();
     });
   });
 
@@ -1091,8 +1071,9 @@ describe("IntakeItemScreen", () => {
      * every read of the item or its reviews that goes out after the DELETE (the record is gone then, so they 404).
      */
     function serveDeletable(reviewAuthors: (string | Review)[], draftAuthors: string[] | undefined, deleted: string[] = []) {
-      const seen = { deletes: 0, draftReads: 0, itemReadsAfter: 0, reviewReadsAfter: 0 };
       let gone = false;
+      // `markGone` is for a spec that answers the DELETE itself (held), so reads after it still count as after.
+      const seen = { deletes: 0, draftReads: 0, itemReadsAfter: 0, reviewReadsAfter: 0, markGone: () => { gone = true; } };
       const reviews = reviewAuthors.map((entry, i) => (typeof entry === "string" ? submitted(40 + i, { author: entry }) : entry));
       fakeReviewsEndpoints({ records: [dogaItem({ draft_authors: draftAuthors, accepted_review_id: null })] });
       server.use(
@@ -1316,38 +1297,80 @@ describe("IntakeItemScreen", () => {
       expect(toast.error).not.toHaveBeenCalled();
     });
 
-    it("sets no state and logs nothing when the page is gone before the delete answers", async () => {
-      const seen = serveDeletable(["Cat Power"], undefined, ["Cat Power"]);
-      let release!: () => void;
-      const held = new Promise<void>((resolve) => {
-        release = resolve;
-      });
-      server.use(
-        http.delete(FILED_ITEM_PATH, async () => {
-          await held;
-          return HttpResponse.json({ deleted_review_authors: ["Cat Power"] });
-        }),
-      );
-      const errors = vi.spyOn(console, "error").mockImplementation(() => {});
-      const rejections: unknown[] = [];
-      const onRejection = (reason: unknown) => rejections.push(reason);
-      process.on("unhandledRejection", onRejection);
-      try {
-        const { user, unmount } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+    describe("when the page is gone before the delete answers", () => {
+      const openDelete = async (user: User) => {
         await user.click(await screen.findByRole("button", { name: "Delete" }));
         await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Delete" }));
+      };
 
-        unmount();
-        release();
-        await new Promise((resolve) => setTimeout(resolve, 100));
+      // Each spec ends only after the held answer has reached the client, never on a fixed sleep.
+      const watchForThrows = () => {
+        const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+        const rejections: unknown[] = [];
+        const onRejection = (reason: unknown) => rejections.push(reason);
+        process.on("unhandledRejection", onRejection);
+        return {
+          errors,
+          rejections,
+          stop: () => {
+            process.off("unhandledRejection", onRejection);
+            errors.mockRestore();
+          },
+        };
+      };
 
-        expect(errors).not.toHaveBeenCalled();
-        expect(rejections).toEqual([]);
-        expect(seen.draftReads).toBe(0);
-      } finally {
-        process.off("unhandledRejection", onRejection);
-        errors.mockRestore();
-      }
+      it("reads nothing again, and throws nothing, when the answer is a success", async () => {
+        const seen = serveDeletable(["Cat Power"], undefined, ["Cat Power"]);
+        const { calls, release, answered } = holdResponse("delete", FILED_ITEM_PATH, () => {
+          seen.markGone();
+          return HttpResponse.json({ deleted_review_authors: ["Cat Power"] });
+        });
+        const watch = watchForThrows();
+        try {
+          const { user, unmount } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+          await openDelete(user);
+          await waitFor(() => expect(calls.count).toBe(1));
+
+          unmount();
+          release();
+          await answered;
+
+          expect(seen).toMatchObject({ itemReadsAfter: 0, reviewReadsAfter: 0, draftReads: 0 });
+          expect(watch.errors).not.toHaveBeenCalled();
+          expect(watch.rejections).toEqual([]);
+        } finally {
+          watch.stop();
+        }
+      });
+
+      it("reloads the record once, and throws nothing, when the answer is an already_filed refusal", async () => {
+        serveDeletable(["Cat Power"], undefined);
+        const { calls, release, answered } = holdResponse("delete", FILED_ITEM_PATH, () =>
+          HttpResponse.json({ message: "server words", reason: "already_filed" }, { status: 409 }),
+        );
+        const watch = watchForThrows();
+        try {
+          const { user, unmount } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+          await openDelete(user);
+          await waitFor(() => expect(calls.count).toBe(1));
+          // The reload's item read is held, so the spec sees it arrive and settle rather than sleeping.
+          const reload = holdResponse("get", FILED_ITEM_PATH, () => HttpResponse.json(dogaItem({ state: "filed", effective_state: "filed" })));
+
+          unmount();
+          release();
+          await answered;
+          // A hook refetch() throws here before any request goes out, so the read below never happens.
+          await waitFor(() => expect(reload.calls.count).toBe(1));
+          reload.release();
+          await reload.answered;
+
+          expect(reload.calls.count).toBe(1);
+          expect(watch.errors).not.toHaveBeenCalled();
+          expect(watch.rejections).toEqual([]);
+        } finally {
+          watch.stop();
+        }
+      });
     });
 
     it("reloads and says the record is already filed when the delete loses its race to a filing", async () => {
