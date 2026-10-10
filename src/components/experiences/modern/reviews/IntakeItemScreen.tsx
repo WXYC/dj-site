@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Button, Chip, Stack, Typography } from "@mui/joy";
-import type { IntakeItem, Review, ReviewRevision } from "@wxyc/shared";
+import type { IntakeItem, Review } from "@wxyc/shared";
 import type { AlbumEntry } from "@/lib/features/catalog/types";
 import { hasNothingToShow } from "@/lib/has-nothing-to-show";
 import {
@@ -15,7 +15,7 @@ import {
   useFileIntakeItemMutation,
   useGetIntakeItemQuery,
 } from "@/lib/features/reviews/intakeApi";
-import { useGetItemReviewsQuery, useGetReviewQuery, useGetReviewRevisionsQuery } from "@/lib/features/reviews/reviewApi";
+import { useGetItemReviewsQuery, useGetReviewQuery } from "@/lib/features/reviews/reviewApi";
 import { unwrapEndpointError } from "@/lib/rtk-endpoint-error";
 import { useCanSeeReviews } from "@/src/hooks/useCanSeeReviews";
 import { useMounted } from "@/src/hooks/useRowWrite";
@@ -27,6 +27,7 @@ import { intakeRecord, recordLine, releaseRecord } from "./recordLine";
 import ReleasePicker from "./ReleasePicker";
 import { Group } from "./ReviewsPanel";
 import { useItemPageReload } from "./useItemPageReload";
+import { usePrintedVersion } from "./usePrintedVersion";
 
 const COPY = REVIEW_COPY.intakeItem;
 
@@ -63,10 +64,7 @@ export default function IntakeItemScreen({ id }: { id: number }) {
   const fetchedCover = useGetReviewQuery(coverById ?? 0, { skip: !visible || coverById === undefined });
 
   const cover = ownCover ?? (fetchedCover.data?.id === coverId ? fetchedCover.data : undefined);
-  // Read only for a printed cover review, as the version note does; while loading or failed the link keeps its first-print name.
-  const revisions = useGetReviewRevisionsQuery(cover?.id ?? 0, { skip: !visible || cover?.printed_revision_id == null });
-  const newestRevision = revisions.data?.reduce<ReviewRevision | undefined>((a, b) => (a && a.revision >= b.revision ? a : b), undefined);
-  const editedSincePrinting = newestRevision != null && newestRevision.id !== cover?.printed_revision_id;
+  const printedVersion = usePrintedVersion(cover, { onCover: cover != null });
 
   const reload = useItemPageReload(id, coverById);
   const mounted = useMounted();
@@ -180,7 +178,7 @@ export default function IntakeItemScreen({ id }: { id: number }) {
         {reviewAuthors.length + draftAuthors.length === 0 && <Typography>{COPY.deleteNoReviews}</Typography>}
         <Typography>{COPY.deleteFinal}</Typography>
       </ConfirmDialog>
-      {coverId != null && <Link href={`/dashboard/admin/intake/${id}/slip`}>{editedSincePrinting ? REVIEW_COPY.printedNote.printNew : COPY.printSlip}</Link>}
+      {coverId != null && <Link href={`/dashboard/admin/intake/${id}/slip`}>{printedVersion === "edited" ? REVIEW_COPY.printedNote.printNew : COPY.printSlip}</Link>}
       {item.data.effective_state === "filed" || item.data.effective_state === "finalized" ? (
         <Typography>{COPY.filed}</Typography>
       ) : coverId == null ? (

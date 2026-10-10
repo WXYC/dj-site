@@ -2,35 +2,23 @@
 
 import Link from "next/link";
 import { Link as JoyLink, Stack, Typography } from "@mui/joy";
-import type { Review, ReviewRevision } from "@wxyc/shared";
-import { hasNothingToShow } from "@/lib/has-nothing-to-show";
-import { useGetReviewRevisionsQuery } from "@/lib/features/reviews/reviewApi";
+import type { Review } from "@wxyc/shared";
 import { formatStationLongDate } from "@/src/utilities/stationTime";
-import { useCanSeeReviews } from "@/src/hooks/useCanSeeReviews";
 import { REVIEW_COPY } from "./copy";
+import { usePrintedVersion } from "./usePrintedVersion";
 
 const copy = REVIEW_COPY.printedNote;
 
 /**
- * Says whether the text shown is the version taped to the cover. Shows only
- * on a review that is on a cover now (`onCover`, which each surface decides from the signal it has), and reads
- * the revisions only then, for a review that was printed. Whether it changed since is
- * decided from the revisions, never from `last_modified`: a consent change moves
- * that without writing a version.
+ * Says whether the text shown is the version taped to the cover, from
+ * `usePrintedVersion`.
  */
 export default function PrintedVersionNote({ review, onCover, newSlipHref }: { review: Review; onCover: boolean; newSlipHref?: string }) {
-  const visible = useCanSeeReviews();
-  const printed = onCover && review.printed_revision_id != null;
-  const revisions = useGetReviewRevisionsQuery(review.id, { skip: !visible || !printed });
+  const state = usePrintedVersion(review, { onCover });
 
-  if (!visible || !printed) return null;
-  if (hasNothingToShow(revisions)) return <Typography level="body-sm" role="alert">{copy.loadFailed}</Typography>;
-  const newest = revisions.data?.reduce<ReviewRevision | undefined>((a, b) => (a && a.revision >= b.revision ? a : b), undefined);
-  if (!newest) return null;
-
-  if (newest.id === review.printed_revision_id) return <Typography level="body-sm">{copy.isCurrent}</Typography>;
-  // A print with no usable date cannot say when the cover was printed; say nothing rather than throw.
-  if (!review.printed_at || Number.isNaN(Date.parse(review.printed_at))) return null;
+  if (state === "failed") return <Typography level="body-sm" role="alert">{copy.loadFailed}</Typography>;
+  if (state === "current") return <Typography level="body-sm">{copy.isCurrent}</Typography>;
+  if (state !== "edited" || !review.printed_at) return null;
   return (
     <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
       <Typography level="body-sm">{copy.edited(formatStationLongDate(review.printed_at))}</Typography>
