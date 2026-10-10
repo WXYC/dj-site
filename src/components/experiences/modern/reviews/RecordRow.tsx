@@ -49,8 +49,13 @@ interface RecordRowProps {
   actions?: ReactNode;
   /** A state sentence and quiet buttons, on a line under a divider; absent when not passed. */
   status?: ReactNode;
-  /** Links the artist to the record's page. */
+  /** Links the artist to the record's page. Ignored when `titleSlot` is given. */
   href?: string;
+  /**
+   * The title, in place of the plain or linked artist: for a caller that needs its own title link, such as one carrying an `id` that a control's `aria-labelledby` points at.
+   * It wins over `href` when both are given.
+   */
+  titleSlot?: ReactNode;
 }
 
 /**
@@ -59,13 +64,13 @@ interface RecordRowProps {
  * answers to the row's own width (a container query), not the window's, since
  * the sidebars change the column width.
  */
-export default function RecordRow({ record, formats, meta, actions, status, href }: RecordRowProps) {
+export default function RecordRow({ record, formats, meta, actions, status, href, titleSlot }: RecordRowProps) {
   const format = recordFormatName(record, formats);
-  const artist = href ? (
+  const artist = titleSlot ?? (href ? (
     <Link level="title-md" href={href}>{record.artist}</Link>
   ) : (
     <Typography level="title-md">{record.artist}</Typography>
-  );
+  ));
   return (
     <Box sx={{ width: "100%", containerType: "inline-size" }}>
       <Box sx={{ display: "flex", flexDirection: "column", gap: 1, "@container (min-width: 560px)": { flexDirection: "row", alignItems: "center", justifyContent: "space-between" } }}>
