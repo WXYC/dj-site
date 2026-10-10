@@ -39,8 +39,13 @@ describe("ReviewsScreen — a row stays locked until every rendered list has rel
       releaseHeld = resolve;
     });
     let heldReads = 0;
+    let otherReads = 0;
     fakeReviewsEndpoints({ open: [ON_SHELF] });
     server.use(
+      http.get(`${TEST_BACKEND_URL}/reviews`, () => {
+        if (written) otherReads += 1;
+        return HttpResponse.json([]);
+      }),
       http.get(`${TEST_BACKEND_URL}/intake`, async () => {
         if (written) {
           heldReads += 1;
@@ -61,6 +66,7 @@ describe("ReviewsScreen — a row stays locked until every rendered list has rel
 
     // Assert during the hold, once every other read has answered and only the held one is outstanding.
     await waitFor(() => expect(heldReads).toBeGreaterThan(0));
+    await waitFor(() => expect(otherReads).toBeGreaterThan(0));
     await waitFor(() => expect(pendingCount(store)).toBe(1));
     await renderedFrame();
     expect(checkout).toBeDisabled();
