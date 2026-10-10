@@ -33,6 +33,11 @@ vi.mock("sonner", () => ({
 vi.mock("next/font/google", () => ({ Kanit: () => ({ style: { fontFamily: "Kanit, sans-serif" } }) }));
 vi.mock("next/font/local", () => ({ default: () => ({ style: { fontFamily: "Minbus, sans-serif" } }) }));
 
+vi.mock("next/navigation", async () => {
+  const { createNavigationModuleMock } = await import("@/tests/helpers/navigation-mock");
+  return createNavigationModuleMock({ push: vi.fn(), replace: vi.fn() });
+});
+
 const mockAuth = vi.hoisted(() => ({ id: "md-me", authority: 2 as number }));
 vi.mock("@/src/hooks/authenticationHooks", async () => {
   const { createAuthenticationHookMock } = await import("@/tests/helpers/auth-hook-mock");

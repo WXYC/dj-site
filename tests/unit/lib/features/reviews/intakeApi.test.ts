@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { http, HttpResponse } from "msw";
 import { configureStore } from "@reduxjs/toolkit";
 import { reviewsApi } from "@/lib/features/reviews/api";
+import { fccNoteApi } from "@/lib/features/reviews/fccNoteApi";
 import { reviewApi } from "@/lib/features/reviews/reviewApi";
 import { intakeApi, isIntakeInRotation, isIntakeReleaseRefused, isIntakeNotReviewed, isIntakeRequestRefused, isIntakeStateChanged } from "@/lib/features/reviews/intakeApi";
 import { describeApi } from "@/tests/helpers/api-harness";
@@ -99,7 +100,7 @@ describe("intakeApi", () => {
   });
 
   it("deleteIntakeItem refreshes the lists but not the deleted record's own reads", async () => {
-    const reads = { list: 0, item7: 0, item8: 0, itemReviews7: 0, myReviews: 0 };
+    const reads = { list: 0, item7: 0, item8: 0, itemReviews7: 0, myReviews: 0, waiting: 0 };
     server.use(
       http.get(`${TEST_BACKEND_URL}/intake`, () => {
         reads.list += 1;
@@ -115,10 +116,15 @@ describe("intakeApi", () => {
         else reads.myReviews += 1;
         return HttpResponse.json([]);
       }),
+      http.get(`${TEST_BACKEND_URL}/fcc-notes`, () => {
+        reads.waiting += 1;
+        return HttpResponse.json([]);
+      }),
       http.delete(`${TEST_BACKEND_URL}/intake/:id`, () => HttpResponse.json({ deleted_review_authors: [] })),
     );
     const store = makeReviewsStore();
     const subscriptions = [
+      store.dispatch(fccNoteApi.endpoints.getFccNotesToConfirm.initiate()),
       store.dispatch(intakeApi.endpoints.getIntakeItems.initiate()),
       store.dispatch(intakeApi.endpoints.getIntakeItem.initiate(7)),
       store.dispatch(intakeApi.endpoints.getIntakeItem.initiate(8)),
@@ -132,10 +138,12 @@ describe("intakeApi", () => {
     // The two lists refetch; the counters prove they did, and the store settling proves no read of the deleted record followed.
     await vi.waitFor(() => expect(reads.list).toBe(before.list + 1));
     await vi.waitFor(() => expect(reads.myReviews).toBe(before.myReviews + 1));
+    await vi.waitFor(() => expect(reads.waiting).toBe(before.waiting + 1));
     await reviewsSettled(store);
 
     expect(reads.list).toBe(before.list + 1);
     expect(reads.myReviews).toBe(before.myReviews + 1);
+    expect(reads.waiting).toBe(before.waiting + 1);
     expect(reads.item7).toBe(before.item7);
     expect(reads.itemReviews7).toBe(before.itemReviews7);
     expect(reads.item8).toBe(before.item8);

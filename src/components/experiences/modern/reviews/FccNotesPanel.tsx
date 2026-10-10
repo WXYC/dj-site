@@ -4,9 +4,15 @@ import { useId, useState } from "react";
 import { Button, FormControl, FormLabel, Input, Stack, Textarea, Typography } from "@mui/joy";
 import type { FccNote } from "@wxyc/shared";
 import { hasNothingToShow } from "@/lib/has-nothing-to-show";
-import { useGetFccNotesQuery, useReportFccNoteMutation } from "@/lib/features/reviews/fccNoteApi";
+import {
+  isFccNoteAccountRemoved,
+  isFccNoteInvalid,
+  useGetFccNotesQuery,
+  useReportFccNoteMutation,
+} from "@/lib/features/reviews/fccNoteApi";
 import { serverMessage, unwrapEndpointError } from "@/lib/rtk-endpoint-error";
 import { useCanSeeReviews } from "@/src/hooks/useCanSeeReviews";
+import FccNoteActions, { useSendToSignInWhenSessionGone } from "./FccNoteActions";
 import { REVIEW_COPY } from "./copy";
 
 const copy = REVIEW_COPY.fccNotes;
@@ -15,9 +21,6 @@ type Subject = { albumId: number } | { intakeItemId: number };
 
 /** The record's id as the API names it. */
 type SubjectIds = { album_id: number } | { intake_item_id: number };
-
-/** The only refusals whose server message is written for a DJ to read. */
-const SHOWN_REFUSAL_STATUSES = [400, 403];
 
 /** Confirmed notes first, then reported ones, each newest first. */
 const inPanelOrder = (notes: FccNote[]) =>
@@ -29,13 +32,14 @@ const inPanelOrder = (notes: FccNote[]) =>
   );
 
 /** One note and its status line. A reported note is shown in full, to every DJ, before anyone has confirmed it. */
-function FccNoteRow({ note }: { note: FccNote }) {
+function FccNoteRow({ note, onConfirmed }: { note: FccNote; onConfirmed: () => void }) {
   return (
     <Stack component="li" spacing={0.25} sx={{ listStyle: "none" }}>
       <Typography>{note.track}: {note.note}</Typography>
       <Typography level="body-sm">
         {note.status === "confirmed" ? copy.confirmed : copy.reportedBy(note.reported_by)}
       </Typography>
+      <FccNoteActions note={note} onConfirmed={onConfirmed} />
     </Stack>
   );
 }
@@ -45,6 +49,7 @@ function ReportForm({ ids, onDone }: { ids: SubjectIds; onDone: () => void }) {
   const [note, setNote] = useState("");
   const [refusal, setRefusal] = useState<string | null>(null);
   const [report, { isLoading }] = useReportFccNoteMutation();
+  const sendToSignInWhenSessionGone = useSendToSignInWhenSessionGone();
 
   const submit = async () => {
     const trimmed = { track: track.trim(), note: note.trim() };
@@ -60,9 +65,10 @@ function ReportForm({ ids, onDone }: { ids: SubjectIds; onDone: () => void }) {
       }).unwrap();
       onDone();
     } catch (err) {
+      if (isFccNoteAccountRemoved(err) && (await sendToSignInWhenSessionGone())) return;
       const rejection = unwrapEndpointError("fccNoteWriteError", err);
-      const shown = rejection && SHOWN_REFUSAL_STATUSES.includes(Number(rejection.status));
-      setRefusal((shown ? serverMessage(rejection.data) : undefined) ?? copy.couldNotReport);
+      const shown = isFccNoteInvalid(err) ? serverMessage(rejection?.data) : undefined;
+      setRefusal(shown ?? copy.couldNotReport);
     }
   };
 
@@ -92,6 +98,7 @@ export default function FccNotesPanel(subject: Subject) {
   const ids: SubjectIds = "albumId" in subject ? { album_id: subject.albumId } : { intake_item_id: subject.intakeItemId };
   const notes = useGetFccNotesQuery(ids, { skip: !visible });
   const [reporting, setReporting] = useState(false);
+  const [reprint, setReprint] = useState(false);
   const titleId = useId();
 
   if (!visible) return null;
@@ -106,10 +113,11 @@ export default function FccNotesPanel(subject: Subject) {
       ) : (
         <Stack component="ul" spacing={1} sx={{ p: 0, m: 0 }}>
           {inPanelOrder(notes.data ?? []).map((note) => (
-            <FccNoteRow key={note.id} note={note} />
+            <FccNoteRow key={note.id} note={note} onConfirmed={() => setReprint(true)} />
           ))}
         </Stack>
       )}
+      {reprint && <Typography role="status" level="body-sm">{copy.reprint}</Typography>}
       {reporting ? (
         <ReportForm ids={ids} onDone={() => setReporting(false)} />
       ) : (

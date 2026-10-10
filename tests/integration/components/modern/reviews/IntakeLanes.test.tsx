@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
-import { fakeReviewsEndpoints, holdResponse, intakeItem, pendingCount, renderedFrame, renderWithProviders, review, reviewsSettled, server, TEST_BACKEND_URL } from "@/tests/helpers";
+import { fakeReviewsEndpoints, fccNote, holdResponse, intakeItem, pendingCount, renderedFrame, renderWithProviders, review, reviewsSettled, server, TEST_BACKEND_URL } from "@/tests/helpers";
 import { Authorization } from "@/lib/features/admin/types";
 
 vi.mock("@/lib/features/authentication/client", async () => {
@@ -12,6 +12,11 @@ vi.mock("@/lib/features/authentication/client", async () => {
 vi.mock("sonner", () => ({
   toast: Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn(), info: vi.fn() }),
 }));
+
+vi.mock("next/navigation", async () => {
+  const { createNavigationModuleMock } = await import("@/tests/helpers/navigation-mock");
+  return createNavigationModuleMock({ push: vi.fn(), replace: vi.fn() });
+});
 
 const mockAuth = vi.hoisted(() => ({ id: "md-me", authority: 2 as number }));
 vi.mock("@/src/hooks/authenticationHooks", async () => {
@@ -42,6 +47,21 @@ describe("IntakeLanes", () => {
     vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "staff");
   });
   afterEach(() => vi.unstubAllEnvs());
+
+  it("puts FCC notes to confirm above the Recent passes band and the first lane", async () => {
+    fakeReviewsEndpoints({
+      open: [moonPix({ id: 5, passes: [{ dj_name: "Sam", passed_at: "2026-10-01T10:00:00Z" }] })],
+      fccNotesToConfirm: [fccNote({ id: 1, intake_item_id: 5 })],
+    });
+
+    renderWithProviders(<IntakeLanes />);
+
+    const section = await screen.findByRole("region", { name: "FCC notes to confirm (1)" });
+    const band = screen.getByRole("region", { name: "Recent passes" });
+    const first = screen.getByRole("region", { name: "Requested" });
+    expect(section.compareDocumentPosition(band) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(section.compareDocumentPosition(first) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
 
   it.each([
     ["off", "", Authorization.MD],

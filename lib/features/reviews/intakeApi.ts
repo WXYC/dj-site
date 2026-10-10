@@ -138,13 +138,15 @@ export const intakeApi = reviewsApi.injectEndpoints({
     // Takes the item's reviews and unsubmitted drafts with it; the response names their authors.
     // Refreshes the lists only: the deleted record's own reads (`getIntakeItem(id)`,
     // `getItemReviews(id)`) are not invalidated, because a refetch would 404 and the
-    // shared error logger would toast and report it.
+    // shared error logger would toast and report it. The record's FCC notes go with it, so a
+    // waiting list kept in cache is dropped rather than served with the deleted record's note.
     deleteIntakeItem: builder.mutation<IntakeDeleteResponse, number>({
       query: (id) => ({ url: `intake/${id}`, method: "DELETE" }),
       transformErrorResponse: wrapIntakeWriteError,
       invalidatesTags: [
         { type: "Intake", id: "LIST" },
         { type: "Review", id: "LIST" },
+        "FccNotes",
       ],
     }),
     // Files a library row and, on the rotation arm, a rotation row. Those caches

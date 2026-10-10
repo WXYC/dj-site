@@ -10,12 +10,19 @@ vi.mock("@/lib/features/authentication/client", async () => {
   return createAuthClientModuleMock();
 });
 
+const router = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn() }));
+vi.mock("next/navigation", async () => {
+  const { createNavigationModuleMock } = await import("@/tests/helpers/navigation-mock");
+  return createNavigationModuleMock(router);
+});
+
 const mockAuth = vi.hoisted(() => ({ id: "dj-me", authority: 1 as number }));
 vi.mock("@/src/hooks/authenticationHooks", async () => {
   const { createAuthenticationHookMock } = await import("@/tests/helpers/auth-hook-mock");
   return createAuthenticationHookMock(mockAuth);
 });
 
+import { authClient } from "@/lib/features/authentication/client";
 import FccNotesPanel from "@/src/components/experiences/modern/reviews/FccNotesPanel";
 import { REVIEW_COPY } from "@/src/components/experiences/modern/reviews/copy";
 
@@ -51,10 +58,10 @@ describe("FccNotesPanel", () => {
     fakeReviewsEndpoints({
       fccNotesForRelease: {
         [ALBUM_ID]: [
-          fccNote({ id: 1, track: "A1", note: "old reported", reported_at: "2026-10-01T10:00:00Z" }),
-          fccNote({ id: 2, track: "A2", note: "old confirmed", status: "confirmed", reported_at: "2026-10-01T09:00:00Z" }),
-          fccNote({ id: 3, track: "B1", note: "new reported", reported_by: "DJ Cat", reported_at: "2026-10-02T10:00:00Z" }),
-          fccNote({ id: 4, track: "B2", note: "new confirmed", status: "confirmed", reported_at: "2026-10-02T09:00:00Z" }),
+          fccNote({ reported_by_user_id: "dj-other", id: 1, track: "A1", note: "old reported", reported_at: "2026-10-01T10:00:00Z" }),
+          fccNote({ reported_by_user_id: "dj-other", id: 2, track: "A2", note: "old confirmed", status: "confirmed", reported_at: "2026-10-01T09:00:00Z" }),
+          fccNote({ reported_by_user_id: "dj-other", id: 3, track: "B1", note: "new reported", reported_by: "DJ Cat", reported_at: "2026-10-02T10:00:00Z" }),
+          fccNote({ reported_by_user_id: "dj-other", id: 4, track: "B2", note: "new confirmed", status: "confirmed", reported_at: "2026-10-02T09:00:00Z" }),
         ],
       },
     });
@@ -107,6 +114,59 @@ describe("FccNotesPanel", () => {
     } finally {
       server.events.removeListener("request:start", log);
     }
+  });
+
+  describe("controls on a note row", () => {
+    const rowButtons = async (note: ReturnType<typeof fccNote>, id: string, authority: Authorization) => {
+      mockAuth.id = id;
+      mockAuth.authority = authority;
+      fakeReviewsEndpoints({ fccNotesForRelease: { [ALBUM_ID]: [note] } });
+      renderWithProviders(<FccNotesPanel albumId={ALBUM_ID} />);
+      const item = await screen.findByRole("listitem");
+      return within(item).queryAllByRole("button").map((b) => b.textContent);
+    };
+
+    it.each([
+      ["a music director on a reported note", "reported", "md-me", Authorization.MD, ["Confirm", "Remove"]],
+      ["a music director on a confirmed note", "confirmed", "md-me", Authorization.MD, ["Remove"]],
+      ["a music director who reported it", "reported", "dj-me", Authorization.MD, ["Confirm", "Remove"]],
+      ["a DJ who did not report it", "reported", "dj-other", Authorization.DJ, []],
+      ["the reporter on a reported note", "reported", "dj-me", Authorization.DJ, ["Remove my note"]],
+      ["the reporter on a confirmed note", "confirmed", "dj-me", Authorization.DJ, []],
+    ] as const)("shows %s: %j", async (_label, status, id, authority, expected) => {
+      const note = fccNote({ id: 1, status, reported_by_user_id: "dj-me", album_id: ALBUM_ID, intake_item_id: null });
+
+      expect(await rowButtons(note, id, authority)).toEqual(expected);
+    });
+
+    it.each([
+      ["a music director on a reported note", "reported", "md-me", Authorization.MD, "Remove", "Remove this note? DJ Me reported it."],
+      ["a music director on a confirmed note", "confirmed", "md-me", Authorization.MD, "Remove", "Remove this confirmed note? It will no longer be printed on the slip."],
+      ["the reporter", "reported", "dj-me", Authorization.DJ, "Remove my note", "Remove your note?"],
+    ] as const)("asks %s the approved question", async (_label, status, id, authority, button, question) => {
+      mockAuth.id = id;
+      mockAuth.authority = authority;
+      fakeReviewsEndpoints({
+        fccNotesForRelease: { [ALBUM_ID]: [fccNote({ status, reported_by_user_id: "dj-me", album_id: ALBUM_ID })] },
+      });
+      renderWithProviders(<FccNotesPanel albumId={ALBUM_ID} />);
+
+      await userEvent.setup().click(await screen.findByRole("button", { name: button }));
+
+      expect(await screen.findByRole("alertdialog", { name: question })).toBeInTheDocument();
+    });
+
+    it("shows the status line as Confirmed and the reprint line after a confirm", async () => {
+      mockAuth.id = "md-me";
+      mockAuth.authority = Authorization.MD;
+      fakeReviewsEndpoints({ fccNotesForRelease: { [ALBUM_ID]: [fccNote({ album_id: ALBUM_ID })] } });
+      renderWithProviders(<FccNotesPanel albumId={ALBUM_ID} />);
+
+      await userEvent.setup().click(await screen.findByRole("button", { name: "Confirm" }));
+
+      expect(await screen.findByText(REVIEW_COPY.fccNotes.reprint)).toBeInTheDocument();
+      expect(await screen.findByText("Confirmed")).toBeInTheDocument();
+    });
   });
 
   describe("reporting", () => {
@@ -190,20 +250,37 @@ describe("FccNotesPanel", () => {
       await waitFor(() => expect(posts).toEqual([expected]));
     });
 
-    it.each([
-      [400, "Track is too long."],
-      [403, "Your account has no name to report under."],
-    ])("shows the server's message for a %i and writes nothing", async (status, message) => {
+    it("shows the server's message for a 400 and writes nothing", async () => {
       fakeReviewsEndpoints();
-      server.use(http.post(`${TEST_BACKEND_URL}/fcc-notes`, () => HttpResponse.json({ message }, { status })));
+      server.use(http.post(`${TEST_BACKEND_URL}/fcc-notes`, () => HttpResponse.json({ message: "Track is too long." }, { status: 400 })));
       renderWithProviders(<FccNotesPanel albumId={ALBUM_ID} />);
       const user = await open();
 
       await fill(user, "A2", "A word.");
       await user.click(screen.getByRole("button", { name: "Report" }));
 
-      expect(await screen.findByRole("alert")).toHaveTextContent(message);
+      expect(await screen.findByRole("alert")).toHaveTextContent("Track is too long.");
       expect(screen.getByText("No FCC notes for this record.")).toBeInTheDocument();
+    });
+
+    it.each([
+      { label: "no session left", session: null, navigates: true },
+      { label: "the session still there", session: { user: { id: "dj-me" } }, navigates: false },
+    ])("on a 403 with $label, $navigates ? sends the person to sign-in : shows the generic line, never the server's", async ({ session, navigates }) => {
+      vi.mocked(authClient.getSession).mockResolvedValue({ data: session, error: null } as never);
+      router.replace.mockClear();
+      fakeReviewsEndpoints();
+      server.use(http.post(`${TEST_BACKEND_URL}/fcc-notes`, () => HttpResponse.json({ message: "Your account has no name to report under." }, { status: 403 })));
+      renderWithProviders(<FccNotesPanel albumId={ALBUM_ID} />);
+      const user = await open();
+
+      await fill(user, "A2", "A word.");
+      await user.click(screen.getByRole("button", { name: "Report" }));
+
+      if (navigates) await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/login?bounced=no-session"));
+      else expect((await screen.findByRole("alert")).textContent).toBe("Couldn't report the note. Please try again.");
+      expect(screen.queryByText("Your account has no name to report under.")).not.toBeInTheDocument();
+      expect(router.replace).toHaveBeenCalledTimes(navigates ? 1 : 0);
     });
 
     it.each<[string, () => Response]>([
