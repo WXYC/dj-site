@@ -3,7 +3,8 @@ import { reviewsApi } from "@/lib/features/reviews/api";
 
 const TURNS = 5;
 
-const turns = async () => {
+/** The macrotask turns a client needs to read a body and settle its promise chain; shared by `reviewsSettled` and `holdResponse`'s `answered`. */
+export const turns = async () => {
   for (let turn = 0; turn < TURNS; turn += 1) await new Promise((resolve) => setImmediate(resolve));
 };
 

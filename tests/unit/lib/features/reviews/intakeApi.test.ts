@@ -7,6 +7,7 @@ import { intakeApi, isIntakeInRotation, isIntakeReleaseRefused, isIntakeNotRevie
 import { describeApi } from "@/tests/helpers/api-harness";
 import { TEST_BACKEND_URL } from "@/tests/helpers/constants";
 import { server } from "@/tests/fakes/server";
+import { reviewsSettled } from "@/tests/helpers/reviews-settled";
 
 vi.mock("@/lib/features/authentication/client", () => ({
   getJWTToken: vi.fn().mockResolvedValue("test-token"),
@@ -128,7 +129,10 @@ describe("intakeApi", () => {
     const before = { ...reads };
 
     await store.dispatch(intakeApi.endpoints.deleteIntakeItem.initiate(7));
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    // The two lists refetch; the counters prove they did, and the store settling proves no read of the deleted record followed.
+    await vi.waitFor(() => expect(reads.list).toBe(before.list + 1));
+    await vi.waitFor(() => expect(reads.myReviews).toBe(before.myReviews + 1));
+    await reviewsSettled(store);
 
     expect(reads.list).toBe(before.list + 1);
     expect(reads.myReviews).toBe(before.myReviews + 1);

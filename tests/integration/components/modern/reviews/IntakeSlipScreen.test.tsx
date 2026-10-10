@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
-import { fakeReviewsEndpoints, holdResponse, intakeItem, intakeSlip, renderWithProviders, review, server, TEST_BACKEND_URL } from "@/tests/helpers";
+import { fakeReviewsEndpoints, holdResponse, intakeItem, intakeSlip, renderedFrame, renderWithProviders, review, reviewsSettled, server, TEST_BACKEND_URL } from "@/tests/helpers";
 import { reviewApi } from "@/lib/features/reviews/reviewApi";
 import { Authorization } from "@/lib/features/admin/types";
 
@@ -223,25 +223,24 @@ describe("IntakeSlipScreen", () => {
   });
 
   it("words the refusal from the reloaded record: a cover cleared after load never reads as handwritten", async () => {
-    let reads = 0;
     fakeReviewsEndpoints({ records: [item()], reviews: [review({ id: 40, medium: "handwritten", review: null })] });
-    server.use(
-      http.get(`${TEST_BACKEND_URL}/intake/${ITEM_ID}`, async () => {
-        reads += 1;
-        if (reads === 1) return HttpResponse.json(item());
-        await new Promise((resolve) => setTimeout(resolve, 100));
-        return HttpResponse.json(item({ accepted_review_id: null }));
-      }),
-    );
     const calls = servePrint(() => HttpResponse.json({ message: "server words", reason: "not_reviewed" }, { status: 409 }));
 
     const { user } = renderWithProviders(<IntakeSlipScreen id={ITEM_ID} />);
-    await user.click(await screen.findByRole("button", { name: "Print the slip" }));
+    const print = await screen.findByRole("button", { name: "Print the slip" });
+    // The record's reload after the refusal is held, so no line is asserted absent while it is outstanding.
+    const reload = holdResponse("get", `${TEST_BACKEND_URL}/intake/${ITEM_ID}`, () =>
+      HttpResponse.json(item({ accepted_review_id: null })),
+    );
+    await user.click(print);
     await waitFor(() => expect(calls.count).toBe(1));
-    await new Promise((resolve) => setTimeout(resolve, 40));
+    await waitFor(() => expect(reload.calls.count).toBe(1));
+    await renderedFrame();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
 
-    expect(await screen.findByText("There is no review on the cover yet. Choose one on the record's page, then print.")).toBeInTheDocument();
+    reload.release();
+    await reload.answered;
+    expect(screen.getByText("There is no review on the cover yet. Choose one on the record's page, then print.")).toBeInTheDocument();
     expect(screen.getByRole("link")).toHaveAttribute("href", `/dashboard/admin/intake/${ITEM_ID}`);
     expect(screen.queryByText(/handwritten/)).not.toBeInTheDocument();
   });
@@ -257,11 +256,11 @@ describe("IntakeSlipScreen", () => {
     );
     servePrint(() => HttpResponse.json({ message: "server words", reason: "not_reviewed" }, { status: 409 }));
 
-    const { user } = renderWithProviders(<IntakeSlipScreen id={ITEM_ID} />);
+    const { user, store } = renderWithProviders(<IntakeSlipScreen id={ITEM_ID} />);
     await user.click(await screen.findByRole("button", { name: "Print the slip" }));
 
     expect(await screen.findByText("Couldn't load this record. Please try again.")).toBeInTheDocument();
-    await new Promise((resolve) => setTimeout(resolve, 300));
+    await reviewsSettled(store);
     expect(screen.queryByText(/handwritten/)).not.toBeInTheDocument();
     expect(screen.queryByText(/no review on the cover/)).not.toBeInTheDocument();
   });
