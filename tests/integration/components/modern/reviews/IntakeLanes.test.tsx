@@ -80,6 +80,7 @@ describe("IntakeLanes", () => {
 
     const requested = await lane("Requested");
     expect(within(requested).getByText("Cat Power · Moon Pix · Matador · CD")).toBeInTheDocument();
+    expect(within(requested).getByText("Held for DJ Pat")).toBeInTheDocument();
     expect(within(await lane("Checked out")).getByText("Cat Power · Dark Side · Matador · CD")).toBeInTheDocument();
     expect(within(await lane("Reviewed (1)")).getByText("Cat Power · Moon Pix · Matador · CD")).toBeInTheDocument();
     expect(within(await lane("Filed")).getByText("Cat Power · Moon Pix · Matador · CD")).toBeInTheDocument();

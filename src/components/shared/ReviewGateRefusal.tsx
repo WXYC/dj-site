@@ -17,8 +17,8 @@ const REVIEW_SHELF_HREF = "/dashboard/reviews";
 /**
  * Stands where a screen's create action stood once
  * `reviewGateCutoverReached()` is true, and where the filing bench answers a
- * `review_required` refusal. The link is for music directors only; the page it
- * opens is theirs. The modern screens pass `modern` to render with Joy UI; the
+ * `review_required` refusal. The link is shown to music directors only, though the
+ * page it opens, `/dashboard/reviews`, is the Reviews page every DJ sees. The modern screens pass `modern` to render with Joy UI; the
  * classic screens keep plain markup.
  */
 export default function ReviewGateRefusal({ modern = false }: { modern?: boolean } = {}) {

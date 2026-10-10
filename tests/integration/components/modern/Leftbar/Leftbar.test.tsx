@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { screen } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import { renderWithProviders } from "@/tests/helpers/render";
 import Leftbar from "@/src/components/experiences/modern/Leftbar/Leftbar";
 import { Authorization } from "@/lib/features/admin/types";
@@ -515,7 +515,7 @@ describe("Leftbar", () => {
     const link = screen.queryByTestId("leftbar-link--dashboard-reviews");
     expect(link !== null).toBe(shown);
     // The literal, not the copy entry: the station approved these words.
-    if (shown) expect(link).toHaveTextContent("Reviews");
+    if (shown) expect(within(link!).getByTestId("link-title")).toHaveTextContent(/^Reviews$/);
     expect(screen.queryByTestId("leftbar-link--dashboard-admin-intake")).not.toBeInTheDocument();
     vi.unstubAllEnvs();
   });
