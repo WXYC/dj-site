@@ -64,7 +64,9 @@ export default function IntakeItemScreen({ id }: { id: number }) {
   const fetchedCover = useGetReviewQuery(coverById ?? 0, { skip: !visible || coverById === undefined });
 
   const cover = ownCover ?? (fetchedCover.data?.id === coverId ? fetchedCover.data : undefined);
-  const printedVersion = usePrintedVersion(cover, { onCover: cover != null });
+  // The one cover rule: the print link's hook call and the cover group below both read it, so a later gate change moves them together.
+  const isOnCover = (r: Review) => r.id === coverId;
+  const printedVersion = usePrintedVersion(cover, { onCover: cover != null && isOnCover(cover) });
 
   const reload = useItemPageReload(id, coverById);
   const mounted = useMounted();
@@ -145,7 +147,7 @@ export default function IntakeItemScreen({ id }: { id: number }) {
         <Chip>{STATE_LABELS[item.data.effective_state]}</Chip>
       </Stack>
       {cover ? (
-        <Group title={REVIEW_COPY.albumPanel.coverOne} reviews={[cover]} recordOf={recordOf} newSlipHref={`/dashboard/admin/intake/${id}/slip`} onCover={(r) => r.id === coverId} />
+        <Group title={REVIEW_COPY.albumPanel.coverOne} reviews={[cover]} recordOf={recordOf} newSlipHref={`/dashboard/admin/intake/${id}/slip`} onCover={isOnCover} />
       ) : (
         coverId == null && <Typography>{COPY.noCover}</Typography>
       )}

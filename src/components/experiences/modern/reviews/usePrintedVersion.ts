@@ -4,8 +4,12 @@ import { useGetReviewRevisionsQuery } from "@/lib/features/reviews/reviewApi";
 import { useCanSeeReviews } from "@/src/hooks/useCanSeeReviews";
 
 /**
- * `none`: nothing to say (not on this cover, never printed, or a print with no usable date).
- * `loading`: the revisions have not arrived, or there are none.
+ * What a surface should say about a review's printed copy.
+ * - `none`: nothing to say. The viewer cannot see reviews, the review is not on this cover, it was never printed, or it was printed with no usable date.
+ * - `loading`: the revisions have not arrived, or there are none.
+ * - `failed`: the revisions read failed and nothing is cached.
+ * - `current`: the newest revision is the one that was printed.
+ * - `edited`: a newer revision exists than the printed one, and the print has a usable date.
  */
 export type PrintedVersion = "none" | "loading" | "failed" | "current" | "edited";
 
