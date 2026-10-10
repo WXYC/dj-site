@@ -5,6 +5,7 @@ import { intakeRecord, recordLine } from "@/src/components/experiences/modern/re
 const formats = [
   { id: 1, format_name: "cd" },
   { id: 2, format_name: "vinyl" },
+  { id: 3, format_name: '7"' },
 ];
 
 describe("recordLine", () => {
@@ -13,6 +14,8 @@ describe("recordLine", () => {
     ["a format name wins over the id", { artist: "Juana Molina", album: "DOGA", label: "Sonamos", formatId: 2, format: "cd" }, "Juana Molina · DOGA · Sonamos · CD"],
     ["a vinyl format name reads Vinyl", { artist: "Juana Molina", album: "DOGA", label: "Sonamos", formatId: 1, format: "vinyl" }, "Juana Molina · DOGA · Sonamos · Vinyl"],
     ["any other format is unchanged", { artist: "Juana Molina", album: "DOGA", label: "Sonamos", formatId: 1, format: "cassette" }, "Juana Molina · DOGA · Sonamos · cassette"],
+    ["a format name formatLabel does not tidy is unchanged", { artist: "Juana Molina", album: "DOGA", label: "Sonamos", formatId: 1, format: "cd box" }, "Juana Molina · DOGA · Sonamos · cd box"],
+    ["a looked-up format name formatLabel does not tidy is unchanged", { artist: "Juana Molina", album: "DOGA", label: "Sonamos", formatId: 3 }, 'Juana Molina · DOGA · Sonamos · 7"'],
     ["an empty label is dropped", { artist: "Stereolab", album: "Aluminum Tunes", label: "", formatId: 2 }, "Stereolab · Aluminum Tunes · Vinyl"],
     ["an unknown format id is dropped", { artist: "Jessica Pratt", album: "On Your Own Love Again", label: "Drag City", formatId: 99 }, "Jessica Pratt · On Your Own Love Again · Drag City"],
   ])("%s", (_name, record, expected) => {
