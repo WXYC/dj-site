@@ -1399,14 +1399,29 @@ describe("IntakeItemScreen", () => {
       expect(await within(await otherReviews()).findByText("From Jessica Pratt. The record is with Jessica Pratt.")).toBeInTheDocument();
     });
 
-    it("says nothing for a record nobody has that is no longer on the review shelf, and for a draft", async () => {
-      fakeReviewsEndpoints({ records: [dogaItem()], forItem: { [ITEM_ID]: [submitted(40), waiting(41), waiting(42, { status: "draft" })] } });
+    it("says nothing for a record nobody has that is no longer on the review shelf", async () => {
+      fakeReviewsEndpoints({ records: [dogaItem()], forItem: { [ITEM_ID]: [submitted(40), waiting(41)] } });
 
       const { store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
 
       await otherReviews();
       await reviewsSettled(store);
       expect(screen.queryByText(/^From /)).not.toBeInTheDocument();
+    });
+
+    it("says nothing for a draft by another author on a record a DJ has, while a submitted review on the page gets its line", async () => {
+      fakeReviewsEndpoints({
+        records: [dogaItem(HELD_BY_SAM)],
+        forItem: { [ITEM_ID]: [submitted(40), waiting(41), waiting(42, { status: "draft", author: "Nilüfer Yanya", author_user_id: "dj-nil" })] },
+      });
+
+      const { store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      const others = await otherReviews();
+      expect(await within(others).findByText("From Jessica Pratt. The record is with DJ Sam.")).toBeInTheDocument();
+      await reviewsSettled(store);
+      expect(within(others).getAllByText(/^From /)).toHaveLength(1);
+      expect(screen.queryByText(/From Nilüfer Yanya/)).not.toBeInTheDocument();
     });
   });
 });

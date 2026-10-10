@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
-import { fakeReviewsEndpoints, intakeItem, pendingCount, renderedFrame, renderWithProviders, review, server, TEST_BACKEND_URL } from "@/tests/helpers";
+import { fakeReviewsEndpoints, holdResponse, intakeItem, pendingCount, renderedFrame, renderWithProviders, review, reviewsSettled, server, TEST_BACKEND_URL } from "@/tests/helpers";
 import { Authorization } from "@/lib/features/admin/types";
 
 vi.mock("@/lib/features/authentication/client", async () => {
@@ -178,6 +178,49 @@ describe("IntakeLanes", () => {
     expect(await within(waitingLane).findByText("From Cat Power. The record is with DJ Sam.")).toBeInTheDocument();
     expect(within(waitingLane).getByText("+1 more")).toBeInTheDocument();
     expect(within(waitingLane).queryByText(/Sessa|Nilüfer|Stereolab/)).not.toBeInTheDocument();
+  });
+
+  describe("a Review waiting row before its reviews are read", () => {
+    const REVIEWS_URL = `${TEST_BACKEND_URL}/reviews`;
+
+    it.each([
+      ["a DJ has the record", {}, "Checked out to DJ Sam"],
+      [
+        "a request is open",
+        { state: "requested", effective_state: "requested", requested_dj_id: "dj-pat", requested_dj_name: "DJ Pat", checked_out_by: null, checked_out_by_name: null },
+        "Held for DJ Pat",
+      ],
+      ["the record is on the review shelf", { state: "pool", effective_state: "pool", checked_out_by: null, checked_out_by_name: null }, "On the review shelf"],
+      ["the holder's account was removed", { checked_out_by: null, checked_out_by_name: null, checked_out_at: "2026-09-20T12:00:00Z" }, "Holder removed"],
+    ])("shows the location line while the read is in flight, then the From line, when %s", async (_label, itemOverrides, location) => {
+      const item = waiting(7, itemOverrides);
+      fakeReviewsEndpoints({ open: [item], awaiting: [item] });
+      const read = holdResponse("get", REVIEWS_URL, () => HttpResponse.json([waitingReview(70, 7)]));
+
+      renderWithProviders(<IntakeLanes />);
+
+      const waitingLane = await lane("Review waiting (1)");
+      expect(within(waitingLane).getByText(location)).toBeInTheDocument();
+      expect(within(waitingLane).queryByText(/^From /)).not.toBeInTheDocument();
+
+      read.release();
+      await read.answered;
+      expect(await within(waitingLane).findByText(/^From Jessica Pratt/)).toBeInTheDocument();
+      expect(within(waitingLane).queryByText(location)).not.toBeInTheDocument();
+    });
+
+    it("keeps the location line when the read fails", async () => {
+      const item = waiting(7);
+      fakeReviewsEndpoints({ open: [item], awaiting: [item] });
+      server.use(http.get(REVIEWS_URL, () => HttpResponse.json({ message: "down" }, { status: 500 })));
+
+      const { store } = renderWithProviders(<IntakeLanes />);
+
+      const waitingLane = await lane("Review waiting (1)");
+      await reviewsSettled(store);
+      expect(within(waitingLane).getByText("Checked out to DJ Sam")).toBeInTheDocument();
+      expect(within(waitingLane).queryByText(/^From /)).not.toBeInTheDocument();
+    });
   });
 
   it("marks the record in its physical lane and leaves the location line there", async () => {

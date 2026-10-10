@@ -26,10 +26,15 @@ export function fromLine(review: Review, item: IntakeItem): string | null {
   return (holder.kind === "requested" ? COPY.fromHeldFor : COPY.fromWith)(author, holder.name);
 }
 
-/** A Review waiting row's lines: who the newest waiting review is from, and how many more wait. */
-export function WaitingFrom({ item }: { item: IntakeItem }) {
+/**
+ * A Review waiting row's lines: who the newest waiting review is from, and how many more wait. While the
+ * row's reviews are being read, and if that read fails, the row shows `where`, the location line the lane
+ * always showed, so it is never blank.
+ */
+export function WaitingFrom({ item, where }: { item: IntakeItem; where: string }) {
   const reviews = useGetItemReviewsQuery(item.id);
-  const waiting = (reviews.data ?? []).filter((r) => r.status === "submitted" && r.id !== item.accepted_review_id).sort(newestFirst);
+  if (!reviews.data) return <Typography level="body-sm">{where}</Typography>;
+  const waiting = reviews.data.filter((r) => r.status === "submitted" && r.id !== item.accepted_review_id).sort(newestFirst);
   const line = waiting.length > 0 ? fromLine(waiting[0], item) : null;
   return (
     <>
