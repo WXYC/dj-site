@@ -856,7 +856,7 @@ describe("IntakeItemScreen", () => {
       await waitFor(() => expect(screen.getByRole("button", { name: /^Use this review/ })).toBeEnabled());
     });
 
-    it("asks the replace question of the other reviews' buttons, which are disabled, while the reread is outstanding", async () => {
+    it("words every review's button as a replacement, and disables it, while the reread is outstanding", async () => {
       const box = setUp(dogaItem(NOTHING_ON_COVER), [submitted(41), submitted(42)]);
       recordPosts(box);
       const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
