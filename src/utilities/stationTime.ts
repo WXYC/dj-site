@@ -311,8 +311,15 @@ const stationLongDateFormatter = new Intl.DateTimeFormat("en-US", {
   day: "numeric",
 });
 
+/**
+ * The long-form date for an instant, in station time. An unparseable value
+ * gives "" rather than throwing, so a single bad row cannot take down the
+ * screen that renders it.
+ */
 export function formatStationLongDate(isoString: string): string {
-  return stationLongDateFormatter.format(new Date(isoString));
+  const instant = new Date(isoString);
+  if (Number.isNaN(instant.getTime())) return "";
+  return stationLongDateFormatter.format(instant);
 }
 
 const stationYearFormatter = new Intl.DateTimeFormat("en-US", {
