@@ -11,6 +11,7 @@ import {
 } from "@/lib/features/reviews/fccNoteApi";
 import { describeApi } from "@/tests/helpers/api-harness";
 import { TEST_BACKEND_URL } from "@/tests/helpers/constants";
+import { refetchesAfter } from "@/tests/helpers/refetches";
 import { server } from "@/tests/fakes/server";
 
 vi.mock("@/lib/features/authentication/client", () => ({
@@ -103,25 +104,22 @@ describe("fccNoteApi", () => {
   it.each(["confirmFccNote", "deleteFccNote"] as const)(
     "%s refreshes the waiting list and both subjects' panels, even when refused",
     async (name) => {
-      const reads: string[] = [];
       server.use(
-        http.get(`${TEST_BACKEND_URL}/fcc-notes`, ({ request }) => {
-          reads.push(new URL(request.url).searchParams.toString());
-          return HttpResponse.json([]);
-        }),
+        http.get(`${TEST_BACKEND_URL}/fcc-notes`, () => HttpResponse.json([])),
         http.all(`${TEST_BACKEND_URL}/fcc-notes/4*`, () => HttpResponse.json({}, { status: 403 }))
       );
-      const store = makeReviewsStore();
-      await Promise.all([
-        store.dispatch(fccNoteApi.endpoints.getFccNotes.initiate({ album_id: 5 })),
-        store.dispatch(fccNoteApi.endpoints.getFccNotes.initiate({ intake_item_id: 7 })),
-        store.dispatch(fccNoteApi.endpoints.getFccNotesToConfirm.initiate()),
-      ]);
-      reads.length = 0;
 
-      await store.dispatch(fccNoteApi.endpoints[name].initiate(4));
+      const refetched = await refetchesAfter(
+        makeReviewsStore(),
+        {
+          album5: fccNoteApi.endpoints.getFccNotes.initiate({ album_id: 5 }),
+          item7: fccNoteApi.endpoints.getFccNotes.initiate({ intake_item_id: 7 }),
+          waiting: fccNoteApi.endpoints.getFccNotesToConfirm.initiate(),
+        },
+        fccNoteApi.endpoints[name].initiate(4),
+      );
 
-      await vi.waitFor(() => expect([...reads].sort()).toEqual(["album_id=5", "intake_item_id=7", "status=reported"]));
+      expect(refetched).toEqual(new Set(["album5", "item7", "waiting"]));
     }
   );
 

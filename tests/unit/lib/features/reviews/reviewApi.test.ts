@@ -6,6 +6,7 @@ import { intakeApi } from "@/lib/features/reviews/intakeApi";
 import { isReviewAccepted, isReviewInUse, isReviewNotDraft, isReviewSubjectNotHeld, reviewApi } from "@/lib/features/reviews/reviewApi";
 import { describeApi } from "@/tests/helpers/api-harness";
 import { TEST_BACKEND_URL } from "@/tests/helpers/constants";
+import { refetchesAfter } from "@/tests/helpers/refetches";
 import { server } from "@/tests/fakes/server";
 
 vi.mock("@/lib/features/authentication/client", () => ({
@@ -130,40 +131,37 @@ describe("reviewApi", () => {
   });
 
   it("a successful submitReview refetches the awaiting-acceptance intake read", async () => {
-    let intakeReads = 0;
     server.use(
-      http.get(`${TEST_BACKEND_URL}/intake`, () => (intakeReads++, HttpResponse.json([]))),
+      http.get(`${TEST_BACKEND_URL}/intake`, () => HttpResponse.json([])),
       http.post(`${TEST_BACKEND_URL}/reviews/:id/submit`, () => HttpResponse.json({ id: 7 })),
     );
-    const store = makeReviewsStore();
-    const subscription = store.dispatch(intakeApi.endpoints.getIntakeItems.initiate({ awaiting_acceptance: true }));
-    await subscription;
-    expect(intakeReads).toBe(1);
 
-    await store.dispatch(reviewApi.endpoints.submitReview.initiate(7));
-    await vi.waitFor(() => expect(intakeReads).toBe(2));
-    subscription.unsubscribe();
+    const refetched = await refetchesAfter(
+      makeReviewsStore(),
+      { awaiting: intakeApi.endpoints.getIntakeItems.initiate({ awaiting_acceptance: true }) },
+      reviewApi.endpoints.submitReview.initiate(7),
+    );
+
+    expect(refetched).toEqual(new Set(["awaiting"]));
   });
 
   it("a successful deleteReview refetches the intake lists and the release's review list, so the lanes and the album card drop the review", async () => {
-    let intakeReads = 0;
-    let releaseReviewReads = 0;
     server.use(
-      http.get(`${TEST_BACKEND_URL}/intake`, () => (intakeReads++, HttpResponse.json([]))),
-      http.get(`${TEST_BACKEND_URL}/reviews`, () => (releaseReviewReads++, HttpResponse.json([]))),
+      http.get(`${TEST_BACKEND_URL}/intake`, () => HttpResponse.json([])),
+      http.get(`${TEST_BACKEND_URL}/reviews`, () => HttpResponse.json([])),
       http.delete(`${TEST_BACKEND_URL}/reviews/:id`, () => new HttpResponse(null, { status: 204 })),
     );
-    const store = makeReviewsStore();
-    const lanes = store.dispatch(intakeApi.endpoints.getIntakeItems.initiate());
-    const card = store.dispatch(reviewApi.endpoints.getReviewsForRelease.initiate(7));
-    await Promise.all([lanes, card]);
-    expect([intakeReads, releaseReviewReads]).toEqual([1, 1]);
 
-    await store.dispatch(reviewApi.endpoints.deleteReview.initiate(7));
+    const refetched = await refetchesAfter(
+      makeReviewsStore(),
+      {
+        lanes: intakeApi.endpoints.getIntakeItems.initiate(),
+        card: reviewApi.endpoints.getReviewsForRelease.initiate(7),
+      },
+      reviewApi.endpoints.deleteReview.initiate(7),
+    );
 
-    await vi.waitFor(() => expect([intakeReads, releaseReviewReads]).toEqual([2, 2]));
-    lanes.unsubscribe();
-    card.unsubscribe();
+    expect(refetched).toEqual(new Set(["lanes", "card"]));
   });
 
   it.each(["submitReview", "deleteReview"] as const)("%s rejects with the whole error nested under reviewWriteError", async (endpoint) => {
