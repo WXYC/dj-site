@@ -57,9 +57,10 @@ describe("libraryApi", () => {
     expect(refetched).toEqual(new Set(["releaseReviews"]));
   });
 
-  it("printReleaseReview refetches a mounted intake record and list read after a success, and nothing after a refusal", async () => {
+  it("printReleaseReview refetches a mounted intake record and list read after a success, and only the release's review list after a refusal", async () => {
     let refuse = false;
     server.use(
+      http.get(`${TEST_BACKEND_URL}/reviews`, () => HttpResponse.json([])),
       http.get(`${TEST_BACKEND_URL}/intake/:id`, () => HttpResponse.json({ id: 5 })),
       http.get(`${TEST_BACKEND_URL}/intake`, () => HttpResponse.json([])),
       http.post(`${TEST_BACKEND_URL}/library/:id/print`, () =>
@@ -69,14 +70,15 @@ describe("libraryApi", () => {
     const reads = {
       item: intakeApi.endpoints.getIntakeItem.initiate(5),
       list: intakeApi.endpoints.getIntakeItems.initiate(),
+      releaseReviews: reviewApi.endpoints.getReviewsForRelease.initiate(7),
     };
     const write = libraryApi.endpoints.printReleaseReview.initiate({ albumId: 7, reviewId: 40 });
 
     refuse = true;
-    expect(await refetchesAfter(makeReviewsStore(), reads, write)).toEqual(new Set());
+    expect(await refetchesAfter(makeReviewsStore(), reads, write)).toEqual(new Set(["releaseReviews"]));
 
     refuse = false;
-    expect(await refetchesAfter(makeReviewsStore(), reads, write)).toEqual(new Set(["item", "list"]));
+    expect(await refetchesAfter(makeReviewsStore(), reads, write)).toEqual(new Set(["item", "list", "releaseReviews"]));
   });
 
   it("printReleaseReview rejects with the whole error nested under libraryPrintError", async () => {
