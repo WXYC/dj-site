@@ -2125,7 +2125,7 @@ describe("IntakeItemScreen", () => {
 
       renderScreen(<IntakeItemScreen id={ITEM_ID} />);
 
-      expect(await screen.findByRole("button", { name: "Record a review" })).toBeInTheDocument();
+      expect(await screen.findByRole("button", { name: "Record a review" })).toBeEnabled();
     });
 
     it("opens a form with the slip's fields, no consent control, and no publishing field in the request", async () => {
@@ -2330,6 +2330,8 @@ describe("IntakeItemScreen", () => {
 
       await waitFor(() => expect(reread.calls.count).toBe(1));
       expect(creates).toHaveLength(1);
+      // Save stays out of reach while the reread is held, so a second press cannot record the review twice.
+      fireEvent.click(screen.getByRole("button", { name: "Save" }));
       const guarded = () => [...screen.queryAllByRole("button", { name: /^Use this review/ }), ...screen.queryAllByRole("button", { name: /^Delete review by/ })];
       expect(guarded().length).toBeGreaterThan(0);
       guarded().forEach((button) => expect(button).toBeDisabled());
@@ -2339,6 +2341,7 @@ describe("IntakeItemScreen", () => {
       await reviewsSettled(store);
       await waitFor(() => guarded().forEach((button) => expect(button).toBeEnabled()));
       expect(guarded().length).toBeGreaterThan(0);
+      expect(creates).toHaveLength(1);
     });
   });
 });
