@@ -90,6 +90,9 @@ function serveItem(initial: ReturnType<typeof dogaItem>) {
   return box;
 }
 
+const tapedSlips = () =>
+  screen.getAllByRole("group", { name: "Slip preview" }).filter((g) => g.querySelector(":scope > [aria-hidden='true']"));
+
 const listsAndCards = () => {
   server.use(
     http.get(`${TEST_BACKEND_URL}/library/genres`, () => HttpResponse.json([{ id: GENRE_ID, genre_name: "Rock" }])),
@@ -1395,6 +1398,20 @@ describe("IntakeItemScreen", () => {
       renderScreen(<IntakeItemScreen id={ITEM_ID} />);
 
       expect(await screen.findByRole("link", { name: "Edited · see history" })).toHaveAttribute("href", "/dashboard/reviews/40/history");
+    });
+  });
+  describe("tape on the slip", () => {
+    it("is drawn on the review on the cover and on no other", async () => {
+      fakeReviewsEndpoints({
+        records: [dogaItem({ accepted_review_id: 40 })],
+        forItem: { [ITEM_ID]: [submitted(40), submitted(41)] },
+      });
+
+      renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      await screen.findByText("Take 40.");
+      await waitFor(() => expect(tapedSlips()).toHaveLength(1));
+      expect(tapedSlips()[0].closest("li")).toHaveTextContent("Take 40.");
     });
   });
   describe("deleting one review", () => {

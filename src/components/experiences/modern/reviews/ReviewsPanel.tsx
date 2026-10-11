@@ -42,7 +42,7 @@ export function ReviewItem({ review, record, newSlipHref, printable, onCover, ch
           {review.fcc && <SlipFccRow fcc={review.fcc} />}
         </>
       ) : (
-        <SlipPreview {...record} reviewer={review.author ?? ""} date={review.add_date} fields={review} />
+        <SlipPreview {...record} reviewer={review.author ?? ""} date={review.add_date} fields={review} onCover={onCover} />
       )}
       {printable && record && review.medium === "typed" && review.status === "submitted" && (
         <RequireMD>
