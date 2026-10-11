@@ -3,7 +3,7 @@ import { http, HttpResponse } from "msw";
 import { configureStore } from "@reduxjs/toolkit";
 import { reviewsApi } from "@/lib/features/reviews/api";
 import { intakeApi } from "@/lib/features/reviews/intakeApi";
-import { isReviewAccepted, isReviewInUse, isReviewNotDraft, isReviewSubjectNotHeld, reviewApi } from "@/lib/features/reviews/reviewApi";
+import { isReviewAccepted, isReviewAccountGone, isReviewInUse, isReviewNotDraft, isReviewSubjectNotHeld, reviewApi } from "@/lib/features/reviews/reviewApi";
 import { describeApi } from "@/tests/helpers/api-harness";
 import { TEST_BACKEND_URL } from "@/tests/helpers/constants";
 import { refetchesAfter } from "@/tests/helpers/refetches";
@@ -223,5 +223,13 @@ describe("reviewApi", () => {
     expect(predicate({ reviewWriteError: { status: 409, data: { reason: other } } })).toBe(false);
     expect(predicate({ reviewWriteError: { status: 400, data: { reason } } })).toBe(false);
     expect(predicate(undefined)).toBe(false);
+  });
+
+  // `isStatusRefusal`'s own table covers raw, other-key and non-400 inputs; this one pins only the wiring to the linked-account flag.
+  it.each([
+    ["linked", true, true],
+    ["not linked", false, false],
+  ])("isReviewAccountGone reads a wrapped 400 on a create that %s as %s", (_label, linked, expected) => {
+    expect(isReviewAccountGone({ reviewWriteError: { status: 400, data: { message: "refused" } } }, linked)).toBe(expected);
   });
 });

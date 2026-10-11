@@ -9,8 +9,10 @@ import { reviewsApi } from "@/lib/features/reviews/api";
 import { reviewApi } from "@/lib/features/reviews/reviewApi";
 
 // The bench's artist field is gated by AuthorizedView, which resolves the music director tier from the session.
+const listUsers = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/features/authentication/client", () => ({
   authClient: {
+    admin: { listUsers },
     useSession: () => ({
       data: { user: { id: "md-me", email: "md@wxyc.org", name: "MD", username: "md", role: null, emailVerified: true } },
       isPending: false,
@@ -46,7 +48,7 @@ vi.mock("@/src/hooks/authenticationHooks", async () => {
 
 import { toast } from "sonner";
 import { REVIEW_COPY } from "@/src/components/experiences/modern/reviews/copy";
-import type { Review } from "@wxyc/shared";
+import type { NewReviewRequest, Review } from "@wxyc/shared";
 import { CssVarsProvider } from "@mui/joy/styles";
 import modernTheme from "@/lib/features/experiences/modern/theme";
 import IntakeItemScreen from "@/src/components/experiences/modern/reviews/IntakeItemScreen";
@@ -210,6 +212,44 @@ describe("IntakeItemScreen", () => {
       "handwritten",
       REVIEW_COPY.intakeSlip.handwritten,
       "The record's review is handwritten, so it is already on the sleeve. There is nothing to print.",
+    ],
+    ["recordTitle", REVIEW_COPY.record.title, "Record a review"],
+    ["recordAuthor", REVIEW_COPY.record.author, "Author"],
+    ["recordAuthorBlank", REVIEW_COPY.record.authorBlank, "Say who wrote the review."],
+    ["recordTextBlank", REVIEW_COPY.record.textBlank, "Write the review before you save it."],
+    ["recordAccount", REVIEW_COPY.record.account, "Link to an account (optional)"],
+    ["recordNotLinked", REVIEW_COPY.record.notLinked, "Not linked"],
+    ["recordAccountsFailed", REVIEW_COPY.record.accountsFailed, "Couldn't load the accounts. Please try again."],
+    ["recordMedium", REVIEW_COPY.record.medium, "Typed or handwritten?"],
+    ["recordTyped", REVIEW_COPY.record.typed, "Typed"],
+    ["recordHandwritten", REVIEW_COPY.record.handwritten, "Handwritten"],
+    [
+      "recordHandwrittenNote",
+      REVIEW_COPY.record.handwrittenNote,
+      "This review is handwritten, so it is already on the sleeve. Nothing will be printed.",
+    ],
+    [
+      "recordNoConsent",
+      REVIEW_COPY.record.noConsent,
+      "Nothing is ticked for publishing: the author hasn't been asked where this review may be published.",
+    ],
+    ["recordCoverNone", REVIEW_COPY.record.coverNone, "This will be the review on the cover."],
+    [
+      "recordCoverReplaces",
+      REVIEW_COPY.record.coverReplaces,
+      "This replaces the review now on the cover. If a slip is already taped to the record, print the slip again to replace it.",
+    ],
+    [
+      "recordEmailed",
+      REVIEW_COPY.record.emailed("Sam"),
+      "Sam will be emailed that a review was recorded in their name. They can edit it and answer the publishing question themselves.",
+    ],
+    ["recordCouldNotRecord", REVIEW_COPY.record.couldNotRecord, "Couldn't record the review. Please try again."],
+    ["recordRecorded", REVIEW_COPY.record.recorded, "Recorded."],
+    [
+      "recordAccountGone",
+      REVIEW_COPY.record.accountGone,
+      "That account no longer exists. Pick another, or leave the review unlinked.",
     ],
   ])("words %s exactly as the station approved it", (_key, actual, approved) => {
     expect(actual).toBe(approved);
@@ -2016,6 +2056,289 @@ describe("IntakeItemScreen", () => {
       await reviewsSettled(store);
       expect(within(others).getAllByText(/^From /)).toHaveLength(1);
       expect(screen.queryByText(/From Nilüfer Yanya/)).not.toBeInTheDocument();
+    });
+  });
+
+  describe("recording a review", () => {
+    const NEW_ID = 90;
+    const SERVER_WORDS = "author_user_id names no account";
+    const NOTHING_ON_COVER = { accepted_review_id: null };
+    const REVIEWERS = [
+      { id: "dj-sam", name: "Sam" },
+      { id: "md-me", name: "Mo" },
+    ];
+    const SAVE_URL = `${TEST_BACKEND_URL}/reviews`;
+
+    beforeEach(() => {
+      vi.mocked(toast).mockClear();
+      vi.mocked(toast.error).mockClear();
+    });
+
+    /** Serves the item and its reviews through state the create changes, and records every create: the review is submitted and on the cover. */
+    const setUp = (item = dogaItem(NOTHING_ON_COVER), others: Review[] = []) => {
+      fakeReviewsEndpoints({ records: [item], reviewers: REVIEWERS });
+      const box = serveItem(item);
+      const list = [...others];
+      const creates: NewReviewRequest[] = [];
+      const submits: string[] = [];
+      server.use(
+        http.get(`${TEST_BACKEND_URL}/reviews`, ({ request }) =>
+          HttpResponse.json(new URL(request.url).searchParams.get("intake_item_id") === String(ITEM_ID) ? list : []),
+        ),
+        http.post(SAVE_URL, async ({ request }) => {
+          const body = (await request.json()) as NewReviewRequest;
+          creates.push(body);
+          const made = submitted(NEW_ID, { author: body.author, author_user_id: body.author_user_id ?? null, medium: body.medium, review: body.review ?? null });
+          list.push(made);
+          box.item = { ...box.item, accepted_review_id: NEW_ID };
+          return HttpResponse.json(made, { status: 201 });
+        }),
+        // The form never submits: a create that carries accept is already submitted.
+        http.post(`${SAVE_URL}/:id/submit`, ({ params }) => {
+          submits.push(String(params.id));
+          return HttpResponse.json(submitted(Number(params.id)));
+        }),
+      );
+      return { box, creates, submits };
+    };
+
+    const open = async (user: User) => user.click(await screen.findByRole("button", { name: "Record a review" }));
+    const fillAuthor = async (user: User, text: string) => {
+      const field = screen.getByRole("textbox", { name: "Author" });
+      await user.clear(field);
+      if (text) await user.type(field, text);
+    };
+    const writeReview = (user: User, text: string) => user.type(screen.getByRole("textbox", { name: "Review" }), text);
+    const link = async (user: User, name: string) => {
+      await user.click(screen.getByRole("combobox", { name: "Link to an account (optional)" }));
+      await user.click(await screen.findByRole("option", { name }));
+    };
+    const save = (user: User) => user.click(screen.getByRole("button", { name: "Save" }));
+    const noFields = { buzzwords: null, artist_blurb: null, recommended_tracks: null, fcc: null };
+
+    it.each([
+      ["a filed", { state: "filed", effective_state: "filed" }],
+      ["a finalized", { state: "finalized", effective_state: "finalized" }],
+      ["a record still on the review shelf", { state: "pool", effective_state: "pool", accepted_review_id: null }],
+    ] as const)("offers Record a review on %s record", async (_label, overrides) => {
+      setUp(dogaItem(overrides));
+
+      renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      expect(await screen.findByRole("button", { name: "Record a review" })).toBeInTheDocument();
+    });
+
+    it("opens a form with the slip's fields, no consent control, and no publishing field in the request", async () => {
+      const { creates } = setUp();
+      const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      await open(user);
+
+      expect(screen.getByRole("heading", { name: "Record a review" })).toBeInTheDocument();
+      expect(screen.getByText(REVIEW_COPY.record.noConsent)).toBeInTheDocument();
+      for (const label of ["Buzzwords", "About the artist", "Review", "Recommended tracks", "FCC"]) {
+        expect(screen.getByRole("textbox", { name: label })).toBeInTheDocument();
+      }
+      for (const consent of ["Website", "WXYC apps", "Instagram", "DJ name", "Real name", "No name"]) {
+        expect(screen.queryByRole("checkbox", { name: consent })).not.toBeInTheDocument();
+        expect(screen.queryByRole("radio", { name: consent })).not.toBeInTheDocument();
+      }
+      expect(screen.queryByText(REVIEW_COPY.consent.legend)).not.toBeInTheDocument();
+
+      await fillAuthor(user, "Cat Power");
+      await writeReview(user, "Warm.");
+      await save(user);
+      await waitFor(() => expect(creates).toHaveLength(1));
+      await reviewsSettled(store);
+      expect(Object.keys(creates[0]).filter((key) => key.startsWith("publish_") || key === "credit")).toEqual([]);
+    });
+
+    it("records an on-behalf typed review in one create with accept true and no submit, and the page then shows it on the cover", async () => {
+      const { creates, submits } = setUp();
+      const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+      await open(user);
+
+      await fillAuthor(user, "  Cat Power ");
+      await link(user, "Sam");
+      await writeReview(user, "Warm.");
+      await save(user);
+
+      const cover = (await screen.findByRole("heading", { name: "The review on the cover" })).closest("section")!;
+      expect(await within(cover).findByText("Warm.")).toBeInTheDocument();
+      expect(await screen.findByRole("status")).toHaveTextContent("Recorded.");
+      await reviewsSettled(store);
+      expect(creates).toEqual([
+        { intake_item_id: ITEM_ID, author: "Cat Power", author_user_id: "dj-sam", medium: "typed", accept: true, ...noFields, review: "Warm." },
+      ]);
+      expect(submits).toEqual([]);
+      expect(screen.queryByRole("heading", { name: "Record a review" })).not.toBeInTheDocument();
+    });
+
+    it("records a handwritten review with no text, every field null and no account", async () => {
+      const { creates, submits } = setUp();
+      const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+      await open(user);
+
+      await fillAuthor(user, "Sessa");
+      await user.click(screen.getByRole("radio", { name: "Handwritten" }));
+      expect(screen.getByText(REVIEW_COPY.record.handwrittenNote)).toBeInTheDocument();
+      await save(user);
+
+      await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Recorded."));
+      await reviewsSettled(store);
+      expect(creates).toEqual([{ intake_item_id: ITEM_ID, author: "Sessa", medium: "handwritten", accept: true, ...noFields, review: null }]);
+      expect(submits).toEqual([]);
+    });
+
+    it.each([
+      ["no review on the cover", NOTHING_ON_COVER, REVIEW_COPY.record.coverNone, REVIEW_COPY.record.coverReplaces],
+      ["a review on the cover", {}, REVIEW_COPY.record.coverReplaces, REVIEW_COPY.record.coverNone],
+    ])("under the form, %s says its line and not the other", async (_label, overrides, line, other) => {
+      setUp(dogaItem(overrides), overrides === NOTHING_ON_COVER ? [] : [submitted(40)]);
+      const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+      await open(user);
+
+      expect(screen.getByText(line)).toBeInTheDocument();
+      expect(screen.queryByText(other)).not.toBeInTheDocument();
+    });
+
+    it.each([
+      ["another account", "Sam", true],
+      ["the signed-in account", "Mo", false],
+      ["no account", "Not linked", false],
+    ])("says the author is emailed only for %s: %s", async (_label, name, emailed) => {
+      setUp();
+      const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+      await open(user);
+
+      await link(user, "Sam");
+      if (name !== "Sam") await link(user, name);
+
+      const line = REVIEW_COPY.record.emailed("Sam");
+      if (emailed) expect(screen.getByText(line)).toBeInTheDocument();
+      else expect(screen.queryByText(/will be emailed/)).not.toBeInTheDocument();
+    });
+
+    it("says the accounts could not be loaded when the list fails, and still lets the review be saved unlinked", async () => {
+      const { creates } = setUp();
+      server.use(http.get(`${TEST_BACKEND_URL}/reviews/reviewers`, () => HttpResponse.json({ message: "boom" }, { status: 500 })));
+      const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+      await open(user);
+
+      expect(await screen.findByText("Couldn't load the accounts. Please try again.")).toBeInTheDocument();
+      await fillAuthor(user, "Cat Power");
+      await writeReview(user, "Warm.");
+      await save(user);
+
+      await waitFor(() => expect(creates).toHaveLength(1));
+      await reviewsSettled(store);
+    });
+
+    it("never reads the roster to fill the account picker", async () => {
+      setUp();
+      const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+      await open(user);
+      await link(user, "Sam");
+      await reviewsSettled(store);
+
+      expect(listUsers).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ["a blank author", "   ", "Warm.", "Say who wrote the review."],
+      ["an author over 128 characters", "x".repeat(129), "Warm.", null],
+      ["a typed review with no text", "Cat Power", "", "Write the review before you save it."],
+      ["a typed review with whitespace-only text", "Cat Power", "   ", "Write the review before you save it."],
+    ])("stops %s before any request", async (_label, author, text, line) => {
+      const { creates, submits } = setUp();
+      const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+      await open(user);
+
+      fireEvent.change(screen.getByRole("textbox", { name: "Author" }), { target: { value: author } });
+      if (text) fireEvent.change(screen.getByRole("textbox", { name: "Review" }), { target: { value: text } });
+      await save(user);
+
+      await reviewsSettled(store);
+      expect(creates).toEqual([]);
+      expect(submits).toEqual([]);
+      if (line) expect(screen.getByText(line)).toBeInTheDocument();
+    });
+
+    it("stops the author's typing at 128 characters", async () => {
+      setUp();
+      const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+      await open(user);
+
+      await user.type(screen.getByRole("textbox", { name: "Author" }), "x".repeat(130));
+
+      expect(screen.getByRole("textbox", { name: "Author" })).toHaveValue("x".repeat(128));
+    });
+
+    it.each([
+      ["an account was linked", true],
+      ["no account was linked", false],
+    ])("on a 400 when %s, says its own line with the server's words hidden, or the server's words once", async (_label, linked) => {
+      setUp();
+      server.use(http.post(SAVE_URL, () => HttpResponse.json({ message: SERVER_WORDS }, { status: 400 })));
+      const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+      await open(user);
+      await fillAuthor(user, "Cat Power");
+      await writeReview(user, "Warm.");
+      if (linked) await link(user, "Sam");
+      await reviewsSettled(store);
+
+      await save(user);
+
+      const accountGone = REVIEW_COPY.record.accountGone;
+      if (linked) {
+        expect((await screen.findByRole("alert")).textContent).toBe(accountGone);
+        expect(screen.queryByText(SERVER_WORDS)).not.toBeInTheDocument();
+      } else {
+        expect(await screen.findAllByText(SERVER_WORDS)).toHaveLength(1);
+        expect(screen.queryByText(accountGone)).not.toBeInTheDocument();
+      }
+      await reviewsSettled(store);
+      expect(screen.getByRole("textbox", { name: "Review" })).toHaveValue("Warm.");
+    });
+
+    it("says it could not record the review on any other failure, and keeps what was typed", async () => {
+      setUp();
+      server.use(http.post(SAVE_URL, () => HttpResponse.json({ message: "boom" }, { status: 500 })));
+      const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+      await open(user);
+      await fillAuthor(user, "Cat Power");
+      await writeReview(user, "Warm.");
+
+      await save(user);
+
+      expect((await screen.findByRole("alert")).textContent).toBe("Couldn't record the review. Please try again.");
+      await reviewsSettled(store);
+      expect(screen.getByRole("textbox", { name: "Review" })).toHaveValue("Warm.");
+      expect(screen.queryByText("boom")).not.toBeInTheDocument();
+    });
+
+    it("disables every Use this review and Delete review while the ticked save's reread is outstanding, and enables them once it settles", async () => {
+      const { box, creates } = setUp(dogaItem(), [submitted(40), submitted(41, { author: "Cat Power" })]);
+      const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+      await open(user);
+      await fillAuthor(user, "Sessa");
+      await writeReview(user, "Warm.");
+      await reviewsSettled(store);
+      const reread = holdResponse("get", FILED_ITEM_PATH, () => HttpResponse.json(box.item));
+
+      await save(user);
+
+      await waitFor(() => expect(reread.calls.count).toBe(1));
+      expect(creates).toHaveLength(1);
+      const guarded = () => [...screen.queryAllByRole("button", { name: /^Use this review/ }), ...screen.queryAllByRole("button", { name: /^Delete review by/ })];
+      expect(guarded().length).toBeGreaterThan(0);
+      guarded().forEach((button) => expect(button).toBeDisabled());
+
+      reread.release();
+      await reread.answered;
+      await reviewsSettled(store);
+      await waitFor(() => guarded().forEach((button) => expect(button).toBeEnabled()));
+      expect(guarded().length).toBeGreaterThan(0);
     });
   });
 });

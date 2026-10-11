@@ -7,7 +7,7 @@ import type {
   Reviewer,
 } from "@wxyc/shared";
 import type { FetchBaseQueryError } from "@reduxjs/toolkit/query";
-import { isRefusal } from "@/lib/rtk-endpoint-error";
+import { isRefusal, isStatusRefusal } from "@/lib/rtk-endpoint-error";
 import { reviewsApi } from "./api";
 
 /** The review writes' counterpart of `IntakeWriteError`, nested under its own key for the same reason. */
@@ -32,6 +32,15 @@ export const isReviewInUse = (err: unknown): boolean =>
 /** True when a delete was refused because the review is on the cover of a filed or finalized record. */
 export const isReviewAccepted = (err: unknown): boolean =>
   isRefusal(err, { status: 409, reasons: ["accepted_review"] satisfies ReviewConflictReason[], key: "reviewWriteError" });
+
+/**
+ * True when a create that linked an account (`author_user_id`) was refused with a 400.
+ * Status-only on purpose: every 400 `POST /reviews` answers is a plain `{ message }` with no `reason`,
+ * so the body cannot tell this one apart; the request can, because the form stops every other cause
+ * of a 400 before it sends. `linked` is whether the request carried an account.
+ */
+export const isReviewAccountGone = (err: unknown, linked: boolean): boolean =>
+  linked && isStatusRefusal(err, { status: 400, key: "reviewWriteError" });
 
 /** The `reviews/...` endpoints. */
 export const reviewApi = reviewsApi.injectEndpoints({
