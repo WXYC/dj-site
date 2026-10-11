@@ -8,7 +8,7 @@ import { intakeApi, isIntakeAcceptReviewRefused, isIntakeInRotation, isIntakeRel
 import { describeApi } from "@/tests/helpers/api-harness";
 import { TEST_BACKEND_URL } from "@/tests/helpers/constants";
 import { server } from "@/tests/fakes/server";
-import { reviewsSettled } from "@/tests/helpers/reviews-settled";
+import { refetchesAfter } from "@/tests/helpers/refetches";
 
 vi.mock("@/lib/features/authentication/client", () => ({
   getJWTToken: vi.fn().mockResolvedValue("test-token"),
@@ -102,39 +102,25 @@ describe("intakeApi", () => {
   });
 
   it("acceptReview refetches the item and the lists of reviews, so the album's cover review and the item's cards follow the choice", async () => {
-    const reads = { item7: 0, list: 0, releaseReviews: 0, myReviews: 0 };
     server.use(
-      http.get(`${TEST_BACKEND_URL}/intake`, () => {
-        reads.list += 1;
-        return HttpResponse.json([]);
-      }),
-      http.get(`${TEST_BACKEND_URL}/intake/:id`, () => {
-        reads.item7 += 1;
-        return HttpResponse.json({ id: 7 });
-      }),
-      http.get(`${TEST_BACKEND_URL}/reviews`, ({ request }) => {
-        reads[new URL(request.url).searchParams.has("album_id") ? "releaseReviews" : "myReviews"] += 1;
-        return HttpResponse.json([]);
-      }),
+      http.get(`${TEST_BACKEND_URL}/intake`, () => HttpResponse.json([])),
+      http.get(`${TEST_BACKEND_URL}/intake/:id`, () => HttpResponse.json({ id: 7 })),
+      http.get(`${TEST_BACKEND_URL}/reviews`, () => HttpResponse.json([])),
       http.post(`${TEST_BACKEND_URL}/intake/:id/accept-review`, () => HttpResponse.json({ id: 7 })),
     );
-    const store = makeReviewsStore();
-    const subscriptions = [
-      store.dispatch(intakeApi.endpoints.getIntakeItems.initiate()),
-      store.dispatch(intakeApi.endpoints.getIntakeItem.initiate(7)),
-      store.dispatch(reviewApi.endpoints.getReviewsForRelease.initiate(3)),
-      store.dispatch(reviewApi.endpoints.getMyReviews.initiate()),
-    ];
-    await Promise.all(subscriptions);
-    const before = { ...reads };
 
-    await store.dispatch(intakeApi.endpoints.acceptReview.initiate({ id: 7, reviewId: 40 }));
-    await vi.waitFor(() => expect(reads.item7).toBe(before.item7 + 1));
-    await vi.waitFor(() => expect(reads.releaseReviews).toBe(before.releaseReviews + 1));
-    await reviewsSettled(store);
+    const refetched = await refetchesAfter(
+      makeReviewsStore(),
+      {
+        item7: intakeApi.endpoints.getIntakeItem.initiate(7),
+        list: intakeApi.endpoints.getIntakeItems.initiate(),
+        releaseReviews: reviewApi.endpoints.getReviewsForRelease.initiate(3),
+        myReviews: reviewApi.endpoints.getMyReviews.initiate(),
+      },
+      intakeApi.endpoints.acceptReview.initiate({ id: 7, reviewId: 40 }),
+    );
 
-    expect(reads).toEqual({ item7: before.item7 + 1, list: before.list + 1, releaseReviews: before.releaseReviews + 1, myReviews: before.myReviews + 1 });
-    subscriptions.forEach((s) => s.unsubscribe());
+    expect(refetched).toEqual(new Set(["item7", "list", "releaseReviews", "myReviews"]));
   });
 
   it("deleteIntakeItem DELETEs exactly /intake/7 and answers the deleted authors", async () => {
@@ -153,54 +139,29 @@ describe("intakeApi", () => {
   });
 
   it("deleteIntakeItem refreshes the lists but not the deleted record's own reads", async () => {
-    const reads = { list: 0, item7: 0, item8: 0, itemReviews7: 0, myReviews: 0, waiting: 0 };
     server.use(
-      http.get(`${TEST_BACKEND_URL}/intake`, () => {
-        reads.list += 1;
-        return HttpResponse.json([]);
-      }),
-      http.get(`${TEST_BACKEND_URL}/intake/:id`, ({ params }) => {
-        reads[params.id === "7" ? "item7" : "item8"] += 1;
-        return HttpResponse.json({ id: Number(params.id) });
-      }),
-      http.get(`${TEST_BACKEND_URL}/reviews`, ({ request }) => {
-        const url = new URL(request.url);
-        if (url.searchParams.get("intake_item_id") === "7") reads.itemReviews7 += 1;
-        else reads.myReviews += 1;
-        return HttpResponse.json([]);
-      }),
-      http.get(`${TEST_BACKEND_URL}/fcc-notes`, () => {
-        reads.waiting += 1;
-        return HttpResponse.json([]);
-      }),
+      http.get(`${TEST_BACKEND_URL}/intake`, () => HttpResponse.json([])),
+      http.get(`${TEST_BACKEND_URL}/intake/:id`, ({ params }) => HttpResponse.json({ id: Number(params.id) })),
+      http.get(`${TEST_BACKEND_URL}/reviews`, () => HttpResponse.json([])),
+      http.get(`${TEST_BACKEND_URL}/fcc-notes`, () => HttpResponse.json([])),
       http.delete(`${TEST_BACKEND_URL}/intake/:id`, () => HttpResponse.json({ deleted_review_authors: [] })),
     );
-    const store = makeReviewsStore();
-    const subscriptions = [
-      store.dispatch(fccNoteApi.endpoints.getFccNotesToConfirm.initiate()),
-      store.dispatch(intakeApi.endpoints.getIntakeItems.initiate()),
-      store.dispatch(intakeApi.endpoints.getIntakeItem.initiate(7)),
-      store.dispatch(intakeApi.endpoints.getIntakeItem.initiate(8)),
-      store.dispatch(reviewApi.endpoints.getItemReviews.initiate(7)),
-      store.dispatch(reviewApi.endpoints.getMyReviews.initiate()),
-    ];
-    await Promise.all(subscriptions);
-    const before = { ...reads };
 
-    await store.dispatch(intakeApi.endpoints.deleteIntakeItem.initiate(7));
-    // The two lists refetch; the counters prove they did, and the store settling proves no read of the deleted record followed.
-    await vi.waitFor(() => expect(reads.list).toBe(before.list + 1));
-    await vi.waitFor(() => expect(reads.myReviews).toBe(before.myReviews + 1));
-    await vi.waitFor(() => expect(reads.waiting).toBe(before.waiting + 1));
-    await reviewsSettled(store);
+    // The two lists and the waiting list refetch; no read of the deleted record (item7, itemReviews7) follows, nor the other record's.
+    const refetched = await refetchesAfter(
+      makeReviewsStore(),
+      {
+        waiting: fccNoteApi.endpoints.getFccNotesToConfirm.initiate(),
+        list: intakeApi.endpoints.getIntakeItems.initiate(),
+        item7: intakeApi.endpoints.getIntakeItem.initiate(7),
+        item8: intakeApi.endpoints.getIntakeItem.initiate(8),
+        itemReviews7: reviewApi.endpoints.getItemReviews.initiate(7),
+        myReviews: reviewApi.endpoints.getMyReviews.initiate(),
+      },
+      intakeApi.endpoints.deleteIntakeItem.initiate(7),
+    );
 
-    expect(reads.list).toBe(before.list + 1);
-    expect(reads.myReviews).toBe(before.myReviews + 1);
-    expect(reads.waiting).toBe(before.waiting + 1);
-    expect(reads.item7).toBe(before.item7);
-    expect(reads.itemReviews7).toBe(before.itemReviews7);
-    expect(reads.item8).toBe(before.item8);
-    subscriptions.forEach((s) => s.unsubscribe());
+    expect(refetched).toEqual(new Set(["waiting", "list", "myReviews"]));
   });
 
   it("deleteIntakeItem nests a rejection under intakeWriteError", async () => {
