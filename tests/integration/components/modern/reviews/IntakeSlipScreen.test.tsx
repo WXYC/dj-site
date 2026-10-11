@@ -82,6 +82,15 @@ describe("IntakeSlipScreen", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
+  it("shows the record's format in the line, read from the library's formats", async () => {
+    fakeReviewsEndpoints({ records: [item({ format_id: 7 })] });
+    server.use(http.get(`${TEST_BACKEND_URL}/library/formats`, () => HttpResponse.json([{ id: 7, format_name: "Vinyl" }])));
+
+    renderWithProviders(<IntakeSlipScreen id={ITEM_ID} />);
+
+    expect(await screen.findByText(/Juana Molina · DOGA · .*Vinyl/)).toBeInTheDocument();
+  });
+
   it("sends no print on load, and one on the press, then shows every field and prints", async () => {
     fakeReviewsEndpoints({ records: [item()] });
     const calls = servePrint(() => HttpResponse.json(intakeSlip()));

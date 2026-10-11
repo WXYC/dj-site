@@ -24,6 +24,7 @@ import ConfirmDialog from "../ConfirmDialog";
 import RotationFilingBench, { type FilingSubmit } from "../admin/rotation/RotationFilingBench";
 import { REVIEW_COPY } from "./copy";
 import FccNotesPanel from "./FccNotesPanel";
+import { useGetFormatsQuery } from "@/lib/features/catalog/api";
 import { intakeRecord, recordLine, releaseRecord } from "./recordLine";
 import ReleasePicker from "./ReleasePicker";
 import { fromLine, newestFirst } from "./ReviewFrom";
@@ -56,6 +57,7 @@ export default function IntakeItemScreen({ id }: { id: number }) {
   // Set once the record is gone: its reads stop (they would 404) and the page shows only this line.
   const [deletedLine, setDeletedLine] = useState<string | null>(null);
   const item = useGetIntakeItemQuery(id, { skip: !visible || deletedLine !== null });
+  const { data: formats } = useGetFormatsQuery(undefined, { skip: !visible });
   const reviews = useGetItemReviewsQuery(id, { skip: !visible || deletedLine !== null });
   const [fileItem, filing] = useFileIntakeItemMutation();
   const [deleteItem, deletion] = useDeleteIntakeItemMutation();
@@ -189,7 +191,7 @@ export default function IntakeItemScreen({ id }: { id: number }) {
   return (
     <Stack spacing={2}>
       <Stack direction="row" spacing={1} alignItems="center">
-        <Typography level="title-lg">{recordLine(record)}</Typography>
+        <Typography level="title-lg">{recordLine(record, formats)}</Typography>
         <Chip>{STATE_LABELS[item.data.effective_state]}</Chip>
       </Stack>
       {cover ? (

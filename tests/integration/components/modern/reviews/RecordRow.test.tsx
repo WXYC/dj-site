@@ -1,7 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import { Link } from "@mui/joy";
-import { renderWithProviders } from "@/tests/helpers";
+import { http, HttpResponse } from "msw";
+import { renderWithProviders, server, TEST_BACKEND_URL } from "@/tests/helpers";
 import RecordRow from "@/src/components/experiences/modern/reviews/RecordRow";
 import RecordHeader from "@/src/components/experiences/modern/reviews/RecordHeader";
 
@@ -9,6 +10,18 @@ const record = { artist: "Juana Molina", album: "DOGA", label: "Sonamos" };
 const glyph = (container: HTMLElement) => container.querySelector("[data-tone]");
 const follows = (a: Node, b: Node) => Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
 const chipClass = (container: HTMLElement) => container.querySelector(".MuiChip-root")?.className;
+
+/** Serves the library's formats and counts the reads. */
+function serveFormats() {
+  const reads = { count: 0 };
+  server.use(
+    http.get(`${TEST_BACKEND_URL}/library/formats`, () => {
+      reads.count += 1;
+      return HttpResponse.json([{ id: 7, format_name: "Vinyl" }]);
+    }),
+  );
+  return reads;
+}
 
 describe("RecordRow", () => {
   it.each([
@@ -25,11 +38,27 @@ describe("RecordRow", () => {
     else expect(container.querySelector(".MuiChip-root")).toBeNull();
   });
 
-  it("resolves a format id through the formats list when the record carries no name", () => {
-    const { container } = renderWithProviders(
-      <RecordRow record={{ ...record, formatId: 7 }} formats={[{ id: 7, format_name: "Vinyl" }]} />,
-    );
-    expect(glyph(container)).toHaveAttribute("data-tone", "formatVinyl");
+  it("resolves a format id through the library's formats when the record carries no name", async () => {
+    serveFormats();
+    const { container } = renderWithProviders(<RecordRow record={{ ...record, formatId: 7 }} />);
+    await waitFor(() => expect(glyph(container)).toHaveAttribute("data-tone", "formatVinyl"));
+    expect(screen.getByText("Vinyl")).toBeInTheDocument();
+  });
+
+  it("shows the neutral glyph and no tag for a format id the library does not know", async () => {
+    const reads = serveFormats();
+    const { container } = renderWithProviders(<RecordRow record={{ ...record, formatId: 99 }} />);
+    await waitFor(() => expect(reads.count).toBe(1));
+    await waitFor(() => expect(glyph(container)).toHaveAttribute("data-tone", "neutral"));
+    expect(container.querySelector(".MuiChip-root")).toBeNull();
+  });
+
+  it("prefers the record's own format name to the library's, and reads no formats for it", async () => {
+    const reads = serveFormats();
+    const { container } = renderWithProviders(<RecordRow record={{ ...record, formatId: 7, format: "CD" }} />);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(glyph(container)).toHaveAttribute("data-tone", "formatCd");
+    expect(reads.count).toBe(0);
   });
 
   it("shows the artist, album and label as separate elements, and omits an empty label", () => {
@@ -125,5 +154,12 @@ describe("RecordHeader", () => {
     expect(text.getByText("Sonamos")).toBeInTheDocument();
     expect(text.getByText("Vinyl")).toBeInTheDocument();
     expect(text.getByText("On the review shelf")).toBeInTheDocument();
+  });
+
+  it("resolves an intake record's format id through the library's formats, for the tag and the toned glyph", async () => {
+    serveFormats();
+    const { container } = renderWithProviders(<RecordHeader record={{ ...record, formatId: 7 }} />);
+    expect(await screen.findByText("Vinyl")).toBeInTheDocument();
+    expect(glyph(container)).toHaveAttribute("data-tone", "formatVinyl");
   });
 });

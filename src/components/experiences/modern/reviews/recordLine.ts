@@ -1,5 +1,7 @@
 import type { IntakeItem } from "@wxyc/shared";
 import type { AlbumEntry } from "@/lib/features/catalog/types";
+import { skipToken } from "@reduxjs/toolkit/query";
+import { useGetFormatsQuery } from "@/lib/features/catalog/api";
 import { formatLabel } from "@/lib/features/experiences/modern/tokens/roles";
 import type { ReviewRecord } from "./useReviewRecord";
 
@@ -15,6 +17,13 @@ export function releaseRecord(release: AlbumEntry): ReviewRecord {
 /** The record's format name; a name on the record wins over a `formatId` lookup. */
 export function recordFormatName(record: ReviewRecord, formats?: { id: number; format_name: string }[]): string | undefined {
   return record.format ?? formats?.find((f) => f.id === record.formatId)?.format_name;
+}
+
+/** `recordFormatName`, reading the library's formats itself when only a `formatId` can name the format. */
+export function useRecordFormatName(record: ReviewRecord): string | undefined {
+  const needsLookup = record.format === undefined && record.formatId != null;
+  const { data: formats } = useGetFormatsQuery(needsLookup ? undefined : skipToken);
+  return recordFormatName(record, formats);
 }
 
 /** A record's one-line description. */

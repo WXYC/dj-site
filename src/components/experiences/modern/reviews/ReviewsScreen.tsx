@@ -133,7 +133,6 @@ export default function ReviewsScreen() {
       <IntakeLane title={REVIEW_COPY.screen.requestsTitle} rows={requests} empty={REVIEW_COPY.screen.requestsEmpty} row={(i) => (
         <RecordRow
           record={intakeRecord(i)}
-          formats={formats}
           meta={<Typography level="body-sm">{`${REVIEW_COPY.screen.asked} ${day(i.requested_at)}`}</Typography>}
           actions={
             <>

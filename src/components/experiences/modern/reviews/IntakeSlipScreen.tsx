@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useGetFormatsQuery } from "@/lib/features/catalog/api";
 import Link from "next/link";
 import { Button, Stack, Typography } from "@mui/joy";
 import { hasNothingToShow } from "@/lib/has-nothing-to-show";
@@ -25,6 +26,7 @@ const COPY = REVIEW_COPY.intakeSlip;
 export default function IntakeSlipScreen({ id }: { id: number }) {
   const visible = useCanSeeReviews();
   const item = useGetIntakeItemQuery(id, { skip: !visible });
+  const { data: formats } = useGetFormatsQuery(undefined, { skip: !visible });
   const [print, { isLoading }] = usePrintIntakeItemMutation();
   const { showAndPrint, clear, sheet } = useSlipPrint();
   const dispatch = useAppDispatch();
@@ -67,7 +69,7 @@ export default function IntakeSlipScreen({ id }: { id: number }) {
   const lastPrinted = item.data.printed_at;
   return (
     <Stack spacing={2}>
-      <Typography level="title-lg">{recordLine(intakeRecord(item.data))}</Typography>
+      <Typography level="title-lg">{recordLine(intakeRecord(item.data), formats)}</Typography>
       {lastPrinted && <Typography>{COPY.lastPrinted} {formatStationLongDate(lastPrinted)}. {COPY.reprint}</Typography>}
       {refusal && <Typography role="alert">{COPY[refusal]}</Typography>}
       {refusal === "noCover" && (
