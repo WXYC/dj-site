@@ -30,6 +30,7 @@ import ReleasePicker from "./ReleasePicker";
 import { fromLine, newestFirst } from "./ReviewFrom";
 import DeleteReviewButton from "./DeleteReviewButton";
 import UseThisReviewButton from "./UseThisReviewButton";
+import RecordReviewForm from "./RecordReviewForm";
 import { Group } from "./ReviewsPanel";
 import { useItemPageReload } from "./useItemPageReload";
 import { usePrintedVersion } from "./usePrintedVersion";
@@ -64,6 +65,7 @@ export default function IntakeItemScreen({ id }: { id: number }) {
   const [notice, setNotice] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [picked, setPicked] = useState<AlbumEntry | null>(null);
+  const [recording, setRecording] = useState(false);
   // Set from a successful review write until the page's reload settles, so no review button acts on the stale cover.
   const [awaitingReread, setAwaitingReread] = useState(false);
 
@@ -205,6 +207,18 @@ export default function IntakeItemScreen({ id }: { id: number }) {
       )}
       <FccNotesPanel intakeItemId={id} />
       {notice && <Typography role="status">{notice}</Typography>}
+      <Button variant="outlined" aria-expanded={recording} onClick={() => setRecording((open) => !open)} sx={{ alignSelf: "flex-start" }}>
+        {REVIEW_COPY.record.title}
+      </Button>
+      {recording && (
+        <RecordReviewForm
+          itemId={id}
+          hasCover={coverId != null}
+          onWritten={reviewWritten}
+          onNotice={setNotice}
+          onClose={() => setRecording(false)}
+        />
+      )}
       {!isFiledState(item.data.effective_state) && (
         <Button color="danger" variant="outlined" onClick={() => setConfirmingDelete(true)} sx={{ alignSelf: "flex-start" }}>
           {COPY.delete}

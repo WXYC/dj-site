@@ -331,6 +331,46 @@ export const REVIEW_COPY = {
     /** Approved. Shown beside the disabled Delete review of a filed record's cover review, and when the server refuses anyway. */
     deleteCoverFiled: "This is the record's review and the record is already filed. Choose another review for the cover first, then delete this one.",
   },
+  /** The music directors' form that records a review of one record, on `/dashboard/admin/intake/{id}`. */
+  record: {
+    /** Approved. The form's heading, and the button on a record's page that opens it. */
+    title: "Record a review",
+    /** Approved. */
+    author: "Author",
+    /** Approved. Shown when the author is blank. */
+    authorBlank: "Say who wrote the review.",
+    /** Approved. Shown for a typed review with no text. */
+    textBlank: "Write the review before you save it.",
+    /** Approved. */
+    account: "Link to an account (optional)",
+    /** Approved. */
+    notLinked: "Not linked",
+    /** Approved. Shown under the picker if the accounts can't be loaded. */
+    accountsFailed: "Couldn't load the accounts. Please try again.",
+    /** Approved. */
+    medium: "Typed or handwritten?",
+    /** Approved. */
+    typed: "Typed",
+    /** Approved. */
+    handwritten: "Handwritten",
+    /** Approved. Shown once Handwritten is chosen. */
+    handwrittenNote: "This review is handwritten, so it is already on the sleeve. Nothing will be printed.",
+    /** Approved. */
+    noConsent: "Nothing is ticked for publishing: the author hasn't been asked where this review may be published.",
+    /** Approved. Under the form, for a record with no review on the cover. */
+    coverNone: "This will be the review on the cover.",
+    /** Approved. Under the form, for a record that already has one. */
+    coverReplaces: "This replaces the review now on the cover. If a slip is already taped to the record, print the slip again to replace it.",
+    /** Approved. Under the account list, only when the chosen account isn't the music director's own. */
+    emailed: (name: string) =>
+      `${name} will be emailed that a review was recorded in their name. They can edit it and answer the publishing question themselves.`,
+    /** Approved. Any other failure when recording. */
+    couldNotRecord: "Couldn't record the review. Please try again.",
+    /** Approved. Shown after saving, on either path. */
+    recorded: "Recorded.",
+    /** Approved. Shown when a create that linked an account is refused. */
+    accountGone: "That account no longer exists. Pick another, or leave the review unlinked.",
+  },
   /** The music directors' print page, `/dashboard/admin/intake/{id}/slip`. */
   intakeSlip: {
     /** Approved. Followed by a date. */
