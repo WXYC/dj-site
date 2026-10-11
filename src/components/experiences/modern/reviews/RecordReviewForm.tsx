@@ -16,9 +16,8 @@ const COPY = REVIEW_COPY.record;
 const AUTHOR_MAX = 128;
 
 /**
- * Records a review of the logged record `itemId` on someone's behalf, or a handwritten one, onto the cover
- * in one create. That changes the cover, so it reloads through the page's review-write path (`onWritten`),
- * which holds every Use this review and Delete review until the reread settles.
+ * Records a review of the logged record `itemId` on someone's behalf, or a handwritten one, onto the cover in
+ * one create. That changes the cover, so it reloads through the page's review-write path (`onWritten`).
  * Names (the author, the picked account) are real names: station display only, never telemetry.
  */
 export default function RecordReviewForm({ itemId, hasCover, onWritten, onNotice, onClose }: {
@@ -31,14 +30,15 @@ export default function RecordReviewForm({ itemId, hasCover, onWritten, onNotice
   const { data: auth } = useAuthentication();
   const me = "user" in auth ? auth.user?.id : undefined;
   const reviewers = useGetReviewersQuery();
-  const [create, { isLoading }] = useCreateReviewMutation();
+  const [create] = useCreateReviewMutation();
   const mounted = useMounted();
   const [author, setAuthor] = useState("");
   const [values, setValues] = useState<FieldValues>({ buzzwords: "", artist_blurb: "", review: "", recommended_tracks: "", fcc: "" });
   const [medium, setMedium] = useState<NonNullable<NewReviewRequest["medium"]>>("typed");
-  // The picked account's id; "" is Not linked.
-  const [linked, setLinked] = useState("");
+  const [linked, setLinked] = useState(""); // the picked account's id; "" is Not linked
   const [tried, setTried] = useState(false);
+  // From a valid press until the page's reread settles, so a second press cannot record the review twice.
+  const [saving, setSaving] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
 
   const name = author.trim();
@@ -49,8 +49,9 @@ export default function RecordReviewForm({ itemId, hasCover, onWritten, onNotice
   const record = async () => {
     setTried(true);
     setFailure(null);
-    // A blank author or typed text would be a 400, and so would an over-long author, which the field stops typing.
-    if (authorBlank || textBlank || [...name].length > AUTHOR_MAX) return;
+    // Each of these would be a 400; the field itself stops typing at the author limit.
+    if (saving || authorBlank || textBlank || [...name].length > AUTHOR_MAX) return;
+    setSaving(true);
     onNotice(null);
     const body: NewReviewRequest = {
       intake_item_id: itemId,
@@ -68,6 +69,7 @@ export default function RecordReviewForm({ itemId, hasCover, onWritten, onNotice
       onClose();
     } catch (err) {
       if (!mounted.current) return;
+      setSaving(false);
       const refusal = unwrapEndpointError("reviewWriteError", err);
       // The server's own words only for a 400 that named no account; with one, the page's line says it.
       setFailure(
@@ -107,7 +109,7 @@ export default function RecordReviewForm({ itemId, hasCover, onWritten, onNotice
       {tried && textBlank && <Typography level="body-sm">{COPY.textBlank}</Typography>}
       <Typography level="body-sm">{COPY.noConsent}</Typography>
       <Typography level="body-sm">{hasCover ? COPY.coverReplaces : COPY.coverNone}</Typography>
-      <Button loading={isLoading} onClick={record} sx={{ alignSelf: "flex-start" }}>{REVIEW_COPY.save}</Button>
+      <Button loading={saving} onClick={record} sx={{ alignSelf: "flex-start" }}>{REVIEW_COPY.save}</Button>
       {failure && <Typography role="alert">{failure}</Typography>}
     </Stack>
   );
