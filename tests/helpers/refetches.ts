@@ -29,6 +29,12 @@ const requestIdOf = (store: ReviewsStore, key: string) => {
  * A read counts as refetched when its entry's `requestId` changed. `startedTimeStamp` moves with it but has
  * millisecond resolution, so an immediate refetch can share the first request's stamp; the id cannot.
  *
+ * The reads must be `reviewsApi` endpoints: the request ids are read from that one slice, so a read from another
+ * `createApi` (catalogApi, rotationApi) would read as unchanged and be reported as not refetched, a silent false
+ * negative. Supporting other APIs would mean resolving each read's owning slice from its thunk, which is more than
+ * a few lines, so the helper throws instead: once the reads settle, a read with no entry in the `reviewsApi` slice
+ * rejects with an error naming it, before the write is dispatched.
+ *
  * The helper never resolves while a handler holds a read or the write and never answers (`reviewsSettled` waits
  * on it), so hold a response only in a spec that releases it before the helper is called.
  */
@@ -45,6 +51,13 @@ export async function refetchesAfter(
     await Promise.all(subscriptions.map(([, subscription]) => subscription));
     await reviewsSettled(store);
     const before = new Map(subscriptions.map(([name, s]) => [name, requestIdOf(store, s.queryCacheKey)]));
+    for (const [name, requestId] of before) {
+      if (requestId === undefined) {
+        throw new Error(
+          `refetchesAfter: the read "${name}" has no entry in the reviewsApi cache. Reads must be reviewsApi endpoints; a read from another API cannot be observed here and would be reported as not refetched.`,
+        );
+      }
+    }
 
     await dispatch(write);
     await reviewsSettled(store);
