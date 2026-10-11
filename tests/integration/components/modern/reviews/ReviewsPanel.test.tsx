@@ -51,6 +51,9 @@ const serve = (reviews: ReturnType<typeof submitted>[], archive: Partial<AlbumRe
 const renderPanel = () => renderWithProviders(<ReviewsPanel albumId={ALBUM_ID} record={RECORD} />);
 const headings = () => screen.getAllByRole("heading").map((h) => h.textContent);
 
+const tapedSlips = () =>
+  screen.getAllByRole("group", { name: "Slip preview" }).filter((g) => g.querySelector(":scope > [aria-hidden='true']"));
+
 describe("ReviewsPanel", () => {
   beforeEach(() => {
     vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "true");
@@ -312,5 +315,15 @@ describe("ReviewsPanel", () => {
       expect(requested).not.toHaveBeenCalled();
       expect(within(entry).queryByText(isCurrent)).not.toBeInTheDocument();
     });
+  });
+
+  it("tapes the slip of the review on the cover and no other", async () => {
+    serve([submitted(1, { on_cover: true }), submitted(2)]);
+    renderPanel();
+
+    await screen.findByText("Text 1");
+    const taped = tapedSlips();
+    expect(taped).toHaveLength(1);
+    expect(taped[0].closest("li")).toHaveTextContent("Text 1");
   });
 });
