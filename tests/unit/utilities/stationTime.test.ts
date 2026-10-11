@@ -382,6 +382,10 @@ describe("formatStationLongDate — DateTimeManager.DATE_FULL", () => {
       "Saturday, June 15, 2024",
     );
   });
+
+  it("an unparseable value is blank, not a throw", () => {
+    expect(formatStationLongDate("not a date")).toBe("");
+  });
 })
 
 describe("formatStationShortDate", () => {
