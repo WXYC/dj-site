@@ -1,10 +1,8 @@
 import type { ReactNode } from "react";
 import { Box, Chip, Divider, Link, Typography } from "@mui/joy";
 import { formatLabel, formatTone } from "@/lib/features/experiences/modern/tokens/roles";
-import { recordFormatName } from "./recordLine";
+import { useRecordFormatName } from "./recordLine";
 import type { ReviewRecord } from "./useReviewRecord";
-
-type Formats = { id: number; format_name: string }[];
 
 /**
  * A sleeve with a disc edge, toned by the record's format through the theme's
@@ -41,8 +39,6 @@ export function RecordParts({ record, format, artist }: { record: ReviewRecord; 
 
 interface RecordRowProps {
   record: ReviewRecord;
-  /** The library's formats, to resolve an intake record's `formatId`. */
-  formats?: Formats;
   /** Dates and chips, under the record. */
   meta?: ReactNode;
   /** Buttons: at the right edge when the row is wide, below the record when it is narrow. */
@@ -64,8 +60,8 @@ interface RecordRowProps {
  * answers to the row's own width (a container query), not the window's, since
  * the sidebars change the column width.
  */
-export default function RecordRow({ record, formats, meta, actions, status, href, titleSlot }: RecordRowProps) {
-  const format = recordFormatName(record, formats);
+export default function RecordRow({ record, meta, actions, status, href, titleSlot }: RecordRowProps) {
+  const format = useRecordFormatName(record);
   const artist = titleSlot ?? (href ? (
     <Link level="title-md" href={href}>{record.artist}</Link>
   ) : (

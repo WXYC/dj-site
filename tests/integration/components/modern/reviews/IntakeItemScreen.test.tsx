@@ -226,6 +226,15 @@ describe("IntakeItemScreen", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
+  it("shows the record's format in the line, read from the library's formats", async () => {
+    fakeReviewsEndpoints({ records: [dogaItem({ format_id: 7 })] });
+    server.use(http.get(`${TEST_BACKEND_URL}/library/formats`, () => HttpResponse.json([{ id: 7, format_name: "Vinyl" }])));
+
+    renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+    expect(await screen.findByText("Juana Molina · DOGA · Sonamos · Vinyl")).toBeInTheDocument();
+  });
+
   it("shows the record's FCC notes on the page", async () => {
     fakeReviewsEndpoints({
       records: [dogaItem()],
