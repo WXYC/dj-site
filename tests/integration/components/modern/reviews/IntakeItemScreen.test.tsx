@@ -230,12 +230,15 @@ describe("IntakeItemScreen", () => {
   });
 
   it("shows the record's format in the line, read from the library's formats", async () => {
-    fakeReviewsEndpoints({ records: [dogaItem({ format_id: 7 })] });
+    // The record's cover review (40, by default) is served: without it the cover read fails and the page swaps the whole record for its load-failed line, which the format line only outlives for a moment.
+    fakeReviewsEndpoints({ records: [dogaItem({ format_id: 7 })], forItem: { [ITEM_ID]: [submitted(40)] } });
     server.use(http.get(`${TEST_BACKEND_URL}/library/formats`, () => HttpResponse.json([{ id: 7, format_name: "Vinyl" }])));
 
     renderScreen(<IntakeItemScreen id={ITEM_ID} />);
 
     expect(await screen.findByText("Juana Molina · DOGA · Sonamos · Vinyl")).toBeInTheDocument();
+    await screen.findByText("Take 40.");
+    expect(screen.getByText("Juana Molina · DOGA · Sonamos · Vinyl")).toBeInTheDocument();
   });
 
   it("shows the record's FCC notes on the page", async () => {
