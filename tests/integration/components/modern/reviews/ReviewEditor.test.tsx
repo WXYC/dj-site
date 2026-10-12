@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
-import { http, HttpResponse } from "msw";
+import { delay, http, HttpResponse } from "msw";
 import type { Review } from "@wxyc/shared";
 import { Authorization } from "@/lib/features/admin/types";
 import { fakeReviewsEndpoints, fccNote, intakeItem, renderWithProviders, review, reviewRevision, reviewsSettled, server, TEST_BACKEND_URL } from "@/tests/helpers";
@@ -34,6 +34,7 @@ vi.mock("@/src/hooks/authenticationHooks", async () => {
 import { toast } from "sonner";
 import ReviewEditor from "@/src/components/experiences/modern/reviews/ReviewEditor";
 import { REVIEW_COPY } from "@/src/components/experiences/modern/reviews/copy";
+import { APPBAR_CLEARANCE_PX, APPBAR_HEIGHT_PX, APPBAR_OFFSET_PX } from "@/src/components/shared/Theme/Appbar";
 
 const CONSENT = { publish_website: false, publish_apps: false, publish_instagram: false, credit: null, in_use: false } as Partial<Review>;
 const DRAFT = review({ ...CONSENT, author_user_id: "dj-me" });
@@ -43,6 +44,26 @@ const IN_USE = "A music director is using this as the record's review. Ask them 
 const PRIVACY = "Only you can read this draft. Music directors can see that you have one in progress, not what it says.";
 
 const RECORD = intakeItem({ id: 2 });
+
+/** Every stylesheet rule emotion wrote, as one string, for pinning the layout's declarations. */
+const allCss = () => [...document.querySelectorAll("style")].map((el) => el.textContent ?? "").join("\n") + [...document.styleSheets].map((sheet) => [...sheet.cssRules].map((r) => r.cssText).join("\n")).join("\n");
+/** The body of the rule block that follows `selectorStart` in the page's CSS, braces balanced. */
+const blockAfter = (css: string, selectorStart: string) => {
+  const from = css.indexOf(selectorStart);
+  if (from < 0) return "";
+  let depth = 0;
+  for (let i = css.indexOf("{", from); i < css.length; i++) {
+    if (css[i] === "{") depth++;
+    if (css[i] === "}" && --depth === 0) return css.slice(css.indexOf("{", from) + 1, i);
+  }
+  return "";
+};
+/** The CSS emotion generated for an element, with the contents of every `@container`/`@media` block it has. */
+const cssOf = (el: HTMLElement) => {
+  const cls = [...el.classList].find((c) => c.startsWith("css-"))!;
+  const css = allCss();
+  return { all: [...css.matchAll(new RegExp(`\\.${cls}[^{]*\\{[^}]*\\}`, "g"))].map((m) => m[0]).join("\n"), css, cls };
+};
 
 function serve(served: Review = DRAFT) {
   fakeReviewsEndpoints({ reviews: [served], records: [RECORD] });
@@ -568,15 +589,85 @@ describe("ReviewEditor", () => {
       expect(region.compareDocumentPosition(fcc) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     });
 
-    it("keeps Save draft, Submit and Delete in one action bar, with the reason beside a disabled Submit", async () => {
+    it("keeps Save draft, Submit and Delete in one action bar, with the reason right beside a disabled Submit", async () => {
       serve({ ...DRAFT, review: "" } as Review);
       renderWithProviders(<ReviewEditor id={40} />);
 
-      const bar = await screen.findByRole("toolbar");
+      const submit = await screen.findByRole("button", { name: REVIEW_COPY.submit });
+      const bar = submit.parentElement!;
       expect(within(bar).getByRole("button", { name: REVIEW_COPY.saveDraft })).toBeInTheDocument();
-      expect(within(bar).getByRole("button", { name: REVIEW_COPY.submit })).toBeDisabled();
+      expect(submit).toBeDisabled();
       expect(within(bar).getByRole("button", { name: REVIEW_COPY.delete })).toBeInTheDocument();
-      expect(within(bar).getByText(REVIEW_COPY.submitNeedsReview)).toBeInTheDocument();
+      const reason = within(bar).getByText(REVIEW_COPY.submitNeedsReview);
+      expect(submit.previousElementSibling).toBe(reason);
+      expect(submit).toHaveAccessibleDescription(REVIEW_COPY.submitNeedsReview);
+    });
+
+    it("is not a toolbar, which would promise arrow-key focus it does not have", async () => {
+      serve();
+      renderWithProviders(<ReviewEditor id={40} />);
+
+      await screen.findByRole("button", { name: REVIEW_COPY.submit });
+      expect(screen.queryByRole("toolbar")).not.toBeInTheDocument();
+    });
+
+    it("names the slip region with a heading under the record's h3", async () => {
+      serve();
+      renderWithProviders(<ReviewEditor id={40} />);
+
+      const heading = await screen.findByRole("heading", { name: REVIEW_COPY.slip.heading, level: 4 });
+      expect(screen.getByRole("region", { name: REVIEW_COPY.slip.heading })).toContainElement(heading);
+    });
+
+    it("goes to two columns at an editor width of 800px, with a bounded slip column that sticks within the viewport", async () => {
+      serve();
+      renderWithProviders(<ReviewEditor id={40} />);
+
+      const column = (await screen.findByRole("region", { name: REVIEW_COPY.slip.heading })).parentElement!;
+      const grid = column.parentElement!;
+      const { css } = cssOf(grid);
+      expect(css).toContain("@container (min-width: 800px)");
+      expect(css).not.toContain("1280px");
+      expect(css).toMatch(/grid-template-columns:\s*minmax\(20rem, 1fr\) minmax\(0, 4\.25in\)/);
+      const colCss = cssOf(column).css;
+      const stuck = colCss.slice(colCss.indexOf(`.${cssOf(column).cls}`));
+      expect(stuck).toMatch(/position:\s*sticky/);
+      expect(stuck).toMatch(/align-self:\s*start/);
+      expect(stuck).toMatch(/max-height:\s*calc\(100dvh - \d+px\)/);
+      expect(stuck).toMatch(/overflow-y:\s*auto/);
+    });
+
+    it("clears the fixed Appbar by its own geometry below md, and not above it", async () => {
+      serve();
+      renderWithProviders(<ReviewEditor id={40} />);
+
+      const bar = (await screen.findByRole("button", { name: REVIEW_COPY.submit })).parentElement!;
+      const { all } = cssOf(bar);
+      expect(APPBAR_CLEARANCE_PX).toBe(APPBAR_OFFSET_PX + APPBAR_HEIGHT_PX);
+      expect(all).toMatch(new RegExp(`padding-bottom:\\s*${APPBAR_CLEARANCE_PX}px`));
+      expect(all).not.toMatch(/padding-right:\s*(?!0)/);
+      const css = allCss();
+      const md = blockAfter(css, "@media (min-width:900px)") || blockAfter(css, "@media (min-width: 900px)");
+      expect(md).toMatch(new RegExp(`\\.${[...bar.classList].find((c) => c.startsWith("css-"))}[^{]*\\{[^}]*padding-bottom:\\s*8px`));
+    });
+  });
+
+  describe("links while the record loads", () => {
+    it.each<[string, () => void]>([
+      ["is still pending", () => server.use(http.get(`${TEST_BACKEND_URL}/intake/:id`, async () => { await delay("infinite"); return HttpResponse.json({}); }))],
+      ["fails", () => server.use(http.get(`${TEST_BACKEND_URL}/intake/:id`, () => new HttpResponse(null, { status: 500 })))],
+    ])("shows the History link and the printed-version note when the record read %s", async (_name, break_) => {
+      fakeReviewsEndpoints({
+        reviews: [{ ...SUBMITTED, intake_item_id: 2, in_use: true, printed_revision_id: 11, printed_at: "2026-10-02T16:00:00Z" } as Review],
+        records: [RECORD],
+      });
+      break_();
+      server.use(http.get(`${TEST_BACKEND_URL}/reviews/:id/revisions`, () => HttpResponse.json([reviewRevision({ id: 11, revision: 1 })])));
+      renderWithProviders(<ReviewEditor id={40} />);
+
+      expect(await screen.findByRole("link", { name: "History" })).toBeInTheDocument();
+      expect(await screen.findByText("This is the version printed on the cover.")).toBeInTheDocument();
+      expect(screen.queryByRole("heading", { name: "Stereolab" })).not.toBeInTheDocument();
     });
   });
 });

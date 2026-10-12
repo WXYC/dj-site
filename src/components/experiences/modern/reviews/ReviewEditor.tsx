@@ -29,6 +29,12 @@ import SlipPreview from "./SlipPreview";
 import { formatSlipDate } from "./slipDate";
 import { useReviewRecord } from "./useReviewRecord";
 import { hasNothingToShow } from "@/lib/has-nothing-to-show";
+import { APPBAR_CLEARANCE_PX } from "@/src/components/shared/Theme/Appbar";
+
+/** Two columns from an editor 800px wide (a 1440px window beside both sidebars is about 826): the form takes the rest but never under 20rem, the slip is its own 4.25in, so the form keeps 368px at 800px. */
+const TWO_COLUMNS = "@container (min-width: 800px)";
+/** Room the sticky action bar and the Appbar leave in the viewport. */
+const BAR_ROOM_PX = APPBAR_CLEARANCE_PX + 64;
 
 type Confirming = "submit" | "delete" | null;
 
@@ -52,6 +58,7 @@ function Form({ review }: { review: Review }) {
   const router = useRouter();
   const record = useReviewRecord(review);
   const slipHeadingId = useId();
+  const reasonId = useId();
   const draft = review.status === "draft";
   // Only a typed review needs text to submit; a handwritten one may go in with none.
   const blank = review.medium === "typed" && values.review.trim() === "";
@@ -106,21 +113,15 @@ function Form({ review }: { review: Review }) {
 
   return (
     <Box sx={{ containerType: "inline-size" }}>
-      {record && (
-        <RecordHeader
-          record={record}
-          chip={
-            <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-              {!draft && (
-                <JoyLink component={Link} href={`/dashboard/reviews/${review.id}/history`} level="body-sm">
-                  {REVIEW_COPY.history.link}
-                </JoyLink>
-              )}
-              <PrintedVersionNote review={review} onCover={review.in_use} />
-            </Stack>
-          }
-        />
-      )}
+      {record && <RecordHeader record={record} />}
+      <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" sx={{ mt: 1 }}>
+        {!draft && (
+          <JoyLink component={Link} href={`/dashboard/reviews/${review.id}/history`} level="body-sm">
+            {REVIEW_COPY.history.link}
+          </JoyLink>
+        )}
+        <PrintedVersionNote review={review} onCover={review.in_use} />
+      </Stack>
       {status && <Typography level="body-sm" sx={{ mt: 1 }}>{status}</Typography>}
       <Box
         sx={{
@@ -128,7 +129,7 @@ function Form({ review }: { review: Review }) {
           gap: 3,
           mt: 2,
           gridTemplateColumns: "minmax(0, 1fr)",
-          "@container (min-width: 1280px)": { gridTemplateColumns: "minmax(0, 1fr) auto", alignItems: "start" },
+          [TWO_COLUMNS]: { gridTemplateColumns: "minmax(20rem, 1fr) minmax(0, 4.25in)", alignItems: "start" },
         }}
       >
         <Stack spacing={2}>
@@ -141,9 +142,11 @@ function Form({ review }: { review: Review }) {
             <Typography level="body-sm">{REVIEW_COPY.authorOnlyConsent}</Typography>
           )}
         </Stack>
-        <Stack spacing={2} sx={{ "@container (min-width: 1280px)": { position: "sticky", top: 0 } }}>
+        <Stack spacing={2} sx={{
+            [TWO_COLUMNS]: { position: "sticky", top: 0, alignSelf: "start", maxHeight: `calc(100dvh - ${BAR_ROOM_PX}px)`, overflowY: "auto" },
+          }}>
           <Stack component="section" aria-labelledby={slipHeadingId} spacing={1}>
-            <Typography id={slipHeadingId} level="title-sm">{REVIEW_COPY.slip.heading}</Typography>
+            <Typography id={slipHeadingId} component="h4" level="title-sm">{REVIEW_COPY.slip.heading}</Typography>
             <SlipPreview
               artist={record?.artist ?? ""}
               album={record?.album ?? ""}
@@ -157,13 +160,12 @@ function Form({ review }: { review: Review }) {
         </Stack>
       </Box>
       <Stack
-        role="toolbar"
         direction="row"
         spacing={1}
         alignItems="center"
         flexWrap="wrap"
         useFlexGap
-        sx={{ position: "sticky", bottom: 0, mt: 2, py: 1, pr: 14, bgcolor: "background.body", borderTop: "1px solid", borderColor: "divider" }}
+        sx={{ position: "sticky", bottom: 0, mt: 2, py: 1, pb: { xs: `${APPBAR_CLEARANCE_PX}px`, md: 1 }, bgcolor: "background.body", borderTop: "1px solid", borderColor: "divider" }}
       >
         {isAuthor && (
           <Button color="danger" variant="plain" loading={deleting} disabled={inUse} onClick={() => setConfirming("delete")}>
@@ -171,13 +173,13 @@ function Form({ review }: { review: Review }) {
           </Button>
         )}
         {isAuthor && inUse && <Typography level="body-sm" role="status">{REVIEW_COPY.inUse}</Typography>}
-        {draft && blank && <Typography level="body-sm">{REVIEW_COPY.submitNeedsReview}</Typography>}
         <Box sx={{ flex: 1 }} />
         <Button variant={draft ? "outlined" : "solid"} loading={isLoading} onClick={save}>
           {draft ? REVIEW_COPY.saveDraft : REVIEW_COPY.save}
         </Button>
+        {draft && blank && <Typography id={reasonId} level="body-sm">{REVIEW_COPY.submitNeedsReview}</Typography>}
         {draft && (
-          <Button loading={submitting} disabled={blank} onClick={() => setConfirming("submit")}>{REVIEW_COPY.submit}</Button>
+          <Button loading={submitting} disabled={blank} aria-describedby={blank ? reasonId : undefined} onClick={() => setConfirming("submit")}>{REVIEW_COPY.submit}</Button>
         )}
       </Stack>
       <ConfirmDialog
