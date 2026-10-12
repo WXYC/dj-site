@@ -36,7 +36,7 @@ import { closeSidebarCSS } from "@/src/utilities/modern/catalog/utilities";
 import { hasNothingToShow } from "@/lib/has-nothing-to-show";
 import { APPBAR_CLEARANCE_PX } from "@/src/components/shared/Theme/Appbar";
 
-/** Two columns from an editor 800px wide (a 1440px window beside both sidebars is about 826): the form takes the rest but never under 20rem, and the slip column is sized from its content (the slip is a fixed 4.25in, so its min-content), which puts the 8px of padding for the slip's shadow and a classic scrollbar's reserved gutter outside the slip. At a 16px root font size the slip then stays 4.25in and the form keeps 352px at 800px (335px beside a 17px scrollbar); where 20rem is larger (a larger root font size) the column's track shrinks, down to nothing, and the slip narrows with it (its max-width is 100%) instead of the grid scrolling sideways. */
+/** Two columns from an editor 800px wide (a 1440px window beside both sidebars is about 826): the form takes the rest but never under 20rem, and the slip column is sized from its content (the slip is a fixed 4.25in, so its min-content), which puts the 8px of padding for the slip's shadow and a classic scrollbar's reserved gutter outside the slip. At a 16px root font size the slip then stays 4.25in and the form keeps 352px at 800px (335px beside a 17px scrollbar); where 20rem is larger (a larger root font size) the column's track shrinks, down to nothing, and the slip narrows with it (its max-width is 100%) instead of the grid scrolling sideways. A long unbroken token in an FCC note wraps inside the column (overflow-wrap is inherited, so it is set on the FCC panel's wrapper alone and the slip keeps wrapping as it does in one column and on paper). */
 const TWO_COLUMNS = "@container (min-width: 800px)";
 
 type Confirming = "submit" | "delete" | null;
@@ -164,7 +164,7 @@ function Form({ review }: { review: Review }) {
         </Stack>
         {/* Bounded by measuring the scroll region minus the bar (useStickyRoom), so no guess at the chrome around the region can drift. */}
         <Stack spacing={2} sx={{
-            [TWO_COLUMNS]: { position: "sticky", top: 0, alignSelf: "start", maxHeight: `var(${STICKY_ROOM_PROPERTY}, none)`, overflowY: "auto", scrollbarGutter: "stable", overflowWrap: "anywhere", px: 1, py: 1 },
+            [TWO_COLUMNS]: { position: "sticky", top: 0, alignSelf: "start", maxHeight: `var(${STICKY_ROOM_PROPERTY}, none)`, overflowY: "auto", scrollbarGutter: "stable", px: 1, py: 1 },
           }}>
           <Stack component="section" aria-labelledby={slipHeadingId} spacing={1}>
             <Typography id={slipHeadingId} component={record ? "h4" : "h3"} level="title-sm">{REVIEW_COPY.slip.heading}</Typography>
@@ -177,7 +177,11 @@ function Form({ review }: { review: Review }) {
               fields={values}
             />
           </Stack>
-          {review.intake_item_id != null && <FccNotesPanel intakeItemId={review.intake_item_id} />}
+          {review.intake_item_id != null && (
+            <Box sx={{ [TWO_COLUMNS]: { overflowWrap: "anywhere" } }}>
+              <FccNotesPanel intakeItemId={review.intake_item_id} />
+            </Box>
+          )}
         </Stack>
       </Box>
       <Stack

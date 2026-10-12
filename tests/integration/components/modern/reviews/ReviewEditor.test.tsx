@@ -667,8 +667,22 @@ describe("ReviewEditor", () => {
       // The scrollbar's room is reserved (so scrolling never narrows the slip) and the slip's shadow (0 1px 4px, so 3px above and 5px below) has padding to fall into on every side.
       expect(own).toMatch(/scrollbar-gutter:\s*stable/);
       for (const side of ["top", "right", "bottom", "left"]) expect(own).toMatch(new RegExp("padding-" + side + ":\\s*8px"));
-      // A long unbroken token (a pasted URL in an FCC note) wraps inside the column instead of widening its content size, which would squeeze the form.
-      expect(own).toMatch(/overflow-wrap:\s*anywhere/);
+      // overflow-wrap is inherited, so it is not on the column: the slip must wrap as it does in one column and on paper.
+      expect(own).not.toMatch(/overflow-wrap/);
+    });
+
+    it("wraps a long unbroken token in the FCC panel only, never in the slip preview", async () => {
+      fakeReviewsEndpoints({ reviews: [{ ...DRAFT, intake_item_id: 2 } as Review], records: [RECORD] });
+      renderWithProviders(<ReviewEditor id={40} />);
+
+      const fcc = await screen.findByRole("region", { name: "FCC notes" });
+      const wrapper = fcc.parentElement!;
+      const inQuery = allBlocks(cssOf(wrapper.parentElement!.parentElement!).css, TWO_COLUMN_QUERY).join("\n");
+      const wrapperRules = [...inQuery.matchAll(new RegExp(`\\.${cssOf(wrapper).cls}[^{]*\\{[^}]*\\}`, "g"))].map((m) => m[0]).join("\n");
+      expect(wrapperRules).toMatch(/overflow-wrap:\s*anywhere/);
+      const section = screen.getByRole("region", { name: REVIEW_COPY.slip.heading });
+      expect(getComputedStyle(section).overflowWrap).toBe("normal");
+      expect(getComputedStyle(screen.getByRole("group", { name: REVIEW_COPY.slip.name })).overflowWrap).toBe("normal");
     });
 
     it("sizes the slip column from its content, so a scrollbar's gutter and the shadow's padding sit outside a slip that stays 4.25in", async () => {
