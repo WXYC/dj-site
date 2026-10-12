@@ -1602,7 +1602,8 @@ describe("IntakeItemScreen", () => {
       setUp();
       // The reload answers a list without review 41, as if it were gone, so its entry (and any line held in it) unmounts.
       const reviews = serveItemReviews([submitted(40, { author: "Stereolab" }), submitted(41, { author: "Cat Power" })]);
-      let readsAtDelete = 0;
+      // Unset until the DELETE lands, so the first wait cannot pass on the page's initial load.
+      let readsAtDelete = Infinity;
       server.use(
         http.delete(REVIEW_URL(41), () => {
           readsAtDelete = reviews.reads;
@@ -1646,13 +1647,17 @@ describe("IntakeItemScreen", () => {
       await waitFor(() => expect(screen.getByRole("button", { name: "Delete review by Cat Power" })).toBeEnabled());
     });
 
-    it("documents a review with no author: its delete name and confirmation carry an empty author until the station approves wording", async () => {
-      setUp(dogaItem(), [submitted(43, { author: null })]);
+    it.each([
+      ["null", null],
+      ["empty", ""],
+      ["whitespace", "  "],
+    ])("names a review with %s author plainly: the button says Delete review and the question is the generic one", async (_label, author) => {
+      setUp(dogaItem(), [submitted(43, { author })]);
       const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
 
-      const dialog = await open(user, "Delete review by");
+      const dialog = await open(user, "Delete review");
 
-      expect(dialog.getByText("Delete 's review? Its history goes with it. This cannot be undone.")).toBeInTheDocument();
+      expect(dialog.getByText(REVIEW_COPY.deleteConfirm)).toBeInTheDocument();
     });
   });
 
