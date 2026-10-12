@@ -35,6 +35,7 @@ vi.mock("@/src/hooks/authenticationHooks", async () => {
 });
 
 import { toast } from "sonner";
+import ScrollRegion from "@/src/components/experiences/modern/ScrollRegion";
 import ReviewEditor from "@/src/components/experiences/modern/reviews/ReviewEditor";
 import { REVIEW_COPY } from "@/src/components/experiences/modern/reviews/copy";
 import { STICKY_ROOM_PROPERTY } from "@/src/components/experiences/modern/reviews/useStickyRoom";
@@ -61,6 +62,19 @@ const blockAfter = (css: string, selectorStart: string) => {
     if (css[i] === "}" && --depth === 0) return css.slice(css.indexOf("{", from) + 1, i);
   }
   return "";
+};
+const TWO_COLUMN_QUERY = "@container (min-width: 800px)";
+/** The contents of every block starting with `start`. */
+const allBlocks = (css: string, start: string) => {
+  const out: string[] = [];
+  for (let at = css.indexOf(start); at >= 0; at = css.indexOf(start, at + 1)) out.push(blockAfter(css.slice(at), start));
+  return out;
+};
+/** The sheet with every block starting with `start` cut out. */
+const withoutBlocks = (css: string, start: string) => {
+  let out = css;
+  for (let at = out.indexOf(start); at >= 0; at = out.indexOf(start)) out = out.slice(0, at) + out.slice(at + start.length + 2 + blockAfter(out.slice(at), start).length + 1);
+  return out;
 };
 /** The CSS emotion generated for an element, with the contents of every `@container`/`@media` block it has. */
 const cssOf = (el: HTMLElement) => {
@@ -636,36 +650,77 @@ describe("ReviewEditor", () => {
       const { css } = cssOf(grid);
       expect(css).toContain("@container (min-width: 800px)");
       expect(css).not.toContain("1280px");
-      expect(css).toMatch(/grid-template-columns:\s*minmax\(20rem, 1fr\) minmax\(0, 4\.25in\)/);
-      // The column's own rules only (its class), not the sticky bar's later in the sheet.
-      const { all: own } = cssOf(column);
+      expect(css).toMatch(/grid-template-columns:\s*minmax\(20rem, 1fr\) minmax\(0, calc\(4\.25in \+ 16px\)\)/);
+      // The column's own rules, split by whether they sit inside the two-column container query: sticking is for two columns only.
+      const { cls } = cssOf(column);
+      const base = withoutBlocks(css, "@container");
+      const inQuery = allBlocks(css, TWO_COLUMN_QUERY).join("\n");
+      const rules = (text: string) => [...text.matchAll(new RegExp(`\\.${cls}[^{]*\\{[^}]*\\}`, "g"))].map((m) => m[0]).join("\n");
+      expect(rules(base)).not.toMatch(/sticky|max-height|overflow/);
+      const own = rules(inQuery);
       expect(own).toMatch(/position:\s*sticky/);
       expect(own).toMatch(/top:\s*0/);
       expect(own).toMatch(/align-self:\s*start/);
       expect(own).toMatch(new RegExp(`max-height:\\s*var\\(${STICKY_ROOM_PROPERTY},\\s*none\\)`));
       expect(own).not.toMatch(/100dvh/);
       expect(own).toMatch(/overflow-y:\s*auto/);
+      // The scrollbar's room is reserved (so scrolling never narrows the slip) and the slip's side shadow has padding to fall into, as the track is widened to match.
+      expect(own).toMatch(/scrollbar-gutter:\s*stable/);
+      expect(own).toMatch(/padding-left:\s*8px/);
+      expect(own).toMatch(/padding-right:\s*8px/);
     });
 
-    it("sets the slip column's room to the scroll region's height minus the action bar's, and keeps it current", async () => {
-      const observers: Array<() => void> = [];
-      vi.stubGlobal("ResizeObserver", class { constructor(cb: () => void) { observers.push(cb); } observe() {} disconnect() {} });
-      serve();
-      renderWithProviders(<ReviewEditor id={40} />);
+    describe("the slip column's room", () => {
+      const observed: Array<{ notify: () => void; targets: Element[] }> = [];
+      /** Notifies every observer that is watching `target`, as a real one does when that box resizes. */
+      const resize = (target: Element) => observed.filter((o) => o.targets.includes(target)).forEach((o) => o.notify());
+      beforeEach(() => {
+        observed.length = 0;
+        vi.stubGlobal("ResizeObserver", class {
+          entry = { notify: () => {}, targets: [] as Element[] };
+          constructor(cb: () => void) { this.entry.notify = cb; observed.push(this.entry); }
+          observe(target: Element) { this.entry.targets.push(target); }
+          disconnect() {}
+        });
+      });
+      afterEach(() => vi.unstubAllGlobals());
 
-      const bar = (await screen.findByRole("button", { name: REVIEW_COPY.submit })).parentElement!;
-      const root = bar.parentElement!;
-      const region = root.parentElement!;
-      let regionHeight = 700;
-      Object.defineProperty(region, "clientHeight", { configurable: true, get: () => regionHeight });
-      Object.defineProperty(bar, "offsetHeight", { configurable: true, get: () => 53 });
-      observers.forEach((notify) => notify());
-      expect(root.style.getPropertyValue(STICKY_ROOM_PROPERTY)).toBe("647px");
+      /** The editor one wrapper deeper than the scroll region's child, so a parent-element guess measures the wrong box. */
+      const renderDeeper = async () => {
+        serve();
+        renderWithProviders(<ScrollRegion><div><ReviewEditor id={40} /></div></ScrollRegion>);
+        const bar = (await screen.findByRole("button", { name: REVIEW_COPY.submit })).parentElement!;
+        const root = bar.parentElement!;
+        const region = document.querySelector<HTMLElement>("[data-scroll-region]")!;
+        return { bar, root, region };
+      };
 
-      regionHeight = 500;
-      observers.forEach((notify) => notify());
-      expect(root.style.getPropertyValue(STICKY_ROOM_PROPERTY)).toBe("447px");
-      vi.unstubAllGlobals();
+      it("is the scroll region's height minus the action bar's, found through ScrollRegion and not the root's parent, and kept current", async () => {
+        const { bar, root, region } = await renderDeeper();
+        expect(root.parentElement).not.toBe(region);
+        let regionHeight = 700;
+        let barHeight = 53;
+        Object.defineProperty(region, "clientHeight", { configurable: true, get: () => regionHeight });
+        Object.defineProperty(bar, "offsetHeight", { configurable: true, get: () => barHeight });
+        resize(region);
+        expect(root.style.getPropertyValue(STICKY_ROOM_PROPERTY)).toBe("647px");
+
+        regionHeight = 500;
+        resize(region);
+        expect(root.style.getPropertyValue(STICKY_ROOM_PROPERTY)).toBe("447px");
+
+        // A bar that wraps at a narrow width grows without the region changing.
+        barHeight = 90;
+        resize(bar);
+        expect(root.style.getPropertyValue(STICKY_ROOM_PROPERTY)).toBe("410px");
+      });
+
+      it("observes both the scroll region and the action bar", async () => {
+        const { bar, region } = await renderDeeper();
+        const targets = observed.flatMap((o) => o.targets);
+        expect(targets).toContain(bar);
+        expect(targets).toContain(region);
+      });
     });
 
     it("clears the fixed Appbar by its own geometry below md, and not above it", async () => {

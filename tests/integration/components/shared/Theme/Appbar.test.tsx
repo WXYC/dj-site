@@ -39,6 +39,15 @@ describe("Appbar", () => {
     expect(getComputedStyle(root).minHeight).toBe(`${APPBAR_HEIGHT_PX}px`);
   });
 
+  it("is as tall as APPBAR_HEIGHT_PX says: the version line adds no block padding to its 18px line, over the 32px button group", () => {
+    render(<Appbar experience="modern" />);
+    const line = screen.getByText(/WXYC DJ Site/);
+    expect(getComputedStyle(line)).toMatchObject({ paddingTop: "0px", paddingBottom: "0px" });
+    const lineHeight = 0.75 * 16 * 1.5;
+    const buttonGroupHeight = 2 * 16;
+    expect(APPBAR_HEIGHT_PX).toBe(lineHeight + buttonGroupHeight);
+  });
+
   it("should render version text", () => {
     render(<Appbar experience="modern" />);
     expect(screen.getByText(/WXYC DJ Site/)).toBeInTheDocument();

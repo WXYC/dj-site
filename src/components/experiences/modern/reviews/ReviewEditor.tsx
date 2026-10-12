@@ -36,7 +36,7 @@ import { closeSidebarCSS } from "@/src/utilities/modern/catalog/utilities";
 import { hasNothingToShow } from "@/lib/has-nothing-to-show";
 import { APPBAR_CLEARANCE_PX } from "@/src/components/shared/Theme/Appbar";
 
-/** Two columns from an editor 800px wide (a 1440px window beside both sidebars is about 826): the form takes the rest but never under 20rem, the slip is its own 4.25in, so the form keeps 368px at 800px. */
+/** Two columns from an editor 800px wide (a 1440px window beside both sidebars is about 826): the form takes the rest but never under 20rem, the slip column is its own 4.25in plus 8px either side for the slip's shadow, so the form keeps 352px at 800px. */
 const TWO_COLUMNS = "@container (min-width: 800px)";
 
 type Confirming = "submit" | "delete" | null;
@@ -149,7 +149,7 @@ function Form({ review }: { review: Review }) {
           gap: 3,
           mt: 2,
           gridTemplateColumns: "minmax(0, 1fr)",
-          [TWO_COLUMNS]: { gridTemplateColumns: "minmax(20rem, 1fr) minmax(0, 4.25in)", alignItems: "start" },
+          [TWO_COLUMNS]: { gridTemplateColumns: "minmax(20rem, 1fr) minmax(0, calc(4.25in + 16px))", alignItems: "start" },
         }}
       >
         <Stack spacing={2}>
@@ -164,7 +164,7 @@ function Form({ review }: { review: Review }) {
         </Stack>
         {/* Bounded by measuring the scroll region minus the bar (useStickyRoom), so no guess at the chrome around the region can drift. */}
         <Stack spacing={2} sx={{
-            [TWO_COLUMNS]: { position: "sticky", top: 0, alignSelf: "start", maxHeight: `var(${STICKY_ROOM_PROPERTY}, none)`, overflowY: "auto" },
+            [TWO_COLUMNS]: { position: "sticky", top: 0, alignSelf: "start", maxHeight: `var(${STICKY_ROOM_PROPERTY}, none)`, overflowY: "auto", scrollbarGutter: "stable", px: 1 },
           }}>
           <Stack component="section" aria-labelledby={slipHeadingId} spacing={1}>
             <Typography id={slipHeadingId} component={record ? "h4" : "h3"} level="title-sm">{REVIEW_COPY.slip.heading}</Typography>
