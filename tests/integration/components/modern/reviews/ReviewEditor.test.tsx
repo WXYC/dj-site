@@ -1,11 +1,13 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { screen, waitFor, within } from "@testing-library/react";
+import { afterEach, describe, it, expect, vi, beforeEach } from "vitest";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { delay, http, HttpResponse } from "msw";
 import type { Review } from "@wxyc/shared";
 import { Authorization } from "@/lib/features/admin/types";
 import { fakeReviewsEndpoints, fccNote, intakeItem, renderWithProviders, review, reviewRevision, reviewsSettled, server, TEST_BACKEND_URL } from "@/tests/helpers";
 import Link from "next/link";
+import { applicationSlice } from "@/lib/features/application/frontend";
 import { reviewApi } from "@/lib/features/reviews/reviewApi";
+import { closeSidebarCSS, openSidebarCSS } from "@/src/utilities/modern/catalog/utilities";
 
 vi.mock("@/lib/features/authentication/client", async () => {
   const { createAuthClientModuleMock } = await import("@/tests/helpers/auth-client-mock");
@@ -715,6 +717,8 @@ describe("ReviewEditor", () => {
         <>
           <Link href={TARGET} prefetch={false} onClick={linkReached}>Flowsheet</Link>
           <a href="https://example.org/elsewhere">Elsewhere</a>
+          <a href="/dashboard/playlists" target="_blank">New tab</a>
+          <a href="/dashboard/reviews/40/slip" download>Download</a>
           <ReviewEditor id={40} />
         </>,
       );
@@ -724,16 +728,21 @@ describe("ReviewEditor", () => {
       await user.type(await screen.findByLabelText("Review"), " More.");
     };
     /** True when nothing stopped the click from navigating; jsdom cannot navigate, so the page cancels it last. */
-    const navigates = async (user: User, name: string, modifiers = "") => {
+    const navigates = async (user: User, name: string, { modifiers = "", button = 0 } = {}) => {
       let reached = false;
       const last = (event: Event) => { reached = !event.defaultPrevented; event.preventDefault(); };
       document.addEventListener("click", last);
       if (modifiers) await user.keyboard(modifiers);
-      await user.click(screen.getByRole("link", { name }));
+      if (button) fireEvent.click(screen.getByRole("link", { name }), { button });
+      else await user.click(screen.getByRole("link", { name }));
       if (modifiers) await user.keyboard("{/Control}");
       document.removeEventListener("click", last);
       return reached;
     };
+    const drawer = (store: ReturnType<typeof renderEditor>["store"]) => ({
+      open: store.getState().application.rightbar.sidebarOpen,
+      slideIn: document.documentElement.style.getPropertyValue("--SideNavigation-slideIn"),
+    });
     const beforeUnload = () => {
       const event = new Event("beforeunload", { cancelable: true });
       window.dispatchEvent(event);
@@ -756,6 +765,7 @@ describe("ReviewEditor", () => {
       router.push.mockClear();
       linkReached.mockClear();
     });
+    afterEach(closeSidebarCSS);
 
     it("asks before an in-app next/link, and Keep editing stays with the text intact", async () => {
       const { user } = renderEditor();
@@ -799,8 +809,39 @@ describe("ReviewEditor", () => {
       const { user } = renderEditor();
       await makeDirty(user);
       expect(await navigates(user, "Elsewhere")).toBe(true);
-      expect(await navigates(user, "Flowsheet", "{Control>}")).toBe(true);
+      expect(await navigates(user, "Flowsheet", { modifiers: "{Control>}" })).toBe(true);
+      expect(await navigates(user, "New tab")).toBe(true);
+      expect(await navigates(user, "Download")).toBe(true);
+      expect(await navigates(user, "Flowsheet", { button: 1 })).toBe(true);
       expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+      expect(router.push).not.toHaveBeenCalled();
+    });
+
+    it("counts a publishing consent choice alone as unsaved", async () => {
+      const { user } = renderEditor();
+      await user.click(await screen.findByRole("checkbox", { name: "Website" }));
+      expect(beforeUnload()).toBe(true);
+      await user.click(screen.getByRole("link", { name: "Flowsheet" }));
+      await dialog();
+      expect(linkReached).not.toHaveBeenCalled();
+    });
+
+    it("closes the mobile drawer as it asks, and leaves an open drawer alone when the form is clean", async () => {
+      const { user, store } = renderEditor();
+      await screen.findByLabelText("Review");
+      act(() => { store.dispatch(applicationSlice.actions.toggleSidebar()); });
+      openSidebarCSS();
+      await user.click(screen.getByRole("link", { name: "Flowsheet" }));
+      expect(linkReached).toHaveBeenCalledTimes(1);
+      expect(drawer(store)).toEqual({ open: true, slideIn: "1" });
+
+      await makeDirty(user);
+      await user.click(screen.getByRole("link", { name: "Flowsheet" }));
+      const asking = await dialog();
+      expect(drawer(store)).toEqual({ open: false, slideIn: "" });
+      await user.click(within(asking).getByRole("button", { name: "Keep editing" }));
+      await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
+      expect(drawer(store)).toEqual({ open: false, slideIn: "" });
     });
 
     it("treats a field changed and changed back as clean", async () => {
@@ -915,7 +956,7 @@ describe("ReviewEditor", () => {
       await waitFor(() => expect(beforeUnload()).toBe(false));
     });
 
-    it("lets a delete's redirect through while the form is dirty, without asking and with no history call before it", async () => {
+    it("lets a delete's redirect through while the form is dirty, without asking and with no history call before it, and is clean from then on", async () => {
       server.use(http.delete(`${TEST_BACKEND_URL}/reviews/40`, () => new HttpResponse(null, { status: 204 })));
       const history = spyOnHistory();
       let callsAtRedirect: Record<string, number> | undefined;
@@ -928,7 +969,29 @@ describe("ReviewEditor", () => {
       await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/dashboard/reviews"));
       expect(callsAtRedirect).toEqual(NO_HISTORY_CALLS);
       expect(screen.queryByRole("alertdialog", { name: "Leave without saving?" })).not.toBeInTheDocument();
+      await waitFor(() => expect(beforeUnload()).toBe(false));
+      await user.click(screen.getByRole("link", { name: "Flowsheet" }));
+      expect(linkReached).toHaveBeenCalledTimes(1);
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
       restoreHistory(history);
+    });
+
+    it.each([
+      ["refused as in use", () => HttpResponse.json({ message: "server words", reason: "in_use" }, { status: 409 }), () => screen.findByText(IN_USE)],
+      ["failed", () => new HttpResponse(null, { status: 500 }), () => waitFor(() => expect(toast.error).toHaveBeenCalledWith(REVIEW_COPY.couldNotDelete))],
+    ])("keeps the guard armed when the delete is %s", async (_name, respond, settled) => {
+      server.use(http.delete(`${TEST_BACKEND_URL}/reviews/40`, respond));
+      const { user } = renderEditor(SUBMITTED);
+      await makeDirty(user);
+      await user.click(screen.getByRole("button", { name: "Delete" }));
+      await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Delete" }));
+      await settled();
+
+      expect(router.replace).not.toHaveBeenCalled();
+      expect(beforeUnload()).toBe(true);
+      await user.click(screen.getByRole("link", { name: "Flowsheet" }));
+      await dialog();
+      expect(linkReached).not.toHaveBeenCalled();
     });
 
     it("removes its listeners on unmount", async () => {

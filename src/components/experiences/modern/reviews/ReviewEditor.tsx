@@ -1,12 +1,14 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import Link from "next/link";
 import { Box, Button, Link as JoyLink, Stack, Typography } from "@mui/joy";
 import type { Review, ReviewPatch } from "@wxyc/shared";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Authorization } from "@/lib/features/admin/types";
+import { applicationSlice } from "@/lib/features/application/frontend";
+import { useAppDispatch } from "@/lib/hooks";
 import {
   isReviewInUse,
   isReviewNotDraft,
@@ -30,6 +32,7 @@ import { formatSlipDate } from "./slipDate";
 import { useReviewRecord } from "./useReviewRecord";
 import { STICKY_ROOM_PROPERTY, useStickyRoom } from "./useStickyRoom";
 import { useLeaveGuard } from "@/src/hooks/useLeaveGuard";
+import { closeSidebarCSS } from "@/src/utilities/modern/catalog/utilities";
 import { hasNothingToShow } from "@/lib/has-nothing-to-show";
 import { APPBAR_CLEARANCE_PX } from "@/src/components/shared/Theme/Appbar";
 
@@ -56,6 +59,7 @@ function Form({ review }: { review: Review }) {
   const [submit, { isLoading: submitting }] = useSubmitReviewMutation();
   const [remove, { isLoading: deleting }] = useDeleteReviewMutation();
   const router = useRouter();
+  const dispatch = useAppDispatch();
   const record = useReviewRecord(review);
   const { root, bar } = useStickyRoom<HTMLDivElement, HTMLDivElement>();
   const slipHeadingId = useId();
@@ -73,6 +77,12 @@ function Form({ review }: { review: Review }) {
   // What the service holds: the review as loaded, then whatever the last save sent.
   const [saved, setSaved] = useState(patch);
   const leaveGuard = useLeaveGuard(patchChanged(saved, patch()));
+  // Below Joy's md breakpoint the left bar is a drawer stacked above every modal (z-index 10000 against Joy's 1300), and a link tap does not close it, so the question would open out of sight: the drawer closes as the question opens.
+  useEffect(() => {
+    if (!leaveGuard.pending) return;
+    dispatch(applicationSlice.actions.closeSidebar());
+    closeSidebarCSS();
+  }, [leaveGuard.pending, dispatch]);
   const failure = (err: unknown, fallback: string) =>
     toast.error(serverMessage(unwrapEndpointErrorOrRaw("reviewWriteError", err)?.data) ?? fallback);
 
@@ -104,6 +114,8 @@ function Form({ review }: { review: Review }) {
     setConfirming(null);
     try {
       await remove(review.id).unwrap();
+      // The review is gone, so nothing is left to save: the form goes clean before the redirect, which may be a full load.
+      setSaved(patch());
       router.replace("/dashboard/reviews");
     } catch (err) {
       if (isReviewInUse(err)) setRefusedInUse(true);
