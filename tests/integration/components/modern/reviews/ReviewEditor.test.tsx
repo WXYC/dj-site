@@ -702,9 +702,7 @@ describe("ReviewEditor", () => {
   });
 
   describe("leaving with unsaved changes", () => {
-    const TARGET = "/dashboard/flowsheet";
-    const BEFORE = "/dashboard/reviews";
-    const EDITOR = "/dashboard/reviews/40";
+    const TARGET = "/dashboard/flowsheet?view=week#entries";
     /**
      * Next's Link runs its `onClick` prop first, from React's root listener in the bubble phase, then
      * `preventDefault`s and navigates. So this spy is called exactly when the click got past the guard:
@@ -725,13 +723,6 @@ describe("ReviewEditor", () => {
     const makeDirty = async (user: User) => {
       await user.type(await screen.findByLabelText("Review"), " More.");
     };
-    /** Runs a history traversal and resolves once the browser has landed, after the guard's own popstate listener. */
-    const traverse = (step: () => unknown) =>
-      new Promise<void>((resolve) => {
-        window.addEventListener("popstate", () => resolve(), { once: true });
-        step();
-      });
-    const settle = () => new Promise((resolve) => setTimeout(resolve, 30));
     /** True when nothing stopped the click from navigating; jsdom cannot navigate, so the page cancels it last. */
     const navigates = async (user: User, name: string, modifiers = "") => {
       let reached = false;
@@ -749,17 +740,21 @@ describe("ReviewEditor", () => {
       return event.defaultPrevented;
     };
     const dialog = () => screen.findByRole("alertdialog", { name: "Leave without saving?" });
-    const guardIsCurrent = () => Boolean(window.history.state?.leaveGuard);
+    /** Every way the page could add to, rewrite or move through the history; each spy calls through. */
+    const spyOnHistory = () => ({
+      pushState: vi.spyOn(window.history, "pushState"),
+      replaceState: vi.spyOn(window.history, "replaceState"),
+      back: vi.spyOn(window.history, "back"),
+      go: vi.spyOn(window.history, "go"),
+    });
+    type HistorySpies = ReturnType<typeof spyOnHistory>;
+    const historyCalls = (spies: HistorySpies) => Object.fromEntries(Object.entries(spies).map(([name, spy]) => [name, spy.mock.calls.length]));
+    const NO_HISTORY_CALLS = { pushState: 0, replaceState: 0, back: 0, go: 0 };
+    const restoreHistory = (spies: HistorySpies) => Object.values(spies).forEach((spy) => spy.mockRestore());
 
-    beforeEach(async () => {
-      // Let a previous test's clean-up traversal land, then start a fresh [..., before, editor].
-      await settle();
-      window.history.pushState({ entry: "before" }, "", BEFORE);
-      window.history.pushState({ entry: "editor" }, "", EDITOR);
+    beforeEach(() => {
       router.push.mockClear();
       linkReached.mockClear();
-      // A stand-in for Next's replace: it overwrites the current entry.
-      router.replace.mockImplementation((href: string) => window.history.replaceState({ entry: "destination" }, "", href));
     });
 
     it("asks before an in-app next/link, and Keep editing stays with the text intact", async () => {
@@ -774,6 +769,7 @@ describe("ReviewEditor", () => {
       await user.click(within(asking).getByRole("button", { name: "Keep editing" }));
 
       await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
+      expect(router.push).not.toHaveBeenCalled();
       expect(router.replace).not.toHaveBeenCalled();
       expect(screen.getByLabelText("Review")).toHaveValue("Warm. More.");
     });
@@ -786,22 +782,17 @@ describe("ReviewEditor", () => {
       expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
     });
 
-    it("on Leave by link, the destination replaces the guard entry, so one Back reaches the editor's own entry", async () => {
-      const { user, unmount } = renderEditor();
-      const before = window.history.length;
+    it("on Leave by link, pushes the link's path, search and hash, and does not replace", async () => {
+      const { user } = renderEditor();
       await makeDirty(user);
-      expect(window.history.length).toBe(before + 1);
       await user.click(screen.getByRole("link", { name: "Flowsheet" }));
       await user.click(within(await dialog()).getByRole("button", { name: "Leave" }));
 
-      expect(router.replace).toHaveBeenCalledWith(TARGET);
-      expect(router.push).not.toHaveBeenCalled();
-      expect(window.history.length).toBe(before + 1);
-      // The navigation took the editor away.
-      unmount();
-      await traverse(() => window.history.back());
-      expect(window.location.pathname).toBe(EDITOR);
-      expect(window.history.state.entry).toBe("editor");
+      expect(router.push).toHaveBeenCalledTimes(1);
+      expect(router.push).toHaveBeenCalledWith(TARGET);
+      expect(router.replace).not.toHaveBeenCalled();
+      expect(linkReached).not.toHaveBeenCalled();
+      await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
     });
 
     it("leaves other sites' links and modified clicks to the browser", async () => {
@@ -832,147 +823,41 @@ describe("ReviewEditor", () => {
       expect(beforeUnload()).toBe(true);
     });
 
-    it("pushes a guard entry when the form goes dirty, and takes it back when it goes clean", async () => {
-      const { user } = renderEditor();
-      const before = window.history.length;
-      await screen.findByLabelText("Review");
-      expect(guardIsCurrent()).toBe(false);
-      await makeDirty(user);
-      expect(guardIsCurrent()).toBe(true);
-      expect(window.history.length).toBe(before + 1);
-
-      await traverse(async () => user.type(screen.getByLabelText("Review"), "{Backspace>6/}"));
-      expect(guardIsCurrent()).toBe(false);
-      expect(window.history.state.entry).toBe("editor");
-    });
-
-    it("still takes the guard entry back when a refresh rewrote its state", async () => {
-      const { user } = renderEditor();
-      await makeDirty(user);
-      window.history.replaceState({ refreshed: true }, "");
-
-      await traverse(async () => user.type(screen.getByLabelText("Review"), "{Backspace>6/}"));
-      expect(window.history.state.entry).toBe("editor");
-    });
-
-    it("keeps the editor on Back, asks again after Keep editing, and on Leave reaches the entry before the editor", async () => {
-      const { user } = renderEditor();
-      await makeDirty(user);
-      const length = window.history.length;
-
-      await traverse(() => window.history.back());
-      await user.click(within(await dialog()).getByRole("button", { name: "Keep editing" }));
-      await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
-      expect(window.location.pathname).toBe(EDITOR);
-      expect(window.history.length).toBe(length);
-      expect(guardIsCurrent()).toBe(true);
-
-      await traverse(() => window.history.back());
-      const asking = await dialog();
-      expect(window.location.pathname).toBe(EDITOR);
-      await traverse(() => user.click(within(asking).getByRole("button", { name: "Leave" })));
-      expect(window.location.pathname).toBe(BEFORE);
-    });
-
-    it("ignores a return to the guard entry, such as closing a modal that pushed its own", async () => {
-      const { user } = renderEditor();
-      await makeDirty(user);
-      window.history.pushState({ modal: true }, "", "/dashboard/album/7");
-
-      await traverse(() => window.history.back());
-      await settle();
-      expect(window.location.pathname).toBe(EDITOR);
-      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
-
-      await traverse(() => window.history.back());
-      await dialog();
-    });
-
-    it("lets back through when the form is clean", async () => {
-      renderEditor();
-      await screen.findByLabelText("Review");
-      await traverse(() => window.history.back());
-      await settle();
-      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
-    });
-
-    it("stays guarded after a Leave that left the editor in place, and takes the guard entry back once clean", async () => {
-      const { user } = renderEditor();
-      router.replace.mockImplementation(() => {});
-      await makeDirty(user);
-      await user.click(screen.getByRole("link", { name: "Flowsheet" }));
-      await user.click(within(await dialog()).getByRole("button", { name: "Leave" }));
-      expect(beforeUnload()).toBe(true);
-
-      await user.click(screen.getByRole("link", { name: "Flowsheet" }));
-      await dialog();
-      expect(linkReached).not.toHaveBeenCalled();
-      await user.click(within(await dialog()).getByRole("button", { name: "Keep editing" }));
-
-      await traverse(async () => user.type(screen.getByLabelText("Review"), "{Backspace>6/}"));
-      expect(guardIsCurrent()).toBe(false);
-      expect(window.history.state.entry).toBe("editor");
-    });
-
-    it("leaves the guard armed when a Leave by Back cannot move, as for the first page in a tab", async () => {
-      const { user } = renderEditor();
-      await makeDirty(user);
-      const go = vi.spyOn(window.history, "go").mockImplementation(() => {});
-      await traverse(() => window.history.back());
-      await user.click(within(await dialog()).getByRole("button", { name: "Leave" }));
-      expect(go).toHaveBeenCalledWith(-2);
-      go.mockRestore();
-
-      await user.click(screen.getByRole("link", { name: "Flowsheet" }));
-      await dialog();
-      expect(linkReached).not.toHaveBeenCalled();
-    });
-
-    it("does not ask again at beforeunload after a Leave by Back that crosses documents", async () => {
-      const { user } = renderEditor();
-      await makeDirty(user);
-      const go = vi.spyOn(window.history, "go").mockImplementation(() => {});
-      await traverse(() => window.history.back());
-      await user.click(within(await dialog()).getByRole("button", { name: "Leave" }));
-      go.mockRestore();
-
-      expect(beforeUnload()).toBe(false);
-      expect(beforeUnload()).toBe(true);
-    });
-
-    it("lets a jump past the editor through without pushing an entry or asking, and ignores a return to the editor after it", async () => {
-      const { user } = renderEditor();
-      await makeDirty(user);
-      const length = window.history.length;
-
-      await traverse(() => window.history.go(-2));
-      await settle();
-      expect(window.location.pathname).toBe(BEFORE);
-      expect(window.history.length).toBe(length);
-      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
-
-      await traverse(() => window.history.go(1));
-      await settle();
-      expect(window.location.pathname).toBe(EDITOR);
-      expect(window.history.length).toBe(length);
-      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
-    });
-
-    it("never touches history when the editor unmounts on the guard entry, as when a logout's navigation is under way", async () => {
+    it("never calls history: not on going dirty, Keep editing, Leave, a save, more typing or unmount", async () => {
+      server.use(http.patch(`${TEST_BACKEND_URL}/reviews/40`, () => HttpResponse.json(DRAFT)));
+      const history = spyOnHistory();
       const { user, unmount } = renderEditor();
       await makeDirty(user);
-      const back = vi.spyOn(window.history, "back");
-      const go = vi.spyOn(window.history, "go");
-      // Next has dispatched the navigation but not committed it, so the URL is still the guard entry's.
-      router.replace.mockImplementation(() => {});
-      router.replace("/login");
+      await user.click(screen.getByRole("link", { name: "Flowsheet" }));
+      await user.click(within(await dialog()).getByRole("button", { name: "Keep editing" }));
+      await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
+      await user.click(screen.getByRole("link", { name: "Flowsheet" }));
+      await user.click(within(await dialog()).getByRole("button", { name: "Leave" }));
+      await waitFor(() => expect(router.push).toHaveBeenCalledWith(TARGET));
+      await user.click(screen.getByRole("button", { name: REVIEW_COPY.saveDraft }));
+      await waitFor(() => expect(toast.success).toHaveBeenCalled());
+      await user.type(screen.getByLabelText("Review"), "!");
       unmount();
 
-      expect(router.replace).toHaveBeenCalledWith("/login");
-      expect(back).not.toHaveBeenCalled();
-      expect(go).not.toHaveBeenCalled();
-      back.mockRestore();
-      go.mockRestore();
+      expect(historyCalls(history)).toEqual(NO_HISTORY_CALLS);
+      restoreHistory(history);
+    });
+
+    it("stays guarded after a Leave that left the editor in place: a second link asks again and beforeunload is still cancelled", async () => {
+      const { user } = renderEditor();
+      await makeDirty(user);
+      await user.click(screen.getByRole("link", { name: "Flowsheet" }));
+      // router.push is a no-op here, as Next's is when the navigation does not take the editor away.
+      await user.click(within(await dialog()).getByRole("button", { name: "Leave" }));
+      await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
+      expect(router.push).toHaveBeenCalledTimes(1);
+      expect(beforeUnload()).toBe(true);
+
+      await user.click(screen.getByRole("link", { name: "Flowsheet" }));
+      await dialog();
+      expect(linkReached).not.toHaveBeenCalled();
+      expect(router.push).toHaveBeenCalledTimes(1);
+      expect(beforeUnload()).toBe(true);
     });
 
     it("disarms every path once a save lands, and measures later edits against the save", async () => {
@@ -1030,35 +915,33 @@ describe("ReviewEditor", () => {
       await waitFor(() => expect(beforeUnload()).toBe(false));
     });
 
-    it("takes the guard entry back before a delete's redirect, without asking", async () => {
+    it("lets a delete's redirect through while the form is dirty, without asking and with no history call before it", async () => {
       server.use(http.delete(`${TEST_BACKEND_URL}/reviews/40`, () => new HttpResponse(null, { status: 204 })));
+      const history = spyOnHistory();
+      let callsAtRedirect: Record<string, number> | undefined;
+      router.replace.mockImplementationOnce(() => { callsAtRedirect = historyCalls(history); });
       const { user } = renderEditor(SUBMITTED);
       await makeDirty(user);
-      let current: unknown;
-      router.replace.mockImplementation((href: string) => {
-        current = window.history.state;
-        window.history.replaceState({ entry: "destination" }, "", href);
-      });
       await user.click(screen.getByRole("button", { name: "Delete" }));
       await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Delete" }));
 
       await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/dashboard/reviews"));
-      // The replace overwrote the editor's own entry, not the guard's, so the deleted editor is not in Back history.
-      expect(current).toMatchObject({ entry: "editor" });
-      expect(current).not.toHaveProperty("leaveGuard");
+      expect(callsAtRedirect).toEqual(NO_HISTORY_CALLS);
       expect(screen.queryByRole("alertdialog", { name: "Leave without saving?" })).not.toBeInTheDocument();
-      await traverse(() => window.history.back());
-      expect(window.location.pathname).toBe(BEFORE);
+      restoreHistory(history);
     });
 
     it("removes its listeners on unmount", async () => {
       const { user, unmount } = renderEditor();
       await makeDirty(user);
-      const remove = vi.spyOn(window, "removeEventListener");
+      const fromWindow = vi.spyOn(window, "removeEventListener");
+      const fromDocument = vi.spyOn(document, "removeEventListener");
       unmount();
       expect(beforeUnload()).toBe(false);
-      expect(remove).toHaveBeenCalledWith("popstate", expect.any(Function));
-      remove.mockRestore();
+      expect(fromWindow).toHaveBeenCalledWith("beforeunload", expect.any(Function));
+      expect(fromDocument).toHaveBeenCalledWith("click", expect.any(Function), true);
+      fromWindow.mockRestore();
+      fromDocument.mockRestore();
     });
   });
 });
