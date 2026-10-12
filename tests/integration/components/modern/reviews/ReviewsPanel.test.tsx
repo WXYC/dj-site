@@ -176,6 +176,7 @@ describe("ReviewsPanel", () => {
   it.each([
     ["archiveTitle", REVIEW_COPY.albumPanel.archiveTitle, "Earlier takes"],
     ["loadFailed", REVIEW_COPY.albumPanel.loadFailed, "Couldn't load the reviews. Please try again."],
+    ["showSlip", REVIEW_COPY.albumPanel.showSlip, "Show the whole slip"],
   ])("words %s exactly as the station approved it", (_key, actual, approved) => {
     expect(actual).toBe(approved);
   });
@@ -353,9 +354,13 @@ describe("ReviewsPanel", () => {
       renderPanel();
 
       const entry = await rows();
-      await userEvent.click(within(entry).getByRole("button", { name: "Show the whole slip" }));
+      const button = within(entry).getByRole("button", { name: "Show the whole slip" });
+      expect(button).toHaveAttribute("aria-expanded", "false");
+      await userEvent.click(button);
+      expect(button).toHaveAttribute("aria-expanded", "true");
       expect(tapedSlips()).toHaveLength(1);
       expect(tapedSlips()[0].closest("li")).toBe(entry);
+      expect(tapedSlips()[0].parentElement!.id).toBe(button.getAttribute("aria-controls"));
     });
 
     it("gives each of several reviews on the cover its four rows", async () => {
@@ -381,11 +386,55 @@ describe("ReviewsPanel", () => {
       expect(within(entry).queryByText(/Unconfirmed claim/)).not.toBeInTheDocument();
     });
 
-    it("leaves the FCC row untinted when it has nothing to say", async () => {
-      serve([cover()]);
+    const CONFIRMED = [fccNote({ id: 5, album_id: ALBUM_ID, intake_item_id: null, status: "confirmed", track: "A2", note: "Bleeped at 2:10" })];
+    it.each([
+      ["both the review's FCC text and a confirmed note", "Contains one swear word", CONFIRMED, true],
+      ["the review's FCC text alone", "Contains one swear word", [], true],
+      ["a confirmed note alone", null, CONFIRMED, true],
+      ["neither", null, [], false],
+    ])("tints the FCC row for %s: %s", async (_source, fcc, notes, tinted) => {
+      serve([cover({ fcc })], [], notes);
       renderPanel();
 
-      expect((await rows()).querySelector("[data-fcc-row]")).not.toHaveClass("MuiSheet-colorDanger");
+      const entry = await rows();
+      if (notes.length) await waitFor(() => expect(entry.querySelector("[data-fcc-row]")).toHaveTextContent("A2: Bleeped at 2:10"));
+      const row = entry.querySelector("[data-fcc-row]")!;
+      if (tinted) expect(row).toHaveClass("MuiSheet-colorDanger");
+      else expect(row).not.toHaveClass("MuiSheet-colorDanger");
+    });
+
+    it("draws the four rows with one label column and one typography level", async () => {
+      serve([cover({ fcc: "Contains one swear word" })]);
+      renderPanel();
+
+      const entry = await rows();
+      for (const name of ["FCC", "Buzzwords", "Recommended", "Review"]) {
+        const label = within(entry).getByText(name);
+        expect(label).toHaveClass("MuiTypography-body-sm");
+        expect(label).toHaveStyle({ flex: "0 0 6rem" });
+        expect(label.nextElementSibling).toHaveClass("MuiTypography-body-sm");
+        expect(label.parentElement).toHaveStyle({ gap: "8px" });
+      }
+    });
+
+    type Case = { case: string; overrides: Record<string, unknown>; rows: string[]; reviewBody: string | null; slipButton: boolean };
+    it.each<Case>([
+      { case: "typed with all fields", overrides: { fcc: "Contains one swear word" }, rows: ["FCC", "Buzzwords", "Recommended", "Review"], reviewBody: "Warm and strange.", slipButton: true },
+      { case: "typed with empty Buzzwords and Recommended", overrides: { buzzwords: "", recommended_tracks: null }, rows: ["FCC", "Review"], reviewBody: "Warm and strange.", slipButton: true },
+      { case: "handwritten without text", overrides: { medium: "handwritten", review: null, fcc: "Track 3: f-word" }, rows: ["FCC", "Buzzwords", "Recommended", "Review"], reviewBody: "on the sleeve", slipButton: false },
+      { case: "handwritten with text", overrides: { medium: "handwritten" }, rows: ["FCC", "Buzzwords", "Recommended", "Review"], reviewBody: "Warm and strange.", slipButton: false },
+    ])("draws a $case review on the cover as cover rows", async ({ overrides, rows: expected, reviewBody, slipButton }) => {
+      serve([cover(overrides)], [], CONFIRMED);
+      renderPanel();
+
+      const entry = (await screen.findByText("FCC", { selector: "p" })).closest("li")!;
+      await waitFor(() => expect(entry.querySelector("[data-fcc-row]")).toHaveTextContent("A2: Bleeped at 2:10"));
+      const labels = ["FCC", "Buzzwords", "Recommended", "Review"].filter((name) => within(entry).queryByText(name));
+      expect(labels).toEqual(expected);
+      expect(entry.querySelector("[data-fcc-row]")).toHaveClass("MuiSheet-colorDanger");
+      expect(within(entry).getByText("Review").nextElementSibling).toHaveTextContent(reviewBody!);
+      expect(entry).not.toHaveTextContent("· on the sleeve");
+      expect(!!within(entry).queryByRole("button", { name: "Show the whole slip" })).toBe(slipButton);
     });
 
     it("places the FCC notes slot after the cover rows and before the other reviews", async () => {
@@ -419,9 +468,5 @@ describe("ReviewsPanel", () => {
     const controls = [...screen.getAllByRole("link"), ...screen.getAllByRole("button")];
     const last = screen.getByRole("link", { name: "Review this release" });
     expect(controls.filter((c) => last.compareDocumentPosition(c) & Node.DOCUMENT_POSITION_FOLLOWING)).toEqual([]);
-  });
-
-  it("words Show the whole slip exactly as the station approved it", () => {
-    expect((REVIEW_COPY.albumPanel as Record<string, string>).showSlip).toBe("Show the whole slip");
   });
 });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useId, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { Button, Link as JoyLink, Sheet, Stack, Typography } from "@mui/joy";
 import type { Review } from "@wxyc/shared";
@@ -24,30 +24,40 @@ export type ReviewMode = "slip" | "cover" | "excerpt";
 
 const clamp2 = { display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } as const;
 
-/** The four rows a DJ on the air needs, with the FCC row tinted when it has anything to say. The full slip opens under them on request. */
-function CoverRows({ review, fccNotes, slip }: { review: Review; fccNotes: string[]; slip: ReactNode }) {
-  const [open, setOpen] = useState(false);
-  const { fields, slip: labels } = REVIEW_COPY;
-  const row = (label: string, body?: string | null) => (
-    <Stack direction="row" spacing={1}>
+/** One of the cover's rows: a 6rem label column, an 8px gap and body-sm text, the same for all four. `tint` shades the row as a warning. */
+function CoverRow({ label, tint, children, ...rest }: { label: string; tint?: boolean; children: ReactNode; "data-fcc-row"?: boolean }) {
+  return (
+    <Sheet {...rest} variant={tint ? "soft" : "plain"} color={tint ? "danger" : "neutral"} sx={{ display: "flex", gap: 1, p: 0.5 }}>
       <Typography level="body-sm" fontWeight="lg" sx={{ flex: "0 0 6rem" }}>{label}</Typography>
-      <Typography level="body-sm" sx={{ whiteSpace: "pre-wrap" }}>{body}</Typography>
-    </Stack>
+      <Typography level="body-sm" component="div" sx={{ whiteSpace: "pre-wrap" }}>{children}</Typography>
+    </Sheet>
   );
-  const hasFcc = !!review.fcc || fccNotes.length > 0;
+}
+
+/** The rows a DJ on the air needs, with the FCC row tinted when it has anything to say. The FCC row always shows; Buzzwords and Recommended are left off when empty; the Review row reads "on the sleeve" for a handwritten review without text. The typed slip opens under them on request. */
+function CoverRows({ review, fccNotes, onTheSleeve, slip }: { review: Review; fccNotes: string[]; onTheSleeve: boolean; slip?: ReactNode }) {
+  const [open, setOpen] = useState(false);
+  const slipId = useId();
+  const { fields, slip: labels } = REVIEW_COPY;
+  const fccLines = [review.fcc, ...fccNotes].filter(Boolean);
+  const reviewBody = onTheSleeve ? copy.onTheSleeve : review.review;
   return (
     <Stack spacing={0.5}>
       <Typography level="body-xs">{review.author}</Typography>
-      <Sheet data-fcc-row variant={hasFcc ? "soft" : "plain"} color={hasFcc ? "danger" : "neutral"} sx={{ p: 0.5 }}>
-        <SlipFccRow fcc={review.fcc} notes={fccNotes} />
-      </Sheet>
-      {row(fields.buzzwords.label, review.buzzwords)}
-      {row(labels.recommended, review.recommended_tracks)}
-      {row(labels.review, review.review)}
-      <Button variant="plain" size="sm" sx={{ alignSelf: "flex-start" }} aria-expanded={open} onClick={() => setOpen(!open)}>
-        {copy.showSlip}
-      </Button>
-      {open && slip}
+      <CoverRow data-fcc-row label={fields.fcc.label} tint={fccLines.length > 0}>
+        {fccLines.map((line, i) => <div key={i}>{line}</div>)}
+      </CoverRow>
+      {review.buzzwords && <CoverRow label={fields.buzzwords.label}>{review.buzzwords}</CoverRow>}
+      {review.recommended_tracks && <CoverRow label={labels.recommended}>{review.recommended_tracks}</CoverRow>}
+      {reviewBody && <CoverRow label={labels.review}>{reviewBody}</CoverRow>}
+      {slip && (
+        <>
+          <Button variant="plain" size="sm" sx={{ alignSelf: "flex-start" }} aria-expanded={open} aria-controls={slipId} onClick={() => setOpen(!open)}>
+            {copy.showSlip}
+          </Button>
+          {open && <div id={slipId}>{slip}</div>}
+        </>
+      )}
     </Stack>
   );
 }
@@ -68,7 +78,9 @@ export function ReviewItem({ review, record, newSlipHref, printable, onCover, mo
   return (
     <Stack spacing={0.5} component="li" sx={{ listStyle: "none" }}>
       <PrintedVersionNote review={review} onCover={onCover} newSlipHref={newSlipHref} />
-      {onTheSleeve ? (
+      {mode === "cover" ? (
+        <CoverRows review={review} fccNotes={fccNotes} onTheSleeve={onTheSleeve} slip={review.medium === "typed" ? <SlipPreview {...record} reviewer={review.author ?? ""} date={review.add_date} fields={review} fccNotes={fccNotes} onCover={onCover} /> : undefined} />
+      ) : onTheSleeve ? (
         <>
           <Typography level="body-sm">
             {review.author} · {copy.onTheSleeve}
@@ -80,8 +92,6 @@ export function ReviewItem({ review, record, newSlipHref, printable, onCover, mo
           <Typography level="body-sm" fontWeight="lg">{review.author}</Typography>
           <Typography level="body-sm" sx={clamp2}>{review.review}</Typography>
         </>
-      ) : mode === "cover" ? (
-        <CoverRows review={review} fccNotes={fccNotes} slip={<SlipPreview {...record} reviewer={review.author ?? ""} date={review.add_date} fields={review} fccNotes={fccNotes} onCover={onCover} />} />
       ) : (
         <SlipPreview {...record} reviewer={review.author ?? ""} date={review.add_date} fields={review} onCover={onCover} />
       )}
