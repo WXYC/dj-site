@@ -262,9 +262,9 @@ export const REVIEW_COPY = {
     notReviewed: "This record has no review chosen for the cover, so it can't be filed yet.",
     /** Approved. Shown once the record has reloaded after a filing lost its race. */
     alreadyFiled: "This record has already been filed. The page has been reloaded.",
-    /** Approved. The heading over the form that files the record as new. */
+    /** Approved. One of the two choices under the "File it" heading: file the record as new. */
     fileNew: "New to the library",
-    /** Approved. The heading over the search for a record the library already has. */
+    /** Approved. One of the two choices under the "File it" heading: search for a record the library already has. */
     fileExisting: "Already in the library?",
     /** Approved. */
     searchLibrary: "Search the library",

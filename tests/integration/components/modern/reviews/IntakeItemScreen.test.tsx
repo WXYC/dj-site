@@ -134,6 +134,7 @@ type User = ReturnType<typeof renderWithProviders>["user"];
 
 const NEW_ARM = "New to the library";
 const EXISTING_ARM = "Already in the library?";
+const DELETE_HINT = "Delete this record only if it was logged by mistake. Its reviews and drafts go with it.";
 
 /** Chooses one of the filing section's two arms; a filing form is not on the page until then. */
 const chooseArm = async (user: User, name: string) => {
@@ -573,6 +574,8 @@ describe("IntakeItemScreen", () => {
 
       expect(await screen.findByText("Choose a review for the cover before filing this record.")).toBeInTheDocument();
       expect(screen.queryByRole("combobox", { name: "Genre" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("radio", { name: NEW_ARM })).not.toBeInTheDocument();
+      expect(screen.queryByRole("radio", { name: EXISTING_ARM })).not.toBeInTheDocument();
 
       // The citation screen (WXYC/dj-site#1766) is not built; the choice arrives as the item's next answer.
       box.item = dogaItem({ format_id: 1, accepted_review_id: 90, cited_album_id: 7 });
@@ -661,6 +664,43 @@ describe("IntakeItemScreen", () => {
       expect(screen.getByRole("radio", { name: EXISTING_ARM })).not.toBeChecked();
       expect(screen.queryByRole("combobox", { name: "Genre" })).not.toBeInTheDocument();
       expect(screen.queryByRole("searchbox", { name: "Search the library" })).not.toBeInTheDocument();
+    });
+
+    it("names the choice by its heading", async () => {
+      setUp();
+      renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      const group = await screen.findByRole("radiogroup", { name: "File it" });
+      expect(within(group).getAllByRole("radio")).toHaveLength(2);
+    });
+
+    it("takes the closed arm out of the accessibility tree and the Tab order, not only out of sight", async () => {
+      setUp();
+      const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      await chooseArm(user, NEW_ARM);
+      await user.type(await screen.findByRole("textbox", { name: "Album title" }), "x");
+      await chooseArm(user, EXISTING_ARM);
+      await screen.findByRole("searchbox", { name: "Search the library" });
+      expect(screen.queryByRole("textbox", { name: "Album title" })).toBeNull();
+      expect(screen.queryByRole("combobox", { name: "Genre" })).toBeNull();
+      expect(screen.queryByRole("button", { name: "Add to rotation" })).toBeNull();
+
+      await user.click(screen.getByRole("radio", { name: EXISTING_ARM }));
+      for (let i = 0; i < 12; i += 1) {
+        await user.tab();
+        const at = document.activeElement as HTMLElement;
+        expect(at.closest("[hidden]")).toBeNull();
+        expect(at).not.toHaveAccessibleName("Album title");
+      }
+
+      await chooseArm(user, NEW_ARM);
+      expect(screen.queryByRole("searchbox", { name: "Search the library" })).toBeNull();
+      await user.click(screen.getByRole("radio", { name: NEW_ARM }));
+      for (let i = 0; i < 12; i += 1) {
+        await user.tab();
+        expect(document.activeElement).not.toHaveAccessibleName("Search the library");
+      }
     });
 
     it("shows only the chosen arm, and keeps what was typed in each when switching back", async () => {
@@ -1713,15 +1753,27 @@ describe("IntakeItemScreen", () => {
   });
 
   describe("deleting the record", () => {
-    it("puts the record's Delete last on the page, after the line that says when to use it", async () => {
-      serveDeletable(["Cat Power"], []);
+    it("puts the record's Delete last on the page, after every other control and the line that says when to use it", async () => {
+      fakeReviewsEndpoints({ records: [dogaItem()], forItem: { [ITEM_ID]: [submitted(40)] } });
+      serveItem(dogaItem());
       renderScreen(<IntakeItemScreen id={ITEM_ID} />);
 
-      const hint = await screen.findByText("Delete this record only if it was logged by mistake. Its reviews and drafts go with it.");
-      const buttons = screen.getAllByRole("button");
+      const hint = await screen.findByText(DELETE_HINT);
       const remove = screen.getByRole("button", { name: "Delete" });
-      expect(buttons[buttons.length - 1]).toBe(remove);
-      expect(hint.compareDocumentPosition(remove) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      const printLink = screen.getByRole("link", { name: "Print the slip" });
+      const group = screen.getByRole("radiogroup", { name: "File it" });
+      const divider = screen.getByRole("separator");
+      const follows = (a: Element, b: Element) => !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+
+      expect(follows(printLink, group)).toBe(true);
+      expect(follows(group, divider)).toBe(true);
+      expect(follows(divider, hint)).toBe(true);
+      expect(follows(hint, remove)).toBe(true);
+      const focusable = Array.from(
+        document.body.querySelectorAll<HTMLElement>("a[href], button, input, select, textarea, [tabindex]:not([tabindex='-1'])"),
+      ).filter((el) => !el.closest("[hidden]"));
+      expect(focusable[focusable.length - 1]).toBe(remove);
+      for (const el of focusable) if (el !== remove) expect(follows(el, remove)).toBe(true);
     });
 
     const TITLE = "Delete Juana Molina — DOGA from the review shelf?";
@@ -1907,6 +1959,8 @@ describe("IntakeItemScreen", () => {
       else {
         await screen.findByText("Filed.");
         expect(screen.queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
+        expect(screen.queryByText(DELETE_HINT)).not.toBeInTheDocument();
+        expect(screen.queryByRole("separator")).not.toBeInTheDocument();
       }
     });
 
