@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Button, Typography } from "@mui/joy";
 import type { Review } from "@wxyc/shared";
+import { namedAuthor } from "@/lib/features/reviews/author";
 import { isReviewAccepted, useDeleteReviewMutation } from "@/lib/features/reviews/reviewApi";
 import ConfirmDialog from "../ConfirmDialog";
 import { REVIEW_COPY } from "./copy";
@@ -27,6 +28,7 @@ export default function DeleteReviewButton({ review, confirmation, blocked, disa
 }) {
   const [remove, { isLoading }] = useDeleteReviewMutation();
   const [confirming, setConfirming] = useState(false);
+  const author = namedAuthor(review);
 
   const confirm = async () => {
     onNotice(null);
@@ -48,7 +50,7 @@ export default function DeleteReviewButton({ review, confirmation, blocked, disa
         variant="outlined"
         disabled={blocked || disabled}
         onClick={() => setConfirming(true)}
-        aria-label={review.author?.trim() ? COPY.deleteReviewBy(review.author) : COPY.deleteReview}
+        aria-label={author ? COPY.deleteReviewBy(author) : COPY.deleteReview}
         sx={{ alignSelf: "flex-start" }}
       >
         {COPY.deleteReview}
