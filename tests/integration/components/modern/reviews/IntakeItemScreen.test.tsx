@@ -1994,22 +1994,19 @@ describe("IntakeItemScreen", () => {
   });
 
   describe("who each waiting review is from", () => {
-    const HELD_BY_SAM = heldBy("dj-sam", "DJ Sam");
-    const HELD_BY_JESS = heldBy("dj-jess", "Jessica Pratt");
-    const REMOVED_HOLDER = removedHolder;
 
     const waiting = (id: number, overrides = {}) => submitted(id, { author: "Jessica Pratt", author_user_id: "dj-jess", ...overrides });
     const otherReviews = async () => (await screen.findByRole("heading", { name: "Other reviews" })).closest("section")!;
 
     it.each([
-      ["the author is the DJ who has the record", HELD_BY_JESS, "From Jessica Pratt, who has this record."],
-      ["someone else wrote it and a DJ has the record", HELD_BY_SAM, "From Jessica Pratt. The record is with DJ Sam."],
+      ["the author is the DJ who has the record", heldBy("dj-jess", "Jessica Pratt"), "From Jessica Pratt, who has this record."],
+      ["someone else wrote it and a DJ has the record", heldBy("dj-sam", "DJ Sam"), "From Jessica Pratt. The record is with DJ Sam."],
       [
         "someone else wrote it and a request is open",
         { state: "requested", effective_state: "requested", ...requestedFor("dj-pat", "DJ Pat") },
         "From Jessica Pratt. The record is being held for DJ Pat.",
       ],
-      ["someone else wrote it and the holder's account was removed", REMOVED_HOLDER, "From Jessica Pratt. The record is checked out; holder removed."],
+      ["someone else wrote it and the holder's account was removed", removedHolder, "From Jessica Pratt. The record is checked out; holder removed."],
       [
         "someone else wrote it and the record is on the review shelf",
         { state: "pool", effective_state: "pool" },
@@ -2026,7 +2023,7 @@ describe("IntakeItemScreen", () => {
     });
 
     it("matches nobody when the review has no linked account", async () => {
-      fakeReviewsEndpoints({ records: [dogaItem(HELD_BY_JESS)], forItem: { [ITEM_ID]: [submitted(40), waiting(41, { author_user_id: null })] } });
+      fakeReviewsEndpoints({ records: [dogaItem(heldBy("dj-jess", "Jessica Pratt"))], forItem: { [ITEM_ID]: [submitted(40), waiting(41, { author_user_id: null })] } });
 
       renderScreen(<IntakeItemScreen id={ITEM_ID} />);
 
@@ -2045,7 +2042,7 @@ describe("IntakeItemScreen", () => {
 
     it("says nothing for a draft by another author on a record a DJ has, while a submitted review on the page gets its line", async () => {
       fakeReviewsEndpoints({
-        records: [dogaItem(HELD_BY_SAM)],
+        records: [dogaItem(heldBy("dj-sam", "DJ Sam"))],
         forItem: { [ITEM_ID]: [submitted(40), waiting(41), waiting(42, { status: "draft", author: "Nilüfer Yanya", author_user_id: "dj-nil" })] },
       });
 

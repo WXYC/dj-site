@@ -6,6 +6,7 @@ import { Authorization } from "@/lib/features/admin/types";
 import { reviewApi } from "@/lib/features/reviews/reviewApi";
 import {
   fakeReviewsEndpoints,
+  heldBy,
   holdResponse,
   intakeItem as item,
   pendingCount,
@@ -840,7 +841,7 @@ describe("ReviewsScreen", () => {
     expect(actual).toBe(approved);
   });
 
-  const HELD = item({ id: 2, state: "checked_out", effective_state: "checked_out", checked_out_by: ME });
+  const HELD = item({ id: 2, state: "checked_out", effective_state: "checked_out", ...heldBy(ME, "DJ Me", null) });
 
   it("starts a draft from a My checkouts row and opens it", async () => {
     serveIntake([HELD]);
