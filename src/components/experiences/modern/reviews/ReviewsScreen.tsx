@@ -54,7 +54,7 @@ const RACE_NOTICE: Record<Action, string> = {
   request: REVIEW_COPY.intake.raceRequest,
 };
 
-/** A review's row: the record as parts once it has landed, else the placeholder `DraftLabel` used to give, with the status, last-saved date and Open either way. */
+/** A review's row: the record as parts (artist, album, label) once it has landed. Until then, a library review shows `myReviews.libraryRelease` and a logged-record review shows nothing in its place. Either way the row carries the status, the last-saved date and Open. */
 function MyReviewRow({ review }: { review: Review }) {
   const record = useReviewRecord(review);
   const fromLibrary = review.intake_item_id == null && review.album_id != null;

@@ -1052,7 +1052,8 @@ describe("ReviewsScreen", () => {
     ["a library release", "submitted", true],
   ] as const)("names the record of %s review (%s) in parts, with its status chip and last-saved date", async (_kind, status, fromLibrary) => {
     const logged = item({ id: 9, artist_name: "Cat Power", album_title: "Moon Pix", record_label: "Matador", state: "filed", effective_state: "filed" });
-    const subject = fromLibrary ? { intake_item_id: null, album_id: 7 } : { intake_item_id: 9 };
+    // A filed logged record carries both ids: the backend sets album_id on its reviews when the item is filed.
+    const subject = fromLibrary ? { intake_item_id: null, album_id: 7 } : { intake_item_id: 9, album_id: 7 };
     fakeReviewsEndpoints({
       mine: [review({ id: 40, status, last_modified: "2025-10-08T18:00:00Z", ...subject })],
       records: [logged],
@@ -1071,6 +1072,34 @@ describe("ReviewsScreen", () => {
     expect(within(reviews).getByText(status === "draft" ? "Draft" : "Submitted")).toBeInTheDocument();
     expect(within(reviews).getByText("Last saved Oct 8, 2025")).toBeInTheDocument();
     expect(within(reviews).getByRole("link", { name: "Open" })).toHaveAttribute("href", "/dashboard/reviews/40");
+  });
+
+  it.each([
+    ["a logged record", "draft", false],
+    ["a logged record", "submitted", false],
+    ["a library release", "draft", true],
+    ["a library release", "submitted", true],
+  ] as const)("keeps the status chip, last-saved date and Open on the placeholder row of %s review (%s) until its record lands", async (_kind, status, fromLibrary) => {
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => (release = resolve));
+    const subject = fromLibrary ? { intake_item_id: null, album_id: 7 } : { intake_item_id: 404, album_id: 7 };
+    fakeReviewsEndpoints({ mine: [review({ id: 40, status, last_modified: "2025-10-08T18:00:00Z", ...subject })] });
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/library/info`, async () => {
+        await held;
+        return HttpResponse.json({ id: 7, artist_name: "Juana Molina", album_title: "DOGA", record_label: "Sonamos", format_name: "cd", legacy_release_id: 1 });
+      }),
+    );
+
+    renderWithProviders(<ReviewsScreen />);
+    const reviews = await section(REVIEW_COPY.myReviews.title);
+
+    expect(await within(reviews).findByText("Last saved Oct 8, 2025")).toBeInTheDocument();
+    expect(within(reviews).queryAllByText(REVIEW_COPY.myReviews.libraryRelease)).toHaveLength(fromLibrary ? 1 : 0);
+    expect(within(reviews).getByText(status === "draft" ? "Draft" : "Submitted")).toBeInTheDocument();
+    expect(within(reviews).getByRole("link", { name: "Open" })).toHaveAttribute("href", "/dashboard/reviews/40");
+    release();
+    if (fromLibrary) expect(await within(reviews).findByText("DOGA")).toBeInTheDocument();
   });
 
   it("shows a review of a logged record's format tag, read from the library's formats", async () => {
