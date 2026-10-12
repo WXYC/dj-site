@@ -54,7 +54,6 @@ const STATE_LABELS: Record<IntakeItem["effective_state"], string> = {
 /** A record whose review is already on the library entry: nothing is left to file. */
 const isFiledState = (state: IntakeItem["effective_state"]) => state === "filed" || state === "finalized";
 
-/** The music directors' page for one logged record: its reviews, and the filing bench. */
 /** The record form's starting values and the key it mounts under. */
 export type Recording = { start: RecordFormStart; key: number };
 
@@ -63,6 +62,7 @@ export function nextRecording(open: Recording | null, start: RecordFormStart): R
   return { start, key: (open?.key ?? 0) + 1 };
 }
 
+/** The music directors' page for one logged record: its reviews, and the filing bench. */
 export default function IntakeItemScreen({ id }: { id: number }) {
   const visible = useCanSeeReviews();
   // Which filing form is open, and which have been opened: a form once opened stays mounted (hidden) so switching keeps what was typed.
@@ -82,10 +82,9 @@ export default function IntakeItemScreen({ id }: { id: number }) {
   // The open form's starting values and its key, or null when closed. Every opening goes through openRecording, which gives the form a key unlike the open one's, so the form remounts with the new start.
   const [recording, setRecording] = useState<Recording | null>(null);
   const openRecording = (start: RecordFormStart) => setRecording((open) => nextRecording(open, start));
-  // True from a review write until the page's reread settles, so neither a review button nor the form's Save acts on the stale cover.
-  // Use this review and a ticked Record a review set it at the press; a Delete review and an unticked save set it once their write
-  // has succeeded. It clears when the reread settles, or, for a write that fails, after that failure's own reload (if it has one).
-  const [awaitingReread, setAwaitingReread] = useState(false);
+  // One count per review write in flight or rereading, so neither a review button nor the form's Save acts on the stale cover.
+  // `movers` counts the writes that move the cover (Use this review, a ticked Record a review). Each write takes a handle from `hold` and releases it exactly once.
+  const [holds, setHolds] = useState({ all: 0, movers: 0 });
 
   const coverId = item.data?.accepted_review_id ?? null;
   const ownCover = reviews.data?.find((r) => r.id === coverId);
@@ -101,11 +100,23 @@ export default function IntakeItemScreen({ id }: { id: number }) {
 
   const reload = useItemPageReload(id, coverById);
   const mounted = useMounted();
-  const reviewWritten = async () => {
-    setAwaitingReread(true);
-    await reload();
-    if (mounted.current) setAwaitingReread(false);
+  const hold = (movesCover: boolean) => {
+    const mover = movesCover ? 1 : 0;
+    let released = false;
+    setHolds((h) => ({ all: h.all + 1, movers: h.movers + mover }));
+    return () => {
+      if (released) return;
+      released = true;
+      setHolds((h) => ({ all: h.all - 1, movers: h.movers - mover }));
+    };
   };
+  // Rereads, then releases the write's handle; a write that took none (Delete review) takes and releases its own.
+  const reviewWritten = async (release: () => void = hold(false)) => {
+    await reload();
+    release();
+  };
+  const awaitingReread = holds.all > 0;
+  const movingCover = holds.movers > 0;
 
   if (!visible) return null;
   if (deletedLine !== null) return <Typography role="status">{deletedLine}</Typography>;
@@ -148,7 +159,7 @@ export default function IntakeItemScreen({ id }: { id: number }) {
     return (
       <>
         {line && <Typography level="body-sm">{line}</Typography>}
-        {submittedHere && <UseThisReviewButton itemId={id} review={review} replacing={coverId != null || awaitingReread} disabled={awaitingReread} reload={reload} onPending={setAwaitingReread} onWritten={reviewWritten} onNotice={setNotice} />}
+        {submittedHere && <UseThisReviewButton itemId={id} review={review} replacing={coverId != null || movingCover} disabled={awaitingReread} reload={reload} onHold={hold} onWritten={reviewWritten} onNotice={setNotice} />}
         {deleteControl(review)}
       </>
     );
@@ -237,9 +248,9 @@ export default function IntakeItemScreen({ id }: { id: number }) {
           key={recording.key}
           start={recording.start}
           itemId={id}
-          hasCover={coverId != null || awaitingReread}
+          hasCover={coverId != null || movingCover}
           disabled={awaitingReread}
-          onPending={setAwaitingReread}
+          onHold={hold}
           onWritten={reviewWritten}
           onNotice={setNotice}
           onClose={() => setRecording(null)}

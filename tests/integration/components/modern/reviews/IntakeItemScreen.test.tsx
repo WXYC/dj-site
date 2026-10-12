@@ -82,6 +82,8 @@ const submitted = (id: number, overrides = {}) =>
 const draft = (id: number, overrides = {}) => submitted(id, { status: "draft", ...overrides });
 
 const FILED_ITEM_PATH = `${TEST_BACKEND_URL}/intake/${ITEM_ID}`;
+/** Every Use this review and Delete review button on the page. */
+const guarded = () => [...screen.queryAllByRole("button", { name: /^Use this review/ }), ...screen.queryAllByRole("button", { name: /^Delete review by/ })];
 
 /** Serves the item through a mutable box, so a spec can change the answer between reads, or hold a read in flight. */
 function serveItem(initial: ReturnType<typeof dogaItem>) {
@@ -1079,7 +1081,6 @@ describe("IntakeItemScreen", () => {
       await user.click(first);
 
       await waitFor(() => expect(write.calls.count).toBe(1));
-      const guarded = () => [...screen.getAllByRole("button", { name: /^Use this review/ }), ...screen.getAllByRole("button", { name: /^Delete review by/ })];
       expect(guarded()).toHaveLength(4);
       guarded().forEach((b) => expect(b).toBeDisabled());
 
@@ -1100,7 +1101,6 @@ describe("IntakeItemScreen", () => {
       await user.click(first);
 
       await waitFor(() => expect(reload.calls.count).toBe(1));
-      const guarded = () => [...screen.getAllByRole("button", { name: /^Use this review/ }), ...screen.getAllByRole("button", { name: /^Delete review by/ })];
       expect(guarded()).toHaveLength(4);
       guarded().forEach((b) => expect(b).toBeDisabled());
 
@@ -2351,7 +2351,7 @@ describe("IntakeItemScreen", () => {
         });
       const renderForm = (start: ReturnType<typeof archived>) =>
         renderScreen(
-          <RecordReviewForm itemId={ITEM_ID} hasCover={false} start={start} disabled={false} onPending={vi.fn()} onWritten={async () => {}} onNotice={vi.fn()} onClose={vi.fn()} />,
+          <RecordReviewForm itemId={ITEM_ID} hasCover={false} start={start} disabled={false} onHold={() => () => {}} onWritten={async () => {}} onNotice={vi.fn()} onClose={vi.fn()} />,
         );
 
       it("from a form review shows the copied text and author and both lines, and saves through the ticked path", async () => {
@@ -2750,7 +2750,6 @@ describe("IntakeItemScreen", () => {
       expect(creates).toHaveLength(1);
       // Save stays out of reach while the reread is held, so a second press cannot record the review twice.
       fireEvent.click(screen.getByRole("button", { name: "Save" }));
-      const guarded = () => [...screen.queryAllByRole("button", { name: /^Use this review/ }), ...screen.queryAllByRole("button", { name: /^Delete review by/ })];
       expect(guarded().length).toBeGreaterThan(0);
       guarded().forEach((button) => expect(button).toBeDisabled());
 
@@ -2762,7 +2761,6 @@ describe("IntakeItemScreen", () => {
       expect(creates).toHaveLength(1);
     });
 
-    const guarded = () => [...screen.queryAllByRole("button", { name: /^Use this review/ }), ...screen.queryAllByRole("button", { name: /^Delete review by/ })];
 
     it("disables every Use this review and Delete review while the ticked create is in flight, and enables them when it fails", async () => {
       setUp(dogaItem(NOTHING_ON_COVER), [submitted(41), submitted(42)]);
@@ -2862,6 +2860,102 @@ describe("IntakeItemScreen", () => {
       reread.release();
       await reread.answered;
       await reviewsSettled(store);
+    });
+
+    describe("the page's hold, counted per write", () => {
+      const NEW = { author: "Sessa" };
+      const ACCEPT = `${TEST_BACKEND_URL}/intake/${ITEM_ID}/accept-review`;
+      const fillAndTick = async (user: User, unticked: boolean) => {
+        await open(user);
+        await fillAuthor(user, NEW.author);
+        await writeReview(user, "Warm.");
+        if (unticked) await user.click(screen.getByRole("checkbox", { name: REVIEW_COPY.record.useAsCover }));
+      };
+      const useButtons = () => screen.queryAllByRole("button", { name: /^Use this review/ });
+
+      it("holds every review button, worded as no replacement, while an unticked save's create is in flight", async () => {
+        setUp(dogaItem(NOTHING_ON_COVER), [submitted(41), submitted(42)]);
+        const write = holdResponse("post", SAVE_URL, () => HttpResponse.json({ message: "boom" }, { status: 500 }));
+        const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+        await fillAndTick(user, true);
+        await reviewsSettled(store);
+
+        await save(user);
+
+        await waitFor(() => expect(write.calls.count).toBe(1));
+        expect(guarded()).toHaveLength(4);
+        guarded().forEach((b) => expect(b).toBeDisabled());
+        expect(useButtons().map((b) => b.textContent)).toEqual(["Use this review", "Use this review"]);
+
+        write.release();
+        await write.answered;
+        await waitFor(() => guarded().forEach((b) => expect(b).toBeEnabled()));
+      });
+
+      // A Delete review that succeeds takes its own handle; a Use this review pressed before it is a second write on the page at once.
+      const overlap = async (acceptRespond: () => Response) => {
+        setUp(dogaItem(NOTHING_ON_COVER), [submitted(41), submitted(42, { author: "Cat Power" })]);
+        server.use(http.delete(`${TEST_BACKEND_URL}/reviews/:id`, () => new HttpResponse(null, { status: 204 })));
+        const accept = holdResponse("post", ACCEPT, acceptRespond);
+        const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+        const [first] = await screen.findAllByRole("button", { name: "Use this review" });
+        await reviewsSettled(store);
+        await user.click(screen.getByRole("button", { name: "Delete review by Cat Power" }));
+        const dialog = within(await screen.findByRole("alertdialog"));
+        const reread = holdResponse("get", FILED_ITEM_PATH, () => HttpResponse.json({ ...dogaItem(NOTHING_ON_COVER) }));
+        fireEvent.click(first);
+        await waitFor(() => expect(accept.calls.count).toBe(1));
+        await user.click(dialog.getByRole("button", { name: "Delete" }));
+        await waitFor(() => expect(reread.calls.count).toBeGreaterThan(0));
+        return { accept, reread, store };
+      };
+
+      it("keeps the page held through a failed accept until another write's reread settles", async () => {
+        const { accept, reread } = await overlap(() => HttpResponse.json({ message: "boom" }, { status: 500 }));
+
+        accept.release();
+        await accept.answered;
+        expect((await screen.findByRole("status")).textContent).toBe("Couldn't do that. Please try again.");
+        useButtons().forEach((b) => expect(b).toBeDisabled());
+
+        reread.release();
+        await reread.answered;
+        await waitFor(() => guarded().forEach((b) => expect(b).toBeEnabled()));
+      });
+
+      it("keeps the page held through another write's reread until an accept in flight has settled", async () => {
+        const { accept, reread } = await overlap(() => HttpResponse.json({ ...dogaItem({ accepted_review_id: 41 }) }));
+
+        reread.release();
+        await reread.answered;
+        await renderedFrame();
+        expect(useButtons().length).toBeGreaterThan(0);
+        useButtons().forEach((b) => expect(b).toBeDisabled());
+
+        accept.release();
+        await accept.answered;
+        await waitFor(() => guarded().forEach((b) => expect(b).toBeEnabled()));
+      });
+
+      it("releases a ticked save's hold when its create fails after the form has closed", async () => {
+        setUp(dogaItem(NOTHING_ON_COVER), [submitted(41), submitted(42)]);
+        const write = holdResponse("post", SAVE_URL, () => HttpResponse.json({ message: "boom" }, { status: 500 }));
+        const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+        await fillAndTick(user, false);
+        await reviewsSettled(store);
+        await save(user);
+        await waitFor(() => expect(write.calls.count).toBe(1));
+        guarded().forEach((b) => expect(b).toBeDisabled());
+
+        await user.click(screen.getByRole("button", { name: "Record a review" }));
+        expect(screen.queryByRole("textbox", { name: "Author" })).not.toBeInTheDocument();
+        write.release();
+        await write.answered;
+
+        await waitFor(() => guarded().forEach((b) => expect(b).toBeEnabled()));
+        await open(user);
+        expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
+      });
     });
   });
 });
