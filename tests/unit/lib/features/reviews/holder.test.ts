@@ -1,13 +1,13 @@
 import { describe, it, expect } from "vitest";
 import type { IntakeItem } from "@wxyc/shared";
 import { itemHolder, type Holder } from "@/lib/features/reviews/holder";
-import { intakeItem } from "@/tests/fakes/reviews";
+import { heldBy, intakeItem, removedHolder, requestedFor } from "@/tests/fakes/reviews";
 
 const NONE: Holder = { kind: "none" };
 const REMOVED: Holder = { kind: "removed" };
-const CHECKED_OUT = { checked_out_by: "dj-sam", checked_out_by_name: "DJ Sam", checked_out_at: "2026-09-20T12:00:00Z" };
-const REMOVED_ACCOUNT = { checked_out_by: null, checked_out_by_name: null, checked_out_at: "2026-09-20T12:00:00Z" };
-const REQUESTED = { requested_dj_id: "dj-pat", requested_dj_name: "DJ Pat", requested_at: "2026-09-25T12:00:00Z" };
+const CHECKED_OUT = heldBy("dj-sam", "DJ Sam");
+const REMOVED_ACCOUNT = removedHolder;
+const REQUESTED = requestedFor("dj-pat", "DJ Pat");
 
 describe("itemHolder", () => {
   it.each<[string, Partial<IntakeItem>, Holder]>([

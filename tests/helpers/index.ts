@@ -28,7 +28,7 @@ export { pendingCount, renderedFrame, reviewsSettled } from "./reviews-settled";
 export { refetchesAfter } from "./refetches";
 export { handlers } from "../fakes/handlers";
 export { libraryTracksHandler, ONE_TRACK } from "../fakes/libraryTracks";
-export { fakeReviewsEndpoints, fccNote, intakeItem, intakeSlip, review, reviewRevision } from "../fakes/reviews";
+export { fakeReviewsEndpoints, fccNote, heldBy, intakeItem, intakeSlip, removedHolder, requestedFor, returned, review, reviewRevision } from "../fakes/reviews";
 export {
   fakeRotationEndpoints,
   fakeRotationEndpointsWithGatedKill,

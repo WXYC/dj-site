@@ -1,14 +1,14 @@
 import { describe, it, expect } from "vitest";
 import type { IntakeItem, Review } from "@wxyc/shared";
 import { fromLine } from "@/src/components/experiences/modern/reviews/ReviewFrom";
-import { intakeItem, review } from "@/tests/fakes/reviews";
+import { heldBy, intakeItem, removedHolder, requestedFor, review } from "@/tests/fakes/reviews";
 
-const HELD_BY_JESS = { effective_state: "checked_out", checked_out_by: "dj-jess", checked_out_by_name: "Jessica Pratt", checked_out_at: "2026-09-20T12:00:00Z" } as const;
-const HELD_BY_SAM = { effective_state: "checked_out", checked_out_by: "dj-sam", checked_out_by_name: "DJ Sam", checked_out_at: "2026-09-20T12:00:00Z" } as const;
-const REMOVED_HOLDER = { effective_state: "checked_out", checked_out_by: null, checked_out_by_name: null, checked_out_at: "2026-09-20T12:00:00Z" } as const;
-const REQUESTED_BY_PAT = { effective_state: "requested", requested_dj_id: "dj-pat", requested_dj_name: "DJ Pat", requested_at: "2026-09-25T12:00:00Z" } as const;
+const HELD_BY_JESS = { effective_state: "checked_out" as const, ...heldBy("dj-jess", "Jessica Pratt") };
+const HELD_BY_SAM = { effective_state: "checked_out" as const, ...heldBy("dj-sam", "DJ Sam") };
+const REMOVED_HOLDER = { effective_state: "checked_out" as const, ...removedHolder };
+const REQUESTED_BY_PAT = { effective_state: "requested" as const, ...requestedFor("dj-pat", "DJ Pat") };
 // A live request that names who it is held for but carries no account id.
-const REQUESTED_NO_ACCOUNT = { effective_state: "requested", requested_dj_name: "DJ Pat" } as const;
+const REQUESTED_NO_ACCOUNT = { effective_state: "requested" as const, ...requestedFor(null, "DJ Pat") };
 
 const FROM_JESS: Partial<Review> = { author: "Jessica Pratt", author_user_id: "dj-jess" };
 
