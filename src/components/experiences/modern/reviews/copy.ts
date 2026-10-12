@@ -431,6 +431,10 @@ export const REVIEW_COPY = {
     submitted: "Submitted",
     open: "Open",
     libraryRelease: "A library release",
+    /** Approved. The tag on a review of a library release. */
+    fromTheLibrary: "from the library",
+    /** Approved. Followed by the review's last-modified date. */
+    lastSaved: "Last saved",
   },
   albumPanel: {
     /** Approved. */

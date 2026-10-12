@@ -1016,8 +1016,10 @@ describe("ReviewsScreen", () => {
     renderWithProviders(<ReviewsScreen />);
     const reviews = await section(REVIEW_COPY.myReviews.title);
 
-    expect(await within(reviews).findByText("Cat Power · Moon Pix · Matador · CD")).toBeInTheDocument();
-    expect(await within(reviews).findByText("Juana Molina · DOGA · Sonamos · CD")).toBeInTheDocument();
+    expect(await within(reviews).findByText("Cat Power")).toBeInTheDocument();
+    expect(await within(reviews).findByText("Moon Pix")).toBeInTheDocument();
+    expect(await within(reviews).findByText("Juana Molina")).toBeInTheDocument();
+    expect(await within(reviews).findByText("DOGA")).toBeInTheDocument();
     // A record whose read has not landed (here, never) is not mislabeled as a library release.
     expect(within(reviews).queryByText(REVIEW_COPY.myReviews.libraryRelease)).not.toBeInTheDocument();
     expect(within(reviews).getAllByRole("link")).toHaveLength(3);
@@ -1039,8 +1041,45 @@ describe("ReviewsScreen", () => {
 
     expect(await within(reviews).findByText(REVIEW_COPY.myReviews.libraryRelease)).toBeInTheDocument();
     release();
-    expect(await within(reviews).findByText("Juana Molina · DOGA · Sonamos · CD")).toBeInTheDocument();
+    expect(await within(reviews).findByText("DOGA")).toBeInTheDocument();
     expect(within(reviews).queryByText(REVIEW_COPY.myReviews.libraryRelease)).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ["a logged record", "draft", false],
+    ["a logged record", "submitted", false],
+    ["a library release", "draft", true],
+    ["a library release", "submitted", true],
+  ] as const)("names the record of %s review (%s) in parts, with its status chip and last-saved date", async (_kind, status, fromLibrary) => {
+    const logged = item({ id: 9, artist_name: "Cat Power", album_title: "Moon Pix", record_label: "Matador", state: "filed", effective_state: "filed" });
+    const subject = fromLibrary ? { intake_item_id: null, album_id: 7 } : { intake_item_id: 9 };
+    fakeReviewsEndpoints({
+      mine: [review({ id: 40, status, last_modified: "2025-10-08T18:00:00Z", ...subject })],
+      records: [logged],
+      releases: [{ id: 7, artist_name: "Juana Molina", album_title: "DOGA", record_label: "Sonamos", format_name: "cd", legacy_release_id: 1 }],
+    });
+
+    renderWithProviders(<ReviewsScreen />);
+    const reviews = await section(REVIEW_COPY.myReviews.title);
+    const [artist, album, label] = fromLibrary ? ["Juana Molina", "DOGA", "Sonamos"] : ["Cat Power", "Moon Pix", "Matador"];
+
+    expect(await within(reviews).findByText(artist)).toBeInTheDocument();
+    expect(within(reviews).getByText(album)).toBeInTheDocument();
+    expect(within(reviews).getByText(label)).toBeInTheDocument();
+    expect(reviews.textContent).not.toContain("·");
+    expect(within(reviews).queryAllByText("from the library")).toHaveLength(fromLibrary ? 1 : 0);
+    expect(within(reviews).getByText(status === "draft" ? "Draft" : "Submitted")).toBeInTheDocument();
+    expect(within(reviews).getByText("Last saved Oct 8, 2025")).toBeInTheDocument();
+    expect(within(reviews).getByRole("link", { name: "Open" })).toHaveAttribute("href", "/dashboard/reviews/40");
+  });
+
+  it("shows a review of a logged record's format tag, read from the library's formats", async () => {
+    const logged = item({ id: 9, artist_name: "Cat Power", album_title: "Moon Pix", record_label: "Matador", format_id: 2, state: "filed", effective_state: "filed" });
+    fakeReviewsEndpoints({ mine: [review({ id: 40, intake_item_id: 9 })], records: [logged], formats: [{ id: 2, format_name: "vinyl" }] });
+
+    renderWithProviders(<ReviewsScreen />);
+
+    expect(await within(await section(REVIEW_COPY.myReviews.title)).findByText("Vinyl")).toBeInTheDocument();
   });
 
   it("says my reviews are empty in so many words, and shows the load-failure line when that read fails", async () => {
