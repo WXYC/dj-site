@@ -29,3 +29,12 @@ describe("REVIEW_COPY.intakeItem filing onto a record the library has", () => {
     expect(actual).toBe(expected);
   });
 });
+
+describe("REVIEW_COPY.myReviews row", () => {
+  it.each([
+    ["fromTheLibrary", REVIEW_COPY.myReviews.fromTheLibrary, "from the library"],
+    ["lastSaved", REVIEW_COPY.myReviews.lastSaved, "Last saved"],
+  ])("pins %s", (_key, actual, expected) => {
+    expect(actual).toBe(expected);
+  });
+});

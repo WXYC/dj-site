@@ -54,10 +54,26 @@ const RACE_NOTICE: Record<Action, string> = {
   request: REVIEW_COPY.intake.raceRequest,
 };
 
-function DraftLabel({ review, formats }: { review: Review; formats: { id: number; format_name: string }[] | undefined }) {
+/** A review's row: the record as parts once it has landed, else the placeholder `DraftLabel` used to give, with the status, last-saved date and Open either way. */
+function MyReviewRow({ review }: { review: Review }) {
   const record = useReviewRecord(review);
-  if (!record) return review.intake_item_id == null ? REVIEW_COPY.myReviews.libraryRelease : null;
-  return recordLine(record, formats);
+  const fromLibrary = review.intake_item_id == null && review.album_id != null;
+  const meta = (
+    <>
+      {fromLibrary && <Chip size="sm" variant="outlined">{REVIEW_COPY.myReviews.fromTheLibrary}</Chip>}
+      <Chip size="sm">{review.status === "draft" ? REVIEW_COPY.myReviews.draft : REVIEW_COPY.myReviews.submitted}</Chip>
+      <Typography level="body-sm">{`${REVIEW_COPY.myReviews.lastSaved} ${day(review.last_modified)}`}</Typography>
+    </>
+  );
+  const open = <Link href={`/dashboard/reviews/${review.id}`}>{REVIEW_COPY.myReviews.open}</Link>;
+  if (record) return <RecordRow record={record} meta={<Stack direction="row" spacing={1} alignItems="center">{meta}</Stack>} actions={open} />;
+  return (
+    <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+      {review.intake_item_id == null && <Typography>{REVIEW_COPY.myReviews.libraryRelease}</Typography>}
+      {meta}
+      {open}
+    </Stack>
+  );
 }
 
 // One argument per list, shared by its hook and the post-write reload so the
@@ -191,12 +207,7 @@ export default function ReviewsScreen() {
           )}
         </>
       )} />
-      <IntakeLane title={REVIEW_COPY.myReviews.title} rows={myReviews} empty={REVIEW_COPY.myReviews.empty} label={(r) => <Typography><DraftLabel review={r} formats={formats} /></Typography>} extra={(r) => (
-        <>
-          <Typography level="body-sm">{r.status === "draft" ? REVIEW_COPY.myReviews.draft : REVIEW_COPY.myReviews.submitted}</Typography>
-          <Link href={`/dashboard/reviews/${r.id}`}>{REVIEW_COPY.myReviews.open}</Link>
-        </>
-      )} />
+      <IntakeLane title={REVIEW_COPY.myReviews.title} rows={myReviews} empty={REVIEW_COPY.myReviews.empty} row={(r) => <MyReviewRow review={r} />} />
       <ConfirmDialog
         open={returning !== null}
         onClose={() => setReturning(null)}
