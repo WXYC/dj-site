@@ -647,10 +647,13 @@ describe("ReviewEditor", () => {
 
       const fcc = await screen.findByRole("region", { name: "FCC notes" });
       const wrapper = fcc.parentElement!;
-      expect(rulesOf(wrapper).container[TWO_COLUMN_QUERY]).toMatch(/overflow-wrap:\s*anywhere/);
+      // jsdom applies no @container rule, so computed style cannot pin this either way: read the rules by at-rule.
+      const wrapperRules = rulesOf(wrapper);
+      expect(wrapperRules.container[TWO_COLUMN_QUERY]).toMatch(/overflow-wrap:\s*anywhere/);
+      expect(wrapperRules.base).not.toMatch(/overflow-wrap/);
       const section = screen.getByRole("region", { name: REVIEW_COPY.slip.heading });
-      expect(getComputedStyle(section).overflowWrap).toBe("normal");
-      expect(getComputedStyle(screen.getByRole("group", { name: REVIEW_COPY.slip.name })).overflowWrap).toBe("normal");
+      const slipRules = rulesOf(section, screen.getByRole("group", { name: REVIEW_COPY.slip.name }));
+      expect([slipRules.base, ...Object.values(slipRules.media), ...Object.values(slipRules.container)].join("\n")).not.toMatch(/overflow-wrap/);
     });
 
     it("sizes the slip column from its content, so a scrollbar's gutter and the shadow's padding sit outside a slip that stays 4.25in", async () => {
@@ -724,11 +727,11 @@ describe("ReviewEditor", () => {
 
       const bar = (await screen.findByRole("button", { name: REVIEW_COPY.submit })).parentElement!;
       expect(APPBAR_CLEARANCE_PX).toBe(APPBAR_OFFSET_PX + APPBAR_HEIGHT_PX);
-      // jsdom applies the md rule to computed style, so the clearance can only be read from the rules by at-rule: Joy's xs is `min-width: 0`, md is 900px.
-      const { media } = rulesOf(bar);
+      // jsdom applies no @media rule to computed style (the base value wins at any width), so the clearance can only be read from the rules by at-rule: Joy's xs is `min-width: 0`, md is 900px.
+      const { base, media } = rulesOf(bar);
       expect(media["(min-width:0px)"]).toMatch(new RegExp(`padding-bottom:\\s*${APPBAR_CLEARANCE_PX}px`));
       expect(media["(min-width:900px)"]).toMatch(/padding-bottom:\s*8px/);
-      expect(Object.values(media).join("\n")).not.toMatch(/padding-right:\s*(?!0)/);
+      expect([base, ...Object.values(media)].join("\n")).not.toMatch(/padding-right:\s*(?!0)/);
       expect(media["(min-width:900px)"]).not.toContain(`${APPBAR_CLEARANCE_PX}px`);
     });
   });
