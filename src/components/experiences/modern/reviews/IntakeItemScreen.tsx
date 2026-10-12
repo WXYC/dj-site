@@ -73,8 +73,10 @@ export default function IntakeItemScreen({ id }: { id: number }) {
   const [recording, setRecording] = useState(false);
   // Set from a successful review write until the page's reload settles, so no review button acts on the stale cover.
   const [awaitingReread, setAwaitingReread] = useState(false);
+  // The cover a write chose when its reread failed, kept until a reread succeeds: RTK Query keeps the stale item.
+  const [writtenCover, setWrittenCover] = useState<number | null>(null);
 
-  const coverId = item.data?.accepted_review_id ?? null;
+  const coverId = writtenCover ?? item.data?.accepted_review_id ?? null;
   const ownCover = reviews.data?.find((r) => r.id === coverId);
   // The review on the cover can be one of a cited or filed release, which the item's own list lacks.
   // Decided once: the query below reads it and the reload refreshes it, so the two cannot drift.
@@ -88,10 +90,12 @@ export default function IntakeItemScreen({ id }: { id: number }) {
 
   const reload = useItemPageReload(id, coverById);
   const mounted = useMounted();
-  const reviewWritten = async () => {
+  const reviewWritten = async (cover?: number) => {
     setAwaitingReread(true);
-    await reload();
-    if (mounted.current) setAwaitingReread(false);
+    const { item: reread } = await reload();
+    if (!mounted.current) return;
+    setWrittenCover(reread ? null : (cover ?? null));
+    setAwaitingReread(false);
   };
 
   if (!visible) return null;
@@ -135,7 +139,7 @@ export default function IntakeItemScreen({ id }: { id: number }) {
     return (
       <>
         {line && <Typography level="body-sm">{line}</Typography>}
-        {submittedHere && <UseThisReviewButton itemId={id} review={review} replacing={coverId != null || awaitingReread} disabled={awaitingReread} reload={reload} onWritten={reviewWritten} onNotice={setNotice} />}
+        {submittedHere && <UseThisReviewButton itemId={id} review={review} replacing={coverId != null || awaitingReread} disabled={awaitingReread} reload={reload} onPending={setAwaitingReread} onWritten={reviewWritten} onNotice={setNotice} />}
         {deleteControl(review)}
       </>
     );
@@ -222,7 +226,9 @@ export default function IntakeItemScreen({ id }: { id: number }) {
       {recording && (
         <RecordReviewForm
           itemId={id}
-          hasCover={coverId != null}
+          hasCover={coverId != null || awaitingReread}
+          disabled={awaitingReread}
+          onPending={setAwaitingReread}
           onWritten={reviewWritten}
           onNotice={setNotice}
           onClose={() => setRecording(false)}

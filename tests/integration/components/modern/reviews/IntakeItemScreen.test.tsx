@@ -1044,17 +1044,64 @@ describe("IntakeItemScreen", () => {
     });
 
     it("leaves the button pressable once the reread settles when the reread fails", async () => {
-      const box = setUp();
+      const box = setUp(dogaItem(NOTHING_ON_COVER), [submitted(41), submitted(42)]);
       const posts = recordPosts(box);
       const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
-      const button = await screen.findByRole("button", { name: "Use this review" });
+      const [button] = await screen.findAllByRole("button", { name: "Use this review" });
       await reviewsSettled(store);
-      box.fail = true;
+      const reread = holdResponse("get", FILED_ITEM_PATH, () => HttpResponse.json({ message: "boom" }, { status: 500 }));
 
       await user.click(button);
 
-      await waitFor(() => expect(posts).toHaveLength(1));
-      await waitFor(() => expect(screen.getByRole("button", { name: /^Use this review/ })).toBeEnabled());
+      await waitFor(() => expect(reread.calls.count).toBe(1));
+      expect(posts).toHaveLength(1);
+      expect(screen.getAllByRole("button", { name: /^Use this review/ }).length).toBeGreaterThan(0);
+      screen.getAllByRole("button", { name: /^Use this review/ }).forEach((b) => expect(b).toBeDisabled());
+
+      reread.release();
+      await reread.answered;
+      await waitFor(() => screen.getAllByRole("button", { name: /^Use this review/ }).forEach((b) => expect(b).toBeEnabled()));
+    });
+
+    it("disables the other review's Use this review and every Delete review while the write is in flight, and enables them when it fails", async () => {
+      setUp(dogaItem(NOTHING_ON_COVER), [submitted(41), submitted(42)]);
+      const write = holdResponse("post", ACCEPT_URL, () => HttpResponse.json({ message: "boom" }, { status: 500 }));
+      const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+      const [first] = await screen.findAllByRole("button", { name: "Use this review" });
+      await reviewsSettled(store);
+
+      await user.click(first);
+
+      await waitFor(() => expect(write.calls.count).toBe(1));
+      const guarded = () => [...screen.getAllByRole("button", { name: /^Use this review/ }), ...screen.getAllByRole("button", { name: /^Delete review by/ })];
+      expect(guarded()).toHaveLength(4);
+      guarded().forEach((b) => expect(b).toBeDisabled());
+
+      write.release();
+      await write.answered;
+      expect((await screen.findByRole("status")).textContent).toBe("Couldn't do that. Please try again.");
+      await waitFor(() => guarded().forEach((b) => expect(b).toBeEnabled()));
+    });
+
+    it("keeps the chosen review on the cover when the reread fails: the other button asks to replace, and the chosen review's Delete review asks the cover question", async () => {
+      const box = setUp(dogaItem(NOTHING_ON_COVER), [submitted(41, { author: "Cat Power" }), submitted(42, { author: "Stereolab" })]);
+      recordPosts(box);
+      const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+      const [first] = await screen.findAllByRole("button", { name: "Use this review" });
+      await reviewsSettled(store);
+      box.fail = true;
+
+      await user.click(first);
+
+      const other = await screen.findByRole("button", { name: "Use this review instead" });
+      await waitFor(() => expect(other).toBeEnabled());
+      await user.click(other);
+      expect(within(await screen.findByRole("alertdialog")).getByText(REVIEW_COPY.intakeItem.replaceCover)).toBeInTheDocument();
+      await user.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Cancel" }));
+      await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
+
+      await user.click(screen.getByRole("button", { name: "Delete review by Stereolab" }));
+      expect(within(await screen.findByRole("alertdialog")).getByText(REVIEW_COPY.intakeItem.deleteCoverShelf)).toBeInTheDocument();
     });
 
     it("words every review's button as a replacement, and disables it, while the reread is outstanding", async () => {
@@ -2621,6 +2668,74 @@ describe("IntakeItemScreen", () => {
       await waitFor(() => guarded().forEach((button) => expect(button).toBeEnabled()));
       expect(guarded().length).toBeGreaterThan(0);
       expect(creates).toHaveLength(1);
+    });
+
+    const guarded = () => [...screen.queryAllByRole("button", { name: /^Use this review/ }), ...screen.queryAllByRole("button", { name: /^Delete review by/ })];
+
+    it("disables every Use this review and Delete review while the ticked create is in flight, and enables them when it fails", async () => {
+      setUp(dogaItem(NOTHING_ON_COVER), [submitted(41), submitted(42)]);
+      const write = holdResponse("post", SAVE_URL, () => HttpResponse.json({ message: "boom" }, { status: 500 }));
+      const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+      await open(user);
+      await fillAuthor(user, "Sessa");
+      await writeReview(user, "Warm.");
+      await reviewsSettled(store);
+
+      await save(user);
+
+      await waitFor(() => expect(write.calls.count).toBe(1));
+      expect(guarded()).toHaveLength(4);
+      guarded().forEach((b) => expect(b).toBeDisabled());
+
+      write.release();
+      await write.answered;
+      expect((await screen.findByRole("alert")).textContent).toBe(REVIEW_COPY.record.couldNotRecord);
+      await waitFor(() => guarded().forEach((b) => expect(b).toBeEnabled()));
+    });
+
+    it("disables Save and says the save replaces the cover while another write's reread is outstanding", async () => {
+      const { box } = setUp(dogaItem(NOTHING_ON_COVER), [submitted(41)]);
+      server.use(
+        http.post(`${TEST_BACKEND_URL}/intake/${ITEM_ID}/accept-review`, () => {
+          box.item = { ...box.item, accepted_review_id: 41 };
+          return HttpResponse.json(box.item);
+        }),
+      );
+      const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+      await open(user);
+      expect(screen.getByText(REVIEW_COPY.record.coverNone)).toBeInTheDocument();
+      const choose = await screen.findByRole("button", { name: "Use this review" });
+      await reviewsSettled(store);
+      const reread = holdResponse("get", FILED_ITEM_PATH, () => HttpResponse.json(box.item));
+
+      await user.click(choose);
+
+      await waitFor(() => expect(reread.calls.count).toBe(1));
+      expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+      expect(screen.getByText(REVIEW_COPY.record.coverReplaces)).toBeInTheDocument();
+
+      reread.release();
+      await reread.answered;
+      await reviewsSettled(store);
+      await waitFor(() => expect(screen.getByRole("button", { name: "Save" })).toBeEnabled());
+    });
+
+    it("keeps the recorded review on the cover when the reread fails, so another button asks to replace", async () => {
+      const { box } = setUp(dogaItem(NOTHING_ON_COVER), [submitted(41)]);
+      const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+      await open(user);
+      await fillAuthor(user, "Sessa");
+      await writeReview(user, "Warm.");
+      await screen.findByRole("button", { name: "Use this review" });
+      await reviewsSettled(store);
+      box.fail = true;
+
+      await save(user);
+
+      const other = await screen.findByRole("button", { name: "Use this review instead" });
+      await waitFor(() => expect(other).toBeEnabled());
+      await user.click(other);
+      expect(within(await screen.findByRole("alertdialog")).getByText(REVIEW_COPY.intakeItem.replaceCover)).toBeInTheDocument();
     });
   });
 });

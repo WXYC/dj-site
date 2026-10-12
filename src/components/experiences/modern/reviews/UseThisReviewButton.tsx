@@ -14,16 +14,18 @@ const COPY = REVIEW_COPY.intakeItem;
  * cover (`replacing`), and says nothing of its own on success: the review moving up is the confirmation.
  * Once the write succeeds the confirmation closes and `onWritten` hands the page the reread; the page
  * disables the button (`disabled`) until that reread settles, so a press in that window cannot send the write twice.
- * `reload` is the page's reload (`useItemPageReload`), which also tells whether the page is still mounted;
+ * `onPending` tells the page a write is in flight (true at the press, false once it fails), so no other
+ * review button acts on the stale cover meanwhile. `reload` is the page's reload (`useItemPageReload`), which also tells whether the page is still mounted;
  * the line goes out through `onNotice`, so it survives this button leaving the page with a deleted review.
  */
-export default function UseThisReviewButton({ itemId, review, replacing, disabled, reload, onWritten, onNotice }: {
+export default function UseThisReviewButton({ itemId, review, replacing, disabled, reload, onPending, onWritten, onNotice }: {
   itemId: number;
   review: Review;
   replacing: boolean;
   disabled: boolean;
   reload: () => Promise<{ mounted: boolean }>;
-  onWritten: () => Promise<void>;
+  onPending: (pending: boolean) => void;
+  onWritten: (cover: number) => Promise<void>;
   onNotice: (line: string | null) => void;
 }) {
   const [accept, { isLoading }] = useAcceptReviewMutation();
@@ -31,15 +33,17 @@ export default function UseThisReviewButton({ itemId, review, replacing, disable
 
   const choose = async () => {
     onNotice(null);
+    onPending(true);
     try {
       await accept({ id: itemId, reviewId: review.id }).unwrap();
       setConfirming(false);
-      await onWritten();
+      await onWritten(review.id);
     } catch (err) {
       setConfirming(false);
       // Only this button's own rejection reads the 400 predicate: filing onto a release is refused with the same status.
-      if (!isIntakeAcceptReviewRefused(err)) return onNotice(REVIEW_COPY.screen.writeFailed);
-      if ((await reload()).mounted) onNotice(COPY.reviewGone);
+      if (!isIntakeAcceptReviewRefused(err)) onNotice(REVIEW_COPY.screen.writeFailed);
+      else if ((await reload()).mounted) onNotice(COPY.reviewGone);
+      onPending(false);
     }
   };
 
