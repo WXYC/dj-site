@@ -38,3 +38,4 @@ export {
   type FakeRotationAdminRow,
   type FakeRotationCard,
 } from "../fakes/rotation";
+export * from "./emotion-rules";
