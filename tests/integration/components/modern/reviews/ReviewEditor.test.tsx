@@ -888,7 +888,13 @@ describe("ReviewEditor", () => {
       expect(linkReached).toHaveBeenCalledTimes(1);
       expect(drawer(store)).toEqual({ open: true, slideIn: "1" });
 
+      // Below 900px the open drawer covers the form, so a DJ dirties it first and opens the drawer after.
+      act(() => { store.dispatch(applicationSlice.actions.toggleSidebar()); });
+      closeSidebarCSS();
       await makeDirty(user);
+      act(() => { store.dispatch(applicationSlice.actions.toggleSidebar()); });
+      openSidebarCSS();
+      expect(drawer(store)).toEqual({ open: true, slideIn: "1" });
       await user.click(screen.getByRole("link", { name: "Flowsheet" }));
       const asking = await dialog();
       expect(drawer(store)).toEqual({ open: false, slideIn: "" });
@@ -1027,6 +1033,24 @@ describe("ReviewEditor", () => {
       expect(linkReached).toHaveBeenCalledTimes(1);
       expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
       restoreHistory(history);
+    });
+
+    it("is clean after a delete whatever was typed while the request was in flight", async () => {
+      let release: () => void = () => {};
+      const held = new Promise<void>((resolve) => { release = resolve; });
+      server.use(http.delete(`${TEST_BACKEND_URL}/reviews/40`, async () => { await held; return new HttpResponse(null, { status: 204 }); }));
+      const { user } = renderEditor(SUBMITTED);
+      await user.click(await screen.findByRole("button", { name: "Delete" }));
+      await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Delete" }));
+      await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
+      await makeDirty(user);
+      release();
+
+      await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/dashboard/reviews"));
+      await waitFor(() => expect(beforeUnload()).toBe(false));
+      await user.click(screen.getByRole("link", { name: "Flowsheet" }));
+      expect(linkReached).toHaveBeenCalledTimes(1);
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
     });
 
     it.each([

@@ -76,7 +76,8 @@ function Form({ review }: { review: Review }) {
   });
   // What the service holds: the review as loaded, then whatever the last save sent.
   const [saved, setSaved] = useState(patch);
-  const leaveGuard = useLeaveGuard(patchChanged(saved, patch()));
+  const [deleted, setDeleted] = useState(false);
+  const leaveGuard = useLeaveGuard(!deleted && patchChanged(saved, patch()));
   // Below Joy's md breakpoint the left bar is a drawer stacked above every modal (z-index 10000 against Joy's 1300), and a link tap does not close it, so the question would open out of sight: the drawer closes as the question opens.
   useEffect(() => {
     if (!leaveGuard.pending) return;
@@ -114,8 +115,8 @@ function Form({ review }: { review: Review }) {
     setConfirming(null);
     try {
       await remove(review.id).unwrap();
-      // The review is gone, so nothing is left to save: the form goes clean before the redirect, which may be a full load.
-      setSaved(patch());
+      // The review is gone, so nothing is left to save: the form goes clean before the redirect, which may be a full load, whatever was typed while the request was out.
+      setDeleted(true);
       router.replace("/dashboard/reviews");
     } catch (err) {
       if (isReviewInUse(err)) setRefusedInUse(true);
