@@ -40,7 +40,7 @@ export default function ConsentBlock({
   ];
   return (
     <Stack component="fieldset" spacing={1} sx={{ border: 0, p: 0, m: 0 }}>
-      <FormLabel component="legend">{REVIEW_COPY.consent.legend}</FormLabel>
+      <Typography component="legend" level="title-sm">{REVIEW_COPY.consent.legend}</Typography>
       {SURFACES.map(([key, label]) => (
         <Checkbox key={key} label={label} checked={value[key]} onChange={(e) => onChange({ ...value, [key]: e.target.checked })} />
       ))}

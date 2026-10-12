@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import Link from "next/link";
-import { Button, Link as JoyLink, Stack, Typography } from "@mui/joy";
+import { Box, Button, Link as JoyLink, Stack, Typography } from "@mui/joy";
 import type { Review, ReviewPatch } from "@wxyc/shared";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -23,6 +23,7 @@ import ConsentBlock, { type Consent } from "./ConsentBlock";
 import { REVIEW_COPY } from "./copy";
 import FccNotesPanel from "./FccNotesPanel";
 import PrintedVersionNote from "./PrintedVersionNote";
+import RecordHeader from "./RecordHeader";
 import SlipFields, { toFieldPatch, toFieldValues } from "./SlipFields";
 import SlipPreview from "./SlipPreview";
 import { formatSlipDate } from "./slipDate";
@@ -50,6 +51,7 @@ function Form({ review }: { review: Review }) {
   const [remove, { isLoading: deleting }] = useDeleteReviewMutation();
   const router = useRouter();
   const record = useReviewRecord(review);
+  const slipHeadingId = useId();
   const draft = review.status === "draft";
   // Only a typed review needs text to submit; a handwritten one may go in with none.
   const blank = review.medium === "typed" && values.review.trim() === "";
@@ -94,53 +96,90 @@ function Form({ review }: { review: Review }) {
     }
   };
 
+  const status = isAuthor
+    ? draft
+      ? REVIEW_COPY.draftPrivacy
+      : REVIEW_COPY.submittedBanner
+    : isMusicDirector
+      ? REVIEW_COPY.editingOthers(review.author ?? "", !draft && review.author_user_id != null)
+      : null;
+
   return (
-    <Stack direction="row" spacing={3} alignItems="flex-start" flexWrap="wrap">
-      <Stack spacing={2} sx={{ flex: 1, minWidth: 280 }}>
-        {!draft && (
-          <JoyLink component={Link} href={`/dashboard/reviews/${review.id}/history`} level="body-sm">
-            {REVIEW_COPY.history.link}
-          </JoyLink>
-        )}
-        <PrintedVersionNote review={review} onCover={review.in_use} />
-        {draft && <Typography level="body-sm">{REVIEW_COPY.draftPrivacy}</Typography>}
-        {isAuthor && !draft && <Typography level="body-sm">{REVIEW_COPY.submittedBanner}</Typography>}
-        {isMusicDirector && (
-          <Typography level="body-sm">
-            {REVIEW_COPY.editingOthers(review.author ?? "", !draft && review.author_user_id != null)}
-          </Typography>
-        )}
-        <SlipFields values={values} onChange={setValues} />
-        {isAuthor ? (
-          <ConsentBlock value={consent} onChange={setConsent} djName={user?.djName} realName={user?.realName} />
-        ) : (
-          <Typography level="body-sm">{REVIEW_COPY.authorOnlyConsent}</Typography>
-        )}
-        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-          <Button variant={draft ? "outlined" : "solid"} loading={isLoading} onClick={save}>
-            {draft ? REVIEW_COPY.saveDraft : REVIEW_COPY.save}
-          </Button>
-          {draft && (
-            <Button loading={submitting} disabled={blank} onClick={() => setConfirming("submit")}>{REVIEW_COPY.submit}</Button>
-          )}
-          {isAuthor && (
-            <Button color="danger" variant="outlined" loading={deleting} disabled={inUse} onClick={() => setConfirming("delete")}>
-              {REVIEW_COPY.delete}
-            </Button>
+    <Box sx={{ containerType: "inline-size" }}>
+      {record && (
+        <RecordHeader
+          record={record}
+          chip={
+            <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+              {!draft && (
+                <JoyLink component={Link} href={`/dashboard/reviews/${review.id}/history`} level="body-sm">
+                  {REVIEW_COPY.history.link}
+                </JoyLink>
+              )}
+              <PrintedVersionNote review={review} onCover={review.in_use} />
+            </Stack>
+          }
+        />
+      )}
+      {status && <Typography level="body-sm" sx={{ mt: 1 }}>{status}</Typography>}
+      <Box
+        sx={{
+          display: "grid",
+          gap: 3,
+          mt: 2,
+          gridTemplateColumns: "minmax(0, 1fr)",
+          "@container (min-width: 1280px)": { gridTemplateColumns: "minmax(0, 1fr) auto", alignItems: "start" },
+        }}
+      >
+        <Stack spacing={2}>
+          <SlipFields values={values} onChange={setValues} />
+          {isAuthor ? (
+            <Box sx={{ borderTop: "1px solid", borderColor: "divider", pt: 2 }}>
+              <ConsentBlock value={consent} onChange={setConsent} djName={user?.djName} realName={user?.realName} />
+            </Box>
+          ) : (
+            <Typography level="body-sm">{REVIEW_COPY.authorOnlyConsent}</Typography>
           )}
         </Stack>
-        {draft && blank && <Typography level="body-sm">{REVIEW_COPY.submitNeedsReview}</Typography>}
+        <Stack spacing={2} sx={{ "@container (min-width: 1280px)": { position: "sticky", top: 0 } }}>
+          <Stack component="section" aria-labelledby={slipHeadingId} spacing={1}>
+            <Typography id={slipHeadingId} level="title-sm">{REVIEW_COPY.slip.heading}</Typography>
+            <SlipPreview
+              artist={record?.artist ?? ""}
+              album={record?.album ?? ""}
+              label={record?.label ?? ""}
+              reviewer={review.author ?? ""}
+              date={formatSlipDate(review.submitted_at ?? review.add_date)}
+              fields={values}
+            />
+          </Stack>
+          {review.intake_item_id != null && <FccNotesPanel intakeItemId={review.intake_item_id} />}
+        </Stack>
+      </Box>
+      <Stack
+        role="toolbar"
+        direction="row"
+        spacing={1}
+        alignItems="center"
+        flexWrap="wrap"
+        useFlexGap
+        sx={{ position: "sticky", bottom: 0, mt: 2, py: 1, pr: 14, bgcolor: "background.body", borderTop: "1px solid", borderColor: "divider" }}
+      >
+        {isAuthor && (
+          <Button color="danger" variant="plain" loading={deleting} disabled={inUse} onClick={() => setConfirming("delete")}>
+            {REVIEW_COPY.delete}
+          </Button>
+        )}
         {isAuthor && inUse && <Typography level="body-sm" role="status">{REVIEW_COPY.inUse}</Typography>}
+        {draft && blank && <Typography level="body-sm">{REVIEW_COPY.submitNeedsReview}</Typography>}
+        <Box sx={{ flex: 1 }} />
+        <Button variant={draft ? "outlined" : "solid"} loading={isLoading} onClick={save}>
+          {draft ? REVIEW_COPY.saveDraft : REVIEW_COPY.save}
+        </Button>
+        {draft && (
+          <Button loading={submitting} disabled={blank} onClick={() => setConfirming("submit")}>{REVIEW_COPY.submit}</Button>
+        )}
       </Stack>
-      {review.intake_item_id != null && <FccNotesPanel intakeItemId={review.intake_item_id} />}
-      <SlipPreview
-        artist={record?.artist ?? ""}
-        album={record?.album ?? ""}
-        label={record?.label ?? ""}
-        reviewer={review.author ?? ""}
-        date={formatSlipDate(review.submitted_at ?? review.add_date)}
-        fields={values}
-      />
       <ConfirmDialog
         open={confirming !== null}
         onClose={() => setConfirming(null)}
@@ -160,7 +199,7 @@ function Form({ review }: { review: Review }) {
             ? REVIEW_COPY.submitConfirmLogged
             : REVIEW_COPY.submitConfirmRelease}
       </ConfirmDialog>
-    </Stack>
+    </Box>
   );
 }
 
