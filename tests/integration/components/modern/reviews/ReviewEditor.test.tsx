@@ -3,7 +3,7 @@ import { act, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { delay, http, HttpResponse } from "msw";
 import type { Review } from "@wxyc/shared";
 import { Authorization } from "@/lib/features/admin/types";
-import { fakeReviewsEndpoints, fccNote, intakeItem, renderWithProviders, review, reviewRevision, reviewsSettled, server, TEST_BACKEND_URL } from "@/tests/helpers";
+import { fakeReviewsEndpoints, fccNote, intakeItem, renderWithProviders, review, reviewRevision, reviewsSettled, rulesOf, server, TEST_BACKEND_URL } from "@/tests/helpers";
 import Link from "next/link";
 import { applicationSlice } from "@/lib/features/application/frontend";
 import { reviewApi } from "@/lib/features/reviews/reviewApi";
@@ -50,38 +50,9 @@ const PRIVACY = "Only you can read this draft. Music directors can see that you 
 
 const RECORD = intakeItem({ id: 2 });
 
-/** Every stylesheet rule emotion wrote, as one string, for pinning the layout's declarations. */
-const allCss = () => [...document.querySelectorAll("style")].map((el) => el.textContent ?? "").join("\n") + [...document.styleSheets].map((sheet) => [...sheet.cssRules].map((r) => r.cssText).join("\n")).join("\n");
-/** The body of the rule block that follows `selectorStart` in the page's CSS, braces balanced. */
-const blockAfter = (css: string, selectorStart: string) => {
-  const from = css.indexOf(selectorStart);
-  if (from < 0) return "";
-  let depth = 0;
-  for (let i = css.indexOf("{", from); i < css.length; i++) {
-    if (css[i] === "{") depth++;
-    if (css[i] === "}" && --depth === 0) return css.slice(css.indexOf("{", from) + 1, i);
-  }
-  return "";
-};
-const TWO_COLUMN_QUERY = "@container (min-width: 800px)";
-/** The contents of every block starting with `start`. */
-const allBlocks = (css: string, start: string) => {
-  const out: string[] = [];
-  for (let at = css.indexOf(start); at >= 0; at = css.indexOf(start, at + 1)) out.push(blockAfter(css.slice(at), start));
-  return out;
-};
-/** The sheet with every block starting with `start` cut out. */
-const withoutBlocks = (css: string, start: string) => {
-  let out = css;
-  for (let at = out.indexOf(start); at >= 0; at = out.indexOf(start)) out = out.slice(0, at) + out.slice(out.indexOf("{", at) + 1 + blockAfter(out.slice(at), start).length + 1);
-  return out;
-};
-/** The CSS emotion generated for an element, with the contents of every `@container`/`@media` block it has. */
-const cssOf = (el: HTMLElement) => {
-  const cls = [...el.classList].find((c) => c.startsWith("css-"))!;
-  const css = allCss();
-  return { all: [...css.matchAll(new RegExp(`\\.${cls}[^{]*\\{[^}]*\\}`, "g"))].map((m) => m[0]).join("\n"), css, cls };
-};
+const TWO_COLUMN_QUERY = "(min-width: 800px)";
+/** The rules that apply in every layout: those outside any `@container`, which is where a declaration meant for one layout must not be. */
+const outsideContainer = ({ base, media }: ReturnType<typeof rulesOf>) => base + "\n" + Object.values(media).join("\n");
 
 function serve(served: Review = DRAFT) {
   fakeReviewsEndpoints({ reviews: [served], records: [RECORD] });
@@ -647,17 +618,15 @@ describe("ReviewEditor", () => {
 
       const column = (await screen.findByRole("region", { name: REVIEW_COPY.slip.heading })).parentElement!;
       const grid = column.parentElement!;
-      const { css } = cssOf(grid);
-      expect(css).toContain("@container (min-width: 800px)");
-      expect(css).not.toContain("1280px");
-      expect(css).toMatch(/grid-template-columns:\s*minmax\(20rem, 1fr\) minmax\(0, min-content\);/);
+      const gridRules = rulesOf(grid);
+      const gridCss = outsideContainer(gridRules) + Object.values(gridRules.container).join("\n");
+      expect(Object.keys(gridRules.container)).toEqual([TWO_COLUMN_QUERY]);
+      expect(gridCss).not.toContain("1280px");
+      expect(gridRules.container[TWO_COLUMN_QUERY]).toMatch(/grid-template-columns:\s*minmax\(20rem, 1fr\) minmax\(0, min-content\);/);
       // The column's own rules, split by whether they sit inside the two-column container query: sticking is for two columns only.
-      const { cls } = cssOf(column);
-      const base = withoutBlocks(css, "@container");
-      const inQuery = allBlocks(css, TWO_COLUMN_QUERY).join("\n");
-      const rules = (text: string) => [...text.matchAll(new RegExp(`\\.${cls}[^{]*\\{[^}]*\\}`, "g"))].map((m) => m[0]).join("\n");
-      expect(rules(base)).not.toMatch(/sticky|max-height|overflow|100dvh/);
-      const own = rules(inQuery);
+      const columnRules = rulesOf(column);
+      expect(outsideContainer(columnRules)).not.toMatch(/sticky|max-height|overflow|100dvh/);
+      const own = columnRules.container[TWO_COLUMN_QUERY];
       expect(own).toMatch(/position:\s*sticky/);
       expect(own).toMatch(/top:\s*0/);
       expect(own).toMatch(/align-self:\s*start/);
@@ -666,7 +635,8 @@ describe("ReviewEditor", () => {
       expect(own).toMatch(/overflow-y:\s*auto/);
       // The scrollbar's room is reserved (so scrolling never narrows the slip) and the slip's shadow (0 1px 4px, so 3px above and 5px below) has padding to fall into on every side.
       expect(own).toMatch(/scrollbar-gutter:\s*stable/);
-      for (const side of ["top", "right", "bottom", "left"]) expect(own).toMatch(new RegExp("padding-" + side + ":\\s*8px"));
+      // The CSSOM folds four equal sides into the shorthand, so a side left out would show as `padding: 8px 0px` and fail this.
+      expect(own).toMatch(/(?<![-\w])padding:\s*8px;/);
       // overflow-wrap is inherited, so it is not on the column: the slip must wrap as it does in one column and on paper.
       expect(own).not.toMatch(/overflow-wrap/);
     });
@@ -677,9 +647,7 @@ describe("ReviewEditor", () => {
 
       const fcc = await screen.findByRole("region", { name: "FCC notes" });
       const wrapper = fcc.parentElement!;
-      const inQuery = allBlocks(cssOf(wrapper.parentElement!.parentElement!).css, TWO_COLUMN_QUERY).join("\n");
-      const wrapperRules = [...inQuery.matchAll(new RegExp(`\\.${cssOf(wrapper).cls}[^{]*\\{[^}]*\\}`, "g"))].map((m) => m[0]).join("\n");
-      expect(wrapperRules).toMatch(/overflow-wrap:\s*anywhere/);
+      expect(rulesOf(wrapper).container[TWO_COLUMN_QUERY]).toMatch(/overflow-wrap:\s*anywhere/);
       const section = screen.getByRole("region", { name: REVIEW_COPY.slip.heading });
       expect(getComputedStyle(section).overflowWrap).toBe("normal");
       expect(getComputedStyle(screen.getByRole("group", { name: REVIEW_COPY.slip.name })).overflowWrap).toBe("normal");
@@ -691,10 +659,11 @@ describe("ReviewEditor", () => {
 
       const slip = await screen.findByRole("group", { name: REVIEW_COPY.slip.name });
       const column = screen.getByRole("region", { name: REVIEW_COPY.slip.heading }).parentElement!;
-      const { css } = cssOf(column.parentElement!);
-      expect(allBlocks(css, TWO_COLUMN_QUERY).join("\n")).toMatch(/grid-template-columns:\s*minmax\(20rem, 1fr\) minmax\(0, min-content\);/);
-      expect(css).not.toMatch(/calc\(4\.25in/);
-      expect(cssOf(slip).all).toMatch(/(?<![-\w])width:\s*4\.25in/);
+      const gridRules = rulesOf(column.parentElement!);
+      expect(gridRules.container[TWO_COLUMN_QUERY]).toMatch(/grid-template-columns:\s*minmax\(20rem, 1fr\) minmax\(0, min-content\);/);
+      expect(outsideContainer(gridRules) + Object.values(gridRules.container).join("\n")).not.toMatch(/calc\(4\.25in/);
+      // jsdom resolves the inch to pixels: 4.25 * 96.
+      expect(getComputedStyle(slip).width).toBe("408px");
     });
 
     describe("the slip column's room", () => {
@@ -754,13 +723,13 @@ describe("ReviewEditor", () => {
       renderWithProviders(<ReviewEditor id={40} />);
 
       const bar = (await screen.findByRole("button", { name: REVIEW_COPY.submit })).parentElement!;
-      const { all } = cssOf(bar);
       expect(APPBAR_CLEARANCE_PX).toBe(APPBAR_OFFSET_PX + APPBAR_HEIGHT_PX);
-      expect(all).toMatch(new RegExp(`padding-bottom:\\s*${APPBAR_CLEARANCE_PX}px`));
-      expect(all).not.toMatch(/padding-right:\s*(?!0)/);
-      const css = allCss();
-      const md = blockAfter(css, "@media (min-width:900px)") || blockAfter(css, "@media (min-width: 900px)");
-      expect(md).toMatch(new RegExp(`\\.${[...bar.classList].find((c) => c.startsWith("css-"))}[^{]*\\{[^}]*padding-bottom:\\s*8px`));
+      // jsdom applies the md rule to computed style, so the clearance can only be read from the rules by at-rule: Joy's xs is `min-width: 0`, md is 900px.
+      const { media } = rulesOf(bar);
+      expect(media["(min-width:0px)"]).toMatch(new RegExp(`padding-bottom:\\s*${APPBAR_CLEARANCE_PX}px`));
+      expect(media["(min-width:900px)"]).toMatch(/padding-bottom:\s*8px/);
+      expect(Object.values(media).join("\n")).not.toMatch(/padding-right:\s*(?!0)/);
+      expect(media["(min-width:900px)"]).not.toContain(`${APPBAR_CLEARANCE_PX}px`);
     });
   });
 

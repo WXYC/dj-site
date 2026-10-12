@@ -4,7 +4,7 @@ import { CssVarsProvider, extendTheme } from "@mui/joy/styles";
 import SlipPreview, { SlipFccRow } from "@/src/components/experiences/modern/reviews/SlipPreview";
 import { useSlipPrint } from "@/src/components/experiences/modern/reviews/useSlipPrint";
 import { REVIEW_COPY } from "@/src/components/experiences/modern/reviews/copy";
-import { renderWithProviders } from "@/tests/helpers";
+import { renderWithProviders, rulesOf } from "@/tests/helpers";
 
 const FIELDS = { buzzwords: "warm, loose", artist_blurb: "Argentine songwriter", review: "Warm and loose.", recommended_tracks: "la paradoja", fcc: null };
 
@@ -17,29 +17,14 @@ const slip = (onCover?: boolean) => (
   </CssVarsProvider>
 );
 
-/** The declarations emotion generated for an element's classes, split into those that apply everywhere and those inside `@media screen`. */
-const rulesOf = (...els: HTMLElement[]) => {
-  const classes = els.flatMap((el) => [...el.classList].filter((c) => c.startsWith("css-")));
-  const matches = (rule: CSSRule) => classes.some((c) => (rule as CSSStyleRule).selectorText?.includes(`.${c}`));
-  const out = { always: "", screen: "", other: "" };
-  for (const sheet of [...document.styleSheets]) {
-    for (const rule of [...sheet.cssRules]) {
-      if (rule instanceof CSSMediaRule) {
-        const key = rule.conditionText === "screen" ? "screen" : "other";
-        for (const inner of [...rule.cssRules]) if (matches(inner)) out[key] += inner.cssText;
-      } else if (matches(rule)) {
-        out.always += rule.cssText;
-      }
-    }
-  }
-  return out;
-};
-const slipCss = (el: HTMLElement) => rulesOf(el).always;
+/** Every rule that applies outside `@media screen`: the base rules and any other media query's. */
+const offScreen = ({ base, media }: ReturnType<typeof rulesOf>) =>
+  base + Object.entries(media).filter(([condition]) => condition !== "screen").map(([, css]) => css).join("");
 
 describe("SlipPreview", () => {
   it("is the slip's real width but never wider than its column", () => {
     renderWithProviders(slip());
-    const css = slipCss(screen.getByRole("group", { name: REVIEW_COPY.slip.name }));
+    const css = rulesOf(screen.getByRole("group", { name: REVIEW_COPY.slip.name })).base;
     expect(css).toMatch(/width:\s*4\.25in/);
     expect(css).toMatch(/max-width:\s*100%/);
   });
@@ -47,16 +32,23 @@ describe("SlipPreview", () => {
   it("draws its row labels at weight 500, the medium face the theme loads", () => {
     renderWithProviders(slip());
     const label = screen.getByText(REVIEW_COPY.slip.recommended);
-    expect(slipCss(label)).toMatch(/font-weight:\s*500/);
+    expect(rulesOf(label).base).toMatch(/font-weight:\s*500/);
   });
 
   // Kanit 500 sets "Recommended" 6.8em wide, so at the slip's 0.8rem it overflows the 0.82in label column by about 8px; at 0.875em of that it is about 76px.
   it("sets its row labels small enough for 'Recommended' to fit the label column, on screen and in print", () => {
-    renderWithProviders(slip());
+    renderWithProviders(
+      <CssVarsProvider theme={modernWeights}>
+        <SlipPreview artist="Juana Molina" album="DOGA" label="Sonamos" reviewer="Reviewer" date="10/10/26" fields={{ ...FIELDS, fcc: "No FCC issues" }} />
+      </CssVarsProvider>,
+    );
     const group = screen.getByRole("group", { name: REVIEW_COPY.slip.name });
-    const { always, screen: onScreen } = rulesOf(group);
-    expect(always).toMatch(/>\s*div\s*>\s*strong[^{]*\{[^}]*font-size:\s*0\.875em/);
-    expect(onScreen).not.toMatch(/font-size/);
+    const { base, media } = rulesOf(group);
+    expect(base).toMatch(/>\s*div\s*>\s*strong[^{]*\{[^}]*font-size:\s*0\.875em/);
+    expect(media.screen ?? "").not.toMatch(/font-size/);
+    // The rule must reach the labels: 0.875em of the slip's 0.8rem.
+    expect(getComputedStyle(screen.getByText(REVIEW_COPY.slip.recommended)).fontSize).toBe("11.2px");
+    expect(getComputedStyle(screen.getByText(REVIEW_COPY.fields.fcc.label)).fontSize).toBe("11.2px");
   });
 
   it("leaves the FCC label at its value's size when the row is drawn outside a slip", () => {
@@ -68,7 +60,7 @@ describe("SlipPreview", () => {
       </CssVarsProvider>,
     );
     const label = screen.getByText(REVIEW_COPY.fields.fcc.label);
-    expect(rulesOf(label).always).not.toMatch(/font-size/);
+    expect(rulesOf(label).base).not.toMatch(/font-size/);
   });
 
   it("aligns each row's label and value on their first baseline", () => {
@@ -85,10 +77,11 @@ describe("SlipPreview", () => {
   ])("clears the printed-version note on screen only for a review %s", (_name, onCover, expected) => {
     renderWithProviders(slip(onCover));
     const group = screen.getByRole("group", { name: REVIEW_COPY.slip.name });
-    const { always, screen: onScreen, other } = rulesOf(group);
+    const rules = rulesOf(group);
+    const onScreen = rules.media.screen ?? "";
     if (expected) expect(onScreen).toMatch(expected);
     else expect(onScreen).not.toMatch(/margin-top/);
-    expect(always + other).not.toMatch(/margin-top/);
+    expect(offScreen(rules)).not.toMatch(/margin-top/);
   });
 
   it.each([
@@ -108,17 +101,18 @@ describe("SlipPreview", () => {
     renderWithProviders(slip(true));
     const group = screen.getByRole("group", { name: REVIEW_COPY.slip.name });
     const tape = group.querySelector("[aria-hidden='true']") as HTMLElement;
-    const { always, screen: onScreen, other } = rulesOf(group, tape);
+    const rules = rulesOf(group, tape);
+    const onScreen = rules.media.screen ?? "";
     expect(onScreen).toMatch(/background/);
     expect(onScreen).toMatch(/box-shadow/);
     expect(onScreen).toMatch(/border-bottom/);
-    expect(always + other).not.toMatch(/background|box-shadow|border-bottom/);
+    expect(offScreen(rules)).not.toMatch(/background|box-shadow|border-bottom/);
   });
 
   it("uses theme tokens, not hex colors, for the paper", () => {
     renderWithProviders(slip(true));
-    const { always, screen: onScreen } = rulesOf(screen.getByRole("group", { name: REVIEW_COPY.slip.name }));
-    const css = always + onScreen;
+    const { base, media } = rulesOf(screen.getByRole("group", { name: REVIEW_COPY.slip.name }));
+    const css = base + (media.screen ?? "");
     expect(css).not.toMatch(/#[0-9a-f]{3,8}\b/i);
   });
 });
