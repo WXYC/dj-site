@@ -74,6 +74,46 @@ export const intakeItem = (overrides: Partial<IntakeItem> = {}): IntakeItem =>
     ...overrides,
   }) as IntakeItem;
 
+/**
+ * Holder presets: spread one into `intakeItem()` (or a row override) and set
+ * `effective_state` beside it, because `itemHolder` (`lib/features/reviews/holder.ts`)
+ * reads the holder fields and the effective state together.
+ *
+ * The removed-holder rule: a record whose holder's account was deleted keeps
+ * `checked_out_at` but has `checked_out_by` and `checked_out_by_name` null. A
+ * server convention, so the encoding lives here and nowhere else in the specs.
+ */
+const HOLDER_AT = "2026-09-20T12:00:00Z";
+const REQUESTED_AT = "2026-09-25T12:00:00Z";
+
+/** Checked out to a named account. */
+export const heldBy = (id: string, name: string, at: string = HOLDER_AT): Partial<IntakeItem> => ({
+  checked_out_by: id,
+  checked_out_by_name: name,
+  checked_out_at: at,
+});
+
+/** Checked out, but the holder's account was removed (see the rule above). */
+export const removedHolder: Partial<IntakeItem> = {
+  checked_out_by: null,
+  checked_out_by_name: null,
+  checked_out_at: HOLDER_AT,
+};
+
+/** A live request for a DJ; `id` is null for a request that names no account. */
+export const requestedFor = (id: string | null, name: string): Partial<IntakeItem> => ({
+  requested_dj_id: id,
+  requested_dj_name: name,
+  requested_at: REQUESTED_AT,
+});
+
+/** No holder fields set: what a return or a filing leaves. */
+export const returned: Partial<IntakeItem> = {
+  checked_out_by: null,
+  checked_out_by_name: null,
+  checked_out_at: null,
+};
+
 /** The slip a print answers with, for Juana Molina's DOGA: the record the slip specs override `intakeItem()` to, not the builder's default Stereolab record. */
 export const intakeSlip = (overrides: Partial<IntakeSlip> = {}): IntakeSlip => ({
   artist_name: "Juana Molina",

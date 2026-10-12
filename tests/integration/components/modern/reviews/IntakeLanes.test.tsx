@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
-import { fakeReviewsEndpoints, fccNote, holdResponse, intakeItem, pendingCount, renderedFrame, renderWithProviders, review, reviewsSettled, server, TEST_BACKEND_URL } from "@/tests/helpers";
+import { fakeReviewsEndpoints, fccNote, heldBy, holdResponse, intakeItem, pendingCount, removedHolder, renderedFrame, renderWithProviders, requestedFor, returned, review, reviewsSettled, server, TEST_BACKEND_URL } from "@/tests/helpers";
 import { Authorization } from "@/lib/features/admin/types";
 
 vi.mock("@/lib/features/authentication/client", async () => {
@@ -33,7 +33,7 @@ const moonPix = (overrides = {}) =>
   intakeItem({ id: 11, artist_name: "Cat Power", album_title: "Moon Pix", record_label: "Matador", ...overrides });
 
 const waiting = (id: number, overrides = {}) =>
-  moonPix({ id, state: "checked_out", effective_state: "checked_out", checked_out_by: "dj-1", checked_out_by_name: "DJ Sam", submitted_review_count: 1, accepted_review_id: null, ...overrides });
+  moonPix({ id, state: "checked_out", effective_state: "checked_out", ...heldBy("dj-1", "DJ Sam"), submitted_review_count: 1, accepted_review_id: null, ...overrides });
 
 const lane = (name: string) => screen.findByRole("region", { name });
 
@@ -149,21 +149,21 @@ describe("IntakeLanes", () => {
     review({ id, intake_item_id: itemId, status: "submitted", author: "Jessica Pratt", author_user_id: "dj-jess", add_date: "2026-10-01", ...overrides });
 
   it.each([
-    ["the author is the DJ who has the record", { checked_out_by: "dj-jess", checked_out_by_name: "Jessica Pratt" }, "From Jessica Pratt, who has this record."],
+    ["the author is the DJ who has the record", heldBy("dj-jess", "Jessica Pratt"), "From Jessica Pratt, who has this record."],
     ["someone else wrote it and a DJ has the record", {}, "From Jessica Pratt. The record is with DJ Sam."],
     [
       "someone else wrote it and a request is open",
-      { state: "requested", effective_state: "requested", requested_dj_id: "dj-pat", requested_dj_name: "DJ Pat", checked_out_by: null, checked_out_by_name: null },
+      { state: "requested", effective_state: "requested", ...requestedFor("dj-pat", "DJ Pat"), ...returned },
       "From Jessica Pratt. The record is being held for DJ Pat.",
     ],
     [
       "someone else wrote it and the record is on the review shelf",
-      { state: "pool", effective_state: "pool", checked_out_by: null, checked_out_by_name: null },
+      { state: "pool", effective_state: "pool", ...returned },
       "From Jessica Pratt. The record is on the review shelf.",
     ],
     [
       "someone else wrote it and the holder's account was removed",
-      { checked_out_by: null, checked_out_by_name: null, checked_out_at: "2026-09-20T12:00:00Z" },
+      removedHolder,
       "From Jessica Pratt. The record is checked out; holder removed.",
     ],
   ])("says who a waiting review is from when %s", async (_label, itemOverrides, line) => {
@@ -207,11 +207,11 @@ describe("IntakeLanes", () => {
       ["a DJ has the record", {}, "Checked out to DJ Sam"],
       [
         "a request is open",
-        { state: "requested", effective_state: "requested", requested_dj_id: "dj-pat", requested_dj_name: "DJ Pat", checked_out_by: null, checked_out_by_name: null },
+        { state: "requested", effective_state: "requested", ...requestedFor("dj-pat", "DJ Pat"), ...returned },
         "Held for DJ Pat",
       ],
-      ["the record is on the review shelf", { state: "pool", effective_state: "pool", checked_out_by: null, checked_out_by_name: null }, "On the review shelf"],
-      ["the holder's account was removed", { checked_out_by: null, checked_out_by_name: null, checked_out_at: "2026-09-20T12:00:00Z" }, "Holder removed"],
+      ["the record is on the review shelf", { state: "pool", effective_state: "pool", ...returned }, "On the review shelf"],
+      ["the holder's account was removed", removedHolder, "Holder removed"],
     ])("shows the location line while the read is in flight, then the From line, when %s", async (_label, itemOverrides, location) => {
       const item = waiting(7, itemOverrides);
       fakeReviewsEndpoints({ open: [item], awaiting: [item] });
@@ -255,7 +255,7 @@ describe("IntakeLanes", () => {
   });
 
   it("names a removed holder in the Review waiting lane instead of printing null", async () => {
-    const orphan = waiting(9, { checked_out_by: null, checked_out_by_name: null, checked_out_at: "2026-09-20T12:00:00Z" });
+    const orphan = waiting(9, removedHolder);
     fakeReviewsEndpoints({ open: [orphan], awaiting: [orphan], forItem: { "9": [waitingReview(90, 9)] } });
 
     renderWithProviders(<IntakeLanes />);
@@ -269,7 +269,7 @@ describe("IntakeLanes", () => {
   it("shows a reviewed record's holder and overdue mark, and none for a returned one", async () => {
     fakeReviewsEndpoints({
       reviewed: [
-        moonPix({ id: 1, effective_state: "reviewed", checked_out_at: "2026-09-01T12:00:00Z", checked_out_by: "dj-1", checked_out_by_name: "DJ Sam", overdue: true }),
+        moonPix({ id: 1, effective_state: "reviewed", ...heldBy("dj-1", "DJ Sam", "2026-09-01T12:00:00Z"), overdue: true }),
         moonPix({ id: 2, effective_state: "reviewed", checked_out_at: "2026-09-01T12:00:00Z", checked_out_by: null }),
         moonPix({ id: 3, effective_state: "reviewed" }),
       ],
@@ -293,7 +293,7 @@ describe("IntakeLanes", () => {
   ])("sorts an overdue row first in the %s lane when the read returns %s", async (_name, readOrder, state, heading) => {
     // The overdue row is the newer-logged, lower-id one, so neither a date nor an id ordering puts it first.
     const row = (id: number, overrides = {}) =>
-      moonPix({ id, album_title: `Album ${id}`, state, effective_state: state, checked_out_by: "dj-1", checked_out_by_name: "DJ Sam", checked_out_at: "2026-09-01T12:00:00Z", ...overrides });
+      moonPix({ id, album_title: `Album ${id}`, state, effective_state: state, ...heldBy("dj-1", "DJ Sam", "2026-09-01T12:00:00Z"), ...overrides });
     const overdue = row(1, { logged_at: "2026-09-02T12:00:00Z", overdue: true });
     const onTime = row(2, { logged_at: "2026-09-01T12:00:00Z" });
     const read = readOrder === "the overdue row first" ? [overdue, onTime] : [onTime, overdue];
@@ -312,7 +312,7 @@ describe("IntakeLanes", () => {
 
   it("counts the Reviewed lane's rows in its heading, and drops it on a refetch when a record is filed", async () => {
     let filed = false;
-    const reviewed = (id: number, overrides = {}) => moonPix({ id, album_title: `Album ${id}`, state: "reviewed", effective_state: "reviewed", checked_out_at: "2026-09-01T12:00:00Z", checked_out_by: "dj-1", checked_out_by_name: "DJ Sam", ...overrides });
+    const reviewed = (id: number, overrides = {}) => moonPix({ id, album_title: `Album ${id}`, state: "reviewed", effective_state: "reviewed", ...heldBy("dj-1", "DJ Sam", "2026-09-01T12:00:00Z"), ...overrides });
     // Releasing record 1 keeps it reviewed; record 2 leaves the lane by changing state, as the read after the write shows.
     fakeReviewsEndpoints({
       reviewed: () => [reviewed(1), filed ? reviewed(2, { state: "filed", effective_state: "filed" }) : reviewed(2)],
@@ -383,7 +383,7 @@ describe("IntakeLanes", () => {
 
   it("Mark as returned sends the release, and the record stays in Reviewed without its line", async () => {
     let returned = false;
-    const holder = { checked_out_at: "2026-09-01T12:00:00Z", checked_out_by: "dj-1", checked_out_by_name: "DJ Sam" };
+    const holder = heldBy("dj-1", "DJ Sam", "2026-09-01T12:00:00Z");
     fakeReviewsEndpoints({ reviewed: () => [moonPix({ id: 11, effective_state: "reviewed", ...(returned ? {} : holder) })] });
     server.use(
       http.post(`${TEST_BACKEND_URL}/intake/11/release`, () => {
@@ -399,7 +399,7 @@ describe("IntakeLanes", () => {
     expect(within(await lane("Reviewed (1)")).getByText("Cat Power · Moon Pix · Matador · CD")).toBeInTheDocument();
   });
 
-  const HOLDER = { checked_out_at: "2026-09-01T12:00:00Z", checked_out_by: "dj-1", checked_out_by_name: "DJ Sam" };
+  const HOLDER = heldBy("dj-1", "DJ Sam", "2026-09-01T12:00:00Z");
   const LOST_RACE = "This record has already been returned or filed. The lists have been reloaded.";
   const laneKey = (url: string) => {
     const query = new URL(url).searchParams;
@@ -504,7 +504,7 @@ describe("IntakeLanes — a failed background refetch", () => {
   afterEach(() => vi.unstubAllEnvs());
 
   it("keeps the loaded lanes and shows no load-failure line when the reload after a write fails", async () => {
-    fakeReviewsEndpoints({ reviewed: [moonPix({ id: 11, effective_state: "reviewed", checked_out_at: "2026-09-01T12:00:00Z", checked_out_by: "dj-1", checked_out_by_name: "DJ Sam" })] });
+    fakeReviewsEndpoints({ reviewed: [moonPix({ id: 11, effective_state: "reviewed", ...heldBy("dj-1", "DJ Sam", "2026-09-01T12:00:00Z") })] });
     const { user } = renderWithProviders(<IntakeLanes />);
     const button = await screen.findByRole("button", { name: "Mark as returned" });
 
@@ -535,9 +535,9 @@ describe("IntakeLanes — a failed background refetch", () => {
   });
 });
 
-const HELD = { checked_out_at: "2026-09-01T12:00:00Z", checked_out_by: "dj-1", checked_out_by_name: "DJ Sam" };
+const HELD = heldBy("dj-1", "DJ Sam", "2026-09-01T12:00:00Z");
 const requestedRow = (id: number) =>
-  moonPix({ id, state: "requested", effective_state: "requested", requested_dj_id: "dj-pat", requested_dj_name: "DJ Pat" });
+  moonPix({ id, state: "requested", effective_state: "requested", ...requestedFor("dj-pat", "DJ Pat") });
 const outRow = (id: number, overrides = {}) =>
   moonPix({ id, state: "checked_out", effective_state: "checked_out", ...HELD, ...overrides });
 
@@ -561,7 +561,7 @@ describe("IntakeLanes — cancel and release", () => {
   it("releases a checkout, including one whose holder was removed", async () => {
     const released: string[] = [];
     fakeReviewsEndpoints({
-      open: () => [outRow(11, released.includes("11") ? { effective_state: "pool", state: "pool", checked_out_at: null, checked_out_by: null } : {}), outRow(12, { checked_out_by: null, checked_out_by_name: null })],
+      open: () => [outRow(11, released.includes("11") ? { effective_state: "pool", state: "pool", ...returned } : {}), outRow(12, removedHolder)],
     });
     server.use(
       http.post(`${TEST_BACKEND_URL}/intake/:id/release`, ({ params }) => {

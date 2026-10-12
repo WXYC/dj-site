@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
-import { fakeReviewsEndpoints, fccNote, holdResponse, intakeItem, pendingCount, renderedFrame, renderWithProviders, review, reviewRevision, reviewsSettled, server, TEST_BACKEND_URL } from "@/tests/helpers";
+import { fakeReviewsEndpoints, fccNote, heldBy, holdResponse, intakeItem, pendingCount, removedHolder, renderedFrame, renderWithProviders, requestedFor, returned, review, reviewRevision, reviewsSettled, server, TEST_BACKEND_URL } from "@/tests/helpers";
 import { fakeRotationCardsEndpoints } from "@/tests/fakes/rotation";
 import { fakeLibraryFilingsEndpoint, filingConflictResponse } from "@/tests/fakes/libraryFilings";
 import { Authorization } from "@/lib/features/admin/types";
@@ -1014,7 +1014,7 @@ describe("IntakeItemScreen", () => {
       ["a holder who is not the author says the record is still out", { author_user_id: "dj-pat" }, true],
       ["the author as the holder says nothing", { author_user_id: "dj-sam" }, false],
     ])("%s: the still-out line is shown: %s", async (_label, authorOverrides, shown) => {
-      const item = dogaItem({ state: "checked_out", effective_state: "checked_out", checked_out_by: "dj-sam", checked_out_by_name: "Sam", checked_out_at: "2026-10-01T12:00:00Z" });
+      const item = dogaItem({ state: "checked_out", effective_state: "checked_out", ...heldBy("dj-sam", "Sam", "2026-10-01T12:00:00Z") });
       setUp(item, [submitted(40, authorOverrides)]);
 
       const { store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
@@ -1487,9 +1487,9 @@ describe("IntakeItemScreen", () => {
   describe("deleting one review", () => {
     const REVIEW_URL = (id: number) => `${TEST_BACKEND_URL}/reviews/${id}`;
     const COVER_LINE = REVIEW_COPY.intakeItem.deleteCoverFiled;
-    const HOLDER_ITEM = { state: "checked_out", effective_state: "checked_out", checked_out_by: "dj-sessa", checked_out_by_name: "Sessa", checked_out_at: "2026-10-02T12:00:00Z" };
-    const REMOVED_ITEM = { ...HOLDER_ITEM, checked_out_by: null, checked_out_by_name: null };
-    const SHELF_ITEM = { state: "pool", effective_state: "pool", checked_out_by: null, checked_out_by_name: null, checked_out_at: null };
+    const HOLDER_ITEM = { state: "checked_out", effective_state: "checked_out", ...heldBy("dj-sessa", "Sessa", "2026-10-02T12:00:00Z") };
+    const REMOVED_ITEM = { ...HOLDER_ITEM, ...removedHolder };
+    const SHELF_ITEM = { state: "pool", effective_state: "pool", ...returned };
 
     beforeEach(() => {
       vi.mocked(toast).mockClear();
@@ -2026,9 +2026,9 @@ describe("IntakeItemScreen", () => {
   });
 
   describe("who each waiting review is from", () => {
-    const HELD_BY_SAM = { checked_out_by: "dj-sam", checked_out_by_name: "DJ Sam", checked_out_at: "2026-09-20T12:00:00Z" };
-    const HELD_BY_JESS = { checked_out_by: "dj-jess", checked_out_by_name: "Jessica Pratt", checked_out_at: "2026-09-20T12:00:00Z" };
-    const REMOVED_HOLDER = { checked_out_by: null, checked_out_by_name: null, checked_out_at: "2026-09-20T12:00:00Z" };
+    const HELD_BY_SAM = heldBy("dj-sam", "DJ Sam");
+    const HELD_BY_JESS = heldBy("dj-jess", "Jessica Pratt");
+    const REMOVED_HOLDER = removedHolder;
 
     const waiting = (id: number, overrides = {}) => submitted(id, { author: "Jessica Pratt", author_user_id: "dj-jess", ...overrides });
     const otherReviews = async () => (await screen.findByRole("heading", { name: "Other reviews" })).closest("section")!;
@@ -2038,7 +2038,7 @@ describe("IntakeItemScreen", () => {
       ["someone else wrote it and a DJ has the record", HELD_BY_SAM, "From Jessica Pratt. The record is with DJ Sam."],
       [
         "someone else wrote it and a request is open",
-        { state: "requested", effective_state: "requested", requested_dj_id: "dj-pat", requested_dj_name: "DJ Pat" },
+        { state: "requested", effective_state: "requested", ...requestedFor("dj-pat", "DJ Pat") },
         "From Jessica Pratt. The record is being held for DJ Pat.",
       ],
       ["someone else wrote it and the holder's account was removed", REMOVED_HOLDER, "From Jessica Pratt. The record is checked out; holder removed."],
