@@ -8,6 +8,7 @@ import type {
 } from "@wxyc/shared";
 import type { FetchBaseQueryError } from "@reduxjs/toolkit/query";
 import { isRefusal, isStatusRefusal } from "@/lib/rtk-endpoint-error";
+import { intakeApi } from "./intakeApi";
 import { reviewsApi } from "./api";
 
 /** The review writes' counterpart of `IntakeWriteError`, nested under its own key for the same reason. */
@@ -76,6 +77,20 @@ export const reviewApi = reviewsApi.injectEndpoints({
       query: (body) => ({ url: "reviews", method: "POST", body }),
       transformErrorResponse: wrapReviewWriteError,
       invalidatesTags: ["Intake", "Review"],
+      // A submitted review that answers with an item was created already accepted for it, whatever the request said
+      // (only an on-behalf or handwritten create is accepted by default). Writing that into the cache keeps the
+      // cover on the page when the rereads that follow fail: the item's cover, and the review in its list so the page never reads it by id.
+      async onQueryStarted(_arg, { dispatch, queryFulfilled }): Promise<void> {
+        try {
+          const { data: made } = await queryFulfilled;
+          if (made.status !== "submitted" || made.intake_item_id == null) return;
+          const itemId = made.intake_item_id;
+          dispatch(intakeApi.util.updateQueryData("getIntakeItem", itemId, (item) => { item.accepted_review_id = made.id; }));
+          dispatch(reviewApi.util.updateQueryData("getItemReviews", itemId, (list) => { if (!list.some((r) => r.id === made.id)) list.push(made); }));
+        } catch {
+          // A rejection is the caller's `.unwrap()` to surface.
+        }
+      },
     }),
     updateReview: builder.mutation<Review, { id: number; patch: ReviewPatch }>({
       query: ({ id, patch }) => ({ url: `reviews/${id}`, method: "PATCH", body: patch }),

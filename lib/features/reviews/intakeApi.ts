@@ -133,6 +133,16 @@ export const intakeApi = reviewsApi.injectEndpoints({
       query: ({ id, reviewId }) => ({ url: `intake/${id}/accept-review`, method: "POST", body: { review_id: reviewId } }),
       transformErrorResponse: wrapIntakeWriteError,
       invalidatesTags: ["Intake", "Review"],
+      // The answer is the updated item. Writing it into the cache keeps the chosen cover on the page
+      // when the reread that follows fails: a failed refetch keeps the cached data and does not replace it.
+      async onQueryStarted({ id }, { dispatch, queryFulfilled }): Promise<void> {
+        try {
+          const { data: item } = await queryFulfilled;
+          dispatch(intakeApi.util.updateQueryData("getIntakeItem", id, (cached) => Object.assign(cached, item)));
+        } catch {
+          // A rejection is the caller's `.unwrap()` to surface.
+        }
+      },
     }),
     passIntakeItem: builder.mutation<IntakeItem, number>({
       query: (id) => ({ url: `intake/${id}/pass`, method: "POST" }),
