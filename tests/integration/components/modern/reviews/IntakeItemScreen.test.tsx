@@ -53,7 +53,7 @@ import { CssVarsProvider } from "@mui/joy/styles";
 import modernTheme from "@/lib/features/experiences/modern/theme";
 import RecordReviewForm from "@/src/components/experiences/modern/reviews/RecordReviewForm";
 import { PAPER_START, formReviewStart } from "@/lib/features/reviews/formReviewStart";
-import IntakeItemScreen from "@/src/components/experiences/modern/reviews/IntakeItemScreen";
+import IntakeItemScreen, { nextRecording } from "@/src/components/experiences/modern/reviews/IntakeItemScreen";
 import { useGetRotationListQuery } from "@/lib/features/rotation/api";
 import { useSearchCatalogQuery } from "@/lib/features/catalog/api";
 import { useGetReviewsForReleaseQuery } from "@/lib/features/reviews/reviewApi";
@@ -2364,6 +2364,11 @@ describe("IntakeItemScreen", () => {
         expect(screen.getByText(REVIEW_COPY.record.copiedFromForm).textContent).toBe("Copied from the review form. Check it, then save.");
         expect(screen.getByText(REVIEW_COPY.record.copiedAuthor).textContent).toBe("Copied as the reviewer wrote it, so it may include a date.");
         expect(screen.queryByText(REVIEW_COPY.record.copiedNoName)).not.toBeInTheDocument();
+        expect(screen.queryByText(REVIEW_COPY.record.byHand)).not.toBeInTheDocument();
+        // The copied-from-form line sits above the fields; the reviewer-name line is the Author field's own helper.
+        const author = screen.getByRole("textbox", { name: "Author" });
+        expect(screen.getByText(REVIEW_COPY.record.copiedFromForm).compareDocumentPosition(author) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+        expect(author).toHaveAccessibleDescription(REVIEW_COPY.record.copiedAuthor);
 
         await save(user);
 
@@ -2379,6 +2384,7 @@ describe("IntakeItemScreen", () => {
         expect(screen.getByText(REVIEW_COPY.record.copiedNoName).textContent).toBe("Copied from the review form. Check it, add the reviewer's name, then save.");
         expect(screen.queryByText(REVIEW_COPY.record.copiedFromForm)).not.toBeInTheDocument();
         expect(screen.queryByText(REVIEW_COPY.record.copiedAuthor)).not.toBeInTheDocument();
+        expect(screen.queryByText(REVIEW_COPY.record.byHand)).not.toBeInTheDocument();
       });
 
       it("for a paper-only review has Handwritten chosen and shows the handwritten line and the by-hand line", () => {
@@ -2389,6 +2395,27 @@ describe("IntakeItemScreen", () => {
         expect(screen.getByText(REVIEW_COPY.record.handwrittenNote).textContent).toBe("This review is handwritten, so it is already on the sleeve. Nothing will be printed.");
         expect(screen.getByText(REVIEW_COPY.record.byHand).textContent).toBe("This review exists only on paper. Copy this record's slip by hand, then record it here.");
         expect(screen.queryByText(REVIEW_COPY.record.copiedFromForm)).not.toBeInTheDocument();
+      });
+
+      it("opens under a new key from a second start while one is open, so the form remounts", () => {
+        const first = nextRecording(null, PAPER_START);
+        const second = nextRecording(first, archived("Sam"));
+        const third = nextRecording(second, PAPER_START);
+
+        expect(second.start).toEqual(archived("Sam"));
+        expect(second.key).not.toBe(first.key);
+        expect(third.key).not.toBe(second.key);
+      });
+
+      it("the button opens the form and closes it again", async () => {
+        setUp();
+        const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+        await open(user);
+        expect(screen.getByRole("heading", { name: "Record a review" })).toBeInTheDocument();
+
+        await open(user);
+
+        expect(screen.queryByRole("heading", { name: "Record a review" })).not.toBeInTheDocument();
       });
 
       it("opened by the button has no copied-from line and Typed chosen", async () => {
