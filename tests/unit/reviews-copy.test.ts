@@ -25,6 +25,8 @@ describe("REVIEW_COPY.intakeItem filing onto a record the library has", () => {
     ["searchFailed", c.searchFailed, "Couldn't search the library. Please try again."],
     ["pickedGone", c.pickedGone, "That record is no longer in the library. Pick another, or file this one as new."],
     ["fileFailed", c.fileFailed, "Couldn't file this record. Please try again."],
+    ["fileIt", c.fileIt, "File it"],
+    ["deleteRecordHint", c.deleteRecordHint, "Delete this record only if it was logged by mistake. Its reviews and drafts go with it."],
   ])("pins %s", (_key, actual, expected) => {
     expect(actual).toBe(expected);
   });

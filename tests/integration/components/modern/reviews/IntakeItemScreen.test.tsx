@@ -134,8 +134,17 @@ const renderScreen = (ui: React.ReactElement) =>
 
 type User = ReturnType<typeof renderWithProviders>["user"];
 
+const NEW_ARM = "New to the library";
+const EXISTING_ARM = "Already in the library?";
+
+/** Chooses one of the filing section's two arms; a filing form is not on the page until then. */
+const chooseArm = async (user: User, name: string) => {
+  await user.click(await screen.findByRole("radio", { name }));
+};
+
 /** Gets the prefilled bench to a submittable state, with the one choice the item cannot supply. */
 async function readyBench(user: User) {
+  await chooseArm(user, NEW_ARM);
   await user.click(await screen.findByRole("combobox", { name: "Genre" }));
   await user.click(await screen.findByRole("option", { name: "Rock" }));
   const artist = await screen.findByDisplayValue("Juana Molina");
@@ -151,6 +160,7 @@ const ROW_NAME = "Juana Molina · DOGA · CD";
 const FILE_URL = `${TEST_BACKEND_URL}/intake/${ITEM_ID}/file`;
 
 const search = async (user: User, term: string) => {
+  await chooseArm(user, EXISTING_ARM);
   const box = await screen.findByRole("searchbox", { name: "Search the library" });
   await user.clear(box);
   await user.type(box, term);
@@ -511,6 +521,7 @@ describe("IntakeItemScreen", () => {
       );
       const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
 
+      await chooseArm(user, NEW_ARM);
       expect(await screen.findByLabelText("Album title")).toHaveValue("DOGA");
       expect(screen.getByLabelText("Label")).toHaveValue("Sonamos");
       expect(screen.getByLabelText("Release link URL 1")).toHaveValue("https://www.discogs.com/release/1234");
@@ -547,6 +558,7 @@ describe("IntakeItemScreen", () => {
       );
       const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
 
+      await chooseArm(user, NEW_ARM);
       expect(await screen.findByLabelText("Album title")).toHaveValue("DOGA");
       await readyBench(user);
       await user.click(screen.getByRole("button", { name: "Add to rotation" }));
@@ -583,6 +595,7 @@ describe("IntakeItemScreen", () => {
 
       expect(await screen.findByText("From the cited release.")).toBeInTheDocument();
       expect(screen.queryByText("Choose a review for the cover before filing this record.")).not.toBeInTheDocument();
+      await chooseArm(user, NEW_ARM);
       await waitFor(() => expect(screen.getByRole("combobox", { name: "Format" })).toHaveTextContent("cd"));
       await readyBench(user);
       await user.click(screen.getByRole("button", { name: "Add to rotation" }));
@@ -627,6 +640,7 @@ describe("IntakeItemScreen", () => {
       );
       const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
 
+      await chooseArm(user, NEW_ARM);
       await user.click(await screen.findByRole("combobox", { name: "Genre" }));
       await user.click(await screen.findByRole("option", { name: "Rock" }));
       const artist = await screen.findByPlaceholderText("Search artists...");
@@ -640,6 +654,48 @@ describe("IntakeItemScreen", () => {
       expect(await screen.findByRole("alert")).toHaveTextContent(/is already taken by Stereolab\./);
       expect(fileBodies).toHaveLength(1);
       expect(screen.queryByText(/Filing failed/)).not.toBeInTheDocument();
+    });
+  });
+
+  describe("the filing choice", () => {
+    const setUp = () => {
+      const item = dogaItem();
+      fakeReviewsEndpoints({ records: [item], forItem: { [ITEM_ID]: [submitted(40)] } });
+      server.use(http.get(`${TEST_BACKEND_URL}/library`, () => HttpResponse.json([RELEASE_ROW])));
+      return serveItem(item);
+    };
+
+    it("asks which arm first, and shows neither form until one is chosen", async () => {
+      setUp();
+      renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      expect(await screen.findByRole("heading", { name: "File it" })).toBeInTheDocument();
+      expect(screen.getByRole("radio", { name: NEW_ARM })).not.toBeChecked();
+      expect(screen.getByRole("radio", { name: EXISTING_ARM })).not.toBeChecked();
+      expect(screen.queryByRole("combobox", { name: "Genre" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("searchbox", { name: "Search the library" })).not.toBeInTheDocument();
+    });
+
+    it("shows only the chosen arm, and keeps what was typed in each when switching back", async () => {
+      setUp();
+      const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      await chooseArm(user, NEW_ARM);
+      const album = await screen.findByLabelText("Album title");
+      await user.clear(album);
+      await user.type(album, "Edits");
+      expect(screen.queryByRole("searchbox", { name: "Search the library" })).not.toBeInTheDocument();
+
+      await chooseArm(user, EXISTING_ARM);
+      expect(screen.getByLabelText("Album title")).not.toBeVisible();
+      await user.type(await screen.findByRole("searchbox", { name: "Search the library" }), "Juana");
+
+      await chooseArm(user, NEW_ARM);
+      expect(screen.getByRole("searchbox", { name: "Search the library", hidden: true })).not.toBeVisible();
+      expect(screen.getByLabelText("Album title")).toHaveValue("Edits");
+
+      await chooseArm(user, EXISTING_ARM);
+      expect(screen.getByRole("searchbox", { name: "Search the library" })).toHaveValue("Juana");
     });
   });
 
@@ -1676,6 +1732,17 @@ describe("IntakeItemScreen", () => {
   });
 
   describe("deleting the record", () => {
+    it("puts the record's Delete last on the page, after the line that says when to use it", async () => {
+      serveDeletable(["Cat Power"], []);
+      renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      const hint = await screen.findByText("Delete this record only if it was logged by mistake. Its reviews and drafts go with it.");
+      const buttons = screen.getAllByRole("button");
+      const remove = screen.getByRole("button", { name: "Delete" });
+      expect(buttons[buttons.length - 1]).toBe(remove);
+      expect(hint.compareDocumentPosition(remove) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+
     const TITLE = "Delete Juana Molina — DOGA from the review shelf?";
 
     /**

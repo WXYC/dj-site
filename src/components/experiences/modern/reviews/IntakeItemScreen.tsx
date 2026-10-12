@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Button, Chip, Stack, Typography } from "@mui/joy";
+import { Button, Chip, Divider, Radio, RadioGroup, Stack, Typography } from "@mui/joy";
 import type { IntakeItem, Review } from "@wxyc/shared";
 import type { AlbumEntry } from "@/lib/features/catalog/types";
 import { namedAuthor } from "@/lib/features/reviews/author";
@@ -57,6 +57,9 @@ const isFiledState = (state: IntakeItem["effective_state"]) => state === "filed"
 export default function IntakeItemScreen({ id }: { id: number }) {
   const visible = useCanSeeReviews();
   // Set once the record is gone: its reads stop (they would 404) and the page shows only this line.
+  // Which filing form is open, and which have been opened: a form once opened stays mounted (hidden) so switching keeps what was typed.
+  const [arm, setArm] = useState<"new" | "existing" | null>(null);
+  const [opened, setOpened] = useState({ new: false, existing: false });
   const [deletedLine, setDeletedLine] = useState<string | null>(null);
   const item = useGetIntakeItemQuery(id, { skip: !visible || deletedLine !== null });
   const { data: formats } = useGetFormatsQuery(undefined, { skip: !visible });
@@ -224,11 +227,6 @@ export default function IntakeItemScreen({ id }: { id: number }) {
           onClose={() => setRecording(false)}
         />
       )}
-      {!isFiledState(item.data.effective_state) && (
-        <Button color="danger" variant="outlined" onClick={() => setConfirmingDelete(true)} sx={{ alignSelf: "flex-start" }}>
-          {COPY.delete}
-        </Button>
-      )}
       <ConfirmDialog
         open={confirmingDelete}
         onClose={() => setConfirmingDelete(false)}
@@ -260,25 +258,53 @@ export default function IntakeItemScreen({ id }: { id: number }) {
         <Typography>{COPY.chooseFirst}</Typography>
       ) : (
         <>
-          <Typography level="title-sm" component="h3">{COPY.fileNew}</Typography>
-          <RotationFilingBench
-            submit={submitNew}
-            initial={{
-              artist: item.data.artist_name,
-              album: item.data.album_title,
-              label: item.data.record_label ?? "",
-              formatId: item.data.format_id,
-              discogsReleaseId: item.data.discogs_release_id,
+          <Typography level="title-sm" component="h3">{COPY.fileIt}</Typography>
+          <RadioGroup
+            orientation="horizontal"
+            value={arm}
+            onChange={(e) => {
+              const next = e.target.value as "new" | "existing";
+              setArm(next);
+              setOpened((o) => ({ ...o, [next]: true }));
             }}
-          />
-          <Typography level="title-sm" component="h3">{COPY.fileExisting}</Typography>
-          <ReleasePicker onPick={setPicked} selectedId={picked?.id ?? null} onSearch={() => setPicked(null)} />
-          {picked && (
-            <Stack direction="row" spacing={1} alignItems="center">
-              <Button onClick={fileOntoPicked} loading={filing.isLoading}>{COPY.fileOnto}</Button>
-              <Typography>{recordLine(releaseRecord(picked))}</Typography>
+          >
+            <Radio value="new" label={COPY.fileNew} />
+            <Radio value="existing" label={COPY.fileExisting} />
+          </RadioGroup>
+          {opened.new && (
+            <Stack spacing={2} hidden={arm !== "new"} sx={arm !== "new" ? { display: "none" } : undefined}>
+              <RotationFilingBench
+                submit={submitNew}
+                initial={{
+                  artist: item.data.artist_name,
+                  album: item.data.album_title,
+                  label: item.data.record_label ?? "",
+                  formatId: item.data.format_id,
+                  discogsReleaseId: item.data.discogs_release_id,
+                }}
+              />
             </Stack>
           )}
+          {opened.existing && (
+            <Stack spacing={2} hidden={arm !== "existing"} sx={arm !== "existing" ? { display: "none" } : undefined}>
+              <ReleasePicker onPick={setPicked} selectedId={picked?.id ?? null} onSearch={() => setPicked(null)} />
+              {picked && (
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <Button onClick={fileOntoPicked} loading={filing.isLoading}>{COPY.fileOnto}</Button>
+                  <Typography>{recordLine(releaseRecord(picked))}</Typography>
+                </Stack>
+              )}
+            </Stack>
+          )}
+        </>
+      )}
+      {!isFiledState(item.data.effective_state) && (
+        <>
+          <Divider />
+          <Typography level="body-sm">{COPY.deleteRecordHint}</Typography>
+          <Button color="danger" variant="outlined" onClick={() => setConfirmingDelete(true)} sx={{ alignSelf: "flex-start" }}>
+            {COPY.delete}
+          </Button>
         </>
       )}
     </Stack>
