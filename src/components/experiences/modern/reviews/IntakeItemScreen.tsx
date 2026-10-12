@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import Link from "next/link";
 import { Button, Chip, Divider, Radio, RadioGroup, Stack, Typography } from "@mui/joy";
 import type { IntakeItem, Review } from "@wxyc/shared";
@@ -71,10 +71,15 @@ export default function IntakeItemScreen({ id }: { id: number }) {
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [picked, setPicked] = useState<AlbumEntry | null>(null);
   const [recording, setRecording] = useState(false);
-  // Set from a successful review write until the page's reload settles, so no review button acts on the stale cover.
+  // True while a review write is putting a new cover there, so no review button acts on the stale cover. Use this review and a
+  // ticked Record a review set it at the press; a Delete review and an unticked save set it once the write has succeeded. It
+  // clears when the page's reread settles, or, for a write that fails, after that failure's own reload (if it has one).
   const [awaitingReread, setAwaitingReread] = useState(false);
   // The cover a write chose when its reread failed, kept until a reread succeeds: RTK Query keeps the stale item.
   const [writtenCover, setWrittenCover] = useState<number | null>(null);
+  // Any successful read of the item replaces the kept cover, whichever path made the read.
+  const itemReadAt = item.fulfilledTimeStamp;
+  useEffect(() => setWrittenCover(null), [itemReadAt]);
 
   const coverId = writtenCover ?? item.data?.accepted_review_id ?? null;
   const ownCover = reviews.data?.find((r) => r.id === coverId);
@@ -90,11 +95,14 @@ export default function IntakeItemScreen({ id }: { id: number }) {
 
   const reload = useItemPageReload(id, coverById);
   const mounted = useMounted();
-  const reviewWritten = async (cover?: number) => {
+  // `cover` is the review the write put on the cover; a write that names none leaves the kept cover as it was, unless `deleted` is that very review.
+  const reviewWritten = async (cover?: number, deleted?: number) => {
     setAwaitingReread(true);
     const { item: reread } = await reload();
     if (!mounted.current) return;
-    setWrittenCover(reread ? null : (cover ?? null));
+    if (reread) setWrittenCover(null);
+    else if (cover !== undefined) setWrittenCover(cover);
+    else if (deleted !== undefined) setWrittenCover((kept) => (kept === deleted ? null : kept));
     setAwaitingReread(false);
   };
 
@@ -127,7 +135,7 @@ export default function IntakeItemScreen({ id }: { id: number }) {
         blocked={isOnCover(review) && isFiledState(item.data!.effective_state)}
         disabled={awaitingReread}
         reload={reload}
-        onWritten={reviewWritten}
+        onWritten={() => reviewWritten(undefined, review.id)}
         onNotice={setNotice}
       />
     );
