@@ -14,8 +14,9 @@ const COPY = REVIEW_COPY.intakeItem;
  * cover (`replacing`), and says nothing of its own on success: the review moving up is the confirmation.
  * Once the write succeeds the confirmation closes and `onWritten` hands the page the reread; the page
  * disables the button (`disabled`) until that reread settles, so a press in that window cannot send the write twice.
- * `onPending` tells the page a write is in flight (true at the press, false once it fails), so no other
- * review button acts on the stale cover meanwhile. `reload` is the page's reload (`useItemPageReload`), which also tells whether the page is still mounted;
+ * `onPending` tells the page a write is in flight (true at the press, false once it fails, after the failure's own reload on a refusal), so no other
+ * review button acts on the stale cover meanwhile. `onWritten(cover)` is called once the write succeeds with this review's id,
+ * which the page keeps as the cover if its reread fails. `reload` is the page's reload (`useItemPageReload`), which also tells whether the page is still mounted;
  * the line goes out through `onNotice`, so it survives this button leaving the page with a deleted review.
  */
 export default function UseThisReviewButton({ itemId, review, replacing, disabled, reload, onPending, onWritten, onNotice }: {

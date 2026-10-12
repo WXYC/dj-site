@@ -21,6 +21,12 @@ const AUTHOR_MAX = 128;
  * reloads through the page's review-write path (`onWritten`). If the submit fails, the form closes like a success
  * but says the draft was saved and waits under My reviews: there is no second Save to create another review.
  * Names (the author, the picked account) are real names: station display only, never telemetry.
+ * `hasCover` is whether a review is on the cover now or another write is putting one there; the helper line under
+ * the checkbox reads it, but a ticked save keeps the line it had at the press, so its own save never changes it.
+ * `disabled` is the page's hold on every review write (another write is in flight or rereading): Save is out of reach.
+ * `onPending` is the page's setter for that hold: a ticked save calls it with true at the press, and with false if the create fails.
+ * `onWritten` is the page's review-write path: it gets the id of the review the save put on the cover (a ticked save)
+ * so the page can keep it as the cover when its reread fails, and nothing for an unticked save, which moves no cover.
  */
 export default function RecordReviewForm({ itemId, hasCover, disabled, onPending, onWritten, onNotice, onClose }: {
   itemId: number;
@@ -45,6 +51,8 @@ export default function RecordReviewForm({ itemId, hasCover, disabled, onPending
   const [tried, setTried] = useState(false);
   // From a valid press until the page's reread settles, so a second press cannot record the review twice.
   const [saving, setSaving] = useState(false);
+  // What the helper line said when a ticked save was pressed, so that save's own hold on the page does not change it.
+  const [coverAtPress, setCoverAtPress] = useState<boolean | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
 
   const name = author.trim();
@@ -60,7 +68,10 @@ export default function RecordReviewForm({ itemId, hasCover, disabled, onPending
     setSaving(true);
     onNotice(null);
     // Only a ticked save moves the cover, so only it holds the page's other buttons from the press.
-    if (onCover) onPending(true);
+    if (onCover) {
+      setCoverAtPress(hasCover);
+      onPending(true);
+    }
     const body: NewReviewRequest = {
       intake_item_id: itemId,
       author: name,
@@ -88,6 +99,7 @@ export default function RecordReviewForm({ itemId, hasCover, disabled, onPending
       if (onCover) onPending(false);
       if (!mounted.current) return;
       setSaving(false);
+      setCoverAtPress(null);
       const refusal = unwrapEndpointError("reviewWriteError", err);
       // The server's own words only for a 400 that named no account; with one, the page's line says it.
       setFailure(
@@ -127,7 +139,7 @@ export default function RecordReviewForm({ itemId, hasCover, disabled, onPending
       {tried && textBlank && <Typography level="body-sm">{COPY.textBlank}</Typography>}
       <Typography level="body-sm">{COPY.noConsent}</Typography>
       <Checkbox label={COPY.useAsCover} checked={onCover} onChange={(e) => setOnCover(e.target.checked)} />
-      <Typography level="body-sm">{!onCover ? COPY.otherReview : hasCover ? COPY.coverReplaces : COPY.coverNone}</Typography>
+      <Typography level="body-sm">{!onCover ? COPY.otherReview : (coverAtPress ?? hasCover) ? COPY.coverReplaces : COPY.coverNone}</Typography>
       <Button loading={saving} disabled={disabled} onClick={record} sx={{ alignSelf: "flex-start" }}>{REVIEW_COPY.save}</Button>
       {failure && <Typography role="alert">{failure}</Typography>}
     </Stack>
