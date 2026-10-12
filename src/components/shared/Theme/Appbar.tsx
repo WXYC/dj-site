@@ -20,6 +20,13 @@ const ColorSchemeToggle = dynamic(
   }
 );
 
+/** The fixed Appbar's gap from the viewport's bottom and right edges, in px. */
+export const APPBAR_OFFSET_PX = 5;
+/** Its height in px: the version line (about 18) over a size-sm button group (2rem). */
+export const APPBAR_HEIGHT_PX = 52;
+/** How far above the viewport's bottom its top edge sits; content that must stay clear of it needs this much room below. */
+export const APPBAR_CLEARANCE_PX = APPBAR_OFFSET_PX + APPBAR_HEIGHT_PX;
+
 export default function Appbar({ experience }: { experience: ExperienceId }) {
   const isPublic = usePublicRoutes();
 
@@ -28,8 +35,8 @@ export default function Appbar({ experience }: { experience: ExperienceId }) {
       className="ignoreClassic"
       sx={{
         position: "fixed",
-        bottom: 5,
-        right: 5,
+        bottom: APPBAR_OFFSET_PX,
+        right: APPBAR_OFFSET_PX,
         zIndex: 10000,
         // Right-justify the whole footer: a long version string used to widen
         // the box and shove the button row leftward. Anchoring both the text
