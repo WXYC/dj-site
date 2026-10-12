@@ -108,7 +108,9 @@ export default function IntakeItemScreen({ id }: { id: number }) {
 
   if (!visible) return null;
   if (deletedLine !== null) return <Typography role="status">{deletedLine}</Typography>;
-  if ([item, reviews, fetchedCover].some(hasNothingToShow)) {
+  // A cover id that only the kept written id supplies is not the item's own: a failed read of it leaves the page as main kept it, without the cover group.
+  const coverIsKeptOnly = writtenCover !== null && writtenCover !== item.data?.accepted_review_id;
+  if ([item, reviews, ...(coverIsKeptOnly ? [] : [fetchedCover])].some(hasNothingToShow)) {
     return <Typography role="alert">{COPY.loadFailed}</Typography>;
   }
   if (!item.data || !reviews.data) return null;

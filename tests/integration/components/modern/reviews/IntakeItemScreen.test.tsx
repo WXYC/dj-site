@@ -1645,6 +1645,15 @@ describe("IntakeItemScreen", () => {
       expect(screen.getByText(byId.length ? "From the cited release." : "Take 40.")).toBeInTheDocument();
     });
 
+    it("shows the load-failure line when the item's own cover review cannot be read by id", async () => {
+      fakeReviewsEndpoints({ records: [dogaItem({ accepted_review_id: 90 })], forItem: { [ITEM_ID]: [submitted(40), submitted(41)] } });
+      server.use(http.get(`${TEST_BACKEND_URL}/reviews/90`, () => HttpResponse.json({ message: "boom" }, { status: 500 })));
+
+      renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      expect(await screen.findByRole("alert")).toHaveTextContent("Couldn't load this record. Please try again.");
+    });
+
     it("shows the load-failure line when the first read of the item fails", async () => {
       fakeReviewsEndpoints({ forItem: { [ITEM_ID]: [submitted(40)] } });
       server.use(http.get(FILED_ITEM_PATH, () => HttpResponse.json({ message: "boom" }, { status: 500 })));
@@ -2409,7 +2418,7 @@ describe("IntakeItemScreen", () => {
           return HttpResponse.json(done);
         }),
       );
-      return { box, creates, submits };
+      return { box, creates, submits, reviews };
     };
 
     const open = async (user: User) => user.click(await screen.findByRole("button", { name: "Record a review" }));
@@ -2873,6 +2882,61 @@ describe("IntakeItemScreen", () => {
 
       const other = await screen.findByRole("button", { name: "Use this review instead" });
       await waitFor(() => expect(other).toBeEnabled());
+      await user.click(other);
+      expect(within(await screen.findByRole("alertdialog")).getByText(REVIEW_COPY.intakeItem.replaceCover)).toBeInTheDocument();
+    });
+
+    it("keeps the form's line for the state after a failed ticked save when the cover then changes by another write", async () => {
+      const { box } = setUp(dogaItem(NOTHING_ON_COVER), [submitted(41)]);
+      server.use(
+        http.post(SAVE_URL, () => HttpResponse.json({ message: "boom" }, { status: 500 })),
+        http.post(`${TEST_BACKEND_URL}/intake/${ITEM_ID}/accept-review`, () => {
+          box.item = { ...box.item, accepted_review_id: 41 };
+          return HttpResponse.json(box.item);
+        }),
+      );
+      const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+      await open(user);
+      await fillAuthor(user, "Sessa");
+      await writeReview(user, "Warm.");
+      const choose = await screen.findByRole("button", { name: "Use this review" });
+      await reviewsSettled(store);
+      await save(user);
+      expect((await screen.findByRole("alert")).textContent).toBe(REVIEW_COPY.record.couldNotRecord);
+      await waitFor(() => expect(choose).toBeEnabled());
+      expect(screen.getByText(REVIEW_COPY.record.coverNone)).toBeInTheDocument();
+      const reread = holdResponse("get", FILED_ITEM_PATH, () => HttpResponse.json(box.item));
+
+      await user.click(choose);
+
+      await waitFor(() => expect(reread.calls.count).toBe(1));
+      expect(screen.getByText(REVIEW_COPY.record.coverReplaces)).toBeInTheDocument();
+      expect(screen.queryByText(REVIEW_COPY.record.coverNone)).not.toBeInTheDocument();
+
+      reread.release();
+      await reread.answered;
+      await reviewsSettled(store);
+    });
+
+    it("keeps the page, and the kept review on the cover, when a ticked save's item, reviews and by-id reads all fail", async () => {
+      const { box, reviews } = setUp(dogaItem(NOTHING_ON_COVER), [submitted(41)]);
+      const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+      await open(user);
+      await fillAuthor(user, "Sessa");
+      await writeReview(user, "Warm.");
+      await screen.findByRole("button", { name: "Use this review" });
+      await reviewsSettled(store);
+      box.fail = true;
+      reviews.fail = true;
+      server.use(http.get(`${TEST_BACKEND_URL}/reviews/${NEW_ID}`, () => HttpResponse.json({ message: "boom" }, { status: 500 })));
+
+      await save(user);
+
+      const other = await screen.findByRole("button", { name: "Use this review instead" });
+      await waitFor(() => expect(other).toBeEnabled());
+      await reviewsSettled(store);
+      expect(screen.queryByText("Couldn't load this record. Please try again.")).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Use this review instead" })).toBeInTheDocument();
       await user.click(other);
       expect(within(await screen.findByRole("alertdialog")).getByText(REVIEW_COPY.intakeItem.replaceCover)).toBeInTheDocument();
     });

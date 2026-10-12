@@ -13,7 +13,7 @@ const COPY = REVIEW_COPY.intakeItem;
 /**
  * Deletes `review` after asking, with the page's own `confirmation` as the question. `blocked` is the
  * filed-cover case the page can already see: the button is disabled and the sentence sits beside it.
- * `disabled` is the page's reread window after a review write; `onWritten` hands the page the reread after a delete.
+ * `disabled` is the page's reread window after a review write, and is also held from the press of Use this review and of a ticked Record a review until those writes fail or their reread settles; `onWritten` hands the page the reread after a delete.
  * Every failure reloads the page (`reload`, `useItemPageReload`) and then goes out through `onNotice`,
  * so the line survives the reload that removes this button when the review is already gone.
  */
