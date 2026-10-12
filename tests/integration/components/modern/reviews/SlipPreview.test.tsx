@@ -50,6 +50,26 @@ describe("SlipPreview", () => {
     expect(slipCss(label)).toMatch(/font-weight:\s*500/);
   });
 
+  // Kanit 500 sets "Recommended" 6.8em wide, so at the slip's 0.8rem it overflows the 0.82in label column by about 8px; at 0.875em of that it is about 76px.
+  it("sets its row labels small enough for 'Recommended' to fit the label column, on screen and in print", () => {
+    renderWithProviders(slip());
+    const label = screen.getByText(REVIEW_COPY.slip.recommended);
+    expect(slipCss(label)).toMatch(/font-size:\s*0\.875em/);
+  });
+
+  // The tape reaches about 0.1in above the slip, past the 4px gap the page leaves under the printed-version note; `&&` is what outranks that gap's rule.
+  it.each([
+    ["on the cover", true, /\.(css-[\w-]+)\.\1[^{]*\{[^}]*margin-top:\s*0\.12in/],
+    ["not on the cover", false, null],
+  ])("clears the printed-version note on screen only for a review %s", (_name, onCover, expected) => {
+    renderWithProviders(slip(onCover));
+    const group = screen.getByRole("group", { name: REVIEW_COPY.slip.name });
+    const { always, screen: onScreen, other } = rulesOf(group);
+    if (expected) expect(onScreen).toMatch(expected);
+    else expect(onScreen).not.toMatch(/margin-top/);
+    expect(always + other).not.toMatch(/margin-top/);
+  });
+
   it.each([
     ["on the cover", true, 2],
     ["not on the cover", false, 0],

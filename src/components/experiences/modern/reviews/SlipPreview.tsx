@@ -19,7 +19,7 @@ export type SlipPreviewProps = {
 };
 
 // Everything that makes the slip look like paper sits under `@media screen`, so the printed slip keeps its plain box.
-const Slip = styled("div")({
+const Slip = styled("div", { shouldForwardProp: (prop) => prop !== "onCover" })<{ onCover?: boolean }>(({ onCover }) => ({
   width: "4.25in",
   maxWidth: "100%",
   border: "1px solid currentColor",
@@ -35,10 +35,13 @@ const Slip = styled("div")({
     boxShadow: "0 1px 4px var(--wxyc-palette-neutral-400)",
     "& > div": { borderBottom: "1px solid var(--wxyc-palette-divider)", paddingBottom: "0.04in" },
     "& > div:last-of-type": { borderBottom: "none", paddingBottom: 0 },
+    // The tape reaches about 0.1in above the slip, past the 4px gap a page's Stack leaves under the printed-version note; `&&` outranks that gap's rule.
+    ...(onCover && { "&&": { marginTop: "0.12in" } }),
   },
-});
+}));
 
-const Label = styled("strong")(({ theme }) => ({ flex: "0 0 0.82in", fontWeight: theme.fontWeight.lg }));
+// Kanit 500 sets "Recommended" 6.8em wide, which at the slip's 0.8rem overflows the 0.82in column; 0.875em of that fits.
+const Label = styled("strong")(({ theme }) => ({ flex: "0 0 0.82in", fontSize: "0.875em", fontWeight: theme.fontWeight.lg }));
 
 const Tape = styled("span")({
   display: "none",
@@ -72,7 +75,7 @@ export function SlipFccRow({ fcc, notes = [] }: { fcc?: string | null; notes?: s
 export default function SlipPreview({ artist, album, label, reviewer, date, fields, fccNotes, onCover }: SlipPreviewProps) {
   const { fields: names, slip } = REVIEW_COPY;
   return (
-    <Slip aria-label={slip.name} role="group">
+    <Slip aria-label={slip.name} role="group" onCover={onCover}>
       {onCover && (
         <>
           <Tape aria-hidden style={{ left: "0.4in", transform: "rotate(-3deg)" }} />
