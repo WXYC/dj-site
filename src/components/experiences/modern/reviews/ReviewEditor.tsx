@@ -28,13 +28,12 @@ import SlipFields, { toFieldPatch, toFieldValues } from "./SlipFields";
 import SlipPreview from "./SlipPreview";
 import { formatSlipDate } from "./slipDate";
 import { useReviewRecord } from "./useReviewRecord";
+import { STICKY_ROOM_PROPERTY, useStickyRoom } from "./useStickyRoom";
 import { hasNothingToShow } from "@/lib/has-nothing-to-show";
 import { APPBAR_CLEARANCE_PX } from "@/src/components/shared/Theme/Appbar";
 
 /** Two columns from an editor 800px wide (a 1440px window beside both sidebars is about 826): the form takes the rest but never under 20rem, the slip is its own 4.25in, so the form keeps 368px at 800px. */
 const TWO_COLUMNS = "@container (min-width: 800px)";
-/** Room the sticky action bar and the Appbar leave in the viewport. */
-const BAR_ROOM_PX = APPBAR_CLEARANCE_PX + 64;
 
 type Confirming = "submit" | "delete" | null;
 
@@ -57,6 +56,7 @@ function Form({ review }: { review: Review }) {
   const [remove, { isLoading: deleting }] = useDeleteReviewMutation();
   const router = useRouter();
   const record = useReviewRecord(review);
+  const { root, bar } = useStickyRoom<HTMLDivElement, HTMLDivElement>();
   const slipHeadingId = useId();
   const reasonId = useId();
   const draft = review.status === "draft";
@@ -112,7 +112,7 @@ function Form({ review }: { review: Review }) {
       : null;
 
   return (
-    <Box sx={{ containerType: "inline-size" }}>
+    <Box ref={root} sx={{ containerType: "inline-size" }}>
       {record && <RecordHeader record={record} />}
       <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" sx={{ mt: 1 }}>
         {!draft && (
@@ -142,11 +142,12 @@ function Form({ review }: { review: Review }) {
             <Typography level="body-sm">{REVIEW_COPY.authorOnlyConsent}</Typography>
           )}
         </Stack>
+        {/* Bounded by measuring the scroll region minus the bar (useStickyRoom), so no guess at the chrome around the region can drift. */}
         <Stack spacing={2} sx={{
-            [TWO_COLUMNS]: { position: "sticky", top: 0, alignSelf: "start", maxHeight: `calc(100dvh - ${BAR_ROOM_PX}px)`, overflowY: "auto" },
+            [TWO_COLUMNS]: { position: "sticky", top: 0, alignSelf: "start", maxHeight: `var(${STICKY_ROOM_PROPERTY}, none)`, overflowY: "auto" },
           }}>
           <Stack component="section" aria-labelledby={slipHeadingId} spacing={1}>
-            <Typography id={slipHeadingId} component="h4" level="title-sm">{REVIEW_COPY.slip.heading}</Typography>
+            <Typography id={slipHeadingId} component={record ? "h4" : "h3"} level="title-sm">{REVIEW_COPY.slip.heading}</Typography>
             <SlipPreview
               artist={record?.artist ?? ""}
               album={record?.album ?? ""}
@@ -160,6 +161,7 @@ function Form({ review }: { review: Review }) {
         </Stack>
       </Box>
       <Stack
+        ref={bar}
         direction="row"
         spacing={1}
         alignItems="center"
