@@ -954,6 +954,72 @@ describe("IntakeItemScreen", () => {
 
       await waitFor(() => expect([releaseReviewReads, fccReads]).toEqual([2, 2]));
     });
+
+    describe("the page's hold while the filing's reread is outstanding", () => {
+      const setUpTwoReviews = () => {
+        const out = setUp();
+        fakeReviewsEndpoints({ records: [out.box.item], forItem: { [ITEM_ID]: [submitted(40), submitted(41)] } });
+        server.use(acceptingReview(out.box));
+        return out;
+      };
+      const filedItem = () => dogaItem({ state: "filed", effective_state: "filed" });
+
+      it("holds every review button until the reread that follows a successful filing settles, then lets a chosen cover stand", async () => {
+        const { box } = setUpTwoReviews();
+        server.use(
+          http.post(FILE_URL, () => {
+            box.item = filedItem();
+            return HttpResponse.json(box.item);
+          }),
+        );
+        const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+        await screen.findByText("Already in the library?");
+        await pick(user);
+        await reviewsSettled(store);
+        const reread = holdResponse("get", FILED_ITEM_PATH, () => HttpResponse.json(box.item));
+
+        await user.click(screen.getByRole("button", { name: "File it as this one" }));
+
+        await waitFor(() => expect(reread.calls.count).toBe(1));
+        await renderedFrame();
+        expect(guarded().length).toBeGreaterThan(0);
+        guarded().forEach((b) => expect(b).toBeDisabled());
+
+        reread.release();
+        await reread.answered;
+        await reviewsSettled(store);
+        // The cover's own Delete review stays disabled once the record is filed, so only the Use button is checked.
+        await waitFor(() => expect(screen.getByRole("button", { name: "Use this review instead" })).toBeEnabled());
+
+        await user.click(screen.getByRole("button", { name: "Use this review instead" }));
+        await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Use this review instead" }));
+        const cover = () => screen.getByRole("heading", { name: "The review on the cover" }).closest("section")!;
+        await waitFor(() => expect(within(cover()).getByText("Take 41.")).toBeInTheDocument());
+        await reviewsSettled(store);
+        expect(within(cover()).getByText("Take 41.")).toBeInTheDocument();
+      });
+
+      it("holds every review button until the reread that follows a refused filing settles", async () => {
+        const { box } = setUpTwoReviews();
+        server.use(http.post(FILE_URL, () => HttpResponse.json({ message: "server words", reason: "state_changed" }, { status: 409 })));
+        const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+        await screen.findByText("Already in the library?");
+        await pick(user);
+        await reviewsSettled(store);
+        const reread = holdResponse("get", FILED_ITEM_PATH, () => HttpResponse.json(box.item));
+
+        await user.click(screen.getByRole("button", { name: "File it as this one" }));
+
+        await waitFor(() => expect(reread.calls.count).toBe(1));
+        await renderedFrame();
+        guarded().forEach((b) => expect(b).toBeDisabled());
+
+        reread.release();
+        await reread.answered;
+        await reviewsSettled(store);
+        await waitFor(() => guarded().forEach((b) => expect(b).toBeEnabled()));
+      });
+    });
   });
 
   describe("using a review", () => {

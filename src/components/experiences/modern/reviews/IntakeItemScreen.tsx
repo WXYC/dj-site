@@ -177,36 +177,50 @@ export default function IntakeItemScreen({ id }: { id: number }) {
   // The intake refusals are worded here; the server's text is never shown.
   const submitNew: FilingSubmit = async (request) => {
     setNotice(null);
+    // A filing moves no cover. Its success path makes no reload of its own and relies on the mutation's refetch, so the handle outlives the unwrap and is released only after the awaited reload joins that refetch.
+    const release = hold(false);
     try {
-      await fileItem({ id, body: { kind: "new_release", ...request } }).unwrap();
-    } catch (err) {
-      const refusal = isIntakeStateChanged(err) ? COPY.alreadyFiled : isIntakeNotReviewed(err) ? COPY.notReviewed : null;
-      if (refusal === null) throw unwrapEndpointError("intakeWriteError", err) ?? err;
-      if ((await reload()).mounted) setNotice(refusal);
-      // Nothing was filed, so the bench keeps what was typed.
-      return false;
+      try {
+        await fileItem({ id, body: { kind: "new_release", ...request } }).unwrap();
+      } catch (err) {
+        const refusal = isIntakeStateChanged(err) ? COPY.alreadyFiled : isIntakeNotReviewed(err) ? COPY.notReviewed : null;
+        if (refusal === null) throw unwrapEndpointError("intakeWriteError", err) ?? err;
+        if ((await reload()).mounted) setNotice(refusal);
+        // Nothing was filed, so the bench keeps what was typed.
+        return false;
+      }
+      await reload();
+    } finally {
+      release();
     }
   };
 
   const fileOntoPicked = async () => {
     if (picked?.id == null || filing.isLoading) return;
     setNotice(null);
+    const release = hold(false);
     try {
-      await fileItem({ id, body: { kind: "existing_release", album_id: picked.id } }).unwrap();
-    } catch (err) {
-      // Only a refusal the server worded reloads the record; any other failure files nothing and says so.
-      const refusal = isIntakeStateChanged(err)
-        ? COPY.alreadyFiled
-        : isIntakeNotReviewed(err)
-          ? COPY.notReviewed
-          : isIntakeReleaseRefused(err)
-            ? COPY.pickedGone
-            : null;
-      if (refusal === null) {
-        if (mounted.current) setNotice(COPY.fileFailed);
+      try {
+        await fileItem({ id, body: { kind: "existing_release", album_id: picked.id } }).unwrap();
+      } catch (err) {
+        // Only a refusal the server worded reloads the record; any other failure files nothing and says so.
+        const refusal = isIntakeStateChanged(err)
+          ? COPY.alreadyFiled
+          : isIntakeNotReviewed(err)
+            ? COPY.notReviewed
+            : isIntakeReleaseRefused(err)
+              ? COPY.pickedGone
+              : null;
+        if (refusal === null) {
+          if (mounted.current) setNotice(COPY.fileFailed);
+          return;
+        }
+        if ((await reload()).mounted) setNotice(refusal);
         return;
       }
-      if ((await reload()).mounted) setNotice(refusal);
+      await reload();
+    } finally {
+      release();
     }
   };
 
