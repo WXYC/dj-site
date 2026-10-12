@@ -73,7 +73,7 @@ const allBlocks = (css: string, start: string) => {
 /** The sheet with every block starting with `start` cut out. */
 const withoutBlocks = (css: string, start: string) => {
   let out = css;
-  for (let at = out.indexOf(start); at >= 0; at = out.indexOf(start)) out = out.slice(0, at) + out.slice(at + start.length + 2 + blockAfter(out.slice(at), start).length + 1);
+  for (let at = out.indexOf(start); at >= 0; at = out.indexOf(start)) out = out.slice(0, at) + out.slice(out.indexOf("{", at) + 1 + blockAfter(out.slice(at), start).length + 1);
   return out;
 };
 /** The CSS emotion generated for an element, with the contents of every `@container`/`@media` block it has. */
