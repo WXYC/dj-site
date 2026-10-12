@@ -332,6 +332,10 @@ export const REVIEW_COPY = {
     deleteCoverRemoved: "This is the review on the cover. Deleting it puts the record back as checked out; its holder's account was removed.",
     /** Approved. Shown beside the disabled Delete review of a filed record's cover review, and when the server refuses anyway. */
     deleteCoverFiled: "This is the record's review and the record is already filed. Choose another review for the cover first, then delete this one.",
+    /** Approved. The filing section's heading. */
+    fileIt: "File it",
+    /** Approved. The line beside the record's Delete, at the foot of the page. */
+    deleteRecordHint: "Delete this record only if it was logged by mistake. Its reviews and drafts go with it.",
   },
   /** The music directors' form that records a review of one record, on `/dashboard/admin/intake/{id}`. */
   record: {
