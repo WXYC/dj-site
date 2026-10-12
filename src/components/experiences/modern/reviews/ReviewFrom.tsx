@@ -2,6 +2,7 @@
 
 import { Typography } from "@mui/joy";
 import type { IntakeItem, Review } from "@wxyc/shared";
+import { namedAuthor } from "@/lib/features/reviews/author";
 import { itemHolder } from "@/lib/features/reviews/holder";
 import { useGetItemReviewsQuery } from "@/lib/features/reviews/reviewApi";
 import { REVIEW_COPY } from "./copy";
@@ -17,7 +18,7 @@ export const newestFirst = (a: Review, b: Review) => b.add_date.localeCompare(a.
  * where such a record is. Names are real names: station display only, never telemetry.
  */
 export function fromLine(review: Review, item: IntakeItem): string | null {
-  const { author } = review;
+  const author = namedAuthor(review);
   const holder = itemHolder(item);
   if (!author) return null;
   if (holder.kind === "removed") return COPY.fromRemoved(author);

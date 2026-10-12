@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Button, Chip, Stack, Typography } from "@mui/joy";
 import type { IntakeItem, Review } from "@wxyc/shared";
 import type { AlbumEntry } from "@/lib/features/catalog/types";
+import { namedAuthor } from "@/lib/features/reviews/author";
 import { itemHolder } from "@/lib/features/reviews/holder";
 import { hasNothingToShow } from "@/lib/has-nothing-to-show";
 import {
@@ -106,11 +107,15 @@ export default function IntakeItemScreen({ id }: { id: number }) {
   const coverConfirmation =
     holder.kind === "checked_out" ? COPY.deleteCoverHeld(holder.name) : holder.kind === "removed" ? COPY.deleteCoverRemoved : COPY.deleteCoverShelf;
   // Every review of this record can be deleted, drafts included; a cited release's review is deleted from its own record's page.
+  const deleteConfirmation = (review: Review) => {
+    const author = namedAuthor(review);
+    return isOnCover(review) ? coverConfirmation : author ? COPY.deleteReviewConfirm(author) : REVIEW_COPY.deleteConfirm;
+  };
   const deleteControl = (review: Review) =>
     review.intake_item_id === id && (
       <DeleteReviewButton
         review={review}
-        confirmation={isOnCover(review) ? coverConfirmation : review.author?.trim() ? COPY.deleteReviewConfirm(review.author) : REVIEW_COPY.deleteConfirm}
+        confirmation={deleteConfirmation(review)}
         blocked={isOnCover(review) && isFiledState(item.data!.effective_state)}
         disabled={awaitingReread}
         reload={reload}
@@ -172,7 +177,7 @@ export default function IntakeItemScreen({ id }: { id: number }) {
 
   // The names are for this confirmation only: they never go to analytics, breadcrumbs or logs.
   // The item's reviews also include drafts the caller can see; only submitted ones are named as reviews.
-  const reviewAuthors = distinctNames(reviews.data.filter((r) => r.status === "submitted").map((r) => r.author));
+  const reviewAuthors = distinctNames(reviews.data.filter((r) => r.status === "submitted").map(namedAuthor));
   const draftAuthors = distinctNames(item.data.draft_authors ?? []);
   const confirmDelete = async () => {
     try {
