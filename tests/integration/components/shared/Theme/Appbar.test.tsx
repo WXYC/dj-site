@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
-import Appbar from "@/src/components/shared/Theme/Appbar";
+import Appbar, { APPBAR_HEIGHT_PX } from "@/src/components/shared/Theme/Appbar";
 
 // Mock dependencies
 vi.mock("@/src/hooks/usePublicRoutes", () => ({
@@ -31,6 +31,12 @@ describe("Appbar", () => {
   it("should render the component", () => {
     render(<Appbar experience="modern" />);
     expect(document.querySelector(".ignoreClassic")).toBeInTheDocument();
+  });
+
+  it("takes its height from APPBAR_HEIGHT_PX, which content clearing it relies on", () => {
+    render(<Appbar experience="modern" />);
+    const root = document.querySelector(".ignoreClassic")!;
+    expect(getComputedStyle(root).minHeight).toBe(`${APPBAR_HEIGHT_PX}px`);
   });
 
   it("should render version text", () => {

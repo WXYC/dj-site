@@ -34,6 +34,7 @@ vi.mock("@/src/hooks/authenticationHooks", async () => {
 import { toast } from "sonner";
 import ReviewEditor from "@/src/components/experiences/modern/reviews/ReviewEditor";
 import { REVIEW_COPY } from "@/src/components/experiences/modern/reviews/copy";
+import { STICKY_ROOM_PROPERTY } from "@/src/components/experiences/modern/reviews/useStickyRoom";
 import { APPBAR_CLEARANCE_PX, APPBAR_HEIGHT_PX, APPBAR_OFFSET_PX } from "@/src/components/shared/Theme/Appbar";
 
 const CONSENT = { publish_website: false, publish_apps: false, publish_instagram: false, credit: null, in_use: false } as Partial<Review>;
@@ -629,12 +630,35 @@ describe("ReviewEditor", () => {
       expect(css).toContain("@container (min-width: 800px)");
       expect(css).not.toContain("1280px");
       expect(css).toMatch(/grid-template-columns:\s*minmax\(20rem, 1fr\) minmax\(0, 4\.25in\)/);
-      const colCss = cssOf(column).css;
-      const stuck = colCss.slice(colCss.indexOf(`.${cssOf(column).cls}`));
-      expect(stuck).toMatch(/position:\s*sticky/);
-      expect(stuck).toMatch(/align-self:\s*start/);
-      expect(stuck).toMatch(/max-height:\s*calc\(100dvh - \d+px\)/);
-      expect(stuck).toMatch(/overflow-y:\s*auto/);
+      // The column's own rules only (its class), not the sticky bar's later in the sheet.
+      const { all: own } = cssOf(column);
+      expect(own).toMatch(/position:\s*sticky/);
+      expect(own).toMatch(/top:\s*0/);
+      expect(own).toMatch(/align-self:\s*start/);
+      expect(own).toMatch(new RegExp(`max-height:\\s*var\\(${STICKY_ROOM_PROPERTY},\\s*none\\)`));
+      expect(own).not.toMatch(/100dvh/);
+      expect(own).toMatch(/overflow-y:\s*auto/);
+    });
+
+    it("sets the slip column's room to the scroll region's height minus the action bar's, and keeps it current", async () => {
+      const observers: Array<() => void> = [];
+      vi.stubGlobal("ResizeObserver", class { constructor(cb: () => void) { observers.push(cb); } observe() {} disconnect() {} });
+      serve();
+      renderWithProviders(<ReviewEditor id={40} />);
+
+      const bar = (await screen.findByRole("button", { name: REVIEW_COPY.submit })).parentElement!;
+      const root = bar.parentElement!;
+      const region = root.parentElement!;
+      let regionHeight = 700;
+      Object.defineProperty(region, "clientHeight", { configurable: true, get: () => regionHeight });
+      Object.defineProperty(bar, "offsetHeight", { configurable: true, get: () => 53 });
+      observers.forEach((notify) => notify());
+      expect(root.style.getPropertyValue(STICKY_ROOM_PROPERTY)).toBe("647px");
+
+      regionHeight = 500;
+      observers.forEach((notify) => notify());
+      expect(root.style.getPropertyValue(STICKY_ROOM_PROPERTY)).toBe("447px");
+      vi.unstubAllGlobals();
     });
 
     it("clears the fixed Appbar by its own geometry below md, and not above it", async () => {
@@ -667,6 +691,7 @@ describe("ReviewEditor", () => {
 
       expect(await screen.findByRole("link", { name: "History" })).toBeInTheDocument();
       expect(await screen.findByText("This is the version printed on the cover.")).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: REVIEW_COPY.slip.heading, level: 3 })).toBeInTheDocument();
       expect(screen.queryByRole("heading", { name: "Stereolab" })).not.toBeInTheDocument();
     });
   });
