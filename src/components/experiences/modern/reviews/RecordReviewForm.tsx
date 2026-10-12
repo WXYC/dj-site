@@ -22,10 +22,12 @@ const AUTHOR_MAX = 128;
  * but says the draft was saved and waits under My reviews: there is no second Save to create another review.
  * Names (the author, the picked account) are real names: station display only, never telemetry.
  */
-export default function RecordReviewForm({ itemId, hasCover, onWritten, onNotice, onClose }: {
+export default function RecordReviewForm({ itemId, hasCover, disabled, onPending, onWritten, onNotice, onClose }: {
   itemId: number;
   hasCover: boolean;
-  onWritten: () => Promise<void>;
+  disabled: boolean;
+  onPending: (pending: boolean) => void;
+  onWritten: (cover?: number) => Promise<void>;
   onNotice: (line: string | null) => void;
   onClose: () => void;
 }) {
@@ -57,6 +59,8 @@ export default function RecordReviewForm({ itemId, hasCover, onWritten, onNotice
     if (saving || authorBlank || textBlank || [...name].length > AUTHOR_MAX) return;
     setSaving(true);
     onNotice(null);
+    // Only a ticked save moves the cover, so only it holds the page's other buttons from the press.
+    if (onCover) onPending(true);
     const body: NewReviewRequest = {
       intake_item_id: itemId,
       author: name,
@@ -76,11 +80,12 @@ export default function RecordReviewForm({ itemId, hasCover, onWritten, onNotice
           line = COPY.draftNotSubmitted;
         }
       }
-      await onWritten();
+      await onWritten(onCover ? made.id : undefined);
       if (!mounted.current) return;
       onNotice(line);
       onClose();
     } catch (err) {
+      if (onCover) onPending(false);
       if (!mounted.current) return;
       setSaving(false);
       const refusal = unwrapEndpointError("reviewWriteError", err);
@@ -123,7 +128,7 @@ export default function RecordReviewForm({ itemId, hasCover, onWritten, onNotice
       <Typography level="body-sm">{COPY.noConsent}</Typography>
       <Checkbox label={COPY.useAsCover} checked={onCover} onChange={(e) => setOnCover(e.target.checked)} />
       <Typography level="body-sm">{!onCover ? COPY.otherReview : hasCover ? COPY.coverReplaces : COPY.coverNone}</Typography>
-      <Button loading={saving} onClick={record} sx={{ alignSelf: "flex-start" }}>{REVIEW_COPY.save}</Button>
+      <Button loading={saving} disabled={disabled} onClick={record} sx={{ alignSelf: "flex-start" }}>{REVIEW_COPY.save}</Button>
       {failure && <Typography role="alert">{failure}</Typography>}
     </Stack>
   );
