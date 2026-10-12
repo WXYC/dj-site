@@ -453,6 +453,8 @@ export const REVIEW_COPY = {
     archiveTitle: "Earlier takes",
     /** Approved. */
     loadFailed: "Couldn't load the reviews. Please try again.",
+    /** Approved. Expands the cover review's full slip. */
+    showSlip: "Show the whole slip",
   },
   /** FCC notes on a record, reported by any DJ. */
   fccNotes: {
