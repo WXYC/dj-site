@@ -97,6 +97,10 @@ describe("ReviewEditor", () => {
     ["save", REVIEW_COPY.save, "Save"],
     ["savedChange", REVIEW_COPY.savedChange, "Saved."],
     ["cancel", REVIEW_COPY.cancel, "Cancel"],
+    ["leave.title", REVIEW_COPY.leave.title, "Leave without saving?"],
+    ["leave.body", REVIEW_COPY.leave.body, "Your changes since the last save will be lost."],
+    ["leave.leave", REVIEW_COPY.leave.leave, "Leave"],
+    ["leave.keepEditing", REVIEW_COPY.leave.keepEditing, "Keep editing"],
     ["submitNeedsReview", REVIEW_COPY.submitNeedsReview, "Write the review before you submit it."],
     ["couldNotSubmit", REVIEW_COPY.couldNotSubmit, "Couldn't submit the review. Please try again."],
     ["alreadySubmitted", REVIEW_COPY.alreadySubmitted, "This review was already submitted."],
@@ -693,6 +697,167 @@ describe("ReviewEditor", () => {
       expect(await screen.findByText("This is the version printed on the cover.")).toBeInTheDocument();
       expect(screen.getByRole("heading", { name: REVIEW_COPY.slip.heading, level: 3 })).toBeInTheDocument();
       expect(screen.queryByRole("heading", { name: "Stereolab" })).not.toBeInTheDocument();
+    });
+  });
+
+  describe("leaving with unsaved changes", () => {
+    const TARGET = "/dashboard/flowsheet";
+    const renderEditor = (served: Review = DRAFT) => {
+      serve(served);
+      const view = renderWithProviders(
+        <>
+          <a href={TARGET}>Flowsheet</a>
+          <a href="https://example.org/elsewhere">Elsewhere</a>
+          <ReviewEditor id={40} />
+        </>,
+      );
+      return view;
+    };
+    const makeDirty = async (user: ReturnType<typeof renderEditor>["user"]) => {
+      await user.type(await screen.findByLabelText("Review"), " More.");
+    };
+    /** True when nothing stopped the click from navigating; jsdom cannot navigate, so the page cancels it last. */
+    const navigates = async (user: ReturnType<typeof renderEditor>["user"], name: string, modifiers = "") => {
+      let reached = false;
+      const last = (event: Event) => { reached = !event.defaultPrevented; event.preventDefault(); };
+      document.addEventListener("click", last);
+      if (modifiers) await user.keyboard(modifiers);
+      await user.click(screen.getByRole("link", { name }));
+      if (modifiers) await user.keyboard("{/Control}");
+      document.removeEventListener("click", last);
+      return reached;
+    };
+    const beforeUnload = () => {
+      const event = new Event("beforeunload", { cancelable: true });
+      window.dispatchEvent(event);
+      return event.defaultPrevented;
+    };
+
+    beforeEach(() => {
+      router.push.mockClear();
+    });
+
+    it("asks before an in-app link, and Keep editing stays with the text intact", async () => {
+      const { user } = renderEditor();
+      await makeDirty(user);
+      expect(await navigates(user, "Flowsheet")).toBe(false);
+
+      const dialog = await screen.findByRole("alertdialog", { name: "Leave without saving?" });
+      expect(within(dialog).getByText("Your changes since the last save will be lost.")).toBeInTheDocument();
+      expect(within(dialog).getByRole("button", { name: "Keep editing" })).toHaveFocus();
+      await user.click(within(dialog).getByRole("button", { name: "Keep editing" }));
+
+      await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
+      expect(router.push).not.toHaveBeenCalled();
+      expect(screen.getByLabelText("Review")).toHaveValue("Warm. More.");
+    });
+
+    it("goes to the link's target on Leave", async () => {
+      const { user } = renderEditor();
+      await makeDirty(user);
+      await navigates(user, "Flowsheet");
+      await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Leave" }));
+
+      expect(router.push).toHaveBeenCalledWith(TARGET);
+    });
+
+    it("lets a clean form's link navigate without asking", async () => {
+      const { user } = renderEditor();
+      await screen.findByLabelText("Review");
+      expect(await navigates(user, "Flowsheet")).toBe(true);
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    });
+
+    it("leaves other sites' links and modified clicks to the browser", async () => {
+      const { user } = renderEditor();
+      await makeDirty(user);
+      expect(await navigates(user, "Elsewhere")).toBe(true);
+      expect(await navigates(user, "Flowsheet", "{Control>}")).toBe(true);
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    });
+
+    it("treats a field changed and changed back as clean", async () => {
+      const { user } = renderEditor();
+      await makeDirty(user);
+      await user.type(screen.getByLabelText("Review"), "{Backspace>6/}");
+      expect(screen.getByLabelText("Review")).toHaveValue("Warm.");
+
+      expect(await navigates(user, "Flowsheet")).toBe(true);
+      expect(beforeUnload()).toBe(false);
+    });
+
+    it("cancels beforeunload while dirty and not while clean", async () => {
+      const { user } = renderEditor();
+      await screen.findByLabelText("Review");
+      expect(beforeUnload()).toBe(false);
+      await makeDirty(user);
+      expect(beforeUnload()).toBe(true);
+    });
+
+    it("keeps the page on back while dirty, and goes back past the guard on Leave", async () => {
+      const go = vi.spyOn(window.history, "go").mockImplementation(() => {});
+      const { user } = renderEditor();
+      await makeDirty(user);
+      window.dispatchEvent(new PopStateEvent("popstate"));
+
+      const dialog = await screen.findByRole("alertdialog", { name: "Leave without saving?" });
+      expect(go).not.toHaveBeenCalled();
+      await user.click(within(dialog).getByRole("button", { name: "Leave" }));
+      expect(go).toHaveBeenCalledWith(-2);
+      go.mockRestore();
+    });
+
+    it("lets back through when the form is clean", async () => {
+      renderEditor();
+      await screen.findByLabelText("Review");
+      window.dispatchEvent(new PopStateEvent("popstate"));
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    });
+
+    it("disarms every path once a save lands, and measures later edits against the save", async () => {
+      server.use(http.patch(`${TEST_BACKEND_URL}/reviews/40`, () => HttpResponse.json(DRAFT)));
+      const { user } = renderEditor();
+      await makeDirty(user);
+      await user.click(screen.getByRole("button", { name: REVIEW_COPY.saveDraft }));
+      await waitFor(() => expect(toast.success).toHaveBeenCalled());
+
+      expect(beforeUnload()).toBe(false);
+      window.dispatchEvent(new PopStateEvent("popstate"));
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+      expect(await navigates(user, "Flowsheet")).toBe(true);
+
+      await user.type(screen.getByLabelText("Review"), "!");
+      expect(beforeUnload()).toBe(true);
+    });
+
+    it("disarms once a submit lands", async () => {
+      server.use(
+        http.patch(`${TEST_BACKEND_URL}/reviews/40`, () => HttpResponse.json(DRAFT)),
+        http.post(`${TEST_BACKEND_URL}/reviews/40/submit`, () => HttpResponse.json(SUBMITTED)),
+      );
+      const { user } = renderEditor();
+      await makeDirty(user);
+      await user.click(screen.getByRole("button", { name: "Submit" }));
+      await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Submit" }));
+      await waitFor(() => expect(beforeUnload()).toBe(false));
+    });
+
+    it("does not interrupt the redirect after a delete", async () => {
+      server.use(http.delete(`${TEST_BACKEND_URL}/reviews/40`, () => new HttpResponse(null, { status: 204 })));
+      const { user } = renderEditor(SUBMITTED);
+      await makeDirty(user);
+      await user.click(screen.getByRole("button", { name: "Delete" }));
+      await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Delete" }));
+
+      await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/dashboard/reviews"));
+      expect(screen.queryByRole("alertdialog", { name: "Leave without saving?" })).not.toBeInTheDocument();
+    });
+
+    it("removes its listeners on unmount", async () => {
+      const { user, unmount } = renderEditor();
+      await makeDirty(user);
+      unmount();
+      expect(beforeUnload()).toBe(false);
     });
   });
 });
