@@ -39,6 +39,13 @@ import { usePrintedVersion } from "./usePrintedVersion";
 
 const COPY = REVIEW_COPY.intakeItem;
 
+/**
+ * A query's `data` is the last result the hook rendered, so it ignores a write into the cache while a read is pending
+ * or has failed; `currentData` is the cache's own. The page reads the latter, so an answer written after a successful
+ * write (`acceptReview`, `createReview`) still shows when the reread that follows fails.
+ */
+const fromCache = <R extends { currentData?: unknown }>(result: R) => ({ ...result, data: result.currentData as R["currentData"] });
+
 /** Distinct non-empty names, in first-appearance order. */
 const distinctNames = (names: (string | null | undefined)[]) => [...new Set(names.filter((n): n is string => !!n))];
 
@@ -71,9 +78,9 @@ export default function IntakeItemScreen({ id }: { id: number }) {
   const fileItId = useId();
   // Set once the record is gone: its reads stop (they would 404) and the page shows only this line.
   const [deletedLine, setDeletedLine] = useState<string | null>(null);
-  const item = useGetIntakeItemQuery(id, { skip: !visible || deletedLine !== null });
+  const item = useGetIntakeItemQuery(id, { skip: !visible || deletedLine !== null, selectFromResult: fromCache });
   const { data: formats } = useGetFormatsQuery(undefined, { skip: !visible });
-  const reviews = useGetItemReviewsQuery(id, { skip: !visible || deletedLine !== null });
+  const reviews = useGetItemReviewsQuery(id, { skip: !visible || deletedLine !== null, selectFromResult: fromCache });
   const [fileItem, filing] = useFileIntakeItemMutation();
   const [deleteItem, deletion] = useDeleteIntakeItemMutation();
   const [notice, setNotice] = useState<string | null>(null);

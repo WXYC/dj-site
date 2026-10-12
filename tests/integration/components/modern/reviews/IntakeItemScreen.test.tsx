@@ -7,6 +7,7 @@ import { fakeLibraryFilingsEndpoint, filingConflictResponse } from "@/tests/fake
 import { Authorization } from "@/lib/features/admin/types";
 import { reviewsApi } from "@/lib/features/reviews/api";
 import { reviewApi } from "@/lib/features/reviews/reviewApi";
+import { intakeApi } from "@/lib/features/reviews/intakeApi";
 
 // The bench's artist field is gated by AuthorizedView, which resolves the music director tier from the session.
 const listUsers = vi.hoisted(() => vi.fn());
@@ -1127,8 +1128,9 @@ describe("IntakeItemScreen", () => {
       await user.click(first);
 
       await waitFor(() => expect(reread.calls.count).toBe(1));
+      // The chosen review has already moved up to the cover, from the write's own answer, so one button is left.
       const buttons = await screen.findAllByRole("button", { name: "Use this review instead" });
-      expect(buttons).toHaveLength(2);
+      expect(buttons).toHaveLength(1);
       buttons.forEach((b) => expect(b).toBeDisabled());
       expect(screen.queryByRole("button", { name: "Use this review" })).not.toBeInTheDocument();
 
@@ -1162,6 +1164,98 @@ describe("IntakeItemScreen", () => {
       reread.release();
       await reread.answered;
       await reviewsSettled(store);
+    });
+
+    describe("when the reread after choosing a review fails", () => {
+      /** Chooses the newer of two reviews while every read of the item fails, and waits until the page's hold has cleared. */
+      const chooseWithFailingReread = async () => {
+        const box = setUp(dogaItem(NOTHING_ON_COVER), [
+          submitted(41, { author: "Cat Power", add_date: "2026-10-02" }),
+          submitted(42, { author: "Stereolab", add_date: "2026-10-01" }),
+        ]);
+        const posts = recordPosts(box);
+        const view = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+        const [newer] = await screen.findAllByRole("button", { name: "Use this review" });
+        await reviewsSettled(view.store);
+        box.fail = true;
+
+        await view.user.click(newer);
+
+        await waitFor(() => expect(posts).toEqual([{ path: `/intake/${ITEM_ID}/accept-review`, body: { review_id: 41 } }]));
+        await reviewsSettled(view.store);
+        await waitFor(() => guarded().forEach((b) => expect(b).toBeEnabled()));
+        return { ...view, box };
+      };
+
+      it("asks the replace question before another review takes the cover", async () => {
+        const { user } = await chooseWithFailingReread();
+
+        const other = screen.getByRole("button", { name: "Use this review instead" });
+        expect(screen.queryByRole("button", { name: "Use this review" })).not.toBeInTheDocument();
+        await user.click(other);
+
+        expect(within(await screen.findByRole("alertdialog")).getByText(REVIEW_COPY.intakeItem.replaceCover)).toBeInTheDocument();
+      });
+
+      it("opens the cover confirmation on the chosen review's Delete review, and deletes it once confirmed", async () => {
+        const deletes: string[] = [];
+        const { user } = await chooseWithFailingReread();
+        server.use(http.delete(`${TEST_BACKEND_URL}/reviews/:id`, ({ params }) => {
+          deletes.push(String(params.id));
+          return new HttpResponse(null, { status: 204 });
+        }));
+
+        await user.click(screen.getByRole("button", { name: "Delete review by Cat Power" }));
+        const dialog = await screen.findByRole("alertdialog");
+        expect(within(dialog).getByText(REVIEW_COPY.intakeItem.deleteCoverShelf)).toBeInTheDocument();
+        await user.click(within(dialog).getByRole("button", { name: "Delete" }));
+
+        await waitFor(() => expect(deletes).toEqual(["41"]));
+        expect(screen.queryByText(REVIEW_COPY.intakeItem.loadFailed)).not.toBeInTheDocument();
+      });
+
+      it("offers the filing arms, and keeps the page when File it as new then succeeds", async () => {
+        const fileBodies: unknown[] = [];
+        const { user } = await chooseWithFailingReread();
+        server.use(
+          http.post(FILE_URL, async ({ request }) => {
+            fileBodies.push(await request.json());
+            return HttpResponse.json(dogaItem({ state: "filed", effective_state: "filed", accepted_review_id: 41 }));
+          }),
+        );
+        expect(screen.queryByText(REVIEW_COPY.intakeItem.chooseFirst)).not.toBeInTheDocument();
+
+        await readyBench(user);
+        await user.click(screen.getByRole("button", { name: "Add to rotation" }));
+
+        await waitFor(() => expect(fileBodies).toHaveLength(1));
+        await renderedFrame();
+        expect(screen.queryByText(REVIEW_COPY.intakeItem.loadFailed)).not.toBeInTheDocument();
+        expect(screen.getByRole("heading", { name: "The review on the cover" })).toBeInTheDocument();
+      });
+
+      it("replaces the kept cover once a later read of the item succeeds", async () => {
+        const { box, store } = await chooseWithFailingReread();
+        const cover = () => screen.getByRole("heading", { name: "The review on the cover" }).closest("section")!;
+        expect(within(cover()).getByText("Take 41.")).toBeInTheDocument();
+
+        box.fail = false;
+        box.item = { ...box.item, accepted_review_id: 42 };
+        act(() => {
+          store.dispatch(reviewsApi.util.invalidateTags(["Intake"]));
+        });
+
+        expect(await within(cover()).findByText("Take 42.")).toBeInTheDocument();
+      });
+    });
+
+    it("shows the load-failure line when the item's own cover review cannot be read by id", async () => {
+      fakeReviewsEndpoints({ records: [dogaItem({ accepted_review_id: 90 })], forItem: { [ITEM_ID]: [submitted(41)] } });
+      server.use(http.get(`${TEST_BACKEND_URL}/reviews/90`, () => HttpResponse.json({ message: "boom" }, { status: 500 })));
+
+      renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(REVIEW_COPY.intakeItem.loadFailed);
     });
 
     it.each([
@@ -2332,10 +2426,10 @@ describe("IntakeItemScreen", () => {
           return HttpResponse.json(done);
         }),
       );
-      return { box, creates, submits };
+      return { box, reviews, creates, submits };
     };
 
-    const open = async (user: User) => user.click(await screen.findByRole("button", { name: "Record a review" }));
+    const open =async (user: User) => user.click(await screen.findByRole("button", { name: "Record a review" }));
     const fillAuthor = async (user: User, text: string) => {
       const field = screen.getByRole("textbox", { name: "Author" });
       await user.clear(field);
@@ -2858,6 +2952,66 @@ describe("IntakeItemScreen", () => {
       reread.release();
       await reread.answered;
       await reviewsSettled(store);
+    });
+
+    describe("when the rereads after the save fail", () => {
+      const cached = (store: ReturnType<typeof renderScreen>["store"]) => intakeApi.endpoints.getIntakeItem.select(ITEM_ID)(store.getState()).data;
+
+      it("puts a ticked save's review on the cover, so the page keeps the cover question and is not blanked", async () => {
+        const { box, reviews } = setUp(dogaItem(NOTHING_ON_COVER), [submitted(41, { author: "Stereolab" })]);
+        const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+        await open(user);
+        await fillAuthor(user, "Cat Power");
+        await writeReview(user, "Warm.");
+        await screen.findByRole("button", { name: "Use this review" });
+        await reviewsSettled(store);
+        box.fail = true;
+        reviews.fail = true;
+
+        await save(user);
+
+        expect(await screen.findByRole("status")).toHaveTextContent("Recorded.");
+        await reviewsSettled(store);
+        expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+        const cover = screen.getByRole("heading", { name: "The review on the cover" }).closest("section")!;
+        expect(within(cover).getByText("Warm.")).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "Use this review instead" })).toBeEnabled();
+        expect(screen.queryByRole("button", { name: "Use this review" })).not.toBeInTheDocument();
+      });
+
+      it("leaves the cover alone for an unticked save, whose review is a draft until its submit", async () => {
+        const { box, reviews } = setUp(dogaItem(NOTHING_ON_COVER), [submitted(41, { author: "Stereolab" })]);
+        const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+        await open(user);
+        await fillAuthor(user, "Cat Power");
+        await writeReview(user, "Warm.");
+        await user.click(screen.getByRole("checkbox", { name: REVIEW_COPY.record.useAsCover }));
+        await screen.findByRole("button", { name: "Use this review" });
+        await reviewsSettled(store);
+        box.fail = true;
+        reviews.fail = true;
+
+        await save(user);
+
+        expect(await screen.findByRole("status")).toHaveTextContent("Recorded.");
+        await reviewsSettled(store);
+        expect(cached(store)?.accepted_review_id).toBeNull();
+        expect(screen.getByText(REVIEW_COPY.intakeItem.noCover)).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "Use this review" })).toBeEnabled();
+      });
+
+      it("reads the cover off the review the server answers, not off the request, so a create that sends no accept and gets a draft puts nothing on the cover", async () => {
+        setUp(dogaItem(NOTHING_ON_COVER), [submitted(41)]);
+        server.use(http.post(SAVE_URL, () => HttpResponse.json(draft(NEW_ID), { status: 201 })));
+        const { store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+        await screen.findByRole("button", { name: "Use this review" });
+        await reviewsSettled(store);
+
+        await store.dispatch(reviewApi.endpoints.createReview.initiate({ intake_item_id: ITEM_ID, author: "Cat Power", medium: "typed" })).unwrap();
+
+        expect(cached(store)?.accepted_review_id).toBeNull();
+        expect(reviewApi.endpoints.getItemReviews.select(ITEM_ID)(store.getState()).data?.map((r) => r.id)).toEqual([41]);
+      });
     });
 
     describe("the page's hold, counted per write", () => {
