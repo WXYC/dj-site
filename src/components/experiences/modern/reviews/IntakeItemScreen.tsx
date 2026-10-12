@@ -55,6 +55,14 @@ const STATE_LABELS: Record<IntakeItem["effective_state"], string> = {
 const isFiledState = (state: IntakeItem["effective_state"]) => state === "filed" || state === "finalized";
 
 /** The music directors' page for one logged record: its reviews, and the filing bench. */
+/** The record form's starting values and the key it mounts under. */
+export type Recording = { start: RecordFormStart; key: number };
+
+/** The next value for the open form when a source opens it from `start`: the key always differs from the open form's, so a form already open remounts with the new start. */
+export function nextRecording(open: Recording | null, start: RecordFormStart): Recording {
+  return { start, key: (open?.key ?? 0) + 1 };
+}
+
 export default function IntakeItemScreen({ id }: { id: number }) {
   const visible = useCanSeeReviews();
   // Which filing form is open, and which have been opened: a form once opened stays mounted (hidden) so switching keeps what was typed.
@@ -71,8 +79,9 @@ export default function IntakeItemScreen({ id }: { id: number }) {
   const [notice, setNotice] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [picked, setPicked] = useState<AlbumEntry | null>(null);
-  // The open form's starting values, or null when closed; a new `key` per opening resets it when a second source opens it.
-  const [recording, setRecording] = useState<{ start: RecordFormStart; key: number } | null>(null);
+  // The open form's starting values and its key, or null when closed. Every opening goes through openRecording, which gives the form a key unlike the open one's, so the form remounts with the new start.
+  const [recording, setRecording] = useState<Recording | null>(null);
+  const openRecording = (start: RecordFormStart) => setRecording((open) => nextRecording(open, start));
   // True from a review write until the page's reread settles, so neither a review button nor the form's Save acts on the stale cover.
   // Use this review and a ticked Record a review set it at the press; a Delete review and an unticked save set it once their write
   // has succeeded. It clears when the reread settles, or, for a write that fails, after that failure's own reload (if it has one).
@@ -220,7 +229,7 @@ export default function IntakeItemScreen({ id }: { id: number }) {
       )}
       <FccNotesPanel intakeItemId={id} />
       {notice && <Typography role="status">{notice}</Typography>}
-      <Button variant="outlined" aria-expanded={recording != null} onClick={() => setRecording((open) => (open ? null : { start: EMPTY_START, key: 1 }))} sx={{ alignSelf: "flex-start" }}>
+      <Button variant="outlined" aria-expanded={recording != null} onClick={() => (recording ? setRecording(null) : openRecording(EMPTY_START))} sx={{ alignSelf: "flex-start" }}>
         {REVIEW_COPY.record.title}
       </Button>
       {recording && (

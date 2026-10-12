@@ -38,16 +38,16 @@ describe("formReviewStart", () => {
     expect(start.copied).toBe("form");
   });
 
-  it.each<[string, string | null | undefined, string]>([
-    ["a name", "Sam", "Sam"],
-    ["a name with a date, as written", "Sam 3/4", "Sam 3/4"],
-    ["exactly the limit", "a".repeat(AUTHOR_MAX), "a".repeat(AUTHOR_MAX)],
-    ["past the limit, cut", "a".repeat(AUTHOR_MAX + 5), "a".repeat(AUTHOR_MAX)],
-    ["past the limit in code points, not units", "😀".repeat(AUTHOR_MAX + 1), "😀".repeat(AUTHOR_MAX)],
-    ["null", null, ""],
-    ["missing", undefined, ""],
-    ["blank", "   ", ""],
-  ])("reads a reviewer of %s as an author of %j", (_label, reviewer, author) => {
+  it.each<{ label: string; reviewer: string | null | undefined; author: string }>([
+    { label: "a name", reviewer: "Sam", author: "Sam" },
+    { label: "a name with a date, as written", reviewer: "Sam 3/4", author: "Sam 3/4" },
+    { label: "exactly the limit", reviewer: "a".repeat(AUTHOR_MAX), author: "a".repeat(AUTHOR_MAX) },
+    { label: "past the limit, cut", reviewer: "a".repeat(AUTHOR_MAX + 5), author: "a".repeat(AUTHOR_MAX) },
+    { label: "past the limit in code points, not units", reviewer: "😀".repeat(AUTHOR_MAX + 1), author: "😀".repeat(AUTHOR_MAX) },
+    { label: "null", reviewer: null, author: "" },
+    { label: "missing", reviewer: undefined, author: "" },
+    { label: "blank", reviewer: "   ", author: "" },
+  ])("reads a reviewer of $label as an author of $author", ({ reviewer, author }) => {
     const review = archived();
     if (reviewer === undefined) delete (review as Partial<AlbumReview>).reviewer;
     else review.reviewer = reviewer;
