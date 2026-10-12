@@ -2265,9 +2265,12 @@ describe("IntakeItemScreen", () => {
       expect(within(cover).queryByText("Warm.")).not.toBeInTheDocument();
     });
 
-    it("with the box unticked and the submit failing, says the review is a draft, and never says Recorded.", async () => {
-      const { creates } = setUp();
-      server.use(http.post(`${SAVE_URL}/:id/submit`, () => HttpResponse.json({ message: "boom" }, { status: 500 })));
+    it("with the box unticked and the submit failing, says the review is a draft, closes the form and never says Recorded.", async () => {
+      const { creates, submits } = setUp();
+      server.use(http.post(`${SAVE_URL}/:id/submit`, ({ params }) => {
+        submits.push(String(params.id));
+        return HttpResponse.json({ message: "boom" }, { status: 500 });
+      }));
       const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
       await open(user);
       await fillAuthor(user, "Cat Power");
@@ -2276,10 +2279,14 @@ describe("IntakeItemScreen", () => {
 
       await save(user);
 
-      expect((await screen.findByRole("alert")).textContent).toBe(REVIEW_COPY.record.draftNotSubmitted);
+      expect((await screen.findByRole("status")).textContent).toBe(REVIEW_COPY.record.draftNotSubmitted);
       await reviewsSettled(store);
-      expect(creates).toHaveLength(1);
       expect(screen.queryByText("Recorded.")).not.toBeInTheDocument();
+      // Closed like a success, so no Save is left that could send a second create.
+      expect(screen.queryByRole("heading", { name: "Record a review" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: REVIEW_COPY.save })).not.toBeInTheDocument();
+      expect(creates).toHaveLength(1);
+      expect(submits).toEqual([String(NEW_ID)]);
     });
 
     it("treats a create that leaves accept out as submitted and on the cover, as the contract says", async () => {
@@ -2317,101 +2324,6 @@ describe("IntakeItemScreen", () => {
       reread.release();
       await reread.answered;
       expect((await screen.findByRole("status")).textContent).toBe("Recorded.");
-    });
-
-    it("after the submit failed, the next Save submits the draft it made and creates no second review", async () => {
-      const { creates, submits } = setUp();
-      let fail = true;
-      server.use(http.post(`${SAVE_URL}/:id/submit`, ({ params }) => {
-        submits.push(String(params.id));
-        if (fail) return HttpResponse.json({ message: "boom" }, { status: 500 });
-        return HttpResponse.json(submitted(Number(params.id)));
-      }));
-      const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
-      await open(user);
-      await fillAuthor(user, "Cat Power");
-      await writeReview(user, "Warm.");
-      await user.click(screen.getByRole("checkbox", { name: REVIEW_COPY.record.useAsCover }));
-      await save(user);
-      expect((await screen.findByRole("alert")).textContent).toBe(REVIEW_COPY.record.draftNotSubmitted);
-      await reviewsSettled(store);
-
-      fail = false;
-      await save(user);
-
-      expect((await screen.findByRole("status")).textContent).toBe("Recorded.");
-      await reviewsSettled(store);
-      expect(creates).toHaveLength(1);
-      expect(submits).toEqual([String(NEW_ID), String(NEW_ID)]);
-    });
-
-    it("after the submit failed, a changed review text is patched onto the same draft before the next submit", async () => {
-      const { creates, submits } = setUp();
-      let fail = true;
-      const patches: unknown[] = [];
-      server.use(
-        http.post(`${SAVE_URL}/:id/submit`, ({ params }) => {
-          submits.push(String(params.id));
-          return fail ? HttpResponse.json({ message: "boom" }, { status: 500 }) : HttpResponse.json(submitted(Number(params.id)));
-        }),
-        http.patch(`${SAVE_URL}/:id`, async ({ request, params }) => {
-          patches.push([String(params.id), await request.json()]);
-          return HttpResponse.json(draft(Number(params.id)));
-        }),
-      );
-      const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
-      await open(user);
-      await fillAuthor(user, "Cat Power");
-      await writeReview(user, "Warm.");
-      await user.click(screen.getByRole("checkbox", { name: REVIEW_COPY.record.useAsCover }));
-      await save(user);
-      await screen.findByRole("alert");
-      await reviewsSettled(store);
-
-      fail = false;
-      await writeReview(user, " Slow.");
-      await save(user);
-
-      await screen.findByRole("status");
-      await reviewsSettled(store);
-      expect(creates).toHaveLength(1);
-      expect(patches).toEqual([[String(NEW_ID), { ...noFields, review: "Warm. Slow." }]]);
-      expect(submits).toEqual([String(NEW_ID), String(NEW_ID)]);
-    });
-
-    it("after an unticked submit failed, ticking the box and saving again submits that draft and accepts it onto the cover", async () => {
-      const { creates, submits, box } = setUp();
-      let fail = true;
-      const accepts: unknown[] = [];
-      server.use(
-        http.post(`${SAVE_URL}/:id/submit`, ({ params }) => {
-          submits.push(String(params.id));
-          return fail ? HttpResponse.json({ message: "boom" }, { status: 500 }) : HttpResponse.json(submitted(Number(params.id)));
-        }),
-        http.post(`${TEST_BACKEND_URL}/intake/${ITEM_ID}/accept-review`, async ({ request }) => {
-          accepts.push(await request.json());
-          box.item = { ...box.item, accepted_review_id: NEW_ID };
-          return HttpResponse.json(box.item);
-        }),
-      );
-      const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
-      await open(user);
-      await fillAuthor(user, "Cat Power");
-      await writeReview(user, "Warm.");
-      await user.click(screen.getByRole("checkbox", { name: REVIEW_COPY.record.useAsCover }));
-      await save(user);
-      await screen.findByRole("alert");
-      await reviewsSettled(store);
-
-      fail = false;
-      await user.click(screen.getByRole("checkbox", { name: REVIEW_COPY.record.useAsCover }));
-      await save(user);
-
-      expect((await screen.findByRole("status")).textContent).toBe("Recorded.");
-      await reviewsSettled(store);
-      expect(creates).toHaveLength(1);
-      expect(submits).toEqual([String(NEW_ID), String(NEW_ID)]);
-      expect(accepts).toEqual([{ review_id: NEW_ID }]);
     });
 
     it("records a handwritten review with no text, every field null and no account", async () => {
