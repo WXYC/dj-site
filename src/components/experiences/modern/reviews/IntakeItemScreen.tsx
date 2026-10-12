@@ -110,7 +110,7 @@ export default function IntakeItemScreen({ id }: { id: number }) {
     review.intake_item_id === id && (
       <DeleteReviewButton
         review={review}
-        confirmation={isOnCover(review) ? coverConfirmation : COPY.deleteReviewConfirm(review.author ?? "")}
+        confirmation={isOnCover(review) ? coverConfirmation : review.author?.trim() ? COPY.deleteReviewConfirm(review.author) : REVIEW_COPY.deleteConfirm}
         blocked={isOnCover(review) && isFiledState(item.data!.effective_state)}
         disabled={awaitingReread}
         reload={reload}

@@ -48,7 +48,7 @@ export default function DeleteReviewButton({ review, confirmation, blocked, disa
         variant="outlined"
         disabled={blocked || disabled}
         onClick={() => setConfirming(true)}
-        aria-label={COPY.deleteReviewBy(review.author ?? "")}
+        aria-label={review.author?.trim() ? COPY.deleteReviewBy(review.author) : COPY.deleteReview}
         sx={{ alignSelf: "flex-start" }}
       >
         {COPY.deleteReview}
