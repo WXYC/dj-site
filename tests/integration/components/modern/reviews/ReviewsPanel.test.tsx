@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { Authorization } from "@/lib/features/admin/types";
-import { fakeReviewsEndpoints, renderWithProviders, review, reviewRevision, reviewsSettled, server } from "@/tests/helpers";
+import { fakeReviewsEndpoints, fccNote, renderWithProviders, review, reviewRevision, reviewsSettled, server } from "@/tests/helpers";
 import { reviewApi } from "@/lib/features/reviews/reviewApi";
 import { delay, http, HttpResponse } from "msw";
 import type { AlbumReview } from "@wxyc/shared";
@@ -33,6 +34,12 @@ vi.mock("@/src/hooks/authenticationHooks", async () => {
   return createAuthenticationHookMock(mockAuth);
 });
 
+// A confirmed FCC note's actions read the router.
+vi.mock("next/navigation", async () => {
+  const { createNavigationModuleMock } = await import("@/tests/helpers/navigation-mock");
+  return createNavigationModuleMock({ push: vi.fn(), replace: vi.fn() });
+});
+
 import ReviewsPanel, { Group } from "@/src/components/experiences/modern/reviews/ReviewsPanel";
 import { REVIEW_COPY } from "@/src/components/experiences/modern/reviews/copy";
 
@@ -41,9 +48,10 @@ const ALBUM_ID = 7;
 const submitted = (id: number, overrides = {}) =>
   review({ id, album_id: ALBUM_ID, intake_item_id: null, status: "submitted", on_cover: false, revision_count: 1, medium: "typed", author: `Reviewer ${id}`, review: `Text ${id}`, ...overrides });
 
-const serve = (reviews: ReturnType<typeof submitted>[], archive: Partial<AlbumReview>[] = []) =>
+const serve = (reviews: ReturnType<typeof submitted>[], archive: Partial<AlbumReview>[] = [], fccNotes: ReturnType<typeof fccNote>[] = []) =>
   fakeReviewsEndpoints({
     mine: [submitted(999)],
+    fccNotesForRelease: { [ALBUM_ID]: fccNotes },
     forRelease: { [ALBUM_ID]: reviews },
     archive: { [ALBUM_ID]: archive as AlbumReview[] },
   });
@@ -111,9 +119,10 @@ describe("ReviewsPanel", () => {
   });
 
   it("does not name this page's record on the slip of a review of a cited release", async () => {
-    serve([submitted(1, { album_id: ALBUM_ID + 1 }), submitted(2)]);
+    serve([submitted(1, { album_id: ALBUM_ID + 1, on_cover: true }), submitted(2, { on_cover: true })]);
     renderPanel();
 
+    for (const button of await screen.findAllByRole("button", { name: "Show the whole slip" })) await userEvent.click(button);
     const slips = await screen.findAllByRole("group", { name: REVIEW_COPY.slip.name });
     const cited = slips.find((slip) => within(slip).queryByText("Text 1"))!;
     const own = slips.find((slip) => within(slip).queryByText("Text 2"))!;
@@ -150,7 +159,7 @@ describe("ReviewsPanel", () => {
     serve([], [{ id: 1, reviewer: "Reviewer One", review: "Old take" }]);
     const { store } = renderPanel();
 
-    await screen.findByText("Reviewer One: Old take");
+    await screen.findByText("Old take");
     await reviewsSettled(store);
     expect(screen.queryByRole("link", { name: "Print the slip" })).not.toBeInTheDocument();
   });
@@ -176,7 +185,9 @@ describe("ReviewsPanel", () => {
     renderPanel();
 
     const section = (await screen.findByText(REVIEW_COPY.albumPanel.archiveTitle)).closest("section")!;
-    expect(within(section).getByText("Reviewer Old: Archived words")).toBeInTheDocument();
+    const quote = within(section).getByText("Archived words");
+    expect(quote.tagName).toBe("BLOCKQUOTE");
+    expect(quote.nextElementSibling).toHaveTextContent("Reviewer Old");
   });
 
   it("offers Review this release with the approved nudge beside it", async () => {
@@ -317,13 +328,100 @@ describe("ReviewsPanel", () => {
     });
   });
 
-  it("tapes the slip of the review on the cover and no other", async () => {
-    serve([submitted(1, { on_cover: true }), submitted(2)]);
+  describe("the review on the cover", () => {
+    const cover = (overrides = {}) =>
+      submitted(1, { on_cover: true, buzzwords: "tape loops", review: "Warm and strange.", recommended_tracks: "A2, B1", fcc: null, ...overrides });
+    const rows = async () => {
+      const entry = (await screen.findByText("Warm and strange.")).closest("li")!;
+      return entry;
+    };
+
+    it("opens as four rows with the slip's labels and no slip until asked", async () => {
+      serve([cover(), submitted(2)]);
+      renderPanel();
+
+      const entry = await rows();
+      for (const label of ["FCC", "Buzzwords", "Recommended", "Review"]) expect(within(entry).getByText(label)).toBeInTheDocument();
+      expect(within(entry).getByText("tape loops")).toBeInTheDocument();
+      expect(within(entry).getByText("A2, B1")).toBeInTheDocument();
+      expect(within(entry).queryByRole("group", { name: "Slip preview" })).not.toBeInTheDocument();
+      expect(tapedSlips).toThrow();
+    });
+
+    it("expands the full taped slip under the rows on Show the whole slip", async () => {
+      serve([cover(), submitted(2)]);
+      renderPanel();
+
+      const entry = await rows();
+      await userEvent.click(within(entry).getByRole("button", { name: "Show the whole slip" }));
+      expect(tapedSlips()).toHaveLength(1);
+      expect(tapedSlips()[0].closest("li")).toBe(entry);
+    });
+
+    it("gives each of several reviews on the cover its four rows", async () => {
+      serve([cover(), cover({ id: 2, review: "Second take." })]);
+      renderPanel();
+
+      await rows();
+      expect(screen.getAllByText("Buzzwords")).toHaveLength(2);
+      expect(screen.getAllByRole("button", { name: "Show the whole slip" })).toHaveLength(2);
+    });
+
+    it("puts the review's FCC text and the record's confirmed notes in a danger-tinted FCC row", async () => {
+      serve([cover({ fcc: "Contains one swear word" })], [], [
+        fccNote({ id: 5, album_id: ALBUM_ID, intake_item_id: null, status: "confirmed", track: "A2", note: "Bleeped at 2:10" }),
+        fccNote({ id: 6, album_id: ALBUM_ID, intake_item_id: null, status: "reported", track: "B1", note: "Unconfirmed claim" }),
+      ]);
+      renderPanel();
+
+      const entry = await rows();
+      const row = (await within(entry).findByText("A2: Bleeped at 2:10")).closest("[data-fcc-row]")!;
+      expect(row).toHaveTextContent("Contains one swear word");
+      expect(row).toHaveClass("MuiSheet-colorDanger");
+      expect(within(entry).queryByText(/Unconfirmed claim/)).not.toBeInTheDocument();
+    });
+
+    it("leaves the FCC row untinted when it has nothing to say", async () => {
+      serve([cover()]);
+      renderPanel();
+
+      expect((await rows()).querySelector("[data-fcc-row]")).not.toHaveClass("MuiSheet-colorDanger");
+    });
+
+    it("places the FCC notes slot after the cover rows and before the other reviews", async () => {
+      serve([cover(), submitted(2)]);
+      renderPanel();
+
+      const entry = await rows();
+      const slot = screen.getByTestId("fcc-notes-slot");
+      const others = screen.getByText("Other reviews");
+      expect(entry.compareDocumentPosition(slot) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(slot.compareDocumentPosition(others) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+  });
+
+  it("shows another review as its author and a line-clamped excerpt, not a slip", async () => {
+    serve([submitted(1, { on_cover: true }), submitted(2, { review: "A long excerpt." })]);
     renderPanel();
 
-    await screen.findByText("Text 1");
-    const taped = tapedSlips();
-    expect(taped).toHaveLength(1);
-    expect(taped[0].closest("li")).toHaveTextContent("Text 1");
+    const text = await screen.findByText("A long excerpt.");
+    const entry = text.closest("li")!;
+    expect(entry).toHaveTextContent("Reviewer 2");
+    expect(within(entry).queryByRole("group", { name: "Slip preview" })).not.toBeInTheDocument();
+    expect(text).toHaveStyle({ WebkitLineClamp: "2" });
+  });
+
+  it("leaves Review this release as the last control in the panel", async () => {
+    serve([submitted(1, { on_cover: true }), submitted(2)], [{ id: 1, reviewer: "Reviewer Old", review: "Archived words" }]);
+    renderPanel();
+
+    await screen.findByText("Archived words");
+    const controls = [...screen.getAllByRole("link"), ...screen.getAllByRole("button")];
+    const last = screen.getByRole("link", { name: "Review this release" });
+    expect(controls.filter((c) => last.compareDocumentPosition(c) & Node.DOCUMENT_POSITION_FOLLOWING)).toEqual([]);
+  });
+
+  it("words Show the whole slip exactly as the station approved it", () => {
+    expect((REVIEW_COPY.albumPanel as Record<string, string>).showSlip).toBe("Show the whole slip");
   });
 });
