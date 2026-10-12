@@ -27,6 +27,8 @@ const Slip = styled("div", { shouldForwardProp: (prop) => prop !== "onCover" })<
   display: "grid",
   gap: "0.06in",
   fontSize: "0.8rem",
+  // Scoped to the slip, so SlipFccRow drawn on its own (a review shown on the sleeve) keeps its label at its value's size.
+  "& > div > strong": { fontSize: "0.875em" },
   "@media screen": {
     position: "relative",
     boxSizing: "border-box",
@@ -40,8 +42,8 @@ const Slip = styled("div", { shouldForwardProp: (prop) => prop !== "onCover" })<
   },
 }));
 
-// Kanit 500 sets "Recommended" 6.8em wide, which at the slip's 0.8rem overflows the 0.82in column; 0.875em of that fits.
-const Label = styled("strong")(({ theme }) => ({ flex: "0 0 0.82in", fontSize: "0.875em", fontWeight: theme.fontWeight.lg }));
+// Kanit 500 sets "Recommended" 6.8em wide, which at the slip's 0.8rem is wider than the 0.82in column; 0.875em of that fits. The size is set by the Slip, not here, so the label is only smaller inside a slip.
+const Label = styled("strong")(({ theme }) => ({ flex: "0 0 0.82in", fontWeight: theme.fontWeight.lg }));
 
 const Tape = styled("span")({
   display: "none",
@@ -57,7 +59,7 @@ const Tape = styled("span")({
 });
 
 const row = (name: string, body: ReactNode) => (
-  <div style={{ display: "flex", gap: "4pt" }}>
+  <div style={{ display: "flex", gap: "4pt", alignItems: "baseline" }}>
     <Label>{name}</Label>
     <div style={{ flex: 1, whiteSpace: "pre-wrap" }}>{body}</div>
   </div>
