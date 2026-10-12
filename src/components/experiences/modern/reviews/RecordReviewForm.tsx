@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Button, FormControl, FormHelperText, FormLabel, Input, Option, Radio, RadioGroup, Select, Stack, Typography } from "@mui/joy";
+import { Button, Checkbox, FormControl, FormHelperText, FormLabel, Input, Option, Radio, RadioGroup, Select, Stack, Typography } from "@mui/joy";
 import type { NewReviewRequest } from "@wxyc/shared";
-import { isReviewAccountGone, useCreateReviewMutation, useGetReviewersQuery } from "@/lib/features/reviews/reviewApi";
+import { isReviewAccountGone, useCreateReviewMutation, useGetReviewersQuery, useSubmitReviewMutation } from "@/lib/features/reviews/reviewApi";
 import { serverMessage, unwrapEndpointError } from "@/lib/rtk-endpoint-error";
 import { useAuthentication } from "@/src/hooks/authenticationHooks";
 import { useMounted } from "@/src/hooks/useRowWrite";
@@ -17,7 +17,8 @@ const AUTHOR_MAX = 128;
 
 /**
  * Records a review of the logged record `itemId` on someone's behalf, or a handwritten one, onto the cover in
- * one create. That changes the cover, so it reloads through the page's review-write path (`onWritten`).
+ * one create, or, with the box unticked, as one of the record's other reviews: a create then a submit. Either
+ * reloads through the page's review-write path (`onWritten`).
  * Names (the author, the picked account) are real names: station display only, never telemetry.
  */
 export default function RecordReviewForm({ itemId, hasCover, onWritten, onNotice, onClose }: {
@@ -31,11 +32,13 @@ export default function RecordReviewForm({ itemId, hasCover, onWritten, onNotice
   const me = "user" in auth ? auth.user?.id : undefined;
   const reviewers = useGetReviewersQuery();
   const [create] = useCreateReviewMutation();
+  const [submit] = useSubmitReviewMutation();
   const mounted = useMounted();
   const [author, setAuthor] = useState("");
   const [values, setValues] = useState<FieldValues>({ buzzwords: "", artist_blurb: "", review: "", recommended_tracks: "", fcc: "" });
   const [medium, setMedium] = useState<NonNullable<NewReviewRequest["medium"]>>("typed");
   const [linked, setLinked] = useState(""); // the picked account's id; "" is Not linked
+  const [onCover, setOnCover] = useState(true);
   const [tried, setTried] = useState(false);
   // From a valid press until the page's reread settles, so a second press cannot record the review twice.
   const [saving, setSaving] = useState(false);
@@ -57,12 +60,22 @@ export default function RecordReviewForm({ itemId, hasCover, onWritten, onNotice
       intake_item_id: itemId,
       author: name,
       medium,
-      accept: true,
+      accept: onCover,
       ...(linked !== "" && { author_user_id: linked }),
       ...toFieldPatch(values),
     };
     try {
-      await create(body).unwrap();
+      const made = await create(body).unwrap();
+      if (!onCover) {
+        try {
+          await submit(made.id).unwrap();
+        } catch {
+          if (!mounted.current) return;
+          setSaving(false);
+          setFailure(COPY.draftNotSubmitted);
+          return;
+        }
+      }
       await onWritten();
       if (!mounted.current) return;
       onNotice(COPY.recorded);
@@ -108,7 +121,8 @@ export default function RecordReviewForm({ itemId, hasCover, onWritten, onNotice
       <SlipFields values={values} onChange={setValues} />
       {tried && textBlank && <Typography level="body-sm">{COPY.textBlank}</Typography>}
       <Typography level="body-sm">{COPY.noConsent}</Typography>
-      <Typography level="body-sm">{hasCover ? COPY.coverReplaces : COPY.coverNone}</Typography>
+      <Checkbox label={COPY.useAsCover} checked={onCover} onChange={(e) => setOnCover(e.target.checked)} />
+      <Typography level="body-sm">{!onCover ? COPY.otherReview : hasCover ? COPY.coverReplaces : COPY.coverNone}</Typography>
       <Button loading={saving} onClick={record} sx={{ alignSelf: "flex-start" }}>{REVIEW_COPY.save}</Button>
       {failure && <Typography role="alert">{failure}</Typography>}
     </Stack>

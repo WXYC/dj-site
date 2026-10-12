@@ -372,6 +372,12 @@ export const REVIEW_COPY = {
     recorded: "Recorded.",
     /** Approved. Shown when a create that linked an account is refused. */
     accountGone: "That account no longer exists. Pick another, or leave the review unlinked.",
+    /** Approved. The checkbox that puts the recorded review on the cover. */
+    useAsCover: "Use this as the record's review",
+    /** Approved. Under the checkbox when it is unticked. */
+    otherReview: "Saved as one of the record's other reviews. You can choose it for the cover later.",
+    /** Approved. When the box is unticked and the review was created but couldn't be submitted. */
+    draftNotSubmitted: "The review was saved as a draft but couldn't be submitted. You'll find it under My reviews.",
   },
   /** The music directors' print page, `/dashboard/admin/intake/{id}/slip`. */
   intakeSlip: {
