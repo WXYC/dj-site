@@ -787,7 +787,7 @@ describe("ReviewEditor", () => {
     });
 
     it("on Leave by link, the destination replaces the guard entry, so one Back reaches the editor's own entry", async () => {
-      const { user } = renderEditor();
+      const { user, unmount } = renderEditor();
       const before = window.history.length;
       await makeDirty(user);
       expect(window.history.length).toBe(before + 1);
@@ -797,6 +797,8 @@ describe("ReviewEditor", () => {
       expect(router.replace).toHaveBeenCalledWith(TARGET);
       expect(router.push).not.toHaveBeenCalled();
       expect(window.history.length).toBe(before + 1);
+      // The navigation took the editor away.
+      unmount();
       await traverse(() => window.history.back());
       expect(window.location.pathname).toBe(EDITOR);
       expect(window.history.state.entry).toBe("editor");
@@ -894,18 +896,83 @@ describe("ReviewEditor", () => {
       expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
     });
 
-    it("guards again after a Leave that left the editor in place", async () => {
+    it("stays guarded after a Leave that left the editor in place, and takes the guard entry back once clean", async () => {
       const { user } = renderEditor();
       router.replace.mockImplementation(() => {});
       await makeDirty(user);
       await user.click(screen.getByRole("link", { name: "Flowsheet" }));
       await user.click(within(await dialog()).getByRole("button", { name: "Leave" }));
-      expect(beforeUnload()).toBe(false);
+      expect(beforeUnload()).toBe(true);
 
-      await waitFor(() => expect(beforeUnload()).toBe(true), { timeout: 2000 });
       await user.click(screen.getByRole("link", { name: "Flowsheet" }));
       await dialog();
       expect(linkReached).not.toHaveBeenCalled();
+      await user.click(within(await dialog()).getByRole("button", { name: "Keep editing" }));
+
+      await traverse(async () => user.type(screen.getByLabelText("Review"), "{Backspace>6/}"));
+      expect(guardIsCurrent()).toBe(false);
+      expect(window.history.state.entry).toBe("editor");
+    });
+
+    it("leaves the guard armed when a Leave by Back cannot move, as for the first page in a tab", async () => {
+      const { user } = renderEditor();
+      await makeDirty(user);
+      const go = vi.spyOn(window.history, "go").mockImplementation(() => {});
+      await traverse(() => window.history.back());
+      await user.click(within(await dialog()).getByRole("button", { name: "Leave" }));
+      expect(go).toHaveBeenCalledWith(-2);
+      go.mockRestore();
+
+      await user.click(screen.getByRole("link", { name: "Flowsheet" }));
+      await dialog();
+      expect(linkReached).not.toHaveBeenCalled();
+    });
+
+    it("does not ask again at beforeunload after a Leave by Back that crosses documents", async () => {
+      const { user } = renderEditor();
+      await makeDirty(user);
+      const go = vi.spyOn(window.history, "go").mockImplementation(() => {});
+      await traverse(() => window.history.back());
+      await user.click(within(await dialog()).getByRole("button", { name: "Leave" }));
+      go.mockRestore();
+
+      expect(beforeUnload()).toBe(false);
+      expect(beforeUnload()).toBe(true);
+    });
+
+    it("lets a jump past the editor through without pushing an entry or asking, and ignores a return to the editor after it", async () => {
+      const { user } = renderEditor();
+      await makeDirty(user);
+      const length = window.history.length;
+
+      await traverse(() => window.history.go(-2));
+      await settle();
+      expect(window.location.pathname).toBe(BEFORE);
+      expect(window.history.length).toBe(length);
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+
+      await traverse(() => window.history.go(1));
+      await settle();
+      expect(window.location.pathname).toBe(EDITOR);
+      expect(window.history.length).toBe(length);
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    });
+
+    it("never touches history when the editor unmounts on the guard entry, as when a logout's navigation is under way", async () => {
+      const { user, unmount } = renderEditor();
+      await makeDirty(user);
+      const back = vi.spyOn(window.history, "back");
+      const go = vi.spyOn(window.history, "go");
+      // Next has dispatched the navigation but not committed it, so the URL is still the guard entry's.
+      router.replace.mockImplementation(() => {});
+      router.replace("/login");
+      unmount();
+
+      expect(router.replace).toHaveBeenCalledWith("/login");
+      expect(back).not.toHaveBeenCalled();
+      expect(go).not.toHaveBeenCalled();
+      back.mockRestore();
+      go.mockRestore();
     });
 
     it("disarms every path once a save lands, and measures later edits against the save", async () => {
@@ -929,6 +996,20 @@ describe("ReviewEditor", () => {
       const { user } = renderEditor();
       await makeDirty(user);
       await user.click(screen.getByRole("button", { name: REVIEW_COPY.saveDraft }));
+      await waitFor(() => expect(toast.error).toHaveBeenCalled());
+
+      expect(beforeUnload()).toBe(true);
+      await user.click(screen.getByRole("link", { name: "Flowsheet" }));
+      await dialog();
+      expect(linkReached).not.toHaveBeenCalled();
+    });
+
+    it("keeps the guard armed when the update inside a submit fails", async () => {
+      server.use(http.patch(`${TEST_BACKEND_URL}/reviews/40`, () => new HttpResponse(null, { status: 500 })));
+      const { user } = renderEditor();
+      await makeDirty(user);
+      await user.click(screen.getByRole("button", { name: "Submit" }));
+      await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Submit" }));
       await waitFor(() => expect(toast.error).toHaveBeenCalled());
 
       expect(beforeUnload()).toBe(true);
@@ -963,7 +1044,8 @@ describe("ReviewEditor", () => {
 
       await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/dashboard/reviews"));
       // The replace overwrote the editor's own entry, not the guard's, so the deleted editor is not in Back history.
-      expect(current).toEqual({ entry: "editor" });
+      expect(current).toMatchObject({ entry: "editor" });
+      expect(current).not.toHaveProperty("leaveGuard");
       expect(screen.queryByRole("alertdialog", { name: "Leave without saving?" })).not.toBeInTheDocument();
       await traverse(() => window.history.back());
       expect(window.location.pathname).toBe(BEFORE);
@@ -972,8 +1054,11 @@ describe("ReviewEditor", () => {
     it("removes its listeners on unmount", async () => {
       const { user, unmount } = renderEditor();
       await makeDirty(user);
+      const remove = vi.spyOn(window, "removeEventListener");
       unmount();
       expect(beforeUnload()).toBe(false);
+      expect(remove).toHaveBeenCalledWith("popstate", expect.any(Function));
+      remove.mockRestore();
     });
   });
 });

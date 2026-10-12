@@ -1,14 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 /** Marks the history entry the guard pushed. */
 const GUARD = "leaveGuard";
+/** Marks the editor's own entry, with the id of the hook instance that guards it. */
+const ENTRY = "leaveGuardEditor";
 /** Pressing Back re-pushes the guard, so leaving by Back goes two entries: past the guard and past the editor's own entry. */
 const BACK_PAST_GUARD = -2;
-/** How long a Leave holds the guard off before concluding the page stayed. */
-const SETTLE_MS = 300;
 
 /**
  * Warns before a dirty form is thrown away. The App Router has no navigation-blocking
@@ -16,55 +16,79 @@ const SETTLE_MS = 300;
  * the browser to confirm closing or reloading the tab. `pending` is true while the
  * caller should show its dialog; answer it with `stay` or `leave`.
  *
- * The history model: while dirty, the history is `[..., editor, guard]`, and the guard entry carries
- * a marker in `history.state`. A Back press shows as a popstate that lands on an entry WITHOUT the
- * marker while the guard was current; a return to the editor (for example, closing a modal that
- * pushed its own entry) shows as a popstate that lands ON the marked guard entry, and is ignored.
+ * The history model: while dirty, the history is `[..., editor, guard]`. The editor's own entry carries
+ * a per-instance key in `history.state` and the guard entry carries a marker. A Back press shows as a
+ * popstate that lands on the editor's marked entry while the guard was current. A return to the guard
+ * (for example, closing a modal that pushed its own entry) lands on the marked guard and is ignored. Any
+ * other landing, such as a jump several entries back or a forward past the editor, cannot be stopped:
+ * the hook lets it through, pushes nothing and asks nothing.
  * Leave by link replaces the guard entry with the destination, so Back from there reaches the
  * editor's own entry as it would after any link. Leave by Back goes two entries, not one: the
  * traversal left the guard, but the guard was re-pushed on top of the editor's own entry, so
  * `go(-2)` is the single step that reaches the entry before the editor.
  *
- * Known limitation: navigations that are not anchor clicks, Back or unload (for example sign-out
- * from the left bar) are not guarded.
+ * The hook never touches history when the editor unmounts: a navigation is then already under way and
+ * owns history, and a `history.back()` there makes Next drop it. It takes the guard entry back only when
+ * the form goes clean while the editor stays, and `release` does so for a caller about to redirect.
+ *
+ * Known limitation: navigations that are not anchor clicks, Back or unload (for example sign-out, or a
+ * programmatic `router.push` elsewhere) are not guarded, and from a dirty editor they can leave the guard
+ * entry under the destination, which costs one extra Back press.
  */
 export function useLeaveGuard(dirty: boolean) {
   const router = useRouter();
+  const id = useId();
   const [target, setTarget] = useState<string | typeof BACK_PAST_GUARD | null>(null);
-  // Set only while a navigation that takes the editor away is under way; reset if the editor is still here after.
-  const leaving = useRef(false);
-  const settling = useRef<ReturnType<typeof setTimeout>>(undefined);
+  // A Leave by Back is under way: the next popstate or beforeunload is ours. Cleared when the dialog next opens.
+  const expecting = useRef(false);
   // The guard entry was pushed and is still ours to take back, and the URL it was pushed at (a refresh can rewrite its state).
   const pushed = useRef<string | null>(null);
   // Whether the guard entry was the current one at the last popstate.
   const onGuard = useRef(false);
+  // Declared first so its cleanup runs first on unmount.
+  const mounted = useRef(false);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!dirty) return;
     const warn = (event: BeforeUnloadEvent) => {
-      if (!leaving.current) event.preventDefault();
+      if (expecting.current) expecting.current = false;
+      else event.preventDefault();
     };
     const intercept = (event: MouseEvent) => {
       const anchor = (event.target as Element | null)?.closest?.("a[href]") as HTMLAnchorElement | null;
-      if (!anchor || leaving.current || event.defaultPrevented || event.button !== 0) return;
+      if (!anchor || event.defaultPrevented || event.button !== 0) return;
       if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
       if ((anchor.target && anchor.target !== "_self") || anchor.hasAttribute("download")) return;
       const url = new URL(anchor.href);
       if (url.origin !== window.location.origin) return;
       event.preventDefault();
       event.stopPropagation();
+      expecting.current = false;
       setTarget(url.pathname + url.search + url.hash);
     };
     const pushGuard = () => {
-      window.history.pushState({ ...window.history.state, [GUARD]: true }, "");
+      const state = window.history.state;
+      window.history.replaceState({ ...state, [ENTRY]: id }, "");
+      window.history.pushState({ ...state, [ENTRY]: undefined, [GUARD]: true }, "");
       pushed.current = window.location.href;
       onGuard.current = true;
     };
     const onPopState = () => {
-      const landedOnGuard = Boolean(window.history.state?.[GUARD]);
+      const state = window.history.state;
       const wasOnGuard = onGuard.current;
-      onGuard.current = landedOnGuard;
-      if (leaving.current || landedOnGuard || !wasOnGuard) return;
+      expecting.current = false;
+      onGuard.current = Boolean(state?.[GUARD]);
+      if (onGuard.current || !wasOnGuard) return;
+      if (state?.[ENTRY] !== id) {
+        pushed.current = null;
+        return;
+      }
       pushGuard();
       setTarget(BACK_PAST_GUARD);
     };
@@ -76,35 +100,28 @@ export function useLeaveGuard(dirty: boolean) {
       window.removeEventListener("beforeunload", warn);
       window.removeEventListener("popstate", onPopState);
       document.removeEventListener("click", intercept, true);
-      // Gone clean in place: drop the entry so back works normally. After a navigation the URL differs and the entry is not ours.
-      if (pushed.current === window.location.href) window.history.back();
+      // Gone clean in place: drop the entry so back works normally. Not on unmount, and not after a navigation (the URL differs).
+      if (mounted.current && pushed.current === window.location.href) window.history.back();
       pushed.current = null;
       onGuard.current = false;
     };
-  }, [dirty]);
-
-  useEffect(() => () => clearTimeout(settling.current), []);
+  }, [dirty, id]);
 
   const stay = useCallback(() => setTarget(null), []);
   const leave = useCallback(() => {
-    leaving.current = true;
-    pushed.current = null;
     if (typeof target === "string") router.replace(target);
-    else if (target !== null) window.history.go(target);
+    else if (target !== null) {
+      expecting.current = true;
+      window.history.go(target);
+    }
     setTarget(null);
-    // If the editor is still here, the navigation did not take it away: guard again.
-    clearTimeout(settling.current);
-    settling.current = setTimeout(() => {
-      leaving.current = false;
-      pushed.current = window.history.state?.[GUARD] ? window.location.href : null;
-    }, SETTLE_MS);
   }, [router, target]);
 
   /** Drops the guard entry and resolves once the browser has stepped off it, for a caller about to `router.replace` over the editor. */
   const release = useCallback(async () => {
-    leaving.current = true;
     if (pushed.current !== window.location.href) return;
     pushed.current = null;
+    onGuard.current = false;
     await new Promise<void>((resolve) => {
       window.addEventListener("popstate", () => resolve(), { once: true });
       window.history.back();
