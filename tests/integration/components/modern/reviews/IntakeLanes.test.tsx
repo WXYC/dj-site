@@ -33,7 +33,7 @@ const moonPix = (overrides = {}) =>
   intakeItem({ id: 11, artist_name: "Cat Power", album_title: "Moon Pix", record_label: "Matador", ...overrides });
 
 const waiting = (id: number, overrides = {}) =>
-  moonPix({ id, state: "checked_out", effective_state: "checked_out", ...heldBy("dj-1", "DJ Sam"), submitted_review_count: 1, accepted_review_id: null, ...overrides });
+  moonPix({ id, state: "checked_out", effective_state: "checked_out", ...heldBy("dj-1", "DJ Sam", null), submitted_review_count: 1, accepted_review_id: null, ...overrides });
 
 const lane = (name: string) => screen.findByRole("region", { name });
 
@@ -89,7 +89,7 @@ describe("IntakeLanes", () => {
   it("names each record with the one record line, in the lane for its state", async () => {
     fakeReviewsEndpoints({
       open: [
-        moonPix({ id: 2, state: "requested", effective_state: "requested", requested_dj_name: "DJ Pat" }),
+        moonPix({ id: 2, state: "requested", effective_state: "requested", ...requestedFor(null, "DJ Pat") }),
         waiting(3, { album_title: "Dark Side" }),
       ],
       reviewed: [moonPix({ id: 4, state: "reviewed", effective_state: "reviewed" })],
@@ -149,16 +149,16 @@ describe("IntakeLanes", () => {
     review({ id, intake_item_id: itemId, status: "submitted", author: "Jessica Pratt", author_user_id: "dj-jess", add_date: "2026-10-01", ...overrides });
 
   it.each([
-    ["the author is the DJ who has the record", heldBy("dj-jess", "Jessica Pratt"), "From Jessica Pratt, who has this record."],
+    ["the author is the DJ who has the record", heldBy("dj-jess", "Jessica Pratt", null), "From Jessica Pratt, who has this record."],
     ["someone else wrote it and a DJ has the record", {}, "From Jessica Pratt. The record is with DJ Sam."],
     [
       "someone else wrote it and a request is open",
-      { state: "requested", effective_state: "requested", ...requestedFor("dj-pat", "DJ Pat"), ...returned },
+      { state: "requested", effective_state: "requested", ...requestedFor("dj-pat", "DJ Pat") },
       "From Jessica Pratt. The record is being held for DJ Pat.",
     ],
     [
       "someone else wrote it and the record is on the review shelf",
-      { state: "pool", effective_state: "pool", ...returned },
+      { state: "pool", effective_state: "pool" },
       "From Jessica Pratt. The record is on the review shelf.",
     ],
     [
@@ -207,10 +207,10 @@ describe("IntakeLanes", () => {
       ["a DJ has the record", {}, "Checked out to DJ Sam"],
       [
         "a request is open",
-        { state: "requested", effective_state: "requested", ...requestedFor("dj-pat", "DJ Pat"), ...returned },
+        { state: "requested", effective_state: "requested", ...requestedFor("dj-pat", "DJ Pat") },
         "Held for DJ Pat",
       ],
-      ["the record is on the review shelf", { state: "pool", effective_state: "pool", ...returned }, "On the review shelf"],
+      ["the record is on the review shelf", { state: "pool", effective_state: "pool" }, "On the review shelf"],
       ["the holder's account was removed", removedHolder, "Holder removed"],
     ])("shows the location line while the read is in flight, then the From line, when %s", async (_label, itemOverrides, location) => {
       const item = waiting(7, itemOverrides);
@@ -270,7 +270,7 @@ describe("IntakeLanes", () => {
     fakeReviewsEndpoints({
       reviewed: [
         moonPix({ id: 1, effective_state: "reviewed", ...heldBy("dj-1", "DJ Sam", "2026-09-01T12:00:00Z"), overdue: true }),
-        moonPix({ id: 2, effective_state: "reviewed", checked_out_at: "2026-09-01T12:00:00Z", checked_out_by: null }),
+        moonPix({ id: 2, effective_state: "reviewed", ...removedHolder }),
         moonPix({ id: 3, effective_state: "reviewed" }),
       ],
     });
@@ -382,12 +382,11 @@ describe("IntakeLanes", () => {
   });
 
   it("Mark as returned sends the release, and the record stays in Reviewed without its line", async () => {
-    let returned = false;
-    const holder = heldBy("dj-1", "DJ Sam", "2026-09-01T12:00:00Z");
-    fakeReviewsEndpoints({ reviewed: () => [moonPix({ id: 11, effective_state: "reviewed", ...(returned ? {} : holder) })] });
+    let released = false;
+    fakeReviewsEndpoints({ reviewed: () => [moonPix({ id: 11, effective_state: "reviewed", ...(released ? {} : heldBy("dj-1", "DJ Sam", "2026-09-01T12:00:00Z")) })] });
     server.use(
       http.post(`${TEST_BACKEND_URL}/intake/11/release`, () => {
-        returned = true;
+        released = true;
         return HttpResponse.json(moonPix({ id: 11 }));
       }),
     );
@@ -399,7 +398,6 @@ describe("IntakeLanes", () => {
     expect(within(await lane("Reviewed (1)")).getByText("Cat Power · Moon Pix · Matador · CD")).toBeInTheDocument();
   });
 
-  const HOLDER = heldBy("dj-1", "DJ Sam", "2026-09-01T12:00:00Z");
   const LOST_RACE = "This record has already been returned or filed. The lists have been reloaded.";
   const laneKey = (url: string) => {
     const query = new URL(url).searchParams;
@@ -419,7 +417,7 @@ describe("IntakeLanes", () => {
       const held = new Promise<void>((resolve) => {
         releaseHeld = resolve;
       });
-      fakeReviewsEndpoints({ reviewed: [moonPix({ id: 11, effective_state: "reviewed", ...HOLDER })] });
+      fakeReviewsEndpoints({ reviewed: [moonPix({ id: 11, effective_state: "reviewed", ...heldBy("dj-1", "DJ Sam", "2026-09-01T12:00:00Z") })] });
       server.use(
         http.get(`${TEST_BACKEND_URL}/intake`, async ({ request }) => {
           const key = laneKey(request.url);
@@ -429,7 +427,7 @@ describe("IntakeLanes", () => {
           } else if (lost) {
             otherReads += 1;
           }
-          return HttpResponse.json(key === "unfiltered" ? [moonPix({ id: 11, effective_state: "reviewed", ...HOLDER })] : []);
+          return HttpResponse.json(key === "unfiltered" ? [moonPix({ id: 11, effective_state: "reviewed", ...heldBy("dj-1", "DJ Sam", "2026-09-01T12:00:00Z") })] : []);
         }),
         http.post(`${TEST_BACKEND_URL}/intake/11/release`, () => {
           lost = true;
@@ -438,8 +436,8 @@ describe("IntakeLanes", () => {
       );
 
       const { store, user } = renderWithProviders(<IntakeLanes />);
-      const returned = await screen.findByRole("button", { name: "Mark as returned" });
-      await user.click(returned);
+      const returnButton = await screen.findByRole("button", { name: "Mark as returned" });
+      await user.click(returnButton);
 
       // Assert during the hold, once every read the case depends on has started and only the held one is outstanding:
       // the other lane's read has answered, so a notice that waited for only some reloads would already show.
@@ -465,8 +463,8 @@ describe("IntakeLanes", () => {
     });
     fakeReviewsEndpoints({
       reviewed: [
-        moonPix({ id: 11, album_title: "Dark Side", effective_state: "reviewed", ...HOLDER }),
-        moonPix({ id: 12, effective_state: "reviewed", ...HOLDER }),
+        moonPix({ id: 11, album_title: "Dark Side", effective_state: "reviewed", ...heldBy("dj-1", "DJ Sam", "2026-09-01T12:00:00Z") }),
+        moonPix({ id: 12, effective_state: "reviewed", ...heldBy("dj-1", "DJ Sam", "2026-09-01T12:00:00Z") }),
       ],
     });
     server.use(
@@ -535,11 +533,10 @@ describe("IntakeLanes — a failed background refetch", () => {
   });
 });
 
-const HELD = heldBy("dj-1", "DJ Sam", "2026-09-01T12:00:00Z");
 const requestedRow = (id: number) =>
   moonPix({ id, state: "requested", effective_state: "requested", ...requestedFor("dj-pat", "DJ Pat") });
 const outRow = (id: number, overrides = {}) =>
-  moonPix({ id, state: "checked_out", effective_state: "checked_out", ...HELD, ...overrides });
+  moonPix({ id, state: "checked_out", effective_state: "checked_out", ...heldBy("dj-1", "DJ Sam", "2026-09-01T12:00:00Z"), ...overrides });
 
 describe("IntakeLanes — cancel and release", () => {
   beforeEach(() => {
@@ -597,7 +594,7 @@ describe("IntakeLanes — lost races", () => {
   it.each([
     ["cancel", "cancel-request", () => ({ open: [requestedRow(11)] }), "Cancel request"],
     ["release", "release", () => ({ open: [outRow(11)] }), "Release"],
-    ["return", "release", () => ({ reviewed: [moonPix({ id: 11, effective_state: "reviewed", ...HELD })] }), "Mark as returned"],
+    ["return", "release", () => ({ reviewed: [moonPix({ id: 11, effective_state: "reviewed", ...heldBy("dj-1", "DJ Sam", "2026-09-01T12:00:00Z") })] }), "Mark as returned"],
   ] as const)(
     "a lost %s reloads both reads, then shows its own line and never the server message",
     async (action, path, rows, button) => {
@@ -660,12 +657,12 @@ describe("IntakeLanes as the music directors' tab", () => {
   it("shows the director lanes in the order a record moves, with no review shelf lane and no logging form", async () => {
     const row = (id: number, state: string, overrides = {}) =>
       moonPix({ id, album_title: `Album ${id}`, state, effective_state: state, ...overrides });
-    const waitingRow = row(1, "checked_out", HELD);
+    const waitingRow = row(1, "checked_out", heldBy("dj-1", "DJ Sam", "2026-09-01T12:00:00Z"));
     fakeReviewsEndpoints({
-      open: [waitingRow, requestedRow(2), row(3, "checked_out", HELD), moonPix({ id: 6, album_title: "Album 6" })],
+      open: [waitingRow, requestedRow(2), row(3, "checked_out", heldBy("dj-1", "DJ Sam", "2026-09-01T12:00:00Z")), moonPix({ id: 6, album_title: "Album 6" })],
       awaiting: [waitingRow],
-      reviewed: [row(4, "reviewed", HELD)],
-      filed: [row(5, "filed", HELD)],
+      reviewed: [row(4, "reviewed", heldBy("dj-1", "DJ Sam", "2026-09-01T12:00:00Z"))],
+      filed: [row(5, "filed", heldBy("dj-1", "DJ Sam", "2026-09-01T12:00:00Z"))],
     });
 
     renderWithProviders(<IntakeLanes />);

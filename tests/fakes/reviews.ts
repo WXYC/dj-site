@@ -74,26 +74,23 @@ export const intakeItem = (overrides: Partial<IntakeItem> = {}): IntakeItem =>
     ...overrides,
   }) as IntakeItem;
 
-/**
- * Holder presets: spread one into `intakeItem()` (or a row override) and set
- * `effective_state` beside it, because `itemHolder` (`lib/features/reviews/holder.ts`)
- * reads the holder fields and the effective state together.
- *
- * The removed-holder rule: a record whose holder's account was deleted keeps
- * `checked_out_at` but has `checked_out_by` and `checked_out_by_name` null. A
- * server convention, so the encoding lives here and nowhere else in the specs.
- */
 const HOLDER_AT = "2026-09-20T12:00:00Z";
 const REQUESTED_AT = "2026-09-25T12:00:00Z";
 
-/** Checked out to a named account. */
-export const heldBy = (id: string, name: string, at: string = HOLDER_AT): Partial<IntakeItem> => ({
+/**
+ * Holder presets (`heldBy`, `removedHolder`, `requestedFor`, `returned`): spread one into `intakeItem()` (or a row override) and set `effective_state` beside it, because `itemHolder` (`lib/features/reviews/holder.ts`) reads the holder fields and the effective state together.
+ *
+ * The removed-holder rule: a record whose holder's account was deleted has `checked_out_by` null while `checked_out_at` is set. `itemHolder` reads that as removed only when `effective_state` is `checked_out` or `reviewed`; a filed or finalized record with the same fields reads as nobody. The preset also nulls `checked_out_by_name`, because the server does, but `itemHolder` keys on `checked_out_by`. Pass `at` as null for a holder row that should carry no checkout time.
+ *
+ * Checked out to a named account.
+ */
+export const heldBy = (id: string, name: string, at: string | null = HOLDER_AT): Partial<IntakeItem> => ({
   checked_out_by: id,
   checked_out_by_name: name,
   checked_out_at: at,
 });
 
-/** Checked out, but the holder's account was removed (see the rule above). */
+/** Checked out, but the holder's account was removed (see the rule on `heldBy`). */
 export const removedHolder: Partial<IntakeItem> = {
   checked_out_by: null,
   checked_out_by_name: null,
