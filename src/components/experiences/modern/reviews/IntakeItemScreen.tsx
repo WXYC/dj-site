@@ -106,12 +106,12 @@ export default function IntakeItemScreen({ id }: { id: number }) {
   const holder = itemHolder(item.data);
   const coverConfirmation =
     holder.kind === "checked_out" ? COPY.deleteCoverHeld(holder.name) : holder.kind === "removed" ? COPY.deleteCoverRemoved : COPY.deleteCoverShelf;
-  // Every review of this record can be deleted, drafts included; a cited release's review is deleted from its own record's page.
   const deleteConfirmation = (review: Review) => {
     const author = namedAuthor(review);
     return isOnCover(review) ? coverConfirmation : author ? COPY.deleteReviewConfirm(author) : REVIEW_COPY.deleteConfirm;
   };
   const deleteControl = (review: Review) =>
+    // Every review of this record can be deleted, drafts included; a cited release's review is deleted from its own record's page.
     review.intake_item_id === id && (
       <DeleteReviewButton
         review={review}
@@ -177,7 +177,7 @@ export default function IntakeItemScreen({ id }: { id: number }) {
 
   // The names are for this confirmation only: they never go to analytics, breadcrumbs or logs.
   // The item's reviews also include drafts the caller can see; only submitted ones are named as reviews.
-  const reviewAuthors = distinctNames(reviews.data.filter((r) => r.status === "submitted").map(namedAuthor));
+  const reviewAuthors = distinctNames(reviews.data.filter((r) => r.status === "submitted").map((r) => r.author));
   const draftAuthors = distinctNames(item.data.draft_authors ?? []);
   const confirmDelete = async () => {
     try {
