@@ -8,12 +8,10 @@ import { serverMessage, unwrapEndpointError } from "@/lib/rtk-endpoint-error";
 import { useAuthentication } from "@/src/hooks/authenticationHooks";
 import { useMounted } from "@/src/hooks/useRowWrite";
 import { REVIEW_COPY } from "./copy";
+import { AUTHOR_MAX, EMPTY_START, type RecordFormStart } from "@/lib/features/reviews/formReviewStart";
 import SlipFields, { toFieldPatch, type FieldValues } from "./SlipFields";
 
 const COPY = REVIEW_COPY.record;
-
-/** The longest author the service accepts, in code points. */
-const AUTHOR_MAX = 128;
 
 /**
  * Records a review of the logged record `itemId` on someone's behalf, or a handwritten one, onto the cover in
@@ -24,11 +22,13 @@ const AUTHOR_MAX = 128;
  * `hasCover` is whether a review is on the cover now or another write is putting one there; the helper line under
  * the checkbox reads it, but a ticked save keeps the line it had at the press, so its own save never changes it.
  * `disabled` is the page's hold on every review write (another write is in flight or rereading): Save is out of reach.
+ * `start` is what the form opens with (its author, fields, medium and which copied-from lines to show); without one it opens empty.
  * `onPending` is the page's setter for that hold: a ticked save calls it with true at the press, and with false if the create fails.
  */
-export default function RecordReviewForm({ itemId, hasCover, disabled, onPending, onWritten, onNotice, onClose }: {
+export default function RecordReviewForm({ itemId, hasCover, start = EMPTY_START, disabled, onPending, onWritten, onNotice, onClose }: {
   itemId: number;
   hasCover: boolean;
+  start?: RecordFormStart;
   disabled: boolean;
   onPending: (pending: boolean) => void;
   onWritten: () => Promise<void>;
@@ -41,9 +41,9 @@ export default function RecordReviewForm({ itemId, hasCover, disabled, onPending
   const [create] = useCreateReviewMutation();
   const [submit] = useSubmitReviewMutation();
   const mounted = useMounted();
-  const [author, setAuthor] = useState("");
-  const [values, setValues] = useState<FieldValues>({ buzzwords: "", artist_blurb: "", review: "", recommended_tracks: "", fcc: "" });
-  const [medium, setMedium] = useState<NonNullable<NewReviewRequest["medium"]>>("typed");
+  const [author, setAuthor] = useState(start.author);
+  const [values, setValues] = useState<FieldValues>(start.values);
+  const [medium, setMedium] = useState<NonNullable<NewReviewRequest["medium"]>>(start.medium);
   const [linked, setLinked] = useState(""); // the picked account's id; "" is Not linked
   const [onCover, setOnCover] = useState(true);
   const [tried, setTried] = useState(false);
@@ -111,9 +111,11 @@ export default function RecordReviewForm({ itemId, hasCover, disabled, onPending
   return (
     <Stack spacing={2}>
       <Typography level="title-sm" component="h3">{COPY.title}</Typography>
+      {start.copied === "form" && <Typography level="body-sm">{start.author === "" ? COPY.copiedNoName : COPY.copiedFromForm}</Typography>}
       <FormControl>
         <FormLabel>{COPY.author}</FormLabel>
         <Input value={author} onChange={(e) => setAuthor(e.target.value)} slotProps={{ input: { maxLength: AUTHOR_MAX } }} />
+        {start.copied === "form" && start.author !== "" && <FormHelperText>{COPY.copiedAuthor}</FormHelperText>}
         {tried && authorBlank && <FormHelperText>{COPY.authorBlank}</FormHelperText>}
       </FormControl>
       <FormControl>
@@ -133,6 +135,7 @@ export default function RecordReviewForm({ itemId, hasCover, disabled, onPending
         </RadioGroup>
       </FormControl>
       {medium === "handwritten" && <Typography level="body-sm">{COPY.handwrittenNote}</Typography>}
+      {start.copied === "paper" && <Typography level="body-sm">{COPY.byHand}</Typography>}
       <SlipFields values={values} onChange={setValues} />
       {tried && textBlank && <Typography level="body-sm">{COPY.textBlank}</Typography>}
       <Typography level="body-sm">{COPY.noConsent}</Typography>
