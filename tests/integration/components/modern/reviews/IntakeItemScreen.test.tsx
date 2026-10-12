@@ -92,6 +92,26 @@ function serveItem(initial: ReturnType<typeof dogaItem>) {
   return box;
 }
 
+/**
+ * Serves this item's reviews (`GET /reviews?intake_item_id=`) through a mutable box: `list` is what the next read
+ * answers, `reads` counts reads of this item's reviews only, `fail` answers a 500, `gone` answers the 404 of a deleted
+ * record, and `hold` is a promise every read awaits. Any other review query (`album_id`, `mine`, ...) is left to the
+ * handlers `fakeReviewsEndpoints` registered, so the spec's `forRelease`, `mine` and `reviews` options still apply.
+ */
+function serveItemReviews(initial: Review[]) {
+  const box = { list: initial, reads: 0, fail: false, gone: false, hold: null as Promise<void> | null };
+  server.use(
+    http.get(`${TEST_BACKEND_URL}/reviews`, async ({ request }) => {
+      if (new URL(request.url).searchParams.get("intake_item_id") !== String(ITEM_ID)) return undefined;
+      box.reads += 1;
+      if (box.hold) await box.hold;
+      if (box.gone) return HttpResponse.json({ message: "Intake item not found" }, { status: 404 });
+      return box.fail ? HttpResponse.json({ message: "boom" }, { status: 500 }) : HttpResponse.json(box.list);
+    }),
+  );
+  return box;
+}
+
 const tapedSlips = () =>
   screen.getAllByRole("group", { name: "Slip preview" }).filter((g) => g.querySelector(":scope > [aria-hidden='true']"));
 
@@ -294,6 +314,35 @@ describe("IntakeItemScreen", () => {
   });
 
   describe("the reviews", () => {
+    it("serves only this item's reviews from serveItemReviews and leaves a release's review read to its own handler", async () => {
+      fakeReviewsEndpoints({ records: [dogaItem()] });
+      let releaseReads = 0;
+      server.use(
+        http.get(`${TEST_BACKEND_URL}/reviews`, ({ request }) => {
+          if (new URL(request.url).searchParams.get("album_id") !== "5") return undefined;
+          releaseReads += 1;
+          return HttpResponse.json([submitted(90, { intake_item_id: null, album_id: 5 })]);
+        }),
+      );
+      const itemReviews = serveItemReviews([submitted(40), submitted(41)]);
+      function Mounted() {
+        const { data } = useGetReviewsForReleaseQuery(5);
+        return (
+          <>
+            <output aria-label="release review count">{data?.length ?? "none"}</output>
+            <IntakeItemScreen id={ITEM_ID} />
+          </>
+        );
+      }
+
+      renderScreen(<Mounted />);
+
+      await waitFor(() => expect(screen.getByRole("status", { name: "release review count" })).toHaveTextContent("1"));
+      await screen.findByText("Take 41.");
+      expect(releaseReads).toBe(1);
+      expect(itemReviews.reads).toBeGreaterThan(0);
+    });
+
     it("shows the chosen review under the cover heading and the rest, newest first, under Other reviews", async () => {
       fakeReviewsEndpoints({
         records: [dogaItem()],
@@ -812,18 +861,6 @@ describe("IntakeItemScreen", () => {
       return posts;
     };
 
-    /** Counts the reads of this item's reviews, answering each with `list`. */
-    const countItemReviewReads = (list: Review[]) => {
-      const reads = { count: 0 };
-      server.use(
-        http.get(`${TEST_BACKEND_URL}/reviews`, ({ request }) => {
-          if (new URL(request.url).searchParams.get("intake_item_id") === String(ITEM_ID)) reads.count += 1;
-          return HttpResponse.json(list);
-        }),
-      );
-      return reads;
-    };
-
     const refuseWith400 = () =>
       server.use(http.post(ACCEPT_URL, () => HttpResponse.json({ message: SERVER_WORDS }, { status: 400 })));
 
@@ -1023,11 +1060,11 @@ describe("IntakeItemScreen", () => {
 
     it("shows its approved line after one reread of the item and its reviews on a 400, and never the server's words", async () => {
       const box = setUp();
-      const reviewReads = countItemReviewReads([submitted(41)]);
+      const reviewReads = serveItemReviews([submitted(41)]);
       refuseWith400();
       const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
       const button = await screen.findByRole("button", { name: "Use this review" });
-      await waitFor(() => expect(reviewReads.count).toBe(1));
+      await waitFor(() => expect(reviewReads.reads).toBe(1));
       const itemReads = box.reads;
 
       await user.click(button);
@@ -1035,7 +1072,7 @@ describe("IntakeItemScreen", () => {
       expect((await screen.findByRole("status")).textContent).toBe(REVIEW_COPY.intakeItem.reviewGone);
       await reviewsSettled(store);
       expect(box.reads).toBe(itemReads + 1);
-      expect(reviewReads.count).toBe(2);
+      expect(reviewReads.reads).toBe(2);
       expect(screen.queryByText(SERVER_WORDS)).not.toBeInTheDocument();
       expect(toast.error).not.toHaveBeenCalledWith(SERVER_WORDS);
       expect(toast.error).not.toHaveBeenCalled();
@@ -1043,18 +1080,18 @@ describe("IntakeItemScreen", () => {
 
     it("shows no line while the reload is outstanding", async () => {
       const box = setUp();
-      const reviewReads = countItemReviewReads([submitted(41)]);
+      const reviewReads = serveItemReviews([submitted(41)]);
       refuseWith400();
       const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
       const button = await screen.findByRole("button", { name: "Use this review" });
-      await waitFor(() => expect(reviewReads.count).toBe(1));
+      await waitFor(() => expect(reviewReads.reads).toBe(1));
       const reload = holdResponse("get", FILED_ITEM_PATH, () => HttpResponse.json(box.item));
 
       await user.click(button);
 
       // Every other read the reload starts has begun, and the held item read is the only request left.
       await waitFor(() => expect(reload.calls.count).toBe(1));
-      await waitFor(() => expect(reviewReads.count).toBe(2));
+      await waitFor(() => expect(reviewReads.reads).toBe(2));
       await waitFor(() => expect(pendingCount(store)).toBe(1));
       await renderedFrame();
       expect(screen.queryByRole("status")).not.toBeInTheDocument();
@@ -1198,22 +1235,18 @@ describe("IntakeItemScreen", () => {
 
     it.each(REFUSALS)("rereads the item's reviews after a %s refusal", async (reason) => {
       setUp();
-      let reviewReads = 0;
+      const reviewReads = serveItemReviews([submitted(40)]);
       server.use(
-        http.get(`${TEST_BACKEND_URL}/reviews`, ({ request }) => {
-          if (new URL(request.url).searchParams.get("intake_item_id") === String(ITEM_ID)) reviewReads += 1;
-          return HttpResponse.json([submitted(40)]);
-        }),
         http.post(FILE_URL, () => HttpResponse.json({ message: "server words", reason }, { status: 409 })),
       );
       const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
-      await waitFor(() => expect(reviewReads).toBe(1));
+      await waitFor(() => expect(reviewReads.reads).toBe(1));
       await ready(user);
-      const readsBefore = reviewReads;
+      const readsBefore = reviewReads.reads;
       await submit(user);
 
       await screen.findByRole("status");
-      expect(reviewReads).toBe(readsBefore + 1);
+      expect(reviewReads.reads).toBe(readsBefore + 1);
     });
 
     it("rereads the cover review by id after a refusal when the item's own reviews lack it", async () => {
@@ -1280,24 +1313,18 @@ describe("IntakeItemScreen", () => {
 
     it("rereads the item and its reviews once, and throws nothing, when the page is gone before the filing is refused", async () => {
       setUp();
-      let reviewReads = 0;
-      server.use(
-        http.get(`${TEST_BACKEND_URL}/reviews`, ({ request }) => {
-          if (new URL(request.url).searchParams.get("intake_item_id") === String(ITEM_ID)) reviewReads += 1;
-          return HttpResponse.json([submitted(40)]);
-        }),
-      );
+      const reviewReads = serveItemReviews([submitted(40)]);
       const { calls, release, answered } = holdResponse("post", FILE_URL, () =>
         HttpResponse.json({ message: "server words", reason: "state_changed" }, { status: 409 }),
       );
       const errors = vi.spyOn(console, "error").mockImplementation(() => {});
       const { user, unmount } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
-      await waitFor(() => expect(reviewReads).toBe(1));
+      await waitFor(() => expect(reviewReads.reads).toBe(1));
 
       await ready(user);
       await submit(user);
       await waitFor(() => expect(calls.count).toBe(1));
-      const reviewReadsBefore = reviewReads;
+      const reviewReadsBefore = reviewReads.reads;
       // The reload's item read is held, so the spec sees it arrive and settle rather than sleeping.
       const reload = holdResponse("get", FILED_ITEM_PATH, () => HttpResponse.json(dogaItem()));
 
@@ -1310,7 +1337,7 @@ describe("IntakeItemScreen", () => {
       await reload.answered;
 
       expect(reload.calls.count).toBe(1);
-      expect(reviewReads).toBe(reviewReadsBefore + 1);
+      expect(reviewReads.reads).toBe(reviewReadsBefore + 1);
       expect(errors).not.toHaveBeenCalled();
       errors.mockRestore();
     });
@@ -1574,17 +1601,13 @@ describe("IntakeItemScreen", () => {
     ])("shows the failure line in the notice slot after %s, and it survives the reload that removes the entry", async (_label, status) => {
       setUp();
       // The reload answers a list without review 41, as if it were gone, so its entry (and any line held in it) unmounts.
-      let gone = false;
-      let listReads = 0;
+      const reviews = serveItemReviews([submitted(40, { author: "Stereolab" }), submitted(41, { author: "Cat Power" })]);
+      let readsAtDelete = 0;
       server.use(
         http.delete(REVIEW_URL(41), () => {
-          gone = true;
+          readsAtDelete = reviews.reads;
+          reviews.list = [submitted(40, { author: "Stereolab" })];
           return HttpResponse.json({ message: "boom" }, { status });
-        }),
-        http.get(`${TEST_BACKEND_URL}/reviews`, ({ request }) => {
-          if (new URL(request.url).searchParams.get("intake_item_id") !== String(ITEM_ID)) return HttpResponse.json([]);
-          if (gone) listReads += 1;
-          return HttpResponse.json(gone ? [submitted(40, { author: "Stereolab" })] : [submitted(40, { author: "Stereolab" }), submitted(41, { author: "Cat Power" })]);
         }),
       );
       const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
@@ -1592,7 +1615,7 @@ describe("IntakeItemScreen", () => {
       const dialog = await open(user, "Delete review by Cat Power");
       await user.click(dialog.getByRole("button", { name: "Delete" }));
 
-      await waitFor(() => expect(listReads).toBeGreaterThan(0));
+      await waitFor(() => expect(reviews.reads).toBeGreaterThan(readsAtDelete));
       await waitFor(() => expect(screen.queryByRole("button", { name: "Delete review by Cat Power" })).not.toBeInTheDocument());
       await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
       expect(screen.getByRole("button", { name: "Delete review by Stereolab" })).toBeInTheDocument();
@@ -1642,25 +1665,34 @@ describe("IntakeItemScreen", () => {
      */
     function serveDeletable(reviewAuthors: (string | Review)[], draftAuthors: string[] | undefined, deleted: string[] = []) {
       let gone = false;
+      let readsAtGone: number | null = null;
+      const markGone = () => {
+        gone = true;
+        reviewsBox.gone = true;
+        readsAtGone ??= reviewsBox.reads;
+      };
       // `markGone` is for a spec that answers the DELETE itself (held), so reads after it still count as after.
-      const seen = { deletes: 0, draftReads: 0, itemReadsAfter: 0, reviewReadsAfter: 0, markGone: () => { gone = true; } };
+      const seen = {
+        deletes: 0,
+        draftReads: 0,
+        itemReadsAfter: 0,
+        get reviewReadsAfter() {
+          return readsAtGone === null ? 0 : reviewsBox.reads - readsAtGone;
+        },
+        markGone,
+      };
       const reviews = reviewAuthors.map((entry, i) => (typeof entry === "string" ? submitted(40 + i, { author: entry }) : entry));
       fakeReviewsEndpoints({ records: [dogaItem({ draft_authors: draftAuthors, accepted_review_id: null })] });
+      const reviewsBox = serveItemReviews(reviews);
       server.use(
         http.get(FILED_ITEM_PATH, () => {
           if (!gone) return HttpResponse.json(dogaItem({ draft_authors: draftAuthors, accepted_review_id: null }));
           seen.itemReadsAfter += 1;
           return HttpResponse.json({ message: "Intake item not found" }, { status: 404 });
         }),
-        http.get(`${TEST_BACKEND_URL}/reviews`, ({ request }) => {
-          if (new URL(request.url).searchParams.get("intake_item_id") !== String(ITEM_ID)) return HttpResponse.json([]);
-          if (!gone) return HttpResponse.json(reviews);
-          seen.reviewReadsAfter += 1;
-          return HttpResponse.json({ message: "Intake item not found" }, { status: 404 });
-        }),
         http.delete(FILED_ITEM_PATH, () => {
           seen.deletes += 1;
-          gone = true;
+          markGone();
           return HttpResponse.json({ deleted_review_authors: deleted });
         }),
         http.get(`${TEST_BACKEND_URL}/reviews/:id`, () => {
@@ -2078,18 +2110,15 @@ describe("IntakeItemScreen", () => {
     const setUp = (item = dogaItem(NOTHING_ON_COVER), others: Review[] = []) => {
       fakeReviewsEndpoints({ records: [item], reviewers: REVIEWERS });
       const box = serveItem(item);
-      const list = [...others];
+      const reviews = serveItemReviews(others);
       const creates: NewReviewRequest[] = [];
       const submits: string[] = [];
       server.use(
-        http.get(`${TEST_BACKEND_URL}/reviews`, ({ request }) =>
-          HttpResponse.json(new URL(request.url).searchParams.get("intake_item_id") === String(ITEM_ID) ? list : []),
-        ),
         http.post(SAVE_URL, async ({ request }) => {
           const body = (await request.json()) as NewReviewRequest;
           creates.push(body);
           const made = submitted(NEW_ID, { author: body.author, author_user_id: body.author_user_id ?? null, medium: body.medium, review: body.review ?? null });
-          list.push(made);
+          reviews.list = [...reviews.list, made];
           box.item = { ...box.item, accepted_review_id: NEW_ID };
           return HttpResponse.json(made, { status: 201 });
         }),
