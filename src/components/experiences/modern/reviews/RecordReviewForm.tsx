@@ -25,15 +25,13 @@ const AUTHOR_MAX = 128;
  * the checkbox reads it, but a ticked save keeps the line it had at the press, so its own save never changes it.
  * `disabled` is the page's hold on every review write (another write is in flight or rereading): Save is out of reach.
  * `onPending` is the page's setter for that hold: a ticked save calls it with true at the press, and with false if the create fails.
- * `onWritten` is the page's review-write path: it gets the id of the review the save put on the cover (a ticked save)
- * so the page can keep it as the cover when its reread fails, and nothing for an unticked save, which moves no cover.
  */
 export default function RecordReviewForm({ itemId, hasCover, disabled, onPending, onWritten, onNotice, onClose }: {
   itemId: number;
   hasCover: boolean;
   disabled: boolean;
   onPending: (pending: boolean) => void;
-  onWritten: (cover?: number) => Promise<void>;
+  onWritten: () => Promise<void>;
   onNotice: (line: string | null) => void;
   onClose: () => void;
 }) {
@@ -91,7 +89,7 @@ export default function RecordReviewForm({ itemId, hasCover, disabled, onPending
           line = COPY.draftNotSubmitted;
         }
       }
-      await onWritten(onCover ? made.id : undefined);
+      await onWritten();
       if (!mounted.current) return;
       onNotice(line);
       onClose();
