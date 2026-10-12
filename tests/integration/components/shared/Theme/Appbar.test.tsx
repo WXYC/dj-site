@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
+import { extendTheme } from "@mui/joy/styles";
 import Appbar, { APPBAR_HEIGHT_PX } from "@/src/components/shared/Theme/Appbar";
 
 // Mock dependencies
@@ -39,13 +40,31 @@ describe("Appbar", () => {
     expect(getComputedStyle(root).minHeight).toBe(`${APPBAR_HEIGHT_PX}px`);
   });
 
-  it("is as tall as APPBAR_HEIGHT_PX says: the version line adds no block padding to its 18px line, over the 32px button group", () => {
+  it("is as tall as APPBAR_HEIGHT_PX says: the version line adds no block padding to the line its level sets, over the button group its size sets", () => {
     render(<Appbar experience="modern" />);
     const line = screen.getByText(/WXYC DJ Site/);
     expect(getComputedStyle(line)).toMatchObject({ paddingTop: "0px", paddingBottom: "0px" });
-    const lineHeight = 0.75 * 16 * 1.5;
-    const buttonGroupHeight = 2 * 16;
-    expect(APPBAR_HEIGHT_PX).toBe(lineHeight + buttonGroupHeight);
+
+    // jsdom leaves Joy's custom properties unresolved, so resolve them from the same theme the Appbar renders under.
+    const theme = extendTheme() as unknown as Record<string, Record<string, string | number | Record<string, string | number>>>;
+    const resolve = (value: string | number) => {
+      const named = String(value).match(/^var\(--joy-(\w+)-(\w+)/);
+      return named ? (theme[named[1]][named[2]] as string | number) : value;
+    };
+    const level = [...line.classList].find((c) => c.startsWith("MuiTypography-body") || c.startsWith("MuiTypography-title") || c.startsWith("MuiTypography-h"))!.replace("MuiTypography-", "");
+    const typography = theme.typography[level] as Record<string, string | number>;
+    // The rendered line carries the level's own font size and line height, so the level is what the height is derived from.
+    expect(getComputedStyle(line).fontSize).toContain(String(typography.fontSize));
+    expect(getComputedStyle(line).lineHeight).toContain(String(typography.lineHeight));
+    const fontSizePx = parseFloat(String(resolve(typography.fontSize))) * 16;
+    const lineHeightPx = fontSizePx * Number(resolve(typography.lineHeight));
+
+    // The group's own box is its buttons', which jsdom cannot lay out (and the Appbar test mocks them), so its size class is read from the render and mapped to Joy's small and medium button heights (2rem and 2.5rem).
+    const group = line.nextElementSibling!;
+    const size = [...group.classList].find((c) => c.startsWith("MuiButtonGroup-size"))!.replace("MuiButtonGroup-size", "").toLowerCase();
+    const buttonHeightPx = { sm: 2 * 16, md: 2.5 * 16, lg: 3 * 16 }[size]!;
+
+    expect(APPBAR_HEIGHT_PX).toBe(lineHeightPx + buttonHeightPx);
   });
 
   it("should render version text", () => {

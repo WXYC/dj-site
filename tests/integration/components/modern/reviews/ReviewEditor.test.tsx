@@ -650,13 +650,13 @@ describe("ReviewEditor", () => {
       const { css } = cssOf(grid);
       expect(css).toContain("@container (min-width: 800px)");
       expect(css).not.toContain("1280px");
-      expect(css).toMatch(/grid-template-columns:\s*minmax\(20rem, 1fr\) minmax\(0, calc\(4\.25in \+ 16px\)\)/);
+      expect(css).toMatch(/grid-template-columns:\s*minmax\(20rem, 1fr\) min-content;/);
       // The column's own rules, split by whether they sit inside the two-column container query: sticking is for two columns only.
       const { cls } = cssOf(column);
       const base = withoutBlocks(css, "@container");
       const inQuery = allBlocks(css, TWO_COLUMN_QUERY).join("\n");
       const rules = (text: string) => [...text.matchAll(new RegExp(`\\.${cls}[^{]*\\{[^}]*\\}`, "g"))].map((m) => m[0]).join("\n");
-      expect(rules(base)).not.toMatch(/sticky|max-height|overflow/);
+      expect(rules(base)).not.toMatch(/sticky|max-height|overflow|100dvh/);
       const own = rules(inQuery);
       expect(own).toMatch(/position:\s*sticky/);
       expect(own).toMatch(/top:\s*0/);
@@ -664,10 +664,21 @@ describe("ReviewEditor", () => {
       expect(own).toMatch(new RegExp(`max-height:\\s*var\\(${STICKY_ROOM_PROPERTY},\\s*none\\)`));
       expect(own).not.toMatch(/100dvh/);
       expect(own).toMatch(/overflow-y:\s*auto/);
-      // The scrollbar's room is reserved (so scrolling never narrows the slip) and the slip's side shadow has padding to fall into, as the track is widened to match.
+      // The scrollbar's room is reserved (so scrolling never narrows the slip) and the slip's shadow (0 1px 4px, so 3px above and 5px below) has padding to fall into on every side.
       expect(own).toMatch(/scrollbar-gutter:\s*stable/);
-      expect(own).toMatch(/padding-left:\s*8px/);
-      expect(own).toMatch(/padding-right:\s*8px/);
+      for (const side of ["top", "right", "bottom", "left"]) expect(own).toMatch(new RegExp("padding-" + side + ":\\s*8px"));
+    });
+
+    it("sizes the slip column from its content, so a scrollbar's gutter and the shadow's padding sit outside a slip that stays 4.25in", async () => {
+      serve();
+      renderWithProviders(<ReviewEditor id={40} />);
+
+      const slip = await screen.findByRole("group", { name: REVIEW_COPY.slip.name });
+      const column = screen.getByRole("region", { name: REVIEW_COPY.slip.heading }).parentElement!;
+      const { css } = cssOf(column.parentElement!);
+      expect(allBlocks(css, TWO_COLUMN_QUERY).join("\n")).toMatch(/grid-template-columns:\s*minmax\(20rem, 1fr\) min-content;/);
+      expect(css).not.toMatch(/calc\(4\.25in/);
+      expect(cssOf(slip).all).toMatch(/(?<![-\w])width:\s*4\.25in/);
     });
 
     describe("the slip column's room", () => {
@@ -695,9 +706,8 @@ describe("ReviewEditor", () => {
         return { bar, root, region };
       };
 
-      it("is the scroll region's height minus the action bar's, found through ScrollRegion and not the root's parent, and kept current", async () => {
+      it("sets the slip column's room to the scroll region's height minus the action bar's, and keeps it current", async () => {
         const { bar, root, region } = await renderDeeper();
-        expect(root.parentElement).not.toBe(region);
         let regionHeight = 700;
         let barHeight = 53;
         Object.defineProperty(region, "clientHeight", { configurable: true, get: () => regionHeight });
@@ -713,6 +723,12 @@ describe("ReviewEditor", () => {
         barHeight = 90;
         resize(bar);
         expect(root.style.getPropertyValue(STICKY_ROOM_PROPERTY)).toBe("410px");
+      });
+
+      it("finds the scroll region through ScrollRegion and not the root's parent", async () => {
+        const { root, region } = await renderDeeper();
+        expect(root.parentElement).not.toBe(region);
+        expect(root.closest("[data-scroll-region]")).toBe(region);
       });
 
       it("observes both the scroll region and the action bar", async () => {
