@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Button, Checkbox, FormControl, FormHelperText, FormLabel, Input, Option, Radio, RadioGroup, Select, Stack, Typography } from "@mui/joy";
 import type { NewReviewRequest } from "@wxyc/shared";
-import { isReviewAccountGone, useCreateReviewMutation, useGetReviewersQuery, useSubmitReviewMutation } from "@/lib/features/reviews/reviewApi";
+import { useAcceptReviewMutation } from "@/lib/features/reviews/intakeApi";
+import { isReviewAccountGone, useCreateReviewMutation, useGetReviewersQuery, useSubmitReviewMutation, useUpdateReviewMutation } from "@/lib/features/reviews/reviewApi";
 import { serverMessage, unwrapEndpointError } from "@/lib/rtk-endpoint-error";
 import { useAuthentication } from "@/src/hooks/authenticationHooks";
 import { useMounted } from "@/src/hooks/useRowWrite";
@@ -19,6 +20,9 @@ const AUTHOR_MAX = 128;
  * Records a review of the logged record `itemId` on someone's behalf, or a handwritten one, onto the cover in
  * one create, or, with the box unticked, as one of the record's other reviews: a create then a submit. Either
  * reloads through the page's review-write path (`onWritten`).
+ * An unticked save whose submit failed leaves a draft; the next Save submits that same draft (after updating its
+ * slip fields if they changed) rather than creating another, and accepts it onto the cover if the box is now ticked.
+ * A draft's author, medium and account cannot be patched, so changing one of those starts a new review.
  * Names (the author, the picked account) are real names: station display only, never telemetry.
  */
 export default function RecordReviewForm({ itemId, hasCover, onWritten, onNotice, onClose }: {
@@ -33,6 +37,8 @@ export default function RecordReviewForm({ itemId, hasCover, onWritten, onNotice
   const reviewers = useGetReviewersQuery();
   const [create] = useCreateReviewMutation();
   const [submit] = useSubmitReviewMutation();
+  const [update] = useUpdateReviewMutation();
+  const [acceptReview] = useAcceptReviewMutation();
   const mounted = useMounted();
   const [author, setAuthor] = useState("");
   const [values, setValues] = useState<FieldValues>({ buzzwords: "", artist_blurb: "", review: "", recommended_tracks: "", fcc: "" });
@@ -43,6 +49,8 @@ export default function RecordReviewForm({ itemId, hasCover, onWritten, onNotice
   // From a valid press until the page's reread settles, so a second press cannot record the review twice.
   const [saving, setSaving] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
+  // The draft a failed unticked save left behind, with what it was made from.
+  const left = useRef<{ id: number; who: string; fields: string; submitted: boolean } | null>(null);
 
   const name = author.trim();
   const authorBlank = name === "";
@@ -64,17 +72,32 @@ export default function RecordReviewForm({ itemId, hasCover, onWritten, onNotice
       ...(linked !== "" && { author_user_id: linked }),
       ...toFieldPatch(values),
     };
+    const who = JSON.stringify([name, medium, linked]);
+    const fields = JSON.stringify(toFieldPatch(values));
     try {
-      const made = await create(body).unwrap();
-      if (!onCover) {
-        try {
-          await submit(made.id).unwrap();
-        } catch {
-          if (!mounted.current) return;
-          setSaving(false);
-          setFailure(COPY.draftNotSubmitted);
-          return;
+      const draft = left.current?.who === who ? left.current : null;
+      let id: number;
+      if (draft) {
+        id = draft.id;
+        if (draft.fields !== fields) await update({ id, patch: toFieldPatch(values) }).unwrap();
+        draft.fields = fields;
+      } else {
+        id = (await create(body).unwrap()).id;
+        left.current = onCover ? null : { id, who, fields, submitted: false };
+      }
+      if (left.current) {
+        if (!left.current.submitted) {
+          try {
+            await submit(id).unwrap();
+          } catch {
+            if (!mounted.current) return;
+            setSaving(false);
+            setFailure(COPY.draftNotSubmitted);
+            return;
+          }
+          left.current.submitted = true;
         }
+        if (onCover) await acceptReview({ id: itemId, reviewId: id }).unwrap();
       }
       await onWritten();
       if (!mounted.current) return;
