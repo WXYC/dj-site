@@ -422,7 +422,8 @@ describe("ReviewsPanel", () => {
       { case: "typed with all fields", overrides: { fcc: "Contains one swear word" }, rows: ["FCC", "Buzzwords", "Recommended", "Review"], reviewBody: "Warm and strange.", slipButton: true },
       { case: "typed with empty Buzzwords and Recommended", overrides: { buzzwords: "", recommended_tracks: null }, rows: ["FCC", "Review"], reviewBody: "Warm and strange.", slipButton: true },
       { case: "handwritten without text", overrides: { medium: "handwritten", review: null, fcc: "Track 3: f-word" }, rows: ["FCC", "Buzzwords", "Recommended", "Review"], reviewBody: "on the sleeve", slipButton: false },
-      { case: "handwritten with text", overrides: { medium: "handwritten" }, rows: ["FCC", "Buzzwords", "Recommended", "Review"], reviewBody: "Warm and strange.", slipButton: false },
+      { case: "printed", overrides: { medium: "printed" }, rows: ["FCC", "Buzzwords", "Recommended", "Review"], reviewBody: "Warm and strange.", slipButton: true },
+      { case: "handwritten with text", overrides: { medium: "handwritten" }, rows: ["FCC", "Buzzwords", "Recommended", "Review"], reviewBody: "Warm and strange.", slipButton: true },
     ])("draws a $case review on the cover as cover rows", async ({ overrides, rows: expected, reviewBody, slipButton }) => {
       serve([cover(overrides)], [], CONFIRMED);
       renderPanel();
@@ -434,7 +435,15 @@ describe("ReviewsPanel", () => {
       expect(entry.querySelector("[data-fcc-row]")).toHaveClass("MuiSheet-colorDanger");
       expect(within(entry).getByText("Review").nextElementSibling).toHaveTextContent(reviewBody!);
       expect(entry).not.toHaveTextContent("· on the sleeve");
-      expect(!!within(entry).queryByRole("button", { name: "Show the whole slip" })).toBe(slipButton);
+      const button = within(entry).queryByRole("button", { name: "Show the whole slip" });
+      expect(!!button).toBe(slipButton);
+      if (button) {
+        await userEvent.click(button);
+        expect(tapedSlips()).toHaveLength(1);
+        expect(tapedSlips()[0].closest("li")).toBe(entry);
+      } else {
+        expect(tapedSlips).toThrow();
+      }
     });
 
     it("places the FCC notes slot after the cover rows and before the other reviews", async () => {

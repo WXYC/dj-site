@@ -79,7 +79,7 @@ export function ReviewItem({ review, record, newSlipHref, printable, onCover, mo
     <Stack spacing={0.5} component="li" sx={{ listStyle: "none" }}>
       <PrintedVersionNote review={review} onCover={onCover} newSlipHref={newSlipHref} />
       {mode === "cover" ? (
-        <CoverRows review={review} fccNotes={fccNotes} onTheSleeve={onTheSleeve} slip={review.medium === "typed" ? <SlipPreview {...record} reviewer={review.author ?? ""} date={review.add_date} fields={review} fccNotes={fccNotes} onCover={onCover} /> : undefined} />
+        <CoverRows review={review} fccNotes={fccNotes} onTheSleeve={onTheSleeve} slip={!onTheSleeve ? <SlipPreview {...record} reviewer={review.author ?? ""} date={review.add_date} fields={review} fccNotes={fccNotes} onCover={onCover} /> : undefined} />
       ) : onTheSleeve ? (
         <>
           <Typography level="body-sm">

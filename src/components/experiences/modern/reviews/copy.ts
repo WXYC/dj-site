@@ -441,7 +441,7 @@ export const REVIEW_COPY = {
     others: "Other reviews",
     /** Approved. Heading when no review is on the cover. */
     all: "Reviews",
-    /** Approved. Shown for a handwritten review without text, beside its author. */
+    /** Approved. Shown for a handwritten review without text: beside its author in the list of other reviews, and as the Review row's value when that review is on the cover. */
     onTheSleeve: "on the sleeve",
     /** Approved. Links to the review's history. */
     history: "Edited · see history",
