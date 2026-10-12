@@ -23,8 +23,8 @@ export default function SlipFields({ values, onChange }: { values: FieldValues; 
       {FIELD_NAMES.map((name) => (
         <FormControl key={name}>
           <FormLabel>{REVIEW_COPY.fields[name].label}</FormLabel>
-          <Textarea minRows={name === "review" ? 6 : 1} value={values[name]} onChange={(e) => onChange({ ...values, [name]: e.target.value })} />
           <FormHelperText>{REVIEW_COPY.fields[name].help}</FormHelperText>
+          <Textarea minRows={name === "review" ? 6 : 1} value={values[name]} onChange={(e) => onChange({ ...values, [name]: e.target.value })} />
         </FormControl>
       ))}
     </>

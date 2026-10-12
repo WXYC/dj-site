@@ -98,6 +98,8 @@ export const REVIEW_COPY = {
     review: "Review",
     reviewer: "Reviewer",
     recommended: "Recommended",
+    /** Approved. The heading over the editor's slip preview. */
+    heading: "As it will print",
   },
   screen: {
     /** Approved. */

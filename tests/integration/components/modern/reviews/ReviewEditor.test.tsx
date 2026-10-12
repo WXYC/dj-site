@@ -79,6 +79,7 @@ describe("ReviewEditor", () => {
     ["couldNotSubmit", REVIEW_COPY.couldNotSubmit, "Couldn't submit the review. Please try again."],
     ["alreadySubmitted", REVIEW_COPY.alreadySubmitted, "This review was already submitted."],
     ["couldNotDelete", REVIEW_COPY.couldNotDelete, "Couldn't delete the review. Please try again."],
+    ["slip.heading", REVIEW_COPY.slip.heading, "As it will print"],
     ["consent.legend", REVIEW_COPY.consent.legend, "Where may this review be published?"],
     ["consent.creditLegend", REVIEW_COPY.consent.creditLegend, "How should we credit you?"],
     ["consent.notPublishedYet", REVIEW_COPY.consent.notPublishedYet, "FCC notes are never published. Nothing is published yet; the station is collecting your answer for later."],
@@ -509,6 +510,73 @@ describe("ReviewEditor", () => {
         expect(screen.queryByText(/printed on the cover|earlier version of this review|printed version/)).not.toBeInTheDocument();
         expect(requested).not.toHaveBeenCalled();
       }
+    });
+  });
+
+  describe("layout", () => {
+    it("heads the page with the record's artist", async () => {
+      serve();
+      renderWithProviders(<ReviewEditor id={40} />);
+
+      expect(await screen.findByRole("heading", { name: "Stereolab" })).toBeInTheDocument();
+    });
+
+    it.each<[string, number, string, "draft" | "submitted", string]>([
+      ["the author's draft", Authorization.DJ, "dj-me", "draft", PRIVACY],
+      ["the author's submitted review", Authorization.DJ, "dj-me", "submitted", REVIEW_COPY.submittedBanner],
+      ["a music director on someone else's draft", Authorization.MD, "dj-other", "draft", "You are editing"],
+      ["a music director on someone else's submitted review", Authorization.MD, "dj-other", "submitted", "You are editing"],
+    ])("shows exactly one status line for %s", async (_name, authority, author, status, expected) => {
+      mockAuth.authority = authority;
+      serve({ ...DRAFT, author_user_id: author, status } as Review);
+      renderWithProviders(<ReviewEditor id={40} />);
+
+      await screen.findByRole("heading", { name: "Stereolab" });
+      const lines = [PRIVACY, REVIEW_COPY.submittedBanner, /^You are editing/].map((line) => screen.queryAllByText(line).length);
+      expect(lines.reduce((a, b) => a + b, 0)).toBe(1);
+      expect(screen.getByText(new RegExp(`^${expected.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`))).toBeInTheDocument();
+    });
+
+    it("puts each field's help before its box, and describes the box with it", async () => {
+      serve();
+      renderWithProviders(<ReviewEditor id={40} />);
+
+      for (const { label, help } of Object.values(REVIEW_COPY.fields)) {
+        const box = await screen.findByLabelText(label);
+        const text = screen.getByText(help);
+        expect(text.compareDocumentPosition(box) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+        expect(box).toHaveAccessibleDescription(help);
+      }
+    });
+
+    it("asks the publishing question in a group named by its legend, after the slip fields", async () => {
+      serve();
+      renderWithProviders(<ReviewEditor id={40} />);
+
+      const group = await screen.findByRole("group", { name: REVIEW_COPY.consent.legend });
+      const last = screen.getByLabelText(REVIEW_COPY.fields.fcc.label);
+      expect(last.compareDocumentPosition(group) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+
+    it("labels the slip preview region, with the FCC panel after it", async () => {
+      fakeReviewsEndpoints({ reviews: [{ ...DRAFT, intake_item_id: 2 } as Review], records: [RECORD] });
+      renderWithProviders(<ReviewEditor id={40} />);
+
+      const region = await screen.findByRole("region", { name: REVIEW_COPY.slip.heading });
+      expect(within(region).getByRole("group", { name: REVIEW_COPY.slip.name })).toBeInTheDocument();
+      const fcc = await screen.findByRole("region", { name: "FCC notes" });
+      expect(region.compareDocumentPosition(fcc) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+
+    it("keeps Save draft, Submit and Delete in one action bar, with the reason beside a disabled Submit", async () => {
+      serve({ ...DRAFT, review: "" } as Review);
+      renderWithProviders(<ReviewEditor id={40} />);
+
+      const bar = await screen.findByRole("toolbar");
+      expect(within(bar).getByRole("button", { name: REVIEW_COPY.saveDraft })).toBeInTheDocument();
+      expect(within(bar).getByRole("button", { name: REVIEW_COPY.submit })).toBeDisabled();
+      expect(within(bar).getByRole("button", { name: REVIEW_COPY.delete })).toBeInTheDocument();
+      expect(within(bar).getByText(REVIEW_COPY.submitNeedsReview)).toBeInTheDocument();
     });
   });
 });
