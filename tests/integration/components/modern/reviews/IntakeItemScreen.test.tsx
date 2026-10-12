@@ -77,6 +77,8 @@ const dogaItem = (overrides = {}) =>
 const submitted = (id: number, overrides = {}) =>
   review({ id, intake_item_id: ITEM_ID, status: "submitted", author: `DJ ${id}`, review: `Take ${id}.`, add_date: "2026-10-01", ...overrides });
 
+const draft = (id: number, overrides = {}) => submitted(id, { status: "draft", ...overrides });
+
 const FILED_ITEM_PATH = `${TEST_BACKEND_URL}/intake/${ITEM_ID}`;
 
 /** Serves the item through a mutable box, so a spec can change the answer between reads, or hold a read in flight. */
@@ -266,6 +268,17 @@ describe("IntakeItemScreen", () => {
     ],
     ["recordCouldNotRecord", REVIEW_COPY.record.couldNotRecord, "Couldn't record the review. Please try again."],
     ["recordRecorded", REVIEW_COPY.record.recorded, "Recorded."],
+    ["recordUseAsCover", REVIEW_COPY.record.useAsCover, "Use this as the record's review"],
+    [
+      "recordOtherReview",
+      REVIEW_COPY.record.otherReview,
+      "Saved as one of the record's other reviews. You can choose it for the cover later.",
+    ],
+    [
+      "recordDraftNotSubmitted",
+      REVIEW_COPY.record.draftNotSubmitted,
+      "The review was saved as a draft but couldn't be submitted. You'll find it under My reviews.",
+    ],
     [
       "recordAccountGone",
       REVIEW_COPY.record.accountGone,
@@ -2103,7 +2116,10 @@ describe("IntakeItemScreen", () => {
       vi.mocked(toast.error).mockClear();
     });
 
-    /** Serves the item and its reviews through state the create changes, and records every create: the review is submitted and on the cover. */
+    /**
+     * Serves the item and its reviews through state the create and the submit change, and records both. A create with
+     * `accept` is submitted and on the cover; one without is a draft that leaves the cover alone until its submit.
+     */
     const setUp = (item = dogaItem(NOTHING_ON_COVER), others: Review[] = []) => {
       fakeReviewsEndpoints({ records: [item], reviewers: REVIEWERS });
       const box = serveItem(item);
@@ -2114,15 +2130,19 @@ describe("IntakeItemScreen", () => {
         http.post(SAVE_URL, async ({ request }) => {
           const body = (await request.json()) as NewReviewRequest;
           creates.push(body);
-          const made = submitted(NEW_ID, { author: body.author, author_user_id: body.author_user_id ?? null, medium: body.medium, review: body.review ?? null });
+          const fields = { author: body.author, author_user_id: body.author_user_id ?? null, medium: body.medium, review: body.review ?? null };
+          const made = body.accept ? submitted(NEW_ID, fields) : draft(NEW_ID, fields);
           reviews.list = [...reviews.list, made];
-          box.item = { ...box.item, accepted_review_id: NEW_ID };
+          if (body.accept) box.item = { ...box.item, accepted_review_id: NEW_ID };
           return HttpResponse.json(made, { status: 201 });
         }),
-        // The form never submits: a create that carries accept is already submitted.
+        // A ticked create is already submitted and never reaches this; an unticked one is a draft until it does.
         http.post(`${SAVE_URL}/:id/submit`, ({ params }) => {
           submits.push(String(params.id));
-          return HttpResponse.json(submitted(Number(params.id)));
+          const made = reviews.list.find((r) => r.id === Number(params.id))!;
+          const done = { ...made, status: "submitted" as const };
+          reviews.list = reviews.list.map((r) => (r.id === done.id ? done : r));
+          return HttpResponse.json(done);
         }),
       );
       return { box, creates, submits };
@@ -2198,6 +2218,67 @@ describe("IntakeItemScreen", () => {
       ]);
       expect(submits).toEqual([]);
       expect(screen.queryByRole("heading", { name: "Record a review" })).not.toBeInTheDocument();
+    });
+
+    it("opens with Use this as the record's review ticked", async () => {
+      setUp();
+      const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+      await open(user);
+
+      expect(screen.getByRole("checkbox", { name: REVIEW_COPY.record.useAsCover })).toBeChecked();
+    });
+
+    it("says the other-reviews line, and neither cover line, once the box is unticked", async () => {
+      setUp(dogaItem(), [submitted(40)]);
+      const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+      await open(user);
+
+      await user.click(screen.getByRole("checkbox", { name: REVIEW_COPY.record.useAsCover }));
+
+      expect(screen.getByText(REVIEW_COPY.record.otherReview)).toBeInTheDocument();
+      expect(screen.queryByText(REVIEW_COPY.record.coverNone)).not.toBeInTheDocument();
+      expect(screen.queryByText(REVIEW_COPY.record.coverReplaces)).not.toBeInTheDocument();
+    });
+
+    it("with the box unticked, creates with accept false, submits it, and the review appears under Other reviews", async () => {
+      const { creates, submits } = setUp(dogaItem(), [submitted(40)]);
+      const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+      await open(user);
+      await fillAuthor(user, "Cat Power");
+      await writeReview(user, "Warm.");
+      await user.click(screen.getByRole("checkbox", { name: REVIEW_COPY.record.useAsCover }));
+
+      await save(user);
+
+      const others = (await screen.findByRole("heading", { name: "Other reviews" })).closest("section")!;
+      expect(await within(others).findByText("Warm.")).toBeInTheDocument();
+      // Only a submitted review offers Use this review, so a draft left under Other reviews fails here.
+      await waitFor(() => expect(within(others).getAllByRole("button", { name: /^Use this review/ })).toHaveLength(1));
+      expect(await screen.findByRole("status")).toHaveTextContent("Recorded.");
+      await reviewsSettled(store);
+      expect(creates).toEqual([
+        { intake_item_id: ITEM_ID, author: "Cat Power", medium: "typed", accept: false, ...noFields, review: "Warm." },
+      ]);
+      expect(submits).toEqual([String(NEW_ID)]);
+      const cover = screen.getByRole("heading", { name: "The review on the cover" }).closest("section")!;
+      expect(within(cover).queryByText("Warm.")).not.toBeInTheDocument();
+    });
+
+    it("with the box unticked and the submit failing, says the review is a draft, and never says Recorded.", async () => {
+      const { creates } = setUp();
+      server.use(http.post(`${SAVE_URL}/:id/submit`, () => HttpResponse.json({ message: "boom" }, { status: 500 })));
+      const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+      await open(user);
+      await fillAuthor(user, "Cat Power");
+      await writeReview(user, "Warm.");
+      await user.click(screen.getByRole("checkbox", { name: REVIEW_COPY.record.useAsCover }));
+
+      await save(user);
+
+      expect((await screen.findByRole("alert")).textContent).toBe(REVIEW_COPY.record.draftNotSubmitted);
+      await reviewsSettled(store);
+      expect(creates).toHaveLength(1);
+      expect(screen.queryByText("Recorded.")).not.toBeInTheDocument();
     });
 
     it("records a handwritten review with no text, every field null and no account", async () => {
