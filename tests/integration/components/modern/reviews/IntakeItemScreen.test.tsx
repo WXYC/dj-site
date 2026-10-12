@@ -1652,7 +1652,7 @@ describe("IntakeItemScreen", () => {
       ["empty", ""],
       ["whitespace", "  "],
     ])("names a review with %s author plainly: the button says Delete review and the question is the generic one", async (_label, author) => {
-      setUp(dogaItem({ state: "checked_out", effective_state: "checked_out", ...heldBy("dj-sam", "DJ Sam") }), [submitted(43, { author })]);
+      setUp(dogaItem(HOLDER_ITEM), [submitted(43, { author })]);
       const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
 
       const dialog = await open(user, "Delete review");
