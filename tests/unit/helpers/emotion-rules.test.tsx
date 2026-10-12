@@ -23,6 +23,20 @@ const Plain = styled("div")`
   }
 `;
 
+const Nested = styled("div")`
+  @container (min-width: 800px) {
+    @media (min-width: 900px) {
+      position: sticky;
+    }
+  }
+`;
+
+const Supported = styled("div")`
+  @supports (display: grid) {
+    display: grid;
+  }
+`;
+
 describe("rulesOf", () => {
   const renderBoth = () => {
     renderWithProviders(
@@ -62,5 +76,13 @@ describe("rulesOf", () => {
   it("returns empty groups for an element with no emotion classes", () => {
     renderBoth();
     expect(rulesOf(document.body)).toEqual({ base: "", media: {}, container: {} });
+  });
+
+  it.each([
+    ["an @media inside an @container", <Nested data-testid="x" />],
+    ["a rule inside an @supports", <Supported data-testid="x" />],
+  ])("throws rather than drop %s, so an absence assertion cannot pass vacuously", (_name, element) => {
+    renderWithProviders(element);
+    expect(() => rulesOf(screen.getByTestId("x"))).toThrow(/cannot group/);
   });
 });
