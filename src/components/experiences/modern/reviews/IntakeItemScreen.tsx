@@ -31,6 +31,7 @@ import ReleasePicker from "./ReleasePicker";
 import { fromLine, newestFirst } from "./ReviewFrom";
 import DeleteReviewButton from "./DeleteReviewButton";
 import UseThisReviewButton from "./UseThisReviewButton";
+import { EMPTY_START, type RecordFormStart } from "@/lib/features/reviews/formReviewStart";
 import RecordReviewForm from "./RecordReviewForm";
 import { Group } from "./ReviewsPanel";
 import { useItemPageReload } from "./useItemPageReload";
@@ -70,7 +71,8 @@ export default function IntakeItemScreen({ id }: { id: number }) {
   const [notice, setNotice] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [picked, setPicked] = useState<AlbumEntry | null>(null);
-  const [recording, setRecording] = useState(false);
+  // The open form's starting values, or null when closed; a new `key` per opening resets it when a second source opens it.
+  const [recording, setRecording] = useState<{ start: RecordFormStart; key: number } | null>(null);
   // True from a review write until the page's reread settles, so neither a review button nor the form's Save acts on the stale cover.
   // Use this review and a ticked Record a review set it at the press; a Delete review and an unticked save set it once their write
   // has succeeded. It clears when the reread settles, or, for a write that fails, after that failure's own reload (if it has one).
@@ -218,18 +220,20 @@ export default function IntakeItemScreen({ id }: { id: number }) {
       )}
       <FccNotesPanel intakeItemId={id} />
       {notice && <Typography role="status">{notice}</Typography>}
-      <Button variant="outlined" aria-expanded={recording} onClick={() => setRecording((open) => !open)} sx={{ alignSelf: "flex-start" }}>
+      <Button variant="outlined" aria-expanded={recording != null} onClick={() => setRecording((open) => (open ? null : { start: EMPTY_START, key: 1 }))} sx={{ alignSelf: "flex-start" }}>
         {REVIEW_COPY.record.title}
       </Button>
       {recording && (
         <RecordReviewForm
+          key={recording.key}
+          start={recording.start}
           itemId={id}
           hasCover={coverId != null || awaitingReread}
           disabled={awaitingReread}
           onPending={setAwaitingReread}
           onWritten={reviewWritten}
           onNotice={setNotice}
-          onClose={() => setRecording(false)}
+          onClose={() => setRecording(null)}
         />
       )}
       <ConfirmDialog

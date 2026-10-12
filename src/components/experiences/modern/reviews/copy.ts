@@ -382,6 +382,14 @@ export const REVIEW_COPY = {
     otherReview: "Saved as one of the record's other reviews. You can choose it for the cover later.",
     /** Approved. When the box is unticked and the review was created but couldn't be submitted. */
     draftNotSubmitted: "The review was saved as a draft but couldn't be submitted. You'll find it under My reviews.",
+    /** Approved. Above the form when it opens filled in from one review in the archive. */
+    copiedFromForm: "Copied from the review form. Check it, then save.",
+    /** Approved. Under the author field when the reviewer's name was copied. */
+    copiedAuthor: "Copied as the reviewer wrote it, so it may include a date.",
+    /** Approved. Replaces the line above when the archived review has no reviewer name. */
+    copiedNoName: "Copied from the review form. Check it, add the reviewer's name, then save.",
+    /** Approved. When the form opens with Handwritten already chosen. */
+    byHand: "This review exists only on paper. Copy this record's slip by hand, then record it here.",
   },
   /** The music directors' print page, `/dashboard/admin/intake/{id}/slip`. */
   intakeSlip: {

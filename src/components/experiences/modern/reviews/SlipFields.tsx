@@ -8,6 +8,8 @@ export const FIELD_NAMES = ["buzzwords", "artist_blurb", "review", "recommended_
 export type FieldName = (typeof FIELD_NAMES)[number];
 export type FieldValues = Record<FieldName, string>;
 
+export const emptyFieldValues = (): FieldValues => Object.fromEntries(FIELD_NAMES.map((n) => [n, ""])) as FieldValues;
+
 const orNull = (text: string) => (text.trim() === "" ? null : text);
 
 export const toFieldValues = (review: Review): FieldValues =>

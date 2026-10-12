@@ -51,6 +51,8 @@ import { REVIEW_COPY } from "@/src/components/experiences/modern/reviews/copy";
 import type { NewReviewRequest, Review } from "@wxyc/shared";
 import { CssVarsProvider } from "@mui/joy/styles";
 import modernTheme from "@/lib/features/experiences/modern/theme";
+import RecordReviewForm from "@/src/components/experiences/modern/reviews/RecordReviewForm";
+import { PAPER_START, formReviewStart } from "@/lib/features/reviews/formReviewStart";
 import IntakeItemScreen from "@/src/components/experiences/modern/reviews/IntakeItemScreen";
 import { useGetRotationListQuery } from "@/lib/features/rotation/api";
 import { useSearchCatalogQuery } from "@/lib/features/catalog/api";
@@ -266,6 +268,10 @@ describe("IntakeItemScreen", () => {
       REVIEW_COPY.record.noConsent,
       "Nothing is ticked for publishing: the author hasn't been asked where this review may be published.",
     ],
+    ["recordCopiedFromForm", REVIEW_COPY.record.copiedFromForm, "Copied from the review form. Check it, then save."],
+    ["recordCopiedAuthor", REVIEW_COPY.record.copiedAuthor, "Copied as the reviewer wrote it, so it may include a date."],
+    ["recordCopiedNoName", REVIEW_COPY.record.copiedNoName, "Copied from the review form. Check it, add the reviewer's name, then save."],
+    ["recordByHand", REVIEW_COPY.record.byHand, "This review exists only on paper. Copy this record's slip by hand, then record it here."],
     ["recordCoverNone", REVIEW_COPY.record.coverNone, "This will be the review on the cover."],
     [
       "recordCoverReplaces",
@@ -2335,6 +2341,66 @@ describe("IntakeItemScreen", () => {
     };
     const save = (user: User) => user.click(screen.getByRole("button", { name: "Save" }));
     const noFields = { buzzwords: null, artist_blurb: null, recommended_tracks: null, fcc: null };
+
+    describe("opened with a start", () => {
+      const archived = (reviewer: string | null) =>
+        formReviewStart({
+          id: 7, reviewer, album_id: 3, artist_name: "Juana Molina", album_title: "DOGA", record_label: "Sonamos",
+          artist_blurb: "Buenos Aires.", review: "Warm and strange.", recommended_tracks: "la paradoja", buzzwords: "folktronica",
+          fcc_violations: "None.", review_purpose: null, rotated: null, released_within_six_months: null, social_consent: null, submitted_at: null,
+        });
+      const renderForm = (start: ReturnType<typeof archived>) =>
+        renderScreen(
+          <RecordReviewForm itemId={ITEM_ID} hasCover={false} start={start} disabled={false} onPending={vi.fn()} onWritten={async () => {}} onNotice={vi.fn()} onClose={vi.fn()} />,
+        );
+
+      it("from a form review shows the copied text and author and both lines, and saves through the ticked path", async () => {
+        const { creates } = setUp();
+        const { user } = renderForm(archived("Sam 3/4"));
+
+        expect(screen.getByRole("textbox", { name: "Author" })).toHaveValue("Sam 3/4");
+        expect(screen.getByRole("textbox", { name: "Review" })).toHaveValue("Warm and strange.");
+        expect(screen.getByRole("textbox", { name: "Buzzwords" })).toHaveValue("folktronica");
+        expect(screen.getByText(REVIEW_COPY.record.copiedFromForm).textContent).toBe("Copied from the review form. Check it, then save.");
+        expect(screen.getByText(REVIEW_COPY.record.copiedAuthor).textContent).toBe("Copied as the reviewer wrote it, so it may include a date.");
+        expect(screen.queryByText(REVIEW_COPY.record.copiedNoName)).not.toBeInTheDocument();
+
+        await save(user);
+
+        await waitFor(() => expect(creates).toHaveLength(1));
+        expect(creates[0]).toMatchObject({ intake_item_id: ITEM_ID, author: "Sam 3/4", medium: "typed", accept: true, review: "Warm and strange.", fcc: "None." });
+      });
+
+      it("from a form review with no reviewer has a blank author and the no-name line", () => {
+        setUp();
+        renderForm(archived(null));
+
+        expect(screen.getByRole("textbox", { name: "Author" })).toHaveValue("");
+        expect(screen.getByText(REVIEW_COPY.record.copiedNoName).textContent).toBe("Copied from the review form. Check it, add the reviewer's name, then save.");
+        expect(screen.queryByText(REVIEW_COPY.record.copiedFromForm)).not.toBeInTheDocument();
+        expect(screen.queryByText(REVIEW_COPY.record.copiedAuthor)).not.toBeInTheDocument();
+      });
+
+      it("for a paper-only review has Handwritten chosen and shows the handwritten line and the by-hand line", () => {
+        setUp();
+        renderForm(PAPER_START);
+
+        expect(screen.getByRole("radio", { name: "Handwritten" })).toBeChecked();
+        expect(screen.getByText(REVIEW_COPY.record.handwrittenNote).textContent).toBe("This review is handwritten, so it is already on the sleeve. Nothing will be printed.");
+        expect(screen.getByText(REVIEW_COPY.record.byHand).textContent).toBe("This review exists only on paper. Copy this record's slip by hand, then record it here.");
+        expect(screen.queryByText(REVIEW_COPY.record.copiedFromForm)).not.toBeInTheDocument();
+      });
+
+      it("opened by the button has no copied-from line and Typed chosen", async () => {
+        setUp();
+        const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+        await open(user);
+
+        expect(screen.getByRole("radio", { name: "Typed" })).toBeChecked();
+        expect(screen.queryByText(REVIEW_COPY.record.byHand)).not.toBeInTheDocument();
+        expect(screen.queryByText(REVIEW_COPY.record.copiedFromForm)).not.toBeInTheDocument();
+      });
+    });
 
     it.each([
       ["a filed", { state: "filed", effective_state: "filed" }],
