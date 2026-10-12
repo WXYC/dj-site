@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
+import { Button } from "@mui/joy";
 import { extendTheme } from "@mui/joy/styles";
 import Appbar, { APPBAR_HEIGHT_PX } from "@/src/components/shared/Theme/Appbar";
 
@@ -59,10 +60,12 @@ describe("Appbar", () => {
     const fontSizePx = parseFloat(String(resolve(typography.fontSize))) * 16;
     const lineHeightPx = fontSizePx * Number(resolve(typography.lineHeight));
 
-    // The group's own box is its buttons', which jsdom cannot lay out (and the Appbar test mocks them), so its size class is read from the render and mapped to Joy's small and medium button heights (2rem and 2.5rem).
+    // The group's own box is its buttons', which jsdom cannot lay out (and the Appbar test mocks them), so read the minimum height Joy itself gives a button of the group's size: `var(--Button-minHeight, <fallback>)`.
     const group = line.nextElementSibling!;
-    const size = [...group.classList].find((c) => c.startsWith("MuiButtonGroup-size"))!.replace("MuiButtonGroup-size", "").toLowerCase();
-    const buttonHeightPx = { sm: 2 * 16, md: 2.5 * 16, lg: 3 * 16 }[size]!;
+    const size = [...group.classList].find((c) => c.startsWith("MuiButtonGroup-size"))!.replace("MuiButtonGroup-size", "").toLowerCase() as "sm" | "md" | "lg";
+    const probe = render(<Button size={size}>probe</Button>);
+    const minHeight = getComputedStyle(probe.getByRole("button")).minHeight;
+    const buttonHeightPx = parseFloat(minHeight.match(/,\s*([\d.]+)rem\)/)![1]) * 16;
 
     expect(APPBAR_HEIGHT_PX).toBe(lineHeightPx + buttonHeightPx);
   });
