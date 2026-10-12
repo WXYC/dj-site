@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import Link from "next/link";
 import { Button, Chip, Divider, Radio, RadioGroup, Stack, Typography } from "@mui/joy";
 import type { IntakeItem, Review } from "@wxyc/shared";
@@ -56,10 +56,11 @@ const isFiledState = (state: IntakeItem["effective_state"]) => state === "filed"
 /** The music directors' page for one logged record: its reviews, and the filing bench. */
 export default function IntakeItemScreen({ id }: { id: number }) {
   const visible = useCanSeeReviews();
-  // Set once the record is gone: its reads stop (they would 404) and the page shows only this line.
   // Which filing form is open, and which have been opened: a form once opened stays mounted (hidden) so switching keeps what was typed.
   const [arm, setArm] = useState<"new" | "existing" | null>(null);
   const [opened, setOpened] = useState({ new: false, existing: false });
+  const fileItId = useId();
+  // Set once the record is gone: its reads stop (they would 404) and the page shows only this line.
   const [deletedLine, setDeletedLine] = useState<string | null>(null);
   const item = useGetIntakeItemQuery(id, { skip: !visible || deletedLine !== null });
   const { data: formats } = useGetFormatsQuery(undefined, { skip: !visible });
@@ -258,8 +259,9 @@ export default function IntakeItemScreen({ id }: { id: number }) {
         <Typography>{COPY.chooseFirst}</Typography>
       ) : (
         <>
-          <Typography level="title-sm" component="h3">{COPY.fileIt}</Typography>
+          <Typography id={fileItId} level="title-sm" component="h3">{COPY.fileIt}</Typography>
           <RadioGroup
+            aria-labelledby={fileItId}
             orientation="horizontal"
             value={arm}
             onChange={(e) => {
