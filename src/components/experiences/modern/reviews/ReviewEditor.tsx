@@ -24,11 +24,12 @@ import { REVIEW_COPY } from "./copy";
 import FccNotesPanel from "./FccNotesPanel";
 import PrintedVersionNote from "./PrintedVersionNote";
 import RecordHeader from "./RecordHeader";
-import SlipFields, { toFieldPatch, toFieldValues } from "./SlipFields";
+import SlipFields, { patchChanged, toFieldPatch, toFieldValues } from "./SlipFields";
 import SlipPreview from "./SlipPreview";
 import { formatSlipDate } from "./slipDate";
 import { useReviewRecord } from "./useReviewRecord";
 import { STICKY_ROOM_PROPERTY, useStickyRoom } from "./useStickyRoom";
+import { useLeaveGuard } from "@/src/hooks/useLeaveGuard";
 import { hasNothingToShow } from "@/lib/has-nothing-to-show";
 import { APPBAR_CLEARANCE_PX } from "@/src/components/shared/Theme/Appbar";
 
@@ -69,12 +70,17 @@ function Form({ review }: { review: Review }) {
     ...toFieldPatch(values),
     ...(isAuthor ? consent : {}),
   });
+  // What the service holds: the review as loaded, then whatever the last save sent.
+  const [saved, setSaved] = useState(patch);
+  const leaveGuard = useLeaveGuard(patchChanged(saved, patch()));
   const failure = (err: unknown, fallback: string) =>
     toast.error(serverMessage(unwrapEndpointErrorOrRaw("reviewWriteError", err)?.data) ?? fallback);
 
   const save = async () => {
     try {
-      await update({ id: review.id, patch: patch() }).unwrap();
+      const sent = patch();
+      await update({ id: review.id, patch: sent }).unwrap();
+      setSaved(sent);
       toast.success(draft ? REVIEW_COPY.saved : REVIEW_COPY.savedChange);
     } catch (err) {
       failure(err, REVIEW_COPY.couldNotSave);
@@ -84,7 +90,9 @@ function Form({ review }: { review: Review }) {
   const submitReview = async () => {
     setConfirming(null);
     try {
-      await update({ id: review.id, patch: patch() }).unwrap();
+      const sent = patch();
+      await update({ id: review.id, patch: sent }).unwrap();
+      setSaved(sent);
       await submit(review.id).unwrap();
     } catch (err) {
       if (isReviewNotDraft(err)) toast.error(REVIEW_COPY.alreadySubmitted);
@@ -202,6 +210,19 @@ function Form({ review }: { review: Review }) {
           : review.intake_item_id != null
             ? REVIEW_COPY.submitConfirmLogged
             : REVIEW_COPY.submitConfirmRelease}
+      </ConfirmDialog>
+      <ConfirmDialog
+        open={leaveGuard.pending}
+        onClose={leaveGuard.stay}
+        title={REVIEW_COPY.leave.title}
+        actions={
+          <>
+            <Button variant="plain" onClick={leaveGuard.leave}>{REVIEW_COPY.leave.leave}</Button>
+            <Button autoFocus onClick={leaveGuard.stay}>{REVIEW_COPY.leave.keepEditing}</Button>
+          </>
+        }
+      >
+        {REVIEW_COPY.leave.body}
       </ConfirmDialog>
     </Box>
   );

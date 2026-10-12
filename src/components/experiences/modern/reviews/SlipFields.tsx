@@ -17,6 +17,9 @@ export const toFieldValues = (review: Review): FieldValues =>
 export const toFieldPatch = (values: FieldValues): ReviewPatch =>
   Object.fromEntries(FIELD_NAMES.map((n) => [n, orNull(values[n])])) as ReviewPatch;
 
+/** Whether two patches would save different things; a field changed and changed back is the same. */
+export const patchChanged = (saved: ReviewPatch, current: ReviewPatch) => JSON.stringify(saved) !== JSON.stringify(current);
+
 export default function SlipFields({ values, onChange }: { values: FieldValues; onChange: (values: FieldValues) => void }) {
   return (
     <>

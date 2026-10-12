@@ -527,4 +527,15 @@ export const REVIEW_COPY = {
     /** Approved. */
     couldNotRemove: "Couldn't remove the note. Please try again.",
   },
+  /** The dialog that asks before a form with unsaved changes is left. */
+  leave: {
+    /** Approved. */
+    title: "Leave without saving?",
+    /** Approved. */
+    body: "Your changes since the last save will be lost.",
+    /** Approved. */
+    leave: "Leave",
+    /** Approved. Takes the focus; closes the dialog. */
+    keepEditing: "Keep editing",
+  },
 } as const;
