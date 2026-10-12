@@ -104,8 +104,6 @@ function Form({ review }: { review: Review }) {
     setConfirming(null);
     try {
       await remove(review.id).unwrap();
-      // Take the guard entry back first, so the replace overwrites the editor's own entry.
-      await leaveGuard.release();
       router.replace("/dashboard/reviews");
     } catch (err) {
       if (isReviewInUse(err)) setRefusedInUse(true);
