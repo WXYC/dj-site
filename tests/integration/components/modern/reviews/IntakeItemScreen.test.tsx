@@ -82,8 +82,16 @@ const submitted = (id: number, overrides = {}) =>
 const draft = (id: number, overrides = {}) => submitted(id, { status: "draft", ...overrides });
 
 const FILED_ITEM_PATH = `${TEST_BACKEND_URL}/intake/${ITEM_ID}`;
-/** Every Use this review and Delete review button on the page. */
-const guarded = () => [...screen.queryAllByRole("button", { name: /^Use this review/ }), ...screen.queryAllByRole("button", { name: /^Delete review by/ })];
+const ACCEPT_URL = `${TEST_BACKEND_URL}/intake/${ITEM_ID}/accept-review`;
+/** Every Use this review and Delete review button on the page. Throws when there is none, so a check that they are enabled cannot pass on a page that lost them. */
+const guarded = () => [...screen.getAllByRole("button", { name: /^Use this review/ }), ...screen.getAllByRole("button", { name: /^Delete review by/ })];
+
+/** Serves accept-review by putting review 41 on the cover of the box's item. */
+const acceptingReview = (box: { item: ReturnType<typeof dogaItem> }) =>
+  http.post(ACCEPT_URL, () => {
+    box.item = { ...box.item, accepted_review_id: 41 };
+    return HttpResponse.json(box.item);
+  });
 
 /** Serves the item through a mutable box, so a spec can change the answer between reads, or hold a read in flight. */
 function serveItem(initial: ReturnType<typeof dogaItem>) {
@@ -948,7 +956,6 @@ describe("IntakeItemScreen", () => {
   });
 
   describe("using a review", () => {
-    const ACCEPT_URL = `${TEST_BACKEND_URL}/intake/${ITEM_ID}/accept-review`;
     const SLIP_HREF = `/dashboard/admin/intake/${ITEM_ID}/slip`;
     const SERVER_WORDS = "review_id must name a submitted review of this record";
     const NOTHING_ON_COVER = { accepted_review_id: null };
@@ -2761,7 +2768,6 @@ describe("IntakeItemScreen", () => {
       expect(creates).toHaveLength(1);
     });
 
-
     it("disables every Use this review and Delete review while the ticked create is in flight, and enables them when it fails", async () => {
       setUp(dogaItem(NOTHING_ON_COVER), [submitted(41), submitted(42)]);
       const write = holdResponse("post", SAVE_URL, () => HttpResponse.json({ message: "boom" }, { status: 500 }));
@@ -2785,12 +2791,7 @@ describe("IntakeItemScreen", () => {
 
     it("disables Save and says the save replaces the cover while another write's reread is outstanding", async () => {
       const { box } = setUp(dogaItem(NOTHING_ON_COVER), [submitted(41)]);
-      server.use(
-        http.post(`${TEST_BACKEND_URL}/intake/${ITEM_ID}/accept-review`, () => {
-          box.item = { ...box.item, accepted_review_id: 41 };
-          return HttpResponse.json(box.item);
-        }),
-      );
+      server.use(acceptingReview(box));
       const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
       await open(user);
       expect(screen.getByText(REVIEW_COPY.record.coverNone)).toBeInTheDocument();
@@ -2834,10 +2835,7 @@ describe("IntakeItemScreen", () => {
       const { box } = setUp(dogaItem(NOTHING_ON_COVER), [submitted(41)]);
       server.use(
         http.post(SAVE_URL, () => HttpResponse.json({ message: "boom" }, { status: 500 })),
-        http.post(`${TEST_BACKEND_URL}/intake/${ITEM_ID}/accept-review`, () => {
-          box.item = { ...box.item, accepted_review_id: 41 };
-          return HttpResponse.json(box.item);
-        }),
+        acceptingReview(box),
       );
       const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
       await open(user);
@@ -2864,7 +2862,6 @@ describe("IntakeItemScreen", () => {
 
     describe("the page's hold, counted per write", () => {
       const NEW = { author: "Sessa" };
-      const ACCEPT = `${TEST_BACKEND_URL}/intake/${ITEM_ID}/accept-review`;
       const fillAndTick = async (user: User, unticked: boolean) => {
         await open(user);
         await fillAuthor(user, NEW.author);
@@ -2892,11 +2889,103 @@ describe("IntakeItemScreen", () => {
         await waitFor(() => guarded().forEach((b) => expect(b).toBeEnabled()));
       });
 
+      it("holds every review button, worded as no replacement, while an unticked save's reread is outstanding", async () => {
+        const { box } = setUp(dogaItem(NOTHING_ON_COVER), [submitted(41), submitted(42)]);
+        const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+        await fillAndTick(user, true);
+        await reviewsSettled(store);
+        const reread = holdResponse("get", FILED_ITEM_PATH, () => HttpResponse.json(box.item));
+
+        await save(user);
+
+        await waitFor(() => expect(reread.calls.count).toBe(1));
+        // The two other reviews and the one this save recorded.
+        expect(guarded()).toHaveLength(6);
+        guarded().forEach((b) => expect(b).toBeDisabled());
+        expect(useButtons().map((b) => b.textContent)).toEqual(["Use this review", "Use this review", "Use this review"]);
+
+        reread.release();
+        await reread.answered;
+        await reviewsSettled(store);
+        await waitFor(() => guarded().forEach((b) => expect(b).toBeEnabled()));
+      });
+
+      it("still holds the page for the next write after a Use this review has succeeded and reread", async () => {
+        const { box } = setUp(dogaItem(NOTHING_ON_COVER), [submitted(41), submitted(42)]);
+        server.use(acceptingReview(box));
+        const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+        const [first] = await screen.findAllByRole("button", { name: "Use this review" });
+        await reviewsSettled(store);
+        await user.click(first);
+        await waitFor(() => expect(screen.getByRole("button", { name: "Use this review instead" })).toBeEnabled());
+        await reviewsSettled(store);
+        const second = holdResponse("post", SAVE_URL, () => HttpResponse.json({ message: "boom" }, { status: 500 }));
+        await fillAndTick(user, false);
+
+        await save(user);
+
+        await waitFor(() => expect(second.calls.count).toBe(1));
+        expect(guarded().length).toBeGreaterThan(0);
+        guarded().forEach((b) => expect(b).toBeDisabled());
+
+        second.release();
+        await second.answered;
+        await waitFor(() => guarded().forEach((b) => expect(b).toBeEnabled()));
+      });
+
+      // The form's cover line reads the cover alone: only a write that is putting a review on the cover changes it.
+      const withCoverLine = async (hold: (user: User) => Promise<{ release: () => void; answered: Promise<unknown> }>, line: "none" | "replaces") => {
+        const { box } = setUp(dogaItem(NOTHING_ON_COVER), [submitted(41), submitted(42, { author: "Cat Power" })]);
+        server.use(acceptingReview(box), http.delete(`${TEST_BACKEND_URL}/reviews/:id`, () => new HttpResponse(null, { status: 204 })));
+        const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+        await reviewsSettled(store);
+        const held = await hold(user);
+
+        expect(screen.getByRole("checkbox", { name: REVIEW_COPY.record.useAsCover })).toBeChecked();
+        expect(screen.queryByText(REVIEW_COPY.record.coverReplaces) !== null).toBe(line === "replaces");
+        expect(screen.queryByText(REVIEW_COPY.record.coverNone) !== null).toBe(line === "none");
+
+        held.release();
+        await held.answered;
+        await reviewsSettled(store);
+      };
+
+      it("does not say the save replaces the cover while a Delete review's reread is outstanding", () =>
+        withCoverLine(async (user) => {
+          await open(user);
+          await user.click(screen.getByRole("button", { name: "Delete review by Cat Power" }));
+          const dialog = within(await screen.findByRole("alertdialog"));
+          const reread = holdResponse("get", FILED_ITEM_PATH, () => HttpResponse.json(dogaItem(NOTHING_ON_COVER)));
+          await user.click(dialog.getByRole("button", { name: "Delete" }));
+          await waitFor(() => expect(reread.calls.count).toBeGreaterThan(0));
+          return reread;
+        }, "none"));
+
+      it("does not say the save replaces the cover while an unticked save's create is outstanding", () =>
+        withCoverLine(async (user) => {
+          const create = holdResponse("post", SAVE_URL, () => HttpResponse.json({ message: "boom" }, { status: 500 }));
+          await fillAndTick(user, true);
+          await save(user);
+          await waitFor(() => expect(create.calls.count).toBe(1));
+          await user.click(screen.getByRole("button", { name: "Record a review" }));
+          await open(user);
+          return create;
+        }, "none"));
+
+      it("says the save replaces the cover while a Use this review's reread is outstanding", () =>
+        withCoverLine(async (user) => {
+          await open(user);
+          const reread = holdResponse("get", FILED_ITEM_PATH, () => HttpResponse.json({ accepted_review_id: 41 }));
+          await user.click(screen.getAllByRole("button", { name: "Use this review" })[0]);
+          await waitFor(() => expect(reread.calls.count).toBe(1));
+          return reread;
+        }, "replaces"));
+
       // A Delete review that succeeds takes its own handle; a Use this review pressed before it is a second write on the page at once.
       const overlap = async (acceptRespond: () => Response) => {
         setUp(dogaItem(NOTHING_ON_COVER), [submitted(41), submitted(42, { author: "Cat Power" })]);
         server.use(http.delete(`${TEST_BACKEND_URL}/reviews/:id`, () => new HttpResponse(null, { status: 204 })));
-        const accept = holdResponse("post", ACCEPT, acceptRespond);
+        const accept = holdResponse("post", ACCEPT_URL, acceptRespond);
         const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
         const [first] = await screen.findAllByRole("button", { name: "Use this review" });
         await reviewsSettled(store);
