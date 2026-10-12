@@ -22,7 +22,7 @@ const ColorSchemeToggle = dynamic(
 
 /** The fixed Appbar's gap from the viewport's bottom and right edges, in px. */
 export const APPBAR_OFFSET_PX = 5;
-/** Its height in px, set on the box itself: the version line (body-xs, 0.75rem x 1.5 = 18) over a size-sm button group (2rem = 32). */
+/** Its height in px, set on the box itself: the version line (body-xs, 0.75rem x 1.5 = 18, with the variant's block padding zeroed so it adds nothing) over a size-sm button group (2rem = 32). */
 export const APPBAR_HEIGHT_PX = 50;
 /** How far above the viewport's bottom its top edge sits; content that must stay clear of it needs this much room below. */
 export const APPBAR_CLEARANCE_PX = APPBAR_OFFSET_PX + APPBAR_HEIGHT_PX;
@@ -49,7 +49,7 @@ export default function Appbar({ experience }: { experience: ExperienceId }) {
         minHeight: APPBAR_HEIGHT_PX,
       }}
     >
-      <Typography level="body-xs" variant="plain" sx={{ textAlign: "right" }}>
+      <Typography level="body-xs" variant="plain" sx={{ textAlign: "right", py: 0 }}>
         WXYC DJ Site v{process.env.NEXT_PUBLIC_VERSION}
       </Typography>
       <ButtonGroup variant="solid" size="sm" color="success">
