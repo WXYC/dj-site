@@ -23,15 +23,15 @@ const COPY = REVIEW_COPY.record;
  * the checkbox reads it, but a ticked save keeps the line it had at the press, so its own save never changes it.
  * `disabled` is the page's hold on every review write (another write is in flight or rereading): Save is out of reach.
  * `start` is what the form opens with (its author, fields, medium and which copied-from lines to show); without one it opens empty.
- * `onPending` is the page's setter for that hold: a ticked save calls it with true at the press, and with false if the create fails.
+ * `onHold` takes the page's hold at the press and returns its release: a save hands it to `onWritten` on success and releases it itself if the write fails, even when the form has closed meanwhile.
  */
-export default function RecordReviewForm({ itemId, hasCover, start = EMPTY_START, disabled, onPending, onWritten, onNotice, onClose }: {
+export default function RecordReviewForm({ itemId, hasCover, start = EMPTY_START, disabled, onHold, onWritten, onNotice, onClose }: {
   itemId: number;
   hasCover: boolean;
   start?: RecordFormStart;
   disabled: boolean;
-  onPending: (pending: boolean) => void;
-  onWritten: () => Promise<void>;
+  onHold: (movesCover: boolean) => () => void;
+  onWritten: (release: () => void) => Promise<void>;
   onNotice: (line: string | null) => void;
   onClose: () => void;
 }) {
@@ -65,11 +65,9 @@ export default function RecordReviewForm({ itemId, hasCover, start = EMPTY_START
     if (saving || authorBlank || textBlank || [...name].length > AUTHOR_MAX) return;
     setSaving(true);
     onNotice(null);
-    // Only a ticked save moves the cover, so only it holds the page's other buttons from the press.
-    if (onCover) {
-      setCoverAtPress(hasCover);
-      onPending(true);
-    }
+    // Only a ticked save moves the cover; either save holds the page's review buttons until its write settles.
+    if (onCover) setCoverAtPress(hasCover);
+    const release = onHold(onCover);
     const body: NewReviewRequest = {
       intake_item_id: itemId,
       author: name,
@@ -89,12 +87,12 @@ export default function RecordReviewForm({ itemId, hasCover, start = EMPTY_START
           line = COPY.draftNotSubmitted;
         }
       }
-      await onWritten();
+      await onWritten(release);
       if (!mounted.current) return;
       onNotice(line);
       onClose();
     } catch (err) {
-      if (onCover) onPending(false);
+      release();
       if (!mounted.current) return;
       setSaving(false);
       setCoverAtPress(null);

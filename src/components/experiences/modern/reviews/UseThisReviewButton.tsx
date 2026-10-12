@@ -14,18 +14,18 @@ const COPY = REVIEW_COPY.intakeItem;
  * cover (`replacing`), and says nothing of its own on success: the review moving up is the confirmation.
  * Once the write succeeds the confirmation closes and `onWritten` hands the page the reread; the page
  * disables the button (`disabled`) until that reread settles, so a press in that window cannot send the write twice.
- * `onPending` tells the page a write is in flight (true at the press, false once it fails, after the failure's own reload on a refusal), so no other
- * review button acts on the stale cover meanwhile. `reload` is the page's reload (`useItemPageReload`), which also tells whether the page is still mounted;
+ * `onHold` takes the page's hold at the press, so no other review button acts on the stale cover meanwhile; the handle goes to `onWritten` on success
+ * and is released here if the write fails, after the failure's own reload on a refusal. `reload` is the page's reload (`useItemPageReload`), which also tells whether the page is still mounted;
  * the line goes out through `onNotice`, so it survives this button leaving the page with a deleted review.
  */
-export default function UseThisReviewButton({ itemId, review, replacing, disabled, reload, onPending, onWritten, onNotice }: {
+export default function UseThisReviewButton({ itemId, review, replacing, disabled, reload, onHold, onWritten, onNotice }: {
   itemId: number;
   review: Review;
   replacing: boolean;
   disabled: boolean;
   reload: () => Promise<{ mounted: boolean }>;
-  onPending: (pending: boolean) => void;
-  onWritten: () => Promise<void>;
+  onHold: (movesCover: boolean) => () => void;
+  onWritten: (release: () => void) => Promise<void>;
   onNotice: (line: string | null) => void;
 }) {
   const [accept, { isLoading }] = useAcceptReviewMutation();
@@ -33,17 +33,17 @@ export default function UseThisReviewButton({ itemId, review, replacing, disable
 
   const choose = async () => {
     onNotice(null);
-    onPending(true);
+    const release = onHold(true);
     try {
       await accept({ id: itemId, reviewId: review.id }).unwrap();
       setConfirming(false);
-      await onWritten();
+      await onWritten(release);
     } catch (err) {
       setConfirming(false);
       // Only this button's own rejection reads the 400 predicate: filing onto a release is refused with the same status.
       if (!isIntakeAcceptReviewRefused(err)) onNotice(REVIEW_COPY.screen.writeFailed);
       else if ((await reload()).mounted) onNotice(COPY.reviewGone);
-      onPending(false);
+      release();
     }
   };
 
