@@ -4190,6 +4190,7 @@ describe("IntakeItemScreen", () => {
       it.each([
         ["the Record a review press", async () => screen.getByRole("button", { name: "Record a review" })],
         ["an opener", () => opener("Copy it by pen")],
+        ["a link click", () => screen.getByRole("link", { name: "Flowsheet" })],
       ])("drops the question %s parked when the save finishes first and the form closes", async (_name, press) => {
         const { user } = renderPage();
         const create = holdResponse("post", SAVE_URL, () => HttpResponse.json(submitted(90, { author: "Sessa" }), { status: 201 }));
