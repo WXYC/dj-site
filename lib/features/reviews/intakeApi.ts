@@ -2,6 +2,7 @@ import type {
   IntakeDeleteResponse,
   IntakeFileRequest,
   IntakeItem,
+  IntakeItemPatch,
   IntakeItemState,
   IntakeSlip,
   NewIntakeItemRequest,
@@ -42,9 +43,13 @@ export const isIntakeStateChanged = (err: unknown): boolean =>
 export const isIntakeNotReviewed = (err: unknown): boolean =>
   isRefusal(err, { status: 409, reasons: ["not_reviewed"], key: "intakeWriteError" });
 
-/** True when a delete lost its race to a filing: the record is already filed (409 `already_filed`). */
+/** True when a delete or a citation change lost its race to a filing: the record is already filed (409 `already_filed`). */
 export const isIntakeAlreadyFiled = (err: unknown): boolean =>
   isRefusal(err, { status: 409, reasons: ["already_filed"], key: "intakeWriteError" });
+
+/** True when a citation was refused (409 `invalid_citation`): the release or form review is not citable, or names nothing. */
+export const isIntakeInvalidCitation = (err: unknown): boolean =>
+  isRefusal(err, { status: 409, reasons: ["invalid_citation"], key: "intakeWriteError" });
 
 /** True when finalizing was refused because the release is in active rotation. */
 export const isIntakeInRotation = (err: unknown): boolean =>
@@ -146,6 +151,21 @@ export const intakeApi = reviewsApi.injectEndpoints({
         }
       },
     }),
+    // Sets or clears the record's citation. Clearing a release's citation takes a review chosen from it off the cover, so the
+    // answered item goes into the cache like `acceptReview`'s: a failed reread cannot keep showing the cleared cover.
+    updateIntakeItem: builder.mutation<IntakeItem, { id: number; body: IntakeItemPatch }>({
+      query: ({ id, body }) => ({ url: `intake/${id}`, method: "PATCH", body }),
+      transformErrorResponse: wrapIntakeWriteError,
+      invalidatesTags: ["Intake", "Review"],
+      async onQueryStarted({ id }, { dispatch, queryFulfilled }): Promise<void> {
+        try {
+          const { data: item } = await queryFulfilled;
+          dispatch(intakeApi.util.updateQueryData("getIntakeItem", id, (cached) => Object.assign(cached, item)));
+        } catch {
+          // A rejection is the caller's `.unwrap()` to surface.
+        }
+      },
+    }),
     passIntakeItem: builder.mutation<IntakeItem, number>({
       query: (id) => ({ url: `intake/${id}/pass`, method: "POST" }),
       transformErrorResponse: wrapIntakeWriteError,
@@ -213,6 +233,7 @@ export const {
   useCancelIntakeRequestMutation,
   useAcceptIntakeItemMutation,
   useAcceptReviewMutation,
+  useUpdateIntakeItemMutation,
   usePassIntakeItemMutation,
   useFinalizeIntakeItemMutation,
   useFileIntakeItemMutation,

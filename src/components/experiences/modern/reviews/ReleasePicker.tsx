@@ -13,16 +13,18 @@ const COPY = REVIEW_COPY.intakeItem;
  * Searches the catalog the way the classic catalog does (the term as both artist and title, so a compilation
  * or a title search is found) and hands back the release the person picks; it files nothing. `selectedId`
  * marks the picked row, and `onSearch` fires when a new search is submitted so the caller can drop a pick the
- * new rows no longer contain.
+ * new rows no longer contain. `searchLabel` names the search box, so two pickers on one page can be told apart.
  */
 export default function ReleasePicker({
   onPick,
   selectedId = null,
   onSearch,
+  searchLabel = COPY.searchLibrary,
 }: {
   onPick: (release: AlbumEntry) => void;
   selectedId?: number | null;
   onSearch?: () => void;
+  searchLabel?: string;
 }) {
   const [text, setText] = useState("");
   const [term, setTerm] = useState("");
@@ -38,7 +40,7 @@ export default function ReleasePicker({
         }}
       >
         <Stack direction="row" spacing={1}>
-          <Input type="search" slotProps={{ input: { "aria-label": COPY.searchLibrary } }} value={text} onChange={(e) => setText(e.target.value)} />
+          <Input type="search" slotProps={{ input: { "aria-label": searchLabel } }} value={text} onChange={(e) => setText(e.target.value)} />
           <Button type="submit">{COPY.search}</Button>
         </Stack>
       </form>

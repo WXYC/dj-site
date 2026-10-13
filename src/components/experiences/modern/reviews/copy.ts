@@ -348,6 +348,20 @@ export const REVIEW_COPY = {
     copyByPen: "Copy it by pen",
     /** Approved. On each form review of the cited release: opens the Record a review form filled in from it. */
     copyOntoRecord: "Copy this review onto the record",
+    /** Approved. The accessible name of the search box that cites a release; the filing arm's box keeps `searchLibrary`. */
+    searchCite: "Search the library for the record this one cites",
+    /** Approved. Asked before removing a citation whose review is on this record's cover. */
+    removeAsksCover: "Removing the citation also takes its review off this record's cover.",
+    /** Approved. Opens a library search for the release whose review this record uses; also that search's heading once open. */
+    citeRelease: "Cite a release in the library",
+    /** Approved. The cited list's heading when the cited release's name can't be loaded. */
+    citedFallbackHeading: "Reviews of the record this one cites",
+    /** Approved. On a record that cites something and isn't filed yet. */
+    removeCitation: "Remove the citation",
+    /** Approved. Confirms the question above; the other button is "Cancel". */
+    removeIt: "Remove it",
+    /** Approved. The server refuses a release: no submitted review, and added after the cutover date. */
+    releaseRefused: "That release can't be cited: it has no submitted review and was added to the library after the cutover date.",
   },
   /** The music directors' form that records a review of one record, on `/dashboard/admin/intake/{id}`. */
   record: {
