@@ -3795,6 +3795,39 @@ describe("IntakeItemScreen", () => {
           expect(screen.queryByText(REVIEW_COPY.intakeItem.loadFailed)).not.toBeInTheDocument();
           expect(sent).toEqual([{ cited_album_id: null }]);
         });
+
+        it("keeps the cleared review off the cover when an item read that started before the clear answers the record as it stood", async () => {
+          const { box, user, store } = await ready();
+          // Only the first read from here on is held; it answers the record with its citation and cover still on.
+          const before = box.reads;
+          let open!: () => void;
+          const gate = new Promise<void>((resolve) => (open = resolve));
+          server.use(
+            http.get(FILED_ITEM_PATH, async () => {
+              box.reads += 1;
+              const answer = box.item;
+              if (box.reads === before + 1) await gate;
+              return HttpResponse.json(answer);
+            }),
+          );
+          void store.dispatch(intakeApi.endpoints.getIntakeItem.initiate(ITEM_ID, { subscribe: false, forceRefetch: true }));
+          await waitFor(() => expect(box.reads).toBe(before + 1));
+          const write = holdResponse("patch", FILED_ITEM_PATH, () => {
+            box.item = { ...box.item, cited_album_id: null, accepted_review_id: null };
+            return HttpResponse.json(box.item);
+          });
+
+          await clear(user);
+          await waitFor(() => expect(write.calls.count).toBe(1));
+          write.release();
+          await write.answered;
+          open();
+          await reviewsSettled(store);
+
+          expect(await screen.findByText(REVIEW_COPY.intakeItem.noCover)).toBeInTheDocument();
+          expect(screen.queryByRole("heading", { name: "The review on the cover" })).not.toBeInTheDocument();
+          expect(await screen.findByRole("button", { name: CITE })).toBeInTheDocument();
+        });
       });
     });
 
@@ -3903,6 +3936,7 @@ describe("IntakeItemScreen", () => {
 
       await act();
       await waitFor(() => expect(box.reads).toBeGreaterThanOrEqual(before + 1));
+      expect(box.reads).toBe(before + 1);
       blocker.release();
       await blocker.answered;
       // RTK Query can start the queued read before the blocker settles (a query it skips as already cached ends a request it never counted), so it may be in flight already.
@@ -3991,6 +4025,61 @@ describe("IntakeItemScreen", () => {
       await writeBehindBlocker(store, box, () => press(user));
 
       expect(within(await coverSection()).getByText(cover)).toBeInTheDocument();
+    });
+
+    it("keeps the chosen cover when an item read that started before the write answers the record as it stood", async () => {
+      const item = dogaItem({ accepted_review_id: null });
+      fakeReviewsEndpoints({ records: [item], forItem: { [ITEM_ID]: [submitted(41)] } });
+      const box = serveItem(item);
+      const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+      await screen.findByText(/^Take 41\./);
+      await reviewsSettled(store);
+      const before = box.reads;
+      const open = holdLateItemReads(box, before);
+      void store.dispatch(intakeApi.endpoints.getIntakeItem.initiate(ITEM_ID, { subscribe: false, forceRefetch: true }));
+      await waitFor(() => expect(box.reads).toBe(before + 1));
+      const write = holdResponse("post", ACCEPT_URL, () => {
+        box.item = { ...box.item, accepted_review_id: 41 };
+        return HttpResponse.json(box.item);
+      });
+
+      await user.click(screen.getByRole("button", { name: "Use this review" }));
+      await waitFor(() => expect(write.calls.count).toBe(1));
+      write.release();
+      await write.answered;
+      open();
+      await reviewsSettled(store);
+
+      expect(within(await coverSection()).getByText("Take 41.")).toBeInTheDocument();
+    });
+
+    it("keeps every review button disabled while another write is in flight, and until the read its invalidation starts has answered", async () => {
+      const item = dogaItem({ accepted_review_id: null });
+      fakeReviewsEndpoints({ records: [item], forItem: { [ITEM_ID]: [submitted(41), submitted(42)] } });
+      const box = serveItem(item);
+      acceptingSent(box);
+      const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+      await screen.findByText(/^Take 41\./);
+      await reviewsSettled(store);
+      // The page does not gate this write, so it can be in flight when a review write's reload runs.
+      const other = holdResponse("post", `${FILED_ITEM_PATH}/pass`, () => HttpResponse.json(box.item));
+      void store.dispatch(intakeApi.endpoints.passIntakeItem.initiate(ITEM_ID));
+      await waitFor(() => expect(other.calls.count).toBe(1));
+
+      await user.click(screen.getAllByRole("button", { name: "Use this review" })[0]);
+      await renderedFrame();
+      reviewButtons().forEach((b) => expect(b).toBeDisabled());
+
+      const before = box.reads;
+      const open = holdLateItemReads(box, before);
+      other.release();
+      await other.answered;
+      await waitFor(() => expect(box.reads).toBeGreaterThan(before));
+      await renderedFrame();
+      reviewButtons().forEach((b) => expect(b).toBeDisabled());
+      open();
+      await reviewsSettled(store);
+      await waitFor(() => guarded().forEach((b) => expect(b).toBeEnabled()));
     });
   });
 
