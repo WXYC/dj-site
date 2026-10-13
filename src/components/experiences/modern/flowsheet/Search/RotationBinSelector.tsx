@@ -49,7 +49,7 @@ export default function RotationBinSelector({
               height: "22px",
               borderRadius: "12px",
               fontSize: "0.75rem",
-              fontWeight: isSelected ? "bold" : "normal",
+              fontWeight: isSelected ? "lg" : "normal",
               cursor: disabled ? "default" : "pointer",
               transition: "all 0.15s ease",
               backgroundColor: style.backgroundColor,

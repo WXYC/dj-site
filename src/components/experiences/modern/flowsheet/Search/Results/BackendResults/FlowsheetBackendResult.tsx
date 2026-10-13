@@ -144,7 +144,7 @@ function FlowsheetBackendResult({
             sx={{
               backgroundColor: WXYC_EXCLUSIVE_PURPLE,
               color: "#fff",
-              fontWeight: "bold",
+              fontWeight: "lg",
               fontSize: "0.6rem",
             }}
           >
