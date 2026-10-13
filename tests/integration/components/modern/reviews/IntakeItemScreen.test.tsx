@@ -697,8 +697,7 @@ describe("IntakeItemScreen", () => {
   describe("the filing choice", () => {
     const setUp = () => {
       const item = dogaItem();
-      fakeReviewsEndpoints({ records: [item], forItem: { [ITEM_ID]: [submitted(40)] } });
-      server.use(http.get(`${TEST_BACKEND_URL}/library`, () => HttpResponse.json([RELEASE_ROW])));
+      fakeReviewsEndpoints({ records: [item], forItem: { [ITEM_ID]: [submitted(40)] }, searchResults: [RELEASE_ROW] });
       return serveItem(item);
     };
 
@@ -775,12 +774,13 @@ describe("IntakeItemScreen", () => {
 
   describe("filing onto a release already in the library", () => {
     const setUp = (item = dogaItem()) => {
-      fakeReviewsEndpoints({ records: [item], forItem: { [ITEM_ID]: item.accepted_review_id ? [submitted(40)] : [] } });
+      fakeReviewsEndpoints({ records: [item], forItem: { [ITEM_ID]: item.accepted_review_id ? [submitted(40)] : [] }, searchResults: [RELEASE_ROW] });
       const searches: Record<string, string>[] = [];
+      // Records each catalog read and answers nothing, so the fake's searchResults answer it.
       server.use(
         http.get(`${TEST_BACKEND_URL}/library`, ({ request }) => {
           searches.push(Object.fromEntries(new URL(request.url).searchParams));
-          return HttpResponse.json([RELEASE_ROW]);
+          return undefined;
         }),
       );
       return { box: serveItem(item), searches };
@@ -1453,8 +1453,7 @@ describe("IntakeItemScreen", () => {
 
   describe.each(ARMS)("filing through $arm", ({ ready, submit, button }) => {
     const setUp = (item = dogaItem()) => {
-      fakeReviewsEndpoints({ records: [item], forItem: { [ITEM_ID]: item.accepted_review_id ? [submitted(40)] : [] } });
-      server.use(http.get(`${TEST_BACKEND_URL}/library`, () => HttpResponse.json([RELEASE_ROW])));
+      fakeReviewsEndpoints({ records: [item], forItem: { [ITEM_ID]: item.accepted_review_id ? [submitted(40)] : [] }, searchResults: [RELEASE_ROW] });
       return serveItem(item);
     };
 
@@ -1462,8 +1461,7 @@ describe("IntakeItemScreen", () => {
     const setUpTwoReviews = () => {
       fakeLibraryFilingsEndpoint({ existingArtists: [] });
       const item = dogaItem();
-      fakeReviewsEndpoints({ records: [item], forItem: { [ITEM_ID]: [submitted(40), submitted(41)] } });
-      server.use(http.get(`${TEST_BACKEND_URL}/library`, () => HttpResponse.json([RELEASE_ROW])));
+      fakeReviewsEndpoints({ records: [item], forItem: { [ITEM_ID]: [submitted(40), submitted(41)] }, searchResults: [RELEASE_ROW] });
       const box = serveItem(item);
       server.use(acceptingReview(box));
       return { box };
@@ -1539,9 +1537,8 @@ describe("IntakeItemScreen", () => {
 
     it("rereads the cover review by id after a refusal when the item's own reviews lack it", async () => {
       const item = dogaItem({ accepted_review_id: 90 });
-      fakeReviewsEndpoints({ records: [item], forItem: { [ITEM_ID]: [submitted(40)] }, reviews: [submitted(90, { intake_item_id: 99 })] });
+      fakeReviewsEndpoints({ records: [item], forItem: { [ITEM_ID]: [submitted(40)] }, reviews: [submitted(90, { intake_item_id: 99 })], searchResults: [RELEASE_ROW] });
       serveItem(item);
-      server.use(http.get(`${TEST_BACKEND_URL}/library`, () => HttpResponse.json([RELEASE_ROW])));
       let coverReads = 0;
       server.use(
         http.get(`${TEST_BACKEND_URL}/reviews/90`, () => {
@@ -3898,8 +3895,7 @@ describe("IntakeItemScreen", () => {
       it("holds every review button until the read the filing's queued invalidation starts has answered, then lets a chosen cover stand", async () => {
         fakeLibraryFilingsEndpoint({ existingArtists: [] });
         const item = dogaItem();
-        fakeReviewsEndpoints({ records: [item], forItem: { [ITEM_ID]: [submitted(40), submitted(41)] } });
-        server.use(http.get(`${TEST_BACKEND_URL}/library`, () => HttpResponse.json([RELEASE_ROW])));
+        fakeReviewsEndpoints({ records: [item], forItem: { [ITEM_ID]: [submitted(40), submitted(41)] }, searchResults: [RELEASE_ROW] });
         const box = serveItem(item);
         server.use(
           acceptingReview(box),
