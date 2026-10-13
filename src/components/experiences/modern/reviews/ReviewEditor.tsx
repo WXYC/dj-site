@@ -7,6 +7,7 @@ import type { Review, ReviewPatch } from "@wxyc/shared";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Authorization } from "@/lib/features/admin/types";
+import type { User } from "@/lib/features/authentication/types";
 import { applicationSlice } from "@/lib/features/application/frontend";
 import { useAppDispatch } from "@/lib/hooks";
 import {
@@ -43,9 +44,7 @@ const TWO_COLUMNS = "@container (min-width: 800px)";
 
 type Confirming = "submit" | "delete" | null;
 
-function Form({ review }: { review: Review }) {
-  const { data: auth } = useAuthentication();
-  const user = "user" in auth ? auth.user : undefined;
+function Form({ review, user }: { review: Review; user: User | undefined }) {
   const userId = user?.id ?? "";
   const isAuthor = user?.id != null && user.id === review.author_user_id;
   const isMusicDirector = !isAuthor && (user?.authority ?? Authorization.NO) >= Authorization.MD;
@@ -275,9 +274,10 @@ export default function ReviewEditor({ id }: { id: number }) {
   const visible = useCanSeeReviews();
   const { data, isError } = useGetReviewQuery(id, { skip: !visible });
   const { data: auth } = useAuthentication();
+  const user = "user" in auth ? auth.user : undefined;
 
   if (!visible) return null;
   if (hasNothingToShow({ isError, data })) return <Typography role="alert">{REVIEW_COPY.couldNotLoad}</Typography>;
   // Keyed by the signed-in user so a session that changes under an open editor starts a fresh form (and a fresh read of what that user kept) rather than carrying the first user's text over.
-  return data ? <Form key={"user" in auth ? auth.user?.id : undefined} review={data} /> : null;
+  return data ? <Form key={user?.id} review={data} user={user} /> : null;
 }

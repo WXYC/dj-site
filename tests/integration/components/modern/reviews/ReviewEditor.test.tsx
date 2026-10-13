@@ -63,10 +63,12 @@ function serve(served: Review = DRAFT) {
 describe("ReviewEditor", () => {
   beforeEach(() => {
     vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "true");
+    mockAuth.id = "dj-me";
     mockAuth.authority = Authorization.DJ;
     mockAuth.djName = "DJ Me";
     mockAuth.realName = "Juana Molina";
     router.replace.mockClear();
+    sessionStorage.clear();
     vi.mocked(toast.success).mockClear();
     vi.mocked(toast.error).mockClear();
   });
@@ -835,7 +837,6 @@ describe("ReviewEditor", () => {
       linkReached.mockClear();
     });
     afterEach(closeSidebarCSS);
-    afterEach(() => sessionStorage.clear());
 
     it("asks before an in-app next/link, and Keep editing stays with the text intact", async () => {
       const { user } = renderEditor();
@@ -1119,8 +1120,6 @@ describe("ReviewEditor", () => {
       first.unmount();
     };
 
-    afterEach(() => sessionStorage.clear());
-
     it("keeps what was typed, consent included, under the review's key, and removes it when the form goes clean", async () => {
       serve();
       const { user } = renderWithProviders(<ReviewEditor id={40} />);
@@ -1273,10 +1272,6 @@ describe("ReviewEditor", () => {
     });
 
     describe("under the wrong user", () => {
-      afterEach(() => {
-        mockAuth.id = "dj-me";
-      });
-
       it("never stores the first user's text under a second user who signs in while the editor is open", async () => {
         serve();
         const first = renderWithProviders(<ReviewEditor id={40} />);
@@ -1290,6 +1285,33 @@ describe("ReviewEditor", () => {
         await screen.findByLabelText("Review");
         expect(screen.queryByText(NOTICE)).not.toBeInTheDocument();
         expect(readReviewDraft("dj-second", 40)).toBeNull();
+      });
+
+      it("keeps the first user's entry through the switch and offers it when they sign back in", async () => {
+        serve();
+        const first = renderWithProviders(<ReviewEditor id={40} />);
+        await keepTyped(first.user);
+
+        mockAuth.id = "dj-second";
+        first.rerender(<ReviewEditor id={40} />);
+        await screen.findByLabelText("Review");
+        expect(readReviewDraft("dj-me", 40)).not.toBeNull();
+        first.unmount();
+
+        mockAuth.id = "dj-me";
+        renderWithProviders(<ReviewEditor id={40} />);
+        expect(await screen.findByText(NOTICE)).toBeInTheDocument();
+      });
+
+      it("keeps what is typed when the same user's session is renewed under the open editor", async () => {
+        serve();
+        const { user, rerender } = renderWithProviders(<ReviewEditor id={40} />);
+        await user.type(await screen.findByLabelText("Review"), " More.");
+
+        rerender(<ReviewEditor id={40} />);
+
+        expect(screen.getByLabelText("Review")).toHaveValue("Warm. More.");
+        expect(screen.queryByText(NOTICE)).not.toBeInTheDocument();
       });
 
       it("neither writes nor offers an entry for an empty user id", async () => {
