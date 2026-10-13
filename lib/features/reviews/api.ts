@@ -1,6 +1,17 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
 import { backendBaseQuery } from "../backend";
 
+const baseQuery = backendBaseQuery("", { surfaceNonJsonAsError: true });
+
+let lastWriteAnsweredAt = 0;
+
+/**
+ * When a write of this API last got its answer (ms since the epoch). The API's mutation entries cannot say: a hook's entry goes
+ * with its component, and the button that made a write often leaves the page with it. A read that started before this
+ * began without the write and answers the record as it stood.
+ */
+export const lastReviewsWriteAnsweredAt = () => lastWriteAnsweredAt;
+
 /**
  * The one reviews API, a skeleton: base query and tag types, no endpoints.
  * Endpoints live in one module per route family, each calling
@@ -38,7 +49,11 @@ import { backendBaseQuery } from "../backend";
  */
 export const reviewsApi = createApi({
   reducerPath: "reviewsApi",
-  baseQuery: backendBaseQuery("", { surfaceNonJsonAsError: true }),
+  baseQuery: async (args, api, extraOptions) => {
+    const result = await baseQuery(args, api, extraOptions);
+    if (api.type === "mutation") lastWriteAnsweredAt = Date.now();
+    return result;
+  },
   tagTypes: [
     "FccNotes",
     "Intake",
