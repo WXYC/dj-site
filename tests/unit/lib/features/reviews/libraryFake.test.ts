@@ -45,8 +45,9 @@ describe("fakeLibraryLookupEndpoints", () => {
   });
 
   it("leaves a read without both search terms to the next handler", async () => {
-    fakeLibraryLookupEndpoints({ searchResults: RELEASES });
+    // Registered first, so it sits behind the fake's handler: it answers only if the fake falls through.
     server.use(http.get(`${TEST_BACKEND_URL}/library`, () => HttpResponse.json({ next: true })));
+    fakeLibraryLookupEndpoints({ searchResults: RELEASES });
 
     expect(await (await fetch(`${TEST_BACKEND_URL}/library?artist_name=Juana`)).json()).toEqual({ next: true });
   });
