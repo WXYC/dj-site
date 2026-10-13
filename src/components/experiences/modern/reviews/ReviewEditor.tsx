@@ -22,12 +22,12 @@ import { serverMessage, unwrapEndpointErrorOrRaw } from "@/lib/rtk-endpoint-erro
 import { useAuthentication } from "@/src/hooks/authenticationHooks";
 import { useCanSeeReviews } from "@/src/hooks/useCanSeeReviews";
 import ConfirmDialog from "../ConfirmDialog";
-import ConsentBlock, { type Consent } from "./ConsentBlock";
+import ConsentBlock, { CONSENT_KEYS, type Consent } from "./ConsentBlock";
 import { REVIEW_COPY } from "./copy";
 import FccNotesPanel from "./FccNotesPanel";
 import PrintedVersionNote from "./PrintedVersionNote";
 import RecordHeader from "./RecordHeader";
-import SlipFields, { FIELD_NAMES, patchChanged, type FieldValues, toFieldPatch, toFieldValues } from "./SlipFields";
+import SlipFields, { patchChanged, toFieldPatch, toFieldValues } from "./SlipFields";
 import SlipPreview from "./SlipPreview";
 import { formatSlipDate } from "./slipDate";
 import { useReviewRecord } from "./useReviewRecord";
@@ -40,22 +40,16 @@ import { APPBAR_CLEARANCE_PX } from "@/src/components/shared/Theme/Appbar";
 /** Two columns from an editor 800px wide (a 1440px window beside both sidebars is about 826): the form takes the rest but never under 20rem, and the slip column is sized from its content (the slip is a fixed 4.25in, so its min-content), which puts the 8px of padding for the slip's shadow and a classic scrollbar's reserved gutter outside the slip. At a 16px root font size the slip then stays 4.25in and the form keeps 352px at 800px (335px beside a 17px scrollbar); where 20rem is larger (a larger root font size) the column's track shrinks, down to nothing, and the slip narrows with it (its max-width is 100%) instead of the grid scrolling sideways. A long unbroken token in an FCC note wraps inside the column (overflow-wrap is inherited, so it is set on the FCC panel's wrapper alone and the slip keeps wrapping as it does in one column and on paper). */
 const TWO_COLUMNS = "@container (min-width: 800px)";
 
-const CONSENT_KEYS = ["publish_website", "publish_apps", "publish_instagram", "credit"] as const;
-
 type Confirming = "submit" | "delete" | null;
 
 function Form({ review }: { review: Review }) {
   const { data: auth } = useAuthentication();
   const user = "user" in auth ? auth.user : undefined;
+  const userId = user?.id ?? "";
   const isAuthor = user?.id != null && user.id === review.author_user_id;
   const isMusicDirector = !isAuthor && (user?.authority ?? Authorization.NO) >= Authorization.MD;
   const [values, setValues] = useState(() => toFieldValues(review));
-  const [consent, setConsent] = useState<Consent>(() => ({
-    publish_website: review.publish_website,
-    publish_apps: review.publish_apps,
-    publish_instagram: review.publish_instagram,
-    credit: review.credit,
-  }));
+  const [consent, setConsent] = useState<Consent>(() => Object.fromEntries(CONSENT_KEYS.map((k) => [k, review[k]])) as Consent);
   const [confirming, setConfirming] = useState<Confirming>(null);
   const [refusedInUse, setRefusedInUse] = useState(false);
   const [update, { isLoading }] = useUpdateReviewMutation();
@@ -84,18 +78,18 @@ function Form({ review }: { review: Review }) {
   const leaveGuard = useLeaveGuard(dirty);
   // Text left unsaved when this review's editor was last open in this tab, offered back until the DJ answers or edits.
   const [offer, setOffer] = useState(() => {
-    const kept = readReviewDraft(review.id);
+    const kept = readReviewDraft(userId, review.id);
     return kept && patchChanged(saved, kept) ? kept : null;
   });
   // Back is not guarded (the router owns history), so the unsaved text is kept in the tab instead; while the offer stands the form is clean and the kept text must survive.
   useEffect(() => {
     if (offer) return;
-    if (dirty) writeReviewDraft(review.id, patch());
-    else clearReviewDraft(review.id);
-  }, [offer, dirty, review.id, JSON.stringify(patch())]); // eslint-disable-line react-hooks/exhaustive-deps -- patch() is rebuilt each render; its JSON is the value that matters
+    if (dirty) writeReviewDraft(userId, review.id, patch());
+    else clearReviewDraft(userId, review.id);
+  }, [offer, dirty, userId, review.id, JSON.stringify(patch())]); // eslint-disable-line react-hooks/exhaustive-deps -- patch() is rebuilt each render; its JSON is the value that matters
   const restore = () => {
     if (!offer) return;
-    setValues(Object.fromEntries(FIELD_NAMES.map((n) => [n, offer[n] ?? ""])) as FieldValues);
+    setValues(toFieldValues(offer));
     if (isAuthor) setConsent((c) => ({ ...c, ...Object.fromEntries(CONSENT_KEYS.filter((k) => k in offer).map((k) => [k, offer[k]])) }));
     setOffer(null);
   };
@@ -113,6 +107,7 @@ function Form({ review }: { review: Review }) {
       const sent = patch();
       await update({ id: review.id, patch: sent }).unwrap();
       setSaved(sent);
+      setOffer(null);
       toast.success(draft ? REVIEW_COPY.saved : REVIEW_COPY.savedChange);
     } catch (err) {
       failure(err, REVIEW_COPY.couldNotSave);
@@ -125,6 +120,7 @@ function Form({ review }: { review: Review }) {
       const sent = patch();
       await update({ id: review.id, patch: sent }).unwrap();
       setSaved(sent);
+      setOffer(null);
       await submit(review.id).unwrap();
     } catch (err) {
       if (isReviewNotDraft(err)) toast.error(REVIEW_COPY.alreadySubmitted);
@@ -138,7 +134,7 @@ function Form({ review }: { review: Review }) {
       await remove(review.id).unwrap();
       // The review is gone, so nothing is left to save: the form goes clean before the redirect, which may be a full load, whatever was typed while the request was out.
       setDeleted(true);
-      clearReviewDraft(review.id);
+      clearReviewDraft(userId, review.id);
       router.replace("/dashboard/reviews");
     } catch (err) {
       if (isReviewInUse(err)) setRefusedInUse(true);
@@ -160,7 +156,7 @@ function Form({ review }: { review: Review }) {
         <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap sx={{ mb: 1 }}>
           <Typography level="body-sm" role="status">{REVIEW_COPY.restore.notice}</Typography>
           <Button size="sm" onClick={restore}>{REVIEW_COPY.restore.restore}</Button>
-          <Button size="sm" variant="plain" onClick={() => { clearReviewDraft(review.id); setOffer(null); }}>{REVIEW_COPY.restore.discard}</Button>
+          <Button size="sm" variant="plain" onClick={() => { clearReviewDraft(userId, review.id); setOffer(null); }}>{REVIEW_COPY.restore.discard}</Button>
         </Stack>
       )}
       {record && <RecordHeader record={record} />}

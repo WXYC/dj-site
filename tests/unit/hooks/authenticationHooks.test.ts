@@ -799,8 +799,8 @@ describe("authenticationHooks", () => {
     });
 
     it("removes every review's stored unsaved text", async () => {
-      writeReviewDraft(40, { review: "Warm." });
-      writeReviewDraft(41, { review: "Dense." });
+      writeReviewDraft("dj-a", 40, { review: "Warm." });
+      writeReviewDraft("dj-b", 41, { review: "Dense." });
       sessionStorage.setItem("unrelated", "kept");
 
       const { useLogout } = await import("@/src/hooks/authenticationHooks");
@@ -809,8 +809,8 @@ describe("authenticationHooks", () => {
         await result.current.handleLogout();
       });
 
-      expect(readReviewDraft(40)).toBeNull();
-      expect(readReviewDraft(41)).toBeNull();
+      expect(readReviewDraft("dj-a", 40)).toBeNull();
+      expect(readReviewDraft("dj-b", 41)).toBeNull();
       expect(sessionStorage.getItem("unrelated")).toBe("kept");
       sessionStorage.clear();
     });

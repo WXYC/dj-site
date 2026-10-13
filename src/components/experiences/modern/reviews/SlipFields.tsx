@@ -12,8 +12,8 @@ export const emptyFieldValues = (): FieldValues => Object.fromEntries(FIELD_NAME
 
 const orNull = (text: string) => (text.trim() === "" ? null : text);
 
-export const toFieldValues = (review: Review): FieldValues =>
-  Object.fromEntries(FIELD_NAMES.map((n) => [n, review[n] ?? ""])) as FieldValues;
+export const toFieldValues = (source: ReviewPatch): FieldValues =>
+  Object.fromEntries(FIELD_NAMES.map((n) => [n, source[n] ?? ""])) as FieldValues;
 
 /** The slip-field part of a patch: a blank or whitespace-only field is sent as null. */
 export const toFieldPatch = (values: FieldValues): ReviewPatch =>
