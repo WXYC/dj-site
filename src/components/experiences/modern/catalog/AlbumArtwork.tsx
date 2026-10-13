@@ -123,7 +123,7 @@ export function AlbumArtwork({ album, size }: AlbumArtworkProps): JSX.Element {
         sx={{
           color: "#fff",
           opacity: 0.9,
-          fontWeight: 700,
+          fontWeight: "lg",
           letterSpacing: "0.08em",
         }}
       >

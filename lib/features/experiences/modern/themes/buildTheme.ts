@@ -53,8 +53,8 @@ const modernBase = {
     display: bodyFont.style.fontFamily,
     body: bodyFont.style.fontFamily,
   },
-  // Kanit loads 400 and 500 only; Joy's stock lg (600) would be a synthesized bold.
-  fontWeight: { lg: 500 },
+  // Kanit loads 400 and 500 only; Joy's stock lg (600) and xl (700) would be synthesized bolds.
+  fontWeight: { md: 500, lg: 500, xl: 500 },
   typography: {
     "title-lg": { fontWeight: 500 },
     "title-md": { fontWeight: 500 },

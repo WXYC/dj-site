@@ -29,7 +29,7 @@ export default function OTPCodeForm({
   return (
     <form onSubmit={handleSubmit} method="post">
       <Typography level="body-sm" sx={{ mb: 2 }}>
-        Code sent to <strong>{displayTarget}</strong>
+        Code sent to <Typography component="strong" level="inherit" fontWeight="lg">{displayTarget}</Typography>
       </Typography>
       <FormControl required>
         <FormLabel>Login code</FormLabel>

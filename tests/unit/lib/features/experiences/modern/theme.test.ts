@@ -107,9 +107,12 @@ describe("modern theme", () => {
       );
     });
 
-    it("should set fontWeight.lg to 500", () => {
-      expect(modernTheme.fontWeight.lg).toBe(500);
-    });
+    it.each(["md", "lg", "xl"] as const)(
+      "should set fontWeight.%s to 500",
+      (key) => {
+        expect(modernTheme.fontWeight[key]).toBe(500);
+      }
+    );
 
     it.each(["title-lg", "title-md", "title-sm"] as const)(
       "should render %s at 500",

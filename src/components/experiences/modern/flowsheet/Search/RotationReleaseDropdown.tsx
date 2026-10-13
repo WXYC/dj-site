@@ -274,7 +274,7 @@ export default function RotationReleaseDropdown({
                       color: highlightIndex === index ? "white" : "inherit",
                     }}
                   >
-                    <Typography component="span" sx={{ fontWeight: "bold" }}>
+                    <Typography component="span" sx={{ fontWeight: "lg" }}>
                       {release.artist?.name ?? ""}
                     </Typography>
                     {" — "}

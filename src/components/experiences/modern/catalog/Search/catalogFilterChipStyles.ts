@@ -39,7 +39,7 @@ export function getTagFilterChipProps(tagId: string): CatalogFilterTagChipProps 
       sx: {
         bgcolor: EXCLUSIVES_PURPLE,
         color: "#fff",
-        fontWeight: 600,
+        fontWeight: "lg",
         "--Chip-focusedInset": "transparent",
         "--Chip-focusedThickness": "0px",
         "&:hover": {

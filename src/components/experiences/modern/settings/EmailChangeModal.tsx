@@ -209,12 +209,12 @@ export default function EmailChangeModal({
                 <Typography level="body-md">
                   We've sent a verification email to:
                 </Typography>
-                <Typography level="title-md" sx={{ fontWeight: "bold" }}>
+                <Typography level="title-md" sx={{ fontWeight: "lg" }}>
                   {newEmail}
                 </Typography>
                 <Typography level="body-sm" color="neutral">
                   Click the link in the email to confirm your new address. Your
-                  email will remain as <strong>{currentEmail}</strong> until you
+                  email will remain as <Typography component="strong" level="inherit" fontWeight="lg">{currentEmail}</Typography> until you
                   verify the new one.
                 </Typography>
                 <Button

@@ -253,7 +253,7 @@ export default function StationSignupForm() {
           data-testid="signup-signing-in"
           startDecorator={<CircularProgress size="sm" />}
         >
-          Account created for <strong>{createdAccount.username}</strong>{" "}
+          Account created for <Typography component="strong" level="inherit" fontWeight="lg">{createdAccount.username}</Typography>{" "}
           ({createdAccount.email}). Signing you in&hellip;
         </Alert>
         {/* A second way out while the sign-in is still in flight: the DJ may
@@ -274,7 +274,7 @@ export default function StationSignupForm() {
             to know what went wrong, so name the account, say it works, and
             give them the one step left. */}
         <Alert color="success" data-testid="signup-success">
-          Account created for <strong>{createdAccount.username}</strong>{" "}
+          Account created for <Typography component="strong" level="inherit" fontWeight="lg">{createdAccount.username}</Typography>{" "}
           ({createdAccount.email}). We couldn&apos;t sign you in automatically,
           but the account is ready &mdash; sign in with the username and
           password you just chose. It&apos;s pending a station manager&apos;s
