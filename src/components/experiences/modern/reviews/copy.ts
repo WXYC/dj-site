@@ -592,5 +592,7 @@ export const REVIEW_COPY = {
     leave: "Leave",
     /** Approved. Takes the focus; closes the dialog. */
     keepEditing: "Keep editing",
+    /** Approved. The Record a review form's leave-dialog body. */
+    recordBody: "The review you've typed here will be lost.",
   },
 } as const;

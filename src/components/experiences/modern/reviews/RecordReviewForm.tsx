@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button, Checkbox, FormControl, FormHelperText, FormLabel, Input, Option, Radio, RadioGroup, Select, Stack, Typography } from "@mui/joy";
 import type { NewReviewRequest } from "@wxyc/shared";
 import { isReviewAccountGone, useCreateReviewMutation, useGetReviewersQuery, useSubmitReviewMutation } from "@/lib/features/reviews/reviewApi";
@@ -9,7 +9,7 @@ import { useAuthentication } from "@/src/hooks/authenticationHooks";
 import { useMounted } from "@/src/hooks/useRowWrite";
 import { REVIEW_COPY } from "./copy";
 import { AUTHOR_MAX, EMPTY_START, type RecordFormStart } from "@/lib/features/reviews/formReviewStart";
-import SlipFields, { toFieldPatch, type FieldValues } from "./SlipFields";
+import SlipFields, { patchChanged, toFieldPatch, type FieldValues } from "./SlipFields";
 
 const COPY = REVIEW_COPY.record;
 
@@ -23,9 +23,10 @@ const COPY = REVIEW_COPY.record;
  * the checkbox reads it, but a ticked save keeps the line it had at the press, so its own save never changes it.
  * `disabled` is the page's hold on every review write (another write is in flight or rereading): Save is out of reach.
  * `start` is what the form opens with (its author, fields, medium and which copied-from lines to show); without one it opens empty.
+ * `onDirtyChange` hears whether the form holds unsaved text (its values differ from `start`), and false once it closes or a create has succeeded, whatever is typed while the reread is out.
  * `onHold` takes the page's hold at the press and returns its release: a save hands it to `onWritten` on success and releases it itself if the write fails, even when the form has closed meanwhile.
  */
-export default function RecordReviewForm({ itemId, hasCover, start = EMPTY_START, disabled, onHold, onWritten, onNotice, onClose }: {
+export default function RecordReviewForm({ itemId, hasCover, start = EMPTY_START, disabled, onHold, onWritten, onNotice, onDirtyChange, onClose }: {
   itemId: number;
   hasCover: boolean;
   start?: RecordFormStart;
@@ -33,6 +34,7 @@ export default function RecordReviewForm({ itemId, hasCover, start = EMPTY_START
   onHold: (movesCover: boolean) => () => void;
   onWritten: (release: () => void) => Promise<void>;
   onNotice: (line: string | null) => void;
+  onDirtyChange: (dirty: boolean) => void;
   onClose: () => void;
 }) {
   const { data: auth } = useAuthentication();
@@ -52,6 +54,15 @@ export default function RecordReviewForm({ itemId, hasCover, start = EMPTY_START
   // What the helper line said when a ticked save was pressed, so that save's own hold on the page does not change it.
   const [coverAtPress, setCoverAtPress] = useState<boolean | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
+  // Set when the create resolves, not read from the handler's closure, so text typed while the request is out cannot keep the guard armed.
+  const [created, setCreated] = useState(false);
+  const dirty =
+    !created &&
+    (patchChanged(toFieldPatch(start.values), toFieldPatch(values)) || author !== start.author || medium !== start.medium || linked !== "" || !onCover);
+  useEffect(() => {
+    onDirtyChange(dirty);
+    return () => onDirtyChange(false);
+  }, [dirty, onDirtyChange]);
 
   const name = author.trim();
   const authorBlank = name === "";
@@ -78,6 +89,7 @@ export default function RecordReviewForm({ itemId, hasCover, start = EMPTY_START
     };
     try {
       const made = await create(body).unwrap();
+      setCreated(true);
       let line: string = COPY.recorded;
       if (!onCover) {
         try {
