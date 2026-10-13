@@ -69,7 +69,8 @@ export const isIntakeRequestRefused = (err: unknown): boolean =>
 /**
  * True when "Use this review" was refused (400) because the review is still a draft, belongs to another
  * record, or is a cited release's review the server refuses (handwritten, or one citation further on; the
- * cited list filters these out, so that 400 arrives only after a race such as the citation being cleared). That 400 has no `reason` (the server throws a plain error), so it is matched by status alone; the
+ * cited list filters these out, so that 400 arrives only after a race such as the citation being cleared).
+ * That 400 has no `reason` (the server throws a plain error), so it is matched by status alone; the
  * button always sends `review_id`, so the route's other 400 (`review_id is required`) cannot arrive. Read it
  * only in that button's rejection handler: the same status means something else on every other intake write.
  */

@@ -1704,26 +1704,40 @@ describe("IntakeItemScreen", () => {
     });
 
     // Later writes on this page (choosing a review, citing a release) refetch these reads; each is failed alone, after it succeeded once.
+    const CITED_RELEASE_ID = 7;
+    const citedTake = submitted(90, { intake_item_id: null, album_id: CITED_RELEASE_ID, review: "Cited take." });
     it.each([
-      ["the item", "Intake", `${TEST_BACKEND_URL}/intake/${ITEM_ID}`, dogaItem(), []],
-      ["the item's reviews", "Review", `${TEST_BACKEND_URL}/reviews`, dogaItem(), []],
-      [
-        "a cover review fetched by id",
-        "Review",
-        `${TEST_BACKEND_URL}/reviews/90`,
-        dogaItem({ accepted_review_id: 90 }),
-        [submitted(90, { intake_item_id: null, album_id: 7, review: "From the cited release." })],
-      ],
-    ] as const)("keeps the page when the refetch of %s fails", async (_name, tag, path, item, byId) => {
-      fakeReviewsEndpoints({ records: [item], reviews: [...byId], forItem: { [ITEM_ID]: [submitted(40), submitted(41)] } });
+      { name: "the item", tag: "Intake" as const, path: `${TEST_BACKEND_URL}/intake/${ITEM_ID}`, item: dogaItem(), byId: [] as Review[], fails: () => true, kept: "Take 40." },
+      { name: "the item's reviews", tag: "Review" as const, path: `${TEST_BACKEND_URL}/reviews`, item: dogaItem(), byId: [] as Review[], fails: (q: URLSearchParams) => !q.has("album_id"), kept: "Take 40." },
+      {
+        name: "a cover review fetched by id",
+        tag: "Review" as const,
+        path: `${TEST_BACKEND_URL}/reviews/90`,
+        item: dogaItem({ accepted_review_id: 90 }),
+        byId: [submitted(90, { intake_item_id: null, album_id: 7, review: "From the cited release." })],
+        fails: () => true,
+        kept: "From the cited release.",
+      },
+      {
+        name: "the cited release's reviews",
+        tag: "Review" as const,
+        path: `${TEST_BACKEND_URL}/reviews`,
+        item: dogaItem({ cited_album_id: CITED_RELEASE_ID }),
+        byId: [] as Review[],
+        fails: (q: URLSearchParams) => q.get("album_id") === String(CITED_RELEASE_ID),
+        kept: "Cited take.",
+      },
+    ])("keeps the page when the refetch of $name fails", async ({ tag, path, item, byId, fails, kept }) => {
+      fakeReviewsEndpoints({ records: [item], reviews: [...byId], forItem: { [ITEM_ID]: [submitted(40), submitted(41)] }, forRelease: { [CITED_RELEASE_ID]: [citedTake] }, releases: [{ id: CITED_RELEASE_ID, artist_name: "Jessica Pratt", album_title: "On Your Own Love Again" }] });
       const { store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
       await screen.findByRole("heading", { name: "Other reviews" });
+      if (item.cited_album_id) await screen.findByText(kept);
 
       let refused = 0;
       server.use(
         http.get(path, ({ request }) => {
-          // Fails this item's reviews and not another release's, which the cited release's own row below fails alone.
-          if (new URL(request.url).searchParams.has("album_id")) return undefined;
+          // Each row fails only its own read: the item's reviews and a cited release's reviews share a path.
+          if (!fails(new URL(request.url).searchParams)) return undefined;
           refused += 1;
           return HttpResponse.json({ message: "boom" }, { status: 500 });
         }),
@@ -1737,7 +1751,7 @@ describe("IntakeItemScreen", () => {
       expect(screen.queryByText("Couldn't load this record. Please try again.")).not.toBeInTheDocument();
       expect(screen.getByRole("heading", { name: "The review on the cover" })).toBeInTheDocument();
       expect(screen.getByText("Take 41.")).toBeInTheDocument();
-      expect(screen.getByText(byId.length ? "From the cited release." : "Take 40.")).toBeInTheDocument();
+      expect(screen.getByText(kept)).toBeInTheDocument();
     });
 
     it("shows the load-failure line when the first read of the item fails", async () => {
@@ -3253,13 +3267,15 @@ describe("IntakeItemScreen", () => {
   describe("a record that cites a release", () => {
     const CITED_ID = 7;
     const printedOn = { printed_revision_id: 901, printed_at: "2026-10-02T16:00:00Z" };
-    const HEADING = "Reviews of Juana Molina — DOGA";
+    // The cited release is a different release from the record (Juana Molina — DOGA), so its heading cannot be built from the record's names.
+    const HEADING = "Reviews of Jessica Pratt — On Your Own Love Again";
+    const CITED_RELEASE = { id: CITED_ID, artist_name: "Jessica Pratt", album_title: "On Your Own Love Again" };
     const citedItem = (overrides = {}) => dogaItem({ cited_album_id: CITED_ID, accepted_review_id: null, state: "pool", effective_state: "pool", ...overrides });
     /** A review of the cited release's own record, which the item's list does not hold. */
     const ofCited = (id: number, overrides = {}) =>
       submitted(id, { intake_item_id: null, album_id: CITED_ID, author: `Cited ${id}`, review: `Cited take ${id}.`, ...overrides });
     const archived = (id: number, reviewer: string, review: string) => ({
-      id, reviewer, album_id: CITED_ID, artist_name: "Juana Molina", album_title: "DOGA", record_label: "Sonamos",
+      id, reviewer, album_id: CITED_ID, artist_name: "Jessica Pratt", album_title: "On Your Own Love Again", record_label: "Drag City",
       artist_blurb: null, review, recommended_tracks: null, buzzwords: null, fcc_violations: null, review_purpose: null,
       rotated: null, released_within_six_months: null, social_consent: null, submitted_at: null,
     });
@@ -3268,7 +3284,7 @@ describe("IntakeItemScreen", () => {
 
     /** The cited release's reviews are served by `forRelease` and by id; this item's own list and the item are boxes a spec can change. */
     const setUp = (cited: Review[], { item = citedItem(), own = [] as Review[], archive = [] as ReturnType<typeof archived>[] } = {}) => {
-      fakeReviewsEndpoints({ records: [item], forRelease: { [CITED_ID]: cited }, reviews: cited, archive: { [CITED_ID]: archive } });
+      fakeReviewsEndpoints({ records: [item], forRelease: { [CITED_ID]: cited }, reviews: cited, archive: { [CITED_ID]: archive }, releases: [CITED_RELEASE] });
       return { box: serveItem(item), own: serveItemReviews(own) };
     };
 
@@ -3348,27 +3364,44 @@ describe("IntakeItemScreen", () => {
       await reread.answered;
     });
 
-    it("keeps the cited list when the refetch of the cited release's reviews fails", async () => {
+    it("names the cited release in the heading and not this record", async () => {
       setUp([ofCited(90)]);
-      const { store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
-      await within(await section()).findByText("Cited take 90.");
-      let refused = 0;
+
+      renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      expect(await screen.findByRole("heading", { name: HEADING })).toBeInTheDocument();
+      expect(screen.queryByRole("heading", { name: /Juana Molina|DOGA/ })).not.toBeInTheDocument();
+    });
+
+    it("still lists the cited reviews under their approved line, with no heading, when the cited release's name cannot be read", async () => {
+      setUp([ofCited(90)]);
+      server.use(http.get(`${TEST_BACKEND_URL}/library/info`, () => HttpResponse.json({ message: "boom" }, { status: 500 })));
+
+      renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      expect(await screen.findByText("Cited take 90.")).toBeInTheDocument();
+      expect(screen.getByText(REVIEW_COPY.intakeItem.citedChoose)).toBeInTheDocument();
+      expect(screen.queryByRole("heading", { name: /^Reviews of / })).not.toBeInTheDocument();
+    });
+
+    it.each([
+      ["a typed review", [ofCited(90)], 0],
+      ["no typed review", [ofCited(91, { medium: "handwritten", review: null })], 1],
+    ])("reads the form archive's reviews of the cited release only when it has %s to show: %#", async (_name, cited, reads) => {
+      const requested = vi.fn();
+      setUp(cited);
       server.use(
-        http.get(`${TEST_BACKEND_URL}/reviews`, ({ request }) => {
-          if (new URL(request.url).searchParams.get("album_id") !== String(CITED_ID)) return undefined;
-          refused += 1;
-          return HttpResponse.json({ message: "boom" }, { status: 500 });
+        http.get(`${TEST_BACKEND_URL}/album-reviews`, ({ request }) => {
+          if (new URL(request.url).searchParams.get("album_id") === String(CITED_ID)) requested();
+          return HttpResponse.json([]);
         }),
       );
 
-      act(() => {
-        store.dispatch(reviewsApi.util.invalidateTags(["Review"]));
-      });
-      await waitFor(() => expect(refused).toBeGreaterThan(0));
-      await reviewsSettled(store);
+      const { store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
 
-      expect(within(await section()).getByText("Cited take 90.")).toBeInTheDocument();
-      expect(screen.queryByText(REVIEW_COPY.intakeItem.loadFailed)).not.toBeInTheDocument();
+      await section();
+      await reviewsSettled(store);
+      expect(requested).toHaveBeenCalledTimes(reads);
     });
 
     describe("with no typed review in the app", () => {
