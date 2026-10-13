@@ -2907,7 +2907,7 @@ describe("IntakeItemScreen", () => {
 
     it("says it could not record the review on any other failure, and keeps what was typed", async () => {
       setUp();
-      server.use(http.post(SAVE_URL, () => HttpResponse.json({ message: "boom" }, { status: 500 })));
+      server.use(http.post(SAVE_URL, failingSave));
       const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
       await fillAndTick(user, { author: "Cat Power" });
 
@@ -3002,10 +3002,29 @@ describe("IntakeItemScreen", () => {
       await reviewsSettled(store);
     });
 
+    it("names another review's button Use this review instead and disables it while a ticked create onto an empty cover is in flight", async () => {
+      setUp(dogaItem(NOTHING_ON_COVER), [submitted(41)]);
+      const write = holdResponse("post", SAVE_URL, failingSave);
+      const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+      await fillAndTick(user);
+      await reviewsSettled(store);
+      expect(screen.getByRole("button", { name: "Use this review" })).toBeEnabled();
+
+      await save(user);
+
+      await waitFor(() => expect(write.calls.count).toBe(1));
+      expect(screen.getByRole("button", { name: "Use this review instead" })).toBeDisabled();
+
+      write.release();
+      await write.answered;
+      await screen.findByRole("alert");
+      await waitFor(() => expect(screen.getByRole("button", { name: "Use this review" })).toBeEnabled());
+    });
+
     it("keeps the form's line for the state after a failed ticked save when the cover then changes by another write", async () => {
       const { box } = setUp(dogaItem(NOTHING_ON_COVER), [submitted(41)]);
       server.use(
-        http.post(SAVE_URL, () => HttpResponse.json({ message: "boom" }, { status: 500 })),
+        http.post(SAVE_URL, failingSave),
         acceptingReview(box),
       );
       const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
