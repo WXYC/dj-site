@@ -4186,6 +4186,26 @@ describe("IntakeItemScreen", () => {
         expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
         expect(beforeUnload()).toBe(false);
       });
+
+      it.each([
+        ["the Record a review press", async () => screen.getByRole("button", { name: "Record a review" })],
+        ["an opener", () => opener("Copy it by pen")],
+      ])("drops the question %s parked when the save finishes first and the form closes", async (_name, press) => {
+        const { user } = renderPage();
+        const create = holdResponse("post", SAVE_URL, () => HttpResponse.json(submitted(90, { author: "Sessa" }), { status: 201 }));
+        await fill(user);
+
+        await save(user);
+        await waitFor(() => expect(create.calls.count).toBeGreaterThan(0));
+        await user.click(await press());
+        await dialog();
+        create.release();
+        await create.answered;
+
+        await waitFor(() => expect(screen.queryByRole("textbox", { name: "Author", hidden: true })).not.toBeInTheDocument());
+        await noDialog();
+        await screen.findByRole("status");
+      });
     });
   });
 });
