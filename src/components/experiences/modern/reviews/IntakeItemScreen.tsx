@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import Link from "next/link";
 import { Button, Chip, Divider, Radio, RadioGroup, Stack, Typography } from "@mui/joy";
 import type { IntakeItem, IntakeItemPatch, Review } from "@wxyc/shared";
@@ -100,6 +100,10 @@ export default function IntakeItemScreen({ id }: { id: number }) {
   const [recordingDirty, setRecordingDirty] = useState(false);
   const [asked, setAsked] = useState<(() => void) | null>(null);
   const leaveGuard = useLeaveGuard(recordingDirty);
+  // A parked close or replace asks about unsaved text; when the form goes clean (saved and closed) the question is moot.
+  useEffect(() => {
+    if (!recordingDirty) setAsked(null);
+  }, [recordingDirty]);
   useCloseSidebarWhile(leaveGuard.pending);
   const stayOnRecording = () => {
     setAsked(null);
