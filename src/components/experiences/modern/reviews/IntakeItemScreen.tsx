@@ -17,7 +17,9 @@ import {
   useFileIntakeItemMutation,
   useGetIntakeItemQuery,
 } from "@/lib/features/reviews/intakeApi";
-import { useGetItemReviewsQuery, useGetReviewQuery } from "@/lib/features/reviews/reviewApi";
+import { useGetAlbumReviewsForReleaseQuery } from "@/lib/features/reviews/albumReviewApi";
+import { reviewApi, useGetItemReviewsQuery, useGetReviewQuery, useGetReviewsForReleaseQuery } from "@/lib/features/reviews/reviewApi";
+import { useAppDispatch } from "@/lib/hooks";
 import { unwrapEndpointError } from "@/lib/rtk-endpoint-error";
 import { useCanSeeReviews } from "@/src/hooks/useCanSeeReviews";
 import { useMounted } from "@/src/hooks/useRowWrite";
@@ -31,7 +33,7 @@ import ReleasePicker from "./ReleasePicker";
 import { fromLine, newestFirst } from "./ReviewFrom";
 import DeleteReviewButton from "./DeleteReviewButton";
 import UseThisReviewButton from "./UseThisReviewButton";
-import { EMPTY_START, type RecordFormStart } from "@/lib/features/reviews/formReviewStart";
+import { EMPTY_START, PAPER_START, formReviewStart, type RecordFormStart } from "@/lib/features/reviews/formReviewStart";
 import RecordReviewForm from "./RecordReviewForm";
 import { Group } from "./ReviewsPanel";
 import { useItemPageReload } from "./useItemPageReload";
@@ -93,6 +95,11 @@ export default function IntakeItemScreen({ id }: { id: number }) {
   // `movers` counts the writes that move the cover (Use this review, a ticked Record a review). Each write takes a handle from `hold` and releases it exactly once.
   const [holds, setHolds] = useState({ all: 0, movers: 0 });
 
+  const citedId = item.data?.cited_album_id ?? null;
+  const cited = useGetReviewsForReleaseQuery(citedId ?? 0, { skip: !visible || citedId === null });
+  const citedArchive = useGetAlbumReviewsForReleaseQuery(citedId ?? 0, { skip: !visible || citedId === null });
+  const dispatch = useAppDispatch();
+
   const coverId = item.data?.accepted_review_id ?? null;
   const ownCover = reviews.data?.find((r) => r.id === coverId);
   // The review on the cover can be one of a cited or filed release, which the item's own list lacks.
@@ -101,8 +108,10 @@ export default function IntakeItemScreen({ id }: { id: number }) {
   const fetchedCover = useGetReviewQuery(coverById ?? 0, { skip: !visible || coverById === undefined });
 
   const cover = ownCover ?? (fetchedCover.data?.id === coverId ? fetchedCover.data : undefined);
-  // The one cover rule: the print link's hook call and the cover group below both read it, so a later gate change moves them together.
-  const isOnCover = (r: Review) => r.id === coverId;
+  const isCover = (r: Review) => r.id === coverId;
+  // A cover review may be one printed for another copy, so it is on this copy's cover only once this copy's own slip was printed.
+  // The print link's hook call, the cover group's note and its tape all read this rule, so a later change moves them together.
+  const isOnCover = (r: Review) => isCover(r) && item.data?.printed_at != null;
   const printedVersion = usePrintedVersion(cover, { onCover: cover != null && isOnCover(cover) });
 
   const reload = useItemPageReload(id, coverById);
@@ -143,7 +152,7 @@ export default function IntakeItemScreen({ id }: { id: number }) {
     holder.kind === "checked_out" ? COPY.deleteCoverHeld(holder.name) : holder.kind === "removed" ? COPY.deleteCoverRemoved : COPY.deleteCoverShelf;
   const deleteConfirmation = (review: Review) => {
     const author = namedAuthor(review);
-    return isOnCover(review) ? coverConfirmation : author ? COPY.deleteReviewConfirm(author) : REVIEW_COPY.deleteConfirm;
+    return isCover(review) ? coverConfirmation : author ? COPY.deleteReviewConfirm(author) : REVIEW_COPY.deleteConfirm;
   };
   const deleteControl = (review: Review) =>
     // Every review of this record can be deleted, drafts included; a cited release's review is deleted from its own record's page.
@@ -151,7 +160,7 @@ export default function IntakeItemScreen({ id }: { id: number }) {
       <DeleteReviewButton
         review={review}
         confirmation={deleteConfirmation(review)}
-        blocked={isOnCover(review) && isFiledState(item.data!.effective_state)}
+        blocked={isCover(review) && isFiledState(item.data!.effective_state)}
         disabled={awaitingReread}
         reload={reload}
         onWritten={reviewWritten}
@@ -171,6 +180,35 @@ export default function IntakeItemScreen({ id }: { id: number }) {
       </>
     );
   };
+
+  // The cited release's own reviews, less the one on the cover, which shows under "The review on the cover".
+  const citedTyped = (cited.data ?? []).filter((r) => r.album_id === citedId && r.status === "submitted" && r.medium === "typed");
+  // Its review is read by id from here on, so it goes into that cache before the reread: a failed reread cannot take the cover off the page.
+  const chooseCited = (review: Review) => (release: () => void) => {
+    dispatch(reviewApi.util.upsertQueryData("getReview", review.id, review));
+    return reviewWritten(release);
+  };
+  const citedExtra = (review: Review) => (
+    <UseThisReviewButton itemId={id} review={review} replacing={coverId != null || movingCover} disabled={awaitingReread} reload={reload} onHold={hold} onWritten={chooseCited(review)} onNotice={setNotice} />
+  );
+  const citedIntro =
+    citedTyped.length > 0 ? (
+      <Typography>{COPY.citedChoose}</Typography>
+    ) : (
+      <>
+        <Typography>{COPY.citedNone}</Typography>
+        <Stack direction="row" spacing={1}>
+          <Button variant="plain" onClick={() => openRecording(EMPTY_START)}>{COPY.typeInReview}</Button>
+          <Button variant="plain" onClick={() => openRecording(PAPER_START)}>{COPY.copyByPen}</Button>
+        </Stack>
+        {citedArchive.data?.map((take) => (
+          <Stack key={take.id} spacing={0.5}>
+            <Typography component="blockquote" level="body-sm" sx={{ m: 0 }}>{take.review}</Typography>
+            <Button variant="outlined" size="sm" onClick={() => openRecording(formReviewStart(take))} sx={{ alignSelf: "flex-start" }}>{COPY.copyOntoRecord}</Button>
+          </Stack>
+        ))}
+      </>
+    );
 
   const stillOut = cover && holder.kind === "checked_out" && holder.name && holder.id !== cover.author_user_id ? COPY.stillOutWith(holder.name) : null;
 
@@ -256,6 +294,9 @@ export default function IntakeItemScreen({ id }: { id: number }) {
         coverId == null && <Typography>{COPY.noCover}</Typography>
       )}
       {others.length > 0 && <Group title={REVIEW_COPY.albumPanel.others} reviews={others} recordOf={recordOf} onCover={() => false} extra={othersExtra} />}
+      {citedId !== null && cited.data && (
+        <Group title={COPY.citedHeading(item.data.artist_name, item.data.album_title)} intro={citedIntro} reviews={citedTyped.filter((r) => r.id !== coverId).sort(newestFirst)} recordOf={() => undefined} onCover={() => false} extra={citedExtra} />
+      )}
       {!!item.data.draft_authors?.length && (
         <Typography level="body-sm">{COPY.stillWriting} {item.data.draft_authors.join(", ")}.</Typography>
       )}
