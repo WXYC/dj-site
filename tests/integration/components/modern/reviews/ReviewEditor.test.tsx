@@ -1094,7 +1094,7 @@ describe("ReviewEditor", () => {
     const NOTICE = "You left this review with unsaved changes.";
     const RESTORE = "Restore my changes";
     const DISCARD = "Discard them";
-    const stored = () => readReviewDraft(40);
+    const stored = () => readReviewDraft("dj-me", 40);
     const keepTyped = async (user: ReturnType<typeof renderWithProviders>["user"]) => {
       await user.type(await screen.findByLabelText("Review"), " More.");
       await waitFor(() => expect(stored()).not.toBeNull());
@@ -1168,7 +1168,7 @@ describe("ReviewEditor", () => {
     });
 
     it("removes an entry equal to the loaded review without an offer", async () => {
-      writeReviewDraft(40, { ...toFieldPatch(toFieldValues(DRAFT)), publish_website: false, publish_apps: false, publish_instagram: false, credit: null });
+      writeReviewDraft("dj-me", 40, { ...toFieldPatch(toFieldValues(DRAFT)), publish_website: false, publish_apps: false, publish_instagram: false, credit: null });
       serve();
       renderWithProviders(<ReviewEditor id={40} />);
       await screen.findByLabelText("Review");
@@ -1233,6 +1233,113 @@ describe("ReviewEditor", () => {
 
       await waitFor(() => expect(router.replace).toHaveBeenCalled());
       expect(stored()).toBeNull();
+    });
+
+    it.each([
+      ["unparseable JSON", "{not json"],
+      ["an array", '["x"]'],
+      ["a text field of the wrong type", '{"review":5}'],
+      ["a consent key of the wrong type", '{"review":"Warm. More.","publish_website":"yes"}'],
+      ["a credit of the wrong type", '{"review":"Warm. More.","credit":3}'],
+      ["only unknown keys", '{"colour":"red"}'],
+      ["a bare string", '"Warm. More."'],
+    ])("removes a stored entry that is %s and offers nothing", async (_name, raw) => {
+      sessionStorage.setItem("review-draft:dj-me:40", raw);
+      serve();
+      renderWithProviders(<ReviewEditor id={40} />);
+      await screen.findByLabelText("Review");
+
+      expect(screen.queryByText(NOTICE)).not.toBeInTheDocument();
+      expect(screen.getByLabelText("Review")).toHaveValue("Warm.");
+      await waitFor(() => expect(sessionStorage.getItem("review-draft:dj-me:40")).toBeNull());
+    });
+
+    it("offers nothing for an entry stored under another user's key", async () => {
+      writeReviewDraft("dj-other", 40, { review: "Someone else's text.", publish_website: false, publish_apps: false, publish_instagram: false, credit: null });
+      serve();
+      renderWithProviders(<ReviewEditor id={40} />);
+      await screen.findByLabelText("Review");
+
+      expect(screen.queryByText(NOTICE)).not.toBeInTheDocument();
+      expect(readReviewDraft("dj-other", 40)).not.toBeNull();
+    });
+
+    it("a save made while the offer stands removes the entry and the notice; a failed one keeps both", async () => {
+      await leftWithUnsaved();
+      server.use(http.patch(`${TEST_BACKEND_URL}/reviews/40`, () => HttpResponse.json({ message: "no" }, { status: 500 })));
+      const { user } = renderWithProviders(<ReviewEditor id={40} />);
+      await screen.findByText(NOTICE);
+      await user.click(screen.getByRole("button", { name: "Save draft" }));
+      await waitFor(() => expect(toast.error).toHaveBeenCalled());
+      expect(screen.getByText(NOTICE)).toBeInTheDocument();
+      expect(stored()).not.toBeNull();
+
+      server.use(http.patch(`${TEST_BACKEND_URL}/reviews/40`, () => HttpResponse.json(DRAFT)));
+      await user.click(screen.getByRole("button", { name: "Save draft" }));
+      await waitFor(() => expect(stored()).toBeNull());
+      expect(screen.queryByText(NOTICE)).not.toBeInTheDocument();
+    });
+
+    it("a submit made while the offer stands removes the entry and the notice; a failed one keeps both", async () => {
+      await leftWithUnsaved();
+      server.use(http.patch(`${TEST_BACKEND_URL}/reviews/40`, () => HttpResponse.json({ message: "no" }, { status: 500 })));
+      const { user } = renderWithProviders(<ReviewEditor id={40} />);
+      await screen.findByText(NOTICE);
+      const submitFromDialog = async () => {
+        await user.click(screen.getByRole("button", { name: "Submit" }));
+        await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Submit" }));
+      };
+      await submitFromDialog();
+      await waitFor(() => expect(toast.error).toHaveBeenCalled());
+      expect(screen.getByText(NOTICE)).toBeInTheDocument();
+      expect(stored()).not.toBeNull();
+
+      server.use(
+        http.patch(`${TEST_BACKEND_URL}/reviews/40`, () => HttpResponse.json(DRAFT)),
+        http.post(`${TEST_BACKEND_URL}/reviews/40/submit`, () => HttpResponse.json(SUBMITTED)),
+      );
+      await submitFromDialog();
+      await waitFor(() => expect(stored()).toBeNull());
+      expect(screen.queryByText(NOTICE)).not.toBeInTheDocument();
+    });
+
+    it("typing while a delete is in flight, then a successful delete, leaves no entry and a clean guard", async () => {
+      let release: () => void = () => {};
+      const held = new Promise<void>((resolve) => { release = resolve; });
+      serve();
+      server.use(http.delete(`${TEST_BACKEND_URL}/reviews/40`, async () => { await held; return new HttpResponse(null, { status: 204 }); }));
+      // The redirect may be a full load that unmounts before any effect runs, so the entry must already be gone when it is asked for.
+      let storedAtRedirect: unknown = "unset";
+      vi.mocked(router.replace).mockImplementationOnce(() => { storedAtRedirect = stored(); });
+      const { user } = renderWithProviders(<ReviewEditor id={40} />);
+      await keepTyped(user);
+      await user.click(screen.getByRole("button", { name: "Delete" }));
+      await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Delete" }));
+      await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
+      await user.type(screen.getByLabelText("Review"), " Still typing.");
+      release();
+
+      await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/dashboard/reviews"));
+      expect(storedAtRedirect).toBeNull();
+      await waitFor(() => expect(stored()).toBeNull());
+      expect(window.dispatchEvent(new Event("beforeunload", { cancelable: true }))).toBe(true);
+    });
+
+    it.each([
+      ["refused as in use", () => HttpResponse.json({ message: "server words", reason: "in_use" }, { status: 409 }), () => screen.findByText(IN_USE)],
+      ["failed", () => new HttpResponse(null, { status: 500 }), () => waitFor(() => expect(toast.error).toHaveBeenCalledWith(REVIEW_COPY.couldNotDelete))],
+    ])("a delete that is %s keeps the entry and the dirty form", async (_name, respond, settled) => {
+      serve();
+      server.use(http.delete(`${TEST_BACKEND_URL}/reviews/40`, respond));
+      const { user } = renderWithProviders(<ReviewEditor id={40} />);
+      await keepTyped(user);
+      await user.click(screen.getByRole("button", { name: "Delete" }));
+      await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Delete" }));
+      await settled();
+
+      expect(router.replace).not.toHaveBeenCalled();
+      expect(stored()).toMatchObject({ review: "Warm. More." });
+      expect(window.dispatchEvent(new Event("beforeunload", { cancelable: true }))).toBe(false);
     });
 
     it("works as on main when storage throws", async () => {
