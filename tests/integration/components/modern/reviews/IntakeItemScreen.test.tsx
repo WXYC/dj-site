@@ -252,6 +252,12 @@ describe("IntakeItemScreen", () => {
       REVIEW_COPY.intakeItem.deleteCoverFiled,
       "This is the record's review and the record is already filed. Choose another review for the cover first, then delete this one.",
     ],
+    ["citedHeading", REVIEW_COPY.intakeItem.citedHeading("Juana Molina", "DOGA"), "Reviews of Juana Molina — DOGA"],
+    ["citedChoose", REVIEW_COPY.intakeItem.citedChoose, "This record uses a review of that one. Choose the one to print for this copy."],
+    ["citedNone", REVIEW_COPY.intakeItem.citedNone, "That record has no typed review in the app."],
+    ["typeInReview", REVIEW_COPY.intakeItem.typeInReview, "Type in the review from its cover"],
+    ["copyByPen", REVIEW_COPY.intakeItem.copyByPen, "Copy it by pen"],
+    ["copyOntoRecord", REVIEW_COPY.intakeItem.copyOntoRecord, "Copy this review onto the record"],
     ["couldNotDelete", REVIEW_COPY.couldNotDelete, "Couldn't delete the review. Please try again."],
     ["writeFailed", REVIEW_COPY.screen.writeFailed, "Couldn't do that. Please try again."],
     [
@@ -463,7 +469,7 @@ describe("IntakeItemScreen", () => {
       { case: "printed with the revisions failing", printed: PRINTED, revisions: 0, fails: true, linkName: "Print the slip", linkCount: 1, settled: REVIEW_COPY.printedNote.loadFailed },
     ])("the record's print link, $case, reads $linkName", async ({ printed, revisions, fails, linkName, linkCount, settled }) => {
       const requested = vi.fn();
-      fakeReviewsEndpoints({ records: [dogaItem()], forItem: { [ITEM_ID]: [submitted(40, printed)] } });
+      fakeReviewsEndpoints({ records: [dogaItem({ printed_at: PRINTED.printed_at })], forItem: { [ITEM_ID]: [submitted(40, printed)] } });
       server.use(
         http.get(`${TEST_BACKEND_URL}/reviews/:id/revisions`, ({ params }) => {
           requested(params.id);
@@ -922,7 +928,8 @@ describe("IntakeItemScreen", () => {
       let refuse = true;
       server.use(
         http.get(`${TEST_BACKEND_URL}/reviews`, ({ request }) => {
-          if (new URL(request.url).searchParams.get("album_id") === "5") releaseReviewReads += 1;
+          if (new URL(request.url).searchParams.get("album_id") !== "5") return undefined;
+          releaseReviewReads += 1;
           return HttpResponse.json([submitted(40)]);
         }),
         http.get(`${TEST_BACKEND_URL}/fcc-notes`, ({ request }) => {
@@ -1707,7 +1714,9 @@ describe("IntakeItemScreen", () => {
 
       let refused = 0;
       server.use(
-        http.get(path, () => {
+        http.get(path, ({ request }) => {
+          // Fails this item's reviews and not another release's, which the cited release's own row below fails alone.
+          if (new URL(request.url).searchParams.has("album_id")) return undefined;
           refused += 1;
           return HttpResponse.json({ message: "boom" }, { status: 500 });
         }),
@@ -1741,7 +1750,7 @@ describe("IntakeItemScreen", () => {
 
     it("offers a new slip only on the review on the cover, and shows no note on another printed review", async () => {
       fakeReviewsEndpoints({
-        records: [dogaItem()],
+        records: [dogaItem({ printed_at: printedOn.printed_at })],
         forItem: { [ITEM_ID]: [submitted(40, printedOn), submitted(41, { printed_revision_id: 411, printed_at: printedOn.printed_at })] },
         revisions: { "40": revisionsOf(40, 2), "41": revisionsOf(41, 2) },
       });
@@ -1765,7 +1774,7 @@ describe("IntakeItemScreen", () => {
       const requested = vi.fn();
       const onCover = !name.includes("not on");
       fakeReviewsEndpoints({
-        records: [dogaItem({ accepted_review_id: 40 })],
+        records: [dogaItem({ accepted_review_id: 40, printed_at: printedOn.printed_at })],
         forItem: { [ITEM_ID]: [submitted(40, onCover ? printedOn : {}), submitted(41, onCover ? {} : { printed_revision_id: 411, printed_at: printedOn.printed_at })] },
       });
       server.use(http.get(`${TEST_BACKEND_URL}/reviews/:id/revisions`, ({ params }) => {
@@ -1797,7 +1806,7 @@ describe("IntakeItemScreen", () => {
   describe("tape on the slip", () => {
     it("is drawn on the review on the cover and on no other", async () => {
       fakeReviewsEndpoints({
-        records: [dogaItem({ accepted_review_id: 40 })],
+        records: [dogaItem({ accepted_review_id: 40, printed_at: "2026-10-02T16:00:00Z" })],
         forItem: { [ITEM_ID]: [submitted(40), submitted(41)] },
       });
 
@@ -3230,6 +3239,244 @@ describe("IntakeItemScreen", () => {
         await waitFor(() => guarded().forEach((b) => expect(b).toBeEnabled()));
         await open(user);
         expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
+      });
+    });
+  });
+
+  describe("a record that cites a release", () => {
+    const CITED_ID = 7;
+    const printedOn = { printed_revision_id: 901, printed_at: "2026-10-02T16:00:00Z" };
+    const HEADING = "Reviews of Juana Molina — DOGA";
+    const citedItem = (overrides = {}) => dogaItem({ cited_album_id: CITED_ID, accepted_review_id: null, state: "pool", effective_state: "pool", ...overrides });
+    /** A review of the cited release's own record, which the item's list does not hold. */
+    const ofCited = (id: number, overrides = {}) =>
+      submitted(id, { intake_item_id: null, album_id: CITED_ID, author: `Cited ${id}`, review: `Cited take ${id}.`, ...overrides });
+    const archived = (id: number, reviewer: string, review: string) => ({
+      id, reviewer, album_id: CITED_ID, artist_name: "Juana Molina", album_title: "DOGA", record_label: "Sonamos",
+      artist_blurb: null, review, recommended_tracks: null, buzzwords: null, fcc_violations: null, review_purpose: null,
+      rotated: null, released_within_six_months: null, social_consent: null, submitted_at: null,
+    });
+    const section = async () => (await screen.findByRole("heading", { name: HEADING })).closest("section")!;
+    const taped = () => screen.queryAllByRole("group", { name: "Slip preview" }).filter((g) => g.querySelector(":scope > [aria-hidden='true']"));
+
+    /** The cited release's reviews are served by `forRelease` and by id; this item's own list and the item are boxes a spec can change. */
+    const setUp = (cited: Review[], { item = citedItem(), own = [] as Review[], archive = [] as ReturnType<typeof archived>[] } = {}) => {
+      fakeReviewsEndpoints({ records: [item], forRelease: { [CITED_ID]: cited }, reviews: cited, archive: { [CITED_ID]: archive } });
+      return { box: serveItem(item), own: serveItemReviews(own) };
+    };
+
+    /** Serves accept-review by putting the review sent on the cover of the box's item. */
+    const acceptingSent = (box: ReturnType<typeof serveItem>) => {
+      const sent: unknown[] = [];
+      server.use(
+        http.post(ACCEPT_URL, async ({ request }) => {
+          const body = (await request.json()) as { review_id: number };
+          sent.push(body);
+          box.item = { ...box.item, accepted_review_id: body.review_id };
+          return HttpResponse.json(box.item);
+        }),
+      );
+      return sent;
+    };
+
+    it("lists only the cited release's submitted typed reviews, each with Use this review and no From line", async () => {
+      setUp([ofCited(90), ofCited(91, { medium: "handwritten", review: null }), ofCited(92, { status: "draft" }), ofCited(93, { album_id: 8 })]);
+
+      renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      const cited = await section();
+      expect(within(cited).getByText(REVIEW_COPY.intakeItem.citedChoose)).toBeInTheDocument();
+      expect(await within(cited).findByText("Cited take 90.")).toBeInTheDocument();
+      expect(within(cited).queryByText(/Cited 9[123]|Cited take 9[23]/)).not.toBeInTheDocument();
+      expect(within(cited).getAllByRole("button", { name: "Use this review" })).toHaveLength(1);
+      expect(within(cited).queryByText(/^From /)).not.toBeInTheDocument();
+    });
+
+    it("sends the review to accept-review for this record and moves it under the cover, leaving no Use this review for it", async () => {
+      const { box } = setUp([ofCited(90)]);
+      const sent = acceptingSent(box);
+      const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      await user.click(await within(await section()).findByRole("button", { name: "Use this review" }));
+
+      const cover = (await screen.findByRole("heading", { name: "The review on the cover" })).closest("section")!;
+      expect(await within(cover).findByText("Cited take 90.")).toBeInTheDocument();
+      expect(sent).toEqual([{ review_id: 90 }]);
+      expect(within(await section()).queryByText("Cited take 90.")).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /^Use this review/ })).not.toBeInTheDocument();
+    });
+
+    it("keeps the chosen review on the cover when every later read fails, so the by-id read is not needed", async () => {
+      const { box, own } = setUp([ofCited(90)]);
+      acceptingSent(box);
+      const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+      const use = await within(await section()).findByRole("button", { name: "Use this review" });
+      box.fail = true;
+      own.fail = true;
+      server.use(http.get(`${TEST_BACKEND_URL}/reviews/90`, () => HttpResponse.json({ message: "boom" }, { status: 500 })));
+
+      await user.click(use);
+
+      const cover = (await screen.findByRole("heading", { name: "The review on the cover" })).closest("section")!;
+      await reviewsSettled(store);
+      expect(within(cover).getByText("Cited take 90.")).toBeInTheDocument();
+      expect(screen.queryByText(REVIEW_COPY.intakeItem.loadFailed)).not.toBeInTheDocument();
+    });
+
+    it("disables every Use this review on the page, the cited list's too, while the reread is held", async () => {
+      const { box } = setUp([ofCited(90), ofCited(91)], { own: [submitted(41)] });
+      acceptingSent(box);
+      const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+      const cited = await section();
+      await within(cited).findByText("Cited take 91.");
+      const reread = holdResponse("get", FILED_ITEM_PATH, () => HttpResponse.json(box.item));
+
+      await user.click(within(cited).getAllByRole("button", { name: "Use this review" })[0]);
+
+      await waitFor(() => expect(reread.calls.count).toBe(1));
+      const buttons = screen.getAllByRole("button", { name: "Use this review instead" });
+      expect(buttons.length).toBeGreaterThan(1);
+      buttons.forEach((b) => expect(b).toBeDisabled());
+      reread.release();
+      await reread.answered;
+    });
+
+    it("keeps the cited list when the refetch of the cited release's reviews fails", async () => {
+      setUp([ofCited(90)]);
+      const { store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+      await within(await section()).findByText("Cited take 90.");
+      let refused = 0;
+      server.use(
+        http.get(`${TEST_BACKEND_URL}/reviews`, ({ request }) => {
+          if (new URL(request.url).searchParams.get("album_id") !== String(CITED_ID)) return undefined;
+          refused += 1;
+          return HttpResponse.json({ message: "boom" }, { status: 500 });
+        }),
+      );
+
+      act(() => {
+        store.dispatch(reviewsApi.util.invalidateTags(["Review"]));
+      });
+      await waitFor(() => expect(refused).toBeGreaterThan(0));
+      await reviewsSettled(store);
+
+      expect(within(await section()).getByText("Cited take 90.")).toBeInTheDocument();
+      expect(screen.queryByText(REVIEW_COPY.intakeItem.loadFailed)).not.toBeInTheDocument();
+    });
+
+    describe("with no typed review in the app", () => {
+      const ARCHIVE = [archived(1, "Sam", "Warm and strange."), archived(2, "Pat", "Spare.")];
+      const empty = () => setUp([ofCited(91, { medium: "handwritten", review: null })], { archive: ARCHIVE });
+      const copyButtons = async () => within(await section()).findAllByRole("button", { name: "Copy this review onto the record" });
+
+      it("says so and lists the form archive's reviews of the cited release, each with a copy button", async () => {
+        empty();
+
+        renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+        const cited = await section();
+        expect(within(cited).getByText(REVIEW_COPY.intakeItem.citedNone)).toBeInTheDocument();
+        expect(within(cited).queryByText(REVIEW_COPY.intakeItem.citedChoose)).not.toBeInTheDocument();
+        expect(await copyButtons()).toHaveLength(2);
+        expect(within(cited).queryByRole("button", { name: /^Use this review/ })).not.toBeInTheDocument();
+      });
+
+      it("opens Record a review with the form review's text from Copy this review onto the record", async () => {
+        empty();
+        const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+        await user.click((await copyButtons())[1]);
+
+        expect(screen.getByRole("textbox", { name: "Review" })).toHaveValue("Spare.");
+        expect(screen.getByRole("textbox", { name: "Author" })).toHaveValue("Pat");
+      });
+
+      it("shows the second form review's fields when a second copy button is pressed with the form open and unchanged", async () => {
+        empty();
+        const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+        await user.click((await copyButtons())[0]);
+        expect(screen.getByRole("textbox", { name: "Review" })).toHaveValue("Warm and strange.");
+
+        await user.click((await copyButtons())[1]);
+
+        expect(screen.getByRole("textbox", { name: "Review" })).toHaveValue("Spare.");
+        expect(screen.getByRole("textbox", { name: "Author" })).toHaveValue("Pat");
+      });
+
+      it("opens the form empty from Type in the review from its cover", async () => {
+        empty();
+        const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+        await user.click((await copyButtons())[0]);
+
+        await user.click(within(await section()).getByRole("button", { name: "Type in the review from its cover" }));
+
+        expect(screen.getByRole("textbox", { name: "Review" })).toHaveValue("");
+        expect(screen.getByRole("radio", { name: "Typed" })).toBeChecked();
+        expect(screen.queryByText(REVIEW_COPY.record.copiedFromForm)).not.toBeInTheDocument();
+      });
+
+      it("opens the form with Handwritten chosen and the by-hand line from Copy it by pen", async () => {
+        empty();
+        const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+        await user.click(await within(await section()).findByRole("button", { name: "Copy it by pen" }));
+
+        expect(screen.getByRole("radio", { name: "Handwritten" })).toBeChecked();
+        expect(screen.getByText(REVIEW_COPY.record.byHand)).toBeInTheDocument();
+      });
+    });
+
+    describe("the cover rule once this copy is printed", () => {
+      /** Serves two revisions of every review asked about, the first of them the one printed, and counts the asks. */
+      const withRevisions = () => {
+        const requested = vi.fn();
+        server.use(
+          http.get(`${TEST_BACKEND_URL}/reviews/:id/revisions`, ({ params }) => {
+            requested(params.id);
+            return HttpResponse.json([reviewRevision({ id: 901, review_id: Number(params.id), revision: 1 }), reviewRevision({ id: 902, review_id: Number(params.id), revision: 2 })]);
+          }),
+        );
+        return requested;
+      };
+      const withCover = (printedAt: string | null) => {
+        setUp([ofCited(90, printedOn)], { item: citedItem({ accepted_review_id: 90, printed_at: printedAt }) });
+        return withRevisions();
+      };
+
+      it("shows no note and no tape, and reads Print the slip without asking for the revisions, until this copy was printed", async () => {
+        const requested = withCover(null);
+
+        const { store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+        expect(await screen.findByRole("link", { name: "Print the slip" })).toBeInTheDocument();
+        await screen.findByText("Cited take 90.");
+        await reviewsSettled(store);
+        expect(screen.queryByText(/printed on the cover|earlier version of this review/)).not.toBeInTheDocument();
+        expect(screen.queryByRole("link", { name: "Print a new slip" })).not.toBeInTheDocument();
+        expect(taped()).toHaveLength(0);
+        expect(requested).not.toHaveBeenCalled();
+      });
+
+      it("shows the note, the new-slip link and the tape once this copy was printed", async () => {
+        withCover("2026-10-03T16:00:00Z");
+
+        renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+        expect(await screen.findByText(/The cover has an earlier version of this review/)).toBeInTheDocument();
+        expect(await screen.findAllByRole("link", { name: "Print a new slip" })).not.toHaveLength(0);
+        expect(taped()).toHaveLength(1);
+      });
+
+      it("shows no printed-version note on a cited review printed for the cited record while it is only listed", async () => {
+        setUp([ofCited(95, printedOn)]);
+        const requested = withRevisions();
+
+        const { store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+        await within(await section()).findByText("Cited take 95.");
+        await reviewsSettled(store);
+        expect(screen.queryByText(/printed on the cover|earlier version of this review/)).not.toBeInTheDocument();
+        expect(requested).not.toHaveBeenCalled();
       });
     });
   });

@@ -336,6 +336,18 @@ export const REVIEW_COPY = {
     fileIt: "File it",
     /** Approved. The line beside the record's Delete, at the foot of the page. */
     deleteRecordHint: "Delete this record only if it was logged by mistake. Its reviews and drafts go with it.",
+    /** Approved. The heading of the cited release's reviews, on a record that cites a release. */
+    citedHeading: (artist: string, album: string) => `Reviews of ${artist} — ${album}`,
+    /** Approved. Under that heading while the cited release has a typed review. */
+    citedChoose: "This record uses a review of that one. Choose the one to print for this copy.",
+    /** Approved. Under that heading when the cited release has no typed review in the DJ site. */
+    citedNone: "That record has no typed review in the app.",
+    /** Approved. Opens the Record a review form empty, beside the line above. */
+    typeInReview: "Type in the review from its cover",
+    /** Approved. Opens the Record a review form with Handwritten chosen, for a review that exists only on paper. */
+    copyByPen: "Copy it by pen",
+    /** Approved. On each form review of the cited release: opens the Record a review form filled in from it. */
+    copyOntoRecord: "Copy this review onto the record",
   },
   /** The music directors' form that records a review of one record, on `/dashboard/admin/intake/{id}`. */
   record: {
