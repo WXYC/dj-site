@@ -38,6 +38,8 @@ import { toast } from "sonner";
 import ScrollRegion, { SCROLL_REGION_ATTRIBUTE } from "@/src/components/experiences/modern/ScrollRegion";
 import ReviewEditor from "@/src/components/experiences/modern/reviews/ReviewEditor";
 import { REVIEW_COPY } from "@/src/components/experiences/modern/reviews/copy";
+import { readReviewDraft, writeReviewDraft } from "@/lib/features/reviews/reviewDrafts";
+import { toFieldPatch, toFieldValues } from "@/src/components/experiences/modern/reviews/SlipFields";
 import { STICKY_ROOM_PROPERTY } from "@/src/components/experiences/modern/reviews/useStickyRoom";
 import { APPBAR_CLEARANCE_PX, APPBAR_HEIGHT_PX, APPBAR_OFFSET_PX } from "@/src/components/shared/Theme/Appbar";
 
@@ -85,6 +87,9 @@ describe("ReviewEditor", () => {
     ["save", REVIEW_COPY.save, "Save"],
     ["savedChange", REVIEW_COPY.savedChange, "Saved."],
     ["cancel", REVIEW_COPY.cancel, "Cancel"],
+    ["restore.notice", REVIEW_COPY.restore.notice, "You left this review with unsaved changes."],
+    ["restore.restore", REVIEW_COPY.restore.restore, "Restore my changes"],
+    ["restore.discard", REVIEW_COPY.restore.discard, "Discard them"],
     ["leave.title", REVIEW_COPY.leave.title, "Leave without saving?"],
     ["leave.body", REVIEW_COPY.leave.body, "Your changes since the last save will be lost."],
     ["leave.leave", REVIEW_COPY.leave.leave, "Leave"],
@@ -1058,6 +1063,178 @@ describe("ReviewEditor", () => {
       expect(fromDocument).toHaveBeenCalledWith("click", expect.any(Function), true);
       fromWindow.mockRestore();
       fromDocument.mockRestore();
+    });
+  });
+
+  describe("unsaved text kept for the tab", () => {
+    const NOTICE = "You left this review with unsaved changes.";
+    const RESTORE = "Restore my changes";
+    const DISCARD = "Discard them";
+    const stored = () => readReviewDraft(40);
+    const keepTyped = async (user: ReturnType<typeof renderWithProviders>["user"]) => {
+      await user.type(await screen.findByLabelText("Review"), " More.");
+      await waitFor(() => expect(stored()).not.toBeNull());
+    };
+    const leftWithUnsaved = async () => {
+      serve();
+      const first = renderWithProviders(<ReviewEditor id={40} />);
+      await keepTyped(first.user);
+      first.unmount();
+    };
+
+    afterEach(() => sessionStorage.clear());
+
+    it("keeps what was typed, consent included, under the review's key, and removes it when the form goes clean", async () => {
+      serve();
+      const { user } = renderWithProviders(<ReviewEditor id={40} />);
+      await keepTyped(user);
+      expect(stored()).toMatchObject({ review: "Warm. More.", publish_website: false });
+
+      await user.type(screen.getByLabelText("Review"), "{Backspace>6/}");
+      await waitFor(() => expect(stored()).toBeNull());
+    });
+
+    it("keeps nothing while the form is clean", async () => {
+      serve();
+      renderWithProviders(<ReviewEditor id={40} />);
+      await screen.findByLabelText("Review");
+      expect(sessionStorage).toHaveLength(0);
+    });
+
+    it("offers to restore a stored entry that differs, above a form that stays usable and shows the saved text", async () => {
+      await leftWithUnsaved();
+      const { user } = renderWithProviders(<ReviewEditor id={40} />);
+
+      expect(await screen.findByText(NOTICE)).toBeInTheDocument();
+      expect(screen.getByLabelText("Review")).toHaveValue("Warm.");
+      expect(stored()).not.toBeNull();
+      await user.type(screen.getByLabelText("Review"), "!");
+      expect(screen.getByLabelText("Review")).toHaveValue("Warm.!");
+    });
+
+    it("Restore fills the form, leaves it dirty and closes the offer", async () => {
+      await leftWithUnsaved();
+      const { user } = renderWithProviders(<ReviewEditor id={40} />);
+      await user.click(await screen.findByRole("button", { name: RESTORE }));
+
+      expect(screen.getByLabelText("Review")).toHaveValue("Warm. More.");
+      expect(screen.queryByText(NOTICE)).not.toBeInTheDocument();
+      expect(stored()).toMatchObject({ review: "Warm. More." });
+      expect(window.dispatchEvent(new Event("beforeunload", { cancelable: true }))).toBe(false);
+    });
+
+    it("Discard removes the entry, keeps the review as saved and closes the offer", async () => {
+      await leftWithUnsaved();
+      const { user } = renderWithProviders(<ReviewEditor id={40} />);
+      await user.click(await screen.findByRole("button", { name: DISCARD }));
+
+      expect(screen.getByLabelText("Review")).toHaveValue("Warm.");
+      expect(screen.queryByText(NOTICE)).not.toBeInTheDocument();
+      expect(stored()).toBeNull();
+    });
+
+    it("the offer goes away on the first edit and the new text replaces the stored copy", async () => {
+      await leftWithUnsaved();
+      const { user } = renderWithProviders(<ReviewEditor id={40} />);
+      await screen.findByText(NOTICE);
+      await user.type(screen.getByLabelText("Review"), "?");
+
+      expect(screen.queryByText(NOTICE)).not.toBeInTheDocument();
+      await waitFor(() => expect(stored()).toMatchObject({ review: "Warm.?" }));
+    });
+
+    it("removes an entry equal to the loaded review without an offer", async () => {
+      writeReviewDraft(40, { ...toFieldPatch(toFieldValues(DRAFT)), publish_website: false, publish_apps: false, publish_instagram: false, credit: null });
+      serve();
+      renderWithProviders(<ReviewEditor id={40} />);
+      await screen.findByLabelText("Review");
+
+      await waitFor(() => expect(stored()).toBeNull());
+      expect(screen.queryByText(NOTICE)).not.toBeInTheDocument();
+    });
+
+    it("keeps one review's entry out of another's editor", async () => {
+      await leftWithUnsaved();
+      fakeReviewsEndpoints({ reviews: [review({ id: 41, ...CONSENT, author_user_id: "dj-me" })] });
+      renderWithProviders(<ReviewEditor id={41} />);
+      await screen.findByLabelText("Review");
+
+      expect(screen.queryByText(NOTICE)).not.toBeInTheDocument();
+      expect(stored()).not.toBeNull();
+    });
+
+    it("a successful save removes the entry; a failed one keeps it", async () => {
+      serve();
+      server.use(http.patch(`${TEST_BACKEND_URL}/reviews/40`, () => HttpResponse.json({ message: "no" }, { status: 500 })));
+      const { user } = renderWithProviders(<ReviewEditor id={40} />);
+      await keepTyped(user);
+      await user.click(screen.getByRole("button", { name: "Save draft" }));
+      await waitFor(() => expect(toast.error).toHaveBeenCalled());
+      expect(stored()).toMatchObject({ review: "Warm. More." });
+
+      server.use(http.patch(`${TEST_BACKEND_URL}/reviews/40`, () => HttpResponse.json(DRAFT)));
+      await user.click(screen.getByRole("button", { name: "Save draft" }));
+      await waitFor(() => expect(stored()).toBeNull());
+    });
+
+    it("a successful submit removes the entry; a failed one keeps it", async () => {
+      serve();
+      // A submit saves first, so the text is only kept while that save is what fails.
+      server.use(http.patch(`${TEST_BACKEND_URL}/reviews/40`, () => HttpResponse.json({ message: "no" }, { status: 500 })));
+      const { user } = renderWithProviders(<ReviewEditor id={40} />);
+      await keepTyped(user);
+      const submitFromDialog = async () => {
+        await user.click(screen.getByRole("button", { name: "Submit" }));
+        await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Submit" }));
+      };
+      await submitFromDialog();
+      await waitFor(() => expect(toast.error).toHaveBeenCalled());
+      expect(stored()).not.toBeNull();
+
+      server.use(
+        http.patch(`${TEST_BACKEND_URL}/reviews/40`, () => HttpResponse.json(DRAFT)),
+        http.post(`${TEST_BACKEND_URL}/reviews/40/submit`, () => HttpResponse.json(SUBMITTED)),
+      );
+      await submitFromDialog();
+      await waitFor(() => expect(stored()).toBeNull());
+    });
+
+    it("a successful delete removes the entry", async () => {
+      serve();
+      server.use(http.delete(`${TEST_BACKEND_URL}/reviews/40`, () => new HttpResponse(null, { status: 204 })));
+      const { user } = renderWithProviders(<ReviewEditor id={40} />);
+      await keepTyped(user);
+      await user.click(screen.getByRole("button", { name: "Delete" }));
+      await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Delete" }));
+
+      await waitFor(() => expect(router.replace).toHaveBeenCalled());
+      expect(stored()).toBeNull();
+    });
+
+    it("works as on main when storage throws", async () => {
+      const broken = () => { throw new Error("quota"); };
+      vi.spyOn(Storage.prototype, "setItem").mockImplementation(broken);
+      vi.spyOn(Storage.prototype, "getItem").mockImplementation(broken);
+      vi.spyOn(Storage.prototype, "removeItem").mockImplementation(broken);
+      try {
+        serve();
+        const { user } = renderWithProviders(<ReviewEditor id={40} />);
+        await user.type(await screen.findByLabelText("Review"), " More.");
+
+        expect(screen.getByLabelText("Review")).toHaveValue("Warm. More.");
+        expect(screen.queryByText(NOTICE)).not.toBeInTheDocument();
+      } finally {
+        vi.restoreAllMocks();
+      }
+    });
+
+    it("never calls history", async () => {
+      const spies = { pushState: vi.spyOn(window.history, "pushState"), replaceState: vi.spyOn(window.history, "replaceState"), back: vi.spyOn(window.history, "back"), go: vi.spyOn(window.history, "go") };
+      await leftWithUnsaved();
+      const { user } = renderWithProviders(<ReviewEditor id={40} />);
+      await user.click(await screen.findByRole("button", { name: RESTORE }));
+      expect(Object.values(spies).map((spy) => spy.mock.calls.length)).toEqual([0, 0, 0, 0]);
+      Object.values(spies).forEach((spy) => spy.mockRestore());
     });
   });
 });

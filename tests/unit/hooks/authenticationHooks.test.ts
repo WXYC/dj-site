@@ -3,6 +3,7 @@ import { renderHook, act } from "@testing-library/react";
 import { createElement, type ReactNode } from "react";
 import { Provider } from "react-redux";
 import { configureStore } from "@reduxjs/toolkit";
+import { readReviewDraft, writeReviewDraft } from "@/lib/features/reviews/reviewDrafts";
 import { authenticationSlice } from "@/lib/features/authentication/frontend";
 
 // Mock next/navigation
@@ -795,6 +796,23 @@ describe("authenticationHooks", () => {
         expect.stringContaining("bounced"),
       );
       expect(mockPush).not.toHaveBeenCalled();
+    });
+
+    it("removes every review's stored unsaved text", async () => {
+      writeReviewDraft(40, { review: "Warm." });
+      writeReviewDraft(41, { review: "Dense." });
+      sessionStorage.setItem("unrelated", "kept");
+
+      const { useLogout } = await import("@/src/hooks/authenticationHooks");
+      const { result } = renderHook(() => useLogout(), { wrapper: createWrapper() });
+      await act(async () => {
+        await result.current.handleLogout();
+      });
+
+      expect(readReviewDraft(40)).toBeNull();
+      expect(readReviewDraft(41)).toBeNull();
+      expect(sessionStorage.getItem("unrelated")).toBe("kept");
+      sessionStorage.clear();
     });
   });
 
