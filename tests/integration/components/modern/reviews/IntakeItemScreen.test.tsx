@@ -94,6 +94,13 @@ const acceptingReview = (box: { item: ReturnType<typeof dogaItem> }) =>
     return HttpResponse.json(box.item);
   });
 
+/** Serves `DELETE /reviews/:id` with a 204, handing the deleted id to `onDelete`. */
+const deletingReview = (onDelete?: (id: string) => void) =>
+  http.delete(`${TEST_BACKEND_URL}/reviews/:id`, ({ params }) => {
+    onDelete?.(String(params.id));
+    return new HttpResponse(null, { status: 204 });
+  });
+
 /** Serves the item through a mutable box, so a spec can change the answer between reads, or hold a read in flight. */
 function serveItem(initial: ReturnType<typeof dogaItem>) {
   const box = { item: initial, reads: 0, fail: false, hold: null as Promise<void> | null };
@@ -1229,10 +1236,7 @@ describe("IntakeItemScreen", () => {
       const box = setUp(dogaItem(NOTHING_ON_COVER), [submitted(41, { author: "Cat Power" })]);
       recordPosts(box);
       const deletes: string[] = [];
-      server.use(http.delete(`${TEST_BACKEND_URL}/reviews/:id`, ({ params }) => {
-        deletes.push(String(params.id));
-        return new HttpResponse(null, { status: 204 });
-      }));
+      server.use(deletingReview((id) => deletes.push(id)));
       const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
       const button = await screen.findByRole("button", { name: "Use this review" });
       await reviewsSettled(store);
@@ -1286,10 +1290,7 @@ describe("IntakeItemScreen", () => {
       it("opens the cover confirmation on the chosen review's Delete review, and deletes it once confirmed", async () => {
         const deletes: string[] = [];
         const { user } = await chooseWithFailingReread();
-        server.use(http.delete(`${TEST_BACKEND_URL}/reviews/:id`, ({ params }) => {
-          deletes.push(String(params.id));
-          return new HttpResponse(null, { status: 204 });
-        }));
+        server.use(deletingReview((id) => deletes.push(id)));
 
         await user.click(screen.getByRole("button", { name: "Delete review by Cat Power" }));
         const dialog = await screen.findByRole("alertdialog");
@@ -1849,12 +1850,7 @@ describe("IntakeItemScreen", () => {
       fakeReviewsEndpoints({ records: [item], forItem: { [ITEM_ID]: reviews } });
       const box = serveItem(item);
       const deletes: string[] = [];
-      server.use(
-        http.delete(`${TEST_BACKEND_URL}/reviews/:id`, ({ params }) => {
-          deletes.push(String(params.id));
-          return new HttpResponse(null, { status: 204 });
-        }),
-      );
+      server.use(deletingReview((id) => deletes.push(id)));
       return { box, deletes };
     };
 
@@ -2476,6 +2472,7 @@ describe("IntakeItemScreen", () => {
       { id: "md-me", name: "Mo" },
     ];
     const SAVE_URL = `${TEST_BACKEND_URL}/reviews`;
+    const failingSave = () => HttpResponse.json({ message: "boom" }, { status: 500 });
 
     beforeEach(() => {
       vi.mocked(toast).mockClear();
@@ -2522,6 +2519,13 @@ describe("IntakeItemScreen", () => {
       if (text) await user.type(field, text);
     };
     const writeReview = (user: User, text: string) => user.type(screen.getByRole("textbox", { name: "Review" }), text);
+    /** Opens the form and fills it as a ticked save of "Warm." by Sessa unless told otherwise; `unticked` clears Use this as the record's review. */
+    const fillAndTick = async (user: User, { author = "Sessa", text = "Warm.", unticked = false } = {}) => {
+      await open(user);
+      await fillAuthor(user, author);
+      await writeReview(user, text);
+      if (unticked) await user.click(screen.getByRole("checkbox", { name: REVIEW_COPY.record.useAsCover }));
+    };
     const link = async (user: User, name: string) => {
       await user.click(screen.getByRole("combobox", { name: "Link to an account (optional)" }));
       await user.click(await screen.findByRole("option", { name }));
@@ -2697,10 +2701,7 @@ describe("IntakeItemScreen", () => {
     it("with the box unticked, creates with accept false, submits it, and the review appears under Other reviews", async () => {
       const { creates, submits } = setUp(dogaItem(), [submitted(40)]);
       const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
-      await open(user);
-      await fillAuthor(user, "Cat Power");
-      await writeReview(user, "Warm.");
-      await user.click(screen.getByRole("checkbox", { name: REVIEW_COPY.record.useAsCover }));
+      await fillAndTick(user, { author: "Cat Power", unticked: true });
 
       await save(user);
 
@@ -2725,10 +2726,7 @@ describe("IntakeItemScreen", () => {
         return HttpResponse.json({ message: "boom" }, { status: 500 });
       }));
       const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
-      await open(user);
-      await fillAuthor(user, "Cat Power");
-      await writeReview(user, "Warm.");
-      await user.click(screen.getByRole("checkbox", { name: REVIEW_COPY.record.useAsCover }));
+      await fillAndTick(user, { author: "Cat Power", unticked: true });
 
       await save(user);
 
@@ -2759,10 +2757,7 @@ describe("IntakeItemScreen", () => {
     it("holds the unticked save's Recorded. line until the page's reread settles", async () => {
       const { box, submits } = setUp(dogaItem(), [submitted(40)]);
       const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
-      await open(user);
-      await fillAuthor(user, "Cat Power");
-      await writeReview(user, "Warm.");
-      await user.click(screen.getByRole("checkbox", { name: REVIEW_COPY.record.useAsCover }));
+      await fillAndTick(user, { author: "Cat Power", unticked: true });
       await reviewsSettled(store);
       const reread = holdResponse("get", FILED_ITEM_PATH, () => HttpResponse.json(box.item));
 
@@ -2886,9 +2881,7 @@ describe("IntakeItemScreen", () => {
       setUp();
       server.use(http.post(SAVE_URL, () => HttpResponse.json({ message: SERVER_WORDS }, { status: 400 })));
       const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
-      await open(user);
-      await fillAuthor(user, "Cat Power");
-      await writeReview(user, "Warm.");
+      await fillAndTick(user, { author: "Cat Power" });
       if (linked) await link(user, "Sam");
       await reviewsSettled(store);
 
@@ -2910,9 +2903,7 @@ describe("IntakeItemScreen", () => {
       setUp();
       server.use(http.post(SAVE_URL, () => HttpResponse.json({ message: "boom" }, { status: 500 })));
       const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
-      await open(user);
-      await fillAuthor(user, "Cat Power");
-      await writeReview(user, "Warm.");
+      await fillAndTick(user, { author: "Cat Power" });
 
       await save(user);
 
@@ -2925,9 +2916,7 @@ describe("IntakeItemScreen", () => {
     it("disables every Use this review and Delete review while the ticked save's reread is outstanding, and enables them once it settles", async () => {
       const { box, creates } = setUp(dogaItem(), [submitted(40), submitted(41, { author: "Cat Power" })]);
       const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
-      await open(user);
-      await fillAuthor(user, "Sessa");
-      await writeReview(user, "Warm.");
+      await fillAndTick(user);
       await reviewsSettled(store);
       const reread = holdResponse("get", FILED_ITEM_PATH, () => HttpResponse.json(box.item));
 
@@ -2950,11 +2939,9 @@ describe("IntakeItemScreen", () => {
 
     it("disables every Use this review and Delete review while the ticked create is in flight, and enables them when it fails", async () => {
       setUp(dogaItem(NOTHING_ON_COVER), [submitted(41), submitted(42)]);
-      const write = holdResponse("post", SAVE_URL, () => HttpResponse.json({ message: "boom" }, { status: 500 }));
+      const write = holdResponse("post", SAVE_URL, failingSave);
       const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
-      await open(user);
-      await fillAuthor(user, "Sessa");
-      await writeReview(user, "Warm.");
+      await fillAndTick(user);
       await reviewsSettled(store);
 
       await save(user);
@@ -2994,9 +2981,7 @@ describe("IntakeItemScreen", () => {
     it("keeps saying the save will be the review on the cover through the form's own ticked save, on a record with nothing on the cover", async () => {
       const { box } = setUp(dogaItem(NOTHING_ON_COVER));
       const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
-      await open(user);
-      await fillAuthor(user, "Sessa");
-      await writeReview(user, "Warm.");
+      await fillAndTick(user);
       await reviewsSettled(store);
       const reread = holdResponse("get", FILED_ITEM_PATH, () => HttpResponse.json(box.item));
 
@@ -3018,9 +3003,7 @@ describe("IntakeItemScreen", () => {
         acceptingReview(box),
       );
       const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
-      await open(user);
-      await fillAuthor(user, "Sessa");
-      await writeReview(user, "Warm.");
+      await fillAndTick(user);
       const choose = await screen.findByRole("button", { name: "Use this review" });
       await reviewsSettled(store);
       await save(user);
@@ -3046,9 +3029,7 @@ describe("IntakeItemScreen", () => {
       it("puts a ticked save's review on the cover, so the page keeps the cover question and is not blanked", async () => {
         const { box, reviews } = setUp(dogaItem(NOTHING_ON_COVER), [submitted(41, { author: "Stereolab" })]);
         const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
-        await open(user);
-        await fillAuthor(user, "Cat Power");
-        await writeReview(user, "Warm.");
+        await fillAndTick(user, { author: "Cat Power" });
         await screen.findByRole("button", { name: "Use this review" });
         await reviewsSettled(store);
         box.fail = true;
@@ -3068,10 +3049,7 @@ describe("IntakeItemScreen", () => {
       it("leaves the cover alone for an unticked save, whose review is a draft until its submit", async () => {
         const { box, reviews } = setUp(dogaItem(NOTHING_ON_COVER), [submitted(41, { author: "Stereolab" })]);
         const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
-        await open(user);
-        await fillAuthor(user, "Cat Power");
-        await writeReview(user, "Warm.");
-        await user.click(screen.getByRole("checkbox", { name: REVIEW_COPY.record.useAsCover }));
+        await fillAndTick(user, { author: "Cat Power", unticked: true });
         await screen.findByRole("button", { name: "Use this review" });
         await reviewsSettled(store);
         box.fail = true;
@@ -3101,20 +3079,13 @@ describe("IntakeItemScreen", () => {
     });
 
     describe("the page's hold, counted per write", () => {
-      const NEW = { author: "Sessa" };
-      const fillAndTick = async (user: User, unticked: boolean) => {
-        await open(user);
-        await fillAuthor(user, NEW.author);
-        await writeReview(user, "Warm.");
-        if (unticked) await user.click(screen.getByRole("checkbox", { name: REVIEW_COPY.record.useAsCover }));
-      };
       const useButtons = () => screen.queryAllByRole("button", { name: /^Use this review/ });
 
       it("holds every review button, worded as no replacement, while an unticked save's create is in flight", async () => {
         setUp(dogaItem(NOTHING_ON_COVER), [submitted(41), submitted(42)]);
-        const write = holdResponse("post", SAVE_URL, () => HttpResponse.json({ message: "boom" }, { status: 500 }));
+        const write = holdResponse("post", SAVE_URL, failingSave);
         const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
-        await fillAndTick(user, true);
+        await fillAndTick(user, { unticked: true });
         await reviewsSettled(store);
 
         await save(user);
@@ -3132,7 +3103,7 @@ describe("IntakeItemScreen", () => {
       it("holds every review button, worded as no replacement, while an unticked save's reread is outstanding", async () => {
         const { box } = setUp(dogaItem(NOTHING_ON_COVER), [submitted(41), submitted(42)]);
         const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
-        await fillAndTick(user, true);
+        await fillAndTick(user, { unticked: true });
         await reviewsSettled(store);
         const reread = holdResponse("get", FILED_ITEM_PATH, () => HttpResponse.json(box.item));
 
@@ -3159,8 +3130,8 @@ describe("IntakeItemScreen", () => {
         await user.click(first);
         await waitFor(() => expect(screen.getByRole("button", { name: "Use this review instead" })).toBeEnabled());
         await reviewsSettled(store);
-        const second = holdResponse("post", SAVE_URL, () => HttpResponse.json({ message: "boom" }, { status: 500 }));
-        await fillAndTick(user, false);
+        const second = holdResponse("post", SAVE_URL, failingSave);
+        await fillAndTick(user);
 
         await save(user);
 
@@ -3176,7 +3147,7 @@ describe("IntakeItemScreen", () => {
       // The form's cover line reads the cover alone: only a write that is putting a review on the cover changes it.
       const withCoverLine = async (hold: (user: User) => Promise<{ release: () => void; answered: Promise<unknown> }>, line: "none" | "replaces") => {
         const { box } = setUp(dogaItem(NOTHING_ON_COVER), [submitted(41), submitted(42, { author: "Cat Power" })]);
-        server.use(acceptingReview(box), http.delete(`${TEST_BACKEND_URL}/reviews/:id`, () => new HttpResponse(null, { status: 204 })));
+        server.use(acceptingReview(box), deletingReview());
         const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
         await reviewsSettled(store);
         const held = await hold(user);
@@ -3203,8 +3174,8 @@ describe("IntakeItemScreen", () => {
 
       it("does not say the save replaces the cover while an unticked save's create is outstanding", () =>
         withCoverLine(async (user) => {
-          const create = holdResponse("post", SAVE_URL, () => HttpResponse.json({ message: "boom" }, { status: 500 }));
-          await fillAndTick(user, true);
+          const create = holdResponse("post", SAVE_URL, failingSave);
+          await fillAndTick(user, { unticked: true });
           await save(user);
           await waitFor(() => expect(create.calls.count).toBe(1));
           await user.click(screen.getByRole("button", { name: "Record a review" }));
@@ -3224,7 +3195,7 @@ describe("IntakeItemScreen", () => {
       // A Delete review that succeeds takes its own handle; a Use this review pressed before it is a second write on the page at once.
       const overlap = async (acceptRespond: () => Response) => {
         setUp(dogaItem(NOTHING_ON_COVER), [submitted(41), submitted(42, { author: "Cat Power" })]);
-        server.use(http.delete(`${TEST_BACKEND_URL}/reviews/:id`, () => new HttpResponse(null, { status: 204 })));
+        server.use(deletingReview());
         const accept = holdResponse("post", ACCEPT_URL, acceptRespond);
         const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
         const [first] = await screen.findAllByRole("button", { name: "Use this review" });
@@ -3268,9 +3239,9 @@ describe("IntakeItemScreen", () => {
 
       it("releases a ticked save's hold when its create fails after the form has closed", async () => {
         setUp(dogaItem(NOTHING_ON_COVER), [submitted(41), submitted(42)]);
-        const write = holdResponse("post", SAVE_URL, () => HttpResponse.json({ message: "boom" }, { status: 500 }));
+        const write = holdResponse("post", SAVE_URL, failingSave);
         const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
-        await fillAndTick(user, false);
+        await fillAndTick(user);
         await reviewsSettled(store);
         await save(user);
         await waitFor(() => expect(write.calls.count).toBe(1));
