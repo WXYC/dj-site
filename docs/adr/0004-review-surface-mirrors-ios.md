@@ -2,9 +2,9 @@
 
 Canonical source: [`wxyc-dj-ios/docs/cross-repo-adrs.md` ADR 0005](https://github.com/WXYC/wxyc-dj-ios/blob/main/docs/cross-repo-adrs.md#adr-0005--reviews-are-many-per-release-one-accepted-by-a-music-director-as-the-records-review-consent-gated-per-surface). This file mirrors that decision for the dj-site surface and does not restate it in full; where the two disagree, the canonical ADR wins.
 
-Status: Accepted, 2026-10-02, with the canonical ADR; amended 2026-10-04 to the station's decisions of that date. The earlier text survives only in this file's git history. The 2026-10-02 version superseded the one-per-album, author-owned model with an MD-curated claim queue that this file recorded before it.
+Status: Accepted, 2026-10-02, with the canonical ADR; amended 2026-10-04 to the station's decisions of that date, and amended 2026-10-11 for digital albums: an intake item is a disc the station holds or an album that arrived as files. The earlier text survives only in this file's git history. The 2026-10-02 version superseded the one-per-album, author-owned model with an MD-curated claim queue that this file recorded before it.
 
-A review is about an intake item (a physical copy the station holds, logged by a music director) or an existing library release, never a record the station does not hold. A release can have many reviews. A review carries the printed slip's free-text content (buzzwords, an artist paragraph, the review itself, recommended tracks, and an FCC line) plus per-surface publishing consent. There is no rating, no headline, no per-track polarity, and no curated tag vocabulary. A review carries no routing: the music director alone decides rotation versus shelf when filing.
+A review is about an intake item (a disc the station holds, or an album that arrived as files, `digital`; either way logged by a music director) or an existing library release, never a record the station does not hold. A release can have many reviews. A digital album is stored under the CD-R format and shown as Digital until it is filed. A review carries the printed slip's free-text content (buzzwords, an artist paragraph, the review itself, recommended tracks, and an FCC line) plus per-surface publishing consent. There is no rating, no headline, no per-track polarity, and no curated tag vocabulary. A review carries no routing: the music director alone decides rotation versus shelf when filing.
 
 ## Many reviews, one chosen
 
@@ -40,7 +40,7 @@ Notices to DJs are email in v1; there is no in-app inbox.
 
 ## The review shelf and the intake flow
 
-The review shelf, checkout, request, and pass flow is the same on every surface. A music director logs items and requests named DJs; a DJ checks an item out to write its review; a checkout never lapses but is flagged overdue after 14 days.
+The review shelf, checkout, request, and pass flow is the same on every surface. A music director logs items and requests named DJs; a DJ checks an item out to write its review, which for a disc means physically taking the record; a DJ takes a digital album through the same checkout, but taking it is a claim to review it, not a loan, so there is no return to the music office. A checkout never lapses; after 14 days a disc's checkout is flagged overdue, while a digital album's take shows as not reviewed yet, not as overdue.
 
 After the cutover date, every release entering the library or rotation needs a review chosen for the cover, or a citation, apart from the two legacy paths described under Backend contract. Releases catalogued before the cutover are deemed reviewed. The form and the app overlap through fall 2026; the cutover and the form's close are one day at the start of the spring 2027 semester.
 
