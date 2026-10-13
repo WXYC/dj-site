@@ -3,19 +3,21 @@
 import { useId, useState } from "react";
 import Link from "next/link";
 import { Button, Chip, Divider, Radio, RadioGroup, Stack, Typography } from "@mui/joy";
-import type { IntakeItem, Review } from "@wxyc/shared";
+import type { IntakeItem, IntakeItemPatch, Review } from "@wxyc/shared";
 import type { AlbumEntry } from "@/lib/features/catalog/types";
 import { namedAuthor } from "@/lib/features/reviews/author";
 import { itemHolder } from "@/lib/features/reviews/holder";
 import { hasNothingToShow } from "@/lib/has-nothing-to-show";
 import {
   isIntakeAlreadyFiled,
+  isIntakeInvalidCitation,
   isIntakeNotReviewed,
   isIntakeReleaseRefused,
   isIntakeStateChanged,
   useDeleteIntakeItemMutation,
   useFileIntakeItemMutation,
   useGetIntakeItemQuery,
+  useUpdateIntakeItemMutation,
 } from "@/lib/features/reviews/intakeApi";
 import { useGetAlbumReviewsForReleaseQuery } from "@/lib/features/reviews/albumReviewApi";
 import { reviewApi, useGetItemReviewsQuery, useGetReviewQuery, useGetReviewsForReleaseQuery } from "@/lib/features/reviews/reviewApi";
@@ -31,6 +33,7 @@ import { useGetFormatsQuery, useGetInformationQuery } from "@/lib/features/catal
 import { intakeRecord, recordLine, releaseRecord } from "./recordLine";
 import ReleasePicker from "./ReleasePicker";
 import { fromLine, newestFirst } from "./ReviewFrom";
+import { CiteRelease, RemoveCitation } from "./CiteControls";
 import DeleteReviewButton from "./DeleteReviewButton";
 import UseThisReviewButton from "./UseThisReviewButton";
 import { EMPTY_START, PAPER_START, formReviewStart, type RecordFormStart } from "@/lib/features/reviews/formReviewStart";
@@ -85,6 +88,7 @@ export default function IntakeItemScreen({ id }: { id: number }) {
   const reviews = useGetItemReviewsQuery(id, { skip: !visible || deletedLine !== null, selectFromResult: fromCache });
   const [fileItem, filing] = useFileIntakeItemMutation();
   const [deleteItem, deletion] = useDeleteIntakeItemMutation();
+  const [updateItem, citation] = useUpdateIntakeItemMutation();
   const [notice, setNotice] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [picked, setPicked] = useState<AlbumEntry | null>(null);
@@ -96,13 +100,14 @@ export default function IntakeItemScreen({ id }: { id: number }) {
   const [holds, setHolds] = useState({ all: 0, movers: 0 });
 
   const citedId = item.data?.cited_album_id ?? null;
-  const cited = useGetReviewsForReleaseQuery(citedId ?? 0, { skip: !visible || citedId === null });
+  // Current answers only: when the citation changes, the old release's name and list must not show while the new one's reads are out.
+  const cited = useGetReviewsForReleaseQuery(citedId ?? 0, { skip: !visible || citedId === null, selectFromResult: fromCache });
   // The cited release's own name: the item carries only its id.
-  const citedRelease = useGetInformationQuery({ album_id: citedId ?? 0 }, { skip: !visible || citedId === null });
+  const citedRelease = useGetInformationQuery({ album_id: citedId ?? 0 }, { skip: !visible || citedId === null, selectFromResult: fromCache });
   // The cited release's own reviews, less the one on the cover, which shows under "The review on the cover".
   const citedTyped = (cited.data ?? []).filter((r) => r.album_id === citedId && r.status === "submitted" && r.medium === "typed");
   // Only the empty state shows the form archive's reviews, so they are read only once the typed list is known to be empty.
-  const citedArchive = useGetAlbumReviewsForReleaseQuery(citedId ?? 0, { skip: !visible || citedId === null || cited.data === undefined || citedTyped.length > 0 });
+  const citedArchive = useGetAlbumReviewsForReleaseQuery(citedId ?? 0, { skip: !visible || citedId === null || cited.data === undefined || citedTyped.length > 0, selectFromResult: fromCache });
   const dispatch = useAppDispatch();
 
   const coverId = item.data?.accepted_review_id ?? null;
@@ -152,6 +157,9 @@ export default function IntakeItemScreen({ id }: { id: number }) {
     .filter((r) => r.id !== coverId)
     .sort(newestFirst);
 
+  const isCited = citedId !== null || item.data.cited_submission_id != null;
+  // Clearing a release's citation takes a review chosen from it off the cover, which is any cover review the item's own list lacks.
+  const coverFromCited = citedId !== null && coverId != null && (!ownCover || ownCover.album_id === citedId);
   const holder = itemHolder(item.data);
   const coverConfirmation =
     holder.kind === "checked_out" ? COPY.deleteCoverHeld(holder.name) : holder.kind === "removed" ? COPY.deleteCoverRemoved : COPY.deleteCoverShelf;
@@ -214,6 +222,25 @@ export default function IntakeItemScreen({ id }: { id: number }) {
     );
 
   const stillOut = cover && holder.kind === "checked_out" && holder.name && holder.id !== cover.author_user_id ? COPY.stillOutWith(holder.name) : null;
+
+  // Setting or clearing a citation can take the cover review off, so it holds the page like a review write; the reload also shows a refusal's cause.
+  const changeCitation = async (body: IntakeItemPatch, invalid?: string) => {
+    if (citation.isLoading) return;
+    setNotice(null);
+    const release = hold(false);
+    try {
+      try {
+        await updateItem({ id, body }).unwrap();
+      } catch (err) {
+        const refusal = isIntakeAlreadyFiled(err) ? COPY.alreadyFiled : invalid && isIntakeInvalidCitation(err) ? invalid : null;
+        if (refusal !== null ? (await reload()).mounted : mounted.current) setNotice(refusal ?? REVIEW_COPY.screen.writeFailed);
+        return;
+      }
+      await reload();
+    } finally {
+      release();
+    }
+  };
 
   // The intake refusals are worded here; the server's text is never shown.
   const submitNew: FilingSubmit = async (request) => {
@@ -297,12 +324,18 @@ export default function IntakeItemScreen({ id }: { id: number }) {
         coverId == null && <Typography>{COPY.noCover}</Typography>
       )}
       {others.length > 0 && <Group title={REVIEW_COPY.albumPanel.others} reviews={others} recordOf={recordOf} onCover={() => false} extra={othersExtra} />}
-      {citedId !== null && cited.data && !citedRelease.isLoading && (
-        <Group title={citedRelease.data ? COPY.citedHeading(citedRelease.data.artist.name, citedRelease.data.title) : undefined} intro={citedIntro} reviews={citedTyped.filter((r) => r.id !== coverId).sort(newestFirst)} recordOf={() => undefined} onCover={() => false} extra={citedExtra} />
+      {citedId !== null && cited.data && (citedRelease.data || citedRelease.isError) && (
+        <Group title={citedRelease.data ? COPY.citedHeading(citedRelease.data.artist.name, citedRelease.data.title) : COPY.citedFallbackHeading} intro={citedIntro} reviews={citedTyped.filter((r) => r.id !== coverId).sort(newestFirst)} recordOf={() => undefined} onCover={() => false} extra={citedExtra} />
       )}
       {!!item.data.draft_authors?.length && (
         <Typography level="body-sm">{COPY.stillWriting} {item.data.draft_authors.join(", ")}.</Typography>
       )}
+      {!isFiledState(item.data.effective_state) &&
+        (isCited ? (
+          <RemoveCitation asksFirst={coverFromCited} disabled={awaitingReread} onRemove={() => changeCitation(citedId !== null ? { cited_album_id: null } : { cited_submission_id: null })} />
+        ) : (
+          <CiteRelease disabled={awaitingReread} onCite={(albumId) => changeCitation({ cited_album_id: albumId }, COPY.releaseRefused)} />
+        ))}
       <FccNotesPanel intakeItemId={id} />
       {notice && <Typography role="status">{notice}</Typography>}
       <Button variant="outlined" aria-expanded={recording != null} onClick={() => (recording ? setRecording(null) : openRecording(EMPTY_START))} sx={{ alignSelf: "flex-start" }}>
@@ -351,7 +384,7 @@ export default function IntakeItemScreen({ id }: { id: number }) {
       ) : coverId == null ? (
         <Typography>{COPY.chooseFirst}</Typography>
       ) : (
-        <>
+        <Stack component="section" aria-labelledby={fileItId} spacing={2}>
           <Typography id={fileItId} level="title-sm" component="h3">{COPY.fileIt}</Typography>
           <RadioGroup
             aria-labelledby={fileItId}
@@ -391,7 +424,7 @@ export default function IntakeItemScreen({ id }: { id: number }) {
               )}
             </Stack>
           )}
-        </>
+        </Stack>
       )}
       {!isFiledState(item.data.effective_state) && (
         <>

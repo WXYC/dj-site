@@ -4,7 +4,7 @@ import { configureStore } from "@reduxjs/toolkit";
 import { reviewsApi } from "@/lib/features/reviews/api";
 import { fccNoteApi } from "@/lib/features/reviews/fccNoteApi";
 import { reviewApi } from "@/lib/features/reviews/reviewApi";
-import { intakeApi, isIntakeAcceptReviewRefused, isIntakeInRotation, isIntakeReleaseRefused, isIntakeNotReviewed, isIntakeRequestRefused, isIntakeStateChanged } from "@/lib/features/reviews/intakeApi";
+import { intakeApi, isIntakeAcceptReviewRefused, isIntakeInRotation, isIntakeInvalidCitation, isIntakeReleaseRefused, isIntakeNotReviewed, isIntakeRequestRefused, isIntakeStateChanged } from "@/lib/features/reviews/intakeApi";
 import { describeApi } from "@/tests/helpers/api-harness";
 import { TEST_BACKEND_URL } from "@/tests/helpers/constants";
 import { server } from "@/tests/fakes/server";
@@ -36,6 +36,7 @@ describe("intakeApi", () => {
       "fileIntakeItem",
       "printIntakeItem",
       "deleteIntakeItem",
+      "updateIntakeItem",
     ],
     reducerPath: "reviewsApi",
   });
@@ -99,6 +100,37 @@ describe("intakeApi", () => {
     await makeReviewsStore().dispatch(intakeApi.endpoints.acceptReview.initiate({ id: 7, reviewId: 40 }));
 
     expect(seen).toEqual({ path: "/intake/7/accept-review", body: { review_id: 40 } });
+  });
+
+  it("updateIntakeItem PATCHes the body to exactly /intake/7, writes the answered item into the cache, and refreshes the intake and review reads", async () => {
+    let seen: { method: string; path: string; body: unknown } | undefined;
+    server.use(
+      http.patch(`${TEST_BACKEND_URL}/intake/7`, async ({ request }) => {
+        seen = { method: request.method, path: new URL(request.url).pathname, body: await request.clone().json() };
+        return HttpResponse.json({ id: 7, cited_album_id: null });
+      }),
+      http.get(`${TEST_BACKEND_URL}/intake/7`, () => HttpResponse.json({ id: 7, cited_album_id: 3, accepted_review_id: 90 })),
+    );
+    const store = makeReviewsStore();
+    await store.dispatch(intakeApi.endpoints.getIntakeItem.initiate(7));
+    server.use(http.get(`${TEST_BACKEND_URL}/intake/7`, () => HttpResponse.json({ message: "boom" }, { status: 500 })));
+
+    await store.dispatch(intakeApi.endpoints.updateIntakeItem.initiate({ id: 7, body: { cited_album_id: null } }));
+
+    expect(seen).toEqual({ method: "PATCH", path: "/intake/7", body: { cited_album_id: null } });
+    expect(intakeApi.endpoints.getIntakeItem.select(7)(store.getState() as never).data).toMatchObject({ id: 7, cited_album_id: null, accepted_review_id: 90 });
+  });
+
+  it.each([
+    ["a 409 invalid_citation", 409, { message: "m", reason: "invalid_citation" }, true],
+    ["a 409 already_filed", 409, { message: "m", reason: "already_filed" }, false],
+    ["a 400 invalid_citation", 400, { message: "m", reason: "invalid_citation" }, false],
+  ] as const)("isIntakeInvalidCitation reads %s as %s", async (_label, status, body, expected) => {
+    server.use(http.patch(`${TEST_BACKEND_URL}/intake/7`, () => HttpResponse.json(body, { status })));
+
+    const result = await makeReviewsStore().dispatch(intakeApi.endpoints.updateIntakeItem.initiate({ id: 7, body: { cited_album_id: 3 } }));
+
+    expect(isIntakeInvalidCitation("error" in result ? result.error : undefined)).toBe(expected);
   });
 
   it("acceptReview refetches the item and the lists of reviews, so the album's cover review and the item's cards follow the choice", async () => {

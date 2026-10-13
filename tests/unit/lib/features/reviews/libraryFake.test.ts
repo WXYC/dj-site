@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { fakeLibraryLookupEndpoints, type FakeLibraryOptions } from "@/tests/fakes/reviews/library";
+import { http, HttpResponse } from "msw";
+import { server } from "@/tests/fakes/server";
 import { TEST_BACKEND_URL } from "@/tests/helpers/constants";
 
 const RELEASES = [
@@ -29,5 +31,23 @@ describe("fakeLibraryLookupEndpoints", () => {
     fakeLibraryLookupEndpoints(options);
 
     expect(await (await fetch(`${TEST_BACKEND_URL}/library/formats`)).json()).toEqual(expected);
+  });
+
+  it.each<[string, FakeLibraryOptions | undefined, unknown[]]>([
+    ["answers searchResults", { searchResults: RELEASES }, RELEASES],
+    ["answers an empty list when the option is unset", undefined, []],
+  ])("GET /library with a search term %s", async (_name, options, expected) => {
+    fakeLibraryLookupEndpoints(options);
+
+    const response = await fetch(`${TEST_BACKEND_URL}/library?artist_name=Juana&album_title=Juana&n=50`);
+
+    expect(await response.json()).toEqual(expected);
+  });
+
+  it("leaves a read without both search terms to the next handler", async () => {
+    fakeLibraryLookupEndpoints({ searchResults: RELEASES });
+    server.use(http.get(`${TEST_BACKEND_URL}/library`, () => HttpResponse.json({ next: true })));
+
+    expect(await (await fetch(`${TEST_BACKEND_URL}/library?artist_name=Juana`)).json()).toEqual({ next: true });
   });
 });
