@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { FIELD_NAMES, toFieldPatch, toFieldValues } from "@/src/components/experiences/modern/reviews/SlipFields";
+import { FIELD_NAMES } from "@/lib/features/reviews/draftKeys";
+import { toFieldPatch, toFieldValues } from "@/src/components/experiences/modern/reviews/SlipFields";
 
 const values = { buzzwords: "", artist_blurb: "  \n ", review: "Warm and loose.", recommended_tracks: " la paradoja ", fcc: "\t" };
 

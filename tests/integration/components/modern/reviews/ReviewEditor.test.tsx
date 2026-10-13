@@ -1264,6 +1264,39 @@ describe("ReviewEditor", () => {
       expect(readReviewDraft("dj-other", 40)).not.toBeNull();
     });
 
+    describe("under the wrong user", () => {
+      afterEach(() => {
+        mockAuth.id = "dj-me";
+      });
+
+      it("never stores the first user's text under a second user who signs in while the editor is open", async () => {
+        serve();
+        const first = renderWithProviders(<ReviewEditor id={40} />);
+        await keepTyped(first.user);
+
+        mockAuth.id = "dj-second";
+        first.rerender(<ReviewEditor id={40} />);
+        first.unmount();
+
+        renderWithProviders(<ReviewEditor id={40} />);
+        await screen.findByLabelText("Review");
+        expect(screen.queryByText(NOTICE)).not.toBeInTheDocument();
+        expect(readReviewDraft("dj-second", 40)).toBeNull();
+      });
+
+      it("neither writes nor offers an entry for an empty user id", async () => {
+        sessionStorage.setItem("review-draft::40", JSON.stringify({ review: "Orphaned text." }));
+        mockAuth.id = "";
+        serve();
+        const { user } = renderWithProviders(<ReviewEditor id={40} />);
+        await user.type(await screen.findByLabelText("Review"), " More.");
+
+        expect(screen.queryByText(NOTICE)).not.toBeInTheDocument();
+        expect(sessionStorage.getItem("review-draft::40")).toBe(JSON.stringify({ review: "Orphaned text." }));
+        expect(Object.keys(sessionStorage)).toEqual(["review-draft::40"]);
+      });
+    });
+
     it("a save made while the offer stands removes the entry and the notice; a failed one keeps both", async () => {
       await leftWithUnsaved();
       server.use(http.patch(`${TEST_BACKEND_URL}/reviews/40`, () => HttpResponse.json({ message: "no" }, { status: 500 })));

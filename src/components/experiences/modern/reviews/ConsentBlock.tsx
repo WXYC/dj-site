@@ -4,7 +4,6 @@ import { Checkbox, FormControl, FormLabel, Radio, RadioGroup, Stack, Typography 
 import type { ReviewFields } from "@wxyc/shared";
 import { REVIEW_COPY } from "./copy";
 
-export const CONSENT_KEYS = ["publish_website", "publish_apps", "publish_instagram", "credit"] as const;
 
 export type Consent = {
   publish_website: boolean;
