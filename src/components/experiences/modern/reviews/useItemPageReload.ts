@@ -11,17 +11,26 @@ import { useMounted } from "@/src/hooks/useRowWrite";
  * unmounted. Resolves to whether the page is still mounted, so the caller sets
  * no state after it has gone, and the item as reloaded (null when that read
  * failed). A failed read does not reject.
+ *
+ * It also waits for every request the API has in flight to settle, and for the
+ * reads that settling starts. RTK Query queues a write's invalidation while any
+ * other request is pending, so the refetch it owes can start after the reload
+ * resolved; a caller that released its hold then would let a press reread into
+ * that older read, whose answer lands over the press's write.
  */
 export function useItemPageReload(id: number, coverId?: number) {
   const dispatch = useAppDispatch();
   const mounted = useMounted();
   const refresh = { subscribe: false, forceRefetch: true } as const;
+  // Settling a request starts the refetch queued behind it before its promise resolves, so the next look finds that read.
+  const inFlight = () => [...dispatch(reviewApi.util.getRunningQueriesThunk()), ...dispatch(reviewApi.util.getRunningMutationsThunk())];
   return async () => {
     const [itemRead] = await Promise.allSettled([
       dispatch(intakeApi.endpoints.getIntakeItem.initiate(id, refresh)),
       dispatch(reviewApi.endpoints.getItemReviews.initiate(id, refresh)),
       ...(coverId === undefined ? [] : [dispatch(reviewApi.endpoints.getReview.initiate(coverId, refresh))]),
     ]);
+    for (let running = inFlight(); running.length > 0; running = inFlight()) await Promise.allSettled(running);
     const read = itemRead.status === "fulfilled" ? itemRead.value : undefined;
     return { mounted: mounted.current, item: read?.isError ? null : (read?.data ?? null) };
   };
