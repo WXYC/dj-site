@@ -961,92 +961,6 @@ describe("IntakeItemScreen", () => {
 
       await waitFor(() => expect([releaseReviewReads, fccReads]).toEqual([2, 2]));
     });
-
-    describe("the page's hold while the filing's reread is outstanding", () => {
-      const setUpTwoReviews = () => {
-        const out = setUp();
-        fakeReviewsEndpoints({ records: [out.box.item], forItem: { [ITEM_ID]: [submitted(40), submitted(41)] } });
-        server.use(acceptingReview(out.box));
-        return out;
-      };
-      const filedItem = () => dogaItem({ state: "filed", effective_state: "filed" });
-
-      // Each filing arm gets the bench to a submittable state, then presses its own button.
-      const ARMS = [
-        [
-          "File it as this one",
-          async (user: User) => {
-            await screen.findByText(EXISTING_ARM);
-            await pick(user);
-          },
-          "File it as this one",
-        ],
-        [
-          "File it as new",
-          async (user: User) => {
-            fakeLibraryFilingsEndpoint({ existingArtists: [] });
-            await readyBench(user);
-          },
-          "Add to rotation",
-        ],
-      ] as const;
-
-      describe.each(ARMS)("%s", (_arm, prepare, button) => {
-        it("holds every review button until the reread that follows a successful filing settles, then lets a chosen cover stand", async () => {
-          const { box } = setUpTwoReviews();
-          server.use(
-            http.post(FILE_URL, () => {
-              box.item = filedItem();
-              return HttpResponse.json(box.item);
-            }),
-          );
-          const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
-          await prepare(user);
-          await reviewsSettled(store);
-          const reread = holdResponse("get", FILED_ITEM_PATH, () => HttpResponse.json(box.item));
-
-          await user.click(screen.getByRole("button", { name: button }));
-
-          await waitFor(() => expect(reread.calls.count).toBe(1));
-          await renderedFrame();
-          expect(guarded().length).toBeGreaterThan(0);
-          guarded().forEach((b) => expect(b).toBeDisabled());
-
-          reread.release();
-          await reread.answered;
-          await reviewsSettled(store);
-          // The cover's own Delete review stays disabled once the record is filed, so only the Use button is checked.
-          await waitFor(() => expect(screen.getByRole("button", { name: "Use this review instead" })).toBeEnabled());
-
-          await user.click(screen.getByRole("button", { name: "Use this review instead" }));
-          await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Use this review instead" }));
-          const cover = () => screen.getByRole("heading", { name: "The review on the cover" }).closest("section")!;
-          await waitFor(() => expect(within(cover()).getByText("Take 41.")).toBeInTheDocument());
-          await reviewsSettled(store);
-          expect(within(cover()).getByText("Take 41.")).toBeInTheDocument();
-        });
-
-        it("holds every review button until the reread that follows a refused filing settles", async () => {
-          const { box } = setUpTwoReviews();
-          server.use(http.post(FILE_URL, () => HttpResponse.json({ message: "server words", reason: "state_changed" }, { status: 409 })));
-          const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
-          await prepare(user);
-          await reviewsSettled(store);
-          const reread = holdResponse("get", FILED_ITEM_PATH, () => HttpResponse.json(box.item));
-
-          await user.click(screen.getByRole("button", { name: button }));
-
-          await waitFor(() => expect(reread.calls.count).toBe(1));
-          await renderedFrame();
-          guarded().forEach((b) => expect(b).toBeDisabled());
-
-          reread.release();
-          await reread.answered;
-          await reviewsSettled(store);
-          await waitFor(() => guarded().forEach((b) => expect(b).toBeEnabled()));
-        });
-      });
-    });
   });
 
   describe("using a review", () => {
@@ -1512,6 +1426,7 @@ describe("IntakeItemScreen", () => {
       submit: async (user: User) => {
         await user.click(screen.getByRole("button", { name: "Add to rotation" }));
       },
+      button: "Add to rotation",
     },
     {
       arm: "the existing-release picker",
@@ -1521,15 +1436,28 @@ describe("IntakeItemScreen", () => {
       submit: async (user: User) => {
         await user.click(screen.getByRole("button", { name: "File it as this one" }));
       },
+      button: "File it as this one",
     },
   ];
 
-  describe.each(ARMS)("filing through $arm", ({ ready, submit }) => {
+  describe.each(ARMS)("filing through $arm", ({ ready, submit, button }) => {
     const setUp = (item = dogaItem()) => {
       fakeReviewsEndpoints({ records: [item], forItem: { [ITEM_ID]: item.accepted_review_id ? [submitted(40)] : [] } });
       server.use(http.get(`${TEST_BACKEND_URL}/library`, () => HttpResponse.json([RELEASE_ROW])));
       return serveItem(item);
     };
+
+    // The filing hold needs two submitted reviews, so a chosen cover can replace the first.
+    const setUpTwoReviews = () => {
+      fakeLibraryFilingsEndpoint({ existingArtists: [] });
+      const item = dogaItem();
+      fakeReviewsEndpoints({ records: [item], forItem: { [ITEM_ID]: [submitted(40), submitted(41)] } });
+      server.use(http.get(`${TEST_BACKEND_URL}/library`, () => HttpResponse.json([RELEASE_ROW])));
+      const box = serveItem(item);
+      server.use(acceptingReview(box));
+      return { box };
+    };
+    const filedItem = () => dogaItem({ state: "filed", effective_state: "filed" });
 
     it.each(REFUSALS)("shows the %s line after one reread of the item, and never the server's words", async (reason, line, reloaded) => {
       const box = setUp();
@@ -1689,6 +1617,60 @@ describe("IntakeItemScreen", () => {
       expect(reviewReads.reads).toBe(reviewReadsBefore + 1);
       expect(errors).not.toHaveBeenCalled();
       errors.mockRestore();
+    });
+
+    it("holds every review button until the reread that follows a successful filing settles, then lets a chosen cover stand", async () => {
+      const { box } = setUpTwoReviews();
+      server.use(
+        http.post(FILE_URL, () => {
+          box.item = filedItem();
+          return HttpResponse.json(box.item);
+        }),
+      );
+      const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+      await ready(user);
+      await reviewsSettled(store);
+      const reread = holdResponse("get", FILED_ITEM_PATH, () => HttpResponse.json(box.item));
+
+      await user.click(screen.getByRole("button", { name: button }));
+
+      await waitFor(() => expect(reread.calls.count).toBe(1));
+      await renderedFrame();
+      expect(guarded().length).toBeGreaterThan(0);
+      guarded().forEach((b) => expect(b).toBeDisabled());
+
+      reread.release();
+      await reread.answered;
+      await reviewsSettled(store);
+      // The cover's own Delete review stays disabled once the record is filed, so only the Use button is checked.
+      await waitFor(() => expect(screen.getByRole("button", { name: "Use this review instead" })).toBeEnabled());
+
+      await user.click(screen.getByRole("button", { name: "Use this review instead" }));
+      await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Use this review instead" }));
+      const cover = () => screen.getByRole("heading", { name: "The review on the cover" }).closest("section")!;
+      await waitFor(() => expect(within(cover()).getByText("Take 41.")).toBeInTheDocument());
+      await reviewsSettled(store);
+      expect(within(cover()).getByText("Take 41.")).toBeInTheDocument();
+    });
+
+    it("holds every review button until the reread that follows a refused filing settles", async () => {
+      const { box } = setUpTwoReviews();
+      server.use(http.post(FILE_URL, () => HttpResponse.json({ message: "server words", reason: "state_changed" }, { status: 409 })));
+      const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+      await ready(user);
+      await reviewsSettled(store);
+      const reread = holdResponse("get", FILED_ITEM_PATH, () => HttpResponse.json(box.item));
+
+      await user.click(screen.getByRole("button", { name: button }));
+
+      await waitFor(() => expect(reread.calls.count).toBe(1));
+      await renderedFrame();
+      guarded().forEach((b) => expect(b).toBeDisabled());
+
+      reread.release();
+      await reread.answered;
+      await reviewsSettled(store);
+      await waitFor(() => guarded().forEach((b) => expect(b).toBeEnabled()));
     });
   });
 
