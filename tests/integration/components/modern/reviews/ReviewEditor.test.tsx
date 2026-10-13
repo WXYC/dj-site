@@ -3,7 +3,7 @@ import { act, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { delay, http, HttpResponse } from "msw";
 import type { Review } from "@wxyc/shared";
 import { Authorization } from "@/lib/features/admin/types";
-import { fakeReviewsEndpoints, fccNote, intakeItem, renderWithProviders, review, reviewRevision, reviewsSettled, rulesOf, server, TEST_BACKEND_URL } from "@/tests/helpers";
+import { deletingReview, fakeReviewsEndpoints, fccNote, holdResponse, intakeItem, renderWithProviders, review, reviewRevision, reviewsSettled, rulesOf, server, TEST_BACKEND_URL } from "@/tests/helpers";
 import Link from "next/link";
 import { applicationSlice } from "@/lib/features/application/frontend";
 import { reviewApi } from "@/lib/features/reviews/reviewApi";
@@ -70,6 +70,36 @@ describe("ReviewEditor", () => {
     vi.mocked(toast.success).mockClear();
     vi.mocked(toast.error).mockClear();
   });
+
+  /** True when the page cancelled `beforeunload`, which is what a dirty form does; a clean one lets the tab close. */
+  const beforeUnload = () => {
+    const event = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(event);
+    return event.defaultPrevented;
+  };
+  /** Every way the page could add to, rewrite or move through the history; each spy calls through. */
+  const spyOnHistory = () => ({
+    pushState: vi.spyOn(window.history, "pushState"),
+    replaceState: vi.spyOn(window.history, "replaceState"),
+    back: vi.spyOn(window.history, "back"),
+    go: vi.spyOn(window.history, "go"),
+  });
+  type HistorySpies = ReturnType<typeof spyOnHistory>;
+  const historyCalls = (spies: HistorySpies) => Object.fromEntries(Object.entries(spies).map(([name, spy]) => [name, spy.mock.calls.length]));
+  const NO_HISTORY_CALLS = { pushState: 0, replaceState: 0, back: 0, go: 0 };
+  const restoreHistory = (spies: HistorySpies) => Object.values(spies).forEach((spy) => spy.mockRestore());
+  const stored = () => readReviewDraft("dj-me", 40);
+  type User = ReturnType<typeof renderWithProviders>["user"];
+  /** Opens the delete confirmation and confirms it. */
+  const confirmDelete = async (user: User) => {
+    await user.click(await screen.findByRole("button", { name: "Delete" }));
+    await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Delete" }));
+  };
+  /** Opens the submit confirmation and confirms it. */
+  const submitFromDialog = async (user: User) => {
+    await user.click(await screen.findByRole("button", { name: "Submit" }));
+    await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Submit" }));
+  };
 
   it("shows the draft-privacy line and the five slip fields with their help text", async () => {
     serve();
@@ -443,7 +473,7 @@ describe("ReviewEditor", () => {
     it("confirms, deletes, and leaves the editor", async () => {
       serve(SUBMITTED);
       let deleted = 0;
-      server.use(http.delete(`${TEST_BACKEND_URL}/reviews/40`, () => (deleted++, new HttpResponse(null, { status: 204 }))));
+      server.use(deletingReview(() => deleted++));
       const { user } = renderWithProviders(<ReviewEditor id={40} />);
       await user.click(await screen.findByRole("button", { name: "Delete" }));
 
@@ -460,8 +490,7 @@ describe("ReviewEditor", () => {
       serve();
       server.use(http.delete(`${TEST_BACKEND_URL}/reviews/40`, () => HttpResponse.json({ message: "server words", reason: "in_use" }, { status: 409 })));
       const { user } = renderWithProviders(<ReviewEditor id={40} />);
-      await user.click(await screen.findByRole("button", { name: "Delete" }));
-      await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Delete" }));
+      await confirmDelete(user);
 
       expect(await screen.findByText(IN_USE)).toBeInTheDocument();
       expect(screen.queryByText("server words")).not.toBeInTheDocument();
@@ -781,7 +810,6 @@ describe("ReviewEditor", () => {
         </>,
       );
     };
-    type User = ReturnType<typeof renderEditor>["user"];
     const makeDirty = async (user: User) => {
       await user.type(await screen.findByLabelText("Review"), " More.");
     };
@@ -801,29 +829,13 @@ describe("ReviewEditor", () => {
       open: store.getState().application.rightbar.sidebarOpen,
       slideIn: document.documentElement.style.getPropertyValue("--SideNavigation-slideIn"),
     });
-    const beforeUnload = () => {
-      const event = new Event("beforeunload", { cancelable: true });
-      window.dispatchEvent(event);
-      return event.defaultPrevented;
-    };
     const dialog = () => screen.findByRole("alertdialog", { name: "Leave without saving?" });
-    /** Every way the page could add to, rewrite or move through the history; each spy calls through. */
-    const spyOnHistory = () => ({
-      pushState: vi.spyOn(window.history, "pushState"),
-      replaceState: vi.spyOn(window.history, "replaceState"),
-      back: vi.spyOn(window.history, "back"),
-      go: vi.spyOn(window.history, "go"),
-    });
-    type HistorySpies = ReturnType<typeof spyOnHistory>;
-    const historyCalls = (spies: HistorySpies) => Object.fromEntries(Object.entries(spies).map(([name, spy]) => [name, spy.mock.calls.length]));
-    const NO_HISTORY_CALLS = { pushState: 0, replaceState: 0, back: 0, go: 0 };
-    const restoreHistory = (spies: HistorySpies) => Object.values(spies).forEach((spy) => spy.mockRestore());
-
     beforeEach(() => {
       router.push.mockClear();
       linkReached.mockClear();
     });
     afterEach(closeSidebarCSS);
+    afterEach(() => sessionStorage.clear());
 
     it("asks before an in-app next/link, and Keep editing stays with the text intact", async () => {
       const { user } = renderEditor();
@@ -998,8 +1010,7 @@ describe("ReviewEditor", () => {
       server.use(http.patch(`${TEST_BACKEND_URL}/reviews/40`, () => new HttpResponse(null, { status: 500 })));
       const { user } = renderEditor();
       await makeDirty(user);
-      await user.click(screen.getByRole("button", { name: "Submit" }));
-      await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Submit" }));
+      await submitFromDialog(user);
       await waitFor(() => expect(toast.error).toHaveBeenCalled());
 
       expect(beforeUnload()).toBe(true);
@@ -1015,20 +1026,18 @@ describe("ReviewEditor", () => {
       );
       const { user } = renderEditor();
       await makeDirty(user);
-      await user.click(screen.getByRole("button", { name: "Submit" }));
-      await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Submit" }));
+      await submitFromDialog(user);
       await waitFor(() => expect(beforeUnload()).toBe(false));
     });
 
     it("lets a delete's redirect through while the form is dirty, without asking and with no history call before it, and is clean from then on", async () => {
-      server.use(http.delete(`${TEST_BACKEND_URL}/reviews/40`, () => new HttpResponse(null, { status: 204 })));
+      server.use(deletingReview());
       const history = spyOnHistory();
       let callsAtRedirect: Record<string, number> | undefined;
       router.replace.mockImplementationOnce(() => { callsAtRedirect = historyCalls(history); });
       const { user } = renderEditor(SUBMITTED);
       await makeDirty(user);
-      await user.click(screen.getByRole("button", { name: "Delete" }));
-      await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Delete" }));
+      await confirmDelete(user);
 
       await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/dashboard/reviews"));
       expect(callsAtRedirect).toEqual(NO_HISTORY_CALLS);
@@ -1040,18 +1049,22 @@ describe("ReviewEditor", () => {
       restoreHistory(history);
     });
 
-    it("is clean after a delete whatever was typed while the request was in flight", async () => {
-      let release: () => void = () => {};
-      const held = new Promise<void>((resolve) => { release = resolve; });
-      server.use(http.delete(`${TEST_BACKEND_URL}/reviews/40`, async () => { await held; return new HttpResponse(null, { status: 204 }); }));
+    it("is clean after a delete whatever was typed while the request was in flight: no entry kept, even at the redirect, and no guard", async () => {
+      const delete40 = holdResponse("delete", `${TEST_BACKEND_URL}/reviews/40`, () => new HttpResponse(null, { status: 204 }));
+      // The redirect may be a full load that unmounts before any effect runs, so the entry must already be gone when it is asked for.
+      let storedAtRedirect: unknown = "unset";
+      router.replace.mockImplementationOnce(() => { storedAtRedirect = stored(); });
       const { user } = renderEditor(SUBMITTED);
-      await user.click(await screen.findByRole("button", { name: "Delete" }));
-      await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Delete" }));
-      await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
       await makeDirty(user);
-      release();
+      await waitFor(() => expect(stored()).not.toBeNull());
+      await confirmDelete(user);
+      await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
+      await user.type(screen.getByLabelText("Review"), " Still typing.");
+      delete40.release();
 
       await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/dashboard/reviews"));
+      expect(storedAtRedirect).toBeNull();
+      await waitFor(() => expect(stored()).toBeNull());
       await waitFor(() => expect(beforeUnload()).toBe(false));
       await user.click(screen.getByRole("link", { name: "Flowsheet" }));
       expect(linkReached).toHaveBeenCalledTimes(1);
@@ -1061,15 +1074,16 @@ describe("ReviewEditor", () => {
     it.each([
       ["refused as in use", () => HttpResponse.json({ message: "server words", reason: "in_use" }, { status: 409 }), () => screen.findByText(IN_USE)],
       ["failed", () => new HttpResponse(null, { status: 500 }), () => waitFor(() => expect(toast.error).toHaveBeenCalledWith(REVIEW_COPY.couldNotDelete))],
-    ])("keeps the guard armed when the delete is %s", async (_name, respond, settled) => {
+    ])("keeps the guard armed and the entry when the delete is %s", async (_name, respond, settled) => {
       server.use(http.delete(`${TEST_BACKEND_URL}/reviews/40`, respond));
       const { user } = renderEditor(SUBMITTED);
       await makeDirty(user);
-      await user.click(screen.getByRole("button", { name: "Delete" }));
-      await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Delete" }));
+      await waitFor(() => expect(stored()).not.toBeNull());
+      await confirmDelete(user);
       await settled();
 
       expect(router.replace).not.toHaveBeenCalled();
+      expect(stored()).toMatchObject({ review: (screen.getByLabelText("Review") as HTMLTextAreaElement).value });
       expect(beforeUnload()).toBe(true);
       await user.click(screen.getByRole("link", { name: "Flowsheet" }));
       await dialog();
@@ -1094,7 +1108,6 @@ describe("ReviewEditor", () => {
     const NOTICE = "You left this review with unsaved changes.";
     const RESTORE = "Restore my changes";
     const DISCARD = "Discard them";
-    const stored = () => readReviewDraft("dj-me", 40);
     const keepTyped = async (user: ReturnType<typeof renderWithProviders>["user"]) => {
       await user.type(await screen.findByLabelText("Review"), " More.");
       await waitFor(() => expect(stored()).not.toBeNull());
@@ -1144,7 +1157,7 @@ describe("ReviewEditor", () => {
       expect(screen.getByLabelText("Review")).toHaveValue("Warm. More.");
       expect(screen.queryByText(NOTICE)).not.toBeInTheDocument();
       expect(stored()).toMatchObject({ review: "Warm. More." });
-      expect(window.dispatchEvent(new Event("beforeunload", { cancelable: true }))).toBe(false);
+      expect(beforeUnload()).toBe(true);
     });
 
     it("Discard removes the entry, keeps the review as saved and closes the offer", async () => {
@@ -1207,11 +1220,7 @@ describe("ReviewEditor", () => {
       server.use(http.patch(`${TEST_BACKEND_URL}/reviews/40`, () => HttpResponse.json({ message: "no" }, { status: 500 })));
       const { user } = renderWithProviders(<ReviewEditor id={40} />);
       await keepTyped(user);
-      const submitFromDialog = async () => {
-        await user.click(screen.getByRole("button", { name: "Submit" }));
-        await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Submit" }));
-      };
-      await submitFromDialog();
+      await submitFromDialog(user);
       await waitFor(() => expect(toast.error).toHaveBeenCalled());
       expect(stored()).not.toBeNull();
 
@@ -1219,17 +1228,16 @@ describe("ReviewEditor", () => {
         http.patch(`${TEST_BACKEND_URL}/reviews/40`, () => HttpResponse.json(DRAFT)),
         http.post(`${TEST_BACKEND_URL}/reviews/40/submit`, () => HttpResponse.json(SUBMITTED)),
       );
-      await submitFromDialog();
+      await submitFromDialog(user);
       await waitFor(() => expect(stored()).toBeNull());
     });
 
     it("a successful delete removes the entry", async () => {
       serve();
-      server.use(http.delete(`${TEST_BACKEND_URL}/reviews/40`, () => new HttpResponse(null, { status: 204 })));
+      server.use(deletingReview());
       const { user } = renderWithProviders(<ReviewEditor id={40} />);
       await keepTyped(user);
-      await user.click(screen.getByRole("button", { name: "Delete" }));
-      await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Delete" }));
+      await confirmDelete(user);
 
       await waitFor(() => expect(router.replace).toHaveBeenCalled());
       expect(stored()).toBeNull();
@@ -1318,11 +1326,7 @@ describe("ReviewEditor", () => {
       server.use(http.patch(`${TEST_BACKEND_URL}/reviews/40`, () => HttpResponse.json({ message: "no" }, { status: 500 })));
       const { user } = renderWithProviders(<ReviewEditor id={40} />);
       await screen.findByText(NOTICE);
-      const submitFromDialog = async () => {
-        await user.click(screen.getByRole("button", { name: "Submit" }));
-        await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Submit" }));
-      };
-      await submitFromDialog();
+      await submitFromDialog(user);
       await waitFor(() => expect(toast.error).toHaveBeenCalled());
       expect(screen.getByText(NOTICE)).toBeInTheDocument();
       expect(stored()).not.toBeNull();
@@ -1331,48 +1335,9 @@ describe("ReviewEditor", () => {
         http.patch(`${TEST_BACKEND_URL}/reviews/40`, () => HttpResponse.json(DRAFT)),
         http.post(`${TEST_BACKEND_URL}/reviews/40/submit`, () => HttpResponse.json(SUBMITTED)),
       );
-      await submitFromDialog();
+      await submitFromDialog(user);
       await waitFor(() => expect(stored()).toBeNull());
       expect(screen.queryByText(NOTICE)).not.toBeInTheDocument();
-    });
-
-    it("typing while a delete is in flight, then a successful delete, leaves no entry and a clean guard", async () => {
-      let release: () => void = () => {};
-      const held = new Promise<void>((resolve) => { release = resolve; });
-      serve();
-      server.use(http.delete(`${TEST_BACKEND_URL}/reviews/40`, async () => { await held; return new HttpResponse(null, { status: 204 }); }));
-      // The redirect may be a full load that unmounts before any effect runs, so the entry must already be gone when it is asked for.
-      let storedAtRedirect: unknown = "unset";
-      vi.mocked(router.replace).mockImplementationOnce(() => { storedAtRedirect = stored(); });
-      const { user } = renderWithProviders(<ReviewEditor id={40} />);
-      await keepTyped(user);
-      await user.click(screen.getByRole("button", { name: "Delete" }));
-      await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Delete" }));
-      await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
-      await user.type(screen.getByLabelText("Review"), " Still typing.");
-      release();
-
-      await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/dashboard/reviews"));
-      expect(storedAtRedirect).toBeNull();
-      await waitFor(() => expect(stored()).toBeNull());
-      expect(window.dispatchEvent(new Event("beforeunload", { cancelable: true }))).toBe(true);
-    });
-
-    it.each([
-      ["refused as in use", () => HttpResponse.json({ message: "server words", reason: "in_use" }, { status: 409 }), () => screen.findByText(IN_USE)],
-      ["failed", () => new HttpResponse(null, { status: 500 }), () => waitFor(() => expect(toast.error).toHaveBeenCalledWith(REVIEW_COPY.couldNotDelete))],
-    ])("a delete that is %s keeps the entry and the dirty form", async (_name, respond, settled) => {
-      serve();
-      server.use(http.delete(`${TEST_BACKEND_URL}/reviews/40`, respond));
-      const { user } = renderWithProviders(<ReviewEditor id={40} />);
-      await keepTyped(user);
-      await user.click(screen.getByRole("button", { name: "Delete" }));
-      await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Delete" }));
-      await settled();
-
-      expect(router.replace).not.toHaveBeenCalled();
-      expect(stored()).toMatchObject({ review: "Warm. More." });
-      expect(window.dispatchEvent(new Event("beforeunload", { cancelable: true }))).toBe(false);
     });
 
     it("works as on main when storage throws", async () => {
@@ -1393,12 +1358,15 @@ describe("ReviewEditor", () => {
     });
 
     it("never calls history", async () => {
-      const spies = { pushState: vi.spyOn(window.history, "pushState"), replaceState: vi.spyOn(window.history, "replaceState"), back: vi.spyOn(window.history, "back"), go: vi.spyOn(window.history, "go") };
-      await leftWithUnsaved();
-      const { user } = renderWithProviders(<ReviewEditor id={40} />);
-      await user.click(await screen.findByRole("button", { name: RESTORE }));
-      expect(Object.values(spies).map((spy) => spy.mock.calls.length)).toEqual([0, 0, 0, 0]);
-      Object.values(spies).forEach((spy) => spy.mockRestore());
+      const history = spyOnHistory();
+      try {
+        await leftWithUnsaved();
+        const { user } = renderWithProviders(<ReviewEditor id={40} />);
+        await user.click(await screen.findByRole("button", { name: RESTORE }));
+        expect(historyCalls(history)).toEqual(NO_HISTORY_CALLS);
+      } finally {
+        restoreHistory(history);
+      }
     });
   });
 });
