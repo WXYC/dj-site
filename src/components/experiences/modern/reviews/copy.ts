@@ -547,6 +547,15 @@ export const REVIEW_COPY = {
     /** Approved. */
     couldNotRemove: "Couldn't remove the note. Please try again.",
   },
+  /** The notice above the editor when it opens on a review that was left with unsaved text. */
+  restore: {
+    /** Approved. */
+    notice: "You left this review with unsaved changes.",
+    /** Approved. Puts the unsaved text back into the form. */
+    restore: "Restore my changes",
+    /** Approved. Throws the unsaved text away and keeps the review as last saved. */
+    discard: "Discard them",
+  },
   /** The dialog that asks before a form with unsaved changes is left. */
   leave: {
     /** Approved. */

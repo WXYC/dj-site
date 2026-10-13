@@ -40,6 +40,7 @@ import { getOidcRedirectTarget } from "@/src/utilities/oidcRedirectTarget";
 import { paramsWithoutSignup } from "@/src/utilities/loginHref";
 import { useAsyncAction } from "./useAsyncAction";
 import { safeCapture } from "@/lib/posthog";
+import { clearReviewDrafts } from "@/lib/features/reviews/reviewDrafts";
 
 /** Observable login/onboarding events (distinct from auth-client errors). */
 const LOGIN_EVENTS = {
@@ -477,6 +478,7 @@ export const useLogout = () => {
       // Drop the departing session's cached org-role so it can't be served to the
       // next user on this shared control-room browser.
       clearSessionAuthData();
+      clearReviewDrafts();
       // Navigate to a clean /login ourselves. Leaning on router.refresh() to let
       // the dashboard's requireAuth() redirect us would route a deliberate logout
       // through /login?bounced=no-session, firing a false-positive
