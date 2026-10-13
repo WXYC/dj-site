@@ -24,6 +24,8 @@ import { reviewApi, useGetItemReviewsQuery, useGetReviewQuery, useGetReviewsForR
 import { useAppDispatch } from "@/lib/hooks";
 import { unwrapEndpointError } from "@/lib/rtk-endpoint-error";
 import { useCanSeeReviews } from "@/src/hooks/useCanSeeReviews";
+import { useCloseSidebarWhile } from "@/src/hooks/useCloseSidebarWhile";
+import { useLeaveGuard } from "@/src/hooks/useLeaveGuard";
 import { useMounted } from "@/src/hooks/useRowWrite";
 import ConfirmDialog from "../ConfirmDialog";
 import RotationFilingBench, { type FilingSubmit } from "../admin/rotation/RotationFilingBench";
@@ -94,7 +96,22 @@ export default function IntakeItemScreen({ id }: { id: number }) {
   const [picked, setPicked] = useState<AlbumEntry | null>(null);
   // The open form's starting values and its key, or null when closed. Every opening goes through openRecording, which gives the form a key unlike the open one's, so the form remounts with the new start.
   const [recording, setRecording] = useState<Recording | null>(null);
-  const openRecording = (start: RecordFormStart) => setRecording((open) => nextRecording(open, start));
+  // Whether the open form holds unsaved text, and the close or replace waiting on the leave dialog's answer.
+  const [recordingDirty, setRecordingDirty] = useState(false);
+  const [asked, setAsked] = useState<(() => void) | null>(null);
+  const leaveGuard = useLeaveGuard(recordingDirty);
+  useCloseSidebarWhile(leaveGuard.pending);
+  const stayOnRecording = () => {
+    setAsked(null);
+    leaveGuard.stay();
+  };
+  const leaveRecording = () => {
+    asked?.();
+    setAsked(null);
+    leaveGuard.leave();
+  };
+  const unlessDirty = (act: () => void) => (recordingDirty ? setAsked(() => act) : act());
+  const openRecording = (start: RecordFormStart) => unlessDirty(() => setRecording((open) => nextRecording(open, start)));
   // One count per review write in flight or rereading, so neither a review button nor the form's Save acts on the stale cover.
   // `movers` counts the writes that move the cover (Use this review, a ticked Record a review). Each write takes a handle from `hold` and releases it exactly once.
   const [holds, setHolds] = useState({ all: 0, movers: 0 });
@@ -338,7 +355,7 @@ export default function IntakeItemScreen({ id }: { id: number }) {
         ))}
       <FccNotesPanel intakeItemId={id} />
       {notice && <Typography role="status">{notice}</Typography>}
-      <Button variant="outlined" aria-expanded={recording != null} onClick={() => (recording ? setRecording(null) : openRecording(EMPTY_START))} sx={{ alignSelf: "flex-start" }}>
+      <Button variant="outlined" aria-expanded={recording != null} onClick={() => (recording ? unlessDirty(() => setRecording(null)) : openRecording(EMPTY_START))} sx={{ alignSelf: "flex-start" }}>
         {REVIEW_COPY.record.title}
       </Button>
       {recording && (
@@ -351,9 +368,23 @@ export default function IntakeItemScreen({ id }: { id: number }) {
           onHold={hold}
           onWritten={reviewWritten}
           onNotice={setNotice}
+          onDirtyChange={setRecordingDirty}
           onClose={() => setRecording(null)}
         />
       )}
+      <ConfirmDialog
+        open={leaveGuard.pending || asked !== null}
+        onClose={stayOnRecording}
+        title={REVIEW_COPY.leave.title}
+        actions={
+          <>
+            <Button variant="plain" onClick={leaveRecording}>{REVIEW_COPY.leave.leave}</Button>
+            <Button autoFocus onClick={stayOnRecording}>{REVIEW_COPY.leave.keepEditing}</Button>
+          </>
+        }
+      >
+        {REVIEW_COPY.leave.recordBody}
+      </ConfirmDialog>
       <ConfirmDialog
         open={confirmingDelete}
         onClose={() => setConfirmingDelete(false)}

@@ -36,9 +36,10 @@ vi.mock("sonner", () => ({
 vi.mock("next/font/google", () => ({ Kanit: () => ({ style: { fontFamily: "Kanit, sans-serif" } }) }));
 vi.mock("next/font/local", () => ({ default: () => ({ style: { fontFamily: "Minbus, sans-serif" } }) }));
 
+const router = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn() }));
 vi.mock("next/navigation", async () => {
   const { createNavigationModuleMock } = await import("@/tests/helpers/navigation-mock");
-  return createNavigationModuleMock({ push: vi.fn(), replace: vi.fn() });
+  return createNavigationModuleMock(router);
 });
 
 const mockAuth = vi.hoisted(() => ({ id: "md-me", authority: 2 as number }));
@@ -50,6 +51,7 @@ vi.mock("@/src/hooks/authenticationHooks", async () => {
 import { toast } from "sonner";
 import { REVIEW_COPY } from "@/src/components/experiences/modern/reviews/copy";
 import type { IntakeItemPatch, NewReviewRequest, Review } from "@wxyc/shared";
+import Link from "next/link";
 import { CssVarsProvider } from "@mui/joy/styles";
 import modernTheme from "@/lib/features/experiences/modern/theme";
 import RecordReviewForm from "@/src/components/experiences/modern/reviews/RecordReviewForm";
@@ -2548,7 +2550,7 @@ describe("IntakeItemScreen", () => {
         });
       const renderForm = (start: ReturnType<typeof archived>) =>
         renderScreen(
-          <RecordReviewForm itemId={ITEM_ID} hasCover={false} start={start} disabled={false} onHold={() => () => {}} onWritten={async () => {}} onNotice={vi.fn()} onClose={vi.fn()} />,
+          <RecordReviewForm itemId={ITEM_ID} hasCover={false} start={start} disabled={false} onHold={() => () => {}} onWritten={async () => {}} onNotice={vi.fn()} onDirtyChange={vi.fn()} onClose={vi.fn()} />,
         );
 
       it("from a form review shows the copied text and author and both lines, and saves through the ticked path", async () => {
@@ -3204,6 +3206,7 @@ describe("IntakeItemScreen", () => {
           await save(user);
           await waitFor(() => expect(create.calls.count).toBe(1));
           await user.click(screen.getByRole("button", { name: "Record a review" }));
+          await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Leave" }));
           await open(user);
           return create;
         }, "none"));
@@ -3273,6 +3276,7 @@ describe("IntakeItemScreen", () => {
         guarded().forEach((b) => expect(b).toBeDisabled());
 
         await user.click(screen.getByRole("button", { name: "Record a review" }));
+        await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Leave" }));
         expect(screen.queryByRole("textbox", { name: "Author" })).not.toBeInTheDocument();
         write.release();
         await write.answered;
@@ -3987,6 +3991,201 @@ describe("IntakeItemScreen", () => {
       await writeBehindBlocker(store, box, () => press(user));
 
       expect(within(await coverSection()).getByText(cover)).toBeInTheDocument();
+    });
+  });
+
+  describe("leaving a record page with unsaved review text", () => {
+    const CITED_ID = 7;
+    const TARGET = "/dashboard/flowsheet";
+    const HEADING = "Reviews of Jessica Pratt — On Your Own Love Again";
+    const ARCHIVE = [
+      { id: 1, reviewer: "Sam", album_id: CITED_ID, artist_name: "Jessica Pratt", album_title: "On Your Own Love Again", record_label: "Drag City", artist_blurb: null, review: "Warm and strange.", recommended_tracks: null, buzzwords: null, fcc_violations: null, review_purpose: null, rotated: null, released_within_six_months: null, social_consent: null, submitted_at: null },
+    ];
+    const SAVE_URL = `${TEST_BACKEND_URL}/reviews`;
+    const OPENERS = [
+      ["Type in the review from its cover", ""],
+      ["Copy it by pen", REVIEW_COPY.record.byHand],
+      ["Copy this review onto the record", REVIEW_COPY.record.copiedFromForm],
+    ] as const;
+    const linkReached = vi.fn();
+
+    /** A record citing a release with nothing typed to use, so its three openers show; `reread` serves the page's reread of the item. */
+    const setUp = (item = dogaItem({ cited_album_id: CITED_ID, accepted_review_id: null, state: "pool", effective_state: "pool" })) => {
+      fakeReviewsEndpoints({
+        records: [item],
+        reviews: [submitted(90, { author: "Sessa" })],
+        forRelease: { [CITED_ID]: [submitted(91, { intake_item_id: null, album_id: CITED_ID, medium: "handwritten", review: null })] },
+        archive: { [CITED_ID]: ARCHIVE },
+        releases: [{ id: CITED_ID, artist_name: "Jessica Pratt", album_title: "On Your Own Love Again" }],
+      });
+      const box = serveItem(item);
+      serveItemReviews([]);
+      return box;
+    };
+    const renderPage = (item?: ReturnType<typeof dogaItem>) => {
+      const box = setUp(item);
+      const view = renderScreen(
+        <>
+          <Link href={TARGET} prefetch={false} onClick={linkReached}>Flowsheet</Link>
+          <IntakeItemScreen id={ITEM_ID} />
+        </>,
+      );
+      return { box, ...view };
+    };
+    const beforeUnload = () => {
+      const event = new Event("beforeunload", { cancelable: true });
+      window.dispatchEvent(event);
+      return event.defaultPrevented;
+    };
+    const dialog = () => screen.findByRole("alertdialog", { name: "Leave without saving?" });
+    const noDialog = () => waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
+    const open = async (user: User) => user.click(await screen.findByRole("button", { name: "Record a review" }));
+    const type = (user: User, text: string) => user.type(screen.getByRole("textbox", { name: "Review" }), text);
+    const opener = async (name: string) => within((await screen.findByRole("heading", { name: HEADING })).closest("section")!).findByRole("button", { name });
+    const dirtyForm = async (user: User) => {
+      await open(user);
+      await type(user, "Warm.");
+    };
+
+    beforeEach(() => {
+      router.push.mockClear();
+      linkReached.mockClear();
+    });
+
+    it("asks before an in-app link with the approved words, Keep editing keeps the text, and Leave navigates", async () => {
+      const { user } = renderPage();
+      await dirtyForm(user);
+
+      await user.click(screen.getByRole("link", { name: "Flowsheet" }));
+
+      const asking = await dialog();
+      expect(within(asking).getByText("The review you've typed here will be lost.")).toBeInTheDocument();
+      expect(within(asking).getByRole("button", { name: "Keep editing" })).toHaveFocus();
+      expect(linkReached).not.toHaveBeenCalled();
+      await user.click(within(asking).getByRole("button", { name: "Keep editing" }));
+      await noDialog();
+      expect(router.push).not.toHaveBeenCalled();
+      expect(screen.getByRole("textbox", { name: "Review" })).toHaveValue("Warm.");
+
+      await user.click(screen.getByRole("link", { name: "Flowsheet" }));
+      await user.click(within(await dialog()).getByRole("button", { name: "Leave" }));
+      expect(router.push).toHaveBeenCalledWith(TARGET);
+    });
+
+    it.each([
+      ["no start", "Type in the review from its cover"],
+      ["a handwritten start", "Copy it by pen"],
+      ["a form review's start", "Copy this review onto the record"],
+    ])("lets a form opened from %s and left unchanged navigate and unload without asking", async (_name, from) => {
+      const { user } = renderPage();
+      await user.click(await opener(from));
+      await screen.findByRole("heading", { name: "Record a review" });
+
+      expect(beforeUnload()).toBe(false);
+      await user.click(screen.getByRole("link", { name: "Flowsheet" }));
+
+      expect(linkReached).toHaveBeenCalledTimes(1);
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    });
+
+    it("cancels beforeunload while the form is dirty and not while it is clean", async () => {
+      const { user } = renderPage();
+      await open(user);
+      expect(beforeUnload()).toBe(false);
+      await type(user, "W");
+      expect(beforeUnload()).toBe(true);
+    });
+
+    it.each([
+      ["the author", (user: User) => user.type(screen.getByRole("textbox", { name: "Author" }), "S")],
+      ["the medium", (user: User) => user.click(screen.getByRole("radio", { name: "Handwritten" }))],
+      ["the cover checkbox", (user: User) => user.click(screen.getByRole("checkbox", { name: REVIEW_COPY.record.useAsCover }))],
+    ])("counts a change to %s as unsaved", async (_name, change) => {
+      const { user } = renderPage();
+      await open(user);
+      await change(user);
+      expect(beforeUnload()).toBe(true);
+    });
+
+    it("asks before the Record a review press closes a dirty form, and closes a clean one at once", async () => {
+      const { user } = renderPage();
+      await open(user);
+      await user.click(screen.getByRole("button", { name: "Record a review" }));
+      expect(screen.queryByRole("heading", { name: "Record a review" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+
+      await dirtyForm(user);
+      await user.click(screen.getByRole("button", { name: "Record a review" }));
+      await user.click(within(await dialog()).getByRole("button", { name: "Keep editing" }));
+      await noDialog();
+      expect(screen.getByRole("textbox", { name: "Review" })).toHaveValue("Warm.");
+
+      await user.click(screen.getByRole("button", { name: "Record a review" }));
+      await user.click(within(await dialog()).getByRole("button", { name: "Leave" }));
+      await waitFor(() => expect(screen.queryByRole("heading", { name: "Record a review" })).not.toBeInTheDocument());
+    });
+
+    it.each(OPENERS)("asks before %s replaces a dirty form, opens that start on Leave, and replaces an unchanged form at once", async (name, line) => {
+      const { user } = renderPage();
+      await dirtyForm(user);
+
+      await user.click(await opener(name));
+      await user.click(within(await dialog()).getByRole("button", { name: "Keep editing" }));
+      await noDialog();
+      expect(screen.getByRole("textbox", { name: "Review" })).toHaveValue("Warm.");
+
+      await user.click(await opener(name));
+      await user.click(within(await dialog()).getByRole("button", { name: "Leave" }));
+      await noDialog();
+      if (line) expect(await screen.findByText(line)).toBeInTheDocument();
+      if (name === "Type in the review from its cover") expect(screen.getByRole("textbox", { name: "Review" })).toHaveValue("");
+
+      await user.click(await opener(name));
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    });
+
+    describe("saving", () => {
+      const fill = async (user: User) => {
+        await dirtyForm(user);
+        await user.type(screen.getByRole("textbox", { name: "Author" }), "Sessa");
+      };
+      const save = (user: User) => user.click(screen.getByRole("button", { name: "Save" }));
+
+      it("stays armed after a failed save", async () => {
+        server.use(http.post(SAVE_URL, () => HttpResponse.json({ message: "boom" }, { status: 500 })));
+        const { user } = renderPage();
+        await fill(user);
+
+        await save(user);
+
+        await screen.findByRole("alert");
+        expect(beforeUnload()).toBe(true);
+      });
+
+      it("closes with no question after a save, even with text typed while the reread was out", async () => {
+        const { box, user, store } = renderPage(dogaItem({ accepted_review_id: null }));
+        server.use(
+          http.post(SAVE_URL, () => {
+            box.item = { ...box.item, accepted_review_id: 90 };
+            return HttpResponse.json(submitted(90, { author: "Sessa" }), { status: 201 });
+          }),
+        );
+        await fill(user);
+        await reviewsSettled(store);
+        const reread = holdResponse("get", FILED_ITEM_PATH, () => HttpResponse.json(box.item));
+
+        await save(user);
+        await waitFor(() => expect(reread.calls.count).toBeGreaterThan(0));
+        await type(user, " More.");
+
+        expect(beforeUnload()).toBe(false);
+        reread.release();
+        await reread.answered;
+        await screen.findByRole("status");
+        expect(screen.queryByRole("heading", { name: "Record a review" })).not.toBeInTheDocument();
+        expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+        expect(beforeUnload()).toBe(false);
+      });
     });
   });
 });

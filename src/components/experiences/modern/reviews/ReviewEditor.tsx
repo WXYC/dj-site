@@ -8,8 +8,6 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Authorization } from "@/lib/features/admin/types";
 import type { User } from "@/lib/features/authentication/types";
-import { applicationSlice } from "@/lib/features/application/frontend";
-import { useAppDispatch } from "@/lib/hooks";
 import {
   isReviewInUse,
   isReviewNotDraft,
@@ -34,8 +32,8 @@ import SlipPreview from "./SlipPreview";
 import { formatSlipDate } from "./slipDate";
 import { useReviewRecord } from "./useReviewRecord";
 import { STICKY_ROOM_PROPERTY, useStickyRoom } from "./useStickyRoom";
+import { useCloseSidebarWhile } from "@/src/hooks/useCloseSidebarWhile";
 import { useLeaveGuard } from "@/src/hooks/useLeaveGuard";
-import { closeSidebarCSS } from "@/src/utilities/modern/catalog/utilities";
 import { hasNothingToShow } from "@/lib/has-nothing-to-show";
 import { APPBAR_CLEARANCE_PX } from "@/src/components/shared/Theme/Appbar";
 
@@ -56,7 +54,6 @@ function Form({ review, user }: { review: Review; user: User | undefined }) {
   const [submit, { isLoading: submitting }] = useSubmitReviewMutation();
   const [remove, { isLoading: deleting }] = useDeleteReviewMutation();
   const router = useRouter();
-  const dispatch = useAppDispatch();
   const record = useReviewRecord(review);
   const { root, bar } = useStickyRoom<HTMLDivElement, HTMLDivElement>();
   const slipHeadingId = useId();
@@ -93,12 +90,7 @@ function Form({ review, user }: { review: Review; user: User | undefined }) {
     if (isAuthor) setConsent((c) => ({ ...c, ...Object.fromEntries(CONSENT_KEYS.filter((k) => k in offer).map((k) => [k, offer[k]])) }));
     setOffer(null);
   };
-  // Below Joy's md breakpoint the left bar is a drawer stacked above every modal (z-index 10000 against Joy's 1300), and a link tap does not close it, so the question would open out of sight: the drawer closes as the question opens.
-  useEffect(() => {
-    if (!leaveGuard.pending) return;
-    dispatch(applicationSlice.actions.closeSidebar());
-    closeSidebarCSS();
-  }, [leaveGuard.pending, dispatch]);
+  useCloseSidebarWhile(leaveGuard.pending);
   const failure = (err: unknown, fallback: string) =>
     toast.error(serverMessage(unwrapEndpointErrorOrRaw("reviewWriteError", err)?.data) ?? fallback);
 

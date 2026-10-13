@@ -126,6 +126,7 @@ describe("ReviewEditor", () => {
     ["leave.body", REVIEW_COPY.leave.body, "Your changes since the last save will be lost."],
     ["leave.leave", REVIEW_COPY.leave.leave, "Leave"],
     ["leave.keepEditing", REVIEW_COPY.leave.keepEditing, "Keep editing"],
+    ["leave.recordBody", REVIEW_COPY.leave.recordBody, "The review you've typed here will be lost."],
     ["submitNeedsReview", REVIEW_COPY.submitNeedsReview, "Write the review before you submit it."],
     ["couldNotSubmit", REVIEW_COPY.couldNotSubmit, "Couldn't submit the review. Please try again."],
     ["alreadySubmitted", REVIEW_COPY.alreadySubmitted, "This review was already submitted."],
