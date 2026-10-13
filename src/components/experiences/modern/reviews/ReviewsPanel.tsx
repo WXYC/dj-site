@@ -113,10 +113,10 @@ export function ReviewItem({ review, record, newSlipHref, printable, onCover, mo
 }
 
 /** A headed list of reviews; `recordOf` names the record a review is about, or nothing for a review of a release this record cites. `intro` renders under the heading and `extra` after each review, for a page's own lines and buttons. */
-export function Group({ title, intro, reviews, recordOf, newSlipHref, printable, onCover, mode, fccNotes, extra }: { title: string; intro?: ReactNode; reviews: Review[]; recordOf: (review: Review) => PanelRecord | undefined; newSlipHref?: string; printable?: boolean; onCover: (review: Review) => boolean; mode?: ReviewMode; fccNotes?: string[]; extra?: (review: Review) => ReactNode }) {
+export function Group({ title, intro, reviews, recordOf, newSlipHref, printable, onCover, mode, fccNotes, extra }: { title?: string; intro?: ReactNode; reviews: Review[]; recordOf: (review: Review) => PanelRecord | undefined; newSlipHref?: string; printable?: boolean; onCover: (review: Review) => boolean; mode?: ReviewMode; fccNotes?: string[]; extra?: (review: Review) => ReactNode }) {
   return (
     <Stack component="section" spacing={1}>
-      <Typography level="title-sm" component="h3">{title}</Typography>
+      {title && <Typography level="title-sm" component="h3">{title}</Typography>}
       {intro}
       <Stack component="ul" spacing={1.5} sx={{ p: 0, m: 0 }}>
         {reviews.map((review) => (

@@ -27,7 +27,7 @@ import ConfirmDialog from "../ConfirmDialog";
 import RotationFilingBench, { type FilingSubmit } from "../admin/rotation/RotationFilingBench";
 import { REVIEW_COPY } from "./copy";
 import FccNotesPanel from "./FccNotesPanel";
-import { useGetFormatsQuery } from "@/lib/features/catalog/api";
+import { useGetFormatsQuery, useGetInformationQuery } from "@/lib/features/catalog/api";
 import { intakeRecord, recordLine, releaseRecord } from "./recordLine";
 import ReleasePicker from "./ReleasePicker";
 import { fromLine, newestFirst } from "./ReviewFrom";
@@ -97,7 +97,12 @@ export default function IntakeItemScreen({ id }: { id: number }) {
 
   const citedId = item.data?.cited_album_id ?? null;
   const cited = useGetReviewsForReleaseQuery(citedId ?? 0, { skip: !visible || citedId === null });
-  const citedArchive = useGetAlbumReviewsForReleaseQuery(citedId ?? 0, { skip: !visible || citedId === null });
+  // The cited release's own name: the item carries only its id.
+  const citedRelease = useGetInformationQuery({ album_id: citedId ?? 0 }, { skip: !visible || citedId === null });
+  // The cited release's own reviews, less the one on the cover, which shows under "The review on the cover".
+  const citedTyped = (cited.data ?? []).filter((r) => r.album_id === citedId && r.status === "submitted" && r.medium === "typed");
+  // Only the empty state shows the form archive's reviews, so they are read only once the typed list is known to be empty.
+  const citedArchive = useGetAlbumReviewsForReleaseQuery(citedId ?? 0, { skip: !visible || citedId === null || cited.data === undefined || citedTyped.length > 0 });
   const dispatch = useAppDispatch();
 
   const coverId = item.data?.accepted_review_id ?? null;
@@ -181,8 +186,6 @@ export default function IntakeItemScreen({ id }: { id: number }) {
     );
   };
 
-  // The cited release's own reviews, less the one on the cover, which shows under "The review on the cover".
-  const citedTyped = (cited.data ?? []).filter((r) => r.album_id === citedId && r.status === "submitted" && r.medium === "typed");
   // Its review is read by id from here on, so it goes into that cache before the reread: a failed reread cannot take the cover off the page.
   const chooseCited = (review: Review) => (release: () => void) => {
     dispatch(reviewApi.util.upsertQueryData("getReview", review.id, review));
@@ -294,8 +297,8 @@ export default function IntakeItemScreen({ id }: { id: number }) {
         coverId == null && <Typography>{COPY.noCover}</Typography>
       )}
       {others.length > 0 && <Group title={REVIEW_COPY.albumPanel.others} reviews={others} recordOf={recordOf} onCover={() => false} extra={othersExtra} />}
-      {citedId !== null && cited.data && (
-        <Group title={COPY.citedHeading(item.data.artist_name, item.data.album_title)} intro={citedIntro} reviews={citedTyped.filter((r) => r.id !== coverId).sort(newestFirst)} recordOf={() => undefined} onCover={() => false} extra={citedExtra} />
+      {citedId !== null && cited.data && !citedRelease.isLoading && (
+        <Group title={citedRelease.data ? COPY.citedHeading(citedRelease.data.artist.name, citedRelease.data.title) : undefined} intro={citedIntro} reviews={citedTyped.filter((r) => r.id !== coverId).sort(newestFirst)} recordOf={() => undefined} onCover={() => false} extra={citedExtra} />
       )}
       {!!item.data.draft_authors?.length && (
         <Typography level="body-sm">{COPY.stillWriting} {item.data.draft_authors.join(", ")}.</Typography>
