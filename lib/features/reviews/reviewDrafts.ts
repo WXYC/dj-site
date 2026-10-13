@@ -1,12 +1,10 @@
 import type { ReviewPatch } from "@wxyc/shared";
-import { CONSENT_KEYS } from "@/src/components/experiences/modern/reviews/ConsentBlock";
-import { FIELD_NAMES } from "@/src/components/experiences/modern/reviews/SlipFields";
+import { CONSENT_KEYS, FIELD_NAMES } from "./draftKeys";
 
 const PREFIX = "review-draft:";
 const keyOf = (userId: string, id: number) => `${PREFIX}${userId}:${id}`;
 
 const isText = (v: unknown) => v === null || typeof v === "string";
-/** What each `ReviewPatch` key may hold; the text fields and `credit` take text or null, the other consent keys a boolean. */
 const KINDS: Record<string, (v: unknown) => boolean> = Object.fromEntries([
   ...FIELD_NAMES.map((n) => [n, isText]),
   ...CONSENT_KEYS.map((k) => [k, k === "credit" ? isText : (v: unknown) => typeof v === "boolean"]),
@@ -20,26 +18,24 @@ function shaped(parsed: unknown): ReviewPatch | null {
 }
 
 /**
- * Unsaved review text kept in the tab's `sessionStorage`, one entry per user and review, so text one DJ left on a shared computer is never offered to the next. Storage that throws (private mode, a full quota) is treated as absent so the editor behaves as it would without any.
+ * Unsaved review text kept in the tab's `sessionStorage`, one entry per user and review, so text one DJ left on a shared computer is never offered to the next. An empty user id reads and writes nothing. Storage that throws (private mode, a full quota) is treated as absent so the editor behaves as it would without any.
  */
 export function readReviewDraft(userId: string, id: number): ReviewPatch | null {
+  if (!userId) return null;
+  let kept: ReviewPatch | null = null;
   try {
     const raw = sessionStorage.getItem(keyOf(userId, id));
     if (raw === null) return null;
-    let kept: ReviewPatch | null = null;
-    try {
-      kept = shaped(JSON.parse(raw));
-    } catch {
-      // Unparseable: treated as absent.
-    }
-    if (!kept) clearReviewDraft(userId, id);
-    return kept;
+    kept = shaped(JSON.parse(raw));
   } catch {
-    return null;
+    // Unreadable or unparseable: treated as absent.
   }
+  if (!kept) clearReviewDraft(userId, id);
+  return kept;
 }
 
 export function writeReviewDraft(userId: string, id: number, patch: ReviewPatch): void {
+  if (!userId) return;
   try {
     sessionStorage.setItem(keyOf(userId, id), JSON.stringify(patch));
   } catch {
@@ -48,6 +44,7 @@ export function writeReviewDraft(userId: string, id: number, patch: ReviewPatch)
 }
 
 export function clearReviewDraft(userId: string, id: number): void {
+  if (!userId) return;
   try {
     sessionStorage.removeItem(keyOf(userId, id));
   } catch {

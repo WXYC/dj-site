@@ -1,10 +1,10 @@
 "use client";
 
 import { FormControl, FormHelperText, FormLabel, Textarea } from "@mui/joy";
-import type { Review, ReviewPatch } from "@wxyc/shared";
+import type { ReviewPatch } from "@wxyc/shared";
+import { FIELD_NAMES } from "@/lib/features/reviews/draftKeys";
 import { REVIEW_COPY } from "./copy";
 
-export const FIELD_NAMES = ["buzzwords", "artist_blurb", "review", "recommended_tracks", "fcc"] as const;
 export type FieldName = (typeof FIELD_NAMES)[number];
 export type FieldValues = Record<FieldName, string>;
 

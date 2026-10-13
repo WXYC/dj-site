@@ -17,12 +17,13 @@ import {
   useSubmitReviewMutation,
   useUpdateReviewMutation,
 } from "@/lib/features/reviews/reviewApi";
+import { CONSENT_KEYS } from "@/lib/features/reviews/draftKeys";
 import { clearReviewDraft, readReviewDraft, writeReviewDraft } from "@/lib/features/reviews/reviewDrafts";
 import { serverMessage, unwrapEndpointErrorOrRaw } from "@/lib/rtk-endpoint-error";
 import { useAuthentication } from "@/src/hooks/authenticationHooks";
 import { useCanSeeReviews } from "@/src/hooks/useCanSeeReviews";
 import ConfirmDialog from "../ConfirmDialog";
-import ConsentBlock, { CONSENT_KEYS, type Consent } from "./ConsentBlock";
+import ConsentBlock, { type Consent } from "./ConsentBlock";
 import { REVIEW_COPY } from "./copy";
 import FccNotesPanel from "./FccNotesPanel";
 import PrintedVersionNote from "./PrintedVersionNote";
@@ -273,8 +274,10 @@ function Form({ review }: { review: Review }) {
 export default function ReviewEditor({ id }: { id: number }) {
   const visible = useCanSeeReviews();
   const { data, isError } = useGetReviewQuery(id, { skip: !visible });
+  const { data: auth } = useAuthentication();
 
   if (!visible) return null;
   if (hasNothingToShow({ isError, data })) return <Typography role="alert">{REVIEW_COPY.couldNotLoad}</Typography>;
-  return data ? <Form review={data} /> : null;
+  // Keyed by the signed-in user so a session that changes under an open editor starts a fresh form (and a fresh read of what that user kept) rather than carrying the first user's text over.
+  return data ? <Form key={"user" in auth ? auth.user?.id : undefined} review={data} /> : null;
 }
