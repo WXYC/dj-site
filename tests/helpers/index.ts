@@ -23,6 +23,7 @@ export {
 export * from "./conversion-harness";
 
 export { server } from "../fakes/server";
+export { deletingReview } from "./deleting-review";
 export { holdResponse } from "./hold-response";
 export { pendingCount, renderedFrame, reviewsSettled } from "./reviews-settled";
 export { refetchesAfter } from "./refetches";

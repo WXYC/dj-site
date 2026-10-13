@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
-import { fakeReviewsEndpoints, fccNote, heldBy, holdResponse, intakeItem, pendingCount, removedHolder, renderedFrame, renderWithProviders, requestedFor, returned, review, reviewRevision, reviewsSettled, server, TEST_BACKEND_URL } from "@/tests/helpers";
+import { deletingReview, fakeReviewsEndpoints, fccNote, heldBy, holdResponse, intakeItem, pendingCount, removedHolder, renderedFrame, renderWithProviders, requestedFor, returned, review, reviewRevision, reviewsSettled, server, TEST_BACKEND_URL } from "@/tests/helpers";
 import { fakeRotationCardsEndpoints } from "@/tests/fakes/rotation";
 import { fakeLibraryFilingsEndpoint, filingConflictResponse } from "@/tests/fakes/libraryFilings";
 import { Authorization } from "@/lib/features/admin/types";
@@ -92,13 +92,6 @@ const acceptingReview = (box: { item: ReturnType<typeof dogaItem> }) =>
   http.post(ACCEPT_URL, () => {
     box.item = { ...box.item, accepted_review_id: 41 };
     return HttpResponse.json(box.item);
-  });
-
-/** Serves `DELETE /reviews/:id` with a 204, handing the deleted id to `onDelete`. */
-const deletingReview = (onDelete?: (id: string) => void) =>
-  http.delete(`${TEST_BACKEND_URL}/reviews/:id`, ({ params }) => {
-    onDelete?.(String(params.id));
-    return new HttpResponse(null, { status: 204 });
   });
 
 /** Serves the item through a mutable box, so a spec can change the answer between reads, or hold a read in flight. */
