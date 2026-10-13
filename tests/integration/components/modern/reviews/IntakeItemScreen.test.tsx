@@ -3513,4 +3513,146 @@ describe("IntakeItemScreen", () => {
       });
     });
   });
+
+  // RTK Query queues an invalidation while any other request is pending, and starts its refetch only once that request settles.
+  describe("a write's invalidation queued behind another pending read", () => {
+    const BLOCKER_URL = `${TEST_BACKEND_URL}/reviews/999`;
+    const CITED_ID = 7;
+    const citedReview = submitted(90, { intake_item_id: null, album_id: CITED_ID, author: "Cited 90", review: "Cited take 90." });
+
+    /** Holds a read of an unrelated review in flight, so every invalidation the page's writes fire waits for `release()`. */
+    const blockInvalidations = async (store: ReturnType<typeof renderScreen>["store"]) => {
+      const blocker = holdResponse("get", BLOCKER_URL, () => HttpResponse.json(submitted(999)));
+      void store.dispatch(reviewApi.endpoints.getReview.initiate(999, { subscribe: false }));
+      await waitFor(() => expect(blocker.calls.count).toBe(1));
+      return blocker;
+    };
+
+    /** Holds every item read after the first `after` until the returned `open()`, and answers each with the item as it stood when the read started. */
+    const holdLateItemReads = (box: ReturnType<typeof serveItem>, after: number) => {
+      let open!: () => void;
+      const gate = new Promise<void>((resolve) => {
+        open = resolve;
+      });
+      server.use(
+        http.get(FILED_ITEM_PATH, async () => {
+          box.reads += 1;
+          const answer = box.item;
+          if (box.reads > after) await gate;
+          return HttpResponse.json(answer);
+        }),
+      );
+      return open;
+    };
+
+    /** Every review button still on the page: a write that moved the cover leaves no Use this review to find. */
+    const reviewButtons = () => screen.getAllByRole("button", { name: /^(Use this review|Delete review by)/ });
+
+    const coverSection = async () => (await screen.findByRole("heading", { name: "The review on the cover" })).closest("section")!;
+
+    /**
+     * Runs one write behind a blocked invalidation: `act` makes the write, whose own reload is the one item read it
+     * counts, and releasing the blocker then starts the read its queued invalidation was waiting to make. While that read is
+     * in flight no review button may be enabled, because a press now would reread into it and its answer would land over the
+     * write's. Resolves once that read has answered and the page has settled.
+     */
+    async function writeBehindBlocker(store: ReturnType<typeof renderScreen>["store"], box: ReturnType<typeof serveItem>, act: () => Promise<void>) {
+      await reviewsSettled(store);
+      const blocker = await blockInvalidations(store);
+      const before = box.reads;
+      const open = holdLateItemReads(box, before + 1);
+
+      await act();
+      await waitFor(() => expect(box.reads).toBeGreaterThanOrEqual(before + 1));
+      blocker.release();
+      await blocker.answered;
+      // RTK Query can start the queued read before the blocker settles (a query it skips as already cached ends a request it never counted), so it may be in flight already.
+      await waitFor(() => expect(box.reads).toBeGreaterThanOrEqual(before + 2));
+      await renderedFrame();
+      reviewButtons().forEach((b) => expect(b).toBeDisabled());
+
+      open();
+      await reviewsSettled(store);
+    }
+
+    describe.each(ARMS)("filing through $arm", ({ ready, button }) => {
+      it("holds every review button until the read the filing's queued invalidation starts has answered, then lets a chosen cover stand", async () => {
+        fakeLibraryFilingsEndpoint({ existingArtists: [] });
+        const item = dogaItem();
+        fakeReviewsEndpoints({ records: [item], forItem: { [ITEM_ID]: [submitted(40), submitted(41)] } });
+        server.use(http.get(`${TEST_BACKEND_URL}/library`, () => HttpResponse.json([RELEASE_ROW])));
+        const box = serveItem(item);
+        server.use(
+          acceptingReview(box),
+          http.post(FILE_URL, () => {
+            box.item = dogaItem({ state: "filed", effective_state: "filed" });
+            return HttpResponse.json(box.item);
+          }),
+        );
+        const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+        await ready(user);
+
+        await writeBehindBlocker(store, box, () => user.click(screen.getByRole("button", { name: button })));
+
+        // The cover's own Delete review stays disabled once the record is filed, so only the Use button is waited on.
+        await waitFor(() => expect(screen.getByRole("button", { name: "Use this review instead" })).toBeEnabled());
+        await user.click(screen.getByRole("button", { name: "Use this review instead" }));
+        await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Use this review instead" }));
+        await waitFor(() => expect(within(screen.getByRole("heading", { name: "The review on the cover" }).closest("section")!).getByText("Take 41.")).toBeInTheDocument());
+        await reviewsSettled(store);
+        expect(within(await coverSection()).getByText("Take 41.")).toBeInTheDocument();
+      });
+    });
+
+    /** Serves accept-review by putting the review sent on the cover of the box's item. */
+    const acceptingSent = (box: ReturnType<typeof serveItem>) =>
+      server.use(
+        http.post(ACCEPT_URL, async ({ request }) => {
+          const { review_id } = (await request.json()) as { review_id: number };
+          box.item = { ...box.item, accepted_review_id: review_id };
+          return HttpResponse.json(box.item);
+        }),
+      );
+
+    it.each([
+      {
+        source: "the other reviews",
+        cover: "Take 41.",
+        press: (user: User) => user.click(screen.getByRole("button", { name: "Use this review" })),
+        setUp: () => {
+          const item = dogaItem({ accepted_review_id: null });
+          fakeReviewsEndpoints({ records: [item], forItem: { [ITEM_ID]: [submitted(41)] } });
+          return serveItem(item);
+        },
+      },
+      {
+        source: "the cited release's reviews",
+        cover: "Cited take 90.",
+        // The record's own review 41 keeps a Use this review on the page once the cited review is on the cover.
+        press: async (user: User) => user.click(within((await screen.findByRole("heading", { name: /^Reviews of / })).closest("section")!).getByRole("button", { name: "Use this review" })),
+        setUp: () => {
+          const item = dogaItem({ cited_album_id: CITED_ID, accepted_review_id: null, state: "pool", effective_state: "pool" });
+          fakeReviewsEndpoints({
+            records: [item],
+            forItem: { [ITEM_ID]: [submitted(41)] },
+            forRelease: { [CITED_ID]: [citedReview] },
+            reviews: [citedReview],
+            archive: { [CITED_ID]: [] },
+            releases: [{ id: CITED_ID, artist_name: "Jessica Pratt", album_title: "On Your Own Love Again" }],
+          });
+          serveItemReviews([submitted(41)]);
+          return serveItem(item);
+        },
+      },
+    ])("holds every review button after Use this review on $source until the read its queued invalidation starts has answered", async ({ setUp, press, cover }) => {
+      const box = setUp();
+      acceptingSent(box);
+      const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+      await screen.findByText(/^Take 41\./);
+
+      await writeBehindBlocker(store, box, () => press(user));
+
+      expect(within(await coverSection()).getByText(cover)).toBeInTheDocument();
+    });
+  });
 });
