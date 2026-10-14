@@ -86,15 +86,22 @@ const draft = (id: number, overrides = {}) => submitted(id, { status: "draft", .
 
 const FILED_ITEM_PATH = `${TEST_BACKEND_URL}/intake/${ITEM_ID}`;
 const ACCEPT_URL = `${TEST_BACKEND_URL}/intake/${ITEM_ID}/accept-review`;
-/** Every Use this review and Delete review button on the page. Throws when there is none, so a check that they are enabled cannot pass on a page that lost them. */
-const guarded = () => [...screen.getAllByRole("button", { name: /^Use this review/ }), ...screen.getAllByRole("button", { name: /^Delete review by/ })];
+/** Every Use this review and Delete review button on the page. Throws when there is none, so a check that they are enabled cannot pass on a page that lost them; either kind alone is enough, since a write that moved the cover can leave no Use this review. */
+const guarded = () => screen.getAllByRole("button", { name: /^(Use this review|Delete review by)/ });
 
-/** Serves accept-review by putting review 41 on the cover of the box's item. */
-const acceptingReview = (box: { item: ReturnType<typeof dogaItem> }) =>
-  http.post(ACCEPT_URL, () => {
-    box.item = { ...box.item, accepted_review_id: 41 };
-    return HttpResponse.json(box.item);
-  });
+/** Serves accept-review by putting the review sent on the cover of the box's item. Registers the handler and returns the bodies it received. */
+const acceptingReview = (box: { item: ReturnType<typeof dogaItem> }) => {
+  const sent: { review_id: number }[] = [];
+  server.use(
+    http.post(ACCEPT_URL, async ({ request }) => {
+      const body = (await request.json()) as { review_id: number };
+      sent.push(body);
+      box.item = { ...box.item, accepted_review_id: body.review_id };
+      return HttpResponse.json(box.item);
+    }),
+  );
+  return sent;
+};
 
 /** Serves the item through a mutable box, so a spec can change the answer between reads, or hold a read in flight. */
 function serveItem(initial: ReturnType<typeof dogaItem>) {
@@ -108,6 +115,53 @@ function serveItem(initial: ReturnType<typeof dogaItem>) {
   );
   return box;
 }
+
+/**
+ * Holds the item's reread (`GET` of the record) until `releaseAndSettle()`. Register it after `reviewsSettled(store)`, so no
+ * earlier read is the one held. `expectHeld()` waits for the held call and a rendered frame, then needs at least one review
+ * button on the page and every one disabled. `releaseAndSettle()` releases, waits for the answer and for the page to settle,
+ * then needs every review button enabled; `coverDeleteStays` is for a filed record, whose cover keeps its Delete review
+ * disabled by design, so only the Use this review buttons are checked.
+ */
+function holdTheReread(store: ReturnType<typeof renderScreen>["store"], box: ReturnType<typeof serveItem>, { coverDeleteStays = false }: { coverDeleteStays?: boolean } = {}) {
+  const reread = holdResponse("get", FILED_ITEM_PATH, () => HttpResponse.json(box.item));
+  return {
+    reread,
+    async expectHeld() {
+      await waitFor(() => expect(reread.calls.count).toBe(1));
+      await renderedFrame();
+      expect(guarded().length).toBeGreaterThan(0);
+      guarded().forEach((b) => expect(b).toBeDisabled());
+    },
+    async releaseAndSettle() {
+      reread.release();
+      await reread.answered;
+      await reviewsSettled(store);
+      const checked = () => (coverDeleteStays ? screen.getAllByRole("button", { name: /^Use this review/ }) : guarded());
+      await waitFor(() => checked().forEach((b) => expect(b).toBeEnabled()));
+    },
+  };
+}
+
+/**
+ * Holds every item read after the first `after` (only the first of them when `onlyNext`) until the returned `open()`, and
+ * answers each with the item as it stood when the read started.
+ */
+const holdLateItemReads = (box: ReturnType<typeof serveItem>, after: number, onlyNext = false) => {
+  let open!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    open = resolve;
+  });
+  server.use(
+    http.get(FILED_ITEM_PATH, async () => {
+      box.reads += 1;
+      const answer = box.item;
+      if (onlyNext ? box.reads === after + 1 : box.reads > after) await gate;
+      return HttpResponse.json(answer);
+    }),
+  );
+  return open;
+};
 
 /**
  * Serves this item's reviews (`GET /reviews?intake_item_id=`) through a mutable box: `list` is what the next read
@@ -1051,19 +1105,17 @@ describe("IntakeItemScreen", () => {
       const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
       const button = await screen.findByRole("button", { name: "Use this review instead" });
       await reviewsSettled(store);
-      const reread = holdResponse("get", FILED_ITEM_PATH, () => HttpResponse.json(box.item));
+      const held = holdTheReread(store, box);
 
       await user.click(button);
       await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Use this review instead" }));
 
-      await waitFor(() => expect(reread.calls.count).toBe(1));
+      await held.expectHeld();
       await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
       expect(screen.getByRole("button", { name: "Use this review instead" })).toBeDisabled();
       expect(posts).toEqual([{ path: `/intake/${ITEM_ID}/accept-review`, body: { review_id: 41 } }]);
 
-      reread.release();
-      await reread.answered;
-      await reviewsSettled(store);
+      await held.releaseAndSettle();
       expect(posts).toHaveLength(1);
     });
 
@@ -1085,6 +1137,7 @@ describe("IntakeItemScreen", () => {
       const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
       const [button] = await screen.findAllByRole("button", { name: "Use this review" });
       await reviewsSettled(store);
+      // A failing reread, so the helper, which answers with the item, does not fit.
       const reread = holdResponse("get", FILED_ITEM_PATH, () => HttpResponse.json({ message: "boom" }, { status: 500 }));
 
       await user.click(button);
@@ -1124,17 +1177,14 @@ describe("IntakeItemScreen", () => {
       const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
       const [first] = await screen.findAllByRole("button", { name: "Use this review" });
       await reviewsSettled(store);
-      const reload = holdResponse("get", FILED_ITEM_PATH, () => HttpResponse.json(box.item));
+      const held = holdTheReread(store, box);
 
       await user.click(first);
 
-      await waitFor(() => expect(reload.calls.count).toBe(1));
+      await held.expectHeld();
       expect(guarded()).toHaveLength(4);
-      guarded().forEach((b) => expect(b).toBeDisabled());
 
-      reload.release();
-      await reload.answered;
-      await waitFor(() => guarded().forEach((b) => expect(b).toBeEnabled()));
+      await held.releaseAndSettle();
     });
 
     it("words every review's button as a replacement, and disables it, while the reread is outstanding", async () => {
@@ -1143,20 +1193,18 @@ describe("IntakeItemScreen", () => {
       const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
       const [first] = await screen.findAllByRole("button", { name: "Use this review" });
       await reviewsSettled(store);
-      const reread = holdResponse("get", FILED_ITEM_PATH, () => HttpResponse.json(box.item));
+      const held = holdTheReread(store, box);
 
       await user.click(first);
 
-      await waitFor(() => expect(reread.calls.count).toBe(1));
+      await held.expectHeld();
       // The chosen review has already moved up to the cover, from the write's own answer, so one button is left.
       const buttons = await screen.findAllByRole("button", { name: "Use this review instead" });
       expect(buttons).toHaveLength(1);
       buttons.forEach((b) => expect(b).toBeDisabled());
       expect(screen.queryByRole("button", { name: "Use this review" })).not.toBeInTheDocument();
 
-      reread.release();
-      await reread.answered;
-      await reviewsSettled(store);
+      await held.releaseAndSettle();
     });
 
     it("disables the chosen review's Delete review while the reread is outstanding, so it cannot skip the cover confirmation", async () => {
@@ -1167,20 +1215,18 @@ describe("IntakeItemScreen", () => {
       const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
       const button = await screen.findByRole("button", { name: "Use this review" });
       await reviewsSettled(store);
-      const reread = holdResponse("get", FILED_ITEM_PATH, () => HttpResponse.json(box.item));
+      const held = holdTheReread(store, box);
 
       await user.click(button);
 
-      await waitFor(() => expect(reread.calls.count).toBe(1));
+      await held.expectHeld();
       const remove = screen.getByRole("button", { name: "Delete review by Cat Power" });
       expect(remove).toBeDisabled();
       fireEvent.click(remove);
       expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
       expect(deletes).toEqual([]);
 
-      reread.release();
-      await reread.answered;
-      await reviewsSettled(store);
+      await held.releaseAndSettle();
     });
 
     describe("when the reread after choosing a review fails", () => {
@@ -1361,19 +1407,18 @@ describe("IntakeItemScreen", () => {
       const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
       const button = await screen.findByRole("button", { name: "Use this review" });
       await waitFor(() => expect(reviewReads.reads).toBe(1));
-      const reload = holdResponse("get", FILED_ITEM_PATH, () => HttpResponse.json(box.item));
+      const held = holdTheReread(store, box);
 
       await user.click(button);
 
       // Every other read the reload starts has begun, and the held item read is the only request left.
-      await waitFor(() => expect(reload.calls.count).toBe(1));
+      await held.expectHeld();
       await waitFor(() => expect(reviewReads.reads).toBe(2));
       await waitFor(() => expect(pendingCount(store)).toBe(1));
       await renderedFrame();
       expect(screen.queryByRole("status")).not.toBeInTheDocument();
 
-      reload.release();
-      await reload.answered;
+      await held.releaseAndSettle();
       expect(screen.getByRole("status").textContent).toBe(REVIEW_COPY.intakeItem.reviewGone);
     });
 
@@ -1465,7 +1510,7 @@ describe("IntakeItemScreen", () => {
       const item = dogaItem();
       fakeReviewsEndpoints({ records: [item], forItem: { [ITEM_ID]: [submitted(40), submitted(41)] }, searchResults: [RELEASE_ROW] });
       const box = serveItem(item);
-      server.use(acceptingReview(box));
+      acceptingReview(box);
       return { box };
     };
     const filedItem = () => dogaItem({ state: "filed", effective_state: "filed" });
@@ -1613,6 +1658,7 @@ describe("IntakeItemScreen", () => {
       await waitFor(() => expect(calls.count).toBe(1));
       const reviewReadsBefore = reviewReads.reads;
       // The reload's item read is held, so the spec sees it arrive and settle rather than sleeping.
+      // The page is unmounted before the answer, so there is no store or button to check.
       const reload = holdResponse("get", FILED_ITEM_PATH, () => HttpResponse.json(dogaItem()));
 
       unmount();
@@ -1640,20 +1686,13 @@ describe("IntakeItemScreen", () => {
       const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
       await ready(user);
       await reviewsSettled(store);
-      const reread = holdResponse("get", FILED_ITEM_PATH, () => HttpResponse.json(box.item));
+      // The cover's own Delete review stays disabled once the record is filed, so only the Use buttons are checked after the release.
+      const held = holdTheReread(store, box, { coverDeleteStays: true });
 
       await user.click(screen.getByRole("button", { name: button }));
 
-      await waitFor(() => expect(reread.calls.count).toBe(1));
-      await renderedFrame();
-      expect(guarded().length).toBeGreaterThan(0);
-      guarded().forEach((b) => expect(b).toBeDisabled());
-
-      reread.release();
-      await reread.answered;
-      await reviewsSettled(store);
-      // The cover's own Delete review stays disabled once the record is filed, so only the Use button is checked.
-      await waitFor(() => expect(screen.getByRole("button", { name: "Use this review instead" })).toBeEnabled());
+      await held.expectHeld();
+      await held.releaseAndSettle();
 
       await user.click(screen.getByRole("button", { name: "Use this review instead" }));
       await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Use this review instead" }));
@@ -1669,18 +1708,13 @@ describe("IntakeItemScreen", () => {
       const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
       await ready(user);
       await reviewsSettled(store);
-      const reread = holdResponse("get", FILED_ITEM_PATH, () => HttpResponse.json(box.item));
+      const held = holdTheReread(store, box);
 
       await user.click(screen.getByRole("button", { name: button }));
 
-      await waitFor(() => expect(reread.calls.count).toBe(1));
-      await renderedFrame();
-      guarded().forEach((b) => expect(b).toBeDisabled());
+      await held.expectHeld();
 
-      reread.release();
-      await reread.answered;
-      await reviewsSettled(store);
-      await waitFor(() => guarded().forEach((b) => expect(b).toBeEnabled()));
+      await held.releaseAndSettle();
     });
   });
 
@@ -1980,11 +2014,11 @@ describe("IntakeItemScreen", () => {
       const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
       const dialog = await open(user, "Delete review by Cat Power");
       await reviewsSettled(store);
-      const reread = holdResponse("get", FILED_ITEM_PATH, () => HttpResponse.json(box.item));
+      const held = holdTheReread(store, box);
 
       await user.click(dialog.getByRole("button", { name: "Delete" }));
 
-      await waitFor(() => expect(reread.calls.count).toBe(1));
+      await held.expectHeld();
       await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
       const removeCat = screen.getByRole("button", { name: "Delete review by Cat Power" });
       expect(removeCat).toBeDisabled();
@@ -1993,9 +2027,7 @@ describe("IntakeItemScreen", () => {
       expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
       expect(deletes).toEqual(["41"]);
 
-      reread.release();
-      await reread.answered;
-      await reviewsSettled(store);
+      await held.releaseAndSettle();
       await waitFor(() => expect(screen.getByRole("button", { name: "Delete review by Cat Power" })).toBeEnabled());
     });
 
@@ -2339,6 +2371,7 @@ describe("IntakeItemScreen", () => {
           await openDelete(user);
           await waitFor(() => expect(calls.count).toBe(1));
           // The reload's item read is held, so the spec sees it arrive and settle rather than sleeping.
+          // The page is unmounted before the answer, so there is no store or button to check.
           const reload = holdResponse("get", FILED_ITEM_PATH, () => HttpResponse.json(dogaItem({ state: "filed", effective_state: "filed" })));
 
           unmount();
@@ -2767,18 +2800,17 @@ describe("IntakeItemScreen", () => {
       const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
       await fillAndTick(user, { author: "Cat Power", unticked: true });
       await reviewsSettled(store);
-      const reread = holdResponse("get", FILED_ITEM_PATH, () => HttpResponse.json(box.item));
+      const held = holdTheReread(store, box);
 
       await save(user);
 
-      await waitFor(() => expect(reread.calls.count).toBeGreaterThan(0));
+      await held.expectHeld();
       await waitFor(() => expect(submits).toEqual([String(NEW_ID)]));
       await renderedFrame();
       expect(screen.queryByRole("status")).not.toBeInTheDocument();
       expect(screen.getByRole("heading", { name: "Record a review" })).toBeInTheDocument();
 
-      reread.release();
-      await reread.answered;
+      await held.releaseAndSettle();
       expect((await screen.findByRole("status")).textContent).toBe("Recorded.");
     });
 
@@ -2926,22 +2958,16 @@ describe("IntakeItemScreen", () => {
       const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
       await fillAndTick(user);
       await reviewsSettled(store);
-      const reread = holdResponse("get", FILED_ITEM_PATH, () => HttpResponse.json(box.item));
+      const held = holdTheReread(store, box);
 
       await save(user);
 
-      await waitFor(() => expect(reread.calls.count).toBe(1));
+      await held.expectHeld();
       expect(creates).toHaveLength(1);
       // Save stays out of reach while the reread is held, so a second press cannot record the review twice.
       fireEvent.click(screen.getByRole("button", { name: "Save" }));
-      expect(guarded().length).toBeGreaterThan(0);
-      guarded().forEach((button) => expect(button).toBeDisabled());
 
-      reread.release();
-      await reread.answered;
-      await reviewsSettled(store);
-      await waitFor(() => guarded().forEach((button) => expect(button).toBeEnabled()));
-      expect(guarded().length).toBeGreaterThan(0);
+      await held.releaseAndSettle();
       expect(creates).toHaveLength(1);
     });
 
@@ -2966,23 +2992,21 @@ describe("IntakeItemScreen", () => {
 
     it("disables Save and says the save replaces the cover while another write's reread is outstanding", async () => {
       const { box } = setUp(dogaItem(NOTHING_ON_COVER), [submitted(41)]);
-      server.use(acceptingReview(box));
+      acceptingReview(box);
       const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
       await open(user);
       expect(screen.getByText(REVIEW_COPY.record.coverNone)).toBeInTheDocument();
       const choose = await screen.findByRole("button", { name: "Use this review" });
       await reviewsSettled(store);
-      const reread = holdResponse("get", FILED_ITEM_PATH, () => HttpResponse.json(box.item));
+      const held = holdTheReread(store, box);
 
       await user.click(choose);
 
-      await waitFor(() => expect(reread.calls.count).toBe(1));
+      await held.expectHeld();
       expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
       expect(screen.getByText(REVIEW_COPY.record.coverReplaces)).toBeInTheDocument();
 
-      reread.release();
-      await reread.answered;
-      await reviewsSettled(store);
+      await held.releaseAndSettle();
       await waitFor(() => expect(screen.getByRole("button", { name: "Save" })).toBeEnabled());
     });
 
@@ -2991,17 +3015,15 @@ describe("IntakeItemScreen", () => {
       const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
       await fillAndTick(user);
       await reviewsSettled(store);
-      const reread = holdResponse("get", FILED_ITEM_PATH, () => HttpResponse.json(box.item));
+      const held = holdTheReread(store, box);
 
       await save(user);
 
-      await waitFor(() => expect(reread.calls.count).toBe(1));
+      await held.expectHeld();
       expect(screen.getByText(REVIEW_COPY.record.coverNone)).toBeInTheDocument();
       expect(screen.queryByText(REVIEW_COPY.record.coverReplaces)).not.toBeInTheDocument();
 
-      reread.release();
-      await reread.answered;
-      await reviewsSettled(store);
+      await held.releaseAndSettle();
     });
 
     it("names another review's button Use this review instead and disables it while a ticked create onto an empty cover is in flight", async () => {
@@ -3025,10 +3047,8 @@ describe("IntakeItemScreen", () => {
 
     it("keeps the form's line for the state after a failed ticked save when the cover then changes by another write", async () => {
       const { box } = setUp(dogaItem(NOTHING_ON_COVER), [submitted(41)]);
-      server.use(
-        http.post(SAVE_URL, failingSave),
-        acceptingReview(box),
-      );
+      acceptingReview(box);
+      server.use(http.post(SAVE_URL, failingSave));
       const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
       await fillAndTick(user);
       const choose = await screen.findByRole("button", { name: "Use this review" });
@@ -3037,17 +3057,15 @@ describe("IntakeItemScreen", () => {
       expect((await screen.findByRole("alert")).textContent).toBe(REVIEW_COPY.record.couldNotRecord);
       await waitFor(() => expect(choose).toBeEnabled());
       expect(screen.getByText(REVIEW_COPY.record.coverNone)).toBeInTheDocument();
-      const reread = holdResponse("get", FILED_ITEM_PATH, () => HttpResponse.json(box.item));
+      const held = holdTheReread(store, box);
 
       await user.click(choose);
 
-      await waitFor(() => expect(reread.calls.count).toBe(1));
+      await held.expectHeld();
       expect(screen.getByText(REVIEW_COPY.record.coverReplaces)).toBeInTheDocument();
       expect(screen.queryByText(REVIEW_COPY.record.coverNone)).not.toBeInTheDocument();
 
-      reread.release();
-      await reread.answered;
-      await reviewsSettled(store);
+      await held.releaseAndSettle();
     });
 
     describe("when the rereads after the save fail", () => {
@@ -3132,25 +3150,21 @@ describe("IntakeItemScreen", () => {
         const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
         await fillAndTick(user, { unticked: true });
         await reviewsSettled(store);
-        const reread = holdResponse("get", FILED_ITEM_PATH, () => HttpResponse.json(box.item));
+        const held = holdTheReread(store, box);
 
         await save(user);
 
-        await waitFor(() => expect(reread.calls.count).toBe(1));
+        await held.expectHeld();
         // The two other reviews and the one this save recorded.
         expect(guarded()).toHaveLength(6);
-        guarded().forEach((b) => expect(b).toBeDisabled());
         expect(useButtons().map((b) => b.textContent)).toEqual(["Use this review", "Use this review", "Use this review"]);
 
-        reread.release();
-        await reread.answered;
-        await reviewsSettled(store);
-        await waitFor(() => guarded().forEach((b) => expect(b).toBeEnabled()));
+        await held.releaseAndSettle();
       });
 
       it("still holds the page for the next write after a Use this review has succeeded and reread", async () => {
         const { box } = setUp(dogaItem(NOTHING_ON_COVER), [submitted(41), submitted(42)]);
-        server.use(acceptingReview(box));
+        acceptingReview(box);
         const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
         const [first] = await screen.findAllByRole("button", { name: "Use this review" });
         await reviewsSettled(store);
@@ -3174,7 +3188,8 @@ describe("IntakeItemScreen", () => {
       // The form's cover line reads the cover alone: only a write that is putting a review on the cover changes it.
       const withCoverLine = async (hold: (user: User) => Promise<{ release: () => void; answered: Promise<unknown> }>, line: "none" | "replaces") => {
         const { box } = setUp(dogaItem(NOTHING_ON_COVER), [submitted(41), submitted(42, { author: "Cat Power" })]);
-        server.use(acceptingReview(box), deletingReview());
+        acceptingReview(box);
+        server.use(deletingReview());
         const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
         await reviewsSettled(store);
         const held = await hold(user);
@@ -3193,6 +3208,7 @@ describe("IntakeItemScreen", () => {
           await open(user);
           await user.click(screen.getByRole("button", { name: "Delete review by Cat Power" }));
           const dialog = within(await screen.findByRole("alertdialog"));
+          // The answer is a fixed record with nothing on the cover, not the box.
           const reread = holdResponse("get", FILED_ITEM_PATH, () => HttpResponse.json(dogaItem(NOTHING_ON_COVER)));
           await user.click(dialog.getByRole("button", { name: "Delete" }));
           await waitFor(() => expect(reread.calls.count).toBeGreaterThan(0));
@@ -3214,6 +3230,7 @@ describe("IntakeItemScreen", () => {
       it("says the save replaces the cover while a Use this review's reread is outstanding", () =>
         withCoverLine(async (user) => {
           await open(user);
+          // The answer is a fixed partial record, not the box.
           const reread = holdResponse("get", FILED_ITEM_PATH, () => HttpResponse.json({ accepted_review_id: 41 }));
           await user.click(screen.getAllByRole("button", { name: "Use this review" })[0]);
           await waitFor(() => expect(reread.calls.count).toBe(1));
@@ -3230,6 +3247,7 @@ describe("IntakeItemScreen", () => {
         await reviewsSettled(store);
         await user.click(screen.getByRole("button", { name: "Delete review by Cat Power" }));
         const dialog = within(await screen.findByRole("alertdialog"));
+        // The answer is a fixed record with nothing on the cover, not the box.
         const reread = holdResponse("get", FILED_ITEM_PATH, () => HttpResponse.json({ ...dogaItem(NOTHING_ON_COVER) }));
         fireEvent.click(first);
         await waitFor(() => expect(accept.calls.count).toBe(1));
@@ -3312,20 +3330,6 @@ describe("IntakeItemScreen", () => {
       return { box: serveItem(item), own: serveItemReviews(own) };
     };
 
-    /** Serves accept-review by putting the review sent on the cover of the box's item. */
-    const acceptingSent = (box: ReturnType<typeof serveItem>) => {
-      const sent: unknown[] = [];
-      server.use(
-        http.post(ACCEPT_URL, async ({ request }) => {
-          const body = (await request.json()) as { review_id: number };
-          sent.push(body);
-          box.item = { ...box.item, accepted_review_id: body.review_id };
-          return HttpResponse.json(box.item);
-        }),
-      );
-      return sent;
-    };
-
     it("lists only the cited release's submitted typed reviews, each with Use this review and no From line", async () => {
       setUp([ofCited(90), ofCited(91, { medium: "handwritten", review: null }), ofCited(92, { status: "draft" }), ofCited(93, { album_id: 8 })]);
 
@@ -3341,7 +3345,7 @@ describe("IntakeItemScreen", () => {
 
     it("sends the review to accept-review for this record and moves it under the cover, leaving no Use this review for it", async () => {
       const { box } = setUp([ofCited(90)]);
-      const sent = acceptingSent(box);
+      const sent = acceptingReview(box);
       const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
 
       await user.click(await within(await section()).findByRole("button", { name: "Use this review" }));
@@ -3355,7 +3359,7 @@ describe("IntakeItemScreen", () => {
 
     it("keeps the chosen review on the cover when every later read fails, so the by-id read is not needed", async () => {
       const { box, own } = setUp([ofCited(90)]);
-      acceptingSent(box);
+      acceptingReview(box);
       const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
       const use = await within(await section()).findByRole("button", { name: "Use this review" });
       box.fail = true;
@@ -3372,20 +3376,18 @@ describe("IntakeItemScreen", () => {
 
     it("disables every Use this review on the page, the cited list's too, while the reread is held", async () => {
       const { box } = setUp([ofCited(90), ofCited(91)], { own: [submitted(41)] });
-      acceptingSent(box);
-      const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+      acceptingReview(box);
+      const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
       const cited = await section();
       await within(cited).findByText("Cited take 91.");
-      const reread = holdResponse("get", FILED_ITEM_PATH, () => HttpResponse.json(box.item));
+      await reviewsSettled(store);
+      const held = holdTheReread(store, box);
 
       await user.click(within(cited).getAllByRole("button", { name: "Use this review" })[0]);
 
-      await waitFor(() => expect(reread.calls.count).toBe(1));
-      const buttons = screen.getAllByRole("button", { name: "Use this review instead" });
-      expect(buttons.length).toBeGreaterThan(1);
-      buttons.forEach((b) => expect(b).toBeDisabled());
-      reread.release();
-      await reread.answered;
+      await held.expectHeld();
+      expect(screen.getAllByRole("button", { name: "Use this review instead" }).length).toBeGreaterThan(1);
+      await held.releaseAndSettle();
     });
 
     it("names the cited release in the heading and not this record", async () => {
@@ -3674,6 +3676,7 @@ describe("IntakeItemScreen", () => {
         const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
         const row = await searchForCited(user);
         await reviewsSettled(store);
+        // The refusal leaves a filed record with no Use this review to check, so this hold only watches the line.
         const reread = holdResponse("get", FILED_ITEM_PATH, () => HttpResponse.json(box.item));
 
         await user.click(row);
@@ -3755,7 +3758,7 @@ describe("IntakeItemScreen", () => {
         };
 
         it("disables every review button while the clear is in flight", async () => {
-          const { box, user } = await ready();
+          const { box, user, store } = await ready();
           const write = holdResponse("patch", FILED_ITEM_PATH, () => HttpResponse.json({ ...box.item, accepted_review_id: null }));
 
           await clear(user);
@@ -3765,26 +3768,25 @@ describe("IntakeItemScreen", () => {
           expect(screen.getByRole("button", { name: REMOVE })).toBeDisabled();
           write.release();
           await write.answered;
-        });
-
-        it("keeps every review button disabled until the reread that follows the clear has answered", async () => {
-          const { box, user, store } = await ready();
-          const reread = holdResponse("get", FILED_ITEM_PATH, () => HttpResponse.json(box.item));
-
-          await clear(user);
-
-          await waitFor(() => expect(reread.calls.count).toBe(1));
-          await renderedFrame();
-          guarded().forEach((b) => expect(b).toBeDisabled());
-          reread.release();
-          await reread.answered;
           await reviewsSettled(store);
           await waitFor(() => guarded().forEach((b) => expect(b).toBeEnabled()));
         });
 
-        it("keeps the cleared review off the cover when the reread that follows fails", async () => {
+        it("keeps every review button disabled until the reread that follows the clear has answered", async () => {
           const { box, user, store } = await ready();
-          const sent = patching(box);
+          const held = holdTheReread(store, box);
+
+          await clear(user);
+
+          await held.expectHeld();
+          await renderedFrame();
+          guarded().forEach((b) => expect(b).toBeDisabled());
+          await held.releaseAndSettle();
+          await waitFor(() => guarded().forEach((b) => expect(b).toBeEnabled()));
+        });
+
+        it("keeps the cleared review off the cover when the reread that follows fails", async () => {
+          const { sent, user, store } = await ready();
           server.use(http.get(FILED_ITEM_PATH, () => HttpResponse.json({ message: "boom" }, { status: 500 })));
 
           await clear(user);
@@ -3800,18 +3802,10 @@ describe("IntakeItemScreen", () => {
           const { box, user, store } = await ready();
           // Only the first read from here on is held; it answers the record with its citation and cover still on.
           const before = box.reads;
-          let open!: () => void;
-          const gate = new Promise<void>((resolve) => (open = resolve));
-          server.use(
-            http.get(FILED_ITEM_PATH, async () => {
-              box.reads += 1;
-              const answer = box.item;
-              if (box.reads === before + 1) await gate;
-              return HttpResponse.json(answer);
-            }),
-          );
+          const open = holdLateItemReads(box, before, true);
           void store.dispatch(intakeApi.endpoints.getIntakeItem.initiate(ITEM_ID, { subscribe: false, forceRefetch: true }));
           await waitFor(() => expect(box.reads).toBe(before + 1));
+          // This held PATCH shadows the one `ready()` registered, on purpose: the spec needs to hold the write.
           const write = holdResponse("patch", FILED_ITEM_PATH, () => {
             box.item = { ...box.item, cited_album_id: null, accepted_review_id: null };
             return HttpResponse.json(box.item);
@@ -3900,26 +3894,6 @@ describe("IntakeItemScreen", () => {
       return blocker;
     };
 
-    /** Holds every item read after the first `after` until the returned `open()`, and answers each with the item as it stood when the read started. */
-    const holdLateItemReads = (box: ReturnType<typeof serveItem>, after: number) => {
-      let open!: () => void;
-      const gate = new Promise<void>((resolve) => {
-        open = resolve;
-      });
-      server.use(
-        http.get(FILED_ITEM_PATH, async () => {
-          box.reads += 1;
-          const answer = box.item;
-          if (box.reads > after) await gate;
-          return HttpResponse.json(answer);
-        }),
-      );
-      return open;
-    };
-
-    /** Every review button still on the page: a write that moved the cover leaves no Use this review to find. */
-    const reviewButtons = () => screen.getAllByRole("button", { name: /^(Use this review|Delete review by)/ });
-
     const coverSection = async () => (await screen.findByRole("heading", { name: "The review on the cover" })).closest("section")!;
 
     /**
@@ -3948,7 +3922,7 @@ describe("IntakeItemScreen", () => {
       // RTK Query can start the queued read before the blocker settles (a query it skips as already cached ends a request it never counted), so it may be in flight already.
       await waitFor(() => expect(box.reads).toBeGreaterThanOrEqual(before + 2));
       await renderedFrame();
-      reviewButtons().forEach((b) => expect(b).toBeDisabled());
+      guarded().forEach((b) => expect(b).toBeDisabled());
 
       open();
       await reviewsSettled(store);
@@ -3960,8 +3934,8 @@ describe("IntakeItemScreen", () => {
         const item = dogaItem();
         fakeReviewsEndpoints({ records: [item], forItem: { [ITEM_ID]: [submitted(40), submitted(41)] }, searchResults: [RELEASE_ROW] });
         const box = serveItem(item);
+        acceptingReview(box);
         server.use(
-          acceptingReview(box),
           http.post(FILE_URL, () => {
             box.item = dogaItem({ state: "filed", effective_state: "filed" });
             return HttpResponse.json(box.item);
@@ -3981,16 +3955,6 @@ describe("IntakeItemScreen", () => {
         expect(within(await coverSection()).getByText("Take 41.")).toBeInTheDocument();
       });
     });
-
-    /** Serves accept-review by putting the review sent on the cover of the box's item. */
-    const acceptingSent = (box: ReturnType<typeof serveItem>) =>
-      server.use(
-        http.post(ACCEPT_URL, async ({ request }) => {
-          const { review_id } = (await request.json()) as { review_id: number };
-          box.item = { ...box.item, accepted_review_id: review_id };
-          return HttpResponse.json(box.item);
-        }),
-      );
 
     const useThisReviewRows = [
       {
@@ -4030,7 +3994,7 @@ describe("IntakeItemScreen", () => {
     // Each row is its own `it` so its whole title shows: `it.each` abbreviates an object's string value.
     useThisReviewRows.forEach(({ title, setUp, press, cover, queued }) => it(title, async () => {
       const box = setUp();
-      acceptingSent(box);
+      acceptingReview(box);
       const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
       await screen.findByText(/^Take 41\./);
 
@@ -4050,6 +4014,7 @@ describe("IntakeItemScreen", () => {
       const open = holdLateItemReads(box, before);
       void store.dispatch(intakeApi.endpoints.getIntakeItem.initiate(ITEM_ID, { subscribe: false, forceRefetch: true }));
       await waitFor(() => expect(box.reads).toBe(before + 1));
+      // Holds a different request, so it keeps its own hold; it answers as `acceptingReview` does, with review 41 sent.
       const write = holdResponse("post", ACCEPT_URL, () => {
         box.item = { ...box.item, accepted_review_id: 41 };
         return HttpResponse.json(box.item);
@@ -4069,7 +4034,7 @@ describe("IntakeItemScreen", () => {
       const item = dogaItem({ accepted_review_id: null });
       fakeReviewsEndpoints({ records: [item], forItem: { [ITEM_ID]: [submitted(41), submitted(42)] } });
       const box = serveItem(item);
-      acceptingSent(box);
+      acceptingReview(box);
       const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
       await screen.findByText(/^Take 41\./);
       await reviewsSettled(store);
@@ -4080,7 +4045,7 @@ describe("IntakeItemScreen", () => {
 
       await user.click(screen.getAllByRole("button", { name: "Use this review" })[0]);
       await renderedFrame();
-      reviewButtons().forEach((b) => expect(b).toBeDisabled());
+      guarded().forEach((b) => expect(b).toBeDisabled());
 
       const before = box.reads;
       const open = holdLateItemReads(box, before);
@@ -4088,7 +4053,7 @@ describe("IntakeItemScreen", () => {
       await other.answered;
       await waitFor(() => expect(box.reads).toBeGreaterThan(before));
       await renderedFrame();
-      reviewButtons().forEach((b) => expect(b).toBeDisabled());
+      guarded().forEach((b) => expect(b).toBeDisabled());
       open();
       await reviewsSettled(store);
       await waitFor(() => guarded().forEach((b) => expect(b).toBeEnabled()));
@@ -4273,6 +4238,7 @@ describe("IntakeItemScreen", () => {
         );
         await fill(user);
         await reviewsSettled(store);
+        // Holds the reread to type into a clean form rather than to check the review buttons, so it stays a direct hold.
         const reread = holdResponse("get", FILED_ITEM_PATH, () => HttpResponse.json(box.item));
 
         await save(user);
