@@ -24,6 +24,7 @@ const COPY = REVIEW_COPY.record;
  * `disabled` is the page's hold on every review write (another write is in flight or rereading): Save is out of reach.
  * `start` is what the form opens with (its author, fields, medium and which copied-from lines to show); without one it opens empty.
  * `onDirtyChange` hears whether the form holds unsaved text (its values differ from `start`), and false once it closes or a create has succeeded, whatever is typed while the reread is out.
+ * `onWritten` may answer a line the page worded after the create (a refused citation), which replaces "Recorded." as the page's line.
  * `onHold` takes the page's hold at the press and returns its release: a save hands it to `onWritten` on success and releases it itself if the write fails, even when the form has closed meanwhile.
  */
 export default function RecordReviewForm({ itemId, hasCover, start = EMPTY_START, disabled, onHold, onWritten, onNotice, onDirtyChange, onClose }: {
@@ -32,7 +33,7 @@ export default function RecordReviewForm({ itemId, hasCover, start = EMPTY_START
   start?: RecordFormStart;
   disabled: boolean;
   onHold: (movesCover: boolean) => () => void;
-  onWritten: (release: () => void) => Promise<void>;
+  onWritten: (release: () => void) => Promise<string | void>;
   onNotice: (line: string | null) => void;
   onDirtyChange: (dirty: boolean) => void;
   onClose: () => void;
@@ -99,9 +100,9 @@ export default function RecordReviewForm({ itemId, hasCover, start = EMPTY_START
           line = COPY.draftNotSubmitted;
         }
       }
-      await onWritten(release);
+      const refusal = await onWritten(release);
       if (!mounted.current) return;
-      onNotice(line);
+      onNotice(refusal && line === COPY.recorded ? refusal : line);
       onClose();
     } catch (err) {
       release();

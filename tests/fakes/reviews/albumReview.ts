@@ -5,14 +5,26 @@ import { TEST_BACKEND_URL as BACKEND_URL } from "../../helpers/constants";
 
 export type FakeAlbumReviewOptions = {
   archive?: Record<string, AlbumReview[]>;
+  byArtist?: Record<string, AlbumReview[]>;
 };
 
-/** `GET /album-reviews?album_id=` answers `archive[album_id]` as the archive page shape. */
-export function fakeAlbumReviewEndpoints({ archive = {} }: FakeAlbumReviewOptions = {}) {
+/** The server's exact artist match: capitals and a leading "The" don't matter. */
+const artistKey = (name: string) => name.trim().toLowerCase().replace(/^the\s+/, "");
+
+/**
+ * `GET /album-reviews?album_id=` answers `archive[album_id]` and `?artist=` answers the `byArtist` entry whose name
+ * matches exactly, both as the archive page shape. A read with neither answers an empty page.
+ */
+export function fakeAlbumReviewEndpoints({ archive = {}, byArtist = {} }: FakeAlbumReviewOptions = {}) {
   server.use(
     http.get(`${BACKEND_URL}/album-reviews`, ({ request }) => {
-      const albumId = new URL(request.url).searchParams.get("album_id") ?? "";
-      return HttpResponse.json({ album_reviews: archive[albumId] ?? [], pagination: {} });
+      const params = new URL(request.url).searchParams;
+      const artist = params.get("artist");
+      const rows =
+        artist !== null
+          ? Object.entries(byArtist).filter(([name]) => artistKey(name) === artistKey(artist)).flatMap(([, reviews]) => reviews)
+          : (archive[params.get("album_id") ?? ""] ?? []);
+      return HttpResponse.json({ album_reviews: rows, pagination: {} });
     }),
   );
 }

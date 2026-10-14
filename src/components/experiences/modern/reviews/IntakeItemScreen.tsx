@@ -35,7 +35,7 @@ import { useGetFormatsQuery, useGetInformationQuery } from "@/lib/features/catal
 import { intakeRecord, recordLine, releaseRecord } from "./recordLine";
 import ReleasePicker from "./ReleasePicker";
 import { fromLine, newestFirst } from "./ReviewFrom";
-import { CiteRelease, RemoveCitation } from "./CiteControls";
+import { CiteControls, RemoveCitation } from "./CiteControls";
 import DeleteReviewButton from "./DeleteReviewButton";
 import UseThisReviewButton from "./UseThisReviewButton";
 import { EMPTY_START, PAPER_START, formReviewStart, type RecordFormStart } from "@/lib/features/reviews/formReviewStart";
@@ -68,12 +68,12 @@ const STATE_LABELS: Record<IntakeItem["effective_state"], string> = {
 /** A record whose review is already on the library entry: nothing is left to file. */
 const isFiledState = (state: IntakeItem["effective_state"]) => state === "filed" || state === "finalized";
 
-/** The record form's starting values and the key it mounts under. */
-export type Recording = { start: RecordFormStart; key: number };
+/** The record form's starting values and the key it mounts under; `cites` is the form review a copied start came from, which saving the review then cites. */
+export type Recording = { start: RecordFormStart; key: number; cites?: { id: number; submittedAt: string | null } };
 
 /** The next value for the open form when a source opens it from `start`: the key always differs from the open form's, so a form already open remounts with the new start. */
-export function nextRecording(open: Recording | null, start: RecordFormStart): Recording {
-  return { start, key: (open?.key ?? 0) + 1 };
+export function nextRecording(open: Recording | null, start: RecordFormStart, cites?: Recording["cites"]): Recording {
+  return { start, key: (open?.key ?? 0) + 1, cites };
 }
 
 /** The music directors' page for one logged record: its reviews, and the filing bench. */
@@ -114,7 +114,7 @@ export default function IntakeItemScreen({ id }: { id: number }) {
     leaveGuard.leave();
   };
   const unlessDirty = (act: () => void) => (recordingDirty ? setAsked(() => act) : act());
-  const openRecording = (start: RecordFormStart) => unlessDirty(() => setRecording((open) => nextRecording(open, start)));
+  const openRecording = (start: RecordFormStart, cites?: Recording["cites"]) => unlessDirty(() => setRecording((open) => nextRecording(open, start, cites)));
   // One count per review write in flight or rereading, so neither a review button nor the form's Save acts on the stale cover.
   // `movers` counts the writes that move the cover (Use this review, a ticked Record a review). Each write takes a handle from `hold` and releases it exactly once.
   const [holds, setHolds] = useState({ all: 0, movers: 0 });
@@ -244,8 +244,9 @@ export default function IntakeItemScreen({ id }: { id: number }) {
   const stillOut = cover && holder.kind === "checked_out" && holder.name && holder.id !== cover.author_user_id ? COPY.stillOutWith(holder.name) : null;
 
   // Setting or clearing a citation can take the cover review off, so it holds the page like a review write; the reload also shows a refusal's cause.
-  const changeCitation = async (body: IntakeItemPatch, invalid?: string) => {
-    if (citation.isLoading) return;
+  // Answers the line it set, for a caller whose own line would otherwise replace it.
+  const changeCitation = async (body: IntakeItemPatch, invalid?: string, failed: string = REVIEW_COPY.screen.writeFailed) => {
+    if (citation.isLoading) return undefined;
     setNotice(null);
     const release = hold(false);
     try {
@@ -253,13 +254,26 @@ export default function IntakeItemScreen({ id }: { id: number }) {
         await updateItem({ id, body }).unwrap();
       } catch (err) {
         const refusal = isIntakeAlreadyFiled(err) ? COPY.alreadyFiled : invalid && isIntakeInvalidCitation(err) ? invalid : null;
-        if (refusal !== null ? (await reload()).mounted : mounted.current) setNotice(refusal ?? REVIEW_COPY.screen.writeFailed);
-        return;
+        const line = refusal ?? failed;
+        if (refusal !== null ? (await reload()).mounted : mounted.current) setNotice(line);
+        return line;
       }
       await reload();
+      return undefined;
     } finally {
       release();
     }
+  };
+
+  // A copied form review's save: the review is recorded first, so a refused or failed citation loses nothing. The page's hold is released once the citation's write and reload settle.
+  const citeCopied = (cites: NonNullable<Recording["cites"]>) => async (release: () => void) => {
+    const line = await changeCitation(
+      { cited_submission_id: cites.id },
+      cites.submittedAt === null ? COPY.formNoDate : COPY.formAfterCutover,
+      COPY.formNotNoted,
+    );
+    release();
+    return line;
   };
 
   // The intake refusals are worded here; the server's text is never shown.
@@ -354,7 +368,12 @@ export default function IntakeItemScreen({ id }: { id: number }) {
         (isCited ? (
           <RemoveCitation asksFirst={coverFromCited} disabled={awaitingReread} onRemove={() => changeCitation(citedId !== null ? { cited_album_id: null } : { cited_submission_id: null })} />
         ) : (
-          <CiteRelease disabled={awaitingReread} onCite={(albumId) => changeCitation({ cited_album_id: albumId }, COPY.releaseRefused)} />
+          <CiteControls
+            artist={item.data.artist_name}
+            disabled={awaitingReread}
+            onCite={(albumId) => changeCitation({ cited_album_id: albumId }, COPY.releaseRefused)}
+            onCopy={(take) => openRecording(formReviewStart(take), { id: take.id, submittedAt: take.submitted_at })}
+          />
         ))}
       <FccNotesPanel intakeItemId={id} />
       {notice && <Typography role="status">{notice}</Typography>}
@@ -369,7 +388,7 @@ export default function IntakeItemScreen({ id }: { id: number }) {
           hasCover={coverId != null || movingCover}
           disabled={awaitingReread}
           onHold={hold}
-          onWritten={reviewWritten}
+          onWritten={recording.cites ? citeCopied(recording.cites) : reviewWritten}
           onNotice={setNotice}
           onDirtyChange={setRecordingDirty}
           onClose={() => setRecording(null)}
