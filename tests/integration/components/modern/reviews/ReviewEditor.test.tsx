@@ -979,6 +979,22 @@ describe("ReviewEditor", () => {
       expect(beforeUnload()).toBe(true);
     });
 
+    it("closes the question a link click opened while a save was out, once that save lands and the form is clean", async () => {
+      const save = holdResponse("patch", `${TEST_BACKEND_URL}/reviews/40`, () => HttpResponse.json(DRAFT));
+      const { user } = renderEditor();
+      await makeDirty(user);
+      await user.click(screen.getByRole("button", { name: REVIEW_COPY.saveDraft }));
+      await waitFor(() => expect(save.calls.count).toBe(1));
+      await user.click(screen.getByRole("link", { name: "Flowsheet" }));
+      await dialog();
+
+      save.release();
+      await save.answered;
+
+      await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
+      expect(router.push).not.toHaveBeenCalled();
+    });
+
     it("disarms every path once a save lands, and measures later edits against the save", async () => {
       server.use(http.patch(`${TEST_BACKEND_URL}/reviews/40`, () => HttpResponse.json(DRAFT)));
       const { user } = renderEditor();
