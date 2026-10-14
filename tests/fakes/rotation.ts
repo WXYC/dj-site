@@ -307,7 +307,6 @@ export function fakeRotationAdminEndpoints(
     card_stale_days: 30,
   };
   const thresholdPatches: unknown[] = [];
-  let thresholdRequests = 0;
   let thresholdFailure: number | null = null;
   let holdingThresholds = false;
   const heldThresholdReads: (() => void)[] = [];
@@ -427,7 +426,6 @@ export function fakeRotationAdminEndpoints(
     // Both thresholds arms precede both `:id` arms: `:id` would otherwise
     // swallow them.
     http.get(`${BACKEND_URL}/library/rotation/thresholds`, async () => {
-      thresholdRequests += 1;
       if (holdingThresholds) {
         await new Promise<void>((resolve) => {
           heldThresholdReads.push(resolve);
@@ -440,9 +438,13 @@ export function fakeRotationAdminEndpoints(
       return HttpResponse.json(thresholds);
     }),
     http.patch(`${BACKEND_URL}/library/rotation/thresholds`, async ({ request }) => {
-      const body = (await request.json()) as { window_days?: Record<string, number> };
+      const body = (await request.json()) as {
+        window_days?: Record<string, number>;
+        card_stale_days?: number;
+      };
       thresholdPatches.push(body);
       Object.assign(thresholds.window_days, body.window_days);
+      if (body.card_stale_days !== undefined) thresholds.card_stale_days = body.card_stale_days;
       return HttpResponse.json(thresholds);
     }),
     // Registered after the /cards arm: `:id` would otherwise swallow it.
@@ -548,7 +550,6 @@ export function fakeRotationAdminEndpoints(
       cardMoveRefusals.clear();
       ids.forEach((id) => cardMoveRefusals.set(id, status));
     },
-    thresholdsRequests: () => thresholdRequests,
     /** Every body a `PATCH /library/rotation/thresholds` carried, in order. */
     thresholdsPatchBodies: () => thresholdPatches.map((body) => structuredClone(body)),
     failThresholdsReads: (status = 500) => {

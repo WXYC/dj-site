@@ -130,20 +130,41 @@ describe("RotationThresholdsForm", () => {
     await waitFor(() => expect(fake.thresholdsPatchBodies()).toEqual([{ window_days: { M: 50 } }]));
   });
 
-  it("keeps Save disabled while the read refetches after a save", async () => {
+  it("keeps Save and the inputs disabled while the read refetches after a save", async () => {
     const { fake, user } = await renderForm();
     fake.holdThresholdsReads();
 
     setFieldValue(heavy(), "45");
     await user.click(saveButton());
     await waitFor(() => expect(fake.thresholdsPatchBodies()).toHaveLength(1));
-    // The refetch is held, so the old record is still what is on screen.
-    setFieldValue(medium(), "50");
-    await waitFor(() => expect(saveButton()).toBeDisabled());
+    // The refetch is held, so the old record is still what is on screen, and
+    // anything typed now would be dropped when the record re-seeds the form.
+    await waitFor(() => expect(medium()).toBeDisabled());
+    expect(heavy()).toBeDisabled();
+    expect(saveButton()).toBeDisabled();
 
     await act(async () => {
       await fake.releaseThresholdsReads();
     });
+    await waitFor(() => expect(heavy()).toHaveValue(45));
+    await waitFor(() => expect(medium()).toBeEnabled());
+  });
+
+  it("fails closed when a refetch fails after a save: Save disabled and a Retry shown over the stale record", async () => {
+    const { fake, user } = await renderForm();
+    fake.failThresholdsReads();
+
+    setFieldValue(heavy(), "45");
+    await user.click(saveButton());
+    await waitFor(() => expect(fake.thresholdsPatchBodies()).toHaveLength(1));
+
+    expect(await screen.findByText("Could not load the rotation thresholds.")).toBeInTheDocument();
+    setFieldValue(medium(), "50");
+    expect(saveButton()).toBeDisabled();
+
+    fake.recoverThresholdsReads();
+    await user.click(screen.getByRole("button", { name: "Retry" }));
+    await waitFor(() => expect(screen.queryByText("Could not load the rotation thresholds.")).not.toBeInTheDocument());
     await waitFor(() => expect(heavy()).toHaveValue(45));
   });
 });

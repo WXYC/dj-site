@@ -42,6 +42,21 @@ describe("fakeRotationAdminEndpoints", () => {
     expect(fake.updateBodies()).toEqual([]);
   });
 
+  it("merges card_stale_days from a thresholds PATCH, leaving the windows alone", async () => {
+    fakeRotationAdminEndpoints([row()], [], { windowDays: { M: 45 } });
+
+    await fetch(`${TEST_BACKEND_URL}/library/rotation/thresholds`, {
+      method: "PATCH",
+      body: JSON.stringify({ card_stale_days: 14 }),
+    });
+    const read = await fetch(`${TEST_BACKEND_URL}/library/rotation/thresholds`);
+
+    expect(await read.json()).toEqual({
+      window_days: { H: 60, M: 45, L: 60, S: 60 },
+      card_stale_days: 14,
+    });
+  });
+
   it("fails thresholds reads until recovered", async () => {
     const fake = fakeRotationAdminEndpoints([row()], []);
     fake.failThresholdsReads(503);
