@@ -3927,8 +3927,14 @@ describe("IntakeItemScreen", () => {
      * counts, and releasing the blocker then starts the read its queued invalidation was waiting to make. While that read is
      * in flight no review button may be enabled, because a press now would reread into it and its answer would land over the
      * write's. Resolves once that read has answered and the page has settled.
+     *
+     * `queued` is whether the write's invalidation really waits for the blocker, so the write's own reload is the only item read
+     * until `release()`. A page that mounts a hook on an entry the write already cached has RTK Query skip that request, and the
+     * skipped request ends one it never counted, which empties the pending count while the blocker is still pending. The
+     * invalidation then starts its read before `release()`, so such a write passes `queued: false` and only needs that read to
+     * have started.
      */
-    async function writeBehindBlocker(store: ReturnType<typeof renderScreen>["store"], box: ReturnType<typeof serveItem>, act: () => Promise<void>) {
+    async function writeBehindBlocker(store: ReturnType<typeof renderScreen>["store"], box: ReturnType<typeof serveItem>, act: () => Promise<void>, queued = true) {
       await reviewsSettled(store);
       const blocker = await blockInvalidations(store);
       const before = box.reads;
@@ -3936,7 +3942,7 @@ describe("IntakeItemScreen", () => {
 
       await act();
       await waitFor(() => expect(box.reads).toBeGreaterThanOrEqual(before + 1));
-      expect(box.reads).toBe(before + 1);
+      if (queued) expect(box.reads).toBe(before + 1);
       blocker.release();
       await blocker.answered;
       // RTK Query can start the queued read before the blocker settles (a query it skips as already cached ends a request it never counted), so it may be in flight already.
@@ -3986,9 +3992,10 @@ describe("IntakeItemScreen", () => {
         }),
       );
 
-    it.each([
+    const useThisReviewRows = [
       {
-        source: "the other reviews",
+        title: "holds every review button after Use this review on the other reviews until the read its queued invalidation starts has answered",
+        queued: true,
         cover: "Take 41.",
         press: (user: User) => user.click(screen.getByRole("button", { name: "Use this review" })),
         setUp: () => {
@@ -3998,7 +4005,9 @@ describe("IntakeItemScreen", () => {
         },
       },
       {
-        source: "the cited release's reviews",
+        title: "holds every review button after Use this review on the cited release's reviews while the read its invalidation starts before the blocker settles is in flight",
+        // The cover mounts a read of review 90, which the choice already cached: RTK Query skips it, and the invalidation is no longer queued.
+        queued: false,
         cover: "Cited take 90.",
         // The record's own review 41 keeps a Use this review on the page once the cited review is on the cover.
         press: async (user: User) => user.click(within((await screen.findByRole("heading", { name: /^Reviews of / })).closest("section")!).getByRole("button", { name: "Use this review" })),
@@ -4016,16 +4025,19 @@ describe("IntakeItemScreen", () => {
           return serveItem(item);
         },
       },
-    ])("holds every review button after Use this review on $source until the read its queued invalidation starts has answered", async ({ setUp, press, cover }) => {
+    ];
+
+    // Each row is its own `it` so its whole title shows: `it.each` abbreviates an object's string value.
+    useThisReviewRows.forEach(({ title, setUp, press, cover, queued }) => it(title, async () => {
       const box = setUp();
       acceptingSent(box);
       const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
       await screen.findByText(/^Take 41\./);
 
-      await writeBehindBlocker(store, box, () => press(user));
+      await writeBehindBlocker(store, box, () => press(user), queued);
 
       expect(within(await coverSection()).getByText(cover)).toBeInTheDocument();
-    });
+    }));
 
     it("keeps the chosen cover when an item read that started before the write answers the record as it stood", async () => {
       const item = dogaItem({ accepted_review_id: null });
