@@ -23,7 +23,10 @@ export function useLeaveGuard(dirty: boolean) {
   const [target, setTarget] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!dirty) return;
+    if (!dirty) {
+      setTarget(null);
+      return;
+    }
     const warn = (event: BeforeUnloadEvent) => event.preventDefault();
     const intercept = (event: MouseEvent) => {
       const anchor = (event.target as Element | null)?.closest?.("a[href]") as HTMLAnchorElement | null;

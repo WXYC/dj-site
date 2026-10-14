@@ -100,14 +100,10 @@ export default function IntakeItemScreen({ id }: { id: number }) {
   const [recordingDirty, setRecordingDirty] = useState(false);
   const [asked, setAsked] = useState<(() => void) | null>(null);
   const leaveGuard = useLeaveGuard(recordingDirty);
-  const stayLinkGuard = leaveGuard.stay;
-  // A parked close or replace, or a link click, asks about unsaved text; when the form goes clean (saved and closed) the question is moot.
+  // A parked close or replace asks about unsaved text; when the form goes clean (saved and closed) the question is moot.
   useEffect(() => {
-    if (!recordingDirty) {
-      setAsked(null);
-      stayLinkGuard();
-    }
-  }, [recordingDirty, stayLinkGuard]);
+    if (!recordingDirty) setAsked(null);
+  }, [recordingDirty]);
   useCloseSidebarWhile(leaveGuard.pending);
   const stayOnRecording = () => {
     setAsked(null);
