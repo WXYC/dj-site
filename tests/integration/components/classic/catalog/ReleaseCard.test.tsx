@@ -8,6 +8,18 @@ const mockGetCompilationTracksQuery = vi.fn();
 const mockUpdateAlbum = vi.fn();
 const mockMarkMissing = vi.fn();
 const mockMarkFound = vi.fn();
+const mockRefetchGenres = vi.fn();
+const listedGenres = {
+  data: [
+    { id: 4, genre_name: "Electronic" },
+    { id: 6, genre_name: "Hiphop" },
+  ],
+  isUninitialized: false,
+  isLoading: false,
+  isFetching: false,
+  refetch: mockRefetchGenres,
+};
+const mockGenresQuery = vi.fn(() => listedGenres);
 
 vi.mock("@/lib/features/catalog/api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/features/catalog/api")>();
@@ -16,12 +28,7 @@ vi.mock("@/lib/features/catalog/api", async (importOriginal) => {
     useGetInformationQuery: (...args: unknown[]) => mockGetInformationQuery(...args),
     useGetCompilationTracksQuery: (...args: unknown[]) => mockGetCompilationTracksQuery(...args),
     useGetFormatsQuery: () => ({ data: [{ id: 1, format_name: "cd" }, { id: 2, format_name: "lp" }] }),
-    useGetGenresQuery: () => ({
-      data: [
-        { id: 4, genre_name: "Electronic" },
-        { id: 6, genre_name: "Hiphop" },
-      ],
-    }),
+    useGetGenresQuery: () => mockGenresQuery(),
     useUpdateAlbumMutation: () => [mockUpdateAlbum, { isLoading: false }],
     useMarkMissingMutation: () => [mockMarkMissing, { isLoading: false }],
     useMarkFoundMutation: () => [mockMarkFound, { isLoading: false }],
@@ -55,6 +62,7 @@ const album = (overrides = {}) =>
   });
 
 beforeEach(() => {
+  mockGenresQuery.mockReturnValue(listedGenres);
   mockGetCompilationTracksQuery.mockReset();
   mockGetCompilationTracksQuery.mockReturnValue({ data: undefined, isLoading: false });
 });
@@ -579,6 +587,46 @@ describe("Classic ReleaseCard", () => {
       await user.click(screen.getByDisplayValue("Save"));
 
       expect(await screen.findByText(expected)).toBeInTheDocument();
+    });
+
+    it.each([
+      { stored: "no genre at all", genre_id: undefined },
+      { stored: "a genre missing from the list", genre_id: 99 },
+    ])("shows a blank choice for a release stored under $stored, so any listed genre is a change", async ({ genre_id }) => {
+      const user = userEvent.setup();
+      mockGetInformationQuery.mockReturnValue({
+        data: album({ ...compilation(), genre_id }),
+        isLoading: false,
+        isError: false,
+      });
+
+      renderWithProviders(<ReleaseCard albumId={9001} />);
+
+      const select = screen.getByLabelText("Genre");
+      expect(select).toHaveProperty("value", "");
+      await changeGenreTo(user, "Electronic");
+      expect(screen.getByDisplayValue("Save")).toHaveProperty("disabled", false);
+    });
+
+    it("offers no blank choice when the stored genre is listed", () => {
+      mockGetInformationQuery.mockReturnValue({ data: compilation(), isLoading: false, isError: false });
+
+      renderWithProviders(<ReleaseCard albumId={9001} />);
+
+      const values = Array.from((screen.getByLabelText("Genre") as HTMLSelectElement).options).map((o) => o.value);
+      expect(values).toEqual(["4", "6"]);
+    });
+
+    it("says genres are unavailable and offers a retry, rather than a silently disabled select", async () => {
+      const user = userEvent.setup();
+      mockGenresQuery.mockReturnValue({ ...listedGenres, data: undefined as never });
+      mockGetInformationQuery.mockReturnValue({ data: compilation(), isLoading: false, isError: false });
+
+      renderWithProviders(<ReleaseCard albumId={9001} />);
+
+      expect(screen.getByRole("alert").textContent).toContain("Genres are unavailable");
+      await user.click(screen.getByRole("button", { name: "Try again" }));
+      expect(mockRefetchGenres).toHaveBeenCalled();
     });
 
     it("shows the new genre in the code once the saved release comes back", () => {

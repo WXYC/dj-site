@@ -18,6 +18,7 @@ import {
   resolveArtistByCodeErrorReason,
   UNTRUSTWORTHY_CODE_ANSWER_MESSAGE,
 } from "@/lib/features/catalog/libraryCodeResolution";
+import { interpretReleaseSaveError } from "@/lib/features/catalog/releaseSaveOutcome";
 import { formatStationDateTime } from "@/src/utilities/stationTime";
 import type { ArtistByCodeOwner } from "@/lib/features/catalog/types";
 
@@ -273,6 +274,7 @@ export default function ReleaseMoveForm({ albumId }: { albumId: number }) {
       setMessage("Please enter a title for this release.");
       return;
     }
+    const destinationGenreName = genres?.find((genre) => genre.id === destination.genre_id)?.genre_name;
 
     try {
       await updateAlbum({
@@ -290,11 +292,27 @@ export default function ReleaseMoveForm({ albumId }: { albumId: number }) {
           ...(formatId === "" ? {} : { format_id: Number(formatId) }),
         },
       }).unwrap();
+      // Backend renumbers only when the artist changes, so a move between one
+      // artist's genres keeps its number or is refused outright.
       setMessage(
-        `This library release has been moved to ${destination.artist_name}. Its call number may have changed, since the destination may already have been using this one — the artist's card lists what is filed under it, and the release editor changes it.`,
+        destination.id === currentArtistId
+          ? `This library release has been moved to ${destinationGenreName}. Its call number did not change.`
+          : `This library release has been moved to ${destination.artist_name}. Its call number may have changed, since the destination may already have been using this one — the artist's card lists what is filed under it, and the release editor changes it.`,
       );
-    } catch {
-      setMessage("This library release could not be moved.");
+    } catch (err) {
+      // Only a move that keeps the artist is interpreted: the refusals name
+      // the release's own artist, and a real artist move lands under another.
+      setMessage(
+        destination.id === currentArtistId
+          ? interpretReleaseSaveError(err, {
+              screen: "move",
+              genreName: destinationGenreName,
+              callNumber: `${data.entry}${data.code_volume_letters ?? ""}`,
+              artistName: displayArtist,
+              variousArtists: isVariousArtists(data.artist.lettercode),
+            }).message
+          : "This library release could not be moved.",
+      );
     }
   };
 
