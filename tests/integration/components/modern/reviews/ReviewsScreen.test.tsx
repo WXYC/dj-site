@@ -112,6 +112,17 @@ describe("ReviewsScreen", () => {
     mockAuth.late = false;
   });
 
+  it.each([
+    ["a DJ", Authorization.DJ, [REVIEW_COPY.screen.requestsTitle, REVIEW_COPY.screen.checkoutsTitle, REVIEW_COPY.screen.shelfTitle, REVIEW_COPY.myReviews.title]],
+    ["a music director", Authorization.MD, [REVIEW_COPY.screen.requestsTitle, REVIEW_COPY.screen.checkoutsTitle, REVIEW_COPY.screen.shelfTitle, REVIEW_COPY.myReviews.title, REVIEW_COPY.intake.logTitle]],
+  ])("gives %s each lane and the log form a level-3 heading", async (_who, authority, titles) => {
+    mockAuth.authority = authority;
+    renderWithProviders(<ReviewsScreen />);
+
+    await section(SHELF);
+    for (const name of titles) expect(await screen.findByRole("heading", { level: 3, name })).toBeInTheDocument();
+  });
+
   it("lists the review shelf with Check out, and a checkout sends the POST", async () => {
     serveIntake([item({ id: 5 })]);
     let posted: string | undefined;
@@ -815,7 +826,7 @@ describe("ReviewsScreen", () => {
     renderWithProviders(<ReviewsScreen />);
     await section(SHELF);
 
-    const regions = screen.getAllByRole("region").map((r) => r.getAttribute("aria-label"));
+    const regions = screen.getAllByRole("region").map((r) => document.getElementById(r.getAttribute("aria-labelledby")!)?.textContent);
     expect(regions).toEqual(["Requests for me", "My checkouts", SHELF, "My reviews"]);
     const form = screen.queryByRole("form", { name: "Log an item" });
     if (!directors) return expect(form).toBeNull();

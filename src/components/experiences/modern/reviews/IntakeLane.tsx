@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useId, type ReactNode } from "react";
 import { List, ListItem, Stack, Typography } from "@mui/joy";
 
 interface IntakeLaneBaseProps<Row extends { id: number }> {
@@ -34,9 +34,10 @@ type IntakeLaneProps<Row extends { id: number }> = IntakeLaneBaseProps<Row> &
  * optional `extra`, or whatever its `row` renders. Shared by the lanes of the Reviews page: the DJ's own lanes and the music directors' tab.
  */
 export default function IntakeLane<Row extends { id: number }>({ title, rows, empty, label, extra, row: renderRow }: IntakeLaneProps<Row>) {
+  const titleId = useId();
   return (
-    <section aria-label={title}>
-      <Typography level="title-lg">{title}</Typography>
+    <section aria-labelledby={titleId}>
+      <Typography id={titleId} component="h3" level="title-lg">{title}</Typography>
       {rows.length === 0 ? (
         <Typography level="body-sm">{empty}</Typography>
       ) : (

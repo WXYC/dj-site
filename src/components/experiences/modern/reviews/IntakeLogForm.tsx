@@ -42,7 +42,7 @@ export default function IntakeLogForm() {
         void submit();
       }}
     >
-      <Typography level="title-lg">{COPY.logTitle}</Typography>
+      <Typography component="h3" level="title-lg">{COPY.logTitle}</Typography>
       <Stack spacing={1}>
         <FormControl required>
           <FormLabel>{COPY.artist}</FormLabel>

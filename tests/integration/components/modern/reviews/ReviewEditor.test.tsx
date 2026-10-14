@@ -617,6 +617,9 @@ describe("ReviewEditor", () => {
       expect(within(region).getByRole("group", { name: REVIEW_COPY.slip.name })).toBeInTheDocument();
       const fcc = await screen.findByRole("region", { name: "FCC notes" });
       expect(region.compareDocumentPosition(fcc) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      const slipHeading = screen.getByRole("heading", { name: REVIEW_COPY.slip.heading, level: 4 });
+      const fccHeading = within(fcc).getByRole("heading", { name: "FCC notes", level: 4 });
+      expect(slipHeading.compareDocumentPosition(fccHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     });
 
     it("keeps Save draft, Submit and Delete in one action bar, with the reason right beside a disabled Submit", async () => {
@@ -789,6 +792,7 @@ describe("ReviewEditor", () => {
       expect(await screen.findByRole("link", { name: "History" })).toBeInTheDocument();
       expect(await screen.findByText("This is the version printed on the cover.")).toBeInTheDocument();
       expect(screen.getByRole("heading", { name: REVIEW_COPY.slip.heading, level: 3 })).toBeInTheDocument();
+      expect(await screen.findByRole("heading", { name: "FCC notes", level: 3 })).toBeInTheDocument();
       expect(screen.queryByRole("heading", { name: "Stereolab" })).not.toBeInTheDocument();
     });
   });

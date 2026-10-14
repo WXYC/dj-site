@@ -13,6 +13,7 @@ describe("IntakeLane", () => {
     renderWithProviders(<IntakeLane title="On the review shelf" rows={[]} empty="Nothing here." label={(r) => r} extra={() => null} />);
     const lane = screen.getByRole("region", { name: "On the review shelf" });
     expect(within(lane).getByText("On the review shelf")).toBeInTheDocument();
+    expect(within(lane).getByRole("heading", { level: 3, name: "On the review shelf" })).toBeInTheDocument();
     expect(within(lane).getByText("Nothing here.")).toBeInTheDocument();
     expect(within(lane).queryByRole("list")).not.toBeInTheDocument();
   });
