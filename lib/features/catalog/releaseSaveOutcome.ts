@@ -34,8 +34,10 @@ type RefusalReason = Exclude<ReleaseSaveRefusal["reason"], "generic">;
 
 function refusalReason(status: unknown, data: unknown): RefusalReason | undefined {
   if (status === 409 && bodyCode(data) === "library_slot_conflict") return "slot_taken";
-  // This refusal carries no code, only its message, so that is what it is
-  // recognized by.
+  if (status === 400 && bodyCode(data) === "artist_not_in_genre") return "artist_not_in_genre";
+  // A server that predates the code sends only the message. Matching the text
+  // keeps the plain-language line working against one, and is safe to drop
+  // once no deployed Backend can answer without the code.
   if (status === 400 && /not catalogued in the selected genre/i.test(serverMessage(data) ?? "")) {
     return "artist_not_in_genre";
   }

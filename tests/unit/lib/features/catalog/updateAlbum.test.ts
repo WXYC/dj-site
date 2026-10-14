@@ -27,7 +27,7 @@ const SLOT_TAKEN = {
   status: 409,
   body: { message: "Call number 135 is already taken for artist 1087 in genre 4", code: "library_slot_conflict" },
 };
-const NOT_IN_GENRE = { status: 400, body: { message: "Artist is not catalogued in the selected genre" } };
+const NOT_IN_GENRE = { status: 400, body: { message: "Artist is not catalogued in the selected genre", code: "artist_not_in_genre" } };
 
 function answerPatch(status: number, body: { message: string; code?: string }) {
   server.use(http.patch(`${TEST_BACKEND_URL}/library/4242`, () => HttpResponse.json(body, { status })));

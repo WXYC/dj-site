@@ -549,7 +549,7 @@ describe("AlbumEditForm", () => {
       // A genre move words these refusals itself, so the raw server text
       // (which names internal ids) must not reach the reader as well.
       const SLOT_TAKEN = { message: "Call number 135 is already taken for artist 501 in genre 9", code: "library_slot_conflict" };
-      const NOT_IN_GENRE = { message: "Artist is not catalogued in the selected genre" };
+      const NOT_IN_GENRE = { message: "Artist is not catalogued in the selected genre", code: "artist_not_in_genre" };
       const JUANA_IN_JAZZ = { id: JUANA_JAZZ_ARTIST_ID, artist_name: "Juana Molina", code_letters: "MO", code_number: 4 };
       it.each([
         {

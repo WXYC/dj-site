@@ -9,7 +9,12 @@ import {
 } from "@/lib/features/catalog/releaseSaveOutcome";
 
 const slotTaken = { status: 409, data: { message: "Call number 135 is already taken", code: "library_slot_conflict" } };
-const notInGenre = { status: 400, data: { message: "Artist is not catalogued in the selected genre" } };
+const notInGenre = {
+  status: 400,
+  data: { message: "Artist is not catalogued in the selected genre", code: "artist_not_in_genre" },
+};
+const notInGenreReworded = { status: 400, data: { message: "Artist is not cataloged in that genre", code: "artist_not_in_genre" } };
+const notInGenreMessageOnly = { status: 400, data: { message: "Artist is not catalogued in the selected genre" } };
 
 const editor: ReleaseSaveContext = {
   screen: "editor",
@@ -84,6 +89,27 @@ describe("interpretReleaseSaveError", () => {
       message: "Juana Molina isn't filed under Electronic yet. File the artist under Electronic first, then move this release.",
     },
     {
+      label: "an artist not filed in the genre, recognized by its code under reworded text",
+      err: notInGenreReworded,
+      context: ordinary,
+      reason: "artist_not_in_genre",
+      message: "Juana Molina isn't filed under Electronic yet. File the artist under Electronic first, then move this release.",
+    },
+    {
+      label: "an artist not filed in the genre, from a server that sends no code",
+      err: notInGenreMessageOnly,
+      context: ordinary,
+      reason: "artist_not_in_genre",
+      message: "Juana Molina isn't filed under Electronic yet. File the artist under Electronic first, then move this release.",
+    },
+    {
+      label: "the not-in-genre code on a non-400",
+      err: { status: 409, data: { code: "artist_not_in_genre" } },
+      context: editor,
+      reason: "generic",
+      message: RELEASE_EDIT_FALLBACK_MESSAGE,
+    },
+    {
       label: "a server error, on the modern editor",
       err: { status: 500, data: { message: "boom" } },
       context: modern,
@@ -142,6 +168,9 @@ describe("isExpectedReleaseSaveRefusal", () => {
   it.each([
     { label: "a taken call number", response: slotTaken, expected: true },
     { label: "an artist not filed in the genre", response: notInGenre, expected: true },
+    { label: "an artist not filed in the genre, under reworded text", response: notInGenreReworded, expected: true },
+    { label: "an artist not filed in the genre, with no code", response: notInGenreMessageOnly, expected: true },
+    { label: "the not-in-genre code on a non-400", response: { status: 409, data: { code: "artist_not_in_genre" } }, expected: false },
     { label: "a 409 carrying some other code", response: { status: 409, data: { code: "something_else" } }, expected: false },
     { label: "a 400 with some other message", response: { status: 400, data: { message: "album_title is required" } }, expected: false },
     { label: "the slot code on a non-409", response: { status: 400, data: { code: "library_slot_conflict" } }, expected: false },
