@@ -16,6 +16,12 @@ vi.mock("@/lib/features/catalog/api", async (importOriginal) => {
     useGetInformationQuery: (...args: unknown[]) => mockGetInformationQuery(...args),
     useGetCompilationTracksQuery: (...args: unknown[]) => mockGetCompilationTracksQuery(...args),
     useGetFormatsQuery: () => ({ data: [{ id: 1, format_name: "cd" }, { id: 2, format_name: "lp" }] }),
+    useGetGenresQuery: () => ({
+      data: [
+        { id: 4, genre_name: "Electronic" },
+        { id: 6, genre_name: "Hiphop" },
+      ],
+    }),
     useUpdateAlbumMutation: () => [mockUpdateAlbum, { isLoading: false }],
     useMarkMissingMutation: () => [mockMarkMissing, { isLoading: false }],
     useMarkFoundMutation: () => [mockMarkFound, { isLoading: false }],
@@ -477,6 +483,125 @@ describe("Classic ReleaseCard", () => {
     await user.type(screen.getByLabelText("Release Call Letter"), "A");
 
     expect(screen.getByDisplayValue("Save")).toHaveProperty("disabled", false);
+  });
+
+  describe("genre", () => {
+    const compilation = () =>
+      album({
+        id: 9001,
+        title: "Battlegrounds",
+        entry: 135,
+        genre_id: 6,
+        artist: createTestArtist({
+          name: "Various Artists",
+          lettercode: "V/A",
+          numbercode: 0,
+          genre: "Hiphop",
+        }),
+      });
+
+    const changeGenreTo = async (user: ReturnType<typeof userEvent.setup>, name: string) => {
+      await user.selectOptions(screen.getByLabelText("Genre"), name);
+    };
+
+    it("selects the genre the release is filed under, and keeps Save disabled until it changes", async () => {
+      const user = userEvent.setup();
+      mockGetInformationQuery.mockReturnValue({ data: compilation(), isLoading: false, isError: false });
+
+      renderWithProviders(<ReleaseCard albumId={9001} />);
+
+      expect(screen.getByLabelText("Genre")).toHaveProperty("value", "6");
+      expect(screen.getByDisplayValue("Save")).toHaveProperty("disabled", true);
+
+      await changeGenreTo(user, "Electronic");
+
+      expect(screen.getByDisplayValue("Save")).toHaveProperty("disabled", false);
+    });
+
+    it("sends the new genre, and only the genre among the shelf fields", async () => {
+      const user = userEvent.setup();
+      mockUpdateAlbum.mockReset();
+      mockUpdateAlbum.mockReturnValue({ unwrap: () => Promise.resolve({}) });
+      mockGetInformationQuery.mockReturnValue({ data: compilation(), isLoading: false, isError: false });
+
+      renderWithProviders(<ReleaseCard albumId={9001} />);
+
+      await changeGenreTo(user, "Electronic");
+      await user.click(screen.getByDisplayValue("Save"));
+
+      const { body } = mockUpdateAlbum.mock.calls[0][0];
+      expect(body.genre_id).toBe(4);
+      expect(body).not.toHaveProperty("code_number");
+      expect(body).not.toHaveProperty("code_volume_letters");
+    });
+
+    it("leaves the genre out of a save that did not change it", async () => {
+      const user = userEvent.setup();
+      mockUpdateAlbum.mockReset();
+      mockUpdateAlbum.mockReturnValue({ unwrap: () => Promise.resolve({}) });
+      mockGetInformationQuery.mockReturnValue({ data: compilation(), isLoading: false, isError: false });
+
+      renderWithProviders(<ReleaseCard albumId={9001} />);
+
+      await user.type(screen.getByLabelText("Title of Release"), "!");
+      await user.click(screen.getByDisplayValue("Save"));
+
+      expect(mockUpdateAlbum.mock.calls[0][0].body).not.toHaveProperty("genre_id");
+    });
+
+    it.each([
+      {
+        refusal: "the call number is already taken there",
+        error: { status: 409, data: { message: "Call number 135 is already taken", code: "library_slot_conflict" } },
+        expected:
+          "Electronic already has a release at number 135. Change the Release Call Number on this page and save again.",
+      },
+      {
+        refusal: "the artist is not filed under that genre",
+        error: { status: 400, data: { message: "Artist is not catalogued in the selected genre" } },
+        expected:
+          "Various Artists isn't filed under Electronic, so this release can't be moved there. Use Change the Library Code of This Library Release to file it under a different artist.",
+      },
+      {
+        refusal: "anything else",
+        error: { status: 500, data: { message: "boom" } },
+        expected: "This library release could not be modified.",
+      },
+    ])("explains a genre change refused because $refusal", async ({ error, expected }) => {
+      const user = userEvent.setup();
+      mockUpdateAlbum.mockReset();
+      mockUpdateAlbum.mockReturnValue({ unwrap: () => Promise.reject(error) });
+      mockGetInformationQuery.mockReturnValue({ data: compilation(), isLoading: false, isError: false });
+
+      renderWithProviders(<ReleaseCard albumId={9001} />);
+
+      await changeGenreTo(user, "Electronic");
+      await user.click(screen.getByDisplayValue("Save"));
+
+      expect(await screen.findByText(expected)).toBeInTheDocument();
+    });
+
+    it("shows the new genre in the code once the saved release comes back", () => {
+      mockGetInformationQuery.mockReturnValue({
+        data: album({
+          ...compilation(),
+          genre_id: 4,
+          artist: createTestArtist({
+            name: "Various Artists",
+            lettercode: "V/A",
+            numbercode: 0,
+            genre: "Electronic",
+          }),
+        }),
+        isLoading: false,
+        isError: false,
+      });
+
+      renderWithProviders(<ReleaseCard albumId={9001} />);
+
+      expect(screen.getByTestId("release-library-code").textContent).toBe("Electronic V/A-135");
+      expect(screen.getByLabelText("Genre")).toHaveProperty("value", "4");
+    });
   });
 
   it("offers Mark as Missing for a shelved release, and Mark as Found for a lost one", () => {
