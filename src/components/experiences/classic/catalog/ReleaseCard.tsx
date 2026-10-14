@@ -16,12 +16,13 @@ import {
   releaseVolumeLettersTooLong,
   RELEASE_VOLUME_LETTERS_TOO_LONG_MESSAGE,
 } from "@/lib/features/catalog/adminCreateArtistValidation";
+import { isGenresUnavailable } from "@/lib/features/catalog/genreAvailability";
+import { interpretReleaseSaveError } from "@/lib/features/catalog/releaseSaveOutcome";
 import {
   formatCallLettersAndNumbers,
   formatEntireLibraryCode,
   isVariousArtists,
 } from "@/lib/features/catalog/libraryCode";
-import { bodyCode, serverMessage } from "@/lib/rtk-endpoint-error";
 import { formatStationDateTime } from "@/src/utilities/stationTime";
 import Tracklist from "./Tracklist";
 
@@ -105,7 +106,10 @@ import Tracklist from "./Tracklist";
 export default function ReleaseCard({ albumId }: { albumId: number }) {
   const { data, isLoading, isError } = useGetInformationQuery({ album_id: albumId });
   const { data: formats } = useGetFormatsQuery();
-  const { data: genres } = useGetGenresQuery();
+  const genresQuery = useGetGenresQuery();
+  const { data: genres, isFetching: genresFetching, refetch: refetchGenres } = genresQuery;
+  // Absence of a list, not the error flag: see `isGenresUnavailable`.
+  const genresUnavailable = isGenresUnavailable(genresQuery);
   const [updateAlbum, { isLoading: saving }] = useUpdateAlbumMutation();
   const [markMissing, { isLoading: markingMissing }] = useMarkMissingMutation();
   const [markFound, { isLoading: markingFound }] = useMarkFoundMutation();
@@ -220,25 +224,10 @@ export default function ReleaseCard({ albumId }: { albumId: number }) {
     codeNumberChanged ||
     volumeLettersChanged;
 
-  // The two refusals a genre move can earn are the librarian's to fix, so they
-  // get words naming the fix; anything else keeps the generic line. The
-  // artist-not-in-genre refusal carries no code, only its message, so that is
-  // what it is recognized by.
-  const saveRefusalMessage = (err: unknown): string => {
-    const status = (err as { status?: unknown } | null)?.status;
-    const body = (err as { data?: unknown } | null)?.data;
-    const genreName = genres?.find((genre) => genre.id === editedGenreId)?.genre_name;
-    if (genreChanged && genreName) {
-      if (status === 409 && bodyCode(body) === "library_slot_conflict") {
-        const number = `${codeNumberChanged ? editedCodeNumber : data.entry}${volumeLettersChanged ? editedVolumeLetters : storedVolumeLetters}`;
-        return `${genreName} already has a release at number ${number}. Change the Release Call Number on this page and save again.`;
-      }
-      if (status === 400 && /not catalogued in the selected genre/i.test(serverMessage(body) ?? "")) {
-        return `${displayArtist} isn't filed under ${genreName}, so this release can't be moved there. Use Change the Library Code of This Library Release to file it under a different artist.`;
-      }
-    }
-    return "This library release could not be modified.";
-  };
+  // The browser shows the first option for a value no option carries, so a
+  // stored genre missing from the list needs a blank choice to stand on, or
+  // picking that first genre would fire no change at all.
+  const genreListed = !!genres?.some((genre) => genre.id === genreId);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -292,7 +281,17 @@ export default function ReleaseCard({ albumId }: { albumId: number }) {
       }).unwrap();
       setMessage("This library release has been modified.");
     } catch (err) {
-      setMessage(saveRefusalMessage(err));
+      setMessage(
+        genreChanged
+          ? interpretReleaseSaveError(err, {
+              screen: "editor",
+              genreName: genres?.find((genre) => genre.id === editedGenreId)?.genre_name,
+              callNumber: `${codeNumberChanged ? editedCodeNumber : data.entry}${volumeLettersChanged ? editedVolumeLetters : storedVolumeLetters}`,
+              artistName: displayArtist,
+              variousArtists: isVariousArtists(data.artist.lettercode),
+            }).message
+          : "This library release could not be modified.",
+      );
     }
   };
 
@@ -367,24 +366,35 @@ export default function ReleaseCard({ albumId }: { albumId: number }) {
                 <select
                   name="genreID"
                   aria-label="Genre"
-                  value={genreId}
+                  value={genreListed ? genreId : ""}
                   disabled={!genres || genres.length === 0}
                   onChange={(event) =>
                     setGenreId(event.target.value === "" ? "" : Number(event.target.value))
                   }
                 >
                   {genres && genres.length > 0 ? (
-                    genres.map((genre) => (
-                      <option key={genre.id} value={genre.id}>
-                        {genre.genre_name}
-                      </option>
-                    ))
+                    <>
+                      {!genreListed && <option value=""></option>}
+                      {genres.map((genre) => (
+                        <option key={genre.id} value={genre.id}>
+                          {genre.genre_name}
+                        </option>
+                      ))}
+                    </>
                   ) : (
                     // Until the list arrives the select still names the genre
                     // the release is filed under, rather than reading blank.
                     <option value={genreId}>{data.artist.genre}</option>
                   )}
                 </select>
+                {genresUnavailable && (
+                  <div role="alert" className="artist-error-message">
+                    Genres are unavailable, so the genre can&apos;t be changed right now.{" "}
+                    <button type="button" disabled={genresFetching} onClick={() => refetchGenres()}>
+                      Try again
+                    </button>
+                  </div>
+                )}
               </td>
             </tr>
             <tr>

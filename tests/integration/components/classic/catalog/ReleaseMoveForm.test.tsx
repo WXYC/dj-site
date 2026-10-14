@@ -393,6 +393,37 @@ describe("Classic ReleaseMoveForm — libraryReleaseModifyLibCode.jsp", () => {
         expect.objectContaining({ body: expect.objectContaining({ artist_id: 4211, genre_id: 5 }) }),
       );
     });
+
+    it("says the call number stayed put after a move that only changed genre", async () => {
+      loaded({ genre_id: 1 });
+      resolvesTo(owner({ id: 4211, artist_name: "Autechre", code_letters: "AU", code_number: 3, genre_id: 5 }));
+
+      renderWithProviders(<ReleaseMoveForm albumId={53375} />);
+      const user = await lookUpCode("AU", "3");
+      await screen.findByTestId("release-move-destination");
+      await submit(user);
+
+      expect(await screen.findByText("This library release has been moved to Electronic. Its call number did not change.")).toBeInTheDocument();
+    });
+
+    it("explains a genre move refused because the call number is taken there", async () => {
+      loaded({ genre_id: 1 });
+      resolvesTo(owner({ id: 4211, artist_name: "Autechre", code_letters: "AU", code_number: 3, genre_id: 5 }));
+      mockUpdateAlbum.mockReturnValue({
+        unwrap: () => Promise.reject({ status: 409, data: { message: "taken", code: "library_slot_conflict" } }),
+      });
+
+      renderWithProviders(<ReleaseMoveForm albumId={53375} />);
+      const user = await lookUpCode("AU", "3");
+      await screen.findByTestId("release-move-destination");
+      await submit(user);
+
+      expect(
+        await screen.findByText(
+          "Electronic already has a release at number 1. Open View/Modify/Delete this Library Release to change its Release Call Number, then move it again.",
+        ),
+      ).toBeInTheDocument();
+    });
   });
 
   describe("a destination the librarian has since edited away from", () => {
