@@ -263,7 +263,9 @@ export default function ReleaseMoveForm({ albumId }: { albumId: number }) {
       setMessage(AMBIGUOUS_DESTINATION_MESSAGE);
       return;
     }
-    if (destination.id === currentArtistId) {
+    // Same artist alone is not the same code: a compilation's one artist row
+    // is filed in many genres, and moving between them keeps the artist.
+    if (destination.id === currentArtistId && destination.genre_id === data.genre_id) {
       setMessage(SAME_CODE_MESSAGE);
       return;
     }

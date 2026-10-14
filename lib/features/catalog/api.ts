@@ -302,12 +302,17 @@ export const catalogApi = createApi({
       // lists the release in a slot it no longer occupies — and the next call
       // number offered for that artist is derived from the same shelf (see
       // `artistReleaseTags`), so filing after an un-invalidated renumber lands
-      // a second release in the slot the renumber just took. Neither field
-      // carries the artist, so this reaches the tables through `LIST` too.
+      // a second release in the slot the renumber just took. A genre change
+      // moves the release onto the artist's shelf in another genre, which
+      // makes the tables of both shelves wrong the same way. None of these
+      // fields carries the artist, so this reaches the tables through `LIST`
+      // too.
       invalidatesTags: (_result, _error, { albumId, body }) => {
         const reattributed = body.artist_id != null;
         const shelfSlotChanged =
-          body.code_number !== undefined || "code_volume_letters" in body;
+          body.code_number !== undefined ||
+          "code_volume_letters" in body ||
+          body.genre_id !== undefined;
         return [
           { type: "AlbumDetail" as const, id: albumId },
           ...(reattributed

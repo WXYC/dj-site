@@ -322,11 +322,18 @@ describe("updateAlbum cache invalidation on a shelf-changing write", () => {
   });
 
   // The release stays with its artist here, so re-attribution is not what makes
-  // the table wrong: the row moves within that artist's shelf, and the next
-  // call number the add-release form offers is derived from the same shelf. A
-  // renumber nobody invalidated leaves the next filing aimed at the slot the
-  // renumber just took.
-  it("refetches the release tables when a call-code edit moves the release within one shelf", async () => {
+  // the table wrong: the row moves to a different slot -- within the artist's
+  // shelf, or onto its shelf in another genre -- and the next call number the
+  // add-release form offers is derived from the same shelf. A move nobody
+  // invalidated leaves the next filing aimed at the slot the move just took.
+  // Clearing the volume letters counts: they are the tiebreak the table is
+  // ordered by, and the half of the call number that tells two releases in one
+  // slot apart.
+  it.each([
+    { edit: "a call-number edit", body: { code_number: 7 } },
+    { edit: "clearing the volume letters", body: { code_volume_letters: null } },
+    { edit: "a genre change", body: { genre_id: 9 } },
+  ])("refetches the release tables after $edit", async ({ body }) => {
     let releaseCalls = 0;
     server.use(
       http.get(`${TEST_BACKEND_URL}/library/artists/4211/releases`, () => {
@@ -343,42 +350,7 @@ describe("updateAlbum cache invalidation on a shelf-changing write", () => {
     await sub;
     expect(releaseCalls).toBe(1);
 
-    await store.dispatch(
-      catalogApi.endpoints.updateAlbum.initiate({
-        albumId: 53375,
-        body: { code_number: 7 },
-      }),
-    );
-
-    await vi.waitFor(() => expect(releaseCalls).toBe(2));
-    sub.unsubscribe();
-  });
-
-  // Clearing the volume letters changes the same shelf: they are the tiebreak
-  // the table is ordered by, and the half of the call number that tells two
-  // releases in one slot apart.
-  it("refetches the release tables when the volume letters are cleared", async () => {
-    let releaseCalls = 0;
-    server.use(
-      http.get(`${TEST_BACKEND_URL}/library/artists/4211/releases`, () => {
-        releaseCalls += 1;
-        return HttpResponse.json({ releases: [], total: 0, page: 1, totalPages: 1 });
-      }),
-      http.patch(`${TEST_BACKEND_URL}/library/53375`, () => HttpResponse.json(patched)),
-    );
-
-    const store = createTestStore();
-    const sub = store.dispatch(
-      catalogApi.endpoints.getArtistReleases.initiate({ artistId: 4211 }),
-    );
-    await sub;
-
-    await store.dispatch(
-      catalogApi.endpoints.updateAlbum.initiate({
-        albumId: 53375,
-        body: { code_volume_letters: null },
-      }),
-    );
+    await store.dispatch(catalogApi.endpoints.updateAlbum.initiate({ albumId: 53375, body }));
 
     await vi.waitFor(() => expect(releaseCalls).toBe(2));
     sub.unsubscribe();

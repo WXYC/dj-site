@@ -376,6 +376,23 @@ describe("Classic ReleaseMoveForm — libraryReleaseModifyLibCode.jsp", () => {
       expect(mockUpdateAlbum).not.toHaveBeenCalled();
       expect(screen.getByTestId("release-move-message").textContent).toContain("already filed");
     });
+
+    // Every compilation hangs off one artist row crossreferenced in many
+    // genres, so moving a Various Artists release to another genre's shelf
+    // resolves to the artist it is already filed under.
+    it("moves a release to the same artist's shelf in another genre", async () => {
+      loaded({ genre_id: 1 });
+      resolvesTo(owner({ id: 4211, artist_name: "Autechre", code_letters: "AU", code_number: 3, genre_id: 5 }));
+
+      renderWithProviders(<ReleaseMoveForm albumId={53375} />);
+      const user = await lookUpCode("AU", "3");
+      await screen.findByTestId("release-move-destination");
+      await submit(user);
+
+      expect(mockUpdateAlbum).toHaveBeenCalledWith(
+        expect.objectContaining({ body: expect.objectContaining({ artist_id: 4211, genre_id: 5 }) }),
+      );
+    });
   });
 
   describe("a destination the librarian has since edited away from", () => {

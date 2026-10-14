@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   useGetFormatsQuery,
+  useGetGenresQuery,
   useGetInformationQuery,
   useMarkFoundMutation,
   useMarkMissingMutation,
@@ -20,6 +21,7 @@ import {
   formatEntireLibraryCode,
   isVariousArtists,
 } from "@/lib/features/catalog/libraryCode";
+import { bodyCode, serverMessage } from "@/lib/rtk-endpoint-error";
 import { formatStationDateTime } from "@/src/utilities/stationTime";
 import Tracklist from "./Tracklist";
 
@@ -47,6 +49,14 @@ import Tracklist from "./Tracklist";
  *    stored value alone" under partial-update semantics, and this is the only
  *    screen that can set these letters at all, so without the explicit null it
  *    could set them and never take them back off.
+ *  - **Genre is a select on this screen.** The JSP had no genre control: a
+ *    release took its genre from the library code it was filed under, and a
+ *    Various Artists release moved genre by moving to that genre's VA code.
+ *    Here every compilation hangs off one artist row crossreferenced in many
+ *    genres, so the move screen finds the same artist in every genre and the
+ *    genre has to be edited on the release itself. It is sent only when it
+ *    differs from the stored one, because that is when Backend checks the
+ *    destination shelf for a release already holding this call number.
  *  - **Album Artist is read-only**, for the same reason: not in the PATCH body.
  *    The published `AddAlbumRequest` schema does declare the field, but no
  *    Backend write path reads it on either verb, so an input here would
@@ -95,6 +105,7 @@ import Tracklist from "./Tracklist";
 export default function ReleaseCard({ albumId }: { albumId: number }) {
   const { data, isLoading, isError } = useGetInformationQuery({ album_id: albumId });
   const { data: formats } = useGetFormatsQuery();
+  const { data: genres } = useGetGenresQuery();
   const [updateAlbum, { isLoading: saving }] = useUpdateAlbumMutation();
   const [markMissing, { isLoading: markingMissing }] = useMarkMissingMutation();
   const [markFound, { isLoading: markingFound }] = useMarkFoundMutation();
@@ -103,6 +114,7 @@ export default function ReleaseCard({ albumId }: { albumId: number }) {
   const [altArtist, setAltArtist] = useState("");
   const [albumArtist, setAlbumArtist] = useState("");
   const [formatId, setFormatId] = useState<number | "">("");
+  const [genreId, setGenreId] = useState<number | "">("");
   const [codeNumber, setCodeNumber] = useState("");
   const [volumeLetters, setVolumeLetters] = useState("");
   const [message, setMessage] = useState("");
@@ -126,6 +138,7 @@ export default function ReleaseCard({ albumId }: { albumId: number }) {
     setAltArtist(data.alternate_artist ?? "");
     setAlbumArtist(data.album_artist ?? "");
     setFormatId(data.format_id ?? "");
+    setGenreId(data.genre_id ?? "");
     setCodeNumber(String(data.entry));
     setVolumeLetters(data.code_volume_letters ?? "");
   }, [data, albumId]);
@@ -178,6 +191,8 @@ export default function ReleaseCard({ albumId }: { albumId: number }) {
   const editedAltArtist = altArtist.trim() === "" ? null : altArtist.trim();
   const editedAlbumArtist = albumArtist.trim() === "" ? null : albumArtist.trim();
   const editedFormatId = formatId === "" ? null : Number(formatId);
+  const editedGenreId = genreId === "" ? null : Number(genreId);
+  const genreChanged = editedGenreId !== null && editedGenreId !== (data.genre_id ?? null);
   const editedCodeNumber = codeNumber.trim();
   // Both sides folded to the casing this input files in, so re-typing the
   // stored letters in the other case is not an edit. Nothing downstream can
@@ -201,8 +216,29 @@ export default function ReleaseCard({ albumId }: { albumId: number }) {
     editedAltArtist !== (storedAltArtist === "" ? null : storedAltArtist) ||
     editedAlbumArtist !== (storedAlbumArtist === "" ? null : storedAlbumArtist) ||
     editedFormatId !== (data.format_id ?? null) ||
+    genreChanged ||
     codeNumberChanged ||
     volumeLettersChanged;
+
+  // The two refusals a genre move can earn are the librarian's to fix, so they
+  // get words naming the fix; anything else keeps the generic line. The
+  // artist-not-in-genre refusal carries no code, only its message, so that is
+  // what it is recognized by.
+  const saveRefusalMessage = (err: unknown): string => {
+    const status = (err as { status?: unknown } | null)?.status;
+    const body = (err as { data?: unknown } | null)?.data;
+    const genreName = genres?.find((genre) => genre.id === editedGenreId)?.genre_name;
+    if (genreChanged && genreName) {
+      if (status === 409 && bodyCode(body) === "library_slot_conflict") {
+        const number = `${codeNumberChanged ? editedCodeNumber : data.entry}${volumeLettersChanged ? editedVolumeLetters : storedVolumeLetters}`;
+        return `${genreName} already has a release at number ${number}. Change the Release Call Number on this page and save again.`;
+      }
+      if (status === 400 && /not catalogued in the selected genre/i.test(serverMessage(body) ?? "")) {
+        return `${displayArtist} isn't filed under ${genreName}, so this release can't be moved there. Use Change the Library Code of This Library Release to file it under a different artist.`;
+      }
+    }
+    return "This library release could not be modified.";
+  };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -241,6 +277,7 @@ export default function ReleaseCard({ albumId }: { albumId: number }) {
           // endpoint has always received from this screen.
           ...(editedFormatId === null ? {} : { format_id: editedFormatId }),
           ...(parsedCodeNumber === undefined ? {} : { code_number: parsedCodeNumber }),
+          ...(genreChanged ? { genre_id: editedGenreId } : {}),
           // An emptied field sends an explicit null, which is what clears the
           // column: omitting the key leaves whatever is stored, and this screen
           // is the only one that can put letters on a release, so omitting a
@@ -254,8 +291,8 @@ export default function ReleaseCard({ albumId }: { albumId: number }) {
         },
       }).unwrap();
       setMessage("This library release has been modified.");
-    } catch {
-      setMessage("This library release could not be modified.");
+    } catch (err) {
+      setMessage(saveRefusalMessage(err));
     }
   };
 
@@ -320,6 +357,34 @@ export default function ReleaseCard({ albumId }: { albumId: number }) {
                 <a href={`/dashboard/library/release/${albumId}/move`}>
                   Change the Artist Code of This Library Release
                 </a>
+              </td>
+            </tr>
+            <tr>
+              <td style={{ textAlign: "right" }}>
+                <b>Genre:</b>
+              </td>
+              <td>
+                <select
+                  name="genreID"
+                  aria-label="Genre"
+                  value={genreId}
+                  disabled={!genres || genres.length === 0}
+                  onChange={(event) =>
+                    setGenreId(event.target.value === "" ? "" : Number(event.target.value))
+                  }
+                >
+                  {genres && genres.length > 0 ? (
+                    genres.map((genre) => (
+                      <option key={genre.id} value={genre.id}>
+                        {genre.genre_name}
+                      </option>
+                    ))
+                  ) : (
+                    // Until the list arrives the select still names the genre
+                    // the release is filed under, rather than reading blank.
+                    <option value={genreId}>{data.artist.genre}</option>
+                  )}
+                </select>
               </td>
             </tr>
             <tr>
