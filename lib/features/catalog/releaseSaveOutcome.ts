@@ -33,8 +33,12 @@ export type ReleaseSaveRefusal = {
 type RefusalReason = Exclude<ReleaseSaveRefusal["reason"], "generic">;
 
 function refusalReason(status: unknown, data: unknown): RefusalReason | undefined {
-  if (status === 409 && bodyCode(data) === "library_slot_conflict") return "slot_taken";
-  if (status === 400 && bodyCode(data) === "artist_not_in_genre") return "artist_not_in_genre";
+  if (status === 409 && bodyCode(data) === "library_slot_conflict") {
+    return "slot_taken";
+  }
+  if (status === 400 && bodyCode(data) === "artist_not_in_genre") {
+    return "artist_not_in_genre";
+  }
   // A server that predates the code sends only the message. Matching the text
   // keeps the plain-language line working against one, and is safe to drop
   // once no deployed Backend can answer without the code.
@@ -66,7 +70,9 @@ export function interpretReleaseSaveError(err: unknown, context: ReleaseSaveCont
   const { screen, genreName, callNumber, artistName, variousArtists } = context;
   const generic: ReleaseSaveRefusal = { reason: "generic", message: FALLBACK_MESSAGES[screen] };
   const answer = unwrapEndpointErrorOrRaw("updateAlbumError", err);
-  if (!answer || !genreName) return generic;
+  if (!answer || !genreName) {
+    return generic;
+  }
   const reason = refusalReason(answer.status, answer.data);
 
   if (reason === "slot_taken") {
