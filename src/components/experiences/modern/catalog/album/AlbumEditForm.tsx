@@ -31,6 +31,8 @@ import {
   ArtistInGenreOption,
   UpdateAlbumRequestBody,
 } from "@/lib/features/catalog/types";
+import { isVariousArtists } from "@/lib/features/catalog/libraryCode";
+import { interpretReleaseSaveError } from "@/lib/features/catalog/releaseSaveOutcome";
 import { isUnmessagedHttpError } from "@/lib/rtk-query-error-logger";
 import ArtistSearchTypeahead from "@/src/components/shared/inputs/ArtistSearchTypeahead";
 
@@ -292,8 +294,15 @@ function AlbumEditFormFields({ album }: AlbumEditFormProps) {
       // Catalog rows always carry a real library.id; only LML rows go null.
       updated = await updateAlbum({ albumId: album.id!, body: changes }).unwrap();
     } catch (err) {
-      if (isUnmessagedHttpError(err)) {
-        toast.error("Failed to update album");
+      const refusal = interpretReleaseSaveError(err, {
+        screen: "modern",
+        genreName: genres?.find((genre) => genre.id === (genreId ?? saved.genreId))?.genre_name,
+        callNumber: `${album.entry}${album.code_volume_letters ?? ""}`,
+        artistName,
+        variousArtists: isVariousArtists(album.artist.lettercode),
+      });
+      if (refusal.reason !== "generic" || isUnmessagedHttpError(err)) {
+        toast.error(refusal.message);
       }
       return;
     }

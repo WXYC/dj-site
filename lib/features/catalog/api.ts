@@ -17,6 +17,7 @@ import { artistDeleteAnsweredWithoutWriting } from "./artistDeleteOutcome";
 import { bodyReason, serverMessage, unwrapEndpointErrorOrRaw } from "@/lib/rtk-endpoint-error";
 import { artistRefileAnsweredWithoutWriting } from "./artistRefileOutcome";
 import { deleteAnsweredWithoutWriting } from "./releaseDeleteOutcome";
+import { isExpectedReleaseSaveRefusal } from "./releaseSaveOutcome";
 import { isRotationImportRefused } from "../rotation/importOutcome";
 import { restoreAnsweredWithoutWriting } from "./restoreDeletedBatchOutcome";
 import {
@@ -284,6 +285,11 @@ export const catalogApi = createApi({
         if (!response) throw new Error("updateAlbum: response body was empty");
         return convertToAlbumEntry(response);
       },
+      // Every screen that can trigger these two refusals words them itself.
+      transformErrorResponse: (response: FetchBaseQueryError): FetchBaseQueryError =>
+        typeof response.status === "number" && isExpectedReleaseSaveRefusal(response)
+          ? ({ ...response, expected: true } as FetchBaseQueryError)
+          : response,
       // An ordinary field edit needs no list refetch: `patchCatalogSearchCaches`
       // below rewrites the row wherever it is already cached.
       //
