@@ -362,6 +362,24 @@ export const REVIEW_COPY = {
     removeIt: "Remove it",
     /** Approved. The server refuses a release: no submitted review, and added after the cutover date. */
     releaseRefused: "That release can't be cited: it has no submitted review and was added to the library after the cutover date.",
+    /** Approved. Opens a search of the form archive by artist; also that search's heading once open. */
+    citeForm: "Cite a form review",
+    /** Approved. The form search's field. */
+    formArtist: "Artist",
+    /** Approved. Under that field. */
+    formArtistNote: "Only exact artist names match. A leading \"The\" and capital letters don't matter.",
+    /** Approved. */
+    formSearchFailed: "Couldn't search the form reviews. Please try again.",
+    /** Approved. */
+    formNone: "No form reviews under this exact artist name.",
+    /** Approved. Above the list of form reviews. */
+    formNotPrintable: "A form review can't be printed from here until it is copied onto the record.",
+    /** Approved. The page's only line after a copied review's save, when the citation is refused for a form review dated after the cutover. */
+    formAfterCutover: "Recorded. The record can't cite this form review: it was sent in after the cutover date.",
+    /** Approved. The same refusal for a form review with no date. */
+    formNoDate: "Recorded. The record can't cite this form review: it has no date.",
+    /** Approved. The citation write failed for any other reason. */
+    formNotNoted: "Recorded. Couldn't note which form review it came from.",
   },
   /** The music directors' form that records a review of one record, on `/dashboard/admin/intake/{id}`. */
   record: {

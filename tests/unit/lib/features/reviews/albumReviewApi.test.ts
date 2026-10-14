@@ -21,7 +21,7 @@ const makeReviewsStore = () =>
 
 describe("albumReviewApi", () => {
   describeApi(albumReviewApi, {
-    queries: ["getAlbumReviewsForRelease"],
+    queries: ["getAlbumReviewsForRelease", "getAlbumReviewsByArtist"],
     reducerPath: "reviewsApi",
   });
 
@@ -39,5 +39,21 @@ describe("albumReviewApi", () => {
     expect(seen?.pathname).toBe("/album-reviews");
     expect(seen?.searchParams.get("album_id")).toBe("5");
     expect(result.data).toEqual([{ id: 1 }]);
+  });
+
+  it("getAlbumReviewsByArtist GETs /album-reviews?artist=Jessica Pratt with no album_id and unwraps the archive page", async () => {
+    let seen: URL | undefined;
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/album-reviews`, ({ request }) => {
+        seen = new URL(request.url);
+        return HttpResponse.json({ album_reviews: [{ id: 2 }], pagination: {} });
+      })
+    );
+
+    const result = await makeReviewsStore().dispatch(albumReviewApi.endpoints.getAlbumReviewsByArtist.initiate("Jessica Pratt"));
+
+    expect(seen?.searchParams.get("artist")).toBe("Jessica Pratt");
+    expect(seen?.searchParams.has("album_id")).toBe(false);
+    expect(result.data).toEqual([{ id: 2 }]);
   });
 });

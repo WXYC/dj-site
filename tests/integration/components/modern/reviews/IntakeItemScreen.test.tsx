@@ -52,7 +52,7 @@ vi.mock("@/src/hooks/authenticationHooks", async () => {
 
 import { toast } from "sonner";
 import { REVIEW_COPY } from "@/src/components/experiences/modern/reviews/copy";
-import type { IntakeItemPatch, NewReviewRequest, Review } from "@wxyc/shared";
+import type { AlbumReview, IntakeItemPatch, NewReviewRequest, Review } from "@wxyc/shared";
 import Link from "next/link";
 import { CssVarsProvider } from "@mui/joy/styles";
 import modernTheme from "@/lib/features/experiences/modern/theme";
@@ -327,6 +327,15 @@ describe("IntakeItemScreen", () => {
       REVIEW_COPY.intakeItem.releaseRefused,
       "That release can't be cited: it has no submitted review and was added to the library after the cutover date.",
     ],
+    ["citeForm", REVIEW_COPY.intakeItem.citeForm, "Cite a form review"],
+    ["formArtist", REVIEW_COPY.intakeItem.formArtist, "Artist"],
+    ["formArtistNote", REVIEW_COPY.intakeItem.formArtistNote, "Only exact artist names match. A leading \"The\" and capital letters don't matter."],
+    ["formSearchFailed", REVIEW_COPY.intakeItem.formSearchFailed, "Couldn't search the form reviews. Please try again."],
+    ["formNone", REVIEW_COPY.intakeItem.formNone, "No form reviews under this exact artist name."],
+    ["formNotPrintable", REVIEW_COPY.intakeItem.formNotPrintable, "A form review can't be printed from here until it is copied onto the record."],
+    ["formAfterCutover", REVIEW_COPY.intakeItem.formAfterCutover, "Recorded. The record can't cite this form review: it was sent in after the cutover date."],
+    ["formNoDate", REVIEW_COPY.intakeItem.formNoDate, "Recorded. The record can't cite this form review: it has no date."],
+    ["formNotNoted", REVIEW_COPY.intakeItem.formNotNoted, "Recorded. Couldn't note which form review it came from."],
     ["couldNotDelete", REVIEW_COPY.couldNotDelete, "Couldn't delete the review. Please try again."],
     ["writeFailed", REVIEW_COPY.screen.writeFailed, "Couldn't do that. Please try again."],
     [
@@ -3393,6 +3402,31 @@ describe("IntakeItemScreen", () => {
       await held.releaseAndSettle();
     });
 
+    it("sends no PATCH when the cited empty state's copy is saved", async () => {
+      const { box, own } = setUp([], { archive: [archived(1, "Sam", "Warm and strange.")] });
+      const sent: unknown[] = [];
+      server.use(
+        http.patch(FILED_ITEM_PATH, async ({ request }) => {
+          sent.push(await request.json());
+          return HttpResponse.json(box.item);
+        }),
+        http.post(`${TEST_BACKEND_URL}/reviews`, () => {
+          const made = submitted(90, { author: "Sam", review: "Warm and strange." });
+          box.item = { ...box.item, accepted_review_id: 90 };
+          own.list = [made];
+          return HttpResponse.json(made, { status: 201 });
+        }),
+      );
+      const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      await user.click(await within(await section()).findByRole("button", { name: REVIEW_COPY.intakeItem.copyOntoRecord }));
+      await user.click(await screen.findByRole("button", { name: "Save" }));
+
+      expect(await screen.findByText(REVIEW_COPY.record.recorded)).toBeInTheDocument();
+      await reviewsSettled(store);
+      expect(sent).toEqual([]);
+    });
+
     it("names the cited release in the heading and not this record", async () => {
       setUp([ofCited(90)]);
 
@@ -3566,8 +3600,8 @@ describe("IntakeItemScreen", () => {
     const cites = (overrides = {}) => dogaItem({ cited_album_id: CITED_ID, ...overrides });
 
     /** Serves the item and its own reviews as boxes, the cited release's by `forRelease`, and the picker's search. */
-    const setUp = (item = dogaItem(), { own = [submitted(40)], forRelease = {} as Record<string, Review[]>, byId = [] as Review[] } = {}) => {
-      fakeReviewsEndpoints({ records: [item], reviews: byId, forRelease, releases, searchResults: [CITED_ROW] });
+    const setUp = (item = dogaItem(), { own = [submitted(40)], forRelease = {} as Record<string, Review[]>, byId = [] as Review[], byArtist = {} as Record<string, AlbumReview[]> } = {}) => {
+      fakeReviewsEndpoints({ records: [item], reviews: byId, forRelease, releases, searchResults: [CITED_ROW], byArtist });
       return { box: serveItem(item), own: serveItemReviews(own) };
     };
 
@@ -3695,6 +3729,264 @@ describe("IntakeItemScreen", () => {
       });
     });
 
+    describe("citing a form review", () => {
+      const FORM = "Cite a form review";
+      const COPY_ONTO = REVIEW_COPY.intakeItem.copyOntoRecord;
+      const FORM_ID = 7701;
+      // A different artist's album and an id no item or album shares, so a prefill or a PATCH built from the wrong source fails.
+      const formReview = (overrides: Partial<AlbumReview> = {}): AlbumReview => ({
+        id: FORM_ID, reviewer: "Test Reviewer", album_id: null, artist_name: "Juana Molina", album_title: "Un día", record_label: "Sonamos",
+        artist_blurb: null, review: "Form take.", recommended_tracks: null, buzzwords: null, fcc_violations: null, review_purpose: null,
+        rotated: null, released_within_six_months: null, social_consent: null, submitted_at: "2026-03-02T17:00:00Z", ...overrides,
+      });
+      const DETAIL = "Sonamos · Test Reviewer · 2026-03-02";
+      const withReviews = (...rows: AlbumReview[]) => setUp(dogaItem(), { byArtist: { "Juana Molina": rows, Stereolab: [formReview({ id: 7702, artist_name: "Stereolab", review: "Stereolab form take." })] } });
+      const formRegion = () => screen.findByRole("region", { name: FORM });
+      const openForm = async (user: User) => {
+        await user.click(await screen.findByRole("button", { name: FORM }));
+        return formRegion();
+      };
+      const copyFirst = async (user: User) => user.click(await within(await openForm(user)).findByRole("button", { name: COPY_ONTO }));
+      /** Serves POST /reviews: the review lands on the cover of the box's item and in the item's own list. */
+      const creating = (box: ReturnType<typeof serveItem>, own: ReturnType<typeof serveItemReviews>) => {
+        const made = submitted(90, { author: "Test Reviewer", review: "Form take." });
+        return holdResponse("post", `${TEST_BACKEND_URL}/reviews`, () => {
+          box.item = { ...box.item, accepted_review_id: 90 };
+          own.list = [submitted(40), made];
+          return HttpResponse.json(made, { status: 201 });
+        });
+      };
+
+      it("opens a search named by its own heading, prefilled and run for the record's artist, and lists each review with its album, then label, reviewer and date, then its text", async () => {
+        withReviews(formReview());
+        const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+        const section = await openForm(user);
+
+        expect(within(section).getByRole("heading", { level: 3, name: FORM })).toBeInTheDocument();
+        expect(within(section).getByRole("textbox", { name: "Artist" })).toHaveValue("Juana Molina");
+        expect(within(section).getByText(REVIEW_COPY.intakeItem.formArtistNote)).toBeInTheDocument();
+        expect(await within(section).findByText(REVIEW_COPY.intakeItem.formNotPrintable)).toBeInTheDocument();
+        expect(section.textContent).toMatch(/Un día.*Sonamos · Test Reviewer · 2026-03-02.*Form take\./);
+        expect(within(section).getByText(DETAIL)).toBeInTheDocument();
+        expect(within(section).queryByText("Stereolab form take.")).not.toBeInTheDocument();
+      });
+
+      it.each([
+        ["album title", { album_title: null }, true, DETAIL],
+        ["label", { record_label: null }, false, "Test Reviewer · 2026-03-02"],
+        ["reviewer", { reviewer: null }, false, "Sonamos · 2026-03-02"],
+        ["date", { submitted_at: null }, false, "Sonamos · Test Reviewer"],
+        ["label, reviewer and date", { record_label: null, reviewer: "  ", submitted_at: null }, false, null],
+      ])("leaves out a blank %s with no words in its place", async (_name, blank, leadGone, line) => {
+        withReviews(formReview(blank));
+        const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+        const section = await openForm(user);
+
+        await within(section).findByText("Form take.");
+        expect(within(section).queryByText("Un día") === null).toBe(leadGone);
+        if (line === null) expect(section.textContent).not.toContain("·");
+        else expect(within(section).getByText(line)).toBeInTheDocument();
+      });
+
+      it("shows the empty line for an artist with no exact match and the failure line for a search that fails, and neither keeps the other's rows", async () => {
+        withReviews();
+        const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+        const section = await openForm(user);
+
+        expect(await within(section).findByText(REVIEW_COPY.intakeItem.formNone)).toBeInTheDocument();
+        expect(within(section).queryByText(REVIEW_COPY.intakeItem.formNotPrintable)).not.toBeInTheDocument();
+        server.use(http.get(`${TEST_BACKEND_URL}/album-reviews`, () => HttpResponse.json({ message: "boom" }, { status: 500 })));
+        await user.type(within(section).getByRole("textbox", { name: "Artist" }), "s");
+        await user.click(within(section).getByRole("button", { name: "Search" }));
+
+        expect(await within(section).findByRole("alert")).toHaveTextContent(REVIEW_COPY.intakeItem.formSearchFailed);
+        expect(within(section).queryByText(REVIEW_COPY.intakeItem.formNone)).not.toBeInTheDocument();
+      });
+
+      it("searches the artist as edited", async () => {
+        withReviews(formReview());
+        const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+        const section = await openForm(user);
+        await within(section).findByText("Form take.");
+        const artist = within(section).getByRole("textbox", { name: "Artist" });
+
+        await user.clear(artist);
+        await user.type(artist, "Stereolab");
+        await user.click(within(section).getByRole("button", { name: "Search" }));
+
+        expect(await within(section).findByText("Stereolab form take.")).toBeInTheDocument();
+        expect(within(section).queryByText("Form take.")).not.toBeInTheDocument();
+      });
+
+      it("closes the release search when the form search opens, and the form search when the release search does", async () => {
+        withReviews(formReview());
+        const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+        await user.click(await screen.findByRole("button", { name: CITE }));
+        expect(screen.getByRole("region", { name: CITE })).toBeInTheDocument();
+        await user.click(screen.getByRole("button", { name: FORM }));
+
+        expect(screen.queryByRole("region", { name: CITE })).not.toBeInTheDocument();
+        expect(await formRegion()).toBeInTheDocument();
+        await user.click(screen.getByRole("button", { name: CITE }));
+        expect(screen.queryByRole("region", { name: FORM })).not.toBeInTheDocument();
+        expect(screen.getByRole("region", { name: CITE })).toBeInTheDocument();
+      });
+
+      it("opens Record a review filled in from the copied review, and cites nothing yet", async () => {
+        const { box } = withReviews(formReview());
+        const sent = patching(box);
+        const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+        await copyFirst(user);
+
+        expect(await screen.findByRole("heading", { name: "Record a review" })).toBeInTheDocument();
+        expect(screen.getByRole("textbox", { name: "Review" })).toHaveValue("Form take.");
+        expect(screen.getByRole("textbox", { name: "Author" })).toHaveValue("Test Reviewer");
+        expect(screen.getByText(REVIEW_COPY.record.copiedFromForm)).toBeInTheDocument();
+        expect(sent).toEqual([]);
+      });
+
+      describe("saving the copy", () => {
+        const ready = async () => {
+          const { box, own } = withReviews(formReview());
+          const sent = patching(box);
+          const create = creating(box, own);
+          const rendered = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+          await copyFirst(rendered.user);
+          await rendered.user.click(await screen.findByRole("button", { name: "Save" }));
+          await waitFor(() => expect(create.calls.count).toBe(1));
+          return { box, own, sent, create, ...rendered };
+        };
+
+        it("sends one PATCH with exactly the form review's id once the create has answered, never before", async () => {
+          const { sent, create, store } = await ready();
+          await renderedFrame();
+          expect(sent).toEqual([]);
+
+          create.release();
+          await create.answered;
+
+          expect(await screen.findByRole("button", { name: REMOVE })).toBeInTheDocument();
+          expect(sent).toEqual([{ cited_submission_id: FORM_ID }]);
+          await reviewsSettled(store);
+          expect(screen.getByText(REVIEW_COPY.record.recorded)).toBeInTheDocument();
+          const cover = screen.getByRole("heading", { name: "The review on the cover" }).closest("section")!;
+          expect(within(cover).getByText("Form take.")).toBeInTheDocument();
+        });
+
+        it("keeps every review button and Cite a form review disabled until the citation's write and reload have settled", async () => {
+          const { box, own } = withReviews(formReview());
+          const create = creating(box, own);
+          const written = vi.fn();
+          let open!: () => void;
+          const gate = new Promise<void>((resolve) => (open = resolve));
+          server.use(
+            http.patch(FILED_ITEM_PATH, async () => {
+              written();
+              await gate;
+              box.item = { ...box.item, cited_submission_id: FORM_ID };
+              return HttpResponse.json(box.item);
+            }),
+          );
+          const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+          await copyFirst(user);
+          await user.click(await screen.findByRole("button", { name: "Save" }));
+          await waitFor(() => expect(create.calls.count).toBe(1));
+
+          create.release();
+          await waitFor(() => expect(written).toHaveBeenCalledTimes(1));
+
+          guarded().forEach((b) => expect(b).toBeDisabled());
+          expect(screen.getByRole("button", { name: FORM })).toBeDisabled();
+          open();
+          expect(await screen.findByRole("button", { name: REMOVE })).toBeInTheDocument();
+          await reviewsSettled(store);
+        });
+
+        it.each([
+          ["dated after the cutover", {}, REVIEW_COPY.intakeItem.formAfterCutover],
+          ["with no date", { submitted_at: null }, REVIEW_COPY.intakeItem.formNoDate],
+        ])("a 409 invalid_citation for a form review %s keeps the recorded review and shows that refusal's line, not Recorded. and not the server's words", async (_name, overrides, line) => {
+          const { box, own } = withReviews(formReview(overrides));
+          server.use(http.patch(FILED_ITEM_PATH, () => HttpResponse.json({ message: "server words", reason: "invalid_citation" }, { status: 409 })));
+          const create = creating(box, own);
+          const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+          await copyFirst(user);
+          await user.click(await screen.findByRole("button", { name: "Save" }));
+          await waitFor(() => expect(create.calls.count).toBe(1));
+          const reads = box.reads;
+
+          create.release();
+          await create.answered;
+
+          expect(await screen.findByText(line)).toBeInTheDocument();
+          await reviewsSettled(store);
+          expect(screen.getByText(line)).toBeInTheDocument();
+          expect(screen.queryByText(REVIEW_COPY.record.recorded)).not.toBeInTheDocument();
+          expect(screen.queryByText("server words")).not.toBeInTheDocument();
+          const cover = (await screen.findByRole("heading", { name: "The review on the cover" })).closest("section")!;
+          expect(within(cover).getByText("Form take.")).toBeInTheDocument();
+          expect(screen.getByRole("button", { name: FORM })).toBeInTheDocument();
+          // One read for the create's own invalidation; the refused citation adds none of its own.
+          expect(box.reads - reads).toBe(1);
+        });
+
+        it.each([
+          ["already_filed", REVIEW_COPY.intakeItem.alreadyFiled],
+          ["state_changed", REVIEW_COPY.intakeItem.formNotNoted],
+        ])("a 409 %s shows its approved line", async (reason, line) => {
+          const { box, own } = withReviews(formReview());
+          server.use(http.patch(FILED_ITEM_PATH, () => HttpResponse.json({ message: "server words", reason }, { status: 409 })));
+          const create = creating(box, own);
+          const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+          await copyFirst(user);
+          await user.click(await screen.findByRole("button", { name: "Save" }));
+          await waitFor(() => expect(create.calls.count).toBe(1));
+
+          create.release();
+
+          expect(await screen.findByText(line)).toBeInTheDocument();
+          expect(screen.queryByText("server words")).not.toBeInTheDocument();
+        });
+
+        it("sends no PATCH when the create fails, and keeps the form open with its failure line", async () => {
+          const { box } = withReviews(formReview());
+          const sent = patching(box);
+          server.use(http.post(`${TEST_BACKEND_URL}/reviews`, () => HttpResponse.json({ message: "boom" }, { status: 500 })));
+          const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+          await copyFirst(user);
+
+          await user.click(await screen.findByRole("button", { name: "Save" }));
+
+          expect(await screen.findByText(REVIEW_COPY.record.couldNotRecord)).toBeInTheDocument();
+          await reviewsSettled(store);
+          expect(sent).toEqual([]);
+          expect(screen.getByRole("textbox", { name: "Review" })).toHaveValue("Form take.");
+        });
+      });
+
+      it("disables Cite a form review while the page's reread is held", async () => {
+        const { box } = setUp(dogaItem(), { own: [submitted(40), submitted(41)] });
+        acceptingReview(box);
+        const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+        await user.click(await screen.findByRole("button", { name: "Use this review instead" }));
+        await reviewsSettled(store);
+        box.item = { ...box.item, accepted_review_id: 40 };
+        const held = holdTheReread(store, box);
+
+        await user.click(screen.getAllByRole("button", { name: /^Use this review/ })[0]);
+
+        await held.expectHeld();
+        expect(screen.getByRole("button", { name: FORM })).toBeDisabled();
+        await held.releaseAndSettle();
+        expect(screen.getByRole("button", { name: FORM })).toBeEnabled();
+      });
+    });
+
     describe("clearing", () => {
       // A cited release's review is on the cover, and this copy's slip was never printed: the ask must not wait for a print.
       const CITED_COVER = cites({ accepted_review_id: 90, printed_at: null });
@@ -3733,6 +4025,19 @@ describe("IntakeItemScreen", () => {
         expect(await screen.findByRole("button", { name: CITE })).toBeInTheDocument();
         expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
         expect(sent).toEqual([{ cited_album_id: null }]);
+      });
+
+      it("clears a form review's citation without asking, sends only { cited_submission_id: null }, and leaves the copied review on the cover", async () => {
+        const { box } = setUp(dogaItem({ cited_submission_id: 7701, accepted_review_id: 40 }));
+        const sent = patching(box);
+        const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+        await user.click(await screen.findByRole("button", { name: REMOVE }));
+
+        expect(await screen.findByRole("button", { name: CITE })).toBeInTheDocument();
+        expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+        expect(sent).toEqual([{ cited_submission_id: null }]);
+        expect(screen.getByText("Take 40.")).toBeInTheDocument();
       });
 
       it.each([
@@ -4167,6 +4472,7 @@ describe("IntakeItemScreen", () => {
         reviews: [submitted(90, { author: "Sessa" })],
         forRelease: { [CITED_ID]: [submitted(91, { intake_item_id: null, album_id: CITED_ID, medium: "handwritten", review: null })] },
         archive: { [CITED_ID]: ARCHIVE },
+        byArtist: { "Juana Molina": [{ ...ARCHIVE[0], id: 7701, album_id: null, artist_name: "Juana Molina", album_title: "Un día", review: "Form take." }] },
         releases: [{ id: CITED_ID, artist_name: "Jessica Pratt", album_title: "On Your Own Love Again" }],
       });
       const box = serveItem(item);
@@ -4310,6 +4616,28 @@ describe("IntakeItemScreen", () => {
       if (name === "Type in the review from its cover") expect(screen.getByRole("textbox", { name: "Review" })).toHaveValue("");
 
       await user.click(await opener(name));
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    });
+
+    it("asks before a form review copied from the form search replaces a dirty form, on a record that cites nothing", async () => {
+      const { user } = renderPage(dogaItem({ accepted_review_id: null, state: "pool", effective_state: "pool" }));
+      await dirtyForm(user);
+      await user.click(await screen.findByRole("button", { name: "Cite a form review" }));
+      const copy = async () =>
+        within(await screen.findByRole("region", { name: "Cite a form review" })).findByRole("button", { name: REVIEW_COPY.intakeItem.copyOntoRecord });
+
+      await user.click(await copy());
+      await user.click(within(await dialog()).getByRole("button", { name: "Keep editing" }));
+      await noDialog();
+      expect(screen.getByRole("textbox", { name: "Review" })).toHaveValue("Warm.");
+
+      await user.click(await copy());
+      await user.click(within(await dialog()).getByRole("button", { name: "Leave" }));
+      await noDialog();
+      expect(await screen.findByText(REVIEW_COPY.record.copiedFromForm)).toBeInTheDocument();
+      expect(screen.getByRole("textbox", { name: "Review" })).toHaveValue("Form take.");
+
+      await user.click(await copy());
       expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
     });
 
