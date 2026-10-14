@@ -38,9 +38,15 @@
 
 /* Linked rows. A <tr> cannot be wrapped in an <a>, and one link per cell would
    announce the same destination six times, so a single link in the leading cell
-   is stretched over the row by an overlay. The row is the containing block. */
+   is stretched over the row by an overlay. The row must be the overlay's
+   containing block, and `position: relative` alone does not make it one in
+   WebKit through Safari 18: there each row's overlay sizes to the viewport, the
+   last row's paints on top, and a tap anywhere on the page opens that row's
+   show. A transformed table row is a containing block in every engine, and
+   translate(0) moves nothing. */
 .classic-previous-sets-row {
   position: relative;
+  transform: translate(0);
 }
 
 .classic-previous-sets-row-link::after {
