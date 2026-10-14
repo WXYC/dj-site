@@ -69,7 +69,7 @@ export default function IntakeSlipScreen({ id }: { id: number }) {
   const lastPrinted = item.data.printed_at;
   return (
     <Stack spacing={2}>
-      <Typography level="title-lg">{recordLine(intakeRecord(item.data), formats)}</Typography>
+      <Typography component="h3" level="title-lg">{recordLine(intakeRecord(item.data), formats)}</Typography>
       {lastPrinted && <Typography>{COPY.lastPrinted} {formatStationLongDate(lastPrinted)}. {COPY.reprint}</Typography>}
       {refusal && <Typography role="alert">{COPY[refusal]}</Typography>}
       {refusal === "noCover" && (

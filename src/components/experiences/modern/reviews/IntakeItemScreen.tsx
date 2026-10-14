@@ -335,7 +335,7 @@ export default function IntakeItemScreen({ id }: { id: number }) {
   return (
     <Stack spacing={2}>
       <Stack direction="row" spacing={1} alignItems="center">
-        <Typography level="title-lg">{recordLine(record, formats)}</Typography>
+        <Typography component="h3" level="title-lg">{recordLine(record, formats)}</Typography>
         <Chip>{STATE_LABELS[item.data.effective_state]}</Chip>
       </Stack>
       {cover ? (

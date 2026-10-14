@@ -196,7 +196,7 @@ function Form({ review, user }: { review: Review; user: User | undefined }) {
           </Stack>
           {review.intake_item_id != null && (
             <Box sx={{ [TWO_COLUMNS]: { overflowWrap: "anywhere" } }}>
-              <FccNotesPanel intakeItemId={review.intake_item_id} />
+              <FccNotesPanel intakeItemId={review.intake_item_id} headingLevel={record ? 4 : 3} />
             </Box>
           )}
         </Stack>

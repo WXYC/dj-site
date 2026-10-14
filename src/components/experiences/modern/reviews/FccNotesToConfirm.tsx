@@ -36,7 +36,7 @@ export default function FccNotesToConfirm() {
     <Stack component="section" aria-labelledby={titleId} spacing={1}>
       {rows.length > 0 && (
         <>
-          <Typography id={titleId} level="title-sm">{copy.toConfirmTitle(rows.length)}</Typography>
+          <Typography id={titleId} component="h3" level="title-sm">{copy.toConfirmTitle(rows.length)}</Typography>
           <Stack component="ul" spacing={1} sx={{ p: 0, m: 0 }}>
             {rows.map((note) => (
               <Stack component="li" key={note.id} spacing={0.25} sx={{ listStyle: "none" }}>

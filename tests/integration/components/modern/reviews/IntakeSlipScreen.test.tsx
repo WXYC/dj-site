@@ -88,7 +88,7 @@ describe("IntakeSlipScreen", () => {
 
     renderWithProviders(<IntakeSlipScreen id={ITEM_ID} />);
 
-    expect(await screen.findByText(/Juana Molina · DOGA · .*Vinyl/)).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 3, name: /Juana Molina · DOGA · .*Vinyl/ })).toBeInTheDocument();
   });
 
   it("sends no print on load, and one on the press, then shows every field and prints", async () => {

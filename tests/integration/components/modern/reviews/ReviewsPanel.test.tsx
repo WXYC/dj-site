@@ -57,7 +57,8 @@ const serve = (reviews: ReturnType<typeof submitted>[], archive: Partial<AlbumRe
   });
 
 const renderPanel = () => renderWithProviders(<ReviewsPanel albumId={ALBUM_ID} record={RECORD} />);
-const headings = () => screen.getAllByRole("heading").map((h) => h.textContent);
+// The FCC notes panel's own heading is not the reviews list's.
+const headings = () => screen.getAllByRole("heading").map((h) => h.textContent).filter((text) => text !== "FCC notes");
 
 const tapedSlips = () =>
   screen.getAllByRole("group", { name: "Slip preview" }).filter((g) => g.querySelector(":scope > [aria-hidden='true']"));

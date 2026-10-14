@@ -412,7 +412,7 @@ describe("IntakeItemScreen", () => {
 
     renderScreen(<IntakeItemScreen id={ITEM_ID} />);
 
-    expect(await screen.findByText("Juana Molina · DOGA · Sonamos · Vinyl")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 3, name: "Juana Molina · DOGA · Sonamos · Vinyl" })).toBeInTheDocument();
     await screen.findByText("Take 40.");
     expect(screen.getByText("Juana Molina · DOGA · Sonamos · Vinyl")).toBeInTheDocument();
   });
@@ -427,6 +427,7 @@ describe("IntakeItemScreen", () => {
     renderScreen(<IntakeItemScreen id={ITEM_ID} />);
 
     expect(await screen.findByText("B1: A word.")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 3, name: "FCC notes" })).toBeInTheDocument();
   });
 
   describe("the reviews", () => {
@@ -3398,7 +3399,9 @@ describe("IntakeItemScreen", () => {
       renderScreen(<IntakeItemScreen id={ITEM_ID} />);
 
       expect(await screen.findByRole("heading", { name: HEADING })).toBeInTheDocument();
-      expect(screen.queryByRole("heading", { name: /Juana Molina|DOGA/ })).not.toBeInTheDocument();
+      // Only the record's own line names this record.
+      expect(await screen.findAllByRole("heading", { name: /Juana Molina|DOGA/, level: 3 })).toHaveLength(1);
+      expect(screen.getByRole("heading", { name: HEADING })).not.toHaveTextContent(/Juana Molina|DOGA/);
     });
 
     it("lists the cited reviews under their approved line and the fallback heading when the cited release's name cannot be read", async () => {

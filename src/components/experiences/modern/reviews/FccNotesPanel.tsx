@@ -17,7 +17,10 @@ import { REVIEW_COPY } from "./copy";
 
 const copy = REVIEW_COPY.fccNotes;
 
-type Subject = { albumId: number } | { intakeItemId: number };
+type Subject = ({ albumId: number } | { intakeItemId: number }) & {
+  /** The heading's level, so the panel nests under its host's own headings. */
+  headingLevel?: 3 | 4;
+};
 
 /** The record's id as the API names it. */
 type SubjectIds = { album_id: number } | { intake_item_id: number };
@@ -105,7 +108,7 @@ export default function FccNotesPanel(subject: Subject) {
 
   return (
     <Stack component="section" aria-labelledby={titleId} spacing={1}>
-      <Typography id={titleId} level="title-sm">{copy.title}</Typography>
+      <Typography id={titleId} component={`h${subject.headingLevel ?? 3}`} level="title-sm">{copy.title}</Typography>
       {hasNothingToShow(notes) ? (
         <Typography role="alert">{copy.loadFailed}</Typography>
       ) : notes.data && notes.data.length === 0 ? (

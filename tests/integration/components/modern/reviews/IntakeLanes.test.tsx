@@ -57,8 +57,10 @@ describe("IntakeLanes", () => {
     renderWithProviders(<IntakeLanes />);
 
     const section = await screen.findByRole("region", { name: "FCC notes to confirm (1)" });
+    expect(within(section).getByRole("heading", { level: 3, name: "FCC notes to confirm (1)" })).toBeInTheDocument();
     const band = screen.getByRole("region", { name: "Recent passes" });
     const first = screen.getByRole("region", { name: "Requested" });
+    expect(within(first).getByRole("heading", { level: 3, name: "Requested" })).toBeInTheDocument();
     expect(section.compareDocumentPosition(band) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(section.compareDocumentPosition(first) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
@@ -668,7 +670,7 @@ describe("IntakeLanes as the music directors' tab", () => {
     renderWithProviders(<IntakeLanes />);
 
     await lane("Filed");
-    const names = screen.getAllByRole("region").map((r) => r.getAttribute("aria-label") ?? "");
+    const names = screen.getAllByRole("region").map((r) => document.getElementById(r.getAttribute("aria-labelledby") ?? "")?.textContent ?? "");
     expect(names.filter((n) => /^(Review waiting|Requested|Checked out|Reviewed|Filed)/.test(n))).toEqual([
       "Review waiting (1)",
       "Requested",
