@@ -926,6 +926,51 @@ describe("classic VariousArtistsCard — genre scope", () => {
     expect(posted).toMatchObject({ artist_id: CATCH_ALL_ID, genre_id: ELECTRONIC_GENRE_ID });
   });
 
+  // The catch-all row carries one stored name, left over from whichever
+  // genre's section won the merge, so it cannot head every genre's card.
+  // `/wxycdb` headed each section with its own name, "Various Artists -
+  // <genre>".
+  it("heads a genre-scoped catch-all with that genre's section name", async () => {
+    mockCatchAll();
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/library/artists/${CATCH_ALL_ID}`, ({ request }) =>
+        HttpResponse.json({
+          ...bucket,
+          artist_id: CATCH_ALL_ID,
+          artist_name: "Various Artists",
+          alphabetical_name: "Various Artists - Hiphop",
+          genre_id: Number(new URL(request.url).searchParams.get("genre_id")),
+          code_comp_letter: null,
+        }),
+      ),
+    );
+
+    renderWithProviders(<VariousArtistsCard artistId={CATCH_ALL_ID} genreId={ELECTRONIC_GENRE_ID} />);
+
+    const header = await screen.findByTestId("va-bucket-header");
+    expect(await within(header).findByText("Various Artists - Electronic")).toBeDefined();
+    expect(within(header).queryByText("Various Artists - Hiphop")).toBeNull();
+  });
+
+  // A lettered section has its own row and its own stored name.
+  it("keeps a lettered section's own name when scoped", async () => {
+    mockCard(BUCKET_ID, { ...bucket, genre_id: SOUNDTRACKS_GENRE_ID, code_comp_letter: "L" });
+
+    renderWithProviders(<VariousArtistsCard artistId={BUCKET_ID} genreId={SOUNDTRACKS_GENRE_ID} />);
+
+    const header = await screen.findByTestId("va-bucket-header");
+    expect(within(header).getByText("Soundtracks - L")).toBeDefined();
+  });
+
+  it("keeps the stored name on an unscoped card", async () => {
+    mockCatchAll();
+
+    renderWithProviders(<VariousArtistsCard artistId={CATCH_ALL_ID} />);
+
+    const header = await screen.findByTestId("va-bucket-header");
+    expect(within(header).getByText("Various Artists")).toBeDefined();
+  });
+
   // A link that names no genre still lands on a card: the server's
   // lowest-membership answer, as before.
   it("sends no genre when it was given none", async () => {
