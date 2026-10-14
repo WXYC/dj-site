@@ -3,14 +3,16 @@ import { backendBaseQuery } from "../backend";
 
 const baseQuery = backendBaseQuery("", { surfaceNonJsonAsError: true });
 
-let lastWriteAnsweredAt = 0;
+// Keyed by the store's dispatch (the thunk dispatch a base query and a page's thunk both receive), so one store's writes never date another store's reads.
+const lastWriteAnsweredAt = new WeakMap<object, number>();
 
 /**
- * When a write of this API last got its answer (ms since the epoch). The API's mutation entries cannot say: a hook's entry goes
- * with its component, and the button that made a write often leaves the page with it. A read that started before this
- * began without the write and answers the record as it stood.
+ * When a write of this API last got a fulfilled answer in the store that `dispatch` belongs to (ms since the epoch). The API's
+ * mutation entries cannot say: a hook's entry goes with its component, and the button that made a write often leaves the page
+ * with it. A read that started before this began without the write and answers the record as it stood. A refused write changed
+ * nothing, so it does not count.
  */
-export const lastReviewsWriteAnsweredAt = () => lastWriteAnsweredAt;
+export const lastReviewsWriteAnsweredAt = (dispatch: object) => lastWriteAnsweredAt.get(dispatch) ?? 0;
 
 /**
  * The one reviews API, a skeleton: base query and tag types, no endpoints.
@@ -51,7 +53,7 @@ export const reviewsApi = createApi({
   reducerPath: "reviewsApi",
   baseQuery: async (args, api, extraOptions) => {
     const result = await baseQuery(args, api, extraOptions);
-    if (api.type === "mutation") lastWriteAnsweredAt = Date.now();
+    if (api.type === "mutation" && !result.error) lastWriteAnsweredAt.set(api.dispatch, Date.now());
     return result;
   },
   tagTypes: [
