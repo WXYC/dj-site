@@ -110,6 +110,16 @@ const SHAPES: {
     middlewareToasts: ["Oh no!"],
     callerSpeaks: false,
   },
+  {
+    // An endpoint marks an answer expected when a screen words it itself; the
+    // middleware then says nothing, so a caller that does not interpret it
+    // must not be left silent.
+    name: "HTTP error marked expected by its endpoint",
+    err: { status: 409, data: { message: "Call number 135 is already taken", code: "library_slot_conflict" }, expected: true },
+    reachesMiddleware: true,
+    middlewareToasts: [],
+    callerSpeaks: true,
+  },
 ];
 
 describe("rejection-shape gate", () => {

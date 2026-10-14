@@ -65,6 +65,9 @@ function friendlyMiddlewareMessage(payload: RejectionPayload): string | undefine
  */
 export function isUnmessagedHttpError(err: unknown): boolean {
   if (!err || typeof err !== "object") return true;
+  // The middleware stays quiet on an expected answer, so a caller that does
+  // not word it itself is the only place a message can come from.
+  if ((err as RejectionPayload).expected === true) return true;
   return friendlyMiddlewareMessage(err as RejectionPayload) === undefined;
 }
 

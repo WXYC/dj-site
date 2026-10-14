@@ -526,7 +526,7 @@ describe("AlbumEditForm", () => {
         server.use(
           http.patch(`${TEST_BACKEND_URL}/library/:id`, () =>
             HttpResponse.json(
-              { message: "Artist is not catalogued in the selected genre" },
+              { message: "Label must be 128 characters or fewer" },
               { status: 400 },
             ),
           ),
@@ -540,10 +540,46 @@ describe("AlbumEditForm", () => {
 
         await waitFor(() =>
           expect(mockToastError).toHaveBeenCalledWith(
-            "Artist is not catalogued in the selected genre",
+            "Label must be 128 characters or fewer",
           ),
         );
         expect(mockToastError).not.toHaveBeenCalledWith("Failed to update album");
+      });
+
+      // These two refusals are worded by the form itself, so the raw server
+      // text (which names internal ids) must not reach the reader as well.
+      it.each([
+        {
+          label: "a taken call number in the new genre",
+          status: 409,
+          body: { message: "Call number 135 is already taken for artist 777 in genre 9", code: "library_slot_conflict" },
+          message: "Jazz already has a release at number 135, so this release can't be moved there.",
+        },
+        {
+          label: "an artist not filed in the new genre",
+          status: 400,
+          body: { message: "Artist is not catalogued in the selected genre" },
+          message: "Juana Molina isn't filed under Jazz yet. File the artist under Jazz first, then move this release.",
+        },
+      ])("words $label once, in place of the server's text", async ({ status, body, message }) => {
+        server.use(
+          http.patch(`${TEST_BACKEND_URL}/library/:id`, () => HttpResponse.json(body, { status })),
+        );
+        mockArtistSearch([
+          { id: JUANA_JAZZ_ARTIST_ID, artist_name: "Juana Molina", code_letters: "MO", code_number: 4 },
+        ]);
+        const { user } = renderWithProviders(<AlbumEditForm album={juanaMolinaAlbum({ entry: 135 })} />);
+
+        await user.click(await screen.findByRole("combobox", { name: "Genre" }));
+        await user.click(await screen.findByRole("option", { name: "Jazz" }));
+        await user.click(screen.getByLabelText("Search artists"));
+        await user.click(await screen.findByText("Juana Molina"));
+        const saveButton = screen.getByRole("button", SAVE_BUTTON);
+        await waitFor(() => expect(saveButton).toBeEnabled());
+        await user.click(saveButton);
+
+        await waitFor(() => expect(mockToastError).toHaveBeenCalledWith(message));
+        expect(mockToastError).toHaveBeenCalledTimes(1);
       });
 
       it("falls back to a generic toast when the rejection carries no message", async () => {
