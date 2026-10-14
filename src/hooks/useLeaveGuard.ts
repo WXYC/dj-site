@@ -2,13 +2,15 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useCloseSidebarWhile } from "./useCloseSidebarWhile";
 
 /**
  * Warns before a dirty form is thrown away. The App Router has no navigation-blocking API, so while
  * `dirty` this intercepts same-origin link clicks (a capture-phase listener on `document`, ahead of
  * next/link's own handler) and asks the browser to confirm closing, reloading or leaving the site
  * (`beforeunload`; the prompt's text is the browser's). `pending` is true while the caller should show
- * its dialog; answer it with `stay` or `leave`, and Leave navigates with `router.push`.
+ * its dialog; it ends on `stay`, on `leave` (which navigates with `router.push`), or when `dirty` turns
+ * false. While it is true the hook closes the left bar, which below md is a drawer above every modal.
  *
  * The hook never calls `history`, so the browser's Back button is not guarded: a Back press from a dirty
  * form leaves without asking. Nor is any navigation that is not an anchor click or an unload: a sign-out,
@@ -52,6 +54,8 @@ export function useLeaveGuard(dirty: boolean) {
     if (target !== null) router.push(target);
     setTarget(null);
   }, [router, target]);
+
+  useCloseSidebarWhile(target !== null);
 
   return { pending: target !== null, stay, leave };
 }

@@ -7,6 +7,8 @@ import { fakeLibraryFilingsEndpoint, filingConflictResponse } from "@/tests/fake
 import { Authorization } from "@/lib/features/admin/types";
 import { reviewsApi } from "@/lib/features/reviews/api";
 import { reviewApi } from "@/lib/features/reviews/reviewApi";
+import { applicationSlice } from "@/lib/features/application/frontend";
+import { closeSidebarCSS, openSidebarCSS } from "@/src/utilities/modern/catalog/utilities";
 import { intakeApi } from "@/lib/features/reviews/intakeApi";
 
 // The bench's artist field is gated by AuthorizedView, which resolves the music director tier from the session.
@@ -4183,6 +4185,10 @@ describe("IntakeItemScreen", () => {
       window.dispatchEvent(event);
       return event.defaultPrevented;
     };
+    const drawer = (store: ReturnType<typeof renderPage>["store"]) => ({
+      open: store.getState().application.rightbar.sidebarOpen,
+      slideIn: document.documentElement.style.getPropertyValue("--SideNavigation-slideIn"),
+    });
     const dialog = () => screen.findByRole("alertdialog", { name: "Leave without saving?" });
     const noDialog = () => waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
     const open = async (user: User) => user.click(await screen.findByRole("button", { name: "Record a review" }));
@@ -4196,6 +4202,20 @@ describe("IntakeItemScreen", () => {
     beforeEach(() => {
       router.push.mockClear();
       linkReached.mockClear();
+    });
+
+    it("closes the mobile drawer as a link click opens the question", async () => {
+      const { user, store } = renderPage();
+      await dirtyForm(user);
+      act(() => { store.dispatch(applicationSlice.actions.toggleSidebar()); });
+      openSidebarCSS();
+      expect(drawer(store)).toEqual({ open: true, slideIn: "1" });
+
+      await user.click(screen.getByRole("link", { name: "Flowsheet" }));
+
+      await dialog();
+      expect(drawer(store)).toEqual({ open: false, slideIn: "" });
+      closeSidebarCSS();
     });
 
     it("asks before an in-app link with the approved words, Keep editing keeps the text, and Leave navigates", async () => {
