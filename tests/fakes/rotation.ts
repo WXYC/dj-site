@@ -272,6 +272,15 @@ export type FakeRotationAdminRow = {
  *
  * Both releases return plain promises and wait on nothing but the request
  * itself. A spec rendering React awaits them inside `act`.
+ *
+ * `GET`/`PATCH /library/rotation/thresholds` serve and merge into the whole
+ * record, 60 days per bin and `card_stale_days` 30 unless `windowDays` says
+ * otherwise. Both arms sit above the `:id` arms, as the server's routes do:
+ * `thresholds` would otherwise be read as a rotation id, and a PATCH landing
+ * on the row editor answers 200 with a row summary and looks like a save.
+ * `failThresholdsReads` makes every read from then on answer `status` until
+ * `recoverThresholdsReads`; `holdThresholdsReads` / `releaseThresholdsReads`
+ * work like the active-list hold above.
  */
 export function fakeRotationAdminEndpoints(
   initialRows: FakeRotationAdminRow[],
@@ -282,15 +291,28 @@ export function fakeRotationAdminEndpoints(
     today = new Date().toISOString().slice(0, 10),
     rowSummaries = {},
     gateCardMoves = false,
+    windowDays = {},
   }: {
     killDate?: string;
     addDate?: string;
     today?: string;
     rowSummaries?: Record<number, { format_id?: number | null; label_id?: number | null }>;
     gateCardMoves?: boolean;
+    windowDays?: Partial<Record<"H" | "M" | "L" | "S", number>>;
   } = {},
 ) {
   const rows = initialRows.map((row) => ({ ...row }));
+  const thresholds = {
+    window_days: { H: 60, M: 60, L: 60, S: 60, ...windowDays } as Record<string, number>,
+    card_stale_days: 30,
+  };
+  const thresholdPatches: unknown[] = [];
+  let thresholdRequests = 0;
+  let thresholdFailure: number | null = null;
+  let holdingThresholds = false;
+  const heldThresholdReads: (() => void)[] = [];
+  const thresholdHolds = awaitableCount();
+  let thresholdHoldsReleased = 0;
   const listStatuses: (string | null)[] = [];
   let listRequests = 0;
   let cardsRequests = 0;
@@ -402,6 +424,27 @@ export function fakeRotationAdminEndpoints(
         })),
       );
     }),
+    // Both thresholds arms precede both `:id` arms: `:id` would otherwise
+    // swallow them.
+    http.get(`${BACKEND_URL}/library/rotation/thresholds`, async () => {
+      thresholdRequests += 1;
+      if (holdingThresholds) {
+        await new Promise<void>((resolve) => {
+          heldThresholdReads.push(resolve);
+          thresholdHolds.bump();
+        });
+      }
+      if (thresholdFailure !== null) {
+        return HttpResponse.json({ message: "refused" }, { status: thresholdFailure });
+      }
+      return HttpResponse.json(thresholds);
+    }),
+    http.patch(`${BACKEND_URL}/library/rotation/thresholds`, async ({ request }) => {
+      const body = (await request.json()) as { window_days?: Record<string, number> };
+      thresholdPatches.push(body);
+      Object.assign(thresholds.window_days, body.window_days);
+      return HttpResponse.json(thresholds);
+    }),
     // Registered after the /cards arm: `:id` would otherwise swallow it.
     http.get(`${BACKEND_URL}/library/rotation/:id`, ({ params }) => {
       const id = Number(params.id);
@@ -504,6 +547,26 @@ export function fakeRotationAdminEndpoints(
     failCardMove: (ids: number[], status = 500) => {
       cardMoveRefusals.clear();
       ids.forEach((id) => cardMoveRefusals.set(id, status));
+    },
+    thresholdsRequests: () => thresholdRequests,
+    /** Every body a `PATCH /library/rotation/thresholds` carried, in order. */
+    thresholdsPatchBodies: () => thresholdPatches.map((body) => structuredClone(body)),
+    failThresholdsReads: (status = 500) => {
+      thresholdFailure = status;
+    },
+    recoverThresholdsReads: () => {
+      thresholdFailure = null;
+    },
+    /** Holds every thresholds read made from here on. */
+    holdThresholdsReads: () => {
+      holdingThresholds = true;
+    },
+    /** Stops holding and lets through every held thresholds read, once one is held. */
+    releaseThresholdsReads: async () => {
+      await thresholdHolds.reached(thresholdHoldsReleased + 1);
+      holdingThresholds = false;
+      thresholdHoldsReleased += heldThresholdReads.length;
+      heldThresholdReads.splice(0).forEach((release) => release());
     },
     /** Holds every `status=active` list read made from here on. */
     holdActiveListReads: () => {

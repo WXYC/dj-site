@@ -1,6 +1,7 @@
 import type { AddRotationTypedTextRequest } from "@wxyc/shared";
 import { foldForSearch } from "../admin/roster-filter";
 import { formatEntireLibraryCode } from "../catalog/libraryCode";
+import { isoDateToUTCDays } from "./age";
 import { byMostRecentlyAdded } from "./classicList";
 import {
   ROTATION_BINS,
@@ -8,6 +9,7 @@ import {
   type RotationListRow,
   type RotationRowSummary,
   type RotationStatusFilter,
+  type RotationWindowDays,
 } from "./types";
 
 /**
@@ -203,10 +205,11 @@ export function rowMatchesTerms(row: RotationListRow, terms: string[]): boolean 
 
 /**
  * The Active cohort's order. The sort exists to surface records that have sat
- * longest in their bin; a killed record is no longer in a bin, so Killed
- * stays in the list's default order under either value.
+ * longest in their bin, or longest past their bin's window; a killed record is
+ * no longer in a bin, so Killed stays in the list's default order under every
+ * value.
  */
-export type RotationAdminSort = "newest" | "oldest";
+export type RotationAdminSort = "newest" | "oldest" | "overdue";
 
 /**
  * `rotation_add_date` is a calendar day, so same-day records tie. Ascending
@@ -223,19 +226,36 @@ const byOldestAdded = (left: RotationListRow, right: RotationListRow): number =>
 };
 
 /**
- * Total over `RotationAdminSort` rather than a two-way ternary, so a sort
- * added to the union fails to compile here until this table names its
- * comparator, instead of silently falling back to "newest". `newest` carries
- * `null`, not `byMostRecentlyAdded`, because `shown` below is already in that
- * order — it descends from `searched`, which is explicitly sorted that way,
- * through nothing but `.filter()`s, which preserve relative order.
+ * Orders by the day each row's bin window ends, which needs no clock because
+ * "now" is the same for every row. Ties fall through to `byOldestAdded`.
+ */
+const byWindowEnd =
+  (windows: RotationWindowDays) =>
+  (left: RotationListRow, right: RotationListRow): number => {
+    const windowEnd = (row: RotationListRow) =>
+      isoDateToUTCDays(row.rotation_add_date) + windows[row.rotation_bin];
+    return windowEnd(left) - windowEnd(right) || byOldestAdded(left, right);
+  };
+
+/**
+ * Total over `RotationAdminSort` rather than a ternary, so a sort added to the
+ * union fails to compile here until this table names its comparator, instead
+ * of silently falling back to "newest". Each entry takes the windows, `null`
+ * while they are unknown, so the fallback lives here rather than in a caller.
+ * `newest` carries `null`, not `byMostRecentlyAdded`, because `shown` below is
+ * already in that order — it descends from `searched`, which is explicitly
+ * sorted that way, through nothing but `.filter()`s, which preserve relative
+ * order.
  */
 const ACTIVE_SORT_COMPARATORS: Record<
   RotationAdminSort,
-  ((left: RotationListRow, right: RotationListRow) => number) | null
+  (
+    windows: RotationWindowDays | null,
+  ) => ((left: RotationListRow, right: RotationListRow) => number) | null
 > = {
-  newest: null,
-  oldest: byOldestAdded,
+  newest: () => null,
+  oldest: () => byOldestAdded,
+  overdue: (windows) => (windows == null ? byOldestAdded : byWindowEnd(windows)),
 };
 
 /**
@@ -284,10 +304,14 @@ export type RotationAdminView = {
  * counts stay meaningful while a different chip is selected. The card filter
  * matches on the card's id (its stable identity), so an uncarded row is
  * visible under "All cards" and under no card chip.
+ *
+ * `windows` is each bin's replacement window in days, `null` while unknown;
+ * the Most overdue sort then orders as oldest-first.
  */
 export function selectRotationAdminView(
   rows: RotationListRow[],
   query: RotationAdminQuery,
+  windows: RotationWindowDays | null = null,
 ): RotationAdminView {
   const terms = searchTerms(query.search);
   const searched = [...rows].sort(byMostRecentlyAdded).filter((row) => rowMatchesTerms(row, terms));
@@ -313,7 +337,7 @@ export function selectRotationAdminView(
   );
   const activeTotal = rows.filter((row) => rotationRowPresentation(row) === "active").length;
 
-  const activeComparator = ACTIVE_SORT_COMPARATORS[query.sort ?? "newest"];
+  const activeComparator = ACTIVE_SORT_COMPARATORS[query.sort ?? "newest"](windows);
   const active = shown.filter((row) => rotationRowPresentation(row) === "active");
   return {
     active: activeComparator ? active.sort(activeComparator) : active,

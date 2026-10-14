@@ -3,6 +3,9 @@ import {
   type RotationCard,
   type RotationConflictReason,
   type RotationRowSummary,
+  type RotationThresholds,
+  type RotationWindowDays,
+  type UpdateRotationThresholdsRequest,
 } from "@wxyc/shared/dtos";
 
 export { RotationBin };
@@ -124,6 +127,8 @@ export type RotationListRow = {
  * design, and names resolve client-side through the catalog's `getFormats`.
  */
 export type { RotationRowSummary };
+
+export type { RotationThresholds, RotationWindowDays, UpdateRotationThresholdsRequest };
 
 /**
  * Arguments for `PATCH /library/rotation/:id`, the field-level rotation

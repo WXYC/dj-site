@@ -14,6 +14,44 @@ function row(overrides: Partial<FakeRotationAdminRow> = {}): FakeRotationAdminRo
 }
 
 describe("fakeRotationAdminEndpoints", () => {
+  it("serves the whole thresholds record ahead of the :id arm, 60 days per bin", async () => {
+    fakeRotationAdminEndpoints([row()], []);
+
+    const response = await fetch(`${TEST_BACKEND_URL}/library/rotation/thresholds`);
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      window_days: { H: 60, M: 60, L: 60, S: 60 },
+      card_stale_days: 30,
+    });
+  });
+
+  it("merges a thresholds PATCH into the record rather than answering as the row editor", async () => {
+    const fake = fakeRotationAdminEndpoints([row()], [], { windowDays: { M: 45 } });
+
+    const response = await fetch(`${TEST_BACKEND_URL}/library/rotation/thresholds`, {
+      method: "PATCH",
+      body: JSON.stringify({ window_days: { H: 30 } }),
+    });
+
+    expect(await response.json()).toEqual({
+      window_days: { H: 30, M: 45, L: 60, S: 60 },
+      card_stale_days: 30,
+    });
+    expect(fake.thresholdsPatchBodies()).toEqual([{ window_days: { H: 30 } }]);
+    expect(fake.updateBodies()).toEqual([]);
+  });
+
+  it("fails thresholds reads until recovered", async () => {
+    const fake = fakeRotationAdminEndpoints([row()], []);
+    fake.failThresholdsReads(503);
+
+    expect((await fetch(`${TEST_BACKEND_URL}/library/rotation/thresholds`)).status).toBe(503);
+
+    fake.recoverThresholdsReads();
+    expect((await fetch(`${TEST_BACKEND_URL}/library/rotation/thresholds`)).status).toBe(200);
+  });
+
   it("derives a card's active_count from its own active rows, not a fixed default", async () => {
     const card = { id: 31, bin: "H", number: 1, name: null };
     fakeRotationAdminEndpoints(

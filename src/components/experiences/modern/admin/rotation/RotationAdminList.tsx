@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { catalogSlice } from "@/lib/features/catalog/frontend";
 import { addThenRetire } from "@/lib/features/rotation/addThenRetire";
-import { ROTATION_WINDOW_DAYS, daysInBin, daysPastWindow, isPastWindow } from "@/lib/features/rotation/age";
+import { daysInBin, daysPastWindow, isPastWindow } from "@/lib/features/rotation/age";
 import {
   canMoveRotationRow,
   freeTextRotationMoveRequest,
@@ -21,6 +21,7 @@ import {
   useAddRotationEntryMutation,
   useGetRotationCardsQuery,
   useGetRotationListQuery,
+  useGetRotationThresholdsQuery,
   useKillRotationEntryMutation,
   useLazyGetRotationRowQuery,
 } from "@/lib/features/rotation/api";
@@ -38,6 +39,7 @@ import {
   type RotationBin,
   type RotationListRow,
   type RotationRowSummary,
+  type RotationWindowDays,
 } from "@/lib/features/rotation/types";
 import { useAppDispatch } from "@/lib/hooks";
 import ReadRetryAlert from "@/src/components/experiences/modern/admin/ReadRetryAlert";
@@ -118,6 +120,7 @@ function RotationAdminRow({
   pending,
   moveLocked,
   now,
+  windows,
   onKill,
   onUnkill,
   onSelectCard,
@@ -131,6 +134,8 @@ function RotationAdminRow({
   moveLocked: boolean;
   /** Age and the overdue chip read this clock — a killed row ignores it. The count above the list reads the same clock, in the parent. */
   now: Date;
+  /** Per-bin replacement windows; `null` while the thresholds read is pending or failed, which withholds the chip. */
+  windows: RotationWindowDays | null;
   onKill: () => void;
   onUnkill: () => void;
   onSelectCard: (cardId: number) => void;
@@ -140,11 +145,11 @@ function RotationAdminRow({
   // A killed row left its bin on its kill date -- "N days in Heavy" counted
   // to today would be false, so age applies to the Active presentation only.
   const age = killed ? null : daysInBin(row, now);
-  const windowDays = windowFor(row.rotation_bin);
+  const windowDays = windows?.[row.rotation_bin];
   // `isPastWindow`/`daysPastWindow` re-run `daysInBin` rather than reusing
   // `age` above -- a few extra subtractions, and the one boundary rule stays
   // read through one function instead of two call sites agreeing by hand.
-  const overdue = !killed && isPastWindow(row, windowDays, now);
+  const overdue = !killed && windowDays != null && isPastWindow(row, windowDays, now);
   const daysOver = overdue ? daysPastWindow(row, windowDays, now) : null;
   const code = rotationRowCode(row);
   const urls = row.urls ?? [];
@@ -345,22 +350,12 @@ function RotationAdminRow({
  */
 const KILLED_RENDER_BATCH = 50;
 
-/**
- * A bin's replacement window. `ROTATION_WINDOW_DAYS` is read nowhere else in
- * this file — this is the one place. A later store-backed, per-bin-editable
- * window is a query read, not a constant lookup, so it can't stay a
- * module-level function: it would move into `RotationAdminList`, get passed
- * back down to `RotationAdminRow` (or the row given its `windowDays`
- * directly), and join both `shownOverdueCount` and `totalOverdueCount`'s memo
- * dependencies.
- */
-const windowFor = (bin: RotationBin): number => ROTATION_WINDOW_DAYS[bin];
-
 type RowActions = {
   cardsByBin: ReadonlyMap<RotationBin, RotationCard[]>;
   pendingRotationIds: ReadonlySet<number>;
   moveLocked: boolean;
   now: Date;
+  windows: RotationWindowDays | null;
   onKill: (rotationId: number) => void;
   onUnkill: (rotationId: number) => void;
   onSelectCard: (rotationId: number, cardId: number) => void;
@@ -404,6 +399,7 @@ function RowSection({
               pending={actions.pendingRotationIds.has(row.rotation_id)}
               moveLocked={actions.moveLocked}
               now={actions.now}
+              windows={actions.windows}
               onKill={() => actions.onKill(row.rotation_id)}
               onUnkill={() => actions.onUnkill(row.rotation_id)}
               onSelectCard={(cardId) => actions.onSelectCard(row.rotation_id, cardId)}
@@ -459,6 +455,13 @@ export default function RotationAdminList({ now: nowProp }: { now?: Date } = {})
   // list itself: the rows still render (each knows its own card), only the
   // sub-filter stays hidden until a retryable refetch succeeds.
   const { data: cards } = useGetRotationCardsQuery();
+  // The windows the overdue marking and the Most overdue sort read. Absent
+  // while the read is pending or failed -- `isError` also covers a failed
+  // refetch that left the last good record in `data`, which is a number an MD
+  // may have since changed. Neither state impairs the list itself, which gates
+  // on `rows` alone.
+  const { data: thresholds, isError: thresholdsFailed } = useGetRotationThresholdsQuery();
+  const windows = thresholds != null && !thresholdsFailed ? thresholds.window_days : null;
 
   // Kill, Unkill, the within-bin card move, and the shared in-flight set come
   // from the one owner both list surfaces share. The cross-bin move stays
@@ -477,10 +480,14 @@ export default function RotationAdminList({ now: nowProp }: { now?: Date } = {})
   const [cardId, setCardId] = useState<number | null>(null);
   const [sort, setSort] = useState<RotationAdminSort>("newest");
   const [killedRenderCap, setKilledRenderCap] = useState(KILLED_RENDER_BATCH);
+  // The stored choice survives a failed read, but only what the list can
+  // honor is shown: Most overdue without windows reads as oldest-first, so
+  // the `Select` never holds a value whose `Option` is not rendered.
+  const effectiveSort = sort === "overdue" && windows == null ? "oldest" : sort;
 
   const view = useMemo(
-    () => selectRotationAdminView(rows ?? [], { search, bin, cardId, sort }),
-    [rows, search, bin, cardId, sort],
+    () => selectRotationAdminView(rows ?? [], { search, bin, cardId, sort: effectiveSort }, windows),
+    [rows, search, bin, cardId, effectiveSort, windows],
   );
   // The list-wide overdue total, counted over every active row regardless of
   // the current filter — an MD narrowing to one bin still needs to know the
@@ -490,15 +497,21 @@ export default function RotationAdminList({ now: nowProp }: { now?: Date } = {})
   // headings do.
   const totalOverdueCount = useMemo(
     () =>
-      (rows ?? []).filter(
-        (row) =>
-          rotationRowPresentation(row) === "active" && isPastWindow(row, windowFor(row.rotation_bin), now),
-      ).length,
-    [rows, now],
+      windows == null
+        ? 0
+        : (rows ?? []).filter(
+            (row) =>
+              rotationRowPresentation(row) === "active" &&
+              isPastWindow(row, windows[row.rotation_bin], now),
+          ).length,
+    [rows, windows, now],
   );
   const shownOverdueCount = useMemo(
-    () => view.active.filter((row) => isPastWindow(row, windowFor(row.rotation_bin), now)).length,
-    [view.active, now],
+    () =>
+      windows == null
+        ? 0
+        : view.active.filter((row) => isPastWindow(row, windows[row.rotation_bin], now)).length,
+    [view.active, windows, now],
   );
   const cardsByBin = useMemo(() => groupRotationCardsByBin(cards ?? []), [cards]);
   const binCards = bin == null ? [] : (cardsByBin.get(bin) ?? []);
@@ -613,6 +626,7 @@ export default function RotationAdminList({ now: nowProp }: { now?: Date } = {})
     cardsByBin,
     pendingRotationIds,
     now,
+    windows,
     // The move chips stay disabled while the list refetches: the add half
     // invalidates the rotation list, and every row keeps rendering its old
     // bin until that refetch lands — a second click in that window would
@@ -671,7 +685,7 @@ export default function RotationAdminList({ now: nowProp }: { now?: Date } = {})
         ))}
         <Select
           size="sm"
-          value={sort}
+          value={effectiveSort}
           onChange={(_event, next) => {
             if (next != null) setSort(next);
           }}
@@ -680,6 +694,7 @@ export default function RotationAdminList({ now: nowProp }: { now?: Date } = {})
         >
           <Option value="newest">Newest first</Option>
           <Option value="oldest">Oldest first</Option>
+          {windows != null && <Option value="overdue">Most overdue</Option>}
         </Select>
       </Stack>
 

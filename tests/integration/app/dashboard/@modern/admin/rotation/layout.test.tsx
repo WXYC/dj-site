@@ -105,7 +105,7 @@ describe("rotation admin layout", () => {
 
     // `Main` is a fixed 100dvh box with overflow:hidden, so a route that owns
     // no scroll container has everything past the fold clipped away rather
-    // than scrolled to. All three rotation pages outgrow the viewport, so the
+    // than scrolled to. A rotation page can outgrow the viewport, so the
     // scroll belongs to this shared wrapper: `flex` + `minHeight` shrink it to
     // the space left beside the tab strip, `overflow` scrolls the rest, and
     // the strip itself stays put outside it.
