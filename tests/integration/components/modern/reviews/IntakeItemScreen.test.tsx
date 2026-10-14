@@ -3953,6 +3953,30 @@ describe("IntakeItemScreen", () => {
           expect(screen.queryByText("server words")).not.toBeInTheDocument();
         });
 
+        it("keeps every review button disabled until the reread settles when the citation write fails for another reason", async () => {
+          const { box, own } = withReviews(formReview());
+          server.use(http.patch(FILED_ITEM_PATH, () => HttpResponse.json({ message: "server words", reason: "state_changed" }, { status: 409 })));
+          const create = creating(box, own);
+          const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+          await copyFirst(user);
+          await user.click(await screen.findByRole("button", { name: "Save" }));
+          await waitFor(() => expect(create.calls.count).toBe(1));
+          // The failed citation write rereads nothing itself, so the page's own reload is the read held here.
+          const reread = holdResponse("get", FILED_ITEM_PATH, () => HttpResponse.json(box.item));
+
+          create.release();
+          await waitFor(() => expect(reread.calls.count).toBe(1), { timeout: 10000 });
+          await renderedFrame();
+
+          guarded().forEach((b) => expect(b).toBeDisabled());
+          expect(screen.getByRole("button", { name: FORM })).toBeDisabled();
+          reread.release();
+          await reread.answered;
+          expect(await screen.findByText(REVIEW_COPY.intakeItem.formNotNoted)).toBeInTheDocument();
+          await reviewsSettled(store);
+          await waitFor(() => guarded().forEach((b) => expect(b).toBeEnabled()));
+        });
+
         it("sends no PATCH when the create fails, and keeps the form open with its failure line", async () => {
           const { box } = withReviews(formReview());
           const sent = patching(box);

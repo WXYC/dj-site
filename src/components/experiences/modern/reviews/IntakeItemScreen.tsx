@@ -246,7 +246,7 @@ export default function IntakeItemScreen({ id }: { id: number }) {
   // Setting or clearing a citation can take the cover review off, so it holds the page like a review write; the reload also shows a refusal's cause.
   // Answers the line it set, for a caller whose own line would otherwise replace it.
   const changeCitation = async (body: IntakeItemPatch, invalid?: string, failed: string = REVIEW_COPY.screen.writeFailed) => {
-    if (citation.isLoading) return undefined;
+    if (citation.isLoading) return failed;
     setNotice(null);
     const release = hold(false);
     try {
@@ -272,6 +272,8 @@ export default function IntakeItemScreen({ id }: { id: number }) {
       cites.submittedAt === null ? COPY.formNoDate : COPY.formAfterCutover,
       COPY.formNotNoted,
     );
+    // A write that failed for another reason reloaded nothing itself, so the create's own reread may still be settling.
+    if (line === COPY.formNotNoted) await reload();
     release();
     return line;
   };
