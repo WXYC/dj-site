@@ -569,7 +569,7 @@ describe("Classic ReleaseCard", () => {
       },
       {
         refusal: "the artist is not filed under that genre",
-        error: { status: 400, data: { message: "Artist is not catalogued in the selected genre" } },
+        error: { status: 400, data: { message: "Artist is not catalogued in the selected genre", code: "artist_not_in_genre" } },
         expected:
           "Various Artists isn't filed under Electronic, so this release can't be moved there. Use Change the Library Code of This Library Release to file it under a different artist.",
       },

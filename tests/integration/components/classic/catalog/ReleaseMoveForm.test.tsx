@@ -494,7 +494,7 @@ describe("Classic ReleaseMoveForm — libraryReleaseModifyLibCode.jsp", () => {
       resolvesTo(owner());
       mockUpdateAlbum.mockReturnValue({
         unwrap: () =>
-          Promise.reject({ status: 400, data: { message: "Artist is not catalogued in the selected genre" } }),
+          Promise.reject({ status: 400, data: { message: "Artist is not catalogued in the selected genre", code: "artist_not_in_genre" } }),
       });
 
       renderWithProviders(<ReleaseMoveForm albumId={53375} />);
