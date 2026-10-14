@@ -206,7 +206,7 @@ describe("classic library-code cross-references — xrefsToLibraryCodes.jsp", ()
 
     expect(await screen.findByRole("link", { name: "V/A" })).toHaveAttribute(
       "href",
-      "/dashboard/library/various/777",
+      `/dashboard/library/various/777?genre_id=${TEST_ENTITY_IDS.GENRE.JAZZ}`,
     );
   });
 

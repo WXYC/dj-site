@@ -6,6 +6,7 @@ import { Authorization } from "@/lib/features/admin/types";
 import Main from "@/src/components/experiences/classic/Layout/Main";
 import { firstSearchParam } from "@/lib/utils/search-params";
 import { parseImportedReleaseParams } from "@/lib/features/rotation/importedConfirmation";
+import { artistCardGenreIdOrNotFound } from "@/lib/features/catalog/artistCardRoute.server";
 import VariousArtistsCard from "@/src/components/experiences/classic/catalog/VariousArtistsCard";
 
 export const metadata: Metadata = {
@@ -38,6 +39,7 @@ export default async function ClassicVariousArtistsPage({
     imported?: string | string[];
     code?: string | string[];
     vol?: string | string[];
+    genre_id?: string | string[];
   }>;
 }) {
   const session = await requireAuth();
@@ -55,10 +57,13 @@ export default async function ClassicVariousArtistsPage({
   const search = await searchParams;
   const created = firstSearchParam(search.created);
 
+  const genreId = artistCardGenreIdOrNotFound(search.genre_id);
+
   return (
     <Main>
       <VariousArtistsCard
         artistId={artistId}
+        genreId={genreId}
         message={created === "1" ? CREATED_MESSAGE : undefined}
         imported={parseImportedReleaseParams(
           firstSearchParam(search.imported),

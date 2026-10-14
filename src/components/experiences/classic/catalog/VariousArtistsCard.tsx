@@ -21,6 +21,7 @@ import {
   formatEntireLibraryCode,
   isVariousArtists,
 } from "@/lib/features/catalog/libraryCode";
+import { artistCardHref } from "@/lib/features/catalog/artistCardRoute";
 import type { AddAlbumRequestBody, ArtistRelease } from "@/lib/features/catalog/types";
 import {
   importedConfirmation,
@@ -33,6 +34,14 @@ import {
 
 type VariousArtistsCardProps = {
   artistId: number;
+  /**
+   * Which of the bucket's genre memberships this card is. Artist 1087
+   * ('Various Artists') is filed under 14 genres, each its own shelf section;
+   * scoped, the card lists that section alone and files an add under it.
+   * Absent, the server answers with the lowest membership's code over every
+   * membership's releases.
+   */
+  genreId?: number;
   /** The servlet's fixed post-create confirmation, when the librarian arrived from a create. */
   message?: string;
   /**
@@ -95,7 +104,7 @@ const EMPTY_TITLE_MESSAGE = "Please enter a title before adding this release.";
  *   servlet; `GET /library/artists/:id/releases` takes no sort parameter and
  *   returns shelf order, which is the order the JSP itself defaults to.
  */
-export default function VariousArtistsCard({ artistId, message, imported }: VariousArtistsCardProps) {
+export default function VariousArtistsCard({ artistId, genreId, message, imported }: VariousArtistsCardProps) {
   const router = useRouter();
   const titleId = useId();
   const altArtistId = useId();
@@ -103,17 +112,16 @@ export default function VariousArtistsCard({ artistId, message, imported }: Vari
   const labelId = useId();
   const formatId = useId();
 
-  // Neither read takes a genre scope, deliberately: a compilation bucket is a
-  // shelf SECTION, not a performer. Artist 1087 ('Various Artists') is filed
-  // under 14 genres across 3,107 rows, so scoping this card to one membership
-  // would hide most of the section instead of disambiguating anything.
+  // Both reads take the same scope, so the add form's `artist.genre_id` is the
+  // section whose releases are listed beneath it.
   const {
     data: artist,
     isLoading: artistLoading,
     isError: artistError,
-  } = useGetArtistCardQuery({ artistId });
+  } = useGetArtistCardQuery({ artistId, genre_id: genreId });
   const { data: releaseList, isError: releasesError } = useGetAllArtistReleasesQuery({
     artistId,
+    genre_id: genreId,
   });
   const { data: genres } = useGetGenresQuery();
   const { data: formats } = useGetFormatsQuery();
@@ -158,11 +166,17 @@ export default function VariousArtistsCard({ artistId, message, imported }: Vari
   // so an id that is not a shelf row is the wrong screen rather than an error:
   // send it to the card that does describe it. Navigation is a side effect on
   // an external system (the router), which is why it is an effect and not a
-  // render-time redirect.
-  const misrouted = !!artist && !isVariousArtists(artist.code_letters);
+  // render-time redirect. The genre goes along, so a scoped link stays scoped.
+  const misroutedHref =
+    artist && !isVariousArtists(artist.code_letters)
+      ? artistCardHref({ id: artistId, code_letters: artist.code_letters }, { genreId: genreId ?? null })
+      : null;
+  const misrouted = misroutedHref !== null;
   useEffect(() => {
-    if (misrouted) router.replace(`/dashboard/library/artist/${artistId}`);
-  }, [misrouted, router, artistId]);
+    if (misroutedHref !== null) {
+      router.replace(misroutedHref);
+    }
+  }, [misroutedHref, router]);
 
   const genreName = genres?.find((genre) => genre.id === artist?.genre_id)?.genre_name;
 

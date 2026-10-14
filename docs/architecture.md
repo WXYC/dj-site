@@ -78,7 +78,7 @@ These reproduce tubafrenzy's `/wxycdb` screens. They are **classic-first**: the 
 | `/dashboard/library/artist/new` | Code-miss create screen: genre/letters/numbers carried read-only from the miss branch, only the two name fields editable | `createLibraryCode.jsp` | MD |
 | `/dashboard/library/artist/[id]` | Artist card + its release list | `artistCardModify.jsp` | MD |
 | `/dashboard/library/artist/[id]/delete` | Delete confirmation: one-click when the artist has no releases and no cross-references, a named refusal otherwise | `ArtistAdminServlet`'s delete branch | MD |
-| `/dashboard/library/various/[id]` | V/A bucket card + its add-release form | `variousArtistsCardModify.jsp` | MD |
+| `/dashboard/library/various/[id]` | V/A bucket card + its add-release form, scoped to one genre's section by `?genre_id` (the catch-all `Various Artists` row is filed under 14 genres) | `variousArtistsCardModify.jsp` | MD |
 | `/dashboard/library/release/[id]` | Release edit | `libraryReleaseModify.jsp` | MD |
 | `/dashboard/library/release/[id]/move` | Move release to another library code | `libraryReleaseModifyLibCode.jsp` | MD |
 | `/dashboard/library/release/[id]/delete` | Delete confirmation | `libraryReleaseDelete.jsp` | MD |

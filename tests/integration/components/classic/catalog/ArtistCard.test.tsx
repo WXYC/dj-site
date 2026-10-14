@@ -136,6 +136,17 @@ describe("classic ArtistCard — artistCardModify.jsp", () => {
     expect(screen.queryByTestId("modify-artist-form")).toBeNull();
   });
 
+  // A genre-scoped link that lands on the wrong card keeps its scope, or the
+  // bucket card lists every genre's comps at once.
+  it("keeps the genre when sending a compilation bucket on to the bucket card", async () => {
+    mockCard({ ...artist, artist_name: "Various Artists", code_letters: "V/A" });
+    renderWithProviders(<ArtistCard artistId={ARTIST_ID} genreId={GENRE_ID} />);
+
+    await waitFor(() =>
+      expect(mockReplace).toHaveBeenCalledWith(`/dashboard/library/various/${ARTIST_ID}?genre_id=${GENRE_ID}`),
+    );
+  });
+
   it("leaves an ordinary artist on this card", async () => {
     renderWithProviders(<ArtistCard artistId={ARTIST_ID} />);
 

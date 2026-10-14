@@ -150,7 +150,7 @@ describe("classic CreateLibraryCodeForm — createLibraryCode.jsp", () => {
     // redirect drops `created`, so the librarian would never see the
     // servlet's own confirmation for a bucket they just made.
     await waitFor(() =>
-      expect(mockPush).toHaveBeenCalledWith("/dashboard/library/various/99?created=1"),
+      expect(mockPush).toHaveBeenCalledWith(`/dashboard/library/various/99?genre_id=${GENRE_ID}&created=1`),
     );
   });
 

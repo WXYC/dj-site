@@ -203,12 +203,11 @@ export function formatCallLettersAndNumbers({
  * the genres list, which can be in flight, and `EL 12` is still enough to walk
  * to the shelf.
  *
- * A compilation bucket takes NO genre word, matching `artistCardHref`'s rule
- * for the card the same code links to. A bucket is a shelf section rather than
- * a performer -- `Various Artists` is filed under 14 genres -- so there is no
- * one membership to name, and the number this word would qualify was already
- * dropped by the line above. Naming one anyway would pick a genre off an
- * artist that spans them all.
+ * A compilation bucket takes NO genre word. A bucket is a shelf section rather
+ * than a performer -- `Various Artists` is filed under 14 genres -- so there is
+ * no one membership to name, and the number this word would qualify was
+ * already dropped by the line above. Naming one anyway would pick a genre off
+ * an artist that spans them all.
  */
 export function formatArtistLibraryCode({
   genreName,

@@ -248,7 +248,9 @@ describe("classic ArtistSearchForm — chooseLibraryCodeOrArtist.jsp's artistSea
     await fillTextboxCode(user, "V/A", "0");
     await user.click(screen.getByRole("button", { name: "Search!" }));
 
-    await waitFor(() => expect(mockPush).toHaveBeenCalledWith("/dashboard/library/various/4211"));
+    await waitFor(() =>
+      expect(mockPush).toHaveBeenCalledWith(`/dashboard/library/various/4211?genre_id=${SOUNDTRACKS_GENRE_ID}`),
+    );
   });
 
   // 0 is a legitimate call number (the Various Artists filing, and no floor
@@ -345,9 +347,9 @@ describe("classic ArtistSearchForm — chooseLibraryCodeOrArtist.jsp's artistSea
     const unfilledBuckets = rockBuckets.map((b) => ({ ...b, code_comp_letter: null }));
 
     it.each([
-      ["Rock", "A", rockBuckets, "/dashboard/library/various/1"],
-      ["Rock", "b", rockBuckets, "/dashboard/library/various/2"],
-      ["Soundtracks", "B", soundtrackBuckets, "/dashboard/library/various/4"],
+      ["Rock", "A", rockBuckets, `/dashboard/library/various/1?genre_id=${ROCK_GENRE_ID}`],
+      ["Rock", "b", rockBuckets, `/dashboard/library/various/2?genre_id=${ROCK_GENRE_ID}`],
+      ["Soundtracks", "B", soundtrackBuckets, `/dashboard/library/various/4?genre_id=${SOUNDTRACKS_GENRE_ID}`],
     ])("lands %s + letter %s directly on its bucket", async (genre, letter, artists, href) => {
       server.use(http.get(BY_CODE_URL, () => HttpResponse.json({ artists })));
       const { user } = renderWithProviders(<ArtistSearchForm onMultiMatch={mockOnMultiMatch} />);
@@ -390,7 +392,9 @@ describe("classic ArtistSearchForm — chooseLibraryCodeOrArtist.jsp's artistSea
       await user.type(screen.getByLabelText(/rock comp/i), "A");
       await user.click(screen.getByRole("button", { name: "Search!" }));
 
-      await waitFor(() => expect(mockPush).toHaveBeenCalledWith("/dashboard/library/various/3"));
+      await waitFor(() =>
+        expect(mockPush).toHaveBeenCalledWith(`/dashboard/library/various/3?genre_id=${SOUNDTRACKS_GENRE_ID}`),
+      );
       expect(mockOnMultiMatch).not.toHaveBeenCalled();
     });
 
@@ -425,7 +429,10 @@ describe("classic ArtistSearchForm — chooseLibraryCodeOrArtist.jsp's artistSea
       expect(mockOnMultiMatch).not.toHaveBeenCalled();
     });
 
-    it("resolves a compilation in a genre outside 11/12 without a letter", async () => {
+    // Outside Rock and Soundtracks one catch-all row holds every genre's
+    // plain V/A section, so the landing has to name the genre searched for or
+    // the card lists all of them.
+    it("resolves a compilation in a genre outside 11/12 without a letter, onto that genre's section", async () => {
       server.use(
         http.get(BY_CODE_URL, () =>
           HttpResponse.json({ artists: [bucket(9, BLUES_GENRE_ID, "Various Artists", null)] }),
@@ -436,7 +443,9 @@ describe("classic ArtistSearchForm — chooseLibraryCodeOrArtist.jsp's artistSea
       await user.click(screen.getByRole("radio", { name: /various artists/i }));
       await user.click(screen.getByRole("button", { name: "Search!" }));
 
-      await waitFor(() => expect(mockPush).toHaveBeenCalledWith("/dashboard/library/various/9"));
+      await waitFor(() =>
+        expect(mockPush).toHaveBeenCalledWith(`/dashboard/library/various/9?genre_id=${BLUES_GENRE_ID}`),
+      );
     });
   });
 
