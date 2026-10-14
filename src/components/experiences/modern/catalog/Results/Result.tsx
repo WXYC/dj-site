@@ -1,6 +1,6 @@
 "use client";
 
-import { AlbumEntry } from "@/lib/features/catalog/types";
+import { AlbumEntry, CatalogSortBy } from "@/lib/features/catalog/types";
 import { isRotationAdminEnabled } from "@/lib/features/rotation/flags";
 import { rotationLocationFor } from "@/lib/features/rotation/location";
 import Box from "@mui/joy/Box";
@@ -62,6 +62,10 @@ function CatalogResult({
     ? rotationLocationFor(album.rotation_bin, album.card)
     : null;
 
+  // The modern theme loads only 400 and 500: the sorted column takes the
+  // heavier face and every other text column the lighter.
+  const sortedWeight = (column: CatalogSortBy) => (sortBy === column ? 500 : 400);
+
   // Clamp instead of ellipsizing a single line; full text stays recoverable
   // via the title attribute.
   const lineClampSx = {
@@ -106,7 +110,7 @@ function CatalogResult({
       <td>
         <Typography
           level="title-sm"
-          fontWeight={sortBy === "album" ? "lg" : "md"}
+          fontWeight={sortedWeight("album")}
           textColor="text.primary"
           title={album.title}
           sx={lineClampSx}
@@ -118,7 +122,7 @@ function CatalogResult({
         <Box sx={{ display: { xs: "block", xl: "none" } }}>
           <Typography
             level="body-sm"
-            fontWeight={sortBy === "artist" ? "bold" : "md"}
+            fontWeight={sortedWeight("artist")}
             textColor="text.secondary"
             noWrap
             title={artistDisplay}
@@ -126,7 +130,7 @@ function CatalogResult({
             {artistDisplay}
           </Typography>
           {artistDetail && (
-            <Typography level="body-xs" textColor="text.tertiary" noWrap title={artistDetail}>
+            <Typography level="body-xs" fontWeight={400} textColor="text.tertiary" noWrap title={artistDetail}>
               {artistDetail}
             </Typography>
           )}
@@ -136,7 +140,7 @@ function CatalogResult({
       <td className="col-artist">
         <Typography
           level="body-sm"
-          fontWeight={sortBy === "artist" ? "bold" : "md"}
+          fontWeight={sortedWeight("artist")}
           textColor="text.secondary"
           title={artistDisplay}
           sx={lineClampSx}
@@ -146,6 +150,7 @@ function CatalogResult({
         {artistDetail && (
           <Typography
             level="body-xs"
+            fontWeight={400}
             textColor="text.tertiary"
             title={artistDetail}
             sx={lineClampSx}
@@ -178,6 +183,7 @@ function CatalogResult({
       <td>
         <Typography
           level="body-sm"
+          fontWeight={sortedWeight("plays")}
           textColor={
             album.plays != null && album.plays > 0
               ? "text.secondary"

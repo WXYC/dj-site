@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import { renderWithProviders, setFieldValue } from "@/tests/helpers";
 import { applicationSlice } from "@/lib/features/application/frontend";
 import StationSignupForm from "@/src/components/experiences/modern/login/Forms/StationSignupForm";
@@ -224,6 +224,34 @@ describe("StationSignupForm", () => {
     await user.click(screen.getByRole("button", { name: /back to sign in/i }));
     expectBackOutKeptTheAuthorizeBounce();
   });
+
+  // The modern theme loads 400 and 500 only, and Joy draws an Alert's text at
+  // `md`, so the username only stands out if the sentence is pulled to 400.
+  it.each([
+    ["signup-signing-in", true],
+    ["signup-success", false],
+  ])(
+    "draws the %s sentence at 400 and the username at 500",
+    async (testId, signInSucceeds) => {
+      mockHandleSignup.mockResolvedValue({
+        status: "success",
+        username: "newdj",
+        email: "newdj@example.com",
+      });
+      mockSignInAfterSignup.mockImplementation(() =>
+        signInSucceeds ? new Promise(() => {}) : Promise.resolve(false)
+      );
+      const { user } = renderWithProviders(<StationSignupForm />);
+
+      await fillPasscodeStep(user);
+      await fillDetailsStep(user);
+      await user.click(screen.getByRole("button", { name: "Submit" }));
+
+      const alert = await screen.findByTestId(testId);
+      expect(getComputedStyle(alert).fontWeight).toBe("400");
+      expect(getComputedStyle(within(alert).getByText("newdj")).fontWeight).toBe("500");
+    }
+  );
 
   it("sends a DJ who must sign in manually to the password form the copy points them at", async () => {
     mockHandleSignup.mockResolvedValue({
