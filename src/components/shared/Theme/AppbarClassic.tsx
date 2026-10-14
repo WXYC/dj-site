@@ -3,7 +3,7 @@
 import { ColorSchemeToggleLoader } from "@/src/components/shared/Theme/ColorSchemeToggle";
 import { ExperienceId } from "@/lib/features/experiences/types";
 import { usePublicRoutes } from "@/src/hooks/usePublicRoutes";
-import { Box, ButtonGroup, Typography } from "@mui/joy";
+import { Box, ButtonGroup } from "@mui/joy";
 import dynamic from "next/dynamic";
 import { LinkButton } from "../General/LinkButton";
 import ThemeSwitcher from "./ThemeSwitcher";
@@ -33,27 +33,10 @@ export default function AppbarClassic({
         bottom: 5,
         right: 5,
         zIndex: 10000,
-        // Right-justify the whole footer so a long version string can't shove
-        // the button row leftward (matches the modern Appbar).
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "flex-end",
       }}
     >
-      <Typography level="body-xs" variant="plain" sx={{ textAlign: "right" }}>
-        WXYC DJ Site v{process.env.NEXT_PUBLIC_VERSION}
-      </Typography>
       <ButtonGroup variant="solid" size="sm" color="neutral">
         {isPublic && <LinkButton href="/login">Log In</LinkButton>}
-        {!isPublic && (
-          <LinkButton
-            href="https://forms.gle/9q1mGCFtPS7DXQUE9"
-            target="_blank"
-            variant="soft"
-          >
-            Beta Tester Form
-          </LinkButton>
-        )}
         {!isPublic && (
           <LinkButton
             href="https://forms.gle/VCw43XejNte27Bef7"
