@@ -30,6 +30,10 @@ const TEXT_MAX_LENGTH = 255;
 const PASSWORD_MIN_LENGTH = 8;
 const PASSWORD_MAX_LENGTH = 128;
 
+// Joy draws an Alert's text at `md`, which the modern theme sets to 500, the
+// same as the username's emphasis; 400 is the only lighter face it loads.
+const alertSentenceSx = { fontWeight: 400 } as const;
+
 type Phase =
   | "passcode"
   | "details"
@@ -251,9 +255,10 @@ export default function StationSignupForm() {
         <Alert
           color="success"
           data-testid="signup-signing-in"
+          sx={alertSentenceSx}
           startDecorator={<CircularProgress size="sm" />}
         >
-          Account created for <Typography component="strong" level="inherit" fontWeight="lg">{createdAccount.username}</Typography>{" "}
+          Account created for <Typography component="strong" level="inherit" fontWeight={500}>{createdAccount.username}</Typography>{" "}
           ({createdAccount.email}). Signing you in&hellip;
         </Alert>
         {/* A second way out while the sign-in is still in flight: the DJ may
@@ -273,8 +278,8 @@ export default function StationSignupForm() {
         {/* Reached only when the automatic sign-in failed. The DJ has no way
             to know what went wrong, so name the account, say it works, and
             give them the one step left. */}
-        <Alert color="success" data-testid="signup-success">
-          Account created for <Typography component="strong" level="inherit" fontWeight="lg">{createdAccount.username}</Typography>{" "}
+        <Alert color="success" data-testid="signup-success" sx={alertSentenceSx}>
+          Account created for <Typography component="strong" level="inherit" fontWeight={500}>{createdAccount.username}</Typography>{" "}
           ({createdAccount.email}). We couldn&apos;t sign you in automatically,
           but the account is ready &mdash; sign in with the username and
           password you just chose. It&apos;s pending a station manager&apos;s
