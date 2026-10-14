@@ -312,6 +312,19 @@ export default function VariousArtistsCard({ artistId, genreId, message, importe
   // alert it would pass an out-of-date shelf off as current, and a librarian
   // missing the release they just filed would file it again.
   const shelf = releasesError ? undefined : releaseList;
+
+  // The catch-all 'Various Artists' row is every genre's plain V/A section
+  // merged into one record, and it kept only one section's stored name.
+  // `/wxycdb` headed each section "Various Artists - <genre>", so a scoped
+  // card rebuilds that heading from its genre. A lettered Rock or Soundtracks
+  // section is its own row with its own name, and keeps it. Until the genre
+  // list loads, the bare name stands in rather than another section's.
+  const sectionHeading =
+    genreId !== undefined && !artist.code_comp_letter
+      ? genreName
+        ? `Various Artists - ${genreName}`
+        : "Various Artists"
+      : artist.alphabetical_name;
   const releases = shelf?.releases ?? [];
   const total = shelf?.total ?? 0;
   const isUmbrellaBucket = artistId === UMBRELLA_BUCKET_ARTIST_ID;
@@ -351,7 +364,7 @@ export default function VariousArtistsCard({ artistId, genreId, message, importe
         <tbody>
           <tr>
             <td colSpan={2} style={{ textAlign: "right" }}>
-              {artist.alphabetical_name}
+              {sectionHeading}
             </td>
           </tr>
           <tr>
