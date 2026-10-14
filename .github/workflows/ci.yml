@@ -52,7 +52,6 @@ env:
   NEXT_PUBLIC_BACKEND_URL: http://localhost:8080
   NEXT_PUBLIC_BETTER_AUTH_URL: http://localhost:8082/auth
   NEXT_PUBLIC_DASHBOARD_HOME_PAGE: /dashboard/flowsheet
-  NEXT_PUBLIC_VERSION: ci
   NEXT_PUBLIC_DEFAULT_EXPERIENCE: modern
   NEXT_PUBLIC_ENABLED_EXPERIENCES: modern,classic
   NEXT_PUBLIC_ALLOW_EXPERIENCE_SWITCHING: "true"
@@ -336,7 +335,6 @@ jobs:
       NEXT_PUBLIC_SENTRY_DSN: ${{ vars.NEXT_PUBLIC_SENTRY_DSN }}
       NEXT_PUBLIC_SENTRY_ENVIRONMENT: production
       NEXT_PUBLIC_SENTRY_RELEASE: ${{ github.sha }}
-      NEXT_PUBLIC_VERSION: ${{ github.sha }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -428,11 +426,10 @@ jobs:
       NEXT_PUBLIC_POSTHOG_HOST: ${{ vars.PREVIEW_NEXT_PUBLIC_POSTHOG_HOST }}
       NEXT_PUBLIC_SENTRY_DSN: ${{ vars.PREVIEW_NEXT_PUBLIC_SENTRY_DSN }}
       NEXT_PUBLIC_SENTRY_ENVIRONMENT: preview
-      # Must match NEXT_PUBLIC_VERSION's head SHA: on pull_request events
-      # github.sha is the ephemeral merge commit, which no source or release
-      # lookup can resolve.
+      # The head SHA, not github.sha: on pull_request events github.sha is
+      # the ephemeral merge commit, which no source or release lookup can
+      # resolve.
       NEXT_PUBLIC_SENTRY_RELEASE: ${{ github.event.pull_request.head.sha }}
-      NEXT_PUBLIC_VERSION: ${{ github.event.pull_request.head.sha }}
     steps:
       - name: Check required configuration
         id: config

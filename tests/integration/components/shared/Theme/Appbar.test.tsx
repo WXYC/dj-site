@@ -1,7 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { Button } from "@mui/joy";
-import { extendTheme } from "@mui/joy/styles";
 import Appbar, { APPBAR_HEIGHT_PX } from "@/src/components/shared/Theme/Appbar";
 
 // Mock dependencies
@@ -41,38 +40,22 @@ describe("Appbar", () => {
     expect(getComputedStyle(root).minHeight).toBe(`${APPBAR_HEIGHT_PX}px`);
   });
 
-  it("is as tall as APPBAR_HEIGHT_PX says: the version line adds no block padding to the line its level sets, over the button group its size sets", () => {
+  it("is as tall as APPBAR_HEIGHT_PX says: the button group its size sets", () => {
     render(<Appbar experience="modern" />);
-    const line = screen.getByText(/WXYC DJ Site/);
-    expect(getComputedStyle(line)).toMatchObject({ paddingTop: "0px", paddingBottom: "0px" });
-
-    // jsdom leaves Joy's custom properties unresolved, so resolve them from the same theme the Appbar renders under.
-    const theme = extendTheme() as unknown as Record<string, Record<string, string | number | Record<string, string | number>>>;
-    const resolve = (value: string | number) => {
-      const named = String(value).match(/^var\(--joy-(\w+)-(\w+)/);
-      return named ? (theme[named[1]][named[2]] as string | number) : value;
-    };
-    const level = [...line.classList].find((c) => c.startsWith("MuiTypography-body") || c.startsWith("MuiTypography-title") || c.startsWith("MuiTypography-h"))!.replace("MuiTypography-", "");
-    const typography = theme.typography[level] as Record<string, string | number>;
-    // The rendered line carries the level's own font size and line height, so the level is what the height is derived from.
-    expect(getComputedStyle(line).fontSize).toContain(String(typography.fontSize));
-    expect(getComputedStyle(line).lineHeight).toContain(String(typography.lineHeight));
-    const fontSizePx = parseFloat(String(resolve(typography.fontSize))) * 16;
-    const lineHeightPx = fontSizePx * Number(resolve(typography.lineHeight));
+    const group = document.querySelector(".ignoreClassic")!.firstElementChild!;
 
     // The group's own box is its buttons', which jsdom cannot lay out (and the Appbar test mocks them), so read the minimum height Joy itself gives a button of the group's size: `var(--Button-minHeight, <fallback>)`.
-    const group = line.nextElementSibling!;
     const size = [...group.classList].find((c) => c.startsWith("MuiButtonGroup-size"))!.replace("MuiButtonGroup-size", "").toLowerCase() as "sm" | "md" | "lg";
     const probe = render(<Button size={size}>probe</Button>);
     const minHeight = getComputedStyle(probe.getByRole("button")).minHeight;
     const buttonHeightPx = parseFloat(minHeight.match(/,\s*([\d.]+)rem\)/)![1]) * 16;
 
-    expect(APPBAR_HEIGHT_PX).toBe(lineHeightPx + buttonHeightPx);
+    expect(APPBAR_HEIGHT_PX).toBe(buttonHeightPx);
   });
 
-  it("should render version text", () => {
+  it("carries no version line", () => {
     render(<Appbar experience="modern" />);
-    expect(screen.getByText(/WXYC DJ Site/)).toBeInTheDocument();
+    expect(screen.queryByText(/WXYC DJ Site/)).not.toBeInTheDocument();
   });
 
   it("should render ThemeSwitcher", () => {

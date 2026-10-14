@@ -3,7 +3,7 @@
 import { ColorSchemeToggleLoader } from "@/src/components/shared/Theme/ColorSchemeToggle";
 import { ExperienceId } from "@/lib/features/experiences/types";
 import { usePublicRoutes } from "@/src/hooks/usePublicRoutes";
-import { Box, ButtonGroup, Typography } from "@mui/joy";
+import { Box, ButtonGroup } from "@mui/joy";
 import dynamic from "next/dynamic";
 import { LinkButton } from "../General/LinkButton";
 import ThemePicker from "./ThemePicker";
@@ -22,8 +22,8 @@ const ColorSchemeToggle = dynamic(
 
 /** The fixed Appbar's gap from the viewport's bottom and right edges, in px. */
 export const APPBAR_OFFSET_PX = 5;
-/** Its height in px, set on the box itself: the version line (body-xs, 0.75rem x 1.5 = 18, with the variant's block padding zeroed so it adds nothing) over a size-sm button group (2rem = 32). */
-export const APPBAR_HEIGHT_PX = 50;
+/** Its height in px, set on the box itself: a size-sm button group (2rem = 32). */
+export const APPBAR_HEIGHT_PX = 32;
 /** How far above the viewport's bottom its top edge sits; content that must stay clear of it needs this much room below. */
 export const APPBAR_CLEARANCE_PX = APPBAR_OFFSET_PX + APPBAR_HEIGHT_PX;
 
@@ -38,20 +38,10 @@ export default function Appbar({ experience }: { experience: ExperienceId }) {
         bottom: APPBAR_OFFSET_PX,
         right: APPBAR_OFFSET_PX,
         zIndex: 10000,
-        // Right-justify the whole footer: a long version string used to widen
-        // the box and shove the button row leftward. Anchoring both the text
-        // and the button group to the right edge keeps them lined up.
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "flex-end",
-        justifyContent: "center",
         boxSizing: "border-box",
         minHeight: APPBAR_HEIGHT_PX,
       }}
     >
-      <Typography level="body-xs" variant="plain" sx={{ textAlign: "right", py: 0 }}>
-        WXYC DJ Site v{process.env.NEXT_PUBLIC_VERSION}
-      </Typography>
       <ButtonGroup variant="solid" size="sm" color="success">
         {isPublic && <LinkButton href="/login">Log In</LinkButton>}
         {!isPublic && (

@@ -24,9 +24,9 @@ vi.mock("@/src/components/shared/General/LinkButton", () => ({
 }));
 
 describe("AppbarClassic", () => {
-  it("should render version text", () => {
+  it("carries no version line", () => {
     render(<AppbarClassic experience="classic" />);
-    expect(screen.getByText(/WXYC DJ Site/)).toBeInTheDocument();
+    expect(screen.queryByText(/WXYC DJ Site/)).not.toBeInTheDocument();
   });
 
   it("should render ThemeSwitcher", () => {
@@ -41,10 +41,10 @@ describe("AppbarClassic", () => {
     expect(screen.queryByTestId("theme-picker")).not.toBeInTheDocument();
   });
 
-  it("should show Beta Tester Form and General Feedback links for authenticated users", () => {
+  it("should show the General Feedback link, and no Beta Tester Form, for authenticated users", () => {
     render(<AppbarClassic experience="classic" />);
-    expect(screen.getByText("Beta Tester Form")).toBeInTheDocument();
     expect(screen.getByText("General Feedback")).toBeInTheDocument();
+    expect(screen.queryByText("Beta Tester Form")).not.toBeInTheDocument();
   });
 });
 
