@@ -3898,6 +3898,7 @@ describe("IntakeItemScreen", () => {
           await waitFor(() => expect(create.calls.count).toBe(1));
 
           create.release();
+          await create.answered;
           await waitFor(() => expect(written).toHaveBeenCalledTimes(1));
 
           guarded().forEach((b) => expect(b).toBeDisabled());
@@ -3948,6 +3949,7 @@ describe("IntakeItemScreen", () => {
           await waitFor(() => expect(create.calls.count).toBe(1));
 
           create.release();
+          await create.answered;
 
           expect(await screen.findByText(line)).toBeInTheDocument();
           expect(screen.queryByText("server words")).not.toBeInTheDocument();
@@ -3965,6 +3967,8 @@ describe("IntakeItemScreen", () => {
           const reread = holdResponse("get", FILED_ITEM_PATH, () => HttpResponse.json(box.item));
 
           create.release();
+          // `answered` ends in a render-frame `act`; left to run unawaited it overlaps this test's own `renderedFrame`, and React's act scope then stays open and renders nothing in every later test of the file.
+          await create.answered;
           await waitFor(() => expect(reread.calls.count).toBe(1), { timeout: 10000 });
           await renderedFrame();
 
