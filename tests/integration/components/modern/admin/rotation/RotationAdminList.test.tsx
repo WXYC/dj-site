@@ -954,6 +954,17 @@ describe("RotationAdminList", () => {
       rotation_add_date: "2026-07-25",
     });
 
+    // 70 days in Light: past the 60-day window any fallback default would
+    // supply, so a chip on it can only come from marking against a guess.
+    const LIGHT_70 = listRow({
+      rotation_id: 6103,
+      id: 9103,
+      artist_name: "Stereolab",
+      album_title: "Aluminum Tunes",
+      rotation_bin: "L",
+      rotation_add_date: "2026-07-05",
+    });
+
     const chooseSort = async (
       user: Awaited<ReturnType<typeof renderList>>["user"],
       name: string,
@@ -986,27 +997,37 @@ describe("RotationAdminList", () => {
     });
 
     it("renders ages with no chips and no count line when the read fails, and keeps the list", async () => {
-      const fake = fakeRotationAdminEndpoints([HEAVY_40, MEDIUM_50], CARDS, { windowDays: { H: 30 } });
+      const fake = fakeRotationAdminEndpoints([HEAVY_40, MEDIUM_50, LIGHT_70], CARDS, { windowDays: { H: 30 } });
       fake.failThresholdsReads();
       await renderListFor(fake, AGE_NOW);
 
       const row = within(screen.getByTestId("rotation-admin-row-6101"));
       expect(row.getByText("added 08/04/26 · 40 days in Heavy")).toBeInTheDocument();
       expect(row.queryByText(/over$/)).not.toBeInTheDocument();
+      expect(
+        within(screen.getByTestId("rotation-admin-row-6103")).queryByText(/over$/),
+      ).not.toBeInTheDocument();
       expect(screen.queryByTestId("rotation-admin-overdue-count")).not.toBeInTheDocument();
       expect(screen.queryByText("Could not load the rotation list.")).not.toBeInTheDocument();
     });
 
     it("renders a pending read like a failed one, then marks once it lands", async () => {
-      const fake = fakeRotationAdminEndpoints([HEAVY_40, MEDIUM_50], CARDS, { windowDays: { H: 30 } });
+      const fake = fakeRotationAdminEndpoints([HEAVY_40, MEDIUM_50, LIGHT_70], CARDS, { windowDays: { H: 30 } });
       fake.holdThresholdsReads();
-      renderWithProviders(<RotationAdminList now={AGE_NOW} />);
+      const { user } = renderWithProviders(<RotationAdminList now={AGE_NOW} />);
       await screen.findByTestId("rotation-admin-active");
 
       const row = within(screen.getByTestId("rotation-admin-row-6101"));
       expect(row.getByText("added 08/04/26 · 40 days in Heavy")).toBeInTheDocument();
       expect(row.queryByText(/over$/)).not.toBeInTheDocument();
       expect(screen.queryByTestId("rotation-admin-overdue-count")).not.toBeInTheDocument();
+      expect(
+        within(screen.getByTestId("rotation-admin-row-6103")).queryByText(/over$/),
+      ).not.toBeInTheDocument();
+      await user.click(screen.getByRole("combobox", { name: "Sort rotation" }));
+      expect(await screen.findByRole("option", { name: "Oldest first" })).toBeInTheDocument();
+      expect(screen.queryByRole("option", { name: "Most overdue" })).not.toBeInTheDocument();
+      await user.keyboard("{Escape}");
 
       await act(async () => {
         await fake.releaseThresholdsReads();

@@ -27,15 +27,22 @@ const isValidWindow = (value: string) =>
 function ThresholdsFields({
   stored,
   refetching,
+  readFailed,
+  onRetry,
 }: {
   stored: RotationWindowDays;
   refetching: boolean;
+  readFailed: boolean;
+  onRetry: () => void;
 }): JSX.Element {
   const [draft, setDraft] = useState<Record<RotationBin, string>>(
     () => Object.fromEntries(ROTATION_BINS.map((bin) => [bin, String(stored[bin])])) as Record<RotationBin, string>,
   );
   const [updateThresholds, { isLoading: saving }] = useUpdateRotationThresholdsMutation();
 
+  // A background refetch that fails keeps the old record, which is then a
+  // baseline known to be stale, so it refuses a save like a pending one does.
+  const locked = refetching || readFailed;
   const changed = ROTATION_BINS.filter((bin) => draft[bin] !== String(stored[bin]));
   // Only a window this draft moved is held to the range: the read type has no
   // upper bound, so judging every field would strand a stored value nobody
@@ -57,6 +64,7 @@ function ThresholdsFields({
 
   return (
     <Stack spacing={2} sx={{ maxWidth: 360 }}>
+      {readFailed && <ReadRetryAlert message="Could not load the rotation thresholds." onRetry={onRetry} />}
       {ROTATION_BINS.map((bin) => (
         <FormControl key={bin} error={invalid.includes(bin)}>
           <FormLabel>{ROTATION_BIN_LABELS[bin]}</FormLabel>
@@ -66,7 +74,7 @@ function ThresholdsFields({
             slotProps={{ input: { min: WINDOW_MIN_DAYS, max: WINDOW_MAX_DAYS, step: 1 } }}
             endDecorator="days"
             value={draft[bin]}
-            disabled={saving}
+            disabled={saving || locked}
             onChange={(event) => setDraft((current) => ({ ...current, [bin]: event.target.value }))}
           />
           {invalid.includes(bin) && (
@@ -84,7 +92,7 @@ function ThresholdsFields({
         // A save's tag invalidation refetches while the old record is still
         // on screen; saving against it would diff the draft against a stale
         // baseline.
-        disabled={changed.length === 0 || invalid.length > 0 || refetching}
+        disabled={changed.length === 0 || invalid.length > 0 || locked}
         onClick={() => void save()}
       >
         Save
@@ -101,10 +109,9 @@ function ThresholdsFields({
  */
 export default function RotationThresholdsForm(): JSX.Element {
   const { data, isError, isFetching, refetch } = useGetRotationThresholdsQuery();
+  const retry = () => void refetch();
   if (hasNothingToShow({ isError, data })) {
-    return (
-      <ReadRetryAlert message="Could not load the rotation thresholds." onRetry={() => void refetch()} />
-    );
+    return <ReadRetryAlert message="Could not load the rotation thresholds." onRetry={retry} />;
   }
   if (data == null) return <LinearProgress aria-label="Loading rotation thresholds" />;
 
@@ -115,6 +122,8 @@ export default function RotationThresholdsForm(): JSX.Element {
       key={ROTATION_BINS.map((bin) => data.window_days[bin]).join("-")}
       stored={data.window_days}
       refetching={isFetching}
+      readFailed={isError}
+      onRetry={retry}
     />
   );
 }
