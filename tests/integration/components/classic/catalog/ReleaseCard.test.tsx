@@ -537,10 +537,11 @@ describe("Classic ReleaseCard", () => {
       await changeGenreTo(user, "Electronic");
       await user.click(screen.getByDisplayValue("Save"));
 
-      const { body } = mockUpdateAlbum.mock.calls[0][0];
+      const { body, wordsGenreRefusals } = mockUpdateAlbum.mock.calls[0][0];
       expect(body.genre_id).toBe(4);
       expect(body).not.toHaveProperty("code_number");
       expect(body).not.toHaveProperty("code_volume_letters");
+      expect(wordsGenreRefusals).toBe(true);
     });
 
     it("leaves the genre out of a save that did not change it", async () => {
@@ -555,6 +556,8 @@ describe("Classic ReleaseCard", () => {
       await user.click(screen.getByDisplayValue("Save"));
 
       expect(mockUpdateAlbum.mock.calls[0][0].body).not.toHaveProperty("genre_id");
+      // Not worded on this screen without a genre change, so the shared toast keeps it.
+      expect(mockUpdateAlbum.mock.calls[0][0].wordsGenreRefusals).toBeUndefined();
     });
 
     it.each([

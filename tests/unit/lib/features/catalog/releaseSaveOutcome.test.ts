@@ -63,6 +63,13 @@ describe("interpretReleaseSaveError", () => {
       message: "Electronic already has a release at number 135, so this release can't be moved there.",
     },
     {
+      label: "a taken call number whose number the screen cannot know, on the modern editor",
+      err: slotTaken,
+      context: { ...modern, callNumber: undefined },
+      reason: "slot_taken",
+      message: "Electronic already has a release at that number, so this release can't be moved there.",
+    },
+    {
       label: "a Various Artists release not filed in the genre, on the modern editor",
       err: notInGenre,
       context: modern,

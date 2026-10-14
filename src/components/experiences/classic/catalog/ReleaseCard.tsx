@@ -278,6 +278,7 @@ export default function ReleaseCard({ albumId }: { albumId: number }) {
               }
             : {}),
         },
+        ...(genreChanged ? { wordsGenreRefusals: true } : {}),
       }).unwrap();
       setMessage("This library release has been modified.");
     } catch (err) {

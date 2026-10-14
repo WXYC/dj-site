@@ -390,7 +390,10 @@ describe("Classic ReleaseMoveForm — libraryReleaseModifyLibCode.jsp", () => {
       await submit(user);
 
       expect(mockUpdateAlbum).toHaveBeenCalledWith(
-        expect.objectContaining({ body: expect.objectContaining({ artist_id: 4211, genre_id: 5 }) }),
+        expect.objectContaining({
+          body: expect.objectContaining({ artist_id: 4211, genre_id: 5 }),
+          wordsGenreRefusals: true,
+        }),
       );
     });
 
@@ -502,6 +505,8 @@ describe("Classic ReleaseMoveForm — libraryReleaseModifyLibCode.jsp", () => {
       const message = (await screen.findByTestId("release-move-message")).textContent ?? "";
       expect(message).toContain("could not be moved");
       expect(message).not.toContain("has been moved");
+      // A move to another artist is not worded here, so the shared toast keeps it.
+      expect(mockUpdateAlbum.mock.calls[0][0].wordsGenreRefusals).toBeUndefined();
     });
   });
 

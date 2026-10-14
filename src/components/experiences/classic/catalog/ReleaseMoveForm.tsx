@@ -291,6 +291,7 @@ export default function ReleaseMoveForm({ albumId }: { albumId: number }) {
           alternate_artist_name: altArtist.trim() === "" ? null : altArtist.trim(),
           ...(formatId === "" ? {} : { format_id: Number(formatId) }),
         },
+        ...(destination.id === currentArtistId ? { wordsGenreRefusals: true } : {}),
       }).unwrap();
       // Backend renumbers only when the artist changes, so a move between one
       // artist's genres keeps its number or is refused outright.
