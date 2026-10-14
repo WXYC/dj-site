@@ -22,6 +22,7 @@ import { serverMessage, unwrapEndpointErrorOrRaw } from "@/lib/rtk-endpoint-erro
 import { useAuthentication } from "@/src/hooks/authenticationHooks";
 import { useCanSeeReviews } from "@/src/hooks/useCanSeeReviews";
 import ConfirmDialog from "../ConfirmDialog";
+import LeaveDialog from "./LeaveDialog";
 import ConsentBlock, { type Consent } from "./ConsentBlock";
 import { REVIEW_COPY } from "./copy";
 import FccNotesPanel from "./FccNotesPanel";
@@ -32,7 +33,6 @@ import SlipPreview from "./SlipPreview";
 import { formatSlipDate } from "./slipDate";
 import { useReviewRecord } from "./useReviewRecord";
 import { STICKY_ROOM_PROPERTY, useStickyRoom } from "./useStickyRoom";
-import { useCloseSidebarWhile } from "@/src/hooks/useCloseSidebarWhile";
 import { useLeaveGuard } from "@/src/hooks/useLeaveGuard";
 import { hasNothingToShow } from "@/lib/has-nothing-to-show";
 import { APPBAR_CLEARANCE_PX } from "@/src/components/shared/Theme/Appbar";
@@ -90,7 +90,6 @@ function Form({ review, user }: { review: Review; user: User | undefined }) {
     if (isAuthor) setConsent((c) => ({ ...c, ...Object.fromEntries(CONSENT_KEYS.filter((k) => k in offer).map((k) => [k, offer[k]])) }));
     setOffer(null);
   };
-  useCloseSidebarWhile(leaveGuard.pending);
   const failure = (err: unknown, fallback: string) =>
     toast.error(serverMessage(unwrapEndpointErrorOrRaw("reviewWriteError", err)?.data) ?? fallback);
 
@@ -245,19 +244,9 @@ function Form({ review, user }: { review: Review; user: User | undefined }) {
             ? REVIEW_COPY.submitConfirmLogged
             : REVIEW_COPY.submitConfirmRelease}
       </ConfirmDialog>
-      <ConfirmDialog
-        open={leaveGuard.pending}
-        onClose={leaveGuard.stay}
-        title={REVIEW_COPY.leave.title}
-        actions={
-          <>
-            <Button variant="plain" onClick={leaveGuard.leave}>{REVIEW_COPY.leave.leave}</Button>
-            <Button autoFocus onClick={leaveGuard.stay}>{REVIEW_COPY.leave.keepEditing}</Button>
-          </>
-        }
-      >
+      <LeaveDialog open={leaveGuard.pending} onLeave={leaveGuard.leave} onStay={leaveGuard.stay}>
         {REVIEW_COPY.leave.body}
-      </ConfirmDialog>
+      </LeaveDialog>
     </Box>
   );
 }

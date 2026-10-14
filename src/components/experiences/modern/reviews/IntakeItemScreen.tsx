@@ -24,10 +24,10 @@ import { reviewApi, useGetItemReviewsQuery, useGetReviewQuery, useGetReviewsForR
 import { useAppDispatch } from "@/lib/hooks";
 import { unwrapEndpointError } from "@/lib/rtk-endpoint-error";
 import { useCanSeeReviews } from "@/src/hooks/useCanSeeReviews";
-import { useCloseSidebarWhile } from "@/src/hooks/useCloseSidebarWhile";
 import { useLeaveGuard } from "@/src/hooks/useLeaveGuard";
 import { useMounted } from "@/src/hooks/useRowWrite";
 import ConfirmDialog from "../ConfirmDialog";
+import LeaveDialog from "./LeaveDialog";
 import RotationFilingBench, { type FilingSubmit } from "../admin/rotation/RotationFilingBench";
 import { REVIEW_COPY } from "./copy";
 import FccNotesPanel from "./FccNotesPanel";
@@ -104,7 +104,6 @@ export default function IntakeItemScreen({ id }: { id: number }) {
   useEffect(() => {
     if (!recordingDirty) setAsked(null);
   }, [recordingDirty]);
-  useCloseSidebarWhile(leaveGuard.pending);
   const stayOnRecording = () => {
     setAsked(null);
     leaveGuard.stay();
@@ -376,19 +375,9 @@ export default function IntakeItemScreen({ id }: { id: number }) {
           onClose={() => setRecording(null)}
         />
       )}
-      <ConfirmDialog
-        open={leaveGuard.pending || asked !== null}
-        onClose={stayOnRecording}
-        title={REVIEW_COPY.leave.title}
-        actions={
-          <>
-            <Button variant="plain" onClick={leaveRecording}>{REVIEW_COPY.leave.leave}</Button>
-            <Button autoFocus onClick={stayOnRecording}>{REVIEW_COPY.leave.keepEditing}</Button>
-          </>
-        }
-      >
+      <LeaveDialog open={leaveGuard.pending || asked !== null} onLeave={leaveRecording} onStay={stayOnRecording}>
         {REVIEW_COPY.leave.recordBody}
-      </ConfirmDialog>
+      </LeaveDialog>
       <ConfirmDialog
         open={confirmingDelete}
         onClose={() => setConfirmingDelete(false)}
