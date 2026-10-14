@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
-import { deletingReview, fakeReviewsEndpoints, fccNote, heldBy, holdResponse, intakeItem, pendingCount, removedHolder, renderedFrame, renderWithProviders, requestedFor, returned, review, reviewRevision, reviewsSettled, server, TEST_BACKEND_URL } from "@/tests/helpers";
+import { createTestStore, deletingReview, fakeReviewsEndpoints, fccNote, heldBy, holdResponse, intakeItem, pendingCount, removedHolder, renderedFrame, renderWithProviders, requestedFor, returned, review, reviewRevision, reviewsSettled, server, TEST_BACKEND_URL } from "@/tests/helpers";
 import { fakeRotationCardsEndpoints } from "@/tests/fakes/rotation";
 import { fakeLibraryFilingsEndpoint, filingConflictResponse } from "@/tests/fakes/libraryFilings";
 import { Authorization } from "@/lib/features/admin/types";
@@ -4057,6 +4057,86 @@ describe("IntakeItemScreen", () => {
       open();
       await reviewsSettled(store);
       await waitFor(() => guarded().forEach((b) => expect(b).toBeEnabled()));
+    });
+
+    describe("a write answered while the reload's reads are in flight", () => {
+      const PASS_URL = `${FILED_ITEM_PATH}/pass`;
+
+      /** Presses Use this review and holds the reload's item read; resolves with what the spec needs to answer a second write and finish. */
+      const pressedWithReloadHeld = async () => {
+        const item = dogaItem({ accepted_review_id: null });
+        fakeReviewsEndpoints({ records: [item], forItem: { [ITEM_ID]: [submitted(41)] } });
+        const box = serveItem(item);
+        acceptingReview(box);
+        const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+        await screen.findByText(/^Take 41\./);
+        await reviewsSettled(store);
+        const before = box.reads;
+        const open = holdLateItemReads(box, before);
+        await user.click(screen.getByRole("button", { name: "Use this review" }));
+        await waitFor(() => expect(box.reads).toBeGreaterThanOrEqual(before + 1));
+        return { box, store, open, before };
+      };
+
+      it("ends on the post-write cover when a second write answers while the reload's reads settle", async () => {
+        const item = dogaItem({ accepted_review_id: null });
+        fakeReviewsEndpoints({ records: [item], forItem: { [ITEM_ID]: [submitted(41), submitted(42)] } });
+        const box = serveItem(item);
+        const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+        await screen.findByText(/^Take 41\./);
+        await reviewsSettled(store);
+        const before = box.reads;
+        const openStale = holdLateItemReads(box, before);
+        void store.dispatch(intakeApi.endpoints.getIntakeItem.initiate(ITEM_ID, { subscribe: false, forceRefetch: true }));
+        await waitFor(() => expect(box.reads).toBe(before + 1));
+        const openSecond = holdLateItemReads(box, before + 1);
+        const first = holdResponse("post", ACCEPT_URL, () => {
+          box.item = { ...box.item, accepted_review_id: 41 };
+          return HttpResponse.json(box.item);
+        });
+        await user.click(screen.getAllByRole("button", { name: "Use this review" })[0]);
+        await waitFor(() => expect(first.calls.count).toBe(1));
+        first.release();
+        await first.answered;
+        openStale();
+        await waitFor(() => expect(box.reads).toBeGreaterThanOrEqual(before + 2));
+        const second = holdResponse("post", `${FILED_ITEM_PATH}/pass`, () => {
+          box.item = { ...box.item, accepted_review_id: 42 };
+          return HttpResponse.json(box.item);
+        });
+        void store.dispatch(intakeApi.endpoints.passIntakeItem.initiate(ITEM_ID));
+        await waitFor(() => expect(second.calls.count).toBe(1));
+        second.release();
+        await second.answered;
+        openSecond();
+        await reviewsSettled(store);
+
+        expect(within(await coverSection()).getByText("Take 42.")).toBeInTheDocument();
+      });
+
+      it("does not read again for a write another store's API answered", async () => {
+        const { box, store, open, before } = await pressedWithReloadHeld();
+        server.use(http.post(PASS_URL, () => HttpResponse.json(box.item)));
+        await createTestStore().dispatch(intakeApi.endpoints.passIntakeItem.initiate(ITEM_ID));
+
+        open();
+        await reviewsSettled(store);
+        await waitFor(() => guarded().forEach((b) => expect(b).toBeEnabled()));
+
+        expect(box.reads).toBe(before + 1);
+      });
+
+      it("does not read again for a write that was refused", async () => {
+        const { box, store, open, before } = await pressedWithReloadHeld();
+        server.use(http.post(PASS_URL, () => HttpResponse.json({ message: "boom" }, { status: 500 })));
+        await store.dispatch(intakeApi.endpoints.passIntakeItem.initiate(ITEM_ID));
+
+        open();
+        await reviewsSettled(store);
+        await waitFor(() => guarded().forEach((b) => expect(b).toBeEnabled()));
+
+        expect(box.reads).toBe(before + 1);
+      });
     });
   });
 

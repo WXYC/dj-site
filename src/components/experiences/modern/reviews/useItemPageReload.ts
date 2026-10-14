@@ -21,7 +21,9 @@ import { useMounted } from "@/src/hooks/useRowWrite";
  *
  * A read that began before the latest write fulfilled and was still in flight is joined by that write's refetch and by
  * these forced reads instead of being repeated, and it answers with the record as it stood before the write. When any of
- * the three reads is such a one, they are made again once it has settled.
+ * the three reads is such a one, they are made again once it has settled, and only once. A write that answers while that
+ * second look settles has its invalidation queued until the look's reads have settled, and `settle` waits for the refetch it
+ * then starts, so that refetch is a new read and joins none.
  */
 export function useItemPageReload(id: number, coverId?: number) {
   const dispatch = useAppDispatch();
@@ -38,14 +40,14 @@ export function useItemPageReload(id: number, coverId?: number) {
     for (let running = inFlight(); running.length > 0; running = inFlight()) await Promise.allSettled(running);
   };
   const joinedPreWriteRead = () =>
-    dispatch((_, getState) => {
+    dispatch((thunkDispatch, getState) => {
       const state = getState();
       const reads = [
         intakeApi.endpoints.getIntakeItem.select(id)(state),
         reviewApi.endpoints.getItemReviews.select(id)(state),
         ...(coverId === undefined ? [] : [reviewApi.endpoints.getReview.select(coverId)(state)]),
       ];
-      return reads.some((read) => (read.startedTimeStamp ?? Infinity) < lastReviewsWriteAnsweredAt());
+      return reads.some((read) => (read.startedTimeStamp ?? Infinity) < lastReviewsWriteAnsweredAt(thunkDispatch));
     });
   return async () => {
     let [itemRead] = await load();
