@@ -44,7 +44,7 @@ The review shelf, checkout, request, and pass flow is the same on every surface.
 
 After the cutover date, every release entering the library or rotation needs a review chosen for the cover, or a citation, apart from the two legacy paths described under Backend contract. Releases catalogued before the cutover are deemed reviewed. The form and the app overlap through fall 2026; the cutover and the form's close are one day at the start of the spring 2027 semester.
 
-The form archive (Backend-Service ADR 0011) stays a separate table; it is cited by intake items, never merged into reviews.
+The form archive (Backend-Service ADR 0011) stays a separate table and remains the record of the form. After the form closes and the final ingest has run, a one-time job copies every archive row linked to a library release into reviews on that release, uncredited, with its form-era sharing answer as its publishing choices; rows with no release stay archive-only, and the import skips any submission an intake item cites. For a record reviewed through the form before it was logged (an in-flight record), the music director copies the form review onto the record and the citation records where it came from.
 
 ## What dj-site ships
 
@@ -54,7 +54,7 @@ These are the dj-site specifics for this mirror. The DJ and music director scree
 - The review history page at `/dashboard/reviews/{id}/history`, listing every version of a submitted review and marking the one on the cover. This is a modern-experience screen; the classic experience shows `ExperienceGap`.
 - The MD intake admin at `/dashboard/admin/intake` and `/dashboard/admin/intake/{id}`, covering logging and requesting items, recording reviews on behalf of others and handwritten ones, choosing the review for the cover, filing with a call number, and the slip print view at `/dashboard/admin/intake/{id}/slip`. These are modern-experience screens.
 - The library slip at `/dashboard/admin/library/{albumId}/slip/{reviewId}`: the same slip print view, for a typed review of a release already in the library, including one with no logged record. This is a modern-experience screen.
-- The reviews panel on the shared album page `/dashboard/album/{id}`: "the review on the cover" first, then the other reviews, newest first (a handwritten one shows as "on the sleeve"); the form archive's entries as cited prior takes; and "Review this release", where a DJ starts a review of a release already in the library. The screens never say "intake review" or "release review".
+- The reviews panel on the shared album page `/dashboard/album/{id}`: "the review on the cover" first, then the other reviews, newest first (a handwritten one shows as "on the sleeve"); the form archive's entries the import did not copy into reviews, as cited prior takes; and "Review this release", where a DJ starts a review of a release already in the library. The screens never say "intake review" or "release review".
 - The FCC notes panel on the album page, where any DJ reports a note and music directors confirm or remove them, and the same report action on a logged record.
 - The librarian's finalize step on the classic Awaiting Cataloging list. This is classic-first because the librarian works in the classic experience.
 
