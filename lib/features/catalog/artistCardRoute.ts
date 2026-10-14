@@ -35,12 +35,11 @@ import { isVariousArtists } from "./libraryCode";
  * caller that does not know the genre still produces a working link — it just
  * gets that collapse.
  *
- * A compilation bucket takes no genre even when one is supplied. A bucket is a
- * shelf SECTION, not a performer, and artist 1087 ('Various Artists') is filed
- * under 14 genres across 3,107 rows; scoping its card to one would hide most
- * of the section rather than disambiguate anything. It still takes
- * `link.params`: creating a compilation row lands on the bucket card and has
- * to carry its confirmation flag there.
+ * A compilation bucket is scoped the same way. Artist 1087 ('Various
+ * Artists') is filed under 14 genres, but each membership is its own shelf
+ * section -- Electronic V/A and Hiphop V/A are different rooms, and `/wxycdb`
+ * gave each its own card. An unscoped link to it lists every genre's comps at
+ * once and files an add under the lowest membership.
  *
  * `link.params` exists because this builder can now emit a query string, and a
  * caller that appends its own would produce `?genre_id=11?created=1` — which
@@ -63,7 +62,7 @@ export function artistCardHref(
 ): string {
   const bucket = isVariousArtists(artist.code_letters);
   const query = new URLSearchParams();
-  if (!bucket && link.genreId != null) {
+  if (link.genreId != null) {
     query.set("genre_id", String(link.genreId));
   }
   for (const [key, value] of Object.entries(link.params ?? {})) {

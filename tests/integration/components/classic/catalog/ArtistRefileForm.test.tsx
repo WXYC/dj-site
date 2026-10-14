@@ -481,7 +481,7 @@ describe("classic ArtistRefileForm", () => {
       await submit(user);
 
       await waitFor(() => expect(mockPush).toHaveBeenCalled());
-      expect(mockPush.mock.calls[0][0]).not.toContain(`genre_id=${JAZZ}`);
+      expect(mockPush.mock.calls[0][0]).toMatch(new RegExp(`^/dashboard/library/various/${JAM_ID}\\?genre_id=${JAZZ}&`));
     });
 
     it.each([

@@ -62,12 +62,13 @@ describe("artistCardHref genre scope", () => {
     );
   });
 
-  // A compilation bucket is a shelf section spanning many genres -- artist
-  // 1087 ('Various Artists') is filed under 14 -- so scoping its card to one
-  // would hide most of the section. The genre is dropped rather than honoured.
-  it("drops the genre for a compilation bucket, which is not genre-scoped", () => {
-    expect(artistCardHref({ id: 1087, code_letters: "V/A" }, { genreId: 11 })).toBe(
-      "/dashboard/library/various/1087",
+  // Artist 1087 ('Various Artists') is filed under 14 genres, but each of
+  // those memberships is its own shelf section -- Electronic V/A and Hiphop
+  // V/A are different rooms. A link that knows which section it means has to
+  // say so, or the card lists every genre's comps at once.
+  it("carries the genre for a compilation bucket, whose memberships are separate sections", () => {
+    expect(artistCardHref({ id: 1087, code_letters: "V/A" }, { genreId: 15 })).toBe(
+      "/dashboard/library/various/1087?genre_id=15",
     );
   });
 });
@@ -97,15 +98,14 @@ describe("artistCardHref extra query parameters", () => {
     ).toBe("/dashboard/library/artist/4211?created=1");
   });
 
-  // A bucket takes no genre but still takes the confirmation flag: creating a
-  // compilation row lands on the bucket card and has to say so.
-  it("keeps extra parameters on a compilation bucket, which takes no genre", () => {
+  // Creating a compilation row lands on the bucket card and has to say so.
+  it("composes extra parameters alongside the genre on a compilation bucket", () => {
     expect(
       artistCardHref(
         { id: 1087, code_letters: "V/A" },
-        { genreId: 11, params: { created: "1" } },
+        { genreId: 15, params: { created: "1" } },
       ),
-    ).toBe("/dashboard/library/various/1087?created=1");
+    ).toBe("/dashboard/library/various/1087?genre_id=15&created=1");
   });
 
   // A volume letter can carry a space or a slash. The rotation import used to

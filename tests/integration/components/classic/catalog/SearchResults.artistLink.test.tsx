@@ -120,18 +120,17 @@ describe("Classic SearchResults artist link — authority decides the card", () 
   });
 
   /**
-   * The bucket card is keyed on the compilation artist alone — a bucket spans
-   * genres by construction, so scoping it to one would hide releases that
-   * belong on it.
+   * The catch-all 'Various Artists' row is filed under many genres, each its
+   * own shelf section, so the bucket card is scoped like any other.
    */
-  it("leaves the compilation bucket unscoped even when the row carries a genre", () => {
+  it("scopes the compilation bucket to the row's genre", () => {
     renderRow(
-      { id: 19517, name: "Various Artists", lettercode: "V/A", numbercode: 3, genre_id: 11 },
+      { id: 19517, name: "Various Artists", lettercode: "V/A", numbercode: 3, genre_id: 15 },
       { canModify: true },
     );
 
     expect(screen.getByRole("link", { name: /various artists/i }).getAttribute("href")).toBe(
-      "/dashboard/library/various/19517",
+      "/dashboard/library/various/19517?genre_id=15",
     );
   });
 

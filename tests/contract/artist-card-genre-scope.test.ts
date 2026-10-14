@@ -30,8 +30,6 @@ const MAY_SPELL_THE_PATH: Record<string, string> = {
     "the read-only /view sub-route for non-modifying DJs; it appends the genre itself, mirroring the builder",
   "src/components/experiences/classic/catalog/ArtistSearchForm.tsx":
     "the /new create-form route, which is not the card",
-  "src/components/experiences/classic/catalog/VariousArtistsCard.tsx":
-    "bounces a V/A row that reached the ordinary card to the bucket card; a bucket takes no genre — it is a shelf SECTION spanning every genre it holds records in",
   "src/components/experiences/classic/library/ArtistCrossReferences.tsx":
     "the cross-REFERENCING artist column: the row carries two artist ids and a call number for the target only, and the JSP rendered this column as a bare name — there is no genre to name without inventing a filing the record does not claim",
   "src/components/experiences/classic/library/ReleaseCrossReferences.tsx":

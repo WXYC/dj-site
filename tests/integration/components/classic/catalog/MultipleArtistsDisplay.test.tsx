@@ -185,9 +185,9 @@ describe("classic MultipleArtistsDisplay — multipleArtistsDisplay.jsp", () => 
     );
 
     const link = screen.getByRole("link", { name: "Various Artists - Rock - A" });
-    expect(link).toHaveAttribute("href", "/dashboard/library/various/1");
+    expect(link).toHaveAttribute("href", "/dashboard/library/various/1?genre_id=11");
     const other = screen.getByRole("link", { name: "Various Artists - Rock - B" });
-    expect(other).toHaveAttribute("href", "/dashboard/library/various/2");
+    expect(other).toHaveAttribute("href", "/dashboard/library/various/2?genre_id=11");
   });
 
   it("links an ordinary artist sharing a code to the artist card instead", () => {

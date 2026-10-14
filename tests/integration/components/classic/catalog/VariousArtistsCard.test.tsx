@@ -708,6 +708,22 @@ describe("classic VariousArtistsCard — variousArtistsCardModify.jsp", () => {
     expect(screen.queryByTestId("va-add-release-form")).toBeNull();
   });
 
+  it("keeps the genre when sending an ordinary artist on to the artist card", async () => {
+    mockCard(BUCKET_ID, {
+      ...bucket,
+      artist_name: "Juana Molina",
+      alphabetical_name: "Molina, Juana",
+      code_letters: "MO",
+      code_artist_number: 12,
+    });
+
+    renderWithProviders(<VariousArtistsCard artistId={BUCKET_ID} genreId={GENRE_ID} />);
+
+    await waitFor(() =>
+      expect(replace).toHaveBeenCalledWith(`/dashboard/library/artist/${BUCKET_ID}?genre_id=${GENRE_ID}`),
+    );
+  });
+
   it("says the section could not be loaded when the card request fails", async () => {
     mockCard(BUCKET_ID, { message: "boom" }, 500);
     renderWithProviders(<VariousArtistsCard artistId={BUCKET_ID} />);
@@ -836,6 +852,90 @@ describe("classic VariousArtistsCard — variousArtistsCardModify.jsp", () => {
         "The artist/library code below has been added to the database.",
       ),
     ).toBeDefined();
+  });
+});
+
+describe("classic VariousArtistsCard — genre scope", () => {
+  // Artist 1087 ('Various Artists') is filed under 14 genres, and each
+  // membership is its own shelf section. Unscoped, the server answers the
+  // card with the lowest membership (Africa) and the releases with every
+  // genre's comps.
+  const CATCH_ALL_ID = 1087;
+  const AFRICA_GENRE_ID = 1;
+  const ELECTRONIC_GENRE_ID = 15;
+
+  function mockCatchAll() {
+    const cardGenreIds: (string | null)[] = [];
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/library/artists/${CATCH_ALL_ID}`, ({ request }) => {
+        const requested = new URL(request.url).searchParams.get("genre_id");
+        cardGenreIds.push(requested);
+        return HttpResponse.json({
+          ...bucket,
+          artist_id: CATCH_ALL_ID,
+          artist_name: "Various Artists",
+          alphabetical_name: "Various Artists",
+          genre_id: requested === null ? AFRICA_GENRE_ID : Number(requested),
+        });
+      }),
+      http.get(`${TEST_BACKEND_URL}/library/genres`, () =>
+        HttpResponse.json([
+          { id: AFRICA_GENRE_ID, genre_name: "Africa" },
+          { id: ELECTRONIC_GENRE_ID, genre_name: "Electronic" },
+        ]),
+      ),
+    );
+    const releaseRequests = serveArtistReleasePages(CATCH_ALL_ID, [
+      release({ genre_id: ELECTRONIC_GENRE_ID, album_title: "Edits" }),
+    ]);
+    mockFormats();
+    return { cardGenreIds, releaseRequests };
+  }
+
+  it("reads the card and the releases in the genre it was given", async () => {
+    const { cardGenreIds, releaseRequests } = mockCatchAll();
+
+    renderWithProviders(<VariousArtistsCard artistId={CATCH_ALL_ID} genreId={ELECTRONIC_GENRE_ID} />);
+
+    await screen.findByTestId("va-release-table");
+    expect(cardGenreIds).toEqual([String(ELECTRONIC_GENRE_ID)]);
+    expect(releaseRequests.map((p) => p.get("genre_id"))).toEqual([String(ELECTRONIC_GENRE_ID)]);
+  });
+
+  it("files an added release under the section's genre, not the lowest membership", async () => {
+    mockCatchAll();
+    const user = userEvent.setup();
+    let posted: Record<string, unknown> | undefined;
+    server.use(
+      http.post(`${TEST_BACKEND_URL}/library`, async ({ request }) => {
+        posted = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json({ id: 1, code_number: 140, code_volume_letters: null });
+      }),
+    );
+
+    renderWithProviders(<VariousArtistsCard artistId={CATCH_ALL_ID} genreId={ELECTRONIC_GENRE_ID} />);
+    const form = await screen.findByTestId("va-add-release-form");
+    expect(within(form).getByText(/Electronic/)).toBeDefined();
+
+    await user.type(within(form).getByLabelText(/title of release/i), "Edits");
+    await user.type(within(form).getByLabelText(/^label:/i), "self-released");
+    await user.selectOptions(within(form).getByLabelText(/format/i), "1");
+    await user.click(within(form).getByRole("button", { name: /add a new library release/i }));
+
+    await waitFor(() => expect(posted).toBeDefined());
+    expect(posted).toMatchObject({ artist_id: CATCH_ALL_ID, genre_id: ELECTRONIC_GENRE_ID });
+  });
+
+  // A link that names no genre still lands on a card: the server's
+  // lowest-membership answer, as before.
+  it("sends no genre when it was given none", async () => {
+    const { cardGenreIds, releaseRequests } = mockCatchAll();
+
+    renderWithProviders(<VariousArtistsCard artistId={CATCH_ALL_ID} />);
+
+    await screen.findByTestId("va-release-table");
+    expect(cardGenreIds).toEqual([null]);
+    expect(releaseRequests.map((p) => p.get("genre_id"))).toEqual([null]);
   });
 });
 

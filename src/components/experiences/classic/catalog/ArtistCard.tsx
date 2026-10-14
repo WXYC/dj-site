@@ -24,7 +24,7 @@ import {
   resolveReleaseCodeFields,
 } from "@/lib/features/catalog/adminCreateArtistValidation";
 import { isGenresUnavailable } from "@/lib/features/catalog/genreAvailability";
-import { artistDeleteHref, artistRefileHref } from "@/lib/features/catalog/artistCardRoute";
+import { artistCardHref, artistDeleteHref, artistRefileHref } from "@/lib/features/catalog/artistCardRoute";
 import { artistDeleteIsOffered } from "@/lib/features/catalog/artistDeleteOutcome";
 import { validateNewArtistNames } from "@/lib/features/catalog/chooserValidation";
 import {
@@ -244,10 +244,17 @@ export default function ArtistCard({ artistId, genreId, message, imported, refil
   // itself. A shelf row reaching this URL -- a hand-typed id, a stale
   // bookmark -- would otherwise be offered a name edit for what is a shelf
   // section, and shown none of its per-track credits.
-  const isShelfRow = !!artist && isVariousArtists(artist.code_letters);
+  // The genre goes along: a bucket's memberships are separate shelf sections.
+  const shelfRowHref =
+    artist && isVariousArtists(artist.code_letters)
+      ? artistCardHref({ id: artistId, code_letters: artist.code_letters }, { genreId: genreId ?? null })
+      : null;
+  const isShelfRow = shelfRowHref !== null;
   useEffect(() => {
-    if (isShelfRow) router.replace(`/dashboard/library/various/${artistId}`);
-  }, [isShelfRow, router, artistId]);
+    if (shelfRowHref !== null) {
+      router.replace(shelfRowHref);
+    }
+  }, [shelfRowHref, router]);
 
   const genreName = genres?.find((genre) => genre.id === artist?.genre_id)?.genre_name;
 
