@@ -252,6 +252,7 @@ describe("selectRotationAdminView", () => {
     });
     const WITH_KILLED = [...ALL, KILLED_OLD_ADD, KILLED_NEW_ADD];
     const ids = (rows: RotationListRow[]) => rows.map((r) => r.rotation_id);
+    const EVEN_WINDOWS = { H: 60, M: 60, L: 60, S: 60 };
 
     it("an absent sort and an explicit newest sort both keep most recently added first", () => {
       expect(ids(selectRotationAdminView(ALL, none).active)).toEqual([5001, 5002, 5004, 5003]);
@@ -293,20 +294,61 @@ describe("selectRotationAdminView", () => {
     it.each([
       ["newest", [5007, 5006, 5005]],
       ["oldest", [5007, 5006, 5005]],
+      ["overdue", [5007, 5006, 5005]],
     ] as const)("keeps the Killed cohort in most-recently-added order under %s", (sort, expected) => {
-      const view = selectRotationAdminView(WITH_KILLED, { ...none, sort });
+      const view = selectRotationAdminView(WITH_KILLED, { ...none, sort }, EVEN_WINDOWS);
       expect(ids(view.killed)).toEqual(expected);
     });
 
-    it("is not a filter: the narrowed flag and every count are the same under either sort", () => {
+    it("is not a filter: the narrowed flag and every count are the same under every sort", () => {
       const newest = selectRotationAdminView(WITH_KILLED, { ...none, sort: "newest" });
-      const oldest = selectRotationAdminView(WITH_KILLED, { ...none, sort: "oldest" });
-      expect(oldest.narrowed).toBe(false);
-      expect(oldest.narrowed).toBe(newest.narrowed);
-      expect(oldest.activeTotal).toBe(newest.activeTotal);
-      expect(oldest.killedTotal).toBe(newest.killedTotal);
-      expect(oldest.searchedActiveCount).toBe(newest.searchedActiveCount);
-      expect(oldest.binCounts).toEqual(newest.binCounts);
+      for (const sort of ["oldest", "overdue"] as const) {
+        const view = selectRotationAdminView(WITH_KILLED, { ...none, sort }, EVEN_WINDOWS);
+        expect(view.narrowed).toBe(false);
+        expect(view.narrowed).toBe(newest.narrowed);
+        expect(view.activeTotal).toBe(newest.activeTotal);
+        expect(view.killedTotal).toBe(newest.killedTotal);
+        expect(view.searchedActiveCount).toBe(newest.searchedActiveCount);
+        expect(view.binCounts).toEqual(newest.binCounts);
+      }
+    });
+
+    describe("most overdue", () => {
+      const heavyAdded = (rotation_id: number, rotation_add_date: string) =>
+        createTestRotationListRow({ rotation_id, id: 9100 + rotation_id, rotation_bin: RotationBin.H, rotation_add_date });
+      const mediumAdded = (rotation_id: number, rotation_add_date: string) =>
+        createTestRotationListRow({ rotation_id, id: 9100 + rotation_id, rotation_bin: RotationBin.M, rotation_add_date });
+
+      // Evaluated on 2026-09-10: the Medium row has dwelt 50 days, the Heavy
+      // row 40, but Heavy's window is 30, so the Heavy row is the one past it.
+      const MEDIUM_OLDER = mediumAdded(5101, "2026-07-22");
+      const HEAVY_OVERDUE = heavyAdded(5102, "2026-08-01");
+      const WINDOWS = { H: 30, M: 60, L: 60, S: 60 };
+
+      it("puts a 40-day Heavy row above a 50-day Medium row, where oldest-first puts it below", () => {
+        const rows = [MEDIUM_OLDER, HEAVY_OVERDUE];
+        expect(ids(selectRotationAdminView(rows, { ...none, sort: "overdue" }, WINDOWS).active)).toEqual([5102, 5101]);
+        expect(ids(selectRotationAdminView(rows, { ...none, sort: "oldest" }, WINDOWS).active)).toEqual([5101, 5102]);
+      });
+
+      it("orders by the day each window ends, so a longer window can outrun an older add", () => {
+        // Heavy ends 2026-09-30 (08-01 + 60); Medium ends 2026-09-30 (08-11 + 50)
+        // and the later-ending Light row sorts last.
+        const rows = [
+          heavyAdded(5103, "2026-08-01"),
+          mediumAdded(5104, "2026-08-11"),
+          createTestRotationListRow({ rotation_id: 5105, id: 9205, rotation_bin: RotationBin.L, rotation_add_date: "2026-08-02" }),
+        ];
+        const view = selectRotationAdminView(rows, { ...none, sort: "overdue" }, { H: 60, M: 50, L: 60, S: 60 });
+        // Heavy and Medium tie on the end day; the older add comes first.
+        expect(ids(view.active)).toEqual([5103, 5104, 5105]);
+      });
+
+      it("orders as oldest-first when no windows are known", () => {
+        const rows = [HEAVY_OVERDUE, MEDIUM_OLDER];
+        expect(ids(selectRotationAdminView(rows, { ...none, sort: "overdue" }, null).active)).toEqual([5101, 5102]);
+        expect(ids(selectRotationAdminView(rows, { ...none, sort: "overdue" }).active)).toEqual([5101, 5102]);
+      });
     });
 
     it("composes with a bin filter, still ordering only the rows the filter shows", () => {

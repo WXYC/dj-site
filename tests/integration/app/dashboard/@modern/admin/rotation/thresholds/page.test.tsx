@@ -46,6 +46,12 @@ vi.mock("@/src/components/experiences/modern/Header/PageHeader", () => ({
   default: ({ title }: { title: string }) => <div data-testid="page-header">{title}</div>,
 }));
 
+// The form has its own integration spec; here it only marks that the gate let
+// the page through to it.
+vi.mock("@/src/components/experiences/modern/admin/rotation/RotationThresholdsForm", () => ({
+  default: () => <div data-testid="thresholds-form" />,
+}));
+
 import RotationThresholdsPage from "@/app/dashboard/@modern/admin/rotation/thresholds/page";
 
 function sessionData(role: string | null) {
@@ -89,7 +95,7 @@ describe("rotation thresholds page", () => {
     process.env = originalEnv;
   });
 
-  it("reaches the placeholder body for a music director", async () => {
+  it("reaches the thresholds form for a music director", async () => {
     mockGetSession.mockResolvedValue({ data: sessionData(null), error: null });
     mockGetUserRoleInOrganization.mockResolvedValue("musicDirector");
 
@@ -98,12 +104,30 @@ describe("rotation thresholds page", () => {
 
     expect(mockRedirect).not.toHaveBeenCalled();
     expect(mockNotFound).not.toHaveBeenCalled();
-    expect(getByTestId("page-header")).toBeInTheDocument();
+    expect(getByTestId("thresholds-form")).toBeInTheDocument();
+  });
+
+  it("still reaches the page for a station manager", async () => {
+    mockGetSession.mockResolvedValue({ data: sessionData(null), error: null });
+    mockGetUserRoleInOrganization.mockResolvedValue("stationManager");
+
+    const result = await RotationThresholdsPage();
+    renderWithProviders(result);
+
+    expect(mockRedirect).not.toHaveBeenCalled();
   });
 
   it("redirects a DJ away", async () => {
     mockGetSession.mockResolvedValue({ data: sessionData(null), error: null });
     mockGetUserRoleInOrganization.mockResolvedValue("dj");
+
+    await expect(RotationThresholdsPage()).rejects.toThrow("NEXT_REDIRECT:/dashboard");
+    expect(mockRedirect).toHaveBeenCalledWith("/dashboard");
+  });
+
+  it("never grants access from the admin-plugin role column, even when it holds a WXYC tier string", async () => {
+    mockGetSession.mockResolvedValue({ data: sessionData("musicDirector"), error: null });
+    mockGetUserRoleInOrganization.mockResolvedValue(undefined);
 
     await expect(RotationThresholdsPage()).rejects.toThrow("NEXT_REDIRECT:/dashboard");
     expect(mockRedirect).toHaveBeenCalledWith("/dashboard");

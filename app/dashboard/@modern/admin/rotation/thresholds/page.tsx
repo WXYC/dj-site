@@ -2,6 +2,7 @@ import { requireAuth, requireRole } from "@/lib/features/authentication/server-u
 import { isRotationAdminEnabled } from "@/lib/features/rotation/flags";
 import { Authorization } from "@/lib/features/admin/types";
 import PageHeader from "@/src/components/experiences/modern/Header/PageHeader";
+import RotationThresholdsForm from "@/src/components/experiences/modern/admin/rotation/RotationThresholdsForm";
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getPageTitle } from "@/lib/utils/page-title";
@@ -21,7 +22,7 @@ export default async function RotationThresholdsPage() {
   return (
     <>
       <PageHeader title="Rotation Thresholds" />
-      <p>Threshold editing is not yet available here.</p>
+      <RotationThresholdsForm />
     </>
   );
 }

@@ -1,6 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { daysInBin, daysPastWindow, isPastWindow, ROTATION_WINDOW_DAYS } from "@/lib/features/rotation/age";
-import { RotationBin } from "@/lib/features/rotation/types";
+import { daysInBin, daysPastWindow, isPastWindow } from "@/lib/features/rotation/age";
 import { createTestRotationListRow } from "@/tests/fixtures/fixtures";
 import { stubProcessTimeZone } from "@/tests/helpers/time.vitest";
 
@@ -8,17 +7,6 @@ import { stubProcessTimeZone } from "@/tests/helpers/time.vitest";
 // the shared factory's default would let a `daysInBin` reading the wrong
 // column pass against a row that happens to share the two.
 const OTHER_ADD_DATE = "2020-01-01 00:00:00+00";
-
-describe("ROTATION_WINDOW_DAYS", () => {
-  it("is 60 days for every bin", () => {
-    expect(ROTATION_WINDOW_DAYS).toEqual({
-      [RotationBin.H]: 60,
-      [RotationBin.M]: 60,
-      [RotationBin.L]: 60,
-      [RotationBin.S]: 60,
-    });
-  });
-});
 
 describe("daysInBin / daysPastWindow / isPastWindow", () => {
   it.each([

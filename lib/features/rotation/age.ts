@@ -1,21 +1,10 @@
 import { utcDateISO } from "@/src/utilities/stationTime";
-import { RotationBin, type RotationListRow } from "./types";
+import type { RotationListRow } from "./types";
 
 const MS_PER_DAY = 86_400_000;
 
-/**
- * Every bin shares one 60-day replacement window until the windows are
- * configurable per bin.
- */
-export const ROTATION_WINDOW_DAYS: Record<RotationBin, number> = {
-  [RotationBin.H]: 60,
-  [RotationBin.M]: 60,
-  [RotationBin.L]: 60,
-  [RotationBin.S]: 60,
-};
-
 /** Parses a bare `YYYY-MM-DD` string as a UTC calendar day, never through local midnight. */
-function isoDateToUTCDays(iso: string): number {
+export function isoDateToUTCDays(iso: string): number {
   const [year, month, day] = iso.split("-").map(Number);
   return Date.UTC(year, month - 1, day) / MS_PER_DAY;
 }

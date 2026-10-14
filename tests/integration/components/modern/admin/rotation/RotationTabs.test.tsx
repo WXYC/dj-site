@@ -12,7 +12,7 @@ describe("RotationTabs", () => {
     vi.clearAllMocks();
   });
 
-  it("renders a link for each of the three rotation routes", async () => {
+  it("renders a link for each of the rotation routes", async () => {
     renderWithProviders(<RotationTabs />);
 
     expect(screen.getByRole("link", { name: "Add to rotation" })).toHaveAttribute(
@@ -26,6 +26,10 @@ describe("RotationTabs", () => {
     expect(screen.getByRole("link", { name: "Cards" })).toHaveAttribute(
       "href",
       "/dashboard/admin/rotation/cards"
+    );
+    expect(screen.getByRole("link", { name: "Thresholds" })).toHaveAttribute(
+      "href",
+      "/dashboard/admin/rotation/thresholds"
     );
   });
 
@@ -65,5 +69,18 @@ describe("RotationTabs", () => {
       "aria-current",
       "page"
     );
+  });
+
+  it("marks the thresholds tab current when on the thresholds route", async () => {
+    const { usePathname } = await import("next/navigation");
+    vi.mocked(usePathname).mockReturnValue("/dashboard/admin/rotation/thresholds");
+
+    renderWithProviders(<RotationTabs />);
+
+    expect(screen.getByRole("link", { name: "Thresholds" })).toHaveAttribute(
+      "aria-current",
+      "page"
+    );
+    expect(screen.getByRole("link", { name: "Cards" })).not.toHaveAttribute("aria-current");
   });
 });

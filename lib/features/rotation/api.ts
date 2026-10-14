@@ -22,7 +22,9 @@ import type {
   RotationListRow,
   RotationListStatusFilter,
   RotationRowSummary,
+  RotationThresholds,
   UpdateRotationArgs,
+  UpdateRotationThresholdsRequest,
 } from "./types";
 import { DEFAULT_ROTATION_STATUS_FILTER } from "./types";
 import { isRotationRowActive } from "./classicList";
@@ -43,11 +45,12 @@ const ROTATION_LIST_TAG = { type: "Rotation", id: "LIST" } as const;
 // links invalidate the bare type, which matches this id like any other.
 const ROTATION_STATUS_ALL_TAG = { type: "Rotation", id: "STATUS_ALL" } as const;
 const ROTATION_CARDS_LIST_TAG = { type: "RotationCards", id: "LIST" } as const;
+const ROTATION_THRESHOLDS_TAG = { type: "RotationThresholds", id: "RECORD" } as const;
 
 export const rotationApi = createApi({
   reducerPath: "rotationApi",
   baseQuery: backendBaseQuery("library/rotation"),
-  tagTypes: ["Rotation", "RotationCards"],
+  tagTypes: ["Rotation", "RotationCards", "RotationThresholds"],
   endpoints: (builder) => ({
     // Opts out of the shared soft-JSON-failure handling
     // (`surfaceNonJsonAsError`), for the same reason as `getRotationList` and
@@ -213,6 +216,22 @@ export const rotationApi = createApi({
       query: (id) => ({ url: `/cards/${id}`, method: "DELETE" }),
       transformErrorResponse: wrapRotationWriteError,
       invalidatesTags: [ROTATION_CARDS_LIST_TAG],
+    }),
+    // The MD-owned replacement windows (`GET`/`PATCH /library/rotation/thresholds`).
+    // Opts out of the shared soft-JSON-failure handling: both readers act on
+    // the record's presence -- the list marks rows overdue against it and the
+    // form seeds a write from it -- so an unparseable body read as a
+    // successful empty answer would leave the form on its progress bar with
+    // no Retry. The PATCH sends only the bins an edit changed and answers
+    // with the whole record.
+    getRotationThresholds: builder.query<RotationThresholds, void>({
+      query: () => ({ url: "/thresholds" }),
+      extraOptions: { surfaceNonJsonAsError: true },
+      providesTags: [ROTATION_THRESHOLDS_TAG],
+    }),
+    updateRotationThresholds: builder.mutation<RotationThresholds, UpdateRotationThresholdsRequest>({
+      query: (body) => ({ url: "/thresholds", method: "PATCH", body }),
+      invalidatesTags: [ROTATION_THRESHOLDS_TAG],
     }),
     getRotationTracks: builder.query<RotationTrack[], number>({
       query: (rotationId) => ({
@@ -536,6 +555,8 @@ export const {
   useAddRotationCardMutation,
   useUpdateRotationCardMutation,
   useDeleteRotationCardMutation,
+  useGetRotationThresholdsQuery,
+  useUpdateRotationThresholdsMutation,
   useGetRotationTracksQuery,
   useGetRotationListQuery,
   useGetUncataloguedRotationQuery,

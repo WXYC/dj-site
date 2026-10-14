@@ -38,6 +38,7 @@ vi.mock("sonner", () => ({
 
 import RotationAdminList from "@/src/components/experiences/modern/admin/rotation/RotationAdminList";
 import { catalogSlice } from "@/lib/features/catalog/frontend";
+import { rotationApi } from "@/lib/features/rotation/api";
 import type { RotationListRow } from "@/lib/features/rotation/types";
 
 const CARDS: FakeRotationCard[] = [
@@ -119,17 +120,32 @@ const killedSection = () => within(screen.getByTestId("rotation-admin-killed"));
 // accident.
 const DEFAULT_NOW = new Date("2026-09-13T12:00:00Z");
 
+// Waits for the thresholds read to settle as well as the list: they are two
+// requests, and an assertion on a chip or the count line made while the
+// windows are still pending would race the second one.
+async function renderListFor(fake: ReturnType<typeof fakeRotationAdminEndpoints>, now: Date) {
+  const rendered = renderWithProviders(<RotationAdminList now={now} />);
+  await screen.findByTestId("rotation-admin-active");
+  await waitFor(() => {
+    const { status } = rotationApi.endpoints.getRotationThresholds.select()(rendered.store.getState());
+    expect(["fulfilled", "rejected"]).toContain(status);
+  });
+  return { fake, ...rendered };
+}
+
 async function renderList(
   rows: FakeRotationAdminRow[] = ALL_ROWS,
   cards = CARDS,
   options?: Parameters<typeof fakeRotationAdminEndpoints>[2],
   now: Date = DEFAULT_NOW,
 ) {
-  const fake = fakeRotationAdminEndpoints(rows, cards, options);
-  const rendered = renderWithProviders(<RotationAdminList now={now} />);
-  await screen.findByTestId("rotation-admin-active");
-  return { fake, ...rendered };
+  return renderListFor(fakeRotationAdminEndpoints(rows, cards, options), now);
 }
+
+const activeOrder = () =>
+  Array.from(
+    screen.getByTestId("rotation-admin-active").querySelectorAll('[data-testid^="rotation-admin-row-"]'),
+  ).map((node) => node.getAttribute("data-testid"));
 
 describe("RotationAdminList", () => {
   beforeEach(() => {
@@ -917,6 +933,130 @@ describe("RotationAdminList", () => {
     });
   });
 
+  describe("rotation windows", () => {
+    const AGE_NOW = new Date("2026-09-13T12:00:00Z");
+    // 40 days in Heavy and 50 in Medium at AGE_NOW: past a 30-day Heavy
+    // window, inside a 60-day Medium one.
+    const HEAVY_40 = listRow({
+      rotation_id: 6101,
+      id: 9101,
+      artist_name: "Cat Power",
+      album_title: "Sun",
+      rotation_bin: "H",
+      rotation_add_date: "2026-08-04",
+    });
+    const MEDIUM_50 = listRow({
+      rotation_id: 6102,
+      id: 9102,
+      artist_name: "Jessica Pratt",
+      album_title: "On Your Own Love Again",
+      rotation_bin: "M",
+      rotation_add_date: "2026-07-25",
+    });
+
+    const chooseSort = async (
+      user: Awaited<ReturnType<typeof renderList>>["user"],
+      name: string,
+    ) => {
+      await user.click(screen.getByRole("combobox", { name: "Sort rotation" }));
+      await user.click(await screen.findByRole("option", { name }));
+    };
+
+    it("marks a row against its own bin's window from the thresholds read", async () => {
+      await renderList([HEAVY_40, MEDIUM_50], CARDS, { windowDays: { H: 30 } }, AGE_NOW);
+
+      expect(within(screen.getByTestId("rotation-admin-row-6101")).getByText("10 over")).toBeInTheDocument();
+      expect(
+        within(screen.getByTestId("rotation-admin-row-6102")).queryByText(/over$/),
+      ).not.toBeInTheDocument();
+      expect(screen.getByText("1 record past its bin's window")).toBeInTheDocument();
+    });
+
+    it("follows a window changed and saved elsewhere, through the tag invalidation", async () => {
+      const { store } = await renderList([HEAVY_40, MEDIUM_50], CARDS, undefined, AGE_NOW);
+      expect(screen.queryByText(/past (its|their) bin's window/)).not.toBeInTheDocument();
+
+      await act(async () => {
+        await store.dispatch(
+          rotationApi.endpoints.updateRotationThresholds.initiate({ window_days: { H: 30 } }),
+        );
+      });
+
+      expect(await screen.findByText("1 record past its bin's window")).toBeInTheDocument();
+    });
+
+    it("renders ages with no chips and no count line when the read fails, and keeps the list", async () => {
+      const fake = fakeRotationAdminEndpoints([HEAVY_40, MEDIUM_50], CARDS, { windowDays: { H: 30 } });
+      fake.failThresholdsReads();
+      await renderListFor(fake, AGE_NOW);
+
+      const row = within(screen.getByTestId("rotation-admin-row-6101"));
+      expect(row.getByText("added 08/04/26 · 40 days in Heavy")).toBeInTheDocument();
+      expect(row.queryByText(/over$/)).not.toBeInTheDocument();
+      expect(screen.queryByTestId("rotation-admin-overdue-count")).not.toBeInTheDocument();
+      expect(screen.queryByText("Could not load the rotation list.")).not.toBeInTheDocument();
+    });
+
+    it("renders a pending read like a failed one, then marks once it lands", async () => {
+      const fake = fakeRotationAdminEndpoints([HEAVY_40, MEDIUM_50], CARDS, { windowDays: { H: 30 } });
+      fake.holdThresholdsReads();
+      renderWithProviders(<RotationAdminList now={AGE_NOW} />);
+      await screen.findByTestId("rotation-admin-active");
+
+      const row = within(screen.getByTestId("rotation-admin-row-6101"));
+      expect(row.getByText("added 08/04/26 · 40 days in Heavy")).toBeInTheDocument();
+      expect(row.queryByText(/over$/)).not.toBeInTheDocument();
+      expect(screen.queryByTestId("rotation-admin-overdue-count")).not.toBeInTheDocument();
+
+      await act(async () => {
+        await fake.releaseThresholdsReads();
+      });
+
+      expect(await row.findByText("10 over")).toBeInTheDocument();
+    });
+
+    it("offers Most overdue and orders by the day each window ends", async () => {
+      const { user } = await renderList([MEDIUM_50, HEAVY_40], CARDS, { windowDays: { H: 30 } }, AGE_NOW);
+
+      await chooseSort(user, "Oldest first");
+      await waitFor(() => expect(activeOrder()).toEqual(["rotation-admin-row-6102", "rotation-admin-row-6101"]));
+
+      await chooseSort(user, "Most overdue");
+      await waitFor(() => expect(activeOrder()).toEqual(["rotation-admin-row-6101", "rotation-admin-row-6102"]));
+      expect(screen.getByRole("combobox", { name: "Sort rotation" })).toHaveTextContent("Most overdue");
+    });
+
+    it("withholds Most overdue while the windows are unknown", async () => {
+      const fake = fakeRotationAdminEndpoints([HEAVY_40, MEDIUM_50], CARDS);
+      fake.failThresholdsReads();
+      const { user } = await renderListFor(fake, AGE_NOW);
+
+      await user.click(screen.getByRole("combobox", { name: "Sort rotation" }));
+
+      expect(await screen.findByRole("option", { name: "Oldest first" })).toBeInTheDocument();
+      expect(screen.queryByRole("option", { name: "Most overdue" })).not.toBeInTheDocument();
+    });
+
+    it("falls back to oldest-first when the read fails under a selected Most overdue", async () => {
+      const { user, fake, store } = await renderList(
+        [MEDIUM_50, HEAVY_40],
+        CARDS,
+        { windowDays: { H: 30 } },
+        AGE_NOW,
+      );
+      await chooseSort(user, "Most overdue");
+      await waitFor(() => expect(activeOrder()).toEqual(["rotation-admin-row-6101", "rotation-admin-row-6102"]));
+
+      fake.failThresholdsReads();
+      await act(async () => {
+        store.dispatch(rotationApi.util.invalidateTags(["RotationThresholds"]));
+      });
+
+      await waitFor(() => expect(activeOrder()).toEqual(["rotation-admin-row-6102", "rotation-admin-row-6101"]));
+      expect(screen.getByRole("combobox", { name: "Sort rotation" })).toHaveTextContent("Oldest first");
+    });
+  });
+
   describe("default clock", () => {
     // Only `Date` is faked -- MSW and userEvent's own `setTimeout` delays
     // keep running on the real clock, which this userEvent-heavy spec needs.
@@ -1022,6 +1162,9 @@ describe("RotationAdminList", () => {
         HttpResponse.json({ error: "boom" }, { status: 500 }),
       ),
       http.get(`${TEST_BACKEND_URL}/library/rotation/cards`, () => HttpResponse.json([])),
+      http.get(`${TEST_BACKEND_URL}/library/rotation/thresholds`, () =>
+        HttpResponse.json({ window_days: { H: 60, M: 60, L: 60, S: 60 }, card_stale_days: 30 }),
+      ),
     );
     renderWithProviders(<RotationAdminList />);
 
