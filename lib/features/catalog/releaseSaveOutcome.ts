@@ -13,13 +13,13 @@ const FALLBACK_MESSAGES = {
 /**
  * What the interpreter needs to word a refusal for the screen that sent the
  * `PATCH /library/:id`: the destination genre's name (omit while it cannot be
- * resolved), the call number the release would land at, and the artist as the
- * screen names it.
+ * resolved), the call number the Backend checked (omit when the screen cannot
+ * know it), and the artist the save files the release under.
  */
 export type ReleaseSaveContext = {
   screen: keyof typeof FALLBACK_MESSAGES;
   genreName?: string;
-  callNumber: string;
+  callNumber?: string;
   artistName: string;
   variousArtists: boolean;
 };
@@ -43,12 +43,14 @@ function refusalReason(status: unknown, data: unknown): RefusalReason | undefine
 }
 
 /**
- * True for the two `updateAlbum` refusals this module words for every screen
- * that sends the write, which `updateAlbum` marks expected so the shared
- * error middleware neither toasts the raw server text nor reports a normal
- * librarian outcome as a fault.
+ * True for the two `updateAlbum` refusals this module words. `updateAlbum`
+ * marks them expected only for a save whose screen opted in to wording them,
+ * so the shared error middleware neither toasts the raw server text nor
+ * reports a normal librarian outcome as a fault.
  */
-export function isExpectedReleaseSaveRefusal(response: { status?: unknown; data?: unknown }): boolean {
+export function isExpectedReleaseSaveRefusal<T extends { status?: unknown; data?: unknown }>(
+  response: T,
+): response is T & { status: number } {
   return refusalReason(response.status, response.data) !== undefined;
 }
 
@@ -66,11 +68,12 @@ export function interpretReleaseSaveError(err: unknown, context: ReleaseSaveCont
   const reason = refusalReason(answer.status, answer.data);
 
   if (reason === "slot_taken") {
+    const slot = callNumber === undefined ? "that number" : `number ${callNumber}`;
     // The modern editor has no call number field to send the librarian to.
     const message =
       screen === "modern"
-        ? `${genreName} already has a release at number ${callNumber}, so this release can't be moved there.`
-        : `${genreName} already has a release at number ${callNumber}.${SLOT_TAKEN_FIX[screen]}`;
+        ? `${genreName} already has a release at ${slot}, so this release can't be moved there.`
+        : `${genreName} already has a release at ${slot}.${SLOT_TAKEN_FIX[screen]}`;
     return { reason, message };
   }
   if (reason === "artist_not_in_genre") {

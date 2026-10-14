@@ -33,10 +33,10 @@ function answerPatch(status: number, body: { message: string; code?: string }) {
   server.use(http.patch(`${TEST_BACKEND_URL}/library/4242`, () => HttpResponse.json(body, { status })));
 }
 
-async function saveGenre() {
+async function saveGenre({ wordsGenreRefusals }: { wordsGenreRefusals?: boolean } = { wordsGenreRefusals: true }) {
   const store = createTestStore();
   const result = await store.dispatch(
-    catalogApi.endpoints.updateAlbum.initiate({ albumId: 4242, body: { genre_id: 4 } }),
+    catalogApi.endpoints.updateAlbum.initiate({ albumId: 4242, body: { genre_id: 4 }, wordsGenreRefusals }),
   );
   return "error" in result ? result.error : undefined;
 }
@@ -46,13 +46,13 @@ describe("updateAlbum refusals", () => {
     vi.clearAllMocks();
   });
 
-  // Every screen that can trigger these words them itself, so the shared
+  // A screen that words these for this save takes them over, so the shared
   // middleware must neither repeat the raw server text (which names internal
   // ids) nor report a normal librarian outcome as a fault.
   it.each([
     { label: "a taken call number", ...SLOT_TAKEN },
     { label: "an artist not filed in the genre", ...NOT_IN_GENRE },
-  ])("leaves $label to the screen", async ({ status, body }) => {
+  ])("leaves $label to a screen that words it", async ({ status, body }) => {
     answerPatch(status, body);
 
     const error = await saveGenre();
@@ -60,6 +60,18 @@ describe("updateAlbum refusals", () => {
     expect(error).toBeTruthy();
     expect(mockToastError).not.toHaveBeenCalled();
     expect(mockCaptureException).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { label: "a taken call number", ...SLOT_TAKEN },
+    { label: "an artist not filed in the genre", ...NOT_IN_GENRE },
+  ])("still toasts and reports $label for a save that does not word it", async ({ status, body }) => {
+    answerPatch(status, body);
+
+    await saveGenre({});
+
+    expect(mockToastError).toHaveBeenCalledWith(body.message);
+    expect(mockCaptureException).toHaveBeenCalledTimes(1);
   });
 
   it("still hands a refusal to the interpreter in the shape it reads", async () => {
@@ -82,7 +94,7 @@ describe("updateAlbum refusals", () => {
     { label: "a 409 with another code", status: 409, body: { message: "Conflict", code: "something_else" } },
     { label: "a 400 with another message", status: 400, body: { message: "album_title is required" } },
     { label: "a server error", status: 500, body: { message: "boom" } },
-  ])("still toasts and reports $label", async ({ status, body }) => {
+  ])("still toasts and reports $label, even for a save that words the refusals", async ({ status, body }) => {
     answerPatch(status, body);
 
     await saveGenre();

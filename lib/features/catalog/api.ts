@@ -271,7 +271,15 @@ export const catalogApi = createApi({
         }
       },
     }),
-    updateAlbum: builder.mutation<AlbumEntry, { albumId: number; body: UpdateAlbumRequestBody }>({
+    updateAlbum: builder.mutation<
+      AlbumEntry,
+      {
+        albumId: number;
+        body: UpdateAlbumRequestBody;
+        /** This save's screen words a taken call number and an artist not filed in the genre itself. */
+        wordsGenreRefusals?: boolean;
+      }
+    >({
       query: ({ albumId, body }) => ({
         url: `/${albumId}`,
         method: "PATCH",
@@ -285,9 +293,11 @@ export const catalogApi = createApi({
         if (!response) throw new Error("updateAlbum: response body was empty");
         return convertToAlbumEntry(response);
       },
-      // Every screen that can trigger these two refusals words them itself.
-      transformErrorResponse: (response: FetchBaseQueryError): FetchBaseQueryError =>
-        typeof response.status === "number" && isExpectedReleaseSaveRefusal(response)
+      // Only the saving screen knows whether it words these two refusals, so
+      // they are marked expected per request; any other save keeps the shared
+      // toast and report.
+      transformErrorResponse: (response: FetchBaseQueryError, _meta, { wordsGenreRefusals }): FetchBaseQueryError =>
+        wordsGenreRefusals && isExpectedReleaseSaveRefusal(response)
           ? ({ ...response, expected: true } as FetchBaseQueryError)
           : response,
       // An ordinary field edit needs no list refetch: `patchCatalogSearchCaches`

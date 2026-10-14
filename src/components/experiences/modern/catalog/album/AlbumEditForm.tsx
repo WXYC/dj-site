@@ -32,7 +32,10 @@ import {
   UpdateAlbumRequestBody,
 } from "@/lib/features/catalog/types";
 import { isVariousArtists } from "@/lib/features/catalog/libraryCode";
-import { interpretReleaseSaveError } from "@/lib/features/catalog/releaseSaveOutcome";
+import {
+  interpretReleaseSaveError,
+  RELEASE_MODERN_FALLBACK_MESSAGE,
+} from "@/lib/features/catalog/releaseSaveOutcome";
 import { isUnmessagedHttpError } from "@/lib/rtk-query-error-logger";
 import ArtistSearchTypeahead from "@/src/components/shared/inputs/ArtistSearchTypeahead";
 
@@ -64,6 +67,7 @@ type ArtistLink = {
   id: number;
   genreId: number | undefined;
   name: string;
+  codeLetters: string;
 };
 
 /**
@@ -86,10 +90,10 @@ function snapshotFromAlbum(album: AlbumEntry): SavedFields {
   };
 }
 
-function artistLinkFrom(saved: SavedFields, name: string): ArtistLink | null {
+function artistLinkFrom(saved: SavedFields, name: string, codeLetters: string): ArtistLink | null {
   return saved.artistId === undefined
     ? null
-    : { id: saved.artistId, genreId: saved.genreId, name };
+    : { id: saved.artistId, genreId: saved.genreId, name, codeLetters };
 }
 
 /**
@@ -146,7 +150,7 @@ function AlbumEditFormFields({ album }: AlbumEditFormProps) {
   // retracts selections it reported through `onSelect`, so it never speaks for
   // a link this form read straight off the album.
   const [artistLink, setArtistLink] = useState<ArtistLink | null>(() =>
-    artistLinkFrom(saved, album.artist.name),
+    artistLinkFrom(saved, album.artist.name, album.artist.lettercode),
   );
 
   // The genre the typeahead actually searches under: the Select has no "no
@@ -159,7 +163,12 @@ function AlbumEditFormFields({ album }: AlbumEditFormProps) {
   const resolvedGenreId = genreId ?? saved.genreId;
 
   const handleArtistSelect = (artist: ArtistInGenreOption) => {
-    setArtistLink({ id: artist.id, genreId: resolvedGenreId, name: artist.artist_name });
+    setArtistLink({
+      id: artist.id,
+      genreId: resolvedGenreId,
+      name: artist.artist_name,
+      codeLetters: artist.code_letters,
+    });
   };
 
   // The typeahead retracts on two different events: the text was edited away
@@ -289,20 +298,35 @@ function AlbumEditFormFields({ album }: AlbumEditFormProps) {
 
   const handleSave = async () => {
     if (!canSave) return;
+    // Only a genre move is worded here; any other refusal keeps the shared toast.
+    const movesGenre = changes.genre_id !== undefined;
     let updated: AlbumEntry;
     try {
       // Catalog rows always carry a real library.id; only LML rows go null.
-      updated = await updateAlbum({ albumId: album.id!, body: changes }).unwrap();
+      updated = await updateAlbum({
+        albumId: album.id!,
+        body: changes,
+        ...(movesGenre ? { wordsGenreRefusals: true } : {}),
+      }).unwrap();
     } catch (err) {
-      const refusal = interpretReleaseSaveError(err, {
-        screen: "modern",
-        genreName: genres?.find((genre) => genre.id === (genreId ?? saved.genreId))?.genre_name,
-        callNumber: `${album.entry}${album.code_volume_letters ?? ""}`,
-        artistName,
-        variousArtists: isVariousArtists(album.artist.lettercode),
-      });
-      if (refusal.reason !== "generic" || isUnmessagedHttpError(err)) {
+      // Save requires a live link, so `artistLink` is the artist this save files under.
+      const refusal =
+        movesGenre && artistLink
+          ? interpretReleaseSaveError(err, {
+              screen: "modern",
+              genreName: genres?.find((genre) => genre.id === resolvedGenreId)?.genre_name,
+              // Backend renumbers a release that changes artist, so the stored
+              // number is only the one it checked when the artist stays put.
+              callNumber:
+                changes.artist_id === undefined ? `${album.entry}${album.code_volume_letters ?? ""}` : undefined,
+              artistName: artistLink.name,
+              variousArtists: isVariousArtists(artistLink.codeLetters),
+            })
+          : undefined;
+      if (refusal && refusal.reason !== "generic") {
         toast.error(refusal.message);
+      } else if (isUnmessagedHttpError(err)) {
+        toast.error(RELEASE_MODERN_FALLBACK_MESSAGE);
       }
       return;
     }
@@ -317,7 +341,7 @@ function AlbumEditFormFields({ album }: AlbumEditFormProps) {
     setGenreId(nextSaved.genreId);
     setFormatId(nextSaved.formatId);
     setArtistName(updated.artist.name);
-    setArtistLink(artistLinkFrom(nextSaved, updated.artist.name));
+    setArtistLink(artistLinkFrom(nextSaved, updated.artist.name, updated.artist.lettercode));
     setAlternateArtistName(nextSaved.alternateArtistName);
     setAlbumArtist(nextSaved.albumArtist);
     setDiscQuantity(nextSaved.discQuantity);

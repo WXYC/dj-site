@@ -276,6 +276,26 @@ describe("classic Awaiting Cataloging — filed intake items", () => {
     expect(finalizes).toBe(0);
   });
 
+  // This row does not word a taken call number, so the shared toast must still carry it.
+  it("leaves a taken call number to the shared toast", async () => {
+    const { toast } = await import("sonner");
+    const message = "Call number 7 is already taken for artist 12 in genre 3";
+    server.use(
+      http.patch(`${TEST_BACKEND_URL}/library/42`, () =>
+        HttpResponse.json({ message, code: "library_slot_conflict" }, { status: 409 }),
+      ),
+    );
+    const { user } = renderFacet({ canSeeFiled: true, canWrite: true });
+
+    await user.click(await screen.findByRole("button", { name: "Change the code: DOGA" }));
+    const number = screen.getByLabelText("Call number");
+    await user.clear(number);
+    await user.type(number, "7");
+    await user.click(screen.getByRole("button", { name: "Save and confirm" }));
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(message));
+  });
+
   it("shows the server's message on a 409 in_rotation and re-reads active rotation, which hides the row", async () => {
     const message = "This release is in rotation until 2026-12-01.";
     let rotationReads = 0;
