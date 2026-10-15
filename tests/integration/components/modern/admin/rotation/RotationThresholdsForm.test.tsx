@@ -159,7 +159,8 @@ describe("RotationThresholdsForm", () => {
     await waitFor(() => expect(fake.thresholdsPatchBodies()).toHaveLength(1));
 
     expect(await screen.findByText("Could not load the rotation thresholds.")).toBeInTheDocument();
-    setFieldValue(medium(), "50");
+    expect(medium()).toBeDisabled();
+    expect(heavy()).toBeDisabled();
     expect(saveButton()).toBeDisabled();
 
     fake.recoverThresholdsReads();
