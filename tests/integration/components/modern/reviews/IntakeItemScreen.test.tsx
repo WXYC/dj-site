@@ -3384,6 +3384,24 @@ describe("IntakeItemScreen", () => {
       expect(within(cited).queryByText(/^From /)).not.toBeInTheDocument();
     });
 
+    // A compilation is filed under its shelf name; the station reads it by the alternate name behind "V/A". The record's own line keeps what was typed at intake.
+    it.each([
+      ["a compilation with an alternate name", { artist_name: "Various Artists - Rock - M", code_letters: "V/A", alternate_artist_name: "Stereolab" }, "Reviews of V/A Stereolab — On Your Own Love Again"],
+      ["a Z- compilation with an alternate name", { artist_name: "Various Artists - Rock - M", code_letters: "Z-M", alternate_artist_name: " Stereolab " }, "Reviews of V/A Stereolab — On Your Own Love Again"],
+      ["an ordinary release with an alternate name", { code_letters: "PR", alternate_artist_name: "Cat Power" }, "Reviews of Cat Power — On Your Own Love Again"],
+      ["a compilation with no alternate name", { artist_name: "Various Artists - Rock - M", code_letters: "V/A", alternate_artist_name: null }, "Reviews of Various Artists - Rock - M — On Your Own Love Again"],
+      ["an ordinary release with none", { code_letters: "PR", alternate_artist_name: null }, "Reviews of Jessica Pratt — On Your Own Love Again"],
+    ])("names the cited release by its displayed artist in the heading: %s", async (_name, release, heading) => {
+      fakeReviewsEndpoints({ records: [citedItem()], forRelease: { [CITED_ID]: [] }, reviews: [], archive: { [CITED_ID]: [] }, releases: [{ ...CITED_RELEASE, ...release }] });
+      serveItem(citedItem());
+      serveItemReviews([]);
+
+      renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      expect(await screen.findByRole("heading", { name: heading })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { level: 3, name: /^Juana Molina · DOGA · Sonamos/ })).toBeInTheDocument();
+    });
+
     it("sends the review to accept-review for this record and moves it under the cover, leaving no Use this review for it", async () => {
       const { box } = setUp([ofCited(90)]);
       const sent = acceptingReview(box);

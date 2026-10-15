@@ -318,14 +318,18 @@ export type ReleaseArtistTitleParts = {
  * after trimming, else the filed artist. The review screens use this, so a
  * compilation filed under a Various Artists bucket names its own artist, as
  * the printed slip does (Backend-Service applies the same rule when it fills
- * the slip). The catalog header does not: it keeps the filed shelf name.
+ * the slip). A compilation's alternate name reads "V/A <name>"; an ordinary
+ * release's alternate name stands bare, since many ordinary releases carry
+ * one. `compilation` is `isVariousArtists` over the artist's call letters.
+ * The catalog header does not use this: it keeps the filed shelf name.
  */
 export function displayedArtist<T extends string | null | undefined>(
   alternate: string | null | undefined,
   filed: T,
+  compilation: boolean,
 ): string | T {
   if (alternate && alternate.trim() !== "") {
-    return alternate;
+    return compilation ? `${VARIOUS_ARTISTS_CODE_LETTERS} ${alternate.trim()}` : alternate;
   }
   return filed;
 }
@@ -346,6 +350,6 @@ export function formatReleaseArtistTitle({
   album_artist_name,
   album_title,
 }: ReleaseArtistTitleParts): string {
-  const artist = displayedArtist(alternate_artist_name, album_artist_name);
+  const artist = displayedArtist(alternate_artist_name, album_artist_name, false);
   return artist ? `${artist} - ${album_title}` : album_title;
 }
