@@ -5,6 +5,7 @@ import {
   formatCallLettersAndNumbers,
   formatReleaseCode,
   formatEntireLibraryCode,
+  displayedArtist,
   formatReleaseArtistTitle,
   isVariousArtists,
 } from "@/lib/features/catalog/libraryCode";
@@ -252,6 +253,27 @@ describe("formatCallLettersAndNumbers — an artist with no genre_artist_crossre
         code_volume_letters: null,
       }),
     ).toBe("Jazz CO/3");
+  });
+});
+
+describe("displayedArtist", () => {
+  it.each([
+    ["a V/A compilation with an alternate name", "Beatles", "Various Artists - Rock - M", true, "V/A Beatles"],
+    ["a compilation, trimming the alternate name", "  Beatles  ", "Various Artists - Rock - M", true, "V/A Beatles"],
+    ["an ordinary release with an alternate name", "The Ikettes", "Ike & Tina Turner", false, "The Ikettes"],
+    ["a compilation with no alternate name", null, "Various Artists - Rock - M", true, "Various Artists - Rock - M"],
+    ["a compilation with an undefined alternate name", undefined, "Various Artists - Rock - M", true, "Various Artists - Rock - M"],
+    ["a compilation with an empty alternate name", "", "Various Artists - Rock - M", true, "Various Artists - Rock - M"],
+    ["a compilation with a whitespace alternate name", "   ", "Various Artists - Rock - M", true, "Various Artists - Rock - M"],
+    ["an ordinary release with a whitespace alternate name", "   ", "Stereolab", false, "Stereolab"],
+    ["an ordinary release with no alternate name", null, "Stereolab", false, "Stereolab"],
+  ])("%s", (_label, alternate, filed, compilation, expected) => {
+    expect(displayedArtist(alternate, filed, compilation)).toBe(expected);
+  });
+
+  // The compilation flag is the shelf's `isVariousArtists`, which accepts both spellings.
+  it.each([["V/A"], ["Z-M"]])("a %s shelf is a compilation", (lettercode) => {
+    expect(displayedArtist("Beatles", "Various Artists - Rock - M", isVariousArtists(lettercode))).toBe("V/A Beatles");
   });
 });
 

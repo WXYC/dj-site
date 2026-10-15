@@ -42,7 +42,7 @@ import AlbumCard from "@/src/components/experiences/modern/catalog/album/AlbumCa
 const ALBUM_ID = 7;
 const SHELF = "Various Artists - Rock - S";
 
-const serve = (alternate: string | null | undefined) =>
+const serve = (alternate: string | null | undefined, lettercode = "V/A") =>
   fakeReviewsEndpoints({
     releases: [
       {
@@ -50,6 +50,7 @@ const serve = (alternate: string | null | undefined) =>
         album_title: "Aluminum Tunes",
         title: "Aluminum Tunes",
         artist_name: SHELF,
+        code_letters: lettercode,
         label: "Duophonic",
         alternate_artist_name: alternate,
       },
@@ -58,10 +59,56 @@ const serve = (alternate: string | null | undefined) =>
   });
 
 const CASES: [string, string | null | undefined, string][] = [
-  ["set", "Stereolab", "Stereolab"],
+  ["set", "Stereolab", "V/A Stereolab"],
   ["unset", null, SHELF],
   ["blank", "   ", SHELF],
 ];
+
+describe("review surfaces name a release that is not a compilation by its bare alternate name", () => {
+  beforeEach(() => {
+    mockAuth.authority = Authorization.MD;
+    vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "staff");
+    reviewsPanel.record = null;
+  });
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("names it on the release slip page's lead line", async () => {
+    serve("Stereolab", "SPA");
+    renderWithProviders(<ReleaseSlipScreen albumId={ALBUM_ID} reviewId={40} />);
+    const lead = await screen.findByText(/This prints/);
+    expect(lead).toHaveTextContent(`for the cover of Stereolab — Aluminum Tunes`);
+  });
+
+  it("names it in the record the editor and My reviews rows read", async () => {
+    serve("Stereolab", "SPA");
+    const store = makeStore();
+    const { result } = renderHook(() => useReviewRecord(review({ id: 40, album_id: ALBUM_ID, intake_item_id: null })), {
+      wrapper: ({ children }: PropsWithChildren) => <Provider store={store}>{children}</Provider>,
+    });
+    await waitFor(() => expect(result.current?.artist).toBe("Stereolab"));
+  });
+
+  it("hands the reviews panel the bare alternate name", () => {
+    const album = createTestAlbum({
+      id: ALBUM_ID,
+      title: "Aluminum Tunes",
+      artist: createTestArtist({ name: "Juana Molina", lettercode: "MO", numbercode: 12 }),
+      alternate_artist: "Stereolab",
+    });
+    renderWithProviders(
+      <AlbumCard
+        album={album}
+        artworkUrl=""
+        metadata={null}
+        metadataLoading={false}
+        artistBio={null}
+        bioTokens={null}
+        artistWikipediaUrl={null}
+      />,
+    );
+    expect(reviewsPanel.record?.artist).toBe("Stereolab");
+  });
+});
 
 describe("review surfaces name a compilation by its displayed artist", () => {
   beforeEach(() => {

@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
 import { Button, Chip, Divider, Radio, RadioGroup, Stack, Typography } from "@mui/joy";
 import type { IntakeItem, IntakeItemPatch, Review } from "@wxyc/shared";
+import { displayedArtist, isVariousArtists } from "@/lib/features/catalog/libraryCode";
 import type { AlbumEntry } from "@/lib/features/catalog/types";
 import { namedAuthor } from "@/lib/features/reviews/author";
 import { itemHolder } from "@/lib/features/reviews/holder";
@@ -373,7 +374,7 @@ export default function IntakeItemScreen({ id }: { id: number }) {
       )}
       {others.length > 0 && <Group title={REVIEW_COPY.albumPanel.others} reviews={others} recordOf={recordOf} onCover={() => false} extra={othersExtra} />}
       {citedId !== null && cited.data && (citedRelease.data || citedRelease.isError) && (
-        <Group title={citedRelease.data ? COPY.citedHeading(citedRelease.data.artist.name, citedRelease.data.title) : COPY.citedFallbackHeading} intro={citedIntro} reviews={citedTyped.filter((r) => r.id !== coverId).sort(newestFirst)} recordOf={() => undefined} onCover={() => false} extra={citedExtra} />
+        <Group title={citedRelease.data ? COPY.citedHeading(displayedArtist(citedRelease.data.alternate_artist, citedRelease.data.artist.name, isVariousArtists(citedRelease.data.artist.lettercode)), citedRelease.data.title) : COPY.citedFallbackHeading} intro={citedIntro} reviews={citedTyped.filter((r) => r.id !== coverId).sort(newestFirst)} recordOf={() => undefined} onCover={() => false} extra={citedExtra} />
       )}
       {!!item.data.draft_authors?.length && (
         <Typography level="body-sm">{COPY.stillWriting} {item.data.draft_authors.join(", ")}.</Typography>
