@@ -988,17 +988,31 @@ describe("IntakeItemScreen", () => {
     });
 
     it("sends a new request, and shows its rows, when Search is pressed again with the same text after a failure", async () => {
-      setUp();
-      const realHandlers = server.listHandlers();
-      server.use(http.get(`${TEST_BACKEND_URL}/library`, () => HttpResponse.json({ message: "down" }, { status: 500 })));
+      const { searches } = setUp();
+      let failing = true;
+      let requests = 0;
+      // Answers 500 while the flag is set and nothing once it is cleared, so the recorder and the fake's rows answer the retry.
+      server.use(
+        http.get(`${TEST_BACKEND_URL}/library`, () => {
+          requests += 1;
+          if (failing) {
+            return HttpResponse.json({ message: "down" }, { status: 500 });
+          }
+          return undefined;
+        }),
+      );
       const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
       await search(user, "Juana");
       expect(await screen.findByText("Couldn't search the library. Please try again.")).toBeInTheDocument();
-      server.resetHandlers(...realHandlers);
+      expect(requests).toBe(1);
+      expect(searches).toEqual([]);
+      failing = false;
 
       await search(user, "Juana");
 
       expect(await screen.findByRole("button", { name: ROW_NAME })).toBeInTheDocument();
+      expect(requests).toBe(2);
+      expect(searches).toEqual([{ artist_name: "Juana", album_title: "Juana", n: "50" }]);
       expect(screen.queryByText("Couldn't search the library. Please try again.")).not.toBeInTheDocument();
     });
 
