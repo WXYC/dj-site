@@ -23,7 +23,13 @@ function FormReviewSearch({ artist, onCopy }: { artist: string; onCopy: (review:
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          setTerm(text.trim());
+          const next = text.trim();
+          // The same term re-initiates nothing by itself, and the failure line asks for another try.
+          if (next !== term) {
+            setTerm(next);
+          } else if (next !== "") {
+            results.refetch();
+          }
         }}
       >
         <Stack direction="row" spacing={1} alignItems="flex-end">
