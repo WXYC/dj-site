@@ -339,9 +339,9 @@ export const REVIEW_COPY = {
     /** Approved. The heading of the cited release's reviews, on a record that cites a release. */
     citedHeading: (artist: string, album: string) => `Reviews of ${artist} — ${album}`,
     /** Approved. Under that heading while the cited release has a typed review. */
-    citedChoose: "This record uses a review of that one. Choose the one to print for this copy.",
+    citedChoose: "These are the library's reviews of this record. Choose the one to print for this copy.",
     /** Approved. Under that heading when the cited release has no typed review in the DJ site. */
-    citedNone: "That record has no typed review in the app.",
+    citedNone: "The library has no typed review of this record.",
     /** Approved. Opens the Record a review form empty, beside the line above. */
     typeInReview: "Type in the review from its cover",
     /** Approved. Opens the Record a review form with Handwritten chosen, for a review that exists only on paper. */
