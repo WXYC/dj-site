@@ -987,6 +987,21 @@ describe("IntakeItemScreen", () => {
       expect(screen.getByText("Already in the library?")).toBeInTheDocument();
     });
 
+    it("sends a new request, and shows its rows, when Search is pressed again with the same text after a failure", async () => {
+      setUp();
+      const realHandlers = server.listHandlers();
+      server.use(http.get(`${TEST_BACKEND_URL}/library`, () => HttpResponse.json({ message: "down" }, { status: 500 })));
+      const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+      await search(user, "Juana");
+      expect(await screen.findByText("Couldn't search the library. Please try again.")).toBeInTheDocument();
+      server.resetHandlers(...realHandlers);
+
+      await search(user, "Juana");
+
+      expect(await screen.findByRole("button", { name: ROW_NAME })).toBeInTheDocument();
+      expect(screen.queryByText("Couldn't search the library. Please try again.")).not.toBeInTheDocument();
+    });
+
     it("shows the failure line, and not the previous term's rows, when a second search fails", async () => {
       setUp();
       const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);

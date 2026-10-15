@@ -36,7 +36,13 @@ export default function ReleasePicker({
         onSubmit={(e) => {
           e.preventDefault();
           onSearch?.();
-          setTerm(text.trim());
+          const next = text.trim();
+          // The same term re-initiates nothing by itself, and the failure line asks for another try.
+          if (next !== "" && next === term) {
+            results.refetch();
+          } else {
+            setTerm(next);
+          }
         }}
       >
         <Stack direction="row" spacing={1}>
