@@ -1,6 +1,7 @@
 "use client";
 
 import { AlbumEntry } from "@/lib/features/catalog/types";
+import { displayedArtist } from "@/lib/features/catalog/libraryCode";
 import { formatLabel } from "@/lib/features/experiences/modern/tokens/roles";
 import { AlbumMetadata, ResolvedToken } from "@/lib/features/metadata/types";
 import { isRotationAdminEnabled } from "@/lib/features/rotation/flags";
@@ -228,7 +229,7 @@ export default function AlbumCard({
           <ReviewsPanel
             key={`reviews-${album.id}`}
             albumId={album.id}
-            record={{ artist: album.artist.name, album: album.title, label: album.label ?? "" }}
+            record={{ artist: displayedArtist(album.alternate_artist, album.artist.name), album: album.title, label: album.label ?? "" }}
           />
         )}
         <Divider sx={{ my: 1 }} />

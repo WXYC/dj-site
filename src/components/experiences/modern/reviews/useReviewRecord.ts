@@ -2,6 +2,7 @@ import type { Review } from "@wxyc/shared";
 import { skipToken } from "@reduxjs/toolkit/query";
 import { useGetInformationQuery } from "@/lib/features/catalog/api";
 import { useGetIntakeItemQuery } from "@/lib/features/reviews/intakeApi";
+import { displayedArtist } from "@/lib/features/catalog/libraryCode";
 import { intakeRecord } from "./recordLine";
 
 export type ReviewRecord = {
@@ -28,7 +29,11 @@ export function useReviewRecord(review: Review): ReviewRecord | undefined {
     return intakeRecord(intake.data);
   }
   if (album.data) {
-    return { artist: album.data.artist.name, album: album.data.title, label: album.data.label, format: album.data.format };
+    return {
+      artist: displayedArtist(album.data.alternate_artist, album.data.artist.name),
+      album: album.data.title, label: album.data.label,
+      format: album.data.format,
+    };
   }
   return undefined;
 }

@@ -314,6 +314,22 @@ export type ReleaseArtistTitleParts = {
 };
 
 /**
+ * `getPreferredArtistString()`: the alternate credit when it is not blank
+ * after trimming, else the filed artist. Every screen that names a release by
+ * its artist (the printed slip, the review screens) uses this, so a
+ * compilation filed under a Various Artists bucket names its own artist.
+ */
+export function displayedArtist<T extends string | null | undefined>(
+  alternate: string | null | undefined,
+  filed: T,
+): string | T {
+  if (alternate && alternate.trim() !== "") {
+    return alternate;
+  }
+  return filed;
+}
+
+/**
  * `getEntireArtistTitleString()`: the artist a release is presented under,
  * then its title. `getPreferredArtistString()` supplies the first half and
  * tests the alternate credit with `isBlank()`, so a whitespace-only value
@@ -329,9 +345,6 @@ export function formatReleaseArtistTitle({
   album_artist_name,
   album_title,
 }: ReleaseArtistTitleParts): string {
-  const artist =
-    alternate_artist_name && alternate_artist_name.trim() !== ""
-      ? alternate_artist_name
-      : album_artist_name;
+  const artist = displayedArtist(alternate_artist_name, album_artist_name);
   return artist ? `${artist} - ${album_title}` : album_title;
 }

@@ -8,6 +8,7 @@ import { hasNothingToShow } from "@/lib/has-nothing-to-show";
 import { isLibraryPrintRefused, usePrintReleaseReviewMutation } from "@/lib/features/reviews/libraryApi";
 import { useGetReviewQuery } from "@/lib/features/reviews/reviewApi";
 import { useCanSeeReviews } from "@/src/hooks/useCanSeeReviews";
+import { displayedArtist } from "@/lib/features/catalog/libraryCode";
 import { REVIEW_COPY } from "./copy";
 import { useSlipPrint } from "./useSlipPrint";
 
@@ -38,7 +39,7 @@ export default function ReleaseSlipScreen({ albumId, reviewId }: { albumId: numb
 
   return (
     <Stack spacing={2}>
-      <Typography>{COPY.lead(review.data.author, album.data.artist.name, album.data.title)}</Typography>
+      <Typography>{COPY.lead(review.data.author, displayedArtist(album.data.alternate_artist, album.data.artist.name), album.data.title)}</Typography>
       {failure === "refused" && <Typography role="alert">{COPY.refused}</Typography>}
       {failure === "refused" && <Link href={`/dashboard/album/${albumId}`}>{COPY.backToAlbum}</Link>}
       {failure === "failed" && <Typography role="alert">{REVIEW_COPY.screen.writeFailed}</Typography>}
