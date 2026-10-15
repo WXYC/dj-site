@@ -315,9 +315,10 @@ export type ReleaseArtistTitleParts = {
 
 /**
  * `getPreferredArtistString()`: the alternate credit when it is not blank
- * after trimming, else the filed artist. Every screen that names a release by
- * its artist (the printed slip, the review screens) uses this, so a
- * compilation filed under a Various Artists bucket names its own artist.
+ * after trimming, else the filed artist. The review screens use this, so a
+ * compilation filed under a Various Artists bucket names its own artist, as
+ * the printed slip does (Backend-Service applies the same rule when it fills
+ * the slip). The catalog header does not: it keeps the filed shelf name.
  */
 export function displayedArtist<T extends string | null | undefined>(
   alternate: string | null | undefined,
