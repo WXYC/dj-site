@@ -3786,8 +3786,11 @@ describe("IntakeItemScreen", () => {
 
         await within(section).findByText("Form take.");
         expect(within(section).queryByText("Un día") === null).toBe(leadGone);
-        if (line === null) expect(section.textContent).not.toContain("·");
-        else expect(within(section).getByText(line)).toBeInTheDocument();
+        if (line === null) {
+          expect(section.textContent).not.toContain("·");
+        } else {
+          expect(within(section).getByText(line)).toBeInTheDocument();
+        }
       });
 
       it("shows the empty line for an artist with no exact match and the failure line for a search that fails, and neither keeps the other's rows", async () => {
@@ -3804,6 +3807,30 @@ describe("IntakeItemScreen", () => {
 
         expect(await within(section).findByRole("alert")).toHaveTextContent(REVIEW_COPY.intakeItem.formSearchFailed);
         expect(within(section).queryByText(REVIEW_COPY.intakeItem.formNone)).not.toBeInTheDocument();
+      });
+
+      it("sends a new request when Search is pressed with the same artist after a failed search, and shows its results", async () => {
+        withReviews(formReview());
+        let requests = 0;
+        server.use(
+          http.get(
+            `${TEST_BACKEND_URL}/album-reviews`,
+            () => {
+              requests += 1;
+              return HttpResponse.json({ message: "boom" }, { status: 500 });
+            },
+            { once: true },
+          ),
+        );
+        const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+        const section = await openForm(user);
+        expect(await within(section).findByRole("alert")).toHaveTextContent(REVIEW_COPY.intakeItem.formSearchFailed);
+
+        await user.click(within(section).getByRole("button", { name: "Search" }));
+
+        expect(await within(section).findByText("Form take.")).toBeInTheDocument();
+        expect(within(section).queryByRole("alert")).not.toBeInTheDocument();
+        expect(requests).toBe(1);
       });
 
       it("searches the artist as edited", async () => {
@@ -3876,6 +3903,31 @@ describe("IntakeItemScreen", () => {
           expect(screen.getByText(REVIEW_COPY.record.recorded)).toBeInTheDocument();
           const cover = screen.getByRole("heading", { name: "The review on the cover" }).closest("section")!;
           expect(within(cover).getByText("Form take.")).toBeInTheDocument();
+        });
+
+        it("sends no citation, and shows the could-not-note line, when the record cites a release by the time the copy is saved", async () => {
+          const { box, own } = withReviews(formReview());
+          const sent = patching(box);
+          const create = creating(box, own);
+          const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+          await copyFirst(user);
+          await user.click(await searchForCited(user));
+          expect(await screen.findByRole("button", { name: REMOVE })).toBeInTheDocument();
+          await reviewsSettled(store);
+
+          await user.click(await screen.findByRole("button", { name: "Save" }));
+          await waitFor(() => expect(create.calls.count).toBe(1));
+          create.release();
+          await create.answered;
+
+          expect(await screen.findByText(REVIEW_COPY.intakeItem.formNotNoted)).toBeInTheDocument();
+          await reviewsSettled(store);
+          expect(sent).toEqual([{ cited_album_id: CITED_ID }]);
+          expect(box.item.cited_album_id).toBe(CITED_ID);
+          expect(box.item.cited_submission_id ?? null).toBeNull();
+          const cover = (await screen.findByRole("heading", { name: "The review on the cover" })).closest("section")!;
+          expect(within(cover).getByText("Form take.")).toBeInTheDocument();
+          guarded().forEach((b) => expect(b).toBeEnabled());
         });
 
         it("keeps every review button and Cite a form review disabled until the citation's write and reload have settled", async () => {

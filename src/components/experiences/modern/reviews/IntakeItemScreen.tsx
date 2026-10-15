@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
 import { Button, Chip, Divider, Radio, RadioGroup, Stack, Typography } from "@mui/joy";
 import type { IntakeItem, IntakeItemPatch, Review } from "@wxyc/shared";
@@ -91,6 +91,9 @@ export default function IntakeItemScreen({ id }: { id: number }) {
   const [fileItem, filing] = useFileIntakeItemMutation();
   const [deleteItem, deletion] = useDeleteIntakeItemMutation();
   const [updateItem, citation] = useUpdateIntakeItemMutation();
+  // The item as the latest render saw it: a save that began on an earlier render must still read what the record cites now.
+  const latestItem = useRef(item.data);
+  latestItem.current = item.data;
   const [notice, setNotice] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [picked, setPicked] = useState<AlbumEntry | null>(null);
@@ -244,9 +247,11 @@ export default function IntakeItemScreen({ id }: { id: number }) {
   const stillOut = cover && holder.kind === "checked_out" && holder.name && holder.id !== cover.author_user_id ? COPY.stillOutWith(holder.name) : null;
 
   // Setting or clearing a citation can take the cover review off, so it holds the page like a review write; the reload also shows a refusal's cause.
-  // Answers the line it set, for a caller whose own line would otherwise replace it.
+  // Answers the line it set, for a caller whose own line would otherwise replace it, and whether a reload ran.
   const changeCitation = async (body: IntakeItemPatch, invalid?: string, failed: string = REVIEW_COPY.screen.writeFailed) => {
-    if (citation.isLoading) return failed;
+    if (citation.isLoading) {
+      return { line: failed, reloaded: false };
+    }
     setNotice(null);
     const release = hold(false);
     try {
@@ -255,11 +260,15 @@ export default function IntakeItemScreen({ id }: { id: number }) {
       } catch (err) {
         const refusal = isIntakeAlreadyFiled(err) ? COPY.alreadyFiled : invalid && isIntakeInvalidCitation(err) ? invalid : null;
         const line = refusal ?? failed;
-        if (refusal !== null ? (await reload()).mounted : mounted.current) setNotice(line);
-        return line;
+        // Only a refusal the server worded reloads the record.
+        const reloaded = refusal !== null;
+        if (reloaded ? (await reload()).mounted : mounted.current) {
+          setNotice(line);
+        }
+        return { line, reloaded };
       }
       await reload();
-      return undefined;
+      return { line: undefined, reloaded: true };
     } finally {
       release();
     }
@@ -267,13 +276,16 @@ export default function IntakeItemScreen({ id }: { id: number }) {
 
   // A copied form review's save: the review is recorded first, so a refused or failed citation loses nothing. The page's hold is released once the citation's write and reload settle.
   const citeCopied = (cites: NonNullable<Recording["cites"]>) => async (release: () => void) => {
-    const line = await changeCitation(
-      { cited_submission_id: cites.id },
-      cites.submittedAt === null ? COPY.formNoDate : COPY.formAfterCutover,
-      COPY.formNotNoted,
-    );
-    // A write that failed for another reason reloaded nothing itself, so the create's own reread may still be settling.
-    if (line === COPY.formNotNoted) await reload();
+    // A citation made since the copy was opened stays: setting this one would switch it and take its cover review off.
+    const current = latestItem.current;
+    const cited = current?.cited_album_id != null || (current?.cited_submission_id != null && current.cited_submission_id !== cites.id);
+    const { line, reloaded } = cited
+      ? { line: COPY.formNotNoted, reloaded: false }
+      : await changeCitation({ cited_submission_id: cites.id }, cites.submittedAt === null ? COPY.formNoDate : COPY.formAfterCutover, COPY.formNotNoted);
+    // A save that sent no write, or whose write failed for another reason, reloaded nothing itself, so the create's own reread may still be settling.
+    if (!reloaded) {
+      await reload();
+    }
     release();
     return line;
   };
