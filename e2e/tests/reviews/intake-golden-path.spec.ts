@@ -97,7 +97,8 @@ test("the intake golden path, from logging a record to the librarian's finalize"
 
       await dj.getByRole("textbox", { name: COPY.fields.review.label, exact: true }).fill(reviewText);
       await dj.getByRole("button", { name: COPY.submit, exact: true }).click();
-      await dj.getByRole("dialog").getByRole("button", { name: COPY.submit, exact: true }).click();
+      // The confirmation is ConfirmDialog's default role, alertdialog, not dialog.
+      await dj.getByRole("alertdialog").getByRole("button", { name: COPY.submit, exact: true }).click();
       await expect(dj.getByText(COPY.submittedBanner)).toBeVisible({ timeout: 15000 });
 
       await dj.goto("/dashboard/reviews");
