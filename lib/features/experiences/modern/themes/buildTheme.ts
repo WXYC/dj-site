@@ -10,6 +10,34 @@ const bodyFont = Kanit({
   subsets: ["latin"],
 });
 
+// Kanit has no CJK glyphs, so every Han/kana/Hangul character falls back. Left
+// to the OS's own fallback search, Chrome can settle on a locally installed CJK
+// face with a broken cmap, which draws wrong-but-plausible characters (猜拳
+// shows as 耽泮), and only at the weight it happens to win (500, the song
+// column). Naming known-good system faces first takes that search out of play.
+// PingFang SC leads because the station machines are Macs; Hiragino covers
+// Japanese, Apple SD Gothic Neo / Malgun Gothic cover Hangul, and the
+// Windows/Linux faces cover non-Mac browsers.
+//
+// Appended here rather than passed as Kanit's `fallback` option: under
+// Turbopack that option replaces the metric-matched 'Kanit Fallback' face, and
+// losing it reintroduces layout shift while Kanit loads. 'Kanit Fallback' is
+// Arial underneath, which has no CJK glyphs, so CJK still reaches this list.
+const bodyFontFamily = [
+  bodyFont.style.fontFamily,
+  "PingFang SC",
+  "PingFang TC",
+  "Hiragino Sans",
+  "Hiragino Kaku Gothic ProN",
+  "Apple SD Gothic Neo",
+  "Microsoft YaHei",
+  "Microsoft JhengHei",
+  "Yu Gothic",
+  "Malgun Gothic",
+  "Noto Sans CJK SC",
+  "sans-serif",
+].join(", ");
+
 // Subset to Basic Latin + Latin-1 Supplement + Latin Extended-A (a superset of
 // the source face's own coverage, which tops out at U+0178): h1-h4 render
 // arbitrary page titles via PageHeader, not a fixed wordmark, so codepoints for
@@ -50,8 +78,8 @@ const modernBase = {
     },
   },
   fontFamily: {
-    display: bodyFont.style.fontFamily,
-    body: bodyFont.style.fontFamily,
+    display: bodyFontFamily,
+    body: bodyFontFamily,
   },
   // Kanit loads 400 and 500 only; Joy's stock lg (600) and xl (700) would be synthesized bolds.
   fontWeight: { md: 500, lg: 500, xl: 500 },
@@ -80,7 +108,7 @@ const modernBase = {
       fontSize: "2.125rem",
     },
     "body-xxs": {
-      fontFamily: bodyFont.style.fontFamily,
+      fontFamily: bodyFontFamily,
       fontSize: "0.6rem",
     },
   },
