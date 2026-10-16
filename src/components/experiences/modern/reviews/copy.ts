@@ -1,8 +1,9 @@
 /**
  * Every string the reviews screen and the review editor (with its slip
- * preview) show. Lines marked approved were approved by the station verbatim;
- * the rest are drafted (the editor's from the Google Form's question wording)
- * and wait for the station's approval before launch.
+ * preview) show. Every string is marked approved: the station approved them
+ * verbatim (the editor's were drafted from the Google Form's question wording
+ * and approved on 2026-10-08, with no changes). A string added later stays
+ * unmarked until the station approves it.
  */
 /** "A", "A and B", "A, B and C": no comma before "and", and no dependence on the runtime's locale data. */
 const joinNames = (names: string[]) => (names.length < 2 ? names.join("") : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`);
@@ -14,15 +15,21 @@ export const REVIEW_COPY = {
   subjectNotHeldDigital: "This record isn't yours to review any more, so a review can't be started here.",
   /** Approved. Shown in place of the editor while reviews are open to music directors only. */
   staffOnly: "Reviews are open to music directors for now. You'll be able to open this review when they open to every DJ.",
-  /** The editor page's header and browser-tab title. */
+  /** Approved. The editor page's header and browser-tab title. */
   pageTitle: "Review",
-  /** Shown above the fields of a draft only; a submitted review is no longer private. */
+  /** Approved. Shown above the fields of a draft only; a submitted review is no longer private. */
   draftPrivacy: "Only you can read this draft. Music directors can see that you have one in progress, not what it says.",
+  /** Approved. */
   writeReview: "Write a review",
+  /** Approved. */
   couldNotStart: "Couldn't start a review. Please try again.",
+  /** Approved. */
   saveDraft: "Save draft",
+  /** Approved. */
   saved: "Draft saved.",
+  /** Approved. */
   couldNotSave: "Couldn't save the draft. Please try again.",
+  /** Approved. */
   couldNotLoad: "Couldn't load this review. Please try again.",
   /** Approved. */
   save: "Save",
@@ -78,10 +85,15 @@ export const REVIEW_COPY = {
     notPublishedYet: "FCC notes are never published. Nothing is published yet; the station is collecting your answer for later.",
   },
   fields: {
+    /** Approved. */
     buzzwords: { label: "Buzzwords", help: "A few words that sum up the record." },
+    /** Approved. */
     artist_blurb: { label: "About the artist", help: "A short paragraph on who made it." },
+    /** Approved. */
     review: { label: "Review", help: "What you want a listener to know." },
+    /** Approved. */
     recommended_tracks: { label: "Recommended tracks", help: "Name tracks by side and position, like A1, B4." },
+    /** Approved. */
     fcc: { label: "FCC", help: "Optional. Anything on the record that is not safe to broadcast." },
   },
   /**
@@ -90,15 +102,21 @@ export const REVIEW_COPY = {
    * the field labels above.
    */
   slip: {
-    /** The preview's accessible name. */
+    /** Approved. The preview's accessible name. */
     name: "Slip preview",
+    /** Approved. */
     artist: "Artist",
+    /** Approved. */
     album: "Album",
+    /** Approved. */
     label: "Label",
-    /** The artist paragraph's row. */
+    /** Approved. The artist paragraph's row. */
     artistBlurb: "Artist",
+    /** Approved. */
     review: "Review",
+    /** Approved. */
     reviewer: "Reviewer",
+    /** Approved. */
     recommended: "Recommended",
     /** Approved. The heading over the editor's slip preview. */
     heading: "As it will print",
@@ -516,11 +534,17 @@ export const REVIEW_COPY = {
     loadFailed: "Couldn't check which version is on the cover.",
   },
   myReviews: {
+    /** Approved. */
     title: "My reviews",
+    /** Approved. */
     empty: "You have not started a review.",
+    /** Approved. */
     draft: "Draft",
+    /** Approved. */
     submitted: "Submitted",
+    /** Approved. */
     open: "Open",
+    /** Approved. */
     libraryRelease: "A library release",
     /** Approved. The tag on a review of a library release. */
     fromTheLibrary: "from the library",
