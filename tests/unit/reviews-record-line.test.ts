@@ -23,7 +23,7 @@ describe("recordLine", () => {
   });
 
   it("maps an intake item through intakeRecord", () => {
-    const item = { artist_name: "Cat Power", album_title: "Moon Pix", record_label: null, format_id: 1 } as IntakeItem;
+    const item = { artist_name: "Cat Power", album_title: "Moon Pix", record_label: null, format_id: 1, digital: false } as IntakeItem;
     expect(recordLine(intakeRecord(item), formats)).toBe("Cat Power · Moon Pix · CD");
   });
 
