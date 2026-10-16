@@ -626,6 +626,17 @@ describe("IntakeItemScreen", () => {
       return serveItem(item);
     };
 
+    it("prefills the filing form's Format with CD-R for a digital record, not the disc format", async () => {
+      const item = digitalItem({ id: ITEM_ID, artist_name: "Juana Molina", album_title: "DOGA", record_label: "Sonamos", state: "reviewed", effective_state: "reviewed", submitted_review_count: 2, accepted_review_id: 40 });
+      fakeReviewsEndpoints({ records: [item], forItem: { [ITEM_ID]: [submitted(40)] }, formats: [{ id: 1, format_name: "cd" }, CDR_FORMAT] });
+      serveItem(item);
+      const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      await chooseArm(user, NEW_ARM);
+
+      await waitFor(() => expect(screen.getByRole("combobox", { name: "Format" })).toHaveTextContent("cdr"));
+    });
+
     it("prefills the bench from the item and files as a new release with its kind", async () => {
       const box = setUp(dogaItem({ format_id: 1, discogs_release_id: 1234 }));
       const filings = fakeLibraryFilingsEndpoint({ existingArtists: [] });

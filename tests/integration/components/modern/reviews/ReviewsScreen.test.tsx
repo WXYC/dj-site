@@ -5,6 +5,8 @@ import type { IntakeItem, Review } from "@wxyc/shared";
 import { Authorization } from "@/lib/features/admin/types";
 import { reviewApi } from "@/lib/features/reviews/reviewApi";
 import {
+  CDR_FORMAT,
+  digitalItem,
   fakeReviewsEndpoints,
   heldBy,
   holdResponse,
@@ -152,6 +154,19 @@ describe("ReviewsScreen", () => {
     await within(mine).findByText(/Stereolab/);
     expect(within(mine).getByText("Overdue")).toBeInTheDocument();
     expect(within(mine).queryByText(/Cat Power/)).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ["on the review shelf", "The review shelf", { id: 2 }],
+    ["in the DJ's own list", "My checkouts", { id: 2, effective_state: "checked_out", checked_out_by: ME, checked_out_at: "2026-08-01T12:00:00Z" }],
+  ] as const)("reads an unfiled digital record as exactly Digital %s, not by the CD-R format it is stored under", async (_where, region, overrides) => {
+    fakeReviewsEndpoints({ open: [digitalItem(overrides)], records: [digitalItem(overrides)], formats: [{ id: 1, format_name: "cd" }, CDR_FORMAT] });
+
+    renderWithProviders(<ReviewsScreen />);
+
+    const lane = await section(region);
+    expect(await within(lane).findByText("Stereolab · Aluminum Tunes · Duophonic · Digital")).toBeInTheDocument();
+    expect(within(lane).queryByText(/cdr/i)).not.toBeInTheDocument();
   });
 
   // 03:30Z is still the previous evening in station time, and 2025 is always an

@@ -14,7 +14,7 @@ describe("record kind", () => {
     ["a filed digital album with no filing time", { digital: true, effective_state: "filed", filed_at: null }, "digital", false],
     ["a filed disc", { digital: false, effective_state: "filed" }, "disc", false],
   ])("%s", (_name, overrides, kind, shows) => {
-    const item = digitalItem(overrides);
+    const item = overrides.digital ? digitalItem(overrides) : intakeItem(overrides);
     expect(recordKind(item)).toBe(kind);
     expect(showsAsDigital(item)).toBe(shows);
     expect(byKind(item, { disc: "a disc", digital: "a file" })).toBe(kind === "digital" ? "a file" : "a disc");
