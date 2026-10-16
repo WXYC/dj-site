@@ -241,7 +241,7 @@ export const REVIEW_COPY = {
     stillOutTo: "Still out: checked out to",
     /** Approved. */
     holderRemoved: "Still out: holder removed",
-    /** Approved. The location line, on the Review waiting and Checked out lanes, for a checked-out record whose holder's account was removed. */
+    /** Approved. The location line, on the Review waiting and Being reviewed lanes, for a checked-out disc whose holder's account was removed. */
     holderRemovedNow: "Holder removed",
     /** Approved. Who a waiting review is from, when its author is the DJ who has the record. */
     fromHolder: (author: string) => `From ${author}, who has this record.`,

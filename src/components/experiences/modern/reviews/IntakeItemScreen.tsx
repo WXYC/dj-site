@@ -8,7 +8,7 @@ import { displayedArtist, isVariousArtists } from "@/lib/features/catalog/librar
 import type { AlbumEntry } from "@/lib/features/catalog/types";
 import { namedAuthor } from "@/lib/features/reviews/author";
 import { itemHolder } from "@/lib/features/reviews/holder";
-import { byKind, isFiledState } from "@/lib/features/reviews/kind";
+import { byKind, isFiledState, recordKind } from "@/lib/features/reviews/kind";
 import { hasNothingToShow } from "@/lib/has-nothing-to-show";
 import {
   isIntakeAlreadyFiled,
@@ -184,7 +184,7 @@ export default function IntakeItemScreen({ id }: { id: number }) {
   const coverFromCited = citedId !== null && coverId != null && (!ownCover || ownCover.album_id === citedId);
   const holder = itemHolder(item.data);
   const coverConfirmation =
-    item.data.digital
+    recordKind(item.data) === "digital"
       ? COPY.deleteCoverShelf
       : holder.kind === "checked_out"
         ? COPY.deleteCoverHeld(holder.name)
@@ -249,7 +249,7 @@ export default function IntakeItemScreen({ id }: { id: number }) {
       </>
     );
 
-  const stillOut = cover && !item.data.digital && holder.kind === "checked_out" && holder.name && holder.id !== cover.author_user_id ? COPY.stillOutWith(holder.name) : null;
+  const stillOut = cover && recordKind(item.data) === "disc" && holder.kind === "checked_out" && holder.name && holder.id !== cover.author_user_id ? COPY.stillOutWith(holder.name) : null;
 
   // Setting or clearing a citation can take the cover review off, so it holds the page like a review write; the reload also shows a refusal's cause.
   // Answers the line it set, for a caller whose own line would otherwise replace it, and whether a reload ran.

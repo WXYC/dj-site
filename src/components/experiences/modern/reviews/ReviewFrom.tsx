@@ -21,10 +21,18 @@ export const newestFirst = (a: Review, b: Review) => b.add_date.localeCompare(a.
 export function fromLine(review: Review, item: IntakeItem): string | null {
   const author = namedAuthor(review);
   const holder = itemHolder(item);
-  if (!author) return null;
-  if (holder.kind === "removed") return byKind(item, { disc: COPY.fromRemoved, digital: COPY.fromTakenRemoved })(author);
-  if (holder.kind === "none") return item.effective_state === "pool" ? COPY.fromShelf(author) : null;
-  if (holder.id !== null && holder.id === review.author_user_id) return byKind(item, { disc: COPY.fromHolder, digital: COPY.fromTaker })(author);
+  if (!author) {
+    return null;
+  }
+  if (holder.kind === "removed") {
+    return byKind(item, { disc: COPY.fromRemoved, digital: COPY.fromTakenRemoved })(author);
+  }
+  if (holder.kind === "none") {
+    return item.effective_state === "pool" ? COPY.fromShelf(author) : null;
+  }
+  if (holder.id !== null && holder.id === review.author_user_id) {
+    return byKind(item, { disc: COPY.fromHolder, digital: COPY.fromTaker })(author);
+  }
   const elsewhere = byKind(item, { disc: COPY.fromWith, digital: COPY.fromTakenBy });
   return (holder.kind === "requested" ? COPY.fromHeldFor : elsewhere)(author, holder.name);
 }
