@@ -80,3 +80,43 @@ describe("REVIEW_COPY.intake digital taken lines", () => {
     expect(actual).toBe(expected);
   });
 });
+
+describe("REVIEW_COPY editor and shelf copy the station approved on 2026-10-08", () => {
+  const c = REVIEW_COPY;
+  it.each([
+    ["pageTitle", c.pageTitle, "Review"],
+    ["draftPrivacy", c.draftPrivacy, "Only you can read this draft. Music directors can see that you have one in progress, not what it says."],
+    ["saveDraft", c.saveDraft, "Save draft"],
+    ["saved", c.saved, "Draft saved."],
+    ["couldNotSave", c.couldNotSave, "Couldn't save the draft. Please try again."],
+    ["couldNotLoad", c.couldNotLoad, "Couldn't load this review. Please try again."],
+    ["fields.buzzwords.label", c.fields.buzzwords.label, "Buzzwords"],
+    ["fields.buzzwords.help", c.fields.buzzwords.help, "A few words that sum up the record."],
+    ["fields.artist_blurb.label", c.fields.artist_blurb.label, "About the artist"],
+    ["fields.artist_blurb.help", c.fields.artist_blurb.help, "A short paragraph on who made it."],
+    ["fields.review.label", c.fields.review.label, "Review"],
+    ["fields.review.help", c.fields.review.help, "What you want a listener to know."],
+    ["fields.recommended_tracks.label", c.fields.recommended_tracks.label, "Recommended tracks"],
+    ["fields.recommended_tracks.help", c.fields.recommended_tracks.help, "Name tracks by side and position, like A1, B4."],
+    ["fields.fcc.label", c.fields.fcc.label, "FCC"],
+    ["fields.fcc.help", c.fields.fcc.help, "Optional. Anything on the record that is not safe to broadcast."],
+    ["slip.name", c.slip.name, "Slip preview"],
+    ["slip.artist", c.slip.artist, "Artist"],
+    ["slip.album", c.slip.album, "Album"],
+    ["slip.label", c.slip.label, "Label"],
+    ["slip.artistBlurb", c.slip.artistBlurb, "Artist"],
+    ["slip.review", c.slip.review, "Review"],
+    ["slip.reviewer", c.slip.reviewer, "Reviewer"],
+    ["slip.recommended", c.slip.recommended, "Recommended"],
+    ["writeReview", c.writeReview, "Write a review"],
+    ["couldNotStart", c.couldNotStart, "Couldn't start a review. Please try again."],
+    ["myReviews.title", c.myReviews.title, "My reviews"],
+    ["myReviews.empty", c.myReviews.empty, "You have not started a review."],
+    ["myReviews.draft", c.myReviews.draft, "Draft"],
+    ["myReviews.submitted", c.myReviews.submitted, "Submitted"],
+    ["myReviews.open", c.myReviews.open, "Open"],
+    ["myReviews.libraryRelease", c.myReviews.libraryRelease, "A library release"],
+  ])("pins %s", (_key, actual, expected) => {
+    expect(actual).toBe(expected);
+  });
+});
