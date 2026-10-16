@@ -10,7 +10,7 @@ type ThemeWithComponents = Theme &
 const { kanitLoader } = vi.hoisted(() => ({
   kanitLoader: vi.fn(() => ({
     style: {
-      fontFamily: "Kanit, sans-serif",
+      fontFamily: "'Kanit', 'Kanit Fallback'",
     },
   })),
 }));
@@ -87,16 +87,45 @@ describe("modern theme", () => {
       expect(modernTheme.fontFamily?.body).toBeDefined();
     });
 
-    it("should use Kanit-based font for display (from mock)", () => {
-      expect(modernTheme.fontFamily?.display).toBe("Kanit, sans-serif");
-    });
-
-    it("should use Kanit-based font for body (from mock)", () => {
-      expect(modernTheme.fontFamily?.body).toBe("Kanit, sans-serif");
-    });
+    it.each(["display", "body"] as const)(
+      "should lead the %s stack with the Kanit family (from mock)",
+      (key) => {
+        expect(modernTheme.fontFamily?.[key]).toMatch(/^'Kanit', 'Kanit Fallback', /);
+      }
+    );
 
     it("should have consistent display and body fonts", () => {
       expect(modernTheme.fontFamily?.display).toBe(modernTheme.fontFamily?.body);
+    });
+  });
+
+  describe("CJK fallback", () => {
+    function families(stack: string | undefined): string[] {
+      return (stack ?? "").split(",").map((family) => family.trim());
+    }
+
+    it.each(["PingFang SC", "Hiragino Sans", "Microsoft YaHei", "Noto Sans CJK SC"])(
+      "should name %s in the body font stack",
+      (family) => {
+        expect(families(modernTheme.fontFamily?.body)).toContain(family);
+      }
+    );
+
+    it("should keep next/font's metric-matched Kanit fallback ahead of the CJK faces", () => {
+      const stack = families(modernTheme.fontFamily?.body);
+      expect(stack.slice(0, 3)).toEqual(["'Kanit'", "'Kanit Fallback'", "PingFang SC"]);
+    });
+
+    it("should end the stack with the generic sans-serif", () => {
+      expect(families(modernTheme.fontFamily?.body).at(-1)).toBe("sans-serif");
+    });
+
+    // Turbopack drops the metric-matched 'Kanit Fallback' face when the loader
+    // is given its own fallback list.
+    it("should not pass a fallback list to the Kanit loader", () => {
+      expect(kanitLoader).toHaveBeenCalledWith(
+        expect.not.objectContaining({ fallback: expect.anything() })
+      );
     });
   });
 
@@ -259,7 +288,7 @@ describe("modern theme", () => {
         const bodyXxs = modernTheme.typography?.["body-xxs"] as {
           fontFamily: string;
         };
-        expect(bodyXxs.fontFamily).toBe("Kanit, sans-serif");
+        expect(bodyXxs.fontFamily).toBe(modernTheme.fontFamily?.body);
       });
 
       it("should have body-xxs font size of 0.6rem", () => {
