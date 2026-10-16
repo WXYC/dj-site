@@ -67,6 +67,7 @@ export const intakeItem = (overrides: Partial<IntakeItem> = {}): IntakeItem =>
     effective_state: "pool",
     digital: false,
     overdue: false,
+    submitted_review_count: 0,
     logged_at: "2026-09-01T12:00:00Z",
     requested_dj_id: null,
     requested_at: null,

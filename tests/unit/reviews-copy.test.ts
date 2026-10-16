@@ -46,3 +46,18 @@ describe("REVIEW_COPY.intake digital choice", () => {
     expect(REVIEW_COPY.intake.digital).toBe("Digital");
   });
 });
+
+describe("REVIEW_COPY digital album lines and the DJ's own list heading", () => {
+  it.each([
+    ["screen.checkoutsTitle", REVIEW_COPY.screen.checkoutsTitle, "Records I'm reviewing"],
+    ["screen.checkoutsEmpty", REVIEW_COPY.screen.checkoutsEmpty, "You aren't reviewing any records."],
+    ["screen.take", REVIEW_COPY.screen.take, "Take"],
+    ["screen.notReviewedYet", REVIEW_COPY.screen.notReviewedYet, "Not reviewed yet"],
+    ["screen.returnQuestionDigital", REVIEW_COPY.screen.returnQuestionDigital, "Put this record back on the review shelf? Another DJ can take it."],
+    ["screen.filesComing", REVIEW_COPY.screen.filesComing, "A music director will send you the files."],
+    ["screen.raceReleaseDigital", REVIEW_COPY.screen.raceReleaseDigital, "This record isn't yours to review any more. The lists have been reloaded."],
+    ["subjectNotHeldDigital", REVIEW_COPY.subjectNotHeldDigital, "This record isn't yours to review any more, so a review can't be started here."],
+  ])("pins %s", (_key, actual, expected) => {
+    expect(actual).toBe(expected);
+  });
+});

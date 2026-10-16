@@ -25,6 +25,7 @@ import {
   useGetMyReviewsQuery,
   useGetReviewersQuery,
 } from "@/lib/features/reviews/reviewApi";
+import { byKind, overdueMark } from "@/lib/features/reviews/kind";
 import { useCanSeeReviews } from "@/src/hooks/useCanSeeReviews";
 import { useAuthentication } from "@/src/hooks/authenticationHooks";
 import { useAppDispatch } from "@/lib/hooks";
@@ -44,14 +45,21 @@ const day = (iso: string | null) => (iso ? formatStationShortDate(iso) : "");
 
 type Action = "checkout" | "accept" | "pass" | "release" | "write" | "request";
 
-/** What a lost race (409 `state_changed`) means for each button, shown once the lists have reloaded. */
-const RACE_NOTICE: Record<Action, string> = {
-  checkout: REVIEW_COPY.screen.raceCheckout,
-  accept: REVIEW_COPY.screen.raceRequest,
-  pass: REVIEW_COPY.screen.raceRequest,
-  release: REVIEW_COPY.screen.raceRelease,
-  write: REVIEW_COPY.subjectNotHeld,
-  request: REVIEW_COPY.intake.raceRequest,
+/** What a lost race (409 `state_changed`) means for each button, shown once the lists have reloaded. A digital album is never lent, so its release and write races read as the claim having moved. */
+const raceNotice = (action: Action, item: IntakeItem | undefined): string => {
+  switch (action) {
+    case "checkout":
+      return REVIEW_COPY.screen.raceCheckout;
+    case "accept":
+    case "pass":
+      return REVIEW_COPY.screen.raceRequest;
+    case "release":
+      return item ? byKind(item, { disc: REVIEW_COPY.screen.raceRelease, digital: REVIEW_COPY.screen.raceReleaseDigital }) : REVIEW_COPY.screen.raceRelease;
+    case "write":
+      return item ? byKind(item, { disc: REVIEW_COPY.subjectNotHeld, digital: REVIEW_COPY.subjectNotHeldDigital }) : REVIEW_COPY.subjectNotHeld;
+    case "request":
+      return REVIEW_COPY.intake.raceRequest;
+  }
 };
 
 /** A review's row: the record as parts (artist, album, label) once it has landed. Until then, a library review shows `myReviews.libraryRelease` and a logged-record review shows nothing in its place. Either way the row carries the status, the last-saved date and Open. */
@@ -120,7 +128,7 @@ export default function ReviewsScreen() {
       }
       toast.error(action === "write" ? REVIEW_COPY.couldNotStart : REVIEW_COPY.screen.writeFailed);
     },
-    onLostRace: (_id, action) => toast(RACE_NOTICE[action]),
+    onLostRace: (id, action) => toast(raceNotice(action, everyState.data?.find((i) => i.id === id))),
   });
 
   if (!visible) return null;
@@ -163,13 +171,17 @@ export default function ReviewsScreen() {
         const submitted = mineHere.find((r) => r.status === "submitted");
         const draft = mineHere.find((r) => r.status === "draft");
         const reviewed = i.effective_state === "reviewed";
+        const mark = overdueMark(i);
+        const note = reviewed
+          ? byKind(i, { disc: REVIEW_COPY.screen.reviewedReturn, digital: null })
+          : submitted
+            ? REVIEW_COPY.screen.reviewSubmitted
+            : byKind(i, { disc: null, digital: REVIEW_COPY.screen.filesComing });
         return (
         <>
           <Typography level="body-sm">{`${REVIEW_COPY.screen.taken} ${day(i.checked_out_at)}`}</Typography>
-          {i.overdue && <Chip color="danger">{REVIEW_COPY.screen.overdue}</Chip>}
-          {(reviewed || submitted) && (
-            <Typography level="body-sm">{reviewed ? REVIEW_COPY.screen.reviewedReturn : REVIEW_COPY.screen.reviewSubmitted}</Typography>
-          )}
+          {mark && <Chip color="danger">{mark}</Chip>}
+          {note && <Typography level="body-sm">{note}</Typography>}
           {submitted ? (
             <Button size="sm" variant={reviewed ? "outlined" : "solid"} onClick={() => router.push(`/dashboard/reviews/${submitted.id}`)}>{REVIEW_COPY.screen.editReview}</Button>
           ) : (
@@ -196,7 +208,7 @@ export default function ReviewsScreen() {
       <IntakeLane title={REVIEW_COPY.screen.shelfTitle} rows={onShelf} empty={REVIEW_COPY.screen.shelfEmpty} label={(i) => (isMD ? <Link id={shelfRecordId(i)} href={`/dashboard/admin/intake/${i.id}`}>{describe(i)}</Link> : <Typography>{describe(i)}</Typography>)} extra={(i) => (
         <>
           <Typography level="body-sm">{`${REVIEW_COPY.screen.logged} ${day(i.logged_at)}`}</Typography>
-          <Button size="sm" {...lock(i.id, "checkout")} onClick={() => write(i.id, "checkout", () => checkout(i.id).unwrap())}>{REVIEW_COPY.screen.checkOut}</Button>
+          <Button size="sm" {...lock(i.id, "checkout")} onClick={() => write(i.id, "checkout", () => checkout(i.id).unwrap())}>{byKind(i, { disc: REVIEW_COPY.screen.checkOut, digital: REVIEW_COPY.screen.take })}</Button>
           {isMD && (
             <IntakeRequestPicker
               reviewers={reviewers.data ?? []}
@@ -227,7 +239,7 @@ export default function ReviewsScreen() {
           </>
         }
       >
-        {REVIEW_COPY.screen.returnQuestion}
+        {returning && byKind(returning, { disc: REVIEW_COPY.screen.returnQuestion, digital: REVIEW_COPY.screen.returnQuestionDigital })}
       </ConfirmDialog>
     </Stack>
   );

@@ -1,4 +1,5 @@
 import type { IntakeItem } from "@wxyc/shared";
+import { REVIEW_COPY } from "@/src/components/experiences/modern/reviews/copy";
 
 /** A record whose review is already on the library entry: nothing is left to file. */
 export const isFiledState = (state: IntakeItem["effective_state"]): boolean => state === "filed" || state === "finalized";
@@ -12,3 +13,18 @@ export const byKind = <T,>(item: Pick<IntakeItem, "digital">, values: { disc: T;
 /** A digital album reads Digital until it is filed; once filed it is a disc and reads its format. */
 export const showsAsDigital = (item: Pick<IntakeItem, "digital" | "effective_state">): boolean =>
   item.digital && !isFiledState(item.effective_state);
+
+/**
+ * The mark on a record the DJ has taken, or null for none. A disc reads Overdue
+ * while it is overdue; a digital album reads Not reviewed yet only while it is
+ * overdue and has no submitted review, since a submitted review is the work.
+ */
+export const overdueMark = (item: Pick<IntakeItem, "digital" | "overdue" | "submitted_review_count">): string | null => {
+  if (!item.overdue) {
+    return null;
+  }
+  return byKind(item, {
+    disc: REVIEW_COPY.screen.overdue,
+    digital: item.submitted_review_count === 0 ? REVIEW_COPY.screen.notReviewedYet : null,
+  });
+};

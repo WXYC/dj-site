@@ -10,6 +10,8 @@ const joinNames = (names: string[]) => (names.length < 2 ? names.join("") : `${n
 export const REVIEW_COPY = {
   /** Approved. Shown in place of a draft the DJ can no longer start. */
   subjectNotHeld: "You no longer have this record checked out, so a review can't be started here.",
+  /** Approved. Shown in place of a draft the DJ can no longer start, for a digital album. */
+  subjectNotHeldDigital: "This record isn't yours to review any more, so a review can't be started here.",
   /** Approved. Shown in place of the editor while reviews are open to music directors only. */
   staffOnly: "Reviews are open to music directors for now. You'll be able to open this review when they open to every DJ.",
   /** The editor page's header and browser-tab title. */
@@ -107,9 +109,9 @@ export const REVIEW_COPY = {
     /** Approved. */
     shelfEmpty: "Nothing is waiting on the review shelf.",
     /** Approved. */
-    checkoutsTitle: "My checkouts",
+    checkoutsTitle: "Records I'm reviewing",
     /** Approved. */
-    checkoutsEmpty: "You have no records checked out.",
+    checkoutsEmpty: "You aren't reviewing any records.",
     /** Approved. */
     requestsTitle: "Requests for me",
     /** Approved. */
@@ -150,6 +152,16 @@ export const REVIEW_COPY = {
     raceRequest: "This request is no longer open; it may have expired. The lists have been reloaded.",
     /** Approved. */
     raceRelease: "This record is no longer checked out to you. The lists have been reloaded.",
+    /** Approved. The button on a digital album on the review shelf. */
+    take: "Take",
+    /** Approved. The mark on a taken digital album that is overdue and has no submitted review. */
+    notReviewedYet: "Not reviewed yet",
+    /** Approved. The confirm dialog's question for a digital album. */
+    returnQuestionDigital: "Put this record back on the review shelf? Another DJ can take it.",
+    /** Approved. Shown on a taken digital album with no submitted review. */
+    filesComing: "A music director will send you the files.",
+    /** Approved. A digital album's lost return race, shown once the lists have reloaded. */
+    raceReleaseDigital: "This record isn't yours to review any more. The lists have been reloaded.",
   },
   /** The strip over the Reviews page's two tabs. */
   tabs: {
