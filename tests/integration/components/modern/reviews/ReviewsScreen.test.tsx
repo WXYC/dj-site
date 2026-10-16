@@ -777,7 +777,7 @@ describe("ReviewsScreen", () => {
     expect(await within(await section(SHELF)).findByText(/Moon Pix/)).toBeInTheDocument();
   });
 
-  it("shows the Format options as CD and Vinyl while still sending the stored format's id", async () => {
+  it("shows the Format options as Digital, CD and Vinyl while still sending the stored format's id", async () => {
     mockAuth.authority = Authorization.MD;
     fakeReviewsEndpoints({ open: [], reviewers: REVIEWERS });
     let body: Record<string, unknown> | undefined;
@@ -796,8 +796,8 @@ describe("ReviewsScreen", () => {
     await user.type(screen.getByLabelText(/^Album/), "Moon Pix");
     await user.click(screen.getByRole("combobox", { name: /^Format/ }));
     const options = await screen.findAllByRole("option");
-    expect(options.map((o) => o.textContent)).toEqual(["CD", "Vinyl"]);
-    await user.click(options[1]);
+    expect(options.map((o) => o.textContent)).toEqual(["Digital", "CD", "Vinyl"]);
+    await user.click(options[2]);
     await user.click(screen.getByRole("button", { name: "Log item" }));
 
     await waitFor(() => expect(body).toBeDefined());

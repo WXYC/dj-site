@@ -199,6 +199,8 @@ export const REVIEW_COPY = {
     label: "Label",
     /** Approved. */
     format: "Format",
+    /** Approved. The Format list's first choice, and a digital record's format until it is filed. */
+    digital: "Digital",
     /** Approved. */
     discogsReleaseId: "Discogs release id (optional)",
     /** Approved. */

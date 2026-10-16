@@ -3,10 +3,14 @@ import type { AlbumEntry } from "@/lib/features/catalog/types";
 import { skipToken } from "@reduxjs/toolkit/query";
 import { useGetFormatsQuery } from "@/lib/features/catalog/api";
 import { formatLabel } from "@/lib/features/experiences/modern/tokens/roles";
+import { showsAsDigital } from "@/lib/features/reviews/kind";
+import { REVIEW_COPY } from "./copy";
 import type { ReviewRecord } from "./useReviewRecord";
 
+/** An intake record as a review record; a digital album reads Digital until it is filed, whatever format id it carries. */
 export function intakeRecord(item: IntakeItem): ReviewRecord {
-  return { artist: item.artist_name, album: item.album_title, label: item.record_label ?? "", formatId: item.format_id };
+  const format = showsAsDigital(item) ? { format: REVIEW_COPY.intake.digital } : {};
+  return { ...format, artist: item.artist_name, album: item.album_title, label: item.record_label ?? "", formatId: item.format_id };
 }
 
 /** A catalog release as a record: the artist, the title and the format name the library holds, with no label. */

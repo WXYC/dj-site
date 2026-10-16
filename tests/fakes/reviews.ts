@@ -2,7 +2,7 @@ import type { FccNote, IntakeItem, IntakeSlip, Review, ReviewRevision } from "@w
 import { fakeAlbumReviewEndpoints, type FakeAlbumReviewOptions } from "./reviews/albumReview";
 import { fakeFccNoteEndpoints, type FakeFccNoteOptions } from "./reviews/fccNote";
 import { fakeIntakeEndpoints, type FakeIntakeOptions } from "./reviews/intake";
-import { fakeLibraryLookupEndpoints, type FakeLibraryOptions } from "./reviews/library";
+import { CDR_FORMAT, fakeLibraryLookupEndpoints, type FakeLibraryOptions } from "./reviews/library";
 import { fakeReviewEndpoints, type FakeReviewOptions } from "./reviews/review";
 
 /**
@@ -74,6 +74,12 @@ export const intakeItem = (overrides: Partial<IntakeItem> = {}): IntakeItem =>
     checked_out_at: null,
     ...overrides,
   }) as IntakeItem;
+
+export { CDR_FORMAT };
+
+/** An album that arrived as files, stored under the CD-R format as the server stores it. */
+export const digitalItem = (overrides: Partial<IntakeItem> = {}): IntakeItem =>
+  intakeItem({ digital: true, format_id: CDR_FORMAT.id, ...overrides });
 
 const HOLDER_AT = "2026-09-20T12:00:00Z";
 const REQUESTED_AT = "2026-09-25T12:00:00Z";

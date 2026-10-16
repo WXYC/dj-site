@@ -2,6 +2,9 @@ import { http, HttpResponse } from "msw";
 import { server } from "../server";
 import { TEST_BACKEND_URL as BACKEND_URL } from "../../helpers/constants";
 
+/** The CD-R row the server stores a digital album under; its id is not the disc default's. */
+export const CDR_FORMAT = { id: 7, format_name: "cdr" };
+
 export type FakeLibraryOptions = {
   releases?: { id: number; [key: string]: unknown }[];
   formats?: { id: number; format_name: string }[];

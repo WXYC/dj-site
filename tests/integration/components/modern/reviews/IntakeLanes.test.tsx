@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
-import { fakeReviewsEndpoints, fccNote, heldBy, holdResponse, intakeItem, pendingCount, removedHolder, renderedFrame, renderWithProviders, requestedFor, returned, review, reviewsSettled, server, TEST_BACKEND_URL } from "@/tests/helpers";
+import { CDR_FORMAT, digitalItem, fakeReviewsEndpoints, fccNote, heldBy, holdResponse, intakeItem, pendingCount, removedHolder, renderedFrame, renderWithProviders, requestedFor, returned, review, reviewsSettled, server, TEST_BACKEND_URL } from "@/tests/helpers";
 import { Authorization } from "@/lib/features/admin/types";
 
 vi.mock("@/lib/features/authentication/client", async () => {
@@ -649,6 +649,56 @@ describe("IntakeLogForm", () => {
     await waitFor(() =>
       expect(body).toEqual({ artist_name: "Cat Power", album_title: "Moon Pix", format_id: 1, discogs_release_id: 123 }),
     );
+  });
+
+  it("offers Digital first, and logging it sends digital with no format id", async () => {
+    let body: unknown;
+    fakeReviewsEndpoints({ formats: [{ id: 1, format_name: "cd" }, CDR_FORMAT] });
+    server.use(
+      http.post(`${TEST_BACKEND_URL}/intake`, async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json(moonPix());
+      }),
+    );
+
+    const { user } = renderWithProviders(<IntakeLogForm />);
+    await user.type(await screen.findByLabelText(/^Artist/), "Cat Power");
+    await user.type(screen.getByLabelText(/^Album/), "Moon Pix");
+    const log = screen.getByRole("button", { name: "Log item" });
+    expect(log).toBeDisabled();
+    await user.click(screen.getByRole("combobox", { name: /^Format/ }));
+    const options = await screen.findAllByRole("option");
+    expect(options[0]).toHaveTextContent(/^Digital$/);
+    await user.click(options[0]);
+    expect(log).toBeEnabled();
+    await user.click(log);
+
+    await waitFor(() => expect(body).toEqual({ artist_name: "Cat Power", album_title: "Moon Pix", digital: true }));
+  });
+
+  it("lists Digital ahead of the library's formats", async () => {
+    fakeReviewsEndpoints({ formats: [{ id: 1, format_name: "cd" }, CDR_FORMAT] });
+    const { user } = renderWithProviders(<IntakeLogForm />);
+    await user.click(await screen.findByRole("combobox", { name: /^Format/ }));
+    expect((await screen.findAllByRole("option")).map((o) => o.textContent)).toEqual(["Digital", "CD", "cdr"]);
+  });
+});
+
+describe("a digital record's format line", () => {
+  beforeEach(() => vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "staff"));
+  afterEach(() => vi.unstubAllEnvs());
+
+  it.each([
+    ["unfiled, reads Digital", { effective_state: "checked_out", state: "checked_out", ...heldBy("dj-1", "DJ Sam", null) }, "Digital", "cdr"],
+    ["filed, reads its CD-R format", { effective_state: "filed", state: "filed", ...heldBy("dj-1", "DJ Sam", null) }, "cdr", "Digital"],
+  ] as const)("a record %s in its lane", async (_name, overrides, text, other) => {
+    mockAuth.authority = Authorization.MD;
+    const row = digitalItem({ id: 21, artist_name: "Juana Molina", album_title: "DOGA", ...overrides });
+    fakeReviewsEndpoints({ open: [row], filed: [row], formats: [{ id: 1, format_name: "cd" }, CDR_FORMAT] });
+    renderWithProviders(<IntakeLanes />);
+    const link = await screen.findByRole("link", { name: /DOGA/ });
+    expect(link.textContent).toBe(`Juana Molina · DOGA · Duophonic · ${text}`);
+    expect(link.textContent).not.toContain(other);
   });
 });
 
