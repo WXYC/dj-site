@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import type { IntakeItem } from "@wxyc/shared";
-import { byKind, isFiledState, recordKind, showsAsDigital } from "@/lib/features/reviews/kind";
+import { byKind, isFiledState, overdueMark, recordKind, showsAsDigital } from "@/lib/features/reviews/kind";
 import { CDR_FORMAT, digitalItem, intakeItem } from "@/tests/fakes/reviews";
 
 describe("record kind", () => {
@@ -35,5 +35,18 @@ describe("record kind", () => {
     const item = digitalItem({ artist_name: "Juana Molina" });
     expect(item).toEqual({ ...intakeItem({ artist_name: "Juana Molina" }), digital: true, format_id: CDR_FORMAT.id });
     expect(item.format_id).not.toBe(intakeItem().format_id);
+  });
+});
+
+describe("overdueMark", () => {
+  it.each([
+    ["an overdue disc", intakeItem({ overdue: true, submitted_review_count: 0 }), "Overdue"],
+    ["an overdue disc with a submitted review", intakeItem({ overdue: true, submitted_review_count: 1 }), "Overdue"],
+    ["an overdue digital album with no submitted review", digitalItem({ overdue: true, submitted_review_count: 0 }), "Not reviewed yet"],
+    ["an overdue digital album with a submitted review", digitalItem({ overdue: true, submitted_review_count: 1 }), null],
+    ["a disc that is not overdue", intakeItem({ overdue: false, submitted_review_count: 0 }), null],
+    ["a digital album that is not overdue", digitalItem({ overdue: false, submitted_review_count: 0 }), null],
+  ])("%s", (_name, record, mark) => {
+    expect(overdueMark(record)).toBe(mark);
   });
 });

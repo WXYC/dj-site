@@ -88,7 +88,7 @@ describe("ReviewsScreen — a row stays locked until every rendered list has rel
     );
 
     renderWithProviders(<ReviewsScreen />);
-    const checkouts = await screen.findByRole("region", { name: "My checkouts" });
+    const checkouts = await screen.findByRole("region", { name: "Records I'm reviewing" });
     await within(checkouts).findByText(/Cat Power/);
     expect(intakeReads).toEqual([""]);
   });
