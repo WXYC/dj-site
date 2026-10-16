@@ -8,6 +8,7 @@ import { displayedArtist, isVariousArtists } from "@/lib/features/catalog/librar
 import type { AlbumEntry } from "@/lib/features/catalog/types";
 import { namedAuthor } from "@/lib/features/reviews/author";
 import { itemHolder } from "@/lib/features/reviews/holder";
+import { isFiledState } from "@/lib/features/reviews/kind";
 import { hasNothingToShow } from "@/lib/has-nothing-to-show";
 import {
   isIntakeAlreadyFiled,
@@ -65,9 +66,6 @@ const STATE_LABELS: Record<IntakeItem["effective_state"], string> = {
   filed: REVIEW_COPY.intake.filed,
   finalized: REVIEW_COPY.intake.filed,
 };
-
-/** A record whose review is already on the library entry: nothing is left to file. */
-const isFiledState = (state: IntakeItem["effective_state"]) => state === "filed" || state === "finalized";
 
 /** The record form's starting values and the key it mounts under; `cites` is the form review a copied start came from, which saving the review then cites. */
 export type Recording = { start: RecordFormStart; key: number; cites?: { id: number; submittedAt: string | null } };

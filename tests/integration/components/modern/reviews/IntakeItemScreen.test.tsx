@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
-import { createTestStore, deletingReview, fakeReviewsEndpoints, fccNote, heldBy, holdResponse, intakeItem, pendingCount, removedHolder, renderedFrame, renderWithProviders, requestedFor, returned, review, reviewRevision, reviewsSettled, server, TEST_BACKEND_URL } from "@/tests/helpers";
+import { CDR_FORMAT, createTestStore, deletingReview, digitalItem, fakeReviewsEndpoints, fccNote, heldBy, holdResponse, intakeItem, pendingCount, removedHolder, renderedFrame, renderWithProviders, requestedFor, returned, review, reviewRevision, reviewsSettled, server, TEST_BACKEND_URL } from "@/tests/helpers";
 import { fakeRotationCardsEndpoints } from "@/tests/fakes/rotation";
 import { fakeLibraryFilingsEndpoint, filingConflictResponse } from "@/tests/fakes/libraryFilings";
 import { Authorization } from "@/lib/features/admin/types";
@@ -424,6 +424,21 @@ describe("IntakeItemScreen", () => {
     expect(await screen.findByRole("heading", { level: 3, name: "Juana Molina · DOGA · Sonamos · Vinyl" })).toBeInTheDocument();
     await screen.findByText("Take 40.");
     expect(screen.getByText("Juana Molina · DOGA · Sonamos · Vinyl")).toBeInTheDocument();
+  });
+
+  it.each([
+    ["an unfiled digital record reads Digital", { state: "checked_out", effective_state: "checked_out" }, "Digital"],
+    ["a filed digital record reads its CD-R format", { state: "filed", effective_state: "filed" }, "cdr"],
+  ] as const)("%s", async (_name, overrides, format) => {
+    fakeReviewsEndpoints({
+      records: [digitalItem({ id: ITEM_ID, artist_name: "Juana Molina", album_title: "DOGA", record_label: "Sonamos", ...overrides })],
+      forItem: { [ITEM_ID]: [submitted(40)] },
+      formats: [{ id: 1, format_name: "cd" }, CDR_FORMAT],
+    });
+
+    renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+    expect(await screen.findByRole("heading", { level: 3, name: `Juana Molina · DOGA · Sonamos · ${format}` })).toBeInTheDocument();
   });
 
   it("shows the record's FCC notes on the page", async () => {

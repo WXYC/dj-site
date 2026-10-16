@@ -11,7 +11,9 @@ import { REVIEW_COPY } from "./copy";
 
 const COPY = REVIEW_COPY.intake;
 
-const EMPTY_FORM = { artist: "", album: "", label: "", labelId: null as number | null, formatId: null as number | null, discogs: "" };
+const DIGITAL = "digital";
+
+const EMPTY_FORM = { artist: "", album: "", label: "", labelId: null as number | null, formatId: null as number | null, digital: false, discogs: "" };
 
 export default function IntakeLogForm() {
   const { data: formats } = useGetFormatsQuery(undefined);
@@ -23,7 +25,7 @@ export default function IntakeLogForm() {
       await logItem({
         artist_name: form.artist,
         album_title: form.album,
-        format_id: form.formatId!,
+        ...(form.digital ? { digital: true } : { format_id: form.formatId! }),
         ...(form.label && { record_label: form.label }),
         ...(form.labelId != null && { label_id: form.labelId }),
         ...(form.discogs && { discogs_release_id: Number(form.discogs) }),
@@ -63,7 +65,11 @@ export default function IntakeLogForm() {
         </FormControl>
         <FormControl required>
           <FormLabel>{COPY.format}</FormLabel>
-          <Select value={form.formatId} onChange={(_e, formatId) => setForm((f) => ({ ...f, formatId }))}>
+          <Select<number | string>
+            value={form.digital ? DIGITAL : form.formatId}
+            onChange={(_e, choice) => setForm((f) => ({ ...f, digital: choice === DIGITAL, formatId: choice === DIGITAL ? null : (choice as number | null) }))}
+          >
+            <Option value={DIGITAL}>{COPY.digital}</Option>
             {(formats ?? []).map((f) => (
               <Option key={f.id} value={f.id}>{formatLabel(f.format_name)}</Option>
             ))}
@@ -73,7 +79,7 @@ export default function IntakeLogForm() {
           <FormLabel>{COPY.discogsReleaseId}</FormLabel>
           <Input type="number" value={form.discogs} onChange={(e) => setForm((f) => ({ ...f, discogs: e.target.value }))} />
         </FormControl>
-        <Button type="submit" loading={logging} disabled={!form.artist || !form.album || form.formatId == null}>{COPY.log}</Button>
+        <Button type="submit" loading={logging} disabled={!form.artist || !form.album || form.formatId == null && !form.digital}>{COPY.log}</Button>
       </Stack>
     </form>
   );

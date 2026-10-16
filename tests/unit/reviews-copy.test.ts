@@ -40,3 +40,9 @@ describe("REVIEW_COPY.myReviews row", () => {
     expect(actual).toBe(expected);
   });
 });
+
+describe("REVIEW_COPY.intake digital choice", () => {
+  it("pins the approved wording", () => {
+    expect(REVIEW_COPY.intake.digital).toBe("Digital");
+  });
+});
