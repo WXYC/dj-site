@@ -79,7 +79,7 @@ export default function IntakeLogForm() {
           <FormLabel>{COPY.discogsReleaseId}</FormLabel>
           <Input type="number" value={form.discogs} onChange={(e) => setForm((f) => ({ ...f, discogs: e.target.value }))} />
         </FormControl>
-        <Button type="submit" loading={logging} disabled={!form.artist || !form.album || form.formatId == null && !form.digital}>{COPY.log}</Button>
+        <Button type="submit" loading={logging} disabled={!form.artist || !form.album || (form.formatId == null && !form.digital)}>{COPY.log}</Button>
       </Stack>
     </form>
   );
