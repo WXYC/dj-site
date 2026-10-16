@@ -1445,7 +1445,11 @@ describe("IntakeItemScreen", () => {
 
       renderScreen(<IntakeItemScreen id={ITEM_ID} />);
 
-      expect(await screen.findByText(chip, { selector: ".MuiChip-root, .MuiChip-label, span, div" })).toBeInTheDocument();
+      // The chip sits beside the record's heading; look both up again on each try, since the page re-renders when the record loads.
+      await waitFor(() => {
+        const chipRow = screen.getByRole("heading", { level: 3, name: /·/ }).parentElement as HTMLElement;
+        expect(within(chipRow).getByText(chip, { selector: ".MuiChip-label" })).toBeInTheDocument();
+      });
     });
 
     it("says a handwritten review is already on the sleeve in place of the print link", async () => {

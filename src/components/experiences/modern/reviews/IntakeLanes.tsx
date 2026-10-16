@@ -13,7 +13,7 @@ import {
   useReleaseIntakeItemMutation,
 } from "@/lib/features/reviews/intakeApi";
 import { itemHolder } from "@/lib/features/reviews/holder";
-import { byKind } from "@/lib/features/reviews/kind";
+import { byKind, recordKind } from "@/lib/features/reviews/kind";
 import { useAppDispatch } from "@/lib/hooks";
 import { useCanSeeReviews } from "@/src/hooks/useCanSeeReviews";
 import { useRowWrite } from "@/src/hooks/useRowWrite";
@@ -97,9 +97,15 @@ function IntakeLaneGroups() {
 
   const where = (i: IntakeItem) => {
     const holder = itemHolder(i);
-    if (holder.kind === "requested") return `${COPY.heldFor} ${holder.name}`;
-    if (holder.kind === "checked_out") return `${byKind(i, { disc: COPY.checkedOutTo, digital: COPY.takenBy })} ${holder.name}`;
-    if (holder.kind === "removed") return byKind(i, { disc: COPY.holderRemovedNow, digital: COPY.takenByRemoved });
+    if (holder.kind === "requested") {
+      return `${COPY.heldFor} ${holder.name}`;
+    }
+    if (holder.kind === "checked_out") {
+      return `${byKind(i, { disc: COPY.checkedOutTo, digital: COPY.takenBy })} ${holder.name}`;
+    }
+    if (holder.kind === "removed") {
+      return byKind(i, { disc: COPY.holderRemovedNow, digital: COPY.takenByRemoved });
+    }
     return COPY.onShelf;
   };
 
@@ -173,7 +179,7 @@ function IntakeLaneGroups() {
           const holder = itemHolder(i);
           return (
             holder.kind !== "none" &&
-            !i.digital && (
+            recordKind(i) === "disc" && (
               <>
                 <Typography level="body-sm">
                   {holder.kind === "removed" ? COPY.holderRemoved : `${COPY.stillOutTo} ${holder.name}`}
