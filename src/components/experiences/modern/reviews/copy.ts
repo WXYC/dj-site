@@ -261,6 +261,19 @@ export const REVIEW_COPY = {
     recentPasses: "Recent passes",
     /** Approved. One line of the notice band: "Pat passed on Juana Molina — DOGA". */
     passedLine: (dj: string, artist: string, album: string) => `${dj} passed on ${artist} — ${album}`,
+    /** Approved. The lane of taken records, for a disc and a digital album alike. */
+    beingReviewed: "Being reviewed",
+    /** Approved. A digital album's location line; followed by the DJ's name. */
+    takenBy: "Taken by",
+    /** Approved. A digital album's location line when the account that took it was removed. */
+    takenByRemoved: "Taken by a removed account",
+    /** Approved. Who a waiting review is from, when its author has taken the digital album. */
+    fromTaker: (author: string) => `From ${author}, who has taken this record.`,
+    /** Approved. Someone else wrote it and a named DJ has taken the digital album. */
+    fromTakenBy: (author: string, taker: string) => `From ${author}. ${taker} has taken the record.`,
+    /** Approved. Someone else wrote it and the account that took the digital album was removed. */
+    fromTakenRemoved: (author: string) =>
+      `From ${author}. The record was taken by an account that has since been removed.`,
   },
   /** The music directors' page for one record, `/dashboard/admin/intake/{id}`. */
   intakeItem: {

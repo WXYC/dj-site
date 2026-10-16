@@ -103,7 +103,7 @@ describe("IntakeLanes", () => {
     const requested = await lane("Requested");
     expect(within(requested).getByText("Cat Power · Moon Pix · Matador · CD")).toBeInTheDocument();
     expect(within(requested).getByText("Held for DJ Pat")).toBeInTheDocument();
-    expect(within(await lane("Checked out")).getByText("Cat Power · Dark Side · Matador · CD")).toBeInTheDocument();
+    expect(within(await lane("Being reviewed")).getByText("Cat Power · Dark Side · Matador · CD")).toBeInTheDocument();
     expect(within(await lane("Reviewed (1)")).getByText("Cat Power · Moon Pix · Matador · CD")).toBeInTheDocument();
     expect(within(await lane("Filed")).getByText("Cat Power · Moon Pix · Matador · CD")).toBeInTheDocument();
     expect(within(requested).getByRole("link")).toHaveAttribute("href", "/dashboard/admin/intake/2");
@@ -124,7 +124,7 @@ describe("IntakeLanes", () => {
 
     renderWithProviders(<IntakeLanes />);
 
-    const where = { "Checked out": "Out", "Reviewed (1)": "Done", Filed: "Shelved" };
+    const where = { "Being reviewed": "Out", "Reviewed (1)": "Done", Filed: "Shelved" };
     for (const [name, album] of Object.entries(where)) {
       const region = await lane(name);
       for (const other of Object.values(where)) {
@@ -251,7 +251,7 @@ describe("IntakeLanes", () => {
 
     renderWithProviders(<IntakeLanes />);
 
-    const checkedOut = await lane("Checked out");
+    const checkedOut = await lane("Being reviewed");
     expect(within(checkedOut).getByText("review waiting")).toBeInTheDocument();
     expect(within(checkedOut).getByText("Checked out to DJ Sam")).toBeInTheDocument();
   });
@@ -266,6 +266,55 @@ describe("IntakeLanes", () => {
     expect(await within(lane1).findByText("From Jessica Pratt. The record is checked out; holder removed.")).toBeInTheDocument();
     expect(within(lane1).queryByText(/Checked out to/)).not.toBeInTheDocument();
     expect(lane1).not.toHaveTextContent("null");
+  });
+
+  it.each([
+    ["a disc", intakeItem, "Checked out to DJ Sam", "Holder removed", "From Cat Power. The record is with DJ Sam.", "From Jessica Pratt, who has this record.", "From Cat Power. The record is checked out; holder removed."],
+    ["a digital album", digitalItem, "Taken by DJ Sam", "Taken by a removed account", "From Cat Power. DJ Sam has taken the record.", "From Jessica Pratt, who has taken this record.", "From Cat Power. The record was taken by an account that has since been removed."],
+  ])("words the location and From lines of %s by its kind", async (_label, make, held, removed, fromWith, fromHolder, fromRemoved) => {
+    const row = (id: number, overrides = {}) =>
+      make({ id, artist_name: "Cat Power", album_title: `Album ${id}`, state: "checked_out", effective_state: "checked_out", submitted_review_count: 1, ...overrides });
+    const items = [row(1, heldBy("dj-sam", "DJ Sam")), row(2, removedHolder), row(3, heldBy("dj-jess", "Jessica Pratt"))];
+    fakeReviewsEndpoints({
+      open: items,
+      awaiting: items,
+      forItem: {
+        "1": [waitingReview(10, 1, { author: "Cat Power", author_user_id: "dj-cp" })],
+        "2": [waitingReview(20, 2, { author: "Cat Power", author_user_id: "dj-cp" })],
+        "3": [waitingReview(30, 3)],
+      },
+    });
+
+    renderWithProviders(<IntakeLanes />);
+
+    const waitingLane = await lane("Review waiting (3)");
+    for (const line of [fromWith, fromRemoved, fromHolder]) {
+      expect(await within(waitingLane).findByText(line)).toBeInTheDocument();
+    }
+    const taken = await lane("Being reviewed");
+    expect(within(taken).getByText(held)).toBeInTheDocument();
+    expect(within(taken).getByText(removed)).toBeInTheDocument();
+  });
+
+  it("shows a reviewed digital album that still has a holder with no Still out line and no Mark as returned, and a reviewed disc with both", async () => {
+    fakeReviewsEndpoints({
+      reviewed: [
+        digitalItem({ id: 1, artist_name: "Cat Power", album_title: "Digital One", effective_state: "reviewed", ...heldBy("dj-1", "DJ Sam", "2026-09-01T12:00:00Z") }),
+        digitalItem({ id: 2, artist_name: "Cat Power", album_title: "Digital Two", effective_state: "reviewed", ...removedHolder }),
+        moonPix({ id: 3, album_title: "Disc One", effective_state: "reviewed", ...heldBy("dj-1", "DJ Sam", "2026-09-01T12:00:00Z") }),
+      ],
+    });
+
+    renderWithProviders(<IntakeLanes />);
+
+    const reviewed = await lane("Reviewed (3)");
+    const rowOf = (title: string) => within(reviewed).getByText(new RegExp(title)).closest("li")!;
+    for (const title of ["Digital One", "Digital Two"]) {
+      expect(within(rowOf(title)).queryByText(/^Still out/)).not.toBeInTheDocument();
+      expect(within(rowOf(title)).queryByRole("button", { name: "Mark as returned" })).not.toBeInTheDocument();
+    }
+    expect(within(rowOf("Disc One")).getByText("Still out: checked out to DJ Sam")).toBeInTheDocument();
+    expect(within(rowOf("Disc One")).getByRole("button", { name: "Mark as returned" })).toBeInTheDocument();
   });
 
   it("shows a reviewed record's holder and overdue mark, and none for a returned one", async () => {
@@ -288,8 +337,8 @@ describe("IntakeLanes", () => {
   });
 
   it.each([
-    ["Checked out", "the overdue row first", "checked_out", "Checked out"],
-    ["Checked out", "the overdue row second", "checked_out", "Checked out"],
+    ["Being reviewed", "the overdue row first", "checked_out", "Being reviewed"],
+    ["Being reviewed", "the overdue row second", "checked_out", "Being reviewed"],
     ["Reviewed", "the overdue row first", "reviewed", "Reviewed (2)"],
     ["Reviewed", "the overdue row second", "reviewed", "Reviewed (2)"],
   ])("sorts an overdue row first in the %s lane when the read returns %s", async (_name, readOrder, state, heading) => {
@@ -570,7 +619,7 @@ describe("IntakeLanes — cancel and release", () => {
     );
 
     const { user } = renderWithProviders(<IntakeLanes />);
-    const checkedOut = await lane("Checked out");
+    const checkedOut = await lane("Being reviewed");
     expect(within(checkedOut).getByText("Holder removed")).toBeInTheDocument();
     expect(within(checkedOut).getByText("Checked out to DJ Sam")).toBeInTheDocument();
     expect(within(checkedOut).getAllByRole("button", { name: "Release" })).toHaveLength(2);
@@ -721,10 +770,10 @@ describe("IntakeLanes as the music directors' tab", () => {
 
     await lane("Filed");
     const names = screen.getAllByRole("region").map((r) => document.getElementById(r.getAttribute("aria-labelledby") ?? "")?.textContent ?? "");
-    expect(names.filter((n) => /^(Review waiting|Requested|Checked out|Reviewed|Filed)/.test(n))).toEqual([
+    expect(names.filter((n) => /^(Review waiting|Requested|Being reviewed|Reviewed|Filed)/.test(n))).toEqual([
       "Review waiting (1)",
       "Requested",
-      "Checked out",
+      "Being reviewed",
       "Reviewed (1)",
       "Filed",
     ]);
