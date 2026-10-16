@@ -44,6 +44,7 @@ const FILED_DOGA = {
   effective_state: "filed",
   album_id: 42,
   rotation_id: null,
+  digital: false,
 } as IntakeItem;
 
 const ALBUM = {

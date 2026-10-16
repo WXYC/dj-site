@@ -32,6 +32,7 @@ const filed = (overrides: Partial<IntakeItem>): IntakeItem =>
     effective_state: "filed",
     album_id: 42,
     rotation_id: null,
+    digital: false,
     ...overrides,
   }) as IntakeItem;
 
