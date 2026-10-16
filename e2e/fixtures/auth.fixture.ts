@@ -66,6 +66,38 @@ export const TAKEOVER_DJ_B = {
   stateFile: "takeoverDjB.json",
 };
 
+/**
+ * Dedicated music director and DJ for the intake golden-path spec
+ * (e2e/tests/reviews/intake-golden-path.spec.ts). That spec runs in parallel
+ * with every other spec against one Backend-Service, and its last step
+ * switches the music director's interface setting, which is account state
+ * every other session on that account would observe — so it signs in as
+ * these two and no one else does. Both are left at the modern default.
+ * Provisioned by auth.setup.ts's `provisionIdentity`, like the pairs above.
+ *
+ * `realName` is load-bearing here: the review screens name a person by their
+ * real name, and the spec asserts those lines.
+ */
+export const INTAKE_MD_USER = {
+  username: "test_intake_md",
+  password: "TestIntakeMd1",
+  email: "test_intake_md@wxyc.org",
+  realName: "Test Intake MD",
+  djName: "Test Intake MD",
+  role: "musicDirector" as const,
+  stateFile: "intakeMd.json",
+};
+
+export const INTAKE_DJ_USER = {
+  username: "test_intake_dj",
+  password: "TestIntakeDj1",
+  email: "test_intake_dj@wxyc.org",
+  realName: "Test Intake DJ",
+  djName: "Test Intake DJ",
+  role: "dj" as const,
+  stateFile: "intakeDj.json",
+};
+
 export async function login(
   page: Page,
   user: TestUser | { username: string; password: string }

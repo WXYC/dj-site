@@ -104,6 +104,8 @@ Seeded test users all use the password: `testpassword123`. `test_classic_md` and
 | `test_classic_dj` | dj | Not seeded — the DJ-authority counterpart to `test_classic_md`, provisioned by the same factory. Exists so classic-librarian specs can assert the DJ-readable / MD-gated authority split without racing a shared seeded user's preference. Password is `TestClassicDj1` |
 | `test_takeover_a` | dj | Not seeded — provisioned by the same factory, left at the modern default. Used only by `tests/flowsheet/go-live-takeover.spec.ts`, which is the only spec allowed to click "End Existing Show" and so needs a pair no other spec shares. Password is `TestTakeoverA1` |
 | `test_takeover_b` | dj | Not seeded — the second half of that pair, so two sessions can be on air at once. Password is `TestTakeoverB1` |
+| `test_intake_md` | musicDirector | Not seeded — provisioned by the same factory, left at the modern default. Used only by `tests/reviews/intake-golden-path.spec.ts`, which switches this account's interface to classic for the librarian's confirmation and back, so no other spec may sign in as it. Its real name (`Test Intake MD`) is what the review screens print. Password is `TestIntakeMd1` |
+| `test_intake_dj` | dj | Not seeded — the DJ half of the intake golden path, provisioned by the same factory. Its real name (`Test Intake DJ`) is asserted in the review screens' From and holder lines. Password is `TestIntakeDj1` |
 
 ## Test Structure
 
@@ -127,6 +129,8 @@ e2e/
     │   └── new-user.spec.ts    # Onboarding tests (4 tests)
     ├── rbac/
     │   └── role-access.spec.ts # Role-based access tests (6 tests)
+    ├── reviews/
+    │   └── intake-golden-path.spec.ts # Log, check out, review, choose, print, file, edit, confirm (1 test, 7 steps)
     └── admin/
         ├── user-creation.spec.ts       # User creation tests (8 tests)
         ├── user-deletion.spec.ts       # User deletion tests (5 tests)

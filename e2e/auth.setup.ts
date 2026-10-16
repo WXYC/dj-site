@@ -5,6 +5,8 @@ import {
   CLASSIC_MD_USER as CLASSIC_MD_USER_DATA,
   TAKEOVER_DJ_A as TAKEOVER_DJ_A_DATA,
   TAKEOVER_DJ_B as TAKEOVER_DJ_B_DATA,
+  INTAKE_MD_USER as INTAKE_MD_USER_DATA,
+  INTAKE_DJ_USER as INTAKE_DJ_USER_DATA,
   getAuthServiceBaseUrl,
   completeOnboardingWithInviteToken,
 } from "./fixtures/auth.fixture";
@@ -260,6 +262,23 @@ const TAKEOVER_DJ_B: ProvisionedIdentity = {
   statePath: `${authDir}/${TAKEOVER_DJ_B_DATA.stateFile}`,
 };
 
+/**
+ * Dedicated music director and DJ for the intake golden-path spec
+ * (e2e/tests/reviews/intake-golden-path.spec.ts), which walks one record from
+ * logging to the librarian's confirmation and switches the music director's
+ * experience on the way. Left at the modern default, provisioned like the
+ * pairs above; the identity DATA lives in auth.fixture.ts for the same reason.
+ */
+const INTAKE_MD_USER: ProvisionedIdentity = {
+  ...INTAKE_MD_USER_DATA,
+  statePath: `${authDir}/${INTAKE_MD_USER_DATA.stateFile}`,
+};
+
+const INTAKE_DJ_USER: ProvisionedIdentity = {
+  ...INTAKE_DJ_USER_DATA,
+  statePath: `${authDir}/${INTAKE_DJ_USER_DATA.stateFile}`,
+};
+
 const LOOPBACK_HOSTNAMES = new Set(["localhost", "127.0.0.1", "::1"]);
 
 // Every octet of a dotted-quad, so this can't accidentally accept something
@@ -504,6 +523,18 @@ setup("provision go-live takeover identity (dj A)", async ({ page, browser }) =>
 
 setup("provision go-live takeover identity (dj B)", async ({ page, browser }) => {
   await provisionIdentity(page, browser, TAKEOVER_DJ_B, false);
+});
+
+/**
+ * Setup authentication state for the intake golden-path spec's dedicated
+ * music director and DJ. Left at the modern default — see INTAKE_MD_USER's doc.
+ */
+setup("provision intake golden path identity (music director)", async ({ page, browser }) => {
+  await provisionIdentity(page, browser, INTAKE_MD_USER, false);
+});
+
+setup("provision intake golden path identity (dj)", async ({ page, browser }) => {
+  await provisionIdentity(page, browser, INTAKE_DJ_USER, false);
 });
 
 /**
