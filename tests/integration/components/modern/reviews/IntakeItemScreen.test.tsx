@@ -2590,10 +2590,10 @@ describe("IntakeItemScreen", () => {
       ["the account that has it was removed", removedHolder, "From Jessica Pratt. The record was taken by an account that has since been removed."],
       [
         "a request is open",
-        { state: "requested", effective_state: "requested", ...requestedFor("dj-pat", "DJ Pat") },
+        { state: "requested", effective_state: "requested", ...requestedFor("dj-pat", "DJ Pat") } as const,
         "From Jessica Pratt. The record is being held for DJ Pat.",
       ],
-      ["it is on the review shelf", { state: "pool", effective_state: "pool" }, "From Jessica Pratt. The record is on the review shelf."],
+      ["it is on the review shelf", { state: "pool", effective_state: "pool" } as const, "From Jessica Pratt. The record is on the review shelf."],
     ])("says so for a digital album under Other reviews when %s", async (_label, overrides, line) => {
       fakeReviewsEndpoints({ records: [digitalItem({ id: ITEM_ID, state: "checked_out", effective_state: "checked_out", ...overrides })], forItem: { [ITEM_ID]: [submitted(40), waiting(41)] } });
 
