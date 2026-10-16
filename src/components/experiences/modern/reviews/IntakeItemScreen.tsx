@@ -8,7 +8,7 @@ import { displayedArtist, isVariousArtists } from "@/lib/features/catalog/librar
 import type { AlbumEntry } from "@/lib/features/catalog/types";
 import { namedAuthor } from "@/lib/features/reviews/author";
 import { itemHolder } from "@/lib/features/reviews/holder";
-import { isFiledState } from "@/lib/features/reviews/kind";
+import { byKind, isFiledState } from "@/lib/features/reviews/kind";
 import { hasNothingToShow } from "@/lib/has-nothing-to-show";
 import {
   isIntakeAlreadyFiled,
@@ -184,7 +184,13 @@ export default function IntakeItemScreen({ id }: { id: number }) {
   const coverFromCited = citedId !== null && coverId != null && (!ownCover || ownCover.album_id === citedId);
   const holder = itemHolder(item.data);
   const coverConfirmation =
-    holder.kind === "checked_out" ? COPY.deleteCoverHeld(holder.name) : holder.kind === "removed" ? COPY.deleteCoverRemoved : COPY.deleteCoverShelf;
+    item.data.digital
+      ? COPY.deleteCoverShelf
+      : holder.kind === "checked_out"
+        ? COPY.deleteCoverHeld(holder.name)
+        : holder.kind === "removed"
+          ? COPY.deleteCoverRemoved
+          : COPY.deleteCoverShelf;
   const deleteConfirmation = (review: Review) => {
     const author = namedAuthor(review);
     return isCover(review) ? coverConfirmation : author ? COPY.deleteReviewConfirm(author) : REVIEW_COPY.deleteConfirm;
@@ -243,7 +249,7 @@ export default function IntakeItemScreen({ id }: { id: number }) {
       </>
     );
 
-  const stillOut = cover && holder.kind === "checked_out" && holder.name && holder.id !== cover.author_user_id ? COPY.stillOutWith(holder.name) : null;
+  const stillOut = cover && !item.data.digital && holder.kind === "checked_out" && holder.name && holder.id !== cover.author_user_id ? COPY.stillOutWith(holder.name) : null;
 
   // Setting or clearing a citation can take the cover review off, so it holds the page like a review write; the reload also shows a refusal's cause.
   // Answers the line it set, for a caller whose own line would otherwise replace it, and whether a reload ran.
@@ -363,7 +369,11 @@ export default function IntakeItemScreen({ id }: { id: number }) {
     <Stack spacing={2}>
       <Stack direction="row" spacing={1} alignItems="center">
         <Typography component="h3" level="title-lg">{recordLine(record, formats)}</Typography>
-        <Chip>{STATE_LABELS[item.data.effective_state]}</Chip>
+        <Chip>
+          {item.data.effective_state === "checked_out"
+            ? byKind(item.data, { disc: STATE_LABELS.checked_out, digital: REVIEW_COPY.screen.taken })
+            : STATE_LABELS[item.data.effective_state]}
+        </Chip>
       </Stack>
       {cover ? (
         <Group title={REVIEW_COPY.albumPanel.coverOne} reviews={[cover]} recordOf={recordOf} newSlipHref={`/dashboard/admin/intake/${id}/slip`} onCover={isOnCover} extra={deleteControl} />

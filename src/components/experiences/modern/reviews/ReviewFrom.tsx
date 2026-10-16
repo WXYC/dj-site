@@ -4,6 +4,7 @@ import { Typography } from "@mui/joy";
 import type { IntakeItem, Review } from "@wxyc/shared";
 import { namedAuthor } from "@/lib/features/reviews/author";
 import { itemHolder } from "@/lib/features/reviews/holder";
+import { byKind } from "@/lib/features/reviews/kind";
 import { useGetItemReviewsQuery } from "@/lib/features/reviews/reviewApi";
 import { REVIEW_COPY } from "./copy";
 
@@ -21,10 +22,11 @@ export function fromLine(review: Review, item: IntakeItem): string | null {
   const author = namedAuthor(review);
   const holder = itemHolder(item);
   if (!author) return null;
-  if (holder.kind === "removed") return COPY.fromRemoved(author);
+  if (holder.kind === "removed") return byKind(item, { disc: COPY.fromRemoved, digital: COPY.fromTakenRemoved })(author);
   if (holder.kind === "none") return item.effective_state === "pool" ? COPY.fromShelf(author) : null;
-  if (holder.id !== null && holder.id === review.author_user_id) return COPY.fromHolder(author);
-  return (holder.kind === "requested" ? COPY.fromHeldFor : COPY.fromWith)(author, holder.name);
+  if (holder.id !== null && holder.id === review.author_user_id) return byKind(item, { disc: COPY.fromHolder, digital: COPY.fromTaker })(author);
+  const elsewhere = byKind(item, { disc: COPY.fromWith, digital: COPY.fromTakenBy });
+  return (holder.kind === "requested" ? COPY.fromHeldFor : elsewhere)(author, holder.name);
 }
 
 /**

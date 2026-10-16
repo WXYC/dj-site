@@ -61,3 +61,22 @@ describe("REVIEW_COPY digital album lines and the DJ's own list heading", () => 
     expect(actual).toBe(expected);
   });
 });
+
+describe("REVIEW_COPY.intake digital taken lines", () => {
+  it.each([
+    ["beingReviewed", REVIEW_COPY.intake.beingReviewed, "Being reviewed"],
+    ["takenBy", REVIEW_COPY.intake.takenBy, "Taken by"],
+    ["takenByRemoved", REVIEW_COPY.intake.takenByRemoved, "Taken by a removed account"],
+    ["fromTaker", REVIEW_COPY.intake.fromTaker("Jessica Pratt"), "From Jessica Pratt, who has taken this record."],
+    ["fromTakenBy", REVIEW_COPY.intake.fromTakenBy("Jessica Pratt", "DJ Sam"), "From Jessica Pratt. DJ Sam has taken the record."],
+    [
+      "fromTakenRemoved",
+      REVIEW_COPY.intake.fromTakenRemoved("Jessica Pratt"),
+      "From Jessica Pratt. The record was taken by an account that has since been removed.",
+    ],
+    ["checkedOut (a disc's chip)", REVIEW_COPY.intake.checkedOut, "Checked out"],
+    ["screen.taken (a digital album's chip)", REVIEW_COPY.screen.taken, "Taken"],
+  ])("pins %s", (_key, actual, expected) => {
+    expect(actual).toBe(expected);
+  });
+});

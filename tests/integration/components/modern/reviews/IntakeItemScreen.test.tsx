@@ -81,6 +81,19 @@ const dogaItem = (overrides = {}) =>
     ...overrides,
   });
 
+const digitalDoga = (overrides = {}) =>
+  digitalItem({
+    id: ITEM_ID,
+    artist_name: "Juana Molina",
+    album_title: "DOGA",
+    record_label: "Sonamos",
+    state: "reviewed",
+    effective_state: "reviewed",
+    submitted_review_count: 2,
+    accepted_review_id: 40,
+    ...overrides,
+  });
+
 const submitted = (id: number, overrides = {}) =>
   review({ id, intake_item_id: ITEM_ID, status: "submitted", author: `DJ ${id}`, review: `Take ${id}.`, add_date: "2026-10-01", ...overrides });
 
@@ -1414,6 +1427,27 @@ describe("IntakeItemScreen", () => {
       else expect(screen.queryByText(/still out with/)).not.toBeInTheDocument();
     });
 
+    it("shows no still-out line for a digital album that still has a holder", async () => {
+      setUp(digitalDoga({ state: "checked_out", effective_state: "checked_out", ...heldBy("dj-sam", "Sam", "2026-10-01T12:00:00Z") }), [submitted(40, { author_user_id: "dj-pat" })]);
+
+      const { store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      await screen.findByRole("heading", { name: "The review on the cover" });
+      await reviewsSettled(store);
+      expect(screen.queryByText(/still out with/)).not.toBeInTheDocument();
+    });
+
+    it.each([
+      ["a disc", dogaItem, "Checked out"],
+      ["a digital album", digitalItem, "Taken"],
+    ])("words the state chip of %s that is checked out", async (_label, make, chip) => {
+      fakeReviewsEndpoints({ records: [make({ id: ITEM_ID, state: "checked_out", effective_state: "checked_out", ...heldBy("dj-sam", "Sam") })], forItem: { [ITEM_ID]: [] } });
+
+      renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      expect(await screen.findByText(chip, { selector: ".MuiChip-root, .MuiChip-label, span, div" })).toBeInTheDocument();
+    });
+
     it("says a handwritten review is already on the sleeve in place of the print link", async () => {
       setUp(dogaItem(), [submitted(40, { medium: "handwritten", review: null })]);
 
@@ -2024,6 +2058,19 @@ describe("IntakeItemScreen", () => {
       expect(dialog.getByText(line)).toBeInTheDocument();
     });
 
+    it.each([
+      ["a named DJ has taken it", HOLDER_ITEM],
+      ["the account that took it was removed", REMOVED_ITEM],
+    ])("words a digital album's cover review confirmation as the review shelf's when %s", async (_label, held) => {
+      setUp(digitalDoga(held));
+      const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      const dialog = await open(user, "Delete review by Stereolab");
+
+      expect(dialog.getByText(REVIEW_COPY.intakeItem.deleteCoverShelf)).toBeInTheDocument();
+      expect(dialog.queryByText(/sends the record back to Sessa|puts the record back as checked out/)).not.toBeInTheDocument();
+    });
+
     it("disables Delete on the cover review of a filed record and says why beside it", async () => {
       const { deletes } = setUp(dogaItem({ state: "filed", effective_state: "filed" }));
       renderScreen(<IntakeItemScreen id={ITEM_ID} />);
@@ -2535,6 +2582,24 @@ describe("IntakeItemScreen", () => {
       expect(await within(await otherReviews()).findByText(line)).toBeInTheDocument();
       const cover = screen.getByRole("heading", { name: "The review on the cover" }).closest("section")!;
       expect(within(cover).queryByText(/^From /)).not.toBeInTheDocument();
+    });
+
+    it.each([
+      ["the author has the record", heldBy("dj-jess", "Jessica Pratt"), "From Jessica Pratt, who has taken this record."],
+      ["someone else has it", heldBy("dj-sam", "DJ Sam"), "From Jessica Pratt. DJ Sam has taken the record."],
+      ["the account that has it was removed", removedHolder, "From Jessica Pratt. The record was taken by an account that has since been removed."],
+      [
+        "a request is open",
+        { state: "requested", effective_state: "requested", ...requestedFor("dj-pat", "DJ Pat") },
+        "From Jessica Pratt. The record is being held for DJ Pat.",
+      ],
+      ["it is on the review shelf", { state: "pool", effective_state: "pool" }, "From Jessica Pratt. The record is on the review shelf."],
+    ])("says so for a digital album under Other reviews when %s", async (_label, overrides, line) => {
+      fakeReviewsEndpoints({ records: [digitalItem({ id: ITEM_ID, state: "checked_out", effective_state: "checked_out", ...overrides })], forItem: { [ITEM_ID]: [submitted(40), waiting(41)] } });
+
+      renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      expect(await within(await otherReviews()).findByText(line)).toBeInTheDocument();
     });
 
     it("matches nobody when the review has no linked account", async () => {
