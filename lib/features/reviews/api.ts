@@ -63,3 +63,6 @@ export const reviewsApi = createApi({
   ],
   endpoints: () => ({}),
 });
+
+/** Hook options for a list that re-reads when the window regains focus and once a minute while it is visible, so a board left open does not show a state that has changed. */
+export const LIVE_LIST = { refetchOnFocus: true, pollingInterval: 60_000, skipPollingIfUnfocused: true } as const;

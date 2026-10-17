@@ -3,6 +3,8 @@ import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { CDR_FORMAT, digitalItem, fakeReviewsEndpoints, fccNote, heldBy, holdResponse, intakeItem, outline, pendingCount, removedHolder, renderedFrame, renderWithProviders, requestedFor, returned, returnedByMusicDirector, review, reviewsSettled, server, TEST_BACKEND_URL } from "@/tests/helpers";
 import type { IntakeItem } from "@wxyc/shared";
+import { setupListeners } from "@reduxjs/toolkit/query";
+import { makeStore } from "@/lib/store";
 import { Authorization } from "@/lib/features/admin/types";
 
 vi.mock("@/lib/features/authentication/client", async () => {
@@ -237,8 +239,6 @@ describe("IntakeLanes", () => {
         "Held for DJ Pat",
       ],
       ["a disc is back in the music office with a review waiting", { state: "pool", effective_state: "pool" }, "Back in the music office"],
-      ["a returned reviewed disc nobody has", { state: "reviewed", effective_state: "reviewed", ...returned }, "Back in the music office"],
-      ["a returned reviewed digital album nobody has", { digital: true, state: "reviewed", effective_state: "reviewed", ...returned }, "Ready to burn"],
       ["a music director returned a checked out disc with a review waiting", returnedByMusicDirector, "Back in the music office"],
       ["the holder's account was removed", removedHolder, "Holder removed"],
     ])("shows the location line while the read is in flight, then the From line, when %s", async (_label, itemOverrides, location) => {
@@ -311,15 +311,57 @@ describe("IntakeLanes", () => {
     });
   });
 
-  it("marks the record in its physical lane and leaves the location line there", async () => {
+  it("shows a checked out record with a submitted review once, under Review waiting, with its location line", async () => {
     const item = waiting(7);
     fakeReviewsEndpoints({ open: [item], awaiting: [item], forItem: { "7": [waitingReview(70, 7)] } });
 
     renderWithProviders(<IntakeLanes />);
 
-    const checkedOut = await lane("Being reviewed");
-    expect(within(checkedOut).getByText("review waiting")).toBeInTheDocument();
-    expect(within(checkedOut).getByText("Checked out to DJ Sam")).toBeInTheDocument();
+    const waitingLane = await lane("Review waiting (1)");
+    expect(within(waitingLane).getByText("Checked out to DJ Sam")).toBeInTheDocument();
+    expect(within(await lane("Being reviewed")).queryByRole("link")).not.toBeInTheDocument();
+    expect(await screen.findAllByRole("link", { name: "Cat Power" })).toHaveLength(1);
+    expect(screen.queryByText("review waiting")).not.toBeInTheDocument();
+  });
+
+  it("shows a reviewed record that still has a submitted review waiting only under Reviewed", async () => {
+    const item = waiting(8, { state: "reviewed", effective_state: "reviewed" });
+    fakeReviewsEndpoints({ reviewed: [item], awaiting: [item] });
+
+    renderWithProviders(<IntakeLanes />);
+
+    expect(within(await lane("Reviewed (1)")).getByRole("link", { name: "Cat Power" })).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: /Review waiting/ })).not.toBeInTheDocument();
+  });
+
+  it("shows a finalized record under Filed", async () => {
+    fakeReviewsEndpoints({ filed: [moonPix({ id: 5, state: "finalized", effective_state: "finalized" })] });
+
+    renderWithProviders(<IntakeLanes />);
+
+    expect(within(await lane("Filed")).getByRole("link", { name: "Cat Power" })).toBeInTheDocument();
+  });
+
+  it("reads intake again when the window regains focus", async () => {
+    const reads: string[] = [];
+    fakeReviewsEndpoints({ open: [waiting(3)] });
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/intake`, ({ request }) => {
+        reads.push(new URL(request.url).search);
+      }),
+    );
+    const store = makeStore();
+    const stopListening = setupListeners(store.dispatch);
+
+    renderWithProviders(<IntakeLanes />, { store });
+    await lane("Being reviewed");
+    await waitFor(() => expect(reads).toHaveLength(2));
+
+    window.dispatchEvent(new Event("focus"));
+
+    await waitFor(() => expect(reads).toHaveLength(4));
+    expect([...reads].sort()).toEqual(["", "", "?awaiting_acceptance=true", "?awaiting_acceptance=true"]);
+    stopListening();
   });
 
   it("names a removed holder in the Review waiting lane instead of printing null", async () => {
@@ -341,8 +383,9 @@ describe("IntakeLanes", () => {
     const row = (id: number, overrides = {}) =>
       make({ id, artist_name: "Cat Power", album_title: `Album ${id}`, state: "checked_out", effective_state: "checked_out", submitted_review_count: 1, ...overrides });
     const items = [row(1, heldBy("dj-sam", "DJ Sam")), row(2, removedHolder), row(3, heldBy("dj-jess", "Jessica Pratt"))];
+    const unreviewed = [row(4, heldBy("dj-sam", "DJ Sam")), row(5, removedHolder)].map((i) => ({ ...i, submitted_review_count: 0 }));
     fakeReviewsEndpoints({
-      open: items,
+      open: [...items, ...unreviewed],
       awaiting: items,
       forItem: {
         "1": [waitingReview(10, 1, { author: "Cat Power", author_user_id: "dj-cp" })],
@@ -686,7 +729,8 @@ describe("IntakeLanes — cancel and release", () => {
   const BACK_IN_OFFICE = "From Jessica Pratt. The record is back in the music office.";
   type Row = {
     item: Partial<IntakeItem>;
-    beingReviewed: string[];
+    // Null where the record, having a review waiting, is drawn under Review waiting and not here.
+    beingReviewed: string[] | null;
     reviewWaiting: string[] | null;
     confirm: { title: string; body: string } | null;
     after: Partial<IntakeItem> | null;
@@ -698,10 +742,10 @@ describe("IntakeLanes — cancel and release", () => {
     ["a digital album a DJ has", { item: { ...asDigital, ...SAM }, beingReviewed: [RETURN], reviewWaiting: null, confirm: { title: RETURN_TITLE, body: "DJ Sam will no longer have it, and any DJ can choose to review it." }, after: { ...asDigital, ...releasedToPool }, fromAfter: null }],
     ["a disc whose holder was removed", { item: removedHolder, beingReviewed: [RETURN], reviewWaiting: null, confirm: { title: RETURN_TITLE, body: "Any DJ can choose to review it." }, after: releasedToPool, fromAfter: null }],
     ["a digital album whose holder was removed", { item: { ...asDigital, ...removedHolder }, beingReviewed: [RETURN], reviewWaiting: null, confirm: { title: RETURN_TITLE, body: "Any DJ can choose to review it." }, after: { ...asDigital, ...releasedToPool }, fromAfter: null }],
-    ["a disc a DJ has, with a review waiting", { item: { ...SAM, ...reviewWaits }, beingReviewed: [], reviewWaiting: [MARK], confirm: { title: MARK_TITLE, body: "DJ Sam will no longer have it. Their review stays waiting for you to choose." }, after: returnedByMusicDirector, fromAfter: BACK_IN_OFFICE }],
-    ["a disc whose holder was removed, with a review waiting", { item: { ...removedHolder, ...reviewWaits }, beingReviewed: [], reviewWaiting: [MARK], confirm: { title: MARK_TITLE, body: "The review stays waiting for you to choose." }, after: returnedByMusicDirector, fromAfter: BACK_IN_OFFICE }],
-    ["a digital album a DJ has, with a review waiting", { item: { ...asDigital, ...SAM, ...reviewWaits }, beingReviewed: [], reviewWaiting: [], confirm: null, after: null, fromAfter: null }],
-    ["a digital album whose holder was removed, with a review waiting", { item: { ...asDigital, ...removedHolder, ...reviewWaits }, beingReviewed: [], reviewWaiting: [], confirm: null, after: null, fromAfter: null }],
+    ["a disc a DJ has, with a review waiting", { item: { ...SAM, ...reviewWaits }, beingReviewed: null, reviewWaiting: [MARK], confirm: { title: MARK_TITLE, body: "DJ Sam will no longer have it. Their review stays waiting for you to choose." }, after: returnedByMusicDirector, fromAfter: BACK_IN_OFFICE }],
+    ["a disc whose holder was removed, with a review waiting", { item: { ...removedHolder, ...reviewWaits }, beingReviewed: null, reviewWaiting: [MARK], confirm: { title: MARK_TITLE, body: "The review stays waiting for you to choose." }, after: returnedByMusicDirector, fromAfter: BACK_IN_OFFICE }],
+    ["a digital album a DJ has, with a review waiting", { item: { ...asDigital, ...SAM, ...reviewWaits }, beingReviewed: null, reviewWaiting: [], confirm: null, after: null, fromAfter: null }],
+    ["a digital album whose holder was removed, with a review waiting", { item: { ...asDigital, ...removedHolder, ...reviewWaits }, beingReviewed: null, reviewWaiting: [], confirm: null, after: null, fromAfter: null }],
   ])("for %s, offers its own button and confirmation, sends nothing on Cancel, and leaves the record where the server puts it", async (_label, { item, beingReviewed, reviewWaiting, confirm, after, fromAfter }) => {
     const posts: number[] = [];
     const row = () => outRow(11, posts.length > 0 ? { ...item, ...after } : item);
@@ -718,9 +762,11 @@ describe("IntakeLanes — cancel and release", () => {
     const buttons = (region: HTMLElement) => within(region).queryAllByRole("button").map((b) => b.textContent);
 
     const { user } = renderWithProviders(<IntakeLanes />);
+    const record = await screen.findByRole("link", { name: "Cat Power" });
+    expect(screen.getAllByRole("link", { name: "Cat Power" })).toHaveLength(1);
     const being = await lane("Being reviewed");
-    await within(being).findByRole("link", { name: "Cat Power" });
-    expect(buttons(being)).toEqual(beingReviewed);
+    expect(being.contains(record)).toBe(beingReviewed !== null);
+    expect(beingReviewed && buttons(being)).toEqual(beingReviewed);
     const waitingLane = reviewWaiting && (await lane("Review waiting (1)"));
     expect(waitingLane ? buttons(waitingLane) : null).toEqual(reviewWaiting);
     expect(screen.queryByRole("button", { name: /release/i })).not.toBeInTheDocument();
@@ -728,7 +774,7 @@ describe("IntakeLanes — cancel and release", () => {
       return;
     }
 
-    const button = [...beingReviewed, ...(reviewWaiting ?? [])][0];
+    const button = [...(beingReviewed ?? []), ...(reviewWaiting ?? [])][0];
     await user.click(screen.getByRole("button", { name: button }));
     const dialog = await screen.findByRole("alertdialog");
     expect(within(dialog).getByRole("heading", { name: confirm.title })).toBeInTheDocument();

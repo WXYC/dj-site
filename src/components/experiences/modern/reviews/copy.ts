@@ -317,8 +317,6 @@ export const REVIEW_COPY = {
     stepCurrent: "Current",
     /** Approved. A step the record has not reached. */
     stepAhead: "Not yet",
-    /** Approved. The small mark on a row in a physical lane whose record also has a review waiting. */
-    reviewWaitingMark: "review waiting",
     /** Approved. */
     returned: "Mark as returned",
     /** Approved. Followed by the holder's name. */

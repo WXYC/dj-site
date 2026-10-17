@@ -11,7 +11,8 @@ import {
   useGetIntakeItemsQuery,
   useReleaseIntakeItemMutation,
 } from "@/lib/features/reviews/intakeApi";
-import { itemHolder } from "@/lib/features/reviews/holder";
+import { LIVE_LIST } from "@/lib/features/reviews/api";
+import { itemHolder, recordStage, type ReviewStage } from "@/lib/features/reviews/holder";
 import { byKind, recordKind } from "@/lib/features/reviews/kind";
 import { useAppDispatch } from "@/lib/hooks";
 import { useCanSeeReviews } from "@/src/hooks/useCanSeeReviews";
@@ -81,8 +82,8 @@ export default function IntakeLanes() {
 }
 
 function IntakeLaneGroups() {
-  const everyState = useGetIntakeItemsQuery(EVERY_STATE);
-  const awaiting = useGetIntakeItemsQuery(AWAITING_LANE);
+  const everyState = useGetIntakeItemsQuery(EVERY_STATE, LIVE_LIST);
+  const awaiting = useGetIntakeItemsQuery(AWAITING_LANE, LIVE_LIST);
   const [release] = useReleaseIntakeItemMutation();
   const [cancelRequest] = useCancelIntakeRequestMutation();
   const dispatch = useAppDispatch();
@@ -111,10 +112,11 @@ function IntakeLaneGroups() {
   if (!everyState.data || !awaiting.data) return null;
 
   const waitingIds = new Set(awaiting.data.map((i) => i.id));
-  const inState = (state: IntakeItem["effective_state"]) => everyState.data!.filter((i) => i.effective_state === state);
+  const inStage = (stage: ReviewStage) => everyState.data!.filter((i) => recordStage(i, waitingIds) === stage);
   // Both checkout lanes put the records a DJ has held past the server's overdue line first; the sort is stable.
   const overdueFirst = (rows: IntakeItem[]) => [...rows].sort((a, b) => Number(b.overdue) - Number(a.overdue));
-  const reviewed = inState("reviewed");
+  const waitingRows = awaiting.data.filter((i) => recordStage(i, waitingIds) === "waiting");
+  const reviewed = inStage("reviewed");
   const passes = everyState.data
     .flatMap((i) => (i.passes ?? []).map((p) => ({ ...p, id: `${i.id}-${p.dj_name}-${p.passed_at}`, item: i })))
     .sort((a, b) => b.passed_at.localeCompare(a.passed_at))
@@ -135,7 +137,6 @@ function IntakeLaneGroups() {
   };
 
   const dialog = confirming && confirmation(confirming);
-  const physical = (i: IntakeItem) => waitingIds.has(i.id) && <Chip size="sm">{COPY.reviewWaitingMark}</Chip>;
   // Every lane's row links the artist to the record's page and puts the overdue mark and its lines in `meta`.
   const laneRow = (i: IntakeItem, meta?: ReactNode, actions?: ReactNode) => (
     <RecordRow
@@ -168,10 +169,10 @@ function IntakeLaneGroups() {
         </HeadedSection>
       )}
       {notice && <Typography role="status">{notice}</Typography>}
-      {awaiting.data.length > 0 && (
+      {waitingRows.length > 0 && (
         <IntakeLane
-          title={`${COPY.waiting} (${awaiting.data.length})`}
-          rows={awaiting.data}
+          title={`${COPY.waiting} (${waitingRows.length})`}
+          rows={waitingRows}
           empty={COPY.empty}
           row={(i) =>
             laneRow(
@@ -188,15 +189,12 @@ function IntakeLaneGroups() {
       )}
       <IntakeLane
         title={COPY.requested}
-        rows={inState("requested")}
+        rows={inStage("requested")}
         empty={COPY.empty}
         row={(i) =>
           laneRow(
             i,
-            <>
-              {physical(i)}
-              <Typography level="body-sm">{where(i)}</Typography>
-            </>,
+            <Typography level="body-sm">{where(i)}</Typography>,
             <Button size="sm" variant="outlined" {...lock(i.id, "cancel")} onClick={() => act(i.id, "cancel", () => cancelRequest(i.id).unwrap())}>
               {COPY.cancelRequest}
             </Button>,
@@ -205,15 +203,12 @@ function IntakeLaneGroups() {
       />
       <IntakeLane
         title={COPY.beingReviewed}
-        rows={overdueFirst(inState("checked_out"))}
+        rows={overdueFirst(inStage("being_reviewed"))}
         empty={COPY.empty}
         row={(i) =>
           laneRow(
             i,
-            <>
-              {physical(i)}
-              <Typography level="body-sm">{where(i)}</Typography>
-            </>,
+            <Typography level="body-sm">{where(i)}</Typography>,
             !waitingIds.has(i.id) && (
               <Button size="sm" variant="outlined" {...lock(i.id, "release")} onClick={() => setConfirming({ item: i, action: "release" })}>
                 {REVIEW_COPY.screen.returnToShelf}
@@ -244,7 +239,7 @@ function IntakeLaneGroups() {
           );
         }}
       />
-      <IntakeLane title={COPY.filed} rows={inState("filed")} empty={COPY.empty} row={(i) => laneRow(i)} />
+      <IntakeLane title={COPY.filed} rows={inStage("filed")} empty={COPY.empty} row={(i) => laneRow(i)} />
       <ConfirmDialog
         open={confirming !== null}
         onClose={() => setConfirming(null)}
