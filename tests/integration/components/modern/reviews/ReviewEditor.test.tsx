@@ -38,6 +38,7 @@ import { toast } from "sonner";
 import ScrollRegion, { SCROLL_REGION_ATTRIBUTE } from "@/src/components/experiences/modern/ScrollRegion";
 import ReviewEditor from "@/src/components/experiences/modern/reviews/ReviewEditor";
 import { REVIEW_COPY } from "@/src/components/experiences/modern/reviews/copy";
+import { FIELD_NAMES } from "@/lib/features/reviews/draftKeys";
 import { readReviewDraft, writeReviewDraft } from "@/lib/features/reviews/reviewDrafts";
 import { toFieldPatch, toFieldValues } from "@/src/components/experiences/modern/reviews/SlipFields";
 import { STICKY_ROOM_PROPERTY } from "@/src/components/experiences/modern/reviews/useStickyRoom";
@@ -165,7 +166,7 @@ describe("ReviewEditor", () => {
   });
 
   it("reflects each field in the slip preview as it is typed", async () => {
-    serve();
+    serve({ ...DRAFT, medium: "handwritten" } as Review);
     const { user } = renderWithProviders(<ReviewEditor id={40} />);
     const preview = await screen.findByRole("group", { name: REVIEW_COPY.slip.name });
     expect(await within(preview).findByText("Stereolab")).toBeInTheDocument();
@@ -251,7 +252,6 @@ describe("ReviewEditor", () => {
         buzzwords: "hushed",
         review: "Warm.",
         recommended_tracks: null,
-        fcc: null,
         publish_website: false,
         publish_apps: false,
         publish_instagram: false,
@@ -352,20 +352,48 @@ describe("ReviewEditor", () => {
     });
   });
 
-  it("shows the record's FCC notes beside the editor for a logged record, and none for a library release", async () => {
-    fakeReviewsEndpoints({
-      reviews: [review({ intake_item_id: 2 }), review({ id: 41, intake_item_id: null, album_id: 7 })],
-      records: [RECORD],
+  describe("the FCC field and the FCC notes panel", () => {
+    const NOTES = {
       fccNotesForItem: { "2": [fccNote({ intake_item_id: 2, track: "B1", note: "A word." })] },
-      fccNotesForRelease: { "7": [fccNote({ id: 2, album_id: 7, intake_item_id: null })] },
-    });
-    const logged = renderWithProviders(<ReviewEditor id={40} />);
-    expect(await screen.findByText("B1: A word.")).toBeInTheDocument();
-    logged.unmount();
+      fccNotesForRelease: { "7": [fccNote({ id: 2, album_id: 7, intake_item_id: null, track: "A2", note: "Another word." })] },
+    };
+    const FIELD = REVIEW_COPY.fields.fcc;
 
-    renderWithProviders(<ReviewEditor id={41} />);
-    await screen.findByLabelText("Review");
-    expect(screen.queryByText("FCC notes")).not.toBeInTheDocument();
+    // The free-text field is for a handwritten review, or one whose stored FCC already has text; the panel is for the record or the release.
+    it.each<[name: string, overrides: Partial<Review>, fieldShown: boolean, note: string, title: string]>([
+      ["a typed review with no stored FCC", {}, false, "B1: A word.", "FCC"],
+      ["a typed review with stored FCC text", { fcc: "Mild language" }, true, "B1: A word.", "FCC notes"],
+      ["a handwritten review", { medium: "handwritten" }, true, "B1: A word.", "FCC notes"],
+      ["a typed review with only whitespace stored as FCC", { fcc: "  " }, false, "B1: A word.", "FCC"],
+      ["a typed review of a library release", { intake_item_id: null, album_id: 7 }, false, "A2: Another word.", "FCC"],
+      ["a handwritten review of a library release", { intake_item_id: null, album_id: 7, medium: "handwritten" }, true, "A2: Another word.", "FCC notes"],
+    ])("for %s: free-text field shown %s; note %s; panel titled %s", async (_name, overrides, fieldShown, note, title) => {
+      fakeReviewsEndpoints({ reviews: [{ ...DRAFT, ...overrides } as Review], records: [RECORD], ...NOTES });
+      let body: Record<string, unknown> = {};
+      server.use(http.patch(`${TEST_BACKEND_URL}/reviews/40`, async ({ request }) => ((body = (await request.json()) as Record<string, unknown>), HttpResponse.json(DRAFT))));
+      const { user } = renderWithProviders(<ReviewEditor id={40} />);
+
+      expect(await screen.findByText(note)).toBeInTheDocument();
+      expect(!!screen.queryByRole("textbox", { name: FIELD.label })).toBe(fieldShown);
+      const panel = screen.getByRole("region", { name: title });
+      expect(within(panel).getByText(note)).toBeInTheDocument();
+      expect(!!within(panel).queryByText(FIELD.help)).toBe(title === "FCC");
+      expect(screen.queryByRole("region", { name: title === "FCC" ? "FCC notes" : "FCC" })).not.toBeInTheDocument();
+
+      await user.click(screen.getByRole("button", { name: REVIEW_COPY.saveDraft }));
+      await waitFor(() => expect(toast.success).toHaveBeenCalled());
+      expect("fcc" in body).toBe(fieldShown);
+    });
+
+    it("keeps the field after the DJ clears its text and saves", async () => {
+      fakeReviewsEndpoints({ reviews: [{ ...DRAFT, fcc: "Mild language" } as Review], records: [RECORD], ...NOTES });
+      server.use(http.patch(`${TEST_BACKEND_URL}/reviews/40`, () => HttpResponse.json({ ...DRAFT, fcc: null })));
+      const { user } = renderWithProviders(<ReviewEditor id={40} />);
+      await user.clear(await screen.findByRole("textbox", { name: FIELD.label }));
+      await user.click(screen.getByRole("button", { name: REVIEW_COPY.saveDraft }));
+      await waitFor(() => expect(toast.success).toHaveBeenCalled());
+      expect(screen.getByRole("textbox", { name: FIELD.label })).toHaveValue("");
+    });
   });
 
   it.each([
@@ -444,7 +472,7 @@ describe("ReviewEditor", () => {
       expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
       await user.click(screen.getByRole("button", { name: REVIEW_COPY.saveDraft }));
       await waitFor(() => expect(toast.success).toHaveBeenCalled());
-      expect(Object.keys(body).sort()).toEqual(["buzzwords", "fcc", "recommended_tracks", "review"]);
+      expect(Object.keys(body).sort()).toEqual(["buzzwords", "recommended_tracks", "review"]);
     });
   });
 
@@ -702,7 +730,7 @@ describe("ReviewEditor", () => {
     });
 
     it("puts each field's help before its box, and describes the box with it", async () => {
-      serve();
+      serve({ ...DRAFT, fcc: "Mild language" } as Review);
       renderWithProviders(<ReviewEditor id={40} />);
 
       for (const { label, help } of Object.values(REVIEW_COPY.fields)) {
@@ -714,7 +742,7 @@ describe("ReviewEditor", () => {
     });
 
     it("asks the publishing question in a group named by its legend, after the slip fields", async () => {
-      serve();
+      serve({ ...DRAFT, fcc: "Mild language" } as Review);
       renderWithProviders(<ReviewEditor id={40} />);
 
       const group = await screen.findByRole("group", { name: REVIEW_COPY.consent.legend });
@@ -722,17 +750,21 @@ describe("ReviewEditor", () => {
       expect(last.compareDocumentPosition(group) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     });
 
-    it("labels the slip preview region, with the FCC panel after it", async () => {
+    it("labels the slip preview region, with the FCC panel in the form column before the publishing question and the slip", async () => {
       fakeReviewsEndpoints({ reviews: [{ ...DRAFT, intake_item_id: 2 } as Review], records: [RECORD] });
       renderWithProviders(<ReviewEditor id={40} />);
 
       const region = await screen.findByRole("region", { name: REVIEW_COPY.slip.heading });
       expect(within(region).getByRole("group", { name: REVIEW_COPY.slip.name })).toBeInTheDocument();
-      const fcc = await screen.findByRole("region", { name: "FCC notes" });
-      expect(region.compareDocumentPosition(fcc) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-      const slipHeading = screen.getByRole("heading", { name: REVIEW_COPY.slip.heading, level: 3 });
-      const fccHeading = within(fcc).getByRole("heading", { name: "FCC notes", level: 3 });
-      expect(slipHeading.compareDocumentPosition(fccHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      const fcc = await screen.findByRole("region", { name: REVIEW_COPY.fields.fcc.label });
+      const follows = (a: Element, b: Element) => !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+      expect(within(region).queryByRole("region", { name: REVIEW_COPY.fields.fcc.label })).not.toBeInTheDocument();
+      expect(follows(screen.getByLabelText(REVIEW_COPY.fields.recommended_tracks.label), fcc)).toBe(true);
+      expect(follows(fcc, screen.getByRole("group", { name: REVIEW_COPY.consent.legend }))).toBe(true);
+      expect(follows(fcc, region)).toBe(true);
+      expect(within(fcc).getByRole("heading", { name: REVIEW_COPY.fields.fcc.label, level: 3 })).toBeInTheDocument();
+      await screen.findByRole("heading", { level: 2, name: "Stereolab" });
+      expect(screen.getAllByRole("heading").map((h) => `${h.tagName} ${h.textContent}`)).toEqual(["H2 Stereolab", `H3 ${REVIEW_COPY.fields.fcc.label}`, `H3 ${REVIEW_COPY.slip.heading}`]);
     });
 
     it("keeps Save draft, Submit and Delete in one action bar, with the reason right beside a disabled Submit", async () => {
@@ -798,7 +830,7 @@ describe("ReviewEditor", () => {
       fakeReviewsEndpoints({ reviews: [{ ...DRAFT, intake_item_id: 2 } as Review], records: [RECORD] });
       renderWithProviders(<ReviewEditor id={40} />);
 
-      const fcc = await screen.findByRole("region", { name: "FCC notes" });
+      const fcc = await screen.findByRole("region", { name: REVIEW_COPY.fields.fcc.label });
       const wrapper = fcc.parentElement!;
       // jsdom applies no @container rule, so computed style cannot pin this either way: read the rules by at-rule.
       const wrapperRules = rulesOf(wrapper);
@@ -906,7 +938,7 @@ describe("ReviewEditor", () => {
       expect(await screen.findByText("This is the version printed on the cover.")).toBeInTheDocument();
       expect(screen.getByRole("heading", { level: 2, name: REVIEW_COPY.pageTitle })).toBeInTheDocument();
       expect(screen.getByRole("heading", { name: REVIEW_COPY.slip.heading, level: 3 })).toBeInTheDocument();
-      expect(await screen.findByRole("heading", { name: "FCC notes", level: 3 })).toBeInTheDocument();
+      expect(await screen.findByRole("heading", { name: REVIEW_COPY.fields.fcc.label, level: 3 })).toBeInTheDocument();
       expect(screen.queryByRole("heading", { name: "Stereolab" })).not.toBeInTheDocument();
     });
   });
@@ -1315,7 +1347,7 @@ describe("ReviewEditor", () => {
     });
 
     it("removes an entry equal to the loaded review without an offer", async () => {
-      writeReviewDraft("dj-me", 40, { ...toFieldPatch(toFieldValues(DRAFT)), publish_website: false, publish_apps: false, publish_instagram: false, credit: null });
+      writeReviewDraft("dj-me", 40, { ...toFieldPatch(toFieldValues(DRAFT), FIELD_NAMES.filter((n) => n !== "fcc")), publish_website: false, publish_apps: false, publish_instagram: false, credit: null });
       serve();
       renderWithProviders(<ReviewEditor id={40} />);
       await screen.findByLabelText("Review");

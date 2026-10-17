@@ -17,7 +17,11 @@ import { REVIEW_COPY } from "./copy";
 
 const copy = REVIEW_COPY.fccNotes;
 
-type Subject = { albumId: number } | { intakeItemId: number };
+type Subject = ({ albumId: number } | { intakeItemId: number }) & {
+  /** A heading other than "FCC notes", and a line of help under it. */
+  title?: string;
+  help?: string;
+};
 
 /** The record's id as the API names it. */
 type SubjectIds = { album_id: number } | { intake_item_id: number };
@@ -107,7 +111,8 @@ export default function FccNotesPanel(subject: Subject) {
 
   return (
     <Stack component="section" aria-labelledby={titleId} spacing={1}>
-      <Typography id={titleId} component="h3" level="title-sm">{copy.title}</Typography>
+      <Typography id={titleId} component="h3" level="title-sm">{subject.title ?? copy.title}</Typography>
+      {subject.help && <Typography level="body-sm">{subject.help}</Typography>}
       {hasNothingToShow(notes) ? (
         <Typography role="alert">{copy.loadFailed}</Typography>
       ) : notes.data && notes.data.length === 0 ? (
