@@ -705,12 +705,61 @@ describe("IntakeLogForm", () => {
     await user.click(screen.getByRole("radio", { name: "A disc or a record" }));
     await user.click(screen.getByRole("combobox", { name: /^Format/ }));
     await user.click(await screen.findByRole("option", { name: "CD" }));
-    await user.type(screen.getByLabelText("Discogs release id (optional)"), "123");
+    await user.type(screen.getByLabelText("Discogs link or release number (optional)"), "123");
     await user.click(screen.getByRole("button", { name: "Log item" }));
 
     await waitFor(() =>
       expect(body).toEqual({ artist_name: "Cat Power", album_title: "Moon Pix", format_id: 1, discogs_release_id: 123 }),
     );
+  });
+
+  it("sends the release id read from a pasted link, with the Discogs field first and not a number input", async () => {
+    let body: unknown;
+    fakeReviewsEndpoints();
+    server.use(
+      http.post(`${TEST_BACKEND_URL}/intake`, async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json(moonPix());
+      }),
+    );
+
+    const { user } = renderWithProviders(<IntakeLogForm />);
+    const discogs = await screen.findByLabelText("Discogs link or release number (optional)");
+    expect(discogs).not.toHaveAttribute("type", "number");
+    expect(discogs).toHaveAttribute("inputmode", "numeric");
+    expect(screen.getAllByRole("textbox")[0]).toBe(discogs);
+    await user.type(discogs, "https://www.discogs.com/release/8434-Autechre-Confield");
+    await user.type(screen.getByLabelText(/^Artist/), "Autechre");
+    await user.type(screen.getByLabelText(/^Album/), "Confield");
+    await user.click(screen.getByRole("radio", { name: "A disc or a record" }));
+    await user.click(screen.getByRole("combobox", { name: /^Format/ }));
+    await user.click(await screen.findByRole("option", { name: "CD" }));
+    await user.click(screen.getByRole("button", { name: "Log item" }));
+
+    await waitFor(() =>
+      expect(body).toEqual({ artist_name: "Autechre", album_title: "Confield", format_id: 1, discogs_release_id: 8434 }),
+    );
+  });
+
+  it("refuses a master link under the Discogs field and keeps Log item disabled until it is corrected", async () => {
+    fakeReviewsEndpoints();
+    const { user } = renderWithProviders(<IntakeLogForm />);
+    const discogs = await screen.findByLabelText("Discogs link or release number (optional)");
+    await user.type(screen.getByLabelText(/^Artist/), "Autechre");
+    await user.type(screen.getByLabelText(/^Album/), "Confield");
+    await user.click(screen.getByRole("radio", { name: "A disc or a record" }));
+    await user.click(screen.getByRole("combobox", { name: /^Format/ }));
+    await user.click(await screen.findByRole("option", { name: "CD" }));
+    const log = screen.getByRole("button", { name: "Log item" });
+    expect(log).toBeEnabled();
+
+    await user.type(discogs, "https://www.discogs.com/master/8434-Confield");
+    expect(screen.getByText("That isn't a Discogs release link or number.")).toBeInTheDocument();
+    expect(log).toBeDisabled();
+
+    await user.clear(discogs);
+    expect(screen.queryByText("That isn't a Discogs release link or number.")).not.toBeInTheDocument();
+    expect(log).toBeEnabled();
   });
 
   it("asks how the record arrived, and logging files sends digital with no format id", async () => {

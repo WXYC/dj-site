@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   discogsPrefillErrorMessage,
+  discogsReleaseIdFrom,
   discogsReleaseUrl,
   withDefinitiveDiscogsUrl,
 } from "@/lib/features/catalog/discogsPrefill";
@@ -104,5 +105,24 @@ describe("discogsPrefillErrorMessage", () => {
   it("falls back to the generic message for a non-object error", () => {
     expect(discogsPrefillErrorMessage(undefined)).toBe(GENERIC);
     expect(discogsPrefillErrorMessage("nope")).toBe(GENERIC);
+  });
+});
+
+describe("discogsReleaseIdFrom", () => {
+  it.each([
+    ["8434", 8434],
+    ["  8434  ", 8434],
+    ["https://www.discogs.com/release/8434-Autechre-Confield", 8434],
+    ["discogs.com/release/8434", 8434],
+    ["www.discogs.com/release/8434/", 8434],
+    ["https://de.discogs.com/release/8434-Autechre-Confield", 8434],
+    ["https://www.discogs.com/master/8434-Confield", null],
+    ["https://example.com/release/8434", null],
+    ["abc", null],
+    ["84a34", null],
+    ["", null],
+    ["   ", null],
+  ])("reads %j as %j", (raw, expected) => {
+    expect(discogsReleaseIdFrom(raw)).toBe(expected);
   });
 });
