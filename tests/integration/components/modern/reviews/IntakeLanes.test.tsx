@@ -713,7 +713,10 @@ describe("IntakeLogForm", () => {
     );
   });
 
-  it("sends the release id read from a pasted link, with the Discogs field first and not a number input", async () => {
+  it.each([
+    { arrival: "A disc or a record", format: "CD", sent: { format_id: 1 } },
+    { arrival: "As files", format: null, sent: { digital: true } },
+  ])("sends the release id read from a pasted link whichever way the record arrived ($arrival)", async ({ arrival, format, sent }) => {
     let body: unknown;
     fakeReviewsEndpoints();
     server.use(
@@ -725,24 +728,47 @@ describe("IntakeLogForm", () => {
 
     const { user } = renderWithProviders(<IntakeLogForm />);
     const discogs = await screen.findByLabelText("Discogs link or release number (optional)");
-    expect(discogs).not.toHaveAttribute("type", "number");
-    expect(discogs).toHaveAttribute("inputmode", "numeric");
-    expect(screen.getAllByRole("textbox")[0]).toBe(discogs);
     await user.type(discogs, "https://www.discogs.com/release/8434-Autechre-Confield");
     await user.type(screen.getByLabelText(/^Artist/), "Autechre");
     await user.type(screen.getByLabelText(/^Album/), "Confield");
-    await user.click(screen.getByRole("radio", { name: "A disc or a record" }));
-    await user.click(screen.getByRole("combobox", { name: /^Format/ }));
-    await user.click(await screen.findByRole("option", { name: "CD" }));
+    await user.click(screen.getByRole("radio", { name: arrival }));
+    if (format) {
+      await user.click(screen.getByRole("combobox", { name: /^Format/ }));
+      await user.click(await screen.findByRole("option", { name: format }));
+    }
     await user.click(screen.getByRole("button", { name: "Log item" }));
 
     await waitFor(() =>
-      expect(body).toEqual({ artist_name: "Autechre", album_title: "Confield", format_id: 1, discogs_release_id: 8434 }),
+      expect(body).toEqual({ artist_name: "Autechre", album_title: "Confield", ...sent, discogs_release_id: 8434 }),
     );
   });
 
-  it("refuses a master link under the Discogs field and keeps Log item disabled until it is corrected", async () => {
+  it("puts the Discogs field first among all the form's controls, as a text input rather than a number input", async () => {
     fakeReviewsEndpoints();
+    renderWithProviders(<IntakeLogForm />);
+    const discogs = await screen.findByLabelText("Discogs link or release number (optional)");
+    const form = screen.getByRole("form", { name: "Log an item" }) as HTMLFormElement;
+
+    expect(discogs).not.toHaveAttribute("type", "number");
+    expect(discogs).toHaveAttribute("inputmode", "numeric");
+    // Every control in tree order: the Artist autocomplete (a combobox), the textboxes, the arrival radios and the buttons.
+    expect(form.elements[0]).toBe(discogs);
+    expect(discogs.compareDocumentPosition(screen.getByRole("combobox", { name: /^Artist/ })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it.each([
+    ["a master link", "https://www.discogs.com/master/8434-Confield"],
+    ["zero", "0"],
+    ["an id past int4", "2147483648"],
+  ])("refuses %s under the Discogs field, sends nothing, and keeps Log item disabled until it is corrected", async (_kind, raw) => {
+    let posts = 0;
+    fakeReviewsEndpoints();
+    server.use(
+      http.post(`${TEST_BACKEND_URL}/intake`, () => {
+        posts += 1;
+        return HttpResponse.json(moonPix());
+      }),
+    );
     const { user } = renderWithProviders(<IntakeLogForm />);
     const discogs = await screen.findByLabelText("Discogs link or release number (optional)");
     await user.type(screen.getByLabelText(/^Artist/), "Autechre");
@@ -753,9 +779,10 @@ describe("IntakeLogForm", () => {
     const log = screen.getByRole("button", { name: "Log item" });
     expect(log).toBeEnabled();
 
-    await user.type(discogs, "https://www.discogs.com/master/8434-Confield");
+    await user.type(discogs, `${raw}{Enter}`);
     expect(screen.getByText("That isn't a Discogs release link or number.")).toBeInTheDocument();
     expect(log).toBeDisabled();
+    expect(posts).toBe(0);
 
     await user.clear(discogs);
     expect(screen.queryByText("That isn't a Discogs release link or number.")).not.toBeInTheDocument();
