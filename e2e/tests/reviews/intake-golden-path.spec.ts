@@ -119,7 +119,7 @@ test("the intake golden path, from logging a record to the librarian's finalize"
       const waiting = laneRow(md, new RegExp(`^${escapeRegExp(COPY.intake.waiting)}`));
       await expect(waiting.getByText(COPY.intake.fromHolder(INTAKE_DJ_USER.realName))).toBeVisible({ timeout: 15000 });
 
-      await waiting.getByRole("link", { name: new RegExp(escapeRegExp(album)) }).click();
+      await waiting.getByRole("link", { name: artist, exact: true }).click();
       await md.waitForURL(/\/dashboard\/admin\/intake\/\d+$/, { timeout: 15000 });
       itemId = Number(new URL(md.url()).pathname.split("/").pop());
 

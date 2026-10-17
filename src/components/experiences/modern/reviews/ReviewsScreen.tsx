@@ -2,7 +2,6 @@
 
 import { Typography } from "@mui/joy";
 import { Authorization } from "@/lib/features/admin/types";
-import { useGetFormatsQuery } from "@/lib/features/catalog/api";
 import { useGetIntakeItemsQuery } from "@/lib/features/reviews/intakeApi";
 import { useGetMyReviewsQuery, useGetReviewersQuery } from "@/lib/features/reviews/reviewApi";
 import { useCanSeeReviews } from "@/src/hooks/useCanSeeReviews";
@@ -23,7 +22,6 @@ export default function ReviewsScreen({ tab }: { tab: "shelf" | "mine" }) {
 
   const everyState = useGetIntakeItemsQuery(EVERY_STATE, { skip: !visible });
   const mine = useGetMyReviewsQuery(MY_REVIEWS, { skip: !visible || onShelf });
-  const { data: formats } = useGetFormatsQuery(undefined, { skip: !visible });
   const reviewers = useGetReviewersQuery(undefined, { skip: !visible || !isMD || !onShelf });
   const { write, lock } = useReviewWrite(everyState.data, { reloadMine: !onShelf });
 
@@ -39,11 +37,11 @@ export default function ReviewsScreen({ tab }: { tab: "shelf" | "mine" }) {
     return null;
   }
   if (onShelf) {
-    return <ReviewShelfScreen items={everyState.data} formats={formats} isMD={isMD} reviewers={reviewers} write={write} lock={lock} />;
+    return <ReviewShelfScreen items={everyState.data} isMD={isMD} reviewers={reviewers} write={write} lock={lock} />;
   }
   if (!mine.data) {
     return null;
   }
 
-  return <MyReviewsScreen items={everyState.data} myReviews={mine.data} formats={formats} me={user?.id} write={write} lock={lock} />;
+  return <MyReviewsScreen items={everyState.data} myReviews={mine.data} me={user?.id} write={write} lock={lock} />;
 }

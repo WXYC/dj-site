@@ -22,11 +22,11 @@ export function FormatGlyph({ format, size = 40 }: { format: string | undefined;
 }
 
 /** The record's parts, stacked: the label is omitted when empty and the format tag when there is no format. */
-export function RecordParts({ record, format, artist }: { record: ReviewRecord; format: string | undefined; artist: ReactNode }) {
+export function RecordParts({ record, format, artist, albumId }: { record: ReviewRecord; format: string | undefined; artist: ReactNode; albumId?: string }) {
   return (
     <>
       {artist}
-      <Typography level="body-md">{record.album}</Typography>
+      <Typography id={albumId} level="body-md">{record.album}</Typography>
       {record.label && <Typography level="body-sm">{record.label}</Typography>}
       {format && (
         <Chip size="sm" variant="soft" color={formatTone(format).color}>
@@ -52,6 +52,8 @@ interface RecordRowProps {
    * It wins over `href` when both are given.
    */
   titleSlot?: ReactNode;
+  /** An `id` for the album line, for a control's `aria-labelledby` that names the record by its artist and album. */
+  albumId?: string;
 }
 
 /**
@@ -60,7 +62,7 @@ interface RecordRowProps {
  * answers to the row's own width (a container query), not the window's, since
  * the sidebars change the column width.
  */
-export default function RecordRow({ record, meta, actions, status, href, titleSlot }: RecordRowProps) {
+export default function RecordRow({ record, meta, actions, status, href, titleSlot, albumId }: RecordRowProps) {
   const format = useRecordFormatName(record);
   const artist = titleSlot ?? (href ? (
     <Link level="title-md" href={href}>{record.artist}</Link>
@@ -73,7 +75,7 @@ export default function RecordRow({ record, meta, actions, status, href, titleSl
         <Box sx={{ display: "flex", gap: 1.5, minWidth: 0 }}>
           <FormatGlyph format={format} />
           <Box sx={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 0.25, minWidth: 0 }}>
-            <RecordParts record={record} format={format} artist={artist} />
+            <RecordParts record={record} format={format} artist={artist} albumId={albumId} />
             {meta}
           </Box>
         </Box>

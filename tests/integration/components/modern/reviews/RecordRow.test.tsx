@@ -70,6 +70,13 @@ describe("RecordRow", () => {
     expect(screen.queryByText("Sonamos")).not.toBeInTheDocument();
   });
 
+  it("puts the id it is given on the album line, and on no other part", () => {
+    renderWithProviders(<RecordRow record={{ ...record, format: "CD" }} albumId="album-1" />);
+    expect(screen.getByText("DOGA")).toHaveAttribute("id", "album-1");
+    expect(screen.getByText("Juana Molina")).not.toHaveAttribute("id");
+    expect(screen.getByText("Sonamos")).not.toHaveAttribute("id");
+  });
+
   it("places meta, actions and status in their slots, and no divider without a status", () => {
     const { rerender } = renderWithProviders(
       <RecordRow record={record} meta={<span>Asked Aug 31, 2025</span>} actions={<button>Accept</button>} />,

@@ -24,7 +24,7 @@ interface IntakeRequestPickerProps {
   loading: boolean;
   /** The reviewers read failed with nothing to show, so the search says so rather than no match. */
   failed: boolean;
-  /** The id of the element holding the record's line, which names the button for the record it acts on. */
+  /** The ids of the elements that name the record (space-separated, as `aria-labelledby` takes them), which name the button for the record it acts on. */
   labelledBy: string;
   artist: string;
   album: string;

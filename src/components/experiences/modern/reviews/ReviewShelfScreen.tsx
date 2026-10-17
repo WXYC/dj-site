@@ -13,11 +13,12 @@ import { useMounted } from "@/src/hooks/useRowWrite";
 import IntakeLane from "./IntakeLane";
 import IntakeRequestPicker from "./IntakeRequestPicker";
 import { REVIEW_COPY } from "./copy";
-import { intakeRecord, recordLine } from "./recordLine";
+import RecordRow from "./RecordRow";
+import { intakeRecord } from "./recordLine";
 import { day, type ReviewWrite } from "./useReviewWrite";
 
 /** The review shelf lane, and for a music director the reviewers-load alert and each record's Ask a DJ… button. It assumes its caller has applied the `useCanSeeReviews` check and the load-failed gate, and takes the reviewers read and the `useReviewWrite` the caller built for this tab: My reviews is a separate tab with its own write wiring, so a lock set here does not carry over to it. */
-export default function ReviewShelfScreen({ items, formats, isMD, reviewers, write, lock }: { items: IntakeItem[]; formats: { id: number; format_name: string }[] | undefined; isMD: boolean; reviewers: { isError: boolean; isLoading: boolean; data?: Reviewer[] } } & ReviewWrite) {
+export default function ReviewShelfScreen({ items, isMD, reviewers, write, lock }: { items: IntakeItem[]; isMD: boolean; reviewers: { isError: boolean; isLoading: boolean; data?: Reviewer[] } } & ReviewWrite) {
   const [checkout] = useCheckoutIntakeItemMutation();
   const [requestReview] = useRequestIntakeItemMutation();
   const [cancelRequest] = useCancelIntakeRequestMutation();
@@ -38,9 +39,9 @@ export default function ReviewShelfScreen({ items, formats, isMD, reviewers, wri
     };
   }, []);
 
-  // Names each record's Ask a DJ… button for the record it acts on.
+  // Together these name each record's Ask a DJ… button for the record it acts on.
   const shelfRecordId = (i: IntakeItem) => `review-shelf-record-${i.id}`;
-  const describe = (i: IntakeItem) => recordLine(intakeRecord(i), formats);
+  const shelfAlbumId = (i: IntakeItem) => `review-shelf-album-${i.id}`;
   // The toast waits for the write to finish, so its Cancel request never meets the row's lock.
   const ask = async (i: IntakeItem, reviewer: Reviewer) => {
     let sent = false;
@@ -59,23 +60,30 @@ export default function ReviewShelfScreen({ items, formats, isMD, reviewers, wri
   return (
     <>
       {isMD && reviewersFailed && <Typography role="alert">{REVIEW_COPY.intake.reviewersLoadFailed}</Typography>}
-      <IntakeLane title={REVIEW_COPY.screen.shelfTitle} rows={onShelf} empty={REVIEW_COPY.screen.shelfEmpty} label={(i) => (isMD ? <Link id={shelfRecordId(i)} href={`/dashboard/admin/intake/${i.id}`}>{describe(i)}</Link> : <Typography>{describe(i)}</Typography>)} extra={(i) => (
-        <>
-          <Typography level="body-sm">{`${REVIEW_COPY.screen.logged} ${day(i.logged_at)}`}</Typography>
-          <Button size="sm" {...lock(i.id, "checkout")} onClick={() => write(i.id, "checkout", () => checkout(i.id).unwrap())}>{byKind(i, { disc: REVIEW_COPY.screen.checkOut, digital: REVIEW_COPY.screen.take })}</Button>
-          {isMD && (
-            <IntakeRequestPicker
-              reviewers={folded}
-              loading={reviewers.isLoading}
-              failed={reviewersFailed}
-              labelledBy={shelfRecordId(i)}
-              artist={i.artist_name}
-              album={i.album_title}
-              busy={lock(i.id, "request")}
-              onRequest={(reviewer) => ask(i, reviewer)}
-            />
-          )}
-        </>
+      <IntakeLane title={REVIEW_COPY.screen.shelfTitle} rows={onShelf} empty={REVIEW_COPY.screen.shelfEmpty} row={(i) => (
+        <RecordRow
+          record={intakeRecord(i)}
+          titleSlot={isMD ? <Link level="title-md" id={shelfRecordId(i)} href={`/dashboard/admin/intake/${i.id}`}>{i.artist_name}</Link> : undefined}
+          albumId={shelfAlbumId(i)}
+          meta={<Typography level="body-sm">{`${REVIEW_COPY.screen.logged} ${day(i.logged_at)}`}</Typography>}
+          actions={
+            <>
+              <Button size="sm" {...lock(i.id, "checkout")} onClick={() => write(i.id, "checkout", () => checkout(i.id).unwrap())}>{byKind(i, { disc: REVIEW_COPY.screen.checkOut, digital: REVIEW_COPY.screen.take })}</Button>
+              {isMD && (
+                <IntakeRequestPicker
+                  reviewers={folded}
+                  loading={reviewers.isLoading}
+                  failed={reviewersFailed}
+                  labelledBy={`${shelfRecordId(i)} ${shelfAlbumId(i)}`}
+                  artist={i.artist_name}
+                  album={i.album_title}
+                  busy={lock(i.id, "request")}
+                  onRequest={(reviewer) => ask(i, reviewer)}
+                />
+              )}
+            </>
+          }
+        />
       )} />
     </>
   );
