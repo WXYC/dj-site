@@ -48,7 +48,7 @@ describe("ReviewsTabs", () => {
     renderWithProviders(<ReviewsTabs />);
 
     const link = await screen.findByRole("link", { name: "New music, 3 reviews waiting" });
-    expect(link).toHaveTextContent(/^New music3$/);
+    expect(link).toHaveTextContent(/^New music3, 3 reviews waiting$/);
   });
 
   it.each([
@@ -72,9 +72,15 @@ describe("ReviewsTabs", () => {
   it.each([
     ["reviewing", REVIEW_COPY.tabs.reviewing, "Reviewing"],
     ["directors", REVIEW_COPY.tabs.directors, "New music"],
-    ["waiting, one", REVIEW_COPY.tabs.waiting(1), "1 review waiting"],
-    ["waiting, many", REVIEW_COPY.tabs.waiting(3), "3 reviews waiting"],
   ])("words %s exactly as the station approved it", (_name, actual, expected) => {
     expect(actual).toBe(expected);
+  });
+
+  // The station has not approved this wording yet, so this pins it without claiming it is signed off.
+  it.each([
+    ["one", 1, "1 review waiting"],
+    ["many", 3, "3 reviews waiting"],
+  ])("speaks the waiting count, %s, as currently worded (not yet approved)", (_name, count, expected) => {
+    expect(REVIEW_COPY.tabs.waiting(count)).toBe(expected);
   });
 });
