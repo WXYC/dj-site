@@ -280,6 +280,10 @@ describe("IntakeItemScreen", () => {
     ["printSlip", REVIEW_COPY.intakeItem.printSlip, "Print the slip"],
     ["added", REVIEW_COPY.intake.added, "Added"],
     ["printed", REVIEW_COPY.intake.printed, "Printed"],
+    ["progress", REVIEW_COPY.intake.progress, "Progress"],
+    ["stepDone", REVIEW_COPY.intake.stepDone, "Done"],
+    ["stepCurrent", REVIEW_COPY.intake.stepCurrent, "Current"],
+    ["stepAhead", REVIEW_COPY.intake.stepAhead, "Not yet"],
     ["fromHolder", REVIEW_COPY.intake.fromHolder("Jessica Pratt"), "From Jessica Pratt, who has this record."],
     ["fromWith", REVIEW_COPY.intake.fromWith("Jessica Pratt", "Sessa"), "From Jessica Pratt. The record is with Sessa."],
     ["fromHeldFor", REVIEW_COPY.intake.fromHeldFor("Jessica Pratt", "Sessa"), "From Jessica Pratt. The record is being held for Sessa."],
@@ -607,8 +611,10 @@ describe("IntakeItemScreen", () => {
 
       const cover = await coverSection();
       const print = await within(cover).findByRole("link", { name: "Print the slip" });
+      expect(screen.getAllByRole("link", { name: "Print the slip" })).toHaveLength(1);
       if (shown) {
         const line = within(cover).getByText("The record is still out with Sam.");
+        expect(print.nextElementSibling).toBe(line);
         expect(inOrder(print, line, within(cover).getByRole("button", { name: "Delete review by DJ 40" }))).toBe(true);
       } else {
         expect(within(cover).queryByText(/still out with/)).not.toBeInTheDocument();

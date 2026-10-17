@@ -247,12 +247,15 @@ export const REVIEW_COPY = {
     filed: "Filed",
     /** Approved. The first step of a record's progress track. */
     added: "Added",
-    /** Approved. The fourth step of a record's progress track (copy round 4, line 3.1). */
+    /** Approved. The fourth step of a record's progress track. */
     printed: "Printed",
-    /** The progress track's name, and each step's state beside it. Not yet approved by the station. */
+    /** Approved. The progress track's accessible name. */
     progress: "Progress",
+    /** Approved. A step the record has passed. */
     stepDone: "Done",
+    /** Approved. The step the record is at. */
     stepCurrent: "Current",
+    /** Approved. A step the record has not reached. */
     stepAhead: "Not yet",
     /** Approved. The small mark on a row in a physical lane whose record also has a review waiting. */
     reviewWaitingMark: "review waiting",
