@@ -279,6 +279,8 @@ export const REVIEW_COPY = {
     recentPasses: "Recent passes",
     /** Approved. One line of the notice band: "Pat passed on Juana Molina — DOGA". */
     passedLine: (dj: string, artist: string, album: string) => `${dj} passed on ${artist} — ${album}`,
+    /** Approved. A Recent passes line followed by the date of the pass: "Pat passed on Juana Molina — DOGA · Oct 8". */
+    passedLineDated: (line: string, date: string) => `${line} · ${date}`,
     /** Approved. The lane of taken records, for a disc and a digital album alike. */
     beingReviewed: "Being reviewed",
     /** Approved. A digital album's location line; followed by the DJ's name. */

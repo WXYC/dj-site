@@ -11,6 +11,7 @@ describe("REVIEW_COPY.intake passes band", () => {
   it("pins the approved wording", () => {
     expect(REVIEW_COPY.intake.recentPasses).toBe("Recent passes");
     expect(REVIEW_COPY.intake.passedLine("Pat", "Juana Molina", "DOGA")).toBe("Pat passed on Juana Molina — DOGA");
+    expect(REVIEW_COPY.intake.passedLineDated("Pat passed on Juana Molina — DOGA", "Oct 8")).toBe("Pat passed on Juana Molina — DOGA · Oct 8");
   });
 });
 

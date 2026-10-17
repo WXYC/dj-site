@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Button, Chip, Link, List, ListItem, Stack, Typography } from "@mui/joy";
 import type { IntakeItem } from "@wxyc/shared";
 import { toast } from "sonner";
@@ -22,6 +22,7 @@ import IntakeLane from "./IntakeLane";
 import { REVIEW_COPY } from "./copy";
 import { intakeRecord, recordLine } from "./recordLine";
 import { WaitingFrom } from "./ReviewFrom";
+import { formatStationShortDate } from "@/src/utilities/stationTime";
 import { hasNothingToShow } from "@/lib/has-nothing-to-show";
 
 const COPY = REVIEW_COPY.intake;
@@ -63,6 +64,7 @@ function IntakeLaneGroups() {
   const [cancelRequest] = useCancelIntakeRequestMutation();
   const dispatch = useAppDispatch();
   const [notice, setNotice] = useState<string | null>(null);
+  const passesTitleId = useId();
   const { write, lock } = useRowWrite<Action>({
     reload: () =>
       [EVERY_STATE, AWAITING_LANE].map((arg) =>
@@ -120,15 +122,19 @@ function IntakeLaneGroups() {
   return (
     <Stack spacing={3}>
       {passes.length > 0 && (
-        <section aria-label={COPY.recentPasses}>
+        <Stack component="section" aria-labelledby={passesTitleId} spacing={1}>
+          <Typography id={passesTitleId} component="h3" level="title-sm">{COPY.recentPasses}</Typography>
           <List>
             {passes.map((p) => (
               <ListItem key={p.id}>
-                {COPY.passedLine(p.dj_name, p.item.artist_name, p.item.album_title)}
+                {COPY.passedLineDated(
+                  COPY.passedLine(p.dj_name, p.item.artist_name, p.item.album_title),
+                  formatStationShortDate(p.passed_at),
+                )}
               </ListItem>
             ))}
           </List>
-        </section>
+        </Stack>
       )}
       {notice && <Typography role="status">{notice}</Typography>}
       {awaiting.data.length > 0 && (
