@@ -5,7 +5,8 @@ import { Box } from "@mui/joy";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-export type PageTab = { path: string; label: string };
+/** `count` draws a pill after the label only above zero; `countLabel` is its spoken form, read after the label. */
+export type PageTab = { path: string; label: string; count?: number; countLabel?: string };
 
 /**
  * A strip of route links for sibling pages. A tab is current only when the
@@ -35,6 +36,23 @@ export default function PageTabs({ tabs }: { tabs: readonly PageTab[] }): JSX.El
             }}
           >
             {tab.label}
+            {tab.count !== undefined && tab.count > 0 && (
+              <Box
+                component="span"
+                aria-label={tab.countLabel === undefined ? undefined : `, ${tab.countLabel}`}
+                sx={{
+                  ml: 1,
+                  px: 0.75,
+                  borderRadius: "lg",
+                  fontSize: "xs",
+                  fontWeight: "lg",
+                  bgcolor: "primary.solidBg",
+                  color: "primary.solidColor",
+                }}
+              >
+                {tab.count}
+              </Box>
+            )}
           </Box>
         );
       })}

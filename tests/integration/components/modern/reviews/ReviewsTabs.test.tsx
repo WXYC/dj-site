@@ -28,8 +28,8 @@ afterEach(() => vi.unstubAllEnvs());
 
 describe("ReviewsTabs", () => {
   it.each([
-    ["/dashboard/reviews", "Reviewing", "Music directors"],
-    ["/dashboard/reviews/music-directors", "Music directors", "Reviewing"],
+    ["/dashboard/reviews", "Reviewing", "New music"],
+    ["/dashboard/reviews/music-directors", "New music", "Reviewing"],
   ])("at %s only %s is current, and both links point at their pages", async (path, current, other) => {
     pathname.current = path;
     fakeReviewsEndpoints({ awaiting: [] });
@@ -37,7 +37,7 @@ describe("ReviewsTabs", () => {
     renderWithProviders(<ReviewsTabs />);
 
     expect(screen.getByRole("link", { name: "Reviewing" })).toHaveAttribute("href", "/dashboard/reviews");
-    expect(screen.getByRole("link", { name: "Music directors" })).toHaveAttribute("href", "/dashboard/reviews/music-directors");
+    expect(screen.getByRole("link", { name: "New music" })).toHaveAttribute("href", "/dashboard/reviews/music-directors");
     expect(screen.getByRole("link", { name: current })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("link", { name: other })).not.toHaveAttribute("aria-current");
   });
@@ -47,7 +47,8 @@ describe("ReviewsTabs", () => {
 
     renderWithProviders(<ReviewsTabs />);
 
-    expect(await screen.findByRole("link", { name: "Music directors (3)" })).toBeInTheDocument();
+    const link = await screen.findByRole("link", { name: "New music, 3 reviews waiting" });
+    expect(link).toHaveTextContent(/^New music3$/);
   });
 
   it.each([
@@ -65,13 +66,14 @@ describe("ReviewsTabs", () => {
     );
     // The store settling is not the tab re-rendering: RTK batches its notifications to the next frame.
     await renderedFrame();
-    expect(screen.getByRole("link", { name: "Music directors" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "New music" })).toBeInTheDocument();
   });
 
   it.each([
     ["reviewing", REVIEW_COPY.tabs.reviewing, "Reviewing"],
-    ["directors", REVIEW_COPY.tabs.directors, "Music directors"],
-    ["count", REVIEW_COPY.tabs.count("Music directors", 3), "Music directors (3)"],
+    ["directors", REVIEW_COPY.tabs.directors, "New music"],
+    ["waiting, one", REVIEW_COPY.tabs.waiting(1), "1 review waiting"],
+    ["waiting, many", REVIEW_COPY.tabs.waiting(3), "3 reviews waiting"],
   ])("words %s exactly as the station approved it", (_name, actual, expected) => {
     expect(actual).toBe(expected);
   });

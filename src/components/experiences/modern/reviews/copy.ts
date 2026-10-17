@@ -186,9 +186,9 @@ export const REVIEW_COPY = {
     /** Approved. */
     reviewing: "Reviewing",
     /** Approved. */
-    directors: "Music directors",
-    /** Approved. The label, then the number of reviews waiting, as `Music directors (3)`. */
-    count: (label: string, n: number) => `${label} (${n})`,
+    directors: "New music",
+    /** What a screen reader hears after the New music tab's name when reviews are waiting. */
+    waiting: (n: number) => `${n} ${n === 1 ? "review" : "reviews"} waiting`,
   },
   /** The sidebar's one entry for the Reviews page. */
   sidebar: {
