@@ -13,7 +13,7 @@ import {
   useReleaseIntakeItemMutation,
 } from "@/lib/features/reviews/intakeApi";
 import { LIVE_LIST } from "@/lib/features/reviews/api";
-import { itemHolder, recordStage, type ReviewStage } from "@/lib/features/reviews/holder";
+import { awaitingRecords, itemHolder, recordStage, type ReviewStage } from "@/lib/features/reviews/holder";
 import { byKind, recordKind } from "@/lib/features/reviews/kind";
 import { useAppDispatch } from "@/lib/hooks";
 import { useCanSeeReviews } from "@/src/hooks/useCanSeeReviews";
@@ -92,7 +92,7 @@ function IntakeLaneGroups() {
   const inStage = (stage: ReviewStage) => everyState.data!.filter((i) => recordStage(i, waitingIds) === stage);
   // Both checkout lanes put the records a DJ has held past the server's overdue line first; the sort is stable.
   const overdueFirst = (rows: IntakeItem[]) => [...rows].sort((a, b) => Number(b.overdue) - Number(a.overdue));
-  const waitingRows = awaiting.data.filter((i) => recordStage(i, waitingIds) === "waiting");
+  const waitingRows = awaitingRecords(awaiting.data);
   const reviewed = inStage("reviewed");
   const passes = everyState.data
     .flatMap((i) => (i.passes ?? []).map((p) => ({ ...p, id: `${i.id}-${p.dj_name}-${p.passed_at}`, item: i })))

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import type { IntakeItem } from "@wxyc/shared";
-import { recordStage, type ReviewStage } from "@/lib/features/reviews/holder";
+import { awaitingRecords, recordStage, type ReviewStage } from "@/lib/features/reviews/holder";
 import { intakeItem } from "@/tests/fakes/reviews";
 
 describe("recordStage", () => {
@@ -19,5 +19,17 @@ describe("recordStage", () => {
   ])("puts %s in its stage", (_label, effective_state, isWaiting, expected) => {
     const item = intakeItem({ id: 7, effective_state });
     expect(recordStage(item, new Set(isWaiting ? [7] : [99]))).toBe(expected);
+  });
+});
+
+describe("awaitingRecords", () => {
+  it("keeps the waiting records and drops those already reviewed or filed", () => {
+    const rows = [
+      intakeItem({ id: 1, effective_state: "checked_out" }),
+      intakeItem({ id: 2, effective_state: "reviewed" }),
+      intakeItem({ id: 3, effective_state: "filed" }),
+      intakeItem({ id: 4, effective_state: "pool" }),
+    ];
+    expect(awaitingRecords(rows).map((i) => i.id)).toEqual([1, 4]);
   });
 });

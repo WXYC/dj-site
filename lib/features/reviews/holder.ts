@@ -43,3 +43,9 @@ export function recordStage(item: IntakeItem, waitingIds: ReadonlySet<number>): 
   }
   return state === "checked_out" ? "being_reviewed" : "review_shelf";
 }
+
+/** The rows of the waiting read that are drawn as Review waiting: a record already reviewed or filed is not, though other submitted reviews may remain on it. */
+export function awaitingRecords(awaiting: IntakeItem[]): IntakeItem[] {
+  const ids = new Set(awaiting.map((i) => i.id));
+  return awaiting.filter((i) => recordStage(i, ids) === "waiting");
+}

@@ -59,6 +59,15 @@ describe("ReviewsTabs", () => {
     stopListening();
   });
 
+  it("leaves a reviewed record out of the count, as the Review waiting lane does", async () => {
+    const reviewed = intakeItem({ id: 4, state: "reviewed", effective_state: "reviewed" });
+    fakeReviewsEndpoints({ awaiting: [waiting(1), reviewed] });
+
+    renderWithProviders(<ReviewsTabs />);
+
+    await screen.findByRole("link", { name: "New music, 1 review waiting" });
+  });
+
   it("counts the reviews waiting for a music director to accept", async () => {
     fakeReviewsEndpoints({ awaiting: [waiting(1), waiting(2), waiting(3)] });
 
