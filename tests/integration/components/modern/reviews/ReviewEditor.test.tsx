@@ -661,7 +661,26 @@ describe("ReviewEditor", () => {
       serve();
       renderWithProviders(<ReviewEditor id={40} />);
 
-      expect(await screen.findByRole("heading", { name: "Stereolab" })).toBeInTheDocument();
+      expect(await screen.findByRole("heading", { level: 2, name: "Stereolab" })).toBeInTheDocument();
+      expect(screen.queryByRole("heading", { name: REVIEW_COPY.pageTitle })).not.toBeInTheDocument();
+    });
+
+    it("keeps a visually hidden h2 Review while the record has not loaded, so the outline starts at h2", async () => {
+      fakeReviewsEndpoints({ reviews: [{ ...DRAFT, intake_item_id: 2 } as Review], records: [RECORD] });
+      server.use(http.get(`${TEST_BACKEND_URL}/intake/:id`, async () => { await delay("infinite"); return HttpResponse.json({}); }));
+      renderWithProviders(<ReviewEditor id={40} />);
+
+      const heading = await screen.findByRole("heading", { level: 2, name: REVIEW_COPY.pageTitle });
+      expect(heading).toHaveStyle({ position: "absolute" });
+      expect(screen.getAllByRole("heading").map((h) => h.tagName)).toEqual(["H2", "H3", "H3"]);
+    });
+
+    it("keeps a visually hidden h2 Review when the review could not load", async () => {
+      server.use(http.get(`${TEST_BACKEND_URL}/reviews/40`, () => HttpResponse.json({ message: "down" }, { status: 500 })));
+      renderWithProviders(<ReviewEditor id={40} />);
+
+      await screen.findByRole("alert");
+      expect(screen.getByRole("heading", { level: 2, name: REVIEW_COPY.pageTitle })).toBeInTheDocument();
     });
 
     it.each<[string, number, string, "draft" | "submitted", string]>([
@@ -709,8 +728,8 @@ describe("ReviewEditor", () => {
       expect(within(region).getByRole("group", { name: REVIEW_COPY.slip.name })).toBeInTheDocument();
       const fcc = await screen.findByRole("region", { name: "FCC notes" });
       expect(region.compareDocumentPosition(fcc) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-      const slipHeading = screen.getByRole("heading", { name: REVIEW_COPY.slip.heading, level: 4 });
-      const fccHeading = within(fcc).getByRole("heading", { name: "FCC notes", level: 4 });
+      const slipHeading = screen.getByRole("heading", { name: REVIEW_COPY.slip.heading, level: 3 });
+      const fccHeading = within(fcc).getByRole("heading", { name: "FCC notes", level: 3 });
       expect(slipHeading.compareDocumentPosition(fccHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     });
 
@@ -736,11 +755,11 @@ describe("ReviewEditor", () => {
       expect(screen.queryByRole("toolbar")).not.toBeInTheDocument();
     });
 
-    it("names the slip region with a heading under the record's h3", async () => {
+    it("names the slip region with an h3 under the record's h2", async () => {
       serve();
       renderWithProviders(<ReviewEditor id={40} />);
 
-      const heading = await screen.findByRole("heading", { name: REVIEW_COPY.slip.heading, level: 4 });
+      const heading = await screen.findByRole("heading", { name: REVIEW_COPY.slip.heading, level: 3 });
       expect(screen.getByRole("region", { name: REVIEW_COPY.slip.heading })).toContainElement(heading);
     });
 

@@ -42,6 +42,18 @@ import { APPBAR_CLEARANCE_PX } from "@/src/components/shared/Theme/Appbar";
 /** Two columns from an editor 800px wide (a 1440px window beside both sidebars is about 826): the form takes the rest but never under 20rem, and the slip column is sized from its content (the slip is a fixed 4.25in, so its min-content), which puts the 8px of padding for the slip's shadow and a classic scrollbar's reserved gutter outside the slip. At a 16px root font size the slip then stays 4.25in and the form keeps 352px at 800px (335px beside a 17px scrollbar); where 20rem is larger (a larger root font size) the column's track shrinks, down to nothing, and the slip narrows with it (its max-width is 100%) instead of the grid scrolling sideways. A long unbroken token in an FCC note wraps inside the column (overflow-wrap is inherited, so it is set on the FCC panel's wrapper alone and the slip keeps wrapping as it does in one column and on paper). */
 const TWO_COLUMNS = "@container (min-width: 800px)";
 
+/** The page's h2 while no record heading stands in for it, so the outline never skips a level. */
+function HiddenTitle() {
+  return (
+    <Typography
+      level="h2"
+      sx={{ position: "absolute", width: "1px", height: "1px", overflow: "hidden", clip: "rect(0 0 0 0)", whiteSpace: "nowrap" }}
+    >
+      {REVIEW_COPY.pageTitle}
+    </Typography>
+  );
+}
+
 type Confirming = "submit" | "delete" | null;
 
 /** The record's confirmed FCC notes as the print carries them: the intake item's and the release's, a note on both counted once, oldest first. A failed read contributes none. The notes are the review's own subject's (its `intake_item_id` and `album_id`), not those of a copy that cites this review: a typed review a copy accepts through its citation prints with that copy's notes, which this preview does not show. */
@@ -164,7 +176,7 @@ function Form({ review, user }: { review: Review; user: User | undefined }) {
           <Button size="sm" variant="plain" onClick={() => { clearReviewDraft(userId, review.id); setOffer(null); }}>{REVIEW_COPY.restore.discard}</Button>
         </Stack>
       )}
-      {record && <RecordHeader record={record} />}
+      {record ? <RecordHeader record={record} /> : <HiddenTitle />}
       <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" sx={{ mt: 1 }}>
         {!draft && (
           <JoyLink component={Link} href={`/dashboard/reviews/${review.id}/history`} level="body-sm">
@@ -198,7 +210,7 @@ function Form({ review, user }: { review: Review; user: User | undefined }) {
             [TWO_COLUMNS]: { position: "sticky", top: 0, alignSelf: "start", maxHeight: `var(${STICKY_ROOM_PROPERTY}, none)`, overflowY: "auto", scrollbarGutter: "stable", px: 1, py: 1 },
           }}>
           <Stack component="section" aria-labelledby={slipHeadingId} spacing={1}>
-            <Typography id={slipHeadingId} component={record ? "h4" : "h3"} level="title-sm">{REVIEW_COPY.slip.heading}</Typography>
+            <Typography id={slipHeadingId} component="h3" level="title-sm">{REVIEW_COPY.slip.heading}</Typography>
             <SlipPreview
               artist={record?.artist ?? ""}
               album={record?.album ?? ""}
@@ -211,7 +223,7 @@ function Form({ review, user }: { review: Review; user: User | undefined }) {
           </Stack>
           {review.intake_item_id != null && (
             <Box sx={{ [TWO_COLUMNS]: { overflowWrap: "anywhere" } }}>
-              <FccNotesPanel intakeItemId={review.intake_item_id} headingLevel={record ? 4 : 3} />
+              <FccNotesPanel intakeItemId={review.intake_item_id}/>
             </Box>
           )}
         </Stack>
@@ -273,7 +285,14 @@ export default function ReviewEditor({ id }: { id: number }) {
   const user = "user" in auth ? auth.user : undefined;
 
   if (!visible) return null;
-  if (hasNothingToShow({ isError, data })) return <Typography role="alert">{REVIEW_COPY.couldNotLoad}</Typography>;
+  if (hasNothingToShow({ isError, data })) {
+    return (
+      <>
+        <HiddenTitle />
+        <Typography role="alert">{REVIEW_COPY.couldNotLoad}</Typography>
+      </>
+    );
+  }
   // Keyed by the signed-in user so a session that changes under an open editor starts a fresh form (and a fresh read of what that user kept) rather than carrying the first user's text over.
-  return data ? <Form key={user?.id} review={data} user={user} /> : null;
+  return data ? <Form key={user?.id} review={data} user={user} /> : <HiddenTitle />;
 }

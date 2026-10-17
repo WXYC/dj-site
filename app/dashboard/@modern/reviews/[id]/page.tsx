@@ -2,7 +2,6 @@ import { gateReviewRoute } from "@/src/components/experiences/modern/reviews/gat
 import ReviewEditor from "@/src/components/experiences/modern/reviews/ReviewEditor";
 import { REVIEW_COPY } from "@/src/components/experiences/modern/reviews/copy";
 import ScrollRegion from "@/src/components/experiences/modern/ScrollRegion";
-import PageHeader from "@/src/components/experiences/modern/Header/PageHeader";
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getPageTitle } from "@/lib/utils/page-title";
@@ -18,11 +17,8 @@ export default async function ReviewEditorPage({ params }: { params: Promise<{ i
   if (gated) return gated;
 
   return (
-    <>
-      <PageHeader title={REVIEW_COPY.pageTitle} />
-      <ScrollRegion>
-        <ReviewEditor id={reviewId} />
-      </ScrollRegion>
-    </>
+    <ScrollRegion>
+      <ReviewEditor id={reviewId} />
+    </ScrollRegion>
   );
 }
