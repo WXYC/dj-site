@@ -28,7 +28,9 @@ vi.mock("@/lib/features/authentication/organization-utils.server", async () => {
 // The page's own responsibility under test is its id check and what it renders
 // once the gate passes, not the editor or the header chrome.
 vi.mock("@/src/components/experiences/modern/reviews/ReviewEditor", () => ({
-  default: ({ id }: { id: number }) => <div data-testid="editor">{id}</div>,
+  default: ({ id, arrivedFromRequest }: { id: number; arrivedFromRequest?: boolean }) => (
+    <div data-testid="editor" data-arrived={String(arrivedFromRequest)}>{id}</div>
+  ),
 }));
 
 import ReviewEditorPage, { metadata } from "@/app/dashboard/@modern/reviews/[id]/page";
@@ -38,7 +40,8 @@ import { REVIEW_COPY } from "@/src/components/experiences/modern/reviews/copy";
 describe("review editor page", () => {
   setUpClassicPageAuthorityEnv();
 
-  const open = (id = "40") => ReviewEditorPage({ params: Promise.resolve({ id }) });
+  const open = (id = "40", query: { arrived?: string } = {}) =>
+    ReviewEditorPage({ params: Promise.resolve({ id }), searchParams: Promise.resolve(query) });
 
   it("renders the editor once the gate passes", async () => {
     process.env.NEXT_PUBLIC_REVIEWS_ENABLED = "true";
@@ -48,6 +51,19 @@ describe("review editor page", () => {
 
     expect(screen.getByTestId("editor")).toHaveTextContent("40");
     expect(screen.queryByRole("heading")).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ["the request marker", "request", "true"],
+    ["no marker", undefined, "false"],
+    ["another marker", "elsewhere", "false"],
+  ])("tells the editor it arrived from a request only for %s", async (_label, arrived, expected) => {
+    process.env.NEXT_PUBLIC_REVIEWS_ENABLED = "true";
+    setUpClassicPageAuthority("dj");
+
+    renderWithProviders(await open("40", { arrived }));
+
+    expect(screen.getByTestId("editor")).toHaveAttribute("data-arrived", expected);
   });
 
   it("titles the tab from the copy module", () => {

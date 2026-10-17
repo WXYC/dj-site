@@ -50,7 +50,7 @@ describe("review pages scroll inside Main", () => {
     ["the album's print page", true, () => ReleaseSlipPage({ params: Promise.resolve({ albumId: "7", reviewId: "11" }) })],
     ["a new review", true, () => NewReviewPage({ searchParams: Promise.resolve({ album_id: "7" }) })],
     // The editor draws no page header: its record heading is the title.
-    ["the review editor", false, () => ReviewEditorPage(params)],
+    ["the review editor", false, () => ReviewEditorPage({ ...params, searchParams: Promise.resolve({}) })],
     ["a review's history", true, () => ReviewHistoryPage(params)],
   ])("%s renders its screen in one scroll region, with a page header outside it only where it draws one", async (_name, hasHeader, open) => {
     process.env.NEXT_PUBLIC_REVIEWS_ENABLED = "true";

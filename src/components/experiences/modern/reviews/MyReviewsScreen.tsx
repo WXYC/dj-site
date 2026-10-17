@@ -4,6 +4,7 @@ import { useState, type ReactNode } from "react";
 import { Button, Chip, Link, Stack, Typography } from "@mui/joy";
 import type { IntakeItem, Review } from "@wxyc/shared";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import {
   useAcceptIntakeItemMutation,
   usePassIntakeItemMutation,
@@ -51,6 +52,7 @@ export default function MyReviewsScreen({ items, myReviews, formats, me, between
   const [createReview] = useCreateReviewMutation();
   const router = useRouter();
   const [returning, setReturning] = useState<IntakeItem | null>(null);
+  const [passing, setPassing] = useState<IntakeItem | null>(null);
 
   const requests = items.filter((i) => i.effective_state === "requested" && i.requested_dj_id === me);
   const checkouts = [
@@ -67,8 +69,26 @@ export default function MyReviewsScreen({ items, myReviews, formats, me, between
           meta={<Typography level="body-sm">{`${REVIEW_COPY.screen.asked} ${day(i.requested_at)}`}</Typography>}
           actions={
             <>
-              <Button size="sm" {...lock(i.id, "accept")} onClick={() => write(i.id, "accept", () => accept(i.id).unwrap())}>{REVIEW_COPY.screen.accept}</Button>
-              <Button size="sm" variant="outlined" {...lock(i.id, "pass")} onClick={() => write(i.id, "pass", () => pass(i.id).unwrap())}>{REVIEW_COPY.screen.pass}</Button>
+              <Button
+                size="sm"
+                {...lock(i.id, "accept")}
+                onClick={() =>
+                  write(i.id, "accept", async () => {
+                    await accept(i.id).unwrap();
+                    // The record is the DJ's now, so a create that fails is its own toast: neither a lost race nor the generic failure.
+                    try {
+                      const draft = myReviews.find((r) => r.intake_item_id === i.id && r.status === "draft");
+                      const review = draft ?? (await createReview({ intake_item_id: i.id }).unwrap());
+                      router.push(`/dashboard/reviews/${review.id}?arrived=request`);
+                    } catch {
+                      toast.error(REVIEW_COPY.couldNotStart);
+                    }
+                  })
+                }
+              >
+                {REVIEW_COPY.writeReview}
+              </Button>
+              <Button size="sm" variant="outlined" {...lock(i.id, "pass")} onClick={() => setPassing(i)}>{REVIEW_COPY.screen.pass}</Button>
             </>
           }
         />
@@ -132,6 +152,30 @@ export default function MyReviewsScreen({ items, myReviews, formats, me, between
         }
       >
         {returning && byKind(returning, { disc: REVIEW_COPY.screen.returnQuestion, digital: REVIEW_COPY.screen.returnQuestionDigital })}
+      </ConfirmDialog>
+      <ConfirmDialog
+        open={passing !== null}
+        onClose={() => setPassing(null)}
+        title={passing && REVIEW_COPY.screen.passTitle(passing.album_title, passing.artist_name)}
+        actions={
+          <>
+            <Button
+              onClick={async () => {
+                const id = passing!.id;
+                setPassing(null);
+                await write(id, "pass", async () => {
+                  await pass(id).unwrap();
+                  toast.success(REVIEW_COPY.screen.passed);
+                });
+              }}
+            >
+              {REVIEW_COPY.screen.pass}
+            </Button>
+            <Button variant="plain" onClick={() => setPassing(null)}>{REVIEW_COPY.screen.cancel}</Button>
+          </>
+        }
+      >
+        {REVIEW_COPY.screen.passConfirm}
       </ConfirmDialog>
     </>
   );

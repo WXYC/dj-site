@@ -76,6 +76,7 @@ const BROUGHT_BACK = "Have you brought this record back to the station?";
 const FAILURE_LINE = "Couldn't do that. Please try again.";
 const SHELF_RACE = "This record left the review shelf before your click went through. The lists have been reloaded.";
 const REQUEST_RACE = "This request is no longer open; it may have expired. The lists have been reloaded.";
+const PASS = "Pass on Aluminum Tunes by Stereolab?";
 const RELEASE_RACE = "This record is no longer checked out to you. The lists have been reloaded.";
 
 const REVIEWERS = [
@@ -249,30 +250,136 @@ describe("ReviewsScreen", () => {
     await waitFor(() => expect(within(mine).queryByText(/Stereolab/)).not.toBeInTheDocument());
   });
 
-  it("lets me accept or pass a request made of me, and hides one made of someone else", async () => {
+  it("shows a request made of me and hides one made of someone else", async () => {
     serveIntake([
       item({ id: 11, state: "requested", effective_state: "requested", requested_dj_id: ME, requested_at: "2026-09-30T12:00:00Z" }),
       item({ id: 12, artist_name: "Cat Power", state: "requested", effective_state: "requested", requested_dj_id: "other" }),
     ]);
-    const paths: string[] = [];
-    server.use(
-      http.post(`${TEST_BACKEND_URL}/intake/:id/:action`, ({ request }) => {
-        paths.push(new URL(request.url).pathname);
-        return HttpResponse.json(item({}));
-      }),
-    );
 
-    const { user } = renderWithProviders(<ReviewsScreen />);
+    renderWithProviders(<ReviewsScreen />);
     const requests = await section("Requests for me");
     await within(requests).findByText(/Stereolab/);
     expect(within(requests).queryByText(/Cat Power/)).not.toBeInTheDocument();
-    await user.click(within(requests).getByRole("button", { name: "Accept" }));
-    await user.click(within(requests).getByRole("button", { name: "Pass" }));
-
-    await waitFor(() => expect(paths).toEqual(["/intake/11/accept", "/intake/11/pass"]));
+    expect(within(requests).getAllByRole("button").map((b) => b.textContent)).toEqual(["Write a review", "Pass"]);
+    expect(screen.queryByRole("button", { name: "Accept" })).not.toBeInTheDocument();
   });
 
-  it("draws each request as a record row: the parts separately, Asked beside them, and Accept and Pass together in the actions region", async () => {
+  describe("Write a review on a request", () => {
+    const REQUESTED = (overrides = {}) =>
+      item({ id: 11, state: "requested", effective_state: "requested", requested_dj_id: ME, requested_at: "2026-09-30T12:00:00Z", ...overrides });
+
+    /** Records each POST in order and answers the accept and the create. */
+    const serveWrites = (answer: { create?: () => Response } = {}) => {
+      const posts: string[] = [];
+      server.use(
+        http.post(`${TEST_BACKEND_URL}/intake/:id/accept`, ({ request }) => {
+          posts.push(new URL(request.url).pathname);
+          return HttpResponse.json(item({}));
+        }),
+        http.post(`${TEST_BACKEND_URL}/reviews`, () => {
+          posts.push("/reviews");
+          return answer.create?.() ?? HttpResponse.json(review({ id: 41 }));
+        }),
+      );
+      return posts;
+    };
+
+    it.each([
+      ["a disc", false],
+      ["a digital album", true],
+    ])("accepts %s, creates a review and opens the editor with the arrival marker", async (_kind, digital) => {
+      serveIntake([digital ? digitalItem(REQUESTED()) : REQUESTED()]);
+      const posts = serveWrites();
+
+      const { user } = renderWithProviders(<ReviewsScreen />);
+      await user.click(await within(await section("Requests for me")).findByRole("button", { name: "Write a review" }));
+
+      await waitFor(() => expect(router.push).toHaveBeenCalledWith("/dashboard/reviews/41?arrived=request"));
+      expect(posts).toEqual(["/intake/11/accept", "/reviews"]);
+    });
+
+    it("opens a draft of mine on the record without creating another", async () => {
+      serveIntake([REQUESTED()], [], [review({ id: 40, intake_item_id: 11 })]);
+      const posts = serveWrites();
+
+      const { user } = renderWithProviders(<ReviewsScreen />);
+      await user.click(await within(await section("Requests for me")).findByRole("button", { name: "Write a review" }));
+
+      await waitFor(() => expect(router.push).toHaveBeenCalledWith("/dashboard/reviews/40?arrived=request"));
+      expect(posts).toEqual(["/intake/11/accept"]);
+    });
+
+    it("answers a lost race on the accept with the request notice, stays on the page and creates nothing", async () => {
+      serveIntake([REQUESTED()]);
+      const posts = serveWrites();
+      server.use(http.post(`${TEST_BACKEND_URL}/intake/11/accept`, () => HttpResponse.json({ message: "server words", reason: "state_changed" }, { status: 409 })));
+
+      const { user } = renderWithProviders(<ReviewsScreen />);
+      await user.click(await within(await section("Requests for me")).findByRole("button", { name: "Write a review" }));
+
+      await waitFor(() => expect(toast).toHaveBeenCalledWith(REQUEST_RACE));
+      expect(posts).toEqual([]);
+      expect(router.push).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ["a 409 subject_not_held", { message: "server words", reason: "subject_not_held" }, 409],
+      ["a server error", { message: "down" }, 500],
+    ])("toasts that the review couldn't start when the create fails with %s after the accept went through", async (_why, body, status) => {
+      serveIntake([REQUESTED()]);
+      serveWrites({ create: () => HttpResponse.json(body, { status }) });
+
+      const { user } = renderWithProviders(<ReviewsScreen />);
+      await user.click(await within(await section("Requests for me")).findByRole("button", { name: "Write a review" }));
+
+      await waitFor(() => expect(toast.error).toHaveBeenCalledWith(REVIEW_COPY.couldNotStart));
+      expect(toast).not.toHaveBeenCalled();
+      expect(toast.error).toHaveBeenCalledTimes(1);
+      expect(router.push).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("Pass on a request", () => {
+        const open = async () => {
+      serveIntake([item({ id: 11, state: "requested", effective_state: "requested", requested_dj_id: ME, requested_at: "2026-09-30T12:00:00Z" })]);
+      const paths: string[] = [];
+      server.use(
+        http.post(`${TEST_BACKEND_URL}/intake/:id/:action`, ({ request }) => {
+          paths.push(new URL(request.url).pathname);
+          return HttpResponse.json(item({}));
+        }),
+      );
+      const { user } = renderWithProviders(<ReviewsScreen />);
+      await user.click(await within(await section("Requests for me")).findByRole("button", { name: "Pass" }));
+      const dialog = await screen.findByRole("alertdialog", { name: PASS });
+      return { user, dialog, paths };
+    };
+
+    it("asks first, naming the record, and sends nothing on Cancel", async () => {
+      const { user, dialog, paths } = await open();
+
+      expect(within(dialog).getByText(REVIEW_COPY.screen.passConfirm)).toBeInTheDocument();
+      await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+
+      await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
+      expect(paths).toEqual([]);
+      expect(toast.success).not.toHaveBeenCalled();
+    });
+
+    it("sends the pass on confirming, reloads and toasts", async () => {
+      const { user, dialog, paths } = await open();
+      let reads = 0;
+      server.use(http.get(`${TEST_BACKEND_URL}/intake`, () => (reads += 1, HttpResponse.json([]))));
+
+      await user.click(within(dialog).getByRole("button", { name: "Pass" }));
+
+      await waitFor(() => expect(toast.success).toHaveBeenCalledWith("Passed. The record is back on the review shelf."));
+      expect(paths).toEqual(["/intake/11/pass"]);
+      expect(reads).toBeGreaterThan(0);
+    });
+  });
+
+  it("draws each request as a record row: the parts separately, Asked beside them, and Write a review and Pass together in the actions region", async () => {
     serveIntake([item({ id: 11, state: "requested", effective_state: "requested", requested_dj_id: ME, requested_at: "2026-09-30T12:00:00Z" })]);
     renderWithProviders(<ReviewsScreen />);
     const requests = await section("Requests for me");
@@ -282,17 +389,17 @@ describe("ReviewsScreen", () => {
     expect(within(requests).queryByText(/·/)).not.toBeInTheDocument();
     expect(within(requests).getByText(/^Asked /)).toBeInTheDocument();
     expect(within(requests).getAllByRole("listitem")).toHaveLength(1);
-    const accept = within(requests).getByRole("button", { name: "Accept" });
+    const write = within(requests).getByRole("button", { name: "Write a review" });
     const pass = within(requests).getByRole("button", { name: "Pass" });
-    expect(accept.parentElement).toBe(pass.parentElement);
-    expect(accept.parentElement).not.toContainElement(within(requests).getByText("Stereolab"));
-    expect(accept.parentElement).not.toContainElement(within(requests).getByText(/^Asked /));
+    expect(write.parentElement).toBe(pass.parentElement);
+    expect(write.parentElement).not.toContainElement(within(requests).getByText("Stereolab"));
+    expect(write.parentElement).not.toContainElement(within(requests).getByText(/^Asked /));
   });
 
   // The notice says the lists have been reloaded, so it waits until they have.
   it.each([
     ["Check out", SHELF, "checkout", item({ id: 5 }), SHELF_RACE],
-    ["Accept", "Requests for me", "accept", item({ id: 5, state: "requested", effective_state: "requested", requested_dj_id: ME }), REQUEST_RACE],
+    ["Write a review", "Requests for me", "accept", item({ id: 5, state: "requested", effective_state: "requested", requested_dj_id: ME }), REQUEST_RACE],
     ["Pass", "Requests for me", "pass", item({ id: 5, state: "requested", effective_state: "requested", requested_dj_id: ME }), REQUEST_RACE],
     [RETURN, "Records I'm reviewing", "release", item({ id: 5, state: "checked_out", effective_state: "checked_out", checked_out_by: ME }), RELEASE_RACE],
   ] as const)(
@@ -314,6 +421,9 @@ describe("ReviewsScreen", () => {
       await user.click(within(region).getByRole("button", { name: button }));
       if (action === "release") {
         await user.click(within(await screen.findByRole("alertdialog", { name: RETURN })).getByRole("button", { name: RETURN }));
+      }
+      if (action === "pass") {
+        await user.click(within(await screen.findByRole("alertdialog", { name: PASS })).getByRole("button", { name: "Pass" }));
       }
       // Assert during the hold, once every read the case depends on has started and only the held one is outstanding:
       // the my-reviews read has answered, so a notice that waited for it alone would already show.
@@ -440,7 +550,7 @@ describe("ReviewsScreen", () => {
   it.each([
     ["Check out", SHELF, item({ id: 5 }), "/intake/5/checkout"],
     [
-      "Accept",
+      "Write a review",
       "Requests for me",
       item({ id: 5, state: "requested", effective_state: "requested", requested_dj_id: ME }),
       "/intake/5/accept",
@@ -458,6 +568,7 @@ describe("ReviewsScreen", () => {
         moved = true;
         return HttpResponse.json(row);
       }),
+      http.post(`${TEST_BACKEND_URL}/reviews`, () => HttpResponse.json(review({ id: 41 }))),
     );
 
     const { user } = renderWithProviders(<ReviewsScreen />);
@@ -675,7 +786,7 @@ describe("ReviewsScreen", () => {
 
     expect(listUsers).not.toHaveBeenCalled();
     const rowMarkers = {
-      "Requests for me": () => within(screen.getByRole("region", { name: "Requests for me" })).getByRole("button", { name: REVIEW_COPY.screen.accept }),
+      "Requests for me": () => within(screen.getByRole("region", { name: "Requests for me" })).getByRole("button", { name: "Write a review" }),
       "Records I'm reviewing": () => within(screen.getByRole("region", { name: "Records I'm reviewing" })).getByRole("button", { name: RETURN }),
       "My reviews": () => within(screen.getByRole("region", { name: "My reviews" })).getByRole("link", { name: REVIEW_COPY.myReviews.open }),
     };
@@ -703,7 +814,7 @@ describe("ReviewsScreen", () => {
   // `isIntakeRequestRefused` is true for any 400 under `intakeWriteError`, so only the action tells a refused request apart.
   it.each([
     ["Check out", SHELF, "checkout", item({ id: 5 })],
-    ["Accept", "Requests for me", "accept", item({ id: 5, state: "requested", effective_state: "requested", requested_dj_id: ME })],
+    ["Write a review", "Requests for me", "accept", item({ id: 5, state: "requested", effective_state: "requested", requested_dj_id: ME })],
     ["Pass", "Requests for me", "pass", item({ id: 5, state: "requested", effective_state: "requested", requested_dj_id: ME })],
   ] as const)("a 400 on %s is a plain write failure, not the request's line", async (button, title, action, row) => {
     serveIntake([row]);
@@ -711,6 +822,9 @@ describe("ReviewsScreen", () => {
 
     const { user } = renderWithProviders(<ReviewsScreen />);
     await user.click(await within(await section(title)).findByRole("button", { name: button }));
+    if (action === "pass") {
+      await user.click(within(await screen.findByRole("alertdialog", { name: PASS })).getByRole("button", { name: "Pass" }));
+    }
 
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith(REVIEW_COPY.screen.writeFailed));
     expect(toast.error).not.toHaveBeenCalledWith(REQUEST_REFUSED);
@@ -865,6 +979,11 @@ describe("ReviewsScreen", () => {
     ["taken", REVIEW_COPY.screen.taken, "Taken"],
     ["asked", REVIEW_COPY.screen.asked, "Asked"],
     ["cancel", REVIEW_COPY.screen.cancel, "Cancel"],
+    ["passTitle", REVIEW_COPY.screen.passTitle("DOGA", "Juana Molina"), "Pass on DOGA by Juana Molina?"],
+    ["passConfirm", REVIEW_COPY.screen.passConfirm, "It goes back on the review shelf, and the music directors see that you passed."],
+    ["passed", REVIEW_COPY.screen.passed, "Passed. The record is back on the review shelf."],
+    ["arrived.disc", REVIEW_COPY.arrived.disc, "It's yours to review now, so other DJs can see that you have it. Write when you've listened; your draft saves here."],
+    ["arrived.digital", REVIEW_COPY.arrived.digital, "It's yours to review now, and the music directors have been told to send you the files. Write when you've listened; your draft saves here."],
   ])("words the row detail or button %s exactly as the station approved it", (_key, actual, approved) => {
     expect(actual).toBe(approved);
   });

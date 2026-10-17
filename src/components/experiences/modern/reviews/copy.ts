@@ -23,6 +23,13 @@ export const REVIEW_COPY = {
   writeReview: "Write a review",
   /** Approved. */
   couldNotStart: "Couldn't start a review. Please try again.",
+  /** The editor's line above the form after Write a review on a request. */
+  arrived: {
+    /** Approved. */
+    disc: "It's yours to review now, so other DJs can see that you have it. Write when you've listened; your draft saves here.",
+    /** Approved. */
+    digital: "It's yours to review now, and the music directors have been told to send you the files. Write when you've listened; your draft saves here.",
+  },
   /** Approved. */
   saveDraft: "Save draft",
   /** Approved. */
@@ -159,14 +166,18 @@ export const REVIEW_COPY = {
     /** Approved. */
     checkOut: "Check out",
     /** Approved. */
-    accept: "Accept",
-    /** Approved. */
     pass: "Pass",
+    /** Approved. The Pass confirmation's question. */
+    passTitle: (album: string, artist: string) => `Pass on ${album} by ${artist}?`,
+    /** Approved. The Pass confirmation's body. */
+    passConfirm: "It goes back on the review shelf, and the music directors see that you passed.",
+    /** Approved. Shown once a pass has gone through. */
+    passed: "Passed. The record is back on the review shelf.",
     /** Approved. */
     cancel: "Cancel",
     /** Approved. Lost races, shown once the lists have reloaded. */
     raceCheckout: "This record left the review shelf before your click went through. The lists have been reloaded.",
-    /** Approved. Accept and Pass share it. */
+    /** Approved. Write a review and Pass share it on a request. */
     raceRequest: "This request is no longer open; it may have expired. The lists have been reloaded.",
     /** Approved. */
     raceRelease: "This record is no longer checked out to you. The lists have been reloaded.",
