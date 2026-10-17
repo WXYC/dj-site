@@ -22,7 +22,7 @@ describe("ReviewShelfScreen", () => {
   it("renders the review shelf lane with a checkout button for a record on the review shelf", async () => {
     fakeReviewsEndpoints();
     renderWithProviders(
-      <WithWrite items={[intakeItem({ id: 5, artist_name: "Stereolab" })]} formats={undefined} isMD={false} />,
+      <WithWrite items={[intakeItem({ id: 5, artist_name: "Stereolab" })]} isMD={false} />,
     );
 
     expect(await screen.findByRole("heading", { level: 3, name: REVIEW_COPY.screen.shelfTitle })).toBeInTheDocument();

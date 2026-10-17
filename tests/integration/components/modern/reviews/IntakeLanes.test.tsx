@@ -99,7 +99,7 @@ describe("IntakeLanes", () => {
     expect(actual).toBe(approved);
   });
 
-  it("names each record with the one record line, in the lane for its state", async () => {
+  it("names each record by its artist, album, label and format, in the lane for its state", async () => {
     fakeReviewsEndpoints({
       open: [
         moonPix({ id: 2, state: "requested", effective_state: "requested", ...requestedFor(null, "DJ Pat") }),
@@ -112,12 +112,17 @@ describe("IntakeLanes", () => {
     renderWithProviders(<IntakeLanes />);
 
     const requested = await lane("Requested");
-    expect(within(requested).getByText("Cat Power · Moon Pix · Matador · CD")).toBeInTheDocument();
+    const expectRecord = async (region: HTMLElement, album: string) => {
+      for (const part of ["Cat Power", album, "Matador", "CD"]) {
+        expect(await within(region).findByText(part)).toBeInTheDocument();
+      }
+    };
+    await expectRecord(requested, "Moon Pix");
     expect(within(requested).getByText("Held for DJ Pat")).toBeInTheDocument();
-    expect(within(await lane("Being reviewed")).getByText("Cat Power · Dark Side · Matador · CD")).toBeInTheDocument();
-    expect(within(await lane("Reviewed (1)")).getByText("Cat Power · Moon Pix · Matador · CD")).toBeInTheDocument();
-    expect(within(await lane("Filed")).getByText("Cat Power · Moon Pix · Matador · CD")).toBeInTheDocument();
-    expect(within(requested).getByRole("link")).toHaveAttribute("href", "/dashboard/admin/intake/2");
+    await expectRecord(await lane("Being reviewed"), "Dark Side");
+    await expectRecord(await lane("Reviewed (1)"), "Moon Pix");
+    await expectRecord(await lane("Filed"), "Moon Pix");
+    expect(within(requested).getByRole("link", { name: "Cat Power" })).toHaveAttribute("href", "/dashboard/admin/intake/2");
   });
 
   it("puts each state's rows in its own lane only, and reads intake exactly twice", async () => {
@@ -369,7 +374,7 @@ describe("IntakeLanes", () => {
     renderWithProviders(<IntakeLanes />);
 
     const links = within(await lane(heading)).getAllByRole("link");
-    expect(links.map((a) => a.textContent)).toEqual([expect.stringContaining("Album 1"), expect.stringContaining("Album 2")]);
+    expect(links.map((a) => a.getAttribute("href"))).toEqual(["/dashboard/admin/intake/1", "/dashboard/admin/intake/2"]);
   });
 
   it("counts the Reviewed lane's rows in its heading, and drops it on a refetch when a record is filed", async () => {
@@ -458,7 +463,7 @@ describe("IntakeLanes", () => {
     await user.click(await screen.findByRole("button", { name: "Mark as returned" }));
 
     await waitFor(() => expect(screen.queryByText(/^Still out/)).not.toBeInTheDocument());
-    expect(within(await lane("Reviewed (1)")).getByText("Cat Power · Moon Pix · Matador · CD")).toBeInTheDocument();
+    expect(within(await lane("Reviewed (1)")).getByText("Moon Pix")).toBeInTheDocument();
   });
 
   const LOST_RACE = "This record has already been returned or filed. The lists have been reloaded.";
@@ -577,7 +582,7 @@ describe("IntakeLanes — a failed background refetch", () => {
 
     await waitFor(() => expect(button).toBeEnabled());
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-    expect(within(await lane("Reviewed (1)")).getByText(/Cat Power · Moon Pix/)).toBeInTheDocument();
+    expect(within(await lane("Reviewed (1)")).getByText("Moon Pix")).toBeInTheDocument();
   });
 
   it("shows the load-failure line when a first load fails", async () => {
@@ -929,9 +934,11 @@ describe("a digital record's format line", () => {
     const row = digitalItem({ id: 21, artist_name: "Juana Molina", album_title: "DOGA", ...overrides });
     fakeReviewsEndpoints({ open: [row], filed: [row], formats: [{ id: 1, format_name: "cd" }, CDR_FORMAT] });
     renderWithProviders(<IntakeLanes />);
-    const link = await screen.findByRole("link", { name: /DOGA/ });
-    expect(link.textContent).toBe(`Juana Molina · DOGA · Duophonic · ${text}`);
-    expect(link.textContent).not.toContain(other);
+    const lane = (await screen.findByRole("link", { name: "Juana Molina" })).closest("li") as HTMLElement;
+    expect(within(lane).getByText("DOGA")).toBeInTheDocument();
+    expect(within(lane).getByText("Duophonic")).toBeInTheDocument();
+    expect(await within(lane).findByText(text)).toBeInTheDocument();
+    expect(within(lane).queryByText(other)).not.toBeInTheDocument();
   });
 });
 

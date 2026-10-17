@@ -1,10 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { Button, Chip, Link, List, ListItem, Stack, Typography } from "@mui/joy";
+import { useState, type ReactNode } from "react";
+import { Button, Chip, List, ListItem, Stack, Typography } from "@mui/joy";
 import type { IntakeItem } from "@wxyc/shared";
 import { toast } from "sonner";
-import { useGetFormatsQuery } from "@/lib/features/catalog/api";
 import {
   isIntakeStateChanged,
   intakeApi,
@@ -21,7 +20,8 @@ import FccNotesToConfirm from "./FccNotesToConfirm";
 import HeadedSection from "./HeadedSection";
 import IntakeLane from "./IntakeLane";
 import { REVIEW_COPY } from "./copy";
-import { intakeRecord, recordLine } from "./recordLine";
+import RecordRow from "./RecordRow";
+import { intakeRecord } from "./recordLine";
 import { WaitingFrom } from "./ReviewFrom";
 import { formatStationShortDate } from "@/src/utilities/stationTime";
 import { hasNothingToShow } from "@/lib/has-nothing-to-show";
@@ -60,7 +60,6 @@ export default function IntakeLanes() {
 function IntakeLaneGroups() {
   const everyState = useGetIntakeItemsQuery(EVERY_STATE);
   const awaiting = useGetIntakeItemsQuery(AWAITING_LANE);
-  const { data: formats } = useGetFormatsQuery();
   const [release] = useReleaseIntakeItemMutation();
   const [cancelRequest] = useCancelIntakeRequestMutation();
   const dispatch = useAppDispatch();
@@ -111,13 +110,21 @@ function IntakeLaneGroups() {
     return COPY.onShelf;
   };
 
-  const laneLabel = (i: IntakeItem) => (
-    <>
-      <Link href={`/dashboard/admin/intake/${i.id}`}>{recordLine(intakeRecord(i), formats)}</Link>
-      {i.overdue && <Chip color="danger">{REVIEW_COPY.screen.overdue}</Chip>}
-    </>
-  );
   const physical = (i: IntakeItem) => waitingIds.has(i.id) && <Chip size="sm">{COPY.reviewWaitingMark}</Chip>;
+  // Every lane's row links the artist to the record's page and puts the overdue mark and its lines in `meta`.
+  const laneRow = (i: IntakeItem, meta?: ReactNode, actions?: ReactNode) => (
+    <RecordRow
+      record={intakeRecord(i)}
+      href={`/dashboard/admin/intake/${i.id}`}
+      meta={
+        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+          {i.overdue && <Chip color="danger">{REVIEW_COPY.screen.overdue}</Chip>}
+          {meta}
+        </Stack>
+      }
+      actions={actions}
+    />
+  );
 
   return (
     <Stack spacing={3}>
@@ -141,63 +148,66 @@ function IntakeLaneGroups() {
           title={`${COPY.waiting} (${awaiting.data.length})`}
           rows={awaiting.data}
           empty={COPY.empty}
-          label={laneLabel}
-          extra={(i) => <WaitingFrom item={i} where={where(i)} />}
+          row={(i) => laneRow(i, <WaitingFrom item={i} where={where(i)} />)}
         />
       )}
       <IntakeLane
         title={COPY.requested}
         rows={inState("requested")}
         empty={COPY.empty}
-        label={laneLabel}
-        extra={(i) => (
-          <>
-            {physical(i)}
-            <Typography level="body-sm">{where(i)}</Typography>
+        row={(i) =>
+          laneRow(
+            i,
+            <>
+              {physical(i)}
+              <Typography level="body-sm">{where(i)}</Typography>
+            </>,
             <Button size="sm" variant="outlined" {...lock(i.id, "cancel")} onClick={() => act(i.id, "cancel", () => cancelRequest(i.id).unwrap())}>
               {COPY.cancelRequest}
-            </Button>
-          </>
-        )}
+            </Button>,
+          )
+        }
       />
       <IntakeLane
         title={COPY.beingReviewed}
         rows={overdueFirst(inState("checked_out"))}
         empty={COPY.empty}
-        label={laneLabel}
-        extra={(i) => (
-          <>
-            {physical(i)}
-            <Typography level="body-sm">{where(i)}</Typography>
+        row={(i) =>
+          laneRow(
+            i,
+            <>
+              {physical(i)}
+              <Typography level="body-sm">{where(i)}</Typography>
+            </>,
             <Button size="sm" variant="outlined" {...lock(i.id, "release")} onClick={() => act(i.id, "release", () => release(i.id).unwrap())}>
               {COPY.release}
-            </Button>
-          </>
-        )}
+            </Button>,
+          )
+        }
       />
       <IntakeLane
         title={reviewed.length > 0 ? `${COPY.reviewed} (${reviewed.length})` : COPY.reviewed}
         rows={overdueFirst(reviewed)}
         empty={COPY.empty}
-        label={laneLabel}
-        extra={(i) => {
+        row={(i) => {
           const holder = itemHolder(i);
-          return (
-            holder.kind !== "none" &&
-            recordKind(i) === "disc" && (
-              <>
-                <Typography level="body-sm">
-                  {holder.kind === "removed" ? COPY.holderRemoved : `${COPY.stillOutTo} ${holder.name}`}
-                </Typography>
-                <Button size="sm" variant="outlined" {...lock(i.id, "return")} onClick={() => act(i.id, "return", () => release(i.id).unwrap())}>
-                  {COPY.returned}
-                </Button>
-              </>
-            )
+          const stillOut = holder.kind !== "none" && recordKind(i) === "disc";
+          return laneRow(
+            i,
+            stillOut && (
+              <Typography level="body-sm">
+                {holder.kind === "removed" ? COPY.holderRemoved : `${COPY.stillOutTo} ${holder.name}`}
+              </Typography>
+            ),
+            stillOut && (
+              <Button size="sm" variant="outlined" {...lock(i.id, "return")} onClick={() => act(i.id, "return", () => release(i.id).unwrap())}>
+                {COPY.returned}
+              </Button>
+            ),
           );
         }}
       />
-      <IntakeLane title={COPY.filed} rows={inState("filed")} empty={COPY.empty} label={laneLabel} />
+      <IntakeLane title={COPY.filed} rows={inState("filed")} empty={COPY.empty} row={(i) => laneRow(i)} />
     </Stack>
   );
 }

@@ -151,7 +151,7 @@ export const REVIEW_COPY = {
     /** Approved. */
     editReview: "Edit review",
     /** Approved. Each is followed by a date. */
-    logged: "Logged",
+    logged: "Added",
     /** Approved. */
     taken: "Taken",
     /** Approved. */

@@ -7,7 +7,7 @@ const COPY = REVIEW_COPY.intake;
 
 interface IntakeRequestPickerProps {
   reviewers: Reviewer[];
-  /** The id of the element holding the record's line, which names the group of controls for the record they act on. */
+  /** The ids of the elements that name the record (space-separated, as `aria-labelledby` takes them): they name the group of controls for the record they act on. */
   labelledBy: string;
   /** The row's `lock(id, "request")`. */
   busy: { loading: boolean; disabled: boolean };
