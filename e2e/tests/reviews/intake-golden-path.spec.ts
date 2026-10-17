@@ -75,10 +75,10 @@ test("the intake golden path, from logging a record to the librarian's finalize"
       const form = md.getByRole("form", { name: COPY.intake.logTitle });
       await form.getByLabel(new RegExp(`^${COPY.intake.artist}`)).fill(artist);
       await form.getByLabel(new RegExp(`^${COPY.intake.album}`)).fill(album);
+      // The path walks a disc: Format shows once the record arrived as a disc or a record.
+      await form.getByRole("radio", { name: COPY.intake.arrivedAsDisc }).click();
       await form.getByRole("combobox", { name: new RegExp(`^${COPY.intake.format}`) }).click();
-      // A library format, not Digital: the path walks a disc.
-      const disc = md.getByRole("option").filter({ hasNotText: COPY.intake.digital }).first();
-      await disc.click();
+      await md.getByRole("option").first().click();
       await form.getByRole("button", { name: COPY.intake.log }).click();
 
       await expect(shelfRow(md)).toBeVisible({ timeout: 15000 });
