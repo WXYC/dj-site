@@ -216,8 +216,18 @@ export const REVIEW_COPY = {
     raceCheckoutReleased: "This record has already been returned. The lists have been reloaded.",
     /** Approved. */
     cancelRequest: "Cancel request",
-    /** Approved. */
-    release: "Release",
+    /** The return confirmation's question, for the Being reviewed lane's Return to the review shelf. */
+    returnQuestion: (artist: string, album: string) => `Return ${artist}, ${album}, to the review shelf?`,
+    /** The return confirmation's body; a removed holder has no name to give, so that sentence is left out. */
+    returnBody: (name: string | null) =>
+      name ? `${name} will no longer have it, and any DJ can choose to review it.` : "Any DJ can choose to review it.",
+    /** Added to the return confirmation for a disc whose holder's account still exists. */
+    returnBringDisc: "Ask them to bring the disc to the music office.",
+    /** The question of Mark as returned on a Review waiting row. */
+    markReturnedQuestion: (artist: string, album: string) => `Mark ${artist}, ${album} as back in the music office?`,
+    /** The body of that confirmation; a removed holder has no name to give, so that sentence is left out. */
+    markReturnedBody: (name: string | null) =>
+      `${name ? `${name} will no longer have it. ` : ""}Their review stays waiting for you to choose.`,
     /** Approved. Shown once the lists have reloaded after a request lost its race. */
     raceRequest: "This record has left the review shelf since the page loaded, so it can't be requested. The lists have been reloaded.",
     /** Approved. Shown when a request names an account that can no longer be asked to review. */

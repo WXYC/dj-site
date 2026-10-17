@@ -93,7 +93,6 @@ describe("IntakeLanes", () => {
   it.each([
     ["heldFor", REVIEW_COPY.intake.heldFor, "Held for"],
     ["cancelRequest", REVIEW_COPY.intake.cancelRequest, "Cancel request"],
-    ["release", REVIEW_COPY.intake.release, "Release"],
     ["more", REVIEW_COPY.intake.more(2), "+2 more"],
   ])("words %s exactly as the station approved it", (_key, actual, approved) => {
     expect(actual).toBe(approved);
@@ -658,7 +657,7 @@ describe("IntakeLanes — cancel and release", () => {
     expect(within(screen.getByRole("region", { name: "Requested" })).queryByText(/Moon Pix/)).not.toBeInTheDocument();
   });
 
-  it("releases a checkout, including one whose holder was removed", async () => {
+  it("returns a checkout to the review shelf only after a confirmation, including one whose holder was removed", async () => {
     const released: string[] = [];
     fakeReviewsEndpoints({
       open: () => [outRow(11, released.includes("11") ? { effective_state: "pool", state: "pool", ...returned } : {}), outRow(12, removedHolder)],
@@ -674,10 +673,79 @@ describe("IntakeLanes — cancel and release", () => {
     const checkedOut = await lane("Being reviewed");
     expect(within(checkedOut).getByText("Holder removed")).toBeInTheDocument();
     expect(within(checkedOut).getByText("Checked out to DJ Sam")).toBeInTheDocument();
-    expect(within(checkedOut).getAllByRole("button", { name: "Release" })).toHaveLength(2);
-    await user.click(within(within(checkedOut).getByText("Holder removed").closest("li")!).getByRole("button", { name: "Release" }));
+    expect(within(checkedOut).queryByRole("button", { name: "Release" })).not.toBeInTheDocument();
+    expect(within(checkedOut).getAllByRole("button", { name: "Return to the review shelf" })).toHaveLength(2);
+
+    await user.click(within(within(checkedOut).getByText("Holder removed").closest("li")!).getByRole("button", { name: "Return to the review shelf" }));
+    const dialog = await screen.findByRole("alertdialog");
+    expect(within(dialog).getByText("Return Cat Power, Moon Pix, to the review shelf?")).toBeInTheDocument();
+    expect(within(dialog).getByText("Any DJ can choose to review it.")).toBeInTheDocument();
+    expect(released).toEqual([]);
+    await user.click(within(dialog).getByRole("button", { name: "Return to the review shelf" }));
 
     await waitFor(() => expect(released).toEqual(["12"]));
+  });
+
+  it.each([
+    ["a disc", () => moonPix(), "DJ Sam will no longer have it, and any DJ can choose to review it. Ask them to bring the disc to the music office."],
+    ["a digital album", () => digitalItem({ id: 11, artist_name: "Cat Power", album_title: "Moon Pix" }), "DJ Sam will no longer have it, and any DJ can choose to review it."],
+  ])("words the return confirmation for %s and sends nothing on Cancel", async (_kind, make, body) => {
+    const posts: string[] = [];
+    fakeReviewsEndpoints({ open: [{ ...make(), id: 11, state: "checked_out", effective_state: "checked_out", ...heldBy("dj-1", "DJ Sam", null) }] });
+    server.use(http.post(`${TEST_BACKEND_URL}/intake/11/release`, () => {
+      posts.push("release");
+      return HttpResponse.json(moonPix({ id: 11 }));
+    }));
+
+    const { user } = renderWithProviders(<IntakeLanes />);
+    await user.click(await within(await lane("Being reviewed")).findByRole("button", { name: "Return to the review shelf" }));
+
+    const dialog = await screen.findByRole("alertdialog");
+    expect(within(dialog).getByText("Return Cat Power, Moon Pix, to the review shelf?")).toBeInTheDocument();
+    expect(within(dialog).getByText(body)).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
+    expect(posts).toEqual([]);
+  });
+
+  describe("a checked-out record with a review waiting", () => {
+    const held = (overrides = {}) => waiting(11, { ...heldBy("dj-1", "DJ Sam", "2026-09-01T12:00:00Z"), ...overrides });
+
+    it("has no Return to the review shelf in Being reviewed, and Mark as returned in Review waiting, behind its own confirmation", async () => {
+      let released = false;
+      const item = () => held(released ? returned : {});
+      fakeReviewsEndpoints({ open: () => [item()], awaiting: () => [item()], forItem: { "11": [review({ id: 70, intake_item_id: 11, status: "submitted" })] } });
+      server.use(http.post(`${TEST_BACKEND_URL}/intake/11/release`, () => {
+        released = true;
+        return HttpResponse.json(moonPix({ id: 11 }));
+      }));
+
+      const { user } = renderWithProviders(<IntakeLanes />);
+      expect(within(await lane("Being reviewed")).queryByRole("button")).not.toBeInTheDocument();
+      const waitingLane = await lane("Review waiting (1)");
+      await user.click(within(waitingLane).getByRole("button", { name: "Mark as returned" }));
+
+      const dialog = await screen.findByRole("alertdialog");
+      expect(within(dialog).getByText("Mark Cat Power, Moon Pix as back in the music office?")).toBeInTheDocument();
+      expect(within(dialog).getByText("DJ Sam will no longer have it. Their review stays waiting for you to choose.")).toBeInTheDocument();
+      expect(released).toBe(false);
+      await user.click(within(dialog).getByRole("button", { name: "Mark as returned" }));
+
+      await waitFor(() => expect(released).toBe(true));
+      await waitFor(() => expect(within(screen.getByRole("region", { name: "Review waiting (1)" })).queryByRole("button", { name: "Mark as returned" })).not.toBeInTheDocument());
+      expect(screen.queryByRole("region", { name: "On the review shelf" })).not.toBeInTheDocument();
+    });
+
+    it("offers a digital album in Review waiting no Mark as returned", async () => {
+      const item = digitalItem({ id: 11, state: "checked_out", effective_state: "checked_out", ...heldBy("dj-1", "DJ Sam", null), submitted_review_count: 1 });
+      fakeReviewsEndpoints({ open: [item], awaiting: [item], forItem: { "11": [review({ id: 70, intake_item_id: 11, status: "submitted" })] } });
+
+      renderWithProviders(<IntakeLanes />);
+
+      const waitingLane = await lane("Review waiting (1)");
+      expect(within(waitingLane).queryByRole("button")).not.toBeInTheDocument();
+    });
   });
 });
 
@@ -696,7 +764,7 @@ describe("IntakeLanes — lost races", () => {
 
   it.each([
     ["cancel", "cancel-request", () => ({ open: [requestedRow(11)] }), "Cancel request"],
-    ["release", "release", () => ({ open: [outRow(11)] }), "Release"],
+    ["release", "release", () => ({ open: [outRow(11)] }), "Return to the review shelf"],
     ["return", "release", () => ({ reviewed: [moonPix({ id: 11, effective_state: "reviewed", ...heldBy("dj-1", "DJ Sam", "2026-09-01T12:00:00Z") })] }), "Mark as returned"],
   ] as const)(
     "a lost %s reloads both reads, then shows its own line and never the server message",
@@ -716,6 +784,9 @@ describe("IntakeLanes — lost races", () => {
       });
       server.use(counting);
       await user.click(screen.getByRole("button", { name: button }));
+      if (action === "release") {
+        await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: button }));
+      }
 
       expect(await screen.findByText(RACE_LINES[action])).toBeInTheDocument();
       expect(reads).toBeGreaterThanOrEqual(2);
