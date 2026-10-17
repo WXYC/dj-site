@@ -2,6 +2,7 @@ import type { JSX } from "react";
 import { Authorization } from "@/lib/features/admin/types";
 import { requireAuth, getUserFromSession } from "@/lib/features/authentication/server-utils";
 import { canSeeReviews } from "@/lib/features/reviews/flags";
+import { REVIEWS_ACTIVE_PATTERN } from "@/lib/features/reviews/paths";
 import { isRotationAdminEnabled } from "@/lib/features/rotation/flags";
 import { EditCalendar, ManageAccounts, Sensors } from "@mui/icons-material";
 import AlbumIcon from "@mui/icons-material/Album";
@@ -37,7 +38,11 @@ export default async function Leftbar(): Promise<JSX.Element> {
           <StorageIcon />
         </LeftbarLink>
         {user && canSeeReviews(user.authority) && (
-          <LeftbarLink path="/dashboard/reviews" title={REVIEW_COPY.sidebar.title}>
+          <LeftbarLink
+            path="/dashboard/reviews"
+            title={REVIEW_COPY.sidebar.title}
+            activePattern={REVIEWS_ACTIVE_PATTERN}
+          >
             <InboxIcon />
           </LeftbarLink>
         )}

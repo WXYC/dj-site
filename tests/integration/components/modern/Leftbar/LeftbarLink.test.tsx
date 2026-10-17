@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
+import { REVIEWS_ACTIVE_PATTERN } from "@/lib/features/reviews/paths";
 import LeftbarLink from "@/src/components/experiences/modern/Leftbar/LeftbarLink";
 
 // Mock next/navigation
@@ -105,5 +106,48 @@ describe("LeftbarLink", () => {
 
     // The ListItemButton renders as a link when not disabled
     expect(screen.getByRole("link")).toBeInTheDocument();
+  });
+
+  it.each([
+    ["/dashboard/reviews", true],
+    ["/dashboard/reviews/mine", true],
+    ["/dashboard/reviews/music-directors", true],
+    ["/dashboard/reviews/12", true],
+    ["/dashboard/admin/intake/7", true],
+    ["/dashboard/admin/intake/7/slip", true],
+    ["/dashboard/reviewsx", false],
+    ["/dashboard/admin/intake", false],
+    ["/dashboard/catalog", false],
+    ["/dashboard/admin/roster", false],
+  ])("with an active pattern, %s is current: %s", async (pathname, current) => {
+    const { usePathname } = await import("next/navigation");
+    vi.mocked(usePathname).mockReturnValue(pathname);
+
+    render(
+      <LeftbarLink
+        path="/dashboard/reviews"
+        title="Reviews"
+        activePattern={REVIEWS_ACTIVE_PATTERN}
+      >
+        <span>Icon</span>
+      </LeftbarLink>
+    );
+
+    expect(screen.getByRole("link")).toHaveClass(
+      current ? "MuiListItemButton-variantSolid" : "MuiListItemButton-variantPlain"
+    );
+  });
+
+  it("keeps the exact match when no pattern is given", async () => {
+    const { usePathname } = await import("next/navigation");
+    vi.mocked(usePathname).mockReturnValue("/dashboard/catalog/42");
+
+    render(
+      <LeftbarLink path="/dashboard/catalog" title="Catalog">
+        <span>Icon</span>
+      </LeftbarLink>
+    );
+
+    expect(screen.getByRole("link")).toHaveClass("MuiListItemButton-variantPlain");
   });
 });

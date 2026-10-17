@@ -8,11 +8,16 @@ export type LeftbarLinkProps = {
   path: string;
   title: string;
   disabled?: boolean;
+  /** Source of a RegExp for the pathnames on which this entry is current; absent means an exact match on `path`. */
+  activePattern?: string;
   children: React.ReactNode;
 };
 
 export default function LeftbarLink(props: LeftbarLinkProps): JSX.Element {
   const pathname = usePathname();
+  const current = props.activePattern
+    ? new RegExp(props.activePattern).test(pathname)
+    : pathname === props.path;
 
   return (
     <ListItem>
@@ -25,7 +30,7 @@ export default function LeftbarLink(props: LeftbarLinkProps): JSX.Element {
       >
         <ListItemButton
           disabled={props.disabled}
-          variant={pathname === props.path ? "solid" : "plain"}
+          variant={current ? "solid" : "plain"}
           {...(!props.disabled && {
             component: Link,
             href: props.path,

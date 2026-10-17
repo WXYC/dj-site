@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { screen, within } from "@testing-library/react";
 import { renderWithProviders } from "@/tests/helpers/render";
 import Leftbar from "@/src/components/experiences/modern/Leftbar/Leftbar";
+import { REVIEWS_ACTIVE_PATTERN } from "@/lib/features/reviews/paths";
 import { Authorization } from "@/lib/features/admin/types";
 import type { User } from "@/lib/features/authentication/types";
 
@@ -42,16 +43,19 @@ vi.mock("@/src/components/experiences/modern/Leftbar/LeftbarLink", () => ({
     path,
     title,
     disabled,
+    activePattern,
     children,
   }: {
     path: string;
     title: string;
     disabled?: boolean;
+    activePattern?: string;
     children: React.ReactNode;
   }) => (
     <div
       data-testid={`leftbar-link-${path.replace(/\//g, "-")}`}
       data-disabled={disabled}
+      data-active-pattern={activePattern}
     >
       <span data-testid="link-title">{title}</span>
       {children}
@@ -531,6 +535,21 @@ describe("Leftbar", () => {
     const reviews = screen.getByTestId("leftbar-link--dashboard-reviews");
     expect(previous.compareDocumentPosition(reviews) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.queryByTestId("leftbar-link--dashboard-admin-catalog")).not.toBeInTheDocument();
+    vi.unstubAllEnvs();
+  });
+
+  it("gives the Reviews link the review-path pattern and no other link one", async () => {
+    vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "true");
+    const { getUserFromSession } = await import("@/lib/features/authentication/server-utils");
+    vi.mocked(getUserFromSession).mockResolvedValue({ ...mockUser, authority: Authorization.DJ });
+
+    renderWithProviders(await Leftbar());
+
+    expect(screen.getByTestId("leftbar-link--dashboard-reviews")).toHaveAttribute(
+      "data-active-pattern",
+      REVIEWS_ACTIVE_PATTERN
+    );
+    expect(screen.getByTestId("leftbar-link--dashboard-catalog")).not.toHaveAttribute("data-active-pattern");
     vi.unstubAllEnvs();
   });
 });
