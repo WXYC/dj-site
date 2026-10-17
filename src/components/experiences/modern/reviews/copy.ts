@@ -33,6 +33,10 @@ export const REVIEW_COPY = {
   couldNotLoad: "Couldn't load this review. Please try again.",
   /** Approved. */
   save: "Save",
+  /** Approved. Beside Save while nothing has changed since the last save or since the review loaded. */
+  allChangesSaved: "All changes saved",
+  /** Approved. Beside Save once something has changed, and while the offer to restore kept text stands. */
+  unsavedChanges: "Unsaved changes",
   /** Approved. */
   savedChange: "Saved.",
   /** Approved. */
