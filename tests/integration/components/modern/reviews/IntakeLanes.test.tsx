@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { CDR_FORMAT, digitalItem, fakeReviewsEndpoints, fccNote, heldBy, holdResponse, intakeItem, pendingCount, removedHolder, renderedFrame, renderWithProviders, requestedFor, returned, review, reviewsSettled, server, TEST_BACKEND_URL } from "@/tests/helpers";
+import { setupListeners } from "@reduxjs/toolkit/query";
+import { makeStore } from "@/lib/store";
 import { Authorization } from "@/lib/features/admin/types";
 
 vi.mock("@/lib/features/authentication/client", async () => {
@@ -245,15 +247,57 @@ describe("IntakeLanes", () => {
     });
   });
 
-  it("marks the record in its physical lane and leaves the location line there", async () => {
+  it("shows a checked out record with a submitted review once, under Review waiting, saying who has it", async () => {
     const item = waiting(7);
     fakeReviewsEndpoints({ open: [item], awaiting: [item], forItem: { "7": [waitingReview(70, 7)] } });
 
     renderWithProviders(<IntakeLanes />);
 
-    const checkedOut = await lane("Being reviewed");
-    expect(within(checkedOut).getByText("review waiting")).toBeInTheDocument();
-    expect(within(checkedOut).getByText("Checked out to DJ Sam")).toBeInTheDocument();
+    const waitingLane = await lane("Review waiting (1)");
+    expect(await within(waitingLane).findByText("From Jessica Pratt. The record is with DJ Sam.")).toBeInTheDocument();
+    expect(within(await lane("Being reviewed")).queryByRole("link")).not.toBeInTheDocument();
+    expect(await screen.findAllByRole("link", { name: /Moon Pix/ })).toHaveLength(1);
+    expect(screen.queryByText("review waiting")).not.toBeInTheDocument();
+  });
+
+  it("shows a reviewed record that still has a submitted review waiting only under Reviewed", async () => {
+    const item = waiting(8, { state: "reviewed", effective_state: "reviewed" });
+    fakeReviewsEndpoints({ reviewed: [item], awaiting: [item] });
+
+    renderWithProviders(<IntakeLanes />);
+
+    expect(within(await lane("Reviewed (1)")).getByRole("link", { name: /Moon Pix/ })).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: /Review waiting/ })).not.toBeInTheDocument();
+  });
+
+  it("shows a finalized record under Filed", async () => {
+    fakeReviewsEndpoints({ filed: [moonPix({ id: 5, state: "finalized", effective_state: "finalized" })] });
+
+    renderWithProviders(<IntakeLanes />);
+
+    expect(within(await lane("Filed")).getByRole("link", { name: /Moon Pix/ })).toBeInTheDocument();
+  });
+
+  it("reads intake again when the window regains focus", async () => {
+    const reads: string[] = [];
+    fakeReviewsEndpoints({ open: [waiting(3)] });
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/intake`, ({ request }) => {
+        reads.push(new URL(request.url).search);
+      }),
+    );
+    const store = makeStore();
+    const stopListening = setupListeners(store.dispatch);
+
+    renderWithProviders(<IntakeLanes />, { store });
+    await lane("Being reviewed");
+    await waitFor(() => expect(reads).toHaveLength(2));
+
+    window.dispatchEvent(new Event("focus"));
+
+    await waitFor(() => expect(reads).toHaveLength(4));
+    expect([...reads].sort()).toEqual(["", "", "?awaiting_acceptance=true", "?awaiting_acceptance=true"]);
+    stopListening();
   });
 
   it("names a removed holder in the Review waiting lane instead of printing null", async () => {
@@ -275,8 +319,9 @@ describe("IntakeLanes", () => {
     const row = (id: number, overrides = {}) =>
       make({ id, artist_name: "Cat Power", album_title: `Album ${id}`, state: "checked_out", effective_state: "checked_out", submitted_review_count: 1, ...overrides });
     const items = [row(1, heldBy("dj-sam", "DJ Sam")), row(2, removedHolder), row(3, heldBy("dj-jess", "Jessica Pratt"))];
+    const unreviewed = [row(4, heldBy("dj-sam", "DJ Sam")), row(5, removedHolder)].map((i) => ({ ...i, submitted_review_count: 0 }));
     fakeReviewsEndpoints({
-      open: items,
+      open: [...items, ...unreviewed],
       awaiting: items,
       forItem: {
         "1": [waitingReview(10, 1, { author: "Cat Power", author_user_id: "dj-cp" })],
@@ -627,6 +672,34 @@ describe("IntakeLanes — cancel and release", () => {
     await user.click(within(within(checkedOut).getByText("Holder removed").closest("li")!).getByRole("button", { name: "Release" }));
 
     await waitFor(() => expect(released).toEqual(["12"]));
+  });
+});
+
+describe("IntakeLanes — a record with a review waiting keeps its actions", () => {
+  beforeEach(() => {
+    mockAuth.authority = Authorization.MD;
+    vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "staff");
+  });
+  afterEach(() => vi.unstubAllEnvs());
+
+  it.each([
+    ["a checkout", () => outRow(11, { submitted_review_count: 1 }), "Release", "release"],
+    ["a request", () => ({ ...requestedRow(11), submitted_review_count: 1 }), "Cancel request", "cancel-request"],
+  ])("sends %s's %s from its Review waiting row", async (_label, make, button, path) => {
+    const calls: string[] = [];
+    const item = make();
+    fakeReviewsEndpoints({ open: [item], awaiting: [item] });
+    server.use(
+      http.post(`${TEST_BACKEND_URL}/intake/:id/${path}`, ({ params }) => {
+        calls.push(String(params.id));
+        return HttpResponse.json(item);
+      }),
+    );
+
+    const { user } = renderWithProviders(<IntakeLanes />);
+    await user.click(await within(await lane("Review waiting (1)")).findByRole("button", { name: button }));
+
+    await waitFor(() => expect(calls).toEqual(["11"]));
   });
 });
 

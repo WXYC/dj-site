@@ -3,6 +3,7 @@
 import { Stack, Typography } from "@mui/joy";
 import { Authorization } from "@/lib/features/admin/types";
 import { useGetFormatsQuery } from "@/lib/features/catalog/api";
+import { LIVE_LIST } from "@/lib/features/reviews/api";
 import { useGetIntakeItemsQuery } from "@/lib/features/reviews/intakeApi";
 import { useGetMyReviewsQuery, useGetReviewersQuery } from "@/lib/features/reviews/reviewApi";
 import { useCanSeeReviews } from "@/src/hooks/useCanSeeReviews";
@@ -20,8 +21,8 @@ export default function ReviewsScreen() {
   const visible = useCanSeeReviews();
   const isMD = (user?.authority ?? Authorization.DJ) >= Authorization.MD;
 
-  const everyState = useGetIntakeItemsQuery(EVERY_STATE, { skip: !visible });
-  const mine = useGetMyReviewsQuery(MY_REVIEWS, { skip: !visible });
+  const everyState = useGetIntakeItemsQuery(EVERY_STATE, { skip: !visible, ...LIVE_LIST });
+  const mine = useGetMyReviewsQuery(MY_REVIEWS, { skip: !visible, ...LIVE_LIST });
   const { data: formats } = useGetFormatsQuery(undefined, { skip: !visible });
   const reviewers = useGetReviewersQuery(undefined, { skip: !visible || !isMD });
   // One pending map for every lane, so a row that changes lanes mid-write stays locked until both lists have reloaded.
