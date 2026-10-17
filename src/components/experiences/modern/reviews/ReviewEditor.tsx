@@ -44,7 +44,7 @@ const TWO_COLUMNS = "@container (min-width: 800px)";
 
 type Confirming = "submit" | "delete" | null;
 
-/** The record's confirmed FCC notes as the print carries them: the intake item's and the release's, a note on both counted once, oldest first. A failed read contributes none. */
+/** The record's confirmed FCC notes as the print carries them: the intake item's and the release's, a note on both counted once, oldest first. A failed read contributes none. The notes are the review's own subject's (its `intake_item_id` and `album_id`), not those of a copy that cites this review: a typed review a copy accepts through its citation prints with that copy's notes, which this preview does not show. */
 function useConfirmedFccNotes(review: Review): string[] {
   const forItem = useGetFccNotesQuery(review.intake_item_id != null ? { intake_item_id: review.intake_item_id } : skipToken);
   const forRelease = useGetFccNotesQuery(review.album_id != null ? { album_id: review.album_id } : skipToken);

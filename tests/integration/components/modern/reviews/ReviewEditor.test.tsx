@@ -323,11 +323,32 @@ describe("ReviewEditor", () => {
     it("previews no notes when the read fails", async () => {
       fakeReviewsEndpoints({ reviews: [review({ ...CONSENT, intake_item_id: 2, fcc: "Cleared." })], records: [RECORD] });
       server.use(http.get(`${TEST_BACKEND_URL}/fcc-notes`, () => new HttpResponse(null, { status: 500 })));
-      renderWithProviders(<ReviewEditor id={40} />);
+      const { store } = renderWithProviders(<ReviewEditor id={40} />);
 
       const preview = await screen.findByRole("group", { name: REVIEW_COPY.slip.name });
       await within(preview).findByText("Cleared.");
+      // "Cleared." is the review's own field and renders before the reads start, so wait for the 500 to be answered.
+      await reviewsSettled(store);
       expect(fccLines(preview)).toEqual(["Cleared."]);
+    });
+
+    it("previews the release's notes when only the item's read fails", async () => {
+      fakeReviewsEndpoints({
+        reviews: [review({ ...CONSENT, intake_item_id: 2, album_id: 7, fcc: "Cleared." })],
+        records: [RECORD],
+        fccNotesForRelease: { "7": [confirmed({ id: 4, album_id: 7, intake_item_id: null, track: "A1", note: "Release note." })] },
+      });
+      server.use(
+        http.get(`${TEST_BACKEND_URL}/fcc-notes`, ({ request }) =>
+          new URL(request.url).searchParams.has("intake_item_id") ? new HttpResponse(null, { status: 500 }) : undefined,
+        ),
+      );
+      const { store } = renderWithProviders(<ReviewEditor id={40} />);
+
+      const preview = await screen.findByRole("group", { name: REVIEW_COPY.slip.name });
+      await within(preview).findByText("A1: Release note.");
+      await reviewsSettled(store);
+      expect(fccLines(preview)).toEqual(["Cleared.", "A1: Release note."]);
     });
   });
 
