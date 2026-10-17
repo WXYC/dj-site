@@ -247,14 +247,14 @@ describe("IntakeLanes", () => {
     });
   });
 
-  it("shows a checked out record with a submitted review once, under Review waiting, with its location line", async () => {
+  it("shows a checked out record with a submitted review once, under Review waiting, saying who has it", async () => {
     const item = waiting(7);
     fakeReviewsEndpoints({ open: [item], awaiting: [item], forItem: { "7": [waitingReview(70, 7)] } });
 
     renderWithProviders(<IntakeLanes />);
 
     const waitingLane = await lane("Review waiting (1)");
-    expect(within(waitingLane).getByText("Checked out to DJ Sam")).toBeInTheDocument();
+    expect(await within(waitingLane).findByText("From Jessica Pratt. The record is with DJ Sam.")).toBeInTheDocument();
     expect(within(await lane("Being reviewed")).queryByRole("link")).not.toBeInTheDocument();
     expect(await screen.findAllByRole("link", { name: /Moon Pix/ })).toHaveLength(1);
     expect(screen.queryByText("review waiting")).not.toBeInTheDocument();
