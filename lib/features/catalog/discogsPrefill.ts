@@ -48,7 +48,7 @@ const MAX_RELEASE_ID = 2_147_483_647;
 export function discogsReleaseIdFrom(raw: string): number | null {
   const trimmed = raw.trim();
   const id = /^\d+$/.test(trimmed) ? Number(trimmed) : releaseIdFromUrl(trimmed);
-  if (id == null || !Number.isSafeInteger(id) || id < 1 || id > MAX_RELEASE_ID) {
+  if (id == null || id < 1 || id > MAX_RELEASE_ID) {
     return null;
   }
   return id;

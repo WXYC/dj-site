@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { CDR_FORMAT, digitalItem, fakeReviewsEndpoints, fccNote, heldBy, holdResponse, intakeItem, outline, pendingCount, removedHolder, renderedFrame, renderWithProviders, requestedFor, returned, review, reviewsSettled, server, TEST_BACKEND_URL } from "@/tests/helpers";
 import { Authorization } from "@/lib/features/admin/types";
@@ -779,9 +779,12 @@ describe("IntakeLogForm", () => {
     const log = screen.getByRole("button", { name: "Log item" });
     expect(log).toBeEnabled();
 
-    await user.type(discogs, `${raw}{Enter}`);
+    await user.type(discogs, raw);
     expect(screen.getByText("That isn't a Discogs release link or number.")).toBeInTheDocument();
     expect(log).toBeDisabled();
+    // Submit the form itself, past the disabled button, and let any request land before counting.
+    fireEvent.submit(screen.getByRole("form", { name: "Log an item" }));
+    await new Promise((resolve) => setTimeout(resolve, 50));
     expect(posts).toBe(0);
 
     await user.clear(discogs);

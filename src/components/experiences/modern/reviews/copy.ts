@@ -233,7 +233,6 @@ export const REVIEW_COPY = {
     format: "Format",
     /** Approved. A digital record's format until it is filed. */
     digital: "Digital",
-    /** Approved. */
     discogsReleaseId: "Discogs link or release number (optional)",
     discogsRefused: "That isn't a Discogs release link or number.",
     /** Approved. */
