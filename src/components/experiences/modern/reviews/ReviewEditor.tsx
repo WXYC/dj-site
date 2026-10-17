@@ -260,7 +260,8 @@ function Form({ review, user }: { review: Review; user: User | undefined }) {
         )}
         {isAuthor && inUse && <Typography level="body-sm" role="status">{REVIEW_COPY.inUse}</Typography>}
         <Box sx={{ flex: 1 }} />
-        <Button variant={draft ? "outlined" : "solid"} loading={isLoading} onClick={save}>
+        <Typography level="body-sm" role="status">{dirty || offer ? REVIEW_COPY.unsavedChanges : REVIEW_COPY.allChangesSaved}</Typography>
+        <Button variant={draft ? "outlined" : "solid"} loading={isLoading} disabled={!dirty} onClick={save}>
           {draft ? REVIEW_COPY.saveDraft : REVIEW_COPY.save}
         </Button>
         {draft && blank && <Typography id={reasonId} level="body-sm">{REVIEW_COPY.submitNeedsReview}</Typography>}

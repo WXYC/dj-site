@@ -104,6 +104,69 @@ describe("ReviewEditor", () => {
     await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Submit" }));
   };
 
+  describe.each([
+    ["a draft", DRAFT, REVIEW_COPY.saveDraft],
+    ["a submitted review", SUBMITTED, REVIEW_COPY.save],
+  ])("the save button of %s", (_kind, served, saveName) => {
+    const patches = () => {
+      const seen: unknown[] = [];
+      server.use(http.patch(`${TEST_BACKEND_URL}/reviews/40`, async ({ request }) => (seen.push(await request.json()), HttpResponse.json(served))));
+      return seen;
+    };
+
+    it("is off with the line reading All changes saved on load", async () => {
+      serve(served);
+      renderWithProviders(<ReviewEditor id={40} />);
+
+      expect(await screen.findByRole("button", { name: saveName })).toBeDisabled();
+      expect(screen.getByRole("status", { name: "" })).toHaveTextContent(REVIEW_COPY.allChangesSaved);
+    });
+
+    it("turns on after typing and off again after the save", async () => {
+      serve(served);
+      patches();
+      const { user } = renderWithProviders(<ReviewEditor id={40} />);
+      await user.type(await screen.findByLabelText("Buzzwords"), "hushed");
+
+      expect(screen.getByRole("button", { name: saveName })).toBeEnabled();
+      expect(screen.getByText(REVIEW_COPY.unsavedChanges)).toHaveAttribute("role", "status");
+      await user.click(screen.getByRole("button", { name: saveName }));
+
+      await waitFor(() => expect(screen.getByRole("button", { name: saveName })).toBeDisabled());
+      expect(screen.getByText(REVIEW_COPY.allChangesSaved)).toHaveAttribute("role", "status");
+    });
+
+    it("stays off when a field is changed and changed back", async () => {
+      serve(served);
+      const { user } = renderWithProviders(<ReviewEditor id={40} />);
+      await user.type(await screen.findByLabelText("Buzzwords"), "x");
+      await user.type(screen.getByLabelText("Buzzwords"), "{Backspace}");
+
+      expect(screen.getByRole("button", { name: saveName })).toBeDisabled();
+      expect(screen.getByText(REVIEW_COPY.allChangesSaved)).toBeInTheDocument();
+    });
+
+    it("sends no PATCH when clicked while off", async () => {
+      serve(served);
+      const seen = patches();
+      renderWithProviders(<ReviewEditor id={40} />);
+      fireEvent.click(await screen.findByRole("button", { name: saveName }));
+      await act(() => new Promise((resolve) => setTimeout(resolve, 50)));
+
+      expect(seen).toEqual([]);
+    });
+
+    it("reads Unsaved changes, with Save off, while the offer to restore kept text stands", async () => {
+      serve(served);
+      writeReviewDraft("dj-me", 40, { ...toFieldPatch(toFieldValues(served)), review: "Kept text." });
+      renderWithProviders(<ReviewEditor id={40} />);
+
+      expect(await screen.findByText(REVIEW_COPY.restore.notice)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: saveName })).toBeDisabled();
+      expect(screen.getByText(REVIEW_COPY.unsavedChanges)).toBeInTheDocument();
+    });
+  });
+
   it("shows the draft-privacy line and the five slip fields with their help text", async () => {
     serve();
     renderWithProviders(<ReviewEditor id={40} />);
@@ -119,6 +182,8 @@ describe("ReviewEditor", () => {
   it.each([
     ["save", REVIEW_COPY.save, "Save"],
     ["savedChange", REVIEW_COPY.savedChange, "Saved."],
+    ["allChangesSaved", REVIEW_COPY.allChangesSaved, "All changes saved"],
+    ["unsavedChanges", REVIEW_COPY.unsavedChanges, "Unsaved changes"],
     ["cancel", REVIEW_COPY.cancel, "Cancel"],
     ["restore.notice", REVIEW_COPY.restore.notice, "You left this review with unsaved changes."],
     ["restore.restore", REVIEW_COPY.restore.restore, "Restore my changes"],
@@ -481,6 +546,7 @@ describe("ReviewEditor", () => {
 
       expect(await screen.findByText("Only the author can answer the publishing question.")).toBeInTheDocument();
       expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+      await user.type(screen.getByLabelText("Buzzwords"), "hushed");
       await user.click(screen.getByRole("button", { name: REVIEW_COPY.saveDraft }));
       await waitFor(() => expect(toast.success).toHaveBeenCalled());
       expect(Object.keys(body).sort()).toEqual(["buzzwords", "recommended_tracks", "review"]);
@@ -598,7 +664,6 @@ describe("ReviewEditor", () => {
 
       expect(await screen.findByText("Submitted. You can keep editing; each saved change is kept in the review's history.")).toBeInTheDocument();
       expect(screen.getByLabelText("Review")).not.toBeDisabled();
-      expect(screen.getByRole("button", { name: REVIEW_COPY.save })).toBeEnabled();
       expect(screen.queryByRole("button", { name: "Submit" })).not.toBeInTheDocument();
     });
   });
@@ -1557,14 +1622,13 @@ describe("ReviewEditor", () => {
       });
     });
 
-    it("a save made while the offer stands removes the entry and the notice; a failed one keeps both", async () => {
+    it("a save after restoring removes the entry; a failed one keeps it", async () => {
       await leftWithUnsaved();
       server.use(http.patch(`${TEST_BACKEND_URL}/reviews/40`, () => HttpResponse.json({ message: "no" }, { status: 500 })));
       const { user } = renderWithProviders(<ReviewEditor id={40} />);
-      await screen.findByText(NOTICE);
+      await user.click(await screen.findByRole("button", { name: RESTORE }));
       await user.click(screen.getByRole("button", { name: "Save draft" }));
       await waitFor(() => expect(toast.error).toHaveBeenCalled());
-      expect(screen.getByText(NOTICE)).toBeInTheDocument();
       expect(stored()).not.toBeNull();
 
       server.use(http.patch(`${TEST_BACKEND_URL}/reviews/40`, () => HttpResponse.json(DRAFT)));
