@@ -104,9 +104,10 @@ describe("IntakeSlipScreen", () => {
     await user.click(button);
 
     const preview = await screen.findByRole("group", { name: "Slip preview" });
-    for (const text of ["Juana Molina", "DOGA", "Sonamos", "spectral, loops", "Argentine songwriter.", "Hushed and strange.", "DJ Me 2026-10-07", "A1, B4"]) {
+    for (const text of ["Juana Molina", "DOGA", "Sonamos", "spectral, loops", "Hushed and strange.", "DJ Me 2026-10-07", "A1, B4"]) {
       expect(within(preview).getByText(text)).toBeInTheDocument();
     }
+    expect(within(preview).queryByText("Argentine songwriter.")).not.toBeInTheDocument();
     expect(calls.count).toBe(1);
     expect(print).toHaveBeenCalledTimes(1);
   });

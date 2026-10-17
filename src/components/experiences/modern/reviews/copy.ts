@@ -88,7 +88,6 @@ export const REVIEW_COPY = {
     /** Approved. */
     buzzwords: { label: "Buzzwords", help: "A few words that sum up the record." },
     /** Approved. */
-    artist_blurb: { label: "About the artist", help: "A short paragraph on who made it." },
     /** Approved. */
     review: { label: "Review", help: "What you want a listener to know." },
     /** Approved. */
@@ -111,7 +110,6 @@ export const REVIEW_COPY = {
     /** Approved. */
     label: "Label",
     /** Approved. The artist paragraph's row. */
-    artistBlurb: "Artist",
     /** Approved. */
     review: "Review",
     /** Approved. */
