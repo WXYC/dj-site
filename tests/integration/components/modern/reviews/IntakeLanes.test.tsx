@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
-import { CDR_FORMAT, digitalItem, fakeReviewsEndpoints, fccNote, heldBy, holdResponse, intakeItem, pendingCount, removedHolder, renderedFrame, renderWithProviders, requestedFor, returned, review, reviewsSettled, server, TEST_BACKEND_URL } from "@/tests/helpers";
+import { CDR_FORMAT, digitalItem, fakeReviewsEndpoints, fccNote, heldBy, holdResponse, intakeItem, outline, pendingCount, removedHolder, renderedFrame, renderWithProviders, requestedFor, returned, review, reviewsSettled, server, TEST_BACKEND_URL } from "@/tests/helpers";
 import { Authorization } from "@/lib/features/admin/types";
 
 vi.mock("@/lib/features/authentication/client", async () => {
@@ -63,6 +63,17 @@ describe("IntakeLanes", () => {
     expect(within(first).getByRole("heading", { level: 3, name: "Requested" })).toBeInTheDocument();
     expect(section.compareDocumentPosition(band) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(section.compareDocumentPosition(first) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it.each([
+    ["notes to confirm and recent passes", { open: [moonPix({ id: 5, passes: [{ dj_name: "Sam", passed_at: "2026-10-01T10:00:00Z" }] })], fccNotesToConfirm: [fccNote({ id: 1, intake_item_id: 5 })] }, ["h3 FCC notes to confirm (1)", "h3 Recent passes", "h3 Requested", "h3 Being reviewed", "h3 Reviewed", "h3 Filed"]],
+    ["nothing on it", { open: [] }, ["h3 Requested", "h3 Being reviewed", "h3 Reviewed", "h3 Filed"]],
+  ])("heads every section at h3 under the page's own h2 with %s", async (_case, endpoints, expected) => {
+    fakeReviewsEndpoints(endpoints);
+    renderWithProviders(<IntakeLanes />);
+
+    await lane(REVIEW_COPY.intake.requested);
+    await waitFor(() => expect(outline()).toEqual(expected));
   });
 
   it.each([

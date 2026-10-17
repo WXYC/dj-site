@@ -12,7 +12,7 @@ describe("HeadedSection", () => {
   });
 
   it.each([3, 4] as const)("makes the title a level %i heading when passed", (level) => {
-    renderWithProviders(<HeadedSection title="Slip" level={level}>Juana Molina</HeadedSection>);
+    renderWithProviders(<HeadedSection title="Slip" headingLevel={level}>Juana Molina</HeadedSection>);
     expect(within(screen.getByRole("region", { name: "Slip" })).getByRole("heading", { level, name: "Slip" })).toBeInTheDocument();
   });
 
@@ -25,6 +25,32 @@ describe("HeadedSection", () => {
     );
     expect(within(screen.getByRole("region", { name: "Cover" })).queryByText("b")).not.toBeInTheDocument();
     expect(within(screen.getByRole("region", { name: "Others" })).getByText("b")).toBeInTheDocument();
+  });
+
+  it("gives the same section rendered twice two different heading ids", () => {
+    renderWithProviders(
+      <>
+        <HeadedSection title="FCC notes">a</HeadedSection>
+        <HeadedSection title="FCC notes">b</HeadedSection>
+      </>,
+    );
+    const [first, second] = screen.getAllByRole("region", { name: "FCC notes" });
+    expect(first.getAttribute("aria-labelledby")).not.toBe(second.getAttribute("aria-labelledby"));
+    expect(within(second).getByText("b")).toBeInTheDocument();
+  });
+
+  it("sets a title extra beside the heading, outside the section's name", () => {
+    renderWithProviders(
+      <HeadedSection title="Reviews of DOGA" titleExtra={<button type="button">Remove citation</button>}>
+        Juana Molina
+      </HeadedSection>,
+    );
+    const region = screen.getByRole("region", { name: "Reviews of DOGA" });
+    const heading = within(region).getByRole("heading", { level: 3, name: "Reviews of DOGA" });
+    const button = within(region).getByRole("button", { name: "Remove citation" });
+    expect(heading).not.toContainElement(button);
+    expect(button.parentElement).toBe(heading.parentElement);
+    expect(heading.parentElement).not.toBe(region);
   });
 
   it("gives a control inside it the title's id, so the same heading names both", () => {

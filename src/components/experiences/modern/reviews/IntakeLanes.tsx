@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useState } from "react";
 import { Button, Chip, Link, List, ListItem, Stack, Typography } from "@mui/joy";
 import type { IntakeItem } from "@wxyc/shared";
 import { toast } from "sonner";
@@ -18,6 +18,7 @@ import { useAppDispatch } from "@/lib/hooks";
 import { useCanSeeReviews } from "@/src/hooks/useCanSeeReviews";
 import { useRowWrite } from "@/src/hooks/useRowWrite";
 import FccNotesToConfirm from "./FccNotesToConfirm";
+import HeadedSection from "./HeadedSection";
 import IntakeLane from "./IntakeLane";
 import { REVIEW_COPY } from "./copy";
 import { intakeRecord, recordLine } from "./recordLine";
@@ -64,7 +65,6 @@ function IntakeLaneGroups() {
   const [cancelRequest] = useCancelIntakeRequestMutation();
   const dispatch = useAppDispatch();
   const [notice, setNotice] = useState<string | null>(null);
-  const passesTitleId = useId();
   const { write, lock } = useRowWrite<Action>({
     reload: () =>
       [EVERY_STATE, AWAITING_LANE].map((arg) =>
@@ -122,8 +122,7 @@ function IntakeLaneGroups() {
   return (
     <Stack spacing={3}>
       {passes.length > 0 && (
-        <Stack component="section" aria-labelledby={passesTitleId} spacing={1}>
-          <Typography id={passesTitleId} component="h3" level="title-sm">{COPY.recentPasses}</Typography>
+        <HeadedSection title={COPY.recentPasses} spacing={1}>
           <List>
             {passes.map((p) => (
               <ListItem key={p.id}>
@@ -134,7 +133,7 @@ function IntakeLaneGroups() {
               </ListItem>
             ))}
           </List>
-        </Stack>
+        </HeadedSection>
       )}
       {notice && <Typography role="status">{notice}</Typography>}
       {awaiting.data.length > 0 && (

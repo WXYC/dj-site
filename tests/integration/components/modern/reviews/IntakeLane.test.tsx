@@ -18,11 +18,6 @@ describe("IntakeLane", () => {
     expect(within(lane).queryByRole("list")).not.toBeInTheDocument();
   });
 
-  it("makes the heading a level 4 when its host passes one", () => {
-    renderWithProviders(<IntakeLane title="Checkouts" headingLevel={4} rows={[]} empty="Nothing here." label={(r) => r} />);
-    expect(within(screen.getByRole("region", { name: "Checkouts" })).getByRole("heading", { level: 4, name: "Checkouts" })).toBeInTheDocument();
-  });
-
   it("renders each row's label followed by its extras", () => {
     renderWithProviders(
       <IntakeLane

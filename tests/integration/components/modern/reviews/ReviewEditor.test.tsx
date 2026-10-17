@@ -3,7 +3,7 @@ import { act, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { delay, http, HttpResponse } from "msw";
 import type { Review } from "@wxyc/shared";
 import { Authorization } from "@/lib/features/admin/types";
-import { deletingReview, fakeReviewsEndpoints, fccNote, holdResponse, intakeItem, renderWithProviders, review, reviewRevision, reviewsSettled, rulesOf, server, TEST_BACKEND_URL } from "@/tests/helpers";
+import { deletingReview, fakeReviewsEndpoints, fccNote, holdResponse, intakeItem, outline, renderWithProviders, review, reviewRevision, reviewsSettled, rulesOf, server, TEST_BACKEND_URL } from "@/tests/helpers";
 import Link from "next/link";
 import { applicationSlice } from "@/lib/features/application/frontend";
 import { reviewApi } from "@/lib/features/reviews/reviewApi";
@@ -812,6 +812,25 @@ describe("ReviewEditor", () => {
       const heading = screen.getByRole("heading", { level: 2, name: REVIEW_COPY.pageTitle });
       expect(heading).toHaveStyle({ position: "absolute" });
       expect(screen.getAllByRole("heading").map((h) => h.tagName)).toEqual(["H2", "H3", "H3"]);
+    });
+
+    it.each<[string, () => void, string[]]>([
+      ["a loaded record and its FCC panel", () => fakeReviewsEndpoints({ reviews: [{ ...DRAFT, intake_item_id: 2 } as Review], records: [RECORD] }), ["h2 Stereolab", `h3 ${REVIEW_COPY.fields.fcc.label}`, `h3 ${REVIEW_COPY.slip.heading}`]],
+      [
+        "a record still loading",
+        () => {
+          fakeReviewsEndpoints({ reviews: [{ ...DRAFT, intake_item_id: 2 } as Review], records: [RECORD] });
+          server.use(http.get(`${TEST_BACKEND_URL}/intake/:id`, async () => { await delay("infinite"); return HttpResponse.json({}); }));
+        },
+        [`h2 ${REVIEW_COPY.pageTitle}`, `h3 ${REVIEW_COPY.fields.fcc.label}`, `h3 ${REVIEW_COPY.slip.heading}`],
+      ],
+      ["a library release's review and no record heading", () => fakeReviewsEndpoints({ reviews: [{ ...DRAFT, intake_item_id: null, album_id: 7 } as Review], records: [RECORD] }), [`h2 ${REVIEW_COPY.pageTitle}`, `h3 ${REVIEW_COPY.fields.fcc.label}`, `h3 ${REVIEW_COPY.slip.heading}`]],
+    ])("outlines the editor as one h2 and then h3 sections with %s", async (_case, setUp, expected) => {
+      setUp();
+      renderWithProviders(<ReviewEditor id={40} />);
+
+      await screen.findByRole("heading", { level: 3, name: REVIEW_COPY.slip.heading });
+      await waitFor(() => expect(outline()).toEqual(expected));
     });
 
     it("keeps a visually hidden h2 Review when the review could not load", async () => {
