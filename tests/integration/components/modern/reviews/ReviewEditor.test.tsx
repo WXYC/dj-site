@@ -183,7 +183,7 @@ describe("ReviewEditor", () => {
     const fixtureValues = [...Object.values(DRAFT), ...Object.values(RECORD)].map(String);
     for (const [name, text] of typed) {
       expect(fixtureValues).not.toContain(text);
-      const field = screen.getByLabelText(REVIEW_COPY.fields[name].label);
+      const field = screen.getByRole("textbox", { name: REVIEW_COPY.fields[name].label });
       await user.clear(field);
       await user.type(field, text);
       expect(within(preview).getByText(text)).toBeInTheDocument();
@@ -359,15 +359,16 @@ describe("ReviewEditor", () => {
     };
     const FIELD = REVIEW_COPY.fields.fcc;
 
-    // The free-text field is for a handwritten review, or one whose stored FCC already has text; the panel is for the record or the release.
-    it.each<[name: string, overrides: Partial<Review>, fieldShown: boolean, note: string, title: string]>([
-      ["a typed review with no stored FCC", {}, false, "B1: A word.", "FCC"],
-      ["a typed review with stored FCC text", { fcc: "Mild language" }, true, "B1: A word.", "FCC notes"],
-      ["a handwritten review", { medium: "handwritten" }, true, "B1: A word.", "FCC notes"],
-      ["a typed review with only whitespace stored as FCC", { fcc: "  " }, false, "B1: A word.", "FCC"],
-      ["a typed review of a library release", { intake_item_id: null, album_id: 7 }, false, "A2: Another word.", "FCC"],
-      ["a handwritten review of a library release", { intake_item_id: null, album_id: 7, medium: "handwritten" }, true, "A2: Another word.", "FCC notes"],
-    ])("for %s: free-text field shown %s; note %s; panel titled %s", async (_name, overrides, fieldShown, note, title) => {
+    // The free-text field is for a paper review (handwritten or printed), or one whose stored FCC already has text; the panel, titled "FCC" with the field's help line, is for the record or the release.
+    it.each<{ name: string; overrides: Partial<Review>; fieldShown: boolean; note: string }>([
+      { name: "a typed review with no stored FCC", overrides: {}, fieldShown: false, note: "B1: A word." },
+      { name: "a typed review with stored FCC text", overrides: { fcc: "Mild language" }, fieldShown: true, note: "B1: A word." },
+      { name: "a handwritten review", overrides: { medium: "handwritten" }, fieldShown: true, note: "B1: A word." },
+      { name: "a printed review", overrides: { medium: "printed" }, fieldShown: true, note: "B1: A word." },
+      { name: "a typed review with only whitespace stored as FCC", overrides: { fcc: "  " }, fieldShown: false, note: "B1: A word." },
+      { name: "a typed review of a library release", overrides: { intake_item_id: null, album_id: 7 }, fieldShown: false, note: "A2: Another word." },
+      { name: "a handwritten review of a library release", overrides: { intake_item_id: null, album_id: 7, medium: "handwritten" }, fieldShown: true, note: "A2: Another word." },
+    ])("for $name: free-text field shown $fieldShown; the FCC panel lists $note", async ({ overrides, fieldShown, note }) => {
       fakeReviewsEndpoints({ reviews: [{ ...DRAFT, ...overrides } as Review], records: [RECORD], ...NOTES });
       let body: Record<string, unknown> = {};
       server.use(http.patch(`${TEST_BACKEND_URL}/reviews/40`, async ({ request }) => ((body = (await request.json()) as Record<string, unknown>), HttpResponse.json(DRAFT))));
@@ -375,23 +376,33 @@ describe("ReviewEditor", () => {
 
       expect(await screen.findByText(note)).toBeInTheDocument();
       expect(!!screen.queryByRole("textbox", { name: FIELD.label })).toBe(fieldShown);
-      const panel = screen.getByRole("region", { name: title });
+      const panel = screen.getByRole("region", { name: FIELD.label });
       expect(within(panel).getByText(note)).toBeInTheDocument();
-      expect(!!within(panel).queryByText(FIELD.help)).toBe(title === "FCC");
-      expect(screen.queryByRole("region", { name: title === "FCC" ? "FCC notes" : "FCC" })).not.toBeInTheDocument();
+      expect(within(panel).getByText(FIELD.help)).toBeInTheDocument();
+      expect(screen.queryByRole("region", { name: "FCC notes" })).not.toBeInTheDocument();
 
       await user.click(screen.getByRole("button", { name: REVIEW_COPY.saveDraft }));
       await waitFor(() => expect(toast.success).toHaveBeenCalled());
       expect("fcc" in body).toBe(fieldShown);
     });
 
-    it("keeps the field after the DJ clears its text and saves", async () => {
-      fakeReviewsEndpoints({ reviews: [{ ...DRAFT, fcc: "Mild language" } as Review], records: [RECORD], ...NOTES });
-      server.use(http.patch(`${TEST_BACKEND_URL}/reviews/40`, () => HttpResponse.json({ ...DRAFT, fcc: null })));
-      const { user } = renderWithProviders(<ReviewEditor id={40} />);
+    it("keeps the field after the DJ clears its text, saves, and the review is read again with no FCC", async () => {
+      fakeReviewsEndpoints({ reviews: [DRAFT], records: [RECORD], ...NOTES });
+      // The service as it behaves: the read after the save returns what the save stored.
+      let stored: Review = { ...DRAFT, fcc: "Mild language" } as Review;
+      let reads = 0;
+      server.use(
+        http.get(`${TEST_BACKEND_URL}/reviews/40`, () => ((reads += 1), HttpResponse.json(stored))),
+        http.patch(`${TEST_BACKEND_URL}/reviews/40`, async ({ request }) => ((stored = { ...stored, ...((await request.json()) as Partial<Review>) }), HttpResponse.json(stored))),
+      );
+      const { user, store } = renderWithProviders(<ReviewEditor id={40} />);
       await user.clear(await screen.findByRole("textbox", { name: FIELD.label }));
       await user.click(screen.getByRole("button", { name: REVIEW_COPY.saveDraft }));
       await waitFor(() => expect(toast.success).toHaveBeenCalled());
+      await waitFor(() => expect(reads).toBe(2));
+      await reviewsSettled(store);
+
+      expect(stored.fcc).toBeNull();
       expect(screen.getByRole("textbox", { name: FIELD.label })).toHaveValue("");
     });
   });
@@ -734,8 +745,9 @@ describe("ReviewEditor", () => {
       renderWithProviders(<ReviewEditor id={40} />);
 
       for (const { label, help } of Object.values(REVIEW_COPY.fields)) {
-        const box = await screen.findByLabelText(label);
-        const text = screen.getByText(help);
+        const box = await screen.findByRole("textbox", { name: label });
+        // The FCC panel repeats the FCC field's help under its own title; the field's is the one outside it.
+        const text = screen.getAllByText(help).find((el) => !el.closest("section"))!;
         expect(text.compareDocumentPosition(box) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
         expect(box).toHaveAccessibleDescription(help);
       }
@@ -746,7 +758,7 @@ describe("ReviewEditor", () => {
       renderWithProviders(<ReviewEditor id={40} />);
 
       const group = await screen.findByRole("group", { name: REVIEW_COPY.consent.legend });
-      const last = screen.getByLabelText(REVIEW_COPY.fields.fcc.label);
+      const last = screen.getByRole("textbox", { name: REVIEW_COPY.fields.fcc.label });
       expect(last.compareDocumentPosition(group) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     });
 
@@ -1346,8 +1358,13 @@ describe("ReviewEditor", () => {
       await waitFor(() => expect(stored()).toMatchObject({ review: "Warm.?" }));
     });
 
-    it("removes an entry equal to the loaded review without an offer", async () => {
-      writeReviewDraft("dj-me", 40, { ...toFieldPatch(toFieldValues(DRAFT), FIELD_NAMES.filter((n) => n !== "fcc")), publish_website: false, publish_apps: false, publish_instagram: false, credit: null });
+    // A typed review with no stored FCC does not offer the field, so an entry's FCC (kept before the field was offered only on paper, or while stored text offered it) is not part of what this editor would restore.
+    it.each<{ name: string; fcc: Partial<Review> }>([
+      { name: "no FCC", fcc: {} },
+      { name: "an empty FCC", fcc: { fcc: null } },
+      { name: "FCC text for a field the editor no longer offers", fcc: { fcc: "Mild language" } },
+    ])("removes an entry equal to the loaded review, carrying $name, without an offer", async ({ fcc }) => {
+      writeReviewDraft("dj-me", 40, { ...toFieldPatch(toFieldValues(DRAFT), FIELD_NAMES.filter((n) => n !== "fcc")), ...fcc, publish_website: false, publish_apps: false, publish_instagram: false, credit: null });
       serve();
       renderWithProviders(<ReviewEditor id={40} />);
       await screen.findByLabelText("Review");
@@ -1436,6 +1453,17 @@ describe("ReviewEditor", () => {
 
       expect(screen.getByLabelText("Review")).toHaveValue("Warm. More.");
       expect(screen.queryByText("Old paragraph.")).not.toBeInTheDocument();
+    });
+
+    it("Restore keeps the stored FCC text when the kept entry carries none", async () => {
+      sessionStorage.setItem("review-draft:dj-me:40", JSON.stringify({ review: "Warm. More." }));
+      serve({ ...DRAFT, fcc: "Mild language", buzzwords: "Dreamy" } as Review);
+      const { user } = renderWithProviders(<ReviewEditor id={40} />);
+      await user.click(await screen.findByRole("button", { name: RESTORE }));
+
+      expect(screen.getByLabelText("Review")).toHaveValue("Warm. More.");
+      expect(screen.getByRole("textbox", { name: REVIEW_COPY.fields.fcc.label })).toHaveValue("Mild language");
+      expect(screen.getByLabelText(REVIEW_COPY.fields.buzzwords.label)).toHaveValue("Dreamy");
     });
 
     it("offers nothing for an entry stored under another user's key", async () => {
