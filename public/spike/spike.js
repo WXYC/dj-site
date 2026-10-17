@@ -241,15 +241,22 @@
     };
   }
 
-  // Chromium reports the real macOS version through client hints.
+  // Chromium freezes its user agent at major.0.0.0 and macOS 10.15, and
+  // reports the real browser and macOS versions through client hints.
   function refineOsVersion() {
     const uad = navigator.userAgentData;
     if (!uad || typeof uad.getHighEntropyValues !== "function" || device.family === "ios") {
       return;
     }
     uad
-      .getHighEntropyValues(["platformVersion"])
+      .getHighEntropyValues(["platformVersion", "fullVersionList"])
       .then((v) => {
+        const names = { Chrome: ["Google Chrome", "Chromium"], Edge: ["Microsoft Edge"] };
+        const brand = (v.fullVersionList || []).find((b) => (names[device.browser] || []).includes(b.brand));
+        if (brand && brand.version) {
+          device.version = brand.version;
+          render();
+        }
         if (uad.platform === "macOS" && v.platformVersion) {
           const parts = v.platformVersion.split(".");
           device.os = "macOS " + (parts[1] && parts[1] !== "0" ? parts.slice(0, 2) : parts.slice(0, 1)).join(".");
@@ -391,10 +398,12 @@
   function expectText(fraction) {
     const dur = trackDuration();
     const t = dur * fraction;
-    const burst = Math.ceil(t / 10 - 1e-6) * 10;
+    // Encoders pad a track a few milliseconds past ten minutes, so 10% lands
+    // just after 1:00; a burst under half a second back still counts as here.
+    const burst = Math.ceil((t - 0.5) / 10) * 10;
     const heard = burst < dur ? burst : t;
     const minute = Math.floor(heard / 60);
-    const lastMinute = Math.floor((dur - 0.001) / 60);
+    const lastMinute = Math.floor((dur - 0.5) / 60);
     const pips = 1 + Math.floor((heard % 60) / 10);
     let tone;
     if (minute === 0) {

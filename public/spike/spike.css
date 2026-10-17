@@ -35,6 +35,11 @@
   box-sizing: border-box;
 }
 
+/* A display rule below must never override the hidden attribute. */
+[hidden] {
+  display: none !important;
+}
+
 html {
   -webkit-text-size-adjust: 100%;
 }
