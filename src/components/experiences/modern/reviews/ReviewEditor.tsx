@@ -56,7 +56,7 @@ function HiddenTitle() {
 
 type Confirming = "submit" | "delete" | null;
 
-/** A kept draft read as this editor would send it: a key the editor does not send (FCC text where the field is not offered, consent from a non-author) is ignored, and a key the draft lacks stays as saved. */
+/** A kept draft read as this editor would send it: a key the editor does not send (blank FCC where the field is not offered, consent from a non-author) is ignored, and a key the draft lacks stays as saved. */
 const keptFor = (saved: ReviewPatch, kept: ReviewPatch): ReviewPatch =>
   Object.fromEntries(Object.entries(saved).map(([k, v]) => [k, k in kept ? kept[k as keyof ReviewPatch] : v])) as ReviewPatch;
 
@@ -88,8 +88,10 @@ function Form({ review, user }: { review: Review; user: User | undefined }) {
   const { root, bar } = useStickyRoom<HTMLDivElement, HTMLDivElement>();
   const slipHeadingId = useId();
   const reasonId = useId();
-  // The free-text FCC field is for a paper review (every medium but typed, as `blank` below) and for text already stored; a typed review reports FCC through the panel. Settled at load, so clearing the text does not take the field away.
-  const [fccField] = useState(() => review.medium !== "typed" || (review.fcc ?? "").trim() !== "");
+  // The free-text FCC field is for a paper review (every medium but typed, as `blank` below) and for text already stored or kept unsaved in this tab, so a kept entry's FCC text can be offered back; a typed review reports FCC through the panel. Settled at load, so clearing the text does not take the field away.
+  const [fccField] = useState(
+    () => review.medium !== "typed" || [review.fcc, readReviewDraft(userId, review.id)?.fcc].some((text) => (text ?? "").trim() !== ""),
+  );
   // A field the editor does not offer stays out of the patch, so the service keeps what it holds.
   const fields = FIELD_NAMES.filter((name) => name !== "fcc" || fccField);
   const notesSubject = review.intake_item_id != null ? { intakeItemId: review.intake_item_id } : review.album_id != null ? { albumId: review.album_id } : null;
