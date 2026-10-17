@@ -1,7 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
+import { setupListeners } from "@reduxjs/toolkit/query";
 import { http, HttpResponse } from "msw";
 import { fakeReviewsEndpoints, intakeItem, renderedFrame, renderWithProviders, server, TEST_BACKEND_URL } from "@/tests/helpers";
+import { makeStore } from "@/lib/store";
 import { intakeApi } from "@/lib/features/reviews/intakeApi";
 import { REVIEW_COPY } from "@/src/components/experiences/modern/reviews/copy";
 
@@ -40,6 +42,21 @@ describe("ReviewsTabs", () => {
     expect(screen.getByRole("link", { name: "New music" })).toHaveAttribute("href", "/dashboard/reviews/music-directors");
     expect(screen.getByRole("link", { name: current })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("link", { name: other })).not.toHaveAttribute("aria-current");
+  });
+
+  it("recounts the waiting reviews when the window regains focus", async () => {
+    pathname.current = "/dashboard/reviews";
+    fakeReviewsEndpoints({ awaiting: [waiting(1)] });
+    const store = makeStore();
+    const stopListening = setupListeners(store.dispatch);
+    renderWithProviders(<ReviewsTabs />, { store });
+    await screen.findByRole("link", { name: "New music, 1 review waiting" });
+
+    fakeReviewsEndpoints({ awaiting: [waiting(1), waiting(2)] });
+    window.dispatchEvent(new Event("focus"));
+
+    await screen.findByRole("link", { name: "New music, 2 reviews waiting" });
+    stopListening();
   });
 
   it("counts the reviews waiting for a music director to accept", async () => {

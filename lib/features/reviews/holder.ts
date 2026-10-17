@@ -19,3 +19,27 @@ export function itemHolder(item: IntakeItem): Holder {
   if (item.checked_out_by) return { kind: "checked_out", id: item.checked_out_by, name: item.checked_out_by_name ?? "" };
   return item.checked_out_at && (state === "checked_out" || state === "reviewed") ? { kind: "removed" } : { kind: "none" };
 }
+
+/** The stage a record is drawn in, one per record. */
+export type ReviewStage = "filed" | "reviewed" | "waiting" | "requested" | "being_reviewed" | "review_shelf";
+
+/**
+ * The one place a record's stage is worked out, first match winning. A submitted review does not change a record's state, so a
+ * record in the waiting read (`waitingIds`) is Review waiting whoever holds it, unless a review has already been chosen.
+ */
+export function recordStage(item: IntakeItem, waitingIds: ReadonlySet<number>): ReviewStage {
+  const state = item.effective_state;
+  if (state === "filed" || state === "finalized") {
+    return "filed";
+  }
+  if (state === "reviewed") {
+    return "reviewed";
+  }
+  if (waitingIds.has(item.id)) {
+    return "waiting";
+  }
+  if (state === "requested") {
+    return "requested";
+  }
+  return state === "checked_out" ? "being_reviewed" : "review_shelf";
+}

@@ -12,7 +12,8 @@ import {
   useGetIntakeItemsQuery,
   useReleaseIntakeItemMutation,
 } from "@/lib/features/reviews/intakeApi";
-import { itemHolder } from "@/lib/features/reviews/holder";
+import { LIVE_LIST } from "@/lib/features/reviews/api";
+import { itemHolder, recordStage, type ReviewStage } from "@/lib/features/reviews/holder";
 import { byKind, recordKind } from "@/lib/features/reviews/kind";
 import { useAppDispatch } from "@/lib/hooks";
 import { useCanSeeReviews } from "@/src/hooks/useCanSeeReviews";
@@ -57,8 +58,8 @@ export default function IntakeLanes() {
 }
 
 function IntakeLaneGroups() {
-  const everyState = useGetIntakeItemsQuery(EVERY_STATE);
-  const awaiting = useGetIntakeItemsQuery(AWAITING_LANE);
+  const everyState = useGetIntakeItemsQuery(EVERY_STATE, LIVE_LIST);
+  const awaiting = useGetIntakeItemsQuery(AWAITING_LANE, LIVE_LIST);
   const { data: formats } = useGetFormatsQuery();
   const [release] = useReleaseIntakeItemMutation();
   const [cancelRequest] = useCancelIntakeRequestMutation();
@@ -88,10 +89,11 @@ function IntakeLaneGroups() {
   if (!everyState.data || !awaiting.data) return null;
 
   const waitingIds = new Set(awaiting.data.map((i) => i.id));
-  const inState = (state: IntakeItem["effective_state"]) => everyState.data!.filter((i) => i.effective_state === state);
+  const inStage = (stage: ReviewStage) => everyState.data!.filter((i) => recordStage(i, waitingIds) === stage);
   // Both checkout lanes put the records a DJ has held past the server's overdue line first; the sort is stable.
   const overdueFirst = (rows: IntakeItem[]) => [...rows].sort((a, b) => Number(b.overdue) - Number(a.overdue));
-  const reviewed = inState("reviewed");
+  const waitingRows = awaiting.data.filter((i) => recordStage(i, waitingIds) === "waiting");
+  const reviewed = inStage("reviewed");
   const passes = everyState.data
     .flatMap((i) => (i.passes ?? []).map((p) => ({ ...p, id: `${i.id}-${p.dj_name}-${p.passed_at}`, item: i })))
     .sort((a, b) => b.passed_at.localeCompare(a.passed_at))
@@ -117,7 +119,6 @@ function IntakeLaneGroups() {
       {i.overdue && <Chip color="danger">{REVIEW_COPY.screen.overdue}</Chip>}
     </>
   );
-  const physical = (i: IntakeItem) => waitingIds.has(i.id) && <Chip size="sm">{COPY.reviewWaitingMark}</Chip>;
 
   return (
     <Stack spacing={3}>
@@ -137,10 +138,10 @@ function IntakeLaneGroups() {
         </Stack>
       )}
       {notice && <Typography role="status">{notice}</Typography>}
-      {awaiting.data.length > 0 && (
+      {waitingRows.length > 0 && (
         <IntakeLane
-          title={`${COPY.waiting} (${awaiting.data.length})`}
-          rows={awaiting.data}
+          title={`${COPY.waiting} (${waitingRows.length})`}
+          rows={waitingRows}
           empty={COPY.empty}
           label={laneLabel}
           extra={(i) => <WaitingFrom item={i} where={where(i)} />}
@@ -148,12 +149,11 @@ function IntakeLaneGroups() {
       )}
       <IntakeLane
         title={COPY.requested}
-        rows={inState("requested")}
+        rows={inStage("requested")}
         empty={COPY.empty}
         label={laneLabel}
         extra={(i) => (
           <>
-            {physical(i)}
             <Typography level="body-sm">{where(i)}</Typography>
             <Button size="sm" variant="outlined" {...lock(i.id, "cancel")} onClick={() => act(i.id, "cancel", () => cancelRequest(i.id).unwrap())}>
               {COPY.cancelRequest}
@@ -163,12 +163,11 @@ function IntakeLaneGroups() {
       />
       <IntakeLane
         title={COPY.beingReviewed}
-        rows={overdueFirst(inState("checked_out"))}
+        rows={overdueFirst(inStage("being_reviewed"))}
         empty={COPY.empty}
         label={laneLabel}
         extra={(i) => (
           <>
-            {physical(i)}
             <Typography level="body-sm">{where(i)}</Typography>
             <Button size="sm" variant="outlined" {...lock(i.id, "release")} onClick={() => act(i.id, "release", () => release(i.id).unwrap())}>
               {COPY.release}
@@ -198,7 +197,7 @@ function IntakeLaneGroups() {
           );
         }}
       />
-      <IntakeLane title={COPY.filed} rows={inState("filed")} empty={COPY.empty} label={laneLabel} />
+      <IntakeLane title={COPY.filed} rows={inStage("filed")} empty={COPY.empty} label={laneLabel} />
     </Stack>
   );
 }
