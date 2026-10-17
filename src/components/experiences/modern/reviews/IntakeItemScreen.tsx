@@ -542,7 +542,7 @@ export default function IntakeItemScreen({ id }: { id: number }) {
             <Stack spacing={2} sx={{ gridColumn: "1 / -1" }}>
               <Divider />
               <Typography level="body-sm">{COPY.deleteRecordHint}</Typography>
-              <Button color="danger" variant="outlined" onClick={() => setConfirmingDelete(true)} sx={{ alignSelf: "flex-start" }}>
+              <Button color="neutral" variant="plain" onClick={() => setConfirmingDelete(true)} sx={{ alignSelf: "flex-start" }}>
                 {COPY.delete}
               </Button>
             </Stack>

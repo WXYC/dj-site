@@ -46,8 +46,8 @@ export default function DeleteReviewButton({ review, confirmation, blocked, disa
     <>
       <Button
         size="sm"
-        color="danger"
-        variant="outlined"
+        color="neutral"
+        variant="plain"
         disabled={blocked || disabled}
         onClick={() => setConfirming(true)}
         aria-label={author ? COPY.deleteReviewBy(author) : COPY.deleteReview}

@@ -238,7 +238,7 @@ function Form({ review, user }: { review: Review; user: User | undefined }) {
         sx={{ position: "sticky", bottom: 0, mt: 2, py: 1, pb: { xs: `${APPBAR_CLEARANCE_PX}px`, md: 1 }, bgcolor: "background.body", borderTop: "1px solid", borderColor: "divider" }}
       >
         {isAuthor && (
-          <Button color="danger" variant="plain" loading={deleting} disabled={inUse} onClick={() => setConfirming("delete")}>
+          <Button color="neutral" variant="plain" loading={deleting} disabled={inUse} onClick={() => setConfirming("delete")}>
             {REVIEW_COPY.delete}
           </Button>
         )}
@@ -258,7 +258,7 @@ function Form({ review, user }: { review: Review; user: User | undefined }) {
         title={confirming === "delete" ? REVIEW_COPY.delete : REVIEW_COPY.submit}
         actions={
           <>
-            <Button onClick={confirming === "delete" ? deleteReview : submitReview}>
+            <Button color={confirming === "delete" ? "danger" : "primary"} onClick={confirming === "delete" ? deleteReview : submitReview}>
               {confirming === "delete" ? REVIEW_COPY.delete : REVIEW_COPY.submit}
             </Button>
             <Button variant="plain" onClick={() => setConfirming(null)}>{REVIEW_COPY.cancel}</Button>
