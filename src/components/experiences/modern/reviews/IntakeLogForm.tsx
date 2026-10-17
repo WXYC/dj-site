@@ -57,6 +57,8 @@ export default function IntakeLogForm() {
         <FormControl>
           <FormLabel>{COPY.label}</FormLabel>
           <LabelSearchTypeahead
+            size="md"
+            placeholder=""
             value={form.label}
             onChange={(label) => setForm((f) => ({ ...f, label }))}
             onSelect={(l) => setForm((f) => ({ ...f, labelId: l.id }))}

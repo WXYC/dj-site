@@ -38,6 +38,8 @@ export interface LabelSearchTypeaheadProps {
   onSelect: (label: Label) => void;
   onSelectionCleared: () => void;
   disabled?: boolean;
+  size?: "sm" | "md";
+  placeholder?: string;
 }
 
 function LabelSearchTypeaheadInner({
@@ -46,6 +48,8 @@ function LabelSearchTypeaheadInner({
   onSelect,
   onSelectionCleared,
   disabled,
+  size = "sm",
+  placeholder = "Search labels...",
 }: LabelSearchTypeaheadProps) {
   const [open, setOpen] = useState(false);
   const [rawHighlightIndex, setHighlightIndex] = useState(NO_HIGHLIGHT);
@@ -264,22 +268,26 @@ function LabelSearchTypeaheadInner({
     <ClickAwayListener onClickAway={closePanel}>
       <Box sx={{ position: "relative", width: "100%" }} onBlur={handleFocusOut}>
         <Input
-          size="sm"
+          size={size}
           fullWidth
           disabled={disabled}
-          placeholder="Search labels..."
+          placeholder={placeholder}
           value={value}
           onFocus={openPanel}
           onClick={openPanel}
           onChange={(e) => handleTextEdit(e.target.value)}
           onKeyDown={handleKeyDown}
-          startDecorator={
-            isSearching ? (
-              <CircularProgress
-                size="sm"
-                sx={{ "--CircularProgress-size": "14px" }}
-              />
-            ) : undefined
+          // The slot is always occupied so the typed text does not shift when
+          // a search starts or ends.
+          endDecorator={
+            <Box sx={{ width: 14, height: 14, display: "flex" }}>
+              {isSearching && (
+                <CircularProgress
+                  size="sm"
+                  sx={{ "--CircularProgress-size": "14px" }}
+                />
+              )}
+            </Box>
           }
           slotProps={{
             input: {

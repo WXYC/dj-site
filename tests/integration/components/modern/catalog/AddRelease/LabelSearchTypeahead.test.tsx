@@ -97,7 +97,11 @@ function ControlledTypeahead({
   onSelect = vi.fn(),
   onSelectionCleared = vi.fn(),
   disabled,
+  size,
+  placeholder,
 }: {
+  size?: "sm" | "md";
+  placeholder?: string;
   initialValue?: string;
   onSelect?: (label: Label) => void;
   onSelectionCleared?: () => void;
@@ -111,6 +115,8 @@ function ControlledTypeahead({
       onSelect={onSelect}
       onSelectionCleared={onSelectionCleared}
       disabled={disabled}
+      size={size}
+      placeholder={placeholder}
     />
   );
 }
@@ -1108,6 +1114,52 @@ describe("LabelSearchTypeahead", () => {
 
       expect(screen.getByRole("alert")).toBeInTheDocument();
       expect(requestCount).toBe(3);
+    });
+  });
+
+  describe("search indicator", () => {
+    const startSlot = (input: HTMLElement) =>
+      input.parentElement!.querySelector(".MuiInput-startDecorator");
+    const endSlot = (input: HTMLElement) =>
+      input.parentElement!.querySelector(".MuiInput-endDecorator");
+
+    it("reserves an empty end slot while idle and keeps the start slot empty", async () => {
+      renderWithProviders(<ControlledTypeahead />);
+
+      const input = await findInput();
+
+      expect(startSlot(input)).toBeNull();
+      expect(endSlot(input)).not.toBeNull();
+      expect(endSlot(input)!.querySelector("[role=progressbar]")).toBeNull();
+    });
+
+    it("shows the spinner in the end slot, not the start slot, while a search runs", async () => {
+      mockLabelSearch([sonamos]);
+      const { user } = renderWithProviders(<ControlledTypeahead />);
+
+      const input = await findInput();
+      await user.type(input, "Sona");
+      await screen.findByText(/Searching labels/i);
+
+      expect(startSlot(input)).toBeNull();
+      expect(endSlot(input)!.querySelector("[role=progressbar]")).not.toBeNull();
+    });
+
+    it("defaults to size sm with the label placeholder", async () => {
+      renderWithProviders(<ControlledTypeahead />);
+
+      const input = await findInput();
+
+      expect(input.closest(".MuiInput-sizeSm")).not.toBeNull();
+    });
+
+    it("takes a size and placeholder from the caller", async () => {
+      renderWithProviders(<ControlledTypeahead size="md" placeholder="" />);
+
+      const input = await screen.findByRole("combobox");
+
+      expect(input).toHaveAttribute("placeholder", "");
+      expect(input.closest(".MuiInput-sizeMd")).not.toBeNull();
     });
   });
 
