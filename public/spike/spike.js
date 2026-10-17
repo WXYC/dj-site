@@ -42,7 +42,11 @@
   const clock = new Intl.DateTimeFormat("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
   const strip = (range) => String(range || "").replace(/^bytes[= ]/, "");
   const secs = (n) => (Number.isFinite(n) ? n.toFixed(1) : "-");
-  const md = (v) => String(v === undefined || v === null ? "" : v).replace(/\|/g, "\\|").replace(/\n/g, " ");
+  const md = (v) =>
+    String(v === undefined || v === null ? "" : v)
+      .replace(/\\/g, "\\\\")
+      .replace(/\|/g, "\\|")
+      .replace(/\n/g, " ");
 
   function fmtBytes(n) {
     if (!n && n !== 0) {
