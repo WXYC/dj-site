@@ -726,6 +726,83 @@ describe("IntakeLogForm", () => {
     await waitFor(() => expect(body).toEqual({ artist_name: "Cat Power", album_title: "Moon Pix", digital: true }));
   });
 
+  describe("artist suggestions", () => {
+    const match = (id: number, artist_name: string, genre_id: number, genre_name: string) => ({
+      id, artist_name, code_letters: "AUT", code_number: id, genre_id, genre_name,
+    });
+
+    it("suggests library spellings with each genre, from one library-wide search, and picking one sets the text", async () => {
+      const requests: URL[] = [];
+      fakeReviewsEndpoints();
+      server.use(
+        http.get(`${TEST_BACKEND_URL}/library/artists/search`, ({ request }) => {
+          requests.push(new URL(request.url));
+          return HttpResponse.json({
+            artists: [match(1, "Autechre", 5, "Electronic"), match(1, "Autechre", 6, "Rock")],
+          });
+        }),
+      );
+
+      const { user } = renderWithProviders(<IntakeLogForm />);
+      await user.type(await screen.findByLabelText(/^Artist/), "Aute");
+
+      const options = await screen.findAllByRole("option");
+      expect(options.map((o) => o.textContent)).toEqual(["AutechreElectronic", "AutechreRock"]);
+      expect(requests).toHaveLength(1);
+      expect(requests[0].searchParams.get("q")).toBe("Aute");
+      expect(requests[0].searchParams.get("limit")).toBe("8");
+      expect(requests[0].searchParams.has("genre_id")).toBe(false);
+
+      await user.click(options[0]);
+      expect(screen.getByLabelText(/^Artist/)).toHaveValue("Autechre");
+    });
+
+    it("logs free text that matches nothing as typed", async () => {
+      let body: unknown;
+      fakeReviewsEndpoints();
+      server.use(
+        http.get(`${TEST_BACKEND_URL}/library/artists/search`, () => HttpResponse.json({ artists: [] })),
+        http.post(`${TEST_BACKEND_URL}/intake`, async ({ request }) => {
+          body = await request.json();
+          return HttpResponse.json(moonPix());
+        }),
+      );
+
+      const { user } = renderWithProviders(<IntakeLogForm />);
+      await user.type(await screen.findByLabelText(/^Artist/), "Nobody Yet");
+      await user.type(screen.getByLabelText(/^Album/), "Debut");
+      await user.click(screen.getByRole("combobox", { name: /^Format/ }));
+      await user.click((await screen.findAllByRole("option"))[0]);
+      await user.click(screen.getByRole("button", { name: "Log item" }));
+
+      await waitFor(() => expect(body).toEqual({ artist_name: "Nobody Yet", album_title: "Debut", digital: true }));
+    });
+
+    it("shows no options for a failed search and still logs", async () => {
+      let body: unknown;
+      fakeReviewsEndpoints();
+      server.use(
+        http.get(`${TEST_BACKEND_URL}/library/artists/search`, () => new HttpResponse(null, { status: 500 })),
+        http.post(`${TEST_BACKEND_URL}/intake`, async ({ request }) => {
+          body = await request.json();
+          return HttpResponse.json(moonPix());
+        }),
+      );
+
+      const { user } = renderWithProviders(<IntakeLogForm />);
+      await user.type(await screen.findByLabelText(/^Artist/), "Autechre");
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      expect(screen.queryByRole("option")).not.toBeInTheDocument();
+
+      await user.type(screen.getByLabelText(/^Album/), "Amber");
+      await user.click(screen.getByRole("combobox", { name: /^Format/ }));
+      await user.click((await screen.findAllByRole("option"))[0]);
+      await user.click(screen.getByRole("button", { name: "Log item" }));
+
+      await waitFor(() => expect(body).toEqual({ artist_name: "Autechre", album_title: "Amber", digital: true }));
+    });
+  });
+
   it("lists Digital ahead of the library's formats", async () => {
     fakeReviewsEndpoints({ formats: [{ id: 1, format_name: "cd" }, CDR_FORMAT] });
     const { user } = renderWithProviders(<IntakeLogForm />);
