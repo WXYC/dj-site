@@ -4199,14 +4199,14 @@ describe("IntakeItemScreen", () => {
       return { box: serveItem(item), own: serveItemReviews(own) };
     };
 
-    /** Serves the PATCH: it applies the body to the box's item, and clearing the cited release also takes a cited review (id 90) off the cover. */
-    const patching = (box: ReturnType<typeof serveItem>) => {
+    /** Serves the PATCH: it applies the body and `serverSets` to the box's item, and clearing the cited release also takes a cited review (id 90) off the cover. */
+    const patching = (box: ReturnType<typeof serveItem>, serverSets: Partial<typeof box.item> = {}) => {
       const sent: IntakeItemPatch[] = [];
       server.use(
         http.patch(FILED_ITEM_PATH, async ({ request }) => {
           const body = (await request.json()) as IntakeItemPatch;
           sent.push(body);
-          box.item = { ...box.item, ...body, ...(body.cited_album_id === null && box.item.accepted_review_id === 90 ? { accepted_review_id: null } : {}) } as typeof box.item;
+          box.item = { ...box.item, ...body, ...serverSets, ...(body.cited_album_id === null && box.item.accepted_review_id === 90 ? { accepted_review_id: null } : {}) } as typeof box.item;
           return HttpResponse.json(box.item);
         }),
       );
@@ -4223,47 +4223,50 @@ describe("IntakeItemScreen", () => {
     };
 
     describe("citing on a record a DJ is asked to review or has", () => {
-      const asked = dogaItem({ state: "requested", effective_state: "requested", requested_dj_id: "dj-1", requested_dj_name: "Dana Reyes", accepted_review_id: null });
-      const taken = dogaItem({ state: "checked_out", effective_state: "checked_out", checked_out_by: "dj-2", checked_out_by_name: "Sam Ortiz", accepted_review_id: null });
+      const ASKED_QUESTION = "DJ Static is asked to review this. Using a review we already have cancels the request.";
+      const TAKEN_QUESTION = "DJ Pinwheel has this record and may be writing a review. Use the existing review anyway?";
+      const asked = dogaItem({ state: "requested", effective_state: "requested", requested_dj_id: "dj-1", requested_dj_name: "DJ Static", accepted_review_id: null });
+      const taken = dogaItem({ state: "checked_out", effective_state: "checked_out", checked_out_by: "dj-2", checked_out_by_name: "DJ Pinwheel", accepted_review_id: null });
       const onShelf = dogaItem({ state: "pool", effective_state: "pool", accepted_review_id: null });
+      const reviewedStillOut = dogaItem({ checked_out_by: "dj-2", checked_out_by_name: "DJ Pinwheel" });
+      // What the server returns once a citation withdraws a request: the record is back on the review shelf.
+      const WITHDRAWN = { state: "pool", effective_state: "pool", requested_dj_id: null, requested_dj_name: null } as const;
       const FORM_OPENER = "Cite a form review";
       const FORM_TAKE = {
         id: 7701, reviewer: "Test Reviewer", album_id: null, artist_name: "Juana Molina", album_title: "Un día", record_label: "Sonamos",
         artist_blurb: null, review: "Form take.", recommended_tracks: null, buzzwords: null, fcc_violations: null, review_purpose: null,
         rotated: null, released_within_six_months: null, social_consent: null, submitted_at: "2026-03-02T17:00:00Z",
       } as AlbumReview;
-      // `open` shows the search and `pick` presses the result, so a second `pick` after Cancel finds the search still open.
+      const copyButton = async () => within(await screen.findByRole("region", { name: FORM_OPENER })).findByRole("button", { name: REVIEW_COPY.intakeItem.copyOntoRecord });
+      // `pick` opens the search and presses the result; `again` presses it in the search a Cancel leaves open.
       const actions = {
         release: {
           own: CITE,
-          open: async (user: User) => user.click(await screen.findByRole("button", { name: CITE })),
-          pick: async (user: User) => {
-            const section = await screen.findByRole("region", { name: CITE });
-            await user.type(within(section).getByRole("searchbox", { name: REVIEW_COPY.intakeItem.searchCite }), "Jessica");
-            await user.click(within(section).getByRole("button", { name: "Search" }));
-            await user.click(await within(section).findByRole("button", { name: CITED_ROW_NAME }));
-          },
+          pick: async (user: User) => user.click(await searchForCited(user)),
+          again: async (user: User) => user.click(await within(await screen.findByRole("region", { name: CITE })).findByRole("button", { name: CITED_ROW_NAME })),
           done: async (sent: IntakeItemPatch[]) => waitFor(() => expect(sent).toEqual([{ cited_album_id: CITED_ID }])),
         },
         form: {
           own: REVIEW_COPY.intakeItem.copyOntoRecord,
-          open: async (user: User) => user.click(await screen.findByRole("button", { name: FORM_OPENER })),
-          pick: async (user: User) => user.click(await within(await screen.findByRole("region", { name: FORM_OPENER })).findByRole("button", { name: REVIEW_COPY.intakeItem.copyOntoRecord })),
+          pick: async (user: User) => {
+            await user.click(await screen.findByRole("button", { name: FORM_OPENER }));
+            await user.click(await copyButton());
+          },
+          again: async (user: User) => user.click(await copyButton()),
           done: async () => expect(await screen.findByText(REVIEW_COPY.record.copiedFromForm)).toBeInTheDocument(),
         },
       };
 
       it.each([
-        ["release", "asked", asked, "Dana Reyes is asked to review this. Using a review we already have cancels the request."],
-        ["release", "taken", taken, "Sam Ortiz has this record and may be writing a review. Use the existing review anyway?"],
-        ["form", "asked", asked, "Dana Reyes is asked to review this. Using a review we already have cancels the request."],
-        ["form", "taken", taken, "Sam Ortiz has this record and may be writing a review. Use the existing review anyway?"],
+        ["release", "asked", asked, ASKED_QUESTION],
+        ["release", "taken", taken, TAKEN_QUESTION],
+        ["form", "asked", asked, ASKED_QUESTION],
+        ["form", "taken", taken, TAKEN_QUESTION],
       ] as const)("asks first on a %s citation of a %s record, naming the DJ; Cancel does nothing and the action's own button goes ahead", async (which, _state, item, question) => {
         const { box } = setUp(item, { byArtist: { "Juana Molina": [FORM_TAKE] } });
         const sent = patching(box);
         const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
 
-        await actions[which].open(user);
         await actions[which].pick(user);
         const dialog = await screen.findByRole("alertdialog");
         expect(within(dialog).getByText(question)).toBeInTheDocument();
@@ -4275,21 +4278,39 @@ describe("IntakeItemScreen", () => {
         expect(sent).toEqual([]);
         expect(screen.queryByText(REVIEW_COPY.record.copiedFromForm)).not.toBeInTheDocument();
 
-        await actions[which].pick(user);
+        await actions[which].again(user);
         await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: actions[which].own }));
         await actions[which].done(sent);
       });
 
-      it.each([["release"], ["form"]] as const)("asks nothing on a %s citation of a record on the review shelf", async (which) => {
-        const { box } = setUp(onShelf, { byArtist: { "Juana Molina": [FORM_TAKE] } });
+      it.each([
+        ["release", "on the review shelf", onShelf],
+        ["form", "on the review shelf", onShelf],
+        ["release", "reviewed but still out with its DJ", reviewedStillOut],
+        ["form", "reviewed but still out with its DJ", reviewedStillOut],
+      ] as const)("asks nothing on a %s citation of a record %s", async (which, _state, item) => {
+        const { box } = setUp(item, { byArtist: { "Juana Molina": [FORM_TAKE] } });
         const sent = patching(box);
         const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
 
-        await actions[which].open(user);
         await actions[which].pick(user);
 
         expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
         await actions[which].done(sent);
+      });
+
+      it("shows the record back on the review shelf after a confirmed citation withdraws the request", async () => {
+        const { box } = setUp(asked);
+        const sent = patching(box, WITHDRAWN);
+        const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+        expect(await screen.findByText(REVIEW_COPY.intake.requested)).toBeInTheDocument();
+
+        await actions.release.pick(user);
+        await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: CITE }));
+        await actions.release.done(sent);
+
+        expect(await screen.findByText(REVIEW_COPY.intake.onShelf)).toBeInTheDocument();
+        expect(screen.queryByText(REVIEW_COPY.intake.requested)).not.toBeInTheDocument();
       });
     });
 

@@ -218,6 +218,9 @@ export default function IntakeItemScreen({ id }: { id: number }) {
   // Clearing a release's citation takes a review chosen from it off the cover, which is any cover review the item's own list lacks.
   const coverFromCited = citedId !== null && coverId != null && (!ownCover || ownCover.album_id === citedId);
   const holder = itemHolder(item.data);
+  // Only a requested or checked-out record asks before a citation; a reviewed record still out with its DJ asks nothing.
+  const citeQuestion =
+    holder.kind === "requested" ? COPY.citeAsked(holder.name) : holder.kind === "checked_out" && item.data.effective_state === "checked_out" ? COPY.citeTaken(holder.name) : null;
   const coverConfirmation =
     recordKind(item.data) === "digital"
       ? COPY.deleteCoverShelf
@@ -479,7 +482,7 @@ export default function IntakeItemScreen({ id }: { id: number }) {
               <CiteSection
                 which={citeOpen}
                 artist={item.data.artist_name}
-                question={holder.kind === "requested" ? COPY.citeAsked(holder.name) : holder.kind === "checked_out" ? COPY.citeTaken(holder.name) : null}
+                question={citeQuestion}
                 onCite={(albumId) => changeCitation({ cited_album_id: albumId }, COPY.releaseRefused)}
                 onCopy={(take) => openRecording(formReviewStart(take), { id: take.id, submittedAt: take.submitted_at })}
               />
