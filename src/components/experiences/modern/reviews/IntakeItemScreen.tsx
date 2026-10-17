@@ -479,6 +479,7 @@ export default function IntakeItemScreen({ id }: { id: number }) {
               <CiteSection
                 which={citeOpen}
                 artist={item.data.artist_name}
+                question={holder.kind === "requested" ? COPY.citeAsked(holder.name) : holder.kind === "checked_out" ? COPY.citeTaken(holder.name) : null}
                 onCite={(albumId) => changeCitation({ cited_album_id: albumId }, COPY.releaseRefused)}
                 onCopy={(take) => openRecording(formReviewStart(take), { id: take.id, submittedAt: take.submitted_at })}
               />

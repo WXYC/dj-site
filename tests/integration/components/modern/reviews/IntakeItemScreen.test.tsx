@@ -4222,6 +4222,77 @@ describe("IntakeItemScreen", () => {
       return within(section).findByRole("button", { name: CITED_ROW_NAME });
     };
 
+    describe("citing on a record a DJ is asked to review or has", () => {
+      const asked = dogaItem({ state: "requested", effective_state: "requested", requested_dj_id: "dj-1", requested_dj_name: "Dana Reyes", accepted_review_id: null });
+      const taken = dogaItem({ state: "checked_out", effective_state: "checked_out", checked_out_by: "dj-2", checked_out_by_name: "Sam Ortiz", accepted_review_id: null });
+      const onShelf = dogaItem({ state: "pool", effective_state: "pool", accepted_review_id: null });
+      const FORM_OPENER = "Cite a form review";
+      const FORM_TAKE = {
+        id: 7701, reviewer: "Test Reviewer", album_id: null, artist_name: "Juana Molina", album_title: "Un día", record_label: "Sonamos",
+        artist_blurb: null, review: "Form take.", recommended_tracks: null, buzzwords: null, fcc_violations: null, review_purpose: null,
+        rotated: null, released_within_six_months: null, social_consent: null, submitted_at: "2026-03-02T17:00:00Z",
+      } as AlbumReview;
+      // `open` shows the search and `pick` presses the result, so a second `pick` after Cancel finds the search still open.
+      const actions = {
+        release: {
+          own: CITE,
+          open: async (user: User) => user.click(await screen.findByRole("button", { name: CITE })),
+          pick: async (user: User) => {
+            const section = await screen.findByRole("region", { name: CITE });
+            await user.type(within(section).getByRole("searchbox", { name: REVIEW_COPY.intakeItem.searchCite }), "Jessica");
+            await user.click(within(section).getByRole("button", { name: "Search" }));
+            await user.click(await within(section).findByRole("button", { name: CITED_ROW_NAME }));
+          },
+          done: async (sent: IntakeItemPatch[]) => waitFor(() => expect(sent).toEqual([{ cited_album_id: CITED_ID }])),
+        },
+        form: {
+          own: REVIEW_COPY.intakeItem.copyOntoRecord,
+          open: async (user: User) => user.click(await screen.findByRole("button", { name: FORM_OPENER })),
+          pick: async (user: User) => user.click(await within(await screen.findByRole("region", { name: FORM_OPENER })).findByRole("button", { name: REVIEW_COPY.intakeItem.copyOntoRecord })),
+          done: async () => expect(await screen.findByText(REVIEW_COPY.record.copiedFromForm)).toBeInTheDocument(),
+        },
+      };
+
+      it.each([
+        ["release", "asked", asked, "Dana Reyes is asked to review this. Using a review we already have cancels the request."],
+        ["release", "taken", taken, "Sam Ortiz has this record and may be writing a review. Use the existing review anyway?"],
+        ["form", "asked", asked, "Dana Reyes is asked to review this. Using a review we already have cancels the request."],
+        ["form", "taken", taken, "Sam Ortiz has this record and may be writing a review. Use the existing review anyway?"],
+      ] as const)("asks first on a %s citation of a %s record, naming the DJ; Cancel does nothing and the action's own button goes ahead", async (which, _state, item, question) => {
+        const { box } = setUp(item, { byArtist: { "Juana Molina": [FORM_TAKE] } });
+        const sent = patching(box);
+        const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+        await actions[which].open(user);
+        await actions[which].pick(user);
+        const dialog = await screen.findByRole("alertdialog");
+        expect(within(dialog).getByText(question)).toBeInTheDocument();
+        expect(sent).toEqual([]);
+        expect(screen.queryByText(REVIEW_COPY.record.copiedFromForm)).not.toBeInTheDocument();
+
+        await user.click(within(dialog).getByRole("button", { name: REVIEW_COPY.screen.cancel }));
+        await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
+        expect(sent).toEqual([]);
+        expect(screen.queryByText(REVIEW_COPY.record.copiedFromForm)).not.toBeInTheDocument();
+
+        await actions[which].pick(user);
+        await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: actions[which].own }));
+        await actions[which].done(sent);
+      });
+
+      it.each([["release"], ["form"]] as const)("asks nothing on a %s citation of a record on the review shelf", async (which) => {
+        const { box } = setUp(onShelf, { byArtist: { "Juana Molina": [FORM_TAKE] } });
+        const sent = patching(box);
+        const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+        await actions[which].open(user);
+        await actions[which].pick(user);
+
+        expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+        await actions[which].done(sent);
+      });
+    });
+
     describe("citing", () => {
       it("searches under its own heading with its own search box and cites the picked release, then offers Remove the citation in its place", async () => {
         const { box } = setUp();
