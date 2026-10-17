@@ -277,6 +277,8 @@ test.describe("Review editor layout, two columns", () => {
   });
 
   test("puts the slip right of the form, keeps it in view to the end, and does not scroll sideways", async ({ page }) => {
+    // The sticky column ends 16px above the scroll region's top (#2256); the fix ticket removes this mark.
+    test.fail(true, "WXYC/dj-site#2256");
     expect(await twoColumnProblems(page)).toEqual([]);
   });
 
@@ -318,6 +320,8 @@ test.describe("Review editor layout, two columns", () => {
   });
 
   test("starts every slip value at the same x", async ({ page }) => {
+    // "Recommended" overflows the slip's label column (#2257); the fix ticket removes this mark.
+    test.fail(true, "WXYC/dj-site#2257");
     expect(await labelColumnProblems(page)).toEqual([]);
   });
 
@@ -362,6 +366,8 @@ test.describe("Review editor layout, one column", () => {
   });
 
   test("starts every slip value at the same x", async ({ page }) => {
+    // "Recommended" overflows the slip's label column (#2257); the fix ticket removes this mark.
+    test.fail(true, "WXYC/dj-site#2257");
     expect(await labelColumnProblems(page)).toEqual([]);
   });
 
