@@ -34,7 +34,7 @@ vi.mock("@/src/components/experiences/modern/reviews/IntakeItemScreen", () => ({
   default: ({ id }: { id: number }) => <div data-testid="intake-item-screen" data-id={id} />,
 }));
 
-import IntakeItemPage from "@/app/dashboard/@modern/admin/intake/[id]/page";
+import IntakeItemPage, { metadata } from "@/app/dashboard/@modern/admin/intake/[id]/page";
 
 const params = (id: string) => ({ params: Promise.resolve({ id }) });
 
@@ -73,7 +73,11 @@ describe("review shelf record page", () => {
 
     renderWithProviders(await IntakeItemPage(params("11")));
 
-    expect(screen.getByTestId("page-header")).toHaveTextContent("Review shelf");
+    expect(screen.getByTestId("page-header")).toHaveTextContent("Reviews");
     expect(screen.getByTestId("intake-item-screen")).toHaveAttribute("data-id", "11");
+  });
+
+  it("titles the tab Reviews", () => {
+    expect(metadata.title).toBe("WXYC | Reviews");
   });
 });

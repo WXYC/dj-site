@@ -278,6 +278,8 @@ describe("IntakeItemScreen", () => {
 
   it.each([
     ["printSlip", REVIEW_COPY.intakeItem.printSlip, "Print the slip"],
+    ["added", REVIEW_COPY.intake.added, "Added"],
+    ["printed", REVIEW_COPY.intake.printed, "Printed"],
     ["fromHolder", REVIEW_COPY.intake.fromHolder("Jessica Pratt"), "From Jessica Pratt, who has this record."],
     ["fromWith", REVIEW_COPY.intake.fromWith("Jessica Pratt", "Sessa"), "From Jessica Pratt. The record is with Sessa."],
     ["fromHeldFor", REVIEW_COPY.intake.fromHeldFor("Jessica Pratt", "Sessa"), "From Jessica Pratt. The record is being held for Sessa."],
@@ -428,16 +430,205 @@ describe("IntakeItemScreen", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it("shows the record's format in the line, read from the library's formats", async () => {
-    // The record's cover review (40, by default) is served: without it the cover read fails and the page swaps the whole record for its load-failed line, which the format line only outlives for a moment.
-    fakeReviewsEndpoints({ records: [dogaItem({ format_id: 7 })], forItem: { [ITEM_ID]: [submitted(40)] } });
-    server.use(http.get(`${TEST_BACKEND_URL}/library/formats`, () => HttpResponse.json([{ id: 7, format_name: "Vinyl" }])));
+  it("shows the record's format as the header's tag and glyph, read from the library's formats", async () => {
+    // The record's cover review (40, by default) is served: without it the cover read fails and the page swaps the whole record for its load-failed line.
+    fakeReviewsEndpoints({ records: [dogaItem({ format_id: 7 })], forItem: { [ITEM_ID]: [submitted(40)] }, formats: [{ id: 7, format_name: "Vinyl" }] });
+
+    const { container } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+    expect(await screen.findByText("Vinyl", { selector: ".MuiChip-label" })).toBeInTheDocument();
+    await screen.findByText("Take 40.");
+    expect(container.querySelector("[data-tone]")).toHaveAttribute("data-tone", "formatVinyl");
+  });
+
+  it("heads the record with its artist and the state chip, and no longer prints the record as a dotted line", async () => {
+    fakeReviewsEndpoints({ records: [dogaItem({ state: "checked_out", effective_state: "checked_out", ...heldBy("dj-sam", "Sam") })], forItem: { [ITEM_ID]: [] } });
 
     renderScreen(<IntakeItemScreen id={ITEM_ID} />);
 
-    expect(await screen.findByRole("heading", { level: 3, name: "Juana Molina · DOGA · Sonamos · Vinyl" })).toBeInTheDocument();
-    await screen.findByText("Take 40.");
-    expect(screen.getByText("Juana Molina · DOGA · Sonamos · Vinyl")).toBeInTheDocument();
+    const heading = await screen.findByRole("heading", { level: 3, name: "Juana Molina" });
+    expect(within(heading.parentElement as HTMLElement).getByText("Checked out", { selector: ".MuiChip-label" })).toBeInTheDocument();
+    expect(screen.queryByText(/Juana Molina · DOGA/)).not.toBeInTheDocument();
+  });
+
+  describe("the progress track", () => {
+    const LOGGED = "2025-10-01T16:00:00Z";
+    const TAKEN = "2025-10-03T16:00:00Z";
+    const REVIEWED = "2025-10-05T16:00:00Z";
+    const PRINTED = "2025-10-06T16:00:00Z";
+    const FILED = "2025-10-08T16:00:00Z";
+    const ADDED = "Added";
+    const BEING = "Being reviewed";
+    type Row = [label: string, state: "Done" | "Current" | "Not yet", date: string | null];
+    const track = (rows: Row[]): Row[] => rows;
+
+    const everything = { logged_at: LOGGED, checked_out_at: TAKEN, accepted_at: REVIEWED, printed_at: PRINTED, filed_at: FILED };
+
+    it.each([
+      [
+        "a record on the review shelf",
+        dogaItem({ state: "pool", effective_state: "pool", accepted_review_id: null, logged_at: LOGGED }),
+        track([[ADDED, "Current", "Oct 1, 2025"], [BEING, "Not yet", null], ["Reviewed", "Not yet", null], ["Printed", "Not yet", null], ["Filed", "Not yet", null]]),
+      ],
+      [
+        "a requested record, which is before Being reviewed",
+        dogaItem({ state: "requested", effective_state: "requested", accepted_review_id: null, logged_at: LOGGED, ...requestedFor("dj-sam", "Sam") }),
+        track([[ADDED, "Current", "Oct 1, 2025"], [BEING, "Not yet", null], ["Reviewed", "Not yet", null], ["Printed", "Not yet", null], ["Filed", "Not yet", null]]),
+      ],
+      [
+        "a lapsed request, which reads as the review shelf",
+        dogaItem({ state: "requested", effective_state: "pool", accepted_review_id: null, logged_at: LOGGED, ...requestedFor("dj-sam", "Sam") }),
+        track([[ADDED, "Current", "Oct 1, 2025"], [BEING, "Not yet", null], ["Reviewed", "Not yet", null], ["Printed", "Not yet", null], ["Filed", "Not yet", null]]),
+      ],
+      [
+        "a disc that is checked out",
+        dogaItem({ state: "checked_out", effective_state: "checked_out", accepted_review_id: null, logged_at: LOGGED, ...heldBy("dj-sam", "Sam", TAKEN) }),
+        track([[ADDED, "Done", "Oct 1, 2025"], [BEING, "Current", "Oct 3, 2025"], ["Reviewed", "Not yet", null], ["Printed", "Not yet", null], ["Filed", "Not yet", null]]),
+      ],
+      [
+        "a digital album that is taken",
+        digitalDoga({ state: "checked_out", effective_state: "checked_out", accepted_review_id: null, logged_at: LOGGED, ...heldBy("dj-sam", "Sam", TAKEN) }),
+        track([[ADDED, "Done", "Oct 1, 2025"], [BEING, "Current", "Oct 3, 2025"], ["Reviewed", "Not yet", null], ["Printed", "Not yet", null], ["Filed", "Not yet", null]]),
+      ],
+      [
+        "a reviewed disc that is not printed",
+        dogaItem({ ...everything, printed_at: null, filed_at: null }),
+        track([[ADDED, "Done", "Oct 1, 2025"], [BEING, "Done", "Oct 3, 2025"], ["Reviewed", "Current", "Oct 5, 2025"], ["Printed", "Not yet", null], ["Filed", "Not yet", null]]),
+      ],
+      [
+        "a reviewed disc that is printed",
+        dogaItem({ ...everything, filed_at: null }),
+        track([[ADDED, "Done", "Oct 1, 2025"], [BEING, "Done", "Oct 3, 2025"], ["Reviewed", "Done", "Oct 5, 2025"], ["Printed", "Current", "Oct 6, 2025"], ["Filed", "Not yet", null]]),
+      ],
+      [
+        "a reviewed digital album, whose accepted review cleared the checkout",
+        digitalDoga({ ...everything, checked_out_at: null, printed_at: null, filed_at: null }),
+        track([[ADDED, "Done", "Oct 1, 2025"], [BEING, "Done", null], ["Reviewed", "Current", "Oct 5, 2025"], ["Printed", "Not yet", null], ["Filed", "Not yet", null]]),
+      ],
+      [
+        "a filed disc",
+        dogaItem({ ...everything, state: "filed", effective_state: "filed" }),
+        track([[ADDED, "Done", "Oct 1, 2025"], [BEING, "Done", "Oct 3, 2025"], ["Reviewed", "Done", "Oct 5, 2025"], ["Printed", "Done", "Oct 6, 2025"], ["Filed", "Done", "Oct 8, 2025"]]),
+      ],
+      [
+        "a finalized disc whose return cleared the checkout",
+        dogaItem({ ...everything, checked_out_at: null, state: "finalized", effective_state: "finalized" }),
+        track([[ADDED, "Done", "Oct 1, 2025"], [BEING, "Done", null], ["Reviewed", "Done", "Oct 5, 2025"], ["Printed", "Done", "Oct 6, 2025"], ["Filed", "Done", "Oct 8, 2025"]]),
+      ],
+      [
+        "a checked-out disc whose logged_at is unparseable",
+        dogaItem({ state: "checked_out", effective_state: "checked_out", accepted_review_id: null, logged_at: "not a date", ...heldBy("dj-sam", "Sam", TAKEN) }),
+        track([[ADDED, "Done", null], [BEING, "Current", "Oct 3, 2025"], ["Reviewed", "Not yet", null], ["Printed", "Not yet", null], ["Filed", "Not yet", null]]),
+      ],
+    ])("shows %s", async (_name, item, rows) => {
+      fakeReviewsEndpoints({ records: [item], forItem: { [ITEM_ID]: item.accepted_review_id ? [submitted(40)] : [] } });
+
+      renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      const steps = within(await screen.findByRole("list", { name: "Progress" })).getAllByRole("listitem");
+      expect(steps.map((step) => step.textContent)).toEqual(rows.map(([label, state, date]) => `${label}${state}${date ?? ""}`));
+      expect(steps.filter((step) => step.getAttribute("aria-current") === "step")).toHaveLength(rows.filter(([, state]) => state === "Current").length);
+      expect(screen.getByRole("list", { name: "Progress" })).not.toHaveTextContent(/Logged|Checked out|Taken/);
+    });
+  });
+
+  describe("the cover section's order", () => {
+    const PRINTED_AT = "2026-10-02T16:00:00Z";
+    const coverSection = async () => (await screen.findByRole("heading", { name: REVIEW_COPY.albumPanel.coverOne })).closest("section") as HTMLElement;
+    /** Whether each node follows the one before it in document order. */
+    const inOrder = (...nodes: HTMLElement[]) =>
+      nodes.slice(1).every((node, i) => Boolean(nodes[i].compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING));
+
+    it("puts Print the slip right after the slip, then History, then Delete review", async () => {
+      fakeReviewsEndpoints({
+        records: [dogaItem({ printed_at: PRINTED_AT })],
+        forItem: { [ITEM_ID]: [submitted(40, { revision_count: 2, printed_at: PRINTED_AT })] },
+      });
+
+      renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      const cover = await coverSection();
+      const print = await within(cover).findByRole("link", { name: "Print the slip" });
+      expect(print).toHaveAttribute("href", `/dashboard/admin/intake/${ITEM_ID}/slip`);
+      expect(print).toHaveClass("MuiButton-root");
+      expect(print).toHaveClass("MuiButton-variantSolid");
+      const slip = within(cover).getByRole("group", { name: "Slip preview" });
+      expect(inOrder(slip, print, within(cover).getByRole("link", { name: REVIEW_COPY.albumPanel.history }), within(cover).getByRole("button", { name: "Delete review by DJ 40" }))).toBe(true);
+      expect(slip.nextElementSibling).toBe(print);
+      expect(tapedSlips()).toHaveLength(1);
+    });
+
+    it("has no tape while the record's own slip was never printed", async () => {
+      fakeReviewsEndpoints({ records: [dogaItem({ printed_at: null })], forItem: { [ITEM_ID]: [submitted(40)] } });
+
+      renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      await within(await coverSection()).findByRole("link", { name: "Print the slip" });
+      expect(tapedSlips()).toHaveLength(0);
+    });
+
+    it("names the button Print a new slip once the cover review was edited after printing", async () => {
+      fakeReviewsEndpoints({
+        records: [dogaItem({ printed_at: PRINTED_AT })],
+        forItem: { [ITEM_ID]: [submitted(40, { revision_count: 2, printed_revision_id: 401, printed_at: PRINTED_AT })] },
+        revisions: { "40": [reviewRevision({ id: 401, review_id: 40, revision: 1 }), reviewRevision({ id: 402, review_id: 40, revision: 2 })] },
+      });
+
+      renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      const cover = await coverSection();
+      const button = (await within(cover).findAllByRole("link", { name: "Print a new slip" })).find((link) => link.classList.contains("MuiButton-variantSolid"));
+      expect(button).toHaveAttribute("href", `/dashboard/admin/intake/${ITEM_ID}/slip`);
+      expect(within(cover).getByRole("group", { name: "Slip preview" }).nextElementSibling).toBe(button);
+      expect(within(cover).queryByRole("link", { name: "Print the slip" })).not.toBeInTheDocument();
+    });
+
+    it("puts the handwritten line in the button's place, with no Print the slip", async () => {
+      fakeReviewsEndpoints({ records: [dogaItem()], forItem: { [ITEM_ID]: [submitted(40, { medium: "handwritten", review: null })] } });
+
+      renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      const cover = await coverSection();
+      const line = await within(cover).findByText(REVIEW_COPY.intakeSlip.handwritten);
+      expect(within(cover).queryByRole("link", { name: /^Print/ })).not.toBeInTheDocument();
+      expect(inOrder(line, within(cover).getByRole("button", { name: "Delete review by DJ 40" }))).toBe(true);
+    });
+
+    it.each([
+      ["a disc", dogaItem, true],
+      ["a digital album", digitalDoga, false],
+    ])("puts the still-out line of %s right after the button, or none at all", async (_label, make, shown) => {
+      fakeReviewsEndpoints({
+        records: [make({ state: "checked_out", effective_state: "checked_out", printed_at: PRINTED_AT, ...heldBy("dj-sam", "Sam") })],
+        forItem: { [ITEM_ID]: [submitted(40)] },
+      });
+
+      renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      const cover = await coverSection();
+      const print = await within(cover).findByRole("link", { name: "Print the slip" });
+      if (shown) {
+        const line = within(cover).getByText("The record is still out with Sam.");
+        expect(inOrder(print, line, within(cover).getByRole("button", { name: "Delete review by DJ 40" }))).toBe(true);
+      } else {
+        expect(within(cover).queryByText(/still out with/)).not.toBeInTheDocument();
+      }
+    });
+
+    it("keeps the disabled Delete review and its sentence after History on a filed record", async () => {
+      fakeReviewsEndpoints({
+        records: [dogaItem({ state: "filed", effective_state: "filed", printed_at: PRINTED_AT })],
+        forItem: { [ITEM_ID]: [submitted(40, { revision_count: 2 })] },
+      });
+
+      renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      const cover = await coverSection();
+      const history = await within(cover).findByRole("link", { name: REVIEW_COPY.albumPanel.history });
+      const remove = within(cover).getByRole("button", { name: "Delete review by DJ 40" });
+      expect(remove).toBeDisabled();
+      expect(inOrder(history, remove, within(cover).getByText(REVIEW_COPY.intakeItem.deleteCoverFiled))).toBe(true);
+    });
   });
 
   it.each([
@@ -452,7 +643,8 @@ describe("IntakeItemScreen", () => {
 
     renderScreen(<IntakeItemScreen id={ITEM_ID} />);
 
-    expect(await screen.findByRole("heading", { level: 3, name: `Juana Molina · DOGA · Sonamos · ${format}` })).toBeInTheDocument();
+    const heading = await screen.findByRole("heading", { level: 3, name: "Juana Molina" });
+    expect(await within(heading.parentElement as HTMLElement).findByText(format, { selector: ".MuiChip-label" })).toBeInTheDocument();
   });
 
   it("shows the record's FCC notes on the page", async () => {
@@ -1440,15 +1632,15 @@ describe("IntakeItemScreen", () => {
 
     it.each([
       ["a disc", dogaItem, "Checked out"],
-      ["a digital album", digitalItem, "Taken"],
+      ["a digital album", digitalDoga, "Taken"],
     ])("words the state chip of %s that is checked out", async (_label, make, chip) => {
-      fakeReviewsEndpoints({ records: [make({ id: ITEM_ID, state: "checked_out", effective_state: "checked_out", ...heldBy("dj-sam", "Sam") })], forItem: { [ITEM_ID]: [] } });
+      fakeReviewsEndpoints({ records: [make({ state: "checked_out", effective_state: "checked_out", accepted_review_id: null, ...heldBy("dj-sam", "Sam") })], forItem: { [ITEM_ID]: [] } });
 
       renderScreen(<IntakeItemScreen id={ITEM_ID} />);
 
       // The chip sits beside the record's heading; look both up again on each try, since the page re-renders when the record loads.
       await waitFor(() => {
-        const chipRow = screen.getByRole("heading", { level: 3, name: /·/ }).parentElement as HTMLElement;
+        const chipRow = screen.getByRole("heading", { level: 3, name: "Juana Molina" }).parentElement as HTMLElement;
         expect(within(chipRow).getByText(chip, { selector: ".MuiChip-label" })).toBeInTheDocument();
       });
     });
@@ -2171,7 +2363,9 @@ describe("IntakeItemScreen", () => {
       renderScreen(<IntakeItemScreen id={ITEM_ID} />);
 
       const cover = (await screen.findByRole("heading", { name: "The review on the cover" })).closest("section")!;
-      expect(await within(cover).findByRole("link", { name: "Print a new slip" })).toHaveAttribute("href", `/dashboard/admin/intake/${ITEM_ID}/slip`);
+      // The note's link and the page's own button both offer it.
+      const offers = await within(cover).findAllByRole("link", { name: "Print a new slip" });
+      expect(offers.map((link) => link.getAttribute("href"))).toEqual([`/dashboard/admin/intake/${ITEM_ID}/slip`, `/dashboard/admin/intake/${ITEM_ID}/slip`]);
       const others = screen.getByRole("heading", { name: "Other reviews" }).closest("section")!;
       await within(others).findByText("Take 41.");
       expect(within(others).queryByText(/The cover has an earlier version|printed on the cover/)).not.toBeInTheDocument();
@@ -3730,7 +3924,7 @@ describe("IntakeItemScreen", () => {
       expect(within(cited).queryByText(/^From /)).not.toBeInTheDocument();
     });
 
-    // A compilation is filed under its shelf name; the station reads it by the alternate name behind "V/A". The record's own line keeps what was typed at intake.
+    // A compilation is filed under its shelf name; the station reads it by the alternate name behind "V/A". The record's own header keeps what was typed at intake.
     it.each([
       ["a compilation with an alternate name", { artist_name: "Various Artists - Rock - M", code_letters: "V/A", alternate_artist_name: "Stereolab" }, "Reviews of V/A Stereolab — On Your Own Love Again"],
       ["a Z- compilation with an alternate name", { artist_name: "Various Artists - Rock - M", code_letters: "Z-M", alternate_artist_name: " Stereolab " }, "Reviews of V/A Stereolab — On Your Own Love Again"],
@@ -3745,7 +3939,8 @@ describe("IntakeItemScreen", () => {
       renderScreen(<IntakeItemScreen id={ITEM_ID} />);
 
       expect(await screen.findByRole("heading", { name: heading })).toBeInTheDocument();
-      expect(screen.getByRole("heading", { level: 3, name: /^Juana Molina · DOGA · Sonamos/ })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { level: 3, name: "Juana Molina" })).toBeInTheDocument();
+      expect(screen.getByText("DOGA")).toBeInTheDocument();
     });
 
     it("sends the review to accept-review for this record and moves it under the cover, leaving no Use this review for it", async () => {
