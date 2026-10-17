@@ -31,10 +31,6 @@ vi.mock("@/src/components/experiences/modern/reviews/ReviewEditor", () => ({
   default: ({ id }: { id: number }) => <div data-testid="editor">{id}</div>,
 }));
 
-vi.mock("@/src/components/experiences/modern/Header/PageHeader", () => ({
-  default: ({ title }: { title: string }) => <div data-testid="page-header">{title}</div>,
-}));
-
 import ReviewEditorPage, { metadata } from "@/app/dashboard/@modern/reviews/[id]/page";
 import { getPageTitle } from "@/lib/utils/page-title";
 import { REVIEW_COPY } from "@/src/components/experiences/modern/reviews/copy";
@@ -51,7 +47,7 @@ describe("review editor page", () => {
     renderWithProviders(await open());
 
     expect(screen.getByTestId("editor")).toHaveTextContent("40");
-    expect(screen.getByTestId("page-header")).toHaveTextContent(REVIEW_COPY.pageTitle);
+    expect(screen.queryByRole("heading")).not.toBeInTheDocument();
   });
 
   it("titles the tab from the copy module", () => {

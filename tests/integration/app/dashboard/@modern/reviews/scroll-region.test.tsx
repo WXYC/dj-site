@@ -59,7 +59,11 @@ describe("review pages scroll inside Main", () => {
 
     const region = screen.getByTestId("screen").parentElement!;
     expect(region).toHaveStyle({ flex: "1", minHeight: "0px", overflow: "auto" });
-    expect(region).not.toContainElement(screen.getByTestId("page-header"));
+    // The record editor draws no page header: its record heading is the title.
+    const header = screen.queryByTestId("page-header");
+    if (header) {
+      expect(region).not.toContainElement(header);
+    }
     for (let el = region.parentElement; el; el = el.parentElement) {
       expect(scrollsVertically(el)).toBe(false);
     }

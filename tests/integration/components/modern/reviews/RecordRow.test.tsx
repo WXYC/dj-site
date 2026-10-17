@@ -148,7 +148,7 @@ describe("RecordRow", () => {
 describe("RecordHeader", () => {
   it("renders the artist as a heading with the album, label, format tag and chip slot", () => {
     renderWithProviders(<RecordHeader record={{ ...record, format: "Vinyl" }} chip={<span>On the review shelf</span>} />);
-    expect(screen.getByRole("heading", { level: 3, name: "Juana Molina" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "Juana Molina" })).toBeInTheDocument();
     const text = within(document.body);
     expect(text.getByText("DOGA")).toBeInTheDocument();
     expect(text.getByText("Sonamos")).toBeInTheDocument();
