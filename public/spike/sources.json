@@ -1,0 +1,41 @@
+{
+  "note": "Placeholders for the service-worker spike. Keep every url empty in git: paste presigned URLs into the page's form instead. A presigned URL is a credential; never commit or post one.",
+  "tracks": [
+    {
+      "id": "mp3",
+      "label": "MP3, 320 kbps CBR",
+      "format": "MP3",
+      "mime": "audio/mpeg",
+      "kbps": 320,
+      "file": "spike-marker-10min.mp3",
+      "url": ""
+    },
+    {
+      "id": "m4a",
+      "label": "M4A, AAC 256 kbps",
+      "format": "M4A/AAC",
+      "mime": "audio/mp4",
+      "kbps": 256,
+      "file": "spike-marker-10min.m4a",
+      "url": ""
+    },
+    {
+      "id": "flac",
+      "label": "FLAC, variable bitrate",
+      "format": "FLAC",
+      "mime": "audio/flac",
+      "kbps": null,
+      "file": "spike-marker-10min.flac",
+      "url": ""
+    },
+    {
+      "id": "wav",
+      "label": "WAV, 16-bit 44.1 kHz stereo",
+      "format": "WAV",
+      "mime": "audio/wav",
+      "kbps": 1411,
+      "file": "spike-marker-10min.wav",
+      "url": ""
+    }
+  ]
+}

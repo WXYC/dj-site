@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>Service-worker audio spike</title>
+    <link rel="stylesheet" href="/spike/spike.css" />
+    <script src="/spike/spike.js" defer></script>
+  </head>
+  <body>
+    <header>
+      <h1>Service-worker audio spike</h1>
+      <p class="muted">
+        A throwaway test page for
+        <a href="https://github.com/WXYC/dj-site/issues/2148">WXYC/dj-site#2148</a>. It is not part of the DJ site.
+      </p>
+    </header>
+
+    <main>
+      <section class="card">
+        <h2>Worker</h2>
+        <p id="sw-status" class="status">Starting...</p>
+      </section>
+
+      <section class="card">
+        <h2>Player</h2>
+        <div class="controls">
+          <label>
+            Track
+            <select id="track" disabled></select>
+          </label>
+          <label>
+            Response
+            <select id="mode">
+              <option value="direct">S3's own response (as the plan says)</option>
+              <option value="rebuilt">Rebuilt response, streamed and counted</option>
+            </select>
+          </label>
+          <label class="check">
+            <input type="checkbox" id="loop" />
+            Loop (for the 15-minute lock check)
+          </label>
+        </div>
+        <audio id="audio" controls preload="auto"></audio>
+        <div class="buttons" id="seeks">
+          <button type="button" data-seek="0.1" disabled>Seek 10%</button>
+          <button type="button" data-seek="0.5" disabled>Seek 50%</button>
+          <button type="button" data-seek="0.9" disabled>Seek 90%</button>
+          <button type="button" data-seek="0" disabled>Back to start</button>
+        </div>
+        <dl class="stats">
+          <dt>currentTime</dt>
+          <dd id="st-time">-</dd>
+          <dt>duration</dt>
+          <dd id="st-duration">-</dd>
+          <dt>buffered</dt>
+          <dd id="st-buffered">-</dd>
+          <dt>read-ahead</dt>
+          <dd id="st-ahead">-</dd>
+          <dt>max read-ahead</dt>
+          <dd id="st-max">-</dd>
+          <dt>state</dt>
+          <dd id="st-state">-</dd>
+          <dt>chunk</dt>
+          <dd id="st-chunk">-</dd>
+        </dl>
+      </section>
+
+      <section class="card">
+        <h2>Requests the worker answered</h2>
+        <p class="muted" id="log-note">None yet.</p>
+        <div class="scroll">
+          <table id="log">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>t (s)</th>
+                <th>asked</th>
+                <th>sent</th>
+                <th>status</th>
+                <th>returned</th>
+                <th>bytes</th>
+                <th>lookup ms</th>
+                <th>ms</th>
+                <th>worker</th>
+                <th>note</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Element and page events</h2>
+        <div class="scroll short">
+          <ol id="events" class="events"></ol>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Results</h2>
+        <div class="buttons">
+          <button type="button" id="copy">Copy results as Markdown</button>
+          <button type="button" id="clear-log" class="quiet">Clear stored log</button>
+        </div>
+        <p class="muted" id="copy-status"></p>
+        <textarea id="copy-out" rows="10" readonly hidden></textarea>
+      </section>
+
+      <section class="card">
+        <h2>Track URLs</h2>
+        <p class="muted">
+          Paste a URL per track (a presigned S3 GET from <code>spike/make-test-bucket.sh</code>). It stays in this
+          browser's Cache Storage for this origin. It is never shown in the log or in the copied results.
+        </p>
+        <form id="urls"></form>
+      </section>
+
+      <section class="card">
+        <h2>Browser</h2>
+        <p id="ua" class="mono"></p>
+      </section>
+    </main>
+  </body>
+</html>

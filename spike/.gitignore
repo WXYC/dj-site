@@ -1,0 +1,6 @@
+# Generated test audio for the spike. Never commit audio.
+test-audio/
+*.mp3
+*.m4a
+*.flac
+*.wav
