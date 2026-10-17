@@ -1,135 +1,28 @@
 "use client";
 
-import { useState } from "react";
-import { Button, Chip, Link, Stack, Typography } from "@mui/joy";
-import type { IntakeItem, Review } from "@wxyc/shared";
-import { useRouter } from "next/navigation";
-import { toast } from "sonner";
+import { Stack, Typography } from "@mui/joy";
 import { Authorization } from "@/lib/features/admin/types";
 import { useGetFormatsQuery } from "@/lib/features/catalog/api";
-import {
-  isIntakeRequestRefused,
-  isIntakeStateChanged,
-  intakeApi,
-  useAcceptIntakeItemMutation,
-  useCheckoutIntakeItemMutation,
-  useGetIntakeItemsQuery,
-  usePassIntakeItemMutation,
-  useReleaseIntakeItemMutation,
-  useRequestIntakeItemMutation,
-} from "@/lib/features/reviews/intakeApi";
-import {
-  isReviewSubjectNotHeld,
-  reviewApi,
-  useCreateReviewMutation,
-  useGetMyReviewsQuery,
-  useGetReviewersQuery,
-} from "@/lib/features/reviews/reviewApi";
-import { byKind, overdueMark } from "@/lib/features/reviews/kind";
+import { useGetIntakeItemsQuery } from "@/lib/features/reviews/intakeApi";
+import { useGetMyReviewsQuery } from "@/lib/features/reviews/reviewApi";
 import { useCanSeeReviews } from "@/src/hooks/useCanSeeReviews";
 import { useAuthentication } from "@/src/hooks/authenticationHooks";
-import { useAppDispatch } from "@/lib/hooks";
-import { useRowWrite } from "@/src/hooks/useRowWrite";
-import ConfirmDialog from "../ConfirmDialog";
-import IntakeLane from "./IntakeLane";
-import IntakeLogForm from "./IntakeLogForm";
-import IntakeRequestPicker from "./IntakeRequestPicker";
-import { REVIEW_COPY } from "./copy";
-import RecordRow from "./RecordRow";
-import { intakeRecord, recordLine } from "./recordLine";
-import { useReviewRecord } from "./useReviewRecord";
-import { formatStationShortDate } from "@/src/utilities/stationTime";
 import { hasNothingToShow } from "@/lib/has-nothing-to-show";
-
-const day = (iso: string | null) => (iso ? formatStationShortDate(iso) : "");
-
-type Action = "checkout" | "accept" | "pass" | "release" | "write" | "request";
-
-/** What a lost race (409 `state_changed`) means for each button, shown once the lists have reloaded. A digital album is never lent, so its release and write races read as the claim having moved. */
-const raceNotice = (action: Action, item: IntakeItem | undefined): string => {
-  switch (action) {
-    case "checkout":
-      return REVIEW_COPY.screen.raceCheckout;
-    case "accept":
-    case "pass":
-      return REVIEW_COPY.screen.raceRequest;
-    case "release":
-      return item ? byKind(item, { disc: REVIEW_COPY.screen.raceRelease, digital: REVIEW_COPY.screen.raceReleaseDigital }) : REVIEW_COPY.screen.raceRelease;
-    case "write":
-      return item ? byKind(item, { disc: REVIEW_COPY.subjectNotHeld, digital: REVIEW_COPY.subjectNotHeldDigital }) : REVIEW_COPY.subjectNotHeld;
-    case "request":
-      return REVIEW_COPY.intake.raceRequest;
-  }
-};
-
-/** A review's row: the record as parts (artist, album, label) once it has landed. Until then, a library review shows `myReviews.libraryRelease` and a logged-record review shows nothing in its place. Either way the row carries the status, the last-saved date and Open. */
-function MyReviewRow({ review }: { review: Review }) {
-  const record = useReviewRecord(review);
-  const fromLibrary = review.intake_item_id == null && review.album_id != null;
-  const meta = (
-    <>
-      {fromLibrary && <Chip size="sm" variant="outlined">{REVIEW_COPY.myReviews.fromTheLibrary}</Chip>}
-      <Chip size="sm">{review.status === "draft" ? REVIEW_COPY.myReviews.draft : REVIEW_COPY.myReviews.submitted}</Chip>
-      <Typography level="body-sm">{`${REVIEW_COPY.myReviews.lastSaved} ${day(review.last_modified)}`}</Typography>
-    </>
-  );
-  const open = <Link href={`/dashboard/reviews/${review.id}`}>{REVIEW_COPY.myReviews.open}</Link>;
-  if (record) return <RecordRow record={record} meta={<Stack direction="row" spacing={1} alignItems="center">{meta}</Stack>} actions={open} />;
-  return (
-    <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-      {review.intake_item_id == null && <Typography>{REVIEW_COPY.myReviews.libraryRelease}</Typography>}
-      {meta}
-      {open}
-    </Stack>
-  );
-}
-
-// One argument per list, shared by its hook and the post-write reload so the
-// reload reaches the same cache entry. The unfiltered read carries every state.
-const EVERY_STATE = undefined;
-const MY_REVIEWS = undefined;
+import IntakeLogForm from "./IntakeLogForm";
+import MyReviewsScreen from "./MyReviewsScreen";
+import ReviewShelfScreen from "./ReviewShelfScreen";
+import { REVIEW_COPY } from "./copy";
+import { EVERY_STATE, MY_REVIEWS } from "./useReviewWrite";
 
 export default function ReviewsScreen() {
   const { data: auth } = useAuthentication();
   const user = "user" in auth ? auth.user : undefined;
-  const me = user?.id;
   const visible = useCanSeeReviews();
   const isMD = (user?.authority ?? Authorization.DJ) >= Authorization.MD;
 
   const everyState = useGetIntakeItemsQuery(EVERY_STATE, { skip: !visible });
   const mine = useGetMyReviewsQuery(MY_REVIEWS, { skip: !visible });
   const { data: formats } = useGetFormatsQuery(undefined, { skip: !visible });
-  const reviewers = useGetReviewersQuery(undefined, { skip: !visible || !isMD });
-
-  const [checkout] = useCheckoutIntakeItemMutation();
-  const [release] = useReleaseIntakeItemMutation();
-  const [accept] = useAcceptIntakeItemMutation();
-  const [pass] = usePassIntakeItemMutation();
-  const [requestReview] = useRequestIntakeItemMutation();
-  const [createReview] = useCreateReviewMutation();
-  const router = useRouter();
-  const [returning, setReturning] = useState<IntakeItem | null>(null);
-  const dispatch = useAppDispatch();
-  // A double-click's second POST would find the record already moved and
-  // answer 409 state_changed, telling the DJ someone else took the record they
-  // just took; one write per row at a time. Each reload joins the one the
-  // write's invalidation already started.
-  const { write, lock } = useRowWrite<Action>({
-    reload: () => [
-      dispatch(intakeApi.endpoints.getIntakeItems.initiate(EVERY_STATE, { subscribe: false, forceRefetch: true })),
-      dispatch(reviewApi.endpoints.getMyReviews.initiate(MY_REVIEWS, { subscribe: false, forceRefetch: true })),
-    ],
-    isLostRace: (err) => isIntakeStateChanged(err) || isReviewSubjectNotHeld(err),
-    onFailure: (err, _id, action) => {
-      if (action === "request" && isIntakeRequestRefused(err)) {
-        toast.error(REVIEW_COPY.intake.requestRefused);
-        void dispatch(reviewApi.endpoints.getReviewers.initiate(undefined, { subscribe: false, forceRefetch: true }));
-        return;
-      }
-      toast.error(action === "write" ? REVIEW_COPY.couldNotStart : REVIEW_COPY.screen.writeFailed);
-    },
-    onLostRace: (id, action) => toast(raceNotice(action, everyState.data?.find((i) => i.id === id))),
-  });
 
   if (!visible) return null;
   if ([everyState, mine].some(hasNothingToShow)) {
@@ -139,108 +32,20 @@ export default function ReviewsScreen() {
   // Until both reads land, an empty-state sentence would read as a fact.
   if (!everyState.data || !mine.data) return null;
 
-  const items = everyState.data;
-  const myReviews = mine.data;
-  const onShelf = items.filter((i) => i.effective_state === "pool");
-  const requests = items.filter((i) => i.effective_state === "requested" && i.requested_dj_id === me);
-  const checkouts = [
-    ...items.filter((i) => i.effective_state === "checked_out" && i.checked_out_by === me),
-    ...items.filter((i) => i.effective_state === "reviewed" && i.checked_out_by === me),
-  ];
-
-  // Names the request picker's group for the record it acts on.
-  const shelfRecordId = (i: IntakeItem) => `review-shelf-record-${i.id}`;
-  const describe = (i: IntakeItem) => recordLine(intakeRecord(i), formats);
-
   return (
     <Stack spacing={3}>
-      <IntakeLane title={REVIEW_COPY.screen.requestsTitle} rows={requests} empty={REVIEW_COPY.screen.requestsEmpty} row={(i) => (
-        <RecordRow
-          record={intakeRecord(i)}
-          meta={<Typography level="body-sm">{`${REVIEW_COPY.screen.asked} ${day(i.requested_at)}`}</Typography>}
-          actions={
-            <>
-              <Button size="sm" {...lock(i.id, "accept")} onClick={() => write(i.id, "accept", () => accept(i.id).unwrap())}>{REVIEW_COPY.screen.accept}</Button>
-              <Button size="sm" variant="outlined" {...lock(i.id, "pass")} onClick={() => write(i.id, "pass", () => pass(i.id).unwrap())}>{REVIEW_COPY.screen.pass}</Button>
-            </>
-          }
-        />
-      )} />
-      <IntakeLane title={REVIEW_COPY.screen.checkoutsTitle} rows={checkouts} empty={REVIEW_COPY.screen.checkoutsEmpty} label={(i) => <Typography>{describe(i)}</Typography>} extra={(i) => {
-        const mineHere = myReviews.filter((r) => r.intake_item_id === i.id);
-        const submitted = mineHere.find((r) => r.status === "submitted");
-        const draft = mineHere.find((r) => r.status === "draft");
-        const reviewed = i.effective_state === "reviewed";
-        const mark = overdueMark(i);
-        const note = reviewed
-          ? byKind(i, { disc: REVIEW_COPY.screen.reviewedReturn, digital: null })
-          : submitted
-            ? REVIEW_COPY.screen.reviewSubmitted
-            : byKind(i, { disc: null, digital: REVIEW_COPY.screen.filesComing });
-        return (
-        <>
-          <Typography level="body-sm">{`${REVIEW_COPY.screen.taken} ${day(i.checked_out_at)}`}</Typography>
-          {mark && <Chip color="danger">{mark}</Chip>}
-          {note && <Typography level="body-sm">{note}</Typography>}
-          {submitted ? (
-            <Button size="sm" variant={reviewed ? "outlined" : "solid"} onClick={() => router.push(`/dashboard/reviews/${submitted.id}`)}>{REVIEW_COPY.screen.editReview}</Button>
-          ) : (
-            <Button
-              size="sm"
-              variant={reviewed ? "outlined" : "solid"}
-              {...lock(i.id, "write")}
-              onClick={() =>
-                write(i.id, "write", async () => {
-                  const review = draft ?? (await createReview({ intake_item_id: i.id }).unwrap());
-                  router.push(`/dashboard/reviews/${review.id}`);
-                })
-              }
-            >
-              {REVIEW_COPY.writeReview}
-            </Button>
-          )}
-          <Button size="sm" variant={reviewed ? "solid" : "outlined"} {...lock(i.id, "release")} onClick={() => setReturning(i)}>{REVIEW_COPY.screen.returnToShelf}</Button>
-        </>
-        );
-      }} />
-      {isMD && <IntakeLogForm />}
-      {isMD && hasNothingToShow(reviewers) && <Typography role="alert">{REVIEW_COPY.intake.reviewersLoadFailed}</Typography>}
-      <IntakeLane title={REVIEW_COPY.screen.shelfTitle} rows={onShelf} empty={REVIEW_COPY.screen.shelfEmpty} label={(i) => (isMD ? <Link id={shelfRecordId(i)} href={`/dashboard/admin/intake/${i.id}`}>{describe(i)}</Link> : <Typography>{describe(i)}</Typography>)} extra={(i) => (
-        <>
-          <Typography level="body-sm">{`${REVIEW_COPY.screen.logged} ${day(i.logged_at)}`}</Typography>
-          <Button size="sm" {...lock(i.id, "checkout")} onClick={() => write(i.id, "checkout", () => checkout(i.id).unwrap())}>{byKind(i, { disc: REVIEW_COPY.screen.checkOut, digital: REVIEW_COPY.screen.take })}</Button>
-          {isMD && (
-            <IntakeRequestPicker
-              reviewers={reviewers.data ?? []}
-              labelledBy={shelfRecordId(i)}
-              busy={lock(i.id, "request")}
-              onRequest={(djId) => write(i.id, "request", () => requestReview({ id: i.id, djId }).unwrap())}
-            />
-          )}
-        </>
-      )} />
-      <IntakeLane title={REVIEW_COPY.myReviews.title} rows={myReviews} empty={REVIEW_COPY.myReviews.empty} row={(r) => <MyReviewRow review={r} />} />
-      <ConfirmDialog
-        open={returning !== null}
-        onClose={() => setReturning(null)}
-        title={REVIEW_COPY.screen.returnToShelf}
-        actions={
+      <MyReviewsScreen
+        items={everyState.data}
+        myReviews={mine.data}
+        formats={formats}
+        me={user?.id}
+        between={
           <>
-            <Button
-              onClick={async () => {
-                const id = returning!.id;
-                setReturning(null);
-                await write(id, "release", () => release(id).unwrap());
-              }}
-            >
-              {REVIEW_COPY.screen.returnToShelf}
-            </Button>
-            <Button variant="plain" onClick={() => setReturning(null)}>{REVIEW_COPY.screen.cancel}</Button>
+            {isMD && <IntakeLogForm />}
+            <ReviewShelfScreen items={everyState.data} formats={formats} isMD={isMD} />
           </>
         }
-      >
-        {returning && byKind(returning, { disc: REVIEW_COPY.screen.returnQuestion, digital: REVIEW_COPY.screen.returnQuestionDigital })}
-      </ConfirmDialog>
+      />
     </Stack>
   );
 }
