@@ -17,7 +17,7 @@ export default function ReviewsTabs(): JSX.Element {
 
   const tabs = [
     { path: "/dashboard/reviews", label: COPY.reviewing },
-    { path: "/dashboard/reviews/music-directors", label: waiting > 0 ? COPY.count(COPY.directors, waiting) : COPY.directors },
+    { path: "/dashboard/reviews/music-directors", label: COPY.directors, count: waiting, countLabel: COPY.waiting(waiting) },
   ];
 
   return <PageTabs tabs={tabs} />;

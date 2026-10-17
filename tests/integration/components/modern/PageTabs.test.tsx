@@ -38,4 +38,19 @@ describe("PageTabs", () => {
       }
     }
   });
+
+  it.each([
+    { name: "no count", count: undefined, pill: null },
+    { name: "a zero count", count: 0, pill: null },
+    { name: "a count of 1", count: 1, pill: "1" },
+    { name: "a count of 12", count: 12, pill: "12" },
+  ])("draws the right pill for $name", ({ count, pill }) => {
+    vi.mocked(usePathname).mockReturnValue("/dashboard/first");
+
+    renderWithProviders(<PageTabs tabs={[{ path: "/dashboard/first", label: "First", count, countLabel: `${count} waiting` }]} />);
+
+    const link = screen.getByRole("link", { name: /^First/ });
+    expect(link).toHaveTextContent(pill === null ? /^First$/ : new RegExp(`^First${pill}$`));
+    expect(link).toHaveAccessibleName(pill === null ? "First" : `First, ${count} waiting`);
+  });
 });
