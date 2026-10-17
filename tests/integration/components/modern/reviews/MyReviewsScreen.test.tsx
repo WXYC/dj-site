@@ -38,7 +38,7 @@ describe("MyReviewsScreen", () => {
     for (const name of [REVIEW_COPY.screen.requestsTitle, REVIEW_COPY.screen.checkoutsTitle, REVIEW_COPY.myReviews.title]) {
       expect(await screen.findByRole("heading", { level: 3, name })).toBeInTheDocument();
     }
-    expect(screen.getByRole("button", { name: REVIEW_COPY.screen.accept })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: REVIEW_COPY.writeReview })).toBeInTheDocument();
     expect(screen.getByText("between the lanes")).toBeInTheDocument();
   });
 });

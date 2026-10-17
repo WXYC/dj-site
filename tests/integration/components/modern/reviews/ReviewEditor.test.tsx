@@ -3,7 +3,7 @@ import { act, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { delay, http, HttpResponse } from "msw";
 import type { Review } from "@wxyc/shared";
 import { Authorization } from "@/lib/features/admin/types";
-import { deletingReview, fakeReviewsEndpoints, fccNote, holdResponse, intakeItem, outline, renderWithProviders, review, reviewRevision, reviewsSettled, rulesOf, server, TEST_BACKEND_URL } from "@/tests/helpers";
+import { deletingReview, digitalItem, fakeReviewsEndpoints, fccNote, holdResponse, intakeItem, outline, renderWithProviders, review, reviewRevision, reviewsSettled, rulesOf, server, TEST_BACKEND_URL } from "@/tests/helpers";
 import Link from "next/link";
 import { applicationSlice } from "@/lib/features/application/frontend";
 import { reviewApi } from "@/lib/features/reviews/reviewApi";
@@ -103,6 +103,32 @@ describe("ReviewEditor", () => {
     await user.click(await screen.findByRole("button", { name: "Submit" }));
     await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Submit" }));
   };
+
+  describe("the arrival line", () => {
+    const ARRIVED_DISC = "It's yours to review now, so other DJs can see that you have it. Write when you've listened; your draft saves here.";
+    const ARRIVED_DIGITAL = "It's yours to review now, and the music directors have been told to send you the files. Write when you've listened; your draft saves here.";
+    const arrivedFrom = (record: ReturnType<typeof intakeItem>) =>
+      fakeReviewsEndpoints({ reviews: [DRAFT], records: [{ ...record, id: DRAFT.intake_item_id! }] });
+
+    it.each([
+      ["a disc", intakeItem({}), ARRIVED_DISC],
+      ["a digital album", digitalItem({}), ARRIVED_DIGITAL],
+    ])("says what the DJ holds now when %s arrived from a request", async (_kind, record, line) => {
+      arrivedFrom(record);
+      renderWithProviders(<ReviewEditor id={40} arrivedFromRequest />);
+
+      expect(await screen.findByText(line)).toBeInTheDocument();
+    });
+
+    it("says nothing when the editor was opened without the marker", async () => {
+      arrivedFrom(intakeItem({}));
+      renderWithProviders(<ReviewEditor id={40} />);
+
+      await screen.findByText(PRIVACY);
+      expect(screen.queryByText(REVIEW_COPY.arrived.disc)).not.toBeInTheDocument();
+      expect(screen.queryByText(REVIEW_COPY.arrived.digital)).not.toBeInTheDocument();
+    });
+  });
 
   describe.each([
     ["a draft", DRAFT, REVIEW_COPY.saveDraft],

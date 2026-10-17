@@ -9,6 +9,8 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Authorization } from "@/lib/features/admin/types";
 import type { User } from "@/lib/features/authentication/types";
+import { useGetIntakeItemQuery } from "@/lib/features/reviews/intakeApi";
+import { byKind } from "@/lib/features/reviews/kind";
 import {
   isReviewInUse,
   isReviewNotDraft,
@@ -70,7 +72,7 @@ function useConfirmedFccNotes(review: Review): string[] {
     .map((n) => `${n.track}: ${n.note}`);
 }
 
-function Form({ review, user }: { review: Review; user: User | undefined }) {
+function Form({ review, user, arrivedFromRequest }: { review: Review; user: User | undefined; arrivedFromRequest: boolean }) {
   const userId = user?.id ?? "";
   const isAuthor = user?.id != null && user.id === review.author_user_id;
   const isMusicDirector = !isAuthor && (user?.authority ?? Authorization.NO) >= Authorization.MD;
@@ -83,6 +85,7 @@ function Form({ review, user }: { review: Review; user: User | undefined }) {
   const [remove, { isLoading: deleting }] = useDeleteReviewMutation();
   const router = useRouter();
   const record = useReviewRecord(review);
+  const arrivedItem = useGetIntakeItemQuery(arrivedFromRequest && review.intake_item_id != null ? review.intake_item_id : skipToken).data;
   const fccNotes = useConfirmedFccNotes(review);
   const { root, bar } = useStickyRoom<HTMLDivElement, HTMLDivElement>();
   const reasonId = useId();
@@ -198,6 +201,7 @@ function Form({ review, user }: { review: Review; user: User | undefined }) {
         )}
         <PrintedVersionNote review={review} onCover={review.in_use} />
       </Stack>
+      {arrivedItem && <Typography level="body-sm" sx={{ mt: 1 }}>{byKind(arrivedItem, REVIEW_COPY.arrived)}</Typography>}
       {status && <Typography level="body-sm" sx={{ mt: 1 }}>{status}</Typography>}
       <Box
         sx={{
@@ -291,7 +295,8 @@ function Form({ review, user }: { review: Review; user: User | undefined }) {
   );
 }
 
-export default function ReviewEditor({ id }: { id: number }) {
+/** `arrivedFromRequest` adds the line that says what the DJ holds after Write a review on a request. */
+export default function ReviewEditor({ id, arrivedFromRequest = false }: { id: number; arrivedFromRequest?: boolean }) {
   const visible = useCanSeeReviews();
   const { data, isError } = useGetReviewQuery(id, { skip: !visible });
   const { data: auth } = useAuthentication();
@@ -309,5 +314,5 @@ export default function ReviewEditor({ id }: { id: number }) {
     );
   }
   // Keyed by the signed-in user so a session that changes under an open editor starts a fresh form (and a fresh read of what that user kept) rather than carrying the first user's text over.
-  return data ? <Form key={user?.id} review={data} user={user} /> : <HiddenTitle />;
+  return data ? <Form key={user?.id} review={data} user={user} arrivedFromRequest={arrivedFromRequest} /> : <HiddenTitle />;
 }

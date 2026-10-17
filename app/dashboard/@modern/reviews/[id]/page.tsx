@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   title: getPageTitle(REVIEW_COPY.pageTitle),
 };
 
-export default async function ReviewEditorPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function ReviewEditorPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ arrived?: string }> }) {
   const gated = await gateReviewRoute();
   const reviewId = Number((await params).id);
   if (!Number.isInteger(reviewId) || reviewId <= 0) notFound();
@@ -18,7 +18,7 @@ export default async function ReviewEditorPage({ params }: { params: Promise<{ i
 
   return (
     <ScrollRegion>
-      <ReviewEditor id={reviewId} />
+      <ReviewEditor id={reviewId} arrivedFromRequest={(await searchParams).arrived === "request"} />
     </ScrollRegion>
   );
 }
