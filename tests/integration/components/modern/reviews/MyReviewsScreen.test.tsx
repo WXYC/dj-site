@@ -3,6 +3,14 @@ import { screen } from "@testing-library/react";
 import { fakeReviewsEndpoints, intakeItem, renderWithProviders } from "@/tests/helpers";
 import { REVIEW_COPY } from "@/src/components/experiences/modern/reviews/copy";
 import MyReviewsScreen from "@/src/components/experiences/modern/reviews/MyReviewsScreen";
+import { useReviewWrite } from "@/src/components/experiences/modern/reviews/useReviewWrite";
+import type { ComponentProps } from "react";
+
+// The screen takes the shared write wiring from its caller, as ReviewsScreen supplies it.
+function WithWrite(props: Omit<ComponentProps<typeof MyReviewsScreen>, "write" | "lock">) {
+  const { write, lock } = useReviewWrite(props.items);
+  return <MyReviewsScreen {...props} write={write} lock={lock} />;
+}
 
 vi.mock("sonner", () => ({
   toast: Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn(), info: vi.fn() }),
@@ -18,7 +26,7 @@ describe("MyReviewsScreen", () => {
   it("renders the request, checkout and My reviews lanes around the slot between them", async () => {
     fakeReviewsEndpoints();
     renderWithProviders(
-      <MyReviewsScreen
+      <WithWrite
         items={[intakeItem({ id: 7, state: "requested", effective_state: "requested", requested_dj_id: "dj-me" })]}
         myReviews={[]}
         formats={undefined}

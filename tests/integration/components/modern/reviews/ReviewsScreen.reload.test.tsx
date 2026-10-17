@@ -75,6 +75,54 @@ describe("ReviewsScreen — a row stays locked until every rendered list has rel
     await waitFor(() => expect(checkout).toBeEnabled());
   });
 
+  it("keeps a record checked out from the review shelf locked in Records I'm reviewing until My reviews has reloaded", async () => {
+    let written = false;
+    let releaseHeld!: () => void;
+    const held = new Promise<void>((resolve) => {
+      releaseHeld = resolve;
+    });
+    let heldReads = 0;
+    let intakeReloads = 0;
+    const CHECKED_OUT = intakeItem({ id: 5, state: "checked_out", effective_state: "checked_out", checked_out_by: "dj-me", checked_out_at: "2026-09-02T12:00:00Z" });
+    fakeReviewsEndpoints({ open: [ON_SHELF] });
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/reviews`, async () => {
+        if (written) {
+          heldReads += 1;
+          await held;
+        }
+        return HttpResponse.json([]);
+      }),
+      http.get(`${TEST_BACKEND_URL}/intake`, () => {
+        if (written) {
+          intakeReloads += 1;
+        }
+        return HttpResponse.json([written ? CHECKED_OUT : ON_SHELF]);
+      }),
+      http.post(`${TEST_BACKEND_URL}/intake/5/checkout`, () => {
+        written = true;
+        return HttpResponse.json(CHECKED_OUT);
+      }),
+    );
+
+    const { user, store } = renderWithProviders(<ReviewsScreen />);
+    const shelf = await screen.findByRole("region", { name: "The review shelf" });
+    await user.click(within(shelf).getByRole("button", { name: "Check out" }));
+
+    // The intake read has landed and moved the record into Records I'm reviewing; the My reviews read is still held.
+    const checkouts = await screen.findByRole("region", { name: "Records I'm reviewing" });
+    const writeReview = await within(checkouts).findByRole("button", { name: "Write a review" });
+    await waitFor(() => expect(intakeReloads).toBeGreaterThan(0));
+    await waitFor(() => expect(heldReads).toBeGreaterThan(0));
+    await waitFor(() => expect(pendingCount(store)).toBe(1));
+    await renderedFrame();
+    expect(writeReview).toBeDisabled();
+    expect(within(checkouts).getByRole("button", { name: "Return to the review shelf" })).toBeDisabled();
+
+    releaseHeld();
+    await waitFor(() => expect(writeReview).toBeEnabled());
+  });
+
   it("reads intake once on load, and finds a reviewed checkout in that one read", async () => {
     const intakeReads: string[] = [];
     fakeReviewsEndpoints({

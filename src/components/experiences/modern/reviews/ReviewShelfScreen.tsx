@@ -1,22 +1,21 @@
 "use client";
 
+import type { ComponentProps } from "react";
 import { Button, Link, Typography } from "@mui/joy";
 import type { IntakeItem } from "@wxyc/shared";
 import { useCheckoutIntakeItemMutation, useRequestIntakeItemMutation } from "@/lib/features/reviews/intakeApi";
-import { useGetReviewersQuery } from "@/lib/features/reviews/reviewApi";
 import { byKind } from "@/lib/features/reviews/kind";
 import { hasNothingToShow } from "@/lib/has-nothing-to-show";
 import IntakeLane from "./IntakeLane";
 import IntakeRequestPicker from "./IntakeRequestPicker";
 import { REVIEW_COPY } from "./copy";
 import { intakeRecord, recordLine } from "./recordLine";
-import { day, useReviewWrite } from "./useReviewWrite";
+import { day, type ReviewWrite } from "./useReviewWrite";
 
-export default function ReviewShelfScreen({ items, formats, isMD }: { items: IntakeItem[]; formats: { id: number; format_name: string }[] | undefined; isMD: boolean }) {
-  const reviewers = useGetReviewersQuery(undefined, { skip: !isMD });
+/** The review shelf lane, and for a music director the reviewers-load alert and each record's Request a review picker. It assumes its caller has applied the `useCanSeeReviews` check and the load-failed gate, and takes the reviewers read and the one `useReviewWrite` the caller shares with My reviews. */
+export default function ReviewShelfScreen({ items, formats, isMD, reviewers, write, lock }: { items: IntakeItem[]; formats: { id: number; format_name: string }[] | undefined; isMD: boolean; reviewers: { isError: boolean; data?: ComponentProps<typeof IntakeRequestPicker>["reviewers"] } } & ReviewWrite) {
   const [checkout] = useCheckoutIntakeItemMutation();
   const [requestReview] = useRequestIntakeItemMutation();
-  const { write, lock } = useReviewWrite(items);
   const onShelf = items.filter((i) => i.effective_state === "pool");
 
   // Names the request picker's group for the record it acts on.
