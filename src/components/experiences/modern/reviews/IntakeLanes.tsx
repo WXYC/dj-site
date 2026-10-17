@@ -17,6 +17,7 @@ import { byKind, recordKind } from "@/lib/features/reviews/kind";
 import { useAppDispatch } from "@/lib/hooks";
 import { useCanSeeReviews } from "@/src/hooks/useCanSeeReviews";
 import { useRowWrite } from "@/src/hooks/useRowWrite";
+import ConfirmDialog from "../ConfirmDialog";
 import FccNotesToConfirm from "./FccNotesToConfirm";
 import HeadedSection from "./HeadedSection";
 import IntakeLane from "./IntakeLane";
@@ -65,6 +66,7 @@ function IntakeLaneGroups() {
   const [cancelRequest] = useCancelIntakeRequestMutation();
   const dispatch = useAppDispatch();
   const [notice, setNotice] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState<{ item: IntakeItem; action: "release" | "return" } | null>(null);
   const { write, lock } = useRowWrite<Action>({
     reload: () =>
       [EVERY_STATE, AWAITING_LANE].map((arg) =>
@@ -117,6 +119,8 @@ function IntakeLaneGroups() {
       {i.overdue && <Chip color="danger">{REVIEW_COPY.screen.overdue}</Chip>}
     </>
   );
+  const confirmingHolder = confirming && itemHolder(confirming.item);
+  const holderName = confirmingHolder && "name" in confirmingHolder ? confirmingHolder.name : null;
   const physical = (i: IntakeItem) => waitingIds.has(i.id) && <Chip size="sm">{COPY.reviewWaitingMark}</Chip>;
 
   return (
@@ -142,7 +146,16 @@ function IntakeLaneGroups() {
           rows={awaiting.data}
           empty={COPY.empty}
           label={laneLabel}
-          extra={(i) => <WaitingFrom item={i} where={where(i)} />}
+          extra={(i) => (
+            <>
+              <WaitingFrom item={i} where={where(i)} />
+              {["checked_out", "removed"].includes(itemHolder(i).kind) && recordKind(i) === "disc" && (
+                <Button size="sm" variant="outlined" {...lock(i.id, "return")} onClick={() => setConfirming({ item: i, action: "return" })}>
+                  {COPY.returned}
+                </Button>
+              )}
+            </>
+          )}
         />
       )}
       <IntakeLane
@@ -169,9 +182,11 @@ function IntakeLaneGroups() {
           <>
             {physical(i)}
             <Typography level="body-sm">{where(i)}</Typography>
-            <Button size="sm" variant="outlined" {...lock(i.id, "release")} onClick={() => act(i.id, "release", () => release(i.id).unwrap())}>
-              {COPY.release}
-            </Button>
+            {!waitingIds.has(i.id) && (
+              <Button size="sm" variant="outlined" {...lock(i.id, "release")} onClick={() => setConfirming({ item: i, action: "release" })}>
+                {REVIEW_COPY.screen.returnToShelf}
+              </Button>
+            )}
           </>
         )}
       />
@@ -198,6 +213,31 @@ function IntakeLaneGroups() {
         }}
       />
       <IntakeLane title={COPY.filed} rows={inState("filed")} empty={COPY.empty} label={laneLabel} />
+      <ConfirmDialog
+        open={confirming !== null}
+        onClose={() => setConfirming(null)}
+        title={confirming?.action === "return"
+          ? COPY.markReturnedQuestion(confirming.item.artist_name, confirming.item.album_title)
+          : confirming && COPY.returnQuestion(confirming.item.artist_name, confirming.item.album_title)}
+        actions={
+          <>
+            <Button
+              onClick={async () => {
+                const { item, action } = confirming!;
+                setConfirming(null);
+                await act(item.id, action, () => release(item.id).unwrap());
+              }}
+            >
+              {confirming?.action === "return" ? COPY.returned : REVIEW_COPY.screen.returnToShelf}
+            </Button>
+            <Button variant="plain" onClick={() => setConfirming(null)}>{REVIEW_COPY.screen.cancel}</Button>
+          </>
+        }
+      >
+        {confirming?.action === "return"
+          ? COPY.markReturnedBody(holderName)
+          : confirming && `${COPY.returnBody(holderName)}${holderName && recordKind(confirming.item) === "disc" ? ` ${COPY.returnBringDisc}` : ""}`}
+      </ConfirmDialog>
     </Stack>
   );
 }
