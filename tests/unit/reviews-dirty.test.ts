@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { ReviewPatch } from "@wxyc/shared";
 import { patchChanged, toFieldPatch, type FieldValues } from "@/src/components/experiences/modern/reviews/SlipFields";
 
-const LOADED: FieldValues = { buzzwords: "", artist_blurb: "", review: "Warm.", recommended_tracks: "", fcc: "" };
+const LOADED: FieldValues = { buzzwords: "", review: "Warm.", recommended_tracks: "", fcc: "" };
 const CONSENT = { publish_website: false, publish_apps: false, publish_instagram: false, credit: null };
 const patch = (values: FieldValues, consent = CONSENT): ReviewPatch => ({ ...toFieldPatch(values), ...consent });
 

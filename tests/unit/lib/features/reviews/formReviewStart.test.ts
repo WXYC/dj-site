@@ -25,17 +25,20 @@ const archived = (overrides: Partial<AlbumReview> = {}): AlbumReview => ({
 describe("formReviewStart", () => {
   it.each<[string, Partial<AlbumReview>, Partial<ReturnType<typeof formReviewStart>["values"]>]>([
     ["buzzwords", { buzzwords: "drone" }, { buzzwords: "drone" }],
-    ["artist_blurb", { artist_blurb: "Chicago." }, { artist_blurb: "Chicago." }],
     ["review", { review: "Spare." }, { review: "Spare." }],
     ["recommended_tracks", { recommended_tracks: "Back, Baby" }, { recommended_tracks: "Back, Baby" }],
     ["fcc_violations into fcc", { fcc_violations: "Track 2" }, { fcc: "Track 2" }],
-    ["null fields left empty", { buzzwords: null, artist_blurb: null, review: null, recommended_tracks: null, fcc_violations: null }, { buzzwords: "", artist_blurb: "", review: "", recommended_tracks: "", fcc: "" }],
+    ["null fields left empty", { buzzwords: null, review: null, recommended_tracks: null, fcc_violations: null }, { buzzwords: "", review: "", recommended_tracks: "", fcc: "" }],
   ])("maps %s", (_label, overrides, expected) => {
     const start = formReviewStart(archived(overrides));
 
     expect(start.values).toMatchObject(expected);
     expect(start.medium).toBe("typed");
     expect(start.copied).toBe("form");
+  });
+
+  it("copies no artist paragraph from a form review that has one", () => {
+    expect(formReviewStart(archived({ artist_blurb: "Chicago." })).values).not.toHaveProperty("artist_blurb");
   });
 
   it.each<{ label: string; reviewer: string | null | undefined; author: string }>([

@@ -25,7 +25,7 @@ export const PAPER_START: RecordFormStart = { ...EMPTY_START, medium: "handwritt
 /** Maps one archived form review onto the form's starting values; null fields stay empty, a blank reviewer leaves the author blank. */
 export function formReviewStart(review: AlbumReview): RecordFormStart {
   const values: FieldValues = { ...EMPTY_START.values };
-  for (const name of ["buzzwords", "artist_blurb", "review", "recommended_tracks"] as const) values[name] = review[name] ?? "";
+  for (const name of ["buzzwords", "review", "recommended_tracks"] as const) values[name] = review[name] ?? "";
   values.fcc = review.fcc_violations ?? "";
   const reviewer = review.reviewer?.trim() ? review.reviewer : "";
   return { ...EMPTY_START, values, author: [...reviewer].slice(0, AUTHOR_MAX).join(""), copied: "form" };

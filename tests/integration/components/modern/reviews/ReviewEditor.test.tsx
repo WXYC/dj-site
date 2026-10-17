@@ -175,7 +175,6 @@ describe("ReviewEditor", () => {
     // preview that shows the saved review instead of the typing cannot pass.
     const typed = [
       ["buzzwords", "hushed"],
-      ["artist_blurb", "A Paris band"],
       ["review", "Bright."],
       ["recommended_tracks", "A1, B4"],
       ["fcc", "Track two"],
@@ -191,6 +190,16 @@ describe("ReviewEditor", () => {
     expect(within(preview).queryByText("Warm.")).not.toBeInTheDocument();
   });
 
+  it("has no About the artist field, and the slip has one Artist row, even for a review with a stored paragraph", async () => {
+    serve({ ...DRAFT, artist_blurb: "Argentine songwriter." } as Review);
+    renderWithProviders(<ReviewEditor id={40} />);
+    const preview = await screen.findByRole("group", { name: REVIEW_COPY.slip.name });
+
+    expect(screen.queryByLabelText("About the artist")).not.toBeInTheDocument();
+    expect(within(preview).queryByText("Argentine songwriter.")).not.toBeInTheDocument();
+    expect(within(preview).getAllByText(REVIEW_COPY.slip.artist)).toHaveLength(1);
+  });
+
   it("labels the slip's rows from the copy module, in the printed slip's order", async () => {
     serve();
     renderWithProviders(<ReviewEditor id={40} />);
@@ -202,7 +211,6 @@ describe("ReviewEditor", () => {
       slip.album,
       slip.label,
       fields.buzzwords.label,
-      slip.artistBlurb,
       slip.review,
       slip.reviewer,
       slip.recommended,
@@ -241,7 +249,6 @@ describe("ReviewEditor", () => {
       path: "/reviews/40",
       body: {
         buzzwords: "hushed",
-        artist_blurb: null,
         review: "Warm.",
         recommended_tracks: null,
         fcc: null,
@@ -352,7 +359,7 @@ describe("ReviewEditor", () => {
       expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
       await user.click(screen.getByRole("button", { name: REVIEW_COPY.saveDraft }));
       await waitFor(() => expect(toast.success).toHaveBeenCalled());
-      expect(Object.keys(body).sort()).toEqual(["artist_blurb", "buzzwords", "fcc", "recommended_tracks", "review"]);
+      expect(Object.keys(body).sort()).toEqual(["buzzwords", "fcc", "recommended_tracks", "review"]);
     });
   });
 
@@ -1280,6 +1287,16 @@ describe("ReviewEditor", () => {
       expect(screen.queryByText(NOTICE)).not.toBeInTheDocument();
       expect(screen.getByLabelText("Review")).toHaveValue("Warm.");
       await waitFor(() => expect(sessionStorage.getItem("review-draft:dj-me:40")).toBeNull());
+    });
+
+    it("restores the other fields of a kept entry that still carries artist_blurb", async () => {
+      sessionStorage.setItem("review-draft:dj-me:40", JSON.stringify({ review: "Warm. More.", artist_blurb: "Old paragraph." }));
+      serve();
+      const { user } = renderWithProviders(<ReviewEditor id={40} />);
+      await user.click(await screen.findByRole("button", { name: RESTORE }));
+
+      expect(screen.getByLabelText("Review")).toHaveValue("Warm. More.");
+      expect(screen.queryByText("Old paragraph.")).not.toBeInTheDocument();
     });
 
     it("offers nothing for an entry stored under another user's key", async () => {

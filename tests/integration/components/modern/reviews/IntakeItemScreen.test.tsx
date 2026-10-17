@@ -2708,7 +2708,7 @@ describe("IntakeItemScreen", () => {
       await user.click(await screen.findByRole("option", { name }));
     };
     const save = (user: User) => user.click(screen.getByRole("button", { name: "Save" }));
-    const noFields = { buzzwords: null, artist_blurb: null, recommended_tracks: null, fcc: null };
+    const noFields = { buzzwords: null, recommended_tracks: null, fcc: null };
 
     describe("opened with a start", () => {
       const archived = (reviewer: string | null) =>
@@ -2817,9 +2817,10 @@ describe("IntakeItemScreen", () => {
 
       expect(screen.getByRole("heading", { name: "Record a review" })).toBeInTheDocument();
       expect(screen.getByText(REVIEW_COPY.record.noConsent)).toBeInTheDocument();
-      for (const label of ["Buzzwords", "About the artist", "Review", "Recommended tracks", "FCC"]) {
+      for (const label of ["Buzzwords", "Review", "Recommended tracks", "FCC"]) {
         expect(screen.getByRole("textbox", { name: label })).toBeInTheDocument();
       }
+      expect(screen.queryByRole("textbox", { name: "About the artist" })).not.toBeInTheDocument();
       for (const consent of ["Website", "WXYC apps", "Instagram", "DJ name", "Real name", "No name"]) {
         expect(screen.queryByRole("checkbox", { name: consent })).not.toBeInTheDocument();
         expect(screen.queryByRole("radio", { name: consent })).not.toBeInTheDocument();

@@ -6,7 +6,7 @@ import { useSlipPrint } from "@/src/components/experiences/modern/reviews/useSli
 import { REVIEW_COPY } from "@/src/components/experiences/modern/reviews/copy";
 import { renderWithProviders, rulesOf } from "@/tests/helpers";
 
-const FIELDS = { buzzwords: "warm, loose", artist_blurb: "Argentine songwriter", review: "Warm and loose.", recommended_tracks: "la paradoja", fcc: null };
+const FIELDS = { buzzwords: "warm, loose", review: "Warm and loose.", recommended_tracks: "la paradoja", fcc: null };
 
 // The modern theme loads Kanit at 400 and 500 only and maps fontWeight.lg to 500; the slip must ask for that token.
 const modernWeights = extendTheme({ fontWeight: { lg: 500 } });
@@ -27,6 +27,12 @@ describe("SlipPreview", () => {
     const css = rulesOf(screen.getByRole("group", { name: REVIEW_COPY.slip.name })).base;
     expect(css).toMatch(/width:\s*4\.25in/);
     expect(css).toMatch(/max-width:\s*100%/);
+  });
+
+  it("draws one Artist row and no artist paragraph", () => {
+    renderWithProviders(slip());
+    expect(screen.getAllByText(REVIEW_COPY.slip.artist)).toHaveLength(1);
+    expect(screen.queryByText("Argentine songwriter")).not.toBeInTheDocument();
   });
 
   it("draws its row labels at weight 500, the medium face the theme loads", () => {

@@ -11,7 +11,7 @@ export type SlipPreviewProps = {
   /** The Reviewer row is left off when this is undefined. */
   reviewer?: string;
   date?: string;
-  fields: Pick<ReviewFields, "buzzwords" | "artist_blurb" | "review" | "recommended_tracks" | "fcc">;
+  fields: Pick<ReviewFields, "buzzwords" | "review" | "recommended_tracks" | "fcc">;
   /** The record's confirmed FCC notes, printed under the FCC row. */
   fccNotes?: string[];
   /** Tape is drawn across the top edge on screen when this review is the one on the cover. */
@@ -88,7 +88,6 @@ export default function SlipPreview({ artist, album, label, reviewer, date, fiel
       {album !== undefined && row(slip.album, album)}
       {label !== undefined && row(slip.label, label)}
       {row(names.buzzwords.label, fields.buzzwords)}
-      {row(slip.artistBlurb, fields.artist_blurb)}
       {row(slip.review, fields.review)}
       {reviewer !== undefined && row(slip.reviewer, `${reviewer} ${date ?? ""}`.trim())}
       {row(slip.recommended, fields.recommended_tracks)}
