@@ -4,13 +4,16 @@ import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 import { getPageTitle } from "@/lib/utils/page-title";
 
-// Titles for routes with no other client-side title writer. Dashboard routes
-// are deliberately absent: PageHeader owns document.title wherever it renders
-// (modern experience), and every other dashboard page exports metadata, which
-// the App Router applies on client-side navigation too (the flowsheet and the
-// review editor draw no PageHeader and rely on it). Exactly one writer per
-// route — adding a route here that also renders PageHeader
-// reintroduces the race this map was trimmed to remove (#640 follow-up).
+// Titles for routes outside the dashboard. Dashboard routes are deliberately
+// absent: PageHeader owns document.title wherever it renders (the modern
+// experience, including the flowsheet's layout), and the classic dashboard
+// pages export metadata. Under app/dashboard/@modern, reviews/[id] (the review
+// editor) is the only route that draws no PageHeader and takes its title from
+// `metadata` alone; the App Router applies metadata on client-side navigation
+// too. /login and /onboarding also export metadata with the same titles, so
+// the entries below repeat what metadata sets. Adding a dashboard route here
+// that also renders PageHeader reintroduces the race this map was trimmed to
+// remove (#640 follow-up).
 const PATH_TO_TITLE: Record<string, string> = {
   "/login": "Login",
   "/onboarding": "Onboarding",
@@ -18,8 +21,8 @@ const PATH_TO_TITLE: Record<string, string> = {
 
 /**
  * Client-side component that updates the page title on route changes for the
- * mapped routes above, which are outside the dashboard and export no
- * metadata. Unmapped routes are skipped entirely so this never fights the route's own title writer.
+ * mapped routes above, which sit outside the dashboard. Unmapped routes are
+ * skipped entirely so this never fights the route's own title writer.
  */
 export default function PageTitleUpdater() {
   const pathname = usePathname();

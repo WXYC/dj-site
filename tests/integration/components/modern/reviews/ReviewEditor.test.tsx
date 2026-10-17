@@ -904,6 +904,7 @@ describe("ReviewEditor", () => {
 
       expect(await screen.findByRole("link", { name: "History" })).toBeInTheDocument();
       expect(await screen.findByText("This is the version printed on the cover.")).toBeInTheDocument();
+      expect(screen.getByRole("heading", { level: 2, name: REVIEW_COPY.pageTitle })).toBeInTheDocument();
       expect(screen.getByRole("heading", { name: REVIEW_COPY.slip.heading, level: 3 })).toBeInTheDocument();
       expect(await screen.findByRole("heading", { name: "FCC notes", level: 3 })).toBeInTheDocument();
       expect(screen.queryByRole("heading", { name: "Stereolab" })).not.toBeInTheDocument();

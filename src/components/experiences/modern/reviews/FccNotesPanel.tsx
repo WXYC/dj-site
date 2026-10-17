@@ -101,7 +101,9 @@ export default function FccNotesPanel(subject: Subject) {
   const [reprint, setReprint] = useState(false);
   const titleId = useId();
 
-  if (!visible) return null;
+  if (!visible) {
+    return null;
+  }
 
   return (
     <Stack component="section" aria-labelledby={titleId} spacing={1}>
