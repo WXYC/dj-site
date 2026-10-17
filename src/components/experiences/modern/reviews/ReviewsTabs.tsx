@@ -3,6 +3,7 @@
 import type { JSX } from "react";
 import PageTabs, { type PageTab } from "@/src/components/experiences/modern/PageTabs";
 import { LIVE_LIST } from "@/lib/features/reviews/api";
+import { awaitingRecords } from "@/lib/features/reviews/holder";
 import { useGetIntakeItemsQuery } from "@/lib/features/reviews/intakeApi";
 import { useCanSeeReviews } from "@/src/hooks/useCanSeeReviews";
 import { AWAITING_LANE } from "./IntakeLanes";
@@ -15,7 +16,7 @@ export default function ReviewsTabs({ showNewMusic }: { showNewMusic: boolean })
   const visible = useCanSeeReviews();
   // The same argument as the Review waiting lane, so both share one cache entry and one request.
   const { data: awaiting } = useGetIntakeItemsQuery(AWAITING_LANE, { skip: !visible || !showNewMusic, ...LIVE_LIST });
-  const waiting = awaiting?.length ?? 0;
+  const waiting = awaiting ? awaitingRecords(awaiting).length : 0;
 
   const tabs: PageTab[] = [
     { path: "/dashboard/reviews", label: COPY.reviewShelf },
