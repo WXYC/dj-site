@@ -17,7 +17,7 @@ import { REVIEW_COPY } from "./copy";
 import RecordRow from "./RecordRow";
 import { intakeRecord, recordLine } from "./recordLine";
 import { useReviewRecord } from "./useReviewRecord";
-import { day, useReviewWrite } from "./useReviewWrite";
+import { day, type ReviewWrite } from "./useReviewWrite";
 
 /** A review's row: the record as parts (artist, album, label) once it has landed. Until then, a library review shows `myReviews.libraryRelease` and a logged-record review shows nothing in its place. Either way the row carries the status, the last-saved date and Open. */
 function MyReviewRow({ review }: { review: Review }) {
@@ -31,7 +31,9 @@ function MyReviewRow({ review }: { review: Review }) {
     </>
   );
   const open = <Link href={`/dashboard/reviews/${review.id}`}>{REVIEW_COPY.myReviews.open}</Link>;
-  if (record) return <RecordRow record={record} meta={<Stack direction="row" spacing={1} alignItems="center">{meta}</Stack>} actions={open} />;
+  if (record) {
+    return <RecordRow record={record} meta={<Stack direction="row" spacing={1} alignItems="center">{meta}</Stack>} actions={open} />;
+  }
   return (
     <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
       {review.intake_item_id == null && <Typography>{REVIEW_COPY.myReviews.libraryRelease}</Typography>}
@@ -41,15 +43,14 @@ function MyReviewRow({ review }: { review: Review }) {
   );
 }
 
-/** `between` renders after the checkouts lane and before My reviews, where the logging form and the review shelf sit. */
-export default function MyReviewsScreen({ items, myReviews, formats, me, between }: { items: IntakeItem[]; myReviews: Review[]; formats: { id: number; format_name: string }[] | undefined; me: string | undefined; between?: ReactNode }) {
+/** The requests, checkouts and My reviews lanes. It assumes its caller has applied the `useCanSeeReviews` check and the load-failed gate, and takes the one `useReviewWrite` the caller shares with the review shelf. `between` renders after the checkouts lane and before My reviews, where the form for a new record and the review shelf sit. */
+export default function MyReviewsScreen({ items, myReviews, formats, me, between, write, lock }: { items: IntakeItem[]; myReviews: Review[]; formats: { id: number; format_name: string }[] | undefined; me: string | undefined; between?: ReactNode } & ReviewWrite) {
   const [accept] = useAcceptIntakeItemMutation();
   const [pass] = usePassIntakeItemMutation();
   const [release] = useReleaseIntakeItemMutation();
   const [createReview] = useCreateReviewMutation();
   const router = useRouter();
   const [returning, setReturning] = useState<IntakeItem | null>(null);
-  const { write, lock } = useReviewWrite(items);
 
   const requests = items.filter((i) => i.effective_state === "requested" && i.requested_dj_id === me);
   const checkouts = [

@@ -38,8 +38,8 @@ const raceNotice = (action: Action, item: IntakeItem | undefined): string => {
 export const EVERY_STATE = undefined;
 export const MY_REVIEWS = undefined;
 
-/** The write wiring both review screens share: every write reloads both lists, whichever screen it came from. */
-export function useReviewWrite(items: IntakeItem[]) {
+/** The write wiring both review screens share: every write reloads both lists, whichever screen it came from. Call it once, in the screen that owns both lists, and pass `write` and `lock` down: a row stays locked until every list it renders has reloaded, which holds across lanes only if one pending map covers them all. */
+export function useReviewWrite(items: IntakeItem[] | undefined) {
   const dispatch = useAppDispatch();
   // A double-click's second POST would find the record already moved and
   // answer 409 state_changed, telling the DJ someone else took the record they
@@ -59,6 +59,9 @@ export function useReviewWrite(items: IntakeItem[]) {
       }
       toast.error(action === "write" ? REVIEW_COPY.couldNotStart : REVIEW_COPY.screen.writeFailed);
     },
-    onLostRace: (id, action) => toast(raceNotice(action, items.find((i) => i.id === id))),
+    onLostRace: (id, action) => toast(raceNotice(action, items?.find((i) => i.id === id))),
   });
 }
+
+/** What `useReviewWrite` returns, for a screen that takes the shared write wiring as a prop. */
+export type ReviewWrite = ReturnType<typeof useReviewWrite>;
