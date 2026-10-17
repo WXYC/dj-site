@@ -11,6 +11,7 @@ import { useGetFccNotesQuery } from "@/lib/features/reviews/fccNoteApi";
 import { useCanSeeReviews } from "@/src/hooks/useCanSeeReviews";
 import { REVIEW_COPY } from "./copy";
 import FccNotesPanel from "./FccNotesPanel";
+import HeadedSection from "./HeadedSection";
 import PrintedVersionNote from "./PrintedVersionNote";
 import { usePrintedVersion, type PrintedVersion } from "./usePrintedVersion";
 import SlipPreview, { SlipFccRow } from "./SlipPreview";
@@ -121,15 +122,9 @@ export function ReviewItem({ review, record, newSlipHref, printable, onCover, mo
 }
 
 /** A headed list of reviews; `recordOf` names the record a review is about, or nothing for a review of a release this record cites. `titleExtra` sits beside the heading, `intro` renders under it, `lead` under each review's slip (given the review and its printed version) and `extra` after each review, for a page's own lines and buttons. `showSlip` offers each excerpt's full slip on request. */
-export function Group({ title, titleExtra, intro, reviews, recordOf, newSlipHref, printable, onCover, mode, showSlip, fccNotes, lead, extra }: { title?: string; titleExtra?: ReactNode; intro?: ReactNode; reviews: Review[]; recordOf: (review: Review) => PanelRecord | undefined; newSlipHref?: string; printable?: boolean; onCover: (review: Review) => boolean; mode?: ReviewMode; showSlip?: boolean; fccNotes?: string[]; lead?: (review: Review, printedVersion: PrintedVersion) => ReactNode; extra?: (review: Review) => ReactNode }) {
+export function Group({ title, titleExtra, intro, reviews, recordOf, newSlipHref, printable, onCover, mode, showSlip, fccNotes, lead, extra }: { title: string; titleExtra?: ReactNode; intro?: ReactNode; reviews: Review[]; recordOf: (review: Review) => PanelRecord | undefined; newSlipHref?: string; printable?: boolean; onCover: (review: Review) => boolean; mode?: ReviewMode; showSlip?: boolean; fccNotes?: string[]; lead?: (review: Review, printedVersion: PrintedVersion) => ReactNode; extra?: (review: Review) => ReactNode }) {
   return (
-    <Stack component="section" spacing={1}>
-      {title && (
-        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-          <Typography level="title-sm" component="h3">{title}</Typography>
-          {titleExtra}
-        </Stack>
-      )}
+    <HeadedSection title={title} titleExtra={titleExtra} spacing={1}>
       {intro}
       <Stack component="ul" spacing={1.5} sx={{ p: 0, m: 0 }}>
         {reviews.map((review) => (
@@ -138,7 +133,7 @@ export function Group({ title, titleExtra, intro, reviews, recordOf, newSlipHref
           </ReviewItem>
         ))}
       </Stack>
-    </Stack>
+    </HeadedSection>
   );
 }
 
@@ -168,8 +163,7 @@ export default function ReviewsPanel({ albumId, record }: { albumId: number; rec
         <Group title={onCover.length > 0 ? copy.others : copy.all} reviews={rest} recordOf={recordOf} printable onCover={(r) => r.on_cover} mode="excerpt" />
       )}
       {!!archive.data?.length && (
-        <Stack component="section" spacing={1}>
-          <Typography level="title-sm" component="h3">{copy.archiveTitle}</Typography>
+        <HeadedSection title={copy.archiveTitle} spacing={1}>
           <Stack component="ul" spacing={1} sx={{ p: 0, m: 0 }}>
             {archive.data.map((take) => (
               <Stack key={take.id} component="li" spacing={0.25} sx={{ listStyle: "none" }}>
@@ -178,7 +172,7 @@ export default function ReviewsPanel({ albumId, record }: { albumId: number; rec
               </Stack>
             ))}
           </Stack>
-        </Stack>
+        </HeadedSection>
       )}
       <Sheet variant="soft" sx={{ p: 1, borderRadius: "sm" }}>
         <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap">

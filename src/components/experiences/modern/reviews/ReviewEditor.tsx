@@ -24,6 +24,7 @@ import { serverMessage, unwrapEndpointErrorOrRaw } from "@/lib/rtk-endpoint-erro
 import { useAuthentication } from "@/src/hooks/authenticationHooks";
 import { useCanSeeReviews } from "@/src/hooks/useCanSeeReviews";
 import ConfirmDialog from "../ConfirmDialog";
+import HeadedSection from "./HeadedSection";
 import LeaveDialog from "./LeaveDialog";
 import ConsentBlock, { type Consent } from "./ConsentBlock";
 import { REVIEW_COPY } from "./copy";
@@ -86,7 +87,6 @@ function Form({ review, user }: { review: Review; user: User | undefined }) {
   const record = useReviewRecord(review);
   const fccNotes = useConfirmedFccNotes(review);
   const { root, bar } = useStickyRoom<HTMLDivElement, HTMLDivElement>();
-  const slipHeadingId = useId();
   const reasonId = useId();
   // The free-text FCC field is for a paper review (every medium but typed, as `blank` below) and for text already stored or kept unsaved in this tab, so a kept entry's FCC text can be offered back; a typed review reports FCC through the panel. Settled at load, so clearing the text does not take the field away.
   const [fccField] = useState(
@@ -229,8 +229,7 @@ function Form({ review, user }: { review: Review; user: User | undefined }) {
         <Stack spacing={2} sx={{
             [TWO_COLUMNS]: { position: "sticky", top: 0, alignSelf: "start", maxHeight: `var(${STICKY_ROOM_PROPERTY}, none)`, overflowY: "auto", scrollbarGutter: "stable", px: 1, py: 1 },
           }}>
-          <Stack component="section" aria-labelledby={slipHeadingId} spacing={1}>
-            <Typography id={slipHeadingId} component="h3" level="title-sm">{REVIEW_COPY.slip.heading}</Typography>
+          <HeadedSection title={REVIEW_COPY.slip.heading} spacing={1}>
             <SlipPreview
               artist={record?.artist ?? ""}
               album={record?.album ?? ""}
@@ -240,7 +239,7 @@ function Form({ review, user }: { review: Review; user: User | undefined }) {
               fields={values}
               fccNotes={fccNotes}
             />
-          </Stack>
+          </HeadedSection>
         </Stack>
       </Box>
       <Stack

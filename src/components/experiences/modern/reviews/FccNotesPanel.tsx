@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useState } from "react";
 import { Button, FormControl, FormLabel, Input, Stack, Textarea, Typography } from "@mui/joy";
 import type { FccNote } from "@wxyc/shared";
 import { hasNothingToShow } from "@/lib/has-nothing-to-show";
@@ -12,6 +12,7 @@ import {
 } from "@/lib/features/reviews/fccNoteApi";
 import { serverMessage, unwrapEndpointError } from "@/lib/rtk-endpoint-error";
 import { useCanSeeReviews } from "@/src/hooks/useCanSeeReviews";
+import HeadedSection from "./HeadedSection";
 import FccNoteActions, { useSendToSignInWhenSessionGone } from "./FccNoteActions";
 import { REVIEW_COPY } from "./copy";
 
@@ -103,15 +104,13 @@ export default function FccNotesPanel(subject: Subject) {
   const notes = useGetFccNotesQuery(ids, { skip: !visible });
   const [reporting, setReporting] = useState(false);
   const [reprint, setReprint] = useState(false);
-  const titleId = useId();
 
   if (!visible) {
     return null;
   }
 
   return (
-    <Stack component="section" aria-labelledby={titleId} spacing={1}>
-      <Typography id={titleId} component="h3" level="title-sm">{subject.title ?? copy.title}</Typography>
+    <HeadedSection title={subject.title ?? copy.title} spacing={1}>
       {subject.help && <Typography level="body-sm">{subject.help}</Typography>}
       {hasNothingToShow(notes) ? (
         <Typography role="alert">{copy.loadFailed}</Typography>
@@ -132,6 +131,6 @@ export default function FccNotesPanel(subject: Subject) {
           {copy.report}
         </Button>
       )}
-    </Stack>
+    </HeadedSection>
   );
 }
