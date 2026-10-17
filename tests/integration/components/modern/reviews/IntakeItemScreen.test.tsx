@@ -3556,7 +3556,8 @@ describe("IntakeItemScreen", () => {
       const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
       await open(user);
 
-      await user.type(screen.getByRole("textbox", { name: "Author" }), "x".repeat(130));
+      await user.click(screen.getByRole("textbox", { name: "Author" }));
+      await user.paste("x".repeat(130));
 
       expect(screen.getByRole("textbox", { name: "Author" })).toHaveValue("x".repeat(128));
     });
