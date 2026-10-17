@@ -80,6 +80,16 @@ describe("ReviewsPanel", () => {
     expect(screen.queryByText("Reviewer 999", { exact: false })).not.toBeInTheDocument();
   });
 
+  it("names the cover group, Other reviews and the earlier takes as regions by their headings", async () => {
+    serve([submitted(1, { on_cover: true }), submitted(2)], [{ id: 1, review: "Dreamy.", reviewer: "Reviewer One" }]);
+    renderPanel();
+
+    await screen.findByText("Reviewer 1", { exact: false });
+    for (const name of ["The review on the cover", "Other reviews", "Earlier takes"]) {
+      expect(within(screen.getByRole("region", { name })).getByRole("heading", { level: 3, name })).toBeInTheDocument();
+    }
+  });
+
   it("uses the plural heading for two reviews on the cover", async () => {
     serve([submitted(1, { on_cover: true }), submitted(2, { on_cover: true })]);
     renderPanel();

@@ -1,10 +1,11 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useState } from "react";
 import { Button, FormControl, FormHelperText, FormLabel, Input, Stack, Typography } from "@mui/joy";
 import type { AlbumReview } from "@wxyc/shared";
 import { useGetAlbumReviewsByArtistQuery } from "@/lib/features/reviews/albumReviewApi";
 import ConfirmDialog from "../ConfirmDialog";
+import HeadedSection from "./HeadedSection";
 import { REVIEW_COPY } from "./copy";
 import ReleasePicker from "./ReleasePicker";
 import { formatSlipDate } from "./slipDate";
@@ -59,9 +60,6 @@ function FormReviewSearch({ artist, onCopy }: { artist: string; onCopy: (review:
   );
 }
 
-/** Hides an element on screen and keeps it in the accessibility tree. */
-const visuallyHidden = { position: "absolute", width: "1px", height: "1px", p: 0, m: "-1px", overflow: "hidden", clip: "rect(0 0 0 0)", whiteSpace: "nowrap", border: 0 } as const;
-
 /** The search a cite button opens: a library release (picking one cites it) or a form review (copying one starts a review of this record from it). The heading names the region and is hidden on screen, because it repeats the button above. */
 export function CiteSection({ which, artist, question, onCite, onCopy }: {
   which: "release" | "form";
@@ -71,7 +69,6 @@ export function CiteSection({ which, artist, question, onCite, onCopy }: {
   onCite: (albumId: number) => void;
   onCopy: (review: AlbumReview) => void;
 }) {
-  const headingId = useId();
   const [asking, setAsking] = useState<{ label: string; go: () => void } | null>(null);
   const askFirst = (label: string, go: () => void) => {
     if (question === null) {
@@ -81,8 +78,7 @@ export function CiteSection({ which, artist, question, onCite, onCopy }: {
     }
   };
   return (
-    <Stack component="section" aria-labelledby={headingId} spacing={1}>
-      <Typography id={headingId} level="title-sm" component="h3" sx={visuallyHidden}>{which === "release" ? COPY.citeRelease : COPY.citeForm}</Typography>
+    <HeadedSection title={which === "release" ? COPY.citeRelease : COPY.citeForm} hideTitle spacing={1}>
       {which === "release" ? (
         <ReleasePicker searchLabel={COPY.searchCite} onPick={({ id }) => {
           if (id != null) {
@@ -113,7 +109,7 @@ export function CiteSection({ which, artist, question, onCite, onCopy }: {
       >
         {null}
       </ConfirmDialog>
-    </Stack>
+    </HeadedSection>
   );
 }
 

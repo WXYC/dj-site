@@ -29,6 +29,7 @@ import { useCanSeeReviews } from "@/src/hooks/useCanSeeReviews";
 import { useLeaveGuard } from "@/src/hooks/useLeaveGuard";
 import { useMounted } from "@/src/hooks/useRowWrite";
 import ConfirmDialog from "../ConfirmDialog";
+import HeadedSection from "./HeadedSection";
 import LeaveDialog from "./LeaveDialog";
 import RotationFilingBench, { type FilingSubmit } from "../admin/rotation/RotationFilingBench";
 import { REVIEW_COPY } from "./copy";
@@ -492,8 +493,7 @@ export default function IntakeItemScreen({ id }: { id: number }) {
             ) : coverId == null ? (
               <Typography>{COPY.chooseFirst}</Typography>
             ) : (
-              <Stack component="section" aria-labelledby={fileItId} spacing={2}>
-                <Typography id={fileItId} level="title-sm" component="h3">{COPY.fileIt}</Typography>
+              <HeadedSection title={COPY.fileIt} titleId={fileItId} spacing={2}>
                 <RadioGroup
                   aria-labelledby={fileItId}
                   orientation="horizontal"
@@ -532,7 +532,7 @@ export default function IntakeItemScreen({ id }: { id: number }) {
                     )}
                   </Stack>
                 )}
-              </Stack>
+              </HeadedSection>
             )}
           </Stack>
           <Box data-column="side">

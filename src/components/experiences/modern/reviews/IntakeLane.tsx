@@ -1,5 +1,6 @@
-import { useId, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { List, ListItem, Stack, Typography } from "@mui/joy";
+import HeadedSection from "./HeadedSection";
 
 interface IntakeLaneBaseProps<Row extends { id: number }> {
   /** The lane heading. It is also the section's accessible name, so both screens' tests (and any later count suffix) key off it. */
@@ -8,6 +9,8 @@ interface IntakeLaneBaseProps<Row extends { id: number }> {
   rows: Row[];
   /** Shown instead of the list when there are no rows. */
   empty: string;
+  /** The lane heading's rank, for a lane that nests under a heading of its own. */
+  headingLevel?: 3 | 4;
 }
 
 /** A lane draws each row as a `label` and its optional `extra`, or as a whole `row` (a `RecordRow`); the compiler requires one of the two. */
@@ -33,11 +36,9 @@ type IntakeLaneProps<Row extends { id: number }> = IntakeLaneBaseProps<Row> &
  * empty line when there are none. Each row is its `label` followed by its
  * optional `extra`, or whatever its `row` renders. Shared by the lanes of the Reviews page: the DJ's own lanes and the music directors' tab.
  */
-export default function IntakeLane<Row extends { id: number }>({ title, rows, empty, label, extra, row: renderRow }: IntakeLaneProps<Row>) {
-  const titleId = useId();
+export default function IntakeLane<Row extends { id: number }>({ title, rows, empty, headingLevel, label, extra, row: renderRow }: IntakeLaneProps<Row>) {
   return (
-    <section aria-labelledby={titleId}>
-      <Typography id={titleId} component="h3" level="title-lg">{title}</Typography>
+    <HeadedSection title={title} level={headingLevel} titleLevel="title-lg" sx={{ display: "block" }}>
       {rows.length === 0 ? (
         <Typography level="body-sm">{empty}</Typography>
       ) : (
@@ -56,6 +57,6 @@ export default function IntakeLane<Row extends { id: number }>({ title, rows, em
           ))}
         </List>
       )}
-    </section>
+    </HeadedSection>
   );
 }
