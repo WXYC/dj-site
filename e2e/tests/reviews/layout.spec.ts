@@ -4,7 +4,6 @@ import { test, expect } from "../../fixtures/auth.fixture";
 import { authServiceBaseUrl } from "../../helpers/device-auth";
 import { requireEnv } from "../../helpers/env";
 import { REVIEW_COPY } from "../../../src/components/experiences/modern/reviews/copy";
-import { FIELD_NAMES } from "../../../lib/features/reviews/draftKeys";
 
 const authDir = path.join(__dirname, "../../.auth");
 
@@ -46,14 +45,16 @@ const overlaps = (a: Box, b: Box) => a.left < b.right && a.right > b.left && a.t
 function editor(page: Page) {
   const slipHeading = page.getByRole("region", { name: COPY.slip.heading });
   const column = slipHeading.locator("xpath=..");
+  const grid = column.locator("xpath=..");
   return {
     scrollRegion: page.locator("[data-scroll-region]"),
-    fields: FIELD_NAMES.map((name) => page.getByRole("textbox", { name: COPY.fields[name].label, exact: true })),
+    /** The grid's other column: the slip fields this draft offers (a typed draft has no FCC field) and the rest of the form. */
+    formFields: grid.locator("xpath=./*[1]").getByRole("textbox"),
     review: page.getByRole("textbox", { name: COPY.fields.review.label, exact: true }),
     consent: page.getByRole("group", { name: COPY.consent.legend }),
     slipHeading,
     column,
-    grid: column.locator("xpath=.."),
+    grid,
     slip: page.getByRole("group", { name: COPY.slip.name }),
     saveDraft: page.getByRole("button", { name: COPY.saveDraft, exact: true }),
     submit: page.getByRole("button", { name: COPY.submit, exact: true }),
@@ -105,6 +106,8 @@ async function sidewaysProblems(page: Page): Promise<string[]> {
   return (await scrollsSideways(page)) ? ["the page scrolls sideways"] : [];
 }
 
+const NO_ROWS = "the slip has no rows";
+
 /** Every row of the slip puts its value at the same x: the label column holds its word, "Recommended" included. */
 async function labelColumnProblems(page: Page): Promise<string[]> {
   await fontsReady(page);
@@ -114,7 +117,7 @@ async function labelColumnProblems(page: Page): Promise<string[]> {
       .map((row) => ({ label: row.children[0].textContent ?? "", x: row.children[1].getBoundingClientRect().left })),
   );
   if (starts.length === 0) {
-    return ["the slip has no rows"];
+    return [NO_ROWS];
   }
   const first = starts[0].x;
   return starts
@@ -126,29 +129,48 @@ async function labelColumnProblems(page: Page): Promise<string[]> {
 async function sideBySideProblems(page: Page): Promise<string[]> {
   const e = editor(page);
   const slip = await box(e.slipHeading);
-  const fields = await Promise.all(e.fields.map(box));
+  const fields = await Promise.all((await e.formFields.all()).map(box));
+  if (fields.length === 0) {
+    return ["the form column has no fields"];
+  }
   const formRight = Math.max(...fields.map((f) => f.right));
   return slip.left < formRight
     ? [`"${COPY.slip.heading}" starts at ${slip.left}px, left of the form's right edge ${formRight}px`]
     : [];
 }
 
-/** At two columns: the slip sits right of the form, stays in view to the end of the scroll, and the page does not scroll sideways. */
-async function twoColumnProblems(page: Page): Promise<string[]> {
+/** Scrolled to the end, the sticky slip column's top stays at the scroll region's top and its bottom at or above the action bar's top, each within 1px. */
+async function stickyColumnProblems(page: Page): Promise<{ top: string[]; bottom: string[] }> {
   const e = editor(page);
-  const problems = await sideBySideProblems(page);
-
   await scrollToEnd(e.scrollRegion);
   const region = await box(e.scrollRegion);
   const column = await box(e.column);
   const bar = await box(e.saveDraft.locator("xpath=.."));
-  if (Math.abs(column.top - region.top) > 1) {
-    problems.push(`the slip column's top is ${column.top}px, ${column.top - region.top}px from the scroll region's ${region.top}px`);
-  }
-  if (column.bottom > bar.top + 1) {
-    problems.push(`the slip column ends at ${column.bottom}px, below the action bar's top ${bar.top}px`);
-  }
-  return [...problems, ...(await sidewaysProblems(page))];
+  return {
+    top:
+      Math.abs(column.top - region.top) > 1
+        ? [`the slip column's top is ${column.top}px, ${column.top - region.top}px from the scroll region's ${region.top}px`]
+        : [],
+    bottom: column.bottom > bar.top + 1 ? [`the slip column ends at ${column.bottom}px, below the action bar's top ${bar.top}px`] : [],
+  };
+}
+
+/** At two columns: the slip sits right of the form, stays in view to the end of the scroll, and the page does not scroll sideways. */
+async function twoColumnProblems(page: Page): Promise<string[]> {
+  const problems = await sideBySideProblems(page);
+  const { top, bottom } = await stickyColumnProblems(page);
+  return [...problems, ...top, ...bottom, ...(await sidewaysProblems(page))];
+}
+
+/**
+ * Marks the running test as expected to fail on a known layout defect, then asserts `problems` is empty. Called only
+ * after the test's other checks have passed, so anything else that breaks first is still a failure; the measured lines
+ * go on the test as an annotation.
+ */
+function expectKnownDefect(ticket: string, problems: string[]) {
+  test.info().annotations.push({ type: ticket, description: problems.join("; ") || "no break measured" });
+  test.fail(true, ticket);
+  expect(problems).toEqual([]);
 }
 
 /** The slip keeps its 4.25in whatever the gutter and padding around it take. */
@@ -277,9 +299,12 @@ test.describe("Review editor layout, two columns", () => {
   });
 
   test("puts the slip right of the form, keeps it in view to the end, and does not scroll sideways", async ({ page }) => {
-    // The sticky column ends 16px above the scroll region's top (#2256); the fix ticket removes this mark.
-    test.fail(true, "WXYC/dj-site#2256");
-    expect(await twoColumnProblems(page)).toEqual([]);
+    expect(await sideBySideProblems(page)).toEqual([]);
+    const { top, bottom } = await stickyColumnProblems(page);
+    expect(bottom).toEqual([]);
+    expect(await sidewaysProblems(page)).toEqual([]);
+    // The sticky column's top sits 16px above the scroll region's at the end (#2256); the fix ticket removes this mark.
+    expectKnownDefect("WXYC/dj-site#2256", top);
   });
 
   test("control: one column at 1440px fails the two-column check", async ({ page }) => {
@@ -320,9 +345,10 @@ test.describe("Review editor layout, two columns", () => {
   });
 
   test("starts every slip value at the same x", async ({ page }) => {
+    const problems = await labelColumnProblems(page);
+    expect(problems).not.toContain(NO_ROWS);
     // "Recommended" overflows the slip's label column (#2257); the fix ticket removes this mark.
-    test.fail(true, "WXYC/dj-site#2257");
-    expect(await labelColumnProblems(page)).toEqual([]);
+    expectKnownDefect("WXYC/dj-site#2257", problems);
   });
 
   test("control: labels at their value's size push a value out of the column", async ({ page }) => {
@@ -366,9 +392,10 @@ test.describe("Review editor layout, one column", () => {
   });
 
   test("starts every slip value at the same x", async ({ page }) => {
+    const problems = await labelColumnProblems(page);
+    expect(problems).not.toContain(NO_ROWS);
     // "Recommended" overflows the slip's label column (#2257); the fix ticket removes this mark.
-    test.fail(true, "WXYC/dj-site#2257");
-    expect(await labelColumnProblems(page)).toEqual([]);
+    expectKnownDefect("WXYC/dj-site#2257", problems);
   });
 
   test("control: labels at their value's size push a value out of the column", async ({ page }) => {
