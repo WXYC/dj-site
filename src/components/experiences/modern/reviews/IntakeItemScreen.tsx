@@ -104,14 +104,15 @@ export default function IntakeItemScreen({ id }: { id: number }) {
   const [recording, setRecording] = useState<Recording | null>(null);
   // The cite search open under the prompt row, if any; only one of it and the form is open at a time.
   const [citing, setCiting] = useState<"release" | "form" | null>(null);
-  // The cite buttons and their search exist only on a record that is unfiled and cites nothing. When that stops being true (the record is filed, or a citation lands, even from elsewhere), the search closes and its choice is forgotten, so it cannot reopen on its own when the page next rereads.
-  const canCite = !!item.data && !isFiledState(item.data.effective_state) && item.data.cited_album_id == null && item.data.cited_submission_id == null;
+  const citedId = item.data?.cited_album_id ?? null;
+  const unfiled = !!item.data && !isFiledState(item.data.effective_state);
+  const isCited = citedId !== null || item.data?.cited_submission_id != null;
+  // The cite buttons and their search exist only on a record that is unfiled and cites nothing. When that stops being true (the record is filed, or a citation lands, even from elsewhere), the search closes and its choice is forgotten, so it cannot reopen on its own when the page next rereads. The reset happens during render, so a press parked behind the leave dialog cannot set it after the fact.
+  const canCite = unfiled && !isCited;
+  if (!canCite && citing !== null) {
+    setCiting(null);
+  }
   const citeOpen = canCite ? citing : null;
-  useEffect(() => {
-    if (!canCite) {
-      setCiting(null);
-    }
-  }, [canCite]);
   // Whether the open form holds unsaved text, and the close or replace waiting on the leave dialog's answer.
   const [recordingDirty, setRecordingDirty] = useState(false);
   const [asked, setAsked] = useState<(() => void) | null>(null);
@@ -155,7 +156,6 @@ export default function IntakeItemScreen({ id }: { id: number }) {
   // `movers` counts the writes that move the cover (Use this review, a ticked Record a review). Each write takes a handle from `hold` and releases it exactly once.
   const [holds, setHolds] = useState({ all: 0, movers: 0 });
 
-  const citedId = item.data?.cited_album_id ?? null;
   // Current answers only: when the citation changes, the old release's name and list must not show while the new one's reads are out.
   const cited = useGetReviewsForReleaseQuery(citedId ?? 0, { skip: !visible || citedId === null, selectFromResult: fromCache });
   // The cited release's own name: the item carries only its id.
@@ -213,8 +213,6 @@ export default function IntakeItemScreen({ id }: { id: number }) {
     .filter((r) => r.id !== coverId)
     .sort(newestFirst);
 
-  const isCited = citedId !== null || item.data.cited_submission_id != null;
-  const unfiled = !isFiledState(item.data.effective_state);
   // The cited release's section is drawn only once its reviews have answered and its name has answered or failed.
   const citedShown = citedId !== null && !!cited.data && (!!citedRelease.data || citedRelease.isError);
   // Clearing a release's citation takes a review chosen from it off the cover, which is any cover review the item's own list lacks.

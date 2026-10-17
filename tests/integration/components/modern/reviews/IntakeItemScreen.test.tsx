@@ -4158,6 +4158,35 @@ describe("IntakeItemScreen", () => {
         expect(screen.queryByRole("region", { name: CITE })).not.toBeInTheDocument();
         expect(sent).toEqual([{ cited_album_id: CITED_ID }]);
       });
+
+      it("does not reopen the cite search from a press parked behind the leave dialog when the record gained a citation while it waited", async () => {
+        const { box } = setUp();
+        const sent = patching(box);
+        const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+        await user.click(await screen.findByRole("button", { name: "Record a review" }));
+        await user.type(screen.getByRole("textbox", { name: "Review" }), "Warm.");
+        await user.click(screen.getByRole("button", { name: CITE }));
+        const asking = await screen.findByRole("alertdialog", { name: "Leave without saving?" });
+        await reviewsSettled(store);
+
+        // While the question is open, another device cites a release; the reread shows it.
+        box.item = cites();
+        act(() => { store.dispatch(reviewsApi.util.invalidateTags([{ type: "Intake", id: ITEM_ID }])); });
+        await waitFor(() => expect(screen.queryByRole("button", { name: CITE, hidden: true })).not.toBeInTheDocument());
+        await reviewsSettled(store);
+
+        await user.click(within(asking).getByRole("button", { name: "Leave" }));
+        await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
+
+        // Later the other device clears the citation; the next reread shows it. Nobody pressed Cite, so no search opens.
+        box.item = dogaItem();
+        act(() => { store.dispatch(reviewsApi.util.invalidateTags([{ type: "Intake", id: ITEM_ID }])); });
+
+        const cite = await screen.findByRole("button", { name: CITE });
+        expect(cite).toHaveAttribute("aria-expanded", "false");
+        expect(screen.queryByRole("region", { name: CITE })).not.toBeInTheDocument();
+        expect(sent).toEqual([]);
+      });
     });
 
     describe("citing a form review", () => {
