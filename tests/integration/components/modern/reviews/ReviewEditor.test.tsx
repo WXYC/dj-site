@@ -670,7 +670,9 @@ describe("ReviewEditor", () => {
       server.use(http.get(`${TEST_BACKEND_URL}/intake/:id`, async () => { await delay("infinite"); return HttpResponse.json({}); }));
       renderWithProviders(<ReviewEditor id={40} />);
 
-      const heading = await screen.findByRole("heading", { level: 2, name: REVIEW_COPY.pageTitle });
+      // The slip's heading draws only once the review has loaded; the hidden h2 also draws while the review is still loading, so waiting on it alone would assert too early.
+      await screen.findByRole("heading", { level: 3, name: REVIEW_COPY.slip.heading });
+      const heading = screen.getByRole("heading", { level: 2, name: REVIEW_COPY.pageTitle });
       expect(heading).toHaveStyle({ position: "absolute" });
       expect(screen.getAllByRole("heading").map((h) => h.tagName)).toEqual(["H2", "H3", "H3"]);
     });

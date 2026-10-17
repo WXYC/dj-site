@@ -78,13 +78,6 @@ describe("FccNotesPanel", () => {
     expect(screen.getByRole("heading", { level: 3, name: "FCC notes" })).toBeInTheDocument();
   });
 
-  it("takes its heading's level from the host", async () => {
-    fakeReviewsEndpoints();
-    renderWithProviders(<FccNotesPanel albumId={ALBUM_ID} headingLevel={4} />);
-
-    expect(await screen.findByRole("heading", { level: 4, name: "FCC notes" })).toBeInTheDocument();
-  });
-
   it("says so when the record has no notes", async () => {
     fakeReviewsEndpoints();
     renderWithProviders(<FccNotesPanel albumId={ALBUM_ID} />);

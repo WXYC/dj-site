@@ -11,9 +11,10 @@ interface RecordHeaderProps {
 }
 
 /**
- * The top of a record's page or the review editor: a larger glyph and the
- * artist as the page's `h2`, then album, label and
- * format tag, with a slot for a state chip and links.
+ * The review editor's title: a larger glyph and the artist as the page's
+ * `h2` (the editor draws no PageHeader, so this is the page's only `h2`),
+ * then album, label and format tag, with a slot for a state chip and links.
+ * Do not place it beneath a PageHeader, which would give the page two `h2`s.
  */
 export default function RecordHeader({ record, chip }: RecordHeaderProps) {
   const format = useRecordFormatName(record);

@@ -284,7 +284,9 @@ export default function ReviewEditor({ id }: { id: number }) {
   const { data: auth } = useAuthentication();
   const user = "user" in auth ? auth.user : undefined;
 
-  if (!visible) return null;
+  if (!visible) {
+    return null;
+  }
   if (hasNothingToShow({ isError, data })) {
     return (
       <>
