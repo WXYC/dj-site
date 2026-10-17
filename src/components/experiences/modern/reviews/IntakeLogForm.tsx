@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Autocomplete, AutocompleteOption, Button, FormControl, FormLabel, Input, Option, Select, Stack, Typography } from "@mui/joy";
+import { Autocomplete, AutocompleteOption, Button, FormControl, FormLabel, Input, Option, Radio, RadioGroup, Select, Stack, Typography } from "@mui/joy";
 import { toast } from "sonner";
 import { useGetFormatsQuery, useSearchLibraryArtistsQuery } from "@/lib/features/catalog/api";
 import { formatLabel } from "@/lib/features/experiences/modern/tokens/roles";
@@ -13,14 +13,12 @@ import { REVIEW_COPY } from "./copy";
 
 const COPY = REVIEW_COPY.intake;
 
-const DIGITAL = "digital";
-
 const SUGGESTION_DEBOUNCE_MS = 300;
 const SUGGESTION_MIN_LENGTH = 2;
 const SUGGESTION_LIMIT = 8;
 const NO_SUGGESTIONS: ArtistSearchMatch[] = [];
 
-const EMPTY_FORM = { artist: "", album: "", label: "", labelId: null as number | null, formatId: null as number | null, digital: false, discogs: "" };
+const EMPTY_FORM = { artist: "", album: "", label: "", labelId: null as number | null, formatId: null as number | null, arrival: null as "disc" | "files" | null, discogs: "" };
 
 export default function IntakeLogForm() {
   const { data: formats } = useGetFormatsQuery(undefined);
@@ -46,7 +44,7 @@ export default function IntakeLogForm() {
       await logItem({
         artist_name: form.artist,
         album_title: form.album,
-        ...(form.digital ? { digital: true } : { format_id: form.formatId! }),
+        ...(form.arrival === "files" ? { digital: true } : { format_id: form.formatId! }),
         ...(form.label && { record_label: form.label }),
         ...(form.labelId != null && { label_id: form.labelId }),
         ...(form.discogs && { discogs_release_id: Number(form.discogs) }),
@@ -108,22 +106,35 @@ export default function IntakeLogForm() {
           />
         </FormControl>
         <FormControl required>
-          <FormLabel>{COPY.format}</FormLabel>
-          <Select<number | string>
-            value={form.digital ? DIGITAL : form.formatId}
-            onChange={(_e, choice) => setForm((f) => ({ ...f, digital: choice === DIGITAL, formatId: choice === DIGITAL ? null : (choice as number | null) }))}
+          <FormLabel>{COPY.arrival}</FormLabel>
+          <RadioGroup
+            orientation="horizontal"
+            value={form.arrival ?? ""}
+            onChange={(e) => setForm((f) => ({ ...f, arrival: e.target.value as "disc" | "files", formatId: null }))}
           >
-            <Option value={DIGITAL}>{COPY.digital}</Option>
-            {(formats ?? []).map((f) => (
-              <Option key={f.id} value={f.id}>{formatLabel(f.format_name)}</Option>
-            ))}
-          </Select>
+            <Radio value="disc" label={COPY.arrivedAsDisc} />
+            <Radio value="files" label={COPY.arrivedAsFiles} />
+          </RadioGroup>
+          {form.arrival === "files" && <Typography level="body-sm">{COPY.arrivedAsFilesHint}</Typography>}
         </FormControl>
+        {form.arrival === "disc" && (
+          <FormControl required>
+            <FormLabel>{COPY.format}</FormLabel>
+            <Select<number>
+              value={form.formatId}
+              onChange={(_e, choice) => setForm((f) => ({ ...f, formatId: choice }))}
+            >
+              {(formats ?? []).map((f) => (
+                <Option key={f.id} value={f.id}>{formatLabel(f.format_name)}</Option>
+              ))}
+            </Select>
+          </FormControl>
+        )}
         <FormControl>
           <FormLabel>{COPY.discogsReleaseId}</FormLabel>
           <Input type="number" value={form.discogs} onChange={(e) => setForm((f) => ({ ...f, discogs: e.target.value }))} />
         </FormControl>
-        <Button type="submit" loading={logging} disabled={!form.artist || !form.album || (form.formatId == null && !form.digital)}>{COPY.log}</Button>
+        <Button type="submit" loading={logging} disabled={!form.artist || !form.album || (form.arrival == null || (form.arrival === "disc" && form.formatId == null))}>{COPY.log}</Button>
       </Stack>
     </form>
   );

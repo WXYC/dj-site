@@ -122,9 +122,12 @@ describe("formatLabel", () => {
   // path drew which row.
   it.each([
     ["cd", "CD"],
-    ["CD", "CD"],
+    ["cdr", "CD-R"],
     ["vinyl", "Vinyl"],
-  ])("tidies the bare lowercase format %s to %s", (input, expected) => {
+    ['vinyl 12"', 'Vinyl 12"'],
+    ['vinyl 7"', 'Vinyl 7"'],
+    ['vinyl 10"', 'Vinyl 10"'],
+  ])("restyles the library's format name %s as %s", (input, expected) => {
     expect(formatLabel(input)).toBe(expected);
   });
 
@@ -134,7 +137,10 @@ describe("formatLabel", () => {
   // return "Lp" and "Cassette", rewriting server text in the one place whose
   // job is to present it.
   it.each([
+    "CD",
     "CD-R",
+    "Cdr",
+    "VINYL",
     "LP",
     "lp",
     '12" Vinyl',
