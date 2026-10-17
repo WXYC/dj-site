@@ -15,7 +15,7 @@ export const REVIEW_COPY = {
   subjectNotHeldDigital: "This record isn't yours to review any more, so a review can't be started here.",
   /** Approved. Shown in place of the editor while reviews are open to music directors only. */
   staffOnly: "Reviews are open to music directors for now. You'll be able to open this review when they open to every DJ.",
-  /** Approved. The editor page's header and browser-tab title. */
+  /** Approved. The editor's visually hidden heading and browser-tab title. */
   pageTitle: "Review",
   /** Approved. Shown above the fields of a draft only; a submitted review is no longer private. */
   draftPrivacy: "Only you can read this draft. Music directors can see that you have one in progress, not what it says.",

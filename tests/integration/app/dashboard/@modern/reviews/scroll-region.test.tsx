@@ -45,13 +45,14 @@ describe("review pages scroll inside Main", () => {
   setUpClassicPageAuthorityEnv();
 
   it.each([
-    ["the record's page", () => IntakeItemPage(params)],
-    ["the print page", () => IntakeSlipPage(params)],
-    ["the album's print page", () => ReleaseSlipPage({ params: Promise.resolve({ albumId: "7", reviewId: "11" }) })],
-    ["a new review", () => NewReviewPage({ searchParams: Promise.resolve({ album_id: "7" }) })],
-    ["the review editor", () => ReviewEditorPage(params)],
-    ["a review's history", () => ReviewHistoryPage(params)],
-  ])("%s renders its screen in one scroll region with the header outside it", async (_name, open) => {
+    ["the record's page", true, () => IntakeItemPage(params)],
+    ["the print page", true, () => IntakeSlipPage(params)],
+    ["the album's print page", true, () => ReleaseSlipPage({ params: Promise.resolve({ albumId: "7", reviewId: "11" }) })],
+    ["a new review", true, () => NewReviewPage({ searchParams: Promise.resolve({ album_id: "7" }) })],
+    // The editor draws no page header: its record heading is the title.
+    ["the review editor", false, () => ReviewEditorPage(params)],
+    ["a review's history", true, () => ReviewHistoryPage(params)],
+  ])("%s renders its screen in one scroll region, with a page header outside it only where it draws one", async (_name, hasHeader, open) => {
     process.env.NEXT_PUBLIC_REVIEWS_ENABLED = "true";
     setUpClassicPageAuthority("musicDirector");
 
@@ -59,10 +60,12 @@ describe("review pages scroll inside Main", () => {
 
     const region = screen.getByTestId("screen").parentElement!;
     expect(region).toHaveStyle({ flex: "1", minHeight: "0px", overflow: "auto" });
-    // The record editor draws no page header: its record heading is the title.
     const header = screen.queryByTestId("page-header");
-    if (header) {
+    if (hasHeader) {
+      expect(header).toBeInTheDocument();
       expect(region).not.toContainElement(header);
+    } else {
+      expect(header).not.toBeInTheDocument();
     }
     for (let el = region.parentElement; el; el = el.parentElement) {
       expect(scrollsVertically(el)).toBe(false);
