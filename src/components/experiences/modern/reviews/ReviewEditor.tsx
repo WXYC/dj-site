@@ -56,6 +56,10 @@ function HiddenTitle() {
 
 type Confirming = "submit" | "delete" | null;
 
+/** A kept draft read as this editor would send it: a key the editor does not send (FCC text where the field is not offered, consent from a non-author) is ignored, and a key the draft lacks stays as saved. */
+const keptFor = (saved: ReviewPatch, kept: ReviewPatch): ReviewPatch =>
+  Object.fromEntries(Object.entries(saved).map(([k, v]) => [k, k in kept ? kept[k as keyof ReviewPatch] : v])) as ReviewPatch;
+
 /** The record's confirmed FCC notes as the print carries them: the intake item's and the release's, a note on both counted once, oldest first. A failed read contributes none. The notes are the review's own subject's (its `intake_item_id` and `album_id`), not those of a copy that cites this review: a typed review a copy accepts through its citation prints with that copy's notes, which this preview does not show. */
 function useConfirmedFccNotes(review: Review): string[] {
   const forItem = useGetFccNotesQuery(review.intake_item_id != null ? { intake_item_id: review.intake_item_id } : skipToken);
@@ -84,8 +88,8 @@ function Form({ review, user }: { review: Review; user: User | undefined }) {
   const { root, bar } = useStickyRoom<HTMLDivElement, HTMLDivElement>();
   const slipHeadingId = useId();
   const reasonId = useId();
-  // The free-text FCC field is for a handwritten review and for text already stored; a typed review reports FCC through the panel. Settled at load, so clearing the text does not take the field away.
-  const [fccField] = useState(() => review.medium === "handwritten" || (review.fcc ?? "").trim() !== "");
+  // The free-text FCC field is for a paper review (every medium but typed, as `blank` below) and for text already stored; a typed review reports FCC through the panel. Settled at load, so clearing the text does not take the field away.
+  const [fccField] = useState(() => review.medium !== "typed" || (review.fcc ?? "").trim() !== "");
   // A field the editor does not offer stays out of the patch, so the service keeps what it holds.
   const fields = FIELD_NAMES.filter((name) => name !== "fcc" || fccField);
   const notesSubject = review.intake_item_id != null ? { intakeItemId: review.intake_item_id } : review.album_id != null ? { albumId: review.album_id } : null;
@@ -107,7 +111,8 @@ function Form({ review, user }: { review: Review; user: User | undefined }) {
   // Text left unsaved when this review's editor was last open in this tab, offered back until the DJ answers or edits.
   const [offer, setOffer] = useState(() => {
     const kept = readReviewDraft(userId, review.id);
-    return kept && patchChanged(saved, kept) ? kept : null;
+    const offered = kept && keptFor(saved, kept);
+    return offered && patchChanged(saved, offered) ? offered : null;
   });
   // Back is not guarded (the router owns history), so the unsaved text is kept in the tab instead; while the offer stands the form is clean and the kept text must survive.
   useEffect(() => {
@@ -116,9 +121,13 @@ function Form({ review, user }: { review: Review; user: User | undefined }) {
     else clearReviewDraft(userId, review.id);
   }, [offer, dirty, userId, review.id, JSON.stringify(patch())]); // eslint-disable-line react-hooks/exhaustive-deps -- patch() is rebuilt each render; its JSON is the value that matters
   const restore = () => {
-    if (!offer) return;
-    setValues(toFieldValues(offer));
-    if (isAuthor) setConsent((c) => ({ ...c, ...Object.fromEntries(CONSENT_KEYS.filter((k) => k in offer).map((k) => [k, offer[k]])) }));
+    if (!offer) {
+      return;
+    }
+    setValues((current) => ({ ...current, ...Object.fromEntries(fields.map((k) => [k, offer[k] ?? ""])) }));
+    if (isAuthor) {
+      setConsent((c) => ({ ...c, ...Object.fromEntries(CONSENT_KEYS.filter((k) => k in offer).map((k) => [k, offer[k]])) }));
+    }
     setOffer(null);
   };
   const failure = (err: unknown, fallback: string) =>
@@ -204,10 +213,7 @@ function Form({ review, user }: { review: Review; user: User | undefined }) {
           <SlipFields values={values} fields={fields} onChange={(next) => { setOffer(null); setValues(next); }} />
           {notesSubject && (
             <Box sx={{ [TWO_COLUMNS]: { overflowWrap: "anywhere" } }}>
-              <FccNotesPanel
-                {...notesSubject}
-                {...(fccField ? {} : { title: REVIEW_COPY.fields.fcc.label, help: REVIEW_COPY.fields.fcc.help })}
-              />
+              <FccNotesPanel {...notesSubject} title={REVIEW_COPY.fields.fcc.label} help={REVIEW_COPY.fields.fcc.help} />
             </Box>
           )}
           {isAuthor ? (
