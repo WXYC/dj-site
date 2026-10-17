@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Autocomplete, AutocompleteOption, Button, FormControl, FormLabel, Input, Option, Radio, RadioGroup, Select, Stack, Typography } from "@mui/joy";
+import { useId, useState } from "react";
+import { Autocomplete, AutocompleteOption, Button, FormControl, FormLabel, Input, Option, Radio, RadioGroup, Select, Sheet, Stack, Typography } from "@mui/joy";
 import { toast } from "sonner";
 import { useGetFormatsQuery, useSearchLibraryArtistsQuery } from "@/lib/features/catalog/api";
 import { formatLabel } from "@/lib/features/experiences/modern/tokens/roles";
@@ -18,7 +18,24 @@ const SUGGESTION_MIN_LENGTH = 2;
 const SUGGESTION_LIMIT = 8;
 const NO_SUGGESTIONS: ArtistSearchMatch[] = [];
 
-const EMPTY_FORM = { artist: "", album: "", label: "", labelId: null as number | null, formatId: null as number | null, arrival: null as "disc" | "files" | null, discogs: "" };
+type Arrival = "disc" | "files";
+
+const EMPTY_FORM = { artist: "", album: "", label: "", labelId: null as number | null, formatId: null as number | null, arrival: null as Arrival | null, discogs: "" };
+
+// The arrival choice is drawn as a segmented control: each option is a segment the whole of
+// which picks it, and the picked one is raised.
+const SEGMENT_RADIO_PROPS = {
+  disableIcon: true,
+  overlay: true,
+  color: "neutral",
+  variant: "plain",
+  slotProps: {
+    action: ({ checked }: { checked?: boolean }) => ({
+      sx: checked ? { bgcolor: "background.surface", boxShadow: "sm", "&:hover": { bgcolor: "background.surface" } } : {},
+    }),
+  },
+} as const;
+const SEGMENT_SX = { px: 2, py: 1, bgcolor: "transparent", display: "flex", flexDirection: "column", justifyContent: "center" } as const;
 
 export default function IntakeLogForm() {
   const { data: formats } = useGetFormatsQuery(undefined);
@@ -27,6 +44,7 @@ export default function IntakeLogForm() {
   // The text the user typed, as opposed to text set by picking a row or resetting the form.
   // Only typed text is searched, so picking a name does not trigger a second search for it.
   const [typedArtist, setTypedArtist] = useState("");
+  const filesHintId = useId();
 
   // `currentData` is undefined while the search for the current term is pending or has
   // failed, whereas `data` would keep the rows of an earlier term. Options also stay hidden
@@ -39,11 +57,15 @@ export default function IntakeLogForm() {
   );
   const showSuggestions = typedTerm.length >= SUGGESTION_MIN_LENGTH && typedTerm === debouncedTerm;
 
+  // A disc or a record needs its format; files never have one.
+  const ready = Boolean(form.artist && form.album) && (form.arrival === "files" || (form.arrival === "disc" && form.formatId != null));
+
   const submit = async () => {
     try {
       await logItem({
         artist_name: form.artist,
         album_title: form.album,
+        // `ready` guarantees a format whenever the arrival is a disc or a record.
         ...(form.arrival === "files" ? { digital: true } : { format_id: form.formatId! }),
         ...(form.label && { record_label: form.label }),
         ...(form.labelId != null && { label_id: form.labelId }),
@@ -110,12 +132,25 @@ export default function IntakeLogForm() {
           <RadioGroup
             orientation="horizontal"
             value={form.arrival ?? ""}
-            onChange={(e) => setForm((f) => ({ ...f, arrival: e.target.value as "disc" | "files", formatId: null }))}
+            onChange={(e) => setForm((f) => ({ ...f, arrival: e.target.value as Arrival, formatId: null }))}
+            sx={{ alignSelf: "flex-start", p: 0.5, gap: 0.5, borderRadius: "md", bgcolor: "neutral.softBg", "--Radio-actionRadius": "8px" }}
           >
-            <Radio value="disc" label={COPY.arrivedAsDisc} />
-            <Radio value="files" label={COPY.arrivedAsFiles} />
+            <Sheet sx={SEGMENT_SX}>
+              <Radio value="disc" label={COPY.arrivedAsDisc} {...SEGMENT_RADIO_PROPS} />
+            </Sheet>
+            <Sheet sx={SEGMENT_SX}>
+              <Radio
+                value="files"
+                label={COPY.arrivedAsFiles}
+                {...SEGMENT_RADIO_PROPS}
+                slotProps={{ ...SEGMENT_RADIO_PROPS.slotProps, input: { "aria-describedby": filesHintId } }}
+              />
+              {/* Above the raised segment, as the option's own label is. */}
+              <Typography id={filesHintId} level="body-xs" sx={{ position: "relative", zIndex: 1, pointerEvents: "none" }}>
+                {COPY.arrivedAsFilesHint}
+              </Typography>
+            </Sheet>
           </RadioGroup>
-          {form.arrival === "files" && <Typography level="body-sm">{COPY.arrivedAsFilesHint}</Typography>}
         </FormControl>
         {form.arrival === "disc" && (
           <FormControl required>
@@ -134,7 +169,7 @@ export default function IntakeLogForm() {
           <FormLabel>{COPY.discogsReleaseId}</FormLabel>
           <Input type="number" value={form.discogs} onChange={(e) => setForm((f) => ({ ...f, discogs: e.target.value }))} />
         </FormControl>
-        <Button type="submit" loading={logging} disabled={!form.artist || !form.album || (form.arrival == null || (form.arrival === "disc" && form.formatId == null))}>{COPY.log}</Button>
+        <Button type="submit" loading={logging} disabled={!ready}>{COPY.log}</Button>
       </Stack>
     </form>
   );
