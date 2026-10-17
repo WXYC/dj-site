@@ -18,7 +18,7 @@ import {
   useUpdateReviewMutation,
 } from "@/lib/features/reviews/reviewApi";
 import { useGetFccNotesQuery } from "@/lib/features/reviews/fccNoteApi";
-import { CONSENT_KEYS } from "@/lib/features/reviews/draftKeys";
+import { CONSENT_KEYS, FIELD_NAMES } from "@/lib/features/reviews/draftKeys";
 import { clearReviewDraft, readReviewDraft, writeReviewDraft } from "@/lib/features/reviews/reviewDrafts";
 import { serverMessage, unwrapEndpointErrorOrRaw } from "@/lib/rtk-endpoint-error";
 import { useAuthentication } from "@/src/hooks/authenticationHooks";
@@ -39,7 +39,7 @@ import { useLeaveGuard } from "@/src/hooks/useLeaveGuard";
 import { hasNothingToShow } from "@/lib/has-nothing-to-show";
 import { APPBAR_CLEARANCE_PX } from "@/src/components/shared/Theme/Appbar";
 
-/** Two columns from an editor 800px wide (a 1440px window beside both sidebars is about 826): the form takes the rest but never under 20rem, and the slip column is sized from its content (the slip is a fixed 4.25in, so its min-content), which puts the 8px of padding for the slip's shadow and a classic scrollbar's reserved gutter outside the slip. At a 16px root font size the slip then stays 4.25in and the form keeps 352px at 800px (335px beside a 17px scrollbar); where 20rem is larger (a larger root font size) the column's track shrinks, down to nothing, and the slip narrows with it (its max-width is 100%) instead of the grid scrolling sideways. A long unbroken token in an FCC note wraps inside the column (overflow-wrap is inherited, so it is set on the FCC panel's wrapper alone and the slip keeps wrapping as it does in one column and on paper). */
+/** Two columns from an editor 800px wide (a 1440px window beside both sidebars is about 826): the form takes the rest but never under 20rem, and the slip column is sized from its content (the slip is a fixed 4.25in, so its min-content), which puts the 8px of padding for the slip's shadow and a classic scrollbar's reserved gutter outside the slip. At a 16px root font size the slip then stays 4.25in and the form keeps 352px at 800px (335px beside a 17px scrollbar); where 20rem is larger (a larger root font size) the column's track shrinks, down to nothing, and the slip narrows with it (its max-width is 100%) instead of the grid scrolling sideways. A long unbroken token in an FCC note wraps inside the form column (overflow-wrap is inherited, so it is set on the FCC panel's wrapper alone and the slip keeps wrapping as it does in one column and on paper). */
 const TWO_COLUMNS = "@container (min-width: 800px)";
 
 /** The page's h2 while no record heading stands in for it, so the outline never skips a level. */
@@ -84,6 +84,11 @@ function Form({ review, user }: { review: Review; user: User | undefined }) {
   const { root, bar } = useStickyRoom<HTMLDivElement, HTMLDivElement>();
   const slipHeadingId = useId();
   const reasonId = useId();
+  // The free-text FCC field is for a handwritten review and for text already stored; a typed review reports FCC through the panel. Settled at load, so clearing the text does not take the field away.
+  const [fccField] = useState(() => review.medium === "handwritten" || (review.fcc ?? "").trim() !== "");
+  // A field the editor does not offer stays out of the patch, so the service keeps what it holds.
+  const fields = FIELD_NAMES.filter((name) => name !== "fcc" || fccField);
+  const notesSubject = review.intake_item_id != null ? { intakeItemId: review.intake_item_id } : review.album_id != null ? { albumId: review.album_id } : null;
   const draft = review.status === "draft";
   // Only a typed review needs text to submit; a handwritten one may go in with none.
   const blank = review.medium === "typed" && values.review.trim() === "";
@@ -91,7 +96,7 @@ function Form({ review, user }: { review: Review; user: User | undefined }) {
 
   // A non-author's patch carries no consent: the service accepts it only from the author.
   const patch = (): ReviewPatch => ({
-    ...toFieldPatch(values),
+    ...toFieldPatch(values, fields),
     ...(isAuthor ? consent : {}),
   });
   // What the service holds: the review as loaded, then whatever the last save sent.
@@ -196,7 +201,15 @@ function Form({ review, user }: { review: Review; user: User | undefined }) {
         }}
       >
         <Stack spacing={2}>
-          <SlipFields values={values} onChange={(next) => { setOffer(null); setValues(next); }} />
+          <SlipFields values={values} fields={fields} onChange={(next) => { setOffer(null); setValues(next); }} />
+          {notesSubject && (
+            <Box sx={{ [TWO_COLUMNS]: { overflowWrap: "anywhere" } }}>
+              <FccNotesPanel
+                {...notesSubject}
+                {...(fccField ? {} : { title: REVIEW_COPY.fields.fcc.label, help: REVIEW_COPY.fields.fcc.help })}
+              />
+            </Box>
+          )}
           {isAuthor ? (
             <Box sx={{ borderTop: "1px solid", borderColor: "divider", pt: 2 }}>
               <ConsentBlock value={consent} onChange={(next) => { setOffer(null); setConsent(next); }} djName={user?.djName} realName={user?.realName} />
@@ -221,11 +234,6 @@ function Form({ review, user }: { review: Review; user: User | undefined }) {
               fccNotes={fccNotes}
             />
           </Stack>
-          {review.intake_item_id != null && (
-            <Box sx={{ [TWO_COLUMNS]: { overflowWrap: "anywhere" } }}>
-              <FccNotesPanel intakeItemId={review.intake_item_id}/>
-            </Box>
-          )}
         </Stack>
       </Box>
       <Stack
