@@ -42,7 +42,6 @@ vi.mock("@/src/hooks/authenticationHooks", async () => {
   return createAuthenticationHookMock(mockAuth);
 });
 
-import DeleteReviewButton from "@/src/components/experiences/modern/reviews/DeleteReviewButton";
 import IntakeItemScreen from "@/src/components/experiences/modern/reviews/IntakeItemScreen";
 import ReviewEditor from "@/src/components/experiences/modern/reviews/ReviewEditor";
 import { REVIEW_COPY } from "@/src/components/experiences/modern/reviews/copy";
@@ -55,21 +54,13 @@ const serveEditor = () => {
   return <ReviewEditor id={40} />;
 };
 
-const serveButton = () => (
-  <DeleteReviewButton
-    review={AUTHORED}
-    confirmation="Delete this review?"
-    blocked={false}
-    disabled={false}
-    reload={async () => ({ mounted: true })}
-    onWritten={async () => {}}
-    onNotice={() => {}}
-  />
-);
-
+// The record carries a review, so its page shows the record's Delete beside a Delete review by DJ Me.
 const serveRecord = () => {
   fakeRotationCardsEndpoints([{ id: 32, bin: "H", number: 2, name: null }]);
-  fakeReviewsEndpoints({ records: [intakeItem({ id: ITEM_ID, state: "reviewed", effective_state: "reviewed", submitted_review_count: 0 })] });
+  fakeReviewsEndpoints({
+    records: [intakeItem({ id: ITEM_ID, state: "reviewed", effective_state: "reviewed", submitted_review_count: 1 })],
+    forItem: { [ITEM_ID]: [review({ id: 41, intake_item_id: ITEM_ID, status: "submitted", author: "DJ Me" })] },
+  });
   return <IntakeItemScreen id={ITEM_ID} />;
 };
 
@@ -82,17 +73,27 @@ describe("the review screens' delete triggers", () => {
 
   it.each([
     ["the editor's Delete", REVIEW_COPY.delete, serveEditor],
-    ["Delete review on a record's page", REVIEW_COPY.intakeItem.deleteReview, serveButton],
-    ["Delete for the record itself", REVIEW_COPY.intakeItem.delete, serveRecord],
-  ])("%s is plain neutral text, and its confirmation's Delete is solid danger", async (_name, label, serve: () => ReactElement) => {
+    ["a record page's Delete review", REVIEW_COPY.intakeItem.deleteReviewBy("DJ Me"), serveRecord],
+    ["a record page's Delete for the record itself", REVIEW_COPY.intakeItem.delete, serveRecord],
+  ])("%s is plain neutral text, and its confirmation's Delete is solid danger", async (_name, name, serve: () => ReactElement) => {
     const { user } = renderWithProviders(<CssVarsProvider theme={modernTheme}>{serve()}</CssVarsProvider>);
 
-    const trigger = await screen.findByRole("button", { name: new RegExp(`^${label}`) });
+    const trigger = await screen.findByRole("button", { name });
     expect(trigger).toHaveClass("MuiButton-colorNeutral", "MuiButton-variantPlain");
     expect(trigger).not.toHaveClass("MuiButton-colorDanger");
 
     await user.click(trigger);
     const confirm = within(await screen.findByRole("alertdialog")).getByRole("button", { name: REVIEW_COPY.delete });
     expect(confirm).toHaveClass("MuiButton-colorDanger", "MuiButton-variantSolid");
+  });
+
+  it("keeps the editor's Submit confirmation primary, since its confirm button is shared with Delete", async () => {
+    fakeReviewsEndpoints({ reviews: [review({ id: 40, author_user_id: "md-me", status: "draft" })], records: [intakeItem({ id: 2 })] });
+    const { user } = renderWithProviders(<CssVarsProvider theme={modernTheme}><ReviewEditor id={40} /></CssVarsProvider>);
+
+    await user.click(await screen.findByRole("button", { name: REVIEW_COPY.submit }));
+    const confirm = within(await screen.findByRole("alertdialog")).getByRole("button", { name: REVIEW_COPY.submit });
+    expect(confirm).toHaveClass("MuiButton-colorPrimary", "MuiButton-variantSolid");
+    expect(confirm).not.toHaveClass("MuiButton-colorDanger");
   });
 });
