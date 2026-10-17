@@ -26,14 +26,20 @@ export default function IntakeLogForm() {
   const { data: formats } = useGetFormatsQuery(undefined);
   const [logItem, { isLoading: logging }] = useLogIntakeItemMutation();
   const [form, setForm] = useState(EMPTY_FORM);
+  // The text the user typed, as opposed to text set by picking a row or resetting the form.
+  // Only typed text is searched, so picking a name does not trigger a second search for it.
+  const [typedArtist, setTypedArtist] = useState("");
 
-  // A failed or slow search leaves `data` undefined, which renders no options;
-  // the typed text is what gets sent either way.
-  const debouncedArtist = useDebouncedValue(form.artist.trim(), SUGGESTION_DEBOUNCE_MS);
-  const { data: suggestions } = useSearchLibraryArtistsQuery(
-    { q: debouncedArtist, limit: SUGGESTION_LIMIT },
-    { skip: debouncedArtist.length < SUGGESTION_MIN_LENGTH },
+  // `currentData` is undefined while the search for the current term is pending or has
+  // failed, whereas `data` would keep the rows of an earlier term. Options also stay hidden
+  // until the debounce has caught up with the typed text and the text is long enough to search.
+  const typedTerm = typedArtist.trim();
+  const debouncedTerm = useDebouncedValue(typedTerm, SUGGESTION_DEBOUNCE_MS);
+  const { currentData: suggestions } = useSearchLibraryArtistsQuery(
+    { q: debouncedTerm, limit: SUGGESTION_LIMIT },
+    { skip: debouncedTerm.length < SUGGESTION_MIN_LENGTH },
   );
+  const showSuggestions = typedTerm.length >= SUGGESTION_MIN_LENGTH && typedTerm === debouncedTerm;
 
   const submit = async () => {
     try {
@@ -46,6 +52,7 @@ export default function IntakeLogForm() {
         ...(form.discogs && { discogs_release_id: Number(form.discogs) }),
       }).unwrap();
       setForm(EMPTY_FORM);
+      setTypedArtist("");
     } catch {
       toast.error(REVIEW_COPY.screen.writeFailed);
     }
@@ -63,15 +70,22 @@ export default function IntakeLogForm() {
       <Stack spacing={1}>
         <FormControl required>
           <FormLabel>{COPY.artist}</FormLabel>
-          <Autocomplete<ArtistSearchMatch, false, false, true>
+          <Autocomplete<ArtistSearchMatch, false, true, true>
             freeSolo
-            options={suggestions?.artists ?? NO_SUGGESTIONS}
+            // The input text is the only value: no picked option is kept, so nothing survives a form reset.
+            value=""
+            disableClearable
+            options={showSuggestions ? (suggestions?.artists ?? NO_SUGGESTIONS) : NO_SUGGESTIONS}
             filterOptions={(options) => options}
             getOptionLabel={(option) => (typeof option === "string" ? option : option.artist_name)}
+            getOptionKey={(option) => (typeof option === "string" ? option : `${option.id}-${option.genre_id}`)}
             inputValue={form.artist}
-            onInputChange={(_e, artist) => setForm((f) => ({ ...f, artist }))}
+            onInputChange={(_e, artist, reason) => {
+              setForm((f) => ({ ...f, artist }));
+              setTypedArtist(reason === "input" ? artist : "");
+            }}
             renderOption={(props, option) => (
-              <AutocompleteOption {...props} key={`${option.id}-${option.genre_id}`}>
+              <AutocompleteOption {...props}>
                 <Typography level="body-md">{option.artist_name}</Typography>
                 <Typography level="body-sm" sx={{ ml: "auto" }}>{option.genre_name}</Typography>
               </AutocompleteOption>

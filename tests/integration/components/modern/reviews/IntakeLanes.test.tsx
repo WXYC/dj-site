@@ -801,6 +801,93 @@ describe("IntakeLogForm", () => {
 
       await waitFor(() => expect(body).toEqual({ artist_name: "Autechre", album_title: "Amber", digital: true }));
     });
+
+    // A later search that fails or is skipped must not show the rows of an earlier one.
+    const fakeSearchThatSucceedsOnlyForAute = (queries: string[]) =>
+      server.use(
+        http.get(`${TEST_BACKEND_URL}/library/artists/search`, ({ request }) => {
+          const q = new URL(request.url).searchParams.get("q") ?? "";
+          queries.push(q);
+          return q === "Aute"
+            ? HttpResponse.json({ artists: [match(1, "Autechre", 5, "Electronic")] })
+            : new HttpResponse(null, { status: 500 });
+        }),
+      );
+
+    it("shows no options for a failed search that follows a successful one", async () => {
+      const queries: string[] = [];
+      fakeReviewsEndpoints();
+      fakeSearchThatSucceedsOnlyForAute(queries);
+
+      const { user } = renderWithProviders(<IntakeLogForm />);
+      const artist = await screen.findByLabelText(/^Artist/);
+      await user.type(artist, "Aute");
+      expect(await screen.findAllByRole("option")).toHaveLength(1);
+
+      await user.clear(artist);
+      await user.type(artist, "Stereo");
+      await waitFor(() => expect(queries).toContain("Stereo"));
+      await waitFor(() => expect(screen.queryAllByRole("option")).toHaveLength(0));
+    });
+
+    it("shows no options once the text drops below two characters", async () => {
+      const queries: string[] = [];
+      fakeReviewsEndpoints();
+      fakeSearchThatSucceedsOnlyForAute(queries);
+
+      const { user } = renderWithProviders(<IntakeLogForm />);
+      const artist = await screen.findByLabelText(/^Artist/);
+      await user.type(artist, "Aute");
+      expect(await screen.findAllByRole("option")).toHaveLength(1);
+
+      await user.clear(artist);
+      await user.type(artist, "B");
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      expect(screen.queryAllByRole("option")).toHaveLength(0);
+      expect(queries).toEqual(["Aute"]);
+    });
+
+    it("starts the next record with no suggestions, no selection, and no clear button", async () => {
+      fakeReviewsEndpoints();
+      server.use(
+        http.get(`${TEST_BACKEND_URL}/library/artists/search`, () =>
+          HttpResponse.json({ artists: [match(1, "Autechre", 5, "Electronic")] }),
+        ),
+        http.post(`${TEST_BACKEND_URL}/intake`, () => HttpResponse.json(moonPix())),
+      );
+
+      const { user } = renderWithProviders(<IntakeLogForm />);
+      const artist = await screen.findByLabelText(/^Artist/);
+      await user.type(artist, "Aute");
+      await user.click((await screen.findAllByRole("option"))[0]);
+      await user.type(screen.getByLabelText(/^Album/), "Amber");
+      await user.click(screen.getByRole("combobox", { name: /^Format/ }));
+      await user.click((await screen.findAllByRole("option"))[0]);
+      await user.click(screen.getByRole("button", { name: "Log item" }));
+      await waitFor(() => expect(artist).toHaveValue(""));
+
+      await user.click(artist);
+      expect(screen.queryAllByRole("option")).toHaveLength(0);
+      expect(screen.queryByRole("button", { name: /clear/i })).not.toBeInTheDocument();
+
+      // The earlier pick must not stay selected, or Enter would take it instead of submitting.
+      await user.type(artist, "Aute");
+      const again = (await screen.findAllByRole("option"))[0];
+      expect(again).not.toHaveAttribute("aria-selected", "true");
+    });
+
+    it("sends one search for what was typed, not another for the name that was picked", async () => {
+      const queries: string[] = [];
+      fakeReviewsEndpoints();
+      fakeSearchThatSucceedsOnlyForAute(queries);
+
+      const { user } = renderWithProviders(<IntakeLogForm />);
+      await user.type(await screen.findByLabelText(/^Artist/), "Aute");
+      await user.click((await screen.findAllByRole("option"))[0]);
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      expect(queries).toEqual(["Aute"]);
+    });
   });
 
   it("lists Digital ahead of the library's formats", async () => {
