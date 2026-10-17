@@ -407,8 +407,8 @@ describe("IntakeLanes", () => {
     const pass = (dj_name: string, passed_at: string) => ({ dj_name, passed_at });
     fakeReviewsEndpoints({
       open: [
-        moonPix({ id: 1, logged_at: "2026-09-02T12:00:00Z", artist_name: "Juana Molina", album_title: "DOGA", passes: [pass("Pat", "2026-10-01T12:00:00Z")] }),
-        moonPix({ id: 2, logged_at: "2026-09-01T12:00:00Z", artist_name: "Stereolab", album_title: "Aluminum Tunes", passes: [pass("Sam", "2026-10-03T12:00:00Z")] }),
+        moonPix({ id: 1, logged_at: "2026-09-02T12:00:00Z", artist_name: "Juana Molina", album_title: "DOGA", passes: [pass("Pat", "2025-10-01T12:00:00Z")] }),
+        moonPix({ id: 2, logged_at: "2026-09-01T12:00:00Z", artist_name: "Stereolab", album_title: "Aluminum Tunes", passes: [pass("Sam", "2025-10-03T12:00:00Z")] }),
       ],
     });
 
@@ -416,9 +416,10 @@ describe("IntakeLanes", () => {
 
     const band = await screen.findByRole("region", { name: "Recent passes" });
     expect(within(within(band).getByRole("list")).getAllByRole("listitem").map((li) => li.textContent)).toEqual([
-      "Sam passed on Stereolab — Aluminum Tunes",
-      "Pat passed on Juana Molina — DOGA",
+      "Sam passed on Stereolab — Aluminum Tunes · Oct 3, 2025",
+      "Pat passed on Juana Molina — DOGA · Oct 1, 2025",
     ]);
+    expect(within(band).getByRole("heading", { name: "Recent passes" })).toBeInTheDocument();
     expect(band.closest("[role=status]")).toBeNull();
     expect(band.querySelector("[role=status]")).toBeNull();
     // The band sits at the top of the page, above the first lane.
