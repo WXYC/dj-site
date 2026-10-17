@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import type { IntakeItem } from "@wxyc/shared";
-import { itemHolder, type Holder } from "@/lib/features/reviews/holder";
+import { itemHolder, onReviewShelf, type Holder } from "@/lib/features/reviews/holder";
 import { heldBy, intakeItem, removedHolder, requestedFor } from "@/tests/fakes/reviews";
 
 const NONE: Holder = { kind: "none" };
@@ -24,5 +24,19 @@ describe("itemHolder", () => {
     ["a filed record with no holder", { effective_state: "filed" }, NONE],
   ])("%s", (_label, overrides, expected) => {
     expect(itemHolder(intakeItem(overrides))).toEqual(expected);
+  });
+});
+
+describe("onReviewShelf", () => {
+  it.each<[string, Partial<IntakeItem>, boolean]>([
+    ["a pool record with no reviews", { effective_state: "pool", submitted_review_count: 0 }, true],
+    ["a pool record with a draft only", { effective_state: "pool", submitted_review_count: 0 }, true],
+    ["a pool record with a submitted review", { effective_state: "pool", submitted_review_count: 1 }, false],
+    ["a pool record whose submitted review was deleted", { effective_state: "pool", submitted_review_count: 0 }, true],
+    ["a requested record", { effective_state: "requested", submitted_review_count: 0 }, false],
+    ["a checked out record", { effective_state: "checked_out", submitted_review_count: 0 }, false],
+    ["a reviewed record", { effective_state: "reviewed", submitted_review_count: 0 }, false],
+  ])("%s", (_label, overrides, expected) => {
+    expect(onReviewShelf(intakeItem(overrides))).toBe(expected);
   });
 });

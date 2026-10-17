@@ -3,8 +3,8 @@
 import { Typography } from "@mui/joy";
 import type { IntakeItem, Review } from "@wxyc/shared";
 import { namedAuthor } from "@/lib/features/reviews/author";
-import { itemHolder } from "@/lib/features/reviews/holder";
-import { byKind } from "@/lib/features/reviews/kind";
+import { itemHolder, onReviewShelf } from "@/lib/features/reviews/holder";
+import { byKind, isFiledState } from "@/lib/features/reviews/kind";
 import { useGetItemReviewsQuery } from "@/lib/features/reviews/reviewApi";
 import { REVIEW_COPY } from "./copy";
 
@@ -15,8 +15,7 @@ export const newestFirst = (a: Review, b: Review) => b.add_date.localeCompare(a.
 
 /**
  * Where a waiting review's author stands against the record, in the station's words. Null when the author
- * is unknown, and when nobody has a record that is no longer on the review shelf: no approved line says
- * where such a record is. Names are real names: station display only, never telemetry.
+ * is unknown, and for a filed record nobody has. Names are real names: station display only, never telemetry.
  */
 export function fromLine(review: Review, item: IntakeItem): string | null {
   const author = namedAuthor(review);
@@ -28,7 +27,14 @@ export function fromLine(review: Review, item: IntakeItem): string | null {
     return byKind(item, { disc: COPY.fromRemoved, digital: COPY.fromTakenRemoved })(author);
   }
   if (holder.kind === "none") {
-    return item.effective_state === "pool" ? COPY.fromShelf(author) : null;
+    if (onReviewShelf(item)) {
+      return COPY.fromShelf(author);
+    }
+    if (isFiledState(item.effective_state)) {
+      return null;
+    }
+    const pooled = item.effective_state === "pool";
+    return byKind(item, { disc: COPY.fromBackInOffice, digital: pooled ? COPY.fromAuthor : COPY.fromReadyToBurn })(author);
   }
   if (holder.id !== null && holder.id === review.author_user_id) {
     return byKind(item, { disc: COPY.fromHolder, digital: COPY.fromTaker })(author);
@@ -42,9 +48,9 @@ export function fromLine(review: Review, item: IntakeItem): string | null {
  * row's reviews are being read, and if that read fails, the row shows `where`, the location line the lane
  * always showed, so it is never blank.
  */
-export function WaitingFrom({ item, where }: { item: IntakeItem; where: string }) {
+export function WaitingFrom({ item, where }: { item: IntakeItem; where: string | null }) {
   const reviews = useGetItemReviewsQuery(item.id);
-  if (!reviews.data) return <Typography level="body-sm">{where}</Typography>;
+  if (!reviews.data) return where ? <Typography level="body-sm">{where}</Typography> : null;
   const waiting = reviews.data.filter((r) => r.status === "submitted" && r.id !== item.accepted_review_id).sort(newestFirst);
   const line = waiting.length > 0 ? fromLine(waiting[0], item) : null;
   return (

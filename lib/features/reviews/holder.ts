@@ -19,3 +19,10 @@ export function itemHolder(item: IntakeItem): Holder {
   if (item.checked_out_by) return { kind: "checked_out", id: item.checked_out_by, name: item.checked_out_by_name ?? "" };
   return item.checked_out_at && (state === "checked_out" || state === "reviewed") ? { kind: "removed" } : { kind: "none" };
 }
+
+/**
+ * The one rule for "on the review shelf": nobody has the record and no submitted review waits on it. A
+ * pool record with a review waiting stays off the shelf until a music director chooses or deletes that review.
+ */
+export const onReviewShelf = (item: Pick<IntakeItem, "effective_state" | "submitted_review_count">): boolean =>
+  item.effective_state === "pool" && item.submitted_review_count === 0;

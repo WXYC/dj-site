@@ -24,8 +24,12 @@ describe("fromLine", () => {
     ["the review has no linked account and a request names no account, it still matches nobody", REQUESTED_NO_ACCOUNT, { ...FROM_JESS, author_user_id: null }, "From Jessica Pratt. The record is being held for DJ Pat."],
     ["the review has no linked account and the holder's account was removed", REMOVED_HOLDER, { ...FROM_JESS, author_user_id: null }, "From Jessica Pratt. The record is checked out; holder removed."],
     ["the review has no linked account and the record is on the review shelf", { effective_state: "pool" }, { ...FROM_JESS, author_user_id: null }, "From Jessica Pratt. The record is on the review shelf."],
-    ["nobody has the record and it is no longer on the review shelf", { effective_state: "reviewed" }, FROM_JESS, null],
-    ["nobody has a filed record", { effective_state: "filed" }, FROM_JESS, null],
+    ["a disc is back in the music office with a review waiting", { effective_state: "pool", submitted_review_count: 1 }, FROM_JESS, "From Jessica Pratt. The record is back in the music office."],
+    ["a digital album is in the pool with a review waiting, it names only the author", { effective_state: "pool", digital: true, submitted_review_count: 1 }, FROM_JESS, "From Jessica Pratt."],
+    ["a reviewed disc was returned", { effective_state: "reviewed" }, FROM_JESS, "From Jessica Pratt. The record is back in the music office."],
+    ["a reviewed digital album is nobody's", { effective_state: "reviewed", digital: true }, FROM_JESS, "From Jessica Pratt. The record is ready to burn."],
+    ["nobody has a filed record, it says nothing", { effective_state: "filed" }, FROM_JESS, null],
+    ["nobody has a finalized record, it says nothing", { effective_state: "finalized" }, FROM_JESS, null],
     ["the author is unknown", HELD_BY_SAM, { author: null }, null],
   ])("when %s", (_label, itemOverrides, reviewOverrides, expected) => {
     expect(fromLine(review({ status: "submitted", ...reviewOverrides }), intakeItem(itemOverrides))).toBe(expected);

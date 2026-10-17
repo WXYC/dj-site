@@ -170,9 +170,9 @@ describe("IntakeLanes", () => {
       "From Jessica Pratt. The record is being held for DJ Pat.",
     ],
     [
-      "someone else wrote it and the record is on the review shelf",
+      "someone else wrote it and a disc with a review waiting is back in the music office",
       { state: "pool", effective_state: "pool" },
-      "From Jessica Pratt. The record is on the review shelf.",
+      "From Jessica Pratt. The record is back in the music office.",
     ],
     [
       "someone else wrote it and the holder's account was removed",
@@ -223,7 +223,9 @@ describe("IntakeLanes", () => {
         { state: "requested", effective_state: "requested", ...requestedFor("dj-pat", "DJ Pat") },
         "Held for DJ Pat",
       ],
-      ["the record is on the review shelf", { state: "pool", effective_state: "pool" }, "On the review shelf"],
+      ["a disc is back in the music office with a review waiting", { state: "pool", effective_state: "pool" }, "Back in the music office"],
+      ["a returned reviewed disc nobody has", { state: "reviewed", effective_state: "reviewed", ...returned }, "Back in the music office"],
+      ["a returned reviewed digital album nobody has", { digital: true, state: "reviewed", effective_state: "reviewed", ...returned }, "Ready to burn"],
       ["the holder's account was removed", removedHolder, "Holder removed"],
     ])("shows the location line while the read is in flight, then the From line, when %s", async (_label, itemOverrides, location) => {
       const item = waiting(7, itemOverrides);
