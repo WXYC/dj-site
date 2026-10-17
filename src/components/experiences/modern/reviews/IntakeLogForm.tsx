@@ -1,9 +1,10 @@
 "use client";
 
 import { useId, useState } from "react";
-import { Autocomplete, AutocompleteOption, Button, FormControl, FormLabel, Input, Option, Radio, RadioGroup, Select, Sheet, Stack, Typography } from "@mui/joy";
+import { Autocomplete, AutocompleteOption, Button, FormControl, FormHelperText, FormLabel, Input, Option, Radio, RadioGroup, Select, Sheet, Stack, Typography } from "@mui/joy";
 import { toast } from "sonner";
 import { useGetFormatsQuery, useSearchLibraryArtistsQuery } from "@/lib/features/catalog/api";
+import { discogsReleaseIdFrom } from "@/lib/features/catalog/discogsPrefill";
 import { formatLabel } from "@/lib/features/experiences/modern/tokens/roles";
 import type { ArtistSearchMatch } from "@/lib/features/catalog/types";
 import { useLogIntakeItemMutation } from "@/lib/features/reviews/intakeApi";
@@ -57,8 +58,15 @@ export default function IntakeLogForm() {
   );
   const showSuggestions = typedTerm.length >= SUGGESTION_MIN_LENGTH && typedTerm === debouncedTerm;
 
+  // An empty Discogs field is fine; anything it cannot read as a release id keeps the form from sending.
+  const discogsId = discogsReleaseIdFrom(form.discogs);
+  const discogsRefused = form.discogs.trim() !== "" && discogsId == null;
+
   // A disc or a record needs its format; files never have one.
-  const ready = Boolean(form.artist && form.album) && (form.arrival === "files" || (form.arrival === "disc" && form.formatId != null));
+  const ready =
+    !discogsRefused &&
+    Boolean(form.artist && form.album) &&
+    (form.arrival === "files" || (form.arrival === "disc" && form.formatId != null));
 
   const submit = async () => {
     try {
@@ -69,7 +77,7 @@ export default function IntakeLogForm() {
         ...(form.arrival === "files" ? { digital: true } : { format_id: form.formatId! }),
         ...(form.label && { record_label: form.label }),
         ...(form.labelId != null && { label_id: form.labelId }),
-        ...(form.discogs && { discogs_release_id: Number(form.discogs) }),
+        ...(discogsId != null && { discogs_release_id: discogsId }),
       }).unwrap();
       setForm(EMPTY_FORM);
       setTypedArtist("");
@@ -88,6 +96,15 @@ export default function IntakeLogForm() {
     >
       <Typography component="h3" level="title-lg">{COPY.logTitle}</Typography>
       <Stack spacing={1}>
+        <FormControl error={discogsRefused}>
+          <FormLabel>{COPY.discogsReleaseId}</FormLabel>
+          <Input
+            slotProps={{ input: { inputMode: "numeric" } }}
+            value={form.discogs}
+            onChange={(e) => setForm((f) => ({ ...f, discogs: e.target.value }))}
+          />
+          {discogsRefused && <FormHelperText>{COPY.discogsRefused}</FormHelperText>}
+        </FormControl>
         <FormControl required>
           <FormLabel>{COPY.artist}</FormLabel>
           <Autocomplete<ArtistSearchMatch, false, true, true>
@@ -166,10 +183,6 @@ export default function IntakeLogForm() {
             </Select>
           </FormControl>
         )}
-        <FormControl>
-          <FormLabel>{COPY.discogsReleaseId}</FormLabel>
-          <Input type="number" value={form.discogs} onChange={(e) => setForm((f) => ({ ...f, discogs: e.target.value }))} />
-        </FormControl>
         <Button type="submit" loading={logging} disabled={!ready}>{COPY.log}</Button>
       </Stack>
     </form>

@@ -13,6 +13,19 @@ export function discogsReleaseUrl(releaseId: number): string {
 
 const DISCOGS_HOST = /(^|\.)discogs\.com$/i;
 
+function releaseIdFromUrl(raw: string): number | null {
+  const trimmed = raw.trim();
+  try {
+    const parsed = new URL(
+      /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`,
+    );
+    const id = /\/release\/(\d+)/.exec(parsed.pathname)?.[1];
+    return DISCOGS_HOST.test(parsed.hostname) && id ? Number(id) : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * A Discogs *release* link, in any of the shapes the backend's own parser
  * accepts (scheme-less, `www.`, subdomains). Bare ids and master links are not
@@ -20,16 +33,17 @@ const DISCOGS_HOST = /(^|\.)discogs\.com$/i;
  * reference row survives the fold below.
  */
 function isDiscogsReleaseUrl(raw: string): boolean {
+  return releaseIdFromUrl(raw) !== null;
+}
+
+/**
+ * The release id a field holds: a bare number or a Discogs release link, or
+ * null for anything else (a master link, free text). Empty reads as null too;
+ * callers decide whether empty is acceptable.
+ */
+export function discogsReleaseIdFrom(raw: string): number | null {
   const trimmed = raw.trim();
-  if (trimmed === "") return false;
-  try {
-    const parsed = new URL(
-      /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`,
-    );
-    return DISCOGS_HOST.test(parsed.hostname) && /\/release\/\d+/.test(parsed.pathname);
-  } catch {
-    return false;
-  }
+  return /^\d+$/.test(trimmed) ? Number(trimmed) : releaseIdFromUrl(trimmed);
 }
 
 /**
