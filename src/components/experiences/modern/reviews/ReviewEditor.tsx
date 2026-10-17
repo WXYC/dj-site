@@ -4,6 +4,7 @@ import { useEffect, useId, useState } from "react";
 import Link from "next/link";
 import { Box, Button, Link as JoyLink, Stack, Typography } from "@mui/joy";
 import type { Review, ReviewPatch } from "@wxyc/shared";
+import { skipToken } from "@reduxjs/toolkit/query";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Authorization } from "@/lib/features/admin/types";
@@ -16,6 +17,7 @@ import {
   useSubmitReviewMutation,
   useUpdateReviewMutation,
 } from "@/lib/features/reviews/reviewApi";
+import { useGetFccNotesQuery } from "@/lib/features/reviews/fccNoteApi";
 import { CONSENT_KEYS } from "@/lib/features/reviews/draftKeys";
 import { clearReviewDraft, readReviewDraft, writeReviewDraft } from "@/lib/features/reviews/reviewDrafts";
 import { serverMessage, unwrapEndpointErrorOrRaw } from "@/lib/rtk-endpoint-error";
@@ -42,6 +44,17 @@ const TWO_COLUMNS = "@container (min-width: 800px)";
 
 type Confirming = "submit" | "delete" | null;
 
+/** The record's confirmed FCC notes as the print carries them: the intake item's and the release's, a note on both counted once, oldest first. A failed read contributes none. */
+function useConfirmedFccNotes(review: Review): string[] {
+  const forItem = useGetFccNotesQuery(review.intake_item_id != null ? { intake_item_id: review.intake_item_id } : skipToken);
+  const forRelease = useGetFccNotesQuery(review.album_id != null ? { album_id: review.album_id } : skipToken);
+  const byId = new Map([...(forItem.data ?? []), ...(forRelease.data ?? [])].map((n) => [n.id, n]));
+  return [...byId.values()]
+    .filter((n) => n.status === "confirmed")
+    .sort((a, b) => a.reported_at.localeCompare(b.reported_at) || a.id - b.id)
+    .map((n) => `${n.track}: ${n.note}`);
+}
+
 function Form({ review, user }: { review: Review; user: User | undefined }) {
   const userId = user?.id ?? "";
   const isAuthor = user?.id != null && user.id === review.author_user_id;
@@ -55,6 +68,7 @@ function Form({ review, user }: { review: Review; user: User | undefined }) {
   const [remove, { isLoading: deleting }] = useDeleteReviewMutation();
   const router = useRouter();
   const record = useReviewRecord(review);
+  const fccNotes = useConfirmedFccNotes(review);
   const { root, bar } = useStickyRoom<HTMLDivElement, HTMLDivElement>();
   const slipHeadingId = useId();
   const reasonId = useId();
@@ -192,6 +206,7 @@ function Form({ review, user }: { review: Review; user: User | undefined }) {
               reviewer={review.author ?? ""}
               date={formatSlipDate(review.submitted_at ?? review.add_date)}
               fields={values}
+              fccNotes={fccNotes}
             />
           </Stack>
           {review.intake_item_id != null && (

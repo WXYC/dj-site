@@ -267,6 +267,70 @@ describe("ReviewEditor", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(REVIEW_COPY.couldNotLoad);
   });
 
+  describe("the preview's FCC row", () => {
+    const confirmed = (overrides: Parameters<typeof fccNote>[0]) =>
+      fccNote({ status: "confirmed", confirmed_by: "A Music Director", confirmed_at: "2026-10-02T12:00:00Z", ...overrides });
+    const fccLines = (preview: HTMLElement) =>
+      Array.from(within(preview).getByText(REVIEW_COPY.fields.fcc.label).nextElementSibling!.children, (el) => el.textContent);
+
+    it("shows the review's FCC text, then the record's confirmed notes, and not a reported one", async () => {
+      fakeReviewsEndpoints({
+        reviews: [review({ ...CONSENT, intake_item_id: 2, fcc: "Cleared by the librarian." })],
+        records: [RECORD],
+        fccNotesForItem: {
+          "2": [
+            confirmed({ id: 1, intake_item_id: 2, track: "B1", note: "A word." }),
+            fccNote({ id: 2, intake_item_id: 2, track: "C3", note: "Not yet confirmed." }),
+          ],
+        },
+      });
+      renderWithProviders(<ReviewEditor id={40} />);
+
+      const preview = await screen.findByRole("group", { name: REVIEW_COPY.slip.name });
+      await within(preview).findByText("B1: A word.");
+      expect(fccLines(preview)).toEqual(["Cleared by the librarian.", "B1: A word."]);
+      expect(within(preview).queryByText("C3: Not yet confirmed.")).not.toBeInTheDocument();
+    });
+
+    it("shows the release's confirmed notes for a library-release review", async () => {
+      fakeReviewsEndpoints({
+        reviews: [review({ ...CONSENT, intake_item_id: null, album_id: 7 })],
+        releases: [{ id: 7, artist_name: "Juana Molina", album_title: "DOGA", record_label: "Sonamos", format_name: "CD", legacy_release_id: 1 }],
+        fccNotesForRelease: { "7": [confirmed({ id: 3, album_id: 7, intake_item_id: null, track: "A1", note: "Release note." })] },
+      });
+      renderWithProviders(<ReviewEditor id={40} />);
+
+      const preview = await screen.findByRole("group", { name: REVIEW_COPY.slip.name });
+      expect(await within(preview).findByText("A1: Release note.")).toBeInTheDocument();
+    });
+
+    it("shows a note carrying both ids once, after an older one, in reported order", async () => {
+      const both = confirmed({ id: 5, intake_item_id: 2, album_id: 7, track: "D4", note: "On both.", reported_at: "2026-10-02T12:00:00Z" });
+      fakeReviewsEndpoints({
+        reviews: [review({ ...CONSENT, intake_item_id: 2, album_id: 7 })],
+        records: [RECORD],
+        fccNotesForItem: { "2": [both] },
+        fccNotesForRelease: { "7": [both, confirmed({ id: 4, album_id: 7, intake_item_id: null, track: "A1", note: "Older." })] },
+      });
+      renderWithProviders(<ReviewEditor id={40} />);
+
+      const preview = await screen.findByRole("group", { name: REVIEW_COPY.slip.name });
+      await within(preview).findByText("D4: On both.");
+      await within(preview).findByText("A1: Older.");
+      expect(fccLines(preview)).toEqual(["A1: Older.", "D4: On both."]);
+    });
+
+    it("previews no notes when the read fails", async () => {
+      fakeReviewsEndpoints({ reviews: [review({ ...CONSENT, intake_item_id: 2, fcc: "Cleared." })], records: [RECORD] });
+      server.use(http.get(`${TEST_BACKEND_URL}/fcc-notes`, () => new HttpResponse(null, { status: 500 })));
+      renderWithProviders(<ReviewEditor id={40} />);
+
+      const preview = await screen.findByRole("group", { name: REVIEW_COPY.slip.name });
+      await within(preview).findByText("Cleared.");
+      expect(fccLines(preview)).toEqual(["Cleared."]);
+    });
+  });
+
   it("shows the record's FCC notes beside the editor for a logged record, and none for a library release", async () => {
     fakeReviewsEndpoints({
       reviews: [review({ intake_item_id: 2 }), review({ id: 41, intake_item_id: null, album_id: 7 })],
