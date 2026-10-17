@@ -33,8 +33,10 @@ import LeaveDialog from "./LeaveDialog";
 import RotationFilingBench, { type FilingSubmit } from "../admin/rotation/RotationFilingBench";
 import { REVIEW_COPY } from "./copy";
 import FccNotesPanel from "./FccNotesPanel";
-import { useGetFormatsQuery, useGetInformationQuery } from "@/lib/features/catalog/api";
+import { useGetInformationQuery } from "@/lib/features/catalog/api";
+import IntakeProgress from "./IntakeProgress";
 import { intakeRecord, recordLine, releaseRecord } from "./recordLine";
+import RecordHeader from "./RecordHeader";
 import ReleasePicker from "./ReleasePicker";
 import { fromLine, newestFirst } from "./ReviewFrom";
 import { CiteSection, RemoveCitation } from "./CiteControls";
@@ -89,7 +91,6 @@ export default function IntakeItemScreen({ id }: { id: number }) {
   // Set once the record is gone: its reads stop (they would 404) and the page shows only this line.
   const [deletedLine, setDeletedLine] = useState<string | null>(null);
   const item = useGetIntakeItemQuery(id, { skip: !visible || deletedLine !== null, selectFromResult: fromCache });
-  const { data: formats } = useGetFormatsQuery(undefined, { skip: !visible });
   const reviews = useGetItemReviewsQuery(id, { skip: !visible || deletedLine !== null, selectFromResult: fromCache });
   const [fileItem, filing] = useFileIntakeItemMutation();
   const [deleteItem, deletion] = useDeleteIntakeItemMutation();
@@ -285,6 +286,19 @@ export default function IntakeItemScreen({ id }: { id: number }) {
     );
 
   const stillOut = cover && recordKind(item.data) === "disc" && holder.kind === "checked_out" && holder.name && holder.id !== cover.author_user_id ? COPY.stillOutWith(holder.name) : null;
+  // Under the cover slip: the button that prints it (or the line that says a handwritten review needs none), then the still-out line.
+  const coverLead = (review: Review) => (
+    <>
+      {review.medium === "handwritten" ? (
+        <Typography>{REVIEW_COPY.intakeSlip.handwritten}</Typography>
+      ) : (
+        <Button component={Link} href={`/dashboard/admin/intake/${id}/slip`} sx={{ alignSelf: "flex-start" }}>
+          {printedVersion === "edited" ? REVIEW_COPY.printedNote.printNew : COPY.printSlip}
+        </Button>
+      )}
+      {stillOut && <Typography>{stillOut}</Typography>}
+    </>
+  );
 
   // Setting or clearing a citation can take the cover review off, so it holds the page like a review write; the reload also shows a refusal's cause.
   // Answers the line it set, for a caller whose own line would otherwise replace it, and whether a reload ran.
@@ -414,18 +428,21 @@ export default function IntakeItemScreen({ id }: { id: number }) {
   return (
     <Box sx={{ containerType: "inline-size" }}>
       <Stack spacing={2}>
-        <Stack direction="row" spacing={1} alignItems="center">
-          <Typography component="h3" level="title-lg">{recordLine(record, formats)}</Typography>
-          <Chip>
-            {item.data.effective_state === "checked_out"
-              ? byKind(item.data, { disc: STATE_LABELS.checked_out, digital: REVIEW_COPY.screen.taken })
-              : STATE_LABELS[item.data.effective_state]}
-          </Chip>
-        </Stack>
+        <RecordHeader
+          record={record}
+          chip={
+            <Chip>
+              {item.data.effective_state === "checked_out"
+                ? byKind(item.data, { disc: STATE_LABELS.checked_out, digital: REVIEW_COPY.screen.taken })
+                : STATE_LABELS[item.data.effective_state]}
+            </Chip>
+          }
+        />
+        <IntakeProgress item={item.data} />
         <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: "minmax(0, 1fr)", [TWO_COLUMNS]: { gridTemplateColumns: "minmax(0, 1fr) minmax(16rem, 20rem)", alignItems: "start" } }}>
           <Stack data-column="main" spacing={2}>
             {cover ? (
-              <Group title={REVIEW_COPY.albumPanel.coverOne} reviews={[cover]} recordOf={recordOf} newSlipHref={`/dashboard/admin/intake/${id}/slip`} onCover={isOnCover} extra={deleteControl} />
+              <Group title={REVIEW_COPY.albumPanel.coverOne} reviews={[cover]} recordOf={recordOf} newSlipHref={`/dashboard/admin/intake/${id}/slip`} onCover={isOnCover} lead={coverLead} extra={deleteControl} />
             ) : (
               coverId == null && <Typography>{COPY.noCover}</Typography>
             )}
@@ -466,13 +483,6 @@ export default function IntakeItemScreen({ id }: { id: number }) {
                 onCopy={(take) => openRecording(formReviewStart(take), { id: take.id, submittedAt: take.submitted_at })}
               />
             )}
-            {coverId != null &&
-              (cover?.medium === "handwritten" ? (
-                <Typography>{REVIEW_COPY.intakeSlip.handwritten}</Typography>
-              ) : (
-                <Link href={`/dashboard/admin/intake/${id}/slip`}>{printedVersion === "edited" ? REVIEW_COPY.printedNote.printNew : COPY.printSlip}</Link>
-              ))}
-            {stillOut && <Typography>{stillOut}</Typography>}
             {isFiledState(item.data.effective_state) ? (
               <Typography>{COPY.filed}</Typography>
             ) : coverId == null ? (

@@ -193,8 +193,6 @@ export const REVIEW_COPY = {
   },
   /** The music directors' lanes, on the Reviews page's second tab. */
   intake: {
-    /** Approved. The heading and tab title of a record's page under the music directors' admin area; it is not a menu entry (the sidebar reads `sidebar.title`). */
-    title: "Review shelf",
     /** Approved. Shown once the lists have reloaded after Mark as returned lost a race. */
     raceReleased: "This record has already been returned or filed. The lists have been reloaded.",
     /** Approved. Shown once the lists have reloaded after a cancel lost its race. */
@@ -247,6 +245,15 @@ export const REVIEW_COPY = {
     reviewed: "Reviewed",
     /** Approved. */
     filed: "Filed",
+    /** Approved. The first step of a record's progress track. */
+    added: "Added",
+    /** Approved. The fourth step of a record's progress track (copy round 4, line 3.1). */
+    printed: "Printed",
+    /** The progress track's name, and each step's state beside it. Not yet approved by the station. */
+    progress: "Progress",
+    stepDone: "Done",
+    stepCurrent: "Current",
+    stepAhead: "Not yet",
     /** Approved. The small mark on a row in a physical lane whose record also has a review waiting. */
     reviewWaitingMark: "review waiting",
     /** Approved. */

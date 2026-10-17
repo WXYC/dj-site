@@ -10,7 +10,7 @@ import { notFound } from "next/navigation";
 import { getPageTitle } from "@/lib/utils/page-title";
 
 export const metadata: Metadata = {
-  title: getPageTitle(REVIEW_COPY.intake.title),
+  title: getPageTitle(REVIEW_COPY.sidebar.title),
 };
 
 export default async function IntakeItemPage({ params }: { params: Promise<{ id: string }> }) {
@@ -26,7 +26,7 @@ export default async function IntakeItemPage({ params }: { params: Promise<{ id:
 
   return (
     <>
-      <PageHeader title={REVIEW_COPY.intake.title} />
+      <PageHeader title={REVIEW_COPY.sidebar.title} />
       <ScrollRegion>
         <IntakeItemScreen id={itemId} />
       </ScrollRegion>
