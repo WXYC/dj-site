@@ -113,6 +113,17 @@ function IntakeLaneGroups() {
     return COPY.onShelf;
   };
 
+  const cancelButton = (i: IntakeItem) => (
+    <Button size="sm" variant="outlined" {...lock(i.id, "cancel")} onClick={() => act(i.id, "cancel", () => cancelRequest(i.id).unwrap())}>
+      {COPY.cancelRequest}
+    </Button>
+  );
+  const releaseButton = (i: IntakeItem) => (
+    <Button size="sm" variant="outlined" {...lock(i.id, "release")} onClick={() => act(i.id, "release", () => release(i.id).unwrap())}>
+      {COPY.release}
+    </Button>
+  );
+
   const laneLabel = (i: IntakeItem) => (
     <>
       <Link href={`/dashboard/admin/intake/${i.id}`}>{recordLine(intakeRecord(i), formats)}</Link>
@@ -144,7 +155,13 @@ function IntakeLaneGroups() {
           rows={waitingRows}
           empty={COPY.empty}
           label={laneLabel}
-          extra={(i) => <WaitingFrom item={i} where={where(i)} />}
+          extra={(i) => (
+            <>
+              <WaitingFrom item={i} where={where(i)} />
+              {i.effective_state === "requested" && cancelButton(i)}
+              {i.effective_state === "checked_out" && releaseButton(i)}
+            </>
+          )}
         />
       )}
       <IntakeLane
@@ -155,9 +172,7 @@ function IntakeLaneGroups() {
         extra={(i) => (
           <>
             <Typography level="body-sm">{where(i)}</Typography>
-            <Button size="sm" variant="outlined" {...lock(i.id, "cancel")} onClick={() => act(i.id, "cancel", () => cancelRequest(i.id).unwrap())}>
-              {COPY.cancelRequest}
-            </Button>
+            {cancelButton(i)}
           </>
         )}
       />
@@ -169,9 +184,7 @@ function IntakeLaneGroups() {
         extra={(i) => (
           <>
             <Typography level="body-sm">{where(i)}</Typography>
-            <Button size="sm" variant="outlined" {...lock(i.id, "release")} onClick={() => act(i.id, "release", () => release(i.id).unwrap())}>
-              {COPY.release}
-            </Button>
+            {releaseButton(i)}
           </>
         )}
       />
