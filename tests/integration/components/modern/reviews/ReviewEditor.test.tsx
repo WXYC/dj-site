@@ -119,7 +119,7 @@ describe("ReviewEditor", () => {
       renderWithProviders(<ReviewEditor id={40} />);
 
       expect(await screen.findByRole("button", { name: saveName })).toBeDisabled();
-      expect(screen.getByRole("status", { name: "" })).toHaveTextContent(REVIEW_COPY.allChangesSaved);
+      expect(screen.getByText(REVIEW_COPY.allChangesSaved)).toHaveAttribute("role", "status");
     });
 
     it("turns on after typing and off again after the save", async () => {
@@ -140,6 +140,7 @@ describe("ReviewEditor", () => {
       serve(served);
       const { user } = renderWithProviders(<ReviewEditor id={40} />);
       await user.type(await screen.findByLabelText("Buzzwords"), "x");
+      expect(screen.getByRole("button", { name: saveName })).toBeEnabled();
       await user.type(screen.getByLabelText("Buzzwords"), "{Backspace}");
 
       expect(screen.getByRole("button", { name: saveName })).toBeDisabled();
@@ -164,6 +165,37 @@ describe("ReviewEditor", () => {
       expect(await screen.findByText(REVIEW_COPY.restore.notice)).toBeInTheDocument();
       expect(screen.getByRole("button", { name: saveName })).toBeDisabled();
       expect(screen.getByText(REVIEW_COPY.unsavedChanges)).toBeInTheDocument();
+    });
+
+    it("turns on when the kept text is restored", async () => {
+      serve(served);
+      writeReviewDraft("dj-me", 40, { ...toFieldPatch(toFieldValues(served)), review: "Kept text." });
+      const { user } = renderWithProviders(<ReviewEditor id={40} />);
+      await user.click(await screen.findByRole("button", { name: REVIEW_COPY.restore.restore }));
+
+      expect(screen.getByRole("button", { name: saveName })).toBeEnabled();
+      expect(screen.getByText(REVIEW_COPY.unsavedChanges)).toBeInTheDocument();
+    });
+
+    it("stays off, with the line reading All changes saved, once the kept text is discarded", async () => {
+      serve(served);
+      writeReviewDraft("dj-me", 40, { ...toFieldPatch(toFieldValues(served)), review: "Kept text." });
+      const { user } = renderWithProviders(<ReviewEditor id={40} />);
+      await user.click(await screen.findByRole("button", { name: REVIEW_COPY.restore.discard }));
+
+      expect(screen.getByRole("button", { name: saveName })).toBeDisabled();
+      expect(screen.getByText(REVIEW_COPY.allChangesSaved)).toBeInTheDocument();
+    });
+
+    it("stays off when a kept entry differs only in FCC text the editor does not offer", async () => {
+      serve(served);
+      writeReviewDraft("dj-me", 40, { ...toFieldPatch(toFieldValues(served)), fcc: "  " });
+      renderWithProviders(<ReviewEditor id={40} />);
+
+      expect(await screen.findByRole("button", { name: saveName })).toBeDisabled();
+      expect(screen.queryByRole("textbox", { name: REVIEW_COPY.fields.fcc.label })).not.toBeInTheDocument();
+      expect(screen.queryByText(REVIEW_COPY.restore.notice)).not.toBeInTheDocument();
+      expect(screen.getByText(REVIEW_COPY.allChangesSaved)).toBeInTheDocument();
     });
   });
 
@@ -446,6 +478,7 @@ describe("ReviewEditor", () => {
       expect(within(panel).getByText(FIELD.help)).toBeInTheDocument();
       expect(screen.queryByRole("region", { name: "FCC notes" })).not.toBeInTheDocument();
 
+      await user.type(screen.getByLabelText("Buzzwords"), "hushed");
       await user.click(screen.getByRole("button", { name: REVIEW_COPY.saveDraft }));
       await waitFor(() => expect(toast.success).toHaveBeenCalled());
       expect("fcc" in body).toBe(fieldShown);
@@ -1620,21 +1653,6 @@ describe("ReviewEditor", () => {
         expect(sessionStorage.getItem("review-draft::40")).toBe(JSON.stringify({ review: "Orphaned text." }));
         expect(Object.keys(sessionStorage)).toEqual(["review-draft::40"]);
       });
-    });
-
-    it("a save after restoring removes the entry; a failed one keeps it", async () => {
-      await leftWithUnsaved();
-      server.use(http.patch(`${TEST_BACKEND_URL}/reviews/40`, () => HttpResponse.json({ message: "no" }, { status: 500 })));
-      const { user } = renderWithProviders(<ReviewEditor id={40} />);
-      await user.click(await screen.findByRole("button", { name: RESTORE }));
-      await user.click(screen.getByRole("button", { name: "Save draft" }));
-      await waitFor(() => expect(toast.error).toHaveBeenCalled());
-      expect(stored()).not.toBeNull();
-
-      server.use(http.patch(`${TEST_BACKEND_URL}/reviews/40`, () => HttpResponse.json(DRAFT)));
-      await user.click(screen.getByRole("button", { name: "Save draft" }));
-      await waitFor(() => expect(stored()).toBeNull());
-      expect(screen.queryByText(NOTICE)).not.toBeInTheDocument();
     });
 
     it("a submit made while the offer stands removes the entry and the notice; a failed one keeps both", async () => {

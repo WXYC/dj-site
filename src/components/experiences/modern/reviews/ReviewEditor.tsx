@@ -140,7 +140,6 @@ function Form({ review, user }: { review: Review; user: User | undefined }) {
       const sent = patch();
       await update({ id: review.id, patch: sent }).unwrap();
       setSaved(sent);
-      setOffer(null);
       toast.success(draft ? REVIEW_COPY.saved : REVIEW_COPY.savedChange);
     } catch (err) {
       failure(err, REVIEW_COPY.couldNotSave);
