@@ -156,6 +156,15 @@ describe("RecordHeader", () => {
     expect(text.getByText("On the review shelf")).toBeInTheDocument();
   });
 
+  it.each([
+    { headingLevel: undefined, level: 2 },
+    { headingLevel: 2 as const, level: 2 },
+    { headingLevel: 3 as const, level: 3 },
+  ])("renders the artist at level $level when headingLevel is $headingLevel", ({ headingLevel, level }) => {
+    renderWithProviders(<RecordHeader record={record} headingLevel={headingLevel} />);
+    expect(screen.getByRole("heading", { name: "Juana Molina" })).toHaveProperty("tagName", `H${level}`);
+  });
+
   it("resolves an intake record's format id through the library's formats, for the tag and the toned glyph", async () => {
     serveFormats();
     const { container } = renderWithProviders(<RecordHeader record={{ ...record, formatId: 7 }} />);

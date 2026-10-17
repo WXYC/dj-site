@@ -429,6 +429,7 @@ export default function IntakeItemScreen({ id }: { id: number }) {
       <Stack spacing={2}>
         <RecordHeader
           record={record}
+          headingLevel={3}
           chip={
             <Chip>
               {item.data.effective_state === "checked_out"
