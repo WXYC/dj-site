@@ -446,11 +446,15 @@ describe("IntakeItemScreen", () => {
   });
 
   it("heads the record with its artist and the state chip, and no longer prints the record as a dotted line", async () => {
-    fakeReviewsEndpoints({ records: [dogaItem({ state: "checked_out", effective_state: "checked_out", ...heldBy("dj-sam", "Sam") })], forItem: { [ITEM_ID]: [] } });
+    // A checked-out record has no review on its cover yet. Left at dogaItem's default (40), the cover read finds no review 40 and the page swaps the whole record for its load-failed line, after the heading has already shown.
+    fakeReviewsEndpoints({ records: [dogaItem({ state: "checked_out", effective_state: "checked_out", accepted_review_id: null, ...heldBy("dj-sam", "Sam") })], forItem: { [ITEM_ID]: [] } });
 
-    renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+    const { store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
 
-    const heading = await screen.findByRole("heading", { level: 3, name: "Juana Molina" });
+    await screen.findByRole("heading", { level: 3, name: "Juana Molina" });
+    // Assert on the settled page, not the first frame that drew the heading.
+    await reviewsSettled(store);
+    const heading = screen.getByRole("heading", { level: 3, name: "Juana Molina" });
     expect(within(heading.parentElement as HTMLElement).getByText("Checked out", { selector: ".MuiChip-label" })).toBeInTheDocument();
     expect(screen.queryByText(/Juana Molina · DOGA/)).not.toBeInTheDocument();
   });
