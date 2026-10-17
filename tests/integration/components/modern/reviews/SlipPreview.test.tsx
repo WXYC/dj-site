@@ -30,7 +30,11 @@ describe("SlipPreview", () => {
   });
 
   it("draws one Artist row and no artist paragraph", () => {
-    renderWithProviders(slip());
+    renderWithProviders(
+      <CssVarsProvider theme={modernWeights}>
+        <SlipPreview artist="Juana Molina" album="DOGA" label="Sonamos" reviewer="Reviewer" date="10/10/26" fields={{ ...FIELDS, artist_blurb: "Argentine songwriter" } as never} />
+      </CssVarsProvider>,
+    );
     expect(screen.getAllByText(REVIEW_COPY.slip.artist)).toHaveLength(1);
     expect(screen.queryByText("Argentine songwriter")).not.toBeInTheDocument();
   });
