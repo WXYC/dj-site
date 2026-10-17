@@ -28,4 +28,16 @@ describe("ReviewShelfScreen", () => {
     expect(await screen.findByRole("heading", { level: 3, name: REVIEW_COPY.screen.shelfTitle })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: REVIEW_COPY.screen.checkOut })).toBeInTheDocument();
   });
+
+  it("leaves out a record with a submitted review and shows it again once that review is deleted", async () => {
+    fakeReviewsEndpoints();
+    const item = intakeItem({ id: 5, artist_name: "Stereolab", submitted_review_count: 1 });
+    const { rerender } = renderWithProviders(<WithWrite items={[item]} formats={undefined} isMD={false} />);
+
+    expect(await screen.findByText(REVIEW_COPY.screen.shelfEmpty)).toBeInTheDocument();
+
+    rerender(<WithWrite items={[{ ...item, submitted_review_count: 0 }]} formats={undefined} isMD={false} />);
+
+    expect(await screen.findByRole("button", { name: REVIEW_COPY.screen.checkOut })).toBeInTheDocument();
+  });
 });

@@ -4,6 +4,7 @@ import type { ComponentProps } from "react";
 import { Button, Link, Typography } from "@mui/joy";
 import type { IntakeItem } from "@wxyc/shared";
 import { useCheckoutIntakeItemMutation, useRequestIntakeItemMutation } from "@/lib/features/reviews/intakeApi";
+import { onReviewShelf } from "@/lib/features/reviews/holder";
 import { byKind } from "@/lib/features/reviews/kind";
 import { hasNothingToShow } from "@/lib/has-nothing-to-show";
 import IntakeLane from "./IntakeLane";
@@ -16,7 +17,7 @@ import { day, type ReviewWrite } from "./useReviewWrite";
 export default function ReviewShelfScreen({ items, formats, isMD, reviewers, write, lock }: { items: IntakeItem[]; formats: { id: number; format_name: string }[] | undefined; isMD: boolean; reviewers: { isError: boolean; data?: ComponentProps<typeof IntakeRequestPicker>["reviewers"] } } & ReviewWrite) {
   const [checkout] = useCheckoutIntakeItemMutation();
   const [requestReview] = useRequestIntakeItemMutation();
-  const onShelf = items.filter((i) => i.effective_state === "pool");
+  const onShelf = items.filter(onReviewShelf);
 
   // Names the request picker's group for the record it acts on.
   const shelfRecordId = (i: IntakeItem) => `review-shelf-record-${i.id}`;

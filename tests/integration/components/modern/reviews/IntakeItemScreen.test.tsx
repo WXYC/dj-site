@@ -3056,9 +3056,9 @@ describe("IntakeItemScreen", () => {
       ],
       ["someone else wrote it and the holder's account was removed", removedHolder, "From Jessica Pratt. The record is checked out; holder removed."],
       [
-        "someone else wrote it and the record is on the review shelf",
+        "someone else wrote it and a disc with a review waiting is back in the music office",
         { state: "pool", effective_state: "pool" },
-        "From Jessica Pratt. The record is on the review shelf.",
+        "From Jessica Pratt. The record is back in the music office.",
       ],
     ])("says so under Other reviews when %s", async (_label, overrides, line) => {
       fakeReviewsEndpoints({ records: [dogaItem(overrides)], forItem: { [ITEM_ID]: [submitted(40), waiting(41)] } });
@@ -3096,8 +3096,19 @@ describe("IntakeItemScreen", () => {
       expect(await within(await otherReviews()).findByText("From Jessica Pratt. The record is with Jessica Pratt.")).toBeInTheDocument();
     });
 
-    it("says nothing for a record nobody has that is no longer on the review shelf", async () => {
-      fakeReviewsEndpoints({ records: [dogaItem()], forItem: { [ITEM_ID]: [submitted(40), waiting(41)] } });
+    it.each([
+      ["a disc", dogaItem, "From Jessica Pratt. The record is back in the music office."],
+      ["a digital album", digitalDoga, "From Jessica Pratt. The record is ready to burn."],
+    ])("says where a returned reviewed record nobody has is, for %s", async (_label, make, line) => {
+      fakeReviewsEndpoints({ records: [make()], forItem: { [ITEM_ID]: [submitted(40), waiting(41)] } });
+
+      renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      expect(await within(await otherReviews()).findByText(line)).toBeInTheDocument();
+    });
+
+    it("says nothing for a filed record nobody has", async () => {
+      fakeReviewsEndpoints({ records: [dogaItem({ state: "filed", effective_state: "filed" })], forItem: { [ITEM_ID]: [submitted(40), waiting(41)] } });
 
       const { store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
 

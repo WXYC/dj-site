@@ -294,6 +294,16 @@ export const REVIEW_COPY = {
     fromHeldFor: (author: string, holder: string) => `From ${author}. The record is being held for ${holder}.`,
     /** Approved. Someone else wrote it and the record is on the review shelf. */
     fromShelf: (author: string) => `From ${author}. The record is on the review shelf.`,
+    /** Approved. The location line for a disc nobody has that is off the review shelf. */
+    backInOffice: "Back in the music office",
+    /** Approved. The location line for a digital album nobody has that is off the review shelf and has no review waiting on it. */
+    readyToBurn: "Ready to burn",
+    /** Approved. Someone else wrote it and the disc is back in the music office. */
+    fromBackInOffice: (author: string) => `From ${author}. The record is back in the music office.`,
+    /** Approved. Someone else wrote it and the digital album is ready to burn. */
+    fromReadyToBurn: (author: string) => `From ${author}. The record is ready to burn.`,
+    /** Approved. A digital album in the pool with a review waiting: nothing is held and nothing is ready to burn. */
+    fromAuthor: (author: string) => `From ${author}.`,
     /** Approved. Someone else wrote it and the holder's account was removed. */
     fromRemoved: (author: string) => `From ${author}. The record is checked out; holder removed.`,
     /** Approved. The further waiting reviews on a Review waiting row. */
