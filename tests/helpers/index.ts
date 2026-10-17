@@ -25,6 +25,7 @@ export * from "./conversion-harness";
 export { server } from "../fakes/server";
 export { deletingReview } from "./deleting-review";
 export { holdResponse } from "./hold-response";
+export { outline } from "./outline";
 export { pendingCount, renderedFrame, reviewsSettled } from "./reviews-settled";
 export { refetchesAfter } from "./refetches";
 export { handlers } from "../fakes/handlers";

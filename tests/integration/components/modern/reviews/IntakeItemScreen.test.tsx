@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
-import { CDR_FORMAT, createTestStore, deletingReview, digitalItem, fakeReviewsEndpoints, fccNote, heldBy, holdResponse, intakeItem, pendingCount, removedHolder, renderedFrame, renderWithProviders, requestedFor, returned, review, reviewRevision, reviewsSettled, server, TEST_BACKEND_URL } from "@/tests/helpers";
+import { CDR_FORMAT, createTestStore, deletingReview, digitalItem, fakeReviewsEndpoints, fccNote, heldBy, holdResponse, intakeItem, outline, pendingCount, removedHolder, renderedFrame, renderWithProviders, requestedFor, returned, review, reviewRevision, reviewsSettled, server, TEST_BACKEND_URL } from "@/tests/helpers";
 import { fakeRotationCardsEndpoints } from "@/tests/fakes/rotation";
 import { fakeLibraryFilingsEndpoint, filingConflictResponse } from "@/tests/fakes/libraryFilings";
 import { Authorization } from "@/lib/features/admin/types";
@@ -655,6 +655,33 @@ describe("IntakeItemScreen", () => {
 
     const heading = await screen.findByRole("heading", { level: 3, name: "Juana Molina" });
     expect(await within(heading.parentElement as HTMLElement).findByText(format, { selector: ".MuiChip-label" })).toBeInTheDocument();
+  });
+
+  it.each<[string, () => void, string, string[]]>([
+    [
+      "a cover and another review",
+      () => fakeReviewsEndpoints({ records: [dogaItem()], forItem: { [ITEM_ID]: [submitted(40), submitted(41)] } }),
+      "Other reviews",
+      ["h3 Juana Molina", "h3 The review on the cover", "h3 Other reviews", "h3 File it", "h3 FCC notes"],
+    ],
+    [
+      "a cited release",
+      () => {
+        const cited = dogaItem({ cited_album_id: 7, accepted_review_id: null, state: "pool", effective_state: "pool" });
+        const ofCited = submitted(90, { intake_item_id: null, album_id: 7, author: "Cited 90", review: "Cited take 90." });
+        fakeReviewsEndpoints({ records: [cited], forRelease: { 7: [ofCited] }, reviews: [ofCited], archive: { 7: [] }, releases: [{ id: 7, artist_name: "Jessica Pratt", album_title: "On Your Own Love Again" }] });
+        serveItem(cited);
+        serveItemReviews([]);
+      },
+      "Reviews of Jessica Pratt — On Your Own Love Again",
+      ["h3 Juana Molina", "h3 Reviews of Jessica Pratt — On Your Own Love Again", "h3 FCC notes"],
+    ],
+  ])("heads every section at h3 under the page's own h2 with %s", async (_case, setUp, last, expected) => {
+    setUp();
+    renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+    await screen.findByRole("heading", { name: last });
+    await waitFor(() => expect(outline()).toEqual(expected));
   });
 
   it("shows the record's FCC notes on the page", async () => {
@@ -2118,6 +2145,7 @@ describe("IntakeItemScreen", () => {
         const heading = within(section).getByRole("heading", { name: HEADING });
         const remove = within(section).getByRole("button", { name: "Remove the citation" });
         expect(remove.parentElement).toBe(heading.parentElement);
+        expect(screen.getByRole("region", { name: HEADING })).toBe(section);
         expect(screen.getAllByRole("button", { name: "Remove the citation" })).toHaveLength(1);
       });
 

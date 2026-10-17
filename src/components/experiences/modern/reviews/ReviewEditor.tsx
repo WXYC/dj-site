@@ -24,6 +24,7 @@ import { serverMessage, unwrapEndpointErrorOrRaw } from "@/lib/rtk-endpoint-erro
 import { useAuthentication } from "@/src/hooks/authenticationHooks";
 import { useCanSeeReviews } from "@/src/hooks/useCanSeeReviews";
 import ConfirmDialog from "../ConfirmDialog";
+import { VISUALLY_HIDDEN } from "../visuallyHidden";
 import HeadedSection from "./HeadedSection";
 import LeaveDialog from "./LeaveDialog";
 import ConsentBlock, { type Consent } from "./ConsentBlock";
@@ -46,10 +47,7 @@ const TWO_COLUMNS = "@container (min-width: 800px)";
 /** The page's h2 while no record heading stands in for it, so the outline never skips a level. */
 function HiddenTitle() {
   return (
-    <Typography
-      level="h2"
-      sx={{ position: "absolute", width: "1px", height: "1px", overflow: "hidden", clip: "rect(0 0 0 0)", whiteSpace: "nowrap" }}
-    >
+    <Typography level="h2" sx={VISUALLY_HIDDEN}>
       {REVIEW_COPY.pageTitle}
     </Typography>
   );

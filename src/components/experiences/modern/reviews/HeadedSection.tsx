@@ -1,17 +1,15 @@
 import { useId, type ReactNode } from "react";
 import { Stack, Typography, type StackProps, type TypographyProps } from "@mui/joy";
-
-/** Takes a title off the screen while leaving it to assistive technology. */
-const OFF_SCREEN = { border: 0, clip: "rect(0 0 0 0)", height: "1px", m: "-1px", overflow: "hidden", p: 0, position: "absolute", whiteSpace: "nowrap", width: "1px" } as const;
+import { VISUALLY_HIDDEN } from "../visuallyHidden";
 
 /**
- * A section named by its own heading, so it is a region. `level` is the heading's rank, which the host picks so the section nests under its own headings; `titleLevel` is only how the title looks.
- * A control inside can be named by the same heading: pass the `titleId` it points at.
+ * A section named by its own heading, so it is a region. `headingLevel` is the heading's rank (3 unless the host nests it under an h3 of its own); `titleLevel` is only how the title looks.
+ * The heading's id comes from `useId`, so a section rendered twice on one page never shares a name. A control inside can be named by the same heading: pass a `titleId` from the host's own `useId` and point the control at it.
  * `titleExtra` sits beside the heading in a row, outside it, so the section's name stays the title alone. `hideTitle` keeps the heading as the name but takes it off the screen. The remaining props go to the section's `Stack`.
  */
-export default function HeadedSection({ title, level = 3, titleLevel = "title-sm", titleId, titleExtra, hideTitle, children, ...stack }: Omit<StackProps, "title" | "component"> & {
+export default function HeadedSection({ title, headingLevel = 3, titleLevel = "title-sm", titleId, titleExtra, hideTitle, children, ...stack }: Omit<StackProps, "title" | "component"> & {
   title: ReactNode;
-  level?: 3 | 4;
+  headingLevel?: 3 | 4;
   titleLevel?: TypographyProps["level"];
   titleId?: string;
   titleExtra?: ReactNode;
@@ -19,7 +17,7 @@ export default function HeadedSection({ title, level = 3, titleLevel = "title-sm
 }) {
   const ownId = useId();
   const id = titleId ?? ownId;
-  const heading = <Typography id={id} component={`h${level}`} level={titleLevel} sx={hideTitle ? OFF_SCREEN : undefined}>{title}</Typography>;
+  const heading = <Typography id={id} component={`h${headingLevel}`} level={titleLevel} sx={hideTitle ? VISUALLY_HIDDEN : undefined}>{title}</Typography>;
   return (
     <Stack {...stack} component="section" aria-labelledby={id}>
       {titleExtra === undefined ? heading : (

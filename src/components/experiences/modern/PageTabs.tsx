@@ -4,6 +4,7 @@ import type { JSX } from "react";
 import { Box } from "@mui/joy";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { VISUALLY_HIDDEN } from "./visuallyHidden";
 
 /**
  * `count` draws a pill after the label only above zero; `countLabel` is its spoken form, read after the label.
@@ -13,19 +14,6 @@ export type PageTab = { path: string; label: string } & (
   | { count: number; countLabel: string }
   | { count?: undefined; countLabel?: undefined }
 );
-
-/** Takes text out of sight but leaves it in the accessible name. */
-const VISUALLY_HIDDEN = {
-  position: "absolute",
-  width: "1px",
-  height: "1px",
-  margin: "-1px",
-  padding: 0,
-  overflow: "hidden",
-  clip: "rect(0 0 0 0)",
-  whiteSpace: "nowrap",
-  border: 0,
-} as const;
 
 /**
  * A strip of route links for sibling pages. A tab is current only when the

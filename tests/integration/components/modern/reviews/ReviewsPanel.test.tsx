@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Authorization } from "@/lib/features/admin/types";
-import { fakeReviewsEndpoints, fccNote, renderWithProviders, review, reviewRevision, reviewsSettled, server } from "@/tests/helpers";
+import { fakeReviewsEndpoints, fccNote, outline, renderWithProviders, review, reviewRevision, reviewsSettled, server } from "@/tests/helpers";
 import { reviewApi } from "@/lib/features/reviews/reviewApi";
 import { delay, http, HttpResponse } from "msw";
 import type { AlbumReview } from "@wxyc/shared";
@@ -84,10 +84,20 @@ describe("ReviewsPanel", () => {
     serve([submitted(1, { on_cover: true }), submitted(2)], [{ id: 1, review: "Dreamy.", reviewer: "Reviewer One" }]);
     renderPanel();
 
-    await screen.findByText("Reviewer 1", { exact: false });
+    // The earlier takes come from their own query, which can answer after the reviews do.
     for (const name of ["The review on the cover", "Other reviews", "Earlier takes"]) {
-      expect(within(screen.getByRole("region", { name })).getByRole("heading", { level: 3, name })).toBeInTheDocument();
+      expect(within(await screen.findByRole("region", { name })).getByRole("heading", { level: 3, name })).toBeInTheDocument();
     }
+  });
+
+  it.each([
+    ["one on the cover, others and earlier takes", [submitted(1, { on_cover: true }), submitted(2)], [{ id: 1, review: "Dreamy.", reviewer: "Reviewer One" }], ["h3 The review on the cover", "h3 FCC notes", "h3 Other reviews", "h3 Earlier takes"]],
+    ["none on the cover", [submitted(1), submitted(2)], [], ["h3 FCC notes", "h3 Reviews"]],
+  ])("heads every section at h3 under the host's own h2 when there are %s", async (_case, reviews, archive, expected) => {
+    serve(reviews, archive);
+    renderPanel();
+
+    await waitFor(() => expect(outline()).toEqual(expected));
   });
 
   it("uses the plural heading for two reviews on the cover", async () => {
