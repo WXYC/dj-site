@@ -1,7 +1,6 @@
 "use client";
 
 import { useId, useState } from "react";
-import KeyboardArrowDown from "@mui/icons-material/KeyboardArrowDown";
 import { Button, FormControl, FormHelperText, FormLabel, Input, Stack, Typography } from "@mui/joy";
 import type { AlbumReview } from "@wxyc/shared";
 import { useGetAlbumReviewsByArtistQuery } from "@/lib/features/reviews/albumReviewApi";
@@ -62,15 +61,6 @@ function FormReviewSearch({ artist, onCopy }: { artist: string; onCopy: (review:
 
 /** Hides an element on screen and keeps it in the accessibility tree. */
 const visuallyHidden = { position: "absolute", width: "1px", height: "1px", p: 0, m: "-1px", overflow: "hidden", clip: "rect(0 0 0 0)", whiteSpace: "nowrap", border: 0 } as const;
-
-/** One of the page's three openers: the Record a review button or a cite button. It reads as pressed while its section is open. */
-export function SectionToggle({ open, disabled, onClick, children }: { open: boolean; disabled?: boolean; onClick: () => void; children: string }) {
-  return (
-    <Button variant={open ? "soft" : "outlined"} aria-expanded={open} disabled={disabled} onClick={onClick} endDecorator={<KeyboardArrowDown sx={{ transform: open ? "rotate(180deg)" : "none" }} />}>
-      {children}
-    </Button>
-  );
-}
 
 /** The search a cite button opens: a library release (picking one cites it) or a form review (copying one starts a review of this record from it). The heading names the region and is hidden on screen, because it repeats the button above. */
 export function CiteSection({ which, artist, onCite, onCopy }: {
