@@ -34,10 +34,22 @@ function CoverRow({ label, tint, children, ...rest }: { label: string; tint?: bo
   );
 }
 
-/** The rows a DJ on the air needs, with the FCC row tinted when it has anything to say. The FCC row always shows; Buzzwords and Recommended are left off when empty; the Review row reads "on the sleeve" for a handwritten review without text. The typed slip opens under them on request. */
-function CoverRows({ review, fccNotes, onTheSleeve, slip }: { review: Review; fccNotes: string[]; onTheSleeve: boolean; slip?: ReactNode }) {
+/** Opens the full typed slip under a compact view of a review, on request. */
+function ShowSlip({ slip }: { slip: ReactNode }) {
   const [open, setOpen] = useState(false);
   const slipId = useId();
+  return (
+    <>
+      <Button variant="plain" size="sm" sx={{ alignSelf: "flex-start" }} aria-expanded={open} aria-controls={slipId} onClick={() => setOpen(!open)}>
+        {copy.showSlip}
+      </Button>
+      {open && <div id={slipId}>{slip}</div>}
+    </>
+  );
+}
+
+/** The rows a DJ on the air needs, with the FCC row tinted when it has anything to say. The FCC row always shows; Buzzwords and Recommended are left off when empty; the Review row reads "on the sleeve" for a handwritten review without text. The typed slip opens under them on request. */
+function CoverRows({ review, fccNotes, onTheSleeve, slip }: { review: Review; fccNotes: string[]; onTheSleeve: boolean; slip?: ReactNode }) {
   const { fields, slip: labels } = REVIEW_COPY;
   const fccLines = [review.fcc, ...fccNotes].filter(Boolean);
   const reviewBody = onTheSleeve ? copy.onTheSleeve : review.review;
@@ -50,14 +62,7 @@ function CoverRows({ review, fccNotes, onTheSleeve, slip }: { review: Review; fc
       {review.buzzwords && <CoverRow label={fields.buzzwords.label}>{review.buzzwords}</CoverRow>}
       {review.recommended_tracks && <CoverRow label={labels.recommended}>{review.recommended_tracks}</CoverRow>}
       {reviewBody && <CoverRow label={labels.review}>{reviewBody}</CoverRow>}
-      {slip && (
-        <>
-          <Button variant="plain" size="sm" sx={{ alignSelf: "flex-start" }} aria-expanded={open} aria-controls={slipId} onClick={() => setOpen(!open)}>
-            {copy.showSlip}
-          </Button>
-          {open && <div id={slipId}>{slip}</div>}
-        </>
-      )}
+      {slip && <ShowSlip slip={slip} />}
     </Stack>
   );
 }
@@ -72,14 +77,15 @@ export function FccNotesSlot({ albumId }: { albumId: number }) {
 }
 
 /** A review as the page shows it; `record` is set only when the review is about this page's own record, and `printable` only by the album page's panel, where that record is a library release. `onCover` says the review is on a cover now, which is what earns it the printed-version note and also decides the print link's name ("Print a new slip" only for a printed, edited cover review). */
-export function ReviewItem({ review, record, newSlipHref, printable, onCover, mode = "slip", fccNotes = [], children }: { review: Review; record?: PanelRecord; newSlipHref?: string; printable?: boolean; onCover: boolean; mode?: ReviewMode; fccNotes?: string[]; children?: ReactNode }) {
+export function ReviewItem({ review, record, newSlipHref, printable, onCover, mode = "slip", showSlip, fccNotes = [], children }: { review: Review; record?: PanelRecord; newSlipHref?: string; printable?: boolean; onCover: boolean; mode?: ReviewMode; showSlip?: boolean; fccNotes?: string[]; children?: ReactNode }) {
   const printedVersion = usePrintedVersion(review, { onCover });
   const onTheSleeve = review.medium === "handwritten" && !review.review;
+  const slip = <SlipPreview {...record} reviewer={review.author ?? ""} date={review.add_date} fields={review} fccNotes={fccNotes} onCover={onCover} />;
   return (
     <Stack spacing={0.5} component="li" sx={{ listStyle: "none" }}>
       <PrintedVersionNote review={review} onCover={onCover} newSlipHref={newSlipHref} />
       {mode === "cover" ? (
-        <CoverRows review={review} fccNotes={fccNotes} onTheSleeve={onTheSleeve} slip={!onTheSleeve ? <SlipPreview {...record} reviewer={review.author ?? ""} date={review.add_date} fields={review} fccNotes={fccNotes} onCover={onCover} /> : undefined} />
+        <CoverRows review={review} fccNotes={fccNotes} onTheSleeve={onTheSleeve} slip={!onTheSleeve ? slip : undefined} />
       ) : onTheSleeve ? (
         <>
           <Typography level="body-sm">
@@ -91,9 +97,10 @@ export function ReviewItem({ review, record, newSlipHref, printable, onCover, mo
         <>
           <Typography level="body-sm" fontWeight="lg">{review.author}</Typography>
           <Typography level="body-sm" sx={clamp2}>{review.review}</Typography>
+          {showSlip && <ShowSlip slip={slip} />}
         </>
       ) : (
-        <SlipPreview {...record} reviewer={review.author ?? ""} date={review.add_date} fields={review} onCover={onCover} />
+        slip
       )}
       {printable && record && review.medium === "typed" && review.status === "submitted" && (
         <RequireMD>
@@ -112,15 +119,20 @@ export function ReviewItem({ review, record, newSlipHref, printable, onCover, mo
   );
 }
 
-/** A headed list of reviews; `recordOf` names the record a review is about, or nothing for a review of a release this record cites. `intro` renders under the heading and `extra` after each review, for a page's own lines and buttons. */
-export function Group({ title, intro, reviews, recordOf, newSlipHref, printable, onCover, mode, fccNotes, extra }: { title?: string; intro?: ReactNode; reviews: Review[]; recordOf: (review: Review) => PanelRecord | undefined; newSlipHref?: string; printable?: boolean; onCover: (review: Review) => boolean; mode?: ReviewMode; fccNotes?: string[]; extra?: (review: Review) => ReactNode }) {
+/** A headed list of reviews; `recordOf` names the record a review is about, or nothing for a review of a release this record cites. `titleExtra` sits beside the heading, `intro` renders under it and `extra` after each review, for a page's own lines and buttons. `showSlip` offers each excerpt's full slip on request. */
+export function Group({ title, titleExtra, intro, reviews, recordOf, newSlipHref, printable, onCover, mode, showSlip, fccNotes, extra }: { title?: string; titleExtra?: ReactNode; intro?: ReactNode; reviews: Review[]; recordOf: (review: Review) => PanelRecord | undefined; newSlipHref?: string; printable?: boolean; onCover: (review: Review) => boolean; mode?: ReviewMode; showSlip?: boolean; fccNotes?: string[]; extra?: (review: Review) => ReactNode }) {
   return (
     <Stack component="section" spacing={1}>
-      {title && <Typography level="title-sm" component="h3">{title}</Typography>}
+      {title && (
+        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+          <Typography level="title-sm" component="h3">{title}</Typography>
+          {titleExtra}
+        </Stack>
+      )}
       {intro}
       <Stack component="ul" spacing={1.5} sx={{ p: 0, m: 0 }}>
         {reviews.map((review) => (
-          <ReviewItem key={review.id} review={review} record={recordOf(review)} newSlipHref={newSlipHref} printable={printable} onCover={onCover(review)} mode={mode} fccNotes={fccNotes}>
+          <ReviewItem key={review.id} review={review} record={recordOf(review)} newSlipHref={newSlipHref} printable={printable} onCover={onCover(review)} mode={mode} showSlip={showSlip} fccNotes={fccNotes}>
             {extra?.(review)}
           </ReviewItem>
         ))}

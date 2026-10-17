@@ -470,6 +470,14 @@ describe("ReviewsPanel", () => {
     expect(text).toHaveStyle({ WebkitLineClamp: "2" });
   });
 
+  it("offers no Show the whole slip on another review, which the record page opts into", async () => {
+    serve([submitted(1, { on_cover: true }), submitted(2, { review: "A long excerpt." })]);
+    renderPanel();
+
+    const entry = (await screen.findByText("A long excerpt.")).closest("li")!;
+    expect(within(entry).queryByRole("button", { name: "Show the whole slip" })).not.toBeInTheDocument();
+  });
+
   it("leaves Review this release as the last control in the panel", async () => {
     serve([submitted(1, { on_cover: true }), submitted(2)], [{ id: 1, reviewer: "Reviewer Old", review: "Archived words" }]);
     renderPanel();
