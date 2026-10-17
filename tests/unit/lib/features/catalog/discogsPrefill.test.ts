@@ -109,20 +109,53 @@ describe("discogsPrefillErrorMessage", () => {
 });
 
 describe("discogsReleaseIdFrom", () => {
-  it.each([
-    ["8434", 8434],
-    ["  8434  ", 8434],
-    ["https://www.discogs.com/release/8434-Autechre-Confield", 8434],
-    ["discogs.com/release/8434", 8434],
-    ["www.discogs.com/release/8434/", 8434],
-    ["https://de.discogs.com/release/8434-Autechre-Confield", 8434],
-    ["https://www.discogs.com/master/8434-Confield", null],
-    ["https://example.com/release/8434", null],
-    ["abc", null],
-    ["84a34", null],
-    ["", null],
-    ["   ", null],
-  ])("reads %j as %j", (raw, expected) => {
+  it.each<[string, string, number | null]>([
+    // Bare numbers
+    ["a bare number", "8434", 8434],
+    ["a bare number with surrounding spaces", "  8434  ", 8434],
+    ["a bare number with a tab and a newline", "\t8434\n", 8434],
+    ["a bare number with leading zeros", "008434", 8434],
+    ["the largest int4", "2147483647", 2147483647],
+    ["a link with surrounding spaces", "  https://www.discogs.com/release/8434  ", 8434],
+    // Release links
+    ["https with www and a slug", "https://www.discogs.com/release/8434-Autechre-Confield", 8434],
+    ["http", "http://www.discogs.com/release/8434", 8434],
+    ["scheme-less, no www", "discogs.com/release/8434", 8434],
+    ["scheme-less www with a trailing slash", "www.discogs.com/release/8434/", 8434],
+    ["a language subdomain", "https://de.discogs.com/release/8434-Autechre-Confield", 8434],
+    ["a locale path", "https://www.discogs.com/de/release/8434-Autechre-Confield", 8434],
+    ["a query string and a fragment", "https://www.discogs.com/release/8434-Autechre-Confield?ev=rr#images", 8434],
+    ["the marketplace shape", "https://www.discogs.com/sell/release/8434", 8434],
+    ["an upper-case host", "https://WWW.DISCOGS.COM/release/8434", 8434],
+    // Masters are never release ids
+    ["a master link", "https://www.discogs.com/master/8434-Confield", null],
+    ["an old master view link", "https://www.discogs.com/master/view/8434", null],
+    ["a Discogs master code", "m8434", null],
+    ["a Discogs release code", "r8434", null],
+    ["a bracketed release code", "[r8434]", null],
+    // Look-alike hosts
+    ["another host", "https://example.com/release/8434", null],
+    ["discogs.com as a prefix of another host", "https://discogs.com.evil.com/release/8434", null],
+    ["a host ending in discogs.com without a dot", "https://notdiscogs.com/release/8434", null],
+    ["discogs.com as userinfo", "https://discogs.com@evil.com/release/8434", null],
+    ["discogs.com in another host's path", "https://evil.com/discogs.com/release/8434", null],
+    // Ids the backend refuses
+    ["zero", "0", null],
+    ["zeros", "000", null],
+    ["a release link to zero", "https://www.discogs.com/release/0", null],
+    ["one past int4", "2147483648", null],
+    ["a release link one past int4", "https://www.discogs.com/release/2147483648", null],
+    ["an unsafe integer", "9007199254740993", null],
+    ["a number too long to be finite", "9".repeat(400), null],
+    // Other text
+    ["a negative number", "-8434", null],
+    ["a decimal", "8434.5", null],
+    ["digits with a space inside", "84 34", null],
+    ["letters", "abc", null],
+    ["letters among digits", "84a34", null],
+    ["empty", "", null],
+    ["only spaces", "   ", null],
+  ])("reads %s (%j) as %j", (_shape, raw, expected) => {
     expect(discogsReleaseIdFrom(raw)).toBe(expected);
   });
 });

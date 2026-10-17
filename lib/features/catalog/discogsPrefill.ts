@@ -36,14 +36,22 @@ function isDiscogsReleaseUrl(raw: string): boolean {
   return releaseIdFromUrl(raw) !== null;
 }
 
+/** The largest id the backend stores: POST /intake reads `discogs_release_id` as a positive int4. */
+const MAX_RELEASE_ID = 2_147_483_647;
+
 /**
  * The release id a field holds: a bare number or a Discogs release link, or
- * null for anything else (a master link, free text). Empty reads as null too;
- * callers decide whether empty is acceptable.
+ * null for anything else (a master link, free text, or an id the backend
+ * refuses: 0, or one past int4). Empty reads as null too; callers decide
+ * whether empty is acceptable.
  */
 export function discogsReleaseIdFrom(raw: string): number | null {
   const trimmed = raw.trim();
-  return /^\d+$/.test(trimmed) ? Number(trimmed) : releaseIdFromUrl(trimmed);
+  const id = /^\d+$/.test(trimmed) ? Number(trimmed) : releaseIdFromUrl(trimmed);
+  if (id == null || !Number.isSafeInteger(id) || id < 1 || id > MAX_RELEASE_ID) {
+    return null;
+  }
+  return id;
 }
 
 /**
