@@ -1,7 +1,8 @@
-import type { Locator, Page } from "@playwright/test";
+import type { APIResponse, Locator, Page } from "@playwright/test";
 import path from "path";
 import { test, expect } from "../../fixtures/auth.fixture";
-import { DashboardPage } from "../../pages/dashboard.page";
+import { authServiceBaseUrl } from "../../helpers/device-auth";
+import { requireEnv } from "../../helpers/env";
 import { REVIEW_COPY } from "../../../src/components/experiences/modern/reviews/copy";
 import { FIELD_NAMES } from "../../../lib/features/reviews/draftKeys";
 
@@ -26,6 +27,10 @@ const SLIP_WIDTH_PX = 408;
 const ROUNDING_PX = 0.5;
 const SHADOW_BOTTOM_PX = 5;
 const SHADOW_SIDE_PX = 4;
+/** Each editor test opens a draft, fills it and deletes it around its check; the config's 20s is not room for that on a loaded runner. */
+const EDITOR_TEST_TIMEOUT_MS = 60_000;
+/** Tab presses allowed in one direction before a walk of the File it section counts as stuck. */
+const TAB_LIMIT = 120;
 
 type Box = { left: number; top: number; right: number; bottom: number; width: number; height: number };
 
@@ -64,7 +69,14 @@ async function tag(target: Locator, name: string) {
 /** Injects `declarations` for the tagged box. `!important` outranks the editor's own rules, which sit in a container query. */
 async function undo(page: Page, name: string, declarations: string) {
   const important = declarations.replace(/;?\s*$/, "").split(";").map((d) => `${d.trim()} !important`).join("; ");
-  await page.addStyleTag({ content: `[data-e2e-${name}] { ${important}; }` });
+  return page.addStyleTag({ content: `[data-e2e-${name}] { ${important}; }` });
+}
+
+/** Waits for the faces the page is loading, so a measure reads the face the site serves and not the fallback drawn before it (next/font swaps). */
+async function fontsReady(page: Page) {
+  await page.evaluate(async () => {
+    await document.fonts.ready;
+  });
 }
 
 async function scrollToEnd(target: Locator) {
@@ -95,6 +107,7 @@ async function sidewaysProblems(page: Page): Promise<string[]> {
 
 /** Every row of the slip puts its value at the same x: the label column holds its word, "Recommended" included. */
 async function labelColumnProblems(page: Page): Promise<string[]> {
+  await fontsReady(page);
   const starts = await editor(page).slip.evaluate((slip) =>
     Array.from(slip.children)
       .filter((row) => row.tagName === "DIV" && row.children.length === 2)
@@ -109,23 +122,28 @@ async function labelColumnProblems(page: Page): Promise<string[]> {
     .map(({ label, x }) => `the value of "${label}" starts at ${x}px, not ${first}px`);
 }
 
-/** At two columns: the slip sits right of the form, stays in view to the end of the scroll, and the page does not scroll sideways. */
-async function twoColumnProblems(page: Page): Promise<string[]> {
+/** The slip sits right of the form: the editor is in two columns. */
+async function sideBySideProblems(page: Page): Promise<string[]> {
   const e = editor(page);
-  const problems: string[] = [];
   const slip = await box(e.slipHeading);
   const fields = await Promise.all(e.fields.map(box));
   const formRight = Math.max(...fields.map((f) => f.right));
-  if (slip.left < formRight) {
-    problems.push(`"${COPY.slip.heading}" starts at ${slip.left}px, left of the form's right edge ${formRight}px`);
-  }
+  return slip.left < formRight
+    ? [`"${COPY.slip.heading}" starts at ${slip.left}px, left of the form's right edge ${formRight}px`]
+    : [];
+}
+
+/** At two columns: the slip sits right of the form, stays in view to the end of the scroll, and the page does not scroll sideways. */
+async function twoColumnProblems(page: Page): Promise<string[]> {
+  const e = editor(page);
+  const problems = await sideBySideProblems(page);
 
   await scrollToEnd(e.scrollRegion);
   const region = await box(e.scrollRegion);
   const column = await box(e.column);
   const bar = await box(e.saveDraft.locator("xpath=.."));
   if (Math.abs(column.top - region.top) > 1) {
-    problems.push(`the slip column's top is ${column.top}px, not the scroll region's ${region.top}px`);
+    problems.push(`the slip column's top is ${column.top}px, ${column.top - region.top}px from the scroll region's ${region.top}px`);
   }
   if (column.bottom > bar.top + 1) {
     problems.push(`the slip column ends at ${column.bottom}px, below the action bar's top ${bar.top}px`);
@@ -184,36 +202,48 @@ async function oneColumnProblems(page: Page): Promise<string[]> {
   return [...problems, ...(await sidewaysProblems(page))];
 }
 
-/** A catalog release the service accepts a draft for: any release that exists. Read from the catalog's own search. */
-async function findReleaseId(page: Page): Promise<number> {
-  const rows = page.waitForResponse(
-    async (response) =>
-      response.request().method() === "GET" &&
-      new URL(response.url()).pathname.endsWith("/library/query") &&
-      response.ok() &&
-      ((await response.json().catch(() => null))?.results?.length ?? 0) > 0,
-    { timeout: 30000 },
-  );
-  const dashboard = new DashboardPage(page);
-  await dashboard.gotoCatalog();
-  await dashboard.waitForPageLoad();
-  await page.getByTestId("catalog-search-input").fill("a");
-  return (await (await rows).json()).results[0].id;
+/**
+ * The Backend, called as the page's signed-in user: the context's session cookie buys a JWT from the auth service, the
+ * way the DJ site's own client does (`getJWTToken`), and the JWT goes out as the bearer.
+ */
+async function backend(page: Page) {
+  const tokenResponse = await page.request.get(`${authServiceBaseUrl()}/auth/token`);
+  expect(tokenResponse.ok(), `GET /auth/token answered ${tokenResponse.status()}`).toBe(true);
+  const { token } = (await tokenResponse.json()) as { token: string };
+  const { NEXT_PUBLIC_BACKEND_URL: base } = requireEnv("reviews/layout.spec.ts", ["NEXT_PUBLIC_BACKEND_URL"]);
+  const headers = { Authorization: `Bearer ${token}` };
+  return {
+    get: (route: string): Promise<APIResponse> => page.request.get(`${base}${route}`, { headers }),
+    delete: (route: string): Promise<APIResponse> => page.request.delete(`${base}${route}`, { headers }),
+  };
 }
 
-/** Creates the DJ's own draft and opens it; `NewReview` replaces the address with the draft's. */
-async function openNewDraft(page: Page): Promise<void> {
+/** A library release the service accepts a draft for: any release that exists, read from the catalog's query endpoint, not its search screen. */
+async function findReleaseId(page: Page): Promise<number> {
+  const response = await (await backend(page)).get("/library/query?limit=1");
+  expect(response.ok(), `GET /library/query answered ${response.status()}`).toBe(true);
+  const { results } = (await response.json()) as { results: { id: number }[] };
+  expect(results.length, "the E2E database has no library release").toBeGreaterThan(0);
+  return results[0].id;
+}
+
+/** Creates the DJ's own draft and opens it; `NewReview` replaces the address with the draft's. Returns the draft's id. */
+async function openNewDraft(page: Page): Promise<number> {
   const albumId = await findReleaseId(page);
   await page.goto(`/dashboard/reviews/new?album_id=${albumId}`);
   await page.waitForURL(/\/dashboard\/reviews\/\d+$/, { timeout: 20000 });
   await expect(editor(page).slipHeading).toBeVisible({ timeout: 15000 });
+  await fontsReady(page);
+  return Number(new URL(page.url()).pathname.split("/").pop());
 }
 
-/** The author's Delete, so a run leaves no draft behind. */
-async function deleteDraft(page: Page): Promise<void> {
-  await page.getByRole("button", { name: COPY.delete, exact: true }).click();
-  await page.getByRole("alertdialog").getByRole("button", { name: COPY.delete, exact: true }).click();
-  await page.waitForURL(/\/dashboard\/reviews$/, { timeout: 15000 });
+/**
+ * Deletes the draft through the API with the page's session, so a run leaves no draft behind. Not the author's Delete:
+ * a control can leave the action bar under the Appbar, where that button can't be pressed.
+ */
+async function deleteDraft(page: Page, reviewId: number): Promise<void> {
+  const response = await (await backend(page)).delete(`/reviews/${reviewId}`);
+  expect([200, 204, 404], `DELETE /reviews/${reviewId} answered ${response.status()}`).toContain(response.status());
 }
 
 /** Text tall enough to scroll the page and the sticky column, in the field the slip prints in full. */
@@ -230,13 +260,20 @@ async function applyControl(page: Page, target: Locator, name: string, declarati
 test.describe("Review editor layout, two columns", () => {
   test.use({ storageState: path.join(authDir, "dj2.json"), viewport: { width: 1440, height: 900 } });
 
+  test.describe.configure({ timeout: EDITOR_TEST_TIMEOUT_MS });
+
+  let reviewId: number | null = null;
+
   test.beforeEach(async ({ page }) => {
-    await openNewDraft(page);
+    reviewId = await openNewDraft(page);
     await fillTall(page);
   });
 
   test.afterEach(async ({ page }) => {
-    await deleteDraft(page);
+    if (reviewId !== null) {
+      await deleteDraft(page, reviewId);
+      reviewId = null;
+    }
   });
 
   test("puts the slip right of the form, keeps it in view to the end, and does not scroll sideways", async ({ page }) => {
@@ -268,6 +305,8 @@ test.describe("Review editor layout, two columns", () => {
 
   test("narrows the slip at a larger root font size instead of scrolling sideways", async ({ page }) => {
     await page.addStyleTag({ content: "html { font-size: 20px; }" });
+    // Still two columns: in one column the slip is min(4.25in, 100%) for a reason that has nothing to do with its track.
+    expect(await sideBySideProblems(page)).toEqual([]);
     expect(await sidewaysProblems(page)).toEqual([]);
     expect((await box(editor(page).slip)).width).toBeLessThan(SLIP_WIDTH_PX);
   });
@@ -292,13 +331,20 @@ test.describe("Review editor layout, two columns", () => {
 test.describe("Review editor layout, one column", () => {
   test.use({ storageState: path.join(authDir, "dj2.json"), viewport: { width: 390, height: 844 } });
 
+  test.describe.configure({ timeout: EDITOR_TEST_TIMEOUT_MS });
+
+  let reviewId: number | null = null;
+
   test.beforeEach(async ({ page }) => {
-    await openNewDraft(page);
+    reviewId = await openNewDraft(page);
     await fillTall(page);
   });
 
   test.afterEach(async ({ page }) => {
-    await deleteDraft(page);
+    if (reviewId !== null) {
+      await deleteDraft(page, reviewId);
+      reviewId = null;
+    }
   });
 
   test("stacks the slip under the publishing question and keeps the action bar clear of the Appbar", async ({ page }) => {
@@ -330,18 +376,20 @@ test.describe("Review editor layout, one column", () => {
  * The record page's two filing arms. A closed arm carries `hidden` and `display: none`: in a browser only
  * `display: none` hides it, because the arm's Stack sets `display: flex`, which beats the browser's `[hidden]`
  * rule, while jsdom hides on the attribute alone. So this is the only place the rule that does the work is pinned.
+ *
+ * Each arm is found by a control it holds (the bench's Genre, the library search) while it is open, and tagged, so the
+ * check measures the arm's own box after it closes rather than a locator that may match nothing.
  */
 test.describe("Record page filing arms", () => {
-  test.use({ viewport: { width: 1440, height: 900 } });
-
   test("show one arm's controls at a time, and Tab never reaches the closed arm", async ({ browser }) => {
     test.setTimeout(180_000);
 
     const baseURL = process.env.E2E_BASE_URL || "http://localhost:3000";
+    const viewport = { width: 1440, height: 900 };
     const runTag = Date.now().toString(36);
     const album = `DOGA ${runTag}`;
-    const mdContext = await browser.newContext({ baseURL, storageState: path.join(authDir, "musicDirector.json") });
-    const djContext = await browser.newContext({ baseURL, storageState: path.join(authDir, "dj2.json") });
+    const mdContext = await browser.newContext({ baseURL, viewport, storageState: path.join(authDir, "musicDirector.json") });
+    const djContext = await browser.newContext({ baseURL, viewport, storageState: path.join(authDir, "dj2.json") });
     const md = await mdContext.newPage();
     const dj = await djContext.newPage();
     let itemUrl: string | null = null;
@@ -380,26 +428,41 @@ test.describe("Record page filing arms", () => {
       await md.getByRole("button", { name: COPY.intakeItem.useThisReview, exact: true }).click();
       await expect(md.getByRole("radio", { name: COPY.intakeItem.fileNew })).toBeVisible({ timeout: 15000 });
 
-      const newArm = md.getByRole("button", { name: "File to library" });
-      const existingArm = md.getByRole("searchbox", { name: COPY.intakeItem.searchLibrary });
+      const fileIt = md.getByRole("region", { name: COPY.intakeItem.fileIt });
+      const genre = fileIt.getByRole("combobox", { name: "Genre" });
+      const search = fileIt.getByRole("searchbox", { name: COPY.intakeItem.searchLibrary });
       const chooseNew = md.getByRole("radio", { name: COPY.intakeItem.fileNew });
       const chooseExisting = md.getByRole("radio", { name: COPY.intakeItem.fileExisting });
+      const newArm = md.locator("[data-e2e-arm-new]");
+      const existingArm = md.locator("[data-e2e-arm-existing]");
 
-      // Before a choice neither arm is on the page.
-      await expect(newArm).toBeHidden();
-      await expect(existingArm).toBeHidden();
+      // Before a choice neither arm is mounted.
+      await expect(genre).toHaveCount(0);
+      await expect(search).toHaveCount(0);
 
-      // Open both arms, so the one that closes is mounted and only `display: none` can hide it.
+      // Open both arms, so the one that closes stays mounted and only `display: none` can hide it.
+      await tag(fileIt, "file-it");
       await chooseExisting.check();
+      await expect(search).toBeVisible({ timeout: 15000 });
+      await tagArm(search, "arm-existing");
       await chooseNew.check();
-      await expect(newArm).toBeVisible();
-      await expect(existingArm).toBeHidden();
-      expect(await tabReachesClosedArm(md, chooseNew)).toBe(false);
+      await expect(genre).toBeVisible({ timeout: 15000 });
+      await tagArm(genre, "arm-new");
 
+      // "Already in the library?" closed: it comes after the open bench, so the walk must cross the whole bench to reach it.
+      expect(await closedArmProblems(md, existingArm, "arm-existing", chooseNew)).toEqual([]);
       await chooseExisting.check();
-      await expect(existingArm).toBeVisible();
-      await expect(newArm).toBeHidden();
-      expect(await tabReachesClosedArm(md, chooseExisting)).toBe(false);
+      await expect(search).toBeVisible();
+      expect(await closedArmProblems(md, newArm, "arm-new", chooseExisting)).toEqual([]);
+
+      // Controls: a closed arm drawn anyway is seen, and Tab reaches it, in each position.
+      const showNew = await undo(md, "arm-new", "display: flex");
+      expect(await closedArmProblems(md, newArm, "arm-new", chooseExisting)).toEqual(CLOSED_ARM_BREAKS);
+      await showNew.evaluate((style) => style.parentNode?.removeChild(style));
+      await chooseNew.check();
+      await expect(genre).toBeVisible();
+      await undo(md, "arm-existing", "display: flex");
+      expect(await closedArmProblems(md, existingArm, "arm-existing", chooseNew)).toEqual(CLOSED_ARM_BREAKS);
     } finally {
       if (itemUrl) {
         await md.goto(itemUrl).catch(() => {});
@@ -412,17 +475,61 @@ test.describe("Record page filing arms", () => {
   });
 });
 
-/** Tabs forward and back from `start` past every control on the page, reporting whether focus ever lands inside a `hidden` box. */
-async function tabReachesClosedArm(page: Page, start: Locator): Promise<boolean> {
-  const inClosedArm = () => page.evaluate(() => document.activeElement?.closest("[hidden]") != null);
+/** Tags the filing arm that holds `control`: the File it section's child it sits in. */
+async function tagArm(control: Locator, name: string) {
+  await control.evaluate((el, attribute) => {
+    let arm: Element = el;
+    while (arm.parentElement && !arm.parentElement.hasAttribute("data-e2e-file-it")) {
+      arm = arm.parentElement;
+    }
+    arm.setAttribute(attribute, "");
+  }, `data-e2e-${name}`);
+}
+
+const CLOSED_ARM_BREAKS = ["the closed arm is drawn", "Tab reaches the closed arm"];
+
+/** A closed arm is not drawn, and Tab, walked both ways from the open arm's radio through the File it section, never focuses inside it. */
+async function closedArmProblems(page: Page, arm: Locator, name: string, start: Locator): Promise<string[]> {
+  if ((await arm.count()) !== 1) {
+    return ["the closed arm is not on the page"];
+  }
+  const problems: string[] = [];
+  if (await arm.isVisible()) {
+    problems.push(CLOSED_ARM_BREAKS[0]);
+  }
+  const walk = await tabWalk(page, start, `data-e2e-${name}`);
+  if (walk === "stuck") {
+    problems.push(`Tab did not leave the File it section in ${TAB_LIMIT} presses`);
+  } else if (walk === "reached") {
+    problems.push(CLOSED_ARM_BREAKS[1]);
+  }
+  return problems;
+}
+
+/** Tabs forward, then back, from `start` until focus leaves the File it section, reporting whether it ever lands inside the box carrying `attribute`. */
+async function tabWalk(page: Page, start: Locator, attribute: string): Promise<"reached" | "clear" | "stuck"> {
+  const where = () =>
+    page.evaluate((armAttribute) => {
+      const active = document.activeElement;
+      return {
+        inArm: active?.closest(`[${armAttribute}]`) != null,
+        inSection: active?.closest("[data-e2e-file-it]") != null,
+      };
+    }, attribute);
   for (const key of ["Tab", "Shift+Tab"]) {
     await start.focus();
-    for (let i = 0; i < 40; i++) {
+    let left = false;
+    for (let i = 0; i < TAB_LIMIT && !left; i++) {
       await page.keyboard.press(key);
-      if (await inClosedArm()) {
-        return true;
+      const { inArm, inSection } = await where();
+      if (inArm) {
+        return "reached";
       }
+      left = !inSection;
+    }
+    if (!left) {
+      return "stuck";
     }
   }
-  return false;
+  return "clear";
 }
