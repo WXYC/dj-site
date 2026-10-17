@@ -17,9 +17,9 @@
 # into an issue, a PR, a chat or a commit.
 #
 # URLs signed with SSO credentials stop working when the SSO session ends
-# (often within hours), whatever --expires-in says. When the page's log shows
-# S3 answering 403 (ExpiredToken or AccessDenied), sign in again and run
-# `presign`.
+# (often within hours), whatever --expires-in says. When the page says the
+# track links have expired (S3 answering 403 AccessDenied or 400 ExpiredToken),
+# sign in again and run `presign`.
 
 set -euo pipefail
 
@@ -133,7 +133,7 @@ create() {
 presign() {
   need_session
   log "presigned GET URLs (asked for 7 days; they end with this SSO session)."
-  log "paste the lines below into the spike page's \"Save all\" box. They are credentials: never post them."
+  log "paste the lines below into the spike page and press \"Save links\". They are credentials: never post them."
   for t in "${TRACKS[@]}"; do
     read -r id ext _ <<<"$t"
     printf '%s %s\n' "$id" "$(aws s3 presign "s3://$BUCKET/$PREFIX/$BASE.$ext" --expires-in "$EXPIRES_S")"

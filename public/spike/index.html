@@ -4,51 +4,233 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content="noindex" />
-    <title>Service-worker audio spike</title>
+    <title>Review audio test</title>
     <link rel="stylesheet" href="/spike/spike.css" />
     <script src="/spike/spike.js" defer></script>
   </head>
   <body>
     <header>
-      <h1>Service-worker audio spike</h1>
-      <p class="muted">
-        A throwaway test page for
-        <a href="https://github.com/WXYC/dj-site/issues/2148">WXYC/dj-site#2148</a>. It is not part of the DJ site.
+      <h1>Review audio test</h1>
+      <p class="intro">
+        This page checks whether this browser can play review audio through a service worker (a small script that
+        fetches the audio a piece at a time): starting, jumping around, and going on playing in the background.
+        You are done when every format has been checked in Safari on the Mac, Safari on an iPhone, and Chrome and
+        Firefox on the Mac, and each browser's copied results are posted on
+        <a href="https://github.com/WXYC/dj-site/issues/2148">dj-site#2148</a>.
       </p>
     </header>
 
     <main>
-      <section class="card">
-        <h2>Worker</h2>
-        <p id="sw-status" class="status">Starting...</p>
+      <div id="banner-setup" class="banner bad" role="alert" hidden></div>
+
+      <div id="banner-expired" class="banner bad" role="alert" hidden>
+        <p>
+          <strong>The track links have expired.</strong> On the Mac, run the presign command again and paste the new
+          lines here.
+        </p>
+        <pre class="cmd">aws sso login --profile wxyc-api
+spike/make-test-bucket.sh presign</pre>
+        <p class="muted">Run them in the dj-site folder, on the spike branch. The first line is only needed if the second asks you to sign in.</p>
+        <button type="button" id="expired-paste" data-testid="expired-paste">Paste new links</button>
+      </div>
+
+      <div id="banner-auto" class="banner info" role="status" hidden></div>
+
+      <section class="card" id="links-card" aria-label="Track links">
+        <p id="links-line" class="links-line" hidden>
+          <span id="links-count" data-testid="links-count">Links: 0 of 4 saved</span>
+          <span aria-hidden="true">·</span>
+          <button type="button" class="linkish" id="links-change" data-testid="links-change">Change</button>
+        </p>
+        <div id="links-form" hidden>
+          <h2>Track links</h2>
+          <p>
+            On the Mac, <code>spike/make-test-bucket.sh presign</code> prints four lines, one per format. Paste all
+            four here and press "Save links". Do this once in each browser.
+          </p>
+          <p class="muted">
+            To get the lines onto an iPhone, send them to yourself in a private note, paste them here, then delete
+            the note. The links work like passwords: never post them anywhere.
+          </p>
+          <label class="sr" for="links-input">The lines from the presign command</label>
+          <textarea
+            id="links-input"
+            data-testid="links-input"
+            rows="4"
+            autocomplete="off"
+            autocapitalize="off"
+            spellcheck="false"
+            placeholder="mp3 https://…&#10;m4a https://…&#10;flac https://…&#10;wav https://…"
+          ></textarea>
+          <div class="buttons">
+            <button type="button" id="links-save" data-testid="links-save">Save links</button>
+            <button type="button" class="quiet" id="links-close" data-testid="links-close" hidden>Close</button>
+          </div>
+          <p id="links-status" class="muted" role="status"></p>
+          <p id="links-each" class="muted"></p>
+          <button type="button" class="quiet small" id="links-clear" data-testid="links-clear">Remove saved links</button>
+        </div>
       </section>
 
-      <section class="card">
-        <h2>Player</h2>
-        <div class="controls">
-          <label>
-            Track
-            <select id="track" disabled></select>
-          </label>
-          <label>
-            Response
-            <select id="mode">
-              <option value="direct">S3's own response (as the plan says)</option>
-              <option value="rebuilt">Rebuilt response, streamed and counted</option>
-            </select>
-          </label>
-          <label class="check">
-            <input type="checkbox" id="loop" />
-            Loop (for the 15-minute lock check)
-          </label>
+      <section class="card" id="steps-card" aria-labelledby="steps-title">
+        <h2 id="steps-title">Test steps</h2>
+        <p id="who" class="muted"></p>
+        <p id="steps-wait" class="wait">Getting the test player ready…</p>
+
+        <ol class="steps" id="steps">
+          <li class="step" id="step-pick">
+            <div class="step-head"><span class="num" aria-hidden="true"></span><h3>Pick a format</h3></div>
+            <div class="step-body">
+              <div class="chips" id="chips" role="group" aria-label="Format"></div>
+              <p class="muted">Do every step below for each format. A ✓ marks a format that is finished in this browser.</p>
+            </div>
+          </li>
+
+          <li class="step" id="step-play">
+            <div class="step-head"><span class="num" aria-hidden="true"></span><h3>Press play</h3></div>
+            <div class="step-body">
+              <button type="button" class="big" id="play" data-testid="play" disabled>Play</button>
+              <audio id="audio" controls preload="auto"></audio>
+              <p class="pos" id="pos" data-testid="position"></p>
+              <p>Listen for a steady tone, with a burst of short high pips every 10 seconds.</p>
+              <ul class="checks">
+                <li class="check" id="check-first" data-testid="check-first" data-result="pending">
+                  <span class="mark" aria-hidden="true"></span>
+                  <span class="what">The worker answered the player's first request</span>
+                  <span class="why"></span>
+                </li>
+                <li class="check" id="check-plays" data-testid="check-plays" data-result="pending">
+                  <span class="mark" aria-hidden="true"></span>
+                  <span class="what">The audio is playing</span>
+                  <span class="why"></span>
+                </li>
+                <li class="check" id="check-next" data-testid="check-next" data-result="pending">
+                  <span class="mark" aria-hidden="true"></span>
+                  <span class="what">The player asked for the next piece by itself (can take half a minute)</span>
+                  <span class="why"></span>
+                </li>
+              </ul>
+            </div>
+          </li>
+
+          <li class="step" id="step-jump">
+            <div class="step-head"><span class="num" aria-hidden="true"></span><h3>Jump around and listen</h3></div>
+            <div class="step-body">
+              <p>
+                Each minute the tone steps up in pitch. Within each minute the pips count up: 1 pip at the start of
+                the minute, 2 pips ten seconds later, and so on up to 6. Press each button, listen, and wait for its
+                line to show a result before the next one.
+              </p>
+              <div class="jumps" id="jumps"></div>
+              <div class="question" id="q-spot">
+                <p class="ask">Did you hear the right spot?</p>
+                <div class="yesno">
+                  <button type="button" data-answer="spot" data-value="yes" data-testid="answer-spot-yes">Yes</button>
+                  <button type="button" data-answer="spot" data-value="no" data-testid="answer-spot-no">No</button>
+                </div>
+              </div>
+            </div>
+          </li>
+
+          <li class="step" id="step-ahead">
+            <div class="step-head"><span class="num" aria-hidden="true"></span><h3>How far ahead the player loads</h3></div>
+            <div class="step-body">
+              <p>Nothing to do: the page measures this while the audio plays.</p>
+              <p class="check" id="check-ahead" data-testid="check-readahead" data-result="pending">
+                <span class="mark" aria-hidden="true"></span>
+                <span class="what"></span>
+              </p>
+            </div>
+          </li>
+
+          <li class="step" id="step-away" hidden>
+            <div class="step-head"><span class="num" aria-hidden="true"></span><h3 id="away-title"></h3></div>
+            <div class="step-body">
+              <ol class="substeps">
+                <li>
+                  <button type="button" id="loop" data-testid="loop" aria-pressed="false">Turn on Loop</button>
+                  <span class="muted">so the ten-minute track keeps going.</span>
+                </li>
+                <li><button type="button" id="play-away" data-testid="play-away" disabled>Play</button></li>
+                <li id="away-how"></li>
+              </ol>
+              <p class="countdown" id="away-countdown" data-testid="away-countdown" role="status"></p>
+              <ul class="checks">
+                <li class="check" id="check-away-past" data-testid="check-away-past" data-result="pending">
+                  <span class="mark" aria-hidden="true"></span>
+                  <span class="what">The audio went on past what was loaded when you left</span>
+                  <span class="why"></span>
+                </li>
+                <li class="check" id="check-away-worker" data-testid="check-away-worker" data-result="pending">
+                  <span class="mark" aria-hidden="true"></span>
+                  <span class="what">The worker answered the player while you were away</span>
+                  <span class="why"></span>
+                </li>
+              </ul>
+              <div class="question" id="q-away-heard">
+                <p class="ask">Did the audio play the whole time?</p>
+                <div class="yesno">
+                  <button type="button" data-answer="awayHeard" data-value="yes" data-testid="answer-away-heard-yes">Yes</button>
+                  <button type="button" data-answer="awayHeard" data-value="no" data-testid="answer-away-heard-no">No</button>
+                </div>
+              </div>
+              <div class="question" id="q-lockscreen" hidden>
+                <p class="ask">Did play and pause on the Lock Screen work?</p>
+                <div class="yesno">
+                  <button type="button" data-answer="lockScreen" data-value="yes" data-testid="answer-lockscreen-yes">Yes</button>
+                  <button type="button" data-answer="lockScreen" data-value="no" data-testid="answer-lockscreen-no">No</button>
+                </div>
+              </div>
+              <button type="button" class="quiet small" id="away-restart" data-testid="away-restart">Restart this test</button>
+            </div>
+          </li>
+
+          <li class="step" id="step-next">
+            <div class="step-head"><span class="num" aria-hidden="true"></span><h3>Next format</h3></div>
+            <div class="step-body">
+              <p id="next-text"></p>
+              <button type="button" class="big" id="next" data-testid="next-format">Next format</button>
+              <button type="button" class="quiet small" id="redo" data-testid="redo-format">Redo this format</button>
+            </div>
+          </li>
+        </ol>
+      </section>
+
+      <section class="card" id="results-card" aria-labelledby="results-title">
+        <h2 id="results-title">Results in this browser</h2>
+        <p id="results-who" class="muted"></p>
+        <table class="results" id="results" data-testid="results-table">
+          <thead></thead>
+          <tbody></tbody>
+        </table>
+        <p class="muted legend">✓ passed or yes · ✗ failed or no · ? can't tell · – not yet</p>
+        <div class="buttons">
+          <button type="button" id="copy" data-testid="copy-results">Copy results</button>
+          <button type="button" class="quiet" id="start-over" data-testid="start-over">Start over</button>
         </div>
-        <audio id="audio" controls preload="auto"></audio>
-        <div class="buttons" id="seeks">
-          <button type="button" data-seek="0.1" disabled>Seek 10%</button>
-          <button type="button" data-seek="0.5" disabled>Seek 50%</button>
-          <button type="button" data-seek="0.9" disabled>Seek 90%</button>
-          <button type="button" data-seek="0" disabled>Back to start</button>
-        </div>
+        <p>Paste this as a comment on <a href="https://github.com/WXYC/dj-site/issues/2148">dj-site#2148</a>.</p>
+        <p id="os-hint" class="muted" hidden></p>
+        <p id="copy-status" class="muted" role="status"></p>
+        <textarea id="copy-out" rows="8" readonly hidden aria-label="Results as Markdown"></textarea>
+        <p id="store-note" class="muted" hidden></p>
+      </section>
+
+      <details class="card" id="debug">
+        <summary>Details for debugging</summary>
+
+        <h3>Worker</h3>
+        <p id="sw-status" class="status">Starting…</p>
+
+        <h3>Response</h3>
+        <label class="field">
+          How the worker answers the player
+          <select id="mode">
+            <option value="direct">S3's own response (as the plan says)</option>
+            <option value="rebuilt">Rebuilt response, streamed and counted</option>
+          </select>
+        </label>
+
+        <h3>Player</h3>
         <dl class="stats">
           <dt>currentTime</dt>
           <dd id="st-time">-</dd>
@@ -65,10 +247,11 @@
           <dt>chunk</dt>
           <dd id="st-chunk">-</dd>
         </dl>
-      </section>
 
-      <section class="card">
-        <h2>Requests the worker answered</h2>
+        <h3>Notes for each check</h3>
+        <div id="notes" class="notes"></div>
+
+        <h3>Requests the worker answered</h3>
         <p class="muted" id="log-note">None yet.</p>
         <div class="scroll">
           <table id="log">
@@ -90,38 +273,24 @@
             <tbody></tbody>
           </table>
         </div>
-      </section>
 
-      <section class="card">
-        <h2>Element and page events</h2>
+        <h3>Element and page events</h3>
         <div class="scroll short">
           <ol id="events" class="events"></ol>
         </div>
-      </section>
 
-      <section class="card">
-        <h2>Results</h2>
         <div class="buttons">
-          <button type="button" id="copy">Copy results as Markdown</button>
-          <button type="button" id="clear-log" class="quiet">Clear stored log</button>
+          <button type="button" class="quiet" id="copy-log" data-testid="copy-log">Copy the request log</button>
+          <button type="button" class="quiet" id="clear-log" data-testid="clear-log">Clear stored log</button>
         </div>
-        <p class="muted" id="copy-status"></p>
-        <textarea id="copy-out" rows="10" readonly hidden></textarea>
-      </section>
+        <p class="muted" id="copy-log-status" role="status"></p>
+        <textarea id="copy-log-out" rows="8" readonly hidden aria-label="Request log as Markdown"></textarea>
 
-      <section class="card">
-        <h2>Track URLs</h2>
-        <p class="muted">
-          Paste a URL per track (a presigned S3 GET from <code>spike/make-test-bucket.sh</code>). It stays in this
-          browser's Cache Storage for this origin. It is never shown in the log or in the copied results.
-        </p>
-        <form id="urls"></form>
-      </section>
-
-      <section class="card">
-        <h2>Browser</h2>
+        <h3>Browser</h3>
         <p id="ua" class="mono"></p>
-      </section>
+      </details>
+
+      <pre id="auto-results" data-testid="auto-results" data-state="idle" hidden></pre>
     </main>
   </body>
 </html>
