@@ -1358,19 +1358,44 @@ describe("ReviewEditor", () => {
       await waitFor(() => expect(stored()).toMatchObject({ review: "Warm.?" }));
     });
 
-    // A typed review with no stored FCC does not offer the field, so an entry's FCC (kept before the field was offered only on paper, or while stored text offered it) is not part of what this editor would restore.
+    /** An entry equal to the loaded typed review (which stores no FCC) in every field but FCC, with the given FCC. */
+    const keepWithFcc = (fcc: Partial<Review>) =>
+      writeReviewDraft("dj-me", 40, { ...toFieldPatch(toFieldValues(DRAFT), FIELD_NAMES.filter((n) => n !== "fcc")), ...fcc, publish_website: false, publish_apps: false, publish_instagram: false, credit: null });
+
+    // A typed review with no stored FCC does not offer the field, so an entry with no FCC text has nothing this editor would restore.
     it.each<{ name: string; fcc: Partial<Review> }>([
       { name: "no FCC", fcc: {} },
       { name: "an empty FCC", fcc: { fcc: null } },
-      { name: "FCC text for a field the editor no longer offers", fcc: { fcc: "Mild language" } },
+      { name: "a blank FCC", fcc: { fcc: "   " } },
     ])("removes an entry equal to the loaded review, carrying $name, without an offer", async ({ fcc }) => {
-      writeReviewDraft("dj-me", 40, { ...toFieldPatch(toFieldValues(DRAFT), FIELD_NAMES.filter((n) => n !== "fcc")), ...fcc, publish_website: false, publish_apps: false, publish_instagram: false, credit: null });
+      keepWithFcc(fcc);
       serve();
       renderWithProviders(<ReviewEditor id={40} />);
       await screen.findByLabelText("Review");
 
       await waitFor(() => expect(stored()).toBeNull());
       expect(screen.queryByText(NOTICE)).not.toBeInTheDocument();
+      expect(screen.queryByRole("textbox", { name: REVIEW_COPY.fields.fcc.label })).not.toBeInTheDocument();
+    });
+
+    // The stored FCC was cleared (by this DJ's own save, or by a music director in another tab) after the entry kept FCC text: the field is offered so the text can come back.
+    it.each<{ name: string; fcc: string }>([
+      { name: "FCC text the loaded review no longer stores", fcc: "Mild language" },
+      { name: "FCC text typed after the stored FCC was cleared and saved", fcc: "B2: one word" },
+    ])("offers the FCC field and the entry when it carries $name, and Restore brings the text back", async ({ fcc }) => {
+      keepWithFcc({ fcc });
+      serve();
+      const { user } = renderWithProviders(<ReviewEditor id={40} />);
+
+      expect(await screen.findByText(NOTICE)).toBeInTheDocument();
+      const field = screen.getByRole("textbox", { name: REVIEW_COPY.fields.fcc.label });
+      expect(field).toHaveValue("");
+      expect(stored()).toMatchObject({ fcc });
+
+      await user.click(screen.getByRole("button", { name: RESTORE }));
+      expect(field).toHaveValue(fcc);
+      expect(screen.getByLabelText("Review")).toHaveValue("Warm.");
+      expect(stored()).toMatchObject({ fcc });
     });
 
     it("keeps one review's entry out of another's editor", async () => {
