@@ -56,6 +56,9 @@
     .split(",")
     .map((v) => v.trim().toLowerCase())
     .filter(Boolean);
+  // ?respond=direct or ?respond=rebuilt picks the worker's response mode at
+  // start-up, as the "mode" select would; any other value is ignored.
+  const RESPOND = ["direct", "rebuilt"].includes(query.get("respond")) ? query.get("respond") : null;
 
   const $ = (id) => document.getElementById(id);
   const audio = $("audio");
@@ -2352,6 +2355,11 @@
   }
 
   async function main() {
+    // Set once, before any track loads. Setting the value fires no "change",
+    // so this starts no session of its own.
+    if (RESPOND) {
+      $("mode").value = RESPOND;
+    }
     const fragmentLinks = takeFragmentLinks();
     loadStore();
     buildJumps();
