@@ -1,8 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { setupListeners } from "@reduxjs/toolkit/query";
 import { delay, http, HttpResponse } from "msw";
 import type { IntakeItem, Review } from "@wxyc/shared";
 import { Authorization } from "@/lib/features/admin/types";
+import { makeStore } from "@/lib/store";
 import { reviewApi } from "@/lib/features/reviews/reviewApi";
 import {
   CDR_FORMAT,
@@ -1797,5 +1799,42 @@ describe("ReviewsScreen — a digital album reads its own lines, a disc keeps to
     const { user } = renderWithProviders(<BothTabs />);
     await user.click(await within(await section(LIST)).findByRole("button", { name: REVIEW_COPY.writeReview }));
     await waitFor(() => expect(toast).toHaveBeenCalledWith(notice));
+  });
+});
+
+describe("ReviewsScreen re-reads on focus", () => {
+  beforeEach(() => {
+    mockAuth.authority = Authorization.DJ;
+    vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "true");
+  });
+  afterEach(() => vi.unstubAllEnvs());
+
+  it.each([
+    ["Review shelf", "shelf", SHELF, { intake: 1, mine: 0 }],
+    ["My reviews", "mine", "Requests for me", { intake: 1, mine: 1 }],
+  ] as const)("reads the %s tab's lists again when the window regains focus", async (_tab, tab, region, more) => {
+    serveIntake([item({ id: 1, album_title: "DOGA", artist_name: "Juana Molina", state: "pool", effective_state: "pool" })]);
+    const reads = { intake: 0, mine: 0 };
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/reviews`, () => {
+        reads.mine += 1;
+        return HttpResponse.json([]);
+      }),
+    );
+    const store = makeStore();
+    const stopListening = setupListeners(store.dispatch);
+    const countIntake = http.get(`${TEST_BACKEND_URL}/intake`, () => {
+      reads.intake += 1;
+    });
+    server.use(countIntake);
+
+    renderWithProviders(<ReviewsScreen tab={tab} />, { store });
+    await section(region);
+    const before = { ...reads };
+
+    window.dispatchEvent(new Event("focus"));
+
+    await waitFor(() => expect(reads).toEqual({ intake: before.intake + more.intake, mine: before.mine + more.mine }));
+    stopListening();
   });
 });

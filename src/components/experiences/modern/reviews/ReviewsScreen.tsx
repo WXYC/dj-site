@@ -2,6 +2,7 @@
 
 import { Typography } from "@mui/joy";
 import { Authorization } from "@/lib/features/admin/types";
+import { LIVE_LIST } from "@/lib/features/reviews/api";
 import { useGetIntakeItemsQuery } from "@/lib/features/reviews/intakeApi";
 import { useGetMyReviewsQuery, useGetReviewersQuery } from "@/lib/features/reviews/reviewApi";
 import { useCanSeeReviews } from "@/src/hooks/useCanSeeReviews";
@@ -20,8 +21,8 @@ export default function ReviewsScreen({ tab }: { tab: "shelf" | "mine" }) {
   const isMD = (user?.authority ?? Authorization.DJ) >= Authorization.MD;
   const onShelf = tab === "shelf";
 
-  const everyState = useGetIntakeItemsQuery(EVERY_STATE, { skip: !visible });
-  const mine = useGetMyReviewsQuery(MY_REVIEWS, { skip: !visible || onShelf });
+  const everyState = useGetIntakeItemsQuery(EVERY_STATE, { skip: !visible, ...LIVE_LIST });
+  const mine = useGetMyReviewsQuery(MY_REVIEWS, { skip: !visible || onShelf, ...LIVE_LIST });
   const reviewers = useGetReviewersQuery(undefined, { skip: !visible || !isMD || !onShelf });
   const { write, lock } = useReviewWrite(everyState.data, { reloadMine: !onShelf });
 
