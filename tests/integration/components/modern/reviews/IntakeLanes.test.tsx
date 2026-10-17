@@ -718,6 +718,7 @@ describe("IntakeLogForm", () => {
     const log = screen.getByRole("button", { name: "Log item" });
     expect(log).toBeDisabled();
     const arrival = screen.getByRole("radiogroup", { name: /^How did it arrive\?/ });
+    expect(arrival).toBeRequired();
     expect(within(arrival).getByRole("radio", { name: "As files" })).toHaveAccessibleDescription("Burned to CD-R once it's reviewed");
     expect(within(arrival).getByText("Burned to CD-R once it's reviewed")).toBeVisible();
     expect(screen.queryByRole("combobox", { name: /^Format/ })).not.toBeInTheDocument();

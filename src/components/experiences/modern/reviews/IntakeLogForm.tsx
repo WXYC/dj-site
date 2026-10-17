@@ -130,6 +130,7 @@ export default function IntakeLogForm() {
         <FormControl required>
           <FormLabel>{COPY.arrival}</FormLabel>
           <RadioGroup
+            aria-required="true"
             orientation="horizontal"
             value={form.arrival ?? ""}
             onChange={(e) => setForm((f) => ({ ...f, arrival: e.target.value as Arrival, formatId: null }))}
