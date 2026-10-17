@@ -17,7 +17,7 @@ import ConfirmDialog from "../ConfirmDialog";
 import IntakeLane from "./IntakeLane";
 import { REVIEW_COPY } from "./copy";
 import RecordRow from "./RecordRow";
-import { intakeRecord, recordLine } from "./recordLine";
+import { intakeRecord } from "./recordLine";
 import { useReviewRecord } from "./useReviewRecord";
 import { day, type ReviewWrite } from "./useReviewWrite";
 
@@ -46,7 +46,7 @@ function MyReviewRow({ review }: { review: Review }) {
 }
 
 /** The requests, checkouts and My reviews lanes. It assumes its caller has applied the `useCanSeeReviews` check and the load-failed gate, and takes the `useReviewWrite` the caller built for this tab: the review shelf is a separate tab with its own write wiring, so a lock set here does not carry over to it. */
-export default function MyReviewsScreen({ items, myReviews, formats, me, write, lock }: { items: IntakeItem[]; myReviews: Review[]; formats: { id: number; format_name: string }[] | undefined; me: string | undefined } & ReviewWrite) {
+export default function MyReviewsScreen({ items, myReviews, me, write, lock }: { items: IntakeItem[]; myReviews: Review[]; me: string | undefined } & ReviewWrite) {
   const [accept] = useAcceptIntakeItemMutation();
   const [pass] = usePassIntakeItemMutation();
   const [release] = useReleaseIntakeItemMutation();
@@ -62,7 +62,6 @@ export default function MyReviewsScreen({ items, myReviews, formats, me, write, 
     ...items.filter((i) => i.effective_state === "checked_out" && i.checked_out_by === me),
     ...items.filter((i) => i.effective_state === "reviewed" && i.checked_out_by === me),
   ];
-  const describe = (i: IntakeItem) => recordLine(intakeRecord(i), formats);
 
   return (
     <>
@@ -100,7 +99,7 @@ export default function MyReviewsScreen({ items, myReviews, formats, me, write, 
           }
         />
       )} />
-      <IntakeLane title={REVIEW_COPY.screen.checkoutsTitle} rows={checkouts} empty={REVIEW_COPY.screen.checkoutsEmpty} label={(i) => <Typography>{describe(i)}</Typography>} extra={(i) => {
+      <IntakeLane title={REVIEW_COPY.screen.checkoutsTitle} rows={checkouts} empty={REVIEW_COPY.screen.checkoutsEmpty} row={(i) => {
         const mineHere = myReviews.filter((r) => r.intake_item_id === i.id);
         const submitted = mineHere.find((r) => r.status === "submitted");
         const draft = mineHere.find((r) => r.status === "draft");
@@ -112,31 +111,40 @@ export default function MyReviewsScreen({ items, myReviews, formats, me, write, 
             ? REVIEW_COPY.screen.reviewSubmitted
             : byKind(i, { disc: null, digital: REVIEW_COPY.screen.filesComing });
         return (
-        <>
-          <Typography level="body-sm">{`${REVIEW_COPY.screen.taken} ${day(i.checked_out_at)}`}</Typography>
-          {mark && <Chip color="danger">{mark}</Chip>}
-          {note && <Typography level="body-sm">{note}</Typography>}
-          {submitted ? (
-            <Button size="sm" variant={reviewed ? "outlined" : "solid"} onClick={() => router.push(`/dashboard/reviews/${submitted.id}`)}>{REVIEW_COPY.screen.editReview}</Button>
-          ) : (
-            <Button
-              size="sm"
-              variant={reviewed ? "outlined" : "solid"}
-              {...lock(i.id, "write")}
-              onClick={() =>
-                write(i.id, "write", async () => {
-                  const review = draft ?? (await createReview({ intake_item_id: i.id }).unwrap());
-                  if (mounted.current) {
-                    router.push(`/dashboard/reviews/${review.id}`);
-                  }
-                })
-              }
-            >
-              {REVIEW_COPY.writeReview}
-            </Button>
-          )}
-          <Button size="sm" variant={reviewed ? "solid" : "outlined"} {...lock(i.id, "release")} onClick={() => setReturning(i)}>{REVIEW_COPY.screen.returnToShelf}</Button>
-        </>
+          <RecordRow
+            record={intakeRecord(i)}
+            meta={
+              <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+                <Typography level="body-sm">{`${REVIEW_COPY.screen.taken} ${day(i.checked_out_at)}`}</Typography>
+                {mark && <Chip color="danger">{mark}</Chip>}
+                {note && <Typography level="body-sm">{note}</Typography>}
+              </Stack>
+            }
+            actions={
+              <>
+                {submitted ? (
+                  <Button size="sm" variant={reviewed ? "outlined" : "solid"} onClick={() => router.push(`/dashboard/reviews/${submitted.id}`)}>{REVIEW_COPY.screen.editReview}</Button>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant={reviewed ? "outlined" : "solid"}
+                    {...lock(i.id, "write")}
+                    onClick={() =>
+                      write(i.id, "write", async () => {
+                        const review = draft ?? (await createReview({ intake_item_id: i.id }).unwrap());
+                        if (mounted.current) {
+                          router.push(`/dashboard/reviews/${review.id}`);
+                        }
+                      })
+                    }
+                  >
+                    {REVIEW_COPY.writeReview}
+                  </Button>
+                )}
+                <Button size="sm" variant={reviewed ? "solid" : "outlined"} {...lock(i.id, "release")} onClick={() => setReturning(i)}>{REVIEW_COPY.screen.returnToShelf}</Button>
+              </>
+            }
+          />
         );
       }} />
       <IntakeLane title={REVIEW_COPY.myReviews.title} rows={myReviews} empty={REVIEW_COPY.myReviews.empty} row={(r) => <MyReviewRow review={r} />} />

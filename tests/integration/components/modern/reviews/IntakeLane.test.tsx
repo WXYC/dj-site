@@ -10,7 +10,7 @@ const rows = [
 
 describe("IntakeLane", () => {
   it("shows the title and the empty line when there are no rows", () => {
-    renderWithProviders(<IntakeLane title="On the review shelf" rows={[]} empty="Nothing here." label={(r) => r} extra={() => null} />);
+    renderWithProviders(<IntakeLane title="On the review shelf" rows={rows.slice(0, 0)} empty="Nothing here." row={(r) => <span>{r.name}</span>} />);
     const lane = screen.getByRole("region", { name: "On the review shelf" });
     expect(within(lane).getByText("On the review shelf")).toBeInTheDocument();
     expect(within(lane).getByRole("heading", { level: 3, name: "On the review shelf" })).toBeInTheDocument();
@@ -18,43 +18,14 @@ describe("IntakeLane", () => {
     expect(within(lane).queryByRole("list")).not.toBeInTheDocument();
   });
 
-  it("renders each row's label followed by its extras", () => {
-    renderWithProviders(
-      <IntakeLane
-        title="Checkouts"
-        rows={rows}
-        empty="Nothing here."
-        label={(r) => <a href={`/x/${r.id}`}>{r.name}</a>}
-        extra={(r) => <span>{`extra ${r.id}`}</span>}
-      />,
-    );
-    const items = within(screen.getByRole("region", { name: "Checkouts" })).getAllByRole("listitem");
-    expect(items).toHaveLength(2);
-    expect(within(items[1]).getByRole("link", { name: "Stereolab" })).toHaveAttribute("href", "/x/2");
-    expect(items[1].textContent).toBe("Stereolabextra 2");
-    expect(screen.queryByText("Nothing here.")).not.toBeInTheDocument();
-  });
-
-  it("adds no wrapper around the label: it sits beside the extras in the row container", () => {
-    renderWithProviders(
-      <IntakeLane
-        title="Checkouts"
-        rows={rows}
-        empty="Nothing here."
-        label={(r) => <a href={`/x/${r.id}`}>{r.name}</a>}
-        extra={(r) => <span>{`extra ${r.id}`}</span>}
-      />,
-    );
-    const [item] = within(screen.getByRole("region", { name: "Checkouts" })).getAllByRole("listitem");
-    const link = within(item).getByRole("link", { name: "Juana Molina" });
-    const extra = within(item).getByText("extra 1");
-    expect(link.parentElement).toBe(extra.parentElement);
-    expect(link.parentElement).not.toBe(item);
-  });
-
-  it("renders a row's own content in place of label and extra when given a `row` render prop", () => {
+  it("renders each row's own content, as a list item", () => {
     renderWithProviders(<IntakeLane title="Requests" rows={rows} empty="Nothing here." row={(r) => <span>{`row ${r.id}`}</span>} />);
     const items = within(screen.getByRole("region", { name: "Requests" })).getAllByRole("listitem");
     expect(items.map((li) => li.textContent)).toEqual(["row 1", "row 2"]);
+  });
+
+  it("takes only a `row` render prop: a `label` does not type-check", () => {
+    // @ts-expect-error a lane can no longer draw its rows as an inline label
+    renderWithProviders(<IntakeLane title="Checkouts" rows={rows} empty="Nothing here." row={(r) => <span>{r.name}</span>} label={(r) => r.name} />);
   });
 });

@@ -22,7 +22,7 @@ describe("ReviewShelfScreen", () => {
   it("renders the review shelf lane with a checkout button for a record on the review shelf", async () => {
     fakeReviewsEndpoints();
     renderWithProviders(
-      <WithWrite items={[intakeItem({ id: 5, artist_name: "Stereolab" })]} formats={undefined} isMD={false} />,
+      <WithWrite items={[intakeItem({ id: 5, artist_name: "Stereolab" })]} isMD={false} />,
     );
 
     expect(await screen.findByRole("heading", { level: 3, name: REVIEW_COPY.screen.shelfTitle })).toBeInTheDocument();
@@ -31,7 +31,7 @@ describe("ReviewShelfScreen", () => {
 
   it("leaves out a checked out record with a submitted review that a music director returned", async () => {
     fakeReviewsEndpoints();
-    renderWithProviders(<WithWrite items={[intakeItem({ id: 5, artist_name: "Stereolab", ...returnedByMusicDirector })]} formats={undefined} isMD={false} />);
+    renderWithProviders(<WithWrite items={[intakeItem({ id: 5, artist_name: "Stereolab", ...returnedByMusicDirector })]} isMD={false} />);
 
     expect(await screen.findByText(REVIEW_COPY.screen.shelfEmpty)).toBeInTheDocument();
     expect(screen.queryByText("Stereolab", { exact: false })).not.toBeInTheDocument();
@@ -41,11 +41,11 @@ describe("ReviewShelfScreen", () => {
   it("leaves out a record with a submitted review and shows it again once that review is deleted", async () => {
     fakeReviewsEndpoints();
     const item = intakeItem({ id: 5, artist_name: "Stereolab", submitted_review_count: 1 });
-    const { rerender } = renderWithProviders(<WithWrite items={[item]} formats={undefined} isMD={false} />);
+    const { rerender } = renderWithProviders(<WithWrite items={[item]} isMD={false} />);
 
     expect(await screen.findByText(REVIEW_COPY.screen.shelfEmpty)).toBeInTheDocument();
 
-    rerender(<WithWrite items={[{ ...item, submitted_review_count: 0 }]} formats={undefined} isMD={false} />);
+    rerender(<WithWrite items={[{ ...item, submitted_review_count: 0 }]} isMD={false} />);
 
     expect(await screen.findByRole("button", { name: REVIEW_COPY.screen.checkOut })).toBeInTheDocument();
   });
