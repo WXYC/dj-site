@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
-import { Button, Chip, Divider, Radio, RadioGroup, Stack, Typography } from "@mui/joy";
+import { Box, Button, Chip, Divider, Radio, RadioGroup, Stack, Typography } from "@mui/joy";
 import type { IntakeItem, IntakeItemPatch, Review } from "@wxyc/shared";
 import { displayedArtist, isVariousArtists } from "@/lib/features/catalog/libraryCode";
 import type { AlbumEntry } from "@/lib/features/catalog/types";
@@ -37,16 +37,20 @@ import { useGetFormatsQuery, useGetInformationQuery } from "@/lib/features/catal
 import { intakeRecord, recordLine, releaseRecord } from "./recordLine";
 import ReleasePicker from "./ReleasePicker";
 import { fromLine, newestFirst } from "./ReviewFrom";
-import { CiteControls, RemoveCitation } from "./CiteControls";
+import { CiteSection, RemoveCitation } from "./CiteControls";
 import DeleteReviewButton from "./DeleteReviewButton";
 import UseThisReviewButton from "./UseThisReviewButton";
 import { EMPTY_START, PAPER_START, formReviewStart, type RecordFormStart } from "@/lib/features/reviews/formReviewStart";
+import RecordPrompt, { type OpenSection } from "./RecordPrompt";
 import RecordReviewForm from "./RecordReviewForm";
 import { Group } from "./ReviewsPanel";
 import { useItemPageReload } from "./useItemPageReload";
 import { usePrintedVersion } from "./usePrintedVersion";
 
 const COPY = REVIEW_COPY.intakeItem;
+
+/** Two columns from a page 800px wide (a 1440px window beside both sidebars is about 826). The side column holds only the FCC notes; the main column keeps at least about 456px at that width. */
+const TWO_COLUMNS = "@container (min-width: 800px)";
 
 /**
  * A query's `data` is the last result the hook rendered, so it ignores a write into the cache while a read is pending
@@ -98,6 +102,8 @@ export default function IntakeItemScreen({ id }: { id: number }) {
   const [picked, setPicked] = useState<AlbumEntry | null>(null);
   // The open form's starting values and its key, or null when closed. Every opening goes through openRecording, which gives the form a key unlike the open one's, so the form remounts with the new start.
   const [recording, setRecording] = useState<Recording | null>(null);
+  // The cite search open under the prompt row, if any; only one of it and the form is open at a time.
+  const [citing, setCiting] = useState<"release" | "form" | null>(null);
   // Whether the open form holds unsaved text, and the close or replace waiting on the leave dialog's answer.
   const [recordingDirty, setRecordingDirty] = useState(false);
   const [asked, setAsked] = useState<(() => void) | null>(null);
@@ -116,7 +122,20 @@ export default function IntakeItemScreen({ id }: { id: number }) {
     leaveGuard.leave();
   };
   const unlessDirty = (act: () => void) => (recordingDirty ? setAsked(() => act) : act());
-  const openRecording = (start: RecordFormStart, cites?: Recording["cites"]) => unlessDirty(() => setRecording((open) => nextRecording(open, start, cites)));
+  const openRecording = (start: RecordFormStart, cites?: Recording["cites"]) =>
+    unlessDirty(() => {
+      setCiting(null);
+      setRecording((open) => nextRecording(open, start, cites));
+    });
+  const openSection: OpenSection = recording ? "record" : citing;
+  // Pressing a button closes its own section, or replaces the open one; a dirty form asks first.
+  const toggleSection = (which: NonNullable<OpenSection>) => {
+    if (which === "record") return openSection === "record" ? unlessDirty(() => setRecording(null)) : openRecording(EMPTY_START);
+    unlessDirty(() => {
+      setRecording(null);
+      setCiting(citing === which ? null : which);
+    });
+  };
   // One count per review write in flight or rereading, so neither a review button nor the form's Save acts on the stale cover.
   // `movers` counts the writes that move the cover (Use this review, a ticked Record a review). Each write takes a handle from `hold` and releases it exactly once.
   const [holds, setHolds] = useState({ all: 0, movers: 0 });
@@ -180,6 +199,9 @@ export default function IntakeItemScreen({ id }: { id: number }) {
     .sort(newestFirst);
 
   const isCited = citedId !== null || item.data.cited_submission_id != null;
+  const unfiled = !isFiledState(item.data.effective_state);
+  // The cited release's section is drawn only once its reviews have answered and its name has answered or failed.
+  const citedShown = citedId !== null && !!cited.data && (!!citedRelease.data || citedRelease.isError);
   // Clearing a release's citation takes a review chosen from it off the cover, which is any cover review the item's own list lacks.
   const coverFromCited = citedId !== null && coverId != null && (!ownCover || ownCover.album_id === citedId);
   const holder = itemHolder(item.data);
@@ -365,142 +387,162 @@ export default function IntakeItemScreen({ id }: { id: number }) {
     }
   };
 
+  const removeCitation = (
+    <RemoveCitation
+      asksFirst={coverFromCited}
+      disabled={awaitingReread}
+      onRemove={() => {
+        setCiting(null);
+        return changeCitation(citedId !== null ? { cited_album_id: null } : { cited_submission_id: null });
+      }}
+    />
+  );
+
   return (
-    <Stack spacing={2}>
-      <Stack direction="row" spacing={1} alignItems="center">
-        <Typography component="h3" level="title-lg">{recordLine(record, formats)}</Typography>
-        <Chip>
-          {item.data.effective_state === "checked_out"
-            ? byKind(item.data, { disc: STATE_LABELS.checked_out, digital: REVIEW_COPY.screen.taken })
-            : STATE_LABELS[item.data.effective_state]}
-        </Chip>
-      </Stack>
-      {cover ? (
-        <Group title={REVIEW_COPY.albumPanel.coverOne} reviews={[cover]} recordOf={recordOf} newSlipHref={`/dashboard/admin/intake/${id}/slip`} onCover={isOnCover} extra={deleteControl} />
-      ) : (
-        coverId == null && <Typography>{COPY.noCover}</Typography>
-      )}
-      {others.length > 0 && <Group title={REVIEW_COPY.albumPanel.others} reviews={others} recordOf={recordOf} onCover={() => false} extra={othersExtra} />}
-      {citedId !== null && cited.data && (citedRelease.data || citedRelease.isError) && (
-        <Group title={citedRelease.data ? COPY.citedHeading(displayedArtist(citedRelease.data.alternate_artist, citedRelease.data.artist.name, isVariousArtists(citedRelease.data.artist.lettercode)), citedRelease.data.title) : COPY.citedFallbackHeading} intro={citedIntro} reviews={citedTyped.filter((r) => r.id !== coverId).sort(newestFirst)} recordOf={() => undefined} onCover={() => false} extra={citedExtra} />
-      )}
-      {!!item.data.draft_authors?.length && (
-        <Typography level="body-sm">{COPY.stillWriting} {item.data.draft_authors.join(", ")}.</Typography>
-      )}
-      {!isFiledState(item.data.effective_state) &&
-        (isCited ? (
-          <RemoveCitation asksFirst={coverFromCited} disabled={awaitingReread} onRemove={() => changeCitation(citedId !== null ? { cited_album_id: null } : { cited_submission_id: null })} />
-        ) : (
-          <CiteControls
-            artist={item.data.artist_name}
-            disabled={awaitingReread}
-            onCite={(albumId) => changeCitation({ cited_album_id: albumId }, COPY.releaseRefused)}
-            onCopy={(take) => openRecording(formReviewStart(take), { id: take.id, submittedAt: take.submitted_at })}
-          />
-        ))}
-      <FccNotesPanel intakeItemId={id} />
-      {notice && <Typography role="status">{notice}</Typography>}
-      <Button variant="outlined" aria-expanded={recording != null} onClick={() => (recording ? unlessDirty(() => setRecording(null)) : openRecording(EMPTY_START))} sx={{ alignSelf: "flex-start" }}>
-        {REVIEW_COPY.record.title}
-      </Button>
-      {recording && (
-        <RecordReviewForm
-          key={recording.key}
-          start={recording.start}
-          itemId={id}
-          hasCover={coverId != null || movingCover}
-          disabled={awaitingReread}
-          onHold={hold}
-          onWritten={recording.cites ? citeCopied(recording.cites) : reviewWritten}
-          onNotice={setNotice}
-          onDirtyChange={setRecordingDirty}
-          onClose={() => setRecording(null)}
-        />
-      )}
-      <LeaveDialog open={leaveGuard.pending || asked !== null} onLeave={leaveRecording} onStay={stayOnRecording}>
-        {REVIEW_COPY.leave.recordBody}
-      </LeaveDialog>
-      <ConfirmDialog
-        open={confirmingDelete}
-        onClose={() => setConfirmingDelete(false)}
-        pending={deletion.isLoading}
-        title={COPY.deleteTitle(item.data.artist_name, item.data.album_title)}
-        titleId="delete-intake-item-title"
-        actions={
-          <>
-            <Button variant="plain" onClick={() => setConfirmingDelete(false)} disabled={deletion.isLoading}>{COPY.keep}</Button>
-            <Button color="danger" loading={deletion.isLoading} onClick={confirmDelete}>{COPY.delete}</Button>
-          </>
-        }
-      >
-        {reviewAuthors.length > 0 && <Typography>{COPY.deleteReviews(reviewAuthors)}</Typography>}
-        {draftAuthors.length > 0 && <Typography>{COPY.deleteDrafts(draftAuthors)}</Typography>}
-        {reviewAuthors.length + draftAuthors.length === 0 && <Typography>{COPY.deleteNoReviews}</Typography>}
-        <Typography>{COPY.deleteFinal}</Typography>
-      </ConfirmDialog>
-      {coverId != null &&
-        (cover?.medium === "handwritten" ? (
-          <Typography>{REVIEW_COPY.intakeSlip.handwritten}</Typography>
-        ) : (
-          <Link href={`/dashboard/admin/intake/${id}/slip`}>{printedVersion === "edited" ? REVIEW_COPY.printedNote.printNew : COPY.printSlip}</Link>
-        ))}
-      {stillOut && <Typography>{stillOut}</Typography>}
-      {isFiledState(item.data.effective_state) ? (
-        <Typography>{COPY.filed}</Typography>
-      ) : coverId == null ? (
-        <Typography>{COPY.chooseFirst}</Typography>
-      ) : (
-        <Stack component="section" aria-labelledby={fileItId} spacing={2}>
-          <Typography id={fileItId} level="title-sm" component="h3">{COPY.fileIt}</Typography>
-          <RadioGroup
-            aria-labelledby={fileItId}
-            orientation="horizontal"
-            value={arm}
-            onChange={(e) => {
-              const next = e.target.value as "new" | "existing";
-              setArm(next);
-              setOpened((o) => ({ ...o, [next]: true }));
-            }}
-          >
-            <Radio value="new" label={COPY.fileNew} />
-            <Radio value="existing" label={COPY.fileExisting} />
-          </RadioGroup>
-          {opened.new && (
-            <Stack spacing={2} hidden={arm !== "new"} sx={arm !== "new" ? { display: "none" } : undefined}>
-              <RotationFilingBench
-                submit={submitNew}
-                initial={{
-                  artist: item.data.artist_name,
-                  album: item.data.album_title,
-                  label: item.data.record_label ?? "",
-                  formatId: item.data.format_id,
-                  discogsReleaseId: item.data.discogs_release_id,
-                }}
-              />
-            </Stack>
-          )}
-          {opened.existing && (
-            <Stack spacing={2} hidden={arm !== "existing"} sx={arm !== "existing" ? { display: "none" } : undefined}>
-              <ReleasePicker onPick={setPicked} selectedId={picked?.id ?? null} onSearch={() => setPicked(null)} />
-              {picked && (
-                <Stack direction="row" spacing={1} alignItems="center">
-                  <Button onClick={fileOntoPicked} loading={filing.isLoading}>{COPY.fileOnto}</Button>
-                  <Typography>{recordLine(releaseRecord(picked))}</Typography>
-                </Stack>
-              )}
-            </Stack>
-          )}
+    <Box sx={{ containerType: "inline-size" }}>
+      <Stack spacing={2}>
+        <Stack direction="row" spacing={1} alignItems="center">
+          <Typography component="h3" level="title-lg">{recordLine(record, formats)}</Typography>
+          <Chip>
+            {item.data.effective_state === "checked_out"
+              ? byKind(item.data, { disc: STATE_LABELS.checked_out, digital: REVIEW_COPY.screen.taken })
+              : STATE_LABELS[item.data.effective_state]}
+          </Chip>
         </Stack>
-      )}
-      {!isFiledState(item.data.effective_state) && (
-        <>
-          <Divider />
-          <Typography level="body-sm">{COPY.deleteRecordHint}</Typography>
-          <Button color="danger" variant="outlined" onClick={() => setConfirmingDelete(true)} sx={{ alignSelf: "flex-start" }}>
-            {COPY.delete}
-          </Button>
-        </>
-      )}
-    </Stack>
+        <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: "minmax(0, 1fr)", [TWO_COLUMNS]: { gridTemplateColumns: "minmax(0, 1fr) minmax(16rem, 20rem)", alignItems: "start" } }}>
+          <Stack data-column="main" spacing={2}>
+            {cover ? (
+              <Group title={REVIEW_COPY.albumPanel.coverOne} reviews={[cover]} recordOf={recordOf} newSlipHref={`/dashboard/admin/intake/${id}/slip`} onCover={isOnCover} extra={deleteControl} />
+            ) : (
+              coverId == null && <Typography>{COPY.noCover}</Typography>
+            )}
+            {others.length > 0 && <Group title={REVIEW_COPY.albumPanel.others} reviews={others} recordOf={recordOf} onCover={() => false} mode="excerpt" showSlip extra={othersExtra} />}
+            {citedShown && (
+              <Group title={citedRelease.data ? COPY.citedHeading(displayedArtist(citedRelease.data.alternate_artist, citedRelease.data.artist.name, isVariousArtists(citedRelease.data.artist.lettercode)), citedRelease.data.title) : COPY.citedFallbackHeading} intro={citedIntro} reviews={citedTyped.filter((r) => r.id !== coverId).sort(newestFirst)} recordOf={() => undefined} onCover={() => false} mode="excerpt" showSlip titleExtra={unfiled && removeCitation} extra={citedExtra} />
+            )}
+            {!!item.data.draft_authors?.length && (
+              <Typography level="body-sm">{COPY.stillWriting} {item.data.draft_authors.join(", ")}.</Typography>
+            )}
+            {notice && <Typography role="status">{notice}</Typography>}
+            <RecordPrompt
+              open={openSection}
+              onToggle={toggleSection}
+              cite={unfiled && !isCited}
+              disabled={awaitingReread}
+              removal={unfiled && isCited && !citedShown ? removeCitation : undefined}
+            />
+            {recording && (
+              <RecordReviewForm
+                key={recording.key}
+                start={recording.start}
+                itemId={id}
+                hasCover={coverId != null || movingCover}
+                disabled={awaitingReread}
+                onHold={hold}
+                onWritten={recording.cites ? citeCopied(recording.cites) : reviewWritten}
+                onNotice={setNotice}
+                onDirtyChange={setRecordingDirty}
+                onClose={() => setRecording(null)}
+              />
+            )}
+            {citing && !isCited && (
+              <CiteSection
+                which={citing}
+                artist={item.data.artist_name}
+                onCite={(albumId) => changeCitation({ cited_album_id: albumId }, COPY.releaseRefused)}
+                onCopy={(take) => openRecording(formReviewStart(take), { id: take.id, submittedAt: take.submitted_at })}
+              />
+            )}
+            {coverId != null &&
+              (cover?.medium === "handwritten" ? (
+                <Typography>{REVIEW_COPY.intakeSlip.handwritten}</Typography>
+              ) : (
+                <Link href={`/dashboard/admin/intake/${id}/slip`}>{printedVersion === "edited" ? REVIEW_COPY.printedNote.printNew : COPY.printSlip}</Link>
+              ))}
+            {stillOut && <Typography>{stillOut}</Typography>}
+            {isFiledState(item.data.effective_state) ? (
+              <Typography>{COPY.filed}</Typography>
+            ) : coverId == null ? (
+              <Typography>{COPY.chooseFirst}</Typography>
+            ) : (
+              <Stack component="section" aria-labelledby={fileItId} spacing={2}>
+                <Typography id={fileItId} level="title-sm" component="h3">{COPY.fileIt}</Typography>
+                <RadioGroup
+                  aria-labelledby={fileItId}
+                  orientation="horizontal"
+                  value={arm}
+                  onChange={(e) => {
+                    const next = e.target.value as "new" | "existing";
+                    setArm(next);
+                    setOpened((o) => ({ ...o, [next]: true }));
+                  }}
+                >
+                  <Radio value="new" label={COPY.fileNew} />
+                  <Radio value="existing" label={COPY.fileExisting} />
+                </RadioGroup>
+                {opened.new && (
+                  <Stack spacing={2} hidden={arm !== "new"} sx={arm !== "new" ? { display: "none" } : undefined}>
+                    <RotationFilingBench
+                      submit={submitNew}
+                      initial={{
+                        artist: item.data.artist_name,
+                        album: item.data.album_title,
+                        label: item.data.record_label ?? "",
+                        formatId: item.data.format_id,
+                        discogsReleaseId: item.data.discogs_release_id,
+                      }}
+                    />
+                  </Stack>
+                )}
+                {opened.existing && (
+                  <Stack spacing={2} hidden={arm !== "existing"} sx={arm !== "existing" ? { display: "none" } : undefined}>
+                    <ReleasePicker onPick={setPicked} selectedId={picked?.id ?? null} onSearch={() => setPicked(null)} />
+                    {picked && (
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <Button onClick={fileOntoPicked} loading={filing.isLoading}>{COPY.fileOnto}</Button>
+                        <Typography>{recordLine(releaseRecord(picked))}</Typography>
+                      </Stack>
+                    )}
+                  </Stack>
+                )}
+              </Stack>
+            )}
+          </Stack>
+          <Box data-column="side">
+            <FccNotesPanel intakeItemId={id} />
+          </Box>
+          {unfiled && (
+            <Stack spacing={2} sx={{ gridColumn: "1 / -1" }}>
+              <Divider />
+              <Typography level="body-sm">{COPY.deleteRecordHint}</Typography>
+              <Button color="danger" variant="outlined" onClick={() => setConfirmingDelete(true)} sx={{ alignSelf: "flex-start" }}>
+                {COPY.delete}
+              </Button>
+            </Stack>
+          )}
+        </Box>
+        <LeaveDialog open={leaveGuard.pending || asked !== null} onLeave={leaveRecording} onStay={stayOnRecording}>
+          {REVIEW_COPY.leave.recordBody}
+        </LeaveDialog>
+        <ConfirmDialog
+          open={confirmingDelete}
+          onClose={() => setConfirmingDelete(false)}
+          pending={deletion.isLoading}
+          title={COPY.deleteTitle(item.data.artist_name, item.data.album_title)}
+          titleId="delete-intake-item-title"
+          actions={
+            <>
+              <Button variant="plain" onClick={() => setConfirmingDelete(false)} disabled={deletion.isLoading}>{COPY.keep}</Button>
+              <Button color="danger" loading={deletion.isLoading} onClick={confirmDelete}>{COPY.delete}</Button>
+            </>
+          }
+        >
+          {reviewAuthors.length > 0 && <Typography>{COPY.deleteReviews(reviewAuthors)}</Typography>}
+          {draftAuthors.length > 0 && <Typography>{COPY.deleteDrafts(draftAuthors)}</Typography>}
+          {reviewAuthors.length + draftAuthors.length === 0 && <Typography>{COPY.deleteNoReviews}</Typography>}
+          <Typography>{COPY.deleteFinal}</Typography>
+        </ConfirmDialog>
+      </Stack>
+    </Box>
   );
 }

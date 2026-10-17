@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
+import KeyboardArrowDown from "@mui/icons-material/KeyboardArrowDown";
 import { Button, FormControl, FormHelperText, FormLabel, Input, Stack, Typography } from "@mui/joy";
 import type { AlbumReview } from "@wxyc/shared";
 import { useGetAlbumReviewsByArtistQuery } from "@/lib/features/reviews/albumReviewApi";
@@ -59,36 +60,33 @@ function FormReviewSearch({ artist, onCopy }: { artist: string; onCopy: (review:
   );
 }
 
-/**
- * Two buttons in one row and, below them, the one search either opens under its own heading: a library release
- * (picking one cites it) or a form review (copying one starts a review of this record from it). Opening one closes the other.
- */
-export function CiteControls({ artist, disabled, onCite, onCopy }: {
+/** Hides an element on screen and keeps it in the accessibility tree. */
+const visuallyHidden = { position: "absolute", width: "1px", height: "1px", p: 0, m: "-1px", overflow: "hidden", clip: "rect(0 0 0 0)", whiteSpace: "nowrap", border: 0 } as const;
+
+/** One of the page's three openers: the Record a review button or a cite button. It reads as pressed while its section is open. */
+export function SectionToggle({ open, disabled, onClick, children }: { open: boolean; disabled?: boolean; onClick: () => void; children: string }) {
+  return (
+    <Button variant={open ? "soft" : "outlined"} aria-expanded={open} disabled={disabled} onClick={onClick} endDecorator={<KeyboardArrowDown sx={{ transform: open ? "rotate(180deg)" : "none" }} />}>
+      {children}
+    </Button>
+  );
+}
+
+/** The search a cite button opens: a library release (picking one cites it) or a form review (copying one starts a review of this record from it). The heading names the region and is hidden on screen, because it repeats the button above. */
+export function CiteSection({ which, artist, onCite, onCopy }: {
+  which: "release" | "form";
   artist: string;
-  disabled: boolean;
   onCite: (albumId: number) => void;
   onCopy: (review: AlbumReview) => void;
 }) {
-  const [open, setOpen] = useState<"release" | "form" | null>(null);
   const headingId = useId();
-  const opener = (which: "release" | "form", label: string) => (
-    <Button variant="outlined" aria-expanded={open === which} disabled={disabled} onClick={() => setOpen(open === which ? null : which)}>{label}</Button>
-  );
   return (
-    <Stack spacing={1}>
-      <Stack direction="row" spacing={1} sx={{ alignSelf: "flex-start" }}>
-        {opener("release", COPY.citeRelease)}
-        {opener("form", COPY.citeForm)}
-      </Stack>
-      {open && (
-        <Stack component="section" aria-labelledby={headingId} spacing={1}>
-          <Typography id={headingId} level="title-sm" component="h3">{open === "release" ? COPY.citeRelease : COPY.citeForm}</Typography>
-          {open === "release" ? (
-            <ReleasePicker searchLabel={COPY.searchCite} onPick={(release) => release.id != null && onCite(release.id)} />
-          ) : (
-            <FormReviewSearch artist={artist} onCopy={onCopy} />
-          )}
-        </Stack>
+    <Stack component="section" aria-labelledby={headingId} spacing={1}>
+      <Typography id={headingId} level="title-sm" component="h3" sx={visuallyHidden}>{which === "release" ? COPY.citeRelease : COPY.citeForm}</Typography>
+      {which === "release" ? (
+        <ReleasePicker searchLabel={COPY.searchCite} onPick={(release) => release.id != null && onCite(release.id)} />
+      ) : (
+        <FormReviewSearch artist={artist} onCopy={onCopy} />
       )}
     </Stack>
   );

@@ -329,6 +329,7 @@ describe("IntakeItemScreen", () => {
     ["typeInReview", REVIEW_COPY.intakeItem.typeInReview, "Type in the review from its cover"],
     ["copyByPen", REVIEW_COPY.intakeItem.copyByPen, "Copy it by pen"],
     ["copyOntoRecord", REVIEW_COPY.intakeItem.copyOntoRecord, "Copy this review onto the record"],
+    ["recordExplanation", REVIEW_COPY.intakeItem.recordExplanation, "For a review written on the sleeve, or one a DJ gave you to type in."],
     ["searchCite", REVIEW_COPY.intakeItem.searchCite, "Search the library for the record this one cites"],
     ["removeAsksCover", REVIEW_COPY.intakeItem.removeAsksCover, "Removing the citation also takes its review off this record's cover."],
     ["citeRelease", REVIEW_COPY.intakeItem.citeRelease, "Cite a release in the library"],
@@ -1820,6 +1821,255 @@ describe("IntakeItemScreen", () => {
       await held.expectHeld();
 
       await held.releaseAndSettle();
+    });
+  });
+
+  describe("the record page's layout", () => {
+    const SHOW_SLIP = "Show the whole slip";
+    const CITE = "Cite a release in the library";
+    const FORM = "Cite a form review";
+    const RECORD = "Record a review";
+    const EXPLANATION = "For a review written on the sleeve, or one a DJ gave you to type in.";
+    const CITED_ID = 7;
+    const HEADING = "Reviews of Jessica Pratt — On Your Own Love Again";
+    const othersSection = async () => (await screen.findByRole("heading", { name: "Other reviews" })).closest("section")!;
+    const after = (a: Node, b: Node) => expect(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    describe("the other reviews as cards", () => {
+      const waiting = (id: number, overrides = {}) => submitted(id, { author: "Jessica Pratt", author_user_id: "dj-jess", ...overrides });
+      const serveOthers = (...others: Review[]) =>
+        fakeReviewsEndpoints({ records: [dogaItem(heldBy("dj-sam", "DJ Sam"))], forItem: { [ITEM_ID]: [submitted(40), ...others] } });
+
+      it("draws each as its author and a clamped excerpt with no full slip until Show the whole slip is pressed", async () => {
+        serveOthers(waiting(41, { review: "Warm and strange." }));
+        const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+        const card = within(await othersSection()).getByRole("listitem");
+        expect(within(card).getByText("Jessica Pratt")).toBeInTheDocument();
+        expect(within(card).getByText("Warm and strange.")).toHaveStyle({ overflow: "hidden" });
+        expect(within(card).queryByRole("group", { name: "Slip preview" })).not.toBeInTheDocument();
+
+        const button = within(card).getByRole("button", { name: SHOW_SLIP });
+        expect(button).toHaveAttribute("aria-expanded", "false");
+        await user.click(button);
+
+        expect(button).toHaveAttribute("aria-expanded", "true");
+        expect(within(card).getByRole("group", { name: "Slip preview" })).toBeInTheDocument();
+      });
+
+      it("keeps the From line and the controls the page passes in the card, after the excerpt", async () => {
+        serveOthers(waiting(41));
+        renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+        const card = within(await othersSection()).getByRole("listitem");
+        const from = await within(card).findByText("From Jessica Pratt. The record is with DJ Sam.");
+        after(within(card).getByText("Take 41."), from);
+        expect(within(card).getByRole("button", { name: "Use this review instead" })).toBeInTheDocument();
+        expect(within(card).getByRole("button", { name: /^Delete review/ })).toBeInTheDocument();
+      });
+
+      it("reads on the sleeve for a handwritten review without text, with no Show the whole slip", async () => {
+        serveOthers(waiting(41, { medium: "handwritten", review: null }));
+        renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+        const card = within(await othersSection()).getByRole("listitem");
+        expect(within(card).getByText(/on the sleeve/)).toBeInTheDocument();
+        expect(within(card).queryByRole("button", { name: SHOW_SLIP })).not.toBeInTheDocument();
+      });
+
+      it("leaves the cover review a full slip with no Show the whole slip", async () => {
+        serveOthers(waiting(41));
+        renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+        const cover = (await screen.findByRole("heading", { name: "The review on the cover" })).closest("section")!;
+        expect(within(cover).getByRole("group", { name: "Slip preview" })).toBeInTheDocument();
+        expect(within(cover).queryByRole("button", { name: SHOW_SLIP })).not.toBeInTheDocument();
+      });
+    });
+
+    describe("a record that cites a release", () => {
+      const citedItem = () => dogaItem({ cited_album_id: CITED_ID, accepted_review_id: null, state: "pool", effective_state: "pool" });
+      const ofCited = (id: number) => submitted(id, { intake_item_id: null, album_id: CITED_ID, author: `Cited ${id}`, review: `Cited take ${id}.` });
+      const setUp = (cited: Review[] = [ofCited(90)]) => {
+        fakeReviewsEndpoints({ records: [citedItem()], forRelease: { [CITED_ID]: cited }, reviews: cited, archive: { [CITED_ID]: [] }, releases: [{ id: CITED_ID, artist_name: "Jessica Pratt", album_title: "On Your Own Love Again" }] });
+        serveItem(citedItem());
+        serveItemReviews([]);
+      };
+      const citedSection = async () => (await screen.findByRole("heading", { name: HEADING })).closest("section")!;
+
+      it("draws the cited release's reviews as excerpt cards with Show the whole slip", async () => {
+        setUp();
+        const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+        const card = within(await citedSection()).getByRole("listitem");
+        expect(await within(card).findByText("Cited take 90.")).toHaveStyle({ overflow: "hidden" });
+        expect(within(card).queryByRole("group", { name: "Slip preview" })).not.toBeInTheDocument();
+        await user.click(within(card).getByRole("button", { name: SHOW_SLIP }));
+        expect(within(card).getByRole("group", { name: "Slip preview" })).toBeInTheDocument();
+      });
+
+      it("puts Remove the citation in the section's heading row, and not in the prompt row", async () => {
+        setUp();
+        renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+        const section = await citedSection();
+        const heading = within(section).getByRole("heading", { name: HEADING });
+        const remove = within(section).getByRole("button", { name: "Remove the citation" });
+        expect(remove.parentElement).toBe(heading.parentElement);
+        expect(screen.getAllByRole("button", { name: "Remove the citation" })).toHaveLength(1);
+      });
+
+      it("keeps Remove the citation on line two, and clears the citation, while the cited release's reviews cannot be read", async () => {
+        setUp();
+        server.use(http.get(`${TEST_BACKEND_URL}/reviews`, ({ request }) => (new URL(request.url).searchParams.get("album_id") === String(CITED_ID) ? HttpResponse.json({ message: "boom" }, { status: 500 }) : undefined)));
+        const patched: unknown[] = [];
+        server.use(http.patch(FILED_ITEM_PATH, async ({ request }) => {
+          patched.push(await request.json());
+          return HttpResponse.json({ ...citedItem(), cited_album_id: null });
+        }));
+        const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+        const remove = await screen.findByRole("button", { name: "Remove the citation" });
+        await reviewsSettled(store);
+        expect(screen.queryByRole("heading", { name: HEADING })).not.toBeInTheDocument();
+        expect(remove.closest("[data-line='two']")).not.toBeNull();
+        await user.click(remove);
+
+        await waitFor(() => expect(patched).toEqual([{ cited_album_id: null }]));
+      });
+    });
+
+    describe("the prompt row", () => {
+      const setUp = (item = dogaItem({ accepted_review_id: null, state: "pool", effective_state: "pool" })) => {
+        fakeReviewsEndpoints({ records: [item], forItem: { [ITEM_ID]: [] }, releases: [{ id: CITED_ID, artist_name: "Jessica Pratt", album_title: "On Your Own Love Again" }], byArtist: { "Juana Molina": [] } });
+        serveItem(item);
+      };
+      const buttons = async () => ({
+        record: await screen.findByRole("button", { name: RECORD }),
+        release: await screen.findByRole("button", { name: CITE }),
+        form: await screen.findByRole("button", { name: FORM }),
+      });
+
+      it("holds Record a review and its explanation on line one and the cite buttons on line two", async () => {
+        setUp();
+        renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+        const { record, release, form } = await buttons();
+        const lineOne = record.closest("[data-line='one']")!;
+        expect(within(lineOne as HTMLElement).getByText(EXPLANATION)).toBeInTheDocument();
+        expect(lineOne.contains(release)).toBe(false);
+        expect(lineOne.contains(form)).toBe(false);
+        const lineTwo = release.closest("[data-line='two']")!;
+        expect(lineTwo).not.toBe(lineOne);
+        expect(lineTwo.contains(form)).toBe(true);
+        after(lineOne, lineTwo);
+      });
+
+      it("sets aria-expanded on a button only while its own section is open, and only one section is open", async () => {
+        setUp();
+        const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+        const { record, release, form } = await buttons();
+        const expanded = () => [record, release, form].map((b) => b.getAttribute("aria-expanded"));
+        expect(expanded()).toEqual(["false", "false", "false"]);
+
+        await user.click(release);
+        expect(expanded()).toEqual(["false", "true", "false"]);
+        await user.click(form);
+        expect(expanded()).toEqual(["false", "false", "true"]);
+        expect(screen.getAllByRole("region", { name: /^Cite a / })).toHaveLength(1);
+        await user.click(record);
+        expect(expanded()).toEqual(["true", "false", "false"]);
+        expect(screen.queryByRole("region", { name: /^Cite a / })).not.toBeInTheDocument();
+        await user.click(record);
+        expect(expanded()).toEqual(["false", "false", "false"]);
+      });
+
+      it.each([
+        ["release", CITE],
+        ["form", FORM],
+      ])("names the %s search by its level-3 heading, hidden on screen", async (_which, name) => {
+        setUp();
+        const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+        await user.click(await screen.findByRole("button", { name }));
+
+        const heading = within(screen.getByRole("region", { name })).getByRole("heading", { level: 3, name });
+        expect(heading).toHaveStyle({ position: "absolute", width: "1px", height: "1px", overflow: "hidden", whiteSpace: "nowrap" });
+      });
+
+      it("opens each section directly after the prompt row", async () => {
+        setUp();
+        const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+        const { record, release } = await buttons();
+        const row = record.closest("[data-line='one']")!.parentElement!;
+
+        await user.click(release);
+        expect(row.nextElementSibling).toBe(screen.getByRole("region", { name: CITE }));
+        await user.click(record);
+        expect(await within(row.nextElementSibling as HTMLElement).findByRole("textbox", { name: "Review" })).toBeInTheDocument();
+        expect(screen.queryByRole("region", { name: CITE })).not.toBeInTheDocument();
+      });
+
+      it.each([
+        ["Cite a release in the library", CITE],
+        ["Cite a form review", FORM],
+      ])("asks before %s closes a dirty Record a review form, keeps the text on Keep editing, and opens that search on Leave", async (_name, citeName) => {
+        setUp();
+        const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+        await user.click(await screen.findByRole("button", { name: RECORD }));
+        await user.type(screen.getByRole("textbox", { name: "Review" }), "Warm.");
+
+        await user.click(screen.getByRole("button", { name: citeName }));
+        const asking = await screen.findByRole("alertdialog", { name: "Leave without saving?" });
+        await user.click(within(asking).getByRole("button", { name: "Keep editing" }));
+        await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
+        expect(screen.getByRole("textbox", { name: "Review" })).toHaveValue("Warm.");
+        expect(screen.queryByRole("region", { name: citeName })).not.toBeInTheDocument();
+
+        await user.click(screen.getByRole("button", { name: citeName }));
+        await user.click(within(await screen.findByRole("alertdialog", { name: "Leave without saving?" })).getByRole("button", { name: "Leave" }));
+        expect(await screen.findByRole("region", { name: citeName })).toBeInTheDocument();
+        expect(screen.queryByRole("textbox", { name: "Review" })).not.toBeInTheDocument();
+      });
+
+      it.each([
+        ["Cite a release in the library", CITE],
+        ["Cite a form review", FORM],
+      ])("closes an unchanged Record a review form at once when %s is pressed", async (_name, citeName) => {
+        setUp();
+        const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+        await user.click(await screen.findByRole("button", { name: RECORD }));
+
+        await user.click(screen.getByRole("button", { name: citeName }));
+
+        expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+        expect(screen.queryByRole("textbox", { name: "Review" })).not.toBeInTheDocument();
+        expect(await screen.findByRole("region", { name: citeName })).toBeInTheDocument();
+      });
+    });
+
+    describe("the page's order and columns", () => {
+      it("runs cover, other reviews, still writing, prompt row, File it in the main column, FCC notes in the side one, and the foot after both", async () => {
+        fakeReviewsEndpoints({ records: [dogaItem({ draft_authors: ["DJ Sam"] })], forItem: { [ITEM_ID]: [submitted(40), submitted(41)] } });
+        renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+        const cover = (await screen.findByRole("heading", { name: "The review on the cover" })).closest("section")!;
+        const others = await othersSection();
+        const still = screen.getByText(/Still writing/);
+        const record = screen.getByRole("button", { name: RECORD });
+        const fileIt = screen.getByRole("region", { name: "File it" });
+        const fcc = screen.getByRole("heading", { name: "FCC notes" });
+        const hint = screen.getByText(DELETE_HINT);
+        const remove = screen.getByRole("button", { name: "Delete" });
+        [cover, others, still, record, fileIt, fcc, hint, remove].reduce((a, b) => (after(a, b), b));
+        const side = fcc.closest("[data-column='side']")!;
+        const main = record.closest("[data-column='main']")!;
+        expect(main).not.toBe(side);
+        expect(main.contains(fileIt)).toBe(true);
+        expect(main.contains(fcc)).toBe(false);
+        expect(side.contains(record)).toBe(false);
+        expect(hint.closest("[data-column]")).toBeNull();
+      });
     });
   });
 
@@ -4048,14 +4298,20 @@ describe("IntakeItemScreen", () => {
           expect(within(cover).getByText("Form take.")).toBeInTheDocument();
         });
 
-        it("sends no citation, and shows the could-not-note line, when the record cites a release by the time the copy is saved", async () => {
+        it.each([
+          ["a release", { cited_album_id: CITED_ID }, "cited_album_id"],
+          ["a different form review", { cited_submission_id: FORM_ID + 1 }, "cited_submission_id"],
+        ])("sends no citation, and shows the could-not-note line, when the record cites %s by the time the copy is saved", async (_name, citation, key) => {
           const { box, own } = withReviews(formReview());
           const sent = patching(box);
           const create = creating(box, own);
           const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
           await copyFirst(user);
-          await user.click(await searchForCited(user));
-          expect(await screen.findByRole("button", { name: REMOVE })).toBeInTheDocument();
+          await reviewsSettled(store);
+          box.item = { ...box.item, ...citation };
+          const reads = box.reads;
+          act(() => { store.dispatch(reviewsApi.util.invalidateTags([{ type: "Intake", id: ITEM_ID }])); });
+          await waitFor(() => expect(box.reads).toBeGreaterThan(reads));
           await reviewsSettled(store);
 
           await user.click(await screen.findByRole("button", { name: "Save" }));
@@ -4065,9 +4321,8 @@ describe("IntakeItemScreen", () => {
 
           expect(await screen.findByText(REVIEW_COPY.intakeItem.formNotNoted)).toBeInTheDocument();
           await reviewsSettled(store);
-          expect(sent).toEqual([{ cited_album_id: CITED_ID }]);
-          expect(box.item.cited_album_id).toBe(CITED_ID);
-          expect(box.item.cited_submission_id ?? null).toBeNull();
+          expect(sent).toEqual([]);
+          expect((box.item as Record<string, unknown>)[key]).toBe(Object.values(citation)[0]);
           const cover = (await screen.findByRole("heading", { name: "The review on the cover" })).closest("section")!;
           expect(within(cover).getByText("Form take.")).toBeInTheDocument();
           guarded().forEach((b) => expect(b).toBeEnabled());
@@ -4242,6 +4497,8 @@ describe("IntakeItemScreen", () => {
         const { box } = setUp(cites({ accepted_review_id: 40 }), { forRelease: { [CITED_ID]: [ofCited(90)] } });
         const sent = patching(box);
         const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+        // Remove the citation moves from line two into the cited list's heading row once that list is drawn; wait for it so the press does not land on the button that goes.
+        await screen.findByRole("heading", { name: /^Reviews of / });
 
         await user.click(await screen.findByRole("button", { name: REMOVE }));
 
@@ -4839,28 +5096,6 @@ describe("IntakeItemScreen", () => {
       if (name === "Type in the review from its cover") expect(screen.getByRole("textbox", { name: "Review" })).toHaveValue("");
 
       await user.click(await opener(name));
-      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
-    });
-
-    it("asks before a form review copied from the form search replaces a dirty form, on a record that cites nothing", async () => {
-      const { user } = renderPage(dogaItem({ accepted_review_id: null, state: "pool", effective_state: "pool" }));
-      await dirtyForm(user);
-      await user.click(await screen.findByRole("button", { name: "Cite a form review" }));
-      const copy = async () =>
-        within(await screen.findByRole("region", { name: "Cite a form review" })).findByRole("button", { name: REVIEW_COPY.intakeItem.copyOntoRecord });
-
-      await user.click(await copy());
-      await user.click(within(await dialog()).getByRole("button", { name: "Keep editing" }));
-      await noDialog();
-      expect(screen.getByRole("textbox", { name: "Review" })).toHaveValue("Warm.");
-
-      await user.click(await copy());
-      await user.click(within(await dialog()).getByRole("button", { name: "Leave" }));
-      await noDialog();
-      expect(await screen.findByText(REVIEW_COPY.record.copiedFromForm)).toBeInTheDocument();
-      expect(screen.getByRole("textbox", { name: "Review" })).toHaveValue("Form take.");
-
-      await user.click(await copy());
       expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
     });
 
