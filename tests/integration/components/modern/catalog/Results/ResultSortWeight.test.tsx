@@ -87,12 +87,12 @@ function renderRow(sortBy: CatalogSortBy) {
 }
 
 describe("CatalogResult sorted-column weight", () => {
-  it.each<[CatalogSortBy, Column | null, string]>([
-    ["album", "album", "only the album title"],
-    ["artist", "artist", "only the artist, in both renderings,"],
-    ["plays", "plays", "only the play count"],
-    ["date", null, "no shown column"],
-  ])("sorted by %s: %s is at 500", (sortBy, sortedColumn) => {
+  it.each<[CatalogSortBy, string, Column | null]>([
+    ["album", "only the album title", "album"],
+    ["artist", "only the artist, in both renderings,", "artist"],
+    ["plays", "only the play count", "plays"],
+    ["date", "no shown column", null],
+  ])("sorted by %s: %s is at 500", (sortBy, _description, sortedColumn) => {
     renderRow(sortBy);
     const expected = (column: Column) => (column === sortedColumn ? 500 : 400);
 

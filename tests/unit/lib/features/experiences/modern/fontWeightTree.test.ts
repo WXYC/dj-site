@@ -19,11 +19,6 @@ const EXEMPT: { file: string; line: string; why: string }[] = [
     line: "return <strong key={key}>{token.content}</strong>;",
     why: "Renders Discogs bold markup, which is meant to be bold.",
   },
-  {
-    file: "admin/roster/RosterTable.tsx",
-    line: 'fontWeight: "sm",',
-    why: "The roster table's light weight (Joy's sm, 300) predates this check and is left as it was.",
-  },
 ];
 
 // An explicit weight is safe only when it is 400 or 500 (or a token the modern
@@ -33,7 +28,10 @@ const WEIGHT_DECLARATION =
   /font-?weight["']?\s*[:=]\s*(\{[^}]*\}|[^;,\n}]*(?:\n\s*[?:][^;,\n}]*)*)/gi;
 const UNLOADED_VALUE =
   /\b(?!400\b|500\b)\d{3}\b|\b(?:bold|bolder|lighter)\b|(?<=["'`.])(?:sm|xl\d?)\b/;
-const UNLOADED_TOKEN_ACCESS = /fontWeight\.(?:sm|xl\d?)\b/g;
+const UNLOADED_TOKEN_ACCESS = /fontWeight[.-](?:sm|xl\d?)\b/g;
+// A weight held outside a font-weight declaration (a helper's return value, a
+// named constant) is still caught when its line names a weight.
+const HELD_WEIGHT_LINE = /weight.*(?:\b[6-9]00\b|\bbold\b)|(?:\b[6-9]00\b|\bbold\b).*weight/i;
 const BOLD_ELEMENT = /<(?:b|strong)(?=[\s>])/g;
 
 // One entry per offending source line, so a repeated line counts each time.
@@ -44,8 +42,26 @@ function unloadedWeightLines(source: string): string[] {
     const end = source.indexOf("\n", index);
     starts.set(start, source.slice(start, end === -1 ? undefined : end).trim());
   };
+  const reachingIdentifiers = new Set<string>();
   for (const match of source.matchAll(WEIGHT_DECLARATION)) {
     if (UNLOADED_VALUE.test(match[1])) {
+      note(match.index);
+    }
+    const identifier = match[1].match(/^\{?\s*([A-Za-z_]\w*)\s*\}?$/);
+    if (identifier) {
+      reachingIdentifiers.add(identifier[1]);
+    }
+  }
+  for (const identifier of reachingIdentifiers) {
+    const definition = new RegExp(`^.*\\b${identifier}\\s*[=:](?![=>])(.*)$`, "gm");
+    for (const match of source.matchAll(definition)) {
+      if (UNLOADED_VALUE.test(match[1])) {
+        note(match.index);
+      }
+    }
+  }
+  for (const match of source.matchAll(/^.*$/gm)) {
+    if (HELD_WEIGHT_LINE.test(match[0])) {
       note(match.index);
     }
   }
@@ -111,6 +127,13 @@ describe("the unloaded-weight scan", () => {
     ["Joy's xl", 'fontWeight: "xl"'],
     ["a responsive object", 'fontWeight: { xs: "md", md: 700 }'],
     ["a multi-line ternary", 'fontWeight: active\n  ? "md"\n  : 700,'],
+    ["a helper's returned weight", "const sortedWeight = (c: string) => (c === sortBy ? 700 : 400);"],
+    ["a named constant", "const HEAVY_WEIGHT = 900;"],
+    ["a constant reaching a weight prop", "const HEAVY = 700;\n<Box fontWeight={HEAVY} />"],
+    ["a named constant, lower-case", "const heavy = 700; // weight"],
+    ["a bold word on a weight line", 'const weight = "bold";'],
+    ["a CSS variable read", 'fontWeight: "var(--wxyc-fontWeight-xl2)"'],
+    ["a CSS variable fallback read", 'const w = "var(--wxyc-fontWeight-xl3, 700)";'],
     ["a bare <b>", "<b>x</b>"],
     ["a bare <strong>", "<strong>x</strong>"],
   ])("flags %s", (_form, source) => {
@@ -122,6 +145,9 @@ describe("the unloaded-weight scan", () => {
     ["fontWeight={400}"],
     ["fontWeight: theme.vars.fontWeight.md,"],
     ["fontWeight: { xs: 400, sm: 500 },"],
+    ["const sortedWeight = (c: string) => (c === sortBy ? 500 : 400);"],
+    ["const width = 700;"],
+    ['fontWeight: "var(--wxyc-fontWeight-md)"'],
     ['"font-weight": 500'],
     ["<Box sx={{ width: 700 }}><br /><button>x</button></Box>"],
   ])("passes %s", (source) => {
@@ -136,6 +162,29 @@ describe("the unloaded-weight scan", () => {
     expect(mutant).not.toBe(source);
     expect(offenders(rel, source)).toEqual([]);
     expect(offenders(rel, mutant)).toEqual(["fontWeight={700}"]);
+  });
+
+  it.each([
+    [
+      "sortedWeight's 500 -> 700",
+      (source: string) => source.replace("sortBy === column ? 500 : 400", "sortBy === column ? 700 : 400"),
+    ],
+    [
+      "a constant reaching fontWeight",
+      (source: string) => `const HEAVY = 700;\n${source}\nconst x = <b2 fontWeight={HEAVY} />;`,
+    ],
+    [
+      "the xl2 CSS variable",
+      (source: string) => `${source}\nconst y = { fontWeight: "var(--wxyc-fontWeight-xl2)" };`,
+    ],
+  ])("fails the catalog row with %s", (_name, mutate) => {
+    const rel = "catalog/Results/Result.tsx";
+    const source = readFileSync(path.join(MODERN_DIR, rel), "utf8");
+    const mutant = mutate(source);
+
+    expect(mutant).not.toBe(source);
+    expect(offenders(rel, source)).toEqual([]);
+    expect(offenders(rel, mutant)).not.toEqual([]);
   });
 
   it.each(EXEMPT.map((e) => [e.file, e.line] as const))(

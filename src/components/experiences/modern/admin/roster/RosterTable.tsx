@@ -182,7 +182,7 @@ export default function RosterTable({ user, organizationSlug }: { user: User; or
         <Table
           stripe="odd"
           sx={{
-            fontWeight: "sm",
+            fontWeight: 400,
             textAlign: "left",
             "& tr > *:last-child": {
               position: "sticky",
