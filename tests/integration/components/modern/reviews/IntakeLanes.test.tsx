@@ -717,10 +717,11 @@ describe("IntakeLogForm", () => {
     await user.type(screen.getByLabelText(/^Album/), "Moon Pix");
     const log = screen.getByRole("button", { name: "Log item" });
     expect(log).toBeDisabled();
-    expect(screen.getByText("How did it arrive?")).toBeInTheDocument();
+    const arrival = screen.getByRole("radiogroup", { name: /^How did it arrive\?/ });
+    expect(within(arrival).getByRole("radio", { name: "As files" })).toHaveAccessibleDescription("Burned to CD-R once it's reviewed");
+    expect(within(arrival).getByText("Burned to CD-R once it's reviewed")).toBeVisible();
     expect(screen.queryByRole("combobox", { name: /^Format/ })).not.toBeInTheDocument();
     await user.click(screen.getByRole("radio", { name: "As files" }));
-    expect(screen.getByText("Burned to CD-R once it's reviewed")).toBeInTheDocument();
     expect(screen.queryByRole("combobox", { name: /^Format/ })).not.toBeInTheDocument();
     expect(log).toBeEnabled();
     await user.click(log);
