@@ -785,6 +785,7 @@ describe("ReviewsScreen", () => {
     const { user } = renderWithProviders(<ReviewsScreen />);
     await user.type(await screen.findByLabelText(/^Artist/), "Cat Power");
     await user.type(screen.getByLabelText(/^Album/), "Moon Pix");
+    await user.click(screen.getByRole("radio", { name: "A disc or a record" }));
     await user.click(screen.getByRole("combobox", { name: /^Format/ }));
     await user.click(await screen.findByRole("option", { name: "CD" }));
     await user.click(screen.getByRole("button", { name: "Log item" }));
@@ -792,7 +793,7 @@ describe("ReviewsScreen", () => {
     expect(await within(await section(SHELF)).findByText(/Moon Pix/)).toBeInTheDocument();
   });
 
-  it("shows the Format options as Digital, CD and Vinyl while still sending the stored format's id", async () => {
+  it("shows the Format options as CD and Vinyl while still sending the stored format's id", async () => {
     mockAuth.authority = Authorization.MD;
     fakeReviewsEndpoints({ open: [], reviewers: REVIEWERS });
     let body: Record<string, unknown> | undefined;
@@ -809,10 +810,11 @@ describe("ReviewsScreen", () => {
     const { user } = renderWithProviders(<ReviewsScreen />);
     await user.type(await screen.findByLabelText(/^Artist/), "Cat Power");
     await user.type(screen.getByLabelText(/^Album/), "Moon Pix");
+    await user.click(screen.getByRole("radio", { name: "A disc or a record" }));
     await user.click(screen.getByRole("combobox", { name: /^Format/ }));
     const options = await screen.findAllByRole("option");
-    expect(options.map((o) => o.textContent)).toEqual(["Digital", "CD", "Vinyl"]);
-    await user.click(options[2]);
+    expect(options.map((o) => o.textContent)).toEqual(["CD", "Vinyl"]);
+    await user.click(options[1]);
     await user.click(screen.getByRole("button", { name: "Log item" }));
 
     await waitFor(() => expect(body).toBeDefined());

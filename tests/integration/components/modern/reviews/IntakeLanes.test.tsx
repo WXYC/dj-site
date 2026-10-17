@@ -691,6 +691,7 @@ describe("IntakeLogForm", () => {
     const { user } = renderWithProviders(<IntakeLogForm />);
     await user.type(await screen.findByLabelText(/^Artist/), "Cat Power");
     await user.type(screen.getByLabelText(/^Album/), "Moon Pix");
+    await user.click(screen.getByRole("radio", { name: "A disc or a record" }));
     await user.click(screen.getByRole("combobox", { name: /^Format/ }));
     await user.click(await screen.findByRole("option", { name: "CD" }));
     await user.type(screen.getByLabelText("Discogs release id (optional)"), "123");
@@ -701,7 +702,7 @@ describe("IntakeLogForm", () => {
     );
   });
 
-  it("offers Digital first, and logging it sends digital with no format id", async () => {
+  it("asks how the record arrived, and logging files sends digital with no format id", async () => {
     let body: unknown;
     fakeReviewsEndpoints({ formats: [{ id: 1, format_name: "cd" }, CDR_FORMAT] });
     server.use(
@@ -716,10 +717,11 @@ describe("IntakeLogForm", () => {
     await user.type(screen.getByLabelText(/^Album/), "Moon Pix");
     const log = screen.getByRole("button", { name: "Log item" });
     expect(log).toBeDisabled();
-    await user.click(screen.getByRole("combobox", { name: /^Format/ }));
-    const options = await screen.findAllByRole("option");
-    expect(options[0]).toHaveTextContent(/^Digital$/);
-    await user.click(options[0]);
+    expect(screen.getByText("How did it arrive?")).toBeInTheDocument();
+    expect(screen.queryByRole("combobox", { name: /^Format/ })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("radio", { name: "As files" }));
+    expect(screen.getByText("Burned to CD-R once it's reviewed")).toBeInTheDocument();
+    expect(screen.queryByRole("combobox", { name: /^Format/ })).not.toBeInTheDocument();
     expect(log).toBeEnabled();
     await user.click(log);
 
@@ -771,8 +773,7 @@ describe("IntakeLogForm", () => {
       const { user } = renderWithProviders(<IntakeLogForm />);
       await user.type(await screen.findByLabelText(/^Artist/), "Nobody Yet");
       await user.type(screen.getByLabelText(/^Album/), "Debut");
-      await user.click(screen.getByRole("combobox", { name: /^Format/ }));
-      await user.click((await screen.findAllByRole("option"))[0]);
+      await user.click(screen.getByRole("radio", { name: "As files" }));
       await user.click(screen.getByRole("button", { name: "Log item" }));
 
       await waitFor(() => expect(body).toEqual({ artist_name: "Nobody Yet", album_title: "Debut", digital: true }));
@@ -795,8 +796,7 @@ describe("IntakeLogForm", () => {
       expect(screen.queryByRole("option")).not.toBeInTheDocument();
 
       await user.type(screen.getByLabelText(/^Album/), "Amber");
-      await user.click(screen.getByRole("combobox", { name: /^Format/ }));
-      await user.click((await screen.findAllByRole("option"))[0]);
+      await user.click(screen.getByRole("radio", { name: "As files" }));
       await user.click(screen.getByRole("button", { name: "Log item" }));
 
       await waitFor(() => expect(body).toEqual({ artist_name: "Autechre", album_title: "Amber", digital: true }));
@@ -861,8 +861,7 @@ describe("IntakeLogForm", () => {
       await user.type(artist, "Aute");
       await user.click((await screen.findAllByRole("option"))[0]);
       await user.type(screen.getByLabelText(/^Album/), "Amber");
-      await user.click(screen.getByRole("combobox", { name: /^Format/ }));
-      await user.click((await screen.findAllByRole("option"))[0]);
+      await user.click(screen.getByRole("radio", { name: "As files" }));
       await user.click(screen.getByRole("button", { name: "Log item" }));
       await waitFor(() => expect(artist).toHaveValue(""));
 
@@ -890,11 +889,18 @@ describe("IntakeLogForm", () => {
     });
   });
 
-  it("lists Digital ahead of the library's formats", async () => {
+  it("asks for a format once a disc or a record is chosen, and lists no Digital choice", async () => {
     fakeReviewsEndpoints({ formats: [{ id: 1, format_name: "cd" }, CDR_FORMAT] });
     const { user } = renderWithProviders(<IntakeLogForm />);
-    await user.click(await screen.findByRole("combobox", { name: /^Format/ }));
-    expect((await screen.findAllByRole("option")).map((o) => o.textContent)).toEqual(["Digital", "CD", "cdr"]);
+    await user.type(await screen.findByLabelText(/^Artist/), "Cat Power");
+    await user.type(screen.getByLabelText(/^Album/), "Moon Pix");
+    await user.click(screen.getByRole("radio", { name: "A disc or a record" }));
+    const log = screen.getByRole("button", { name: "Log item" });
+    expect(log).toBeDisabled();
+    await user.click(screen.getByRole("combobox", { name: /^Format/ }));
+    expect((await screen.findAllByRole("option")).map((o) => o.textContent)).toEqual(["CD", "CD-R"]);
+    await user.click(screen.getByRole("option", { name: "CD-R" }));
+    expect(log).toBeEnabled();
   });
 });
 
@@ -903,8 +909,8 @@ describe("a digital record's format line", () => {
   afterEach(() => vi.unstubAllEnvs());
 
   it.each([
-    ["unfiled, reads Digital", { effective_state: "checked_out", state: "checked_out", ...heldBy("dj-1", "DJ Sam", null) }, "Digital", "cdr"],
-    ["filed, reads its CD-R format", { effective_state: "filed", state: "filed", ...heldBy("dj-1", "DJ Sam", null) }, "cdr", "Digital"],
+    ["unfiled, reads Digital", { effective_state: "checked_out", state: "checked_out", ...heldBy("dj-1", "DJ Sam", null) }, "Digital", "CD-R"],
+    ["filed, reads its CD-R format", { effective_state: "filed", state: "filed", ...heldBy("dj-1", "DJ Sam", null) }, "CD-R", "Digital"],
   ] as const)("a record %s in its lane", async (_name, overrides, text, other) => {
     mockAuth.authority = Authorization.MD;
     const row = digitalItem({ id: 21, artist_name: "Juana Molina", album_title: "DOGA", ...overrides });

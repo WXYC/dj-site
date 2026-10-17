@@ -643,7 +643,7 @@ describe("IntakeItemScreen", () => {
 
   it.each([
     ["an unfiled digital record reads Digital", { state: "checked_out", effective_state: "checked_out" }, "Digital"],
-    ["a filed digital record reads its CD-R format", { state: "filed", effective_state: "filed" }, "cdr"],
+    ["a filed digital record reads its CD-R format", { state: "filed", effective_state: "filed" }, "CD-R"],
   ] as const)("%s", async (_name, overrides, format) => {
     fakeReviewsEndpoints({
       records: [digitalItem({ id: ITEM_ID, artist_name: "Juana Molina", album_title: "DOGA", record_label: "Sonamos", ...overrides })],

@@ -111,20 +111,31 @@ export function formatTone(format: string | null | undefined): FormatTone {
 
 /**
  * The text of a format chip: server text presented, never rewritten. Only the
- * two bare lowercase spellings the library actually contains are tidied;
- * everything else is returned as sent, including a format nobody anticipated.
+ * six names the library holds today are restyled, through a table keyed on the
+ * exact name the server sends; every other name, including one added later in
+ * Catalog Admin or typed in another case, is returned as sent.
  *
  * A lookup rather than a title-case rule, because title-casing rewrites — it
  * turns a server's "lp" into "Lp", which is the same data loss this module's
  * tables exist to avoid, just one layer down in the label.
  */
-const TIDIED_SPELLINGS = new Map([
+const FORMAT_LABELS = new Map([
+  /** Approved. */
   ["cd", "CD"],
+  /** Approved. */
+  ["cdr", "CD-R"],
+  /** Approved. */
   ["vinyl", "Vinyl"],
+  /** Approved. */
+  ['vinyl 12"', 'Vinyl 12"'],
+  /** Approved. */
+  ['vinyl 7"', 'Vinyl 7"'],
+  /** Approved. */
+  ['vinyl 10"', 'Vinyl 10"'],
 ]);
 
 export function formatLabel(format: string): string {
-  return TIDIED_SPELLINGS.get(format.toLowerCase()) ?? format;
+  return FORMAT_LABELS.get(format) ?? format;
 }
 
 export const ROTATION_TONES: Record<Rotation, Tone> = {

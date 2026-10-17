@@ -225,9 +225,13 @@ export const REVIEW_COPY = {
     album: "Album",
     /** Approved. */
     label: "Label",
+    arrival: "How did it arrive?",
+    arrivedAsDisc: "A disc or a record",
+    arrivedAsFiles: "As files",
+    arrivedAsFilesHint: "Burned to CD-R once it's reviewed",
     /** Approved. */
     format: "Format",
-    /** Approved. The Format list's first choice, and a digital record's format until it is filed. */
+    /** Approved. A digital record's format until it is filed. */
     digital: "Digital",
     /** Approved. */
     discogsReleaseId: "Discogs release id (optional)",
