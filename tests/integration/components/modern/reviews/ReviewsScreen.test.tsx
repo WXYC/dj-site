@@ -89,7 +89,7 @@ const REQUEST_LOST_RACE =
 const moonPix = (overrides = {}) =>
   item({ id: 11, artist_name: "Cat Power", album_title: "Moon Pix", record_label: "Matador", ...overrides });
 
-/** One review shelf row's controls, reached by the record they act on: the group is named by the row's record line. */
+/** One review shelf row's controls, reached by the record they act on: the group is named by the row's artist and album. */
 const rowControls = async (album: string) =>
   within(await within(await section(SHELF)).findByRole("group", { name: new RegExp(album) }));
 
@@ -137,7 +137,9 @@ describe("ReviewsScreen", () => {
 
     const { user } = renderWithProviders(<ReviewsScreen />);
     const shelf = await section(SHELF);
-    expect(within(shelf).getByText("Stereolab · Aluminum Tunes · Duophonic · CD")).toBeInTheDocument();
+    for (const part of ["Stereolab", "Aluminum Tunes", "Duophonic", "CD"]) {
+      expect(await within(shelf).findByText(part)).toBeInTheDocument();
+    }
     await user.click(within(shelf).getByRole("button", { name: "Check out" }));
 
     await waitFor(() => expect(posted).toBe("/intake/5/checkout"));
@@ -165,13 +167,15 @@ describe("ReviewsScreen", () => {
     renderWithProviders(<ReviewsScreen />);
 
     const lane = await section(region);
-    expect(await within(lane).findByText("Stereolab · Aluminum Tunes · Duophonic · Digital")).toBeInTheDocument();
+    expect(await within(lane).findByText("Stereolab")).toBeInTheDocument();
+    expect(within(lane).getByText("Aluminum Tunes")).toBeInTheDocument();
+    expect(within(lane).getByText("Digital")).toBeInTheDocument();
     expect(within(lane).queryByText(/cdr/i)).not.toBeInTheDocument();
   });
 
   // 03:30Z is still the previous evening in station time, and 2025 is always an
   // earlier year than the run's, so the expected text holds in any zone or year.
-  it("prints Logged, Taken and Asked dates in station time with the year", async () => {
+  it("prints Added, Taken and Asked dates in station time with the year", async () => {
     serveIntake([
       item({ id: 21, state: "pool", effective_state: "pool", logged_at: "2025-10-09T03:30:00Z" }),
       item({ id: 22, effective_state: "checked_out", checked_out_by: ME, checked_out_at: "2025-08-02T03:30:00Z" }),
@@ -180,7 +184,7 @@ describe("ReviewsScreen", () => {
 
     renderWithProviders(<ReviewsScreen />);
 
-    expect(await screen.findByText("Logged Oct 8, 2025")).toBeInTheDocument();
+    expect(await screen.findByText("Added Oct 8, 2025")).toBeInTheDocument();
     expect(screen.getByText("Taken Aug 1, 2025")).toBeInTheDocument();
     expect(screen.getByText("Asked Aug 31, 2025")).toBeInTheDocument();
   });
@@ -498,7 +502,7 @@ describe("ReviewsScreen", () => {
 
     expect(screen.queryByRole("form", { name: "Log an item" }) !== null).toBe(directors);
     expect(within(shelf).queryAllByRole("button", { name: "Request a review" })).toHaveLength(directors ? 1 : 0);
-    const link = within(shelf).queryByRole("link", { name: /Moon Pix/ });
+    const link = within(shelf).queryByRole("link", { name: "Cat Power" });
     expect(link !== null).toBe(directors);
     if (link) expect(link).toHaveAttribute("href", "/dashboard/admin/intake/11");
     expect(within(shelf).getAllByRole("button", { name: "Check out" })).toHaveLength(1);
@@ -700,6 +704,29 @@ describe("ReviewsScreen", () => {
     expect((await rowControls("Moon Pix")).getByRole("button", { name: "Request a review" })).toBeDisabled();
   });
 
+  it("names a request picker's group by the record's artist and album, so the artist's link must carry the id", async () => {
+    mockAuth.authority = Authorization.MD;
+    fakeReviewsEndpoints({ open: [moonPix()], reviewers: REVIEWERS });
+
+    renderWithProviders(<ReviewsScreen />);
+
+    expect(await within(await section(SHELF)).findByRole("group", { name: "Cat Power Moon Pix" })).toBeInTheDocument();
+  });
+
+  it("gives two shelf rows by one artist two differently named request groups", async () => {
+    mockAuth.authority = Authorization.MD;
+    fakeReviewsEndpoints({
+      open: [moonPix({ id: 1 }), moonPix({ id: 2, album_title: "Dark Side" })],
+      reviewers: REVIEWERS,
+    });
+
+    renderWithProviders(<ReviewsScreen />);
+
+    const shelf = await section(SHELF);
+    expect(await within(shelf).findByRole("group", { name: "Cat Power Moon Pix" })).toBeInTheDocument();
+    expect(within(shelf).getByRole("group", { name: "Cat Power Dark Side" })).toBeInTheDocument();
+  });
+
   // `isIntakeRequestRefused` is true for any 400 under `intakeWriteError`, so only the action tells a refused request apart.
   it.each([
     ["Check out", SHELF, "checkout", item({ id: 5 })],
@@ -861,7 +888,7 @@ describe("ReviewsScreen", () => {
     ["djToAsk", REVIEW_COPY.intake.djToAsk, "DJ to ask"],
     ["request", REVIEW_COPY.intake.request, "Request a review"],
     ["reviewersLoadFailed", REVIEW_COPY.intake.reviewersLoadFailed, "Couldn't load the DJs who can be asked to review. Please try again."],
-    ["logged", REVIEW_COPY.screen.logged, "Logged"],
+    ["logged", REVIEW_COPY.screen.logged, "Added"],
     ["taken", REVIEW_COPY.screen.taken, "Taken"],
     ["asked", REVIEW_COPY.screen.asked, "Asked"],
     ["cancel", REVIEW_COPY.screen.cancel, "Cancel"],

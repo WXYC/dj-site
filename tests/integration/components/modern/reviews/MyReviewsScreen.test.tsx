@@ -29,7 +29,7 @@ describe("MyReviewsScreen", () => {
       <WithWrite
         items={[intakeItem({ id: 7, state: "requested", effective_state: "requested", requested_dj_id: "dj-me" })]}
         myReviews={[]}
-        formats={undefined}
+       
         me="dj-me"
         between={<p>between the lanes</p>}
       />,
