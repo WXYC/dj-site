@@ -47,7 +47,7 @@ import RecordPrompt, { type OpenSection } from "./RecordPrompt";
 import RecordReviewForm from "./RecordReviewForm";
 import { Group } from "./ReviewsPanel";
 import { useItemPageReload } from "./useItemPageReload";
-import { usePrintedVersion } from "./usePrintedVersion";
+import type { PrintedVersion } from "./usePrintedVersion";
 
 const COPY = REVIEW_COPY.intakeItem;
 
@@ -177,9 +177,8 @@ export default function IntakeItemScreen({ id }: { id: number }) {
   const cover = ownCover ?? (fetchedCover.data?.id === coverId ? fetchedCover.data : undefined);
   const isCover = (r: Review) => r.id === coverId;
   // A cover review may be one printed for another copy, so it is on this copy's cover only once this copy's own slip was printed.
-  // The print link's hook call, the cover group's note and its tape all read this rule, so a later change moves them together.
+  // The cover group's printed-version note, its print link and its tape all read this rule, so a later change moves them together.
   const isOnCover = (r: Review) => isCover(r) && item.data?.printed_at != null;
-  const printedVersion = usePrintedVersion(cover, { onCover: cover != null && isOnCover(cover) });
 
   const reload = useItemPageReload(id, coverById);
   const mounted = useMounted();
@@ -287,7 +286,7 @@ export default function IntakeItemScreen({ id }: { id: number }) {
 
   const stillOut = cover && recordKind(item.data) === "disc" && holder.kind === "checked_out" && holder.name && holder.id !== cover.author_user_id ? COPY.stillOutWith(holder.name) : null;
   // Under the cover slip: the button that prints it (or the line that says a handwritten review needs none), then the still-out line.
-  const coverLead = (review: Review) => (
+  const coverLead = (review: Review, printedVersion: PrintedVersion) => (
     <>
       {review.medium === "handwritten" ? (
         <Typography>{REVIEW_COPY.intakeSlip.handwritten}</Typography>
