@@ -63,21 +63,56 @@ function FormReviewSearch({ artist, onCopy }: { artist: string; onCopy: (review:
 const visuallyHidden = { position: "absolute", width: "1px", height: "1px", p: 0, m: "-1px", overflow: "hidden", clip: "rect(0 0 0 0)", whiteSpace: "nowrap", border: 0 } as const;
 
 /** The search a cite button opens: a library release (picking one cites it) or a form review (copying one starts a review of this record from it). The heading names the region and is hidden on screen, because it repeats the button above. */
-export function CiteSection({ which, artist, onCite, onCopy }: {
+export function CiteSection({ which, artist, question, onCite, onCopy }: {
   which: "release" | "form";
   artist: string;
+  /** Asked before either citation goes ahead, or null when nobody has a claim on the record. */
+  question: string | null;
   onCite: (albumId: number) => void;
   onCopy: (review: AlbumReview) => void;
 }) {
   const headingId = useId();
+  const [asking, setAsking] = useState<{ label: string; go: () => void } | null>(null);
+  const askFirst = (label: string, go: () => void) => {
+    if (question === null) {
+      go();
+    } else {
+      setAsking({ label, go });
+    }
+  };
   return (
     <Stack component="section" aria-labelledby={headingId} spacing={1}>
       <Typography id={headingId} level="title-sm" component="h3" sx={visuallyHidden}>{which === "release" ? COPY.citeRelease : COPY.citeForm}</Typography>
       {which === "release" ? (
-        <ReleasePicker searchLabel={COPY.searchCite} onPick={(release) => release.id != null && onCite(release.id)} />
+        <ReleasePicker searchLabel={COPY.searchCite} onPick={({ id }) => {
+          if (id != null) {
+            askFirst(COPY.citeRelease, () => onCite(id));
+          }
+        }} />
       ) : (
-        <FormReviewSearch artist={artist} onCopy={onCopy} />
+        <FormReviewSearch artist={artist} onCopy={(take) => askFirst(COPY.copyOntoRecord, () => onCopy(take))} />
       )}
+      <ConfirmDialog
+        open={asking !== null}
+        onClose={() => setAsking(null)}
+        title={question}
+        titleId="cite-asked-title"
+        actions={
+          <>
+            <Button variant="plain" onClick={() => setAsking(null)}>{REVIEW_COPY.screen.cancel}</Button>
+            <Button
+              onClick={() => {
+                asking?.go();
+                setAsking(null);
+              }}
+            >
+              {asking?.label}
+            </Button>
+          </>
+        }
+      >
+        {null}
+      </ConfirmDialog>
     </Stack>
   );
 }

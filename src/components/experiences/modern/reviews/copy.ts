@@ -407,6 +407,10 @@ export const REVIEW_COPY = {
     searchCite: "Search the library for the record this one cites",
     /** Approved. Asked before removing a citation whose review is on this record's cover. */
     removeAsksCover: "Removing the citation also takes its review off this record's cover.",
+    /** Asked before citing a review on a record a DJ is asked to review: the citation withdraws the request. */
+    citeAsked: (name: string) => `${name} is asked to review this. Using a review we already have cancels the request.`,
+    /** Asked before citing a review on a record a DJ has: the record stays with them. */
+    citeTaken: (name: string) => `${name} has this record and may be writing a review. Use the existing review anyway?`,
     /** Approved. Opens a library search for the release whose review this record uses; also that search's heading once open. */
     citeRelease: "Cite a release in the library",
     /** Approved. The cited list's heading when the cited release's name can't be loaded. */
