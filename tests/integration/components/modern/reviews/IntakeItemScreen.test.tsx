@@ -4120,6 +4120,44 @@ describe("IntakeItemScreen", () => {
         await reread.answered;
         expect(await screen.findByText(REVIEW_COPY.intakeItem.alreadyFiled)).toBeInTheDocument();
       });
+
+      it("closes an open cite search when the record is filed under it, so no search is left on a filed record", async () => {
+        const { box } = setUp();
+        const sent = patching(box);
+        const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+        await user.click(await screen.findByRole("button", { name: CITE }));
+        expect(screen.getByRole("region", { name: CITE })).toBeInTheDocument();
+        await reviewsSettled(store);
+
+        // Another device files the record; the next reread shows it.
+        box.item = dogaItem({ state: "filed", effective_state: "filed" });
+        act(() => { store.dispatch(reviewsApi.util.invalidateTags([{ type: "Intake", id: ITEM_ID }])); });
+
+        expect(await screen.findByText(REVIEW_COPY.intakeItem.filed)).toBeInTheDocument();
+        expect(screen.queryByRole("region", { name: CITE })).not.toBeInTheDocument();
+        expect(screen.queryByRole("button", { name: CITE })).not.toBeInTheDocument();
+        expect(sent).toEqual([]);
+      });
+
+      it("does not reopen the cite search when the citation it made is cleared elsewhere and the page rereads", async () => {
+        const { box } = setUp();
+        const sent = patching(box);
+        const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+        await user.click(await searchForCited(user));
+        expect(await screen.findByRole("button", { name: REMOVE })).toBeInTheDocument();
+        await reviewsSettled(store);
+        expect(screen.queryByRole("region", { name: CITE })).not.toBeInTheDocument();
+
+        // Another device clears the citation; the next reread shows it.
+        box.item = dogaItem();
+        act(() => { store.dispatch(reviewsApi.util.invalidateTags([{ type: "Intake", id: ITEM_ID }])); });
+
+        const cite = await screen.findByRole("button", { name: CITE });
+        expect(cite).toHaveAttribute("aria-expanded", "false");
+        expect(screen.queryByRole("region", { name: CITE })).not.toBeInTheDocument();
+        expect(sent).toEqual([{ cited_album_id: CITED_ID }]);
+      });
     });
 
     describe("citing a form review", () => {
@@ -4268,6 +4306,19 @@ describe("IntakeItemScreen", () => {
         expect(screen.getByRole("textbox", { name: "Author" })).toHaveValue("Test Reviewer");
         expect(screen.getByText(REVIEW_COPY.record.copiedFromForm)).toBeInTheDocument();
         expect(sent).toEqual([]);
+      });
+
+      it("closes the form search and opens the filled-in Record a review form directly after the prompt row when a review is copied", async () => {
+        withReviews(formReview());
+        const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+        await copyFirst(user);
+
+        const form = await screen.findByRole("textbox", { name: "Review" });
+        expect(form).toHaveValue("Form take.");
+        expect(screen.queryByRole("region", { name: FORM })).not.toBeInTheDocument();
+        const row = screen.getByRole("button", { name: "Record a review" }).closest("[data-line='one']")!.parentElement!;
+        expect(row.nextElementSibling!.contains(form)).toBe(true);
       });
 
       describe("saving the copy", () => {

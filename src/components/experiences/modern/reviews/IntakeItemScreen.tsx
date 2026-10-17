@@ -104,6 +104,14 @@ export default function IntakeItemScreen({ id }: { id: number }) {
   const [recording, setRecording] = useState<Recording | null>(null);
   // The cite search open under the prompt row, if any; only one of it and the form is open at a time.
   const [citing, setCiting] = useState<"release" | "form" | null>(null);
+  // The cite buttons and their search exist only on a record that is unfiled and cites nothing. When that stops being true (the record is filed, or a citation lands, even from elsewhere), the search closes and its choice is forgotten, so it cannot reopen on its own when the page next rereads.
+  const canCite = !!item.data && !isFiledState(item.data.effective_state) && item.data.cited_album_id == null && item.data.cited_submission_id == null;
+  const citeOpen = canCite ? citing : null;
+  useEffect(() => {
+    if (!canCite) {
+      setCiting(null);
+    }
+  }, [canCite]);
   // Whether the open form holds unsaved text, and the close or replace waiting on the leave dialog's answer.
   const [recordingDirty, setRecordingDirty] = useState(false);
   const [asked, setAsked] = useState<(() => void) | null>(null);
@@ -127,13 +135,20 @@ export default function IntakeItemScreen({ id }: { id: number }) {
       setCiting(null);
       setRecording((open) => nextRecording(open, start, cites));
     });
-  const openSection: OpenSection = recording ? "record" : citing;
+  const openSection: OpenSection = recording ? "record" : citeOpen;
   // Pressing a button closes its own section, or replaces the open one; a dirty form asks first.
   const toggleSection = (which: NonNullable<OpenSection>) => {
-    if (which === "record") return openSection === "record" ? unlessDirty(() => setRecording(null)) : openRecording(EMPTY_START);
+    if (which === "record") {
+      if (openSection === "record") {
+        unlessDirty(() => setRecording(null));
+      } else {
+        openRecording(EMPTY_START);
+      }
+      return;
+    }
     unlessDirty(() => {
       setRecording(null);
-      setCiting(citing === which ? null : which);
+      setCiting(citeOpen === which ? null : which);
     });
   };
   // One count per review write in flight or rereading, so neither a review button nor the form's Save acts on the stale cover.
@@ -427,7 +442,7 @@ export default function IntakeItemScreen({ id }: { id: number }) {
             <RecordPrompt
               open={openSection}
               onToggle={toggleSection}
-              cite={unfiled && !isCited}
+              cite={canCite}
               disabled={awaitingReread}
               removal={unfiled && isCited && !citedShown ? removeCitation : undefined}
             />
@@ -445,9 +460,9 @@ export default function IntakeItemScreen({ id }: { id: number }) {
                 onClose={() => setRecording(null)}
               />
             )}
-            {citing && !isCited && (
+            {citeOpen && (
               <CiteSection
-                which={citing}
+                which={citeOpen}
                 artist={item.data.artist_name}
                 onCite={(albumId) => changeCitation({ cited_album_id: albumId }, COPY.releaseRefused)}
                 onCopy={(take) => openRecording(formReviewStart(take), { id: take.id, submittedAt: take.submitted_at })}

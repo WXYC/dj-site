@@ -1,9 +1,18 @@
 import type { ReactNode } from "react";
-import { Sheet, Stack, Typography } from "@mui/joy";
-import { SectionToggle } from "./CiteControls";
+import KeyboardArrowDown from "@mui/icons-material/KeyboardArrowDown";
+import { Button, Sheet, Stack, Typography } from "@mui/joy";
 import { REVIEW_COPY } from "./copy";
 
 const COPY = REVIEW_COPY.intakeItem;
+
+/** One of the page's three openers: the Record a review button or a cite button. It reads as pressed while its section is open. */
+function SectionToggle({ open, disabled, onClick, children }: { open: boolean; disabled?: boolean; onClick: () => void; children: string }) {
+  return (
+    <Button variant={open ? "soft" : "outlined"} aria-expanded={open} disabled={disabled} onClick={onClick} endDecorator={<KeyboardArrowDown sx={{ transform: open ? "rotate(180deg)" : "none" }} />}>
+      {children}
+    </Button>
+  );
+}
 
 /** The page's one open section, which a button in the prompt row opens directly after it. */
 export type OpenSection = "record" | "release" | "form" | null;
