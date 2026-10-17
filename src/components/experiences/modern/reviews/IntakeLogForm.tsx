@@ -91,6 +91,10 @@ export default function IntakeLogForm() {
       aria-label={COPY.logTitle}
       onSubmit={(e) => {
         e.preventDefault();
+        // The disabled button is not the only way to submit; a refused Discogs field must never be dropped silently.
+        if (!ready) {
+          return;
+        }
         void submit();
       }}
     >
