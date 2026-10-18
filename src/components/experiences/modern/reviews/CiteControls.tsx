@@ -61,15 +61,18 @@ function FormReviewSearch({ artist, onCopy }: { artist: string; onCopy: (review:
 }
 
 /** The search a cite button opens: a library release (picking one cites it) or a form review (copying one starts a review of this record from it). The heading names the region and is hidden on screen, because it repeats the button above. */
-export function CiteSection({ which, artist, question, onCite, onCopy }: {
+export function CiteSection({ which, artist, question, preselect, onCite, onCopy }: {
   which: "release" | "form";
   artist: string;
   /** Asked before either citation goes ahead, or null when nobody has a claim on the record. */
   question: string | null;
+  /** A release search opens on `term` with the row `albumId` already pressed; pressing it is the confirm. */
+  preselect?: { albumId: number; term: string };
   onCite: (albumId: number) => void;
   onCopy: (review: AlbumReview) => void;
 }) {
   const [asking, setAsking] = useState<{ label: string; go: () => void } | null>(null);
+  const [selected, setSelected] = useState(preselect?.albumId ?? null);
   const askFirst = (label: string, go: () => void) => {
     if (question === null) {
       go();
@@ -80,7 +83,7 @@ export function CiteSection({ which, artist, question, onCite, onCopy }: {
   return (
     <HeadedSection title={which === "release" ? COPY.citeRelease : COPY.citeForm} hideTitle spacing={1}>
       {which === "release" ? (
-        <ReleasePicker searchLabel={COPY.searchCite} onPick={({ id }) => {
+        <ReleasePicker searchLabel={COPY.searchCite} initialTerm={preselect?.term} selectedId={selected} onSearch={() => setSelected(null)} onPick={({ id }) => {
           if (id != null) {
             askFirst(COPY.citeRelease, () => onCite(id));
           }

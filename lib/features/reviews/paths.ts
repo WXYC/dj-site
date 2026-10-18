@@ -48,3 +48,21 @@ export function editorBack(origin: EditorOrigin): { href: string; label: string 
       return { href: "/dashboard/reviews", label: REVIEW_COPY.editorBack.shelf };
   }
 }
+
+/** Which cite picker a link to the record page opens: a form review, or the library release chosen by `albumId`. */
+export type CiteTarget = { kind: "library"; albumId: number } | { kind: "form" };
+
+/** Reads the record page's `cite` value: exactly `form` or `library:` and a positive integer without leading zeros; anything else is no target. */
+export function parseCiteTarget(param: string | null | undefined): CiteTarget | null {
+  if (param === "form") {
+    return { kind: "form" };
+  }
+  const id = /^library:([1-9]\d*)$/.exec(param ?? "")?.[1];
+  return id ? { kind: "library", albumId: Number(id) } : null;
+}
+
+/** The record page's address with its cite picker open, at `target` when there is one. */
+export function citeHref(itemId: number, target: CiteTarget | null): string {
+  const cite = target ? `&cite=${target.kind === "form" ? "form" : `library:${target.albumId}`}` : "";
+  return `/dashboard/admin/intake/${itemId}?get=cite${cite}`;
+}

@@ -10,6 +10,7 @@ import type { AlbumEntry } from "@/lib/features/catalog/types";
 import { namedAuthor } from "@/lib/features/reviews/author";
 import { itemHolder } from "@/lib/features/reviews/holder";
 import { isFiledState, recordKind } from "@/lib/features/reviews/kind";
+import { parseCiteTarget } from "@/lib/features/reviews/paths";
 import { hasNothingToShow } from "@/lib/has-nothing-to-show";
 import {
   isIntakeAlreadyFiled,
@@ -106,7 +107,10 @@ export default function IntakeItemScreen({ id }: { id: number }) {
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [picked, setPicked] = useState<AlbumEntry | null>(null);
   // Where a link into the page asks it to start: ?get=record opens the form, ?get=cite focuses the first cite button, ?get=file scrolls to File it and focuses it.
-  const getParam = useSearchParams().get("get");
+  const params = useSearchParams();
+  const getParam = params.get("get");
+  // The picker a ?get=cite link names; read from the address on every render, so it stays the same however long the page is open.
+  const citeTarget = getParam === "cite" ? parseCiteTarget(params.get("cite")) : null;
   const startAtFileIt = getParam === GET_FILE_IT;
   // File it draws only once the page's reads land, so the move happens when the section first draws, and only once, so a later redraw does not pull the reader back.
   const fileItReached = useRef(false);
@@ -121,14 +125,18 @@ export default function IntakeItemScreen({ id }: { id: number }) {
   // The open form's starting values and its key, or null when closed. Every opening goes through openRecording, which gives the form a key unlike the open one's, so the form remounts with the new start.
   const [recording, setRecording] = useState<Recording | null>(() => (getParam === "record" ? nextRecording(null, EMPTY_START) : null));
   // The cite search open under the prompt row, if any; only one of it and the form is open at a time.
-  const [citing, setCiting] = useState<"release" | "form" | null>(null);
+  const [citing, setCiting] = useState<"release" | "form" | null>(() => (citeTarget ? (citeTarget.kind === "form" ? "form" : "release") : null));
+  // The link's choice applies only to the picker it opened: any later opening, closing or replacing of a section ends it.
+  const [seeded, setSeeded] = useState(citeTarget !== null);
   const citedId = item.data?.cited_album_id ?? null;
   const unfiled = !!item.data && !isFiledState(item.data.effective_state);
   const isCited = citedId !== null || item.data?.cited_submission_id != null;
   // The cite buttons and their search exist only on a record that is unfiled and cites nothing. When that stops being true (the record is filed, or a citation lands, even from elsewhere), the search closes and its choice is forgotten, so it cannot reopen on its own when the page next rereads. The reset happens during render, so a press parked behind the leave dialog cannot set it after the fact.
   const canCite = unfiled && !isCited;
-  if (!canCite && citing !== null) {
+  // `item.data` guards the seeded picker: canCite is false until the record has loaded.
+  if (item.data && !canCite && citing !== null) {
     setCiting(null);
+    setSeeded(false);
   }
   const citeOpen = canCite ? citing : null;
   // Whether the open form holds unsaved text, and the close or replace waiting on the leave dialog's answer.
@@ -152,6 +160,7 @@ export default function IntakeItemScreen({ id }: { id: number }) {
   const openRecording = (start: RecordFormStart, cites?: Recording["cites"]) =>
     unlessDirty(() => {
       setCiting(null);
+      setSeeded(false);
       setRecording((open) => nextRecording(open, start, cites));
     });
   const openSection: OpenSection = recording ? "record" : citeOpen;
@@ -168,6 +177,7 @@ export default function IntakeItemScreen({ id }: { id: number }) {
     unlessDirty(() => {
       setRecording(null);
       setCiting(citeOpen === which ? null : which);
+      setSeeded(false);
     });
   };
   // One count per review write in flight or rereading, so neither a review button nor the form's Save acts on the stale cover.
@@ -492,6 +502,7 @@ export default function IntakeItemScreen({ id }: { id: number }) {
           which={citeOpen}
           artist={item.data.artist_name}
           question={citeQuestion}
+          preselect={seeded && citeTarget?.kind === "library" && citeOpen === "release" ? { albumId: citeTarget.albumId, term: item.data.album_title } : undefined}
           onCite={(albumId) => changeCitation({ cited_album_id: albumId }, COPY.releaseRefused)}
           onCopy={(take) => openRecording(formReviewStart(take), { id: take.id, submittedAt: take.submitted_at })}
         />
@@ -504,7 +515,7 @@ export default function IntakeItemScreen({ id }: { id: number }) {
       <Stack spacing={2}>
         <RecordHeader record={record} headingLevel={3} chip={chipLabel && <Chip>{chipLabel}</Chip>} />
         <IntakeProgress item={item.data} />
-        {originShown && <RecordOrigin item={item.data} focusCite={getParam === "cite" && canCite} settled={!wantsOrigin}>{recordArea}</RecordOrigin>}
+        {originShown && <RecordOrigin item={item.data} focusCite={getParam === "cite" && canCite && !citeTarget} settled={!wantsOrigin}>{recordArea}</RecordOrigin>}
         <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: "minmax(0, 1fr)", [TWO_COLUMNS]: { gridTemplateColumns: "minmax(0, 1fr) minmax(16rem, 20rem)", alignItems: "start" } }}>
           <Stack data-column="main" spacing={2}>
             {cover ? (

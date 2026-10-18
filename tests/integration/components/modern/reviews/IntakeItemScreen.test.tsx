@@ -6040,6 +6040,102 @@ describe("IntakeItemScreen", () => {
       await waitFor(() => expect(screen.getByRole("button", { name: "Cite a release in the library" })).toHaveFocus());
     });
 
+    describe("opened at a chosen review from ?cite", () => {
+      const LIBRARY_ROW = { ...RELEASE_ROW, id: 9, artist_name: "Juana Molina", album_title: "DOGA" };
+      const LIBRARY_ROW_NAME = "Juana Molina · DOGA · CD";
+      const FORM_OPENER = "Cite a form review";
+      const openedAt = (cite: string) => {
+        getParam.set("get", "cite");
+        getParam.set("cite", cite);
+      };
+      const setUp = (item = dogaItem(POOL)) => {
+        fakeReviewsEndpoints({ records: [item], releases: [LIBRARY_ROW], searchResults: [LIBRARY_ROW], byArtist: {} });
+        const box = serveItem(item);
+        const sent: IntakeItemPatch[] = [];
+        server.use(
+          http.patch(FILED_ITEM_PATH, async ({ request }) => {
+            const body = (await request.json()) as IntakeItemPatch;
+            sent.push(body);
+            box.item = { ...box.item, ...body } as typeof box.item;
+            return HttpResponse.json(box.item);
+          }),
+        );
+        return sent;
+      };
+
+      afterEach(() => getParam.delete("cite"));
+
+      it("opens Cite a form review searched by the record's artist", async () => {
+        openedAt("form");
+        setUp();
+        renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+        const region = await screen.findByRole("region", { name: FORM_OPENER });
+        expect(within(region).getByDisplayValue("Juana Molina")).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: FORM_OPENER })).not.toHaveFocus();
+      });
+
+      it("opens Cite a release in the library searched by the album title, with the chosen row pressed and nothing written until it is pressed", async () => {
+        openedAt("library:9");
+        const sent = setUp();
+        const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+        const region = await screen.findByRole("region", { name: "Cite a release in the library" });
+        expect(within(region).getByRole("searchbox", { name: REVIEW_COPY.intakeItem.searchCite })).toHaveValue("DOGA");
+        const row = await within(region).findByRole("button", { name: LIBRARY_ROW_NAME });
+        expect(row).toHaveAttribute("aria-pressed", "true");
+        expect(sent).toEqual([]);
+
+        await user.click(row);
+        await waitFor(() => expect(sent).toEqual([{ cited_album_id: 9 }]));
+      });
+
+      it("asks the citeQuestion before the pressed row writes when someone has a claim", async () => {
+        openedAt("library:9");
+        const sent = setUp(dogaItem({ ...POOL, state: "requested", effective_state: "requested", requested_dj_id: "dj-1", requested_dj_name: "DJ Static" }));
+        const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+        const region = await screen.findByRole("region", { name: "Cite a release in the library" });
+        await user.click(await within(region).findByRole("button", { name: LIBRARY_ROW_NAME }));
+        expect(await screen.findByText("DJ Static is asked to review this. Using a review we already have cancels the request.")).toBeInTheDocument();
+        expect(sent).toEqual([]);
+      });
+
+      it("drops the preselected row when the picker is closed and opened again", async () => {
+        openedAt("library:9");
+        setUp();
+        const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+        await screen.findByRole("region", { name: "Cite a release in the library" });
+        await user.click(screen.getByRole("button", { name: "Cite a release in the library" }));
+        await waitFor(() => expect(screen.queryByRole("region", { name: "Cite a release in the library" })).not.toBeInTheDocument());
+        await user.click(screen.getByRole("button", { name: "Cite a release in the library" }));
+        const region = await screen.findByRole("region", { name: "Cite a release in the library" });
+        expect(within(region).getByRole("searchbox", { name: REVIEW_COPY.intakeItem.searchCite })).toHaveValue("");
+      });
+
+      it.each(["library:0", "library:abc", "FORM", ""])("treats ?cite=%j as a plain ?get=cite", async (cite) => {
+        openedAt(cite);
+        setUp();
+        renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+        await waitFor(() => expect(screen.getByRole("button", { name: "Cite a release in the library" })).toHaveFocus());
+        expect(screen.queryByRole("region", { name: /^Cite a/ })).not.toBeInTheDocument();
+      });
+
+      it.each([
+        ["filed", dogaItem({ state: "filed", effective_state: "filed" })],
+        ["already cited", dogaItem({ ...POOL, cited_album_id: 7 })],
+      ])("opens no picker on a record that is %s", async (_name, item) => {
+        openedAt("library:9");
+        setUp(item);
+        renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+        await screen.findByRole("heading", { name: /Juana Molina/ });
+        expect(screen.queryByRole("region", { name: /^Cite a/ })).not.toBeInTheDocument();
+      });
+    });
+
     it("leaves focus alone and the form closed without a ?get", async () => {
       fakeReviewsEndpoints({ records: [dogaItem(POOL)] });
       renderScreen(<IntakeItemScreen id={ITEM_ID} />);
