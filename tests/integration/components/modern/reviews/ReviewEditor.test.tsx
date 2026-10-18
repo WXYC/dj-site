@@ -1092,23 +1092,23 @@ describe("ReviewEditor", () => {
         return { bar, root, region };
       };
 
-      it("sets the slip column's room to the scroll region's height minus the action bar's, and keeps it current", async () => {
+      it("sets the slip column's room to the scroll region's height minus the action bar's box and top margin (53px + 16px), and keeps it current", async () => {
         const { bar, root, region } = await renderDeeper();
         let regionHeight = 700;
         let barHeight = 53;
         Object.defineProperty(region, "clientHeight", { configurable: true, get: () => regionHeight });
         Object.defineProperty(bar, "offsetHeight", { configurable: true, get: () => barHeight });
         resize(region);
-        expect(root.style.getPropertyValue(STICKY_ROOM_PROPERTY)).toBe("647px");
+        expect(root.style.getPropertyValue(STICKY_ROOM_PROPERTY)).toBe("631px");
 
         regionHeight = 500;
         resize(region);
-        expect(root.style.getPropertyValue(STICKY_ROOM_PROPERTY)).toBe("447px");
+        expect(root.style.getPropertyValue(STICKY_ROOM_PROPERTY)).toBe("431px");
 
         // A bar that wraps at a narrow width grows without the region changing.
         barHeight = 90;
         resize(bar);
-        expect(root.style.getPropertyValue(STICKY_ROOM_PROPERTY)).toBe("410px");
+        expect(root.style.getPropertyValue(STICKY_ROOM_PROPERTY)).toBe("394px");
       });
 
       it("observes both the scroll region and the action bar", async () => {
