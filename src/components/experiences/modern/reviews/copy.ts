@@ -190,6 +190,33 @@ export const REVIEW_COPY = {
     /** Approved. Shown on a taken digital album with no submitted review. */
     filesComing: "A music director will send you the files.",
   },
+  /** What each action button does, as its tooltip and its accessible description. */
+  tooltips: {
+    /** Approved. Write a review, on a request. */
+    writeRequest: "Start your review. Other DJs will see that you have this record.",
+    /** Approved. Pass, on a request. */
+    passRequest: "Turn this request down. The record goes back on the review shelf, and the music directors see that you passed.",
+    /** Approved. Review, on a disc on the review shelf. */
+    reviewDisc: "Review this record. It moves to My reviews, and other DJs will see that you have it.",
+    /** Approved. Review, on a digital album on the review shelf. */
+    reviewDigital: "Review this record. It moves to My reviews, and other DJs will see that you have it. A music director will send you the files.",
+    /** Approved. Write a review on a record the DJ has, and Open draft. */
+    openEditor: "Open the review editor for this record.",
+    /** Approved. Pass, on a record the DJ has. */
+    passHeld: "Give this record back without a review. It goes back on the review shelf, and the music directors see that you passed.",
+    /** Approved. More, on a review shelf row. */
+    more: "Ask a DJ, use a review we already have, or digitize one from paper.",
+    /** Approved. */
+    cancelRequest: "Put this record back on the review shelf. The DJ is no longer asked.",
+    /** Approved. A music director's Return to the review shelf. */
+    returnToShelf: "Take this record back from the DJ who has it and put it on the review shelf, where any DJ can choose to review it. You'll be asked to confirm.",
+    /** Approved. */
+    markReturned: "The DJ has brought the disc to the music office.",
+    /** Approved. */
+    save: "Save your changes. Each saved change is kept in the review's history.",
+    /** Approved. */
+    submit: "Send this review to the music directors. You can still edit it afterwards.",
+  },
   /** The strip over the Reviews page's three tabs. */
   tabs: {
     /** The heading above the strip, drawn once for all three tabs. */

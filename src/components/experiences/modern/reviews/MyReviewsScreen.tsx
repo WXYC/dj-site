@@ -19,6 +19,7 @@ import { rowKey, sortMyReviews, STAGES, type MyReviewsRow, type Stage } from "@/
 import ConfirmDialog from "../ConfirmDialog";
 import StageChips from "../StageChips";
 import { REVIEW_COPY } from "./copy";
+import ActionTooltip from "./ActionTooltip";
 import RecordRow from "./RecordRow";
 import { intakeRecord } from "./recordLine";
 import { useReviewRecord, type ReviewRecord } from "./useReviewRecord";
@@ -71,7 +72,7 @@ function MyReviewRow({ review, href, cover }: { review: Review; href: string; co
     </>
   );
   const open = kept ? (
-    <Button size="sm" {...naming} onClick={() => router.push(href)}>{REVIEW_COPY.myReviews.openDraft}</Button>
+    <ActionTooltip title={REVIEW_COPY.tooltips.openEditor}><Button size="sm" {...naming} onClick={() => router.push(href)}>{REVIEW_COPY.myReviews.openDraft}</Button></ActionTooltip>
   ) : (
     <Link href={href} {...naming}>{draft ? REVIEW_COPY.myReviews.openDraft : REVIEW_COPY.myReviews.open}</Link>
   );
@@ -152,6 +153,7 @@ export default function MyReviewsScreen({ items, myReviews, me, write, lock }: {
       meta={<Typography level="body-sm">{requestLine(i)}</Typography>}
       actions={
         <>
+          <ActionTooltip title={REVIEW_COPY.tooltips.writeRequest}>
           <Button
             size="sm"
             {...lock(i.id, "accept")}
@@ -175,7 +177,8 @@ export default function MyReviewsScreen({ items, myReviews, me, write, lock }: {
           >
             {REVIEW_COPY.writeReview}
           </Button>
-          <Button size="sm" variant="outlined" {...namedByRecord(key, "pass")} {...lock(i.id, "pass")} onClick={() => setPassing(i)}>{REVIEW_COPY.screen.pass}</Button>
+          </ActionTooltip>
+          <ActionTooltip title={REVIEW_COPY.tooltips.passRequest}><Button size="sm" variant="outlined" {...namedByRecord(key, "pass")} {...lock(i.id, "pass")} onClick={() => setPassing(i)}>{REVIEW_COPY.screen.pass}</Button></ActionTooltip>
         </>
       }
     />
@@ -211,8 +214,9 @@ export default function MyReviewsScreen({ items, myReviews, me, write, lock }: {
             {submitted ? (
               <Button size="sm" variant={reviewed ? "outlined" : "solid"} onClick={() => router.push(openHref(submitted.id, stage))}>{REVIEW_COPY.screen.editReview}</Button>
             ) : draft ? (
-              <Button size="sm" variant={reviewed ? "outlined" : "solid"} {...namedByRecord(key, "open")} onClick={() => router.push(openHref(draft.id, stage))}>{REVIEW_COPY.myReviews.openDraft}</Button>
+              <ActionTooltip title={REVIEW_COPY.tooltips.openEditor}><Button size="sm" variant={reviewed ? "outlined" : "solid"} {...namedByRecord(key, "open")} onClick={() => router.push(openHref(draft.id, stage))}>{REVIEW_COPY.myReviews.openDraft}</Button></ActionTooltip>
             ) : (
+              <ActionTooltip title={REVIEW_COPY.tooltips.openEditor}>
               <Button
                 size="sm"
                 variant={reviewed ? "outlined" : "solid"}
@@ -228,11 +232,12 @@ export default function MyReviewsScreen({ items, myReviews, me, write, lock }: {
               >
                 {REVIEW_COPY.writeReview}
               </Button>
+              </ActionTooltip>
             )}
             {canPass ? (
-              <Button size="sm" variant="outlined" {...namedByRecord(key, "pass")} {...lock(i.id, "passHeld")} onClick={() => setPassing(i)}>{REVIEW_COPY.screen.pass}</Button>
+              <ActionTooltip title={REVIEW_COPY.tooltips.passHeld}><Button size="sm" variant="outlined" {...namedByRecord(key, "pass")} {...lock(i.id, "passHeld")} onClick={() => setPassing(i)}>{REVIEW_COPY.screen.pass}</Button></ActionTooltip>
             ) : (
-              !i.digital && <Button size="sm" variant={reviewed ? "solid" : "outlined"} {...lock(i.id, "release")} onClick={() => setReturning(i)}>{REVIEW_COPY.intake.returned}</Button>
+              !i.digital && <ActionTooltip title={REVIEW_COPY.tooltips.markReturned}><Button size="sm" variant={reviewed ? "solid" : "outlined"} {...lock(i.id, "release")} onClick={() => setReturning(i)}>{REVIEW_COPY.intake.returned}</Button></ActionTooltip>
             )}
           </>
         }

@@ -93,6 +93,18 @@ describe("REVIEW_COPY round 10, the lines a disc and a digital album now share",
     ["intake.fromHolder", i.fromHolder("Jessica Pratt"), "From Jessica Pratt, who has this record."],
     ["intake.fromWith", i.fromWith("Jessica Pratt", "DJ Sam"), "From Jessica Pratt. The record is with DJ Sam."],
     ["intake.fromRemoved", i.fromRemoved("Jessica Pratt"), "From Jessica Pratt. The record is with a removed account."],
+    ["tooltips.writeRequest", REVIEW_COPY.tooltips.writeRequest, "Start your review. Other DJs will see that you have this record."],
+    ["tooltips.passRequest", REVIEW_COPY.tooltips.passRequest, "Turn this request down. The record goes back on the review shelf, and the music directors see that you passed."],
+    ["tooltips.reviewDisc", REVIEW_COPY.tooltips.reviewDisc, "Review this record. It moves to My reviews, and other DJs will see that you have it."],
+    ["tooltips.reviewDigital", REVIEW_COPY.tooltips.reviewDigital, "Review this record. It moves to My reviews, and other DJs will see that you have it. A music director will send you the files."],
+    ["tooltips.openEditor", REVIEW_COPY.tooltips.openEditor, "Open the review editor for this record."],
+    ["tooltips.passHeld", REVIEW_COPY.tooltips.passHeld, "Give this record back without a review. It goes back on the review shelf, and the music directors see that you passed."],
+    ["tooltips.more", REVIEW_COPY.tooltips.more, "Ask a DJ, use a review we already have, or digitize one from paper."],
+    ["tooltips.cancelRequest", REVIEW_COPY.tooltips.cancelRequest, "Put this record back on the review shelf. The DJ is no longer asked."],
+    ["tooltips.returnToShelf", REVIEW_COPY.tooltips.returnToShelf, "Take this record back from the DJ who has it and put it on the review shelf, where any DJ can choose to review it. You'll be asked to confirm."],
+    ["tooltips.markReturned", REVIEW_COPY.tooltips.markReturned, "The DJ has brought the disc to the music office."],
+    ["tooltips.save", REVIEW_COPY.tooltips.save, "Save your changes. Each saved change is kept in the review's history."],
+    ["tooltips.submit", REVIEW_COPY.tooltips.submit, "Send this review to the music directors. You can still edit it afterwards."],
   ])("pins %s", (_key, actual, expected) => {
     expect(actual).toBe(expected);
   });

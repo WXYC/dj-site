@@ -991,7 +991,7 @@ describe("ReviewEditor", () => {
       expect(within(bar).getByRole("button", { name: REVIEW_COPY.delete })).toBeInTheDocument();
       const reason = within(bar).getByText(REVIEW_COPY.submitNeedsReview);
       expect(submit.previousElementSibling).toBe(reason);
-      expect(submit).toHaveAccessibleDescription(REVIEW_COPY.submitNeedsReview);
+      expect(submit).toHaveAccessibleDescription(`${REVIEW_COPY.submitNeedsReview} ${REVIEW_COPY.tooltips.submit}`);
     });
 
     it("is not a toolbar, which would promise arrow-key focus it does not have", async () => {
@@ -1834,5 +1834,17 @@ describe("ReviewEditor", () => {
         restoreHistory(history);
       }
     });
+  });
+});
+
+describe("ReviewEditor tooltips", () => {
+  it.each([
+    ["Save", DRAFT, REVIEW_COPY.saveDraft, REVIEW_COPY.tooltips.save],
+    ["Submit", DRAFT, REVIEW_COPY.submit, REVIEW_COPY.tooltips.submit],
+  ])("describes %s with its approved text", async (_button, served, name, description) => {
+    serve(served);
+    renderWithProviders(<ReviewEditor id={40} />);
+
+    expect(await screen.findByRole("button", { name, description: new RegExp(description.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")) })).toBeInTheDocument();
   });
 });

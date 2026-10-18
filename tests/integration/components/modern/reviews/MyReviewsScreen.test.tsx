@@ -480,3 +480,18 @@ describe("MyReviewsScreen", () => {
     expect(actual).toBe(expected);
   });
 });
+
+describe("MyReviewsScreen tooltips", () => {
+  it.each([
+    ["Write a review on a request", [asked(7)], [], REVIEW_COPY.writeReview, REVIEW_COPY.tooltips.writeRequest],
+    ["Pass on a request", [asked(7)], [], PASS_BUTTON, REVIEW_COPY.tooltips.passRequest],
+    ["Write a review on a record the DJ has", [held(8)], [], REVIEW_COPY.writeReview, REVIEW_COPY.tooltips.openEditor],
+    ["Pass on a record the DJ has", [held(8)], [], PASS_BUTTON, REVIEW_COPY.tooltips.passHeld],
+    ["Open draft on a record the DJ has", [held(8)], [review({ id: 3, intake_item_id: 8, status: "draft" })], OPEN_DRAFT_NAMED, REVIEW_COPY.tooltips.openEditor],
+    ["Mark as returned on a disc with a submitted review", [held(8, { effective_state: "reviewed", submitted_review_count: 1 })], [review({ id: 3, intake_item_id: 8, status: "submitted" })], REVIEW_COPY.intake.returned, REVIEW_COPY.tooltips.markReturned],
+  ])("describes %s with its approved text", async (_button, items, mine, name, description) => {
+    renderScreen(items, mine);
+
+    expect(await screen.findByRole("button", { name, description })).toBeInTheDocument();
+  });
+});
