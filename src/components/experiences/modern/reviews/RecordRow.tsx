@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useId, useState, type ReactNode } from "react";
 import { Box, Chip, Divider, Link, Typography } from "@mui/joy";
 import { useAlbumArtwork } from "@/lib/features/metadata/hooks";
 import { formatLabel, formatTone } from "@/lib/features/experiences/modern/tokens/roles";
@@ -54,6 +54,8 @@ interface RecordRowProps {
    * It wins over `href` when both are given.
    */
   titleSlot?: ReactNode;
+  /** The `id` the `titleSlot` carries, so the row's listen links are named by it. */
+  titleId?: string;
   /** An `id` for the album line, for a control's `aria-labelledby` that names the record by its artist and album. */
   albumId?: string;
   /** The tile's size in px. With it, the row shows the record's cover, and the format glyph while the cover loads, fails or does not exist; without it, the 40 px glyph and no metadata read. */
@@ -66,8 +68,14 @@ interface RecordRowProps {
  * answers to the row's own width (a container query), not the window's, since
  * the sidebars change the column width.
  */
-export default function RecordRow({ record, meta, actions, status, href, titleSlot, albumId, cover }: RecordRowProps) {
+export default function RecordRow({ record, meta, actions, status, href, titleSlot, titleId, albumId, cover }: RecordRowProps) {
   const format = useRecordFormatName(record);
+  // The row's own ids name its listen links by the artist and album; a row with no links carries none.
+  const ownId = useId();
+  const linked = Boolean(record.links?.length);
+  const ownArtistId = linked ? `${ownId}artist` : undefined;
+  const artistId = titleSlot ? titleId : ownArtistId;
+  const recordAlbumId = albumId ?? (linked ? `${ownId}album` : undefined);
   // The current answer only: a row drawn for another record never shows the last one's cover while its own read is pending or failed.
   const { currentMetadata } = useAlbumArtwork(record.artist, record.album, cover === undefined, { decorative: true });
   // Held by URL, not as a flag, so a row drawn for another record never keeps this one's failure.
@@ -76,9 +84,9 @@ export default function RecordRow({ record, meta, actions, status, href, titleSl
   const artworkUrl = cover ? currentMetadata?.artworkUrl : undefined;
   const showCover = Boolean(artworkUrl) && artworkUrl !== failedUrl;
   const artist = titleSlot ?? (href ? (
-    <Link level="title-md" href={href}>{record.artist}</Link>
+    <Link id={artistId} level="title-md" href={href}>{record.artist}</Link>
   ) : (
-    <Typography level="title-md">{record.artist}</Typography>
+    <Typography id={artistId} level="title-md">{record.artist}</Typography>
   ));
   return (
     <Box sx={{ width: "100%", containerType: "inline-size" }}>
@@ -97,9 +105,9 @@ export default function RecordRow({ record, meta, actions, status, href, titleSl
             <FormatGlyph format={format} size={cover} />
           )}
           <Box sx={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 0.25, minWidth: 0 }}>
-            <RecordParts record={record} format={format} artist={artist} albumId={albumId} />
+            <RecordParts record={record} format={format} artist={artist} albumId={recordAlbumId} />
             {meta}
-            <ListenLinks links={record.links} />
+            <ListenLinks links={record.links} labelledBy={[artistId, recordAlbumId].filter(Boolean).join(" ")} />
           </Box>
         </Box>
         {actions && <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", flex: "none" }}>{actions}</Box>}

@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useId, type ReactNode } from "react";
 import { Box, Typography } from "@mui/joy";
 import type { ReviewRecord } from "./useReviewRecord";
 import { FormatGlyph, RecordParts } from "./RecordRow";
@@ -24,13 +24,16 @@ interface RecordHeaderProps {
  */
 export default function RecordHeader({ record, chip, headingLevel = 2, withLinks = true }: RecordHeaderProps) {
   const format = useRecordFormatName(record);
+  const id = useId();
+  const artistId = `${id}artist`;
+  const albumId = `${id}album`;
   return (
     <Box sx={{ display: "flex", gap: 2, alignItems: "flex-start", flexWrap: "wrap" }}>
       <FormatGlyph format={format} size={64} />
       <Box sx={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 0.5, minWidth: 0 }}>
-        <RecordParts record={record} format={format} artist={<Typography level="h3" component={`h${headingLevel}`}>{record.artist}</Typography>} />
+        <RecordParts record={record} format={format} albumId={albumId} artist={<Typography id={artistId} level="h3" component={`h${headingLevel}`}>{record.artist}</Typography>} />
         {chip}
-        {withLinks && <ListenLinks links={record.links} />}
+        {withLinks && <ListenLinks links={record.links} labelledBy={`${artistId} ${albumId}`} />}
       </Box>
     </Box>
   );
