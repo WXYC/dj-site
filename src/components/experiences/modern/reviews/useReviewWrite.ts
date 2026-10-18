@@ -38,8 +38,12 @@ const raceNotice = (action: Action, item: IntakeItem | undefined): string => {
 export const EVERY_STATE = undefined;
 export const MY_REVIEWS = undefined;
 
-/** The write wiring both review screens share: every write reloads both lists, whichever screen it came from. Call it once, in the screen that owns both lists, and pass `write` and `lock` down: a row stays locked until every list it renders has reloaded, which holds across lanes only if one pending map covers them all. */
-export function useReviewWrite(items: IntakeItem[] | undefined) {
+/**
+ * The write wiring behind one Reviews tab. Call it once per tab, in the screen that owns the tab's lists, and pass `write` and `lock` down: a row stays locked until every list the tab renders has reloaded, which holds across that tab's lanes because one pending map covers them all. The tabs are separate routes, so each has its own pending map and a lock does not carry from one tab to the other.
+ *
+ * Every write reloads the intake list. `reloadMine` (default true) also reloads the DJ's own reviews; a tab that does not draw that list passes false, so a write there neither reads it nor waits on it.
+ */
+export function useReviewWrite(items: IntakeItem[] | undefined, { reloadMine = true }: { reloadMine?: boolean } = {}) {
   const dispatch = useAppDispatch();
   // A double-click's second POST would find the record already moved and
   // answer 409 state_changed, telling the DJ someone else took the record they
@@ -48,7 +52,7 @@ export function useReviewWrite(items: IntakeItem[] | undefined) {
   return useRowWrite<Action>({
     reload: () => [
       dispatch(intakeApi.endpoints.getIntakeItems.initiate(EVERY_STATE, { subscribe: false, forceRefetch: true })),
-      dispatch(reviewApi.endpoints.getMyReviews.initiate(MY_REVIEWS, { subscribe: false, forceRefetch: true })),
+      ...(reloadMine ? [dispatch(reviewApi.endpoints.getMyReviews.initiate(MY_REVIEWS, { subscribe: false, forceRefetch: true }))] : []),
     ],
     isLostRace: (err) => isIntakeStateChanged(err) || isReviewSubjectNotHeld(err),
     onFailure: (err, _id, action) => {

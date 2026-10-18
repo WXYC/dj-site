@@ -76,13 +76,48 @@ describe("ReviewsScreen — a row stays locked until every rendered list has rel
 
     // Assert during the hold, once every other read has answered and only the held one is outstanding.
     await waitFor(() => expect(heldReads).toBeGreaterThan(0));
-    await waitFor(() => expect(otherReads).toBeGreaterThan(0));
     await waitFor(() => expect(pendingCount(store)).toBe(1));
     await renderedFrame();
+    expect(otherReads).toBe(0);
     expect(checkout).toBeDisabled();
 
     releaseHeld();
     await waitFor(() => expect(checkout).toBeEnabled());
+  });
+
+  it("does not read My reviews after a write on the review shelf tab, which does not draw it", async () => {
+    let written = false;
+    let reviewReadsAfterWrite = 0;
+    let intakeReadsAfterWrite = 0;
+    fakeReviewsEndpoints({ open: [ON_SHELF] });
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/reviews`, () => {
+        if (written) {
+          reviewReadsAfterWrite += 1;
+        }
+        return HttpResponse.json([]);
+      }),
+      http.get(`${TEST_BACKEND_URL}/intake`, () => {
+        if (written) {
+          intakeReadsAfterWrite += 1;
+        }
+        return HttpResponse.json([ON_SHELF]);
+      }),
+      http.post(`${TEST_BACKEND_URL}/intake/5/checkout`, () => {
+        written = true;
+        return HttpResponse.json({ ...ON_SHELF, state: "checked_out" });
+      }),
+    );
+
+    const { user } = renderWithProviders(<ReviewsScreen tab="shelf" />);
+    const shelf = await screen.findByRole("region", { name: "The review shelf" });
+    const checkout = within(shelf).getByRole("button", { name: "Check out" });
+    await user.click(checkout);
+
+    // The intake reload has landed and the row is free again; My reviews was never asked for.
+    await waitFor(() => expect(intakeReadsAfterWrite).toBeGreaterThan(0));
+    await waitFor(() => expect(checkout).toBeEnabled());
+    expect(reviewReadsAfterWrite).toBe(0);
   });
 
   it("keeps a request I started a review on locked in Records I'm reviewing until My reviews has reloaded", async () => {

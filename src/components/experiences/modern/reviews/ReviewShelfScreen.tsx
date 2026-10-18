@@ -13,7 +13,7 @@ import { REVIEW_COPY } from "./copy";
 import { intakeRecord, recordLine } from "./recordLine";
 import { day, type ReviewWrite } from "./useReviewWrite";
 
-/** The review shelf lane, and for a music director the reviewers-load alert and each record's Request a review picker. It assumes its caller has applied the `useCanSeeReviews` check and the load-failed gate, and takes the reviewers read and the one `useReviewWrite` the caller shares with My reviews. */
+/** The review shelf lane, and for a music director the reviewers-load alert and each record's Request a review picker. It assumes its caller has applied the `useCanSeeReviews` check and the load-failed gate, and takes the reviewers read and the `useReviewWrite` the caller built for this tab: My reviews is a separate tab with its own write wiring, so a lock set here does not carry over to it. */
 export default function ReviewShelfScreen({ items, formats, isMD, reviewers, write, lock }: { items: IntakeItem[]; formats: { id: number; format_name: string }[] | undefined; isMD: boolean; reviewers: { isError: boolean; data?: ComponentProps<typeof IntakeRequestPicker>["reviewers"] } } & ReviewWrite) {
   const [checkout] = useCheckoutIntakeItemMutation();
   const [requestReview] = useRequestIntakeItemMutation();

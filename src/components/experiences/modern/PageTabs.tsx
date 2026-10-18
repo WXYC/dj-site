@@ -36,6 +36,8 @@ export default function PageTabs({ tabs }: { tabs: readonly PageTab[] }): JSX.El
         overflowX: "auto",
         // The fade says there is more to the right; the padding lets the last tab scroll clear of it.
         pr: `${TRAILING_FADE_PX}px`,
+        // A keyboard-focused last tab scrolls to clear the fade, not to sit under it.
+        scrollPaddingInlineEnd: `${TRAILING_FADE_PX}px`,
         maskImage: `linear-gradient(to right, black calc(100% - ${TRAILING_FADE_PX}px), transparent)`,
       }}
     >
