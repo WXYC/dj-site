@@ -179,8 +179,14 @@ export const REVIEW_COPY = {
     take: "Take",
     /** Approved. The mark on a taken digital album that is overdue and has no submitted review. */
     notReviewedYet: "Not reviewed yet",
-    /** Approved. The confirm dialog's question for a digital album. */
-    returnQuestionDigital: "Put this record back on the review shelf? Another DJ can take it.",
+    /** Approved. Added to the Pass confirmation for a disc the DJ has. */
+    passBringDisc: "Bring the disc back to the music office first.",
+    /** Approved. Added to the Pass confirmation when the DJ has a draft on the record. */
+    passDraftSaved: "Your draft is saved under Open reviews.",
+    /** Added to Mark as returned's confirmation when the DJ has a submitted review of the record. */
+    markReturnedKeep: "Your review stays with the music directors.",
+    /** Shown once Mark as returned has gone through. */
+    returnedWaiting: "Returned. Your review is with the music directors.",
     /** Approved. Shown on a taken digital album with no submitted review. */
     filesComing: "A music director will send you the files.",
   },
@@ -702,6 +708,10 @@ export const REVIEW_COPY = {
     submitted: "Submitted",
     /** Approved. */
     open: "Open",
+    /** Approved. The button on a record I have that has a draft, and on a draft kept after a pass. */
+    openDraft: "Open draft",
+    /** Approved. A draft's line on a record the DJ passed on. */
+    draftKept: "You passed on the record. Your draft is saved.",
     /** Approved. */
     libraryRelease: "A library release",
     /** Approved. The tag on a review of a library release. */

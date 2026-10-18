@@ -52,7 +52,10 @@ describe("REVIEW_COPY digital album lines and the DJ's own list heading", () => 
   it.each([
     ["screen.take", REVIEW_COPY.screen.take, "Take"],
     ["screen.notReviewedYet", REVIEW_COPY.screen.notReviewedYet, "Not reviewed yet"],
-    ["screen.returnQuestionDigital", REVIEW_COPY.screen.returnQuestionDigital, "Put this record back on the review shelf? Another DJ can take it."],
+    ["myReviews.openDraft", REVIEW_COPY.myReviews.openDraft, "Open draft"],
+    ["myReviews.draftKept", REVIEW_COPY.myReviews.draftKept, "You passed on the record. Your draft is saved."],
+    ["screen.passBringDisc", REVIEW_COPY.screen.passBringDisc, "Bring the disc back to the music office first."],
+    ["screen.passDraftSaved", REVIEW_COPY.screen.passDraftSaved, "Your draft is saved under Open reviews."],
     ["screen.filesComing", REVIEW_COPY.screen.filesComing, "A music director will send you the files."],
   ])("pins %s", (_key, actual, expected) => {
     expect(actual).toBe(expected);

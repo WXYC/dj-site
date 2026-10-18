@@ -12,7 +12,7 @@ import { formatStationShortDate } from "@/src/utilities/stationTime";
 
 export const day = (iso: string | null) => (iso ? formatStationShortDate(iso) : "");
 
-type Action = "checkout" | "accept" | "pass" | "release" | "write" | "request" | "cancel";
+type Action = "checkout" | "accept" | "pass" | "passHeld" | "release" | "write" | "request" | "cancel";
 
 /** What a lost race (409 `state_changed`) means for each button, shown once the lists have reloaded. */
 const raceNotice = (action: Action): string => {
@@ -23,6 +23,7 @@ const raceNotice = (action: Action): string => {
     case "pass":
       return REVIEW_COPY.screen.raceRequest;
     case "release":
+    case "passHeld":
       return REVIEW_COPY.screen.raceRelease;
     case "write":
       return REVIEW_COPY.subjectNotHeld;
