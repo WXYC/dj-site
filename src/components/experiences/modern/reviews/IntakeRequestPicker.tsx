@@ -7,6 +7,7 @@ import { describeReviewer, distinctOnAir, matchReviewers, suggestReviewers, type
 import { useMediaQuery } from "@/src/hooks/useMediaQuery";
 import ConfirmDialog from "../ConfirmDialog";
 import { REVIEW_COPY } from "./copy";
+import ActionTooltip from "./ActionTooltip";
 
 const COPY = REVIEW_COPY.intake;
 
@@ -175,15 +176,17 @@ export default function IntakeRequestPicker({ busy, ...dialog }: IntakeRequestPi
 
   return (
     <>
-      <Button
-        size="sm"
-        variant="outlined"
-        {...busy}
-        aria-haspopup="dialog"
-        onClick={() => setOpen(true)}
-      >
-        {COPY.askADj}
-      </Button>
+      <ActionTooltip title={REVIEW_COPY.tooltips.askADj}>
+        <Button
+          size="sm"
+          variant="outlined"
+          {...busy}
+          aria-haspopup="dialog"
+          onClick={() => setOpen(true)}
+        >
+          {COPY.askADj}
+        </Button>
+      </ActionTooltip>
       <AskADjDialog {...dialog} open={open} onClose={() => setOpen(false)} />
     </>
   );

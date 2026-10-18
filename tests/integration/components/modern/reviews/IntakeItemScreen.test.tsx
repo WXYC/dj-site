@@ -5967,6 +5967,13 @@ describe("IntakeItemScreen", () => {
       expect(await screen.findByRole("button", { name: "Ask a DJ…" })).toHaveAccessibleName("Ask a DJ…");
     });
 
+    it("describes Ask a DJ… with its approved line", async () => {
+      fakeReviewsEndpoints({ records: [dogaItem(POOL)], reviewers: [{ id: "dj-sam", name: "Sam" }] });
+      renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      expect(await screen.findByRole("button", { name: "Ask a DJ…", description: "Ask one DJ to review this record. It's held for them for 7 days." })).toBeInTheDocument();
+    });
+
     it("keeps the Digitize a review form in the block through its own ticked save, which then closes it with Digitized.", async () => {
       fakeReviewsEndpoints({ records: [dogaItem(POOL)] });
       const box = serveItem(dogaItem(POOL));

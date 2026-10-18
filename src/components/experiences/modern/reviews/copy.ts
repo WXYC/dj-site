@@ -206,11 +206,13 @@ export const REVIEW_COPY = {
     passHeld: "Give this record back without a review. It goes back on the review shelf, and the music directors see that you passed.",
     /** Approved. More, on a review shelf row. */
     more: "Ask a DJ, use a review we already have, or digitize one from paper.",
+    /** Approved. Ask a DJ…, in a review shelf row's More menu and on a record's page. */
+    askADj: "Ask one DJ to review this record. It's held for them for 7 days.",
     /** Approved. */
     cancelRequest: "Put this record back on the review shelf. The DJ is no longer asked.",
     /** Approved. A music director's Return to the review shelf. */
     returnToShelf: "Take this record back from the DJ who has it and put it on the review shelf, where any DJ can choose to review it. You'll be asked to confirm.",
-    /** Approved. */
+    /** Approved, for the music directors' Mark as returned only. The DJ's own Mark as returned on My reviews has no approved line. */
     markReturned: "The DJ has brought the disc to the music office.",
     /** Approved. */
     save: "Save your changes. Each saved change is kept in the review's history.",
