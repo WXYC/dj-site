@@ -1,4 +1,4 @@
-import { useId, useState } from "react";
+import { useId, useState, type ReactNode } from "react";
 import { Dropdown, ListItemContent, Menu, MenuButton, MenuItem, Typography } from "@mui/joy";
 import KeyboardArrowDown from "@mui/icons-material/KeyboardArrowDown";
 import { AskADjDialog } from "./IntakeRequestPicker";
@@ -33,6 +33,14 @@ function Described({ label, description, href, disabled, onClick }: { label: str
 }
 
 /**
+ * The menu's first two items, in the order they had when the menu opened. The menu mounts its items each time it opens, so the order is taken then and held while it is open: an answer that lands meanwhile cannot swap the item under the pointer or the focus.
+ */
+function OpenedOrder({ citeFirst, ask, cite }: { citeFirst: boolean; ask: ReactNode; cite: ReactNode }) {
+  const [openedCiteFirst] = useState(citeFirst);
+  return openedCiteFirst ? <>{cite}{ask}</> : <>{ask}{cite}</>;
+}
+
+/**
  * The music director's control on a review shelf row: one More button holding the three ways to get a review. Ask a DJ… opens the search here; the other two go to the record's page, which opens the way the link names.
  */
 export default function ShelfMoreMenu({ id, labelledBy, busy, ...dialog }: ShelfMoreMenuProps) {
@@ -40,15 +48,12 @@ export default function ShelfMoreMenu({ id, labelledBy, busy, ...dialog }: Shelf
   const buttonId = useId();
   const page = `/dashboard/admin/intake/${id}`;
   const { any: hinted } = useReviewProbablyExists(dialog.artist, dialog.album, true);
-  // The order is chosen when the menu opens and held while it is open, so an answer that lands then cannot swap the item under the pointer or the focus.
-  const [openedHinted, setOpenedHinted] = useState<boolean | null>(null);
-  const citeFirst = openedHinted ?? hinted;
   const ask = <Described label={COPY.askADj} description={COPY.moreAskDescription} disabled={busy.disabled} onClick={() => setAsking(true)} />;
   const cite = <Described label={COPY.moreCite} description={COPY.moreCiteDescription} href={`${page}?get=cite`} />;
 
   return (
     <>
-      <Dropdown open={openedHinted !== null} onOpenChange={(_event, isOpen) => setOpenedHinted(isOpen ? hinted : null)}>
+      <Dropdown>
         {/* The button stays enabled while a request is in flight: the dialog hands focus back to it when it closes, and only the Ask a DJ… item is locked. */}
         <MenuButton
           id={buttonId}
@@ -60,7 +65,7 @@ export default function ShelfMoreMenu({ id, labelledBy, busy, ...dialog }: Shelf
           {COPY.moreButton}
         </MenuButton>
         <Menu placement="bottom-end">
-          {citeFirst ? <>{cite}{ask}</> : <>{ask}{cite}</>}
+          <OpenedOrder citeFirst={hinted} ask={ask} cite={cite} />
           <Described label={COPY.moreRecord} description={COPY.moreRecordDescription} href={`${page}?get=record`} />
         </Menu>
       </Dropdown>
