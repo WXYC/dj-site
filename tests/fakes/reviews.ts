@@ -119,6 +119,18 @@ export const returned: Partial<IntakeItem> = {
   checked_out_at: null,
 };
 
+/**
+ * A DJ checked the record out and submitted a review, then a music director marked it as returned: POST /intake/{id}/release
+ * from `checked_out` sets `pool` and clears the checkout, while the review still waits. It is off the review shelf (WXYC/dj-site#1991).
+ */
+export const returnedByMusicDirector: Partial<IntakeItem> = {
+  state: "pool",
+  effective_state: "pool",
+  ...returned,
+  submitted_review_count: 1,
+  accepted_review_id: null,
+};
+
 /** The slip a print answers with, for Juana Molina's DOGA: the record the slip specs override `intakeItem()` to, not the builder's default Stereolab record. */
 export const intakeSlip = (overrides: Partial<IntakeSlip> = {}): IntakeSlip => ({
   artist_name: "Juana Molina",

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
-import { CDR_FORMAT, createTestStore, deletingReview, digitalItem, fakeReviewsEndpoints, fccNote, heldBy, holdResponse, intakeItem, outline, pendingCount, removedHolder, renderedFrame, renderWithProviders, requestedFor, returned, review, reviewRevision, reviewsSettled, server, TEST_BACKEND_URL } from "@/tests/helpers";
+import { CDR_FORMAT, createTestStore, deletingReview, digitalItem, fakeReviewsEndpoints, fccNote, heldBy, holdResponse, intakeItem, outline, pendingCount, removedHolder, renderedFrame, renderWithProviders, requestedFor, returned, returnedByMusicDirector, review, reviewRevision, reviewsSettled, server, TEST_BACKEND_URL } from "@/tests/helpers";
 import { fakeRotationCardsEndpoints } from "@/tests/fakes/rotation";
 import { fakeLibraryFilingsEndpoint, filingConflictResponse } from "@/tests/fakes/libraryFilings";
 import { Authorization } from "@/lib/features/admin/types";
@@ -3107,6 +3107,23 @@ describe("IntakeItemScreen", () => {
       expect(await within(await otherReviews()).findByText(line)).toBeInTheDocument();
     });
 
+    // The 2026-10-17 path: a DJ checked the record out and submitted a review, then a music director marked it as returned.
+    it.each([
+      ["a disc", dogaItem, ["CD", "Back in the music office"], "From Jessica Pratt. The record is back in the music office."],
+      ["a digital album", digitalDoga, ["Digital"], "From Jessica Pratt."],
+    ])("never reads On the review shelf for %s a music director returned with a review waiting", async (_label, make, chips, line) => {
+      fakeReviewsEndpoints({ records: [make(returnedByMusicDirector)], forItem: { [ITEM_ID]: [waiting(41)] } });
+
+      const { store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      expect(await within(await otherReviews()).findByText(line)).toBeInTheDocument();
+      await reviewsSettled(store);
+      // The format tag, then the state chip; a digital album with a review waiting has no place to name, so no state chip.
+      const chipRow = screen.getByRole("heading", { level: 3, name: "Juana Molina" }).parentElement as HTMLElement;
+      expect([...chipRow.querySelectorAll(".MuiChip-label")].map((c) => c.textContent)).toEqual(chips);
+      expect(screen.queryByText(/on the review shelf/i)).not.toBeInTheDocument();
+    });
+
     it("says nothing for a filed record nobody has", async () => {
       fakeReviewsEndpoints({ records: [dogaItem({ state: "filed", effective_state: "filed" })], forItem: { [ITEM_ID]: [submitted(40), waiting(41)] } });
 
@@ -4268,9 +4285,10 @@ describe("IntakeItemScreen", () => {
     describe("citing on a record a DJ is asked to review or has", () => {
       const ASKED_QUESTION = "DJ Static is asked to review this. Using a review we already have cancels the request.";
       const TAKEN_QUESTION = "DJ Pinwheel has this record and may be writing a review. Use the existing review anyway?";
-      const asked = dogaItem({ state: "requested", effective_state: "requested", requested_dj_id: "dj-1", requested_dj_name: "DJ Static", accepted_review_id: null });
+      const asked = dogaItem({ state: "requested", effective_state: "requested", requested_dj_id: "dj-1", requested_dj_name: "DJ Static", accepted_review_id: null, submitted_review_count: 0 });
       const taken = dogaItem({ state: "checked_out", effective_state: "checked_out", checked_out_by: "dj-2", checked_out_by_name: "DJ Pinwheel", accepted_review_id: null });
-      const onShelf = dogaItem({ state: "pool", effective_state: "pool", accepted_review_id: null });
+      // No submitted review waits on either, so a withdrawn request and this record both read as on the review shelf.
+      const onShelf = dogaItem({ state: "pool", effective_state: "pool", accepted_review_id: null, submitted_review_count: 0 });
       const reviewedStillOut = dogaItem({ checked_out_by: "dj-2", checked_out_by_name: "DJ Pinwheel" });
       // What the server returns once a citation withdraws a request: the record is back on the review shelf.
       const WITHDRAWN = { state: "pool", effective_state: "pool", requested_dj_id: null, requested_dj_name: null } as const;

@@ -30,7 +30,7 @@ export { pendingCount, renderedFrame, reviewsSettled } from "./reviews-settled";
 export { refetchesAfter } from "./refetches";
 export { handlers } from "../fakes/handlers";
 export { libraryTracksHandler, ONE_TRACK } from "../fakes/libraryTracks";
-export { CDR_FORMAT, digitalItem, fakeReviewsEndpoints, fccNote, heldBy, intakeItem, intakeSlip, removedHolder, requestedFor, returned, review, reviewRevision } from "../fakes/reviews";
+export { CDR_FORMAT, digitalItem, fakeReviewsEndpoints, fccNote, heldBy, intakeItem, intakeSlip, removedHolder, requestedFor, returned, returnedByMusicDirector, review, reviewRevision } from "../fakes/reviews";
 export {
   fakeRotationEndpoints,
   fakeRotationEndpointsWithGatedKill,

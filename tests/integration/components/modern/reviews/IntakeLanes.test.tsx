@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
-import { CDR_FORMAT, digitalItem, fakeReviewsEndpoints, fccNote, heldBy, holdResponse, intakeItem, outline, pendingCount, removedHolder, renderedFrame, renderWithProviders, requestedFor, returned, review, reviewsSettled, server, TEST_BACKEND_URL } from "@/tests/helpers";
+import { CDR_FORMAT, digitalItem, fakeReviewsEndpoints, fccNote, heldBy, holdResponse, intakeItem, outline, pendingCount, removedHolder, renderedFrame, renderWithProviders, requestedFor, returned, returnedByMusicDirector, review, reviewsSettled, server, TEST_BACKEND_URL } from "@/tests/helpers";
 import { Authorization } from "@/lib/features/admin/types";
 
 vi.mock("@/lib/features/authentication/client", async () => {
@@ -226,6 +226,7 @@ describe("IntakeLanes", () => {
       ["a disc is back in the music office with a review waiting", { state: "pool", effective_state: "pool" }, "Back in the music office"],
       ["a returned reviewed disc nobody has", { state: "reviewed", effective_state: "reviewed", ...returned }, "Back in the music office"],
       ["a returned reviewed digital album nobody has", { digital: true, state: "reviewed", effective_state: "reviewed", ...returned }, "Ready to burn"],
+      ["a music director returned a checked out disc with a review waiting", returnedByMusicDirector, "Back in the music office"],
       ["the holder's account was removed", removedHolder, "Holder removed"],
     ])("shows the location line while the read is in flight, then the From line, when %s", async (_label, itemOverrides, location) => {
       const item = waiting(7, itemOverrides);
@@ -242,6 +243,43 @@ describe("IntakeLanes", () => {
       await read.answered;
       expect(await within(waitingLane).findByText(/^From Jessica Pratt/)).toBeInTheDocument();
       expect(within(waitingLane).queryByText(location)).not.toBeInTheDocument();
+      expect(within(waitingLane).queryByText(/on the review shelf/i)).not.toBeInTheDocument();
+    });
+
+    it.each([
+      ["a music director returned a disc", returnedByMusicDirector, "From Jessica Pratt. The record is back in the music office."],
+      ["a digital album was given back", { ...returnedByMusicDirector, digital: true }, "From Jessica Pratt."],
+    ])("never reads On the review shelf for a pool record with a review waiting, when %s", async (_label, itemOverrides, line) => {
+      const item = waiting(7, itemOverrides);
+      fakeReviewsEndpoints({ open: [item], awaiting: [item] });
+      const read = holdResponse("get", REVIEWS_URL, () => HttpResponse.json([waitingReview(70, 7)]));
+
+      renderWithProviders(<IntakeLanes />);
+
+      const waitingLane = await lane("Review waiting (1)");
+      expect(within(waitingLane).queryByText(/on the review shelf/i)).not.toBeInTheDocument();
+
+      read.release();
+      await read.answered;
+      expect(await within(waitingLane).findByText(line)).toBeInTheDocument();
+      expect(within(waitingLane).queryByText(/on the review shelf/i)).not.toBeInTheDocument();
+    });
+
+    it("shows no location line for a pool digital album with a review waiting while its reviews are read", async () => {
+      const item = waiting(7, { ...returnedByMusicDirector, digital: true });
+      fakeReviewsEndpoints({ open: [item], awaiting: [item] });
+      const read = holdResponse("get", REVIEWS_URL, () => HttpResponse.json([waitingReview(70, 7)]));
+
+      renderWithProviders(<IntakeLanes />);
+
+      const waitingLane = await lane("Review waiting (1)");
+      // The row holds its record line and nothing else: no location line, not an empty one.
+      const link = within(waitingLane).getByRole("link", { name: /Moon Pix/ });
+      expect(link.closest("li")!.textContent).toBe(link.textContent);
+
+      read.release();
+      await read.answered;
+      expect(await within(waitingLane).findByText("From Jessica Pratt.")).toBeInTheDocument();
     });
 
     it("keeps the location line when the read fails", async () => {
