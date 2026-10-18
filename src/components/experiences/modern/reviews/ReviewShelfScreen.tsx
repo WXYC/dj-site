@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { toast } from "sonner";
 import { Button, Link, Typography } from "@mui/joy";
 import type { IntakeItem, Reviewer } from "@wxyc/shared";
@@ -27,6 +27,16 @@ export default function ReviewShelfScreen({ items, formats, isMD, reviewers, wri
   const reviewersFailed = hasNothingToShow(reviewers);
   // A write outlives the screen when the music director navigates away mid-click; its Asked toast, whose Cancel request could then fail unheard, is skipped.
   const mounted = useMounted();
+  // The Asked toasts this screen raised. The toaster sits in the root layout, so a toast outlives the screen; its Cancel request reports a failure or a lost race through this screen's write, which says nothing once the screen has gone. Each one is dismissed when the screen unmounts.
+  const askedToasts = useRef(new Set<string | number>());
+  useEffect(() => {
+    const raised = askedToasts.current;
+    return () => {
+      for (const id of raised) {
+        toast.dismiss(id);
+      }
+    };
+  }, []);
 
   // Names each record's Ask a DJ… button for the record it acts on.
   const shelfRecordId = (i: IntakeItem) => `review-shelf-record-${i.id}`;
@@ -39,9 +49,10 @@ export default function ReviewShelfScreen({ items, formats, isMD, reviewers, wri
       sent = true;
     });
     if (sent && mounted.current) {
-      toast(REVIEW_COPY.intake.askDone(reviewer.name), {
+      const id = toast(REVIEW_COPY.intake.askDone(reviewer.name), {
         action: { label: REVIEW_COPY.intake.cancelRequest, onClick: () => write(i.id, "cancel", () => cancelRequest(i.id).unwrap()) },
       });
+      askedToasts.current.add(id);
     }
   };
 
