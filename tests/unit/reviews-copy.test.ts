@@ -172,3 +172,18 @@ describe("REVIEW_COPY Add a record, the button, the dialog and what it says afte
     expect(actual).toBe(expected);
   });
 });
+
+describe("REVIEW_COPY round 10, the More menu on a music director's review shelf row", () => {
+  const i = REVIEW_COPY.intake;
+  it.each([
+    ["moreButton", i.moreButton, "More"],
+    ["askADj", i.askADj, "Ask a DJ…"],
+    ["moreCite", i.moreCite, "Use a review we already have…"],
+    ["moreRecord", i.moreRecord, "Digitize a review…"],
+    ["moreAskDescription", i.moreAskDescription, "Held for them for 7 days."],
+    ["moreCiteDescription", i.moreCiteDescription, "From the copy in the library, or a form review."],
+    ["moreRecordDescription", i.moreRecordDescription, "Type in a review that's on paper."],
+  ])("pins %s", (_key, actual, expected) => {
+    expect(actual).toBe(expected);
+  });
+});

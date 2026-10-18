@@ -45,7 +45,7 @@ export default function RecordOrigin({ item, focusCite, settled, children }: { i
     }
   };
   // A page about one record, so Ask a DJ… is named by its own words.
-  const { picker } = useAskADj({ reviewers, write, lock, namedByRow: false, onSettled: (_i, outcome) => followRecord(outcome) });
+  const { picker } = useAskADj({ reviewers, write, lock, onSettled: (_i, outcome) => followRecord(outcome) });
   const cancel = async () => followRecord(await write(item.id, "cancel", () => cancelRequest(item.id).unwrap()));
   const titleId = `record-origin-${item.id}`;
   const line = whereLine(item);

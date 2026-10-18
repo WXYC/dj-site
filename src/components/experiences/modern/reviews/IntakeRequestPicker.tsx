@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useId, useState } from "react";
+import { Fragment, useCallback, useState } from "react";
 import { flushSync } from "react-dom";
 import { Autocomplete, Button, List, ListItem, ListSubheader, Typography } from "@mui/joy";
 import AutocompleteOption from "@mui/joy/AutocompleteOption";
@@ -40,8 +40,6 @@ interface AskADjDialogProps {
 }
 
 interface IntakeRequestPickerProps extends Omit<AskADjDialogProps, "open" | "onClose"> {
-  /** The ids of the elements that name the record (space-separated, as `aria-labelledby` takes them), which name the button for the record it acts on among many. A page about one record leaves it out, so the button is named by its own words. */
-  labelledBy?: string;
   /** The row's `lock(id, "request")`. */
   busy: { loading: boolean; disabled: boolean };
 }
@@ -171,20 +169,17 @@ export function AskADjDialog({ reviewers, loading, failed, passedIds, artist, al
   );
 }
 
-/** One button that opens the dialog, named for the record it acts on when `labelledBy` is given. */
-export default function IntakeRequestPicker({ labelledBy, busy, ...dialog }: IntakeRequestPickerProps) {
+/** One button that opens the dialog, on a page about one record, so it is named by its own words. */
+export default function IntakeRequestPicker({ busy, ...dialog }: IntakeRequestPickerProps) {
   const [open, setOpen] = useState(false);
-  const buttonId = useId();
 
   return (
     <>
       <Button
-        id={buttonId}
         size="sm"
         variant="outlined"
         {...busy}
         aria-haspopup="dialog"
-        aria-labelledby={labelledBy && `${buttonId} ${labelledBy}`}
         onClick={() => setOpen(true)}
       >
         {COPY.askADj}

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
-import { delay, http, HttpResponse } from "msw";
+import { http, HttpResponse } from "msw";
 import type { ReactElement } from "react";
 import type { IntakeItem } from "@wxyc/shared";
 import { Authorization } from "@/lib/features/admin/types";
@@ -72,11 +72,21 @@ const rowOf = async (artist: string) => {
 const moreOf = async (artist: string, album: string) =>
   within(await rowOf(artist)).findByRole("button", { name: `${MORE} ${artist} ${album}` });
 
+// The approved words, written out so a change to copy.ts can't pass by being read back.
 const ITEMS = [
-  ["Ask a DJ…", COPY.askADj, COPY.moreAskDescription],
-  ["Use a review we already have…", COPY.moreCite, COPY.moreCiteDescription],
-  ["Digitize a review…", COPY.moreRecord, COPY.moreRecordDescription],
+  ["Ask a DJ…", "Held for them for 7 days."],
+  ["Use a review we already have…", "From the copy in the library, or a form review."],
+  ["Digitize a review…", "Type in a review that's on paper."],
 ] as const;
+
+/** A request handler's response, held until the test lets it go, so an in-flight window lasts as long as the test needs rather than a fixed delay. */
+const holdResponse = () => {
+  let letGo!: () => void;
+  const held = new Promise<void>((resolve) => {
+    letGo = resolve;
+  });
+  return { held, letGo };
+};
 
 beforeEach(() => {
   url.search = "";
@@ -108,9 +118,21 @@ describe.each(SURFACES)("the music director's More menu on $name", ({ draw, hasC
     const menu = await screen.findByRole("menu");
     const items = within(menu).getAllByRole("menuitem");
     expect(items).toHaveLength(3);
-    ITEMS.forEach(([name, , description], index) => {
+    ITEMS.forEach(([name, description], index) => {
       expect(within(menu).getByRole("menuitem", { name, description })).toBe(items[index]);
     });
+  });
+
+  it("marks Ask a DJ… as opening a dialog, and the two links as not", async () => {
+    serve([DOGA]);
+    const { user } = renderWithProviders(draw([DOGA], true));
+
+    await user.click(await moreOf("Juana Molina", "DOGA"));
+
+    const menu = await screen.findByRole("menu");
+    expect(within(menu).getByRole("menuitem", { name: "Ask a DJ…" })).toHaveAttribute("aria-haspopup", "dialog");
+    expect(within(menu).getByRole("menuitem", { name: "Use a review we already have…" })).not.toHaveAttribute("aria-haspopup");
+    expect(within(menu).getByRole("menuitem", { name: "Digitize a review…" })).not.toHaveAttribute("aria-haspopup");
   });
 
   it.each([
@@ -198,9 +220,10 @@ describe.each(SURFACES)("the music director's More menu on $name", ({ draw, hasC
       ],
     ])("puts focus on More after %s", async (_how, close) => {
       serve([DOGA]);
+      const { held, letGo } = holdResponse();
       server.use(
         http.post(`${TEST_BACKEND_URL}/intake/1/request`, async () => {
-          await delay(300);
+          await held;
           return HttpResponse.json({ ...DOGA, state: "requested", effective_state: "requested" });
         }),
       );
@@ -212,13 +235,15 @@ describe.each(SURFACES)("the music director's More menu on $name", ({ draw, hasC
       await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
       expect(more).toBeEnabled();
       expect(document.activeElement).toBe(more);
+      letGo();
     });
 
     it("locks only the Ask a DJ… item while its request is in flight, leaving More usable", async () => {
       serve([DOGA]);
+      const { held, letGo } = holdResponse();
       server.use(
         http.post(`${TEST_BACKEND_URL}/intake/1/request`, async () => {
-          await delay(300);
+          await held;
           return HttpResponse.json({ ...DOGA, state: "requested", effective_state: "requested" });
         }),
       );
@@ -233,6 +258,7 @@ describe.each(SURFACES)("the music director's More menu on $name", ({ draw, hasC
       await user.click(more);
       expect(await screen.findByRole("menuitem", { name: COPY.askADj })).toHaveAttribute("aria-disabled", "true");
       expect(screen.getByRole("menuitem", { name: "Use a review we already have…" })).not.toHaveAttribute("aria-disabled", "true");
+      letGo();
     });
   });
 
