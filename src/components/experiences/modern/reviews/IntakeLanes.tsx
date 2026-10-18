@@ -12,7 +12,7 @@ import {
   useReleaseIntakeItemMutation,
 } from "@/lib/features/reviews/intakeApi";
 import { LIVE_LIST } from "@/lib/features/reviews/api";
-import { awaitingRecords, itemHolder, recordStage, type ReviewStage } from "@/lib/features/reviews/holder";
+import { itemHolder, recordStage, type ReviewStage } from "@/lib/features/reviews/holder";
 import { byKind, recordKind } from "@/lib/features/reviews/kind";
 import { useAppDispatch } from "@/lib/hooks";
 import { useCanSeeReviews } from "@/src/hooks/useCanSeeReviews";
@@ -25,16 +25,14 @@ import { REVIEW_COPY } from "./copy";
 import RecordRow from "./RecordRow";
 import { intakeRecord } from "./recordLine";
 import { placeLine, WaitingFrom } from "./ReviewFrom";
+import { EVERY_STATE } from "./useReviewWrite";
 import { formatStationShortDate } from "@/src/utilities/stationTime";
 import { hasNothingToShow } from "@/lib/has-nothing-to-show";
 
 const COPY = REVIEW_COPY.intake;
 
-// One argument per read, shared by its hook and the post-write reload so the
-// reload reaches the same cache entry. The unfiltered read carries every
-// state; the lanes are its rows grouped by `effective_state`.
-const EVERY_STATE = undefined;
-export const AWAITING_LANE = { awaiting_acceptance: true } as const;
+// The lanes are one read, the unfiltered one (`EVERY_STATE`, shared with the Reviewing tab and the tab count), with each
+// row drawn in the lane `recordStage` gives it, so a record is in exactly one lane.
 
 // `release` is Being reviewed's Return to the review shelf; `return` is Mark as returned, on the Reviewed lane and on a
 // Review waiting disc. Both call /release.
@@ -83,17 +81,13 @@ export default function IntakeLanes() {
 
 function IntakeLaneGroups() {
   const everyState = useGetIntakeItemsQuery(EVERY_STATE, LIVE_LIST);
-  const awaiting = useGetIntakeItemsQuery(AWAITING_LANE, LIVE_LIST);
   const [release] = useReleaseIntakeItemMutation();
   const [cancelRequest] = useCancelIntakeRequestMutation();
   const dispatch = useAppDispatch();
   const [notice, setNotice] = useState<string | null>(null);
   const [confirming, setConfirming] = useState<Confirming | null>(null);
   const { write, lock } = useRowWrite<Action>({
-    reload: () =>
-      [EVERY_STATE, AWAITING_LANE].map((arg) =>
-        dispatch(intakeApi.endpoints.getIntakeItems.initiate(arg, { subscribe: false, forceRefetch: true })),
-      ),
+    reload: () => [dispatch(intakeApi.endpoints.getIntakeItems.initiate(EVERY_STATE, { subscribe: false, forceRefetch: true }))],
     isLostRace: isIntakeStateChanged,
     onFailure: () => toast.error(REVIEW_COPY.screen.writeFailed),
     onLostRace: (_id, action) => setNotice(RACE_NOTICE[action]),
@@ -105,17 +99,18 @@ function IntakeLaneGroups() {
     return write(id, action, run);
   };
 
-  if ([everyState, awaiting].some(hasNothingToShow)) {
+  if (hasNothingToShow(everyState)) {
     return <Typography role="alert">{REVIEW_COPY.screen.loadFailed}</Typography>;
   }
-  // Until every lane lands, an empty-state sentence would read as a fact.
-  if (!everyState.data || !awaiting.data) return null;
+  // Until the read lands, an empty-state sentence would read as a fact.
+  if (!everyState.data) {
+    return null;
+  }
 
-  const waitingIds = new Set(awaiting.data.map((i) => i.id));
-  const inStage = (stage: ReviewStage) => everyState.data!.filter((i) => recordStage(i, waitingIds) === stage);
+  const inStage = (stage: ReviewStage) => everyState.data!.filter((i) => recordStage(i) === stage);
   // Both checkout lanes put the records a DJ has held past the server's overdue line first; the sort is stable.
   const overdueFirst = (rows: IntakeItem[]) => [...rows].sort((a, b) => Number(b.overdue) - Number(a.overdue));
-  const waitingRows = awaitingRecords(awaiting.data);
+  const waitingRows = inStage("waiting");
   const reviewed = inStage("reviewed");
   const passes = everyState.data
     .flatMap((i) => (i.passes ?? []).map((p) => ({ ...p, id: `${i.id}-${p.dj_name}-${p.passed_at}`, item: i })))
@@ -214,11 +209,9 @@ function IntakeLaneGroups() {
           laneRow(
             i,
             <Typography level="body-sm">{where(i)}</Typography>,
-            !waitingIds.has(i.id) && (
-              <Button size="sm" variant="outlined" {...lock(i.id, "release")} onClick={() => setConfirming({ item: i, action: "release" })}>
-                {REVIEW_COPY.screen.returnToShelf}
-              </Button>
-            ),
+            <Button size="sm" variant="outlined" {...lock(i.id, "release")} onClick={() => setConfirming({ item: i, action: "release" })}>
+              {REVIEW_COPY.screen.returnToShelf}
+            </Button>,
           )
         }
       />
