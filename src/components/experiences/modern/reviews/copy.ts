@@ -281,7 +281,13 @@ export const REVIEW_COPY = {
     digital: "Digital",
     discogsReleaseId: "Discogs link or release number (optional)",
     discogsRefused: "That isn't a Discogs release link or number.",
+    /**
+     * A proposal for the next copy round, not yet seen by the station: the Discogs field's line once a pasted link
+     * or number has filled the form. It names all three fields even when some were already typed in, or Discogs
+     * had no label, so the copy round should also decide whether it names only the fields it filled.
+     */
     discogsFilled: "Filled in the artist, album and label from Discogs. Check them before you add the record.",
+    /** A proposal for the next copy round, not yet seen by the station: the spinner's accessible name while the Discogs field's link is looked up. */
     discogsFilling: "Looking up the record on Discogs",
     /** Approved. */
     log: "Log item",
