@@ -58,12 +58,12 @@ describe("formReviewStart", () => {
     expect(formReviewStart(review).author).toBe(author);
   });
 
-  it.each<[string, number | null]>([
-    ["a form review's id", formReviewStart(archived({ id: 77 })).copiedFrom],
-    ["the empty start", EMPTY_START.copiedFrom],
-    ["the paper start", PAPER_START.copiedFrom],
-  ])("carries %s as copiedFrom", (label, copiedFrom) => {
-    expect(copiedFrom).toBe(label === "a form review's id" ? 77 : null);
+  it.each<[string, number | null, number | null]>([
+    ["a form review's id", formReviewStart(archived({ id: 77 })).copiedFrom, 77],
+    ["the empty start", EMPTY_START.copiedFrom, null],
+    ["the paper start", PAPER_START.copiedFrom, null],
+  ])("carries %s as copiedFrom", (_label, copiedFrom, expected) => {
+    expect(copiedFrom).toBe(expected);
   });
 
   it("starts from the same empty values as the form opened by hand", () => {

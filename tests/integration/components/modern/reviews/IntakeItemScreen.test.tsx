@@ -3256,7 +3256,7 @@ describe("IntakeItemScreen", () => {
       });
 
       it.each([
-        { label: "a form review's start (copy, or copy-and-cite)", start: () => archived("Sam"), sent: true },
+        { label: "a form review's start", start: () => archived("Sam"), sent: true },
         { label: "the empty start", start: () => EMPTY_START, sent: false },
         { label: "the paper start", start: () => PAPER_START, sent: false },
       ])("saves from $label with copied_from_submission_id only if copied, ticked or not", async ({ start, sent }) => {
@@ -3265,7 +3265,9 @@ describe("IntakeItemScreen", () => {
           const { user, unmount } = renderForm(start());
           await writeReview(user, " Warm.");
           await fillAuthor(user, "Sessa");
-          if (unticked) await user.click(screen.getByRole("checkbox", { name: REVIEW_COPY.record.useAsCover }));
+          if (unticked) {
+            await user.click(screen.getByRole("checkbox", { name: REVIEW_COPY.record.useAsCover }));
+          }
 
           await save(user);
 
@@ -5129,6 +5131,89 @@ describe("IntakeItemScreen", () => {
         await reviewsSettled(store);
         expect(archiveReads).not.toContain(String(OTHER_ID));
       });
+    });
+  });
+
+  describe("which form review a recording came from", () => {
+    const CITED_ID = 7;
+    const COPY_ONTO = REVIEW_COPY.intakeItem.copyOntoRecord;
+    const FIRST_ID = 7701;
+    const SECOND_ID = 7702;
+    const formReview = (id: number, review: string): AlbumReview => ({
+      id, reviewer: "Test Reviewer", album_id: null, artist_name: "Juana Molina", album_title: "Un día", record_label: "Sonamos",
+      artist_blurb: null, review, recommended_tracks: null, buzzwords: null, fcc_violations: null, review_purpose: null,
+      rotated: null, released_within_six_months: null, social_consent: null, submitted_at: "2026-03-02T17:00:00Z",
+    });
+    const FORM_REVIEWS = [formReview(FIRST_ID, "First form take."), formReview(SECOND_ID, "Second form take.")];
+    const RELEASES = [{ id: CITED_ID, artist_name: "Jessica Pratt", album_title: "On Your Own Love Again" }];
+    const pooled = (overrides = {}) => dogaItem({ accepted_review_id: null, state: "pool", effective_state: "pool", ...overrides });
+
+    /** Serves the record page with the form archive's reviews where each button looks for them, and the POST /reviews that records what the create said. */
+    const serve = (item: ReturnType<typeof dogaItem>) => {
+      fakeReviewsEndpoints({
+        records: [item], forItem: { [ITEM_ID]: [] }, forRelease: { [CITED_ID]: [] }, reviews: [], archive: { [CITED_ID]: FORM_REVIEWS },
+        releases: RELEASES, byArtist: { "Juana Molina": FORM_REVIEWS },
+      });
+      const box = serveItem(item);
+      serveItemReviews([]);
+      const creates: Record<string, unknown>[] = [];
+      server.use(
+        http.patch(FILED_ITEM_PATH, () => HttpResponse.json(box.item)),
+        http.post(`${TEST_BACKEND_URL}/reviews`, async ({ request }) => {
+          creates.push((await request.json()) as Record<string, unknown>);
+          return HttpResponse.json(submitted(90, { author: "Sessa", review: "Warm." }), { status: 201 });
+        }),
+      );
+      return creates;
+    };
+
+    it.each<{ press: string; item: ReturnType<typeof dogaItem>; start: (user: User) => Promise<void>; expected: number | null }>([
+      {
+        press: "the copy button on the form search (copy and cite), the second form review",
+        item: pooled(),
+        start: async (user) => {
+          await user.click(await screen.findByRole("button", { name: "Cite a form review" }));
+          const region = await screen.findByRole("region", { name: "Cite a form review" });
+          await user.click((await within(region).findAllByRole("button", { name: COPY_ONTO }))[1]);
+        },
+        expected: SECOND_ID,
+      },
+      {
+        press: "the copy button under the cited release (copy only), the second form review",
+        item: pooled({ cited_album_id: CITED_ID }),
+        start: async (user) => {
+          await user.click((await screen.findAllByRole("button", { name: COPY_ONTO }))[1]);
+        },
+        expected: SECOND_ID,
+      },
+      {
+        press: "Record a review (a fresh start)",
+        item: pooled(),
+        start: async (user) => {
+          await user.click(await screen.findByRole("button", { name: "Record a review" }));
+        },
+        expected: null,
+      },
+    ])("sends the form review's id as copied_from_submission_id only when saving from $press", async ({ item, start, expected }) => {
+      const creates = serve(item);
+      const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      await start(user);
+      if (expected === null) {
+        await user.type(await screen.findByRole("textbox", { name: "Author" }), "Sessa");
+        await user.type(screen.getByRole("textbox", { name: "Review" }), "Warm.");
+      } else {
+        expect(await screen.findByRole("textbox", { name: "Review" })).toHaveValue("Second form take.");
+      }
+      await user.click(screen.getByRole("button", { name: "Save" }));
+
+      await waitFor(() => expect(creates).toHaveLength(1));
+      if (expected === null) {
+        expect(creates[0]).not.toHaveProperty("copied_from_submission_id");
+      } else {
+        expect(creates[0]).toMatchObject({ copied_from_submission_id: expected });
+      }
+      await reviewsSettled(store);
     });
   });
 
