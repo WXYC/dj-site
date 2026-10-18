@@ -62,8 +62,11 @@ test("the intake golden path, from logging a record to the librarian's finalize"
   const checkoutRow = (page: Page, stage: "open" | "submitted" = "open") =>
     page.getByRole("tabpanel", { name: COPY.myReviews.stages[stage] }).getByRole("listitem").filter({ hasText: album });
   // The New music tab shows one stage at a time: choose the stage's chip (named "Label, count"), then read its list.
+  // The chips draw only once the intake read lands, so wait for the chip before clicking it.
   const laneRow = async (page: Page, stage: string) => {
-    await page.getByRole("tab", { name: new RegExp(`^${escapeRegExp(stage)},`) }).click();
+    const chip = page.getByRole("tab", { name: new RegExp(`^${escapeRegExp(stage)},`) });
+    await expect(chip).toBeVisible({ timeout: 15000 });
+    await chip.click();
     return page.getByRole("tabpanel", { name: stage, exact: true }).getByRole("listitem").filter({ hasText: album });
   };
 

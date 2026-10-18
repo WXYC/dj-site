@@ -1,7 +1,6 @@
 import { toast } from "sonner";
 import type { IntakeItem } from "@wxyc/shared";
 import {
-  isIntakeRequestRefused,
   isIntakeStateChanged,
   intakeApi,
 } from "@/lib/features/reviews/intakeApi";
@@ -10,6 +9,7 @@ import { byKind } from "@/lib/features/reviews/kind";
 import { useAppDispatch } from "@/lib/hooks";
 import { useRowWrite } from "@/src/hooks/useRowWrite";
 import { REVIEW_COPY } from "./copy";
+import { answerRefusedRequest } from "./useAskADj";
 import { formatStationShortDate } from "@/src/utilities/stationTime";
 
 export const day = (iso: string | null) => (iso ? formatStationShortDate(iso) : "");
@@ -62,9 +62,7 @@ export function useReviewWrite(items: IntakeItem[] | undefined, { reloadMine = t
     ],
     isLostRace: (err) => isIntakeStateChanged(err) || isReviewSubjectNotHeld(err),
     onFailure: (err, _id, action) => {
-      if (action === "request" && isIntakeRequestRefused(err)) {
-        toast.error(REVIEW_COPY.intake.requestRefused);
-        void dispatch(reviewApi.endpoints.getReviewers.initiate(undefined, { subscribe: false, forceRefetch: true }));
+      if (answerRefusedRequest(err, action, dispatch)) {
         return;
       }
       toast.error(action === "write" ? REVIEW_COPY.couldNotStart : REVIEW_COPY.screen.writeFailed);
