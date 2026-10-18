@@ -86,6 +86,7 @@ export default function RecordReviewForm({ itemId, hasCover, start = EMPTY_START
       medium,
       accept: onCover,
       ...(linked !== "" && { author_user_id: linked }),
+      ...(start.copiedFrom != null && { copied_from_submission_id: start.copiedFrom }),
       ...toFieldPatch(values),
     };
     try {
