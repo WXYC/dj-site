@@ -14,7 +14,7 @@ import { formatStationShortDate } from "@/src/utilities/stationTime";
 
 export const day = (iso: string | null) => (iso ? formatStationShortDate(iso) : "");
 
-type Action = "checkout" | "accept" | "pass" | "release" | "write" | "request";
+type Action = "checkout" | "accept" | "pass" | "release" | "write" | "request" | "cancel";
 
 /** What a lost race (409 `state_changed`) means for each button, shown once the lists have reloaded. A digital album is never lent, so its release and write races read as the claim having moved. */
 const raceNotice = (action: Action, item: IntakeItem | undefined): string => {
@@ -30,6 +30,8 @@ const raceNotice = (action: Action, item: IntakeItem | undefined): string => {
       return item ? byKind(item, { disc: REVIEW_COPY.subjectNotHeld, digital: REVIEW_COPY.subjectNotHeldDigital }) : REVIEW_COPY.subjectNotHeld;
     case "request":
       return REVIEW_COPY.intake.raceRequest;
+    case "cancel":
+      return REVIEW_COPY.intake.raceCancel;
   }
 };
 

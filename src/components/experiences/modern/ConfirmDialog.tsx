@@ -38,10 +38,14 @@ export type ConfirmDialogProps = {
    * labels correctly but grows the stylesheet.
    */
   titleId?: string;
+  /** Id of the element in `children` that says what the dialog asks. Joy bakes it into the CSS selector as it does `titleId`, so pass a literal. */
+  describedBy?: string;
   /** `alertdialog` asks for a decision; a shell hosting work to carry on with passes `dialog`. */
   role?: "alertdialog" | "dialog";
   /** `data-testid` on the `ModalDialog`. */
   testId?: string;
+  /** `fullscreen` makes the dialog a sheet that fills the screen, for a phone. */
+  layout?: "center" | "fullscreen";
   sx?: SxProps;
 };
 
@@ -61,8 +65,10 @@ export default function ConfirmDialog({
   children,
   actions,
   titleId,
+  describedBy,
   role = "alertdialog",
   testId,
+  layout,
   sx,
 }: ConfirmDialogProps) {
   const generatedId = useId();
@@ -77,8 +83,10 @@ export default function ConfirmDialog({
     >
       <ModalDialog
         variant="outlined"
+        layout={layout}
         role={role}
         aria-labelledby={labelId}
+        aria-describedby={describedBy}
         data-testid={testId}
         sx={sx}
       >
