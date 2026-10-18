@@ -60,7 +60,7 @@ export default function IntakeRequestPicker({ reviewers, labelledBy, artist, alb
         title={COPY.askADj}
         layout={isPhone ? "fullscreen" : "center"}
         actions={
-          picked && (
+          picked ? (
             <>
               <Button variant="plain" onClick={() => setPicked(null)}>{COPY.back}</Button>
               <Button
@@ -73,6 +73,9 @@ export default function IntakeRequestPicker({ reviewers, labelledBy, artist, alb
                 {COPY.ask}
               </Button>
             </>
+          ) : (
+            // A phone's sheet hides the backdrop and its keyboard has no Escape.
+            <Button variant="plain" onClick={close}>{REVIEW_COPY.screen.cancel}</Button>
           )
         }
       >
@@ -89,6 +92,7 @@ export default function IntakeRequestPicker({ reviewers, labelledBy, artist, alb
             // The matcher has already filtered, folded and capped the options.
             filterOptions={(all) => all}
             getOptionLabel={(r) => r.name}
+            getOptionKey={(r) => r.id}
             getOptionDisabled={(r) => r.id === OVERFLOW_ID}
             placeholder={COPY.askSearch}
             slotProps={{ input: { "aria-label": COPY.askSearch }, listbox: { sx: { maxHeight: 320 } } }}
