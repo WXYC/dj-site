@@ -187,3 +187,13 @@ describe("REVIEW_COPY round 10, the More menu on a music director's review shelf
     expect(actual).toBe(expected);
   });
 });
+
+describe("REVIEW_COPY request lines", () => {
+  it.each([
+    ["requestedBy", REVIEW_COPY.screen.requestedBy("Mike", "Oct 16"), "Mike requested your review on Oct 16."],
+    ["requestedNoAsker", REVIEW_COPY.screen.requestedNoAsker("Oct 16"), "Your review was requested on Oct 16."],
+    ["heldForAskedBy", REVIEW_COPY.intake.heldForAskedBy("DJ Pat", "Mike"), "Held for DJ Pat, asked by Mike"],
+  ])("pins %s", (_key, actual, expected) => {
+    expect(actual).toBe(expected);
+  });
+});

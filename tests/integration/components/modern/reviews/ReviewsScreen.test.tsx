@@ -235,7 +235,7 @@ describe("ReviewsScreen", () => {
   it.each([
     ["a disc", item],
     ["a digital album", digitalItem],
-  ])("prints Added, Reviewing since and Asked dates of %s in station time with the year", async (_label, make) => {
+  ])("prints Added, Reviewing since and request dates of %s in station time with the year", async (_label, make) => {
     serveIntake([
       make({ id: 21, state: "pool", effective_state: "pool", logged_at: "2025-10-09T03:30:00Z" }),
       make({ id: 22, effective_state: "checked_out", checked_out_by: ME, checked_out_at: "2025-08-02T03:30:00Z" }),
@@ -246,7 +246,7 @@ describe("ReviewsScreen", () => {
 
     expect(await screen.findByText("Added Oct 8, 2025")).toBeInTheDocument();
     expect(screen.getByText("Reviewing since Aug 1, 2025")).toBeInTheDocument();
-    expect(screen.getByText("Asked Aug 31, 2025")).toBeInTheDocument();
+    expect(screen.getByText("Your review was requested on Aug 31, 2025.")).toBeInTheDocument();
   });
 
   it("keeps a reviewed record I hold, marked, and the release sends and clears the row", async () => {
@@ -466,7 +466,7 @@ describe("ReviewsScreen", () => {
     });
   });
 
-  it("draws each request as a record row: the parts separately, Asked beside them, and Write a review and Pass together in the actions region", async () => {
+  it("draws each request as a record row: the parts separately, the request line beside them, and Write a review and Pass together in the actions region", async () => {
     serveIntake([item({ id: 11, state: "requested", effective_state: "requested", requested_dj_id: ME, requested_at: "2026-09-30T12:00:00Z" })]);
     renderWithProviders(<BothTabs />);
     const requests = await section("Requests for me");
@@ -474,13 +474,13 @@ describe("ReviewsScreen", () => {
       expect((await within(requests).findByText(part)).textContent).toBe(part);
     }
     expect(within(requests).queryByText(/·/)).not.toBeInTheDocument();
-    expect(within(requests).getByText(/^Asked /)).toBeInTheDocument();
+    expect(within(requests).getByText(/^Your review was requested on /)).toBeInTheDocument();
     expect(within(requests).getAllByRole("listitem")).toHaveLength(1);
     const write = within(requests).getByRole("button", { name: "Write a review" });
     const pass = within(requests).getByRole("button", { name: "Pass" });
     expect(write.parentElement).toBe(pass.parentElement);
     expect(write.parentElement).not.toContainElement(within(requests).getByText("Stereolab"));
-    expect(write.parentElement).not.toContainElement(within(requests).getByText(/^Asked /));
+    expect(write.parentElement).not.toContainElement(within(requests).getByText(/^Your review was requested on /));
   });
 
   // The notice says the lists have been reloaded, so it waits until they have.
@@ -1440,7 +1440,6 @@ describe("ReviewsScreen", () => {
     ["reviewersLoadFailed", REVIEW_COPY.intake.reviewersLoadFailed, "Couldn't load the DJs who can be asked to review. Please try again."],
     ["added", REVIEW_COPY.screen.added, "Added"],
     ["reviewingSince", REVIEW_COPY.screen.reviewingSince, "Reviewing since"],
-    ["asked", REVIEW_COPY.screen.asked, "Asked"],
     ["cancel", REVIEW_COPY.screen.cancel, "Cancel"],
     ["passTitle", REVIEW_COPY.screen.passTitle("DOGA", "Juana Molina"), "Pass on DOGA by Juana Molina?"],
     ["passConfirm", REVIEW_COPY.screen.passConfirm, "It goes back on the review shelf, and the music directors see that you passed."],

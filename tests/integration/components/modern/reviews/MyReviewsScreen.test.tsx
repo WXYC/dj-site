@@ -44,6 +44,17 @@ const renderScreen = (items: IntakeItem[], myReviews: Review[]) => {
 };
 
 describe("MyReviewsScreen", () => {
+  // An earlier year than the clock's, so the day carries its year.
+  it.each([
+    ["an asker", "Mike", "Mike requested your review on Oct 16, 2025."],
+    ["no asker", null, "Your review was requested on Oct 16, 2025."],
+  ])("words the request row for %s", async (_label, askedBy, expected) => {
+    const item = { ...asked(7), requested_at: "2025-10-16T12:00:00Z", requested_by_name: askedBy };
+    renderScreen([item], []);
+
+    expect(await screen.findByText(expected)).toBeInTheDocument();
+  });
+
   it("draws the chips with their counts, and Open reviews holds requests and records I have", async () => {
     renderScreen([asked(7), held(8)], [submitted(40), submitted(41, { in_use: true })]);
 

@@ -138,6 +138,17 @@ describe("IntakeLanes", () => {
     expect(actual).toBe(approved);
   });
 
+  it.each([
+    ["an asker", "Mike", "Held for DJ Pat, asked by Mike"],
+    ["no asker", null, "Held for DJ Pat"],
+  ])("words a held record's line for %s", async (_label, askedBy, expected) => {
+    fakeReviewsEndpoints({ open: [moonPix({ id: 2, state: "requested", effective_state: "requested", ...requestedFor(null, "DJ Pat"), requested_by_name: askedBy })] });
+
+    renderWithProviders(<IntakeLanes />);
+
+    expect(await within(await lane("Requested")).findByText(expected)).toBeInTheDocument();
+  });
+
   it("names each record by its artist, album, label and format, in the lane for its state", async () => {
     fakeReviewsEndpoints({
       open: [

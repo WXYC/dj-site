@@ -12,6 +12,7 @@ import {
   useReleaseIntakeItemMutation,
 } from "@/lib/features/reviews/intakeApi";
 import { useCreateReviewMutation } from "@/lib/features/reviews/reviewApi";
+import { itemHolder } from "@/lib/features/reviews/holder";
 import { byKind, overdueMark } from "@/lib/features/reviews/kind";
 import { editorHref } from "@/lib/features/reviews/paths";
 import { rowKey, sortMyReviews, STAGES, type MyReviewsRow, type Stage } from "@/lib/features/reviews/myReviews";
@@ -54,6 +55,13 @@ const PAGE_SIZE = 20;
 const coverFor = (stage: Stage): 72 | 56 => (stage === "open" ? 72 : 56);
 
 /** The Open reviews, Submitted and Published stages. It assumes its caller has applied the `useCanSeeReviews` check and the load-failed gate, and takes the `useReviewWrite` the caller built for this tab: the review shelf is a separate tab with its own write wiring, so a lock set here does not carry over to it. */
+/** The DJ's request row: who asked, when the record names them. */
+function requestLine(i: IntakeItem): string {
+  const holder = itemHolder(i);
+  const date = day(i.requested_at);
+  return holder.kind === "requested" && holder.askedBy ? REVIEW_COPY.screen.requestedBy(holder.askedBy, date) : REVIEW_COPY.screen.requestedNoAsker(date);
+}
+
 export default function MyReviewsScreen({ items, myReviews, me, write, lock }: { items: IntakeItem[]; myReviews: Review[]; me: string | undefined } & ReviewWrite) {
   const [accept] = useAcceptIntakeItemMutation();
   const [pass] = usePassIntakeItemMutation();
@@ -75,7 +83,7 @@ export default function MyReviewsScreen({ items, myReviews, me, write, lock }: {
     <RecordRow
       record={intakeRecord(i)}
       cover={coverFor(stage)}
-      meta={<Typography level="body-sm">{`${REVIEW_COPY.screen.asked} ${day(i.requested_at)}`}</Typography>}
+      meta={<Typography level="body-sm">{requestLine(i)}</Typography>}
       actions={
         <>
           <Button

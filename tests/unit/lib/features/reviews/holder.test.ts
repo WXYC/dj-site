@@ -10,9 +10,9 @@ describe("itemHolder", () => {
   it.each<[string, Partial<IntakeItem>, Holder]>([
     ["a record on the review shelf", { effective_state: "pool" }, NONE],
     ["a stale request read as the shelf, even with the old request fields set", { effective_state: "pool", ...requestedFor("dj-pat", "DJ Pat") }, NONE],
-    ["a live request names the requested DJ", { effective_state: "requested", ...requestedFor("dj-pat", "DJ Pat") }, { kind: "requested", id: "dj-pat", name: "DJ Pat" }],
-    ["a live request with no account id still names who it is held for", { effective_state: "requested", ...requestedFor(null, "DJ Pat") }, { kind: "requested", id: null, name: "DJ Pat" }],
-    ["a live request ignores a holder left on the row", { effective_state: "requested", ...requestedFor("dj-pat", "DJ Pat"), ...heldBy("dj-sam", "DJ Sam") }, { kind: "requested", id: "dj-pat", name: "DJ Pat" }],
+    ["a live request names the requested DJ", { effective_state: "requested", ...requestedFor("dj-pat", "DJ Pat") }, { kind: "requested", id: "dj-pat", name: "DJ Pat", askedBy: null }],
+    ["a live request with no account id still names who it is held for", { effective_state: "requested", ...requestedFor(null, "DJ Pat") }, { kind: "requested", id: null, name: "DJ Pat", askedBy: null }],
+    ["a live request ignores a holder left on the row", { effective_state: "requested", ...requestedFor("dj-pat", "DJ Pat"), ...heldBy("dj-sam", "DJ Sam") }, { kind: "requested", id: "dj-pat", name: "DJ Pat", askedBy: null }],
     ["a checked out record names who checked it out", { effective_state: "checked_out", ...heldBy("dj-sam", "DJ Sam") }, { kind: "checked_out", id: "dj-sam", name: "DJ Sam" }],
     ["a checked out record whose holder's account was removed", { effective_state: "checked_out", ...removedHolder }, REMOVED],
     ["a reviewed record still with its holder", { effective_state: "reviewed", ...heldBy("dj-sam", "DJ Sam") }, { kind: "checked_out", id: "dj-sam", name: "DJ Sam" }],
@@ -24,6 +24,19 @@ describe("itemHolder", () => {
     ["a filed record with no holder", { effective_state: "filed" }, NONE],
   ])("%s", (_label, overrides, expected) => {
     expect(itemHolder(intakeItem(overrides))).toEqual(expected);
+  });
+});
+
+describe("itemHolder askedBy", () => {
+  it.each<[string, Partial<IntakeItem>, string | null]>([
+    ["the asker's name", { requested_by_name: "Mike" }, "Mike"],
+    ["null for a request made before the asker was recorded", { requested_by_name: null }, null],
+    ["null for an empty name", { requested_by_name: "" }, null],
+    ["null for a blank name", { requested_by_name: "  " }, null],
+    ["null when the field is absent", {}, null],
+  ])("a live request reads %s", (_label, overrides, expected) => {
+    const holder = itemHolder(intakeItem({ effective_state: "requested", ...requestedFor("dj-pat", "DJ Pat"), ...overrides }));
+    expect(holder).toEqual({ kind: "requested", id: "dj-pat", name: "DJ Pat", askedBy: expected });
   });
 });
 
