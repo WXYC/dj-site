@@ -1,4 +1,4 @@
-import type { APIResponse, Locator, Page, TestInfo } from "@playwright/test";
+import type { APIResponse, Locator, Page } from "@playwright/test";
 import path from "path";
 import { test, expect } from "../../fixtures/auth.fixture";
 import { authServiceBaseUrl } from "../../helpers/device-auth";
@@ -226,38 +226,8 @@ async function stickyColumnEndProblems(page: Page): Promise<string[]> {
 }
 
 /**
- * A known defect: "Recommended" is wider than the slip's label column, so its value, and no other row's, starts about
- * 5.3px right of the first row's.
- */
-const KNOWN_LABEL_OVERFLOW = { defect: `"${COPY.slip.recommended}" overflows the slip's label column`, label: COPY.slip.recommended, px: 5.3 };
-const isKnownLabelOverflow = (rows: Misaligned[] | null) =>
-  rows !== null && rows.length === 1 && rows[0].label === KNOWN_LABEL_OVERFLOW.label && Math.abs(rows[0].by - KNOWN_LABEL_OVERFLOW.px) <= 1;
-
-/**
- * Marks the running test as expected to fail on a known layout defect, then asserts `problems` is empty. The caller
- * first pins the defect's own measurement, so a different break, or this one by another amount, fails before the mark;
- * the measured lines go on the test as an annotation. Nothing in the test runs after the mark. A timeout ends the test
- * as timed out, not failed, so it never matches the mark, and the draft's cleanup clears the mark before it throws
- * (`deleteDraft`).
- */
-function expectKnownDefect(defect: string, problems: string[]) {
-  test.info().annotations.push({ type: "known-defect", description: `${defect}: ${problems.join("; ")}` });
-  test.fail(true, defect);
-  expect(problems).toEqual([]);
-}
-
-/** Pins the label column's known defect, the one overflowing row by its measured amount, then marks the test on it. */
-async function expectKnownLabelOverflow(page: Page) {
-  const rows = await misalignedValues(page);
-  expect(rows, NO_ROWS).not.toBeNull();
-  expect(isKnownLabelOverflow(rows), `the slip's misaligned values are not the known overflow: ${JSON.stringify(rows)}`).toBe(true);
-  expectKnownDefect(KNOWN_LABEL_OVERFLOW.defect, (rows ?? []).map(({ line }) => line));
-}
-
-/**
  * The label-column control: the slip's labels back at their value's size. Returns what the check reports before and
- * after the rule goes in, because a known defect can already report a line before it; the control must change the
- * report, not merely find it non-empty.
+ * after the rule goes in; the control must change the report, not merely find it non-empty.
  */
 async function labelColumnUnderControl(page: Page): Promise<{ before: string[]; after: string[] }> {
   const before = await labelColumnProblems(page);
@@ -377,18 +347,10 @@ async function openNewDraft(page: Page): Promise<number> {
 /**
  * Deletes the draft through the API with the page's session, so a run leaves no draft behind. Not the author's Delete:
  * a control can leave the action bar under the Appbar, where that button can't be pressed.
- *
- * Runs after the test, so a failure here clears the test's expected-to-fail mark before it is thrown: a test marked
- * as failing on a known defect would otherwise count a failed delete as that defect and pass.
  */
-async function deleteDraft(page: Page, reviewId: number, testInfo: TestInfo): Promise<void> {
-  try {
-    const response = await (await backend(page)).delete(`/reviews/${reviewId}`);
-    expect([200, 204, 404], `DELETE /reviews/${reviewId} answered ${response.status()}`).toContain(response.status());
-  } catch (error) {
-    testInfo.expectedStatus = "passed";
-    throw error;
-  }
+async function deleteDraft(page: Page, reviewId: number): Promise<void> {
+  const response = await (await backend(page)).delete(`/reviews/${reviewId}`);
+  expect([200, 204, 404], `DELETE /reviews/${reviewId} answered ${response.status()}`).toContain(response.status());
 }
 
 /** Text tall enough to scroll the page and the sticky column, in the field the slip prints in full. */
@@ -414,11 +376,11 @@ test.describe("Review editor layout, two columns", () => {
     await fillTall(page);
   });
 
-  test.afterEach(async ({ page }, testInfo) => {
+  test.afterEach(async ({ page }) => {
     if (reviewId !== null) {
       const id = reviewId;
       reviewId = null;
-      await deleteDraft(page, id, testInfo);
+      await deleteDraft(page, id);
     }
   });
 
@@ -492,14 +454,13 @@ test.describe("Review editor layout, two columns", () => {
   });
 
   test("starts every slip value at the same x", async ({ page }) => {
-    await expectKnownLabelOverflow(page);
+    expect(await misalignedValues(page)).toEqual([]);
   });
 
   test("control: labels at their value's size push a value out of the column", async ({ page }) => {
     const { before, after } = await labelColumnUnderControl(page);
     expect(after).not.toEqual([]);
     expect(after).not.toEqual(before);
-    expect(isKnownLabelOverflow(await misalignedValues(page))).toBe(false);
   });
 });
 
@@ -515,11 +476,11 @@ test.describe("Review editor layout, one column", () => {
     await fillTall(page);
   });
 
-  test.afterEach(async ({ page }, testInfo) => {
+  test.afterEach(async ({ page }) => {
     if (reviewId !== null) {
       const id = reviewId;
       reviewId = null;
-      await deleteDraft(page, id, testInfo);
+      await deleteDraft(page, id);
     }
   });
 
@@ -538,14 +499,13 @@ test.describe("Review editor layout, one column", () => {
   });
 
   test("starts every slip value at the same x", async ({ page }) => {
-    await expectKnownLabelOverflow(page);
+    expect(await misalignedValues(page)).toEqual([]);
   });
 
   test("control: labels at their value's size push a value out of the column", async ({ page }) => {
     const { before, after } = await labelColumnUnderControl(page);
     expect(after).not.toEqual([]);
     expect(after).not.toEqual(before);
-    expect(isKnownLabelOverflow(await misalignedValues(page))).toBe(false);
   });
 });
 
