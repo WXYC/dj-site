@@ -1,4 +1,4 @@
-import type { APIResponse, Locator, Page } from "@playwright/test";
+import type { APIResponse, Locator, Page, TestInfo } from "@playwright/test";
 import path from "path";
 import { test, expect } from "../../fixtures/auth.fixture";
 import { authServiceBaseUrl } from "../../helpers/device-auth";
@@ -170,7 +170,8 @@ async function twoColumnProblems(page: Page): Promise<string[]> {
 /**
  * Marks the running test as expected to fail on a known layout defect, then asserts `problems` is empty. Called only
  * after the test's other checks have passed, so anything else that breaks first is still a failure; the measured lines
- * go on the test as an annotation.
+ * go on the test as an annotation. Nothing in the test runs after the mark. A timeout ends the test as timed out, not
+ * failed, so it never matches the mark, and the draft's cleanup clears the mark before it throws (`deleteDraft`).
  */
 function expectKnownDefect(ticket: string, problems: string[]) {
   test.info().annotations.push({ type: ticket, description: problems.join("; ") || "no break measured" });
@@ -301,10 +302,18 @@ async function openNewDraft(page: Page): Promise<number> {
 /**
  * Deletes the draft through the API with the page's session, so a run leaves no draft behind. Not the author's Delete:
  * a control can leave the action bar under the Appbar, where that button can't be pressed.
+ *
+ * Runs after the test, so a failure here clears the test's expected-to-fail mark before it is thrown: a test marked
+ * as failing on a known defect would otherwise count a failed delete as that defect and pass.
  */
-async function deleteDraft(page: Page, reviewId: number): Promise<void> {
-  const response = await (await backend(page)).delete(`/reviews/${reviewId}`);
-  expect([200, 204, 404], `DELETE /reviews/${reviewId} answered ${response.status()}`).toContain(response.status());
+async function deleteDraft(page: Page, reviewId: number, testInfo: TestInfo): Promise<void> {
+  try {
+    const response = await (await backend(page)).delete(`/reviews/${reviewId}`);
+    expect([200, 204, 404], `DELETE /reviews/${reviewId} answered ${response.status()}`).toContain(response.status());
+  } catch (error) {
+    testInfo.expectedStatus = "passed";
+    throw error;
+  }
 }
 
 /** Text tall enough to scroll the page and the sticky column, in the field the slip prints in full. */
@@ -330,10 +339,11 @@ test.describe("Review editor layout, two columns", () => {
     await fillTall(page);
   });
 
-  test.afterEach(async ({ page }) => {
+  test.afterEach(async ({ page }, testInfo) => {
     if (reviewId !== null) {
-      await deleteDraft(page, reviewId);
+      const id = reviewId;
       reviewId = null;
+      await deleteDraft(page, id, testInfo);
     }
   });
 
@@ -409,10 +419,11 @@ test.describe("Review editor layout, one column", () => {
     await fillTall(page);
   });
 
-  test.afterEach(async ({ page }) => {
+  test.afterEach(async ({ page }, testInfo) => {
     if (reviewId !== null) {
-      await deleteDraft(page, reviewId);
+      const id = reviewId;
       reviewId = null;
+      await deleteDraft(page, id, testInfo);
     }
   });
 
