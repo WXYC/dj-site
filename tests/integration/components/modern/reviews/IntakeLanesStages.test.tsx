@@ -3,7 +3,7 @@ import { screen, waitFor, within } from "@testing-library/react";
 import { delay, http, HttpResponse } from "msw";
 import type { IntakeItem } from "@wxyc/shared";
 import { Authorization } from "@/lib/features/admin/types";
-import { fakeReviewsEndpoints, heldBy, intakeItem, renderWithProviders, requestedFor, server, TEST_BACKEND_URL } from "@/tests/helpers";
+import { fakeReviewsEndpoints, heldBy, intakeItem, renderWithProviders, requestedFor, renderedFrame, server, TEST_BACKEND_URL } from "@/tests/helpers";
 
 vi.mock("@/lib/features/authentication/client", async () => {
   const { createAuthClientModuleMock } = await import("@/tests/helpers/auth-client-mock");
@@ -305,12 +305,29 @@ describe("IntakeLanes stage lists", () => {
 
     const region = await panel(COPY.filed);
     await waitFor(() => expect(artists(region)).toEqual(["Jessica Pratt", "Stereolab"]));
-    expect(screen.getByRole("tab", { name: `${COPY.filed}, 4` })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: `${COPY.filed}, 2` })).toBeInTheDocument();
 
     await user.click(within(region).getByRole("button", { name: COPY.showOlder }));
 
     expect(artists(region)).toEqual(["Jessica Pratt", "Stereolab", "Juana Molina", "Cat Power"]);
     expect(within(region).queryByRole("button", { name: COPY.showOlder })).not.toBeInTheDocument();
+  });
+
+  // The chip counts what the stage opens to: the records filed in the last 30 days, from both filed reads, not every row those reads return.
+  it.each([
+    ["every record is recent", [{ age: 1 }, { age: 29, state: "finalized" }], 2],
+    ["some are older or have no filing time", [{ age: 1 }, { age: 29 }, { age: 31 }, { age: 400, state: "finalized" }, { age: null }], 2],
+    ["none is recent", [{ age: 31 }, { age: 90, state: "finalized" }, { age: null }], 0],
+  ] as const)("counts only the records filed in the last 30 days on the Filed chip when %s", async (_label, filed, expected) => {
+    serve(
+      filed.map((f, index) => {
+        const state = "state" in f ? f.state : "filed";
+        return { ...FILED, id: 30 + index, state, effective_state: state, filed_at: f.age === null ? null : daysAgo(f.age) };
+      }),
+    );
+    renderWithProviders(<IntakeLanes />);
+
+    expect(await screen.findByRole("tab", { name: `${COPY.filed}, ${expected}` })).toBeInTheDocument();
   });
 
   it("offers no Show older when every filed record is recent", async () => {
@@ -327,7 +344,6 @@ describe("IntakeLanes reads", () => {
   const FILED_READ = "?state=filed&limit=100";
   const FINALIZED_READ = "?state=finalized&limit=100";
   let reads: string[];
-  const count = (search: string) => reads.filter((r) => r === search).length;
   const record = () => {
     reads = [];
     // Returns nothing, so the fake answers after this notes the request.
@@ -375,19 +391,45 @@ describe("IntakeLanes reads", () => {
     expect(within(region).getByRole("listitem")).toHaveTextContent("Filed Oct 8, 2025");
   });
 
-  it("reloads the active read and both filed reads after a write", async () => {
+  // A write's own tag invalidation refetches all three reads by itself, so only a read held pending can tell a reload that waits for it from one that does not.
+  // The 409 notice is shown once every list has reloaded, so it must stay away, and the row stay locked, while any one of the three is still in flight.
+  it.each([
+    ["the active read", "?active=true"],
+    ["the filed read", FILED_READ],
+    ["the finalized read", FINALIZED_READ],
+  ])("keeps the row locked and shows no notice after a write while %s is still reloading, then shows the notice once it answers", async (_label, heldSearch) => {
+    let lost = false;
+    let held = 0;
+    let answer!: () => void;
+    const hold = new Promise<void>((resolve) => {
+      answer = resolve;
+    });
     serve(EVERYTHING);
-    record();
-    showStage("requested");
+    server.use(
+      http.post(`${TEST_BACKEND_URL}/intake/7/release`, () => {
+        lost = true;
+        return HttpResponse.json({ message: "server words", reason: "state_changed" }, { status: 409 });
+      }),
+      http.get(`${TEST_BACKEND_URL}/intake`, async ({ request }) => {
+        if (lost && new URL(request.url).search === heldSearch) {
+          held += 1;
+          await hold;
+        }
+        return undefined;
+      }),
+    );
+    showStage("reviewed");
     const { user } = renderWithProviders(<IntakeLanes />);
 
-    await user.click(await screen.findByRole("button", { name: COPY.cancelRequest }));
+    await user.click(await screen.findByRole("button", { name: COPY.returned }));
+    await waitFor(() => expect(held).toBeGreaterThan(0));
+    await renderedFrame();
+    expect(screen.queryByText(COPY.raceReleased)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: COPY.returned })).toBeDisabled();
 
-    await waitFor(() => {
-      expect(count("?active=true")).toBeGreaterThanOrEqual(2);
-      expect(count(FILED_READ)).toBeGreaterThanOrEqual(2);
-      expect(count(FINALIZED_READ)).toBeGreaterThanOrEqual(2);
-    });
+    answer();
+    expect(await screen.findByText(COPY.raceReleased)).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole("button", { name: COPY.returned })).toBeEnabled());
   });
 
   it.each([
