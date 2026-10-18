@@ -3,7 +3,7 @@ import { act, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { delay, http, HttpResponse } from "msw";
 import type { Review } from "@wxyc/shared";
 import { Authorization } from "@/lib/features/admin/types";
-import { deletingReview, digitalItem, fakeReviewsEndpoints, fccNote, holdResponse, intakeItem, outline, renderWithProviders, review, reviewRevision, reviewsSettled, rulesOf, server, TEST_BACKEND_URL } from "@/tests/helpers";
+import { deletingReview, digitalItem, fakeReviewsEndpoints, fccNote, heldBy, holdResponse, intakeItem, outline, renderWithProviders, returned, review, reviewRevision, reviewsSettled, rulesOf, server, TEST_BACKEND_URL } from "@/tests/helpers";
 import Link from "next/link";
 import { applicationSlice } from "@/lib/features/application/frontend";
 import { reviewApi } from "@/lib/features/reviews/reviewApi";
@@ -107,12 +107,15 @@ describe("ReviewEditor", () => {
   describe("the arrival line", () => {
     const ARRIVED_DISC = "It's yours to review now, so other DJs can see that you have it. Write when you've listened; your draft saves here.";
     const ARRIVED_DIGITAL = "It's yours to review now, and the music directors have been told to send you the files. Write when you've listened; your draft saves here.";
-    const arrivedFrom = (record: ReturnType<typeof intakeItem>) =>
-      fakeReviewsEndpoints({ reviews: [DRAFT], records: [{ ...record, id: DRAFT.intake_item_id! }] });
+    const HELD = { state: "checked_out", effective_state: "checked_out", ...heldBy("dj-me", "DJ Me") } as const;
+    const arrivedFrom = (record: ReturnType<typeof intakeItem>, served: Review = DRAFT) =>
+      fakeReviewsEndpoints({ reviews: [served], records: [{ ...record, id: DRAFT.intake_item_id! }] });
+    /** The record's heading comes from the same intake read the line needs, so once it shows, a line that was going to show would have. */
+    const recordLoaded = () => screen.findByRole("heading", { level: 2, name: "Stereolab" });
 
     it.each([
-      ["a disc", intakeItem({}), ARRIVED_DISC],
-      ["a digital album", digitalItem({}), ARRIVED_DIGITAL],
+      ["a disc", intakeItem(HELD), ARRIVED_DISC],
+      ["a digital album", digitalItem(HELD), ARRIVED_DIGITAL],
     ])("says what the DJ holds now when %s arrived from a request", async (_kind, record, line) => {
       arrivedFrom(record);
       renderWithProviders(<ReviewEditor id={40} arrivedFromRequest />);
@@ -120,13 +123,40 @@ describe("ReviewEditor", () => {
       expect(await screen.findByText(line)).toBeInTheDocument();
     });
 
-    it("says nothing when the editor was opened without the marker", async () => {
-      arrivedFrom(intakeItem({}));
-      renderWithProviders(<ReviewEditor id={40} />);
+    // The marker stays in the URL through a submit, a reload and Back, so the line also checks that it is still true.
+    it.each([
+      ["the editor was opened without the marker", intakeItem(HELD), DRAFT, false, "dj-me"],
+      ["the review has been submitted", intakeItem(HELD), SUBMITTED, true, "dj-me"],
+      ["the record is no longer held by the DJ", intakeItem({ ...HELD, ...returned, state: "pool", effective_state: "pool" }), DRAFT, true, "dj-me"],
+      ["the record is held by someone else", intakeItem({ ...HELD, ...heldBy("dj-other", "DJ Other") }), DRAFT, true, "dj-me"],
+      ["someone other than the author opens it", intakeItem(HELD), DRAFT, true, "md-1"],
+    ] as const)("says nothing when %s", async (_why, record, served, arrived, viewer) => {
+      mockAuth.id = viewer;
+      arrivedFrom(record, served);
+      renderWithProviders(<ReviewEditor id={40} arrivedFromRequest={arrived} />);
 
-      await screen.findByText(PRIVACY);
+      await recordLoaded();
       expect(screen.queryByText(REVIEW_COPY.arrived.disc)).not.toBeInTheDocument();
       expect(screen.queryByText(REVIEW_COPY.arrived.digital)).not.toBeInTheDocument();
+    });
+
+    it("takes the line away once the review is submitted from the editor", async () => {
+      arrivedFrom(intakeItem(HELD));
+      let submitted = false;
+      server.use(
+        http.patch(`${TEST_BACKEND_URL}/reviews/40`, () => HttpResponse.json(DRAFT)),
+        http.post(`${TEST_BACKEND_URL}/reviews/40/submit`, () => {
+          submitted = true;
+          return HttpResponse.json(SUBMITTED);
+        }),
+        http.get(`${TEST_BACKEND_URL}/reviews/40`, () => HttpResponse.json(submitted ? SUBMITTED : DRAFT)),
+      );
+      const { user } = renderWithProviders(<ReviewEditor id={40} arrivedFromRequest />);
+      await screen.findByText(ARRIVED_DISC);
+
+      await submitFromDialog(user);
+
+      await waitFor(() => expect(screen.queryByText(ARRIVED_DISC)).not.toBeInTheDocument());
     });
   });
 
