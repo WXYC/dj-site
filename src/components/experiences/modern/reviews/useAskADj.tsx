@@ -20,14 +20,19 @@ export type AskWrite = {
 /**
  * The music director's Ask a DJ… control, once per screen: one fold per reviewers read, one set of Asked toasts, one mounted ref. Call it once in the screen and draw `picker(item)` on each record's row; a per-row component would refold the reviewers per row and dismiss a row's toast whenever that row unmounts after the write's reload. `alert` is the reviewers-load-failed line, for the screen to draw once.
  *
- * `labelledBy` gives the ids that name a record's button (space-separated, as `aria-labelledby` takes them). It defaults to the review shelf row's `shelfRecordId` and `shelfAlbumId`, which the screen puts on the row's artist and album; a screen that draws the button elsewhere passes its own.
+ * `labelledBy` gives the ids that name a record's button (space-separated, as `aria-labelledby` takes them). It defaults to the review shelf row's `shelfRecordId` and `shelfAlbumId`, which the screen puts on the row's artist and album; a screen that draws the button elsewhere passes its own, and a page about one record passes null, so the button is named by its own words. `onAsked` runs once a request is sent and the write's lists have reloaded, while the screen is still mounted, for a screen that moves focus off a button the reload took away.
  */
 export function useAskADj({
   reviewers,
   write,
   lock,
   labelledBy,
-}: { reviewers: { isError: boolean; isLoading: boolean; data?: Reviewer[] }; labelledBy?: (i: IntakeItem) => string } & AskWrite) {
+  onAsked,
+}: {
+  reviewers: { isError: boolean; isLoading: boolean; data?: Reviewer[] };
+  labelledBy?: ((i: IntakeItem) => string) | null;
+  onAsked?: (i: IntakeItem) => void;
+} & AskWrite) {
   const [requestReview] = useRequestIntakeItemMutation();
   const [cancelRequest] = useCancelIntakeRequestMutation();
   // Folded once per reviewers read, not per row or per keystroke.
@@ -61,6 +66,7 @@ export function useAskADj({
         action: { label: REVIEW_COPY.intake.cancelRequest, onClick: () => write(i.id, "cancel", () => cancelRequest(i.id).unwrap()) },
       });
       askedToasts.current.add(id);
+      onAsked?.(i);
     }
   };
 
@@ -70,7 +76,7 @@ export function useAskADj({
       reviewers={folded}
       loading={reviewers.isLoading}
       failed={reviewersFailed}
-      labelledBy={labelledBy ? labelledBy(i) : `${shelfRecordId(i)} ${shelfAlbumId(i)}`}
+      labelledBy={labelledBy === undefined ? `${shelfRecordId(i)} ${shelfAlbumId(i)}` : labelledBy?.(i)}
       artist={i.artist_name}
       album={i.album_title}
       busy={lock(i.id, "request")}
