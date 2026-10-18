@@ -192,10 +192,14 @@ export const REVIEW_COPY = {
     /** Approved. A digital album's lost return race, shown once the lists have reloaded. */
     raceReleaseDigital: "This record isn't yours to review any more. The lists have been reloaded.",
   },
-  /** The strip over the Reviews page's two tabs. */
+  /** The strip over the Reviews page's three tabs. */
   tabs: {
+    /** The heading above the strip, drawn once for all three tabs. */
+    heading: "Reviews",
     /** Approved. */
-    reviewing: "Reviewing",
+    reviewShelf: "Review shelf",
+    /** Approved. */
+    myReviews: "My reviews",
     /** Approved. */
     directors: "New music",
     /** What a screen reader hears after the New music tab's name when reviews are waiting. */

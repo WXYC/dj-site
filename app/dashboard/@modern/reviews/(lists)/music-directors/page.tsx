@@ -1,7 +1,8 @@
 import { getUserFromSession, requireAuth, requireRole } from "@/lib/features/authentication/server-utils";
 import { Authorization } from "@/lib/features/admin/types";
 import { canSeeReviews } from "@/lib/features/reviews/flags";
-import PageHeader from "@/src/components/experiences/modern/Header/PageHeader";
+import { Stack } from "@mui/joy";
+import IntakeLogForm from "@/src/components/experiences/modern/reviews/IntakeLogForm";
 import IntakeLanes from "@/src/components/experiences/modern/reviews/IntakeLanes";
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
@@ -21,9 +22,9 @@ export default async function ReviewsMusicDirectorsPage() {
   await requireRole(session, Authorization.MD);
 
   return (
-    <>
-      <PageHeader title="Reviews" />
+    <Stack spacing={3}>
+      <IntakeLogForm />
       <IntakeLanes />
-    </>
+    </Stack>
   );
 }

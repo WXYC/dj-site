@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useState } from "react";
 import { Button, Chip, Link, Stack, Typography } from "@mui/joy";
 import type { IntakeItem, Review } from "@wxyc/shared";
 import { useRouter } from "next/navigation";
@@ -45,8 +45,8 @@ function MyReviewRow({ review }: { review: Review }) {
   );
 }
 
-/** The requests, checkouts and My reviews lanes. It assumes its caller has applied the `useCanSeeReviews` check and the load-failed gate, and takes the one `useReviewWrite` the caller shares with the review shelf. `between` renders after the checkouts lane and before My reviews, where the form for a new record and the review shelf sit. */
-export default function MyReviewsScreen({ items, myReviews, formats, me, between, write, lock }: { items: IntakeItem[]; myReviews: Review[]; formats: { id: number; format_name: string }[] | undefined; me: string | undefined; between?: ReactNode } & ReviewWrite) {
+/** The requests, checkouts and My reviews lanes. It assumes its caller has applied the `useCanSeeReviews` check and the load-failed gate, and takes the one `useReviewWrite` the caller shares with the review shelf. */
+export default function MyReviewsScreen({ items, myReviews, formats, me, write, lock }: { items: IntakeItem[]; myReviews: Review[]; formats: { id: number; format_name: string }[] | undefined; me: string | undefined } & ReviewWrite) {
   const [accept] = useAcceptIntakeItemMutation();
   const [pass] = usePassIntakeItemMutation();
   const [release] = useReleaseIntakeItemMutation();
@@ -139,7 +139,6 @@ export default function MyReviewsScreen({ items, myReviews, formats, me, between
         </>
         );
       }} />
-      {between}
       <IntakeLane title={REVIEW_COPY.myReviews.title} rows={myReviews} empty={REVIEW_COPY.myReviews.empty} row={(r) => <MyReviewRow review={r} />} />
       <ConfirmDialog
         open={returning !== null}
