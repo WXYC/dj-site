@@ -66,11 +66,10 @@ export default function PageTabs({ tabs }: { tabs: readonly PageTab[] }): JSX.El
             {tab.label}
             {tab.count !== undefined && tab.count > 0 && (
               <>
-                {/* A new count is a new element, so the bounce plays each time the count changes and not on other renders. The outer span stays inline: a block-level box inside a link adds a break to its accessible name. */}
+                {/* A new count is a new element, so the bounce plays each time the count changes and not on other renders. The outer span stays inline and hides the pill from assistive technology: the test library (dom-accessibility-api) puts a space on each side of a child that is not inline, even a hidden one, so an inline-block pill straight inside the link would read "First , 1 waiting" in the name specs. Browsers leave a hidden subtree out of the name. */}
                 <Box key={tab.count} component="span" aria-hidden="true">
                   <Box
                     component="span"
-                    aria-hidden="true"
                     data-tab-count={tab.path}
                     sx={{
                       // A transform does not apply to an inline box, so the bounce needs this to show.

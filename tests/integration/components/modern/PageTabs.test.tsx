@@ -93,7 +93,8 @@ describe("PageTabs", () => {
     const link = screen.getByRole("link", { name: "First, 12 waiting" });
     // The name comes from content, not from an aria-label on a role-less element, which ARIA 1.2 prohibits.
     expect(link.querySelector("[aria-label]")).toBeNull();
-    expect(screen.getByText("12")).toHaveAttribute("aria-hidden", "true");
+    // The pill sits in a hidden span rather than carrying the attribute itself; either way it is out of the accessibility tree.
+    expect(screen.getByText("12").closest("[aria-hidden='true']")).not.toBeNull();
     expect(screen.getByText(", 12 waiting")).not.toHaveAttribute("aria-hidden");
   });
 
