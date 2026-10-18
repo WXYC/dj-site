@@ -988,6 +988,158 @@ describe("ReviewsScreen", () => {
     expect(toast).not.toHaveBeenCalledWith("Asked Pat Placeholder.", expect.anything());
   });
 
+  it("toasts no Asked when the screen has unmounted before the request answers", async () => {
+    mockAuth.authority = Authorization.MD;
+    let answered = false;
+    fakeReviewsEndpoints({ open: [moonPix()], reviewers: REVIEWERS });
+    server.use(
+      http.post(`${TEST_BACKEND_URL}/intake/11/request`, async () => {
+        await delay(100);
+        answered = true;
+        return HttpResponse.json(moonPix({ state: "requested", effective_state: "requested" }));
+      }),
+    );
+
+    const { user, unmount } = renderWithProviders(<ReviewsScreen tab="shelf" />);
+    await ask(user, "pat");
+    unmount();
+
+    await waitFor(() => expect(answered).toBe(true));
+    // The write still reloads both lists before it would toast.
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(toast).not.toHaveBeenCalledWith("Asked Pat Placeholder.", expect.anything());
+  });
+
+  it("shows the cancel's lost-race notice when the toast's Cancel request finds the request already answered", async () => {
+    mockAuth.authority = Authorization.MD;
+    fakeReviewsEndpoints({ open: [moonPix()], reviewers: REVIEWERS });
+    server.use(
+      http.post(`${TEST_BACKEND_URL}/intake/11/request`, () => HttpResponse.json(moonPix({ state: "requested", effective_state: "requested" }))),
+      http.post(`${TEST_BACKEND_URL}/intake/11/cancel-request`, () =>
+        HttpResponse.json({ message: "server words", reason: "state_changed" }, { status: 409 }),
+      ),
+    );
+
+    const { user } = renderWithProviders(<ReviewsScreen tab="shelf" />);
+    await ask(user, "pat");
+    await waitFor(() => expect(toast).toHaveBeenCalledWith("Asked Pat Placeholder.", expect.anything()));
+    const options = vi.mocked(toast).mock.calls.find(([message]) => message === "Asked Pat Placeholder.")![1] as { action: { label: string; onClick: () => void } };
+    options.action.onClick();
+
+    await waitFor(() => expect(toast).toHaveBeenCalledWith(REVIEW_COPY.intake.raceCancel));
+    expect(toast).not.toHaveBeenCalledWith("server words");
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["no name matches what is typed", "zzq", [], REVIEW_COPY.intake.askNoMatch],
+    ["the names failed to load", "", [http.get(`${TEST_BACKEND_URL}/reviews/reviewers`, () => HttpResponse.json({ message: "down" }, { status: 500 }))], REVIEW_COPY.intake.askLoadFailed],
+  ])("says so in the search's own words when %s", async (_label, typed, reviewersRead, line) => {
+    mockAuth.authority = Authorization.MD;
+    fakeReviewsEndpoints({ open: [moonPix()], reviewers: REVIEWERS });
+    server.use(...reviewersRead);
+
+    const { user } = renderWithProviders(<ReviewsScreen tab="shelf" />);
+    await user.click(await askButton("Moon Pix"));
+    if (typed) {
+      await user.type(await searchField(), typed);
+    }
+
+    // The listbox is the search's popup, drawn outside the dialog.
+    expect(await screen.findByText(line)).toBeInTheDocument();
+    expect(screen.queryByText("No options")).not.toBeInTheDocument();
+    expect(screen.queryByText("Loading…")).not.toBeInTheDocument();
+  });
+
+  it("says the names are loading in the search's own words until the reviewers read lands", async () => {
+    mockAuth.authority = Authorization.MD;
+    fakeReviewsEndpoints({ open: [moonPix()], reviewers: REVIEWERS });
+    // Held, not left hanging: a read that never answers times out later and toasts into another test.
+    let answer = () => {};
+    const held = new Promise<void>((resolve) => {
+      answer = resolve;
+    });
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/reviews/reviewers`, async () => {
+        await held;
+        return HttpResponse.json({ reviewers: REVIEWERS });
+      }),
+    );
+
+    const { user } = renderWithProviders(<ReviewsScreen tab="shelf" />);
+    await user.click(await askButton("Moon Pix"));
+
+    expect(await screen.findByText(REVIEW_COPY.intake.askLoading)).toBeInTheDocument();
+    expect(screen.queryByText("Loading…")).not.toBeInTheDocument();
+    answer();
+    expect(await screen.findByRole("option", { name: "Pat Placeholder" })).toBeInTheDocument();
+    expect(screen.queryByText(REVIEW_COPY.intake.askLoading)).not.toBeInTheDocument();
+  });
+
+  it("points the dialog and its Ask button at the question", async () => {
+    mockAuth.authority = Authorization.MD;
+    fakeReviewsEndpoints({ open: [moonPix()], reviewers: REVIEWERS });
+    const question = "Ask Pat Placeholder to review Cat Power, Moon Pix? It's held for them for 7 days.";
+
+    const { user } = renderWithProviders(<ReviewsScreen tab="shelf" />);
+    await pick(user, "pat");
+
+    expect(await screen.findByRole("button", { name: "Ask" })).toHaveAccessibleDescription(question);
+    expect(screen.getByRole("dialog")).toHaveAccessibleDescription(question);
+  });
+
+  it("returns focus to the row's Ask a DJ… button after Ask, while its request is in flight", async () => {
+    mockAuth.authority = Authorization.MD;
+    fakeReviewsEndpoints({ open: [moonPix()], reviewers: REVIEWERS });
+    server.use(
+      http.post(`${TEST_BACKEND_URL}/intake/11/request`, async () => {
+        await delay(300);
+        return HttpResponse.json(moonPix({ state: "requested", effective_state: "requested" }));
+      }),
+    );
+
+    const { user } = renderWithProviders(<ReviewsScreen tab="shelf" />);
+    const button = await askButton("Moon Pix");
+    await ask(user, "pat");
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(button).toBeDisabled();
+    expect(document.activeElement).toBe(button);
+  });
+
+  it("sends nothing on a second Enter right behind the one that picked the name, and holds focus on the question", async () => {
+    mockAuth.authority = Authorization.MD;
+    let posts = 0;
+    fakeReviewsEndpoints({ open: [moonPix()], reviewers: REVIEWERS });
+    server.use(
+      http.post(`${TEST_BACKEND_URL}/intake/11/request`, () => {
+        posts += 1;
+        return HttpResponse.json(moonPix());
+      }),
+    );
+
+    const { user } = renderWithProviders(<ReviewsScreen tab="shelf" />);
+    await search(user, "pat");
+    await user.keyboard("{Enter}{Enter}");
+
+    expect(await screen.findByText(/^Ask Pat Placeholder to review/)).toHaveFocus();
+    expect(screen.getByRole("button", { name: "Ask" })).toBeInTheDocument();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(posts).toBe(0);
+  });
+
+  it("moves the highlight with the arrow keys, so Enter picks a match other than the first", async () => {
+    mockAuth.authority = Authorization.MD;
+    fakeReviewsEndpoints({ open: [moonPix()], reviewers: REVIEWERS });
+
+    const { user } = renderWithProviders(<ReviewsScreen tab="shelf" />);
+    await user.click(await askButton("Moon Pix"));
+    await screen.findByRole("option", { name: "Pat Placeholder" });
+    await user.keyboard("{ArrowDown}{Enter}");
+
+    expect(await screen.findByText(/^Ask Pat Placeholder to review/)).toBeInTheDocument();
+  });
+
   it("asks about the record whose button opened the search", async () => {
     mockAuth.authority = Authorization.MD;
     const paths: string[] = [];

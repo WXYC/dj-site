@@ -253,6 +253,12 @@ export const REVIEW_COPY = {
     askOverflow: (n: number) => `${n} more match. Keep typing.`,
     /** Asked once a name is picked, before anything is sent. */
     askConfirm: (name: string, artist: string, album: string) => `Ask ${name} to review ${artist}, ${album}? It's held for them for 7 days.`,
+    /** The search's line when no name matches what is typed. */
+    askNoMatch: "No name matches that.",
+    /** The search's line while the names are still loading. */
+    askLoading: "Loading names…",
+    /** The search's line when the names couldn't be loaded. */
+    askLoadFailed: "Couldn't load the names. Please reload the page and try again.",
     /** The confirmation's button that sends the request. */
     ask: "Ask",
     /** The confirmation's button that returns to the list of names. */
