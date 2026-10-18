@@ -872,6 +872,19 @@ describe("ReviewsScreen", () => {
     expect(button).toHaveFocus();
   });
 
+  it("closes the search from its Cancel button, for a phone with no Escape key, and returns focus to the button", async () => {
+    mockAuth.authority = Authorization.MD;
+    fakeReviewsEndpoints({ open: [moonPix()], reviewers: REVIEWERS });
+
+    const { user } = renderWithProviders(<ReviewsScreen tab="shelf" />);
+    const button = await askButton("Moon Pix");
+    await user.click(button);
+    await user.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Cancel" }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(button).toHaveFocus();
+  });
+
   it("has no DJ to ask select any more", async () => {
     mockAuth.authority = Authorization.MD;
     fakeReviewsEndpoints({ open: [moonPix()], reviewers: REVIEWERS });
