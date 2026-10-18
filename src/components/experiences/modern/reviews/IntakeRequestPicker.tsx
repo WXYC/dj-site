@@ -1,7 +1,8 @@
-import { useId, useState } from "react";
+import { useCallback, useId, useState } from "react";
+import { flushSync } from "react-dom";
 import { Autocomplete, Button, Typography } from "@mui/joy";
 import type { Reviewer } from "@wxyc/shared";
-import { matchReviewers } from "@/lib/features/reviews/reviewerMatch";
+import { matchReviewers, type FoldedReviewer, type ReviewerMatches } from "@/lib/features/reviews/reviewerMatch";
 import { useMediaQuery } from "@/src/hooks/useMediaQuery";
 import ConfirmDialog from "../ConfirmDialog";
 import { REVIEW_COPY } from "./copy";
@@ -11,9 +12,18 @@ const COPY = REVIEW_COPY.intake;
 const PHONE_QUERY = "(max-width: 599.95px)";
 // The list's last line is an option so it sits inside the listbox; no account id is empty.
 const OVERFLOW_ID = "";
+// Literal ids: Joy bakes the dialog's aria ids into its CSS selector, and only one picker's dialog is open at a time.
+const TITLE_ID = "ask-a-dj-title";
+const QUESTION_ID = "ask-a-dj-question";
+const CLOSED: ReviewerMatches = { shown: [], more: 0 };
 
 interface IntakeRequestPickerProps {
-  reviewers: Reviewer[];
+  /** The accounts that can be asked, folded once by the caller with `foldReviewers`. */
+  reviewers: FoldedReviewer[];
+  /** The reviewers read is still on its way, so the search shows a loading line rather than no match. */
+  loading: boolean;
+  /** The reviewers read failed with nothing to show, so the search says so rather than no match. */
+  failed: boolean;
   /** The id of the element holding the record's line, which names the button for the record it acts on. */
   labelledBy: string;
   artist: string;
@@ -24,20 +34,23 @@ interface IntakeRequestPickerProps {
 }
 
 /** One button that opens a search for the account to ask to review one record, and asks again before sending. */
-export default function IntakeRequestPicker({ reviewers, labelledBy, artist, album, busy, onRequest }: IntakeRequestPickerProps) {
+export default function IntakeRequestPicker({ reviewers, loading, failed, labelledBy, artist, album, busy, onRequest }: IntakeRequestPickerProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [picked, setPicked] = useState<Reviewer | null>(null);
   const isPhone = useMediaQuery(PHONE_QUERY);
   const buttonId = useId();
 
-  const { shown, more } = matchReviewers(reviewers, query);
+  // Every row draws a picker; only the open one runs the search.
+  const { shown, more } = open ? matchReviewers(reviewers, query) : CLOSED;
   const options = more > 0 ? [...shown, { id: OVERFLOW_ID, name: COPY.askOverflow(more) }] : shown;
   const close = () => {
     setOpen(false);
     setQuery("");
     setPicked(null);
   };
+  // The question takes focus rather than Ask, so the Enter that picked a name, or a second one close behind it, sends nothing; stable, so a re-render doesn't pull focus back from Back or Ask.
+  const focusQuestion = useCallback((el: HTMLElement | null) => el?.focus(), []);
 
   return (
     <>
@@ -56,7 +69,8 @@ export default function IntakeRequestPicker({ reviewers, labelledBy, artist, alb
         open={open}
         onClose={close}
         role="dialog"
-        titleId="ask-a-dj-title"
+        titleId={TITLE_ID}
+        describedBy={picked ? QUESTION_ID : undefined}
         title={COPY.askADj}
         layout={isPhone ? "fullscreen" : "center"}
         actions={
@@ -64,10 +78,11 @@ export default function IntakeRequestPicker({ reviewers, labelledBy, artist, alb
             <>
               <Button variant="plain" onClick={() => setPicked(null)}>{COPY.back}</Button>
               <Button
-                autoFocus
+                aria-describedby={QUESTION_ID}
                 onClick={() => {
+                  // The dialog closes, and hands focus back to Ask a DJ…, before the request's row lock disables that button.
+                  flushSync(close);
                   onRequest(picked);
-                  close();
                 }}
               >
                 {COPY.ask}
@@ -80,7 +95,7 @@ export default function IntakeRequestPicker({ reviewers, labelledBy, artist, alb
         }
       >
         {picked ? (
-          <Typography>{COPY.askConfirm(picked.name, artist, album)}</Typography>
+          <Typography id={QUESTION_ID} tabIndex={-1} ref={focusQuestion}>{COPY.askConfirm(picked.name, artist, album)}</Typography>
         ) : (
           <Autocomplete
             autoFocus
@@ -91,6 +106,9 @@ export default function IntakeRequestPicker({ reviewers, labelledBy, artist, alb
             inputValue={query}
             // The matcher has already filtered, folded and capped the options.
             filterOptions={(all) => all}
+            loading={loading}
+            loadingText={COPY.askLoading}
+            noOptionsText={failed ? COPY.askLoadFailed : COPY.askNoMatch}
             getOptionLabel={(r) => r.name}
             getOptionKey={(r) => r.id}
             getOptionDisabled={(r) => r.id === OVERFLOW_ID}
