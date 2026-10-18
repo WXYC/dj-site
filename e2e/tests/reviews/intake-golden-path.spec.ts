@@ -139,7 +139,7 @@ test("the intake golden path, from logging a record to the librarian's finalize"
       await md.goto("/dashboard/reviews/music-directors");
       const reviewed = await laneRow(md, COPY.intake.reviewed);
       await expect(reviewed).toBeVisible({ timeout: 15000 });
-      await expect(reviewed.getByText(`${COPY.intake.stillOutTo} ${INTAKE_DJ_USER.realName}`)).toBeVisible();
+      await expect(reviewed.getByText(`${COPY.intake.stillWith} ${INTAKE_DJ_USER.realName}`)).toBeVisible();
     });
 
     await test.step("4. the music director opens the slip, then files the record to the library", async () => {
