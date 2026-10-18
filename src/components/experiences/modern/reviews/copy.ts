@@ -274,8 +274,8 @@ export const REVIEW_COPY = {
     logTitle: "Add a record",
     /** Approved. The New music tab's line, beside the Add a record button. */
     newMusicLine: "Every new record, from arrival to filing.",
-    /** A proposal for the next copy round, not yet seen by the station: the Add a record dialog's line, from the station's mockup. */
-    addRecordLine: "It goes on the review shelf, where any DJ can check it out.",
+    /** Approved. The Add a record dialog's line under its title, which describes the dialog. */
+    addRecordLine: "It goes on the review shelf, where any DJ can choose to review it.",
     /** Approved. What the dialog says once a record is added. */
     addedLine: (artist: string, album: string) => `Added ${album} by ${artist}.`,
     /** Approved. Clears the form and keeps the dialog open. */

@@ -67,9 +67,11 @@ type IntakeLogFormProps = {
   onBusyChange?: (busy: boolean) => void;
   /** Leaves out the form's own heading, for a host that titles it; the form keeps its accessible name. */
   hideTitle?: boolean;
+  /** Puts focus on the form's first field when it mounts. */
+  autoFocus?: boolean;
 };
 
-export default function IntakeLogForm({ onLogged, onBusyChange, hideTitle = false }: IntakeLogFormProps = {}) {
+export default function IntakeLogForm({ onLogged, onBusyChange, hideTitle = false, autoFocus = false }: IntakeLogFormProps = {}) {
   const { data: formats } = useGetFormatsQuery(undefined);
   const [logItem, { isLoading: logging }] = useLogIntakeItemMutation();
   const [form, setForm] = useState<IntakeForm>(EMPTY_FORM);
@@ -181,6 +183,7 @@ export default function IntakeLogForm({ onLogged, onBusyChange, hideTitle = fals
         <FormControl error={discogsRefused || prefillLine?.failed === true}>
           <FormLabel>{COPY.discogsReleaseId}</FormLabel>
           <Input
+            autoFocus={autoFocus}
             slotProps={{ input: { inputMode: "numeric" } }}
             value={form.discogs}
             onChange={(e) => {
