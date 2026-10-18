@@ -1,6 +1,6 @@
 /*
  * The lock test's arithmetic, kept apart from the page so that
- * spike/check-lock-math.js can test it under Node. Throwaway; this branch
+ * spike/check-lock-math.mjs can test it under Node. Throwaway; this branch
  * never merges. A plain script with no build step: it sets SpikeLockMath on
  * the global object, and the page reads window.SpikeLockMath.
  *

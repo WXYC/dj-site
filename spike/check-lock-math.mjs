@@ -3,21 +3,22 @@
  * Tests the lock test's arithmetic in public/spike/lock-math.js with a table
  * of timelines. Throwaway, like the rest of the spike.
  *
- *   node spike/check-lock-math.js
+ *   node spike/check-lock-math.mjs
  *
  * The file runs in a fresh vm context, as the browser runs it (a plain
  * script that sets SpikeLockMath on the global object), so what passes here
  * is the code the page loads.
  */
-"use strict";
 
-const assert = require("node:assert/strict");
-const fs = require("node:fs");
-const path = require("node:path");
-const test = require("node:test");
-const vm = require("node:vm");
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import test from "node:test";
+import vm from "node:vm";
 
-const file = path.join(__dirname, "..", "public", "spike", "lock-math.js");
+const here = path.dirname(fileURLToPath(import.meta.url));
+const file = path.join(here, "..", "public", "spike", "lock-math.js");
 const context = vm.createContext({});
 vm.runInContext(fs.readFileSync(file, "utf8"), context, { filename: file });
 const M = context.SpikeLockMath;

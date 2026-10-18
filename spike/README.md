@@ -14,7 +14,7 @@ This is the test harness for [WXYC/dj-site#2148](https://github.com/WXYC/dj-site
 | `public/spike/sources.json` | The five tracks (id, label, format, MIME type, bitrate, file name) with empty URLs: the four formats and `lock`, the lock test's thirty-minute WAV. Never commit a URL here. |
 | `spike/make-test-audio.sh` | Makes the four ten-minute test tracks and the thirty-minute lock track with ffmpeg. |
 | `spike/make-test-bucket.sh` | The aws CLI commands for a private test bucket, the upload, and the presigned URLs. You run it; nothing in CI does. |
-| `spike/check-lock-math.js` | A Node script that tests `lock-math.js` against a table of timelines (see [Testing the lock arithmetic](#testing-the-lock-arithmetic)). |
+| `spike/check-lock-math.mjs` | A Node script that tests `lock-math.js` against a table of timelines (see [Testing the lock arithmetic](#testing-the-lock-arithmetic)). |
 | `spike/.gitignore` | Keeps the generated audio out of git. |
 | `scripts/post-build.js` | Changed on this branch only: excludes `/spike` and `/spike/*` from the OpenNext worker so Cloudflare Pages serves the harness as static files (see [Serving on Cloudflare Pages](#serving-on-cloudflare-pages)). |
 
@@ -176,7 +176,7 @@ The fragment holds the links, which are credentials: keep it out of shell histor
 The lock test's arithmetic (expected position, gap, scrub resume, and whose seek or pause it was) lives in `public/spike/lock-math.js` as pure functions over plain records, so it can be tested without a browser:
 
 ```sh
-node spike/check-lock-math.js
+node spike/check-lock-math.mjs
 ```
 
 It runs the file in a fresh `vm` context, as the browser runs it, against a table of timelines: no seek, one forward scrub past the buffer, the same scrub with stored timeupdates one a second apart, a stall mid-play, a background loop-style jump to 0:00 that waits 78 s, a scrub that never plays again, a drag that sends three seeks, pause and play on the Lock Screen, and a pause by something else, plus the cases for whose action it was. It needs only Node 18 or newer (`node:test`).
