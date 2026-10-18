@@ -210,13 +210,6 @@ async function columnTopAtEnd(page: Page): Promise<number> {
 }
 
 /**
- * A known defect: at the end of the scroll the slip column sits 16px above the scroll region's top. Its bound is the
- * scroll region less the action bar's box, which leaves out the bar's 16px top margin, and the grid ends at that margin.
- */
-const KNOWN_END_RISE = { defect: "the slip column sits 16px above the scroll region at the end of the scroll", px: -16 };
-const isKnownEndRise = (offset: number) => Math.abs(offset - KNOWN_END_RISE.px) <= 1;
-
-/**
  * A known defect: "Recommended" is wider than the slip's label column, so its value, and no other row's, starts about
  * 5.3px right of the first row's.
  */
@@ -420,8 +413,8 @@ test.describe("Review editor layout, two columns", () => {
   test("control: a slip column that does not stick leaves the scroll region's top", async ({ page }) => {
     await applyControl(page, editor(page).column, "column", "position: static");
     expect(await stickyColumnProblems(page)).toContainEqual(expect.stringContaining(STICKY_TOP));
-    // Nor does the scroll end's known rise take a column that does not stick for itself.
-    expect(isKnownEndRise(await columnTopAtEnd(page))).toBe(false);
+    // Nor does a column that does not stick end the scroll at the scroll region's top.
+    expect(Math.abs(await columnTopAtEnd(page))).toBeGreaterThan(1);
   });
 
   test("control: a slip column without its bound runs below the action bar's top", async ({ page }) => {
@@ -431,8 +424,7 @@ test.describe("Review editor layout, two columns", () => {
 
   test("keeps the slip column at the scroll region's top at the end of the scroll", async ({ page }) => {
     const offset = await columnTopAtEnd(page);
-    expect(isKnownEndRise(offset), `the slip column's top at the end of the scroll is ${offset}px from the scroll region's, not the known ${KNOWN_END_RISE.px}px`).toBe(true);
-    expectKnownDefect(KNOWN_END_RISE.defect, Math.abs(offset) > 1 ? [`the slip column's top is ${offset}px ${STICKY_TOP}`] : []);
+    expect(Math.abs(offset), `the slip column's top at the end of the scroll is ${offset}px from the scroll region's`).toBeLessThanOrEqual(1);
   });
 
   test("control: one column at 1440px fails the two-column check", async ({ page }) => {

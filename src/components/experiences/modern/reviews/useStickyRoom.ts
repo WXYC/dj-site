@@ -5,7 +5,7 @@ import { SCROLL_REGION_ATTRIBUTE } from "../ScrollRegion";
 export const STICKY_ROOM_PROPERTY = "--sticky-room";
 
 /**
- * Measures the room a sticky column has: the height of the root's scroll region (the nearest ScrollRegion above it) minus the height of the sticky action bar. Sets it as {@link STICKY_ROOM_PROPERTY} on the root, and keeps it current as either box resizes. Where nothing measures (no layout), the property stays unset and the column is unbounded.
+ * Measures the room a sticky column has: the height of the root's scroll region (the nearest ScrollRegion above it) minus the sticky action bar's height and its top margin, since the grid the column sits in ends at that margin. Sets it as {@link STICKY_ROOM_PROPERTY} on the root, and keeps it current as either box resizes. Where nothing measures (no layout), the property stays unset and the column is unbounded.
  */
 export function useStickyRoom<Root extends HTMLElement, Bar extends HTMLElement>() {
   const root = useRef<Root>(null);
@@ -17,7 +17,7 @@ export function useStickyRoom<Root extends HTMLElement, Bar extends HTMLElement>
     const barEl = bar.current;
     if (!rootEl || !region || !barEl) return;
     const measure = () => {
-      const room = region.clientHeight - barEl.offsetHeight;
+      const room = region.clientHeight - barEl.offsetHeight - (parseFloat(getComputedStyle(barEl).marginTop) || 0);
       if (room > 0) rootEl.style.setProperty(STICKY_ROOM_PROPERTY, `${room}px`);
       else rootEl.style.removeProperty(STICKY_ROOM_PROPERTY);
     };
