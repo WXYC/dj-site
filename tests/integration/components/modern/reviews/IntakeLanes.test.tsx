@@ -125,6 +125,7 @@ describe("IntakeLanes", () => {
   it.each([
     ["heldFor", REVIEW_COPY.intake.heldFor, "Held for"],
     ["cancelRequest", REVIEW_COPY.intake.cancelRequest, "Cancel request"],
+    ["filedOn", REVIEW_COPY.intake.filedOn("{date}"), "Filed {date}"],
     ["more", REVIEW_COPY.intake.more(2), "+2 more"],
     // Row 2 of the 2026-10-16 copy round (WXYC/Backend-Service#3382).
     ["shelfLine", REVIEW_COPY.screen.shelfLine, "Records waiting for a reviewer. Pick one to review."],
@@ -164,7 +165,7 @@ describe("IntakeLanes", () => {
     await expectRecord(await lane("Filed"), "Moon Pix");
   });
 
-  it("puts each state's rows in its own lane only, and reads intake exactly once", async () => {
+  it("puts each state's rows in its own lane only, and reads the active records and each filed state exactly once", async () => {
     const reads: string[] = [];
     fakeReviewsEndpoints({
       open: [waiting(3, { album_title: "Out", submitted_review_count: 0 })],
@@ -189,7 +190,7 @@ describe("IntakeLanes", () => {
       }
     }
     expect(within(await lane("Requested")).queryByRole("link")).not.toBeInTheDocument();
-    expect(reads).toEqual([""]);
+    expect(reads.slice().sort()).toEqual(["?active=true", "?state=filed&limit=100", "?state=finalized&limit=100"]);
   });
 
   it("counts 0 on the Review waiting chip, and says Nothing here., when only open records are served", async () => {
@@ -402,7 +403,10 @@ describe("IntakeLanes", () => {
     fakeReviewsEndpoints({ open: [waiting(3)] });
     server.use(
       http.get(`${TEST_BACKEND_URL}/intake`, ({ request }) => {
-        reads.push(new URL(request.url).search);
+        const { search } = new URL(request.url);
+          if (search === "?active=true") {
+            reads.push(search);
+          }
       }),
     );
     const store = makeStore();
@@ -414,7 +418,7 @@ describe("IntakeLanes", () => {
 
       window.dispatchEvent(new Event("focus"));
 
-      await waitFor(() => expect(reads).toEqual(["", ""]));
+      await waitFor(() => expect(reads).toEqual(["?active=true", "?active=true"]));
     } finally {
       stopListening();
     }
@@ -422,8 +426,8 @@ describe("IntakeLanes", () => {
 
   // A poll is scheduled when a read lands, with the focus the store had then, so the window loses focus before the first read.
   it.each([
-    ["while the window has focus", false, ["", ""]],
-    ["never while the window has lost focus", true, [""]],
+    ["while the window has focus", false, ["?active=true", "?active=true"]],
+    ["never while the window has lost focus", true, ["?active=true"]],
   ])("reads intake again a minute later %s", async (_label, unfocused, expected) => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     try {
@@ -431,7 +435,10 @@ describe("IntakeLanes", () => {
       fakeReviewsEndpoints({ open: [waiting(3)] });
       server.use(
         http.get(`${TEST_BACKEND_URL}/intake`, ({ request }) => {
-          reads.push(new URL(request.url).search);
+          const { search } = new URL(request.url);
+          if (search === "?active=true") {
+            reads.push(search);
+          }
         }),
       );
       const store = makeStore();
@@ -724,7 +731,7 @@ describe("IntakeLanes", () => {
 
     // Assert during the hold, once the reload has started and is the only request outstanding.
     await waitFor(() => expect(heldReads).toBeGreaterThan(0));
-    await waitFor(() => expect(pendingCount(store)).toBe(1));
+    await waitFor(() => expect(pendingCount(store)).toBe(3));
     await renderedFrame();
     expect(screen.queryByText(LOST_RACE)).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Mark as returned" })).toBeDisabled();

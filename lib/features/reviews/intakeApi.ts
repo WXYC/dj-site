@@ -85,9 +85,16 @@ export const isIntakeAcceptReviewRefused = (err: unknown): boolean =>
 /** The `intake/...` endpoints. */
 export const intakeApi = reviewsApi.injectEndpoints({
   endpoints: (builder) => ({
-    getIntakeItems: builder.query<IntakeItem[], { state?: IntakeItemState } | void>({
-      // No params object at all without a state: an empty one still serializes to a dangling `?`.
-      query: (args) => ({ url: "intake", ...(args && args.state ? { params: { state: args.state } } : {}) }),
+    getIntakeItems: builder.query<IntakeItem[], { state?: IntakeItemState; active?: boolean; limit?: number } | void>({
+      // A param only for a key that is set, and no params object at all when none is: an empty one still serializes to a dangling `?`.
+      query: (args) => {
+        const params = {
+          ...(args && args.state ? { state: args.state } : {}),
+          ...(args && args.active ? { active: true } : {}),
+          ...(args && args.limit ? { limit: args.limit } : {}),
+        };
+        return { url: "intake", ...(Object.keys(params).length > 0 ? { params } : {}) };
+      },
       providesTags: [{ type: "Intake", id: "LIST" }],
     }),
     logIntakeItem: builder.mutation<IntakeItem, NewIntakeItemRequest>({

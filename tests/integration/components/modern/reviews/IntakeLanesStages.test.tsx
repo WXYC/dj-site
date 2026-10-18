@@ -322,3 +322,92 @@ describe("IntakeLanes stage lists", () => {
     expect(screen.queryByRole("button", { name: COPY.showOlder })).not.toBeInTheDocument();
   });
 });
+
+describe("IntakeLanes reads", () => {
+  const FILED_READ = "?state=filed&limit=100";
+  const FINALIZED_READ = "?state=finalized&limit=100";
+  let reads: string[];
+  const count = (search: string) => reads.filter((r) => r === search).length;
+  const record = () => {
+    reads = [];
+    // Returns nothing, so the fake answers after this notes the request.
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/intake`, ({ request }) => {
+        reads.push(new URL(request.url).search);
+      }),
+    );
+  };
+
+  it("reads the active records once and each filed state, newest hundred, once", async () => {
+    serve(EVERYTHING);
+    record();
+    renderWithProviders(<IntakeLanes />);
+
+    await panel(COPY.waiting);
+    await waitFor(() => expect(reads.slice().sort()).toEqual(["?active=true", FILED_READ, FINALIZED_READ].sort()));
+  });
+
+  it("merges the two filed reads, newest filed first, with a Filed line on each and none on a record with no filing time", async () => {
+    serve([
+      { ...FILED, id: 20, artist_name: "Stereolab", filed_at: "2026-10-08T16:00:00Z" },
+      { ...FILED, id: 21, artist_name: "Cat Power", filed_at: null },
+      { ...FILED, id: 22, artist_name: "Jessica Pratt", state: "finalized", effective_state: "finalized", filed_at: "2026-10-12T16:00:00Z" },
+    ]);
+    showStage("filed");
+    const { user } = renderWithProviders(<IntakeLanes />);
+
+    const region = await panel(COPY.filed);
+    await user.click(await within(region).findByRole("button", { name: COPY.showOlder }));
+    await waitFor(() => expect(artists(region)).toEqual(["Jessica Pratt", "Stereolab", "Cat Power"]));
+    const rows = within(region).getAllByRole("listitem");
+    expect(rows[0]).toHaveTextContent("Filed Oct 12");
+    expect(rows[1]).toHaveTextContent("Filed Oct 8");
+    expect(rows[2]).not.toHaveTextContent("Filed");
+  });
+
+  it("puts a record pre-dating the clock's year with its year in the Filed line", async () => {
+    serve([{ ...FILED, filed_at: "2025-10-08T16:00:00Z" }]);
+    showStage("filed");
+    const { user } = renderWithProviders(<IntakeLanes />);
+
+    const region = await panel(COPY.filed);
+    await user.click(await within(region).findByRole("button", { name: COPY.showOlder }));
+    expect(within(region).getByRole("listitem")).toHaveTextContent("Filed Oct 8, 2025");
+  });
+
+  it("reloads the active read and both filed reads after a write", async () => {
+    serve(EVERYTHING);
+    record();
+    showStage("requested");
+    const { user } = renderWithProviders(<IntakeLanes />);
+
+    await user.click(await screen.findByRole("button", { name: COPY.cancelRequest }));
+
+    await waitFor(() => {
+      expect(count("?active=true")).toBeGreaterThanOrEqual(2);
+      expect(count(FILED_READ)).toBeGreaterThanOrEqual(2);
+      expect(count(FINALIZED_READ)).toBeGreaterThanOrEqual(2);
+    });
+  });
+
+  it.each([
+    ["a filed record is not in", { ...FILED, passes: [{ dj_name: "Sam", passed_at: "2026-10-01T10:00:00Z" }] }, false],
+    ["an active record is in", { ...SHELF_OLD, passes: [{ dj_name: "Sam", passed_at: "2026-10-01T10:00:00Z" }] }, true],
+  ])("Recent passes: a pass on %s", async (_label, row, present) => {
+    serve([row]);
+    renderWithProviders(<IntakeLanes />);
+
+    await screen.findAllByRole("tab");
+    await waitFor(() => expect(screen.queryByText(/Sam passed on/) !== null).toBe(present));
+  });
+
+  it("shows the alert in the Filed stage when a filed read fails, while the other stages render", async () => {
+    serve(EVERYTHING);
+    server.use(http.get(`${TEST_BACKEND_URL}/intake`, ({ request }) => (new URL(request.url).search === FILED_READ ? HttpResponse.json({ message: "boom" }, { status: 500 }) : undefined)));
+    showStage("filed");
+    renderWithProviders(<IntakeLanes />);
+
+    expect(await within(await panel(COPY.filed)).findByRole("alert")).toHaveTextContent(REVIEW_COPY.screen.loadFailed);
+    expect(await screen.findByRole("tab", { name: `${COPY.waiting}, 2` })).toBeInTheDocument();
+  });
+});

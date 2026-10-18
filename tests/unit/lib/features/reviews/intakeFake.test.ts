@@ -22,6 +22,26 @@ describe("fakeIntakeEndpoints GET /intake", () => {
     ["state=pool keeps only the pool rows", EVERY_STATE, "?state=pool", [1]],
     ["state=reviewed keeps only the reviewed rows", EVERY_STATE, "?state=reviewed", [2]],
     ["state=filed keeps the filed rows whichever option held them", EVERY_STATE, "?state=filed", [4, 3]],
+    ["active=true drops the filed rows", EVERY_STATE, "?active=true", [2, 1]],
+    ["limit keeps the first rows", EVERY_STATE, "?limit=2", [4, 3]],
+    [
+      "state=filed is ordered by filed_at descending, a null last",
+      {
+        filed: [
+          inState(7, "filed", { filed_at: null }),
+          inState(8, "filed", { filed_at: "2026-09-01T12:00:00Z" }),
+          inState(9, "filed", { filed_at: "2026-09-05T12:00:00Z" }),
+        ],
+      },
+      "?state=filed",
+      [9, 8, 7],
+    ],
+    [
+      "state=filed with a limit keeps the most recently filed",
+      { filed: [inState(8, "filed", { filed_at: "2026-09-01T12:00:00Z" }), inState(9, "filed", { filed_at: "2026-09-05T12:00:00Z" })] },
+      "?state=filed&limit=1",
+      [9],
+    ],
     [
       "an item passed under two options appears once",
       { open: [inState(5, "reviewed")], reviewed: [inState(5, "reviewed")], filed: [inState(5, "reviewed")] },

@@ -34,9 +34,13 @@ const raceNotice = (action: Action): string => {
 };
 
 // One argument per list, shared by its hook and the post-write reload so the
-// reload reaches the same cache entry. The unfiltered read carries every state;
-// the New music tab's lanes and its count in the tabs are `recordStage` over it.
-export const EVERY_STATE = undefined;
+// reload reaches the same cache entry. The active read carries every record not
+// yet filed; the New music tab's stages and its count in the tabs are
+// `recordStage` over it. The Filed stage reads the newest hundred of each of the
+// two states that count as filed, which the server orders most recently filed first.
+export const ACTIVE_ITEMS = { active: true } as const;
+export const FILED_ITEMS = { state: "filed", limit: 100 } as const;
+export const FINALIZED_ITEMS = { state: "finalized", limit: 100 } as const;
 export const MY_REVIEWS = undefined;
 
 /**
@@ -54,7 +58,7 @@ export function useReviewWrite({ reloadMine = true, only }: { reloadMine?: boole
   return useRowWrite<Action>({
     reload: () => [
       only === undefined
-        ? dispatch(intakeApi.endpoints.getIntakeItems.initiate(EVERY_STATE, { subscribe: false, forceRefetch: true }))
+        ? dispatch(intakeApi.endpoints.getIntakeItems.initiate(ACTIVE_ITEMS, { subscribe: false, forceRefetch: true }))
         : dispatch(intakeApi.endpoints.getIntakeItem.initiate(only, { subscribe: false, forceRefetch: true })),
       ...(reloadMine ? [dispatch(reviewApi.endpoints.getMyReviews.initiate(MY_REVIEWS, { subscribe: false, forceRefetch: true }))] : []),
     ],
