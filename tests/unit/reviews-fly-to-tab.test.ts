@@ -68,11 +68,11 @@ describe("moveRowToTab", () => {
     expect(animate).toHaveBeenCalledTimes(2);
   });
 
-  it("removes the copy even when an animation rejects", async () => {
+  it("resolves and removes the copy when an animation is cancelled", async () => {
     stubMotion({ reduce: false });
     HTMLElement.prototype.animate = vi.fn(() => ({ finished: Promise.reject(new Error("cancelled")), cancel: vi.fn() })) as unknown as HTMLElement["animate"];
 
-    await expect(moveRowToTab(draw("<img alt='' src='/c.png'>"), TAB)).rejects.toThrow("cancelled");
+    await expect(moveRowToTab(draw("<img alt='' src='/c.png'>"), TAB)).resolves.toBeUndefined();
 
     expect(document.querySelectorAll("body > [aria-hidden='true']")).toHaveLength(0);
   });

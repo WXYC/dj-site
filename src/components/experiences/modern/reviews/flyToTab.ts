@@ -1,9 +1,9 @@
 const COLLAPSE_MS = 500;
 
 /**
- * Shows a row moving to a tab: a decorative copy of its cover flies to the tab's count pill (or the tab, when it has none) while the row closes up. It resolves once both have finished. The caller runs it only after the write has succeeded.
+ * Shows a row moving to a tab: a decorative copy of its cover flies to the tab's count pill (or the tab, when it has none) while the row closes up. It resolves once both have finished, or one is cancelled: the write has already succeeded, so a failed animation must not read as a failed write. The caller runs it only after the write has succeeded.
  *
- * It does nothing under reduced motion, or where the browser has no Web Animations API, so the caller can await it either way. The copy is removed even when an animation is cancelled, but the row stays collapsed (`fill: forwards`) for the reload to remove.
+ * It does nothing under reduced motion, or where the browser has no Web Animations API, so the caller can await it either way. The copy is removed either way, but the row stays collapsed (`fill: forwards`) for the reload to remove.
  */
 export async function moveRowToTab(row: HTMLElement, tabPath: string): Promise<void> {
   if (window.matchMedia("(prefers-reduced-motion: reduce)").matches || typeof row.animate !== "function") {
@@ -34,6 +34,8 @@ export async function moveRowToTab(row: HTMLElement, tabPath: string): Promise<v
     item.style.overflow = "hidden";
     finished.push(item.animate({ height: [`${height}px`, "0px"], opacity: [1, 0] }, { duration: COLLAPSE_MS, fill: "forwards" }).finished);
     await Promise.all(finished);
+  } catch {
+    // Cancelled by the browser, or by the row leaving the page; the row's removal does not depend on it.
   } finally {
     clone?.remove();
   }
