@@ -459,6 +459,7 @@ test.describe("Record page filing arms", () => {
     const baseURL = process.env.E2E_BASE_URL || "http://localhost:3000";
     const viewport = { width: 1440, height: 900 };
     const runTag = Date.now().toString(36);
+    const artist = `Juana Molina ${runTag}`;
     const album = `DOGA ${runTag}`;
     const mdContext = await browser.newContext({ baseURL, viewport, storageState: path.join(authDir, "musicDirector.json") });
     const djContext = await browser.newContext({ baseURL, viewport, storageState: path.join(authDir, "dj2.json") });
@@ -466,34 +467,55 @@ test.describe("Record page filing arms", () => {
     const dj = await djContext.newPage();
     let itemUrl: string | null = null;
 
-    const row = (page: Page, region: string) =>
-      page.getByRole("region", { name: region }).getByRole("listitem").filter({ hasText: album });
+    const shelfRow = (page: Page) =>
+      page.getByRole("region", { name: COPY.screen.shelfTitle }).getByRole("listitem").filter({ hasText: album });
 
     try {
-      await md.goto("/dashboard/reviews");
-      const form = md.getByRole("form", { name: COPY.intake.logTitle });
-      await form.getByLabel(new RegExp(`^${COPY.intake.artist}`)).fill(`Juana Molina ${runTag}`);
+      await md.goto("/dashboard/reviews/music-directors");
+      // The form lives in the Add a record dialog, which the tab's button opens.
+      await md.getByRole("button", { name: COPY.intake.log }).click();
+      const form = md.getByRole("dialog", { name: COPY.intake.logTitle }).getByRole("form", { name: COPY.intake.logTitle });
+      await form.getByLabel(new RegExp(`^${COPY.intake.artist}`)).fill(artist);
       await form.getByLabel(new RegExp(`^${COPY.intake.album}`)).fill(album);
+      // Format shows once the record arrived as a disc or a record.
+      await form.getByRole("radio", { name: COPY.intake.arrivedAsDisc }).click();
       await form.getByRole("combobox", { name: new RegExp(`^${COPY.intake.format}`) }).click();
-      await md.getByRole("option").filter({ hasNotText: COPY.intake.digital }).first().click();
+      await md.getByRole("option").first().click();
+      // Leaving the page before the POST is sent would drop the write.
+      const logged = md.waitForResponse((r) => r.request().method() === "POST" && new URL(r.url()).pathname.endsWith("/intake"));
       await form.getByRole("button", { name: COPY.intake.log }).click();
-      await expect(row(md, COPY.screen.shelfTitle)).toBeVisible({ timeout: 15000 });
+      expect((await logged).ok()).toBe(true);
+      await md.goto("/dashboard/reviews");
+      await expect(shelfRow(md)).toBeVisible({ timeout: 15000 });
 
       await dj.goto("/dashboard/reviews");
-      await row(dj, COPY.screen.shelfTitle).getByRole("button", { name: COPY.screen.checkOut, exact: true }).click();
-      await row(dj, COPY.screen.checkoutsTitle).getByRole("button", { name: COPY.writeReview }).click();
-      await dj.waitForURL(/\/dashboard\/reviews\/\d+$/, { timeout: 15000 });
+      const checkedOut = dj.waitForResponse((r) => r.request().method() === "POST" && /\/intake\/\d+\/checkout$/.test(new URL(r.url()).pathname));
+      await shelfRow(dj).getByRole("button", { name: COPY.screen.checkOut, exact: true }).click();
+      expect((await checkedOut).ok()).toBe(true);
+      await dj.goto("/dashboard/reviews/mine");
+      await dj
+        .getByRole("tabpanel", { name: COPY.myReviews.stages.open })
+        .getByRole("listitem")
+        .filter({ hasText: album })
+        .getByRole("button", { name: COPY.writeReview })
+        .click();
+      // The editor's address carries where it was opened from, for its back link.
+      await dj.waitForURL(/\/dashboard\/reviews\/\d+(\?.*)?$/, { timeout: 15000 });
       await editor(dj).review.fill(`A quiet record ${runTag}.`);
       await editor(dj).submit.click();
       await dj.getByRole("alertdialog").getByRole("button", { name: COPY.submit, exact: true }).click();
       await expect(dj.getByText(COPY.submittedBanner)).toBeVisible({ timeout: 15000 });
 
       await md.goto("/dashboard/reviews/music-directors");
+      // The New music tab shows one stage at a time, under chips that draw once the intake read lands. Chromium names a chip "Label , count".
+      const waitingChip = md.getByRole("tab", { name: new RegExp(`^${COPY.intake.waiting}\\s*,`) });
+      await expect(waitingChip).toBeVisible({ timeout: 15000 });
+      await waitingChip.click();
       await md
-        .getByRole("region", { name: new RegExp(`^${COPY.intake.waiting}`) })
+        .getByRole("tabpanel", { name: COPY.intake.waiting, exact: true })
         .getByRole("listitem")
         .filter({ hasText: album })
-        .getByRole("link", { name: new RegExp(album) })
+        .getByRole("link", { name: artist, exact: true })
         .click();
       await md.waitForURL(/\/dashboard\/admin\/intake\/\d+$/, { timeout: 15000 });
       itemUrl = md.url();
