@@ -59,13 +59,17 @@ describe("REVIEW_COPY digital album lines and the DJ's own list heading", () => 
   });
 });
 
-describe("REVIEW_COPY.intake digital taken lines", () => {
+describe("REVIEW_COPY.intake the stage name and date fact a disc and a digital album share", () => {
   it.each([
     ["beingReviewed", REVIEW_COPY.intake.beingReviewed, "Being reviewed"],
-    ["checkedOut (a disc's chip)", REVIEW_COPY.intake.checkedOut, "Checked out"],
-    ["screen.taken (a digital album's chip)", REVIEW_COPY.screen.taken, "Taken"],
   ])("pins %s", (_key, actual, expected) => {
     expect(actual).toBe(expected);
+  });
+
+  it("has no Checked out or Taken entry: Reviewing since is the one date fact, for a disc and a digital album alike", () => {
+    expect(REVIEW_COPY.intake).not.toHaveProperty("checkedOut");
+    expect(REVIEW_COPY.screen).not.toHaveProperty("taken");
+    expect(REVIEW_COPY.screen.reviewingSince).toBe("Reviewing since");
   });
 });
 

@@ -9,7 +9,7 @@ import { displayedArtist, isVariousArtists } from "@/lib/features/catalog/librar
 import type { AlbumEntry } from "@/lib/features/catalog/types";
 import { namedAuthor } from "@/lib/features/reviews/author";
 import { itemHolder } from "@/lib/features/reviews/holder";
-import { byKind, isFiledState, recordKind } from "@/lib/features/reviews/kind";
+import { isFiledState, recordKind } from "@/lib/features/reviews/kind";
 import { hasNothingToShow } from "@/lib/has-nothing-to-show";
 import {
   isIntakeAlreadyFiled,
@@ -50,6 +50,7 @@ import RecordPrompt, { type OpenSection } from "./RecordPrompt";
 import RecordReviewForm from "./RecordReviewForm";
 import { Group } from "./ReviewsPanel";
 import { useItemPageReload } from "./useItemPageReload";
+import { formatStationShortDate } from "@/src/utilities/stationTime";
 import type { PrintedVersion } from "./usePrintedVersion";
 
 const COPY = REVIEW_COPY.intakeItem;
@@ -67,9 +68,9 @@ const fromCache = <R extends { currentData?: unknown }>(result: R) => ({ ...resu
 /** Distinct non-empty names, in first-appearance order. */
 const distinctNames = (names: (string | null | undefined)[]) => [...new Set(names.filter((n): n is string => !!n))];
 
-const STATE_LABELS: Record<Exclude<IntakeItem["effective_state"], "pool">, string> = {
+/** The chip for each state with a fixed label; a pool record reads its location line and a checked-out one its date (`chipLabel`). */
+const STATE_LABELS: Record<Exclude<IntakeItem["effective_state"], "pool" | "checked_out">, string> = {
   requested: REVIEW_COPY.intake.requested,
-  checked_out: REVIEW_COPY.intake.checkedOut,
   reviewed: REVIEW_COPY.intake.reviewed,
   filed: REVIEW_COPY.intake.filed,
   finalized: REVIEW_COPY.intake.filed,
@@ -230,12 +231,16 @@ export default function IntakeItemScreen({ id }: { id: number }) {
   const coverFromCited = citedId !== null && coverId != null && (!ownCover || ownCover.album_id === citedId);
   const holder = itemHolder(item.data);
   // A pool record's chip is its location line, so a record with a review waiting never reads On the review shelf; a pool digital album with a review waiting has no line and no chip.
+  // A checked-out record's chip is Reviewing since and the date, a disc and a digital album alike; with no checkout date it reads the stage name.
   const state = item.data.effective_state;
+  const reviewingSince = item.data.checked_out_at ? formatStationShortDate(item.data.checked_out_at) : "";
   const chipLabel =
     state === "pool"
       ? placeLine(item.data)
       : state === "checked_out"
-        ? byKind(item.data, { disc: STATE_LABELS.checked_out, digital: REVIEW_COPY.screen.taken })
+        ? reviewingSince
+          ? `${REVIEW_COPY.screen.reviewingSince} ${reviewingSince}`
+          : REVIEW_COPY.intake.beingReviewed
         : STATE_LABELS[state];
   // Only a requested or checked-out record asks before a citation; a reviewed record still out with its DJ asks nothing.
   const citeQuestion =
