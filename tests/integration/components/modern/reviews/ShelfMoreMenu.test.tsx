@@ -264,8 +264,8 @@ describe.each(SURFACES)("the music director's More menu on $name", ({ draw, hasC
   });
 
   it.each([
-    ["a disc", DOGA, REVIEW_COPY.screen.checkOut],
-    ["a digital album", digitalItem({ id: 2, artist_name: "Sessa", album_title: "Pequena Vertigem de Amor" }), REVIEW_COPY.screen.take],
+    ["a disc", DOGA, REVIEW_COPY.screen.review],
+    ["a digital album", digitalItem({ id: 2, artist_name: "Sessa", album_title: "Pequena Vertigem de Amor" }), REVIEW_COPY.screen.review],
   ])(`keeps the primary button beside More for %s only where a record can be checked out`, async (_kind, record, primary) => {
     serve([record]);
     renderWithProviders(draw([record], true));
@@ -282,7 +282,7 @@ it("gives a DJ on the Review shelf tab no More and no Ask a DJ…", async () => 
   serve([DOGA]);
   renderWithProviders(<ShelfTab items={[DOGA]} isMD={false} />);
 
-  expect(await screen.findByRole("button", { name: REVIEW_COPY.screen.checkOut })).toBeInTheDocument();
+  expect(await screen.findByRole("button", { name: REVIEW_COPY.screen.review })).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: new RegExp(`^${MORE}`) })).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: /^Ask a DJ…/ })).not.toBeInTheDocument();
 });

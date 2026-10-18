@@ -69,6 +69,19 @@ const renderScreen = (items: IntakeItem[], myReviews: Review[], options: Paramet
 };
 
 describe("MyReviewsScreen", () => {
+  it.each([
+    ["the held record the link names", "stage=open&highlight=7", ["Stereolab"]],
+    ["nothing without the param", "stage=open", []],
+    ["nothing for a record the DJ does not hold", "stage=open&highlight=99", []],
+  ])("highlights %s", async (_name, search, marked) => {
+    url.search = search;
+    renderScreen([held(7, { artist_name: "Stereolab" }), held(8, { artist_name: "Cat Power" })], []);
+
+    await screen.findByText("Stereolab");
+    const rows = screen.getAllByRole("listitem");
+    expect(rows.filter((row) => row.dataset.highlighted === "true").map((row) => ["Stereolab", "Cat Power"].find((a) => row.textContent?.includes(a)))).toEqual(marked);
+  });
+
   // An earlier year than the clock's, so the day carries its year.
   it.each([
     ["an asker", "Mike", "Mike requested your review on Oct 16, 2025."],

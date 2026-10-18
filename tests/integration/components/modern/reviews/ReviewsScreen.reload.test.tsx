@@ -71,7 +71,7 @@ describe("ReviewsScreen — a row stays locked until every rendered list has rel
 
     const { user, store } = renderWithProviders(<BothTabs />);
     const shelf = await screen.findByRole("region", { name: "The review shelf" });
-    const checkout = within(shelf).getByRole("button", { name: "Check out" });
+    const checkout = within(shelf).getByRole("button", { name: "Review" });
     await user.click(checkout);
 
     // Assert during the hold, once every other read has answered and only the held one is outstanding.
@@ -111,7 +111,7 @@ describe("ReviewsScreen — a row stays locked until every rendered list has rel
 
     const { user } = renderWithProviders(<ReviewsScreen tab="shelf" />);
     const shelf = await screen.findByRole("region", { name: "The review shelf" });
-    const checkout = within(shelf).getByRole("button", { name: "Check out" });
+    const checkout = within(shelf).getByRole("button", { name: "Review" });
     await user.click(checkout);
 
     // The intake reload has landed and the row is free again; My reviews was never asked for.

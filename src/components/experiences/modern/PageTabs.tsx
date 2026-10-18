@@ -48,6 +48,7 @@ export default function PageTabs({ tabs }: { tabs: readonly PageTab[] }): JSX.El
             key={tab.path}
             component={Link}
             href={tab.path}
+            data-tab={tab.path}
             aria-current={active ? "page" : undefined}
             sx={{
               position: "relative",
@@ -66,8 +67,11 @@ export default function PageTabs({ tabs }: { tabs: readonly PageTab[] }): JSX.El
             {tab.count !== undefined && tab.count > 0 && (
               <>
                 <Box
+                  // A new count is a new element, so the bounce plays each time the count changes and not on other renders.
+                  key={tab.count}
                   component="span"
                   aria-hidden="true"
+                  data-tab-count={tab.path}
                   sx={{
                     ml: 1,
                     px: 0.75,
@@ -76,6 +80,9 @@ export default function PageTabs({ tabs }: { tabs: readonly PageTab[] }): JSX.El
                     fontWeight: "lg",
                     bgcolor: "primary.solidBg",
                     color: "primary.solidColor",
+                    animation: "tabCountBounce 400ms ease-out",
+                    "@keyframes tabCountBounce": { "0%": { transform: "scale(1)" }, "40%": { transform: "scale(1.4)" }, "100%": { transform: "scale(1)" } },
+                    "@media (prefers-reduced-motion: reduce)": { animation: "none" },
                   }}
                 >
                   {tab.count}

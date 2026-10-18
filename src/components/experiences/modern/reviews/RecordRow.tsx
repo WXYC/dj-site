@@ -68,6 +68,9 @@ type RecordRowProps = {
   cover?: 72 | 56;
 } & RecordRowTitle;
 
+/** A row's first control of its own: its buttons, or the Open link of a review. The Preview links before them open in a new tab, and the focus must not land on one. */
+export const PRIMARY_CONTROL = "button, a[href]:not([target='_blank'])";
+
 /**
  * One record in a list: a format glyph beside the artist, album, label and
  * format tag, then `meta`, with `actions` to the right or below. The layout

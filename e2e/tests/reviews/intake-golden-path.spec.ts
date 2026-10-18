@@ -110,7 +110,7 @@ test("the intake golden path, from logging a record to the librarian's finalize"
     await test.step("2. the DJ checks it out, writes and submits a review; the record stays on the list", async () => {
       await dj.goto("/dashboard/reviews");
       const checkedOut = dj.waitForResponse((r) => r.request().method() === "POST" && /\/intake\/\d+\/checkout$/.test(new URL(r.url()).pathname));
-      await shelfRow(dj).getByRole("button", { name: COPY.screen.checkOut, exact: true }).click();
+      await shelfRow(dj).getByRole("button", { name: COPY.screen.review, exact: true }).click();
       expect((await checkedOut).ok()).toBe(true);
 
       await dj.goto("/dashboard/reviews/mine");

@@ -167,7 +167,7 @@ describe("IntakeLanes stage lists", () => {
       expect(controls(li).last).toBe(open);
       expect(open).toHaveAttribute("href", expect.stringMatching(/^\/dashboard\/admin\/intake\/\d+$/));
     }
-    expect(within(region).queryByRole("button", { name: /^Check out|^Take$/ })).not.toBeInTheDocument();
+    expect(within(region).queryByRole("button", { name: "Review" })).not.toBeInTheDocument();
   });
 
   it("names a review shelf row's Preview links by the service, the artist and the album", async () => {
