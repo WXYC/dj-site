@@ -131,12 +131,19 @@ describe("IntakeLogForm", () => {
     expect(body!.format_id).toBe(2);
   });
   describe("the Bandcamp link", () => {
+    it("asks a phone for its URL keyboard", async () => {
+      fakeReviewsEndpoints({ open: [] });
+      renderWithProviders(<IntakeLogForm />);
+      expect(await screen.findByLabelText(/^Bandcamp link/)).toHaveAttribute("inputmode", "url");
+    });
+
     it.each([
       ["a valid link is sent as bandcamp_url", "https://juanamolina.bandcamp.com/album/doga", { bandcamp_url: "https://juanamolina.bandcamp.com/album/doga" }],
       ["an empty field sends no bandcamp_url key", "", null],
       ["http is refused", "http://juanamolina.bandcamp.com/album/doga", "refused"],
       ["another site is refused", "https://example.com/bandcamp.com", "refused"],
       ["a non-URL is refused", "doga", "refused"],
+      ["a link whose parsed form is over 512 characters is refused", `https://bandcamp.com/${"é".repeat(80)}${"a".repeat(12)}`, "refused"],
     ])("%s", async (_case, link, expected) => {
       fakeReviewsEndpoints({ open: [] });
       let body: Record<string, unknown> | undefined;
@@ -156,9 +163,13 @@ describe("IntakeLogForm", () => {
       }
       if (expected === "refused") {
         expect(await screen.findByText("That isn't a Bandcamp link.")).toBeInTheDocument();
+        expect(screen.getByLabelText(/^Bandcamp link/)).toBeInvalid();
+        expect(screen.getByLabelText(/^Bandcamp link/)).toHaveAccessibleDescription("That isn't a Bandcamp link.");
         // The button is disabled; Enter in the field is the other way to submit.
         expect(screen.getByRole("button", { name: "Add a record" })).toBeDisabled();
         await user.type(screen.getByLabelText(/^Bandcamp link/), "{Enter}");
+        // Give a request already on its way time to land before checking that none was made.
+        await act(() => new Promise((resolve) => setTimeout(resolve, 100)));
         expect(body).toBeUndefined();
         return;
       }

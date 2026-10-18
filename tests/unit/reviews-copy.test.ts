@@ -197,3 +197,12 @@ describe("REVIEW_COPY request lines", () => {
     expect(actual).toBe(expected);
   });
 });
+
+describe("REVIEW_COPY.intake Bandcamp field the station approved on 2026-10-16", () => {
+  it.each([
+    ["bandcampUrl", REVIEW_COPY.intake.bandcampUrl, "Bandcamp link (optional)"],
+    ["bandcampRefused", REVIEW_COPY.intake.bandcampRefused, "That isn't a Bandcamp link."],
+  ])("pins %s", (_key, actual, expected) => {
+    expect(actual).toBe(expected);
+  });
+});
