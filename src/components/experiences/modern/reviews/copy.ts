@@ -198,7 +198,7 @@ export const REVIEW_COPY = {
     directors: "New music",
     /** What a screen reader hears after the New music tab's name when reviews are waiting. */
     waiting: (n: number) => `${n} ${n === 1 ? "review" : "reviews"} waiting`,
-    /** What a screen reader hears after the My reviews tab's name when reviews are open. */
+    /** Approved. What a screen reader hears after the My reviews tab's name when reviews are open. */
     open: (n: number) => `${n} open ${n === 1 ? "review" : "reviews"}`,
   },
   /** The sidebar's one entry for the Reviews page. */
@@ -613,13 +613,16 @@ export const REVIEW_COPY = {
     /** The accessible name of the chips that switch the My reviews tab's list. */
     stagesLabel: "Which of my reviews to show",
     stages: {
-      /** Requests for me and Records I'm reviewing, as one list. */
+      /** Approved. Requests for me and Records I'm reviewing, as one list. */
       open: "Open reviews",
+      /** Approved. */
       submitted: "Submitted",
-      cover: "On the cover",
+      /** Approved. The DJ's reviews a music director chose for the cover. */
+      published: "Published",
     },
+    /** Approved. */
     openEmpty: "Nothing is waiting on you right now.",
-    /** Reveals the next 20 of a long Submitted or On the cover list. */
+    /** Approved. Reveals the next 20 of a long Submitted or Published list. */
     showOlder: "Show older reviews",
     /** Approved. */
     draft: "Draft",

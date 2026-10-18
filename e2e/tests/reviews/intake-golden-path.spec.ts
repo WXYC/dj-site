@@ -175,8 +175,8 @@ test("the intake golden path, from logging a record to the librarian's finalize"
 
     await test.step("5. the DJ edits the review after it was printed, and the save succeeds", async () => {
       // Filing cleared the holder, so the record has left the DJ's checkout list; the review is still theirs under My reviews.
-      await dj.goto("/dashboard/reviews/mine?stage=cover");
-      const mine = dj.getByRole("tabpanel", { name: COPY.myReviews.stages.cover }).getByRole("listitem").filter({ hasText: album });
+      await dj.goto("/dashboard/reviews/mine?stage=published");
+      const mine = dj.getByRole("tabpanel", { name: COPY.myReviews.stages.published }).getByRole("listitem").filter({ hasText: album });
       await mine.getByRole("link", { name: COPY.myReviews.open }).click();
       await dj.waitForURL(new RegExp(`/dashboard/reviews/${reviewId}$`), { timeout: 15000 });
 

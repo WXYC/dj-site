@@ -203,10 +203,11 @@ describe("ReviewsTabs", () => {
     expect(REVIEW_COPY.tabs.waiting(count)).toBe(expected);
   });
 
+  // Row 3 of the copy round the station approved on 2026-10-16 (WXYC/Backend-Service#3382).
   it.each([
     ["one", 1, "1 open review"],
     ["many", 3, "3 open reviews"],
-  ])("speaks the open count, %s, as currently worded (not yet approved)", (_name, count, expected) => {
-    expect(REVIEW_COPY.tabs.open(count)).toBe(expected);
+  ])("speaks the open count, %s, exactly as the station approved it", (_name, count, approved) => {
+    expect(REVIEW_COPY.tabs.open(count)).toBe(approved);
   });
 });

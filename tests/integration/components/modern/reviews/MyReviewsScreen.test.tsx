@@ -46,11 +46,8 @@ describe("MyReviewsScreen", () => {
     renderScreen([asked(7), held(8)], [submitted(40), submitted(41, { in_use: true })]);
 
     const tabs = await screen.findAllByRole("tab");
-    expect(tabs.map((t) => [t.textContent, t.getAttribute("aria-selected")])).toEqual([
-      [`${STAGES.open}2`, "true"],
-      [`${STAGES.submitted}1`, "false"],
-      [`${STAGES.cover}1`, "false"],
-    ]);
+    expect([`${STAGES.open}, 2`, `${STAGES.submitted}, 1`, `${STAGES.published}, 1`].map((name) => screen.getByRole("tab", { name }))).toEqual(tabs);
+    expect(tabs.map((t) => t.getAttribute("aria-selected"))).toEqual(["true", "false", "false"]);
     const open = screen.getByRole("tabpanel", { name: STAGES.open });
     expect(within(open).getAllByRole("button", { name: REVIEW_COPY.writeReview })).toHaveLength(2);
     expect(within(open).getByRole("button", { name: REVIEW_COPY.screen.pass })).toBeInTheDocument();
@@ -60,10 +57,13 @@ describe("MyReviewsScreen", () => {
   it.each([
     ["Open reviews when anything is open", "", [held(8)], [submitted(40)], STAGES.open],
     ["Submitted when nothing is open", "", [], [submitted(40)], STAGES.submitted],
-    ["Submitted when nothing is open, even with reviews on the cover", "", [], [submitted(40, { in_use: true })], STAGES.submitted],
-    ["the stage the URL names, over the opening rule", "?stage=cover", [held(8)], [submitted(40, { in_use: true })], STAGES.cover],
+    ["Submitted when nothing is open, even with published reviews", "", [], [submitted(40, { in_use: true })], STAGES.submitted],
+    ["the stage the URL names, over the opening rule", "?stage=published", [held(8)], [submitted(40, { in_use: true })], STAGES.published],
+    ["Submitted when the URL names it", "?stage=submitted", [held(8)], [submitted(40)], STAGES.submitted],
     ["Open reviews when the URL names it and it is empty", "?stage=open", [], [submitted(40)], STAGES.open],
     ["the opening rule when the URL names no stage", "?stage=nonsense", [held(8)], [], STAGES.open],
+    ["the opening rule for a token that is not a stage's, such as the chip's old name", "?stage=cover", [], [submitted(40, { in_use: true })], STAGES.submitted],
+    ["the opening rule for a stage named in capitals, since tokens are lowercase", "?stage=Published", [held(8)], [submitted(40, { in_use: true })], STAGES.open],
   ])("opens on %s", async (_name, search, items, reviews, stage) => {
     url.search = search;
 
@@ -76,7 +76,7 @@ describe("MyReviewsScreen", () => {
   it.each([
     [STAGES.open, "?stage=open", "Nothing is waiting on you right now."],
     [STAGES.submitted, "?stage=submitted", "Nothing here."],
-    [STAGES.cover, "?stage=cover", "Nothing here."],
+    [STAGES.published, "?stage=published", "Nothing here."],
   ])("says %s is empty in so many words", async (stage, search, words) => {
     url.search = search;
 
@@ -85,20 +85,20 @@ describe("MyReviewsScreen", () => {
     expect(await within(await screen.findByRole("tabpanel", { name: stage })).findByText(words)).toBeInTheDocument();
   });
 
-  it("puts a disc I have whose review was chosen on the cover, with its approved line and Return to the review shelf", async () => {
-    url.search = "?stage=cover";
+  it("puts a disc I have whose review was chosen under Published, with its approved line and Return to the review shelf", async () => {
+    url.search = "?stage=published";
     const disc = held(2, { state: "reviewed", effective_state: "reviewed" });
 
     renderScreen([disc], [submitted(40, { intake_item_id: 2, album_id: null, in_use: true })]);
 
-    const cover = await screen.findByRole("tabpanel", { name: STAGES.cover });
-    expect(within(cover).getByText(REVIEW_COPY.screen.reviewedReturn)).toBeInTheDocument();
-    expect(within(cover).getByRole("button", { name: REVIEW_COPY.screen.returnToShelf })).toBeInTheDocument();
+    const published = await screen.findByRole("tabpanel", { name: STAGES.published });
+    expect(within(published).getByText(REVIEW_COPY.screen.reviewedReturn)).toBeInTheDocument();
+    expect(within(published).getByRole("button", { name: REVIEW_COPY.screen.returnToShelf })).toBeInTheDocument();
   });
 
   it.each([
     [STAGES.submitted, "?stage=submitted", false],
-    [STAGES.cover, "?stage=cover", true],
+    [STAGES.published, "?stage=published", true],
   ])("shows %s 20 at a time, newest first, and \"Show older reviews\" reveals the next 20", async (stage, search, inUse) => {
     url.search = search;
     const reviews = Array.from({ length: 45 }, (_, n) => submitted(n + 1, { in_use: inUse, submitted_at: new Date(Date.UTC(2026, 0, 1, 0, n)).toISOString() }));
@@ -130,14 +130,20 @@ describe("MyReviewsScreen", () => {
     expect(within(panel).queryByRole("button", { name: REVIEW_COPY.myReviews.showOlder })).not.toBeInTheDocument();
   });
 
+  // Rows 5, 6 and 7 of the copy round the station approved on 2026-10-16 (WXYC/Backend-Service#3382).
+  it.each([
+    ["stages.open", STAGES.open, "Open reviews"],
+    ["stages.submitted", STAGES.submitted, "Submitted"],
+    ["stages.published", STAGES.published, "Published"],
+    ["openEmpty", REVIEW_COPY.myReviews.openEmpty, "Nothing is waiting on you right now."],
+    ["showOlder", REVIEW_COPY.myReviews.showOlder, "Show older reviews"],
+  ])("words %s exactly as the station approved it", (_key, actual, approved) => {
+    expect(actual).toBe(approved);
+  });
+
   // The station has not approved this wording yet, so this pins it without claiming it is signed off.
   it.each([
     ["stagesLabel", REVIEW_COPY.myReviews.stagesLabel, "Which of my reviews to show"],
-    ["stages.open", STAGES.open, "Open reviews"],
-    ["stages.submitted", STAGES.submitted, "Submitted"],
-    ["stages.cover", STAGES.cover, "On the cover"],
-    ["openEmpty", REVIEW_COPY.myReviews.openEmpty, "Nothing is waiting on you right now."],
-    ["showOlder", REVIEW_COPY.myReviews.showOlder, "Show older reviews"],
   ])("words %s as currently proposed (not yet approved)", (_key, actual, expected) => {
     expect(actual).toBe(expected);
   });

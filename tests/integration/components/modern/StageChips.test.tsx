@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { screen, within } from "@testing-library/react";
 import { renderWithProviders } from "@/tests/helpers";
 import StageChips from "@/src/components/experiences/modern/StageChips";
@@ -13,7 +13,7 @@ vi.mock("next/navigation", async () => {
 const STAGES = [
   { id: "open", label: "Open reviews", count: 2 },
   { id: "submitted", label: "Submitted", count: 0 },
-  { id: "cover", label: "On the cover", count: 5 },
+  { id: "published", label: "Published", count: 5 },
 ] as const;
 
 const renderChips = () =>
@@ -23,9 +23,15 @@ const renderChips = () =>
     </StageChips>,
   );
 
+// A choice is written with the native History API, which the App Router syncs to useSearchParams; the router itself is never asked.
+let replaceState: ReturnType<typeof vi.spyOn>;
 beforeEach(() => {
   router.replace.mockClear();
   url.search = "";
+  replaceState = vi.spyOn(window.history, "replaceState");
+});
+afterEach(() => {
+  replaceState.mockRestore();
 });
 
 describe("StageChips", () => {
@@ -34,21 +40,21 @@ describe("StageChips", () => {
 
     const tablist = screen.getByRole("tablist", { name: "Which reviews to show" });
     const tabs = within(tablist).getAllByRole("tab");
-    expect(tabs.map((t) => [t.textContent, t.getAttribute("aria-selected")])).toEqual([
-      ["Open reviews2", "true"],
-      ["Submitted0", "false"],
-      ["On the cover5", "false"],
-    ]);
+    // A screen reader hears each count after a comma, never run into the label ("Open reviews2").
+    expect(["Open reviews, 2", "Submitted, 0", "Published, 5"].map((name) => within(tablist).getByRole("tab", { name }))).toEqual(tabs);
+    expect(tabs.map((t) => t.getAttribute("aria-selected"))).toEqual(["true", "false", "false"]);
     const panel = screen.getByRole("tabpanel", { name: "Open reviews" });
     for (const tab of tabs) {
       expect(tab).toHaveAttribute("aria-controls", panel.id);
     }
     expect(within(panel).getByText("showing open")).toBeInTheDocument();
+    // An empty stage's panel can still take Tab, so a keyboard user reaches what it says.
+    expect(panel).toHaveAttribute("tabindex", "0");
   });
 
   it.each([
     ["", "open"],
-    ["?stage=cover", "cover"],
+    ["?stage=published", "published"],
     ["?stage=submitted", "submitted"],
     ["?stage=nonsense", "open"],
   ])("reads the stage from %s", (search, stage) => {
@@ -63,18 +69,19 @@ describe("StageChips", () => {
     url.search = "?other=1";
     const { user } = renderChips();
 
-    await user.click(screen.getByRole("tab", { name: /On the cover/ }));
+    await user.click(screen.getByRole("tab", { name: /Published/ }));
 
-    expect(router.replace).toHaveBeenCalledWith("/dashboard/reviews/mine?other=1&stage=cover", { scroll: false });
+    expect(replaceState).toHaveBeenCalledWith(null, "", "/dashboard/reviews/mine?other=1&stage=published");
+    expect(router.replace).not.toHaveBeenCalled();
   });
 
   it.each([
     ["ArrowRight", "open", "stage=submitted"],
-    ["ArrowRight", "cover", "stage=open"],
-    ["ArrowLeft", "open", "stage=cover"],
-    ["ArrowLeft", "cover", "stage=submitted"],
-    ["Home", "cover", "stage=open"],
-    ["End", "open", "stage=cover"],
+    ["ArrowRight", "published", "stage=open"],
+    ["ArrowLeft", "open", "stage=published"],
+    ["ArrowLeft", "published", "stage=submitted"],
+    ["Home", "published", "stage=open"],
+    ["End", "open", "stage=published"],
   ])("%s from %s moves to the %s chip", async (key, from, written) => {
     url.search = `?stage=${from}`;
     const { user } = renderChips();
@@ -82,7 +89,7 @@ describe("StageChips", () => {
 
     await user.keyboard(`{${key}}`);
 
-    expect(router.replace).toHaveBeenCalledWith(`/dashboard/reviews/mine?${written}`, { scroll: false });
+    expect(replaceState).toHaveBeenCalledWith(null, "", `/dashboard/reviews/mine?${written}`);
   });
 
   it("moves focus to the chip an arrow key chose and lets only the selected chip take Tab", async () => {
