@@ -49,4 +49,35 @@ describe("ReviewShelfScreen", () => {
 
     expect(await screen.findByRole("button", { name: REVIEW_COPY.screen.checkOut })).toBeInTheDocument();
   });
+
+  it.each([
+    ["three records added on different days", [
+      { id: 1, artist_name: "Stereolab", logged_at: "2026-10-03T12:00:00Z" },
+      { id: 2, artist_name: "Cat Power", logged_at: "2026-10-01T12:00:00Z" },
+      { id: 3, artist_name: "Jessica Pratt", logged_at: "2026-10-02T12:00:00Z" },
+    ], ["Cat Power", "Jessica Pratt", "Stereolab"]],
+    ["two records added at the same moment", [
+      { id: 9, artist_name: "Stereolab", logged_at: "2026-10-01T12:00:00Z" },
+      { id: 4, artist_name: "Cat Power", logged_at: "2026-10-01T12:00:00Z" },
+    ], ["Cat Power", "Stereolab"]],
+  ])("lists %s oldest first", async (_name, records, expected) => {
+    fakeReviewsEndpoints();
+    renderWithProviders(<WithWrite items={records.map((r) => intakeItem(r))} isMD={false} />);
+
+    const rows = await screen.findAllByRole("listitem");
+    expect(rows.map((row) => expected.find((artist) => row.textContent?.includes(artist)))).toEqual(expected);
+  });
+
+  it.each([
+    ["a DJ", false],
+    ["a music director", true],
+  ])("says what the review shelf is above the list for %s, and keeps the region named", async (_who, isMD) => {
+    fakeReviewsEndpoints();
+    renderWithProviders(<WithWrite items={[intakeItem({ id: 5, artist_name: "Stereolab" })]} isMD={isMD} />);
+
+    const line = await screen.findByText(REVIEW_COPY.screen.shelfLine);
+    const region = screen.getByRole("region", { name: REVIEW_COPY.screen.shelfTitle });
+    expect(line.compareDocumentPosition(region) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(region).not.toContainElement(line);
+  });
 });

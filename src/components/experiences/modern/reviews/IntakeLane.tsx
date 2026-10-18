@@ -11,15 +11,17 @@ interface IntakeLaneProps<Row extends { id: number }> {
   empty: string;
   /** Renders the whole list item's content: a `RecordRow`, so every lane draws a record the same way and no lane can put its buttons inline. */
   row: (row: Row) => ReactNode;
+  /** Takes the heading off the screen while it still names the section, for a lane whose tab already says where you are. */
+  hideTitle?: boolean;
 }
 
 /**
  * One titled lane of review intake: a heading over a list of rows, or an
  * empty line when there are none. Shared by the lanes of the Reviews page: the DJ's own lanes and the music directors' tab.
  */
-export default function IntakeLane<Row extends { id: number }>({ title, rows, empty, row: renderRow }: IntakeLaneProps<Row>) {
+export default function IntakeLane<Row extends { id: number }>({ title, rows, empty, hideTitle, row: renderRow }: IntakeLaneProps<Row>) {
   return (
-    <HeadedSection title={title} titleLevel="title-lg" sx={{ display: "block" }}>
+    <HeadedSection title={title} titleLevel="title-lg" hideTitle={hideTitle} sx={{ display: "block" }}>
       {rows.length === 0 ? (
         <Typography level="body-sm">{empty}</Typography>
       ) : (

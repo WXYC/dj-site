@@ -22,7 +22,8 @@ export default function ReviewShelfScreen({ items, isMD, reviewers, write, lock 
   const [checkout] = useCheckoutIntakeItemMutation();
   const [requestReview] = useRequestIntakeItemMutation();
   const [cancelRequest] = useCancelIntakeRequestMutation();
-  const onShelf = items.filter(onReviewShelf);
+  // Oldest first, on the filtered copy, never the cache's own array.
+  const onShelf = items.filter(onReviewShelf).sort((a, b) => Date.parse(a.logged_at) - Date.parse(b.logged_at) || a.id - b.id);
   // Folded once per reviewers read, not per row or per keystroke.
   const folded = useMemo(() => foldReviewers(reviewers.data ?? []), [reviewers.data]);
   const reviewersFailed = hasNothingToShow(reviewers);
@@ -60,7 +61,8 @@ export default function ReviewShelfScreen({ items, isMD, reviewers, write, lock 
   return (
     <>
       {isMD && reviewersFailed && <Typography role="alert">{REVIEW_COPY.intake.reviewersLoadFailed}</Typography>}
-      <IntakeLane title={REVIEW_COPY.screen.shelfTitle} rows={onShelf} empty={REVIEW_COPY.screen.shelfEmpty} row={(i) => (
+      <Typography>{REVIEW_COPY.screen.shelfLine}</Typography>
+      <IntakeLane title={REVIEW_COPY.screen.shelfTitle} hideTitle rows={onShelf} empty={REVIEW_COPY.screen.shelfEmpty} row={(i) => (
         <RecordRow
           record={intakeRecord(i)}
           titleSlot={isMD ? <Link level="title-md" id={shelfRecordId(i)} href={`/dashboard/admin/intake/${i.id}`}>{i.artist_name}</Link> : undefined}
