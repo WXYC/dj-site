@@ -23,7 +23,8 @@ for (const [name, storageState] of [
     test("renders the logging form and the music directors' lanes on the New music tab", async ({ page }) => {
       await page.goto("/dashboard/reviews/music-directors");
 
-      await expect(page.getByRole("form", { name: "Log an item" })).toBeVisible({ timeout: 15000 });      await expect(page.getByRole("region", { name: "Filed" })).toBeVisible({ timeout: 15000 });
+      await expect(page.getByRole("form", { name: "Log an item" })).toBeVisible({ timeout: 15000 });
+      await expect(page.getByRole("region", { name: "Filed" })).toBeVisible({ timeout: 15000 });
     });
 
     test("forwards the old review shelf address to the New music tab", async ({ page }) => {

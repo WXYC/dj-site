@@ -45,7 +45,7 @@ function MyReviewRow({ review }: { review: Review }) {
   );
 }
 
-/** The requests, checkouts and My reviews lanes. It assumes its caller has applied the `useCanSeeReviews` check and the load-failed gate, and takes the one `useReviewWrite` the caller shares with the review shelf. */
+/** The requests, checkouts and My reviews lanes. It assumes its caller has applied the `useCanSeeReviews` check and the load-failed gate, and takes the `useReviewWrite` the caller built for this tab: the review shelf is a separate tab with its own write wiring, so a lock set here does not carry over to it. */
 export default function MyReviewsScreen({ items, myReviews, formats, me, write, lock }: { items: IntakeItem[]; myReviews: Review[]; formats: { id: number; format_name: string }[] | undefined; me: string | undefined } & ReviewWrite) {
   const [accept] = useAcceptIntakeItemMutation();
   const [pass] = usePassIntakeItemMutation();
