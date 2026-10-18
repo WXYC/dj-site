@@ -2,13 +2,15 @@
 
 import { useId, useRef, type KeyboardEvent, type ReactNode } from "react";
 import { Box } from "@mui/joy";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import HeadedSection from "./reviews/HeadedSection";
+import { VISUALLY_HIDDEN } from "./visuallyHidden";
 
 export type Stage<Id extends string> = { id: Id; label: string; count: number };
 
 /**
- * A row of capsule chips that switch the list below them: tabs in the markup, so one is selected and the arrow keys move between them. The choice is kept in the URL as `?stage=`, so it can be bookmarked; a missing or unknown value selects `fallback`. A chip with a zero count is muted.
+ * A row of capsule chips that switch the list below them: tabs in the markup, so one is selected and the arrow keys move between them. The choice is kept in the URL as `?stage=`, so it can be bookmarked; a missing or unknown value selects `fallback`. A chip with a zero count is muted, and a screen reader hears its count after a comma ("Open reviews, 2").
+ * A choice is written with `window.history.replaceState`, which the App Router syncs to `useSearchParams` without a server request, so the chip and its list change at once and no history entry is added.
  * `children` draws the selected stage's list. It sits in a tabpanel named by the selected chip.
  */
 export default function StageChips<Id extends string>({ label, stages, fallback, children }: {
@@ -18,7 +20,6 @@ export default function StageChips<Id extends string>({ label, stages, fallback,
   fallback: Id;
   children: (stage: Id) => ReactNode;
 }) {
-  const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const base = useId();
@@ -31,7 +32,7 @@ export default function StageChips<Id extends string>({ label, stages, fallback,
   const choose = (index: number) => {
     const next = new URLSearchParams(searchParams.toString());
     next.set("stage", stages[index].id);
-    router.replace(`${pathname}?${next}`, { scroll: false });
+    window.history.replaceState(null, "", `${pathname}?${next}`);
     chips.current[index]?.focus();
   };
 
@@ -80,12 +81,13 @@ export default function StageChips<Id extends string>({ label, stages, fallback,
               }}
             >
               {stage.label}
-              <Box component="span" sx={{ ml: 0.75 }}>{stage.count}</Box>
+              <Box component="span" aria-hidden="true" sx={{ ml: 0.75 }}>{stage.count}</Box>
+              <Box component="span" sx={VISUALLY_HIDDEN}>{`, ${stage.count}`}</Box>
             </Box>
           );
         })}
       </Box>
-      <HeadedSection id={panelId} role="tabpanel" title={selected.label} hideTitle>
+      <HeadedSection id={panelId} role="tabpanel" tabIndex={0} title={selected.label} hideTitle>
         {children(selected.id)}
       </HeadedSection>
     </>

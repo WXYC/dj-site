@@ -501,9 +501,13 @@ describe("ReviewsScreen", () => {
         await user.click(within(await screen.findByRole("alertdialog", { name: PASS })).getByRole("button", { name: "Pass" }));
       }
       // Assert during the hold, once every read the case depends on has started and only the held one is outstanding:
-      // the my-reviews read has answered, so a notice that waited for it alone would already show.
+      // the my-reviews read has answered, so a notice that waited for it alone would already show. The review shelf tab does not draw that list, so a write there never reads it.
       await waitFor(() => expect(reload.calls.count).toBeGreaterThan(0));
-      await waitFor(() => expect(otherReads.count).toBeGreaterThan(0));
+      if (title === SHELF) {
+        expect(otherReads.count).toBe(0);
+      } else {
+        await waitFor(() => expect(otherReads.count).toBeGreaterThan(0));
+      }
       await waitFor(() => expect(pendingCount(store)).toBe(1));
       await renderedFrame();
       expect(toast).not.toHaveBeenCalled();
@@ -603,8 +607,8 @@ describe("ReviewsScreen", () => {
     await waitFor(() => expect(reload.calls.count).toBeGreaterThan(0));
     await waitFor(() => expect(pendingCount(store)).toBe(1));
     await renderedFrame();
-    // The tab strip's count on My reviews is drawn from that list, so a write on the review shelf reloads it too.
-    await waitFor(() => expect(otherReads.count).toBeGreaterThan(0));
+    // The review shelf tab does not draw My reviews, so its write never reads it.
+    expect(otherReads.count).toBe(0);
 
     expect(within(shelf).getByText(/Stereolab/)).toBeInTheDocument();
     const again = within(shelf).getByRole("button", { name: "Check out" });

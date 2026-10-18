@@ -78,15 +78,14 @@ describe("ReviewsScreen — a row stays locked until every rendered list has rel
     await waitFor(() => expect(heldReads).toBeGreaterThan(0));
     await waitFor(() => expect(pendingCount(store)).toBe(1));
     await renderedFrame();
-    // A write on the review shelf also reloads My reviews, which the tab strip's count is drawn from; that read has answered.
-    expect(otherReads).toBeGreaterThan(0);
+    expect(otherReads).toBe(0);
     expect(checkout).toBeDisabled();
 
     releaseHeld();
     await waitFor(() => expect(checkout).toBeEnabled());
   });
 
-  it("reloads My reviews after a write on the review shelf tab, because the tab strip's count on My reviews is drawn from it", async () => {
+  it("does not read My reviews after a write on the review shelf tab, which does not draw it", async () => {
     let written = false;
     let reviewReadsAfterWrite = 0;
     let intakeReadsAfterWrite = 0;
@@ -115,9 +114,10 @@ describe("ReviewsScreen — a row stays locked until every rendered list has rel
     const checkout = within(shelf).getByRole("button", { name: "Check out" });
     await user.click(checkout);
 
+    // The intake reload has landed and the row is free again; My reviews was never asked for.
     await waitFor(() => expect(intakeReadsAfterWrite).toBeGreaterThan(0));
-    await waitFor(() => expect(reviewReadsAfterWrite).toBeGreaterThan(0));
     await waitFor(() => expect(checkout).toBeEnabled());
+    expect(reviewReadsAfterWrite).toBe(0);
   });
 
   it("keeps a request I started a review on locked as a record I'm reviewing until My reviews has reloaded", async () => {

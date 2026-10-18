@@ -1,6 +1,7 @@
 import type { IntakeItem, Review } from "@wxyc/shared";
 
-export const STAGES = ["open", "submitted", "cover"] as const;
+/** The stages' `?stage=` tokens, in chip order: stable lowercase slugs that links and bookmarks rely on, so a chip's wording can change without them. */
+export const STAGES = ["open", "submitted", "published"] as const;
 export type Stage = (typeof STAGES)[number];
 
 /** One row of the My reviews tab: a request to the DJ, a record the DJ has, or a review of a record the DJ does not have. */
@@ -15,11 +16,11 @@ const when = (r: Review): number => Date.parse(r.submitted_at ?? r.last_modified
 
 /**
  * Sorts the DJ's work into the My reviews tab's three stages. `reviews` is the DJ's own list. A held record is one row: in the stage of its newest submitted review, else in Open reviews. A lapsed request (`effective_state` `pool`) is no request.
- * Open reviews lists requests, then overdue records, then the rest; Submitted and On the cover list newest first. A draft on a record the DJ no longer has, and a draft of a library release, are Open reviews.
+ * Open reviews lists requests, then overdue records, then the rest; Submitted and Published list newest first. A draft on a record the DJ no longer has, and a draft of a library release, are Open reviews.
  */
 export function sortMyReviews(items: IntakeItem[], reviews: Review[], me: string | undefined): Record<Stage, MyReviewsRow[]> {
   const heldItems = new Map(items.filter((i) => isHeldBy(i, me)).map((i) => [i.id, i]));
-  const lanes: Record<Stage, MyReviewsRow[]> = { open: [], submitted: [], cover: [] };
+  const lanes: Record<Stage, MyReviewsRow[]> = { open: [], submitted: [], published: [] };
   const placed = new Set<number>();
   const newestFirst = [...reviews].sort((a, b) => when(b) - when(a));
 
@@ -29,7 +30,7 @@ export function sortMyReviews(items: IntakeItem[], reviews: Review[], me: string
     if (takesRecord) {
       placed.add(item.id);
     }
-    lanes[review.in_use ? "cover" : "submitted"].push(takesRecord ? { kind: "held", item } : { kind: "review", review });
+    lanes[review.in_use ? "published" : "submitted"].push(takesRecord ? { kind: "held", item } : { kind: "review", review });
   }
 
   const requests = items.filter((i) => i.effective_state === "requested" && i.requested_dj_id === me);

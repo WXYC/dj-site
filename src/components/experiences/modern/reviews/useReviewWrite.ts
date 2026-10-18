@@ -44,9 +44,9 @@ export const MY_REVIEWS = undefined;
 /**
  * The write wiring behind one Reviews tab. Call it once per tab, in the screen that owns the tab's lists, and pass `write` and `lock` down: a row stays locked until every list the tab renders has reloaded, which holds across that tab's lanes because one pending map covers them all. The tabs are separate routes, so each has its own pending map and a lock does not carry from one tab to the other.
  *
- * Every write reloads the intake list and the DJ's own reviews: the tab strip's count on My reviews is drawn from both, on every tab.
+ * Every write reloads the intake list. `reloadMine` (default true) also reloads the DJ's own reviews; a tab that does not draw that list passes false, so a write there neither reads it nor waits on it. The tab strip's My reviews count reads that list too, and stays right without it: the review shelf tab's writes (checkout, request, cancel request) never change the DJ's own reviews, and a write that does invalidates the `Review` tag, which refetches the count's read.
  */
-export function useReviewWrite(items: IntakeItem[] | undefined) {
+export function useReviewWrite(items: IntakeItem[] | undefined, { reloadMine = true }: { reloadMine?: boolean } = {}) {
   const dispatch = useAppDispatch();
   // A double-click's second POST would find the record already moved and
   // answer 409 state_changed, telling the DJ someone else took the record they
@@ -55,7 +55,7 @@ export function useReviewWrite(items: IntakeItem[] | undefined) {
   return useRowWrite<Action>({
     reload: () => [
       dispatch(intakeApi.endpoints.getIntakeItems.initiate(EVERY_STATE, { subscribe: false, forceRefetch: true })),
-      dispatch(reviewApi.endpoints.getMyReviews.initiate(MY_REVIEWS, { subscribe: false, forceRefetch: true })),
+      ...(reloadMine ? [dispatch(reviewApi.endpoints.getMyReviews.initiate(MY_REVIEWS, { subscribe: false, forceRefetch: true }))] : []),
     ],
     isLostRace: (err) => isIntakeStateChanged(err) || isReviewSubjectNotHeld(err),
     onFailure: (err, _id, action) => {

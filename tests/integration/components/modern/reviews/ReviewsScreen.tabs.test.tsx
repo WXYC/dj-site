@@ -66,7 +66,7 @@ describe("ReviewsScreen tabs", () => {
   it.each([
     ["a DJ", Authorization.DJ],
     ["a music director", Authorization.MD],
-  ])("the My reviews tab shows the Open reviews, Submitted and On the cover stages for %s, and neither the review shelf nor the form", async (_who, authority) => {
+  ])("the My reviews tab shows the Open reviews, Submitted and Published stages for %s, and neither the review shelf nor the form", async (_who, authority) => {
     mockAuth.authority = authority;
 
     renderWithProviders(<ReviewsScreen tab="mine" />);
@@ -74,7 +74,7 @@ describe("ReviewsScreen tabs", () => {
     const open = await screen.findByRole("tabpanel", { name: "Open reviews" });
     await within(open).findByText(/Stereolab/);
     expect(within(open).getByText(/Cat Power/)).toBeInTheDocument();
-    expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual(["Open reviews2", "Submitted0", "On the cover0"]);
+    expect(["Open reviews, 2", "Submitted, 0", "Published, 0"].map((name) => screen.getByRole("tab", { name }))).toEqual(screen.getAllByRole("tab"));
     expect(lanesShown()).toEqual([]);
     expect(screen.queryByRole("form", { name: "Log an item" })).not.toBeInTheDocument();
   });
