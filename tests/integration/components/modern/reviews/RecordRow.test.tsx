@@ -217,6 +217,24 @@ describe("RecordRow cover", () => {
     expect(glyph(container)).toBeNull();
   });
 
+  // RTK Query keeps the previous argument's answer in `data` while the next read is pending or after it fails; the row must not draw it.
+  it.each([
+    ["is pending", () => new Promise<Response>(() => {})],
+    ["fails", () => HttpResponse.json({ message: "Metadata service unavailable" }, { status: 500 })],
+  ])("shows the glyph, not the previous record's cover, when the row is drawn for another record whose read %s", async (_case, respond) => {
+    const reads = serveArtwork((title) => (title === "DOGA" ? HttpResponse.json({ artworkUrl: COVER_URL }) : respond()));
+    const { container, rerender } = renderWithProviders(<RecordRow record={{ ...record, format: "Vinyl" }} cover={72} />);
+    await waitFor(() => expect(cover(container)).toHaveAttribute("src", COVER_URL));
+
+    rerender(<RecordRow record={{ artist: "Stereolab", album: "Aluminum Tunes", label: "Duophonic", format: "Vinyl" }} cover={72} />);
+
+    expect(cover(container)).toBeNull();
+    await waitFor(() => expect(reads.count).toBe(2));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(cover(container)).toBeNull();
+    expect(glyph(container)).toHaveStyle({ width: "72px", height: "72px" });
+  });
+
   it("makes no metadata read for a blank album, and keeps the glyph", async () => {
     const reads = serveArtwork(() => HttpResponse.json({ artworkUrl: COVER_URL }));
     const { container } = renderWithProviders(<RecordRow record={{ ...record, album: "" }} cover={72} />);
