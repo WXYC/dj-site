@@ -271,7 +271,7 @@ export default function MyReviewsScreen({ items, myReviews, me, write, lock }: {
             {canPass ? (
               <ActionTooltip title={REVIEW_COPY.tooltips.passHeld}><Button size="sm" variant="outlined" {...namedByRecord(key, "pass")} {...lock(i.id, "passHeld")} onClick={() => setPassing(i)}>{REVIEW_COPY.screen.pass}</Button></ActionTooltip>
             ) : (
-              !i.digital && <Button size="sm" variant={reviewed ? "solid" : "outlined"} {...lock(i.id, "release")} onClick={() => setReturning(i)}>{REVIEW_COPY.intake.returned}</Button>
+              !i.digital && <ActionTooltip title={REVIEW_COPY.tooltips.markReturnedOwn}><Button size="sm" variant={reviewed ? "solid" : "outlined"} {...lock(i.id, "release")} onClick={() => setReturning(i)}>{REVIEW_COPY.intake.returned}</Button></ActionTooltip>
             )}
           </>
         }
@@ -335,9 +335,9 @@ export default function MyReviewsScreen({ items, myReviews, me, write, lock }: {
                 follow(
                   await write(id, "release", async () => {
                     await release(id).unwrap();
-                    // Only a DJ whose review is in hears where it is; any other return says nothing, as the row's leaving says it.
-                    if (mounted.current && reviewWaits) {
-                      toast.success(REVIEW_COPY.screen.returnedWaiting);
+                    // A DJ whose review is in hears where it is; any other return hears only that it went through.
+                    if (mounted.current) {
+                      toast.success(reviewWaits ? REVIEW_COPY.screen.returnedWaiting : REVIEW_COPY.screen.returnedDone);
                     }
                   }),
                 );
