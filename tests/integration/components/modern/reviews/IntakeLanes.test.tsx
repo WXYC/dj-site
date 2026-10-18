@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { CDR_FORMAT, digitalItem, fakeReviewsEndpoints, fccNote, heldBy, holdResponse, intakeItem, outline, pendingCount, removedHolder, renderedFrame, renderWithProviders, requestedFor, returned, returnedByMusicDirector, review, reviewsSettled, server, TEST_BACKEND_URL } from "@/tests/helpers";
+import type { IntakeItem } from "@wxyc/shared";
 import { Authorization } from "@/lib/features/admin/types";
 
 vi.mock("@/lib/features/authentication/client", async () => {
@@ -94,6 +95,12 @@ describe("IntakeLanes", () => {
     ["heldFor", REVIEW_COPY.intake.heldFor, "Held for"],
     ["cancelRequest", REVIEW_COPY.intake.cancelRequest, "Cancel request"],
     ["more", REVIEW_COPY.intake.more(2), "+2 more"],
+    // Rows 42 and 43 of the 2026-10-16 copy round (WXYC/Backend-Service#3382).
+    ["returnQuestion", REVIEW_COPY.intake.returnQuestion("{artist}", "{album}"), "Return {artist}, {album}, to the review shelf?"],
+    ["returnBody", REVIEW_COPY.intake.returnBody("{name}"), "{name} will no longer have it, and any DJ can choose to review it."],
+    ["returnBringDisc", REVIEW_COPY.intake.returnBringDisc, "Ask them to bring the disc to the music office."],
+    ["markReturnedQuestion", REVIEW_COPY.intake.markReturnedQuestion("{artist}", "{album}"), "Mark {artist}, {album} as back in the music office?"],
+    ["markReturnedBody", REVIEW_COPY.intake.markReturnedBody("{name}"), "{name} will no longer have it. Their review stays waiting for you to choose."],
   ])("words %s exactly as the station approved it", (_key, actual, approved) => {
     expect(actual).toBe(approved);
   });
@@ -657,95 +664,84 @@ describe("IntakeLanes — cancel and release", () => {
     expect(within(screen.getByRole("region", { name: "Requested" })).queryByText(/Moon Pix/)).not.toBeInTheDocument();
   });
 
-  it("returns a checkout to the review shelf only after a confirmation, including one whose holder was removed", async () => {
-    const released: string[] = [];
+  // One table over a disc and a digital album, with and without a waiting review, and with a removed holder. `after` is
+  // the record as POST /intake/{id}/release leaves it on the server: `pool`, nobody holding it, any review still waiting.
+  const asDigital: Partial<IntakeItem> = { digital: true, format_id: CDR_FORMAT.id };
+  const reviewWaits: Partial<IntakeItem> = { submitted_review_count: 1, accepted_review_id: null };
+  const releasedToPool: Partial<IntakeItem> = { state: "pool", effective_state: "pool", ...returned };
+  const SAM = heldBy("dj-1", "DJ Sam", "2026-09-01T12:00:00Z");
+  const RETURN = "Return to the review shelf";
+  const MARK = "Mark as returned";
+  const RETURN_TITLE = "Return Cat Power, Moon Pix, to the review shelf?";
+  const MARK_TITLE = "Mark Cat Power, Moon Pix as back in the music office?";
+  const BACK_IN_OFFICE = "From Jessica Pratt. The record is back in the music office.";
+  type Row = {
+    item: Partial<IntakeItem>;
+    beingReviewed: string[];
+    reviewWaiting: string[] | null;
+    confirm: { title: string; body: string } | null;
+    after: Partial<IntakeItem> | null;
+    fromAfter: string | null;
+  };
+
+  it.each<[string, Row]>([
+    ["a disc a DJ has", { item: SAM, beingReviewed: [RETURN], reviewWaiting: null, confirm: { title: RETURN_TITLE, body: "DJ Sam will no longer have it, and any DJ can choose to review it. Ask them to bring the disc to the music office." }, after: releasedToPool, fromAfter: null }],
+    ["a digital album a DJ has", { item: { ...asDigital, ...SAM }, beingReviewed: [RETURN], reviewWaiting: null, confirm: { title: RETURN_TITLE, body: "DJ Sam will no longer have it, and any DJ can choose to review it." }, after: { ...asDigital, ...releasedToPool }, fromAfter: null }],
+    ["a disc whose holder was removed", { item: removedHolder, beingReviewed: [RETURN], reviewWaiting: null, confirm: { title: RETURN_TITLE, body: "Any DJ can choose to review it." }, after: releasedToPool, fromAfter: null }],
+    ["a digital album whose holder was removed", { item: { ...asDigital, ...removedHolder }, beingReviewed: [RETURN], reviewWaiting: null, confirm: { title: RETURN_TITLE, body: "Any DJ can choose to review it." }, after: { ...asDigital, ...releasedToPool }, fromAfter: null }],
+    ["a disc a DJ has, with a review waiting", { item: { ...SAM, ...reviewWaits }, beingReviewed: [], reviewWaiting: [MARK], confirm: { title: MARK_TITLE, body: "DJ Sam will no longer have it. Their review stays waiting for you to choose." }, after: returnedByMusicDirector, fromAfter: BACK_IN_OFFICE }],
+    ["a disc whose holder was removed, with a review waiting", { item: { ...removedHolder, ...reviewWaits }, beingReviewed: [], reviewWaiting: [MARK], confirm: { title: MARK_TITLE, body: "The review stays waiting for you to choose." }, after: returnedByMusicDirector, fromAfter: BACK_IN_OFFICE }],
+    ["a digital album a DJ has, with a review waiting", { item: { ...asDigital, ...SAM, ...reviewWaits }, beingReviewed: [], reviewWaiting: [], confirm: null, after: null, fromAfter: null }],
+    ["a digital album whose holder was removed, with a review waiting", { item: { ...asDigital, ...removedHolder, ...reviewWaits }, beingReviewed: [], reviewWaiting: [], confirm: null, after: null, fromAfter: null }],
+  ])("for %s, offers its own button and confirmation, sends nothing on Cancel, and leaves the record where the server puts it", async (_label, { item, beingReviewed, reviewWaiting, confirm, after, fromAfter }) => {
+    const posts: number[] = [];
+    const row = () => outRow(11, posts.length > 0 ? { ...item, ...after } : item);
+    const awaiting = () => (reviewWaiting ? [row()] : []);
     fakeReviewsEndpoints({
-      open: () => [outRow(11, released.includes("11") ? { effective_state: "pool", state: "pool", ...returned } : {}), outRow(12, removedHolder)],
+      open: () => [row()],
+      awaiting,
+      forItem: { "11": [review({ id: 70, intake_item_id: 11, status: "submitted", author: "Jessica Pratt", author_user_id: "dj-jess", add_date: "2026-10-01" })] },
     });
-    server.use(
-      http.post(`${TEST_BACKEND_URL}/intake/:id/release`, ({ params }) => {
-        released.push(String(params.id));
-        return HttpResponse.json(moonPix({ id: Number(params.id) }));
-      }),
-    );
-
-    const { user } = renderWithProviders(<IntakeLanes />);
-    const checkedOut = await lane("Being reviewed");
-    expect(within(checkedOut).getByText("Holder removed")).toBeInTheDocument();
-    expect(within(checkedOut).getByText("Checked out to DJ Sam")).toBeInTheDocument();
-    expect(within(checkedOut).queryByRole("button", { name: "Release" })).not.toBeInTheDocument();
-    expect(within(checkedOut).getAllByRole("button", { name: "Return to the review shelf" })).toHaveLength(2);
-
-    await user.click(within(within(checkedOut).getByText("Holder removed").closest("li")!).getByRole("button", { name: "Return to the review shelf" }));
-    const dialog = await screen.findByRole("alertdialog");
-    expect(within(dialog).getByText("Return Cat Power, Moon Pix, to the review shelf?")).toBeInTheDocument();
-    expect(within(dialog).getByText("Any DJ can choose to review it.")).toBeInTheDocument();
-    expect(released).toEqual([]);
-    await user.click(within(dialog).getByRole("button", { name: "Return to the review shelf" }));
-
-    await waitFor(() => expect(released).toEqual(["12"]));
-  });
-
-  it.each([
-    ["a disc", () => moonPix(), "DJ Sam will no longer have it, and any DJ can choose to review it. Ask them to bring the disc to the music office."],
-    ["a digital album", () => digitalItem({ id: 11, artist_name: "Cat Power", album_title: "Moon Pix" }), "DJ Sam will no longer have it, and any DJ can choose to review it."],
-  ])("words the return confirmation for %s and sends nothing on Cancel", async (_kind, make, body) => {
-    const posts: string[] = [];
-    fakeReviewsEndpoints({ open: [{ ...make(), id: 11, state: "checked_out", effective_state: "checked_out", ...heldBy("dj-1", "DJ Sam", null) }] });
     server.use(http.post(`${TEST_BACKEND_URL}/intake/11/release`, () => {
-      posts.push("release");
-      return HttpResponse.json(moonPix({ id: 11 }));
+      posts.push(11);
+      return HttpResponse.json(outRow(11, { ...item, ...after }));
     }));
+    const buttons = (region: HTMLElement) => within(region).queryAllByRole("button").map((b) => b.textContent);
 
     const { user } = renderWithProviders(<IntakeLanes />);
-    await user.click(await within(await lane("Being reviewed")).findByRole("button", { name: "Return to the review shelf" }));
+    const being = await lane("Being reviewed");
+    await within(being).findByRole("link", { name: /Moon Pix/ });
+    expect(buttons(being)).toEqual(beingReviewed);
+    const waitingLane = reviewWaiting && (await lane("Review waiting (1)"));
+    expect(waitingLane ? buttons(waitingLane) : null).toEqual(reviewWaiting);
+    expect(screen.queryByRole("button", { name: /release/i })).not.toBeInTheDocument();
+    if (!confirm) {
+      return;
+    }
 
+    const button = [...beingReviewed, ...(reviewWaiting ?? [])][0];
+    await user.click(screen.getByRole("button", { name: button }));
     const dialog = await screen.findByRole("alertdialog");
-    expect(within(dialog).getByText("Return Cat Power, Moon Pix, to the review shelf?")).toBeInTheDocument();
-    expect(within(dialog).getByText(body)).toBeInTheDocument();
+    expect(within(dialog).getByRole("heading", { name: confirm.title })).toBeInTheDocument();
+    expect(within(dialog).getByText(confirm.body)).toBeInTheDocument();
+    expect(buttons(dialog)).toEqual([button, "Cancel"]);
     await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
-
     await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
     expect(posts).toEqual([]);
-  });
 
-  describe("a checked-out record with a review waiting", () => {
-    const held = (overrides = {}) => waiting(11, { ...heldBy("dj-1", "DJ Sam", "2026-09-01T12:00:00Z"), ...overrides });
+    await user.click(screen.getByRole("button", { name: button }));
+    await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: button }));
 
-    it("has no Return to the review shelf in Being reviewed, and Mark as returned in Review waiting, behind its own confirmation", async () => {
-      let released = false;
-      const item = () => held(released ? returned : {});
-      fakeReviewsEndpoints({ open: () => [item()], awaiting: () => [item()], forItem: { "11": [review({ id: 70, intake_item_id: 11, status: "submitted" })] } });
-      server.use(http.post(`${TEST_BACKEND_URL}/intake/11/release`, () => {
-        released = true;
-        return HttpResponse.json(moonPix({ id: 11 }));
-      }));
-
-      const { user } = renderWithProviders(<IntakeLanes />);
-      expect(within(await lane("Being reviewed")).queryByRole("button")).not.toBeInTheDocument();
-      const waitingLane = await lane("Review waiting (1)");
-      await user.click(within(waitingLane).getByRole("button", { name: "Mark as returned" }));
-
-      const dialog = await screen.findByRole("alertdialog");
-      expect(within(dialog).getByText("Mark Cat Power, Moon Pix as back in the music office?")).toBeInTheDocument();
-      expect(within(dialog).getByText("DJ Sam will no longer have it. Their review stays waiting for you to choose.")).toBeInTheDocument();
-      expect(released).toBe(false);
-      await user.click(within(dialog).getByRole("button", { name: "Mark as returned" }));
-
-      await waitFor(() => expect(released).toBe(true));
-      await waitFor(() => expect(within(screen.getByRole("region", { name: "Review waiting (1)" })).queryByRole("button", { name: "Mark as returned" })).not.toBeInTheDocument());
-      expect(screen.queryByRole("region", { name: "On the review shelf" })).not.toBeInTheDocument();
-    });
-
-    it("offers a digital album in Review waiting no Mark as returned", async () => {
-      const item = digitalItem({ id: 11, state: "checked_out", effective_state: "checked_out", ...heldBy("dj-1", "DJ Sam", null), submitted_review_count: 1 });
-      fakeReviewsEndpoints({ open: [item], awaiting: [item], forItem: { "11": [review({ id: 70, intake_item_id: 11, status: "submitted" })] } });
-
-      renderWithProviders(<IntakeLanes />);
-
-      const waitingLane = await lane("Review waiting (1)");
-      expect(within(waitingLane).queryByRole("button")).not.toBeInTheDocument();
-    });
+    await waitFor(() => expect(posts).toEqual([11]));
+    await waitFor(() => expect(within(screen.getByRole("region", { name: "Being reviewed" })).queryByText(/Moon Pix/)).not.toBeInTheDocument());
+    if (fromAfter) {
+      const stillWaiting = screen.getByRole("region", { name: "Review waiting (1)" });
+      expect(await within(stillWaiting).findByText(fromAfter)).toBeInTheDocument();
+      expect(buttons(stillWaiting)).toEqual([]);
+    } else {
+      expect(screen.queryByRole("region", { name: /Review waiting/ })).not.toBeInTheDocument();
+    }
+    expect(screen.queryByText(/on the review shelf/i)).not.toBeInTheDocument();
   });
 });
 
@@ -763,12 +759,13 @@ describe("IntakeLanes — lost races", () => {
   };
 
   it.each([
-    ["cancel", "cancel-request", () => ({ open: [requestedRow(11)] }), "Cancel request"],
-    ["release", "release", () => ({ open: [outRow(11)] }), "Return to the review shelf"],
-    ["return", "release", () => ({ reviewed: [moonPix({ id: 11, effective_state: "reviewed", ...heldBy("dj-1", "DJ Sam", "2026-09-01T12:00:00Z") })] }), "Mark as returned"],
+    ["Cancel request", "cancel", "cancel-request", () => ({ open: [requestedRow(11)] }), "Cancel request", false],
+    ["Return to the review shelf", "release", "release", () => ({ open: [outRow(11)] }), "Return to the review shelf", true],
+    ["Mark as returned on the Reviewed lane", "return", "release", () => ({ reviewed: [moonPix({ id: 11, effective_state: "reviewed", ...heldBy("dj-1", "DJ Sam", "2026-09-01T12:00:00Z") })] }), "Mark as returned", false],
+    ["Mark as returned on a Review waiting disc", "return", "release", () => ({ open: [waiting(11)], awaiting: [waiting(11)] }), "Mark as returned", true],
   ] as const)(
     "a lost %s reloads both reads, then shows its own line and never the server message",
-    async (action, path, rows, button) => {
+    async (_label, action, path, rows, button, confirms) => {
       let reads = 0;
       fakeReviewsEndpoints(rows());
       server.use(
@@ -784,7 +781,7 @@ describe("IntakeLanes — lost races", () => {
       });
       server.use(counting);
       await user.click(screen.getByRole("button", { name: button }));
-      if (action === "release") {
+      if (confirms) {
         await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: button }));
       }
 

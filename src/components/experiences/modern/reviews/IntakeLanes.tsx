@@ -35,7 +35,8 @@ const COPY = REVIEW_COPY.intake;
 const EVERY_STATE = undefined;
 export const AWAITING_LANE = { awaiting_acceptance: true } as const;
 
-// `return` is the Reviewed lane's Mark as returned; both it and `release` call /release.
+// `release` is Being reviewed's Return to the review shelf; `return` is Mark as returned, on the Reviewed lane and on a
+// Review waiting disc. Both call /release.
 type Action = "cancel" | "release" | "return";
 
 /** What a lost race (409 `state_changed`) means for each button, shown once the lists have reloaded. */
@@ -46,6 +47,27 @@ const RACE_NOTICE: Record<Action, string> = {
 };
 
 const RECENT_PASSES = 5;
+
+/** A confirmation that is open: Return to the review shelf (`release`) or a Review waiting disc's Mark as returned (`return`). */
+type Confirming = { item: IntakeItem; action: Exclude<Action, "cancel"> };
+
+/** The open confirmation's words. A removed holder has no name to give, and nobody to ask to bring a disc back. */
+function confirmation({ item, action }: Confirming): { title: string; body: string; confirm: string } {
+  const holder = itemHolder(item);
+  const name = "name" in holder ? holder.name : null;
+  if (action === "return") {
+    return {
+      title: COPY.markReturnedQuestion(item.artist_name, item.album_title),
+      body: name ? COPY.markReturnedBody(name) : COPY.markReturnedBodyRemoved,
+      confirm: COPY.returned,
+    };
+  }
+  return {
+    title: COPY.returnQuestion(item.artist_name, item.album_title),
+    body: name ? byKind(item, { disc: `${COPY.returnBody(name)} ${COPY.returnBringDisc}`, digital: COPY.returnBody(name) }) : COPY.returnBodyRemoved,
+    confirm: REVIEW_COPY.screen.returnToShelf,
+  };
+}
 
 /** The music directors' tab: the FCC notes waiting on them, read on their own, above the intake lanes. */
 export default function IntakeLanes() {
@@ -66,7 +88,7 @@ function IntakeLaneGroups() {
   const [cancelRequest] = useCancelIntakeRequestMutation();
   const dispatch = useAppDispatch();
   const [notice, setNotice] = useState<string | null>(null);
-  const [confirming, setConfirming] = useState<{ item: IntakeItem; action: "release" | "return" } | null>(null);
+  const [confirming, setConfirming] = useState<Confirming | null>(null);
   const { write, lock } = useRowWrite<Action>({
     reload: () =>
       [EVERY_STATE, AWAITING_LANE].map((arg) =>
@@ -119,8 +141,7 @@ function IntakeLaneGroups() {
       {i.overdue && <Chip color="danger">{REVIEW_COPY.screen.overdue}</Chip>}
     </>
   );
-  const confirmingHolder = confirming && itemHolder(confirming.item);
-  const holderName = confirmingHolder && "name" in confirmingHolder ? confirmingHolder.name : null;
+  const dialog = confirming && confirmation(confirming);
   const physical = (i: IntakeItem) => waitingIds.has(i.id) && <Chip size="sm">{COPY.reviewWaitingMark}</Chip>;
 
   return (
@@ -216,9 +237,7 @@ function IntakeLaneGroups() {
       <ConfirmDialog
         open={confirming !== null}
         onClose={() => setConfirming(null)}
-        title={confirming?.action === "return"
-          ? COPY.markReturnedQuestion(confirming.item.artist_name, confirming.item.album_title)
-          : confirming && COPY.returnQuestion(confirming.item.artist_name, confirming.item.album_title)}
+        title={dialog?.title}
         actions={
           <>
             <Button
@@ -228,15 +247,13 @@ function IntakeLaneGroups() {
                 await act(item.id, action, () => release(item.id).unwrap());
               }}
             >
-              {confirming?.action === "return" ? COPY.returned : REVIEW_COPY.screen.returnToShelf}
+              {dialog?.confirm}
             </Button>
             <Button variant="plain" onClick={() => setConfirming(null)}>{REVIEW_COPY.screen.cancel}</Button>
           </>
         }
       >
-        {confirming?.action === "return"
-          ? COPY.markReturnedBody(holderName)
-          : confirming && `${COPY.returnBody(holderName)}${holderName && recordKind(confirming.item) === "disc" ? ` ${COPY.returnBringDisc}` : ""}`}
+        {dialog?.body}
       </ConfirmDialog>
     </Stack>
   );
