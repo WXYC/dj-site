@@ -1,10 +1,10 @@
 "use client";
 
-import { useId, useState } from "react";
-import { Autocomplete, AutocompleteOption, Button, FormControl, FormHelperText, FormLabel, Input, Option, Radio, RadioGroup, Select, Sheet, Stack, Typography } from "@mui/joy";
+import { useId, useRef, useState } from "react";
+import { Autocomplete, AutocompleteOption, Button, CircularProgress, FormControl, FormHelperText, FormLabel, Input, Option, Radio, RadioGroup, Select, Sheet, Stack, Typography } from "@mui/joy";
 import { toast } from "sonner";
-import { useGetFormatsQuery, useSearchLibraryArtistsQuery } from "@/lib/features/catalog/api";
-import { discogsReleaseIdFrom } from "@/lib/features/catalog/discogsPrefill";
+import { useGetFormatsQuery, useLazyGetDiscogsPrefillQuery, useSearchLibraryArtistsQuery } from "@/lib/features/catalog/api";
+import { discogsPrefillErrorMessage, discogsReleaseIdFrom } from "@/lib/features/catalog/discogsPrefill";
 import { formatLabel } from "@/lib/features/experiences/modern/tokens/roles";
 import type { ArtistSearchMatch } from "@/lib/features/catalog/types";
 import { useLogIntakeItemMutation } from "@/lib/features/reviews/intakeApi";
@@ -46,6 +46,10 @@ export default function IntakeLogForm() {
   // Only typed text is searched, so picking a name does not trigger a second search for it.
   const [typedArtist, setTypedArtist] = useState("");
   const filesHintId = useId();
+  const [fetchPrefill, { isFetching: prefilling }] = useLazyGetDiscogsPrefillQuery();
+  const [prefillNote, setPrefillNote] = useState<{ text: string; failed: boolean } | null>(null);
+  // Paste is followed by blur on the same text; one lookup per distinct text.
+  const lastPrefilled = useRef("");
 
   // `currentData` is undefined while the search for the current term is pending or has
   // failed, whereas `data` would keep the rows of an earlier term. Options also stay hidden
@@ -67,6 +71,31 @@ export default function IntakeLogForm() {
     !discogsRefused &&
     Boolean(form.artist && form.album) &&
     (form.arrival === "files" || (form.arrival === "disc" && form.formatId != null));
+
+  // Fills only the fields still empty, so text the music director typed is never overwritten.
+  const fillFromDiscogs = async (raw: string) => {
+    const text = raw.trim();
+    if (discogsReleaseIdFrom(text) == null || text === lastPrefilled.current) {
+      return;
+    }
+    lastPrefilled.current = text;
+    setPrefillNote(null);
+    try {
+      const prefill = await fetchPrefill(text).unwrap();
+      if (prefill == null) {
+        throw new Error("empty prefill");
+      }
+      setForm((f) => ({
+        ...f,
+        artist: f.artist || prefill.artist_name,
+        album: f.album || prefill.album_title,
+        ...(!f.label && prefill.label && { label: prefill.label, labelId: prefill.label_id }),
+      }));
+      setPrefillNote({ text: COPY.discogsFilled, failed: false });
+    } catch (error) {
+      setPrefillNote({ text: discogsPrefillErrorMessage(error), failed: true });
+    }
+  };
 
   const submit = async () => {
     try {
@@ -100,14 +129,18 @@ export default function IntakeLogForm() {
     >
       <Typography component="h3" level="title-lg">{COPY.logTitle}</Typography>
       <Stack spacing={1}>
-        <FormControl error={discogsRefused}>
+        <FormControl error={discogsRefused || prefillNote?.failed === true}>
           <FormLabel>{COPY.discogsReleaseId}</FormLabel>
           <Input
             slotProps={{ input: { inputMode: "numeric" } }}
             value={form.discogs}
             onChange={(e) => setForm((f) => ({ ...f, discogs: e.target.value }))}
+            onPaste={(e) => void fillFromDiscogs(e.clipboardData.getData("text"))}
+            onBlur={(e) => void fillFromDiscogs(e.target.value)}
+            endDecorator={prefilling && <CircularProgress size="sm" aria-label={COPY.discogsFilling} />}
           />
           {discogsRefused && <FormHelperText>{COPY.discogsRefused}</FormHelperText>}
+          {!discogsRefused && prefillNote && <FormHelperText>{prefillNote.text}</FormHelperText>}
         </FormControl>
         <FormControl required>
           <FormLabel>{COPY.artist}</FormLabel>
