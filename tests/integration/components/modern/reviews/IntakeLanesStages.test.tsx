@@ -170,6 +170,16 @@ describe("IntakeLanes stage lists", () => {
     expect(within(region).queryByRole("button", { name: /^Check out|^Take$/ })).not.toBeInTheDocument();
   });
 
+  it("names a review shelf row's Preview links by the service, the artist and the album", async () => {
+    serve([{ ...SHELF_NEW, spotify_url: "https://open.spotify.com/album/1" }, SHELF_OLD]);
+    showStage("review_shelf");
+    renderWithProviders(<IntakeLanes />);
+
+    const region = await panel(COPY.onShelf);
+    const link = await within(region).findByRole("link", { name: `Spotify Juana Molina DOGA ${REVIEW_COPY.listen.newTab}` });
+    expect(link).toHaveAttribute("href", "https://open.spotify.com/album/1");
+  });
+
   it("shows Nothing here. in an empty stage", async () => {
     serve([BEING_REVIEWED]);
     showStage("requested");

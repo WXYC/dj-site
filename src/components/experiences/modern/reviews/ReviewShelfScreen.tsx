@@ -8,7 +8,7 @@ import { byKind } from "@/lib/features/reviews/kind";
 import { oldestLoggedFirst } from "@/lib/features/reviews/newMusic";
 import IntakeLane from "./IntakeLane";
 import { REVIEW_COPY } from "./copy";
-import RecordRow from "./RecordRow";
+import RecordRow, { type RecordRowTitle } from "./RecordRow";
 import { intakeRecord } from "./recordLine";
 import { useAskADj } from "./useAskADj";
 import { day, type ReviewWrite } from "./useReviewWrite";
@@ -18,6 +18,9 @@ export default function ReviewShelfScreen({ items, isMD, reviewers, write, lock 
   const [checkout] = useCheckoutIntakeItemMutation();
   const onShelf = oldestLoggedFirst(items.filter(onReviewShelf));
   const { alert, moreMenu, shelfRecordId, shelfAlbumId } = useAskADj({ reviewers, write, lock });
+  // A music director's row carries its own title link and the id the link carries; a DJ's row keeps the plain artist.
+  const title = (i: IntakeItem): RecordRowTitle =>
+    isMD ? { titleSlot: <Link level="title-md" id={shelfRecordId(i)} href={`/dashboard/admin/intake/${i.id}`}>{i.artist_name}</Link>, titleId: shelfRecordId(i) } : {};
 
   return (
     <>
@@ -27,8 +30,7 @@ export default function ReviewShelfScreen({ items, isMD, reviewers, write, lock 
         <RecordRow
           record={intakeRecord(i)}
           cover={72}
-          titleSlot={isMD ? <Link level="title-md" id={shelfRecordId(i)} href={`/dashboard/admin/intake/${i.id}`}>{i.artist_name}</Link> : undefined}
-          titleId={isMD ? shelfRecordId(i) : undefined}
+          {...title(i)}
           albumId={shelfAlbumId(i)}
           meta={<Typography level="body-sm">{`${REVIEW_COPY.screen.added} ${day(i.logged_at)}`}</Typography>}
           actions={
