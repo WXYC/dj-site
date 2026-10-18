@@ -178,7 +178,7 @@ test("the intake golden path, from logging a record to the librarian's finalize"
       await dj.goto("/dashboard/reviews/mine?stage=published");
       const mine = dj.getByRole("tabpanel", { name: COPY.myReviews.stages.published }).getByRole("listitem").filter({ hasText: album });
       await mine.getByRole("link", { name: COPY.myReviews.open }).click();
-      await dj.waitForURL(new RegExp(`/dashboard/reviews/${reviewId}$`), { timeout: 15000 });
+      await dj.waitForURL(new RegExp(`/dashboard/reviews/${reviewId}(\\?.*)?$`), { timeout: 15000 });
 
       await dj.getByRole("textbox", { name: COPY.fields.review.label, exact: true }).fill(editedText);
       await dj.getByRole("button", { name: COPY.save, exact: true }).click();

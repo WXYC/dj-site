@@ -353,7 +353,7 @@ describe("ReviewsScreen", () => {
       const { user } = renderWithProviders(<BothTabs />);
       await user.click(await within(await section("Requests for me")).findByRole("button", { name: "Write a review" }));
 
-      await waitFor(() => expect(router.push).toHaveBeenCalledWith(`/dashboard/reviews/${id}?arrived=request`));
+      await waitFor(() => expect(router.push).toHaveBeenCalledWith(`/dashboard/reviews/${id}?from=mine&arrived=request`));
       expect(posts).toEqual(expected);
     });
 
@@ -1342,7 +1342,7 @@ describe("ReviewsScreen", () => {
     const mine = await section("Records I'm reviewing");
     await user.click(await within(mine).findByRole("button", { name: REVIEW_COPY.writeReview }));
 
-    await waitFor(() => expect(router.push).toHaveBeenCalledWith("/dashboard/reviews/41"));
+    await waitFor(() => expect(router.push).toHaveBeenCalledWith("/dashboard/reviews/41?from=mine"));
     expect(body).toEqual({ intake_item_id: 2 });
   });
 
@@ -1355,7 +1355,7 @@ describe("ReviewsScreen", () => {
     const mine = await section("Records I'm reviewing");
     await user.click(await within(mine).findByRole("button", { name: "Write a review" }));
 
-    await waitFor(() => expect(router.push).toHaveBeenCalledWith("/dashboard/reviews/40"));
+    await waitFor(() => expect(router.push).toHaveBeenCalledWith("/dashboard/reviews/40?from=mine"));
     expect(posts).toBe(0);
   });
 
@@ -1379,7 +1379,7 @@ describe("ReviewsScreen", () => {
     );
     await user.click(write);
 
-    await waitFor(() => expect(router.push).toHaveBeenCalledWith("/dashboard/reviews/40"));
+    await waitFor(() => expect(router.push).toHaveBeenCalledWith("/dashboard/reviews/40?from=mine"));
     expect(returnButton).toBeDisabled();
     expect(write).toBeDisabled();
     await waitFor(() => expect(returnButton).toBeEnabled(), { timeout: 3000 });
@@ -1396,7 +1396,7 @@ describe("ReviewsScreen", () => {
     expect(await within(mine).findByText("Review submitted. A music director will choose the review for the cover.")).toBeInTheDocument();
     expect(within(mine).queryByRole("button", { name: "Write a review" })).not.toBeInTheDocument();
     await user.click(within(mine).getByRole("button", { name: "Edit review" }));
-    expect(router.push).toHaveBeenCalledWith("/dashboard/reviews/40");
+    expect(router.push).toHaveBeenCalledWith("/dashboard/reviews/40?from=mine&stage=submitted");
   });
 
   const REVIEWED_RETURN = "Reviewed. Bring the record back to the music office.";
@@ -1447,7 +1447,7 @@ describe("ReviewsScreen", () => {
     const mine = await section("Records I'm reviewing");
     await user.dblClick(await within(mine).findByRole("button", { name: REVIEW_COPY.writeReview }));
 
-    await waitFor(() => expect(router.push).toHaveBeenCalledWith("/dashboard/reviews/41"));
+    await waitFor(() => expect(router.push).toHaveBeenCalledWith("/dashboard/reviews/41?from=mine"));
     await reviewsSettled(store);
     expect(posts).toBe(1);
     expect(router.push).toHaveBeenCalledTimes(1);
@@ -1486,7 +1486,7 @@ describe("ReviewsScreen", () => {
     const open = await section(STAGES.open);
 
     expect(within(open).getByText(REVIEW_COPY.myReviews.draft)).toBeInTheDocument();
-    expect(within(open).getAllByRole("link").map((a) => a.getAttribute("href"))).toEqual(["/dashboard/reviews/40"]);
+    expect(within(open).getAllByRole("link").map((a) => a.getAttribute("href"))).toEqual(["/dashboard/reviews/40?from=mine"]);
     cleanup();
 
     showStage("submitted");
@@ -1494,7 +1494,7 @@ describe("ReviewsScreen", () => {
     const submitted = await section(STAGES.submitted);
 
     expect(within(within(submitted).getByRole("listitem")).getByText(REVIEW_COPY.myReviews.submitted)).toBeInTheDocument();
-    expect(within(submitted).getAllByRole("link").map((a) => a.getAttribute("href"))).toEqual(["/dashboard/reviews/41"]);
+    expect(within(submitted).getAllByRole("link").map((a) => a.getAttribute("href"))).toEqual(["/dashboard/reviews/41?from=mine&stage=submitted"]);
   });
 
   it("shows a review's record from its own subject, not from the lists", async () => {
@@ -1566,7 +1566,7 @@ describe("ReviewsScreen", () => {
     expect(within(reviews).queryAllByText("from the library")).toHaveLength(fromLibrary ? 1 : 0);
     expect(within(within(reviews).getByRole("listitem")).getByText(status === "draft" ? "Draft" : "Submitted")).toBeInTheDocument();
     expect(within(reviews).getByText("Last saved Oct 8, 2025")).toBeInTheDocument();
-    expect(within(reviews).getByRole("link", { name: "Open" })).toHaveAttribute("href", "/dashboard/reviews/40");
+    expect(within(reviews).getByRole("link", { name: "Open" })).toHaveAttribute("href", `/dashboard/reviews/40?from=mine${status === "submitted" ? "&stage=submitted" : ""}`);
   });
 
   it.each([
@@ -1595,7 +1595,7 @@ describe("ReviewsScreen", () => {
     expect(await within(reviews).findByText("Last saved Oct 8, 2025")).toBeInTheDocument();
     expect(within(reviews).queryAllByText(REVIEW_COPY.myReviews.libraryRelease)).toHaveLength(fromLibrary ? 1 : 0);
     expect(within(within(reviews).getByRole("listitem")).getByText(status === "draft" ? "Draft" : "Submitted")).toBeInTheDocument();
-    expect(within(reviews).getByRole("link", { name: "Open" })).toHaveAttribute("href", "/dashboard/reviews/40");
+    expect(within(reviews).getByRole("link", { name: "Open" })).toHaveAttribute("href", `/dashboard/reviews/40?from=mine${status === "submitted" ? "&stage=submitted" : ""}`);
     release();
     if (fromLibrary) expect(await within(reviews).findByText("DOGA")).toBeInTheDocument();
   });

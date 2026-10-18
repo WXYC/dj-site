@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import { fakeReviewsEndpoints, heldBy, intakeItem, renderWithProviders, requestedFor, review } from "@/tests/helpers";
 import { REVIEW_COPY } from "@/src/components/experiences/modern/reviews/copy";
 import MyReviewsScreen from "@/src/components/experiences/modern/reviews/MyReviewsScreen";
@@ -34,6 +34,7 @@ const submitted = (id: number, overrides = {}) =>
 beforeEach(() => {
   url.search = "";
   router.replace.mockClear();
+  router.push.mockClear();
 });
 
 const renderScreen = (items: IntakeItem[], myReviews: Review[]) => {
@@ -108,8 +109,8 @@ describe("MyReviewsScreen", () => {
     const links = () => within(panel).getAllByRole("link").map((a) => a.getAttribute("href"));
 
     expect(links()).toHaveLength(20);
-    expect(links()[0]).toBe("/dashboard/reviews/45");
-    expect(links()[19]).toBe("/dashboard/reviews/26");
+    expect(links()[0]).toBe(`/dashboard/reviews/45?from=mine&${search.slice(1)}`);
+    expect(links()[19]).toBe(`/dashboard/reviews/26?from=mine&${search.slice(1)}`);
 
     await user.click(within(panel).getByRole("button", { name: REVIEW_COPY.myReviews.showOlder }));
     expect(links()).toHaveLength(40);
@@ -117,6 +118,36 @@ describe("MyReviewsScreen", () => {
     await user.click(within(panel).getByRole("button", { name: REVIEW_COPY.myReviews.showOlder }));
     expect(links()).toHaveLength(45);
     expect(within(panel).queryByRole("button", { name: REVIEW_COPY.myReviews.showOlder })).not.toBeInTheDocument();
+  });
+
+  // Every way out of this tab to the editor says where it was opened from, and keeps the stage the DJ was looking at.
+  describe.each([
+    ["", "?from=mine"],
+    ["?stage=open", "?from=mine&stage=open"],
+    ["?stage=submitted", "?from=mine&stage=submitted"],
+    ["?stage=elsewhere", "?from=mine"],
+  ])("with %j in the URL", (search, query) => {
+    it("the Open link carries it", async () => {
+      url.search = search;
+      renderScreen([], [submitted(33), review({ id: 34, intake_item_id: null, album_id: 7, status: "draft" })]);
+      const links = await screen.findAllByRole("link", { name: REVIEW_COPY.myReviews.open });
+      expect(links).toHaveLength(1);
+      expect(links[0].getAttribute("href")).toMatch(new RegExp(`^/dashboard/reviews/3[34]${query.replace("?", "\\?")}$`));
+    });
+
+    it.each([
+      ["Write review on a record with a draft", ["", "?stage=open", "?stage=elsewhere"], [held(8)], [review({ id: 31, intake_item_id: 8, status: "draft" })], REVIEW_COPY.writeReview, 31],
+      ["Edit review on a record with a submitted review", ["", "?stage=submitted", "?stage=elsewhere"], [held(9)], [review({ id: 32, intake_item_id: 9, status: "submitted" })], REVIEW_COPY.screen.editReview, 32],
+    ])("%s carries it", async (_name, shownOn, items, reviews, button, id) => {
+      // Only the chosen stage's rows are drawn: a record with a draft is under Open reviews, one with a submitted review under Submitted.
+      if (!shownOn.includes(search)) {
+        return;
+      }
+      url.search = search;
+      const { user } = renderScreen(items, reviews);
+      await user.click(await screen.findByRole("button", { name: button }));
+      await waitFor(() => expect(router.push).toHaveBeenCalledWith(`/dashboard/reviews/${id}${query}`));
+    });
   });
 
   it("offers no Show older reviews for a list of 20 or fewer, and never pages Open reviews", async () => {

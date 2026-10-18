@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Button, Chip, Link, List, ListItem, Stack, Typography } from "@mui/joy";
 import type { IntakeItem, Review } from "@wxyc/shared";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { useMounted } from "@/src/hooks/useRowWrite";
 import {
@@ -13,6 +13,7 @@ import {
 } from "@/lib/features/reviews/intakeApi";
 import { useCreateReviewMutation } from "@/lib/features/reviews/reviewApi";
 import { byKind, overdueMark } from "@/lib/features/reviews/kind";
+import { editorHref } from "@/lib/features/reviews/paths";
 import { rowKey, sortMyReviews, STAGES, type MyReviewsRow, type Stage } from "@/lib/features/reviews/myReviews";
 import ConfirmDialog from "../ConfirmDialog";
 import StageChips from "../StageChips";
@@ -23,7 +24,7 @@ import { useReviewRecord } from "./useReviewRecord";
 import { day, type ReviewWrite } from "./useReviewWrite";
 
 /** A review's row: the record as parts (artist, album, label) once it has landed. Until then, a library review shows `myReviews.libraryRelease` and a logged-record review shows nothing in its place. Either way the row carries the status, the last-saved date and Open. */
-function MyReviewRow({ review, cover }: { review: Review; cover: 72 | 56 }) {
+function MyReviewRow({ review, href, cover }: { review: Review; href: string; cover: 72 | 56 }) {
   const record = useReviewRecord(review);
   const fromLibrary = review.intake_item_id == null && review.album_id != null;
   const meta = (
@@ -33,7 +34,7 @@ function MyReviewRow({ review, cover }: { review: Review; cover: 72 | 56 }) {
       <Typography level="body-sm">{`${REVIEW_COPY.myReviews.lastSaved} ${day(review.last_modified)}`}</Typography>
     </>
   );
-  const open = <Link href={`/dashboard/reviews/${review.id}`}>{REVIEW_COPY.myReviews.open}</Link>;
+  const open = <Link href={href}>{REVIEW_COPY.myReviews.open}</Link>;
   if (record) {
     return <RecordRow record={record} cover={cover} meta={<Stack direction="row" spacing={1} alignItems="center">{meta}</Stack>} actions={open} />;
   }
@@ -59,6 +60,9 @@ export default function MyReviewsScreen({ items, myReviews, me, write, lock }: {
   const [release] = useReleaseIntakeItemMutation();
   const [createReview] = useCreateReviewMutation();
   const router = useRouter();
+  const chosen = useSearchParams().get("stage");
+  const stage = STAGES.find((s) => s === chosen);
+  const openHref = (id: number, extra?: Record<string, string>) => editorHref(id, { from: "mine", stage }, extra);
   // A write outlives the screen when the DJ navigates away mid-click; what it does after that (open the editor, toast) is skipped.
   const mounted = useMounted();
   const [returning, setReturning] = useState<IntakeItem | null>(null);
@@ -86,7 +90,7 @@ export default function MyReviewsScreen({ items, myReviews, me, write, lock }: {
                   const draft = myReviews.find((r) => r.intake_item_id === i.id && r.status === "draft");
                   const review = draft ?? (await createReview({ intake_item_id: i.id }).unwrap());
                   if (mounted.current) {
-                    router.push(`/dashboard/reviews/${review.id}?arrived=request`);
+                    router.push(openHref(review.id, { arrived: "request" }));
                   }
                 } catch {
                   if (mounted.current) {
@@ -129,7 +133,7 @@ export default function MyReviewsScreen({ items, myReviews, me, write, lock }: {
         actions={
           <>
             {submitted ? (
-              <Button size="sm" variant={reviewed ? "outlined" : "solid"} onClick={() => router.push(`/dashboard/reviews/${submitted.id}`)}>{REVIEW_COPY.screen.editReview}</Button>
+              <Button size="sm" variant={reviewed ? "outlined" : "solid"} onClick={() => router.push(openHref(submitted.id))}>{REVIEW_COPY.screen.editReview}</Button>
             ) : (
               <Button
                 size="sm"
@@ -139,7 +143,7 @@ export default function MyReviewsScreen({ items, myReviews, me, write, lock }: {
                   write(i.id, "write", async () => {
                     const review = draft ?? (await createReview({ intake_item_id: i.id }).unwrap());
                     if (mounted.current) {
-                      router.push(`/dashboard/reviews/${review.id}`);
+                      router.push(openHref(review.id));
                     }
                   })
                 }
@@ -161,7 +165,7 @@ export default function MyReviewsScreen({ items, myReviews, me, write, lock }: {
       case "held":
         return heldRow(row.item, cover);
       case "review":
-        return <MyReviewRow review={row.review} cover={cover} />;
+        return <MyReviewRow review={row.review} href={openHref(row.review.id)} cover={cover} />;
     }
   };
 

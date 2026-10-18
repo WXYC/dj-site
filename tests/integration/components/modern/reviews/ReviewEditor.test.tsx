@@ -1199,6 +1199,25 @@ describe("ReviewEditor", () => {
       expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
     });
 
+    it.each([
+      ["My reviews, keeping its stage", { from: "mine", stage: "submitted" }, "← My reviews", "/dashboard/reviews/mine?stage=submitted"],
+      ["the review shelf", { from: "shelf" }, "← Review shelf", "/dashboard/reviews"],
+      ["a record's page", { from: "record", record: 12 }, "← Back to the record's page", "/dashboard/admin/intake/12"],
+      ["nowhere in particular", null, "← Review shelf", "/dashboard/reviews"],
+    ] as const)("links back to %s", async (_name, origin, text, href) => {
+      serve(DRAFT);
+      renderWithProviders(<ReviewEditor id={40} origin={origin} />);
+      expect(await screen.findByRole("link", { name: text })).toHaveAttribute("href", href);
+    });
+
+    it("asks before the back link leaves a dirty form", async () => {
+      serve(DRAFT);
+      const { user } = renderWithProviders(<ReviewEditor id={40} origin={{ from: "shelf" }} />);
+      await makeDirty(user);
+      await user.click(screen.getByRole("link", { name: "← Review shelf" }));
+      expect(await dialog()).toBeInTheDocument();
+    });
+
     it("on Leave by link, pushes the link's path, search and hash, and does not replace", async () => {
       const { user } = renderEditor();
       await makeDirty(user);
