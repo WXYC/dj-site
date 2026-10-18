@@ -8,6 +8,7 @@ import { byKind } from "@/lib/features/reviews/kind";
 import { oldestLoggedFirst } from "@/lib/features/reviews/newMusic";
 import IntakeLane from "./IntakeLane";
 import { REVIEW_COPY } from "./copy";
+import ActionTooltip from "./ActionTooltip";
 import RecordRow, { type RecordRowTitle } from "./RecordRow";
 import ReviewHint from "./ReviewHint";
 import { intakeRecord } from "./recordLine";
@@ -41,7 +42,7 @@ export default function ReviewShelfScreen({ items, isMD, reviewers, write, lock 
           }
           actions={
             <>
-              <Button size="sm" {...lock(i.id, "checkout")} onClick={() => write(i.id, "checkout", () => checkout(i.id).unwrap())}>{byKind(i, { disc: REVIEW_COPY.screen.checkOut, digital: REVIEW_COPY.screen.take })}</Button>
+              <ActionTooltip title={byKind(i, { disc: REVIEW_COPY.tooltips.reviewDisc, digital: REVIEW_COPY.tooltips.reviewDigital })}><Button size="sm" {...lock(i.id, "checkout")} onClick={() => write(i.id, "checkout", () => checkout(i.id).unwrap())}>{byKind(i, { disc: REVIEW_COPY.screen.checkOut, digital: REVIEW_COPY.screen.take })}</Button></ActionTooltip>
               {isMD && moreMenu(i)}
             </>
           }

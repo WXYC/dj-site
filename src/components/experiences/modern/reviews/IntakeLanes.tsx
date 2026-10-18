@@ -27,6 +27,7 @@ import AddRecordDialog from "./AddRecordDialog";
 import FccNotesToConfirm from "./FccNotesToConfirm";
 import HeadedSection from "./HeadedSection";
 import { REVIEW_COPY } from "./copy";
+import ActionTooltip from "./ActionTooltip";
 import RecordRow, { type RecordRowTitle } from "./RecordRow";
 import ReviewHint from "./ReviewHint";
 import { intakeRecord } from "./recordLine";
@@ -269,9 +270,11 @@ function IntakeLaneGroups({ handOff, onStageChosen }: { handOff: HandOff | null;
     .slice(0, RECENT_PASSES);
 
   const cancelButton = (i: IntakeItem) => (
-    <Button size="sm" variant="outlined" {...lock(i.id, "cancel")} onClick={() => act(i.id, "cancel", () => cancelRequest(i.id).unwrap())}>
-      {COPY.cancelRequest}
-    </Button>
+    <ActionTooltip title={REVIEW_COPY.tooltips.cancelRequest}>
+      <Button size="sm" variant="outlined" {...lock(i.id, "cancel")} onClick={() => act(i.id, "cancel", () => cancelRequest(i.id).unwrap())}>
+        {COPY.cancelRequest}
+      </Button>
+    </ActionTooltip>
   );
 
   const dialog = confirming && confirmation(confirming);
@@ -297,9 +300,11 @@ function IntakeLaneGroups({ handOff, onStageChosen }: { handOff: HandOff | null;
     />
   );
   const markReturned = (i: IntakeItem, onClick: () => void) => (
-    <Button size="sm" variant="outlined" {...lock(i.id, "return")} onClick={onClick}>
-      {COPY.returned}
-    </Button>
+    <ActionTooltip title={REVIEW_COPY.tooltips.markReturned}>
+      <Button size="sm" variant="outlined" {...lock(i.id, "return")} onClick={onClick}>
+        {COPY.returned}
+      </Button>
+    </ActionTooltip>
   );
   const rowFor: Record<Exclude<ReviewStage, "review_shelf">, (i: IntakeItem) => ReactNode> = {
     requested: (i) => laneRow(i, <Typography level="body-sm">{whereLine(i)}</Typography>, cancelButton(i)),
@@ -307,9 +312,11 @@ function IntakeLaneGroups({ handOff, onStageChosen }: { handOff: HandOff | null;
       laneRow(
         i,
         <Typography level="body-sm">{whereLine(i)}</Typography>,
-        <Button size="sm" variant="outlined" {...lock(i.id, "release")} onClick={() => setConfirming({ item: i, action: "release" })}>
-          {REVIEW_COPY.screen.returnToShelf}
-        </Button>,
+        <ActionTooltip title={REVIEW_COPY.tooltips.returnToShelf}>
+          <Button size="sm" variant="outlined" {...lock(i.id, "release")} onClick={() => setConfirming({ item: i, action: "release" })}>
+            {REVIEW_COPY.screen.returnToShelf}
+          </Button>
+        </ActionTooltip>,
       ),
     waiting: (i) => {
       const returnable = ["checked_out", "removed"].includes(itemHolder(i).kind) && recordKind(i) === "disc";

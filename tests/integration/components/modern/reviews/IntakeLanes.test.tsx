@@ -294,7 +294,7 @@ describe("IntakeLanes", () => {
       await read.answered;
       expect(await within(waitingLane).findByText(/^From Jessica Pratt/)).toBeInTheDocument();
       expect(within(waitingLane).queryByText(location)).not.toBeInTheDocument();
-      expect(within(waitingLane).queryByText(/on the review shelf/i)).not.toBeInTheDocument();
+      expect(within(waitingLane).queryByText(/^on the review shelf/i)).not.toBeInTheDocument();
     });
 
     it.each([
@@ -1369,5 +1369,24 @@ describe("IntakeLanes as the music directors' tab", () => {
       ["On the review shelf, 1", "Requested, 1", "Being reviewed, 1", "Review waiting, 1", "Reviewed, 1", "Filed, 1"].map((name) => screen.getByRole("tab", { name })),
     ).toEqual(tabs);
     expect(screen.queryByRole("form", { name: "Add a record" })).not.toBeInTheDocument();
+  });
+});
+
+describe("IntakeLanes tooltips", () => {
+  beforeEach(() => {
+    mockAuth.authority = Authorization.MD;
+    vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "staff");
+  });
+  afterEach(() => vi.unstubAllEnvs());
+
+  it.each([
+    ["Cancel request", "Requested", { open: [requestedRow(11)] }, REVIEW_COPY.intake.cancelRequest, REVIEW_COPY.tooltips.cancelRequest],
+    ["Return to the review shelf", "Being reviewed", { open: [outRow(11)] }, REVIEW_COPY.screen.returnToShelf, REVIEW_COPY.tooltips.returnToShelf],
+    ["Mark as returned", "Reviewed", { reviewed: [outRow(11, { effective_state: "reviewed" })] }, REVIEW_COPY.intake.returned, REVIEW_COPY.tooltips.markReturned],
+  ])("describes %s with its approved text", async (_button, stage, endpoints, name, description) => {
+    fakeReviewsEndpoints(endpoints);
+    renderWithProviders(<IntakeLanes />);
+
+    expect(await within(await lane(stage)).findByRole("button", { name, description })).toBeInTheDocument();
   });
 });

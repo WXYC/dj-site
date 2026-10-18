@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { screen } from "@testing-library/react";
-import { fakeReviewsEndpoints, intakeItem, renderWithProviders, returnedByMusicDirector } from "@/tests/helpers";
+import { digitalItem, fakeReviewsEndpoints, intakeItem, renderWithProviders, returnedByMusicDirector } from "@/tests/helpers";
 import { REVIEW_COPY } from "@/src/components/experiences/modern/reviews/copy";
 import ReviewShelfScreen from "@/src/components/experiences/modern/reviews/ReviewShelfScreen";
 import { useReviewWrite } from "@/src/components/experiences/modern/reviews/useReviewWrite";
@@ -100,5 +100,24 @@ describe("ReviewShelfScreen", () => {
     const heading = await screen.findByRole("heading", { level: 3, name: REVIEW_COPY.screen.shelfTitle });
     expect(screen.getByRole("region", { name: REVIEW_COPY.screen.shelfTitle })).toBeInTheDocument();
     expect(heading).toHaveStyle({ position: "absolute", width: "1px", height: "1px" });
+  });
+});
+
+describe("ReviewShelfScreen tooltips", () => {
+  it.each([
+    ["a disc", intakeItem({ id: 5, artist_name: "Stereolab" }), REVIEW_COPY.screen.checkOut, REVIEW_COPY.tooltips.reviewDisc],
+    ["a digital album", digitalItem({ id: 5, artist_name: "Stereolab" }), REVIEW_COPY.screen.take, REVIEW_COPY.tooltips.reviewDigital],
+  ])("describes the button on %s with its approved text", async (_kind, item, name, description) => {
+    fakeReviewsEndpoints();
+    renderWithProviders(<WithWrite items={[item]} isMD={false} />);
+
+    expect(await screen.findByRole("button", { name, description })).toBeInTheDocument();
+  });
+
+  it("describes More with its approved text", async () => {
+    fakeReviewsEndpoints();
+    renderWithProviders(<WithWrite items={[intakeItem({ id: 5, artist_name: "Stereolab" })]} isMD />);
+
+    expect(await screen.findByRole("button", { name: new RegExp(`^${REVIEW_COPY.intake.moreButton}`), description: REVIEW_COPY.tooltips.more })).toBeInTheDocument();
   });
 });

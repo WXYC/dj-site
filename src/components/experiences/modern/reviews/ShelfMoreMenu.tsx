@@ -4,6 +4,7 @@ import KeyboardArrowDown from "@mui/icons-material/KeyboardArrowDown";
 import { AskADjDialog } from "./IntakeRequestPicker";
 import { useReviewProbablyExists } from "@/src/hooks/useReviewProbablyExists";
 import { REVIEW_COPY } from "./copy";
+import ActionTooltip from "./ActionTooltip";
 
 const COPY = REVIEW_COPY.intake;
 
@@ -55,15 +56,17 @@ export default function ShelfMoreMenu({ id, labelledBy, busy, ...dialog }: Shelf
     <>
       <Dropdown>
         {/* The button stays enabled while a request is in flight: the dialog hands focus back to it when it closes, and only the Ask a DJ… item is locked. */}
-        <MenuButton
-          id={buttonId}
-          size="sm"
-          variant="outlined"
-          endDecorator={<KeyboardArrowDown />}
-          aria-labelledby={`${buttonId} ${labelledBy}`}
-        >
-          {COPY.moreButton}
-        </MenuButton>
+        <ActionTooltip title={REVIEW_COPY.tooltips.more}>
+          <MenuButton
+            id={buttonId}
+            size="sm"
+            variant="outlined"
+            endDecorator={<KeyboardArrowDown />}
+            aria-labelledby={`${buttonId} ${labelledBy}`}
+          >
+            {COPY.moreButton}
+          </MenuButton>
+        </ActionTooltip>
         <Menu placement="bottom-end">
           <OpenedOrder citeFirst={hinted} ask={ask} cite={cite} />
           <Described label={COPY.moreRecord} description={COPY.moreRecordDescription} href={`${page}?get=record`} />

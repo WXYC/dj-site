@@ -32,6 +32,7 @@ import HeadedSection from "./HeadedSection";
 import LeaveDialog from "./LeaveDialog";
 import ConsentBlock, { type Consent } from "./ConsentBlock";
 import { REVIEW_COPY } from "./copy";
+import ActionTooltip from "./ActionTooltip";
 import FccNotesPanel from "./FccNotesPanel";
 import PrintedVersionNote from "./PrintedVersionNote";
 import RecordHeader from "./RecordHeader";
@@ -274,12 +275,16 @@ function Form({ review, user, arrivedFromRequest, origin }: { review: Review; us
         {isAuthor && inUse && <Typography level="body-sm" role="status">{REVIEW_COPY.inUse}</Typography>}
         <Box sx={{ flex: 1 }} />
         <Typography level="body-sm" role="status">{dirty || offer ? REVIEW_COPY.unsavedChanges : REVIEW_COPY.allChangesSaved}</Typography>
-        <Button variant={draft ? "outlined" : "solid"} loading={isLoading} disabled={!dirty} onClick={save}>
-          {draft ? REVIEW_COPY.saveDraft : REVIEW_COPY.save}
-        </Button>
+        <ActionTooltip title={REVIEW_COPY.tooltips.save}>
+          <Button variant={draft ? "outlined" : "solid"} loading={isLoading} disabled={!dirty} onClick={save}>
+            {draft ? REVIEW_COPY.saveDraft : REVIEW_COPY.save}
+          </Button>
+        </ActionTooltip>
         {draft && blank && <Typography id={reasonId} level="body-sm">{REVIEW_COPY.submitNeedsReview}</Typography>}
         {draft && (
-          <Button loading={submitting} disabled={blank} aria-describedby={blank ? reasonId : undefined} onClick={() => setConfirming("submit")}>{REVIEW_COPY.submit}</Button>
+          <ActionTooltip title={REVIEW_COPY.tooltips.submit}>
+            <Button loading={submitting} disabled={blank} aria-describedby={blank ? reasonId : undefined} onClick={() => setConfirming("submit")}>{REVIEW_COPY.submit}</Button>
+          </ActionTooltip>
         )}
       </Stack>
       <ConfirmDialog
