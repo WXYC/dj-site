@@ -21,16 +21,22 @@ export default function ReviewShelfScreen({ items, formats, isMD, reviewers, wri
   const [cancelRequest] = useCancelIntakeRequestMutation();
   const onShelf = items.filter(onReviewShelf);
 
-  // Names the request picker's group for the record it acts on.
+  // Names each record's Ask a DJ… button for the record it acts on.
   const shelfRecordId = (i: IntakeItem) => `review-shelf-record-${i.id}`;
   const describe = (i: IntakeItem) => recordLine(intakeRecord(i), formats);
-  const ask = (i: IntakeItem, reviewer: Reviewer) =>
-    write(i.id, "request", async () => {
+  // The toast waits for the write to finish, so its Cancel request never meets the row's lock.
+  const ask = async (i: IntakeItem, reviewer: Reviewer) => {
+    let sent = false;
+    await write(i.id, "request", async () => {
       await requestReview({ id: i.id, djId: reviewer.id }).unwrap();
+      sent = true;
+    });
+    if (sent) {
       toast(REVIEW_COPY.intake.askDone(reviewer.name), {
         action: { label: REVIEW_COPY.intake.cancelRequest, onClick: () => write(i.id, "cancel", () => cancelRequest(i.id).unwrap()) },
       });
-    });
+    }
+  };
 
   return (
     <>
