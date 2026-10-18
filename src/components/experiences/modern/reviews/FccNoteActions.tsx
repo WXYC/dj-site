@@ -113,7 +113,8 @@ export default function FccNoteActions({ note, onConfirmed, spoken }: Props) {
         )}
         <Button
           size="sm"
-          variant="outlined"
+          color="neutral"
+          variant="plain"
           disabled={confirming.isLoading || removing.isLoading}
           aria-label={spoken?.remove}
           onClick={() => setAsking(true)}
@@ -128,7 +129,7 @@ export default function FccNoteActions({ note, onConfirmed, spoken }: Props) {
         title={question}
         actions={
           <>
-            <Button onClick={remove}>{copy.remove}</Button>
+            <Button color="danger" variant="solid" onClick={remove}>{copy.remove}</Button>
             <Button variant="plain" onClick={() => setAsking(false)}>{copy.cancel}</Button>
           </>
         }

@@ -157,6 +157,26 @@ describe("FccNotesPanel", () => {
       expect(await screen.findByRole("alertdialog", { name: question })).toBeInTheDocument();
     });
 
+    it.each([
+      ["the reporter", "dj-me", Authorization.DJ, "Remove my note"],
+      ["a music director removing another's note", "md-me", Authorization.MD, "Remove"],
+    ] as const)("shows %s a plain neutral Remove, and its confirmation's Remove as solid danger", async (_label, id, authority, button) => {
+      mockAuth.id = id;
+      mockAuth.authority = authority;
+      fakeReviewsEndpoints({
+        fccNotesForRelease: { [ALBUM_ID]: [fccNote({ status: "reported", reported_by_user_id: "dj-me", album_id: ALBUM_ID })] },
+      });
+      renderWithProviders(<FccNotesPanel albumId={ALBUM_ID} />);
+
+      const trigger = await screen.findByRole("button", { name: button });
+      expect(trigger).toHaveClass("MuiButton-colorNeutral", "MuiButton-variantPlain");
+      expect(trigger).not.toHaveClass("MuiButton-colorPrimary");
+
+      await userEvent.setup().click(trigger);
+      const remove = within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Remove" });
+      expect(remove).toHaveClass("MuiButton-colorDanger", "MuiButton-variantSolid");
+    });
+
     it("shows the status line as Confirmed and the reprint line after a confirm", async () => {
       mockAuth.id = "md-me";
       mockAuth.authority = Authorization.MD;
