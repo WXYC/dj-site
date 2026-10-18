@@ -216,18 +216,27 @@ export const REVIEW_COPY = {
     raceCheckoutReleased: "This record has already been returned. The lists have been reloaded.",
     /** Approved. */
     cancelRequest: "Cancel request",
-    /** The return confirmation's question, for the Being reviewed lane's Return to the review shelf. */
+    /** Approved. The question of the Being reviewed lane's Return to the review shelf confirmation. */
     returnQuestion: (artist: string, album: string) => `Return ${artist}, ${album}, to the review shelf?`,
-    /** The return confirmation's body; a removed holder has no name to give, so that sentence is left out. */
-    returnBody: (name: string | null) =>
-      name ? `${name} will no longer have it, and any DJ can choose to review it.` : "Any DJ can choose to review it.",
-    /** Added to the return confirmation for a disc whose holder's account still exists. */
+    /** Approved. That confirmation's body, naming the DJ who has the record. */
+    returnBody: (name: string) => `${name} will no longer have it, and any DJ can choose to review it.`,
+    /** Approved. Added to that confirmation's body for a disc whose holder can be named. */
     returnBringDisc: "Ask them to bring the disc to the music office.",
-    /** The question of Mark as returned on a Review waiting row. */
+    /**
+     * A proposal for the next copy round, not yet seen by the station: the return confirmation's body when the
+     * holder's account was removed, so there is no name to give. A removed holder's disc leaves out the
+     * bring-the-disc line on purpose, because there is nobody to ask.
+     */
+    returnBodyRemoved: "Any DJ can choose to review it.",
+    /** Approved. The question of Mark as returned's confirmation on a Review waiting disc. */
     markReturnedQuestion: (artist: string, album: string) => `Mark ${artist}, ${album} as back in the music office?`,
-    /** The body of that confirmation; a removed holder has no name to give, so that sentence is left out. */
-    markReturnedBody: (name: string | null) =>
-      `${name ? `${name} will no longer have it. ` : ""}Their review stays waiting for you to choose.`,
+    /** Approved. That confirmation's body, naming the DJ who has the record. */
+    markReturnedBody: (name: string) => `${name} will no longer have it. Their review stays waiting for you to choose.`,
+    /**
+     * A proposal for the next copy round, not yet seen by the station: Mark as returned's body when the holder's
+     * account was removed, so there is no name to give and no "their" to point back to.
+     */
+    markReturnedBodyRemoved: "The review stays waiting for you to choose.",
     /** Approved. Shown once the lists have reloaded after a request lost its race. */
     raceRequest: "This record has left the review shelf since the page loaded, so it can't be requested. The lists have been reloaded.",
     /** Approved. Shown when a request names an account that can no longer be asked to review. */
