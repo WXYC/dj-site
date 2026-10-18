@@ -519,6 +519,24 @@ describe("IntakeLanes", () => {
     expect(within(rowOf("Disc One")).getByRole("button", { name: "Mark as returned" })).toBeInTheDocument();
   });
 
+  it.each([
+    ["a disc still out, not printed", () => moonPix({ id: 1, effective_state: "reviewed", ...heldBy("dj-1", "DJ Sam", "2026-09-01T12:00:00Z"), printed_at: null }), "Print the slip", "/dashboard/admin/intake/1/slip", true, "Still with DJ Sam"],
+    ["a disc still out, printed", () => moonPix({ id: 1, effective_state: "reviewed", ...heldBy("dj-1", "DJ Sam", "2026-09-01T12:00:00Z"), printed_at: "2026-09-02T12:00:00Z" }), "File it", "/dashboard/admin/intake/1#file-it", true, "Still with DJ Sam"],
+    ["a disc back, not printed", () => moonPix({ id: 1, effective_state: "reviewed", printed_at: null }), "Print the slip", "/dashboard/admin/intake/1/slip", false, "Back in the music office"],
+    ["a disc back, printed", () => moonPix({ id: 1, effective_state: "reviewed", printed_at: "2026-09-02T12:00:00Z" }), "File it", "/dashboard/admin/intake/1#file-it", false, "Back in the music office"],
+    ["a digital album, not printed", () => digitalItem({ id: 1, effective_state: "reviewed", printed_at: null }), "Print the slip", "/dashboard/admin/intake/1/slip", false, "Ready to burn"],
+    ["a digital album, printed", () => digitalItem({ id: 1, effective_state: "reviewed", printed_at: "2026-09-02T12:00:00Z" }), "File it", "/dashboard/admin/intake/1#file-it", false, "Ready to burn"],
+  ])("offers %s its next step", async (_name, make, primary, href, returnable, facts) => {
+    fakeReviewsEndpoints({ reviewed: [make()] });
+
+    renderWithProviders(<IntakeLanes />);
+
+    const row = (await lane("Reviewed (1)")).querySelector("li")!;
+    expect(within(row).getByRole("link", { name: primary })).toHaveAttribute("href", href);
+    expect(within(row).queryAllByRole("button", { name: "Mark as returned" })).toHaveLength(returnable ? 1 : 0);
+    expect(within(row).getByText(facts)).toBeInTheDocument();
+  });
+
   it("shows a reviewed record's holder and overdue mark, and none for a returned one", async () => {
     fakeReviewsEndpoints({
       reviewed: [
