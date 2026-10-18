@@ -28,7 +28,7 @@ const Slip = styled("div", { shouldForwardProp: (prop) => prop !== "onCover" })<
   gap: "0.06in",
   fontSize: "0.8rem",
   // Scoped to the slip, so SlipFccRow drawn on its own (a review shown on the sleeve) keeps its label at its value's size.
-  "& > div > strong": { fontSize: "0.875em" },
+  "& > div > strong": { fontSize: "0.8em" },
   "@media screen": {
     position: "relative",
     boxSizing: "border-box",
@@ -42,7 +42,7 @@ const Slip = styled("div", { shouldForwardProp: (prop) => prop !== "onCover" })<
   },
 }));
 
-// Kanit 500 sets "Recommended" 6.747em wide, which at the slip's 0.8rem (12.8px) is about 86.4px, wider than the 0.82in (78.72px) column; at 0.875em of that it is about 75.6px and fits with about 3px to spare. The size is set by the Slip, not here, so the label is only smaller inside a slip.
+// Kanit 500 sets "Recommended" about 7.5em wide, which at the slip's 0.8rem (12.8px) is about 96px, and at 0.875em of that (11.2px) is 84px, both wider than the 0.82in (78.72px) column; at 0.8em of the slip (10.24px) it is about 76.8px and fits with about 2px to spare. The size is set by the Slip, not here, so the label is only smaller inside a slip.
 const Label = styled("strong")(({ theme }) => ({ flex: "0 0 0.82in", fontWeight: theme.fontWeight.lg }));
 
 const Tape = styled("span")({

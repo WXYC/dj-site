@@ -45,7 +45,7 @@ describe("SlipPreview", () => {
     expect(rulesOf(label).base).toMatch(/font-weight:\s*500/);
   });
 
-  // Kanit 500 sets "Recommended" 6.747em wide, so at the slip's 0.8rem it overflows the 0.82in label column by about 8px; at 0.875em of that it is about 75.6px.
+  // Kanit 500 sets "Recommended" about 7.5em wide, so at the slip's 0.8rem it is about 96px and at 0.875em of that 84px, both wider than the 0.82in (78.72px) label column; measured in the browser, at 0.8em of the slip it is about 76.8px and fits.
   it("sets its row labels small enough for 'Recommended' to fit the label column, on screen and in print", () => {
     renderWithProviders(
       <CssVarsProvider theme={modernWeights}>
@@ -54,11 +54,11 @@ describe("SlipPreview", () => {
     );
     const group = screen.getByRole("group", { name: REVIEW_COPY.slip.name });
     const { base, media } = rulesOf(group);
-    expect(base).toMatch(/>\s*div\s*>\s*strong[^{]*\{[^}]*font-size:\s*0\.875em/);
+    expect(base).toMatch(/>\s*div\s*>\s*strong[^{]*\{[^}]*font-size:\s*0\.8em/);
     expect(media.screen ?? "").not.toMatch(/font-size/);
-    // The rule must reach the labels: 0.875em of the slip's 0.8rem.
-    expect(getComputedStyle(screen.getByText(REVIEW_COPY.slip.recommended)).fontSize).toBe("11.2px");
-    expect(getComputedStyle(screen.getByText(REVIEW_COPY.fields.fcc.label)).fontSize).toBe("11.2px");
+    // The rule must reach the labels: 0.8em of the slip's 0.8rem.
+    expect(getComputedStyle(screen.getByText(REVIEW_COPY.slip.recommended)).fontSize).toBe("10.24px");
+    expect(getComputedStyle(screen.getByText(REVIEW_COPY.fields.fcc.label)).fontSize).toBe("10.24px");
   });
 
   it("leaves the FCC label at its value's size when the row is drawn outside a slip", () => {
