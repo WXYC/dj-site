@@ -65,6 +65,7 @@ export default function ReviewShelfScreen({ items, isMD, reviewers, write, lock 
       <IntakeLane title={REVIEW_COPY.screen.shelfTitle} hideTitle rows={onShelf} empty={REVIEW_COPY.screen.shelfEmpty} row={(i) => (
         <RecordRow
           record={intakeRecord(i)}
+          cover={72}
           titleSlot={isMD ? <Link level="title-md" id={shelfRecordId(i)} href={`/dashboard/admin/intake/${i.id}`}>{i.artist_name}</Link> : undefined}
           albumId={shelfAlbumId(i)}
           meta={<Typography level="body-sm">{`${REVIEW_COPY.screen.logged} ${day(i.logged_at)}`}</Typography>}

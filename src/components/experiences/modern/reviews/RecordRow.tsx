@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Box, Chip, Divider, Link, Typography } from "@mui/joy";
+import { useAlbumArtwork } from "@/lib/features/metadata/hooks";
 import { formatLabel, formatTone } from "@/lib/features/experiences/modern/tokens/roles";
 import { useRecordFormatName } from "./recordLine";
 import type { ReviewRecord } from "./useReviewRecord";
@@ -54,6 +55,8 @@ interface RecordRowProps {
   titleSlot?: ReactNode;
   /** An `id` for the album line, for a control's `aria-labelledby` that names the record by its artist and album. */
   albumId?: string;
+  /** The tile's size in px. With it, the row shows the record's cover, and the format glyph while the cover loads, fails or does not exist; without it, the 40 px glyph and no metadata read. */
+  cover?: 72 | 56;
 }
 
 /**
@@ -62,8 +65,11 @@ interface RecordRowProps {
  * answers to the row's own width (a container query), not the window's, since
  * the sidebars change the column width.
  */
-export default function RecordRow({ record, meta, actions, status, href, titleSlot, albumId }: RecordRowProps) {
+export default function RecordRow({ record, meta, actions, status, href, titleSlot, albumId, cover }: RecordRowProps) {
   const format = useRecordFormatName(record);
+  const { metadata } = useAlbumArtwork(record.artist, record.album, cover === undefined);
+  // `useAlbumArtwork`'s own `artworkUrl` falls back to a cassette image; only the service's answer counts here.
+  const artworkUrl = cover ? metadata?.artworkUrl : undefined;
   const artist = titleSlot ?? (href ? (
     <Link level="title-md" href={href}>{record.artist}</Link>
   ) : (
@@ -73,7 +79,11 @@ export default function RecordRow({ record, meta, actions, status, href, titleSl
     <Box sx={{ width: "100%", containerType: "inline-size" }}>
       <Box sx={{ display: "flex", flexDirection: "column", gap: 1, "@container (min-width: 560px)": { flexDirection: "row", alignItems: "center", justifyContent: "space-between" } }}>
         <Box sx={{ display: "flex", gap: 1.5, minWidth: 0 }}>
-          <FormatGlyph format={format} />
+          {cover && artworkUrl ? (
+            <Box component="img" src={artworkUrl} alt="" sx={{ flex: "none", width: cover, height: cover, borderRadius: "sm", objectFit: "cover" }} />
+          ) : (
+            <FormatGlyph format={format} size={cover} />
+          )}
           <Box sx={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 0.25, minWidth: 0 }}>
             <RecordParts record={record} format={format} artist={artist} albumId={albumId} />
             {meta}

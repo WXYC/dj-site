@@ -1,4 +1,4 @@
-import { createApi } from "@reduxjs/toolkit/query/react";
+import { createApi, type FetchBaseQueryError } from "@reduxjs/toolkit/query/react";
 import { backendBaseQuery } from "../backend";
 import {
   AlbumMetadata,
@@ -16,6 +16,8 @@ export const metadataApi = createApi({
         url: "/metadata/album",
         params: { artistName, releaseTitle, ...(trackTitle && { trackTitle }) },
       }),
+      // Artwork is decoration: a failed read leaves the placeholder, and the shared error toast would interrupt the DJ about it.
+      transformErrorResponse: (response: FetchBaseQueryError): FetchBaseQueryError => ({ ...response, expected: true } as unknown as FetchBaseQueryError),
     }),
     getArtistMetadata: builder.query<ArtistMetadata, { artistId: number }>({
       query: ({ artistId }) => ({
