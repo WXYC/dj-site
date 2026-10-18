@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Box, Button, Chip, Divider, Radio, RadioGroup, Stack, Typography } from "@mui/joy";
@@ -55,6 +55,9 @@ import type { PrintedVersion } from "./usePrintedVersion";
 
 const COPY = REVIEW_COPY.intakeItem;
 
+/** The File it section's heading id, fixed so the Reviewed row can link to the section. */
+export const FILE_IT_ID = "file-it";
+
 /** Two columns from a page 800px wide (a 1440px window beside both sidebars is about 826). The side column holds only the FCC notes; the main column keeps at least about 456px at that width. */
 const TWO_COLUMNS = "@container (min-width: 800px)";
 
@@ -90,7 +93,6 @@ export default function IntakeItemScreen({ id }: { id: number }) {
   // Which filing form is open, and which have been opened: a form once opened stays mounted (hidden) so switching keeps what was typed.
   const [arm, setArm] = useState<"new" | "existing" | null>(null);
   const [opened, setOpened] = useState({ new: false, existing: false });
-  const fileItId = useId();
   // Set once the record is gone: its reads stop (they would 404) and the page shows only this line.
   const [deletedLine, setDeletedLine] = useState<string | null>(null);
   const item = useGetIntakeItemQuery(id, { skip: !visible || deletedLine !== null, selectFromResult: fromCache });
@@ -514,9 +516,9 @@ export default function IntakeItemScreen({ id }: { id: number }) {
             ) : coverId == null ? (
               <Typography>{COPY.chooseFirst}</Typography>
             ) : (
-              <HeadedSection title={COPY.fileIt} titleId={fileItId} spacing={2}>
+              <HeadedSection title={COPY.fileIt} titleId={FILE_IT_ID} spacing={2}>
                 <RadioGroup
-                  aria-labelledby={fileItId}
+                  aria-labelledby={FILE_IT_ID}
                   orientation="horizontal"
                   value={arm}
                   onChange={(e) => {

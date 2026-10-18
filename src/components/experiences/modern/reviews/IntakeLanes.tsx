@@ -28,7 +28,8 @@ import HeadedSection from "./HeadedSection";
 import { REVIEW_COPY } from "./copy";
 import RecordRow from "./RecordRow";
 import { intakeRecord } from "./recordLine";
-import { whereLine, WaitingFrom } from "./ReviewFrom";
+import { FILE_IT_ID } from "./IntakeItemScreen";
+import { placeLine, whereLine, WaitingFrom } from "./ReviewFrom";
 import { answerRefusedRequest, useAskADj } from "./useAskADj";
 import { day, EVERY_STATE } from "./useReviewWrite";
 import { formatStationShortDate } from "@/src/utilities/stationTime";
@@ -315,14 +316,17 @@ function IntakeLaneGroups({ handOff, onStageChosen }: { handOff: HandOff | null;
     reviewed: (i) => {
       const holder = itemHolder(i);
       const stillOut = holder.kind !== "none" && recordKind(i) === "disc";
+      const facts = stillOut ? (holder.kind === "removed" ? COPY.stillWithRemoved : `${COPY.stillWith} ${holder.name}`) : holder.kind === "none" ? placeLine(i) : null;
+      const unprinted = i.printed_at == null;
       return laneRow(
         i,
-        stillOut && (
-          <Typography level="body-sm">
-            {holder.kind === "removed" ? COPY.stillWithRemoved : `${COPY.stillWith} ${holder.name}`}
-          </Typography>
-        ),
-        stillOut && markReturned(i, () => act(i.id, "return", () => release(i.id).unwrap())),
+        facts && <Typography level="body-sm">{facts}</Typography>,
+        <>
+          <Button component={Link} size="sm" href={unprinted ? `${itemHref(i)}/slip` : `${itemHref(i)}#${FILE_IT_ID}`}>
+            {unprinted ? REVIEW_COPY.intakeItem.printSlip : REVIEW_COPY.intakeItem.fileIt}
+          </Button>
+          {stillOut && markReturned(i, () => act(i.id, "return", () => release(i.id).unwrap()))}
+        </>,
       );
     },
     filed: (i) => laneRow(i),
