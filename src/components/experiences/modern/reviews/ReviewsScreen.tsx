@@ -24,7 +24,7 @@ export default function ReviewsScreen({ tab }: { tab: "shelf" | "mine" }) {
   const everyState = useGetIntakeItemsQuery(EVERY_STATE, { skip: !visible, ...LIVE_LIST });
   const mine = useGetMyReviewsQuery(MY_REVIEWS, { skip: !visible || onShelf, ...LIVE_LIST });
   const reviewers = useGetReviewersQuery(undefined, { skip: !visible || !isMD || !onShelf });
-  const { write, lock } = useReviewWrite(everyState.data, { reloadMine: !onShelf });
+  const { write, lock } = useReviewWrite({ reloadMine: !onShelf });
 
   if (!visible) {
     return null;

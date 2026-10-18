@@ -54,8 +54,6 @@ describe("REVIEW_COPY digital album lines and the DJ's own list heading", () => 
     ["screen.notReviewedYet", REVIEW_COPY.screen.notReviewedYet, "Not reviewed yet"],
     ["screen.returnQuestionDigital", REVIEW_COPY.screen.returnQuestionDigital, "Put this record back on the review shelf? Another DJ can take it."],
     ["screen.filesComing", REVIEW_COPY.screen.filesComing, "A music director will send you the files."],
-    ["screen.raceReleaseDigital", REVIEW_COPY.screen.raceReleaseDigital, "This record isn't yours to review any more. The lists have been reloaded."],
-    ["subjectNotHeldDigital", REVIEW_COPY.subjectNotHeldDigital, "This record isn't yours to review any more, so a review can't be started here."],
   ])("pins %s", (_key, actual, expected) => {
     expect(actual).toBe(expected);
   });
@@ -64,17 +62,58 @@ describe("REVIEW_COPY digital album lines and the DJ's own list heading", () => 
 describe("REVIEW_COPY.intake digital taken lines", () => {
   it.each([
     ["beingReviewed", REVIEW_COPY.intake.beingReviewed, "Being reviewed"],
-    ["takenBy", REVIEW_COPY.intake.takenBy, "Taken by"],
-    ["takenByRemoved", REVIEW_COPY.intake.takenByRemoved, "Taken by a removed account"],
-    ["fromTaker", REVIEW_COPY.intake.fromTaker("Jessica Pratt"), "From Jessica Pratt, who has taken this record."],
-    ["fromTakenBy", REVIEW_COPY.intake.fromTakenBy("Jessica Pratt", "DJ Sam"), "From Jessica Pratt. DJ Sam has taken the record."],
-    [
-      "fromTakenRemoved",
-      REVIEW_COPY.intake.fromTakenRemoved("Jessica Pratt"),
-      "From Jessica Pratt. The record was taken by an account that has since been removed.",
-    ],
     ["checkedOut (a disc's chip)", REVIEW_COPY.intake.checkedOut, "Checked out"],
     ["screen.taken (a digital album's chip)", REVIEW_COPY.screen.taken, "Taken"],
+  ])("pins %s", (_key, actual, expected) => {
+    expect(actual).toBe(expected);
+  });
+});
+
+describe("REVIEW_COPY round 10, the lines a disc and a digital album now share", () => {
+  const i = REVIEW_COPY.intake;
+  it.each([
+    ["tabs.directors", REVIEW_COPY.tabs.directors, "New music"],
+    ["screen.added", REVIEW_COPY.screen.added, "Added"],
+    ["screen.reviewingSince", REVIEW_COPY.screen.reviewingSince, "Reviewing since"],
+    ["subjectNotHeld", REVIEW_COPY.subjectNotHeld, "This record is no longer yours to review, so a review can't be started here."],
+    ["screen.raceRelease", REVIEW_COPY.screen.raceRelease, "This record is no longer yours to review. The lists have been reloaded."],
+    ["intake.with", i.with, "With"],
+    ["intake.withRemoved", i.withRemoved, "With a removed account"],
+    ["intake.stillWith", i.stillWith, "Still with"],
+    ["intake.stillWithRemoved", i.stillWithRemoved, "Still with a removed account"],
+    ["intake.fromHolder", i.fromHolder("Jessica Pratt"), "From Jessica Pratt, who has this record."],
+    ["intake.fromWith", i.fromWith("Jessica Pratt", "DJ Sam"), "From Jessica Pratt. The record is with DJ Sam."],
+    ["intake.fromRemoved", i.fromRemoved("Jessica Pratt"), "From Jessica Pratt. The record is with a removed account."],
+  ])("pins %s", (_key, actual, expected) => {
+    expect(actual).toBe(expected);
+  });
+});
+
+describe("REVIEW_COPY round 10, digitizing and copying a review", () => {
+  const r = REVIEW_COPY.record;
+  const x = REVIEW_COPY.intakeItem;
+  it.each([
+    ["title", r.title, "Digitize a review"],
+    ["copyTitle", r.copyTitle, "Copy from Google Forms"],
+    ["digitized", r.digitized, "Digitized."],
+    ["copied", r.copied, "Copied."],
+    ["couldNotSave", r.couldNotSave, "Couldn't save the review. Please try again."],
+    ["copiedFromForm", r.copiedFromForm, "Copied from Google Forms. Check it, then save."],
+    ["copiedNoName", r.copiedNoName, "Copied from Google Forms. Check it, add the reviewer's name, then save."],
+    ["byHand", r.byHand, "This review exists only on paper. Copy this record's slip by hand, then digitize it here."],
+    [
+      "emailed",
+      r.emailed("Sam"),
+      "Sam will be emailed that their review is now in the DJ site. They can edit it and answer the publishing question themselves.",
+    ],
+    ["formAfterCutover", x.formAfterCutover, "Copied. The record can't cite this form review: it was sent in after the cutover date."],
+    ["formNoDate", x.formNoDate, "Copied. The record can't cite this form review: it has no date."],
+    [
+      "deleteCoverRemoved",
+      x.deleteCoverRemoved,
+      "This is the review on the cover. Deleting it puts the record back with its holder, whose account was removed.",
+    ],
+    ["formNotNoted", x.formNotNoted, "Copied. Couldn't note which form review it came from."],
   ])("pins %s", (_key, actual, expected) => {
     expect(actual).toBe(expected);
   });

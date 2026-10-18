@@ -158,7 +158,7 @@ export default function IntakeItemScreen({ id }: { id: number }) {
     });
   };
   // One count per review write in flight or rereading, so neither a review button nor the form's Save acts on the stale cover.
-  // `movers` counts the writes that move the cover (Use this review, a ticked Record a review). Each write takes a handle from `hold` and releases it exactly once.
+  // `movers` counts the writes that move the cover (Use this review, a ticked Digitize a review). Each write takes a handle from `hold` and releases it exactly once.
   const [holds, setHolds] = useState({ all: 0, movers: 0 });
 
   // Current answers only: when the citation changes, the old release's name and list must not show while the new one's reads are out.
@@ -446,7 +446,7 @@ export default function IntakeItemScreen({ id }: { id: number }) {
     />
   );
 
-  // The Record a review row with its open section, drawn once: in the top block while no review is chosen, otherwise in its place below the reviews.
+  // The Digitize a review row with its open section, drawn once: in the top block while no review is chosen, otherwise in its place below the reviews.
   const recordArea = (
     <>
       <RecordPrompt

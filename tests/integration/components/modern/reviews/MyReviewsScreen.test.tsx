@@ -10,7 +10,7 @@ import type { IntakeItem, Review } from "@wxyc/shared";
 
 // The screen takes the shared write wiring from its caller, as ReviewsScreen supplies it.
 function WithWrite(props: Omit<ComponentProps<typeof MyReviewsScreen>, "write" | "lock">) {
-  const { write, lock } = useReviewWrite(props.items);
+  const { write, lock } = useReviewWrite();
   return <MyReviewsScreen {...props} write={write} lock={lock} />;
 }
 

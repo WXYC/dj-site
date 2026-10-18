@@ -124,7 +124,7 @@ export default function MyReviewsScreen({ items, myReviews, me, write, lock }: {
         cover={coverFor(stage)}
         meta={
           <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-            <Typography level="body-sm">{`${REVIEW_COPY.screen.taken} ${day(i.checked_out_at)}`}</Typography>
+            <Typography level="body-sm">{`${REVIEW_COPY.screen.reviewingSince} ${day(i.checked_out_at)}`}</Typography>
             {mark && <Chip color="danger">{mark}</Chip>}
             {note && <Typography level="body-sm">{note}</Typography>}
           </Stack>
