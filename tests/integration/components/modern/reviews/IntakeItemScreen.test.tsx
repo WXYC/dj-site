@@ -5821,6 +5821,22 @@ describe("IntakeItemScreen", () => {
     });
 
     it.each([
+      ["Mike"],
+      ["Mia"],
+    ])("names the asker %s once on a requested record's page, in the progress track and not the block", async (asker) => {
+      fakeReviewsEndpoints({
+        records: [dogaItem({ ...POOL, ...requestedFor("dj-sam", "DJ Sam"), state: "requested", effective_state: "requested", requested_by_name: asker })],
+        reviewers: [{ id: "dj-sam", name: "Sam" }],
+      });
+      renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      const region = await screen.findByRole("region", { name: TITLE });
+      expect(within(region).getByText("Held for DJ Sam")).toBeInTheDocument();
+      expect(screen.getAllByText(new RegExp(asker))).toHaveLength(1);
+      expect(screen.getByText(`Asked by ${asker}`)).toBeInTheDocument();
+    });
+
+    it.each([
       ["reviewed", dogaItem()],
       ["filed", dogaItem({ state: "filed", effective_state: "filed" })],
     ])("draws no block for a %s record, and Digitize a review appears once", async (_name, item) => {
