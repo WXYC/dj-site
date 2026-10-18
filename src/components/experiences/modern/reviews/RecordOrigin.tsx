@@ -48,7 +48,7 @@ export default function RecordOrigin({ item, focusCite, settled, children }: { i
   const { picker } = useAskADj({ reviewers, write, lock, onSettled: (_i, outcome) => followRecord(outcome) });
   const cancel = async () => followRecord(await write(item.id, "cancel", () => cancelRequest(item.id).unwrap()));
   const titleId = `record-origin-${item.id}`;
-  const line = whereLine(item);
+  const line = whereLine(item, { naming: "holder" });
 
   return (
     <Box ref={reveal} tabIndex={-1} sx={{ outline: "none" }}>

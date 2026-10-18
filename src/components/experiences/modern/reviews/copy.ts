@@ -336,7 +336,7 @@ export const REVIEW_COPY = {
     requested: "Requested",
     /** Approved. Each is followed by a DJ name. */
     heldFor: "Held for",
-    /** A held record's line when its asker is known: the DJ it is held for, then the music director who asked. */
+    /** Approved. A held record's line when its asker is known: the DJ it is held for, then the music director who asked. */
     heldForAskedBy: (dj: string, asker: string) => `Held for ${dj}, asked by ${asker}`,
     /** Approved. The location line of a record a DJ has; followed by the DJ's name. */
     with: "With",

@@ -27,11 +27,15 @@ const PLACE_LINE: Record<UnheldPlace, string | null> = {
  */
 export const placeLine = (item: IntakeItem): string | null => PLACE_LINE[unheldPlace(item)];
 
-/** Where a record is now, for the lanes and the record page: who holds it, or its place when nobody does. Names are real names: station display only, never telemetry. */
-export function whereLine(item: IntakeItem): string | null {
+/**
+ * Where a record is now, for the lanes and the record page: who holds it, or its place when nobody does. A requested
+ * record's line also names the music director who asked, unless `naming` is "holder": the record page passes that
+ * because its progress track already says who asked. Names are real names: station display only, never telemetry.
+ */
+export function whereLine(item: IntakeItem, { naming = "holderAndAsker" }: { naming?: "holderAndAsker" | "holder" } = {}): string | null {
   const holder = itemHolder(item);
   if (holder.kind === "requested") {
-    return holder.askedBy ? COPY.heldForAskedBy(holder.name, holder.askedBy) : `${COPY.heldFor} ${holder.name}`;
+    return naming === "holderAndAsker" && holder.askedBy ? COPY.heldForAskedBy(holder.name, holder.askedBy) : `${COPY.heldFor} ${holder.name}`;
   }
   if (holder.kind === "checked_out") {
     return `${COPY.with} ${holder.name}`;

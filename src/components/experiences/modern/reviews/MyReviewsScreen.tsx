@@ -54,7 +54,6 @@ const PAGE_SIZE = 20;
 /** Open reviews are the DJ's own records, with 72 px covers; Submitted and Published are the denser list, at 56 px. */
 const coverFor = (stage: Stage): 72 | 56 => (stage === "open" ? 72 : 56);
 
-/** The Open reviews, Submitted and Published stages. It assumes its caller has applied the `useCanSeeReviews` check and the load-failed gate, and takes the `useReviewWrite` the caller built for this tab: the review shelf is a separate tab with its own write wiring, so a lock set here does not carry over to it. */
 /** The DJ's request row: who asked, when the record names them. */
 function requestLine(i: IntakeItem): string {
   const holder = itemHolder(i);
@@ -62,6 +61,7 @@ function requestLine(i: IntakeItem): string {
   return holder.kind === "requested" && holder.askedBy ? REVIEW_COPY.screen.requestedBy(holder.askedBy, date) : REVIEW_COPY.screen.requestedNoAsker(date);
 }
 
+/** The Open reviews, Submitted and Published stages. It assumes its caller has applied the `useCanSeeReviews` check and the load-failed gate, and takes the `useReviewWrite` the caller built for this tab: the review shelf is a separate tab with its own write wiring, so a lock set here does not carry over to it. */
 export default function MyReviewsScreen({ items, myReviews, me, write, lock }: { items: IntakeItem[]; myReviews: Review[]; me: string | undefined } & ReviewWrite) {
   const [accept] = useAcceptIntakeItemMutation();
   const [pass] = usePassIntakeItemMutation();
