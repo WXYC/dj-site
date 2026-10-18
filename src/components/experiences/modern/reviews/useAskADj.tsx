@@ -2,8 +2,10 @@ import { useEffect, useMemo, useRef, type ReactNode } from "react";
 import { toast } from "sonner";
 import { Typography } from "@mui/joy";
 import type { IntakeItem, Reviewer } from "@wxyc/shared";
-import { useCancelIntakeRequestMutation, useRequestIntakeItemMutation } from "@/lib/features/reviews/intakeApi";
+import { isIntakeRequestRefused, useCancelIntakeRequestMutation, useRequestIntakeItemMutation } from "@/lib/features/reviews/intakeApi";
+import { reviewApi } from "@/lib/features/reviews/reviewApi";
 import { foldReviewers } from "@/lib/features/reviews/reviewerMatch";
+import type { AppDispatch } from "@/lib/store";
 import { hasNothingToShow } from "@/lib/has-nothing-to-show";
 import { useMounted, type RowWriteOutcome } from "@/src/hooks/useRowWrite";
 import IntakeRequestPicker from "./IntakeRequestPicker";
@@ -11,11 +13,23 @@ import { REVIEW_COPY } from "./copy";
 
 type AskAction = "request" | "cancel";
 
-/** The slice of a screen's row write the Ask a DJ… control uses, so a screen with a wider write (`useReviewWrite`) or its own `useRowWrite<AskAction>` can pass it in. */
+/** The slice of a screen's row write the Ask a DJ… control uses. A screen passes its own row write, whose actions include `request` and `cancel`: `useReviewWrite`, or a `useRowWrite` over the screen's wider action union (the New music tab's). A wider union fits because the control only ever sends these two actions. */
 export type AskWrite = {
   write: (id: number, action: AskAction, run: () => Promise<unknown>) => Promise<RowWriteOutcome>;
   lock: (id: number, action: "request") => { loading: boolean; disabled: boolean };
 };
+
+/**
+ * A screen's row-write `onFailure` calls this first, so every screen answers a refused request the same way: a request the server refused (the DJ can no longer be asked) gets the approved line and a fresh reviewers read, never the generic write-failed line. It returns true when it answered `err`.
+ */
+export function answerRefusedRequest(err: unknown, action: string, dispatch: AppDispatch): boolean {
+  if (action !== "request" || !isIntakeRequestRefused(err)) {
+    return false;
+  }
+  toast.error(REVIEW_COPY.intake.requestRefused);
+  void dispatch(reviewApi.endpoints.getReviewers.initiate(undefined, { subscribe: false, forceRefetch: true }));
+  return true;
+}
 
 /**
  * The music director's Ask a DJ… control, once per screen: one fold per reviewers read, one set of Asked toasts, one mounted ref. Call it once in the screen and draw `picker(item)` on each record's row; a per-row component would refold the reviewers per row and dismiss a row's toast whenever that row unmounts after the write's reload. `alert` is the reviewers-load-failed line, for the screen to draw once.

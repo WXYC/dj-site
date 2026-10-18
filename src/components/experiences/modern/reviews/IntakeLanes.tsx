@@ -3,9 +3,9 @@
 import { useState, type ReactNode } from "react";
 import { Button, Chip, Link, List, ListItem, Stack, Typography } from "@mui/joy";
 import type { IntakeItem } from "@wxyc/shared";
+import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import {
-  isIntakeRequestRefused,
   isIntakeStateChanged,
   intakeApi,
   useCancelIntakeRequestMutation,
@@ -16,7 +16,7 @@ import { LIVE_LIST } from "@/lib/features/reviews/api";
 import { itemHolder, recordStage, type ReviewStage } from "@/lib/features/reviews/holder";
 import { byKind, recordKind } from "@/lib/features/reviews/kind";
 import { filedByRecency, NEW_MUSIC_STAGES, oldestLoggedFirst } from "@/lib/features/reviews/newMusic";
-import { reviewApi, useGetReviewersQuery } from "@/lib/features/reviews/reviewApi";
+import { useGetReviewersQuery } from "@/lib/features/reviews/reviewApi";
 import { useAppDispatch } from "@/lib/hooks";
 import { useCanSeeReviews } from "@/src/hooks/useCanSeeReviews";
 import { useRowWrite } from "@/src/hooks/useRowWrite";
@@ -28,7 +28,7 @@ import { REVIEW_COPY } from "./copy";
 import RecordRow from "./RecordRow";
 import { intakeRecord } from "./recordLine";
 import { whereLine, WaitingFrom } from "./ReviewFrom";
-import { useAskADj, type AskWrite } from "./useAskADj";
+import { answerRefusedRequest, useAskADj } from "./useAskADj";
 import { day, EVERY_STATE } from "./useReviewWrite";
 import { formatStationShortDate } from "@/src/utilities/stationTime";
 import { hasNothingToShow } from "@/lib/has-nothing-to-show";
@@ -112,10 +112,9 @@ type LaneRow = (i: IntakeItem, meta?: ReactNode, actions?: ReactNode, title?: { 
 
 const itemHref = (i: IntakeItem) => `/dashboard/admin/intake/${i.id}`;
 
-/** On the review shelf: each record with its Ask a DJ… control. The reviewers are read here, so the other stages never read them. */
-function OnReviewShelf({ rows, laneRow, write, lock }: { rows: IntakeItem[]; laneRow: LaneRow } & AskWrite) {
-  const reviewers = useGetReviewersQuery(undefined);
-  const { alert, picker, shelfRecordId, shelfAlbumId } = useAskADj({ reviewers, write, lock });
+/** On the review shelf: each record with the tab's Ask a DJ… control. */
+function OnReviewShelf({ rows, laneRow, askADj }: { rows: IntakeItem[]; laneRow: LaneRow; askADj: ReturnType<typeof useAskADj> }) {
+  const { alert, picker, shelfRecordId, shelfAlbumId } = askADj;
   return (
     <>
       {alert}
@@ -159,9 +158,7 @@ function IntakeLaneGroups() {
     reload: () => [dispatch(intakeApi.endpoints.getIntakeItems.initiate(EVERY_STATE, { subscribe: false, forceRefetch: true }))],
     isLostRace: isIntakeStateChanged,
     onFailure: (err, _id, action) => {
-      if (action === "request" && isIntakeRequestRefused(err)) {
-        toast.error(COPY.requestRefused);
-        void dispatch(reviewApi.endpoints.getReviewers.initiate(undefined, { subscribe: false, forceRefetch: true }));
+      if (answerRefusedRequest(err, action, dispatch)) {
         return;
       }
       toast.error(REVIEW_COPY.screen.writeFailed);
@@ -174,6 +171,11 @@ function IntakeLaneGroups() {
     setNotice(null);
     return write(id, action, run);
   };
+  // The Ask a DJ… control lives as long as the tab, as on the Review shelf tab, so a chip switch keeps its Asked toasts.
+  // The reviewers are read only while the review shelf stage shows; the opening stage is never that one, so it shows only when `?stage=` names it.
+  const onReviewShelf = useSearchParams().get("stage") === "review_shelf";
+  const reviewers = useGetReviewersQuery(undefined, { skip: !onReviewShelf });
+  const askADj = useAskADj({ reviewers, write: act, lock });
 
   if (hasNothingToShow(everyState)) {
     return <Typography role="alert">{REVIEW_COPY.screen.loadFailed}</Typography>;
@@ -293,7 +295,7 @@ function IntakeLaneGroups() {
       >
         {(stage) => {
           if (stage === "review_shelf") {
-            return <OnReviewShelf rows={rowsOf[stage]} laneRow={laneRow} write={act} lock={lock} />;
+            return <OnReviewShelf rows={rowsOf[stage]} laneRow={laneRow} askADj={askADj} />;
           }
           return stage === "filed" ? <FiledList rows={rowsOf.filed} row={rowFor.filed} /> : <RowList rows={rowsOf[stage]} row={rowFor[stage]} />;
         }}

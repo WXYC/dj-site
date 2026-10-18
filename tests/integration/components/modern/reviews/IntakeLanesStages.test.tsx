@@ -14,10 +14,19 @@ vi.mock("sonner", () => ({
   toast: Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn(), info: vi.fn(), dismiss: vi.fn() }),
 }));
 
-const url = vi.hoisted(() => ({ search: "" }));
+// The chips write the stage with `history.replaceState`, which the App Router syncs to `useSearchParams`; the spy in `beforeEach` does the same sync, so a click on a chip changes the list.
+const url = vi.hoisted(() => ({ search: "", listeners: new Set<() => void>() }));
 vi.mock("next/navigation", async () => {
+  const { useSyncExternalStore } = await import("react");
   const { createNavigationModuleMock } = await import("@/tests/helpers/navigation-mock");
-  return createNavigationModuleMock({ push: vi.fn(), replace: vi.fn() }, { pathname: "/dashboard/reviews/music-directors", search: () => url.search });
+  const subscribe = (listener: () => void) => {
+    url.listeners.add(listener);
+    return () => url.listeners.delete(listener);
+  };
+  return createNavigationModuleMock(
+    { push: vi.fn(), replace: vi.fn() },
+    { pathname: "/dashboard/reviews/music-directors", search: () => useSyncExternalStore(subscribe, () => url.search) },
+  );
 });
 
 const mockAuth = vi.hoisted(() => ({ id: "md-me", authority: 2 as number }));
@@ -35,6 +44,7 @@ const REVIEWERS = [
   { id: "dj-sam", name: "DJ Sam" },
   { id: "dj-pat", name: "Pat Placeholder" },
 ];
+// Every spec runs on this clock (faked in `beforeEach`), so the Filed stage's 30-day cut never depends on today's date.
 const NOW = new Date("2026-10-17T12:00:00Z");
 const daysAgo = (n: number) => new Date(NOW.getTime() - n * 24 * 60 * 60 * 1000).toISOString();
 
@@ -65,15 +75,22 @@ const panel = async (name: string) => screen.findByRole("tabpanel", { name });
 const artists = (region: HTMLElement) => within(region).queryAllByRole("listitem").map((li) => within(li).getAllByRole("link")[0].textContent);
 
 beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"], now: NOW });
   url.search = "";
   mockAuth.authority = Authorization.MD;
   vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "staff");
   vi.mocked(toast).mockClear();
   vi.mocked(toast.error).mockClear();
+  vi.mocked(toast.dismiss).mockClear();
+  vi.spyOn(window.history, "replaceState").mockImplementation((_state, _unused, target) => {
+    url.search = new URL(String(target), "http://localhost").search;
+    url.listeners.forEach((listener) => listener());
+  });
 });
 afterEach(() => {
   vi.unstubAllEnvs();
   vi.useRealTimers();
+  vi.mocked(window.history.replaceState).mockRestore();
 });
 
 describe("IntakeLanes stage chips", () => {
@@ -210,6 +227,39 @@ describe("IntakeLanes stage lists", () => {
     await waitFor(() => expect(toast).toHaveBeenCalledWith(COPY.askDone("Pat Placeholder"), expect.anything()));
   });
 
+  it.each([SHELF_OLD, SHELF_NEW])("names the Ask a DJ… button on the review shelf by its record: $artist_name", async (record) => {
+    serve([SHELF_NEW, SHELF_OLD]);
+    showStage("review_shelf");
+    renderWithProviders(<IntakeLanes />);
+
+    const region = await panel(COPY.onShelf);
+    const row = (await within(region).findAllByRole("listitem")).find((li) => within(li).getAllByRole("link")[0].textContent === record.artist_name)!;
+    expect(within(row).getByRole("button", { name: new RegExp(`^${COPY.askADj}`) })).toHaveAccessibleName(`${COPY.askADj} ${record.artist_name} ${record.album_title}`);
+  });
+
+  it("keeps the Asked toast when another chip is chosen, and dismisses it only when the tab goes", async () => {
+    vi.mocked(toast).mockReturnValueOnce("asked-toast");
+    serve([SHELF_OLD, BEING_REVIEWED]);
+    server.use(
+      http.post(`${TEST_BACKEND_URL}/intake/1/request`, () => HttpResponse.json({ ...SHELF_OLD, state: "requested", effective_state: "requested" })),
+    );
+    showStage("review_shelf");
+    const { user, unmount } = renderWithProviders(<IntakeLanes />);
+
+    await user.click(await screen.findByRole("button", { name: new RegExp(`^${COPY.askADj}`) }));
+    await user.type(await within(await screen.findByRole("dialog")).findByRole("combobox"), "Pat Placeholder");
+    await user.keyboard("{Enter}");
+    await user.click(await screen.findByRole("button", { name: COPY.ask }));
+    await waitFor(() => expect(toast).toHaveBeenCalledWith(COPY.askDone("Pat Placeholder"), expect.anything()));
+
+    await user.click(screen.getByRole("tab", { name: new RegExp(`^${COPY.beingReviewed},`) }));
+    expect(await panel(COPY.beingReviewed)).toBeInTheDocument();
+    expect(toast.dismiss).not.toHaveBeenCalled();
+
+    unmount();
+    expect(vi.mocked(toast.dismiss).mock.calls).toEqual([["asked-toast"]]);
+  });
+
   it.each([
     ["a 400, the approved line and a fresh read of the reviewers", { status: 400, body: { message: "server words" } }],
     ["a 409 state_changed, the lost-race notice", { status: 409, body: { message: "server words", reason: "state_changed" } }],
@@ -241,7 +291,6 @@ describe("IntakeLanes stage lists", () => {
   });
 
   it("shows a record filed 29 days ago, hides one filed 31 days ago and one with no filing time until Show older, newest first, finalized included", async () => {
-    vi.useFakeTimers({ toFake: ["Date"], now: NOW });
     serve([
       { ...FILED, id: 20, artist_name: "Stereolab", filed_at: daysAgo(29) },
       { ...FILED, id: 21, artist_name: "Juana Molina", filed_at: daysAgo(31) },
