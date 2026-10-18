@@ -928,6 +928,57 @@ describe("ReviewsScreen", () => {
     expect(within(screen.getByRole("dialog")).queryByRole("combobox")).not.toBeInTheDocument();
   });
 
+  describe("suggestions before anyone types", () => {
+    const PEOPLE = [
+      { id: "dj-new", name: "Test Newest", on_air_name: "DJ Fresh", records_out: 0, last_submitted_at: "2026-10-10T12:00:00Z" },
+      { id: "dj-old", name: "Test Older", on_air_name: "Test Older", records_out: 2, last_submitted_at: "2026-10-01T12:00:00Z" },
+      { id: "dj-pass", name: "Test Passer", records_out: 0, last_submitted_at: "2026-10-12T12:00:00Z" },
+      { id: "dj-never", name: "Test Never", records_out: 0, last_submitted_at: null },
+    ];
+    const open = async (passes: IntakeItem["passes"] = []) => {
+      mockAuth.authority = Authorization.MD;
+      fakeReviewsEndpoints({ open: [moonPix({ passes })], reviewers: PEOPLE });
+      const rendered = renderWithProviders(<ReviewsScreen tab="shelf" />);
+      await rendered.user.click(await askButton("Moon Pix"));
+      return rendered;
+    };
+
+    it("shows Suggested, the recent free people and Or search all, and Or search all shows the full results", async () => {
+      const { user } = await open();
+
+      expect(await screen.findByText("Suggested")).toBeInTheDocument();
+      expect((await screen.findAllByRole("option")).map((o) => o.textContent)).toEqual([
+        expect.stringContaining("Test Passer"),
+        expect.stringContaining("Test Newest"),
+        "Or search all 4",
+      ]);
+      await user.click(screen.getByRole("option", { name: "Or search all 4" }));
+
+      await waitFor(() => expect(screen.queryByText("Suggested")).not.toBeInTheDocument());
+      expect(await screen.findAllByRole("option")).toHaveLength(4);
+    });
+
+    it("draws each row's lines, puts a passer last and still lets it be picked", async () => {
+      const { user } = await open([{ dj_id: "dj-pass", dj_name: "Test Passer", passed_at: "2026-10-13T12:00:00Z" }]);
+      const options = await screen.findAllByRole("option");
+
+      expect(options[0]).toHaveTextContent("Test NewestOn air as DJ Fresh.Nothing out.");
+      expect(options[1]).toHaveTextContent("Test PasserNothing out.Passed on this record.");
+      await user.click(options[1]);
+      expect(await screen.findByText("Ask Test Passer to review Cat Power, Moon Pix? It's held for them for 7 days.")).toBeInTheDocument();
+    });
+
+    it("names the on-air name in the confirmation, and finds a person by its word start", async () => {
+      const { user } = await open();
+      await user.type(await searchField(), "fre");
+      await user.keyboard("{Enter}");
+
+      expect(
+        await screen.findByText("Ask Test Newest (on air as DJ Fresh) to review Cat Power, Moon Pix? It's held for them for 7 days."),
+      ).toBeInTheDocument();
+    });
+  });
+
   it("counts the matches past the eighth, as a line that can't be picked", async () => {
     mockAuth.authority = Authorization.MD;
     const many = Array.from({ length: 11 }, (_, i) => ({ id: `dj-${i}`, name: `Test Person ${String(i).padStart(2, "0")}` }));

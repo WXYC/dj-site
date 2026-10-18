@@ -248,7 +248,18 @@ export const REVIEW_COPY = {
     /** The list's last line when more names match than it lists. */
     askOverflow: (n: number) => `${n} more match. Keep typing.`,
     /** Asked once a name is picked, before anything is sent. */
-    askConfirm: (name: string, artist: string, album: string) => `Ask ${name} to review ${artist}, ${album}? It's held for them for 7 days.`,
+    askConfirm: (name: string, artist: string, album: string, onAir?: string | null) =>
+      `Ask ${name}${onAir ? ` (on air as ${onAir})` : ""} to review ${artist}, ${album}? It's held for them for 7 days.`,
+    /** A proposal for the next copy round: the caption over the people the search suggests before anyone types. */
+    suggested: "Suggested",
+    /** A proposal for the next copy round: the last line of the suggestions, which shows everyone the search finds. */
+    searchAll: (n: number) => `Or search all ${n}`,
+    /** A proposal for the next copy round: a result row's line when the on-air name differs from the name. */
+    onAirAs: (handle: string) => `On air as ${handle}.`,
+    /** A proposal for the next copy round: a result row's line for how many records the person has out. */
+    recordsOut: (n: number) => (n === 0 ? "Nothing out." : n === 1 ? "1 record out." : `${n} records out.`),
+    /** A proposal for the next copy round: a result row's line for a DJ who already passed on this record. */
+    passedOnThis: "Passed on this record.",
     /** The search's line when no name matches what is typed. */
     askNoMatch: "No name matches that.",
     /** The search's line while the names are still loading. */
