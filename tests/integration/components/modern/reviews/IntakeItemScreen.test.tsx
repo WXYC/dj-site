@@ -1072,6 +1072,42 @@ describe("IntakeItemScreen", () => {
       expect(within(group).getAllByRole("radio")).toHaveLength(2);
     });
 
+    describe("opened from a link", () => {
+      // jsdom runs no layout, so the spy records which element each scroll targeted.
+      let scrolled: Element[];
+      let scroll: ReturnType<typeof vi.spyOn>;
+      beforeEach(() => {
+        scrolled = [];
+        scroll = vi.spyOn(Element.prototype, "scrollIntoView").mockImplementation(function (this: Element) {
+          scrolled.push(this);
+        });
+      });
+      afterEach(() => {
+        getParam.delete("get");
+        scroll.mockRestore();
+      });
+
+      it("scrolls to File it and focuses it from ?get=file, once its reads land", async () => {
+        getParam.set("get", "file");
+        setUp();
+        renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+        const fileIt = await screen.findByRole("region", { name: "File it" });
+        await waitFor(() => expect(scrolled).toHaveLength(1));
+        expect(scrolled[0].contains(fileIt)).toBe(true);
+        expect(document.activeElement).toBe(scrolled[0]);
+      });
+
+      it("leaves the page at its top without a ?get", async () => {
+        setUp();
+        renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+        const fileIt = await screen.findByRole("region", { name: "File it" });
+        expect(scrolled.some((el) => el.contains(fileIt))).toBe(false);
+        expect(fileIt.parentElement).not.toHaveFocus();
+      });
+    });
+
     it("takes the closed arm out of the accessibility tree and the Tab order, not only out of sight", async () => {
       setUp();
       const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Box, Button, Chip, Divider, Radio, RadioGroup, Stack, Typography } from "@mui/joy";
@@ -37,6 +37,7 @@ import { REVIEW_COPY } from "./copy";
 import FccNotesPanel from "./FccNotesPanel";
 import { useGetInformationQuery } from "@/lib/features/catalog/api";
 import IntakeProgress from "./IntakeProgress";
+import { GET_FILE_IT } from "./intakeLinks";
 import { intakeRecord, recordLine, releaseRecord } from "./recordLine";
 import RecordHeader from "./RecordHeader";
 import ReleasePicker from "./ReleasePicker";
@@ -54,9 +55,6 @@ import { day } from "./useReviewWrite";
 import type { PrintedVersion } from "./usePrintedVersion";
 
 const COPY = REVIEW_COPY.intakeItem;
-
-/** The File it section's heading id, fixed so the Reviewed row can link to the section. */
-export const FILE_IT_ID = "file-it";
 
 /** Two columns from a page 800px wide (a 1440px window beside both sidebars is about 826). The side column holds only the FCC notes; the main column keeps at least about 456px at that width. */
 const TWO_COLUMNS = "@container (min-width: 800px)";
@@ -93,6 +91,7 @@ export default function IntakeItemScreen({ id }: { id: number }) {
   // Which filing form is open, and which have been opened: a form once opened stays mounted (hidden) so switching keeps what was typed.
   const [arm, setArm] = useState<"new" | "existing" | null>(null);
   const [opened, setOpened] = useState({ new: false, existing: false });
+  const fileItId = useId();
   // Set once the record is gone: its reads stop (they would 404) and the page shows only this line.
   const [deletedLine, setDeletedLine] = useState<string | null>(null);
   const item = useGetIntakeItemQuery(id, { skip: !visible || deletedLine !== null, selectFromResult: fromCache });
@@ -106,8 +105,19 @@ export default function IntakeItemScreen({ id }: { id: number }) {
   const [notice, setNotice] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [picked, setPicked] = useState<AlbumEntry | null>(null);
-  // Where a link into the page asks it to start: ?get=record opens the form, ?get=cite focuses the first cite button.
+  // Where a link into the page asks it to start: ?get=record opens the form, ?get=cite focuses the first cite button, ?get=file scrolls to File it and focuses it.
   const getParam = useSearchParams().get("get");
+  const startAtFileIt = getParam === GET_FILE_IT;
+  // File it draws only once the page's reads land, so the move happens when the section first draws, and only once, so a later redraw does not pull the reader back.
+  const fileItReached = useRef(false);
+  const revealFileIt = useCallback((el: HTMLElement | null) => {
+    if (!el || !startAtFileIt || fileItReached.current) {
+      return;
+    }
+    fileItReached.current = true;
+    el.scrollIntoView?.();
+    el.focus();
+  }, [startAtFileIt]);
   // The open form's starting values and its key, or null when closed. Every opening goes through openRecording, which gives the form a key unlike the open one's, so the form remounts with the new start.
   const [recording, setRecording] = useState<Recording | null>(() => (getParam === "record" ? nextRecording(null, EMPTY_START) : null));
   // The cite search open under the prompt row, if any; only one of it and the form is open at a time.
@@ -516,9 +526,10 @@ export default function IntakeItemScreen({ id }: { id: number }) {
             ) : coverId == null ? (
               <Typography>{COPY.chooseFirst}</Typography>
             ) : (
-              <HeadedSection title={COPY.fileIt} titleId={FILE_IT_ID} spacing={2}>
+              <Box ref={revealFileIt} tabIndex={-1} sx={{ outline: "none" }}>
+              <HeadedSection title={COPY.fileIt} titleId={fileItId} spacing={2}>
                 <RadioGroup
-                  aria-labelledby={FILE_IT_ID}
+                  aria-labelledby={fileItId}
                   orientation="horizontal"
                   value={arm}
                   onChange={(e) => {
@@ -556,6 +567,7 @@ export default function IntakeItemScreen({ id }: { id: number }) {
                   </Stack>
                 )}
               </HeadedSection>
+              </Box>
             )}
           </Stack>
           <Box data-column="side">
