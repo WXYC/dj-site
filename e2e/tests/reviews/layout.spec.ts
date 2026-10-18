@@ -76,11 +76,46 @@ async function undo(page: Page, name: string, declarations: string) {
   return page.addStyleTag({ content: `[data-e2e-${name}] { ${important}; }` });
 }
 
-/** Waits for the faces the page is loading, so a measure reads the face the site serves and not the fallback drawn before it (next/font swaps). */
-async function fontsReady(page: Page) {
-  await page.evaluate(async () => {
-    await document.fonts.ready;
+const FONT_FILES = "/_next/static/media/";
+
+/** What the page's font files did, by page: the ones that failed or were not answered with 200, so a face that did not load can be explained. */
+const fontFileProblems = new WeakMap<Page, string[]>();
+
+/** Starts recording the page's font files. Called before the page is opened, because a file is requested once. */
+function watchFontFiles(page: Page) {
+  const problems: string[] = [];
+  fontFileProblems.set(page, problems);
+  page.on("requestfailed", (request) => {
+    if (request.url().includes(FONT_FILES)) {
+      problems.push(`${request.url()} failed: ${request.failure()?.errorText}`);
+    }
   });
+  page.on("response", (response) => {
+    if (response.url().includes(FONT_FILES) && response.status() !== 200) {
+      problems.push(`${response.url()} answered ${response.status()}`);
+    }
+  });
+}
+
+/**
+ * Loads the faces the slip is set in, and fails unless the served one, Kanit, is what it draws in. `document.fonts.ready`
+ * alone resolves when no load has started, or when one has failed, and then a measure reads the fallback face (next/font
+ * swaps), whose widths differ from the served face's.
+ */
+async function fontsReady(page: Page) {
+  const text = COPY.slip.recommended;
+  const loaded = await page.evaluate(async (sample) => {
+    await Promise.all([document.fonts.load("500 1em Kanit", sample), document.fonts.load("400 1em Kanit", sample)]).catch(() => []);
+    await document.fonts.ready;
+    // `check` is also true when no face of the family exists, so a loaded face is required as well.
+    const faces = Array.from(document.fonts).filter((face) => face.family.replace(/["']/g, "") === "Kanit" && face.status === "loaded");
+    return document.fonts.check("500 1em Kanit", sample) && faces.length > 0;
+  }, text);
+  const seen = fontFileProblems.get(page) ?? [];
+  const files = seen.length === 0 ? "no font file failed or answered other than 200" : seen.join("; ");
+  expect(loaded, `the served face Kanit 500 did not load, so layout would be measured in a fallback face (${files})`).toBe(true);
+  const family = await editor(page).slip.locator("div > strong").first().evaluate((el) => getComputedStyle(el).fontFamily);
+  expect(family, `the slip's labels are set in ${family}, not Kanit (${files})`).toMatch(/^["']?Kanit\b/);
 }
 
 async function scrollToEnd(target: Locator) {
@@ -116,11 +151,8 @@ const STICKY_TOP = "from the scroll region's top";
 const STICKY_BOTTOM = "below the action bar's top";
 const GRID_BOTTOM = "from the grid's bottom";
 
-/** A slip row whose value does not start at the first row's x, and by how much. */
-type Misaligned = { label: string; by: number; line: string };
-
-/** The slip rows whose value does not start where the first row's does, or null when the slip has no rows. */
-async function misalignedValues(page: Page): Promise<Misaligned[] | null> {
+/** Every row of the slip puts its value at the same x as the first row's: the label column holds its word, "Recommended" included. */
+async function labelColumnProblems(page: Page): Promise<string[]> {
   await fontsReady(page);
   const starts = await editor(page).slip.evaluate((slip) =>
     Array.from(slip.children)
@@ -128,18 +160,12 @@ async function misalignedValues(page: Page): Promise<Misaligned[] | null> {
       .map((row) => ({ label: row.children[0].textContent ?? "", x: row.children[1].getBoundingClientRect().left })),
   );
   if (starts.length === 0) {
-    return null;
+    return [NO_ROWS];
   }
   const first = starts[0].x;
   return starts
     .filter(({ x }) => Math.abs(x - first) > ROUNDING_PX)
-    .map(({ label, x }) => ({ label, by: x - first, line: `the value of "${label}" starts at ${x}px, not ${first}px` }));
-}
-
-/** Every row of the slip puts its value at the same x: the label column holds its word, "Recommended" included. */
-async function labelColumnProblems(page: Page): Promise<string[]> {
-  const rows = await misalignedValues(page);
-  return rows === null ? [NO_ROWS] : rows.map(({ line }) => line);
+    .map(({ label, x }) => `the value of "${label}" starts at ${x}px, not ${first}px`);
 }
 
 /** The slip sits right of the form: the editor is in two columns. */
@@ -225,15 +251,11 @@ async function stickyColumnEndProblems(page: Page): Promise<string[]> {
   return problems;
 }
 
-/**
- * The label-column control: the slip's labels back at their value's size. Returns what the check reports before and
- * after the rule goes in; the control must change the report, not merely find it non-empty.
- */
-async function labelColumnUnderControl(page: Page): Promise<{ before: string[]; after: string[] }> {
-  const before = await labelColumnProblems(page);
+/** The label-column control: the slip's labels back at their value's size, which is wider than the column holds "Recommended" in. Returns what the check reports once the rule is in. */
+async function labelColumnUnderControl(page: Page): Promise<string[]> {
   await tag(editor(page).slip, "slip");
   await page.addStyleTag({ content: "[data-e2e-slip] > div > strong { font-size: 1em !important; }" });
-  return { before, after: await labelColumnProblems(page) };
+  return labelColumnProblems(page);
 }
 
 /** The slip keeps its 4.25in whatever the gutter and padding around it take. */
@@ -336,6 +358,7 @@ async function findReleaseId(page: Page): Promise<number> {
 
 /** Creates the DJ's own draft and opens it; `NewReview` replaces the address with the draft's. Returns the draft's id. */
 async function openNewDraft(page: Page): Promise<number> {
+  watchFontFiles(page);
   const albumId = await findReleaseId(page);
   await page.goto(`/dashboard/reviews/new?album_id=${albumId}`);
   await page.waitForURL(/\/dashboard\/reviews\/\d+$/, { timeout: 20000 });
@@ -454,13 +477,11 @@ test.describe("Review editor layout, two columns", () => {
   });
 
   test("starts every slip value at the same x", async ({ page }) => {
-    expect(await misalignedValues(page)).toEqual([]);
+    expect(await labelColumnProblems(page)).toEqual([]);
   });
 
   test("control: labels at their value's size push a value out of the column", async ({ page }) => {
-    const { before, after } = await labelColumnUnderControl(page);
-    expect(after).not.toEqual([]);
-    expect(after).not.toEqual(before);
+    expect(await labelColumnUnderControl(page)).not.toEqual([]);
   });
 });
 
@@ -499,13 +520,11 @@ test.describe("Review editor layout, one column", () => {
   });
 
   test("starts every slip value at the same x", async ({ page }) => {
-    expect(await misalignedValues(page)).toEqual([]);
+    expect(await labelColumnProblems(page)).toEqual([]);
   });
 
   test("control: labels at their value's size push a value out of the column", async ({ page }) => {
-    const { before, after } = await labelColumnUnderControl(page);
-    expect(after).not.toEqual([]);
-    expect(after).not.toEqual(before);
+    expect(await labelColumnUnderControl(page)).not.toEqual([]);
   });
 });
 
