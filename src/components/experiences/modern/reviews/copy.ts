@@ -346,6 +346,8 @@ export const REVIEW_COPY = {
     reviewed: "Reviewed",
     /** Approved. */
     filed: "Filed",
+    /** Approved. On each Filed row, followed by the short station date `filed_at` falls on. */
+    filedOn: (date: string) => `Filed ${date}`,
     /** Approved. The first step of a record's progress track. */
     added: "Added",
     /** Approved. The first step of a requested record's progress track. */

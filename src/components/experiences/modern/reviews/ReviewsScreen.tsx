@@ -11,7 +11,7 @@ import { hasNothingToShow } from "@/lib/has-nothing-to-show";
 import MyReviewsScreen from "./MyReviewsScreen";
 import ReviewShelfScreen from "./ReviewShelfScreen";
 import { REVIEW_COPY } from "./copy";
-import { EVERY_STATE, MY_REVIEWS, useReviewWrite } from "./useReviewWrite";
+import { ACTIVE_ITEMS, MY_REVIEWS, useReviewWrite } from "./useReviewWrite";
 
 /** The reads and write wiring behind one of the Reviews page's list tabs. Both tabs read the same intake list. A write reloads the intake list, and the My reviews list only on the tab that draws it. */
 export default function ReviewsScreen({ tab }: { tab: "shelf" | "mine" }) {
@@ -21,7 +21,7 @@ export default function ReviewsScreen({ tab }: { tab: "shelf" | "mine" }) {
   const isMD = (user?.authority ?? Authorization.DJ) >= Authorization.MD;
   const onShelf = tab === "shelf";
 
-  const everyState = useGetIntakeItemsQuery(EVERY_STATE, { skip: !visible, ...LIVE_LIST });
+  const everyState = useGetIntakeItemsQuery(ACTIVE_ITEMS, { skip: !visible, ...LIVE_LIST });
   const mine = useGetMyReviewsQuery(MY_REVIEWS, { skip: !visible || onShelf, ...LIVE_LIST });
   const reviewers = useGetReviewersQuery(undefined, { skip: !visible || !isMD || !onShelf });
   const { write, lock } = useReviewWrite({ reloadMine: !onShelf });

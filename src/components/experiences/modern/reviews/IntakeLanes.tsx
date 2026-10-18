@@ -32,14 +32,14 @@ import { intakeRecord } from "./recordLine";
 import { GET_FILE_IT } from "./intakeLinks";
 import { whereLine, WaitingFrom } from "./ReviewFrom";
 import { answerRefusedRequest, useAskADj } from "./useAskADj";
-import { day, EVERY_STATE } from "./useReviewWrite";
+import { ACTIVE_ITEMS, day, FILED_ITEMS, FINALIZED_ITEMS } from "./useReviewWrite";
 import { formatStationShortDate } from "@/src/utilities/stationTime";
 import { hasNothingToShow } from "@/lib/has-nothing-to-show";
 
 const COPY = REVIEW_COPY.intake;
 
-// The stages are one read, the unfiltered one (`EVERY_STATE`, shared with the Reviewing tab and the tab count), with each
-// row drawn in the stage `recordStage` gives it, so a record is in exactly one stage.
+// The stages before Filed are one read, the active one (`ACTIVE_ITEMS`, shared with the Reviewing tab and the tab count), with
+// each row drawn in the stage `recordStage` gives it, so a record is in exactly one stage. Filed has its own two reads.
 
 // `release` is Being reviewed's Return to the review shelf; `return` is Mark as returned, on the Reviewed stage and on a
 // Review waiting disc. Both call /release. `request` and `cancel` are the Ask a DJ… control's writes.
@@ -207,14 +207,19 @@ function FiledList({ rows, row }: { rows: IntakeItem[]; row: (i: IntakeItem) => 
 }
 
 function IntakeLaneGroups({ handOff, onStageChosen }: { handOff: HandOff | null; onStageChosen: () => void }) {
-  const everyState = useGetIntakeItemsQuery(EVERY_STATE, LIVE_LIST);
+  const active = useGetIntakeItemsQuery(ACTIVE_ITEMS, LIVE_LIST);
+  const filedRead = useGetIntakeItemsQuery(FILED_ITEMS, LIVE_LIST);
+  const finalizedRead = useGetIntakeItemsQuery(FINALIZED_ITEMS, LIVE_LIST);
   const [release] = useReleaseIntakeItemMutation();
   const [cancelRequest] = useCancelIntakeRequestMutation();
   const dispatch = useAppDispatch();
   const [notice, setNotice] = useState<string | null>(null);
   const [confirming, setConfirming] = useState<Confirming | null>(null);
   const { write, lock } = useRowWrite<Action>({
-    reload: () => [dispatch(intakeApi.endpoints.getIntakeItems.initiate(EVERY_STATE, { subscribe: false, forceRefetch: true }))],
+    reload: () =>
+      [ACTIVE_ITEMS, FILED_ITEMS, FINALIZED_ITEMS].map((args) =>
+        dispatch(intakeApi.endpoints.getIntakeItems.initiate(args, { subscribe: false, forceRefetch: true })),
+      ),
     isLostRace: isIntakeStateChanged,
     onFailure: (err, _id, action) => {
       if (answerRefusedRequest(err, action, dispatch)) {
@@ -236,15 +241,16 @@ function IntakeLaneGroups({ handOff, onStageChosen }: { handOff: HandOff | null;
   const reviewers = useGetReviewersQuery(undefined, { skip: !onReviewShelf });
   const askADj = useAskADj({ reviewers, write: act, lock });
 
-  if (hasNothingToShow(everyState)) {
+  if (hasNothingToShow(active)) {
     return <Typography role="alert">{REVIEW_COPY.screen.loadFailed}</Typography>;
   }
   // Until the read lands, an empty-state sentence would read as a fact.
-  if (!everyState.data) {
+  if (!active.data) {
     return null;
   }
 
-  const inStage = (stage: ReviewStage) => everyState.data!.filter((i) => recordStage(i) === stage);
+  const inStage = (stage: ReviewStage) => active.data!.filter((i) => recordStage(i) === stage);
+  const filedRows = [...(filedRead.data ?? []), ...(finalizedRead.data ?? [])];
   // Being reviewed and Reviewed put the records a DJ has held past the server's overdue line first; the sort is stable.
   const overdueFirst = (rows: IntakeItem[]) => [...rows].sort((a, b) => Number(b.overdue) - Number(a.overdue));
   const rowsOf: Record<ReviewStage, IntakeItem[]> = {
@@ -253,9 +259,9 @@ function IntakeLaneGroups({ handOff, onStageChosen }: { handOff: HandOff | null;
     being_reviewed: overdueFirst(inStage("being_reviewed")),
     waiting: inStage("waiting"),
     reviewed: overdueFirst(inStage("reviewed")),
-    filed: inStage("filed"),
+    filed: filedRows,
   };
-  const passes = everyState.data
+  const passes = active.data
     .flatMap((i) => (i.passes ?? []).map((p) => ({ ...p, id: `${i.id}-${p.dj_name}-${p.passed_at}`, item: i })))
     .sort((a, b) => b.passed_at.localeCompare(a.passed_at))
     .slice(0, RECENT_PASSES);
@@ -344,7 +350,7 @@ function IntakeLaneGroups({ handOff, onStageChosen }: { handOff: HandOff | null;
         { titleSlot: <Link level="title-md" id={recordId} href={itemHref(i)}>{i.artist_name}</Link>, albumId },
       );
     },
-    filed: (i) => laneRow(i),
+    filed: (i) => laneRow(i, i.filed_at && <Typography level="body-sm">{COPY.filedOn(day(i.filed_at))}</Typography>),
   };
 
   return (
@@ -374,7 +380,13 @@ function IntakeLaneGroups({ handOff, onStageChosen }: { handOff: HandOff | null;
           if (stage === "review_shelf") {
             return <OnReviewShelf rows={rowsOf[stage]} laneRow={laneRow} askADj={askADj} handOff={handOff} />;
           }
-          return stage === "filed" ? <FiledList rows={rowsOf.filed} row={rowFor.filed} /> : <RowList rows={rowsOf[stage]} row={rowFor[stage]} />;
+          if (stage === "filed") {
+            if ([filedRead, finalizedRead].some(hasNothingToShow)) {
+              return <Typography role="alert">{REVIEW_COPY.screen.loadFailed}</Typography>;
+            }
+            return filedRead.data && finalizedRead.data ? <FiledList rows={rowsOf.filed} row={rowFor.filed} /> : null;
+          }
+          return <RowList rows={rowsOf[stage]} row={rowFor[stage]} />;
         }}
       </StageChips>
       <ConfirmDialog

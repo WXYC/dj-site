@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { http, HttpResponse } from "msw";
+import type { IntakeItemState } from "@wxyc/shared";
 import { configureStore } from "@reduxjs/toolkit";
 import { reviewsApi } from "@/lib/features/reviews/api";
 import { fccNoteApi } from "@/lib/features/reviews/fccNoteApi";
@@ -339,6 +340,25 @@ describe("intakeApi", () => {
 
     expect(seen?.pathname).toBe("/intake");
     expect(seen?.searchParams.get("state")).toBe("reviewed");
+  });
+
+  it.each<[string, { state?: IntakeItemState; active?: boolean; limit?: number } | undefined, string]>([
+    ["an empty argument", {}, ""],
+    ["undefined", undefined, ""],
+    ["active", { active: true }, "?active=true"],
+    ["state and limit", { state: "filed", limit: 100 }, "?state=filed&limit=100"],
+  ])("getIntakeItems serializes %s with only the params that are set", async (_label, args, search) => {
+    let seen: URL | undefined;
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/intake`, ({ request }) => {
+        seen = new URL(request.url);
+        return HttpResponse.json([]);
+      })
+    );
+
+    await makeReviewsStore().dispatch(intakeApi.endpoints.getIntakeItems.initiate(args));
+
+    expect(seen?.search).toBe(search);
   });
 
   it("getIntakeItems with no argument GETs /intake with no query string at all", async () => {

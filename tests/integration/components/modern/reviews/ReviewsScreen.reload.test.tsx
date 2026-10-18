@@ -184,6 +184,6 @@ describe("ReviewsScreen — a row stays locked until every rendered list has rel
     renderWithProviders(<BothTabs />);
     const checkouts = await screen.findByRole("tabpanel", { name: "Open reviews" });
     await within(checkouts).findByText(/Cat Power/);
-    expect(intakeReads).toEqual([""]);
+    expect(intakeReads).toEqual(["?active=true"]);
   });
 });

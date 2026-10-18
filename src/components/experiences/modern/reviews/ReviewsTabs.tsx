@@ -10,15 +10,15 @@ import { useGetMyReviewsQuery } from "@/lib/features/reviews/reviewApi";
 import { useAuthentication } from "@/src/hooks/authenticationHooks";
 import { useCanSeeReviews } from "@/src/hooks/useCanSeeReviews";
 import { REVIEW_COPY } from "./copy";
-import { EVERY_STATE, MY_REVIEWS } from "./useReviewWrite";
+import { ACTIVE_ITEMS, MY_REVIEWS } from "./useReviewWrite";
 
 const COPY = REVIEW_COPY.tabs;
 
 /** `showNewMusic` is decided on the server, so a DJ's strip never carries the New music tab's name or URL. */
 export default function ReviewsTabs({ showNewMusic }: { showNewMusic: boolean }): JSX.Element {
   const visible = useCanSeeReviews();
-  // One unfiltered read serves both counts: the Review waiting lane's rule over it, and the My reviews tab's Open reviews chip. It is read on every strip, so a DJ's count is re-read on focus and by the poll too.
-  const { data: everyState } = useGetIntakeItemsQuery(EVERY_STATE, { skip: !visible, ...LIVE_LIST });
+  // One active read serves both counts: the Review waiting lane's rule over it, and the My reviews tab's Open reviews chip. It is read on every strip, so a DJ's count is re-read on focus and by the poll too.
+  const { data: everyState } = useGetIntakeItemsQuery(ACTIVE_ITEMS, { skip: !visible, ...LIVE_LIST });
   const waiting = everyState ? everyState.filter((i) => recordStage(i) === "waiting").length : 0;
   // The same argument as the My reviews tab, so the badge and the tab's Open reviews chip count from one cache entry.
   const { data: auth } = useAuthentication();

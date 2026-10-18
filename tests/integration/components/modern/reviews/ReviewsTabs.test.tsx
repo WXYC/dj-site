@@ -73,8 +73,8 @@ describe("ReviewsTabs", () => {
     renderWithProviders(<ReviewsTabs showNewMusic={false} />);
     await renderedFrame();
 
-    // Only the unfiltered read that the My reviews count needs.
-    expect(reads).toEqual([""]);
+    // Only the active read that the My reviews count needs.
+    expect(reads).toEqual(["?active=true"]);
   });
 
   it("counts the DJ's open reviews on the My reviews tab, as the Open reviews chip does", async () => {
@@ -143,7 +143,7 @@ describe("ReviewsTabs", () => {
     }
   });
 
-  it("counts only the records the Review waiting lane draws, from the one unfiltered read", async () => {
+  it("counts only the records the Review waiting lane draws, from the one active read", async () => {
     const reads: string[] = [];
     fakeReviewsEndpoints({
       open: [waiting(1), intakeItem({ id: 2, state: "checked_out", effective_state: "checked_out" })],
@@ -159,7 +159,7 @@ describe("ReviewsTabs", () => {
     renderWithProviders(<ReviewsTabs showNewMusic />);
 
     await screen.findByRole("link", { name: "New music, 1 review waiting" });
-    expect(reads).toEqual([""]);
+    expect(reads).toEqual(["?active=true"]);
   });
 
   it("counts the reviews waiting for a music director to accept", async () => {
@@ -181,7 +181,7 @@ describe("ReviewsTabs", () => {
     const { store } = renderWithProviders(<ReviewsTabs showNewMusic />);
 
     // Assert once the unfiltered read has reached the state the row names: answered, refused, or started and held.
-    await waitFor(() => expect(intakeApi.endpoints.getIntakeItems.select(undefined)(store.getState()).status).toBe(status));
+    await waitFor(() => expect(intakeApi.endpoints.getIntakeItems.select({ active: true })(store.getState()).status).toBe(status));
     // The store settling is not the tab re-rendering: RTK batches its notifications to the next frame.
     await renderedFrame();
     expect(screen.getByRole("link", { name: "New music" })).toBeInTheDocument();

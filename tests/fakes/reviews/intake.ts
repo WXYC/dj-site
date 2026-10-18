@@ -23,6 +23,9 @@ export type FakeIntakeOptions = {
  *   `logged_at` descending then `id` descending, so an unfiltered read carries
  *   every state; `state=` filters that union by each row's `effective_state`.
  *   A row's lane is its `effective_state`, whichever option it was passed in.
+ *   `active=true` drops the filed and finalized rows. `limit=` keeps the first
+ *   rows after that. A read of `state=filed` or `state=finalized` is ordered by
+ *   `filed_at` descending, a null last, then like the unfiltered read.
  * - `GET /intake/:id` answers the matching row of `records`, 404 otherwise
  *
  * and the `intake/...` writes:
@@ -59,7 +62,15 @@ export function fakeIntakeEndpoints({ open = [], reviewed = [], filed = [], reco
     http.get(`${BACKEND_URL}/intake`, ({ request }) => {
       const query = new URL(request.url).searchParams;
       const state = query.get("state");
-      return HttpResponse.json(everyState().filter((row) => !state || row.effective_state === state));
+      const limit = query.get("limit");
+      const filedAt = (row: IntakeItem) => (row.filed_at ? Date.parse(row.filed_at) : -Infinity);
+      const rows = everyState()
+        .filter((row) => !state || row.effective_state === state)
+        .filter((row) => query.get("active") !== "true" || !["filed", "finalized"].includes(row.effective_state));
+      if (state === "filed" || state === "finalized") {
+        rows.sort((a, b) => filedAt(b) - filedAt(a) || 0);
+      }
+      return HttpResponse.json(limit ? rows.slice(0, Number(limit)) : rows);
     }),
     http.get(`${BACKEND_URL}/intake/:id`, ({ params }) => {
       const found = records.find((row) => String(row.id) === params.id);
