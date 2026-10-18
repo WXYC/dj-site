@@ -1,9 +1,10 @@
 "use client";
 
 import type { ComponentProps } from "react";
+import { toast } from "sonner";
 import { Button, Link, Typography } from "@mui/joy";
-import type { IntakeItem } from "@wxyc/shared";
-import { useCheckoutIntakeItemMutation, useRequestIntakeItemMutation } from "@/lib/features/reviews/intakeApi";
+import type { IntakeItem, Reviewer } from "@wxyc/shared";
+import { useCancelIntakeRequestMutation, useCheckoutIntakeItemMutation, useRequestIntakeItemMutation } from "@/lib/features/reviews/intakeApi";
 import { onReviewShelf } from "@/lib/features/reviews/holder";
 import { byKind } from "@/lib/features/reviews/kind";
 import { hasNothingToShow } from "@/lib/has-nothing-to-show";
@@ -13,15 +14,23 @@ import { REVIEW_COPY } from "./copy";
 import { intakeRecord, recordLine } from "./recordLine";
 import { day, type ReviewWrite } from "./useReviewWrite";
 
-/** The review shelf lane, and for a music director the reviewers-load alert and each record's Request a review picker. It assumes its caller has applied the `useCanSeeReviews` check and the load-failed gate, and takes the reviewers read and the one `useReviewWrite` the caller shares with My reviews. */
+/** The review shelf lane, and for a music director the reviewers-load alert and each record's Ask a DJ… button. It assumes its caller has applied the `useCanSeeReviews` check and the load-failed gate, and takes the reviewers read and the one `useReviewWrite` the caller shares with My reviews. */
 export default function ReviewShelfScreen({ items, formats, isMD, reviewers, write, lock }: { items: IntakeItem[]; formats: { id: number; format_name: string }[] | undefined; isMD: boolean; reviewers: { isError: boolean; data?: ComponentProps<typeof IntakeRequestPicker>["reviewers"] } } & ReviewWrite) {
   const [checkout] = useCheckoutIntakeItemMutation();
   const [requestReview] = useRequestIntakeItemMutation();
+  const [cancelRequest] = useCancelIntakeRequestMutation();
   const onShelf = items.filter(onReviewShelf);
 
   // Names the request picker's group for the record it acts on.
   const shelfRecordId = (i: IntakeItem) => `review-shelf-record-${i.id}`;
   const describe = (i: IntakeItem) => recordLine(intakeRecord(i), formats);
+  const ask = (i: IntakeItem, reviewer: Reviewer) =>
+    write(i.id, "request", async () => {
+      await requestReview({ id: i.id, djId: reviewer.id }).unwrap();
+      toast(REVIEW_COPY.intake.askDone(reviewer.name), {
+        action: { label: REVIEW_COPY.intake.cancelRequest, onClick: () => write(i.id, "cancel", () => cancelRequest(i.id).unwrap()) },
+      });
+    });
 
   return (
     <>
@@ -34,8 +43,10 @@ export default function ReviewShelfScreen({ items, formats, isMD, reviewers, wri
             <IntakeRequestPicker
               reviewers={reviewers.data ?? []}
               labelledBy={shelfRecordId(i)}
+              artist={i.artist_name}
+              album={i.album_title}
               busy={lock(i.id, "request")}
-              onRequest={(djId) => write(i.id, "request", () => requestReview({ id: i.id, djId }).unwrap())}
+              onRequest={(reviewer) => ask(i, reviewer)}
             />
           )}
         </>
