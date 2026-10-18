@@ -151,21 +151,65 @@ const STICKY_TOP = "from the scroll region's top";
 const STICKY_BOTTOM = "below the action bar's top";
 const GRID_BOTTOM = "from the grid's bottom";
 
-/** Every row of the slip puts its value at the same x as the first row's: the label column holds its word, "Recommended" included. */
+/**
+ * Every row of the slip puts its value at the same x as the first row's: the label column holds its word,
+ * "Recommended" included. Each row also carries, as JSON, what the browser draws its label with (its boxes, the style
+ * that sets its width, its text, its width measured in Kanit and in the fallback, and the Kanit faces the page
+ * holds); only a failing row's line shows it.
+ */
 async function labelColumnProblems(page: Page): Promise<string[]> {
   await fontsReady(page);
-  const starts = await editor(page).slip.evaluate((slip) =>
-    Array.from(slip.children)
+  const starts = await editor(page).slip.evaluate((slip) => {
+    const canvas = document.createElement("canvas").getContext("2d");
+    return Array.from(slip.children)
       .filter((row) => row.tagName === "DIV" && row.children.length === 2)
-      .map((row) => ({ label: row.children[0].textContent ?? "", x: row.children[1].getBoundingClientRect().left })),
-  );
+      .map((row) => {
+        const label = row.children[0] as HTMLElement;
+        const style = getComputedStyle(label);
+        const text = label.textContent ?? "";
+        const widthIn = (family: string) => {
+          if (canvas === null) {
+            return null;
+          }
+          canvas.font = `${style.fontWeight} ${style.fontSize} ${family}`;
+          return canvas.measureText(text).width;
+        };
+        const detail = JSON.stringify({
+          text,
+          rectWidth: label.getBoundingClientRect().width,
+          scrollWidth: label.scrollWidth,
+          offsetWidth: label.offsetWidth,
+          style: {
+            fontFamily: style.fontFamily,
+            fontSize: style.fontSize,
+            fontWeight: style.fontWeight,
+            letterSpacing: style.letterSpacing,
+            textTransform: style.textTransform,
+            fontStretch: style.fontStretch,
+            fontSynthesis: style.fontSynthesis,
+            fontVariant: style.fontVariant,
+            fontFeatureSettings: style.fontFeatureSettings,
+            paddingLeft: style.paddingLeft,
+            paddingRight: style.paddingRight,
+            minWidth: style.minWidth,
+            flexBasis: style.flexBasis,
+          },
+          measuredInKanit: widthIn("Kanit"),
+          measuredInSansSerif: widthIn("sans-serif"),
+          kanitFaces: Array.from(document.fonts)
+            .filter((face) => face.family.includes("Kanit"))
+            .map(({ family, weight, style: faceStyle, unicodeRange, status }) => ({ family, weight, style: faceStyle, unicodeRange, status })),
+        });
+        return { label: text, x: row.children[1].getBoundingClientRect().left, detail };
+      });
+  });
   if (starts.length === 0) {
     return [NO_ROWS];
   }
   const first = starts[0].x;
   return starts
     .filter(({ x }) => Math.abs(x - first) > ROUNDING_PX)
-    .map(({ label, x }) => `the value of "${label}" starts at ${x}px, not ${first}px`);
+    .map(({ label, x, detail }) => `the value of "${label}" starts at ${x}px, not ${first}px; its label is drawn as ${detail}`);
 }
 
 /** The slip sits right of the form: the editor is in two columns. */
