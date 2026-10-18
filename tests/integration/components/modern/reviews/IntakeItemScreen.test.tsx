@@ -5636,7 +5636,8 @@ describe("IntakeItemScreen", () => {
       ["reviewed", dogaItem()],
       ["filed", dogaItem({ state: "filed", effective_state: "filed" })],
     ])("draws no block for a %s record, and Record a review appears once", async (_name, item) => {
-      fakeReviewsEndpoints({ records: [item] });
+      // Both records name review 40 as their cover, so it is served: a 404 for the cover read would race these assertions with the page's load-failed line.
+      fakeReviewsEndpoints({ records: [item], forItem: { [ITEM_ID]: [submitted(40)] } });
       renderScreen(<IntakeItemScreen id={ITEM_ID} />);
 
       await screen.findAllByRole("button", { name: "Record a review" });
