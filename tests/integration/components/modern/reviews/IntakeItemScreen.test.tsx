@@ -449,7 +449,7 @@ describe("IntakeItemScreen", () => {
 
   it("heads the record with its artist and the state chip, and no longer prints the record as a dotted line", async () => {
     // A checked-out record has no review on its cover yet. Left at dogaItem's default (40), the cover read finds no review 40 and the page swaps the whole record for its load-failed line, after the heading has already shown.
-    fakeReviewsEndpoints({ records: [dogaItem({ state: "checked_out", effective_state: "checked_out", accepted_review_id: null, ...heldBy("dj-sam", "Sam") })], forItem: { [ITEM_ID]: [] } });
+    fakeReviewsEndpoints({ records: [dogaItem({ state: "checked_out", effective_state: "checked_out", accepted_review_id: null, ...heldBy("dj-sam", "Sam", "2025-08-02T12:00:00Z") })], forItem: { [ITEM_ID]: [] } });
 
     const { store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
 
@@ -457,7 +457,7 @@ describe("IntakeItemScreen", () => {
     // Assert on the settled page, not the first frame that drew the heading.
     await reviewsSettled(store);
     const heading = screen.getByRole("heading", { level: 3, name: "Juana Molina" });
-    expect(within(heading.parentElement as HTMLElement).getByText("Checked out", { selector: ".MuiChip-label" })).toBeInTheDocument();
+    expect(within(heading.parentElement as HTMLElement).getByText("Reviewing since Aug 2, 2025", { selector: ".MuiChip-label" })).toBeInTheDocument();
     expect(screen.queryByText(/Juana Molina · DOGA/)).not.toBeInTheDocument();
   });
 
@@ -1683,10 +1683,12 @@ describe("IntakeItemScreen", () => {
     });
 
     it.each([
-      ["a disc", dogaItem, "Checked out"],
-      ["a digital album", digitalDoga, "Taken"],
-    ])("words the state chip of %s that is checked out", async (_label, make, chip) => {
-      fakeReviewsEndpoints({ records: [make({ state: "checked_out", effective_state: "checked_out", accepted_review_id: null, ...heldBy("dj-sam", "Sam") })], forItem: { [ITEM_ID]: [] } });
+      ["a disc", dogaItem, "2025-10-01T12:00:00Z", "Reviewing since Oct 1, 2025"],
+      ["a digital album", digitalDoga, "2025-10-01T12:00:00Z", "Reviewing since Oct 1, 2025"],
+      ["a disc with no checkout date", dogaItem, null, "Being reviewed"],
+      ["a digital album with no checkout date", digitalDoga, null, "Being reviewed"],
+    ])("words the state chip of %s that is checked out the same way", async (_label, make, at, chip) => {
+      fakeReviewsEndpoints({ records: [make({ state: "checked_out", effective_state: "checked_out", accepted_review_id: null, ...heldBy("dj-sam", "Sam", at) })], forItem: { [ITEM_ID]: [] } });
 
       renderScreen(<IntakeItemScreen id={ITEM_ID} />);
 
@@ -4228,6 +4230,27 @@ describe("IntakeItemScreen", () => {
 
         expect(screen.getByRole("radio", { name: "Handwritten" })).toBeChecked();
         expect(screen.getByText(REVIEW_COPY.record.byHand)).toBeInTheDocument();
+      });
+
+      it("says Digitized., not Copied., when the form opened by Copy it by pen is saved", async () => {
+        const { box, own } = empty();
+        server.use(
+          http.post(`${TEST_BACKEND_URL}/reviews`, () => {
+            const made = submitted(90, { author: "Sessa", medium: "handwritten", review: null });
+            box.item = { ...box.item, accepted_review_id: 90 };
+            own.list = [made];
+            return HttpResponse.json(made, { status: 201 });
+          }),
+        );
+        const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+        await user.click(await within(await section()).findByRole("button", { name: "Copy it by pen" }));
+        await user.type(screen.getByRole("textbox", { name: "Author" }), "Sessa");
+        await user.click(screen.getByRole("button", { name: "Save" }));
+
+        expect((await screen.findByRole("status")).textContent).toBe(REVIEW_COPY.record.digitized);
+        expect(screen.queryByText(REVIEW_COPY.record.copied)).not.toBeInTheDocument();
+        await reviewsSettled(store);
       });
     });
 

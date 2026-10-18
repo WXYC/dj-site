@@ -223,11 +223,14 @@ describe("ReviewsScreen", () => {
 
   // 03:30Z is still the previous evening in station time, and 2025 is always an
   // earlier year than the run's, so the expected text holds in any zone or year.
-  it("prints Added, Reviewing since and Asked dates in station time with the year", async () => {
+  it.each([
+    ["a disc", item],
+    ["a digital album", digitalItem],
+  ])("prints Added, Reviewing since and Asked dates of %s in station time with the year", async (_label, make) => {
     serveIntake([
-      item({ id: 21, state: "pool", effective_state: "pool", logged_at: "2025-10-09T03:30:00Z" }),
-      item({ id: 22, effective_state: "checked_out", checked_out_by: ME, checked_out_at: "2025-08-02T03:30:00Z" }),
-      item({ id: 23, state: "requested", effective_state: "requested", requested_dj_id: ME, requested_at: "2025-09-01T03:30:00Z" }),
+      make({ id: 21, state: "pool", effective_state: "pool", logged_at: "2025-10-09T03:30:00Z" }),
+      make({ id: 22, effective_state: "checked_out", checked_out_by: ME, checked_out_at: "2025-08-02T03:30:00Z" }),
+      make({ id: 23, state: "requested", effective_state: "requested", requested_dj_id: ME, requested_at: "2025-09-01T03:30:00Z" }),
     ]);
 
     renderWithProviders(<BothTabs />);

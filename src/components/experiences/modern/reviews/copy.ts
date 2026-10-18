@@ -151,10 +151,8 @@ export const REVIEW_COPY = {
     editReview: "Edit review",
     /** Approved. Followed by a date. */
     added: "Added",
-    /** Approved. Followed by a date. */
+    /** Approved. Followed by a date: a record a DJ is reviewing, on My reviews and as the record page's state chip, a disc and a digital album alike. */
     reviewingSince: "Reviewing since",
-    /** Approved. */
-    taken: "Taken",
     /** Approved. */
     asked: "Asked",
     /** Approved. */
@@ -312,8 +310,6 @@ export const REVIEW_COPY = {
     showOlder: "Show older",
     /** Approved. */
     requested: "Requested",
-    /** Approved. */
-    checkedOut: "Checked out",
     /** Approved. Each is followed by a DJ name. */
     heldFor: "Held for",
     /** Approved. The location line of a record a DJ has; followed by the DJ's name. */
