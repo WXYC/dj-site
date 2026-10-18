@@ -21,7 +21,7 @@ export default function ReviewsScreen({ tab }: { tab: "shelf" | "mine" }) {
   const isMD = (user?.authority ?? Authorization.DJ) >= Authorization.MD;
   const onShelf = tab === "shelf";
 
-  const everyState = useGetIntakeItemsQuery(ACTIVE_ITEMS, { skip: !visible, ...LIVE_LIST });
+  const active = useGetIntakeItemsQuery(ACTIVE_ITEMS, { skip: !visible, ...LIVE_LIST });
   const mine = useGetMyReviewsQuery(MY_REVIEWS, { skip: !visible || onShelf, ...LIVE_LIST });
   const reviewers = useGetReviewersQuery(undefined, { skip: !visible || !isMD || !onShelf });
   const { write, lock } = useReviewWrite({ reloadMine: !onShelf });
@@ -29,20 +29,20 @@ export default function ReviewsScreen({ tab }: { tab: "shelf" | "mine" }) {
   if (!visible) {
     return null;
   }
-  if ([everyState, ...(onShelf ? [] : [mine])].some(hasNothingToShow)) {
+  if ([active, ...(onShelf ? [] : [mine])].some(hasNothingToShow)) {
     return <Typography role="alert">{REVIEW_COPY.screen.loadFailed}</Typography>;
   }
 
   // Until the reads land, an empty-state sentence would read as a fact.
-  if (!everyState.data) {
+  if (!active.data) {
     return null;
   }
   if (onShelf) {
-    return <ReviewShelfScreen items={everyState.data} isMD={isMD} reviewers={reviewers} write={write} lock={lock} />;
+    return <ReviewShelfScreen items={active.data} isMD={isMD} reviewers={reviewers} write={write} lock={lock} />;
   }
   if (!mine.data) {
     return null;
   }
 
-  return <MyReviewsScreen items={everyState.data} myReviews={mine.data} me={user?.id} write={write} lock={lock} />;
+  return <MyReviewsScreen items={active.data} myReviews={mine.data} me={user?.id} write={write} lock={lock} />;
 }

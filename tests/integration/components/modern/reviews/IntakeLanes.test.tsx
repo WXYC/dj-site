@@ -404,9 +404,9 @@ describe("IntakeLanes", () => {
     server.use(
       http.get(`${TEST_BACKEND_URL}/intake`, ({ request }) => {
         const { search } = new URL(request.url);
-          if (search === "?active=true") {
-            reads.push(search);
-          }
+        if (search === "?active=true") {
+          reads.push(search);
+        }
       }),
     );
     const store = makeStore();
@@ -1348,7 +1348,7 @@ describe("IntakeLanes as the music directors' tab", () => {
     fakeReviewsEndpoints({
       open: [waitingRow, requestedRow(2), row(3, "checked_out", heldBy("dj-1", "DJ Sam", "2026-09-01T12:00:00Z")), moonPix({ id: 6, album_title: "Album 6" })],
       reviewed: [row(4, "reviewed", heldBy("dj-1", "DJ Sam", "2026-09-01T12:00:00Z"))],
-      filed: [row(5, "filed", heldBy("dj-1", "DJ Sam", "2026-09-01T12:00:00Z"))],
+      filed: [row(5, "filed", { ...heldBy("dj-1", "DJ Sam", "2026-09-01T12:00:00Z"), filed_at: justNow })],
     });
 
     renderWithProviders(<IntakeLanes />);

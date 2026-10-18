@@ -191,10 +191,8 @@ function OnReviewShelf({ rows, laneRow, askADj, handOff }: { rows: IntakeItem[];
 }
 
 /** Filed: the last 30 days, newest first, and the rest from the same read once Show older is pressed. */
-function FiledList({ rows, row }: { rows: IntakeItem[]; row: (i: IntakeItem) => ReactNode }) {
+function FiledList({ rows, now, row }: { rows: IntakeItem[]; now: number; row: (i: IntakeItem) => ReactNode }) {
   const [all, setAll] = useState(false);
-  // The window is fixed when the stage opens, so a list left on screen does not shift under the reader.
-  const [now] = useState(() => Date.now());
   const { recent, older } = filedByRecency(rows, now);
   return (
     <>
@@ -214,6 +212,8 @@ function IntakeLaneGroups({ handOff, onStageChosen }: { handOff: HandOff | null;
   const [cancelRequest] = useCancelIntakeRequestMutation();
   const dispatch = useAppDispatch();
   const [notice, setNotice] = useState<string | null>(null);
+  // The 30-day window is fixed when the tab opens, so the Filed chip and the Filed list count the same records and a list left on screen does not shift under the reader.
+  const [now] = useState(() => Date.now());
   const [confirming, setConfirming] = useState<Confirming | null>(null);
   const { write, lock } = useRowWrite<Action>({
     reload: () =>
@@ -372,7 +372,7 @@ function IntakeLaneGroups({ handOff, onStageChosen }: { handOff: HandOff | null;
       {notice && <Typography role="status">{notice}</Typography>}
       <StageChips
         label={COPY.stagesLabel}
-        stages={NEW_MUSIC_STAGES.map((id) => ({ id, label: STAGE_LABEL[id], count: rowsOf[id].length }))}
+        stages={NEW_MUSIC_STAGES.map((id) => ({ id, label: STAGE_LABEL[id], count: id === "filed" ? filedByRecency(rowsOf.filed, now).recent.length : rowsOf[id].length }))}
         fallback={rowsOf.waiting.length > 0 ? "waiting" : "being_reviewed"}
         onChoose={onStageChosen}
       >
@@ -384,7 +384,7 @@ function IntakeLaneGroups({ handOff, onStageChosen }: { handOff: HandOff | null;
             if ([filedRead, finalizedRead].some(hasNothingToShow)) {
               return <Typography role="alert">{REVIEW_COPY.screen.loadFailed}</Typography>;
             }
-            return filedRead.data && finalizedRead.data ? <FiledList rows={rowsOf.filed} row={rowFor.filed} /> : null;
+            return filedRead.data && finalizedRead.data ? <FiledList rows={rowsOf.filed} now={now} row={rowFor.filed} /> : null;
           }
           return <RowList rows={rowsOf[stage]} row={rowFor[stage]} />;
         }}
