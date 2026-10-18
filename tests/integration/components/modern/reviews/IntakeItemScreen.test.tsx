@@ -280,6 +280,7 @@ describe("IntakeItemScreen", () => {
   it.each([
     ["printSlip", REVIEW_COPY.intakeItem.printSlip, "Print the slip"],
     ["added", REVIEW_COPY.intake.added, "Added"],
+    ["askedBy", REVIEW_COPY.intake.askedBy("Sam"), "Asked by Sam"],
     ["printed", REVIEW_COPY.intake.printed, "Printed"],
     ["progress", REVIEW_COPY.intake.progress, "Progress"],
     ["stepDone", REVIEW_COPY.intake.stepDone, "Done"],
@@ -467,6 +468,10 @@ describe("IntakeItemScreen", () => {
     const PRINTED = "2025-10-06T16:00:00Z";
     const FILED = "2025-10-08T16:00:00Z";
     const ADDED = "Added";
+    const ASKED = "2025-09-20T16:00:00Z";
+    const rest = (): Row[] => [[BEING, "Not yet", null], ["Reviewed", "Not yet", null], ["Printed", "Not yet", null], ["Filed", "Not yet", null]];
+    const asked = (name: string | null) =>
+      dogaItem({ state: "requested", effective_state: "requested", accepted_review_id: null, logged_at: LOGGED, ...requestedFor("dj-mike", "Mike"), requested_at: ASKED, requested_by_name: name });
     const BEING = "Being reviewed";
     type Row = [label: string, state: "Done" | "Current" | "Not yet", date: string | null];
     const track = (rows: Row[]): Row[] => rows;
@@ -483,6 +488,15 @@ describe("IntakeItemScreen", () => {
         "a requested record, which is before Being reviewed",
         dogaItem({ state: "requested", effective_state: "requested", accepted_review_id: null, logged_at: LOGGED, ...requestedFor("dj-sam", "Sam") }),
         track([[ADDED, "Current", "Oct 1, 2025"], [BEING, "Not yet", null], ["Reviewed", "Not yet", null], ["Printed", "Not yet", null], ["Filed", "Not yet", null]]),
+      ],
+      ["a requested record with the asker's name", asked("Sam"), track([["Asked by Sam", "Current", "Sep 20, 2025"], ...rest()])],
+      ["a requested record with no asker's name", asked(null), track([[ADDED, "Current", "Oct 1, 2025"], ...rest()])],
+      ["a requested record with an empty asker's name", asked(""), track([[ADDED, "Current", "Oct 1, 2025"], ...rest()])],
+      ["a requested record with a blank asker's name", asked("  "), track([[ADDED, "Current", "Oct 1, 2025"], ...rest()])],
+      [
+        "a lapsed request that still carries the asker's name",
+        dogaItem({ ...asked("Sam"), effective_state: "pool" }),
+        track([[ADDED, "Current", "Oct 1, 2025"], ...rest()]),
       ],
       [
         "a lapsed request, which reads as the review shelf",

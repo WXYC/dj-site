@@ -326,6 +326,8 @@ export const REVIEW_COPY = {
     filed: "Filed",
     /** Approved. The first step of a record's progress track. */
     added: "Added",
+    /** Approved. The first step of a requested record's progress track. */
+    askedBy: (name: string) => `Asked by ${name}`,
     /** Approved. The fourth step of a record's progress track. */
     printed: "Printed",
     /** Approved. The progress track's accessible name. */

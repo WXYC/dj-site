@@ -6,18 +6,27 @@ import { REVIEW_COPY } from "./copy";
 
 const { intake } = REVIEW_COPY;
 
-const STEPS = [
-  { label: intake.added, at: "logged_at" },
+const FIXED_STEPS = [
   { label: intake.beingReviewed, at: "checked_out_at" },
   { label: intake.reviewed, at: "accepted_at" },
   { label: intake.printed, at: "printed_at" },
   { label: intake.filed, at: "filed_at" },
 ] as const satisfies readonly { label: string; at: keyof IntakeItem }[];
 
-/** The step the record is at; a filed record is past them all. A requested record is still at Added, and a printed slip is what moves a reviewed record on to Printed. */
+type Step = { label: string; at: "logged_at" | "requested_at" | (typeof FIXED_STEPS)[number]["at"] };
+
+/** A request that stands names who asked; one that has lapsed reads as the review shelf, so it keeps the ordinary first step even though its fields stay set. */
+function stepsFor(item: IntakeItem): Step[] {
+  const name = item.requested_by_name?.trim();
+  const first: Step =
+    item.effective_state === "requested" && name ? { label: intake.askedBy(name), at: "requested_at" } : { label: intake.added, at: "logged_at" };
+  return [first, ...FIXED_STEPS];
+}
+
+/** The step the record is at; a filed record is past them all. A requested record is still at its first step, and a printed slip is what moves a reviewed record on to Printed. */
 function currentStep(item: IntakeItem): number {
   if (isFiledState(item.effective_state)) {
-    return STEPS.length;
+    return FIXED_STEPS.length + 1;
   }
   switch (item.effective_state) {
     case "checked_out":
@@ -35,14 +44,15 @@ function currentStep(item: IntakeItem): number {
  */
 export default function IntakeProgress({ item }: { item: IntakeItem }) {
   const current = currentStep(item);
+  const steps = stepsFor(item);
   return (
     <Box component="ol" aria-label={intake.progress} sx={{ display: "flex", flexWrap: "wrap", gap: 3, listStyle: "none", m: 0, p: 0 }}>
-      {STEPS.map(({ label, at }, i) => {
+      {steps.map(({ label, at }, i) => {
         const state = i < current ? intake.stepDone : i === current ? intake.stepCurrent : intake.stepAhead;
         const iso = item[at];
         const date = iso && i <= current ? formatStationShortDate(iso) : "";
         return (
-          <Box component="li" key={label} aria-current={i === current ? "step" : undefined} sx={{ display: "flex", flexDirection: "column" }}>
+          <Box component="li" key={i} aria-current={i === current ? "step" : undefined} sx={{ display: "flex", flexDirection: "column" }}>
             <Typography level="title-sm" component="span">{label}</Typography>
             <Typography level="body-xs" component="span">{state}</Typography>
             {date && <Typography level="body-xs" component="span">{date}</Typography>}
