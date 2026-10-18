@@ -11,21 +11,90 @@ This is the test harness for [WXYC/dj-site#2148](https://github.com/WXYC/dj-site
 | `public/spike/lock-math.js` | The lock test's arithmetic as pure functions over plain records (expected position, gap, scrub resume). A plain script that sets `window.SpikeLockMath`; `index.html` loads it before `spike.js`. |
 | `public/spike/spike.css` | Styles; phone first, with no horizontal scroll and large tap targets. |
 | `public/spike/sw.js` | The service worker, scope `/spike/`. A plain script with no build step and no imports. |
+| `public/spike/phone.html`, `public/spike/phone.js` | The one-tap phone lock test, served at `/spike/phone` (see [The phone test](#the-phone-test)): Start, lock, unlock, read the verdict. |
+| `public/spike/phone-math.js` | The phone test's pure logic: the link payload (pack and unpack), the schedule of the test jump and the end, and the checks. A plain script that sets `window.SpikePhoneMath`; `phone.html` loads it after `lock-math.js`. |
 | `public/spike/sources.json` | The five tracks (id, label, format, MIME type, bitrate, file name) with empty URLs: the four formats and `lock`, the lock test's thirty-minute WAV. Never commit a URL here. |
 | `spike/make-test-audio.sh` | Makes the four ten-minute test tracks and the thirty-minute lock track with ffmpeg. |
 | `spike/make-test-bucket.sh` | The aws CLI commands for a private test bucket, the upload, and the presigned URLs. You run it; nothing in CI does. |
 | `spike/check-lock-math.mjs` | A Node script that tests `lock-math.js` against a table of timelines (see [Testing the lock arithmetic](#testing-the-lock-arithmetic)). |
+| `spike/check-phone-math.mjs` | A Node script that tests `phone-math.js`: the payload's byte-for-byte round trip, the schedule and the checks, as parameterized tables. |
+| `spike/phone-presign.py` | Presigns the phone test's three links with boto3, for `make-test-bucket.sh phone`. Its output holds credentials and goes only into a pipe. |
+| `spike/phone-tool.mjs` | Packs the links into the phone URL and copies it (`link`), and summarizes a run's results (`summary`), for `make-test-bucket.sh`. |
 | `spike/.gitignore` | Keeps the generated audio out of git. |
 | `scripts/post-build.js` | Changed on this branch only: excludes `/spike` and `/spike/*` from the OpenNext worker so Cloudflare Pages serves the harness as static files (see [Serving on Cloudflare Pages](#serving-on-cloudflare-pages)). |
 
 This README and the scripts sit in `spike/`, outside `public/`, because everything in `public/` is served on every preview deployment, and nothing here needs to be.
+
+## The phone test
+
+The lock test with as close to no steps as a phone allows. It plays the thirty-minute lock track through the worker in the rebuilt mode, Loop off; the page makes its own jump past what is loaded instead of a Lock Screen scrub, stops the audio by itself, and sends the results to the bucket, so there is nothing to answer or copy. The guided page at `/spike/` is unchanged.
+
+On the Mac, once, then for each run:
+
+```sh
+aws sso login --profile wxyc-api
+spike/make-test-bucket.sh cors      # once: lets the page and the worker PUT their results
+spike/make-test-bucket.sh phone     # each run: the link, onto the clipboard
+```
+
+`phone` prints the run id, the link's length and when the links expire (an hour, or sooner when the SSO role session ends), never the link. It needs Node and Python 3 with boto3, because the aws CLI presigns only GET; `SPIKE_PYTHON` names a Python that has it (`SPIKE_PYTHON=/path/to/venv/bin/python`, or `SPIKE_PYTHON='uv run --no-project --with boto3 python3'`). It refuses if the lock track is not in the bucket or the bucket's CORS rules do not allow PUT yet. `DRY_RUN=1` signs with placeholder credentials, prints the length, and copies nothing.
+
+On the iPhone, in Safari:
+
+1. Tap the address bar and choose **Paste and Go** (Universal Clipboard brings the link from the Mac).
+2. Tap **Start**. iOS lets a page play sound only after a tap; that is the only reason for it.
+3. Lock the phone. Leave it until the sound stops by itself, 15 minutes later.
+4. Unlock. The page shows a one-line verdict, a short table and "Results sent".
+
+Then on the Mac:
+
+```sh
+spike/make-test-bucket.sh results   # the last run phone made; or: results <run-id>
+```
+
+It downloads the run's `page.json` and `worker.json` into `spike/phone-results/<run-id>/` (git-ignored) and prints a summary in Pacific time: whether the run is final, the verdict and the four checks, the gap, the jump's resume, and the worker's requests while locked. It can be run during the test too: both files are replaced as the run goes on.
+
+**What the page does.** On load it reads the links from the `#k=` fragment, keeps them in memory and `sessionStorage`, and takes the fragment out of the address with `history.replaceState`. It registers `/spike/sw.js`, waits until the worker controls the page, and checks the worker's version: a worker from an earlier visit is replaced first (and the page reloads once if it must). It saves the lock track's link where the worker looks for it, and posts the worker its own upload link. Start plays the lock track from 0:00, unmuted at full volume, and sets the Media Session (title "Lock test: leave the phone locked"; play and pause handlers, no seeking). Then:
+
+- **The test jump.** On a `timeupdate` once the page has been hidden 5 minutes in all, it seeks to the later of the end of the buffered range holding the playhead plus 60 s and the playhead plus 300 s, capped 120 s before the end of the track. The seek is marked as the page's own test jump, so lock-math counts its resume apart from the gap. Whether the target was loaded, the time to the worker's next request and the time until playback moved again are recorded.
+- **The end.** On a `timeupdate` once the page has been hidden 15 minutes in all, it pauses the audio (the silence tells the tester it is over), computes the checks and uploads.
+- **An early return.** Visible before 15 minutes hidden: "You came back after X; lock again to finish (Y to go)", and the audio plays on; hidden time adds up across returns. If the audio is not playing then (paused, or no progress for 10 s and none in the next 2), the run ends there as "stopped".
+- **A reload.** A run found playing in `localStorage` when the page loads means the browser reloaded or killed the page; the verdict says so, measured to the last position stored.
+- **The verdict.** On return after the end, with the worker's stored log: one large line (pass, fail or can't tell, and why) and four rows, each decided in `phone-math.js` with `lock-math.js`'s arithmetic: the worker answered while locked; played the whole time (the gap, not counting the test jump's own resume, under 5 s); the test jump played again within 5 s; went on past what was loaded. The last two say "can't tell" as the guided page does when the worker had already delivered every byte before the lock.
+
+Nothing is decided by a timer: they stop while the phone is locked. Every event is stored with its wall-clock time as it fires.
+
+**Uploads.** The page PUTs its whole results JSON (no link in it) to `spike/results/<run-id>/page.json`: at Start, about every 60 s while playing (from `timeupdate`), at the end, and on every return to the page. Each PUT replaces the last. The worker PUTs its log for the run (every record it stored, from every instance, plus its instance id and start time) to `worker.json` at most every 30 s, from its fetch handling inside `event.waitUntil`, and when the page asks: at Start, at the end and on each return; so the bucket gets the worker's own evidence even while the page's script is asleep. The worker keeps its upload link in Cache Storage too, so a worker the browser restarts goes on uploading. If the page's last upload failed, it shows the error and a single "Copy results" button.
+
+`page.json` (values illustrative):
+
+```json
+{
+  "kind": "spike-sw-audio-phone", "version": 1, "pageVersion": "phone-1", "workerVersion": "phone-1",
+  "run": "3f9a1c", "final": true, "phase": "ended", "reason": "end",
+  "verdict": { "result": "pass", "text": "Pass: the audio played the whole 15 min with the phone locked (0.3 s behind the clock), and the test jump played again in 1.2 s." },
+  "verdictShown": true, "uploadReason": "shown", "uploadSeq": 19, "uploadedAt": "…", "userAgent": "…", "addressHasFragment": false,
+  "settings": { "track": "lock", "respond": "rebuilt", "loop": false, "jumpAfterS": 300, "endAfterS": 900, "limitS": 5, "muted": false, "test": { "autostart": false, "fakeHidden": false } },
+  "timeline": { "startedAt": 0, "firstHiddenAt": 0, "ctAtHide": 4.2, "aheadAtHide": 38.5, "spans": [{ "from": 0, "to": 0 }], "jump": { "at": 0, "fromS": 304.1, "targetS": 604.1, "inBuffer": false }, "endAt": 0, "endCt": 1203.6 },
+  "result": { "r": "pass", "text": "…", "checks": { "worker": { "r": "pass", "answers": 31 }, "whole": { "r": "pass", "gapS": 0.3, "jumpResumeS": 1.2 }, "jump": { "r": "pass", "resumeS": 1.2, "requestS": 0.4, "targetLoaded": false }, "past": { "r": "pass" } } },
+  "events": [{ "type": "timeupdate", "at": 0, "ct": 4.2 }], "workerRecords": [], "workerUploads": [], "pageUploads": { "ok": 18, "failed": 0 }
+}
+```
+
+Times in `timeline` and `events` are epoch milliseconds. `worker.json` is `{ "kind": "spike-sw-audio-phone-worker", "run", "instance", "instanceStartedAt", "uploadedAt", "reason", "uploadsByThisInstance", "previousUpload", "records": [...] }`, the records as in [Reading the log](#reading-the-log) plus `run`.
+
+**The link.** The three presigned URLs (GET the lock track, PUT `page.json`, PUT `worker.json`) share their credential, date, expiry and session token and differ only in method, key and signature. The fragment is the base64url of one JSON that carries the shared query values once and, per link, its method, path and own values: `{ v: 1, r: run id, e: expiry, o: origin, q: [[name, value or null], ...], u: { t|p|w: [method, path, [own values]] } }`. A value travels decoded when SigV4's URI encoding rebuilds it exactly, a 64-digit hex signature as its 32 bytes, and anything else as written; the page rebuilds each URL byte for byte, and `phone-tool.mjs` checks that it does with the real links before it copies anything. With a session token of about 980 characters the phone URL is about 2,250 characters. The page is linked at `/spike/phone`, the clean URL Pages serves `phone.html` at. Pages answers `/spike/index.html` with a 308 to `/spike/`, and by the same rule `/spike/phone.html` with a 308 to `/spike/phone`; the link does not rely on the fragment surviving that redirect. Safari's history keeps the pasted URL with its fragment (`replaceState` cleans only the address bar and the tab's back list; seen in the simulator's `History.db`), so the links stay in the phone's history until they expire, an hour later at most. They allow only the GET of the lock track and the PUTs of the run's two results files, and carry no secret key. `simctl openurl` cuts a URL at 2,047 characters, so a simulator needs a shorter link than the phone (a placeholder token of 200 characters gives about 1,300).
+
+**Test-only parameters** (for a simulator on a local server; leave them off on the phone): `jumpAfter=<s>` and `endAfter=<s>` set the hidden seconds before the jump and the end (defaults 300 and 900); `autostart=1` starts without a tap, muted; `fakeHidden=1` counts the page as hidden from Start to the end, so a muted run in the foreground takes the locked path (Safari pauses muted media in a hidden tab, so a muted background run proves nothing); `muted=1` mutes Start. The results record them under `settings`.
+
+**Testing it.** `node spike/check-phone-math.mjs` runs the payload round trip (boto3-style links, path-style links, values that must stay as written, and that the phone URL stays under 2,500 characters with a 1,000-character token), the schedule (hidden time across spans, the jump and the end, the jump target, the upload interval, what a return means) and the checks (a pass, a slow jump, a stall, no answers while locked, a whole track fetched before the lock, answers only during an early return, no jump, a stop, two kinds of reload, an expired link) as parameterized tables. Like `check-lock-math.mjs`, it runs the page's plain scripts in a fresh `vm` context.
 
 ## Quick start for a tester
 
 You need a Mac with Safari, Chrome and Firefox, an iPhone, ffmpeg 4.4 or newer, and the aws CLI v2 with the `wxyc-api` SSO profile. The page itself tells you what to do at each step; you do not need the issue open.
 
 1. **Make the audio.** `spike/make-test-audio.sh` writes five tracks to `spike/test-audio/` (git-ignored): the four ten-minute formats (MP3 320 kbps CBR, M4A/AAC 256 kbps, FLAC and WAV, about 180 MB) and the thirty-minute lock track (WAV, 318 MB). It takes about a minute. `ONLY=lock spike/make-test-audio.sh` makes just the lock track, `ONLY=formats` just the four formats.
-2. **Make the bucket and upload.** `aws sso login --profile wxyc-api`, then `spike/make-test-bucket.sh create`. It creates a private bucket (default name `wxyc-dj-site-spike-sw-audio`; pass another as the second argument), applies the review bucket's audio CORS rule, uploads the tracks with their content types, and prints five lines, `<id> <presigned URL>`. If the bucket already exists, `spike/make-test-bucket.sh upload` uploads only the tracks that are not in it yet (for example the lock track) and changes nothing else. Both are safe to run again: an object already in the bucket is never replaced. `DRY_RUN=1` in front of either prints what it would change instead. **The URLs are credentials:** paste them only into the spike page, never into an issue, a PR or a chat. `spike/make-test-bucket.sh presign | pbcopy` copies fresh lines without printing them.
+2. **Make the bucket and upload.** `aws sso login --profile wxyc-api`, then `spike/make-test-bucket.sh create`. It creates a private bucket (default name `wxyc-dj-site-spike-sw-audio`; pass another as the second argument), applies the CORS rules (the review bucket's audio rule, plus a PUT rule for the phone test's results; `spike/make-test-bucket.sh cors` applies them again on its own), uploads the tracks with their content types, and prints five lines, `<id> <presigned URL>`. If the bucket already exists, `spike/make-test-bucket.sh upload` uploads only the tracks that are not in it yet (for example the lock track) and changes nothing else. Both are safe to run again: an object already in the bucket is never replaced. `DRY_RUN=1` in front of either prints what it would change instead. **The URLs are credentials:** paste them only into the spike page, never into an issue, a PR or a chat. `spike/make-test-bucket.sh presign | pbcopy` copies fresh lines without printing them.
 3. **Open the page** at the branch alias, `https://spike-safari-sw-audio.dj-site.pages.dev/spike/`, in each browser: Safari, Chrome and Firefox on the Mac, and Safari on the iPhone. Use the alias rather than a per-commit `https://<hash>.dj-site.pages.dev` URL: saved links and results live in per-origin browser storage, so every new hash would start empty. Both match the bucket's `https://*.dj-site.pages.dev` origin.
 4. **Paste the links.** The page asks for them first: paste the five lines from step 2 and press "Save links". To get them onto the iPhone, send them to yourself in a private note, paste them, then delete the note. Once every link this browser needs is saved, the form folds to one line, "Links: 5 of 5 saved · Change". Chrome and Firefox do not run the lock test, so they need only the first four ("Links: 4 of 4 saved").
 5. **Follow the test steps** on the page, for each format, and the lock test once in Safari on each device. The current step is highlighted; the page checks most things by itself and asks you only what it cannot hear.
@@ -265,4 +334,4 @@ What the production path will need when the policy is enforced (for WXYC/dj-site
 
 ## Cleaning up
 
-When the decision is recorded: close the harness PR without merging, delete the branch `spike/safari-sw-audio`, and run `spike/make-test-bucket.sh teardown [bucket]`. Teardown deletes only a bucket tagged `throwaway=true`, which `create` adds. A lifecycle rule also deletes the objects 30 days after upload, in case teardown is forgotten. On each test device, "Remove saved links" (in the link form; press "Change" to open it) deletes the saved links, "Start over" deletes the saved results and the stored request log, and "Clear stored log" (under "Details for debugging") deletes the stored request log.
+When the decision is recorded: close the harness PR without merging, delete the branch `spike/safari-sw-audio`, and run `spike/make-test-bucket.sh teardown [bucket]`. Teardown deletes every object in the bucket, the phone test's results under `spike/results/` included, then the bucket; local copies in `spike/phone-results/` stay. It deletes only a bucket tagged `throwaway=true`, which `create` adds. A lifecycle rule also deletes the objects 30 days after upload, in case teardown is forgotten. On each test device, "Remove saved links" (in the link form; press "Change" to open it) deletes the saved links, "Start over" deletes the saved results and the stored request log, and "Clear stored log" (under "Details for debugging") deletes the stored request log.

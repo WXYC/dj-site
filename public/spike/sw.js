@@ -10,6 +10,11 @@
  *   2. one fetch of that URL with a bounded Range and no Authorization;
  *   3. the 206 handed back to the element.
  * Every other request passes through untouched.
+ *
+ * For the phone test (phone.html) it also uploads its request log for the
+ * run, to a presigned PUT link the page posts it, at most every 30 s and
+ * from its fetch handling, so the log reaches S3 even while the page's own
+ * script is asleep with the phone locked.
  */
 "use strict";
 
@@ -17,6 +22,12 @@ var AUDIO_PREFIX = "/spike/audio/";
 var SOURCES_URL = "/spike/sources.json";
 var OVERRIDE_CACHE = "spike-url-overrides";
 var LOG_CACHE = "spike-request-log";
+var PHONE_CACHE = "spike-phone";
+var PHONE_KEY = "/spike/__phone/config.json";
+var PHONE_UPLOAD_EVERY_MS = 30 * 1000;
+// The page checks this, so a worker from before the phone test is replaced
+// before a run starts. Change it with every change to this file.
+var VERSION = "phone-1";
 var MIB = 1024 * 1024;
 var MIN_CHUNK = 1 * MIB;
 var MAX_CHUNK = 8 * MIB;
@@ -28,6 +39,14 @@ var CHUNK_SECONDS = 30;
 var INSTANCE = Math.random().toString(36).slice(2, 8);
 var INSTANCE_STARTED = new Date().toISOString();
 var seq = 0;
+
+// The phone run this worker uploads for: { run, url }. Kept in Cache Storage
+// too, so a worker the browser stops and starts again still has it. The URL
+// is a credential: it is never recorded, posted or uploaded.
+var phone = null;
+var lastUploadAt = 0;
+var uploads = 0;
+var lastUpload = null;
 
 self.addEventListener("install", function (event) {
   event.waitUntil(self.skipWaiting());
@@ -44,7 +63,18 @@ self.addEventListener("message", function (event) {
     // active; the page asks for a fresh claim.
     event.waitUntil(self.clients.claim());
   } else if (data.type === "ping" && event.source) {
-    event.source.postMessage({ type: "pong", instance: INSTANCE, startedAt: INSTANCE_STARTED });
+    event.source.postMessage({ type: "pong", instance: INSTANCE, startedAt: INSTANCE_STARTED, version: VERSION });
+  } else if (data.type === "phone" && typeof data.run === "string" && typeof data.url === "string") {
+    var source = event.source;
+    event.waitUntil(
+      setPhone({ run: data.run, url: data.url }).then(function () {
+        if (source) {
+          source.postMessage({ type: "phone-ack", run: data.run, instance: INSTANCE, version: VERSION });
+        }
+      })
+    );
+  } else if (data.type === "flush") {
+    event.waitUntil(uploadLog(String(data.reason || "page")));
   }
 });
 
@@ -133,6 +163,9 @@ async function answer(event, url, finish) {
     rule: bound.rule,
     chunk: chunk,
   };
+  if (params.get("run")) {
+    rec.run = params.get("run");
+  }
 
   try {
     var found = await lookup(trackId, seq);
@@ -246,7 +279,11 @@ function rebuilt(rec, finish, s3, mime, started) {
     if (error) {
       rec.error = error;
     }
-    report(rec).then(finish, finish);
+    report(rec)
+      .then(function () {
+        return maybeUpload(rec);
+      })
+      .then(finish, finish);
   }
   var body = new ReadableStream({
     pull: function (controller) {
@@ -286,7 +323,11 @@ function rebuilt(rec, finish, s3, mime, started) {
 }
 
 function settle(rec, finish, response) {
-  report(rec).then(finish, finish);
+  report(rec)
+    .then(function () {
+      return maybeUpload(rec);
+    })
+    .then(finish, finish);
   return response;
 }
 
@@ -305,5 +346,110 @@ async function report(rec) {
   var all = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
   all.forEach(function (client) {
     client.postMessage({ type: "record", record: copy });
+  });
+}
+
+// ---- the phone test's upload -------------------------------------------------
+
+async function setPhone(config) {
+  phone = config;
+  var cache = await caches.open(PHONE_CACHE);
+  await cache.put(PHONE_KEY, new Response(JSON.stringify(config), { headers: { "Content-Type": "application/json" } }));
+}
+
+async function phoneConfig() {
+  if (phone) {
+    return phone;
+  }
+  try {
+    var saved = await (await caches.open(PHONE_CACHE)).match(PHONE_KEY);
+    if (saved) {
+      phone = await saved.json();
+    }
+  } catch (e) {
+    phone = null;
+  }
+  return phone;
+}
+
+/** After a request of the phone run is final: upload the run's log, at most every 30 s. */
+async function maybeUpload(rec) {
+  if (!rec.run || Date.now() - lastUploadAt < PHONE_UPLOAD_EVERY_MS) {
+    return;
+  }
+  // Set before any await, so requests that finish together upload once.
+  lastUploadAt = Date.now();
+  var config = await phoneConfig();
+  if (config && config.run === rec.run) {
+    await uploadLog("request");
+  }
+}
+
+/** Every stored record of one run, from every worker instance, oldest first. */
+async function runRecords(run) {
+  var cache = await caches.open(LOG_CACHE);
+  var keys = await cache.keys();
+  var out = [];
+  for (var i = 0; i < keys.length; i++) {
+    var res = await cache.match(keys[i]);
+    var rec = res ? await res.json() : null;
+    if (rec && rec.run === run) {
+      out.push(rec);
+    }
+  }
+  out.sort(function (a, b) {
+    return Date.parse(a.at) - Date.parse(b.at);
+  });
+  return out;
+}
+
+/**
+ * PUTs the run's whole log (each upload replaces the last), then tells the
+ * pages how it went. The result says only the status and S3's error code.
+ */
+async function uploadLog(reason) {
+  var config = await phoneConfig();
+  if (!config || !config.url) {
+    return;
+  }
+  lastUploadAt = Date.now();
+  uploads += 1;
+  var result = { at: new Date().toISOString(), reason: reason, ok: false, status: null, records: 0, instance: INSTANCE, version: VERSION };
+  try {
+    var records = await runRecords(config.run);
+    result.records = records.length;
+    var body = JSON.stringify({
+      kind: "spike-sw-audio-phone-worker",
+      version: 1,
+      workerVersion: VERSION,
+      run: config.run,
+      instance: INSTANCE,
+      instanceStartedAt: INSTANCE_STARTED,
+      uploadedAt: result.at,
+      reason: reason,
+      uploadsByThisInstance: uploads,
+      previousUpload: lastUpload,
+      records: records,
+    });
+    var res = await fetch(config.url, {
+      method: "PUT",
+      body: body,
+      headers: { "Content-Type": "application/json" },
+      mode: "cors",
+      credentials: "omit",
+      cache: "no-store",
+    });
+    result.status = res.status;
+    result.ok = res.ok;
+    if (!res.ok) {
+      result.error = "S3 answered " + res.status + (await s3Code(res));
+    }
+  } catch (err) {
+    result.error = "upload failed: " + (err && err.message ? err.message : String(err)) + " (CORS or network)";
+  }
+  lastUpload = result;
+  var all = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+  all.forEach(function (client) {
+    client.postMessage({ type: "worker-upload", run: config.run, upload: result });
   });
 }

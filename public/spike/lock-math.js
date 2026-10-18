@@ -18,8 +18,9 @@
  *   { type: "pause", at, own }
  * `own` is true when you did it (on the Lock Screen or on the page), and
  * false when the player did it by itself, as Loop does at the end of a
- * track. Other types (page visibility, Lock Screen actions, stalled) are
- * ignored here.
+ * track. A seek can also carry `test: true`, the phone page's own test jump
+ * (scrubs passes it through). Other types (page visibility, Lock Screen
+ * actions, stalled) are ignored here.
  *
  * A worker record is { at, asked }: when the request reached the worker, and
  * the element's Range without "bytes=".
@@ -240,6 +241,7 @@
           at: s.at,
           target: s.target,
           own: !!s.own,
+          test: !!s.test,
           inBuffer: !!s.inBuffer,
           buffered: s.buffered || [],
           requestS: req ? (req.at - s.at) / 1000 : null,

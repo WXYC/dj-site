@@ -4,3 +4,5 @@ test-audio/
 *.m4a
 *.flac
 *.wav
+# The phone test's downloaded results (spike/make-test-bucket.sh results).
+phone-results/
