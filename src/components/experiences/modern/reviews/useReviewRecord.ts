@@ -3,6 +3,7 @@ import { skipToken } from "@reduxjs/toolkit/query";
 import { useGetInformationQuery } from "@/lib/features/catalog/api";
 import { useGetIntakeItemQuery } from "@/lib/features/reviews/intakeApi";
 import { displayedArtist, isVariousArtists } from "@/lib/features/catalog/libraryCode";
+import type { ListenLink } from "@/lib/features/reviews/listenLinks";
 import { intakeRecord } from "./recordLine";
 
 export type ReviewRecord = {
@@ -13,6 +14,10 @@ export type ReviewRecord = {
   formatId?: number | null;
   /** Set for a library release, which carries its format name. */
   format?: string;
+  /** Set for an intake record: where it can be heard before reviewing. */
+  links?: ListenLink[];
+  /** Set for an intake record: a digital album, whose editor draws no links. */
+  digital?: boolean;
 };
 
 /**

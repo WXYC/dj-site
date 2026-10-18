@@ -447,6 +447,19 @@ describe("IntakeItemScreen", () => {
     expect(container.querySelector("[data-tone]")).toHaveAttribute("data-tone", "formatVinyl");
   });
 
+  it.each([
+    ["a disc", {}],
+    ["a digital album", { digital: true }],
+  ])("shows the listen links in the header of %s", async (_kind, overrides) => {
+    fakeReviewsEndpoints({ records: [dogaItem({ spotify_url: "https://open.spotify.com/album/1", discogs_release_id: 42, ...overrides })], forItem: { [ITEM_ID]: [submitted(40)] } });
+
+    renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+    expect(await screen.findByText("Preview:")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Spotify" })).toHaveAttribute("rel", expect.stringContaining("noopener"));
+    expect(screen.getByRole("link", { name: "Discogs" })).toHaveAttribute("href", "https://www.discogs.com/release/42");
+  });
+
   it("heads the record with its artist and the state chip, and no longer prints the record as a dotted line", async () => {
     // A checked-out record has no review on its cover yet. Left at dogaItem's default (40), the cover read finds no review 40 and the page swaps the whole record for its load-failed line, after the heading has already shown.
     fakeReviewsEndpoints({ records: [dogaItem({ state: "checked_out", effective_state: "checked_out", accepted_review_id: null, ...heldBy("dj-sam", "Sam", "2025-08-02T12:00:00Z") })], forItem: { [ITEM_ID]: [] } });

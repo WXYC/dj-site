@@ -24,7 +24,30 @@ function serveFormats() {
   return reads;
 }
 
+const LINKS = [
+  { label: "Spotify", href: "https://open.spotify.com/album/1" },
+  { label: "Discogs", href: "https://www.discogs.com/release/42" },
+];
+
 describe("RecordRow", () => {
+  it("draws the lead-in and the links in order, each opening in a new tab with noopener", () => {
+    renderWithProviders(<RecordRow record={{ ...record, links: LINKS }} />);
+    expect(screen.getByText("Preview:")).toBeInTheDocument();
+    const links = screen.getAllByRole("link");
+    expect(links.map((l) => l.textContent)).toEqual(["Spotify", "Discogs"]);
+    links.forEach((l, i) => {
+      expect(l).toHaveAttribute("href", LINKS[i].href);
+      expect(l).toHaveAttribute("target", "_blank");
+      expect(l.getAttribute("rel")).toContain("noopener");
+    });
+  });
+
+  it.each([[undefined], [[]]])("draws no group and no lead-in for links %j", (links) => {
+    renderWithProviders(<RecordRow record={{ ...record, links }} />);
+    expect(screen.queryByText("Preview:")).toBeNull();
+    expect(screen.queryAllByRole("link")).toEqual([]);
+  });
+
   it.each([
     ["Vinyl", "formatVinyl", "Vinyl"],
     ["CD", "formatCd", "CD"],
@@ -254,6 +277,11 @@ describe("RecordRow cover", () => {
 });
 
 describe("RecordHeader", () => {
+  it.each([[true, 2], [false, 0]])("with withLinks %s draws %i links", (withLinks, count) => {
+    renderWithProviders(<RecordHeader record={{ ...record, links: LINKS }} withLinks={withLinks} />);
+    expect(screen.queryAllByRole("link")).toHaveLength(count);
+  });
+
   it("renders the artist as a heading with the album, label, format tag and chip slot", () => {
     renderWithProviders(<RecordHeader record={{ ...record, format: "Vinyl" }} chip={<span>On the review shelf</span>} />);
     expect(screen.getByRole("heading", { level: 2, name: "Juana Molina" })).toBeInTheDocument();

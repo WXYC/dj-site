@@ -3,6 +3,7 @@ import { Box, Chip, Divider, Link, Typography } from "@mui/joy";
 import { useAlbumArtwork } from "@/lib/features/metadata/hooks";
 import { formatLabel, formatTone } from "@/lib/features/experiences/modern/tokens/roles";
 import { useRecordFormatName } from "./recordLine";
+import ListenLinks from "./ListenLinks";
 import type { ReviewRecord } from "./useReviewRecord";
 
 /**
@@ -98,6 +99,7 @@ export default function RecordRow({ record, meta, actions, status, href, titleSl
           <Box sx={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 0.25, minWidth: 0 }}>
             <RecordParts record={record} format={format} artist={artist} albumId={albumId} />
             {meta}
+            <ListenLinks links={record.links} />
           </Box>
         </Box>
         {actions && <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", flex: "none" }}>{actions}</Box>}

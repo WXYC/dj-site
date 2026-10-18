@@ -86,6 +86,8 @@ function Form({ review, user, arrivedFromRequest, origin }: { review: Review; us
   const [remove, { isLoading: deleting }] = useDeleteReviewMutation();
   const router = useRouter();
   const record = useReviewRecord(review);
+  // A digital album counts only a listen of the station's file, so its editor points nowhere else.
+  const showsLinks = Boolean(record?.links?.length) && !record?.digital;
   const back = editorBack(origin);
   // The same read useReviewRecord holds, so no second request.
   const intakeItem = useGetIntakeItemQuery(review.intake_item_id ?? skipToken).data;
@@ -202,7 +204,8 @@ function Form({ review, user, arrivedFromRequest, origin }: { review: Review; us
       <JoyLink component={Link} href={back.href} level="body-sm">
         <span aria-hidden="true">←</span> {back.label}
       </JoyLink>
-      {record ? <RecordHeader record={record} /> : <HiddenTitle />}
+      {record ? <RecordHeader record={record} withLinks={!record.digital} /> : <HiddenTitle />}
+      {showsLinks && <Typography level="body-sm">{REVIEW_COPY.listen.fccNote}</Typography>}
       <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" sx={{ mt: 1 }}>
         {!draft && (
           <JoyLink component={Link} href={`/dashboard/reviews/${review.id}/history`} level="body-sm">
