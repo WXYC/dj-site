@@ -13,9 +13,10 @@ vi.mock("sonner", () => ({
   toast: Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn(), info: vi.fn() }),
 }));
 
+const url = vi.hoisted(() => ({ search: "" }));
 vi.mock("next/navigation", async () => {
   const { createNavigationModuleMock } = await import("@/tests/helpers/navigation-mock");
-  return createNavigationModuleMock({ push: vi.fn(), replace: vi.fn() });
+  return createNavigationModuleMock({ push: vi.fn(), replace: vi.fn() }, { search: () => url.search });
 });
 
 const ME = "dj-me";
@@ -54,7 +55,10 @@ function expectRecordRow(lane: HTMLElement, artist: string, expectActions: boole
 }
 
 describe("every review lane draws its rows with RecordRow", () => {
-  beforeEach(() => vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "true"));
+  beforeEach(() => {
+    url.search = "";
+    vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "true");
+  });
   afterEach(() => vi.unstubAllEnvs());
 
   // The My reviews tab's lists are stages in a tabpanel named by the selected chip; with no `?stage=`, it opens on Open reviews when anything is there, else on Submitted.
@@ -78,14 +82,15 @@ describe("every review lane draws its rows with RecordRow", () => {
   });
 
   it.each([
-    ["Review waiting (1)", { state: "checked_out", effective_state: "checked_out", ...heldBy("dj-1", "DJ Sam", null), submitted_review_count: 1, accepted_review_id: null }, true],
-    ["Requested", { state: "requested", effective_state: "requested", ...requestedFor(null, "DJ Pat") }, true],
-    ["Being reviewed", { state: "checked_out", effective_state: "checked_out", ...heldBy("dj-1", "DJ Sam", null) }, true],
-    ["Reviewed (1)", { state: "reviewed", effective_state: "reviewed", ...heldBy("dj-1", "DJ Sam", "2026-09-01T12:00:00Z") }, true],
-    ["Filed", { state: "filed", effective_state: "filed" }, false],
-  ] as const)("the music directors' %s lane", async (name, overrides, expectActions) => {
+    ["waiting", "Review waiting", { state: "checked_out", effective_state: "checked_out", ...heldBy("dj-1", "DJ Sam", null), submitted_review_count: 1, accepted_review_id: null }],
+    ["requested", "Requested", { state: "requested", effective_state: "requested", ...requestedFor(null, "DJ Pat") }],
+    ["being_reviewed", "Being reviewed", { state: "checked_out", effective_state: "checked_out", ...heldBy("dj-1", "DJ Sam", null) }],
+    ["reviewed", "Reviewed", { state: "reviewed", effective_state: "reviewed", ...heldBy("dj-1", "DJ Sam", "2026-09-01T12:00:00Z") }],
+    ["filed", "Filed", { state: "filed", effective_state: "filed", filed_at: new Date().toISOString() }],
+  ] as const)("the music directors' %s stage", async (stage, name, overrides) => {
     mockAuth.authority = Authorization.MD;
     vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "staff");
+    url.search = `?stage=${stage}`;
     const row = record(1, overrides);
     fakeReviewsEndpoints({
       open: row.effective_state === "reviewed" || row.effective_state === "filed" ? [] : [row],
@@ -95,8 +100,10 @@ describe("every review lane draws its rows with RecordRow", () => {
 
     renderWithProviders(<IntakeLanes />);
 
-    const lane = await screen.findByRole("region", { name });
-    expectRecordRow(lane, "Juana Molina", expectActions);
+    const lane = await screen.findByRole("tabpanel", { name });
+    await within(lane).findByText("Juana Molina");
+    // Every stage ends its row's actions with Open.
+    expectRecordRow(lane, "Juana Molina", true);
     expect(within(lane).getByRole("link", { name: "Juana Molina" })).toHaveAttribute("href", "/dashboard/admin/intake/1");
   });
 });

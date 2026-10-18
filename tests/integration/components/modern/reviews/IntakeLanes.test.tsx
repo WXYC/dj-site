@@ -16,9 +16,16 @@ vi.mock("sonner", () => ({
   toast: Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn(), info: vi.fn() }),
 }));
 
+// The chips write the stage with `history.replaceState`, which the App Router syncs to `useSearchParams`; the spy in `beforeEach` does the same sync, so a click on a chip changes the list.
+const url = vi.hoisted(() => ({ search: "", listeners: new Set<() => void>() }));
 vi.mock("next/navigation", async () => {
+  const { useSyncExternalStore } = await import("react");
   const { createNavigationModuleMock } = await import("@/tests/helpers/navigation-mock");
-  return createNavigationModuleMock({ push: vi.fn(), replace: vi.fn() });
+  const subscribe = (listener: () => void) => {
+    url.listeners.add(listener);
+    return () => url.listeners.delete(listener);
+  };
+  return createNavigationModuleMock({ push: vi.fn(), replace: vi.fn() }, { search: () => useSyncExternalStore(subscribe, () => url.search) });
 });
 
 const mockAuth = vi.hoisted(() => ({ id: "md-me", authority: 2 as number }));
@@ -38,10 +45,33 @@ const moonPix = (overrides = {}) =>
 const waiting = (id: number, overrides = {}) =>
   moonPix({ id, state: "checked_out", effective_state: "checked_out", ...heldBy("dj-1", "DJ Sam", null), submitted_review_count: 1, accepted_review_id: null, ...overrides });
 
-const lane = (name: string) => screen.findByRole("region", { name });
+/**
+ * A stage's list, once its chip is chosen. `name` is the stage's label, with the count the chip should carry in parentheses when the spec waits on it: "Reviewed (2)" waits for the chip "Reviewed, 2".
+ */
+const justNow = new Date().toISOString();
+const STAGE_LABELS = [REVIEW_COPY.intake.onShelf, REVIEW_COPY.intake.requested, REVIEW_COPY.intake.beingReviewed, REVIEW_COPY.intake.waiting, REVIEW_COPY.intake.reviewed, REVIEW_COPY.intake.filed];
+const showStage = (stage: string) => {
+  url.search = `?stage=${stage}`;
+};
+const lane = async (name: string) => {
+  const [, label, count] = /^(.*?)(?: \((\d+)\))?$/.exec(name)!;
+  const chip = await screen.findByRole("tab", { name: count ? `${label}, ${count}` : new RegExp(`^${label},`) });
+  if (chip.getAttribute("aria-selected") !== "true") {
+    fireEvent.click(chip);
+  }
+  return screen.findByRole("tabpanel", { name: label });
+};
 
 beforeEach(() => {
   vi.mocked(toast.error).mockClear();
+  url.search = "";
+  vi.spyOn(window.history, "replaceState").mockImplementation((_state, _unused, target) => {
+    url.search = new URL(String(target), "http://localhost").search;
+    url.listeners.forEach((listener) => listener());
+  });
+});
+afterEach(() => {
+  vi.mocked(window.history.replaceState).mockRestore();
 });
 
 describe("IntakeLanes", () => {
@@ -51,7 +81,7 @@ describe("IntakeLanes", () => {
   });
   afterEach(() => vi.unstubAllEnvs());
 
-  it("puts FCC notes to confirm above the Recent passes band and the first lane", async () => {
+  it("puts FCC notes to confirm above the Recent passes band and the chips", async () => {
     fakeReviewsEndpoints({
       open: [moonPix({ id: 5, passes: [{ dj_name: "Sam", passed_at: "2026-10-01T10:00:00Z" }] })],
       fccNotesToConfirm: [fccNote({ id: 1, intake_item_id: 5 })],
@@ -62,16 +92,15 @@ describe("IntakeLanes", () => {
     const section = await screen.findByRole("region", { name: "FCC notes to confirm (1)" });
     expect(within(section).getByRole("heading", { level: 3, name: "FCC notes to confirm (1)" })).toBeInTheDocument();
     const band = screen.getByRole("region", { name: "Recent passes" });
-    const first = screen.getByRole("region", { name: "Requested" });
-    expect(within(first).getByRole("heading", { level: 3, name: "Requested" })).toBeInTheDocument();
+    const chips = screen.getByRole("tablist");
     expect(section.compareDocumentPosition(band) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(section.compareDocumentPosition(first) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(band.compareDocumentPosition(chips) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it.each([
-    ["notes to confirm and recent passes", { open: [moonPix({ id: 5, passes: [{ dj_name: "Sam", passed_at: "2026-10-01T10:00:00Z" }] })], fccNotesToConfirm: [fccNote({ id: 1, intake_item_id: 5 })] }, ["h3 FCC notes to confirm (1)", "h3 Recent passes", "h3 Requested", "h3 Being reviewed", "h3 Reviewed", "h3 Filed"]],
-    ["nothing on it", { open: [] }, ["h3 Requested", "h3 Being reviewed", "h3 Reviewed", "h3 Filed"]],
-  ])("heads every section at h3 under the page's own h2 with %s", async (_case, endpoints, expected) => {
+    ["notes to confirm and recent passes", { open: [moonPix({ id: 5, passes: [{ dj_name: "Sam", passed_at: "2026-10-01T10:00:00Z" }] })], fccNotesToConfirm: [fccNote({ id: 1, intake_item_id: 5 })] }, ["h3 FCC notes to confirm (1)", "h3 Recent passes", "h3 Requested"]],
+    ["nothing on it", { open: [] }, ["h3 Requested"]],
+  ])("heads every section, and the chosen stage's list, at h3 under the page's own h2 with %s", async (_case, endpoints, expected) => {
     fakeReviewsEndpoints(endpoints);
     renderWithProviders(<IntakeLanes />);
 
@@ -116,7 +145,7 @@ describe("IntakeLanes", () => {
         waiting(3, { album_title: "Dark Side", submitted_review_count: 0 }),
       ],
       reviewed: [moonPix({ id: 4, state: "reviewed", effective_state: "reviewed" })],
-      filed: [moonPix({ id: 5, state: "filed", effective_state: "filed" })],
+      filed: [moonPix({ id: 5, state: "filed", effective_state: "filed", filed_at: justNow })],
     });
 
     renderWithProviders(<IntakeLanes />);
@@ -129,10 +158,10 @@ describe("IntakeLanes", () => {
     };
     await expectRecord(requested, "Moon Pix");
     expect(within(requested).getByText("Held for DJ Pat")).toBeInTheDocument();
+    expect(within(requested).getByRole("link", { name: "Cat Power" })).toHaveAttribute("href", "/dashboard/admin/intake/2");
     await expectRecord(await lane("Being reviewed"), "Dark Side");
     await expectRecord(await lane("Reviewed (1)"), "Moon Pix");
     await expectRecord(await lane("Filed"), "Moon Pix");
-    expect(within(requested).getByRole("link", { name: "Cat Power" })).toHaveAttribute("href", "/dashboard/admin/intake/2");
   });
 
   it("puts each state's rows in its own lane only, and reads intake exactly once", async () => {
@@ -140,7 +169,7 @@ describe("IntakeLanes", () => {
     fakeReviewsEndpoints({
       open: [waiting(3, { album_title: "Out", submitted_review_count: 0 })],
       reviewed: [moonPix({ id: 4, album_title: "Done", state: "reviewed", effective_state: "reviewed" })],
-      filed: [moonPix({ id: 5, album_title: "Shelved", state: "filed", effective_state: "filed" })],
+      filed: [moonPix({ id: 5, album_title: "Shelved", state: "filed", effective_state: "filed", filed_at: justNow })],
     });
     server.use(
       http.get(`${TEST_BACKEND_URL}/intake`, ({ request }) => {
@@ -163,13 +192,12 @@ describe("IntakeLanes", () => {
     expect(reads).toEqual([""]);
   });
 
-  it("renders no Review waiting lane when only open records are served", async () => {
+  it("counts 0 on the Review waiting chip, and says Nothing here., when only open records are served", async () => {
     fakeReviewsEndpoints({ open: [moonPix()] });
 
     renderWithProviders(<IntakeLanes />);
 
-    await lane("Filed");
-    expect(screen.queryByRole("region", { name: /Review waiting/ })).not.toBeInTheDocument();
+    expect(await lane("Review waiting (0)")).toHaveTextContent(REVIEW_COPY.intake.empty);
   });
 
   // A waiting review as the item's reviews read serves it.
@@ -287,7 +315,7 @@ describe("IntakeLanes", () => {
       // The row holds its record's parts and nothing else: no location line, not an empty one.
       const row = within(waitingLane).getByRole("link", { name: "Cat Power" }).closest("li")!;
       await within(row).findByText("Digital");
-      expect(row.textContent).toBe("Cat PowerMoon PixMatadorDigital");
+      expect(row.textContent).toBe("Cat PowerMoon PixMatadorDigitalOpen");
       expect([...row.querySelectorAll("p")].map((p) => p.textContent)).toEqual(["Moon Pix", "Matador"]);
 
       read.release();
@@ -317,8 +345,8 @@ describe("IntakeLanes", () => {
 
     const waitingLane = await lane("Review waiting (1)");
     expect(await within(waitingLane).findByText("From Jessica Pratt. The record is with DJ Sam.")).toBeInTheDocument();
+    expect(within(waitingLane).getAllByRole("link", { name: "Cat Power" })).toHaveLength(1);
     expect(within(await lane("Being reviewed")).queryByRole("link")).not.toBeInTheDocument();
-    expect(await screen.findAllByRole("link", { name: "Cat Power" })).toHaveLength(1);
     expect(screen.queryByText("review waiting")).not.toBeInTheDocument();
   });
 
@@ -332,35 +360,37 @@ describe("IntakeLanes", () => {
     expect(screen.queryByRole("region", { name: /Review waiting/ })).not.toBeInTheDocument();
   });
 
-  // One record per row, read as the server serves it; the lane it lands in is the only region holding its record's link.
+  // One record per row, read as the server serves it; the stage it lands in is the only one whose list holds its record's link.
   const reviewWaitsOn: Partial<IntakeItem> = { submitted_review_count: 1, accepted_review_id: null };
-  it.each<[string, Partial<IntakeItem>, string | null]>([
-    ["a filed record", { state: "filed", effective_state: "filed" }, "Filed"],
-    ["a finalized record", { state: "finalized", effective_state: "finalized" }, "Filed"],
-    ["a finalized record with a submitted review nobody chose", { state: "finalized", effective_state: "finalized", ...reviewWaitsOn }, "Filed"],
-    ["a reviewed record", { state: "reviewed", effective_state: "reviewed", accepted_review_id: 70 }, "Reviewed (1)"],
-    ["a reviewed record with a submitted review and no chosen one", { state: "reviewed", effective_state: "reviewed", ...reviewWaitsOn }, "Reviewed (1)"],
-    ["a checked out record with a review waiting", { state: "checked_out", effective_state: "checked_out", ...heldBy("dj-1", "DJ Sam"), ...reviewWaitsOn }, "Review waiting (1)"],
-    ["a requested record with a review waiting", { state: "requested", effective_state: "requested", ...requestedFor("dj-pat", "DJ Pat"), ...reviewWaitsOn }, "Review waiting (1)"],
-    ["a disc a music director marked as returned with its review waiting", returnedByMusicDirector, "Review waiting (1)"],
+  it.each<[string, Partial<IntakeItem>, string]>([
+    ["a filed record", { state: "filed", effective_state: "filed", filed_at: justNow }, "Filed"],
+    ["a finalized record", { state: "finalized", effective_state: "finalized", filed_at: justNow }, "Filed"],
+    ["a finalized record with a submitted review nobody chose", { state: "finalized", effective_state: "finalized", filed_at: justNow, ...reviewWaitsOn }, "Filed"],
+    ["a reviewed record", { state: "reviewed", effective_state: "reviewed", accepted_review_id: 70 }, "Reviewed"],
+    ["a reviewed record with a submitted review and no chosen one", { state: "reviewed", effective_state: "reviewed", ...reviewWaitsOn }, "Reviewed"],
+    ["a checked out record with a review waiting", { state: "checked_out", effective_state: "checked_out", ...heldBy("dj-1", "DJ Sam"), ...reviewWaitsOn }, "Review waiting"],
+    ["a requested record with a review waiting", { state: "requested", effective_state: "requested", ...requestedFor("dj-pat", "DJ Pat"), ...reviewWaitsOn }, "Review waiting"],
+    ["a disc a music director marked as returned with its review waiting", returnedByMusicDirector, "Review waiting"],
     ["a requested record", { state: "requested", effective_state: "requested", ...requestedFor("dj-pat", "DJ Pat") }, "Requested"],
     ["a checked out record", { state: "checked_out", effective_state: "checked_out", ...heldBy("dj-1", "DJ Sam") }, "Being reviewed"],
-    ["a record on the review shelf", { state: "pool", effective_state: "pool" }, null],
-    ["a request that has lapsed", { state: "requested", effective_state: "pool", ...requestedFor("dj-pat", "DJ Pat") }, null],
+    ["a record on the review shelf", { state: "pool", effective_state: "pool" }, "On the review shelf"],
+    ["a request that has lapsed", { state: "requested", effective_state: "pool", ...requestedFor("dj-pat", "DJ Pat") }, "On the review shelf"],
   ])("draws %s in exactly one lane", async (_label, overrides, expected) => {
     fakeReviewsEndpoints({ open: [moonPix({ id: 7, ...overrides })] });
 
     renderWithProviders(<IntakeLanes />);
 
-    await lane("Filed");
-    const nameOf = (region: HTMLElement) => document.getElementById(region.getAttribute("aria-labelledby") ?? "")?.textContent;
-    const holding = screen.getAllByRole("region").filter((region) => within(region).queryByRole("link", { name: "Cat Power" }));
-    expect(holding.map(nameOf)).toEqual(expected ? [expected] : []);
-    expect(screen.queryAllByRole("link", { name: "Cat Power" })).toHaveLength(expected ? 1 : 0);
+    const holding: string[] = [];
+    for (const stage of STAGE_LABELS) {
+      if (within(await lane(stage)).queryByRole("link", { name: "Cat Power" })) {
+        holding.push(stage);
+      }
+    }
+    expect(holding).toEqual([expected]);
   });
 
   it("shows a finalized record under Filed", async () => {
-    fakeReviewsEndpoints({ filed: [moonPix({ id: 5, state: "finalized", effective_state: "finalized" })] });
+    fakeReviewsEndpoints({ filed: [moonPix({ id: 5, state: "finalized", effective_state: "finalized", filed_at: justNow })] });
 
     renderWithProviders(<IntakeLanes />);
 
@@ -525,7 +555,7 @@ describe("IntakeLanes", () => {
 
     renderWithProviders(<IntakeLanes />);
 
-    const links = within(await lane(heading)).getAllByRole("link");
+    const links = within(await lane(heading)).getAllByRole("link", { name: "Cat Power" });
     expect(links.map((a) => a.getAttribute("href"))).toEqual(["/dashboard/admin/intake/1", "/dashboard/admin/intake/2"]);
   });
 
@@ -590,9 +620,8 @@ describe("IntakeLanes", () => {
     expect(within(band).getByRole("heading", { name: "Recent passes" })).toBeInTheDocument();
     expect(band.closest("[role=status]")).toBeNull();
     expect(band.querySelector("[role=status]")).toBeNull();
-    // The band sits at the top of the page, above the first lane.
-    const first = screen.getByRole("region", { name: "Requested" });
-    expect(band.compareDocumentPosition(first) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // The band sits at the top of the page, above the chips.
+    expect(band.compareDocumentPosition(screen.getByRole("tablist")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     unmount();
 
     fakeReviewsEndpoints({ open: [moonPix({ id: 1, passes: [] })] });
@@ -612,7 +641,7 @@ describe("IntakeLanes", () => {
     );
 
     const { user } = renderWithProviders(<IntakeLanes />);
-    await user.click(await screen.findByRole("button", { name: "Mark as returned" }));
+    await user.click(await within(await lane("Reviewed")).findByRole("button", { name: "Mark as returned" }));
 
     await waitFor(() => expect(screen.queryByText(/^Still out/)).not.toBeInTheDocument());
     expect(within(await lane("Reviewed (1)")).getByText("Moon Pix")).toBeInTheDocument();
@@ -644,6 +673,7 @@ describe("IntakeLanes", () => {
       }),
     );
 
+    showStage("reviewed");
     const { store, user } = renderWithProviders(<IntakeLanes />);
     const returnButton = await screen.findByRole("button", { name: "Mark as returned" });
     await user.click(returnButton);
@@ -684,6 +714,7 @@ describe("IntakeLanes", () => {
       }),
     );
 
+    showStage("reviewed");
     const { user } = renderWithProviders(<IntakeLanes />);
     const [first, second] = await screen.findAllByRole("button", { name: "Mark as returned" });
     await user.click(first);
@@ -709,6 +740,7 @@ describe("IntakeLanes — a failed background refetch", () => {
 
   it("keeps the loaded lanes and shows no load-failure line when the reload after a write fails", async () => {
     fakeReviewsEndpoints({ reviewed: [moonPix({ id: 11, effective_state: "reviewed", ...heldBy("dj-1", "DJ Sam", "2026-09-01T12:00:00Z") })] });
+    showStage("reviewed");
     const { user } = renderWithProviders(<IntakeLanes />);
     const button = await screen.findByRole("button", { name: "Mark as returned" });
 
@@ -759,8 +791,9 @@ describe("IntakeLanes — cancel and release", () => {
     const { user } = renderWithProviders(<IntakeLanes />);
     await user.click(await within(await lane("Requested")).findByRole("button", { name: "Cancel request" }));
 
-    await waitFor(() => expect(within(screen.getByRole("region", { name: "Requested" })).queryByRole("button")).not.toBeInTheDocument());
-    expect(within(screen.getByRole("region", { name: "Requested" })).queryByText(/Moon Pix/)).not.toBeInTheDocument();
+    const requested = screen.getByRole("tabpanel", { name: "Requested" });
+    await waitFor(() => expect(within(requested).queryByRole("button")).not.toBeInTheDocument());
+    expect(within(requested).queryByText(/Moon Pix/)).not.toBeInTheDocument();
   });
 
   // One table over a disc and a digital album, with and without a waiting review, and with a removed holder. `after` is
@@ -807,10 +840,9 @@ describe("IntakeLanes — cancel and release", () => {
     const buttons = (region: HTMLElement) => within(region).queryAllByRole("button").map((b) => b.textContent);
 
     const { user } = renderWithProviders(<IntakeLanes />);
-    const record = await screen.findByRole("link", { name: "Cat Power" });
-    expect(screen.getAllByRole("link", { name: "Cat Power" })).toHaveLength(1);
+    await screen.findByRole("link", { name: "Cat Power" });
     const being = await lane("Being reviewed");
-    expect(being.contains(record)).toBe(beingReviewed !== null);
+    expect(within(being).queryByRole("link", { name: "Cat Power" }) !== null).toBe(beingReviewed !== null);
     expect(beingReviewed && buttons(being)).toEqual(beingReviewed);
     const waitingLane = reviewWaiting && (await lane("Review waiting (1)"));
     expect(waitingLane ? buttons(waitingLane) : null).toEqual(reviewWaiting);
@@ -833,15 +865,18 @@ describe("IntakeLanes — cancel and release", () => {
     await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: button }));
 
     await waitFor(() => expect(posts).toEqual([11]));
-    await waitFor(() => expect(within(screen.getByRole("region", { name: "Being reviewed" })).queryByText(/Moon Pix/)).not.toBeInTheDocument());
     if (fromAfter) {
-      const stillWaiting = screen.getByRole("region", { name: "Review waiting (1)" });
+      const stillWaiting = screen.getByRole("tabpanel", { name: "Review waiting" });
       expect(await within(stillWaiting).findByText(fromAfter)).toBeInTheDocument();
       expect(buttons(stillWaiting)).toEqual([]);
+      expect(within(await lane("Being reviewed")).queryByText(/Moon Pix/)).not.toBeInTheDocument();
+      await lane("Review waiting (1)");
     } else {
-      expect(screen.queryByRole("region", { name: /Review waiting/ })).not.toBeInTheDocument();
+      await waitFor(() => expect(within(screen.getByRole("tabpanel", { name: "Being reviewed" })).queryByText(/Moon Pix/)).not.toBeInTheDocument());
+      expect(screen.getByRole("tab", { name: "Review waiting, 0" })).toBeInTheDocument();
     }
-    expect(screen.queryByText(/on the review shelf/i)).not.toBeInTheDocument();
+    // The review shelf chip is the only place the review shelf is named: the record's own row names no location there.
+    expect(within(screen.getByRole("tabpanel")).queryByText(/on the review shelf/i)).not.toBeInTheDocument();
   });
 });
 
@@ -884,14 +919,15 @@ describe("IntakeLanes — lost races", () => {
   };
 
   it.each([
-    ["Cancel request", "cancel", "cancel-request", () => ({ open: [requestedRow(11)] }), "Cancel request", false],
-    ["Return to the review shelf", "release", "release", () => ({ open: [outRow(11)] }), "Return to the review shelf", true],
-    ["Mark as returned on the Reviewed lane", "return", "release", () => ({ reviewed: [moonPix({ id: 11, effective_state: "reviewed", ...heldBy("dj-1", "DJ Sam", "2026-09-01T12:00:00Z") })] }), "Mark as returned", false],
-    ["Mark as returned on a Review waiting disc", "return", "release", () => ({ open: [waiting(11)] }), "Mark as returned", true],
+    ["Cancel request", "cancel", "cancel-request", () => ({ open: [requestedRow(11)] }), "Cancel request", false, "requested"],
+    ["Return to the review shelf", "release", "release", () => ({ open: [outRow(11)] }), "Return to the review shelf", true, "being_reviewed"],
+    ["Mark as returned on the Reviewed lane", "return", "release", () => ({ reviewed: [moonPix({ id: 11, effective_state: "reviewed", ...heldBy("dj-1", "DJ Sam", "2026-09-01T12:00:00Z") })] }), "Mark as returned", false, "reviewed"],
+    ["Mark as returned on a Review waiting disc", "return", "release", () => ({ open: [waiting(11)] }), "Mark as returned", true, "waiting"],
   ] as const)(
     "a lost %s reloads the read, then shows its own line and never the server message",
-    async (_label, action, path, rows, button, confirms) => {
+    async (_label, action, path, rows, button, confirms, stage) => {
       let reads = 0;
+      showStage(stage);
       fakeReviewsEndpoints(rows());
       server.use(
         http.post(`${TEST_BACKEND_URL}/intake/11/${path}`, () =>
@@ -1235,11 +1271,12 @@ describe("a digital record's format line", () => {
 
   it.each([
     ["unfiled, reads Digital", { effective_state: "checked_out", state: "checked_out", ...heldBy("dj-1", "DJ Sam", null) }, "Digital", "CD-R"],
-    ["filed, reads its CD-R format", { effective_state: "filed", state: "filed", ...heldBy("dj-1", "DJ Sam", null) }, "CD-R", "Digital"],
+    ["filed, reads its CD-R format", { effective_state: "filed", state: "filed", filed_at: justNow, ...heldBy("dj-1", "DJ Sam", null) }, "CD-R", "Digital"],
   ] as const)("a record %s in its lane", async (_name, overrides, text, other) => {
     mockAuth.authority = Authorization.MD;
     const row = digitalItem({ id: 21, artist_name: "Juana Molina", album_title: "DOGA", ...overrides });
     fakeReviewsEndpoints({ open: [row], filed: [row], formats: [{ id: 1, format_name: "cd" }, CDR_FORMAT] });
+    showStage(overrides.effective_state === "filed" ? "filed" : "being_reviewed");
     renderWithProviders(<IntakeLanes />);
     const lane = (await screen.findByRole("link", { name: "Juana Molina" })).closest("li") as HTMLElement;
     expect(within(lane).getByText("DOGA")).toBeInTheDocument();
@@ -1253,7 +1290,7 @@ describe("IntakeLanes as the music directors' tab", () => {
   beforeEach(() => vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "staff"));
   afterEach(() => vi.unstubAllEnvs());
 
-  it("shows the director lanes in the order a record moves, with no review shelf lane and no logging form", async () => {
+  it("shows the stages in the order a record moves, each with its count, and no logging form", async () => {
     const row = (id: number, state: string, overrides = {}) =>
       moonPix({ id, album_title: `Album ${id}`, state, effective_state: state, ...overrides });
     const waitingRow = row(1, "checked_out", { ...heldBy("dj-1", "DJ Sam", "2026-09-01T12:00:00Z"), submitted_review_count: 1 });
@@ -1265,16 +1302,10 @@ describe("IntakeLanes as the music directors' tab", () => {
 
     renderWithProviders(<IntakeLanes />);
 
-    await lane("Filed");
-    const names = screen.getAllByRole("region").map((r) => document.getElementById(r.getAttribute("aria-labelledby") ?? "")?.textContent ?? "");
-    expect(names.filter((n) => /^(Review waiting|Requested|Being reviewed|Reviewed|Filed)/.test(n))).toEqual([
-      "Review waiting (1)",
-      "Requested",
-      "Being reviewed",
-      "Reviewed (1)",
-      "Filed",
-    ]);
-    expect(screen.queryByRole("region", { name: "On the review shelf" })).not.toBeInTheDocument();
+    const tabs = await screen.findAllByRole("tab");
+    expect(
+      ["On the review shelf, 1", "Requested, 1", "Being reviewed, 1", "Review waiting, 1", "Reviewed, 1", "Filed, 1"].map((name) => screen.getByRole("tab", { name })),
+    ).toEqual(tabs);
     expect(screen.queryByRole("form", { name: "Log an item" })).not.toBeInTheDocument();
   });
 });

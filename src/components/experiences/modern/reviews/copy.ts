@@ -306,6 +306,12 @@ export const REVIEW_COPY = {
     waiting: "Review waiting",
     /** Approved. */
     onShelf: "On the review shelf",
+    /** A proposal for the next copy round, not yet seen by the station: the accessible name of the chips that switch the New music tab's list. */
+    stagesLabel: "Which records to show",
+    /** Approved. The plain link, last in the row on every stage, to the record's page. */
+    open: "Open",
+    /** Approved. Reveals the filed records from before the last 30 days. */
+    showOlder: "Show older",
     /** Approved. */
     requested: "Requested",
     /** Approved. */

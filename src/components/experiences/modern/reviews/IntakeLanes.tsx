@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { Button, Chip, List, ListItem, Stack, Typography } from "@mui/joy";
+import { Button, Chip, Link, List, ListItem, Stack, Typography } from "@mui/joy";
 import type { IntakeItem } from "@wxyc/shared";
 import { toast } from "sonner";
 import {
+  isIntakeRequestRefused,
   isIntakeStateChanged,
   intakeApi,
   useCancelIntakeRequestMutation,
@@ -14,32 +15,36 @@ import {
 import { LIVE_LIST } from "@/lib/features/reviews/api";
 import { itemHolder, recordStage, type ReviewStage } from "@/lib/features/reviews/holder";
 import { byKind, recordKind } from "@/lib/features/reviews/kind";
+import { filedByRecency, NEW_MUSIC_STAGES, oldestLoggedFirst } from "@/lib/features/reviews/newMusic";
+import { reviewApi, useGetReviewersQuery } from "@/lib/features/reviews/reviewApi";
 import { useAppDispatch } from "@/lib/hooks";
 import { useCanSeeReviews } from "@/src/hooks/useCanSeeReviews";
 import { useRowWrite } from "@/src/hooks/useRowWrite";
 import ConfirmDialog from "../ConfirmDialog";
+import StageChips from "../StageChips";
 import FccNotesToConfirm from "./FccNotesToConfirm";
 import HeadedSection from "./HeadedSection";
-import IntakeLane from "./IntakeLane";
 import { REVIEW_COPY } from "./copy";
 import RecordRow from "./RecordRow";
 import { intakeRecord } from "./recordLine";
 import { whereLine, WaitingFrom } from "./ReviewFrom";
-import { EVERY_STATE } from "./useReviewWrite";
+import { useAskADj, type AskWrite } from "./useAskADj";
+import { day, EVERY_STATE } from "./useReviewWrite";
 import { formatStationShortDate } from "@/src/utilities/stationTime";
 import { hasNothingToShow } from "@/lib/has-nothing-to-show";
 
 const COPY = REVIEW_COPY.intake;
 
-// The lanes are one read, the unfiltered one (`EVERY_STATE`, shared with the Reviewing tab and the tab count), with each
-// row drawn in the lane `recordStage` gives it, so a record is in exactly one lane.
+// The stages are one read, the unfiltered one (`EVERY_STATE`, shared with the Reviewing tab and the tab count), with each
+// row drawn in the stage `recordStage` gives it, so a record is in exactly one stage.
 
-// `release` is Being reviewed's Return to the review shelf; `return` is Mark as returned, on the Reviewed lane and on a
-// Review waiting disc. Both call /release.
-type Action = "cancel" | "release" | "return";
+// `release` is Being reviewed's Return to the review shelf; `return` is Mark as returned, on the Reviewed stage and on a
+// Review waiting disc. Both call /release. `request` and `cancel` are the Ask a DJ… control's writes.
+type Action = "request" | "cancel" | "release" | "return";
 
 /** What a lost race (409 `state_changed`) means for each button, shown once the lists have reloaded. */
 const RACE_NOTICE: Record<Action, string> = {
+  request: COPY.raceRequest,
   cancel: COPY.raceCancel,
   release: COPY.raceCheckoutReleased,
   return: COPY.raceReleased,
@@ -47,8 +52,17 @@ const RACE_NOTICE: Record<Action, string> = {
 
 const RECENT_PASSES = 5;
 
+const STAGE_LABEL: Record<ReviewStage, string> = {
+  review_shelf: COPY.onShelf,
+  requested: COPY.requested,
+  being_reviewed: COPY.beingReviewed,
+  waiting: COPY.waiting,
+  reviewed: COPY.reviewed,
+  filed: COPY.filed,
+};
+
 /** A confirmation that is open: Return to the review shelf (`release`) or a Review waiting disc's Mark as returned (`return`). */
-type Confirming = { item: IntakeItem; action: Exclude<Action, "cancel"> };
+type Confirming = { item: IntakeItem; action: "release" | "return" };
 
 /** The open confirmation's words. A removed holder has no name to give, and nobody to ask to bring a disc back. */
 function confirmation({ item, action }: Confirming): { title: string; body: string; confirm: string } {
@@ -79,6 +93,61 @@ export default function IntakeLanes() {
   );
 }
 
+/** A stage's records as a list, or the approved empty line. */
+function RowList({ rows, row }: { rows: IntakeItem[]; row: (i: IntakeItem) => ReactNode }) {
+  if (rows.length === 0) {
+    return <Typography level="body-sm">{COPY.empty}</Typography>;
+  }
+  return (
+    <List>
+      {rows.map((i) => (
+        <ListItem key={i.id}>{row(i)}</ListItem>
+      ))}
+    </List>
+  );
+}
+
+/** Draws one record's row. `title` replaces the artist link, for a control whose label points at it. */
+type LaneRow = (i: IntakeItem, meta?: ReactNode, actions?: ReactNode, title?: { titleSlot: ReactNode; albumId: string }) => ReactNode;
+
+const itemHref = (i: IntakeItem) => `/dashboard/admin/intake/${i.id}`;
+
+/** On the review shelf: each record with its Ask a DJ… control. The reviewers are read here, so the other stages never read them. */
+function OnReviewShelf({ rows, laneRow, write, lock }: { rows: IntakeItem[]; laneRow: LaneRow } & AskWrite) {
+  const reviewers = useGetReviewersQuery(undefined);
+  const { alert, picker, shelfRecordId, shelfAlbumId } = useAskADj({ reviewers, write, lock });
+  return (
+    <>
+      {alert}
+      <RowList
+        rows={rows}
+        row={(i) =>
+          laneRow(i, <Typography level="body-sm">{`${REVIEW_COPY.screen.logged} ${day(i.logged_at)}`}</Typography>, picker(i), {
+            titleSlot: <Link level="title-md" id={shelfRecordId(i)} href={itemHref(i)}>{i.artist_name}</Link>,
+            albumId: shelfAlbumId(i),
+          })
+        }
+      />
+    </>
+  );
+}
+
+/** Filed: the last 30 days, newest first, and the rest from the same read once Show older is pressed. */
+function FiledList({ rows, row }: { rows: IntakeItem[]; row: (i: IntakeItem) => ReactNode }) {
+  const [all, setAll] = useState(false);
+  // The window is fixed when the stage opens, so a list left on screen does not shift under the reader.
+  const [now] = useState(() => Date.now());
+  const { recent, older } = filedByRecency(rows, now);
+  return (
+    <>
+      <RowList rows={all ? [...recent, ...older] : recent} row={row} />
+      {!all && older.length > 0 && (
+        <Button variant="plain" onClick={() => setAll(true)}>{COPY.showOlder}</Button>
+      )}
+    </>
+  );
+}
+
 function IntakeLaneGroups() {
   const everyState = useGetIntakeItemsQuery(EVERY_STATE, LIVE_LIST);
   const [release] = useReleaseIntakeItemMutation();
@@ -89,7 +158,14 @@ function IntakeLaneGroups() {
   const { write, lock } = useRowWrite<Action>({
     reload: () => [dispatch(intakeApi.endpoints.getIntakeItems.initiate(EVERY_STATE, { subscribe: false, forceRefetch: true }))],
     isLostRace: isIntakeStateChanged,
-    onFailure: () => toast.error(REVIEW_COPY.screen.writeFailed),
+    onFailure: (err, _id, action) => {
+      if (action === "request" && isIntakeRequestRefused(err)) {
+        toast.error(COPY.requestRefused);
+        void dispatch(reviewApi.endpoints.getReviewers.initiate(undefined, { subscribe: false, forceRefetch: true }));
+        return;
+      }
+      toast.error(REVIEW_COPY.screen.writeFailed);
+    },
     onLostRace: (_id, action) => setNotice(RACE_NOTICE[action]),
   });
 
@@ -108,10 +184,16 @@ function IntakeLaneGroups() {
   }
 
   const inStage = (stage: ReviewStage) => everyState.data!.filter((i) => recordStage(i) === stage);
-  // Both checkout lanes put the records a DJ has held past the server's overdue line first; the sort is stable.
+  // Being reviewed and Reviewed put the records a DJ has held past the server's overdue line first; the sort is stable.
   const overdueFirst = (rows: IntakeItem[]) => [...rows].sort((a, b) => Number(b.overdue) - Number(a.overdue));
-  const waitingRows = inStage("waiting");
-  const reviewed = inStage("reviewed");
+  const rowsOf: Record<ReviewStage, IntakeItem[]> = {
+    review_shelf: oldestLoggedFirst(inStage("review_shelf")),
+    requested: inStage("requested"),
+    being_reviewed: overdueFirst(inStage("being_reviewed")),
+    waiting: inStage("waiting"),
+    reviewed: overdueFirst(inStage("reviewed")),
+    filed: inStage("filed"),
+  };
   const passes = everyState.data
     .flatMap((i) => (i.passes ?? []).map((p) => ({ ...p, id: `${i.id}-${p.dj_name}-${p.passed_at}`, item: i })))
     .sort((a, b) => b.passed_at.localeCompare(a.passed_at))
@@ -124,21 +206,68 @@ function IntakeLaneGroups() {
   );
 
   const dialog = confirming && confirmation(confirming);
-  // Every lane's row links the artist to the record's page and puts the overdue mark and its lines in `meta`.
-  const laneRow = (i: IntakeItem, meta?: ReactNode, actions?: ReactNode) => (
+  // Every stage's row links the artist to the record's page, puts the overdue mark and its lines in `meta`, and ends its actions with Open.
+  const laneRow: LaneRow = (i, meta, actions, title) => (
     <RecordRow
       record={intakeRecord(i)}
       cover={56}
-      href={`/dashboard/admin/intake/${i.id}`}
+      href={itemHref(i)}
+      {...title}
       meta={
         <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
           {i.overdue && <Chip color="danger">{REVIEW_COPY.screen.overdue}</Chip>}
           {meta}
         </Stack>
       }
-      actions={actions}
+      actions={
+        <>
+          {actions}
+          <Link href={itemHref(i)}>{COPY.open}</Link>
+        </>
+      }
     />
   );
+  const markReturned = (i: IntakeItem, onClick: () => void) => (
+    <Button size="sm" variant="outlined" {...lock(i.id, "return")} onClick={onClick}>
+      {COPY.returned}
+    </Button>
+  );
+  const rowFor: Record<Exclude<ReviewStage, "review_shelf">, (i: IntakeItem) => ReactNode> = {
+    requested: (i) => laneRow(i, <Typography level="body-sm">{whereLine(i)}</Typography>, cancelButton(i)),
+    being_reviewed: (i) =>
+      laneRow(
+        i,
+        <Typography level="body-sm">{whereLine(i)}</Typography>,
+        <Button size="sm" variant="outlined" {...lock(i.id, "release")} onClick={() => setConfirming({ item: i, action: "release" })}>
+          {REVIEW_COPY.screen.returnToShelf}
+        </Button>,
+      ),
+    waiting: (i) => {
+      const returnable = ["checked_out", "removed"].includes(itemHolder(i).kind) && recordKind(i) === "disc";
+      return laneRow(
+        i,
+        <WaitingFrom item={i} where={whereLine(i)} />,
+        <>
+          {i.effective_state === "requested" && cancelButton(i)}
+          {returnable && markReturned(i, () => setConfirming({ item: i, action: "return" }))}
+        </>,
+      );
+    },
+    reviewed: (i) => {
+      const holder = itemHolder(i);
+      const stillOut = holder.kind !== "none" && recordKind(i) === "disc";
+      return laneRow(
+        i,
+        stillOut && (
+          <Typography level="body-sm">
+            {holder.kind === "removed" ? COPY.holderRemoved : `${COPY.stillOutTo} ${holder.name}`}
+          </Typography>
+        ),
+        stillOut && markReturned(i, () => act(i.id, "return", () => release(i.id).unwrap())),
+      );
+    },
+    filed: (i) => laneRow(i),
+  };
 
   return (
     <Stack spacing={3}>
@@ -157,74 +286,18 @@ function IntakeLaneGroups() {
         </HeadedSection>
       )}
       {notice && <Typography role="status">{notice}</Typography>}
-      {waitingRows.length > 0 && (
-        <IntakeLane
-          title={`${COPY.waiting} (${waitingRows.length})`}
-          rows={waitingRows}
-          empty={COPY.empty}
-          row={(i) => {
-            const requested = i.effective_state === "requested";
-            const returnable = ["checked_out", "removed"].includes(itemHolder(i).kind) && recordKind(i) === "disc";
-            return laneRow(
-              i,
-              <WaitingFrom item={i} where={whereLine(i)} />,
-              (requested || returnable) && (
-                <>
-                  {requested && cancelButton(i)}
-                  {returnable && (
-                    <Button size="sm" variant="outlined" {...lock(i.id, "return")} onClick={() => setConfirming({ item: i, action: "return" })}>
-                      {COPY.returned}
-                    </Button>
-                  )}
-                </>
-              ),
-            );
-          }}
-        />
-      )}
-      <IntakeLane
-        title={COPY.requested}
-        rows={inStage("requested")}
-        empty={COPY.empty}
-        row={(i) => laneRow(i, <Typography level="body-sm">{whereLine(i)}</Typography>, cancelButton(i))}
-      />
-      <IntakeLane
-        title={COPY.beingReviewed}
-        rows={overdueFirst(inStage("being_reviewed"))}
-        empty={COPY.empty}
-        row={(i) =>
-          laneRow(
-            i,
-            <Typography level="body-sm">{whereLine(i)}</Typography>,
-            <Button size="sm" variant="outlined" {...lock(i.id, "release")} onClick={() => setConfirming({ item: i, action: "release" })}>
-              {REVIEW_COPY.screen.returnToShelf}
-            </Button>,
-          )
-        }
-      />
-      <IntakeLane
-        title={reviewed.length > 0 ? `${COPY.reviewed} (${reviewed.length})` : COPY.reviewed}
-        rows={overdueFirst(reviewed)}
-        empty={COPY.empty}
-        row={(i) => {
-          const holder = itemHolder(i);
-          const stillOut = holder.kind !== "none" && recordKind(i) === "disc";
-          return laneRow(
-            i,
-            stillOut && (
-              <Typography level="body-sm">
-                {holder.kind === "removed" ? COPY.holderRemoved : `${COPY.stillOutTo} ${holder.name}`}
-              </Typography>
-            ),
-            stillOut && (
-              <Button size="sm" variant="outlined" {...lock(i.id, "return")} onClick={() => act(i.id, "return", () => release(i.id).unwrap())}>
-                {COPY.returned}
-              </Button>
-            ),
-          );
+      <StageChips
+        label={COPY.stagesLabel}
+        stages={NEW_MUSIC_STAGES.map((id) => ({ id, label: STAGE_LABEL[id], count: rowsOf[id].length }))}
+        fallback={rowsOf.waiting.length > 0 ? "waiting" : "being_reviewed"}
+      >
+        {(stage) => {
+          if (stage === "review_shelf") {
+            return <OnReviewShelf rows={rowsOf[stage]} laneRow={laneRow} write={act} lock={lock} />;
+          }
+          return stage === "filed" ? <FiledList rows={rowsOf.filed} row={rowFor.filed} /> : <RowList rows={rowsOf[stage]} row={rowFor[stage]} />;
         }}
-      />
-      <IntakeLane title={COPY.filed} rows={inStage("filed")} empty={COPY.empty} row={(i) => laneRow(i)} />
+      </StageChips>
       <ConfirmDialog
         open={confirming !== null}
         onClose={() => setConfirming(null)}
