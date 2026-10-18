@@ -61,8 +61,11 @@ test("the intake golden path, from logging a record to the librarian's finalize"
   // The My reviews tab's lists are stages in a tabpanel named by the chip: a record the DJ has, before and after their review is submitted.
   const checkoutRow = (page: Page, stage: "open" | "submitted" = "open") =>
     page.getByRole("tabpanel", { name: COPY.myReviews.stages[stage] }).getByRole("listitem").filter({ hasText: album });
-  const laneRow = (page: Page, lane: RegExp) =>
-    page.getByRole("region", { name: lane }).getByRole("listitem").filter({ hasText: album });
+  // The New music tab shows one stage at a time: choose the stage's chip (named "Label, count"), then read its list.
+  const laneRow = async (page: Page, stage: string) => {
+    await page.getByRole("tab", { name: new RegExp(`^${escapeRegExp(stage)},`) }).click();
+    return page.getByRole("tabpanel", { name: stage, exact: true }).getByRole("listitem").filter({ hasText: album });
+  };
 
   let itemId = 0;
   let reviewId = 0;
@@ -117,7 +120,7 @@ test("the intake golden path, from logging a record to the librarian's finalize"
 
     await test.step("3. the music director sees whose review it is and chooses it", async () => {
       await md.goto("/dashboard/reviews/music-directors");
-      const waiting = laneRow(md, new RegExp(`^${escapeRegExp(COPY.intake.waiting)}`));
+      const waiting = await laneRow(md, COPY.intake.waiting);
       await expect(waiting.getByText(COPY.intake.fromHolder(INTAKE_DJ_USER.realName))).toBeVisible({ timeout: 15000 });
 
       await waiting.getByRole("link", { name: artist, exact: true }).click();
@@ -130,7 +133,7 @@ test("the intake golden path, from logging a record to the librarian's finalize"
       await expect(md.getByRole("heading", { name: COPY.albumPanel.coverOne })).toBeVisible({ timeout: 15000 });
 
       await md.goto("/dashboard/reviews/music-directors");
-      const reviewed = laneRow(md, new RegExp(`^${escapeRegExp(COPY.intake.reviewed)}`));
+      const reviewed = await laneRow(md, COPY.intake.reviewed);
       await expect(reviewed).toBeVisible({ timeout: 15000 });
       await expect(reviewed.getByText(`${COPY.intake.stillOutTo} ${INTAKE_DJ_USER.realName}`)).toBeVisible();
     });

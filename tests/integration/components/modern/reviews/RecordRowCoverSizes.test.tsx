@@ -19,9 +19,10 @@ vi.mock("sonner", () => ({
   toast: Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn(), info: vi.fn() }),
 }));
 
+const url = vi.hoisted(() => ({ search: "" }));
 vi.mock("next/navigation", async () => {
   const { createNavigationModuleMock } = await import("@/tests/helpers/navigation-mock");
-  return createNavigationModuleMock({ push: vi.fn(), replace: vi.fn() });
+  return createNavigationModuleMock({ push: vi.fn(), replace: vi.fn() }, { search: () => url.search });
 });
 
 const mockAuth = vi.hoisted(() => ({ id: "md-me", authority: 2 as number }));
@@ -49,19 +50,21 @@ const checkedOut = intakeItem({ id: 6, state: "checked_out", effective_state: "c
 describe("the cover size each screen gives its rows", () => {
   beforeEach(() => {
     mockAuth.authority = Authorization.MD;
+    url.search = "";
     vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "staff");
   });
   afterEach(() => vi.unstubAllEnvs());
 
-  // The review shelf and the music directors' lanes are regions; My reviews' stages are a tabpanel named by the selected chip.
-  it.each<[string, "region" | "tabpanel", string, 72 | 56, ReactElement, Parameters<typeof fakeReviewsEndpoints>[0]]>([
+  // The review shelf is a region; the music directors' and My reviews' stages are a tabpanel named by the selected chip.
+  it.each<[string, "region" | "tabpanel", string, 72 | 56, ReactElement, Parameters<typeof fakeReviewsEndpoints>[0], string?]>([
     ["the review shelf", "region", REVIEW_COPY.screen.shelfTitle, 72, <Shelf key="shelf" items={[intakeItem({ id: 4 })]} isMD={false} />, {}],
-    ["a music directors' lane", "region", REVIEW_COPY.intake.requested, 56, <IntakeLanes key="md" />, { open: [requested] }],
+    ["a music directors' stage", "tabpanel", REVIEW_COPY.intake.requested, 56, <IntakeLanes key="md" />, { open: [requested] }, "?stage=requested"],
     ["Open reviews, a request", "tabpanel", REVIEW_COPY.myReviews.stages.open, 72, <Mine key="requests" items={[requested]} myReviews={[]} me="dj-me" />, {}],
     ["Open reviews, a record the DJ has", "tabpanel", REVIEW_COPY.myReviews.stages.open, 72, <Mine key="checkouts" items={[checkedOut]} myReviews={[]} me="dj-me" />, {}],
     ["Open reviews, a draft", "tabpanel", REVIEW_COPY.myReviews.stages.open, 72, <Mine key="draft" items={[]} myReviews={[review({ intake_item_id: 2 })]} me="dj-me" />, { records: [intakeItem({ id: 2 })] }],
     ["Submitted", "tabpanel", REVIEW_COPY.myReviews.stages.submitted, 56, <Mine key="submitted" items={[]} myReviews={[review({ intake_item_id: 2, status: "submitted", in_use: false, submitted_at: "2026-10-08T12:00:00Z" })]} me="dj-me" />, { records: [intakeItem({ id: 2 })] }],
-  ])("draws the row in %s (%s %s) with its cover at %i px", async (_screen, role, lane, size, ui, endpoints) => {
+  ])("draws the row in %s (%s %s) with its cover at %i px", async (_screen, role, lane, size, ui, endpoints, search = "") => {
+    url.search = search;
     fakeReviewsEndpoints({ ...endpoints, artworkUrl: COVER_URL });
     renderWithProviders(ui);
 
