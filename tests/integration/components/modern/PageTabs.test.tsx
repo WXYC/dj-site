@@ -76,6 +76,15 @@ describe("PageTabs", () => {
     expect(next).not.toBe(pill);
   });
 
+  it("draws the count pill as a box a transform applies to, since CSS ignores a transform on an inline box", () => {
+    vi.mocked(usePathname).mockReturnValue("/dashboard/first");
+
+    renderWithProviders(<PageTabs tabs={[{ path: "/dashboard/first", label: "First", count: 2, countLabel: "2 waiting" }]} />);
+
+    const pill = screen.getByRole("link", { name: /^First/ }).querySelector("[data-tab-count]")!;
+    expect(["inline", ""]).not.toContain(getComputedStyle(pill).display);
+  });
+
   it("hides the visible pill from assistive technology and speaks the count from text inside the tab", () => {
     vi.mocked(usePathname).mockReturnValue("/dashboard/first");
 

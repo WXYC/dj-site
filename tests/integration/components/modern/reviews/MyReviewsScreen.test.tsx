@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { toast } from "sonner";
@@ -80,6 +80,49 @@ describe("MyReviewsScreen", () => {
     await screen.findByText("Stereolab");
     const rows = screen.getAllByRole("listitem");
     expect(rows.filter((row) => row.dataset.highlighted === "true").map((row) => ["Stereolab", "Cat Power"].find((a) => row.textContent?.includes(a)))).toEqual(marked);
+  });
+
+  describe("bringing the highlighted row into view", () => {
+    let scroll: ReturnType<typeof vi.spyOn>;
+    beforeEach(() => {
+      scroll = vi.spyOn(Element.prototype, "scrollIntoView");
+    });
+    afterEach(() => {
+      scroll.mockRestore();
+    });
+    const scrolledTo = () => scroll.mock.contexts.map((el: unknown) => (el as HTMLElement).closest("li")?.textContent ?? "");
+
+    it("scrolls the highlighted row into view, and no other", async () => {
+      url.search = "stage=open&highlight=7";
+      renderScreen([held(7, { artist_name: "Stereolab" }), held(8, { artist_name: "Cat Power" })], []);
+
+      await screen.findByText("Stereolab");
+
+      expect(scroll).toHaveBeenCalledTimes(1);
+      expect(scrolledTo()[0]).toContain("Stereolab");
+    });
+
+    it("scrolls to the row when it only arrives after the first draw, as the reload that follows a checkout brings it", async () => {
+      url.search = "stage=open&highlight=7";
+      fakeReviewsEndpoints();
+      const { rerender } = renderWithProviders(<WithWrite items={[held(8, { artist_name: "Cat Power" })]} myReviews={[]} me={ME} />);
+      await screen.findByText("Cat Power");
+      expect(scroll).not.toHaveBeenCalled();
+
+      rerender(<WithWrite items={[held(8, { artist_name: "Cat Power" }), held(7, { artist_name: "Stereolab" })]} myReviews={[]} me={ME} />);
+
+      await waitFor(() => expect(scroll).toHaveBeenCalledTimes(1));
+      expect(scrolledTo()[0]).toContain("Stereolab");
+    });
+
+    it("scrolls nothing when no row is highlighted", async () => {
+      url.search = "stage=open";
+      renderScreen([held(7, { artist_name: "Stereolab" })], []);
+
+      await screen.findByText("Stereolab");
+
+      expect(scroll).not.toHaveBeenCalled();
+    });
   });
 
   // An earlier year than the clock's, so the day carries its year.

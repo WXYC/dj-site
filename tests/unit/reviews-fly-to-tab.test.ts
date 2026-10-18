@@ -58,6 +58,33 @@ describe("moveRowToTab", () => {
     expect(clone.isConnected).toBe(false);
   });
 
+  it.each(["minHeight", "minBlockSize", "paddingTop", "paddingBottom"])("takes the row's %s to zero too, so a list item's own minimum height cannot hold the row open", async (property) => {
+    const animate = stubMotion({ reduce: false });
+    const row = draw("<img alt='' src='/c.png'>");
+
+    await moveRowToTab(row, TAB);
+
+    const call = animate.mock.calls.find((_args, i) => animate.mock.instances[i] === row) as unknown as [Record<string, unknown>];
+    expect(call[0][property]).toBe("0px");
+  });
+
+  it("resolves, and removes the copy, when the reload takes the row out of the page mid-animation", async () => {
+    stubMotion({ reduce: false });
+    const settlers: (() => void)[] = [];
+    HTMLElement.prototype.animate = vi.fn(() => ({ finished: new Promise<void>((resolve) => { settlers.push(resolve); }), cancel: vi.fn() })) as unknown as HTMLElement["animate"];
+    const row = draw("<img alt='' src='/c.png'>");
+    const warn = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const moving = moveRowToTab(row, TAB);
+    row.remove();
+    settlers.forEach((settle) => settle());
+
+    await expect(moving).resolves.toBeUndefined();
+    expect(document.querySelectorAll("body > [aria-hidden='true']")).toHaveLength(0);
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
   it("flies to the tab link when the tab has no count pill", async () => {
     const animate = stubMotion({ reduce: false });
     const row = draw("<img alt='' src='/c.png'>");

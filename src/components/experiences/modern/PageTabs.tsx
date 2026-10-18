@@ -66,26 +66,29 @@ export default function PageTabs({ tabs }: { tabs: readonly PageTab[] }): JSX.El
             {tab.label}
             {tab.count !== undefined && tab.count > 0 && (
               <>
-                <Box
-                  // A new count is a new element, so the bounce plays each time the count changes and not on other renders.
-                  key={tab.count}
-                  component="span"
-                  aria-hidden="true"
-                  data-tab-count={tab.path}
-                  sx={{
-                    ml: 1,
-                    px: 0.75,
-                    borderRadius: "lg",
-                    fontSize: "xs",
-                    fontWeight: "lg",
-                    bgcolor: "primary.solidBg",
-                    color: "primary.solidColor",
-                    animation: "tabCountBounce 400ms ease-out",
-                    "@keyframes tabCountBounce": { "0%": { transform: "scale(1)" }, "40%": { transform: "scale(1.4)" }, "100%": { transform: "scale(1)" } },
-                    "@media (prefers-reduced-motion: reduce)": { animation: "none" },
-                  }}
-                >
-                  {tab.count}
+                {/* A new count is a new element, so the bounce plays each time the count changes and not on other renders. The outer span stays inline: a block-level box inside a link adds a break to its accessible name. */}
+                <Box key={tab.count} component="span" aria-hidden="true">
+                  <Box
+                    component="span"
+                    aria-hidden="true"
+                    data-tab-count={tab.path}
+                    sx={{
+                      // A transform does not apply to an inline box, so the bounce needs this to show.
+                      display: "inline-block",
+                      ml: 1,
+                      px: 0.75,
+                      borderRadius: "lg",
+                      fontSize: "xs",
+                      fontWeight: "lg",
+                      bgcolor: "primary.solidBg",
+                      color: "primary.solidColor",
+                      animation: "tabCountBounce 400ms ease-out",
+                      "@keyframes tabCountBounce": { "0%": { transform: "scale(1)" }, "40%": { transform: "scale(1.4)" }, "100%": { transform: "scale(1)" } },
+                      "@media (prefers-reduced-motion: reduce)": { animation: "none" },
+                    }}
+                  >
+                    {tab.count}
+                  </Box>
                 </Box>
                 <Box component="span" sx={VISUALLY_HIDDEN}>{`, ${tab.countLabel}`}</Box>
               </>

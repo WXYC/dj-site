@@ -30,7 +30,7 @@ vi.mock("next/navigation", async () => {
 const MINE = "/dashboard/reviews/mine";
 
 // The screen over the list as the server answers it, beside the My reviews tab's count pill the cover flies to, so a checkout's reload takes its row away.
-function Live() {
+function Live({ isMD = false }: { isMD?: boolean }) {
   const items = useGetIntakeItemsQuery(ACTIVE_ITEMS).data;
   if (!items) {
     return null;
@@ -38,7 +38,7 @@ function Live() {
   return (
     <>
       <a href={MINE} data-tab={MINE}>My reviews<span data-tab-count={MINE}>1</span></a>
-      <WithWrite items={items} isMD={false} />
+      <WithWrite items={items} isMD={isMD} />
     </>
   );
 }
@@ -229,11 +229,14 @@ describe("ReviewShelfScreen", () => {
       expect(toast).toHaveBeenCalledTimes(1);
     });
 
-    it("leaves the focus on the next row's Review button, past its Preview link, once a row leaves", async () => {
+    it.each([
+      ["a DJ", false],
+      ["a music director, whose rows also carry a title link and a More menu", true],
+    ])("leaves the focus on the next row's Review button for %s, past its Preview link, once a row leaves", async (_who, isMD) => {
       const first = ROW("disc", 5);
       const second = { ...ROW("disc", 6), logged_at: "2026-09-02T12:00:00Z", spotify_url: "https://open.spotify.com/album/x" };
       serveShelf([first, second], [second]);
-      const { user } = renderWithProviders(<Live />);
+      const { user } = renderWithProviders(<Live isMD={isMD} />);
 
       const [firstButton] = await screen.findAllByRole("button", { name: REVIEW_COPY.screen.review });
       await user.click(firstButton);
@@ -242,13 +245,26 @@ describe("ReviewShelfScreen", () => {
       expect(document.activeElement).toHaveTextContent(REVIEW_COPY.screen.review);
     });
 
-    it("leaves the focus on the list when the row was the last", async () => {
+    it("leaves the focus on the previous row's Review button when the row was the last of several", async () => {
+      const first = ROW("disc", 5);
+      const second = { ...ROW("disc", 6), logged_at: "2026-09-02T12:00:00Z" };
+      serveShelf([first, second], [first]);
+      const { user } = renderWithProviders(<Live />);
+
+      const buttons = await screen.findAllByRole("button", { name: REVIEW_COPY.screen.review });
+      await user.click(buttons.at(-1)!);
+
+      await waitFor(() => expect(screen.getAllByRole("button", { name: REVIEW_COPY.screen.review })).toHaveLength(1));
+      expect(document.activeElement).toBe(screen.getByRole("button", { name: REVIEW_COPY.screen.review }));
+    });
+
+    it("leaves the focus on the named review shelf region when the row was the only one", async () => {
       serveShelf([ROW("disc")]);
       const { user } = renderWithProviders(<Live />);
 
       await user.click(await screen.findByRole("button", { name: REVIEW_COPY.screen.review }));
 
-      await waitFor(() => expect(document.activeElement).toHaveAttribute("tabindex", "-1"));
+      await waitFor(() => expect(screen.getByRole("region", { name: REVIEW_COPY.screen.shelfTitle })).toHaveFocus());
     });
   });
 });
