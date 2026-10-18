@@ -37,10 +37,27 @@ vi.mock("sonner", () => ({
 }));
 
 const router = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn() }));
-const url = vi.hoisted(() => ({ search: "" }));
+// The address `useSearchParams` reads. `changed` draws the screen again from it, as the App Router does after `history.replaceState`.
+const url = vi.hoisted(() => {
+  const listeners = new Set<() => void>();
+  return {
+    search: "",
+    subscribe: (listener: () => void) => {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+    changed: () => listeners.forEach((listener) => listener()),
+  };
+});
 vi.mock("next/navigation", async () => {
+  const { useSyncExternalStore } = await import("react");
   const { createNavigationModuleMock } = await import("@/tests/helpers/navigation-mock");
-  return createNavigationModuleMock(router, { pathname: "/dashboard/reviews/mine", search: () => url.search });
+  return {
+    ...createNavigationModuleMock(router, { pathname: "/dashboard/reviews/mine" }),
+    useSearchParams: () => new URLSearchParams(useSyncExternalStore(url.subscribe, () => url.search)),
+  };
 });
 
 const ME = "dj-me";
@@ -73,6 +90,10 @@ describe("MyReviewsScreen", () => {
     ["the held record the link names", "stage=open&highlight=7", ["Stereolab"]],
     ["nothing without the param", "stage=open", []],
     ["nothing for a record the DJ does not hold", "stage=open&highlight=99", []],
+    ["nothing for a word", "stage=open&highlight=abc", []],
+    ["nothing for a held record's number with a character after it", "stage=open&highlight=7)", []],
+    ["nothing for an empty param", "stage=open&highlight=", []],
+    ["nothing for 0", "stage=open&highlight=0", []],
   ])("highlights %s", async (_name, search, marked) => {
     url.search = search;
     renderScreen([held(7, { artist_name: "Stereolab" }), held(8, { artist_name: "Cat Power" })], []);
@@ -116,13 +137,14 @@ describe("MyReviewsScreen", () => {
     });
 
     describe("marking the row only once", () => {
-      // The address the screen reads follows `history.replaceState`, as the App Router syncs it to `useSearchParams`.
+      // The address the screen reads follows `history.replaceState`, and the screen is drawn again from it, as the App Router syncs it to `useSearchParams` and re-renders.
       const realReplace = window.history.replaceState.bind(window.history);
       let replace: ReturnType<typeof vi.spyOn>;
       beforeEach(() => {
         replace = vi.spyOn(window.history, "replaceState").mockImplementation((state, unused, target) => {
           realReplace(state, unused, target);
           url.search = window.location.search;
+          url.changed();
         });
       });
       afterEach(() => {
@@ -154,9 +176,9 @@ describe("MyReviewsScreen", () => {
         const items = [held(7, { artist_name: "Stereolab" }), held(8, { artist_name: "Cat Power" })];
         const { unmount, user } = renderScreen(items, []);
         await screen.findByText("Stereolab");
-        expect(marked()).toHaveLength(1);
-        // The address drops the record once its row is drawn, and the row keeps its mark.
+        // The address drops the record once its row is drawn, and the row keeps its mark through the draw that follows.
         expect(url.search).toBe("?stage=open");
+        expect(marked()).toHaveLength(1);
 
         await again({
           user,
