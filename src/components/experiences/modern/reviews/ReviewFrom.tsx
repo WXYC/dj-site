@@ -4,7 +4,6 @@ import { Typography } from "@mui/joy";
 import type { IntakeItem, Review } from "@wxyc/shared";
 import { namedAuthor } from "@/lib/features/reviews/author";
 import { itemHolder, unheldPlace, type UnheldPlace } from "@/lib/features/reviews/holder";
-import { byKind } from "@/lib/features/reviews/kind";
 import { useGetItemReviewsQuery } from "@/lib/features/reviews/reviewApi";
 import { REVIEW_COPY } from "./copy";
 
@@ -35,10 +34,10 @@ export function whereLine(item: IntakeItem): string | null {
     return `${COPY.heldFor} ${holder.name}`;
   }
   if (holder.kind === "checked_out") {
-    return `${byKind(item, { disc: COPY.checkedOutTo, digital: COPY.takenBy })} ${holder.name}`;
+    return `${COPY.with} ${holder.name}`;
   }
   if (holder.kind === "removed") {
-    return byKind(item, { disc: COPY.holderRemovedNow, digital: COPY.takenByRemoved });
+    return COPY.withRemoved;
   }
   return placeLine(item);
 }
@@ -66,16 +65,15 @@ export function fromLine(review: Review, item: IntakeItem): string | null {
     return null;
   }
   if (holder.kind === "removed") {
-    return byKind(item, { disc: COPY.fromRemoved, digital: COPY.fromTakenRemoved })(author);
+    return COPY.fromRemoved(author);
   }
   if (holder.kind === "none") {
     return FROM_PLACE[unheldPlace(item)]?.(author) ?? null;
   }
   if (holder.id !== null && holder.id === review.author_user_id) {
-    return byKind(item, { disc: COPY.fromHolder, digital: COPY.fromTaker })(author);
+    return COPY.fromHolder(author);
   }
-  const elsewhere = byKind(item, { disc: COPY.fromWith, digital: COPY.fromTakenBy });
-  return (holder.kind === "requested" ? COPY.fromHeldFor : elsewhere)(author, holder.name);
+  return (holder.kind === "requested" ? COPY.fromHeldFor : COPY.fromWith)(author, holder.name);
 }
 
 /**

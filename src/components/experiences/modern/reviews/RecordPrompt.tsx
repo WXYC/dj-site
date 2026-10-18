@@ -5,7 +5,7 @@ import { REVIEW_COPY } from "./copy";
 
 const COPY = REVIEW_COPY.intakeItem;
 
-/** One of the page's three openers: the Record a review button or a cite button. It reads as pressed while its section is open. */
+/** One of the page's three openers: the Digitize a review button or a cite button. It reads as pressed while its section is open. */
 function SectionToggle({ open, disabled, onClick, children }: { open: boolean; disabled?: boolean; onClick: () => void; children: string }) {
   return (
     <Button variant={open ? "soft" : "outlined"} aria-expanded={open} disabled={disabled} onClick={onClick} endDecorator={<KeyboardArrowDown sx={{ transform: open ? "rotate(180deg)" : "none" }} />}>
@@ -18,7 +18,7 @@ function SectionToggle({ open, disabled, onClick, children }: { open: boolean; d
 export type OpenSection = "record" | "release" | "form" | null;
 
 /**
- * The dashed row that starts a review of the record. Line one holds Record a review and its explanation; line two
+ * The dashed row that starts a review of the record. Line one holds Digitize a review and its explanation; line two
  * holds the cite buttons (`cite`) or, in their place, whatever removes the citation (`removal`). The row takes no
  * place on the page of its own, and the page draws the open section right after it.
  */

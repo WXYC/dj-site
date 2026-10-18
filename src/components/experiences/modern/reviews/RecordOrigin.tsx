@@ -15,7 +15,7 @@ const COPY = REVIEW_COPY.intakeItem;
 
 /**
  * The block at the top of a record's page while no review is chosen for its cover: where the record is now, then the
- * other ways to get a review. `children` is the page's Record a review row with its open section, which the page draws
+ * other ways to get a review. `children` is the page's Digitize a review row with its open section, which the page draws
  * here instead of in its own place. `focusCite` moves focus to the first cite button once, when the block first
  * appears. `settled` is true while the block stays only to keep an open section in place after a review was chosen;
  * it then draws only that section, so it never says where a record with its review is. The page is for music
@@ -24,7 +24,7 @@ const COPY = REVIEW_COPY.intakeItem;
 export default function RecordOrigin({ item, focusCite, settled, children }: { item: IntakeItem; focusCite: boolean; settled: boolean; children: ReactNode }) {
   const onShelf = onReviewShelf(item);
   const reviewers = useGetReviewersQuery(undefined, { skip: settled || !onShelf });
-  const { write, lock } = useReviewWrite(undefined, { reloadMine: false, only: item.id });
+  const { write, lock } = useReviewWrite({ reloadMine: false, only: item.id });
   const [cancelRequest] = useCancelIntakeRequestMutation();
   const block = useRef<HTMLElement | null>(null);
   const whereNow = useRef<HTMLElement | null>(null);

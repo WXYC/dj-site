@@ -29,7 +29,7 @@ export default function ReviewShelfScreen({ items, isMD, reviewers, write, lock 
           cover={72}
           titleSlot={isMD ? <Link level="title-md" id={shelfRecordId(i)} href={`/dashboard/admin/intake/${i.id}`}>{i.artist_name}</Link> : undefined}
           albumId={shelfAlbumId(i)}
-          meta={<Typography level="body-sm">{`${REVIEW_COPY.screen.logged} ${day(i.logged_at)}`}</Typography>}
+          meta={<Typography level="body-sm">{`${REVIEW_COPY.screen.added} ${day(i.logged_at)}`}</Typography>}
           actions={
             <>
               <Button size="sm" {...lock(i.id, "checkout")} onClick={() => write(i.id, "checkout", () => checkout(i.id).unwrap())}>{byKind(i, { disc: REVIEW_COPY.screen.checkOut, digital: REVIEW_COPY.screen.take })}</Button>

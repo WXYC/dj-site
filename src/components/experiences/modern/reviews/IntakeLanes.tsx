@@ -121,7 +121,7 @@ function OnReviewShelf({ rows, laneRow, askADj }: { rows: IntakeItem[]; laneRow:
       <RowList
         rows={rows}
         row={(i) =>
-          laneRow(i, <Typography level="body-sm">{`${REVIEW_COPY.screen.logged} ${day(i.logged_at)}`}</Typography>, picker(i), {
+          laneRow(i, <Typography level="body-sm">{`${REVIEW_COPY.screen.added} ${day(i.logged_at)}`}</Typography>, picker(i), {
             titleSlot: <Link level="title-md" id={shelfRecordId(i)} href={itemHref(i)}>{i.artist_name}</Link>,
             albumId: shelfAlbumId(i),
           })
@@ -262,7 +262,7 @@ function IntakeLaneGroups() {
         i,
         stillOut && (
           <Typography level="body-sm">
-            {holder.kind === "removed" ? COPY.holderRemoved : `${COPY.stillOutTo} ${holder.name}`}
+            {holder.kind === "removed" ? COPY.stillWithRemoved : `${COPY.stillWith} ${holder.name}`}
           </Typography>
         ),
         stillOut && markReturned(i, () => act(i.id, "return", () => release(i.id).unwrap())),

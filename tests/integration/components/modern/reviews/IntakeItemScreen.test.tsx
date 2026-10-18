@@ -290,7 +290,7 @@ describe("IntakeItemScreen", () => {
     ["fromWith", REVIEW_COPY.intake.fromWith("Jessica Pratt", "Sessa"), "From Jessica Pratt. The record is with Sessa."],
     ["fromHeldFor", REVIEW_COPY.intake.fromHeldFor("Jessica Pratt", "Sessa"), "From Jessica Pratt. The record is being held for Sessa."],
     ["fromShelf", REVIEW_COPY.intake.fromShelf("Jessica Pratt"), "From Jessica Pratt. The record is on the review shelf."],
-    ["fromRemoved", REVIEW_COPY.intake.fromRemoved("Jessica Pratt"), "From Jessica Pratt. The record is checked out; holder removed."],
+    ["fromRemoved", REVIEW_COPY.intake.fromRemoved("Jessica Pratt"), "From Jessica Pratt. The record is with a removed account."],
     ["useThisReview", REVIEW_COPY.intakeItem.useThisReview, "Use this review"],
     ["useThisReviewInstead", REVIEW_COPY.intakeItem.useThisReviewInstead, "Use this review instead"],
     [
@@ -324,7 +324,7 @@ describe("IntakeItemScreen", () => {
     [
       "deleteCoverRemoved",
       REVIEW_COPY.intakeItem.deleteCoverRemoved,
-      "This is the review on the cover. Deleting it puts the record back as checked out; its holder's account was removed.",
+      "This is the review on the cover. Deleting it puts the record back with its holder, whose account was removed.",
     ],
     [
       "coverFiled",
@@ -355,9 +355,9 @@ describe("IntakeItemScreen", () => {
     ["formSearchFailed", REVIEW_COPY.intakeItem.formSearchFailed, "Couldn't search the form reviews. Please try again."],
     ["formNone", REVIEW_COPY.intakeItem.formNone, "No form reviews under this exact artist name."],
     ["formNotPrintable", REVIEW_COPY.intakeItem.formNotPrintable, "A form review can't be printed from here until it is copied onto the record."],
-    ["formAfterCutover", REVIEW_COPY.intakeItem.formAfterCutover, "Recorded. The record can't cite this form review: it was sent in after the cutover date."],
-    ["formNoDate", REVIEW_COPY.intakeItem.formNoDate, "Recorded. The record can't cite this form review: it has no date."],
-    ["formNotNoted", REVIEW_COPY.intakeItem.formNotNoted, "Recorded. Couldn't note which form review it came from."],
+    ["formAfterCutover", REVIEW_COPY.intakeItem.formAfterCutover, "Copied. The record can't cite this form review: it was sent in after the cutover date."],
+    ["formNoDate", REVIEW_COPY.intakeItem.formNoDate, "Copied. The record can't cite this form review: it has no date."],
+    ["formNotNoted", REVIEW_COPY.intakeItem.formNotNoted, "Copied. Couldn't note which form review it came from."],
     ["couldNotDelete", REVIEW_COPY.couldNotDelete, "Couldn't delete the review. Please try again."],
     ["writeFailed", REVIEW_COPY.screen.writeFailed, "Couldn't do that. Please try again."],
     [
@@ -365,7 +365,7 @@ describe("IntakeItemScreen", () => {
       REVIEW_COPY.intakeSlip.handwritten,
       "The record's review is handwritten, so it is already on the sleeve. There is nothing to print.",
     ],
-    ["recordTitle", REVIEW_COPY.record.title, "Record a review"],
+    ["recordTitle", REVIEW_COPY.record.title, "Digitize a review"],
     ["recordAuthor", REVIEW_COPY.record.author, "Author"],
     ["recordAuthorBlank", REVIEW_COPY.record.authorBlank, "Say who wrote the review."],
     ["recordTextBlank", REVIEW_COPY.record.textBlank, "Write the review before you save it."],
@@ -385,10 +385,10 @@ describe("IntakeItemScreen", () => {
       REVIEW_COPY.record.noConsent,
       "Nothing is ticked for publishing: the author hasn't been asked where this review may be published.",
     ],
-    ["recordCopiedFromForm", REVIEW_COPY.record.copiedFromForm, "Copied from the review form. Check it, then save."],
+    ["recordCopiedFromForm", REVIEW_COPY.record.copiedFromForm, "Copied from Google Forms. Check it, then save."],
     ["recordCopiedAuthor", REVIEW_COPY.record.copiedAuthor, "Copied as the reviewer wrote it, so it may include a date."],
-    ["recordCopiedNoName", REVIEW_COPY.record.copiedNoName, "Copied from the review form. Check it, add the reviewer's name, then save."],
-    ["recordByHand", REVIEW_COPY.record.byHand, "This review exists only on paper. Copy this record's slip by hand, then record it here."],
+    ["recordCopiedNoName", REVIEW_COPY.record.copiedNoName, "Copied from Google Forms. Check it, add the reviewer's name, then save."],
+    ["recordByHand", REVIEW_COPY.record.byHand, "This review exists only on paper. Copy this record's slip by hand, then digitize it here."],
     ["recordCoverNone", REVIEW_COPY.record.coverNone, "This will be the review on the cover."],
     [
       "recordCoverReplaces",
@@ -398,10 +398,10 @@ describe("IntakeItemScreen", () => {
     [
       "recordEmailed",
       REVIEW_COPY.record.emailed("Sam"),
-      "Sam will be emailed that a review was recorded in their name. They can edit it and answer the publishing question themselves.",
+      "Sam will be emailed that their review is now in the DJ site. They can edit it and answer the publishing question themselves.",
     ],
-    ["recordCouldNotRecord", REVIEW_COPY.record.couldNotRecord, "Couldn't record the review. Please try again."],
-    ["recordRecorded", REVIEW_COPY.record.recorded, "Recorded."],
+    ["recordCouldNotRecord", REVIEW_COPY.record.couldNotSave, "Couldn't save the review. Please try again."],
+    ["recordRecorded", REVIEW_COPY.record.digitized, "Digitized."],
     ["recordUseAsCover", REVIEW_COPY.record.useAsCover, "Use this as the record's review"],
     [
       "recordOtherReview",
@@ -2072,7 +2072,7 @@ describe("IntakeItemScreen", () => {
     const SHOW_SLIP = "Show the whole slip";
     const CITE = "Cite a release in the library";
     const FORM = "Cite a form review";
-    const RECORD = "Record a review";
+    const RECORD = "Digitize a review";
     const EXPLANATION = "For a review written on the sleeve, or one a DJ gave you to type in.";
     const CITED_ID = 7;
     const HEADING = "Reviews of Jessica Pratt — On Your Own Love Again";
@@ -2195,7 +2195,7 @@ describe("IntakeItemScreen", () => {
         form: await screen.findByRole("button", { name: FORM }),
       });
 
-      it("holds Record a review and its explanation on line one and the cite buttons on line two", async () => {
+      it("holds Digitize a review and its explanation on line one and the cite buttons on line two", async () => {
         setUp();
         renderScreen(<IntakeItemScreen id={ITEM_ID} />);
 
@@ -2258,7 +2258,7 @@ describe("IntakeItemScreen", () => {
       it.each([
         ["Cite a release in the library", CITE],
         ["Cite a form review", FORM],
-      ])("asks before %s closes a dirty Record a review form, keeps the text on Keep editing, and opens that search on Leave", async (_name, citeName) => {
+      ])("asks before %s closes a dirty Digitize a review form, keeps the text on Keep editing, and opens that search on Leave", async (_name, citeName) => {
         setUp();
         const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
         await user.click(await screen.findByRole("button", { name: RECORD }));
@@ -2280,7 +2280,7 @@ describe("IntakeItemScreen", () => {
       it.each([
         ["Cite a release in the library", CITE],
         ["Cite a form review", FORM],
-      ])("closes an unchanged Record a review form at once when %s is pressed", async (_name, citeName) => {
+      ])("closes an unchanged Digitize a review form at once when %s is pressed", async (_name, citeName) => {
         setUp();
         const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
         await user.click(await screen.findByRole("button", { name: RECORD }));
@@ -2569,7 +2569,7 @@ describe("IntakeItemScreen", () => {
       const dialog = await open(user, "Delete review by Stereolab");
 
       expect(dialog.getByText(REVIEW_COPY.intakeItem.deleteCoverShelf)).toBeInTheDocument();
-      expect(dialog.queryByText(/sends the record back to Sessa|puts the record back as checked out/)).not.toBeInTheDocument();
+      expect(dialog.queryByText(/sends the record back to Sessa|puts the record back with its holder/)).not.toBeInTheDocument();
     });
 
     it("disables Delete on the cover review of a filed record and says why beside it", async () => {
@@ -3069,7 +3069,7 @@ describe("IntakeItemScreen", () => {
         { state: "requested", effective_state: "requested", ...requestedFor("dj-pat", "DJ Pat") },
         "From Jessica Pratt. The record is being held for DJ Pat.",
       ],
-      ["someone else wrote it and the holder's account was removed", removedHolder, "From Jessica Pratt. The record is checked out; holder removed."],
+      ["someone else wrote it and the holder's account was removed", removedHolder, "From Jessica Pratt. The record is with a removed account."],
       [
         "someone else wrote it and a disc with a review waiting is back in the music office",
         { state: "pool", effective_state: "pool" },
@@ -3086,9 +3086,9 @@ describe("IntakeItemScreen", () => {
     });
 
     it.each([
-      ["the author has the record", heldBy("dj-jess", "Jessica Pratt"), "From Jessica Pratt, who has taken this record."],
-      ["someone else has it", heldBy("dj-sam", "DJ Sam"), "From Jessica Pratt. DJ Sam has taken the record."],
-      ["the account that has it was removed", removedHolder, "From Jessica Pratt. The record was taken by an account that has since been removed."],
+      ["the author has the record", heldBy("dj-jess", "Jessica Pratt"), "From Jessica Pratt, who has this record."],
+      ["someone else has it", heldBy("dj-sam", "DJ Sam"), "From Jessica Pratt. The record is with DJ Sam."],
+      ["the account that has it was removed", removedHolder, "From Jessica Pratt. The record is with a removed account."],
       [
         "a request is open",
         { state: "requested", effective_state: "requested", ...requestedFor("dj-pat", "DJ Pat") } as const,
@@ -3214,7 +3214,7 @@ describe("IntakeItemScreen", () => {
       return { box, reviews, creates, submits };
     };
 
-    const open = async (user: User) => user.click(await screen.findByRole("button", { name: "Record a review" }));
+    const open = async (user: User) => user.click(await screen.findByRole("button", { name: "Digitize a review" }));
     const fillAuthor = async (user: User, text: string) => {
       const field = screen.getByRole("textbox", { name: "Author" });
       await user.clear(field);
@@ -3254,7 +3254,7 @@ describe("IntakeItemScreen", () => {
         expect(screen.getByRole("textbox", { name: "Author" })).toHaveValue("Sam 3/4");
         expect(screen.getByRole("textbox", { name: "Review" })).toHaveValue("Warm and strange.");
         expect(screen.getByRole("textbox", { name: "Buzzwords" })).toHaveValue("folktronica");
-        expect(screen.getByText(REVIEW_COPY.record.copiedFromForm).textContent).toBe("Copied from the review form. Check it, then save.");
+        expect(screen.getByText(REVIEW_COPY.record.copiedFromForm).textContent).toBe("Copied from Google Forms. Check it, then save.");
         expect(screen.getByText(REVIEW_COPY.record.copiedAuthor).textContent).toBe("Copied as the reviewer wrote it, so it may include a date.");
         expect(screen.queryByText(REVIEW_COPY.record.copiedNoName)).not.toBeInTheDocument();
         expect(screen.queryByText(REVIEW_COPY.record.byHand)).not.toBeInTheDocument();
@@ -3302,7 +3302,7 @@ describe("IntakeItemScreen", () => {
         renderForm(archived(null));
 
         expect(screen.getByRole("textbox", { name: "Author" })).toHaveValue("");
-        expect(screen.getByText(REVIEW_COPY.record.copiedNoName).textContent).toBe("Copied from the review form. Check it, add the reviewer's name, then save.");
+        expect(screen.getByText(REVIEW_COPY.record.copiedNoName).textContent).toBe("Copied from Google Forms. Check it, add the reviewer's name, then save.");
         expect(screen.queryByText(REVIEW_COPY.record.copiedFromForm)).not.toBeInTheDocument();
         expect(screen.queryByText(REVIEW_COPY.record.copiedAuthor)).not.toBeInTheDocument();
         expect(screen.queryByText(REVIEW_COPY.record.byHand)).not.toBeInTheDocument();
@@ -3314,8 +3314,9 @@ describe("IntakeItemScreen", () => {
 
         expect(screen.getByRole("radio", { name: "Handwritten" })).toBeChecked();
         expect(screen.getByText(REVIEW_COPY.record.handwrittenNote).textContent).toBe("This review is handwritten, so it is already on the sleeve. Nothing will be printed.");
-        expect(screen.getByText(REVIEW_COPY.record.byHand).textContent).toBe("This review exists only on paper. Copy this record's slip by hand, then record it here.");
+        expect(screen.getByText(REVIEW_COPY.record.byHand).textContent).toBe("This review exists only on paper. Copy this record's slip by hand, then digitize it here.");
         expect(screen.queryByText(REVIEW_COPY.record.copiedFromForm)).not.toBeInTheDocument();
+        expect(screen.getByRole("heading", { name: "Digitize a review" })).toBeInTheDocument();
       });
 
       it("opens under a new key from a second start while one is open, so the form remounts", () => {
@@ -3332,11 +3333,11 @@ describe("IntakeItemScreen", () => {
         setUp();
         const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
         await open(user);
-        expect(screen.getByRole("heading", { name: "Record a review" })).toBeInTheDocument();
+        expect(screen.getByRole("heading", { name: "Digitize a review" })).toBeInTheDocument();
 
         await open(user);
 
-        expect(screen.queryByRole("heading", { name: "Record a review" })).not.toBeInTheDocument();
+        expect(screen.queryByRole("heading", { name: "Digitize a review" })).not.toBeInTheDocument();
       });
 
       it("opened by the button has no copied-from line and Typed chosen", async () => {
@@ -3354,12 +3355,12 @@ describe("IntakeItemScreen", () => {
       ["a filed", { state: "filed", effective_state: "filed" }],
       ["a finalized", { state: "finalized", effective_state: "finalized" }],
       ["a record still on the review shelf", { state: "pool", effective_state: "pool", accepted_review_id: null }],
-    ] as const)("offers Record a review on %s record", async (_label, overrides) => {
+    ] as const)("offers Digitize a review on %s record", async (_label, overrides) => {
       setUp(dogaItem(overrides));
 
       renderScreen(<IntakeItemScreen id={ITEM_ID} />);
 
-      expect(await screen.findByRole("button", { name: "Record a review" })).toBeEnabled();
+      expect(await screen.findByRole("button", { name: "Digitize a review" })).toBeEnabled();
     });
 
     it("opens a form with the slip's fields, no consent control, and no publishing field in the request", async () => {
@@ -3368,7 +3369,7 @@ describe("IntakeItemScreen", () => {
 
       await open(user);
 
-      expect(screen.getByRole("heading", { name: "Record a review" })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Digitize a review" })).toBeInTheDocument();
       expect(screen.getByText(REVIEW_COPY.record.noConsent)).toBeInTheDocument();
       for (const label of ["Buzzwords", "Review", "Recommended tracks", "FCC"]) {
         expect(screen.getByRole("textbox", { name: label })).toBeInTheDocument();
@@ -3400,13 +3401,13 @@ describe("IntakeItemScreen", () => {
 
       const cover = (await screen.findByRole("heading", { name: "The review on the cover" })).closest("section")!;
       expect(await within(cover).findByText("Warm.")).toBeInTheDocument();
-      expect(await screen.findByRole("status")).toHaveTextContent("Recorded.");
+      expect(await screen.findByRole("status")).toHaveTextContent("Digitized.");
       await reviewsSettled(store);
       expect(creates).toEqual([
         { intake_item_id: ITEM_ID, author: "Cat Power", author_user_id: "dj-sam", medium: "typed", accept: true, ...noFields, review: "Warm." },
       ]);
       expect(submits).toEqual([]);
-      expect(screen.queryByRole("heading", { name: "Record a review" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("heading", { name: "Digitize a review" })).not.toBeInTheDocument();
     });
 
     it("opens with Use this as the record's review ticked", async () => {
@@ -3440,7 +3441,7 @@ describe("IntakeItemScreen", () => {
       expect(await within(others).findByText("Warm.")).toBeInTheDocument();
       // Only a submitted review offers Use this review, so a draft left under Other reviews fails here.
       await waitFor(() => expect(within(others).getAllByRole("button", { name: /^Use this review/ })).toHaveLength(1));
-      expect((await screen.findByRole("status")).textContent).toBe("Recorded.");
+      expect((await screen.findByRole("status")).textContent).toBe("Digitized.");
       await reviewsSettled(store);
       expect(creates).toEqual([
         { intake_item_id: ITEM_ID, author: "Cat Power", medium: "typed", accept: false, ...noFields, review: "Warm." },
@@ -3463,9 +3464,9 @@ describe("IntakeItemScreen", () => {
 
       expect((await screen.findByRole("status")).textContent).toBe(REVIEW_COPY.record.draftNotSubmitted);
       await reviewsSettled(store);
-      expect(screen.queryByText("Recorded.")).not.toBeInTheDocument();
+      expect(screen.queryByText("Digitized.")).not.toBeInTheDocument();
       // Closed like a success, so no Save is left that could send a second create.
-      expect(screen.queryByRole("heading", { name: "Record a review" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("heading", { name: "Digitize a review" })).not.toBeInTheDocument();
       expect(screen.queryByRole("button", { name: REVIEW_COPY.save })).not.toBeInTheDocument();
       expect(creates).toHaveLength(1);
       expect(submits).toEqual([String(NEW_ID)]);
@@ -3498,10 +3499,10 @@ describe("IntakeItemScreen", () => {
       await waitFor(() => expect(submits).toEqual([String(NEW_ID)]));
       await renderedFrame();
       expect(screen.queryByRole("status")).not.toBeInTheDocument();
-      expect(screen.getByRole("heading", { name: "Record a review" })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Digitize a review" })).toBeInTheDocument();
 
       await held.releaseAndSettle();
-      expect((await screen.findByRole("status")).textContent).toBe("Recorded.");
+      expect((await screen.findByRole("status")).textContent).toBe("Digitized.");
     });
 
     it("records a handwritten review with no text, every field null and no account", async () => {
@@ -3514,7 +3515,7 @@ describe("IntakeItemScreen", () => {
       expect(screen.getByText(REVIEW_COPY.record.handwrittenNote)).toBeInTheDocument();
       await save(user);
 
-      await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Recorded."));
+      await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Digitized."));
       await reviewsSettled(store);
       expect(creates).toEqual([{ intake_item_id: ITEM_ID, author: "Sessa", medium: "handwritten", accept: true, ...noFields, review: null }]);
       expect(submits).toEqual([]);
@@ -3638,7 +3639,7 @@ describe("IntakeItemScreen", () => {
 
       await save(user);
 
-      expect((await screen.findByRole("alert")).textContent).toBe("Couldn't record the review. Please try again.");
+      expect((await screen.findByRole("alert")).textContent).toBe("Couldn't save the review. Please try again.");
       await reviewsSettled(store);
       expect(screen.getByRole("textbox", { name: "Review" })).toHaveValue("Warm.");
       expect(screen.queryByText("boom")).not.toBeInTheDocument();
@@ -3677,7 +3678,7 @@ describe("IntakeItemScreen", () => {
 
       write.release();
       await write.answered;
-      expect((await screen.findByRole("alert")).textContent).toBe(REVIEW_COPY.record.couldNotRecord);
+      expect((await screen.findByRole("alert")).textContent).toBe(REVIEW_COPY.record.couldNotSave);
       await waitFor(() => guarded().forEach((b) => expect(b).toBeEnabled()));
     });
 
@@ -3745,7 +3746,7 @@ describe("IntakeItemScreen", () => {
       const choose = await screen.findByRole("button", { name: "Use this review" });
       await reviewsSettled(store);
       await save(user);
-      expect((await screen.findByRole("alert")).textContent).toBe(REVIEW_COPY.record.couldNotRecord);
+      expect((await screen.findByRole("alert")).textContent).toBe(REVIEW_COPY.record.couldNotSave);
       await waitFor(() => expect(choose).toBeEnabled());
       expect(screen.getByText(REVIEW_COPY.record.coverNone)).toBeInTheDocument();
       const held = holdTheReread(store, box);
@@ -3773,7 +3774,7 @@ describe("IntakeItemScreen", () => {
 
         await save(user);
 
-        expect(await screen.findByRole("status")).toHaveTextContent("Recorded.");
+        expect(await screen.findByRole("status")).toHaveTextContent("Digitized.");
         await reviewsSettled(store);
         expect(screen.queryByRole("alert")).not.toBeInTheDocument();
         const cover = screen.getByRole("heading", { name: "The review on the cover" }).closest("section")!;
@@ -3793,7 +3794,7 @@ describe("IntakeItemScreen", () => {
 
         await save(user);
 
-        expect(await screen.findByRole("status")).toHaveTextContent("Recorded.");
+        expect(await screen.findByRole("status")).toHaveTextContent("Digitized.");
         await reviewsSettled(store);
         expect(cached(store)?.accepted_review_id).toBeNull();
         expect(screen.getByText(REVIEW_COPY.intakeItem.noCover)).toBeInTheDocument();
@@ -3912,7 +3913,7 @@ describe("IntakeItemScreen", () => {
           await fillAndTick(user, { unticked: true });
           await save(user);
           await waitFor(() => expect(create.calls.count).toBe(1));
-          await user.click(screen.getByRole("button", { name: "Record a review" }));
+          await user.click(screen.getByRole("button", { name: "Digitize a review" }));
           await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Leave" }));
           await open(user);
           return create;
@@ -3984,7 +3985,7 @@ describe("IntakeItemScreen", () => {
         await waitFor(() => expect(write.calls.count).toBe(1));
         guarded().forEach((b) => expect(b).toBeDisabled());
 
-        await user.click(screen.getByRole("button", { name: "Record a review" }));
+        await user.click(screen.getByRole("button", { name: "Digitize a review" }));
         await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Leave" }));
         expect(screen.queryByRole("textbox", { name: "Author" })).not.toBeInTheDocument();
         write.release();
@@ -4120,7 +4121,7 @@ describe("IntakeItemScreen", () => {
       await user.click(await within(await section()).findByRole("button", { name: REVIEW_COPY.intakeItem.copyOntoRecord }));
       await user.click(await screen.findByRole("button", { name: "Save" }));
 
-      expect(await screen.findByText(REVIEW_COPY.record.recorded)).toBeInTheDocument();
+      expect(await screen.findByText(REVIEW_COPY.record.copied)).toBeInTheDocument();
       await reviewsSettled(store);
       expect(sent).toEqual([]);
     });
@@ -4185,7 +4186,7 @@ describe("IntakeItemScreen", () => {
         expect(within(cited).queryByRole("button", { name: /^Use this review/ })).not.toBeInTheDocument();
       });
 
-      it("opens Record a review with the form review's text from Copy this review onto the record", async () => {
+      it("opens Digitize a review with the form review's text from Copy this review onto the record", async () => {
         empty();
         const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
 
@@ -4561,7 +4562,7 @@ describe("IntakeItemScreen", () => {
         const { box } = setUp();
         const sent = patching(box);
         const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
-        await user.click(await screen.findByRole("button", { name: "Record a review" }));
+        await user.click(await screen.findByRole("button", { name: "Digitize a review" }));
         await user.type(screen.getByRole("textbox", { name: "Review" }), "Warm.");
         await user.click(screen.getByRole("button", { name: CITE }));
         const asking = await screen.findByRole("alertdialog", { name: "Leave without saving?" });
@@ -4721,21 +4722,22 @@ describe("IntakeItemScreen", () => {
         expect(screen.getByRole("region", { name: CITE })).toBeInTheDocument();
       });
 
-      it("opens Record a review filled in from the copied review, and cites nothing yet", async () => {
+      it("opens Copy from Google Forms filled in from the copied review, and cites nothing yet", async () => {
         const { box } = withReviews(formReview());
         const sent = patching(box);
         const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
 
         await copyFirst(user);
 
-        expect(await screen.findByRole("heading", { name: "Record a review" })).toBeInTheDocument();
+        expect(await screen.findByRole("heading", { name: "Copy from Google Forms" })).toBeInTheDocument();
+        expect(screen.queryByRole("heading", { name: "Digitize a review" })).not.toBeInTheDocument();
         expect(screen.getByRole("textbox", { name: "Review" })).toHaveValue("Form take.");
         expect(screen.getByRole("textbox", { name: "Author" })).toHaveValue("Test Reviewer");
         expect(screen.getByText(REVIEW_COPY.record.copiedFromForm)).toBeInTheDocument();
         expect(sent).toEqual([]);
       });
 
-      it("closes the form search and opens the filled-in Record a review form directly after the prompt row when a review is copied", async () => {
+      it("closes the form search and opens the filled-in Digitize a review form directly after the prompt row when a review is copied", async () => {
         withReviews(formReview());
         const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
 
@@ -4744,7 +4746,7 @@ describe("IntakeItemScreen", () => {
         const form = await screen.findByRole("textbox", { name: "Review" });
         expect(form).toHaveValue("Form take.");
         expect(screen.queryByRole("region", { name: FORM })).not.toBeInTheDocument();
-        const row = screen.getByRole("button", { name: "Record a review" }).closest("[data-line='one']")!.parentElement!;
+        const row = screen.getByRole("button", { name: "Digitize a review" }).closest("[data-line='one']")!.parentElement!;
         expect(row.nextElementSibling!.contains(form)).toBe(true);
       });
 
@@ -4771,7 +4773,8 @@ describe("IntakeItemScreen", () => {
           expect(await screen.findByRole("button", { name: REMOVE })).toBeInTheDocument();
           expect(sent).toEqual([{ cited_submission_id: FORM_ID }]);
           await reviewsSettled(store);
-          expect(screen.getByText(REVIEW_COPY.record.recorded)).toBeInTheDocument();
+          expect(screen.getByText(REVIEW_COPY.record.copied)).toBeInTheDocument();
+          expect(screen.queryByText(REVIEW_COPY.record.digitized)).not.toBeInTheDocument();
           const cover = screen.getByRole("heading", { name: "The review on the cover" }).closest("section")!;
           expect(within(cover).getByText("Form take.")).toBeInTheDocument();
         });
@@ -4839,7 +4842,7 @@ describe("IntakeItemScreen", () => {
         it.each([
           ["dated after the cutover", {}, REVIEW_COPY.intakeItem.formAfterCutover],
           ["with no date", { submitted_at: null }, REVIEW_COPY.intakeItem.formNoDate],
-        ])("a 409 invalid_citation for a form review %s keeps the recorded review and shows that refusal's line, not Recorded. and not the server's words", async (_name, overrides, line) => {
+        ])("a 409 invalid_citation for a form review %s keeps the recorded review and shows that refusal's line, not Copied. and not the server's words", async (_name, overrides, line) => {
           const { box, own } = withReviews(formReview(overrides));
           server.use(http.patch(FILED_ITEM_PATH, () => HttpResponse.json({ message: "server words", reason: "invalid_citation" }, { status: 409 })));
           const create = creating(box, own);
@@ -4855,7 +4858,7 @@ describe("IntakeItemScreen", () => {
           expect(await screen.findByText(line)).toBeInTheDocument();
           await reviewsSettled(store);
           expect(screen.getByText(line)).toBeInTheDocument();
-          expect(screen.queryByText(REVIEW_COPY.record.recorded)).not.toBeInTheDocument();
+          expect(screen.queryByText(REVIEW_COPY.record.copied)).not.toBeInTheDocument();
           expect(screen.queryByText("server words")).not.toBeInTheDocument();
           const cover = (await screen.findByRole("heading", { name: "The review on the cover" })).closest("section")!;
           expect(within(cover).getByText("Form take.")).toBeInTheDocument();
@@ -4918,7 +4921,7 @@ describe("IntakeItemScreen", () => {
 
           await user.click(await screen.findByRole("button", { name: "Save" }));
 
-          expect(await screen.findByText(REVIEW_COPY.record.couldNotRecord)).toBeInTheDocument();
+          expect(await screen.findByText(REVIEW_COPY.record.couldNotSave)).toBeInTheDocument();
           await reviewsSettled(store);
           expect(sent).toEqual([]);
           expect(screen.getByRole("textbox", { name: "Review" })).toHaveValue("Form take.");
@@ -5201,10 +5204,10 @@ describe("IntakeItemScreen", () => {
         expected: SECOND_ID,
       },
       {
-        press: "Record a review (a fresh start)",
+        press: "Digitize a review (a fresh start)",
         item: pooled(),
         start: async (user) => {
-          await user.click(await screen.findByRole("button", { name: "Record a review" }));
+          await user.click(await screen.findByRole("button", { name: "Digitize a review" }));
         },
         expected: null,
       },
@@ -5541,7 +5544,7 @@ describe("IntakeItemScreen", () => {
     });
     const dialog = () => screen.findByRole("alertdialog", { name: "Leave without saving?" });
     const noDialog = () => waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
-    const open = async (user: User) => user.click(await screen.findByRole("button", { name: "Record a review" }));
+    const open = async (user: User) => user.click(await screen.findByRole("button", { name: "Digitize a review" }));
     const type = (user: User, text: string) => user.type(screen.getByRole("textbox", { name: "Review" }), text);
     const opener = async (name: string) => within((await screen.findByRole("heading", { name: HEADING })).closest("section")!).findByRole("button", { name });
     const dirtyForm = async (user: User) => {
@@ -5589,13 +5592,13 @@ describe("IntakeItemScreen", () => {
     });
 
     it.each([
-      ["no start", "Type in the review from its cover"],
-      ["a handwritten start", "Copy it by pen"],
-      ["a form review's start", "Copy this review onto the record"],
-    ])("lets a form opened from %s and left unchanged navigate and unload without asking", async (_name, from) => {
+      ["no start", "Type in the review from its cover", "Digitize a review"],
+      ["a handwritten start", "Copy it by pen", "Digitize a review"],
+      ["a form review's start", "Copy this review onto the record", "Copy from Google Forms"],
+    ])("lets a form opened from %s and left unchanged navigate and unload without asking", async (_name, from, title) => {
       const { user } = renderPage();
       await user.click(await opener(from));
-      await screen.findByRole("heading", { name: "Record a review" });
+      await screen.findByRole("heading", { name: title });
 
       expect(beforeUnload()).toBe(false);
       await user.click(screen.getByRole("link", { name: "Flowsheet" }));
@@ -5623,22 +5626,22 @@ describe("IntakeItemScreen", () => {
       expect(beforeUnload()).toBe(true);
     });
 
-    it("asks before the Record a review press closes a dirty form, and closes a clean one at once", async () => {
+    it("asks before the Digitize a review press closes a dirty form, and closes a clean one at once", async () => {
       const { user } = renderPage();
       await open(user);
-      await user.click(screen.getByRole("button", { name: "Record a review" }));
-      expect(screen.queryByRole("heading", { name: "Record a review" })).not.toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: "Digitize a review" }));
+      expect(screen.queryByRole("heading", { name: "Digitize a review" })).not.toBeInTheDocument();
       expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
 
       await dirtyForm(user);
-      await user.click(screen.getByRole("button", { name: "Record a review" }));
+      await user.click(screen.getByRole("button", { name: "Digitize a review" }));
       await user.click(within(await dialog()).getByRole("button", { name: "Keep editing" }));
       await noDialog();
       expect(screen.getByRole("textbox", { name: "Review" })).toHaveValue("Warm.");
 
-      await user.click(screen.getByRole("button", { name: "Record a review" }));
+      await user.click(screen.getByRole("button", { name: "Digitize a review" }));
       await user.click(within(await dialog()).getByRole("button", { name: "Leave" }));
-      await waitFor(() => expect(screen.queryByRole("heading", { name: "Record a review" })).not.toBeInTheDocument());
+      await waitFor(() => expect(screen.queryByRole("heading", { name: "Digitize a review" })).not.toBeInTheDocument());
     });
 
     it.each(OPENERS)("asks before %s replaces a dirty form, opens that start on Leave, and replaces an unchanged form at once", async (name, line) => {
@@ -5699,13 +5702,13 @@ describe("IntakeItemScreen", () => {
         reread.release();
         await reread.answered;
         await screen.findByRole("status");
-        expect(screen.queryByRole("heading", { name: "Record a review" })).not.toBeInTheDocument();
+        expect(screen.queryByRole("heading", { name: "Digitize a review" })).not.toBeInTheDocument();
         expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
         expect(beforeUnload()).toBe(false);
       });
 
       it.each([
-        ["the Record a review press", async () => screen.getByRole("button", { name: "Record a review" })],
+        ["the Digitize a review press", async () => screen.getByRole("button", { name: "Digitize a review" })],
         ["an opener", () => opener("Copy it by pen")],
         ["a link click", () => screen.getByRole("link", { name: "Flowsheet" })],
       ])("drops the question %s parked when the save finishes first and the form closes", async (_name, press) => {
@@ -5731,7 +5734,7 @@ describe("IntakeItemScreen", () => {
     const TITLE = "Where its review is coming from";
     const POOL = { state: "pool", effective_state: "pool", submitted_review_count: 0, accepted_review_id: null } as const;
     const block = () => screen.queryByRole("region", { name: TITLE });
-    const recordButtons = () => screen.getAllByRole("button", { name: "Record a review" });
+    const recordButtons = () => screen.getAllByRole("button", { name: "Digitize a review" });
 
     beforeEach(() => {
       getParam.delete("get");
@@ -5742,9 +5745,9 @@ describe("IntakeItemScreen", () => {
     it.each([
       ["on the review shelf", dogaItem(POOL), "On the review shelf", ["Ask a DJ…"]],
       ["asked", dogaItem({ ...POOL, ...requestedFor("dj-sam", "DJ Sam"), state: "requested", effective_state: "requested" }), "Held for DJ Sam", ["Cancel request"]],
-      ["checked out", dogaItem({ ...POOL, ...heldBy("dj-sam", "DJ Sam"), state: "checked_out", effective_state: "checked_out" }), "Checked out to DJ Sam", []],
-      ["taken", digitalDoga({ ...POOL, ...heldBy("dj-sam", "DJ Sam"), state: "checked_out", effective_state: "checked_out" }), "Taken by DJ Sam", []],
-      ["holder removed", dogaItem({ ...POOL, ...removedHolder, state: "checked_out", effective_state: "checked_out" }), "Holder removed", []],
+      ["checked out", dogaItem({ ...POOL, ...heldBy("dj-sam", "DJ Sam"), state: "checked_out", effective_state: "checked_out" }), "With DJ Sam", []],
+      ["taken", digitalDoga({ ...POOL, ...heldBy("dj-sam", "DJ Sam"), state: "checked_out", effective_state: "checked_out" }), "With DJ Sam", []],
+      ["holder removed", dogaItem({ ...POOL, ...removedHolder, state: "checked_out", effective_state: "checked_out" }), "With a removed account", []],
     ])("draws the block with the where-now line and the other ways for a record %s", async (_name, item, line, buttons) => {
       fakeReviewsEndpoints({ records: [item], reviewers: [{ id: "dj-sam", name: "Sam" }] });
       renderScreen(<IntakeItemScreen id={ITEM_ID} />);
@@ -5754,19 +5757,19 @@ describe("IntakeItemScreen", () => {
       expect(within(region).getByText("Or:")).toBeInTheDocument();
       expect(within(region).queryAllByRole("button", { name: /^(Ask a DJ…|Cancel request)$/ }).map((b) => b.textContent)).toEqual(buttons);
       expect(recordButtons()).toHaveLength(1);
-      expect(within(region).getByRole("button", { name: "Record a review" })).toBeInTheDocument();
+      expect(within(region).getByRole("button", { name: "Digitize a review" })).toBeInTheDocument();
       expect(within(region).getByRole("button", { name: "Cite a release in the library" })).toBeInTheDocument();
     });
 
     it.each([
       ["reviewed", dogaItem()],
       ["filed", dogaItem({ state: "filed", effective_state: "filed" })],
-    ])("draws no block for a %s record, and Record a review appears once", async (_name, item) => {
+    ])("draws no block for a %s record, and Digitize a review appears once", async (_name, item) => {
       // Both records name review 40 as their cover, so it is served: a 404 for the cover read would race these assertions with the page's load-failed line.
       fakeReviewsEndpoints({ records: [item], forItem: { [ITEM_ID]: [submitted(40)] } });
       renderScreen(<IntakeItemScreen id={ITEM_ID} />);
 
-      await screen.findAllByRole("button", { name: "Record a review" });
+      await screen.findAllByRole("button", { name: "Digitize a review" });
       expect(block()).not.toBeInTheDocument();
       expect(recordButtons()).toHaveLength(1);
     });
@@ -5813,9 +5816,9 @@ describe("IntakeItemScreen", () => {
     // A lost race unmounts the pressed control as a success does, so focus moves to the line either way rather than falling to the page.
     it.each([
       ["Cancel request", "lands", requested, cancelRequest, undefined, "On the review shelf", ["Ask a DJ…"], []],
-      ["Cancel request", "loses its race to a checkout", requested, cancelRequest, takenBySam, "Checked out to DJ Sam", [], []],
+      ["Cancel request", "loses its race to a checkout", requested, cancelRequest, takenBySam, "With DJ Sam", [], []],
       ["Ask a DJ…", "lands", dogaItem(POOL), askSam, undefined, "Held for Sam", ["Cancel request"], [{ dj_id: "dj-sam" }]],
-      ["Ask a DJ…", "loses its race to a checkout", dogaItem(POOL), askSam, takenBySam, "Checked out to DJ Sam", [], [{ dj_id: "dj-sam" }]],
+      ["Ask a DJ…", "loses its race to a checkout", dogaItem(POOL), askSam, takenBySam, "With DJ Sam", [], [{ dj_id: "dj-sam" }]],
     ])("after %s %s, reads the new where-now line, offers the other controls, moves focus to the line and rereads only the record", async (_name, _outcome, start, act, lostTo, line, buttons, sent) => {
       const { asked, listReads } = serveWrites(start, lostTo);
       const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
@@ -5876,7 +5879,7 @@ describe("IntakeItemScreen", () => {
       expect(await screen.findByRole("button", { name: "Ask a DJ…" })).toHaveAccessibleName("Ask a DJ…");
     });
 
-    it("keeps the Record a review form in the block through its own ticked save, which then closes it with Recorded.", async () => {
+    it("keeps the Digitize a review form in the block through its own ticked save, which then closes it with Recorded.", async () => {
       fakeReviewsEndpoints({ records: [dogaItem(POOL)] });
       const box = serveItem(dogaItem(POOL));
       const reviews = serveItemReviews([submitted(41)]);
@@ -5891,7 +5894,7 @@ describe("IntakeItemScreen", () => {
       );
       const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
       const region = await screen.findByRole("region", { name: TITLE });
-      await user.click(within(region).getByRole("button", { name: "Record a review" }));
+      await user.click(within(region).getByRole("button", { name: "Digitize a review" }));
       await user.type(within(region).getByRole("textbox", { name: "Author" }), "Sessa");
       await user.type(within(region).getByRole("textbox", { name: "Review" }), "Warm.");
       await reviewsSettled(store);
@@ -5900,10 +5903,10 @@ describe("IntakeItemScreen", () => {
       await user.click(within(region).getByRole("button", { name: "Save" }));
 
       await held.expectHeld();
-      expect(within(region).getByRole("heading", { name: "Record a review" })).toBeInTheDocument();
+      expect(within(region).getByRole("heading", { name: "Digitize a review" })).toBeInTheDocument();
       await held.releaseAndSettle();
-      expect(await screen.findByRole("status")).toHaveTextContent("Recorded.");
-      expect(screen.queryByRole("heading", { name: "Record a review" })).not.toBeInTheDocument();
+      expect(await screen.findByRole("status")).toHaveTextContent("Digitized.");
+      expect(screen.queryByRole("heading", { name: "Digitize a review" })).not.toBeInTheDocument();
       expect(block()).not.toBeInTheDocument();
       expect(recordButtons()).toHaveLength(1);
     });
@@ -5918,9 +5921,9 @@ describe("IntakeItemScreen", () => {
         (region: HTMLElement) => expect(within(region).getByRole("searchbox", { name: REVIEW_COPY.intakeItem.searchCite })).toHaveValue("Juana"),
       ],
       [
-        "the Record a review form",
+        "the Digitize a review form",
         async (user: User, region: HTMLElement) => {
-          await user.click(within(region).getByRole("button", { name: "Record a review" }));
+          await user.click(within(region).getByRole("button", { name: "Digitize a review" }));
           await user.type(within(region).getByRole("textbox", { name: "Review" }), "Warm.");
         },
         (region: HTMLElement) => expect(within(region).getByRole("textbox", { name: "Review" })).toHaveValue("Warm."),
@@ -5945,13 +5948,13 @@ describe("IntakeItemScreen", () => {
       expect(within(stays).queryByRole("button", { name: "Ask a DJ…" })).not.toBeInTheDocument();
     });
 
-    it("opens the Record a review form in the block from ?get=record", async () => {
+    it("opens the Digitize a review form in the block from ?get=record", async () => {
       getParam.set("get", "record");
       fakeReviewsEndpoints({ records: [dogaItem(POOL)] });
       renderScreen(<IntakeItemScreen id={ITEM_ID} />);
 
       const region = await screen.findByRole("region", { name: TITLE });
-      expect(await within(region).findByRole("heading", { name: "Record a review" })).toBeInTheDocument();
+      expect(await within(region).findByRole("heading", { name: "Digitize a review" })).toBeInTheDocument();
     });
 
     it("focuses the first cite button from ?get=cite", async () => {
@@ -5968,7 +5971,7 @@ describe("IntakeItemScreen", () => {
 
       const cite = await screen.findByRole("button", { name: "Cite a release in the library" });
       expect(cite).not.toHaveFocus();
-      expect(screen.queryByRole("heading", { name: "Record a review" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("heading", { name: "Digitize a review" })).not.toBeInTheDocument();
     });
   });
 });

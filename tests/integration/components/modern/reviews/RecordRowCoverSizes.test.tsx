@@ -34,12 +34,12 @@ vi.mock("@/src/hooks/authenticationHooks", async () => {
 // The screens take the reviewers read and the shared write wiring from their caller, as ReviewsScreen supplies them.
 function Shelf(props: Omit<ComponentProps<typeof ReviewShelfScreen>, "write" | "lock" | "reviewers">) {
   const reviewers = useGetReviewersQuery(undefined, { skip: !props.isMD });
-  const { write, lock } = useReviewWrite(props.items);
+  const { write, lock } = useReviewWrite();
   return <ReviewShelfScreen {...props} reviewers={reviewers} write={write} lock={lock} />;
 }
 
 function Mine(props: Omit<ComponentProps<typeof MyReviewsScreen>, "write" | "lock">) {
-  const { write, lock } = useReviewWrite(props.items);
+  const { write, lock } = useReviewWrite();
   return <MyReviewsScreen {...props} write={write} lock={lock} />;
 }
 

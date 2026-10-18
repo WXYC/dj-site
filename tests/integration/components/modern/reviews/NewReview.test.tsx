@@ -84,8 +84,8 @@ describe("NewReview", () => {
 
     await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/dashboard/reviews"));
     expect(toast).toHaveBeenCalledTimes(1);
-    expect(toast).toHaveBeenCalledWith("You no longer have this record checked out, so a review can't be started here.");
-    expect(REVIEW_COPY.subjectNotHeld).toBe("You no longer have this record checked out, so a review can't be started here.");
+    expect(toast).toHaveBeenCalledWith("This record is no longer yours to review, so a review can't be started here.");
+    expect(REVIEW_COPY.subjectNotHeld).toBe("This record is no longer yours to review, so a review can't be started here.");
     expect(toast.error).not.toHaveBeenCalled();
   });
 
