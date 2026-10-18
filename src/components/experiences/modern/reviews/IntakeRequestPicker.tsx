@@ -24,8 +24,8 @@ interface IntakeRequestPickerProps {
   loading: boolean;
   /** The reviewers read failed with nothing to show, so the search says so rather than no match. */
   failed: boolean;
-  /** The ids of the elements that name the record (space-separated, as `aria-labelledby` takes them), which name the button for the record it acts on. */
-  labelledBy: string;
+  /** The ids of the elements that name the record (space-separated, as `aria-labelledby` takes them), which name the button for the record it acts on among many. A page about one record leaves it out, so the button is named by its own words. */
+  labelledBy?: string;
   artist: string;
   album: string;
   /** The row's `lock(id, "request")`. */
@@ -60,7 +60,7 @@ export default function IntakeRequestPicker({ reviewers, loading, failed, labell
         variant="outlined"
         {...busy}
         aria-haspopup="dialog"
-        aria-labelledby={`${buttonId} ${labelledBy}`}
+        aria-labelledby={labelledBy && `${buttonId} ${labelledBy}`}
         onClick={() => setOpen(true)}
       >
         {COPY.askADj}

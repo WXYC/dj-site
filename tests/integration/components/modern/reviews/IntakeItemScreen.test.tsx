@@ -5626,7 +5626,7 @@ describe("IntakeItemScreen", () => {
       const region = await screen.findByRole("region", { name: TITLE });
       expect(within(region).getByText(line)).toBeInTheDocument();
       expect(within(region).getByText("Or:")).toBeInTheDocument();
-      expect(within(region).queryAllByRole("button", { name: /^(Ask a DJ…|Cancel request)/ }).map((b) => b.textContent)).toEqual(buttons);
+      expect(within(region).queryAllByRole("button", { name: /^(Ask a DJ…|Cancel request)$/ }).map((b) => b.textContent)).toEqual(buttons);
       expect(recordButtons()).toHaveLength(1);
       expect(within(region).getByRole("button", { name: "Record a review" })).toBeInTheDocument();
       expect(within(region).getByRole("button", { name: "Cite a release in the library" })).toBeInTheDocument();
@@ -5644,35 +5644,142 @@ describe("IntakeItemScreen", () => {
       expect(recordButtons()).toHaveLength(1);
     });
 
-    it("cancels the request from the block and reads On the review shelf afterwards", async () => {
-      const asked = dogaItem({ ...POOL, ...requestedFor("dj-sam", "DJ Sam"), state: "requested", effective_state: "requested" });
-      fakeReviewsEndpoints({ records: [asked] });
-      const box = serveItem(asked);
+    /** Serves the item through a box whose request and cancel-request change it, and records the bodies of the requests sent. */
+    const serveWrites = (start: ReturnType<typeof dogaItem>) => {
+      fakeReviewsEndpoints({ records: [start], reviewers: [{ id: "dj-sam", name: "Sam" }] });
+      const box = serveItem(start);
+      const asked: { dj_id: string }[] = [];
+      const listReads = { count: 0 };
       server.use(
+        http.post(`${TEST_BACKEND_URL}/intake/${ITEM_ID}/request`, async ({ request }) => {
+          asked.push((await request.json()) as { dj_id: string });
+          box.item = dogaItem({ ...POOL, ...requestedFor("dj-sam", "Sam"), state: "requested", effective_state: "requested" });
+          return HttpResponse.json(box.item);
+        }),
         http.post(`${TEST_BACKEND_URL}/intake/${ITEM_ID}/cancel-request`, () => {
           box.item = dogaItem(POOL);
           return HttpResponse.json(box.item);
         }),
+        http.get(`${TEST_BACKEND_URL}/intake`, () => {
+          listReads.count += 1;
+          return undefined;
+        }),
       );
-      const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
-
-      await user.click(await within(await screen.findByRole("region", { name: TITLE })).findByRole("button", { name: "Cancel request" }));
-
-      expect(await within(screen.getByRole("region", { name: TITLE })).findByText("On the review shelf")).toBeInTheDocument();
-      expect(screen.queryByRole("button", { name: "Cancel request" })).not.toBeInTheDocument();
-    });
-
-    it("asks a DJ from the block and offers Cancel request in the toast", async () => {
-      const item = dogaItem(POOL);
-      fakeReviewsEndpoints({ open: [item], records: [item], reviewers: [{ id: "dj-sam", name: "Sam" }] });
-      const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
-
-      await user.click(await screen.findByRole("button", { name: /^Ask a DJ…/ }));
+      return { asked, listReads };
+    };
+    const askSam = async (user: User) => {
+      await user.click(await screen.findByRole("button", { name: "Ask a DJ…" }));
       await user.type(await screen.findByRole("combobox", { name: "Search by name" }), "sam");
       await user.keyboard("{Enter}");
       await user.click(await screen.findByRole("button", { name: "Ask" }));
+    };
+    const cancelRequest = async (user: User) => user.click(await within(await screen.findByRole("region", { name: TITLE })).findByRole("button", { name: "Cancel request" }));
+
+    it.each([
+      ["Cancel request", dogaItem({ ...POOL, ...requestedFor("dj-sam", "DJ Sam"), state: "requested", effective_state: "requested" }), cancelRequest, "On the review shelf", "Ask a DJ…", []],
+      ["Ask a DJ…", dogaItem(POOL), askSam, "Held for Sam", "Cancel request", [{ dj_id: "dj-sam" }]],
+    ])("after %s, reads the new where-now line, offers the other control, moves focus to the line and rereads only the record", async (_name, start, act, line, other, sent) => {
+      const { asked, listReads } = serveWrites(start);
+      const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+      const region = await screen.findByRole("region", { name: TITLE });
+      await reviewsSettled(store);
+      const listReadsBefore = listReads.count;
+
+      await act(user);
+
+      const where = await within(region).findByText(line);
+      expect(await within(region).findByRole("button", { name: other })).toBeInTheDocument();
+      await waitFor(() => expect(where).toHaveFocus());
+      expect(asked).toEqual(sent);
+      await reviewsSettled(store);
+      expect(listReads.count).toBe(listReadsBefore);
+    });
+
+    it("asks a DJ from the block and offers Cancel request in the toast", async () => {
+      const { asked } = serveWrites(dogaItem(POOL));
+      const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      await askSam(user);
 
       await waitFor(() => expect(vi.mocked(toast)).toHaveBeenCalledWith(REVIEW_COPY.intake.askDone("Sam"), expect.anything()));
+      expect(asked).toEqual([{ dj_id: "dj-sam" }]);
+      expect(within(screen.getByRole("region", { name: TITLE })).getByText("Held for Sam")).toBeInTheDocument();
+    });
+
+    it("names Ask a DJ… by its own words, not by the where-now line", async () => {
+      fakeReviewsEndpoints({ records: [dogaItem(POOL)], reviewers: [{ id: "dj-sam", name: "Sam" }] });
+      renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      expect(await screen.findByRole("button", { name: "Ask a DJ…" })).toHaveAccessibleName("Ask a DJ…");
+    });
+
+    it("keeps the Record a review form in the block through its own ticked save, which then closes it with Recorded.", async () => {
+      fakeReviewsEndpoints({ records: [dogaItem(POOL)] });
+      const box = serveItem(dogaItem(POOL));
+      const reviews = serveItemReviews([submitted(41)]);
+      server.use(
+        http.post(`${TEST_BACKEND_URL}/reviews`, async ({ request }) => {
+          const body = (await request.json()) as NewReviewRequest;
+          const made = submitted(90, { author: body.author, review: body.review ?? null });
+          reviews.list = [...reviews.list, made];
+          box.item = { ...box.item, accepted_review_id: made.id };
+          return HttpResponse.json(made, { status: 201 });
+        }),
+      );
+      const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+      const region = await screen.findByRole("region", { name: TITLE });
+      await user.click(within(region).getByRole("button", { name: "Record a review" }));
+      await user.type(within(region).getByRole("textbox", { name: "Author" }), "Sessa");
+      await user.type(within(region).getByRole("textbox", { name: "Review" }), "Warm.");
+      await reviewsSettled(store);
+      const held = holdTheReread(store, box);
+
+      await user.click(within(region).getByRole("button", { name: "Save" }));
+
+      await held.expectHeld();
+      expect(within(region).getByRole("heading", { name: "Record a review" })).toBeInTheDocument();
+      await held.releaseAndSettle();
+      expect(await screen.findByRole("status")).toHaveTextContent("Recorded.");
+      expect(screen.queryByRole("heading", { name: "Record a review" })).not.toBeInTheDocument();
+      expect(block()).not.toBeInTheDocument();
+      expect(recordButtons()).toHaveLength(1);
+    });
+
+    it.each([
+      [
+        "the cite search",
+        async (user: User, region: HTMLElement) => {
+          await user.click(within(region).getByRole("button", { name: "Cite a release in the library" }));
+          await user.type(await within(region).findByRole("searchbox", { name: REVIEW_COPY.intakeItem.searchCite }), "Juana");
+        },
+        (region: HTMLElement) => expect(within(region).getByRole("searchbox", { name: REVIEW_COPY.intakeItem.searchCite })).toHaveValue("Juana"),
+      ],
+      [
+        "the Record a review form",
+        async (user: User, region: HTMLElement) => {
+          await user.click(within(region).getByRole("button", { name: "Record a review" }));
+          await user.type(within(region).getByRole("textbox", { name: "Review" }), "Warm.");
+        },
+        (region: HTMLElement) => expect(within(region).getByRole("textbox", { name: "Review" })).toHaveValue("Warm."),
+      ],
+    ])("keeps %s open in the block when another write chooses a review, and stops saying where the record is", async (_name, openIt, kept) => {
+      fakeReviewsEndpoints({ records: [dogaItem(POOL)], reviewers: [{ id: "dj-sam", name: "Sam" }] });
+      const box = serveItem(dogaItem(POOL));
+      serveItemReviews([submitted(41)]);
+      acceptingReview(box);
+      const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+      const region = await screen.findByRole("region", { name: TITLE });
+      await openIt(user, region);
+      await reviewsSettled(store);
+
+      await user.click(await screen.findByRole("button", { name: "Use this review" }));
+
+      await waitFor(() => expect(screen.getByRole("heading", { name: "The review on the cover" })).toBeInTheDocument());
+      const stays = screen.getByRole("region", { name: TITLE });
+      kept(stays);
+      expect(within(stays).queryByText("On the review shelf")).not.toBeInTheDocument();
+      expect(within(stays).queryByText("Or:")).not.toBeInTheDocument();
+      expect(within(stays).queryByRole("button", { name: "Ask a DJ…" })).not.toBeInTheDocument();
     });
 
     it("opens the Record a review form in the block from ?get=record", async () => {

@@ -45,8 +45,9 @@ export const MY_REVIEWS = undefined;
  * The write wiring behind one Reviews tab. Call it once per tab, in the screen that owns the tab's lists, and pass `write` and `lock` down: a row stays locked until every list the tab renders has reloaded, which holds across that tab's lanes because one pending map covers them all. The tabs are separate routes, so each has its own pending map and a lock does not carry from one tab to the other.
  *
  * Every write reloads the intake list. `reloadMine` (default true) also reloads the DJ's own reviews; a tab that does not draw that list passes false, so a write there neither reads it nor waits on it. The tab strip's My reviews count reads that list too, and stays right without it: the review shelf tab's writes (checkout, request, cancel request) never change the DJ's own reviews, and a write that does invalidates the `Review` tag, which refetches the count's read.
+ * A page about one record passes its id as `only`: a write there rereads that record instead of the intake list, which the page does not draw.
  */
-export function useReviewWrite(items: IntakeItem[] | undefined, { reloadMine = true }: { reloadMine?: boolean } = {}) {
+export function useReviewWrite(items: IntakeItem[] | undefined, { reloadMine = true, only }: { reloadMine?: boolean; only?: number } = {}) {
   const dispatch = useAppDispatch();
   // A double-click's second POST would find the record already moved and
   // answer 409 state_changed, telling the DJ someone else took the record they
@@ -54,7 +55,9 @@ export function useReviewWrite(items: IntakeItem[] | undefined, { reloadMine = t
   // write's invalidation already started.
   return useRowWrite<Action>({
     reload: () => [
-      dispatch(intakeApi.endpoints.getIntakeItems.initiate(EVERY_STATE, { subscribe: false, forceRefetch: true })),
+      only === undefined
+        ? dispatch(intakeApi.endpoints.getIntakeItems.initiate(EVERY_STATE, { subscribe: false, forceRefetch: true }))
+        : dispatch(intakeApi.endpoints.getIntakeItem.initiate(only, { subscribe: false, forceRefetch: true })),
       ...(reloadMine ? [dispatch(reviewApi.endpoints.getMyReviews.initiate(MY_REVIEWS, { subscribe: false, forceRefetch: true }))] : []),
     ],
     isLostRace: (err) => isIntakeStateChanged(err) || isReviewSubjectNotHeld(err),
