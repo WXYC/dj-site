@@ -100,7 +100,7 @@ test("the intake golden path, from logging a record to the librarian's finalize"
       await expect(row).toBeVisible({ timeout: 15000 });
       await row.getByRole("button", { name: COPY.writeReview }).click();
 
-      await dj.waitForURL(/\/dashboard\/reviews\/\d+$/, { timeout: 15000 });
+      await dj.waitForURL(/\/dashboard\/reviews\/\d+(\?.*)?$/, { timeout: 15000 });
       reviewId = Number(new URL(dj.url()).pathname.split("/").pop());
 
       await dj.getByRole("textbox", { name: COPY.fields.review.label, exact: true }).fill(reviewText);

@@ -174,8 +174,8 @@ function Form({ review, user, arrivedFromRequest, origin }: { review: Review; us
       // The review is gone, so nothing is left to save: the form goes clean before the redirect, which may be a full load, whatever was typed while the request was out.
       setDeleted(true);
       clearReviewDraft(userId, review.id);
-      // My reviews is where the DJ's drafts live, and where the editor was opened from.
-      router.replace("/dashboard/reviews/mine");
+      // Back to where the editor was opened from, as the back link goes: My reviews at its stage, the review shelf, or the record's page, and the review shelf when it was opened from nowhere in particular.
+      router.replace(back.href);
     } catch (err) {
       if (isReviewInUse(err)) setRefusedInUse(true);
       else toast.error(REVIEW_COPY.couldNotDelete);
@@ -200,7 +200,7 @@ function Form({ review, user, arrivedFromRequest, origin }: { review: Review; us
         </Stack>
       )}
       <JoyLink component={Link} href={back.href} level="body-sm">
-        {back.label}
+        <span aria-hidden="true">←</span> {back.label}
       </JoyLink>
       {record ? <RecordHeader record={record} /> : <HiddenTitle />}
       <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" sx={{ mt: 1 }}>

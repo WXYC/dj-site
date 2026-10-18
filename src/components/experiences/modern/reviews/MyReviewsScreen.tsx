@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Button, Chip, Link, List, ListItem, Stack, Typography } from "@mui/joy";
 import type { IntakeItem, Review } from "@wxyc/shared";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useMounted } from "@/src/hooks/useRowWrite";
 import {
@@ -60,9 +60,8 @@ export default function MyReviewsScreen({ items, myReviews, me, write, lock }: {
   const [release] = useReleaseIntakeItemMutation();
   const [createReview] = useCreateReviewMutation();
   const router = useRouter();
-  const chosen = useSearchParams().get("stage");
-  const stage = STAGES.find((s) => s === chosen);
-  const openHref = (id: number, extra?: Record<string, string>) => editorHref(id, { from: "mine", stage }, extra);
+  // Every opener carries the stage its row is drawn under, which is the one StageChips shows (its fallback included), so the editor's back link returns to the stage the DJ was looking at.
+  const openHref = (id: number, stage: Stage, extra?: Record<string, string>) => editorHref(id, { from: "mine", stage }, extra);
   // A write outlives the screen when the DJ navigates away mid-click; what it does after that (open the editor, toast) is skipped.
   const mounted = useMounted();
   const [returning, setReturning] = useState<IntakeItem | null>(null);
@@ -72,10 +71,10 @@ export default function MyReviewsScreen({ items, myReviews, me, write, lock }: {
 
   const lanes = sortMyReviews(items, myReviews, me);
 
-  const requestRow = (i: IntakeItem, cover: 72 | 56) => (
+  const requestRow = (i: IntakeItem, stage: Stage) => (
     <RecordRow
       record={intakeRecord(i)}
-      cover={cover}
+      cover={coverFor(stage)}
       meta={<Typography level="body-sm">{`${REVIEW_COPY.screen.asked} ${day(i.requested_at)}`}</Typography>}
       actions={
         <>
@@ -90,7 +89,7 @@ export default function MyReviewsScreen({ items, myReviews, me, write, lock }: {
                   const draft = myReviews.find((r) => r.intake_item_id === i.id && r.status === "draft");
                   const review = draft ?? (await createReview({ intake_item_id: i.id }).unwrap());
                   if (mounted.current) {
-                    router.push(openHref(review.id, { arrived: "request" }));
+                    router.push(openHref(review.id, stage, { arrived: "request" }));
                   }
                 } catch {
                   if (mounted.current) {
@@ -108,7 +107,7 @@ export default function MyReviewsScreen({ items, myReviews, me, write, lock }: {
     />
   );
 
-  const heldRow = (i: IntakeItem, cover: 72 | 56) => {
+  const heldRow = (i: IntakeItem, stage: Stage) => {
     const mineHere = myReviews.filter((r) => r.intake_item_id === i.id);
     const submitted = mineHere.find((r) => r.status === "submitted");
     const draft = mineHere.find((r) => r.status === "draft");
@@ -122,7 +121,7 @@ export default function MyReviewsScreen({ items, myReviews, me, write, lock }: {
     return (
       <RecordRow
         record={intakeRecord(i)}
-        cover={cover}
+        cover={coverFor(stage)}
         meta={
           <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
             <Typography level="body-sm">{`${REVIEW_COPY.screen.taken} ${day(i.checked_out_at)}`}</Typography>
@@ -133,7 +132,7 @@ export default function MyReviewsScreen({ items, myReviews, me, write, lock }: {
         actions={
           <>
             {submitted ? (
-              <Button size="sm" variant={reviewed ? "outlined" : "solid"} onClick={() => router.push(openHref(submitted.id))}>{REVIEW_COPY.screen.editReview}</Button>
+              <Button size="sm" variant={reviewed ? "outlined" : "solid"} onClick={() => router.push(openHref(submitted.id, stage))}>{REVIEW_COPY.screen.editReview}</Button>
             ) : (
               <Button
                 size="sm"
@@ -143,7 +142,7 @@ export default function MyReviewsScreen({ items, myReviews, me, write, lock }: {
                   write(i.id, "write", async () => {
                     const review = draft ?? (await createReview({ intake_item_id: i.id }).unwrap());
                     if (mounted.current) {
-                      router.push(openHref(review.id));
+                      router.push(openHref(review.id, stage));
                     }
                   })
                 }
@@ -158,14 +157,14 @@ export default function MyReviewsScreen({ items, myReviews, me, write, lock }: {
     );
   };
 
-  const renderRow = (row: MyReviewsRow, cover: 72 | 56) => {
+  const renderRow = (row: MyReviewsRow, stage: Stage) => {
     switch (row.kind) {
       case "request":
-        return requestRow(row.item, cover);
+        return requestRow(row.item, stage);
       case "held":
-        return heldRow(row.item, cover);
+        return heldRow(row.item, stage);
       case "review":
-        return <MyReviewRow review={row.review} href={openHref(row.review.id)} cover={cover} />;
+        return <MyReviewRow review={row.review} href={openHref(row.review.id, stage)} cover={coverFor(stage)} />;
     }
   };
 
@@ -187,7 +186,7 @@ export default function MyReviewsScreen({ items, myReviews, me, write, lock }: {
             <>
               <List>
                 {visible.map((row) => (
-                  <ListItem key={rowKey(row)}>{renderRow(row, coverFor(stage))}</ListItem>
+                  <ListItem key={rowKey(row)}>{renderRow(row, stage)}</ListItem>
                 ))}
               </List>
               {visible.length < rows.length && (

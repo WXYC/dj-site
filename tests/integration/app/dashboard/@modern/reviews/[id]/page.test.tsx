@@ -28,8 +28,8 @@ vi.mock("@/lib/features/authentication/organization-utils.server", async () => {
 // The page's own responsibility under test is its id check and what it renders
 // once the gate passes, not the editor or the header chrome.
 vi.mock("@/src/components/experiences/modern/reviews/ReviewEditor", () => ({
-  default: ({ id, arrivedFromRequest }: { id: number; arrivedFromRequest?: boolean }) => (
-    <div data-testid="editor" data-arrived={String(arrivedFromRequest)}>{id}</div>
+  default: ({ id, arrivedFromRequest, origin }: { id: number; arrivedFromRequest?: boolean; origin?: unknown }) => (
+    <div data-testid="editor" data-arrived={String(arrivedFromRequest)} data-origin={origin === undefined ? "not passed" : JSON.stringify(origin)}>{id}</div>
   ),
 }));
 
@@ -40,7 +40,7 @@ import { REVIEW_COPY } from "@/src/components/experiences/modern/reviews/copy";
 describe("review editor page", () => {
   setUpClassicPageAuthorityEnv();
 
-  const open = (id = "40", query: { arrived?: string } = {}) =>
+  const open = (id = "40", query: { arrived?: string; from?: string; stage?: string; record?: string } = {}) =>
     ReviewEditorPage({ params: Promise.resolve({ id }), searchParams: Promise.resolve(query) });
 
   it("renders the editor once the gate passes", async () => {
@@ -64,6 +64,23 @@ describe("review editor page", () => {
     renderWithProviders(await open("40", { arrived }));
 
     expect(screen.getByTestId("editor")).toHaveAttribute("data-arrived", expected);
+  });
+
+  it.each([
+    ["My reviews with its stage", { from: "mine", stage: "submitted" }, { from: "mine", stage: "submitted" }],
+    ["My reviews on Published", { from: "mine", stage: "published" }, { from: "mine", stage: "published" }],
+    ["a record's page", { from: "record", record: "12" }, { from: "record", record: 12 }],
+    ["the review shelf", { from: "shelf" }, { from: "shelf" }],
+    ["a full URL, which is no origin", { from: "https://example.com" }, null],
+    ["no from", {}, null],
+  ])("passes the editor where it was opened from for %s", async (_label, query, expected) => {
+    process.env.NEXT_PUBLIC_REVIEWS_ENABLED = "true";
+    setUpClassicPageAuthority("dj");
+
+    renderWithProviders(await open("40", query));
+
+    expect(screen.getByTestId("editor")).not.toHaveAttribute("data-origin", "not passed");
+    expect(JSON.parse(screen.getByTestId("editor").getAttribute("data-origin")!)).toEqual(expected);
   });
 
   it("titles the tab from the copy module", () => {

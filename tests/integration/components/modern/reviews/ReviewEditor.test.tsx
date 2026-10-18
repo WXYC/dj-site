@@ -758,11 +758,17 @@ describe("ReviewEditor", () => {
   });
 
   describe("deleting", () => {
-    it("confirms, deletes, and leaves the editor for My reviews, where the DJ's drafts live", async () => {
+    it.each([
+      ["My reviews, keeping its stage", { from: "mine", stage: "submitted" }, "/dashboard/reviews/mine?stage=submitted"],
+      ["My reviews on Published", { from: "mine", stage: "published" }, "/dashboard/reviews/mine?stage=published"],
+      ["the review shelf", { from: "shelf" }, "/dashboard/reviews"],
+      ["a record's page", { from: "record", record: 12 }, "/dashboard/admin/intake/12"],
+      ["nowhere in particular, so the review shelf as the back link does", null, "/dashboard/reviews"],
+    ] as const)("confirms, deletes, and goes back to where the editor was opened from: %s", async (_name, origin, href) => {
       serve(SUBMITTED);
       let deleted = 0;
       server.use(deletingReview(() => deleted++));
-      const { user } = renderWithProviders(<ReviewEditor id={40} />);
+      const { user } = renderWithProviders(<ReviewEditor id={40} origin={origin} />);
       await user.click(await screen.findByRole("button", { name: "Delete" }));
 
       const dialog = await screen.findByRole("alertdialog");
@@ -770,7 +776,8 @@ describe("ReviewEditor", () => {
       expect(deleted).toBe(0);
       await user.click(within(dialog).getByRole("button", { name: "Delete" }));
 
-      await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/dashboard/reviews/mine"));
+      await waitFor(() => expect(router.replace).toHaveBeenCalledWith(href));
+      expect(router.replace).toHaveBeenCalledTimes(1);
       expect(deleted).toBe(1);
     });
 
@@ -1200,21 +1207,24 @@ describe("ReviewEditor", () => {
     });
 
     it.each([
-      ["My reviews, keeping its stage", { from: "mine", stage: "submitted" }, "← My reviews", "/dashboard/reviews/mine?stage=submitted"],
-      ["the review shelf", { from: "shelf" }, "← Review shelf", "/dashboard/reviews"],
-      ["a record's page", { from: "record", record: 12 }, "← Back to the record's page", "/dashboard/admin/intake/12"],
-      ["nowhere in particular", null, "← Review shelf", "/dashboard/reviews"],
-    ] as const)("links back to %s", async (_name, origin, text, href) => {
+      ["My reviews, keeping its stage", { from: "mine", stage: "submitted" }, "My reviews", "/dashboard/reviews/mine?stage=submitted"],
+      ["the review shelf", { from: "shelf" }, "Review shelf", "/dashboard/reviews"],
+      ["a record's page", { from: "record", record: 12 }, "Back to the record's page", "/dashboard/admin/intake/12"],
+      ["nowhere in particular", null, "Review shelf", "/dashboard/reviews"],
+    ] as const)("links back to %s, with the arrow shown but not in the link's name", async (_name, origin, name, href) => {
       serve(DRAFT);
       renderWithProviders(<ReviewEditor id={40} origin={origin} />);
-      expect(await screen.findByRole("link", { name: text })).toHaveAttribute("href", href);
+      const link = await screen.findByRole("link", { name });
+      expect(link).toHaveAttribute("href", href);
+      expect(link).toHaveAccessibleName(name);
+      expect(link).toHaveTextContent(`← ${name}`);
     });
 
     it("asks before the back link leaves a dirty form", async () => {
       serve(DRAFT);
       const { user } = renderWithProviders(<ReviewEditor id={40} origin={{ from: "shelf" }} />);
       await makeDirty(user);
-      await user.click(screen.getByRole("link", { name: "← Review shelf" }));
+      await user.click(screen.getByRole("link", { name: "Review shelf" }));
       expect(await dialog()).toBeInTheDocument();
     });
 
@@ -1411,7 +1421,7 @@ describe("ReviewEditor", () => {
       await makeDirty(user);
       await confirmDelete(user);
 
-      await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/dashboard/reviews/mine"));
+      await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/dashboard/reviews"));
       expect(callsAtRedirect).toEqual(NO_HISTORY_CALLS);
       expect(screen.queryByRole("alertdialog", { name: "Leave without saving?" })).not.toBeInTheDocument();
       await waitFor(() => expect(beforeUnload()).toBe(false));
@@ -1434,7 +1444,7 @@ describe("ReviewEditor", () => {
       await user.type(screen.getByLabelText("Review"), " Still typing.");
       delete40.release();
 
-      await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/dashboard/reviews/mine"));
+      await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/dashboard/reviews"));
       expect(storedAtRedirect).toBeNull();
       await waitFor(() => expect(stored()).toBeNull());
       await waitFor(() => expect(beforeUnload()).toBe(false));

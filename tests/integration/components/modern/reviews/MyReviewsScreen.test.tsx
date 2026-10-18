@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import { fakeReviewsEndpoints, heldBy, intakeItem, renderWithProviders, requestedFor, review } from "@/tests/helpers";
 import { REVIEW_COPY } from "@/src/components/experiences/modern/reviews/copy";
+import { editorBack, parseEditorOrigin } from "@/lib/features/reviews/paths";
 import MyReviewsScreen from "@/src/components/experiences/modern/reviews/MyReviewsScreen";
 import { useReviewWrite } from "@/src/components/experiences/modern/reviews/useReviewWrite";
 import type { ComponentProps } from "react";
@@ -120,33 +121,41 @@ describe("MyReviewsScreen", () => {
     expect(within(panel).queryByRole("button", { name: REVIEW_COPY.myReviews.showOlder })).not.toBeInTheDocument();
   });
 
-  // Every way out of this tab to the editor says where it was opened from, and keeps the stage the DJ was looking at.
+  // Every way out of this tab to the editor says where it was opened from, and carries the stage the DJ is looking at: the one the chips show, which is the opening rule's choice when the URL names no stage. The editor's back link then returns to that same stage.
+  const draft34 = review({ id: 34, intake_item_id: null, album_id: 7, status: "draft" });
+  const reviewedDisc = held(2, { state: "reviewed", effective_state: "reviewed" });
   describe.each([
-    ["", "?from=mine"],
-    ["?stage=open", "?from=mine&stage=open"],
-    ["?stage=submitted", "?from=mine&stage=submitted"],
-    ["?stage=elsewhere", "?from=mine"],
-  ])("with %j in the URL", (search, query) => {
-    it("the Open link carries it", async () => {
+    ["the Open link, from the tab with no stage and something open", "", [], [submitted(33), draft34], { link: REVIEW_COPY.myReviews.open }, 34, "open"],
+    ["the Open link, from the tab with no stage and nothing open", "", [], [submitted(33)], { link: REVIEW_COPY.myReviews.open }, 33, "submitted"],
+    ["the Open link on Open reviews", "?stage=open", [], [submitted(33), draft34], { link: REVIEW_COPY.myReviews.open }, 34, "open"],
+    ["the Open link on Submitted", "?stage=submitted", [], [submitted(33), draft34], { link: REVIEW_COPY.myReviews.open }, 33, "submitted"],
+    ["the Open link on Published", "?stage=published", [], [submitted(35, { in_use: true }), draft34], { link: REVIEW_COPY.myReviews.open }, 35, "published"],
+    ["the Open link, from a stage the URL names wrongly", "?stage=elsewhere", [], [submitted(33)], { link: REVIEW_COPY.myReviews.open }, 33, "submitted"],
+    ["Write review on a record with a draft, from the tab with no stage", "", [held(8)], [review({ id: 31, intake_item_id: 8, status: "draft" })], { button: REVIEW_COPY.writeReview }, 31, "open"],
+    ["Write review on a record with a draft, on Open reviews", "?stage=open", [held(8)], [review({ id: 31, intake_item_id: 8, status: "draft" })], { button: REVIEW_COPY.writeReview }, 31, "open"],
+    ["Write review on a record with a draft, from a stage the URL names wrongly", "?stage=elsewhere", [held(8)], [review({ id: 31, intake_item_id: 8, status: "draft" })], { button: REVIEW_COPY.writeReview }, 31, "open"],
+    ["Edit review on a record with a submitted review, from the tab with no stage", "", [held(9)], [review({ id: 32, intake_item_id: 9, status: "submitted" })], { button: REVIEW_COPY.screen.editReview }, 32, "submitted"],
+    ["Edit review on a record with a submitted review, on Submitted", "?stage=submitted", [held(9)], [review({ id: 32, intake_item_id: 9, status: "submitted" })], { button: REVIEW_COPY.screen.editReview }, 32, "submitted"],
+    ["Edit review on a disc whose review was chosen, on Published", "?stage=published", [reviewedDisc], [submitted(40, { intake_item_id: 2, album_id: null, in_use: true })], { button: REVIEW_COPY.screen.editReview }, 40, "published"],
+  ] as const)("%s", (_name, search, items, reviews, opener, id, stage) => {
+    const href = `/dashboard/reviews/${id}?from=mine&stage=${stage}`;
+
+    it(`opens the editor at ${href}, under the stage that is showing`, async () => {
       url.search = search;
-      renderScreen([], [submitted(33), review({ id: 34, intake_item_id: null, album_id: 7, status: "draft" })]);
-      const links = await screen.findAllByRole("link", { name: REVIEW_COPY.myReviews.open });
-      expect(links).toHaveLength(1);
-      expect(links[0].getAttribute("href")).toMatch(new RegExp(`^/dashboard/reviews/3[34]${query.replace("?", "\\?")}$`));
+      const { user } = renderScreen([...items], [...reviews]);
+      expect(await screen.findByRole("tab", { selected: true })).toHaveTextContent(STAGES[stage]);
+      if ("link" in opener) {
+        const links = screen.getAllByRole("link", { name: opener.link });
+        expect(links.map((a) => a.getAttribute("href"))).toEqual([href]);
+      } else {
+        await user.click(screen.getByRole("button", { name: opener.button }));
+        await waitFor(() => expect(router.push).toHaveBeenCalledWith(href));
+      }
     });
 
-    it.each([
-      ["Write review on a record with a draft", ["", "?stage=open", "?stage=elsewhere"], [held(8)], [review({ id: 31, intake_item_id: 8, status: "draft" })], REVIEW_COPY.writeReview, 31],
-      ["Edit review on a record with a submitted review", ["", "?stage=submitted", "?stage=elsewhere"], [held(9)], [review({ id: 32, intake_item_id: 9, status: "submitted" })], REVIEW_COPY.screen.editReview, 32],
-    ])("%s carries it", async (_name, shownOn, items, reviews, button, id) => {
-      // Only the chosen stage's rows are drawn: a record with a draft is under Open reviews, one with a submitted review under Submitted.
-      if (!shownOn.includes(search)) {
-        return;
-      }
-      url.search = search;
-      const { user } = renderScreen(items, reviews);
-      await user.click(await screen.findByRole("button", { name: button }));
-      await waitFor(() => expect(router.push).toHaveBeenCalledWith(`/dashboard/reviews/${id}${query}`));
+    it("gives the editor a back link to that stage", () => {
+      const query = Object.fromEntries(new URL(href, "https://dj.wxyc.org").searchParams);
+      expect(editorBack(parseEditorOrigin(query)).href).toBe(`/dashboard/reviews/mine?stage=${stage}`);
     });
   });
 
