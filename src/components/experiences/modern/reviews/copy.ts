@@ -281,6 +281,8 @@ export const REVIEW_COPY = {
     digital: "Digital",
     discogsReleaseId: "Discogs link or release number (optional)",
     discogsRefused: "That isn't a Discogs release link or number.",
+    discogsFilled: "Filled in the artist, album and label from Discogs. Check them before you add the record.",
+    discogsFilling: "Looking up the record on Discogs",
     /** Approved. */
     log: "Log item",
     /** Approved. */
