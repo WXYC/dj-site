@@ -61,7 +61,8 @@ describe("ReviewShelfScreen", () => {
     router.push.mockClear();
     vi.mocked(toast).mockClear();
     vi.mocked(toast.error).mockClear();
-    animate.mockClear();
+    animate.mockReset();
+    animate.mockImplementation(() => ({ finished: Promise.resolve(), cancel: vi.fn() }));
     HTMLElement.prototype.animate = animate as unknown as HTMLElement["animate"];
   });
   afterEach(() => {
@@ -213,6 +214,19 @@ describe("ReviewShelfScreen", () => {
 
       await waitFor(notice);
       expect(animate).not.toHaveBeenCalled();
+    });
+
+    it("reports no failure when the animation is cancelled after the checkout has landed", async () => {
+      reduceMotion(false);
+      animate.mockImplementation(() => ({ finished: Promise.reject(new Error("cancelled")), cancel: vi.fn() }));
+      serveShelf([ROW("disc")]);
+      const { user } = renderWithProviders(<Live />);
+
+      await user.click(await screen.findByRole("button", { name: REVIEW_COPY.screen.review }));
+
+      await waitFor(() => expect(screen.queryByRole("button", { name: REVIEW_COPY.screen.review })).not.toBeInTheDocument());
+      expect(toast.error).not.toHaveBeenCalled();
+      expect(toast).toHaveBeenCalledTimes(1);
     });
 
     it("leaves the focus on the next row's Review button, past its Preview link, once a row leaves", async () => {
