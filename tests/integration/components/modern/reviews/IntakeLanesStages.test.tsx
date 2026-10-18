@@ -1,8 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import { delay, http, HttpResponse } from "msw";
+import { setupListeners } from "@reduxjs/toolkit/query";
 import type { IntakeItem } from "@wxyc/shared";
 import { Authorization } from "@/lib/features/admin/types";
+import { makeStore } from "@/lib/store";
 import { fakeReviewsEndpoints, heldBy, intakeItem, renderWithProviders, requestedFor, renderedFrame, server, TEST_BACKEND_URL } from "@/tests/helpers";
 
 vi.mock("@/lib/features/authentication/client", async () => {
@@ -328,6 +330,37 @@ describe("IntakeLanes stage lists", () => {
     renderWithProviders(<IntakeLanes />);
 
     expect(await screen.findByRole("tab", { name: `${COPY.filed}, ${expected}` })).toBeInTheDocument();
+  });
+
+  // A tab left open for days keeps its window only until the next read: the cut follows the newest read, not the moment the tab opened.
+  it("drops a record from the Filed chip and list once a refetch lands after its 30-day mark", async () => {
+    serve([
+      { ...FILED, id: 40, artist_name: "Stereolab", filed_at: daysAgo(29) },
+      { ...FILED, id: 41, artist_name: "Cat Power", filed_at: daysAgo(5) },
+    ]);
+    showStage("filed");
+    const store = makeStore();
+    const stopListening = setupListeners(store.dispatch);
+    try {
+      renderWithProviders(<IntakeLanes />, { store });
+
+      const region = await panel(COPY.filed);
+      await waitFor(() => expect(artists(region)).toEqual(["Cat Power", "Stereolab"]));
+      expect(screen.getByRole("tab", { name: `${COPY.filed}, 2` })).toBeInTheDocument();
+
+      // Two days pass, so Stereolab is 31 days old; nothing changes until the tab reads again.
+      vi.setSystemTime(new Date(NOW.getTime() + 2 * 24 * 60 * 60 * 1000));
+      await renderedFrame();
+      expect(artists(region)).toEqual(["Cat Power", "Stereolab"]);
+
+      window.dispatchEvent(new Event("focus"));
+
+      expect(await screen.findByRole("tab", { name: `${COPY.filed}, 1` })).toBeInTheDocument();
+      await waitFor(() => expect(artists(region)).toEqual(["Cat Power"]));
+      expect(within(region).getByRole("button", { name: COPY.showOlder })).toBeInTheDocument();
+    } finally {
+      stopListening();
+    }
   });
 
   it("offers no Show older when every filed record is recent", async () => {

@@ -212,8 +212,8 @@ function IntakeLaneGroups({ handOff, onStageChosen }: { handOff: HandOff | null;
   const [cancelRequest] = useCancelIntakeRequestMutation();
   const dispatch = useAppDispatch();
   const [notice, setNotice] = useState<string | null>(null);
-  // The 30-day window is fixed when the tab opens, so the Filed chip and the Filed list count the same records and a list left on screen does not shift under the reader.
-  const [now] = useState(() => Date.now());
+  // The 30-day window ends when the newest of the two filed reads landed, so the Filed chip and the Filed list count the same records, the list does not shift between reads, and a tab left open for days moves the window forward on each refetch. Until a read lands there are no filed rows to cut.
+  const now = Math.max(filedRead.fulfilledTimeStamp ?? 0, finalizedRead.fulfilledTimeStamp ?? 0);
   const [confirming, setConfirming] = useState<Confirming | null>(null);
   const { write, lock } = useRowWrite<Action>({
     reload: () =>
