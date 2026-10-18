@@ -135,14 +135,6 @@ export const REVIEW_COPY = {
     shelfEmpty: "Nothing is waiting on the review shelf.",
     /** Approved. */
     shelfLine: "Records waiting for a reviewer. Pick one to review.",
-    /** Approved. */
-    checkoutsTitle: "Records I'm reviewing",
-    /** Approved. */
-    checkoutsEmpty: "You aren't reviewing any records.",
-    /** Approved. */
-    requestsTitle: "Requests for me",
-    /** Approved. */
-    requestsEmpty: "No one has asked you for a review.",
     /** Approved. The page's load failure. */
     loadFailed: "Couldn't load the review shelf. Please try again.",
     /** Approved. Any failed write other than starting a review. */
@@ -206,6 +198,8 @@ export const REVIEW_COPY = {
     directors: "New music",
     /** What a screen reader hears after the New music tab's name when reviews are waiting. */
     waiting: (n: number) => `${n} ${n === 1 ? "review" : "reviews"} waiting`,
+    /** What a screen reader hears after the My reviews tab's name when reviews are open. */
+    open: (n: number) => `${n} open ${n === 1 ? "review" : "reviews"}`,
   },
   /** The sidebar's one entry for the Reviews page. */
   sidebar: {
@@ -616,10 +610,17 @@ export const REVIEW_COPY = {
     loadFailed: "Couldn't check which version is on the cover.",
   },
   myReviews: {
-    /** Approved. */
-    title: "My reviews",
-    /** Approved. */
-    empty: "You have not started a review.",
+    /** The accessible name of the chips that switch the My reviews tab's list. */
+    stagesLabel: "Which of my reviews to show",
+    stages: {
+      /** Requests for me and Records I'm reviewing, as one list. */
+      open: "Open reviews",
+      submitted: "Submitted",
+      cover: "On the cover",
+    },
+    openEmpty: "Nothing is waiting on you right now.",
+    /** Reveals the next 20 of a long Submitted or On the cover list. */
+    showOlder: "Show older reviews",
     /** Approved. */
     draft: "Draft",
     /** Approved. */

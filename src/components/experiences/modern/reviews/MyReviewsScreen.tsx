@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Button, Chip, Link, Stack, Typography } from "@mui/joy";
+import { Button, Chip, Link, List, ListItem, Stack, Typography } from "@mui/joy";
 import type { IntakeItem, Review } from "@wxyc/shared";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -13,8 +13,9 @@ import {
 } from "@/lib/features/reviews/intakeApi";
 import { useCreateReviewMutation } from "@/lib/features/reviews/reviewApi";
 import { byKind, overdueMark } from "@/lib/features/reviews/kind";
+import { rowKey, sortMyReviews, STAGES, type MyReviewsRow, type Stage } from "@/lib/features/reviews/myReviews";
 import ConfirmDialog from "../ConfirmDialog";
-import IntakeLane from "./IntakeLane";
+import StageChips from "../StageChips";
 import { REVIEW_COPY } from "./copy";
 import RecordRow from "./RecordRow";
 import { intakeRecord } from "./recordLine";
@@ -45,7 +46,10 @@ function MyReviewRow({ review }: { review: Review }) {
   );
 }
 
-/** The requests, checkouts and My reviews lanes. It assumes its caller has applied the `useCanSeeReviews` check and the load-failed gate, and takes the `useReviewWrite` the caller built for this tab: the review shelf is a separate tab with its own write wiring, so a lock set here does not carry over to it. */
+/** Submitted and On the cover show this many reviews at a time. */
+const PAGE_SIZE = 20;
+
+/** The Open reviews, Submitted and On the cover stages. It assumes its caller has applied the `useCanSeeReviews` check and the load-failed gate, and takes the `useReviewWrite` the caller built for this tab: the review shelf is a separate tab with its own write wiring, so a lock set here does not carry over to it. */
 export default function MyReviewsScreen({ items, myReviews, me, write, lock }: { items: IntakeItem[]; myReviews: Review[]; me: string | undefined } & ReviewWrite) {
   const [accept] = useAcceptIntakeItemMutation();
   const [pass] = usePassIntakeItemMutation();
@@ -56,98 +60,134 @@ export default function MyReviewsScreen({ items, myReviews, me, write, lock }: {
   const mounted = useMounted();
   const [returning, setReturning] = useState<IntakeItem | null>(null);
   const [passing, setPassing] = useState<IntakeItem | null>(null);
+  // How many rows each stage shows; a stage that was never asked for shows one page.
+  const [shown, setShown] = useState<Partial<Record<Stage, number>>>({});
 
-  const requests = items.filter((i) => i.effective_state === "requested" && i.requested_dj_id === me);
-  const checkouts = [
-    ...items.filter((i) => i.effective_state === "checked_out" && i.checked_out_by === me),
-    ...items.filter((i) => i.effective_state === "reviewed" && i.checked_out_by === me),
-  ];
+  const lanes = sortMyReviews(items, myReviews, me);
 
-  return (
-    <>
-      <IntakeLane title={REVIEW_COPY.screen.requestsTitle} rows={requests} empty={REVIEW_COPY.screen.requestsEmpty} row={(i) => (
-        <RecordRow
-          record={intakeRecord(i)}
-          meta={<Typography level="body-sm">{`${REVIEW_COPY.screen.asked} ${day(i.requested_at)}`}</Typography>}
-          actions={
-            <>
+  const requestRow = (i: IntakeItem) => (
+    <RecordRow
+      record={intakeRecord(i)}
+      meta={<Typography level="body-sm">{`${REVIEW_COPY.screen.asked} ${day(i.requested_at)}`}</Typography>}
+      actions={
+        <>
+          <Button
+            size="sm"
+            {...lock(i.id, "accept")}
+            onClick={() =>
+              write(i.id, "accept", async () => {
+                await accept(i.id).unwrap();
+                // The record is the DJ's now, so a create that fails is its own toast: neither a lost race nor the generic failure. A DJ who has left the page gets neither the editor nor the toast; the record is in their list either way.
+                try {
+                  const draft = myReviews.find((r) => r.intake_item_id === i.id && r.status === "draft");
+                  const review = draft ?? (await createReview({ intake_item_id: i.id }).unwrap());
+                  if (mounted.current) {
+                    router.push(`/dashboard/reviews/${review.id}?arrived=request`);
+                  }
+                } catch {
+                  if (mounted.current) {
+                    toast.error(REVIEW_COPY.couldNotStart);
+                  }
+                }
+              })
+            }
+          >
+            {REVIEW_COPY.writeReview}
+          </Button>
+          <Button size="sm" variant="outlined" {...lock(i.id, "pass")} onClick={() => setPassing(i)}>{REVIEW_COPY.screen.pass}</Button>
+        </>
+      }
+    />
+  );
+
+  const heldRow = (i: IntakeItem) => {
+    const mineHere = myReviews.filter((r) => r.intake_item_id === i.id);
+    const submitted = mineHere.find((r) => r.status === "submitted");
+    const draft = mineHere.find((r) => r.status === "draft");
+    const reviewed = i.effective_state === "reviewed";
+    const mark = overdueMark(i);
+    const note = reviewed
+      ? byKind(i, { disc: REVIEW_COPY.screen.reviewedReturn, digital: null })
+      : submitted
+        ? REVIEW_COPY.screen.reviewSubmitted
+        : byKind(i, { disc: null, digital: REVIEW_COPY.screen.filesComing });
+    return (
+      <RecordRow
+        record={intakeRecord(i)}
+        meta={
+          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+            <Typography level="body-sm">{`${REVIEW_COPY.screen.taken} ${day(i.checked_out_at)}`}</Typography>
+            {mark && <Chip color="danger">{mark}</Chip>}
+            {note && <Typography level="body-sm">{note}</Typography>}
+          </Stack>
+        }
+        actions={
+          <>
+            {submitted ? (
+              <Button size="sm" variant={reviewed ? "outlined" : "solid"} onClick={() => router.push(`/dashboard/reviews/${submitted.id}`)}>{REVIEW_COPY.screen.editReview}</Button>
+            ) : (
               <Button
                 size="sm"
-                {...lock(i.id, "accept")}
+                variant={reviewed ? "outlined" : "solid"}
+                {...lock(i.id, "write")}
                 onClick={() =>
-                  write(i.id, "accept", async () => {
-                    await accept(i.id).unwrap();
-                    // The record is the DJ's now, so a create that fails is its own toast: neither a lost race nor the generic failure. A DJ who has left the page gets neither the editor nor the toast; the record is in their list either way.
-                    try {
-                      const draft = myReviews.find((r) => r.intake_item_id === i.id && r.status === "draft");
-                      const review = draft ?? (await createReview({ intake_item_id: i.id }).unwrap());
-                      if (mounted.current) {
-                        router.push(`/dashboard/reviews/${review.id}?arrived=request`);
-                      }
-                    } catch {
-                      if (mounted.current) {
-                        toast.error(REVIEW_COPY.couldNotStart);
-                      }
+                  write(i.id, "write", async () => {
+                    const review = draft ?? (await createReview({ intake_item_id: i.id }).unwrap());
+                    if (mounted.current) {
+                      router.push(`/dashboard/reviews/${review.id}`);
                     }
                   })
                 }
               >
                 {REVIEW_COPY.writeReview}
               </Button>
-              <Button size="sm" variant="outlined" {...lock(i.id, "pass")} onClick={() => setPassing(i)}>{REVIEW_COPY.screen.pass}</Button>
-            </>
+            )}
+            <Button size="sm" variant={reviewed ? "solid" : "outlined"} {...lock(i.id, "release")} onClick={() => setReturning(i)}>{REVIEW_COPY.screen.returnToShelf}</Button>
+          </>
+        }
+      />
+    );
+  };
+
+  const renderRow = (row: MyReviewsRow) => {
+    switch (row.kind) {
+      case "request":
+        return requestRow(row.item);
+      case "held":
+        return heldRow(row.item);
+      case "review":
+        return <MyReviewRow review={row.review} />;
+    }
+  };
+
+  return (
+    <>
+      <StageChips
+        label={REVIEW_COPY.myReviews.stagesLabel}
+        stages={STAGES.map((id) => ({ id, label: REVIEW_COPY.myReviews.stages[id], count: lanes[id].length }))}
+        fallback={lanes.open.length > 0 ? "open" : "submitted"}
+      >
+        {(stage) => {
+          const rows = lanes[stage];
+          // Open reviews is the DJ's to-do list, so it is never cut short.
+          const visible = stage === "open" ? rows : rows.slice(0, shown[stage] ?? PAGE_SIZE);
+          if (rows.length === 0) {
+            return <Typography level="body-sm">{stage === "open" ? REVIEW_COPY.myReviews.openEmpty : REVIEW_COPY.intake.empty}</Typography>;
           }
-        />
-      )} />
-      <IntakeLane title={REVIEW_COPY.screen.checkoutsTitle} rows={checkouts} empty={REVIEW_COPY.screen.checkoutsEmpty} row={(i) => {
-        const mineHere = myReviews.filter((r) => r.intake_item_id === i.id);
-        const submitted = mineHere.find((r) => r.status === "submitted");
-        const draft = mineHere.find((r) => r.status === "draft");
-        const reviewed = i.effective_state === "reviewed";
-        const mark = overdueMark(i);
-        const note = reviewed
-          ? byKind(i, { disc: REVIEW_COPY.screen.reviewedReturn, digital: null })
-          : submitted
-            ? REVIEW_COPY.screen.reviewSubmitted
-            : byKind(i, { disc: null, digital: REVIEW_COPY.screen.filesComing });
-        return (
-          <RecordRow
-            record={intakeRecord(i)}
-            meta={
-              <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-                <Typography level="body-sm">{`${REVIEW_COPY.screen.taken} ${day(i.checked_out_at)}`}</Typography>
-                {mark && <Chip color="danger">{mark}</Chip>}
-                {note && <Typography level="body-sm">{note}</Typography>}
-              </Stack>
-            }
-            actions={
-              <>
-                {submitted ? (
-                  <Button size="sm" variant={reviewed ? "outlined" : "solid"} onClick={() => router.push(`/dashboard/reviews/${submitted.id}`)}>{REVIEW_COPY.screen.editReview}</Button>
-                ) : (
-                  <Button
-                    size="sm"
-                    variant={reviewed ? "outlined" : "solid"}
-                    {...lock(i.id, "write")}
-                    onClick={() =>
-                      write(i.id, "write", async () => {
-                        const review = draft ?? (await createReview({ intake_item_id: i.id }).unwrap());
-                        if (mounted.current) {
-                          router.push(`/dashboard/reviews/${review.id}`);
-                        }
-                      })
-                    }
-                  >
-                    {REVIEW_COPY.writeReview}
-                  </Button>
-                )}
-                <Button size="sm" variant={reviewed ? "solid" : "outlined"} {...lock(i.id, "release")} onClick={() => setReturning(i)}>{REVIEW_COPY.screen.returnToShelf}</Button>
-              </>
-            }
-          />
-        );
-      }} />
-      <IntakeLane title={REVIEW_COPY.myReviews.title} rows={myReviews} empty={REVIEW_COPY.myReviews.empty} row={(r) => <MyReviewRow review={r} />} />
+          return (
+            <>
+              <List>
+                {visible.map((row) => (
+                  <ListItem key={rowKey(row)}>{renderRow(row)}</ListItem>
+                ))}
+              </List>
+              {visible.length < rows.length && (
+                <Button variant="plain" onClick={() => setShown({ ...shown, [stage]: visible.length + PAGE_SIZE })}>{REVIEW_COPY.myReviews.showOlder}</Button>
+              )}
+            </>
+          );
+        }}
+      </StageChips>
       <ConfirmDialog
         open={returning !== null}
         onClose={() => setReturning(null)}

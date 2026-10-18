@@ -13,7 +13,7 @@ import ReviewShelfScreen from "./ReviewShelfScreen";
 import { REVIEW_COPY } from "./copy";
 import { EVERY_STATE, MY_REVIEWS, useReviewWrite } from "./useReviewWrite";
 
-/** The reads and write wiring behind one of the Reviews page's list tabs. Both tabs read the same intake list. A write reloads the intake list, and the My reviews list only on the tab that draws it. */
+/** The reads and write wiring behind one of the Reviews page's list tabs. Both tabs read the same intake list. A write reloads the intake list and the DJ's own reviews, because the tab strip's count is drawn from both. */
 export default function ReviewsScreen({ tab }: { tab: "shelf" | "mine" }) {
   const { data: auth } = useAuthentication();
   const user = "user" in auth ? auth.user : undefined;
@@ -24,7 +24,7 @@ export default function ReviewsScreen({ tab }: { tab: "shelf" | "mine" }) {
   const everyState = useGetIntakeItemsQuery(EVERY_STATE, { skip: !visible, ...LIVE_LIST });
   const mine = useGetMyReviewsQuery(MY_REVIEWS, { skip: !visible || onShelf, ...LIVE_LIST });
   const reviewers = useGetReviewersQuery(undefined, { skip: !visible || !isMD || !onShelf });
-  const { write, lock } = useReviewWrite(everyState.data, { reloadMine: !onShelf });
+  const { write, lock } = useReviewWrite(everyState.data);
 
   if (!visible) {
     return null;

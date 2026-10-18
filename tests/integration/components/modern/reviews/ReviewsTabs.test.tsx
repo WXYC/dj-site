@@ -2,9 +2,10 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
 import { setupListeners } from "@reduxjs/toolkit/query";
 import { http, HttpResponse } from "msw";
-import { fakeReviewsEndpoints, intakeItem, renderedFrame, renderWithProviders, server, TEST_BACKEND_URL } from "@/tests/helpers";
+import { fakeReviewsEndpoints, heldBy, intakeItem, renderedFrame, renderWithProviders, requestedFor, review, server, TEST_BACKEND_URL } from "@/tests/helpers";
 import { makeStore } from "@/lib/store";
 import { intakeApi } from "@/lib/features/reviews/intakeApi";
+import { reviewApi } from "@/lib/features/reviews/reviewApi";
 import { REVIEW_COPY } from "@/src/components/experiences/modern/reviews/copy";
 
 const pathname = vi.hoisted(() => ({ current: "/dashboard/reviews" }));
@@ -63,16 +64,42 @@ describe("ReviewsTabs", () => {
 
   it("asks for no waiting count when a DJ's strip has no New music tab", async () => {
     pathname.current = "/dashboard/reviews";
-    let reads = 0;
-    server.use(http.get(`${TEST_BACKEND_URL}/intake`, () => {
-      reads += 1;
+    const reads: string[] = [];
+    server.use(http.get(`${TEST_BACKEND_URL}/intake`, ({ request }) => {
+      reads.push(new URL(request.url).search);
       return HttpResponse.json([]);
     }));
 
     renderWithProviders(<ReviewsTabs showNewMusic={false} />);
     await renderedFrame();
 
-    expect(reads).toBe(0);
+    // Only the unfiltered read that the My reviews count needs.
+    expect(reads).toEqual([""]);
+  });
+
+  it("counts the DJ's open reviews on the My reviews tab, as the Open reviews chip does", async () => {
+    const asked = intakeItem({ id: 1, state: "requested", effective_state: "requested", ...requestedFor("md-me", "MD Me") });
+    const held = intakeItem({ id: 2, state: "checked_out", effective_state: "checked_out", ...heldBy("md-me", "MD Me") });
+    const lapsed = intakeItem({ id: 3, state: "requested", effective_state: "pool", ...requestedFor("md-me", "MD Me") });
+    const libraryDraft = review({ id: 41, intake_item_id: null, album_id: 7 });
+    const onShelf = intakeItem({ id: 4 });
+    fakeReviewsEndpoints({ open: [asked, held, lapsed, onShelf], records: [asked, held, lapsed, onShelf], mine: [libraryDraft] });
+
+    renderWithProviders(<ReviewsTabs showNewMusic={false} />);
+
+    const link = await screen.findByRole("link", { name: "My reviews, 3 open reviews" });
+    expect(link).toHaveTextContent(/^My reviews3, 3 open reviews$/);
+  });
+
+  it("leaves the My reviews tab's count out when nothing is open", async () => {
+    const held = intakeItem({ id: 2, state: "checked_out", effective_state: "checked_out", ...heldBy("md-me", "MD Me") });
+    fakeReviewsEndpoints({ open: [held], records: [held], mine: [review({ id: 40, intake_item_id: 2, status: "submitted" })] });
+
+    const { store } = renderWithProviders(<ReviewsTabs showNewMusic={false} />);
+    await waitFor(() => expect(reviewApi.endpoints.getMyReviews.select(undefined)(store.getState()).status).toBe("fulfilled"));
+    await renderedFrame();
+
+    expect(screen.getByRole("link", { name: "My reviews" })).toHaveTextContent(/^My reviews$/);
   });
 
   it("recounts the waiting reviews when the window regains focus", async () => {
@@ -88,6 +115,29 @@ describe("ReviewsTabs", () => {
       window.dispatchEvent(new Event("focus"));
 
       await screen.findByRole("link", { name: "New music, 2 reviews waiting" });
+    } finally {
+      stopListening();
+    }
+  });
+
+  // A DJ's strip has no New music tab, and both of its count's reads are still re-read on focus.
+  const askedOf = (id: number) => intakeItem({ id, state: "requested", effective_state: "requested", ...requestedFor("md-me", "MD Me") });
+  it.each([
+    ["a new request for the DJ", { open: [askedOf(1), askedOf(2)], records: [askedOf(1), askedOf(2)], mine: [] }],
+    ["a new draft of the DJ's", { open: [askedOf(1)], records: [askedOf(1)], mine: [review({ id: 41, intake_item_id: null, album_id: 7 })] }],
+  ])("recounts the DJ's open reviews after %s when the window regains focus", async (_change, after) => {
+    pathname.current = "/dashboard/reviews";
+    fakeReviewsEndpoints({ open: [askedOf(1)], records: [askedOf(1)], mine: [] });
+    const store = makeStore();
+    const stopListening = setupListeners(store.dispatch);
+    try {
+      renderWithProviders(<ReviewsTabs showNewMusic={false} />, { store });
+      await screen.findByRole("link", { name: "My reviews, 1 open review" });
+
+      fakeReviewsEndpoints(after);
+      window.dispatchEvent(new Event("focus"));
+
+      await screen.findByRole("link", { name: "My reviews, 2 open reviews" });
     } finally {
       stopListening();
     }
@@ -151,5 +201,12 @@ describe("ReviewsTabs", () => {
     ["many", 3, "3 reviews waiting"],
   ])("speaks the waiting count, %s, as currently worded (not yet approved)", (_name, count, expected) => {
     expect(REVIEW_COPY.tabs.waiting(count)).toBe(expected);
+  });
+
+  it.each([
+    ["one", 1, "1 open review"],
+    ["many", 3, "3 open reviews"],
+  ])("speaks the open count, %s, as currently worded (not yet approved)", (_name, count, expected) => {
+    expect(REVIEW_COPY.tabs.open(count)).toBe(expected);
   });
 });
