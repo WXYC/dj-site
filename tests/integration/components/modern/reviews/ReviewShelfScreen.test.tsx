@@ -29,6 +29,18 @@ describe("ReviewShelfScreen", () => {
     expect(screen.getByRole("button", { name: REVIEW_COPY.screen.checkOut })).toBeInTheDocument();
   });
 
+  it.each([
+    ["a DJ", false, 0],
+    ["a music director", true, 1],
+  ])("draws More beside the checkout button for %s only when they are a music director", async (_who, isMD, more) => {
+    fakeReviewsEndpoints();
+    renderWithProviders(<WithWrite items={[intakeItem({ id: 5, artist_name: "Stereolab" })]} isMD={isMD} />);
+
+    expect(await screen.findByRole("button", { name: REVIEW_COPY.screen.checkOut })).toBeInTheDocument();
+    expect(screen.queryAllByRole("button", { name: new RegExp(`^${REVIEW_COPY.intake.moreButton}`) })).toHaveLength(more);
+    expect(screen.queryByRole("button", { name: new RegExp(`^${REVIEW_COPY.intake.askADj}`) })).not.toBeInTheDocument();
+  });
+
   it("leaves out a checked out record with a submitted review that a music director returned", async () => {
     fakeReviewsEndpoints();
     renderWithProviders(<WithWrite items={[intakeItem({ id: 5, artist_name: "Stereolab", ...returnedByMusicDirector })]} isMD={false} />);

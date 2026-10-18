@@ -239,6 +239,18 @@ export const REVIEW_COPY = {
     requestRefused: "That DJ can't be asked to review: their account was removed, or it's no longer a DJ account. Pick someone else.",
     /** The button on each review shelf row that opens the search for a DJ to ask. */
     askADj: "Ask a DJ…",
+    /** A proposal for the next copy round: the music directors' menu button on each review shelf row, whose items are the ways to get a review. */
+    moreButton: "More",
+    /** A proposal for the next copy round: the menu item that goes to the record's page to use a review the station already has. */
+    moreCite: "Use a review we already have…",
+    /** A proposal for the next copy round: the menu item that goes to the record's page to digitize a review. */
+    moreRecord: "Digitize a review…",
+    /** A proposal for the next copy round: under Ask a DJ… in the menu. */
+    moreAskDescription: "Held for them for 7 days.",
+    /** A proposal for the next copy round: under Use a review we already have… in the menu. */
+    moreCiteDescription: "From the copy in the library, or the form archive.",
+    /** A proposal for the next copy round: under Digitize a review… in the menu. */
+    moreRecordDescription: "Type in a handwritten slip, or write one for someone.",
     /** The search field's placeholder and name. */
     askSearch: "Search by name",
     /** The list's last line when more names match than it lists. */

@@ -136,14 +136,14 @@ describe("IntakeLanes stage chips", () => {
 });
 
 describe("IntakeLanes stage lists", () => {
-  // The buttons a row shows, Ask a DJ… under its short name, then the last control in the row.
+  // The buttons a row shows, More under its short name, then the last control in the row.
   const controls = (li: HTMLElement) => ({
-    buttons: within(li).queryAllByRole("button").map((b) => (b.textContent?.startsWith(COPY.askADj) ? COPY.askADj : b.textContent)),
+    buttons: within(li).queryAllByRole("button").map((b) => (b.textContent?.startsWith(COPY.moreButton) ? COPY.moreButton : b.textContent)),
     last: [...li.querySelectorAll("a, button")].at(-1),
   });
 
   it.each([
-    ["review_shelf", COPY.onShelf, [["Duke Ellington & John Coltrane", [COPY.askADj]], ["Juana Molina", [COPY.askADj]]]],
+    ["review_shelf", COPY.onShelf, [["Duke Ellington & John Coltrane", [COPY.moreButton]], ["Juana Molina", [COPY.moreButton]]]],
     ["requested", COPY.requested, [["Jessica Pratt", [COPY.cancelRequest]]]],
     ["being_reviewed", COPY.beingReviewed, [["Stereolab", [REVIEW_COPY.screen.returnToShelf]]]],
     // The server reads newest id first, and this stage keeps that order.
@@ -218,7 +218,8 @@ describe("IntakeLanes stage lists", () => {
     showStage("review_shelf");
     const { user } = renderWithProviders(<IntakeLanes />);
 
-    await user.click(await screen.findByRole("button", { name: new RegExp(`^${COPY.askADj}`) }));
+    await user.click(await screen.findByRole("button", { name: new RegExp(`^${COPY.moreButton}`) }));
+    await user.click(await screen.findByRole("menuitem", { name: COPY.askADj }));
     await user.type(await within(await screen.findByRole("dialog")).findByRole("combobox"), "Pat Placeholder");
     await user.keyboard("{Enter}");
     await user.click(await screen.findByRole("button", { name: COPY.ask }));
@@ -227,14 +228,14 @@ describe("IntakeLanes stage lists", () => {
     await waitFor(() => expect(toast).toHaveBeenCalledWith(COPY.askDone("Pat Placeholder"), expect.anything()));
   });
 
-  it.each([SHELF_OLD, SHELF_NEW])("names the Ask a DJ… button on the review shelf by its record: $artist_name", async (record) => {
+  it.each([SHELF_OLD, SHELF_NEW])("names the More button on the review shelf by its record: $artist_name", async (record) => {
     serve([SHELF_NEW, SHELF_OLD]);
     showStage("review_shelf");
     renderWithProviders(<IntakeLanes />);
 
     const region = await panel(COPY.onShelf);
     const row = (await within(region).findAllByRole("listitem")).find((li) => within(li).getAllByRole("link")[0].textContent === record.artist_name)!;
-    expect(within(row).getByRole("button", { name: new RegExp(`^${COPY.askADj}`) })).toHaveAccessibleName(`${COPY.askADj} ${record.artist_name} ${record.album_title}`);
+    expect(within(row).getByRole("button", { name: new RegExp(`^${COPY.moreButton}`) })).toHaveAccessibleName(`${COPY.moreButton} ${record.artist_name} ${record.album_title}`);
   });
 
   it("keeps the Asked toast when another chip is chosen, and dismisses it only when the tab goes", async () => {
@@ -246,7 +247,8 @@ describe("IntakeLanes stage lists", () => {
     showStage("review_shelf");
     const { user, unmount } = renderWithProviders(<IntakeLanes />);
 
-    await user.click(await screen.findByRole("button", { name: new RegExp(`^${COPY.askADj}`) }));
+    await user.click(await screen.findByRole("button", { name: new RegExp(`^${COPY.moreButton}`) }));
+    await user.click(await screen.findByRole("menuitem", { name: COPY.askADj }));
     await user.type(await within(await screen.findByRole("dialog")).findByRole("combobox"), "Pat Placeholder");
     await user.keyboard("{Enter}");
     await user.click(await screen.findByRole("button", { name: COPY.ask }));
@@ -276,7 +278,8 @@ describe("IntakeLanes stage lists", () => {
     showStage("review_shelf");
     const { user } = renderWithProviders(<IntakeLanes />);
 
-    await user.click(await screen.findByRole("button", { name: new RegExp(`^${COPY.askADj}`) }));
+    await user.click(await screen.findByRole("button", { name: new RegExp(`^${COPY.moreButton}`) }));
+    await user.click(await screen.findByRole("menuitem", { name: COPY.askADj }));
     await user.type(await within(await screen.findByRole("dialog")).findByRole("combobox"), "Pat Placeholder");
     await user.keyboard("{Enter}");
     await user.click(await screen.findByRole("button", { name: COPY.ask }));

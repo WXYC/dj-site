@@ -9,6 +9,7 @@ import type { AppDispatch } from "@/lib/store";
 import { hasNothingToShow } from "@/lib/has-nothing-to-show";
 import { useMounted, type RowWriteOutcome } from "@/src/hooks/useRowWrite";
 import IntakeRequestPicker from "./IntakeRequestPicker";
+import ShelfMoreMenu from "./ShelfMoreMenu";
 import { REVIEW_COPY } from "./copy";
 
 type AskAction = "request" | "cancel";
@@ -32,7 +33,7 @@ export function answerRefusedRequest(err: unknown, action: string, dispatch: App
 }
 
 /**
- * The music director's Ask a DJ… control, once per screen: one fold per reviewers read, one set of Asked toasts, one mounted ref. Call it once in the screen and draw `picker(item)` on each record's row; a per-row component would refold the reviewers per row and dismiss a row's toast whenever that row unmounts after the write's reload. `alert` is the reviewers-load-failed line, for the screen to draw once.
+ * The music director's Ask a DJ… control, once per screen: one fold per reviewers read, one set of Asked toasts, one mounted ref. Call it once in the screen and draw `picker(item)` (a record's page) or `moreMenu(item)` (a review shelf row) for each record; a per-row component would refold the reviewers per row and dismiss a row's toast whenever that row unmounts after the write's reload. `alert` is the reviewers-load-failed line, for the screen to draw once.
  *
  * `namedByRow` (default true) names each record's button by the review shelf row's artist and album too, through the `shelfRecordId` and `shelfAlbumId` ids the screen puts on them; a page about one record passes false, so the button is named by its own words. `onSettled` runs with the write's outcome once the write's lists have reloaded, while the screen is still mounted, for a screen that moves focus off a button the reload took away.
  */
@@ -84,18 +85,22 @@ export function useAskADj({
   };
 
   const alert: ReactNode = reviewersFailed ? <Typography role="alert">{REVIEW_COPY.intake.reviewersLoadFailed}</Typography> : null;
+  // What the picker and the menu share: the folded reviewers, who has passed, and the request itself.
+  const askProps = (i: IntakeItem) => ({
+    reviewers: folded,
+    loading: reviewers.isLoading,
+    failed: reviewersFailed,
+    passedIds: new Set((i.passes ?? []).flatMap((p) => p.dj_id ?? [])),
+    artist: i.artist_name,
+    album: i.album_title,
+    busy: lock(i.id, "request"),
+    onRequest: (reviewer: Reviewer) => ask(i, reviewer),
+  });
   const picker = (i: IntakeItem) => (
-    <IntakeRequestPicker
-      reviewers={folded}
-      loading={reviewers.isLoading}
-      failed={reviewersFailed}
-      passedIds={new Set((i.passes ?? []).flatMap((p) => p.dj_id ?? []))}
-      labelledBy={namedByRow ? `${shelfRecordId(i)} ${shelfAlbumId(i)}` : undefined}
-      artist={i.artist_name}
-      album={i.album_title}
-      busy={lock(i.id, "request")}
-      onRequest={(reviewer) => ask(i, reviewer)}
-    />
+    <IntakeRequestPicker {...askProps(i)} labelledBy={namedByRow ? `${shelfRecordId(i)} ${shelfAlbumId(i)}` : undefined} />
   );
-  return { alert, picker, shelfRecordId, shelfAlbumId };
+  const moreMenu = (i: IntakeItem) => (
+    <ShelfMoreMenu {...askProps(i)} id={i.id} labelledBy={`${shelfRecordId(i)} ${shelfAlbumId(i)}`} />
+  );
+  return { alert, picker, moreMenu, shelfRecordId, shelfAlbumId };
 }
