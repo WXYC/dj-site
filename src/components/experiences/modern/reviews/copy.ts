@@ -710,7 +710,7 @@ export const REVIEW_COPY = {
     open: "Open",
     /** Approved. The button or link on every draft of mine: on a record I have, on a record I no longer have, and on a library release. */
     openDraft: "Open draft",
-    /** A draft's line on a record the DJ no longer has, which reads the same whether they passed or returned it. */
+    /** Approved. A draft's line on a record the DJ no longer has, which reads the same whether they passed or returned it. */
     draftSaved: "Your draft is saved.",
     /** Approved. */
     libraryRelease: "A library release",
