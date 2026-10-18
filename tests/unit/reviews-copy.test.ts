@@ -56,6 +56,8 @@ describe("REVIEW_COPY digital album lines and the DJ's own list heading", () => 
     ["myReviews.draftSaved", REVIEW_COPY.myReviews.draftSaved, "Your draft is saved."],
     ["screen.passBringDisc", REVIEW_COPY.screen.passBringDisc, "Bring the disc back to the music office first."],
     ["screen.passDraftSaved", REVIEW_COPY.screen.passDraftSaved, "Your draft is saved under Open reviews."],
+    ["screen.markReturnedKeep", REVIEW_COPY.screen.markReturnedKeep, "Your review stays with the music directors."],
+    ["screen.returnedWaiting", REVIEW_COPY.screen.returnedWaiting, "Returned. Your review is with the music directors."],
     ["screen.filesComing", REVIEW_COPY.screen.filesComing, "A music director will send you the files."],
   ])("pins %s", (_key, actual, expected) => {
     expect(actual).toBe(expected);
