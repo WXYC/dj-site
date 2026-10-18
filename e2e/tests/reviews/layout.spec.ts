@@ -112,9 +112,14 @@ async function sidewaysProblems(page: Page): Promise<string[]> {
 const NO_ROWS = "the slip has no rows";
 const SLIP_LEFT_OF_FORM = "left of the form's right edge";
 const SLIP_ABOVE_CONSENT = "above the publishing question's end";
+const STICKY_TOP = "from the scroll region's top";
+const STICKY_BOTTOM = "below the action bar's top";
 
-/** Every row of the slip puts its value at the same x: the label column holds its word, "Recommended" included. */
-async function labelColumnProblems(page: Page): Promise<string[]> {
+/** A slip row whose value does not start at the first row's x, and by how much. */
+type Misaligned = { label: string; by: number; line: string };
+
+/** The slip rows whose value does not start where the first row's does, or null when the slip has no rows. */
+async function misalignedValues(page: Page): Promise<Misaligned[] | null> {
   await fontsReady(page);
   const starts = await editor(page).slip.evaluate((slip) =>
     Array.from(slip.children)
@@ -122,12 +127,18 @@ async function labelColumnProblems(page: Page): Promise<string[]> {
       .map((row) => ({ label: row.children[0].textContent ?? "", x: row.children[1].getBoundingClientRect().left })),
   );
   if (starts.length === 0) {
-    return [NO_ROWS];
+    return null;
   }
   const first = starts[0].x;
   return starts
     .filter(({ x }) => Math.abs(x - first) > ROUNDING_PX)
-    .map(({ label, x }) => `the value of "${label}" starts at ${x}px, not ${first}px`);
+    .map(({ label, x }) => ({ label, by: x - first, line: `the value of "${label}" starts at ${x}px, not ${first}px` }));
+}
+
+/** Every row of the slip puts its value at the same x: the label column holds its word, "Recommended" included. */
+async function labelColumnProblems(page: Page): Promise<string[]> {
+  const rows = await misalignedValues(page);
+  return rows === null ? [NO_ROWS] : rows.map(({ line }) => line);
 }
 
 /** The slip sits right of the form: the editor is in two columns. */
@@ -144,39 +155,94 @@ async function sideBySideProblems(page: Page): Promise<string[]> {
     : [];
 }
 
-/** Scrolled to the end, the sticky slip column's top stays at the scroll region's top and its bottom at or above the action bar's top, each within 1px. */
-async function stickyColumnProblems(page: Page): Promise<{ top: string[]; bottom: string[] }> {
+/**
+ * Scrolls the region to the middle of the stretch where the grid fills the view from the scroll region's top down to
+ * the stuck action bar. There neither end of the grid is in view, so nothing clamps the sticky slip column: its top is
+ * held by its sticky offset alone and its bottom by its own bound alone. Returns the stretch's length; at 0 or less the
+ * grid never fills the view.
+ */
+async function scrollToGridMiddle(page: Page): Promise<number> {
   const e = editor(page);
-  await scrollToEnd(e.scrollRegion);
+  const grid = await box(e.grid);
+  const bar = await box(e.actionBar);
+  return e.scrollRegion.evaluate(
+    (el, { gridTop, gridHeight, barHeight }) =>
+      new Promise<number>((resolve) => {
+        const stretch = gridHeight - (el.clientHeight - barHeight);
+        el.scrollTop += gridTop - el.getBoundingClientRect().top + stretch / 2;
+        // Sticky offsets settle on the frame after the scroll.
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve(stretch)));
+      }),
+    { gridTop: grid.top, gridHeight: grid.height, barHeight: bar.height },
+  );
+}
+
+/** Scrolled to where the form runs past the slip column at both ends, the column's top is at the scroll region's top and its bottom at or above the stuck action bar's top, each within 1px. */
+async function stickyColumnProblems(page: Page): Promise<string[]> {
+  const e = editor(page);
+  const stretch = await scrollToGridMiddle(page);
+  if (stretch < 2) {
+    return [`the grid runs ${stretch}px past the view above the action bar, so the slip column never sticks`];
+  }
   const region = await box(e.scrollRegion);
   const column = await box(e.column);
   const bar = await box(e.actionBar);
-  return {
-    top:
-      Math.abs(column.top - region.top) > 1
-        ? [`the slip column's top is ${column.top}px, ${column.top - region.top}px from the scroll region's ${region.top}px`]
-        : [],
-    bottom: column.bottom > bar.top + 1 ? [`the slip column ends at ${column.bottom}px, below the action bar's top ${bar.top}px`] : [],
-  };
+  const problems: string[] = [];
+  if (Math.abs(column.top - region.top) > 1) {
+    problems.push(`the slip column's top is ${column.top - region.top}px ${STICKY_TOP} at ${region.top}px`);
+  }
+  if (column.bottom > bar.top + 1) {
+    problems.push(`the slip column ends at ${column.bottom}px, ${STICKY_BOTTOM} at ${bar.top}px`);
+  }
+  return problems;
 }
 
-/** At two columns: the slip sits right of the form, stays in view to the end of the scroll, and the page does not scroll sideways. */
+/** At two columns: the slip sits right of the form, stays in view while the form scrolls past, and the page does not scroll sideways. */
 async function twoColumnProblems(page: Page): Promise<string[]> {
-  const problems = await sideBySideProblems(page);
-  const { top, bottom } = await stickyColumnProblems(page);
-  return [...problems, ...top, ...bottom, ...(await sidewaysProblems(page))];
+  return [...(await sideBySideProblems(page)), ...(await stickyColumnProblems(page)), ...(await sidewaysProblems(page))];
+}
+
+/** The slip column's top at the end of the scroll, less the scroll region's top. */
+async function columnTopAtEnd(page: Page): Promise<number> {
+  const e = editor(page);
+  await scrollToEnd(e.scrollRegion);
+  return (await box(e.column)).top - (await box(e.scrollRegion)).top;
 }
 
 /**
- * Marks the running test as expected to fail on a known layout defect, then asserts `problems` is empty. Called only
- * after the test's other checks have passed, so anything else that breaks first is still a failure; the measured lines
- * go on the test as an annotation. Nothing in the test runs after the mark. A timeout ends the test as timed out, not
- * failed, so it never matches the mark, and the draft's cleanup clears the mark before it throws (`deleteDraft`).
+ * A known defect: at the end of the scroll the slip column sits 16px above the scroll region's top. Its bound is the
+ * scroll region less the action bar's box, which leaves out the bar's 16px top margin, and the grid ends at that margin.
  */
-function expectKnownDefect(ticket: string, problems: string[]) {
-  test.info().annotations.push({ type: ticket, description: problems.join("; ") || "no break measured" });
-  test.fail(true, ticket);
+const KNOWN_END_RISE = { defect: "the slip column sits 16px above the scroll region at the end of the scroll", px: -16 };
+const isKnownEndRise = (offset: number) => Math.abs(offset - KNOWN_END_RISE.px) <= 1;
+
+/**
+ * A known defect: "Recommended" is wider than the slip's label column, so its value, and no other row's, starts about
+ * 5.3px right of the first row's.
+ */
+const KNOWN_LABEL_OVERFLOW = { defect: `"${COPY.slip.recommended}" overflows the slip's label column`, label: COPY.slip.recommended, px: 5.3 };
+const isKnownLabelOverflow = (rows: Misaligned[] | null) =>
+  rows !== null && rows.length === 1 && rows[0].label === KNOWN_LABEL_OVERFLOW.label && Math.abs(rows[0].by - KNOWN_LABEL_OVERFLOW.px) <= 1;
+
+/**
+ * Marks the running test as expected to fail on a known layout defect, then asserts `problems` is empty. The caller
+ * first pins the defect's own measurement, so a different break, or this one by another amount, fails before the mark;
+ * the measured lines go on the test as an annotation. Nothing in the test runs after the mark. A timeout ends the test
+ * as timed out, not failed, so it never matches the mark, and the draft's cleanup clears the mark before it throws
+ * (`deleteDraft`).
+ */
+function expectKnownDefect(defect: string, problems: string[]) {
+  test.info().annotations.push({ type: "known-defect", description: `${defect}: ${problems.join("; ")}` });
+  test.fail(true, defect);
   expect(problems).toEqual([]);
+}
+
+/** Pins the label column's known defect, the one overflowing row by its measured amount, then marks the test on it. */
+async function expectKnownLabelOverflow(page: Page) {
+  const rows = await misalignedValues(page);
+  expect(rows, NO_ROWS).not.toBeNull();
+  expect(isKnownLabelOverflow(rows), `the slip's misaligned values are not the known overflow: ${JSON.stringify(rows)}`).toBe(true);
+  expectKnownDefect(KNOWN_LABEL_OVERFLOW.defect, (rows ?? []).map(({ line }) => line));
 }
 
 /**
@@ -347,13 +413,26 @@ test.describe("Review editor layout, two columns", () => {
     }
   });
 
-  test("puts the slip right of the form, keeps it in view to the end, and does not scroll sideways", async ({ page }) => {
-    expect(await sideBySideProblems(page)).toEqual([]);
-    const { top, bottom } = await stickyColumnProblems(page);
-    expect(bottom).toEqual([]);
-    expect(await sidewaysProblems(page)).toEqual([]);
-    // The sticky column's top sits 16px above the scroll region's at the end (#2256); the fix ticket removes this mark.
-    expectKnownDefect("WXYC/dj-site#2256", top);
+  test("puts the slip right of the form, keeps it in view while the form scrolls past, and does not scroll sideways", async ({ page }) => {
+    expect(await twoColumnProblems(page)).toEqual([]);
+  });
+
+  test("control: a slip column that does not stick leaves the scroll region's top", async ({ page }) => {
+    await applyControl(page, editor(page).column, "column", "position: static");
+    expect(await stickyColumnProblems(page)).toContainEqual(expect.stringContaining(STICKY_TOP));
+    // Nor does the scroll end's known rise take a column that does not stick for itself.
+    expect(isKnownEndRise(await columnTopAtEnd(page))).toBe(false);
+  });
+
+  test("control: a slip column without its bound runs below the action bar's top", async ({ page }) => {
+    await applyControl(page, editor(page).column, "column", "max-height: none");
+    expect(await stickyColumnProblems(page)).toContainEqual(expect.stringContaining(STICKY_BOTTOM));
+  });
+
+  test("keeps the slip column at the scroll region's top at the end of the scroll", async ({ page }) => {
+    const offset = await columnTopAtEnd(page);
+    expect(isKnownEndRise(offset), `the slip column's top at the end of the scroll is ${offset}px from the scroll region's, not the known ${KNOWN_END_RISE.px}px`).toBe(true);
+    expectKnownDefect(KNOWN_END_RISE.defect, Math.abs(offset) > 1 ? [`the slip column's top is ${offset}px ${STICKY_TOP}`] : []);
   });
 
   test("control: one column at 1440px fails the two-column check", async ({ page }) => {
@@ -394,16 +473,14 @@ test.describe("Review editor layout, two columns", () => {
   });
 
   test("starts every slip value at the same x", async ({ page }) => {
-    const problems = await labelColumnProblems(page);
-    expect(problems).not.toContain(NO_ROWS);
-    // "Recommended" overflows the slip's label column (#2257); the fix ticket removes this mark.
-    expectKnownDefect("WXYC/dj-site#2257", problems);
+    await expectKnownLabelOverflow(page);
   });
 
   test("control: labels at their value's size push a value out of the column", async ({ page }) => {
     const { before, after } = await labelColumnUnderControl(page);
     expect(after).not.toEqual([]);
     expect(after).not.toEqual(before);
+    expect(isKnownLabelOverflow(await misalignedValues(page))).toBe(false);
   });
 });
 
@@ -442,16 +519,14 @@ test.describe("Review editor layout, one column", () => {
   });
 
   test("starts every slip value at the same x", async ({ page }) => {
-    const problems = await labelColumnProblems(page);
-    expect(problems).not.toContain(NO_ROWS);
-    // "Recommended" overflows the slip's label column (#2257); the fix ticket removes this mark.
-    expectKnownDefect("WXYC/dj-site#2257", problems);
+    await expectKnownLabelOverflow(page);
   });
 
   test("control: labels at their value's size push a value out of the column", async ({ page }) => {
     const { before, after } = await labelColumnUnderControl(page);
     expect(after).not.toEqual([]);
     expect(after).not.toEqual(before);
+    expect(isKnownLabelOverflow(await misalignedValues(page))).toBe(false);
   });
 });
 
