@@ -76,7 +76,7 @@ const BROUGHT_BACK = "Have you brought this record back to the station?";
 const FAILURE_LINE = "Couldn't do that. Please try again.";
 const SHELF_RACE = "This record left the review shelf before your click went through. The lists have been reloaded.";
 const REQUEST_RACE = "This request is no longer open; it may have expired. The lists have been reloaded.";
-const RELEASE_RACE = "This record is no longer checked out to you. The lists have been reloaded.";
+const RELEASE_RACE = "This record is no longer yours to review. The lists have been reloaded.";
 
 const REVIEWERS = [
   { id: "dj-sam", name: "Test Reviewer" },
@@ -171,7 +171,7 @@ describe("ReviewsScreen", () => {
 
   // 03:30Z is still the previous evening in station time, and 2025 is always an
   // earlier year than the run's, so the expected text holds in any zone or year.
-  it("prints Logged, Taken and Asked dates in station time with the year", async () => {
+  it("prints Added, Reviewing since and Asked dates in station time with the year", async () => {
     serveIntake([
       item({ id: 21, state: "pool", effective_state: "pool", logged_at: "2025-10-09T03:30:00Z" }),
       item({ id: 22, effective_state: "checked_out", checked_out_by: ME, checked_out_at: "2025-08-02T03:30:00Z" }),
@@ -180,8 +180,8 @@ describe("ReviewsScreen", () => {
 
     renderWithProviders(<ReviewsScreen />);
 
-    expect(await screen.findByText("Logged Oct 8, 2025")).toBeInTheDocument();
-    expect(screen.getByText("Taken Aug 1, 2025")).toBeInTheDocument();
+    expect(await screen.findByText("Added Oct 8, 2025")).toBeInTheDocument();
+    expect(screen.getByText("Reviewing since Aug 1, 2025")).toBeInTheDocument();
     expect(screen.getByText("Asked Aug 31, 2025")).toBeInTheDocument();
   });
 
@@ -861,8 +861,8 @@ describe("ReviewsScreen", () => {
     ["djToAsk", REVIEW_COPY.intake.djToAsk, "DJ to ask"],
     ["request", REVIEW_COPY.intake.request, "Request a review"],
     ["reviewersLoadFailed", REVIEW_COPY.intake.reviewersLoadFailed, "Couldn't load the DJs who can be asked to review. Please try again."],
-    ["logged", REVIEW_COPY.screen.logged, "Logged"],
-    ["taken", REVIEW_COPY.screen.taken, "Taken"],
+    ["added", REVIEW_COPY.screen.added, "Added"],
+    ["reviewingSince", REVIEW_COPY.screen.reviewingSince, "Reviewing since"],
     ["asked", REVIEW_COPY.screen.asked, "Asked"],
     ["cancel", REVIEW_COPY.screen.cancel, "Cancel"],
   ])("words the row detail or button %s exactly as the station approved it", (_key, actual, approved) => {
@@ -1012,7 +1012,7 @@ describe("ReviewsScreen", () => {
     await user.click(await within(mine).findByRole("button", { name: REVIEW_COPY.writeReview }));
 
     await waitFor(() => expect(toast).toHaveBeenCalledTimes(1));
-    expect(toast).toHaveBeenCalledWith("You no longer have this record checked out, so a review can't be started here.");
+    expect(toast).toHaveBeenCalledWith("This record is no longer yours to review, so a review can't be started here.");
     expect(within(mine).queryByText(/Stereolab/)).not.toBeInTheDocument();
     expect(toast.error).not.toHaveBeenCalled();
     expect(router.push).not.toHaveBeenCalled();
@@ -1320,9 +1320,9 @@ describe("ReviewsScreen — a digital album reads its own lines, a disc keeps to
   });
 
   it.each([
-    ["a disc", false, RETURN, "release", "This record is no longer checked out to you. The lists have been reloaded."],
-    ["a digital album", true, RETURN, "release", "This record isn't yours to review any more. The lists have been reloaded."],
-  ])("answers a lost return of %s with its own notice", async (_kind, digital, button, action, notice) => {
+    ["a disc", false, RETURN, "release", "This record is no longer yours to review. The lists have been reloaded."],
+    ["a digital album", true, RETURN, "release", "This record is no longer yours to review. The lists have been reloaded."],
+  ])("answers a lost return of %s with the same notice", async (_kind, digital, button, action, notice) => {
     const row = make(digital, { id: 5, ...TAKEN });
     server.use(
       http.get(`${TEST_BACKEND_URL}/intake`, () => HttpResponse.json([row])),
@@ -1335,9 +1335,9 @@ describe("ReviewsScreen — a digital album reads its own lines, a disc keeps to
   });
 
   it.each([
-    ["a disc", false, "You no longer have this record checked out, so a review can't be started here."],
-    ["a digital album", true, "This record isn't yours to review any more, so a review can't be started here."],
-  ])("answers a review started on %s that stopped being the DJ's with its own refusal", async (_kind, digital, notice) => {
+    ["a disc", false, "This record is no longer yours to review, so a review can't be started here."],
+    ["a digital album", true, "This record is no longer yours to review, so a review can't be started here."],
+  ])("answers a review started on %s that stopped being the DJ's with the same refusal", async (_kind, digital, notice) => {
     const row = make(digital, { id: 5, ...TAKEN });
     server.use(
       http.get(`${TEST_BACKEND_URL}/intake`, () => HttpResponse.json([row])),

@@ -1,12 +1,10 @@
 import { toast } from "sonner";
-import type { IntakeItem } from "@wxyc/shared";
 import {
   isIntakeRequestRefused,
   isIntakeStateChanged,
   intakeApi,
 } from "@/lib/features/reviews/intakeApi";
 import { isReviewSubjectNotHeld, reviewApi } from "@/lib/features/reviews/reviewApi";
-import { byKind } from "@/lib/features/reviews/kind";
 import { useAppDispatch } from "@/lib/hooks";
 import { useRowWrite } from "@/src/hooks/useRowWrite";
 import { REVIEW_COPY } from "./copy";
@@ -16,8 +14,8 @@ export const day = (iso: string | null) => (iso ? formatStationShortDate(iso) : 
 
 type Action = "checkout" | "accept" | "pass" | "release" | "write" | "request";
 
-/** What a lost race (409 `state_changed`) means for each button, shown once the lists have reloaded. A digital album is never lent, so its release and write races read as the claim having moved. */
-const raceNotice = (action: Action, item: IntakeItem | undefined): string => {
+/** What a lost race (409 `state_changed`) means for each button, shown once the lists have reloaded. */
+const raceNotice = (action: Action): string => {
   switch (action) {
     case "checkout":
       return REVIEW_COPY.screen.raceCheckout;
@@ -25,9 +23,9 @@ const raceNotice = (action: Action, item: IntakeItem | undefined): string => {
     case "pass":
       return REVIEW_COPY.screen.raceRequest;
     case "release":
-      return item ? byKind(item, { disc: REVIEW_COPY.screen.raceRelease, digital: REVIEW_COPY.screen.raceReleaseDigital }) : REVIEW_COPY.screen.raceRelease;
+      return REVIEW_COPY.screen.raceRelease;
     case "write":
-      return item ? byKind(item, { disc: REVIEW_COPY.subjectNotHeld, digital: REVIEW_COPY.subjectNotHeldDigital }) : REVIEW_COPY.subjectNotHeld;
+      return REVIEW_COPY.subjectNotHeld;
     case "request":
       return REVIEW_COPY.intake.raceRequest;
   }
@@ -39,7 +37,7 @@ export const EVERY_STATE = undefined;
 export const MY_REVIEWS = undefined;
 
 /** The write wiring both review screens share: every write reloads both lists, whichever screen it came from. Call it once, in the screen that owns both lists, and pass `write` and `lock` down: a row stays locked until every list it renders has reloaded, which holds across lanes only if one pending map covers them all. */
-export function useReviewWrite(items: IntakeItem[] | undefined) {
+export function useReviewWrite() {
   const dispatch = useAppDispatch();
   // A double-click's second POST would find the record already moved and
   // answer 409 state_changed, telling the DJ someone else took the record they
@@ -59,7 +57,7 @@ export function useReviewWrite(items: IntakeItem[] | undefined) {
       }
       toast.error(action === "write" ? REVIEW_COPY.couldNotStart : REVIEW_COPY.screen.writeFailed);
     },
-    onLostRace: (id, action) => toast(raceNotice(action, items?.find((i) => i.id === id))),
+    onLostRace: (_id, action) => toast(raceNotice(action)),
   });
 }
 

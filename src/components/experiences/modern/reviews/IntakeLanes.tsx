@@ -13,7 +13,7 @@ import {
   useReleaseIntakeItemMutation,
 } from "@/lib/features/reviews/intakeApi";
 import { itemHolder } from "@/lib/features/reviews/holder";
-import { byKind, recordKind } from "@/lib/features/reviews/kind";
+import { recordKind } from "@/lib/features/reviews/kind";
 import { useAppDispatch } from "@/lib/hooks";
 import { useCanSeeReviews } from "@/src/hooks/useCanSeeReviews";
 import { useRowWrite } from "@/src/hooks/useRowWrite";
@@ -103,10 +103,10 @@ function IntakeLaneGroups() {
       return `${COPY.heldFor} ${holder.name}`;
     }
     if (holder.kind === "checked_out") {
-      return `${byKind(i, { disc: COPY.checkedOutTo, digital: COPY.takenBy })} ${holder.name}`;
+      return `${COPY.with} ${holder.name}`;
     }
     if (holder.kind === "removed") {
-      return byKind(i, { disc: COPY.holderRemovedNow, digital: COPY.takenByRemoved });
+      return COPY.withRemoved;
     }
     return COPY.onShelf;
   };
@@ -187,7 +187,7 @@ function IntakeLaneGroups() {
             recordKind(i) === "disc" && (
               <>
                 <Typography level="body-sm">
-                  {holder.kind === "removed" ? COPY.holderRemoved : `${COPY.stillOutTo} ${holder.name}`}
+                  {holder.kind === "removed" ? COPY.stillWithRemoved : `${COPY.stillWith} ${holder.name}`}
                 </Typography>
                 <Button size="sm" variant="outlined" {...lock(i.id, "return")} onClick={() => act(i.id, "return", () => release(i.id).unwrap())}>
                   {COPY.returned}

@@ -86,7 +86,7 @@ export default function MyReviewsScreen({ items, myReviews, formats, me, between
             : byKind(i, { disc: null, digital: REVIEW_COPY.screen.filesComing });
         return (
         <>
-          <Typography level="body-sm">{`${REVIEW_COPY.screen.taken} ${day(i.checked_out_at)}`}</Typography>
+          <Typography level="body-sm">{`${REVIEW_COPY.screen.reviewingSince} ${day(i.checked_out_at)}`}</Typography>
           {mark && <Chip color="danger">{mark}</Chip>}
           {note && <Typography level="body-sm">{note}</Typography>}
           {submitted ? (
