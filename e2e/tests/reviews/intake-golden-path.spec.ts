@@ -79,7 +79,10 @@ test("the intake golden path, from logging a record to the librarian's finalize"
       await form.getByRole("radio", { name: COPY.intake.arrivedAsDisc }).click();
       await form.getByRole("combobox", { name: new RegExp(`^${COPY.intake.format}`) }).click();
       await md.getByRole("option").first().click();
+      // Leaving the page before the POST is sent would drop the write, so wait for the backend to answer it.
+      const logged = md.waitForResponse((r) => r.request().method() === "POST" && new URL(r.url()).pathname.endsWith("/intake"));
       await form.getByRole("button", { name: COPY.intake.log }).click();
+      expect((await logged).ok()).toBe(true);
 
       await md.goto("/dashboard/reviews");
       await expect(shelfRow(md)).toBeVisible({ timeout: 15000 });
@@ -87,7 +90,9 @@ test("the intake golden path, from logging a record to the librarian's finalize"
 
     await test.step("2. the DJ checks it out, writes and submits a review; the record stays on the list", async () => {
       await dj.goto("/dashboard/reviews");
+      const checkedOut = dj.waitForResponse((r) => r.request().method() === "POST" && /\/intake\/\d+\/checkout$/.test(new URL(r.url()).pathname));
       await shelfRow(dj).getByRole("button", { name: COPY.screen.checkOut, exact: true }).click();
+      expect((await checkedOut).ok()).toBe(true);
 
       await dj.goto("/dashboard/reviews/mine");
       const row = checkoutRow(dj);

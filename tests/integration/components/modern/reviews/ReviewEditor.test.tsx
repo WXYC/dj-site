@@ -758,7 +758,7 @@ describe("ReviewEditor", () => {
   });
 
   describe("deleting", () => {
-    it("confirms, deletes, and leaves the editor", async () => {
+    it("confirms, deletes, and leaves the editor for My reviews, where the DJ's drafts live", async () => {
       serve(SUBMITTED);
       let deleted = 0;
       server.use(deletingReview(() => deleted++));
@@ -770,7 +770,7 @@ describe("ReviewEditor", () => {
       expect(deleted).toBe(0);
       await user.click(within(dialog).getByRole("button", { name: "Delete" }));
 
-      await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/dashboard/reviews"));
+      await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/dashboard/reviews/mine"));
       expect(deleted).toBe(1);
     });
 
@@ -1392,7 +1392,7 @@ describe("ReviewEditor", () => {
       await makeDirty(user);
       await confirmDelete(user);
 
-      await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/dashboard/reviews"));
+      await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/dashboard/reviews/mine"));
       expect(callsAtRedirect).toEqual(NO_HISTORY_CALLS);
       expect(screen.queryByRole("alertdialog", { name: "Leave without saving?" })).not.toBeInTheDocument();
       await waitFor(() => expect(beforeUnload()).toBe(false));
@@ -1415,7 +1415,7 @@ describe("ReviewEditor", () => {
       await user.type(screen.getByLabelText("Review"), " Still typing.");
       delete40.release();
 
-      await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/dashboard/reviews"));
+      await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/dashboard/reviews/mine"));
       expect(storedAtRedirect).toBeNull();
       await waitFor(() => expect(stored()).toBeNull());
       await waitFor(() => expect(beforeUnload()).toBe(false));

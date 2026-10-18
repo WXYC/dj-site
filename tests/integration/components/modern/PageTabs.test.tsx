@@ -76,6 +76,8 @@ describe("PageTabs", () => {
     expect(strip).toHaveStyle({ overflowX: "auto" });
     // jsdom's stylesheet parser drops `mask-image`, so the fade itself can only be checked in a browser; the room it leaves after the last tab can be read here.
     expect(rulesOf(strip).base).toMatch(/padding-right:\s*24px/);
+    // A keyboard-focused last tab scrolls clear of the fade rather than stopping under it.
+    expect(rulesOf(strip).base).toMatch(/scroll-padding-inline-end:\s*24px/);
     expect(screen.getByRole("link", { name: "First" })).toHaveStyle({ flexShrink: "0", whiteSpace: "nowrap" });
   });
 
