@@ -114,6 +114,7 @@ const SLIP_LEFT_OF_FORM = "left of the form's right edge";
 const SLIP_ABOVE_CONSENT = "above the publishing question's end";
 const STICKY_TOP = "from the scroll region's top";
 const STICKY_BOTTOM = "below the action bar's top";
+const GRID_BOTTOM = "from the grid's bottom";
 
 /** A slip row whose value does not start at the first row's x, and by how much. */
 type Misaligned = { label: string; by: number; line: string };
@@ -202,11 +203,26 @@ async function twoColumnProblems(page: Page): Promise<string[]> {
   return [...(await sideBySideProblems(page)), ...(await stickyColumnProblems(page)), ...(await sidewaysProblems(page))];
 }
 
-/** The slip column's top at the end of the scroll, less the scroll region's top. */
-async function columnTopAtEnd(page: Page): Promise<number> {
+/**
+ * Scrolled to the end, the slip column is bounded by the room it measured and the grid has ended above the action bar's
+ * top margin: its top is at the scroll region's top and its bottom is at the grid's bottom, each within 1px. A column
+ * that is too tall for its room rides above the region's top; one that is too short stops above the grid's bottom. The
+ * form is tall enough that the column's content always outruns its bound, so the bound alone sets the column's height.
+ */
+async function stickyColumnEndProblems(page: Page): Promise<string[]> {
   const e = editor(page);
   await scrollToEnd(e.scrollRegion);
-  return (await box(e.column)).top - (await box(e.scrollRegion)).top;
+  const region = await box(e.scrollRegion);
+  const column = await box(e.column);
+  const grid = await box(e.grid);
+  const problems: string[] = [];
+  if (Math.abs(column.top - region.top) > 1) {
+    problems.push(`the slip column's top at the end of the scroll is ${column.top - region.top}px ${STICKY_TOP} at ${region.top}px`);
+  }
+  if (Math.abs(column.bottom - grid.bottom) > 1) {
+    problems.push(`the slip column's bottom at the end of the scroll is ${column.bottom - grid.bottom}px ${GRID_BOTTOM} at ${grid.bottom}px`);
+  }
+  return problems;
 }
 
 /**
@@ -414,7 +430,7 @@ test.describe("Review editor layout, two columns", () => {
     await applyControl(page, editor(page).column, "column", "position: static");
     expect(await stickyColumnProblems(page)).toContainEqual(expect.stringContaining(STICKY_TOP));
     // Nor does a column that does not stick end the scroll at the scroll region's top.
-    expect(Math.abs(await columnTopAtEnd(page))).toBeGreaterThan(1);
+    expect(await stickyColumnEndProblems(page)).toContainEqual(expect.stringContaining(STICKY_TOP));
   });
 
   test("control: a slip column without its bound runs below the action bar's top", async ({ page }) => {
@@ -422,9 +438,20 @@ test.describe("Review editor layout, two columns", () => {
     expect(await stickyColumnProblems(page)).toContainEqual(expect.stringContaining(STICKY_BOTTOM));
   });
 
-  test("keeps the slip column at the scroll region's top at the end of the scroll", async ({ page }) => {
-    const offset = await columnTopAtEnd(page);
-    expect(Math.abs(offset), `the slip column's top at the end of the scroll is ${offset}px from the scroll region's`).toBeLessThanOrEqual(1);
+  test("ends the slip column at the scroll region's top and the grid's bottom at the end of the scroll", async ({ page }) => {
+    expect(await stickyColumnEndProblems(page)).toEqual([]);
+  });
+
+  test("control: a slip column given a margin's worth of extra room rides above the scroll region's top at the end of the scroll", async ({ page }) => {
+    expect(await stickyColumnEndProblems(page)).toEqual([]);
+    await applyControl(page, editor(page).column, "column", "max-height: calc(var(--sticky-room) + 16px)");
+    expect(await stickyColumnEndProblems(page)).toContainEqual(expect.stringContaining(STICKY_TOP));
+  });
+
+  test("control: a slip column short of its room stops above the grid's bottom at the end of the scroll", async ({ page }) => {
+    expect(await stickyColumnEndProblems(page)).toEqual([]);
+    await applyControl(page, editor(page).column, "column", "max-height: calc(var(--sticky-room) - 16px)");
+    expect(await stickyColumnEndProblems(page)).toContainEqual(expect.stringContaining(GRID_BOTTOM));
   });
 
   test("control: one column at 1440px fails the two-column check", async ({ page }) => {

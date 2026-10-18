@@ -15,14 +15,21 @@ export function useStickyRoom<Root extends HTMLElement, Bar extends HTMLElement>
     const rootEl = root.current;
     const region = rootEl?.closest<HTMLElement>(`[${SCROLL_REGION_ATTRIBUTE}]`);
     const barEl = bar.current;
-    if (!rootEl || !region || !barEl) return;
+    if (!rootEl || !region || !barEl) {
+      return;
+    }
     const measure = () => {
       const room = region.clientHeight - barEl.offsetHeight - (parseFloat(getComputedStyle(barEl).marginTop) || 0);
-      if (room > 0) rootEl.style.setProperty(STICKY_ROOM_PROPERTY, `${room}px`);
-      else rootEl.style.removeProperty(STICKY_ROOM_PROPERTY);
+      if (room > 0) {
+        rootEl.style.setProperty(STICKY_ROOM_PROPERTY, `${room}px`);
+      } else {
+        rootEl.style.removeProperty(STICKY_ROOM_PROPERTY);
+      }
     };
     measure();
-    if (typeof ResizeObserver === "undefined") return;
+    if (typeof ResizeObserver === "undefined") {
+      return;
+    }
     const observer = new ResizeObserver(measure);
     observer.observe(region);
     observer.observe(barEl);

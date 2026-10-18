@@ -1092,23 +1092,30 @@ describe("ReviewEditor", () => {
         return { bar, root, region };
       };
 
-      it("sets the slip column's room to the scroll region's height minus the action bar's box and top margin (53px + 16px), and keeps it current", async () => {
+      it("sets the slip column's room to the scroll region's height minus the action bar's box and whatever top margin the bar has, and keeps it current", async () => {
         const { bar, root, region } = await renderDeeper();
+        // A margin the theme does not give the bar, so a room that assumed the theme's own margin would not follow it.
+        bar.style.marginTop = "24px";
         let regionHeight = 700;
         let barHeight = 53;
         Object.defineProperty(region, "clientHeight", { configurable: true, get: () => regionHeight });
         Object.defineProperty(bar, "offsetHeight", { configurable: true, get: () => barHeight });
         resize(region);
-        expect(root.style.getPropertyValue(STICKY_ROOM_PROPERTY)).toBe("631px");
+        expect(root.style.getPropertyValue(STICKY_ROOM_PROPERTY)).toBe("623px");
 
         regionHeight = 500;
         resize(region);
-        expect(root.style.getPropertyValue(STICKY_ROOM_PROPERTY)).toBe("431px");
+        expect(root.style.getPropertyValue(STICKY_ROOM_PROPERTY)).toBe("423px");
 
         // A bar that wraps at a narrow width grows without the region changing.
         barHeight = 90;
         resize(bar);
-        expect(root.style.getPropertyValue(STICKY_ROOM_PROPERTY)).toBe("394px");
+        expect(root.style.getPropertyValue(STICKY_ROOM_PROPERTY)).toBe("386px");
+
+        // A bar whose margin changes without its box resizing is measured the next time either box does.
+        bar.style.marginTop = "0px";
+        resize(region);
+        expect(root.style.getPropertyValue(STICKY_ROOM_PROPERTY)).toBe("410px");
       });
 
       it("observes both the scroll region and the action bar", async () => {
