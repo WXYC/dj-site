@@ -159,7 +159,7 @@ export default function IntakeLogForm({ onLogged, onBusyChange, hideTitle = fals
         ...(form.label && { record_label: form.label }),
         ...(labelId != null && { label_id: labelId }),
         ...(discogsId != null && { discogs_release_id: discogsId }),
-        ...(bandcampLink != null && !bandcampRefused && { bandcamp_url: bandcampLink }),
+        ...(bandcampLink != null && { bandcamp_url: bandcampLink }),
       }).unwrap();
     } catch {
       toast.error(REVIEW_COPY.screen.writeFailed);
@@ -209,7 +209,11 @@ export default function IntakeLogForm({ onLogged, onBusyChange, hideTitle = fals
         </FormControl>
         <FormControl error={bandcampRefused}>
           <FormLabel>{COPY.bandcampUrl}</FormLabel>
-          <Input value={form.bandcamp} onChange={(e) => setForm((f) => ({ ...f, bandcamp: e.target.value }))} />
+          <Input
+            slotProps={{ input: { inputMode: "url", "aria-invalid": bandcampRefused } }}
+            value={form.bandcamp}
+            onChange={(e) => setForm((f) => ({ ...f, bandcamp: e.target.value }))}
+          />
           {bandcampRefused && <FormHelperText>{COPY.bandcampRefused}</FormHelperText>}
         </FormControl>
         <FormControl required>

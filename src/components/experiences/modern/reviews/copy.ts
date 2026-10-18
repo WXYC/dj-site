@@ -312,7 +312,9 @@ export const REVIEW_COPY = {
     digital: "Digital",
     discogsReleaseId: "Discogs link or release number (optional)",
     discogsRefused: "That isn't a Discogs release link or number.",
+    /** Approved. */
     bandcampUrl: "Bandcamp link (optional)",
+    /** Approved. */
     bandcampRefused: "That isn't a Bandcamp link.",
     /**
      * A proposal for the next copy round, not yet seen by the station: the Discogs field's line once a pasted link
