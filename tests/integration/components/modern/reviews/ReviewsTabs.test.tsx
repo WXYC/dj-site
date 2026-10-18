@@ -28,24 +28,54 @@ afterEach(() => vi.unstubAllEnvs());
 
 describe("ReviewsTabs", () => {
   it.each([
-    ["/dashboard/reviews", "Reviewing", "New music"],
-    ["/dashboard/reviews/music-directors", "New music", "Reviewing"],
-  ])("at %s only %s is current, and both links point at their pages", async (path, current, other) => {
+    ["a DJ", false, [["Review shelf", "/dashboard/reviews"], ["My reviews", "/dashboard/reviews/mine"]]],
+    [
+      "a music director",
+      true,
+      [["Review shelf", "/dashboard/reviews"], ["My reviews", "/dashboard/reviews/mine"], ["New music", "/dashboard/reviews/music-directors"]],
+    ],
+  ])("draws %s the tabs, by name and URL, in order", (_who, showNewMusic, tabs) => {
+    pathname.current = "/dashboard/reviews";
+    fakeReviewsEndpoints({ awaiting: [] });
+
+    renderWithProviders(<ReviewsTabs showNewMusic={showNewMusic} />);
+
+    const links = screen.getAllByRole("link");
+    expect(links.map((link) => [link.textContent, link.getAttribute("href")])).toEqual(tabs);
+  });
+
+  it.each([
+    ["/dashboard/reviews", "Review shelf"],
+    ["/dashboard/reviews/mine", "My reviews"],
+    ["/dashboard/reviews/music-directors", "New music"],
+  ])("at %s only %s is current", (path, current) => {
     pathname.current = path;
     fakeReviewsEndpoints({ awaiting: [] });
 
-    renderWithProviders(<ReviewsTabs />);
+    renderWithProviders(<ReviewsTabs showNewMusic />);
 
-    expect(screen.getByRole("link", { name: "Reviewing" })).toHaveAttribute("href", "/dashboard/reviews");
-    expect(screen.getByRole("link", { name: "New music" })).toHaveAttribute("href", "/dashboard/reviews/music-directors");
     expect(screen.getByRole("link", { name: current })).toHaveAttribute("aria-current", "page");
-    expect(screen.getByRole("link", { name: other })).not.toHaveAttribute("aria-current");
+    expect(screen.getAllByRole("link").filter((link) => link.hasAttribute("aria-current"))).toHaveLength(1);
+  });
+
+  it("asks for no waiting count when a DJ's strip has no New music tab", async () => {
+    pathname.current = "/dashboard/reviews";
+    let reads = 0;
+    server.use(http.get(`${TEST_BACKEND_URL}/intake`, () => {
+      reads += 1;
+      return HttpResponse.json([]);
+    }));
+
+    renderWithProviders(<ReviewsTabs showNewMusic={false} />);
+    await renderedFrame();
+
+    expect(reads).toBe(0);
   });
 
   it("counts the reviews waiting for a music director to accept", async () => {
     fakeReviewsEndpoints({ awaiting: [waiting(1), waiting(2), waiting(3)] });
 
-    renderWithProviders(<ReviewsTabs />);
+    renderWithProviders(<ReviewsTabs showNewMusic />);
 
     const link = await screen.findByRole("link", { name: "New music, 3 reviews waiting" });
     expect(link).toHaveTextContent(/^New music3, 3 reviews waiting$/);
@@ -58,7 +88,7 @@ describe("ReviewsTabs", () => {
   ] as const)("keeps the plain label for %s", async (_label, arrange, status) => {
     arrange();
 
-    const { store } = renderWithProviders(<ReviewsTabs />);
+    const { store } = renderWithProviders(<ReviewsTabs showNewMusic />);
 
     // Assert once the awaiting read has reached the state the row names: answered, refused, or started and held.
     await waitFor(() =>
@@ -70,7 +100,8 @@ describe("ReviewsTabs", () => {
   });
 
   it.each([
-    ["reviewing", REVIEW_COPY.tabs.reviewing, "Reviewing"],
+    ["reviewShelf", REVIEW_COPY.tabs.reviewShelf, "Review shelf"],
+    ["myReviews", REVIEW_COPY.tabs.myReviews, "My reviews"],
     ["directors", REVIEW_COPY.tabs.directors, "New music"],
   ])("words %s exactly as the station approved it", (_name, actual, expected) => {
     expect(actual).toBe(expected);

@@ -25,15 +25,22 @@ vi.mock("@/lib/features/authentication/organization-utils.server", async () => {
   return classicPageAuthorityOrganizationUtilsMock();
 });
 
-// The page's own responsibility under test is the flag + auth gate, not the
-// header chrome.
+// The page's own responsibility under test is the flag + auth gate and which tab it mounts, not the
+// header chrome or the screen.
 vi.mock("@/src/components/experiences/modern/Header/PageHeader", () => ({
   default: ({ title }: { title: string }) => <div data-testid="page-header">{title}</div>,
 }));
+vi.mock("@/src/components/experiences/modern/reviews/ReviewsScreen", () => ({
+  default: ({ tab }: { tab: string }) => <div data-testid="reviews-screen" data-tab={tab} />,
+}));
 
 import ReviewsPage from "@/app/dashboard/@modern/reviews/(lists)/page";
+import MyReviewsPage from "@/app/dashboard/@modern/reviews/(lists)/mine/page";
 
-describe("reviews page", () => {
+describe.each([
+  ["reviews page", () => ReviewsPage(), "shelf"],
+  ["my reviews page", () => MyReviewsPage(), "mine"],
+] as const)("%s", (_name, open, tab) => {
   setUpClassicPageAuthorityEnv();
 
   it.each([
@@ -47,7 +54,7 @@ describe("reviews page", () => {
     else process.env.NEXT_PUBLIC_REVIEWS_ENABLED = flag;
     setUpClassicPageAuthority(role);
 
-    await assertNotFoundPage(() => ReviewsPage());
+    await assertNotFoundPage(open);
   });
 
   it.each([
@@ -55,12 +62,13 @@ describe("reviews page", () => {
     ["staff", "stationManager"],
     ["true", "dj"],
     ["1", "dj"],
-  ] as const)("renders the Reviews shell when the flag is %s for a %s", async (flag, role) => {
+  ] as const)("mounts its own tab, and no page heading of its own, when the flag is %s for a %s", async (flag, role) => {
     process.env.NEXT_PUBLIC_REVIEWS_ENABLED = flag;
     setUpClassicPageAuthority(role);
 
-    renderWithProviders(await ReviewsPage());
+    renderWithProviders(await open());
 
-    expect(screen.getByTestId("page-header")).toHaveTextContent("Reviews");
+    expect(screen.getByTestId("reviews-screen")).toHaveAttribute("data-tab", tab);
+    expect(screen.queryByTestId("page-header")).not.toBeInTheDocument();
   });
 });

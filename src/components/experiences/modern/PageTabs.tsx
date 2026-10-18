@@ -15,6 +15,9 @@ export type PageTab = { path: string; label: string } & (
   | { count?: undefined; countLabel?: undefined }
 );
 
+/** The width of the strip's fade at its trailing edge, and of the room left after the last tab. */
+const TRAILING_FADE_PX = 24;
+
 /**
  * A strip of route links for sibling pages. A tab is current only when the
  * pathname equals its path exactly, so a nested route marks none current.
@@ -23,7 +26,19 @@ export default function PageTabs({ tabs }: { tabs: readonly PageTab[] }): JSX.El
   const pathname = usePathname();
 
   return (
-    <Box sx={{ display: "flex", gap: 1, borderBottom: "1px solid", borderColor: "divider", mb: 2 }}>
+    <Box
+      sx={{
+        display: "flex",
+        gap: 1,
+        borderBottom: "1px solid",
+        borderColor: "divider",
+        mb: 2,
+        overflowX: "auto",
+        // The fade says there is more to the right; the padding lets the last tab scroll clear of it.
+        pr: `${TRAILING_FADE_PX}px`,
+        maskImage: `linear-gradient(to right, black calc(100% - ${TRAILING_FADE_PX}px), transparent)`,
+      }}
+    >
       {tabs.map((tab) => {
         const active = pathname === tab.path;
         return (
@@ -36,6 +51,8 @@ export default function PageTabs({ tabs }: { tabs: readonly PageTab[] }): JSX.El
               position: "relative",
               px: 1.5,
               py: 1,
+              flexShrink: 0,
+              whiteSpace: "nowrap",
               textDecoration: "none",
               color: active ? "primary.plainColor" : "text.secondary",
               fontWeight: active ? "lg" : "md",

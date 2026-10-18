@@ -1,7 +1,6 @@
 import { getUserFromSession, requireAuth } from "@/lib/features/authentication/server-utils";
 import { canSeeReviews } from "@/lib/features/reviews/flags";
 import ReviewsScreen from "@/src/components/experiences/modern/reviews/ReviewsScreen";
-import PageHeader from "@/src/components/experiences/modern/Header/PageHeader";
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getPageTitle } from "@/lib/utils/page-title";
@@ -18,10 +17,5 @@ export default async function ReviewsPage() {
     notFound();
   }
 
-  return (
-    <>
-      <PageHeader title="Reviews" />
-      <ReviewsScreen />
-    </>
-  );
+  return <ReviewsScreen tab="shelf" />;
 }

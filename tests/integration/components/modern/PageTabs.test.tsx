@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen } from "@testing-library/react";
 import { usePathname } from "next/navigation";
 import { renderWithProviders } from "@/tests/helpers/render";
+import { rulesOf } from "@/tests/helpers";
 import PageTabs, { type PageTab } from "@/src/components/experiences/modern/PageTabs";
 
 vi.mock("next/navigation", () => ({
@@ -64,6 +65,18 @@ describe("PageTabs", () => {
     expect(link.querySelector("[aria-label]")).toBeNull();
     expect(screen.getByText("12")).toHaveAttribute("aria-hidden", "true");
     expect(screen.getByText(", 12 waiting")).not.toHaveAttribute("aria-hidden");
+  });
+
+  it("scrolls sideways instead of widening the page, leaves room after the last tab for its fade, and keeps each tab on one line", () => {
+    vi.mocked(usePathname).mockReturnValue("/dashboard/first");
+
+    renderWithProviders(<PageTabs tabs={TABS} />);
+
+    const strip = screen.getByRole("link", { name: "First" }).parentElement!;
+    expect(strip).toHaveStyle({ overflowX: "auto" });
+    // jsdom's stylesheet parser drops `mask-image`, so the fade itself can only be checked in a browser; the room it leaves after the last tab can be read here.
+    expect(rulesOf(strip).base).toMatch(/padding-right:\s*24px/);
+    expect(screen.getByRole("link", { name: "First" })).toHaveStyle({ flexShrink: "0", whiteSpace: "nowrap" });
   });
 
   it("requires a countLabel whenever a count is given, so the digits never run into the label", () => {
