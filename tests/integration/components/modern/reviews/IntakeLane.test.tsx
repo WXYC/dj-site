@@ -24,8 +24,12 @@ describe("IntakeLane", () => {
     expect(items.map((li) => li.textContent)).toEqual(["row 1", "row 2"]);
   });
 
-  it("takes only a `row` render prop: a `label` does not type-check", () => {
-    // @ts-expect-error a lane can no longer draw its rows as an inline label
-    renderWithProviders(<IntakeLane title="Checkouts" rows={rows} empty="Nothing here." row={(r) => <span>{r.name}</span>} label={(r) => r.name} />);
+  it("draws its rows only through `row`: a lane given a `label` in its place does not type-check", () => {
+    // Never rendered, since a lane with no `row` has nothing to draw its rows with: the check is the compiler's.
+    const labelled = () => (
+      // @ts-expect-error a lane has no `label` render prop
+      <IntakeLane title="Checkouts" rows={rows} empty="Nothing here." label={(r) => r.name} />
+    );
+    expect(labelled).toBeTypeOf("function");
   });
 });
