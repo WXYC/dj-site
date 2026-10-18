@@ -284,29 +284,26 @@ describe("ReviewsScreen", () => {
       return posts;
     };
 
-    it.each([
+    const KINDS = [
       ["a disc", false],
       ["a digital album", true],
-    ])("accepts %s, creates a review and opens the editor with the arrival marker", async (_kind, digital) => {
-      serveIntake([digital ? digitalItem(REQUESTED()) : REQUESTED()]);
+    ] as const;
+    const requested = (digital: boolean) => (digital ? digitalItem(REQUESTED()) : REQUESTED());
+
+    it.each(
+      KINDS.flatMap(([kind, digital]) => [
+        [kind, digital, "no draft", [], ["/intake/11/accept", "/reviews"], 41],
+        [kind, digital, "a draft of mine", [review({ id: 40, intake_item_id: 11 })], ["/intake/11/accept"], 40],
+      ] as const),
+    )("accepts %s with %s, then opens the editor at that review with the arrival marker", async (_kind, digital, _draft, mine, expected, id) => {
+      serveIntake([requested(digital)], [], [...mine]);
       const posts = serveWrites();
 
       const { user } = renderWithProviders(<ReviewsScreen />);
       await user.click(await within(await section("Requests for me")).findByRole("button", { name: "Write a review" }));
 
-      await waitFor(() => expect(router.push).toHaveBeenCalledWith("/dashboard/reviews/41?arrived=request"));
-      expect(posts).toEqual(["/intake/11/accept", "/reviews"]);
-    });
-
-    it("opens a draft of mine on the record without creating another", async () => {
-      serveIntake([REQUESTED()], [], [review({ id: 40, intake_item_id: 11 })]);
-      const posts = serveWrites();
-
-      const { user } = renderWithProviders(<ReviewsScreen />);
-      await user.click(await within(await section("Requests for me")).findByRole("button", { name: "Write a review" }));
-
-      await waitFor(() => expect(router.push).toHaveBeenCalledWith("/dashboard/reviews/40?arrived=request"));
-      expect(posts).toEqual(["/intake/11/accept"]);
+      await waitFor(() => expect(router.push).toHaveBeenCalledWith(`/dashboard/reviews/${id}?arrived=request`));
+      expect(posts).toEqual(expected);
     });
 
     it("answers a lost race on the accept with the request notice, stays on the page and creates nothing", async () => {
@@ -322,25 +319,52 @@ describe("ReviewsScreen", () => {
       expect(router.push).not.toHaveBeenCalled();
     });
 
-    it.each([
-      ["a 409 subject_not_held", { message: "server words", reason: "subject_not_held" }, 409],
-      ["a server error", { message: "down" }, 500],
-    ])("toasts that the review couldn't start when the create fails with %s after the accept went through", async (_why, body, status) => {
-      serveIntake([REQUESTED()]);
-      serveWrites({ create: () => HttpResponse.json(body, { status }) });
+    it.each(
+      KINDS.flatMap(([kind, digital]) => [
+        [kind, digital, "a 409 subject_not_held", { message: "server words", reason: "subject_not_held" }, 409],
+        [kind, digital, "a server error", { message: "down" }, 500],
+      ] as const),
+    )("toasts that the review couldn't start and leaves %s among mine when the create fails with %s after the accept went through", async (_kind, digital, _why, body, status) => {
+      serveIntake([requested(digital)]);
+      const posts = serveWrites({ create: () => HttpResponse.json(body, { status }) });
+      // Once the accept has gone through, the record is the DJ's.
+      const held = { ...requested(digital), state: "checked_out", effective_state: "checked_out", checked_out_by: ME, checked_out_at: "2026-10-01T12:00:00Z" } as const;
+      server.use(http.get(`${TEST_BACKEND_URL}/intake`, () => HttpResponse.json([posts.length > 0 ? held : requested(digital)])));
 
       const { user } = renderWithProviders(<ReviewsScreen />);
       await user.click(await within(await section("Requests for me")).findByRole("button", { name: "Write a review" }));
 
       await waitFor(() => expect(toast.error).toHaveBeenCalledWith(REVIEW_COPY.couldNotStart));
+      expect(await within(await section("Records I'm reviewing")).findByText(/Stereolab/)).toBeInTheDocument();
       expect(toast).not.toHaveBeenCalled();
       expect(toast.error).toHaveBeenCalledTimes(1);
       expect(router.push).not.toHaveBeenCalled();
     });
+
+    // A DJ who clicks and then leaves the page is not pulled into the editor, nor shown a toast on an unrelated page.
+    it.each([
+      ["goes through", () => HttpResponse.json(review({ id: 41 }))],
+      ["fails", () => HttpResponse.json({ message: "down" }, { status: 500 })],
+    ])("neither opens the editor nor toasts when the page unmounts before the create %s", async (_outcome, respond) => {
+      serveIntake([REQUESTED()]);
+      serveWrites();
+      const create = holdResponse("post", `${TEST_BACKEND_URL}/reviews`, respond);
+
+      const { user, unmount, store } = renderWithProviders(<ReviewsScreen />);
+      await user.click(await within(await section("Requests for me")).findByRole("button", { name: "Write a review" }));
+      await waitFor(() => expect(create.calls.count).toBe(1));
+      unmount();
+      create.release();
+      await create.answered;
+      await reviewsSettled(store);
+
+      expect(router.push).not.toHaveBeenCalled();
+      expect(toast.error).not.toHaveBeenCalled();
+    });
   });
 
   describe("Pass on a request", () => {
-        const open = async () => {
+    const open = async () => {
       serveIntake([item({ id: 11, state: "requested", effective_state: "requested", requested_dj_id: ME, requested_at: "2026-09-30T12:00:00Z" })]);
       const paths: string[] = [];
       server.use(
@@ -368,14 +392,14 @@ describe("ReviewsScreen", () => {
 
     it("sends the pass on confirming, reloads and toasts", async () => {
       const { user, dialog, paths } = await open();
-      let reads = 0;
-      server.use(http.get(`${TEST_BACKEND_URL}/intake`, () => (reads += 1, HttpResponse.json([]))));
+      // The pass invalidates only the intake list, so a my-reviews read is the write's own reload.
+      const reload = countReviewReads();
 
       await user.click(within(dialog).getByRole("button", { name: "Pass" }));
 
       await waitFor(() => expect(toast.success).toHaveBeenCalledWith("Passed. The record is back on the review shelf."));
       expect(paths).toEqual(["/intake/11/pass"]);
-      expect(reads).toBeGreaterThan(0);
+      await waitFor(() => expect(reload.count).toBeGreaterThan(0));
     });
   });
 
@@ -546,16 +570,17 @@ describe("ReviewsScreen", () => {
 
   // The second POST of a double-click would find the record already moved and
   // answer 409 state_changed, telling the DJ someone else took the record they
-  // just took.
+  // just took. Write a review also creates the review, and a second create
+  // would give one request two drafts.
   it.each([
-    ["Check out", SHELF, item({ id: 5 }), "/intake/5/checkout"],
+    ["Check out", SHELF, item({ id: 5 }), ["/intake/5/checkout"]],
     [
       "Write a review",
       "Requests for me",
       item({ id: 5, state: "requested", effective_state: "requested", requested_dj_id: ME }),
-      "/intake/5/accept",
+      ["/intake/5/accept", "/reviews"],
     ],
-  ] as const)("sends one POST when %s is double-clicked, and shows no race line", async (button, title, row, path) => {
+  ] as const)("sends each POST once when %s is double-clicked, and shows no race line", async (button, title, row, expected) => {
     let moved = false;
     const posts: string[] = [];
     server.use(
@@ -568,7 +593,10 @@ describe("ReviewsScreen", () => {
         moved = true;
         return HttpResponse.json(row);
       }),
-      http.post(`${TEST_BACKEND_URL}/reviews`, () => HttpResponse.json(review({ id: 41 }))),
+      http.post(`${TEST_BACKEND_URL}/reviews`, () => {
+        posts.push("/reviews");
+        return HttpResponse.json(review({ id: 41 }));
+      }),
     );
 
     const { user } = renderWithProviders(<ReviewsScreen />);
@@ -577,7 +605,7 @@ describe("ReviewsScreen", () => {
     await user.dblClick(within(region).getByRole("button", { name: button }));
 
     await waitFor(() => expect(within(region).queryByText(/Stereolab/)).not.toBeInTheDocument());
-    expect(posts).toEqual([path]);
+    await waitFor(() => expect(posts).toEqual(expected));
     expect(toast).not.toHaveBeenCalled();
     expect(toast.error).not.toHaveBeenCalled();
   });

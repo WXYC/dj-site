@@ -5,6 +5,7 @@ import { Button, Chip, Link, Stack, Typography } from "@mui/joy";
 import type { IntakeItem, Review } from "@wxyc/shared";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { useMounted } from "@/src/hooks/useRowWrite";
 import {
   useAcceptIntakeItemMutation,
   usePassIntakeItemMutation,
@@ -51,6 +52,8 @@ export default function MyReviewsScreen({ items, myReviews, formats, me, between
   const [release] = useReleaseIntakeItemMutation();
   const [createReview] = useCreateReviewMutation();
   const router = useRouter();
+  // A write outlives the screen when the DJ navigates away mid-click; what it does after that (open the editor, toast) is skipped.
+  const mounted = useMounted();
   const [returning, setReturning] = useState<IntakeItem | null>(null);
   const [passing, setPassing] = useState<IntakeItem | null>(null);
 
@@ -75,13 +78,17 @@ export default function MyReviewsScreen({ items, myReviews, formats, me, between
                 onClick={() =>
                   write(i.id, "accept", async () => {
                     await accept(i.id).unwrap();
-                    // The record is the DJ's now, so a create that fails is its own toast: neither a lost race nor the generic failure.
+                    // The record is the DJ's now, so a create that fails is its own toast: neither a lost race nor the generic failure. A DJ who has left the page gets neither the editor nor the toast; the record is in their list either way.
                     try {
                       const draft = myReviews.find((r) => r.intake_item_id === i.id && r.status === "draft");
                       const review = draft ?? (await createReview({ intake_item_id: i.id }).unwrap());
-                      router.push(`/dashboard/reviews/${review.id}?arrived=request`);
+                      if (mounted.current) {
+                        router.push(`/dashboard/reviews/${review.id}?arrived=request`);
+                      }
                     } catch {
-                      toast.error(REVIEW_COPY.couldNotStart);
+                      if (mounted.current) {
+                        toast.error(REVIEW_COPY.couldNotStart);
+                      }
                     }
                   })
                 }
@@ -119,7 +126,9 @@ export default function MyReviewsScreen({ items, myReviews, formats, me, between
               onClick={() =>
                 write(i.id, "write", async () => {
                   const review = draft ?? (await createReview({ intake_item_id: i.id }).unwrap());
-                  router.push(`/dashboard/reviews/${review.id}`);
+                  if (mounted.current) {
+                    router.push(`/dashboard/reviews/${review.id}`);
+                  }
                 })
               }
             >
@@ -165,7 +174,9 @@ export default function MyReviewsScreen({ items, myReviews, formats, me, between
                 setPassing(null);
                 await write(id, "pass", async () => {
                   await pass(id).unwrap();
-                  toast.success(REVIEW_COPY.screen.passed);
+                  if (mounted.current) {
+                    toast.success(REVIEW_COPY.screen.passed);
+                  }
                 });
               }}
             >

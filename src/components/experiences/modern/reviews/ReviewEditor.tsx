@@ -85,7 +85,8 @@ function Form({ review, user, arrivedFromRequest }: { review: Review; user: User
   const [remove, { isLoading: deleting }] = useDeleteReviewMutation();
   const router = useRouter();
   const record = useReviewRecord(review);
-  const arrivedItem = useGetIntakeItemQuery(arrivedFromRequest && review.intake_item_id != null ? review.intake_item_id : skipToken).data;
+  // The same read useReviewRecord holds, so no second request.
+  const intakeItem = useGetIntakeItemQuery(review.intake_item_id ?? skipToken).data;
   const fccNotes = useConfirmedFccNotes(review);
   const { root, bar } = useStickyRoom<HTMLDivElement, HTMLDivElement>();
   const reasonId = useId();
@@ -100,6 +101,9 @@ function Form({ review, user, arrivedFromRequest }: { review: Review; user: User
   // Only a typed review needs text to submit; a handwritten one may go in with none.
   const blank = review.medium === "typed" && values.review.trim() === "";
   const inUse = review.in_use || refusedInUse;
+  // The marker stays in the URL, so the line also asks whether it is still true: the author's draft, of a record they still hold.
+  const arrivalLine =
+    arrivedFromRequest && isAuthor && draft && intakeItem && intakeItem.checked_out_by === user?.id ? byKind(intakeItem, REVIEW_COPY.arrived) : null;
 
   // A non-author's patch carries no consent: the service accepts it only from the author.
   const patch = (): ReviewPatch => ({
@@ -201,7 +205,7 @@ function Form({ review, user, arrivedFromRequest }: { review: Review; user: User
         )}
         <PrintedVersionNote review={review} onCover={review.in_use} />
       </Stack>
-      {arrivedItem && <Typography level="body-sm" sx={{ mt: 1 }}>{byKind(arrivedItem, REVIEW_COPY.arrived)}</Typography>}
+      {arrivalLine && <Typography level="body-sm" sx={{ mt: 1 }}>{arrivalLine}</Typography>}
       {status && <Typography level="body-sm" sx={{ mt: 1 }}>{status}</Typography>}
       <Box
         sx={{
@@ -295,7 +299,7 @@ function Form({ review, user, arrivedFromRequest }: { review: Review; user: User
   );
 }
 
-/** `arrivedFromRequest` adds the line that says what the DJ holds after Write a review on a request. */
+/** `arrivedFromRequest` adds the line that says what the DJ holds after Write a review on a request, while the review is still the signed-in author's draft of a record they hold. */
 export default function ReviewEditor({ id, arrivedFromRequest = false }: { id: number; arrivedFromRequest?: boolean }) {
   const visible = useCanSeeReviews();
   const { data, isError } = useGetReviewQuery(id, { skip: !visible });
