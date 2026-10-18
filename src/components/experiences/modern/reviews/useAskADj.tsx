@@ -75,6 +75,7 @@ export function useAskADj({
       reviewers={folded}
       loading={reviewers.isLoading}
       failed={reviewersFailed}
+      passedIds={new Set((i.passes ?? []).flatMap((p) => p.dj_id ?? []))}
       labelledBy={namedByRow ? `${shelfRecordId(i)} ${shelfAlbumId(i)}` : undefined}
       artist={i.artist_name}
       album={i.album_title}
