@@ -16,8 +16,9 @@ export const metadataApi = createApi({
         url: "/metadata/album",
         params: { artistName, releaseTitle, ...(trackTitle && { trackTitle }) },
       }),
-      // Artwork is decoration: a failed read leaves the placeholder, and the shared error toast would interrupt the DJ about it.
-      transformErrorResponse: (response: FetchBaseQueryError): FetchBaseQueryError => ({ ...response, expected: true } as unknown as FetchBaseQueryError),
+      // A decorative read's failure leaves the placeholder; one toast per row would interrupt the DJ about it.
+      transformErrorResponse: (response: FetchBaseQueryError, _meta, { decorative }): FetchBaseQueryError & { expected?: true } =>
+        decorative ? { ...response, expected: true } : response,
     }),
     getArtistMetadata: builder.query<ArtistMetadata, { artistId: number }>({
       query: ({ artistId }) => ({

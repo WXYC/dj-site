@@ -13,6 +13,42 @@ describe("metadataApi", () => {
     reducerPath: "metadataApi",
   });
 
+  describe("getAlbumMetadata", () => {
+    const album = { artistName: "Juana Molina", releaseTitle: "DOGA" };
+
+    it.each<[string, Parameters<typeof metadataApi.endpoints.getAlbumMetadata.initiate>[0], boolean]>([
+      ["a decorative read marks its failure expected", { ...album, decorative: true }, true],
+      ["any other read leaves its failure to the shared toast and report", album, false],
+    ])("%s", async (_case, arg, expected) => {
+      server.use(
+        http.get(`${TEST_BACKEND_URL}/proxy/metadata/album`, () =>
+          HttpResponse.json({ message: "Metadata service unavailable" }, { status: 500 }),
+        ),
+      );
+
+      const store = createTestStore();
+      const result = await store.dispatch(metadataApi.endpoints.getAlbumMetadata.initiate(arg));
+
+      expect(result.error).toMatchObject({ status: 500, data: { message: "Metadata service unavailable" } });
+      expect((result.error as { expected?: boolean }).expected === true).toBe(expected);
+    });
+
+    it("sends only the artist and title, never the decorative flag", async () => {
+      let search = "";
+      server.use(
+        http.get(`${TEST_BACKEND_URL}/proxy/metadata/album`, ({ request }) => {
+          search = new URL(request.url).search;
+          return HttpResponse.json({ artworkUrl: null });
+        }),
+      );
+
+      const store = createTestStore();
+      await store.dispatch(metadataApi.endpoints.getAlbumMetadata.initiate({ ...album, decorative: true }));
+
+      expect(Object.fromEntries(new URLSearchParams(search))).toEqual({ artistName: "Juana Molina", releaseTitle: "DOGA" });
+    });
+  });
+
   describe("getLibraryTracks", () => {
     it("hits /proxy/library/:libraryId/tracks and returns the wrapper", async () => {
       const libraryId = 4242;

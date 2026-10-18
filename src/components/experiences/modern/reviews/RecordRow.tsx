@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Box, Chip, Divider, Link, Typography } from "@mui/joy";
 import { useAlbumArtwork } from "@/lib/features/metadata/hooks";
 import { formatLabel, formatTone } from "@/lib/features/experiences/modern/tokens/roles";
@@ -67,9 +67,12 @@ interface RecordRowProps {
  */
 export default function RecordRow({ record, meta, actions, status, href, titleSlot, albumId, cover }: RecordRowProps) {
   const format = useRecordFormatName(record);
-  const { metadata } = useAlbumArtwork(record.artist, record.album, cover === undefined);
+  const { metadata } = useAlbumArtwork(record.artist, record.album, cover === undefined, { decorative: true });
+  // Held by URL, not as a flag, so a row drawn for another record never keeps this one's failure.
+  const [failedUrl, setFailedUrl] = useState<string>();
   // `useAlbumArtwork`'s own `artworkUrl` falls back to a cassette image; only the service's answer counts here.
   const artworkUrl = cover ? metadata?.artworkUrl : undefined;
+  const showCover = Boolean(artworkUrl) && artworkUrl !== failedUrl;
   const artist = titleSlot ?? (href ? (
     <Link level="title-md" href={href}>{record.artist}</Link>
   ) : (
@@ -79,8 +82,15 @@ export default function RecordRow({ record, meta, actions, status, href, titleSl
     <Box sx={{ width: "100%", containerType: "inline-size" }}>
       <Box sx={{ display: "flex", flexDirection: "column", gap: 1, "@container (min-width: 560px)": { flexDirection: "row", alignItems: "center", justifyContent: "space-between" } }}>
         <Box sx={{ display: "flex", gap: 1.5, minWidth: 0 }}>
-          {cover && artworkUrl ? (
-            <Box component="img" src={artworkUrl} alt="" sx={{ flex: "none", width: cover, height: cover, borderRadius: "sm", objectFit: "cover" }} />
+          {showCover ? (
+            <Box
+              component="img"
+              src={artworkUrl}
+              alt=""
+              loading="lazy"
+              onError={() => { setFailedUrl(artworkUrl); }}
+              sx={{ flex: "none", width: cover, height: cover, borderRadius: "sm", objectFit: "cover" }}
+            />
           ) : (
             <FormatGlyph format={format} size={cover} />
           )}

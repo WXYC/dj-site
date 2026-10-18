@@ -3,6 +3,7 @@ import { fakeAlbumReviewEndpoints, type FakeAlbumReviewOptions } from "./reviews
 import { fakeFccNoteEndpoints, type FakeFccNoteOptions } from "./reviews/fccNote";
 import { fakeIntakeEndpoints, type FakeIntakeOptions } from "./reviews/intake";
 import { CDR_FORMAT, fakeLibraryLookupEndpoints, type FakeLibraryOptions } from "./reviews/library";
+import { fakeProxyEndpoints, type FakeProxyOptions } from "./reviews/proxy";
 import { fakeReviewEndpoints, type FakeReviewOptions } from "./reviews/review";
 
 /**
@@ -27,13 +28,14 @@ import { fakeReviewEndpoints, type FakeReviewOptions } from "./reviews/review";
  * about it.
  */
 export function fakeReviewsEndpoints(
-  options: FakeIntakeOptions & FakeReviewOptions & FakeAlbumReviewOptions & FakeLibraryOptions & FakeFccNoteOptions = {},
+  options: FakeIntakeOptions & FakeReviewOptions & FakeAlbumReviewOptions & FakeLibraryOptions & FakeFccNoteOptions & FakeProxyOptions = {},
 ) {
   fakeIntakeEndpoints(options);
   fakeReviewEndpoints(options);
   fakeAlbumReviewEndpoints(options);
   fakeLibraryLookupEndpoints(options);
   fakeFccNoteEndpoints(options);
+  fakeProxyEndpoints(options);
 }
 
 /** A reported FCC note on the record `intakeItem()` describes. */

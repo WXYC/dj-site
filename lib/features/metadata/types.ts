@@ -41,6 +41,11 @@ export interface AlbumMetadataQueryParams {
   artistName: string;
   releaseTitle: string;
   trackTitle?: string;
+  /**
+   * The read is decoration, such as a cover beside a row that already names the record: its failure is marked expected, so the shared middleware neither toasts nor reports it.
+   * Never sent to the server. It is part of the cache key, so decorative reads share entries only with each other, and every other reader keeps the shared toast and report.
+   */
+  decorative?: boolean;
 }
 
 export interface LibraryTrack {
