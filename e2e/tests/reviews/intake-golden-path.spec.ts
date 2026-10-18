@@ -61,10 +61,11 @@ test("the intake golden path, from logging a record to the librarian's finalize"
   // The My reviews tab's lists are stages in a tabpanel named by the chip: a record the DJ has, before and after their review is submitted.
   const checkoutRow = (page: Page, stage: "open" | "submitted" = "open") =>
     page.getByRole("tabpanel", { name: COPY.myReviews.stages[stage] }).getByRole("listitem").filter({ hasText: album });
-  // The New music tab shows one stage at a time: choose the stage's chip (named "Label, count"), then read its list.
+  // The New music tab shows one stage at a time: choose the stage's chip, then read its list. Chromium names a chip "Label , count",
+  // with a space before the comma that jsdom leaves out, so the name allows one.
   // The chips draw only once the intake read lands, so wait for the chip before clicking it.
   const laneRow = async (page: Page, stage: string) => {
-    const chip = page.getByRole("tab", { name: new RegExp(`^${escapeRegExp(stage)},`) });
+    const chip = page.getByRole("tab", { name: new RegExp(`^${escapeRegExp(stage)}\\s*,`) });
     await expect(chip).toBeVisible({ timeout: 15000 });
     await chip.click();
     return page.getByRole("tabpanel", { name: stage, exact: true }).getByRole("listitem").filter({ hasText: album });
