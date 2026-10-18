@@ -24,7 +24,8 @@ for (const [name, storageState] of [
       await page.goto("/dashboard/reviews/music-directors");
 
       await expect(page.getByRole("form", { name: "Log an item" })).toBeVisible({ timeout: 15000 });
-      await expect(page.getByRole("region", { name: "Filed" })).toBeVisible({ timeout: 15000 });
+      // The stages are chips, which draw once the intake read lands; Chromium names one "Filed , n".
+      await expect(page.getByRole("tab", { name: /^Filed\s*,/ })).toBeVisible({ timeout: 15000 });
     });
 
     test("forwards the old review shelf address to the New music tab", async ({ page }) => {
