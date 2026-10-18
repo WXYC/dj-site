@@ -13,11 +13,13 @@ export type Stage<Id extends string> = { id: Id; label: string; count: number };
  * A choice is written with `window.history.replaceState`, which the App Router syncs to `useSearchParams` without a server request, so the chip and its list change at once and no history entry is added.
  * `children` draws the selected stage's list. It sits in a tabpanel named by the selected chip.
  */
-export default function StageChips<Id extends string>({ label, stages, fallback, children }: {
+export default function StageChips<Id extends string>({ label, stages, fallback, onChoose, children }: {
   /** The tablist's accessible name. */
   label: string;
   stages: readonly Stage<Id>[];
   fallback: Id;
+  /** Told the stage a chip chose, by a click or a key, after the URL is written; also when the chip was already selected. */
+  onChoose?: (id: Id) => void;
   children: (stage: Id) => ReactNode;
 }) {
   const pathname = usePathname();
@@ -34,6 +36,7 @@ export default function StageChips<Id extends string>({ label, stages, fallback,
     next.set("stage", stages[index].id);
     window.history.replaceState(null, "", `${pathname}?${next}`);
     chips.current[index]?.focus();
+    onChoose?.(stages[index].id);
   };
 
   const onKeyDown = (event: KeyboardEvent, index: number) => {

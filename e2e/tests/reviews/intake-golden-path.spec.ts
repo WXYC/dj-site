@@ -82,7 +82,8 @@ test("the intake golden path, from logging a record to the librarian's finalize"
 
       // The form lives in the Add a record dialog, which the tab's button opens.
       await md.getByRole("button", { name: COPY.intake.log }).click();
-      const form = md.getByRole("dialog", { name: COPY.intake.logTitle }).getByRole("form", { name: COPY.intake.logTitle });
+      const dialog = md.getByRole("dialog", { name: COPY.intake.logTitle });
+      const form = dialog.getByRole("form", { name: COPY.intake.logTitle });
       await form.getByLabel(new RegExp(`^${COPY.intake.artist}`)).fill(artist);
       await form.getByLabel(new RegExp(`^${COPY.intake.album}`)).fill(album);
       // The path walks a disc: Format shows once the record arrived as a disc or a record.
@@ -93,6 +94,14 @@ test("the intake golden path, from logging a record to the librarian's finalize"
       const logged = md.waitForResponse((r) => r.request().method() === "POST" && new URL(r.url()).pathname.endsWith("/intake"));
       await form.getByRole("button", { name: COPY.intake.log }).click();
       expect((await logged).ok()).toBe(true);
+
+      // The dialog says what was added; Done closes it and shows the On the review shelf stage with the new row marked.
+      await expect(dialog.getByText(COPY.intake.addedLine(artist, album), { exact: true })).toBeVisible({ timeout: 15000 });
+      await dialog.getByRole("button", { name: COPY.intake.addDone, exact: true }).click();
+      await expect(dialog).toBeHidden();
+      const added = md.getByRole("tabpanel", { name: COPY.intake.onShelf, exact: true }).getByRole("listitem").filter({ hasText: album });
+      await expect(added).toBeVisible({ timeout: 15000 });
+      await expect(added.locator("[data-added]")).toHaveCount(1);
 
       await md.goto("/dashboard/reviews");
       await expect(shelfRow(md)).toBeVisible({ timeout: 15000 });

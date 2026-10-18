@@ -164,7 +164,7 @@ describe("REVIEW_COPY Add a record, the button, the dialog and what it says afte
     ["logTitle", i.logTitle, "Add a record"],
     ["log", i.log, "Add a record"],
     ["newMusicLine", i.newMusicLine, "Every new record, from arrival to filing."],
-    ["addRecordLine", i.addRecordLine, "It goes on the review shelf, where any DJ can check it out."],
+    ["addRecordLine", i.addRecordLine, "It goes on the review shelf, where any DJ can choose to review it."],
     ["addedLine", i.addedLine("Cat Power", "Moon Pix"), "Added Moon Pix by Cat Power."],
     ["addAnother", i.addAnother, "Add another"],
     ["addDone", i.addDone, "Done"],

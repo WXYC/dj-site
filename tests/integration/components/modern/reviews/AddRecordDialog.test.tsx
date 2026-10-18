@@ -83,7 +83,17 @@ const addMoonPix = async (user: User, dialog: HTMLElement) => {
   await user.click(within(dialog).getByRole("button", { name: ADD }));
 };
 
+const addAnother = async (user: User, dialog: HTMLElement) => {
+  await user.click(await within(dialog).findByRole("button", { name: COPY.addAnother }));
+};
+
 const markedRows = () => [...document.querySelectorAll("[data-added]")];
+
+type Close = (user: User, dialog: HTMLElement) => Promise<void>;
+const CLOSES: [string, Close][] = [
+  ["Escape", async (user) => user.keyboard("{Escape}")],
+  ["Cancel", async (user, dialog) => user.click(within(dialog).getByRole("button", { name: REVIEW_COPY.screen.cancel }))],
+];
 
 beforeEach(() => {
   vi.mocked(toast.error).mockClear();
@@ -150,6 +160,23 @@ describe("Add a record, on the New music tab", () => {
     expect(within(dialog).getByRole("button", { name: REVIEW_COPY.screen.cancel })).toBeInTheDocument();
   });
 
+  it.each<[string, (user: User, dialog: HTMLElement) => Promise<void>]>([
+    ["when it opens", async () => {}],
+    ["after Add another", async (user, dialog) => {
+      await addMoonPix(user, dialog);
+      await addAnother(user, dialog);
+    }],
+  ])("is described by its line %s", async (_when, before) => {
+    fakeShelf();
+    const { user } = renderWithProviders(<IntakeLanes />);
+    const dialog = await openDialog(user);
+
+    await before(user, dialog);
+
+    expect(await within(dialog).findByText(COPY.addRecordLine)).toBeInTheDocument();
+    expect(dialog).toHaveAccessibleDescription(COPY.addRecordLine);
+  });
+
   it("says what was added and offers Add another and Done after a successful add", async () => {
     fakeShelf();
     const { user } = renderWithProviders(<IntakeLanes />);
@@ -169,9 +196,10 @@ describe("Add a record, on the New music tab", () => {
     const dialog = await openDialog(user);
     await addMoonPix(user, dialog);
 
-    await user.click(await within(dialog).findByRole("button", { name: COPY.addAnother }));
+    await addAnother(user, dialog);
 
     expect(screen.getByRole("dialog", { name: ADD })).toBe(dialog);
+    await waitFor(() => expect(within(dialog).getByLabelText(COPY.discogsReleaseId)).toHaveFocus());
     expect(within(dialog).getByLabelText(/^Artist/)).toHaveValue("");
     expect(within(dialog).getByLabelText(/^Album/)).toHaveValue("");
     expect(within(dialog).getByRole("radio", { name: "As files" })).not.toBeChecked();
@@ -224,10 +252,7 @@ describe("Add a record, on the New music tab", () => {
     expect(window.history.replaceState).not.toHaveBeenCalled();
   });
 
-  it.each([
-    ["Escape", async (user: User) => user.keyboard("{Escape}")],
-    ["Cancel", async (user: User, dialog: HTMLElement) => user.click(within(dialog).getByRole("button", { name: REVIEW_COPY.screen.cancel }))],
-  ])("closes on %s with nothing added and leaves the URL alone", async (_how, close) => {
+  it.each(CLOSES)("closes on %s with nothing added and leaves the URL alone", async (_how, close) => {
     fakeShelf();
     const { user } = renderWithProviders(<IntakeLanes />);
     const opener = await screen.findByRole("button", { name: ADD });
@@ -238,6 +263,23 @@ describe("Add a record, on the New music tab", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     expect(window.history.replaceState).not.toHaveBeenCalled();
     expect(url.search).toBe("");
+    await waitFor(() => expect(opener).toHaveFocus());
+  });
+
+  it.each(CLOSES)("hands off the record already added, as Done does, when it closes on %s after Add another", async (_how, close) => {
+    fakeShelf();
+    const { user } = renderWithProviders(<IntakeLanes />);
+    const opener = await screen.findByRole("button", { name: ADD });
+    const dialog = await openDialog(user);
+    await addMoonPix(user, dialog);
+    await addAnother(user, dialog);
+
+    await close(user, dialog);
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(url.search).toBe("?stage=review_shelf");
+    await waitFor(() => expect(markedRows()).toHaveLength(1));
+    expect(markedRows()[0]).toHaveTextContent("Moon Pix");
     await waitFor(() => expect(opener).toHaveFocus());
   });
 
@@ -315,6 +357,28 @@ describe("the row Done hands off to", () => {
     const unmarked = rows.filter((row) => !row.querySelector("[data-added]"));
     expect(unmarked).toHaveLength(1);
     expect(unmarked[0]).toHaveTextContent("DOGA");
+  });
+
+  it.each([
+    ["another stage's chip and then its own", [/^Review waiting,/, /^On the review shelf,/]],
+    ["its own chip again", [/^On the review shelf,/]],
+  ])("shows the mark once per add, not again after %s", async (_case, chips) => {
+    fakeShelf();
+    const scroll = vi.spyOn(Element.prototype, "scrollIntoView");
+    const { user } = renderWithProviders(<IntakeLanes />);
+    const dialog = await openDialog(user);
+    await addMoonPix(user, dialog);
+    await user.click(await within(dialog).findByRole("button", { name: COPY.addDone }));
+    await waitFor(() => expect(markedRows()).toHaveLength(1));
+
+    for (const chip of chips) {
+      await user.click(screen.getByRole("tab", { name: chip }));
+    }
+
+    const panel = await screen.findByRole("tabpanel", { name: COPY.onShelf });
+    await waitFor(() => expect(within(panel).getAllByRole("listitem")).toHaveLength(2));
+    expect(markedRows()).toHaveLength(0);
+    expect(scroll).toHaveBeenCalledTimes(1);
   });
 
   it("marks no row, and scrolls to none, when no record was added", async () => {

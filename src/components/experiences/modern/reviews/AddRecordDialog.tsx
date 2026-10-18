@@ -9,26 +9,39 @@ import IntakeLogForm from "./IntakeLogForm";
 
 const COPY = REVIEW_COPY.intake;
 
+/** The dialog's line, which describes it. A literal, because Joy bakes the id into the dialog's CSS selector. */
+const LINE_ID = "add-record-line";
+
 /**
  * The New music tab's line and its Add a record button, which opens the form in a dialog. An add leaves the dialog
  * open on what was added, to add another or to be done; `onDone` is told the last record added when the dialog
- * closes after one, whether by Done or by Escape, so the tab can show it. Closing before any add changes nothing.
+ * closes after one, whether by Done, Cancel or Escape, and even after Add another, so the tab can show it. Closing
+ * before any add changes nothing.
  */
 export default function AddRecordDialog({ onDone }: { onDone: (added: IntakeItem) => void }) {
   const [open, setOpen] = useState(false);
-  const [added, setAdded] = useState<IntakeItem | null>(null);
+  // The last record added since the dialog opened; only an add sets it and only closing clears it.
+  const [lastAdded, setLastAdded] = useState<IntakeItem | null>(null);
+  // Add another shows the form again without forgetting what was added.
+  const [addingAnother, setAddingAnother] = useState(false);
   const [busy, setBusy] = useState(false);
+  const added = addingAnother ? null : lastAdded;
 
   // Joy unmounts a closed dialog, so the form is empty again on the next open.
   const close = () => {
     setOpen(false);
-    setAdded(null);
+    setLastAdded(null);
+    setAddingAnother(false);
   };
   const done = () => {
-    if (added) {
-      onDone(added);
+    if (lastAdded) {
+      onDone(lastAdded);
     }
     close();
+  };
+  const onLogged = (item: IntakeItem) => {
+    setLastAdded(item);
+    setAddingAnother(false);
   };
 
   return (
@@ -42,15 +55,16 @@ export default function AddRecordDialog({ onDone }: { onDone: (added: IntakeItem
         role="dialog"
         title={COPY.logTitle}
         titleId="add-record-title"
+        describedBy={added ? undefined : LINE_ID}
         actions={
           added ? (
             <>
-              <Button variant="plain" onClick={() => setAdded(null)}>{COPY.addAnother}</Button>
+              <Button variant="plain" onClick={() => setAddingAnother(true)}>{COPY.addAnother}</Button>
               {/* The form that held focus is gone, and Escape reaches the dialog only from inside it. */}
               <Button autoFocus onClick={done}>{COPY.addDone}</Button>
             </>
           ) : (
-            <Button variant="plain" disabled={busy} onClick={close}>{REVIEW_COPY.screen.cancel}</Button>
+            <Button variant="plain" disabled={busy} onClick={done}>{REVIEW_COPY.screen.cancel}</Button>
           )
         }
       >
@@ -58,8 +72,9 @@ export default function AddRecordDialog({ onDone }: { onDone: (added: IntakeItem
           <Typography role="status">{COPY.addedLine(added.artist_name, added.album_title)}</Typography>
         ) : (
           <Stack spacing={2}>
-            <Typography level="body-sm">{COPY.addRecordLine}</Typography>
-            <IntakeLogForm hideTitle onLogged={setAdded} onBusyChange={setBusy} />
+            <Typography id={LINE_ID} level="body-sm">{COPY.addRecordLine}</Typography>
+            {/* After Add another the button that held focus is gone, so the new form takes it. */}
+            <IntakeLogForm hideTitle autoFocus={addingAnother} onLogged={onLogged} onBusyChange={setBusy} />
           </Stack>
         )}
       </ConfirmDialog>

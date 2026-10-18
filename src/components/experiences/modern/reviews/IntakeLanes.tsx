@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useState, type ReactNode } from "react";
 import { Box, Button, Chip, Link, List, ListItem, Stack, Typography } from "@mui/joy";
 import type { IntakeItem } from "@wxyc/shared";
 import { usePathname, useSearchParams } from "next/navigation";
@@ -88,14 +88,15 @@ export default function IntakeLanes() {
   const canSeeReviews = useCanSeeReviews();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  // The record the dialog last added, kept to mark its row on the review shelf stage; the dialog sits here, not in the
-  // lanes, so a failed read of the lists does not take away the way to add a record.
-  const [addedId, setAddedId] = useState<number | null>(null);
+  // The record the dialog last handed off and the moment it did, kept to mark its row on the review shelf stage once;
+  // choosing a chip ends the hand-off. The dialog sits here, not in the lanes, so a failed read of the lists does not
+  // take away the way to add a record.
+  const [handOff, setHandOff] = useState<HandOff | null>(null);
   if (!canSeeReviews) {
     return null;
   }
   const showAdded = (added: IntakeItem) => {
-    setAddedId(added.id);
+    setHandOff({ id: added.id, at: Date.now() });
     const next = new URLSearchParams(searchParams.toString());
     next.set("stage", "review_shelf");
     window.history.replaceState(null, "", `${pathname}?${next}`);
@@ -104,29 +105,42 @@ export default function IntakeLanes() {
     <Stack spacing={3}>
       <AddRecordDialog onDone={showAdded} />
       <FccNotesToConfirm />
-      <IntakeLaneGroups addedId={addedId} />
+      <IntakeLaneGroups handOff={handOff} onStageChosen={() => setHandOff(null)} />
     </Stack>
   );
 }
 
+/** A record the Add a record dialog handed off, and the moment it did: one add, so one mark. */
+type HandOff = { id: number; at: number };
+
 /**
- * Marks the record just added for a moment, and brings it into view when it first appears: it sorts last on the
- * review shelf, so it can be off screen. The fade is CSS, so nothing has to clear the mark.
+ * Wraps every row on the review shelf stage, so a row keeps its element when its mark comes and goes. `mark` is set,
+ * to its hand-off's key, only on the record just added: the row is highlighted for a moment, and brought into view
+ * once when it first appears with that mark, since it sorts last and can be off screen. The fade is CSS, so nothing
+ * has to clear the mark.
  */
-function JustAdded({ children }: { children: ReactNode }) {
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    ref.current?.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "center" });
-  }, []);
+function AddedMark({ mark, children }: { mark: string | null; children: ReactNode }) {
+  // A new callback only for a new mark, so React calls it once per add and not on every render of the list.
+  const bringIntoView = useCallback(
+    (el: HTMLDivElement | null) => {
+      if (!el || !mark) {
+        return;
+      }
+      const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      el.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "center" });
+    },
+    [mark],
+  );
   return (
     <Box
-      ref={ref}
-      data-added="true"
+      ref={bringIntoView}
+      data-added={mark ? "true" : undefined}
       sx={{
         width: "100%",
-        animation: "recordAddedFade 3s ease-out",
-        "@keyframes recordAddedFade": { from: { backgroundColor: "var(--joy-palette-warning-softBg)" } },
+        ...(mark && {
+          animation: "recordAddedFade 3s ease-out",
+          "@keyframes recordAddedFade": { from: { backgroundColor: "var(--joy-palette-warning-softBg)" } },
+        }),
       }}
     >
       {children}
@@ -154,8 +168,9 @@ type LaneRow = (i: IntakeItem, meta?: ReactNode, actions?: ReactNode, title?: { 
 const itemHref = (i: IntakeItem) => `/dashboard/admin/intake/${i.id}`;
 
 /** On the review shelf: each record with the tab's Ask a DJ… control. */
-function OnReviewShelf({ rows, laneRow, askADj, addedId }: { rows: IntakeItem[]; laneRow: LaneRow; askADj: ReturnType<typeof useAskADj>; addedId: number | null }) {
+function OnReviewShelf({ rows, laneRow, askADj, handOff }: { rows: IntakeItem[]; laneRow: LaneRow; askADj: ReturnType<typeof useAskADj>; handOff: HandOff | null }) {
   const { alert, picker, shelfRecordId, shelfAlbumId } = askADj;
+  const markOf = (i: IntakeItem) => (handOff?.id === i.id ? `${handOff.id}:${handOff.at}` : null);
   return (
     <>
       {alert}
@@ -166,7 +181,7 @@ function OnReviewShelf({ rows, laneRow, askADj, addedId }: { rows: IntakeItem[];
             titleSlot: <Link level="title-md" id={shelfRecordId(i)} href={itemHref(i)}>{i.artist_name}</Link>,
             albumId: shelfAlbumId(i),
           });
-          return i.id === addedId ? <JustAdded>{row}</JustAdded> : row;
+          return <AddedMark mark={markOf(i)}>{row}</AddedMark>;
         }}
       />
     </>
@@ -189,7 +204,7 @@ function FiledList({ rows, row }: { rows: IntakeItem[]; row: (i: IntakeItem) => 
   );
 }
 
-function IntakeLaneGroups({ addedId }: { addedId: number | null }) {
+function IntakeLaneGroups({ handOff, onStageChosen }: { handOff: HandOff | null; onStageChosen: () => void }) {
   const everyState = useGetIntakeItemsQuery(EVERY_STATE, LIVE_LIST);
   const [release] = useReleaseIntakeItemMutation();
   const [cancelRequest] = useCancelIntakeRequestMutation();
@@ -334,10 +349,11 @@ function IntakeLaneGroups({ addedId }: { addedId: number | null }) {
         label={COPY.stagesLabel}
         stages={NEW_MUSIC_STAGES.map((id) => ({ id, label: STAGE_LABEL[id], count: rowsOf[id].length }))}
         fallback={rowsOf.waiting.length > 0 ? "waiting" : "being_reviewed"}
+        onChoose={onStageChosen}
       >
         {(stage) => {
           if (stage === "review_shelf") {
-            return <OnReviewShelf rows={rowsOf[stage]} laneRow={laneRow} askADj={askADj} addedId={addedId} />;
+            return <OnReviewShelf rows={rowsOf[stage]} laneRow={laneRow} askADj={askADj} handOff={handOff} />;
           }
           return stage === "filed" ? <FiledList rows={rowsOf.filed} row={rowFor.filed} /> : <RowList rows={rowsOf[stage]} row={rowFor[stage]} />;
         }}
