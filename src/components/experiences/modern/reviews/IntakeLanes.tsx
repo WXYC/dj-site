@@ -33,6 +33,7 @@ import ReviewHint from "./ReviewHint";
 import { intakeRecord } from "./recordLine";
 import { GET_FILE_IT } from "./intakeLinks";
 import { whereLine, WaitingFrom } from "./ReviewFrom";
+import { ADDED_FLASH_SX, bringMarkedIntoView } from "./addedFlash";
 import { answerRefusedRequest, useAskADj } from "./useAskADj";
 import { ACTIVE_ITEMS, day, FILED_ITEMS, FINALIZED_ITEMS } from "./useReviewWrite";
 import { formatStationShortDate } from "@/src/utilities/stationTime";
@@ -130,8 +131,7 @@ function AddedMark({ mark, children }: { mark: string | null; children: ReactNod
       if (!el || !mark) {
         return;
       }
-      const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      el.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "center" });
+      bringMarkedIntoView(el);
     },
     [mark],
   );
@@ -141,10 +141,7 @@ function AddedMark({ mark, children }: { mark: string | null; children: ReactNod
       data-added={mark ? "true" : undefined}
       sx={{
         width: "100%",
-        ...(mark && {
-          animation: "recordAddedFade 3s ease-out",
-          "@keyframes recordAddedFade": { from: { backgroundColor: "var(--joy-palette-warning-softBg)" } },
-        }),
+        ...(mark && ADDED_FLASH_SX),
       }}
     >
       {children}

@@ -55,6 +55,27 @@ describe("PageTabs", () => {
     expect(link).toHaveAccessibleName(pill === null ? "First" : `First, ${tab.count} waiting`);
   });
 
+  it("marks the tab link and its pill for the animations that fly to them, and draws a new pill element for a new count", () => {
+    vi.mocked(usePathname).mockReturnValue("/dashboard/first");
+    const tab = (count: number): PageTab => ({ path: "/dashboard/first", label: "First", count, countLabel: `${count} waiting` });
+
+    const { rerender } = renderWithProviders(<PageTabs tabs={[tab(2)]} />);
+    const link = screen.getByRole("link", { name: /^First/ });
+    const pill = link.querySelector("[data-tab-count]");
+    expect(link).toHaveAttribute("data-tab", "/dashboard/first");
+    expect(pill).toHaveAttribute("data-tab-count", "/dashboard/first");
+    expect(rulesOf(pill!).base).toMatch(/animation:\s*tabCountBounce/);
+    expect(rulesOf(pill!).media["(prefers-reduced-motion: reduce)"]).toMatch(/animation:\s*none/);
+
+    rerender(<PageTabs tabs={[tab(2)]} />);
+    expect(link.querySelector("[data-tab-count]")).toBe(pill);
+
+    rerender(<PageTabs tabs={[tab(3)]} />);
+    const next = link.querySelector("[data-tab-count]");
+    expect(next).toHaveTextContent("3");
+    expect(next).not.toBe(pill);
+  });
+
   it("hides the visible pill from assistive technology and speaks the count from text inside the tab", () => {
     vi.mocked(usePathname).mockReturnValue("/dashboard/first");
 

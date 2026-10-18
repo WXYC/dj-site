@@ -1,9 +1,9 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button, Chip, Link, List, ListItem, Stack, Typography } from "@mui/joy";
 import type { IntakeItem, Review } from "@wxyc/shared";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { useMounted, type RowWriteOutcome } from "@/src/hooks/useRowWrite";
 import {
@@ -18,9 +18,10 @@ import { editorHref } from "@/lib/features/reviews/paths";
 import { rowKey, sortMyReviews, STAGES, type MyReviewsRow, type Stage } from "@/lib/features/reviews/myReviews";
 import ConfirmDialog from "../ConfirmDialog";
 import StageChips from "../StageChips";
+import { ADDED_FLASH_SX, bringMarkedIntoView } from "./addedFlash";
 import { REVIEW_COPY } from "./copy";
 import ActionTooltip from "./ActionTooltip";
-import RecordRow from "./RecordRow";
+import RecordRow, { PRIMARY_CONTROL } from "./RecordRow";
 import { intakeRecord } from "./recordLine";
 import { useReviewRecord, type ReviewRecord } from "./useReviewRecord";
 import { day, type ReviewWrite } from "./useReviewWrite";
@@ -35,9 +36,6 @@ function ReviewMeta({ review, fromLibrary = false }: { review: Review; fromLibra
     </>
   );
 }
-
-/** A row's first control of its own: its buttons, or the Open link of a review. The Preview links before them open in a new tab, and the focus must not land on one. */
-const PRIMARY_CONTROL = "button, a[href]:not([target='_blank'])";
 
 /** The ids that put a row's artist and album in its buttons' names, keyed by the row's own key so no two rows share one. */
 const recordIds = (key: string) => ({ artist: `my-reviews-${key}-artist`, album: `my-reviews-${key}-album` });
@@ -122,8 +120,17 @@ export default function MyReviewsScreen({ items, myReviews, me, write, lock }: {
   const [shown, setShown] = useState<Partial<Record<Stage, number>>>({});
   // The list the shown stage draws, while it has rows.
   const list = useRef<HTMLUListElement | null>(null);
+  // The held record the review shelf's Open it sent the DJ to: its row is marked for a moment and brought into view.
+  const highlight = Number(useSearchParams().get("highlight"));
+  const highlighted = useRef<HTMLLIElement | null>(null);
+  useEffect(() => {
+    if (highlighted.current) {
+      bringMarkedIntoView(highlighted.current);
+    }
+  }, [highlight]);
 
   const lanes = sortMyReviews(items, myReviews, me);
+  const isHighlighted = (row: MyReviewsRow) => row.kind === "held" && row.item.id === highlight;
 
   /**
    * Pass and Mark as returned take their row away once the write lands, and a lost race's reload moves the record too, so
@@ -274,7 +281,7 @@ export default function MyReviewsScreen({ items, myReviews, me, write, lock }: {
             <>
               <List ref={list}>
                 {visible.map((row) => (
-                  <ListItem key={rowKey(row)} data-row={rowKey(row)}>{renderRow(row, stage)}</ListItem>
+                  <ListItem key={rowKey(row)} data-row={rowKey(row)} {...(isHighlighted(row) && { ref: highlighted, "data-highlighted": "true", sx: ADDED_FLASH_SX })}>{renderRow(row, stage)}</ListItem>
                 ))}
               </List>
               {visible.length < rows.length && (

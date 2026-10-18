@@ -157,8 +157,14 @@ export const REVIEW_COPY = {
     requestedBy: (name: string, date: string) => `${name} requested your review on ${date}.`,
     /** Approved. The same row when no asker was recorded. */
     requestedNoAsker: (date: string) => `Your review was requested on ${date}.`,
-    /** Approved. */
-    checkOut: "Check out",
+    /** A proposal for the next copy round, not yet seen by the station: the review shelf's button, on a disc and a digital album alike. It starts the same checkout as before. */
+    review: "Review",
+    /** A proposal for the next copy round, not yet seen by the station: the toast after a disc is checked out from the review shelf. */
+    yoursToReview: "It's yours to review. It's under My reviews.",
+    /** A proposal for the next copy round, not yet seen by the station: the same toast for a digital album. */
+    yoursToReviewDigital: "It's yours to review. A music director will send you the files.",
+    /** A proposal for the next copy round, not yet seen by the station: the toast's button, which opens My reviews on Open reviews with the record highlighted. */
+    openIt: "Open it",
     /** Approved. */
     pass: "Pass",
     /** Approved. The Pass confirmation's question. */
@@ -175,8 +181,6 @@ export const REVIEW_COPY = {
     raceRequest: "This request is no longer open; it may have expired. The lists have been reloaded.",
     /** Approved. */
     raceRelease: "This record is no longer yours to review. The lists have been reloaded.",
-    /** Approved. The button on a digital album on the review shelf. */
-    take: "Take",
     /** Approved. The mark on a taken digital album that is overdue and has no submitted review. */
     notReviewedYet: "Not reviewed yet",
     /** Approved. Added to the Pass confirmation for a disc the DJ has. */

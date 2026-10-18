@@ -50,7 +50,6 @@ describe("REVIEW_COPY.intake digital choice", () => {
 
 describe("REVIEW_COPY digital album lines and the DJ's own list heading", () => {
   it.each([
-    ["screen.take", REVIEW_COPY.screen.take, "Take"],
     ["screen.notReviewedYet", REVIEW_COPY.screen.notReviewedYet, "Not reviewed yet"],
     ["myReviews.openDraft", REVIEW_COPY.myReviews.openDraft, "Open draft"],
     ["myReviews.draftSaved", REVIEW_COPY.myReviews.draftSaved, "Your draft is saved."],
@@ -246,8 +245,22 @@ describe("REVIEW_COPY.intake review shelf row hints the station approved on 2026
   });
 });
 
-describe("REVIEW_COPY.intake review shelf row hint for one form review, a proposal the approval does not cover", () => {
+describe("REVIEW_COPY proposals the approval does not cover: the singular hint and the review shelf's Review button and toast", () => {
   it("reads in the singular", () => {
     expect(REVIEW_COPY.intake.hintForms(1, "Stereolab")).toBe("1 form review of Stereolab.");
+  });
+
+  it.each([
+    ["screen.review", REVIEW_COPY.screen.review, "Review"],
+    ["screen.yoursToReview", REVIEW_COPY.screen.yoursToReview, "It's yours to review. It's under My reviews."],
+    ["screen.yoursToReviewDigital", REVIEW_COPY.screen.yoursToReviewDigital, "It's yours to review. A music director will send you the files."],
+    ["screen.openIt", REVIEW_COPY.screen.openIt, "Open it"],
+  ])("pins %s", (_key, actual, expected) => {
+    expect(actual).toBe(expected);
+  });
+
+  it("has no Check out or Take entry: the button is Review for a disc and a digital album alike", () => {
+    expect(REVIEW_COPY.screen).not.toHaveProperty("checkOut");
+    expect(REVIEW_COPY.screen).not.toHaveProperty("take");
   });
 });

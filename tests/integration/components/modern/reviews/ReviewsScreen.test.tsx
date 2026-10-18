@@ -186,7 +186,7 @@ describe("ReviewsScreen", () => {
     for (const name of titles) expect(await screen.findByRole("heading", { level: 3, name })).toBeInTheDocument();
   });
 
-  it("lists the review shelf with Check out, and a checkout sends the POST", async () => {
+  it("lists the review shelf with Review, and a checkout sends the POST", async () => {
     serveIntake([item({ id: 5 })]);
     let posted: string | undefined;
     server.use(
@@ -201,7 +201,7 @@ describe("ReviewsScreen", () => {
     for (const part of ["Stereolab", "Aluminum Tunes", "Duophonic", "CD"]) {
       expect(await within(shelf).findByText(part)).toBeInTheDocument();
     }
-    await user.click(within(shelf).getByRole("button", { name: "Check out" }));
+    await user.click(within(shelf).getByRole("button", { name: "Review" }));
 
     await waitFor(() => expect(posted).toBe("/intake/5/checkout"));
   });
@@ -489,7 +489,7 @@ describe("ReviewsScreen", () => {
 
   // The notice says the lists have been reloaded, so it waits until they have.
   it.each([
-    ["Check out", SHELF, "checkout", item({ id: 5 }), SHELF_RACE],
+    ["Review", SHELF, "checkout", item({ id: 5 }), SHELF_RACE],
     ["Write a review", "Requests for me", "accept", item({ id: 5, state: "requested", effective_state: "requested", requested_dj_id: ME }), REQUEST_RACE],
     [PASS_BUTTON, "Requests for me", "pass", item({ id: 5, state: "requested", effective_state: "requested", requested_dj_id: ME }), REQUEST_RACE],
     [PASS_BUTTON, "Records I'm reviewing", "pass", item({ id: 5, state: "checked_out", effective_state: "checked_out", checked_out_by: ME }), RELEASE_RACE],
@@ -561,7 +561,7 @@ describe("ReviewsScreen", () => {
       const { user, unmount, store } = renderWithProviders(<BothTabs />);
       const shelf = await section(SHELF);
       await within(shelf).findByText(/Stereolab/);
-      await user.click(within(shelf).getByRole("button", { name: "Check out" }));
+      await user.click(within(shelf).getByRole("button", { name: "Review" }));
       unmount();
 
       await waitFor(() => expect(answered).toBe(true));
@@ -585,13 +585,13 @@ describe("ReviewsScreen", () => {
     const { user } = renderWithProviders(<BothTabs />);
     const shelf = await section(SHELF);
     await within(shelf).findByText(/Aluminum Tunes/);
-    await user.click(within(shelf).getByRole("button", { name: "Check out" }));
+    await user.click(within(shelf).getByRole("button", { name: "Review" }));
 
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith(FAILURE_LINE));
     expect(toast.error).toHaveBeenCalledTimes(1);
     expect(toast).not.toHaveBeenCalled();
     // The lists refetch and the row is still on the review shelf, so it unlocks.
-    await waitFor(() => expect(within(shelf).getByRole("button", { name: "Check out" })).toBeEnabled());
+    await waitFor(() => expect(within(shelf).getByRole("button", { name: "Review" })).toBeEnabled());
   });
 
   // The row only leaves its section once the refetched lists land; until then
@@ -614,7 +614,7 @@ describe("ReviewsScreen", () => {
     await within(shelf).findByText(/Stereolab/);
     const reload = holdResponse("get", `${TEST_BACKEND_URL}/intake`, () => HttpResponse.json([]));
     const otherReads = countReviewReads();
-    await user.click(within(shelf).getByRole("button", { name: "Check out" }));
+    await user.click(within(shelf).getByRole("button", { name: "Review" }));
     await waitFor(() => expect(posts).toHaveLength(1));
     // Assert during the hold, once every read the case depends on has started and only the held one is outstanding.
     await waitFor(() => expect(reload.calls.count).toBeGreaterThan(0));
@@ -624,7 +624,7 @@ describe("ReviewsScreen", () => {
     expect(otherReads.count).toBe(0);
 
     expect(within(shelf).getByText(/Stereolab/)).toBeInTheDocument();
-    const again = within(shelf).getByRole("button", { name: "Check out" });
+    const again = within(shelf).getByRole("button", { name: "Review" });
     expect(again).toBeDisabled();
     // user-event refuses a pointer on a locked button; a DJ's click still lands.
     fireEvent.click(again);
@@ -633,7 +633,9 @@ describe("ReviewsScreen", () => {
     await reload.answered;
     expect(within(shelf).queryByText(/Stereolab/)).not.toBeInTheDocument();
     expect(posts).toHaveLength(1);
-    expect(toast).not.toHaveBeenCalled();
+    // The one toast is the success line; a second click would have added the race notice.
+    expect(toast).toHaveBeenCalledTimes(1);
+    expect(toast).toHaveBeenCalledWith(REVIEW_COPY.screen.yoursToReview, expect.anything());
     expect(toast.error).not.toHaveBeenCalled();
   });
 
@@ -642,7 +644,7 @@ describe("ReviewsScreen", () => {
   // just took. Write a review also creates the review, and a second create
   // would give one request two drafts.
   it.each([
-    ["Check out", SHELF, item({ id: 5 }), ["/intake/5/checkout"]],
+    ["Review", SHELF, item({ id: 5 }), ["/intake/5/checkout"]],
     [
       "Write a review",
       "Requests for me",
@@ -675,7 +677,8 @@ describe("ReviewsScreen", () => {
 
     await waitFor(() => expect(within(region).queryByText(/Stereolab/)).not.toBeInTheDocument());
     await waitFor(() => expect(posts).toEqual(expected));
-    expect(toast).not.toHaveBeenCalled();
+    // Review's one toast is its success line; a second click would have added the race notice.
+    expect(vi.mocked(toast).mock.calls.map(([line]) => line)).toEqual(button === "Review" ? [REVIEW_COPY.screen.yoursToReview] : []);
     expect(toast.error).not.toHaveBeenCalled();
   });
 
@@ -709,7 +712,7 @@ describe("ReviewsScreen", () => {
     const link = within(shelf).queryByRole("link", { name: "Cat Power" });
     expect(link !== null).toBe(directors);
     if (link) expect(link).toHaveAttribute("href", "/dashboard/admin/intake/11");
-    expect(within(shelf).getAllByRole("button", { name: "Check out" })).toHaveLength(1);
+    expect(within(shelf).getAllByRole("button", { name: "Review" })).toHaveLength(1);
   });
 
   it("makes no reviewers request for a DJ, and exactly one for a music director, who searches the reviewers by name", async () => {
@@ -1346,7 +1349,7 @@ describe("ReviewsScreen", () => {
 
   // `isIntakeRequestRefused` is true for any 400 under `intakeWriteError`, so only the action tells a refused request apart.
   it.each([
-    ["Check out", SHELF, "checkout", item({ id: 5 })],
+    ["Review", SHELF, "checkout", item({ id: 5 })],
     ["Write a review", "Requests for me", "accept", item({ id: 5, state: "requested", effective_state: "requested", requested_dj_id: ME })],
     [PASS_BUTTON, "Requests for me", "pass", item({ id: 5, state: "requested", effective_state: "requested", requested_dj_id: ME })],
   ] as const)("a 400 on %s is a plain write failure, not the request's line", async (button, title, action, row) => {
@@ -1775,11 +1778,11 @@ describe("ReviewsScreen — a failed background refetch", () => {
   });
   afterEach(() => vi.unstubAllEnvs());
 
-  it("keeps the loaded lists and shows no load-failure line when the reload after Check out fails", async () => {
+  it("keeps the loaded lists and shows no load-failure line when the reload after Review fails", async () => {
     serveIntake([item({ id: 5 })]);
     const { user } = renderWithProviders(<BothTabs />);
     const shelf = await section(SHELF);
-    const checkout = await within(shelf).findByRole("button", { name: "Check out" });
+    const checkout = await within(shelf).findByRole("button", { name: "Review" });
 
     server.use(
       http.get(`${TEST_BACKEND_URL}/intake`, () => HttpResponse.json({ message: "down" }, { status: 500 })),
@@ -1812,17 +1815,6 @@ describe("ReviewsScreen — a digital album reads its own lines, a disc keeps to
   const REVIEWED_RETURN = "Reviewed. Bring the record back to the music office.";
   const SUBMITTED = "Review submitted. A music director will choose the review for the cover.";
   const make = (digital: boolean, overrides: Partial<IntakeItem> = {}) => (digital ? digitalItem(overrides) : item(overrides));
-
-  it.each([
-    ["a disc", false, "Check out", "Take"],
-    ["a digital album", true, "Take", "Check out"],
-  ])("labels the review shelf button for %s", async (_kind, digital, label, other) => {
-    serveIntake([make(digital, { id: 2 })]);
-    renderWithProviders(<BothTabs />);
-    const shelf = await section(SHELF);
-    expect(await within(shelf).findByRole("button", { name: label })).toBeInTheDocument();
-    expect(within(shelf).queryByRole("button", { name: other })).not.toBeInTheDocument();
-  });
 
   it.each([
     ["an overdue disc", false, "Overdue"],

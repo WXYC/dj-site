@@ -618,7 +618,7 @@ test.describe("Record page filing arms", () => {
 
       await dj.goto("/dashboard/reviews");
       const checkedOut = dj.waitForResponse((r) => r.request().method() === "POST" && /\/intake\/\d+\/checkout$/.test(new URL(r.url()).pathname));
-      await shelfRow(dj).getByRole("button", { name: COPY.screen.checkOut, exact: true }).click();
+      await shelfRow(dj).getByRole("button", { name: COPY.screen.review, exact: true }).click();
       expect((await checkedOut).ok()).toBe(true);
       await dj.goto("/dashboard/reviews/mine");
       await dj
