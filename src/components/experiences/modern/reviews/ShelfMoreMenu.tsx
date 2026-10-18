@@ -40,12 +40,15 @@ export default function ShelfMoreMenu({ id, labelledBy, busy, ...dialog }: Shelf
   const buttonId = useId();
   const page = `/dashboard/admin/intake/${id}`;
   const { any: hinted } = useReviewProbablyExists(dialog.artist, dialog.album, true);
+  // The order is chosen when the menu opens and held while it is open, so an answer that lands then cannot swap the item under the pointer or the focus.
+  const [openedHinted, setOpenedHinted] = useState<boolean | null>(null);
+  const citeFirst = openedHinted ?? hinted;
   const ask = <Described label={COPY.askADj} description={COPY.moreAskDescription} disabled={busy.disabled} onClick={() => setAsking(true)} />;
   const cite = <Described label={COPY.moreCite} description={COPY.moreCiteDescription} href={`${page}?get=cite`} />;
 
   return (
     <>
-      <Dropdown>
+      <Dropdown open={openedHinted !== null} onOpenChange={(_event, isOpen) => setOpenedHinted(isOpen ? hinted : null)}>
         {/* The button stays enabled while a request is in flight: the dialog hands focus back to it when it closes, and only the Ask a DJ… item is locked. */}
         <MenuButton
           id={buttonId}
@@ -57,7 +60,7 @@ export default function ShelfMoreMenu({ id, labelledBy, busy, ...dialog }: Shelf
           {COPY.moreButton}
         </MenuButton>
         <Menu placement="bottom-end">
-          {hinted ? <>{cite}{ask}</> : <>{ask}{cite}</>}
+          {citeFirst ? <>{cite}{ask}</> : <>{ask}{cite}</>}
           <Described label={COPY.moreRecord} description={COPY.moreRecordDescription} href={`${page}?get=record`} />
         </Menu>
       </Dropdown>

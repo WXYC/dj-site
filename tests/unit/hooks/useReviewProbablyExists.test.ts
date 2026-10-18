@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, expectTypeOf, beforeEach, vi } from "vitest";
 import { renderHook } from "@testing-library/react";
 import { createTestAlbum, createTestArtist } from "@/tests/fixtures/fixtures";
 import { useSearchCatalogQuery } from "@/lib/features/catalog/api";
@@ -68,6 +68,15 @@ describe("useReviewProbablyExists", () => {
     const { result } = renderHook(() => useReviewProbablyExists("juana molina", "doga", true));
 
     expect(result.current).toMatchObject({ library: doga, any: true });
+  });
+
+  it("types a library match's id as a number, so a caller can cite it without a check", () => {
+    search.mockReturnValue(answer([doga]));
+
+    const { result } = renderHook(() => useReviewProbablyExists("Juana Molina", "DOGA", true));
+
+    expectTypeOf<NonNullable<typeof result.current.library>["id"]>().toEqualTypeOf<number>();
+    expect(result.current.library?.id).toBe(doga.id);
   });
 
   it("shows no hint for a failed read, and still shows what the other read found", () => {
