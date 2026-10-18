@@ -3380,7 +3380,7 @@ describe("IntakeItemScreen", () => {
       expect(within(cover).queryByText("Warm.")).not.toBeInTheDocument();
     });
 
-    it("with the box unticked and the submit failing, says the review is a draft, closes the form and never says Recorded.", async () => {
+    it("with the box unticked and the submit failing, says the review is a draft, closes the form and never says Digitized.", async () => {
       const { creates, submits } = setUp();
       server.use(http.post(`${SAVE_URL}/:id/submit`, ({ params }) => {
         submits.push(String(params.id));
@@ -3415,7 +3415,7 @@ describe("IntakeItemScreen", () => {
       expect(box.item.accepted_review_id).toBe(NEW_ID);
     });
 
-    it("holds the unticked save's Recorded. line until the page's reread settles", async () => {
+    it("holds the unticked save's Digitized. line until the page's reread settles", async () => {
       const { box, submits } = setUp(dogaItem(), [submitted(40)]);
       const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
       await fillAndTick(user, { author: "Cat Power", unticked: true });
