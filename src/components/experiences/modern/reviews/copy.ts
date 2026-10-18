@@ -617,13 +617,14 @@ export const REVIEW_COPY = {
     /** Approved. */
     loadFailed: "Couldn't check which version is on the cover.",
   },
+  /** The review editor's back link. The page draws a "←" before it, hidden from screen readers, so the arrow is not part of the link's name. */
   editorBack: {
     /** Approved. */
-    myReviews: "← My reviews",
+    myReviews: "My reviews",
     /** Approved. Also where a back link goes when the editor was opened from nowhere in particular. */
-    shelf: "← Review shelf",
+    shelf: "Review shelf",
     /** A proposal, worded after the approved `intakeSlip.backToRecord`. */
-    record: "← Back to the record's page",
+    record: "Back to the record's page",
   },
   myReviews: {
     /** The accessible name of the chips that switch the My reviews tab's list. */
