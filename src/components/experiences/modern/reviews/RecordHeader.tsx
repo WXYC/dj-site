@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Box, Typography } from "@mui/joy";
 import type { ReviewRecord } from "./useReviewRecord";
 import { FormatGlyph, RecordParts } from "./RecordRow";
+import ListenLinks from "./ListenLinks";
 import { useRecordFormatName } from "./recordLine";
 
 interface RecordHeaderProps {
@@ -10,6 +11,8 @@ interface RecordHeaderProps {
   chip?: ReactNode;
   /** The artist heading's level: 2 where this is the page title, 3 beneath a PageHeader. Defaults to 2. */
   headingLevel?: 2 | 3;
+  /** Draws the record's listen links under the chip. Defaults to true. */
+  withLinks?: boolean;
 }
 
 /**
@@ -19,7 +22,7 @@ interface RecordHeaderProps {
  * Beneath a PageHeader (the intake record page), pass `headingLevel={3}` so
  * the page keeps one `h2`.
  */
-export default function RecordHeader({ record, chip, headingLevel = 2 }: RecordHeaderProps) {
+export default function RecordHeader({ record, chip, headingLevel = 2, withLinks = true }: RecordHeaderProps) {
   const format = useRecordFormatName(record);
   return (
     <Box sx={{ display: "flex", gap: 2, alignItems: "flex-start", flexWrap: "wrap" }}>
@@ -27,6 +30,7 @@ export default function RecordHeader({ record, chip, headingLevel = 2 }: RecordH
       <Box sx={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 0.5, minWidth: 0 }}>
         <RecordParts record={record} format={format} artist={<Typography level="h3" component={`h${headingLevel}`}>{record.artist}</Typography>} />
         {chip}
+        {withLinks && <ListenLinks links={record.links} />}
       </Box>
     </Box>
   );

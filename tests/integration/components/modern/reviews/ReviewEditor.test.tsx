@@ -104,6 +104,37 @@ describe("ReviewEditor", () => {
     await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Submit" }));
   };
 
+  describe("the listen links", () => {
+    const FCC_LINE = "Your FCC notes are about the station's copy, which may differ from a streaming version.";
+    const LINKED = { spotify_url: "https://open.spotify.com/album/1", discogs_release_id: 42 };
+
+    it("shows a disc's links and the FCC line", async () => {
+      fakeReviewsEndpoints({ reviews: [DRAFT], records: [{ ...intakeItem(LINKED), id: DRAFT.intake_item_id! }] });
+      renderWithProviders(<ReviewEditor id={40} />);
+
+      expect(await screen.findByRole("link", { name: "Spotify" })).toHaveAttribute("target", "_blank");
+      expect(screen.getByRole("link", { name: "Discogs" })).toHaveAttribute("href", "https://www.discogs.com/release/42");
+      expect(screen.getByText(FCC_LINE)).toBeInTheDocument();
+    });
+
+    it("shows a digital album neither the links nor the FCC line", async () => {
+      fakeReviewsEndpoints({ reviews: [DRAFT], records: [{ ...digitalItem(LINKED), id: DRAFT.intake_item_id! }] });
+      renderWithProviders(<ReviewEditor id={40} />);
+
+      await screen.findByRole("heading", { level: 2, name: "Stereolab" });
+      expect(screen.queryByRole("link", { name: "Spotify" })).toBeNull();
+      expect(screen.queryByText(FCC_LINE)).toBeNull();
+    });
+
+    it("shows no FCC line for a disc with no links", async () => {
+      fakeReviewsEndpoints({ reviews: [DRAFT], records: [{ ...intakeItem(), id: DRAFT.intake_item_id! }] });
+      renderWithProviders(<ReviewEditor id={40} />);
+
+      await screen.findByRole("heading", { level: 2, name: "Stereolab" });
+      expect(screen.queryByText(FCC_LINE)).toBeNull();
+    });
+  });
+
   describe("the arrival line", () => {
     const ARRIVED_DISC = "It's yours to review now, so other DJs can see that you have it. Write when you've listened; your draft saves here.";
     const ARRIVED_DIGITAL = "It's yours to review now, and the music directors have been told to send you the files. Write when you've listened; your draft saves here.";

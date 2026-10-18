@@ -668,6 +668,12 @@ export const REVIEW_COPY = {
     /** A proposal, worded after the approved `intakeSlip.backToRecord`. */
     record: "Back to the record's page",
   },
+  /** The links to hear a logged record before reviewing it. */
+  listen: {
+    /** Approved. Said before the links: they are for hearing the record, not for reviewing it. */
+    leadIn: "Preview:",
+    fccNote: "Your FCC notes are about the station's copy, which may differ from a streaming version.",
+  },
   myReviews: {
     /** The accessible name of the chips that switch the My reviews tab's list. */
     stagesLabel: "Which of my reviews to show",
