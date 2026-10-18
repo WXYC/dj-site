@@ -39,8 +39,8 @@ import IntakeLanes from "@/src/components/experiences/modern/reviews/IntakeLanes
 import IntakeLogForm from "@/src/components/experiences/modern/reviews/IntakeLogForm";
 import { REVIEW_COPY } from "@/src/components/experiences/modern/reviews/copy";
 
-const moonPix = (overrides = {}) =>
-  intakeItem({ id: 11, artist_name: "Cat Power", album_title: "Moon Pix", record_label: "Matador", ...overrides });
+const MOON_PIX = { artist_name: "Cat Power", album_title: "Moon Pix", record_label: "Matador" };
+const moonPix = (overrides = {}) => intakeItem({ id: 11, ...MOON_PIX, ...overrides });
 
 const waiting = (id: number, overrides = {}) =>
   moonPix({ id, state: "checked_out", effective_state: "checked_out", ...heldBy("dj-1", "DJ Sam", null), submitted_review_count: 1, accepted_review_id: null, ...overrides });
@@ -519,22 +519,48 @@ describe("IntakeLanes", () => {
     expect(within(rowOf("Disc One")).getByRole("button", { name: "Mark as returned" })).toBeInTheDocument();
   });
 
+  const PRINTED = "2026-09-02T12:00:00Z";
+  const stillOut = heldBy("dj-1", "DJ Sam", "2026-09-01T12:00:00Z");
+  const SLIP = "/dashboard/admin/intake/1/slip";
+  const FILE_IT = "/dashboard/admin/intake/1?get=file";
   it.each([
-    ["a disc still out, not printed", () => moonPix({ id: 1, effective_state: "reviewed", ...heldBy("dj-1", "DJ Sam", "2026-09-01T12:00:00Z"), printed_at: null }), "Print the slip", "/dashboard/admin/intake/1/slip", true, "Still with DJ Sam"],
-    ["a disc still out, printed", () => moonPix({ id: 1, effective_state: "reviewed", ...heldBy("dj-1", "DJ Sam", "2026-09-01T12:00:00Z"), printed_at: "2026-09-02T12:00:00Z" }), "File it", "/dashboard/admin/intake/1#file-it", true, "Still with DJ Sam"],
-    ["a disc back, not printed", () => moonPix({ id: 1, effective_state: "reviewed", printed_at: null }), "Print the slip", "/dashboard/admin/intake/1/slip", false, "Back in the music office"],
-    ["a disc back, printed", () => moonPix({ id: 1, effective_state: "reviewed", printed_at: "2026-09-02T12:00:00Z" }), "File it", "/dashboard/admin/intake/1#file-it", false, "Back in the music office"],
-    ["a digital album, not printed", () => digitalItem({ id: 1, effective_state: "reviewed", printed_at: null }), "Print the slip", "/dashboard/admin/intake/1/slip", false, "Ready to burn"],
-    ["a digital album, printed", () => digitalItem({ id: 1, effective_state: "reviewed", printed_at: "2026-09-02T12:00:00Z" }), "File it", "/dashboard/admin/intake/1#file-it", false, "Ready to burn"],
+    ["a disc still out, not printed", () => moonPix({ id: 1, effective_state: "reviewed", ...stillOut, printed_at: null }), "Print the slip", SLIP, true, "Still with DJ Sam"],
+    ["a disc still out, printed", () => moonPix({ id: 1, effective_state: "reviewed", ...stillOut, printed_at: PRINTED }), "File it", FILE_IT, true, "Still with DJ Sam"],
+    ["a disc back, not printed", () => moonPix({ id: 1, effective_state: "reviewed", printed_at: null }), "Print the slip", SLIP, false, "Back in the music office"],
+    ["a disc back, printed", () => moonPix({ id: 1, effective_state: "reviewed", printed_at: PRINTED }), "File it", FILE_IT, false, "Back in the music office"],
+    ["a digital album, not printed", () => digitalItem({ id: 1, ...MOON_PIX, effective_state: "reviewed", printed_at: null }), "Print the slip", SLIP, false, "Ready to burn"],
+    ["a digital album, printed", () => digitalItem({ id: 1, ...MOON_PIX, effective_state: "reviewed", printed_at: PRINTED }), "File it", FILE_IT, false, "Ready to burn"],
+    ["a digital album still with a DJ, printed", () => digitalItem({ id: 1, ...MOON_PIX, effective_state: "reviewed", ...stillOut, printed_at: PRINTED }), "File it", FILE_IT, false, null],
   ])("offers %s its next step", async (_name, make, primary, href, returnable, facts) => {
     fakeReviewsEndpoints({ reviewed: [make()] });
 
     renderWithProviders(<IntakeLanes />);
 
     const row = (await lane("Reviewed (1)")).querySelector("li")!;
-    expect(within(row).getByRole("link", { name: primary })).toHaveAttribute("href", href);
+    const other = primary === "Print the slip" ? "File it" : "Print the slip";
+    expect(within(row).getByRole("link", { name: `${primary} Cat Power Moon Pix` })).toHaveAttribute("href", href);
+    expect(within(row).queryByRole("link", { name: new RegExp(`^${other}`) })).not.toBeInTheDocument();
     expect(within(row).queryAllByRole("button", { name: "Mark as returned" })).toHaveLength(returnable ? 1 : 0);
-    expect(within(row).getByText(facts)).toBeInTheDocument();
+    if (facts) {
+      expect(within(row).getByText(facts)).toBeInTheDocument();
+    } else {
+      expect(within(row).queryByText(/^(Still with|Back in the music office|Ready to burn)/)).not.toBeInTheDocument();
+    }
+  });
+
+  it("names each reviewed row's next step by its record", async () => {
+    fakeReviewsEndpoints({
+      reviewed: [
+        moonPix({ id: 1, effective_state: "reviewed", printed_at: null }),
+        moonPix({ id: 2, album_title: "You Are Free", effective_state: "reviewed", printed_at: null }),
+      ],
+    });
+
+    renderWithProviders(<IntakeLanes />);
+
+    const reviewed = await lane("Reviewed (2)");
+    expect(within(reviewed).getByRole("link", { name: "Print the slip Cat Power Moon Pix" })).toHaveAttribute("href", "/dashboard/admin/intake/1/slip");
+    expect(within(reviewed).getByRole("link", { name: "Print the slip Cat Power You Are Free" })).toHaveAttribute("href", "/dashboard/admin/intake/2/slip");
   });
 
   it("shows a reviewed record's holder and overdue mark, and none for a returned one", async () => {
