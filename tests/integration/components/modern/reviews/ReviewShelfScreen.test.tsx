@@ -255,7 +255,41 @@ describe("ReviewShelfScreen", () => {
       await user.click(buttons.at(-1)!);
 
       await waitFor(() => expect(screen.getAllByRole("button", { name: REVIEW_COPY.screen.review })).toHaveLength(1));
-      expect(document.activeElement).toBe(screen.getByRole("button", { name: REVIEW_COPY.screen.review }));
+      await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: REVIEW_COPY.screen.review })));
+    });
+
+    // A lost race's reload takes the row away as a checkout does, so the focus follows it; a failed checkout leaves the row, and the focus on its button.
+    it.each([
+      ["a lost race, onto the next row's Review button", 409, 2, () => expect(toast).toHaveBeenCalledWith(REVIEW_COPY.screen.raceCheckout), () => screen.getByRole("button", { name: REVIEW_COPY.screen.review })],
+      ["a lost race of the only row, onto the named review shelf region", 409, 1, () => expect(toast).toHaveBeenCalledWith(REVIEW_COPY.screen.raceCheckout), () => screen.getByRole("region", { name: REVIEW_COPY.screen.shelfTitle })],
+      [
+        "a failed checkout, nowhere: it stays on the row's own Review button",
+        500,
+        2,
+        () => {
+          expect(toast.error).toHaveBeenCalledWith(REVIEW_COPY.screen.writeFailed);
+          expect(screen.getAllByRole("button", { name: REVIEW_COPY.screen.review })[0]).toBeEnabled();
+        },
+        () => screen.getAllByRole("button", { name: REVIEW_COPY.screen.review })[0],
+      ],
+    ])("moves the focus after %s", async (_name, status, count, settled, focused) => {
+      const rows = [ROW("disc", 5), { ...ROW("disc", 6), logged_at: "2026-09-02T12:00:00Z" }].slice(0, count);
+      fakeReviewsEndpoints({ open: rows });
+      // Someone else's checkout lands first, so the race's reload no longer has the row; a failure moves nothing.
+      let taken = false;
+      server.use(
+        http.get(`${TEST_BACKEND_URL}/intake`, () => HttpResponse.json(taken ? rows.slice(1) : rows)),
+        http.post(`${TEST_BACKEND_URL}/intake/:id/checkout`, () => {
+          taken = status === 409;
+          return HttpResponse.json(status === 409 ? { message: "server words", reason: "state_changed" } : { message: "boom" }, { status });
+        }),
+      );
+      const { user } = renderWithProviders(<Live />);
+
+      await user.click((await screen.findAllByRole("button", { name: REVIEW_COPY.screen.review }))[0]);
+
+      await waitFor(settled);
+      await waitFor(() => expect(document.activeElement).toBe(focused()));
     });
 
     it("leaves the focus on the named review shelf region when the row was the only one", async () => {

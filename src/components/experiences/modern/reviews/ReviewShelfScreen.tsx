@@ -62,9 +62,13 @@ export default function ReviewShelfScreen({ items, isMD, reviewers, write, lock 
                     toast(byKind(i, { disc: REVIEW_COPY.screen.yoursToReview, digital: REVIEW_COPY.screen.yoursToReviewDigital }), {
                       action: { label: REVIEW_COPY.screen.openIt, onClick: () => router.push(`/dashboard/reviews/mine?stage=open&highlight=${i.id}`) },
                     });
-                    focusAfterRowLeaves(neighbours, lane);
                     if (row) {
                       await moveRowToTab(row, "/dashboard/reviews/mine");
+                    }
+                  }).then((outcome) => {
+                    // A lost race's reload takes the row away too (someone else has the record now), so the focus moves then as well, as on My reviews; a failed write leaves the row, and the focus with it.
+                    if ((outcome === "applied" || outcome === "raced") && mounted.current) {
+                      focusAfterRowLeaves(neighbours, lane);
                     }
                   });
                 }}>{REVIEW_COPY.screen.review}</Button></ActionTooltip>

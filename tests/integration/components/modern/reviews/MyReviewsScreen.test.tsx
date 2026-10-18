@@ -115,6 +115,62 @@ describe("MyReviewsScreen", () => {
       expect(scrolledTo()[0]).toContain("Stereolab");
     });
 
+    describe("marking the row only once", () => {
+      // The address the screen reads follows `history.replaceState`, as the App Router syncs it to `useSearchParams`.
+      const realReplace = window.history.replaceState.bind(window.history);
+      let replace: ReturnType<typeof vi.spyOn>;
+      beforeEach(() => {
+        replace = vi.spyOn(window.history, "replaceState").mockImplementation((state, unused, target) => {
+          realReplace(state, unused, target);
+          url.search = window.location.search;
+        });
+      });
+      afterEach(() => {
+        replace.mockRestore();
+        realReplace(null, "", "/");
+      });
+      const marked = () => screen.queryAllByRole("listitem").filter((row) => row.dataset.highlighted === "true");
+      type Again = { user: ReturnType<typeof renderScreen>["user"]; redraw: () => void };
+
+      it.each([
+        [
+          "a Back from the editor or a reload, which draws the screen again from the address",
+          async ({ redraw }: Again) => {
+            redraw();
+            await screen.findByText("Stereolab");
+          },
+        ],
+        [
+          "a switch to Submitted and back to Open reviews",
+          async ({ user }: Again) => {
+            await user.click(screen.getByRole("tab", { name: `${STAGES.submitted}, 0` }));
+            await user.click(screen.getByRole("tab", { name: `${STAGES.open}, 2` }));
+            await screen.findByText("Stereolab");
+          },
+        ],
+      ])("marks and scrolls to the row once, not again after %s", async (_name, again) => {
+        realReplace(null, "", "/dashboard/reviews/mine?stage=open&highlight=7");
+        url.search = window.location.search;
+        const items = [held(7, { artist_name: "Stereolab" }), held(8, { artist_name: "Cat Power" })];
+        const { unmount, user } = renderScreen(items, []);
+        await screen.findByText("Stereolab");
+        expect(marked()).toHaveLength(1);
+        // The address drops the record once its row is drawn, and the row keeps its mark.
+        expect(url.search).toBe("?stage=open");
+
+        await again({
+          user,
+          redraw: () => {
+            unmount();
+            renderScreen(items, []);
+          },
+        });
+
+        expect(marked()).toHaveLength(0);
+        expect(scroll).toHaveBeenCalledTimes(1);
+      });
+    });
+
     it("scrolls nothing when no row is highlighted", async () => {
       url.search = "stage=open";
       renderScreen([held(7, { artist_name: "Stereolab" })], []);

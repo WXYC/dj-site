@@ -99,6 +99,16 @@ function requestLine(i: IntakeItem): string {
   return holder.kind === "requested" && holder.askedBy ? REVIEW_COPY.screen.requestedBy(holder.askedBy, date) : REVIEW_COPY.screen.requestedNoAsker(date);
 }
 
+/** Takes `highlight` out of the address without a new history entry, as StageChips writes the stage, so the review shelf's Open it marks its row only once. */
+function dropHighlightFromAddress() {
+  const url = new URL(window.location.href);
+  if (!url.searchParams.has("highlight")) {
+    return;
+  }
+  url.searchParams.delete("highlight");
+  window.history.replaceState(null, "", `${url.pathname}${url.search}`);
+}
+
 /** The Open reviews, Submitted and Published stages. It assumes its caller has applied the `useCanSeeReviews` check and the load-failed gate, and takes the `useReviewWrite` the caller built for this tab: the review shelf is a separate tab with its own write wiring, so a lock set here does not carry over to it. */
 export default function MyReviewsScreen({ items, myReviews, me, write, lock }: { items: IntakeItem[]; myReviews: Review[]; me: string | undefined } & ReviewWrite) {
   const [accept] = useAcceptIntakeItemMutation();
@@ -120,8 +130,13 @@ export default function MyReviewsScreen({ items, myReviews, me, write, lock }: {
   const [shown, setShown] = useState<Partial<Record<Stage, number>>>({});
   // The list the shown stage draws, while it has rows.
   const list = useRef<HTMLUListElement | null>(null);
-  // The held record the review shelf's Open it sent the DJ to: its row is marked for a moment and brought into view.
-  const highlight = Number(useSearchParams().get("highlight"));
+  // The held record the review shelf's Open it sent the DJ to: its row is marked for a moment and brought into view, once. The mark is held here because the address drops it once the row is drawn, so a Back from the editor or a reload does not mark the row again; choosing a stage clears it, as the review shelf's added mark is cleared. A new record in the address marks that one; the address emptying keeps the mark.
+  const fromUrl = Number(useSearchParams().get("highlight"));
+  const [mark, setMark] = useState({ fromUrl, id: fromUrl });
+  if (fromUrl !== mark.fromUrl) {
+    setMark({ fromUrl, id: fromUrl || mark.id });
+  }
+  const highlight = mark.id;
   // Called when the marked row mounts, whenever that is: the list can still be loading when the DJ arrives. A new callback only for a new record, so React calls it once per mount and not on every render of the list.
   const bringHighlightedIntoView = useCallback(
     (el: HTMLLIElement | null) => {
@@ -129,6 +144,7 @@ export default function MyReviewsScreen({ items, myReviews, me, write, lock }: {
         return;
       }
       bringMarkedIntoView(el);
+      dropHighlightFromAddress();
     },
     [highlight],
   );
@@ -272,6 +288,7 @@ export default function MyReviewsScreen({ items, myReviews, me, write, lock }: {
         label={REVIEW_COPY.myReviews.stagesLabel}
         stages={STAGES.map((id) => ({ id, label: REVIEW_COPY.myReviews.stages[id], count: lanes[id].length }))}
         fallback={lanes.open.length > 0 ? "open" : "submitted"}
+        onChoose={() => setMark({ ...mark, id: 0 })}
       >
         {(stage) => {
           const rows = lanes[stage];
