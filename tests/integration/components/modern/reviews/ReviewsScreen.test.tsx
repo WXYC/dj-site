@@ -935,9 +935,9 @@ describe("ReviewsScreen", () => {
       { id: "dj-pass", name: "Test Passer", records_out: 0, last_submitted_at: "2026-10-12T12:00:00Z" },
       { id: "dj-never", name: "Test Never", records_out: 0, last_submitted_at: null },
     ];
-    const open = async (passes: IntakeItem["passes"] = []) => {
+    const open = async (passes: IntakeItem["passes"] = [], people: typeof PEOPLE = PEOPLE) => {
       mockAuth.authority = Authorization.MD;
-      fakeReviewsEndpoints({ open: [moonPix({ passes })], reviewers: PEOPLE });
+      fakeReviewsEndpoints({ open: [moonPix({ passes })], reviewers: people });
       const rendered = renderWithProviders(<ReviewsScreen tab="shelf" />);
       await rendered.user.click(await askButton("Moon Pix"));
       return rendered;
@@ -976,6 +976,58 @@ describe("ReviewsScreen", () => {
       expect(
         await screen.findByText("Ask Test Newest (on air as DJ Fresh) to review Cat Power, Moon Pix? It's held for them for 7 days."),
       ).toBeInTheDocument();
+    });
+
+    it.each([
+      ["is the name", "Test Renée", null],
+      ["differs from the name only by case", "TEST RENÉE", null],
+      ["differs from the name only by an accent", "Test Renee", null],
+      ["differs from the name only by spaces around it", "  Test Renée ", null],
+      ["is a different name", "DJ Fresh", "DJ Fresh"],
+    ])("names the on-air name on the row and in the confirmation only when it %s", async (_label, onAir, named) => {
+      const person = { id: "dj-r", name: "Test Renée", on_air_name: onAir, records_out: 0, last_submitted_at: "2026-10-10T12:00:00Z" };
+      const { user } = await open([], [person]);
+      const [row] = await screen.findAllByRole("option");
+
+      expect(row).toHaveTextContent(named ? `Test RenéeOn air as ${named}.Nothing out.` : "Test RenéeNothing out.", { normalizeWhitespace: false });
+      await user.click(row);
+      expect(
+        await screen.findByText(`Ask Test Renée${named ? ` (on air as ${named})` : ""} to review Cat Power, Moon Pix? It's held for them for 7 days.`),
+      ).toBeInTheDocument();
+    });
+
+    it("groups the suggested people under Suggested, with Or search all outside the group", async () => {
+      await open();
+      const group = await screen.findByRole("group", { name: "Suggested" });
+
+      expect(within(group).getAllByRole("option").map((o) => o.textContent)).toEqual([
+        expect.stringContaining("Test Passer"),
+        expect.stringContaining("Test Newest"),
+      ]);
+      const searchAll = within(screen.getByRole("listbox")).getByRole("option", { name: "Or search all 4" });
+      expect(group).not.toContainElement(searchAll);
+    });
+
+    it("highlights the first person after Or search all, even when the list keeps its length", async () => {
+      const day = (n: number) => `2026-10-0${n}T12:00:00Z`;
+      // Three suggestions and Or search all make four lines, and so do the four people the full list shows.
+      const people = [
+        { id: "dj-n", name: "Test Never", records_out: 0, last_submitted_at: null },
+        { id: "dj-a", name: "Test Alpha", records_out: 0, last_submitted_at: day(3) },
+        { id: "dj-b", name: "Test Beta", records_out: 0, last_submitted_at: day(2) },
+        { id: "dj-c", name: "Test Gamma", records_out: 0, last_submitted_at: day(1) },
+      ];
+      const { user } = await open([], people);
+      expect(await screen.findAllByRole("option")).toHaveLength(4);
+
+      await user.keyboard("{ArrowDown}{ArrowDown}{ArrowDown}{Enter}");
+      await waitFor(() => expect(screen.queryByText("Suggested")).not.toBeInTheDocument());
+      const [first] = await screen.findAllByRole("option");
+      expect(first).toHaveTextContent("Test Never");
+      expect(await searchField()).toHaveAttribute("aria-activedescendant", first.id);
+      await user.keyboard("{Enter}");
+
+      expect(await screen.findByText(/^Ask Test Never to review/)).toBeInTheDocument();
     });
   });
 

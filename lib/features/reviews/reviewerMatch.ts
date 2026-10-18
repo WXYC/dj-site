@@ -61,11 +61,25 @@ export function suggestReviewers(folded: FoldedReviewer[], passedIds: ReadonlySe
     .map((f) => f.reviewer);
 }
 
+/**
+ * The on-air name, trimmed, when it tells the person apart from the name; null when there is none or it reads as the name.
+ *
+ * The one rule for both a result row and the confirmation: the names are compared as the search reads them, so a handle that differs only by case, accents or spacing is not named twice.
+ */
+export function distinctOnAir(reviewer: Reviewer): string | null {
+  const onAir = reviewer.on_air_name?.trim();
+  if (!onAir || words(onAir) === words(reviewer.name)) {
+    return null;
+  }
+  return onAir;
+}
+
 /** The lines a result row draws under the name; none for a person with nothing to tell apart. */
 export function describeReviewer(reviewer: Reviewer, passed: boolean): string[] {
   const { onAirAs, recordsOut, passedOnThis } = REVIEW_COPY.intake;
+  const onAir = distinctOnAir(reviewer);
   return [
-    reviewer.on_air_name && reviewer.on_air_name !== reviewer.name ? onAirAs(reviewer.on_air_name) : null,
+    onAir ? onAirAs(onAir) : null,
     reviewer.records_out === undefined ? null : recordsOut(reviewer.records_out),
     passed ? passedOnThis : null,
   ].filter((line) => line !== null);

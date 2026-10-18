@@ -1,9 +1,9 @@
-import { useCallback, useId, useState } from "react";
+import { Fragment, useCallback, useId, useState } from "react";
 import { flushSync } from "react-dom";
-import { Autocomplete, Button, Typography } from "@mui/joy";
+import { Autocomplete, Button, List, ListItem, ListSubheader, Typography } from "@mui/joy";
 import AutocompleteOption from "@mui/joy/AutocompleteOption";
 import type { Reviewer } from "@wxyc/shared";
-import { describeReviewer, matchReviewers, suggestReviewers, type FoldedReviewer } from "@/lib/features/reviews/reviewerMatch";
+import { describeReviewer, distinctOnAir, matchReviewers, suggestReviewers, type FoldedReviewer } from "@/lib/features/reviews/reviewerMatch";
 import { useMediaQuery } from "@/src/hooks/useMediaQuery";
 import ConfirmDialog from "../ConfirmDialog";
 import { REVIEW_COPY } from "./copy";
@@ -17,6 +17,8 @@ const QUESTION_ID = "ask-a-dj-question";
 
 /** The list's lines: a name, or one of two lines that are options only so they sit inside the listbox. */
 type Option = { kind: "reviewer"; reviewer: Reviewer } | { kind: "overflow"; more: number } | { kind: "searchAll"; total: number };
+// Or search all's group: it is not a suggestion, so it draws outside the Suggested group.
+const NO_GROUP = "";
 const optionLabel = (o: Option) =>
   o.kind === "reviewer" ? o.reviewer.name : o.kind === "overflow" ? COPY.askOverflow(o.more) : COPY.searchAll(o.total);
 
@@ -107,9 +109,11 @@ export default function IntakeRequestPicker({ reviewers, loading, failed, passed
         }
       >
         {picked ? (
-          <Typography id={QUESTION_ID} tabIndex={-1} ref={focusQuestion}>{COPY.askConfirm(picked.name, artist, album, picked.on_air_name)}</Typography>
+          <Typography id={QUESTION_ID} tabIndex={-1} ref={focusQuestion}>{COPY.askConfirm(picked.name, artist, album, distinctOnAir(picked))}</Typography>
         ) : (
           <Autocomplete
+            // Or search all swaps every line under the highlight, which Joy keeps by index while the count holds; a fresh list starts it on the first line again.
+            key={searchAll ? "all" : "suggested"}
             autoFocus
             autoHighlight
             open
@@ -124,7 +128,18 @@ export default function IntakeRequestPicker({ reviewers, loading, failed, passed
             getOptionLabel={optionLabel}
             getOptionKey={(o) => (o.kind === "reviewer" ? o.reviewer.id : o.kind)}
             getOptionDisabled={(o) => o.kind === "overflow"}
-            groupBy={suggesting ? () => COPY.suggested : undefined}
+            groupBy={suggesting ? (o) => (o.kind === "searchAll" ? NO_GROUP : COPY.suggested) : undefined}
+            // Joy's own group is a bare list item, which names no group: role="group" is set only inside a Menu or a Select. The nested subheader names the list.
+            renderGroup={({ key, group, children }) =>
+              group === NO_GROUP ? (
+                <Fragment key={key}>{children}</Fragment>
+              ) : (
+                <ListItem key={key} nested role="presentation">
+                  <ListSubheader sticky>{group}</ListSubheader>
+                  <List role="group">{children}</List>
+                </ListItem>
+              )
+            }
             renderOption={(props, o) => {
               const { key, ...rest } = props as typeof props & { key: string };
               return (
