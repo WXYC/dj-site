@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { setupListeners } from "@reduxjs/toolkit/query";
 import { delay, http, HttpResponse } from "msw";
 import type { IntakeItem, Review } from "@wxyc/shared";
@@ -36,9 +36,10 @@ vi.mock("sonner", () => ({
 }));
 
 const router = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn() }));
+const url = vi.hoisted(() => ({ search: "" }));
 vi.mock("next/navigation", async () => {
   const { createNavigationModuleMock } = await import("@/tests/helpers/navigation-mock");
-  return createNavigationModuleMock(router);
+  return createNavigationModuleMock(router, { pathname: "/dashboard/reviews/mine", search: () => url.search });
 });
 
 const ME = "dj-me";
@@ -80,7 +81,15 @@ function countReviewReads() {
   return reads;
 }
 
-const section = (name: string) => screen.findByRole("region", { name });
+// The My reviews tab draws its lists as stages in a tabpanel; the old lane names the specs use for requests and held records are that tab's Open reviews.
+const STAGES = REVIEW_COPY.myReviews.stages;
+const OPEN_LANES = ["Requests for me", "Records I'm reviewing"];
+const section = (name: string) =>
+  OPEN_LANES.includes(name) ? screen.findByRole("tabpanel", { name: STAGES.open }) : (Object.values(STAGES) as string[]).includes(name) ? screen.findByRole("tabpanel", { name }) : screen.findByRole("region", { name });
+// Which stage the My reviews tab opens on, as a link to it would say.
+const showStage = (stage: keyof typeof STAGES) => {
+  url.search = `?stage=${stage}`;
+};
 
 const SHELF = "The review shelf";
 const RETURN = "Return to the review shelf";
@@ -131,6 +140,10 @@ const ask = async (user: User, typed: string, album = "Moon Pix") => {
   await user.click(await screen.findByRole("button", { name: "Ask" }));
 };
 
+beforeEach(() => {
+  url.search = "";
+});
+
 describe("ReviewsScreen", () => {
   beforeEach(() => {
     vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "true");
@@ -149,10 +162,11 @@ describe("ReviewsScreen", () => {
   });
 
   it.each([
-    ["a DJ", Authorization.DJ, [REVIEW_COPY.screen.requestsTitle, REVIEW_COPY.screen.checkoutsTitle, REVIEW_COPY.screen.shelfTitle, REVIEW_COPY.myReviews.title]],
-    ["a music director", Authorization.MD, [REVIEW_COPY.screen.requestsTitle, REVIEW_COPY.screen.checkoutsTitle, REVIEW_COPY.screen.shelfTitle, REVIEW_COPY.myReviews.title]],
-  ])("gives %s each lane a level-3 heading", async (_who, authority, titles) => {
+    ["a DJ", Authorization.DJ, [REVIEW_COPY.screen.shelfTitle, STAGES.open]],
+    ["a music director", Authorization.MD, [REVIEW_COPY.screen.shelfTitle, STAGES.open]],
+  ])("gives %s each list a level-3 heading", async (_who, authority, titles) => {
     mockAuth.authority = authority;
+    showStage("open");
     renderWithProviders(<BothTabs />);
 
     await section(SHELF);
@@ -487,13 +501,9 @@ describe("ReviewsScreen", () => {
         await user.click(within(await screen.findByRole("alertdialog", { name: PASS })).getByRole("button", { name: "Pass" }));
       }
       // Assert during the hold, once every read the case depends on has started and only the held one is outstanding:
-      // the my-reviews read has answered, so a notice that waited for it alone would already show. The review shelf tab does not draw that list, so a write there never reads it.
+      // the my-reviews read has answered, so a notice that waited for it alone would already show.
       await waitFor(() => expect(reload.calls.count).toBeGreaterThan(0));
-      if (title === SHELF) {
-        expect(otherReads.count).toBe(0);
-      } else {
-        await waitFor(() => expect(otherReads.count).toBeGreaterThan(0));
-      }
+      await waitFor(() => expect(otherReads.count).toBeGreaterThan(0));
       await waitFor(() => expect(pendingCount(store)).toBe(1));
       await renderedFrame();
       expect(toast).not.toHaveBeenCalled();
@@ -593,8 +603,8 @@ describe("ReviewsScreen", () => {
     await waitFor(() => expect(reload.calls.count).toBeGreaterThan(0));
     await waitFor(() => expect(pendingCount(store)).toBe(1));
     await renderedFrame();
-    // The review shelf tab does not draw My reviews, so its write never reads it.
-    expect(otherReads.count).toBe(0);
+    // The tab strip's count on My reviews is drawn from that list, so a write on the review shelf reloads it too.
+    await waitFor(() => expect(otherReads.count).toBeGreaterThan(0));
 
     expect(within(shelf).getByText(/Stereolab/)).toBeInTheDocument();
     const again = within(shelf).getByRole("button", { name: "Check out" });
@@ -853,15 +863,11 @@ describe("ReviewsScreen", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
 
     expect(listUsers).not.toHaveBeenCalled();
-    const rowMarkers = {
-      "Requests for me": () => within(screen.getByRole("region", { name: "Requests for me" })).getByRole("button", { name: "Write a review" }),
-      "Records I'm reviewing": () => within(screen.getByRole("region", { name: "Records I'm reviewing" })).getByRole("button", { name: RETURN }),
-      "My reviews": () => within(screen.getByRole("region", { name: "My reviews" })).getByRole("link", { name: REVIEW_COPY.myReviews.open }),
-    };
-    for (const other of ["Requests for me", "Records I'm reviewing", "My reviews"] as const) {
-      expect(rowMarkers[other]()).toBeInTheDocument();
-      expect(within(await section(other)).queryByRole("button", { name: ASK_A_DJ })).not.toBeInTheDocument();
+    const open = await section(REVIEW_COPY.myReviews.stages.open);
+    for (const marker of [within(open).getAllByRole("button", { name: "Write a review" })[0], within(open).getByRole("button", { name: RETURN }), within(open).getByRole("link", { name: REVIEW_COPY.myReviews.open })]) {
+      expect(marker).toBeInTheDocument();
     }
+    expect(within(open).queryByRole("button", { name: ASK_A_DJ })).not.toBeInTheDocument();
   });
 
   it("opens a search with the field focused, closes it on Escape, and returns focus to the button", async () => {
@@ -1279,8 +1285,6 @@ describe("ReviewsScreen", () => {
 
   it.each([
     [SHELF, "Nothing is waiting on the review shelf."],
-    ["Records I'm reviewing", "You aren't reviewing any records."],
-    ["Requests for me", "No one has asked you for a review."],
   ])("says %s is empty in so many words", async (title, empty) => {
     serveIntake([]);
 
@@ -1289,17 +1293,14 @@ describe("ReviewsScreen", () => {
     expect(await within(await section(title)).findByText(empty)).toBeInTheDocument();
   });
 
-  it.each([
-    ["shelf", [SHELF]],
-    ["mine", ["Requests for me", "Records I'm reviewing", "My reviews"]],
-  ] as const)("lays the %s tab's lanes out in the order a DJ works through them", async (tab, lanes) => {
+  it("lays the review shelf tab out as one lane", async () => {
     fakeReviewsEndpoints({ open: [moonPix()] });
 
-    renderWithProviders(<ReviewsScreen tab={tab} />);
-    await screen.findByRole("region", { name: lanes[0] });
+    renderWithProviders(<ReviewsScreen tab="shelf" />);
+    await screen.findByRole("region", { name: SHELF });
 
     const regions = screen.getAllByRole("region").map((r) => document.getElementById(r.getAttribute("aria-labelledby")!)?.textContent);
-    expect(regions).toEqual(lanes);
+    expect(regions).toEqual([SHELF]);
   });
 
   it.each([
@@ -1383,9 +1384,10 @@ describe("ReviewsScreen", () => {
 
   it("shows the submitted line and Edit review in place of Write a review once I have submitted", async () => {
     serveIntake([HELD], [], [review({ id: 40, intake_item_id: 2, status: "submitted" })]);
+    showStage("submitted");
 
     const { user } = renderWithProviders(<BothTabs />);
-    const mine = await section("Records I'm reviewing");
+    const mine = await section(STAGES.submitted);
 
     expect(await within(mine).findByText("Review submitted. A music director will choose the review for the cover.")).toBeInTheDocument();
     expect(within(mine).queryByRole("button", { name: "Write a review" })).not.toBeInTheDocument();
@@ -1410,8 +1412,11 @@ describe("ReviewsScreen", () => {
       mine.map((m, n) => review({ id: 40 + n, intake_item_id: 2, status: m.status } as Partial<Review>)),
     );
 
+    if (mine.length > 0 && mine[0].status === "submitted") {
+      showStage("submitted");
+    }
     renderWithProviders(<BothTabs />);
-    const lane = await section("Records I'm reviewing");
+    const lane = await section(mine.length > 0 && mine[0].status === "submitted" ? STAGES.submitted : STAGES.open);
     const mainButton = await within(lane).findByRole("button", { name: main });
     const otherButton = within(lane).getByRole("button", { name: other });
 
@@ -1470,19 +1475,22 @@ describe("ReviewsScreen", () => {
     expect(router.push).not.toHaveBeenCalled();
   });
 
-  it("lists my drafts and submitted reviews as a fourth section with a link to each", async () => {
-    serveIntake([HELD], [], [review({ id: 40 }), review({ id: 41, intake_item_id: null, status: "submitted" })]);
+  it("lists my drafts under Open reviews and my submitted reviews under Submitted, with a link to each", async () => {
+    serveIntake([], [], [review({ id: 40 }), review({ id: 41, intake_item_id: null, status: "submitted" })]);
 
     renderWithProviders(<BothTabs />);
-    const reviews = await section(REVIEW_COPY.myReviews.title);
+    const open = await section(STAGES.open);
 
-    expect(within(reviews).getByText(REVIEW_COPY.myReviews.draft)).toBeInTheDocument();
-    expect(within(reviews).getByText(REVIEW_COPY.myReviews.submitted)).toBeInTheDocument();
-    expect(await within(reviews).findByText(/Stereolab/)).toBeInTheDocument();
-    expect(within(reviews).getAllByRole("link").map((a) => a.getAttribute("href"))).toEqual([
-      "/dashboard/reviews/40",
-      "/dashboard/reviews/41",
-    ]);
+    expect(within(open).getByText(REVIEW_COPY.myReviews.draft)).toBeInTheDocument();
+    expect(within(open).getAllByRole("link").map((a) => a.getAttribute("href"))).toEqual(["/dashboard/reviews/40"]);
+    cleanup();
+
+    showStage("submitted");
+    renderWithProviders(<BothTabs />);
+    const submitted = await section(STAGES.submitted);
+
+    expect(within(within(submitted).getByRole("listitem")).getByText(REVIEW_COPY.myReviews.submitted)).toBeInTheDocument();
+    expect(within(submitted).getAllByRole("link").map((a) => a.getAttribute("href"))).toEqual(["/dashboard/reviews/41"]);
   });
 
   it("shows a review's record from its own subject, not from the lists", async () => {
@@ -1494,7 +1502,7 @@ describe("ReviewsScreen", () => {
     });
 
     renderWithProviders(<BothTabs />);
-    const reviews = await section(REVIEW_COPY.myReviews.title);
+    const reviews = await section(STAGES.open);
 
     expect(await within(reviews).findByText("Cat Power")).toBeInTheDocument();
     expect(await within(reviews).findByText("Moon Pix")).toBeInTheDocument();
@@ -1517,7 +1525,7 @@ describe("ReviewsScreen", () => {
     );
 
     renderWithProviders(<BothTabs />);
-    const reviews = await section(REVIEW_COPY.myReviews.title);
+    const reviews = await section(STAGES.open);
 
     expect(await within(reviews).findByText(REVIEW_COPY.myReviews.libraryRelease)).toBeInTheDocument();
     release();
@@ -1540,8 +1548,11 @@ describe("ReviewsScreen", () => {
       releases: [{ id: 7, artist_name: "Juana Molina", album_title: "DOGA", record_label: "Sonamos", format_name: "cd", legacy_release_id: 1 }],
     });
 
+    if (status === "submitted") {
+      showStage("submitted");
+    }
     renderWithProviders(<BothTabs />);
-    const reviews = await section(REVIEW_COPY.myReviews.title);
+    const reviews = await section(status === "submitted" ? STAGES.submitted : STAGES.open);
     const [artist, album, label] = fromLibrary ? ["Juana Molina", "DOGA", "Sonamos"] : ["Cat Power", "Moon Pix", "Matador"];
 
     expect(await within(reviews).findByText(artist)).toBeInTheDocument();
@@ -1549,7 +1560,7 @@ describe("ReviewsScreen", () => {
     expect(within(reviews).getByText(label)).toBeInTheDocument();
     expect(reviews.textContent).not.toContain("·");
     expect(within(reviews).queryAllByText("from the library")).toHaveLength(fromLibrary ? 1 : 0);
-    expect(within(reviews).getByText(status === "draft" ? "Draft" : "Submitted")).toBeInTheDocument();
+    expect(within(within(reviews).getByRole("listitem")).getByText(status === "draft" ? "Draft" : "Submitted")).toBeInTheDocument();
     expect(within(reviews).getByText("Last saved Oct 8, 2025")).toBeInTheDocument();
     expect(within(reviews).getByRole("link", { name: "Open" })).toHaveAttribute("href", "/dashboard/reviews/40");
   });
@@ -1571,12 +1582,15 @@ describe("ReviewsScreen", () => {
       }),
     );
 
+    if (status === "submitted") {
+      showStage("submitted");
+    }
     renderWithProviders(<BothTabs />);
-    const reviews = await section(REVIEW_COPY.myReviews.title);
+    const reviews = await section(status === "submitted" ? STAGES.submitted : STAGES.open);
 
     expect(await within(reviews).findByText("Last saved Oct 8, 2025")).toBeInTheDocument();
     expect(within(reviews).queryAllByText(REVIEW_COPY.myReviews.libraryRelease)).toHaveLength(fromLibrary ? 1 : 0);
-    expect(within(reviews).getByText(status === "draft" ? "Draft" : "Submitted")).toBeInTheDocument();
+    expect(within(within(reviews).getByRole("listitem")).getByText(status === "draft" ? "Draft" : "Submitted")).toBeInTheDocument();
     expect(within(reviews).getByRole("link", { name: "Open" })).toHaveAttribute("href", "/dashboard/reviews/40");
     release();
     if (fromLibrary) expect(await within(reviews).findByText("DOGA")).toBeInTheDocument();
@@ -1588,15 +1602,11 @@ describe("ReviewsScreen", () => {
 
     renderWithProviders(<BothTabs />);
 
-    expect(await within(await section(REVIEW_COPY.myReviews.title)).findByText("Vinyl")).toBeInTheDocument();
+    expect(await within(await section(STAGES.open)).findByText("Vinyl")).toBeInTheDocument();
   });
 
-  it("says my reviews are empty in so many words, and shows the load-failure line when that read fails", async () => {
+  it("shows the load-failure line when the My reviews read fails", async () => {
     serveIntake([]);
-    const first = renderWithProviders(<BothTabs />);
-    expect(await within(await section(REVIEW_COPY.myReviews.title)).findByText(REVIEW_COPY.myReviews.empty)).toBeInTheDocument();
-    first.unmount();
-
     server.use(http.get(`${TEST_BACKEND_URL}/reviews`, () => HttpResponse.json({ message: "down" }, { status: 500 })));
     renderWithProviders(<BothTabs />);
     expect(await screen.findByRole("alert")).toHaveTextContent(/^Couldn't load the review shelf\. Please try again\.$/);
@@ -1680,7 +1690,7 @@ describe("ReviewsScreen — a digital album reads its own lines, a disc keeps to
   });
   afterEach(() => vi.unstubAllEnvs());
 
-  const LIST = "Records I'm reviewing";
+  const LIST = STAGES.open;
   const TAKEN = { effective_state: "checked_out", checked_out_by: ME, checked_out_at: "2026-09-25T12:00:00Z" } as const;
   const FILES = "A music director will send you the files.";
   const REVIEWED_RETURN = "Reviewed. Bring the record back to the music office.";
@@ -1718,8 +1728,9 @@ describe("ReviewsScreen — a digital album reads its own lines, a disc keeps to
       [],
       [review({ id: 40, intake_item_id: 2, status: "submitted" }), review({ id: 41, intake_item_id: 3, status: "submitted" })],
     );
+    showStage("submitted");
     renderWithProviders(<BothTabs />);
-    const mine = await section(LIST);
+    const mine = await section(STAGES.submitted);
     await within(mine).findByText(/Cat Power/);
     expect(within(mine).getAllByText("Overdue")).toHaveLength(1);
     expect(within(mine).queryByText("Not reviewed yet")).not.toBeInTheDocument();
@@ -1752,8 +1763,11 @@ describe("ReviewsScreen — a digital album reads its own lines, a disc keeps to
     ["a digital album with a submitted review", true, [review({ id: 40, intake_item_id: 2, status: "submitted" })], null],
   ])("shows the files line for %s", async (_kind, digital, mine, line) => {
     serveIntake([make(digital, { id: 2, ...TAKEN, submitted_review_count: mine.length })], [], mine);
+    if (mine.length > 0) {
+      showStage("submitted");
+    }
     renderWithProviders(<BothTabs />);
-    const lane = await section(LIST);
+    const lane = await section(mine.length > 0 ? STAGES.submitted : LIST);
     await within(lane).findByText(/Stereolab/);
     await waitFor(() => expect(within(lane).queryByText(SUBMITTED) !== null).toBe(mine.length > 0));
     expect(within(lane).queryByText(FILES) !== null).toBe(line !== null);
@@ -1766,8 +1780,9 @@ describe("ReviewsScreen — a digital album reads its own lines, a disc keeps to
       [],
       [review({ id: 40, intake_item_id: 2, status: "submitted" })],
     );
+    showStage("submitted");
     renderWithProviders(<BothTabs />);
-    const lane = await section(LIST);
+    const lane = await section(STAGES.submitted);
     expect(await within(lane).findByText(SUBMITTED)).toBeInTheDocument();
     expect(within(lane).queryByText("Not reviewed yet")).not.toBeInTheDocument();
   });
@@ -1811,7 +1826,8 @@ describe("ReviewsScreen re-reads on focus", () => {
 
   it.each([
     ["Review shelf", "shelf", SHELF, { intake: 1, mine: 0 }],
-    ["My reviews", "mine", "Requests for me", { intake: 1, mine: 1 }],
+    // With nothing open, the My reviews tab opens on Submitted.
+    ["My reviews", "mine", STAGES.submitted, { intake: 1, mine: 1 }],
   ] as const)("reads the %s tab's lists again when the window regains focus", async (_tab, tab, region, more) => {
     serveIntake([item({ id: 1, album_title: "DOGA", artist_name: "Juana Molina", state: "pool", effective_state: "pool" })]);
     const reads = { intake: 0, mine: 0 };

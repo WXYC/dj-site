@@ -33,7 +33,7 @@ vi.mock("@/src/hooks/authenticationHooks", async () => {
 
 import ReviewsScreen from "@/src/components/experiences/modern/reviews/ReviewsScreen";
 
-const LANES = ["The review shelf", "Requests for me", "Records I'm reviewing", "My reviews"] as const;
+const LANES = ["The review shelf"] as const;
 
 const asked = item({ id: 11, state: "requested", effective_state: "requested", requested_dj_id: ME, requested_at: "2026-09-30T12:00:00Z" });
 const held = item({ id: 12, artist_name: "Cat Power", album_title: "Moon Pix", state: "checked_out", effective_state: "checked_out", checked_out_by: ME, checked_out_at: "2026-10-01T12:00:00Z" });
@@ -66,13 +66,16 @@ describe("ReviewsScreen tabs", () => {
   it.each([
     ["a DJ", Authorization.DJ],
     ["a music director", Authorization.MD],
-  ])("the My reviews tab shows Requests for me, Records I'm reviewing and My reviews for %s, and neither the review shelf nor the form", async (_who, authority) => {
+  ])("the My reviews tab shows the Open reviews, Submitted and On the cover stages for %s, and neither the review shelf nor the form", async (_who, authority) => {
     mockAuth.authority = authority;
 
     renderWithProviders(<ReviewsScreen tab="mine" />);
 
-    await within(await screen.findByRole("region", { name: "Requests for me" })).findByText(/Stereolab/);
-    expect(lanesShown()).toEqual(["Requests for me", "Records I'm reviewing", "My reviews"]);
+    const open = await screen.findByRole("tabpanel", { name: "Open reviews" });
+    await within(open).findByText(/Stereolab/);
+    expect(within(open).getByText(/Cat Power/)).toBeInTheDocument();
+    expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual(["Open reviews2", "Submitted0", "On the cover0"]);
+    expect(lanesShown()).toEqual([]);
     expect(screen.queryByRole("form", { name: "Log an item" })).not.toBeInTheDocument();
   });
 
@@ -85,7 +88,7 @@ describe("ReviewsScreen tabs", () => {
     mockAuth.authority = Authorization.MD;
 
     renderWithProviders(<ReviewsScreen tab="mine" />);
-    await within(await screen.findByRole("region", { name: "Requests for me" })).findByText(/Stereolab/);
+    await within(await screen.findByRole("tabpanel", { name: "Open reviews" })).findByText(/Stereolab/);
     await renderedFrame();
 
     expect(reads).toEqual([]);
@@ -102,7 +105,7 @@ describe("ReviewsScreen tabs", () => {
     );
 
     const { user } = renderWithProviders(<ReviewsScreen tab="mine" />);
-    const requests = await screen.findByRole("region", { name: "Requests for me" });
+    const requests = await screen.findByRole("tabpanel", { name: "Open reviews" });
     const pass = await within(requests).findByRole("button", { name: "Pass" });
     await renderedFrame();
     const readsBeforeWrite = reads;

@@ -58,8 +58,9 @@ test("the intake golden path, from logging a record to the librarian's finalize"
 
   const shelfRow = (page: Page) =>
     page.getByRole("region", { name: COPY.screen.shelfTitle }).getByRole("listitem").filter({ hasText: album });
-  const checkoutRow = (page: Page) =>
-    page.getByRole("region", { name: COPY.screen.checkoutsTitle }).getByRole("listitem").filter({ hasText: album });
+  // The My reviews tab's lists are stages in a tabpanel named by the chip: a record the DJ has, before and after their review is submitted.
+  const checkoutRow = (page: Page, stage: "open" | "submitted" = "open") =>
+    page.getByRole("tabpanel", { name: COPY.myReviews.stages[stage] }).getByRole("listitem").filter({ hasText: album });
   const laneRow = (page: Page, lane: RegExp) =>
     page.getByRole("region", { name: lane }).getByRole("listitem").filter({ hasText: album });
 
@@ -108,8 +109,8 @@ test("the intake golden path, from logging a record to the librarian's finalize"
       await dj.getByRole("alertdialog").getByRole("button", { name: COPY.submit, exact: true }).click();
       await expect(dj.getByText(COPY.submittedBanner)).toBeVisible({ timeout: 15000 });
 
-      await dj.goto("/dashboard/reviews/mine");
-      const submitted = checkoutRow(dj);
+      await dj.goto("/dashboard/reviews/mine?stage=submitted");
+      const submitted = checkoutRow(dj, "submitted");
       await expect(submitted).toBeVisible({ timeout: 15000 });
       await expect(submitted.getByText(COPY.screen.reviewSubmitted)).toBeVisible();
     });
@@ -174,8 +175,8 @@ test("the intake golden path, from logging a record to the librarian's finalize"
 
     await test.step("5. the DJ edits the review after it was printed, and the save succeeds", async () => {
       // Filing cleared the holder, so the record has left the DJ's checkout list; the review is still theirs under My reviews.
-      await dj.goto("/dashboard/reviews/mine");
-      const mine = dj.getByRole("region", { name: COPY.myReviews.title }).getByRole("listitem").filter({ hasText: album });
+      await dj.goto("/dashboard/reviews/mine?stage=cover");
+      const mine = dj.getByRole("tabpanel", { name: COPY.myReviews.stages.cover }).getByRole("listitem").filter({ hasText: album });
       await mine.getByRole("link", { name: COPY.myReviews.open }).click();
       await dj.waitForURL(new RegExp(`/dashboard/reviews/${reviewId}$`), { timeout: 15000 });
 

@@ -57,20 +57,22 @@ describe("every review lane draws its rows with RecordRow", () => {
   beforeEach(() => vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "true"));
   afterEach(() => vi.unstubAllEnvs());
 
+  // The My reviews tab's lists are stages in a tabpanel named by the selected chip; with no `?stage=`, it opens on Open reviews when anything is there, else on Submitted.
   // My reviews draws a review's record once its own read lands, with Open as its one action.
-  it.each<[string, "mine" | "shelf", IntakeItem["effective_state"], Partial<IntakeItem>, Review[]]>([
-    ["Requests for me", "mine", "requested", { requested_dj_id: ME }, []],
-    ["Records I'm reviewing", "mine", "checked_out", { checked_out_by: ME }, []],
-    ["My reviews", "mine", "pool", {}, [review({ id: 40, intake_item_id: 1 })]],
-    ["The review shelf", "shelf", "pool", {}, []],
-  ])("the DJ's %s lane", async (name, tab, state, overrides, mine) => {
+  it.each<[string, "mine" | "shelf", { role: "region" | "tabpanel"; name: string }, IntakeItem["effective_state"], Partial<IntakeItem>, Review[]]>([
+    ["request, under Open reviews", "mine", { role: "tabpanel", name: "Open reviews" }, "requested", { requested_dj_id: ME }, []],
+    ["record I'm reviewing, under Open reviews", "mine", { role: "tabpanel", name: "Open reviews" }, "checked_out", { checked_out_by: ME }, []],
+    ["draft of a record I no longer have, under Open reviews", "mine", { role: "tabpanel", name: "Open reviews" }, "pool", {}, [review({ id: 40, intake_item_id: 1 })]],
+    ["submitted review, under Submitted", "mine", { role: "tabpanel", name: "Submitted" }, "pool", {}, [review({ id: 40, intake_item_id: 1, status: "submitted", in_use: false })]],
+    ["review shelf lane", "shelf", { role: "region", name: "The review shelf" }, "pool", {}, []],
+  ])("the DJ's %s", async (_case, tab, list, state, overrides, mine) => {
     mockAuth.authority = Authorization.DJ;
     const open = [record(1, { state, effective_state: state, ...overrides })];
     fakeReviewsEndpoints({ open, records: open, mine });
 
     renderWithProviders(<ReviewsScreen tab={tab} />);
 
-    const lane = await screen.findByRole("region", { name });
+    const lane = await screen.findByRole(list.role, { name: list.name });
     await within(lane).findByText("Juana Molina");
     expectRecordRow(lane, "Juana Molina", true);
   });

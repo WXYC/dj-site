@@ -50,8 +50,6 @@ describe("REVIEW_COPY.intake digital choice", () => {
 
 describe("REVIEW_COPY digital album lines and the DJ's own list heading", () => {
   it.each([
-    ["screen.checkoutsTitle", REVIEW_COPY.screen.checkoutsTitle, "Records I'm reviewing"],
-    ["screen.checkoutsEmpty", REVIEW_COPY.screen.checkoutsEmpty, "You aren't reviewing any records."],
     ["screen.take", REVIEW_COPY.screen.take, "Take"],
     ["screen.notReviewedYet", REVIEW_COPY.screen.notReviewedYet, "Not reviewed yet"],
     ["screen.returnQuestionDigital", REVIEW_COPY.screen.returnQuestionDigital, "Put this record back on the review shelf? Another DJ can take it."],
@@ -108,8 +106,6 @@ describe("REVIEW_COPY editor and shelf copy the station approved on 2026-10-08",
     ["slip.recommended", c.slip.recommended, "Recommended"],
     ["writeReview", c.writeReview, "Write a review"],
     ["couldNotStart", c.couldNotStart, "Couldn't start a review. Please try again."],
-    ["myReviews.title", c.myReviews.title, "My reviews"],
-    ["myReviews.empty", c.myReviews.empty, "You have not started a review."],
     ["myReviews.draft", c.myReviews.draft, "Draft"],
     ["myReviews.submitted", c.myReviews.submitted, "Submitted"],
     ["myReviews.open", c.myReviews.open, "Open"],

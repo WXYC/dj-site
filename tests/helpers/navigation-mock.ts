@@ -11,8 +11,17 @@
  * });
  * ```
  *
+ * A component that also reads the URL gets `usePathname` and `useSearchParams` from `location`; `search` is read on every render, so a spec can change it between renders.
+ *
  * Import it by path, never through `@/tests/helpers`.
  */
-export function createNavigationModuleMock<Router extends object>(router: Router) {
-  return { useRouter: () => router };
+export function createNavigationModuleMock<Router extends object>(
+  router: Router,
+  location: { pathname?: string; search?: () => string } = {},
+) {
+  return {
+    useRouter: () => router,
+    usePathname: () => location.pathname ?? "/",
+    useSearchParams: () => new URLSearchParams(location.search?.() ?? ""),
+  };
 }
