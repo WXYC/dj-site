@@ -330,6 +330,8 @@ export const REVIEW_COPY = {
     discogsFilling: "Looking up the record on Discogs",
     /** Approved. */
     log: "Add a record",
+    /** Approved. The dialog's second button, shown while a review probably exists: adds the record and goes to its page to choose that review. */
+    addAndChoose: "Add and choose its review…",
     /** Approved. */
     waiting: "Review waiting",
     /** Approved. */

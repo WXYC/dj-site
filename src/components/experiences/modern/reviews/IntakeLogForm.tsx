@@ -10,9 +10,12 @@ import { formatLabel } from "@/lib/features/experiences/modern/tokens/roles";
 import type { ArtistSearchMatch } from "@/lib/features/catalog/types";
 import { bandcampUrlFrom } from "@/lib/features/reviews/bandcampLink";
 import { useLogIntakeItemMutation } from "@/lib/features/reviews/intakeApi";
+import type { CiteTarget } from "@/lib/features/reviews/paths";
 import { useDebouncedValue } from "@/src/hooks/useDebouncedValue";
+import { useReviewProbablyExists } from "@/src/hooks/useReviewProbablyExists";
 import LabelSearchTypeahead from "../catalog/AddRelease/LabelSearchTypeahead";
 import { REVIEW_COPY } from "./copy";
+import ReviewHint from "./ReviewHint";
 
 const COPY = REVIEW_COPY.intake;
 
@@ -63,8 +66,8 @@ const SEGMENT_RADIO_PROPS = {
 const SEGMENT_SX = { px: 2, py: 1, bgcolor: "transparent", display: "flex", flexDirection: "column", justifyContent: "center" } as const;
 
 type IntakeLogFormProps = {
-  /** Called with the answered record once it has been added, never when the add fails. */
-  onLogged?: (item: IntakeItem) => void;
+  /** Called with the answered record once it has been added, never when the add fails. `cite` is set only when the record was added with the one-step button, naming the review the host should open to choose. */
+  onLogged?: (item: IntakeItem, cite?: CiteTarget) => void;
   /** Called with true when an add is sent and with false when it ends, whichever way, so a host can hold itself open meanwhile. */
   onBusyChange?: (busy: boolean) => void;
   /** Leaves out the form's own heading, for a host that titles it; the form keeps its accessible name. */
@@ -93,6 +96,14 @@ export default function IntakeLogForm({ onLogged, onBusyChange, hideTitle = fals
     { skip: debouncedTerm.length < SUGGESTION_MIN_LENGTH },
   );
   const showSuggestions = typedTerm.length >= SUGGESTION_MIN_LENGTH && typedTerm === debouncedTerm;
+
+  // The hint and the one-step button follow the debounced text and wait until the fields hold it.
+  const [artist, album] = [form.artist.trim(), form.album.trim()];
+  const debouncedArtist = useDebouncedValue(artist, SUGGESTION_DEBOUNCE_MS);
+  const debouncedAlbum = useDebouncedValue(album, SUGGESTION_DEBOUNCE_MS);
+  const settled = artist !== "" && album !== "" && artist === debouncedArtist && album === debouncedAlbum;
+  const { library, formCount } = useReviewProbablyExists(debouncedArtist, debouncedAlbum, settled);
+  const cite: CiteTarget | null = !settled ? null : library ? { kind: "library", albumId: library.id } : formCount > 0 ? { kind: "form" } : null;
 
   // An empty Discogs field is fine; anything it cannot read as a release id keeps the form from sending.
   const discogsId = discogsReleaseIdFrom(form.discogs);
@@ -147,7 +158,7 @@ export default function IntakeLogForm({ onLogged, onBusyChange, hideTitle = fals
     }
   };
 
-  const submit = async () => {
+  const submit = async (withCite: boolean) => {
     onBusyChange?.(true);
     let item: IntakeItem;
     try {
@@ -169,7 +180,7 @@ export default function IntakeLogForm({ onLogged, onBusyChange, hideTitle = fals
     }
     setForm(EMPTY_FORM);
     setTypedArtist("");
-    onLogged?.(item);
+    onLogged?.(item, withCite && cite ? cite : undefined);
   };
 
   return (
@@ -181,7 +192,7 @@ export default function IntakeLogForm({ onLogged, onBusyChange, hideTitle = fals
         if (!ready) {
           return;
         }
-        void submit();
+        void submit(false);
       }}
     >
       {!hideTitle && <Typography component="h3" level="title-lg">{COPY.logTitle}</Typography>}
@@ -294,7 +305,12 @@ export default function IntakeLogForm({ onLogged, onBusyChange, hideTitle = fals
             </Select>
           </FormControl>
         )}
+        {/* Mounted while empty so a hint that appears is announced. */}
+        <div aria-live="polite">{cite && <ReviewHint artist={debouncedArtist} album={debouncedAlbum} />}</div>
         <Button type="submit" loading={logging} disabled={!ready}>{COPY.log}</Button>
+        {cite && (
+          <Button type="button" variant="outlined" loading={logging} disabled={!ready || logging} onClick={() => void submit(true)}>{COPY.addAndChoose}</Button>
+        )}
       </Stack>
     </form>
   );

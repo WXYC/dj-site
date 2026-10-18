@@ -163,6 +163,7 @@ describe("REVIEW_COPY Add a record, the button, the dialog and what it says afte
   it.each([
     ["logTitle", i.logTitle, "Add a record"],
     ["log", i.log, "Add a record"],
+    ["addAndChoose", i.addAndChoose, "Add and choose its review…"],
     ["newMusicLine", i.newMusicLine, "Every new record, from arrival to filing."],
     ["addRecordLine", i.addRecordLine, "It goes on the review shelf, where any DJ can choose to review it."],
     ["addedLine", i.addedLine("Cat Power", "Moon Pix"), "Added Moon Pix by Cat Power."],
