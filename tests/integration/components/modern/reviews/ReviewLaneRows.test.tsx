@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { screen, within } from "@testing-library/react";
 import { Authorization } from "@/lib/features/admin/types";
-import { fakeReviewsEndpoints, heldBy, intakeItem, renderWithProviders, requestedFor } from "@/tests/helpers";
+import type { IntakeItem, Review } from "@wxyc/shared";
+import { fakeReviewsEndpoints, heldBy, intakeItem, renderWithProviders, requestedFor, review } from "@/tests/helpers";
 
 vi.mock("@/lib/features/authentication/client", async () => {
   const { createAuthClientModuleMock } = await import("@/tests/helpers/auth-client-mock");
@@ -31,23 +32,24 @@ const record = (id: number, overrides = {}) =>
   intakeItem({ id, artist_name: "Juana Molina", album_title: `DOGA ${id}`, record_label: "Sonamos", ...overrides });
 
 /**
- * A row drawn by `RecordRow`: the artist is the title at the head of the record's column, and every button sits in the actions region beside that column, never inline with the record's text.
+ * A row drawn by `RecordRow`: the artist is the title at the head of the record's column, and every control (a button, or a link other than the artist's own) sits in the actions region beside that column, never inline with the record's text.
  */
-function expectRecordRow(lane: HTMLElement, artist: string, expectButtons: boolean) {
+function expectRecordRow(lane: HTMLElement, artist: string, expectActions: boolean) {
   const [row] = within(lane).getAllByRole("listitem");
   const title = within(row).getByText(artist);
   const column = title.parentElement as HTMLElement;
   expect(column.firstElementChild).toBe(title);
-  expect(within(column).queryAllByRole("button")).toHaveLength(0);
-  const buttons = within(row).queryAllByRole("button");
-  if (!expectButtons) {
-    expect(buttons).toHaveLength(0);
+  const controls = (scope: HTMLElement) =>
+    [...scope.querySelectorAll<HTMLElement>("button, a[href]")].filter((control) => control !== title);
+  expect(controls(column)).toHaveLength(0);
+  if (!expectActions) {
+    expect(controls(row)).toHaveLength(0);
     return;
   }
-  expect(buttons.length).toBeGreaterThan(0);
+  expect(controls(row).length).toBeGreaterThan(0);
   const actions = (column.parentElement as HTMLElement).nextElementSibling as HTMLElement;
-  for (const button of buttons) {
-    expect(actions).toContainElement(button);
+  for (const control of controls(row)) {
+    expect(actions).toContainElement(control);
   }
 }
 
@@ -55,18 +57,22 @@ describe("every review lane draws its rows with RecordRow", () => {
   beforeEach(() => vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "true"));
   afterEach(() => vi.unstubAllEnvs());
 
-  it.each([
-    ["Requests for me", "mine", "requested", { requested_dj_id: ME }],
-    ["Records I'm reviewing", "mine", "checked_out", { checked_out_by: ME }],
-    ["The review shelf", "shelf", "pool", {}],
-  ] as const)("the DJ's %s lane", async (name, tab, state, overrides) => {
+  // My reviews draws a review's record once its own read lands, with Open as its one action.
+  it.each<[string, "mine" | "shelf", IntakeItem["effective_state"], Partial<IntakeItem>, Review[]]>([
+    ["Requests for me", "mine", "requested", { requested_dj_id: ME }, []],
+    ["Records I'm reviewing", "mine", "checked_out", { checked_out_by: ME }, []],
+    ["My reviews", "mine", "pool", {}, [review({ id: 40, intake_item_id: 1 })]],
+    ["The review shelf", "shelf", "pool", {}, []],
+  ])("the DJ's %s lane", async (name, tab, state, overrides, mine) => {
     mockAuth.authority = Authorization.DJ;
     const open = [record(1, { state, effective_state: state, ...overrides })];
-    fakeReviewsEndpoints({ open, records: open });
+    fakeReviewsEndpoints({ open, records: open, mine });
 
     renderWithProviders(<ReviewsScreen tab={tab} />);
 
-    expectRecordRow(await screen.findByRole("region", { name }), "Juana Molina", true);
+    const lane = await screen.findByRole("region", { name });
+    await within(lane).findByText("Juana Molina");
+    expectRecordRow(lane, "Juana Molina", true);
   });
 
   it.each([
@@ -75,7 +81,7 @@ describe("every review lane draws its rows with RecordRow", () => {
     ["Being reviewed", { state: "checked_out", effective_state: "checked_out", ...heldBy("dj-1", "DJ Sam", null) }, true],
     ["Reviewed (1)", { state: "reviewed", effective_state: "reviewed", ...heldBy("dj-1", "DJ Sam", "2026-09-01T12:00:00Z") }, true],
     ["Filed", { state: "filed", effective_state: "filed" }, false],
-  ] as const)("the music directors' %s lane", async (name, overrides, expectButtons) => {
+  ] as const)("the music directors' %s lane", async (name, overrides, expectActions) => {
     mockAuth.authority = Authorization.MD;
     vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "staff");
     const row = record(1, overrides);
@@ -89,9 +95,7 @@ describe("every review lane draws its rows with RecordRow", () => {
     renderWithProviders(<IntakeLanes />);
 
     const lane = await screen.findByRole("region", { name });
-    expectRecordRow(lane, "Juana Molina", expectButtons);
-    if (name !== "Review waiting (1)") {
-      expect(within(lane).getByRole("link", { name: "Juana Molina" })).toHaveAttribute("href", "/dashboard/admin/intake/1");
-    }
+    expectRecordRow(lane, "Juana Molina", expectActions);
+    expect(within(lane).getByRole("link", { name: "Juana Molina" })).toHaveAttribute("href", "/dashboard/admin/intake/1");
   });
 });
