@@ -30,7 +30,7 @@ describe("useReviewProbablyExists", () => {
 
     expect(search).toHaveBeenLastCalledWith(expect.anything(), { skip: true });
     expect(forms).toHaveBeenLastCalledWith(expect.anything(), { skip: true });
-    expect(result.current).toEqual({ library: undefined, formCount: 0, any: false });
+    expect(result.current).toEqual({ library: undefined, formCount: 0, any: false, settled: false });
   });
 
   it("searches the catalog by the trimmed artist and album, and the archive by the trimmed artist", () => {
@@ -85,6 +85,29 @@ describe("useReviewProbablyExists", () => {
 
     const { result } = renderHook(() => useReviewProbablyExists("Juana Molina", "DOGA", true));
 
-    expect(result.current).toEqual({ library: undefined, formCount: 1, any: true });
+    expect(result.current).toEqual({ library: undefined, formCount: 1, any: true, settled: true });
+  });
+
+  it.each([
+    ["both reads have answered", false, false, true],
+    ["the catalog read is pending", true, false, false],
+    ["the form archive read is pending", false, true, false],
+    ["both reads are pending", true, true, false],
+  ])("is settled only once both reads have ended: %s", (_case, catalogFetching, formsFetching, settled) => {
+    search.mockReturnValue(answer(undefined, { isFetching: catalogFetching }));
+    forms.mockReturnValue(answer(undefined, { isFetching: formsFetching }));
+
+    const { result } = renderHook(() => useReviewProbablyExists("Juana Molina", "DOGA", true));
+
+    expect(result.current.settled).toBe(settled);
+  });
+
+  it("is settled when a read has failed, since a failed read reads as nothing found", () => {
+    search.mockReturnValue(answer(undefined, { isFetching: false, isError: true }));
+    forms.mockReturnValue(answer([{}], { isFetching: false }));
+
+    const { result } = renderHook(() => useReviewProbablyExists("Juana Molina", "DOGA", true));
+
+    expect(result.current.settled).toBe(true);
   });
 });

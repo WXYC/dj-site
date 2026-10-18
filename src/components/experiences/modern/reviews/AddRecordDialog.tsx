@@ -17,8 +17,9 @@ const LINE_ID = "add-record-line";
 /**
  * The New music tab's line and its Add a record button, which opens the form in a dialog. An add leaves the dialog
  * open on what was added, to add another or to be done; `onDone` is told the last record added when the dialog
- * closes after one, whether by Done, Cancel or Escape, and even after Add another, so the tab can show it. Closing
- * before any add changes nothing.
+ * closes after one, whether by Done, Cancel or Escape, and even after Add another, so the tab can show it. The one
+ * exception is Add and choose its review…, which closes the dialog and goes to the new record's page without
+ * telling `onDone` of it, or of a record added before it in the same dialog. Closing before any add changes nothing.
  */
 export default function AddRecordDialog({ onDone }: { onDone: (added: IntakeItem) => void }) {
   const router = useRouter();
