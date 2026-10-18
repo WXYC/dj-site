@@ -27,7 +27,7 @@ import AddRecordDialog from "./AddRecordDialog";
 import FccNotesToConfirm from "./FccNotesToConfirm";
 import HeadedSection from "./HeadedSection";
 import { REVIEW_COPY } from "./copy";
-import RecordRow from "./RecordRow";
+import RecordRow, { type RecordRowTitle } from "./RecordRow";
 import { intakeRecord } from "./recordLine";
 import { GET_FILE_IT } from "./intakeLinks";
 import { whereLine, WaitingFrom } from "./ReviewFrom";
@@ -165,7 +165,7 @@ function RowList({ rows, row }: { rows: IntakeItem[]; row: (i: IntakeItem) => Re
 }
 
 /** Draws one record's row. `title` replaces the artist link, for a control whose label points at it. */
-type LaneRow = (i: IntakeItem, meta?: ReactNode, actions?: ReactNode, title?: { titleSlot: ReactNode; albumId: string }) => ReactNode;
+type LaneRow = (i: IntakeItem, meta?: ReactNode, actions?: ReactNode, title?: RecordRowTitle & { albumId: string }) => ReactNode;
 
 const itemHref = (i: IntakeItem) => `/dashboard/admin/intake/${i.id}`;
 
@@ -181,6 +181,7 @@ function OnReviewShelf({ rows, laneRow, askADj, handOff }: { rows: IntakeItem[];
         row={(i) => {
           const row = laneRow(i, <Typography level="body-sm">{`${REVIEW_COPY.screen.added} ${day(i.logged_at)}`}</Typography>, moreMenu(i), {
             titleSlot: <Link level="title-md" id={shelfRecordId(i)} href={itemHref(i)}>{i.artist_name}</Link>,
+            titleId: shelfRecordId(i),
             albumId: shelfAlbumId(i),
           });
           return <AddedMark mark={markOf(i)}>{row}</AddedMark>;
@@ -347,7 +348,7 @@ function IntakeLaneGroups({ handOff, onStageChosen }: { handOff: HandOff | null;
           </Button>
           {stillOut && markReturned(i, () => act(i.id, "return", () => release(i.id).unwrap()))}
         </>,
-        { titleSlot: <Link level="title-md" id={recordId} href={itemHref(i)}>{i.artist_name}</Link>, albumId },
+        { titleSlot: <Link level="title-md" id={recordId} href={itemHref(i)}>{i.artist_name}</Link>, titleId: recordId, albumId },
       );
     },
     filed: (i) => laneRow(i, i.filed_at && <Typography level="body-sm">{COPY.filedOn(day(i.filed_at))}</Typography>),

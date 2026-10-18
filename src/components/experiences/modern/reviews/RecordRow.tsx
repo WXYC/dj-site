@@ -39,7 +39,20 @@ export function RecordParts({ record, format, artist, albumId }: { record: Revie
   );
 }
 
-interface RecordRowProps {
+/** The row's own title link, if the caller brings one: the slot and the `id` it carries come together, since the row's listen links are named by that `id`. */
+export type RecordRowTitle =
+  | {
+      /**
+       * The title, in place of the plain or linked artist: for a caller that needs its own title link, such as one carrying an `id` that a control's `aria-labelledby` points at.
+       * It wins over `href` when both are given.
+       */
+      titleSlot: ReactNode;
+      /** The `id` the `titleSlot` carries, so the row's listen links are named by it. */
+      titleId: string;
+    }
+  | { titleSlot?: undefined; titleId?: undefined };
+
+type RecordRowProps = {
   record: ReviewRecord;
   /** Dates and chips, under the record. */
   meta?: ReactNode;
@@ -49,18 +62,11 @@ interface RecordRowProps {
   status?: ReactNode;
   /** Links the artist to the record's page. Ignored when `titleSlot` is given. */
   href?: string;
-  /**
-   * The title, in place of the plain or linked artist: for a caller that needs its own title link, such as one carrying an `id` that a control's `aria-labelledby` points at.
-   * It wins over `href` when both are given.
-   */
-  titleSlot?: ReactNode;
-  /** The `id` the `titleSlot` carries, so the row's listen links are named by it. */
-  titleId?: string;
   /** An `id` for the album line, for a control's `aria-labelledby` that names the record by its artist and album. */
   albumId?: string;
   /** The tile's size in px. With it, the row shows the record's cover, and the format glyph while the cover loads, fails or does not exist; without it, the 40 px glyph and no metadata read. */
   cover?: 72 | 56;
-}
+} & RecordRowTitle;
 
 /**
  * One record in a list: a format glyph beside the artist, album, label and

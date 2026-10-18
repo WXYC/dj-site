@@ -197,7 +197,7 @@ describe("RecordRow", () => {
   it("renders a titleSlot link with its id in place of the artist, and a control labelled by that id takes its name from it", () => {
     renderWithProviders(
       <>
-        <RecordRow record={record} href="/ignored" titleSlot={<Link id="record-3" href="/dashboard/admin/intake/3">Juana Molina</Link>} />
+        <RecordRow record={record} href="/ignored" titleSlot={<Link id="record-3" href="/dashboard/admin/intake/3">Juana Molina</Link>} titleId="record-3" />
         <select aria-labelledby="record-3">
           <option>Anyone</option>
         </select>

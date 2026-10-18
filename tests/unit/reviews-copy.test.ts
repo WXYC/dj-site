@@ -208,7 +208,10 @@ describe("REVIEW_COPY.intake Bandcamp field the station approved on 2026-10-16",
 });
 
 describe("REVIEW_COPY.listen", () => {
-  it("pins the approved lead-in", () => {
-    expect(REVIEW_COPY.listen.leadIn).toBe("Preview:");
+  it.each([
+    ["leadIn", "Preview:"],
+    ["fccNote", "Your FCC notes are about the station's copy, which may differ from a streaming version."],
+  ] as const)("pins the approved %s", (key, expected) => {
+    expect(REVIEW_COPY.listen[key]).toBe(expected);
   });
 });
