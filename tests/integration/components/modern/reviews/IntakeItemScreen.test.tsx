@@ -5892,7 +5892,7 @@ describe("IntakeItemScreen", () => {
 
       await waitFor(() => expect(vi.mocked(toast)).toHaveBeenCalledWith(REVIEW_COPY.intake.askDone("Sam"), expect.anything()));
       expect(asked).toEqual([{ dj_id: "dj-sam" }]);
-      expect(within(screen.getByRole("region", { name: TITLE })).getByText("Held for Sam")).toBeInTheDocument();
+      expect(await within(screen.getByRole("region", { name: TITLE })).findByText("Held for Sam")).toBeInTheDocument();
     });
 
     it("names Ask a DJ… by its own words, not by the where-now line", async () => {
