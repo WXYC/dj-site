@@ -106,7 +106,7 @@ describe("ReviewsScreen tabs", () => {
 
     const { user } = renderWithProviders(<ReviewsScreen tab="mine" />);
     const requests = await screen.findByRole("tabpanel", { name: "Open reviews" });
-    const pass = await within(requests).findByRole("button", { name: "Pass" });
+    const pass = (await within(requests).findAllByRole("button", { name: "Pass" }))[0];
     await renderedFrame();
     const readsBeforeWrite = reads;
     await user.click(pass);

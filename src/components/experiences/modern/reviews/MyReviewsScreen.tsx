@@ -24,18 +24,34 @@ import { intakeRecord } from "./recordLine";
 import { useReviewRecord } from "./useReviewRecord";
 import { day, type ReviewWrite } from "./useReviewWrite";
 
-/** A review's row: the record as parts (artist, album, label) once it has landed. Until then, a library review shows `myReviews.libraryRelease` and a logged-record review shows nothing in its place. Either way the row carries the status, the last-saved date and Open. */
-function MyReviewRow({ review, href, cover }: { review: Review; href: string; cover: 72 | 56 }) {
-  const record = useReviewRecord(review);
-  const fromLibrary = review.intake_item_id == null && review.album_id != null;
-  const meta = (
+/** The draft or submitted chip and the last-saved date, shared by a review's row and a held record's row that has a draft. */
+function ReviewMeta({ review, fromLibrary = false }: { review: Review; fromLibrary?: boolean }) {
+  return (
     <>
       {fromLibrary && <Chip size="sm" variant="outlined">{REVIEW_COPY.myReviews.fromTheLibrary}</Chip>}
       <Chip size="sm">{review.status === "draft" ? REVIEW_COPY.myReviews.draft : REVIEW_COPY.myReviews.submitted}</Chip>
       <Typography level="body-sm">{`${REVIEW_COPY.myReviews.lastSaved} ${day(review.last_modified)}`}</Typography>
     </>
   );
-  const open = <Link href={href}>{REVIEW_COPY.myReviews.open}</Link>;
+}
+
+/** A review's row: the record as parts (artist, album, label) once it has landed. Until then, a library review shows `myReviews.libraryRelease` and a logged-record review shows nothing in its place. Either way the row carries the status, the last-saved date and Open. A draft on a record the DJ passed on opens with Open draft and says the draft is saved. */
+function MyReviewRow({ review, href, cover }: { review: Review; href: string; cover: 72 | 56 }) {
+  const record = useReviewRecord(review);
+  const fromLibrary = review.intake_item_id == null && review.album_id != null;
+  const router = useRouter();
+  const kept = review.status === "draft" && review.intake_item_id != null;
+  const meta = (
+    <>
+      <ReviewMeta review={review} fromLibrary={fromLibrary} />
+      {kept && <Typography level="body-sm">{REVIEW_COPY.myReviews.draftKept}</Typography>}
+    </>
+  );
+  const open = kept ? (
+    <Button size="sm" onClick={() => router.push(href)}>{REVIEW_COPY.myReviews.openDraft}</Button>
+  ) : (
+    <Link href={href}>{REVIEW_COPY.myReviews.open}</Link>
+  );
   if (record) {
     return <RecordRow record={record} cover={cover} meta={<Stack direction="row" spacing={1} alignItems="center">{meta}</Stack>} actions={open} />;
   }
@@ -73,7 +89,11 @@ export default function MyReviewsScreen({ items, myReviews, me, write, lock }: {
   // A write outlives the screen when the DJ navigates away mid-click; what it does after that (open the editor, toast) is skipped.
   const mounted = useMounted();
   const [returning, setReturning] = useState<IntakeItem | null>(null);
+  // A request the DJ is passing on, or a record the DJ has; the held one reads `checked_out` or `reviewed`.
   const [passing, setPassing] = useState<IntakeItem | null>(null);
+  const passingHeld = passing !== null && passing.effective_state !== "requested";
+  const hasDraft = (id: number) => myReviews.some((r) => r.intake_item_id === id && r.status === "draft");
+  const hasSubmitted = (id: number) => myReviews.some((r) => r.intake_item_id === id && r.status === "submitted");
   // How many rows each stage shows; a stage that was never asked for shows one page.
   const [shown, setShown] = useState<Partial<Record<Stage, number>>>({});
 
@@ -121,6 +141,7 @@ export default function MyReviewsScreen({ items, myReviews, me, write, lock }: {
     const draft = mineHere.find((r) => r.status === "draft");
     const reviewed = i.effective_state === "reviewed";
     const mark = overdueMark(i);
+    const canPass = i.effective_state === "checked_out" && i.submitted_review_count === 0;
     const note = reviewed
       ? byKind(i, { disc: REVIEW_COPY.screen.reviewedReturn, digital: null })
       : submitted
@@ -134,6 +155,7 @@ export default function MyReviewsScreen({ items, myReviews, me, write, lock }: {
           <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
             <Typography level="body-sm">{`${REVIEW_COPY.screen.reviewingSince} ${day(i.checked_out_at)}`}</Typography>
             {mark && <Chip color="danger">{mark}</Chip>}
+            {draft && <ReviewMeta review={draft} />}
             {note && <Typography level="body-sm">{note}</Typography>}
           </Stack>
         }
@@ -141,6 +163,8 @@ export default function MyReviewsScreen({ items, myReviews, me, write, lock }: {
           <>
             {submitted ? (
               <Button size="sm" variant={reviewed ? "outlined" : "solid"} onClick={() => router.push(openHref(submitted.id, stage))}>{REVIEW_COPY.screen.editReview}</Button>
+            ) : draft ? (
+              <Button size="sm" variant={reviewed ? "outlined" : "solid"} onClick={() => router.push(openHref(draft.id, stage))}>{REVIEW_COPY.myReviews.openDraft}</Button>
             ) : (
               <Button
                 size="sm"
@@ -148,7 +172,7 @@ export default function MyReviewsScreen({ items, myReviews, me, write, lock }: {
                 {...lock(i.id, "write")}
                 onClick={() =>
                   write(i.id, "write", async () => {
-                    const review = draft ?? (await createReview({ intake_item_id: i.id }).unwrap());
+                    const review = await createReview({ intake_item_id: i.id }).unwrap();
                     if (mounted.current) {
                       router.push(openHref(review.id, stage));
                     }
@@ -158,7 +182,11 @@ export default function MyReviewsScreen({ items, myReviews, me, write, lock }: {
                 {REVIEW_COPY.writeReview}
               </Button>
             )}
-            <Button size="sm" variant={reviewed ? "solid" : "outlined"} {...lock(i.id, "release")} onClick={() => setReturning(i)}>{REVIEW_COPY.screen.returnToShelf}</Button>
+            {canPass ? (
+              <Button size="sm" variant="outlined" {...lock(i.id, "passHeld")} onClick={() => setPassing(i)}>{REVIEW_COPY.screen.pass}</Button>
+            ) : (
+              !i.digital && <Button size="sm" variant={reviewed ? "solid" : "outlined"} {...lock(i.id, "release")} onClick={() => setReturning(i)}>{REVIEW_COPY.intake.returned}</Button>
+            )}
           </>
         }
       />
@@ -207,23 +235,28 @@ export default function MyReviewsScreen({ items, myReviews, me, write, lock }: {
       <ConfirmDialog
         open={returning !== null}
         onClose={() => setReturning(null)}
-        title={REVIEW_COPY.screen.returnToShelf}
+        title={REVIEW_COPY.intake.returned}
         actions={
           <>
             <Button
               onClick={async () => {
                 const id = returning!.id;
                 setReturning(null);
-                await write(id, "release", () => release(id).unwrap());
+                await write(id, "release", async () => {
+                  await release(id).unwrap();
+                  if (mounted.current) {
+                    toast.success(REVIEW_COPY.screen.returnedWaiting);
+                  }
+                });
               }}
             >
-              {REVIEW_COPY.screen.returnToShelf}
+              {REVIEW_COPY.intake.returned}
             </Button>
             <Button variant="plain" onClick={() => setReturning(null)}>{REVIEW_COPY.screen.cancel}</Button>
           </>
         }
       >
-        {returning && byKind(returning, { disc: REVIEW_COPY.screen.returnQuestion, digital: REVIEW_COPY.screen.returnQuestionDigital })}
+        {returning && [REVIEW_COPY.screen.returnQuestion, hasSubmitted(returning.id) && REVIEW_COPY.screen.markReturnedKeep].filter(Boolean).join(" ")}
       </ConfirmDialog>
       <ConfirmDialog
         open={passing !== null}
@@ -235,7 +268,7 @@ export default function MyReviewsScreen({ items, myReviews, me, write, lock }: {
               onClick={async () => {
                 const id = passing!.id;
                 setPassing(null);
-                await write(id, "pass", async () => {
+                await write(id, passingHeld ? "passHeld" : "pass", async () => {
                   await pass(id).unwrap();
                   if (mounted.current) {
                     toast.success(REVIEW_COPY.screen.passed);
@@ -249,7 +282,14 @@ export default function MyReviewsScreen({ items, myReviews, me, write, lock }: {
           </>
         }
       >
-        {REVIEW_COPY.screen.passConfirm}
+        {passing &&
+          [
+            REVIEW_COPY.screen.passConfirm,
+            passingHeld && !passing.digital && REVIEW_COPY.screen.passBringDisc,
+            passingHeld && hasDraft(passing.id) && REVIEW_COPY.screen.passDraftSaved,
+          ]
+            .filter(Boolean)
+            .join(" ")}
       </ConfirmDialog>
     </>
   );

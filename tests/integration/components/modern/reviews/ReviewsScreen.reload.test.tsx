@@ -163,7 +163,7 @@ describe("ReviewsScreen — a row stays locked until every rendered list has rel
     await waitFor(() => expect(pendingCount(store)).toBe(1));
     await renderedFrame();
     expect(writeReview).toBeDisabled();
-    expect(within(checkouts).getByRole("button", { name: "Return to the review shelf" })).toBeDisabled();
+    expect(within(checkouts).getByRole("button", { name: "Pass" })).toBeDisabled();
 
     releaseHeld();
     await waitFor(() => expect(writeReview).toBeEnabled());

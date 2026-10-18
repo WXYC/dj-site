@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
+import { http, HttpResponse } from "msw";
+import { toast } from "sonner";
+import { server } from "@/tests/fakes/server";
+import { TEST_BACKEND_URL } from "@/tests/helpers/constants";
+import { day } from "@/src/components/experiences/modern/reviews/useReviewWrite";
 import { fakeReviewsEndpoints, heldBy, intakeItem, renderWithProviders, requestedFor, review } from "@/tests/helpers";
 import { REVIEW_COPY } from "@/src/components/experiences/modern/reviews/copy";
 import { editorBack, parseEditorOrigin } from "@/lib/features/reviews/paths";
@@ -63,8 +68,7 @@ describe("MyReviewsScreen", () => {
     expect(tabs.map((t) => t.getAttribute("aria-selected"))).toEqual(["true", "false", "false"]);
     const open = screen.getByRole("tabpanel", { name: STAGES.open });
     expect(within(open).getAllByRole("button", { name: REVIEW_COPY.writeReview })).toHaveLength(2);
-    expect(within(open).getByRole("button", { name: REVIEW_COPY.screen.pass })).toBeInTheDocument();
-    expect(within(open).getByRole("button", { name: REVIEW_COPY.screen.returnToShelf })).toBeInTheDocument();
+    expect(within(open).getAllByRole("button", { name: REVIEW_COPY.screen.pass })).toHaveLength(2);
   });
 
   it.each([
@@ -98,7 +102,7 @@ describe("MyReviewsScreen", () => {
     expect(await within(await screen.findByRole("tabpanel", { name: stage })).findByText(words)).toBeInTheDocument();
   });
 
-  it("puts a disc I have whose review was chosen under Published, with its approved line and Return to the review shelf", async () => {
+  it("puts a disc I have whose review was chosen under Published, with its approved line and Mark as returned", async () => {
     url.search = "?stage=published";
     const disc = held(2, { state: "reviewed", effective_state: "reviewed" });
 
@@ -106,7 +110,7 @@ describe("MyReviewsScreen", () => {
 
     const published = await screen.findByRole("tabpanel", { name: STAGES.published });
     expect(within(published).getByText(REVIEW_COPY.screen.reviewedReturn)).toBeInTheDocument();
-    expect(within(published).getByRole("button", { name: REVIEW_COPY.screen.returnToShelf })).toBeInTheDocument();
+    expect(within(published).getByRole("button", { name: REVIEW_COPY.intake.returned })).toBeInTheDocument();
   });
 
   it.each([
@@ -142,9 +146,9 @@ describe("MyReviewsScreen", () => {
     ["the Open link on Submitted", "?stage=submitted", [], [submitted(33), draft34], { link: REVIEW_COPY.myReviews.open }, 33, "submitted"],
     ["the Open link on Published", "?stage=published", [], [submitted(35, { in_use: true }), draft34], { link: REVIEW_COPY.myReviews.open }, 35, "published"],
     ["the Open link, from a stage the URL names wrongly", "?stage=elsewhere", [], [submitted(33)], { link: REVIEW_COPY.myReviews.open }, 33, "submitted"],
-    ["Write review on a record with a draft, from the tab with no stage", "", [held(8)], [review({ id: 31, intake_item_id: 8, status: "draft" })], { button: REVIEW_COPY.writeReview }, 31, "open"],
-    ["Write review on a record with a draft, on Open reviews", "?stage=open", [held(8)], [review({ id: 31, intake_item_id: 8, status: "draft" })], { button: REVIEW_COPY.writeReview }, 31, "open"],
-    ["Write review on a record with a draft, from a stage the URL names wrongly", "?stage=elsewhere", [held(8)], [review({ id: 31, intake_item_id: 8, status: "draft" })], { button: REVIEW_COPY.writeReview }, 31, "open"],
+    ["Open draft on a record with a draft, from the tab with no stage", "", [held(8)], [review({ id: 31, intake_item_id: 8, status: "draft" })], { button: REVIEW_COPY.myReviews.openDraft }, 31, "open"],
+    ["Open draft on a record with a draft, on Open reviews", "?stage=open", [held(8)], [review({ id: 31, intake_item_id: 8, status: "draft" })], { button: REVIEW_COPY.myReviews.openDraft }, 31, "open"],
+    ["Open draft on a record with a draft, from a stage the URL names wrongly", "?stage=elsewhere", [held(8)], [review({ id: 31, intake_item_id: 8, status: "draft" })], { button: REVIEW_COPY.myReviews.openDraft }, 31, "open"],
     ["Edit review on a record with a submitted review, from the tab with no stage", "", [held(9)], [review({ id: 32, intake_item_id: 9, status: "submitted" })], { button: REVIEW_COPY.screen.editReview }, 32, "submitted"],
     ["Edit review on a record with a submitted review, on Submitted", "?stage=submitted", [held(9)], [review({ id: 32, intake_item_id: 9, status: "submitted" })], { button: REVIEW_COPY.screen.editReview }, 32, "submitted"],
     ["Edit review on a disc whose review was chosen, on Published", "?stage=published", [reviewedDisc], [submitted(40, { intake_item_id: 2, album_id: null, in_use: true })], { button: REVIEW_COPY.screen.editReview }, 40, "published"],
@@ -167,6 +171,136 @@ describe("MyReviewsScreen", () => {
     it("gives the editor a back link to that stage", () => {
       const query = Object.fromEntries(new URL(href, "https://dj.wxyc.org").searchParams);
       expect(editorBack(parseEditorOrigin(query)).href).toBe(`/dashboard/reviews/mine?stage=${stage}`);
+    });
+  });
+
+  describe("the held-record row's buttons and facts line", () => {
+    const WRITE = REVIEW_COPY.writeReview;
+    const { pass: PASS, editReview: EDIT, reviewingSince: REVIEWING_SINCE } = REVIEW_COPY.screen;
+    const MARK = REVIEW_COPY.intake.returned;
+    const OPEN_DRAFT = REVIEW_COPY.myReviews.openDraft;
+    const draftOf = (id: number) => review({ id: 60 + id, intake_item_id: id, album_id: null, status: "draft" });
+    const sentOf = (id: number, overrides = {}) => review({ id: 70 + id, intake_item_id: id, album_id: null, status: "submitted", in_use: false, ...overrides });
+    const reviewedDisc2 = (id: number) => held(id, { state: "reviewed", effective_state: "reviewed", submitted_review_count: 1 });
+    const digital = (id: number, overrides = {}) => held(id, { digital: true, ...overrides });
+    const lastSaved = (r: Review) => `${REVIEW_COPY.myReviews.lastSaved} ${day(r.last_modified)}`;
+
+    it.each([
+      ["a disc with no review and no draft", "?stage=open", [held(1)], [], [WRITE, PASS], [REVIEWING_SINCE], [OPEN_DRAFT, MARK]],
+      ["a disc with my draft", "?stage=open", [held(1)], [draftOf(1)], [OPEN_DRAFT, PASS], [lastSaved(draftOf(1)), REVIEW_COPY.myReviews.draft], [WRITE, MARK]],
+      ["a disc with my submitted review", "?stage=submitted", [held(1, { submitted_review_count: 1 })], [sentOf(1)], [EDIT, MARK], [REVIEW_COPY.screen.reviewSubmitted], [WRITE, PASS]],
+      ["a digital album with my submitted review", "?stage=submitted", [digital(1, { submitted_review_count: 1 })], [sentOf(1)], [EDIT], [REVIEW_COPY.screen.reviewSubmitted], [WRITE, PASS, MARK]],
+      ["a digital album with no review", "?stage=open", [digital(1)], [], [WRITE, PASS], [REVIEW_COPY.screen.filesComing], [OPEN_DRAFT, MARK]],
+      ["a reviewed disc", "?stage=published", [reviewedDisc2(1)], [sentOf(1, { in_use: true })], [EDIT, MARK], [REVIEW_COPY.screen.reviewedReturn], [WRITE, PASS]],
+      ["a draft on a record I passed", "?stage=open", [intakeItem({ id: 1 })], [draftOf(1)], [OPEN_DRAFT], [REVIEW_COPY.myReviews.draftKept, lastSaved(draftOf(1))], [WRITE, PASS, MARK]],
+      ["a request", "?stage=open", [asked(1)], [], [WRITE, PASS], [REVIEW_COPY.screen.requestedNoAsker(day(asked(1).requested_at))], [OPEN_DRAFT, MARK]],
+    ])("draws %s", async (_name, search, items, reviews, buttons, lines, absent) => {
+      url.search = search;
+
+      renderScreen(items, reviews);
+
+      const panel = await screen.findByRole("tabpanel");
+      expect(within(panel).getAllByRole("button").map((b) => b.textContent)).toEqual(buttons);
+      for (const line of lines) {
+        expect(within(panel).getByText(new RegExp(line.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")))).toBeInTheDocument();
+      }
+      for (const name of absent) {
+        expect(within(panel).queryByRole("button", { name })).not.toBeInTheDocument();
+      }
+    });
+
+    it("makes the reviewed disc's Mark as returned the solid button and Edit review the outlined one", async () => {
+      url.search = "?stage=published";
+      renderScreen([reviewedDisc2(1)], [sentOf(1, { in_use: true })]);
+
+      const panel = await screen.findByRole("tabpanel");
+      expect(within(panel).getByRole("button", { name: MARK })).toHaveClass("MuiButton-variantSolid");
+      expect(within(panel).getByRole("button", { name: EDIT })).toHaveClass("MuiButton-variantOutlined");
+    });
+
+    describe("the writes", () => {
+      const calls = () => {
+        const posts: string[] = [];
+        let reads = 0;
+        server.use(
+          http.get(`${TEST_BACKEND_URL}/intake`, () => {
+            reads += 1;
+            return HttpResponse.json([]);
+          }),
+          http.post(`${TEST_BACKEND_URL}/reviews`, () => {
+            posts.push("POST /reviews");
+            return HttpResponse.json(draftOf(1));
+          }),
+        );
+        return { posts, reads: () => reads };
+      };
+
+      it("opens the draft from Open draft and sends no POST /reviews", async () => {
+        url.search = "?stage=open";
+        const { posts } = calls();
+        const { user } = renderScreen([held(1)], [draftOf(1)]);
+
+        await user.click(await screen.findByRole("button", { name: OPEN_DRAFT }));
+
+        await waitFor(() => expect(router.push).toHaveBeenCalledWith("/dashboard/reviews/61?from=mine&stage=open"));
+        expect(posts).toEqual([]);
+      });
+
+      it.each([
+        ["a disc", held(1), [], [REVIEW_COPY.screen.passConfirm, REVIEW_COPY.screen.passBringDisc]],
+        ["a disc with a draft", held(1), [draftOf(1)], [REVIEW_COPY.screen.passConfirm, REVIEW_COPY.screen.passBringDisc, REVIEW_COPY.screen.passDraftSaved]],
+        ["a digital album with a draft", digital(1), [draftOf(1)], [REVIEW_COPY.screen.passConfirm, REVIEW_COPY.screen.passDraftSaved]],
+      ])("asks the Pass question for %s, and confirming passes, reloads and toasts", async (_name, item, reviews, sentences) => {
+        url.search = "?stage=open";
+        const passed: string[] = [];
+        server.use(http.post(`${TEST_BACKEND_URL}/intake/1/pass`, () => {
+          passed.push("pass");
+          return HttpResponse.json(intakeItem({ id: 1 }));
+        }));
+        const { user } = renderScreen([item], [...reviews]);
+        const { reads } = calls();
+
+        await user.click(await screen.findByRole("button", { name: PASS }));
+        const dialog = await screen.findByRole("alertdialog");
+        expect(within(dialog).getByText(sentences.join(" "))).toBeInTheDocument();
+        await user.click(within(dialog).getByRole("button", { name: PASS }));
+
+        await waitFor(() => expect(toast.success).toHaveBeenCalledWith(REVIEW_COPY.screen.passed));
+        expect(passed).toEqual(["pass"]);
+        expect(reads()).toBeGreaterThan(0);
+      });
+
+      it("shows the not-yours line after the reload when passing a held record loses a race", async () => {
+        url.search = "?stage=open";
+        server.use(http.post(`${TEST_BACKEND_URL}/intake/1/pass`, () => HttpResponse.json({ message: "changed", reason: "state_changed" }, { status: 409 })));
+        const { user } = renderScreen([held(1)], []);
+
+        await user.click(await screen.findByRole("button", { name: PASS }));
+        await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: PASS }));
+
+        await waitFor(() => expect(toast).toHaveBeenCalledWith(REVIEW_COPY.screen.raceRelease));
+      });
+
+      it.each([
+        ["with a submitted review", "?stage=submitted", [sentOf(1)], `${REVIEW_COPY.screen.returnQuestion} ${REVIEW_COPY.screen.markReturnedKeep}`],
+        ["with no review of mine", "?stage=open", [], REVIEW_COPY.screen.returnQuestion],
+      ])("asks Mark as returned's question %s, and confirming returns the record and toasts", async (_name, search, reviews, body) => {
+        url.search = search;
+        const released: string[] = [];
+        server.use(http.post(`${TEST_BACKEND_URL}/intake/1/release`, () => {
+          released.push("release");
+          return HttpResponse.json(intakeItem({ id: 1 }));
+        }));
+        const { user } = renderScreen([reviewedDisc2(1)], [...reviews]);
+
+        await user.click(await screen.findByRole("button", { name: MARK }));
+        const dialog = await screen.findByRole("alertdialog");
+        expect(within(dialog).getByText(body)).toBeInTheDocument();
+        await user.click(within(dialog).getByRole("button", { name: MARK }));
+
+        await waitFor(() => expect(toast.success).toHaveBeenCalledWith(REVIEW_COPY.screen.returnedWaiting));
+        expect(released).toEqual(["release"]);
+      });
     });
   });
 
