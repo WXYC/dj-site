@@ -40,7 +40,12 @@ const routesConfig = {
     "/*.gif",
     "/*.svg",
     "/*.webp",
-    "/fonts/*"
+    "/fonts/*",
+    // Spike branch only (never merges): Pages serves the static harness under
+    // public/spike/ itself. Without this the OpenNext worker answers these
+    // paths and 404s them, as it does every public file outside this list.
+    "/spike",
+    "/spike/*"
   ]
 };
 
