@@ -157,3 +157,18 @@ describe("REVIEW_COPY editor and shelf copy the station approved on 2026-10-08",
     expect(actual).toBe(expected);
   });
 });
+
+describe("REVIEW_COPY Add a record, the button, the dialog and what it says after an add", () => {
+  const i = REVIEW_COPY.intake;
+  it.each([
+    ["logTitle", i.logTitle, "Add a record"],
+    ["log", i.log, "Add a record"],
+    ["newMusicLine", i.newMusicLine, "Every new record, from arrival to filing."],
+    ["addRecordLine", i.addRecordLine, "It goes on the review shelf, where any DJ can check it out."],
+    ["addedLine", i.addedLine("Cat Power", "Moon Pix"), "Added Moon Pix by Cat Power."],
+    ["addAnother", i.addAnother, "Add another"],
+    ["addDone", i.addDone, "Done"],
+  ])("pins %s", (_key, actual, expected) => {
+    expect(actual).toBe(expected);
+  });
+});

@@ -30,9 +30,6 @@ vi.mock("@/lib/features/authentication/organization-utils.server", async () => {
 vi.mock("@/src/components/experiences/modern/Header/PageHeader", () => ({
   default: ({ title }: { title: string }) => <div data-testid="page-header">{title}</div>,
 }));
-vi.mock("@/src/components/experiences/modern/reviews/IntakeLogForm", () => ({
-  default: () => <div data-testid="intake-log-form" />,
-}));
 vi.mock("@/src/components/experiences/modern/reviews/IntakeLanes", () => ({
   default: (props: object) => <div data-testid="intake-lanes" data-props={JSON.stringify(props)} />,
 }));
@@ -67,7 +64,7 @@ describe("reviews music directors page", () => {
     ["staff", "stationManager"],
     ["true", "musicDirector"],
     ["true", "stationManager"],
-  ] as const)("renders the form above the bare lanes, and no page heading of its own, when the flag is %s for a %s", async (flag, role) => {
+  ] as const)("renders the bare lanes alone, with no page heading and no form of its own, when the flag is %s for a %s", async (flag, role) => {
     process.env.NEXT_PUBLIC_REVIEWS_ENABLED = flag;
     setUpClassicPageAuthority(role);
 
@@ -75,6 +72,6 @@ describe("reviews music directors page", () => {
 
     expect(screen.queryByTestId("page-header")).not.toBeInTheDocument();
     expect(screen.getByTestId("intake-lanes")).toHaveAttribute("data-props", "{}");
-    expect(screen.getByTestId("intake-log-form").compareDocumentPosition(screen.getByTestId("intake-lanes")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.queryByRole("form")).not.toBeInTheDocument();
   });
 });

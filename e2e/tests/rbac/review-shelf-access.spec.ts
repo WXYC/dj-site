@@ -12,18 +12,18 @@ for (const [name, storageState] of [
   test.describe(`Review shelf lanes: ${name}`, () => {
     test.use({ storageState: path.join(authDir, storageState) });
 
-    test("renders the review shelf, and no logging form, on the first tab", async ({ page }) => {
+    test("renders the review shelf, and no Add a record button, on the first tab", async ({ page }) => {
       await page.goto("/dashboard/reviews");
 
       await expect(page.getByRole("heading", { name: "Reviews" }).first()).toBeVisible({ timeout: 15000 });
       await expect(page.getByRole("region", { name: "The review shelf" })).toBeVisible({ timeout: 15000 });
-      await expect(page.getByRole("form", { name: "Log an item" })).toHaveCount(0);
+      await expect(page.getByRole("button", { name: "Add a record" })).toHaveCount(0);
     });
 
-    test("renders the logging form and the music directors' lanes on the New music tab", async ({ page }) => {
+    test("renders the Add a record button and the music directors' lanes on the New music tab", async ({ page }) => {
       await page.goto("/dashboard/reviews/music-directors");
 
-      await expect(page.getByRole("form", { name: "Log an item" })).toBeVisible({ timeout: 15000 });
+      await expect(page.getByRole("button", { name: "Add a record" })).toBeVisible({ timeout: 15000 });
       // The stages are chips, which draw once the intake read lands; Chromium names one "Filed , n".
       await expect(page.getByRole("tab", { name: /^Filed\s*,/ })).toBeVisible({ timeout: 15000 });
     });

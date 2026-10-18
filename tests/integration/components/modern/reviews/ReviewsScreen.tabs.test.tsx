@@ -53,20 +53,20 @@ describe("ReviewsScreen tabs", () => {
   it.each([
     ["a DJ", Authorization.DJ],
     ["a music director", Authorization.MD],
-  ])("the Review shelf tab shows the review shelf lane alone for %s: no request, checkout, My reviews or form section", async (_who, authority) => {
+  ])("the Review shelf tab shows the review shelf lane alone for %s: no request, checkout, My reviews or Add a record button", async (_who, authority) => {
     mockAuth.authority = authority;
 
     renderWithProviders(<ReviewsScreen tab="shelf" />);
 
     await within(await screen.findByRole("region", { name: "The review shelf" })).findByText(/DOGA/);
     expect(lanesShown()).toEqual(["The review shelf"]);
-    expect(screen.queryByRole("form", { name: "Log an item" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Add a record" })).not.toBeInTheDocument();
   });
 
   it.each([
     ["a DJ", Authorization.DJ],
     ["a music director", Authorization.MD],
-  ])("the My reviews tab shows the Open reviews, Submitted and Published stages for %s, and neither the review shelf nor the form", async (_who, authority) => {
+  ])("the My reviews tab shows the Open reviews, Submitted and Published stages for %s, and neither the review shelf nor the Add a record button", async (_who, authority) => {
     mockAuth.authority = authority;
 
     renderWithProviders(<ReviewsScreen tab="mine" />);
@@ -76,7 +76,7 @@ describe("ReviewsScreen tabs", () => {
     expect(within(open).getByText(/Cat Power/)).toBeInTheDocument();
     expect(["Open reviews, 2", "Submitted, 0", "Published, 0"].map((name) => screen.getByRole("tab", { name }))).toEqual(screen.getAllByRole("tab"));
     expect(lanesShown()).toEqual([]);
-    expect(screen.queryByRole("form", { name: "Log an item" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Add a record" })).not.toBeInTheDocument();
   });
 
   it("makes no reviewers request on the My reviews tab, even for a music director", async () => {

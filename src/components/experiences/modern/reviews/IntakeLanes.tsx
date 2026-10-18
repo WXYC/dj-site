@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
-import { Button, Chip, Link, List, ListItem, Stack, Typography } from "@mui/joy";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Box, Button, Chip, Link, List, ListItem, Stack, Typography } from "@mui/joy";
 import type { IntakeItem } from "@wxyc/shared";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import {
   isIntakeStateChanged,
@@ -22,6 +22,7 @@ import { useCanSeeReviews } from "@/src/hooks/useCanSeeReviews";
 import { useRowWrite } from "@/src/hooks/useRowWrite";
 import ConfirmDialog from "../ConfirmDialog";
 import StageChips from "../StageChips";
+import AddRecordDialog from "./AddRecordDialog";
 import FccNotesToConfirm from "./FccNotesToConfirm";
 import HeadedSection from "./HeadedSection";
 import { REVIEW_COPY } from "./copy";
@@ -82,14 +83,54 @@ function confirmation({ item, action }: Confirming): { title: string; body: stri
   };
 }
 
-/** The music directors' tab: the FCC notes waiting on them, read on their own, above the intake lanes. */
+/** The music directors' tab: the Add a record button, the FCC notes waiting on them, read on their own, and the intake lanes. */
 export default function IntakeLanes() {
-  if (!useCanSeeReviews()) return null;
+  const canSeeReviews = useCanSeeReviews();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  // The record the dialog last added, kept to mark its row on the review shelf stage; the dialog sits here, not in the
+  // lanes, so a failed read of the lists does not take away the way to add a record.
+  const [addedId, setAddedId] = useState<number | null>(null);
+  if (!canSeeReviews) {
+    return null;
+  }
+  const showAdded = (added: IntakeItem) => {
+    setAddedId(added.id);
+    const next = new URLSearchParams(searchParams.toString());
+    next.set("stage", "review_shelf");
+    window.history.replaceState(null, "", `${pathname}?${next}`);
+  };
   return (
     <Stack spacing={3}>
+      <AddRecordDialog onDone={showAdded} />
       <FccNotesToConfirm />
-      <IntakeLaneGroups />
+      <IntakeLaneGroups addedId={addedId} />
     </Stack>
+  );
+}
+
+/**
+ * Marks the record just added for a moment, and brings it into view when it first appears: it sorts last on the
+ * review shelf, so it can be off screen. The fade is CSS, so nothing has to clear the mark.
+ */
+function JustAdded({ children }: { children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    ref.current?.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "center" });
+  }, []);
+  return (
+    <Box
+      ref={ref}
+      data-added="true"
+      sx={{
+        width: "100%",
+        animation: "recordAddedFade 3s ease-out",
+        "@keyframes recordAddedFade": { from: { backgroundColor: "var(--joy-palette-warning-softBg)" } },
+      }}
+    >
+      {children}
+    </Box>
   );
 }
 
@@ -113,19 +154,20 @@ type LaneRow = (i: IntakeItem, meta?: ReactNode, actions?: ReactNode, title?: { 
 const itemHref = (i: IntakeItem) => `/dashboard/admin/intake/${i.id}`;
 
 /** On the review shelf: each record with the tab's Ask a DJ… control. */
-function OnReviewShelf({ rows, laneRow, askADj }: { rows: IntakeItem[]; laneRow: LaneRow; askADj: ReturnType<typeof useAskADj> }) {
+function OnReviewShelf({ rows, laneRow, askADj, addedId }: { rows: IntakeItem[]; laneRow: LaneRow; askADj: ReturnType<typeof useAskADj>; addedId: number | null }) {
   const { alert, picker, shelfRecordId, shelfAlbumId } = askADj;
   return (
     <>
       {alert}
       <RowList
         rows={rows}
-        row={(i) =>
-          laneRow(i, <Typography level="body-sm">{`${REVIEW_COPY.screen.added} ${day(i.logged_at)}`}</Typography>, picker(i), {
+        row={(i) => {
+          const row = laneRow(i, <Typography level="body-sm">{`${REVIEW_COPY.screen.added} ${day(i.logged_at)}`}</Typography>, picker(i), {
             titleSlot: <Link level="title-md" id={shelfRecordId(i)} href={itemHref(i)}>{i.artist_name}</Link>,
             albumId: shelfAlbumId(i),
-          })
-        }
+          });
+          return i.id === addedId ? <JustAdded>{row}</JustAdded> : row;
+        }}
       />
     </>
   );
@@ -147,7 +189,7 @@ function FiledList({ rows, row }: { rows: IntakeItem[]; row: (i: IntakeItem) => 
   );
 }
 
-function IntakeLaneGroups() {
+function IntakeLaneGroups({ addedId }: { addedId: number | null }) {
   const everyState = useGetIntakeItemsQuery(EVERY_STATE, LIVE_LIST);
   const [release] = useReleaseIntakeItemMutation();
   const [cancelRequest] = useCancelIntakeRequestMutation();
@@ -295,7 +337,7 @@ function IntakeLaneGroups() {
       >
         {(stage) => {
           if (stage === "review_shelf") {
-            return <OnReviewShelf rows={rowsOf[stage]} laneRow={laneRow} askADj={askADj} />;
+            return <OnReviewShelf rows={rowsOf[stage]} laneRow={laneRow} askADj={askADj} addedId={addedId} />;
           }
           return stage === "filed" ? <FiledList rows={rowsOf.filed} row={rowFor.filed} /> : <RowList rows={rowsOf[stage]} row={rowFor[stage]} />;
         }}

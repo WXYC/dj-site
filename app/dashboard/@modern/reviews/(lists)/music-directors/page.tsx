@@ -2,7 +2,6 @@ import { getUserFromSession, requireAuth, requireRole } from "@/lib/features/aut
 import { Authorization } from "@/lib/features/admin/types";
 import { canSeeReviews } from "@/lib/features/reviews/flags";
 import { Stack } from "@mui/joy";
-import IntakeLogForm from "@/src/components/experiences/modern/reviews/IntakeLogForm";
 import IntakeLanes from "@/src/components/experiences/modern/reviews/IntakeLanes";
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
@@ -23,7 +22,6 @@ export default async function ReviewsMusicDirectorsPage() {
 
   return (
     <Stack spacing={3}>
-      <IntakeLogForm />
       <IntakeLanes />
     </Stack>
   );
