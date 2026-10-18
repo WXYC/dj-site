@@ -46,6 +46,7 @@ function editor(page: Page) {
   const slipHeading = page.getByRole("region", { name: COPY.slip.heading });
   const column = slipHeading.locator("xpath=..");
   const grid = column.locator("xpath=..");
+  const saveDraft = page.getByRole("button", { name: COPY.saveDraft, exact: true });
   return {
     scrollRegion: page.locator("[data-scroll-region]"),
     /** The grid's other column: the slip fields this draft offers (a typed draft has no FCC field) and the rest of the form. */
@@ -56,7 +57,9 @@ function editor(page: Page) {
     column,
     grid,
     slip: page.getByRole("group", { name: COPY.slip.name }),
-    saveDraft: page.getByRole("button", { name: COPY.saveDraft, exact: true }),
+    saveDraft,
+    /** The sticky row that holds Delete, the saved state, Save draft and Submit. */
+    actionBar: saveDraft.locator("xpath=.."),
     submit: page.getByRole("button", { name: COPY.submit, exact: true }),
     appbar: page.locator(".ignoreClassic").first(),
   };
@@ -107,6 +110,8 @@ async function sidewaysProblems(page: Page): Promise<string[]> {
 }
 
 const NO_ROWS = "the slip has no rows";
+const SLIP_LEFT_OF_FORM = "left of the form's right edge";
+const SLIP_ABOVE_CONSENT = "above the publishing question's end";
 
 /** Every row of the slip puts its value at the same x: the label column holds its word, "Recommended" included. */
 async function labelColumnProblems(page: Page): Promise<string[]> {
@@ -135,7 +140,7 @@ async function sideBySideProblems(page: Page): Promise<string[]> {
   }
   const formRight = Math.max(...fields.map((f) => f.right));
   return slip.left < formRight
-    ? [`"${COPY.slip.heading}" starts at ${slip.left}px, left of the form's right edge ${formRight}px`]
+    ? [`"${COPY.slip.heading}" starts at ${slip.left}px, ${SLIP_LEFT_OF_FORM} ${formRight}px`]
     : [];
 }
 
@@ -145,7 +150,7 @@ async function stickyColumnProblems(page: Page): Promise<{ top: string[]; bottom
   await scrollToEnd(e.scrollRegion);
   const region = await box(e.scrollRegion);
   const column = await box(e.column);
-  const bar = await box(e.saveDraft.locator("xpath=.."));
+  const bar = await box(e.actionBar);
   return {
     top:
       Math.abs(column.top - region.top) > 1
@@ -171,6 +176,18 @@ function expectKnownDefect(ticket: string, problems: string[]) {
   test.info().annotations.push({ type: ticket, description: problems.join("; ") || "no break measured" });
   test.fail(true, ticket);
   expect(problems).toEqual([]);
+}
+
+/**
+ * The label-column control: the slip's labels back at their value's size. Returns what the check reports before and
+ * after the rule goes in, because a known defect can already report a line before it; the control must change the
+ * report, not merely find it non-empty.
+ */
+async function labelColumnUnderControl(page: Page): Promise<{ before: string[]; after: string[] }> {
+  const before = await labelColumnProblems(page);
+  await tag(editor(page).slip, "slip");
+  await page.addStyleTag({ content: "[data-e2e-slip] > div > strong { font-size: 1em !important; }" });
+  return { before, after: await labelColumnProblems(page) };
 }
 
 /** The slip keeps its 4.25in whatever the gutter and padding around it take. */
@@ -199,14 +216,32 @@ async function shadowRoomProblems(page: Page): Promise<string[]> {
   return problems;
 }
 
-/** At one column: the slip starts below the publishing question, and the action bar's buttons stay in view and clear of the fixed Appbar. */
+const BAR_UNDER_APPBAR = "below the Appbar's top";
+
+/**
+ * The lowest bottom edge among the action bar's drawn pieces: its last row. The bar wraps where its text puts it (at
+ * 390px Submit starts a second row at the left, under Save draft), so a button that misses the right-aligned Appbar
+ * may miss it only because of where the wrap fell; the bar's bottom padding keeps every row above the Appbar's top.
+ */
+async function lastRowBottom(bar: Locator): Promise<number> {
+  return bar.evaluate((el) =>
+    Math.max(
+      ...Array.from(el.children)
+        .map((child) => child.getBoundingClientRect())
+        .filter((r) => r.width > 0 && r.height > 0)
+        .map((r) => r.bottom),
+    ),
+  );
+}
+
+/** At one column: the slip starts below the publishing question, the action bar's buttons stay in view and clear of the fixed Appbar, and every row of the bar ends above the Appbar's top. */
 async function oneColumnProblems(page: Page): Promise<string[]> {
   const e = editor(page);
   const problems: string[] = [];
   const slip = await box(e.slipHeading);
   const consent = await box(e.consent);
   if (slip.top < consent.bottom) {
-    problems.push(`"${COPY.slip.heading}" starts at ${slip.top}px, above the publishing question's end ${consent.bottom}px`);
+    problems.push(`"${COPY.slip.heading}" starts at ${slip.top}px, ${SLIP_ABOVE_CONSENT} ${consent.bottom}px`);
   }
 
   await scrollToEnd(e.scrollRegion);
@@ -220,6 +255,10 @@ async function oneColumnProblems(page: Page): Promise<string[]> {
     if (overlaps(b, appbar)) {
       problems.push(`${name} runs under the Appbar`);
     }
+  }
+  const lastRow = await lastRowBottom(e.actionBar);
+  if (lastRow > appbar.top + ROUNDING_PX) {
+    problems.push(`the action bar's last row ends at ${lastRow}px, ${BAR_UNDER_APPBAR} ${appbar.top}px`);
   }
   return [...problems, ...(await sidewaysProblems(page))];
 }
@@ -309,7 +348,7 @@ test.describe("Review editor layout, two columns", () => {
 
   test("control: one column at 1440px fails the two-column check", async ({ page }) => {
     await applyControl(page, editor(page).grid, "grid", "grid-template-columns: minmax(0, 1fr)");
-    expect(await twoColumnProblems(page)).not.toEqual([]);
+    expect(await twoColumnProblems(page)).toContainEqual(expect.stringContaining(SLIP_LEFT_OF_FORM));
   });
 
   test("keeps the slip 4.25in wide", async ({ page }) => {
@@ -352,9 +391,9 @@ test.describe("Review editor layout, two columns", () => {
   });
 
   test("control: labels at their value's size push a value out of the column", async ({ page }) => {
-    await tag(editor(page).slip, "slip");
-    await page.addStyleTag({ content: "[data-e2e-slip] > div > strong { font-size: 1em !important; }" });
-    expect(await labelColumnProblems(page)).not.toEqual([]);
+    const { before, after } = await labelColumnUnderControl(page);
+    expect(after).not.toEqual([]);
+    expect(after).not.toEqual(before);
   });
 });
 
@@ -383,12 +422,12 @@ test.describe("Review editor layout, one column", () => {
 
   test("control: two columns at 390px fail the one-column check", async ({ page }) => {
     await applyControl(page, editor(page).grid, "grid", "grid-template-columns: minmax(0, 1fr) minmax(0, 1fr)");
-    expect(await oneColumnProblems(page)).not.toEqual([]);
+    expect(await oneColumnProblems(page)).toContainEqual(expect.stringContaining(SLIP_ABOVE_CONSENT));
   });
 
   test("control: an action bar with 8px of bottom padding runs under the Appbar", async ({ page }) => {
-    await applyControl(page, editor(page).saveDraft.locator("xpath=.."), "bar", "padding-bottom: 8px");
-    expect(await oneColumnProblems(page)).not.toEqual([]);
+    await applyControl(page, editor(page).actionBar, "bar", "padding-bottom: 8px");
+    expect(await oneColumnProblems(page)).toContainEqual(expect.stringContaining(BAR_UNDER_APPBAR));
   });
 
   test("starts every slip value at the same x", async ({ page }) => {
@@ -399,9 +438,9 @@ test.describe("Review editor layout, one column", () => {
   });
 
   test("control: labels at their value's size push a value out of the column", async ({ page }) => {
-    await tag(editor(page).slip, "slip");
-    await page.addStyleTag({ content: "[data-e2e-slip] > div > strong { font-size: 1em !important; }" });
-    expect(await labelColumnProblems(page)).not.toEqual([]);
+    const { before, after } = await labelColumnUnderControl(page);
+    expect(after).not.toEqual([]);
+    expect(after).not.toEqual(before);
   });
 });
 
