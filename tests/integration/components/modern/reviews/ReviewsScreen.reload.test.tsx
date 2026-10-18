@@ -26,6 +26,16 @@ vi.mock("@/src/hooks/authenticationHooks", async () => {
 
 import ReviewsScreen from "@/src/components/experiences/modern/reviews/ReviewsScreen";
 
+// The two tabs side by side: these specs cover the lanes and the writes between them, and each tab's own content is pinned in ReviewsScreen.tabs.test.tsx.
+function BothTabs() {
+  return (
+    <>
+      <ReviewsScreen tab="shelf" />
+      <ReviewsScreen tab="mine" />
+    </>
+  );
+}
+
 const ON_SHELF = intakeItem({ id: 5 });
 
 describe("ReviewsScreen — a row stays locked until every rendered list has reloaded", () => {
@@ -59,23 +69,58 @@ describe("ReviewsScreen — a row stays locked until every rendered list has rel
       }),
     );
 
-    const { user, store } = renderWithProviders(<ReviewsScreen />);
+    const { user, store } = renderWithProviders(<BothTabs />);
     const shelf = await screen.findByRole("region", { name: "The review shelf" });
     const checkout = within(shelf).getByRole("button", { name: "Check out" });
     await user.click(checkout);
 
     // Assert during the hold, once every other read has answered and only the held one is outstanding.
     await waitFor(() => expect(heldReads).toBeGreaterThan(0));
-    await waitFor(() => expect(otherReads).toBeGreaterThan(0));
     await waitFor(() => expect(pendingCount(store)).toBe(1));
     await renderedFrame();
+    expect(otherReads).toBe(0);
     expect(checkout).toBeDisabled();
 
     releaseHeld();
     await waitFor(() => expect(checkout).toBeEnabled());
   });
 
-  it("keeps a record checked out from the review shelf locked in Records I'm reviewing until My reviews has reloaded", async () => {
+  it("does not read My reviews after a write on the review shelf tab, which does not draw it", async () => {
+    let written = false;
+    let reviewReadsAfterWrite = 0;
+    let intakeReadsAfterWrite = 0;
+    fakeReviewsEndpoints({ open: [ON_SHELF] });
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/reviews`, () => {
+        if (written) {
+          reviewReadsAfterWrite += 1;
+        }
+        return HttpResponse.json([]);
+      }),
+      http.get(`${TEST_BACKEND_URL}/intake`, () => {
+        if (written) {
+          intakeReadsAfterWrite += 1;
+        }
+        return HttpResponse.json([ON_SHELF]);
+      }),
+      http.post(`${TEST_BACKEND_URL}/intake/5/checkout`, () => {
+        written = true;
+        return HttpResponse.json({ ...ON_SHELF, state: "checked_out" });
+      }),
+    );
+
+    const { user } = renderWithProviders(<ReviewsScreen tab="shelf" />);
+    const shelf = await screen.findByRole("region", { name: "The review shelf" });
+    const checkout = within(shelf).getByRole("button", { name: "Check out" });
+    await user.click(checkout);
+
+    // The intake reload has landed and the row is free again; My reviews was never asked for.
+    await waitFor(() => expect(intakeReadsAfterWrite).toBeGreaterThan(0));
+    await waitFor(() => expect(checkout).toBeEnabled());
+    expect(reviewReadsAfterWrite).toBe(0);
+  });
+
+  it("keeps a request I started a review on locked in Records I'm reviewing until My reviews has reloaded", async () => {
     let written = false;
     let releaseHeld!: () => void;
     const held = new Promise<void>((resolve) => {
@@ -84,7 +129,8 @@ describe("ReviewsScreen — a row stays locked until every rendered list has rel
     let heldReads = 0;
     let intakeReloads = 0;
     const CHECKED_OUT = intakeItem({ id: 5, state: "checked_out", effective_state: "checked_out", checked_out_by: "dj-me", checked_out_at: "2026-09-02T12:00:00Z" });
-    fakeReviewsEndpoints({ open: [ON_SHELF] });
+    const ASKED = intakeItem({ id: 5, state: "requested", effective_state: "requested", requested_dj_id: "dj-me", requested_at: "2026-09-02T12:00:00Z" });
+    fakeReviewsEndpoints({ open: [ASKED] });
     server.use(
       http.get(`${TEST_BACKEND_URL}/reviews`, async () => {
         if (written) {
@@ -97,17 +143,17 @@ describe("ReviewsScreen — a row stays locked until every rendered list has rel
         if (written) {
           intakeReloads += 1;
         }
-        return HttpResponse.json([written ? CHECKED_OUT : ON_SHELF]);
+        return HttpResponse.json([written ? CHECKED_OUT : ASKED]);
       }),
-      http.post(`${TEST_BACKEND_URL}/intake/5/checkout`, () => {
+      http.post(`${TEST_BACKEND_URL}/intake/5/accept`, () => {
         written = true;
         return HttpResponse.json(CHECKED_OUT);
       }),
     );
 
-    const { user, store } = renderWithProviders(<ReviewsScreen />);
-    const shelf = await screen.findByRole("region", { name: "The review shelf" });
-    await user.click(within(shelf).getByRole("button", { name: "Check out" }));
+    const { user, store } = renderWithProviders(<ReviewsScreen tab="mine" />);
+    const requests = await screen.findByRole("region", { name: "Requests for me" });
+    await user.click(await within(requests).findByRole("button", { name: "Write a review" }));
 
     // The intake read has landed and moved the record into Records I'm reviewing; the My reviews read is still held.
     const checkouts = await screen.findByRole("region", { name: "Records I'm reviewing" });
@@ -135,7 +181,7 @@ describe("ReviewsScreen — a row stays locked until every rendered list has rel
       }),
     );
 
-    renderWithProviders(<ReviewsScreen />);
+    renderWithProviders(<BothTabs />);
     const checkouts = await screen.findByRole("region", { name: "Records I'm reviewing" });
     await within(checkouts).findByText(/Cat Power/);
     expect(intakeReads).toEqual([""]);

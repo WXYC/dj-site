@@ -23,7 +23,7 @@ vi.mock("next/navigation", async () => {
 });
 
 describe("MyReviewsScreen", () => {
-  it("renders the request, checkout and My reviews lanes around the slot between them", async () => {
+  it("renders the request, checkout and My reviews lanes", async () => {
     fakeReviewsEndpoints();
     renderWithProviders(
       <WithWrite
@@ -31,7 +31,6 @@ describe("MyReviewsScreen", () => {
         myReviews={[]}
         formats={undefined}
         me="dj-me"
-        between={<p>between the lanes</p>}
       />,
     );
 
@@ -39,6 +38,5 @@ describe("MyReviewsScreen", () => {
       expect(await screen.findByRole("heading", { level: 3, name })).toBeInTheDocument();
     }
     expect(screen.getByRole("button", { name: REVIEW_COPY.writeReview })).toBeInTheDocument();
-    expect(screen.getByText("between the lanes")).toBeInTheDocument();
   });
 });

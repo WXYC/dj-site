@@ -69,6 +69,17 @@ describe("PageHeader", () => {
     });
   });
 
+  describe("Document Title opt-out", () => {
+    it("leaves the document title alone when setsDocumentTitle is false, while still drawing the heading", () => {
+      document.title = "New music | WXYC";
+
+      render(<PageHeader title="Reviews" setsDocumentTitle={false} />);
+
+      expect(screen.getByRole("heading", { level: 2 })).toHaveTextContent("Reviews");
+      expect(document.title).toBe("New music | WXYC");
+    });
+  });
+
   describe("Children Rendering", () => {
     it("should render children when provided", () => {
       render(

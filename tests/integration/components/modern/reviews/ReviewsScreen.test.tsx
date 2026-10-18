@@ -52,6 +52,16 @@ import { toast } from "sonner";
 import { REVIEW_COPY } from "@/src/components/experiences/modern/reviews/copy";
 import ReviewsScreen from "@/src/components/experiences/modern/reviews/ReviewsScreen";
 
+// The two tabs side by side: these specs cover the lanes and the writes between them, and each tab's own content is pinned in ReviewsScreen.tabs.test.tsx.
+function BothTabs() {
+  return (
+    <>
+      <ReviewsScreen tab="shelf" />
+      <ReviewsScreen tab="mine" />
+    </>
+  );
+}
+
 function serveIntake(open: IntakeItem[], reviewed: IntakeItem[] = [], mine: Review[] = [], records: IntakeItem[] = open) {
   fakeReviewsEndpoints({ open, reviewed, mine, records });
 }
@@ -117,10 +127,10 @@ describe("ReviewsScreen", () => {
 
   it.each([
     ["a DJ", Authorization.DJ, [REVIEW_COPY.screen.requestsTitle, REVIEW_COPY.screen.checkoutsTitle, REVIEW_COPY.screen.shelfTitle, REVIEW_COPY.myReviews.title]],
-    ["a music director", Authorization.MD, [REVIEW_COPY.screen.requestsTitle, REVIEW_COPY.screen.checkoutsTitle, REVIEW_COPY.screen.shelfTitle, REVIEW_COPY.myReviews.title, REVIEW_COPY.intake.logTitle]],
-  ])("gives %s each lane and the log form a level-3 heading", async (_who, authority, titles) => {
+    ["a music director", Authorization.MD, [REVIEW_COPY.screen.requestsTitle, REVIEW_COPY.screen.checkoutsTitle, REVIEW_COPY.screen.shelfTitle, REVIEW_COPY.myReviews.title]],
+  ])("gives %s each lane a level-3 heading", async (_who, authority, titles) => {
     mockAuth.authority = authority;
-    renderWithProviders(<ReviewsScreen />);
+    renderWithProviders(<BothTabs />);
 
     await section(SHELF);
     for (const name of titles) expect(await screen.findByRole("heading", { level: 3, name })).toBeInTheDocument();
@@ -136,7 +146,7 @@ describe("ReviewsScreen", () => {
       }),
     );
 
-    const { user } = renderWithProviders(<ReviewsScreen />);
+    const { user } = renderWithProviders(<BothTabs />);
     const shelf = await section(SHELF);
     expect(within(shelf).getByText("Stereolab · Aluminum Tunes · Duophonic · CD")).toBeInTheDocument();
     await user.click(within(shelf).getByRole("button", { name: "Check out" }));
@@ -150,7 +160,7 @@ describe("ReviewsScreen", () => {
       item({ id: 3, artist_name: "Cat Power", effective_state: "checked_out", checked_out_by: "someone-else" }),
     ]);
 
-    renderWithProviders(<ReviewsScreen />);
+    renderWithProviders(<BothTabs />);
     const mine = await section("Records I'm reviewing");
     await within(mine).findByText(/Stereolab/);
     expect(within(mine).getByText("Overdue")).toBeInTheDocument();
@@ -163,7 +173,7 @@ describe("ReviewsScreen", () => {
   ] as const)("reads an unfiled digital record as exactly Digital %s, not by the CD-R format it is stored under", async (_where, region, overrides) => {
     fakeReviewsEndpoints({ open: [digitalItem(overrides)], records: [digitalItem(overrides)], formats: [{ id: 1, format_name: "cd" }, CDR_FORMAT] });
 
-    renderWithProviders(<ReviewsScreen />);
+    renderWithProviders(<BothTabs />);
 
     const lane = await section(region);
     expect(await within(lane).findByText("Stereolab · Aluminum Tunes · Duophonic · Digital")).toBeInTheDocument();
@@ -179,7 +189,7 @@ describe("ReviewsScreen", () => {
       item({ id: 23, state: "requested", effective_state: "requested", requested_dj_id: ME, requested_at: "2025-09-01T03:30:00Z" }),
     ]);
 
-    renderWithProviders(<ReviewsScreen />);
+    renderWithProviders(<BothTabs />);
 
     expect(await screen.findByText("Logged Oct 8, 2025")).toBeInTheDocument();
     expect(screen.getByText("Taken Aug 1, 2025")).toBeInTheDocument();
@@ -206,7 +216,7 @@ describe("ReviewsScreen", () => {
       }),
     );
 
-    const { user } = renderWithProviders(<ReviewsScreen />);
+    const { user } = renderWithProviders(<BothTabs />);
     const mine = await section("Records I'm reviewing");
     await within(mine).findByText("Reviewed. Bring the record back to the music office.");
     expect(within(mine).getByText("Overdue")).toBeInTheDocument();
@@ -237,7 +247,7 @@ describe("ReviewsScreen", () => {
       }),
     );
 
-    const { user } = renderWithProviders(<ReviewsScreen />);
+    const { user } = renderWithProviders(<BothTabs />);
     const mine = await section("Records I'm reviewing");
     await within(mine).findByText(/Stereolab/);
 
@@ -256,7 +266,7 @@ describe("ReviewsScreen", () => {
       item({ id: 12, artist_name: "Cat Power", state: "requested", effective_state: "requested", requested_dj_id: "other" }),
     ]);
 
-    renderWithProviders(<ReviewsScreen />);
+    renderWithProviders(<BothTabs />);
     const requests = await section("Requests for me");
     await within(requests).findByText(/Stereolab/);
     expect(within(requests).queryByText(/Cat Power/)).not.toBeInTheDocument();
@@ -299,7 +309,7 @@ describe("ReviewsScreen", () => {
       serveIntake([requested(digital)], [], [...mine]);
       const posts = serveWrites();
 
-      const { user } = renderWithProviders(<ReviewsScreen />);
+      const { user } = renderWithProviders(<BothTabs />);
       await user.click(await within(await section("Requests for me")).findByRole("button", { name: "Write a review" }));
 
       await waitFor(() => expect(router.push).toHaveBeenCalledWith(`/dashboard/reviews/${id}?arrived=request`));
@@ -311,7 +321,7 @@ describe("ReviewsScreen", () => {
       const posts = serveWrites();
       server.use(http.post(`${TEST_BACKEND_URL}/intake/11/accept`, () => HttpResponse.json({ message: "server words", reason: "state_changed" }, { status: 409 })));
 
-      const { user } = renderWithProviders(<ReviewsScreen />);
+      const { user } = renderWithProviders(<BothTabs />);
       await user.click(await within(await section("Requests for me")).findByRole("button", { name: "Write a review" }));
 
       await waitFor(() => expect(toast).toHaveBeenCalledWith(REQUEST_RACE));
@@ -331,7 +341,7 @@ describe("ReviewsScreen", () => {
       const held = { ...requested(digital), state: "checked_out", effective_state: "checked_out", checked_out_by: ME, checked_out_at: "2026-10-01T12:00:00Z" } as const;
       server.use(http.get(`${TEST_BACKEND_URL}/intake`, () => HttpResponse.json([posts.length > 0 ? held : requested(digital)])));
 
-      const { user } = renderWithProviders(<ReviewsScreen />);
+      const { user } = renderWithProviders(<BothTabs />);
       await user.click(await within(await section("Requests for me")).findByRole("button", { name: "Write a review" }));
 
       await waitFor(() => expect(toast.error).toHaveBeenCalledWith(REVIEW_COPY.couldNotStart));
@@ -350,7 +360,7 @@ describe("ReviewsScreen", () => {
       serveWrites();
       const create = holdResponse("post", `${TEST_BACKEND_URL}/reviews`, respond);
 
-      const { user, unmount, store } = renderWithProviders(<ReviewsScreen />);
+      const { user, unmount, store } = renderWithProviders(<BothTabs />);
       await user.click(await within(await section("Requests for me")).findByRole("button", { name: "Write a review" }));
       await waitFor(() => expect(create.calls.count).toBe(1));
       unmount();
@@ -373,7 +383,7 @@ describe("ReviewsScreen", () => {
           return HttpResponse.json(item({}));
         }),
       );
-      const { user } = renderWithProviders(<ReviewsScreen />);
+      const { user } = renderWithProviders(<BothTabs />);
       await user.click(await within(await section("Requests for me")).findByRole("button", { name: "Pass" }));
       const dialog = await screen.findByRole("alertdialog", { name: PASS });
       return { user, dialog, paths };
@@ -405,7 +415,7 @@ describe("ReviewsScreen", () => {
 
   it("draws each request as a record row: the parts separately, Asked beside them, and Write a review and Pass together in the actions region", async () => {
     serveIntake([item({ id: 11, state: "requested", effective_state: "requested", requested_dj_id: ME, requested_at: "2026-09-30T12:00:00Z" })]);
-    renderWithProviders(<ReviewsScreen />);
+    renderWithProviders(<BothTabs />);
     const requests = await section("Requests for me");
     for (const part of ["Stereolab", "Aluminum Tunes", "Duophonic"]) {
       expect((await within(requests).findByText(part)).textContent).toBe(part);
@@ -436,7 +446,7 @@ describe("ReviewsScreen", () => {
         ),
       );
 
-      const { user, store } = renderWithProviders(<ReviewsScreen />);
+      const { user, store } = renderWithProviders(<BothTabs />);
       const region = await section(title);
       await within(region).findByText(/Stereolab/);
       // The reload after the refusal is held, so the notice is asserted absent while it is outstanding.
@@ -450,9 +460,13 @@ describe("ReviewsScreen", () => {
         await user.click(within(await screen.findByRole("alertdialog", { name: PASS })).getByRole("button", { name: "Pass" }));
       }
       // Assert during the hold, once every read the case depends on has started and only the held one is outstanding:
-      // the my-reviews read has answered, so a notice that waited for it alone would already show.
+      // the my-reviews read has answered, so a notice that waited for it alone would already show. The review shelf tab does not draw that list, so a write there never reads it.
       await waitFor(() => expect(reload.calls.count).toBeGreaterThan(0));
-      await waitFor(() => expect(otherReads.count).toBeGreaterThan(0));
+      if (title === SHELF) {
+        expect(otherReads.count).toBe(0);
+      } else {
+        await waitFor(() => expect(otherReads.count).toBeGreaterThan(0));
+      }
       await waitFor(() => expect(pendingCount(store)).toBe(1));
       await renderedFrame();
       expect(toast).not.toHaveBeenCalled();
@@ -490,7 +504,7 @@ describe("ReviewsScreen", () => {
     process.on("unhandledRejection", onRejection);
 
     try {
-      const { user, unmount, store } = renderWithProviders(<ReviewsScreen />);
+      const { user, unmount, store } = renderWithProviders(<BothTabs />);
       const shelf = await section(SHELF);
       await within(shelf).findByText(/Stereolab/);
       await user.click(within(shelf).getByRole("button", { name: "Check out" }));
@@ -514,7 +528,7 @@ describe("ReviewsScreen", () => {
       ),
     );
 
-    const { user } = renderWithProviders(<ReviewsScreen />);
+    const { user } = renderWithProviders(<BothTabs />);
     const shelf = await section(SHELF);
     await within(shelf).findByText(/Aluminum Tunes/);
     await user.click(within(shelf).getByRole("button", { name: "Check out" }));
@@ -541,7 +555,7 @@ describe("ReviewsScreen", () => {
       }),
     );
 
-    const { user, store } = renderWithProviders(<ReviewsScreen />);
+    const { user, store } = renderWithProviders(<BothTabs />);
     const shelf = await section(SHELF);
     await within(shelf).findByText(/Stereolab/);
     const reload = holdResponse("get", `${TEST_BACKEND_URL}/intake`, () => HttpResponse.json([]));
@@ -550,9 +564,10 @@ describe("ReviewsScreen", () => {
     await waitFor(() => expect(posts).toHaveLength(1));
     // Assert during the hold, once every read the case depends on has started and only the held one is outstanding.
     await waitFor(() => expect(reload.calls.count).toBeGreaterThan(0));
-    await waitFor(() => expect(otherReads.count).toBeGreaterThan(0));
     await waitFor(() => expect(pendingCount(store)).toBe(1));
     await renderedFrame();
+    // The review shelf tab does not draw My reviews, so its write never reads it.
+    expect(otherReads.count).toBe(0);
 
     expect(within(shelf).getByText(/Stereolab/)).toBeInTheDocument();
     const again = within(shelf).getByRole("button", { name: "Check out" });
@@ -599,7 +614,7 @@ describe("ReviewsScreen", () => {
       }),
     );
 
-    const { user } = renderWithProviders(<ReviewsScreen />);
+    const { user } = renderWithProviders(<BothTabs />);
     const region = await section(title);
     await within(region).findByText(/Stereolab/);
     await user.dblClick(within(region).getByRole("button", { name: button }));
@@ -615,7 +630,7 @@ describe("ReviewsScreen", () => {
       http.get(`${TEST_BACKEND_URL}/intake`, () => new HttpResponse("<html>Bad Gateway</html>", { status: 200, headers: { "Content-Type": "text/html" } })),
     );
 
-    renderWithProviders(<ReviewsScreen />);
+    renderWithProviders(<ReviewsScreen tab="shelf" />);
 
     expect(await screen.findByRole("alert")).toHaveTextContent(/^Couldn't load the review shelf\. Please try again\.$/);
   });
@@ -626,16 +641,16 @@ describe("ReviewsScreen", () => {
     ["a music director", "staff", Authorization.MD, true],
     ["a station manager", "true", Authorization.SM, true],
     ["a station manager", "staff", Authorization.SM, true],
-  ])("%s under the flag %j: the log form, Request a review and the record link are present only for a music director or above", async (_label, flag, who, directors) => {
+  ])("%s under the flag %j: Request a review and the record link are present only for a music director or above", async (_label, flag, who, directors) => {
     vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", flag);
     mockAuth.authority = who;
     fakeReviewsEndpoints({ open: [moonPix()], reviewers: REVIEWERS });
 
-    renderWithProviders(<ReviewsScreen />);
+    renderWithProviders(<BothTabs />);
     const shelf = await section(SHELF);
     await within(shelf).findByText(/Moon Pix/);
 
-    expect(screen.queryByRole("form", { name: "Log an item" }) !== null).toBe(directors);
+    expect(screen.queryByRole("form", { name: "Log an item" })).not.toBeInTheDocument();
     expect(within(shelf).queryAllByRole("button", { name: "Request a review" })).toHaveLength(directors ? 1 : 0);
     const link = within(shelf).queryByRole("link", { name: /Moon Pix/ });
     expect(link !== null).toBe(directors);
@@ -652,7 +667,7 @@ describe("ReviewsScreen", () => {
 
     fakeReviewsEndpoints({ open: [moonPix()], reviewers: REVIEWERS });
     server.use(count);
-    const dj = renderWithProviders(<ReviewsScreen />);
+    const dj = renderWithProviders(<BothTabs />);
     await within(await section(SHELF)).findByText(/Moon Pix/);
     // The read is a skip for a DJ, decided at render: it is never started.
     expect(reviewApi.endpoints.getReviewers.select(undefined)(dj.store.getState()).isUninitialized).toBe(true);
@@ -661,7 +676,7 @@ describe("ReviewsScreen", () => {
     dj.unmount();
 
     mockAuth.authority = Authorization.MD;
-    const { user } = renderWithProviders(<ReviewsScreen />);
+    const { user } = renderWithProviders(<BothTabs />);
     await user.click(await (await rowControls("Moon Pix")).findByRole("combobox", { name: "DJ to ask" }));
     expect(await screen.findByRole("option", { name: "Test Reviewer" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Pat Placeholder" })).toBeInTheDocument();
@@ -684,7 +699,7 @@ describe("ReviewsScreen", () => {
       }),
     );
 
-    const { user } = renderWithProviders(<ReviewsScreen />);
+    const { user } = renderWithProviders(<BothTabs />);
     expect((await rowControls("Moon Pix")).getByRole("button", { name: "Request a review" })).toBeDisabled();
     await pick(user, "Pat Placeholder");
     await user.click(screen.getByRole("button", { name: "Request a review" }));
@@ -705,7 +720,7 @@ describe("ReviewsScreen", () => {
       }),
     );
 
-    const { user } = renderWithProviders(<ReviewsScreen />);
+    const { user } = renderWithProviders(<BothTabs />);
     await pick(user, "Pat Placeholder");
     const button = screen.getByRole("button", { name: "Request a review" });
     await user.dblClick(button);
@@ -725,7 +740,7 @@ describe("ReviewsScreen", () => {
       }),
     );
 
-    const { user } = renderWithProviders(<ReviewsScreen />);
+    const { user } = renderWithProviders(<BothTabs />);
     await pick(user, "Pat Placeholder");
     const first = (await rowControls("Moon Pix")).getByRole("button", { name: "Request a review" });
     await user.click(first);
@@ -753,7 +768,7 @@ describe("ReviewsScreen", () => {
       http.post(`${TEST_BACKEND_URL}/intake/11/request`, () => HttpResponse.json({ message: "server words" }, { status: 400 })),
     );
 
-    const { user } = renderWithProviders(<ReviewsScreen />);
+    const { user } = renderWithProviders(<BothTabs />);
     await pick(user, "Pat Placeholder");
     server.use(
       http.get(`${TEST_BACKEND_URL}/reviews/reviewers`, () => {
@@ -778,7 +793,7 @@ describe("ReviewsScreen", () => {
       ),
     );
 
-    const { user } = renderWithProviders(<ReviewsScreen />);
+    const { user } = renderWithProviders(<BothTabs />);
     await screen.findByRole("button", { name: "Request a review" });
     server.use(
       http.get(`${TEST_BACKEND_URL}/intake`, () => {
@@ -806,7 +821,7 @@ describe("ReviewsScreen", () => {
       mine: [review({ id: 40 })],
     });
 
-    const { user } = renderWithProviders(<ReviewsScreen />);
+    const { user } = renderWithProviders(<BothTabs />);
     const shelf = await section(SHELF);
     expect(await within(shelf).findAllByRole("button", { name: "Request a review" })).toHaveLength(2);
     await user.click(await (await rowControls("Moon Pix")).findByRole("combobox", { name: "DJ to ask" }));
@@ -832,7 +847,7 @@ describe("ReviewsScreen", () => {
       reviewers: REVIEWERS,
     });
 
-    const { user } = renderWithProviders(<ReviewsScreen />);
+    const { user } = renderWithProviders(<BothTabs />);
     await pick(user, "Pat Placeholder", "Dark Side");
 
     expect((await rowControls("Dark Side")).getByRole("button", { name: "Request a review" })).toBeEnabled();
@@ -848,7 +863,7 @@ describe("ReviewsScreen", () => {
     serveIntake([row]);
     server.use(http.post(`${TEST_BACKEND_URL}/intake/5/${action}`, () => HttpResponse.json({ message: "server words" }, { status: 400 })));
 
-    const { user } = renderWithProviders(<ReviewsScreen />);
+    const { user } = renderWithProviders(<BothTabs />);
     await user.click(await within(await section(title)).findByRole("button", { name: button }));
     if (action === "pass") {
       await user.click(within(await screen.findByRole("alertdialog", { name: PASS })).getByRole("button", { name: "Pass" }));
@@ -862,7 +877,7 @@ describe("ReviewsScreen", () => {
     serveIntake([item({ id: 5, state: "checked_out", effective_state: "checked_out", checked_out_by: ME })]);
     server.use(http.post(`${TEST_BACKEND_URL}/intake/5/release`, () => HttpResponse.json({ message: "server words" }, { status: 400 })));
 
-    const { user } = renderWithProviders(<ReviewsScreen />);
+    const { user } = renderWithProviders(<BothTabs />);
     await user.click(await within(await section("Records I'm reviewing")).findByRole("button", { name: RETURN }));
     await user.click(within(await screen.findByRole("alertdialog", { name: RETURN })).getByRole("button", { name: RETURN }));
 
@@ -870,7 +885,7 @@ describe("ReviewsScreen", () => {
     expect(toast.error).not.toHaveBeenCalledWith(REQUEST_REFUSED);
   });
 
-  it("never paints the review shelf lane without the logging form and Request a review when the role resolves after the first paint", async () => {
+  it("never paints the review shelf lane without Request a review when the role resolves after the first paint", async () => {
     mockAuth.authority = Authorization.MD;
     mockAuth.late = true;
     fakeReviewsEndpoints({ open: [moonPix()], reviewers: REVIEWERS });
@@ -878,21 +893,19 @@ describe("ReviewsScreen", () => {
     const observer = new MutationObserver(() => {
       const shelf = screen.queryByRole("region", { name: SHELF });
       if (!shelf) return;
-      const form = screen.queryByRole("form", { name: "Log an item" }) !== null;
       const row = within(shelf).queryByText(/Moon Pix/) !== null;
       const request = within(shelf).queryByRole("button", { name: "Request a review" }) !== null;
-      states.push(`${form ? "F" : "-"}${row ? (request ? "R" : "-") : "."}`);
+      states.push(`${row ? (request ? "R" : "-") : "."}`);
     });
     observer.observe(document.body, { childList: true, subtree: true });
 
-    renderWithProviders(<ReviewsScreen />);
-    await screen.findByRole("form", { name: "Log an item" });
+    renderWithProviders(<BothTabs />);
     await within(await section(SHELF)).findByRole("button", { name: "Request a review" });
     await new Promise((resolve) => setTimeout(resolve, 50));
     observer.disconnect();
 
-    expect(states).toContain("FR");
-    expect(states.filter((state) => state[0] === "-" || state[1] === "-")).toEqual([]);
+    expect(states).toContain("R");
+    expect(states.filter((state) => state === "-")).toEqual([]);
   });
 
   it("shows one line above the shelf when the reviewers fail to load, and the lanes still render", async () => {
@@ -900,7 +913,7 @@ describe("ReviewsScreen", () => {
     fakeReviewsEndpoints({ open: [moonPix({ id: 1 }), moonPix({ id: 2 })] });
     server.use(http.get(`${TEST_BACKEND_URL}/reviews/reviewers`, () => HttpResponse.json({ message: "down" }, { status: 500 })));
 
-    renderWithProviders(<ReviewsScreen />);
+    renderWithProviders(<BothTabs />);
 
     const shelf = await section(SHELF);
     expect(within(shelf).getAllByText(/Moon Pix/)).toHaveLength(2);
@@ -910,59 +923,6 @@ describe("ReviewsScreen", () => {
     expect(alerts[0].compareDocumentPosition(shelf) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it("logs an item from the form and the record appears in The review shelf lane", async () => {
-    mockAuth.authority = Authorization.MD;
-    let logged = false;
-    fakeReviewsEndpoints({
-      open: () => (logged ? [moonPix()] : []),
-      reviewers: REVIEWERS,
-    });
-    server.use(
-      http.post(`${TEST_BACKEND_URL}/intake`, () => {
-        logged = true;
-        return HttpResponse.json(moonPix());
-      }),
-    );
-
-    const { user } = renderWithProviders(<ReviewsScreen />);
-    await user.type(await screen.findByLabelText(/^Artist/), "Cat Power");
-    await user.type(screen.getByLabelText(/^Album/), "Moon Pix");
-    await user.click(screen.getByRole("radio", { name: "A disc or a record" }));
-    await user.click(screen.getByRole("combobox", { name: /^Format/ }));
-    await user.click(await screen.findByRole("option", { name: "CD" }));
-    await user.click(screen.getByRole("button", { name: "Log item" }));
-
-    expect(await within(await section(SHELF)).findByText(/Moon Pix/)).toBeInTheDocument();
-  });
-
-  it("shows the Format options as CD and Vinyl while still sending the stored format's id", async () => {
-    mockAuth.authority = Authorization.MD;
-    fakeReviewsEndpoints({ open: [], reviewers: REVIEWERS });
-    let body: Record<string, unknown> | undefined;
-    server.use(
-      http.get(`${TEST_BACKEND_URL}/library/formats`, () =>
-        HttpResponse.json([{ id: 1, format_name: "cd" }, { id: 2, format_name: "vinyl" }]),
-      ),
-      http.post(`${TEST_BACKEND_URL}/intake`, async ({ request }) => {
-        body = (await request.json()) as Record<string, unknown>;
-        return HttpResponse.json(moonPix());
-      }),
-    );
-
-    const { user } = renderWithProviders(<ReviewsScreen />);
-    await user.type(await screen.findByLabelText(/^Artist/), "Cat Power");
-    await user.type(screen.getByLabelText(/^Album/), "Moon Pix");
-    await user.click(screen.getByRole("radio", { name: "A disc or a record" }));
-    await user.click(screen.getByRole("combobox", { name: /^Format/ }));
-    const options = await screen.findAllByRole("option");
-    expect(options.map((o) => o.textContent)).toEqual(["CD", "Vinyl"]);
-    await user.click(options[1]);
-    await user.click(screen.getByRole("button", { name: "Log item" }));
-
-    await waitFor(() => expect(body).toBeDefined());
-    expect(body!.format_id).toBe(2);
-  });
-
   it.each([
     [SHELF, "Nothing is waiting on the review shelf."],
     ["Records I'm reviewing", "You aren't reviewing any records."],
@@ -970,29 +930,22 @@ describe("ReviewsScreen", () => {
   ])("says %s is empty in so many words", async (title, empty) => {
     serveIntake([]);
 
-    renderWithProviders(<ReviewsScreen />);
+    renderWithProviders(<BothTabs />);
 
     expect(await within(await section(title)).findByText(empty)).toBeInTheDocument();
   });
 
   it.each([
-    ["a DJ", Authorization.DJ, false],
-    ["a music director", Authorization.MD, true],
-  ])("lays the lanes out in the order %s works through them", async (_label, who, directors) => {
-    mockAuth.authority = who;
-    fakeReviewsEndpoints({ open: [moonPix()], reviewers: REVIEWERS });
+    ["shelf", [SHELF]],
+    ["mine", ["Requests for me", "Records I'm reviewing", "My reviews"]],
+  ] as const)("lays the %s tab's lanes out in the order a DJ works through them", async (tab, lanes) => {
+    fakeReviewsEndpoints({ open: [moonPix()] });
 
-    renderWithProviders(<ReviewsScreen />);
-    await section(SHELF);
+    renderWithProviders(<ReviewsScreen tab={tab} />);
+    await screen.findByRole("region", { name: lanes[0] });
 
     const regions = screen.getAllByRole("region").map((r) => document.getElementById(r.getAttribute("aria-labelledby")!)?.textContent);
-    expect(regions).toEqual(["Requests for me", "Records I'm reviewing", SHELF, "My reviews"]);
-    const form = screen.queryByRole("form", { name: "Log an item" });
-    if (!directors) return expect(form).toBeNull();
-    const shelf = screen.getByRole("region", { name: SHELF });
-    expect(form!.compareDocumentPosition(shelf) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    const checkouts = screen.getByRole("region", { name: "Records I'm reviewing" });
-    expect(checkouts.compareDocumentPosition(form!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(regions).toEqual(lanes);
   });
 
   it.each([
@@ -1028,7 +981,7 @@ describe("ReviewsScreen", () => {
       }),
     );
 
-    const { user } = renderWithProviders(<ReviewsScreen />);
+    const { user } = renderWithProviders(<BothTabs />);
     const mine = await section("Records I'm reviewing");
     await user.click(await within(mine).findByRole("button", { name: REVIEW_COPY.writeReview }));
 
@@ -1041,7 +994,7 @@ describe("ReviewsScreen", () => {
     let posts = 0;
     server.use(http.post(`${TEST_BACKEND_URL}/reviews`, () => (posts++, HttpResponse.json(review({ id: 41 })))));
 
-    const { user } = renderWithProviders(<ReviewsScreen />);
+    const { user } = renderWithProviders(<BothTabs />);
     const mine = await section("Records I'm reviewing");
     await user.click(await within(mine).findByRole("button", { name: "Write a review" }));
 
@@ -1053,7 +1006,7 @@ describe("ReviewsScreen", () => {
   // row's buttons stay disabled while the click is handled and the lists reload.
   it("locks the row while Write a review opens the existing draft", async () => {
     serveIntake([HELD], [], [review({ id: 40, intake_item_id: 2 })]);
-    const { user } = renderWithProviders(<ReviewsScreen />);
+    const { user } = renderWithProviders(<BothTabs />);
     const mine = await section("Records I'm reviewing");
     const write = await within(mine).findByRole("button", { name: REVIEW_COPY.writeReview });
     const returnButton = within(mine).getByRole("button", { name: RETURN });
@@ -1079,7 +1032,7 @@ describe("ReviewsScreen", () => {
   it("shows the submitted line and Edit review in place of Write a review once I have submitted", async () => {
     serveIntake([HELD], [], [review({ id: 40, intake_item_id: 2, status: "submitted" })]);
 
-    const { user } = renderWithProviders(<ReviewsScreen />);
+    const { user } = renderWithProviders(<BothTabs />);
     const mine = await section("Records I'm reviewing");
 
     expect(await within(mine).findByText("Review submitted. A music director will choose the review for the cover.")).toBeInTheDocument();
@@ -1105,7 +1058,7 @@ describe("ReviewsScreen", () => {
       mine.map((m, n) => review({ id: 40 + n, intake_item_id: 2, status: m.status } as Partial<Review>)),
     );
 
-    renderWithProviders(<ReviewsScreen />);
+    renderWithProviders(<BothTabs />);
     const lane = await section("Records I'm reviewing");
     const mainButton = await within(lane).findByRole("button", { name: main });
     const otherButton = within(lane).getByRole("button", { name: other });
@@ -1129,7 +1082,7 @@ describe("ReviewsScreen", () => {
       }),
     );
 
-    const { user, store } = renderWithProviders(<ReviewsScreen />);
+    const { user, store } = renderWithProviders(<BothTabs />);
     const mine = await section("Records I'm reviewing");
     await user.dblClick(await within(mine).findByRole("button", { name: REVIEW_COPY.writeReview }));
 
@@ -1154,7 +1107,7 @@ describe("ReviewsScreen", () => {
       }),
     );
 
-    const { user } = renderWithProviders(<ReviewsScreen />);
+    const { user } = renderWithProviders(<BothTabs />);
     const mine = await section("Records I'm reviewing");
     await user.click(await within(mine).findByRole("button", { name: REVIEW_COPY.writeReview }));
 
@@ -1168,7 +1121,7 @@ describe("ReviewsScreen", () => {
   it("lists my drafts and submitted reviews as a fourth section with a link to each", async () => {
     serveIntake([HELD], [], [review({ id: 40 }), review({ id: 41, intake_item_id: null, status: "submitted" })]);
 
-    renderWithProviders(<ReviewsScreen />);
+    renderWithProviders(<BothTabs />);
     const reviews = await section(REVIEW_COPY.myReviews.title);
 
     expect(within(reviews).getByText(REVIEW_COPY.myReviews.draft)).toBeInTheDocument();
@@ -1188,7 +1141,7 @@ describe("ReviewsScreen", () => {
       releases: [{ id: 7, artist_name: "Juana Molina", album_title: "DOGA", record_label: "Sonamos", format_name: "cd", legacy_release_id: 1 }],
     });
 
-    renderWithProviders(<ReviewsScreen />);
+    renderWithProviders(<BothTabs />);
     const reviews = await section(REVIEW_COPY.myReviews.title);
 
     expect(await within(reviews).findByText("Cat Power")).toBeInTheDocument();
@@ -1211,7 +1164,7 @@ describe("ReviewsScreen", () => {
       }),
     );
 
-    renderWithProviders(<ReviewsScreen />);
+    renderWithProviders(<BothTabs />);
     const reviews = await section(REVIEW_COPY.myReviews.title);
 
     expect(await within(reviews).findByText(REVIEW_COPY.myReviews.libraryRelease)).toBeInTheDocument();
@@ -1235,7 +1188,7 @@ describe("ReviewsScreen", () => {
       releases: [{ id: 7, artist_name: "Juana Molina", album_title: "DOGA", record_label: "Sonamos", format_name: "cd", legacy_release_id: 1 }],
     });
 
-    renderWithProviders(<ReviewsScreen />);
+    renderWithProviders(<BothTabs />);
     const reviews = await section(REVIEW_COPY.myReviews.title);
     const [artist, album, label] = fromLibrary ? ["Juana Molina", "DOGA", "Sonamos"] : ["Cat Power", "Moon Pix", "Matador"];
 
@@ -1266,7 +1219,7 @@ describe("ReviewsScreen", () => {
       }),
     );
 
-    renderWithProviders(<ReviewsScreen />);
+    renderWithProviders(<BothTabs />);
     const reviews = await section(REVIEW_COPY.myReviews.title);
 
     expect(await within(reviews).findByText("Last saved Oct 8, 2025")).toBeInTheDocument();
@@ -1281,19 +1234,19 @@ describe("ReviewsScreen", () => {
     const logged = item({ id: 9, artist_name: "Cat Power", album_title: "Moon Pix", record_label: "Matador", format_id: 2, state: "filed", effective_state: "filed" });
     fakeReviewsEndpoints({ mine: [review({ id: 40, intake_item_id: 9 })], records: [logged], formats: [{ id: 2, format_name: "vinyl" }] });
 
-    renderWithProviders(<ReviewsScreen />);
+    renderWithProviders(<BothTabs />);
 
     expect(await within(await section(REVIEW_COPY.myReviews.title)).findByText("Vinyl")).toBeInTheDocument();
   });
 
   it("says my reviews are empty in so many words, and shows the load-failure line when that read fails", async () => {
     serveIntake([]);
-    const first = renderWithProviders(<ReviewsScreen />);
+    const first = renderWithProviders(<BothTabs />);
     expect(await within(await section(REVIEW_COPY.myReviews.title)).findByText(REVIEW_COPY.myReviews.empty)).toBeInTheDocument();
     first.unmount();
 
     server.use(http.get(`${TEST_BACKEND_URL}/reviews`, () => HttpResponse.json({ message: "down" }, { status: 500 })));
-    renderWithProviders(<ReviewsScreen />);
+    renderWithProviders(<BothTabs />);
     expect(await screen.findByRole("alert")).toHaveTextContent(/^Couldn't load the review shelf\. Please try again\.$/);
   });
 
@@ -1311,7 +1264,7 @@ describe("ReviewsScreen", () => {
     server.events.on("request:start", log);
 
     try {
-      const { container, store } = renderWithProviders(<ReviewsScreen />);
+      const { container, store } = renderWithProviders(<BothTabs />);
 
       await reviewsSettled(store);
       expect(requested.filter((p) => p.startsWith("/intake"))).toEqual([]);
@@ -1331,7 +1284,7 @@ describe("ReviewsScreen", () => {
     mockAuth.authority = who;
     fakeReviewsEndpoints({ open: [moonPix()], reviewers: REVIEWERS });
 
-    const { container, store } = renderWithProviders(<ReviewsScreen />);
+    const { container, store } = renderWithProviders(<BothTabs />);
 
     await reviewsSettled(store);
     expect(container).toBeEmptyDOMElement();
@@ -1347,7 +1300,7 @@ describe("ReviewsScreen — a failed background refetch", () => {
 
   it("keeps the loaded lists and shows no load-failure line when the reload after Check out fails", async () => {
     serveIntake([item({ id: 5 })]);
-    const { user } = renderWithProviders(<ReviewsScreen />);
+    const { user } = renderWithProviders(<BothTabs />);
     const shelf = await section(SHELF);
     const checkout = await within(shelf).findByRole("button", { name: "Check out" });
 
@@ -1386,7 +1339,7 @@ describe("ReviewsScreen — a digital album reads its own lines, a disc keeps to
     ["a digital album", true, "Take", "Check out"],
   ])("labels the review shelf button for %s", async (_kind, digital, label, other) => {
     serveIntake([make(digital, { id: 2 })]);
-    renderWithProviders(<ReviewsScreen />);
+    renderWithProviders(<BothTabs />);
     const shelf = await section(SHELF);
     expect(await within(shelf).findByRole("button", { name: label })).toBeInTheDocument();
     expect(within(shelf).queryByRole("button", { name: other })).not.toBeInTheDocument();
@@ -1397,7 +1350,7 @@ describe("ReviewsScreen — a digital album reads its own lines, a disc keeps to
     ["an overdue digital album with no submitted review", true, "Not reviewed yet"],
   ])("marks %s", async (_kind, digital, mark) => {
     serveIntake([make(digital, { id: 2, ...TAKEN, overdue: true })]);
-    renderWithProviders(<ReviewsScreen />);
+    renderWithProviders(<BothTabs />);
     const mine = await section(LIST);
     expect(await within(mine).findByText(mark)).toBeInTheDocument();
     expect(within(mine).queryByText(mark === "Overdue" ? "Not reviewed yet" : "Overdue")).not.toBeInTheDocument();
@@ -1412,7 +1365,7 @@ describe("ReviewsScreen — a digital album reads its own lines, a disc keeps to
       [],
       [review({ id: 40, intake_item_id: 2, status: "submitted" }), review({ id: 41, intake_item_id: 3, status: "submitted" })],
     );
-    renderWithProviders(<ReviewsScreen />);
+    renderWithProviders(<BothTabs />);
     const mine = await section(LIST);
     await within(mine).findByText(/Cat Power/);
     expect(within(mine).getAllByText("Overdue")).toHaveLength(1);
@@ -1424,7 +1377,7 @@ describe("ReviewsScreen — a digital album reads its own lines, a disc keeps to
     ["a digital album", true, "Put this record back on the review shelf? Another DJ can take it."],
   ])("asks the return question for %s", async (_kind, digital, question) => {
     serveIntake([make(digital, { id: 2, ...TAKEN })]);
-    const { user } = renderWithProviders(<ReviewsScreen />);
+    const { user } = renderWithProviders(<BothTabs />);
     await user.click(await within(await section(LIST)).findByRole("button", { name: RETURN }));
     expect(await within(await screen.findByRole("alertdialog", { name: RETURN })).findByText(question)).toBeInTheDocument();
   });
@@ -1434,7 +1387,7 @@ describe("ReviewsScreen — a digital album reads its own lines, a disc keeps to
     ["a digital album", true, false],
   ])("shows the reviewed line for %s only when it is a disc", async (_kind, digital, shown) => {
     serveIntake([], [make(digital, { id: 2, ...TAKEN, state: "reviewed", effective_state: "reviewed" })]);
-    renderWithProviders(<ReviewsScreen />);
+    renderWithProviders(<BothTabs />);
     const mine = await section(LIST);
     await within(mine).findByText(/Stereolab/);
     expect(within(mine).queryByText(REVIEWED_RETURN) !== null).toBe(shown);
@@ -1446,7 +1399,7 @@ describe("ReviewsScreen — a digital album reads its own lines, a disc keeps to
     ["a digital album with a submitted review", true, [review({ id: 40, intake_item_id: 2, status: "submitted" })], null],
   ])("shows the files line for %s", async (_kind, digital, mine, line) => {
     serveIntake([make(digital, { id: 2, ...TAKEN, submitted_review_count: mine.length })], [], mine);
-    renderWithProviders(<ReviewsScreen />);
+    renderWithProviders(<BothTabs />);
     const lane = await section(LIST);
     await within(lane).findByText(/Stereolab/);
     await waitFor(() => expect(within(lane).queryByText(SUBMITTED) !== null).toBe(mine.length > 0));
@@ -1460,7 +1413,7 @@ describe("ReviewsScreen — a digital album reads its own lines, a disc keeps to
       [],
       [review({ id: 40, intake_item_id: 2, status: "submitted" })],
     );
-    renderWithProviders(<ReviewsScreen />);
+    renderWithProviders(<BothTabs />);
     const lane = await section(LIST);
     expect(await within(lane).findByText(SUBMITTED)).toBeInTheDocument();
     expect(within(lane).queryByText("Not reviewed yet")).not.toBeInTheDocument();
@@ -1475,7 +1428,7 @@ describe("ReviewsScreen — a digital album reads its own lines, a disc keeps to
       http.get(`${TEST_BACKEND_URL}/intake`, () => HttpResponse.json([row])),
       http.post(`${TEST_BACKEND_URL}/intake/5/${action}`, () => HttpResponse.json({ message: "server words", reason: "state_changed" }, { status: 409 })),
     );
-    const { user } = renderWithProviders(<ReviewsScreen />);
+    const { user } = renderWithProviders(<BothTabs />);
     await user.click(await within(await section(LIST)).findByRole("button", { name: button }));
     await user.click(within(await screen.findByRole("alertdialog", { name: RETURN })).getByRole("button", { name: RETURN }));
     await waitFor(() => expect(toast).toHaveBeenCalledWith(notice));
@@ -1490,7 +1443,7 @@ describe("ReviewsScreen — a digital album reads its own lines, a disc keeps to
       http.get(`${TEST_BACKEND_URL}/intake`, () => HttpResponse.json([row])),
       http.post(`${TEST_BACKEND_URL}/reviews`, () => HttpResponse.json({ message: "server words", reason: "subject_not_held" }, { status: 409 })),
     );
-    const { user } = renderWithProviders(<ReviewsScreen />);
+    const { user } = renderWithProviders(<BothTabs />);
     await user.click(await within(await section(LIST)).findByRole("button", { name: REVIEW_COPY.writeReview }));
     await waitFor(() => expect(toast).toHaveBeenCalledWith(notice));
   });

@@ -12,21 +12,22 @@ for (const [name, storageState] of [
   test.describe(`Review shelf lanes: ${name}`, () => {
     test.use({ storageState: path.join(authDir, storageState) });
 
-    test("renders the review shelf and the logging form on the Reviews page", async ({ page }) => {
+    test("renders the review shelf, and no logging form, on the first tab", async ({ page }) => {
       await page.goto("/dashboard/reviews");
 
       await expect(page.getByRole("heading", { name: "Reviews" }).first()).toBeVisible({ timeout: 15000 });
       await expect(page.getByRole("region", { name: "The review shelf" })).toBeVisible({ timeout: 15000 });
-      await expect(page.getByRole("form", { name: "Log an item" })).toBeVisible();
+      await expect(page.getByRole("form", { name: "Log an item" })).toHaveCount(0);
     });
 
-    test("renders the music directors' lanes on the second tab", async ({ page }) => {
+    test("renders the logging form and the music directors' lanes on the New music tab", async ({ page }) => {
       await page.goto("/dashboard/reviews/music-directors");
 
+      await expect(page.getByRole("form", { name: "Log an item" })).toBeVisible({ timeout: 15000 });
       await expect(page.getByRole("region", { name: "Filed" })).toBeVisible({ timeout: 15000 });
     });
 
-    test("forwards the old review shelf address to the second tab", async ({ page }) => {
+    test("forwards the old review shelf address to the New music tab", async ({ page }) => {
       await page.goto("/dashboard/admin/intake");
 
       await expect(page).toHaveURL(/\/dashboard\/reviews\/music-directors$/, { timeout: 15000 });

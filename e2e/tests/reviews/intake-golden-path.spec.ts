@@ -70,7 +70,7 @@ test("the intake golden path, from logging a record to the librarian's finalize"
   try {
     await test.step("1. the music director logs a disc", async () => {
       // A failed earlier run may have left this account on the classic interface.
-      await setExperienceViaAccount(md, "modern", "/dashboard/reviews");
+      await setExperienceViaAccount(md, "modern", "/dashboard/reviews/music-directors");
 
       const form = md.getByRole("form", { name: COPY.intake.logTitle });
       await form.getByLabel(new RegExp(`^${COPY.intake.artist}`)).fill(artist);
@@ -79,15 +79,22 @@ test("the intake golden path, from logging a record to the librarian's finalize"
       await form.getByRole("radio", { name: COPY.intake.arrivedAsDisc }).click();
       await form.getByRole("combobox", { name: new RegExp(`^${COPY.intake.format}`) }).click();
       await md.getByRole("option").first().click();
+      // Leaving the page before the POST is sent would drop the write, so wait for the backend to answer it.
+      const logged = md.waitForResponse((r) => r.request().method() === "POST" && new URL(r.url()).pathname.endsWith("/intake"));
       await form.getByRole("button", { name: COPY.intake.log }).click();
+      expect((await logged).ok()).toBe(true);
 
+      await md.goto("/dashboard/reviews");
       await expect(shelfRow(md)).toBeVisible({ timeout: 15000 });
     });
 
     await test.step("2. the DJ checks it out, writes and submits a review; the record stays on the list", async () => {
       await dj.goto("/dashboard/reviews");
+      const checkedOut = dj.waitForResponse((r) => r.request().method() === "POST" && /\/intake\/\d+\/checkout$/.test(new URL(r.url()).pathname));
       await shelfRow(dj).getByRole("button", { name: COPY.screen.checkOut, exact: true }).click();
+      expect((await checkedOut).ok()).toBe(true);
 
+      await dj.goto("/dashboard/reviews/mine");
       const row = checkoutRow(dj);
       await expect(row).toBeVisible({ timeout: 15000 });
       await row.getByRole("button", { name: COPY.writeReview }).click();
@@ -101,7 +108,7 @@ test("the intake golden path, from logging a record to the librarian's finalize"
       await dj.getByRole("alertdialog").getByRole("button", { name: COPY.submit, exact: true }).click();
       await expect(dj.getByText(COPY.submittedBanner)).toBeVisible({ timeout: 15000 });
 
-      await dj.goto("/dashboard/reviews");
+      await dj.goto("/dashboard/reviews/mine");
       const submitted = checkoutRow(dj);
       await expect(submitted).toBeVisible({ timeout: 15000 });
       await expect(submitted.getByText(COPY.screen.reviewSubmitted)).toBeVisible();
@@ -167,7 +174,7 @@ test("the intake golden path, from logging a record to the librarian's finalize"
 
     await test.step("5. the DJ edits the review after it was printed, and the save succeeds", async () => {
       // Filing cleared the holder, so the record has left the DJ's checkout list; the review is still theirs under My reviews.
-      await dj.goto("/dashboard/reviews");
+      await dj.goto("/dashboard/reviews/mine");
       const mine = dj.getByRole("region", { name: COPY.myReviews.title }).getByRole("listitem").filter({ hasText: album });
       await mine.getByRole("link", { name: COPY.myReviews.open }).click();
       await dj.waitForURL(new RegExp(`/dashboard/reviews/${reviewId}$`), { timeout: 15000 });

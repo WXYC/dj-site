@@ -172,7 +172,8 @@ function Form({ review, user, arrivedFromRequest }: { review: Review; user: User
       // The review is gone, so nothing is left to save: the form goes clean before the redirect, which may be a full load, whatever was typed while the request was out.
       setDeleted(true);
       clearReviewDraft(userId, review.id);
-      router.replace("/dashboard/reviews");
+      // My reviews is where the DJ's drafts live, and where the editor was opened from.
+      router.replace("/dashboard/reviews/mine");
     } catch (err) {
       if (isReviewInUse(err)) setRefusedInUse(true);
       else toast.error(REVIEW_COPY.couldNotDelete);
