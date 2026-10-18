@@ -239,6 +239,10 @@ export const REVIEW_COPY = {
     raceRequest: "This record has left the review shelf since the page loaded, so it can't be requested. The lists have been reloaded.",
     /** Approved. Shown when a request names an account that can no longer be asked to review. */
     requestRefused: "That DJ can't be asked to review: their account was removed, or it's no longer a DJ account. Pick someone else.",
+    /** The review shelf row's hint that the library holds this record already. */
+    hintLibrary: (album: string) => `The library has ${album}.`,
+    /** The review shelf row's hint that the form archive holds reviews of this artist; one review reads in the singular. */
+    hintForms: (count: number, artist: string) => `${count} form ${count === 1 ? "review" : "reviews"} of ${artist}.`,
     /** Approved. The item in a review shelf row's More menu, and the button on a record's page, that opens the search for a DJ to ask. */
     askADj: "Ask a DJ…",
     /** Approved. The music directors' menu button on each review shelf row, whose items are the ways to get a review. */

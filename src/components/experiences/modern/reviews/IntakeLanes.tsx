@@ -28,6 +28,7 @@ import FccNotesToConfirm from "./FccNotesToConfirm";
 import HeadedSection from "./HeadedSection";
 import { REVIEW_COPY } from "./copy";
 import RecordRow, { type RecordRowTitle } from "./RecordRow";
+import ReviewHint from "./ReviewHint";
 import { intakeRecord } from "./recordLine";
 import { GET_FILE_IT } from "./intakeLinks";
 import { whereLine, WaitingFrom } from "./ReviewFrom";
@@ -179,7 +180,7 @@ function OnReviewShelf({ rows, laneRow, askADj, handOff }: { rows: IntakeItem[];
       <RowList
         rows={rows}
         row={(i) => {
-          const row = laneRow(i, <Typography level="body-sm">{`${REVIEW_COPY.screen.added} ${day(i.logged_at)}`}</Typography>, moreMenu(i), {
+          const row = laneRow(i, <><Typography level="body-sm">{`${REVIEW_COPY.screen.added} ${day(i.logged_at)}`}</Typography><ReviewHint artist={i.artist_name} album={i.album_title} /></>, moreMenu(i), {
             titleSlot: <Link level="title-md" id={shelfRecordId(i)} href={itemHref(i)}>{i.artist_name}</Link>,
             titleId: shelfRecordId(i),
             albumId: shelfAlbumId(i),
