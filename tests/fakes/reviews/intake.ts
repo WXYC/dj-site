@@ -7,7 +7,6 @@ import { resolve, type Rows } from "./rows";
 export type FakeIntakeOptions = {
   open?: Rows<IntakeItem>;
   reviewed?: Rows<IntakeItem>;
-  awaiting?: Rows<IntakeItem>;
   filed?: Rows<IntakeItem>;
   records?: IntakeItem[];
   /** The slip `POST /intake/:id/print` answers, by item id. */
@@ -19,9 +18,8 @@ export type FakeIntakeOptions = {
 /**
  * The `intake/...` reads:
  *
- * - `GET /intake` answers like the server: `awaiting_acceptance=true` ->
- *   `awaiting` (that rule lives on the server). Anything else reads the union
- *   of `open`, `reviewed` and `filed`, de-duplicated by `id` and ordered by
+ * - `GET /intake` answers like the server: it reads the union of `open`,
+ *   `reviewed` and `filed`, de-duplicated by `id` and ordered by
  *   `logged_at` descending then `id` descending, so an unfiltered read carries
  *   every state; `state=` filters that union by each row's `effective_state`.
  *   A row's lane is its `effective_state`, whichever option it was passed in.
@@ -39,7 +37,7 @@ export type FakeIntakeOptions = {
  *   back on the review shelf. A spec for a 409 layers its own handler.
  * - `POST /intake/:id/print` answers the item's entry of `slips`, 409 `not_reviewed` when it has none
  */
-export function fakeIntakeEndpoints({ open = [], reviewed = [], awaiting = [], filed = [], records = [], slips = {}, reviewers = [] }: FakeIntakeOptions = {}) {
+export function fakeIntakeEndpoints({ open = [], reviewed = [], filed = [], records = [], slips = {}, reviewers = [] }: FakeIntakeOptions = {}) {
   const overlay = new Map<number, (row: IntakeItem) => IntakeItem>();
   const unrequested = (row: IntakeItem): IntakeItem =>
     ({ ...row, state: "pool", effective_state: "pool", requested_dj_id: null, requested_dj_name: null, requested_at: null }) as IntakeItem;
@@ -60,7 +58,6 @@ export function fakeIntakeEndpoints({ open = [], reviewed = [], awaiting = [], f
   server.use(
     http.get(`${BACKEND_URL}/intake`, ({ request }) => {
       const query = new URL(request.url).searchParams;
-      if (query.get("awaiting_acceptance") === "true") return HttpResponse.json(resolve(awaiting));
       const state = query.get("state");
       return HttpResponse.json(everyState().filter((row) => !state || row.effective_state === state));
     }),

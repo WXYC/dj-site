@@ -15,15 +15,13 @@ describe("fakeIntakeEndpoints GET /intake", () => {
     open: [inState(1, "pool"), inState(3, "filed", { logged_at: "2026-09-03T12:00:00Z" })],
     reviewed: [inState(2, "reviewed", { logged_at: "2026-09-02T12:00:00Z" })],
     filed: [inState(4, "filed", { logged_at: "2026-09-04T12:00:00Z" })],
-    awaiting: [inState(9, "reviewed")],
   };
 
   it.each<[string, FakeIntakeOptions, string, number[]]>([
-    ["no filter reads the union of every state, newest first, without the awaiting rows", EVERY_STATE, "", [4, 3, 2, 1]],
+    ["no filter reads the union of every state, newest first", EVERY_STATE, "", [4, 3, 2, 1]],
     ["state=pool keeps only the pool rows", EVERY_STATE, "?state=pool", [1]],
     ["state=reviewed keeps only the reviewed rows", EVERY_STATE, "?state=reviewed", [2]],
     ["state=filed keeps the filed rows whichever option held them", EVERY_STATE, "?state=filed", [4, 3]],
-    ["awaiting_acceptance=true reads only the awaiting rows", EVERY_STATE, "?awaiting_acceptance=true", [9]],
     [
       "an item passed under two options appears once",
       { open: [inState(5, "reviewed")], reviewed: [inState(5, "reviewed")], filed: [inState(5, "reviewed")] },

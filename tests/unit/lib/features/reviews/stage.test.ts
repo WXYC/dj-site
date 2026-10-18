@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import type { IntakeItem } from "@wxyc/shared";
-import { recordStage, reviewWaiting, type ReviewStage } from "@/lib/features/reviews/holder";
+import { onReviewShelf, recordStage, reviewWaiting, type ReviewStage } from "@/lib/features/reviews/holder";
 import { intakeItem, returnedByMusicDirector } from "@/tests/fakes/reviews";
 
 // A submitted review that no music director has chosen yet: what the server's awaiting_acceptance filter keeps.
@@ -26,8 +26,12 @@ describe("recordStage", () => {
     ["a request that has lapsed (stored requested, read as pool)", { state: "requested", effective_state: "pool" }, "review_shelf"],
     ["a checked out record", { effective_state: "checked_out" }, "being_reviewed"],
     ["a pool record", { effective_state: "pool" }, "review_shelf"],
-  ])("puts %s in its stage", (_label, overrides, expected) => {
-    expect(recordStage(intakeItem({ id: 7, ...overrides }))).toBe(expected);
+    // The backend does not produce this one: a chosen review moves the record to reviewed, and un-choosing it clears the pointer.
+    ["a pool record whose submitted review was already chosen", { effective_state: "pool", ...chosen }, "reviewed"],
+  ])("puts %s in its stage, and onReviewShelf agrees", (_label, overrides, expected) => {
+    const item = intakeItem({ id: 7, ...overrides });
+    expect(recordStage(item)).toBe(expected);
+    expect(onReviewShelf(item)).toBe(expected === "review_shelf");
   });
 });
 

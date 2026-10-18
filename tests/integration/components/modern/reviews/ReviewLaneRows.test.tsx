@@ -89,7 +89,6 @@ describe("every review lane draws its rows with RecordRow", () => {
       open: row.effective_state === "reviewed" || row.effective_state === "filed" ? [] : [row],
       reviewed: row.effective_state === "reviewed" ? [row] : [],
       filed: row.effective_state === "filed" ? [row] : [],
-      awaiting: name === "Review waiting (1)" ? [row] : [],
     });
 
     renderWithProviders(<IntakeLanes />);
