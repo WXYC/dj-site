@@ -62,7 +62,7 @@ describe("IntakeLogForm", () => {
     await user.click(screen.getByRole("button", { name: "Add a record" }));
 
     await waitFor(() => expect(onLogged).toHaveBeenCalledTimes(1));
-    expect(onLogged).toHaveBeenCalledWith(expect.objectContaining({ id: 11, artist_name: "Cat Power", album_title: "Moon Pix" }));
+    expect(onLogged).toHaveBeenCalledWith(expect.objectContaining({ id: 11, artist_name: "Cat Power", album_title: "Moon Pix" }), undefined);
   });
 
   it("never calls onLogged when the add fails", async () => {

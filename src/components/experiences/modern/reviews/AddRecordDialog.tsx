@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button, Stack, Typography } from "@mui/joy";
 import type { IntakeItem } from "@wxyc/shared";
+import { citeHref, type CiteTarget } from "@/lib/features/reviews/paths";
 import ConfirmDialog from "../ConfirmDialog";
 import { REVIEW_COPY } from "./copy";
 import IntakeLogForm from "./IntakeLogForm";
@@ -19,6 +21,7 @@ const LINE_ID = "add-record-line";
  * before any add changes nothing.
  */
 export default function AddRecordDialog({ onDone }: { onDone: (added: IntakeItem) => void }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   // The last record added since the dialog opened; only an add sets it and only closing clears it.
   const [lastAdded, setLastAdded] = useState<IntakeItem | null>(null);
@@ -39,7 +42,12 @@ export default function AddRecordDialog({ onDone }: { onDone: (added: IntakeItem
     }
     close();
   };
-  const onLogged = (item: IntakeItem) => {
+  const onLogged = (item: IntakeItem, cite?: CiteTarget) => {
+    if (cite) {
+      close();
+      router.push(citeHref(item.id, cite));
+      return;
+    }
     setLastAdded(item);
     setAddingAnother(false);
   };
