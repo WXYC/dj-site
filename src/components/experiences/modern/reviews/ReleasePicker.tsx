@@ -20,14 +20,17 @@ export default function ReleasePicker({
   selectedId = null,
   onSearch,
   searchLabel = COPY.searchLibrary,
+  initialTerm = "",
 }: {
   onPick: (release: AlbumEntry) => void;
   selectedId?: number | null;
   onSearch?: () => void;
   searchLabel?: string;
+  /** Searched at once, as if submitted. */
+  initialTerm?: string;
 }) {
-  const [text, setText] = useState("");
-  const [term, setTerm] = useState("");
+  const [text, setText] = useState(initialTerm);
+  const [term, setTerm] = useState(initialTerm.trim());
   const results = useSearchCatalogQuery({ artist_name: term, album_title: term, n: 50 }, { skip: term === "" });
 
   return (
