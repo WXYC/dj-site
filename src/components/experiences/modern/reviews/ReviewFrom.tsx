@@ -31,7 +31,7 @@ export const placeLine = (item: IntakeItem): string | null => PLACE_LINE[unheldP
 export function whereLine(item: IntakeItem): string | null {
   const holder = itemHolder(item);
   if (holder.kind === "requested") {
-    return `${COPY.heldFor} ${holder.name}`;
+    return holder.askedBy ? COPY.heldForAskedBy(holder.name, holder.askedBy) : `${COPY.heldFor} ${holder.name}`;
   }
   if (holder.kind === "checked_out") {
     return `${COPY.with} ${holder.name}`;

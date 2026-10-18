@@ -153,8 +153,10 @@ export const REVIEW_COPY = {
     added: "Added",
     /** Approved. Followed by a date: a record a DJ is reviewing, on My reviews and as the record page's state chip, a disc and a digital album alike. */
     reviewingSince: "Reviewing since",
-    /** Approved. */
-    asked: "Asked",
+    /** Approved. The DJ's request row; the date is the day the review was requested. */
+    requestedBy: (name: string, date: string) => `${name} requested your review on ${date}.`,
+    /** Approved. The same row when no asker was recorded. */
+    requestedNoAsker: (date: string) => `Your review was requested on ${date}.`,
     /** Approved. */
     checkOut: "Check out",
     /** Approved. */
@@ -334,6 +336,8 @@ export const REVIEW_COPY = {
     requested: "Requested",
     /** Approved. Each is followed by a DJ name. */
     heldFor: "Held for",
+    /** A held record's line when its asker is known: the DJ it is held for, then the music director who asked. */
+    heldForAskedBy: (dj: string, asker: string) => `Held for ${dj}, asked by ${asker}`,
     /** Approved. The location line of a record a DJ has; followed by the DJ's name. */
     with: "With",
     /** Approved. The location line when the DJ's account was removed. */
