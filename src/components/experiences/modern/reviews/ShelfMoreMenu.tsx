@@ -20,8 +20,9 @@ interface ShelfMoreMenuProps extends Omit<DialogProps, "open" | "onClose"> {
 /** One item: its label names it and its description describes it, so a screen reader reads them apart. */
 function Described({ label, description, href, disabled, onClick }: { label: string; description: string; href?: string; disabled?: boolean; onClick?: () => void }) {
   const id = useId();
+  // A link item navigates; the other item opens the search dialog, which a screen reader should hear before it opens.
   return (
-    <MenuItem {...(href ? { component: "a", href } : { disabled, onClick })} aria-labelledby={`${id}-label`} aria-describedby={`${id}-description`}>
+    <MenuItem {...(href ? { component: "a", href } : { disabled, onClick, "aria-haspopup": "dialog" as const })} aria-labelledby={`${id}-label`} aria-describedby={`${id}-description`}>
       <ListItemContent>
         <Typography id={`${id}-label`} level="title-sm">{label}</Typography>
         <Typography id={`${id}-description`} level="body-xs">{description}</Typography>

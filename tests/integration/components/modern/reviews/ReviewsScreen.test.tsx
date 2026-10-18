@@ -784,11 +784,18 @@ describe("ReviewsScreen", () => {
   it("locks the row's Ask a DJ… item while its request is in flight, sends no second request, and leaves the other rows usable", async () => {
     mockAuth.authority = Authorization.MD;
     const paths: string[] = [];
+    // The first row's request is held until the test has checked its lock, so the in-flight window doesn't depend on the clock.
+    let letGo!: () => void;
+    const held = new Promise<void>((resolve) => {
+      letGo = resolve;
+    });
     fakeReviewsEndpoints({ open: [moonPix({ id: 11 }), moonPix({ id: 12, album_title: "Jaubert" })], reviewers: REVIEWERS });
     server.use(
-      http.post(`${TEST_BACKEND_URL}/intake/:id/request`, async ({ request }) => {
+      http.post(`${TEST_BACKEND_URL}/intake/:id/request`, async ({ request, params }) => {
         paths.push(new URL(request.url).pathname);
-        await delay(300);
+        if (params.id === "11") {
+          await held;
+        }
         return HttpResponse.json(moonPix({ state: "requested", effective_state: "requested" }));
       }),
     );
@@ -812,6 +819,7 @@ describe("ReviewsScreen", () => {
 
     await waitFor(() => expect(paths).toContain("/intake/12/request"));
     expect(paths.filter((x) => x === "/intake/11/request")).toHaveLength(1);
+    letGo();
   });
 
   it("shows the approved line on a 400, never the server's message, and reads the reviewers again", async () => {

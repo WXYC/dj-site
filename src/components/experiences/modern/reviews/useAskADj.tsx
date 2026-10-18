@@ -35,17 +35,15 @@ export function answerRefusedRequest(err: unknown, action: string, dispatch: App
 /**
  * The music director's Ask a DJ… control, once per screen: one fold per reviewers read, one set of Asked toasts, one mounted ref. Call it once in the screen and draw `picker(item)` (a record's page) or `moreMenu(item)` (a review shelf row) for each record; a per-row component would refold the reviewers per row and dismiss a row's toast whenever that row unmounts after the write's reload. `alert` is the reviewers-load-failed line, for the screen to draw once.
  *
- * `namedByRow` (default true) names each record's button by the review shelf row's artist and album too, through the `shelfRecordId` and `shelfAlbumId` ids the screen puts on them; a page about one record passes false, so the button is named by its own words. `onSettled` runs with the write's outcome once the write's lists have reloaded, while the screen is still mounted, for a screen that moves focus off a button the reload took away.
+ * `moreMenu` names each row's More button by the review shelf row's artist and album too, through the `shelfRecordId` and `shelfAlbumId` ids the screen puts on them; `picker` is the record page's button, named by its own words. `onSettled` runs with the write's outcome once the write's lists have reloaded, while the screen is still mounted, for a screen that moves focus off a button the reload took away.
  */
 export function useAskADj({
   reviewers,
   write,
   lock,
-  namedByRow = true,
   onSettled,
 }: {
   reviewers: { isError: boolean; isLoading: boolean; data?: Reviewer[] };
-  namedByRow?: boolean;
   onSettled?: (i: IntakeItem, outcome: RowWriteOutcome) => void;
 } & AskWrite) {
   const [requestReview] = useRequestIntakeItemMutation();
@@ -66,7 +64,7 @@ export function useAskADj({
     };
   }, []);
 
-  // Together these name each record's Ask a DJ… button for the record it acts on.
+  // Together these name each review shelf row's More button for the record it acts on.
   const shelfRecordId = (i: IntakeItem) => `review-shelf-record-${i.id}`;
   const shelfAlbumId = (i: IntakeItem) => `review-shelf-album-${i.id}`;
   // The toast waits for the write to finish, so its Cancel request never meets the row's lock.
@@ -96,9 +94,7 @@ export function useAskADj({
     busy: lock(i.id, "request"),
     onRequest: (reviewer: Reviewer) => ask(i, reviewer),
   });
-  const picker = (i: IntakeItem) => (
-    <IntakeRequestPicker {...askProps(i)} labelledBy={namedByRow ? `${shelfRecordId(i)} ${shelfAlbumId(i)}` : undefined} />
-  );
+  const picker = (i: IntakeItem) => <IntakeRequestPicker {...askProps(i)} />;
   const moreMenu = (i: IntakeItem) => (
     <ShelfMoreMenu {...askProps(i)} id={i.id} labelledBy={`${shelfRecordId(i)} ${shelfAlbumId(i)}`} />
   );
