@@ -1,7 +1,6 @@
 "use client";
 
-import { useRef } from "react";
-import { Box, Button, Link, Typography } from "@mui/joy";
+import { Button, Link, Typography } from "@mui/joy";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import type { IntakeItem, Reviewer } from "@wxyc/shared";
@@ -14,7 +13,7 @@ import IntakeLane from "./IntakeLane";
 import { REVIEW_COPY } from "./copy";
 import ActionTooltip from "./ActionTooltip";
 import { moveRowToTab } from "./flyToTab";
-import RecordRow, { PRIMARY_CONTROL, type RecordRowTitle } from "./RecordRow";
+import RecordRow, { focusAfterRowLeaves, neighboursOf, PRIMARY_ACTION_PROPS, type RecordRowTitle } from "./RecordRow";
 import ReviewHint from "./ReviewHint";
 import { intakeRecord } from "./recordLine";
 import { useAskADj } from "./useAskADj";
@@ -26,25 +25,17 @@ export default function ReviewShelfScreen({ items, isMD, reviewers, write, lock 
   const router = useRouter();
   // A checkout outlives the screen when the DJ navigates away mid-click; the toast and the focus are skipped then.
   const mounted = useMounted();
-  const laneRef = useRef<HTMLDivElement>(null);
   const onShelf = oldestLoggedFirst(items.filter(onReviewShelf));
   const { alert, moreMenu, shelfRecordId, shelfAlbumId } = useAskADj({ reviewers, write, lock });
   // A music director's row carries its own title link and the id the link carries; a DJ's row keeps the plain artist.
   const title = (i: IntakeItem): RecordRowTitle =>
     isMD ? { titleSlot: <Link level="title-md" id={shelfRecordId(i)} href={`/dashboard/admin/intake/${i.id}`}>{i.artist_name}</Link>, titleId: shelfRecordId(i) } : {};
 
-  /** Moves the focus off a row that is about to leave: to the next row's main control, else the list. */
-  const focusAfterLeaving = (row: HTMLElement | null) => {
-    const next = row?.nextElementSibling?.querySelector<HTMLElement>(PRIMARY_CONTROL);
-    (next ?? laneRef.current)?.focus();
-  };
-
   return (
     <>
       {isMD && alert}
       <Typography>{REVIEW_COPY.screen.shelfLine}</Typography>
-      <Box ref={laneRef} tabIndex={-1} sx={{ outline: "none" }}>
-      <IntakeLane title={REVIEW_COPY.screen.shelfTitle} hideTitle rows={onShelf} empty={REVIEW_COPY.screen.shelfEmpty} row={(i) => (
+      <IntakeLane title={REVIEW_COPY.screen.shelfTitle} hideTitle focusable rows={onShelf} empty={REVIEW_COPY.screen.shelfEmpty} row={(i) => (
         <RecordRow
           record={intakeRecord(i)}
           cover={72}
@@ -58,9 +49,11 @@ export default function ReviewShelfScreen({ items, isMD, reviewers, write, lock 
           }
           actions={
             <>
-              <ActionTooltip title={byKind(i, { disc: REVIEW_COPY.tooltips.reviewDisc, digital: REVIEW_COPY.tooltips.reviewDigital })}><Button size="sm" {...lock(i.id, "checkout")} onClick={(event) => {
-                  // Read before the await: React no longer holds the event's element afterwards.
+              <ActionTooltip title={byKind(i, { disc: REVIEW_COPY.tooltips.reviewDisc, digital: REVIEW_COPY.tooltips.reviewDigital })}><Button size="sm" {...PRIMARY_ACTION_PROPS} {...lock(i.id, "checkout")} onClick={(event) => {
+                  // Read before the write, while the row is drawn: React no longer holds the event's element afterwards, and a reload can take the row, and its neighbours with it, off the page before the write returns.
                   const row = event.currentTarget.closest("li");
+                  const neighbours = neighboursOf(row);
+                  const lane = event.currentTarget.closest<HTMLElement>("section");
                   write(i.id, "checkout", async () => {
                     await checkout(i.id).unwrap();
                     if (!mounted.current) {
@@ -69,7 +62,7 @@ export default function ReviewShelfScreen({ items, isMD, reviewers, write, lock 
                     toast(byKind(i, { disc: REVIEW_COPY.screen.yoursToReview, digital: REVIEW_COPY.screen.yoursToReviewDigital }), {
                       action: { label: REVIEW_COPY.screen.openIt, onClick: () => router.push(`/dashboard/reviews/mine?stage=open&highlight=${i.id}`) },
                     });
-                    focusAfterLeaving(row);
+                    focusAfterRowLeaves(neighbours, lane);
                     if (row) {
                       await moveRowToTab(row, "/dashboard/reviews/mine");
                     }
@@ -80,7 +73,6 @@ export default function ReviewShelfScreen({ items, isMD, reviewers, write, lock 
           }
         />
       )} />
-      </Box>
     </>
   );
 }

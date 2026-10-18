@@ -71,6 +71,22 @@ type RecordRowProps = {
 /** A row's first control of its own: its buttons, or the Open link of a review. The Preview links before them open in a new tab, and the focus must not land on one. */
 export const PRIMARY_CONTROL = "button, a[href]:not([target='_blank'])";
 
+/** Marks the control that is a row's main step, for a row whose first control is not it: a music director's artist link comes before the Review button. */
+export const PRIMARY_ACTION_PROPS = { "data-primary-action": "" } as const;
+const PRIMARY_ACTION = "[data-primary-action]";
+
+/** The rows either side of `row`, next first, to read while the row is still drawn: once the row has left, its siblings are gone with it. */
+export const neighboursOf = (row: Element | null | undefined) => [row?.nextElementSibling, row?.previousElementSibling];
+
+/**
+ * Moves the focus off a row that is leaving: to the main control of the next row, else the previous one (the first of `neighbours` still on the page), else `fallback`, a container that must be focusable and named. A row's main control is the one marked with `data-primary-action`, else its first button or in-page link (`PRIMARY_CONTROL`).
+ */
+export function focusAfterRowLeaves(neighbours: (Element | null | undefined)[], fallback: HTMLElement | null | undefined) {
+  const row = neighbours.find((el) => el?.isConnected);
+  const next = row?.querySelector<HTMLElement>(PRIMARY_ACTION) ?? row?.querySelector<HTMLElement>(PRIMARY_CONTROL);
+  (next ?? fallback)?.focus();
+}
+
 /**
  * One record in a list: a format glyph beside the artist, album, label and
  * format tag, then `meta`, with `actions` to the right or below. The layout

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Button, Chip, Link, List, ListItem, Stack, Typography } from "@mui/joy";
 import type { IntakeItem, Review } from "@wxyc/shared";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -21,7 +21,7 @@ import StageChips from "../StageChips";
 import { ADDED_FLASH_SX, bringMarkedIntoView } from "./addedFlash";
 import { REVIEW_COPY } from "./copy";
 import ActionTooltip from "./ActionTooltip";
-import RecordRow, { PRIMARY_CONTROL } from "./RecordRow";
+import RecordRow, { focusAfterRowLeaves, neighboursOf } from "./RecordRow";
 import { intakeRecord } from "./recordLine";
 import { useReviewRecord, type ReviewRecord } from "./useReviewRecord";
 import { day, type ReviewWrite } from "./useReviewWrite";
@@ -122,33 +122,36 @@ export default function MyReviewsScreen({ items, myReviews, me, write, lock }: {
   const list = useRef<HTMLUListElement | null>(null);
   // The held record the review shelf's Open it sent the DJ to: its row is marked for a moment and brought into view.
   const highlight = Number(useSearchParams().get("highlight"));
-  const highlighted = useRef<HTMLLIElement | null>(null);
-  useEffect(() => {
-    if (highlighted.current) {
-      bringMarkedIntoView(highlighted.current);
-    }
-  }, [highlight]);
+  // Called when the marked row mounts, whenever that is: the list can still be loading when the DJ arrives. A new callback only for a new record, so React calls it once per mount and not on every render of the list.
+  const bringHighlightedIntoView = useCallback(
+    (el: HTMLLIElement | null) => {
+      if (!el || !highlight) {
+        return;
+      }
+      bringMarkedIntoView(el);
+    },
+    [highlight],
+  );
 
   const lanes = sortMyReviews(items, myReviews, me);
   const isHighlighted = (row: MyReviewsRow) => row.kind === "held" && row.item.id === highlight;
 
   /**
    * Pass and Mark as returned take their row away once the write lands, and a lost race's reload moves the record too, so
-   * the focus would fall to the page. It goes to the next row's main control (`PRIMARY_CONTROL`), else the previous row's, else the
+   * the focus would fall to the page. It goes to the next row's main control, else the previous row's, else the
    * stage's panel. The neighbours are read before the write, while the row is drawn; React keeps each keyed row's
    * element, so they are still the rows to focus whether or not the reload has been drawn yet. A failed write leaves the
    * row, and the focus with it.
    */
   const focusAfterLeaving = (key: string) => {
     const row = Array.from(list.current?.children ?? []).find((el) => el instanceof HTMLElement && el.dataset.row === key);
-    const neighbours = [row?.nextElementSibling, row?.previousElementSibling];
+    const neighbours = neighboursOf(row);
     const panel = row?.closest<HTMLElement>("[role='tabpanel']");
     return (outcome: RowWriteOutcome) => {
       if ((outcome !== "applied" && outcome !== "raced") || !mounted.current) {
         return;
       }
-      const next = neighbours.find((el) => el?.isConnected)?.querySelector<HTMLElement>(PRIMARY_CONTROL);
-      (next ?? panel)?.focus();
+      focusAfterRowLeaves(neighbours, panel);
     };
   };
 
@@ -281,7 +284,7 @@ export default function MyReviewsScreen({ items, myReviews, me, write, lock }: {
             <>
               <List ref={list}>
                 {visible.map((row) => (
-                  <ListItem key={rowKey(row)} data-row={rowKey(row)} {...(isHighlighted(row) && { ref: highlighted, "data-highlighted": "true", sx: ADDED_FLASH_SX })}>{renderRow(row, stage)}</ListItem>
+                  <ListItem key={rowKey(row)} data-row={rowKey(row)} {...(isHighlighted(row) && { ref: bringHighlightedIntoView, "data-highlighted": "true", sx: ADDED_FLASH_SX })}>{renderRow(row, stage)}</ListItem>
                 ))}
               </List>
               {visible.length < rows.length && (
