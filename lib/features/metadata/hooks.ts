@@ -13,6 +13,11 @@ const DEFAULT_ARTWORK_URL = "/img/cassette.png";
  *
  * `decorative` is for a reader whose cover only decorates a row that already
  * names the record: its failed read is neither toasted nor reported.
+ *
+ * `metadata` keeps the previous artist and title's answer while a new read is
+ * pending or after it fails, as RTK Query's `data` does; `currentMetadata` is
+ * only this artist and title's answer, for a reader that must never show
+ * another record's cover.
  */
 export function useAlbumArtwork(
   artistName: string | undefined,
@@ -22,7 +27,7 @@ export function useAlbumArtwork(
 ) {
   const shouldSkip = !artistName || !releaseTitle || skip === true;
 
-  const { data, isLoading } = useGetAlbumMetadataQuery(
+  const { data, currentData, isLoading } = useGetAlbumMetadataQuery(
     { artistName: artistName!, releaseTitle: releaseTitle!, ...(decorative && { decorative }) },
     { skip: shouldSkip },
   );
@@ -31,6 +36,7 @@ export function useAlbumArtwork(
     artworkUrl: data?.artworkUrl ?? DEFAULT_ARTWORK_URL,
     isLoading: !shouldSkip && isLoading,
     metadata: data ?? null,
+    currentMetadata: currentData ?? null,
   };
 }
 

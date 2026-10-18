@@ -67,11 +67,12 @@ interface RecordRowProps {
  */
 export default function RecordRow({ record, meta, actions, status, href, titleSlot, albumId, cover }: RecordRowProps) {
   const format = useRecordFormatName(record);
-  const { metadata } = useAlbumArtwork(record.artist, record.album, cover === undefined, { decorative: true });
+  // The current answer only: a row drawn for another record never shows the last one's cover while its own read is pending or failed.
+  const { currentMetadata } = useAlbumArtwork(record.artist, record.album, cover === undefined, { decorative: true });
   // Held by URL, not as a flag, so a row drawn for another record never keeps this one's failure.
   const [failedUrl, setFailedUrl] = useState<string>();
   // `useAlbumArtwork`'s own `artworkUrl` falls back to a cassette image; only the service's answer counts here.
-  const artworkUrl = cover ? metadata?.artworkUrl : undefined;
+  const artworkUrl = cover ? currentMetadata?.artworkUrl : undefined;
   const showCover = Boolean(artworkUrl) && artworkUrl !== failedUrl;
   const artist = titleSlot ?? (href ? (
     <Link level="title-md" href={href}>{record.artist}</Link>
