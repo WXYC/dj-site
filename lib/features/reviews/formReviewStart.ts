@@ -14,10 +14,12 @@ export type RecordFormStart = {
   values: FieldValues;
   medium: NonNullable<NewReviewRequest["medium"]>;
   copied: "form" | "paper" | null;
+  /** The id of the form review the text was copied from, sent as `copied_from_submission_id` on the create; null when nothing was copied from one. */
+  copiedFrom: number | null;
 };
 
 /** The form opened by hand: nothing copied, typed. */
-export const EMPTY_START: RecordFormStart = { author: "", values: emptyFieldValues(), medium: "typed", copied: null };
+export const EMPTY_START: RecordFormStart = { author: "", values: emptyFieldValues(), medium: "typed", copied: null, copiedFrom: null };
 
 /** The form opened for a review that exists only on paper. */
 export const PAPER_START: RecordFormStart = { ...EMPTY_START, medium: "handwritten", copied: "paper" };
@@ -28,5 +30,5 @@ export function formReviewStart(review: AlbumReview): RecordFormStart {
   for (const name of ["buzzwords", "review", "recommended_tracks"] as const) values[name] = review[name] ?? "";
   values.fcc = review.fcc_violations ?? "";
   const reviewer = review.reviewer?.trim() ? review.reviewer : "";
-  return { ...EMPTY_START, values, author: [...reviewer].slice(0, AUTHOR_MAX).join(""), copied: "form" };
+  return { ...EMPTY_START, values, author: [...reviewer].slice(0, AUTHOR_MAX).join(""), copied: "form", copiedFrom: review.id };
 }

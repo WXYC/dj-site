@@ -58,7 +58,7 @@ import Link from "next/link";
 import { CssVarsProvider } from "@mui/joy/styles";
 import modernTheme from "@/lib/features/experiences/modern/theme";
 import RecordReviewForm from "@/src/components/experiences/modern/reviews/RecordReviewForm";
-import { PAPER_START, formReviewStart } from "@/lib/features/reviews/formReviewStart";
+import { EMPTY_START, PAPER_START, formReviewStart } from "@/lib/features/reviews/formReviewStart";
 import IntakeItemScreen, { nextRecording } from "@/src/components/experiences/modern/reviews/IntakeItemScreen";
 import { useGetRotationListQuery } from "@/lib/features/rotation/api";
 import { useSearchCatalogQuery } from "@/lib/features/catalog/api";
@@ -3253,6 +3253,32 @@ describe("IntakeItemScreen", () => {
 
         await waitFor(() => expect(creates).toHaveLength(1));
         expect(creates[0]).toMatchObject({ intake_item_id: ITEM_ID, author: "Sam 3/4", medium: "typed", accept: true, review: "Warm and strange.", fcc: "None." });
+      });
+
+      it.each([
+        { label: "a form review's start (copy, or copy-and-cite)", start: () => archived("Sam"), sent: true },
+        { label: "the empty start", start: () => EMPTY_START, sent: false },
+        { label: "the paper start", start: () => PAPER_START, sent: false },
+      ])("saves from $label with copied_from_submission_id only if copied, ticked or not", async ({ start, sent }) => {
+        for (const unticked of [false, true]) {
+          const { creates, submits } = setUp();
+          const { user, unmount } = renderForm(start());
+          await writeReview(user, " Warm.");
+          await fillAuthor(user, "Sessa");
+          if (unticked) await user.click(screen.getByRole("checkbox", { name: REVIEW_COPY.record.useAsCover }));
+
+          await save(user);
+
+          await waitFor(() => expect(creates).toHaveLength(1));
+          if (sent) {
+            expect(creates[0]).toMatchObject({ copied_from_submission_id: 7 });
+          } else {
+            expect(creates[0]).not.toHaveProperty("copied_from_submission_id");
+          }
+          expect(creates[0].accept).toBe(!unticked);
+          await waitFor(() => expect(submits).toHaveLength(unticked ? 1 : 0));
+          unmount();
+        }
       });
 
       it("from a form review with no reviewer has a blank author and the no-name line", () => {
