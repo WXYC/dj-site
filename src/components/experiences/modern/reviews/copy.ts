@@ -245,10 +245,20 @@ export const REVIEW_COPY = {
     raceRequest: "This record has left the review shelf since the page loaded, so it can't be requested. The lists have been reloaded.",
     /** Approved. Shown when a request names an account that can no longer be asked to review. */
     requestRefused: "That DJ can't be asked to review: their account was removed, or it's no longer a DJ account. Pick someone else.",
-    /** Approved. */
-    djToAsk: "DJ to ask",
-    /** Approved. */
-    request: "Request a review",
+    /** The button on each review shelf row that opens the search for a DJ to ask. */
+    askADj: "Ask a DJ…",
+    /** The search field's placeholder and name. */
+    askSearch: "Search by name",
+    /** The list's last line when more names match than it lists. */
+    askOverflow: (n: number) => `${n} more match. Keep typing.`,
+    /** Asked once a name is picked, before anything is sent. */
+    askConfirm: (name: string, artist: string, album: string) => `Ask ${name} to review ${artist}, ${album}? It's held for them for 7 days.`,
+    /** The confirmation's button that sends the request. */
+    ask: "Ask",
+    /** The confirmation's button that returns to the list of names. */
+    back: "Back",
+    /** The toast shown once the request is sent; its action is Cancel request. */
+    askDone: (name: string) => `Asked ${name}.`,
     /** Approved. */
     reviewersLoadFailed: "Couldn't load the DJs who can be asked to review. Please try again.",
     /** Approved. */

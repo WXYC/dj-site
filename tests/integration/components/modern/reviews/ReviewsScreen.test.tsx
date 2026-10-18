@@ -100,13 +100,33 @@ const REQUEST_LOST_RACE =
 const moonPix = (overrides = {}) =>
   item({ id: 11, artist_name: "Cat Power", album_title: "Moon Pix", record_label: "Matador", ...overrides });
 
-/** One review shelf row's controls, reached by the record they act on: the group is named by the row's record line. */
-const rowControls = async (album: string) =>
-  within(await within(await section(SHELF)).findByRole("group", { name: new RegExp(album) }));
+const ASK_A_DJ = /^Ask a DJ…/;
 
-const pick = async (user: ReturnType<typeof renderWithProviders>["user"], name: string, album = "Moon Pix") => {
-  await user.click(await (await rowControls(album)).findByRole("combobox", { name: "DJ to ask" }));
-  await user.click(await screen.findByRole("option", { name }));
+/** A review shelf row's Ask a DJ… button, reached by the record it acts on: the button is named by the row's record line too. */
+const askButton = async (album: string) =>
+  within(await section(SHELF)).findByRole("button", { name: new RegExp(`${ASK_A_DJ.source}.*${album}`) });
+
+type User = ReturnType<typeof renderWithProviders>["user"];
+
+/** The open search dialog's search field; the page behind it carries comboboxes of its own. */
+const searchField = async () => within(await screen.findByRole("dialog")).findByRole("combobox");
+
+/** Opens the row's search and types a few letters of a name, ending on the highlighted match. */
+const search = async (user: User, typed: string, album = "Moon Pix") => {
+  await user.click(await askButton(album));
+  await user.type(await searchField(), typed);
+};
+
+/** Picks a name from the row's search, which shows the confirmation. */
+const pick = async (user: User, typed: string, album = "Moon Pix") => {
+  await search(user, typed, album);
+  await user.keyboard("{Enter}");
+};
+
+/** Asks a DJ the whole way through the confirmation. */
+const ask = async (user: User, typed: string, album = "Moon Pix") => {
+  await pick(user, typed, album);
+  await user.click(await screen.findByRole("button", { name: "Ask" }));
 };
 
 describe("ReviewsScreen", () => {
@@ -641,7 +661,7 @@ describe("ReviewsScreen", () => {
     ["a music director", "staff", Authorization.MD, true],
     ["a station manager", "true", Authorization.SM, true],
     ["a station manager", "staff", Authorization.SM, true],
-  ])("%s under the flag %j: Request a review and the record link are present only for a music director or above", async (_label, flag, who, directors) => {
+  ])("%s under the flag %j: Ask a DJ… and the record link are present only for a music director or above", async (_label, flag, who, directors) => {
     vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", flag);
     mockAuth.authority = who;
     fakeReviewsEndpoints({ open: [moonPix()], reviewers: REVIEWERS });
@@ -651,14 +671,14 @@ describe("ReviewsScreen", () => {
     await within(shelf).findByText(/Moon Pix/);
 
     expect(screen.queryByRole("form", { name: "Log an item" })).not.toBeInTheDocument();
-    expect(within(shelf).queryAllByRole("button", { name: "Request a review" })).toHaveLength(directors ? 1 : 0);
+    expect(within(shelf).queryAllByRole("button", { name: ASK_A_DJ })).toHaveLength(directors ? 1 : 0);
     const link = within(shelf).queryByRole("link", { name: /Moon Pix/ });
     expect(link !== null).toBe(directors);
     if (link) expect(link).toHaveAttribute("href", "/dashboard/admin/intake/11");
     expect(within(shelf).getAllByRole("button", { name: "Check out" })).toHaveLength(1);
   });
 
-  it("makes no reviewers request for a DJ, and exactly one for a music director, who picks from the reviewers by name", async () => {
+  it("makes no reviewers request for a DJ, and exactly one for a music director, who searches the reviewers by name", async () => {
     const reads: string[] = [];
     const count = http.get(`${TEST_BACKEND_URL}/reviews/reviewers`, () => {
       reads.push("read");
@@ -677,13 +697,13 @@ describe("ReviewsScreen", () => {
 
     mockAuth.authority = Authorization.MD;
     const { user } = renderWithProviders(<BothTabs />);
-    await user.click(await (await rowControls("Moon Pix")).findByRole("combobox", { name: "DJ to ask" }));
+    await user.click(await askButton("Moon Pix"));
     expect(await screen.findByRole("option", { name: "Test Reviewer" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Pat Placeholder" })).toBeInTheDocument();
     expect(reads).toHaveLength(1);
   });
 
-  it("sends the chosen dj_id and the record leaves the review shelf lane for the held state", async () => {
+  it("sends the chosen dj_id once the confirmation is answered Ask, and the record leaves the review shelf lane for the held state", async () => {
     mockAuth.authority = Authorization.MD;
     const bodies: unknown[] = [];
     let asked = false;
@@ -700,9 +720,10 @@ describe("ReviewsScreen", () => {
     );
 
     const { user } = renderWithProviders(<BothTabs />);
-    expect((await rowControls("Moon Pix")).getByRole("button", { name: "Request a review" })).toBeDisabled();
     await pick(user, "Pat Placeholder");
-    await user.click(screen.getByRole("button", { name: "Request a review" }));
+    expect(await screen.findByText("Ask Pat Placeholder to review Cat Power, Moon Pix? It's held for them for 7 days.")).toBeInTheDocument();
+    expect(bodies).toEqual([]);
+    await user.click(screen.getByRole("button", { name: "Ask" }));
 
     await waitFor(() => expect(bodies).toEqual([{ dj_id: "dj-pat" }]));
     await waitFor(() => expect(within(screen.getByRole("region", { name: SHELF })).queryByText(/Moon Pix/)).not.toBeInTheDocument());
@@ -722,13 +743,12 @@ describe("ReviewsScreen", () => {
 
     const { user } = renderWithProviders(<BothTabs />);
     await pick(user, "Pat Placeholder");
-    const button = screen.getByRole("button", { name: "Request a review" });
-    await user.dblClick(button);
+    await user.dblClick(await screen.findByRole("button", { name: "Ask" }));
 
     await waitFor(() => expect(posts).toBe(1));
   });
 
-  it("locks the row's Request a review while its request is in flight, sends no second request, and leaves the other rows usable", async () => {
+  it("locks the row's Ask a DJ… while its request is in flight, sends no second request, and leaves the other rows usable", async () => {
     mockAuth.authority = Authorization.MD;
     const paths: string[] = [];
     fakeReviewsEndpoints({ open: [moonPix({ id: 11 }), moonPix({ id: 12, album_title: "Jaubert" })], reviewers: REVIEWERS });
@@ -741,20 +761,17 @@ describe("ReviewsScreen", () => {
     );
 
     const { user } = renderWithProviders(<BothTabs />);
-    await pick(user, "Pat Placeholder");
-    const first = (await rowControls("Moon Pix")).getByRole("button", { name: "Request a review" });
-    await user.click(first);
+    await ask(user, "Pat Placeholder");
     await waitFor(() => expect(paths).toEqual(["/intake/11/request"]));
 
+    const first = await askButton("Moon Pix");
     expect(first).toBeDisabled();
     // user-event refuses a pointer on a locked button; a DJ's click still lands.
     fireEvent.click(first);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 
-    const other = await rowControls("Jaubert");
-    expect(other.getByRole("combobox", { name: "DJ to ask" })).toBeEnabled();
-    await pick(user, "Test Reviewer", "Jaubert");
-    expect(other.getByRole("button", { name: "Request a review" })).toBeEnabled();
-    await user.click(other.getByRole("button", { name: "Request a review" }));
+    expect(await askButton("Jaubert")).toBeEnabled();
+    await ask(user, "Test Reviewer", "Jaubert");
 
     await waitFor(() => expect(paths).toContain("/intake/12/request"));
     expect(paths.filter((x) => x === "/intake/11/request")).toHaveLength(1);
@@ -776,7 +793,7 @@ describe("ReviewsScreen", () => {
         return HttpResponse.json({ reviewers: REVIEWERS });
       }),
     );
-    await user.click(screen.getByRole("button", { name: "Request a review" }));
+    await user.click(screen.getByRole("button", { name: "Ask" }));
 
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith(REQUEST_REFUSED));
     expect(toast.error).not.toHaveBeenCalledWith("server words");
@@ -794,15 +811,14 @@ describe("ReviewsScreen", () => {
     );
 
     const { user } = renderWithProviders(<BothTabs />);
-    await screen.findByRole("button", { name: "Request a review" });
+    await askButton("Moon Pix");
     server.use(
       http.get(`${TEST_BACKEND_URL}/intake`, () => {
         reads += 1;
         return undefined;
       }),
     );
-    await pick(user, "Test Reviewer");
-    await user.click(screen.getByRole("button", { name: "Request a review" }));
+    await ask(user, "Test Reviewer");
 
     await waitFor(() => expect(toast).toHaveBeenCalledWith(REQUEST_LOST_RACE));
     expect(reads).toBeGreaterThanOrEqual(1);
@@ -823,9 +839,11 @@ describe("ReviewsScreen", () => {
 
     const { user } = renderWithProviders(<BothTabs />);
     const shelf = await section(SHELF);
-    expect(await within(shelf).findAllByRole("button", { name: "Request a review" })).toHaveLength(2);
-    await user.click(await (await rowControls("Moon Pix")).findByRole("combobox", { name: "DJ to ask" }));
+    expect(await within(shelf).findAllByRole("button", { name: ASK_A_DJ })).toHaveLength(2);
+    await user.click(await askButton("Moon Pix"));
     await screen.findByRole("option", { name: "Test Reviewer" });
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
 
     expect(listUsers).not.toHaveBeenCalled();
     const rowMarkers = {
@@ -835,23 +853,148 @@ describe("ReviewsScreen", () => {
     };
     for (const other of ["Requests for me", "Records I'm reviewing", "My reviews"] as const) {
       expect(rowMarkers[other]()).toBeInTheDocument();
-      expect(within(await section(other)).queryByRole("button", { name: "Request a review" })).not.toBeInTheDocument();
-      expect(within(await section(other)).queryByRole("combobox", { name: "DJ to ask" })).not.toBeInTheDocument();
+      expect(within(await section(other)).queryByRole("button", { name: ASK_A_DJ })).not.toBeInTheDocument();
     }
   });
 
-  it("leaves another row's Request a review disabled when a DJ is picked in one row", async () => {
+  it("opens a search with the field focused, closes it on Escape, and returns focus to the button", async () => {
     mockAuth.authority = Authorization.MD;
+    fakeReviewsEndpoints({ open: [moonPix()], reviewers: REVIEWERS });
+
+    const { user } = renderWithProviders(<ReviewsScreen tab="shelf" />);
+    const button = await askButton("Moon Pix");
+    await user.click(button);
+
+    expect(await searchField()).toHaveFocus();
+    await user.keyboard("{Escape}");
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(button).toHaveFocus();
+  });
+
+  it("has no DJ to ask select any more", async () => {
+    mockAuth.authority = Authorization.MD;
+    fakeReviewsEndpoints({ open: [moonPix()], reviewers: REVIEWERS });
+
+    renderWithProviders(<ReviewsScreen tab="shelf" />);
+    await askButton("Moon Pix");
+
+    expect(screen.queryByRole("combobox", { name: "DJ to ask" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Request a review" })).not.toBeInTheDocument();
+  });
+
+  it("lists the names that match what is typed, and Enter on the highlighted one shows the confirmation naming it", async () => {
+    mockAuth.authority = Authorization.MD;
+    fakeReviewsEndpoints({ open: [moonPix()], reviewers: REVIEWERS });
+
+    const { user } = renderWithProviders(<ReviewsScreen tab="shelf" />);
+    await search(user, "pat");
+
+    expect(await screen.findByRole("option", { name: "Pat Placeholder" })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "Test Reviewer" })).not.toBeInTheDocument();
+    await user.keyboard("{Enter}");
+
+    expect(await screen.findByText(/^Ask Pat Placeholder to review/)).toBeInTheDocument();
+    expect(within(screen.getByRole("dialog")).queryByRole("combobox")).not.toBeInTheDocument();
+  });
+
+  it("counts the matches past the eighth, as a line that can't be picked", async () => {
+    mockAuth.authority = Authorization.MD;
+    const many = Array.from({ length: 11 }, (_, i) => ({ id: `dj-${i}`, name: `Test Person ${String(i).padStart(2, "0")}` }));
+    fakeReviewsEndpoints({ open: [moonPix()], reviewers: many });
+
+    const { user } = renderWithProviders(<ReviewsScreen tab="shelf" />);
+    await user.click(await askButton("Moon Pix"));
+
+    expect(await screen.findAllByRole("option", { name: /^Test Person/ })).toHaveLength(8);
+    expect(screen.getByRole("option", { name: "3 more match. Keep typing." })).toHaveAttribute("aria-disabled", "true");
+  });
+
+  it("Back returns to the search without sending anything", async () => {
+    mockAuth.authority = Authorization.MD;
+    let posts = 0;
+    fakeReviewsEndpoints({ open: [moonPix()], reviewers: REVIEWERS });
+    server.use(
+      http.post(`${TEST_BACKEND_URL}/intake/11/request`, () => {
+        posts += 1;
+        return HttpResponse.json(moonPix());
+      }),
+    );
+
+    const { user } = renderWithProviders(<ReviewsScreen tab="shelf" />);
+    await pick(user, "pat");
+    await user.click(await screen.findByRole("button", { name: "Back" }));
+
+    expect(await searchField()).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Ask" })).not.toBeInTheDocument();
+    expect(posts).toBe(0);
+  });
+
+  it("toasts Asked with the name once sent, and its Cancel request sends the cancel and reloads", async () => {
+    mockAuth.authority = Authorization.MD;
+    const cancelled: string[] = [];
+    let asked = false;
+    fakeReviewsEndpoints({
+      open: () => [asked ? moonPix({ state: "requested", effective_state: "requested", requested_dj_id: "dj-pat", requested_dj_name: "Pat Placeholder" }) : moonPix()],
+      reviewers: REVIEWERS,
+    });
+    server.use(
+      http.post(`${TEST_BACKEND_URL}/intake/11/request`, () => {
+        asked = true;
+        return HttpResponse.json(moonPix({ state: "requested", effective_state: "requested" }));
+      }),
+      http.post(`${TEST_BACKEND_URL}/intake/11/cancel-request`, () => {
+        cancelled.push("cancel");
+        asked = false;
+        return HttpResponse.json(moonPix());
+      }),
+    );
+
+    const { user } = renderWithProviders(<ReviewsScreen tab="shelf" />);
+    await ask(user, "pat");
+
+    await waitFor(() => expect(toast).toHaveBeenCalledWith("Asked Pat Placeholder.", expect.anything()));
+    const options = vi.mocked(toast).mock.calls.find(([message]) => message === "Asked Pat Placeholder.")![1] as { action: { label: string; onClick: () => void } };
+    expect(options.action.label).toBe("Cancel request");
+    expect(cancelled).toEqual([]);
+    options.action.onClick();
+
+    await waitFor(() => expect(cancelled).toEqual(["cancel"]));
+    expect(await askButton("Moon Pix")).toBeInTheDocument();
+  });
+
+  it("toasts no Asked when the request is refused", async () => {
+    mockAuth.authority = Authorization.MD;
+    fakeReviewsEndpoints({ open: [moonPix()], reviewers: REVIEWERS });
+    server.use(http.post(`${TEST_BACKEND_URL}/intake/11/request`, () => HttpResponse.json({ message: "x" }, { status: 400 })));
+
+    const { user } = renderWithProviders(<ReviewsScreen tab="shelf" />);
+    await ask(user, "pat");
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(REQUEST_REFUSED));
+    expect(toast).not.toHaveBeenCalledWith("Asked Pat Placeholder.", expect.anything());
+  });
+
+  it("asks about the record whose button opened the search", async () => {
+    mockAuth.authority = Authorization.MD;
+    const paths: string[] = [];
     fakeReviewsEndpoints({
       open: [moonPix({ id: 1 }), moonPix({ id: 2, album_title: "Dark Side" })],
       reviewers: REVIEWERS,
     });
+    server.use(
+      http.post(`${TEST_BACKEND_URL}/intake/:id/request`, ({ request }) => {
+        paths.push(new URL(request.url).pathname);
+        return HttpResponse.json(moonPix({ state: "requested", effective_state: "requested" }));
+      }),
+    );
 
     const { user } = renderWithProviders(<BothTabs />);
     await pick(user, "Pat Placeholder", "Dark Side");
+    expect(await screen.findByText(/to review Cat Power, Dark Side\?/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Ask" }));
 
-    expect((await rowControls("Dark Side")).getByRole("button", { name: "Request a review" })).toBeEnabled();
-    expect((await rowControls("Moon Pix")).getByRole("button", { name: "Request a review" })).toBeDisabled();
+    await waitFor(() => expect(paths).toEqual(["/intake/2/request"]));
   });
 
   // `isIntakeRequestRefused` is true for any 400 under `intakeWriteError`, so only the action tells a refused request apart.
@@ -885,7 +1028,7 @@ describe("ReviewsScreen", () => {
     expect(toast.error).not.toHaveBeenCalledWith(REQUEST_REFUSED);
   });
 
-  it("never paints the review shelf lane without Request a review when the role resolves after the first paint", async () => {
+  it("never paints the review shelf lane without Ask a DJ… when the role resolves after the first paint", async () => {
     mockAuth.authority = Authorization.MD;
     mockAuth.late = true;
     fakeReviewsEndpoints({ open: [moonPix()], reviewers: REVIEWERS });
@@ -894,13 +1037,13 @@ describe("ReviewsScreen", () => {
       const shelf = screen.queryByRole("region", { name: SHELF });
       if (!shelf) return;
       const row = within(shelf).queryByText(/Moon Pix/) !== null;
-      const request = within(shelf).queryByRole("button", { name: "Request a review" }) !== null;
+      const request = within(shelf).queryByRole("button", { name: ASK_A_DJ }) !== null;
       states.push(`${row ? (request ? "R" : "-") : "."}`);
     });
     observer.observe(document.body, { childList: true, subtree: true });
 
     renderWithProviders(<BothTabs />);
-    await within(await section(SHELF)).findByRole("button", { name: "Request a review" });
+    await askButton("Moon Pix");
     await new Promise((resolve) => setTimeout(resolve, 50));
     observer.disconnect();
 
@@ -953,8 +1096,6 @@ describe("ReviewsScreen", () => {
     ["album", REVIEW_COPY.intake.album, "Album"],
     ["label", REVIEW_COPY.intake.label, "Label"],
     ["format", REVIEW_COPY.intake.format, "Format"],
-    ["djToAsk", REVIEW_COPY.intake.djToAsk, "DJ to ask"],
-    ["request", REVIEW_COPY.intake.request, "Request a review"],
     ["reviewersLoadFailed", REVIEW_COPY.intake.reviewersLoadFailed, "Couldn't load the DJs who can be asked to review. Please try again."],
     ["logged", REVIEW_COPY.screen.logged, "Logged"],
     ["taken", REVIEW_COPY.screen.taken, "Taken"],

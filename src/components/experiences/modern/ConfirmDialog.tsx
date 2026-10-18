@@ -42,6 +42,8 @@ export type ConfirmDialogProps = {
   role?: "alertdialog" | "dialog";
   /** `data-testid` on the `ModalDialog`. */
   testId?: string;
+  /** `fullscreen` makes the dialog a sheet that fills the screen, for a phone. */
+  layout?: "center" | "fullscreen";
   sx?: SxProps;
 };
 
@@ -63,6 +65,7 @@ export default function ConfirmDialog({
   titleId,
   role = "alertdialog",
   testId,
+  layout,
   sx,
 }: ConfirmDialogProps) {
   const generatedId = useId();
@@ -77,6 +80,7 @@ export default function ConfirmDialog({
     >
       <ModalDialog
         variant="outlined"
+        layout={layout}
         role={role}
         aria-labelledby={labelId}
         data-testid={testId}
