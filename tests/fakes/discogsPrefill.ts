@@ -45,23 +45,24 @@ export function discogsPrefillGatewayHtml(status = 502): Response {
  * `respond` overrides the whole answer for a given `url` — return a named 4xx
  * there to exercise a specific refusal (`release_not_found`, `master_url`, …),
  * a non-JSON body via `discogsPrefillGatewayHtml` to exercise the hard-failure
- * path, or `undefined` to fall through to the default resolve.
+ * path, or `undefined` to fall through to the default resolve. It may return a
+ * promise, to hold an answer back until the test lets it go.
  */
 export function fakeDiscogsPrefillEndpoint(
   options: {
     prefill?: DiscogsReleasePrefill;
-    respond?: (url: string) => Response | undefined;
+    respond?: (url: string) => Response | undefined | Promise<Response | undefined>;
   } = {},
 ) {
   const prefill = options.prefill ?? MOLINA_DISCOGS_PREFILL;
   const urls: string[] = [];
 
   server.use(
-    http.get(`${BACKEND_URL}/library/releases/discogs-prefill`, ({ request }) => {
+    http.get(`${BACKEND_URL}/library/releases/discogs-prefill`, async ({ request }) => {
       const url = new URL(request.url).searchParams.get("url") ?? "";
       urls.push(url);
 
-      const override = options.respond?.(url);
+      const override = await options.respond?.(url);
       if (override) return override;
 
       const resolvable =

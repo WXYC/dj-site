@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { screen, waitFor } from "@testing-library/react";
+import { act, screen, waitFor } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { fakeReviewsEndpoints, intakeItem, renderWithProviders, server, TEST_BACKEND_URL } from "@/tests/helpers";
 
@@ -78,21 +78,42 @@ describe("IntakeLogForm", () => {
   describe("filling the record's details from the Discogs field", () => {
     const FILLED_LINE = "Filled in the artist, album and label from Discogs. Check them before you add the record.";
     const LINK = "https://www.discogs.com/release/24216789-Juana-Molina-DOGA";
+    const OTHER_LINK = "https://www.discogs.com/release/1234567";
+    type User = ReturnType<typeof renderWithProviders>["user"];
+    const discogsField = () => screen.getByLabelText(/^Discogs link/);
 
-    it("makes one request on paste and fills the empty artist, album and label", async () => {
-      fakeReviewsEndpoints({ open: [] });
-      const prefill = fakeDiscogsPrefillEndpoint({ prefill: { ...MOLINA_DISCOGS_PREFILL, label_id: 7 } });
-      let body: Record<string, unknown> | undefined;
+    /** Holds each lookup's answer until the test lets it through with `answer(url)`. */
+    function heldAnswers() {
+      const waiting = new Map<string, () => void>();
+      return {
+        respond: (url: string) => new Promise<undefined>((resolve) => waiting.set(url, () => resolve(undefined))),
+        answer: (url: string) => waiting.get(url)?.(),
+      };
+    }
+
+    /** Lets a held answer reach the form, for a test that checks the answer changed nothing. */
+    const settle = () => act(() => new Promise((resolve) => setTimeout(resolve, 100)));
+
+    function captureIntakePost() {
+      const sent: { body?: Record<string, unknown> } = {};
       server.use(
         http.post(`${TEST_BACKEND_URL}/intake`, async ({ request }) => {
-          body = (await request.json()) as Record<string, unknown>;
+          sent.body = (await request.json()) as Record<string, unknown>;
           return HttpResponse.json(moonPix());
         }),
       );
+      return sent;
+    }
+
+    it("makes one request for a paste followed by leaving the field, and fills the empty artist, album and label", async () => {
+      fakeReviewsEndpoints({ open: [] });
+      const prefill = fakeDiscogsPrefillEndpoint({ prefill: { ...MOLINA_DISCOGS_PREFILL, label_id: 7 } });
+      const sent = captureIntakePost();
 
       const { user } = renderWithProviders(<IntakeLogForm />);
       await user.click(await screen.findByLabelText(/^Discogs link/));
       await user.paste(LINK);
+      await user.tab();
 
       expect(await screen.findByText(FILLED_LINE)).toBeInTheDocument();
       expect(screen.getByLabelText(/^Artist/)).toHaveValue("Juana Molina");
@@ -102,8 +123,8 @@ describe("IntakeLogForm", () => {
 
       await user.click(screen.getByRole("radio", { name: "As files" }));
       await user.click(screen.getByRole("button", { name: "Log item" }));
-      await waitFor(() => expect(body).toBeDefined());
-      expect(body).toMatchObject({ record_label: "Sonamos", label_id: 7, discogs_release_id: 24216789 });
+      await waitFor(() => expect(sent.body).toBeDefined());
+      expect(sent.body).toMatchObject({ record_label: "Sonamos", label_id: 7, discogs_release_id: 24216789 });
     });
 
     it("leaves a field the music director already typed in alone", async () => {
@@ -112,8 +133,25 @@ describe("IntakeLogForm", () => {
 
       const { user } = renderWithProviders(<IntakeLogForm />);
       await user.type(await screen.findByLabelText(/^Album/), "Doga (promo)");
-      await user.click(screen.getByLabelText(/^Discogs link/));
+      await user.click(discogsField());
       await user.paste(LINK);
+
+      expect(await screen.findByText(FILLED_LINE)).toBeInTheDocument();
+      expect(screen.getByLabelText(/^Album/)).toHaveValue("Doga (promo)");
+      expect(screen.getByLabelText(/^Artist/)).toHaveValue("Juana Molina");
+    });
+
+    it("keeps what the music director types while the lookup is still running", async () => {
+      fakeReviewsEndpoints({ open: [] });
+      const held = heldAnswers();
+      const prefill = fakeDiscogsPrefillEndpoint({ respond: held.respond });
+
+      const { user } = renderWithProviders(<IntakeLogForm />);
+      await user.click(await screen.findByLabelText(/^Discogs link/));
+      await user.paste(LINK);
+      await waitFor(() => expect(prefill.urls()).toEqual([LINK]));
+      await user.type(screen.getByLabelText(/^Album/), "Doga (promo)");
+      held.answer(LINK);
 
       expect(await screen.findByText(FILLED_LINE)).toBeInTheDocument();
       expect(screen.getByLabelText(/^Album/)).toHaveValue("Doga (promo)");
@@ -133,30 +171,127 @@ describe("IntakeLogForm", () => {
       expect(prefill.urls()).toEqual(["24216789"]);
     });
 
-    it("shows the server's line for a named 4xx and keeps the form usable", async () => {
+    it("looks up what the field holds after a paste into text already there, not the pasted text alone", async () => {
       fakeReviewsEndpoints({ open: [] });
-      fakeDiscogsPrefillEndpoint({
-        respond: () => HttpResponse.json({ message: "Discogs has no release for that link", code: "release_not_found" }, { status: 404 }),
+      const prefill = fakeDiscogsPrefillEndpoint();
+
+      const { user } = renderWithProviders(<IntakeLogForm />);
+      await user.type(await screen.findByLabelText(/^Discogs link/), "2421");
+      await user.paste("6789");
+
+      expect(await screen.findByText(FILLED_LINE)).toBeInTheDocument();
+      expect(prefill.urls()).toEqual(["24216789"]);
+    });
+
+    it.each([
+      [
+        "a newer link was pasted over it",
+        async (user: User) => {
+          await user.tripleClick(discogsField());
+          await user.paste(OTHER_LINK);
+          expect(await screen.findByText("Discogs has no release for that link")).toBeInTheDocument();
+        },
+        "Discogs has no release for that link",
+      ],
+      ["the field was cleared", async (user: User) => user.clear(discogsField()), null],
+    ])("ignores the answer for a link once %s", async (_case, replace, lineAfter) => {
+      fakeReviewsEndpoints({ open: [] });
+      const held = heldAnswers();
+      const prefill = fakeDiscogsPrefillEndpoint({
+        respond: (url) =>
+          url === OTHER_LINK
+            ? HttpResponse.json({ message: "Discogs has no release for that link", code: "release_not_found" }, { status: 404 })
+            : held.respond(url),
       });
 
       const { user } = renderWithProviders(<IntakeLogForm />);
       await user.click(await screen.findByLabelText(/^Discogs link/));
       await user.paste(LINK);
+      await waitFor(() => expect(prefill.urls()).toContain(LINK));
+      await replace(user);
+      held.answer(LINK);
+      await settle();
 
-      expect(await screen.findByText("Discogs has no release for that link")).toBeInTheDocument();
-      await user.type(screen.getByLabelText(/^Album/), "Doga");
-      expect(screen.getByLabelText(/^Album/)).toHaveValue("Doga");
+      expect(screen.getByLabelText(/^Artist/)).toHaveValue("");
+      expect(screen.getByLabelText(/^Album/)).toHaveValue("");
+      expect(screen.queryByText(FILLED_LINE)).not.toBeInTheDocument();
+      if (lineAfter) {
+        expect(screen.getByRole("status")).toHaveTextContent(lineAfter);
+      } else {
+        expect(screen.queryByRole("status")).not.toBeInTheDocument();
+      }
     });
 
-    it("shows the generic line for a 5xx", async () => {
+    it("leaves out the prefilled label's id once the label is changed", async () => {
       fakeReviewsEndpoints({ open: [] });
-      fakeDiscogsPrefillEndpoint({ respond: () => HttpResponse.json({ message: "boom" }, { status: 502 }) });
+      fakeDiscogsPrefillEndpoint({ prefill: { ...MOLINA_DISCOGS_PREFILL, label_id: 7 } });
+      server.use(http.get(`${TEST_BACKEND_URL}/labels/search`, () => HttpResponse.json([])));
+      const sent = captureIntakePost();
+
+      const { user } = renderWithProviders(<IntakeLogForm />);
+      await user.click(await screen.findByLabelText(/^Discogs link/));
+      await user.paste(LINK);
+      const label = await screen.findByDisplayValue("Sonamos");
+      await user.clear(label);
+      await user.type(label, "Drag City");
+      await user.click(screen.getByRole("radio", { name: "As files" }));
+      await user.click(screen.getByRole("button", { name: "Log item" }));
+
+      await waitFor(() => expect(sent.body).toBeDefined());
+      expect(sent.body).toMatchObject({ record_label: "Drag City" });
+      expect(sent.body).not.toHaveProperty("label_id");
+    });
+
+    it.each([
+      ["the field is cleared", async (user: User) => user.clear(discogsField())],
+      [
+        "the record is added",
+        async (user: User) => {
+          captureIntakePost();
+          await user.click(screen.getByRole("radio", { name: "As files" }));
+          await user.click(screen.getByRole("button", { name: "Log item" }));
+          await waitFor(() => expect(screen.getByLabelText(/^Artist/)).toHaveValue(""));
+        },
+      ],
+    ])("takes the line away when %s, and looks the same link up again when it is pasted again", async (_case, leave) => {
+      fakeReviewsEndpoints({ open: [] });
+      const prefill = fakeDiscogsPrefillEndpoint();
+
+      const { user } = renderWithProviders(<IntakeLogForm />);
+      await user.click(await screen.findByLabelText(/^Discogs link/));
+      await user.paste(LINK);
+      expect(await screen.findByText(FILLED_LINE)).toBeInTheDocument();
+
+      await leave(user);
+      expect(screen.queryByText(FILLED_LINE)).not.toBeInTheDocument();
+
+      await user.click(discogsField());
+      await user.paste(LINK);
+      expect(await screen.findByText(FILLED_LINE)).toBeInTheDocument();
+      expect(prefill.urls()).toEqual([LINK, LINK]);
+    });
+
+    it.each([
+      ["a lookup that worked", undefined, FILLED_LINE],
+      [
+        "a named 4xx",
+        () => HttpResponse.json({ message: "Discogs has no release for that link", code: "release_not_found" }, { status: 404 }),
+        "Discogs has no release for that link",
+      ],
+      ["a 5xx", () => HttpResponse.json({ message: "boom" }, { status: 502 }), /^Couldn't autopopulate from that link/],
+    ])("announces the line for %s, ties it to the field, and keeps the form usable", async (_case, respond, line) => {
+      fakeReviewsEndpoints({ open: [] });
+      fakeDiscogsPrefillEndpoint({ respond });
 
       const { user } = renderWithProviders(<IntakeLogForm />);
       await user.click(await screen.findByLabelText(/^Discogs link/));
       await user.paste(LINK);
 
-      expect(await screen.findByText(/^Couldn't autopopulate from that link/)).toBeInTheDocument();
+      expect(await screen.findByRole("status")).toHaveTextContent(line);
+      expect(discogsField()).toHaveAccessibleDescription(line);
+      await user.clear(screen.getByLabelText(/^Album/));
+      await user.type(screen.getByLabelText(/^Album/), "Doga");
+      expect(screen.getByLabelText(/^Album/)).toHaveValue("Doga");
     });
   });
 });
