@@ -97,13 +97,14 @@ export default function IntakeLogForm({ onLogged, onBusyChange, hideTitle = fals
   );
   const showSuggestions = typedTerm.length >= SUGGESTION_MIN_LENGTH && typedTerm === debouncedTerm;
 
-  // The hint and the one-step button follow the debounced text and wait until the fields hold it.
+  // The hint and the one-step button follow the debounced text and wait until the fields hold it, and until
+  // both reads for it have ended: they answer on their own, so the target is not read from half an answer.
   const [artist, album] = [form.artist.trim(), form.album.trim()];
   const debouncedArtist = useDebouncedValue(artist, SUGGESTION_DEBOUNCE_MS);
   const debouncedAlbum = useDebouncedValue(album, SUGGESTION_DEBOUNCE_MS);
-  const settled = artist !== "" && album !== "" && artist === debouncedArtist && album === debouncedAlbum;
-  const { library, formCount } = useReviewProbablyExists(debouncedArtist, debouncedAlbum, settled);
-  const cite: CiteTarget | null = !settled ? null : library ? { kind: "library", albumId: library.id } : formCount > 0 ? { kind: "form" } : null;
+  const textSettled = artist !== "" && album !== "" && artist === debouncedArtist && album === debouncedAlbum;
+  const { library, formCount, settled: readsSettled } = useReviewProbablyExists(debouncedArtist, debouncedAlbum, textSettled);
+  const cite: CiteTarget | null = !textSettled || !readsSettled ? null : library ? { kind: "library", albumId: library.id } : formCount > 0 ? { kind: "form" } : null;
 
   // An empty Discogs field is fine; anything it cannot read as a release id keeps the form from sending.
   const discogsId = discogsReleaseIdFrom(form.discogs);
@@ -305,11 +306,11 @@ export default function IntakeLogForm({ onLogged, onBusyChange, hideTitle = fals
             </Select>
           </FormControl>
         )}
-        {/* Mounted while empty so a hint that appears is announced. */}
-        <div aria-live="polite">{cite && <ReviewHint artist={debouncedArtist} album={debouncedAlbum} />}</div>
+        {/* Mounted while empty so a hint that appears is announced, whole. */}
+        <div role="status" aria-atomic="true">{cite && <ReviewHint artist={debouncedArtist} album={debouncedAlbum} />}</div>
         <Button type="submit" loading={logging} disabled={!ready}>{COPY.log}</Button>
         {cite && (
-          <Button type="button" variant="outlined" loading={logging} disabled={!ready || logging} onClick={() => void submit(true)}>{COPY.addAndChoose}</Button>
+          <Button type="button" variant="outlined" loading={logging} disabled={!ready} onClick={() => void submit(true)}>{COPY.addAndChoose}</Button>
         )}
       </Stack>
     </form>

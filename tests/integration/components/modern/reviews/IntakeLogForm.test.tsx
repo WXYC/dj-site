@@ -189,6 +189,8 @@ describe("IntakeLogForm", () => {
     const OTHER_LINK = "https://www.discogs.com/release/1234567";
     type User = ReturnType<typeof renderWithProviders>["user"];
     const discogsField = () => screen.getByLabelText(/^Discogs link/);
+    /** The Discogs field's status line, apart from the always-mounted, atomic hint region beside the buttons. */
+    const discogsStatuses = () => screen.queryAllByRole("status").filter((el) => el.getAttribute("aria-atomic") !== "true");
 
     /** Holds each lookup's answer until the test lets it through with `answer(url)`. */
     function heldAnswers() {
@@ -324,9 +326,10 @@ describe("IntakeLogForm", () => {
       expect(screen.getByLabelText(/^Album/)).toHaveValue("");
       expect(screen.queryByText(FILLED_LINE)).not.toBeInTheDocument();
       if (lineAfter) {
-        expect(screen.getByRole("status")).toHaveTextContent(lineAfter);
+        expect(discogsStatuses()).toHaveLength(1);
+        expect(discogsStatuses()[0]).toHaveTextContent(lineAfter);
       } else {
-        expect(screen.queryByRole("status")).not.toBeInTheDocument();
+        expect(discogsStatuses()).toHaveLength(0);
       }
     });
 
@@ -395,7 +398,8 @@ describe("IntakeLogForm", () => {
       await user.click(await screen.findByLabelText(/^Discogs link/));
       await user.paste(LINK);
 
-      expect(await screen.findByRole("status")).toHaveTextContent(line);
+      await waitFor(() => expect(discogsStatuses()).toHaveLength(1));
+      expect(discogsStatuses()[0]).toHaveTextContent(line);
       expect(discogsField()).toHaveAccessibleDescription(line);
       await user.clear(screen.getByLabelText(/^Album/));
       await user.type(screen.getByLabelText(/^Album/), "Doga");
