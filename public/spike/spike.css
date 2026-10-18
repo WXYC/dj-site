@@ -563,6 +563,15 @@ table.results td[data-result="cant"] {
   font-weight: 700;
 }
 
+.table-title {
+  margin: 16px 0 4px;
+}
+
+table.results.lock th:first-child,
+table.results.lock td:first-child {
+  width: 70%;
+}
+
 .legend {
   margin-top: 6px;
 }

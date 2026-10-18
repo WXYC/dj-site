@@ -11,6 +11,10 @@
  *   - ?auto=1, which runs the automatic checks for each format with muted
  *     playback and no taps, and publishes machine-readable results.
  *
+ * The lock test (an iPhone or iPad, and Safari on a Mac) runs once per
+ * browser, not per format, on its own player and its own 30-minute WAV. Its
+ * arithmetic is in lock-math.js, which loads first.
+ *
  * Plain script with no build step, so every browser runs it as is.
  */
 "use strict";
@@ -48,6 +52,22 @@
     "loadstart", "loadedmetadata", "loadeddata", "canplay", "canplaythrough", "play", "playing", "pause",
     "waiting", "stalled", "suspend", "seeking", "seeked", "ended", "error", "emptied", "abort",
   ];
+  const LOCK_ID = "lock";
+  const LOCK_LIMIT_S = 5;
+  const LOCK_CHECKS = ["awayWorker", "awayPast", "awayWhole", "awayScrub"];
+  const LOCK_EVENTS = [...MEDIA_EVENTS, "timeupdate", "ratechange"];
+  const LOCK_ACTIONS = ["play", "pause", "seekto", "seekforward", "seekbackward"];
+  const SEEK_ACTIONS = ["seekto", "seekforward", "seekbackward"];
+  // Stored timeupdates are thinned to about one a second, and saved at most
+  // every two seconds: the arithmetic back-dates from each position, so it
+  // loses nothing by the thinning.
+  const LOCK_TU_EVERY_MS = 1000;
+  const LOCK_SAVE_EVERY_MS = 2000;
+  // After a reload while away, the page judges the playback up to the last
+  // position it stored; one stored this long before the reload means the
+  // browser closed the page then, and the audio stopped with it.
+  const RELOAD_GRACE_MS = 10000;
+  const LM = window.SpikeLockMath;
 
   const query = new URLSearchParams(location.search);
   const AUTO = query.get("auto") === "1";
@@ -62,9 +82,12 @@
 
   const $ = (id) => document.getElementById(id);
   const audio = $("audio");
+  const lockAudio = $("lock-audio");
   const device = detectDevice(navigator.userAgent);
   const state = {
-    sources: [],
+    tracks: [], // every track in sources.json, the lock track included
+    sources: [], // the four formats
+    lockEntry: null,
     controlled: false,
     setupError: "",
     sessions: [],
@@ -78,11 +101,17 @@
     editingLinks: false,
     linkExpired: false,
     fragmentError: "",
-    loop: false,
     lockNotice: "",
     lockEvaluating: false,
+    lockSession: null, // the lock player's session, for the log
+    nextLockSession: 1,
+    shown: null, // the session whose log and events "Details for debugging" shows
+    lockHandlers: [], // the Lock Screen actions the browser took for the lock player
+    lockAction: null, // the last Lock Screen action: { action, at }
+    lockSavedAt: 0,
+    mediaFor: "", // which player the Media Session is set up for: "format" or "lock"
     auto: null,
-    resultsSig: "",
+    tableSigs: {},
   };
   const store = { data: emptyStore(), note: "" };
 
@@ -100,6 +129,7 @@
   const afterJumpMs = () => (AUTO ? Math.min(AFTER_JUMP_MS, AUTO_DWELL_S * 750) : AFTER_JUMP_MS);
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
   const round1 = (n) => (Number.isFinite(n) ? Math.round(n * 10) / 10 : null);
+  const round3 = (n) => (Number.isFinite(n) ? Math.round(n * 1000) / 1000 : null);
   const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
   const errText = (err) => (err && err.message ? err.message : String(err));
 
@@ -131,6 +161,18 @@
     const s = Math.max(0, Math.round(seconds));
     return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
   }
+
+  /** A track position as m:ss.s. */
+  function clockPos(seconds) {
+    if (!Number.isFinite(seconds)) {
+      return "-";
+    }
+    const t = Math.round(Math.max(0, seconds) * 10) / 10;
+    const m = Math.floor(t / 60);
+    return `${m}:${(t - m * 60).toFixed(1).padStart(4, "0")}`;
+  }
+
+  const rangesText = (ranges) => (ranges && ranges.length ? ranges.map(([a, b]) => `${a}-${b}`).join(", ") + " s" : "(none)");
 
   function median(values) {
     if (!values.length) {
@@ -285,10 +327,30 @@
         const parsed = JSON.parse(raw);
         if (parsed && typeof parsed === "object" && parsed.formats && typeof parsed.formats === "object") {
           store.data = Object.assign(emptyStore(), parsed);
+          dropPerFormatAway();
         }
       }
     } catch (e) {
       store.note = "This browser will not keep the results if the page reloads (its storage is blocked).";
+    }
+  }
+
+  /**
+   * Away results stored under a format, and a lock record for a format's
+   * track, come from a page that ran the lock test on each format's own
+   * ten-minute track with Loop on; they do not answer this test's questions.
+   */
+  function dropPerFormatAway() {
+    const lock = store.data.lock;
+    if (lock && lock.format !== LOCK_ID) {
+      store.data.lock = null;
+    }
+    for (const [id, f] of Object.entries(store.data.formats)) {
+      if (id !== LOCK_ID && f && typeof f === "object") {
+        ["awayPast", "awayWorker", "awayHeard", "lockScreen"].forEach((k) => {
+          delete f[k];
+        });
+      }
     }
   }
 
@@ -339,20 +401,28 @@
     const play = isDecided(f.first) && isDecided(f.plays) && isDecided(f.next);
     const jump = JUMPS.every((j) => isDecided(f[j.key])) && isAnswered(f.spot);
     const ahead = !!(f.aheadSteady && f.aheadJump);
-    const away =
-      !awayApplies() ||
-      (isDecided(f.awayPast) &&
-        isDecided(f.awayWorker) &&
-        isAnswered(f.awayHeard) &&
-        (device.family !== "ios" || isAnswered(f.lockScreen)));
-    return { play, jump, ahead, away, done: play && jump && ahead && away };
+    return { play, jump, ahead, done: play && jump && ahead };
   }
+
+  const lockApplies = () => awayApplies() && !!state.lockEntry;
+  const lockResults = () => readFormat(LOCK_ID);
+  const lockDecided = (f = lockResults()) => LOCK_CHECKS.every((k) => isDecided(f[k]));
+  const testName = () => (device.family === "ios" ? "lock test" : "background test");
+
+  /** The lock test is done once in each browser, whatever the format. */
+  function lockDone() {
+    const f = lockResults();
+    return lockDecided(f) && isAnswered(f.awayHeard) && isAnswered(f.scrubHeard) && (device.family !== "ios" || isAnswered(f.lockScreen));
+  }
+
+  /** The tracks this browser needs a link for: the lock track only where the lock test runs. */
+  const neededTracks = () => (lockApplies() ? state.tracks : state.sources);
 
   // ---- the element ---------------------------------------------------------
 
-  function readAhead() {
-    const t = audio.currentTime;
-    const b = audio.buffered;
+  function readAhead(el = audio) {
+    const t = el.currentTime;
+    const b = el.buffered;
     for (let i = 0; i < b.length; i++) {
       if (b.start(i) <= t + 0.05 && t <= b.end(i)) {
         return b.end(i) - t;
@@ -361,8 +431,8 @@
     return 0;
   }
 
-  function isBuffered(t) {
-    const b = audio.buffered;
+  function isBuffered(t, el = audio) {
+    const b = el.buffered;
     for (let i = 0; i < b.length; i++) {
       if (b.start(i) <= t && t < b.end(i)) {
         return true;
@@ -371,12 +441,12 @@
     return false;
   }
 
-  function allLoaded() {
-    const d = audio.duration;
+  function allLoaded(el = audio) {
+    const d = el.duration;
     if (!Number.isFinite(d) || d <= 0) {
       return false;
     }
-    const b = audio.buffered;
+    const b = el.buffered;
     let total = 0;
     for (let i = 0; i < b.length; i++) {
       total += b.end(i) - b.start(i);
@@ -384,13 +454,23 @@
     return total >= d - 1;
   }
 
-  function bufferedText() {
-    const b = audio.buffered;
+  function bufferedText(el = audio) {
+    const b = el.buffered;
     const parts = [];
     for (let i = 0; i < b.length; i++) {
       parts.push(`${b.start(i).toFixed(2)}-${b.end(i).toFixed(2)}`);
     }
     return parts.length ? parts.join(", ") + " s" : "(none)";
+  }
+
+  /** The buffered ranges as [start, end] pairs in seconds, to a tenth. */
+  function bufferedRanges(el) {
+    const b = el.buffered;
+    const out = [];
+    for (let i = 0; i < b.length; i++) {
+      out.push([round1(b.start(i)), round1(b.end(i))]);
+    }
+    return out;
   }
 
   function trackDuration() {
@@ -424,13 +504,13 @@
     return `At ${mmss(t)} you should hear ${tone}, and ${pipText}${wait}.`;
   }
 
-  function positionText() {
-    const d = Number.isFinite(audio.duration) ? mmss(audio.duration) : "…";
-    return `Position ${mmss(audio.currentTime)} of ${d}`;
+  function positionText(el = audio) {
+    const d = Number.isFinite(el.duration) ? mmss(el.duration) : "…";
+    return `Position ${mmss(el.currentTime)} of ${d}`;
   }
 
-  function setMediaSession(entry) {
-    if (!("mediaSession" in navigator) || typeof MediaMetadata === "undefined") {
+  function setMetadata(entry) {
+    if (!entry || !("mediaSession" in navigator) || typeof MediaMetadata === "undefined") {
       return;
     }
     navigator.mediaSession.metadata = new MediaMetadata({
@@ -440,12 +520,62 @@
     });
   }
 
-  async function playAudio() {
+  /**
+   * A page has one Media Session, so the Lock Screen's controls belong to
+   * whichever player played last. The lock player gets a handler for each
+   * Lock Screen action, so the Lock Screen shows a scrubber for it and the
+   * page hears every press; the format player keeps the browser's own.
+   */
+  function mediaSessionFor(which) {
+    state.mediaFor = which;
+    const took = [];
+    if ("mediaSession" in navigator) {
+      for (const action of LOCK_ACTIONS) {
+        try {
+          navigator.mediaSession.setActionHandler(action, which === "lock" ? (details) => onLockAction(action, details || {}) : null);
+          if (which === "lock") {
+            took.push(action);
+          }
+        } catch (e) {
+          // An action this browser does not support.
+        }
+      }
+    }
+    state.lockHandlers = took;
+    setMetadata(which === "lock" ? state.lockEntry : currentEntry());
+    if (which === "lock") {
+      updatePositionState();
+    } else if ("mediaSession" in navigator && typeof navigator.mediaSession.setPositionState === "function") {
+      try {
+        // No argument clears the lock player's position, so the Lock Screen follows the format player.
+        navigator.mediaSession.setPositionState();
+      } catch (e) {
+        // Nothing to clear.
+      }
+    }
+  }
+
+  /** Tells the Lock Screen where the lock player is, so its scrubber starts from the right place. */
+  function updatePositionState() {
+    const ms = navigator.mediaSession;
+    const d = lockAudio.duration;
+    if (state.mediaFor !== "lock" || !ms || typeof ms.setPositionState !== "function" || !Number.isFinite(d) || d <= 0) {
+      return;
+    }
     try {
-      await audio.play();
+      ms.setPositionState({ duration: d, playbackRate: lockAudio.playbackRate || 1, position: Math.min(d, Math.max(0, lockAudio.currentTime)) });
+    } catch (e) {
+      // A state the browser rejects; the Lock Screen keeps its own.
+    }
+  }
+
+  async function playAudio(el = audio) {
+    try {
+      await el.play();
       return { ok: true };
     } catch (err) {
-      addEvent("play refused", `${err && err.name ? err.name : ""} ${errText(err)}`.trim());
+      const s = el === lockAudio ? state.lockSession : state.current;
+      addEvent("play refused", `${err && err.name ? err.name : ""} ${errText(err)}`.trim(), s, el);
       return { ok: false, name: err && err.name ? err.name : "Error", message: errText(err) };
     }
   }
@@ -522,19 +652,21 @@
     };
     state.sessions.push(session);
     state.current = session;
+    state.shown = session;
     $("events").textContent = "";
     const q = new URLSearchParams({ load: LOAD_ID, session: String(session.n), respond: session.mode });
     if (entry.kbps) {
       q.set("kbps", String(entry.kbps));
     }
-    audio.loop = state.loop;
     if (AUTO) {
       // Muted playback may start without a tap, and the run must make no sound.
       audio.muted = true;
     }
     audio.src = `/spike/audio/${encodeURIComponent(entry.id)}?${q}`;
     audio.load();
-    setMediaSession(entry);
+    if (lockAudio.paused) {
+      mediaSessionFor("format");
+    }
     const chunk = chunkFor(entry);
     $("st-chunk").textContent = `${fmtBytes(chunk.bytes)} (${chunk.why})`;
     addEvent("src set", `${entry.label}, ${session.mode}`);
@@ -576,16 +708,26 @@
     render();
   }
 
-  function addEvent(type, detail) {
-    const s = state.current;
+  /** Adds an event to a session's list: the format player's by default, or the lock player's. */
+  function addEvent(type, detail, s = state.current, el = audio) {
     if (!s) {
       return;
     }
-    const ev = { at: Date.now(), type, ct: audio.currentTime, ahead: readAhead(), detail: detail || "" };
+    const ev = { at: Date.now(), type, ct: el.currentTime, ahead: readAhead(el), detail: detail || "" };
     s.events.push(ev);
-    const li = document.createElement("li");
-    li.textContent = eventLine(s, ev);
-    $("events").appendChild(li);
+    if (s === state.shown) {
+      const li = document.createElement("li");
+      li.textContent = eventLine(s, ev);
+      $("events").appendChild(li);
+    }
+  }
+
+  /** A page event belongs in both players' lists. */
+  function addPageEvent(type) {
+    addEvent(type);
+    if (state.lockSession) {
+      addEvent(type, "", state.lockSession, lockAudio);
+    }
   }
 
   function eventLine(s, ev) {
@@ -603,6 +745,12 @@
         s.error = detail;
         s.errorAt = now;
       }
+    }
+    if (e.type === "play") {
+      if (!lockAudio.paused) {
+        lockAudio.pause();
+      }
+      mediaSessionFor("format");
     }
     if (s && e.type === "play") {
       s.playPressedAt = now;
@@ -646,6 +794,9 @@
     const s = state.current;
     if (s && merged.session === String(s.n) && isExpired(merged)) {
       s.linkExpired = true;
+      state.linkExpired = true;
+    }
+    if (state.lockSession && merged.session === state.lockSession.n && isExpired(merged)) {
       state.linkExpired = true;
     }
   }
@@ -957,59 +1108,226 @@
     render();
   }
 
-  // ---- the background and lock test ----------------------------------------
+  // ---- the lock test -------------------------------------------------------
+  //
+  // Once in each browser, on its own player and the 30-minute WAV, Loop off:
+  // play from 0:00, lock the phone, drag the Lock Screen scrubber forward at
+  // about five minutes, come back after fifteen. It is decided from events
+  // stored with their wall-clock times, because timers stop while the phone
+  // is locked and iOS may reload the page meanwhile.
 
-  function awayDecided(f) {
-    return isDecided(f.awayPast) && isDecided(f.awayWorker);
+  /** When an event fired, by the wall clock, even if its handler ran late. */
+  function eventWallTime(e) {
+    const now = Date.now();
+    const ts = e && e.timeStamp;
+    if (typeof performance === "undefined" || !(ts > 0)) {
+      return now;
+    }
+    const lag = performance.now() - ts;
+    return lag >= 0 && lag < 10 * 60 * 1000 ? Math.round(now - lag) : now;
+  }
+
+  /** The lock test under way (away, or back early), if any. */
+  function activeLock() {
+    const lock = store.data.lock;
+    return lock && lock.format === LOCK_ID && (lock.phase === "away" || lock.phase === "back") ? lock : null;
+  }
+
+  function loadLockTrack() {
+    const entry = state.lockEntry;
+    // A string, so it can never equal a format session's number.
+    const session = { n: "L" + state.nextLockSession++, entry, mode: $("mode").value, startedAt: Date.now(), events: [] };
+    state.sessions.push(session);
+    state.lockSession = session;
+    state.shown = session;
+    $("events").textContent = "";
+    const q = new URLSearchParams({ load: LOAD_ID, session: session.n, respond: session.mode });
+    if (entry.kbps) {
+      q.set("kbps", String(entry.kbps));
+    }
+    lockAudio.src = `/spike/audio/${encodeURIComponent(entry.id)}?${q}`;
+    lockAudio.load();
+    addEvent("src set", `${entry.label}, ${session.mode}`, session, lockAudio);
+    renderLog();
+  }
+
+  /** "Play from 0:00" before the test starts; play and pause once it is under way. */
+  async function onLockPlay() {
+    if (!lockAudio.paused) {
+      lockAudio.pause();
+      render();
+      return;
+    }
+    if (!activeLock()) {
+      const s = state.lockSession;
+      if (!s || s.mode !== $("mode").value || lockAudio.error) {
+        loadLockTrack();
+      } else if (lockAudio.currentTime > 0) {
+        lockAudio.currentTime = 0;
+      }
+    }
+    audio.pause();
+    mediaSessionFor("lock");
+    // play() runs before the first await, inside the tap, as iOS requires.
+    await playAudio(lockAudio);
+    render();
+  }
+
+  /** A Lock Screen (or Now Playing) action for the lock player. */
+  function onLockAction(action, details) {
+    const at = Date.now();
+    const ct = lockAudio.currentTime;
+    state.lockAction = { action, at };
+    let target = null;
+    if (action === "seekto" && Number.isFinite(details.seekTime)) {
+      target = details.seekTime;
+    } else if (action === "seekforward" || action === "seekbackward") {
+      const offset = Number.isFinite(details.seekOffset) ? details.seekOffset : 10;
+      target = action === "seekforward" ? ct + offset : ct - offset;
+    }
+    if (target !== null) {
+      target = Math.max(0, Math.min(Number.isFinite(lockAudio.duration) ? lockAudio.duration : target, target));
+    }
+    recordLock({ type: "action", action, at, ct: round3(ct), target: round3(target), fastSeek: !!details.fastSeek });
+    const detail = target === null ? "" : `to ${target.toFixed(1)} s${details.fastSeek ? " (fast seek)" : ""}`;
+    addEvent("lock screen " + action, detail, state.lockSession, lockAudio);
+    if (action === "play") {
+      playAudio(lockAudio);
+    } else if (action === "pause") {
+      lockAudio.pause();
+    } else if (target !== null) {
+      if (details.fastSeek && typeof lockAudio.fastSeek === "function") {
+        lockAudio.fastSeek(target);
+      } else {
+        lockAudio.currentTime = target;
+      }
+    }
+  }
+
+  /** Keeps one lock player event in the test under way: each event at once, timeupdates about once a second. */
+  function recordLock(rec) {
+    const lock = activeLock();
+    if (!lock) {
+      return;
+    }
+    if (!Array.isArray(lock.events)) {
+      lock.events = [];
+    }
+    const last = lock.events[lock.events.length - 1];
+    if (rec.type === "timeupdate" && last && last.type === "timeupdate" && rec.at - last.at < LOCK_TU_EVERY_MS) {
+      return;
+    }
+    lock.events.push(rec);
+    const now = Date.now();
+    if (rec.type !== "timeupdate" || now - state.lockSavedAt >= LOCK_SAVE_EVERY_MS) {
+      state.lockSavedAt = now;
+      saveStore();
+    }
+  }
+
+  function onLockEvent(e) {
+    const type = e.type;
+    const at = eventWallTime(e);
+    const hidden = document.visibilityState === "hidden";
+    const handlersSet = state.mediaFor === "lock" && state.lockHandlers.length > 0;
+    const lastAction = (actions) => (state.lockAction && actions.includes(state.lockAction.action) ? state.lockAction.at : null);
+    const rec = { type, at, ct: round3(lockAudio.currentTime) };
+    if (type === "seeking") {
+      Object.assign(rec, {
+        target: rec.ct,
+        hidden,
+        inBuffer: isBuffered(lockAudio.currentTime, lockAudio),
+        buffered: bufferedRanges(lockAudio),
+        own: LM.ownAction({ hidden, handlersSet, lastActionAt: lastAction(SEEK_ACTIONS), at }),
+      });
+    } else if (type === "pause") {
+      Object.assign(rec, { hidden, own: LM.ownAction({ hidden, handlersSet, lastActionAt: lastAction(["pause"]), at }) });
+    } else if (type === "error" && lockAudio.error) {
+      rec.detail = `code ${lockAudio.error.code} ${lockAudio.error.message || ""}`.trim();
+    }
+    if (type === "play") {
+      if (!audio.paused) {
+        audio.pause();
+      }
+      if (state.mediaFor !== "lock") {
+        mediaSessionFor("lock");
+      }
+    }
+    if (["loadedmetadata", "play", "pause", "seeked", "ratechange"].includes(type)) {
+      updatePositionState();
+    }
+    recordLock(rec);
+    if (type !== "timeupdate") {
+      addEvent(type, lockEventDetail(rec), state.lockSession, lockAudio);
+    }
+  }
+
+  function lockEventDetail(rec) {
+    if (rec.type === "seeking") {
+      return `to ${secs(rec.target)} s, ${rec.inBuffer ? "loaded" : "not loaded"} (buffered ${rangesText(rec.buffered)}), ${rec.own ? "yours" : "not yours"}${rec.hidden ? ", hidden" : ""}`;
+    }
+    if (rec.type === "pause") {
+      return rec.own ? "yours" : "not yours";
+    }
+    return rec.detail || "";
   }
 
   function onHidden() {
-    addEvent("page hidden");
-    const entry = currentEntry();
-    if (AUTO || !awayApplies() || !entry || !state.controlled) {
-      return;
-    }
     const now = Date.now();
-    const lock = store.data.lock;
-    if (lock && lock.format === entry.id && lock.phase === "back") {
-      lock.spans.push({ from: now, to: null });
-      lock.phase = "away";
-      saveStore();
+    addPageEvent("page hidden");
+    if (AUTO || !lockApplies() || !state.controlled) {
       return;
     }
-    if (!state.loop || audio.paused || awayDecided(readFormat(entry.id))) {
+    const live = activeLock();
+    if (live) {
+      if (live.phase === "back") {
+        live.spans.push({ from: now, to: null });
+        live.phase = "away";
+        live.events.push({ type: "hidden", at: now, ct: round3(lockAudio.currentTime) });
+        saveStore();
+      }
+      return;
+    }
+    if (lockAudio.paused || lockDecided()) {
       return;
     }
     state.lockNotice = "";
     // Written synchronously: the browser may freeze or discard the page at
     // any moment from here on, and timers stop while the phone is locked.
     store.data.lock = {
-      format: entry.id,
+      format: LOCK_ID,
       phase: "away",
       firstHiddenAt: now,
       endAt: null,
+      endCt: null,
       spans: [{ from: now, to: null }],
-      aheadAtHide: readAhead(),
-      ctAtHide: audio.currentTime,
-      allLoaded: allLoaded(),
-      duration: Number.isFinite(audio.duration) ? audio.duration : null,
+      aheadAtHide: readAhead(lockAudio),
+      ctAtHide: lockAudio.currentTime,
+      allLoaded: allLoaded(lockAudio),
+      duration: Number.isFinite(lockAudio.duration) ? lockAudio.duration : null,
+      mode: state.lockSession ? state.lockSession.mode : $("mode").value,
+      load: LOAD_ID,
+      session: state.lockSession ? state.lockSession.n : null,
+      handlers: [...state.lockHandlers],
+      events: [{ type: "hidden", at: now, ct: round3(lockAudio.currentTime) }],
       returnState: null,
       reloaded: false,
       expired: false,
     };
+    state.lockSavedAt = now;
     saveStore();
   }
 
   function onVisible() {
-    addEvent("page visible");
-    const lock = store.data.lock;
+    addPageEvent("page visible");
+    const lock = activeLock();
     if (lock && lock.phase === "away") {
       const now = Date.now();
       lock.spans[lock.spans.length - 1].to = now;
-      lock.returnState = { paused: audio.paused, ct: audio.currentTime, readyState: audio.readyState };
+      lock.events.push({ type: "visible", at: now, ct: round3(lockAudio.currentTime) });
+      lock.returnState = { paused: lockAudio.paused, ct: lockAudio.currentTime, readyState: lockAudio.readyState };
       if (now - lock.firstHiddenAt >= AWAY_MS) {
-        lock.endAt = now;
-        lock.phase = "evaluating";
+        finishLock(lock, now);
       } else {
         lock.phase = "back";
       }
@@ -1019,6 +1337,12 @@
       maybeFinishLock();
       render();
     });
+  }
+
+  function finishLock(lock, now) {
+    lock.endAt = now;
+    lock.endCt = lockAudio.currentTime;
+    lock.phase = "evaluating";
   }
 
   /** A lock test that was under way when the page loaded: the browser reloaded the page. */
@@ -1031,23 +1355,23 @@
       lock.reloaded = true;
       lock.spans[lock.spans.length - 1].to = PAGE_STARTED;
       lock.endAt = PAGE_STARTED;
+      lock.endCt = null;
       lock.phase = "evaluating";
       saveStore();
     } else if (lock.phase === "back") {
       store.data.lock = null;
-      state.lockNotice = "The page reloaded, so the test stopped. Turn on Loop, press play, and leave the page again.";
+      state.lockNotice = "The page reloaded, so the test stopped. Press Play from 0:00 and start again.";
       saveStore();
     }
   }
 
   function maybeFinishLock() {
     const lock = store.data.lock;
-    if (!lock || state.lockEvaluating || !state.controlled) {
+    if (!lock || lock.format !== LOCK_ID || state.lockEvaluating || !state.controlled) {
       return;
     }
     if (lock.phase === "back" && Date.now() - lock.firstHiddenAt >= AWAY_MS) {
-      lock.endAt = Date.now();
-      lock.phase = "evaluating";
+      finishLock(lock, Date.now());
       saveStore();
     }
     if (lock.phase !== "evaluating") {
@@ -1067,15 +1391,51 @@
   }
 
   /**
-   * Decides the two automatic away checks from the worker's stored records.
-   * Playback went on past what was loaded if the worker was still answering
-   * the player after that loaded audio would have run out.
+   * Whether the worker had handed the player every byte of the track before
+   * `before`, by the Content-Range of each answer (and, for a rebuilt
+   * response, the bytes the player actually read). Safari can fetch a whole
+   * file early while its buffered ranges still show only part of it.
+   */
+  function fetchedWhole(records, before) {
+    let total = null;
+    const spans = [];
+    for (const r of records) {
+      const cr = parseContentRange(r.contentRange);
+      if (recAt(r) >= before || !isOk(r) || !cr || cr.total === null) {
+        continue;
+      }
+      total = cr.total;
+      const end = Number.isFinite(r.delivered) ? Math.min(cr.end, cr.start + r.delivered - 1) : cr.end;
+      if (end >= cr.start) {
+        spans.push([cr.start, end]);
+      }
+    }
+    if (!total) {
+      return false;
+    }
+    spans.sort((a, b) => a[0] - b[0]);
+    let reach = -1;
+    for (const [a, b] of spans) {
+      if (a > reach + 1) {
+        return false;
+      }
+      reach = Math.max(reach, b);
+    }
+    return reach >= total - 1;
+  }
+
+  /**
+   * Decides the four automatic lock checks from the stored events and the
+   * worker's stored records. The audio went on past what was loaded if the
+   * worker was still answering after that loaded audio would have run out;
+   * it played the whole time if its position at the end kept up with the
+   * wall clock; a scrub passes if playback moved again within 5 seconds.
    */
   function evaluateLock(lock) {
     const from = lock.firstHiddenAt;
     const to = lock.endAt || Date.now();
     const recs = [...state.allRecords.values()]
-      .filter((r) => r.track === lock.format && recAt(r) >= from && recAt(r) <= to)
+      .filter((r) => r.track === LOCK_ID && recAt(r) >= from && recAt(r) <= to)
       .sort(byAt);
     if (recs.some(isExpired)) {
       lock.expired = true;
@@ -1098,20 +1458,31 @@
       `away ${mmss(awayS)}; ${secs(loaded)} s loaded when you left; ${plural(ok.length, "answer")} while away` +
       `${lastOkS !== null ? `, the last ${mmss(lastOkS)} after you left` : ""}` +
       `${bad.length ? `; ${bad.length} failed` : ""}; worker ids ${instances.join(", ") || "-"}; ${back}`;
-    const measures = { awayS: round1(awayS), loadedS: round1(loaded), answers: ok.length, failed: bad.length, lastAnswerS: round1(lastOkS), workerIds: instances, reloaded: !!lock.reloaded };
+    const earlier = [...state.allRecords.values()].filter((r) => r.track === LOCK_ID && r.load === lock.load && r.session === lock.session);
+    const whole = !lock.allLoaded && fetchedWhole(earlier, from);
+    const measures = { awayS: round1(awayS), loadedS: round1(loaded), answers: ok.length, failed: bad.length, lastAnswerS: round1(lastOkS), workerIds: instances, reloaded: !!lock.reloaded, fetchedWholeBefore: whole };
+    let already = null;
+    if (lock.allLoaded) {
+      already = { why: "Everything was already loaded before you left, so this run can't tell.", note: "everything was loaded before you left; " };
+    } else if (whole) {
+      already = {
+        why: "The player had already fetched the whole track through the worker before you left, so this run can't tell.",
+        note: "the worker had handed the player every byte of the track before you left, though its buffered ranges showed less; ",
+      };
+    }
 
     let worker;
     if (ok.length) {
       worker = Object.assign({ r: "pass", note: facts }, measures);
-    } else if (lock.allLoaded) {
-      worker = Object.assign({ r: "cant", why: "Everything was already loaded before you left, so this run can't tell.", note: "everything was loaded before you left; " + facts }, measures);
+    } else if (already) {
+      worker = Object.assign({ r: "cant", why: already.why, note: already.note + facts }, measures);
     } else {
       worker = Object.assign({ r: "fail", why: "The worker answered nothing while you were away.", note: facts }, measures);
     }
 
     let past;
-    if (lock.allLoaded) {
-      past = Object.assign({ r: "cant", why: "Everything was already loaded before you left, so this run can't tell.", note: "everything was loaded before you left; " + facts }, measures);
+    if (already) {
+      past = Object.assign({ r: "cant", why: already.why, note: already.note + facts }, measures);
     } else if (lastOkS !== null && lastOkS >= loaded) {
       past = Object.assign({ r: "pass", note: facts }, measures);
     } else if (awayS > loaded + 30) {
@@ -1119,18 +1490,143 @@
     } else {
       past = Object.assign({ r: "cant", why: "You were not away long enough to use up what was loaded.", note: facts }, measures);
     }
-    setResult(lock.format, "awayPast", past);
-    setResult(lock.format, "awayWorker", worker);
+    setResult(LOCK_ID, "awayWorker", worker);
+    setResult(LOCK_ID, "awayPast", past);
+    setResult(LOCK_ID, "awayWhole", judgeWhole(lock, to));
+    setResult(LOCK_ID, "awayScrub", judgeScrubs(lock, recs, to, whole));
+    setResult(LOCK_ID, "mode", lock.mode);
+  }
+
+  /** Where the measurement ends: back on the page, the end of the track, or after a reload the last position stored. */
+  function lockEnd(lock, to) {
+    const events = lock.events || [];
+    let end = null;
+    if (lock.reloaded) {
+      const lastTu = [...events].reverse().find((ev) => ev.type === "timeupdate");
+      end = lastTu ? { at: lastTu.at, ct: lastTu.ct } : null;
+    } else if (Number.isFinite(lock.endCt)) {
+      end = { at: to, ct: lock.endCt };
+    }
+    const ended = events.find((ev) => ev.type === "ended" && ev.at >= lock.firstHiddenAt);
+    if (ended && (!end || ended.at < end.at)) {
+      end = { at: ended.at, ct: Number.isFinite(lock.duration) ? lock.duration : ended.ct };
+    }
+    return end;
+  }
+
+  function judgeWhole(lock, to) {
+    const end = lockEnd(lock, to);
+    if (!end || !Number.isFinite(end.ct) || !Number.isFinite(lock.ctAtHide)) {
+      return { r: "cant", why: "The page could not tell where the audio was when you came back.", note: lock.reloaded ? "the page reloaded and had stored no position" : "no position at the end" };
+    }
+    const g = LM.playbackGap({ start: { at: lock.firstHiddenAt, ct: lock.ctAtHide }, end, events: lock.events || [], duration: lock.duration });
+    const gap = g.gapExcludingScrubsS;
+    let sum = `expected ${clockPos(g.expectedS)}: ${clockPos(lock.ctAtHide)} when you left + ${secs(g.awayS)} s away`;
+    if (g.youPausedS > 0) {
+      sum += ` - ${secs(g.youPausedS)} s you paused it`;
+    }
+    if (g.seeks) {
+      sum += ` ${g.jumpsS < 0 ? "-" : "+"} ${secs(Math.abs(g.jumpsS))} s of seeking`;
+    }
+    const parts = [
+      sum,
+      `actual ${clockPos(g.actualS)}${end.at < to ? `, ${mmss((end.at - lock.firstHiddenAt) / 1000)} after you left` : ""}`,
+      `${secs(g.gapS)} s behind, ${secs(gap)} s without the scrub's own ${secs(g.ownResumeS)} s`,
+    ];
+    if (g.otherPausedS > 0) {
+      parts.push(`paused by something other than you for ${secs(g.otherPausedS)} s`);
+    }
+    if (lock.reloaded) {
+      parts.push("the page reloaded while you were away, so this is measured to the last position it stored");
+    }
+    const out = {
+      note: parts.join("; "),
+      gapS: round1(gap),
+      gapWithScrubS: round1(g.gapS),
+      scrubResumeS: round1(g.ownResumeS),
+      expectedS: round1(g.expectedS),
+      actualS: round1(g.actualS),
+      youPausedS: round1(g.youPausedS),
+      otherPausedS: round1(g.otherPausedS),
+      seeks: g.seeks,
+    };
+    if (lock.reloaded && to - end.at > RELOAD_GRACE_MS) {
+      return Object.assign({ r: "fail", why: `The browser closed the page about ${mmss((to - end.at) / 1000)} before you came back, so the audio stopped.` }, out);
+    }
+    if (gap < LOCK_LIMIT_S) {
+      return Object.assign({ r: "pass" }, out);
+    }
+    return Object.assign({ r: "fail", why: `It fell ${gap.toFixed(1)} seconds behind the clock, not counting the scrub.` }, out);
+  }
+
+  function judgeScrubs(lock, recs, to, whole) {
+    const end = lockEnd(lock, to) || { at: to, ct: NaN };
+    const where = device.family === "ios" ? `while the ${device.deviceName} was locked` : "while you were away";
+    const list = LM.scrubs({
+      start: { at: lock.firstHiddenAt, ct: lock.ctAtHide },
+      end,
+      events: lock.events || [],
+      records: recs.map((r) => ({ at: recAt(r), asked: strip(r.asked) })),
+      duration: lock.duration,
+      limitS: LOCK_LIMIT_S,
+    });
+    if (!list.length) {
+      return { r: "cant", why: `You did not drag the scrubber ${where}, so this run can't tell.`, note: `no seek ${where}`, scrubs: [] };
+    }
+    const failed = list.find((s) => !s.pass);
+    const worst = failed || list.reduce((a, b) => (b.resumeS > a.resumeS ? b : a));
+    const out = {
+      note: list.map((s) => scrubNote(s, lock.firstHiddenAt, whole)).join(" | "),
+      resumeS: round1(worst.resumeS),
+      requestS: round1(worst.requestS),
+      scrubs: list.map((s) => ({
+        afterS: round1((s.firstAt - lock.firstHiddenAt) / 1000),
+        fromS: round1(s.from),
+        toS: round1(s.target),
+        seeks: s.count,
+        yours: s.own,
+        targetLoaded: s.inBuffer,
+        buffered: s.buffered,
+        requestS: round1(s.requestS),
+        resumeS: round1(s.resumeS),
+        watchedS: round1(s.untilS),
+        pass: s.pass,
+      })),
+    };
+    if (!failed) {
+      return Object.assign({ r: "pass" }, out);
+    }
+    const why =
+      failed.resumeS === null
+        ? `After the scrub the audio did not play again before you came back (${mmss(failed.untilS)}).`
+        : `After the scrub the audio took ${failed.resumeS.toFixed(1)} seconds to play again.`;
+    return Object.assign({ r: "fail", why }, out);
+  }
+
+  function scrubNote(s, hiddenAt, whole) {
+    let request = "no request reached the worker";
+    if (s.requestS !== null) {
+      request = `the worker saw the first request ${secs(s.requestS)} s after seeking (asked ${s.asked})`;
+    } else if (s.inBuffer) {
+      request = "no request needed";
+    } else if (whole) {
+      request = "no request needed: the player had fetched the whole track before you left";
+    }
+    const moved = s.resumeS !== null ? `played again after ${secs(s.resumeS)} s` : `did not play again in the ${mmss(s.untilS)} after it`;
+    return (
+      `scrub ${mmss((s.firstAt - hiddenAt) / 1000)} after you left, ${clockPos(s.from)} to ${clockPos(s.target)}` +
+      `${s.count > 1 ? ` (${s.count} seeks in one drag)` : ""}${s.own ? "" : ", not made by you"}; ` +
+      `the target was ${s.inBuffer ? "" : "not "}loaded (buffered ${rangesText(s.buffered)}); ${request}; ${moved}`
+    );
   }
 
   function restartAway() {
-    const entry = currentEntry();
-    if (!entry) {
-      return;
-    }
     store.data.lock = null;
     state.lockNotice = "";
-    clearResults(entry.id, ["awayPast", "awayWorker", "awayHeard", "lockScreen"]);
+    if (!lockAudio.paused) {
+      lockAudio.pause();
+    }
+    clearResults(LOCK_ID, [...LOCK_CHECKS, "awayHeard", "scrubHeard", "lockScreen", "mode"]);
     render();
   }
 
@@ -1167,7 +1663,7 @@
   function idFromUrl(url) {
     try {
       const path = new URL(url).pathname;
-      const hit = state.sources.find((t) => t.file && path.endsWith("/" + t.file));
+      const hit = state.tracks.find((t) => t.file && path.endsWith("/" + t.file));
       return hit ? hit.id : "";
     } catch (e) {
       return "";
@@ -1189,7 +1685,7 @@
         continue;
       }
       const id = m[1] ? m[1].toLowerCase() : idFromUrl(m[2]);
-      if (!id || !state.sources.some((t) => t.id === id) || checkUrl(m[2])) {
+      if (!id || !state.tracks.some((t) => t.id === id) || checkUrl(m[2])) {
         ignored += 1;
         continue;
       }
@@ -1209,7 +1705,7 @@
 
   async function refreshLinks() {
     const ids = new Set();
-    for (const entry of state.sources) {
+    for (const entry of state.tracks) {
       if (entry.url || (await readOverride(entry.id))) {
         ids.add(entry.id);
       }
@@ -1228,12 +1724,12 @@
     if (saved) {
       $("links-status").textContent = `Saved ${plural(saved, "link")}.${ignored ? ` ${plural(ignored, "line")} skipped: not a link for a known format.` : ""}`;
       state.linkExpired = false;
-      if (state.linkIds.size === state.sources.length) {
+      if (neededTracks().every((t) => hasLink(t.id))) {
         state.editingLinks = false;
       }
       startTrack();
     } else {
-      $("links-status").textContent = "No links found. Paste the lines that start with mp3, m4a, flac or wav.";
+      $("links-status").textContent = "No links found. Paste the lines that start with mp3, m4a, flac, wav or lock.";
     }
     render();
   }
@@ -1242,7 +1738,7 @@
     if (!window.confirm("Remove the saved track links from this browser?")) {
       return;
     }
-    for (const entry of state.sources) {
+    for (const entry of state.tracks) {
       await writeOverride(entry.id, "");
     }
     $("links-status").textContent = "Removed.";
@@ -1318,7 +1814,7 @@
   }
 
   function resultRows() {
-    const rows = [
+    return [
       { label: "First request through the worker", cell: (f) => cellMark(f.first) },
       { label: "Plays", cell: (f) => cellMark(f.plays) },
       { label: "Asks for the next piece", cell: (f) => cellMark(f.next) },
@@ -1327,13 +1823,27 @@
       { label: "Loaded ahead, playing", cell: (f) => (f.aheadSteady ? { t: `${Math.round(f.aheadSteady.s)} s`, r: "value" } : { t: "–", r: "pending" }) },
       { label: "Loaded ahead, after a jump", cell: (f) => (f.aheadJump ? { t: `${Math.round(f.aheadJump.s)} s`, r: "value" } : { t: "–", r: "pending" }) },
     ];
-    if (awayApplies()) {
-      rows.push({ label: "Went on past what was loaded (away)", cell: (f) => cellMark(f.awayPast) });
-      rows.push({ label: "Worker answered while away", cell: (f) => cellMark(f.awayWorker) });
-      rows.push({ label: "Played the whole time (you)", cell: (f) => cellMark(f.awayHeard) });
-      if (device.family === "ios") {
-        rows.push({ label: "Lock Screen controls (you)", cell: (f) => cellMark(f.lockScreen) });
-      }
+  }
+
+  /** A check's mark with its seconds, as "✓ 0.8 s". */
+  function withSeconds(v, key) {
+    const c = cellMark(v);
+    return v && Number.isFinite(v[key]) ? { t: `${c.t} ${v[key].toFixed(1)} s`, r: c.r } : c;
+  }
+
+  const lockWhere = () => (device.family === "ios" ? "locked" : "away");
+
+  function lockRows() {
+    const rows = [
+      { label: `Worker answered while ${lockWhere()}`, cell: (f) => cellMark(f.awayWorker) },
+      { label: "Went on past what was loaded", cell: (f) => cellMark(f.awayPast) },
+      { label: "Played the whole time (seconds behind, not counting the scrub)", cell: (f) => withSeconds(f.awayWhole, "gapS") },
+      { label: `Scrub while ${lockWhere()} (seconds until it played again)`, cell: (f) => withSeconds(f.awayScrub, "resumeS") },
+      { label: "Played the whole time (you)", cell: (f) => cellMark(f.awayHeard) },
+      { label: "Came back after the scrub (you)", cell: (f) => cellMark(f.scrubHeard) },
+    ];
+    if (device.family === "ios") {
+      rows.push({ label: "Lock Screen controls (you)", cell: (f) => cellMark(f.lockScreen) });
     }
     return rows;
   }
@@ -1346,7 +1856,7 @@
     return words[v.r] || v.r;
   }
 
-  const awayWord = (v) => (awayApplies() ? word(v) : "n/a");
+  const wordSeconds = (v, key) => (v && Number.isFinite(v[key]) ? `${word(v)} (${v[key].toFixed(1)})` : word(v));
 
   function buildMarkdown() {
     const lines = [];
@@ -1359,21 +1869,39 @@
     lines.push(`- User agent: \`${navigator.userAgent}\``);
     lines.push("");
     lines.push(
-      "| Browser | Version | OS | Format | First request through the worker | Plays | Asks for the next piece | Jumps 10% / 50% / 90% / start | Right spot (heard) | Read-ahead playing (s) | Read-ahead after a jump (s) | Away: went on past what was loaded | Away: worker answered | Away: played the whole time (heard) | Lock Screen controls (heard) |"
+      "| Browser | Version | OS | Format | First request through the worker | Plays | Asks for the next piece | Jumps 10% / 50% / 90% / start | Right spot (heard) | Read-ahead playing (s) | Read-ahead after a jump (s) |"
     );
-    lines.push("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|");
+    lines.push("|---|---|---|---|---|---|---|---|---|---|---|");
     for (const entry of state.sources) {
       const f = readFormat(entry.id);
       const format = entry.format + (f.mode === "rebuilt" ? " (rebuilt response)" : "");
       const steady = f.aheadSteady ? `${Math.round(f.aheadSteady.s)} (max ${Math.round(f.aheadSteady.max)})` : "not yet";
       const after = f.aheadJump ? String(Math.round(f.aheadJump.s)) : "not yet";
-      const lockScreen = device.family === "ios" ? word(f.lockScreen) : "n/a";
       const cells = [
         device.browser, device.version, device.os, format, word(f.first), word(f.plays), word(f.next),
         JUMPS.map((j) => word(f[j.key])).join(" / "), word(f.spot), steady, after,
-        awayWord(f.awayPast), awayWord(f.awayWorker), awayWord(f.awayHeard), lockScreen,
       ];
       lines.push(`| ${cells.map(md).join(" | ")} |`);
+    }
+    lines.push("");
+    if (lockApplies()) {
+      const L = lockResults();
+      const where = lockWhere();
+      const track = state.lockEntry.format + (L.mode === "rebuilt" ? " (rebuilt response)" : "");
+      lines.push(`The ${testName()}, once in this browser, on its own 30-minute WAV with Loop off:`);
+      lines.push("");
+      lines.push(
+        `| Browser | Version | OS | Track | Worker answered while ${where} | Went on past what was loaded | Played the whole time (s behind) | Scrub while ${where} (s to play again) | Played the whole time (heard) | Came back after the scrub (heard) | Lock Screen controls (heard) |`
+      );
+      lines.push("|---|---|---|---|---|---|---|---|---|---|---|");
+      const cells = [
+        device.browser, device.version, device.os, track, word(L.awayWorker), word(L.awayPast),
+        wordSeconds(L.awayWhole, "gapS"), wordSeconds(L.awayScrub, "resumeS"), word(L.awayHeard), word(L.scrubHeard),
+        device.family === "ios" ? word(L.lockScreen) : "n/a",
+      ];
+      lines.push(`| ${cells.map(md).join(" | ")} |`);
+    } else {
+      lines.push("Lock test: n/a in this browser (only Safari on an iPhone, an iPad or a Mac runs it).");
     }
     const notes = noteLines();
     if (notes.length) {
@@ -1389,7 +1917,7 @@
 
   function noteLines() {
     const out = [];
-    const names = { first: "first request", plays: "plays", next: "next piece", awayPast: "away, past what was loaded", awayWorker: "away, worker" };
+    const names = { first: "first request", plays: "plays", next: "next piece" };
     JUMPS.forEach((j) => {
       names[j.key] = "jump " + j.short;
     });
@@ -1409,6 +1937,16 @@
       }
       if (parts.length) {
         out.push(`**${entry.format}**: ${parts.join("; ")}`);
+      }
+    }
+    if (lockApplies()) {
+      const L = lockResults();
+      const lockNames = { awayWorker: "worker", awayPast: "past what was loaded", awayWhole: "played the whole time", awayScrub: "scrub" };
+      const parts = Object.keys(lockNames)
+        .filter((k) => L[k] && L[k].note)
+        .map((k) => `${lockNames[k]}: ${word(L[k])}, ${L[k].note}`);
+      if (parts.length) {
+        out.push(`**${state.lockEntry.format}**: ${parts.join("; ")}`);
       }
     }
     return out;
@@ -1435,6 +1973,11 @@
     store.data = emptyStore();
     chooseInitialFormat();
     state.lockNotice = "";
+    if (!lockAudio.paused) {
+      lockAudio.pause();
+    }
+    // The next "Play from 0:00" loads the lock track again, in a new session.
+    state.lockSession = null;
     if (window.caches) {
       await caches.delete(LOG_CACHE);
     }
@@ -1454,9 +1997,6 @@
       return;
     }
     delete store.data.formats[entry.id];
-    if (store.data.lock && store.data.lock.format === entry.id) {
-      store.data.lock = null;
-    }
     saveStore();
     startTrack();
   }
@@ -1478,7 +2018,8 @@
     const id = nextFormatId();
     const entry = currentEntry();
     if (!id || (entry && id === entry.id)) {
-      $("results-card").scrollIntoView({ block: "start", behavior: "smooth" });
+      const where = lockApplies() && !lockDone() ? "step-away" : "results-card";
+      $(where).scrollIntoView({ block: "start", behavior: "smooth" });
       return;
     }
     pickFormat(id);
@@ -1531,6 +2072,7 @@
         resumeLimitSeconds: RESUME_LIMIT_MS / 1000,
       },
       passed: null,
+      lockTest: lockApplies() ? "not run (auto)" : "n/a",
       formats: [],
       error: null,
     };
@@ -1663,19 +2205,19 @@
     if (!isAnswered(f.spot)) {
       setResult(id, "spot", { r: "auto" });
     }
-    if (awayApplies()) {
-      if (!isDecided(f.awayPast)) {
-        setResult(id, "awayPast", { r: "skip" });
-      }
-      if (!isDecided(f.awayWorker)) {
-        setResult(id, "awayWorker", { r: "skip" });
-      }
-      if (!isAnswered(f.awayHeard)) {
-        setResult(id, "awayHeard", { r: "auto" });
-      }
-      if (device.family === "ios" && !isAnswered(f.lockScreen)) {
-        setResult(id, "lockScreen", { r: "auto" });
-      }
+    if (lockApplies()) {
+      // The lock test is not part of the run; its table says so.
+      const L = lockResults();
+      LOCK_CHECKS.forEach((k) => {
+        if (!isDecided(L[k])) {
+          setResult(LOCK_ID, k, { r: "skip" });
+        }
+      });
+      ["awayHeard", "scrubHeard"].concat(device.family === "ios" ? ["lockScreen"] : []).forEach((k) => {
+        if (!isAnswered(L[k])) {
+          setResult(LOCK_ID, k, { r: "auto" });
+        }
+      });
     }
   }
 
@@ -1733,14 +2275,6 @@
             : { result: "not measured", medianSeconds: null, valuesSeconds: [] },
         },
         rightSpot: word(f.spot),
-        background: awayApplies()
-          ? {
-              wentOnPastLoaded: word(f.awayPast),
-              workerAnsweredWhileAway: word(f.awayWorker),
-              playedWholeTime: word(f.awayHeard),
-              lockScreenControls: device.family === "ios" ? word(f.lockScreen) : "n/a",
-            }
-          : "n/a",
       },
       requests: {
         total: recs.length,
@@ -1832,8 +2366,9 @@
   }
 
   function renderLinks() {
-    const total = state.sources.length;
-    const count = state.linkIds.size;
+    const needed = neededTracks();
+    const total = needed.length;
+    const count = needed.filter((t) => hasLink(t.id)).length;
     const complete = state.linksLoaded && total > 0 && count === total;
     const showForm = state.linksLoaded && (!complete || state.editingLinks || state.linkExpired);
     $("links-card").hidden = !state.linksLoaded;
@@ -1841,7 +2376,7 @@
     $("links-form").hidden = !showForm;
     $("links-close").hidden = !complete;
     $("links-count").textContent = `Links: ${count} of ${total} saved`;
-    $("links-each").textContent = state.sources.map((t) => `${t.id.toUpperCase()} ${hasLink(t.id) ? "saved" : "missing"}`).join(" · ");
+    $("links-each").textContent = needed.map((t) => `${t.id.toUpperCase()} ${hasLink(t.id) ? "saved" : "missing"}`).join(" · ");
   }
 
   function renderChips() {
@@ -1873,13 +2408,16 @@
     renderChips();
 
     const f = entry ? readFormat(entry.id) : {};
-    const st = entry ? stepState(entry.id) : { play: false, jump: false, ahead: false, away: false, done: false };
+    const st = entry ? stepState(entry.id) : { play: false, jump: false, ahead: false, done: false };
+    const lockOn = lockApplies();
+    // The lock step shows in every format's list, but it is one test for the browser.
+    const flags = Object.assign({}, st, { away: !lockOn || lockDone() });
     const order = ["play", "jump", "ahead"];
-    if (awayApplies()) {
+    if (lockOn) {
       order.push("away");
     }
-    const current = order.find((k) => !st[k]) || "next";
-    $("step-away").hidden = !awayApplies();
+    const current = order.find((k) => !flags[k]) || "next";
+    $("step-away").hidden = !lockOn;
     let n = 0;
     for (const key of ["pick", "play", "jump", "ahead", "away", "next"]) {
       const el = $("step-" + key);
@@ -1887,7 +2425,7 @@
         continue;
       }
       n += 1;
-      const done = key === "pick" ? !!entry : key === "next" ? false : !!st[key];
+      const done = key === "pick" ? !!entry : key === "next" ? false : !!flags[key];
       const isCurrent = usable && key === current;
       el.classList.toggle("current", isCurrent);
       el.classList.toggle("done", done && !isCurrent);
@@ -1954,15 +2492,20 @@
     $("check-ahead").dataset.result = steady && after ? "pass" : playing ? "checking" : "pending";
     $("check-ahead").querySelector(".what").textContent = aheadText;
 
-    renderAway(entry, f, usable);
+    renderAway();
 
     // Next format
     const nextId = nextFormatId();
     const nextEntry = state.sources.find((t) => t.id === nextId);
     let nextText = "Finish the steps above first, or move on and come back to this format later.";
     if (!nextId || (entry && nextId === entry.id && st.done)) {
-      nextText = "All four formats are done in this browser. Copy the results below and post them on dj-site#2148.";
-      $("next").textContent = "Go to the results";
+      if (lockOn && !lockDone()) {
+        nextText = `All four formats are done in this browser. Do the ${testName()} above to finish.`;
+        $("next").textContent = `Go to the ${testName()}`;
+      } else {
+        nextText = `All four formats are done in this browser${lockOn ? `, and the ${testName()} too` : ""}. Copy the results below and post them on dj-site#2148.`;
+        $("next").textContent = "Go to the results";
+      }
     } else {
       if (st.done) {
         nextText = "This format is done.";
@@ -1974,34 +2517,97 @@
     $("redo").disabled = !usable;
   }
 
-  function renderAway(entry, f, usable) {
-    if (!awayApplies()) {
+  function lockStepTexts(ios) {
+    const name = device.deviceName;
+    const listen = "Listen: does the audio come back within a few seconds? Remember the answer; the page asks you below.";
+    if (ios) {
+      return {
+        leave: `Lock the ${name} with the side button. The 15:00 starts now.`,
+        scrub: `About 5 minutes later, wake the screen without unlocking it (tap it, or raise the ${name}). In the Lock Screen player, drag the scrubber forward by about 5 minutes, from about 5:00 to about 10:00.`,
+        listen,
+        wait: `Leave the ${name} locked until 15 minutes have passed since you locked it. Just before you unlock it, press pause and then play on the Lock Screen.`,
+        back: `Unlock the ${name} and come back to this page. The page then checks the test by itself.`,
+      };
+    }
+    return {
+      leave: "Switch to another tab, then minimize this window (the yellow button at the top left). The 15:00 starts now.",
+      scrub: "About 5 minutes later, open Control Center in the menu bar and, in Now Playing, drag the scrubber forward by about 5 minutes, from about 5:00 to about 10:00. Leave the window minimized. If Now Playing shows no scrubber, skip this step.",
+      listen,
+      wait: "Leave it until 15 minutes have passed since you minimized the window.",
+      back: "Bring the window back and come back to this tab. The page then checks the test by itself.",
+    };
+  }
+
+  function lockSessionText(ios) {
+    const where = ios ? "Lock Screen" : "Now Playing";
+    if (!("mediaSession" in navigator)) {
+      return `This browser has no Media Session API, so the ${where} shows the browser's own controls for this player.`;
+    }
+    if (state.mediaFor === "lock" && state.lockHandlers.length) {
+      return `The page gave this player its own ${where} controls (Media Session handlers for ${state.lockHandlers.join(", ")}), so the ${where} shows a scrubber for it and the page hears each press.`;
+    }
+    return `When you press Play from 0:00, the page gives this player its own ${where} controls (Media Session handlers for play, pause, seekto, seekforward and seekbackward), so the ${where} shows a scrubber for it.`;
+  }
+
+  function wholeText(v) {
+    const base = "The audio played the whole time";
+    if (v && Number.isFinite(v.gapS)) {
+      return `${base}: ${v.gapS.toFixed(1)} seconds behind the clock, not counting the scrub`;
+    }
+    return `${base} (under ${LOCK_LIMIT_S} seconds behind the clock, not counting the scrub)`;
+  }
+
+  function scrubText(v) {
+    const base = `After you dragged the scrubber, the audio played again within ${LOCK_LIMIT_S} seconds`;
+    if (v && Number.isFinite(v.resumeS)) {
+      return `${base}: it took ${v.resumeS.toFixed(1)} seconds`;
+    }
+    return base;
+  }
+
+  function renderAway() {
+    if (!lockApplies()) {
       return;
     }
     const ios = device.family === "ios";
-    $("away-title").textContent = ios ? `Lock the ${device.deviceName} for 15 minutes` : "Leave the tab in the background for 15 minutes";
-    $("away-how").textContent = ios
-      ? `Switch to another app, then lock the ${device.deviceName}. Leave it for 15 minutes. Before you unlock, press pause and then play on the Lock Screen. Then unlock and come back to this page.`
-      : "Switch to another tab, then minimize this window (the yellow button at the top left). Leave it for 15 minutes. Then bring the window back and come back to this tab.";
-    const loop = $("loop");
-    loop.setAttribute("aria-pressed", String(state.loop));
-    loop.textContent = state.loop ? "Loop is on" : "Turn on Loop";
-    loop.disabled = !usable;
-    const playAway = $("play-away");
-    playAway.disabled = !usable;
-    playAway.textContent = audio.paused ? "Play" : "Pause";
+    const L = lockResults();
+    const haveLink = hasLink(LOCK_ID);
+    const usable = state.controlled && state.linksLoaded && haveLink && !state.setupError;
+    const lock = store.data.lock && store.data.lock.format === LOCK_ID ? store.data.lock : null;
+    const live = activeLock();
+    $("away-title").textContent = ios
+      ? `Lock the ${device.deviceName} for 15 minutes (once in this browser)`
+      : "Leave Safari in the background for 15 minutes (once in this browser)";
+    $("away-intro").textContent =
+      `This test plays its own 30-minute WAV, once in this browser rather than for each format, with Loop off. ` +
+      `Safari loads a WAV a piece at a time as it plays, so the worker has to keep answering while ${ios ? `the ${device.deviceName} is locked` : "Safari is in the background"}. ` +
+      "It sounds like the other tracks: the tone steps up a little each minute, and the pips count the 10-second marks.";
+    $("lock-nolink").hidden = haveLink || !state.linksLoaded;
+    const texts = lockStepTexts(ios);
+    ["leave", "scrub", "listen", "wait", "back"].forEach((k) => {
+      $("lock-step-" + k).textContent = texts[k];
+    });
+    const play = $("play-away");
+    play.disabled = !usable;
+    play.textContent = !lockAudio.paused ? "Pause" : live ? "Play" : "Play from 0:00";
+    $("lock-pos").textContent = positionText(lockAudio);
+    $("lock-session").textContent = lockSessionText(ios);
 
-    const lock = store.data.lock && entry && store.data.lock.format === entry.id ? store.data.lock : null;
-    const decided = awayDecided(f);
+    const decided = lockDecided(L);
     $("away-countdown").textContent = countdownText(lock, decided, ios);
     const checking = lock && lock.phase !== "done" ? "checking" : null;
-    setCheck("check-away-past", f.awayPast, checking);
-    setCheck("check-away-worker", f.awayWorker, checking);
+    setCheck("check-away-worker", L.awayWorker, checking);
+    setCheck("check-away-past", L.awayPast, checking);
+    setCheck("check-away-whole", L.awayWhole, checking);
+    setCheck("check-away-scrub", L.awayScrub, checking);
+    $("check-away-whole").querySelector(".what").textContent = wholeText(L.awayWhole);
+    $("check-away-scrub").querySelector(".what").textContent = scrubText(L.awayScrub);
     const canAnswer = usable && (decided || (!!lock && lock.phase === "done"));
-    renderAnswers("awayHeard", f, canAnswer);
-    renderAnswers("lockScreen", f, canAnswer);
+    renderAnswers("awayHeard", L, canAnswer);
+    renderAnswers("scrubHeard", L, canAnswer);
+    renderAnswers("lockScreen", L, canAnswer);
     $("q-lockscreen").hidden = !ios;
-    $("away-restart").hidden = !lock && !decided && !isAnswered(f.awayHeard);
+    $("away-restart").hidden = !lock && !decided && !isAnswered(L.awayHeard);
   }
 
   function countdownText(lock, decided, ios) {
@@ -2009,21 +2615,22 @@
     if (state.lockNotice) {
       return state.lockNotice;
     }
+    const leave = ios ? `you lock the ${device.deviceName}` : "you leave this page";
     if (!lock) {
       if (decided) {
         return "";
       }
-      if (state.loop && !audio.paused) {
-        return "Ready. The 15:00 starts when you leave this page.";
+      if (!lockAudio.paused) {
+        return `Ready. The 15:00 starts when ${leave}.`;
       }
-      return "The 15:00 starts when you leave this page, once Loop is on and the audio is playing.";
+      return `Press Play from 0:00 first. The 15:00 starts when ${leave} while the 30-minute track plays.`;
     }
     if (lock.phase === "away") {
       return "Away…";
     }
     if (lock.phase === "back") {
       const left = AWAY_MS - (now - lock.firstHiddenAt);
-      return `${mmss(left / 1000)} to go. Leave this page again${ios ? ` and lock the ${device.deviceName}` : ""}; the clock keeps running.`;
+      return `${mmss(left / 1000)} to go. ${ios ? `Lock the ${device.deviceName} again` : "Leave this page again"}; the clock keeps running.`;
     }
     if (lock.phase === "evaluating") {
       return "Checking…";
@@ -2040,9 +2647,6 @@
   }
 
   function renderResults() {
-    const rows = resultRows();
-    const cells = rows.map((row) => state.sources.map((entry) => row.cell(readFormat(entry.id))));
-    const sig = JSON.stringify([state.sources.map((t) => t.id), rows.map((r) => r.label), cells]);
     $("results-who").textContent = `${device.browser} ${device.version} · ${device.os}`;
     const hint = $("os-hint");
     hint.hidden = device.osKnown;
@@ -2050,37 +2654,51 @@
     const note = $("store-note");
     note.hidden = !store.note;
     note.textContent = store.note;
-    if (sig === state.resultsSig) {
+    fillTable(
+      $("results"),
+      "formats",
+      state.sources.map((t) => t.id.toUpperCase()),
+      resultRows().map((row) => ({ label: row.label, cells: state.sources.map((entry) => Object.assign({ format: entry.id }, row.cell(readFormat(entry.id)))) }))
+    );
+    const lockOn = lockApplies();
+    $("lock-results").hidden = !lockOn;
+    $("lock-results-title").hidden = !lockOn;
+    if (lockOn) {
+      $("lock-results-title").textContent = `${device.family === "ios" ? "Lock test" : "Background test"}, once in this browser (30-minute WAV)`;
+      const L = lockResults();
+      fillTable($("lock-results"), "lock", ["Result"], lockRows().map((row) => ({ label: row.label, cells: [Object.assign({ format: LOCK_ID }, row.cell(L))] })));
+    }
+  }
+
+  /** Rebuilds a results table only when what it shows has changed. */
+  function fillTable(table, key, heads, rows) {
+    const sig = JSON.stringify([heads, rows]);
+    if (state.tableSigs[key] === sig) {
       return;
     }
-    state.resultsSig = sig;
-    const table = $("results");
+    state.tableSigs[key] = sig;
     const head = document.createElement("tr");
-    const corner = document.createElement("th");
-    corner.scope = "col";
-    corner.textContent = "Check";
-    head.appendChild(corner);
-    state.sources.forEach((entry) => {
+    ["Check", ...heads].forEach((text) => {
       const th = document.createElement("th");
       th.scope = "col";
-      th.textContent = entry.id.toUpperCase();
+      th.textContent = text;
       head.appendChild(th);
     });
     table.tHead.textContent = "";
     table.tHead.appendChild(head);
     const body = table.tBodies[0];
     body.textContent = "";
-    rows.forEach((row, i) => {
+    rows.forEach((row) => {
       const tr = document.createElement("tr");
       const th = document.createElement("th");
       th.scope = "row";
       th.textContent = row.label;
       tr.appendChild(th);
-      cells[i].forEach((c, k) => {
+      row.cells.forEach((c) => {
         const td = document.createElement("td");
         td.textContent = c.t;
         td.dataset.result = c.r;
-        td.dataset.format = state.sources[k].id;
+        td.dataset.format = c.format;
         tr.appendChild(td);
       });
       body.appendChild(tr);
@@ -2136,7 +2754,7 @@
   }
 
   function renderLog() {
-    const s = state.current;
+    const s = state.shown || state.current;
     const body = $("log").tBodies[0];
     body.textContent = "";
     if (!s) {
@@ -2268,26 +2886,24 @@
   async function loadSources() {
     const res = await fetch("/spike/sources.json", { cache: "no-store" });
     const json = await res.json();
-    state.sources = json.tracks || [];
+    state.tracks = json.tracks || [];
+    state.sources = state.tracks.filter((t) => t.id !== LOCK_ID);
+    state.lockEntry = state.tracks.find((t) => t.id === LOCK_ID) || null;
   }
 
   function bindControls() {
     MEDIA_EVENTS.forEach((type) => audio.addEventListener(type, onMediaEvent));
     audio.addEventListener("timeupdate", renderStats);
     audio.addEventListener("progress", renderStats);
+    LOCK_EVENTS.forEach((type) => lockAudio.addEventListener(type, onLockEvent));
     $("play").addEventListener("click", togglePlay);
-    $("play-away").addEventListener("click", togglePlay);
-    $("loop").addEventListener("click", () => {
-      state.loop = !state.loop;
-      audio.loop = state.loop;
-      addEvent("loop " + (state.loop ? "on" : "off"));
-      render();
-    });
+    $("play-away").addEventListener("click", onLockPlay);
     document.querySelectorAll("[data-answer]").forEach((b) => {
       b.addEventListener("click", () => {
         const entry = currentEntry();
-        if (entry) {
-          setResult(entry.id, b.dataset.answer, { r: b.dataset.value });
+        const id = b.dataset.scope === "lock" ? LOCK_ID : entry && entry.id;
+        if (id) {
+          setResult(id, b.dataset.answer, { r: b.dataset.value });
           render();
         }
       });
@@ -2325,9 +2941,18 @@
       }
     });
     ["pagehide", "pageshow", "freeze", "resume", "online", "offline"].forEach((type) => {
-      window.addEventListener(type, () => addEvent("page " + type));
-      document.addEventListener(type, () => addEvent("page " + type));
+      window.addEventListener(type, () => addPageEvent("page " + type));
+      document.addEventListener(type, () => addPageEvent("page " + type));
     });
+    // The lock test saves timeupdates every few seconds; a page about to be
+    // frozen or closed saves the last ones now.
+    const flushLock = () => {
+      if (activeLock()) {
+        saveStore();
+      }
+    };
+    window.addEventListener("pagehide", flushLock);
+    document.addEventListener("freeze", flushLock);
     setInterval(tick, TICK_MS);
   }
 
@@ -2355,6 +2980,11 @@
   }
 
   async function main() {
+    if (!LM) {
+      $("banner-setup").hidden = false;
+      $("banner-setup").textContent = "The page's lock-math.js did not load, so the test cannot run. Reload the page.";
+      return;
+    }
     // Set once, before any track loads. Setting the value fires no "change",
     // so this starts no session of its own.
     if (RESPOND) {

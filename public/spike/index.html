@@ -7,6 +7,7 @@
     <title>Review audio test</title>
     <link rel="icon" href="data:," />
     <link rel="stylesheet" href="/spike/spike.css" />
+    <script src="/spike/lock-math.js" defer></script>
     <script src="/spike/spike.js" defer></script>
   </head>
   <body>
@@ -46,8 +47,10 @@ spike/make-test-bucket.sh presign</pre>
         <div id="links-form" hidden>
           <h2>Track links</h2>
           <p>
-            On the Mac, <code>spike/make-test-bucket.sh presign</code> prints four lines, one per format. Paste all
-            four here and press "Save links". Do this once in each browser.
+            On the Mac, <code>spike/make-test-bucket.sh presign</code> prints five lines: one per format, and one
+            starting with <code>lock</code> for the lock test's 30-minute track. Paste all five here and press "Save
+            links". Do this once in each browser. Only Safari runs the lock test, so other browsers need just the
+            first four.
           </p>
           <p class="muted">
             To get the lines onto an iPhone, send them to yourself in a private note, paste them here, then delete
@@ -61,7 +64,7 @@ spike/make-test-bucket.sh presign</pre>
             autocomplete="off"
             autocapitalize="off"
             spellcheck="false"
-            placeholder="mp3 https://…&#10;m4a https://…&#10;flac https://…&#10;wav https://…"
+            placeholder="mp3 https://…&#10;m4a https://…&#10;flac https://…&#10;wav https://…&#10;lock https://…"
           ></textarea>
           <div class="buttons">
             <button type="button" id="links-save" data-testid="links-save">Save links</button>
@@ -147,39 +150,66 @@ spike/make-test-bucket.sh presign</pre>
           <li class="step" id="step-away" hidden>
             <div class="step-head"><span class="num" aria-hidden="true"></span><h3 id="away-title"></h3></div>
             <div class="step-body">
+              <p id="away-intro"></p>
+              <p id="lock-nolink" class="wait" hidden>
+                Save the lock link first: the fifth line of the presign command, the one that starts with lock.
+              </p>
               <ol class="substeps">
                 <li>
-                  <button type="button" id="loop" data-testid="loop" aria-pressed="false">Turn on Loop</button>
-                  <span class="muted">so the ten-minute track keeps going.</span>
+                  <button type="button" id="play-away" data-testid="play-away" disabled>Play from 0:00</button>
+                  <span class="muted">Turn the sound up: you need to hear it.</span>
+                  <audio id="lock-audio" data-testid="lock-audio" controls preload="none"></audio>
+                  <p class="pos" id="lock-pos" data-testid="lock-position"></p>
                 </li>
-                <li><button type="button" id="play-away" data-testid="play-away" disabled>Play</button></li>
-                <li id="away-how"></li>
+                <li id="lock-step-leave"></li>
+                <li id="lock-step-scrub"></li>
+                <li id="lock-step-listen"></li>
+                <li id="lock-step-wait"></li>
+                <li id="lock-step-back"></li>
               </ol>
+              <p class="muted" id="lock-session" data-testid="lock-session"></p>
               <p class="countdown" id="away-countdown" data-testid="away-countdown" role="status"></p>
               <ul class="checks">
+                <li class="check" id="check-away-worker" data-testid="check-away-worker" data-result="pending">
+                  <span class="mark" aria-hidden="true"></span>
+                  <span class="what">The worker answered the player while you were away</span>
+                  <span class="why"></span>
+                </li>
                 <li class="check" id="check-away-past" data-testid="check-away-past" data-result="pending">
                   <span class="mark" aria-hidden="true"></span>
                   <span class="what">The audio went on past what was loaded when you left</span>
                   <span class="why"></span>
                 </li>
-                <li class="check" id="check-away-worker" data-testid="check-away-worker" data-result="pending">
+                <li class="check" id="check-away-whole" data-testid="check-away-whole" data-result="pending">
                   <span class="mark" aria-hidden="true"></span>
-                  <span class="what">The worker answered the player while you were away</span>
+                  <span class="what"></span>
+                  <span class="why"></span>
+                </li>
+                <li class="check" id="check-away-scrub" data-testid="check-away-scrub" data-result="pending">
+                  <span class="mark" aria-hidden="true"></span>
+                  <span class="what"></span>
                   <span class="why"></span>
                 </li>
               </ul>
               <div class="question" id="q-away-heard">
                 <p class="ask">Did the audio play the whole time?</p>
                 <div class="yesno">
-                  <button type="button" data-answer="awayHeard" data-value="yes" data-testid="answer-away-heard-yes">Yes</button>
-                  <button type="button" data-answer="awayHeard" data-value="no" data-testid="answer-away-heard-no">No</button>
+                  <button type="button" data-answer="awayHeard" data-scope="lock" data-value="yes" data-testid="answer-away-heard-yes">Yes</button>
+                  <button type="button" data-answer="awayHeard" data-scope="lock" data-value="no" data-testid="answer-away-heard-no">No</button>
+                </div>
+              </div>
+              <div class="question" id="q-scrub-heard">
+                <p class="ask">Did the audio come back within a few seconds after you dragged the scrubber?</p>
+                <div class="yesno">
+                  <button type="button" data-answer="scrubHeard" data-scope="lock" data-value="yes" data-testid="answer-scrub-heard-yes">Yes</button>
+                  <button type="button" data-answer="scrubHeard" data-scope="lock" data-value="no" data-testid="answer-scrub-heard-no">No</button>
                 </div>
               </div>
               <div class="question" id="q-lockscreen" hidden>
                 <p class="ask">Did play and pause on the Lock Screen work?</p>
                 <div class="yesno">
-                  <button type="button" data-answer="lockScreen" data-value="yes" data-testid="answer-lockscreen-yes">Yes</button>
-                  <button type="button" data-answer="lockScreen" data-value="no" data-testid="answer-lockscreen-no">No</button>
+                  <button type="button" data-answer="lockScreen" data-scope="lock" data-value="yes" data-testid="answer-lockscreen-yes">Yes</button>
+                  <button type="button" data-answer="lockScreen" data-scope="lock" data-value="no" data-testid="answer-lockscreen-no">No</button>
                 </div>
               </div>
               <button type="button" class="quiet small" id="away-restart" data-testid="away-restart">Restart this test</button>
@@ -201,6 +231,11 @@ spike/make-test-bucket.sh presign</pre>
         <h2 id="results-title">Results in this browser</h2>
         <p id="results-who" class="muted"></p>
         <table class="results" id="results" data-testid="results-table">
+          <thead></thead>
+          <tbody></tbody>
+        </table>
+        <h3 class="table-title" id="lock-results-title" hidden></h3>
+        <table class="results lock" id="lock-results" data-testid="lock-results-table" hidden>
           <thead></thead>
           <tbody></tbody>
         </table>
