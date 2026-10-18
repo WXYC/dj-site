@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useState } from "react";
 import Link from "next/link";
+import { editorBack, type EditorOrigin } from "@/lib/features/reviews/paths";
 import { Box, Button, Link as JoyLink, Stack, Typography } from "@mui/joy";
 import type { Review, ReviewPatch } from "@wxyc/shared";
 import { skipToken } from "@reduxjs/toolkit/query";
@@ -72,7 +73,7 @@ function useConfirmedFccNotes(review: Review): string[] {
     .map((n) => `${n.track}: ${n.note}`);
 }
 
-function Form({ review, user, arrivedFromRequest }: { review: Review; user: User | undefined; arrivedFromRequest: boolean }) {
+function Form({ review, user, arrivedFromRequest, origin }: { review: Review; user: User | undefined; arrivedFromRequest: boolean; origin: EditorOrigin }) {
   const userId = user?.id ?? "";
   const isAuthor = user?.id != null && user.id === review.author_user_id;
   const isMusicDirector = !isAuthor && (user?.authority ?? Authorization.NO) >= Authorization.MD;
@@ -85,6 +86,7 @@ function Form({ review, user, arrivedFromRequest }: { review: Review; user: User
   const [remove, { isLoading: deleting }] = useDeleteReviewMutation();
   const router = useRouter();
   const record = useReviewRecord(review);
+  const back = editorBack(origin);
   // The same read useReviewRecord holds, so no second request.
   const intakeItem = useGetIntakeItemQuery(review.intake_item_id ?? skipToken).data;
   const fccNotes = useConfirmedFccNotes(review);
@@ -197,6 +199,9 @@ function Form({ review, user, arrivedFromRequest }: { review: Review; user: User
           <Button size="sm" variant="plain" onClick={() => { clearReviewDraft(userId, review.id); setOffer(null); }}>{REVIEW_COPY.restore.discard}</Button>
         </Stack>
       )}
+      <JoyLink component={Link} href={back.href} level="body-sm">
+        {back.label}
+      </JoyLink>
       {record ? <RecordHeader record={record} /> : <HiddenTitle />}
       <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" sx={{ mt: 1 }}>
         {!draft && (
@@ -300,8 +305,8 @@ function Form({ review, user, arrivedFromRequest }: { review: Review; user: User
   );
 }
 
-/** `arrivedFromRequest` adds the line that says what the DJ holds after Write a review on a request, while the review is still the signed-in author's draft of a record they hold. */
-export default function ReviewEditor({ id, arrivedFromRequest = false }: { id: number; arrivedFromRequest?: boolean }) {
+/** `origin` is where the editor was opened from, which the back link returns to. `arrivedFromRequest` adds the line that says what the DJ holds after Write a review on a request, while the review is still the signed-in author's draft of a record they hold. */
+export default function ReviewEditor({ id, arrivedFromRequest = false, origin = null }: { id: number; arrivedFromRequest?: boolean; origin?: EditorOrigin }) {
   const visible = useCanSeeReviews();
   const { data, isError } = useGetReviewQuery(id, { skip: !visible });
   const { data: auth } = useAuthentication();
@@ -319,5 +324,5 @@ export default function ReviewEditor({ id, arrivedFromRequest = false }: { id: n
     );
   }
   // Keyed by the signed-in user so a session that changes under an open editor starts a fresh form (and a fresh read of what that user kept) rather than carrying the first user's text over.
-  return data ? <Form key={user?.id} review={data} user={user} arrivedFromRequest={arrivedFromRequest} /> : <HiddenTitle />;
+  return data ? <Form key={user?.id} review={data} user={user} arrivedFromRequest={arrivedFromRequest} origin={origin} /> : <HiddenTitle />;
 }
