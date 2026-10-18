@@ -302,7 +302,7 @@ export const REVIEW_COPY = {
     fromBackInOffice: (author: string) => `From ${author}. The record is back in the music office.`,
     /** Approved. Someone else wrote it and the digital album is ready to burn. */
     fromReadyToBurn: (author: string) => `From ${author}. The record is ready to burn.`,
-    /** Proposed in the copy round (WXYC/Backend-Service#3382), per WXYC/dj-site#1991. A digital album in the pool with a review waiting: nothing is held and nothing is ready to burn. */
+    /** Approved. A digital album in the pool with a review waiting: nothing is held and nothing is ready to burn. */
     fromAuthor: (author: string) => `From ${author}.`,
     /** Approved. Someone else wrote it and the holder's account was removed. */
     fromRemoved: (author: string) => `From ${author}. The record is checked out; holder removed.`,
