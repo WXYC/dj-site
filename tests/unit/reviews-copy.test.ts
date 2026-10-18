@@ -216,3 +216,13 @@ describe("REVIEW_COPY.listen", () => {
     expect(REVIEW_COPY.listen[key]).toBe(expected);
   });
 });
+
+describe("REVIEW_COPY.intake review shelf row hints", () => {
+  it.each([
+    ["hintLibrary", REVIEW_COPY.intake.hintLibrary("DOGA"), "The library has DOGA."],
+    ["hintForms (one)", REVIEW_COPY.intake.hintForms(1, "Stereolab"), "1 form review of Stereolab."],
+    ["hintForms (two)", REVIEW_COPY.intake.hintForms(2, "Stereolab"), "2 form reviews of Stereolab."],
+  ])("pins %s", (_key, actual, expected) => {
+    expect(actual).toBe(expected);
+  });
+});

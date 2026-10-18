@@ -9,6 +9,7 @@ import { oldestLoggedFirst } from "@/lib/features/reviews/newMusic";
 import IntakeLane from "./IntakeLane";
 import { REVIEW_COPY } from "./copy";
 import RecordRow, { type RecordRowTitle } from "./RecordRow";
+import ReviewHint from "./ReviewHint";
 import { intakeRecord } from "./recordLine";
 import { useAskADj } from "./useAskADj";
 import { day, type ReviewWrite } from "./useReviewWrite";
@@ -32,7 +33,12 @@ export default function ReviewShelfScreen({ items, isMD, reviewers, write, lock 
           cover={72}
           {...title(i)}
           albumId={shelfAlbumId(i)}
-          meta={<Typography level="body-sm">{`${REVIEW_COPY.screen.added} ${day(i.logged_at)}`}</Typography>}
+          meta={
+            <>
+              <Typography level="body-sm">{`${REVIEW_COPY.screen.added} ${day(i.logged_at)}`}</Typography>
+              {isMD && <ReviewHint artist={i.artist_name} album={i.album_title} />}
+            </>
+          }
           actions={
             <>
               <Button size="sm" {...lock(i.id, "checkout")} onClick={() => write(i.id, "checkout", () => checkout(i.id).unwrap())}>{byKind(i, { disc: REVIEW_COPY.screen.checkOut, digital: REVIEW_COPY.screen.take })}</Button>

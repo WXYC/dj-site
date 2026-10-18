@@ -2,6 +2,7 @@ import { useId, useState } from "react";
 import { Dropdown, ListItemContent, Menu, MenuButton, MenuItem, Typography } from "@mui/joy";
 import KeyboardArrowDown from "@mui/icons-material/KeyboardArrowDown";
 import { AskADjDialog } from "./IntakeRequestPicker";
+import { useReviewProbablyExists } from "@/src/hooks/useReviewProbablyExists";
 import { REVIEW_COPY } from "./copy";
 
 const COPY = REVIEW_COPY.intake;
@@ -38,6 +39,9 @@ export default function ShelfMoreMenu({ id, labelledBy, busy, ...dialog }: Shelf
   const [asking, setAsking] = useState(false);
   const buttonId = useId();
   const page = `/dashboard/admin/intake/${id}`;
+  const { any: hinted } = useReviewProbablyExists(dialog.artist, dialog.album, true);
+  const ask = <Described label={COPY.askADj} description={COPY.moreAskDescription} disabled={busy.disabled} onClick={() => setAsking(true)} />;
+  const cite = <Described label={COPY.moreCite} description={COPY.moreCiteDescription} href={`${page}?get=cite`} />;
 
   return (
     <>
@@ -53,8 +57,7 @@ export default function ShelfMoreMenu({ id, labelledBy, busy, ...dialog }: Shelf
           {COPY.moreButton}
         </MenuButton>
         <Menu placement="bottom-end">
-          <Described label={COPY.askADj} description={COPY.moreAskDescription} disabled={busy.disabled} onClick={() => setAsking(true)} />
-          <Described label={COPY.moreCite} description={COPY.moreCiteDescription} href={`${page}?get=cite`} />
+          {hinted ? <>{cite}{ask}</> : <>{ask}{cite}</>}
           <Described label={COPY.moreRecord} description={COPY.moreRecordDescription} href={`${page}?get=record`} />
         </Menu>
       </Dropdown>
