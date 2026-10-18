@@ -23,7 +23,7 @@ import { useReviewRecord } from "./useReviewRecord";
 import { day, type ReviewWrite } from "./useReviewWrite";
 
 /** A review's row: the record as parts (artist, album, label) once it has landed. Until then, a library review shows `myReviews.libraryRelease` and a logged-record review shows nothing in its place. Either way the row carries the status, the last-saved date and Open. */
-function MyReviewRow({ review }: { review: Review }) {
+function MyReviewRow({ review, cover }: { review: Review; cover: 72 | 56 }) {
   const record = useReviewRecord(review);
   const fromLibrary = review.intake_item_id == null && review.album_id != null;
   const meta = (
@@ -35,7 +35,7 @@ function MyReviewRow({ review }: { review: Review }) {
   );
   const open = <Link href={`/dashboard/reviews/${review.id}`}>{REVIEW_COPY.myReviews.open}</Link>;
   if (record) {
-    return <RecordRow record={record} meta={<Stack direction="row" spacing={1} alignItems="center">{meta}</Stack>} actions={open} />;
+    return <RecordRow record={record} cover={cover} meta={<Stack direction="row" spacing={1} alignItems="center">{meta}</Stack>} actions={open} />;
   }
   return (
     <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
@@ -48,6 +48,9 @@ function MyReviewRow({ review }: { review: Review }) {
 
 /** Submitted and Published show this many reviews at a time. */
 const PAGE_SIZE = 20;
+
+/** Open reviews are the DJ's own records, with 72 px covers; Submitted and Published are the denser list, at 56 px. */
+const coverFor = (stage: Stage): 72 | 56 => (stage === "open" ? 72 : 56);
 
 /** The Open reviews, Submitted and Published stages. It assumes its caller has applied the `useCanSeeReviews` check and the load-failed gate, and takes the `useReviewWrite` the caller built for this tab: the review shelf is a separate tab with its own write wiring, so a lock set here does not carry over to it. */
 export default function MyReviewsScreen({ items, myReviews, me, write, lock }: { items: IntakeItem[]; myReviews: Review[]; me: string | undefined } & ReviewWrite) {
@@ -65,9 +68,10 @@ export default function MyReviewsScreen({ items, myReviews, me, write, lock }: {
 
   const lanes = sortMyReviews(items, myReviews, me);
 
-  const requestRow = (i: IntakeItem) => (
+  const requestRow = (i: IntakeItem, cover: 72 | 56) => (
     <RecordRow
       record={intakeRecord(i)}
+      cover={cover}
       meta={<Typography level="body-sm">{`${REVIEW_COPY.screen.asked} ${day(i.requested_at)}`}</Typography>}
       actions={
         <>
@@ -100,7 +104,7 @@ export default function MyReviewsScreen({ items, myReviews, me, write, lock }: {
     />
   );
 
-  const heldRow = (i: IntakeItem) => {
+  const heldRow = (i: IntakeItem, cover: 72 | 56) => {
     const mineHere = myReviews.filter((r) => r.intake_item_id === i.id);
     const submitted = mineHere.find((r) => r.status === "submitted");
     const draft = mineHere.find((r) => r.status === "draft");
@@ -114,6 +118,7 @@ export default function MyReviewsScreen({ items, myReviews, me, write, lock }: {
     return (
       <RecordRow
         record={intakeRecord(i)}
+        cover={cover}
         meta={
           <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
             <Typography level="body-sm">{`${REVIEW_COPY.screen.taken} ${day(i.checked_out_at)}`}</Typography>
@@ -149,14 +154,14 @@ export default function MyReviewsScreen({ items, myReviews, me, write, lock }: {
     );
   };
 
-  const renderRow = (row: MyReviewsRow) => {
+  const renderRow = (row: MyReviewsRow, cover: 72 | 56) => {
     switch (row.kind) {
       case "request":
-        return requestRow(row.item);
+        return requestRow(row.item, cover);
       case "held":
-        return heldRow(row.item);
+        return heldRow(row.item, cover);
       case "review":
-        return <MyReviewRow review={row.review} />;
+        return <MyReviewRow review={row.review} cover={cover} />;
     }
   };
 
@@ -178,7 +183,7 @@ export default function MyReviewsScreen({ items, myReviews, me, write, lock }: {
             <>
               <List>
                 {visible.map((row) => (
-                  <ListItem key={rowKey(row)}>{renderRow(row)}</ListItem>
+                  <ListItem key={rowKey(row)}>{renderRow(row, coverFor(stage))}</ListItem>
                 ))}
               </List>
               {visible.length < rows.length && (

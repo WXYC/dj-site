@@ -1,4 +1,5 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
+import { toast } from "sonner";
 import { screen, waitFor, within } from "@testing-library/react";
 import { Link } from "@mui/joy";
 import { http, HttpResponse } from "msw";
@@ -149,6 +150,65 @@ describe("RecordRow", () => {
   it("links the artist when given an href", () => {
     renderWithProviders(<RecordRow record={record} href="/dashboard/admin/intake/3" />);
     expect(screen.getByRole("link", { name: "Juana Molina" })).toHaveAttribute("href", "/dashboard/admin/intake/3");
+  });
+});
+
+vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+
+/** Answers the metadata proxy's album read and counts the reads. */
+function serveArtwork(respond: () => Response | Promise<Response>) {
+  const reads = { count: 0 };
+  server.use(
+    http.get(`${TEST_BACKEND_URL}/proxy/metadata/album`, () => {
+      reads.count += 1;
+      return respond();
+    }),
+  );
+  return reads;
+}
+
+describe("RecordRow cover", () => {
+  const COVER_URL = "https://img.example/doga.jpg";
+  const cover = (container: HTMLElement) => container.querySelector("img");
+
+  it.each([72, 56] as const)("shows the record's cover at %i px with an empty alt", async (size) => {
+    serveArtwork(() => HttpResponse.json({ artworkUrl: COVER_URL }));
+    const { container } = renderWithProviders(<RecordRow record={record} cover={size} />);
+    await waitFor(() => expect(cover(container)).toHaveAttribute("src", COVER_URL));
+    expect(cover(container)).toHaveAttribute("alt", "");
+    expect(cover(container)).toHaveStyle({ width: `${size}px`, height: `${size}px` });
+    expect(glyph(container)).toBeNull();
+  });
+
+  it.each([
+    ["while loading", () => new Promise<Response>(() => {})],
+    ["on an error", () => HttpResponse.json({ error: "down" }, { status: 500 })],
+    ["with no artwork", () => HttpResponse.json({ artworkUrl: null })],
+  ])("keeps the format glyph at the cover's size %s, never the cassette", async (_case, respond) => {
+    const reads = serveArtwork(respond);
+    const { container } = renderWithProviders(<RecordRow record={{ ...record, format: "Vinyl" }} cover={56} />);
+    await waitFor(() => expect(reads.count).toBe(1));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(cover(container)).toBeNull();
+    expect(toast.error).not.toHaveBeenCalled();
+    expect(glyph(container)).toHaveStyle({ width: "56px", height: "56px" });
+  });
+
+  it("makes no metadata read for a blank album, and keeps the glyph", async () => {
+    const reads = serveArtwork(() => HttpResponse.json({ artworkUrl: COVER_URL }));
+    const { container } = renderWithProviders(<RecordRow record={{ ...record, album: "" }} cover={72} />);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(reads.count).toBe(0);
+    expect(glyph(container)).toBeInTheDocument();
+  });
+
+  it("asks for no cover, and reads nothing, when no cover size is given", async () => {
+    const reads = serveArtwork(() => HttpResponse.json({ artworkUrl: COVER_URL }));
+    const { container } = renderWithProviders(<RecordRow record={record} />);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(reads.count).toBe(0);
+    expect(cover(container)).toBeNull();
+    expect(glyph(container)).toHaveStyle({ width: "40px" });
   });
 });
 

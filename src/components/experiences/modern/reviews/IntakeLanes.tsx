@@ -142,6 +142,7 @@ function IntakeLaneGroups() {
   const laneRow = (i: IntakeItem, meta?: ReactNode, actions?: ReactNode) => (
     <RecordRow
       record={intakeRecord(i)}
+      cover={56}
       href={`/dashboard/admin/intake/${i.id}`}
       meta={
         <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
