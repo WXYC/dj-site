@@ -50,7 +50,7 @@ import RecordPrompt, { type OpenSection } from "./RecordPrompt";
 import RecordReviewForm from "./RecordReviewForm";
 import { Group } from "./ReviewsPanel";
 import { useItemPageReload } from "./useItemPageReload";
-import { formatStationShortDate } from "@/src/utilities/stationTime";
+import { day } from "./useReviewWrite";
 import type { PrintedVersion } from "./usePrintedVersion";
 
 const COPY = REVIEW_COPY.intakeItem;
@@ -233,7 +233,7 @@ export default function IntakeItemScreen({ id }: { id: number }) {
   // A pool record's chip is its location line, so a record with a review waiting never reads On the review shelf; a pool digital album with a review waiting has no line and no chip.
   // A checked-out record's chip is Reviewing since and the date, a disc and a digital album alike; with no checkout date it reads the stage name.
   const state = item.data.effective_state;
-  const reviewingSince = item.data.checked_out_at ? formatStationShortDate(item.data.checked_out_at) : "";
+  const reviewingSince = day(item.data.checked_out_at);
   const chipLabel =
     state === "pool"
       ? placeLine(item.data)
