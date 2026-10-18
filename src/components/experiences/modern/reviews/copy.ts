@@ -674,7 +674,7 @@ export const REVIEW_COPY = {
     leadIn: "Preview:",
     /** Approved. Under a disc's links in the review editor. */
     fccNote: "Your FCC notes are about the station's copy, which may differ from a streaming version.",
-    /** Not shown: ends each link's accessible name, after the service and the record. */
+    /** Approved. Not shown: ends each link's accessible name, after the service and the record. */
     newTab: "opens in a new tab",
   },
   myReviews: {
