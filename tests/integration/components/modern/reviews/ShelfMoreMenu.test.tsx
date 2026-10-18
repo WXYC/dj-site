@@ -74,7 +74,8 @@ const moreOf = async (artist: string, album: string) =>
 
 // The approved words, written out so a change to copy.ts can't pass by being read back.
 const ITEMS = [
-  ["Ask a DJ…", "Held for them for 7 days."],
+  // Ask a DJ… also carries the approved tooltip line, read after the item's own description.
+  ["Ask a DJ…", "Held for them for 7 days. Ask one DJ to review this record. It's held for them for 7 days."],
   ["Use a review we already have…", "From the copy in the library, or a form review."],
   ["Digitize a review…", "Type in a review that's on paper."],
 ] as const;

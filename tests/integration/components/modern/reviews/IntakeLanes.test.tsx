@@ -294,7 +294,8 @@ describe("IntakeLanes", () => {
       await read.answered;
       expect(await within(waitingLane).findByText(/^From Jessica Pratt/)).toBeInTheDocument();
       expect(within(waitingLane).queryByText(location)).not.toBeInTheDocument();
-      expect(within(waitingLane).queryByText(/^on the review shelf/i)).not.toBeInTheDocument();
+      // The buttons' hidden descriptions may say the review shelf; only a line drawn in the lane counts.
+      expect(within(waitingLane).queryByText(/on the review shelf/i, { ignore: "[hidden]" })).not.toBeInTheDocument();
     });
 
     it.each([

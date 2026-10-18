@@ -20,10 +20,10 @@ interface ShelfMoreMenuProps extends Omit<DialogProps, "open" | "onClose"> {
 }
 
 /** One item: its label names it and its description describes it, so a screen reader reads them apart. */
-function Described({ label, description, href, disabled, onClick }: { label: string; description: string; href?: string; disabled?: boolean; onClick?: () => void }) {
+function Described({ label, description, tooltip, href, disabled, onClick }: { label: string; description: string; tooltip?: string; href?: string; disabled?: boolean; onClick?: () => void }) {
   const id = useId();
   // A link item navigates; the other item opens the search dialog, which a screen reader should hear before it opens.
-  return (
+  const item = (
     <MenuItem {...(href ? { component: "a", href } : { disabled, onClick, "aria-haspopup": "dialog" as const })} aria-labelledby={`${id}-label`} aria-describedby={`${id}-description`}>
       <ListItemContent>
         <Typography id={`${id}-label`} level="title-sm">{label}</Typography>
@@ -31,6 +31,8 @@ function Described({ label, description, href, disabled, onClick }: { label: str
       </ListItemContent>
     </MenuItem>
   );
+  // The tooltip sits beside the item, off the menu, so it covers neither this item nor its neighbours; its line joins the item's own description.
+  return tooltip ? <ActionTooltip title={tooltip} placement="left">{item}</ActionTooltip> : item;
 }
 
 /**
@@ -49,14 +51,14 @@ export default function ShelfMoreMenu({ id, labelledBy, busy, ...dialog }: Shelf
   const buttonId = useId();
   const page = `/dashboard/admin/intake/${id}`;
   const { any: hinted } = useReviewProbablyExists(dialog.artist, dialog.album, true);
-  const ask = <Described label={COPY.askADj} description={COPY.moreAskDescription} disabled={busy.disabled} onClick={() => setAsking(true)} />;
+  const ask = <Described label={COPY.askADj} description={COPY.moreAskDescription} tooltip={REVIEW_COPY.tooltips.askADj} disabled={busy.disabled} onClick={() => setAsking(true)} />;
   const cite = <Described label={COPY.moreCite} description={COPY.moreCiteDescription} href={`${page}?get=cite`} />;
 
   return (
     <>
       <Dropdown>
         {/* The button stays enabled while a request is in flight: the dialog hands focus back to it when it closes, and only the Ask a DJ… item is locked. */}
-        <ActionTooltip title={REVIEW_COPY.tooltips.more}>
+        <ActionTooltip title={REVIEW_COPY.tooltips.more} placement="top">
           <MenuButton
             id={buttonId}
             size="sm"

@@ -48,6 +48,8 @@ const STAGES = REVIEW_COPY.myReviews.stages;
 // Pass and Open draft are named by their own words, then the row's artist and album.
 const PASS_BUTTON = /^Pass /;
 const OPEN_DRAFT_NAMED = /^Open draft/;
+// Exactly the button's own words, then the record's artist and album: it proves the record naming survives a wrapper, which a bare "Open draft" would not.
+const openDraftNamed = (artist: string, album: string) => `${REVIEW_COPY.myReviews.openDraft} ${artist} ${album}`;
 const asked = (id: number) => intakeItem({ id, state: "requested", effective_state: "requested", ...requestedFor(ME, "DJ Me") });
 const held = (id: number, overrides = {}) => intakeItem({ id, state: "checked_out", effective_state: "checked_out", ...heldBy(ME, "DJ Me"), ...overrides });
 const submitted = (id: number, overrides = {}) =>
@@ -482,16 +484,28 @@ describe("MyReviewsScreen", () => {
 });
 
 describe("MyReviewsScreen tooltips", () => {
+  const DOGA = intakeItem({ id: 1, artist_name: "Juana Molina", album_title: "DOGA", state: "filed", effective_state: "filed" });
+
   it.each([
-    ["Write a review on a request", [asked(7)], [], REVIEW_COPY.writeReview, REVIEW_COPY.tooltips.writeRequest],
-    ["Pass on a request", [asked(7)], [], PASS_BUTTON, REVIEW_COPY.tooltips.passRequest],
-    ["Write a review on a record the DJ has", [held(8)], [], REVIEW_COPY.writeReview, REVIEW_COPY.tooltips.openEditor],
-    ["Pass on a record the DJ has", [held(8)], [], PASS_BUTTON, REVIEW_COPY.tooltips.passHeld],
-    ["Open draft on a record the DJ has", [held(8)], [review({ id: 3, intake_item_id: 8, status: "draft" })], OPEN_DRAFT_NAMED, REVIEW_COPY.tooltips.openEditor],
-    ["Mark as returned on a disc with a submitted review", [held(8, { effective_state: "reviewed", submitted_review_count: 1 })], [review({ id: 3, intake_item_id: 8, status: "submitted" })], REVIEW_COPY.intake.returned, REVIEW_COPY.tooltips.markReturned],
-  ])("describes %s with its approved text", async (_button, items, mine, name, description) => {
-    renderScreen(items, mine);
+    ["Write a review on a request", [asked(7)], [], {}, REVIEW_COPY.writeReview, REVIEW_COPY.tooltips.writeRequest],
+    ["Pass on a request", [asked(7)], [], {}, PASS_BUTTON, REVIEW_COPY.tooltips.passRequest],
+    ["Write a review on a record the DJ has", [held(8)], [], {}, REVIEW_COPY.writeReview, REVIEW_COPY.tooltips.openEditor],
+    ["Pass on a record the DJ has", [held(8)], [], {}, PASS_BUTTON, REVIEW_COPY.tooltips.passHeld],
+    ["Open draft on a record the DJ has", [held(8)], [review({ id: 3, intake_item_id: 8, status: "draft" })], {}, openDraftNamed("Stereolab", "Aluminum Tunes"), REVIEW_COPY.tooltips.openEditor],
+    ["Open draft on a record the DJ no longer has", [], [review({ id: 3, intake_item_id: 1, status: "draft" })], { records: [DOGA] }, openDraftNamed("Juana Molina", "DOGA"), REVIEW_COPY.tooltips.openEditor],
+  ])("describes %s with its approved text and leaves its name alone", async (_button, items, mine, options, name, description) => {
+    url.search = "?stage=open";
+    renderScreen(items, mine, options);
 
     expect(await screen.findByRole("button", { name, description })).toBeInTheDocument();
+  });
+
+  // Mark as returned on this screen is the DJ's own button. The station approved row 58's line for the music directors' button only.
+  it("gives the DJ's own Mark as returned no tooltip and no description", async () => {
+    renderScreen([held(8, { effective_state: "reviewed", submitted_review_count: 1 })], [review({ id: 3, intake_item_id: 8, status: "submitted" })]);
+
+    const button = await screen.findByRole("button", { name: REVIEW_COPY.intake.returned });
+    expect(button).not.toHaveAttribute("aria-describedby");
+    expect(button).toHaveAccessibleDescription("");
   });
 });
