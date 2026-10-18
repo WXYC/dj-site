@@ -111,20 +111,29 @@ const REQUEST_LOST_RACE =
 const moonPix = (overrides = {}) =>
   item({ id: 11, artist_name: "Cat Power", album_title: "Moon Pix", record_label: "Matador", ...overrides });
 
-const ASK_A_DJ = /^Ask a DJ…/;
+const MORE_BUTTON = /^More/;
+const ASK_A_DJ = "Ask a DJ…";
 
-/** A review shelf row's Ask a DJ… button, reached by the record it acts on: the button is named by the row's artist and album too. */
-const askButton = async (album: string) =>
-  within(await section(SHELF)).findByRole("button", { name: new RegExp(`${ASK_A_DJ.source}.*${album}`) });
+/** A review shelf row's More button, reached by the record it acts on: the button is named by the row's artist and album too. */
+const moreButton = async (album: string) =>
+  within(await section(SHELF)).findByRole("button", { name: new RegExp(`${MORE_BUTTON.source}.*${album}`) });
 
 type User = ReturnType<typeof renderWithProviders>["user"];
 
 /** The open search dialog's search field; the page behind it carries comboboxes of its own. */
 const searchField = async () => within(await screen.findByRole("dialog")).findByRole("combobox");
 
+/** Opens the row's menu and its Ask a DJ… search, and returns the row's More button. */
+const openSearch = async (user: User, album = "Moon Pix") => {
+  const more = await moreButton(album);
+  await user.click(more);
+  await user.click(await screen.findByRole("menuitem", { name: ASK_A_DJ }));
+  return more;
+};
+
 /** Opens the row's search and types a few letters of a name, ending on the highlighted match. */
 const search = async (user: User, typed: string, album = "Moon Pix") => {
-  await user.click(await askButton(album));
+  await openSearch(user, album);
   await user.type(await searchField(), typed);
 };
 
@@ -685,7 +694,7 @@ describe("ReviewsScreen", () => {
     ["a music director", "staff", Authorization.MD, true],
     ["a station manager", "true", Authorization.SM, true],
     ["a station manager", "staff", Authorization.SM, true],
-  ])("%s under the flag %j: Ask a DJ… and the record link are present only for a music director or above", async (_label, flag, who, directors) => {
+  ])("%s under the flag %j: More and the record link are present only for a music director or above", async (_label, flag, who, directors) => {
     vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", flag);
     mockAuth.authority = who;
     fakeReviewsEndpoints({ open: [moonPix()], reviewers: REVIEWERS });
@@ -695,7 +704,7 @@ describe("ReviewsScreen", () => {
     await within(shelf).findByText(/Moon Pix/);
 
     expect(screen.queryByRole("button", { name: "Add a record" })).not.toBeInTheDocument();
-    expect(within(shelf).queryAllByRole("button", { name: ASK_A_DJ })).toHaveLength(directors ? 1 : 0);
+    expect(within(shelf).queryAllByRole("button", { name: MORE_BUTTON })).toHaveLength(directors ? 1 : 0);
     const link = within(shelf).queryByRole("link", { name: "Cat Power" });
     expect(link !== null).toBe(directors);
     if (link) expect(link).toHaveAttribute("href", "/dashboard/admin/intake/11");
@@ -721,7 +730,7 @@ describe("ReviewsScreen", () => {
 
     mockAuth.authority = Authorization.MD;
     const { user } = renderWithProviders(<BothTabs />);
-    await user.click(await askButton("Moon Pix"));
+    await openSearch(user, "Moon Pix");
     expect(await screen.findByRole("option", { name: "Test Reviewer" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Pat Placeholder" })).toBeInTheDocument();
     expect(reads).toHaveLength(1);
@@ -772,7 +781,7 @@ describe("ReviewsScreen", () => {
     await waitFor(() => expect(posts).toBe(1));
   });
 
-  it("locks the row's Ask a DJ… while its request is in flight, sends no second request, and leaves the other rows usable", async () => {
+  it("locks the row's Ask a DJ… item while its request is in flight, sends no second request, and leaves the other rows usable", async () => {
     mockAuth.authority = Authorization.MD;
     const paths: string[] = [];
     fakeReviewsEndpoints({ open: [moonPix({ id: 11 }), moonPix({ id: 12, album_title: "Jaubert" })], reviewers: REVIEWERS });
@@ -788,13 +797,17 @@ describe("ReviewsScreen", () => {
     await ask(user, "Pat Placeholder");
     await waitFor(() => expect(paths).toEqual(["/intake/11/request"]));
 
-    const first = await askButton("Moon Pix");
-    expect(first).toBeDisabled();
-    // user-event refuses a pointer on a locked button; a DJ's click still lands.
-    fireEvent.click(first);
+    const first = await moreButton("Moon Pix");
+    expect(first).toBeEnabled();
+    await user.click(first);
+    const locked = await screen.findByRole("menuitem", { name: ASK_A_DJ });
+    expect(locked).toHaveAttribute("aria-disabled", "true");
+    // user-event refuses a pointer on a locked item; a DJ's click still lands.
+    fireEvent.click(locked);
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    await user.keyboard("{Escape}");
 
-    expect(await askButton("Jaubert")).toBeEnabled();
+    expect(await moreButton("Jaubert")).toBeEnabled();
     await ask(user, "Test Reviewer", "Jaubert");
 
     await waitFor(() => expect(paths).toContain("/intake/12/request"));
@@ -835,7 +848,7 @@ describe("ReviewsScreen", () => {
     );
 
     const { user } = renderWithProviders(<BothTabs />);
-    await askButton("Moon Pix");
+    await moreButton("Moon Pix");
     server.use(
       http.get(`${TEST_BACKEND_URL}/intake`, () => {
         reads += 1;
@@ -863,8 +876,8 @@ describe("ReviewsScreen", () => {
 
     const { user } = renderWithProviders(<BothTabs />);
     const shelf = await section(SHELF);
-    expect(await within(shelf).findAllByRole("button", { name: ASK_A_DJ })).toHaveLength(2);
-    await user.click(await askButton("Moon Pix"));
+    expect(await within(shelf).findAllByRole("button", { name: MORE_BUTTON })).toHaveLength(2);
+    await openSearch(user, "Moon Pix");
     await screen.findByRole("option", { name: "Test Reviewer" });
     await user.keyboard("{Escape}");
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
@@ -874,7 +887,7 @@ describe("ReviewsScreen", () => {
     for (const marker of [within(open).getAllByRole("button", { name: "Write a review" })[0], within(open).getByRole("button", { name: RETURN }), within(open).getByRole("link", { name: REVIEW_COPY.myReviews.open })]) {
       expect(marker).toBeInTheDocument();
     }
-    expect(within(open).queryByRole("button", { name: ASK_A_DJ })).not.toBeInTheDocument();
+    expect(within(open).queryByRole("button", { name: MORE_BUTTON })).not.toBeInTheDocument();
   });
 
   it("opens a search with the field focused, closes it on Escape, and returns focus to the button", async () => {
@@ -882,8 +895,7 @@ describe("ReviewsScreen", () => {
     fakeReviewsEndpoints({ open: [moonPix()], reviewers: REVIEWERS });
 
     const { user } = renderWithProviders(<ReviewsScreen tab="shelf" />);
-    const button = await askButton("Moon Pix");
-    await user.click(button);
+    const button = await openSearch(user);
 
     expect(await searchField()).toHaveFocus();
     await user.keyboard("{Escape}");
@@ -897,8 +909,7 @@ describe("ReviewsScreen", () => {
     fakeReviewsEndpoints({ open: [moonPix()], reviewers: REVIEWERS });
 
     const { user } = renderWithProviders(<ReviewsScreen tab="shelf" />);
-    const button = await askButton("Moon Pix");
-    await user.click(button);
+    const button = await openSearch(user);
     await user.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Cancel" }));
 
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
@@ -910,7 +921,7 @@ describe("ReviewsScreen", () => {
     fakeReviewsEndpoints({ open: [moonPix()], reviewers: REVIEWERS });
 
     renderWithProviders(<ReviewsScreen tab="shelf" />);
-    await askButton("Moon Pix");
+    await moreButton("Moon Pix");
 
     expect(screen.queryByRole("combobox", { name: "DJ to ask" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Request a review" })).not.toBeInTheDocument();
@@ -942,7 +953,7 @@ describe("ReviewsScreen", () => {
       mockAuth.authority = Authorization.MD;
       fakeReviewsEndpoints({ open: [moonPix({ passes })], reviewers: people });
       const rendered = renderWithProviders(<ReviewsScreen tab="shelf" />);
-      await rendered.user.click(await askButton("Moon Pix"));
+      await openSearch(rendered.user);
       return rendered;
     };
 
@@ -1040,7 +1051,7 @@ describe("ReviewsScreen", () => {
     fakeReviewsEndpoints({ open: [moonPix()], reviewers: many });
 
     const { user } = renderWithProviders(<ReviewsScreen tab="shelf" />);
-    await user.click(await askButton("Moon Pix"));
+    await openSearch(user, "Moon Pix");
 
     expect(await screen.findAllByRole("option", { name: /^Test Person/ })).toHaveLength(8);
     expect(screen.getByRole("option", { name: "3 more match. Keep typing." })).toHaveAttribute("aria-disabled", "true");
@@ -1096,7 +1107,7 @@ describe("ReviewsScreen", () => {
     options.action.onClick();
 
     await waitFor(() => expect(cancelled).toEqual(["cancel"]));
-    expect(await askButton("Moon Pix")).toBeInTheDocument();
+    expect(await moreButton("Moon Pix")).toBeInTheDocument();
   });
 
   it("toasts no Asked when the request is refused", async () => {
@@ -1179,7 +1190,7 @@ describe("ReviewsScreen", () => {
     server.use(...reviewersRead);
 
     const { user } = renderWithProviders(<ReviewsScreen tab="shelf" />);
-    await user.click(await askButton("Moon Pix"));
+    await openSearch(user, "Moon Pix");
     if (typed) {
       await user.type(await searchField(), typed);
     }
@@ -1206,7 +1217,7 @@ describe("ReviewsScreen", () => {
     );
 
     const { user } = renderWithProviders(<ReviewsScreen tab="shelf" />);
-    await user.click(await askButton("Moon Pix"));
+    await openSearch(user, "Moon Pix");
 
     expect(await screen.findByText(REVIEW_COPY.intake.askLoading)).toBeInTheDocument();
     expect(screen.queryByText("Loading…")).not.toBeInTheDocument();
@@ -1227,7 +1238,7 @@ describe("ReviewsScreen", () => {
     expect(screen.getByRole("dialog")).toHaveAccessibleDescription(question);
   });
 
-  it("returns focus to the row's Ask a DJ… button after Ask, while its request is in flight", async () => {
+  it("returns focus to the row's More button after Ask, while its request is in flight", async () => {
     mockAuth.authority = Authorization.MD;
     fakeReviewsEndpoints({ open: [moonPix()], reviewers: REVIEWERS });
     server.use(
@@ -1238,11 +1249,11 @@ describe("ReviewsScreen", () => {
     );
 
     const { user } = renderWithProviders(<ReviewsScreen tab="shelf" />);
-    const button = await askButton("Moon Pix");
+    const button = await moreButton("Moon Pix");
     await ask(user, "pat");
 
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
-    expect(button).toBeDisabled();
+    expect(button).toBeEnabled();
     expect(document.activeElement).toBe(button);
   });
 
@@ -1272,7 +1283,7 @@ describe("ReviewsScreen", () => {
     fakeReviewsEndpoints({ open: [moonPix()], reviewers: REVIEWERS });
 
     const { user } = renderWithProviders(<ReviewsScreen tab="shelf" />);
-    await user.click(await askButton("Moon Pix"));
+    await openSearch(user, "Moon Pix");
     await screen.findByRole("option", { name: "Pat Placeholder" });
     await user.keyboard("{ArrowDown}{Enter}");
 
@@ -1301,16 +1312,16 @@ describe("ReviewsScreen", () => {
     await waitFor(() => expect(paths).toEqual(["/intake/2/request"]));
   });
 
-  it("names a row's Ask a DJ… button by the record's artist and album, so the artist's link must carry the id", async () => {
+  it("names a row's More button by the record's artist and album, so the artist's link must carry the id", async () => {
     mockAuth.authority = Authorization.MD;
     fakeReviewsEndpoints({ open: [moonPix()], reviewers: REVIEWERS });
 
     renderWithProviders(<ReviewsScreen tab="shelf" />);
 
-    expect(await within(await section(SHELF)).findByRole("button", { name: "Ask a DJ… Cat Power Moon Pix" })).toBeInTheDocument();
+    expect(await within(await section(SHELF)).findByRole("button", { name: "More Cat Power Moon Pix" })).toBeInTheDocument();
   });
 
-  it("gives two shelf rows by one artist two differently named Ask a DJ… buttons", async () => {
+  it("gives two shelf rows by one artist two differently named More buttons", async () => {
     mockAuth.authority = Authorization.MD;
     fakeReviewsEndpoints({
       open: [moonPix({ id: 1 }), moonPix({ id: 2, album_title: "Dark Side" })],
@@ -1320,8 +1331,8 @@ describe("ReviewsScreen", () => {
     renderWithProviders(<ReviewsScreen tab="shelf" />);
 
     const shelf = await section(SHELF);
-    expect(await within(shelf).findByRole("button", { name: "Ask a DJ… Cat Power Moon Pix" })).toBeInTheDocument();
-    expect(within(shelf).getByRole("button", { name: "Ask a DJ… Cat Power Dark Side" })).toBeInTheDocument();
+    expect(await within(shelf).findByRole("button", { name: "More Cat Power Moon Pix" })).toBeInTheDocument();
+    expect(within(shelf).getByRole("button", { name: "More Cat Power Dark Side" })).toBeInTheDocument();
   });
 
   // `isIntakeRequestRefused` is true for any 400 under `intakeWriteError`, so only the action tells a refused request apart.
@@ -1355,7 +1366,7 @@ describe("ReviewsScreen", () => {
     expect(toast.error).not.toHaveBeenCalledWith(REQUEST_REFUSED);
   });
 
-  it("never paints the review shelf lane without Ask a DJ… when the role resolves after the first paint", async () => {
+  it("never paints the review shelf lane without More when the role resolves after the first paint", async () => {
     mockAuth.authority = Authorization.MD;
     mockAuth.late = true;
     fakeReviewsEndpoints({ open: [moonPix()], reviewers: REVIEWERS });
@@ -1364,13 +1375,13 @@ describe("ReviewsScreen", () => {
       const shelf = screen.queryByRole("region", { name: SHELF });
       if (!shelf) return;
       const row = within(shelf).queryByText(/Moon Pix/) !== null;
-      const request = within(shelf).queryByRole("button", { name: ASK_A_DJ }) !== null;
+      const request = within(shelf).queryByRole("button", { name: MORE_BUTTON }) !== null;
       states.push(`${row ? (request ? "R" : "-") : "."}`);
     });
     observer.observe(document.body, { childList: true, subtree: true });
 
     renderWithProviders(<BothTabs />);
-    await askButton("Moon Pix");
+    await moreButton("Moon Pix");
     await new Promise((resolve) => setTimeout(resolve, 50));
     observer.disconnect();
 

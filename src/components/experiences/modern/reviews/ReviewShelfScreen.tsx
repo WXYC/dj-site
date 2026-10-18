@@ -13,11 +13,11 @@ import { intakeRecord } from "./recordLine";
 import { useAskADj } from "./useAskADj";
 import { day, type ReviewWrite } from "./useReviewWrite";
 
-/** The review shelf lane, and for a music director the reviewers-load alert and each record's Ask a DJ… button. It assumes its caller has applied the `useCanSeeReviews` check and the load-failed gate, and takes the reviewers read and the `useReviewWrite` the caller built for this tab: My reviews is a separate tab with its own write wiring, so a lock set here does not carry over to it. */
+/** The review shelf lane, and for a music director the reviewers-load alert and each record's More menu. It assumes its caller has applied the `useCanSeeReviews` check and the load-failed gate, and takes the reviewers read and the `useReviewWrite` the caller built for this tab: My reviews is a separate tab with its own write wiring, so a lock set here does not carry over to it. */
 export default function ReviewShelfScreen({ items, isMD, reviewers, write, lock }: { items: IntakeItem[]; isMD: boolean; reviewers: { isError: boolean; isLoading: boolean; data?: Reviewer[] } } & ReviewWrite) {
   const [checkout] = useCheckoutIntakeItemMutation();
   const onShelf = oldestLoggedFirst(items.filter(onReviewShelf));
-  const { alert, picker, shelfRecordId, shelfAlbumId } = useAskADj({ reviewers, write, lock });
+  const { alert, moreMenu, shelfRecordId, shelfAlbumId } = useAskADj({ reviewers, write, lock });
 
   return (
     <>
@@ -33,7 +33,7 @@ export default function ReviewShelfScreen({ items, isMD, reviewers, write, lock 
           actions={
             <>
               <Button size="sm" {...lock(i.id, "checkout")} onClick={() => write(i.id, "checkout", () => checkout(i.id).unwrap())}>{byKind(i, { disc: REVIEW_COPY.screen.checkOut, digital: REVIEW_COPY.screen.take })}</Button>
-              {isMD && picker(i)}
+              {isMD && moreMenu(i)}
             </>
           }
         />

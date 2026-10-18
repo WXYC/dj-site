@@ -169,9 +169,9 @@ type LaneRow = (i: IntakeItem, meta?: ReactNode, actions?: ReactNode, title?: { 
 
 const itemHref = (i: IntakeItem) => `/dashboard/admin/intake/${i.id}`;
 
-/** On the review shelf: each record with the tab's Ask a DJ… control. */
+/** On the review shelf: each record with the tab's More menu. */
 function OnReviewShelf({ rows, laneRow, askADj, handOff }: { rows: IntakeItem[]; laneRow: LaneRow; askADj: ReturnType<typeof useAskADj>; handOff: HandOff | null }) {
-  const { alert, picker, shelfRecordId, shelfAlbumId } = askADj;
+  const { alert, moreMenu, shelfRecordId, shelfAlbumId } = askADj;
   const markOf = (i: IntakeItem) => (handOff?.id === i.id ? `${handOff.id}:${handOff.at}` : null);
   return (
     <>
@@ -179,7 +179,7 @@ function OnReviewShelf({ rows, laneRow, askADj, handOff }: { rows: IntakeItem[];
       <RowList
         rows={rows}
         row={(i) => {
-          const row = laneRow(i, <Typography level="body-sm">{`${REVIEW_COPY.screen.added} ${day(i.logged_at)}`}</Typography>, picker(i), {
+          const row = laneRow(i, <Typography level="body-sm">{`${REVIEW_COPY.screen.added} ${day(i.logged_at)}`}</Typography>, moreMenu(i), {
             titleSlot: <Link level="title-md" id={shelfRecordId(i)} href={itemHref(i)}>{i.artist_name}</Link>,
             albumId: shelfAlbumId(i),
           });
