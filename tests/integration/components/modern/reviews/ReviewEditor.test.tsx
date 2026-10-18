@@ -107,31 +107,21 @@ describe("ReviewEditor", () => {
   describe("the listen links", () => {
     const FCC_LINE = "Your FCC notes are about the station's copy, which may differ from a streaming version.";
     const LINKED = { spotify_url: "https://open.spotify.com/album/1", discogs_release_id: 42 };
+    const LINKED_HREFS = ["https://open.spotify.com/album/1", "https://www.discogs.com/release/42"];
 
-    it("shows a disc's links and the FCC line", async () => {
-      fakeReviewsEndpoints({ reviews: [DRAFT], records: [{ ...intakeItem(LINKED), id: DRAFT.intake_item_id! }] });
-      renderWithProviders(<ReviewEditor id={40} />);
-
-      expect(await screen.findByRole("link", { name: "Spotify" })).toHaveAttribute("target", "_blank");
-      expect(screen.getByRole("link", { name: "Discogs" })).toHaveAttribute("href", "https://www.discogs.com/release/42");
-      expect(screen.getByText(FCC_LINE)).toBeInTheDocument();
-    });
-
-    it("shows a digital album neither the links nor the FCC line", async () => {
-      fakeReviewsEndpoints({ reviews: [DRAFT], records: [{ ...digitalItem(LINKED), id: DRAFT.intake_item_id! }] });
+    it.each([
+      ["a disc with links", LINKED_HREFS, true, intakeItem(LINKED)],
+      ["a digital album with links", [], false, digitalItem(LINKED)],
+      ["a disc with no links", [], false, intakeItem()],
+    ])("in the editor of %s, shows the links %j and the FCC line: %s", async (_kind, hrefs, showsFccLine, item) => {
+      fakeReviewsEndpoints({ reviews: [DRAFT], records: [{ ...item, id: DRAFT.intake_item_id! }] });
       renderWithProviders(<ReviewEditor id={40} />);
 
       await screen.findByRole("heading", { level: 2, name: "Stereolab" });
-      expect(screen.queryByRole("link", { name: "Spotify" })).toBeNull();
-      expect(screen.queryByText(FCC_LINE)).toBeNull();
-    });
-
-    it("shows no FCC line for a disc with no links", async () => {
-      fakeReviewsEndpoints({ reviews: [DRAFT], records: [{ ...intakeItem(), id: DRAFT.intake_item_id! }] });
-      renderWithProviders(<ReviewEditor id={40} />);
-
-      await screen.findByRole("heading", { level: 2, name: "Stereolab" });
-      expect(screen.queryByText(FCC_LINE)).toBeNull();
+      const links = screen.queryAllByRole("link", { name: new RegExp(`^(Spotify|Discogs) Stereolab Aluminum Tunes ${REVIEW_COPY.listen.newTab}$`) });
+      expect(links.map((l) => l.getAttribute("href"))).toEqual(hrefs);
+      links.forEach((l) => expect(l).toHaveAttribute("target", "_blank"));
+      expect(screen.queryByText(FCC_LINE) !== null).toBe(showsFccLine);
     });
   });
 

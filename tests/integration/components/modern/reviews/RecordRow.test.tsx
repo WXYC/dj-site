@@ -6,6 +6,7 @@ import { http, HttpResponse } from "msw";
 import { renderWithProviders, server, TEST_BACKEND_URL } from "@/tests/helpers";
 import RecordRow from "@/src/components/experiences/modern/reviews/RecordRow";
 import RecordHeader from "@/src/components/experiences/modern/reviews/RecordHeader";
+import { REVIEW_COPY } from "@/src/components/experiences/modern/reviews/copy";
 
 const record = { artist: "Juana Molina", album: "DOGA", label: "Sonamos" };
 const glyph = (container: HTMLElement) => container.querySelector("[data-tone]");
@@ -24,10 +25,15 @@ function serveFormats() {
   return reads;
 }
 
-const LINKS = [
+const ALL_LINKS = [
   { label: "Spotify", href: "https://open.spotify.com/album/1" },
+  { label: "Apple Music", href: "https://music.apple.com/us/album/2" },
+  { label: "Bandcamp", href: "https://juanamolina.bandcamp.com/album/doga" },
   { label: "Discogs", href: "https://www.discogs.com/release/42" },
 ];
+const LINKS = [ALL_LINKS[0], ALL_LINKS[3]];
+/** A link's full accessible name: the service, then the record's artist and album, then the new-tab hint. */
+const linkName = (service: string, artist: string, album: string) => `${service} ${artist} ${album} ${REVIEW_COPY.listen.newTab}`;
 
 describe("RecordRow", () => {
   it("draws the lead-in and the links in order, each opening in a new tab with noopener", () => {
@@ -46,6 +52,40 @@ describe("RecordRow", () => {
     renderWithProviders(<RecordRow record={{ ...record, links }} />);
     expect(screen.queryByText("Preview:")).toBeNull();
     expect(screen.queryAllByRole("link")).toEqual([]);
+  });
+
+  it.each([
+    ["a row", <RecordRow key="row" record={{ ...record, links: LINKS }} />],
+    ["a row with a caller's album id", <RecordRow key="album-id" record={{ ...record, links: LINKS }} albumId="album-1" />],
+    ["a row with its own title link", <RecordRow key="title" record={{ ...record, links: LINKS }} titleSlot={<Link id="record-3" href="/dashboard/admin/intake/3">Juana Molina</Link>} titleId="record-3" />],
+    ["the record's header", <RecordHeader key="header" record={{ ...record, links: LINKS }} />],
+  ])("names each link on %s by its service, the record and the new tab", (_where, ui) => {
+    renderWithProviders(ui);
+    expect(screen.getByRole("link", { name: linkName("Spotify", "Juana Molina", "DOGA") })).toHaveAttribute("href", LINKS[0].href);
+    expect(screen.getByRole("link", { name: linkName("Discogs", "Juana Molina", "DOGA") })).toHaveAttribute("href", LINKS[1].href);
+  });
+
+  it("names two rows' links apart by their records", () => {
+    renderWithProviders(
+      <>
+        <RecordRow record={{ ...record, links: LINKS }} />
+        <RecordRow record={{ artist: "Cat Power", album: "Moon Pix", label: "Matador", links: LINKS }} />
+      </>,
+    );
+    expect(screen.getByRole("link", { name: linkName("Spotify", "Juana Molina", "DOGA") })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: linkName("Spotify", "Cat Power", "Moon Pix") })).toBeInTheDocument();
+  });
+
+  it.each([
+    [1, ["Preview:", "Spotify"]],
+    [2, ["Preview:", "Spotify", "·", "Apple Music"]],
+    [4, ["Preview:", "Spotify", "·", "Apple Music", "·", "Bandcamp", "·", "Discogs"]],
+  ])("puts an unspoken middle dot between each of %i links, and none at either end", (count, parts) => {
+    renderWithProviders(<RecordRow record={{ ...record, links: ALL_LINKS.slice(0, count) }} />);
+    const group = screen.getByText("Preview:").parentElement!;
+    const shown = Array.from(group.children).filter((el) => !(el as HTMLElement).hidden);
+    expect(shown.map((el) => el.textContent)).toEqual(parts);
+    shown.filter((el) => el.textContent === "·").forEach((dot) => expect(dot).toHaveAttribute("aria-hidden", "true"));
   });
 
   it.each([

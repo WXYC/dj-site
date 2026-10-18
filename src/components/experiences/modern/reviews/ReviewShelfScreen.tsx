@@ -28,6 +28,7 @@ export default function ReviewShelfScreen({ items, isMD, reviewers, write, lock 
           record={intakeRecord(i)}
           cover={72}
           titleSlot={isMD ? <Link level="title-md" id={shelfRecordId(i)} href={`/dashboard/admin/intake/${i.id}`}>{i.artist_name}</Link> : undefined}
+          titleId={isMD ? shelfRecordId(i) : undefined}
           albumId={shelfAlbumId(i)}
           meta={<Typography level="body-sm">{`${REVIEW_COPY.screen.added} ${day(i.logged_at)}`}</Typography>}
           actions={

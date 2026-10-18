@@ -673,6 +673,8 @@ export const REVIEW_COPY = {
     /** Approved. Said before the links: they are for hearing the record, not for reviewing it. */
     leadIn: "Preview:",
     fccNote: "Your FCC notes are about the station's copy, which may differ from a streaming version.",
+    /** Not shown: ends each link's accessible name, after the service and the record. */
+    newTab: "opens in a new tab",
   },
   myReviews: {
     /** The accessible name of the chips that switch the My reviews tab's list. */

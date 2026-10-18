@@ -456,8 +456,8 @@ describe("IntakeItemScreen", () => {
     renderScreen(<IntakeItemScreen id={ITEM_ID} />);
 
     expect(await screen.findByText("Preview:")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Spotify" })).toHaveAttribute("rel", expect.stringContaining("noopener"));
-    expect(screen.getByRole("link", { name: "Discogs" })).toHaveAttribute("href", "https://www.discogs.com/release/42");
+    expect(screen.getByRole("link", { name: `Spotify Juana Molina DOGA ${REVIEW_COPY.listen.newTab}` })).toHaveAttribute("rel", expect.stringContaining("noopener"));
+    expect(screen.getByRole("link", { name: `Discogs Juana Molina DOGA ${REVIEW_COPY.listen.newTab}` })).toHaveAttribute("href", "https://www.discogs.com/release/42");
   });
 
   it("heads the record with its artist and the state chip, and no longer prints the record as a dotted line", async () => {
