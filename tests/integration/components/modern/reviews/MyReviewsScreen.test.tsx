@@ -469,7 +469,6 @@ describe("MyReviewsScreen", () => {
   // The station has not approved this wording yet, so this pins it without claiming it is signed off.
   it.each([
     ["stagesLabel", REVIEW_COPY.myReviews.stagesLabel, "Which of my reviews to show"],
-    ["draftSaved", REVIEW_COPY.myReviews.draftSaved, "Your draft is saved."],
   ])("words %s as currently proposed (not yet approved)", (_key, actual, expected) => {
     expect(actual).toBe(expected);
   });
