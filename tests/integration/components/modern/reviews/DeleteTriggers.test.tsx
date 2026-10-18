@@ -4,7 +4,7 @@ import { CssVarsProvider } from "@mui/joy/styles";
 import type { ReactElement } from "react";
 import { Authorization } from "@/lib/features/admin/types";
 import modernTheme from "@/lib/features/experiences/modern/theme";
-import { fakeReviewsEndpoints, intakeItem, renderWithProviders, review } from "@/tests/helpers";
+import { fakeReviewsEndpoints, fccNote, intakeItem, renderWithProviders, review } from "@/tests/helpers";
 import { fakeRotationCardsEndpoints } from "@/tests/fakes/rotation";
 
 vi.mock("@/lib/features/authentication/client", () => ({
@@ -42,6 +42,7 @@ vi.mock("@/src/hooks/authenticationHooks", async () => {
   return createAuthenticationHookMock(mockAuth);
 });
 
+import FccNotesPanel from "@/src/components/experiences/modern/reviews/FccNotesPanel";
 import IntakeItemScreen from "@/src/components/experiences/modern/reviews/IntakeItemScreen";
 import ReviewEditor from "@/src/components/experiences/modern/reviews/ReviewEditor";
 import { REVIEW_COPY } from "@/src/components/experiences/modern/reviews/copy";
@@ -64,18 +65,35 @@ const serveRecord = () => {
   return <IntakeItemScreen id={ITEM_ID} />;
 };
 
+const FCC_ALBUM_ID = 7;
+
+// A note reported by "dj-me", viewed either by the reporter (who can take it back) or by a music director (who can remove it).
+const serveFccNote = (viewer: { id: string; authority: Authorization }) => () => {
+  mockAuth.id = viewer.id;
+  mockAuth.authority = viewer.authority;
+  // The reporter is a plain DJ, and the "staff" setting hides the reviews screens from DJs.
+  vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "true");
+  fakeReviewsEndpoints({
+    fccNotesForRelease: { [FCC_ALBUM_ID]: [fccNote({ status: "reported", reported_by_user_id: "dj-me", album_id: FCC_ALBUM_ID })] },
+  });
+  return <FccNotesPanel albumId={FCC_ALBUM_ID} />;
+};
+
 describe("the review screens' delete triggers", () => {
   beforeEach(() => {
+    mockAuth.id = "md-me";
     mockAuth.authority = Authorization.MD;
     vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "staff");
   });
   afterEach(() => vi.unstubAllEnvs());
 
   it.each([
-    ["the editor's Delete", REVIEW_COPY.delete, serveEditor],
-    ["a record page's Delete review", REVIEW_COPY.intakeItem.deleteReviewBy("DJ Me"), serveRecord],
-    ["a record page's Delete for the record itself", REVIEW_COPY.intakeItem.delete, serveRecord],
-  ])("%s is plain neutral text, and its confirmation's Delete is solid danger", async (_name, name, serve: () => ReactElement) => {
+    ["the editor's Delete", REVIEW_COPY.delete, REVIEW_COPY.delete, serveEditor],
+    ["a record page's Delete review", REVIEW_COPY.intakeItem.deleteReviewBy("DJ Me"), REVIEW_COPY.delete, serveRecord],
+    ["a record page's Delete for the record itself", REVIEW_COPY.intakeItem.delete, REVIEW_COPY.delete, serveRecord],
+    ["an FCC note's Remove for the reporter", REVIEW_COPY.fccNotes.removeMine, REVIEW_COPY.fccNotes.remove, serveFccNote({ id: "dj-me", authority: Authorization.DJ })],
+    ["an FCC note's Remove for a music director", REVIEW_COPY.fccNotes.remove, REVIEW_COPY.fccNotes.remove, serveFccNote({ id: "md-me", authority: Authorization.MD })],
+  ])("%s is plain neutral text, and its confirmation's button is solid danger", async (_name, name, confirmName, serve: () => ReactElement) => {
     const { user } = renderWithProviders(<CssVarsProvider theme={modernTheme}>{serve()}</CssVarsProvider>);
 
     const trigger = await screen.findByRole("button", { name });
@@ -83,7 +101,7 @@ describe("the review screens' delete triggers", () => {
     expect(trigger).not.toHaveClass("MuiButton-colorDanger");
 
     await user.click(trigger);
-    const confirm = within(await screen.findByRole("alertdialog")).getByRole("button", { name: REVIEW_COPY.delete });
+    const confirm = within(await screen.findByRole("alertdialog")).getByRole("button", { name: confirmName });
     expect(confirm).toHaveClass("MuiButton-colorDanger", "MuiButton-variantSolid");
   });
 
