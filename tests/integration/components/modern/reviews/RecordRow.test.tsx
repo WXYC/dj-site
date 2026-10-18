@@ -1,6 +1,6 @@
-import { describe, it, expect, vi } from "vitest";
+import { beforeEach, describe, it, expect, vi } from "vitest";
 import { toast } from "sonner";
-import { screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { Link } from "@mui/joy";
 import { http, HttpResponse } from "msw";
 import { renderWithProviders, server, TEST_BACKEND_URL } from "@/tests/helpers";
@@ -156,12 +156,12 @@ describe("RecordRow", () => {
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
 /** Answers the metadata proxy's album read and counts the reads. */
-function serveArtwork(respond: () => Response | Promise<Response>) {
+function serveArtwork(respond: (releaseTitle: string | null) => Response | Promise<Response>) {
   const reads = { count: 0 };
   server.use(
-    http.get(`${TEST_BACKEND_URL}/proxy/metadata/album`, () => {
+    http.get(`${TEST_BACKEND_URL}/proxy/metadata/album`, ({ request }) => {
       reads.count += 1;
-      return respond();
+      return respond(new URL(request.url).searchParams.get("releaseTitle"));
     }),
   );
   return reads;
@@ -171,18 +171,25 @@ describe("RecordRow cover", () => {
   const COVER_URL = "https://img.example/doga.jpg";
   const cover = (container: HTMLElement) => container.querySelector("img");
 
+  beforeEach(() => {
+    vi.mocked(toast.error).mockClear();
+  });
+
   it.each([72, 56] as const)("shows the record's cover at %i px with an empty alt", async (size) => {
     serveArtwork(() => HttpResponse.json({ artworkUrl: COVER_URL }));
     const { container } = renderWithProviders(<RecordRow record={record} cover={size} />);
     await waitFor(() => expect(cover(container)).toHaveAttribute("src", COVER_URL));
     expect(cover(container)).toHaveAttribute("alt", "");
+    expect(cover(container)).toHaveAttribute("loading", "lazy");
     expect(cover(container)).toHaveStyle({ width: `${size}px`, height: `${size}px` });
     expect(glyph(container)).toBeNull();
   });
 
   it.each([
     ["while loading", () => new Promise<Response>(() => {})],
-    ["on an error", () => HttpResponse.json({ error: "down" }, { status: 500 })],
+    // A body with a `message` is one the shared error middleware would toast, so only the read's own scoping keeps it quiet.
+    ["on an error", () => HttpResponse.json({ message: "Metadata service unavailable" }, { status: 500 })],
+    ["on a network failure", () => HttpResponse.error()],
     ["with no artwork", () => HttpResponse.json({ artworkUrl: null })],
   ])("keeps the format glyph at the cover's size %s, never the cassette", async (_case, respond) => {
     const reads = serveArtwork(respond);
@@ -192,6 +199,22 @@ describe("RecordRow cover", () => {
     expect(cover(container)).toBeNull();
     expect(toast.error).not.toHaveBeenCalled();
     expect(glyph(container)).toHaveStyle({ width: "56px", height: "56px" });
+  });
+
+  it("falls back to the glyph at the cover's size when the cover will not load, and shows the next record's cover in the same row", async () => {
+    const covers: Record<string, string> = { DOGA: COVER_URL, "Aluminum Tunes": "https://img.example/aluminum-tunes.jpg" };
+    serveArtwork((title) => HttpResponse.json({ artworkUrl: (title && covers[title]) ?? null }));
+    const { container, rerender } = renderWithProviders(<RecordRow record={{ ...record, format: "Vinyl" }} cover={72} />);
+    await waitFor(() => expect(cover(container)).toHaveAttribute("src", COVER_URL));
+
+    fireEvent.error(cover(container)!);
+
+    expect(cover(container)).toBeNull();
+    expect(glyph(container)).toHaveStyle({ width: "72px", height: "72px" });
+
+    rerender(<RecordRow record={{ artist: "Stereolab", album: "Aluminum Tunes", label: "Duophonic", format: "Vinyl" }} cover={72} />);
+    await waitFor(() => expect(cover(container)).toHaveAttribute("src", covers["Aluminum Tunes"]));
+    expect(glyph(container)).toBeNull();
   });
 
   it("makes no metadata read for a blank album, and keeps the glyph", async () => {

@@ -10,16 +10,20 @@ const DEFAULT_ARTWORK_URL = "/img/cassette.png";
  * request. Callers that pass `skip` are an optimization, not the gate itself
  * — `AlbumCard` suppresses rendering of every metadata-derived block on the
  * flag regardless of whether this fetch ran.
+ *
+ * `decorative` is for a reader whose cover only decorates a row that already
+ * names the record: its failed read is neither toasted nor reported.
  */
 export function useAlbumArtwork(
   artistName: string | undefined,
   releaseTitle: string | undefined,
   skip?: boolean,
+  { decorative = false }: { decorative?: boolean } = {},
 ) {
   const shouldSkip = !artistName || !releaseTitle || skip === true;
 
   const { data, isLoading } = useGetAlbumMetadataQuery(
-    { artistName: artistName!, releaseTitle: releaseTitle! },
+    { artistName: artistName!, releaseTitle: releaseTitle!, ...(decorative && { decorative }) },
     { skip: shouldSkip },
   );
 
