@@ -312,6 +312,8 @@ export const REVIEW_COPY = {
     digital: "Digital",
     discogsReleaseId: "Discogs link or release number (optional)",
     discogsRefused: "That isn't a Discogs release link or number.",
+    bandcampUrl: "Bandcamp link (optional)",
+    bandcampRefused: "That isn't a Bandcamp link.",
     /**
      * A proposal for the next copy round, not yet seen by the station: the Discogs field's line once a pasted link
      * or number has filled the form. It names all three fields even when some were already typed in, or Discogs

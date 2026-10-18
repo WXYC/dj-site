@@ -130,6 +130,48 @@ describe("IntakeLogForm", () => {
     await waitFor(() => expect(body).toBeDefined());
     expect(body!.format_id).toBe(2);
   });
+  describe("the Bandcamp link", () => {
+    it.each([
+      ["a valid link is sent as bandcamp_url", "https://juanamolina.bandcamp.com/album/doga", { bandcamp_url: "https://juanamolina.bandcamp.com/album/doga" }],
+      ["an empty field sends no bandcamp_url key", "", null],
+      ["http is refused", "http://juanamolina.bandcamp.com/album/doga", "refused"],
+      ["another site is refused", "https://example.com/bandcamp.com", "refused"],
+      ["a non-URL is refused", "doga", "refused"],
+    ])("%s", async (_case, link, expected) => {
+      fakeReviewsEndpoints({ open: [] });
+      let body: Record<string, unknown> | undefined;
+      server.use(
+        http.post(`${TEST_BACKEND_URL}/intake`, async ({ request }) => {
+          body = (await request.json()) as Record<string, unknown>;
+          return HttpResponse.json(moonPix());
+        }),
+      );
+
+      const { user } = renderWithProviders(<IntakeLogForm />);
+      await user.type(await screen.findByLabelText(/^Artist/), "Juana Molina");
+      await user.type(screen.getByLabelText(/^Album/), "DOGA");
+      await user.click(screen.getByRole("radio", { name: "As files" }));
+      if (link) {
+        await user.type(screen.getByLabelText(/^Bandcamp link/), link);
+      }
+      if (expected === "refused") {
+        expect(await screen.findByText("That isn't a Bandcamp link.")).toBeInTheDocument();
+        // The button is disabled; Enter in the field is the other way to submit.
+        expect(screen.getByRole("button", { name: "Add a record" })).toBeDisabled();
+        await user.type(screen.getByLabelText(/^Bandcamp link/), "{Enter}");
+        expect(body).toBeUndefined();
+        return;
+      }
+      await user.click(screen.getByRole("button", { name: "Add a record" }));
+      await waitFor(() => expect(body).toBeDefined());
+      if (expected == null) {
+        expect(body).not.toHaveProperty("bandcamp_url");
+      } else {
+        expect(body).toMatchObject(expected as object);
+      }
+    });
+  });
+
   describe("filling the record's details from the Discogs field", () => {
     const FILLED_LINE = "Filled in the artist, album and label from Discogs. Check them before you add the record.";
     const LINK = "https://www.discogs.com/release/24216789-Juana-Molina-DOGA";
