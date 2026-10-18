@@ -181,7 +181,7 @@ export const REVIEW_COPY = {
     notReviewedYet: "Not reviewed yet",
     /** Approved. Added to the Pass confirmation for a disc the DJ has. */
     passBringDisc: "Bring the disc back to the music office first.",
-    /** Approved. Added to the Pass confirmation when the DJ has a draft on the record. */
+    /** Approved. Added to the Pass confirmation, and to Mark as returned's, when the DJ has a draft on the record. */
     passDraftSaved: "Your draft is saved under Open reviews.",
     /** Added to Mark as returned's confirmation when the DJ has a submitted review of the record. */
     markReturnedKeep: "Your review stays with the music directors.",
@@ -708,10 +708,10 @@ export const REVIEW_COPY = {
     submitted: "Submitted",
     /** Approved. */
     open: "Open",
-    /** Approved. The button on a record I have that has a draft, and on a draft kept after a pass. */
+    /** Approved. The button or link on every draft of mine: on a record I have, on a record I no longer have, and on a library release. */
     openDraft: "Open draft",
-    /** Approved. A draft's line on a record the DJ passed on. */
-    draftKept: "You passed on the record. Your draft is saved.",
+    /** A draft's line on a record the DJ no longer has, which reads the same whether they passed or returned it. */
+    draftSaved: "Your draft is saved.",
     /** Approved. */
     libraryRelease: "A library release",
     /** Approved. The tag on a review of a library release. */

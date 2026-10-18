@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Button, Chip, Link, List, ListItem, Stack, Typography } from "@mui/joy";
 import type { IntakeItem, Review } from "@wxyc/shared";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { useMounted } from "@/src/hooks/useRowWrite";
+import { useMounted, type RowWriteOutcome } from "@/src/hooks/useRowWrite";
 import {
   useAcceptIntakeItemMutation,
   usePassIntakeItemMutation,
@@ -21,7 +21,7 @@ import StageChips from "../StageChips";
 import { REVIEW_COPY } from "./copy";
 import RecordRow from "./RecordRow";
 import { intakeRecord } from "./recordLine";
-import { useReviewRecord } from "./useReviewRecord";
+import { useReviewRecord, type ReviewRecord } from "./useReviewRecord";
 import { day, type ReviewWrite } from "./useReviewWrite";
 
 /** The draft or submitted chip and the last-saved date, shared by a review's row and a held record's row that has a draft. */
@@ -35,25 +35,45 @@ function ReviewMeta({ review, fromLibrary = false }: { review: Review; fromLibra
   );
 }
 
-/** A review's row: the record as parts (artist, album, label) once it has landed. Until then, a library review shows `myReviews.libraryRelease` and a logged-record review shows nothing in its place. Either way the row carries the status, the last-saved date and Open. A draft on a record the DJ passed on opens with Open draft and says the draft is saved. */
+/** The ids that put a row's artist and album in its buttons' names, keyed by the row's own key so no two rows share one. */
+const recordIds = (key: string) => ({ artist: `my-reviews-${key}-artist`, album: `my-reviews-${key}-album` });
+
+/** The title and album-line props that give a row's artist and album the ids `namedByRecord` points at. */
+const recordNaming = (key: string, record: ReviewRecord) => ({
+  titleSlot: <Typography level="title-md" id={recordIds(key).artist}>{record.artist}</Typography>,
+  titleId: recordIds(key).artist,
+  albumId: recordIds(key).album,
+});
+
+/** Names a row's button by its own words, then the row's artist and album, so a screen reader's list of buttons tells one row's Pass or Open draft from another's. The row must draw its record with `recordNaming`. */
+const namedByRecord = (key: string, button: string) => {
+  const id = `my-reviews-${key}-${button}`;
+  return { id, "aria-labelledby": `${id} ${recordIds(key).artist} ${recordIds(key).album}` };
+};
+
+/** A review's row: the record as parts (artist, album, label) once it has landed. Until then, a library review shows `myReviews.libraryRelease` and a logged-record review shows nothing in its place. Either way the row carries the status, the last-saved date and Open, or Open draft for a draft. A draft on a record the DJ no longer has opens with a button and says the draft is saved; the lists cannot tell whether the DJ passed or returned the record, so the line says neither. */
 function MyReviewRow({ review, href, cover }: { review: Review; href: string; cover: 72 | 56 }) {
   const record = useReviewRecord(review);
   const fromLibrary = review.intake_item_id == null && review.album_id != null;
   const router = useRouter();
-  const kept = review.status === "draft" && review.intake_item_id != null;
+  const draft = review.status === "draft";
+  const kept = draft && review.intake_item_id != null;
+  const key = rowKey({ kind: "review", review });
+  // The record's ids exist only once the record has landed; until then the opener is named by its own words.
+  const naming = draft && record ? namedByRecord(key, "open") : {};
   const meta = (
     <>
       <ReviewMeta review={review} fromLibrary={fromLibrary} />
-      {kept && <Typography level="body-sm">{REVIEW_COPY.myReviews.draftKept}</Typography>}
+      {kept && <Typography level="body-sm">{REVIEW_COPY.myReviews.draftSaved}</Typography>}
     </>
   );
   const open = kept ? (
-    <Button size="sm" onClick={() => router.push(href)}>{REVIEW_COPY.myReviews.openDraft}</Button>
+    <Button size="sm" {...naming} onClick={() => router.push(href)}>{REVIEW_COPY.myReviews.openDraft}</Button>
   ) : (
-    <Link href={href}>{REVIEW_COPY.myReviews.open}</Link>
+    <Link href={href} {...naming}>{draft ? REVIEW_COPY.myReviews.openDraft : REVIEW_COPY.myReviews.open}</Link>
   );
   if (record) {
-    return <RecordRow record={record} cover={cover} meta={<Stack direction="row" spacing={1} alignItems="center">{meta}</Stack>} actions={open} />;
+    return <RecordRow record={record} cover={cover} {...recordNaming(key, record)} meta={<Stack direction="row" spacing={1} alignItems="center">{meta}</Stack>} actions={open} />;
   }
   return (
     <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
@@ -96,13 +116,36 @@ export default function MyReviewsScreen({ items, myReviews, me, write, lock }: {
   const hasSubmitted = (id: number) => myReviews.some((r) => r.intake_item_id === id && r.status === "submitted");
   // How many rows each stage shows; a stage that was never asked for shows one page.
   const [shown, setShown] = useState<Partial<Record<Stage, number>>>({});
+  // The list the shown stage draws, while it has rows.
+  const list = useRef<HTMLUListElement | null>(null);
 
   const lanes = sortMyReviews(items, myReviews, me);
 
-  const requestRow = (i: IntakeItem, stage: Stage) => (
+  /**
+   * Pass and Mark as returned take their row away once the write lands, and a lost race's reload moves the record too, so
+   * the focus would fall to the page. It goes to the next row's first control, else the previous row's, else the
+   * stage's panel. The neighbours are read before the write, while the row is drawn; React keeps each keyed row's
+   * element, so they are still the rows to focus whether or not the reload has been drawn yet. A failed write leaves the
+   * row, and the focus with it.
+   */
+  const focusAfterLeaving = (key: string) => {
+    const row = Array.from(list.current?.children ?? []).find((el) => el instanceof HTMLElement && el.dataset.row === key);
+    const neighbours = [row?.nextElementSibling, row?.previousElementSibling];
+    const panel = row?.closest<HTMLElement>("[role='tabpanel']");
+    return (outcome: RowWriteOutcome) => {
+      if ((outcome !== "applied" && outcome !== "raced") || !mounted.current) {
+        return;
+      }
+      const next = neighbours.find((el) => el?.isConnected)?.querySelector<HTMLElement>("a[href], button");
+      (next ?? panel)?.focus();
+    };
+  };
+
+  const requestRow = (i: IntakeItem, stage: Stage, key: string) => (
     <RecordRow
       record={intakeRecord(i)}
       cover={coverFor(stage)}
+      {...recordNaming(key, intakeRecord(i))}
       meta={<Typography level="body-sm">{requestLine(i)}</Typography>}
       actions={
         <>
@@ -129,13 +172,13 @@ export default function MyReviewsScreen({ items, myReviews, me, write, lock }: {
           >
             {REVIEW_COPY.writeReview}
           </Button>
-          <Button size="sm" variant="outlined" {...lock(i.id, "pass")} onClick={() => setPassing(i)}>{REVIEW_COPY.screen.pass}</Button>
+          <Button size="sm" variant="outlined" {...namedByRecord(key, "pass")} {...lock(i.id, "pass")} onClick={() => setPassing(i)}>{REVIEW_COPY.screen.pass}</Button>
         </>
       }
     />
   );
 
-  const heldRow = (i: IntakeItem, stage: Stage) => {
+  const heldRow = (i: IntakeItem, stage: Stage, key: string) => {
     const mineHere = myReviews.filter((r) => r.intake_item_id === i.id);
     const submitted = mineHere.find((r) => r.status === "submitted");
     const draft = mineHere.find((r) => r.status === "draft");
@@ -151,6 +194,7 @@ export default function MyReviewsScreen({ items, myReviews, me, write, lock }: {
       <RecordRow
         record={intakeRecord(i)}
         cover={coverFor(stage)}
+        {...recordNaming(key, intakeRecord(i))}
         meta={
           <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
             <Typography level="body-sm">{`${REVIEW_COPY.screen.reviewingSince} ${day(i.checked_out_at)}`}</Typography>
@@ -164,7 +208,7 @@ export default function MyReviewsScreen({ items, myReviews, me, write, lock }: {
             {submitted ? (
               <Button size="sm" variant={reviewed ? "outlined" : "solid"} onClick={() => router.push(openHref(submitted.id, stage))}>{REVIEW_COPY.screen.editReview}</Button>
             ) : draft ? (
-              <Button size="sm" variant={reviewed ? "outlined" : "solid"} onClick={() => router.push(openHref(draft.id, stage))}>{REVIEW_COPY.myReviews.openDraft}</Button>
+              <Button size="sm" variant={reviewed ? "outlined" : "solid"} {...namedByRecord(key, "open")} onClick={() => router.push(openHref(draft.id, stage))}>{REVIEW_COPY.myReviews.openDraft}</Button>
             ) : (
               <Button
                 size="sm"
@@ -183,7 +227,7 @@ export default function MyReviewsScreen({ items, myReviews, me, write, lock }: {
               </Button>
             )}
             {canPass ? (
-              <Button size="sm" variant="outlined" {...lock(i.id, "passHeld")} onClick={() => setPassing(i)}>{REVIEW_COPY.screen.pass}</Button>
+              <Button size="sm" variant="outlined" {...namedByRecord(key, "pass")} {...lock(i.id, "passHeld")} onClick={() => setPassing(i)}>{REVIEW_COPY.screen.pass}</Button>
             ) : (
               !i.digital && <Button size="sm" variant={reviewed ? "solid" : "outlined"} {...lock(i.id, "release")} onClick={() => setReturning(i)}>{REVIEW_COPY.intake.returned}</Button>
             )}
@@ -196,9 +240,9 @@ export default function MyReviewsScreen({ items, myReviews, me, write, lock }: {
   const renderRow = (row: MyReviewsRow, stage: Stage) => {
     switch (row.kind) {
       case "request":
-        return requestRow(row.item, stage);
+        return requestRow(row.item, stage, rowKey(row));
       case "held":
-        return heldRow(row.item, stage);
+        return heldRow(row.item, stage, rowKey(row));
       case "review":
         return <MyReviewRow review={row.review} href={openHref(row.review.id, stage)} cover={coverFor(stage)} />;
     }
@@ -220,9 +264,9 @@ export default function MyReviewsScreen({ items, myReviews, me, write, lock }: {
           }
           return (
             <>
-              <List>
+              <List ref={list}>
                 {visible.map((row) => (
-                  <ListItem key={rowKey(row)}>{renderRow(row, stage)}</ListItem>
+                  <ListItem key={rowKey(row)} data-row={rowKey(row)}>{renderRow(row, stage)}</ListItem>
                 ))}
               </List>
               {visible.length < rows.length && (
@@ -241,13 +285,19 @@ export default function MyReviewsScreen({ items, myReviews, me, write, lock }: {
             <Button
               onClick={async () => {
                 const id = returning!.id;
+                // Read before the write, while the DJ's own list still says what they had sent.
+                const reviewWaits = hasSubmitted(id);
+                const follow = focusAfterLeaving(rowKey({ kind: "held", item: returning! }));
                 setReturning(null);
-                await write(id, "release", async () => {
-                  await release(id).unwrap();
-                  if (mounted.current) {
-                    toast.success(REVIEW_COPY.screen.returnedWaiting);
-                  }
-                });
+                follow(
+                  await write(id, "release", async () => {
+                    await release(id).unwrap();
+                    // Only a DJ whose review is in hears where it is; any other return says nothing, as the row's leaving says it.
+                    if (mounted.current && reviewWaits) {
+                      toast.success(REVIEW_COPY.screen.returnedWaiting);
+                    }
+                  }),
+                );
               }}
             >
               {REVIEW_COPY.intake.returned}
@@ -256,7 +306,14 @@ export default function MyReviewsScreen({ items, myReviews, me, write, lock }: {
           </>
         }
       >
-        {returning && [REVIEW_COPY.screen.returnQuestion, hasSubmitted(returning.id) && REVIEW_COPY.screen.markReturnedKeep].filter(Boolean).join(" ")}
+        {returning &&
+          [
+            REVIEW_COPY.screen.returnQuestion,
+            hasSubmitted(returning.id) && REVIEW_COPY.screen.markReturnedKeep,
+            hasDraft(returning.id) && REVIEW_COPY.screen.passDraftSaved,
+          ]
+            .filter(Boolean)
+            .join(" ")}
       </ConfirmDialog>
       <ConfirmDialog
         open={passing !== null}
@@ -267,13 +324,16 @@ export default function MyReviewsScreen({ items, myReviews, me, write, lock }: {
             <Button
               onClick={async () => {
                 const id = passing!.id;
+                const follow = focusAfterLeaving(rowKey({ kind: passingHeld ? "held" : "request", item: passing! }));
                 setPassing(null);
-                await write(id, passingHeld ? "passHeld" : "pass", async () => {
-                  await pass(id).unwrap();
-                  if (mounted.current) {
-                    toast.success(REVIEW_COPY.screen.passed);
-                  }
-                });
+                follow(
+                  await write(id, passingHeld ? "passHeld" : "pass", async () => {
+                    await pass(id).unwrap();
+                    if (mounted.current) {
+                      toast.success(REVIEW_COPY.screen.passed);
+                    }
+                  }),
+                );
               }}
             >
               {REVIEW_COPY.screen.pass}

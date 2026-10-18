@@ -92,13 +92,15 @@ const showStage = (stage: keyof typeof STAGES) => {
 };
 
 const SHELF = "The review shelf";
-const RETURN = "Return to the review shelf";
 const MARK = "Mark as returned";
 const BROUGHT_BACK = "Have you brought this record back to the station?";
 const FAILURE_LINE = "Couldn't do that. Please try again.";
 const SHELF_RACE = "This record left the review shelf before your click went through. The lists have been reloaded.";
 const REQUEST_RACE = "This request is no longer open; it may have expired. The lists have been reloaded.";
 const PASS = "Pass on Aluminum Tunes by Stereolab?";
+// A row's Pass and Open draft are named by their own words, then the row's artist and album.
+const PASS_BUTTON = "Pass Stereolab Aluminum Tunes";
+const OPEN_DRAFT_BUTTON = "Open draft Stereolab Aluminum Tunes";
 const RELEASE_RACE = "This record is no longer yours to review. The lists have been reloaded.";
 
 const REVIEWERS = [
@@ -306,7 +308,7 @@ describe("ReviewsScreen", () => {
     const mine = await section("Records I'm reviewing");
     await within(mine).findByText(/Stereolab/);
 
-    await user.click(within(mine).getByRole("button", { name: "Pass" }));
+    await user.click(within(mine).getByRole("button", { name: PASS_BUTTON }));
     const dialog = await screen.findByRole("alertdialog");
     expect(within(dialog).getByText(`${REVIEW_COPY.screen.passConfirm} ${REVIEW_COPY.screen.passBringDisc}`)).toBeInTheDocument();
     await user.click(within(dialog).getByRole("button", { name: "Pass" }));
@@ -439,7 +441,7 @@ describe("ReviewsScreen", () => {
         }),
       );
       const { user } = renderWithProviders(<BothTabs />);
-      await user.click(await within(await section("Requests for me")).findByRole("button", { name: "Pass" }));
+      await user.click(await within(await section("Requests for me")).findByRole("button", { name: PASS_BUTTON }));
       const dialog = await screen.findByRole("alertdialog", { name: PASS });
       return { user, dialog, paths };
     };
@@ -479,7 +481,7 @@ describe("ReviewsScreen", () => {
     expect(within(requests).getByText(/^Your review was requested on /)).toBeInTheDocument();
     expect(within(requests).getAllByRole("listitem")).toHaveLength(1);
     const write = within(requests).getByRole("button", { name: "Write a review" });
-    const pass = within(requests).getByRole("button", { name: "Pass" });
+    const pass = within(requests).getByRole("button", { name: PASS_BUTTON });
     expect(write.parentElement).toBe(pass.parentElement);
     expect(write.parentElement).not.toContainElement(within(requests).getByText("Stereolab"));
     expect(write.parentElement).not.toContainElement(within(requests).getByText(/^Your review was requested on /));
@@ -489,8 +491,8 @@ describe("ReviewsScreen", () => {
   it.each([
     ["Check out", SHELF, "checkout", item({ id: 5 }), SHELF_RACE],
     ["Write a review", "Requests for me", "accept", item({ id: 5, state: "requested", effective_state: "requested", requested_dj_id: ME }), REQUEST_RACE],
-    ["Pass", "Requests for me", "pass", item({ id: 5, state: "requested", effective_state: "requested", requested_dj_id: ME }), REQUEST_RACE],
-    ["Pass", "Records I'm reviewing", "pass", item({ id: 5, state: "checked_out", effective_state: "checked_out", checked_out_by: ME }), RELEASE_RACE],
+    [PASS_BUTTON, "Requests for me", "pass", item({ id: 5, state: "requested", effective_state: "requested", requested_dj_id: ME }), REQUEST_RACE],
+    [PASS_BUTTON, "Records I'm reviewing", "pass", item({ id: 5, state: "checked_out", effective_state: "checked_out", checked_out_by: ME }), RELEASE_RACE],
   ] as const)(
     "answers a lost race on %s with its own neutral notice once the lists have reloaded, never an error toast or the server's message",
     async (button, title, action, row, notice) => {
@@ -891,7 +893,7 @@ describe("ReviewsScreen", () => {
 
     expect(listUsers).not.toHaveBeenCalled();
     const open = await section(REVIEW_COPY.myReviews.stages.open);
-    for (const marker of [within(open).getAllByRole("button", { name: "Write a review" })[0], within(open).getAllByRole("button", { name: "Pass" })[0], within(open).getByRole("button", { name: REVIEW_COPY.myReviews.openDraft })]) {
+    for (const marker of [within(open).getAllByRole("button", { name: "Write a review" })[0], within(open).getAllByRole("button", { name: /^Pass / })[0], within(open).getByRole("button", { name: /^Open draft/ })]) {
       expect(marker).toBeInTheDocument();
     }
     expect(within(open).queryByRole("button", { name: MORE_BUTTON })).not.toBeInTheDocument();
@@ -1346,7 +1348,7 @@ describe("ReviewsScreen", () => {
   it.each([
     ["Check out", SHELF, "checkout", item({ id: 5 })],
     ["Write a review", "Requests for me", "accept", item({ id: 5, state: "requested", effective_state: "requested", requested_dj_id: ME })],
-    ["Pass", "Requests for me", "pass", item({ id: 5, state: "requested", effective_state: "requested", requested_dj_id: ME })],
+    [PASS_BUTTON, "Requests for me", "pass", item({ id: 5, state: "requested", effective_state: "requested", requested_dj_id: ME })],
   ] as const)("a 400 on %s is a plain write failure, not the request's line", async (button, title, action, row) => {
     serveIntake([row]);
     server.use(http.post(`${TEST_BACKEND_URL}/intake/5/${action}`, () => HttpResponse.json({ message: "server words" }, { status: 400 })));
@@ -1366,7 +1368,7 @@ describe("ReviewsScreen", () => {
     server.use(http.post(`${TEST_BACKEND_URL}/intake/5/pass`, () => HttpResponse.json({ message: "server words" }, { status: 400 })));
 
     const { user } = renderWithProviders(<BothTabs />);
-    await user.click(await within(await section("Records I'm reviewing")).findByRole("button", { name: "Pass" }));
+    await user.click(await within(await section("Records I'm reviewing")).findByRole("button", { name: PASS_BUTTON }));
     await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Pass" }));
 
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith(REVIEW_COPY.screen.writeFailed));
@@ -1476,7 +1478,7 @@ describe("ReviewsScreen", () => {
 
     const { user } = renderWithProviders(<BothTabs />);
     const mine = await section("Records I'm reviewing");
-    await user.click(await within(mine).findByRole("button", { name: "Open draft" }));
+    await user.click(await within(mine).findByRole("button", { name: OPEN_DRAFT_BUTTON }));
 
     await waitFor(() => expect(router.push).toHaveBeenCalledWith("/dashboard/reviews/40?from=mine&stage=open"));
     expect(posts).toBe(0);
@@ -1499,12 +1501,12 @@ describe("ReviewsScreen", () => {
   const SUBMITTED_LINE = "Review submitted. A music director will choose the review for the cover.";
 
   it.each([
-    { name: "checked out, no review", state: "checked_out", mine: [], line: null, main: "Write a review", other: "Pass" },
-    { name: "checked out, draft", state: "checked_out", mine: [{ status: "draft" }], line: null, main: "Open draft", other: "Pass" },
+    { name: "checked out, no review", state: "checked_out", mine: [], line: null, main: "Write a review", other: PASS_BUTTON },
+    { name: "checked out, draft", state: "checked_out", mine: [{ status: "draft" }], line: null, main: OPEN_DRAFT_BUTTON, other: PASS_BUTTON },
     { name: "checked out, submitted", state: "checked_out", mine: [{ status: "submitted" }], line: SUBMITTED_LINE, main: "Edit review", other: MARK },
     { name: "reviewed, submitted", state: "reviewed", mine: [{ status: "submitted" }], line: REVIEWED_RETURN, main: MARK, other: "Edit review" },
     { name: "reviewed, no review", state: "reviewed", mine: [], line: REVIEWED_RETURN, main: MARK, other: "Write a review" },
-    { name: "reviewed, draft", state: "reviewed", mine: [{ status: "draft" }], line: REVIEWED_RETURN, main: MARK, other: "Open draft" },
+    { name: "reviewed, draft", state: "reviewed", mine: [{ status: "draft" }], line: REVIEWED_RETURN, main: MARK, other: OPEN_DRAFT_BUTTON },
   ])("shows one state line and one solid main action on a $name row", async ({ state, mine, line, main, other }) => {
     serveIntake(
       [item({ id: 2, state, effective_state: state, checked_out_by: ME, submitted_review_count: mine.filter((m) => m.status === "submitted").length } as Partial<IntakeItem>)],
@@ -1582,7 +1584,7 @@ describe("ReviewsScreen", () => {
     const open = await section(STAGES.open);
 
     expect(within(open).getByText(REVIEW_COPY.myReviews.draft)).toBeInTheDocument();
-    await user.click(within(open).getByRole("button", { name: REVIEW_COPY.myReviews.openDraft }));
+    await user.click(within(open).getByRole("button", { name: /^Open draft/ }));
     expect(router.push).toHaveBeenCalledWith("/dashboard/reviews/40?from=mine&stage=open");
     cleanup();
 
@@ -1611,8 +1613,9 @@ describe("ReviewsScreen", () => {
     expect(await within(reviews).findByText("DOGA")).toBeInTheDocument();
     // A record whose read has not landed (here, never) is not mislabeled as a library release.
     expect(within(reviews).queryByText(REVIEW_COPY.myReviews.libraryRelease)).not.toBeInTheDocument();
-    expect(within(reviews).getAllByRole("link")).toHaveLength(1);
-    expect(within(reviews).getAllByRole("button", { name: REVIEW_COPY.myReviews.openDraft })).toHaveLength(2);
+    // Every one is a draft, so each opens with Open draft: the library release's as a link, the logged records' as buttons.
+    expect(within(reviews).getAllByRole("link").map((a) => a.textContent)).toEqual([REVIEW_COPY.myReviews.openDraft]);
+    expect(within(reviews).getAllByRole("button", { name: /^Open draft/ })).toHaveLength(2);
   });
 
   it("labels a library-release review as such while its release read has not landed", async () => {
@@ -1634,6 +1637,16 @@ describe("ReviewsScreen", () => {
     expect(await within(reviews).findByText("DOGA")).toBeInTheDocument();
     expect(within(reviews).queryByText(REVIEW_COPY.myReviews.libraryRelease)).not.toBeInTheDocument();
   });
+
+  // Every draft opens with Open draft and a submitted review with Open: a logged record's draft by its button, any other review by its link.
+  const expectOpener = (reviews: HTMLElement, status: "draft" | "submitted", fromLibrary: boolean) => {
+    const href = `/dashboard/reviews/40?from=mine&stage=${status === "submitted" ? "submitted" : "open"}`;
+    const opener = within(reviews).getByRole(status === "draft" && !fromLibrary ? "button" : "link", { name: status === "draft" ? /^Open draft/ : "Open" });
+    expect(opener).toHaveTextContent(status === "draft" ? /^Open draft$/ : /^Open$/);
+    if (opener.tagName === "A") {
+      expect(opener).toHaveAttribute("href", href);
+    }
+  };
 
   it.each([
     ["a logged record", "draft", false],
@@ -1664,11 +1677,7 @@ describe("ReviewsScreen", () => {
     expect(within(reviews).queryAllByText("from the library")).toHaveLength(fromLibrary ? 1 : 0);
     expect(within(within(reviews).getByRole("listitem")).getByText(status === "draft" ? "Draft" : "Submitted")).toBeInTheDocument();
     expect(within(reviews).getByText("Last saved Oct 8, 2025")).toBeInTheDocument();
-    if (status === "draft" && !fromLibrary) {
-      expect(within(reviews).getByRole("button", { name: "Open draft" })).toBeInTheDocument();
-    } else {
-      expect(within(reviews).getByRole("link", { name: "Open" })).toHaveAttribute("href", `/dashboard/reviews/40?from=mine&stage=${status === "submitted" ? "submitted" : "open"}`);
-    }
+    expectOpener(reviews, status, fromLibrary);
   });
 
   it.each([
@@ -1697,11 +1706,7 @@ describe("ReviewsScreen", () => {
     expect(await within(reviews).findByText("Last saved Oct 8, 2025")).toBeInTheDocument();
     expect(within(reviews).queryAllByText(REVIEW_COPY.myReviews.libraryRelease)).toHaveLength(fromLibrary ? 1 : 0);
     expect(within(within(reviews).getByRole("listitem")).getByText(status === "draft" ? "Draft" : "Submitted")).toBeInTheDocument();
-    if (status === "draft" && !fromLibrary) {
-      expect(within(reviews).getByRole("button", { name: "Open draft" })).toBeInTheDocument();
-    } else {
-      expect(within(reviews).getByRole("link", { name: "Open" })).toHaveAttribute("href", `/dashboard/reviews/40?from=mine&stage=${status === "submitted" ? "submitted" : "open"}`);
-    }
+    expectOpener(reviews, status, fromLibrary);
     release();
     if (fromLibrary) expect(await within(reviews).findByText("DOGA")).toBeInTheDocument();
   });
@@ -1853,7 +1858,7 @@ describe("ReviewsScreen — a digital album reads its own lines, a disc keeps to
   ])("asks the Pass question for %s", async (_kind, digital, question) => {
     serveIntake([make(digital, { id: 2, ...TAKEN })]);
     const { user } = renderWithProviders(<BothTabs />);
-    await user.click(await within(await section(LIST)).findByRole("button", { name: "Pass" }));
+    await user.click(await within(await section(LIST)).findByRole("button", { name: /^Pass / }));
     expect(await within(await screen.findByRole("alertdialog")).findByText(question)).toBeInTheDocument();
   });
 
@@ -1899,8 +1904,8 @@ describe("ReviewsScreen — a digital album reads its own lines, a disc keeps to
   });
 
   it.each([
-    ["a disc", false, "Pass", "pass", "This record is no longer yours to review. The lists have been reloaded."],
-    ["a digital album", true, "Pass", "pass", "This record is no longer yours to review. The lists have been reloaded."],
+    ["a disc", false, /^Pass /, "pass", "This record is no longer yours to review. The lists have been reloaded."],
+    ["a digital album", true, /^Pass /, "pass", "This record is no longer yours to review. The lists have been reloaded."],
   ])("answers a lost return of %s with the same notice", async (_kind, digital, button, action, notice) => {
     const row = make(digital, { id: 5, ...TAKEN });
     server.use(
