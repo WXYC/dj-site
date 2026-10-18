@@ -239,9 +239,9 @@ export const REVIEW_COPY = {
     raceRequest: "This record has left the review shelf since the page loaded, so it can't be requested. The lists have been reloaded.",
     /** Approved. Shown when a request names an account that can no longer be asked to review. */
     requestRefused: "That DJ can't be asked to review: their account was removed, or it's no longer a DJ account. Pick someone else.",
-    /** The review shelf row's hint that the library holds this record already. */
-    hintLibrary: (album: string) => `The library has ${album}.`,
-    /** The review shelf row's hint that the form archive holds reviews of this artist; one review reads in the singular. */
+    /** Approved. The review shelf row's hint that the library holds this record already, named by the row's artist and album. */
+    hintLibrary: (artist: string, album: string) => `The library already has ${artist}, ${album}, with a review.`,
+    /** Approved. The review shelf row's hint that the form archive holds reviews of this artist. The approval gives only the plural; the singular for one review is still a proposal. */
     hintForms: (count: number, artist: string) => `${count} form ${count === 1 ? "review" : "reviews"} of ${artist}.`,
     /** Approved. The item in a review shelf row's More menu, and the button on a record's page, that opens the search for a DJ to ask. */
     askADj: "Ask a DJ…",

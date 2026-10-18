@@ -1,10 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { screen, waitFor, within } from "@testing-library/react";
-import { http, HttpResponse } from "msw";
+import { act, screen, waitFor, within } from "@testing-library/react";
+import { http, HttpResponse, type JsonBodyType } from "msw";
 import type { ReactElement } from "react";
 import type { AlbumReview, IntakeItem } from "@wxyc/shared";
 import { Authorization } from "@/lib/features/admin/types";
 import { useGetReviewersQuery } from "@/lib/features/reviews/reviewApi";
+import type { AppStore } from "@/lib/store";
 import { fakeReviewsEndpoints, intakeItem, renderWithProviders, server, TEST_BACKEND_URL } from "@/tests/helpers";
 
 vi.mock("@/lib/features/authentication/client", async () => {
@@ -53,12 +54,42 @@ const SURFACES: { name: string; draw: (items: IntakeItem[], isMD: boolean) => Re
   },
 ];
 
-const LIBRARY_LINE = "The library has DOGA.";
+const LIBRARY_LINE = "The library already has Juana Molina, DOGA, with a review.";
+const ANY_HINT = /The library already has|form review/;
+const HINTED_ORDER = ["Use a review we already have…", "Ask a DJ…", "Digitize a review…"];
+const PLAIN_ORDER = ["Ask a DJ…", "Use a review we already have…", "Digitize a review…"];
 const rowOf = async () => (await screen.findByRole("link", { name: "Juana Molina" })).closest("li")!;
+const openMenuOrder = async () => within(await screen.findByRole("menu")).getAllByRole("menuitem").map((item) => within(item).getByText(/…$/).textContent);
 const menuOrder = async (user: ReturnType<typeof renderWithProviders>["user"]) => {
   await user.click(await within(await rowOf()).findByRole("button", { name: /^More/ }));
-  return within(await screen.findByRole("menu")).getAllByRole("menuitem").map((item) => within(item).getByText(/…$/).textContent);
+  return openMenuOrder();
 };
+
+/** True once the row's two lookups (the catalog search and the form archive by artist) have answered. */
+function lookupsAnswered(store: AppStore) {
+  const { catalogApi, reviewsApi } = store.getState();
+  const answered = (queries: typeof catalogApi.queries, endpoint: string) => Object.values(queries).some((q) => q?.endpointName === endpoint && q.status === "fulfilled");
+  return answered(catalogApi.queries, "searchCatalog") && answered(reviewsApi.queries, "getAlbumReviewsByArtist");
+}
+
+/** One read held until `answer` is called, so a test can open the menu before the hint is found. */
+function holdRead(path: string, body: JsonBodyType) {
+  let answer!: () => void;
+  const held = new Promise<void>((resolve) => {
+    answer = resolve;
+  });
+  server.use(
+    http.get(`${TEST_BACKEND_URL}${path}`, async ({ request }) => {
+      const params = new URL(request.url).searchParams;
+      if (!params.has("artist_name") && !params.has("artist")) {
+        return undefined;
+      }
+      await held;
+      return HttpResponse.json(body);
+    }),
+  );
+  return answer;
+}
 
 beforeEach(() => {
   url.search = "";
@@ -87,16 +118,20 @@ describe.each(SURFACES)("the review shelf hint on $name", ({ draw }) => {
 
   it("shows nothing when the library's title differs and the archive has no reviews", async () => {
     fakeReviewsEndpoints({ open: [DOGA], searchResults: [{ ...LIBRARY_ROW, album_title: "Halo" }], byArtist: { "Juana Molina": [] } });
-    renderWithProviders(draw([DOGA], true));
+    const { store } = renderWithProviders(draw([DOGA], true));
 
     const row = await rowOf();
-    await waitFor(() => expect(row.querySelector("[aria-busy='true']")).toBeNull());
-    expect(within(row).queryByText(/The library has|form review/)).not.toBeInTheDocument();
+    await waitFor(() => expect(lookupsAnswered(store)).toBe(true));
+    // RTK Query holds back telling subscribers about its answers to batch them; an ordinary action tells them now, so the row renders what the answers say before the check.
+    act(() => {
+      store.dispatch({ type: "test/deliverBatchedAnswers" });
+    });
+    expect(within(row).queryByText(ANY_HINT)).not.toBeInTheDocument();
   });
 
   it.each([
-    ["with a hint", { searchResults: [LIBRARY_ROW] }, ["Use a review we already have…", "Ask a DJ…", "Digitize a review…"]],
-    ["without one", {}, ["Ask a DJ…", "Use a review we already have…", "Digitize a review…"]],
+    ["with a hint", { searchResults: [LIBRARY_ROW] }, HINTED_ORDER],
+    ["without one", {}, PLAIN_ORDER],
   ])("orders the More menu %s", async (_case, served, order) => {
     fakeReviewsEndpoints({ open: [DOGA], reviewers: [{ id: "dj-sam", name: "DJ Sam" }], ...served });
     const { user } = renderWithProviders(draw([DOGA], true));
@@ -105,6 +140,24 @@ describe.each(SURFACES)("the review shelf hint on $name", ({ draw }) => {
     }
 
     expect(await menuOrder(user)).toEqual(order);
+  });
+
+  it.each([
+    ["the library", "/library", [LIBRARY_ROW], LIBRARY_LINE],
+    ["the form archive", "/album-reviews", { album_reviews: [formReview(1)], pagination: {} }, "1 form review of Juana Molina."],
+  ])("keeps the open More menu's order when %s answers, and lists Use a review we already have… first the next time it opens", async (_case, path, body, line) => {
+    fakeReviewsEndpoints({ open: [DOGA], reviewers: [{ id: "dj-sam", name: "DJ Sam" }] });
+    const answer = holdRead(path, body);
+    const { user } = renderWithProviders(draw([DOGA], true));
+
+    expect(await menuOrder(user)).toEqual(PLAIN_ORDER);
+    answer();
+    expect(await within(await rowOf()).findByText(line)).toBeInTheDocument();
+    expect(await openMenuOrder()).toEqual(PLAIN_ORDER);
+
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("menu")).not.toBeInTheDocument());
+    expect(await menuOrder(user)).toEqual(HINTED_ORDER);
   });
 });
 
@@ -128,6 +181,6 @@ describe("the review shelf hint for a DJ", () => {
     expect(await screen.findByText("Juana Molina")).toBeInTheDocument();
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(reads).toEqual([]);
-    expect(screen.queryByText(/The library has|form review/)).not.toBeInTheDocument();
+    expect(screen.queryByText(ANY_HINT)).not.toBeInTheDocument();
   });
 });

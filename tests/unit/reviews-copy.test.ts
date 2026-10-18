@@ -217,12 +217,18 @@ describe("REVIEW_COPY.listen", () => {
   });
 });
 
-describe("REVIEW_COPY.intake review shelf row hints", () => {
+describe("REVIEW_COPY.intake review shelf row hints the station approved on 2026-10-16", () => {
   it.each([
-    ["hintLibrary", REVIEW_COPY.intake.hintLibrary("DOGA"), "The library has DOGA."],
-    ["hintForms (one)", REVIEW_COPY.intake.hintForms(1, "Stereolab"), "1 form review of Stereolab."],
+    ["hintLibrary", REVIEW_COPY.intake.hintLibrary("Juana Molina", "DOGA"), "The library already has Juana Molina, DOGA, with a review."],
     ["hintForms (two)", REVIEW_COPY.intake.hintForms(2, "Stereolab"), "2 form reviews of Stereolab."],
+    ["hintForms (twelve)", REVIEW_COPY.intake.hintForms(12, "Stereolab"), "12 form reviews of Stereolab."],
   ])("pins %s", (_key, actual, expected) => {
     expect(actual).toBe(expected);
+  });
+});
+
+describe("REVIEW_COPY.intake review shelf row hint for one form review, a proposal the approval does not cover", () => {
+  it("reads in the singular", () => {
+    expect(REVIEW_COPY.intake.hintForms(1, "Stereolab")).toBe("1 form review of Stereolab.");
   });
 });

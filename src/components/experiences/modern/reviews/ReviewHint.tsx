@@ -9,7 +9,7 @@ export default function ReviewHint({ artist, album }: { artist: string; album: s
   const { library, formCount } = useReviewProbablyExists(artist, album, true);
   return (
     <>
-      {library && <Typography level="body-sm">{COPY.hintLibrary(album)}</Typography>}
+      {library && <Typography level="body-sm">{COPY.hintLibrary(artist, album)}</Typography>}
       {formCount > 0 && <Typography level="body-sm">{COPY.hintForms(formCount, artist)}</Typography>}
     </>
   );
