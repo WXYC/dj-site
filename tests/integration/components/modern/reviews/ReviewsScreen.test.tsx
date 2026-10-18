@@ -30,7 +30,7 @@ vi.mock("@/lib/features/authentication/client", async () => {
 });
 
 vi.mock("sonner", () => ({
-  toast: Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn(), info: vi.fn() }),
+  toast: Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn(), info: vi.fn(), dismiss: vi.fn() }),
 }));
 
 const router = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn() }));
@@ -137,8 +137,9 @@ describe("ReviewsScreen", () => {
     router.push.mockClear();
     router.replace.mockClear();
     listUsers.mockClear();
-    vi.mocked(toast).mockClear();
+    vi.mocked(toast).mockReset();
     vi.mocked(toast.error).mockClear();
+    vi.mocked(toast.dismiss).mockClear();
   });
   afterEach(() => {
     vi.unstubAllEnvs();
@@ -1010,6 +1011,22 @@ describe("ReviewsScreen", () => {
     expect(toast).not.toHaveBeenCalledWith("Asked Pat Placeholder.", expect.anything());
   });
 
+  it("dismisses the Asked toast when the screen unmounts, so its Cancel request can't fail unheard once the music director has moved on", async () => {
+    mockAuth.authority = Authorization.MD;
+    vi.mocked(toast).mockImplementation((message) => (message === "Asked Pat Placeholder." ? "asked-toast" : "other-toast"));
+    fakeReviewsEndpoints({ open: [moonPix()], reviewers: REVIEWERS });
+    server.use(http.post(`${TEST_BACKEND_URL}/intake/11/request`, () => HttpResponse.json(moonPix({ state: "requested", effective_state: "requested" }))));
+
+    const { user, unmount } = renderWithProviders(<ReviewsScreen tab="shelf" />);
+    await ask(user, "pat");
+    await waitFor(() => expect(toast).toHaveBeenCalledWith("Asked Pat Placeholder.", expect.anything()));
+    expect(toast.dismiss).not.toHaveBeenCalled();
+    unmount();
+
+    // Only that toast, never a bare dismiss, which would clear every toast on the page.
+    expect(vi.mocked(toast.dismiss).mock.calls).toEqual([["asked-toast"]]);
+  });
+
   it("shows the cancel's lost-race notice when the toast's Cancel request finds the request already answered", async () => {
     mockAuth.authority = Authorization.MD;
     fakeReviewsEndpoints({ open: [moonPix()], reviewers: REVIEWERS });
@@ -1628,8 +1645,9 @@ describe("ReviewsScreen — a digital album reads its own lines, a disc keeps to
     mockAuth.authority = Authorization.DJ;
     fakeReviewsEndpoints();
     router.push.mockClear();
-    vi.mocked(toast).mockClear();
+    vi.mocked(toast).mockReset();
     vi.mocked(toast.error).mockClear();
+    vi.mocked(toast.dismiss).mockClear();
   });
   afterEach(() => vi.unstubAllEnvs());
 
