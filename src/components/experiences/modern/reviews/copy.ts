@@ -10,9 +10,7 @@ const joinNames = (names: string[]) => (names.length < 2 ? names.join("") : `${n
 
 export const REVIEW_COPY = {
   /** Approved. Shown in place of a draft the DJ can no longer start. */
-  subjectNotHeld: "You no longer have this record checked out, so a review can't be started here.",
-  /** Approved. Shown in place of a draft the DJ can no longer start, for a digital album. */
-  subjectNotHeldDigital: "This record isn't yours to review any more, so a review can't be started here.",
+  subjectNotHeld: "This record is no longer yours to review, so a review can't be started here.",
   /** Approved. Shown in place of the editor while reviews are open to music directors only. */
   staffOnly: "Reviews are open to music directors for now. You'll be able to open this review when they open to every DJ.",
   /** Approved. The editor's visually hidden heading and browser-tab title. */
@@ -150,8 +148,10 @@ export const REVIEW_COPY = {
     reviewSubmitted: "Review submitted. A music director will choose the review for the cover.",
     /** Approved. */
     editReview: "Edit review",
-    /** Approved. Each is followed by a date. */
-    logged: "Logged",
+    /** Approved. Followed by a date. */
+    added: "Added",
+    /** Approved. Followed by a date. */
+    reviewingSince: "Reviewing since",
     /** Approved. */
     taken: "Taken",
     /** Approved. */
@@ -169,7 +169,7 @@ export const REVIEW_COPY = {
     /** Approved. Accept and Pass share it. */
     raceRequest: "This request is no longer open; it may have expired. The lists have been reloaded.",
     /** Approved. */
-    raceRelease: "This record is no longer checked out to you. The lists have been reloaded.",
+    raceRelease: "This record is no longer yours to review. The lists have been reloaded.",
     /** Approved. The button on a digital album on the review shelf. */
     take: "Take",
     /** Approved. The mark on a taken digital album that is overdue and has no submitted review. */
@@ -178,8 +178,6 @@ export const REVIEW_COPY = {
     returnQuestionDigital: "Put this record back on the review shelf? Another DJ can take it.",
     /** Approved. Shown on a taken digital album with no submitted review. */
     filesComing: "A music director will send you the files.",
-    /** Approved. A digital album's lost return race, shown once the lists have reloaded. */
-    raceReleaseDigital: "This record isn't yours to review any more. The lists have been reloaded.",
   },
   /** The strip over the Reviews page's two tabs. */
   tabs: {
@@ -247,8 +245,10 @@ export const REVIEW_COPY = {
     checkedOut: "Checked out",
     /** Approved. Each is followed by a DJ name. */
     heldFor: "Held for",
-    /** Approved. */
-    checkedOutTo: "Checked out to",
+    /** Approved. The location line of a record a DJ has; followed by the DJ's name. */
+    with: "With",
+    /** Approved. The location line when the DJ's account was removed. */
+    withRemoved: "With a removed account",
     /** Approved. */
     reviewed: "Reviewed",
     /** Approved. */
@@ -270,11 +270,9 @@ export const REVIEW_COPY = {
     /** Approved. */
     returned: "Mark as returned",
     /** Approved. Followed by the holder's name. */
-    stillOutTo: "Still out: checked out to",
+    stillWith: "Still with",
     /** Approved. */
-    holderRemoved: "Still out: holder removed",
-    /** Approved. The location line, on the Review waiting and Being reviewed lanes, for a checked-out disc whose holder's account was removed. */
-    holderRemovedNow: "Holder removed",
+    stillWithRemoved: "Still with a removed account",
     /** Approved. Who a waiting review is from, when its author is the DJ who has the record. */
     fromHolder: (author: string) => `From ${author}, who has this record.`,
     /** Approved. Someone else wrote it and a named DJ has the record. */
@@ -284,7 +282,7 @@ export const REVIEW_COPY = {
     /** Approved. Someone else wrote it and the record is on the review shelf. */
     fromShelf: (author: string) => `From ${author}. The record is on the review shelf.`,
     /** Approved. Someone else wrote it and the holder's account was removed. */
-    fromRemoved: (author: string) => `From ${author}. The record is checked out; holder removed.`,
+    fromRemoved: (author: string) => `From ${author}. The record is with a removed account.`,
     /** Approved. The further waiting reviews on a Review waiting row. */
     more: (n: number) => `+${n} more`,
     /** Approved. */
@@ -295,19 +293,8 @@ export const REVIEW_COPY = {
     passedLine: (dj: string, artist: string, album: string) => `${dj} passed on ${artist} — ${album}`,
     /** Approved. A Recent passes line followed by the date of the pass: "Pat passed on Juana Molina — DOGA · Oct 8". */
     passedLineDated: (line: string, date: string) => `${line} · ${date}`,
-    /** Approved. The lane of taken records, for a disc and a digital album alike. */
+    /** Approved. The lane of records a DJ is reviewing, for a disc and a digital album alike. */
     beingReviewed: "Being reviewed",
-    /** Approved. A digital album's location line; followed by the DJ's name. */
-    takenBy: "Taken by",
-    /** Approved. A digital album's location line when the account that took it was removed. */
-    takenByRemoved: "Taken by a removed account",
-    /** Approved. Who a waiting review is from, when its author has taken the digital album. */
-    fromTaker: (author: string) => `From ${author}, who has taken this record.`,
-    /** Approved. Someone else wrote it and a named DJ has taken the digital album. */
-    fromTakenBy: (author: string, taker: string) => `From ${author}. ${taker} has taken the record.`,
-    /** Approved. Someone else wrote it and the account that took the digital album was removed. */
-    fromTakenRemoved: (author: string) =>
-      `From ${author}. The record was taken by an account that has since been removed.`,
   },
   /** The music directors' page for one record, `/dashboard/admin/intake/{id}`. */
   intakeItem: {
@@ -390,7 +377,7 @@ export const REVIEW_COPY = {
     deleteCoverShelf:
       "This is the review on the cover. Deleting it sends the record back to the review shelf. Its history goes with it. This cannot be undone.",
     /** Approved. The cover review's confirmation while the holder's account was removed. */
-    deleteCoverRemoved: "This is the review on the cover. Deleting it puts the record back as checked out; its holder's account was removed.",
+    deleteCoverRemoved: "This is the review on the cover. Deleting it puts the record back with its holder, whose account was removed.",
     /** Approved. Shown beside the disabled Delete review of a filed record's cover review, and when the server refuses anyway. */
     deleteCoverFiled: "This is the record's review and the record is already filed. Choose another review for the cover first, then delete this one.",
     /** Approved. The filing section's heading. */
@@ -403,13 +390,13 @@ export const REVIEW_COPY = {
     citedChoose: "These are the library's reviews of this record. Choose the one to print for this copy.",
     /** Approved. Under that heading when the cited release has no typed review in the DJ site. */
     citedNone: "The library has no typed review of this record.",
-    /** Approved. Opens the Record a review form empty, beside the line above. */
+    /** Approved. Opens the Digitize a review form empty, beside the line above. */
     typeInReview: "Type in the review from its cover",
-    /** Approved. Opens the Record a review form with Handwritten chosen, for a review that exists only on paper. */
+    /** Approved. Opens the Digitize a review form with Handwritten chosen, for a review that exists only on paper. */
     copyByPen: "Copy it by pen",
-    /** Approved. On each form review of the cited release: opens the Record a review form filled in from it. */
+    /** Approved. On each form review of the cited release: opens the form filled in from it, headed Copy from Google Forms. */
     copyOntoRecord: "Copy this review onto the record",
-    /** Approved. Beside Record a review on a record's page. */
+    /** Approved. Beside Digitize a review on a record's page. */
     recordExplanation: "For a review written on the sleeve, or one a DJ gave you to type in.",
     /** Approved. The accessible name of the search box that cites a release; the filing arm's box keeps `searchLibrary`. */
     searchCite: "Search the library for the record this one cites",
@@ -442,16 +429,18 @@ export const REVIEW_COPY = {
     /** Approved. Above the list of form reviews. */
     formNotPrintable: "A form review can't be printed from here until it is copied onto the record.",
     /** Approved. The page's only line after a copied review's save, when the citation is refused for a form review dated after the cutover. */
-    formAfterCutover: "Recorded. The record can't cite this form review: it was sent in after the cutover date.",
+    formAfterCutover: "Copied. The record can't cite this form review: it was sent in after the cutover date.",
     /** Approved. The same refusal for a form review with no date. */
-    formNoDate: "Recorded. The record can't cite this form review: it has no date.",
+    formNoDate: "Copied. The record can't cite this form review: it has no date.",
     /** Approved. The citation write failed for any other reason. */
-    formNotNoted: "Recorded. Couldn't note which form review it came from.",
+    formNotNoted: "Copied. Couldn't note which form review it came from.",
   },
   /** The music directors' form that records a review of one record, on `/dashboard/admin/intake/{id}`. */
   record: {
-    /** Approved. The form's heading, and the button on a record's page that opens it. */
-    title: "Record a review",
+    /** Approved. The form's heading when it opens empty or by pen, and the button on a record's page that opens it. */
+    title: "Digitize a review",
+    /** Approved. The form's heading when it opens filled in from a form review. */
+    copyTitle: "Copy from Google Forms",
     /** Approved. */
     author: "Author",
     /** Approved. Shown when the author is blank. */
@@ -480,11 +469,13 @@ export const REVIEW_COPY = {
     coverReplaces: "This replaces the review now on the cover. If a slip is already taped to the record, print the slip again to replace it.",
     /** Approved. Under the account list, only when the chosen account isn't the music director's own. */
     emailed: (name: string) =>
-      `${name} will be emailed that a review was recorded in their name. They can edit it and answer the publishing question themselves.`,
-    /** Approved. Any other failure when recording. */
-    couldNotRecord: "Couldn't record the review. Please try again.",
-    /** Approved. Shown after saving, on either path. */
-    recorded: "Recorded.",
+      `${name} will be emailed that their review is now in the DJ site. They can edit it and answer the publishing question themselves.`,
+    /** Approved. Any other failure when saving. */
+    couldNotSave: "Couldn't save the review. Please try again.",
+    /** Approved. Shown after saving a review digitized from paper. */
+    digitized: "Digitized.",
+    /** Approved. Shown after saving a review copied from a form review. */
+    copied: "Copied.",
     /** Approved. Shown when a create that linked an account is refused. */
     accountGone: "That account no longer exists. Pick another, or leave the review unlinked.",
     /** Approved. The checkbox that puts the recorded review on the cover. */
@@ -494,13 +485,13 @@ export const REVIEW_COPY = {
     /** Approved. When the box is unticked and the review was created but couldn't be submitted. */
     draftNotSubmitted: "The review was saved as a draft but couldn't be submitted. You'll find it under My reviews.",
     /** Approved. Above the form when it opens filled in from one review in the archive. */
-    copiedFromForm: "Copied from the review form. Check it, then save.",
+    copiedFromForm: "Copied from Google Forms. Check it, then save.",
     /** Approved. Under the author field when the reviewer's name was copied. */
     copiedAuthor: "Copied as the reviewer wrote it, so it may include a date.",
     /** Approved. Replaces the line above when the archived review has no reviewer name. */
-    copiedNoName: "Copied from the review form. Check it, add the reviewer's name, then save.",
+    copiedNoName: "Copied from Google Forms. Check it, add the reviewer's name, then save.",
     /** Approved. When the form opens with Handwritten already chosen. */
-    byHand: "This review exists only on paper. Copy this record's slip by hand, then record it here.",
+    byHand: "This review exists only on paper. Copy this record's slip by hand, then digitize it here.",
   },
   /** The music directors' print page, `/dashboard/admin/intake/{id}/slip`. */
   intakeSlip: {
@@ -683,7 +674,7 @@ export const REVIEW_COPY = {
     leave: "Leave",
     /** Approved. Takes the focus; closes the dialog. */
     keepEditing: "Keep editing",
-    /** Approved. The Record a review form's leave-dialog body. */
+    /** Approved. The Digitize a review form's leave-dialog body. */
     recordBody: "The review you've typed here will be lost.",
   },
 } as const;

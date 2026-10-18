@@ -24,7 +24,7 @@ const COPY = REVIEW_COPY.record;
  * `disabled` is the page's hold on every review write (another write is in flight or rereading): Save is out of reach.
  * `start` is what the form opens with (its author, fields, medium and which copied-from lines to show); without one it opens empty.
  * `onDirtyChange` hears whether the form holds unsaved text (its values differ from `start`), and false once it closes or a create has succeeded, whatever is typed while the reread is out.
- * `onWritten` may answer a line the page worded after the create (a refused citation), which replaces "Recorded." as the page's line.
+ * `onWritten` may answer a line the page worded after the create (a refused citation), which replaces "Digitized." or "Copied." as the page's line.
  * `onHold` takes the page's hold at the press and returns its release: a save hands it to `onWritten` on success and releases it itself if the write fails, even when the form has closed meanwhile.
  */
 export default function RecordReviewForm({ itemId, hasCover, start = EMPTY_START, disabled, onHold, onWritten, onNotice, onDirtyChange, onClose }: {
@@ -65,6 +65,8 @@ export default function RecordReviewForm({ itemId, hasCover, start = EMPTY_START
     return () => onDirtyChange(false);
   }, [dirty, onDirtyChange]);
 
+  // The entry point decides the words: a review copied from a form review is "Copied", one typed or penned from paper is "Digitized".
+  const fromForm = start.copied === "form";
   const name = author.trim();
   const authorBlank = name === "";
   const textBlank = medium === "typed" && values.review.trim() === "";
@@ -91,7 +93,8 @@ export default function RecordReviewForm({ itemId, hasCover, start = EMPTY_START
     try {
       const made = await create(body).unwrap();
       setCreated(true);
-      let line: string = COPY.recorded;
+      const saved = fromForm ? COPY.copied : COPY.digitized;
+      let line: string = saved;
       if (!onCover) {
         try {
           await submit(made.id).unwrap();
@@ -102,7 +105,7 @@ export default function RecordReviewForm({ itemId, hasCover, start = EMPTY_START
       }
       const refusal = await onWritten(release);
       if (!mounted.current) return;
-      onNotice(refusal && line === COPY.recorded ? refusal : line);
+      onNotice(refusal && line === saved ? refusal : line);
       onClose();
     } catch (err) {
       release();
@@ -114,19 +117,19 @@ export default function RecordReviewForm({ itemId, hasCover, start = EMPTY_START
       setFailure(
         isReviewAccountGone(err, linked !== "")
           ? COPY.accountGone
-          : (refusal?.status === 400 ? serverMessage(refusal.data) : undefined) ?? COPY.couldNotRecord,
+          : (refusal?.status === 400 ? serverMessage(refusal.data) : undefined) ?? COPY.couldNotSave,
       );
     }
   };
 
   return (
     <Stack spacing={2}>
-      <Typography level="title-sm" component="h3">{COPY.title}</Typography>
-      {start.copied === "form" && <Typography level="body-sm">{start.author === "" ? COPY.copiedNoName : COPY.copiedFromForm}</Typography>}
+      <Typography level="title-sm" component="h3">{fromForm ? COPY.copyTitle : COPY.title}</Typography>
+      {fromForm && <Typography level="body-sm">{start.author === "" ? COPY.copiedNoName : COPY.copiedFromForm}</Typography>}
       <FormControl>
         <FormLabel>{COPY.author}</FormLabel>
         <Input value={author} onChange={(e) => setAuthor(e.target.value)} slotProps={{ input: { maxLength: AUTHOR_MAX } }} />
-        {start.copied === "form" && start.author !== "" && <FormHelperText>{COPY.copiedAuthor}</FormHelperText>}
+        {fromForm && start.author !== "" && <FormHelperText>{COPY.copiedAuthor}</FormHelperText>}
         {tried && authorBlank && <FormHelperText>{COPY.authorBlank}</FormHelperText>}
       </FormControl>
       <FormControl>

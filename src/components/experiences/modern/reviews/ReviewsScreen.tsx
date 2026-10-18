@@ -25,7 +25,7 @@ export default function ReviewsScreen() {
   const { data: formats } = useGetFormatsQuery(undefined, { skip: !visible });
   const reviewers = useGetReviewersQuery(undefined, { skip: !visible || !isMD });
   // One pending map for every lane, so a row that changes lanes mid-write stays locked until both lists have reloaded.
-  const { write, lock } = useReviewWrite(everyState.data);
+  const { write, lock } = useReviewWrite();
 
   if (!visible) {
     return null;
