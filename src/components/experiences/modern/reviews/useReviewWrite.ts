@@ -36,7 +36,8 @@ const raceNotice = (action: Action, item: IntakeItem | undefined): string => {
 };
 
 // One argument per list, shared by its hook and the post-write reload so the
-// reload reaches the same cache entry. The unfiltered read carries every state.
+// reload reaches the same cache entry. The unfiltered read carries every state;
+// the New music tab's lanes and its count in the tabs are `recordStage` over it.
 export const EVERY_STATE = undefined;
 export const MY_REVIEWS = undefined;
 

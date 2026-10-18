@@ -1828,13 +1828,16 @@ describe("ReviewsScreen re-reads on focus", () => {
     });
     server.use(countIntake);
 
-    renderWithProviders(<ReviewsScreen tab={tab} />, { store });
-    await section(region);
-    const before = { ...reads };
+    try {
+      renderWithProviders(<ReviewsScreen tab={tab} />, { store });
+      await section(region);
+      const before = { ...reads };
 
-    window.dispatchEvent(new Event("focus"));
+      window.dispatchEvent(new Event("focus"));
 
-    await waitFor(() => expect(reads).toEqual({ intake: before.intake + more.intake, mine: before.mine + more.mine }));
-    stopListening();
+      await waitFor(() => expect(reads).toEqual({ intake: before.intake + more.intake, mine: before.mine + more.mine }));
+    } finally {
+      stopListening();
+    }
   });
 });

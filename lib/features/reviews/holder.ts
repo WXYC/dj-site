@@ -53,28 +53,30 @@ export function unheldPlace(item: Pick<IntakeItem, "effective_state" | "submitte
 export type ReviewStage = "filed" | "reviewed" | "waiting" | "requested" | "being_reviewed" | "review_shelf";
 
 /**
- * The one place a record's stage is worked out, first match winning. A submitted review does not change a record's state, so a
- * record in the waiting read (`waitingIds`) is Review waiting whoever holds it, unless a review has already been chosen.
+ * Whether a submitted review waits on the record for a music director to choose: the server's `awaiting_acceptance=true`
+ * filter (a submitted review, none chosen, a state before filed), read from the fields every `IntakeItem` carries.
  */
-export function recordStage(item: IntakeItem, waitingIds: ReadonlySet<number>): ReviewStage {
+export const reviewWaiting = (item: Pick<IntakeItem, "effective_state" | "submitted_review_count" | "accepted_review_id">): boolean =>
+  item.submitted_review_count > 0 && item.accepted_review_id == null && !isFiledState(item.effective_state);
+
+/**
+ * The one place a record's stage is worked out, first match winning. A submitted review does not change a record's state, so a
+ * record with a review waiting is Review waiting whoever holds it, unless a review has already been chosen. It reads only the
+ * record, so every lane drawn from one read is one partition of it.
+ */
+export function recordStage(item: IntakeItem): ReviewStage {
   const state = item.effective_state;
-  if (state === "filed" || state === "finalized") {
+  if (isFiledState(state)) {
     return "filed";
   }
   if (state === "reviewed") {
     return "reviewed";
   }
-  if (waitingIds.has(item.id)) {
+  if (reviewWaiting(item)) {
     return "waiting";
   }
   if (state === "requested") {
     return "requested";
   }
   return state === "checked_out" ? "being_reviewed" : "review_shelf";
-}
-
-/** The rows of the waiting read that are drawn as Review waiting: a record already reviewed or filed is not, though other submitted reviews may remain on it. */
-export function awaitingRecords(awaiting: IntakeItem[]): IntakeItem[] {
-  const ids = new Set(awaiting.map((i) => i.id));
-  return awaiting.filter((i) => recordStage(i, ids) === "waiting");
 }

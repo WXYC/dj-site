@@ -22,8 +22,9 @@ vi.mock("@/src/hooks/authenticationHooks", async () => {
 
 import ReviewsTabs from "@/src/components/experiences/modern/reviews/ReviewsTabs";
 
+// A record a DJ has with a submitted review no music director has chosen yet.
 const waiting = (id: number) =>
-  intakeItem({ id, artist_name: "Cat Power", album_title: "Moon Pix", state: "pool", effective_state: "pool" });
+  intakeItem({ id, artist_name: "Cat Power", album_title: "Moon Pix", state: "checked_out", effective_state: "checked_out", submitted_review_count: 1, accepted_review_id: null });
 
 beforeEach(() => vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "staff"));
 afterEach(() => vi.unstubAllEnvs());
@@ -38,7 +39,7 @@ describe("ReviewsTabs", () => {
     ],
   ])("draws %s the tabs, by name and URL, in order", (_who, showNewMusic, tabs) => {
     pathname.current = "/dashboard/reviews";
-    fakeReviewsEndpoints({ awaiting: [] });
+    fakeReviewsEndpoints({ open: [] });
 
     renderWithProviders(<ReviewsTabs showNewMusic={showNewMusic} />);
 
@@ -52,7 +53,7 @@ describe("ReviewsTabs", () => {
     ["/dashboard/reviews/music-directors", "New music"],
   ])("at %s only %s is current", (path, current) => {
     pathname.current = path;
-    fakeReviewsEndpoints({ awaiting: [] });
+    fakeReviewsEndpoints({ open: [] });
 
     renderWithProviders(<ReviewsTabs showNewMusic />);
 
@@ -76,30 +77,43 @@ describe("ReviewsTabs", () => {
 
   it("recounts the waiting reviews when the window regains focus", async () => {
     pathname.current = "/dashboard/reviews";
-    fakeReviewsEndpoints({ awaiting: [waiting(1)] });
+    fakeReviewsEndpoints({ open: [waiting(1)] });
     const store = makeStore();
     const stopListening = setupListeners(store.dispatch);
-    renderWithProviders(<ReviewsTabs showNewMusic />, { store });
-    await screen.findByRole("link", { name: "New music, 1 review waiting" });
+    try {
+      renderWithProviders(<ReviewsTabs showNewMusic />, { store });
+      await screen.findByRole("link", { name: "New music, 1 review waiting" });
 
-    fakeReviewsEndpoints({ awaiting: [waiting(1), waiting(2)] });
-    window.dispatchEvent(new Event("focus"));
+      fakeReviewsEndpoints({ open: [waiting(1), waiting(2)] });
+      window.dispatchEvent(new Event("focus"));
 
-    await screen.findByRole("link", { name: "New music, 2 reviews waiting" });
-    stopListening();
+      await screen.findByRole("link", { name: "New music, 2 reviews waiting" });
+    } finally {
+      stopListening();
+    }
   });
 
-  it("leaves a reviewed record out of the count, as the Review waiting lane does", async () => {
-    const reviewed = intakeItem({ id: 4, state: "reviewed", effective_state: "reviewed" });
-    fakeReviewsEndpoints({ awaiting: [waiting(1), reviewed] });
+  it("counts only the records the Review waiting lane draws, from the one unfiltered read", async () => {
+    const reads: string[] = [];
+    fakeReviewsEndpoints({
+      open: [waiting(1), intakeItem({ id: 2, state: "checked_out", effective_state: "checked_out" })],
+      reviewed: [{ ...waiting(4), state: "reviewed", effective_state: "reviewed", accepted_review_id: 40 }],
+      filed: [{ ...waiting(5), state: "finalized", effective_state: "finalized" }],
+    });
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/intake`, ({ request }) => {
+        reads.push(new URL(request.url).search);
+      }),
+    );
 
     renderWithProviders(<ReviewsTabs showNewMusic />);
 
     await screen.findByRole("link", { name: "New music, 1 review waiting" });
+    expect(reads).toEqual([""]);
   });
 
   it("counts the reviews waiting for a music director to accept", async () => {
-    fakeReviewsEndpoints({ awaiting: [waiting(1), waiting(2), waiting(3)] });
+    fakeReviewsEndpoints({ open: [waiting(1), waiting(2), waiting(3)] });
 
     renderWithProviders(<ReviewsTabs showNewMusic />);
 
@@ -108,7 +122,7 @@ describe("ReviewsTabs", () => {
   });
 
   it.each([
-    ["no rows", () => fakeReviewsEndpoints({ awaiting: [] }), "fulfilled"],
+    ["no rows", () => fakeReviewsEndpoints({ open: [] }), "fulfilled"],
     ["a failed read", () => server.use(http.get(`${TEST_BACKEND_URL}/intake`, () => HttpResponse.json({ message: "x" }, { status: 500 }))), "rejected"],
     ["a read still loading", () => server.use(http.get(`${TEST_BACKEND_URL}/intake`, () => new Promise(() => {}))), "pending"],
   ] as const)("keeps the plain label for %s", async (_label, arrange, status) => {
@@ -116,10 +130,8 @@ describe("ReviewsTabs", () => {
 
     const { store } = renderWithProviders(<ReviewsTabs showNewMusic />);
 
-    // Assert once the awaiting read has reached the state the row names: answered, refused, or started and held.
-    await waitFor(() =>
-      expect(intakeApi.endpoints.getIntakeItems.select({ awaiting_acceptance: true })(store.getState()).status).toBe(status),
-    );
+    // Assert once the unfiltered read has reached the state the row names: answered, refused, or started and held.
+    await waitFor(() => expect(intakeApi.endpoints.getIntakeItems.select(undefined)(store.getState()).status).toBe(status));
     // The store settling is not the tab re-rendering: RTK batches its notifications to the next frame.
     await renderedFrame();
     expect(screen.getByRole("link", { name: "New music" })).toBeInTheDocument();
