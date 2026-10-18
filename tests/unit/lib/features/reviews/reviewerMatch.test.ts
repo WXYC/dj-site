@@ -128,6 +128,9 @@ describe("describeReviewer", () => {
   it.each([
     ["no on-air name", reviewer("a"), false, []],
     ["an on-air name equal to the name", reviewer("a", { on_air_name: "Test a" }), false, []],
+    ["an on-air name differing only by case", reviewer("a", { on_air_name: "TEST A" }), false, []],
+    ["an on-air name differing only by an accent", reviewer("a", { on_air_name: "Tést a" }), false, []],
+    ["an on-air name differing only by spaces", reviewer("a", { on_air_name: " Test  a " }), false, []],
     ["a different on-air name", reviewer("a", { on_air_name: "DJ Sample" }), false, ["On air as DJ Sample."]],
     ["no records out", reviewer("a", { records_out: 0 }), false, ["Nothing out."]],
     ["one record out", reviewer("a", { records_out: 1 }), false, ["1 record out."]],
