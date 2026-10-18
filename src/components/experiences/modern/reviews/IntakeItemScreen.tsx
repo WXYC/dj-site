@@ -39,7 +39,7 @@ import IntakeProgress from "./IntakeProgress";
 import { intakeRecord, recordLine, releaseRecord } from "./recordLine";
 import RecordHeader from "./RecordHeader";
 import ReleasePicker from "./ReleasePicker";
-import { fromLine, newestFirst } from "./ReviewFrom";
+import { fromLine, newestFirst, placeLine } from "./ReviewFrom";
 import { CiteSection, RemoveCitation } from "./CiteControls";
 import DeleteReviewButton from "./DeleteReviewButton";
 import UseThisReviewButton from "./UseThisReviewButton";
@@ -65,8 +65,7 @@ const fromCache = <R extends { currentData?: unknown }>(result: R) => ({ ...resu
 /** Distinct non-empty names, in first-appearance order. */
 const distinctNames = (names: (string | null | undefined)[]) => [...new Set(names.filter((n): n is string => !!n))];
 
-const STATE_LABELS: Record<IntakeItem["effective_state"], string> = {
-  pool: REVIEW_COPY.intake.onShelf,
+const STATE_LABELS: Record<Exclude<IntakeItem["effective_state"], "pool">, string> = {
   requested: REVIEW_COPY.intake.requested,
   checked_out: REVIEW_COPY.intake.checkedOut,
   reviewed: REVIEW_COPY.intake.reviewed,
@@ -219,6 +218,14 @@ export default function IntakeItemScreen({ id }: { id: number }) {
   // Clearing a release's citation takes a review chosen from it off the cover, which is any cover review the item's own list lacks.
   const coverFromCited = citedId !== null && coverId != null && (!ownCover || ownCover.album_id === citedId);
   const holder = itemHolder(item.data);
+  // A pool record's chip is its location line, so a record with a review waiting never reads On the review shelf; a pool digital album with a review waiting has no line and no chip.
+  const state = item.data.effective_state;
+  const chipLabel =
+    state === "pool"
+      ? placeLine(item.data)
+      : state === "checked_out"
+        ? byKind(item.data, { disc: STATE_LABELS.checked_out, digital: REVIEW_COPY.screen.taken })
+        : STATE_LABELS[state];
   // Only a requested or checked-out record asks before a citation; a reviewed record still out with its DJ asks nothing.
   const citeQuestion =
     holder.kind === "requested" ? COPY.citeAsked(holder.name) : holder.kind === "checked_out" && item.data.effective_state === "checked_out" ? COPY.citeTaken(holder.name) : null;
@@ -431,17 +438,7 @@ export default function IntakeItemScreen({ id }: { id: number }) {
   return (
     <Box sx={{ containerType: "inline-size" }}>
       <Stack spacing={2}>
-        <RecordHeader
-          record={record}
-          headingLevel={3}
-          chip={
-            <Chip>
-              {item.data.effective_state === "checked_out"
-                ? byKind(item.data, { disc: STATE_LABELS.checked_out, digital: REVIEW_COPY.screen.taken })
-                : STATE_LABELS[item.data.effective_state]}
-            </Chip>
-          }
-        />
+        <RecordHeader record={record} headingLevel={3} chip={chipLabel && <Chip>{chipLabel}</Chip>} />
         <IntakeProgress item={item.data} />
         <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: "minmax(0, 1fr)", [TWO_COLUMNS]: { gridTemplateColumns: "minmax(0, 1fr) minmax(16rem, 20rem)", alignItems: "start" } }}>
           <Stack data-column="main" spacing={2}>

@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import type { IntakeItem } from "@wxyc/shared";
-import { itemHolder, onReviewShelf, type Holder } from "@/lib/features/reviews/holder";
-import { heldBy, intakeItem, removedHolder, requestedFor } from "@/tests/fakes/reviews";
+import { itemHolder, onReviewShelf, unheldPlace, type Holder, type UnheldPlace } from "@/lib/features/reviews/holder";
+import { heldBy, intakeItem, removedHolder, requestedFor, returned, returnedByMusicDirector } from "@/tests/fakes/reviews";
 
 const NONE: Holder = { kind: "none" };
 const REMOVED: Holder = { kind: "removed" };
@@ -28,15 +28,33 @@ describe("itemHolder", () => {
 });
 
 describe("onReviewShelf", () => {
+  // The contract's submitted_review_count counts only reviews whose status is submitted: a draft never counts, and a deleted
+  // review stops counting. So the draft-only and since-deleted rows read the same input as no reviews; the rule cannot tell them apart.
   it.each<[string, Partial<IntakeItem>, boolean]>([
     ["a pool record with no reviews", { effective_state: "pool", submitted_review_count: 0 }, true],
     ["a pool record with a draft only", { effective_state: "pool", submitted_review_count: 0 }, true],
     ["a pool record with a submitted review", { effective_state: "pool", submitted_review_count: 1 }, false],
     ["a pool record whose submitted review was deleted", { effective_state: "pool", submitted_review_count: 0 }, true],
+    ["a checked out record with a submitted review that a music director returned", returnedByMusicDirector, false],
     ["a requested record", { effective_state: "requested", submitted_review_count: 0 }, false],
     ["a checked out record", { effective_state: "checked_out", submitted_review_count: 0 }, false],
     ["a reviewed record", { effective_state: "reviewed", submitted_review_count: 0 }, false],
   ])("%s", (_label, overrides, expected) => {
     expect(onReviewShelf(intakeItem(overrides))).toBe(expected);
+  });
+});
+
+describe("unheldPlace", () => {
+  it.each<[string, Partial<IntakeItem>, UnheldPlace]>([
+    ["a pool record with no review waiting", { effective_state: "pool", submitted_review_count: 0 }, "shelf"],
+    ["a pool digital album with no review waiting", { effective_state: "pool", submitted_review_count: 0, digital: true }, "shelf"],
+    ["a disc a music director returned with a review waiting", returnedByMusicDirector, "office"],
+    ["a digital album given back with a review waiting", { ...returnedByMusicDirector, digital: true }, "unplaced"],
+    ["a reviewed disc that was returned", { effective_state: "reviewed", ...returned }, "office"],
+    ["a reviewed digital album", { effective_state: "reviewed", ...returned, digital: true }, "burn"],
+    ["a filed disc", { effective_state: "filed", submitted_review_count: 1 }, "filed"],
+    ["a finalized digital album", { effective_state: "finalized", submitted_review_count: 1, digital: true }, "filed"],
+  ])("%s", (_label, overrides, expected) => {
+    expect(unheldPlace(intakeItem(overrides))).toBe(expected);
   });
 });

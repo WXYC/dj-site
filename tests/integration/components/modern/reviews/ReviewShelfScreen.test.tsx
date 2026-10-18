@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { screen } from "@testing-library/react";
-import { fakeReviewsEndpoints, intakeItem, renderWithProviders } from "@/tests/helpers";
+import { fakeReviewsEndpoints, intakeItem, renderWithProviders, returnedByMusicDirector } from "@/tests/helpers";
 import { REVIEW_COPY } from "@/src/components/experiences/modern/reviews/copy";
 import ReviewShelfScreen from "@/src/components/experiences/modern/reviews/ReviewShelfScreen";
 import { useReviewWrite } from "@/src/components/experiences/modern/reviews/useReviewWrite";
@@ -27,6 +27,15 @@ describe("ReviewShelfScreen", () => {
 
     expect(await screen.findByRole("heading", { level: 3, name: REVIEW_COPY.screen.shelfTitle })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: REVIEW_COPY.screen.checkOut })).toBeInTheDocument();
+  });
+
+  it("leaves out a checked out record with a submitted review that a music director returned", async () => {
+    fakeReviewsEndpoints();
+    renderWithProviders(<WithWrite items={[intakeItem({ id: 5, artist_name: "Stereolab", ...returnedByMusicDirector })]} formats={undefined} isMD={false} />);
+
+    expect(await screen.findByText(REVIEW_COPY.screen.shelfEmpty)).toBeInTheDocument();
+    expect(screen.queryByText("Stereolab", { exact: false })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: REVIEW_COPY.screen.checkOut })).not.toBeInTheDocument();
   });
 
   it("leaves out a record with a submitted review and shows it again once that review is deleted", async () => {

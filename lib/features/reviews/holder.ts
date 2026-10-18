@@ -1,4 +1,5 @@
 import type { IntakeItem } from "@wxyc/shared";
+import { isFiledState, recordKind } from "./kind";
 
 /**
  * Who has a record. `requested` is a live request (the record is held for that
@@ -26,3 +27,24 @@ export function itemHolder(item: IntakeItem): Holder {
  */
 export const onReviewShelf = (item: Pick<IntakeItem, "effective_state" | "submitted_review_count">): boolean =>
   item.effective_state === "pool" && item.submitted_review_count === 0;
+
+/**
+ * Where a record nobody has is, so every line that says it (the location line, the From line, the record page's
+ * chip) reads one answer: `shelf` on the review shelf; `office` a disc off it; `burn` a reviewed digital album;
+ * `unplaced` a pool digital album with a review waiting, for which no place fits; `filed` a filed or finalized record.
+ * Call it only for a record whose `itemHolder` is `none`.
+ */
+export type UnheldPlace = "shelf" | "office" | "burn" | "unplaced" | "filed";
+
+export function unheldPlace(item: Pick<IntakeItem, "effective_state" | "submitted_review_count" | "digital">): UnheldPlace {
+  if (onReviewShelf(item)) {
+    return "shelf";
+  }
+  if (isFiledState(item.effective_state)) {
+    return "filed";
+  }
+  if (recordKind(item) === "disc") {
+    return "office";
+  }
+  return item.effective_state === "pool" ? "unplaced" : "burn";
+}

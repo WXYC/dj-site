@@ -12,7 +12,7 @@ import {
   useGetIntakeItemsQuery,
   useReleaseIntakeItemMutation,
 } from "@/lib/features/reviews/intakeApi";
-import { itemHolder, onReviewShelf } from "@/lib/features/reviews/holder";
+import { itemHolder } from "@/lib/features/reviews/holder";
 import { byKind, recordKind } from "@/lib/features/reviews/kind";
 import { useAppDispatch } from "@/lib/hooks";
 import { useCanSeeReviews } from "@/src/hooks/useCanSeeReviews";
@@ -22,7 +22,7 @@ import HeadedSection from "./HeadedSection";
 import IntakeLane from "./IntakeLane";
 import { REVIEW_COPY } from "./copy";
 import { intakeRecord, recordLine } from "./recordLine";
-import { WaitingFrom } from "./ReviewFrom";
+import { placeLine, WaitingFrom } from "./ReviewFrom";
 import { formatStationShortDate } from "@/src/utilities/stationTime";
 import { hasNothingToShow } from "@/lib/has-nothing-to-show";
 
@@ -108,13 +108,7 @@ function IntakeLaneGroups() {
     if (holder.kind === "removed") {
       return byKind(i, { disc: COPY.holderRemovedNow, digital: COPY.takenByRemoved });
     }
-    if (onReviewShelf(i)) {
-      return COPY.onShelf;
-    }
-    if (i.effective_state === "pool") {
-      return byKind(i, { disc: COPY.backInOffice, digital: null });
-    }
-    return byKind(i, { disc: COPY.backInOffice, digital: COPY.readyToBurn });
+    return placeLine(i);
   };
 
   const laneLabel = (i: IntakeItem) => (
