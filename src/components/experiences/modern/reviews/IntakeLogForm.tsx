@@ -8,6 +8,7 @@ import { useGetFormatsQuery, useLazyGetDiscogsPrefillQuery, useSearchLibraryArti
 import { discogsPrefillErrorMessage, discogsReleaseIdFrom } from "@/lib/features/catalog/discogsPrefill";
 import { formatLabel } from "@/lib/features/experiences/modern/tokens/roles";
 import type { ArtistSearchMatch } from "@/lib/features/catalog/types";
+import { bandcampUrlFrom } from "@/lib/features/reviews/bandcampLink";
 import { useLogIntakeItemMutation } from "@/lib/features/reviews/intakeApi";
 import { useDebouncedValue } from "@/src/hooks/useDebouncedValue";
 import LabelSearchTypeahead from "../catalog/AddRelease/LabelSearchTypeahead";
@@ -40,10 +41,11 @@ type IntakeForm = {
   formatId: number | null;
   arrival: Arrival | null;
   discogs: string;
+  bandcamp: string;
   lookup: DiscogsLookup | null;
 };
 
-const EMPTY_FORM: IntakeForm = { artist: "", album: "", label: "", labelPick: null, formatId: null, arrival: null, discogs: "", lookup: null };
+const EMPTY_FORM: IntakeForm = { artist: "", album: "", label: "", labelPick: null, formatId: null, arrival: null, discogs: "", bandcamp: "", lookup: null };
 
 // The arrival choice is drawn as a segmented control: each option is a segment the whole of
 // which picks it, and the picked one is raised.
@@ -95,6 +97,8 @@ export default function IntakeLogForm({ onLogged, onBusyChange, hideTitle = fals
   // An empty Discogs field is fine; anything it cannot read as a release id keeps the form from sending.
   const discogsId = discogsReleaseIdFrom(form.discogs);
   const discogsRefused = form.discogs.trim() !== "" && discogsId == null;
+  const bandcampLink = bandcampUrlFrom(form.bandcamp);
+  const bandcampRefused = bandcampLink === "refused";
   const prefilling = form.lookup != null && form.lookup.line == null;
   const prefillLine = form.lookup?.line ?? null;
   const labelId = form.labelPick != null && form.labelPick.name === form.label.trim() ? form.labelPick.id : null;
@@ -102,6 +106,7 @@ export default function IntakeLogForm({ onLogged, onBusyChange, hideTitle = fals
   // A disc or a record needs its format; files never have one.
   const ready =
     !discogsRefused &&
+    !bandcampRefused &&
     Boolean(form.artist && form.album) &&
     (form.arrival === "files" || (form.arrival === "disc" && form.formatId != null));
 
@@ -154,6 +159,7 @@ export default function IntakeLogForm({ onLogged, onBusyChange, hideTitle = fals
         ...(form.label && { record_label: form.label }),
         ...(labelId != null && { label_id: labelId }),
         ...(discogsId != null && { discogs_release_id: discogsId }),
+        ...(bandcampLink != null && !bandcampRefused && { bandcamp_url: bandcampLink }),
       }).unwrap();
     } catch {
       toast.error(REVIEW_COPY.screen.writeFailed);
@@ -200,6 +206,11 @@ export default function IntakeLogForm({ onLogged, onBusyChange, hideTitle = fals
           />
           {discogsRefused && <FormHelperText>{COPY.discogsRefused}</FormHelperText>}
           {!discogsRefused && prefillLine && <FormHelperText role="status">{prefillLine.text}</FormHelperText>}
+        </FormControl>
+        <FormControl error={bandcampRefused}>
+          <FormLabel>{COPY.bandcampUrl}</FormLabel>
+          <Input value={form.bandcamp} onChange={(e) => setForm((f) => ({ ...f, bandcamp: e.target.value }))} />
+          {bandcampRefused && <FormHelperText>{COPY.bandcampRefused}</FormHelperText>}
         </FormControl>
         <FormControl required>
           <FormLabel>{COPY.artist}</FormLabel>
