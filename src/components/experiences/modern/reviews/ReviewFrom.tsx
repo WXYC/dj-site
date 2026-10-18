@@ -28,6 +28,21 @@ const PLACE_LINE: Record<UnheldPlace, string | null> = {
  */
 export const placeLine = (item: IntakeItem): string | null => PLACE_LINE[unheldPlace(item)];
 
+/** Where a record is now, for the lanes and the record page: who holds it, or its place when nobody does. Names are real names: station display only, never telemetry. */
+export function whereLine(item: IntakeItem): string | null {
+  const holder = itemHolder(item);
+  if (holder.kind === "requested") {
+    return `${COPY.heldFor} ${holder.name}`;
+  }
+  if (holder.kind === "checked_out") {
+    return `${byKind(item, { disc: COPY.checkedOutTo, digital: COPY.takenBy })} ${holder.name}`;
+  }
+  if (holder.kind === "removed") {
+    return byKind(item, { disc: COPY.holderRemovedNow, digital: COPY.takenByRemoved });
+  }
+  return placeLine(item);
+}
+
 /**
  * The From line for each place a record nobody has can be. `shelf` shows only on a stale list: a record with a
  * waiting review is off the review shelf. A filed record says nothing (WXYC/dj-site#1991).

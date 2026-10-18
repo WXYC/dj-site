@@ -24,7 +24,7 @@ import IntakeLane from "./IntakeLane";
 import { REVIEW_COPY } from "./copy";
 import RecordRow from "./RecordRow";
 import { intakeRecord } from "./recordLine";
-import { placeLine, WaitingFrom } from "./ReviewFrom";
+import { whereLine, WaitingFrom } from "./ReviewFrom";
 import { EVERY_STATE } from "./useReviewWrite";
 import { formatStationShortDate } from "@/src/utilities/stationTime";
 import { hasNothingToShow } from "@/lib/has-nothing-to-show";
@@ -117,20 +117,6 @@ function IntakeLaneGroups() {
     .sort((a, b) => b.passed_at.localeCompare(a.passed_at))
     .slice(0, RECENT_PASSES);
 
-  const where = (i: IntakeItem) => {
-    const holder = itemHolder(i);
-    if (holder.kind === "requested") {
-      return `${COPY.heldFor} ${holder.name}`;
-    }
-    if (holder.kind === "checked_out") {
-      return `${byKind(i, { disc: COPY.checkedOutTo, digital: COPY.takenBy })} ${holder.name}`;
-    }
-    if (holder.kind === "removed") {
-      return byKind(i, { disc: COPY.holderRemovedNow, digital: COPY.takenByRemoved });
-    }
-    return placeLine(i);
-  };
-
   const cancelButton = (i: IntakeItem) => (
     <Button size="sm" variant="outlined" {...lock(i.id, "cancel")} onClick={() => act(i.id, "cancel", () => cancelRequest(i.id).unwrap())}>
       {COPY.cancelRequest}
@@ -181,7 +167,7 @@ function IntakeLaneGroups() {
             const returnable = ["checked_out", "removed"].includes(itemHolder(i).kind) && recordKind(i) === "disc";
             return laneRow(
               i,
-              <WaitingFrom item={i} where={where(i)} />,
+              <WaitingFrom item={i} where={whereLine(i)} />,
               (requested || returnable) && (
                 <>
                   {requested && cancelButton(i)}
@@ -200,7 +186,7 @@ function IntakeLaneGroups() {
         title={COPY.requested}
         rows={inStage("requested")}
         empty={COPY.empty}
-        row={(i) => laneRow(i, <Typography level="body-sm">{where(i)}</Typography>, cancelButton(i))}
+        row={(i) => laneRow(i, <Typography level="body-sm">{whereLine(i)}</Typography>, cancelButton(i))}
       />
       <IntakeLane
         title={COPY.beingReviewed}
@@ -209,7 +195,7 @@ function IntakeLaneGroups() {
         row={(i) =>
           laneRow(
             i,
-            <Typography level="body-sm">{where(i)}</Typography>,
+            <Typography level="body-sm">{whereLine(i)}</Typography>,
             <Button size="sm" variant="outlined" {...lock(i.id, "release")} onClick={() => setConfirming({ item: i, action: "release" })}>
               {REVIEW_COPY.screen.returnToShelf}
             </Button>,

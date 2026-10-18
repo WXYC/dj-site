@@ -471,6 +471,10 @@ export const REVIEW_COPY = {
     copyByPen: "Copy it by pen",
     /** Approved. On each form review of the cited release: opens the Record a review form filled in from it. */
     copyOntoRecord: "Copy this review onto the record",
+    /** The heading of the block at the top of a record's page while no review is chosen, from the station's mockup. */
+    originTitle: "Where its review is coming from",
+    /** Between the block's where-now line and the other ways to get a review, from the station's mockup. */
+    originOr: "Or:",
     /** Approved. Beside Record a review on a record's page. */
     recordExplanation: "For a review written on the sleeve, or one a DJ gave you to type in.",
     /** Approved. The accessible name of the search box that cites a release; the filing arm's box keeps `searchLibrary`. */

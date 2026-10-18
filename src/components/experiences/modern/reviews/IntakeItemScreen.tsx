@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Box, Button, Chip, Divider, Radio, RadioGroup, Stack, Typography } from "@mui/joy";
 import type { IntakeItem, IntakeItemPatch, Review } from "@wxyc/shared";
 import { displayedArtist, isVariousArtists } from "@/lib/features/catalog/libraryCode";
@@ -44,6 +45,7 @@ import { CiteSection, RemoveCitation } from "./CiteControls";
 import DeleteReviewButton from "./DeleteReviewButton";
 import UseThisReviewButton from "./UseThisReviewButton";
 import { EMPTY_START, PAPER_START, formReviewStart, type RecordFormStart } from "@/lib/features/reviews/formReviewStart";
+import RecordOrigin from "./RecordOrigin";
 import RecordPrompt, { type OpenSection } from "./RecordPrompt";
 import RecordReviewForm from "./RecordReviewForm";
 import { Group } from "./ReviewsPanel";
@@ -101,8 +103,10 @@ export default function IntakeItemScreen({ id }: { id: number }) {
   const [notice, setNotice] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [picked, setPicked] = useState<AlbumEntry | null>(null);
+  // Where a link into the page asks it to start: ?get=record opens the form, ?get=cite focuses the first cite button.
+  const getParam = useSearchParams().get("get");
   // The open form's starting values and its key, or null when closed. Every opening goes through openRecording, which gives the form a key unlike the open one's, so the form remounts with the new start.
-  const [recording, setRecording] = useState<Recording | null>(null);
+  const [recording, setRecording] = useState<Recording | null>(() => (getParam === "record" ? nextRecording(null, EMPTY_START) : null));
   // The cite search open under the prompt row, if any; only one of it and the form is open at a time.
   const [citing, setCiting] = useState<"release" | "form" | null>(null);
   const citedId = item.data?.cited_album_id ?? null;
@@ -175,6 +179,13 @@ export default function IntakeItemScreen({ id }: { id: number }) {
   const fetchedCover = useGetReviewQuery(coverById ?? 0, { skip: !visible || coverById === undefined });
 
   const cover = ownCover ?? (fetchedCover.data?.id === coverId ? fetchedCover.data : undefined);
+  // The block draws while no review is chosen, but a form open inside it stays there when its own save chooses one, so the save's completion meets the form it began on. Set during render, as `citing` is.
+  const wantsOrigin = coverId == null && unfiled;
+  const [inOrigin, setInOrigin] = useState<boolean | null>(null);
+  if (item.data && (inOrigin === null || !recording) && inOrigin !== wantsOrigin) {
+    setInOrigin(wantsOrigin);
+  }
+  const originShown = recording && inOrigin !== null ? inOrigin : wantsOrigin;
   const isCover = (r: Review) => r.id === coverId;
   // A cover review may be one printed for another copy, so it is on this copy's cover only once this copy's own slip was printed.
   // The cover group's printed-version note, its print link and its tape all read this rule, so a later change moves them together.
@@ -435,11 +446,48 @@ export default function IntakeItemScreen({ id }: { id: number }) {
     />
   );
 
+  // The Record a review row with its open section, drawn once: in the top block while no review is chosen, otherwise in its place below the reviews.
+  const recordArea = (
+    <>
+      <RecordPrompt
+        open={openSection}
+        onToggle={toggleSection}
+        cite={canCite}
+        disabled={awaitingReread}
+        removal={unfiled && isCited && !citedShown ? removeCitation : undefined}
+      />
+      {recording && (
+        <RecordReviewForm
+          key={recording.key}
+          start={recording.start}
+          itemId={id}
+          hasCover={coverId != null || movingCover}
+          disabled={awaitingReread}
+          onHold={hold}
+          onWritten={recording.cites ? citeCopied(recording.cites) : reviewWritten}
+          onNotice={setNotice}
+          onDirtyChange={setRecordingDirty}
+          onClose={() => setRecording(null)}
+        />
+      )}
+      {citeOpen && (
+        <CiteSection
+          which={citeOpen}
+          artist={item.data.artist_name}
+          question={citeQuestion}
+          onCite={(albumId) => changeCitation({ cited_album_id: albumId }, COPY.releaseRefused)}
+          onCopy={(take) => openRecording(formReviewStart(take), { id: take.id, submittedAt: take.submitted_at })}
+        />
+      )}
+    </>
+  );
+
   return (
     <Box sx={{ containerType: "inline-size" }}>
       <Stack spacing={2}>
         <RecordHeader record={record} headingLevel={3} chip={chipLabel && <Chip>{chipLabel}</Chip>} />
         <IntakeProgress item={item.data} />
+        {originShown && <RecordOrigin item={item.data} focusCite={getParam === "cite" && canCite}>{recordArea}</RecordOrigin>}
         <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: "minmax(0, 1fr)", [TWO_COLUMNS]: { gridTemplateColumns: "minmax(0, 1fr) minmax(16rem, 20rem)", alignItems: "start" } }}>
           <Stack data-column="main" spacing={2}>
             {cover ? (
@@ -455,36 +503,7 @@ export default function IntakeItemScreen({ id }: { id: number }) {
               <Typography level="body-sm">{COPY.stillWriting} {item.data.draft_authors.join(", ")}.</Typography>
             )}
             {notice && <Typography role="status">{notice}</Typography>}
-            <RecordPrompt
-              open={openSection}
-              onToggle={toggleSection}
-              cite={canCite}
-              disabled={awaitingReread}
-              removal={unfiled && isCited && !citedShown ? removeCitation : undefined}
-            />
-            {recording && (
-              <RecordReviewForm
-                key={recording.key}
-                start={recording.start}
-                itemId={id}
-                hasCover={coverId != null || movingCover}
-                disabled={awaitingReread}
-                onHold={hold}
-                onWritten={recording.cites ? citeCopied(recording.cites) : reviewWritten}
-                onNotice={setNotice}
-                onDirtyChange={setRecordingDirty}
-                onClose={() => setRecording(null)}
-              />
-            )}
-            {citeOpen && (
-              <CiteSection
-                which={citeOpen}
-                artist={item.data.artist_name}
-                question={citeQuestion}
-                onCite={(albumId) => changeCitation({ cited_album_id: albumId }, COPY.releaseRefused)}
-                onCopy={(take) => openRecording(formReviewStart(take), { id: take.id, submittedAt: take.submitted_at })}
-              />
-            )}
+            {!originShown && recordArea}
             {isFiledState(item.data.effective_state) ? (
               <Typography>{COPY.filed}</Typography>
             ) : coverId == null ? (

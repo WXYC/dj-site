@@ -32,16 +32,17 @@ vi.mock("@/lib/features/authentication/organization-utils", () => ({
 }));
 
 vi.mock("sonner", () => ({
-  toast: Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn(), info: vi.fn() }),
+  toast: Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn(), info: vi.fn(), dismiss: vi.fn() }),
 }));
 
 vi.mock("next/font/google", () => ({ Kanit: () => ({ style: { fontFamily: "Kanit, sans-serif" } }) }));
 vi.mock("next/font/local", () => ({ default: () => ({ style: { fontFamily: "Minbus, sans-serif" } }) }));
 
 const router = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn() }));
+const getParam = vi.hoisted(() => new URLSearchParams());
 vi.mock("next/navigation", async () => {
   const { createNavigationModuleMock } = await import("@/tests/helpers/navigation-mock");
-  return createNavigationModuleMock(router);
+  return createNavigationModuleMock(router, { search: () => getParam.toString() });
 });
 
 const mockAuth = vi.hoisted(() => ({ id: "md-me", authority: 2 as number }));
@@ -674,7 +675,7 @@ describe("IntakeItemScreen", () => {
         serveItemReviews([]);
       },
       "Reviews of Jessica Pratt — On Your Own Love Again",
-      ["h3 Juana Molina", "h3 Reviews of Jessica Pratt — On Your Own Love Again", "h3 FCC notes"],
+      ["h3 Juana Molina", "h3 Where its review is coming from", "h3 Reviews of Jessica Pratt — On Your Own Love Again", "h3 FCC notes"],
     ],
   ])("heads every section at h3 under the page's own h2 with %s", async (_case, setUp, last, expected) => {
     setUp();
@@ -4371,7 +4372,7 @@ describe("IntakeItemScreen", () => {
         await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: CITE }));
         await actions.release.done(sent);
 
-        expect(await screen.findByText(REVIEW_COPY.intake.onShelf)).toBeInTheDocument();
+        expect(await screen.findByText(REVIEW_COPY.intake.onShelf, { selector: ".MuiChip-label" })).toBeInTheDocument();
         expect(screen.queryByText(REVIEW_COPY.intake.requested)).not.toBeInTheDocument();
       });
     });
@@ -5598,6 +5599,106 @@ describe("IntakeItemScreen", () => {
         await noDialog();
         await screen.findByRole("status");
       });
+    });
+  });
+
+  describe("the block that says where the record's review is coming from", () => {
+    const TITLE = "Where its review is coming from";
+    const POOL = { state: "pool", effective_state: "pool", submitted_review_count: 0, accepted_review_id: null } as const;
+    const block = () => screen.queryByRole("region", { name: TITLE });
+    const recordButtons = () => screen.getAllByRole("button", { name: "Record a review" });
+
+    beforeEach(() => {
+      getParam.delete("get");
+      vi.mocked(toast).mockClear();
+    });
+
+    it.each([
+      ["on the review shelf", dogaItem(POOL), "On the review shelf", ["Ask a DJ…"]],
+      ["asked", dogaItem({ ...POOL, ...requestedFor("dj-sam", "DJ Sam"), state: "requested", effective_state: "requested" }), "Held for DJ Sam", ["Cancel request"]],
+      ["checked out", dogaItem({ ...POOL, ...heldBy("dj-sam", "DJ Sam"), state: "checked_out", effective_state: "checked_out" }), "Checked out to DJ Sam", []],
+      ["taken", digitalDoga({ ...POOL, ...heldBy("dj-sam", "DJ Sam"), state: "checked_out", effective_state: "checked_out" }), "Taken by DJ Sam", []],
+      ["holder removed", dogaItem({ ...POOL, ...removedHolder, state: "checked_out", effective_state: "checked_out" }), "Holder removed", []],
+    ])("draws the block with the where-now line and the other ways for a record %s", async (_name, item, line, buttons) => {
+      fakeReviewsEndpoints({ records: [item], reviewers: [{ id: "dj-sam", name: "Sam" }] });
+      renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      const region = await screen.findByRole("region", { name: TITLE });
+      expect(within(region).getByText(line)).toBeInTheDocument();
+      expect(within(region).getByText("Or:")).toBeInTheDocument();
+      expect(within(region).queryAllByRole("button", { name: /^(Ask a DJ…|Cancel request)/ }).map((b) => b.textContent)).toEqual(buttons);
+      expect(recordButtons()).toHaveLength(1);
+      expect(within(region).getByRole("button", { name: "Record a review" })).toBeInTheDocument();
+      expect(within(region).getByRole("button", { name: "Cite a release in the library" })).toBeInTheDocument();
+    });
+
+    it.each([
+      ["reviewed", dogaItem()],
+      ["filed", dogaItem({ state: "filed", effective_state: "filed" })],
+    ])("draws no block for a %s record, and Record a review appears once", async (_name, item) => {
+      fakeReviewsEndpoints({ records: [item] });
+      renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      await screen.findAllByRole("button", { name: "Record a review" });
+      expect(block()).not.toBeInTheDocument();
+      expect(recordButtons()).toHaveLength(1);
+    });
+
+    it("cancels the request from the block and reads On the review shelf afterwards", async () => {
+      const asked = dogaItem({ ...POOL, ...requestedFor("dj-sam", "DJ Sam"), state: "requested", effective_state: "requested" });
+      fakeReviewsEndpoints({ records: [asked] });
+      const box = serveItem(asked);
+      server.use(
+        http.post(`${TEST_BACKEND_URL}/intake/${ITEM_ID}/cancel-request`, () => {
+          box.item = dogaItem(POOL);
+          return HttpResponse.json(box.item);
+        }),
+      );
+      const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      await user.click(await within(await screen.findByRole("region", { name: TITLE })).findByRole("button", { name: "Cancel request" }));
+
+      expect(await within(screen.getByRole("region", { name: TITLE })).findByText("On the review shelf")).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Cancel request" })).not.toBeInTheDocument();
+    });
+
+    it("asks a DJ from the block and offers Cancel request in the toast", async () => {
+      const item = dogaItem(POOL);
+      fakeReviewsEndpoints({ open: [item], records: [item], reviewers: [{ id: "dj-sam", name: "Sam" }] });
+      const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      await user.click(await screen.findByRole("button", { name: /^Ask a DJ…/ }));
+      await user.type(await screen.findByRole("combobox", { name: "Search by name" }), "sam");
+      await user.keyboard("{Enter}");
+      await user.click(await screen.findByRole("button", { name: "Ask" }));
+
+      await waitFor(() => expect(vi.mocked(toast)).toHaveBeenCalledWith(REVIEW_COPY.intake.askDone("Sam"), expect.anything()));
+    });
+
+    it("opens the Record a review form in the block from ?get=record", async () => {
+      getParam.set("get", "record");
+      fakeReviewsEndpoints({ records: [dogaItem(POOL)] });
+      renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      const region = await screen.findByRole("region", { name: TITLE });
+      expect(await within(region).findByRole("heading", { name: "Record a review" })).toBeInTheDocument();
+    });
+
+    it("focuses the first cite button from ?get=cite", async () => {
+      getParam.set("get", "cite");
+      fakeReviewsEndpoints({ records: [dogaItem(POOL)] });
+      renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      await waitFor(() => expect(screen.getByRole("button", { name: "Cite a release in the library" })).toHaveFocus());
+    });
+
+    it("leaves focus alone and the form closed without a ?get", async () => {
+      fakeReviewsEndpoints({ records: [dogaItem(POOL)] });
+      renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      const cite = await screen.findByRole("button", { name: "Cite a release in the library" });
+      expect(cite).not.toHaveFocus();
+      expect(screen.queryByRole("heading", { name: "Record a review" })).not.toBeInTheDocument();
     });
   });
 });
