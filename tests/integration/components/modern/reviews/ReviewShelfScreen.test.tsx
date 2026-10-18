@@ -80,4 +80,13 @@ describe("ReviewShelfScreen", () => {
     expect(line.compareDocumentPosition(region) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(region).not.toContainElement(line);
   });
+
+  it("takes the lane's heading off the screen while the section stays named The review shelf", async () => {
+    fakeReviewsEndpoints();
+    renderWithProviders(<WithWrite items={[intakeItem({ id: 5, artist_name: "Stereolab" })]} isMD={false} />);
+
+    const heading = await screen.findByRole("heading", { level: 3, name: REVIEW_COPY.screen.shelfTitle });
+    expect(screen.getByRole("region", { name: REVIEW_COPY.screen.shelfTitle })).toBeInTheDocument();
+    expect(heading).toHaveStyle({ position: "absolute", width: "1px", height: "1px" });
+  });
 });

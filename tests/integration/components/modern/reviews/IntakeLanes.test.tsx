@@ -95,6 +95,8 @@ describe("IntakeLanes", () => {
     ["heldFor", REVIEW_COPY.intake.heldFor, "Held for"],
     ["cancelRequest", REVIEW_COPY.intake.cancelRequest, "Cancel request"],
     ["more", REVIEW_COPY.intake.more(2), "+2 more"],
+    // Row 2 of the 2026-10-16 copy round (WXYC/Backend-Service#3382).
+    ["shelfLine", REVIEW_COPY.screen.shelfLine, "Records waiting for a reviewer. Pick one to review."],
     // Rows 42 and 43 of the 2026-10-16 copy round (WXYC/Backend-Service#3382).
     ["returnQuestion", REVIEW_COPY.intake.returnQuestion("{artist}", "{album}"), "Return {artist}, {album}, to the review shelf?"],
     ["returnBody", REVIEW_COPY.intake.returnBody("{name}"), "{name} will no longer have it, and any DJ can choose to review it."],

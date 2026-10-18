@@ -133,8 +133,8 @@ export const REVIEW_COPY = {
     shelfTitle: "The review shelf",
     /** Approved. */
     shelfEmpty: "Nothing is waiting on the review shelf.",
-    /** The Review shelf tab's line, a proposal for the next copy round, not yet seen by the station. */
-    shelfLine: "Records waiting for a reviewer. Check one out to review it.",
+    /** Approved. */
+    shelfLine: "Records waiting for a reviewer. Pick one to review.",
     /** Approved. */
     checkoutsTitle: "Records I'm reviewing",
     /** Approved. */
