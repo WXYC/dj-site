@@ -211,6 +211,7 @@ describe("REVIEW_COPY.listen", () => {
   it.each([
     ["leadIn", "Preview:"],
     ["fccNote", "Your FCC notes are about the station's copy, which may differ from a streaming version."],
+    ["newTab", "opens in a new tab"],
   ] as const)("pins the approved %s", (key, expected) => {
     expect(REVIEW_COPY.listen[key]).toBe(expected);
   });
