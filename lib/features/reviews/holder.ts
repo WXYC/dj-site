@@ -24,6 +24,7 @@ export function itemHolder(item: IntakeItem): Holder {
 /**
  * The one rule for "on the review shelf": nobody has the record and no submitted review waits on it. A
  * pool record with a review waiting stays off the shelf until a music director chooses or deletes that review.
+ * `recordStage` draws its review shelf stage by this rule, so the Review shelf tab and the New music tab cannot disagree.
  */
 export const onReviewShelf = (item: Pick<IntakeItem, "effective_state" | "submitted_review_count">): boolean =>
   item.effective_state === "pool" && item.submitted_review_count === 0;
@@ -52,11 +53,14 @@ export function unheldPlace(item: Pick<IntakeItem, "effective_state" | "submitte
 /** The stage a record is drawn in, one per record. */
 export type ReviewStage = "filed" | "reviewed" | "waiting" | "requested" | "being_reviewed" | "review_shelf";
 
+/** The fields a record's stage is read from. */
+type StageFields = Pick<IntakeItem, "effective_state" | "submitted_review_count" | "accepted_review_id">;
+
 /**
  * Whether a submitted review waits on the record for a music director to choose: the server's `awaiting_acceptance=true`
  * filter (a submitted review, none chosen, a state before filed), read from the fields every `IntakeItem` carries.
  */
-export const reviewWaiting = (item: Pick<IntakeItem, "effective_state" | "submitted_review_count" | "accepted_review_id">): boolean =>
+export const reviewWaiting = (item: StageFields): boolean =>
   item.submitted_review_count > 0 && item.accepted_review_id == null && !isFiledState(item.effective_state);
 
 /**
@@ -64,7 +68,7 @@ export const reviewWaiting = (item: Pick<IntakeItem, "effective_state" | "submit
  * record with a review waiting is Review waiting whoever holds it, unless a review has already been chosen. It reads only the
  * record, so every lane drawn from one read is one partition of it.
  */
-export function recordStage(item: IntakeItem): ReviewStage {
+export function recordStage(item: StageFields): ReviewStage {
   const state = item.effective_state;
   if (isFiledState(state)) {
     return "filed";
@@ -78,5 +82,10 @@ export function recordStage(item: IntakeItem): ReviewStage {
   if (state === "requested") {
     return "requested";
   }
-  return state === "checked_out" ? "being_reviewed" : "review_shelf";
+  if (state === "checked_out") {
+    return "being_reviewed";
+  }
+  // A pool record off the review shelf with no review waiting has a chosen review. The backend does not produce that
+  // (choosing a review moves the record to reviewed), so it is drawn where a chosen review is.
+  return onReviewShelf(item) ? "review_shelf" : "reviewed";
 }

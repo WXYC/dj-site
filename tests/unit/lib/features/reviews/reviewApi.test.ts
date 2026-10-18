@@ -130,7 +130,7 @@ describe("reviewApi", () => {
     expect("error" in deleted).toBe(false);
   });
 
-  it("a successful submitReview refetches the awaiting-acceptance intake read and the signed-in DJ's review list", async () => {
+  it("a successful submitReview refetches the intake read and the signed-in DJ's review list", async () => {
     server.use(
       http.get(`${TEST_BACKEND_URL}/intake`, () => HttpResponse.json([])),
       http.get(`${TEST_BACKEND_URL}/reviews`, () => HttpResponse.json([])),
@@ -140,13 +140,13 @@ describe("reviewApi", () => {
     const refetched = await refetchesAfter(
       makeReviewsStore(),
       {
-        awaiting: intakeApi.endpoints.getIntakeItems.initiate({ awaiting_acceptance: true }),
+        intake: intakeApi.endpoints.getIntakeItems.initiate(),
         myReviews: reviewApi.endpoints.getMyReviews.initiate(),
       },
       reviewApi.endpoints.submitReview.initiate(7),
     );
 
-    expect(refetched).toEqual(new Set(["awaiting", "myReviews"]));
+    expect(refetched).toEqual(new Set(["intake", "myReviews"]));
   });
 
   it("a successful deleteReview refetches the intake lists and the release's review list, so the lanes and the album card drop the review", async () => {

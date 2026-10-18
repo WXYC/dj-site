@@ -73,7 +73,7 @@ export function WaitingFrom({ item, where }: { item: IntakeItem; where: string |
   if (!reviews.data) {
     return where ? <Typography level="body-sm">{where}</Typography> : null;
   }
-  const waiting = reviews.data.filter((r) => r.status === "submitted" && r.id !== item.accepted_review_id).sort(newestFirst);
+  const waiting = reviews.data.filter((r) => r.status === "submitted").sort(newestFirst);
   const line = waiting.length > 0 ? fromLine(waiting[0], item) : null;
   return (
     <>
