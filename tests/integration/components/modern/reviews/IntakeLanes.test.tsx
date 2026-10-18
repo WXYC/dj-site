@@ -975,7 +975,7 @@ describe("IntakeLogForm", () => {
     await user.click(screen.getByRole("combobox", { name: /^Format/ }));
     await user.click(await screen.findByRole("option", { name: "CD" }));
     await user.type(screen.getByLabelText("Discogs link or release number (optional)"), "123");
-    await user.click(screen.getByRole("button", { name: "Log item" }));
+    await user.click(screen.getByRole("button", { name: "Add a record" }));
 
     await waitFor(() =>
       expect(body).toEqual({ artist_name: "Cat Power", album_title: "Moon Pix", format_id: 1, discogs_release_id: 123 }),
@@ -1005,7 +1005,7 @@ describe("IntakeLogForm", () => {
       await user.click(screen.getByRole("combobox", { name: /^Format/ }));
       await user.click(await screen.findByRole("option", { name: format }));
     }
-    await user.click(screen.getByRole("button", { name: "Log item" }));
+    await user.click(screen.getByRole("button", { name: "Add a record" }));
 
     await waitFor(() =>
       expect(body).toEqual({ artist_name: "Autechre", album_title: "Confield", ...sent, discogs_release_id: 8434 }),
@@ -1016,7 +1016,7 @@ describe("IntakeLogForm", () => {
     fakeReviewsEndpoints();
     renderWithProviders(<IntakeLogForm />);
     const discogs = await screen.findByLabelText("Discogs link or release number (optional)");
-    const form = screen.getByRole("form", { name: "Log an item" }) as HTMLFormElement;
+    const form = screen.getByRole("form", { name: "Add a record" }) as HTMLFormElement;
 
     expect(discogs).not.toHaveAttribute("type", "number");
     expect(discogs).toHaveAttribute("inputmode", "numeric");
@@ -1029,7 +1029,7 @@ describe("IntakeLogForm", () => {
     ["a master link", "https://www.discogs.com/master/8434-Confield"],
     ["zero", "0"],
     ["an id past int4", "2147483648"],
-  ])("refuses %s under the Discogs field, sends nothing, and keeps Log item disabled until it is corrected", async (_kind, raw) => {
+  ])("refuses %s under the Discogs field, sends nothing, and keeps Add a record disabled until it is corrected", async (_kind, raw) => {
     let posts = 0;
     fakeReviewsEndpoints();
     server.use(
@@ -1045,14 +1045,14 @@ describe("IntakeLogForm", () => {
     await user.click(screen.getByRole("radio", { name: "A disc or a record" }));
     await user.click(screen.getByRole("combobox", { name: /^Format/ }));
     await user.click(await screen.findByRole("option", { name: "CD" }));
-    const log = screen.getByRole("button", { name: "Log item" });
+    const log = screen.getByRole("button", { name: "Add a record" });
     expect(log).toBeEnabled();
 
     await user.type(discogs, raw);
     expect(screen.getByText("That isn't a Discogs release link or number.")).toBeInTheDocument();
     expect(log).toBeDisabled();
     // Submit the form itself, past the disabled button, and let any request land before counting.
-    fireEvent.submit(screen.getByRole("form", { name: "Log an item" }));
+    fireEvent.submit(screen.getByRole("form", { name: "Add a record" }));
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(posts).toBe(0);
 
@@ -1074,7 +1074,7 @@ describe("IntakeLogForm", () => {
     const { user } = renderWithProviders(<IntakeLogForm />);
     await user.type(await screen.findByLabelText(/^Artist/), "Cat Power");
     await user.type(screen.getByLabelText(/^Album/), "Moon Pix");
-    const log = screen.getByRole("button", { name: "Log item" });
+    const log = screen.getByRole("button", { name: "Add a record" });
     expect(log).toBeDisabled();
     const arrival = screen.getByRole("radiogroup", { name: /^How did it arrive\?/ });
     expect(arrival).toBeRequired();
@@ -1135,7 +1135,7 @@ describe("IntakeLogForm", () => {
       await user.type(await screen.findByLabelText(/^Artist/), "Nobody Yet");
       await user.type(screen.getByLabelText(/^Album/), "Debut");
       await user.click(screen.getByRole("radio", { name: "As files" }));
-      await user.click(screen.getByRole("button", { name: "Log item" }));
+      await user.click(screen.getByRole("button", { name: "Add a record" }));
 
       await waitFor(() => expect(body).toEqual({ artist_name: "Nobody Yet", album_title: "Debut", digital: true }));
     });
@@ -1158,7 +1158,7 @@ describe("IntakeLogForm", () => {
 
       await user.type(screen.getByLabelText(/^Album/), "Amber");
       await user.click(screen.getByRole("radio", { name: "As files" }));
-      await user.click(screen.getByRole("button", { name: "Log item" }));
+      await user.click(screen.getByRole("button", { name: "Add a record" }));
 
       await waitFor(() => expect(body).toEqual({ artist_name: "Autechre", album_title: "Amber", digital: true }));
     });
@@ -1223,7 +1223,7 @@ describe("IntakeLogForm", () => {
       await user.click((await screen.findAllByRole("option"))[0]);
       await user.type(screen.getByLabelText(/^Album/), "Amber");
       await user.click(screen.getByRole("radio", { name: "As files" }));
-      await user.click(screen.getByRole("button", { name: "Log item" }));
+      await user.click(screen.getByRole("button", { name: "Add a record" }));
       await waitFor(() => expect(artist).toHaveValue(""));
 
       await user.click(artist);
@@ -1256,7 +1256,7 @@ describe("IntakeLogForm", () => {
     await user.type(await screen.findByLabelText(/^Artist/), "Cat Power");
     await user.type(screen.getByLabelText(/^Album/), "Moon Pix");
     await user.click(screen.getByRole("radio", { name: "A disc or a record" }));
-    const log = screen.getByRole("button", { name: "Log item" });
+    const log = screen.getByRole("button", { name: "Add a record" });
     expect(log).toBeDisabled();
     await user.click(screen.getByRole("combobox", { name: /^Format/ }));
     expect((await screen.findAllByRole("option")).map((o) => o.textContent)).toEqual(["CD", "CD-R"]);
@@ -1306,6 +1306,6 @@ describe("IntakeLanes as the music directors' tab", () => {
     expect(
       ["On the review shelf, 1", "Requested, 1", "Being reviewed, 1", "Review waiting, 1", "Reviewed, 1", "Filed, 1"].map((name) => screen.getByRole("tab", { name })),
     ).toEqual(tabs);
-    expect(screen.queryByRole("form", { name: "Log an item" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("form", { name: "Add a record" })).not.toBeInTheDocument();
   });
 });

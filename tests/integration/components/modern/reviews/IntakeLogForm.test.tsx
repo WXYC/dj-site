@@ -18,6 +18,7 @@ vi.mock("@/src/components/shared/Authorization", async (importOriginal) => ({
   RequireMD: ({ children }: { children: React.ReactNode }) => children,
 }));
 
+import { toast } from "sonner";
 import { fakeDiscogsPrefillEndpoint, MOLINA_DISCOGS_PREFILL } from "@/tests/fakes/discogsPrefill";
 import IntakeLogForm from "@/src/components/experiences/modern/reviews/IntakeLogForm";
 
@@ -43,10 +44,64 @@ describe("IntakeLogForm", () => {
     await user.click(screen.getByRole("radio", { name: "A disc or a record" }));
     await user.click(screen.getByRole("combobox", { name: /^Format/ }));
     await user.click(await screen.findByRole("option", { name: "CD" }));
-    await user.click(screen.getByRole("button", { name: "Log item" }));
+    await user.click(screen.getByRole("button", { name: "Add a record" }));
 
     await waitFor(() => expect(body).toBeDefined());
     expect(body).toMatchObject({ artist_name: "Cat Power", album_title: "Moon Pix" });
+  });
+
+  it("hands the answered record to onLogged once per add, after the server answers", async () => {
+    fakeReviewsEndpoints({ open: [] });
+    server.use(http.post(`${TEST_BACKEND_URL}/intake`, () => HttpResponse.json(moonPix())));
+    const onLogged = vi.fn();
+
+    const { user } = renderWithProviders(<IntakeLogForm onLogged={onLogged} />);
+    await user.type(await screen.findByLabelText(/^Artist/), "Cat Power");
+    await user.type(screen.getByLabelText(/^Album/), "Moon Pix");
+    await user.click(screen.getByRole("radio", { name: "As files" }));
+    await user.click(screen.getByRole("button", { name: "Add a record" }));
+
+    await waitFor(() => expect(onLogged).toHaveBeenCalledTimes(1));
+    expect(onLogged).toHaveBeenCalledWith(expect.objectContaining({ id: 11, artist_name: "Cat Power", album_title: "Moon Pix" }));
+  });
+
+  it("never calls onLogged when the add fails", async () => {
+    fakeReviewsEndpoints({ open: [] });
+    server.use(http.post(`${TEST_BACKEND_URL}/intake`, () => HttpResponse.json({ message: "boom" }, { status: 500 })));
+    const onLogged = vi.fn();
+
+    const { user } = renderWithProviders(<IntakeLogForm onLogged={onLogged} />);
+    await user.type(await screen.findByLabelText(/^Artist/), "Cat Power");
+    await user.type(screen.getByLabelText(/^Album/), "Moon Pix");
+    await user.click(screen.getByRole("radio", { name: "As files" }));
+    await user.click(screen.getByRole("button", { name: "Add a record" }));
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalled());
+    expect(onLogged).not.toHaveBeenCalled();
+  });
+
+  it("tells onBusyChange when the add starts and when it ends, whichever way it ends", async () => {
+    fakeReviewsEndpoints({ open: [] });
+    server.use(http.post(`${TEST_BACKEND_URL}/intake`, () => HttpResponse.json({ message: "boom" }, { status: 500 })));
+    const onBusyChange = vi.fn();
+
+    const { user } = renderWithProviders(<IntakeLogForm onBusyChange={onBusyChange} />);
+    await user.type(await screen.findByLabelText(/^Artist/), "Cat Power");
+    await user.type(screen.getByLabelText(/^Album/), "Moon Pix");
+    await user.click(screen.getByRole("radio", { name: "As files" }));
+    await user.click(screen.getByRole("button", { name: "Add a record" }));
+
+    await waitFor(() => expect(onBusyChange).toHaveBeenLastCalledWith(false));
+    expect(onBusyChange.mock.calls.map(([busy]) => busy)).toEqual([true, false]);
+  });
+
+  it("leaves out its own heading when the host titles it, and keeps the form's name", async () => {
+    fakeReviewsEndpoints({ open: [] });
+
+    renderWithProviders(<IntakeLogForm hideTitle />);
+
+    expect(await screen.findByRole("form", { name: "Add a record" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading")).not.toBeInTheDocument();
   });
 
   it("shows the Format options as CD and Vinyl while still sending the stored format's id", async () => {
@@ -70,7 +125,7 @@ describe("IntakeLogForm", () => {
     const options = await screen.findAllByRole("option");
     expect(options.map((o) => o.textContent)).toEqual(["CD", "Vinyl"]);
     await user.click(options[1]);
-    await user.click(screen.getByRole("button", { name: "Log item" }));
+    await user.click(screen.getByRole("button", { name: "Add a record" }));
 
     await waitFor(() => expect(body).toBeDefined());
     expect(body!.format_id).toBe(2);
@@ -122,7 +177,7 @@ describe("IntakeLogForm", () => {
       expect(prefill.urls()).toEqual([LINK]);
 
       await user.click(screen.getByRole("radio", { name: "As files" }));
-      await user.click(screen.getByRole("button", { name: "Log item" }));
+      await user.click(screen.getByRole("button", { name: "Add a record" }));
       await waitFor(() => expect(sent.body).toBeDefined());
       expect(sent.body).toMatchObject({ record_label: "Sonamos", label_id: 7, discogs_release_id: 24216789 });
     });
@@ -235,7 +290,7 @@ describe("IntakeLogForm", () => {
       await user.clear(label);
       await user.type(label, "Drag City");
       await user.click(screen.getByRole("radio", { name: "As files" }));
-      await user.click(screen.getByRole("button", { name: "Log item" }));
+      await user.click(screen.getByRole("button", { name: "Add a record" }));
 
       await waitFor(() => expect(sent.body).toBeDefined());
       expect(sent.body).toMatchObject({ record_label: "Drag City" });
@@ -249,7 +304,7 @@ describe("IntakeLogForm", () => {
         async (user: User) => {
           captureIntakePost();
           await user.click(screen.getByRole("radio", { name: "As files" }));
-          await user.click(screen.getByRole("button", { name: "Log item" }));
+          await user.click(screen.getByRole("button", { name: "Add a record" }));
           await waitFor(() => expect(screen.getByLabelText(/^Artist/)).toHaveValue(""));
         },
       ],

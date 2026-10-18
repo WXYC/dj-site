@@ -694,7 +694,7 @@ describe("ReviewsScreen", () => {
     const shelf = await section(SHELF);
     await within(shelf).findByText(/Moon Pix/);
 
-    expect(screen.queryByRole("form", { name: "Log an item" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Add a record" })).not.toBeInTheDocument();
     expect(within(shelf).queryAllByRole("button", { name: ASK_A_DJ })).toHaveLength(directors ? 1 : 0);
     const link = within(shelf).queryByRole("link", { name: "Cat Power" });
     expect(link !== null).toBe(directors);

@@ -80,7 +80,9 @@ test("the intake golden path, from logging a record to the librarian's finalize"
       // A failed earlier run may have left this account on the classic interface.
       await setExperienceViaAccount(md, "modern", "/dashboard/reviews/music-directors");
 
-      const form = md.getByRole("form", { name: COPY.intake.logTitle });
+      // The form lives in the Add a record dialog, which the tab's button opens.
+      await md.getByRole("button", { name: COPY.intake.log }).click();
+      const form = md.getByRole("dialog", { name: COPY.intake.logTitle }).getByRole("form", { name: COPY.intake.logTitle });
       await form.getByLabel(new RegExp(`^${COPY.intake.artist}`)).fill(artist);
       await form.getByLabel(new RegExp(`^${COPY.intake.album}`)).fill(album);
       // The path walks a disc: Format shows once the record arrived as a disc or a record.

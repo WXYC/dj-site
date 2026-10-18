@@ -2,6 +2,7 @@
 
 import { useId, useState } from "react";
 import { Autocomplete, AutocompleteOption, Button, CircularProgress, FormControl, FormHelperText, FormLabel, Input, Option, Radio, RadioGroup, Select, Sheet, Stack, Typography } from "@mui/joy";
+import type { IntakeItem } from "@wxyc/shared";
 import { toast } from "sonner";
 import { useGetFormatsQuery, useLazyGetDiscogsPrefillQuery, useSearchLibraryArtistsQuery } from "@/lib/features/catalog/api";
 import { discogsPrefillErrorMessage, discogsReleaseIdFrom } from "@/lib/features/catalog/discogsPrefill";
@@ -59,7 +60,16 @@ const SEGMENT_RADIO_PROPS = {
 } as const;
 const SEGMENT_SX = { px: 2, py: 1, bgcolor: "transparent", display: "flex", flexDirection: "column", justifyContent: "center" } as const;
 
-export default function IntakeLogForm() {
+type IntakeLogFormProps = {
+  /** Called with the answered record once it has been added, never when the add fails. */
+  onLogged?: (item: IntakeItem) => void;
+  /** Called with true when an add is sent and with false when it ends, whichever way, so a host can hold itself open meanwhile. */
+  onBusyChange?: (busy: boolean) => void;
+  /** Leaves out the form's own heading, for a host that titles it; the form keeps its accessible name. */
+  hideTitle?: boolean;
+};
+
+export default function IntakeLogForm({ onLogged, onBusyChange, hideTitle = false }: IntakeLogFormProps = {}) {
   const { data: formats } = useGetFormatsQuery(undefined);
   const [logItem, { isLoading: logging }] = useLogIntakeItemMutation();
   const [form, setForm] = useState<IntakeForm>(EMPTY_FORM);
@@ -131,8 +141,10 @@ export default function IntakeLogForm() {
   };
 
   const submit = async () => {
+    onBusyChange?.(true);
+    let item: IntakeItem;
     try {
-      await logItem({
+      item = await logItem({
         artist_name: form.artist,
         album_title: form.album,
         // `ready` guarantees a format whenever the arrival is a disc or a record.
@@ -141,11 +153,15 @@ export default function IntakeLogForm() {
         ...(labelId != null && { label_id: labelId }),
         ...(discogsId != null && { discogs_release_id: discogsId }),
       }).unwrap();
-      setForm(EMPTY_FORM);
-      setTypedArtist("");
     } catch {
       toast.error(REVIEW_COPY.screen.writeFailed);
+      return;
+    } finally {
+      onBusyChange?.(false);
     }
+    setForm(EMPTY_FORM);
+    setTypedArtist("");
+    onLogged?.(item);
   };
 
   return (
@@ -160,7 +176,7 @@ export default function IntakeLogForm() {
         void submit();
       }}
     >
-      <Typography component="h3" level="title-lg">{COPY.logTitle}</Typography>
+      {!hideTitle && <Typography component="h3" level="title-lg">{COPY.logTitle}</Typography>}
       <Stack spacing={1}>
         <FormControl error={discogsRefused || prefillLine?.failed === true}>
           <FormLabel>{COPY.discogsReleaseId}</FormLabel>
