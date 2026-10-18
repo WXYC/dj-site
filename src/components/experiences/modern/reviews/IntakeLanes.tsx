@@ -136,6 +136,12 @@ function IntakeLaneGroups() {
     return placeLine(i);
   };
 
+  const cancelButton = (i: IntakeItem) => (
+    <Button size="sm" variant="outlined" {...lock(i.id, "cancel")} onClick={() => act(i.id, "cancel", () => cancelRequest(i.id).unwrap())}>
+      {COPY.cancelRequest}
+    </Button>
+  );
+
   const dialog = confirming && confirmation(confirming);
   // Every lane's row links the artist to the record's page and puts the overdue mark and its lines in `meta`.
   const laneRow = (i: IntakeItem, meta?: ReactNode, actions?: ReactNode) => (
@@ -174,32 +180,31 @@ function IntakeLaneGroups() {
           title={`${COPY.waiting} (${waitingRows.length})`}
           rows={waitingRows}
           empty={COPY.empty}
-          row={(i) =>
-            laneRow(
+          row={(i) => {
+            const requested = i.effective_state === "requested";
+            const returnable = ["checked_out", "removed"].includes(itemHolder(i).kind) && recordKind(i) === "disc";
+            return laneRow(
               i,
               <WaitingFrom item={i} where={where(i)} />,
-              ["checked_out", "removed"].includes(itemHolder(i).kind) && recordKind(i) === "disc" && (
-                <Button size="sm" variant="outlined" {...lock(i.id, "return")} onClick={() => setConfirming({ item: i, action: "return" })}>
-                  {COPY.returned}
-                </Button>
+              (requested || returnable) && (
+                <>
+                  {requested && cancelButton(i)}
+                  {returnable && (
+                    <Button size="sm" variant="outlined" {...lock(i.id, "return")} onClick={() => setConfirming({ item: i, action: "return" })}>
+                      {COPY.returned}
+                    </Button>
+                  )}
+                </>
               ),
-            )
-          }
+            );
+          }}
         />
       )}
       <IntakeLane
         title={COPY.requested}
         rows={inStage("requested")}
         empty={COPY.empty}
-        row={(i) =>
-          laneRow(
-            i,
-            <Typography level="body-sm">{where(i)}</Typography>,
-            <Button size="sm" variant="outlined" {...lock(i.id, "cancel")} onClick={() => act(i.id, "cancel", () => cancelRequest(i.id).unwrap())}>
-              {COPY.cancelRequest}
-            </Button>,
-          )
-        }
+        row={(i) => laneRow(i, <Typography level="body-sm">{where(i)}</Typography>, cancelButton(i))}
       />
       <IntakeLane
         title={COPY.beingReviewed}

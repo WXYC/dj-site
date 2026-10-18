@@ -800,6 +800,31 @@ describe("IntakeLanes — cancel and release", () => {
   });
 });
 
+describe("IntakeLanes — a record with a review waiting keeps its actions", () => {
+  beforeEach(() => {
+    mockAuth.authority = Authorization.MD;
+    vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "staff");
+  });
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("sends a request's Cancel request from its Review waiting row", async () => {
+    const calls: string[] = [];
+    const item = { ...requestedRow(11), submitted_review_count: 1 };
+    fakeReviewsEndpoints({ open: [item], awaiting: [item] });
+    server.use(
+      http.post(`${TEST_BACKEND_URL}/intake/:id/cancel-request`, ({ params }) => {
+        calls.push(String(params.id));
+        return HttpResponse.json(item);
+      }),
+    );
+
+    const { user } = renderWithProviders(<IntakeLanes />);
+    await user.click(await within(await lane("Review waiting (1)")).findByRole("button", { name: "Cancel request" }));
+
+    await waitFor(() => expect(calls).toEqual(["11"]));
+  });
+});
+
 describe("IntakeLanes — lost races", () => {
   beforeEach(() => {
     mockAuth.authority = Authorization.MD;
