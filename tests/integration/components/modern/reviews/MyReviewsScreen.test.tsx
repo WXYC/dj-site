@@ -78,6 +78,7 @@ beforeEach(() => {
   router.push.mockClear();
   vi.mocked(toast).mockClear();
   vi.mocked(toast.success).mockClear();
+  vi.mocked(toast.error).mockClear();
 });
 
 const renderScreen = (items: IntakeItem[], myReviews: Review[], options: Parameters<typeof fakeReviewsEndpoints>[0] = {}) => {
@@ -441,11 +442,11 @@ describe("MyReviewsScreen", () => {
         await waitFor(() => expect(toast).toHaveBeenCalledWith(REVIEW_COPY.screen.raceRelease));
       });
 
-      // Only a DJ with a submitted review hears that the review is with the music directors; any other return says nothing once it lands, as Return to the review shelf did.
+      // Only a DJ with a submitted review hears that the review is with the music directors; any other return hears only that it went through.
       it.each([
-        ["with a submitted review", "?stage=submitted", [sentOf(1)], `${REVIEW_COPY.screen.returnQuestion} ${REVIEW_COPY.screen.markReturnedKeep}`, REVIEW_COPY.screen.returnedWaiting],
-        ["with no review of mine", "?stage=open", [], REVIEW_COPY.screen.returnQuestion, null],
-        ["with only a draft of mine", "?stage=open", [draftOf(1)], `${REVIEW_COPY.screen.returnQuestion} ${REVIEW_COPY.screen.passDraftSaved}`, null],
+        ["with a submitted review", "?stage=submitted", [sentOf(1)], `${REVIEW_COPY.screen.returnQuestion} ${REVIEW_COPY.screen.markReturnedKeep}`, "Returned. Your review is with the music directors."],
+        ["with no review of mine", "?stage=open", [], REVIEW_COPY.screen.returnQuestion, "Returned."],
+        ["with only a draft of mine", "?stage=open", [draftOf(1)], `${REVIEW_COPY.screen.returnQuestion} ${REVIEW_COPY.screen.passDraftSaved}`, "Returned."],
       ])("asks Mark as returned's question %s, and confirming returns the record", async (_name, search, reviews, body, toasted) => {
         url.search = search;
         const released: string[] = [];
@@ -462,11 +463,20 @@ describe("MyReviewsScreen", () => {
 
         await waitFor(() => expect(released).toEqual(["release"]));
         await waitFor(() => expect(screen.getByRole("button", { name: MARK })).toBeEnabled());
-        if (toasted) {
-          expect(toast.success).toHaveBeenCalledWith(toasted);
-        } else {
-          expect(toast.success).not.toHaveBeenCalled();
-        }
+        await waitFor(() => expect(toast.success).toHaveBeenCalledWith(toasted));
+        expect(toast.success).toHaveBeenCalledTimes(1);
+      });
+
+      it("shows no Returned toast when Mark as returned fails", async () => {
+        url.search = "?stage=open";
+        server.use(http.post(`${TEST_BACKEND_URL}/intake/1/release`, () => HttpResponse.json({ message: "boom" }, { status: 500 })));
+        const { user } = renderScreen([reviewedDisc2(1)], []);
+
+        await user.click(await screen.findByRole("button", { name: MARK }));
+        await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: MARK }));
+
+        await waitFor(() => expect(toast.error).toHaveBeenCalled());
+        expect(toast.success).not.toHaveBeenCalled();
       });
     });
   });
@@ -634,12 +644,11 @@ describe("MyReviewsScreen tooltips", () => {
     expect(await screen.findByRole("button", { name, description })).toBeInTheDocument();
   });
 
-  // Mark as returned on this screen is the DJ's own button. The station approved row 58's line for the music directors' button only.
-  it("gives the DJ's own Mark as returned no tooltip and no description", async () => {
+  // Mark as returned on this screen is the DJ's own button, with its own approved line; row 58's line stays on the music directors' button.
+  it("describes the DJ's own Mark as returned with its approved line, not the music directors' one", async () => {
     renderScreen([held(8, { effective_state: "reviewed", submitted_review_count: 1 })], [review({ id: 3, intake_item_id: 8, status: "submitted" })]);
 
     const button = await screen.findByRole("button", { name: REVIEW_COPY.intake.returned });
-    expect(button).not.toHaveAttribute("aria-describedby");
-    expect(button).toHaveAccessibleDescription("");
+    expect(button).toHaveAccessibleDescription("Use this once you've brought the disc back to the music office.");
   });
 });

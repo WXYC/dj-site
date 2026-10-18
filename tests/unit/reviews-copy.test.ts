@@ -57,6 +57,7 @@ describe("REVIEW_COPY digital album lines and the DJ's own list heading", () => 
     ["screen.passDraftSaved", REVIEW_COPY.screen.passDraftSaved, "Your draft is saved under Open reviews."],
     ["screen.markReturnedKeep", REVIEW_COPY.screen.markReturnedKeep, "Your review stays with the music directors."],
     ["screen.returnedWaiting", REVIEW_COPY.screen.returnedWaiting, "Returned. Your review is with the music directors."],
+    ["screen.returnedDone", REVIEW_COPY.screen.returnedDone, "Returned."],
     ["screen.filesComing", REVIEW_COPY.screen.filesComing, "A music director will send you the files."],
   ])("pins %s", (_key, actual, expected) => {
     expect(actual).toBe(expected);
@@ -103,6 +104,7 @@ describe("REVIEW_COPY round 10, the lines a disc and a digital album now share",
     ["tooltips.cancelRequest", REVIEW_COPY.tooltips.cancelRequest, "Put this record back on the review shelf. The DJ is no longer asked."],
     ["tooltips.returnToShelf", REVIEW_COPY.tooltips.returnToShelf, "Take this record back from the DJ who has it and put it on the review shelf, where any DJ can choose to review it. You'll be asked to confirm."],
     ["tooltips.markReturned", REVIEW_COPY.tooltips.markReturned, "The DJ has brought the disc to the music office."],
+    ["tooltips.markReturnedOwn", REVIEW_COPY.tooltips.markReturnedOwn, "Use this once you've brought the disc back to the music office."],
     ["tooltips.save", REVIEW_COPY.tooltips.save, "Save your changes. Each saved change is kept in the review's history."],
     ["tooltips.submit", REVIEW_COPY.tooltips.submit, "Send this review to the music directors. You can still edit it afterwards."],
   ])("pins %s", (_key, actual, expected) => {
@@ -235,9 +237,10 @@ describe("REVIEW_COPY.listen", () => {
   });
 });
 
-describe("REVIEW_COPY.intake review shelf row hints the station approved on 2026-10-16", () => {
+describe("REVIEW_COPY.intake review shelf row hints the station approved on 2026-10-16, and the singular on 2026-10-18", () => {
   it.each([
     ["hintLibrary", REVIEW_COPY.intake.hintLibrary("Juana Molina", "DOGA"), "The library already has Juana Molina, DOGA, with a review."],
+    ["hintForms (one)", REVIEW_COPY.intake.hintForms(1, "Stereolab"), "1 form review of Stereolab."],
     ["hintForms (two)", REVIEW_COPY.intake.hintForms(2, "Stereolab"), "2 form reviews of Stereolab."],
     ["hintForms (twelve)", REVIEW_COPY.intake.hintForms(12, "Stereolab"), "12 form reviews of Stereolab."],
   ])("pins %s", (_key, actual, expected) => {
@@ -245,11 +248,7 @@ describe("REVIEW_COPY.intake review shelf row hints the station approved on 2026
   });
 });
 
-describe("REVIEW_COPY proposals the approval does not cover: the singular hint and the review shelf's Review button and toast", () => {
-  it("reads in the singular", () => {
-    expect(REVIEW_COPY.intake.hintForms(1, "Stereolab")).toBe("1 form review of Stereolab.");
-  });
-
+describe("REVIEW_COPY proposals the approval does not cover: the review shelf's Review button and toast", () => {
   it.each([
     ["screen.review", REVIEW_COPY.screen.review, "Review"],
     ["screen.yoursToReview", REVIEW_COPY.screen.yoursToReview, "It's yours to review. It's under My reviews."],

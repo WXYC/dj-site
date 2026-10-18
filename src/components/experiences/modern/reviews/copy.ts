@@ -191,6 +191,8 @@ export const REVIEW_COPY = {
     markReturnedKeep: "Your review stays with the music directors.",
     /** Approved. Shown once Mark as returned has gone through. */
     returnedWaiting: "Returned. Your review is with the music directors.",
+    /** Approved. Shown once Mark as returned has gone through when the DJ has no submitted review of the record. */
+    returnedDone: "Returned.",
     /** Approved. Shown on a taken digital album with no submitted review. */
     filesComing: "A music director will send you the files.",
   },
@@ -210,14 +212,16 @@ export const REVIEW_COPY = {
     passHeld: "Give this record back without a review. It goes back on the review shelf, and the music directors see that you passed.",
     /** Approved. More, on a review shelf row. */
     more: "Ask a DJ, use a review we already have, or digitize one from paper.",
-    /** Approved. Ask a DJ…, in a review shelf row's More menu and on a record's page. */
+    /** Approved. Ask a DJ…, on a record's page. The More menu's item has none: its own description already says the 7 days. */
     askADj: "Ask one DJ to review this record. It's held for them for 7 days.",
     /** Approved. */
     cancelRequest: "Put this record back on the review shelf. The DJ is no longer asked.",
     /** Approved. A music director's Return to the review shelf. */
     returnToShelf: "Take this record back from the DJ who has it and put it on the review shelf, where any DJ can choose to review it. You'll be asked to confirm.",
-    /** Approved, for the music directors' Mark as returned only. The DJ's own Mark as returned on My reviews has no approved line. */
+    /** Approved, for the music directors' Mark as returned only. The DJ's own Mark as returned on My reviews has its own line below. */
     markReturned: "The DJ has brought the disc to the music office.",
+    /** Approved. The DJ's own Mark as returned, on My reviews. */
+    markReturnedOwn: "Use this once you've brought the disc back to the music office.",
     /** Approved. */
     save: "Save your changes. Each saved change is kept in the review's history.",
     /** Approved. */
@@ -280,7 +284,7 @@ export const REVIEW_COPY = {
     requestRefused: "That DJ can't be asked to review: their account was removed, or it's no longer a DJ account. Pick someone else.",
     /** Approved. The review shelf row's hint that the library holds this record already, named by the row's artist and album. */
     hintLibrary: (artist: string, album: string) => `The library already has ${artist}, ${album}, with a review.`,
-    /** Approved. The review shelf row's hint that the form archive holds reviews of this artist. The approval gives only the plural; the singular for one review is still a proposal. */
+    /** Approved. The review shelf row's hint that the form archive holds reviews of this artist. Both the plural and the singular for one review are approved. */
     hintForms: (count: number, artist: string) => `${count} form ${count === 1 ? "review" : "reviews"} of ${artist}.`,
     /** Approved. The item in a review shelf row's More menu, and the button on a record's page, that opens the search for a DJ to ask. */
     askADj: "Ask a DJ…",

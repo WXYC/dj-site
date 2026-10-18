@@ -74,8 +74,8 @@ const moreOf = async (artist: string, album: string) =>
 
 // The approved words, written out so a change to copy.ts can't pass by being read back.
 const ITEMS = [
-  // Ask a DJ… also carries the approved tooltip line, read after the item's own description.
-  ["Ask a DJ…", "Held for them for 7 days. Ask one DJ to review this record. It's held for them for 7 days."],
+  // Ask a DJ… has no tooltip: its description already says the 7 days, so a screen reader hears it once.
+  ["Ask a DJ…", "Held for them for 7 days."],
   ["Use a review we already have…", "From the copy in the library, or a form review."],
   ["Digitize a review…", "Type in a review that's on paper."],
 ] as const;
@@ -119,6 +119,8 @@ describe.each(SURFACES)("the music director's More menu on $name", ({ draw, hasC
     const menu = await screen.findByRole("menu");
     const items = within(menu).getAllByRole("menuitem");
     expect(items).toHaveLength(3);
+    // The menu's children are its items only: no hidden description span sits between them.
+    expect(Array.from(menu.children)).toEqual(items);
     ITEMS.forEach(([name, description], index) => {
       expect(within(menu).getByRole("menuitem", { name, description })).toBe(items[index]);
     });
