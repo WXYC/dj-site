@@ -181,11 +181,11 @@ export const REVIEW_COPY = {
     notReviewedYet: "Not reviewed yet",
     /** Approved. Added to the Pass confirmation for a disc the DJ has. */
     passBringDisc: "Bring the disc back to the music office first.",
-    /** Approved. Added to the Pass confirmation, and to Mark as returned's, when the DJ has a draft on the record. */
+    /** Approved for both places it is shown: added to the Pass confirmation, and to Mark as returned's confirmation, when the DJ has a draft on the record. */
     passDraftSaved: "Your draft is saved under Open reviews.",
-    /** Added to Mark as returned's confirmation when the DJ has a submitted review of the record. */
+    /** Approved. Added to Mark as returned's confirmation when the DJ has a submitted review of the record. */
     markReturnedKeep: "Your review stays with the music directors.",
-    /** Shown once Mark as returned has gone through. */
+    /** Approved. Shown once Mark as returned has gone through. */
     returnedWaiting: "Returned. Your review is with the music directors.",
     /** Approved. Shown on a taken digital album with no submitted review. */
     filesComing: "A music director will send you the files.",

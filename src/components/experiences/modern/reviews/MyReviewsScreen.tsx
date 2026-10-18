@@ -35,6 +35,9 @@ function ReviewMeta({ review, fromLibrary = false }: { review: Review; fromLibra
   );
 }
 
+/** A row's first control of its own: its buttons, or the Open link of a review. The Preview links before them open in a new tab, and the focus must not land on one. */
+const PRIMARY_CONTROL = "button, a[href]:not([target='_blank'])";
+
 /** The ids that put a row's artist and album in its buttons' names, keyed by the row's own key so no two rows share one. */
 const recordIds = (key: string) => ({ artist: `my-reviews-${key}-artist`, album: `my-reviews-${key}-album` });
 
@@ -123,7 +126,7 @@ export default function MyReviewsScreen({ items, myReviews, me, write, lock }: {
 
   /**
    * Pass and Mark as returned take their row away once the write lands, and a lost race's reload moves the record too, so
-   * the focus would fall to the page. It goes to the next row's first control, else the previous row's, else the
+   * the focus would fall to the page. It goes to the next row's main control (`PRIMARY_CONTROL`), else the previous row's, else the
    * stage's panel. The neighbours are read before the write, while the row is drawn; React keeps each keyed row's
    * element, so they are still the rows to focus whether or not the reload has been drawn yet. A failed write leaves the
    * row, and the focus with it.
@@ -136,7 +139,7 @@ export default function MyReviewsScreen({ items, myReviews, me, write, lock }: {
       if ((outcome !== "applied" && outcome !== "raced") || !mounted.current) {
         return;
       }
-      const next = neighbours.find((el) => el?.isConnected)?.querySelector<HTMLElement>("a[href], button");
+      const next = neighbours.find((el) => el?.isConnected)?.querySelector<HTMLElement>(PRIMARY_CONTROL);
       (next ?? panel)?.focus();
     };
   };

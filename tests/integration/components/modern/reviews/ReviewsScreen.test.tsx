@@ -1903,19 +1903,23 @@ describe("ReviewsScreen — a digital album reads its own lines, a disc keeps to
     expect(within(lane).queryByText("Not reviewed yet")).not.toBeInTheDocument();
   });
 
+  // A digital album has no disc to return, so only a disc has the return row.
+  const REVIEWED = { state: "reviewed", effective_state: "reviewed" } as const;
+  const lostNotice = "This record is no longer yours to review. The lists have been reloaded.";
   it.each([
-    ["a disc", false, /^Pass /, "pass", "This record is no longer yours to review. The lists have been reloaded."],
-    ["a digital album", true, /^Pass /, "pass", "This record is no longer yours to review. The lists have been reloaded."],
-  ])("answers a lost return of %s with the same notice", async (_kind, digital, button, action, notice) => {
-    const row = make(digital, { id: 5, ...TAKEN });
+    ["pass on a disc", false, {}, /^Pass /, "Pass", "pass"],
+    ["pass on a digital album", true, {}, /^Pass /, "Pass", "pass"],
+    ["return of a disc", false, REVIEWED, MARK, MARK, "release"],
+  ])("answers a lost %s with the same notice", async (_kind, digital, state, button, confirm, action) => {
+    const row = make(digital, { id: 5, ...TAKEN, ...state });
     server.use(
       http.get(`${TEST_BACKEND_URL}/intake`, () => HttpResponse.json([row])),
       http.post(`${TEST_BACKEND_URL}/intake/5/${action}`, () => HttpResponse.json({ message: "server words", reason: "state_changed" }, { status: 409 })),
     );
     const { user } = renderWithProviders(<BothTabs />);
     await user.click(await within(await section(LIST)).findByRole("button", { name: button }));
-    await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Pass" }));
-    await waitFor(() => expect(toast).toHaveBeenCalledWith(notice));
+    await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: confirm }));
+    await waitFor(() => expect(toast).toHaveBeenCalledWith(lostNotice));
   });
 
   it.each([

@@ -382,7 +382,13 @@ describe("MyReviewsScreen", () => {
   });
 
   describe("the focus once a row's write takes the row away", () => {
-    const named = (i: IntakeItem, n: number) => ({ ...i, ...[{ artist_name: "Juana Molina", album_title: "DOGA" }, { artist_name: "Cat Power", album_title: "Moon Pix" }][n] });
+    // Each record carries Preview links, drawn before the row's buttons, so the focus has to pass them to reach the row's main button.
+    const named = (i: IntakeItem, n: number) => ({
+      ...i,
+      ...[{ artist_name: "Juana Molina", album_title: "DOGA" }, { artist_name: "Cat Power", album_title: "Moon Pix" }][n],
+      spotify_url: `https://open.spotify.com/album/${n + 1}`,
+      discogs_release_id: 40 + n,
+    });
     const reviewedDisc = (id: number) => held(id, { state: "reviewed", effective_state: "reviewed", submitted_review_count: 1 });
     const sent = (id: number) => [review({ id: 70 + id, intake_item_id: id, status: "submitted", in_use: false, submitted_at: `2026-10-0${id}T12:00:00Z` })];
 
@@ -422,6 +428,7 @@ describe("MyReviewsScreen", () => {
         const rows = within(panel).getAllByRole("listitem");
         const album = within(rows[acted]).getByText(/^(DOGA|Moon Pix)$/).textContent!;
         const keptFirst = within(rows[kept]).getAllByRole("button")[0];
+        expect(within(rows[kept]).getAllByRole("link", { name: /opens in a new tab/i }).length).toBeGreaterThan(0);
 
         await act(user, rows[acted], words);
 
