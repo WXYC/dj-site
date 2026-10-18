@@ -12,6 +12,9 @@ export function useMounted() {
   return mounted;
 }
 
+/** How a row write ended: `applied` when it landed, `raced` when someone else got there first, `failed` on any other rejection, and `ignored` when the row was already locked and nothing was sent. */
+export type RowWriteOutcome = "applied" | "raced" | "failed" | "ignored";
+
 type RowWriteOptions<Action extends string> = {
   /**
    * Re-reads every list the screen renders, one promise per list. Dispatch
@@ -36,9 +39,10 @@ type RowWriteOptions<Action extends string> = {
  *
  * `write(id, action, run)` ignores a call on a locked row, so a double click
  * sends one request: the guard is a ref, which a second click that lands
- * before the re-render also sees. `lock(id, action)` gives a button its
- * `{ loading, disabled }`; a caller whose button has no `loading` prop spreads
- * only `disabled`.
+ * before the re-render also sees. It resolves, once the lists have reloaded,
+ * to the write's `RowWriteOutcome`, for a caller that acts on how it ended.
+ * `lock(id, action)` gives a button its `{ loading, disabled }`; a caller
+ * whose button has no `loading` prop spreads only `disabled`.
  *
  * A write outlives the page when the DJ navigates away mid-click, so after
  * unmount nothing here touches React state or calls back into the screen
@@ -58,23 +62,36 @@ export function useRowWrite<Action extends string>({
   const [pending, setPending] = useState<ReadonlyMap<number, Action>>(() => new Map());
   const mounted = useMounted();
 
-  const write = async (id: number, action: Action, run: () => Promise<unknown>) => {
-    if (inFlight.current.has(id)) return;
+  const write = async (id: number, action: Action, run: () => Promise<unknown>): Promise<RowWriteOutcome> => {
+    if (inFlight.current.has(id)) {
+      return "ignored";
+    }
     inFlight.current.set(id, action);
     setPending(new Map(inFlight.current));
-    let raced = false;
+    let outcome: RowWriteOutcome = "applied";
     try {
       await run();
     } catch (err) {
-      if (isLostRace(err)) raced = true;
-      else if (mounted.current) onFailure(err, id, action);
+      if (isLostRace(err)) {
+        outcome = "raced";
+      } else {
+        outcome = "failed";
+        if (mounted.current) {
+          onFailure(err, id, action);
+        }
+      }
     } finally {
       await Promise.allSettled(reload());
       inFlight.current.delete(id);
-      if (mounted.current) setPending(new Map(inFlight.current));
+      if (mounted.current) {
+        setPending(new Map(inFlight.current));
+      }
     }
     // The notice says the lists have been reloaded, so it waits until they have.
-    if (raced && mounted.current) onLostRace?.(id, action);
+    if (outcome === "raced" && mounted.current) {
+      onLostRace?.(id, action);
+    }
+    return outcome;
   };
 
   const lock = (id: number, action: Action) => ({

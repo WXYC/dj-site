@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
-import { useRowWrite } from "@/src/hooks/useRowWrite";
+import { useRowWrite, type RowWriteOutcome } from "@/src/hooks/useRowWrite";
 
 // Every setter `useState` hands out, so a test can assert that none ran after unmount
 // (React 19 no longer warns about that, so the absence of a warning proves nothing).
@@ -61,7 +61,7 @@ describe("useRowWrite", () => {
     const write = deferred();
     const { result } = setUp();
 
-    let done!: Promise<void>;
+    let done!: Promise<RowWriteOutcome>;
     act(() => {
       done = result.current.write(1, "checkout", () => write.promise);
     });
@@ -84,14 +84,15 @@ describe("useRowWrite", () => {
 
     // Not awaited: a regressed guard would start a second write that never settles,
     // and awaiting it would hang this file instead of failing this assertion.
-    let done!: Promise<void>;
+    let done!: Promise<RowWriteOutcome>;
+    const again: Promise<RowWriteOutcome>[] = [];
     act(() => {
       done = result.current.write(1, "checkout", run);
-      void result.current.write(1, "checkout", run);
-      void result.current.write(1, "release", run);
+      again.push(result.current.write(1, "checkout", run), result.current.write(1, "release", run));
     });
 
     expect(run).toHaveBeenCalledTimes(1);
+    expect(await Promise.all(again)).toEqual(["ignored", "ignored"]);
     await act(async () => {
       write.resolve();
       await done;
@@ -110,14 +111,14 @@ describe("useRowWrite", () => {
   });
 
   it.each([
-    ["resolves", (d: Deferred) => d.resolve(), undefined],
-    ["fails", (d: Deferred) => d.reject(new Error("boom")), "failure"],
-    ["loses the race", (d: Deferred) => d.reject(LOST_RACE), "race"],
-  ] as const)("keeps the row locked until the reload settles when the write %s", async (_label, settle, outcome) => {
+    ["resolves", (d: Deferred) => d.resolve(), undefined, "applied"],
+    ["fails", (d: Deferred) => d.reject(new Error("boom")), "failure", "failed"],
+    ["loses the race", (d: Deferred) => d.reject(LOST_RACE), "race", "raced"],
+  ] as const)("keeps the row locked until the reload settles when the write %s, then resolves to how it ended", async (_label, settle, outcome, ended) => {
     const reload = deferred();
     const { result, onFailure, onLostRace } = setUp(() => [reload.promise]);
 
-    let done!: Promise<void>;
+    let done!: Promise<RowWriteOutcome>;
     await act(async () => {
       const run = deferred();
       done = result.current.write(1, "checkout", () => run.promise);
@@ -131,7 +132,7 @@ describe("useRowWrite", () => {
 
     await act(async () => {
       reload.resolve();
-      await done;
+      await expect(done).resolves.toBe(ended);
     });
 
     expect(result.current.lock(1, "checkout").disabled).toBe(false);
@@ -197,7 +198,7 @@ describe("useRowWrite", () => {
     const { result, unmount, onFailure, onLostRace } = setUp(() => [Promise.reject(new Error("store torn down"))]);
 
     const run = deferred();
-    let done!: Promise<void>;
+    let done!: Promise<RowWriteOutcome>;
     act(() => {
       done = result.current.write(1, "checkout", () => run.promise);
     });

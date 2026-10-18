@@ -4,6 +4,7 @@ import type { IntakeItem } from "@wxyc/shared";
 import { itemHolder, onReviewShelf } from "@/lib/features/reviews/holder";
 import { useCancelIntakeRequestMutation } from "@/lib/features/reviews/intakeApi";
 import { useGetReviewersQuery } from "@/lib/features/reviews/reviewApi";
+import type { RowWriteOutcome } from "@/src/hooks/useRowWrite";
 import HeadedSection from "./HeadedSection";
 import { REVIEW_COPY } from "./copy";
 import { whereLine } from "./ReviewFrom";
@@ -37,20 +38,15 @@ export default function RecordOrigin({ item, focusCite, settled, children }: { i
     el.scrollIntoView?.();
     el.querySelector<HTMLElement>("[data-line='two'] button")?.focus();
   }, [focusCite]);
-  // Cancel request and Ask a DJ… each unmount once their write lands, so focus moves to the line that now says where the record is, or to the block when no line names its place.
-  const focusWhereNow = () => (whereNow.current ?? block.current)?.focus();
-  // A page about one record, so Ask a DJ… is named by its own words.
-  const { picker } = useAskADj({ reviewers, write, lock, labelledBy: null, onAsked: focusWhereNow });
-  const cancel = async () => {
-    let cancelled = false;
-    await write(item.id, "cancel", async () => {
-      await cancelRequest(item.id).unwrap();
-      cancelled = true;
-    });
-    if (cancelled) {
-      focusWhereNow();
+  // Cancel request and Ask a DJ… each unmount once their write lands or loses its race, since either way the reread record has moved, so focus moves to the line that now says where the record is, or to the block when no line names its place. A refused or failed write leaves the control, which keeps its focus.
+  const followRecord = (outcome: RowWriteOutcome) => {
+    if (outcome === "applied" || outcome === "raced") {
+      (whereNow.current ?? block.current)?.focus();
     }
   };
+  // A page about one record, so Ask a DJ… is named by its own words.
+  const { picker } = useAskADj({ reviewers, write, lock, namedByRow: false, onSettled: (_i, outcome) => followRecord(outcome) });
+  const cancel = async () => followRecord(await write(item.id, "cancel", () => cancelRequest(item.id).unwrap()));
   const titleId = `record-origin-${item.id}`;
   const line = whereLine(item);
 

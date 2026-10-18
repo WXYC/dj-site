@@ -5611,6 +5611,7 @@ describe("IntakeItemScreen", () => {
     beforeEach(() => {
       getParam.delete("get");
       vi.mocked(toast).mockClear();
+      vi.mocked(toast.error).mockClear();
     });
 
     it.each([
@@ -5645,22 +5646,29 @@ describe("IntakeItemScreen", () => {
       expect(recordButtons()).toHaveLength(1);
     });
 
-    /** Serves the item through a box whose request and cancel-request change it, and records the bodies of the requests sent. */
-    const serveWrites = (start: ReturnType<typeof dogaItem>) => {
+    const LOST_RACE = { message: "server words", reason: "state_changed" };
+    /** Checked out by DJ Sam: what another DJ's checkout leaves when it beats the block's Ask a DJ… or Cancel request. */
+    const takenBySam = dogaItem({ ...POOL, ...heldBy("dj-sam", "DJ Sam"), state: "checked_out", effective_state: "checked_out" });
+
+    /**
+     * Serves the item through a box whose request and cancel-request change it, and records the bodies of the requests sent.
+     * With `lostTo`, each write loses its race instead: the box takes that record and the write answers 409 state_changed.
+     */
+    const serveWrites = (start: ReturnType<typeof dogaItem>, lostTo?: ReturnType<typeof dogaItem>) => {
       fakeReviewsEndpoints({ records: [start], reviewers: [{ id: "dj-sam", name: "Sam" }] });
       const box = serveItem(start);
       const asked: { dj_id: string }[] = [];
       const listReads = { count: 0 };
+      const answer = (applied: ReturnType<typeof dogaItem>) => {
+        box.item = lostTo ?? applied;
+        return lostTo ? HttpResponse.json(LOST_RACE, { status: 409 }) : HttpResponse.json(box.item);
+      };
       server.use(
         http.post(`${TEST_BACKEND_URL}/intake/${ITEM_ID}/request`, async ({ request }) => {
           asked.push((await request.json()) as { dj_id: string });
-          box.item = dogaItem({ ...POOL, ...requestedFor("dj-sam", "Sam"), state: "requested", effective_state: "requested" });
-          return HttpResponse.json(box.item);
+          return answer(dogaItem({ ...POOL, ...requestedFor("dj-sam", "Sam"), state: "requested", effective_state: "requested" }));
         }),
-        http.post(`${TEST_BACKEND_URL}/intake/${ITEM_ID}/cancel-request`, () => {
-          box.item = dogaItem(POOL);
-          return HttpResponse.json(box.item);
-        }),
+        http.post(`${TEST_BACKEND_URL}/intake/${ITEM_ID}/cancel-request`, () => answer(dogaItem(POOL))),
         http.get(`${TEST_BACKEND_URL}/intake`, () => {
           listReads.count += 1;
           return undefined;
@@ -5676,11 +5684,15 @@ describe("IntakeItemScreen", () => {
     };
     const cancelRequest = async (user: User) => user.click(await within(await screen.findByRole("region", { name: TITLE })).findByRole("button", { name: "Cancel request" }));
 
+    const requested = dogaItem({ ...POOL, ...requestedFor("dj-sam", "DJ Sam"), state: "requested", effective_state: "requested" });
+    // A lost race unmounts the pressed control as a success does, so focus moves to the line either way rather than falling to the page.
     it.each([
-      ["Cancel request", dogaItem({ ...POOL, ...requestedFor("dj-sam", "DJ Sam"), state: "requested", effective_state: "requested" }), cancelRequest, "On the review shelf", "Ask a DJ…", []],
-      ["Ask a DJ…", dogaItem(POOL), askSam, "Held for Sam", "Cancel request", [{ dj_id: "dj-sam" }]],
-    ])("after %s, reads the new where-now line, offers the other control, moves focus to the line and rereads only the record", async (_name, start, act, line, other, sent) => {
-      const { asked, listReads } = serveWrites(start);
+      ["Cancel request", "lands", requested, cancelRequest, undefined, "On the review shelf", ["Ask a DJ…"], []],
+      ["Cancel request", "loses its race to a checkout", requested, cancelRequest, takenBySam, "Checked out to DJ Sam", [], []],
+      ["Ask a DJ…", "lands", dogaItem(POOL), askSam, undefined, "Held for Sam", ["Cancel request"], [{ dj_id: "dj-sam" }]],
+      ["Ask a DJ…", "loses its race to a checkout", dogaItem(POOL), askSam, takenBySam, "Checked out to DJ Sam", [], [{ dj_id: "dj-sam" }]],
+    ])("after %s %s, reads the new where-now line, offers the other controls, moves focus to the line and rereads only the record", async (_name, _outcome, start, act, lostTo, line, buttons, sent) => {
+      const { asked, listReads } = serveWrites(start, lostTo);
       const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
       const region = await screen.findByRole("region", { name: TITLE });
       await reviewsSettled(store);
@@ -5689,11 +5701,36 @@ describe("IntakeItemScreen", () => {
       await act(user);
 
       const where = await within(region).findByText(line);
-      expect(await within(region).findByRole("button", { name: other })).toBeInTheDocument();
       await waitFor(() => expect(where).toHaveFocus());
+      expect(within(region).queryAllByRole("button", { name: /^(Ask a DJ…|Cancel request)$/ }).map((b) => b.textContent)).toEqual(buttons);
       expect(asked).toEqual(sent);
       await reviewsSettled(store);
       expect(listReads.count).toBe(listReadsBefore);
+    });
+
+    it("keeps Ask a DJ… and the focus off the where-now line when a request is refused, says so and reads the reviewers again", async () => {
+      serveWrites(dogaItem(POOL));
+      let reviewerReads = 0;
+      server.use(
+        http.post(`${TEST_BACKEND_URL}/intake/${ITEM_ID}/request`, () => HttpResponse.json({ message: "server words" }, { status: 400 })),
+      );
+      const { user, store } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+      const region = await screen.findByRole("region", { name: TITLE });
+      await reviewsSettled(store);
+      server.use(
+        http.get(`${TEST_BACKEND_URL}/reviews/reviewers`, () => {
+          reviewerReads += 1;
+          return HttpResponse.json({ reviewers: [{ id: "dj-sam", name: "Sam" }] });
+        }),
+      );
+
+      await askSam(user);
+
+      await waitFor(() => expect(vi.mocked(toast.error)).toHaveBeenCalledWith(REVIEW_COPY.intake.requestRefused));
+      await waitFor(() => expect(reviewerReads).toBe(1));
+      await reviewsSettled(store);
+      expect(within(region).getByRole("button", { name: "Ask a DJ…" })).toBeInTheDocument();
+      expect(within(region).getByText("On the review shelf")).not.toHaveFocus();
     });
 
     it("asks a DJ from the block and offers Cancel request in the toast", async () => {
