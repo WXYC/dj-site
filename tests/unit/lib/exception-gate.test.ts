@@ -56,11 +56,17 @@ describe("createExceptionGate", () => {
   });
 
   it("bounds the dedupe table", () => {
-    const { gate } = setUp();
-    for (let i = 0; i < 5000; i++) {
-      gate.admit(err(`e${i}`));
+    const { gate, advance } = setUp();
+    let admitted = 0;
+    for (let i = 0; i < 1500; i++) {
+      // One refill interval per send keeps a token available, so every distinct key is admitted and tracked.
+      advance(REFILL_INTERVAL_MS);
+      if (gate.admit(err(`e${i}`))) {
+        admitted++;
+      }
     }
-    expect(gate.trackedKeys).toBeLessThanOrEqual(1000);
+    expect(admitted).toBe(1500);
+    expect(gate.trackedKeys).toBe(1000);
   });
 
   it("never throws on a malformed error or context", () => {
