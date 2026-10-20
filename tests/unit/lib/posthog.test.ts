@@ -291,6 +291,31 @@ describe("manual exception gates", () => {
     expect(posthog.captureException).toHaveBeenCalledTimes(1);
   });
 
+  it("shares one token bucket between buffered and direct sends", async () => {
+    const mod = await loadTelemetry();
+    mod.initTelemetry();
+    for (let i = 0; i < 5; i++) {
+      mod.captureExceptionInPostHog(new Error(`early-${i}`));
+    }
+    await flush();
+    for (let i = 0; i < 16; i++) {
+      mod.captureExceptionInPostHog(new Error(`late-${i}`));
+    }
+    expect(posthog.captureException).toHaveBeenCalledTimes(20);
+  });
+
+  it("spends tokens on buffered sends that later direct sends cannot use", async () => {
+    const mod = await loadTelemetry();
+    mod.initTelemetry();
+    for (let i = 0; i < 20; i++) {
+      mod.captureExceptionInPostHog(new Error(`early-${i}`));
+    }
+    await flush();
+    expect(posthog.captureException).toHaveBeenCalledTimes(20);
+    mod.captureExceptionInPostHog(new Error("late"));
+    expect(posthog.captureException).toHaveBeenCalledTimes(20);
+  });
+
   it("leaves automatic capture on", async () => {
     await initAndWait();
     expect(posthog.init.mock.calls[0][1]).toMatchObject({
