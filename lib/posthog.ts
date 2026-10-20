@@ -1,4 +1,5 @@
 import type { CaptureResult, PostHog } from "posthog-js";
+import { createExceptionGate } from "./exception-gate";
 import { redactEmailsDeep } from "./redact";
 
 /**
@@ -30,6 +31,11 @@ let client: PostHog | null = null;
 // drain it).
 let loading: Promise<void> | null = null;
 let loadFailed = false;
+
+// Manual `$exception` sends share a hard monthly PostHog cap with every other
+// surface, and unlike automatic capture (posthog-js rate-limits that itself)
+// they bypass the SDK's limiter. See lib/exception-gate.ts for the two gates.
+const exceptionGate = createExceptionGate();
 
 // Captures fired before the chunk resolves would otherwise be lost — this is
 // the whole cold-session window: the first $pageview, TTFB/FCP web-vitals, and
@@ -145,12 +151,20 @@ export function safeCapture(
  * `lib/error-reporting.ts` owns the normalization and is the only intended
  * caller; the property shape matches what the SDK's automatic capture emits,
  * so both arrive as the same event type.
+ *
+ * Gated before both the direct send and the pre-load buffer (so buffered
+ * errors count too): 60 s dedupe, then a per-page-load token bucket of 20,
+ * refilling one token per 30 minutes. Drops are counted, never sent. Automatic
+ * capture (`capture_exceptions: true`) is left to the SDK's own limiter.
  */
 export function captureExceptionInPostHog(
   error: Error,
   context?: Record<string, unknown>
 ): void {
   try {
+    if (!exceptionGate.admit(error, context)) {
+      return;
+    }
     if (client) {
       client.captureException(error, context);
     } else {

@@ -239,6 +239,66 @@ describe("before_send scrubbing", () => {
   });
 });
 
+describe("manual exception gates", () => {
+  const originalEnv = { ...process.env };
+  let now = 0;
+
+  beforeEach(() => {
+    vi.resetModules();
+    now = 1_000_000;
+    vi.spyOn(Date, "now").mockImplementation(() => now);
+    posthog.capture.mockReset();
+    posthog.captureException.mockReset();
+    posthog.init.mockReset();
+    posthog.__loaded = false;
+    process.env.NEXT_PUBLIC_POSTHOG_KEY = "phc_test123";
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    process.env = { ...originalEnv };
+  });
+
+  it("drops a repeat inside 60 seconds and sends it again after", async () => {
+    const { captureExceptionInPostHog } = await initAndWait();
+    captureExceptionInPostHog(new Error("loop"));
+    now += 59_000;
+    captureExceptionInPostHog(new Error("loop"));
+    expect(posthog.captureException).toHaveBeenCalledTimes(1);
+    now += 1_000;
+    captureExceptionInPostHog(new Error("loop"));
+    expect(posthog.captureException).toHaveBeenCalledTimes(2);
+  });
+
+  it("sends 20 distinct errors, drops the 21st, and refills after 30 minutes", async () => {
+    const { captureExceptionInPostHog } = await initAndWait();
+    for (let i = 0; i < 21; i++) {
+      captureExceptionInPostHog(new Error(`e${i}`));
+    }
+    expect(posthog.captureException).toHaveBeenCalledTimes(20);
+    now += 30 * 60_000;
+    captureExceptionInPostHog(new Error("after-refill"));
+    expect(posthog.captureException).toHaveBeenCalledTimes(21);
+  });
+
+  it("counts errors buffered before load against the same gates", async () => {
+    const mod = await loadTelemetry();
+    mod.initTelemetry();
+    for (let i = 0; i < 3; i++) {
+      mod.captureExceptionInPostHog(new Error("early"));
+    }
+    await flush();
+    expect(posthog.captureException).toHaveBeenCalledTimes(1);
+  });
+
+  it("leaves automatic capture on", async () => {
+    await initAndWait();
+    expect(posthog.init.mock.calls[0][1]).toMatchObject({
+      capture_exceptions: true,
+    });
+  });
+});
+
 describe("pre-load buffer", () => {
   const originalEnv = { ...process.env };
 
