@@ -861,10 +861,24 @@ describe("flowsheet conversions", () => {
         expect(result.show_id).toBe(-1);
       });
 
-      it("should throw for unknown entry type", () => {
-        const entry = { ...createTestV2TrackEntry(), entry_type: "unknown_type" } as any;
-        expect(() => convertV2Entry(entry)).toThrow("Unknown entry type: unknown_type");
-      });
+      it.each([
+        ["spotlight", "Live in the studio: Weirs", "Live in the studio: Weirs"],
+        ["unknown_type", undefined, ""],
+      ])(
+        "converts an unknown %s entry to a message entry instead of throwing",
+        (entryType, message, expected) => {
+          const entry = {
+            ...createTestV2TrackEntry({ id: 77 }),
+            entry_type: entryType,
+            message,
+          } as any;
+          const result = convertV2Entry(entry) as FlowsheetMessageEntry;
+
+          expect(result.message).toBe(expected);
+          expect(result.id).toBe(77);
+          expect("track_title" in result).toBe(false);
+        }
+      );
 
       it("should handle timestamp without comma in show entries", () => {
         const entry = createTestV2ShowStartEntry({ timestamp: "no comma here" });
@@ -963,6 +977,24 @@ describe("flowsheet conversions", () => {
         expect(result).toHaveLength(5);
         expect(result[0].id).toBe(5);
         expect(result[4].id).toBe(1);
+      });
+
+      it("keeps every row of a page that mixes known rows with an unknown one", () => {
+        const entries = [
+          createTestV2TrackEntry({ id: 1 }),
+          {
+            ...createTestV2TrackEntry({ id: 2 }),
+            entry_type: "spotlight",
+            message: "Live in the studio: Weirs",
+          } as any,
+          createTestV2TrackEntry({ id: 3 }),
+        ];
+        const result = convertV2FlowsheetResponse(entries);
+
+        expect(result.map((e) => e.id)).toEqual([3, 2, 1]);
+        expect((result[1] as FlowsheetMessageEntry).message).toBe(
+          "Live in the studio: Weirs"
+        );
       });
 
       it("should sort correctly across shows where play_order resets", () => {

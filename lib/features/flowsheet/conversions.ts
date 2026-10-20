@@ -319,8 +319,11 @@ export function convertV2Entry(entry: FlowsheetV2EntryJSON): FlowsheetEntry {
         message: entry.message,
       };
 
+    // A type this build does not know (the server adds types ahead of the
+    // site) degrades to its server-composed message; a throw here would break
+    // every live flowsheet query at once.
     default:
-      throw new Error(`Unknown entry type: ${(entry as any).entry_type}`);
+      return { ...base, message: (entry as { message?: string }).message ?? "" };
   }
 }
 
