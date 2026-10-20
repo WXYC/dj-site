@@ -511,10 +511,10 @@ export function createLiveUpdatesListenerMiddleware(
 
     if (insertBurstCount < INSERT_PATCH_BURST_LIMIT) {
       try {
-        // Converted inside the try: convertV2Entry throws on an entry_type
-        // outside its switch while isLiveFsEvent only vets a numeric id, and
-        // an uncaught throw here would escape es.onmessage — skipping both
-        // the telemetry and the backstop invalidate below.
+        // Converted inside the try: isLiveFsEvent only vets a numeric id, so
+        // a malformed payload can still make the conversion throw, and an
+        // uncaught throw here would escape es.onmessage — skipping both the
+        // telemetry and the backstop invalidate below.
         const entry = convertV2Entry(
           payload as unknown as FlowsheetV2EntryJSON
         );
