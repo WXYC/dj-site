@@ -88,16 +88,6 @@ export default function ShowView({
         </tbody>
       </table>
 
-      {show.subtitle && (
-        <p
-          className="subtitle redlabel"
-          data-testid="classic-show-subtitle"
-          style={{ textAlign: "center" }}
-        >
-          {show.subtitle}
-        </p>
-      )}
-
       <ClassicShowEntries
         show={{ id: showId, show_name: show.title, dj_name: show.djName } as never}
         entries={show.entries}
@@ -105,6 +95,7 @@ export default function ShowView({
         partialEdge={null}
         isLoading={show.isLoading}
         highlightedEntryId={highlightedEntryId}
+        subtitle={show.subtitle}
       />
     </div>
   );
