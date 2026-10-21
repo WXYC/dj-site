@@ -5,9 +5,9 @@ import { safeCaptureException } from "@/lib/error-reporting";
  * Single server-observability entry point.
  *
  * No server-side error-reporting client is warranted yet: telemetry is an
- * optional adapter (CLAUDE.md) and both sinks are browser-only here, so
+ * optional adapter (CLAUDE.md) and the PostHog sink is browser-only here, so
  * `register` is an intentional no-op. Add server setup here if a workerd-side
- * client is ever introduced (see docs/adr/0008 for why it isn't yet).
+ * client is ever introduced (see docs/adr/0009 for why it isn't yet).
  */
 export function register(): void {}
 

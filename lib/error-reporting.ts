@@ -9,8 +9,7 @@ import { captureExceptionInPostHog } from "./posthog";
  *
  * The error is normalized here and the adapter redacts email-shaped text on
  * the way out.
- */
-/**
+ *
  * `label` is an optional call-site constant (a string literal) that joins the
  * PostHog exception gate's dedupe key, so two call sites reporting the same
  * error text are not suppressed as one. Never derive it from runtime data.

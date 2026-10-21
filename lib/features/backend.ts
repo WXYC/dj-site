@@ -164,15 +164,12 @@ const logNonJsonResponse = (
   const message = `[backendBaseQuery] non-JSON response from ${path} (HTTP ${error.originalStatus}); soft-failing.`;
   const sample = error.data.slice(0, BODY_SAMPLE_LENGTH);
   console.warn(message, { sample, params });
-  // Both sinks receive this (see lib/error-reporting.ts). The underlying
-  // exception and a body sample are what name the failure — a gateway's HTML
-  // and a truncated payload are one status code and two different problems —
-  // so without them the event cannot be diagnosed without a live reproduction.
-  //
-  // They travel nested because `splitContext` indexes every string-valued
-  // entry as an error-tracker tag, and a parser message carries a byte offset while a
-  // sample carries the body: neither is worth a tag value. `extra` is also the
-  // one field no adapter scrubs on the way out, hence the redaction here.
+  // The underlying exception and a body sample are what name the failure — a
+  // gateway's HTML and a truncated payload are one status code and two
+  // different problems — so without them the event cannot be diagnosed
+  // without a live reproduction. They travel nested under `response`, and the
+  // body-derived text is redacted here as well as by PostHog's `before_send`,
+  // so an address in a sampled body never depends on a single scrubber.
   safeCaptureException(new Error(message), {
     domain,
     url,

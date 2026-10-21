@@ -34,7 +34,7 @@ const { captureSpy, captureExceptionSpy } = vi.hoisted(() => ({
 }));
 // The listener uses two entry points: sse_* analytics events go straight to
 // PostHog, while dispatch/parse failures go through the error-reporting facade
-// (which fans out to both sinks).
+// (which reports to PostHog).
 vi.mock("@/lib/posthog", () => ({
   safeCapture: captureSpy,
 }));
