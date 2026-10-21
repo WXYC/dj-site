@@ -84,4 +84,15 @@ describe("ConfirmDialog", () => {
     expect(onClose).not.toHaveBeenCalled();
     expect(screen.getByRole("alertdialog")).toBeInTheDocument();
   });
+
+  // Joy's outlined fields paint their focus ring 1px past their own box, and the content scrolls, so a field as
+  // wide as the content scrolled it sideways. The content is padded by that pixel and pulled out by as much, which
+  // keeps its width. jsdom measures nothing; e2e/tests/reviews/layout.spec.ts checks the scroll in a browser.
+  it("pads the content by the fields' ring overhang without changing its width", () => {
+    setup();
+
+    const content = screen.getByText("Nothing has been saved yet.").closest(".MuiDialogContent-root");
+
+    expect(content).toHaveStyle({ paddingLeft: "1px", paddingRight: "1px", marginLeft: "-1px", marginRight: "-1px" });
+  });
 });

@@ -572,6 +572,61 @@ test.describe("Review editor layout, one column", () => {
   });
 });
 
+const ADD_RECORD_SCROLLER = "add-record-scroller";
+
+/**
+ * Opens the New music tab's Add a record dialog with every field it can show (a disc or a record also shows the
+ * format), and tags the box the form scrolls in: the nearest ancestor that scrolls sideways.
+ */
+async function openAddRecord(page: Page): Promise<void> {
+  await page.goto("/dashboard/reviews/music-directors");
+  await page.getByRole("button", { name: COPY.intake.log }).click();
+  const form = page.getByRole("dialog", { name: COPY.intake.logTitle }).getByRole("form", { name: COPY.intake.logTitle });
+  await form.getByRole("radio", { name: COPY.intake.arrivedAsDisc }).click();
+  await expect(form.getByRole("combobox", { name: new RegExp(`^${COPY.intake.format}`) })).toBeVisible();
+  await form.evaluate((el, attribute) => {
+    let box = el.parentElement;
+    while (box && !["auto", "scroll"].includes(getComputedStyle(box).overflowX)) {
+      box = box.parentElement;
+    }
+    box?.setAttribute(attribute, "");
+  }, `data-e2e-${ADD_RECORD_SCROLLER}`);
+}
+
+/** Whether the tagged box holds more width than it shows, which draws a sideways scrollbar. */
+async function sidewaysScrollProblems(page: Page): Promise<string[]> {
+  const scroller = page.locator(`[data-e2e-${ADD_RECORD_SCROLLER}]`);
+  if ((await scroller.count()) !== 1) {
+    return ["the box the form scrolls in is not on the page"];
+  }
+  const { scrollWidth, clientWidth } = await scroller.evaluate((el) => ({ scrollWidth: el.scrollWidth, clientWidth: el.clientWidth }));
+  return scrollWidth > clientWidth ? [`the dialog's content scrolls sideways: ${scrollWidth}px wide in ${clientWidth}px`] : [];
+}
+
+/**
+ * The Add a record dialog fits its form. Joy's outlined fields paint their focus ring a border's width past their own
+ * box, and the dialog's content scrolls, so a field as wide as the content scrolls it sideways unless the content
+ * leaves room for the ring. The control takes that room away.
+ */
+for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
+  test.describe(`Add a record dialog layout at ${viewport.width}px`, () => {
+    test.use({ storageState: path.join(authDir, "musicDirector.json"), viewport });
+
+    test.beforeEach(async ({ page }) => {
+      await openAddRecord(page);
+    });
+
+    test("does not scroll sideways", async ({ page }) => {
+      expect(await sidewaysScrollProblems(page)).toEqual([]);
+    });
+
+    test("control: content with no room for the fields' focus rings scrolls sideways", async ({ page }) => {
+      await undo(page, ADD_RECORD_SCROLLER, "padding-left: 0; padding-right: 0; margin-left: 0; margin-right: 0");
+      expect(await sidewaysScrollProblems(page)).not.toEqual([]);
+    });
+  });
+}
+
 /**
  * The record page's two filing arms. A closed arm carries `hidden` and `display: none`: in a browser only
  * `display: none` hides it, because the arm's Stack sets `display: flex`, which beats the browser's `[hidden]`

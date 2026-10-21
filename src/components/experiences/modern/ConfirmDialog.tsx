@@ -10,6 +10,16 @@ import {
 } from "@mui/joy";
 import type { SxProps } from "@mui/joy/styles/types";
 
+/**
+ * How far an outlined Joy field paints past its own box: an `Input`'s, `Autocomplete`'s or `Select`'s focus ring
+ * is a `::before` laid over the field's 1px border by a -1px margin. `DialogContent` scrolls (`overflow: auto`), so
+ * a field as wide as the content pushed that pixel past the content's right edge, which scrolled it sideways, and
+ * clipped the ring's left edge. Padding the content by the overhang and pulling it out by as much keeps the
+ * content's width and puts the whole ring inside it.
+ */
+const FIELD_RING_OVERHANG = "1px";
+const CONTENT_SX = { px: FIELD_RING_OVERHANG, mx: `-${FIELD_RING_OVERHANG}` } as const;
+
 export type ConfirmDialogProps = {
   open: boolean;
   /** Fired by a backdrop click or Escape. Suppressed while `pending`. */
@@ -91,7 +101,7 @@ export default function ConfirmDialog({
         sx={sx}
       >
         <DialogTitle id={labelId}>{title}</DialogTitle>
-        <DialogContent>{children}</DialogContent>
+        <DialogContent sx={CONTENT_SX}>{children}</DialogContent>
         <DialogActions>{actions}</DialogActions>
       </ModalDialog>
     </Modal>
