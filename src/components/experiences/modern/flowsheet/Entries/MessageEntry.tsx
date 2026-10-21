@@ -5,6 +5,7 @@ import {
   isFlowsheetEndShowEntry,
   isFlowsheetStartShowEntry,
 } from "@/lib/features/flowsheet/types";
+import { useEntryActions } from "@/src/hooks/entryActions";
 import { useShowControl } from "@/src/hooks/flowsheetHooks";
 import { useMediaQuery } from "@/src/hooks/useMediaQuery";
 import { Box, ColorPaletteProp, Stack, Typography, VariantProp } from "@mui/joy";
@@ -46,12 +47,13 @@ export default function MessageEntry({
   highlighted?: boolean;
 }) {
   const { live, currentShow } = useShowControl();
+  const { pastShow } = useEntryActions();
 
   const controls = useDragControls();
 
   const isXl = useMediaQuery(FLOWSHEET_XL_QUERY);
 
-  const editable = !readOnly && entry.show_id == currentShow && !disableEditing;
+  const editable = !readOnly && (pastShow || entry.show_id == currentShow) && !disableEditing;
 
   return (
     <DraggableEntryWrapper
@@ -75,7 +77,7 @@ export default function MessageEntry({
     >
       {timeLabel !== undefined && <EntryTimeCell label={timeLabel} />}
       <td style={{ position: "relative" }}>
-        {live && editable && draggable && <DragButton controls={controls} />}
+        {(live || pastShow) && editable && draggable && <DragButton controls={controls} />}
         <MarkerEntryArtwork icon={startDecorator} />
       </td>
       {/* The middle spans every text column. Because SongEntry collapses its
@@ -103,7 +105,7 @@ export default function MessageEntry({
           justifyContent="end"
         >
           <Typography level="body-xs">{endDecorator}</Typography>
-          {live && editable && !isFlowsheetStartShowEntry(entry) &&
+          {(live || pastShow) && editable && !isFlowsheetStartShowEntry(entry) &&
             !isFlowsheetEndShowEntry(entry) && (
               <RemoveButton queue={false} entry={entry} />
             )}

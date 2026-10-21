@@ -3,11 +3,14 @@
 import NextLink from "next/link";
 import { Box, Link, Sheet, Typography } from "@mui/joy";
 import {
+  useCanEditShowRows,
+  usePastShowEntryActions,
   useScrollToShowEntry,
   useShowPlaylist,
 } from "@/src/hooks/showPlaylistHooks";
 import SpecialtyTile from "@/src/components/experiences/modern/SpecialtyTile";
 import ShowEntriesPanel from "@/src/components/experiences/modern/schedule-week/ShowEntriesPanel";
+import { EntryActionsProvider } from "@/src/hooks/entryActions";
 import { hrefForShow } from "@/lib/features/schedule-week/showUrl";
 
 /**
@@ -34,6 +37,8 @@ export default function ShowView({
   highlightedEntryId?: number | null;
 }) {
   const show = useShowPlaylist(showId);
+  const canEdit = useCanEditShowRows(show);
+  const actions = usePastShowEntryActions(showId);
 
   useScrollToShowEntry(highlightedEntryId, show.entries.length);
 
@@ -114,6 +119,7 @@ export default function ShowView({
         </Box>
       </Sheet>
 
+      <EntryActionsProvider value={actions}>
       <ShowEntriesPanel
         show={{ id: showId, show_name: show.title, dj_name: show.djName } as never}
         entries={show.entries}
@@ -121,7 +127,9 @@ export default function ShowView({
         partialEdge={null}
         isLoading={show.isLoading}
         highlightedEntryId={highlightedEntryId}
+        editable={canEdit}
       />
+      </EntryActionsProvider>
     </Box>
   );
 }

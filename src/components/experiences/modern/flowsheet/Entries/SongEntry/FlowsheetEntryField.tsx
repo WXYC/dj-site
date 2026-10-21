@@ -2,7 +2,8 @@
 
 import { FlowsheetSongEntry } from "@/lib/features/flowsheet/types";
 import { flowsheetArtistRejection } from "@/lib/features/flowsheet/various-artists-guard";
-import { useFlowsheetActions, useLiveStatus } from "@/src/hooks/flowsheetHooks";
+import { useLiveStatus } from "@/src/hooks/flowsheetHooks";
+import { useEntryActions } from "@/src/hooks/entryActions";
 import { Box, IconButton, Tooltip, Typography, TypographyProps } from "@mui/joy";
 import { CheckRounded, EditOutlined } from "@mui/icons-material";
 import { ClickAwayListener } from "@mui/base/ClickAwayListener";
@@ -41,15 +42,15 @@ export default function FlowsheetEntryField({
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(String(entry[name]));
 
-  const canEdit = editable && live;
+  const { updateFlowsheet, pastShow } = useEntryActions();
+
+  const canEdit = editable && (live || pastShow);
 
   useEffect(() => {
     if (!editing) {
       setValue(String(entry[name]));
     }
   }, [entry[name], editing]);
-
-  const { updateFlowsheet } = useFlowsheetActions();
 
   const saveAndClose = useCallback(
     (e: MouseEvent | TouchEvent | FormEvent<HTMLFormElement>) => {
