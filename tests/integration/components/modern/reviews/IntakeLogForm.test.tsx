@@ -375,7 +375,8 @@ describe("IntakeLogForm", () => {
     });
 
     // The prefill's label id is the label's Discogs id, not a WXYC label: sent as `label_id` it fails the
-    // labels foreign key and the add is refused. Either name Backend gives it must stay out of the request.
+    // labels foreign key and the add is refused. Either name Backend gives it must stay out of the request: the
+    // `label_id` case is the production 400, and the `discogs_label_id` case guards the field after Backend renames it.
     it.each(["label_id", "discogs_label_id"])("sends a prefilled label by name only, never the Discogs label id it carries as %s", async (field) => {
       const prattLink = "https://www.discogs.com/release/6539468-Jessica-Pratt-On-Your-Own-Love-Again";
       fakeReviewsEndpoints({ open: [] });
