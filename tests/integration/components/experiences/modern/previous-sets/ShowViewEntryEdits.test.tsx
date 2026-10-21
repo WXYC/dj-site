@@ -94,6 +94,21 @@ describe("ShowView entry editing", () => {
     expect(screen.queryAllByLabelText("Edit song").length > 0).toBe(offered);
   });
 
+  it("offers a show's own DJ no controls once the show has ended", async () => {
+    mockAuth.authority = Authorization.DJ;
+    servePlaylist(
+      show({
+        end_time: "2026-08-23T00:01:00.000Z",
+        show_djs: [{ id: "dj-me", dj_name: "Me" }],
+      }),
+    );
+    renderWithProviders(<ShowView showId={SHOW_ID} />);
+
+    await screen.findAllByText("la paradoja");
+    expect(screen.queryByTestId("flowsheet-remove-3001")).toBeNull();
+    expect(screen.queryAllByLabelText("Edit song")).toHaveLength(0);
+  });
+
   it("offers a DJ on the show its rows while it is on the air", async () => {
     mockAuth.authority = Authorization.DJ;
     servePlaylist(show({ end_time: null, show_djs: [{ id: "dj-me", dj_name: "Me" }] }));
@@ -160,6 +175,7 @@ describe("ShowView entry editing", () => {
     await user.click(await screen.findByTestId("flowsheet-remove-3001"));
 
     await waitFor(() => expect(toastError).toHaveBeenCalledWith(sentence));
+    expect(toastError).toHaveBeenCalledTimes(1);
   });
 
   it("does not word a 403 without a code as the closed-show sentence", async () => {
@@ -174,7 +190,9 @@ describe("ShowView entry editing", () => {
 
     await user.click(await screen.findByTestId("flowsheet-remove-3001"));
 
-    await waitFor(() => expect(playlistGets).toBeGreaterThan(0));
+    // The failed delete still invalidates the tag, so the refetch (2) marks
+    // the point after the 403 has been handled.
+    await waitFor(() => expect(playlistGets).toBe(2));
     expect(toastError).not.toHaveBeenCalledWith(CLOSED_SHOW_SENTENCE);
   });
 });

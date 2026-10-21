@@ -73,7 +73,7 @@ export default function ShowEntriesPanel({
           gesture. */}
       {rows.length > 0 && (
         <Box sx={{ mt: 1 }}>
-          {/* The live flowsheet's own rows, read-only. The rotation chip on an
+          {/* The live flowsheet's own rows; read-only unless `editable`. The rotation chip on an
               archived play means the release was in rotation at some point --
               the read-path window is not evaluated against the air date -- so
               nothing here may claim it names the bin the play aired under. */}

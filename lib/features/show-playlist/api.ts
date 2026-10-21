@@ -46,8 +46,9 @@ export const showPlaylistApi = createApi({
         url: "/playlist",
         params: { show_id: showId },
       }),
-      // An archived show is immutable, so a revisit within the window is served
-      // from cache rather than refetched.
+      // An archived show changes only when a manager fixes a row, and that
+      // invalidates this tag, so a revisit within the window is served from
+      // cache rather than refetched.
       keepUnusedDataFor: 600,
       providesTags: (_result, _error, { showId }) => [
         { type: "ShowPlaylist", id: showId },
