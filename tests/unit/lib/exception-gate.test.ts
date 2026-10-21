@@ -136,7 +136,8 @@ describe("handled-error gate scenarios (error-tracking.md section 5)", () => {
     },
     {
       name: "E: dedupe table bound, with unexpired keys",
-      capacity: 1002,
+      // One token must remain at E4, so only the dedupe table can drop k3.
+      capacity: 1003,
       steps: [
         ...range("k", 1000).map((k, i) => ({ id: `E1-${k}`, at: i + 1, keys: [k], admit: true, warn: false })),
         { id: "E2", at: 30_000, keys: ["k1001"], admit: true, warn: false },
