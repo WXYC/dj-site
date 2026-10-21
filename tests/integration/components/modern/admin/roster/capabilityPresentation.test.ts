@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { CAPABILITIES, type Capability } from "@wxyc/shared/auth-client";
+import { ADMIN_TONES } from "@/lib/features/experiences/modern/tokens/roles";
 import {
   CAPABILITY_PRESENTATION,
   type CapabilityPresentationMap,
@@ -71,10 +72,15 @@ describe("CAPABILITY_PRESENTATION copy", () => {
     expect(CAPABILITY_PRESENTATION[capability].label).toBe(label);
   });
 
-  it("gives every capability its own tone", () => {
-    const tones = CAPABILITIES.map((c) => CAPABILITY_PRESENTATION[c].tone);
+  // The tone keys are distinct by construction; what a manager tells apart is
+  // the color and variant they resolve to.
+  it("gives every capability a badge that looks different", () => {
+    const looks = CAPABILITIES.map((c) => {
+      const { color, variant } = ADMIN_TONES[CAPABILITY_PRESENTATION[c].tone];
+      return `${color}/${variant}`;
+    });
 
-    expect(new Set(tones).size).toBe(CAPABILITIES.length);
+    expect(new Set(looks).size).toBe(CAPABILITIES.length);
   });
 });
 
