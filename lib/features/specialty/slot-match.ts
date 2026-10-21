@@ -41,9 +41,10 @@ function minutesUntil(from: number, to: number): number {
  * `cadence` is deliberately ignored: only the DJ knows whether a `some_weeks`
  * program airs, so the slot suggests and the DJ answers.
  *
- * The ten minutes before a slot belong to that slot. A slot that is still on
- * the air but ends inside another slot's lead window does not match, so
- * back-to-back slots never put three programs in front of the DJ.
+ * The ten minutes before a slot belong to that slot. A slot that ends inside
+ * the lead window of a slot that follows it does not match, so back-to-back
+ * slots never put three programs in front of the DJ. A program matches at most
+ * once, through its best slot.
  */
 export function programsForStart(
   startedAt: string | Date,
@@ -53,7 +54,8 @@ export function programsForStart(
   if (now === null) {
     return [];
   }
-  const candidates: Array<SlotMatch & { untilStart: number; untilEnd: number }> = [];
+  type Candidate = SlotMatch & { untilStart: number; untilEnd: number };
+  const candidates: Candidate[] = [];
   for (const program of catalog) {
     if (!program.active) {
       continue;
@@ -71,15 +73,27 @@ export function programsForStart(
           untilStart: covers ? 0 : untilStart,
           untilEnd: slot.duration_minutes - sinceStart,
         });
-        break;
       }
     }
   }
-  const inLeadWindow = candidates.some(({ untilStart }) => untilStart > 0);
-  return candidates
-    .filter(
-      ({ untilStart, untilEnd }) =>
-        !(inLeadWindow && untilStart === 0 && untilEnd <= SLOT_LEAD_MINUTES)
-    )
-    .map(({ program, slot }) => ({ program, slot }));
+  // A slot is ending into a follower when it ends within the lead window and a
+  // slot in its lead window starts at or after that end.
+  const endingIntoFollower = ({ untilStart, untilEnd }: Candidate) =>
+    untilStart === 0 &&
+    untilEnd <= SLOT_LEAD_MINUTES &&
+    candidates.some((other) => other.untilStart > 0 && other.untilStart >= untilEnd);
+  // One match per program: the best surviving slot, the one nearest its start.
+  const best = new Map<SpecialtyShow, Candidate>();
+  for (const candidate of candidates) {
+    if (endingIntoFollower(candidate)) {
+      continue;
+    }
+    const held = best.get(candidate.program);
+    if (!held || candidate.untilStart < held.untilStart) {
+      best.set(candidate.program, candidate);
+    }
+  }
+  return catalog
+    .filter((program) => best.has(program))
+    .map((program) => ({ program, slot: best.get(program)!.slot }));
 }
