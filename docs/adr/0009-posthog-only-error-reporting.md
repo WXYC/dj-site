@@ -13,6 +13,6 @@ Deploy context moves to PostHog super-properties. `lib/posthog.ts` registers `en
 ## Consequences
 
 - Grouping, regression detection, and release association are whatever PostHog Error Tracking provides; the Sentry-specific tag mirroring of `context` is gone.
-- Production builds still publish public source maps (`productionBrowserSourceMaps: true`). Whether PostHog resolves dj-site stack traces from them is not verified here; if frames do not resolve, uploading maps with the PostHog CLI in the deploy job is the follow-up.
+- Production stack frames resolve in PostHog from the publicly served source maps, verified against production `$exception` events (4,405 of 4,429 between 2026-07-23 and 2026-10-21 carry frames resolved to `turbopack:///[project]/...` sources; see the [issue comment](https://github.com/WXYC/dj-site/issues/2359#issuecomment-6327431406)). This holds only while `productionBrowserSourceMaps` stays `true` and the maps stay public; Turbopack map names differ from chunk names, so each map is found through its chunk's `sourceMappingURL`. Turning public maps off would first need a PostHog CLI upload step in the deploy job.
 - Server-side errors still have no sink beyond Cloudflare Workers Logs; `instrumentation.ts`'s `onRequestError` remains a documented no-op seam.
 - Counts of unhandled errors are now a single stream, so historic Sentry-vs-PostHog reconciliation no longer applies.
