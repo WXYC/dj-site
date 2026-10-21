@@ -123,4 +123,16 @@ describe("AccountEntry capability badges", () => {
     expect(screen.queryByText("Editor")).not.toBeInTheDocument();
     expect(screen.queryByText("crm_merge")).not.toBeInTheDocument();
   });
+
+  // The cell stacks the role chip and, only when there is a badge to show, a
+  // second row; an empty second row would add a gap no other roster row has.
+  it.each([
+    ["holds nothing", 1, []],
+    ["holds only a capability the roster does not list", 1, ["crm_merge"]],
+    ["holds a listed capability", 2, ["reviews_beta", "crm_merge"]],
+  ])("when the account %s the role cell stacks %i row(s)", (_title, rows, capabilities) => {
+    renderAccountEntry({ capabilities });
+
+    expect(screen.getAllByRole("cell")[0].firstElementChild?.children).toHaveLength(rows);
+  });
 });

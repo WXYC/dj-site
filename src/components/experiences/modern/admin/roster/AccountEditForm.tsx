@@ -68,11 +68,13 @@ export default function AccountEditForm({
   // so after a successful save we compare against these instead.
   const [savedRealName, setSavedRealName] = useState(account.realName ?? "");
   const [savedDjName, setSavedDjName] = useState(account.djName ?? "");
+  // A capability toggle writes the whole array, so the next toggle in this
+  // panel must build on what the last one saved, not on the opening snapshot.
+  const [savedCapabilities, setSavedCapabilities] = useState(account.capabilities ?? []);
 
   const dispatch = useAppDispatch();
   const invalidateRoster = () => dispatch(adminApi.util.invalidateTags(["Roster"]));
 
-  const userCapabilities = account.capabilities ?? [];
   const isIncomplete = account.hasCompletedOnboarding !== true;
   const pendingReview = isPendingManagerReview(account);
   // Defense-in-depth against a future second dispatcher of "account-edit":
@@ -209,10 +211,10 @@ export default function AccountEditForm({
   };
 
   const handleCapabilityToggle = async (capability: Capability) => {
-    const hasCapability = userCapabilities.includes(capability);
+    const hasCapability = savedCapabilities.includes(capability);
     const newCapabilities = hasCapability
-      ? userCapabilities.filter((c) => c !== capability)
-      : [...userCapabilities, capability];
+      ? savedCapabilities.filter((c) => c !== capability)
+      : [...savedCapabilities, capability];
 
     const copy = CAPABILITY_PRESENTATION[capability];
 
@@ -223,6 +225,7 @@ export default function AccountEditForm({
     setIsUpdatingCapabilities(true);
     try {
       await updateCapabilities(newCapabilities);
+      setSavedCapabilities(newCapabilities);
       toast.success(copy.toast(account.realName, hasCapability));
       invalidateRoster();
     } catch (err) {
@@ -452,7 +455,7 @@ export default function AccountEditForm({
         <Stack direction="row" spacing={1}>
           {CAPABILITIES.map((capability) => {
             const { label, Icon, tone, grantTooltip, removeTooltip } = CAPABILITY_PRESENTATION[capability];
-            const holds = userCapabilities.includes(capability);
+            const holds = savedCapabilities.includes(capability);
             return (
               <Tooltip
                 key={capability}

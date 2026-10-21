@@ -28,7 +28,7 @@ export const AccountEntry = ({
   organizationSlug: string;
 }) => {
   const dispatch = useAppDispatch();
-  const userCapabilities = account.capabilities ?? [];
+  const badges = CAPABILITIES.filter((c) => account.capabilities?.includes(c));
 
   return (
     <tr>
@@ -37,9 +37,9 @@ export const AccountEntry = ({
           <Chip size="sm" {...ADMIN_TONES.role}>
             {AUTHORIZATION_LABELS[account.authorization]}
           </Chip>
-          {userCapabilities.length > 0 && (
+          {badges.length > 0 && (
             <Stack direction="row" spacing={0.5}>
-              {CAPABILITIES.filter((c) => userCapabilities.includes(c)).map((c) => {
+              {badges.map((c) => {
                 const { label, Icon, tone } = CAPABILITY_PRESENTATION[c];
                 return (
                   <Chip

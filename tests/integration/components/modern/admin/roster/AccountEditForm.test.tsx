@@ -45,6 +45,12 @@ function makeAccount(overrides: Partial<Account> = {}): Account {
   });
 }
 
+// Joy's Tooltip puts a string title on the wrapped Chip as its aria-label, so
+// the label on the toggle's own element is the tooltip the manager would read.
+function tooltipOf(toggle: string): string | null | undefined {
+  return screen.getByRole("button", { name: toggle }).closest("[aria-label]")?.getAttribute("aria-label");
+}
+
 const setup = createComponentHarness(AccountEditForm, {
   account: makeAccount(),
   isSelf: false,
@@ -382,32 +388,57 @@ describe("AccountEditForm capability toggles", () => {
   });
 
   // The account's array can hold strings the form does not list (crm_merge);
-  // each toggle must write them back untouched.
+  // each toggle must write them back untouched. `account` is a snapshot from
+  // when the panel opened and never updates, so a second toggle in the same
+  // panel has to build on what the first one wrote, not on that snapshot.
   it.each([
-    ["grants reviews_beta, keeping an unknown capability", ["crm_merge"], "Reviews beta", ["crm_merge", "reviews_beta"]],
-    ["removes reviews_beta, keeping the others", ["editor", "reviews_beta", "crm_merge"], "Reviews beta", ["editor", "crm_merge"]],
-    ["removes editor, keeping an unknown capability", ["editor", "crm_merge"], "Editor", ["crm_merge"]],
-    ["grants webmaster to an account with none", [], "Webmaster", ["webmaster"]],
-  ])("%s", async (_title, held, toggle, written) => {
+    ["grants reviews_beta, keeping an unknown capability", ["crm_merge"], ["Reviews beta"], ["crm_merge", "reviews_beta"]],
+    ["removes reviews_beta, keeping the others", ["editor", "reviews_beta", "crm_merge"], ["Reviews beta"], ["editor", "crm_merge"]],
+    ["removes editor, keeping an unknown capability", ["editor", "crm_merge"], ["Editor"], ["crm_merge"]],
+    ["grants webmaster to an account with none", [], ["Webmaster"], ["webmaster"]],
+    ["grants, then grants another, keeping the first", ["crm_merge"], ["Reviews beta", "Editor"], ["crm_merge", "reviews_beta", "editor"]],
+    ["removes, then removes another, keeping the first removal", ["editor", "webmaster", "crm_merge"], ["Webmaster", "Editor"], ["crm_merge"]],
+    ["grants, then removes the same capability", ["crm_merge"], ["Reviews beta", "Reviews beta"], ["crm_merge"]],
+  ])("%s", async (_title, held, toggles, written) => {
+    const { user } = setup({ account: makeAccount({ capabilities: held }) });
+
+    for (const [saves, toggle] of toggles.entries()) {
+      await user.click(screen.getByRole("button", { name: toggle }));
+      await waitFor(() => expect(mockUpdateUser).toHaveBeenCalledTimes(saves + 1));
+      await waitFor(() => expect(screen.getByRole("button", { name: toggle })).toBeEnabled());
+    }
+
+    expect(mockUpdateUser).toHaveBeenLastCalledWith({
+      userId: "user-123",
+      data: { capabilities: written },
+    });
+  });
+
+  // The tooltip and the chip's solid fill both read the same held state, so
+  // they must flip as soon as the save lands rather than at the next open.
+  it.each([
+    ["Reviews beta", [], "Remove reviews beta"],
+    ["Editor", ["editor"], "Grant editor capability (allows website editing)"],
+  ])("offers the opposite action on %s once its toggle is saved", async (toggle, held, tooltip) => {
     const { user } = setup({ account: makeAccount({ capabilities: held }) });
 
     await user.click(screen.getByRole("button", { name: toggle }));
 
-    await waitFor(() => {
-      expect(mockUpdateUser).toHaveBeenCalledWith({
-        userId: "user-123",
-        data: { capabilities: written },
-      });
-    });
+    await waitFor(() => expect(tooltipOf(toggle)).toBe(tooltip));
   });
 
+  // [capability, held, toggle, tooltip, confirm, toast]
   it.each([
-    ["reviews_beta", [], "Reviews beta", "Are you sure you want to grant reviews beta to Juana Molina?", "Reviews beta granted to Juana Molina"],
-    ["reviews_beta", ["reviews_beta"], "Reviews beta", "Are you sure you want to remove reviews beta from Juana Molina?", "Reviews beta removed from Juana Molina"],
-    ["editor", [], "Editor", 'Are you sure you want to grant the "editor" capability to Juana Molina?', "editor capability granted to Juana Molina"],
-    ["webmaster", ["webmaster"], "Webmaster", 'Are you sure you want to remove the "webmaster" capability from Juana Molina?', "webmaster capability removed from Juana Molina"],
-  ])("confirms and announces %s from %j", async (_capability, held, toggle, confirmText, toastText) => {
+    ["reviews_beta", [], "Reviews beta", "Grant reviews beta (shows this DJ the review screens before they open to every DJ)", "Are you sure you want to grant reviews beta to Juana Molina?", "Reviews beta granted to Juana Molina"],
+    ["reviews_beta", ["reviews_beta"], "Reviews beta", "Remove reviews beta", "Are you sure you want to remove reviews beta from Juana Molina?", "Reviews beta removed from Juana Molina"],
+    ["editor", [], "Editor", "Grant editor capability (allows website editing)", 'Are you sure you want to grant the "editor" capability to Juana Molina?', "editor capability granted to Juana Molina"],
+    ["editor", ["editor"], "Editor", "Remove editor capability", 'Are you sure you want to remove the "editor" capability from Juana Molina?', "editor capability removed from Juana Molina"],
+    ["webmaster", [], "Webmaster", "Grant webmaster capability (can delegate editor)", 'Are you sure you want to grant the "webmaster" capability to Juana Molina?', "webmaster capability granted to Juana Molina"],
+    ["webmaster", ["webmaster"], "Webmaster", "Remove webmaster capability", 'Are you sure you want to remove the "webmaster" capability from Juana Molina?', "webmaster capability removed from Juana Molina"],
+  ])("tips, confirms and announces %s from %j", async (_capability, held, toggle, tooltip, confirmText, toastText) => {
     const { user } = setup({ account: makeAccount({ capabilities: held }) });
+
+    expect(tooltipOf(toggle)).toBe(tooltip);
 
     await user.click(screen.getByRole("button", { name: toggle }));
 
@@ -415,9 +446,10 @@ describe("AccountEditForm capability toggles", () => {
     expect(window.confirm).toHaveBeenCalledWith(confirmText);
   });
 
-  it.each(["Editor", "Webmaster", "Reviews beta"])("disables the %s toggle on the viewer's own account", (toggle) => {
-    setup({ account: makeAccount(), isSelf: true });
+  it.each(["Editor", "Webmaster", "Reviews beta"])("disables the %s toggle on the viewer's own account and says why", (toggle) => {
+    setup({ account: makeAccount({ capabilities: ["editor", "reviews_beta"] }), isSelf: true });
 
     expect(screen.getByRole("button", { name: toggle })).toBeDisabled();
+    expect(tooltipOf(toggle)).toBe("You cannot modify your own capabilities");
   });
 });
