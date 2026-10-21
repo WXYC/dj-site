@@ -147,11 +147,9 @@ export default function IntakeLogForm({ onLogged, onBusyChange, hideTitle = fals
         ...f,
         artist: f.artist || prefill.artist_name,
         album: f.album || prefill.album_title,
-        ...(!f.label &&
-          prefill.label && {
-            label: prefill.label,
-            labelPick: prefill.label_id == null ? null : { id: prefill.label_id, name: prefill.label.trim() },
-          }),
+        // The label comes by name only: Backend matches or creates it from `record_label`. Only a pick from
+        // the label dropdown carries a WXYC label id.
+        ...(!f.label && prefill.label && { label: prefill.label, labelPick: null }),
         lookup: { text, line: { text: COPY.discogsFilled, failed: false } },
       }));
     } catch (error) {

@@ -24,6 +24,17 @@ import IntakeLogForm from "@/src/components/experiences/modern/reviews/IntakeLog
 
 const moonPix = () => intakeItem({ id: 11, artist_name: "Cat Power", album_title: "Moon Pix", record_label: "Matador" });
 
+function captureIntakePost() {
+  const sent: { body?: Record<string, unknown> } = {};
+  server.use(
+    http.post(`${TEST_BACKEND_URL}/intake`, async ({ request }) => {
+      sent.body = (await request.json()) as Record<string, unknown>;
+      return HttpResponse.json(moonPix());
+    }),
+  );
+  return sent;
+}
+
 describe("IntakeLogForm", () => {
   beforeEach(() => vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "true"));
   afterEach(() => vi.unstubAllEnvs());
@@ -183,6 +194,47 @@ describe("IntakeLogForm", () => {
     });
   });
 
+  describe("the label", () => {
+    async function pickDragCity(user: ReturnType<typeof renderWithProviders>["user"]) {
+      server.use(http.get(`${TEST_BACKEND_URL}/labels/search`, () => HttpResponse.json([{ id: 41, label_name: "Drag City" }])));
+      await user.type(await screen.findByLabelText(/^Artist/), "Jessica Pratt");
+      await user.type(screen.getByLabelText(/^Album/), "On Your Own Love Again");
+      await user.type(screen.getByRole("combobox", { name: "Search labels" }), "Drag");
+      await user.click(await screen.findByRole("option", { name: /Drag City/ }));
+    }
+
+    it.each([
+      ["sends the id of a label picked from the dropdown", async () => undefined, "Drag City", 41],
+      [
+        "leaves out the picked label's id once the label is changed",
+        async (user: ReturnType<typeof renderWithProviders>["user"]) => {
+          const label = screen.getByRole("combobox", { name: "Search labels" });
+          await user.clear(label);
+          await user.type(label, "Sonamos");
+        },
+        "Sonamos",
+        undefined,
+      ],
+    ])("%s", async (_case, edit, recordLabel, labelId) => {
+      fakeReviewsEndpoints({ open: [] });
+      const sent = captureIntakePost();
+
+      const { user } = renderWithProviders(<IntakeLogForm />);
+      await pickDragCity(user);
+      await edit(user);
+      await user.click(screen.getByRole("radio", { name: "As files" }));
+      await user.click(screen.getByRole("button", { name: "Add a record" }));
+
+      await waitFor(() => expect(sent.body).toBeDefined());
+      expect(sent.body).toMatchObject({ record_label: recordLabel });
+      if (labelId === undefined) {
+        expect(sent.body).not.toHaveProperty("label_id");
+      } else {
+        expect(sent.body).toMatchObject({ label_id: labelId });
+      }
+    });
+  });
+
   describe("filling the record's details from the Discogs field", () => {
     const FILLED_LINE = "Filled in the artist, album and label from Discogs. Check them before you add the record.";
     const LINK = "https://www.discogs.com/release/24216789-Juana-Molina-DOGA";
@@ -204,20 +256,9 @@ describe("IntakeLogForm", () => {
     /** Lets a held answer reach the form, for a test that checks the answer changed nothing. */
     const settle = () => act(() => new Promise((resolve) => setTimeout(resolve, 100)));
 
-    function captureIntakePost() {
-      const sent: { body?: Record<string, unknown> } = {};
-      server.use(
-        http.post(`${TEST_BACKEND_URL}/intake`, async ({ request }) => {
-          sent.body = (await request.json()) as Record<string, unknown>;
-          return HttpResponse.json(moonPix());
-        }),
-      );
-      return sent;
-    }
-
     it("makes one request for a paste followed by leaving the field, and fills the empty artist, album and label", async () => {
       fakeReviewsEndpoints({ open: [] });
-      const prefill = fakeDiscogsPrefillEndpoint({ prefill: { ...MOLINA_DISCOGS_PREFILL, label_id: 7 } });
+      const prefill = fakeDiscogsPrefillEndpoint();
       const sent = captureIntakePost();
 
       const { user } = renderWithProviders(<IntakeLogForm />);
@@ -234,7 +275,7 @@ describe("IntakeLogForm", () => {
       await user.click(screen.getByRole("radio", { name: "As files" }));
       await user.click(screen.getByRole("button", { name: "Add a record" }));
       await waitFor(() => expect(sent.body).toBeDefined());
-      expect(sent.body).toMatchObject({ record_label: "Sonamos", label_id: 7, discogs_release_id: 24216789 });
+      expect(sent.body).toMatchObject({ record_label: "Sonamos", discogs_release_id: 24216789 });
     });
 
     it("leaves a field the music director already typed in alone", async () => {
@@ -333,23 +374,39 @@ describe("IntakeLogForm", () => {
       }
     });
 
-    it("leaves out the prefilled label's id once the label is changed", async () => {
+    // The prefill's label id is the label's Discogs id, not a WXYC label: sent as `label_id` it fails the
+    // labels foreign key and the add is refused. Either name Backend gives it must stay out of the request.
+    it.each(["label_id", "discogs_label_id"])("sends a prefilled label by name only, never the Discogs label id it carries as %s", async (field) => {
+      const prattLink = "https://www.discogs.com/release/6539468-Jessica-Pratt-On-Your-Own-Love-Again";
       fakeReviewsEndpoints({ open: [] });
-      fakeDiscogsPrefillEndpoint({ prefill: { ...MOLINA_DISCOGS_PREFILL, label_id: 7 } });
+      fakeDiscogsPrefillEndpoint({
+        prefill: {
+          ...MOLINA_DISCOGS_PREFILL,
+          discogs_release_id: 6539468,
+          artist_name: "Jessica Pratt",
+          album_title: "On Your Own Love Again",
+          label: "Drag City",
+          year: 2015,
+          [field]: 12345,
+        },
+      });
       server.use(http.get(`${TEST_BACKEND_URL}/labels/search`, () => HttpResponse.json([])));
       const sent = captureIntakePost();
 
       const { user } = renderWithProviders(<IntakeLogForm />);
       await user.click(await screen.findByLabelText(/^Discogs link/));
-      await user.paste(LINK);
-      const label = await screen.findByDisplayValue("Sonamos");
-      await user.clear(label);
-      await user.type(label, "Drag City");
+      await user.paste(prattLink);
+      expect(await screen.findByDisplayValue("Drag City")).toBeInTheDocument();
       await user.click(screen.getByRole("radio", { name: "As files" }));
       await user.click(screen.getByRole("button", { name: "Add a record" }));
 
       await waitFor(() => expect(sent.body).toBeDefined());
-      expect(sent.body).toMatchObject({ record_label: "Drag City" });
+      expect(sent.body).toMatchObject({
+        artist_name: "Jessica Pratt",
+        album_title: "On Your Own Love Again",
+        record_label: "Drag City",
+        discogs_release_id: 6539468,
+      });
       expect(sent.body).not.toHaveProperty("label_id");
     });
 

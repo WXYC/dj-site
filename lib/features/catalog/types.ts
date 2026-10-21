@@ -893,7 +893,12 @@ export type CrossReferencePage<Row> = {
  * via LML). Declared here, not imported from `@wxyc/shared`: the backend keeps
  * this an internal shape rather than a published contract type, so dj-site owns
  * its own mirror. Field names follow `AlbumCreateFields` (`album_title`,
- * `label`, `label_id`) plus the artist name and the Discogs identifiers.
+ * `label`) plus the artist name and the Discogs identifiers.
+ *
+ * The answer also carries the release's label id, but that is the label's
+ * Discogs id, not a WXYC `labels.id`. It is left undeclared on purpose and must
+ * never be sent as `label_id`: a WXYC write reads it as a labels row and refuses
+ * the request. The prefill's label is used by name only.
  */
 export type DiscogsReleasePrefill = {
   discogs_release_id: number;
@@ -901,7 +906,6 @@ export type DiscogsReleasePrefill = {
   artist_name: string;
   album_title: string;
   label: string | null;
-  label_id: number | null;
   year: number | null;
   discogs_artist_id: number | null;
   genres: string[];
