@@ -19,7 +19,7 @@ export default function ModernDashboardError({
   reset: () => void;
 }) {
   useEffect(() => {
-    safeCaptureException(error);
+    safeCaptureException(error, undefined, "modern-dashboard-error");
   }, [error]);
 
   return (

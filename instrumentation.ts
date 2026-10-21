@@ -39,5 +39,5 @@ export const onRequestError: Instrumentation.onRequestError = (
     routerKind: context.routerKind,
     routeType: context.routeType,
     routePath: context.routePath,
-  });
+  }, "instrumentation");
 };

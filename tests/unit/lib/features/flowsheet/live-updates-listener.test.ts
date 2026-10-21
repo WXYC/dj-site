@@ -274,7 +274,8 @@ describe("live-updates listener middleware", () => {
     getLastMock()._fireMessage("{not valid json");
     expect(captureExceptionSpy).toHaveBeenCalledWith(
       expect.any(Error),
-      expect.objectContaining({ context: "sse_parse_failure" })
+      expect.objectContaining({ context: "sse_parse_failure" }),
+      "live-updates-parse-failure"
     );
   });
 

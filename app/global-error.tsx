@@ -11,7 +11,7 @@ export default function GlobalError({
   reset: () => void;
 }) {
   useEffect(() => {
-    safeCaptureException(error);
+    safeCaptureException(error, undefined, "global-error");
   }, [error]);
 
   return (

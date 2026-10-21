@@ -34,7 +34,7 @@ describe("instrumentation.onRequestError", () => {
       routerKind: "App Router",
       routeType: "render",
       routePath: "/dashboard/flowsheet",
-    });
+    }, "instrumentation");
   });
 
   it("register is a no-op that does not throw", () => {

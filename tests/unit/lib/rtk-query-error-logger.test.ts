@@ -194,10 +194,11 @@ describe("error reporting", () => {
     );
 
     expect(mockCaptureException).toHaveBeenCalledTimes(1);
-    const [captured, context] = mockCaptureException.mock.calls[0];
+    const [captured, context, label] = mockCaptureException.mock.calls[0];
     expect(captured).toBeInstanceOf(Error);
     expect((captured as Error).message).toBe(SERVER_MESSAGE);
     expect(context).toEqual({ endpoint: "updateAlbum", status: 400 });
+    expect(label).toBe("rtk-query");
   });
 
   it("does not capture actions that were not rejected with a value", () => {
