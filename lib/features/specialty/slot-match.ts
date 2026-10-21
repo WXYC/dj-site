@@ -31,10 +31,19 @@ function stationMinuteOfWeek(instant: Date): number | null {
 
 export type SlotMatch = { program: SpecialtyShow; slot: SpecialtyShowSlot };
 
+/** Minutes from `from` forward to `to` around the week, in [0, MINUTES_PER_WEEK). */
+function minutesUntil(from: number, to: number): number {
+  return (((to - from) % MINUTES_PER_WEEK) + MINUTES_PER_WEEK) % MINUTES_PER_WEEK;
+}
+
 /**
  * The active catalog programs whose slot covers `startedAt`, in catalog order.
  * `cadence` is deliberately ignored: only the DJ knows whether a `some_weeks`
  * program airs, so the slot suggests and the DJ answers.
+ *
+ * The ten minutes before a slot belong to that slot. A slot that is still on
+ * the air but ends inside another slot's lead window does not match, so
+ * back-to-back slots never put three programs in front of the DJ.
  */
 export function programsForStart(
   startedAt: string | Date,
@@ -44,23 +53,33 @@ export function programsForStart(
   if (now === null) {
     return [];
   }
-  const matches: SlotMatch[] = [];
+  const candidates: Array<SlotMatch & { untilStart: number; untilEnd: number }> = [];
   for (const program of catalog) {
     if (!program.active) {
       continue;
     }
-    const slot = program.slots.find(({ day, start_time, duration_minutes }) => {
-      const [hour, minute] = start_time.split(":").map(Number);
-      const slotStart = day * 24 * 60 + hour * 60 + minute;
-      const sinceLead =
-        (((now - slotStart + SLOT_LEAD_MINUTES) % MINUTES_PER_WEEK) +
-          MINUTES_PER_WEEK) %
-        MINUTES_PER_WEEK;
-      return sinceLead < SLOT_LEAD_MINUTES + duration_minutes;
-    });
-    if (slot) {
-      matches.push({ program, slot });
+    for (const slot of program.slots) {
+      const [hour, minute] = slot.start_time.split(":").map(Number);
+      const slotStart = slot.day * 24 * 60 + hour * 60 + minute;
+      const untilStart = minutesUntil(now, slotStart);
+      const sinceStart = minutesUntil(slotStart, now);
+      const covers = sinceStart < slot.duration_minutes;
+      if (covers || (untilStart > 0 && untilStart <= SLOT_LEAD_MINUTES)) {
+        candidates.push({
+          program,
+          slot,
+          untilStart: covers ? 0 : untilStart,
+          untilEnd: slot.duration_minutes - sinceStart,
+        });
+        break;
+      }
     }
   }
-  return matches;
+  const inLeadWindow = candidates.some(({ untilStart }) => untilStart > 0);
+  return candidates
+    .filter(
+      ({ untilStart, untilEnd }) =>
+        !(inLeadWindow && untilStart === 0 && untilEnd <= SLOT_LEAD_MINUTES)
+    )
+    .map(({ program, slot }) => ({ program, slot }));
 }

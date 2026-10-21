@@ -22,14 +22,16 @@ const program = (
 
 const SUNDAY = 6;
 const THURSDAY = 3;
+const FRIDAY = 4;
 const slot = (
   day: number,
   start_time: string,
-  cadence: SpecialtyShow["slots"][number]["cadence"] = "weekly"
+  cadence: SpecialtyShow["slots"][number]["cadence"] = "weekly",
+  duration_minutes = 120
 ) => ({
   day,
   start_time,
-  duration_minutes: 120,
+  duration_minutes,
   cadence,
 });
 
@@ -41,5 +43,8 @@ export const SEED_CATALOG: SpecialtyShow[] = [
   program(4, "Sunset Soundtrack", "SS", [slot(SUNDAY, "19:00")]),
   program(5, "The Sunday Punk Radio", "TSPR", [slot(SUNDAY, "19:00", "last_of_month")]),
   program(6, "Thursday Night Feature", "TNF", [slot(THURSDAY, "21:00")]),
+  program(8, "Inside Track", "IT", [slot(FRIDAY, "21:00", "weekly", 60)]),
+  program(9, "Story Hour", "SH", [slot(FRIDAY, "21:00", "some_weeks", 60)]),
+  program(10, "New Science Experience", "NSE", [slot(FRIDAY, "22:00", "weekly", 60)]),
   program(7, "Retired Hour", "RH", [slot(SUNDAY, "12:00")], { active: false }),
 ];
