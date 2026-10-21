@@ -141,6 +141,60 @@ describe("IntakeLogForm", () => {
     await waitFor(() => expect(body).toBeDefined());
     expect(body!.format_id).toBe(2);
   });
+
+  describe("the arrival choice looks as chosen as it is", () => {
+    // The segment's action slot carries both the raised look of a choice and Joy's focus ring.
+    const segmentOf = (name: string) => screen.getByRole("radio", { name }).parentElement!;
+    const isRaised = (name: string) => getComputedStyle(segmentOf(name)).boxShadow !== "";
+    const isRinged = (name: string) => getComputedStyle(segmentOf(name)).outline.includes("solid");
+
+    it("shows no option raised and keeps Add a record disabled when the form opens", async () => {
+      fakeReviewsEndpoints({ open: [] });
+
+      renderWithProviders(<IntakeLogForm />);
+
+      for (const name of ["A disc or a record", "As files"]) {
+        expect(await screen.findByRole("radio", { name })).not.toBeChecked();
+        expect(isRaised(name)).toBe(false);
+      }
+      expect(screen.getByRole("button", { name: "Add a record" })).toBeDisabled();
+    });
+
+    it("draws no ring around an option that has keyboard focus but is not chosen, and underlines its label instead", async () => {
+      fakeReviewsEndpoints({ open: [] });
+
+      const { user } = renderWithProviders(<IntakeLogForm />);
+      await user.type(await screen.findByLabelText(/^Artist/), "Juana Molina");
+      await user.type(screen.getByLabelText(/^Album/), "DOGA");
+      // Tab moves onto a radio without choosing it; a keypress then a focus is how jsdom reaches Joy's focus-visible state.
+      const files = screen.getByRole("radio", { name: "As files" });
+      await user.keyboard("{Shift}");
+      act(() => files.focus());
+
+      expect(segmentOf("As files")).toHaveClass("Mui-focusVisible");
+      expect(files).not.toBeChecked();
+      expect(isRaised("As files")).toBe(false);
+      expect(isRinged("As files")).toBe(false);
+      expect(getComputedStyle(screen.getByRole("radiogroup")).outline).toContain("solid");
+      expect(getComputedStyle(screen.getByText("As files")).textDecoration).toContain("underline");
+      expect(screen.getByRole("button", { name: "Add a record" })).toBeDisabled();
+    });
+
+    it("raises As files and enables Add a record once it is chosen with an artist and album", async () => {
+      fakeReviewsEndpoints({ open: [] });
+
+      const { user } = renderWithProviders(<IntakeLogForm />);
+      await user.type(await screen.findByLabelText(/^Artist/), "Juana Molina");
+      await user.type(screen.getByLabelText(/^Album/), "DOGA");
+      await user.click(screen.getByRole("radio", { name: "As files" }));
+
+      expect(screen.getByRole("radio", { name: "As files" })).toBeChecked();
+      expect(isRaised("As files")).toBe(true);
+      expect(isRaised("A disc or a record")).toBe(false);
+      expect(screen.getByRole("button", { name: "Add a record" })).toBeEnabled();
+    });
+  });
+
   describe("the Bandcamp link", () => {
     it("asks a phone for its URL keyboard", async () => {
       fakeReviewsEndpoints({ open: [] });
