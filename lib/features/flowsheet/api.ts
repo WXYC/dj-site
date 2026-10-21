@@ -545,7 +545,7 @@ export const flowsheetApi = createApi({
       // outcome itself, and the shared rtk-query-error-logger toasting
       // `data.message` a second time would double an already-precise sentence
       // with the server's curl instruction. (The middleware still files its
-      // generic Sentry event — accepted; see force-end-outcome.ts.)
+      // generic error report — accepted; see force-end-outcome.ts.)
       transformErrorResponse: (response) => ({ forceEndShowError: response }),
       // RTK invalidates on rejection too, and the transform above has already
       // run by the time this sees `error` — classifyForceEndError owns the

@@ -392,7 +392,7 @@ export const catalogApi = createApi({
       // like it belongs. Invalidating it would refetch `getInformation` for a
       // row that no longer exists: a request whose 404 is guaranteed, and
       // which `rtkQueryErrorLogger` would then turn into a red "Album not
-      // found" toast over the confirmation screen plus a Sentry event — on
+      // found" toast over the confirmation screen plus an error report — on
       // every successful delete. A tag exists to refresh a stale read; there
       // is nothing left to read. The cached entry goes unsubscribed as soon as
       // the librarian leaves and expires on its own, and every list that could
@@ -673,7 +673,7 @@ export const catalogApi = createApi({
       // a guaranteed 404 (`getArtistCard`; `getArtistReleases` and
       // `getNextReleaseNumber` share `artistReleaseTags` and resolve
       // existence the same way), which `rtkQueryErrorLogger` turns into a red
-      // toast plus a Sentry event on every successful delete. Both caches
+      // toast plus an error report on every successful delete. Both caches
       // simply expire once the librarian leaves.
       //
       // `CatalogList` is absent too, and it is a proven no-op rather than a

@@ -52,16 +52,16 @@ NEXT_PUBLIC_REVIEW_GATE_CUTOVER_DATE=
 # actually fired in a deployed environment.
 # APP_ORGANIZATION=wxyc
 
-# Optional — PostHog (lib/posthog.ts: analytics + its own $exception stream)
-# and Sentry (lib/sentry.ts: error triage). Errors go to both via
-# lib/error-reporting.ts. Each adapter is inert without its key/DSN — every
-# capture call no-ops. All are public values, not secrets. See .env.example
-# for the full comments and docs/adr/0008 for the dual-sink decision;
-# NEXT_PUBLIC_SENTRY_ENVIRONMENT and NEXT_PUBLIC_SENTRY_RELEASE are set by the
-# CI deploy jobs (production/preview + commit SHA) and rarely needed locally.
+# Optional — PostHog (lib/posthog.ts: analytics + the $exception stream, the
+# only error sink; see docs/adr/0009). Inert without its key — every capture
+# call no-ops. Public values, not secrets. See .env.example for the full
+# comments. NEXT_PUBLIC_ENVIRONMENT and NEXT_PUBLIC_RELEASE are set by the CI
+# deploy jobs (production/preview + commit SHA), registered as PostHog
+# super-properties when set, and rarely needed locally.
 # NEXT_PUBLIC_POSTHOG_KEY=phc_...
 # NEXT_PUBLIC_POSTHOG_HOST=https://us.i.posthog.com
-# NEXT_PUBLIC_SENTRY_DSN=https://<key>@<org>.ingest.us.sentry.io/<project>
+# NEXT_PUBLIC_ENVIRONMENT=production
+# NEXT_PUBLIC_RELEASE=<commit sha>
 
 # Optional — the client-side variable read by getAppOrganizationIdClient(),
 # consulted the same way as APP_ORGANIZATION above but for AuthorizedView's

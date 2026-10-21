@@ -10,8 +10,8 @@ import { redactEmailsDeep } from "./redact";
  *
  * PostHog carries product analytics AND its own copy of every error: the
  * `$exception` stream backs established crash-investigation workflows here,
- * so it stays a first-class sink alongside Sentry (docs/adr/0008). Callers
- * report errors through `lib/error-reporting.ts`, which fans out to both.
+ * and is the only error sink (docs/adr/0009). Callers report errors through
+ * `lib/error-reporting.ts`.
  *
  * Nothing here may identify a person: no `identify()` call exists anywhere,
  * autocapture and session recording stay off (both serialize on-screen PII —
@@ -118,6 +118,15 @@ export function initTelemetry(): void {
           disable_session_recording: true,
           before_send: scrubEventProperties,
         });
+        // Literal `process.env.NEXT_PUBLIC_*` reads so the bundler inlines them.
+        const environment = process.env.NEXT_PUBLIC_ENVIRONMENT;
+        const release = process.env.NEXT_PUBLIC_RELEASE;
+        if (environment || release) {
+          posthog.register({
+            ...(environment && { environment }),
+            ...(release && { release }),
+          });
+        }
       }
       client = posthog;
       flushBuffer(posthog);

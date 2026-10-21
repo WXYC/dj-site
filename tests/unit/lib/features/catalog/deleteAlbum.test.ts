@@ -217,7 +217,7 @@ describe("deleteAlbum", () => {
 
     // Invalidating AlbumDetail here would refetch a row that no longer
     // exists. The 404 is certain, and the shared error middleware turns it
-    // into a red toast over the confirmation screen and a Sentry event — on
+    // into a red toast over the confirmation screen and an error report — on
     // every successful delete.
     expect(infoCalls).toBe(1);
     sub.unsubscribe();

@@ -1,3 +1,5 @@
+> **Superseded by [ADR 0009](0009-posthog-only-error-reporting.md).** The Sentry sink was removed; PostHog is the only error tracker.
+
 # Errors report to both Sentry and PostHog; neither carries PII
 
 Client-side errors are reported to two sinks. Sentry is added for triage — grouping, regression detection, release association, and alerting — and PostHog **keeps** the `$exception` stream it already had, because crash investigation here reads it: when a DJ reports "the site went white," the established first move is finding `$exception` events around that time, alongside the `$pageview` / `sse_*` / login events that give them context. Removing that would have broken a working diagnostic path to gain nothing Sentry doesn't already provide separately.
