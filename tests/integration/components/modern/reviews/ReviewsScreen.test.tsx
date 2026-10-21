@@ -785,10 +785,10 @@ describe("ReviewsScreen", () => {
     await waitFor(() => expect(posts).toBe(1));
   });
 
-  it("locks the row's Ask a DJ… item while its request is in flight, sends no second request, and leaves the other rows usable", async () => {
+  it("holds the one Ask dialog open while a request is in flight, sends no second request, and leaves the other rows usable once it settles", async () => {
     mockAuth.authority = Authorization.MD;
     const paths: string[] = [];
-    // The first row's request is held until the test has checked its lock, so the in-flight window doesn't depend on the clock.
+    // The first row's request is held until the test has checked the dialog, so the in-flight window doesn't depend on the clock.
     let letGo!: () => void;
     const held = new Promise<void>((resolve) => {
       letGo = resolve;
@@ -808,22 +808,20 @@ describe("ReviewsScreen", () => {
     await ask(user, "Pat Placeholder");
     await waitFor(() => expect(paths).toEqual(["/intake/11/request"]));
 
-    const first = await moreButton("Moon Pix");
-    expect(first).toBeEnabled();
-    await user.click(first);
-    const locked = await screen.findByRole("menuitem", { name: ASK_A_DJ });
-    expect(locked).toHaveAttribute("aria-disabled", "true");
-    // user-event refuses a pointer on a locked item; a DJ's click still lands.
-    fireEvent.click(locked);
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    // The dialog stays on its confirm step with Ask disabled, and the rows behind it are out of reach.
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByRole("button", { name: "Ask" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: MORE_BUTTON })).not.toBeInTheDocument();
     await user.keyboard("{Escape}");
+    expect(screen.getAllByRole("dialog")).toHaveLength(1);
 
+    letGo();
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     expect(await moreButton("Jaubert")).toBeEnabled();
     await ask(user, "Test Reviewer", "Jaubert");
 
     await waitFor(() => expect(paths).toContain("/intake/12/request"));
     expect(paths.filter((x) => x === "/intake/11/request")).toHaveLength(1);
-    letGo();
   });
 
   it("shows the approved line on a 400, never the server's message, and reads the reviewers again", async () => {

@@ -10,7 +10,7 @@ const COPY = REVIEW_COPY.intake;
 
 type DialogProps = Parameters<typeof AskADjDialog>[0];
 
-interface ShelfMoreMenuProps extends Omit<DialogProps, "open" | "onClose" | "onReopen"> {
+interface ShelfMoreMenuProps extends Omit<DialogProps, "open" | "onClose"> {
   /** The record's id, for the links to its page. */
   id: number;
   /** The ids of the elements that name the record (space-separated, as `aria-labelledby` takes them), which name the button for the record it acts on among many. */
@@ -76,7 +76,6 @@ export default function ShelfMoreMenu({ id, labelledBy, busy, ...dialog }: Shelf
         {...dialog}
         open={asking}
         onClose={() => setAsking(false)}
-        onReopen={() => setAsking(true)}
       />
     </>
   );

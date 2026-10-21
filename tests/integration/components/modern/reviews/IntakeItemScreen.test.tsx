@@ -5950,7 +5950,7 @@ describe("IntakeItemScreen", () => {
     });
 
     it.each([
-      ["a coded refusal, the line under the name in a reopened dialog", { message: "server words", code: IntakeRequestRefusedCode.asked_dj_cannot_see_feature }, true],
+      ["a coded refusal, the line under the name in the dialog, which stays open", { message: "server words", code: IntakeRequestRefusedCode.asked_dj_cannot_see_feature }, true],
       ["a 400 with another code, the older toast", { message: "server words", code: "some_other_code" }, false],
     ])("answers a request refused with %s", async (_label, body, coded) => {
       serveWrites(dogaItem(POOL));

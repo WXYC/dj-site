@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { delay, http, HttpResponse } from "msw";
 import { setupListeners } from "@reduxjs/toolkit/query";
 import { IntakeRequestRefusedCode, type IntakeItem } from "@wxyc/shared";
@@ -274,44 +274,23 @@ describe("IntakeLanes stage lists", () => {
     expect(vi.mocked(toast.dismiss).mock.calls).toEqual([["asked-toast"]]);
   });
 
-  it.each([
-    ["a 400, the approved line and a fresh read of the reviewers", { status: 400, body: { message: "server words" } }],
-    ["a 409 state_changed, the lost-race notice", { status: 409, body: { message: "server words", reason: "state_changed" } }],
-  ])("answers a refused request with %s", async (_label, refusal) => {
-    let reviewerReads = 0;
-    serve([SHELF_OLD]);
-    server.use(
-      http.get(`${TEST_BACKEND_URL}/reviews/reviewers`, () => {
-        reviewerReads += 1;
-        return HttpResponse.json({ reviewers: REVIEWERS });
-      }),
-      http.post(`${TEST_BACKEND_URL}/intake/1/request`, () => HttpResponse.json(refusal.body, { status: refusal.status })),
-    );
-    showStage("review_shelf");
-    const { user } = renderWithProviders(<IntakeLanes />);
-
-    await user.click(await screen.findByRole("button", { name: new RegExp(`^${COPY.moreButton}`) }));
-    await user.click(await screen.findByRole("menuitem", { name: COPY.askADj }));
-    await user.type(await within(await screen.findByRole("dialog")).findByRole("combobox"), "Pat Placeholder");
-    await user.keyboard("{Enter}");
-    await user.click(await screen.findByRole("button", { name: COPY.ask }));
-
-    if (refusal.status === 400) {
-      await waitFor(() => expect(toast.error).toHaveBeenCalledWith(COPY.requestRefused));
-      await waitFor(() => expect(reviewerReads).toBe(2));
-    } else {
-      expect(await screen.findByRole("status")).toHaveTextContent(COPY.raceRequest);
-    }
-    expect(toast.error).not.toHaveBeenCalledWith("server words");
-  });
-
   const CANNOT_SEE_LINE = "Pat Placeholder can't see reviews yet. A station manager can add them to the reviews beta in the DJ Roster.";
+  const CODED_400 = { message: "server words", code: IntakeRequestRefusedCode.asked_dj_cannot_see_feature };
+  const askerOf = (user: ReturnType<typeof renderWithProviders>["user"], row = 0) => async (name: string) => {
+    await user.click((await screen.findAllByRole("button", { name: new RegExp(`^${COPY.moreButton}`) }))[row]);
+    await user.click(await screen.findByRole("menuitem", { name: COPY.askADj }));
+    await user.type(await within(await screen.findByRole("dialog")).findByRole("combobox"), name);
+    await user.keyboard("{Enter}");
+  };
+
+  // The coded refusal keeps the dialog on its confirm step and shows the line there; it neither toasts nor rereads the reviewers. Every other answer closes the dialog and keeps its own toast.
   it.each([
-    ["a coded refusal, keeping the dialog open on the confirm step with the line and Ask disabled", 400, { message: "server words", code: IntakeRequestRefusedCode.asked_dj_cannot_see_feature }, "line"],
-    ["a 400 without the code, the older toast", 400, { message: "server words" }, "older"],
-    ["a 400 with another code, the older toast", 400, { message: "server words", code: "some_other_code" }, "older"],
-    ["a success, the Asked toast", 200, { ...SHELF_OLD, state: "requested", effective_state: "requested" }, "asked"],
-  ])("answers a request with %s", async (_label, status, body, shown) => {
+    ["a coded 400, the line in the dialog and no toast", 400, CODED_400, { line: true, error: undefined, asked: false, notice: undefined, reads: 1 }],
+    ["a 400 without the code, the older toast and a fresh read of the reviewers", 400, { message: "server words" }, { line: false, error: COPY.requestRefused, asked: false, notice: undefined, reads: 2 }],
+    ["a 400 with another code, the older toast and a fresh read of the reviewers", 400, { message: "server words", code: "some_other_code" }, { line: false, error: COPY.requestRefused, asked: false, notice: undefined, reads: 2 }],
+    ["a 409 state_changed, the lost-race notice", 409, { message: "server words", reason: "state_changed" }, { line: false, error: undefined, asked: false, notice: COPY.raceRequest, reads: 1 }],
+    ["a success, the Asked toast", 200, { ...SHELF_OLD, state: "requested", effective_state: "requested" }, { line: false, error: undefined, asked: true, notice: undefined, reads: 1 }],
+  ])("answers a request with %s", async (_label, status, body, expected) => {
     let reviewerReads = 0;
     serve([SHELF_OLD]);
     server.use(
@@ -324,32 +303,128 @@ describe("IntakeLanes stage lists", () => {
     showStage("review_shelf");
     const { user } = renderWithProviders(<IntakeLanes />);
 
-    await user.click(await screen.findByRole("button", { name: new RegExp(`^${COPY.moreButton}`) }));
-    await user.click(await screen.findByRole("menuitem", { name: COPY.askADj }));
-    await user.type(await within(await screen.findByRole("dialog")).findByRole("combobox"), "Pat Placeholder");
-    await user.keyboard("{Enter}");
+    await askerOf(user)("Pat Placeholder");
     await user.click(await screen.findByRole("button", { name: COPY.ask }));
 
-    if (shown === "line") {
+    if (expected.line) {
       const dialog = await screen.findByRole("dialog");
       expect(await within(dialog).findByText(CANNOT_SEE_LINE)).toBeInTheDocument();
       expect(within(dialog).getByText(/^Ask Pat Placeholder/)).toHaveFocus();
       expect(within(dialog).getByRole("button", { name: COPY.ask })).toBeDisabled();
       expect(within(dialog).getByRole("button", { name: COPY.back })).toBeEnabled();
-      expect(reviewerReads).toBe(1);
-      expect(toast.error).not.toHaveBeenCalled();
-      expect(toast).not.toHaveBeenCalled();
-      await user.click(within(dialog).getByRole("button", { name: COPY.back }));
-      expect(screen.queryByText(CANNOT_SEE_LINE)).not.toBeInTheDocument();
-    } else if (shown === "older") {
-      await waitFor(() => expect(toast.error).toHaveBeenCalledWith(COPY.requestRefused));
-      expect(screen.queryByText(CANNOT_SEE_LINE)).not.toBeInTheDocument();
-      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-      expect(toast).not.toHaveBeenCalled();
+    } else if (expected.error) {
+      await waitFor(() => expect(toast.error).toHaveBeenCalledWith(expected.error));
+    } else if (expected.notice) {
+      expect(await screen.findByRole("status")).toHaveTextContent(expected.notice);
     } else {
       await waitFor(() => expect(toast).toHaveBeenCalledWith(COPY.askDone("Pat Placeholder"), expect.anything()));
-      expect(screen.queryByText(CANNOT_SEE_LINE)).not.toBeInTheDocument();
     }
+    await waitFor(() => expect(reviewerReads).toBe(expected.reads));
+    await delay(50);
+    expect(reviewerReads).toBe(expected.reads);
+    expect(screen.queryByRole("dialog") !== null).toBe(expected.line);
+    expect(screen.queryByText(CANNOT_SEE_LINE) !== null).toBe(expected.line);
+    expect(vi.mocked(toast.error).mock.calls).toEqual(expected.error ? [[expected.error]] : []);
+    expect(vi.mocked(toast).mock.calls).toHaveLength(expected.asked ? 1 : 0);
+    expect(toast.error).not.toHaveBeenCalledWith("server words");
+  });
+
+  it("keeps the one Ask dialog open and modal while the request is in flight, then shows the coded refusal there", async () => {
+    serve([SHELF_OLD, SHELF_NEW]);
+    server.use(
+      http.post(`${TEST_BACKEND_URL}/intake/1/request`, async () => {
+        await delay(150);
+        return HttpResponse.json(CODED_400, { status: 400 });
+      }),
+    );
+    showStage("review_shelf");
+    const { user } = renderWithProviders(<IntakeLanes />);
+    const dialogs = () => document.querySelectorAll("[role=dialog]");
+    const titles = () => document.querySelectorAll("#ask-a-dj-title");
+
+    await askerOf(user, 0)("Pat Placeholder");
+    await user.click(await screen.findByRole("button", { name: COPY.ask }));
+
+    // The dialog stays on its confirm step with Ask and Back disabled, the background is out of reach, and Escape does not dismiss it.
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByRole("button", { name: COPY.ask })).toBeDisabled();
+    expect(within(dialog).getByRole("button", { name: COPY.back })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: new RegExp(`^${COPY.moreButton}`) })).not.toBeInTheDocument();
+    await user.keyboard("{Escape}");
+    expect(dialogs()).toHaveLength(1);
+
+    expect(await within(dialog).findByText(CANNOT_SEE_LINE)).toBeInTheDocument();
+    expect(dialogs()).toHaveLength(1);
+    expect(titles()).toHaveLength(1);
+    expect(within(dialog).getByText(/^Ask Pat Placeholder/)).toHaveFocus();
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+
+  it("toasts the coded refusal's line when the dialog's host goes while the request is in flight", async () => {
+    serve([SHELF_OLD, BEING_REVIEWED]);
+    server.use(
+      http.post(`${TEST_BACKEND_URL}/intake/1/request`, async () => {
+        await delay(100);
+        return HttpResponse.json(CODED_400, { status: 400 });
+      }),
+    );
+    showStage("review_shelf");
+    const { user } = renderWithProviders(<IntakeLanes />);
+
+    await askerOf(user)("Pat Placeholder");
+    await user.click(await screen.findByRole("button", { name: COPY.ask }));
+    // The review shelf's rows go with the stage chip; the screen, which owns the write, stays.
+    act(() => {
+      url.search = "?stage=being_reviewed";
+      url.listeners.forEach((listener) => listener());
+    });
+    expect(await panel(COPY.beingReviewed)).toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(CANNOT_SEE_LINE));
+    await delay(50);
+    expect(vi.mocked(toast.error).mock.calls).toEqual([[CANNOT_SEE_LINE]]);
+    expect(toast).not.toHaveBeenCalled();
+  });
+
+  // Back and Escape each forget the refusal: it belongs to the DJ it was shown for, so the next DJ can be asked.
+  it.each([
+    ["Back", async (user: ReturnType<typeof renderWithProviders>["user"]) => user.click(await screen.findByRole("button", { name: COPY.back }))],
+    ["Escape", async (user: ReturnType<typeof renderWithProviders>["user"]) => user.keyboard("{Escape}")],
+  ])("clears the refusal on %s, so the next DJ can be asked", async (via, leave) => {
+    const asked: string[] = [];
+    serve([SHELF_OLD]);
+    server.use(
+      http.post(`${TEST_BACKEND_URL}/intake/1/request`, async ({ request }) => {
+        const djId = ((await request.json()) as { dj_id: string }).dj_id;
+        asked.push(djId);
+        return djId === "dj-pat" ? HttpResponse.json(CODED_400, { status: 400 }) : HttpResponse.json({ ...SHELF_OLD, state: "requested", effective_state: "requested" });
+      }),
+    );
+    showStage("review_shelf");
+    const { user } = renderWithProviders(<IntakeLanes />);
+    const ask = askerOf(user);
+
+    await ask("Pat Placeholder");
+    await user.click(await screen.findByRole("button", { name: COPY.ask }));
+    expect(await screen.findByText(CANNOT_SEE_LINE)).toBeInTheDocument();
+    await leave(user);
+    if (via === "Escape") {
+      await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+      await ask("DJ Sam");
+    } else {
+      const search = await screen.findByRole("combobox");
+      await user.clear(search);
+      await user.type(search, "DJ Sam");
+      await user.keyboard("{Enter}");
+    }
+
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText(/^Ask DJ Sam/)).toBeInTheDocument();
+    expect(screen.queryByText(CANNOT_SEE_LINE)).not.toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: COPY.ask })).toBeEnabled();
+    await user.click(within(dialog).getByRole("button", { name: COPY.ask }));
+    await waitFor(() => expect(asked).toEqual(["dj-pat", "dj-sam"]));
   });
 
   it("shows a record filed 29 days ago, hides one filed 31 days ago and one with no filing time until Show older, newest first, finalized included", async () => {

@@ -1,10 +1,12 @@
 import { Fragment, useCallback, useState } from "react";
 import { flushSync } from "react-dom";
+import { toast } from "sonner";
 import { Autocomplete, Button, List, ListItem, ListSubheader, Typography } from "@mui/joy";
 import AutocompleteOption from "@mui/joy/AutocompleteOption";
 import type { Reviewer } from "@wxyc/shared";
 import { describeReviewer, distinctOnAir, matchReviewers, suggestReviewers, type FoldedReviewer } from "@/lib/features/reviews/reviewerMatch";
 import { useMediaQuery } from "@/src/hooks/useMediaQuery";
+import { useMounted } from "@/src/hooks/useRowWrite";
 import ConfirmDialog from "../ConfirmDialog";
 import { REVIEW_COPY } from "./copy";
 import ActionTooltip from "./ActionTooltip";
@@ -37,23 +39,24 @@ interface AskADjDialogProps {
   open: boolean;
   /** Runs after the dialog has reset itself, whether it was dismissed or Ask sent the request. */
   onClose: () => void;
-  /** Reopens the dialog after `onClose`, on the confirm step. */
-  onReopen: () => void;
-  /** Sends the request. Resolves to the line to show under the DJ's name when the request was refused for a reason the dialog answers, and the dialog reopens to show it. */
-  onRequest: (reviewer: Reviewer) => Promise<string | undefined> | void;
+  /** Sends the request, with the dialog held open until it settles. Resolves to the line to show under the DJ's name when the request was refused for a reason the dialog answers (the dialog stays on the confirm step to show it; any other outcome closes it), and to `settle`, which the dialog runs last, once it has closed and handed focus back. */
+  onRequest: (reviewer: Reviewer) => Promise<{ refusal?: string; settle?: () => void }>;
 }
 
-interface IntakeRequestPickerProps extends Omit<AskADjDialogProps, "open" | "onClose" | "onReopen"> {
+interface IntakeRequestPickerProps extends Omit<AskADjDialogProps, "open" | "onClose"> {
   /** The row's `lock(id, "request")`. */
   busy: { loading: boolean; disabled: boolean };
 }
 
 /** The dialog that searches for the account to ask to review one record, and asks again before sending. The caller owns whether it is open and what opens it. */
-export function AskADjDialog({ reviewers, loading, failed, passedIds, artist, album, open, onClose, onReopen, onRequest }: AskADjDialogProps) {
+export function AskADjDialog({ reviewers, loading, failed, passedIds, artist, album, open, onClose, onRequest }: AskADjDialogProps) {
   const [query, setQuery] = useState("");
   const [picked, setPicked] = useState<Reviewer | null>(null);
   // Why the request just sent was refused; the confirm step shows it and cannot send again.
   const [refusal, setRefusal] = useState<string | null>(null);
+  // The request is on the wire: the dialog stays open and modal until it settles.
+  const [pending, setPending] = useState(false);
+  const mounted = useMounted();
   // Set by choosing "Or search all"; only close() clears it.
   const [searchAll, setSearchAll] = useState(false);
   const isPhone = useMediaQuery(PHONE_QUERY);
@@ -79,6 +82,7 @@ export function AskADjDialog({ reviewers, loading, failed, passedIds, artist, al
     <ConfirmDialog
       open={open}
       onClose={close}
+      pending={pending}
       role="dialog"
       titleId={TITLE_ID}
       describedBy={picked ? QUESTION_ID : undefined}
@@ -87,19 +91,23 @@ export function AskADjDialog({ reviewers, loading, failed, passedIds, artist, al
       actions={
         picked ? (
           <>
-            <Button variant="plain" onClick={() => { setPicked(null); setRefusal(null); }}>{COPY.back}</Button>
+            <Button variant="plain" disabled={pending} onClick={() => { setPicked(null); setRefusal(null); }}>{COPY.back}</Button>
             <Button
               aria-describedby={QUESTION_ID}
-              disabled={refusal !== null}
+              disabled={refusal !== null || pending}
               onClick={async () => {
-                // The dialog closes, and hands focus back to the control that opened it, before the request's row lock can disable that control.
-                flushSync(close);
-                const refused = await onRequest(picked);
-                if (refused) {
-                  setPicked(picked);
-                  setRefusal(refused);
-                  onReopen();
+                setPending(true);
+                const { refusal: line, settle } = await onRequest(picked).finally(() => setPending(false));
+                if (!line) {
+                  // Closed before `settle`, so the opener has its focus back before a screen moves it on.
+                  flushSync(close);
+                } else if (mounted.current) {
+                  setRefusal(line);
+                } else {
+                  // The dialog's host went while the request was in flight, so the line has nowhere to show.
+                  toast.error(line);
                 }
+                settle?.();
               }}
             >
               {COPY.ask}
@@ -113,7 +121,7 @@ export function AskADjDialog({ reviewers, loading, failed, passedIds, artist, al
     >
       {picked ? (
         <>
-          <Typography id={QUESTION_ID} tabIndex={-1} ref={focusQuestion}>{COPY.askConfirm(picked.name, artist, album, distinctOnAir(picked))}</Typography>
+          <Typography key={refusal ? "refused" : "asking"} id={QUESTION_ID} tabIndex={-1} ref={focusQuestion}>{COPY.askConfirm(picked.name, artist, album, distinctOnAir(picked))}</Typography>
           {refusal && <Typography role="alert" color="danger">{refusal}</Typography>}
         </>
       ) : (
@@ -202,7 +210,7 @@ export default function IntakeRequestPicker({ busy, ...dialog }: IntakeRequestPi
           {COPY.askADj}
         </Button>
       </ActionTooltip>
-      <AskADjDialog {...dialog} open={open} onClose={() => setOpen(false)} onReopen={() => setOpen(true)} />
+      <AskADjDialog {...dialog} open={open} onClose={() => setOpen(false)} />
     </>
   );
 }

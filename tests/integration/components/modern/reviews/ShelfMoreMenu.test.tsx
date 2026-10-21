@@ -214,7 +214,7 @@ describe.each(SURFACES)("the music director's More menu on $name", ({ draw, hasC
         },
       ],
       [
-        "Ask, while the request is in flight",
+        "Ask, once the request settles",
         async (user: ReturnType<typeof renderWithProviders>["user"]) => {
           await user.type(await within(await screen.findByRole("dialog")).findByRole("combobox"), "Pat Placeholder");
           await user.keyboard("{Enter}");
@@ -234,14 +234,14 @@ describe.each(SURFACES)("the music director's More menu on $name", ({ draw, hasC
 
       const more = await openPicker(user);
       await close(user);
+      letGo();
 
       await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
       expect(more).toBeEnabled();
-      expect(document.activeElement).toBe(more);
-      letGo();
+      await waitFor(() => expect(document.activeElement).toBe(more));
     });
 
-    it("locks only the Ask a DJ… item while its request is in flight, leaving More usable", async () => {
+    it("keeps the dialog open and the page behind it out of reach while the request is in flight, then leaves More and Ask a DJ… usable", async () => {
       serve([DOGA]);
       const { held, letGo } = holdResponse();
       server.use(
@@ -256,12 +256,14 @@ describe.each(SURFACES)("the music director's More menu on $name", ({ draw, hasC
       await user.type(await within(await screen.findByRole("dialog")).findByRole("combobox"), "Pat Placeholder");
       await user.keyboard("{Enter}");
       await user.click(await screen.findByRole("button", { name: COPY.ask }));
+
+      expect(within(await screen.findByRole("dialog")).getByRole("button", { name: COPY.ask })).toBeDisabled();
+      expect(screen.queryByRole("button", { name: new RegExp(`^${COPY.moreButton}`) })).not.toBeInTheDocument();
+      letGo();
       await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
 
       await user.click(more);
-      expect(await screen.findByRole("menuitem", { name: COPY.askADj })).toHaveAttribute("aria-disabled", "true");
-      expect(screen.getByRole("menuitem", { name: "Use a review we already have…" })).not.toHaveAttribute("aria-disabled", "true");
-      letGo();
+      expect(await screen.findByRole("menuitem", { name: COPY.askADj })).not.toHaveAttribute("aria-disabled", "true");
     });
   });
 

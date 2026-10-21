@@ -21,7 +21,7 @@ export type AskWrite = {
 };
 
 /**
- * A screen's row-write `onFailure` calls this first, so every screen answers a refused request the same way: a request the server refused (the DJ can no longer be asked) gets the approved line and a fresh reviewers read, never the generic write-failed line. It returns true when it answered `err`. A request refused because the DJ cannot see reviews yet is answered in the Ask dialog, so it gets neither the toast nor the read: the reviewers list is still right.
+ * A screen's row-write `onFailure` calls this first, so every screen answers a refused request the same way: a request the server refused (the DJ can no longer be asked) gets the approved line and a fresh reviewers read, never the generic write-failed line. It returns true when it answered `err`. A request refused because the DJ cannot see reviews yet is answered in the Ask dialog (or, if that has gone, by a toast there), so it gets neither the older toast nor the read: the reviewers list is still right.
  */
 export function answerRefusedRequest(err: unknown, action: string, dispatch: AppDispatch): boolean {
   if (action !== "request") {
@@ -41,7 +41,7 @@ export function answerRefusedRequest(err: unknown, action: string, dispatch: App
 /**
  * The music director's Ask a DJ… control, once per screen: one fold per reviewers read, one set of Asked toasts, one mounted ref. Call it once in the screen and draw `picker(item)` (a record's page) or `moreMenu(item)` (a review shelf row) for each record; a per-row component would refold the reviewers per row and dismiss a row's toast whenever that row unmounts after the write's reload. `alert` is the reviewers-load-failed line, for the screen to draw once.
  *
- * `moreMenu` names each row's More button by the review shelf row's artist and album too, through the `shelfRecordId` and `shelfAlbumId` ids the screen puts on them; `picker` is the record page's button, named by its own words. `onSettled` runs with the write's outcome once the write's lists have reloaded, while the screen is still mounted, for a screen that moves focus off a button the reload took away.
+ * `moreMenu` names each row's More button by the review shelf row's artist and album too, through the `shelfRecordId` and `shelfAlbumId` ids the screen puts on them; `picker` is the record page's button, named by its own words. `onSettled` runs with the write's outcome once the write's lists have reloaded and the Ask dialog has closed, while the screen is still mounted, for a screen that moves focus off a button the reload took away.
  */
 export function useAskADj({
   reviewers,
@@ -76,16 +76,14 @@ export function useAskADj({
   // The toast waits for the write to finish, so its Cancel request never meets the row's lock.
   const ask = async (i: IntakeItem, reviewer: Reviewer) => {
     let cannotSee = false;
-    const outcome = await write(i.id, "request", async () => {
-      try {
-        await requestReview({ id: i.id, djId: reviewer.id }).unwrap();
-      } catch (err) {
+    const outcome = await write(i.id, "request", () =>
+      requestReview({ id: i.id, djId: reviewer.id }).unwrap().catch((err) => {
         cannotSee = isIntakeAskedDjCannotSeeReviews(err);
         throw err;
-      }
-    });
+      }),
+    );
     if (!mounted.current) {
-      return;
+      return {};
     }
     if (outcome === "applied") {
       const id = toast(REVIEW_COPY.intake.askDone(reviewer.name), {
@@ -93,9 +91,8 @@ export function useAskADj({
       });
       askedToasts.current.add(id);
     }
-    onSettled?.(i, outcome);
-    // The dialog reopens on this line, so nothing is shown as sent.
-    return cannotSee ? REVIEW_COPY.intake.cannotSeeReviews(reviewer.name) : undefined;
+    // The dialog shows the refusal's line, so nothing is shown as sent; it runs `settle` once it has closed.
+    return { refusal: cannotSee ? REVIEW_COPY.intake.cannotSeeReviews(reviewer.name) : undefined, settle: () => onSettled?.(i, outcome) };
   };
 
   const alert: ReactNode = reviewersFailed ? <Typography role="alert">{REVIEW_COPY.intake.reviewersLoadFailed}</Typography> : null;
