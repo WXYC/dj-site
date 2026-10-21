@@ -28,6 +28,7 @@ import { reviewsApi } from "./features/reviews/api";
 import { rotationApi } from "./features/rotation/api";
 import { scheduleWeekApi } from "./features/schedule-week/api";
 import { showPlaylistApi } from "./features/show-playlist/api";
+import { specialtyApi } from "./features/specialty/api";
 import { rotationSlice } from "./features/rotation/frontend";
 import { stationSignupApi } from "./features/station-signup/api";
 
@@ -54,6 +55,7 @@ const rootReducer = combineSlices(
   rotationApi,
   scheduleWeekApi,
   showPlaylistApi,
+  specialtyApi,
   adminSlice,
   adminApi,
   stationSignupApi
@@ -85,6 +87,7 @@ export const makeStore = (preloadedState?: Partial<RootState>) => {
         .concat(rotationApi.middleware)
         .concat(scheduleWeekApi.middleware)
         .concat(showPlaylistApi.middleware)
+        .concat(specialtyApi.middleware)
         .concat(adminApi.middleware)
         .concat(stationSignupApi.middleware);
     },
