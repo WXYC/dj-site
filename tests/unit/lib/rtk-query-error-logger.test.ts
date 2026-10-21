@@ -5,7 +5,7 @@ vi.mock("sonner", () => ({
 }));
 
 // Mocked so the capture is assertable — without this the middleware would
-// exercise the real (inert-in-tests) Sentry adapter and report nothing.
+// exercise the real (inert-in-tests) PostHog adapter and report nothing.
 const { mockCaptureException } = vi.hoisted(() => ({
   mockCaptureException: vi.fn(),
 }));

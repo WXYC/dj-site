@@ -21,7 +21,7 @@ export function register(): void {}
  *     CLAUDE.md; e.g. surfaced from lib/features/backend.ts's fetchBaseQuery
  *     wrapper) are alerting-worthy — anything reaching `onRequestError` is a
  *     real server failure in this bucket.
- *   - Optional-adapter failures (PostHog, Sentry et al.) stay informational:
+ *   - Optional-adapter failures (PostHog et al.) stay informational:
  *     they fail open at their `safeCapture*` wrapper and never propagate here,
  *     so this handler never needs to demote them.
  *

@@ -25,8 +25,7 @@ const distDir = process.env.NEXT_DIST_DIR_SUFFIX
 //                (lib/posthog.ts) lazy-loads its exception-autocapture bundle
 //                from the region "-assets" host (the session recorder does not
 //                load — recording is disabled in init — but the host is the
-//                same). Sentry needs no script origin: its SDK is bundled with
-//                the app, not fetched.
+//                same).
 //   style-src    'unsafe-inline' — MUI Joy UI / Emotion inject runtime <style>
 //                tags and inline style attributes; next/font emits inline
 //                @font-face. All self-hosted; no external stylesheet origins.
@@ -39,8 +38,7 @@ const distDir = process.env.NEXT_DIST_DIR_SUFFIX
 //   connect-src  backend origin — RTK Query (lib/features/backend.ts) and the
 //                SSE EventSource (lib/features/flowsheet/live-updates-listener.ts)
 //                hit NEXT_PUBLIC_BACKEND_URL directly; PostHog host + assets for
-//                telemetry; Sentry ingest origin (derived from the DSN) for
-//                error envelopes (lib/sentry.ts); orchestrator origin when
+//                telemetry; orchestrator origin when
 //                NEXT_PUBLIC_ORCHESTRATOR_URL is set (lib/features/autoDJ/api.ts).
 //                Auth is same-origin: the client resolves a cross-origin
 //                NEXT_PUBLIC_BETTER_AUTH_URL to the local /auth proxy
@@ -79,13 +77,6 @@ function posthogAssetsOrigin(origin) {
   );
 }
 
-// A Sentry DSN is a URL (https://<key>@<ingest-host>/<project-id>); its origin
-// is where the browser SDK posts event envelopes. Only connect-src needs it —
-// the SDK ships in the app bundle, so no script origin is involved.
-function sentryIngestOrigin(dsn) {
-  return originOf(dsn);
-}
-
 export function buildContentSecurityPolicy(env = process.env) {
   const backendOrigin = originOf(env.NEXT_PUBLIC_BACKEND_URL);
   const orchestratorOrigin = originOf(env.NEXT_PUBLIC_ORCHESTRATOR_URL);
@@ -93,7 +84,6 @@ export function buildContentSecurityPolicy(env = process.env) {
     env.NEXT_PUBLIC_POSTHOG_HOST || "https://us.i.posthog.com"
   );
   const posthogAssets = posthogAssetsOrigin(posthogOrigin);
-  const sentryIngest = sentryIngestOrigin(env.NEXT_PUBLIC_SENTRY_DSN);
 
   const dedupe = (values) => [...new Set(values.filter(Boolean))];
 
@@ -109,7 +99,6 @@ export function buildContentSecurityPolicy(env = process.env) {
     orchestratorOrigin,
     posthogOrigin,
     posthogAssets,
-    sentryIngest,
   ]);
 
   const directives = [

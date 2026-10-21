@@ -20,7 +20,6 @@ export const DOM_DEPENDENT_LIB_TESTS = [
   "tests/unit/lib/features/flowsheet/queue-storage.test.ts",
   "tests/unit/lib/store.test.tsx",
   "tests/unit/lib/posthog.test.ts",
-  "tests/unit/lib/sentry.test.ts",
   "tests/unit/lib/web-vitals-reporter.test.ts",
 ];
 

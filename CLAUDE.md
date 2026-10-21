@@ -34,9 +34,8 @@ Established by the 2026-07 DevX refactor (retrospective:
 - **Backend-Service is the only core external dependency.** Every other external
   service (telemetry, error reporting, metadata lookup, artwork, flags, …) sits
   behind an application-owned adapter that fails open — provider SDKs and types
-  never leak past the adapter (`lib/posthog.ts` is the pattern; `lib/sentry.ts`
-  follows it, and `lib/error-reporting.ts` fans every error out to both sinks —
-  see `docs/adr/0008`). Optional-service failure must never impair an unrelated
+  never leak past the adapter (`lib/posthog.ts` is the pattern; `lib/error-reporting.ts`
+  sends every error to PostHog, the only error sink — see `docs/adr/0009`). Optional-service failure must never impair an unrelated
   workflow. This is about *optional* services, not Backend-Service itself: a
   Backend-Service read has its own, narrower failure contracts, and one of them
   (a write precondition) fails closed rather than open — see "Backend-read

@@ -190,7 +190,7 @@ describe("deleteArtist", () => {
     // `getNextReleaseNumber`) both resolve existence through the row this
     // delete just removed. Invalidating them would refetch a request whose
     // 404 is guaranteed, which the shared error middleware turns into a red
-    // toast over the confirmation screen and a Sentry event on every
+    // toast over the confirmation screen and an error report on every
     // successful delete -- see `deleteAlbum`'s identical reasoning for
     // `AlbumDetail`.
     expect(calls.card).toBe(1);

@@ -8,6 +8,7 @@ const control = vi.hoisted(() => ({
     init: vi.fn(),
     capture: vi.fn(),
     captureException: vi.fn(),
+    register: vi.fn(),
     __loaded: false,
   },
 }));
@@ -39,6 +40,7 @@ describe("initTelemetry", () => {
     vi.resetModules();
     posthog.init.mockClear();
     posthog.capture.mockClear();
+    posthog.register.mockClear();
     posthog.__loaded = false;
     process.env.NEXT_PUBLIC_POSTHOG_KEY = "phc_test123";
   });
@@ -104,6 +106,36 @@ describe("initTelemetry", () => {
     await initAndWait();
 
     expect(posthog.init).not.toHaveBeenCalled();
+  });
+
+  it("registers environment and release as super-properties when set", async () => {
+    process.env.NEXT_PUBLIC_ENVIRONMENT = "production";
+    process.env.NEXT_PUBLIC_RELEASE = "abc123";
+
+    await initAndWait();
+
+    expect(posthog.register).toHaveBeenCalledWith({
+      environment: "production",
+      release: "abc123",
+    });
+  });
+
+  it("registers only the super-properties that are set", async () => {
+    process.env.NEXT_PUBLIC_ENVIRONMENT = "preview";
+    delete process.env.NEXT_PUBLIC_RELEASE;
+
+    await initAndWait();
+
+    expect(posthog.register).toHaveBeenCalledWith({ environment: "preview" });
+  });
+
+  it("does not register when neither is set", async () => {
+    delete process.env.NEXT_PUBLIC_ENVIRONMENT;
+    delete process.env.NEXT_PUBLIC_RELEASE;
+
+    await initAndWait();
+
+    expect(posthog.register).not.toHaveBeenCalled();
   });
 
   it("imports posthog-js exactly once when initTelemetry is called twice (remount)", async () => {

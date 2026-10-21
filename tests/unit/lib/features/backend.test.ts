@@ -576,7 +576,7 @@ describe("backend", () => {
         expect(response.sample).toBe(longBody.slice(0, 200));
       });
 
-      // The sample is taken from a body the origin wrote, and Sentry's `extra`
+      // The sample is taken from a body the origin wrote, and the error tracker's properties
       // is the one field neither adapter scrubs on the way out.
       it("redacts an address the sampled body carried", async () => {
         mockInnerBaseQuery.mockResolvedValueOnce({

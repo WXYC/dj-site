@@ -170,7 +170,7 @@ const logNonJsonResponse = (
   // so without them the event cannot be diagnosed without a live reproduction.
   //
   // They travel nested because `splitContext` indexes every string-valued
-  // entry as a Sentry tag, and a parser message carries a byte offset while a
+  // entry as an error-tracker tag, and a parser message carries a byte offset while a
   // sample carries the body: neither is worth a tag value. `extra` is also the
   // one field no adapter scrubs on the way out, hence the redaction here.
   safeCaptureException(new Error(message), {
