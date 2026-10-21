@@ -104,3 +104,23 @@ describe("AccountEntry review indicator", () => {
     }
   });
 });
+
+describe("AccountEntry capability badges", () => {
+  it.each([
+    ["editor", "Editor"],
+    ["webmaster", "Webmaster"],
+    ["reviews_beta", "Reviews beta"],
+  ])("shows a %s badge for an account that holds it", (capability, label) => {
+    renderAccountEntry({ capabilities: [capability] });
+
+    expect(screen.getByText(label)).toBeInTheDocument();
+  });
+
+  it("shows no badge for a capability the account lacks or one the roster does not list", () => {
+    renderAccountEntry({ capabilities: ["crm_merge"] });
+
+    expect(screen.queryByText("Reviews beta")).not.toBeInTheDocument();
+    expect(screen.queryByText("Editor")).not.toBeInTheDocument();
+    expect(screen.queryByText("crm_merge")).not.toBeInTheDocument();
+  });
+});

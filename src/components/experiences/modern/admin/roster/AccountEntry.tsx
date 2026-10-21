@@ -8,16 +8,15 @@ import {
 } from "@/lib/features/authentication/types";
 import { useAppDispatch } from "@/lib/hooks";
 import { ADMIN_TONES } from "@/lib/features/experiences/modern/tokens/roles";
-import { Edit, Language, Settings } from "@mui/icons-material";
+import { CAPABILITY_PRESENTATION } from "./capabilityPresentation";
+import { CAPABILITIES } from "@wxyc/shared/auth-client";
+import { Settings } from "@mui/icons-material";
 import {
   Chip,
   IconButton,
   Stack,
   Tooltip,
 } from "@mui/joy";
-
-const CAPABILITIES = ["editor", "webmaster"] as const;
-type Capability = (typeof CAPABILITIES)[number];
 
 export const AccountEntry = ({
   account,
@@ -29,7 +28,7 @@ export const AccountEntry = ({
   organizationSlug: string;
 }) => {
   const dispatch = useAppDispatch();
-  const userCapabilities = (account.capabilities ?? []) as Capability[];
+  const userCapabilities = account.capabilities ?? [];
 
   return (
     <tr>
@@ -40,24 +39,19 @@ export const AccountEntry = ({
           </Chip>
           {userCapabilities.length > 0 && (
             <Stack direction="row" spacing={0.5}>
-              {userCapabilities.includes("editor") && (
-                <Chip
-                  {...ADMIN_TONES.editor}
-                  size="sm"
-                  startDecorator={<Edit sx={{ fontSize: 14 }} />}
-                >
-                  Editor
-                </Chip>
-              )}
-              {userCapabilities.includes("webmaster") && (
-                <Chip
-                  {...ADMIN_TONES.webmaster}
-                  size="sm"
-                  startDecorator={<Language sx={{ fontSize: 14 }} />}
-                >
-                  Webmaster
-                </Chip>
-              )}
+              {CAPABILITIES.filter((c) => userCapabilities.includes(c)).map((c) => {
+                const { label, Icon, tone } = CAPABILITY_PRESENTATION[c];
+                return (
+                  <Chip
+                    key={c}
+                    {...ADMIN_TONES[tone]}
+                    size="sm"
+                    startDecorator={<Icon sx={{ fontSize: 14 }} />}
+                  >
+                    {label}
+                  </Chip>
+                );
+              })}
             </Stack>
           )}
         </Stack>

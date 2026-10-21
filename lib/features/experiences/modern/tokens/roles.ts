@@ -167,11 +167,12 @@ export const ENTRY_TONES: Record<EntryRole, Tone> = {
   generic: { color: "warning", variant: "soft" },
 };
 
-export type AdminRoleTone = "role" | "editor" | "webmaster" | "newDj" | "pendingReview";
+export type AdminRoleTone = "role" | "editor" | "webmaster" | "reviewsBeta" | "newDj" | "pendingReview";
 export const ADMIN_TONES: Record<AdminRoleTone, Tone> = {
   role: { color: "success", variant: "soft" },
   editor: { color: "success", variant: "solid" },
   webmaster: { color: "primary", variant: "solid" },
+  reviewsBeta: { color: "warning", variant: "solid" },
   newDj: { color: "warning", variant: "soft" },
   pendingReview: { color: "danger", variant: "soft" },
 };

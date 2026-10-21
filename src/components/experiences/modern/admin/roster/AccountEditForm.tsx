@@ -4,6 +4,9 @@ import { authClient, authFetch } from "@/lib/features/authentication/client";
 import { authErrorMessage } from "@/lib/features/authentication/auth-fetch";
 import { adminApi } from "@/lib/features/admin/api";
 import { useAppDispatch } from "@/lib/hooks";
+import { CAPABILITIES, type Capability } from "@wxyc/shared/auth-client";
+import { ADMIN_TONES } from "@/lib/features/experiences/modern/tokens/roles";
+import { CAPABILITY_PRESENTATION } from "./capabilityPresentation";
 import { resolveOrganizationIdAdmin } from "@/lib/features/authentication/organization-utils";
 import { isPendingManagerReview } from "@/lib/features/admin/roster-filter";
 import {
@@ -16,7 +19,7 @@ import {
   authorizationToRole,
 } from "@/lib/features/authentication/types";
 import { formatStationTimestampLabel } from "@/src/utilities/stationTime";
-import { CheckCircle, DeleteForever, Edit, Language, Send } from "@mui/icons-material";
+import { CheckCircle, DeleteForever, Send } from "@mui/icons-material";
 import {
   Button,
   Chip,
@@ -69,7 +72,7 @@ export default function AccountEditForm({
   const dispatch = useAppDispatch();
   const invalidateRoster = () => dispatch(adminApi.util.invalidateTags(["Roster"]));
 
-  const userCapabilities = (account.capabilities ?? []) as ("editor" | "webmaster")[];
+  const userCapabilities = account.capabilities ?? [];
   const isIncomplete = account.hasCompletedOnboarding !== true;
   const pendingReview = isPendingManagerReview(account);
   // Defense-in-depth against a future second dispatcher of "account-edit":
@@ -164,7 +167,7 @@ export default function AccountEditForm({
     return result;
   };
 
-  const updateCapabilities = async (newCapabilities: ("editor" | "webmaster")[]) => {
+  const updateCapabilities = async (newCapabilities: string[]) => {
     const userId = await resolveUserId();
 
     const result = await (authClient.admin as any).updateUser({
@@ -205,25 +208,22 @@ export default function AccountEditForm({
     }
   };
 
-  const handleCapabilityToggle = async (capability: "editor" | "webmaster") => {
+  const handleCapabilityToggle = async (capability: Capability) => {
     const hasCapability = userCapabilities.includes(capability);
     const newCapabilities = hasCapability
       ? userCapabilities.filter((c) => c !== capability)
       : [...userCapabilities, capability];
 
-    const action = hasCapability ? "remove" : "grant";
-    const confirmMessage = `Are you sure you want to ${action} the "${capability}" capability ${hasCapability ? "from" : "to"} ${account.realName}?`;
+    const copy = CAPABILITY_PRESENTATION[capability];
 
-    if (!confirm(confirmMessage)) {
+    if (!confirm(copy.confirm(account.realName, hasCapability))) {
       return;
     }
 
     setIsUpdatingCapabilities(true);
     try {
       await updateCapabilities(newCapabilities);
-      toast.success(
-        `${capability} capability ${hasCapability ? "removed from" : "granted to"} ${account.realName}`
-      );
+      toast.success(copy.toast(account.realName, hasCapability));
       invalidateRoster();
     } catch (err) {
       const errorMessage =
@@ -450,62 +450,41 @@ export default function AccountEditForm({
       <FormControl>
         <FormLabel>Capabilities</FormLabel>
         <Stack direction="row" spacing={1}>
-          <Tooltip
-            title={
-              isSelf
-                ? "You cannot modify your own capabilities"
-                : userCapabilities.includes("editor")
-                  ? "Remove editor capability"
-                  : "Grant editor capability (allows website editing)"
-            }
-            arrow
-            placement="top"
-            variant="outlined"
-            size="sm"
-          >
-            <Chip
-              variant={userCapabilities.includes("editor") ? "solid" : "outlined"}
-              color={userCapabilities.includes("editor") ? "success" : "neutral"}
-              size="md"
-              startDecorator={<Edit sx={{ fontSize: 16 }} />}
-              onClick={() => !isSelf && handleCapabilityToggle("editor")}
-              disabled={isSelf || isUpdatingCapabilities}
-              sx={{
-                cursor: isSelf ? "not-allowed" : "pointer",
-                opacity: isUpdatingCapabilities ? 0.5 : 1,
-              }}
-            >
-              Editor
-            </Chip>
-          </Tooltip>
-          <Tooltip
-            title={
-              isSelf
-                ? "You cannot modify your own capabilities"
-                : userCapabilities.includes("webmaster")
-                  ? "Remove webmaster capability"
-                  : "Grant webmaster capability (can delegate editor)"
-            }
-            arrow
-            placement="top"
-            variant="outlined"
-            size="sm"
-          >
-            <Chip
-              variant={userCapabilities.includes("webmaster") ? "solid" : "outlined"}
-              color={userCapabilities.includes("webmaster") ? "primary" : "neutral"}
-              size="md"
-              startDecorator={<Language sx={{ fontSize: 16 }} />}
-              onClick={() => !isSelf && handleCapabilityToggle("webmaster")}
-              disabled={isSelf || isUpdatingCapabilities}
-              sx={{
-                cursor: isSelf ? "not-allowed" : "pointer",
-                opacity: isUpdatingCapabilities ? 0.5 : 1,
-              }}
-            >
-              Webmaster
-            </Chip>
-          </Tooltip>
+          {CAPABILITIES.map((capability) => {
+            const { label, Icon, tone, grantTooltip, removeTooltip } = CAPABILITY_PRESENTATION[capability];
+            const holds = userCapabilities.includes(capability);
+            return (
+              <Tooltip
+                key={capability}
+                title={
+                  isSelf
+                    ? "You cannot modify your own capabilities"
+                    : holds
+                      ? removeTooltip
+                      : grantTooltip
+                }
+                arrow
+                placement="top"
+                variant="outlined"
+                size="sm"
+              >
+                <Chip
+                  variant={holds ? "solid" : "outlined"}
+                  color={holds ? ADMIN_TONES[tone].color : "neutral"}
+                  size="md"
+                  startDecorator={<Icon sx={{ fontSize: 16 }} />}
+                  onClick={() => !isSelf && handleCapabilityToggle(capability)}
+                  disabled={isSelf || isUpdatingCapabilities}
+                  sx={{
+                    cursor: isSelf ? "not-allowed" : "pointer",
+                    opacity: isUpdatingCapabilities ? 0.5 : 1,
+                  }}
+                >
+                  {label}
+                </Chip>
+              </Tooltip>
+            );
+          })}
         </Stack>
       </FormControl>
 
