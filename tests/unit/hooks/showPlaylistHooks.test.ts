@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { renderHook } from "@testing-library/react";
+import type { SpecialtyShowRef } from "@wxyc/shared";
 import type { ShowPlaylistWire } from "@/lib/features/show-playlist/types";
 
 const queryState: {
@@ -29,6 +30,15 @@ const wire = (over: Partial<ShowPlaylistWire> = {}): ShowPlaylistWire => ({
   ...over,
 });
 
+const specialty: SpecialtyShowRef = {
+  id: 7,
+  slug: "sunset-soundtrack",
+  name: "Sunset Soundtrack",
+  short_name: "SST",
+  logs_playcuts: true,
+  accent_color: "#7a3b00",
+};
+
 const entry = (play_order: number, entry_type: string) => ({
   id: play_order,
   show_id: 900001,
@@ -43,6 +53,26 @@ const render = (over: Partial<ShowPlaylistWire> = {}, rest = {}) => {
 };
 
 describe("useShowPlaylist", () => {
+  it("titles a tagged show by its program, with the airing's name beneath", () => {
+    const show = render({ specialty, show_name: "Blade Runner" });
+    expect(show.title).toBe("Sunset Soundtrack");
+    expect(show.subtitle).toBe("Blade Runner");
+    expect(show.specialty).toEqual(specialty);
+  });
+
+  it("drops the subtitle when the airing is named for the program or not at all", () => {
+    expect(render({ specialty, show_name: "Sunset Soundtrack" }).subtitle).toBeNull();
+    expect(render({ specialty, show_name: null }).subtitle).toBeNull();
+  });
+
+  it("keeps the show name, handle, absence chain for an untagged show", () => {
+    const show = render({ show_name: "Late Night" });
+    expect(show.title).toBe("Late Night");
+    expect(show.subtitle).toBeNull();
+    expect(show.specialty).toBeNull();
+    expect(render({ show_name: null }).title).toBe("DJ Chowder");
+  });
+
   // The route returns entries newest-first. A set has to read in the order it
   // aired, or the show opens with its sign-off.
   it("orders entries as they aired, not as the route returns them", () => {

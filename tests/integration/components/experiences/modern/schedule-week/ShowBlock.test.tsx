@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { screen } from "@testing-library/react";
 import { renderWithProviders as render } from "@/tests/helpers";
 import ShowBlock from "@/src/components/experiences/modern/schedule-week/ShowBlock";
+import type { SpecialtyShowRef } from "@wxyc/shared";
 import type { ShowBlock as ShowBlockModel } from "@/lib/features/schedule-week/layout";
 
 const block = (over: Partial<ShowBlockModel> = {}): ShowBlockModel => ({
@@ -15,6 +16,7 @@ const block = (over: Partial<ShowBlockModel> = {}): ShowBlockModel => ({
   timeRangeLabel: "6:00a–9:00a",
   isClipped: false,
   endIsInferred: false,
+  specialty: null,
   ...over,
 });
 
@@ -85,5 +87,52 @@ describe("ShowBlock", () => {
       "title",
       expect.stringContaining("no sign-off recorded"),
     );
+  });
+
+  describe("specialty block", () => {
+    const specialty: SpecialtyShowRef = {
+      id: 7,
+      slug: "sunset-soundtrack",
+      name: "Sunset Soundtrack",
+      short_name: "SST",
+      logs_playcuts: true,
+      accent_color: "#7a3b00",
+    };
+
+    it("draws a typographic tile and the short name, with no image request", () => {
+      const { container } = render(
+        <ShowBlock block={block({ specialty, heightFraction: 0.1 })} href="?show=1" />,
+      );
+      expect(screen.getByTestId("specialty-tile")).toHaveTextContent("SST");
+      expect(container.querySelector("img")).toBeNull();
+      expect(
+        screen.getByRole("link", { name: /Sunset Soundtrack — 6:00a–9:00a/ }),
+      ).toBeInTheDocument();
+    });
+
+    it("draws the logo when artwork is set", () => {
+      const { container } = render(
+        <ShowBlock
+          block={block({
+            specialty: { ...specialty, artwork: { square_url: "https://example.test/s.png" } },
+            heightFraction: 0.1,
+          })}
+          href="?show=1"
+        />,
+      );
+      expect(container.querySelector("img")).toHaveAttribute(
+        "src",
+        "https://example.test/s.png",
+      );
+    });
+
+    it("keeps an accent bar and the name below the tile threshold", () => {
+      render(
+        <ShowBlock block={block({ specialty, heightFraction: 0.025 })} href="?show=1" />,
+      );
+      expect(screen.queryByTestId("specialty-tile")).toBeNull();
+      expect(screen.getByTestId("specialty-accent-bar")).toBeInTheDocument();
+      expect(screen.getByText("SST")).toBeInTheDocument();
+    });
   });
 });
