@@ -323,6 +323,7 @@ describe("backend", () => {
         expect(capturedError).toBeInstanceOf(Error);
         expect(capturedError.message).toContain("library/rotation");
         expect(capturedError.message).toContain("/42/tracks");
+        expect(mockCaptureException.mock.calls[0][2]).toBe("backend");
       });
 
       it("does not swallow structured JSON 4xx errors", async () => {

@@ -21,7 +21,7 @@ export default function DashboardError({
   reset: () => void;
 }) {
   useEffect(() => {
-    safeCaptureException(error);
+    safeCaptureException(error, undefined, "dashboard-error");
   }, [error]);
 
   return (

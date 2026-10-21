@@ -386,7 +386,7 @@ export function createLiveUpdatesListenerMiddleware(
           context: SSE_EVENTS.DISPATCH_FAILURE,
           event_type: "update",
           payload_id: payload.id,
-        });
+        }, "live-updates-update-dispatch");
       }
       // A row can reach getNowPlaying without ever entering the entries
       // cache (a skip-lane NowPlaying nudge, or the /latest poll), and this
@@ -536,7 +536,7 @@ export function createLiveUpdatesListenerMiddleware(
           context: SSE_EVENTS.DISPATCH_FAILURE,
           event_type: "insert",
           payload_id: payload.id,
-        });
+        }, "live-updates-insert-dispatch");
       }
     }
 
@@ -563,7 +563,7 @@ export function createLiveUpdatesListenerMiddleware(
         safeCaptureException(err, {
           context: SSE_EVENTS.CONNECTION_ERROR,
           url,
-        });
+        }, "live-updates-connection-error");
         setConnectionStatusIfChanged(listenerApi, "closed");
         return;
       }
@@ -621,7 +621,7 @@ export function createLiveUpdatesListenerMiddleware(
               typeof msgEvent.data === "string"
                 ? msgEvent.data.slice(0, 200)
                 : null,
-          });
+          }, "live-updates-parse-failure");
           return;
         }
         const rawType =

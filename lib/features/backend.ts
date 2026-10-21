@@ -182,7 +182,7 @@ const logNonJsonResponse = (
       error: redactEmails(error.error),
       sample: redactEmails(sample),
     },
-  });
+  }, "backend");
 };
 
 /**

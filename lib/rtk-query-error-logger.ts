@@ -93,7 +93,8 @@ export const rtkQueryErrorLogger: Middleware =
         {
           endpoint: endpointName,
           status: payload?.status,
-        }
+        },
+        "rtk-query"
       );
 
       const message = friendlyMiddlewareMessage(payload);
