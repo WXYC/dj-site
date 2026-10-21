@@ -138,5 +138,30 @@ describe("ClassicWeekGrid", () => {
     expect(block).not.toHaveAttribute("aria-controls");
     expect(block).not.toHaveAttribute("aria-expanded");
   });
-});
 
+  it("names a specialty block by its short name, with no image", () => {
+    const { container } = render(
+      <ClassicWeekGrid
+        columns={grid([
+          show({
+            id: 1,
+            start_time: at(2, 6),
+            end_time: at(2, 9),
+            specialty: {
+              id: 7,
+              slug: "sunset-soundtrack",
+              name: "Sunset Soundtrack",
+              short_name: "SST",
+              logs_playcuts: true,
+              artwork: { square_url: "https://example.test/sst.png" },
+            },
+          }),
+        ]).columns}
+        hrefForShow={(id) => `?show=${id}`}
+      />,
+    );
+    expect(screen.getByRole("link", { name: /SST/ })).toBeInTheDocument();
+    expect(screen.queryByText(/DJ Chowder/)).toBeNull();
+    expect(container.querySelector("img")).toBeNull();
+  });
+});

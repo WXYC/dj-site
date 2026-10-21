@@ -6,6 +6,7 @@ import {
   useScrollToShowEntry,
   useShowPlaylist,
 } from "@/src/hooks/showPlaylistHooks";
+import SpecialtyTile from "@/src/components/experiences/modern/SpecialtyTile";
 import ShowEntriesPanel from "@/src/components/experiences/modern/schedule-week/ShowEntriesPanel";
 import { hrefForShow } from "@/lib/features/schedule-week/showUrl";
 
@@ -72,13 +73,19 @@ export default function ShowView({
           justifyContent: "space-between",
         }}
       >
-        <Box>
-          <Typography level="title-lg" component="h2">
-            {show.title}
-          </Typography>
-          <Typography level="body-sm" sx={{ color: "text.secondary" }}>
-            {show.day} · {show.timeRange}
-          </Typography>
+        <Box sx={{ display: "flex", gap: 1.5, alignItems: "center" }}>
+          {show.specialty && <SpecialtyTile specialty={show.specialty} size={56} />}
+          <Box>
+            <Typography level="title-lg" component="h2">
+              {show.title}
+            </Typography>
+            {show.subtitle && (
+              <Typography level="title-sm">{show.subtitle}</Typography>
+            )}
+            <Typography level="body-sm" sx={{ color: "text.secondary" }}>
+              {show.day} · {show.timeRange}
+            </Typography>
+          </Box>
         </Box>
         <Box sx={{ display: "flex", gap: 2, alignItems: "baseline" }}>
           {show.djName && (

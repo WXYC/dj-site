@@ -1,3 +1,4 @@
+import type { SpecialtyShowRef } from "@wxyc/shared";
 import type { FlowsheetV2EntryJSON } from "@/lib/features/flowsheet/types";
 
 /**
@@ -16,6 +17,8 @@ export type ShowPlaylistWire = {
   show_name: string | null;
   /** Empty string, not absent, when the show is not a specialty show. */
   specialty_show_name: string;
+  /** The program the show was signed on as; absent or null for a freeform show. */
+  specialty?: SpecialtyShowRef | null;
   start_time: string;
   /** Null when the sign-off was never recorded, which is permanent. */
   end_time: string | null;

@@ -2,6 +2,7 @@ import type {
   FlowsheetRangeResponse,
   FlowsheetRangeShow,
   FlowsheetV2Entry,
+  SpecialtyShowRef,
 } from "@wxyc/shared";
 import {
   stationDaysOfWeek,
@@ -23,6 +24,8 @@ export type ShowBlock = {
   showId: number;
   djName: string | null;
   showName: string | null;
+  /** Set only when the show row carries the program; freeform otherwise. */
+  specialty: SpecialtyShowRef | null;
   /** Clipped to the day column, not the show's true span. */
   startMs: number;
   endMs: number;
@@ -198,6 +201,7 @@ export function buildWeekGrid(
         showId: show.id,
         djName: show.dj_name ?? null,
         showName: show.show_name ?? null,
+        specialty: show.specialty ?? null,
         startMs: clippedStart,
         endMs: clippedEnd,
         topFraction: top,

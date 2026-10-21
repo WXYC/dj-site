@@ -77,7 +77,11 @@ export default function ClassicWeekGrid({
             ))}
 
             {column.blocks.map((block) => {
-              const name = block.showName ?? block.djName ?? "Unattributed";
+              const name =
+                block.specialty?.short_name ??
+                block.showName ??
+                block.djName ??
+                "Unattributed";
               const label = `${name} — ${block.timeRangeLabel}`;
               return (
                 <div key={`line-${block.showId}`}>

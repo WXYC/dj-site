@@ -64,6 +64,8 @@ const entry = (
 const playlist = (over: Partial<ShowPlaylist> = {}): ShowPlaylist =>
   ({
     title: "DJ Chowder",
+    subtitle: null,
+    specialty: null,
     djName: "DJ Chowder",
     day: "Saturday, August 22, 2026",
     timeRange: "4:36 PM – 8:01 PM",
@@ -230,5 +232,32 @@ describe("ShowView — the play a search result named", () => {
     expect(scrolled).toHaveLength(0);
 
     spy.mockRestore();
+  });
+
+  it("leads a specialty show with its tile and the airing beneath the program", () => {
+    showPlaylist.mockReturnValue(
+      playlist({
+        title: "Sunset Soundtrack",
+        subtitle: "Blade Runner",
+        specialty: {
+          id: 7,
+          slug: "sunset-soundtrack",
+          name: "Sunset Soundtrack",
+          short_name: "SST",
+          logs_playcuts: true,
+          accent_color: "#7a3b00",
+        },
+      }),
+    );
+    render(<ShowView showId={1951179} />);
+    expect(screen.getByRole("heading", { level: 2, name: "Sunset Soundtrack" })).toBeInTheDocument();
+    expect(screen.getByText("Blade Runner")).toBeInTheDocument();
+    expect(screen.getByTestId("specialty-tile")).toHaveTextContent("SST");
+  });
+
+  it("draws no tile for a freeform show", () => {
+    showPlaylist.mockReturnValue(playlist());
+    render(<ShowView showId={1951179} />);
+    expect(screen.queryByTestId("specialty-tile")).toBeNull();
   });
 });

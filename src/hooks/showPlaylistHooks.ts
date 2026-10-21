@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
+import type { SpecialtyShowRef } from "@wxyc/shared";
 import { skipToken } from "@reduxjs/toolkit/query";
 import { useGetShowPlaylistQuery } from "@/lib/features/show-playlist/api";
 import { entryAnchorId } from "@/lib/features/schedule-week/showUrl";
@@ -13,8 +14,11 @@ import {
 } from "@/src/utilities/stationTime";
 
 export type ShowPlaylist = {
-  /** Specialty-show name, else the DJ handle, else a stated absence. */
+  /** Program name, else the show name, else the DJ handle, else a stated absence. */
   title: string;
+  /** The airing's own name beneath a program title; null when it adds nothing. */
+  subtitle: string | null;
+  specialty: SpecialtyShowRef | null;
   djName: string | null;
   /** Station-local calendar day the show began. */
   day: string;
@@ -76,12 +80,18 @@ export function useShowPlaylist(showId: number | null): ShowPlaylist {
       data?.legacy_dj_name ??
       null;
 
+    const specialty = data?.specialty ?? null;
+    const showName = data?.show_name || null;
+
     return {
       title:
+        specialty?.name ??
         (data?.specialty_show_name || null) ??
-        data?.show_name ??
+        showName ??
         djName ??
         "Unattributed show",
+      subtitle: specialty && showName !== specialty.name ? showName : null,
+      specialty,
       djName,
       day: start ? formatStationDateTime(start).day : "",
       timeRange: start
