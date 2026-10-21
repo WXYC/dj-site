@@ -120,6 +120,9 @@ describe("handled-error gate scenarios (error-tracking.md section 5)", () => {
       steps: [
         { id: "C1", at: 0, keys: ["k1"], admit: true, warn: false },
         { id: "C2", at: 600 * MIN, keys: ["k2"], admit: true, warn: false },
+        // 19 tokens remain after C2: an uncapped refill would leave 38.
+        { id: "C3", at: 600 * MIN, keys: range("k", 21).slice(2), admit: true, warn: false },
+        { id: "C4", at: 600 * MIN, keys: ["k22"], admit: false, warn: true },
       ],
     },
     {

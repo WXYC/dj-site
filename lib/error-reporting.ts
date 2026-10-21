@@ -23,9 +23,15 @@ export function initErrorReporting(): void {
   initSentry();
 }
 
+/**
+ * `label` is an optional call-site constant (a string literal) that joins the
+ * PostHog exception gate's dedupe key, so two call sites reporting the same
+ * error text are not suppressed as one. Never derive it from runtime data.
+ */
 export function safeCaptureException(
   err: unknown,
-  context?: Record<string, unknown>
+  context?: Record<string, unknown>,
+  label?: string
 ): void {
   let error: Error;
   try {
@@ -42,7 +48,7 @@ export function safeCaptureException(
     // optional-service contract: swallow
   }
   try {
-    captureExceptionInPostHog(error, context);
+    captureExceptionInPostHog(error, context, label);
   } catch {
     // optional-service contract: swallow
   }
