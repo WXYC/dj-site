@@ -19,6 +19,14 @@ const cases: Array<[label: string, startedAt: string, programs: string[]]> = [
   ["noon Eastern before spring forward", "2026-03-01T17:00:00Z", ["Orange County Special"]],
   ["noon Eastern after fall back", "2026-11-08T17:00:00Z", ["Orange County Special"]],
   ["noon Eastern before fall back", "2026-10-25T16:00:00Z", ["Orange County Special"]],
+  // Friday 21:00 ET is shared by Inside Track and Story Hour (60 min); New Science Experience starts at 22:00.
+  // The ten minutes before 22:00 belong to NSE, not to the slot that is ending.
+  ["back-to-back: before the lead window", "2026-10-31T01:49:00Z", ["Inside Track", "Story Hour"]],
+  ["back-to-back: lead opens (21:50 ET)", "2026-10-31T01:50:00Z", ["New Science Experience"]],
+  ["back-to-back: mid lead (21:55 ET)", "2026-10-31T01:55:00Z", ["New Science Experience"]],
+  ["back-to-back: last lead minute (21:59 ET)", "2026-10-31T01:59:00Z", ["New Science Experience"]],
+  ["back-to-back at 22:00 ET", "2026-10-31T02:00:00Z", ["New Science Experience"]],
+  ["back-to-back lead the Friday after fall back (EST)", "2026-11-07T02:55:00Z", ["New Science Experience"]],
   ["one hour off across fall back", "2026-11-08T16:00:00Z", []],
 ];
 
@@ -27,6 +35,17 @@ describe("programsForStart", () => {
     expect(
       programsForStart(startedAt, SEED_CATALOG).map(({ program }) => program.name)
     ).toEqual(expected);
+  });
+
+  it("never returns more than two programs at any minute of the seed week, in either UTC offset", () => {
+    // Walk two full weeks so both the EDT and the EST wall clock cover every slot.
+    for (const weekStart of ["2026-10-19T04:00:00Z", "2026-11-09T05:00:00Z"]) {
+      const base = new Date(weekStart).getTime();
+      for (let minute = 0; minute < 7 * 24 * 60; minute++) {
+        const found = programsForStart(new Date(base + minute * 60_000), SEED_CATALOG);
+        expect(found.length, new Date(base + minute * 60_000).toISOString()).toBeLessThanOrEqual(2);
+      }
+    }
   });
 
   it("never matches a retired program", () => {
