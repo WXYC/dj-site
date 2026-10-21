@@ -59,13 +59,13 @@ const SEGMENT_RADIO_PROPS = {
   overlay: true,
   color: "neutral",
   variant: "plain",
-  sx: { [`&.${radioClasses.focusVisible} .${radioClasses.label}`]: { textDecoration: "underline", textUnderlineOffset: "4px" } },
+  sx: {
+    [`& .${radioClasses.action}.${radioClasses.focusVisible}`]: { outline: "none" },
+    [`&.${radioClasses.focusVisible} .${radioClasses.label}`]: { textDecoration: "underline" },
+  },
   slotProps: {
     action: ({ checked }: { checked?: boolean }) => ({
-      sx: {
-        [`&.${radioClasses.focusVisible}, &:focus-visible`]: { outline: "none" },
-        ...(checked && { bgcolor: "background.surface", boxShadow: "sm", "&:hover": { bgcolor: "background.surface" } }),
-      },
+      sx: checked ? { bgcolor: "background.surface", boxShadow: "sm", "&:hover": { bgcolor: "background.surface" } } : {},
     }),
   },
 } as const;
@@ -287,7 +287,8 @@ export default function IntakeLogForm({ onLogged, onBusyChange, hideTitle = fals
               borderRadius: "md",
               bgcolor: "neutral.softBg",
               "--Radio-actionRadius": "8px",
-              [`&:has(.${radioClasses.focusVisible})`]: theme.focus.default,
+              // Drawn inside the track: the dialog's content clips anything past its edge.
+              [`&:has(.${radioClasses.focusVisible})`]: { ...theme.focus.default, outlineOffset: `calc(-1 * ${theme.vars.focus.thickness})` },
             })}
           >
             <Sheet sx={SEGMENT_SX}>
