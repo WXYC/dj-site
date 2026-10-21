@@ -576,8 +576,8 @@ describe("backend", () => {
         expect(response.sample).toBe(longBody.slice(0, 200));
       });
 
-      // The sample is taken from a body the origin wrote, and the error tracker's properties
-      // is the one field neither adapter scrubs on the way out.
+      // The sample is taken from a body the origin wrote, so it is redacted at
+      // the call site rather than relying only on the PostHog `before_send`.
       it("redacts an address the sampled body carried", async () => {
         mockInnerBaseQuery.mockResolvedValueOnce({
           error: {
