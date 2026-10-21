@@ -183,6 +183,10 @@ export function captureExceptionInPostHog(
     if (client) {
       client.captureException(error, props);
     } else {
+      // Self-starting: a root-layout crash reaches here without
+      // TelemetryProvider ever having mounted. Idempotent via `loading`;
+      // inert on SSR or without a key.
+      initTelemetry();
       bufferCapture({ method: "captureException", args: [error, props] });
     }
   } catch {

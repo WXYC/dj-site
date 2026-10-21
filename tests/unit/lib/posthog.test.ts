@@ -384,6 +384,18 @@ describe("pre-load buffer", () => {
     process.env = { ...originalEnv };
   });
 
+  it("starts the load itself when an exception arrives before any init, and flushes it", async () => {
+    const mod = await loadTelemetry();
+    // A root-layout crash reports without TelemetryProvider ever having mounted.
+    mod.captureExceptionInPostHog(new Error("root layout crash"));
+
+    await flush();
+
+    expect(posthog.init).toHaveBeenCalledTimes(1);
+    expect(posthog.captureException).toHaveBeenCalledTimes(1);
+    expect(posthog.captureException.mock.calls[0][0].message).toBe("root layout crash");
+  });
+
   it("flushes captures fired before load in order once the client resolves", async () => {
     const mod = await loadTelemetry();
     mod.initTelemetry(); // load is in-flight, client still null
