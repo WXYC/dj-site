@@ -3,6 +3,16 @@ import { server } from "./server";
 import { TEST_BACKEND_URL as BACKEND_URL } from "../helpers/constants";
 import type { DiscogsReleasePrefill } from "@/lib/features/catalog/types";
 
+/**
+ * The answer as Backend sends it: besides the declared fields it may carry the
+ * label's Discogs id, under either name Backend gives it, which the DJ site
+ * deliberately leaves undeclared.
+ */
+export type DiscogsPrefillAnswer = DiscogsReleasePrefill & {
+  label_id?: number | null;
+  discogs_label_id?: number | null;
+};
+
 /** The fixture release the bench's autopopulate resolves to by default. */
 export const MOLINA_DISCOGS_PREFILL: DiscogsReleasePrefill = {
   discogs_release_id: 24216789,
@@ -10,7 +20,6 @@ export const MOLINA_DISCOGS_PREFILL: DiscogsReleasePrefill = {
   artist_name: "Juana Molina",
   album_title: "DOGA",
   label: "Sonamos",
-  label_id: null,
   year: 2022,
   discogs_artist_id: null,
   genres: ["Rock"],
@@ -50,7 +59,7 @@ export function discogsPrefillGatewayHtml(status = 502): Response {
  */
 export function fakeDiscogsPrefillEndpoint(
   options: {
-    prefill?: DiscogsReleasePrefill;
+    prefill?: DiscogsPrefillAnswer;
     respond?: (url: string) => Response | undefined | Promise<Response | undefined>;
   } = {},
 ) {
