@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
-import { Autocomplete, AutocompleteOption, Button, CircularProgress, FormControl, FormHelperText, FormLabel, Input, Option, Radio, RadioGroup, Select, Sheet, Stack, Typography } from "@mui/joy";
+import { Autocomplete, AutocompleteOption, Button, CircularProgress, FormControl, FormHelperText, FormLabel, Input, Option, Radio, radioClasses, RadioGroup, Select, Sheet, Stack, Typography } from "@mui/joy";
 import type { IntakeItem } from "@wxyc/shared";
 import { toast } from "sonner";
 import { useGetFormatsQuery, useLazyGetDiscogsPrefillQuery, useSearchLibraryArtistsQuery } from "@/lib/features/catalog/api";
@@ -51,15 +51,21 @@ type IntakeForm = {
 const EMPTY_FORM: IntakeForm = { artist: "", album: "", label: "", labelPick: null, formatId: null, arrival: null, discogs: "", bandcamp: "", lookup: null };
 
 // The arrival choice is drawn as a segmented control: each option is a segment the whole of
-// which picks it, and the picked one is raised.
+// which picks it, and the picked one is raised. Tab lands on an option without picking it, and Joy
+// would ring that whole segment, which reads as picked; so the track takes the ring and the focused
+// option's label is underlined.
 const SEGMENT_RADIO_PROPS = {
   disableIcon: true,
   overlay: true,
   color: "neutral",
   variant: "plain",
+  sx: { [`&.${radioClasses.focusVisible} .${radioClasses.label}`]: { textDecoration: "underline", textUnderlineOffset: "4px" } },
   slotProps: {
     action: ({ checked }: { checked?: boolean }) => ({
-      sx: checked ? { bgcolor: "background.surface", boxShadow: "sm", "&:hover": { bgcolor: "background.surface" } } : {},
+      sx: {
+        [`&.${radioClasses.focusVisible}, &:focus-visible`]: { outline: "none" },
+        ...(checked && { bgcolor: "background.surface", boxShadow: "sm", "&:hover": { bgcolor: "background.surface" } }),
+      },
     }),
   },
 } as const;
@@ -274,7 +280,15 @@ export default function IntakeLogForm({ onLogged, onBusyChange, hideTitle = fals
             orientation="horizontal"
             value={form.arrival ?? ""}
             onChange={(e) => setForm((f) => ({ ...f, arrival: e.target.value as Arrival, formatId: null }))}
-            sx={{ alignSelf: "flex-start", p: 0.5, gap: 0.5, borderRadius: "md", bgcolor: "neutral.softBg", "--Radio-actionRadius": "8px" }}
+            sx={(theme) => ({
+              alignSelf: "flex-start",
+              p: 0.5,
+              gap: 0.5,
+              borderRadius: "md",
+              bgcolor: "neutral.softBg",
+              "--Radio-actionRadius": "8px",
+              [`&:has(.${radioClasses.focusVisible})`]: theme.focus.default,
+            })}
           >
             <Sheet sx={SEGMENT_SX}>
               <Radio value="disc" label={COPY.arrivedAsDisc} {...SEGMENT_RADIO_PROPS} />
