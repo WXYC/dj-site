@@ -1,11 +1,11 @@
 import { describe, it, expect, vi } from "vitest";
 import { http, HttpResponse } from "msw";
-import type { IntakeItemState } from "@wxyc/shared";
+import { IntakeRequestRefusedCode, type IntakeItemState } from "@wxyc/shared";
 import { configureStore } from "@reduxjs/toolkit";
 import { reviewsApi } from "@/lib/features/reviews/api";
 import { fccNoteApi } from "@/lib/features/reviews/fccNoteApi";
 import { reviewApi } from "@/lib/features/reviews/reviewApi";
-import { intakeApi, isIntakeAcceptReviewRefused, isIntakeInRotation, isIntakeInvalidCitation, isIntakeReleaseRefused, isIntakeNotReviewed, isIntakeRequestRefused, isIntakeStateChanged } from "@/lib/features/reviews/intakeApi";
+import { intakeApi, isIntakeAcceptReviewRefused, isIntakeInRotation, isIntakeInvalidCitation, isIntakeReleaseRefused, isIntakeNotReviewed, isIntakeRequestRefused, isIntakeStateChanged, isIntakeAskedDjCannotSeeReviews } from "@/lib/features/reviews/intakeApi";
 import { describeApi } from "@/tests/helpers/api-harness";
 import { TEST_BACKEND_URL } from "@/tests/helpers/constants";
 import { server } from "@/tests/fakes/server";
@@ -87,6 +87,16 @@ describe("intakeApi", () => {
     ["isIntakeAcceptReviewRefused", isIntakeAcceptReviewRefused, "libraryPrintError", false],
   ])("$0 reads a 400 under $2 -> $3", (_name, predicate, key, expected) => {
     expect(predicate({ [key]: { status: 400, data: { message: "m" } } })).toBe(expected);
+  });
+
+  it.each([
+    ["the coded 400", "intakeWriteError", 400, { message: "m", code: IntakeRequestRefusedCode.asked_dj_cannot_see_feature }, true],
+    ["a 400 without a code", "intakeWriteError", 400, { message: "m" }, false],
+    ["a 400 with another code", "intakeWriteError", 400, { message: "m", code: "other" }, false],
+    ["a 409 with the code", "intakeWriteError", 409, { message: "m", code: IntakeRequestRefusedCode.asked_dj_cannot_see_feature }, false],
+    ["the coded 400 under another key", "libraryPrintError", 400, { message: "m", code: IntakeRequestRefusedCode.asked_dj_cannot_see_feature }, false],
+  ])("isIntakeAskedDjCannotSeeReviews reads %s -> %s", (_name, key, status, data, expected) => {
+    expect(isIntakeAskedDjCannotSeeReviews({ [key]: { status, data } })).toBe(expected);
   });
 
   it("acceptReview POSTs { review_id } to exactly /intake/7/accept-review and refreshes the intake and review reads", async () => {

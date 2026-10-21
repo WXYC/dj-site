@@ -37,18 +37,23 @@ interface AskADjDialogProps {
   open: boolean;
   /** Runs after the dialog has reset itself, whether it was dismissed or Ask sent the request. */
   onClose: () => void;
-  onRequest: (reviewer: Reviewer) => void;
+  /** Reopens the dialog after `onClose`, on the confirm step. */
+  onReopen: () => void;
+  /** Sends the request. Resolves to the line to show under the DJ's name when the request was refused for a reason the dialog answers, and the dialog reopens to show it. */
+  onRequest: (reviewer: Reviewer) => Promise<string | undefined> | void;
 }
 
-interface IntakeRequestPickerProps extends Omit<AskADjDialogProps, "open" | "onClose"> {
+interface IntakeRequestPickerProps extends Omit<AskADjDialogProps, "open" | "onClose" | "onReopen"> {
   /** The row's `lock(id, "request")`. */
   busy: { loading: boolean; disabled: boolean };
 }
 
 /** The dialog that searches for the account to ask to review one record, and asks again before sending. The caller owns whether it is open and what opens it. */
-export function AskADjDialog({ reviewers, loading, failed, passedIds, artist, album, open, onClose, onRequest }: AskADjDialogProps) {
+export function AskADjDialog({ reviewers, loading, failed, passedIds, artist, album, open, onClose, onReopen, onRequest }: AskADjDialogProps) {
   const [query, setQuery] = useState("");
   const [picked, setPicked] = useState<Reviewer | null>(null);
+  // Why the request just sent was refused; the confirm step shows it and cannot send again.
+  const [refusal, setRefusal] = useState<string | null>(null);
   // Set by choosing "Or search all"; only close() clears it.
   const [searchAll, setSearchAll] = useState(false);
   const isPhone = useMediaQuery(PHONE_QUERY);
@@ -65,6 +70,7 @@ export function AskADjDialog({ reviewers, loading, failed, passedIds, artist, al
     setSearchAll(false);
     setQuery("");
     setPicked(null);
+    setRefusal(null);
   };
   // The question takes focus rather than Ask, so the Enter that picked a name, or a second one close behind it, sends nothing; stable, so a re-render doesn't pull focus back from Back or Ask.
   const focusQuestion = useCallback((el: HTMLElement | null) => el?.focus(), []);
@@ -81,13 +87,19 @@ export function AskADjDialog({ reviewers, loading, failed, passedIds, artist, al
       actions={
         picked ? (
           <>
-            <Button variant="plain" onClick={() => setPicked(null)}>{COPY.back}</Button>
+            <Button variant="plain" onClick={() => { setPicked(null); setRefusal(null); }}>{COPY.back}</Button>
             <Button
               aria-describedby={QUESTION_ID}
-              onClick={() => {
+              disabled={refusal !== null}
+              onClick={async () => {
                 // The dialog closes, and hands focus back to the control that opened it, before the request's row lock can disable that control.
                 flushSync(close);
-                onRequest(picked);
+                const refused = await onRequest(picked);
+                if (refused) {
+                  setPicked(picked);
+                  setRefusal(refused);
+                  onReopen();
+                }
               }}
             >
               {COPY.ask}
@@ -100,7 +112,10 @@ export function AskADjDialog({ reviewers, loading, failed, passedIds, artist, al
       }
     >
       {picked ? (
-        <Typography id={QUESTION_ID} tabIndex={-1} ref={focusQuestion}>{COPY.askConfirm(picked.name, artist, album, distinctOnAir(picked))}</Typography>
+        <>
+          <Typography id={QUESTION_ID} tabIndex={-1} ref={focusQuestion}>{COPY.askConfirm(picked.name, artist, album, distinctOnAir(picked))}</Typography>
+          {refusal && <Typography role="alert" color="danger">{refusal}</Typography>}
+        </>
       ) : (
         <Autocomplete
           // Or search all swaps every line under the highlight, which Joy keeps by index while the count holds; a fresh list starts it on the first line again.
@@ -187,7 +202,7 @@ export default function IntakeRequestPicker({ busy, ...dialog }: IntakeRequestPi
           {COPY.askADj}
         </Button>
       </ActionTooltip>
-      <AskADjDialog {...dialog} open={open} onClose={() => setOpen(false)} />
+      <AskADjDialog {...dialog} open={open} onClose={() => setOpen(false)} onReopen={() => setOpen(true)} />
     </>
   );
 }
