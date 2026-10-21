@@ -3,7 +3,7 @@
 import { flowsheetSlice } from "@/lib/features/flowsheet/frontend";
 import { FlowsheetSongEntry } from "@/lib/features/flowsheet/types";
 import { useAppDispatch } from "@/lib/hooks";
-import { useFlowsheetActions } from "@/src/hooks/flowsheetHooks";
+import { useEntryActions } from "@/src/hooks/entryActions";
 import {
   LinkOff,
   LinkRounded,
@@ -31,7 +31,7 @@ export default function SongEntryControls({
   showRemove?: boolean;
 }) {
   const dispatch = useAppDispatch();
-  const { updateFlowsheet } = useFlowsheetActions();
+  const { updateFlowsheet } = useEntryActions();
 
   const commit = (field: "segue" | "request_flag", value: boolean) => {
     if (queue) {

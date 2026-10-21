@@ -18,6 +18,7 @@ export default function ShowEntriesPanel({
   partialEdge,
   isLoading,
   highlightedEntryId = null,
+  editable = false,
 }: {
   show: FlowsheetRangeShow;
   entries: FlowsheetRangeEntryWire[];
@@ -26,6 +27,8 @@ export default function ShowEntriesPanel({
   isLoading: boolean;
   /** The playcut an archive link named, or null when the show was opened plain. */
   highlightedEntryId?: number | null;
+  /** The rows offer edit and remove; the caller supplies what those do. */
+  editable?: boolean;
 }) {
   // Rows are built once per entry list rather than per render: Entry is
   // memoized on its props, and a fresh object per render defeats that. The
@@ -89,7 +92,7 @@ export default function ShowEntriesPanel({
                   entry={entry}
                   playing={false}
                   draggable={false}
-                  readOnly
+                  readOnly={!editable}
                   timeLabel={timeLabel}
                   highlighted={id === highlightedEntryId}
                 />

@@ -2,6 +2,7 @@ import {
   FlowsheetEntry,
   isFlowsheetSongEntry,
 } from "@/lib/features/flowsheet/types";
+import { useEntryActions } from "@/src/hooks/entryActions";
 import { useFlowsheetActions } from "@/src/hooks/flowsheetHooks";
 import { Clear } from "@mui/icons-material";
 import { IconButton, Tooltip } from "@mui/joy";
@@ -13,7 +14,8 @@ export default function RemoveButton({
   queue: boolean;
   entry: FlowsheetEntry;
 }) {
-  const { removeFromQueue, removeFromFlowsheet } = useFlowsheetActions();
+  const { removeFromQueue } = useFlowsheetActions();
+  const { removeFromFlowsheet } = useEntryActions();
 
   return (
     <Tooltip

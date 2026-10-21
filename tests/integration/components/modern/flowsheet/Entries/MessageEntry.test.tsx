@@ -10,6 +10,10 @@ import {
 const mockUseShowControl = vi.fn();
 vi.mock("@/src/hooks/flowsheetHooks", () => ({
   useShowControl: () => mockUseShowControl(),
+  useFlowsheetActions: () => ({
+    updateFlowsheet: vi.fn(),
+    removeFromFlowsheet: vi.fn(),
+  }),
 }));
 
 // Mock motion/react

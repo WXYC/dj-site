@@ -1,6 +1,7 @@
 "use client";
 
 import { FlowsheetSongEntry } from "@/lib/features/flowsheet/types";
+import { useEntryActions } from "@/src/hooks/entryActions";
 import { useShowControl } from "@/src/hooks/flowsheetHooks";
 import { useMediaQuery } from "@/src/hooks/useMediaQuery";
 import { entryFieldTextColor } from "@/src/utilities/modern/entryFieldColors";
@@ -42,6 +43,7 @@ const SongEntry = memo(function SongEntry({
   highlighted?: boolean;
 }) {
   const { live, autoplay, currentShow } = useShowControl();
+  const { pastShow } = useEntryActions();
   const playNow = usePlayNow(entry);
 
   const controls = useDragControls();
@@ -58,7 +60,7 @@ const SongEntry = memo(function SongEntry({
 
   // An archive surface says read-only outright rather than relying on this
   // resolving false, which would tie a view of a past set to live-show state.
-  const editable = !readOnly && (queue || (live && entry.show_id == currentShow));
+  const editable = !readOnly && (queue || pastShow || (live && entry.show_id == currentShow));
 
   const handleMouseEnter = () => {
     if (queue && live) {
