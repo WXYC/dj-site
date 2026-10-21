@@ -139,7 +139,7 @@ describe("ClassicWeekGrid", () => {
     expect(block).not.toHaveAttribute("aria-expanded");
   });
 
-  it("names a specialty block by its short name, with no image", () => {
+  it("shows a specialty block's short name but names it by its full name, with no image", () => {
     const { container } = render(
       <ClassicWeekGrid
         columns={grid([
@@ -160,7 +160,10 @@ describe("ClassicWeekGrid", () => {
         hrefForShow={(id) => `?show=${id}`}
       />,
     );
-    expect(screen.getByRole("link", { name: /SST/ })).toBeInTheDocument();
+    // Visible text is the short name; the accessible name is the full name.
+    const link = screen.getByRole("link", { name: /Sunset Soundtrack/ });
+    expect(link).toHaveTextContent("SST");
+    expect(link).toHaveAttribute("title", expect.stringContaining("Sunset Soundtrack"));
     expect(screen.queryByText(/DJ Chowder/)).toBeNull();
     expect(container.querySelector("img")).toBeNull();
   });

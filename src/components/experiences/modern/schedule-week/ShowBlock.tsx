@@ -13,9 +13,10 @@ import type { ShowBlock as ShowBlockModel } from "@/lib/features/schedule-week/l
 // second line mid-glyph on every hour-long show.
 const NAME_THRESHOLD_FRACTION = 30 / (24 * 60);
 const TIME_RANGE_THRESHOLD_FRACTION = 75 / (24 * 60);
-// A specialty block's tile is 28px, which the same ~75 minutes of airtime holds
-// beside a one-line name; any shorter keeps the accent bar and the name alone.
-const TILE_THRESHOLD_FRACTION = 75 / (24 * 60);
+// A specialty block's 28px tile shares the time range's threshold, so it always
+// sits beside the two-line name and time range; any shorter block keeps the
+// accent bar and the name alone.
+const TILE_THRESHOLD_FRACTION = TIME_RANGE_THRESHOLD_FRACTION;
 const TILE_SIZE = 28;
 
 export default function ShowBlock({

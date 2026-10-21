@@ -1,5 +1,6 @@
 import { Box } from "@mui/joy";
 import type { SpecialtyShowRef } from "@wxyc/shared";
+import { fitShortName } from "@/lib/features/specialty/fitShortName";
 
 /**
  * A specialty program's tile: its logo when it has one, else `short_name` set
@@ -32,6 +33,8 @@ export default function SpecialtyTile({
     );
   }
 
+  const { lines, fontSize } = fitShortName(specialty.short_name, size);
+
   return (
     <Box
       data-testid="specialty-tile"
@@ -44,11 +47,19 @@ export default function SpecialtyTile({
         alignItems: "center",
         justifyContent: "center",
         fontWeight: "lg",
-        fontSize: size * 0.32,
+        fontSize,
+        lineHeight: 1.02,
+        textAlign: "center",
         overflow: "hidden",
       }}
     >
-      {specialty.short_name}
+      <span>
+        {lines.map((line) => (
+          <span key={line} style={{ display: "block", whiteSpace: "nowrap" }}>
+            {line}
+          </span>
+        ))}
+      </span>
     </Box>
   );
 }

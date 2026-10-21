@@ -486,3 +486,39 @@ describe("classic archived-show view — walking the archive", () => {
     }
   });
 });
+
+describe("classic archived-show view — a tagged specialty airing", () => {
+  const specialty = {
+    id: 7,
+    slug: "sunset-soundtrack",
+    name: "Sunset Soundtrack",
+    short_name: "SST",
+    logs_playcuts: true,
+    artwork: null,
+  };
+
+  it("shows the airing's own name beneath the program name", async () => {
+    serveShow({
+      ...playlist,
+      show_name: "Blade Runner",
+      specialty,
+    } as unknown as ShowPlaylistWire);
+    renderWithProviders(<ShowView showId={SHOW_ID} />);
+
+    expect(await screen.findByTestId("classic-show-subtitle")).toHaveTextContent(
+      "Blade Runner"
+    );
+  });
+
+  it("shows no subtitle when the airing is named for the program", async () => {
+    serveShow({
+      ...playlist,
+      show_name: "Sunset Soundtrack",
+      specialty,
+    } as unknown as ShowPlaylistWire);
+    renderWithProviders(<ShowView showId={SHOW_ID} />);
+
+    await rowFor("Juana Molina");
+    expect(screen.queryByTestId("classic-show-subtitle")).toBeNull();
+  });
+});
