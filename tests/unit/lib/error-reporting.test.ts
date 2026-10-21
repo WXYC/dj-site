@@ -29,8 +29,16 @@ describe("safeCaptureException", () => {
     safeCaptureException(err, { endpoint: "updateAlbum" });
 
     expect(sentryCapture).toHaveBeenCalledWith(err, { endpoint: "updateAlbum" });
-    expect(posthogCapture).toHaveBeenCalledWith(err, { endpoint: "updateAlbum" });
+    expect(posthogCapture).toHaveBeenCalledWith(err, { endpoint: "updateAlbum" }, undefined);
     expect(sentryCapture.mock.calls[0][0]).toBe(posthogCapture.mock.calls[0][0]);
+  });
+
+  it("forwards the static label to PostHog only, after the context", () => {
+    const err = new Error("boom");
+    safeCaptureException(err, { endpoint: "updateAlbum" }, "album-update");
+
+    expect(posthogCapture).toHaveBeenCalledWith(err, { endpoint: "updateAlbum" }, "album-update");
+    expect(sentryCapture).toHaveBeenCalledWith(err, { endpoint: "updateAlbum" });
   });
 
   it("normalizes a non-Error value once, before either sink sees it", () => {
