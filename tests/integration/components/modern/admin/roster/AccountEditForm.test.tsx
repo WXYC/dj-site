@@ -373,3 +373,51 @@ describe("AccountEditForm account timestamps", () => {
     expect(screen.getAllByText("Unknown")).toHaveLength(2);
   });
 });
+
+describe("AccountEditForm capability toggles", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockUpdateUser.mockResolvedValue({ data: {} });
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+  });
+
+  // The account's array can hold strings the form does not list (crm_merge);
+  // each toggle must write them back untouched.
+  it.each([
+    ["grants reviews_beta, keeping an unknown capability", ["crm_merge"], "Reviews beta", ["crm_merge", "reviews_beta"]],
+    ["removes reviews_beta, keeping the others", ["editor", "reviews_beta", "crm_merge"], "Reviews beta", ["editor", "crm_merge"]],
+    ["removes editor, keeping an unknown capability", ["editor", "crm_merge"], "Editor", ["crm_merge"]],
+    ["grants webmaster to an account with none", [], "Webmaster", ["webmaster"]],
+  ])("%s", async (_title, held, toggle, written) => {
+    const { user } = setup({ account: makeAccount({ capabilities: held }) });
+
+    await user.click(screen.getByRole("button", { name: toggle }));
+
+    await waitFor(() => {
+      expect(mockUpdateUser).toHaveBeenCalledWith({
+        userId: "user-123",
+        data: { capabilities: written },
+      });
+    });
+  });
+
+  it.each([
+    ["reviews_beta", [], "Reviews beta", "Are you sure you want to grant reviews beta to Juana Molina?", "Reviews beta granted to Juana Molina"],
+    ["reviews_beta", ["reviews_beta"], "Reviews beta", "Are you sure you want to remove reviews beta from Juana Molina?", "Reviews beta removed from Juana Molina"],
+    ["editor", [], "Editor", 'Are you sure you want to grant the "editor" capability to Juana Molina?', "editor capability granted to Juana Molina"],
+    ["webmaster", ["webmaster"], "Webmaster", 'Are you sure you want to remove the "webmaster" capability from Juana Molina?', "webmaster capability removed from Juana Molina"],
+  ])("confirms and announces %s from %j", async (_capability, held, toggle, confirmText, toastText) => {
+    const { user } = setup({ account: makeAccount({ capabilities: held }) });
+
+    await user.click(screen.getByRole("button", { name: toggle }));
+
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith(toastText));
+    expect(window.confirm).toHaveBeenCalledWith(confirmText);
+  });
+
+  it.each(["Editor", "Webmaster", "Reviews beta"])("disables the %s toggle on the viewer's own account", (toggle) => {
+    setup({ account: makeAccount(), isSelf: true });
+
+    expect(screen.getByRole("button", { name: toggle })).toBeDisabled();
+  });
+});
