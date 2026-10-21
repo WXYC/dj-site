@@ -82,7 +82,10 @@ export default function ClassicWeekGrid({
                 block.showName ??
                 block.djName ??
                 "Unattributed";
-              const label = `${name} — ${block.timeRangeLabel}`;
+              // The visible text may be the short name; the accessible name is
+              // the program's full name.
+              const fullName = block.specialty?.name ?? name;
+              const label = `${fullName} — ${block.timeRangeLabel}`;
               return (
                 <div key={`line-${block.showId}`}>
                   <div
