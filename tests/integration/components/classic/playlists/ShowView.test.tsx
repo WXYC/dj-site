@@ -505,9 +505,14 @@ describe("classic archived-show view — a tagged specialty airing", () => {
     } as unknown as ShowPlaylistWire);
     renderWithProviders(<ShowView showId={SHOW_ID} />);
 
-    expect(await screen.findByTestId("classic-show-subtitle")).toHaveTextContent(
-      "Blade Runner"
-    );
+    const subtitle = await screen.findByTestId("classic-show-subtitle");
+    expect(subtitle).toHaveTextContent("Blade Runner");
+    const title = screen.getByRole("heading", { name: "Sunset Soundtrack" });
+    // Name first, subtitle beneath it.
+    expect(
+      title.compareDocumentPosition(subtitle) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
   });
 
   it("shows no subtitle when the airing is named for the program", async () => {

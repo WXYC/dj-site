@@ -51,6 +51,7 @@ export default function ClassicShowEntries({
   partialEdge,
   isLoading,
   highlightedEntryId = null,
+  subtitle = null,
 }: {
   show: FlowsheetRangeShow;
   entries: FlowsheetRangeEntryWire[];
@@ -62,12 +63,23 @@ export default function ClassicShowEntries({
    * fragment points at; an id on every row would collide across tables.
    */
   highlightedEntryId?: number | null;
+  /** The airing's own name, drawn beneath the program name when it adds something. */
+  subtitle?: string | null;
 }) {
   return (
     <div className="classic-schedule-week-entries">
       <h3 className="bigblue">
         {show.show_name ?? show.dj_name ?? "Unattributed show"}
       </h3>
+      {subtitle && (
+        <p
+          className="subtitle redlabel"
+          data-testid="classic-show-subtitle"
+          style={{ textAlign: "center" }}
+        >
+          {subtitle}
+        </p>
+      )}
 
       {isLoading && <p className="text">Loading…</p>}
 
