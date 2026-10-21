@@ -160,6 +160,18 @@ describe("safe capture contract", () => {
     });
   });
 
+  it("captureExceptionInPostHog attaches dropped_since_last once after a drop, then not again", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { captureExceptionInPostHog } = await initAndWait();
+    captureExceptionInPostHog(new Error("a"));
+    captureExceptionInPostHog(new Error("a"));
+    captureExceptionInPostHog(new Error("b"));
+    captureExceptionInPostHog(new Error("c"));
+
+    const sent = posthog.captureException.mock.calls.map(([, props]) => props);
+    expect(sent).toEqual([undefined, { dropped_since_last: 1 }, undefined]);
+  });
+
   it("captureExceptionInPostHog never throws when the SDK throws", async () => {
     const { captureExceptionInPostHog } = await initAndWait();
     posthog.captureException.mockImplementationOnce(() => {

@@ -154,21 +154,27 @@ export function safeCapture(
  *
  * Gated before both the direct send and the pre-load buffer (so buffered
  * errors count too): 60 s dedupe, then a per-page-load token bucket of 20,
- * refilling one token per 30 minutes. Drops are counted, never sent. Automatic
+ * refilling one token per 30 minutes. Drops are counted and reported as
+ * `dropped_since_last` on the next sent event, never as events of their own.
+ * `label` is an optional call-site constant (a string literal) that joins the
+ * dedupe key. Automatic
  * capture (`capture_exceptions: true`) is left to the SDK's own limiter.
  */
 export function captureExceptionInPostHog(
   error: Error,
-  context?: Record<string, unknown>
+  context?: Record<string, unknown>,
+  label?: string
 ): void {
   try {
-    if (!exceptionGate.admit(error, context)) {
+    if (!exceptionGate.admit(error, context, label)) {
       return;
     }
+    const droppedSinceLast = exceptionGate.takeDropped();
+    const props = droppedSinceLast > 0 ? { ...context, dropped_since_last: droppedSinceLast } : context;
     if (client) {
-      client.captureException(error, context);
+      client.captureException(error, props);
     } else {
-      bufferCapture({ method: "captureException", args: [error, context] });
+      bufferCapture({ method: "captureException", args: [error, props] });
     }
   } catch {
     // optional-service contract: swallow
