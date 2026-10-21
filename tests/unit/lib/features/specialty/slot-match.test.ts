@@ -1,3 +1,4 @@
+import type { SpecialtyShow } from "@wxyc/shared";
 import { describe, it, expect } from "vitest";
 import { programsForStart } from "@/lib/features/specialty/slot-match";
 import { SEED_CATALOG } from "@/tests/fixtures/specialty";
@@ -28,9 +29,43 @@ const cases: Array<[label: string, startedAt: string, programs: string[]]> = [
   ["back-to-back at 22:00 ET", "2026-10-31T02:00:00Z", ["New Science Experience"]],
   ["back-to-back lead the Friday after fall back (EST)", "2026-11-07T02:55:00Z", ["New Science Experience"]],
   ["one hour off across fall back", "2026-11-08T16:00:00Z", []],
+  // 2026-03-01 is EST: 11:30 ET is before the lead window, 13:59 ET is the last minute. A fixed EDT offset fails both.
+  ["before the lead window in an EST week", "2026-03-01T16:30:00Z", []],
+  ["the last minute of the slot in an EST week", "2026-03-01T18:59:00Z", ["Orange County Special"]],
+];
+
+// Friday 2026-10-30 (EDT). 01:55Z on the 31st is Friday 21:55 ET.
+const FRI = 4;
+const mk = (id: number, name: string, slots: Array<[string, number]>) =>
+  ({
+    ...SEED_CATALOG[0],
+    id,
+    name,
+    slug: name.toLowerCase(),
+    slots: slots.map(([start_time, duration_minutes]) => ({
+      day: FRI,
+      start_time,
+      duration_minutes,
+      cadence: "weekly" as const,
+    })),
+  });
+const overlap = [mk(20, "Y", [["21:00", 65]]), mk(21, "X", [["22:00", 60]])];
+const backToBack = [mk(30, "P", [["21:00", 60], ["22:00", 60]]), mk(31, "Q", [["22:00", 60]])];
+const catalogCases: Array<[string, SpecialtyShow[], string, string[]]> = [
+  ["overlap: before the lead window", overlap, "2026-10-31T01:49:00Z", ["Y"]],
+  ["overlap: Y outlasts X's start, kept at 21:55", overlap, "2026-10-31T01:55:00Z", ["Y", "X"]],
+  ["overlap: both at 22:00", overlap, "2026-10-31T02:00:00Z", ["Y", "X"]],
+  ["overlap: Y alone after X ends", overlap, "2026-10-31T03:02:00Z", []],
+  ["program with back-to-back slots keeps its later slot at 21:55", backToBack, "2026-10-31T01:55:00Z", ["P", "Q"]],
+  ["program with back-to-back slots at 22:00", backToBack, "2026-10-31T02:00:00Z", ["P", "Q"]],
+  ["program with back-to-back slots, before the lead", backToBack, "2026-10-31T01:40:00Z", ["P"]],
 ];
 
 describe("programsForStart", () => {
+  it.each(catalogCases)("%s", (_label, catalog, startedAt, expected) => {
+    expect(programsForStart(startedAt, catalog).map(({ program }) => program.name)).toEqual(expected);
+  });
+
   it.each(cases)("%s", (_label, startedAt, expected) => {
     expect(
       programsForStart(startedAt, SEED_CATALOG).map(({ program }) => program.name)
