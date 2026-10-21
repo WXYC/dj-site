@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import { delay, http, HttpResponse } from "msw";
 import { setupListeners } from "@reduxjs/toolkit/query";
-import type { IntakeItem } from "@wxyc/shared";
+import { IntakeRequestRefusedCode, type IntakeItem } from "@wxyc/shared";
 import { Authorization } from "@/lib/features/admin/types";
 import { makeStore } from "@/lib/store";
 import { fakeReviewsEndpoints, heldBy, intakeItem, renderWithProviders, requestedFor, renderedFrame, server, TEST_BACKEND_URL } from "@/tests/helpers";
@@ -303,6 +303,53 @@ describe("IntakeLanes stage lists", () => {
       expect(await screen.findByRole("status")).toHaveTextContent(COPY.raceRequest);
     }
     expect(toast.error).not.toHaveBeenCalledWith("server words");
+  });
+
+  const CANNOT_SEE_LINE = "Pat Placeholder can't see reviews yet. A station manager can add them to the reviews beta in the DJ Roster.";
+  it.each([
+    ["a coded refusal, keeping the dialog open on the confirm step with the line and Ask disabled", 400, { message: "server words", code: IntakeRequestRefusedCode.asked_dj_cannot_see_feature }, "line"],
+    ["a 400 without the code, the older toast", 400, { message: "server words" }, "older"],
+    ["a 400 with another code, the older toast", 400, { message: "server words", code: "some_other_code" }, "older"],
+    ["a success, the Asked toast", 200, { ...SHELF_OLD, state: "requested", effective_state: "requested" }, "asked"],
+  ])("answers a request with %s", async (_label, status, body, shown) => {
+    let reviewerReads = 0;
+    serve([SHELF_OLD]);
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/reviews/reviewers`, () => {
+        reviewerReads += 1;
+        return HttpResponse.json({ reviewers: REVIEWERS });
+      }),
+      http.post(`${TEST_BACKEND_URL}/intake/1/request`, () => HttpResponse.json(body, { status })),
+    );
+    showStage("review_shelf");
+    const { user } = renderWithProviders(<IntakeLanes />);
+
+    await user.click(await screen.findByRole("button", { name: new RegExp(`^${COPY.moreButton}`) }));
+    await user.click(await screen.findByRole("menuitem", { name: COPY.askADj }));
+    await user.type(await within(await screen.findByRole("dialog")).findByRole("combobox"), "Pat Placeholder");
+    await user.keyboard("{Enter}");
+    await user.click(await screen.findByRole("button", { name: COPY.ask }));
+
+    if (shown === "line") {
+      const dialog = await screen.findByRole("dialog");
+      expect(await within(dialog).findByText(CANNOT_SEE_LINE)).toBeInTheDocument();
+      expect(within(dialog).getByText(/^Ask Pat Placeholder/)).toHaveFocus();
+      expect(within(dialog).getByRole("button", { name: COPY.ask })).toBeDisabled();
+      expect(within(dialog).getByRole("button", { name: COPY.back })).toBeEnabled();
+      expect(reviewerReads).toBe(1);
+      expect(toast.error).not.toHaveBeenCalled();
+      expect(toast).not.toHaveBeenCalled();
+      await user.click(within(dialog).getByRole("button", { name: COPY.back }));
+      expect(screen.queryByText(CANNOT_SEE_LINE)).not.toBeInTheDocument();
+    } else if (shown === "older") {
+      await waitFor(() => expect(toast.error).toHaveBeenCalledWith(COPY.requestRefused));
+      expect(screen.queryByText(CANNOT_SEE_LINE)).not.toBeInTheDocument();
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      expect(toast).not.toHaveBeenCalled();
+    } else {
+      await waitFor(() => expect(toast).toHaveBeenCalledWith(COPY.askDone("Pat Placeholder"), expect.anything()));
+      expect(screen.queryByText(CANNOT_SEE_LINE)).not.toBeInTheDocument();
+    }
   });
 
   it("shows a record filed 29 days ago, hides one filed 31 days ago and one with no filing time until Show older, newest first, finalized included", async () => {

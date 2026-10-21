@@ -7,10 +7,11 @@ import type {
   IntakeSlip,
   NewIntakeItemRequest,
 } from "@wxyc/shared";
+import { IntakeRequestRefusedCode } from "@wxyc/shared";
 import type { FetchBaseQueryError } from "@reduxjs/toolkit/query";
 import { catalogApi, FILING_INVALIDATED_TAGS } from "@/lib/features/catalog/api";
 import { rotationApi } from "@/lib/features/rotation/api";
-import { isRefusal, isStatusRefusal } from "@/lib/rtk-endpoint-error";
+import { bodyCode, isRefusal, isStatusRefusal, unwrapEndpointError } from "@/lib/rtk-endpoint-error";
 import { reviewsApi } from "./api";
 
 /**
@@ -64,9 +65,20 @@ export const isIntakeReleaseRefused = (err: unknown): boolean =>
   isStatusRefusal(err, { status: 400, key: "intakeWriteError" });
 
 /**
+ * True when a request was refused (400) because the chosen DJ cannot see reviews yet. That body carries a
+ * `code` rather than a `reason`, so `isRefusal` can never match it; compare with the generated const, which
+ * turns a rename of the enum into a compile error. Check it before `isIntakeRequestRefused`, which matches it too.
+ */
+export const isIntakeAskedDjCannotSeeReviews = (err: unknown): boolean => {
+  const inner = unwrapEndpointError("intakeWriteError", err);
+  return inner?.status === 400 && bodyCode(inner.data) === IntakeRequestRefusedCode.asked_dj_cannot_see_feature;
+};
+
+/**
  * True when a request was refused (400) because the chosen account was removed or is no longer a DJ.
- * That 400 has no `reason` (the server throws a plain error), so it is matched by status alone; the
- * request button is disabled until an account is picked, so the route's other 400 cannot arrive.
+ * That 400 has no `reason` (the server throws a plain error), so it is matched by status alone, and it
+ * matches the coded 400 too: check `isIntakeAskedDjCannotSeeReviews` first. The request button is disabled
+ * until an account is picked, so the route's only other 400 is the coded one.
  */
 export const isIntakeRequestRefused = (err: unknown): boolean =>
   isStatusRefusal(err, { status: 400, key: "intakeWriteError" });

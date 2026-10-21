@@ -282,6 +282,8 @@ export const REVIEW_COPY = {
     raceRequest: "This record has left the review shelf since the page loaded, so it can't be requested. The lists have been reloaded.",
     /** Approved. Shown when a request names an account that can no longer be asked to review. */
     requestRefused: "That DJ can't be asked to review: their account was removed, or it's no longer a DJ account. Pick someone else.",
+    /** Approved. Shown under the DJ's name in the Ask dialog when the request is refused because that DJ cannot see reviews yet. */
+    cannotSeeReviews: (name: string) => `${name} can't see reviews yet. A station manager can add them to the reviews beta in the DJ Roster.`,
     /** Approved. The review shelf row's hint that the library holds this record already, named by the row's artist and album. */
     hintLibrary: (artist: string, album: string) => `The library already has ${artist}, ${album}, with a review.`,
     /** Approved. The review shelf row's hint that the form archive holds reviews of this artist. Both the plural and the singular for one review are approved. */

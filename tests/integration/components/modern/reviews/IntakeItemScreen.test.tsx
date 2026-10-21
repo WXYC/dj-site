@@ -53,7 +53,7 @@ vi.mock("@/src/hooks/authenticationHooks", async () => {
 
 import { toast } from "sonner";
 import { REVIEW_COPY } from "@/src/components/experiences/modern/reviews/copy";
-import type { AlbumReview, IntakeItemPatch, NewReviewRequest, Review } from "@wxyc/shared";
+import { IntakeRequestRefusedCode, type AlbumReview, type IntakeItemPatch, type NewReviewRequest, type Review } from "@wxyc/shared";
 import Link from "next/link";
 import { CssVarsProvider } from "@mui/joy/styles";
 import modernTheme from "@/lib/features/experiences/modern/theme";
@@ -5947,6 +5947,28 @@ describe("IntakeItemScreen", () => {
       await reviewsSettled(store);
       expect(within(region).getByRole("button", { name: "Ask a DJ…" })).toBeInTheDocument();
       expect(within(region).getByText("On the review shelf")).not.toHaveFocus();
+    });
+
+    it.each([
+      ["a coded refusal, the line under the name in a reopened dialog", { message: "server words", code: IntakeRequestRefusedCode.asked_dj_cannot_see_feature }, true],
+      ["a 400 with another code, the older toast", { message: "server words", code: "some_other_code" }, false],
+    ])("answers a request refused with %s", async (_label, body, coded) => {
+      serveWrites(dogaItem(POOL));
+      server.use(http.post(`${TEST_BACKEND_URL}/intake/${ITEM_ID}/request`, () => HttpResponse.json(body, { status: 400 })));
+      const { user } = renderScreen(<IntakeItemScreen id={ITEM_ID} />);
+
+      await askSam(user);
+
+      if (coded) {
+        const dialog = await screen.findByRole("dialog");
+        expect(await within(dialog).findByText("Sam can't see reviews yet. A station manager can add them to the reviews beta in the DJ Roster.")).toBeInTheDocument();
+        expect(within(dialog).getByRole("button", { name: "Ask" })).toBeDisabled();
+        expect(vi.mocked(toast.error)).not.toHaveBeenCalled();
+        expect(vi.mocked(toast)).not.toHaveBeenCalled();
+      } else {
+        await waitFor(() => expect(vi.mocked(toast.error)).toHaveBeenCalledWith(REVIEW_COPY.intake.requestRefused));
+        expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      }
     });
 
     it("asks a DJ from the block and offers Cancel request in the toast", async () => {
