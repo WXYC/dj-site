@@ -3,6 +3,7 @@ import { screen } from "@testing-library/react";
 import { renderWithProviders } from "@/tests/helpers";
 import {
   setUpClassicPageAuthority,
+  setUpReviewsAccess,
   setUpClassicPageAuthorityEnv,
   assertNotFoundPage,
 } from "@/tests/helpers/classic-page-authority-harness";
@@ -24,6 +25,10 @@ vi.mock("@/lib/features/authentication/organization-utils.server", async () => {
   const { classicPageAuthorityOrganizationUtilsMock } = await import("@/tests/helpers/classic-page-authority-harness");
   return classicPageAuthorityOrganizationUtilsMock();
 });
+vi.mock("@/lib/features/feature-access.server", async () => {
+  const { featureAccessServerMock } = await import("@/tests/helpers/classic-page-authority-harness");
+  return featureAccessServerMock();
+});
 
 // The page's own responsibility under test is its id check and what it renders
 // once the gate passes, not the editor or the header chrome.
@@ -44,7 +49,7 @@ describe("review editor page", () => {
     ReviewEditorPage({ params: Promise.resolve({ id }), searchParams: Promise.resolve(query) });
 
   it("renders the editor once the gate passes", async () => {
-    process.env.NEXT_PUBLIC_REVIEWS_ENABLED = "true";
+    setUpReviewsAccess("everyone", true);
     setUpClassicPageAuthority("dj");
 
     renderWithProviders(await open());
@@ -58,7 +63,7 @@ describe("review editor page", () => {
     ["no marker", undefined, "false"],
     ["another marker", "elsewhere", "false"],
   ])("tells the editor it arrived from a request only for %s", async (_label, arrived, expected) => {
-    process.env.NEXT_PUBLIC_REVIEWS_ENABLED = "true";
+    setUpReviewsAccess("everyone", true);
     setUpClassicPageAuthority("dj");
 
     renderWithProviders(await open("40", { arrived }));
@@ -74,7 +79,7 @@ describe("review editor page", () => {
     ["a full URL, which is no origin", { from: "https://example.com" }, null],
     ["no from", {}, null],
   ])("passes the editor where it was opened from for %s", async (_label, query, expected) => {
-    process.env.NEXT_PUBLIC_REVIEWS_ENABLED = "true";
+    setUpReviewsAccess("everyone", true);
     setUpClassicPageAuthority("dj");
 
     renderWithProviders(await open("40", query));
@@ -88,7 +93,7 @@ describe("review editor page", () => {
   });
 
   it("goes through the gate: a DJ under staff sees the staff-only line and no editor", async () => {
-    process.env.NEXT_PUBLIC_REVIEWS_ENABLED = "staff";
+    setUpReviewsAccess("staff", false);
     setUpClassicPageAuthority("dj");
 
     renderWithProviders(await open());
@@ -98,7 +103,7 @@ describe("review editor page", () => {
   });
 
   it("is not found for an id that is not a positive integer", async () => {
-    process.env.NEXT_PUBLIC_REVIEWS_ENABLED = "true";
+    setUpReviewsAccess("everyone", true);
     setUpClassicPageAuthority("dj");
 
     await assertNotFoundPage(() => open("abc"));

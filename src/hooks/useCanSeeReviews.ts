@@ -1,13 +1,12 @@
-import { Authorization } from "@/lib/features/admin/types";
-import { canSeeReviews } from "@/lib/features/reviews/flags";
-import { useAuthentication } from "@/src/hooks/authenticationHooks";
+import { useGetReviewsAccessQuery } from "@/lib/features/feature-access/api";
 
 /**
- * Whether the signed-in account is shown the reviews screens. No session, or
- * one whose session read is still pending, counts as `Authorization.NO`.
+ * Whether the signed-in account is shown the reviews screens, as the Backend
+ * answers it. A read that is loading or failed counts as no access. Each
+ * mount asks again, so a screen opened after the answer changed shows the new
+ * one without a reload.
  */
 export function useCanSeeReviews(): boolean {
-  const { data: auth } = useAuthentication();
-  const authority = "user" in auth ? auth.user?.authority : undefined;
-  return canSeeReviews(authority ?? Authorization.NO);
+  const { data, isSuccess } = useGetReviewsAccessQuery(undefined, { refetchOnMountOrArgChange: true });
+  return isSuccess && data?.can_see === true;
 }

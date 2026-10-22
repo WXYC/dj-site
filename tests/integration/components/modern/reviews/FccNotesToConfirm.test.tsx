@@ -3,7 +3,7 @@ import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { Authorization } from "@/lib/features/admin/types";
-import { fakeReviewsEndpoints, fccNote, renderWithProviders, server, TEST_BACKEND_URL } from "@/tests/helpers";
+import { fakeReviewsEndpoints, fccNote, renderWithProviders, server, TEST_BACKEND_URL, fakeReviewsAccess } from "@/tests/helpers";
 
 vi.mock("@/lib/features/authentication/client", async () => {
   const { createAuthClientModuleMock } = await import("@/tests/helpers/auth-client-mock");
@@ -49,7 +49,6 @@ const sessionStill = () =>
   vi.mocked(authClient.getSession).mockResolvedValue({ data: { user: { id: "md-me" } }, error: null } as never);
 
 beforeEach(() => {
-  vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "staff");
   mockAuth.id = "md-me";
   mockAuth.authority = Authorization.MD;
   router.replace.mockClear();
@@ -134,10 +133,10 @@ describe("FccNotesToConfirm", () => {
   });
 
   it.each([
-    { label: "the flag is off", flag: "", authority: Authorization.MD },
+    { label: "reviews are off", flag: "off", authority: Authorization.MD },
     { label: "a DJ is under staff", flag: "staff", authority: Authorization.DJ },
   ])("asks the server for nothing when $label", async ({ flag, authority }) => {
-    vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", flag);
+    fakeReviewsAccess({ audience: flag, can_see: false });
     mockAuth.authority = authority;
     fakeReviewsEndpoints({ fccNotesToConfirm: [waitingNote()] });
     const { container } = renderWithProviders(<FccNotesToConfirm />);
@@ -246,7 +245,6 @@ describe("a 403 on a write", () => {
     if (session === "there") sessionStill();
     const user = userEvent.setup();
     if (reporter) {
-      vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "true");
       mockAuth.id = "dj-pat";
       mockAuth.authority = Authorization.DJ;
       fakeReviewsEndpoints({ fccNotesForItem: { "3": [waitingNote()] } });
@@ -341,7 +339,6 @@ describe("a 403 on a write", () => {
   });
 
   it("drops a generic failure line once a music director confirms the note and the controls end", async () => {
-    vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "true");
     mockAuth.id = "dj-pat";
     mockAuth.authority = Authorization.DJ;
     fakeReviewsEndpoints({ fccNotesForItem: { "3": [waitingNote()] } });

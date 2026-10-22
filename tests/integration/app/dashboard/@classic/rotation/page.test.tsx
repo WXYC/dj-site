@@ -1,8 +1,9 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { screen } from "@testing-library/react";
 import { renderWithProviders } from "@/tests/helpers";
 import {
   setUpClassicPageAuthority,
+  setUpReviewsAccess,
   setUpClassicPageAuthorityEnv,
   assertReachesClassicPage,
   assertDeniedClassicPage,
@@ -24,6 +25,10 @@ vi.mock("@/lib/features/authentication/server-client", async () => {
 vi.mock("@/lib/features/authentication/organization-utils.server", async () => {
   const { classicPageAuthorityOrganizationUtilsMock } = await import("@/tests/helpers/classic-page-authority-harness");
   return classicPageAuthorityOrganizationUtilsMock();
+});
+vi.mock("@/lib/features/feature-access.server", async () => {
+  const { featureAccessServerMock } = await import("@/tests/helpers/classic-page-authority-harness");
+  return featureAccessServerMock();
 });
 
 vi.mock("@/src/components/experiences/classic/rotation/RotationReleaseList", () => ({
@@ -99,17 +104,16 @@ describe("Classic /dashboard/rotation page — rotationReleaseList.jsp, DJ-reada
   });
 });
 
-describe("Classic /dashboard/rotation page — filed intake items follow the reviews flag", () => {
+describe("Classic /dashboard/rotation page — filed intake items follow the Backend's reviews access", () => {
   setUpClassicPageAuthorityEnv();
-  afterEach(() => vi.unstubAllEnvs());
 
   it.each([
-    { flag: "", role: "musicDirector" as const, canSeeFiled: false },
-    { flag: "staff", role: "dj" as const, canSeeFiled: false },
-    { flag: "staff", role: "musicDirector" as const, canSeeFiled: true },
-    { flag: "true", role: "dj" as const, canSeeFiled: true },
-  ])("flag=$flag, $role -> canSeeFiled=$canSeeFiled", async ({ flag, role, canSeeFiled }) => {
-    vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", flag);
+    { audience: "off" as const, role: "musicDirector" as const, canSeeFiled: false },
+    { audience: "staff" as const, role: "dj" as const, canSeeFiled: false },
+    { audience: "staff" as const, role: "musicDirector" as const, canSeeFiled: true },
+    { audience: "everyone" as const, role: "dj" as const, canSeeFiled: true },
+  ])("audience=$audience, $role -> canSeeFiled=$canSeeFiled", async ({ audience, role, canSeeFiled }) => {
+    setUpReviewsAccess(audience, canSeeFiled);
     setUpClassicPageAuthority(role);
     renderWithProviders(await ClassicRotationListPage({ searchParams: noStatus }));
 

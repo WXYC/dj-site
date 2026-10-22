@@ -3,7 +3,7 @@ import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { delay, http, HttpResponse } from "msw";
 import type { IntakeItem } from "@wxyc/shared";
 import { Authorization } from "@/lib/features/admin/types";
-import { fakeReviewsEndpoints, intakeItem, renderWithProviders, server, TEST_BACKEND_URL } from "@/tests/helpers";
+import { fakeReviewsAccess, fakeReviewsEndpoints, intakeItem, renderWithProviders, server, TEST_BACKEND_URL } from "@/tests/helpers";
 
 vi.mock("@/lib/features/authentication/client", async () => {
   const { createAuthClientModuleMock } = await import("@/tests/helpers/auth-client-mock");
@@ -103,7 +103,6 @@ beforeEach(() => {
     url.listeners.forEach((listener) => listener());
   });
   mockAuth.authority = Authorization.MD;
-  vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "staff");
 });
 afterEach(() => {
   vi.mocked(window.history.replaceState).mockRestore();
@@ -126,6 +125,7 @@ describe("Add a record, on the New music tab", () => {
 
   it("shows a DJ neither the line nor the button", async () => {
     mockAuth.authority = Authorization.DJ;
+    fakeReviewsAccess({ audience: "staff", can_see: false });
     fakeShelf();
 
     const { container } = renderWithProviders(<IntakeLanes />);

@@ -20,6 +20,7 @@ import {
   reviewsSettled,
   server,
   TEST_BACKEND_URL,
+  fakeReviewsAccess,
 } from "@/tests/helpers";
 
 // The page never reads the roster; a spy on the admin client's account list proves it.
@@ -158,7 +159,6 @@ beforeEach(() => {
 
 describe("ReviewsScreen", () => {
   beforeEach(() => {
-    vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "true");
     mockAuth.authority = Authorization.DJ;
     fakeReviewsEndpoints();
     router.push.mockClear();
@@ -693,13 +693,10 @@ describe("ReviewsScreen", () => {
   });
 
   it.each([
-    ["a DJ", "true", Authorization.DJ, false],
-    ["a music director", "true", Authorization.MD, true],
-    ["a music director", "staff", Authorization.MD, true],
-    ["a station manager", "true", Authorization.SM, true],
-    ["a station manager", "staff", Authorization.SM, true],
-  ])("%s under the flag %j: More and the record link are present only for a music director or above", async (_label, flag, who, directors) => {
-    vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", flag);
+    ["a DJ", Authorization.DJ, false],
+    ["a music director", Authorization.MD, true],
+    ["a station manager", Authorization.SM, true],
+  ])("%s: More and the record link are present only for a music director or above", async (_label, who, directors) => {
     mockAuth.authority = who;
     fakeReviewsEndpoints({ open: [moonPix()], reviewers: REVIEWERS });
 
@@ -1729,10 +1726,10 @@ describe("ReviewsScreen", () => {
   });
 
   it.each([
-    ["the flag is off", "", Authorization.MD],
+    ["reviews are off", "off", Authorization.MD],
     ["a DJ is under staff", "staff", Authorization.DJ],
   ])("renders nothing and reads nothing when %s", async (_label, flag, authority) => {
-    vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", flag);
+    fakeReviewsAccess({ audience: flag, can_see: false });
     mockAuth.authority = authority;
     serveIntake([item({})]);
     const requested: string[] = [];
@@ -1753,12 +1750,12 @@ describe("ReviewsScreen", () => {
   });
 
   it.each([
-    ["", Authorization.MD],
-    ["", Authorization.SM],
-    ["", Authorization.DJ],
+    ["off", Authorization.MD],
+    ["off", Authorization.SM],
+    ["off", Authorization.DJ],
     ["staff", Authorization.DJ],
-  ])("renders nothing under flag %j for authority %s", async (flag, who) => {
-    vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", flag);
+  ])("renders nothing under audience %j for authority %s", async (flag, who) => {
+    fakeReviewsAccess({ audience: flag, can_see: false });
     mockAuth.authority = who;
     fakeReviewsEndpoints({ open: [moonPix()], reviewers: REVIEWERS });
 
@@ -1771,7 +1768,6 @@ describe("ReviewsScreen", () => {
 
 describe("ReviewsScreen — a failed background refetch", () => {
   beforeEach(() => {
-    vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "true");
     mockAuth.authority = Authorization.DJ;
   });
   afterEach(() => vi.unstubAllEnvs());
@@ -1796,7 +1792,6 @@ describe("ReviewsScreen — a failed background refetch", () => {
 
 describe("ReviewsScreen — a digital album reads its own lines, a disc keeps today's", () => {
   beforeEach(() => {
-    vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "true");
     mockAuth.authority = Authorization.DJ;
     fakeReviewsEndpoints();
     router.push.mockClear();
@@ -1930,7 +1925,6 @@ describe("ReviewsScreen — a digital album reads its own lines, a disc keeps to
 describe("ReviewsScreen re-reads on focus", () => {
   beforeEach(() => {
     mockAuth.authority = Authorization.DJ;
-    vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "true");
   });
   afterEach(() => vi.unstubAllEnvs());
 

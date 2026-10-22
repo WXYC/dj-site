@@ -44,7 +44,6 @@ const lanesShown = () => LANES.filter((name) => screen.queryByRole("region", { n
 
 describe("ReviewsScreen tabs", () => {
   beforeEach(() => {
-    vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "true");
     mockAuth.authority = Authorization.DJ;
     fakeReviewsEndpoints({ open: [asked, held, onShelf], mine: [mine], reviewers: [{ id: "dj-sam", name: "Test Reviewer" }] });
   });

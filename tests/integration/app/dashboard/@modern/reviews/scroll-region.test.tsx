@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { screen } from "@testing-library/react";
 import { renderWithProviders } from "@/tests/helpers";
 import { scrollsVertically } from "@/tests/helpers/scroll";
-import { setUpClassicPageAuthority, setUpClassicPageAuthorityEnv } from "@/tests/helpers/classic-page-authority-harness";
+import { setUpClassicPageAuthority, setUpClassicPageAuthorityEnv, setUpReviewsAccess } from "@/tests/helpers/classic-page-authority-harness";
 
 vi.mock("server-only", () => ({}));
 vi.mock("next/headers", async () => {
@@ -20,6 +20,10 @@ vi.mock("@/lib/features/authentication/server-client", async () => {
 vi.mock("@/lib/features/authentication/organization-utils.server", async () => {
   const { classicPageAuthorityOrganizationUtilsMock } = await import("@/tests/helpers/classic-page-authority-harness");
   return classicPageAuthorityOrganizationUtilsMock();
+});
+vi.mock("@/lib/features/feature-access.server", async () => {
+  const { featureAccessServerMock } = await import("@/tests/helpers/classic-page-authority-harness");
+  return featureAccessServerMock();
 });
 
 vi.mock("@/src/components/experiences/modern/Header/PageHeader", () => ({
@@ -53,7 +57,7 @@ describe("review pages scroll inside Main", () => {
     ["the review editor", false, () => ReviewEditorPage({ ...params, searchParams: Promise.resolve({}) })],
     ["a review's history", true, () => ReviewHistoryPage(params)],
   ])("%s renders its screen in one scroll region, with a page header outside it only where it draws one", async (_name, hasHeader, open) => {
-    process.env.NEXT_PUBLIC_REVIEWS_ENABLED = "true";
+    setUpReviewsAccess("everyone", true);
     setUpClassicPageAuthority("musicDirector");
 
     renderWithProviders(await open());

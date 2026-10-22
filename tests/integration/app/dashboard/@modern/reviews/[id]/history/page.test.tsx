@@ -3,6 +3,7 @@ import { screen } from "@testing-library/react";
 import { renderWithProviders } from "@/tests/helpers";
 import {
   setUpClassicPageAuthority,
+  setUpReviewsAccess,
   setUpClassicPageAuthorityEnv,
   assertNotFoundPage,
 } from "@/tests/helpers/classic-page-authority-harness";
@@ -24,6 +25,10 @@ vi.mock("@/lib/features/authentication/organization-utils.server", async () => {
   const { classicPageAuthorityOrganizationUtilsMock } = await import("@/tests/helpers/classic-page-authority-harness");
   return classicPageAuthorityOrganizationUtilsMock();
 });
+vi.mock("@/lib/features/feature-access.server", async () => {
+  const { featureAccessServerMock } = await import("@/tests/helpers/classic-page-authority-harness");
+  return featureAccessServerMock();
+});
 
 vi.mock("@/src/components/experiences/modern/reviews/ReviewHistory", () => ({
   default: ({ id }: { id: number }) => <div data-testid="history">{id}</div>,
@@ -43,7 +48,7 @@ describe("review history page", () => {
   const open = (id = "40") => ReviewHistoryPage({ params: Promise.resolve({ id }) });
 
   it("renders the history once the gate passes", async () => {
-    process.env.NEXT_PUBLIC_REVIEWS_ENABLED = "true";
+    setUpReviewsAccess("everyone", true);
     setUpClassicPageAuthority("dj");
 
     renderWithProviders(await open());
@@ -57,7 +62,7 @@ describe("review history page", () => {
   });
 
   it("goes through the gate: a DJ under staff sees the staff-only line and no history", async () => {
-    process.env.NEXT_PUBLIC_REVIEWS_ENABLED = "staff";
+    setUpReviewsAccess("staff", false);
     setUpClassicPageAuthority("dj");
 
     renderWithProviders(await open());
@@ -67,7 +72,7 @@ describe("review history page", () => {
   });
 
   it("is not found for an id that is not a positive integer", async () => {
-    process.env.NEXT_PUBLIC_REVIEWS_ENABLED = "true";
+    setUpReviewsAccess("everyone", true);
     setUpClassicPageAuthority("dj");
 
     await assertNotFoundPage(() => open("abc"));

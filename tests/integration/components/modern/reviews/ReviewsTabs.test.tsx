@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
 import { setupListeners } from "@reduxjs/toolkit/query";
 import { http, HttpResponse } from "msw";
@@ -27,7 +27,6 @@ import ReviewsTabs from "@/src/components/experiences/modern/reviews/ReviewsTabs
 const waiting = (id: number) =>
   intakeItem({ id, artist_name: "Cat Power", album_title: "Moon Pix", state: "checked_out", effective_state: "checked_out", submitted_review_count: 1, accepted_review_id: null });
 
-beforeEach(() => vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "staff"));
 afterEach(() => vi.unstubAllEnvs());
 
 describe("ReviewsTabs", () => {

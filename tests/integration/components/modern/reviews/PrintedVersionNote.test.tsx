@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { Authorization } from "@/lib/features/admin/types";
-import { fakeReviewsEndpoints, renderWithProviders, review, reviewRevision, reviewsSettled, server } from "@/tests/helpers";
+import { fakeReviewsEndpoints, renderWithProviders, review, reviewRevision, reviewsSettled, server, fakeReviewsAccess } from "@/tests/helpers";
 import { reviewApi } from "@/lib/features/reviews/reviewApi";
 import { TEST_BACKEND_URL } from "@/tests/helpers/constants";
 
@@ -27,7 +27,6 @@ const second = reviewRevision({ id: 102, revision: 2 });
 
 describe("PrintedVersionNote", () => {
   beforeEach(() => {
-    vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "true");
     mockAuth.authority = Authorization.DJ;
   });
 
@@ -112,10 +111,10 @@ describe("PrintedVersionNote", () => {
   });
 
   it.each<[string, string, number]>([
-    ["off", "", Authorization.MD],
+    ["off", "off", Authorization.MD],
     ["staff, for a DJ", "staff", Authorization.DJ],
-  ])("renders nothing with the flag %s", async (_name, flag, authority) => {
-    vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", flag);
+  ])("renders nothing when the Backend answers %s", async (_name, flag, authority) => {
+    fakeReviewsAccess({ audience: flag, can_see: false });
     mockAuth.authority = authority;
     fakeReviewsEndpoints({ revisions: { "40": [first] } });
     const { container, store } = renderWithProviders(<PrintedVersionNote onCover review={printed()} />);

@@ -94,7 +94,6 @@ function holdRead(path: string, body: JsonBodyType) {
 beforeEach(() => {
   url.search = "";
   mockAuth.authority = Authorization.MD;
-  vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "staff");
 });
 afterEach(() => {
   vi.unstubAllEnvs();

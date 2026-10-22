@@ -4,6 +4,7 @@ import { renderWithProviders, rulesOf } from "@/tests/helpers";
 import { APPBAR_CLEARANCE_PX } from "@/src/components/shared/Theme/Appbar";
 import {
   setUpClassicPageAuthority,
+  setUpReviewsAccess,
   setUpClassicPageAuthorityEnv,
   mockNotFound,
   mockRedirect,
@@ -26,6 +27,10 @@ vi.mock("@/lib/features/authentication/organization-utils.server", async () => {
   const { classicPageAuthorityOrganizationUtilsMock } = await import("@/tests/helpers/classic-page-authority-harness");
   return classicPageAuthorityOrganizationUtilsMock();
 });
+vi.mock("@/lib/features/feature-access.server", async () => {
+  const { featureAccessServerMock } = await import("@/tests/helpers/classic-page-authority-harness");
+  return featureAccessServerMock();
+});
 
 // Under test is the layout's own gate, not the strip's rendering.
 vi.mock("@/src/components/experiences/modern/reviews/ReviewsTabs", () => ({
@@ -38,18 +43,16 @@ describe("reviews lists layout", () => {
   setUpClassicPageAuthorityEnv();
 
   it.each([
-    [undefined, "dj", null],
-    [undefined, "musicDirector", null],
-    ["false", "stationManager", null],
-    ["staff", "dj", null],
-    ["staff", "musicDirector", "true"],
-    ["staff", "stationManager", "true"],
-    ["true", "dj", "false"],
-    ["true", "musicDirector", "true"],
-    ["true", "stationManager", "true"],
-  ] as const)("with the flag %s for a %s, the strip is drawn with New music: %s; children render and nobody is refused", async (flag, role, newMusic) => {
-    if (flag === undefined) delete process.env.NEXT_PUBLIC_REVIEWS_ENABLED;
-    else process.env.NEXT_PUBLIC_REVIEWS_ENABLED = flag;
+    ["off", false, "dj", null],
+    ["off", false, "musicDirector", null],
+    ["staff", false, "dj", null],
+    ["staff", true, "musicDirector", "true"],
+    ["staff", true, "stationManager", "true"],
+    ["everyone", true, "dj", "false"],
+    ["everyone", true, "musicDirector", "true"],
+    ["everyone", true, "stationManager", "true"],
+  ] as const)("with audience %s and access %s for a %s, the strip is drawn with New music: %s; children render and nobody is refused", async (audience, canSee, role, newMusic) => {
+    setUpReviewsAccess(audience, canSee);
     setUpClassicPageAuthority(role);
 
     renderWithProviders(await ReviewsListsLayout({ children: <div data-testid="child-page" /> }));
@@ -62,7 +65,7 @@ describe("reviews lists layout", () => {
   });
 
   it("draws Reviews once, ahead of the strip and outside the scroll region, and leaves the document title to each page", async () => {
-    process.env.NEXT_PUBLIC_REVIEWS_ENABLED = "true";
+    setUpReviewsAccess("everyone", true);
     setUpClassicPageAuthority("musicDirector");
     document.title = "New music | WXYC";
 
@@ -77,7 +80,7 @@ describe("reviews lists layout", () => {
   });
 
   it("leaves room under the scroll region for the fixed account button below md, and not above it", async () => {
-    process.env.NEXT_PUBLIC_REVIEWS_ENABLED = "true";
+    setUpReviewsAccess("everyone", true);
     setUpClassicPageAuthority("dj");
 
     renderWithProviders(await ReviewsListsLayout({ children: <div data-testid="child-page" /> }));
@@ -88,7 +91,7 @@ describe("reviews lists layout", () => {
   });
 
   it("scrolls the page content and leaves the strip pinned outside the scroll region", async () => {
-    process.env.NEXT_PUBLIC_REVIEWS_ENABLED = "true";
+    setUpReviewsAccess("everyone", true);
     setUpClassicPageAuthority("musicDirector");
 
     renderWithProviders(await ReviewsListsLayout({ children: <div data-testid="child-page" /> }));
@@ -99,7 +102,7 @@ describe("reviews lists layout", () => {
   });
 
   it("gives a DJ the same scroll region", async () => {
-    process.env.NEXT_PUBLIC_REVIEWS_ENABLED = "true";
+    setUpReviewsAccess("everyone", true);
     setUpClassicPageAuthority("dj");
 
     renderWithProviders(await ReviewsListsLayout({ children: <div data-testid="child-page" /> }));

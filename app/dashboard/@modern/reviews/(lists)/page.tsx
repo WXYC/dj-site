@@ -1,5 +1,5 @@
-import { getUserFromSession, requireAuth } from "@/lib/features/authentication/server-utils";
-import { canSeeReviews } from "@/lib/features/reviews/flags";
+import { requireAuth } from "@/lib/features/authentication/server-utils";
+import { getReviewsAccess } from "@/lib/features/feature-access.server";
 import ReviewsScreen from "@/src/components/experiences/modern/reviews/ReviewsScreen";
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
@@ -10,10 +10,9 @@ export const metadata: Metadata = {
 };
 
 export default async function ReviewsPage() {
-  const session = await requireAuth();
-  const { authority } = await getUserFromSession(session);
+  await requireAuth();
 
-  if (!canSeeReviews(authority)) {
+  if (!(await getReviewsAccess()).can_see) {
     notFound();
   }
 

@@ -31,6 +31,11 @@ vi.mock("@/lib/features/authentication/server-utils", () => ({
   getUserFromSession: vi.fn(() => Promise.resolve(mockUser)),
 }));
 
+const mockReviewsAccess = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/features/feature-access.server", () => ({
+  getReviewsAccess: () => mockReviewsAccess(),
+}));
+
 // Mock child components to simplify testing
 vi.mock("@/src/components/experiences/modern/Leftbar/LeftbarContainer", () => ({
   default: ({ children }: { children: React.ReactNode }) => (
@@ -125,6 +130,7 @@ describe("Leftbar", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockReviewsAccess.mockResolvedValue({ audience: "everyone", can_see: true });
     process.env = { ...originalEnv };
     delete process.env.NEXT_PUBLIC_ROTATION_ADMIN_ENABLED;
   });
@@ -500,19 +506,15 @@ describe("Leftbar", () => {
     ).not.toBeInTheDocument();
   });
   it.each([
-    ["off", "", Authorization.DJ, false],
-    ["off", "", Authorization.MD, false],
-    ["off", "", Authorization.SM, false],
-    ["staff", "staff", Authorization.DJ, false],
-    ["staff", "staff", Authorization.MD, true],
-    ["staff", "staff", Authorization.SM, true],
-    ["true", "true", Authorization.DJ, true],
-    ["true", "true", Authorization.MD, true],
-    ["true", "true", Authorization.SM, true],
-  ] as const)("with the reviews flag %s, an account at authority %s sees the Reviews link: %s", async (_label, flag, authority, shown) => {
-    vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", flag);
+    ["off", false],
+    ["staff", false],
+    ["staff", true],
+    ["everyone", true],
+  ] as const)("with the Backend answering audience %s and access %s, the Reviews link is shown: %s", async (audience, canSee) => {
+    mockReviewsAccess.mockResolvedValue({ audience, can_see: canSee });
+    const shown = canSee;
     const { getUserFromSession } = await import("@/lib/features/authentication/server-utils");
-    vi.mocked(getUserFromSession).mockResolvedValue({ ...mockUser, authority });
+    vi.mocked(getUserFromSession).mockResolvedValue({ ...mockUser, authority: Authorization.DJ });
 
     renderWithProviders(await Leftbar());
 
@@ -525,7 +527,6 @@ describe("Leftbar", () => {
   });
 
   it("puts the Reviews link after Previous Sets, outside the admin block a DJ never sees", async () => {
-    vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "true");
     const { getUserFromSession } = await import("@/lib/features/authentication/server-utils");
     vi.mocked(getUserFromSession).mockResolvedValue({ ...mockUser, authority: Authorization.DJ });
 
@@ -539,7 +540,6 @@ describe("Leftbar", () => {
   });
 
   it("gives the Reviews link the review-path pattern and no other link one", async () => {
-    vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "true");
     const { getUserFromSession } = await import("@/lib/features/authentication/server-utils");
     vi.mocked(getUserFromSession).mockResolvedValue({ ...mockUser, authority: Authorization.DJ });
 

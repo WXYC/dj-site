@@ -3,6 +3,7 @@ import { screen } from "@testing-library/react";
 import { renderWithProviders } from "@/tests/helpers";
 import {
   setUpClassicPageAuthority,
+  setUpReviewsAccess,
   setUpClassicPageAuthorityEnv,
   assertDeniedClassicPage,
   assertNotFoundPage,
@@ -25,6 +26,10 @@ vi.mock("@/lib/features/authentication/organization-utils.server", async () => {
   const { classicPageAuthorityOrganizationUtilsMock } = await import("@/tests/helpers/classic-page-authority-harness");
   return classicPageAuthorityOrganizationUtilsMock();
 });
+vi.mock("@/lib/features/feature-access.server", async () => {
+  const { featureAccessServerMock } = await import("@/tests/helpers/classic-page-authority-harness");
+  return featureAccessServerMock();
+});
 
 // The page's own responsibility under test is the flag + role gate.
 vi.mock("@/src/components/experiences/modern/Header/PageHeader", () => ({
@@ -44,19 +49,18 @@ describe("release slip page", () => {
   setUpClassicPageAuthorityEnv();
 
   it.each([
-    [undefined, "musicDirector"],
-    ["false", "stationManager"],
+    ["off", "musicDirector"],
+    ["off", "stationManager"],
     ["staff", "dj"],
-  ] as const)("is not found when the flag is %s for a %s", async (flag, role) => {
-    if (flag === undefined) delete process.env.NEXT_PUBLIC_REVIEWS_ENABLED;
-    else process.env.NEXT_PUBLIC_REVIEWS_ENABLED = flag;
+  ] as const)("is not found when the Backend answers audience %s without access for a %s", async (audience, role) => {
+    setUpReviewsAccess(audience, false);
     setUpClassicPageAuthority(role);
 
     await assertNotFoundPage(() => ReleaseSlipPage(params("7", "40")));
   });
 
-  it("sends a DJ home when the flag is open to every DJ", async () => {
-    process.env.NEXT_PUBLIC_REVIEWS_ENABLED = "true";
+  it("sends a DJ home when reviews are open to every DJ", async () => {
+    setUpReviewsAccess("everyone", true);
     setUpClassicPageAuthority("dj");
 
     await assertDeniedClassicPage(() => ReleaseSlipPage(params("7", "40")));
@@ -68,14 +72,14 @@ describe("release slip page", () => {
     ["7", "-3"],
     ["7", "1.5"],
   ])("is not found for the ids %s and %s", async (albumId, reviewId) => {
-    process.env.NEXT_PUBLIC_REVIEWS_ENABLED = "staff";
+    setUpReviewsAccess("staff", true);
     setUpClassicPageAuthority("musicDirector");
 
     await assertNotFoundPage(() => ReleaseSlipPage(params(albumId, reviewId)));
   });
 
   it("renders the slip screen for a music director", async () => {
-    process.env.NEXT_PUBLIC_REVIEWS_ENABLED = "staff";
+    setUpReviewsAccess("staff", true);
     setUpClassicPageAuthority("musicDirector");
 
     renderWithProviders(await ReleaseSlipPage(params("7", "40")));

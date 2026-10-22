@@ -1,6 +1,6 @@
-import { getUserFromSession, requireAuth, requireRole } from "@/lib/features/authentication/server-utils";
+import { requireAuth, requireRole } from "@/lib/features/authentication/server-utils";
 import { Authorization } from "@/lib/features/admin/types";
-import { canSeeReviews } from "@/lib/features/reviews/flags";
+import { getReviewsAccess } from "@/lib/features/feature-access.server";
 import ScrollRegion from "@/src/components/experiences/modern/ScrollRegion";
 import PageHeader from "@/src/components/experiences/modern/Header/PageHeader";
 import { REVIEW_COPY } from "@/src/components/experiences/modern/reviews/copy";
@@ -15,9 +15,8 @@ export const metadata: Metadata = {
 
 export default async function ReleaseSlipPage({ params }: { params: Promise<{ albumId: string; reviewId: string }> }) {
   const session = await requireAuth();
-  const { authority } = await getUserFromSession(session);
 
-  if (!canSeeReviews(authority)) {
+  if (!(await getReviewsAccess()).can_see) {
     notFound();
   }
   await requireRole(session, Authorization.MD);

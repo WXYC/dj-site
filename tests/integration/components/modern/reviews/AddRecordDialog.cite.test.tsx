@@ -76,7 +76,6 @@ const openAndFill = async (user: ReturnType<typeof renderWithProviders>["user"],
 
 describe("Add a record: a review probably exists", () => {
   beforeEach(() => {
-    vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "true");
     router.push.mockReset();
     probably.result = { library: undefined, formCount: 0, settled: true };
     probably.calls = [];

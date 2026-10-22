@@ -3,7 +3,7 @@ import { act, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { delay, http, HttpResponse } from "msw";
 import type { Review } from "@wxyc/shared";
 import { Authorization } from "@/lib/features/admin/types";
-import { deletingReview, digitalItem, fakeReviewsEndpoints, fccNote, heldBy, holdResponse, intakeItem, outline, renderWithProviders, returned, review, reviewRevision, reviewsSettled, rulesOf, server, TEST_BACKEND_URL } from "@/tests/helpers";
+import { deletingReview, digitalItem, fakeReviewsEndpoints, fccNote, heldBy, holdResponse, intakeItem, outline, renderWithProviders, returned, review, reviewRevision, reviewsSettled, rulesOf, server, TEST_BACKEND_URL, fakeReviewsAccess } from "@/tests/helpers";
 import Link from "next/link";
 import { applicationSlice } from "@/lib/features/application/frontend";
 import { reviewApi } from "@/lib/features/reviews/reviewApi";
@@ -63,7 +63,6 @@ function serve(served: Review = DRAFT) {
 
 describe("ReviewEditor", () => {
   beforeEach(() => {
-    vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "true");
     mockAuth.id = "dj-me";
     mockAuth.authority = Authorization.DJ;
     mockAuth.djName = "DJ Me";
@@ -583,10 +582,10 @@ describe("ReviewEditor", () => {
   });
 
   it.each([
-    ["the flag is off", "", Authorization.MD],
+    ["reviews are off", "off", Authorization.MD],
     ["a DJ is under staff", "staff", Authorization.DJ],
   ])("renders nothing and reads nothing when %s", async (_label, flag, authority) => {
-    vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", flag);
+    fakeReviewsAccess({ audience: flag, can_see: false });
     mockAuth.authority = authority;
     serve();
     const requested: string[] = [];

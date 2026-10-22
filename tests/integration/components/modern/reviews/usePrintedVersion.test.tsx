@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import type { PropsWithChildren } from "react";
@@ -49,10 +49,6 @@ const rows: Row[] = [
 ];
 
 describe("usePrintedVersion", () => {
-  beforeEach(() => {
-    vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "true");
-  });
-
   it.each(rows)("$name", async ({ onCover, review: r, reply, expected, requested }) => {
     const seen: string[] = [];
     server.use(
@@ -77,6 +73,8 @@ describe("usePrintedVersion", () => {
       await waitFor(() => expect(seen.length).toBeGreaterThan(0));
     }
     await waitFor(() => expect(result.current).toBe(expected));
+    // The read starts once the Backend has said the screens are visible, which can follow the first render.
+    if (requested) await waitFor(() => expect(seen.length).toBeGreaterThan(0));
     expect(seen.length > 0).toBe(requested);
   });
 });

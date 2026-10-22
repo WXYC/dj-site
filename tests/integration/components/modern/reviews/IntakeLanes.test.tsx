@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
-import { CDR_FORMAT, digitalItem, fakeReviewsEndpoints, fccNote, heldBy, holdResponse, intakeItem, outline, pendingCount, removedHolder, renderedFrame, renderWithProviders, requestedFor, returned, returnedByMusicDirector, review, reviewsSettled, server, TEST_BACKEND_URL } from "@/tests/helpers";
+import { CDR_FORMAT, digitalItem, fakeReviewsEndpoints, fccNote, heldBy, holdResponse, intakeItem, outline, pendingCount, removedHolder, renderedFrame, renderWithProviders, requestedFor, returned, returnedByMusicDirector, review, reviewsSettled, server, TEST_BACKEND_URL, fakeReviewsAccess } from "@/tests/helpers";
 import type { IntakeItem } from "@wxyc/shared";
 import { setupListeners } from "@reduxjs/toolkit/query";
 import { makeStore } from "@/lib/store";
@@ -77,7 +77,6 @@ afterEach(() => {
 describe("IntakeLanes", () => {
   beforeEach(() => {
     mockAuth.authority = Authorization.MD;
-    vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "staff");
   });
   afterEach(() => vi.unstubAllEnvs());
 
@@ -109,10 +108,10 @@ describe("IntakeLanes", () => {
   });
 
   it.each([
-    ["off", "", Authorization.MD],
+    ["off", "off", Authorization.MD],
     ["staff-only for a DJ", "staff", Authorization.DJ],
-  ])("renders nothing when the flag is %s", async (_label, flag, who) => {
-    vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", flag);
+  ])("renders nothing when the Backend answers %s", async (_label, flag, who) => {
+    fakeReviewsAccess({ audience: flag, can_see: false });
     mockAuth.authority = who;
     fakeReviewsEndpoints({ open: [moonPix()] });
 
@@ -797,7 +796,6 @@ describe("IntakeLanes", () => {
 describe("IntakeLanes — a failed background refetch", () => {
   beforeEach(() => {
     mockAuth.authority = Authorization.MD;
-    vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "staff");
   });
   afterEach(() => vi.unstubAllEnvs());
 
@@ -844,7 +842,6 @@ const outRow = (id: number, overrides = {}) =>
 describe("IntakeLanes — cancel and release", () => {
   beforeEach(() => {
     mockAuth.authority = Authorization.MD;
-    vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "staff");
   });
   afterEach(() => vi.unstubAllEnvs());
 
@@ -946,7 +943,6 @@ describe("IntakeLanes — cancel and release", () => {
 describe("IntakeLanes — a record with a review waiting keeps its actions", () => {
   beforeEach(() => {
     mockAuth.authority = Authorization.MD;
-    vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "staff");
   });
   afterEach(() => vi.unstubAllEnvs());
 
@@ -971,7 +967,6 @@ describe("IntakeLanes — a record with a review waiting keeps its actions", () 
 describe("IntakeLanes — lost races", () => {
   beforeEach(() => {
     mockAuth.authority = Authorization.MD;
-    vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "staff");
   });
   afterEach(() => vi.unstubAllEnvs());
 
@@ -1018,7 +1013,6 @@ describe("IntakeLanes — lost races", () => {
 });
 
 describe("IntakeLogForm", () => {
-  beforeEach(() => vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "staff"));
   afterEach(() => vi.unstubAllEnvs());
 
   it("logs the typed fields", async () => {
@@ -1329,7 +1323,6 @@ describe("IntakeLogForm", () => {
 });
 
 describe("a digital record's format line", () => {
-  beforeEach(() => vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "staff"));
   afterEach(() => vi.unstubAllEnvs());
 
   it.each([
@@ -1350,7 +1343,6 @@ describe("a digital record's format line", () => {
 });
 
 describe("IntakeLanes as the music directors' tab", () => {
-  beforeEach(() => vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "staff"));
   afterEach(() => vi.unstubAllEnvs());
 
   it("shows the stages in the order a record moves, each with its count, and no logging form", async () => {
@@ -1376,7 +1368,6 @@ describe("IntakeLanes as the music directors' tab", () => {
 describe("IntakeLanes tooltips", () => {
   beforeEach(() => {
     mockAuth.authority = Authorization.MD;
-    vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "staff");
   });
   afterEach(() => vi.unstubAllEnvs());
 

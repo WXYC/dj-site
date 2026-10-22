@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { act, screen, waitFor } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { fakeReviewsEndpoints, intakeItem, renderWithProviders, server, TEST_BACKEND_URL } from "@/tests/helpers";
@@ -36,7 +36,6 @@ function captureIntakePost() {
 }
 
 describe("IntakeLogForm", () => {
-  beforeEach(() => vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "true"));
   afterEach(() => vi.unstubAllEnvs());
 
   it("sends the artist, album and format of a record entered in the form", async () => {

@@ -54,6 +54,12 @@ export const handlers = [
   // organization-utils/getJWTToken per-file and never reach here. (dj-site#1646)
   http.get(/\/auth\/token$/, () => HttpResponse.json({ token: null })),
 
+  // Who may see the review screens. Open by default so a spec that is not about the gate does not have to say so;
+  // `fakeReviewsAccess` overrides it.
+  http.get(`${BACKEND_URL}/feature-access`, () =>
+    HttpResponse.json({ reviews: { audience: "everyone", can_see: true } }),
+  ),
+
   // Flowsheet API handlers
   http.get(`${BACKEND_URL}/flowsheet/`, () => {
     return HttpResponse.json([]);

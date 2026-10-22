@@ -3,6 +3,7 @@ import { screen } from "@testing-library/react";
 import { renderWithProviders } from "@/tests/helpers";
 import {
   setUpClassicPageAuthority,
+  setUpReviewsAccess,
   setUpClassicPageAuthorityEnv,
   assertNotFoundPage,
 } from "@/tests/helpers/classic-page-authority-harness";
@@ -24,6 +25,10 @@ vi.mock("@/lib/features/authentication/organization-utils.server", async () => {
   const { classicPageAuthorityOrganizationUtilsMock } = await import("@/tests/helpers/classic-page-authority-harness");
   return classicPageAuthorityOrganizationUtilsMock();
 });
+vi.mock("@/lib/features/feature-access.server", async () => {
+  const { featureAccessServerMock } = await import("@/tests/helpers/classic-page-authority-harness");
+  return featureAccessServerMock();
+});
 
 vi.mock("@/src/components/experiences/modern/Header/PageHeader", () => ({
   default: ({ title }: { title: string }) => <div data-testid="page-header">{title}</div>,
@@ -35,25 +40,23 @@ import { REVIEW_COPY } from "@/src/components/experiences/modern/reviews/copy";
 describe("gateReviewRoute", () => {
   setUpClassicPageAuthorityEnv();
 
-  const arrange = (flag: string | undefined, role: Parameters<typeof setUpClassicPageAuthority>[0]) => {
-    if (flag === undefined) delete process.env.NEXT_PUBLIC_REVIEWS_ENABLED;
-    else process.env.NEXT_PUBLIC_REVIEWS_ENABLED = flag;
+  const arrange = (audience: "off" | "staff" | "everyone", canSee: boolean, role: Parameters<typeof setUpClassicPageAuthority>[0]) => {
+    setUpReviewsAccess(audience, canSee);
     setUpClassicPageAuthority(role);
   };
 
   it.each([
     ["staff", "musicDirector"],
     ["staff", "stationManager"],
-    ["true", "dj"],
-    ["1", "dj"],
-  ] as const)("lets the page through when the flag is %s for a %s", async (flag, role) => {
-    arrange(flag, role);
+    ["everyone", "dj"],
+  ] as const)("lets the page through when the Backend answers audience %s with access for a %s", async (audience, role) => {
+    arrange(audience, true, role);
 
     expect(await gateReviewRoute()).toBeNull();
   });
 
-  it("answers a DJ under staff with the staff-only line", async () => {
-    arrange("staff", "dj");
+  it("answers a DJ without access under staff with the staff-only line", async () => {
+    arrange("staff", false, "dj");
 
     renderWithProviders((await gateReviewRoute())!);
 
@@ -67,13 +70,13 @@ describe("gateReviewRoute", () => {
 
   it.each([
     ["staff", "member"],
-    ["true", "member"],
-    [undefined, "dj"],
-    [undefined, "musicDirector"],
-    [undefined, "stationManager"],
-    ["false", "stationManager"],
-  ] as const)("is not found when the flag is %s for a %s", async (flag, role) => {
-    arrange(flag, role);
+    ["everyone", "member"],
+    ["off", "dj"],
+    ["off", "musicDirector"],
+    ["off", "stationManager"],
+    ["everyone", "dj"],
+  ] as const)("is not found when the Backend answers audience %s without access for a %s", async (audience, role) => {
+    arrange(audience, false, role);
 
     await assertNotFoundPage(() => gateReviewRoute());
   });
