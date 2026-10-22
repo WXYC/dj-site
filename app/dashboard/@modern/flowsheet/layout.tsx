@@ -2,6 +2,7 @@ import AutoDJBanner from "@/src/components/experiences/modern/autoDJ/AutoDJBanne
 import FlowsheetSkeletonLoader from "@/src/components/experiences/modern/flowsheet/FlowsheetSkeletonLoader";
 import GoLive from "@/src/components/experiences/modern/flowsheet/GoLive";
 import InfiniteScroller from "@/src/components/experiences/modern/flowsheet/InfiniteScroller";
+import SetTags from "@/src/components/experiences/modern/flowsheet/SetTags";
 import SpecialtyQuestion from "@/src/components/experiences/modern/flowsheet/SpecialtyQuestion";
 import PageHeader from "@/src/components/experiences/modern/Header/PageHeader";
 import SSEConnectionIndicator from "@/src/components/shared/SSEConnectionIndicator";
@@ -33,6 +34,7 @@ export default function FlowsheetPage({
           <GoLive />
         </Box>
       </PageHeader>
+      <SetTags />
       <SpecialtyQuestion />
       <>
         {children}

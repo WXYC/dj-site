@@ -8,6 +8,7 @@ import { memo } from "react";
 import { getMessageEntrySlots } from "./messageEntrySlots";
 import MessageEntry from "./MessageEntry";
 import SongEntry from "./SongEntry/SongEntry";
+import StartShowIcon from "./StartShowIcon";
 
 // Memoized: entry updates flow through Immer (RTK Query cache patches +
 // slice reducers), so a changed entry always arrives as a new object
@@ -67,7 +68,13 @@ const Entry = memo(function Entry({
   return (
     <MessageEntry
       entry={entry}
-      startDecorator={slots.startDecorator}
+      startDecorator={
+        isFlowsheetStartShowEntry(entry) ? (
+          <StartShowIcon showId={entry.show_id} />
+        ) : (
+          slots.startDecorator
+        )
+      }
       endDecorator={slots.endDecorator}
       color={slots.color}
       variant="soft"
