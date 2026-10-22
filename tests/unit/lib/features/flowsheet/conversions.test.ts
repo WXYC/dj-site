@@ -9,13 +9,14 @@ import {
   extractFlowsheetEntries,
   formatOnAirSummary,
 } from "@/lib/features/flowsheet/conversions";
-import { createTestFlowsheetQuery, createTestOnAirDJResponse, createTestV2TrackEntry, createTestV2ShowStartEntry, createTestV2ShowEndEntry, createTestV2DJJoinEntry, createTestV2DJLeaveEntry, createTestV2TalksetEntry, createTestV2BreakpointEntry, createTestV2MessageEntry, V2_ENTRY_FACTORIES_BY_TYPE } from "@/tests/fixtures/fixtures";
+import { createTestFlowsheetQuery, createTestOnAirDJResponse, createTestV2TrackEntry, createTestV2ShowStartEntry, createTestV2ShowEndEntry, createTestV2DJJoinEntry, createTestV2DJLeaveEntry, createTestV2TalksetEntry, createTestV2BreakpointEntry, createTestV2MessageEntry, createTestV2SpotlightEntry, V2_ENTRY_FACTORIES_BY_TYPE } from "@/tests/fixtures/fixtures";
 import { TEST_ENTITY_IDS, TEST_SEARCH_STRINGS } from "@/tests/helpers/constants";
 import type {
   FlowsheetSongEntry,
   FlowsheetShowBlockEntry,
   FlowsheetBreakpointEntry,
   FlowsheetMessageEntry,
+  FlowsheetSpotlightEntry,
 } from "@/lib/features/flowsheet/types";
 import {
   isFlowsheetBreakpointEntry,
@@ -862,8 +863,8 @@ describe("flowsheet conversions", () => {
       });
 
       it.each([
-        ["spotlight", "Live in the studio: Weirs", "Live in the studio: Weirs"],
         ["unknown_type", undefined, ""],
+        ["some_future_type", "Server text", "Server text"],
       ])(
         "converts an unknown %s entry to a message entry instead of throwing",
         (entryType, message, expected) => {
@@ -876,6 +877,34 @@ describe("flowsheet conversions", () => {
 
           expect(result.message).toBe(expected);
           expect(result.id).toBe(77);
+          expect("track_title" in result).toBe(false);
+        }
+      );
+
+      it.each([
+        ["performer", "Porch Static", "Porch Static live in the studio"],
+        ["reader", "Ada Limón", "Ada Limón reading now"],
+        ["dj", "Static Cling", "Static Cling mixing"],
+        ["guest", "Jessica Pratt", "Jessica Pratt in the studio as a guest"],
+        ["host", "DJ Chowder", "DJ Chowder hosting"],
+      ] as const)(
+        "converts a %s spotlight row to its role and name, worded by the DJ site and not the server",
+        (role, name, text) => {
+          const entry = createTestV2SpotlightEntry({
+            id: 78,
+            spotlight_role: role,
+            spotlight_name: name,
+            message: "Server-composed fallback",
+          });
+          const result = convertV2Entry(entry) as FlowsheetSpotlightEntry;
+
+          expect(result).toMatchObject({
+            id: 78,
+            entry_type: "spotlight",
+            spotlight_role: role,
+            spotlight_name: name,
+            message: text,
+          });
           expect("track_title" in result).toBe(false);
         }
       );
@@ -982,18 +1011,18 @@ describe("flowsheet conversions", () => {
       it("keeps every row of a page that mixes known rows with an unknown one", () => {
         const entries = [
           createTestV2TrackEntry({ id: 1 }),
-          {
-            ...createTestV2TrackEntry({ id: 2 }),
-            entry_type: "spotlight",
-            message: "Live in the studio: Weirs",
-          } as any,
+          createTestV2SpotlightEntry({
+            id: 2,
+            spotlight_role: "performer",
+            spotlight_name: "Weirs",
+          }),
           createTestV2TrackEntry({ id: 3 }),
         ];
         const result = convertV2FlowsheetResponse(entries);
 
         expect(result.map((e) => e.id)).toEqual([3, 2, 1]);
         expect((result[1] as FlowsheetMessageEntry).message).toBe(
-          "Live in the studio: Weirs"
+          "Weirs live in the studio"
         );
       });
 

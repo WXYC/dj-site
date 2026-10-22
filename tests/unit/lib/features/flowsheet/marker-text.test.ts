@@ -49,8 +49,8 @@ const MARKER_CASES = {
     expected: { headline: "Fund drive pitch", caption: undefined },
   },
   spotlight: {
-    overrides: { message: "Jessica Pratt joined the show" },
-    expected: { headline: "Jessica Pratt joined the show", caption: undefined },
+    overrides: { spotlight_role: "performer" as const, spotlight_name: "Porch Static" },
+    expected: { headline: "Porch Static live in the studio", caption: undefined },
   },
 } satisfies Record<MarkerType, { overrides: object; expected: MarkerText }>;
 

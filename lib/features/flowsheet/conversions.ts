@@ -9,6 +9,7 @@ import { OFF_AIR_LABEL } from "./constants";
 import { hasLinkedAlbumId } from "./linkage";
 import { formatNameList } from "./name-list";
 import { seedableArtistName } from "./various-artists-guard";
+import { whosOnMessage } from "./whos-on-copy";
 import {
   FlowsheetEntry,
   FlowsheetQuery,
@@ -317,6 +318,16 @@ export function convertV2Entry(entry: FlowsheetV2EntryJSON): FlowsheetEntry {
       return {
         ...base,
         message: entry.message,
+      };
+
+    // Worded here rather than taken from the server's `message`, so the row an
+    // optimistic write shows and the row the server returns read alike.
+    case "spotlight":
+      return {
+        ...base,
+        spotlight_role: entry.spotlight_role,
+        spotlight_name: entry.spotlight_name,
+        message: whosOnMessage(entry.spotlight_role, entry.spotlight_name),
       };
 
     // A type this build does not know (the server adds types ahead of the

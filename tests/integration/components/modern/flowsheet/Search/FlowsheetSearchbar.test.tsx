@@ -65,6 +65,10 @@ vi.mock("@/src/components/experiences/modern/flowsheet/Search/TalksetButton", ()
   default: () => <button data-testid="talkset-button">Talkset</button>,
 }));
 
+vi.mock("@/src/components/experiences/modern/flowsheet/Search/WhosOnButton", () => ({
+  default: () => <button data-testid="whoson-button">Who's on</button>,
+}));
+
 vi.mock("@/src/components/experiences/modern/flowsheet/Search/FlowsheetSearchInput", () => ({
   default: ({ name, disabled }: any) => (
     <input data-testid={`input-${name}`} name={name} disabled={disabled} />
@@ -509,6 +513,7 @@ describe("FlowsheetSearchbar", () => {
 
       expect(screen.getByTestId("breakpoint-button")).toBeInTheDocument();
       expect(screen.getByTestId("talkset-button")).toBeInTheDocument();
+      expect(screen.getByTestId("whoson-button")).toBeInTheDocument();
       expect(
         screen.queryByTestId("flowsheet-search-submit")
       ).not.toBeInTheDocument();
@@ -524,6 +529,7 @@ describe("FlowsheetSearchbar", () => {
 
       expect(screen.queryByTestId("breakpoint-button")).not.toBeInTheDocument();
       expect(screen.queryByTestId("talkset-button")).not.toBeInTheDocument();
+      expect(screen.queryByTestId("whoson-button")).not.toBeInTheDocument();
       expect(screen.getByTestId("flowsheet-search-submit")).toBeInTheDocument();
       expect(screen.getByTestId("flowsheet-search-queue")).toBeInTheDocument();
     });

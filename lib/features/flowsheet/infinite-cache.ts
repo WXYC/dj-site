@@ -5,10 +5,12 @@ import {
 } from "@/src/utilities/stationTime";
 import { hasLinkedAlbumId } from "./linkage";
 import { isFlowsheetBreakpointEntry } from "./types";
+import { whosOnMessage } from "./whos-on-copy";
 import type {
   FlowsheetEntry,
   FlowsheetMessageEntry,
   FlowsheetSongEntry,
+  FlowsheetSpotlightEntry,
   FlowsheetSubmissionParams,
 } from "./types";
 
@@ -94,6 +96,19 @@ export function buildOptimisticEntry(
   // -1 is the shared unknown-show sentinel (primaryShowId, convertV2Entry);
   // 0 collides with a real show id (#629). Server response replaces the row.
   const show_id = primaryShowId(draft);
+
+  if ("spotlight_role" in arg) {
+    const entry: FlowsheetSpotlightEntry = {
+      id: tempId,
+      play_order,
+      show_id,
+      entry_type: "spotlight",
+      spotlight_role: arg.spotlight_role,
+      spotlight_name: arg.spotlight_name,
+      message: whosOnMessage(arg.spotlight_role, arg.spotlight_name),
+    };
+    return { entry, tempId };
+  }
 
   if ("message" in arg) {
     const entry: FlowsheetMessageEntry = {

@@ -95,7 +95,7 @@ const ENTRY_TYPE_CASES = {
   talkset: { overrides: { message: "Talkset - Station ID" }, text: "Talkset - Station ID" },
   breakpoint: { overrides: { message: "3:00 PM Breakpoint", radio_hour: null }, text: "3:00 PM Breakpoint" },
   message: { overrides: { message: "Generic notification message" }, text: "Generic notification message" },
-  spotlight: { overrides: { message: "Jessica Pratt joined the show" }, text: "Jessica Pratt joined the show" },
+  spotlight: { overrides: { spotlight_role: "guest" as const, spotlight_name: "Jessica Pratt" }, text: "Jessica Pratt in the studio as a guest" },
 } satisfies Record<FlowsheetEntryType, { overrides: object; text: string }>;
 
 describe("ReadOnlyEntry", () => {

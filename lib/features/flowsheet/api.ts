@@ -28,6 +28,7 @@ import {
 } from "./go-live-handoff";
 import { markRefusal } from "../show-playlist/api";
 import { REJECTED_PROGRAM_SENTENCE } from "../specialty/copy";
+import { isSpotlightDisabled } from "./whos-on-copy";
 import { classifyForceEndError } from "./force-end-outcome";
 import {
   CurrentShow,
@@ -393,6 +394,10 @@ export const flowsheetApi = createApi({
         }),
         transformResponse: (response: FlowsheetV2EntryJSON) =>
           convertV2Entry(response),
+        // The who's-on control words this refusal itself, so the global toast
+        // stays quiet instead of repeating it in the server's words.
+        transformErrorResponse: (error) =>
+          isSpotlightDisabled(error) ? { ...error, expected: true } : error,
         invalidatesTags: ["NowPlaying"],
         async onQueryStarted(arg, { dispatch, queryFulfilled, getState }) {
           const root = getState() as {

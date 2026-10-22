@@ -30,6 +30,7 @@ import FlowsheetSearchResults from "./Results/FlowsheetSearchResults";
 import RotationEntryFields from "./RotationEntryFields";
 import RotationModeToggle from "./RotationModeToggle";
 import TalksetButton from "./TalksetButton";
+import WhosOnButton from "./WhosOnButton";
 
 export default function FlowsheetSearchbar() {
   const dispatch = useAppDispatch();
@@ -561,6 +562,7 @@ export default function FlowsheetSearchbar() {
                 <>
                   <BreakpointButton />
                   <TalksetButton />
+                  <WhosOnButton />
                 </>
               ) : (
                 <>

@@ -10,7 +10,7 @@ import type {
   FlowsheetV2SpotlightEntry,
   FlowsheetEntryType,
 } from "@wxyc/shared/dtos";
-import type { FlowsheetRangeShow } from "@wxyc/shared";
+import type { FlowsheetRangeShow, SpotlightRole } from "@wxyc/shared";
 import { Rotation } from "../rotation/types";
 
 export type FlowsheetFrontendState = {
@@ -157,6 +157,15 @@ export type FlowsheetMessageEntry = FlowsheetEntryBase & {
   message: string;
 };
 
+/**
+ * A who's-on row. `message` carries the row's text in the DJ site's wording
+ * (see whos-on-copy) so a surface that only knows message rows still reads it.
+ */
+export type FlowsheetSpotlightEntry = FlowsheetMessageEntry & {
+  spotlight_role: SpotlightRole;
+  spotlight_name: string;
+};
+
 export type DateTimeEntry = {
   day: string;
   time: string;
@@ -210,12 +219,19 @@ export type FlowsheetSubmissionParams =
       // Required so buildOptimisticEntry never has to guess a message row's
       // type.
       entry_type: FlowsheetEntryType;
+    }
+  // The server answers 400 to any track field on this row, so none belongs here.
+  | {
+      entry_type: "spotlight";
+      spotlight_role: SpotlightRole;
+      spotlight_name: string;
     };
 
 export type FlowsheetEntry =
   | FlowsheetSongEntry
   | FlowsheetBreakpointEntry
   | FlowsheetShowBlockEntry
+  | FlowsheetSpotlightEntry
   | FlowsheetMessageEntry;
 
 export function isFlowsheetSongEntry(
