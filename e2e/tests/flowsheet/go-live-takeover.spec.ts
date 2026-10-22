@@ -418,8 +418,16 @@ async function fetchLiveState(flowsheet: FlowsheetPage): Promise<LiveState> {
       .poll(() => djsOnAir !== undefined && onAir !== undefined, { timeout: 15000 })
       .toBe(true);
   } finally {
-    await page.unroute(isDjsOnAir);
-    await page.unroute(isEntriesPage);
+    // `unroute(url, handler)` does not wait for a handler that is already
+    // running, and turning interception off continues the request it was
+    // holding, so that handler's later `route.fulfill` throws "Route is
+    // already handled!". A live DJ's page asks for `/flowsheet/?page=0&limit=1`
+    // (the current show, for the specialty question) after the two reads above
+    // have landed, so a handler is routinely mid-`route.fetch()` right here.
+    // `unrouteAll` with `behavior: "wait"` stops new invocations, lets the
+    // running ones finish, and only then drops interception. It clears every
+    // route on this page, which is only these two.
+    await page.unrouteAll({ behavior: "wait" });
   }
 
   return { djsOnAir: djsOnAir ?? [], onAir: onAir ?? null };
