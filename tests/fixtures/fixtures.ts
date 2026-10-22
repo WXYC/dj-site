@@ -28,6 +28,7 @@ import type {
   FlowsheetV2TalksetEntryJSON,
   FlowsheetV2BreakpointEntryJSON,
   FlowsheetV2MessageEntryJSON,
+  FlowsheetV2SpotlightEntryJSON,
   FlowsheetV2EntryJSON,
 } from "@/lib/features/flowsheet/types";
 import {
@@ -710,6 +711,19 @@ export function createTestV2MessageEntry(
   };
 }
 
+export function createTestV2SpotlightEntry(
+  overrides: Partial<FlowsheetV2SpotlightEntryJSON> = {}
+): FlowsheetV2SpotlightEntryJSON {
+  return {
+    ...V2_ENTRY_BASE,
+    entry_type: "spotlight",
+    spotlight_role: "guest",
+    spotlight_name: "Jessica Pratt",
+    message: "Jessica Pratt joined the show",
+    ...overrides,
+  };
+}
+
 type V2EntryJSONOf<K extends FlowsheetEntryType> = Extract<
   FlowsheetV2EntryJSON,
   { entry_type: K }
@@ -736,6 +750,7 @@ export const V2_ENTRY_FACTORIES_BY_TYPE = {
   talkset: createTestV2TalksetEntry,
   breakpoint: createTestV2BreakpointEntry,
   message: createTestV2MessageEntry,
+  spotlight: createTestV2SpotlightEntry,
 } satisfies V2EntryFactoryTable;
 
 // LML library search fixtures

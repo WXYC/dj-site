@@ -77,6 +77,7 @@ export function v2ToRangeShape(
     case "dj_leave":
     case "talkset":
     case "message":
+    case "spotlight":
       return { ...entry, request_flag: false };
 
     // The entry-type vocabulary is server-owned and grows additively, so the

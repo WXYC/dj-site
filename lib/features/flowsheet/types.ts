@@ -7,6 +7,7 @@ import type {
   FlowsheetV2TalksetEntry,
   FlowsheetV2BreakpointEntry,
   FlowsheetV2MessageEntry,
+  FlowsheetV2SpotlightEntry,
   FlowsheetEntryType,
 } from "@wxyc/shared/dtos";
 import type { FlowsheetRangeShow } from "@wxyc/shared";
@@ -312,6 +313,7 @@ export type FlowsheetV2DJLeaveEntryJSON = JSONDates<FlowsheetV2DJLeaveEntry>;
 export type FlowsheetV2TalksetEntryJSON = JSONDates<FlowsheetV2TalksetEntry>;
 export type FlowsheetV2BreakpointEntryJSON = JSONDates<FlowsheetV2BreakpointEntry>;
 export type FlowsheetV2MessageEntryJSON = JSONDates<FlowsheetV2MessageEntry>;
+export type FlowsheetV2SpotlightEntryJSON = JSONDates<FlowsheetV2SpotlightEntry>;
 
 export type FlowsheetV2EntryJSON =
   | FlowsheetV2TrackEntryJSON
@@ -321,7 +323,8 @@ export type FlowsheetV2EntryJSON =
   | FlowsheetV2DJLeaveEntryJSON
   | FlowsheetV2TalksetEntryJSON
   | FlowsheetV2BreakpointEntryJSON
-  | FlowsheetV2MessageEntryJSON;
+  | FlowsheetV2MessageEntryJSON
+  | FlowsheetV2SpotlightEntryJSON;
 
 export type FlowsheetV2PaginatedResponseJSON = {
   entries: FlowsheetV2EntryJSON[];
