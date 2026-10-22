@@ -28,6 +28,7 @@ function seguesIntoNext(entries: FlowsheetEntry[], index: number): boolean {
 export default function EntryTable({
   entries,
   previousEntries,
+  program,
   onUpdate,
   onDelete,
   onReorder,
@@ -38,6 +39,8 @@ export default function EntryTable({
 }: {
   entries: FlowsheetEntry[];
   previousEntries: FlowsheetEntry[];
+  /** The open set's program, named on its start-of-show row. */
+  program?: string;
   onUpdate: (entryId: number, data: UpdateRequestBody) => void;
   onDelete: (entryId: number) => void;
   /** Fired when a row is dropped onto another row. The implementation should
@@ -124,6 +127,7 @@ export default function EntryTable({
                 <EntryRow
                   key={entry.id}
                   entry={entry}
+                  program={program}
                   onUpdate={onUpdate}
                   onDelete={onDelete}
                   seguesIntoNext={seguesIntoNext(entries, index)}

@@ -6,10 +6,14 @@ import Image from "next/image";
 import { useFlowsheet, useShowControl } from "@/src/hooks/flowsheetHooks";
 import EntryForm from "../EntryForm";
 import EntryTable from "../EntryTable";
+import SpecialtyQuestion from "../SpecialtyQuestion";
 import Navigation from "../../Navigation";
 import StartShow from "../StartShow";
 import { UpdateRequestBody } from "@/lib/features/flowsheet/types";
-import { useSwitchEntriesMutation } from "@/lib/features/flowsheet/api";
+import {
+  useGetCurrentShowQuery,
+  useSwitchEntriesMutation,
+} from "@/lib/features/flowsheet/api";
 
 export default function Main() {
   const {
@@ -24,6 +28,10 @@ export default function Main() {
   } = useFlowsheet();
   const { live, leave } = useShowControl();
   const [switchEntries] = useSwitchEntriesMutation();
+  const { program } = useGetCurrentShowQuery(undefined, {
+    skip: !live,
+    selectFromResult: ({ data }) => ({ program: data?.specialty?.name }),
+  });
 
   const currentShowEntries = entries.current;
   const previousEntries = entries.previous;
@@ -102,12 +110,14 @@ export default function Main() {
           style={{ border: 0 }}
         />
       </div>
+      <SpecialtyQuestion />
       <EntryForm isLive={live} />
       <div className="redlabel" style={{ textAlign: "center" }}></div>
       <div style={{ textAlign: "center" }}>
         <EntryTable
           entries={currentShowEntries}
           previousEntries={previousEntries}
+          program={program}
           onUpdate={handleUpdate}
           onDelete={handleDelete}
           onReorder={handleReorder}

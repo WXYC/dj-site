@@ -42,6 +42,8 @@ export default function StartShow() {
     }
   }, [registryDjHandle, userEditedDjHandle]);
 
+  const [showName, setShowName] = useState("");
+
   const startShow = (oneTap?: OneTap) => {
     // Pass the override only when the user-typed value is non-empty after
     // trimming AND differs from the *current* registry value (read at
@@ -57,7 +59,11 @@ export default function StartShow() {
     // The override is handed to the prompt, not recomputed after it: this form
     // reads the registry at submit time, and re-deriving it on the far side of
     // a dialog would silently drop the handle the DJ typed.
-    void requestGoLive(override, oneTap);
+    // The airing's title rides in the tag, so it is replayed with the program
+    // on a takeover retry; an empty box sends none.
+    const title = showName.trim().slice(0, 128);
+    const tag = title ? { ...oneTap?.tag, show_name: title } : oneTap?.tag;
+    void requestGoLive(override, tag && { ...oneTap, tag });
   };
 
   const handleStartShow = (e: FormEvent<HTMLFormElement>) => {
@@ -180,13 +186,10 @@ export default function StartShow() {
                   <input
                     type="text"
                     name="showName"
+                    value={showName}
+                    onChange={(e) => setShowName(e.target.value)}
+                    maxLength={128}
                     placeholder="(optional)"
-                    disabled
-                    style={{
-                      backgroundColor: "#f0f0f0",
-                      color: "#666",
-                      cursor: "not-allowed",
-                    }}
                   />
                   &nbsp;(optional)
                 </td>

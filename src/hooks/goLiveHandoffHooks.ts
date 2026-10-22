@@ -16,8 +16,8 @@ type GoLiveFn = (
   tag?: GoLiveTag,
 ) => Promise<GoLiveOutcome>;
 
-/** A one-tap press: the tag to send and the program name the takeover sentence ends with. */
-export type OneTap = { tag: GoLiveTag; program: string };
+/** The tag to send and, after a one-tap press, the program name the takeover sentence ends with. */
+export type OneTap = { tag: GoLiveTag; program?: string };
 
 export type GoLivePrompt = {
   handoff: OpenShowHandoff;

@@ -1,14 +1,11 @@
 "use client";
 
-import { useState } from "react";
 import { Alert, Box, Button, FormControl, FormLabel, Input, Stack, Typography } from "@mui/joy";
 import type { SpecialtyShow } from "@wxyc/shared";
-import { useUpdateShowMutation } from "@/lib/features/flowsheet/api";
 import { describeSlot, specialtyCopy } from "@/lib/features/specialty/copy";
 import { useSpecialtyQuestion } from "@/src/hooks/specialtyQuestionHooks";
+import { useSpecialtyTagging } from "@/src/hooks/specialtyTaggingHooks";
 import SpecialtyTile from "../SpecialtyTile";
-
-type Confirmation = { showId: number; program: SpecialtyShow; afterEntryId: number | null };
 
 /** The card a yes gives listeners: the program's tile, name and one-line tagline. */
 function ProgramCard({ program }: { program: SpecialtyShow }) {
@@ -30,49 +27,16 @@ function ProgramCard({ program }: { program: SpecialtyShow }) {
  */
 export default function SpecialtyQuestion() {
   const { showId, newestEntryId, matches, decline } = useSpecialtyQuestion();
-  const [updateShow, { isLoading }] = useUpdateShowMutation();
-  const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
-  const [title, setTitle] = useState("");
-  const [refusal, setRefusal] = useState<string | null>(null);
+  const { confirmed, title, setTitle, refusal, isLoading, tag, finish } = useSpecialtyTagging(
+    showId,
+    newestEntryId
+  );
 
-  // The confirmation closes by its condition going false, not by clearing state,
-  // so a typed title or a refusal would otherwise outlive its question and land
-  // on the next show's. Reset them whenever the question's identity changes.
-  const identity = `${showId}:${newestEntryId}`;
-  const [seenIdentity, setSeenIdentity] = useState(identity);
-  if (seenIdentity !== identity) {
-    setSeenIdentity(identity);
-    setTitle("");
-    setRefusal(null);
-  }
-
-  const write = async (body: { specialty_id?: number; show_name?: string }) => {
-    setRefusal(null);
-    try {
-      await updateShow({ showId: showId!, ...body }).unwrap();
-      return true;
-    } catch (error) {
-      // Null is a refusal for the site's general handling, which has toasted it.
-      setRefusal((error as { sentence?: string }).sentence ?? null);
-      return false;
-    }
-  };
-
-  const finish = async () => {
-    if (title.trim() && !(await write({ show_name: title.trim() }))) {
-      return;
-    }
-    setConfirmation(null);
-    setTitle("");
-  };
-
-  // The tag lands before the next poll, so the confirmation outlives `matches`;
-  // it closes on Done or when the next row is logged on the set.
-  if (confirmation?.showId === showId && confirmation.afterEntryId === newestEntryId) {
+  if (confirmed) {
     return (
       <Stack spacing={1.5} sx={{ mb: 1.5 }}>
-        <ProgramCard program={confirmation.program} />
-        <Typography level="body-sm">{specialtyCopy.tagged(confirmation.program.name)}</Typography>
+        <ProgramCard program={confirmed} />
+        <Typography level="body-sm">{specialtyCopy.tagged(confirmed.name)}</Typography>
         <FormControl>
           <FormLabel>{specialtyCopy.titleLabel}</FormLabel>
           <Input
@@ -110,11 +74,7 @@ export default function SpecialtyQuestion() {
           <Button
             size="sm"
             loading={isLoading}
-            onClick={async () => {
-              if (await write({ specialty_id: program.id })) {
-                setConfirmation({ showId, program, afterEntryId: newestEntryId });
-              }
-            }}
+            onClick={() => tag(program)}
           >
             {specialtyCopy.yes(program.name)}
           </Button>

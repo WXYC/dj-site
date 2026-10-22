@@ -19,6 +19,18 @@ vi.mock("@/src/components/experiences/classic/flowsheet/StartShow", () => ({
   default: () => null,
 }));
 
+let currentShowSpecialty: { name: string } | null = null;
+vi.mock("@/lib/features/flowsheet/api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/features/flowsheet/api")>()),
+  useGetCurrentShowQuery: (
+    _arg: unknown,
+    options: { selectFromResult?: (r: { data: unknown }) => unknown }
+  ) => {
+    const result = { data: { id: 1, specialty: currentShowSpecialty } };
+    return options.selectFromResult ? options.selectFromResult(result) : result;
+  },
+}));
+
 const mockFetchNextPage = vi.fn();
 const mockUseFlowsheet = vi.fn();
 const mockUseShowControl = vi.fn();
@@ -75,6 +87,7 @@ const { triggerSentinel } = stubIntersectionObserver();
 
 beforeEach(() => {
   vi.clearAllMocks();
+  currentShowSpecialty = null;
   mockUseShowControl.mockReturnValue({ live: true, leave: vi.fn() });
   mockUseFlowsheet.mockReturnValue(
     flowsheetResult({ current: firstPage, hasNextPage: true })
@@ -123,5 +136,31 @@ describe("Main — Classic flowsheet pagination", () => {
     triggerSentinel();
 
     expect(mockFetchNextPage).not.toHaveBeenCalled();
+  });
+
+  it("names the open set's program on its start-of-show row", () => {
+    currentShowSpecialty = { name: "Orange County Special" };
+    mockUseFlowsheet.mockReturnValue(
+      flowsheetResult({
+        current: [
+          createTestFlowsheetEntry({ id: 3000, play_order: 1, track_title: "A Song" }),
+          {
+            id: 2999,
+            show_id: 1,
+            play_order: 0,
+            entry_type: "show_start",
+            dj_name: "DJ Cool",
+            isStart: true,
+            day: "11/14/2023",
+            time: "5:13:00 PM",
+          } as FlowsheetEntry,
+        ],
+        hasNextPage: false,
+      })
+    );
+
+    const { getByText } = renderWithProviders(<Main />);
+
+    expect(getByText(/Start of show — DJ Cool \(Orange County Special\)/)).toBeInTheDocument();
   });
 });
