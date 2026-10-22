@@ -603,6 +603,44 @@ describe("GoLive", () => {
       ).toMatch(/start your own\.(?! as)/);
     });
 
+    it.each([
+      ["a program", { specialty: { name: "Sunday Jazz" } }, /Join them as a co-host and their show stays as Sunday Jazz, or end/],
+      ["a freeform set", { specialty: null }, /Join them as a co-host and their show stays as a freeform set, or end/],
+      ["an unknown program", {}, /Join them as a co-host and their show stays as it is, or end/],
+    ])("says what joining keeps after a one-tap press: %s", async (_label, program, expected) => {
+      mockUseOpenShowHandoff.mockReturnValue({
+        showId: 12,
+        djNames: ["dj sue"],
+        lastLoggedAt: null,
+        ...program,
+      });
+      mockOneTapPrograms = [HYPERLOCAL];
+      render(<GoLive />);
+
+      fireEvent.click(screen.getByText("Go live as HyperLocal"));
+
+      expect(
+        (await screen.findByTestId("go-live-handoff-dialog")).textContent
+      ).toMatch(expected);
+    });
+
+    it("leaves the join wording alone after a plain press", async () => {
+      mockUseOpenShowHandoff.mockReturnValue({
+        showId: 12,
+        djNames: ["dj sue"],
+        lastLoggedAt: null,
+        specialty: { name: "Sunday Jazz" },
+      });
+      mockOneTapPrograms = [HYPERLOCAL];
+      render(<GoLive />);
+
+      fireEvent.click(screen.getByTestId("flowsheet-live-status"));
+
+      expect(
+        (await screen.findByTestId("go-live-handoff-dialog")).textContent
+      ).toMatch(/Join them as a co-host, or end their show and start your own\./);
+    });
+
     describe("narrow layout", () => {
       const EXPLANATION = "Going live as the show is what puts it on listeners' screens.";
       const precedes = (a: HTMLElement, b: HTMLElement) =>

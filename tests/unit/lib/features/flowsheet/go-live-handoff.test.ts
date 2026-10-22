@@ -39,7 +39,7 @@ describe("readShowAlreadyOpen", () => {
       showId: 1951224,
       djNames: ["dj sue"],
       lastLoggedAt: null,
-      specialty: null,
+      specialty: undefined,
       showName: null,
     });
   });
@@ -63,15 +63,15 @@ describe("readShowAlreadyOpen", () => {
     ["both present", { specialty: SPECIALTY, show_name: "Paris, Texas" }, SPECIALTY, "Paris, Texas"],
     ["optional fields present", { specialty: { ...SPECIALTY, tagline: "Film music", accent_color: "#aa3300" } }, { ...SPECIALTY, tagline: "Film music", accent_color: "#aa3300" }, null],
     ["extra fields dropped", { specialty: { ...SPECIALTY, surprise: true } }, SPECIALTY, null],
-    ["a specialty with no slug", { specialty: { ...SPECIALTY, slug: undefined } }, null, null],
-    ["a specialty with a string id", { specialty: { ...SPECIALTY, id: "3" } }, null, null],
-    ["a specialty with no logs_playcuts", { specialty: { ...SPECIALTY, logs_playcuts: undefined } }, null, null],
-    ["a specialty with a blank name", { specialty: { ...SPECIALTY, name: "  " } }, null, null],
-    ["both absent", {}, null, null],
+    ["a specialty with no slug", { specialty: { ...SPECIALTY, slug: undefined } }, undefined, null],
+    ["a specialty with a string id", { specialty: { ...SPECIALTY, id: "3" } }, undefined, null],
+    ["a specialty with no logs_playcuts", { specialty: { ...SPECIALTY, logs_playcuts: undefined } }, undefined, null],
+    ["a specialty with a blank name", { specialty: { ...SPECIALTY, name: "  " } }, undefined, null],
+    ["both absent", {}, undefined, null],
     ["both null", { specialty: null, show_name: null }, null, null],
-    ["a specialty with no name", { specialty: { id: 3 }, show_name: "x" }, null, "x"],
-    ["a non-object specialty", { specialty: "Sunset", show_name: 5 }, null, null],
-    ["a title with no specialty", { show_name: "Paris, Texas" }, null, "Paris, Texas"],
+    ["a specialty with no name", { specialty: { id: 3 }, show_name: "x" }, undefined, "x"],
+    ["a non-object specialty", { specialty: "Sunset", show_name: 5 }, undefined, null],
+    ["a title with no specialty", { show_name: "Paris, Texas" }, undefined, "Paris, Texas"],
   ])("reads specialty and show_name tolerantly: %s", (_label, extra, specialty, showName) => {
     expect(readShowAlreadyOpen(withShow(extra))).toMatchObject({ showName });
     expect(readShowAlreadyOpen(withShow(extra))?.specialty).toEqual(specialty);
@@ -85,7 +85,7 @@ describe("readShowAlreadyOpen", () => {
       showId: 1951224,
       djNames: ["dj sue"],
       lastLoggedAt: null,
-      specialty: null,
+      specialty: undefined,
       showName: null,
     });
   });

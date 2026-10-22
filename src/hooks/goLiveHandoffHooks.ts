@@ -28,7 +28,7 @@ export type GoLivePrompt = {
    * lost — and on the classic surface it is the entire point of the form.
    */
   djNameOverride?: string;
-  /** Replayed on whichever answer the DJ gives, like the handle. */
+  /** Replayed with a takeover only; a join keeps the open show as it is. */
   tag?: GoLiveTag;
   /** Set only after a one-tap press; the takeover sentence ends with it. */
   program?: string;
@@ -100,7 +100,9 @@ export const useGoLiveHandoff = (goLive: GoLiveFn) => {
           expected_show_id:
             intent === "takeover" ? prompt.handoff.showId : undefined,
         },
-        prompt.tag,
+        // A join lands on the open show as it is; the server ignores a tag
+        // there, and sending one would suggest the show gets re-tagged.
+        intent === "takeover" ? prompt.tag : undefined,
       );
       setDeciding(false);
 
