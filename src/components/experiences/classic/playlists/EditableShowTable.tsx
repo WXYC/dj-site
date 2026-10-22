@@ -5,7 +5,8 @@ import {
   convertRangeEntry,
   type FlowsheetRangeEntryWire,
 } from "@/lib/features/flowsheet/conversions";
-import type { FlowsheetEntry } from "@/lib/features/flowsheet/types";
+import { rangeEntryTime } from "@/lib/features/flowsheet/entry-time";
+import { EntryCapsules } from "@/src/components/experiences/classic/flowsheet/Capsule";
 import EntryRow from "@/src/components/experiences/classic/flowsheet/EntryRow";
 import { useEntryActions } from "@/src/hooks/entryActions";
 
@@ -46,6 +47,10 @@ export default function EditableShowTable({
       <thead>
         <tr className="entry-header">
           <th></th>
+          <th className="classic-schedule-week-time" style={{ width: "5em" }}>
+            Time
+          </th>
+          <th className="classic-indicator-cell" />
           <th>Playlist</th>
           <th>Req.</th>
           <th style={{ width: "25%" }}>Artist</th>
@@ -56,25 +61,32 @@ export default function EditableShowTable({
         </tr>
       </thead>
       <tbody>
-        {rows.map((entry: FlowsheetEntry, index) => (
-          <EntryRow
-            key={entry.id}
-            entry={entry}
-            onUpdate={(entry_id, data) => updateFlowsheet({ entry_id, data })}
-            onDelete={(entry_id) => {
-              if (confirm("Are you sure you want to delete this entry?")) {
-                removeFromFlowsheet(entry_id);
-              }
-            }}
-            highlighted={entry.id === highlightedEntryId}
-            isDragging={draggingId === entry.id}
-            isDragOver={dragOverId === entry.id}
-            onDragStart={setDraggingId}
-            onDragOver={setDragOverId}
-            onDrop={handleDrop}
-            onDragEnd={endDrag}
-          />
-        ))}
+        {rows.map((entry, index) => {
+          const wire = entries[index];
+          return (
+            <EntryRow
+              key={entry.id}
+              entry={entry}
+              leading={{
+                time: rangeEntryTime(wire),
+                indicators: <EntryCapsules entry={wire} />,
+              }}
+              onUpdate={(entry_id, data) => updateFlowsheet({ entry_id, data })}
+              onDelete={(entry_id) => {
+                if (confirm("Are you sure you want to delete this entry?")) {
+                  removeFromFlowsheet(entry_id);
+                }
+              }}
+              highlighted={entry.id === highlightedEntryId}
+              isDragging={draggingId === entry.id}
+              isDragOver={dragOverId === entry.id}
+              onDragStart={setDraggingId}
+              onDragOver={setDragOverId}
+              onDrop={handleDrop}
+              onDragEnd={endDrag}
+            />
+          );
+        })}
       </tbody>
     </table>
   );

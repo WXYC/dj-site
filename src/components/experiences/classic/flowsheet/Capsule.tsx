@@ -1,4 +1,9 @@
-import type { CapsuleVariant } from "@/lib/features/flowsheet/indicators";
+import { Fragment } from "react";
+import type { FlowsheetRangeEntryWire } from "@/lib/features/flowsheet/conversions";
+import {
+  capsulesForSongEntry,
+  type CapsuleVariant,
+} from "@/lib/features/flowsheet/indicators";
 import "@/src/styles/classic/wxyc.css";
 
 /**
@@ -16,4 +21,21 @@ export function Capsule({
   label: string;
 }) {
   return <span className={`${variant}-capsule`}>{label}</span>;
+}
+
+/** A range row's badges in the JSP's order, as both archive tables print them. */
+export function EntryCapsules({ entry }: { entry: FlowsheetRangeEntryWire }) {
+  const capsules = capsulesForSongEntry({
+    request_flag: entry.request_flag,
+    rotation: entry.rotation_bin,
+    on_streaming: entry.on_streaming,
+  });
+  return capsules.map((capsule, position) => (
+    <Fragment key={capsule.variant}>
+      {/* The gap between adjacent capsules is the space the JSP prints after
+          each one; neither badge carries a margin of its own. */}
+      {position > 0 ? " " : null}
+      <Capsule variant={capsule.variant} label={capsule.label} />
+    </Fragment>
+  ));
 }
