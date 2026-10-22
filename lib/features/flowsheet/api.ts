@@ -26,8 +26,10 @@ import {
   type JoinIntent,
   type JoinShowResult,
 } from "./go-live-handoff";
+import { showTagRefusal } from "../specialty/copy";
 import { classifyForceEndError } from "./force-end-outcome";
 import {
+  CurrentShow,
   FlowsheetEntry,
   FlowsheetShowBlockEntry,
   FlowsheetSubmissionParams,
@@ -110,6 +112,32 @@ export const flowsheetApi = createApi({
         response: FlowsheetV2PaginatedResponseJSON | FlowsheetV2EntryJSON[] | null
       ) => (response ? convertV2FlowsheetResponse(extractFlowsheetEntries(response)) : []),
       providesTags: ["Flowsheet"],
+    }),
+    getCurrentShow: builder.query<CurrentShow | null, void>({
+      query: () => ({ url: "/?page=0&limit=1" }),
+      transformResponse: (response: FlowsheetV2PaginatedResponseJSON | null) => {
+        const showId = response?.on_air?.show_id;
+        const show = response?.shows?.find((s) => s.id === showId);
+        return show
+          ? { id: show.id, start_time: show.start_time, specialty: show.specialty }
+          : null;
+      },
+      providesTags: ["Flowsheet"],
+    }),
+    updateShow: builder.mutation<
+      unknown,
+      { showId: number; specialty_id?: number | null; show_name?: string | null }
+    >({
+      query: ({ showId, ...body }) => ({
+        url: `/shows/${showId}`,
+        method: "PATCH",
+        body,
+      }),
+      // A refusal the caller words itself is marked expected so the global
+      // toast stays quiet instead of repeating it in the server's words.
+      transformErrorResponse: (error) =>
+        showTagRefusal(error) ? { ...error, expected: true } : error,
+      invalidatesTags: ["Flowsheet"],
     }),
     switchEntries: builder.mutation<undefined, FlowsheetSwitchParams>({
       query: (params) => ({
@@ -579,6 +607,8 @@ export const flowsheetApi = createApi({
 });
 
 export const {
+  useGetCurrentShowQuery,
+  useUpdateShowMutation,
   useGetNowPlayingQuery,
   useGetInfiniteEntriesInfiniteQuery,
   useJoinShowMutation,

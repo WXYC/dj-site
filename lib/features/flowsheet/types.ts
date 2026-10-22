@@ -9,6 +9,7 @@ import type {
   FlowsheetV2MessageEntry,
   FlowsheetEntryType,
 } from "@wxyc/shared/dtos";
+import type { FlowsheetRangeShow } from "@wxyc/shared";
 import { Rotation } from "../rotation/types";
 
 export type FlowsheetFrontendState = {
@@ -328,7 +329,13 @@ export type FlowsheetV2PaginatedResponseJSON = {
   limit: number;
   total: number;
   total_pages: number;
+  on_air?: { show_id?: number } | null;
+  /** Every show behind `entries` plus the open show; absent on an older server. */
+  shows?: FlowsheetRangeShow[];
 };
+
+/** The open show as the one-row flowsheet page reports it. */
+export type CurrentShow = Pick<FlowsheetRangeShow, "id" | "start_time" | "specialty">;
 
 export type SuggestTrackResult = {
   track_title: string;
