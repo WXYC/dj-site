@@ -2,6 +2,9 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { act, screen, waitFor } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { renderWithProviders, server, TEST_BACKEND_URL } from "@/tests/helpers";
+import { createTestStore } from "@/tests/helpers/store";
+import { flowsheetApi } from "@/lib/features/flowsheet/api";
+import { showPlaylistApi } from "@/lib/features/show-playlist/api";
 import { createTestV2TrackEntry } from "@/tests/fixtures/fixtures";
 import { Authorization } from "@/lib/features/admin/types";
 import {
@@ -43,6 +46,7 @@ vi.mock("sonner", async (importOriginal) => ({
 const drag = vi.hoisted(() => ({
   onReorder: null as null | ((next: unknown[]) => void),
   endById: new Map<number, () => void>(),
+  startById: new Map<number, () => void>(),
 }));
 vi.mock("motion/react", async (importOriginal) => {
   const actual = await importOriginal<typeof import("motion/react")>();
@@ -53,8 +57,9 @@ vi.mock("motion/react", async (importOriginal) => {
         drag.onReorder = onReorder;
         return <tbody>{children}</tbody>;
       },
-      Item: ({ children, value, onDragEnd, id, className }: any) => {
+      Item: ({ children, value, onDragEnd, onDragStart, id, className }: any) => {
         drag.endById.set(value.id, () => onDragEnd());
+        drag.startById.set(value.id, () => onDragStart());
         return (
           <tr id={id} className={className} data-testid={`flowsheet-entry-${value.id}`}>
             {children}
@@ -115,6 +120,7 @@ beforeEach(() => {
   playlistGets = 0;
   toastError.mockClear();
   drag.endById.clear();
+  drag.startById.clear();
 });
 
 describe("ShowView reorder", () => {
@@ -136,6 +142,49 @@ describe("ShowView reorder", () => {
   it("sends the move to play-order, refetches the show, and leaves the live entries cache alone", async () => {
     mockAuth.authority = Authorization.MD;
     servePlaylist(ended);
+    // The live flowsheet holds the same rows, so a stray live switchEntries
+    // would have something to move.
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/flowsheet/`, () =>
+        HttpResponse.json([track(3002, 2), track(3001, 1)]),
+      ),
+    );
+    const store = createTestStore();
+    await store
+      .dispatch(flowsheetApi.endpoints.getInfiniteEntries.initiate(undefined))
+      .unwrap();
+    const liveEntries = () =>
+      flowsheetApi.endpoints.getInfiniteEntries.select(undefined)(store.getState()).data;
+    const liveBefore = structuredClone(liveEntries());
+    expect(liveBefore?.pages.flat().length).toBe(2);
+
+    const bodies: unknown[] = [];
+    server.use(
+      http.patch(`${TEST_BACKEND_URL}/flowsheet/play-order`, async ({ request }) => {
+        bodies.push(await request.json());
+        return new HttpResponse(null, { status: 200 });
+      }),
+    );
+    renderWithProviders(<ShowView showId={SHOW_ID} />, { store });
+    await screen.findAllByText("la paradoja 3001");
+
+    dragFirstBelowSecond();
+
+    await waitFor(() => expect(playlistGets).toBe(2));
+    // Exactly one write: the live switchEntries hits the same route, so a
+    // second one would show up here.
+    expect(bodies).toEqual([{ entry_id: 3001, new_position: 2 }]);
+    expect(liveEntries()).toEqual(liveBefore);
+    expect(
+      Object.values(store.getState().flowsheetApi.mutations).filter(
+        (m) => m?.endpointName === "switchEntries",
+      ),
+    ).toEqual([]);
+  });
+
+  it("computes the drop target from the order frozen at drag start, not a mid-drag refetch", async () => {
+    mockAuth.authority = Authorization.MD;
+    servePlaylist(ended);
     let body: unknown;
     server.use(
       http.patch(`${TEST_BACKEND_URL}/flowsheet/play-order`, async ({ request }) => {
@@ -143,14 +192,28 @@ describe("ShowView reorder", () => {
         return new HttpResponse(null, { status: 200 });
       }),
     );
-    const { store } = renderWithProviders(<ShowView showId={SHOW_ID} />);
+    const store = createTestStore();
+    renderWithProviders(<ShowView showId={SHOW_ID} />, { store });
     await screen.findAllByText("la paradoja 3001");
 
-    dragFirstBelowSecond();
+    act(() => drag.startById.get(3001)!());
+    act(() => drag.onReorder!([{ id: 3002 }, { id: 3001 }]));
 
+    // A refetch lands mid-drag with the second row renumbered.
+    const renumbered = show({ end_time: ended.end_time });
+    renumbered.entries = [track(3002, 9), track(3001, 1)];
+    servePlaylist(renumbered);
+    act(() => {
+      store.dispatch(
+        showPlaylistApi.util.invalidateTags([{ type: "ShowPlaylist", id: SHOW_ID }]),
+      );
+    });
     await waitFor(() => expect(playlistGets).toBe(2));
+
+    act(() => drag.endById.get(3001)!());
+
+    await waitFor(() => expect(body).toBeDefined());
     expect(body).toEqual({ entry_id: 3001, new_position: 2 });
-    expect(Object.keys(store.getState().flowsheetApi.queries)).toEqual([]);
   });
 
   it("sends nothing when a drag ends where it began", async () => {
