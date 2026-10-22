@@ -6,6 +6,7 @@ import type { FlowsheetRangeEntryWire } from "@/lib/features/flowsheet/conversio
 import { rangeEntryTime } from "@/lib/features/flowsheet/entry-time";
 import { describeNonTrackEntry } from "@/lib/features/schedule-week/entryLabel";
 import { entryAnchorId } from "@/lib/features/schedule-week/showUrl";
+import EditableShowTable from "@/src/components/experiences/classic/playlists/EditableShowTable";
 import { Capsule } from "@/src/components/experiences/classic/flowsheet/Capsule";
 import { capsulesForSongEntry } from "@/lib/features/flowsheet/indicators";
 import "@/src/styles/classic/wxyc.css";
@@ -52,6 +53,7 @@ export default function ClassicShowEntries({
   isLoading,
   highlightedEntryId = null,
   subtitle = null,
+  editable = false,
 }: {
   show: FlowsheetRangeShow;
   entries: FlowsheetRangeEntryWire[];
@@ -65,6 +67,8 @@ export default function ClassicShowEntries({
   highlightedEntryId?: number | null;
   /** The airing's own name, drawn beneath the program name when it adds something. */
   subtitle?: string | null;
+  /** The rows offer edit, delete and reorder; the caller supplies what those do. */
+  editable?: boolean;
 }) {
   return (
     <div className="classic-schedule-week-entries">
@@ -97,7 +101,14 @@ export default function ClassicShowEntries({
         <p className="text">No entries recorded for this show.</p>
       )}
 
-      {entries.length > 0 && (
+      {entries.length > 0 && editable && (
+        <EditableShowTable
+          entries={entries}
+          highlightedEntryId={highlightedEntryId}
+        />
+      )}
+
+      {entries.length > 0 && !editable && (
         <table className="entry-table">
           <thead>
             <tr className="entry-header">

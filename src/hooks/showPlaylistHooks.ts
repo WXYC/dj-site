@@ -10,6 +10,7 @@ import { skipToken } from "@reduxjs/toolkit/query";
 import {
   useGetShowPlaylistQuery,
   useRemoveShowEntryMutation,
+  useReorderShowEntryMutation,
   useUpdateShowEntryMutation,
 } from "@/lib/features/show-playlist/api";
 import { entryAnchorId } from "@/lib/features/schedule-week/showUrl";
@@ -196,6 +197,7 @@ export function useCanEditShowRows(show: Pick<ShowPlaylist, "ended" | "djIds">):
 export function usePastShowEntryActions(showId: number): EntryActions {
   const [update] = useUpdateShowEntryMutation();
   const [remove] = useRemoveShowEntryMutation();
+  const [reorder] = useReorderShowEntryMutation();
 
   return useMemo(() => {
     const settle = (write: Promise<unknown>) => {
@@ -209,6 +211,8 @@ export function usePastShowEntryActions(showId: number): EntryActions {
       pastShow: true,
       updateFlowsheet: (params) => settle(update({ showId, ...params }).unwrap()),
       removeFromFlowsheet: (entry_id) => settle(remove({ showId, entry_id }).unwrap()),
+      reorder: ({ id }, new_position) =>
+        settle(reorder({ showId, entry_id: id, new_position }).unwrap()),
     };
-  }, [showId, update, remove]);
+  }, [showId, update, remove, reorder]);
 }

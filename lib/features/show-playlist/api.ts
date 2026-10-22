@@ -1,7 +1,10 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
 import type { FetchBaseQueryError } from "@reduxjs/toolkit/query";
 import { backendBaseQuery } from "../backend";
-import type { FlowsheetUpdateParams } from "@/lib/features/flowsheet/types";
+import type {
+  FlowsheetSwitchParams,
+  FlowsheetUpdateParams,
+} from "@/lib/features/flowsheet/types";
 import { EMPTY_SHOW_PLAYLIST, type ShowPlaylistWire } from "./types";
 
 export const CLOSED_SHOW_SENTENCE =
@@ -90,6 +93,20 @@ export const showPlaylistApi = createApi({
         { type: "ShowPlaylist", id: showId },
       ],
     }),
+    reorderShowEntry: builder.mutation<
+      void,
+      { showId: number } & FlowsheetSwitchParams
+    >({
+      query: ({ entry_id, new_position }) => ({
+        url: "/play-order",
+        method: "PATCH",
+        body: { entry_id, new_position },
+      }),
+      transformErrorResponse: markRefusal,
+      invalidatesTags: (_result, _error, { showId }) => [
+        { type: "ShowPlaylist", id: showId },
+      ],
+    }),
   }),
 });
 
@@ -97,4 +114,5 @@ export const {
   useGetShowPlaylistQuery,
   useUpdateShowEntryMutation,
   useRemoveShowEntryMutation,
+  useReorderShowEntryMutation,
 } = showPlaylistApi;
