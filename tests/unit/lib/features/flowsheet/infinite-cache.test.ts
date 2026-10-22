@@ -427,6 +427,27 @@ describe("infinite-cache", () => {
     expect(entry.entry_type).toBe("message");
   });
 
+  it("buildOptimisticEntry builds a who's-on row with its role, name and the role wording, and no track fields", () => {
+    const draft = { pages: [[song(1, 10, 7)]], pageParams: [0] };
+    const { entry } = buildOptimisticEntry(
+      {
+        entry_type: "spotlight",
+        spotlight_role: "performer",
+        spotlight_name: "Porch Static",
+      },
+      draft
+    );
+    expect(entry).toMatchObject({
+      entry_type: "spotlight",
+      spotlight_role: "performer",
+      spotlight_name: "Porch Static",
+      message: "Porch Static live in the studio",
+      play_order: 11,
+      show_id: 7,
+    });
+    expect("track_title" in entry).toBe(false);
+  });
+
   it("buildOptimisticEntry carries `segue` through the freeform (no album_id) branch", () => {
     const draft = { pages: [[song(1, 10, 7)]], pageParams: [0] };
     const { entry } = buildOptimisticEntry(
