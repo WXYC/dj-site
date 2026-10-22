@@ -18,6 +18,14 @@ import type { SpotlightRole } from "@wxyc/shared";
  * would accept the row. Withheld until the open show has answered, and when
  * its program cannot be read, so a program's DJ is never offered a role set
  * that is about to change or that the catalog has not given them.
+ *
+ * Also drives the entry bar's layout. `leadsComposer` is true when the open
+ * show's program logs no songs (`logs_playcuts` false) and `available` holds,
+ * which for a program means the catalog gave it a usual role; a no-songs
+ * program without one keeps the song composer and the dialog button. The
+ * leading composer and the dialog both write through `add`. `showId` names the
+ * open show, so state tied to one show (the role the composer opened on,
+ * whether the DJ asked for the song fields) can reset when the show changes.
  */
 export function useWhosOn() {
   const { data: show } = useGetCurrentShowQuery();
@@ -54,6 +62,7 @@ export function useWhosOn() {
 
   return {
     available,
+    showId: hasShow ? show.id : null,
     // A program that logs no songs and has a usual role leads the composer.
     leadsComposer: available && specialty !== null && !specialty.logs_playcuts,
     defaultRole: usualRole ?? ("guest" as SpotlightRole),

@@ -21,6 +21,7 @@ export default function WhosOnFields({
   onNameChange,
   refusal,
   autoFocus = false,
+  disabled = false,
 }: {
   role: SpotlightRole;
   onRoleChange: (role: SpotlightRole) => void;
@@ -28,6 +29,8 @@ export default function WhosOnFields({
   onNameChange: (name: string) => void;
   refusal: string | null;
   autoFocus?: boolean;
+  /** Turns off the role select and the name field. */
+  disabled?: boolean;
 }) {
   return (
     <>
@@ -35,6 +38,7 @@ export default function WhosOnFields({
         <FormLabel>{whosOnCopy.roleLabel}</FormLabel>
         <Select
           value={role}
+          disabled={disabled}
           onChange={(_, value) => value && onRoleChange(value)}
           slotProps={{ button: { "aria-label": whosOnCopy.roleLabel } }}
         >
@@ -49,6 +53,7 @@ export default function WhosOnFields({
         <FormLabel>{whosOnCopy.nameLabel(role)}</FormLabel>
         <Input
           autoFocus={autoFocus}
+          disabled={disabled}
           value={name}
           onChange={(e) => onNameChange(e.target.value)}
           slotProps={{ input: { maxLength: 128 } }}

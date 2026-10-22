@@ -36,8 +36,11 @@ import WhosOnLeadingComposer from "./WhosOnLeadingComposer";
 
 export default function FlowsheetSearchbar() {
   const dispatch = useAppDispatch();
-  const { leadsComposer } = useWhosOn();
-  const [songsRevealed, setSongsRevealed] = useState(false);
+  const { leadsComposer, showId } = useWhosOn();
+  // The show the DJ asked the song fields for. Keyed on the show so the next
+  // no-songs show leads with who's on again.
+  const [revealedForShow, setRevealedForShow] = useState<number | null>(null);
+  const songsRevealed = showId !== null && revealedForShow === showId;
 
   const {
     ctrlKeyPressed,
@@ -366,7 +369,10 @@ export default function FlowsheetSearchbar() {
         data-testid="flowsheet-entry-bar"
         sx={{ borderRadius: "md", width: "100%", bgcolor: "background.level1" }}
       >
-        <WhosOnLeadingComposer onLogSong={() => setSongsRevealed(true)} />
+        <WhosOnLeadingComposer
+          key={showId}
+          onLogSong={() => setRevealedForShow(showId)}
+        />
       </Sheet>
     );
   }
