@@ -1,5 +1,6 @@
 import "server-only";
-import { serverAuthClient, serverAuthFetch, getServerJwtToken } from "./server-client";
+import { serverAuthClient, serverAuthFetch } from "./server-client";
+import { getServerJwtTokenCached } from "./server-token";
 import { normalizeRole, organizationRoleFromJwtToken } from "./organization-utils";
 import { WXYCRole } from "./types";
 
@@ -63,7 +64,7 @@ export async function getUserRoleInOrganization(
 ): Promise<WXYCRole | undefined> {
   try {
     if (cookieHeader) {
-      const jwtToken = await getServerJwtToken(cookieHeader);
+      const jwtToken = await getServerJwtTokenCached(cookieHeader);
       if (jwtToken) {
         const jwtRole = organizationRoleFromJwtToken(jwtToken, userId);
         if (jwtRole) {

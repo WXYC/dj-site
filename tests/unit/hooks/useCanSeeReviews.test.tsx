@@ -56,4 +56,32 @@ describe("useCanSeeReviews", () => {
 
     await waitFor(() => expect(second.result.current).toBe(false));
   });
+
+  it("hides the screens on a later mount until its own read answers, even when an earlier answer is cached", async () => {
+    const store = createTestStore();
+    fakeReviewsAccess({ audience: "staff", can_see: true });
+    const first = mount(store);
+    await waitFor(() => expect(first.result.current).toBe(true));
+
+    // The next read is held open: the cached `can_see: true` is from before this mount and must not show.
+    let release: () => void = () => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/feature-access`, async () => {
+        await held;
+        return Response.json({ reviews: { audience: "staff", can_see: true } });
+      }),
+    );
+    const second = mount(store);
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(second.result.current).toBe(false);
+
+    release();
+    await waitFor(() => expect(second.result.current).toBe(true));
+    // The subscriber that was already mounted is not hidden by the later mount's read.
+    expect(first.result.current).toBe(true);
+  });
 });

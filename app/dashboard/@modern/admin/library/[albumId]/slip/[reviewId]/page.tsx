@@ -23,7 +23,9 @@ export default async function ReleaseSlipPage({ params }: { params: Promise<{ al
   const { albumId, reviewId } = await params;
   const album = Number(albumId);
   const review = Number(reviewId);
-  if (![album, review].every((n) => Number.isInteger(n) && n > 0)) notFound();
+  if (![album, review].every((n) => Number.isInteger(n) && n > 0)) {
+    notFound();
+  }
 
   return (
     <>

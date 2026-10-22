@@ -14,10 +14,14 @@ import ReviewStaffOnlyNotice from "./ReviewStaffOnlyNotice";
 export async function gateReviewRoute() {
   const session = await requireAuth();
   const [{ authority }, access] = await Promise.all([getUserFromSession(session), getReviewsAccess()]);
-  if (access.can_see) return null;
+  if (access.can_see) {
+    return null;
+  }
   // The emails Backend-Service sends link every DJ here, so while reviews are
   // staff-only a DJ gets one line instead of a not-found page.
-  if (access.audience !== "staff" || authority < Authorization.DJ) notFound();
+  if (access.audience !== "staff" || authority < Authorization.DJ) {
+    notFound();
+  }
   return (
     <>
       <PageHeader title={REVIEW_COPY.pageTitle} />
