@@ -26,19 +26,21 @@ vi.mock("@/src/hooks/authenticationHooks", () => ({
 }));
 
 vi.mock("@/src/components/experiences/modern/flowsheet/Search/BreakpointButton", () => ({
-  default: () => null,
+  default: () => <button type="button" data-testid="flowsheet-breakpoint-button" />,
 }));
 vi.mock("@/src/components/experiences/modern/flowsheet/Search/TalksetButton", () => ({
-  default: () => null,
+  default: () => <button type="button" data-testid="flowsheet-talkset-button" />,
 }));
 
 vi.mock("@/src/hooks/useGhostText", () => ({
   useGhostText: () => ({ ghostSuffix: "", acceptGhostText: () => null, trackResult: null }),
 }));
 
+let live = true;
+
 vi.mock("@/src/hooks/flowsheetHooks", () => ({
   useFlowsheetSearch: () => ({
-    live: true,
+    live,
     searchOpen: false,
     setSearchOpen: vi.fn(),
     resetSearch: vi.fn(),
@@ -61,6 +63,7 @@ vi.mock("@/src/hooks/flowsheetHooks", () => ({
 type Program = Partial<SpecialtyShow> | null;
 
 let specialty: Program;
+let showId: number;
 let posts: unknown[];
 
 function serve() {
@@ -72,10 +75,10 @@ function serve() {
         limit: 1,
         total: 0,
         total_pages: 1,
-        on_air: { dj_name: "DJ Test", show_id: 7 },
+        on_air: { dj_name: "DJ Test", show_id: showId },
         shows: [
           {
-            id: 7,
+            id: showId,
             start_time: "2026-10-18T16:30:00Z",
             specialty: specialty && { ...SEED_CATALOG[0], ...specialty },
           },
@@ -108,8 +111,45 @@ describe("modern composer leading with who's on", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     specialty = { logs_playcuts: false, default_spotlight_role: "reader" };
+    showId = 7;
+    live = true;
     posts = [];
     serve();
+  });
+
+  it("disables the fields and Add for a viewer who is not on air, and does not prefill their handle", async () => {
+    live = false;
+    await renderBar();
+
+    expect(await screen.findByTestId("flowsheet-whoson-leading")).toBeInTheDocument();
+    const name = screen.getByLabelText(whosOnCopy.nameLabel("reader"));
+    expect(name).toHaveValue("");
+    expect(name).toBeDisabled();
+    expect(roleSelect()).toBeDisabled();
+    expect(screen.getByRole("button", { name: whosOnCopy.add })).toBeDisabled();
+    expect(posts).toEqual([]);
+  });
+
+  it("keeps the breakpoint and talkset buttons beside the leading composer", async () => {
+    await renderBar();
+    await screen.findByTestId("flowsheet-whoson-leading");
+
+    expect(screen.getByTestId("flowsheet-breakpoint-button")).toBeInTheDocument();
+    expect(screen.getByTestId("flowsheet-talkset-button")).toBeInTheDocument();
+  });
+
+  it("leads again, on the new program's usual role, when the open show changes", async () => {
+    const view = await renderBar();
+    await userEvent.click(await screen.findByRole("button", { name: "Log a song" }));
+    expect(leading()).not.toBeInTheDocument();
+
+    showId = 8;
+    specialty = { logs_playcuts: false, default_spotlight_role: "performer" };
+    serve();
+    view.store.dispatch(flowsheetApi.util.invalidateTags(["Flowsheet"]));
+
+    await waitFor(() => expect(leading()).toBeInTheDocument());
+    expect(roleSelect()).toHaveTextContent("Live in the studio");
   });
 
   it("leads with the program's usual role and the live DJ's handle", async () => {
