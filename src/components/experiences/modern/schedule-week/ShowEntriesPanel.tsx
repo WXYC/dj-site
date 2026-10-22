@@ -53,6 +53,9 @@ export default function ShowEntriesPanel({
   const settledRef = useRef<FlowsheetEntry[]>([]);
   // Frozen when a drag starts, so a playlist refetch that lands mid-drag
   // cannot change the "before" order the drop target is computed against.
+  // Held in state as well as a ref: the render draws it, so clearing it at drag
+  // end must schedule a render even when no row moved and the draft is unchanged.
+  const [snapshot, setSnapshot] = useState<FlowsheetEntry[] | null>(null);
   const snapshotRef = useRef<FlowsheetEntry[] | null>(null);
   settledRef.current = rows.map((row) => row.entry);
   const reorderRef = useRef(reorder);
@@ -67,6 +70,7 @@ export default function ShowEntriesPanel({
     () => ({
       onEntryDragStart: () => {
         snapshotRef.current = settledRef.current;
+        setSnapshot(settledRef.current);
       },
       onEntryDragEnd: (entry) => {
         const snapshot = snapshotRef.current ?? settledRef.current;
@@ -79,6 +83,7 @@ export default function ShowEntriesPanel({
           reorderRef.current(entry, newPosition);
         }
         snapshotRef.current = null;
+        setSnapshot(null);
         draftRef.current = null;
         setDraftOrder(null);
       },
@@ -87,7 +92,7 @@ export default function ShowEntriesPanel({
   );
 
   const entryById = new Map(rows.map((row) => [row.id, row]));
-  const shown = draftOrder ?? snapshotRef.current ?? settledRef.current;
+  const shown = draftOrder ?? snapshot ?? settledRef.current;
 
   return (
     <Sheet

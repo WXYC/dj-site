@@ -216,6 +216,40 @@ describe("ShowView reorder", () => {
     expect(body).toEqual({ entry_id: 3001, new_position: 2 });
   });
 
+  it.each([
+    ["ends where it began", () => act(() => drag.endById.get(3001)!())],
+    [
+      "ends after a reorder that settles back on the original order",
+      () => {
+        act(() => drag.onReorder!([{ id: 3002 }, { id: 3001 }]));
+        act(() => drag.onReorder!([{ id: 3001 }, { id: 3002 }]));
+        act(() => drag.endById.get(3001)!());
+      },
+    ],
+  ])("shows a mid-drag refetch once a drag that %s", async (_name, endDrag) => {
+    mockAuth.authority = Authorization.MD;
+    servePlaylist(ended);
+    const store = createTestStore();
+    renderWithProviders(<ShowView showId={SHOW_ID} />, { store });
+    await screen.findAllByText("la paradoja 3001");
+
+    act(() => drag.startById.get(3001)!());
+
+    const refetched = show({ end_time: ended.end_time });
+    refetched.entries = [track(3003, 3), track(3002, 2), track(3001, 1)];
+    servePlaylist(refetched);
+    act(() => {
+      store.dispatch(
+        showPlaylistApi.util.invalidateTags([{ type: "ShowPlaylist", id: SHOW_ID }]),
+      );
+    });
+    await waitFor(() => expect(playlistGets).toBe(2));
+
+    endDrag();
+
+    expect(await screen.findAllByText("la paradoja 3003")).not.toHaveLength(0);
+  });
+
   it("sends nothing when a drag ends where it began", async () => {
     mockAuth.authority = Authorization.MD;
     servePlaylist(ended);
