@@ -4,10 +4,10 @@ import {
   GO_LIVE_HANDOFF_COPY,
   GO_LIVE_HANDOFF_TESTIDS,
   GO_LIVE_HANDOFF_TITLE_ID,
+  describeHandoffChoice,
   describeOpenShow,
   type JoinIntent,
 } from "@/lib/features/flowsheet/go-live-handoff";
-import { withStartAs } from "@/lib/features/specialty/copy";
 import type { GoLivePrompt } from "@/src/hooks/goLiveHandoffHooks";
 import { Button, Stack } from "@mui/joy";
 import ConfirmDialog from "@/src/components/experiences/modern/ConfirmDialog";
@@ -84,7 +84,7 @@ export default function GoLiveHandoffDialog({
     >
       {describeOpenShow(prompt.handoff)}
       <br />
-      {withStartAs(GO_LIVE_HANDOFF_COPY.choice, prompt.program)}
+      {describeHandoffChoice(prompt.handoff, prompt.program)}
     </ConfirmDialog>
   );
 }

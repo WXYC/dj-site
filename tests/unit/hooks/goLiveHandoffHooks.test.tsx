@@ -526,24 +526,36 @@ describe("useGoLiveHandoff — one-tap tag", () => {
     return result;
   }
 
-  it.each(["join", "takeover"] as const)(
-    "replays the tag, the show name and the handle on %s",
-    async (intent) => {
-      const goLive = vi.fn(async (): Promise<GoLiveOutcome> => ({ status: "ok" }));
-      const result = await openPrompt(goLive, ONE_TAP);
-      expect(result.current.prompt?.program).toBe("New Science Experience");
+  it("replays the tag on takeover, with the show name and the handle", async () => {
+    const goLive = vi.fn(async (): Promise<GoLiveOutcome> => ({ status: "ok" }));
+    const result = await openPrompt(goLive, ONE_TAP);
+    expect(result.current.prompt?.program).toBe("New Science Experience");
 
-      await act(async () => {
-        await result.current.decide(intent);
-      });
+    await act(async () => {
+      await result.current.decide("takeover");
+    });
 
-      expect(goLive).toHaveBeenCalledWith(
-        "Aubrey Hearst",
-        expect.objectContaining({ intent }),
-        TAG
-      );
-    }
-  );
+    expect(goLive).toHaveBeenCalledWith(
+      "Aubrey Hearst",
+      expect.objectContaining({ intent: "takeover" }),
+      TAG
+    );
+  });
+
+  it("sends no tag on join, since the joined show keeps what it is", async () => {
+    const goLive = vi.fn(async (): Promise<GoLiveOutcome> => ({ status: "ok" }));
+    const result = await openPrompt(goLive, ONE_TAP);
+
+    await act(async () => {
+      await result.current.decide("join");
+    });
+
+    expect(goLive).toHaveBeenCalledWith(
+      "Aubrey Hearst",
+      expect.objectContaining({ intent: "join" }),
+      undefined
+    );
+  });
 
   it("sends the tag on the first attempt when nobody is on the open-show cache", async () => {
     const goLive = vi.fn(async (): Promise<GoLiveOutcome> => ({ status: "ok" }));

@@ -11,6 +11,7 @@
  */
 
 import type { SpecialtyShowRef } from "@wxyc/shared";
+import { withStartAs } from "@/lib/features/specialty/copy";
 import { formatNameList, nonBlankNames } from "./name-list";
 
 /** The wire values `POST /flowsheet/join` accepts for an explicit decision. */
@@ -123,8 +124,13 @@ export function readShowAlreadyOpen(err: unknown): OpenShowHandoff | null {
     // nobody at all if the show has no resolvable handle.
     djNames: owner.length > 0 ? [owner] : [],
     lastLoggedAt: null,
-    // Older backends omit both; anything malformed reads as absent.
-    specialty: readSpecialty(show.specialty),
+    // Older backends omit both; anything malformed reads as absent. An
+    // explicit null is the server saying "freeform", which a missing or
+    // malformed program is not.
+    specialty:
+      show.specialty === null
+        ? null
+        : (readSpecialty(show.specialty) ?? undefined),
     showName: typeof show.show_name === "string" ? show.show_name : null,
   };
 }
@@ -292,6 +298,32 @@ export const GO_LIVE_HANDOFF_COPY = {
   takeover: "End Existing Show",
   cancel: "Cancel",
 } as const;
+
+/**
+ * The modern prompt's choice sentence. After a one-tap press it says what each
+ * answer leaves on air: joining keeps the open show as it is, ending it starts
+ * the DJ's own show as the program. `specialty` null is a freeform show and
+ * undefined is unknown, which keeps the generic wording.
+ */
+export function describeHandoffChoice(
+  handoff: OpenShowHandoff,
+  program?: string
+): string {
+  if (!program) {
+    return GO_LIVE_HANDOFF_COPY.choice;
+  }
+  const name = handoff.specialty?.name.trim();
+  let keeps = "as it is";
+  if (name) {
+    keeps = `as ${name}`;
+  } else if (handoff.specialty === null) {
+    keeps = "as a freeform set";
+  }
+  return withStartAs(
+    `Join them as a co-host and their show stays ${keeps}, or end their show and start your own.`,
+    program
+  );
+}
 
 /**
  * The same prompt on a surface that offers no co-hosting: end the open show,
