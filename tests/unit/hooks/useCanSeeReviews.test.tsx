@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { afterEach, describe, it, expect, vi } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
 import { http } from "msw";
 import type { ReactNode } from "react";
@@ -8,7 +8,7 @@ import { createTestStore } from "@/tests/helpers/store";
 import { server } from "@/tests/fakes/server";
 import { fakeReviewsAccess } from "@/tests/fakes/reviews/featureAccess";
 import { TEST_BACKEND_URL } from "@/tests/helpers/constants";
-import { useCanSeeReviews } from "@/src/hooks/useCanSeeReviews";
+import { FRESH_ANSWER_MS, useCanSeeReviews } from "@/src/hooks/useCanSeeReviews";
 
 vi.mock("@/lib/features/authentication/client", () => ({ getJWTToken: vi.fn().mockResolvedValue("test-token") }));
 vi.mock("@/lib/error-reporting", () => ({ safeCaptureException: vi.fn() }));
@@ -57,31 +57,47 @@ describe("useCanSeeReviews", () => {
     await waitFor(() => expect(second.result.current).toBe(false));
   });
 
-  it("hides the screens on a later mount until its own read answers, even when an earlier answer is cached", async () => {
-    const store = createTestStore();
-    fakeReviewsAccess({ audience: "staff", can_see: true });
-    const first = mount(store);
-    await waitFor(() => expect(first.result.current).toBe(true));
-
-    // The next read is held open: the cached `can_see: true` is from before this mount and must not show.
-    let release: () => void = () => {};
-    const held = new Promise<void>((resolve) => {
-      release = resolve;
+  describe("a later mount while an earlier subscriber still holds an answer", () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
     });
-    server.use(
-      http.get(`${TEST_BACKEND_URL}/feature-access`, async () => {
-        await held;
-        return Response.json({ reviews: { audience: "staff", can_see: true } });
-      }),
-    );
-    const second = mount(store);
 
-    await new Promise((resolve) => setTimeout(resolve, 50));
-    expect(second.result.current).toBe(false);
+    // The next read is held open, so what a mount shows before it answers is only what it takes from the cache.
+    const holdNextRead = () => {
+      let release: () => void = () => {};
+      const held = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      server.use(
+        http.get(`${TEST_BACKEND_URL}/feature-access`, async () => {
+          await held;
+          return Response.json({ reviews: { audience: "staff", can_see: true } });
+        }),
+      );
+      return release;
+    };
 
-    release();
-    await waitFor(() => expect(second.result.current).toBe(true));
-    // The subscriber that was already mounted is not hidden by the later mount's read.
-    expect(first.result.current).toBe(true);
+    it.each([
+      ["older than the freshness window: hidden until its own read answers", FRESH_ANSWER_MS + 1_000, false],
+      ["within the freshness window: shown at once, as a panel mounting after its screen is", 1_000, true],
+    ])("holds a cached can_see: true that is %s", async (_label, ageMs, shownAtOnce) => {
+      const store = createTestStore();
+      fakeReviewsAccess({ audience: "staff", can_see: true });
+      const first = mount(store);
+      await waitFor(() => expect(first.result.current).toBe(true));
+
+      const release = holdNextRead();
+      const realNow = Date.now();
+      vi.spyOn(Date, "now").mockReturnValue(realNow + ageMs);
+      const second = mount(store);
+
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(second.result.current).toBe(shownAtOnce);
+
+      release();
+      await waitFor(() => expect(second.result.current).toBe(true));
+      // The subscriber that was already mounted is not hidden by the later mount's read.
+      expect(first.result.current).toBe(true);
+    });
   });
 });
