@@ -19,12 +19,19 @@ export const WHOS_ON_ROLES: readonly RoleCopy[] = [
 
 /**
  * A row's text as one line: the name, then its role. The server also sends a
- * `message` for these rows; the DJ site words them itself so every surface
- * reads one wording, whatever an older or newer server composes.
+ * `message` for these rows; the live flowsheet words them itself so an
+ * optimistic row and the row the server returns read alike. Previous Sets, the
+ * archive stream and the classic read-only table still show the server's
+ * message until the rendering slice lands. A role this build does not know
+ * degrades to the server's message, as an unknown entry type does.
  */
-export function whosOnMessage(role: SpotlightRole, name: string): string {
-  const row = WHOS_ON_ROLES.find((r) => r.role === role)?.row ?? "";
-  return `${name} ${row}`;
+export function whosOnMessage(
+  role: SpotlightRole,
+  name: string,
+  serverMessage: string = name
+): string {
+  const row = WHOS_ON_ROLES.find((r) => r.role === role)?.row;
+  return row === undefined ? serverMessage : `${name} ${row}`;
 }
 
 /** Every string the who's-on control shows. */

@@ -27,6 +27,12 @@ describe("whos-on copy", () => {
     expect(whosOnMessage(role, name)).toBe(expected);
   });
 
+  it("falls back to the server's message for a role this build does not know", () => {
+    expect(whosOnMessage("band" as never, "Porch Static", "On stage: Porch Static")).toBe(
+      "On stage: Porch Static"
+    );
+  });
+
   it("never says spotlight in a string a DJ reads", () => {
     const strings = [
       ...WHOS_ON_ROLES.flatMap(({ menu, row }) => [menu, row]),

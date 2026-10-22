@@ -909,6 +909,16 @@ describe("flowsheet conversions", () => {
         }
       );
 
+      it("keeps the server's message for a spotlight role this build does not know", () => {
+        const entry = createTestV2SpotlightEntry({
+          spotlight_role: "band" as never,
+          spotlight_name: "Porch Static",
+          message: "On stage: Porch Static",
+        });
+
+        expect(convertV2Entry(entry)).toMatchObject({ message: "On stage: Porch Static" });
+      });
+
       it("should handle timestamp without comma in show entries", () => {
         const entry = createTestV2ShowStartEntry({ timestamp: "no comma here" });
         const result = convertV2Entry(entry) as FlowsheetShowBlockEntry;
