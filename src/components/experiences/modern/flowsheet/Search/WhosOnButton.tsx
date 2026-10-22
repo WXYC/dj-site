@@ -1,28 +1,20 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import {
-  WHOS_ON_ROLES,
-  whosOnCopy,
-} from "@/lib/features/flowsheet/whos-on-copy";
+import { whosOnCopy } from "@/lib/features/flowsheet/whos-on-copy";
 import { useFlowsheetSearch } from "@/src/hooks/flowsheetHooks";
 import { useWhosOn } from "@/src/hooks/whosOnHooks";
 import { Person } from "@mui/icons-material";
 import {
   Button,
-  FormControl,
-  FormHelperText,
-  FormLabel,
   IconButton,
-  Input,
   Modal,
   ModalDialog,
-  Option,
-  Select,
   Tooltip,
   Typography,
 } from "@mui/joy";
 import type { SpotlightRole } from "@wxyc/shared";
+import WhosOnFields from "./WhosOnFields";
 
 export default function WhosOnButton() {
   const { live } = useFlowsheetSearch();
@@ -78,35 +70,14 @@ export default function WhosOnButton() {
       <Modal open={open} onClose={close}>
         <ModalDialog component="form" onSubmit={submit} sx={{ minWidth: 320 }}>
           <Typography level="title-md">{whosOnCopy.title}</Typography>
-          <FormControl>
-            <FormLabel>{whosOnCopy.roleLabel}</FormLabel>
-            <Select
-              value={role}
-              onChange={(_, value) => value && setRole(value)}
-              slotProps={{ button: { "aria-label": whosOnCopy.roleLabel } }}
-            >
-              {WHOS_ON_ROLES.map(({ role: value, menu }) => (
-                <Option key={value} value={value}>
-                  {menu}
-                </Option>
-              ))}
-            </Select>
-          </FormControl>
-          <FormControl>
-            <FormLabel>{whosOnCopy.nameLabel(role)}</FormLabel>
-            <Input
-              autoFocus
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              slotProps={{ input: { maxLength: 128 } }}
-            />
-            <FormHelperText>{whosOnCopy.publicNotice(role)}</FormHelperText>
-          </FormControl>
-          {refusal && (
-            <Typography level="body-sm" color="danger" role="alert">
-              {refusal}
-            </Typography>
-          )}
+          <WhosOnFields
+            role={role}
+            onRoleChange={setRole}
+            name={name}
+            onNameChange={setName}
+            refusal={refusal}
+            autoFocus
+          />
           <Button type="submit" loading={isLoading} disabled={name.trim() === ""}>
             {whosOnCopy.add}
           </Button>

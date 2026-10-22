@@ -50,8 +50,12 @@ export function useWhosOn() {
     [addToFlowsheet]
   );
 
+  const available = hasShow && (specialty === null || usualRole !== null);
+
   return {
-    available: hasShow && (specialty === null || usualRole !== null),
+    available,
+    // A program that logs no songs and has a usual role leads the composer.
+    leadsComposer: available && specialty !== null && !specialty.logs_playcuts,
     defaultRole: usualRole ?? ("guest" as SpotlightRole),
     isLoading,
     refusal,
