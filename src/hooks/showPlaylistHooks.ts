@@ -13,6 +13,7 @@ import {
   useUpdateShowEntryMutation,
 } from "@/lib/features/show-playlist/api";
 import { entryAnchorId } from "@/lib/features/schedule-week/showUrl";
+import type { ShowPlaylistEntryWire } from "@/lib/features/show-playlist/types";
 import { v2ToRangeShape } from "@/lib/features/show-playlist/wire";
 import {
   formatStationClockTime,
@@ -48,7 +49,10 @@ export type ShowPlaylist = {
    * archive instead of at the live one.
    */
   nextShowId: number | null;
-  /** Signed off; a null `end_time` (never recorded) reads as still open. */
+  /**
+   * Signed off: `end_time` is set, or the newest row is a `show_end` marker
+   * (the server's own predicate; a dropped delivery leaves `end_time` null).
+   */
   ended: boolean;
   /** Ids of the DJs on the show; empty for a show imported from tubafrenzy. */
   djIds: string[];
@@ -92,6 +96,12 @@ export function useShowPlaylist(showId: number | null): ShowPlaylist {
       data?.legacy_dj_name ??
       null;
 
+    // Array position is not insertion order: the entries are sorted by
+    // `play_order` below, so the newest row is the highest id.
+    const newestEntry = (data?.entries ?? []).reduce<
+      ShowPlaylistEntryWire | undefined
+    >((newest, entry) => (!newest || entry.id > newest.id ? entry : newest), undefined);
+
     const specialty = data?.specialty ?? null;
     const showName = data?.show_name || null;
 
@@ -114,7 +124,7 @@ export function useShowPlaylist(showId: number | null): ShowPlaylist {
       weekParam: start
         ? formatStationWeekParam(startOfStationWeek(new Date(start)))
         : "",
-      ended: end !== null,
+      ended: end !== null || newestEntry?.entry_type === "show_end",
       djIds: (data?.show_djs ?? []).map((dj) => String(dj.id)),
       previousShowId: data?.previous_show_id ?? null,
       nextShowId: data?.next_show_id ?? null,
