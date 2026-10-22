@@ -70,6 +70,10 @@ export type OpenShowHandoff = {
    * built from it has to say less rather than assert something false.
    */
   lastLoggedAt: string | null;
+  /** The specialty program the open show runs, when the server names one. */
+  specialty?: { name: string } | null;
+  /** The week's title for a specialty show, when set. */
+  showName?: string | null;
 };
 
 /**
@@ -78,7 +82,15 @@ export type OpenShowHandoff = {
  */
 type ShowAlreadyOpenBody = {
   code?: unknown;
-  details?: { show?: { id?: unknown; dj_name?: unknown; start_time?: unknown } };
+  details?: {
+    show?: {
+      id?: unknown;
+      dj_name?: unknown;
+      start_time?: unknown;
+      specialty?: unknown;
+      show_name?: unknown;
+    };
+  };
 };
 
 /**
@@ -110,7 +122,16 @@ export function readShowAlreadyOpen(err: unknown): OpenShowHandoff | null {
     // nobody at all if the show has no resolvable handle.
     djNames: owner.length > 0 ? [owner] : [],
     lastLoggedAt: null,
+    // Older backends omit both; anything malformed reads as absent.
+    specialty: readSpecialty(show.specialty),
+    showName: typeof show.show_name === "string" ? show.show_name : null,
   };
+}
+
+function readSpecialty(value: unknown): { name: string } | null {
+  if (!value || typeof value !== "object") return null;
+  const { name } = value as { name?: unknown };
+  return typeof name === "string" && name.trim().length > 0 ? { name } : null;
 }
 
 /**
@@ -187,11 +208,17 @@ export function describeOpenShow(
   // disagree. Counting the raw array instead would render "dj sue are on air"
   // for a show whose second DJ has a blank handle.
   const named = nonBlankNames(handoff.djNames);
-  const verb = named.length > 1 ? "are" : "is";
-  const subject = formatDjNames(named);
-  return elapsed === null
-    ? `${subject} ${verb} on air.`
-    : `${subject} ${verb} on air. Last logged ${elapsed}.`;
+  const lastLogged = elapsed === null ? "" : ` Last logged ${elapsed}.`;
+  const program = handoff.specialty?.name.trim();
+  if (!program) {
+    const verb = named.length > 1 ? "are" : "is";
+    return `${formatDjNames(named)} ${verb} on air.${lastLogged}`;
+  }
+  // The program is the subject, so the verb is "is" however many DJs host it.
+  const title = handoff.showName?.trim();
+  const heading = title ? `${program}: ${title}` : program;
+  const hosts = named.length > 0 ? ` with ${formatDjNames(named)}` : "";
+  return `${heading} is on air${hosts}.${lastLogged}`;
 }
 
 /**

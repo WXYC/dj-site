@@ -38,17 +38,41 @@ describe("readShowAlreadyOpen", () => {
       showId: 1951224,
       djNames: ["dj sue"],
       lastLoggedAt: null,
+      specialty: null,
+      showName: null,
     });
   });
 
   // RTK Query rejects with the bare shape from `.unwrap()` and a wrapped one
   // from `queryFulfilled`. Both reach this reader; missing the wrapped form
   // would mis-classify every refusal seen from the cache-patch side.
+  const withShow = (extra: Record<string, unknown>) => ({
+    status: 409,
+    data: {
+      code: "show_already_open",
+      details: { show: { id: 7, dj_name: "dj sue", ...extra } },
+    },
+  });
+  const SPECIALTY = { id: 3, name: "Sunset Soundtrack", short_name: "Sunset" };
+
+  it.each([
+    ["both present", { specialty: SPECIALTY, show_name: "Paris, Texas" }, { name: "Sunset Soundtrack" }, "Paris, Texas"],
+    ["both absent", {}, null, null],
+    ["both null", { specialty: null, show_name: null }, null, null],
+    ["a specialty with no name", { specialty: { id: 3 }, show_name: "x" }, null, "x"],
+    ["a non-object specialty", { specialty: "Sunset", show_name: 5 }, null, null],
+    ["a title with no specialty", { show_name: "Paris, Texas" }, null, "Paris, Texas"],
+  ])("reads specialty and show_name tolerantly: %s", (_label, extra, specialty, showName) => {
+    expect(readShowAlreadyOpen(withShow(extra))).toMatchObject({ specialty, showName });
+  });
+
   it("reads the wrapped rejection queryFulfilled produces", () => {
     expect(readShowAlreadyOpen({ error: conflict, meta: {} })).toEqual({
       showId: 1951224,
       djNames: ["dj sue"],
       lastLoggedAt: null,
+      specialty: null,
+      showName: null,
     });
   });
 
@@ -178,6 +202,23 @@ describe("describeOpenShow", () => {
 
   // The abandoned show this feature exists for is exactly the one that
   // collects several DJs, so the plural is not a rare path.
+  it.each([
+    ["program only", ["DJ Bramble"], { name: "Orange County Special" }, null, ago(12 * MINUTE),
+      "Orange County Special is on air with DJ Bramble. Last logged 12m ago."],
+    ["program plus title", ["DJ Sue", "DJ Bramble"], { name: "Sunset Soundtrack" }, "Paris, Texas", ago(3 * MINUTE),
+      "Sunset Soundtrack: Paris, Texas is on air with DJ Sue and DJ Bramble. Last logged 3m ago."],
+    ["blank title", ["DJ Bramble"], { name: "Backyard BBQ" }, "  ", null,
+      "Backyard BBQ is on air with DJ Bramble."],
+    ["all-blank handles", [" ", ""], { name: "Backyard BBQ" }, null, null,
+      "Backyard BBQ is on air."],
+    ["freeform", ["DJ Bramble"], null, null, ago(12 * MINUTE),
+      "DJ Bramble is on air. Last logged 12m ago."],
+    ["freeform ignores a title", ["DJ Sue", "DJ Bramble"], null, "Paris, Texas", null,
+      "DJ Sue and DJ Bramble are on air."],
+  ])("names the program first: %s", (_label, djNames, specialty, showName, lastLoggedAt, expected) => {
+    expect(describeOpenShow({ showId: 1, djNames, specialty, showName, lastLoggedAt }, NOW)).toBe(expected);
+  });
+
   it("agrees with a plural subject", () => {
     expect(
       describeOpenShow(
