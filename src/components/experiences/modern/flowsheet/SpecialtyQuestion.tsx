@@ -35,6 +35,17 @@ export default function SpecialtyQuestion() {
   const [title, setTitle] = useState("");
   const [refusal, setRefusal] = useState<string | null>(null);
 
+  // The confirmation closes by its condition going false, not by clearing state,
+  // so a typed title or a refusal would otherwise outlive its question and land
+  // on the next show's. Reset them whenever the question's identity changes.
+  const identity = `${showId}:${newestEntryId}`;
+  const [seenIdentity, setSeenIdentity] = useState(identity);
+  if (seenIdentity !== identity) {
+    setSeenIdentity(identity);
+    setTitle("");
+    setRefusal(null);
+  }
+
   const write = async (body: { specialty_id?: number; show_name?: string }) => {
     setRefusal(null);
     try {
