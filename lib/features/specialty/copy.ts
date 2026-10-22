@@ -45,4 +45,5 @@ export const specialtyCopy = {
   tagged: (name: string) => `The DJ site will show this set as ${name}.`,
   titleLabel: "Title for this week",
   done: "Done",
+  freeform: "Freeform",
 };

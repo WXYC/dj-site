@@ -9,6 +9,11 @@ import {
 } from "@/lib/features/flowsheet/types";
 
 // Mock child components
+vi.mock("@/src/components/experiences/modern/flowsheet/Entries/StartShowIcon", async () => {
+  const { Headphones } = await import("@mui/icons-material");
+  return { default: () => <Headphones /> };
+});
+
 vi.mock("@/src/components/experiences/modern/flowsheet/Entries/SongEntry/SongEntry", () => ({
   default: ({ entry, playing, queue }: any) => (
     <tr data-testid="song-entry" data-playing={playing} data-queue={queue}>
