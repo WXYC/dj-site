@@ -116,8 +116,8 @@ export const useLiveStatus = () => {
   return { live, loading: loadingLiveList, userData, userloading };
 };
 
-/** The program a one-tap press opens the show as, replayed on any handoff retry. */
-export type GoLiveTag = { specialty_id: number; show_name?: string };
+/** What a sign-on opens the show as (a one-tap program, the airing's title, or both), replayed on any handoff retry. */
+export type GoLiveTag = { specialty_id?: number; show_name?: string };
 
 /** The decision a DJ made at the handoff prompt, forwarded to the server. */
 export type GoLiveDecision = {

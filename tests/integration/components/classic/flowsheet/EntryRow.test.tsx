@@ -43,6 +43,7 @@ function renderRow(props: {
   onDragOver?: (entryId: number) => void;
   onDrop?: (entryId: number) => void;
   onDragEnd?: () => void;
+  program?: string;
 }) {
   const dragHandlersEnabled = props.dragHandlers !== false;
   return renderWithProviders(
@@ -50,6 +51,7 @@ function renderRow(props: {
       <tbody>
         <EntryRow
           entry={props.entry}
+          program={props.program}
           onUpdate={props.onUpdate ?? (() => {})}
           onDelete={props.onDelete ?? (() => {})}
           seguesIntoNext={props.seguesIntoNext}
@@ -361,6 +363,14 @@ describe("Classic EntryRow markers", () => {
       day: "11/14/2023",
       time: "5:13:00 PM",
     };
+
+    it("names the program once the set is tagged", () => {
+      const { container } = renderRow({ entry: startEntry, program: "Orange County Special" });
+      const cell = container.querySelector("tr > td:nth-child(2)");
+      expect(cell!.textContent).toBe(
+        "Start of show — DJ Cool (Orange County Special) @ 11/14/23 5:13 PM"
+      );
+    });
 
     it("renders 'Start of show — {dj_name} @ {M/d/yy} {h:mm a}'", () => {
       const { container } = renderRow({ entry: startEntry });

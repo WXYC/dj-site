@@ -218,11 +218,6 @@ describe("Classic StartShow — out-of-scope fields stay disabled (#694)", () =>
     expect(getNamedInput("djName").disabled).toBe(true);
   });
 
-  it("Show Name input remains disabled", () => {
-    renderWithProviders(<StartShow />);
-    expect(getNamedInput("showName").disabled).toBe(true);
-  });
-
   it("Starting Time select remains disabled", () => {
     renderWithProviders(<StartShow />);
     const select = document.querySelector(
@@ -424,5 +419,65 @@ describe("Classic StartShow — the handoff prompt", () => {
       submitForm();
       expect(goLiveMock).toHaveBeenCalledWith(undefined, undefined, undefined);
     });
+  });
+});
+
+describe("Classic StartShow — Show Name", () => {
+  const STORY_HOUR = { id: 9, name: "Friday Night Story Hour", short_name: "Story Hour" };
+
+  it("is enabled", () => {
+    renderWithProviders(<StartShow />);
+    expect(getNamedInput("showName").disabled).toBe(false);
+  });
+
+  it("sends the trimmed value as show_name on a plain sign-on", () => {
+    renderWithProviders(<StartShow />);
+    setFieldValue(getNamedInput("showName"), "  Cat Power night  ");
+    submitForm();
+    expect(goLiveMock).toHaveBeenCalledWith(undefined, undefined, {
+      show_name: "Cat Power night",
+    });
+  });
+
+  it.each(["", "   "])("sends no show_name for %j", (value) => {
+    renderWithProviders(<StartShow />);
+    setFieldValue(getNamedInput("showName"), value);
+    submitForm();
+    expect(goLiveMock).toHaveBeenCalledWith(undefined, undefined, undefined);
+  });
+
+  it("caps the value at the column's 128 characters", () => {
+    renderWithProviders(<StartShow />);
+    expect(getNamedInput("showName").maxLength).toBe(128);
+    setFieldValue(getNamedInput("showName"), "x".repeat(200));
+    submitForm();
+    expect(goLiveMock).toHaveBeenCalledWith(undefined, undefined, {
+      show_name: "x".repeat(128),
+    });
+  });
+
+  it("rides along with a one-tap press", () => {
+    oneTapMock = [STORY_HOUR];
+    renderWithProviders(<StartShow />);
+    setFieldValue(getNamedInput("showName"), "Tales of the Triangle");
+    fireEvent.click(screen.getByTestId("classic-sign-on-as"));
+    expect(goLiveMock).toHaveBeenCalledWith(undefined, undefined, {
+      specialty_id: 9,
+      show_name: "Tales of the Triangle",
+    });
+  });
+
+  it("is replayed on the takeover retry", async () => {
+    openShowMock = { showId: 12, djNames: ["dj sue"], lastLoggedAt: null };
+    renderWithProviders(<StartShow />);
+    setFieldValue(getNamedInput("showName"), "Cat Power night");
+    submitForm();
+    await screen.findByTestId("go-live-handoff-prompt");
+    fireEvent.click(screen.getByTestId("go-live-handoff-takeover"));
+    expect(goLiveMock).toHaveBeenCalledWith(
+      undefined,
+      { intent: "takeover", expected_show_id: 12 },
+      { show_name: "Cat Power night" }
+    );
   });
 });

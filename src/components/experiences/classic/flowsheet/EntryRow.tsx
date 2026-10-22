@@ -26,6 +26,8 @@ import "@/src/styles/classic/actions.css";
 
 type Props = {
   entry: FlowsheetEntry;
+  /** The program the open set is tagged as; named on its start-of-show row. */
+  program?: string;
   onUpdate: (entryId: number, data: UpdateRequestBody) => void;
   onDelete: (entryId: number) => void;
   /** Tubafrenzy marks the row ABOVE a segue pair with data-segue="true" and
@@ -71,6 +73,7 @@ type EditDraft = {
 
 export default function EntryRow({
   entry,
+  program,
   onUpdate,
   onDelete,
   seguesIntoNext,
@@ -223,7 +226,7 @@ export default function EntryRow({
         <EmptyGripCell />
         {timeCell}
         <td colSpan={markerSpan}>
-          Start of show — {entry.dj_name} @ {formatShortDate(entry.day)}{" "}
+          Start of show — {entry.dj_name}{program && ` (${program})`} @ {formatShortDate(entry.day)}{" "}
           {formatShortTime(entry.time)}
         </td>
         <td className="action-cell"></td>

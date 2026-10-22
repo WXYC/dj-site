@@ -49,5 +49,11 @@ export function useSpecialtyQuestion() {
     setDeclined((ids) => [...ids, showId]);
   }, []);
 
-  return { showId: current?.id ?? null, newestEntryId, matches, decline };
+  return {
+    showId: current?.id ?? null,
+    showName: current?.show_name ?? null,
+    newestEntryId,
+    matches,
+    decline,
+  };
 }
