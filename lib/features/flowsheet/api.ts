@@ -26,7 +26,8 @@ import {
   type JoinIntent,
   type JoinShowResult,
 } from "./go-live-handoff";
-import { showTagRefusal } from "../specialty/copy";
+import { markRefusal } from "../show-playlist/api";
+import { REJECTED_PROGRAM_SENTENCE } from "../specialty/copy";
 import { classifyForceEndError } from "./force-end-outcome";
 import {
   CurrentShow,
@@ -135,8 +136,7 @@ export const flowsheetApi = createApi({
       }),
       // A refusal the caller words itself is marked expected so the global
       // toast stays quiet instead of repeating it in the server's words.
-      transformErrorResponse: (error) =>
-        showTagRefusal(error) ? { ...error, expected: true } : error,
+      transformErrorResponse: markRefusal(REJECTED_PROGRAM_SENTENCE),
       invalidatesTags: ["Flowsheet"],
     }),
     switchEntries: builder.mutation<undefined, FlowsheetSwitchParams>({

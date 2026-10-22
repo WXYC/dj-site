@@ -13,31 +13,31 @@ export const NOT_ON_SHOW_SENTENCE =
   "The DJ site can't change this row: it belongs to a show on the air that you are not on.";
 
 /**
- * The one sentence a refused past-show write is shown as, or null when the
- * refusal belongs to the site's general handling. A 403 is told apart by the
- * `code` in its raw body, since a missing permission or a ban is also a 403;
- * a 400 is told apart by its status alone, never its message text.
+ * The one sentence a refused write is shown as, or null when the refusal
+ * belongs to the site's general handling. A 403 is told apart by the `code` in
+ * its raw body, since a missing permission or a ban is also a 403; a 400 is
+ * told apart by its status alone, never its message text, and is worded by the
+ * caller.
  */
-export function pastShowWriteSentence(error: {
-  status?: unknown;
-  data?: unknown;
-}): string | null {
+export function refusalSentence(
+  error: { status?: unknown; data?: unknown },
+  badRequest: string
+): string | null {
   const code = (error.data as { code?: unknown } | null | undefined)?.code;
   if (error.status === 403 && code === "closed_show") {
     return CLOSED_SHOW_SENTENCE;
   }
-  if (error.status === 400) {
-    return NOT_ON_SHOW_SENTENCE;
-  }
-  return null;
+  return error.status === 400 ? badRequest : null;
 }
 
-// A refusal the page words itself is marked expected, so the global error
+// A refusal the caller words itself is marked expected, so the global error
 // toast stays quiet instead of repeating it in the server's words.
-const markRefusal = (error: FetchBaseQueryError) => {
-  const sentence = pastShowWriteSentence(error);
+export const markRefusal = (badRequest: string) => (error: FetchBaseQueryError) => {
+  const sentence = refusalSentence(error, badRequest);
   return sentence ? { ...error, expected: true, sentence } : error;
 };
+
+const markPastShowRefusal = markRefusal(NOT_ON_SHOW_SENTENCE);
 
 export const showPlaylistApi = createApi({
   reducerPath: "showPlaylistApi",
@@ -74,7 +74,7 @@ export const showPlaylistApi = createApi({
         method: "PATCH",
         body: { entry_id, data },
       }),
-      transformErrorResponse: markRefusal,
+      transformErrorResponse: markPastShowRefusal,
       invalidatesTags: (_result, _error, { showId }) => [
         { type: "ShowPlaylist", id: showId },
       ],
@@ -88,7 +88,7 @@ export const showPlaylistApi = createApi({
         method: "DELETE",
         body: { entry_id },
       }),
-      transformErrorResponse: markRefusal,
+      transformErrorResponse: markPastShowRefusal,
       invalidatesTags: (_result, _error, { showId }) => [
         { type: "ShowPlaylist", id: showId },
       ],
@@ -102,7 +102,7 @@ export const showPlaylistApi = createApi({
         method: "PATCH",
         body: { entry_id, new_position },
       }),
-      transformErrorResponse: markRefusal,
+      transformErrorResponse: markPastShowRefusal,
       invalidatesTags: (_result, _error, { showId }) => [
         { type: "ShowPlaylist", id: showId },
       ],
