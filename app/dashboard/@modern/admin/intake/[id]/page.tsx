@@ -21,7 +21,9 @@ export default async function IntakeItemPage({ params }: { params: Promise<{ id:
   }
   await requireRole(session, Authorization.MD);
   const itemId = Number((await params).id);
-  if (!Number.isInteger(itemId) || itemId <= 0) notFound();
+  if (!Number.isInteger(itemId) || itemId <= 0) {
+    notFound();
+  }
 
   return (
     <>

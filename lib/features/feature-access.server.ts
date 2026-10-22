@@ -2,7 +2,7 @@ import "server-only";
 import { cache } from "react";
 import { cookies } from "next/headers";
 import type { FeatureAccessEntry, FeatureAccessResponse, FeatureAudience } from "@wxyc/shared";
-import { getServerJwtToken } from "./authentication/server-client";
+import { getServerJwtTokenCached } from "./authentication/server-token";
 import { fetchBackendJson } from "./server-fetch";
 
 const AUDIENCES: readonly FeatureAudience[] = ["off", "staff", "everyone"];
@@ -30,7 +30,7 @@ function isFeatureAccessEntry(value: unknown): value is FeatureAccessEntry {
  */
 export const getReviewsAccess = cache(async (): Promise<FeatureAccessEntry> => {
   try {
-    const token = await getServerJwtToken((await cookies()).toString());
+    const token = await getServerJwtTokenCached((await cookies()).toString());
     if (!token) {
       return NO_FEATURE_ACCESS;
     }
