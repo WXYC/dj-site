@@ -4,11 +4,10 @@ import { http, HttpResponse } from "msw";
 import { flowsheetApi } from "@/lib/features/flowsheet/api";
 import {
   CLOSED_SHOW_SENTENCE,
+  NOT_ON_SHOW_SENTENCE,
+  refusalSentence,
 } from "@/lib/features/show-playlist/api";
-import {
-  REJECTED_PROGRAM_SENTENCE,
-  showTagRefusal,
-} from "@/lib/features/specialty/copy";
+import { REJECTED_PROGRAM_SENTENCE } from "@/lib/features/specialty/copy";
 import { TEST_BACKEND_URL } from "@/tests/helpers/constants";
 import { server } from "@/tests/fakes/server";
 import { createTestStore } from "@/tests/helpers/store";
@@ -94,8 +93,26 @@ describe("updateShow refusals", () => {
     const result = await createTestStore().dispatch(
       flowsheetApi.endpoints.updateShow.initiate({ showId: 91, show_name: "x" })
     );
-    const error = result.error as { expected?: boolean; status: number; data: unknown };
-    expect(showTagRefusal(error)).toBe(sentence);
+    const error = result.error as { expected?: boolean; sentence?: string; status: number; data: unknown };
+    expect(error.sentence ?? null).toBe(sentence);
     expect(error.expected === true).toBe(expected);
+  });
+});
+
+describe("refusalSentence", () => {
+  it.each([
+    ["a 400", 400, undefined, "badRequest sentence"],
+    ["a closed_show 403", 403, { code: "closed_show" }, CLOSED_SHOW_SENTENCE],
+    ["a 403 without a code", 403, { error: "forbidden" }, null],
+    ["a 403 with another code", 403, { code: "banned" }, null],
+    ["a 403 with no body", 403, null, null],
+    ["a 401", 401, { code: "closed_show" }, null],
+    ["a 500", 500, undefined, null],
+  ])("%s", (_name, status, data, expected) => {
+    for (const badRequest of [NOT_ON_SHOW_SENTENCE, REJECTED_PROGRAM_SENTENCE]) {
+      expect(refusalSentence({ status, data }, badRequest)).toBe(
+        expected === "badRequest sentence" ? badRequest : expected
+      );
+    }
   });
 });

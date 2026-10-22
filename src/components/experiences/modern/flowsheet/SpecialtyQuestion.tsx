@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Alert, Box, Button, FormControl, FormLabel, Input, Stack, Typography } from "@mui/joy";
 import type { SpecialtyShow } from "@wxyc/shared";
 import { useUpdateShowMutation } from "@/lib/features/flowsheet/api";
-import { describeSlot, showTagRefusal, specialtyCopy } from "@/lib/features/specialty/copy";
+import { describeSlot, specialtyCopy } from "@/lib/features/specialty/copy";
 import { useSpecialtyQuestion } from "@/src/hooks/specialtyQuestionHooks";
 import SpecialtyTile from "../SpecialtyTile";
 
@@ -53,7 +53,7 @@ export default function SpecialtyQuestion() {
       return true;
     } catch (error) {
       // Null is a refusal for the site's general handling, which has toasted it.
-      setRefusal(showTagRefusal(error as { status?: unknown; data?: unknown }));
+      setRefusal((error as { sentence?: string }).sentence ?? null);
       return false;
     }
   };
