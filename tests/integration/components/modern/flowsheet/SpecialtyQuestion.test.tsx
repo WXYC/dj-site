@@ -385,8 +385,11 @@ describe("SpecialtyQuestion", () => {
   });
 
   it("keeps 'Spotlight' and 'dj-site' out of every string the question shows", () => {
-    const { askOne, askShared, yes, tagged, ...fixed } = specialtyCopy;
+    const { askOne, askShared, yes, tagged, goLiveAs, signOnAs, ...fixed } = specialtyCopy;
+    const program = { name: "A", short_name: "A" };
     const strings = [
+      goLiveAs(program),
+      signOnAs(program),
       askOne("Sunday at noon", "A"),
       askShared("Sunday at noon", ["A", "B"]),
       yes("A"),
