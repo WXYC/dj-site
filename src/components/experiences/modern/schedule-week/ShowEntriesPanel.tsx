@@ -1,10 +1,18 @@
 "use client";
 
-import { useMemo } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
+import { Reorder } from "motion/react";
 import { Box, CircularProgress, Sheet, Table, Typography } from "@mui/joy";
 import type { FlowsheetRangeShow } from "@wxyc/shared";
 import type { FlowsheetRangeEntryWire } from "@/lib/features/flowsheet/conversions";
 import { toArchiveStreamRow } from "@/lib/features/flowsheet/stream-row";
+import { computeDragTarget } from "@/lib/features/flowsheet/reorder";
+import type { FlowsheetEntry } from "@/lib/features/flowsheet/types";
+import { useEntryActions } from "@/src/hooks/entryActions";
+import {
+  FlowsheetDragContext,
+  FlowsheetDragContextValue,
+} from "@/src/components/experiences/modern/flowsheet/Entries/dragContext";
 import Entry from "@/src/components/experiences/modern/flowsheet/Entries/Entry";
 import {
   FLOWSHEET_TABLE_SX,
@@ -36,6 +44,44 @@ export default function ShowEntriesPanel({
   // the map site below, where a changed mark re-renders only the two rows
   // whose boolean flipped instead of reconverting every row in the set.
   const rows = useMemo(() => entries.map(toArchiveStreamRow), [entries]);
+
+  // Order shown mid-drag, null when settled. The drag context reads it through
+  // refs so its identity never changes: every row consumes it.
+  const { reorder } = useEntryActions();
+  const [draftOrder, setDraftOrder] = useState<FlowsheetEntry[] | null>(null);
+  const draftRef = useRef<FlowsheetEntry[] | null>(null);
+  const settledRef = useRef<FlowsheetEntry[]>([]);
+  settledRef.current = rows.map((row) => row.entry);
+  const reorderRef = useRef(reorder);
+  reorderRef.current = reorder;
+
+  const handleReorder = useCallback((next: FlowsheetEntry[]) => {
+    draftRef.current = next;
+    setDraftOrder(next);
+  }, []);
+
+  const dragContext = useMemo<FlowsheetDragContextValue>(
+    () => ({
+      onEntryDragStart: () => {},
+      onEntryDragEnd: (entry) => {
+        const settled = settledRef.current;
+        const newPosition = computeDragTarget(
+          settled,
+          draftRef.current ?? settled,
+          entry.id
+        );
+        if (newPosition !== null) {
+          reorderRef.current(entry, newPosition);
+        }
+        draftRef.current = null;
+        setDraftOrder(null);
+      },
+    }),
+    []
+  );
+
+  const entryById = new Map(rows.map((row) => [row.id, row]));
+  const shown = draftOrder ?? settledRef.current;
 
   return (
     <Sheet
@@ -85,19 +131,26 @@ export default function ShowEntriesPanel({
             <thead style={{ visibility: "collapse" }}>
               <FlowsheetColumnSizingRow leadingTimeColumn />
             </thead>
-            <tbody>
-              {rows.map(({ id, timeLabel, entry }) => (
-                <Entry
-                  key={id}
-                  entry={entry}
-                  playing={false}
-                  draggable={false}
-                  readOnly={!editable}
-                  timeLabel={timeLabel}
-                  highlighted={id === highlightedEntryId}
-                />
-              ))}
-            </tbody>
+            <FlowsheetDragContext.Provider value={dragContext}>
+              <Reorder.Group
+                values={shown}
+                axis="y"
+                onReorder={handleReorder}
+                as="tbody"
+              >
+                {shown.map((entry) => (
+                  <Entry
+                    key={entry.id}
+                    entry={entry}
+                    playing={false}
+                    draggable
+                    readOnly={!editable}
+                    timeLabel={entryById.get(entry.id)?.timeLabel}
+                    highlighted={entry.id === highlightedEntryId}
+                  />
+                ))}
+              </Reorder.Group>
+            </FlowsheetDragContext.Provider>
           </Table>
         </Box>
       )}
