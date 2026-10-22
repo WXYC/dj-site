@@ -264,7 +264,23 @@ describe("useOpenShowHandoff — program from the getCurrentShow cache", () => {
   };
   const SHOW_ID = TEST_ENTITY_IDS.SHOW.CURRENT_SHOW;
 
-  const warmCurrentShow = async (store: AppStore, shows: unknown[] | null) => {
+  // A different program, so a leak of the cached show's program is visible.
+  const OTHER_SPECIALTY = {
+    id: 9,
+    slug: "late-night-drone",
+    name: "Late Night Drone",
+    short_name: "Drone",
+    logs_playcuts: false,
+  };
+
+  // `on_air.show_id` names the cached show itself, so `getCurrentShow`'s
+  // selector finds the row and the cache really holds that show. Whether it is
+  // the show the handoff is about is what the id guard in useOpenShowHandoff
+  // decides.
+  const warmCurrentShow = async (
+    store: AppStore,
+    shows: { id: number }[]
+  ) => {
     server.use(
       http.get(`${TEST_BACKEND_URL}/flowsheet`, () =>
         HttpResponse.json({
@@ -273,7 +289,7 @@ describe("useOpenShowHandoff — program from the getCurrentShow cache", () => {
           limit: 1,
           total: 0,
           total_pages: 0,
-          on_air: { dj_name: "dj sue", show_id: SHOW_ID },
+          on_air: { dj_name: "dj sue", show_id: shows[0].id },
           shows,
         })
       )
@@ -298,7 +314,9 @@ describe("useOpenShowHandoff — program from the getCurrentShow cache", () => {
     ],
     [
       "a warm cache naming a different show",
-      [{ id: SHOW_ID + 1, start_time: "2026-10-19T16:00:00Z", specialty: SPECIALTY, show_name: "Standards" }],
+      // The cache holds a real other show (the previous one, say, not yet
+      // refetched) while the entries cache says the open show is SHOW_ID.
+      [{ id: SHOW_ID + 1, start_time: "2026-10-19T16:00:00Z", specialty: OTHER_SPECIALTY, show_name: "Drone Hour" }],
       null,
     ],
     ["a cold cache", undefined, null],
@@ -322,6 +340,10 @@ describe("useOpenShowHandoff — program from the getCurrentShow cache", () => {
     });
 
     // A mismatch must be the DJ-only handoff, never another show's program.
+    // toEqual would pass an explicit `undefined` key, so also check the names.
+    const handoff = result.current();
+    expect(JSON.stringify(handoff)).not.toContain(OTHER_SPECIALTY.name);
+    expect(JSON.stringify(handoff)).not.toContain("Drone Hour");
     expect(result.current()).toEqual({
       showId: SHOW_ID,
       djNames: ["dj sue"],

@@ -129,14 +129,45 @@ export function readShowAlreadyOpen(err: unknown): OpenShowHandoff | null {
   };
 }
 
+/**
+ * Parse the 409's embedded program into the generated `SpecialtyShowRef`,
+ * field by field, so a renamed or retyped field fails `tsc` here rather than
+ * reading `undefined` at a later call site. Anything missing a required field,
+ * or carrying one of the wrong type, reads as absent. The structured optional
+ * fields (`artwork`, `default_spotlight_role`) are left off: nothing on the
+ * handoff path reads them, and the type allows their absence.
+ */
 function readSpecialty(value: unknown): SpecialtyShowRef | null {
   if (!value || typeof value !== "object") {
     return null;
   }
-  const { name } = value as { name?: unknown };
-  return typeof name === "string" && name.trim().length > 0
-    ? (value as SpecialtyShowRef)
-    : null;
+  const raw = value as Record<string, unknown>;
+  const { id, slug, name, short_name, logs_playcuts, tagline, accent_color } =
+    raw;
+  if (
+    typeof id !== "number" ||
+    typeof slug !== "string" ||
+    typeof name !== "string" ||
+    name.trim().length === 0 ||
+    typeof short_name !== "string" ||
+    typeof logs_playcuts !== "boolean"
+  ) {
+    return null;
+  }
+  const specialty: SpecialtyShowRef = {
+    id,
+    slug,
+    name,
+    short_name,
+    logs_playcuts,
+  };
+  if (typeof tagline === "string" || tagline === null) {
+    specialty.tagline = tagline;
+  }
+  if (typeof accent_color === "string" || accent_color === null) {
+    specialty.accent_color = accent_color;
+  }
+  return specialty;
 }
 
 /**

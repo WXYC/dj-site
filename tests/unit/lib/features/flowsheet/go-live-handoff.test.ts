@@ -51,17 +51,30 @@ describe("readShowAlreadyOpen", () => {
       details: { show: { id: 7, dj_name: "dj sue", ...extra } },
     },
   });
-  const SPECIALTY = { id: 3, name: "Sunset Soundtrack", short_name: "Sunset" };
+  const SPECIALTY = {
+    id: 3,
+    slug: "sunset-soundtrack",
+    name: "Sunset Soundtrack",
+    short_name: "Sunset",
+    logs_playcuts: true,
+  };
 
   it.each([
-    ["both present", { specialty: SPECIALTY, show_name: "Paris, Texas" }, { name: "Sunset Soundtrack" }, "Paris, Texas"],
+    ["both present", { specialty: SPECIALTY, show_name: "Paris, Texas" }, SPECIALTY, "Paris, Texas"],
+    ["optional fields present", { specialty: { ...SPECIALTY, tagline: "Film music", accent_color: "#aa3300" } }, { ...SPECIALTY, tagline: "Film music", accent_color: "#aa3300" }, null],
+    ["extra fields dropped", { specialty: { ...SPECIALTY, surprise: true } }, SPECIALTY, null],
+    ["a specialty with no slug", { specialty: { ...SPECIALTY, slug: undefined } }, null, null],
+    ["a specialty with a string id", { specialty: { ...SPECIALTY, id: "3" } }, null, null],
+    ["a specialty with no logs_playcuts", { specialty: { ...SPECIALTY, logs_playcuts: undefined } }, null, null],
+    ["a specialty with a blank name", { specialty: { ...SPECIALTY, name: "  " } }, null, null],
     ["both absent", {}, null, null],
     ["both null", { specialty: null, show_name: null }, null, null],
     ["a specialty with no name", { specialty: { id: 3 }, show_name: "x" }, null, "x"],
     ["a non-object specialty", { specialty: "Sunset", show_name: 5 }, null, null],
     ["a title with no specialty", { show_name: "Paris, Texas" }, null, "Paris, Texas"],
   ])("reads specialty and show_name tolerantly: %s", (_label, extra, specialty, showName) => {
-    expect(readShowAlreadyOpen(withShow(extra))).toMatchObject({ specialty, showName });
+    expect(readShowAlreadyOpen(withShow(extra))).toMatchObject({ showName });
+    expect(readShowAlreadyOpen(withShow(extra))?.specialty).toEqual(specialty);
   });
 
   // RTK Query rejects with the bare shape from `.unwrap()` and a wrapped one
