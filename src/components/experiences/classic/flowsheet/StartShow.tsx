@@ -21,7 +21,7 @@ export default function StartShow() {
   // markup rather than through a Joy dialog — nothing else in classic uses Joy.
   // Without it a classic DJ gets a form that appears to do nothing, which is
   // the dead end this prompt exists to remove, only relocated.
-  const { prompt, deciding, requestGoLive, decide, cancel } =
+  const { prompt, deciding, refusal, requestGoLive, decide, cancel } =
     useGoLiveHandoff(goLive);
   const oneTapPrograms = useOneTapPrograms();
   useWarmCurrentShow();
@@ -246,6 +246,15 @@ export default function StartShow() {
                   ))}
                 </td>
               </tr>
+              {refusal && (
+                <tr>
+                  <td colSpan={2} align="center">
+                    <div className="smalltext" role="alert">
+                      {refusal}
+                    </div>
+                  </td>
+                </tr>
+              )}
               {prompt && (
                 <tr>
                   <td colSpan={2} align="center">

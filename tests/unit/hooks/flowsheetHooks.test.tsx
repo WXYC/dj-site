@@ -18,6 +18,7 @@ import {
 import { MISSING_ARTIST_REJECTION_MESSAGE } from "@/lib/features/flowsheet/various-artists-guard";
 import { useAppDispatch } from "@/lib/hooks";
 import { catalogSlice } from "@/lib/features/catalog/frontend";
+import { ONE_TAP_TAG_REFUSED_SENTENCE } from "@/lib/features/specialty/copy";
 import { liveUpdatesSlice } from "@/lib/features/flowsheet/live-updates-slice";
 import {
   createHookWrapper,
@@ -439,6 +440,30 @@ describe("flowsheetHooks", () => {
         specialty_id: 10,
         show_name: "Season opener",
       });
+    });
+
+    it.each([
+      ["a one-tap first attempt answered 400", undefined, { specialty_id: 10 }, "tag-refused", ONE_TAP_TAG_REFUSED_SENTENCE],
+      ["a one-tap takeover answered 400", { intent: "takeover" as const, expected_show_id: 7 }, { specialty_id: 10 }, "tag-refused", ONE_TAP_TAG_REFUSED_SENTENCE],
+      ["a plain Go Live answered 400", undefined, undefined, "error", "Bad Request: specialty_id is unknown or names a retired specialty show"],
+    ])("maps %s", async (_name, decision, tag, status, message) => {
+      mockGoLiveFunction.mockReturnValueOnce({
+        unwrap: () =>
+          Promise.reject({
+            status: 400,
+            data: { message: "Bad Request: specialty_id is unknown or names a retired specialty show" },
+          }),
+      });
+      const { result } = renderHook(() => useShowControl(), {
+        wrapper: createWrapper(),
+      });
+
+      let outcome: unknown;
+      await act(async () => {
+        outcome = await result.current.goLive(undefined, decision, tag);
+      });
+
+      expect(outcome).toEqual({ status, message });
     });
 
     it("sends no specialty_id or show_name from the usual go live", () => {

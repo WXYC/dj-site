@@ -35,6 +35,8 @@ import { safeCapture } from "@/lib/posthog";
 import { useFlowsheetPollingInterval } from "./useSSEConnection";
 import { partitionFlowsheetEntries } from "@/lib/features/flowsheet/partition";
 import { backendWriteErrorMessage } from "@/lib/backend-error-message";
+import { refusalSentence } from "@/lib/features/show-playlist/api";
+import { ONE_TAP_TAG_REFUSED_SENTENCE } from "@/lib/features/specialty/copy";
 import {
   FlowsheetEntry,
   FlowsheetQuery,
@@ -142,6 +144,8 @@ export type GoLiveOutcome =
    */
   | { status: "cohosted" }
   | { status: "conflict"; handoff: OpenShowHandoff }
+  /** The server refused the program a one-tap press carried; nothing opened. */
+  | { status: "tag-refused"; message: string }
   | { status: "error"; message: string };
 
 /** The on-air roster this client last polled. Empty until the first poll lands. */
@@ -327,6 +331,9 @@ export const useShowControl = () => {
     } catch (err) {
       const conflict = readShowAlreadyOpen(err);
       if (conflict) return { status: "conflict", handoff: conflict };
+      if (tag && refusalSentence(err as { status?: unknown; data?: unknown }, ONE_TAP_TAG_REFUSED_SENTENCE)) {
+        return { status: "tag-refused", message: ONE_TAP_TAG_REFUSED_SENTENCE };
+      }
       return {
         status: "error",
         message: backendWriteErrorMessage(err, "Could not go live"),

@@ -51,6 +51,9 @@ export const useGoLiveHandoff = (goLive: GoLiveFn) => {
   const readOpenShow = useOpenShowHandoff();
   const [prompt, setPrompt] = useState<GoLivePrompt | null>(null);
   const [deciding, setDeciding] = useState(false);
+  // Not a toast: the sentence points the DJ at the usual Go Live, so it has to
+  // stay on screen beside it.
+  const [refusal, setRefusal] = useState<string | null>(null);
 
   const requestGoLive = useCallback(
     async (djNameOverride?: string, oneTap?: OneTap) => {
@@ -59,6 +62,7 @@ export const useGoLiveHandoff = (goLive: GoLiveFn) => {
       // is still in flight. On modern the Joy backdrop happens to prevent it —
       // the guarantee belongs to the shared hook, not to one surface's markup.
       if (prompt || deciding) return;
+      setRefusal(null);
       const promptTag = { tag: oneTap?.tag, program: oneTap?.program };
       // Read at press time, not at render time: the DJ acts on a snapshot, and
       // this is the freshest one available without a round trip.
@@ -80,6 +84,8 @@ export const useGoLiveHandoff = (goLive: GoLiveFn) => {
         // roster stale. Telling them apart needs the refusal to say so:
         // WXYC/dj-site#1426.
         setPrompt({ handoff: outcome.handoff, djNameOverride, ...promptTag });
+      } else if (outcome.status === "tag-refused") {
+        setRefusal(outcome.message);
       } else if (outcome.status === "error") {
         toast.error(outcome.message);
       }
@@ -117,6 +123,7 @@ export const useGoLiveHandoff = (goLive: GoLiveFn) => {
       // Closing here would reproduce the dead end this prompt exists to remove.
       if (outcome.status === "skipped") return;
 
+      if (outcome.status === "tag-refused") setRefusal(outcome.message);
       if (outcome.status === "error") toast.error(outcome.message);
       // The DJ is on air, but as a guest on the show they asked to end. Say so
       // — this is the one outcome they explicitly declined, and the show they
@@ -139,5 +146,5 @@ export const useGoLiveHandoff = (goLive: GoLiveFn) => {
 
   const cancel = useCallback(() => setPrompt(null), []);
 
-  return { prompt, deciding, requestGoLive, decide, cancel };
+  return { prompt, deciding, refusal, requestGoLive, decide, cancel };
 };

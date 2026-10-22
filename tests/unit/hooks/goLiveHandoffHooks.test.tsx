@@ -9,6 +9,7 @@ import {
   type GoLiveOutcome,
 } from "@/src/hooks/flowsheetHooks";
 import { useGoLiveHandoff } from "@/src/hooks/goLiveHandoffHooks";
+import { ONE_TAP_TAG_REFUSED_SENTENCE } from "@/lib/features/specialty/copy";
 import { flowsheetApi } from "@/lib/features/flowsheet/api";
 import type { AppStore } from "@/lib/store";
 import {
@@ -608,5 +609,66 @@ describe("useGoLiveHandoff — one-tap tag", () => {
       expect.objectContaining({ intent: "join" }),
       undefined
     );
+  });
+});
+
+describe("useGoLiveHandoff — a refused program tag", () => {
+  const ONE_TAP = { tag: { specialty_id: 10 }, program: "New Science Experience" };
+  const refused = async (): Promise<GoLiveOutcome> => ({
+    status: "tag-refused",
+    message: ONE_TAP_TAG_REFUSED_SENTENCE,
+  });
+
+  beforeEach(() => {
+    mockToastError.mockClear();
+    mockUseRegistry.mockReturnValue({ loading: false, info: CURRENT_USER });
+  });
+
+  it("holds the sentence instead of toasting it, and clears it on the next press", async () => {
+    const goLive = vi
+      .fn<(...args: unknown[]) => Promise<GoLiveOutcome>>()
+      .mockImplementationOnce(refused)
+      .mockResolvedValue({ status: "ok" });
+    const store = createTestStore();
+    await primeCaches(store);
+    const { result } = renderHook(() => useGoLiveHandoff(goLive), {
+      wrapper: wrapperFor(store),
+    });
+
+    await act(async () => {
+      await result.current.requestGoLive(undefined, ONE_TAP);
+    });
+    expect(result.current.refusal).toBe(ONE_TAP_TAG_REFUSED_SENTENCE);
+    expect(mockToastError).not.toHaveBeenCalled();
+
+    await act(async () => {
+      await result.current.requestGoLive();
+    });
+    expect(result.current.refusal).toBeNull();
+  });
+
+  it("holds the sentence when a takeover decision is refused, and closes the prompt", async () => {
+    const goLive = vi
+      .fn<(...args: unknown[]) => Promise<GoLiveOutcome>>()
+      .mockResolvedValueOnce({
+        status: "conflict",
+        handoff: { showId: 12, djNames: ["dj sue"], lastLoggedAt: null },
+      })
+      .mockImplementationOnce(refused);
+    const store = createTestStore();
+    await primeCaches(store);
+    const { result } = renderHook(() => useGoLiveHandoff(goLive), {
+      wrapper: wrapperFor(store),
+    });
+    await act(async () => {
+      await result.current.requestGoLive(undefined, ONE_TAP);
+    });
+    await act(async () => {
+      await result.current.decide("takeover");
+    });
+
+    expect(result.current.refusal).toBe(ONE_TAP_TAG_REFUSED_SENTENCE);
+    expect(result.current.prompt).toBeNull();
+    expect(mockToastError).not.toHaveBeenCalled();
   });
 });
