@@ -20,8 +20,8 @@ vi.mock("@/lib/features/authentication/client", async () => {
 });
 
 const SPECIALTY = { id: 4, slug: "sunday-jazz", name: "Sunday Jazz", short_name: "Jazz", logs_playcuts: true };
-const OLD_SHOW = { id: 90, start_time: "2026-10-18T16:00:00Z", specialty: null };
-const OPEN_SHOW = { id: 91, start_time: "2026-10-19T16:00:00Z", specialty: SPECIALTY };
+const OLD_SHOW = { id: 90, start_time: "2026-10-18T16:00:00Z", specialty: null, show_name: null };
+const OPEN_SHOW = { id: 91, start_time: "2026-10-19T16:00:00Z", specialty: SPECIALTY, show_name: "Thursday Night Feature" };
 
 const page = (body: Record<string, unknown>) =>
   http.get(`${TEST_BACKEND_URL}/flowsheet`, () =>
@@ -40,6 +40,19 @@ describe("getCurrentShow", () => {
       flowsheetApi.endpoints.getCurrentShow.initiate()
     );
     expect(result.data ?? null).toEqual(expected);
+  });
+
+  it.each([
+    ["present", { show_name: "Thursday Night Feature" }, "Thursday Night Feature"],
+    ["null", { show_name: null }, null],
+    ["absent", {}, null],
+  ])("carries show_name when it is %s", async (_name, fields, expected) => {
+    const { show_name: _omit, ...bare } = OPEN_SHOW;
+    server.use(page({ on_air: { dj_name: "DJ", show_id: 91 }, shows: [{ ...bare, ...fields }] }));
+    const result = await createTestStore().dispatch(
+      flowsheetApi.endpoints.getCurrentShow.initiate()
+    );
+    expect(result.data?.show_name).toBe(expected);
   });
 
   it("is refetched after updateShow invalidates the Flowsheet tag", async () => {

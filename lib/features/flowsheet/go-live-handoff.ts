@@ -10,6 +10,7 @@
  * readings, so it is the headline here, not the show's start time.
  */
 
+import type { SpecialtyShowRef } from "@wxyc/shared";
 import { formatNameList, nonBlankNames } from "./name-list";
 
 /** The wire values `POST /flowsheet/join` accepts for an explicit decision. */
@@ -71,7 +72,7 @@ export type OpenShowHandoff = {
    */
   lastLoggedAt: string | null;
   /** The specialty program the open show runs, when the server names one. */
-  specialty?: { name: string } | null;
+  specialty?: SpecialtyShowRef | null;
   /** The week's title for a specialty show, when set. */
   showName?: string | null;
 };
@@ -128,12 +129,14 @@ export function readShowAlreadyOpen(err: unknown): OpenShowHandoff | null {
   };
 }
 
-function readSpecialty(value: unknown): { name: string } | null {
+function readSpecialty(value: unknown): SpecialtyShowRef | null {
   if (!value || typeof value !== "object") {
     return null;
   }
   const { name } = value as { name?: unknown };
-  return typeof name === "string" && name.trim().length > 0 ? { name } : null;
+  return typeof name === "string" && name.trim().length > 0
+    ? (value as SpecialtyShowRef)
+    : null;
 }
 
 /**

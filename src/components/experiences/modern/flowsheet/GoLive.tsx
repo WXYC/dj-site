@@ -22,7 +22,7 @@ import {
 import { useEffect, useState } from "react";
 import { oneTapName } from "@/lib/features/specialty/copy";
 import { useGoLiveHandoff } from "@/src/hooks/goLiveHandoffHooks";
-import { useOneTapPrograms } from "@/src/hooks/specialtyHooks";
+import { useOneTapPrograms, useWarmCurrentShow } from "@/src/hooks/specialtyHooks";
 import GoLiveHandoffDialog from "./GoLiveHandoffDialog";
 
 export default function GoLive() {
@@ -35,6 +35,7 @@ export default function GoLive() {
     useGoLiveHandoff(goLive);
 
   const oneTapPrograms = useOneTapPrograms();
+  useWarmCurrentShow();
 
   // Both controls below route through this. The icon button used to carry its
   // own copy of the toggle, which would have made it a silent bypass of the

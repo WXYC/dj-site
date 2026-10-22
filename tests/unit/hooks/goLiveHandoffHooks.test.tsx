@@ -254,6 +254,83 @@ describe("useOpenShowHandoff (direct, real flowsheetApi cache)", () => {
   });
 });
 
+describe("useOpenShowHandoff — program from the getCurrentShow cache", () => {
+  const SPECIALTY = {
+    id: 4,
+    slug: "sunday-jazz",
+    name: "Sunday Jazz",
+    short_name: "Jazz",
+    logs_playcuts: true,
+  };
+  const SHOW_ID = TEST_ENTITY_IDS.SHOW.CURRENT_SHOW;
+
+  const warmCurrentShow = async (store: AppStore, shows: unknown[] | null) => {
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/flowsheet`, () =>
+        HttpResponse.json({
+          entries: [],
+          page: 0,
+          limit: 1,
+          total: 0,
+          total_pages: 0,
+          on_air: { dj_name: "dj sue", show_id: SHOW_ID },
+          shows,
+        })
+      )
+    );
+    await store.dispatch(flowsheetApi.endpoints.getCurrentShow.initiate());
+  };
+
+  beforeEach(() => {
+    mockUseRegistry.mockReturnValue({ loading: false, info: CURRENT_USER });
+  });
+
+  it.each([
+    [
+      "a warm cache naming the same show",
+      [{ id: SHOW_ID, start_time: "2026-10-19T16:00:00Z", specialty: SPECIALTY, show_name: "Standards" }],
+      { specialty: SPECIALTY, showName: "Standards" },
+    ],
+    [
+      "a warm cache naming the same show with no title",
+      [{ id: SHOW_ID, start_time: "2026-10-19T16:00:00Z", specialty: SPECIALTY }],
+      { specialty: SPECIALTY, showName: null },
+    ],
+    [
+      "a warm cache naming a different show",
+      [{ id: SHOW_ID + 1, start_time: "2026-10-19T16:00:00Z", specialty: SPECIALTY, show_name: "Standards" }],
+      null,
+    ],
+    ["a cold cache", undefined, null],
+  ])("with %s", async (_name, shows, program) => {
+    const store = createTestStore();
+    await primeCaches(store, {
+      onAir: [createTestOnAirDJResponse({ id: "dj-sue-1", dj_name: "dj sue" })],
+      entries: [
+        createTestV2TrackEntry({
+          show_id: SHOW_ID,
+          add_time: "2026-08-28T12:00:00.000Z",
+        }),
+      ],
+    });
+    if (shows) {
+      await warmCurrentShow(store, shows);
+    }
+
+    const { result } = renderHook(() => useOpenShowHandoff(), {
+      wrapper: wrapperFor(store),
+    });
+
+    // A mismatch must be the DJ-only handoff, never another show's program.
+    expect(result.current()).toEqual({
+      showId: SHOW_ID,
+      djNames: ["dj sue"],
+      lastLoggedAt: "2026-08-28T12:00:00.000Z",
+      ...program,
+    });
+  });
+});
+
 describe("useGoLiveHandoff — re-entrancy guard", () => {
   beforeEach(() => {
     mockUseRegistry.mockReturnValue({ loading: false, info: CURRENT_USER });

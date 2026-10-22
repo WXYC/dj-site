@@ -199,7 +199,10 @@ const onAirIncludes = (
  * render happened.
  *
  * It reads caches that `useShowControl` already subscribes to in both callers,
- * so it adds neither a request nor a subscription.
+ * so it adds neither a request nor a subscription. The exception is
+ * `getCurrentShow`, which supplies the program: the Go Live control keeps it
+ * warm (`useWarmCurrentShow`), and a cold or other-show cache just leaves the
+ * program to the server's refusal.
  */
 export const useOpenShowHandoff = (): (() => OpenShowHandoff | null) => {
   const store = useAppStore();
@@ -223,10 +226,19 @@ export const useOpenShowHandoff = (): (() => OpenShowHandoff | null) => {
     const showId = entries ? primaryShowId(entries) : -1;
     if (showId < 0) return null;
 
+    // Named only for the show the prompt is about; a cache that still holds
+    // the previous show must not lend it a program.
+    const current = flowsheetApi.endpoints.getCurrentShow.select()(state).data;
+    const program =
+      current?.id === showId
+        ? { specialty: current.specialty, showName: current.show_name }
+        : {};
+
     return {
       showId,
       djNames: djs.map((dj) => dj.dj_name ?? ""),
       lastLoggedAt: entries ? newestLoggedAt(entries) : null,
+      ...program,
     };
   }, [store, userId]);
 };

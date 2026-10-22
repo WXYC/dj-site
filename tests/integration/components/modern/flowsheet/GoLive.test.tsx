@@ -27,6 +27,8 @@ const mockUseOpenShowHandoff = vi.fn<
     showId: number;
     djNames: readonly string[];
     lastLoggedAt: string | null;
+    specialty?: { name: string } | null;
+    showName?: string | null;
   } | null
 >(() => null);
 
@@ -48,7 +50,9 @@ vi.mock("@/src/hooks/flowsheetHooks", () => ({
 let mockOneTapPrograms: { id: number; name: string; short_name: string }[] = [];
 vi.mock("@/src/hooks/specialtyHooks", () => ({
   useOneTapPrograms: () => mockOneTapPrograms,
+  useWarmCurrentShow: () => mockWarmCurrentShow(),
 }));
+const mockWarmCurrentShow = vi.fn();
 
 describe("GoLive", () => {
   beforeEach(() => {
@@ -298,6 +302,29 @@ describe("GoLive", () => {
         expect(mockGoLive).not.toHaveBeenCalled();
       },
     );
+
+    it("leads with the program and its title, then the DJs, when the handoff names one", async () => {
+      mockUseOpenShowHandoff.mockReturnValue({
+        ...OPEN_SHOW,
+        specialty: { name: "Sunday Jazz" },
+        showName: "Standards",
+      });
+      render(<GoLive />);
+
+      await openPrompt(goLiveControls().status);
+
+      expect(
+        screen.getByText(
+          /Sunday Jazz: Standards is on air with dj sue\. Last logged 5h 0m ago\./,
+        ),
+      ).toBeInTheDocument();
+    });
+
+    it("keeps the current show's cache warm while the control is shown", () => {
+      render(<GoLive />);
+
+      expect(mockWarmCurrentShow).toHaveBeenCalled();
+    });
 
     // Every other assertion here reaches for the testid, which stays green
     // whether aria-labelledby resolves or dangles.

@@ -1,3 +1,4 @@
+import type { SpecialtyShowRef } from "@wxyc/shared";
 import { describe, it, expect } from "vitest";
 import {
   GO_LIVE_HANDOFF_COPY,
@@ -214,7 +215,10 @@ describe("describeOpenShow", () => {
     ["freeform ignores a title", ["DJ Sue", "DJ Bramble"], null, "Paris, Texas", null,
       "DJ Sue and DJ Bramble are on air."],
   ])("names the program first: %s", (_label, djNames, specialty, showName, lastLoggedAt, expected) => {
-    expect(describeOpenShow({ showId: 1, djNames, specialty, showName, lastLoggedAt }, NOW)).toBe(expected);
+    expect(describeOpenShow(
+      { showId: 1, djNames, specialty: specialty as SpecialtyShowRef | null, showName, lastLoggedAt },
+      NOW
+    )).toBe(expected);
   });
 
   // The abandoned show this feature exists for is exactly the one that

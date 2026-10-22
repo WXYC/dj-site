@@ -18,6 +18,8 @@ let openShowMock: {
   showId: number;
   djNames: readonly string[];
   lastLoggedAt: string | null;
+  specialty?: { name: string } | null;
+  showName?: string | null;
 } | null = null;
 
 vi.mock("@/src/hooks/flowsheetHooks", () => ({
@@ -33,9 +35,11 @@ vi.mock("@/src/hooks/authenticationHooks", () => ({
   useLogout: () => ({ handleLogout: handleLogoutMock, loggingOut: false }),
 }));
 
+const warmCurrentShowMock = vi.fn();
 let oneTapMock: { id: number; name: string; short_name: string }[] = [];
 vi.mock("@/src/hooks/specialtyHooks", () => ({
   useOneTapPrograms: () => oneTapMock,
+  useWarmCurrentShow: () => warmCurrentShowMock(),
 }));
 
 vi.mock("@/src/utils/helpScreen", () => ({
@@ -257,6 +261,21 @@ describe("Classic StartShow — the handoff prompt", () => {
     // The whole point of asking first: nothing was sent, so cancelling costs
     // the DJ nothing and the outgoing DJ's show is untouched.
     expect(goLiveMock).not.toHaveBeenCalled();
+  });
+
+  it("leads with the program and its title, then the DJs, when the handoff names one", async () => {
+    openShowMock = { ...OPEN_SHOW, specialty: { name: "Sunday Jazz" }, showName: "Standards" };
+    await signOn();
+
+    expect(
+      screen.getByText(/Sunday Jazz: Standards is on air with dj sue\. Last logged 5h 0m ago\./)
+    ).toBeInTheDocument();
+  });
+
+  it("keeps the current show's cache warm while the sign-on form is shown", () => {
+    renderWithProviders(<StartShow />);
+
+    expect(warmCurrentShowMock).toHaveBeenCalled();
   });
 
   // Classic reproduces the tubafrenzy sign-on screen, which had no
