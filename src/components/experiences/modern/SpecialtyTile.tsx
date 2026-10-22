@@ -1,6 +1,18 @@
-import { Box } from "@mui/joy";
+import { Box, styled } from "@mui/joy";
 import type { SpecialtyShowRef } from "@wxyc/shared";
 import { fitShortName } from "@/lib/features/specialty/fitShortName";
+
+/**
+ * The artwork image. Joy's `Box` reads `width` and `height` as CSS style props
+ * and never forwards them, so the element would carry no `width`/`height`
+ * attributes; a styled native `img` keeps them as real attributes, which size
+ * the image and let the browser reserve its box before the lazy load.
+ */
+const ArtworkImage = styled("img")(({ theme }) => ({
+  flexShrink: 0,
+  borderRadius: theme.vars.radius.sm,
+  objectFit: "cover",
+}));
 
 /**
  * A specialty program's tile: its logo when it has one, else `short_name` set
@@ -24,14 +36,12 @@ export default function SpecialtyTile({
 
   if (specialty.artwork) {
     return (
-      <Box
-        component="img"
+      <ArtworkImage
         src={specialty.artwork.square_url}
         alt=""
         loading="lazy"
         width={size}
         height={size}
-        sx={{ ...square, objectFit: "cover" }}
       />
     );
   }
