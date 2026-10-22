@@ -171,6 +171,7 @@ describe("archiveStreamApi", () => {
       talkset: { id: 20, hoursAgo: 5 },
       breakpoint: { id: 60, hoursAgo: 2 },
       message: { id: 40, hoursAgo: 1 },
+      spotlight: { id: 80, hoursAgo: 3 },
     } satisfies Record<FlowsheetEntryType, { id: number; hoursAgo: number }>;
     const entries = Object.values(FlowsheetEntryType).map((entryType) =>
       V2_ENTRY_FACTORIES_BY_TYPE[entryType]({

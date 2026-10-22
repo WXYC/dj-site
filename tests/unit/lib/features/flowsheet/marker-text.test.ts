@@ -48,6 +48,10 @@ const MARKER_CASES = {
     overrides: { message: "Fund drive pitch" },
     expected: { headline: "Fund drive pitch", caption: undefined },
   },
+  spotlight: {
+    overrides: { message: "Jessica Pratt joined the show" },
+    expected: { headline: "Jessica Pratt joined the show", caption: undefined },
+  },
 } satisfies Record<MarkerType, { overrides: object; expected: MarkerText }>;
 
 const markerTypes = Object.values(FlowsheetEntryType).filter(
