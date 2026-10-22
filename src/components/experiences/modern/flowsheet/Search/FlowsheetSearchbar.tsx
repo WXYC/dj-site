@@ -9,6 +9,7 @@ import {
   useFlowsheetSubmit,
 } from "@/src/hooks/flowsheetHooks";
 import { useGhostText } from "@/src/hooks/useGhostText";
+import { useWhosOn } from "@/src/hooks/whosOnHooks";
 import { ClickAwayListener } from "@mui/base/ClickAwayListener";
 import { Popper } from "@mui/base/Popper";
 import { Close, PlayArrow, QueueMusic } from "@mui/icons-material";
@@ -31,9 +32,12 @@ import RotationEntryFields from "./RotationEntryFields";
 import RotationModeToggle from "./RotationModeToggle";
 import TalksetButton from "./TalksetButton";
 import WhosOnButton from "./WhosOnButton";
+import WhosOnLeadingComposer from "./WhosOnLeadingComposer";
 
 export default function FlowsheetSearchbar() {
   const dispatch = useAppDispatch();
+  const { leadsComposer } = useWhosOn();
+  const [songsRevealed, setSongsRevealed] = useState(false);
 
   const {
     ctrlKeyPressed,
@@ -354,6 +358,18 @@ export default function FlowsheetSearchbar() {
   const composing = searchQueryLength > 0 || selectedResult > 0;
   // Rotation picks live in RotationEntryFields' local state, invisible to the query-length signal
   const showClear = rotationMode || composing;
+
+  if (leadsComposer && !songsRevealed) {
+    return (
+      <Sheet
+        variant="outlined"
+        data-testid="flowsheet-entry-bar"
+        sx={{ borderRadius: "md", width: "100%", bgcolor: "background.level1" }}
+      >
+        <WhosOnLeadingComposer onLogSong={() => setSongsRevealed(true)} />
+      </Sheet>
+    );
+  }
 
   return (
     <ClickAwayListener onClickAway={handleClose}>

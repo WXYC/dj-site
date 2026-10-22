@@ -47,6 +47,7 @@ export const whosOnCopy = {
       ? "This name shows in the listener apps. Use the name your guest wants public."
       : "This name shows in the listener apps.",
   add: "Add",
+  logSong: "Log a song",
   disabled: "Who's on air isn't turned on yet.",
 };
 
