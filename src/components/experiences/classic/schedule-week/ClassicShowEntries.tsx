@@ -1,14 +1,12 @@
 "use client";
 
-import { Fragment } from "react";
 import type { FlowsheetRangeShow } from "@wxyc/shared";
 import type { FlowsheetRangeEntryWire } from "@/lib/features/flowsheet/conversions";
 import { rangeEntryTime } from "@/lib/features/flowsheet/entry-time";
 import { describeNonTrackEntry } from "@/lib/features/schedule-week/entryLabel";
 import { entryAnchorId } from "@/lib/features/schedule-week/showUrl";
 import EditableShowTable from "@/src/components/experiences/classic/playlists/EditableShowTable";
-import { Capsule } from "@/src/components/experiences/classic/flowsheet/Capsule";
-import { capsulesForSongEntry } from "@/lib/features/flowsheet/indicators";
+import { EntryCapsules } from "@/src/components/experiences/classic/flowsheet/Capsule";
 import "@/src/styles/classic/wxyc.css";
 import "@/src/styles/classic/schedule-week.css";
 
@@ -37,13 +35,6 @@ const rowClass = (entry: FlowsheetRangeEntryWire, index: number) => {
     return entry.entry_type === "talkset" ? "talkset-row" : "breakpoint-row";
   return `entry-row ${index % 2 === 0 ? "entry-row-even" : "entry-row-odd"}`;
 };
-
-const capsulesFor = (entry: FlowsheetRangeEntryWire) =>
-  capsulesForSongEntry({
-    request_flag: entry.request_flag,
-    rotation: entry.rotation_bin,
-    on_streaming: entry.on_streaming,
-  });
 
 export default function ClassicShowEntries({
   show,
@@ -112,7 +103,10 @@ export default function ClassicShowEntries({
         <table className="entry-table">
           <thead>
             <tr className="entry-header">
-              <th className="classic-schedule-week-time" style={{ width: "5em" }}>
+              <th
+                className="classic-schedule-week-time"
+                style={{ width: "5em" }}
+              >
                 Time
               </th>
               <th className="classic-indicator-cell" />
@@ -156,18 +150,7 @@ export default function ClassicShowEntries({
                 ) : (
                   <>
                     <td className="classic-indicator-cell">
-                      {capsulesFor(entry).map((capsule, position) => (
-                        <Fragment key={capsule.variant}>
-                          {/* The gap between adjacent capsules is the space the
-                              JSP prints after each one; neither badge carries a
-                              margin of its own. */}
-                          {position > 0 ? " " : null}
-                          <Capsule
-                            variant={capsule.variant}
-                            label={capsule.label}
-                          />
-                        </Fragment>
-                      ))}
+                      <EntryCapsules entry={entry} />
                     </td>
                     <td>{entry.artist_name}</td>
                     <td>{entry.track_title}</td>

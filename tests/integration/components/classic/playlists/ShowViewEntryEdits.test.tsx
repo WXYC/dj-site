@@ -1,9 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { renderWithProviders, server, TEST_BACKEND_URL } from "@/tests/helpers";
 import {
+  createTestV2MessageEntry,
   createTestV2ShowEndEntry,
+  createTestV2TalksetEntry,
   createTestV2TrackEntry,
 } from "@/tests/fixtures/fixtures";
 import { Authorization } from "@/lib/features/admin/types";
@@ -262,4 +264,124 @@ describe("classic ShowView entry editing", () => {
     await screen.findByText("la paradoja");
     expect(screen.getAllByLabelText("Drag to reorder")).toHaveLength(1);
   });
+
+  it("shows a message row with a delete control, so the editable table never lists fewer rows than the read-only one", async () => {
+    mockAuth.authority = Authorization.MD;
+    servePlaylist(
+      show({
+        end_time: "2026-08-23T00:01:00.000Z",
+        entries: [
+          track(3001, 1, "la paradoja"),
+          createTestV2MessageEntry({
+            id: 3002,
+            show_id: SHOW_ID,
+            play_order: 2,
+            message: "Station ID reminder",
+          }),
+        ],
+      }),
+    );
+    let body: unknown;
+    server.use(
+      http.delete(`${TEST_BACKEND_URL}/flowsheet`, async ({ request }) => {
+        body = await request.json();
+        return new HttpResponse(null, { status: 200 });
+      }),
+    );
+    const { user } = renderWithProviders(<ShowView showId={SHOW_ID} />);
+
+    await screen.findByText("la paradoja");
+    expect(screen.getByText("Station ID reminder")).toBeInTheDocument();
+    await user.click(
+      within(rowOf("Station ID reminder")).getByLabelText("Actions"),
+    );
+    expect(screen.queryByRole("menuitem", { name: "Edit" })).toBeNull();
+    await user.click(screen.getByRole("menuitem", { name: "Delete" }));
+
+    await waitFor(() => expect(body).toEqual({ entry_id: 3002 }));
+  });
+
+  it("keeps the Time column and the indicator capsules the read-only table shows", async () => {
+    mockAuth.authority = Authorization.MD;
+    servePlaylist(
+      show({
+        end_time: "2026-08-23T00:01:00.000Z",
+        entries: [
+          createTestV2TrackEntry({
+            id: 3001,
+            show_id: SHOW_ID,
+            play_order: 1,
+            track_title: "la paradoja",
+            rotation_bin: "H",
+            request_flag: true,
+            on_streaming: false,
+            add_time: "2026-08-22T20:40:00.000Z",
+          }),
+          createTestV2TalksetEntry({
+            id: 3002,
+            show_id: SHOW_ID,
+            play_order: 2,
+            add_time: "2026-08-22T20:50:00.000Z",
+          }),
+        ],
+      }),
+    );
+    renderWithProviders(<ShowView showId={SHOW_ID} />);
+
+    await screen.findByText("la paradoja");
+    expect(
+      screen.getByRole("columnheader", { name: "Time" }),
+    ).toBeInTheDocument();
+    const songRow = within(rowOf("la paradoja"));
+    expect(songRow.getByText("4:40 PM")).toBeInTheDocument();
+    expect(songRow.getByText("ROTATION H")).toBeInTheDocument();
+    expect(songRow.getByText("REQUEST")).toBeInTheDocument();
+    expect(songRow.getByText("EXCLUSIVE")).toBeInTheDocument();
+    expect(
+      within(screen.getByText(/talkset/i).closest("tr")!).getByText("4:50 PM"),
+    ).toBeInTheDocument();
+  });
+
+  it.each([
+    [
+      "a talkset",
+      createTestV2TalksetEntry({ id: 3002, show_id: SHOW_ID, play_order: 2 }),
+      /talkset/i,
+    ],
+    [
+      "a message",
+      createTestV2MessageEntry({
+        id: 3002,
+        show_id: SHOW_ID,
+        play_order: 2,
+        message: "Station ID reminder",
+      }),
+      /Station ID reminder/,
+    ],
+    [
+      "a show end",
+      createTestV2ShowEndEntry({ id: 3002, show_id: SHOW_ID, play_order: 2 }),
+      /End of show/,
+    ],
+  ])(
+    "anchors and highlights %s row a search result linked to",
+    async (_kind, entry, text) => {
+      mockAuth.authority = Authorization.MD;
+      servePlaylist(
+        show({
+          end_time: "2026-08-23T00:01:00.000Z",
+          entries: [track(3001, 1, "la paradoja"), entry],
+        }),
+      );
+      renderWithProviders(
+        <ShowView showId={SHOW_ID} highlightedEntryId={3002} />,
+      );
+
+      await screen.findByText("la paradoja");
+      const row = screen.getByText(text).closest("tr")!;
+      expect(row).toHaveClass("playlistEntryHighlight");
+      expect(row.id).not.toBe("");
+      expect(rowOf("la paradoja").id).toBe("");
+    },
+  );
 });

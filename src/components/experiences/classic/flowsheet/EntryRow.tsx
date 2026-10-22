@@ -1,6 +1,10 @@
 "use client";
 
-import { useState, type DragEvent as ReactDragEvent } from "react";
+import {
+  useState,
+  type DragEvent as ReactDragEvent,
+  type ReactNode,
+} from "react";
 import { toast } from "sonner";
 import {
   FlowsheetEntry,
@@ -15,6 +19,7 @@ import { flowsheetArtistRejection } from "@/lib/features/flowsheet/various-artis
 import EntryActionMenu from "./EntryActionMenu";
 import { entryAnchorId } from "@/lib/features/schedule-week/showUrl";
 import { formatShortDate, formatShortTime } from "./marker-format";
+import { messageEntryLabel } from "@/lib/features/flowsheet/marker-text";
 import "@/src/styles/classic/segue.css";
 import "@/src/styles/classic/drag.css";
 import "@/src/styles/classic/actions.css";
@@ -29,6 +34,11 @@ type Props = {
   seguesIntoNext?: boolean;
   /** The playcut an archive link named; it alone carries the fragment anchor. */
   highlighted?: boolean;
+  /** A past-show table's two extra leading columns, the Time cell and the
+   *  indicator gutter; the live flowsheet passes none. Marker rows then span
+   *  the gutter too, and a message row, which the live flowsheet leaves unlisted,
+   *  is listed so the table never shows fewer rows than the read-only one. */
+  leading?: { time: string; indicators: ReactNode };
   isDragging?: boolean;
   isDragOver?: boolean;
   onDragStart?: (entryId: number) => void;
@@ -65,6 +75,7 @@ export default function EntryRow({
   onDelete,
   seguesIntoNext,
   highlighted,
+  leading,
   isDragging,
   isDragOver,
   onDragStart,
@@ -130,6 +141,17 @@ export default function EntryRow({
   // middle data columns (of 8: grip + playlist + req + artist + song +
   // release + label + action); the trailing action column gets its own cell.
 
+  const timeCell = leading && (
+    <td className="classic-schedule-week-time">{leading.time}</td>
+  );
+  const markerSpan = leading ? 7 : 6;
+  // Any row can be the one an archive link named, not only a song.
+  const anchor = highlighted ? { id: entryAnchorId(entry.id) } : {};
+  const rowClasses = (...names: string[]) =>
+    [...names, highlighted ? "playlistEntryHighlight" : ""]
+      .filter(Boolean)
+      .join(" ");
+
   const dragClass = [
     isDragging ? "dragging" : "",
     isDragOver ? "drag-over" : "",
@@ -161,14 +183,14 @@ export default function EntryRow({
   if (isFlowsheetTalksetEntry(entry)) {
     return (
       <tr
-        className={["flowsheetEntryData", "talkset-row", dragClass]
-          .filter(Boolean)
-          .join(" ")}
+        {...anchor}
+        className={rowClasses("flowsheetEntryData", "talkset-row", dragClass)}
         draggable={isDraggable}
         {...dragHandlers}
       >
         {isDraggable ? <GripCell /> : <EmptyGripCell />}
-        <td colSpan={6} align="center">
+        {timeCell}
+        <td colSpan={markerSpan} align="center">
           talkset
         </td>
         <td className="action-cell">
@@ -180,9 +202,13 @@ export default function EntryRow({
 
   if (isFlowsheetBreakpointEntry(entry)) {
     return (
-      <tr className="flowsheetEntryData breakpoint-row">
+      <tr
+        {...anchor}
+        className={rowClasses("flowsheetEntryData", "breakpoint-row")}
+      >
         <EmptyGripCell />
-        <td colSpan={6}>{formatShortTime(entry.time)}</td>
+        {timeCell}
+        <td colSpan={markerSpan}>{formatShortTime(entry.time)}</td>
         <td className="action-cell"></td>
       </tr>
     );
@@ -190,9 +216,13 @@ export default function EntryRow({
 
   if (isFlowsheetStartShowEntry(entry)) {
     return (
-      <tr className="flowsheetEntryData breakpoint-row">
+      <tr
+        {...anchor}
+        className={rowClasses("flowsheetEntryData", "breakpoint-row")}
+      >
         <EmptyGripCell />
-        <td colSpan={6}>
+        {timeCell}
+        <td colSpan={markerSpan}>
           Start of show — {entry.dj_name} @ {formatShortDate(entry.day)}{" "}
           {formatShortTime(entry.time)}
         </td>
@@ -203,9 +233,13 @@ export default function EntryRow({
 
   if (isFlowsheetEndShowEntry(entry)) {
     return (
-      <tr className="flowsheetEntryData breakpoint-row">
+      <tr
+        {...anchor}
+        className={rowClasses("flowsheetEntryData", "breakpoint-row")}
+      >
         <EmptyGripCell />
-        <td colSpan={6}>
+        {timeCell}
+        <td colSpan={markerSpan}>
           End of show — {entry.dj_name} @ {formatShortDate(entry.day)}{" "}
           {formatShortTime(entry.time)}
         </td>
@@ -215,25 +249,26 @@ export default function EntryRow({
   }
 
   if (isFlowsheetSongEntry(entry)) {
-    const trClassName = [
+    const trClassName = rowClasses(
       "flowsheetEntryData",
       "entry-row",
-      highlighted ? "playlistEntryHighlight" : "",
       dragClass,
-    ]
-      .filter(Boolean)
-      .join(" ");
+    );
     const dataSegue = seguesIntoNext ? "true" : undefined;
 
     return (
       <tr
-        id={highlighted ? entryAnchorId(entry.id) : undefined}
+        {...anchor}
         className={trClassName}
         data-segue={dataSegue}
         draggable={isDraggable}
         {...dragHandlers}
       >
         {isDraggable ? <GripCell /> : <EmptyGripCell />}
+        {timeCell}
+        {leading && (
+          <td className="classic-indicator-cell">{leading.indicators}</td>
+        )}
         <td align="center">{entry.rotation ?? ""}</td>
         <td align="center">
           {draft ? (
@@ -350,5 +385,25 @@ export default function EntryRow({
     );
   }
 
-  return null;
+  if (!leading) {
+    return null;
+  }
+
+  // The guards above cover the type union, but a wire type this build does not
+  // know converts to a bare message at runtime, so this arm is reachable.
+  const message = entry as FlowsheetEntry;
+
+  return (
+    <tr
+      {...anchor}
+      className={rowClasses("flowsheetEntryData", "breakpoint-row")}
+    >
+      <EmptyGripCell />
+      {timeCell}
+      <td colSpan={markerSpan}>{messageEntryLabel(message)}</td>
+      <td className="action-cell">
+        <EntryActionMenu entryId={message.id} onDelete={onDelete} />
+      </td>
+    </tr>
+  );
 }
