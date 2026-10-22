@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { describeSlot, oneTapName, withStartAs } from "@/lib/features/specialty/copy";
+import { describeSlot, oneTapName, specialtyCopy, withStartAs } from "@/lib/features/specialty/copy";
 
 describe("describeSlot", () => {
   it.each([
@@ -36,5 +36,22 @@ describe("withStartAs", () => {
     ["Join them as a co-host, or end their show and start your own.", undefined, "Join them as a co-host, or end their show and start your own."],
   ])("%s + %s", (sentence, program, expected) => {
     expect(withStartAs(sentence, program)).toBe(expected);
+  });
+});
+
+describe("one-tap copy", () => {
+  it.each([
+    ["Backyard BBQ", "Backyard BBQ"],
+    ["Friday Night Story Hour with the Whole Crew", "Story Hour"],
+  ])("%s labels its buttons with %s", (name, shown) => {
+    const program = { name, short_name: "Story Hour" } as Parameters<typeof oneTapName>[0];
+    expect(specialtyCopy.goLiveAs(program)).toBe(`Go live as ${shown}`);
+    expect(specialtyCopy.signOnAs(program)).toBe(`Sign on and Start ${shown}!`);
+  });
+
+  it("explains why to go live as the show", () => {
+    expect(specialtyCopy.goLiveAsWhy).toBe(
+      "Going live as the show is what puts it on listeners' screens."
+    );
   });
 });

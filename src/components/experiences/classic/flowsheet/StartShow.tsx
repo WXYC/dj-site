@@ -8,7 +8,7 @@ import {
   GO_LIVE_HANDOFF_TESTIDS,
   describeOpenShow,
 } from "@/lib/features/flowsheet/go-live-handoff";
-import { oneTapName, withStartAs } from "@/lib/features/specialty/copy";
+import { specialtyCopy, withStartAs } from "@/lib/features/specialty/copy";
 import { useOneTapPrograms, useWarmCurrentShow } from "@/src/hooks/specialtyHooks";
 import type { OneTap } from "@/src/hooks/goLiveHandoffHooks";
 import { useLogout, useRegistry } from "@/src/hooks/authenticationHooks";
@@ -227,7 +227,7 @@ export default function StartShow() {
                     <input
                       key={program.id}
                       type="button"
-                      value={`Sign on and Start ${oneTapName(program)}!`}
+                      value={specialtyCopy.signOnAs(program)}
                       disabled={registryLoading || !userData}
                       onClick={() =>
                         startShow({

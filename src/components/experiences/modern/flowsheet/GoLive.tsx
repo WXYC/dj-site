@@ -18,10 +18,13 @@ import {
   IconButton,
   Stack,
   Tooltip,
+  Typography,
 } from "@mui/joy";
 import { useEffect, useState } from "react";
-import { oneTapName } from "@/lib/features/specialty/copy";
+import { specialtyCopy } from "@/lib/features/specialty/copy";
 import { useGoLiveHandoff } from "@/src/hooks/goLiveHandoffHooks";
+import { FLOWSHEET_MOBILE_QUERY } from "./Entries/tableStyles";
+import { useMediaQuery } from "@/src/hooks/useMediaQuery";
 import { useOneTapPrograms, useWarmCurrentShow } from "@/src/hooks/specialtyHooks";
 import GoLiveHandoffDialog from "./GoLiveHandoffDialog";
 
@@ -36,6 +39,10 @@ export default function GoLive() {
 
   const oneTapPrograms = useOneTapPrograms();
   useWarmCurrentShow();
+  const narrow = useMediaQuery(FLOWSHEET_MOBILE_QUERY);
+  // On a phone the one-tap buttons lead the off-air screen instead of crowding
+  // the header row beside the usual Go Live.
+  const leadWithOneTap = narrow && !live && oneTapPrograms.length > 0;
 
   // Both controls below route through this. The icon button used to carry its
   // own copy of the toggle, which would have made it a silent bypass of the
@@ -67,7 +74,27 @@ export default function GoLive() {
       ? "Click to leave"
       : "Click to go live";
 
-  return (
+  const oneTapButtons = live
+    ? null
+    : oneTapPrograms.map((program) => (
+        <Button
+          key={program.id}
+          variant="solid"
+          color="primary"
+          disabled={effectiveLoading}
+          onClick={() =>
+            void requestGoLive(undefined, {
+              tag: { specialty_id: program.id },
+              program: program.name,
+            })
+          }
+          data-testid="flowsheet-go-live-as"
+        >
+          {specialtyCopy.goLiveAs(program)}
+        </Button>
+      ));
+
+  const controls = (
     <Stack direction="row" spacing={1} alignItems="center">
       <Tooltip
         title={`Autoplay is ${autoplay ? "On" : "Off"}`}
@@ -94,25 +121,7 @@ export default function GoLive() {
           />
         </Tooltip>
       ) : null}
-      {live
-        ? null
-        : oneTapPrograms.map((program) => (
-            <Button
-              key={program.id}
-              variant="solid"
-              color="primary"
-              disabled={effectiveLoading}
-              onClick={() =>
-                void requestGoLive(undefined, {
-                  tag: { specialty_id: program.id },
-                  program: program.name,
-                })
-              }
-              data-testid="flowsheet-go-live-as"
-            >
-              Go live as {oneTapName(program)}
-            </Button>
-          ))}
+      {leadWithOneTap ? null : oneTapButtons}
       <Tooltip
         title={goLiveLabel}
         placement="top"
@@ -163,6 +172,17 @@ export default function GoLive() {
         onDecide={(intent) => void decide(intent)}
         onCancel={cancel}
       />
+    </Stack>
+  );
+
+  if (!leadWithOneTap) {
+    return controls;
+  }
+  return (
+    <Stack spacing={1}>
+      {oneTapButtons}
+      <Typography level="body-sm">{specialtyCopy.goLiveAsWhy}</Typography>
+      {controls}
     </Stack>
   );
 }
