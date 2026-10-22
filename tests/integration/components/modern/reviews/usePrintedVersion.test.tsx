@@ -74,7 +74,9 @@ describe("usePrintedVersion", () => {
     }
     await waitFor(() => expect(result.current).toBe(expected));
     // The read starts once the Backend has said the screens are visible, which can follow the first render.
-    if (requested) await waitFor(() => expect(seen.length).toBeGreaterThan(0));
+    if (requested) {
+      await waitFor(() => expect(seen.length).toBeGreaterThan(0));
+    }
     expect(seen.length > 0).toBe(requested);
   });
 });
