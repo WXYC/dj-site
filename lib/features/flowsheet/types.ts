@@ -338,7 +338,9 @@ export type FlowsheetV2PaginatedResponseJSON = {
 };
 
 /** The open show as the one-row flowsheet page reports it. */
-export type CurrentShow = Pick<FlowsheetRangeShow, "id" | "start_time" | "specialty">;
+export type CurrentShow = Pick<FlowsheetRangeShow, "id" | "start_time" | "specialty"> & {
+  show_name: string | null;
+};
 
 export type SuggestTrackResult = {
   track_title: string;

@@ -119,7 +119,12 @@ export const flowsheetApi = createApi({
         const showId = response?.on_air?.show_id;
         const show = response?.shows?.find((s) => s.id === showId);
         return show
-          ? { id: show.id, start_time: show.start_time, specialty: show.specialty }
+          ? {
+              id: show.id,
+              start_time: show.start_time,
+              specialty: show.specialty,
+              show_name: show.show_name ?? null,
+            }
           : null;
       },
       providesTags: ["Flowsheet"],

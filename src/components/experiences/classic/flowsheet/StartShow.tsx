@@ -9,7 +9,7 @@ import {
   describeOpenShow,
 } from "@/lib/features/flowsheet/go-live-handoff";
 import { oneTapName, withStartAs } from "@/lib/features/specialty/copy";
-import { useOneTapPrograms } from "@/src/hooks/specialtyHooks";
+import { useOneTapPrograms, useWarmCurrentShow } from "@/src/hooks/specialtyHooks";
 import type { OneTap } from "@/src/hooks/goLiveHandoffHooks";
 import { useLogout, useRegistry } from "@/src/hooks/authenticationHooks";
 import { FormEvent, useEffect, useState } from "react";
@@ -24,6 +24,7 @@ export default function StartShow() {
   const { prompt, deciding, requestGoLive, decide, cancel } =
     useGoLiveHandoff(goLive);
   const oneTapPrograms = useOneTapPrograms();
+  useWarmCurrentShow();
   const { info: userData, loading: registryLoading } = useRegistry();
   const { handleLogout } = useLogout();
   // Editable per-show override for the DJ's public handle, initialized to the
