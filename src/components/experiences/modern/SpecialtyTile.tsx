@@ -28,6 +28,9 @@ export default function SpecialtyTile({
         component="img"
         src={specialty.artwork.square_url}
         alt=""
+        loading="lazy"
+        width={size}
+        height={size}
         sx={{ ...square, objectFit: "cover" }}
       />
     );
@@ -53,13 +56,15 @@ export default function SpecialtyTile({
         overflow: "hidden",
       }}
     >
-      <span>
-        {lines.map((line) => (
-          <span key={line} style={{ display: "block", whiteSpace: "nowrap" }}>
-            {line}
-          </span>
-        ))}
-      </span>
+      {lines.length > 0 && (
+        <span>
+          {lines.map((line) => (
+            <span key={line} style={{ display: "block", whiteSpace: "nowrap" }}>
+              {line}
+            </span>
+          ))}
+        </span>
+      )}
     </Box>
   );
 }

@@ -11,8 +11,11 @@ export const GLYPH_WIDTH_EM = 0.7;
 /** The tile's type starts at this share of its side and only steps down. */
 const MAX_FONT_FRACTION = 0.32;
 
+/** Below this a label is noise; the tile then shows its accent color alone. */
+export const MIN_FONT_SIZE = 6;
+
 export interface FittedShortName {
-  /** One or two lines, broken on word boundaries only. */
+  /** One or two lines, broken on word boundaries only; empty when no text fits. */
   lines: string[];
   fontSize: number;
 }
@@ -22,7 +25,8 @@ export interface FittedShortName {
  * at most two lines on word boundaries (the split with the shortest widest
  * line), then steps the font size down from `size * 0.32` until the widest
  * line fits inside the padded tile. A single long word cannot wrap, so it takes
- * the smaller size instead.
+ * the smaller size instead. A name that cannot reach `MIN_FONT_SIZE` yields no
+ * lines and a zero font size.
  */
 export function fitShortName(name: string, size: number): FittedShortName {
   const words = name.trim().split(/\s+/).filter(Boolean);
@@ -40,5 +44,6 @@ export function fitShortName(name: string, size: number): FittedShortName {
     size * MAX_FONT_FRACTION,
     available / (widest * GLYPH_WIDTH_EM),
   );
+  if (fontSize < MIN_FONT_SIZE) return { lines: [], fontSize: 0 };
   return { lines, fontSize };
 }
