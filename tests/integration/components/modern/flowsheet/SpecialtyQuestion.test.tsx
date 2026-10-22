@@ -39,15 +39,18 @@ const ORANGE_COUNTY = SEED_CATALOG[0];
 type OpenShow = { id: number; start_time: string; specialty: SpecialtyShow | null };
 
 let openShow: OpenShow | null;
+let onAirDj: string;
 let newestEntryId: number;
+let flowsheetFetches: number;
 let catalog: SpecialtyShow[];
 let patches: Array<{ id: string; body: unknown }>;
 let patchRefusal: { status: number; body: Record<string, string> } | null;
 
 function serve() {
   server.use(
-    http.get(`${TEST_BACKEND_URL}/flowsheet/`, () =>
-      HttpResponse.json({
+    http.get(`${TEST_BACKEND_URL}/flowsheet/`, () => {
+      flowsheetFetches += 1;
+      return HttpResponse.json({
         entries: [
           {
             id: newestEntryId,
@@ -67,10 +70,10 @@ function serve() {
         limit: 1,
         total: 1,
         total_pages: 1,
-        on_air: openShow ? { dj_name: "DJ Test", show_id: openShow.id } : null,
+        on_air: openShow ? { dj_name: onAirDj, show_id: openShow.id } : null,
         shows: openShow ? [openShow] : [],
-      })
-    ),
+      });
+    }),
     http.get(`${TEST_BACKEND_URL}/specialty-shows`, () =>
       HttpResponse.json(catalog)
     ),
@@ -116,6 +119,8 @@ describe("SpecialtyQuestion", () => {
       stored.set(key, value);
     });
     mockUseShowControl.mockReturnValue({ live: true, currentShow: 7 });
+    onAirDj = "DJ Test";
+    flowsheetFetches = 0;
     newestEntryId = 100;
     catalog = SEED_CATALOG;
     patches = [];
@@ -166,6 +171,23 @@ describe("SpecialtyQuestion", () => {
     await renderSilent();
 
     expect(screen.queryByText(/is usually/)).not.toBeInTheDocument();
+  });
+
+  // Acceptance criterion 7: the question belongs to the set, not to the DJ who
+  // opened it. The hook reports live for any DJ on the set, so a co-host is
+  // simulated by the on-air DJ being someone else.
+  it.each([
+    ["sees the question on an untagged set", {}, true],
+    ["does not see it on a tagged set", { specialty: ORANGE_COUNTY }, false],
+  ])("a co-host %s", async (_label, overrides, asks) => {
+    onAirDj = "The DJ who opened the set";
+    setOpenShow(overrides);
+    if (asks) {
+      await renderQuestion();
+    } else {
+      await renderSilent();
+      expect(screen.queryByText(/is usually/)).not.toBeInTheDocument();
+    }
   });
 
   it("does not ask a DJ who is not on the set", async () => {
@@ -232,6 +254,48 @@ describe("SpecialtyQuestion", () => {
       expect(screen.queryByLabelText("Title for this week")).not.toBeInTheDocument()
     );
     expect(patches).toEqual([{ id: "7", body: { specialty_id: 1 } }]);
+  });
+
+  it("opens the next show's confirmation with an empty title after one closed unsent", async () => {
+    const { user, store } = await renderQuestion();
+    await user.click(yes("Orange County Special"));
+    await user.type(await screen.findByLabelText("Title for this week"), "Cat Power night");
+
+    newestEntryId = 101;
+    store.dispatch(flowsheetApi.util.invalidateTags(["Flowsheet"]));
+    await waitFor(() =>
+      expect(screen.queryByLabelText("Title for this week")).not.toBeInTheDocument()
+    );
+
+    const fetchesBefore = flowsheetFetches;
+    setOpenShow({ id: 8 });
+    newestEntryId = 102;
+    store.dispatch(flowsheetApi.util.invalidateTags(["Flowsheet"]));
+    await waitFor(() => expect(flowsheetFetches).toBeGreaterThan(fetchesBefore));
+    await new Promise((r) => setTimeout(r, 150));
+    await user.click(await screen.findByRole("button", { name: "Yes, it's Orange County Special" }));
+
+    expect(await screen.findByLabelText("Title for this week")).toHaveValue("");
+    await user.click(screen.getByRole("button", { name: "Done" }));
+
+    expect(patches).toEqual([
+      { id: "7", body: { specialty_id: 1 } },
+      { id: "8", body: { specialty_id: 1 } },
+    ]);
+  });
+
+  it("does not carry an earlier refusal into the next show's question", async () => {
+    patchRefusal = { status: 400, body: { message: "anything" } };
+    const { user, store } = await renderQuestion();
+    await user.click(yes("Orange County Special"));
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Not this time" }));
+
+    setOpenShow({ id: 8 });
+    store.dispatch(flowsheetApi.util.invalidateTags(["Flowsheet"]));
+
+    expect(await screen.findByText(/is usually/)).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
   it("drops the confirmation when the DJ leaves the set", async () => {
