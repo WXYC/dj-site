@@ -1,4 +1,4 @@
-import type { SpecialtyShowSlot } from "@wxyc/shared";
+import type { SpecialtyShow, SpecialtyShowSlot } from "@wxyc/shared";
 import { CLOSED_SHOW_SENTENCE } from "../show-playlist/api";
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
@@ -14,6 +14,18 @@ export function describeSlot({ day, start_time }: SpecialtyShowSlot): string {
   }
   const clock = `${hour % 12 || 12}:${String(minute).padStart(2, "0")} ${hour < 12 ? "AM" : "PM"}`;
   return `${DAYS[day]} at ${clock}`;
+}
+
+const LONG_NAME_LENGTH = 24;
+
+/** A program's name on a button: the display name, or `short_name` once the display name is long. */
+export function oneTapName({ name, short_name }: Pick<SpecialtyShow, "name" | "short_name">): string {
+  return name.length > LONG_NAME_LENGTH ? short_name : name;
+}
+
+/** "...start your own." becomes "...start your own as <program>." after a one-tap press. */
+export function withStartAs(sentence: string, program?: string): string {
+  return program ? sentence.replace(/\.$/, ` as ${program}.`) : sentence;
 }
 
 export const REJECTED_PROGRAM_SENTENCE =

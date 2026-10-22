@@ -421,6 +421,40 @@ describe("flowsheetHooks", () => {
       expect(args).not.toHaveProperty("dj_name_override");
     });
 
+    it("sends specialty_id and show_name when goLive is given a tag", () => {
+      const { result } = renderHook(() => useShowControl(), {
+        wrapper: createWrapper(),
+      });
+
+      act(() => {
+        result.current.goLive(undefined, undefined, {
+          specialty_id: 10,
+          show_name: "Season opener",
+        });
+      });
+
+      expect(mockGoLiveFunction).toHaveBeenCalledWith({
+        dj_id: "test-user-1",
+        dj_name: "Test DJ",
+        specialty_id: 10,
+        show_name: "Season opener",
+      });
+    });
+
+    it("sends no specialty_id or show_name from the usual go live", () => {
+      const { result } = renderHook(() => useShowControl(), {
+        wrapper: createWrapper(),
+      });
+
+      act(() => {
+        result.current.goLive();
+      });
+
+      const args = mockGoLiveFunction.mock.calls[0][0];
+      expect(args).not.toHaveProperty("specialty_id");
+      expect(args).not.toHaveProperty("show_name");
+    });
+
     it("should call leaveFunction when leave is called", () => {
       const { result } = renderHook(() => useShowControl(), {
         wrapper: createWrapper(),

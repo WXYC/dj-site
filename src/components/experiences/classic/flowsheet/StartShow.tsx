@@ -8,6 +8,9 @@ import {
   GO_LIVE_HANDOFF_TESTIDS,
   describeOpenShow,
 } from "@/lib/features/flowsheet/go-live-handoff";
+import { oneTapName, withStartAs } from "@/lib/features/specialty/copy";
+import { useOneTapPrograms } from "@/src/hooks/specialtyHooks";
+import type { OneTap } from "@/src/hooks/goLiveHandoffHooks";
 import { useLogout, useRegistry } from "@/src/hooks/authenticationHooks";
 import { FormEvent, useEffect, useState } from "react";
 import { OpenHelp } from "@/src/utils/helpScreen";
@@ -20,6 +23,7 @@ export default function StartShow() {
   // the dead end this prompt exists to remove, only relocated.
   const { prompt, deciding, requestGoLive, decide, cancel } =
     useGoLiveHandoff(goLive);
+  const oneTapPrograms = useOneTapPrograms();
   const { info: userData, loading: registryLoading } = useRegistry();
   const { handleLogout } = useLogout();
   // Editable per-show override for the DJ's public handle, initialized to the
@@ -37,8 +41,7 @@ export default function StartShow() {
     }
   }, [registryDjHandle, userEditedDjHandle]);
 
-  const handleStartShow = (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  const startShow = (oneTap?: OneTap) => {
     // Pass the override only when the user-typed value is non-empty after
     // trimming AND differs from the *current* registry value (read at
     // submit time, not captured at mount). This keeps the comparison
@@ -53,7 +56,12 @@ export default function StartShow() {
     // The override is handed to the prompt, not recomputed after it: this form
     // reads the registry at submit time, and re-deriving it on the far side of
     // a dialog would silently drop the handle the DJ typed.
-    void requestGoLive(override);
+    void requestGoLive(override, oneTap);
+  };
+
+  const handleStartShow = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    startShow();
   };
 
   const getCurrentTimeDisplay = () => {
@@ -214,6 +222,24 @@ export default function StartShow() {
                       cursor: registryLoading || !userData ? "not-allowed" : "pointer",
                     }}
                   />
+                  {oneTapPrograms.map((program) => (
+                    <input
+                      key={program.id}
+                      type="button"
+                      value={`Sign on and Start ${oneTapName(program)}!`}
+                      disabled={registryLoading || !userData}
+                      onClick={() =>
+                        startShow({
+                          tag: { specialty_id: program.id },
+                          program: program.name,
+                        })
+                      }
+                      data-testid="classic-sign-on-as"
+                      style={{
+                        cursor: registryLoading || !userData ? "not-allowed" : "pointer",
+                      }}
+                    />
+                  ))}
                 </td>
               </tr>
               {prompt && (
@@ -228,7 +254,7 @@ export default function StartShow() {
                       data-testid={GO_LIVE_HANDOFF_TESTIDS.prompt}
                     >
                       <b>{describeOpenShow(prompt.handoff)}</b>
-                      <p>{GO_LIVE_HANDOFF_TAKEOVER_ONLY_COPY.choice}</p>
+                      <p>{withStartAs(GO_LIVE_HANDOFF_TAKEOVER_ONLY_COPY.choice, prompt.program)}</p>
                       {/* No join. This surface has one way forward and one way
                           out, which is the shape tubafrenzy had — see
                           GO_LIVE_HANDOFF_TAKEOVER_ONLY_COPY. Red because it
