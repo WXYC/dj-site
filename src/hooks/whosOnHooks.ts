@@ -15,8 +15,9 @@ import type { SpotlightRole } from "@wxyc/shared";
  *
  * Offered on a freeform set (opening on Guest) and on a program the catalog
  * gives a usual role; a program without one has no button, though the server
- * would accept the row. Withheld until the open show has answered, so a
- * program's DJ is never offered a role set that is about to change.
+ * would accept the row. Withheld until the open show has answered, and when
+ * its program cannot be read, so a program's DJ is never offered a role set
+ * that is about to change or that the catalog has not given them.
  */
 export function useWhosOn() {
   const { data: show } = useGetCurrentShowQuery();
@@ -25,6 +26,9 @@ export function useWhosOn() {
 
   const specialty = show?.specialty ?? null;
   const usualRole = specialty?.default_spotlight_role ?? null;
+  // A show that answered with null has no readable program, so it is neither
+  // freeform nor specialty: the control is withheld.
+  const hasShow = show !== undefined && show !== null;
 
   // Resolves true once the row is written. A refusal while the server flag is
   // off is worded here; every other failure is the global toast's.
@@ -47,7 +51,7 @@ export function useWhosOn() {
   );
 
   return {
-    available: show !== undefined && (specialty === null || usualRole !== null),
+    available: hasShow && (specialty === null || usualRole !== null),
     defaultRole: usualRole ?? ("guest" as SpotlightRole),
     isLoading,
     refusal,

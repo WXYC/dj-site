@@ -327,7 +327,11 @@ export function convertV2Entry(entry: FlowsheetV2EntryJSON): FlowsheetEntry {
         ...base,
         spotlight_role: entry.spotlight_role,
         spotlight_name: entry.spotlight_name,
-        message: whosOnMessage(entry.spotlight_role, entry.spotlight_name),
+        message: whosOnMessage(
+          entry.spotlight_role,
+          entry.spotlight_name,
+          entry.message
+        ),
       };
 
     // A type this build does not know (the server adds types ahead of the

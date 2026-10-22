@@ -151,6 +151,25 @@ describe("WhosOnButton", () => {
     expect(screen.queryByTestId("flowsheet-whoson-button")).not.toBeInTheDocument();
   });
 
+  it("offers nothing when the open show's program cannot be read", async () => {
+    server.use(
+      http.get(`${TEST_BACKEND_URL}/flowsheet/`, () =>
+        HttpResponse.json({
+          entries: [],
+          page: 0,
+          limit: 1,
+          total: 0,
+          total_pages: 1,
+          on_air: { dj_name: "DJ Test", show_id: 7 },
+          shows: [],
+        })
+      )
+    );
+    await renderControl();
+
+    expect(screen.queryByTestId("flowsheet-whoson-button")).not.toBeInTheDocument();
+  });
+
   it("offers nothing until the open show has answered", () => {
     renderWithProviders(<WhosOnButton />);
 
