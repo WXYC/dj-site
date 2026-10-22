@@ -2,9 +2,12 @@
 
 import Link from "next/link";
 import {
+  useCanEditShowRows,
+  usePastShowEntryActions,
   useScrollToShowEntry,
   useShowPlaylist,
 } from "@/src/hooks/showPlaylistHooks";
+import { EntryActionsProvider } from "@/src/hooks/entryActions";
 import ClassicShowEntries from "@/src/components/experiences/classic/schedule-week/ClassicShowEntries";
 import { hrefForShow } from "@/lib/features/schedule-week/showUrl";
 import "@/src/styles/classic/wxyc.css";
@@ -34,6 +37,8 @@ export default function ShowView({
   highlightedEntryId?: number | null;
 }) {
   const show = useShowPlaylist(showId);
+  const canEdit = useCanEditShowRows(show);
+  const actions = usePastShowEntryActions(showId);
 
   useScrollToShowEntry(highlightedEntryId, show.entries.length);
 
@@ -88,6 +93,7 @@ export default function ShowView({
         </tbody>
       </table>
 
+      <EntryActionsProvider value={actions}>
       <ClassicShowEntries
         show={{ id: showId, show_name: show.title, dj_name: show.djName } as never}
         entries={show.entries}
@@ -96,7 +102,9 @@ export default function ShowView({
         isLoading={show.isLoading}
         highlightedEntryId={highlightedEntryId}
         subtitle={show.subtitle}
+        editable={canEdit}
       />
+      </EntryActionsProvider>
     </div>
   );
 }

@@ -13,6 +13,7 @@ import {
 } from "@/lib/features/flowsheet/types";
 import { flowsheetArtistRejection } from "@/lib/features/flowsheet/various-artists-guard";
 import EntryActionMenu from "./EntryActionMenu";
+import { entryAnchorId } from "@/lib/features/schedule-week/showUrl";
 import { formatShortDate, formatShortTime } from "./marker-format";
 import "@/src/styles/classic/segue.css";
 import "@/src/styles/classic/drag.css";
@@ -26,6 +27,8 @@ type Props = {
    *  draws the bracket down to the next row in CSS. EntryTable computes this
    *  from the FOLLOWING entry's segue flag and passes it here. */
   seguesIntoNext?: boolean;
+  /** The playcut an archive link named; it alone carries the fragment anchor. */
+  highlighted?: boolean;
   isDragging?: boolean;
   isDragOver?: boolean;
   onDragStart?: (entryId: number) => void;
@@ -61,6 +64,7 @@ export default function EntryRow({
   onUpdate,
   onDelete,
   seguesIntoNext,
+  highlighted,
   isDragging,
   isDragOver,
   onDragStart,
@@ -211,13 +215,19 @@ export default function EntryRow({
   }
 
   if (isFlowsheetSongEntry(entry)) {
-    const trClassName = ["flowsheetEntryData", "entry-row", dragClass]
+    const trClassName = [
+      "flowsheetEntryData",
+      "entry-row",
+      highlighted ? "playlistEntryHighlight" : "",
+      dragClass,
+    ]
       .filter(Boolean)
       .join(" ");
     const dataSegue = seguesIntoNext ? "true" : undefined;
 
     return (
       <tr
+        id={highlighted ? entryAnchorId(entry.id) : undefined}
         className={trClassName}
         data-segue={dataSegue}
         draggable={isDraggable}
