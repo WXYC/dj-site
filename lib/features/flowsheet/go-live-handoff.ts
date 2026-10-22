@@ -129,7 +129,9 @@ export function readShowAlreadyOpen(err: unknown): OpenShowHandoff | null {
 }
 
 function readSpecialty(value: unknown): { name: string } | null {
-  if (!value || typeof value !== "object") return null;
+  if (!value || typeof value !== "object") {
+    return null;
+  }
   const { name } = value as { name?: unknown };
   return typeof name === "string" && name.trim().length > 0 ? { name } : null;
 }

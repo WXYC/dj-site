@@ -43,9 +43,6 @@ describe("readShowAlreadyOpen", () => {
     });
   });
 
-  // RTK Query rejects with the bare shape from `.unwrap()` and a wrapped one
-  // from `queryFulfilled`. Both reach this reader; missing the wrapped form
-  // would mis-classify every refusal seen from the cache-patch side.
   const withShow = (extra: Record<string, unknown>) => ({
     status: 409,
     data: {
@@ -66,6 +63,9 @@ describe("readShowAlreadyOpen", () => {
     expect(readShowAlreadyOpen(withShow(extra))).toMatchObject({ specialty, showName });
   });
 
+  // RTK Query rejects with the bare shape from `.unwrap()` and a wrapped one
+  // from `queryFulfilled`. Both reach this reader; missing the wrapped form
+  // would mis-classify every refusal seen from the cache-patch side.
   it("reads the wrapped rejection queryFulfilled produces", () => {
     expect(readShowAlreadyOpen({ error: conflict, meta: {} })).toEqual({
       showId: 1951224,
@@ -200,8 +200,6 @@ describe("describeOpenShow", () => {
     ).toBe("dj sue is on air.");
   });
 
-  // The abandoned show this feature exists for is exactly the one that
-  // collects several DJs, so the plural is not a rare path.
   it.each([
     ["program only", ["DJ Bramble"], { name: "Orange County Special" }, null, ago(12 * MINUTE),
       "Orange County Special is on air with DJ Bramble. Last logged 12m ago."],
@@ -219,6 +217,8 @@ describe("describeOpenShow", () => {
     expect(describeOpenShow({ showId: 1, djNames, specialty, showName, lastLoggedAt }, NOW)).toBe(expected);
   });
 
+  // The abandoned show this feature exists for is exactly the one that
+  // collects several DJs, so the plural is not a rare path.
   it("agrees with a plural subject", () => {
     expect(
       describeOpenShow(
