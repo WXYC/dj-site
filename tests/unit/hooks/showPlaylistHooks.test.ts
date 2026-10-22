@@ -9,7 +9,8 @@ const queryState: {
   error: unknown;
 } = { data: undefined, isFetching: false, error: undefined };
 
-vi.mock("@/lib/features/show-playlist/api", () => ({
+vi.mock("@/lib/features/show-playlist/api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/features/show-playlist/api")>()),
   useGetShowPlaylistQuery: () => queryState,
 }));
 
