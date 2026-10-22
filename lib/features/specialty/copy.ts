@@ -44,3 +44,15 @@ export function showTagRefusal(error: { status?: unknown; data?: unknown }): str
   }
   return error.status === 400 ? REJECTED_PROGRAM_SENTENCE : null;
 }
+
+/** Every string the set-tagging question shows; refusals have their own sentences above. */
+export const specialtyCopy = {
+  askOne: (slot: string, name: string) => `${slot} is usually ${name}. Is this set ${name}?`,
+  askShared: (slot: string, names: string[]) =>
+    `${slot} is usually ${names.join(" or ")}. Is this set one of them?`,
+  yes: (name: string) => `Yes, it's ${name}`,
+  notThisTime: "Not this time",
+  tagged: (name: string) => `The DJ site will show this set as ${name}.`,
+  titleLabel: "Title for this week",
+  done: "Done",
+};
