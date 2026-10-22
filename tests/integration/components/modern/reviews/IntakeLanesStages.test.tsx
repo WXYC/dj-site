@@ -80,7 +80,6 @@ beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"], now: NOW });
   url.search = "";
   mockAuth.authority = Authorization.MD;
-  vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "staff");
   vi.mocked(toast).mockClear();
   vi.mocked(toast.error).mockClear();
   vi.mocked(toast.dismiss).mockClear();

@@ -11,6 +11,7 @@ import { autoDJApi } from "./features/autoDJ/api";
 import { binApi } from "./features/bin/api";
 import { catalogApi } from "./features/catalog/api";
 import { catalogSlice } from "./features/catalog/frontend";
+import { featureAccessApi } from "./features/feature-access/api";
 import { experienceApi } from "./features/experiences/api";
 import { flowsheetApi } from "./features/flowsheet/api";
 import { flowsheetSlice } from "./features/flowsheet/frontend";
@@ -39,6 +40,7 @@ const rootReducer = combineSlices(
   archiveStreamApi,
   autoDJApi,
   experienceApi,
+  featureAccessApi,
   catalogSlice,
   catalogApi,
   binApi,
@@ -76,6 +78,7 @@ export const makeStore = (preloadedState?: Partial<RootState>) => {
         .concat(archiveStreamApi.middleware)
         .concat(autoDJApi.middleware)
         .concat(experienceApi.middleware)
+        .concat(featureAccessApi.middleware)
         .concat(catalogApi.middleware)
         .concat(binApi.middleware)
         .concat(flowsheetApi.middleware)

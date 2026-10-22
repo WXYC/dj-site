@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
-import { fakeReviewsEndpoints, holdResponse, intakeItem, intakeSlip, renderedFrame, renderWithProviders, review, reviewsSettled, server, TEST_BACKEND_URL } from "@/tests/helpers";
+import { fakeReviewsEndpoints, holdResponse, intakeItem, intakeSlip, renderedFrame, renderWithProviders, review, reviewsSettled, server, TEST_BACKEND_URL, fakeReviewsAccess } from "@/tests/helpers";
 import { reviewApi } from "@/lib/features/reviews/reviewApi";
 import { Authorization } from "@/lib/features/admin/types";
 
@@ -50,7 +50,6 @@ describe("IntakeSlipScreen", () => {
   let print: ReturnType<typeof vi.spyOn>;
   beforeEach(() => {
     mockAuth.authority = Authorization.MD;
-    vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "staff");
     print = vi.spyOn(window, "print").mockImplementation(() => {});
   });
   afterEach(() => {
@@ -69,10 +68,10 @@ describe("IntakeSlipScreen", () => {
   });
 
   it.each([
-    ["off", "", Authorization.MD],
+    ["off", "off", Authorization.MD],
     ["staff-only for a DJ", "staff", Authorization.DJ],
-  ])("renders nothing when the flag is %s", async (_label, flag, who) => {
-    vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", flag);
+  ])("renders nothing when the Backend answers %s", async (_label, flag, who) => {
+    fakeReviewsAccess({ audience: flag, can_see: false });
     mockAuth.authority = who;
     fakeReviewsEndpoints({ records: [item()] });
 

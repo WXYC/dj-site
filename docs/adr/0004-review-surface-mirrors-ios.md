@@ -60,7 +60,7 @@ These are the dj-site specifics for this mirror. The DJ and music director scree
 
 ## Build-time values
 
-- `NEXT_PUBLIC_REVIEWS_ENABLED` turns the review screens on. Turning it on is what opens the overlap with the form, and it stays on after cutover, when intake filing is the only way a new release enters the library, apart from the legacy import described under Backend contract. It is inlined at build time, so changing it requires a rebuild and deploy.
+- Backend-Service's feature access turns the review screens on (`GET /feature-access`, read at run time). Turning it on is what opens the overlap with the form, and it stays on after cutover, when intake filing is the only way a new release enters the library, apart from the legacy import described under Backend contract. Changing it needs no rebuild or deploy of the DJ site.
 - `NEXT_PUBLIC_REVIEW_GATE_CUTOVER_DATE` (`YYYY-MM-DD`, station time; unset means off) drives the cutover changes in dj-site's UI: from that date each of the five create screens (the classic typed-text rotation add, the three catalog add-release screens, and the standalone filing bench) has its create action replaced by a pointer to the review shelf; the screens themselves stay. Like every `NEXT_PUBLIC_*` value it is inlined at build time, so setting or changing it needs a dj-site production deploy; only the date's arrival needs no deploy, because dj-site compares it with the current date at run time. It does not configure the gate itself. The hard gate is Backend-Service's `REVIEW_GATE_CUTOVER_DATE`, and the two must be set to the same date.
 
 ## Backend contract

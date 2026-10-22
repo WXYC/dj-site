@@ -3,6 +3,7 @@ import { screen } from "@testing-library/react";
 import { renderWithProviders } from "@/tests/helpers";
 import {
   setUpClassicPageAuthority,
+  setUpReviewsAccess,
   setUpClassicPageAuthorityEnv,
   assertNotFoundPage,
 } from "@/tests/helpers/classic-page-authority-harness";
@@ -24,6 +25,10 @@ vi.mock("@/lib/features/authentication/organization-utils.server", async () => {
   const { classicPageAuthorityOrganizationUtilsMock } = await import("@/tests/helpers/classic-page-authority-harness");
   return classicPageAuthorityOrganizationUtilsMock();
 });
+vi.mock("@/lib/features/feature-access.server", async () => {
+  const { featureAccessServerMock } = await import("@/tests/helpers/classic-page-authority-harness");
+  return featureAccessServerMock();
+});
 
 // The page's own responsibility under test is the flag + auth gate and which tab it mounts, not the
 // header chrome or the screen.
@@ -44,14 +49,12 @@ describe.each([
   setUpClassicPageAuthorityEnv();
 
   it.each([
-    [undefined, "dj"],
-    [undefined, "musicDirector"],
-    [undefined, "stationManager"],
-    ["false", "stationManager"],
+    ["off", "dj"],
+    ["off", "musicDirector"],
+    ["off", "stationManager"],
     ["staff", "dj"],
-  ] as const)("is not found when the flag is %s for a %s", async (flag, role) => {
-    if (flag === undefined) delete process.env.NEXT_PUBLIC_REVIEWS_ENABLED;
-    else process.env.NEXT_PUBLIC_REVIEWS_ENABLED = flag;
+  ] as const)("is not found when the Backend answers audience %s without access for a %s", async (audience, role) => {
+    setUpReviewsAccess(audience, false);
     setUpClassicPageAuthority(role);
 
     await assertNotFoundPage(open);
@@ -60,10 +63,9 @@ describe.each([
   it.each([
     ["staff", "musicDirector"],
     ["staff", "stationManager"],
-    ["true", "dj"],
-    ["1", "dj"],
-  ] as const)("mounts its own tab, and no page heading of its own, when the flag is %s for a %s", async (flag, role) => {
-    process.env.NEXT_PUBLIC_REVIEWS_ENABLED = flag;
+    ["everyone", "dj"],
+  ] as const)("mounts its own tab, and no page heading of its own, when the Backend answers audience %s with access for a %s", async (audience, role) => {
+    setUpReviewsAccess(audience, true);
     setUpClassicPageAuthority(role);
 
     renderWithProviders(await open());

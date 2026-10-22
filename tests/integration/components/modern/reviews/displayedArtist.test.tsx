@@ -67,7 +67,6 @@ const CASES: [string, string | null | undefined, string][] = [
 describe("review surfaces name a release that is not a compilation by its bare alternate name", () => {
   beforeEach(() => {
     mockAuth.authority = Authorization.MD;
-    vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "staff");
     reviewsPanel.record = null;
   });
   afterEach(() => vi.unstubAllEnvs());
@@ -113,7 +112,6 @@ describe("review surfaces name a release that is not a compilation by its bare a
 describe("review surfaces name a compilation by its displayed artist", () => {
   beforeEach(() => {
     mockAuth.authority = Authorization.MD;
-    vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "staff");
     reviewsPanel.record = null;
   });
   afterEach(() => vi.unstubAllEnvs());

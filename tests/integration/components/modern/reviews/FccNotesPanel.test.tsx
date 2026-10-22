@@ -3,7 +3,7 @@ import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { Authorization } from "@/lib/features/admin/types";
-import { fakeReviewsEndpoints, fccNote, renderWithProviders, reviewsSettled, server, TEST_BACKEND_URL } from "@/tests/helpers";
+import { fakeReviewsEndpoints, fccNote, renderWithProviders, reviewsSettled, server, TEST_BACKEND_URL, fakeReviewsAccess } from "@/tests/helpers";
 
 vi.mock("@/lib/features/authentication/client", async () => {
   const { createAuthClientModuleMock } = await import("@/tests/helpers/auth-client-mock");
@@ -31,7 +31,6 @@ const ITEM_ID = 3;
 
 describe("FccNotesPanel", () => {
   beforeEach(() => {
-    vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "true");
     mockAuth.authority = Authorization.DJ;
   });
 
@@ -93,11 +92,11 @@ describe("FccNotesPanel", () => {
   });
 
   it.each([
-    { label: "the flag is off", flag: "", authority: Authorization.MD, shown: false },
+    { label: "reviews are off", flag: "off", authority: Authorization.MD, shown: false },
     { label: "a DJ is under staff", flag: "staff", authority: Authorization.DJ, shown: false },
     { label: "a music director is under staff", flag: "staff", authority: Authorization.MD, shown: true },
   ])("when $label, the panel renders: $shown", async ({ flag, authority, shown }) => {
-    vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", flag);
+    fakeReviewsAccess({ audience: flag, can_see: shown });
     mockAuth.authority = authority;
     fakeReviewsEndpoints();
     const requested: string[] = [];
@@ -109,7 +108,7 @@ describe("FccNotesPanel", () => {
       if (shown) expect(await screen.findByText("FCC notes")).toBeInTheDocument();
       else {
         await reviewsSettled(store);
-        expect(requested).toEqual([]);
+        expect(requested).toEqual(["/feature-access"]);
         expect(container).toBeEmptyDOMElement();
       }
     } finally {

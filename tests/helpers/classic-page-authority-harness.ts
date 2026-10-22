@@ -1,6 +1,7 @@
 import { vi, beforeEach, afterEach, expect } from "vitest";
 import { screen } from "@testing-library/react";
 import type { ReactElement } from "react";
+import type { FeatureAccessEntry } from "@wxyc/shared";
 import type { WXYCRole } from "@wxyc/shared/auth-client/auth";
 import { DEFAULT_DASHBOARD_HOME_PAGE } from "@/lib/features/application/constants";
 import { renderWithProviders } from "./render";
@@ -53,6 +54,7 @@ export const mockNotFound = vi.fn(() => {
 export const mockGetSession = vi.fn();
 export const mockGetUserRoleInOrganization = vi.fn();
 export const mockGetAppOrganizationId = vi.fn(() => undefined);
+export const mockGetReviewsAccess = vi.fn();
 
 /** Replacement for `next/headers`. */
 export function classicPageAuthorityHeadersMock() {
@@ -104,6 +106,20 @@ export function classicPageAuthorityOrganizationUtilsMock() {
       mockGetUserRoleInOrganization(userId, orgId, cookie),
     getAppOrganizationId: () => mockGetAppOrganizationId(),
   };
+}
+
+/**
+ * Replacement for `@/lib/features/feature-access.server`. Answers whatever
+ * `setUpReviewsAccess` arranged; a test that arranged nothing gets the
+ * fail-closed answer.
+ */
+export function featureAccessServerMock() {
+  return { getReviewsAccess: () => mockGetReviewsAccess() };
+}
+
+/** Arranges the Backend's answer to `GET /feature-access` for the reviews feature. */
+export function setUpReviewsAccess(audience: FeatureAccessEntry["audience"], canSee: boolean) {
+  mockGetReviewsAccess.mockResolvedValue({ audience, can_see: canSee });
 }
 
 function classicPageSessionData(adminPluginRole: string | null) {
@@ -160,6 +176,8 @@ export function setUpClassicPageAuthorityEnv() {
     mockGetSession.mockReset();
     mockGetUserRoleInOrganization.mockReset();
     mockGetAppOrganizationId.mockReturnValue(undefined);
+    mockGetReviewsAccess.mockReset();
+    mockGetReviewsAccess.mockResolvedValue({ audience: "off", can_see: false });
     mockCookiesToString.mockReturnValue("session=test-cookie");
     process.env = { ...originalEnv, NEXT_PUBLIC_DASHBOARD_HOME_PAGE: DEFAULT_DASHBOARD_HOME_PAGE };
   });

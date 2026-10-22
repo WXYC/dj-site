@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { fakeReviewsEndpoints, intakeItem, pendingCount, renderedFrame, renderWithProviders, server, TEST_BACKEND_URL } from "@/tests/helpers";
@@ -39,7 +39,6 @@ function BothTabs() {
 const ON_SHELF = intakeItem({ id: 5 });
 
 describe("ReviewsScreen — a row stays locked until every rendered list has reloaded", () => {
-  beforeEach(() => vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "true"));
   afterEach(() => vi.unstubAllEnvs());
 
   it("holds the row while the intake list's reload is still in flight", async () => {

@@ -1,7 +1,7 @@
 import type { JSX } from "react";
 import { getUserFromSession, requireAuth } from "@/lib/features/authentication/server-utils";
 import { Authorization } from "@/lib/features/admin/types";
-import { canSeeReviews } from "@/lib/features/reviews/flags";
+import { getReviewsAccess } from "@/lib/features/feature-access.server";
 import PageHeader from "@/src/components/experiences/modern/Header/PageHeader";
 import { REVIEW_COPY } from "@/src/components/experiences/modern/reviews/copy";
 import ReviewsTabs from "@/src/components/experiences/modern/reviews/ReviewsTabs";
@@ -19,8 +19,7 @@ export default async function ReviewsListsLayout({
   children: React.ReactNode;
 }): Promise<JSX.Element> {
   const session = await requireAuth();
-  const { authority } = await getUserFromSession(session);
-  const showStrip = canSeeReviews(authority);
+  const [{ authority }, { can_see: showStrip }] = await Promise.all([getUserFromSession(session), getReviewsAccess()]);
 
   return (
     <>

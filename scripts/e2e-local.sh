@@ -75,6 +75,9 @@ export E2E_BACKEND_URL=http://localhost:$BACKEND_PORT
 # this shell env, so they must be exported before it starts. The key matches the
 # Backend-Service e2e-auth compose default.
 export STATION_SIGNUP_ENABLED=true
+# Who the Backend opens the review screens to (`true` is everyone). dj-site reads it from GET /feature-access at run
+# time, so the Backend must see it; with no PostHog flag keys exported here, this variable is the audience.
+export REVIEWS_AUDIENCE=true
 export STATION_PASSCODE_KEY=5a859c11b96205498dda4b3cbe21c1c956d472104ee1d85ca2058cb8535ab28b
 
 echo "==> Building Backend-Service..."
@@ -133,7 +136,6 @@ export NEXT_PUBLIC_STATION_SIGNUP_ADMIN_ENABLED=true
 # (e2e-tests.yml). No spec exercises it yet; exported so the local dj-site
 # build inlines the same flag set as CI's and the two can't diverge on it.
 export NEXT_PUBLIC_ROTATION_ADMIN_ENABLED=true
-export NEXT_PUBLIC_REVIEWS_ENABLED=true
 
 echo "==> Building dj-site (primary)..."
 # Primary build -> .next/

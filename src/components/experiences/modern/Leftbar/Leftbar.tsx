@@ -1,7 +1,7 @@
 import type { JSX } from "react";
 import { Authorization } from "@/lib/features/admin/types";
 import { requireAuth, getUserFromSession } from "@/lib/features/authentication/server-utils";
-import { canSeeReviews } from "@/lib/features/reviews/flags";
+import { getReviewsAccess } from "@/lib/features/feature-access.server";
 import { REVIEWS_ACTIVE_PATTERN } from "@/lib/features/reviews/paths";
 import { isRotationAdminEnabled } from "@/lib/features/rotation/flags";
 import { EditCalendar, ManageAccounts, Sensors } from "@mui/icons-material";
@@ -22,7 +22,7 @@ import LeftbarSettingsButton from "./LeftbarSettingsButton";
 export default async function Leftbar(): Promise<JSX.Element> {
   // user is guaranteed to be defined here because requireAuth will redirect to login if not authenticated
   const session = await requireAuth();
-  const user = await getUserFromSession(session);
+  const [user, reviewsAccess] = await Promise.all([getUserFromSession(session), getReviewsAccess()]);
 
   return (
     <LeftbarContainer>
@@ -37,7 +37,7 @@ export default async function Leftbar(): Promise<JSX.Element> {
         >
           <StorageIcon />
         </LeftbarLink>
-        {user && canSeeReviews(user.authority) && (
+        {user && reviewsAccess.can_see && (
           <LeftbarLink
             path="/dashboard/reviews"
             title={REVIEW_COPY.sidebar.title}

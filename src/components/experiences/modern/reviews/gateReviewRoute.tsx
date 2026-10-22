@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { getUserFromSession, requireAuth } from "@/lib/features/authentication/server-utils";
 import { Authorization } from "@/lib/features/admin/types";
-import { canSeeReviews, reviewsAudience } from "@/lib/features/reviews/flags";
+import { getReviewsAccess } from "@/lib/features/feature-access.server";
 import PageHeader from "../Header/PageHeader";
 import { REVIEW_COPY } from "./copy";
 import ReviewStaffOnlyNotice from "./ReviewStaffOnlyNotice";
@@ -13,11 +13,11 @@ import ReviewStaffOnlyNotice from "./ReviewStaffOnlyNotice";
  */
 export async function gateReviewRoute() {
   const session = await requireAuth();
-  const { authority } = await getUserFromSession(session);
-  if (canSeeReviews(authority)) return null;
+  const [{ authority }, access] = await Promise.all([getUserFromSession(session), getReviewsAccess()]);
+  if (access.can_see) return null;
   // The emails Backend-Service sends link every DJ here, so while reviews are
   // staff-only a DJ gets one line instead of a not-found page.
-  if (reviewsAudience() !== "staff" || authority < Authorization.DJ) notFound();
+  if (access.audience !== "staff" || authority < Authorization.DJ) notFound();
   return (
     <>
       <PageHeader title={REVIEW_COPY.pageTitle} />

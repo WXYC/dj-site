@@ -27,6 +27,7 @@ export { deletingReview } from "./deleting-review";
 export { holdResponse } from "./hold-response";
 export { outline } from "./outline";
 export { pendingCount, renderedFrame, reviewsSettled } from "./reviews-settled";
+export { fakeReviewsAccess } from "../fakes/reviews/featureAccess";
 export { refetchesAfter } from "./refetches";
 export { handlers } from "../fakes/handlers";
 export { libraryTracksHandler, ONE_TRACK } from "../fakes/libraryTracks";

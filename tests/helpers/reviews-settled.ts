@@ -1,4 +1,5 @@
 import { act } from "react";
+import { featureAccessApi } from "@/lib/features/feature-access/api";
 import { reviewsApi } from "@/lib/features/reviews/api";
 
 const TURNS = 5;
@@ -11,11 +12,14 @@ export const turns = async () => {
 /** Any store with `reviewsApi` mounted: the app store, or a spec's own `configureStore`. */
 type ReviewsStore = { getState(): unknown };
 
+type ApiState = ReturnType<typeof reviewsApi.reducer>;
+
+/** Pending requests of `reviewsApi` and of `featureAccessApi`, whose answer decides whether the screens draw at all. */
 export const pendingCount = (store: ReviewsStore) => {
-  const api = (store.getState() as Record<string, ReturnType<typeof reviewsApi.reducer>>)[reviewsApi.reducerPath];
-  return [...Object.values(api.queries), ...Object.values(api.mutations)].filter(
-    (entry) => entry?.status === "pending",
-  ).length;
+  const state = store.getState() as Record<string, ApiState | undefined>;
+  return [reviewsApi.reducerPath, featureAccessApi.reducerPath]
+    .flatMap((path) => [...Object.values(state[path]?.queries ?? {}), ...Object.values(state[path]?.mutations ?? {})])
+    .filter((entry) => entry?.status === "pending").length;
 };
 
 /**

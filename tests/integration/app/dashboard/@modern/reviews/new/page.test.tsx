@@ -3,6 +3,7 @@ import { screen } from "@testing-library/react";
 import { renderWithProviders } from "@/tests/helpers";
 import {
   setUpClassicPageAuthority,
+  setUpReviewsAccess,
   setUpClassicPageAuthorityEnv,
   assertNotFoundPage,
 } from "@/tests/helpers/classic-page-authority-harness";
@@ -23,6 +24,10 @@ vi.mock("@/lib/features/authentication/server-client", async () => {
 vi.mock("@/lib/features/authentication/organization-utils.server", async () => {
   const { classicPageAuthorityOrganizationUtilsMock } = await import("@/tests/helpers/classic-page-authority-harness");
   return classicPageAuthorityOrganizationUtilsMock();
+});
+vi.mock("@/lib/features/feature-access.server", async () => {
+  const { featureAccessServerMock } = await import("@/tests/helpers/classic-page-authority-harness");
+  return featureAccessServerMock();
 });
 
 // The page's own responsibility under test is its album_id check and what it
@@ -45,7 +50,7 @@ describe("new review page", () => {
   const open = (query: { album_id?: string } = { album_id: "7" }) => NewReviewPage({ searchParams: Promise.resolve(query) });
 
   it("starts the review once the gate passes", async () => {
-    process.env.NEXT_PUBLIC_REVIEWS_ENABLED = "true";
+    setUpReviewsAccess("everyone", true);
     setUpClassicPageAuthority("dj");
 
     renderWithProviders(await open());
@@ -59,7 +64,7 @@ describe("new review page", () => {
   });
 
   it("goes through the gate: a DJ under staff sees the staff-only line and nothing started", async () => {
-    process.env.NEXT_PUBLIC_REVIEWS_ENABLED = "staff";
+    setUpReviewsAccess("staff", false);
     setUpClassicPageAuthority("dj");
 
     renderWithProviders(await open());
@@ -69,7 +74,7 @@ describe("new review page", () => {
   });
 
   it("is not found for an album_id that is missing or not a positive integer", async () => {
-    process.env.NEXT_PUBLIC_REVIEWS_ENABLED = "true";
+    setUpReviewsAccess("everyone", true);
     setUpClassicPageAuthority("dj");
 
     for (const bad of [{}, { album_id: "abc" }, { album_id: "0" }, { album_id: "-3" }]) {

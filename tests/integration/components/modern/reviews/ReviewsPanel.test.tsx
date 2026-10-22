@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Authorization } from "@/lib/features/admin/types";
-import { fakeReviewsEndpoints, fccNote, outline, renderWithProviders, review, reviewRevision, reviewsSettled, server } from "@/tests/helpers";
+import { fakeReviewsEndpoints, fccNote, outline, renderWithProviders, review, reviewRevision, reviewsSettled, server, fakeReviewsAccess } from "@/tests/helpers";
 import { reviewApi } from "@/lib/features/reviews/reviewApi";
 import { delay, http, HttpResponse } from "msw";
 import type { AlbumReview } from "@wxyc/shared";
@@ -65,7 +65,6 @@ const tapedSlips = () =>
 
 describe("ReviewsPanel", () => {
   beforeEach(() => {
-    vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "true");
     mockAuth.authority = Authorization.DJ;
   });
 
@@ -231,10 +230,10 @@ describe("ReviewsPanel", () => {
   });
 
   it.each([
-    ["the flag is off", "", Authorization.MD],
+    ["reviews are off", "off", Authorization.MD],
     ["a DJ is under staff", "staff", Authorization.DJ],
   ])("renders nothing and reads nothing when %s", async (_label, flag, authority) => {
-    vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", flag);
+    fakeReviewsAccess({ audience: flag, can_see: false });
     mockAuth.authority = authority;
     serve([submitted(1)]);
     const requested: string[] = [];
@@ -244,7 +243,7 @@ describe("ReviewsPanel", () => {
     try {
       const { container, store } = renderPanel();
       await reviewsSettled(store);
-      expect(requested).toEqual([]);
+      expect(requested).toEqual(["/feature-access"]);
       expect(container).toBeEmptyDOMElement();
     } finally {
       server.events.removeListener("request:start", log);
@@ -252,7 +251,6 @@ describe("ReviewsPanel", () => {
   });
 
   it("renders for a music director under staff", async () => {
-    vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "staff");
     mockAuth.authority = Authorization.MD;
     serve([]);
     renderPanel();

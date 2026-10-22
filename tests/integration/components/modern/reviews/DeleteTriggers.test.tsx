@@ -72,7 +72,6 @@ const serveFccNote = (viewer: { id: string; authority: Authorization }) => () =>
   mockAuth.id = viewer.id;
   mockAuth.authority = viewer.authority;
   // The reporter is a plain DJ, and the "staff" setting hides the reviews screens from DJs.
-  vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "true");
   fakeReviewsEndpoints({
     fccNotesForRelease: { [FCC_ALBUM_ID]: [fccNote({ status: "reported", reported_by_user_id: "dj-me", album_id: FCC_ALBUM_ID })] },
   });
@@ -83,7 +82,6 @@ describe("the review screens' delete triggers", () => {
   beforeEach(() => {
     mockAuth.id = "md-me";
     mockAuth.authority = Authorization.MD;
-    vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "staff");
   });
   afterEach(() => vi.unstubAllEnvs());
 

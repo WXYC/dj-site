@@ -1,6 +1,6 @@
-import { getUserFromSession, requireAuth, requireRole } from "@/lib/features/authentication/server-utils";
+import { requireAuth, requireRole } from "@/lib/features/authentication/server-utils";
 import { Authorization } from "@/lib/features/admin/types";
-import { canSeeReviews } from "@/lib/features/reviews/flags";
+import { getReviewsAccess } from "@/lib/features/feature-access.server";
 import { Stack } from "@mui/joy";
 import IntakeLanes from "@/src/components/experiences/modern/reviews/IntakeLanes";
 import { Metadata } from "next";
@@ -13,9 +13,8 @@ export const metadata: Metadata = {
 
 export default async function ReviewsMusicDirectorsPage() {
   const session = await requireAuth();
-  const { authority } = await getUserFromSession(session);
 
-  if (!canSeeReviews(authority)) {
+  if (!(await getReviewsAccess()).can_see) {
     notFound();
   }
   await requireRole(session, Authorization.MD);

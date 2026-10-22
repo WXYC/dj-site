@@ -51,7 +51,6 @@ describe("the cover size each screen gives its rows", () => {
   beforeEach(() => {
     mockAuth.authority = Authorization.MD;
     url.search = "";
-    vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "staff");
   });
   afterEach(() => vi.unstubAllEnvs());
 

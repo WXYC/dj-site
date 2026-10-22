@@ -1,11 +1,11 @@
 import { Metadata } from "next";
 import { cookies } from "next/headers";
 import { getPageTitle } from "@/lib/utils/page-title";
-import { requireAuth, requireRole, checkRole, getUserFromSession } from "@/lib/features/authentication/server-utils";
+import { requireAuth, requireRole, checkRole } from "@/lib/features/authentication/server-utils";
 import { Authorization } from "@/lib/features/admin/types";
 import Main from "@/src/components/experiences/classic/Layout/Main";
 import RotationReleaseList from "@/src/components/experiences/classic/rotation/RotationReleaseList";
-import { canSeeReviews } from "@/lib/features/reviews/flags";
+import { getReviewsAccess } from "@/lib/features/feature-access.server";
 import { firstSearchParam } from "@/lib/utils/search-params";
 import { DEFAULT_ROTATION_STATUS_FILTER, type RotationStatusFilter } from "@/lib/features/rotation/types";
 
@@ -55,8 +55,7 @@ export default async function ClassicRotationListPage({ searchParams }: ClassicR
 
   // Filed intake items follow the reviews flag, not the write gate; Confirm and
   // Change the code still need `canWrite`.
-  const { authority } = await getUserFromSession(session, cookieHeader);
-  const canSeeFiled = canSeeReviews(authority);
+  const { can_see: canSeeFiled } = await getReviewsAccess();
 
   const params = await searchParams;
   const statusFilter = parseStatusFilter(firstSearchParam(params.status));

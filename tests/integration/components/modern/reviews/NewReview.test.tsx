@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, onTestFinished } from "vitest";
 import { configure, waitFor } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { Authorization } from "@/lib/features/admin/types";
-import { fakeReviewsEndpoints, renderWithProviders, review, reviewsSettled, server, TEST_BACKEND_URL } from "@/tests/helpers";
+import { fakeReviewsEndpoints, renderWithProviders, review, reviewsSettled, server, TEST_BACKEND_URL, fakeReviewsAccess } from "@/tests/helpers";
 
 vi.mock("@/lib/features/authentication/client", async () => {
   const { createAuthClientModuleMock } = await import("@/tests/helpers/auth-client-mock");
@@ -31,7 +31,6 @@ import { REVIEW_COPY } from "@/src/components/experiences/modern/reviews/copy";
 
 describe("NewReview", () => {
   beforeEach(() => {
-    vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "true");
     mockAuth.authority = Authorization.DJ;
     vi.clearAllMocks();
     fakeReviewsEndpoints();
@@ -99,10 +98,10 @@ describe("NewReview", () => {
   });
 
   it.each([
-    ["the flag is off", "", Authorization.MD],
+    ["reviews are off", "off", Authorization.MD],
     ["a DJ is under staff", "staff", Authorization.DJ],
   ])("renders nothing and creates no draft when %s", async (_label, flag, authority) => {
-    vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", flag);
+    fakeReviewsAccess({ audience: flag, can_see: false });
     mockAuth.authority = authority;
     let posted = false;
     server.use(http.post(`${TEST_BACKEND_URL}/reviews`, () => ((posted = true), HttpResponse.json(review(), { status: 201 }))));

@@ -57,7 +57,6 @@ function expectRecordRow(lane: HTMLElement, artist: string, expectActions: boole
 describe("every review lane draws its rows with RecordRow", () => {
   beforeEach(() => {
     url.search = "";
-    vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "true");
   });
   afterEach(() => vi.unstubAllEnvs());
 
@@ -89,7 +88,6 @@ describe("every review lane draws its rows with RecordRow", () => {
     ["filed", "Filed", { state: "filed", effective_state: "filed", filed_at: new Date().toISOString() }],
   ] as const)("the music directors' %s stage", async (stage, name, overrides) => {
     mockAuth.authority = Authorization.MD;
-    vi.stubEnv("NEXT_PUBLIC_REVIEWS_ENABLED", "staff");
     url.search = `?stage=${stage}`;
     const row = record(1, overrides);
     fakeReviewsEndpoints({
