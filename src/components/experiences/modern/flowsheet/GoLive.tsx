@@ -34,7 +34,7 @@ export default function GoLive() {
   const isSaving = useFlowsheetSaving();
   // Prompt state lives here, not in useShowControl — that hook runs in every
   // entry row, so opening the dialog from there would re-render the table.
-  const { prompt, deciding, requestGoLive, decide, cancel } =
+  const { prompt, deciding, refusal, requestGoLive, decide, cancel } =
     useGoLiveHandoff(goLive);
 
   const oneTapPrograms = useOneTapPrograms();
@@ -175,13 +175,27 @@ export default function GoLive() {
     </Stack>
   );
 
+  const refusalNote = refusal ? (
+    <Typography level="body-sm" color="danger" role="alert">
+      {refusal}
+    </Typography>
+  ) : null;
+
   if (!leadWithOneTap) {
-    return controls;
+    return refusal ? (
+      <Stack spacing={1}>
+        {controls}
+        {refusalNote}
+      </Stack>
+    ) : (
+      controls
+    );
   }
   return (
     <Stack spacing={1}>
       {oneTapButtons}
       <Typography level="body-sm">{specialtyCopy.goLiveAsWhy}</Typography>
+      {refusalNote}
       {controls}
     </Stack>
   );

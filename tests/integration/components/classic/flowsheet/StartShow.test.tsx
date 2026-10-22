@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { fireEvent, screen } from "@testing-library/react";
 import { renderWithProviders } from "@/tests/helpers/render";
 import { setFieldValue } from "@/tests/helpers";
+import { ONE_TAP_TAG_REFUSED_SENTENCE } from "@/lib/features/specialty/copy";
 
 // Mock useShowControl().goLive — we only care that StartShow forwards the
 // trimmed Public DJ Handle as the second arg (the override) when the user
@@ -411,6 +412,23 @@ describe("Classic StartShow — the handoff prompt", () => {
       expect(
         (await screen.findByTestId("go-live-handoff-prompt")).textContent
       ).toMatch(/start your own as Friday Night Story Hour\./);
+    });
+
+    it("shows the refusal sentence after a refused press, with the usual sign-on still available", async () => {
+      oneTapMock = [STORY_HOUR];
+      goLiveMock.mockResolvedValueOnce({
+        status: "tag-refused",
+        message: ONE_TAP_TAG_REFUSED_SENTENCE,
+      } as never);
+      renderWithProviders(<StartShow />);
+
+      fireEvent.click(screen.getByTestId("classic-sign-on-as"));
+
+      expect(await screen.findByText(ONE_TAP_TAG_REFUSED_SENTENCE)).toBeInTheDocument();
+      expect(screen.queryByText(/Bad Request/)).toBeNull();
+      expect(
+        screen.getByDisplayValue("Sign on and Start the Show!")
+      ).not.toBeDisabled();
     });
 
     it("keeps the usual sign-on tagless", () => {

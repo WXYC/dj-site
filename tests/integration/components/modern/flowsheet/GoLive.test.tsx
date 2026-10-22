@@ -9,6 +9,7 @@ import {
 import { renderToString } from "react-dom/server";
 import { hydrateRoot } from "react-dom/client";
 import GoLive from "@/src/components/experiences/modern/flowsheet/GoLive";
+import { ONE_TAP_TAG_REFUSED_SENTENCE } from "@/lib/features/specialty/copy";
 
 const toastError = vi.fn();
 vi.mock("sonner", () => ({
@@ -553,6 +554,21 @@ describe("GoLive", () => {
       fireEvent.click(screen.getByTestId("flowsheet-live-status"));
 
       expect(mockGoLive).toHaveBeenCalledWith(undefined, undefined, undefined);
+    });
+
+    it("shows the refusal sentence after a refused press, with the usual Go Live still available", async () => {
+      mockOneTapPrograms = [HYPERLOCAL];
+      mockGoLive.mockResolvedValueOnce({
+        status: "tag-refused",
+        message: ONE_TAP_TAG_REFUSED_SENTENCE,
+      } as never);
+      render(<GoLive />);
+
+      fireEvent.click(screen.getByText("Go live as HyperLocal"));
+
+      expect(await screen.findByText(ONE_TAP_TAG_REFUSED_SENTENCE)).toBeInTheDocument();
+      expect(screen.queryByText(/Bad Request/)).toBeNull();
+      expect(screen.getByTestId("flowsheet-live-status")).not.toBeDisabled();
     });
 
     it("uses the short name when the display name is long", () => {
