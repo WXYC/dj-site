@@ -116,6 +116,9 @@ export const useLiveStatus = () => {
   return { live, loading: loadingLiveList, userData, userloading };
 };
 
+/** The program a one-tap press opens the show as, replayed on any handoff retry. */
+export type GoLiveTag = { specialty_id: number; show_name?: string };
+
 /** The decision a DJ made at the handoff prompt, forwarded to the server. */
 export type GoLiveDecision = {
   intent: JoinIntent;
@@ -268,7 +271,8 @@ export const useShowControl = () => {
 
   const goLive = async (
     djNameOverride?: string,
-    decision?: GoLiveDecision
+    decision?: GoLiveDecision,
+    tag?: GoLiveTag
   ): Promise<GoLiveOutcome> => {
     if (!userData || userData.id === undefined || userloading) {
       return { status: "skipped" };
@@ -294,7 +298,7 @@ export const useShowControl = () => {
       payload.dj_name_override = djNameOverride;
     }
     try {
-      const result = await goLiveFunction({ ...payload, ...decision }).unwrap();
+      const result = await goLiveFunction({ ...payload, ...tag, ...decision }).unwrap();
       // A takeover is the one decision the server can decline without saying
       // so: while its takeover flag is off it ignores `intent` and co-hosts,
       // answering 200. Reporting that as "ok" would close the prompt on a DJ

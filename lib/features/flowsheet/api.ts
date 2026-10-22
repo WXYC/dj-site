@@ -183,6 +183,9 @@ export const flowsheetApi = createApi({
          * `show_already_open`), which is the whole point of the field.
          */
         intent?: JoinIntent;
+        /** The program a one-tap press opens the show as. */
+        specialty_id?: number;
+        show_name?: string;
         /** Echoed from the 409's `details.show.id`; required with a takeover. */
         expected_show_id?: number;
       }

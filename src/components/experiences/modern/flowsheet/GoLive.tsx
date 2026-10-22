@@ -20,7 +20,9 @@ import {
   Tooltip,
 } from "@mui/joy";
 import { useEffect, useState } from "react";
+import { oneTapName } from "@/lib/features/specialty/copy";
 import { useGoLiveHandoff } from "@/src/hooks/goLiveHandoffHooks";
+import { useOneTapPrograms } from "@/src/hooks/specialtyHooks";
 import GoLiveHandoffDialog from "./GoLiveHandoffDialog";
 
 export default function GoLive() {
@@ -31,6 +33,8 @@ export default function GoLive() {
   // entry row, so opening the dialog from there would re-render the table.
   const { prompt, deciding, requestGoLive, decide, cancel } =
     useGoLiveHandoff(goLive);
+
+  const oneTapPrograms = useOneTapPrograms();
 
   // Both controls below route through this. The icon button used to carry its
   // own copy of the toggle, which would have made it a silent bypass of the
@@ -89,6 +93,25 @@ export default function GoLive() {
           />
         </Tooltip>
       ) : null}
+      {live
+        ? null
+        : oneTapPrograms.map((program) => (
+            <Button
+              key={program.id}
+              variant="solid"
+              color="primary"
+              disabled={effectiveLoading}
+              onClick={() =>
+                void requestGoLive(undefined, {
+                  tag: { specialty_id: program.id },
+                  program: program.name,
+                })
+              }
+              data-testid="flowsheet-go-live-as"
+            >
+              Go live as {oneTapName(program)}
+            </Button>
+          ))}
       <Tooltip
         title={goLiveLabel}
         placement="top"

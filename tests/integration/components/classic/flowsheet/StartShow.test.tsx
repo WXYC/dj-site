@@ -33,6 +33,11 @@ vi.mock("@/src/hooks/authenticationHooks", () => ({
   useLogout: () => ({ handleLogout: handleLogoutMock, loggingOut: false }),
 }));
 
+let oneTapMock: { id: number; name: string; short_name: string }[] = [];
+vi.mock("@/src/hooks/specialtyHooks", () => ({
+  useOneTapPrograms: () => oneTapMock,
+}));
+
 vi.mock("@/src/utils/helpScreen", () => ({
   OpenHelp: vi.fn(),
 }));
@@ -60,6 +65,7 @@ beforeEach(() => {
   goLiveMock.mockReset();
   goLiveMock.mockResolvedValue({ status: "ok" as const });
   openShowMock = null;
+  oneTapMock = [];
   userInfoMock = {
     id: "test-user-1",
     real_name: "Test User",
@@ -93,7 +99,7 @@ describe("Classic StartShow — Public DJ Handle override (#694)", () => {
     setFieldValue(input, "Aubrey Hearst");
     submitForm();
     expect(goLiveMock).toHaveBeenCalledTimes(1);
-    expect(goLiveMock).toHaveBeenCalledWith("Aubrey Hearst");
+    expect(goLiveMock).toHaveBeenCalledWith("Aubrey Hearst", undefined, undefined);
   });
 
   it("trims whitespace before forwarding the override", () => {
@@ -101,14 +107,14 @@ describe("Classic StartShow — Public DJ Handle override (#694)", () => {
     const input = getNamedInput("djHandle");
     setFieldValue(input, "  Aubrey Hearst  ");
     submitForm();
-    expect(goLiveMock).toHaveBeenCalledWith("Aubrey Hearst");
+    expect(goLiveMock).toHaveBeenCalledWith("Aubrey Hearst", undefined, undefined);
   });
 
   it("submitting with the field untouched calls goLive without an override", () => {
     renderWithProviders(<StartShow />);
     submitForm();
     expect(goLiveMock).toHaveBeenCalledTimes(1);
-    expect(goLiveMock).toHaveBeenCalledWith(undefined);
+    expect(goLiveMock).toHaveBeenCalledWith(undefined, undefined, undefined);
   });
 
   it("submitting with whitespace-only input calls goLive without an override", () => {
@@ -116,7 +122,7 @@ describe("Classic StartShow — Public DJ Handle override (#694)", () => {
     const input = getNamedInput("djHandle");
     setFieldValue(input, "   ");
     submitForm();
-    expect(goLiveMock).toHaveBeenCalledWith(undefined);
+    expect(goLiveMock).toHaveBeenCalledWith(undefined, undefined, undefined);
   });
 
   it("submitting after clearing a populated handle calls goLive without an override", () => {
@@ -124,7 +130,7 @@ describe("Classic StartShow — Public DJ Handle override (#694)", () => {
     const input = getNamedInput("djHandle");
     setFieldValue(input, "");
     submitForm();
-    expect(goLiveMock).toHaveBeenCalledWith(undefined);
+    expect(goLiveMock).toHaveBeenCalledWith(undefined, undefined, undefined);
   });
 
   it("submitting when the typed handle matches the initial dj_name calls goLive without an override", () => {
@@ -133,7 +139,7 @@ describe("Classic StartShow — Public DJ Handle override (#694)", () => {
     // Simulate a focus/blur with no real change
     setFieldValue(input, "Anonymous");
     submitForm();
-    expect(goLiveMock).toHaveBeenCalledWith(undefined);
+    expect(goLiveMock).toHaveBeenCalledWith(undefined, undefined, undefined);
   });
 
   it("reflects userData.dj_name when the registry resolves after mount", () => {
@@ -194,7 +200,7 @@ describe("Classic StartShow — Public DJ Handle override (#694)", () => {
     };
     rerender(<StartShow />);
     submitForm();
-    expect(goLiveMock).toHaveBeenCalledWith(undefined);
+    expect(goLiveMock).toHaveBeenCalledWith(undefined, undefined, undefined);
   });
 });
 
@@ -285,10 +291,11 @@ describe("Classic StartShow — the handoff prompt", () => {
     await signOn();
     fireEvent.click(screen.getByTestId("go-live-handoff-takeover"));
 
-    expect(goLiveMock).toHaveBeenCalledWith(undefined, {
-      intent: "takeover",
-      expected_show_id: 1951224,
-    });
+    expect(goLiveMock).toHaveBeenCalledWith(
+      undefined,
+      { intent: "takeover", expected_show_id: 1951224 },
+      undefined
+    );
   });
 
   it("sends nothing at all on Cancel", async () => {
@@ -310,10 +317,11 @@ describe("Classic StartShow — the handoff prompt", () => {
     await screen.findByTestId("go-live-handoff-prompt");
     fireEvent.click(screen.getByTestId("go-live-handoff-takeover"));
 
-    expect(goLiveMock).toHaveBeenCalledWith("eureka!", {
-      intent: "takeover",
-      expected_show_id: 1951224,
-    });
+    expect(goLiveMock).toHaveBeenCalledWith(
+      "eureka!",
+      { intent: "takeover", expected_show_id: 1951224 },
+      undefined
+    );
   });
 
   it("does not prompt when nothing is on air", async () => {
@@ -322,7 +330,7 @@ describe("Classic StartShow — the handoff prompt", () => {
     submitForm();
 
     expect(screen.queryByTestId("go-live-handoff-prompt")).toBeNull();
-    expect(goLiveMock).toHaveBeenCalledWith(undefined);
+    expect(goLiveMock).toHaveBeenCalledWith(undefined, undefined, undefined);
   });
 
   describe("signing in as a different DJ", () => {
@@ -346,6 +354,56 @@ describe("Classic StartShow — the handoff prompt", () => {
       // here would start a show under the departed DJ's name — the exact
       // failure this escape hatch exists to prevent.
       expect(goLiveMock).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("signing on as a program that logs no songs", () => {
+    const STORY_HOUR = { id: 9, name: "Friday Night Story Hour", short_name: "Story Hour" };
+    const NSE = { id: 10, name: "New Science Experience", short_name: "NSE" };
+
+    it("renders no extra button outside such a slot", () => {
+      renderWithProviders(<StartShow />);
+      expect(screen.queryByTestId("classic-sign-on-as")).toBeNull();
+    });
+
+    it("renders one sign-on button per program, in order", () => {
+      oneTapMock = [STORY_HOUR, NSE];
+      renderWithProviders(<StartShow />);
+
+      expect(
+        screen.getAllByTestId("classic-sign-on-as").map((b) => (b as HTMLInputElement).value)
+      ).toEqual([
+        "Sign on and Start Friday Night Story Hour!",
+        "Sign on and Start New Science Experience!",
+      ]);
+    });
+
+    it("sends the specialty_id with the typed handle", () => {
+      oneTapMock = [STORY_HOUR];
+      renderWithProviders(<StartShow />);
+      fireEvent.change(getNamedInput("djHandle"), { target: { value: "eureka!" } });
+
+      fireEvent.click(screen.getByTestId("classic-sign-on-as"));
+
+      expect(goLiveMock).toHaveBeenCalledWith("eureka!", undefined, { specialty_id: 9 });
+    });
+
+    it("ends the takeover sentence with the program after such a press only", async () => {
+      oneTapMock = [STORY_HOUR];
+      openShowMock = { showId: 12, djNames: ["dj sue"], lastLoggedAt: null };
+      renderWithProviders(<StartShow />);
+
+      fireEvent.click(screen.getByTestId("classic-sign-on-as"));
+      expect(
+        (await screen.findByTestId("go-live-handoff-prompt")).textContent
+      ).toMatch(/start your own as Friday Night Story Hour\./);
+    });
+
+    it("keeps the usual sign-on tagless", () => {
+      oneTapMock = [STORY_HOUR];
+      renderWithProviders(<StartShow />);
+      submitForm();
+      expect(goLiveMock).toHaveBeenCalledWith(undefined, undefined, undefined);
     });
   });
 });

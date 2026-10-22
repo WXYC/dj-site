@@ -45,8 +45,14 @@ vi.mock("@/src/hooks/flowsheetHooks", () => ({
   useFlowsheetSaving: () => mockUseFlowsheetSaving(),
 }));
 
+let mockOneTapPrograms: { id: number; name: string; short_name: string }[] = [];
+vi.mock("@/src/hooks/specialtyHooks", () => ({
+  useOneTapPrograms: () => mockOneTapPrograms,
+}));
+
 describe("GoLive", () => {
   beforeEach(() => {
+    mockOneTapPrograms = [];
     vi.clearAllMocks();
     mockGoLive.mockResolvedValue({ status: "ok" as const });
     mockUseOpenShowHandoff.mockReturnValue(null);
@@ -313,10 +319,14 @@ describe("GoLive", () => {
 
       fireEvent.click(screen.getByTestId("go-live-handoff-join"));
 
-      expect(mockGoLive).toHaveBeenCalledWith(undefined, {
+      expect(mockGoLive).toHaveBeenCalledWith(
+        undefined,
+        {
         intent: "join",
         expected_show_id: undefined,
-      });
+        },
+        undefined
+      );
     });
 
     it("binds End Existing Show to the show the DJ was shown", async () => {
@@ -326,10 +336,14 @@ describe("GoLive", () => {
 
       fireEvent.click(screen.getByTestId("go-live-handoff-takeover"));
 
-      expect(mockGoLive).toHaveBeenCalledWith(undefined, {
+      expect(mockGoLive).toHaveBeenCalledWith(
+        undefined,
+        {
         intent: "takeover",
         expected_show_id: 1951224,
-      });
+        },
+        undefined
+      );
     });
 
     it("sends nothing at all on Cancel", async () => {
@@ -353,7 +367,7 @@ describe("GoLive", () => {
 
       fireEvent.click(goLiveControls().icon);
 
-      expect(mockGoLive).toHaveBeenCalledWith(undefined);
+      expect(mockGoLive).toHaveBeenCalledWith(undefined, undefined, undefined);
       expect(screen.queryByTestId("go-live-handoff-dialog")).toBeNull();
     });
 
@@ -448,5 +462,112 @@ describe("GoLive", () => {
 
     render(<GoLive />);
     expect(screen.getByRole("progressbar")).toBeInTheDocument();
+  });
+
+  describe("one-tap go live as a program", () => {
+    const HYPERLOCAL = { id: 2, name: "HyperLocal", short_name: "HL" };
+    const BBQ = { id: 3, name: "Backyard BBQ", short_name: "BBQ" };
+
+    beforeEach(async () => {
+      // Earlier cases leave the shared mock returning an on-air DJ.
+      const { useShowControl } = await import("@/src/hooks/flowsheetHooks");
+      vi.mocked(useShowControl).mockReturnValue({
+        live: false,
+        autoplay: false,
+        setAutoPlay: mockSetAutoPlay,
+        loading: false,
+        goLive: mockGoLive,
+        leave: mockLeave,
+        currentShow: -1,
+      });
+    });
+
+    it("renders no one-tap button outside a program that logs no songs", () => {
+      render(<GoLive />);
+      expect(screen.queryByText(/Go live as/)).toBeNull();
+    });
+
+    it("renders one button per program, in order, before the usual Go Live", () => {
+      mockOneTapPrograms = [HYPERLOCAL, BBQ];
+      render(<GoLive />);
+
+      const oneTap = screen.getAllByTestId("flowsheet-go-live-as");
+      expect(oneTap.map((button) => button.textContent)).toEqual([
+        "Go live as HyperLocal",
+        "Go live as Backyard BBQ",
+      ]);
+      expect(
+        oneTap[1].compareDocumentPosition(screen.getByTestId("flowsheet-live-status")) &
+          Node.DOCUMENT_POSITION_FOLLOWING
+      ).toBeTruthy();
+    });
+
+    it("sends the program's specialty_id and no handle on a press", () => {
+      mockOneTapPrograms = [HYPERLOCAL, BBQ];
+      render(<GoLive />);
+
+      fireEvent.click(screen.getByText("Go live as Backyard BBQ"));
+
+      expect(mockGoLive).toHaveBeenCalledWith(undefined, undefined, {
+        specialty_id: 3,
+      });
+    });
+
+    it("sends no specialty_id from the usual Go Live", () => {
+      mockOneTapPrograms = [HYPERLOCAL];
+      render(<GoLive />);
+
+      fireEvent.click(screen.getByTestId("flowsheet-live-status"));
+
+      expect(mockGoLive).toHaveBeenCalledWith(undefined, undefined, undefined);
+    });
+
+    it("uses the short name when the display name is long", () => {
+      mockOneTapPrograms = [
+        { id: 9, name: "Friday Night Story Hour with the Whole Crew", short_name: "Story Hour" },
+      ];
+      render(<GoLive />);
+      expect(screen.getByTestId("flowsheet-go-live-as")).toHaveTextContent(
+        "Go live as Story Hour"
+      );
+    });
+
+    it("renders no one-tap button while on air", async () => {
+      const { useShowControl } = await import("@/src/hooks/flowsheetHooks");
+      vi.mocked(useShowControl).mockReturnValue({
+        live: true,
+        autoplay: false,
+        setAutoPlay: mockSetAutoPlay,
+        loading: false,
+        goLive: mockGoLive,
+        leave: mockLeave,
+        currentShow: 1,
+      });
+      mockOneTapPrograms = [HYPERLOCAL];
+      render(<GoLive />);
+      expect(screen.queryByText(/Go live as/)).toBeNull();
+    });
+
+    it("ends the takeover sentence with the program only after a one-tap press", async () => {
+      mockUseOpenShowHandoff.mockReturnValue({
+        showId: 12,
+        djNames: ["dj sue"],
+        lastLoggedAt: null,
+      });
+      mockOneTapPrograms = [HYPERLOCAL];
+      const { unmount } = render(<GoLive />);
+
+      fireEvent.click(screen.getByText("Go live as HyperLocal"));
+      expect(
+        (await screen.findByTestId("go-live-handoff-dialog")).textContent
+      ).toMatch(/start your own as HyperLocal\./);
+      unmount();
+
+      render(<GoLive />);
+      fireEvent.click(screen.getByTestId("flowsheet-live-status"));
+      expect(
+        (await screen.findByTestId("go-live-handoff-dialog")).textContent
+      ).toMatch(/start your own\.(?! as)/);
+    });
   });
 });

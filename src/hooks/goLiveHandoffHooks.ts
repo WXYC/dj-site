@@ -7,13 +7,17 @@ import {
 } from "@/lib/features/flowsheet/go-live-handoff";
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
-import type { GoLiveDecision, GoLiveOutcome } from "./flowsheetHooks";
+import type { GoLiveDecision, GoLiveOutcome, GoLiveTag } from "./flowsheetHooks";
 import { useOpenShowHandoff } from "./flowsheetHooks";
 
 type GoLiveFn = (
   djNameOverride?: string,
   decision?: GoLiveDecision,
+  tag?: GoLiveTag,
 ) => Promise<GoLiveOutcome>;
+
+/** A one-tap press: the tag to send and the program name the takeover sentence ends with. */
+export type OneTap = { tag: GoLiveTag; program: string };
 
 export type GoLivePrompt = {
   handoff: OpenShowHandoff;
@@ -24,6 +28,10 @@ export type GoLivePrompt = {
    * lost — and on the classic surface it is the entire point of the form.
    */
   djNameOverride?: string;
+  /** Replayed on whichever answer the DJ gives, like the handle. */
+  tag?: GoLiveTag;
+  /** Set only after a one-tap press; the takeover sentence ends with it. */
+  program?: string;
 };
 
 /**
@@ -45,20 +53,21 @@ export const useGoLiveHandoff = (goLive: GoLiveFn) => {
   const [deciding, setDeciding] = useState(false);
 
   const requestGoLive = useCallback(
-    async (djNameOverride?: string) => {
+    async (djNameOverride?: string, oneTap?: OneTap) => {
       // Classic renders its prompt inline and leaves the submit button live, so
       // without this a DJ can fire a second, UNDECIDED join while a decided one
       // is still in flight. On modern the Joy backdrop happens to prevent it —
       // the guarantee belongs to the shared hook, not to one surface's markup.
       if (prompt || deciding) return;
+      const promptTag = { tag: oneTap?.tag, program: oneTap?.program };
       // Read at press time, not at render time: the DJ acts on a snapshot, and
       // this is the freshest one available without a round trip.
       const openShow = readOpenShow();
       if (openShow) {
-        setPrompt({ handoff: openShow, djNameOverride });
+        setPrompt({ handoff: openShow, djNameOverride, ...promptTag });
         return;
       }
-      const outcome = await goLive(djNameOverride);
+      const outcome = await goLive(djNameOverride, undefined, oneTap?.tag);
       if (outcome.status === "conflict") {
         // The server refused a non-owner. That is all it says: an active
         // co-host and a DJ with no connection to the open show reach this line
@@ -70,7 +79,7 @@ export const useGoLiveHandoff = (goLive: GoLiveFn) => {
         // this line runs, while its tag invalidation has only marked the
         // roster stale. Telling them apart needs the refusal to say so:
         // WXYC/dj-site#1426.
-        setPrompt({ handoff: outcome.handoff, djNameOverride });
+        setPrompt({ handoff: outcome.handoff, djNameOverride, ...promptTag });
       } else if (outcome.status === "error") {
         toast.error(outcome.message);
       }
@@ -82,23 +91,24 @@ export const useGoLiveHandoff = (goLive: GoLiveFn) => {
     async (intent: JoinIntent) => {
       if (!prompt || deciding) return;
       setDeciding(true);
-      const outcome = await goLive(prompt.djNameOverride, {
-        intent,
-        // Only a takeover names a show to close; a co-host join is happy to
-        // land on whatever is open.
-        expected_show_id:
-          intent === "takeover" ? prompt.handoff.showId : undefined,
-      });
+      const outcome = await goLive(
+        prompt.djNameOverride,
+        {
+          intent,
+          // Only a takeover names a show to close; a co-host join is happy to
+          // land on whatever is open.
+          expected_show_id:
+            intent === "takeover" ? prompt.handoff.showId : undefined,
+        },
+        prompt.tag,
+      );
       setDeciding(false);
 
       // The show moved on between the prompt and the click. Re-prompt with the
       // server's fresh answer rather than closing: the DJ asked to end a
       // specific show, and nothing was ended.
       if (outcome.status === "conflict") {
-        setPrompt({
-          handoff: outcome.handoff,
-          djNameOverride: prompt.djNameOverride,
-        });
+        setPrompt({ ...prompt, handoff: outcome.handoff });
         return;
       }
       // Nothing was sent (no resolved user yet), so nothing was decided.

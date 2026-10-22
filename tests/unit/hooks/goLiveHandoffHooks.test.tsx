@@ -398,3 +398,104 @@ describe("useGoLiveHandoff — re-entrancy guard", () => {
     expect(mockToastError).not.toHaveBeenCalled();
   });
 });
+
+describe("useGoLiveHandoff — one-tap tag", () => {
+  const TAG = { specialty_id: 10, show_name: "Season opener" };
+  const ONE_TAP = { tag: TAG, program: "New Science Experience" };
+
+  beforeEach(() => {
+    mockUseRegistry.mockReturnValue({ loading: false, info: CURRENT_USER });
+  });
+
+  async function openPrompt(
+    goLive: (...args: unknown[]) => Promise<GoLiveOutcome>,
+    oneTap?: typeof ONE_TAP
+  ) {
+    const store = createTestStore();
+    await primeCaches(store, {
+      onAir: [createTestOnAirDJResponse({ id: "dj-sue-1", dj_name: "dj sue" })],
+      entries: [
+        createTestV2TrackEntry({ show_id: TEST_ENTITY_IDS.SHOW.CURRENT_SHOW }),
+      ],
+    });
+    const { result } = renderHook(() => useGoLiveHandoff(goLive), {
+      wrapper: wrapperFor(store),
+    });
+    await act(async () => {
+      await result.current.requestGoLive("Aubrey Hearst", oneTap);
+    });
+    return result;
+  }
+
+  it.each(["join", "takeover"] as const)(
+    "replays the tag, the show name and the handle on %s",
+    async (intent) => {
+      const goLive = vi.fn(async (): Promise<GoLiveOutcome> => ({ status: "ok" }));
+      const result = await openPrompt(goLive, ONE_TAP);
+      expect(result.current.prompt?.program).toBe("New Science Experience");
+
+      await act(async () => {
+        await result.current.decide(intent);
+      });
+
+      expect(goLive).toHaveBeenCalledWith(
+        "Aubrey Hearst",
+        expect.objectContaining({ intent }),
+        TAG
+      );
+    }
+  );
+
+  it("sends the tag on the first attempt when nobody is on the open-show cache", async () => {
+    const goLive = vi.fn(async (): Promise<GoLiveOutcome> => ({ status: "ok" }));
+    const store = createTestStore();
+    await primeCaches(store);
+    const { result } = renderHook(() => useGoLiveHandoff(goLive), {
+      wrapper: wrapperFor(store),
+    });
+    await act(async () => {
+      await result.current.requestGoLive(undefined, ONE_TAP);
+    });
+    expect(goLive).toHaveBeenCalledWith(undefined, undefined, TAG);
+  });
+
+  it("keeps the tag when the server's 409 opens the prompt", async () => {
+    const goLive = vi
+      .fn<(...args: unknown[]) => Promise<GoLiveOutcome>>()
+      .mockResolvedValueOnce({
+        status: "conflict",
+        handoff: { showId: 7, djNames: ["dj sue"], lastLoggedAt: null },
+      })
+      .mockResolvedValue({ status: "ok" });
+    const store = createTestStore();
+    await primeCaches(store);
+    const { result } = renderHook(() => useGoLiveHandoff(goLive), {
+      wrapper: wrapperFor(store),
+    });
+    await act(async () => {
+      await result.current.requestGoLive(undefined, ONE_TAP);
+    });
+    await act(async () => {
+      await result.current.decide("takeover");
+    });
+    expect(goLive).toHaveBeenLastCalledWith(
+      undefined,
+      expect.objectContaining({ intent: "takeover", expected_show_id: 7 }),
+      TAG
+    );
+  });
+
+  it("carries no tag or program after the usual go live", async () => {
+    const goLive = vi.fn(async (): Promise<GoLiveOutcome> => ({ status: "ok" }));
+    const result = await openPrompt(goLive);
+    expect(result.current.prompt?.program).toBeUndefined();
+    await act(async () => {
+      await result.current.decide("join");
+    });
+    expect(goLive).toHaveBeenCalledWith(
+      "Aubrey Hearst",
+      expect.objectContaining({ intent: "join" }),
+      undefined
+    );
+  });
+});
