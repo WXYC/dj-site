@@ -47,6 +47,11 @@ vi.mock("@/src/hooks/flowsheetHooks", () => ({
   useFlowsheetSaving: () => mockUseFlowsheetSaving(),
 }));
 
+let mockNarrow = false;
+vi.mock("@/src/hooks/useMediaQuery", () => ({
+  useMediaQuery: () => mockNarrow,
+}));
+
 let mockOneTapPrograms: { id: number; name: string; short_name: string }[] = [];
 vi.mock("@/src/hooks/specialtyHooks", () => ({
   useOneTapPrograms: () => mockOneTapPrograms,
@@ -57,6 +62,7 @@ const mockWarmCurrentShow = vi.fn();
 describe("GoLive", () => {
   beforeEach(() => {
     mockOneTapPrograms = [];
+    mockNarrow = false;
     vi.clearAllMocks();
     mockGoLive.mockResolvedValue({ status: "ok" as const });
     mockUseOpenShowHandoff.mockReturnValue(null);
@@ -595,6 +601,59 @@ describe("GoLive", () => {
       expect(
         (await screen.findByTestId("go-live-handoff-dialog")).textContent
       ).toMatch(/start your own\.(?! as)/);
+    });
+
+    describe("narrow layout", () => {
+      const EXPLANATION = "Going live as the show is what puts it on listeners' screens.";
+      const precedes = (a: HTMLElement, b: HTMLElement) =>
+        Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+
+      it("leads with the buttons in catalog order, then the line, then the usual Go Live", () => {
+        mockNarrow = true;
+        mockOneTapPrograms = [HYPERLOCAL, BBQ];
+        render(<GoLive />);
+
+        const [first, second] = screen.getAllByTestId("flowsheet-go-live-as");
+        const line = screen.getByText(EXPLANATION);
+        const usual = screen.getByTestId("flowsheet-live-status");
+        expect(first).toHaveTextContent("Go live as HyperLocal");
+        expect(precedes(first, second)).toBe(true);
+        expect(precedes(second, line)).toBe(true);
+        expect(precedes(line, usual)).toBe(true);
+      });
+
+      it("still sends the program's tag from the leading button", () => {
+        mockNarrow = true;
+        mockOneTapPrograms = [HYPERLOCAL];
+        render(<GoLive />);
+
+        fireEvent.click(screen.getByTestId("flowsheet-go-live-as"));
+
+        expect(mockGoLive).toHaveBeenCalledWith(
+          undefined,
+          undefined,
+          { specialty_id: 2 }
+        );
+      });
+
+      it("renders neither button nor line outside a no-songs slot", () => {
+        mockNarrow = true;
+        render(<GoLive />);
+        expect(screen.queryByTestId("flowsheet-go-live-as")).toBeNull();
+        expect(screen.queryByText(EXPLANATION)).toBeNull();
+      });
+
+      it("renders no line on a wide layout, where the buttons sit in the header row", () => {
+        mockOneTapPrograms = [HYPERLOCAL];
+        render(<GoLive />);
+        expect(screen.queryByText(EXPLANATION)).toBeNull();
+        expect(
+          precedes(
+            screen.getByTestId("flowsheet-go-live-button"),
+            screen.getByTestId("flowsheet-go-live-as")
+          )
+        ).toBe(false);
+      });
     });
   });
 });

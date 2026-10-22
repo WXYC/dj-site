@@ -32,6 +32,11 @@ export const REJECTED_PROGRAM_SENTENCE =
 
 /** Every string the set-tagging question shows; refusals have their own sentences above. */
 export const specialtyCopy = {
+  goLiveAs: (program: Pick<SpecialtyShow, "name" | "short_name">) =>
+    `Go live as ${oneTapName(program)}`,
+  signOnAs: (program: Pick<SpecialtyShow, "name" | "short_name">) =>
+    `Sign on and Start ${oneTapName(program)}!`,
+  goLiveAsWhy: "Going live as the show is what puts it on listeners' screens.",
   askOne: (slot: string, name: string) => `${slot} is usually ${name}. Is this set ${name}?`,
   askShared: (slot: string, names: string[]) =>
     `${slot} is usually ${names.join(" or ")}. Is this set one of them?`,
